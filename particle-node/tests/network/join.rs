@@ -8,9 +8,9 @@ pub fn join_stream(stream: &str, relay: &str, length: &str, result: &str) -> Str
                     (seq
                         (ap elem $monotonic_stream)
                         (seq
-                            (canon relay $monotonic_stream #result)
+                            (canon {relay} $monotonic_stream #canon_stream)
                             (xor
-                                (match #result.length {length} 
+                                (match #canon_stream.length {length} 
                                     (null) ;; fold ends if there's no `next`
                                 )
                                 (next elem)
