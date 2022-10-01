@@ -241,7 +241,7 @@ fn fold_fold_fold_seq_two_par_null_folds() {
 
 #[test]
 fn fold_same_node_stream() {
-    let swarms = make_swarms(3);
+    let swarms = make_swarms(4);
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .wrap_err("connect client")
@@ -310,12 +310,12 @@ fn fold_same_node_stream() {
                 )
             )
             (seq                
-                (call relay ("op" "noop") [])
-                (call client ("return" "") [#inner])
+                {}
+                (call client ("return" "") [#inner #joined_result])
             )
         )
         "#,
-            // join_stream("result", "relay", "#inner.length", "joined_result")
+             join_stream("result", "relay", "#inner.length", "joined_result")
         )
         .as_str(),
         hashmap! {
