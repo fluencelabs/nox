@@ -964,13 +964,23 @@ version = "3.2.22"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "86447ad904c7fb335a790c9d7fe3d0d971dc523b8ccd1561a520de9a85302750"
 dependencies = [
+ "bitflags",
+ "clap_lex 0.2.4",
+ "indexmap",
+ "textwrap",
+]
+
+[[package]]
+name = "clap"
+version = "4.0.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "30607dd93c420c6f1f80b544be522a0238a7db35e6a12968d28910983fee0df0"
+dependencies = [
  "atty",
  "bitflags",
- "clap_lex",
- "indexmap",
+ "clap_lex 0.3.0",
  "strsim",
  "termcolor",
- "textwrap",
 ]
 
 [[package]]
@@ -978,6 +988,15 @@ name = "clap_lex"
 version = "0.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2850f2f5a82cbf437dd5af4d49848fbdfc27c157c3d010345776f952765261c5"
+dependencies = [
+ "os_str_bytes",
+]
+
+[[package]]
+name = "clap_lex"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0d4198f73e42b4936b35b5bb248d81d2b595ecb170da0bac7655c54eedfa8da8"
 dependencies = [
  "os_str_bytes",
 ]
@@ -1224,7 +1243,7 @@ dependencies = [
  "atty",
  "cast",
  "ciborium",
- "clap",
+ "clap 3.2.22",
  "criterion-plot",
  "futures",
  "itertools",
@@ -3964,7 +3983,7 @@ dependencies = [
  "bs58 0.4.0",
  "builtins",
  "builtins-deployer",
- "clap",
+ "clap 4.0.9",
  "config-utils",
  "connected-client",
  "connection-pool",
@@ -5004,7 +5023,7 @@ dependencies = [
  "base64",
  "bs58 0.4.0",
  "bytesize",
- "clap",
+ "clap 4.0.9",
  "config-utils",
  "derivative",
  "eyre",

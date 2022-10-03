@@ -40,7 +40,7 @@ humantime-serde = "1.1.1"
 
 log = "0.4.17"
 env_logger = "0.9.1"
-clap = "3.2.22"
+clap = "4.0.9"
 tide = "0.17.0-beta.1"
 bs58 = "0.4.0"
 itertools = "0.10.5"

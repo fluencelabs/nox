@@ -22,7 +22,7 @@ humantime-serde = "1.1.1"
 
 log = "0.4.17"
 rand = "0.8.5"
-clap = "3.2.22"
+clap = "4.0.9"
 toml = "0.5.9"
 bs58 = "0.4.0"
 base64 = "0.13.0"
