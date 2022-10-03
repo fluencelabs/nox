@@ -86,11 +86,14 @@ jobs:
           crate: cargo-nextest
           version: "0.9"
 
-      - name: Run cargo nextest
-        env:
-          NEXTEST_RETRIES: 10
-          NEXTEST_TEST_THREADS: 10
-        run: cargo nextest run --release --all-features --no-fail-fast
+      # - name: Run cargo nextest
+      #   env:
+      #     NEXTEST_RETRIES: 10
+      #     NEXTEST_TEST_THREADS: 10
+      #   run: cargo nextest run --release --all-features --no-fail-fast
+      #
+      - name: Run cargo build
+        run: cargo build --release
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
