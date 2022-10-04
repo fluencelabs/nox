@@ -20,7 +20,7 @@ use std::fmt::Debug;
 use std::ops::Try;
 use std::path;
 use std::str::FromStr;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use derivative::Derivative;
 use fluence_keypair::{KeyPair, Signature};
@@ -113,8 +113,26 @@ where
         }
     }
 
-    // TODO: get rid of all blocking methods (std::fs and such)
     pub async fn call(&self, args: Args, particle: ParticleParams) -> FunctionOutcome {
+        let start = Instant::now();
+        let result = self.builtins_call(args, particle).await;
+        let end = start.elapsed().as_secs();
+        match result {
+            FunctionOutcome::NotDefined { args, params } => self.call_service(args, params),
+            result => {
+                if let Some(metrics) = self.services.metrics.as_ref() {
+                    metrics.observe_builtins(
+                        !matches!(result, FunctionOutcome::Err { .. }),
+                        end as f64,
+                    );
+                }
+                result
+            }
+        }
+    }
+
+    // TODO: get rid of all blocking methods (std::fs and such)
+    pub async fn builtins_call(&self, args: Args, particle: ParticleParams) -> FunctionOutcome {
         use Result as R;
         #[rustfmt::skip]
         match (args.service_id.as_str(), args.function_name.as_str()) {
@@ -196,7 +214,7 @@ where
             ("sig", "verify")      => wrap(self.verify(args)),
             ("sig", "get_peer_id") => wrap(self.get_peer_id()),
 
-            _                      => self.call_service(args, particle),
+            _                      => FunctionOutcome::NotDefined { args, params: particle },
         }
     }
 
