@@ -67,7 +67,7 @@ impl ServicesMemoryMetrics {
 #[derive(Clone)]
 pub struct ServicesMetricsExternal {
     /// Number of currently running services
-    pub services_count: Family<ServiceTypeLabel, Gauge>,
+    pub services_count: Gauge,
     /// How long it took to create a service
     pub creation_time_msec: Histogram,
     /// How long it took to remove a service
@@ -98,7 +98,7 @@ impl ServicesMetricsExternal {
 
         let services_count = register(
             sub_registry,
-            Family::default(),
+            Gauge::default(),
             "services_count",
             "number of currently running services",
         );
@@ -229,18 +229,14 @@ impl ServicesMetricsExternal {
     }
 
     /// Collect all metrics that are relevant on service removal.
-    pub fn observe_removed(&self, service_type: ServiceType, removal_time: f64) {
+    pub fn observe_removed(&self, removal_time: f64) {
         self.removal_count.inc();
-        self.services_count
-            .get_or_create(&ServiceTypeLabel { service_type })
-            .dec();
+        self.services_count.dec();
         self.removal_time_msec.observe(removal_time);
     }
 
-    pub fn observe_created(&self, service_type: ServiceType, modules_num: f64, creation_time: f64) {
-        self.services_count
-            .get_or_create(&ServiceTypeLabel { service_type })
-            .inc();
+    pub fn observe_created(&self, modules_num: f64, creation_time: f64) {
+        self.services_count.inc();
         self.modules_in_services_count.observe(modules_num);
         self.creation_count.inc();
         self.creation_time_msec.observe(creation_time);

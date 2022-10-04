@@ -199,14 +199,13 @@ impl ParticleAppServices {
         }
         let service = self.services.write().remove(&service_id).unwrap();
         let mut aliases = self.aliases.write();
-        let service_type = ServiceType::Service(service.aliases.first().cloned());
         for alias in service.aliases.iter() {
             aliases.remove(alias);
         }
 
         let removal_end_time = removal_start_time.elapsed().as_secs();
         if let Some(metrics) = self.metrics.as_ref() {
-            metrics.observe_removed(service_type, removal_end_time as f64);
+            metrics.observe_removed(removal_end_time as f64);
         }
 
         Ok(())

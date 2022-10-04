@@ -172,7 +172,7 @@ impl<F: ParticleFunctionStatic> Functions<F> {
                         //       i.e., wrap each callback with a queue & channel
                         let mut func = func.lock();
                         let outcome = func(args, params).await;
-                        call_kind = FunctionKind::Function;
+                        call_kind = FunctionKind::ParticleFunction;
                         outcome
                     }
                     // Builtins were called, return their outcome
