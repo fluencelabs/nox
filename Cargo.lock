@@ -1779,7 +1779,7 @@ dependencies = [
 [[package]]
 name = "fluence-keypair"
 version = "0.8.0"
-source = "git+https://github.com/fluencelabs/trust-graph?branch=libp2p_0.36#bc6c929c26f304ca1c1962abc3118db01a42c7db"
+source = "git+https://github.com/fluencelabs/trust-graph?branch=from_secret_key#783a3d79d9a7b20e337dac53fa999113f3bec552"
 dependencies = [
  "asn1_der 0.6.3",
  "bs58 0.3.1",

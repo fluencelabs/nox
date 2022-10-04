@@ -56,4 +56,4 @@ libp2p-swarm = "0.39.0"
 prometheus-client = "0.18.0"
 eyre = "0.6.8"
 
-fluence-keypair = { git = "https://github.com/fluencelabs/trust-graph", branch = "libp2p_0.36" }
+fluence-keypair = { git = "https://github.com/fluencelabs/trust-graph", branch = "from_secret_key" }

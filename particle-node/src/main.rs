@@ -73,7 +73,7 @@ fn main() -> eyre::Result<()> {
 | Hello from the Fluence Team. If you encounter   |
 | any troubles with node operation, please update |
 | the node via                                    |
-|     docker pull fluencelabs/fluence:latest      |
+|     docker pull fluencelabs/node:latest         |
 |                                                 |
 | or contact us at                                |
 | github.com/fluencelabs/fluence/discussions      |
