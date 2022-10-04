@@ -310,12 +310,12 @@ fn fold_same_node_stream() {
                 )
             )
             (seq                
-                (call relay ("op" "noop") [])
-                (call client ("return" "") [#inner])
+                {}
+                (call client ("return" "") [#inner #joined_result])
             )
         )
         "#,
-            // join_stream("result", "relay", "#inner.length", "joined_result")
+            join_stream("result", "relay", "#inner.length", "joined_result")
         )
         .as_str(),
         hashmap! {
