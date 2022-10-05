@@ -161,11 +161,7 @@ impl<F: ParticleFunctionStatic> Functions<F> {
             block_on(async move {
                 let outcome = builtins.call(args, params).await;
                 // record whether call was handled by builtin or not. needed for stats.
-                let call_kind = if outcome.is_defined() {
-                    FunctionKind::Builtin
-                } else {
-                    FunctionKind::Service
-                };
+                let mut call_kind = FunctionKind::Service;
                 let outcome = match outcome {
                     // If particle_function isn't set, just return what we have
                     outcome if particle_function.is_none() => outcome,
@@ -176,6 +172,7 @@ impl<F: ParticleFunctionStatic> Functions<F> {
                         //       i.e., wrap each callback with a queue & channel
                         let mut func = func.lock();
                         let outcome = func(args, params).await;
+                        call_kind = FunctionKind::ParticleFunction;
                         outcome
                     }
                     // Builtins were called, return their outcome
