@@ -1,5 +1,5 @@
 use super::defaults::*;
-use crate::keys::{decode_key, decode_key_pair, decode_secret_key, load_key};
+use crate::keys::{decode_key, decode_secret_key, load_key};
 use crate::{BootstrapConfig, KademliaConfig};
 
 use fluence_keypair::KeyPair;
