@@ -42,12 +42,6 @@ mod behaviour {
     pub use network::{FluenceNetworkBehaviour, FluenceNetworkBehaviourEvent};
 }
 
-pub mod config {
-    mod args;
-
-    pub use args::create_args;
-}
-
 pub use behaviour::{FluenceNetworkBehaviour, FluenceNetworkBehaviourEvent};
 pub use node::Node;
 

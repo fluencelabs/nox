@@ -14,18 +14,19 @@
  * limitations under the License.
  */
 
-use crate::defaults::default_config_path;
-use crate::dir_config::{ResolvedDirConfig, UnresolvedDirConfig};
-use crate::node_config::NodeConfig;
-
-use fs_utils::to_abs_path;
+use std::net::SocketAddr;
+use std::ops::{Deref, DerefMut};
 
 use clap::{ArgMatches, Values};
 use eyre::{eyre, ContextCompat, WrapErr};
 use libp2p::core::{multiaddr::Protocol, Multiaddr};
 use serde::Deserialize;
-use std::net::SocketAddr;
-use std::ops::{Deref, DerefMut};
+
+use fs_utils::to_abs_path;
+
+use crate::defaults::default_config_path;
+use crate::dir_config::{ResolvedDirConfig, UnresolvedDirConfig};
+use crate::node_config::NodeConfig;
 
 pub const WEBSOCKET_PORT: &str = "websocket_port";
 pub const TCP_PORT: &str = "tcp_port";
@@ -281,20 +282,20 @@ pub fn deserialize_config(arguments: &ArgMatches, content: &[u8]) -> eyre::Resul
 
 #[cfg(test)]
 mod tests {
+    use fs_utils::make_tmp_dir;
+
+    use crate::args::create_args;
     use crate::BootstrapConfig;
 
     use super::*;
-    use fs_utils::make_tmp_dir;
 
     #[test]
     fn parse_config() {
         let config = r#"
             root_key_pair.format = "ed25519"
-            root_key_pair.value = "Ek6l5zgX9P74MHRiRzK/FN6ftQIOD3prYdMh87nRXlEEuRX1QrdQI87MBRdphoc0url0cY5ZO58evCoGXty1zw=="
             root_key_pair.secret_key = "/XKBs1ydmfWGiTbh+e49GYw+14LHtu+v5BMFDIzHpvo="
             builtins_key_pair.format = "ed25519"
             builtins_key_pair.value = "Ek6l5zgX9P74MHRiRzK/FN6ftQIOD3prYdMh87nRXlEEuRX1QrdQI87MBRdphoc0url0cY5ZO58evCoGXty1zw=="
-            builtins_key_pair.secret_key = "/XKBs1ydmfWGiTbh+e49GYw+14LHtu+v5BMFDIzHpvo="
             avm_base_dir = "/stepper"
             script_storage_max_failures = 10
             
@@ -303,8 +304,11 @@ mod tests {
             
         "#;
 
-        let config =
-            deserialize_config(&<_>::default(), config.as_bytes()).expect("deserialize config");
+        let matches = clap::App::new("Fluence node")
+            .args(create_args().as_slice())
+            .get_matches_from(std::iter::empty::<String>());
+
+        let config = deserialize_config(&matches, config.as_bytes()).expect("deserialize config");
 
         assert_eq!(config.node_config.script_storage_max_failures, 10);
     }

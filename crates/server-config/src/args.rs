@@ -16,7 +16,7 @@
 
 use clap::Arg;
 
-use server_config::config_keys::*;
+use crate::config_keys::*;
 
 pub fn create_args<'help>() -> Vec<Arg<'help>> {
     vec![

@@ -37,7 +37,8 @@ use aquamarine::{VmConfig, AVM};
 use config_utils::to_peer_id;
 use ctrlc_adapter::block_until_ctrlc;
 use fs_utils::to_abs_path;
-use particle_node::{config::create_args, Node};
+use particle_node::Node;
+use server_config::args::create_args;
 use server_config::{load_config, ResolvedConfig};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");

@@ -28,6 +28,7 @@
     unreachable_patterns
 )]
 
+pub mod args;
 mod bootstrap_config;
 mod defaults;
 mod dir_config;
