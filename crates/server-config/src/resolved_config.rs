@@ -289,6 +289,12 @@ mod tests {
 
     use super::*;
 
+    fn matches() -> ArgMatches {
+        clap::App::new("Fluence node")
+            .args(create_args().as_slice())
+            .get_matches_from(std::iter::empty::<String>())
+    }
+
     #[test]
     fn parse_config() {
         let config = r#"
@@ -304,11 +310,7 @@ mod tests {
             
         "#;
 
-        let matches = clap::App::new("Fluence node")
-            .args(create_args().as_slice())
-            .get_matches_from(std::iter::empty::<String>());
-
-        let config = deserialize_config(&matches, config.as_bytes()).expect("deserialize config");
+        let config = deserialize_config(&matches(), config.as_bytes()).expect("deserialize config");
 
         assert_eq!(config.node_config.script_storage_max_failures, 10);
     }
@@ -332,7 +334,7 @@ mod tests {
 
         assert!(!key_path.exists());
         assert!(!builtins_key_path.exists());
-        deserialize_config(&<_>::default(), config.as_bytes()).expect("deserialize config");
+        deserialize_config(&matches(), config.as_bytes()).expect("deserialize config");
         assert!(key_path.exists());
         assert!(builtins_key_path.exists());
     }
@@ -343,12 +345,12 @@ mod tests {
             root_key_pair.generate_on_absence = true
             builtins_key_pair.generate_on_absence = true
             "#;
-        deserialize_config(&<_>::default(), config.as_bytes()).expect("deserialize config");
+        deserialize_config(&matches(), config.as_bytes()).expect("deserialize config");
     }
 
     #[test]
     fn parse_empty_config() {
-        deserialize_config(&<_>::default(), &[]).expect("deserialize config");
+        deserialize_config(&matches(), &[]).expect("deserialize config");
     }
 
     #[test]
