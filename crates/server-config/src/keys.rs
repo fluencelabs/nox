@@ -56,15 +56,7 @@ fn create_new_key_pair(key_path: &Path, key_format: KeyFormat) -> Result<KeyPair
     Ok(key_pair)
 }
 
-/// read base64 secret key from file and generate key pair from it
-fn read_secret_key_from_file(key_path: &Path, key_format: String) -> eyre::Result<KeyPair> {
-    let key_string = fs::read_to_string(key_path).map_err(|e| {
-        eyre!(
-            "Error reading secret key from {}: {}",
-            key_path.display(),
-            e
-        )
-    })?;
+pub fn decode_key(key_string: String, key_format: String) -> eyre::Result<KeyPair> {
     let key_string = key_string.trim();
 
     fn validate_length(v: Vec<u8>) -> eyre::Result<Vec<u8>> {
@@ -86,8 +78,8 @@ fn read_secret_key_from_file(key_path: &Path, key_format: String) -> eyre::Resul
             .and_then(validate_length);
         if bytes_from_base58.is_err() {
             return Err(eyre!(
-                "Tried to decode secret key as base64 and as base58 from path {}, but failed.\nbase64 decoding error:{}\nbase58 decoding error:{}",
-                key_path.display(), bytes_from_base64.err().unwrap(), bytes_from_base58.err().unwrap()
+                "Tried to decode secret key as base64 and as base58 from string {}, but failed.\nbase64 decoding error:{}\nbase58 decoding error:{}",
+                key_string, bytes_from_base64.err().unwrap(), bytes_from_base58.err().unwrap()
             ));
         } else {
             bytes_from_base58.unwrap()
@@ -103,6 +95,25 @@ fn read_secret_key_from_file(key_path: &Path, key_format: String) -> eyre::Resul
     } else {
         decode_secret_key(bytes, key_format)
     }
+}
+
+/// read base64 secret key from file and generate key pair from it
+fn read_secret_key_from_file(key_path: &Path, key_format: String) -> eyre::Result<KeyPair> {
+    let key_string = fs::read_to_string(key_path).map_err(|e| {
+        eyre!(
+            "Error reading secret key from {}: {}",
+            key_path.display(),
+            e
+        )
+    })?;
+
+    decode_key(key_string, key_format).map_err(|err| {
+        eyre!(
+            "failed to decode key at path {}: {}",
+            key_path.display(),
+            err
+        )
+    })
 }
 
 pub fn decode_key_pair(key_pair: Vec<u8>, key_format: String) -> eyre::Result<KeyPair> {

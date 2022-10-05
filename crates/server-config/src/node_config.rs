@@ -1,5 +1,5 @@
 use super::defaults::*;
-use crate::keys::{decode_key_pair, decode_secret_key, load_key};
+use crate::keys::{decode_key, decode_key_pair, decode_secret_key, load_key};
 use crate::{BootstrapConfig, KademliaConfig};
 
 use fluence_keypair::KeyPair;
@@ -237,12 +237,7 @@ impl KeypairConfig {
                 load_key(path.clone(), self.format.clone(), self.generate_on_absence)
                     .map_err(|e| eyre!("Failed to load secret key from {:?}: {}", path, e))
             }
-            Value { value } => {
-                let key_pair = base64::decode(&value)
-                    .map_err(|err| eyre!("base64 decoding failed: {} source {}", err, value))?;
-                decode_key_pair(key_pair, self.format)
-                    .map_err(|e| eyre!("Failed to decode keypair from {}: {}", value, e))
-            }
+            Value { value } => decode_key(value, self.format),
         }
     }
 }
