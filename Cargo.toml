@@ -55,5 +55,6 @@ libp2p-noise = "0.39.0"
 libp2p-swarm = "0.39.0"
 prometheus-client = "0.18.0"
 eyre = "0.6.8"
+base64 = "0.13.0"
 
 fluence-keypair = { git = "https://github.com/fluencelabs/trust-graph", branch = "from_secret_key" }

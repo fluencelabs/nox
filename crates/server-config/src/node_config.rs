@@ -238,10 +238,10 @@ impl KeypairConfig {
                     .map_err(|e| eyre!("Failed to secret key from {:?}: {}", path, e))
             }
             Value { value } => {
-                let key_pair = base64::decode(value)
-                    .map_err(|err| eyre!("base64 decoding failed: {}", err))?;
+                let key_pair = base64::decode(&value)
+                    .map_err(|err| eyre!("base64 decoding failed: {} source {}", err, value))?;
                 decode_key_pair(key_pair, self.format)
-                    .map_err(|e| eyre!("Failed to decode keypair: {}", e))
+                    .map_err(|e| eyre!("Failed to decode keypair from {}: {}", value, e))
             }
         }
     }

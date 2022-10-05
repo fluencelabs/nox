@@ -18,9 +18,8 @@ serde_derive = "1.0.145"
 humantime-serde = "1.1.1"
 log = "0.4.17"
 derivative = "2.2.0"
-bs58 = "0.4.0"
 itertools = "0.10.5"
-base64 = "0.13.0"
+base64 = { workspace = true }
 
 [dev-dependencies]
 rand = "0.8.5"
