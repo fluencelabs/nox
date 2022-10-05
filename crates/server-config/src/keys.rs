@@ -68,7 +68,7 @@ fn read_secret_key_from_file(key_path: &Path, key_format: String) -> eyre::Resul
     let key_string = key_string.trim();
 
     fn validate_length(v: Vec<u8>) -> eyre::Result<Vec<u8>> {
-        if v.len() == 64 {
+        if v.len() == 64 || v.len() <= 32 {
             Ok(v)
         } else {
             Err(eyre!("keypair length must be 64, was {}", v.len()))
