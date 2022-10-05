@@ -67,13 +67,23 @@ fn read_secret_key_from_file(key_path: &Path, key_format: String) -> eyre::Resul
     })?;
     let key_string = key_string.trim();
 
-    let bytes_from_base64 =
-        base64::decode(key_string).map_err(|err| eyre!("base64 decoding failed: {}", err));
+    fn validate_length(v: Vec<u8>) -> eyre::Result<Vec<u8>> {
+        if v.len() == 64 {
+            Ok(v)
+        } else {
+            Err(eyre!("keypair length must be 64, was {}", v.len()))
+        }
+    }
+
+    let bytes_from_base64 = base64::decode(key_string)
+        .map_err(|err| eyre!("base64 decoding failed: {}", err))
+        .and_then(validate_length);
 
     let bytes = if bytes_from_base64.is_err() {
         let bytes_from_base58 = bs58::decode(key_string)
             .into_vec()
-            .map_err(|err| eyre!("base58 decoding failed: {}", err));
+            .map_err(|err| eyre!("base58 decoding failed: {}", err))
+            .and_then(validate_length);
         if bytes_from_base58.is_err() {
             return Err(eyre!(
                 "Tried to decode secret key as base64 and as base58 from path {}, but failed.\nbase64 decoding error:{}\nbase58 decoding error:{}",
@@ -86,6 +96,8 @@ fn read_secret_key_from_file(key_path: &Path, key_format: String) -> eyre::Resul
         bytes_from_base64.unwrap()
     };
 
+    // It seems that secp256k1 secret key length can be less than 32 byte
+    // so for everything longer than 32 we try decode keypair, and shorter – decode secret key
     if bytes.len() > 32 {
         decode_key_pair(bytes, key_format)
     } else {
