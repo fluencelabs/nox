@@ -139,6 +139,7 @@ impl ServicesMetricsBackend {
         memory_metrics: &ServicesMemoryMetrics,
         all_stats: &HashMap<ServiceId, (ServiceType, ServiceMemoryStat)>,
     ) {
+        let mut unaliased_service_total_memory = 0;
         for (_, (service_type, service_stat)) in all_stats.iter() {
             let service_type_label = ServiceTypeLabel {
                 service_type: service_type.clone(),
@@ -153,10 +154,22 @@ impl ServicesMetricsBackend {
                     .get_or_create(&service_type_label)
                     .observe(*stat.1 as f64)
             }
-            memory_metrics
-                .mem_used_total_bytes
-                .get_or_create(&service_type_label)
-                .inc_by(service_stat.used_mem);
+
+            if matches!(service_type, ServiceType::Service(Some(_))) {
+                memory_metrics
+                    .mem_used_total_bytes
+                    .get_or_create(&service_type_label)
+                    .set(service_stat.used_mem);
+            } else {
+                unaliased_service_total_memory += service_stat.used_mem
+            }
         }
+
+        memory_metrics
+            .mem_used_total_bytes
+            .get_or_create(&ServiceTypeLabel {
+                service_type: ServiceType::Service(None),
+            })
+            .set(unaliased_service_total_memory);
     }
 }
