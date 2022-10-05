@@ -104,8 +104,8 @@ fn start_fluence(config: ResolvedConfig) -> eyre::Result<impl Stoppable> {
     log::trace!("starting Fluence");
 
     let key_pair = config.root_key_pair.clone();
-    let bs58_key_pair = bs58::encode(key_pair.public().to_vec()).into_string();
-    log::info!("node public key = {}", bs58_key_pair);
+    let base64_key_pair = base64::encode(key_pair.public().to_vec());
+    log::info!("node public key = {}", base64_key_pair);
     log::info!("node server peer id = {}", to_peer_id(&key_pair.into()));
 
     let listen_addrs = config.listen_multiaddrs();
