@@ -235,7 +235,7 @@ impl KeypairConfig {
             Path { path } => {
                 let path = to_abs_path(path);
                 load_key(path.clone(), self.format.clone(), self.generate_on_absence)
-                    .map_err(|e| eyre!("Failed to secret key from {:?}: {}", path, e))
+                    .map_err(|e| eyre!("Failed to load secret key from {:?}: {}", path, e))
             }
             Value { value } => {
                 let key_pair = base64::decode(&value)
