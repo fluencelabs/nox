@@ -282,6 +282,7 @@ pub fn deserialize_config(arguments: &ArgMatches, content: &[u8]) -> eyre::Resul
 
 #[cfg(test)]
 mod tests {
+    use fluence_keypair::KeyPair;
     use fs_utils::make_tmp_dir;
 
     use crate::args::create_args;
@@ -316,7 +317,7 @@ mod tests {
     }
 
     #[test]
-    fn parse_path_keypair() {
+    fn parse_path_keypair_generate() {
         let key_path = make_tmp_dir().join("secret_key.ed25519");
         let builtins_key_path = make_tmp_dir().join("builtins_secret_key.ed25519");
         let config = format!(
@@ -358,5 +359,133 @@ mod tests {
         let bs_config = BootstrapConfig::default();
         let s = toml::to_string(&bs_config).expect("serialize");
         println!("{}", s)
+    }
+
+    #[test]
+    fn parse_base58_keypair() {
+        let root_key_path = make_tmp_dir().join("secret_key.ed25519");
+        let builtins_key_path = make_tmp_dir().join("builtins_secret_key.ed25519");
+        let config = format!(
+            r#"
+            root_key_pair.format = "ed25519"
+            root_key_pair.path = "{}"
+            root_key_pair.generate_on_absence = false
+            builtins_key_pair.format = "ed25519"
+            builtins_key_pair.path = "{}"
+            builtins_key_pair.generate_on_absence = false
+            "#,
+            root_key_path.to_string_lossy(),
+            builtins_key_path.to_string_lossy(),
+        );
+
+        let root_kp = KeyPair::generate_ed25519();
+        let builtins_kp = KeyPair::generate_secp256k1();
+        std::fs::write(&root_key_path, bs58::encode(root_kp.to_vec()).into_vec()).unwrap();
+        std::fs::write(
+            &builtins_key_path,
+            bs58::encode(builtins_kp.to_vec()).into_vec(),
+        )
+        .unwrap();
+        assert!(root_key_path.exists());
+        assert!(builtins_key_path.exists());
+
+        deserialize_config(&matches(), config.as_bytes()).expect("deserialize config");
+    }
+
+    #[test]
+    fn parse_base64_keypair() {
+        let root_key_path = make_tmp_dir().join("secret_key.ed25519");
+        let builtins_key_path = make_tmp_dir().join("builtins_secret_key.ed25519");
+        let config = format!(
+            r#"
+            root_key_pair.format = "ed25519"
+            root_key_pair.path = "{}"
+            root_key_pair.generate_on_absence = false
+            builtins_key_pair.format = "ed25519"
+            builtins_key_pair.path = "{}"
+            builtins_key_pair.generate_on_absence = false
+            "#,
+            root_key_path.to_string_lossy(),
+            builtins_key_path.to_string_lossy(),
+        );
+
+        let root_kp = KeyPair::generate_ed25519();
+        let builtins_kp = KeyPair::generate_secp256k1();
+        std::fs::write(&root_key_path, base64::encode(root_kp.to_vec())).unwrap();
+        std::fs::write(&builtins_key_path, base64::encode(builtins_kp.to_vec())).unwrap();
+        assert!(root_key_path.exists());
+        assert!(builtins_key_path.exists());
+
+        deserialize_config(&matches(), config.as_bytes()).expect("deserialize config");
+    }
+
+    #[test]
+    fn parse_base64_secret_key() {
+        let root_key_path = make_tmp_dir().join("secret_key.ed25519");
+        let builtins_key_path = make_tmp_dir().join("builtins_secret_key.ed25519");
+        let config = format!(
+            r#"
+            root_key_pair.format = "ed25519"
+            root_key_pair.path = "{}"
+            root_key_pair.generate_on_absence = false
+            builtins_key_pair.format = "ed25519"
+            builtins_key_pair.path = "{}"
+            builtins_key_pair.generate_on_absence = false
+            "#,
+            root_key_path.to_string_lossy(),
+            builtins_key_path.to_string_lossy(),
+        );
+
+        let root_kp = KeyPair::generate_ed25519();
+        let builtins_kp = KeyPair::generate_secp256k1();
+        std::fs::write(
+            &root_key_path,
+            base64::encode(root_kp.secret().unwrap().to_vec()),
+        )
+        .unwrap();
+        std::fs::write(
+            &builtins_key_path,
+            base64::encode(builtins_kp.secret().unwrap().to_vec()),
+        )
+        .unwrap();
+        assert!(root_key_path.exists());
+        assert!(builtins_key_path.exists());
+
+        deserialize_config(&matches(), config.as_bytes()).expect("deserialize config");
+    }
+
+    #[test]
+    fn parse_base58_secret_key() {
+        let root_key_path = make_tmp_dir().join("secret_key.ed25519");
+        let builtins_key_path = make_tmp_dir().join("builtins_secret_key.ed25519");
+        let config = format!(
+            r#"
+            root_key_pair.format = "ed25519"
+            root_key_pair.path = "{}"
+            root_key_pair.generate_on_absence = false
+            builtins_key_pair.format = "ed25519"
+            builtins_key_pair.path = "{}"
+            builtins_key_pair.generate_on_absence = false
+            "#,
+            root_key_path.to_string_lossy(),
+            builtins_key_path.to_string_lossy(),
+        );
+
+        let root_kp = KeyPair::generate_ed25519();
+        let builtins_kp = KeyPair::generate_secp256k1();
+        std::fs::write(
+            &root_key_path,
+            bs58::encode(root_kp.secret().unwrap().to_vec()).into_vec(),
+        )
+        .unwrap();
+        std::fs::write(
+            &builtins_key_path,
+            bs58::encode(builtins_kp.secret().unwrap().to_vec()).into_vec(),
+        )
+        .unwrap();
+        assert!(root_key_path.exists());
+        assert!(builtins_key_path.exists());
+
+        deserialize_config(&matches(), config.as_bytes()).expect("deserialize config");
     }
 }
