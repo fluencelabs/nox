@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+use async_std::sync::Mutex;
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -31,8 +32,8 @@ pub type ServiceFunction =
 
 pub trait ParticleFunction: 'static + Send + Sync {
     fn call(&self, args: Args, particle: ParticleParams) -> Output<'_>;
-    fn extend(&mut self, service: String, functions: HashMap<String, ServiceFunction>);
-    fn remove(&mut self, service: &str) -> Option<HashMap<String, ServiceFunction>>;
+    fn extend(&mut self, service: String, functions: HashMap<String, Mutex<ServiceFunction>>);
+    fn remove(&mut self, service: &str) -> Option<HashMap<String, Mutex<ServiceFunction>>>;
 }
 
 pub trait ParticleFunctionMut: 'static + Send + Sync {

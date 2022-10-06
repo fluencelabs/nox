@@ -3915,6 +3915,7 @@ dependencies = [
 name = "particle-execution"
 version = "0.1.0"
 dependencies = [
+ "async-std",
  "fluence-libp2p",
  "fs-utils",
  "futures",

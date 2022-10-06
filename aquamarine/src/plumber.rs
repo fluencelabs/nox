@@ -219,6 +219,7 @@ mod tests {
     use std::task::Waker;
     use std::{sync::Arc, task::Context};
 
+    use async_std::sync::Mutex;
     use avm_server::{AVMMemoryStats, AVMOutcome, CallResults, ParticleParameters};
     use futures::future::BoxFuture;
     use futures::task::noop_waker_ref;
@@ -245,11 +246,15 @@ mod tests {
             panic!("no builtins in plumber tests!")
         }
 
-        fn extend(&mut self, _service: String, _functions: HashMap<String, ServiceFunction>) {
+        fn extend(
+            &mut self,
+            _service: String,
+            _functions: HashMap<String, Mutex<ServiceFunction>>,
+        ) {
             todo!()
         }
 
-        fn remove(&mut self, _service: &str) -> Option<HashMap<String, ServiceFunction>> {
+        fn remove(&mut self, _service: &str) -> Option<HashMap<String, Mutex<ServiceFunction>>> {
             todo!()
         }
     }

@@ -123,28 +123,35 @@ impl AquamarineApi {
         particle: Particle,
         function: Option<ServiceFunction>,
     ) -> impl Future<Output = Result<(), AquamarineApiError>> {
-        self.send_command(Ingest { particle, function })
+        let particle_id = particle.id.clone();
+        self.send_command(Ingest { particle, function }, Some(particle_id))
     }
 
-    pub fn add_service(self, service: String, functions: HashMap<String, ServiceFunction>) {
-        self.send_command(AddService { service, functions })
+    pub fn add_service(
+        self,
+        service: String,
+        functions: HashMap<String, ServiceFunction>,
+    ) -> impl Future<Output = Result<(), AquamarineApiError>> {
+        self.send_command(AddService { service, functions }, None)
     }
 
-    pub fn remove_service(self, service: String) {
-        self.send_command(RemoveService { service })
+    pub fn remove_service(
+        self,
+        service: String,
+    ) -> impl Future<Output = Result<(), AquamarineApiError>> {
+        self.send_command(RemoveService { service }, None)
     }
 
     fn send_command(
         self,
         command: Command,
+        particle_id: Option<String>,
     ) -> impl Future<Output = Result<(), AquamarineApiError>> {
         use AquamarineApiError::*;
 
         let mut interpreters = self.outlet;
-        let particle_id = particle.id.clone();
 
         async move {
-            let command = Ingest { particle, function };
             let sent = interpreters.send(command).await;
 
             sent.map_err(|err| match err {

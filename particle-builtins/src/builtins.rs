@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+use async_std::sync::Mutex;
 use std::borrow::Borrow;
 use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
@@ -70,7 +71,7 @@ pub struct Builtins<C> {
     pub node_info: NodeInfo,
 
     #[derivative(Debug(format_with = "fmt_custom_services"))]
-    pub custom_services: HashMap<String, HashMap<String, ServiceFunction>>,
+    pub custom_services: HashMap<String, HashMap<String, Mutex<ServiceFunction>>>,
 
     particles_vault_dir: path::PathBuf,
 }
@@ -144,13 +145,13 @@ where
         args: Args,
         particle: ParticleParams,
     ) -> FunctionOutcome {
-        if let Some(_function) = self
+        if let Some(function) = self
             .custom_services
             .get(&args.service_id)
             .and_then(|fs| fs.get(&args.function_name))
         {
-            // function(args, particle).await
-            todo!()
+            let mut function = function.lock().await;
+            function(args, particle).await
         } else {
             FunctionOutcome::NotDefined {
                 args,

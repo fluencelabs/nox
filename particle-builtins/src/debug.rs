@@ -1,8 +1,9 @@
+use async_std::sync::Mutex;
 use particle_execution::ServiceFunction;
 use std::collections::HashMap;
 
 pub fn fmt_custom_services(
-    services: &HashMap<String, HashMap<String, ServiceFunction>>,
+    services: &HashMap<String, HashMap<String, Mutex<ServiceFunction>>>,
     fmt: &mut std::fmt::Formatter<'_>,
 ) -> Result<(), std::fmt::Error> {
     fmt.debug_map()
