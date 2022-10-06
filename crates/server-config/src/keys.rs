@@ -63,7 +63,10 @@ pub fn decode_key(key_string: String, key_format: String) -> eyre::Result<KeyPai
         if v.len() == 64 || v.len() <= 32 {
             Ok(v)
         } else {
-            Err(eyre!("keypair length must be 64, was {}", v.len()))
+            Err(eyre!(
+                "secret key length must be 32 (or 64 for keypair), was {}",
+                v.len()
+            ))
         }
     }
 
