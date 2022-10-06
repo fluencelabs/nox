@@ -123,7 +123,10 @@ where
         let result = self.builtins_call(args, particle).await;
         let end = start.elapsed().as_secs();
         match result {
-            FunctionOutcome::NotDefined { args, params } => self.call_service(args, params),
+            FunctionOutcome::NotDefined { args, params } => self
+                .custom_service_call(args, params)
+                .await
+                .and_then(|args, params| self.call_service(args, params)),
             result => {
                 if let Some(metrics) = self.services.metrics.as_ref() {
                     metrics.observe_builtins(
@@ -132,6 +135,26 @@ where
                     );
                 }
                 result
+            }
+        }
+    }
+
+    pub async fn custom_service_call(
+        &self,
+        args: Args,
+        particle: ParticleParams,
+    ) -> FunctionOutcome {
+        if let Some(_function) = self
+            .custom_services
+            .get(&args.service_id)
+            .and_then(|fs| fs.get(&args.function_name))
+        {
+            // function(args, particle).await
+            todo!()
+        } else {
+            FunctionOutcome::NotDefined {
+                args,
+                params: particle,
             }
         }
     }

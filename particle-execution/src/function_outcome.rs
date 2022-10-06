@@ -37,6 +37,20 @@ impl FunctionOutcome {
     pub fn is_defined(&self) -> bool {
         !matches!(self, Self::NotDefined { .. })
     }
+
+    pub fn and_then(self, f: impl FnOnce(Args, ParticleParams) -> Self) -> Self {
+        if let FunctionOutcome::NotDefined { args, params } = self {
+            f(args, params)
+        } else {
+            self
+        }
+    }
+
+    pub fn peek(self, f: impl Fn(&Self)) -> Self {
+        f(&self);
+
+        self
+    }
 }
 
 impl<E: std::error::Error> From<E> for FunctionOutcome {

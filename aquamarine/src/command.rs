@@ -16,10 +16,18 @@
 
 use particle_execution::ServiceFunction;
 use particle_protocol::Particle;
+use std::collections::HashMap;
 
 pub enum Command {
     Ingest {
         particle: Particle,
         function: Option<ServiceFunction>,
+    },
+    AddService {
+        service: String,
+        functions: HashMap<String, ServiceFunction>,
+    },
+    RemoveService {
+        service: String,
     },
 }

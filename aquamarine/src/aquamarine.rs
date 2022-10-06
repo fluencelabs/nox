@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::collections::HashMap;
 use std::future::Future;
 use std::task::Poll;
 use std::time::Duration;
@@ -27,7 +28,7 @@ use peer_metrics::{ParticleExecutorMetrics, VmPoolMetrics};
 
 use crate::aqua_runtime::AquaRuntime;
 use crate::command::Command;
-use crate::command::Command::Ingest;
+use crate::command::Command::{AddService, Ingest, RemoveService};
 use crate::error::AquamarineApiError;
 use crate::particle_effects::NetworkEffects;
 use crate::vm_pool::VmPool;
@@ -121,6 +122,21 @@ impl AquamarineApi {
         self,
         particle: Particle,
         function: Option<ServiceFunction>,
+    ) -> impl Future<Output = Result<(), AquamarineApiError>> {
+        self.send_command(Ingest { particle, function })
+    }
+
+    pub fn add_service(self, service: String, functions: HashMap<String, ServiceFunction>) {
+        self.send_command(AddService { service, functions })
+    }
+
+    pub fn remove_service(self, service: String) {
+        self.send_command(RemoveService { service })
+    }
+
+    fn send_command(
+        self,
+        command: Command,
     ) -> impl Future<Output = Result<(), AquamarineApiError>> {
         use AquamarineApiError::*;
 
