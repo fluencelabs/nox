@@ -1193,7 +1193,7 @@ dependencies = [
  "air-interpreter-fs",
  "aquamarine",
  "async-std",
- "bs58 0.4.0",
+ "base64",
  "builtins-deployer",
  "config-utils",
  "connection-pool",
@@ -1778,8 +1778,9 @@ dependencies = [
 
 [[package]]
 name = "fluence-keypair"
-version = "0.8.0"
-source = "git+https://github.com/fluencelabs/trust-graph?branch=libp2p_0.36#bc6c929c26f304ca1c1962abc3118db01a42c7db"
+version = "0.8.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "59b984f670cbcde01b42567f64fa0f68a1f0ce2675e6f3609ab577cafe6b1b17"
 dependencies = [
  "asn1_der 0.6.3",
  "bs58 0.3.1",
@@ -4019,7 +4020,6 @@ version = "0.3.0"
 dependencies = [
  "async-std",
  "base64",
- "bs58 0.4.0",
  "derivative",
  "eyre",
  "fluence-libp2p",

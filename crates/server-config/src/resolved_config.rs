@@ -14,24 +14,25 @@
  * limitations under the License.
  */
 
-use crate::defaults::default_config_path;
-use crate::dir_config::{ResolvedDirConfig, UnresolvedDirConfig};
-use crate::node_config::NodeConfig;
-
-use fs_utils::to_abs_path;
+use std::net::SocketAddr;
+use std::ops::{Deref, DerefMut};
 
 use clap::{ArgMatches, Values};
 use eyre::{eyre, ContextCompat, WrapErr};
 use libp2p::core::{multiaddr::Protocol, Multiaddr};
 use serde::Deserialize;
-use std::net::SocketAddr;
-use std::ops::{Deref, DerefMut};
+
+use fs_utils::to_abs_path;
+
+use crate::defaults::default_config_path;
+use crate::dir_config::{ResolvedDirConfig, UnresolvedDirConfig};
+use crate::node_config::NodeConfig;
 
 pub const WEBSOCKET_PORT: &str = "websocket_port";
 pub const TCP_PORT: &str = "tcp_port";
 pub const ROOT_KEY_PAIR: &str = "root_key_pair";
 pub const ROOT_KEY_PAIR_VALUE: &str = "value";
-pub const ROOT_KEY_PAIR_FORMAT: &str = "format";
+pub const ROOT_KEY_FORMAT: &str = "format";
 pub const ROOT_KEY_PAIR_PATH: &str = "path";
 pub const ROOT_KEY_PAIR_GENERATE: &str = "generate_on_absence";
 pub const BOOTSTRAP_NODE: &str = "bootstrap_nodes";
@@ -48,13 +49,14 @@ pub const LOCAL: &str = "local";
 pub const ALLOW_PRIVATE_IPS: &str = "allow_local_addresses";
 pub const METRICS_PORT: &str = "metrics_port";
 pub const AQUA_VM_POOL_SIZE: &str = "aquavm_pool_size";
+pub const SECRET_KEY: &str = "secret_key";
 
 const ARGS: &[&str] = &[
     WEBSOCKET_PORT,
     TCP_PORT,
     ROOT_KEY_PAIR_VALUE,
     ROOT_KEY_PAIR_GENERATE,
-    ROOT_KEY_PAIR_FORMAT,
+    ROOT_KEY_FORMAT,
     ROOT_KEY_PAIR_PATH,
     BOOTSTRAP_NODE,
     BOOTSTRAP_FREQ,
@@ -68,6 +70,7 @@ const ARGS: &[&str] = &[
     ALLOW_PRIVATE_IPS,
     METRICS_PORT,
     AQUA_VM_POOL_SIZE,
+    SECRET_KEY,
 ];
 
 #[derive(Clone, Deserialize, Debug)]
@@ -169,15 +172,6 @@ fn insert_args_to_config(
         value.map(|s| String(s.into()))
     }
 
-    fn make_table(key: &str, value: &str) -> toml::Value {
-        toml::Value::Table(std::iter::once((key.to_string(), String(value.into()))).collect())
-    }
-
-    fn check_and_delete(config: &mut toml::value::Table, key: &str, sub_key: &str) {
-        let _res: Option<toml::Value> =
-            try { config.get_mut(key)?.as_table_mut()?.remove(sub_key)? };
-    }
-
     // Check each possible command line argument
     for &k in ARGS {
         let arg = match arguments.values_of(k) {
@@ -186,49 +180,58 @@ fn insert_args_to_config(
         };
 
         let result: eyre::Result<()> = try {
-            // Convert value to a type of the corresponding field in `FluenceConfig`
-            let mut value = match k {
+            let k = k.to_string();
+            // Convert value to a type of the corresponding field in `FluenceConfig` and insert into config
+            match k.as_str() {
                 WEBSOCKET_PORT | TCP_PORT | METRICS_PORT | AQUA_VM_POOL_SIZE => {
-                    Integer(single(arg)?.parse()?)
+                    config.insert(k, Integer(single(arg)?.parse()?))
                 }
                 BOOTSTRAP_NODE | SERVICE_ENVS | EXTERNAL_MULTIADDRS => {
-                    Array(multiple(arg).collect())
+                    config.insert(k, Array(multiple(arg).collect()))
                 }
-                ROOT_KEY_PAIR_VALUE => {
-                    check_and_delete(config, ROOT_KEY_PAIR, ROOT_KEY_PAIR_PATH);
-                    make_table(k, single(arg)?)
+                ALLOW_PRIVATE_IPS => config.insert(k, Boolean(true)),
+                ROOT_KEY_PAIR_PATH
+                | ROOT_KEY_PAIR_VALUE
+                | ROOT_KEY_FORMAT
+                | ROOT_KEY_PAIR_GENERATE
+                | SECRET_KEY => {
+                    let value = if k == ROOT_KEY_PAIR_GENERATE {
+                        match single(arg)? {
+                            "true" => Boolean(true),
+                            "false" => Boolean(false),
+                            other => return Err(eyre!("Invalid value for ROOT_KEY_PAIR_GENERATE. Must be true or false, was {}", other)), 
+                        }
+                    } else {
+                        String(single(arg)?.into())
+                    };
+
+                    let mut key_pair_config = config
+                        .remove(ROOT_KEY_PAIR)
+                        .unwrap_or(toml::Value::Table(<_>::default()));
+                    key_pair_config
+                        .as_table_mut()
+                        .expect("root key pair must be a toml table")
+                        .insert(k, value);
+
+                    config.insert(ROOT_KEY_PAIR.to_string(), key_pair_config)
                 }
-                ROOT_KEY_PAIR_FORMAT | ROOT_KEY_PAIR_GENERATE => make_table(k, single(arg)?),
-                ROOT_KEY_PAIR_PATH => {
-                    check_and_delete(config, ROOT_KEY_PAIR, ROOT_KEY_PAIR_VALUE);
-                    make_table(k, single(arg)?)
-                }
-                ALLOW_PRIVATE_IPS => Boolean(true),
-                _ => String(single(arg)?.into()),
+                _ => config.insert(k, String(single(arg)?.into())),
             };
-
-            let key = match k {
-                ROOT_KEY_PAIR_VALUE
-                | ROOT_KEY_PAIR_FORMAT
-                | ROOT_KEY_PAIR_PATH
-                | ROOT_KEY_PAIR_GENERATE => ROOT_KEY_PAIR,
-
-                k => k,
-            };
-
-            if value.is_table() && config.contains_key(key) {
-                let mut previous = config.remove(key).unwrap();
-
-                previous
-                    .as_table_mut()
-                    .unwrap()
-                    .extend(value.as_table_mut().unwrap().clone());
-                config.insert(key.to_string(), previous);
-            } else {
-                config.insert(key.to_string(), value);
-            }
         };
         result.context(format!("error processing argument '{}'", k))?
+    }
+
+    if let Some(key_pair_config) = config.get_mut(ROOT_KEY_PAIR).and_then(|v| v.as_table_mut()) {
+        // 'secret key' overrides 'key pair path' and 'key pair value'
+        if key_pair_config.contains_key(SECRET_KEY) {
+            key_pair_config.remove(ROOT_KEY_PAIR_PATH);
+            key_pair_config.remove(ROOT_KEY_PAIR_VALUE);
+        }
+
+        // 'key pair value' overrides 'key pair path'
+        if key_pair_config.contains_key(ROOT_KEY_PAIR_VALUE) {
+            key_pair_config.remove(ROOT_KEY_PAIR_PATH);
+        }
     }
 
     Ok(())
@@ -279,18 +282,27 @@ pub fn deserialize_config(arguments: &ArgMatches, content: &[u8]) -> eyre::Resul
 
 #[cfg(test)]
 mod tests {
+    use fluence_keypair::KeyPair;
+    use fs_utils::make_tmp_dir;
+
+    use crate::args::create_args;
     use crate::BootstrapConfig;
 
     use super::*;
-    use fs_utils::make_tmp_dir;
+
+    fn matches() -> ArgMatches {
+        clap::App::new("Fluence node")
+            .args(create_args().as_slice())
+            .get_matches_from(std::iter::empty::<String>())
+    }
 
     #[test]
     fn parse_config() {
         let config = r#"
             root_key_pair.format = "ed25519"
-            root_key_pair.value = "NEHtEvMTyN8q8T1BW27zProYLyksLtYn2GRoeTfgePmXiKECKJNCyZ2JD5yi2UDwNnLn5gAJBZAwGsfLjjEVqf4"
+            root_key_pair.secret_key = "/XKBs1ydmfWGiTbh+e49GYw+14LHtu+v5BMFDIzHpvo="
             builtins_key_pair.format = "ed25519"
-            builtins_key_pair.value = "NEHtEvMTyN8q8T1BW27zProYLyksLtYn2GRoeTfgePmXiKECKJNCyZ2JD5yi2UDwNnLn5gAJBZAwGsfLjjEVqf4"
+            builtins_key_pair.value = "Ek6l5zgX9P74MHRiRzK/FN6ftQIOD3prYdMh87nRXlEEuRX1QrdQI87MBRdphoc0url0cY5ZO58evCoGXty1zw=="
             avm_base_dir = "/stepper"
             script_storage_max_failures = 10
             
@@ -299,14 +311,13 @@ mod tests {
             
         "#;
 
-        let config =
-            deserialize_config(&<_>::default(), config.as_bytes()).expect("deserialize config");
+        let config = deserialize_config(&matches(), config.as_bytes()).expect("deserialize config");
 
         assert_eq!(config.node_config.script_storage_max_failures, 10);
     }
 
     #[test]
-    fn parse_path_keypair() {
+    fn parse_path_keypair_generate() {
         let key_path = make_tmp_dir().join("secret_key.ed25519");
         let builtins_key_path = make_tmp_dir().join("builtins_secret_key.ed25519");
         let config = format!(
@@ -324,7 +335,7 @@ mod tests {
 
         assert!(!key_path.exists());
         assert!(!builtins_key_path.exists());
-        deserialize_config(&<_>::default(), config.as_bytes()).expect("deserialize config");
+        deserialize_config(&matches(), config.as_bytes()).expect("deserialize config");
         assert!(key_path.exists());
         assert!(builtins_key_path.exists());
     }
@@ -335,12 +346,12 @@ mod tests {
             root_key_pair.generate_on_absence = true
             builtins_key_pair.generate_on_absence = true
             "#;
-        deserialize_config(&<_>::default(), config.as_bytes()).expect("deserialize config");
+        deserialize_config(&matches(), config.as_bytes()).expect("deserialize config");
     }
 
     #[test]
     fn parse_empty_config() {
-        deserialize_config(&<_>::default(), &[]).expect("deserialize config");
+        deserialize_config(&matches(), &[]).expect("deserialize config");
     }
 
     #[test]
@@ -348,5 +359,133 @@ mod tests {
         let bs_config = BootstrapConfig::default();
         let s = toml::to_string(&bs_config).expect("serialize");
         println!("{}", s)
+    }
+
+    #[test]
+    fn parse_base58_keypair() {
+        let root_key_path = make_tmp_dir().join("secret_key.ed25519");
+        let builtins_key_path = make_tmp_dir().join("builtins_secret_key.ed25519");
+        let config = format!(
+            r#"
+            root_key_pair.format = "ed25519"
+            root_key_pair.path = "{}"
+            root_key_pair.generate_on_absence = false
+            builtins_key_pair.format = "ed25519"
+            builtins_key_pair.path = "{}"
+            builtins_key_pair.generate_on_absence = false
+            "#,
+            root_key_path.to_string_lossy(),
+            builtins_key_path.to_string_lossy(),
+        );
+
+        let root_kp = KeyPair::generate_ed25519();
+        let builtins_kp = KeyPair::generate_secp256k1();
+        std::fs::write(&root_key_path, bs58::encode(root_kp.to_vec()).into_vec()).unwrap();
+        std::fs::write(
+            &builtins_key_path,
+            bs58::encode(builtins_kp.to_vec()).into_vec(),
+        )
+        .unwrap();
+        assert!(root_key_path.exists());
+        assert!(builtins_key_path.exists());
+
+        deserialize_config(&matches(), config.as_bytes()).expect("deserialize config");
+    }
+
+    #[test]
+    fn parse_base64_keypair() {
+        let root_key_path = make_tmp_dir().join("secret_key.ed25519");
+        let builtins_key_path = make_tmp_dir().join("builtins_secret_key.ed25519");
+        let config = format!(
+            r#"
+            root_key_pair.format = "ed25519"
+            root_key_pair.path = "{}"
+            root_key_pair.generate_on_absence = false
+            builtins_key_pair.format = "ed25519"
+            builtins_key_pair.path = "{}"
+            builtins_key_pair.generate_on_absence = false
+            "#,
+            root_key_path.to_string_lossy(),
+            builtins_key_path.to_string_lossy(),
+        );
+
+        let root_kp = KeyPair::generate_ed25519();
+        let builtins_kp = KeyPair::generate_secp256k1();
+        std::fs::write(&root_key_path, base64::encode(root_kp.to_vec())).unwrap();
+        std::fs::write(&builtins_key_path, base64::encode(builtins_kp.to_vec())).unwrap();
+        assert!(root_key_path.exists());
+        assert!(builtins_key_path.exists());
+
+        deserialize_config(&matches(), config.as_bytes()).expect("deserialize config");
+    }
+
+    #[test]
+    fn parse_base64_secret_key() {
+        let root_key_path = make_tmp_dir().join("secret_key.ed25519");
+        let builtins_key_path = make_tmp_dir().join("builtins_secret_key.ed25519");
+        let config = format!(
+            r#"
+            root_key_pair.format = "ed25519"
+            root_key_pair.path = "{}"
+            root_key_pair.generate_on_absence = false
+            builtins_key_pair.format = "ed25519"
+            builtins_key_pair.path = "{}"
+            builtins_key_pair.generate_on_absence = false
+            "#,
+            root_key_path.to_string_lossy(),
+            builtins_key_path.to_string_lossy(),
+        );
+
+        let root_kp = KeyPair::generate_ed25519();
+        let builtins_kp = KeyPair::generate_secp256k1();
+        std::fs::write(
+            &root_key_path,
+            base64::encode(root_kp.secret().unwrap().to_vec()),
+        )
+        .unwrap();
+        std::fs::write(
+            &builtins_key_path,
+            base64::encode(builtins_kp.secret().unwrap().to_vec()),
+        )
+        .unwrap();
+        assert!(root_key_path.exists());
+        assert!(builtins_key_path.exists());
+
+        deserialize_config(&matches(), config.as_bytes()).expect("deserialize config");
+    }
+
+    #[test]
+    fn parse_base58_secret_key() {
+        let root_key_path = make_tmp_dir().join("secret_key.ed25519");
+        let builtins_key_path = make_tmp_dir().join("builtins_secret_key.ed25519");
+        let config = format!(
+            r#"
+            root_key_pair.format = "ed25519"
+            root_key_pair.path = "{}"
+            root_key_pair.generate_on_absence = false
+            builtins_key_pair.format = "ed25519"
+            builtins_key_pair.path = "{}"
+            builtins_key_pair.generate_on_absence = false
+            "#,
+            root_key_path.to_string_lossy(),
+            builtins_key_path.to_string_lossy(),
+        );
+
+        let root_kp = KeyPair::generate_ed25519();
+        let builtins_kp = KeyPair::generate_secp256k1();
+        std::fs::write(
+            &root_key_path,
+            bs58::encode(root_kp.secret().unwrap().to_vec()).into_vec(),
+        )
+        .unwrap();
+        std::fs::write(
+            &builtins_key_path,
+            bs58::encode(builtins_kp.secret().unwrap().to_vec()).into_vec(),
+        )
+        .unwrap();
+        assert!(root_key_path.exists());
+        assert!(builtins_key_path.exists());
+
+        deserialize_config(&matches(), config.as_bytes()).expect("deserialize config");
     }
 }

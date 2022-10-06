@@ -88,7 +88,7 @@ jobs:
 
       - name: Run cargo nextest
         env:
-          NEXTEST_RETRIES: 10
+          NEXTEST_RETRIES: 2
           NEXTEST_TEST_THREADS: 10
         run: cargo nextest run --release --all-features --no-fail-fast
 

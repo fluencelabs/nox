@@ -37,7 +37,8 @@ use aquamarine::{VmConfig, AVM};
 use config_utils::to_peer_id;
 use ctrlc_adapter::block_until_ctrlc;
 use fs_utils::to_abs_path;
-use particle_node::{config::create_args, Node};
+use particle_node::Node;
+use server_config::args::create_args;
 use server_config::{load_config, ResolvedConfig};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -73,7 +74,7 @@ fn main() -> eyre::Result<()> {
 | Hello from the Fluence Team. If you encounter   |
 | any troubles with node operation, please update |
 | the node via                                    |
-|     docker pull fluencelabs/fluence:latest      |
+|     docker pull fluencelabs/node:latest         |
 |                                                 |
 | or contact us at                                |
 | github.com/fluencelabs/fluence/discussions      |
@@ -104,8 +105,8 @@ fn start_fluence(config: ResolvedConfig) -> eyre::Result<impl Stoppable> {
     log::trace!("starting Fluence");
 
     let key_pair = config.root_key_pair.clone();
-    let bs58_key_pair = bs58::encode(key_pair.public().to_vec()).into_string();
-    log::info!("node public key = {}", bs58_key_pair);
+    let base64_key_pair = base64::encode(key_pair.public().to_vec());
+    log::info!("node public key = {}", base64_key_pair);
     log::info!("node server peer id = {}", to_peer_id(&key_pair.into()));
 
     let listen_addrs = config.listen_multiaddrs();
