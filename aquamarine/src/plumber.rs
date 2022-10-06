@@ -25,7 +25,7 @@ use futures::task::Waker;
 /// For tests, mocked time is used
 #[cfg(test)]
 use mock_time::now_ms;
-use particle_execution::{ParticleFunctionStatic, ParticleParams};
+use particle_execution::{ParticleFunctionStatic, ParticleParams, ServiceFunction};
 use particle_protocol::Particle;
 use peer_metrics::ParticleExecutorMetrics;
 /// Get current time from OS
@@ -37,7 +37,7 @@ use crate::aqua_runtime::AquaRuntime;
 use crate::deadline::Deadline;
 use crate::error::AquamarineApiError;
 use crate::particle_effects::NetworkEffects;
-use crate::particle_functions::{Function, Functions};
+use crate::particle_functions::Functions;
 use crate::vm_pool::VmPool;
 
 pub struct Plumber<RT: AquaRuntime, F> {
@@ -62,7 +62,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
     }
 
     /// Receives and ingests incoming particle: creates a new actor or forwards to the existing mailbox
-    pub fn ingest(&mut self, particle: Particle, function: Option<Function>) {
+    pub fn ingest(&mut self, particle: Particle, function: Option<ServiceFunction>) {
         self.wake();
 
         let deadline = Deadline::from(&particle);
@@ -214,6 +214,7 @@ mod real_time {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
     use std::convert::Infallible;
     use std::task::Waker;
     use std::{sync::Arc, task::Context};
@@ -224,7 +225,7 @@ mod tests {
     use futures::FutureExt;
 
     use particle_args::Args;
-    use particle_execution::{ParticleFunction, ParticleParams};
+    use particle_execution::{ParticleFunction, ParticleParams, ServiceFunction};
     use particle_protocol::Particle;
 
     use crate::deadline::Deadline;
@@ -242,6 +243,14 @@ mod tests {
             _particle: ParticleParams,
         ) -> particle_execution::ParticleFunctionOutput<'_> {
             panic!("no builtins in plumber tests!")
+        }
+
+        fn extend(&mut self, _service: String, _functions: HashMap<String, ServiceFunction>) {
+            todo!()
+        }
+
+        fn remove(&mut self, _service: &str) -> Option<HashMap<String, ServiceFunction>> {
+            todo!()
         }
     }
 

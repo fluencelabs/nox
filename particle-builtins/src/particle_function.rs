@@ -15,11 +15,14 @@
  */
 
 use futures::FutureExt;
+use std::collections::HashMap;
 
 use connection_pool::ConnectionPoolApi;
 use kademlia::KademliaApi;
 use particle_args::Args;
-use particle_execution::{ParticleFunction, ParticleFunctionOutput, ParticleParams};
+use particle_execution::{
+    ParticleFunction, ParticleFunctionOutput, ParticleParams, ServiceFunction,
+};
 
 use crate::Builtins;
 
@@ -29,5 +32,13 @@ where
 {
     fn call(&self, args: Args, particle: ParticleParams) -> ParticleFunctionOutput<'_> {
         Builtins::call(self, args, particle).boxed()
+    }
+
+    fn extend(&mut self, service: String, functions: HashMap<String, ServiceFunction>) {
+        self.custom_services.insert(service, functions);
+    }
+
+    fn remove(&mut self, service: &str) -> Option<HashMap<String, ServiceFunction>> {
+        self.custom_services.remove(service)
     }
 }

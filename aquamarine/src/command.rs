@@ -14,13 +14,12 @@
  * limitations under the License.
  */
 
+use particle_execution::ServiceFunction;
 use particle_protocol::Particle;
-
-use crate::particle_functions::Function;
 
 pub enum Command {
     Ingest {
         particle: Particle,
-        function: Option<Function>,
+        function: Option<ServiceFunction>,
     },
 }

@@ -15,7 +15,7 @@
  */
 
 use std::borrow::Borrow;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
 use std::ops::Try;
 use std::path;
@@ -37,7 +37,7 @@ use connection_pool::{ConnectionPoolApi, ConnectionPoolT};
 use kademlia::{KademliaApi, KademliaApiT};
 use now_millis::{now_ms, now_sec};
 use particle_args::{from_base58, Args, ArgsError, JError};
-use particle_execution::{FunctionOutcome, ParticleParams};
+use particle_execution::{FunctionOutcome, ParticleParams, ServiceFunction};
 use particle_modules::{
     AddBlueprint, ModuleConfig, ModuleRepository, NamedModuleConfig, WASIConfig,
 };
@@ -47,13 +47,14 @@ use peer_metrics::ServicesMetrics;
 use script_storage::ScriptStorageApi;
 use server_config::ServicesConfig;
 
+use crate::debug::fmt_custom_services;
 use crate::error::HostClosureCallError;
 use crate::error::HostClosureCallError::{DecodeBase58, DecodeUTF8};
 use crate::identify::NodeInfo;
 use crate::math;
 
 #[derive(Derivative)]
-#[derivative(Debug, Clone)]
+#[derivative(Debug)]
 pub struct Builtins<C> {
     pub connectivity: C,
     pub script_storage: ScriptStorageApi,
@@ -67,6 +68,9 @@ pub struct Builtins<C> {
     pub modules: ModuleRepository,
     pub services: ParticleAppServices,
     pub node_info: NodeInfo,
+
+    #[derivative(Debug(format_with = "fmt_custom_services"))]
+    pub custom_services: HashMap<String, HashMap<String, ServiceFunction>>,
 
     particles_vault_dir: path::PathBuf,
 }
@@ -110,6 +114,7 @@ where
             services,
             node_info,
             particles_vault_dir,
+            custom_services: <_>::default(),
         }
     }
 

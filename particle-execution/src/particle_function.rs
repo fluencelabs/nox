@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use futures::future::BoxFuture;
@@ -24,8 +25,14 @@ use particle_args::Args;
 use crate::{FunctionOutcome, ParticleParams};
 
 pub type Output<'a> = BoxFuture<'a, FunctionOutcome>;
+
+pub type ServiceFunction =
+    Box<dyn FnMut(Args, ParticleParams) -> Output<'static> + 'static + Send + Sync>;
+
 pub trait ParticleFunction: 'static + Send + Sync {
     fn call(&self, args: Args, particle: ParticleParams) -> Output<'_>;
+    fn extend(&mut self, service: String, functions: HashMap<String, ServiceFunction>);
+    fn remove(&mut self, service: &str) -> Option<HashMap<String, ServiceFunction>>;
 }
 
 pub trait ParticleFunctionMut: 'static + Send + Sync {

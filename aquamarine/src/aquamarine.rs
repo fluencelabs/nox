@@ -21,7 +21,7 @@ use async_std::{task, task::JoinHandle};
 use futures::{channel::mpsc, SinkExt, StreamExt};
 
 use fluence_libp2p::types::{BackPressuredInlet, BackPressuredOutlet, Outlet};
-use particle_execution::ParticleFunctionStatic;
+use particle_execution::{ParticleFunctionStatic, ServiceFunction};
 use particle_protocol::Particle;
 use peer_metrics::{ParticleExecutorMetrics, VmPoolMetrics};
 
@@ -30,7 +30,6 @@ use crate::command::Command;
 use crate::command::Command::Ingest;
 use crate::error::AquamarineApiError;
 use crate::particle_effects::NetworkEffects;
-use crate::particle_functions::Function;
 use crate::vm_pool::VmPool;
 use crate::{Plumber, VmPoolConfig};
 
@@ -121,7 +120,7 @@ impl AquamarineApi {
     pub fn execute(
         self,
         particle: Particle,
-        function: Option<Function>,
+        function: Option<ServiceFunction>,
     ) -> impl Future<Output = Result<(), AquamarineApiError>> {
         use AquamarineApiError::*;
 
