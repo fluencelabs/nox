@@ -14,7 +14,10 @@
  * limitations under the License.
  */
 
+use std::convert::Infallible;
+use std::future::Future;
 use std::ops::{ControlFlow, FromResidual, Try};
+use std::process::Output;
 
 use serde_json::Value as JValue;
 
@@ -22,7 +25,6 @@ use json_utils::err_as_value;
 use particle_args::{Args, JError};
 
 use crate::ParticleParams;
-use std::convert::Infallible;
 
 #[derive(Debug, Clone)]
 pub enum FunctionOutcome {
@@ -38,18 +40,17 @@ impl FunctionOutcome {
         !matches!(self, Self::NotDefined { .. })
     }
 
-    pub fn and_then(self, f: impl FnOnce(Args, ParticleParams) -> Self) -> Self {
+    /// Returns [false] if variant is [Err]
+    pub fn is_err(&self) -> bool {
+        !matches!(self, Self::Err { .. })
+    }
+
+    pub fn or_else(self, f: impl FnOnce(Args, ParticleParams) -> Self) -> Self {
         if let FunctionOutcome::NotDefined { args, params } = self {
             f(args, params)
         } else {
             self
         }
-    }
-
-    pub fn peek(self, f: impl Fn(&Self)) -> Self {
-        f(&self);
-
-        self
     }
 }
 

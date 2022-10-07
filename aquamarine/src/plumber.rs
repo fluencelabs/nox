@@ -88,6 +88,14 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
         }
     }
 
+    pub fn add_service(&self, service: String, functions: HashMap<String, ServiceFunction>) {
+        self.builtins.extend(service, functions)
+    }
+
+    pub fn remove_service(&self, service: String) {
+        self.builtins.remove(&service);
+    }
+
     pub fn poll(
         &mut self,
         cx: &mut Context<'_>,
@@ -219,7 +227,6 @@ mod tests {
     use std::task::Waker;
     use std::{sync::Arc, task::Context};
 
-    use async_std::sync::Mutex;
     use avm_server::{AVMMemoryStats, AVMOutcome, CallResults, ParticleParameters};
     use futures::future::BoxFuture;
     use futures::task::noop_waker_ref;
@@ -246,15 +253,11 @@ mod tests {
             panic!("no builtins in plumber tests!")
         }
 
-        fn extend(
-            &mut self,
-            _service: String,
-            _functions: HashMap<String, Mutex<ServiceFunction>>,
-        ) {
+        fn extend(&self, _service: String, _functions: HashMap<String, ServiceFunction>) {
             todo!()
         }
 
-        fn remove(&mut self, _service: &str) -> Option<HashMap<String, Mutex<ServiceFunction>>> {
+        fn remove(&self, _service: &str) -> Option<HashMap<String, ServiceFunction>> {
             todo!()
         }
     }

@@ -3997,6 +3997,7 @@ dependencies = [
  "now-millis",
  "parking_lot 0.12.1",
  "particle-builtins",
+ "particle-execution",
  "particle-modules",
  "particle-protocol",
  "peer-metrics",
@@ -4013,6 +4014,7 @@ dependencies = [
  "test-utils",
  "tide",
  "toy-vms",
+ "uuid-utils",
 ]
 
 [[package]]

@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-use async_std::sync::Mutex;
 use futures::FutureExt;
+use parking_lot::Mutex;
 use std::collections::HashMap;
 
 use connection_pool::ConnectionPoolApi;
@@ -35,11 +35,20 @@ where
         Builtins::call(self, args, particle).boxed()
     }
 
-    fn extend(&mut self, service: String, functions: HashMap<String, Mutex<ServiceFunction>>) {
-        self.custom_services.insert(service, functions);
+    fn extend(&self, service: String, functions: HashMap<String, ServiceFunction>) {
+        self.custom_services.write().insert(
+            service,
+            functions
+                .into_iter()
+                .map(|(k, v)| (k, Mutex::new(v)))
+                .collect(),
+        );
     }
 
-    fn remove(&mut self, service: &str) -> Option<HashMap<String, Mutex<ServiceFunction>>> {
-        self.custom_services.remove(service)
+    fn remove(&self, service: &str) -> Option<HashMap<String, ServiceFunction>> {
+        self.custom_services
+            .write()
+            .remove(service)
+            .map(|hm| hm.into_iter().map(|(k, v)| (k, v.into_inner())).collect())
     }
 }

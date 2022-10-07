@@ -68,11 +68,23 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> AquamarineBackend<RT, F> {
         let mut wake = false;
 
         // check if there are new particles
-        while let Poll::Ready(Some(Ingest { particle, function })) = self.inlet.poll_next_unpin(cx)
-        {
-            wake = true;
-            // set new particle to be executed
-            self.plumber.ingest(particle, function);
+        loop {
+            match self.inlet.poll_next_unpin(cx) {
+                Poll::Ready(Some(Ingest { particle, function })) => {
+                    wake = true;
+                    // set new particle to be executed
+                    self.plumber.ingest(particle, function);
+                }
+                Poll::Ready(Some(AddService { service, functions })) => {
+                    self.plumber.add_service(service, functions)
+                }
+
+                Poll::Ready(Some(RemoveService { service })) => {
+                    self.plumber.remove_service(service)
+                }
+
+                Poll::Pending | Poll::Ready(None) => break,
+            }
         }
 
         // check if there are executed particles

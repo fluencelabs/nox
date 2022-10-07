@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-use async_std::sync::Mutex;
 use std::borrow::Borrow;
 use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
@@ -30,6 +29,7 @@ use futures::StreamExt;
 use humantime_serde::re::humantime::format_duration as pretty;
 use libp2p::{core::Multiaddr, kad::kbucket::Key, kad::K_VALUE, PeerId};
 use multihash::{Code, MultihashDigest, MultihashGeneric};
+use parking_lot::{Mutex, RwLock};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value as JValue};
 use JValue::Array;
@@ -71,7 +71,7 @@ pub struct Builtins<C> {
     pub node_info: NodeInfo,
 
     #[derivative(Debug(format_with = "fmt_custom_services"))]
-    pub custom_services: HashMap<String, HashMap<String, Mutex<ServiceFunction>>>,
+    pub custom_services: RwLock<HashMap<String, HashMap<String, Mutex<ServiceFunction>>>>,
 
     particles_vault_dir: path::PathBuf,
 }
@@ -126,32 +126,25 @@ where
         match result {
             FunctionOutcome::NotDefined { args, params } => self
                 .custom_service_call(args, params)
-                .await
-                .and_then(|args, params| self.call_service(args, params)),
+                .or_else(|args, params| self.call_service(args, params)),
             result => {
                 if let Some(metrics) = self.services.metrics.as_ref() {
-                    metrics.observe_builtins(
-                        !matches!(result, FunctionOutcome::Err { .. }),
-                        end as f64,
-                    );
+                    metrics.observe_builtins(result.is_err(), end as f64);
                 }
                 result
             }
         }
     }
 
-    pub async fn custom_service_call(
-        &self,
-        args: Args,
-        particle: ParticleParams,
-    ) -> FunctionOutcome {
+    pub fn custom_service_call(&self, args: Args, particle: ParticleParams) -> FunctionOutcome {
         if let Some(function) = self
             .custom_services
+            .read()
             .get(&args.service_id)
             .and_then(|fs| fs.get(&args.function_name))
         {
-            let mut function = function.lock().await;
-            function(args, particle).await
+            let mut function = function.lock();
+            async_std::task::block_on(function(args, particle))
         } else {
             FunctionOutcome::NotDefined {
                 args,

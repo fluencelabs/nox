@@ -48,9 +48,11 @@ base64 = { workspace = true }
 
 [dev-dependencies]
 log-utils = { path = "../crates/log-utils" }
+uuid-utils = { path = "../crates/uuid-utils" }
 test-utils = { path = "../crates/test-utils" }
 service-modules = { path = "../crates/service-modules" }
 particle-modules = { path = "../particle-modules" }
+particle-execution = { path = "../particle-execution" }
 created-swarm = { path = "../crates/created-swarm" }
 connected-client = { path = "../crates/connected-client" }
 test-constants = { path = "../crates/test-constants" }
