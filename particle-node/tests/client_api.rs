@@ -81,7 +81,7 @@ fn call_custom_service() {
     let script = format!(
         r#"
         (seq
-            (call {} ("hello" "world") [] result)
+            (call "{}" ("hello" "world") [] result)
             (call %init_peer_id% ("op" "return") [result])
         )
     "#,
@@ -101,9 +101,9 @@ fn call_custom_service() {
     let exec_f = swarms[1].aquamarine_api.clone().execute(particle, None);
 
     let result = block_on(timeout(Duration::from_secs(30), async move {
-        add_first_f.await;
-        add_second_f.await;
-        exec_f.await;
+        add_first_f.await.expect("add_first_f");
+        add_second_f.await.expect("add_second_f");
+        exec_f.await.expect("exec_f");
         inlet.await
     }));
 
