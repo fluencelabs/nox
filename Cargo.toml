@@ -47,7 +47,7 @@ exclude = [
 fluence-app-service = "0.22.0"
 #fluence-keypair = "0.8.0"
 avm-server = "0.26.1"
-air-interpreter-wasm = {version = "0.1.1-alpha.1-bug-VM-166-fix-fold-and-canon-compatibility-618abf7-142-1", registry = "fluence"}
+air-interpreter-wasm = {version = "=0.1.1-alpha.1-bug-VM-166-fix-fold-and-canon-compatibility-618abf7-142-1", registry = "fluence"}
 #air-interpreter-wasm = "=0.30.7"
 libp2p = "0.48.0"
 libp2p-core = { version = "0.36.0", default-features = false, features = [ "secp256k1" ] }

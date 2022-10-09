@@ -152,9 +152,9 @@ dependencies = [
 
 [[package]]
 name = "air-interpreter-wasm"
-version = "0.1.1-alpha.1-update-e2e-version-format-c4dd23c-87-2"
+version = "0.1.1-alpha.1-bug-VM-166-fix-fold-and-canon-compatibility-618abf7-142-1"
 source = "registry+git://crates.fluence.dev/index"
-checksum = "1621da90df8580e0069cca0015f8227c8239c1be470b2f9b07c6840c602c32a7"
+checksum = "a1552d89d82d9fad10f747d4890e7730f008171f4f1fa0c093f3f0de2ddaf62b"
 dependencies = [
  "built",
 ]

@@ -23,6 +23,7 @@ use serde_json::Value as JValue;
 
 use connected_client::ConnectedClient;
 use created_swarm::{make_swarms, CreatedSwarm};
+use log_utils::enable_logs;
 
 use super::join_stream;
 
@@ -241,7 +242,7 @@ fn fold_fold_fold_seq_two_par_null_folds() {
 
 #[test]
 fn fold_same_node_stream() {
-    let swarms = make_swarms(3);
+    let swarms = make_swarms(4);
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .wrap_err("connect client")
