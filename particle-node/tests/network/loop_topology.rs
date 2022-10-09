@@ -17,6 +17,7 @@
 use std::time::Duration;
 
 use eyre::WrapErr;
+use itertools::Itertools;
 use maplit::hashmap;
 use serde_json::json;
 use serde_json::Value as JValue;
@@ -27,11 +28,22 @@ use log_utils::enable_logs;
 
 use super::join_stream;
 
-fn permutations(swarms: &[CreatedSwarm]) -> Vec<Vec<String>> {
+fn permutations(swarms: &[CreatedSwarm]) -> Vec<Vec<(String, u32)>> {
     use itertools::*;
 
     let pids = swarms.iter().map(|s| s.peer_id.to_string());
-    let pids = pids.permutations(swarms.len()).collect();
+    let mut i = 0u32;
+    let pids = pids
+        .permutations(swarms.len())
+        .map(|p| {
+            p.into_iter()
+                .map(|pid| {
+                    i += 1;
+                    (pid, i)
+                })
+                .collect()
+        })
+        .collect();
     pids
 }
 
@@ -242,7 +254,7 @@ fn fold_fold_fold_seq_two_par_null_folds() {
 
 #[test]
 fn fold_same_node_stream() {
-    let swarms = make_swarms(4);
+    let swarms = make_swarms(3);
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .wrap_err("connect client")
@@ -266,6 +278,8 @@ fn fold_same_node_stream() {
         acc.push((swarm.peer_id.to_string(), perms));
         acc
     });
+
+    let flat: Vec<_> = pid_permutations.iter().flatten().collect();
 
     client.timeout = Duration::from_secs(200);
     client.particle_ttl = Duration::from_secs(400);
@@ -294,60 +308,88 @@ fn fold_same_node_stream() {
                     (seq
                         (canon relay $inner #inner)
                         (fold $inner ns
-                            (par
-                                (fold ns n
+                            (seq
+                                (fold ns pair
                                     (seq
                                         (seq
-                                            (call n ("op" "noop") [])
-                                            (ap n $result)
+                                            (call pair.$.[0]! ("op" "noop") [])
+                                            (ap pair.$.[1]! $result)
                                         )
-                                        (next n)
+                                        (next pair)
                                     )
                                 )
-                                (next ns)
+                                (seq
+                                    (canon relay $result #mon_res)
+                                    (xor
+                                        (match #mon_res.length flat_length
+                                            (null)
+                                        )
+                                        (next ns)
+                                    )
+                                )
                             )
                         )
                     )
                 )
             )
             (seq                
-                {}
-                (call client ("return" "") [#inner #joined_result])
+                {} ; (call relay ("op" "noop") [])
+                (seq
+                    (canon client $result #end_result)
+                    (call client ("return" "") [#inner #end_result])
+                )
             )
         )
         "#,
-            join_stream("result", "relay", "#inner.length", "joined_result")
+            r#"(call relay ("op" "noop") [])"# // join_stream("result", "relay", "flat_length", "joined_result")
         )
         .as_str(),
         hashmap! {
             "relay" => json!(client.node.to_string()),
             "client" => json!(client.peer_id.to_string()),
             "permutations" => json!(permutations),
+            "flat_length" => dbg!(json!(flat.len() - 1))
         },
     );
 
-    let args = dbg!(client.receive_args().wrap_err("receive args").unwrap());
-    if let [JValue::Array(inner), JValue::Array(result)] = args.as_slice() {
-        let inner: Vec<_> = inner
-            .iter()
-            .map(|a| {
-                a.as_array()
-                    .unwrap()
-                    .iter()
-                    .map(|s| s.as_str().unwrap().to_string())
-                    .collect::<Vec<_>>()
-            })
-            .collect();
-        assert_eq!(pid_permutations, inner);
-        let flat: Vec<_> = pid_permutations.into_iter().flatten().collect();
-        let result: Vec<_> = result
-            .iter()
-            .map(|s| s.as_str().unwrap().to_string())
-            .collect();
-        assert_eq!(flat, result);
-    } else {
-        panic!("expected 2 arrays");
-    }
+    let mut args = dbg!(client.receive_args().wrap_err("receive args").unwrap());
+    type Inner = Vec<Vec<(String, u32)>>;
+    type Res = Vec<u32>;
+
+    let inner: Inner = serde_json::from_value(args.remove(0)).unwrap();
+    println!("{:?}", inner);
+
+    let res: Res = serde_json::from_value(args.remove(0)).unwrap();
+    println!("flat len {} res len {}", flat.len(), res.len());
+    assert_eq!(flat.len(), res.len());
+
+    // if let [JValue::Array(inner), JValue::Array(result)] = args.as_slice() {
+    //     let inner: Vec<_> = inner
+    //         .iter()
+    //         .map(|a| {
+    //             a.as_array()
+    //                 .unwrap()
+    //                 .iter()
+    //                 .map(|s| s.as_u64().unwrap().to_string())
+    //                 .collect::<Vec<_>>()
+    //         })
+    //         .collect();
+    //     assert_eq!(
+    //         pid_permutations, inner,
+    //         "permutation must be equal to inner"
+    //     );
+    //
+    //     let result: Vec<_> = result
+    //         .iter()
+    //         .map(|s| s.as_u64().unwrap().to_string())
+    //         .collect();
+    //     assert_eq!(
+    //         flat, result,
+    //         "result must be a flattened version of permutations"
+    //     );
+    // } else {
+    //     panic!("expected 2 arrays");
+    // }
 }
 
 #[test]
