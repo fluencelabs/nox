@@ -296,7 +296,7 @@ fn fold_same_node_stream() {
                         (fold $inner ns
                             (par
                                 (fold ns n
-                                    (seq     ;; change to par and it works
+                                    (seq
                                         (seq
                                             (call n ("op" "noop") [])
                                             (ap n $result)
