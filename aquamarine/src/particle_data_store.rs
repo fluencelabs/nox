@@ -69,6 +69,13 @@ impl ParticleDataStore {
 
         Ok(())
     }
+
+    pub fn log_data(&self, key: &str) {
+        let data_path = self.data_file(key);
+        let data = std::fs::read(&data_path).unwrap_or_default();
+
+        log::info!("prev_data for {} is {}", key, base64::encode(&data));
+    }
 }
 
 const EXECUTION_TIME_THRESHOLD: Duration = Duration::from_millis(500);

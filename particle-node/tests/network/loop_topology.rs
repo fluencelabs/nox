@@ -308,7 +308,7 @@ fn fold_same_node_stream() {
                     (seq
                         (canon relay $inner #inner)
                         (fold $inner ns
-                            (seq
+                            (par
                                 (fold ns pair
                                     (seq
                                         (seq
@@ -318,15 +318,7 @@ fn fold_same_node_stream() {
                                         (next pair)
                                     )
                                 )
-                                (seq
-                                    (canon relay $result #mon_res)
-                                    (xor
-                                        (match #mon_res.length flat_length
-                                            (null)
-                                        )
-                                        (next ns)
-                                    )
-                                )
+                                (next ns)
                             )
                         )
                     )
@@ -334,14 +326,11 @@ fn fold_same_node_stream() {
             )
             (seq                
                 {} ; (call relay ("op" "noop") [])
-                (seq
-                    (canon client $result #end_result)
-                    (call client ("return" "") [#inner #end_result])
-                )
+                (call client ("return" "") [#inner #joined_result])
             )
         )
         "#,
-            r#"(call relay ("op" "noop") [])"# // join_stream("result", "relay", "flat_length", "joined_result")
+            join_stream("result", "relay", "flat_length", "joined_result")
         )
         .as_str(),
         hashmap! {
