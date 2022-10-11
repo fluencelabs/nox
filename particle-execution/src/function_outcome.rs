@@ -15,9 +15,7 @@
  */
 
 use std::convert::Infallible;
-use std::future::Future;
 use std::ops::{ControlFlow, FromResidual, Try};
-use std::process::Output;
 
 use serde_json::Value as JValue;
 

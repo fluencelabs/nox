@@ -22,8 +22,7 @@ use serde_json::json;
 use serde_json::Value as JValue;
 
 use connected_client::ConnectedClient;
-use created_swarm::{make_swarms, CreatedSwarm};
-use log_utils::enable_logs;
+use created_swarm::{add_print, make_swarms, CreatedSwarm};
 
 use super::join_stream;
 
@@ -443,6 +442,8 @@ fn fold_fold_seq_join() {
 fn fold_fold_pairs_seq_join() {
     let mut swarms = make_swarms(5);
 
+    add_print(swarms.iter_mut());
+
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .wrap_err("connect client")
         .unwrap();
@@ -479,8 +480,9 @@ fn fold_fold_pairs_seq_join() {
                 (canon relay $stream #stream)
                 (fold $stream chars-and-peers
                     (seq
-                        (fold chars-and-peers c-ps
-                            (fold c-ps.$.[1] c
+                        (seq
+                            (call chars-and-peers.$.[0] ("test" "print") ["chars-and-peers" chars-and-peers])
+                            (fold chars-and-peers.$.[1] c
                                 (seq
                                     (ap c $result)
                                     (seq
@@ -494,7 +496,6 @@ fn fold_fold_pairs_seq_join() {
                                     )
                                 )
                             )
-                            (next c-ps)
                         )
                         (seq
                             (canon relay $result #can)
@@ -518,18 +519,18 @@ fn fold_fold_pairs_seq_join() {
         hashmap! {
             "relay" => json!(client.node.to_string()),
             "array" => json!(array),
-            "flat_length" => json!(5)
+            "flat_length" => json!(flat.len())
         },
     );
 
     let mut args = client.receive_args().expect("receive args");
-    let can = dbg!(args.remove(0));
-    let can: Vec<(String, Vec<char>)> = serde_json::from_value(can).unwrap();
-    assert_eq!(can.len(), 5);
-    // assert_eq!(can, flat);
-    let stream = dbg!(args.remove(0));
-    let stream: Vec<Vec<(String, Vec<char>)>> = serde_json::from_value(stream).unwrap();
-    // assert_eq!(stream, array);
+    let can = args.remove(0);
+    let can: Vec<char> = serde_json::from_value(can).unwrap();
+    assert_eq!(can.len(), flat.len());
+    assert_eq!(can, flat);
+    let stream = args.remove(0);
+    let stream: Vec<(String, Vec<char>)> = serde_json::from_value(stream).unwrap();
+    assert_eq!(stream, array);
 }
 
 #[test]
@@ -584,7 +585,9 @@ fn fold_seq_join() {
 
 #[test]
 fn fold_seq_same_node_stream() {
-    let swarms = make_swarms(3);
+    let mut swarms = make_swarms(3);
+
+    add_print(swarms.iter_mut());
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .wrap_err("connect client")
@@ -642,8 +645,11 @@ fn fold_seq_same_node_stream() {
                                 (fold ns pair
                                     (seq
                                         (seq
-                                            (call pair.$.[0]! ("op" "noop") [])
-                                            (ap pair.$.[1]! $result)
+                                            (call relay ("test" "print") ["pair" pair])
+                                            (seq
+                                                (call pair.$.[0]! ("op" "noop") [])
+                                                (ap pair.$.[1]! $result)
+                                            )
                                         )
                                         (seq
                                             (canon relay $result #mon_res)

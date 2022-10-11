@@ -53,6 +53,7 @@ test-utils = { path = "../crates/test-utils" }
 service-modules = { path = "../crates/service-modules" }
 particle-modules = { path = "../particle-modules" }
 particle-execution = { path = "../particle-execution" }
+particle-args = { path = "../crates/particle-args" }
 created-swarm = { path = "../crates/created-swarm" }
 connected-client = { path = "../crates/connected-client" }
 test-constants = { path = "../crates/test-constants" }
