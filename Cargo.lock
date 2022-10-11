@@ -152,9 +152,9 @@ dependencies = [
 
 [[package]]
 name = "air-interpreter-wasm"
-version = "0.1.1-alpha.1-bug-VM-168-temporary-hack-for-canon-10189d4-167-1"
-source = "registry+git://crates.fluence.dev/index"
-checksum = "c65ed1f267da46222af3d43ef64ff365de78a371b4b7a48d83158d58c9c7e580"
+version = "0.31.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "50583adbf4b062bac154b3ad6c0514486b3e392b5da4cbf7c5a462d966b5d1b0"
 dependencies = [
  "built",
 ]

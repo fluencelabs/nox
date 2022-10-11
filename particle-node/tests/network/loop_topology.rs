@@ -253,7 +253,140 @@ fn fold_fold_fold_seq_two_par_null_folds() {
 }
 
 #[test]
-fn fold_same_node_stream() {
+fn fold_par_same_node_stream() {
+    let mut swarms = make_swarms(3);
+    // for s in swarms.iter_mut() {
+    //     s.
+    // }
+
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .wrap_err("connect client")
+        .unwrap();
+
+    for (i, swarm) in swarms.iter().enumerate() {
+        if i == 0 {
+            log::info!("swarm[{}] = {} (relay)", i, swarm.peer_id)
+        } else {
+            log::info!("swarm[{}] = {}", i, swarm.peer_id)
+        }
+    }
+
+    let pid_permutations = permutations(&swarms);
+    let mut permutations = pid_permutations.clone().into_iter();
+    let permutations = &mut permutations;
+    let per_node = permutations.len() / swarms.len();
+    let permutations = swarms.iter().fold(vec![], |mut acc, swarm| {
+        let perms = permutations.take(per_node).collect::<Vec<_>>();
+        assert_eq!(perms.len(), per_node);
+        acc.push((swarm.peer_id.to_string(), perms));
+        acc
+    });
+
+    let flat: Vec<_> = pid_permutations.into_iter().flatten().collect();
+
+    client.timeout = Duration::from_secs(200);
+    client.particle_ttl = Duration::from_secs(400);
+
+    client.send_particle(
+        format!(
+            r#"
+        (seq
+            (seq
+                (null)
+                (seq
+                    (fold permutations pair
+                        (seq
+                            (fold pair.$.[1]! peer_ids
+                                (seq
+                                    (seq
+                                        (call pair.$.[0]! ("op" "noop") [])
+                                        (ap peer_ids $inner)
+                                    )
+                                    (next peer_ids)
+                                )
+                            )
+                            (next pair)
+                        )
+                    )
+                    (seq
+                        (canon relay $inner #inner)
+                        (fold $inner ns
+                            (seq
+                                (fold ns pair
+                                    (seq
+                                        (seq
+                                            (call pair.$.[0]! ("op" "noop") [])
+                                            (ap pair.$.[1]! $result)
+                                        )
+                                        (seq
+                                            (seq
+                                                (canon relay $result #mon_res)
+                                                (call relay () [])
+                                            )
+                                            (xor
+                                                (match #mon_res.length flat_length
+                                                    (null)
+                                                )
+                                                (next pair)
+                                            )
+                                        )
+                                    )
+                                )
+                                (seq
+                                    (canon relay $result #mon_res)
+                                    (xor
+                                        (match #mon_res.length flat_length
+                                            (null)
+                                        )
+                                        (next ns)
+                                    )
+                                )
+                            )
+                        )
+                    )
+                )
+            )
+            (seq
+                {} ; (call relay ("op" "noop") [])
+                (seq
+                    (canon client $result #end_result)
+                    (call client ("return" "") [#inner #end_result])
+                )
+            )
+        )
+        "#,
+            r#"(call relay ("op" "noop") [])"# // join_stream("result", "relay", "flat_length", "joined_result")
+        )
+        .as_str(),
+        hashmap! {
+            "relay" => json!(client.node.to_string()),
+            "client" => json!(client.peer_id.to_string()),
+            "permutations" => json!(permutations),
+            "flat_length" => dbg!(json!(flat.len()))
+        },
+    );
+
+    let mut args = client.receive_args().wrap_err("receive args").unwrap();
+    type Inner = Vec<Vec<(String, u32)>>;
+    type Res = Vec<u32>;
+
+    let inner: Inner = serde_json::from_value(args.remove(0)).unwrap();
+    let permutations: Inner = permutations
+        .into_iter()
+        .map(|(_, perms)| perms.into_iter())
+        .flatten()
+        .collect();
+    assert_eq!(permutations, inner);
+
+    let mut res: Res = serde_json::from_value(args.remove(0)).unwrap();
+    assert_eq!(flat.len(), res.len());
+    let flat: Res = flat.into_iter().map(|(_, i)| i).collect();
+    res.sort();
+    assert_eq!(flat, res);
+}
+
+#[test]
+fn fold_seq_same_node_stream() {
     let swarms = make_swarms(3);
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
@@ -269,7 +402,7 @@ fn fold_same_node_stream() {
     }
 
     let pid_permutations = permutations(&swarms);
-    let mut permutations = pid_permutations.iter();
+    let mut permutations = pid_permutations.clone().into_iter();
     let permutations = &mut permutations;
     let per_node = permutations.len() / swarms.len();
     let permutations = swarms.iter().fold(vec![], |mut acc, swarm| {
@@ -279,7 +412,7 @@ fn fold_same_node_stream() {
         acc
     });
 
-    let flat: Vec<_> = pid_permutations.iter().flatten().collect();
+    let flat: Vec<_> = pid_permutations.into_iter().flatten().collect();
 
     client.timeout = Duration::from_secs(200);
     client.particle_ttl = Duration::from_secs(400);
@@ -337,48 +470,26 @@ fn fold_same_node_stream() {
             "relay" => json!(client.node.to_string()),
             "client" => json!(client.peer_id.to_string()),
             "permutations" => json!(permutations),
-            "flat_length" => dbg!(json!(flat.len() - 1))
+            "flat_length" => dbg!(json!(flat.len()))
         },
     );
 
-    let mut args = dbg!(client.receive_args().wrap_err("receive args").unwrap());
+    let mut args = client.receive_args().wrap_err("receive args").unwrap();
     type Inner = Vec<Vec<(String, u32)>>;
     type Res = Vec<u32>;
 
     let inner: Inner = serde_json::from_value(args.remove(0)).unwrap();
-    println!("{:?}", inner);
+    let permutations: Inner = permutations
+        .into_iter()
+        .map(|(_, perms)| perms.into_iter())
+        .flatten()
+        .collect();
+    assert_eq!(permutations, inner);
 
-    let res: Res = serde_json::from_value(args.remove(0)).unwrap();
-    println!("flat len {} res len {}", flat.len(), res.len());
+    let mut res: Res = serde_json::from_value(args.remove(0)).unwrap();
     assert_eq!(flat.len(), res.len());
-
-    // if let [JValue::Array(inner), JValue::Array(result)] = args.as_slice() {
-    //     let inner: Vec<_> = inner
-    //         .iter()
-    //         .map(|a| {
-    //             a.as_array()
-    //                 .unwrap()
-    //                 .iter()
-    //                 .map(|s| s.as_u64().unwrap().to_string())
-    //                 .collect::<Vec<_>>()
-    //         })
-    //         .collect();
-    //     assert_eq!(
-    //         pid_permutations, inner,
-    //         "permutation must be equal to inner"
-    //     );
-    //
-    //     let result: Vec<_> = result
-    //         .iter()
-    //         .map(|s| s.as_u64().unwrap().to_string())
-    //         .collect();
-    //     assert_eq!(
-    //         flat, result,
-    //         "result must be a flattened version of permutations"
-    //     );
-    // } else {
-    //     panic!("expected 2 arrays");
-    // }
+    let flat: Res = flat.into_iter().map(|(_, i)| i).collect();
+    assert_eq!(flat, res);
 }
 
 #[test]
