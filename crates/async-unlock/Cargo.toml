@@ -5,4 +5,4 @@ authors = ["Fluence Labs"]
 edition = "2018"
 
 [dependencies]
-async-std = "1.12.0"
+async-std = { workspace = true }

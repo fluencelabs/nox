@@ -22,7 +22,7 @@ toml = "0.5.9"
 log = "0.4.17"
 base64 = { workspace = true }
 thiserror = "1.0.37"
-parking_lot = "0.12.1"
+parking_lot = { workspace = true }
 eyre = { workspace = true }
 fstrings = "0.2.3"
 bytesize = "1.1.0"
