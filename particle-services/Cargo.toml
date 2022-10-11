@@ -33,5 +33,5 @@ humantime-serde = "1.1.1"
 [dev-dependencies]
 tempdir = "0.3.7"
 libp2p-core = { workspace = true }
-base64 = "0.13.0"
+base64 = { workspace = true }
 config-utils = { path = "../crates/config-utils" }

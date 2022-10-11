@@ -286,12 +286,12 @@ pub fn create_swarm_with_runtime<RT: AquaRuntime>(
         "root_key_pair": {
             "format": format,
             "generate_on_absence": false,
-            "value": bs58::encode(config.keypair.to_vec()).into_string(),
+            "value": base64::encode(config.keypair.to_vec()),
         },
         "builtins_key_pair": {
             "format": format,
             "generate_on_absence": false,
-            "value": bs58::encode(config.builtins_keypair.to_vec()).into_string(),
+            "value": base64::encode(config.builtins_keypair.to_vec()),
         },
         "builtins_base_dir": config.builtins_dir,
         "external_multiaddresses": [config.listen_on]
