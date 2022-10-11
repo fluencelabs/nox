@@ -360,6 +360,56 @@ fn fold_par_same_node_stream() {
 }
 
 #[test]
+fn fold_seq_join() {
+    let swarm = make_swarms(1).remove(0);
+
+    let mut client = ConnectedClient::connect_to(swarm.multiaddr.clone())
+        .wrap_err("connect client")
+        .unwrap();
+
+    let array: Vec<_> = (1..10).collect();
+
+    client.send_particle(
+        r#"
+    (seq
+        (seq
+            (fold array e
+                (seq
+                    (ap e $stream)
+                    (next e)
+                )    
+            )
+            (fold $stream e
+                (seq
+                    (canon relay $stream #can)
+                    (xor
+                        (match #can.length array_length
+                            (null)
+                        )
+                        (next e)
+                    )
+                )
+            )
+        )
+        (seq
+            (canon relay $stream #can)
+            (call %init_peer_id% ("op" "return") [#can])
+        )
+    )
+    "#,
+        hashmap! {
+            "relay" => json!(client.node.to_string()),
+            "array" => json!(array),
+            "array_length" => json!(array.len())
+        },
+    );
+
+    let arg = client.receive_args().expect("receive args").remove(0);
+    let can: Vec<u32> = serde_json::from_value(arg).unwrap();
+    assert_eq!(can, array);
+}
+
+#[test]
 fn fold_seq_same_node_stream() {
     let swarms = make_swarms(3);
 
