@@ -16,7 +16,7 @@
 
 use clap::Arg;
 
-use server_config::config_keys::*;
+use crate::config_keys::*;
 
 pub fn create_args<'help>() -> Vec<Arg<'help>> {
     vec![
@@ -105,8 +105,9 @@ pub fn create_args<'help>() -> Vec<Arg<'help>> {
             .short('k')
             .long("keypair-value")
             .value_name("BYTES")
-            .help("keypair in base58 (conflicts with --keypair-path)")
-            .conflicts_with(ROOT_KEY_PAIR_PATH),
+            .help("keypair in base64 (conflicts with --keypair-path)")
+            .conflicts_with(ROOT_KEY_PAIR_PATH)
+            .conflicts_with(SECRET_KEY),
         Arg::new(ROOT_KEY_PAIR_PATH)
             .display_order(11)
             .help_heading(Some("Node keypair"))
@@ -114,8 +115,9 @@ pub fn create_args<'help>() -> Vec<Arg<'help>> {
             .short('p')
             .long("keypair-path")
             .help("keypair path (conflicts with --keypair-value)")
-            .conflicts_with(ROOT_KEY_PAIR_VALUE),
-        Arg::new(ROOT_KEY_PAIR_FORMAT)
+            .conflicts_with(ROOT_KEY_PAIR_VALUE)
+            .conflicts_with(SECRET_KEY),
+        Arg::new(ROOT_KEY_FORMAT)
             .display_order(12)
             .help_heading(Some("Node keypair"))
             .takes_value(true)
@@ -128,10 +130,21 @@ pub fn create_args<'help>() -> Vec<Arg<'help>> {
             .takes_value(true)
             .short('g')
             .long("gen-keypair")
+            .value_name("bool")
+            .possible_values(&["true", "false"])
             .help("generate keypair on absence"),
+        Arg::new(SECRET_KEY)
+            .display_order(14)
+            .takes_value(true)
+            .help_heading(Some("Node keypair"))
+            .short('y')
+            .long("secret-key")
+            .conflicts_with(ROOT_KEY_PAIR_PATH)
+            .conflicts_with(ROOT_KEY_PAIR_VALUE)
+            .help("Node secret key in base64 (usually 32 bytes)"),
         // node configuration
         Arg::new(CONFIG_FILE)
-            .display_order(14)
+            .display_order(15)
             .help_heading(Some("Node configuration"))
             .takes_value(true)
             .short('c')
@@ -139,7 +152,7 @@ pub fn create_args<'help>() -> Vec<Arg<'help>> {
             .value_name("PATH")
             .help("TOML configuration file"),
         Arg::new(CERTIFICATE_DIR)
-            .display_order(15)
+            .display_order(16)
             .help_heading(Some("Node configuration"))
             .takes_value(true)
             .short('d')
@@ -147,7 +160,7 @@ pub fn create_args<'help>() -> Vec<Arg<'help>> {
             .value_name("PATH")
             .help("certificate dir"),
         Arg::new(MANAGEMENT_PEER_ID)
-            .display_order(16)
+            .display_order(17)
             .help_heading(Some("Node configuration"))
             .takes_value(true)
             .long("management-key")
@@ -156,7 +169,7 @@ pub fn create_args<'help>() -> Vec<Arg<'help>> {
             .help("PeerId of the node's administrator"),
         // services
         Arg::new(SERVICE_ENVS)
-            .display_order(17)
+            .display_order(18)
             .help_heading(Some("Services configuration"))
             .value_name("NAME=VALUE")
             .takes_value(true)
@@ -165,7 +178,7 @@ pub fn create_args<'help>() -> Vec<Arg<'help>> {
             .multiple_values(true)
             .help("envs to pass to core modules"),
         Arg::new(BLUEPRINT_DIR)
-            .display_order(18)
+            .display_order(19)
             .help_heading(Some("Services configuration"))
             .takes_value(true)
             .short('u')
@@ -173,7 +186,7 @@ pub fn create_args<'help>() -> Vec<Arg<'help>> {
             .value_name("PATH")
             .help("directory containing blueprints and wasm modules"),
         Arg::new(SERVICES_WORKDIR)
-            .display_order(19)
+            .display_order(20)
             .help_heading(Some("Services configuration"))
             .takes_value(true)
             .short('r')
@@ -182,7 +195,7 @@ pub fn create_args<'help>() -> Vec<Arg<'help>> {
             .help("directory where all services will store their data"),
         // AIR
         Arg::new(AQUA_VM_POOL_SIZE)
-            .display_order(20)
+            .display_order(21)
             .help_heading(Some("AIR configuration"))
             .takes_value(true)
             .long("aqua-pool-size")
