@@ -15,7 +15,7 @@
  */
 
 use std::borrow::Borrow;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
 use std::ops::Try;
 use std::path;
@@ -29,6 +29,7 @@ use futures::StreamExt;
 use humantime_serde::re::humantime::format_duration as pretty;
 use libp2p::{core::Multiaddr, kad::kbucket::Key, kad::K_VALUE, PeerId};
 use multihash::{Code, MultihashDigest, MultihashGeneric};
+use parking_lot::{Mutex, RwLock};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value as JValue};
 use JValue::Array;
@@ -37,7 +38,7 @@ use connection_pool::{ConnectionPoolApi, ConnectionPoolT};
 use kademlia::{KademliaApi, KademliaApiT};
 use now_millis::{now_ms, now_sec};
 use particle_args::{from_base58, Args, ArgsError, JError};
-use particle_execution::{FunctionOutcome, ParticleParams};
+use particle_execution::{FunctionOutcome, ParticleParams, ServiceFunction};
 use particle_modules::{
     AddBlueprint, ModuleConfig, ModuleRepository, NamedModuleConfig, WASIConfig,
 };
@@ -47,13 +48,14 @@ use peer_metrics::ServicesMetrics;
 use script_storage::ScriptStorageApi;
 use server_config::ServicesConfig;
 
+use crate::debug::fmt_custom_services;
 use crate::error::HostClosureCallError;
 use crate::error::HostClosureCallError::{DecodeBase58, DecodeUTF8};
 use crate::identify::NodeInfo;
 use crate::math;
 
 #[derive(Derivative)]
-#[derivative(Debug, Clone)]
+#[derivative(Debug)]
 pub struct Builtins<C> {
     pub connectivity: C,
     pub script_storage: ScriptStorageApi,
@@ -67,6 +69,9 @@ pub struct Builtins<C> {
     pub modules: ModuleRepository,
     pub services: ParticleAppServices,
     pub node_info: NodeInfo,
+
+    #[derivative(Debug(format_with = "fmt_custom_services"))]
+    pub custom_services: RwLock<HashMap<String, HashMap<String, Mutex<ServiceFunction>>>>,
 
     particles_vault_dir: path::PathBuf,
 }
@@ -110,6 +115,7 @@ where
             services,
             node_info,
             particles_vault_dir,
+            custom_services: <_>::default(),
         }
     }
 
@@ -118,15 +124,31 @@ where
         let result = self.builtins_call(args, particle).await;
         let end = start.elapsed().as_secs();
         match result {
-            FunctionOutcome::NotDefined { args, params } => self.call_service(args, params),
+            FunctionOutcome::NotDefined { args, params } => self
+                .custom_service_call(args, params)
+                .or_else(|args, params| self.call_service(args, params)),
             result => {
                 if let Some(metrics) = self.services.metrics.as_ref() {
-                    metrics.observe_builtins(
-                        !matches!(result, FunctionOutcome::Err { .. }),
-                        end as f64,
-                    );
+                    metrics.observe_builtins(result.is_err(), end as f64);
                 }
                 result
+            }
+        }
+    }
+
+    pub fn custom_service_call(&self, args: Args, particle: ParticleParams) -> FunctionOutcome {
+        if let Some(function) = self
+            .custom_services
+            .read()
+            .get(&args.service_id)
+            .and_then(|fs| fs.get(&args.function_name))
+        {
+            let mut function = function.lock();
+            async_std::task::block_on(function(args, particle))
+        } else {
+            FunctionOutcome::NotDefined {
+                args,
+                params: particle,
             }
         }
     }

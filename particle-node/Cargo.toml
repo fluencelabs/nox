@@ -33,8 +33,8 @@ libp2p-swarm = { workspace = true }
 prometheus-client = { workspace = true }
 
 futures = "0.3.24"
-async-std = { version = "1.12.0", features = ["unstable"] }
-parking_lot = "0.12.1"
+async-std = { workspace = true }
+parking_lot = { workspace = true }
 
 humantime-serde = "1.1.1"
 
@@ -48,9 +48,11 @@ base64 = { workspace = true }
 
 [dev-dependencies]
 log-utils = { path = "../crates/log-utils" }
+uuid-utils = { path = "../crates/uuid-utils" }
 test-utils = { path = "../crates/test-utils" }
 service-modules = { path = "../crates/service-modules" }
 particle-modules = { path = "../particle-modules" }
+particle-execution = { path = "../particle-execution" }
 created-swarm = { path = "../crates/created-swarm" }
 connected-client = { path = "../crates/connected-client" }
 test-constants = { path = "../crates/test-constants" }
@@ -63,7 +65,7 @@ builtins = { path = "./tests/builtins"}
 
 fluence-app-service = { workspace = true }
 
-parking_lot = "0.12.1"
+parking_lot = { workspace = true }
 maplit = "1.0.2"
 serde_json = "1.0.85"
 fstrings = "0.2.3"

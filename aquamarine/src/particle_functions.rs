@@ -30,12 +30,9 @@ use serde_json::Value as JValue;
 
 use particle_args::{Args, JError};
 use particle_execution::{
-    FunctionOutcome, ParticleFunctionOutput, ParticleFunctionStatic, ParticleParams,
+    FunctionOutcome, ParticleFunctionStatic, ParticleParams, ServiceFunction,
 };
 use peer_metrics::FunctionKind;
-
-pub type Function =
-    Box<dyn FnMut(Args, ParticleParams) -> ParticleFunctionOutput<'static> + 'static + Send + Sync>;
 
 #[derive(Clone, Debug)]
 /// Performance statistics about executed function call
@@ -60,7 +57,7 @@ pub struct Functions<F> {
     function_calls: FuturesUnordered<BoxFuture<'static, SingleCallResult>>,
     call_results: CallResults,
     call_stats: Vec<SingleCallStat>,
-    particle_function: Option<Arc<Mutex<Function>>>,
+    particle_function: Option<Arc<Mutex<ServiceFunction>>>,
 }
 
 impl<F: ParticleFunctionStatic> Functions<F> {
@@ -106,7 +103,7 @@ impl<F: ParticleFunctionStatic> Functions<F> {
         (call_results, stats)
     }
 
-    pub fn set_function(&mut self, function: Function) {
+    pub fn set_function(&mut self, function: ServiceFunction) {
         self.particle_function = Some(Arc::new(Mutex::new(function)));
     }
 
