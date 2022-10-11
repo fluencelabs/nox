@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+use async_std::sync::Mutex;
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use futures::future::BoxFuture;
@@ -24,8 +26,14 @@ use particle_args::Args;
 use crate::{FunctionOutcome, ParticleParams};
 
 pub type Output<'a> = BoxFuture<'a, FunctionOutcome>;
+
+pub type ServiceFunction =
+    Box<dyn FnMut(Args, ParticleParams) -> Output<'static> + 'static + Send + Sync>;
+
 pub trait ParticleFunction: 'static + Send + Sync {
     fn call(&self, args: Args, particle: ParticleParams) -> Output<'_>;
+    fn extend(&self, service: String, functions: HashMap<String, ServiceFunction>);
+    fn remove(&self, service: &str) -> Option<HashMap<String, ServiceFunction>>;
 }
 
 pub trait ParticleFunctionMut: 'static + Send + Sync {
@@ -34,11 +42,20 @@ pub trait ParticleFunctionMut: 'static + Send + Sync {
 
 pub trait ParticleFunctionStatic: 'static + Send + Sync {
     fn call(&self, args: Args, particle: ParticleParams) -> Output<'static>;
+    fn extend(&self, service: String, functions: HashMap<String, ServiceFunction>);
+    fn remove(&self, service: &str) -> Option<HashMap<String, ServiceFunction>>;
 }
 
 impl<F: ParticleFunction> ParticleFunctionStatic for Arc<F> {
     fn call(self: &Arc<F>, args: Args, particle: ParticleParams) -> Output<'static> {
         let this = self.clone();
         async move { ParticleFunction::call(this.as_ref(), args, particle).await }.boxed()
+    }
+
+    fn extend(self: &Arc<F>, service: String, functions: HashMap<String, ServiceFunction>) {
+        ParticleFunction::extend(self.as_ref(), service, functions)
+    }
+    fn remove(self: &Arc<F>, service: &str) -> Option<HashMap<String, ServiceFunction>> {
+        ParticleFunction::remove(self.as_ref(), service)
     }
 }
