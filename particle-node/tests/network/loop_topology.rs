@@ -17,7 +17,6 @@
 use std::time::Duration;
 
 use eyre::WrapErr;
-use itertools::Itertools;
 use maplit::hashmap;
 use serde_json::json;
 use serde_json::Value as JValue;
@@ -254,10 +253,7 @@ fn fold_fold_fold_seq_two_par_null_folds() {
 
 #[test]
 fn fold_par_same_node_stream() {
-    let mut swarms = make_swarms(3);
-    // for s in swarms.iter_mut() {
-    //     s.
-    // }
+    let swarms = make_swarms(3);
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .wrap_err("connect client")
@@ -311,51 +307,29 @@ fn fold_par_same_node_stream() {
                     (seq
                         (canon relay $inner #inner)
                         (fold $inner ns
-                            (seq
+                            (par
                                 (fold ns pair
                                     (seq
                                         (seq
                                             (call pair.$.[0]! ("op" "noop") [])
                                             (ap pair.$.[1]! $result)
                                         )
-                                        (seq
-                                            (seq
-                                                (canon relay $result #mon_res)
-                                                (call relay () [])
-                                            )
-                                            (xor
-                                                (match #mon_res.length flat_length
-                                                    (null)
-                                                )
-                                                (next pair)
-                                            )
-                                        )
+                                        (next pair)
                                     )
                                 )
-                                (seq
-                                    (canon relay $result #mon_res)
-                                    (xor
-                                        (match #mon_res.length flat_length
-                                            (null)
-                                        )
-                                        (next ns)
-                                    )
-                                )
+                                (next ns)
                             )
                         )
                     )
                 )
             )
-            (seq
-                {} ; (call relay ("op" "noop") [])
-                (seq
-                    (canon client $result #end_result)
-                    (call client ("return" "") [#inner #end_result])
-                )
+            (seq                
+                {}
+                (call client ("return" "") [#inner #joined_result])
             )
         )
         "#,
-            r#"(call relay ("op" "noop") [])"# // join_stream("result", "relay", "flat_length", "joined_result")
+            join_stream("result", "relay", "flat_length", "joined_result")
         )
         .as_str(),
         hashmap! {
@@ -441,29 +415,47 @@ fn fold_seq_same_node_stream() {
                     (seq
                         (canon relay $inner #inner)
                         (fold $inner ns
-                            (par
+                            (seq
                                 (fold ns pair
                                     (seq
                                         (seq
                                             (call pair.$.[0]! ("op" "noop") [])
                                             (ap pair.$.[1]! $result)
                                         )
-                                        (next pair)
+                                        (seq
+                                            (canon relay $result #mon_res)
+                                            (xor
+                                                (match #mon_res.length flat_length
+                                                    (null)
+                                                )
+                                                (next pair)
+                                            )
+                                        )
                                     )
                                 )
-                                (next ns)
+                                (seq
+                                    (canon relay $result #mon_res)
+                                    (xor
+                                        (match #mon_res.length flat_length
+                                            (null)
+                                        )
+                                        (next ns)
+                                    )
+                                )
                             )
                         )
                     )
                 )
             )
             (seq                
-                {} ; (call relay ("op" "noop") [])
-                (call client ("return" "") [#inner #joined_result])
+                (call relay ("op" "noop") [])
+                (seq
+                    (canon client $result #end_result)
+                    (call client ("return" "") [#inner #end_result])
+                )
             )
         )
-        "#,
-            join_stream("result", "relay", "flat_length", "joined_result")
+        "#
         )
         .as_str(),
         hashmap! {
@@ -486,7 +478,7 @@ fn fold_seq_same_node_stream() {
         .collect();
     assert_eq!(permutations, inner);
 
-    let mut res: Res = serde_json::from_value(args.remove(0)).unwrap();
+    let res: Res = serde_json::from_value(args.remove(0)).unwrap();
     assert_eq!(flat.len(), res.len());
     let flat: Res = flat.into_iter().map(|(_, i)| i).collect();
     assert_eq!(flat, res);
