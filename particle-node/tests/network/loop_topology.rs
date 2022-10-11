@@ -441,15 +441,13 @@ fn fold_fold_seq_join() {
 
 #[test]
 fn fold_fold_pairs_seq_join() {
-    enable_logs();
-
-    let swarms = make_swarms(5);
+    let mut swarms = make_swarms(5);
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .wrap_err("connect client")
         .unwrap();
 
-    let array: Vec<_> = (0..4)
+    let array: Vec<_> = (0..5)
         .map(|i| {
             let start = i * 5 + b'A';
             let chars = (start..start + 5).map(|c| c as char).collect::<Vec<_>>();
@@ -465,6 +463,8 @@ fn fold_fold_pairs_seq_join() {
         .map(|c| *c)
         .collect();
 
+    assert_eq!(flat.len(), 25);
+
     client.send_particle(
         r#"
     (seq
@@ -479,19 +479,22 @@ fn fold_fold_pairs_seq_join() {
                 (canon relay $stream #stream)
                 (fold $stream chars-and-peers
                     (seq
-                        (fold chars-and-peers c-p
-                            (seq
-                                (ap c-p $result)
+                        (fold chars-and-peers c-ps
+                            (fold c-ps.$.[1] c
                                 (seq
-                                    (canon relay $result #can)
-                                    (xor
-                                        (match #can.length flat_length
-                                            (null)
+                                    (ap c $result)
+                                    (seq
+                                        (canon relay $result #can)
+                                        (xor
+                                            (match #can.length flat_length
+                                                (null)
+                                            )
+                                            (next c)
                                         )
-                                        (next c-p)
                                     )
                                 )
                             )
+                            (next c-ps)
                         )
                         (seq
                             (canon relay $result #can)
@@ -515,16 +518,17 @@ fn fold_fold_pairs_seq_join() {
         hashmap! {
             "relay" => json!(client.node.to_string()),
             "array" => json!(array),
-            "flat_length" => json!(flat.len())
+            "flat_length" => json!(5)
         },
     );
 
     let mut args = client.receive_args().expect("receive args");
-    let can = args.remove(0);
-    let can: Vec<char> = serde_json::from_value(can).unwrap();
-    assert_eq!(can, flat);
-    let stream = args.remove(0);
-    let stream: Vec<Vec<char>> = serde_json::from_value(stream).unwrap();
+    let can = dbg!(args.remove(0));
+    let can: Vec<(String, Vec<char>)> = serde_json::from_value(can).unwrap();
+    assert_eq!(can.len(), 5);
+    // assert_eq!(can, flat);
+    let stream = dbg!(args.remove(0));
+    let stream: Vec<Vec<(String, Vec<char>)>> = serde_json::from_value(stream).unwrap();
     // assert_eq!(stream, array);
 }
 
