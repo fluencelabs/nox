@@ -655,28 +655,26 @@ fn fold_seq_same_node_stream() {
                     (seq
                         (seq
                             (canon relay $pid-num-arrs #pid-num-arrs)
-                            (null) ;; (call relay ("test" "print") [#pid-num-arrs])
+                            (call relay ("test" "print") ["#pid-num-arrs" #pid-num-arrs])
                         )
                         (new $result
                             (fold $pid-num-arrs pid-num-arr
                                 (seq
-                                    (fold pid-num-arr pid-num
-                                        (seq
-                                            (seq
-                                                (null) ;; (call relay ("test" "print") ["pair" pid-num])
-                                                (seq
-                                                    (call pid-num.$.[0]! ("op" "noop") [])
-                                                    (ap pid-num.$.[1]! $result)
-                                                )
-                                            )
+                                    (seq
+                                        (call relay ("test" "print") ["pid-num-arr" pid-num-arr])
+                                        (fold pid-num-arr pid-num
                                             (seq
                                                 (seq
-                                                    (canon pid-num.$.[0]! $result #mon_res)
-                                                    (call pid-num.$.[0]! ("test" "print") ["#mon_res inner" #mon_res #mon_res.length])
+                                                    (null) ;; (call relay ("test" "print") ["pair" pid-num])
+                                                    (seq
+                                                        (call pid-num.$.[0]! ("op" "noop") [])
+                                                        (ap pid-num.$.[1]! $result)
+                                                    )
                                                 )
-                                                (xor
-                                                    (match #mon_res.length flat_length
-                                                        (null)
+                                                (seq
+                                                    (seq
+                                                        (canon pid-num.$.[0]! $result #mon_res)
+                                                        (call pid-num.$.[0]! ("test" "print") ["#mon_res inner" #mon_res #mon_res.length])
                                                     )
                                                     (next pid-num)
                                                 )
@@ -690,9 +688,12 @@ fn fold_seq_same_node_stream() {
                                         )
                                         (xor
                                             (match #mon_res.length flat_length
-                                                (null)
+                                                (call relay ("test" "print") ["inside length match" #mon_res.length flat_length])
                                             )
-                                            (next pid-num-arr)
+                                            (seq
+                                                (call relay ("test" "print") ["xor right" #mon_res.length flat_length])
+                                                (next pid-num-arr)
+                                            )
                                         )
                                     )
                                 )
