@@ -224,6 +224,10 @@ fn explore_services() {
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .wrap_err("connect client")
         .unwrap();
+
+    // N - 1 neighborhood each with N - 1 elements.
+    let total_neighs = (swarms.len() - 1) * (swarms.len() - 1);
+
     client.send_particle(
         format!(
             r#"
@@ -256,7 +260,12 @@ fn explore_services() {
             )
         )
         "#,
-            join_stream("external_addresses", "relay", "5", "joined_addresses")
+            join_stream(
+                "external_addresses",
+                "relay",
+                &total_neighs.to_string(),
+                "joined_addresses"
+            )
         )
         .as_str(),
         hashmap! {
@@ -264,8 +273,6 @@ fn explore_services() {
             "client" => json!(client.peer_id.to_string()),
         },
     );
-
-    client.timeout = Duration::from_secs(120);
 
     let args = client.receive_args().wrap_err("receive args").unwrap();
     let external_addrs = args.into_iter().next().unwrap();
