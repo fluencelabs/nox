@@ -30,6 +30,6 @@ jobs:
 
     uses: fluencelabs/registry/.github/workflows/tests.yml@main
     with:
-      rust-peer-image: "${{ needs.rust-peer.outputs.rust-peer-image }}"
+      rust-peer-image: "${{ needs.snapshot.outputs.rust-peer-image }}"
       # uncomment and change to branch name to run against
       # ref: add-wasi-target
