@@ -620,6 +620,9 @@ fn fold_seq_same_node_stream() {
     client.timeout = Duration::from_secs(200);
     client.particle_ttl = Duration::from_secs(400);
 
+    println!("client: {}", client.peer_id);
+    println!("relay: {}", client.node);
+
     println!("permutations {}", json!(permutations));
 
     client.send_particle(
@@ -658,45 +661,49 @@ fn fold_seq_same_node_stream() {
                             (call relay ("test" "print") ["#pid-num-arrs" #pid-num-arrs])
                         )
                         (new $result
-                            (fold $pid-num-arrs pid-num-arr
-                                (seq
-                                    (seq
-                                        (call relay ("test" "print") ["pid-num-arr" pid-num-arr])
-                                        (fold pid-num-arr pid-num
-                                            (seq
-                                                (seq
-                                                    (null) ;; (call relay ("test" "print") ["pair" pid-num])
-                                                    (seq
-                                                        (call pid-num.$.[0]! ("op" "noop") [])
-                                                        (ap pid-num.$.[1]! $result)
-                                                    )
-                                                )
-                                                (seq
-                                                    (seq
-                                                        (canon pid-num.$.[0]! $result #mon_res)
-                                                        (call pid-num.$.[0]! ("test" "print") ["#mon_res inner" #mon_res #mon_res.length])
-                                                    )
-                                                    (next pid-num)
-                                                )
-                                            )
-                                        )
-                                    )
+                            (seq
+                                (fold $pid-num-arrs pid-num-arr
                                     (seq
                                         (seq
-                                            (canon relay $result #mon_res)
-                                            (call relay ("test" "print") ["#mon_res" #mon_res #mon_res.length])
-                                        )
-                                        (xor
-                                            (match #mon_res.length flat_length
-                                                (call relay ("test" "print") ["inside length match" #mon_res.length flat_length])
+                                            (call relay ("test" "print") ["pid-num-arr" pid-num-arr])
+                                            (fold pid-num-arr pid-num
+                                                (seq
+                                                    (seq
+                                                        (null) ;; (call relay ("test" "print") ["pair" pid-num])
+                                                        (seq
+                                                            (call pid-num.$.[0]! ("op" "noop") [])
+                                                            (ap pid-num.$.[1]! $result)
+                                                        )
+                                                    )
+                                                    (seq
+                                                        (seq
+                                                            (canon pid-num.$.[0]! $result #mon_res)
+                                                            (call pid-num.$.[0]! ("test" "print") ["#mon_res inner" #mon_res #mon_res.length])
+                                                        )
+                                                        (next pid-num)
+                                                    )
+                                                )
                                             )
+                                        )
+                                        (seq
                                             (seq
-                                                (call relay ("test" "print") ["xor right" #mon_res.length flat_length])
-                                                (next pid-num-arr)
+                                                (canon relay $result #mon_res)
+                                                (call relay ("test" "print") ["#mon_res" #mon_res #mon_res.length])
+                                            )
+                                            (xor
+                                                (match #mon_res.length flat_length
+                                                    (call relay ("test" "print") ["inside length match" #mon_res.length flat_length])
+                                                )
+                                                (seq
+                                                    (call relay ("test" "print") ["xor right" #mon_res.length flat_length])
+                                                    (next pid-num-arr)
+                                                )
                                             )
                                         )
                                     )
+                                    (null)
                                 )
+                                (canon relay $result #end_result)
                             )
                         )
                     )
@@ -705,7 +712,7 @@ fn fold_seq_same_node_stream() {
             (seq                
                 (call relay ("op" "noop") [])
                 (seq
-                    (canon client $result #end_result)
+                    (call relay ("test" "print") ["#end_result" #end_result])
                     (call client ("return" "") [#pid-num-arrs #end_result])
                 )
             )
