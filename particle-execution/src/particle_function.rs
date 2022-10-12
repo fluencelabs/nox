@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-use async_std::sync::Mutex;
 use std::collections::HashMap;
 use std::sync::Arc;
 
