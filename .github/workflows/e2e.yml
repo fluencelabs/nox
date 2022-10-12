@@ -32,4 +32,4 @@ jobs:
     with:
       rust-peer-image: "${{ needs.rust-peer.outputs.rust-peer-image }}"
       # uncomment and change to branch name to run against
-      # ref: show-aqua-version
+      ref: add-wasi-target
