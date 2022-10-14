@@ -22,13 +22,13 @@ use std::{
 use avm_server::CallResults;
 use futures::FutureExt;
 
-use particle_execution::ParticleFunctionStatic;
+use particle_execution::{ParticleFunctionStatic, ServiceFunction};
 use particle_protocol::Particle;
 
 use crate::deadline::Deadline;
 use crate::particle_effects::NetworkEffects;
 use crate::particle_executor::{Fut, FutResult, ParticleExecutor};
-use crate::particle_functions::{Function, Functions, SingleCallStat};
+use crate::particle_functions::{Functions, SingleCallStat};
 use crate::{AquaRuntime, InterpretationStats};
 
 pub struct Actor<RT, F> {
@@ -87,7 +87,7 @@ where
         self.mailbox.len()
     }
 
-    pub fn set_function(&mut self, function: Function) {
+    pub fn set_function(&mut self, function: ServiceFunction) {
         self.functions.set_function(function)
     }
 

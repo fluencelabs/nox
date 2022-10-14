@@ -40,7 +40,7 @@ use libp2p_metrics::{Metrics, Recorder};
 use prometheus_client::registry::Registry;
 
 use aquamarine::{
-    AquaRuntime, AquamarineApiError, AquamarineBackend, NetworkEffects, VmPoolConfig,
+    AquaRuntime, AquamarineApi, AquamarineApiError, AquamarineBackend, NetworkEffects, VmPoolConfig,
 };
 use builtins_deployer::BuiltinsDeployer;
 use config_utils::to_peer_id;
@@ -71,6 +71,7 @@ pub struct Node<RT: AquaRuntime> {
     pub swarm: Swarm<FluenceNetworkBehaviour>,
 
     pub connectivity: Connectivity,
+    pub aquamarine_api: AquamarineApi,
     pub dispatcher: Dispatcher,
     aquavm_pool: AquamarineBackend<RT, Arc<Builtins<Connectivity>>>,
     script_storage: ScriptStorageBackend,
@@ -206,7 +207,7 @@ impl<RT: AquaRuntime> Node<RT> {
         let builtins_deployer = BuiltinsDeployer::new(
             builtins_peer_id,
             local_peer_id,
-            aquamarine_api,
+            aquamarine_api.clone(),
             config.dir_config.builtins_base_dir.clone(),
             config.node_config.autodeploy_particle_ttl,
             config.node_config.force_builtins_redeploy,
@@ -218,6 +219,7 @@ impl<RT: AquaRuntime> Node<RT> {
             effects_in,
             swarm,
             connectivity,
+            aquamarine_api,
             dispatcher,
             aquavm_pool,
             script_storage_backend,
@@ -285,6 +287,7 @@ impl<RT: AquaRuntime> Node<RT> {
         swarm: Swarm<FluenceNetworkBehaviour>,
 
         connectivity: Connectivity,
+        aquamarine_api: AquamarineApi,
         dispatcher: Dispatcher,
         aquavm_pool: AquamarineBackend<RT, Arc<Builtins<Connectivity>>>,
         script_storage: ScriptStorageBackend,
@@ -303,6 +306,7 @@ impl<RT: AquaRuntime> Node<RT> {
             swarm,
 
             connectivity,
+            aquamarine_api,
             dispatcher,
             aquavm_pool,
             script_storage,

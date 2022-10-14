@@ -34,6 +34,7 @@ pub use builtins::Builtins;
 pub use identify::NodeInfo;
 
 mod builtins;
+mod debug;
 mod error;
 mod identify;
 mod math;
