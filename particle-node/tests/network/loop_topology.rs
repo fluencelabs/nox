@@ -585,7 +585,8 @@ fn fold_seq_join() {
 }
 
 #[test]
-fn fold_seq_same_node_stream() {
+#[ignore = "client function isn't called when fold ends with null"]
+fn fold_null_seq_same_node_stream() {
     // enable_logs();
 
     let mut swarms = make_swarms(3);
