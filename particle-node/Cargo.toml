@@ -68,7 +68,7 @@ fluence-app-service = { workspace = true }
 
 parking_lot = { workspace = true }
 maplit = "1.0.2"
-serde_json = "1.0.85"
+serde_json = "1.0.86"
 fstrings = "0.2.3"
 serde = "1.0.145"
 multihash = "0.16.3"
