@@ -315,28 +315,8 @@ fn handle_same_dir_in_preopens_and_mapped_dirs() {
         "module_bytes" => json!(base64::encode(module)),
     };
     client.send_particle_ext(script, data, true);
-    let result = client.receive_args().expect("receive");
-    if let [JValue::String(service_id)] = &result[..] {
-        client.send_particle(
-            r#"
-            (seq
-                (call relay ("srv" "list") [] list)
-                (call %init_peer_id% ("op" "return") [list])
-            )
-            "#,
-            hashmap! {
-                "relay" => json!(client.node.to_string()),
-                "service" => json!(service_id),
-            },
-        );
-
-        use serde_json::Value::Array;
-
-        if let [Array(sids)] = client.receive_args().unwrap().as_slice() {
-            let sid = sids.first().unwrap().get("id").unwrap();
-            assert_eq!(sid, &json!(service_id))
-        } else {
-            panic!("incorrect args: expected vec of single string")
-        }
+    let result = client.receive_args();
+    if resut.is_ok() {
+        panic!("expected error for module with invalid config")
     }
 }
