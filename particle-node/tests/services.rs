@@ -316,7 +316,7 @@ fn handle_same_dir_in_preopens_and_mapped_dirs() {
     };
     client.send_particle_ext(script, data, true);
     let result = client.receive_args();
-    if resut.is_ok() {
+    if result.is_ok() {
         panic!("expected error for module with invalid config")
     }
 }
