@@ -13,24 +13,27 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use connected_client::{ClientEvent, ConnectedClient};
-use created_swarm::make_swarms;
-use test_constants::KAD_TIMEOUT;
-use test_utils::{create_service, timeout};
+use std::str::FromStr;
+use std::thread::sleep;
+use std::time::{Duration, Instant};
 
 use eyre::{ContextCompat, WrapErr};
 use futures::executor::block_on;
 use itertools::Itertools;
 use libp2p::core::Multiaddr;
-use local_vm::read_args;
 use maplit::hashmap;
 use serde::Deserialize;
 use serde_json::json;
 use serde_json::Value as JValue;
+
+use connected_client::{ClientEvent, ConnectedClient};
+use created_swarm::make_swarms;
+use local_vm::read_args;
 use service_modules::{load_module, module_config};
-use std::str::FromStr;
-use std::thread::sleep;
-use std::time::{Duration, Instant};
+use test_constants::KAD_TIMEOUT;
+use test_utils::{create_service, timeout};
+
+use crate::network::join_stream;
 
 #[derive(Debug, Deserialize)]
 #[allow(dead_code)]
@@ -221,8 +224,13 @@ fn explore_services() {
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .wrap_err("connect client")
         .unwrap();
+
+    // N - 1 neighborhood each with N - 1 elements.
+    let total_neighs = (swarms.len() - 1) * (swarms.len() - 1);
+
     client.send_particle(
-        r#"
+        format!(
+            r#"
         (seq
             (seq
                 (call relay ("kad" "neighborhood") [relay] neighs_top)
@@ -234,9 +242,9 @@ fn explore_services() {
                         )
                     )
                     (fold $neighs_inner ns
-                        (seq
+                        (par
                             (fold ns n
-                                (seq
+                                (par
                                     (call n ("peer" "identify") [] $external_addresses)
                                     (next n)
                                 )
@@ -247,18 +255,24 @@ fn explore_services() {
                 )
             )
             (seq
-                (call relay ("op" "identity") [])
-                (call client ("return" "") [$external_addresses $neighs_inner neighs_top])
+                {}
+                (call client ("return" "") [#joined_addresses $neighs_inner neighs_top])
             )
         )
         "#,
+            join_stream(
+                "external_addresses",
+                "relay",
+                &total_neighs.to_string(),
+                "joined_addresses"
+            )
+        )
+        .as_str(),
         hashmap! {
             "relay" => json!(client.node.to_string()),
             "client" => json!(client.peer_id.to_string()),
         },
     );
-
-    client.timeout = Duration::from_secs(120);
 
     let args = client.receive_args().wrap_err("receive args").unwrap();
     let external_addrs = args.into_iter().next().unwrap();

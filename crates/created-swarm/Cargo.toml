@@ -6,6 +6,8 @@ edition = "2018"
 
 [dependencies]
 test-constants = { path = "../test-constants" }
+particle-execution = { path = "../../particle-execution" }
+particle-args = { path = "../particle-args" }
 config-utils = { path = "../config-utils" }
 server-config = { path = "../server-config" }
 fluence-libp2p = { path = "../libp2p" }
@@ -29,3 +31,4 @@ derivative = "2.2.0"
 serde_json = "1.0.85"
 base64 = { workspace = true }
 serde = "1.0.145"
+maplit = "1.0.2"
