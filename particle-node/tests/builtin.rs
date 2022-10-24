@@ -1370,6 +1370,58 @@ fn sig_verify_invalid_signature() {
     }
 }
 
+#[test]
+fn json_builtins() {
+    let result = exec_script(
+        r#"
+        (seq
+            (seq
+                ;; create
+                (seq
+                    (call relay ("json" "obj") ["name" "nested_first" "num" 1] nested_first)
+                    (call relay ("json" "obj") ["name" "nested_second" "num" 2] nested_second)
+                )
+                (call relay ("json" "obj") ["name" "outer_first" "num" 0 "nested" nested_first] outer_first)
+            )
+            (seq
+                ;; modify
+                (seq
+                    (call relay ("json" "put") [outer_first "nested" nested_second] outer_tmp_second)
+                    (call relay ("json" "put") [outer_tmp_second "name" "outer_second"] outer_second)
+                )
+                ;; stringify and parse
+                (seq
+                    (call relay ("json" "stringify") [outer_first] outer_first_string)
+                    (call relay ("json" "parse") [outer_first_string] outer_first_parsed)
+                )
+            )
+        )
+    "#,
+        hashmap! {},
+        r"nested_first nested_second outer_first outer_second outer_first_string outer_first_parsed",
+        1,
+    ).expect("execute script");
+
+    if let [nested_first, nested_second, outer_first, outer_second, outer_first_string, outer_first_parsed] =
+        result.as_slice()
+    {
+        let nf_expected = json!({"name": "nested_first", "num": 1});
+        let ns_expected = json!({"name": "nested_second", "num": 2});
+
+        let of_expected = json!({"name": "outer_first", "num": 0, "nested": nf_expected});
+        let os_expected = json!({"name": "outer_second", "num": 0, "nested": ns_expected });
+
+        assert_eq!(&nf_expected, nested_first);
+        assert_eq!(&ns_expected, nested_second);
+        assert_eq!(&of_expected, outer_first);
+        assert_eq!(&os_expected, outer_second);
+        assert_eq!(&of_expected.to_string(), outer_first_string);
+        assert_eq!(&of_expected, outer_first_parsed);
+    } else {
+        panic!("Result is of incorrect shape: {:?}", result);
+    }
+}
+
 fn binary(
     service: &str,
     func: &str,
