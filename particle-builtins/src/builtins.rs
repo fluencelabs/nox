@@ -240,6 +240,7 @@ where
 
             ("json", "obj")        => wrap(json::obj(args)),
             ("json", "put")        => wrap(json::put(args)),
+            ("json", "puts")       => wrap(json::puts(args)),
             ("json", "parse")      => unary(args, |s: String| -> R<JValue, _> { json::parse(&s) }),
             ("json", "stringify")  => unary(args, |v: JValue| -> R<String, _> { Ok(json::stringify(v)) }),
 

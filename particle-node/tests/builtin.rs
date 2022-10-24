@@ -1387,7 +1387,7 @@ fn json_builtins() {
                 ;; modify
                 (seq
                     (call relay ("json" "put") [outer_first "nested" nested_second] outer_tmp_second)
-                    (call relay ("json" "put") [outer_tmp_second "name" "outer_second"] outer_second)
+                    (call relay ("json" "puts") [outer_tmp_second "name" "outer_second" "num" 3] outer_second)
                 )
                 ;; stringify and parse
                 (seq
@@ -1409,7 +1409,7 @@ fn json_builtins() {
         let ns_expected = json!({"name": "nested_second", "num": 2});
 
         let of_expected = json!({"name": "outer_first", "num": 0, "nested": nf_expected});
-        let os_expected = json!({"name": "outer_second", "num": 0, "nested": ns_expected });
+        let os_expected = json!({"name": "outer_second", "num": 3, "nested": ns_expected });
 
         assert_eq!(&nf_expected, nested_first);
         assert_eq!(&ns_expected, nested_second);

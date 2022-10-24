@@ -314,7 +314,6 @@ pub fn read_args(
         let AVMOutcome {
             data,
             call_requests,
-            next_peer_pks,
             ..
         } = local_vm
             .call(&particle.script, particle_data, params, call_results)

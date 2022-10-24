@@ -2,11 +2,10 @@ use eyre::eyre;
 use particle_args::{Args, JError};
 use serde_json::Value as JValue;
 
-/// Constructs a JSON object from a list of key value pairs.
-pub fn obj(args: Args) -> Result<JValue, JError> {
-    let mut args = args.function_args.into_iter();
-    let mut object = serde_json::Map::new();
-
+fn insert_pairs(
+    mut object: serde_json::Map<String, JValue>,
+    args: &mut impl Iterator<Item = JValue>,
+) -> Result<serde_json::Map<String, JValue>, JError> {
     loop {
         match (args.next(), args.next()) {
             (Some(JValue::String(name)), Some(value)) => { object.insert(name, value); },
@@ -23,6 +22,15 @@ pub fn obj(args: Args) -> Result<JValue, JError> {
         }
     }
 
+    Ok(object)
+}
+
+/// Constructs a JSON object from a list of key value pairs.
+pub fn obj(args: Args) -> Result<JValue, JError> {
+    let mut args = args.function_args.into_iter();
+
+    let object = insert_pairs(<_>::default(), &mut args)?;
+
     Ok(JValue::Object(object))
 }
 
@@ -34,6 +42,16 @@ pub fn put(args: Args) -> Result<JValue, JError> {
     let value = Args::next("value", &mut args)?;
 
     object.insert(key, value);
+
+    Ok(JValue::Object(object))
+}
+
+/// Inserts list of key value pairs into an object.
+pub fn puts(args: Args) -> Result<JValue, JError> {
+    let mut args = args.function_args.into_iter();
+    let object = Args::next("object", &mut args)?;
+
+    let object = insert_pairs(object, &mut args)?;
 
     Ok(JValue::Object(object))
 }
