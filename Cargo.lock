@@ -3957,6 +3957,7 @@ dependencies = [
  "bytesize",
  "connection-pool",
  "derivative",
+ "eyre",
  "fluence-keypair",
  "futures",
  "humantime-serde",

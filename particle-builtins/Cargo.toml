@@ -39,6 +39,8 @@ itertools = "0.10.5"
 bytesize = "1.1.0"
 derivative = "2.2.0"
 
+eyre = { workspace = true }
+
 [dev-dependencies]
 proptest = "1.0.0"
 tempfile = "3.3.0"

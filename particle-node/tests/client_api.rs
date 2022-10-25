@@ -17,16 +17,13 @@
 use std::time::Duration;
 
 use async_std::task::block_on;
-use eyre::WrapErr;
 use futures::channel::oneshot::channel;
 use futures::future::BoxFuture;
 use futures::FutureExt;
 use maplit::hashmap;
 use serde_json::json;
-use serde_json::Value as JValue;
 
-use connected_client::ConnectedClient;
-use created_swarm::{make_swarms, CreatedSwarm};
+use created_swarm::make_swarms;
 use now_millis::now_ms;
 use particle_execution::FunctionOutcome;
 use particle_protocol::Particle;

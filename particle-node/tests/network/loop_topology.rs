@@ -23,7 +23,6 @@ use serde_json::Value as JValue;
 
 use connected_client::ConnectedClient;
 use created_swarm::{add_print, make_swarms, CreatedSwarm};
-use log_utils::enable_logs;
 
 use super::join_stream;
 
