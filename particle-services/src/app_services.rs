@@ -352,11 +352,12 @@ impl ParticleAppServices {
             lock.get(&alias).cloned()
         };
 
-        let old = old_id.and_then(|s_id| services.get_mut(&s_id));
-        let old = old.map(|old| {
-            old.remove_alias(&alias);
-            PersistedService::from_service(service_id.clone(), old)
-        });
+        let old = try {
+            let old_id = old_id?;
+            let old_service = services.get_mut(&old_id)?;
+            old_service.remove_alias(&alias);
+            PersistedService::from_service(old_id, old_service)
+        };
 
         drop(services);
         if let Some(old) = old {
@@ -458,7 +459,10 @@ impl ParticleAppServices {
             };
             let mut aliases = self.aliases.write();
             for alias in s.aliases.into_iter() {
-                aliases.insert(alias, s.service_id.clone());
+                let old = aliases.insert(alias.clone(), s.service_id.clone());
+                if let Some(old) = old {
+                    log::warn!("Alias `{}` is the same for {} and {}", alias, old, s.service_id);
+                }
             }
 
             debug_assert!(
