@@ -44,7 +44,7 @@ exclude = [
 ]
 
 [workspace.dependencies]
-fluence-app-service = "0.22.0"
+fluence-app-service = "0.22.2"
 avm-server = "0.26.1"
 #air-interpreter-wasm = "=0.30.11"
 air-interpreter-wasm = { version = "=0.31.4"}
