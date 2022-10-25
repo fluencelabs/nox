@@ -13,5 +13,5 @@ json-utils = { path = "../crates/json-utils" }
 
 thiserror = "1.0.37"
 futures = "0.3.24"
-serde_json = "1.0.85"
+serde_json = "1.0.86"
 async-std = { workspace = true }
