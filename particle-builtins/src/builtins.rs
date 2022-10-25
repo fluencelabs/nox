@@ -30,7 +30,7 @@ use humantime_serde::re::humantime::format_duration as pretty;
 use libp2p::{core::Multiaddr, kad::kbucket::Key, kad::K_VALUE, PeerId};
 use multihash::{Code, MultihashDigest, MultihashGeneric};
 use parking_lot::{Mutex, RwLock};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use serde_json::{json, Value as JValue};
 use JValue::Array;
 
@@ -51,8 +51,10 @@ use server_config::ServicesConfig;
 use crate::debug::fmt_custom_services;
 use crate::error::HostClosureCallError;
 use crate::error::HostClosureCallError::{DecodeBase58, DecodeUTF8};
+use crate::func::{binary, unary};
 use crate::identify::NodeInfo;
-use crate::math;
+use crate::outcome::{ok, wrap, wrap_unit};
+use crate::{json, math};
 
 #[derive(Derivative)]
 #[derivative(Debug)]
@@ -235,6 +237,12 @@ where
             ("sig", "sign")        => wrap(self.sign(args)),
             ("sig", "verify")      => wrap(self.verify(args)),
             ("sig", "get_peer_id") => wrap(self.get_peer_id()),
+
+            ("json", "obj")        => wrap(json::obj(args)),
+            ("json", "put")        => wrap(json::put(args)),
+            ("json", "puts")       => wrap(json::puts(args)),
+            ("json", "parse")      => unary(args, |s: String| -> R<JValue, _> { json::parse(&s) }),
+            ("json", "stringify")  => unary(args, |v: JValue| -> R<String, _> { Ok(json::stringify(v)) }),
 
             _                      => FunctionOutcome::NotDefined { args, params: particle },
         }
@@ -910,24 +918,6 @@ fn make_module_config(args: Args) -> Result<JValue, JError> {
     Ok(config)
 }
 
-fn ok(v: JValue) -> FunctionOutcome {
-    FunctionOutcome::Ok(v)
-}
-
-fn wrap(r: Result<JValue, JError>) -> FunctionOutcome {
-    match r {
-        Ok(v) => FunctionOutcome::Ok(v),
-        Err(err) => FunctionOutcome::Err(err),
-    }
-}
-
-fn wrap_unit(r: Result<(), JError>) -> FunctionOutcome {
-    match r {
-        Ok(_) => FunctionOutcome::Empty,
-        Err(err) => FunctionOutcome::Err(err),
-    }
-}
-
 fn parse_from_str<T>(
     field: &'static str,
     mut args: &mut impl Iterator<Item = JValue>,
@@ -980,42 +970,6 @@ fn get_delay(delay: Option<Duration>, interval: Option<Duration>) -> Duration {
         (None, Some(interval)) => Duration::from_secs(rng.gen_range(0..=interval.as_secs())),
         (None, None) => Duration::from_secs(0),
     }
-}
-
-fn unary<X, Out, F>(args: Args, f: F) -> FunctionOutcome
-where
-    X: for<'de> Deserialize<'de>,
-    Out: Serialize,
-    F: Fn(X) -> Result<Out, JError>,
-{
-    if args.function_args.len() != 1 {
-        let err = format!("expected 1 arguments, got {}", args.function_args.len());
-        return FunctionOutcome::Err(JError::new(err));
-    }
-    let mut args = args.function_args.into_iter();
-
-    let x: X = Args::next("x", &mut args)?;
-    let out = f(x)?;
-    FunctionOutcome::Ok(json!(out))
-}
-
-fn binary<X, Y, Out, F>(args: Args, f: F) -> FunctionOutcome
-where
-    X: for<'de> Deserialize<'de>,
-    Y: for<'de> Deserialize<'de>,
-    Out: Serialize,
-    F: Fn(X, Y) -> Result<Out, JError>,
-{
-    if args.function_args.len() != 2 {
-        let err = format!("expected 2 arguments, got {}", args.function_args.len());
-        return FunctionOutcome::Err(JError::new(err));
-    }
-    let mut args = args.function_args.into_iter();
-
-    let x: X = Args::next("x", &mut args)?;
-    let y: Y = Args::next("y", &mut args)?;
-    let out = f(x, y)?;
-    FunctionOutcome::Ok(json!(out))
 }
 
 #[derive(thiserror::Error, Debug)]

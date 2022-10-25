@@ -1803,9 +1803,9 @@ dependencies = [
 
 [[package]]
 name = "fluence-app-service"
-version = "0.22.1"
+version = "0.22.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7a4c8f3b177149f19682f5c1498e61bdb914f79529d3301d971027cd2470617c"
+checksum = "01eec180e93188fa71a47432e298cc2725a7a247e3da6f51678443779d68dd02"
 dependencies = [
  "log",
  "maplit",
@@ -3470,9 +3470,9 @@ dependencies = [
 
 [[package]]
 name = "marine-runtime"
-version = "0.23.0"
+version = "0.23.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ec3d1b0f4d5f946a1eba7d2f295a2f61836116aa30dd0be60d73b950d93b799e"
+checksum = "93f57e7471e12d4f758f57dc54241fe8a750d2be03725260326f85f18cc0625d"
 dependencies = [
  "bytesize",
  "it-json-serde",
@@ -3957,6 +3957,7 @@ dependencies = [
  "bytesize",
  "connection-pool",
  "derivative",
+ "eyre",
  "fluence-keypair",
  "futures",
  "humantime-serde",
