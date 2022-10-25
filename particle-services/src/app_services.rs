@@ -461,7 +461,12 @@ impl ParticleAppServices {
             for alias in s.aliases.into_iter() {
                 let old = aliases.insert(alias.clone(), s.service_id.clone());
                 if let Some(old) = old {
-                    log::warn!("Alias `{}` is the same for {} and {}", alias, old, s.service_id);
+                    log::warn!(
+                        "Alias `{}` is the same for {} and {}",
+                        alias,
+                        old,
+                        s.service_id
+                    );
                 }
             }
 
