@@ -347,22 +347,26 @@ impl ParticleAppServices {
         service.add_alias(alias.clone());
         let persisted_new = PersistedService::from_service(service_id.clone(), service);
 
-        let old_id = {
+        // Find a service with the same alias if any
+        let previous_owner_id = {
             let lock = self.aliases.read();
             lock.get(&alias).cloned()
         };
 
-        let old = try {
-            let old_id = old_id?;
-            let old_service = services.get_mut(&old_id)?;
-            old_service.remove_alias(&alias);
-            PersistedService::from_service(old_id, old_service)
+        // If there is such a service remove the alias from its list of aliases
+        let previous_owner = try {
+            let previous_owner_id = previous_owner_id?;
+            let previous_owner_service = services.get_mut(&previous_owner_id)?;
+            previous_owner_service.remove_alias(&alias);
+            PersistedService::from_service(previous_owner_id, previous_owner_service)
         };
 
         drop(services);
-        if let Some(old) = old {
-            persist_service(&self.config.services_dir, old)?;
+        if let Some(previous_owner) = previous_owner {
+            // Save the updated aliases list of the previous owner of the alias on disk
+            persist_service(&self.config.services_dir, previous_owner)?;
         }
+        // Save the target service with the new alias on disk
         persist_service(&self.config.services_dir, persisted_new)?;
 
         self.aliases.write().insert(alias, service_id.clone());
