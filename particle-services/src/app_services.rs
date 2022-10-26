@@ -560,6 +560,7 @@ mod tests {
     use service_modules::load_module;
     use service_modules::{Dependency, Hash};
 
+    use crate::persistence::load_persisted_services;
     use crate::{ParticleAppServices, ServiceError};
 
     fn create_pid() -> PeerId {
@@ -703,6 +704,132 @@ mod tests {
         assert_eq!(module_file.exists(), false);
         assert_eq!(inter1, inter2);
         assert_eq!(inter3, inter2);
+    }
+
+    fn upload_tetra_service(pas: &ParticleAppServices, module_name: String) -> String {
+        let module = load_module("../particle-node/tests/tetraplets/artifacts", "tetraplets")
+            .expect("load module");
+
+        let config: TomlMarineNamedModuleConfig = TomlMarineNamedModuleConfig {
+            name: module_name.clone(),
+            file_name: None,
+            load_from: None,
+            config: TomlMarineModuleConfig {
+                mem_pages_count: None,
+                max_heap_size: None,
+                logger_enabled: None,
+                wasi: None,
+                mounted_binaries: None,
+                logging_mask: None,
+            },
+        };
+        pas.modules
+            .add_module_base64(base64::encode(module), config)
+            .unwrap()
+    }
+
+    #[test]
+    fn test_add_alias() {
+        let base_dir = TempDir::new("test4").unwrap();
+        let local_pid = create_pid();
+        let management_pid = create_pid();
+        let pas = create_pas(local_pid, management_pid, base_dir.into_path());
+
+        let module_name = "tetra".to_string();
+        let hash = upload_tetra_service(&pas, module_name.clone());
+        let service_id1 = create_service(&pas, module_name.clone(), &hash).unwrap();
+
+        let alias = "alias";
+        let result = pas.add_alias(alias.to_string(), service_id1.clone(), management_pid);
+        // result of the add_alias call must be ok
+        assert!(result.is_ok());
+
+        let services = pas.services.read();
+        let service_1 = services.get(&service_id1).unwrap();
+        // the service's alias list must contain the alias
+        assert_eq!(service_1.aliases, vec![alias.to_string()]);
+
+        let persisted_services: Vec<_> = load_persisted_services(&pas.config.services_dir)
+            .into_iter()
+            .collect::<Result<_, _>>()
+            .unwrap();
+        let persisted_service_1 = persisted_services
+            .iter()
+            .find(|s| s.service_id == service_id1)
+            .unwrap();
+
+        // the persisted service's alias list must contain the alias
+        assert_eq!(persisted_service_1.aliases, vec![alias.to_string()]);
+    }
+
+    #[test]
+    fn test_add_alias_repeated() {
+        let base_dir = TempDir::new("test4").unwrap();
+        let local_pid = create_pid();
+        let management_pid = create_pid();
+        let pas = create_pas(local_pid, management_pid, base_dir.into_path());
+
+        let module_name = "tetra".to_string();
+        let hash = upload_tetra_service(&pas, module_name.clone());
+
+        let service_id1 = create_service(&pas, module_name.clone(), &hash).unwrap();
+        let service_id2 = create_service(&pas, module_name.clone(), &hash).unwrap();
+
+        let alias = "alias";
+        // add an alias to a service
+        let _ = pas.add_alias(alias.to_string(), service_id1.clone(), management_pid);
+        // give the alias to another service
+        let _ = pas.add_alias(alias.to_string(), service_id2.clone(), management_pid);
+
+        let services = pas.services.read();
+        let service_1 = services.get(&service_id1).unwrap();
+        let service_2 = services.get(&service_id2).unwrap();
+        // the first service's alias list must not contain the alias
+        assert_eq!(service_1.aliases, Vec::<String>::new());
+        // the second service's alias list must contain the alias
+        assert_eq!(service_2.aliases, vec![alias.to_string()]);
+
+        let persisted_services: Vec<_> = load_persisted_services(&pas.config.services_dir)
+            .into_iter()
+            .collect::<Result<_, _>>()
+            .unwrap();
+        let persisted_service_1 = persisted_services
+            .iter()
+            .find(|s| s.service_id == service_id1)
+            .unwrap();
+        let persisted_service_2 = persisted_services
+            .iter()
+            .find(|s| s.service_id == service_id2)
+            .unwrap();
+        // the first persisted service's alias list must not contain the alias
+        assert_eq!(persisted_service_1.aliases, Vec::<String>::new());
+        // the second persisted service's alias list must contain the alias
+        assert_eq!(persisted_service_2.aliases, vec![alias.to_string()]);
+    }
+
+    #[test]
+    fn test_persisted_service() {
+        let base_dir = TempDir::new("test4").unwrap();
+        let local_pid = create_pid();
+        let management_pid = create_pid();
+        let pas = create_pas(local_pid, management_pid, base_dir.into_path());
+
+        let module_name = "tetra".to_string();
+        let hash = upload_tetra_service(&pas, module_name.clone());
+
+        let service_id1 = create_service(&pas, module_name.clone(), &hash).unwrap();
+        let services = pas.services.read();
+        let service_1 = services.get(&service_id1).unwrap();
+
+        let persisted_services: Vec<_> = load_persisted_services(&pas.config.services_dir)
+            .into_iter()
+            .collect::<Result<_, _>>()
+            .unwrap();
+        let persisted_service_1 = persisted_services.first().unwrap();
+        assert_eq!(service_1.aliases, persisted_service_1.aliases);
+        assert_eq!(service_1.blueprint_id, persisted_service_1.blueprint_id);
+        assert_eq!(service_id1, persisted_service_1.service_id);
+        assert_eq!(service_1.owner_id, persisted_service_1.owner_id);
     }
 
     // TODO: add more tests
