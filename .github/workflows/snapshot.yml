@@ -121,6 +121,12 @@ jobs:
       - name: Run cargo build
         run: cargo build --release -p particle-node
 
+      - name: Upload Cargo.lock
+        uses: actions/upload-artifact@v3
+        with:
+          name: rust-peer.Cargo.lock
+          path: Cargo.lock
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
 
