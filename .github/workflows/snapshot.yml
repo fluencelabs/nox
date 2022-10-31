@@ -156,22 +156,6 @@ jobs:
           RUST_PEER_IMAGE_NAME: ${{ inputs.image-name }}:${{ steps.version.outputs.branch }}
         run: |
           cat <<'SNAPSHOT' >> $GITHUB_STEP_SUMMARY
-          digest: `${{ env.RUST_PEER_IMAGE_SHA }}`
-          image: `${{ env.RUST_PEER_IMAGE_NAME }}`
-
-          To use it run:
-          ```shell
-          docker run --rm ${{ env.RUST_PEER_IMAGE_SHA }} --local
-          ```
-          SNAPSHOT
-
-      - name: Print results to check summary
-        if: always()
-        env:
-          RUST_PEER_IMAGE_SHA: ${{ inputs.image-name }}@${{ steps.docker.outputs.digest }}
-          RUST_PEER_IMAGE_NAME: ${{ inputs.image-name }}:${{ steps.version.outputs.branch }}
-        run: |
-          cat <<'SNAPSHOT' >> $GITHUB_STEP_SUMMARY
           ## rust-peer
           digest: `${{ env.RUST_PEER_IMAGE_SHA }}`
           image: `${{ env.RUST_PEER_IMAGE_NAME }}`
