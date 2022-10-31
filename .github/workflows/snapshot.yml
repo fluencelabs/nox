@@ -30,7 +30,7 @@ jobs:
     runs-on: builder
 
     outputs:
-      image: "${{ inputs.image-name }}@${{ steps.build.outputs.digest }}"
+      image: "${{ inputs.image-name }}@${{ steps.docker.outputs.digest }}"
 
     permissions:
       contents: read
@@ -133,7 +133,7 @@ jobs:
           password: ${{ env.DOCKER_PASSWORD }}
 
       - name: Build and push snapshot
-        id: build
+        id: docker
         uses: docker/build-push-action@v3
         with:
           context: .
@@ -157,7 +157,7 @@ jobs:
       - name: Update comment in PR
         uses: peter-evans/create-or-update-comment@v1
         env:
-          RUST_PEER_IMAGE_SHA: ${{ inputs.image-name }}@${{ steps.build.outputs.digest }}
+          RUST_PEER_IMAGE_SHA: ${{ inputs.image-name }}@${{ steps.docker.outputs.digest }}
         with:
           comment-id: "${{ steps.comment.outputs.comment-id }}"
           issue-number: "${{ github.event.pull_request.number }}"
