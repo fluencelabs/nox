@@ -145,27 +145,17 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Find comment in PR
-        uses: peter-evans/find-comment@v1
-        id: comment
-        with:
-          issue-number: "${{ github.event.pull_request.number }}"
-          comment-author: github-actions[bot]
-          body-includes: "## rust-peer"
-
-      - name: Update comment in PR
-        uses: peter-evans/create-or-update-comment@v1
+      - name: Print results to check summary
         env:
           RUST_PEER_IMAGE_SHA: ${{ inputs.image-name }}@${{ steps.docker.outputs.digest }}
-        with:
-          comment-id: "${{ steps.comment.outputs.comment-id }}"
-          issue-number: "${{ github.event.pull_request.number }}"
-          edit-mode: replace
-          body: |
-            ## rust-peer
-            Docker snapshot digest is `${{ env.RUST_PEER_IMAGE_SHA }}`
-            To use it run:
-            ```shell
-            docker login docker.fluence.dev
-            docker run --rm ${{ env.RUST_PEER_IMAGE_SHA }} --local
-            ```
+          RUST_PEER_IMAGE_NAME: ${{ inputs.image-name }}@${{ steps.version.outputs.name }}
+        run: |
+          cat <<'SNAPSHOT' >> $GITHUB_STEP_SUMMARY
+          digest: `${{ env.RUST_PEER_IMAGE_SHA }}`
+          image: `${{ env.RUST_PEER_IMAGE_NAME }}`
+
+          To use it run:
+          ```shell
+          docker run --rm ${{ env.RUST_PEER_IMAGE_SHA }} --local
+          ```
+          SNAPSHOT
