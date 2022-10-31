@@ -139,7 +139,7 @@ jobs:
           push: true
           file: .github/snapshot/Dockerfile
           tags: |
-            ${{ inputs.image-name }}:${{ steps.build.outputs.branch }}
+            ${{ inputs.image-name }}:${{ steps.version.outputs.branch }}
           labels: |
             sha=${{ github.event.pull_request.head.sha }}
           cache-from: type=gha
