@@ -600,44 +600,41 @@ where
     /// takes a range of values from an array
     /// slice(array: []JValue, start: usize, end: usize) -> []JValue
     fn array_slice(&self, args: Vec<serde_json::Value>) -> Result<JValue, JError> {
-        if args.len() != 3 {
+        let (array, start, end) = if let [array, start, end] = &args[..] {
+            (array, start, end)
+        } else {
             return Err(JError::new(format!(
                 "invalid number of parameters. need array, start index and end index"
             )));
-        }
+        };
 
-        let mut args = args.into_iter();
-
-        let array = match args.next() {
-            Some(JValue::Array(arr)) if arr.is_empty() => return Ok(json!([])),
-            Some(JValue::Array(arr)) => arr,
+        let array = match array {
+            JValue::Array(arr) if arr.is_empty() => return Ok(json!([])),
+            JValue::Array(arr) => arr,
             e => {
                 return Err(JError::new(format!(
-                    "first argument must be an array, was {:?}",
+                    "first argument must be an array, was {}",
                     e
                 )));
             }
         };
 
-        let start = args.next();
-        let end = args.next();
-
-        let start = match start.and_then(|n| n.as_u64()) {
+        let start = match start.as_u64() {
             Some(n) => n as usize,
-            e => {
+            _ => {
                 return Err(JError::new(format!(
-                    "second argument (start index) must be an unsigned integer, was {:?}",
-                    e
+                    "second argument (start index) must be an unsigned integer, was {}",
+                    start
                 )));
             }
         };
 
-        let end = match end.and_then(|n| n.as_u64()) {
+        let end = match end.as_u64() {
             Some(n) => n as usize,
-            e => {
+            _ => {
                 return Err(JError::new(format!(
-                    "third argument (end index) must be an unsigned integer, was {:?}",
-                    e
+                    "third argument (end index) must be an unsigned integer, was {}",
+                    end
                 )));
             }
         };
