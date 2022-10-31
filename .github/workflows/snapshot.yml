@@ -103,7 +103,6 @@ jobs:
           SHA=${{ github.event.pull_request.head.sha }}
           echo "sha=${SHA::7}" >> $GITHUB_OUTPUT
           echo "branch=${GITHUB_HEAD_REF//[^a-zA-Z0-9-]/-}" >> $GITHUB_OUTPUT
-          echo "name=${{ inputs.image-name }}:${branch}" >> $GITHUB_OUTPUT
 
       - name: Set package version
         id: build
@@ -140,7 +139,7 @@ jobs:
           push: true
           file: .github/snapshot/Dockerfile
           tags: |
-            ${{ steps.version.outputs.name }}
+            ${{ inputs.image-name }}:${{ steps.build.outputs.branch }}
           labels: |
             sha=${{ github.event.pull_request.head.sha }}
           cache-from: type=gha
