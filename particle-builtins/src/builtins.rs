@@ -199,7 +199,6 @@ where
             ("op", "noop")                    => FunctionOutcome::Empty,
             ("op", "array")                   => ok(Array(args.function_args)),
             ("op", "array_length")            => wrap(self.array_length(args.function_args)),
-            ("op", "array_slice")             => wrap(self.array_slice(args.function_args)),
             ("op", "concat")                  => wrap(self.concat(args.function_args)),
             ("op", "string_to_b58")           => wrap(self.string_to_b58(args.function_args)),
             ("op", "string_from_b58")         => wrap(self.string_from_b58(args.function_args)),
@@ -234,6 +233,8 @@ where
             ("array", "intersect") => binary(args, |xs: HashSet<String>, ys: HashSet<String>| -> R<Vec<String>, _> { math::intersect(xs, ys) }),
             ("array", "diff")      => binary(args, |xs: HashSet<String>, ys: HashSet<String>| -> R<Vec<String>, _> { math::diff(xs, ys) }),
             ("array", "sdiff")     => binary(args, |xs: HashSet<String>, ys: HashSet<String>| -> R<Vec<String>, _> { math::sdiff(xs, ys) }),
+            ("array", "slice")     => wrap(self.array_slice(args.function_args)),
+            ("array", "length")    => wrap(self.array_length(args.fucntion_args)),
 
             ("sig", "sign")        => wrap(self.sign(args)),
             ("sig", "verify")      => wrap(self.verify(args)),
@@ -596,6 +597,8 @@ where
         }
     }
 
+    /// takes a range of values from an array
+    /// slice(array: []JValue, start: usize, end: usize) -> []JValue
     fn array_slice(&self, args: Vec<serde_json::Value>) -> Result<JValue, JError> {
         if args.len() != 3 {
             return Err(JError::new(format!(
@@ -605,21 +608,21 @@ where
 
         let mut args = args.into_iter();
 
-        let data = match args.next() {
+        let array = match args.next() {
             Some(JValue::Array(arr)) if arr.is_empty() => return Ok(json!([])),
             Some(JValue::Array(arr)) => arr,
             e => {
                 return Err(JError::new(format!(
-                    "first argument (data) must be an array, was {:?}",
+                    "first argument must be an array, was {:?}",
                     e
                 )));
             }
         };
 
-        let s_idx = args.next();
-        let e_idx = args.next();
+        let start = args.next();
+        let end = args.next();
 
-        let s_idx = match s_idx.and_then(|n| n.as_u64()) {
+        let start = match start.and_then(|n| n.as_u64()) {
             Some(n) => n as usize,
             e => {
                 return Err(JError::new(format!(
@@ -629,7 +632,7 @@ where
             }
         };
 
-        let e_idx = match e_idx.and_then(|n| n.as_u64()) {
+        let end = match end.and_then(|n| n.as_u64()) {
             Some(n) => n as usize,
             e => {
                 return Err(JError::new(format!(
@@ -639,12 +642,15 @@ where
             }
         };
 
-        if s_idx >= data.len() || e_idx <= s_idx || e_idx >= data.len() {
-            return Err(JError::new(format!("slice indexes out of bound. start index: {:?}, end index: {:?}, array length: {:?}", s_idx, e_idx, data.len())));
+        if start > end || end > array.len() {
+            return Err(JError::new(format!(
+                "slice indexes out of bounds. start index: {:?}, end index: {:?}, array length: {:?}", 
+                start, end, array.len())
+            ));
         }
 
-        let res: Vec<JValue> = data[s_idx..e_idx].to_vec();
-        Ok(JValue::Array(res))
+        let slice: Vec<JValue> = array[start..end].to_vec();
+        Ok(JValue::Array(slice))
     }
 
     fn add_module(&self, args: Args) -> Result<JValue, JError> {
