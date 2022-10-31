@@ -180,9 +180,11 @@ jobs:
           ```shell
           docker run --rm ${{ env.RUST_PEER_IMAGE_SHA }} --local
           ```
+          SNAPSHOT
+          cat <<VERSIONS >> $GITHUB_STEP_SUMMARY
           ## Used versions
           | name   | version                                                                   |
           | -------| ------------------------------------------------------------------------- |
           | aquavm | $(dasel -f Cargo.lock -p toml 'package.(name=avm-server).version' -m)     |
           | marine | $(dasel -f Cargo.lock -p toml 'package.(name=marine-runtime).version' -m) |
-          SNAPSHOT
+          VERSIONS
