@@ -25,10 +25,11 @@
     unreachable_patterns
 )]
 
-pub mod base64_serde;
+use std::fmt::Display;
 
 use serde_json::Value as JValue;
-use std::error::Error;
+
+pub mod base64_serde;
 
 pub fn into_string(v: JValue) -> Option<String> {
     if let JValue::String(s) = v {
@@ -47,6 +48,6 @@ pub fn into_array(v: JValue) -> Option<Vec<JValue>> {
 }
 
 /// Converts an error into IValue::String
-pub fn err_as_value<E: Error>(err: E) -> JValue {
+pub fn err_as_value<E: Display>(err: E) -> JValue {
     JValue::String(format!("Error: {}", err))
 }

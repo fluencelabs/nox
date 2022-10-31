@@ -130,8 +130,9 @@ impl Dispatcher {
                             // there's nothing to do here but log
                             log::warn!("Error executing particle: {}", err);
                             // and send indication about particle failure to the outer world
-                            let particle_id = err.into_particle_id();
-                            particle_failures.send(particle_id).await.ok();
+                            if let Some(particle_id) = err.into_particle_id() {
+                                particle_failures.send(particle_id).await.ok();
+                            }
                         }
                     };
                 }

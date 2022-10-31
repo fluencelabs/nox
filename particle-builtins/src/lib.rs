@@ -34,7 +34,11 @@ pub use builtins::Builtins;
 pub use identify::NodeInfo;
 
 mod builtins;
+mod debug;
 mod error;
+mod func;
 mod identify;
+mod json;
 mod math;
+mod outcome;
 mod particle_function;

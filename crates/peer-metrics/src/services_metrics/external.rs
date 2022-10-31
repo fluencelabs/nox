@@ -5,10 +5,37 @@ use prometheus_client::metrics::counter::Counter;
 use prometheus_client::metrics::gauge::Gauge;
 use prometheus_client::metrics::histogram::{linear_buckets, Histogram};
 use prometheus_client::registry::Registry;
+use std::io::{Error, Write};
 
 use fluence_app_service::ModuleDescriptor;
+use prometheus_client::encoding::text::Encode;
+use prometheus_client::metrics::family::Family;
 
 use crate::{execution_time_buckets, mem_buckets_4gib, mem_buckets_8gib, register};
+
+#[derive(Hash, Clone, Eq, PartialEq, Debug)]
+pub enum ServiceType {
+    Builtin,
+    Service(Option<String>),
+}
+
+impl Encode for ServiceType {
+    fn encode(&self, writer: &mut dyn Write) -> Result<(), Error> {
+        let label = match self {
+            ServiceType::Builtin => "builtin",
+            ServiceType::Service(Some(x)) => x,
+            ServiceType::Service(_) => "service",
+        };
+
+        writer.write_all(label.as_bytes())?;
+        Ok(())
+    }
+}
+
+#[derive(Encode, Hash, Clone, Eq, PartialEq)]
+pub struct ServiceTypeLabel {
+    pub service_type: ServiceType,
+}
 
 #[derive(Clone)]
 pub struct ServicesMemoryMetrics {
@@ -17,11 +44,11 @@ pub struct ServicesMemoryMetrics {
     /// Actual memory used by a module
     pub mem_max_per_module_bytes: Histogram,
     /// Actual memory used by a service
-    pub mem_used_bytes: Histogram,
+    pub mem_used_bytes: Family<ServiceTypeLabel, Histogram>,
     /// Actual memory used by a module
-    pub mem_used_per_module_bytes: Histogram,
+    pub mem_used_per_module_bytes: Family<ServiceTypeLabel, Histogram>,
     /// Total memory used
-    pub mem_used_total_bytes: Gauge,
+    pub mem_used_total_bytes: Family<ServiceTypeLabel, Gauge>,
 }
 
 impl ServicesMemoryMetrics {
@@ -55,6 +82,11 @@ pub struct ServicesMetricsExternal {
 
     /// How many modules a service includes.
     pub modules_in_services_count: Histogram,
+
+    /// Service call time
+    pub call_time_msec: Family<ServiceTypeLabel, Histogram>,
+    pub call_success_count: Family<ServiceTypeLabel, Counter>,
+    pub call_failed_count: Family<ServiceTypeLabel, Counter>,
 
     /// Memory metrics
     pub memory_metrics: ServicesMemoryMetrics,
@@ -113,23 +145,23 @@ impl ServicesMetricsExternal {
             "maximum memory set in module config",
         );
 
-        let mem_used_bytes = register(
+        let mem_used_bytes: Family<_, _> = register(
             sub_registry,
-            Histogram::new(mem_buckets_8gib()),
+            Family::new_with_constructor(|| Histogram::new(mem_buckets_8gib())),
             "mem_used_bytes",
             "actual memory used by a service",
         );
 
-        let mem_used_per_module_bytes = register(
+        let mem_used_per_module_bytes: Family<_, _> = register(
             sub_registry,
-            Histogram::new(mem_buckets_4gib()),
+            Family::new_with_constructor(|| Histogram::new(mem_buckets_4gib())),
             "mem_used_per_module_bytes",
             "actual memory used by a service per module",
         );
 
         let mem_used_total_bytes = register(
             sub_registry,
-            Gauge::default(),
+            Family::default(),
             "mem_used_total_bytes",
             "total size of used memory by services",
         );
@@ -148,6 +180,13 @@ impl ServicesMetricsExternal {
             "number of modules per services",
         );
 
+        let call_time_msec: Family<_, _> = register(
+            sub_registry,
+            Family::new_with_constructor(|| Histogram::new(execution_time_buckets())),
+            "call_time_msec",
+            "how long it took to execute a call",
+        );
+
         let memory_metrics = ServicesMemoryMetrics {
             mem_max_bytes,
             mem_max_per_module_bytes,
@@ -155,7 +194,19 @@ impl ServicesMetricsExternal {
             mem_used_per_module_bytes,
             mem_used_total_bytes,
         };
+        let call_success_count = register(
+            sub_registry,
+            Family::default(),
+            "call_success_count",
+            "count of successfully executed calls",
+        );
 
+        let call_failed_count = register(
+            sub_registry,
+            Family::default(),
+            "call_failed_count",
+            "count of fails of calls execution",
+        );
         Self {
             services_count,
             creation_time_msec,
@@ -164,16 +215,15 @@ impl ServicesMetricsExternal {
             removal_count,
             creation_failure_count,
             modules_in_services_count,
+            call_time_msec,
+            call_success_count,
+            call_failed_count,
             memory_metrics,
         }
     }
 
     /// Collect the service and the service's modules  max available memory.
-    pub fn observe_service_max_mem(
-        &self,
-        default_max: u64,
-        modules_config: &Vec<ModuleDescriptor>,
-    ) {
+    pub fn observe_service_max_mem(&self, default_max: u64, modules_config: &[ModuleDescriptor]) {
         self.memory_metrics
             .observe_service_max_mem(default_max, modules_config);
     }
@@ -183,5 +233,12 @@ impl ServicesMetricsExternal {
         self.removal_count.inc();
         self.services_count.dec();
         self.removal_time_msec.observe(removal_time);
+    }
+
+    pub fn observe_created(&self, modules_num: f64, creation_time: f64) {
+        self.services_count.inc();
+        self.modules_in_services_count.observe(modules_num);
+        self.creation_count.inc();
+        self.creation_time_msec.observe(creation_time);
     }
 }

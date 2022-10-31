@@ -25,7 +25,7 @@ pub fn create_memory_maddr() -> Multiaddr {
 }
 
 pub fn create_tcp_maddr() -> Multiaddr {
-    let port: u16 = 1000 + rand::thread_rng().gen_range(1, 3000);
+    let port: u16 = 1000 + rand::thread_rng().gen_range(1..3000);
     let mut maddr: Multiaddr = Protocol::Ip4("127.0.0.1".parse().unwrap()).into();
     maddr.push(Protocol::Tcp(port));
     maddr

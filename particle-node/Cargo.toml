@@ -27,29 +27,33 @@ fluence-keypair = { workspace = true }
 avm-server = { workspace = true }
 air-interpreter-wasm = { workspace = true }
 
-libp2p = "0.45"
-libp2p-metrics = "0.6.0"
-prometheus-client = "0.16.0"
+libp2p = { workspace = true }
+libp2p-metrics = { workspace = true }
+libp2p-swarm = { workspace = true }
+prometheus-client = { workspace = true }
 
-futures = "0.3.13"
-async-std = { version = "1.6.5", features = ["unstable"] }
-parking_lot = "0.11.2"
+futures = "0.3.24"
+async-std = { workspace = true }
+parking_lot = { workspace = true }
 
-humantime-serde = "1.0.1"
+humantime-serde = "1.1.1"
 
-log = "0.4.11"
-env_logger = "0.7.1"
-clap = "3.2.21"
+log = "0.4.17"
+env_logger = "0.9.1"
+clap = "3.2.22"
 tide = "0.17.0-beta.1"
-bs58 = "0.3.1"
-itertools = "0.10.0"
+itertools = "0.10.5"
 eyre = { workspace = true }
+base64 = { workspace = true }
 
 [dev-dependencies]
 log-utils = { path = "../crates/log-utils" }
+uuid-utils = { path = "../crates/uuid-utils" }
 test-utils = { path = "../crates/test-utils" }
 service-modules = { path = "../crates/service-modules" }
 particle-modules = { path = "../particle-modules" }
+particle-execution = { path = "../particle-execution" }
+particle-args = { path = "../crates/particle-args" }
 created-swarm = { path = "../crates/created-swarm" }
 connected-client = { path = "../crates/connected-client" }
 test-constants = { path = "../crates/test-constants" }
@@ -62,16 +66,16 @@ builtins = { path = "./tests/builtins"}
 
 fluence-app-service = { workspace = true }
 
-parking_lot = "0.11.2"
+parking_lot = { workspace = true }
 maplit = "1.0.2"
-serde_json = "1.0.64"
+serde_json = "1.0.86"
 fstrings = "0.2.3"
-serde = "1.0.130"
-multihash = "0.16.2"
-base64 = "0.13.0"
-blake3 = "0.3.7"
-criterion = { version = "0.3.4", features = ["async_std", "html_reports"] }
-rand = "0.8.4"
+serde = "1.0.145"
+multihash = "0.16.3"
+blake3 = "1.3.1"
+criterion = { version = "0.4.0", features = ["async_std", "html_reports"] }
+rand = "0.8.5"
+bs58 = { workspace = true }
 
 quickcheck = "1.0.3"
 quickcheck_macros = "1.0.0"

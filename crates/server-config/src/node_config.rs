@@ -1,5 +1,5 @@
 use super::defaults::*;
-use crate::keys::{decode_key_pair, load_key_pair};
+use crate::keys::{decode_key, decode_secret_key, load_key};
 use crate::{BootstrapConfig, KademliaConfig};
 
 use fluence_keypair::KeyPair;
@@ -193,19 +193,22 @@ impl Deref for PeerIdSerializable {
     }
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 #[serde(untagged)]
 pub enum PathOrValue {
     Value { value: String },
     Path { path: PathBuf },
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 pub struct KeypairConfig {
-    #[serde(default = "default_keypair_format")]
+    #[serde(default = "default_key_format")]
     pub format: String,
     #[serde(flatten)]
+    #[serde(default)]
     pub keypair: Option<PathOrValue>,
+    #[serde(default)]
+    pub secret_key: Option<String>,
     #[serde(default)]
     pub generate_on_absence: bool,
 }
@@ -214,14 +217,27 @@ impl KeypairConfig {
     pub fn get_keypair(self, default: PathOrValue) -> Result<KeyPair, eyre::Report> {
         use crate::node_config::PathOrValue::{Path, Value};
 
+        debug_assert!(
+            !(self.secret_key.is_some() && self.keypair.is_some()),
+            "shouldn't have both secret_key and keypair defined in KeypairConfig"
+        );
+
+        // first, try to load secret key
+        if let Some(secret_key) = self.secret_key {
+            let secret_key = base64::decode(secret_key)
+                .map_err(|err| eyre!("base64 decoding failed: {}", err))?;
+            return decode_secret_key(secret_key.clone(), self.format.clone())
+                .map_err(|e| eyre!("Failed to decode secret key from {:?}: {}", secret_key, e));
+        }
+
+        // if there's no secret key, try to load keypair
         match self.keypair.unwrap_or(default) {
             Path { path } => {
                 let path = to_abs_path(path);
-                load_key_pair(path.clone(), self.format.clone(), self.generate_on_absence)
-                    .map_err(|e| eyre!("Failed to load keypair from {:?}: {}", path, e))
+                load_key(path.clone(), self.format.clone(), self.generate_on_absence)
+                    .map_err(|e| eyre!("Failed to load secret key from {:?}: {}", path, e))
             }
-            Value { value } => decode_key_pair(value, self.format)
-                .map_err(|e| eyre!("Failed to decode keypair: {}", e)),
+            Value { value } => decode_key(value, self.format),
         }
     }
 }

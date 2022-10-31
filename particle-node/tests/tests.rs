@@ -14,6 +14,17 @@
  * limitations under the License.
  */
 
+#[macro_use]
+extern crate fstrings;
+
 mod chat {
     mod chat;
+}
+
+mod network {
+    pub use join::join_stream;
+
+    mod join;
+    mod loop_topology;
+    mod network_explore;
 }

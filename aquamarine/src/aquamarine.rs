@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::collections::HashMap;
 use std::future::Future;
 use std::task::Poll;
 use std::time::Duration;
@@ -21,16 +22,15 @@ use async_std::{task, task::JoinHandle};
 use futures::{channel::mpsc, SinkExt, StreamExt};
 
 use fluence_libp2p::types::{BackPressuredInlet, BackPressuredOutlet, Outlet};
-use particle_execution::ParticleFunctionStatic;
+use particle_execution::{ParticleFunctionStatic, ServiceFunction};
 use particle_protocol::Particle;
 use peer_metrics::{ParticleExecutorMetrics, VmPoolMetrics};
 
 use crate::aqua_runtime::AquaRuntime;
 use crate::command::Command;
-use crate::command::Command::Ingest;
+use crate::command::Command::{AddService, Ingest, RemoveService};
 use crate::error::AquamarineApiError;
 use crate::particle_effects::NetworkEffects;
-use crate::particle_functions::Function;
 use crate::vm_pool::VmPool;
 use crate::{Plumber, VmPoolConfig};
 
@@ -68,11 +68,23 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> AquamarineBackend<RT, F> {
         let mut wake = false;
 
         // check if there are new particles
-        while let Poll::Ready(Some(Ingest { particle, function })) = self.inlet.poll_next_unpin(cx)
-        {
-            wake = true;
-            // set new particle to be executed
-            self.plumber.ingest(particle, function);
+        loop {
+            match self.inlet.poll_next_unpin(cx) {
+                Poll::Ready(Some(Ingest { particle, function })) => {
+                    wake = true;
+                    // set new particle to be executed
+                    self.plumber.ingest(particle, function);
+                }
+                Poll::Ready(Some(AddService { service, functions })) => {
+                    self.plumber.add_service(service, functions)
+                }
+
+                Poll::Ready(Some(RemoveService { service })) => {
+                    self.plumber.remove_service(service)
+                }
+
+                Poll::Pending | Poll::Ready(None) => break,
+            }
         }
 
         // check if there are executed particles
@@ -121,15 +133,37 @@ impl AquamarineApi {
     pub fn execute(
         self,
         particle: Particle,
-        function: Option<Function>,
+        function: Option<ServiceFunction>,
+    ) -> impl Future<Output = Result<(), AquamarineApiError>> {
+        let particle_id = particle.id.clone();
+        self.send_command(Ingest { particle, function }, Some(particle_id))
+    }
+
+    pub fn add_service(
+        self,
+        service: String,
+        functions: HashMap<String, ServiceFunction>,
+    ) -> impl Future<Output = Result<(), AquamarineApiError>> {
+        self.send_command(AddService { service, functions }, None)
+    }
+
+    pub fn remove_service(
+        self,
+        service: String,
+    ) -> impl Future<Output = Result<(), AquamarineApiError>> {
+        self.send_command(RemoveService { service }, None)
+    }
+
+    fn send_command(
+        self,
+        command: Command,
+        particle_id: Option<String>,
     ) -> impl Future<Output = Result<(), AquamarineApiError>> {
         use AquamarineApiError::*;
 
         let mut interpreters = self.outlet;
-        let particle_id = particle.id.clone();
 
         async move {
-            let command = Ingest { particle, function };
             let sent = interpreters.send(command).await;
 
             sent.map_err(|err| match err {

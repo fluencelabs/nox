@@ -101,8 +101,9 @@ pub fn default_builtins_keypair_path() -> PathOrValue {
 
 pub fn default_root_keypair() -> KeyPair {
     let config = KeypairConfig {
-        format: default_keypair_format(),
+        format: default_key_format(),
         keypair: None,
+        secret_key: None,
         generate_on_absence: true,
     };
 
@@ -114,8 +115,9 @@ pub fn default_root_keypair() -> KeyPair {
 
 pub fn default_builtins_keypair() -> KeyPair {
     let config = KeypairConfig {
-        format: default_keypair_format(),
+        format: default_key_format(),
         keypair: None,
+        secret_key: None,
         generate_on_absence: true,
     };
 
@@ -177,7 +179,7 @@ pub fn default_management_peer_id() -> PeerId {
     peer_id
 }
 
-pub fn default_keypair_format() -> String {
+pub fn default_key_format() -> String {
     "ed25519".to_string()
 }
 

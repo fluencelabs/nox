@@ -30,12 +30,9 @@ use serde_json::Value as JValue;
 
 use particle_args::{Args, JError};
 use particle_execution::{
-    FunctionOutcome, ParticleFunctionOutput, ParticleFunctionStatic, ParticleParams,
+    FunctionOutcome, ParticleFunctionStatic, ParticleParams, ServiceFunction,
 };
 use peer_metrics::FunctionKind;
-
-pub type Function =
-    Box<dyn FnMut(Args, ParticleParams) -> ParticleFunctionOutput<'static> + 'static + Send + Sync>;
 
 #[derive(Clone, Debug)]
 /// Performance statistics about executed function call
@@ -60,7 +57,7 @@ pub struct Functions<F> {
     function_calls: FuturesUnordered<BoxFuture<'static, SingleCallResult>>,
     call_results: CallResults,
     call_stats: Vec<SingleCallStat>,
-    particle_function: Option<Arc<Mutex<Function>>>,
+    particle_function: Option<Arc<Mutex<ServiceFunction>>>,
 }
 
 impl<F: ParticleFunctionStatic> Functions<F> {
@@ -106,7 +103,7 @@ impl<F: ParticleFunctionStatic> Functions<F> {
         (call_results, stats)
     }
 
-    pub fn set_function(&mut self, function: Function) {
+    pub fn set_function(&mut self, function: ServiceFunction) {
         self.particle_function = Some(Arc::new(Mutex::new(function)));
     }
 
@@ -161,11 +158,7 @@ impl<F: ParticleFunctionStatic> Functions<F> {
             block_on(async move {
                 let outcome = builtins.call(args, params).await;
                 // record whether call was handled by builtin or not. needed for stats.
-                let call_kind = if outcome.is_defined() {
-                    FunctionKind::Builtin
-                } else {
-                    FunctionKind::Service
-                };
+                let mut call_kind = FunctionKind::Service;
                 let outcome = match outcome {
                     // If particle_function isn't set, just return what we have
                     outcome if particle_function.is_none() => outcome,
@@ -176,6 +169,7 @@ impl<F: ParticleFunctionStatic> Functions<F> {
                         //       i.e., wrap each callback with a queue & channel
                         let mut func = func.lock();
                         let outcome = func(args, params).await;
+                        call_kind = FunctionKind::ParticleFunction;
                         outcome
                     }
                     // Builtins were called, return their outcome

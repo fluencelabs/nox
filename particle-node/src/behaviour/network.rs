@@ -13,15 +13,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use libp2p::identify::IdentifyConfig;
+use libp2p::identify::{IdentifyConfig, IdentifyEvent};
 use libp2p::{
     identify::Identify,
     ping::{Ping, PingConfig, PingEvent},
+    swarm::NetworkBehaviour,
 };
 
-use connection_pool::{ConnectionPoolBehaviour, ConnectionPoolInlet};
+use connection_pool::ConnectionPoolBehaviour;
 use fluence_libp2p::types::BackPressuredInlet;
-use kademlia::{Kademlia, KademliaApiInlet, KademliaConfig};
+use kademlia::{Kademlia, KademliaConfig};
 use particle_protocol::{Particle, PROTOCOL_NAME};
 use server_config::NetworkConfig;
 
@@ -29,18 +30,17 @@ use crate::connectivity::Connectivity;
 
 /// Coordinates protocols, so they can cooperate
 #[derive(::libp2p::NetworkBehaviour)]
-#[behaviour(event_process = true)]
-pub struct NetworkBehaviour {
+pub struct FluenceNetworkBehaviour {
     identify: Identify,
     ping: Ping,
-    pub(crate) connection_pool: ConnectionPoolInlet,
-    pub(crate) kademlia: KademliaApiInlet,
-    #[behaviour(ignore)]
-    /// Whether to allow private IP addresses in identify
-    pub(super) allow_local_addresses: bool,
+    pub(crate) connection_pool: ConnectionPoolBehaviour,
+    pub(crate) kademlia: Kademlia,
+    // #[behaviour(ignore)]
+    // /// Whether to allow private IP addresses in identify
+    // pub(super) allow_local_addresses: bool,
 }
 
-impl NetworkBehaviour {
+impl FluenceNetworkBehaviour {
     pub fn new(cfg: NetworkConfig) -> (Self, Connectivity, BackPressuredInlet<Particle>) {
         let local_public_key = cfg.key_pair.public();
         let identify = Identify::new(
@@ -54,22 +54,19 @@ impl NetworkBehaviour {
             kad_config: cfg.kademlia_config,
         };
 
-        let kademlia = Kademlia::new(kad_config, cfg.libp2p_metrics);
-        let (kademlia_api, kademlia) = kademlia.into();
-        let (connection_pool, particle_stream) = ConnectionPoolBehaviour::new(
+        let (kademlia, kademlia_api) = Kademlia::new(kad_config, cfg.libp2p_metrics);
+        let (connection_pool, particle_stream, connection_pool_api) = ConnectionPoolBehaviour::new(
             cfg.particle_queue_buffer,
             cfg.protocol_config,
             cfg.local_peer_id,
             cfg.connection_pool_metrics,
         );
-        let (connection_pool_api, connection_pool) = connection_pool.into();
 
         let this = Self {
             kademlia,
             connection_pool,
             identify,
             ping,
-            allow_local_addresses: cfg.allow_local_addresses,
         };
 
         let connectivity = Connectivity {
@@ -83,12 +80,4 @@ impl NetworkBehaviour {
 
         (this, connectivity, particle_stream)
     }
-}
-
-impl libp2p::swarm::NetworkBehaviourEventProcess<()> for NetworkBehaviour {
-    fn inject_event(&mut self, _: ()) {}
-}
-
-impl libp2p::swarm::NetworkBehaviourEventProcess<PingEvent> for NetworkBehaviour {
-    fn inject_event(&mut self, _: PingEvent) {}
 }

@@ -10,8 +10,8 @@ use crate::execution_time_buckets;
 
 #[derive(Copy, Clone, Debug, Encode, Hash, Eq, PartialEq)]
 pub enum FunctionKind {
-    Builtin,
     Service,
+    ParticleFunction,
     // Function call failed early
     NotHappened,
 }

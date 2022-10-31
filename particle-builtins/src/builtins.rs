@@ -15,12 +15,12 @@
  */
 
 use std::borrow::Borrow;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
 use std::ops::Try;
 use std::path;
 use std::str::FromStr;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use derivative::Derivative;
 use fluence_keypair::{KeyPair, Signature};
@@ -29,7 +29,8 @@ use futures::StreamExt;
 use humantime_serde::re::humantime::format_duration as pretty;
 use libp2p::{core::Multiaddr, kad::kbucket::Key, kad::K_VALUE, PeerId};
 use multihash::{Code, MultihashDigest, MultihashGeneric};
-use serde::{Deserialize, Serialize};
+use parking_lot::{Mutex, RwLock};
+use serde::Deserialize;
 use serde_json::{json, Value as JValue};
 use JValue::Array;
 
@@ -37,7 +38,7 @@ use connection_pool::{ConnectionPoolApi, ConnectionPoolT};
 use kademlia::{KademliaApi, KademliaApiT};
 use now_millis::{now_ms, now_sec};
 use particle_args::{from_base58, Args, ArgsError, JError};
-use particle_execution::{FunctionOutcome, ParticleParams};
+use particle_execution::{FunctionOutcome, ParticleParams, ServiceFunction};
 use particle_modules::{
     AddBlueprint, ModuleConfig, ModuleRepository, NamedModuleConfig, WASIConfig,
 };
@@ -47,13 +48,16 @@ use peer_metrics::ServicesMetrics;
 use script_storage::ScriptStorageApi;
 use server_config::ServicesConfig;
 
+use crate::debug::fmt_custom_services;
 use crate::error::HostClosureCallError;
 use crate::error::HostClosureCallError::{DecodeBase58, DecodeUTF8};
+use crate::func::{binary, unary};
 use crate::identify::NodeInfo;
-use crate::math;
+use crate::outcome::{ok, wrap, wrap_unit};
+use crate::{json, math};
 
 #[derive(Derivative)]
-#[derivative(Debug, Clone)]
+#[derivative(Debug)]
 pub struct Builtins<C> {
     pub connectivity: C,
     pub script_storage: ScriptStorageApi,
@@ -67,6 +71,9 @@ pub struct Builtins<C> {
     pub modules: ModuleRepository,
     pub services: ParticleAppServices,
     pub node_info: NodeInfo,
+
+    #[derivative(Debug(format_with = "fmt_custom_services"))]
+    pub custom_services: RwLock<HashMap<String, HashMap<String, Mutex<ServiceFunction>>>>,
 
     particles_vault_dir: path::PathBuf,
 }
@@ -110,11 +117,46 @@ where
             services,
             node_info,
             particles_vault_dir,
+            custom_services: <_>::default(),
+        }
+    }
+
+    pub async fn call(&self, args: Args, particle: ParticleParams) -> FunctionOutcome {
+        let start = Instant::now();
+        let result = self.builtins_call(args, particle).await;
+        let end = start.elapsed().as_secs();
+        match result {
+            FunctionOutcome::NotDefined { args, params } => self
+                .custom_service_call(args, params)
+                .or_else(|args, params| self.call_service(args, params)),
+            result => {
+                if let Some(metrics) = self.services.metrics.as_ref() {
+                    metrics.observe_builtins(result.is_err(), end as f64);
+                }
+                result
+            }
+        }
+    }
+
+    pub fn custom_service_call(&self, args: Args, particle: ParticleParams) -> FunctionOutcome {
+        if let Some(function) = self
+            .custom_services
+            .read()
+            .get(&args.service_id)
+            .and_then(|fs| fs.get(&args.function_name))
+        {
+            let mut function = function.lock();
+            async_std::task::block_on(function(args, particle))
+        } else {
+            FunctionOutcome::NotDefined {
+                args,
+                params: particle,
+            }
         }
     }
 
     // TODO: get rid of all blocking methods (std::fs and such)
-    pub async fn call(&self, args: Args, particle: ParticleParams) -> FunctionOutcome {
+    pub async fn builtins_call(&self, args: Args, particle: ParticleParams) -> FunctionOutcome {
         use Result as R;
         #[rustfmt::skip]
         match (args.service_id.as_str(), args.function_name.as_str()) {
@@ -197,7 +239,13 @@ where
             ("sig", "verify")      => wrap(self.verify(args)),
             ("sig", "get_peer_id") => wrap(self.get_peer_id()),
 
-            _                      => self.call_service(args, particle),
+            ("json", "obj")        => wrap(json::obj(args)),
+            ("json", "put")        => wrap(json::put(args)),
+            ("json", "puts")       => wrap(json::puts(args)),
+            ("json", "parse")      => unary(args, |s: String| -> R<JValue, _> { json::parse(&s) }),
+            ("json", "stringify")  => unary(args, |v: JValue| -> R<String, _> { Ok(json::stringify(v)) }),
+
+            _                      => FunctionOutcome::NotDefined { args, params: particle },
         }
     }
 
@@ -922,24 +970,6 @@ fn make_module_config(args: Args) -> Result<JValue, JError> {
     Ok(config)
 }
 
-fn ok(v: JValue) -> FunctionOutcome {
-    FunctionOutcome::Ok(v)
-}
-
-fn wrap(r: Result<JValue, JError>) -> FunctionOutcome {
-    match r {
-        Ok(v) => FunctionOutcome::Ok(v),
-        Err(err) => FunctionOutcome::Err(err),
-    }
-}
-
-fn wrap_unit(r: Result<(), JError>) -> FunctionOutcome {
-    match r {
-        Ok(_) => FunctionOutcome::Empty,
-        Err(err) => FunctionOutcome::Err(err),
-    }
-}
-
 fn parse_from_str<T>(
     field: &'static str,
     mut args: &mut impl Iterator<Item = JValue>,
@@ -992,42 +1022,6 @@ fn get_delay(delay: Option<Duration>, interval: Option<Duration>) -> Duration {
         (None, Some(interval)) => Duration::from_secs(rng.gen_range(0..=interval.as_secs())),
         (None, None) => Duration::from_secs(0),
     }
-}
-
-fn unary<X, Out, F>(args: Args, f: F) -> FunctionOutcome
-where
-    X: for<'de> Deserialize<'de>,
-    Out: Serialize,
-    F: Fn(X) -> Result<Out, JError>,
-{
-    if args.function_args.len() != 1 {
-        let err = format!("expected 1 arguments, got {}", args.function_args.len());
-        return FunctionOutcome::Err(JError::new(err));
-    }
-    let mut args = args.function_args.into_iter();
-
-    let x: X = Args::next("x", &mut args)?;
-    let out = f(x)?;
-    FunctionOutcome::Ok(json!(out))
-}
-
-fn binary<X, Y, Out, F>(args: Args, f: F) -> FunctionOutcome
-where
-    X: for<'de> Deserialize<'de>,
-    Y: for<'de> Deserialize<'de>,
-    Out: Serialize,
-    F: Fn(X, Y) -> Result<Out, JError>,
-{
-    if args.function_args.len() != 2 {
-        let err = format!("expected 2 arguments, got {}", args.function_args.len());
-        return FunctionOutcome::Err(JError::new(err));
-    }
-    let mut args = args.function_args.into_iter();
-
-    let x: X = Args::next("x", &mut args)?;
-    let y: Y = Args::next("y", &mut args)?;
-    let out = f(x, y)?;
-    FunctionOutcome::Ok(json!(out))
 }
 
 #[derive(thiserror::Error, Debug)]

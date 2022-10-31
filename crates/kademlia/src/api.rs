@@ -16,20 +16,14 @@
 
 use std::convert::identity;
 
-use futures::{
-    channel::{mpsc::unbounded, oneshot},
-    future::BoxFuture,
-    FutureExt, StreamExt,
-};
-use libp2p::swarm::NetworkBehaviourAction;
+use futures::{channel::oneshot, future::BoxFuture, FutureExt};
 use libp2p::{core::Multiaddr, PeerId};
 use multihash::Multihash;
 
-use fluence_libp2p::types::{Inlet, OneshotOutlet, Outlet};
+use fluence_libp2p::types::{OneshotOutlet, Outlet};
 use particle_protocol::Contact;
 
 use crate::error::{KademliaError, Result};
-use crate::Kademlia;
 
 type Future<T> = BoxFuture<'static, T>;
 
@@ -63,69 +57,6 @@ pub enum Command {
         count: usize,
         out: OneshotOutlet<Result<Vec<PeerId>>>,
     },
-}
-
-pub type SwarmEventType = NetworkBehaviourAction<
-    (),
-    <KademliaApiInlet as libp2p::swarm::NetworkBehaviour>::ConnectionHandler,
->;
-
-#[derive(::libp2p::NetworkBehaviour)]
-#[behaviour(poll_method = "custom_poll")]
-pub struct KademliaApiInlet {
-    kademlia: Kademlia,
-    #[behaviour(ignore)]
-    inlet: Inlet<Command>,
-}
-
-impl KademliaApiInlet {
-    pub fn new(kademlia: Kademlia) -> (KademliaApi, Self) {
-        let (outlet, inlet) = unbounded();
-        let outlet = KademliaApi { outlet };
-        (outlet, Self { inlet, kademlia })
-    }
-
-    pub fn add_addresses(&mut self, peer: PeerId, addresses: Vec<Multiaddr>) {
-        self.kademlia.add_kad_node(peer, addresses)
-    }
-
-    fn execute(&mut self, cmd: Command) {
-        match cmd {
-            Command::AddContact { contact } => self.kademlia.add_contact(contact),
-            Command::Bootstrap { out } => self.kademlia.bootstrap(out),
-            Command::LocalLookup { peer, out } => self.kademlia.local_lookup(&peer, out),
-            Command::DiscoverPeer { peer, out } => self.kademlia.discover_peer(peer, out),
-            Command::Neighborhood { key, count, out } => {
-                self.kademlia.neighborhood(key, count, out)
-            }
-        }
-    }
-
-    fn custom_poll(
-        &mut self,
-        cx: &mut std::task::Context,
-        _: &mut impl libp2p::swarm::PollParameters,
-    ) -> std::task::Poll<SwarmEventType> {
-        use std::task::Poll;
-
-        let mut wake = false;
-        while let Poll::Ready(Some(cmd)) = self.inlet.poll_next_unpin(cx) {
-            wake = true;
-            self.execute(cmd)
-        }
-
-        if wake {
-            cx.waker().wake_by_ref();
-        }
-
-        Poll::Pending
-    }
-}
-
-impl From<Kademlia> for (KademliaApi, KademliaApiInlet) {
-    fn from(kademlia: Kademlia) -> Self {
-        KademliaApiInlet::new(kademlia)
-    }
 }
 
 #[derive(Clone, Debug)]

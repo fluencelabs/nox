@@ -27,8 +27,8 @@ use libp2p::{core::Multiaddr, PeerId};
 use serde::Deserialize;
 
 use air_interpreter_fs::{air_interpreter_path, write_default_air_interpreter};
-use aquamarine::DataStoreError;
 use aquamarine::{AquaRuntime, VmConfig};
+use aquamarine::{AquamarineApi, DataStoreError};
 use connection_pool::{ConnectionPoolApi, ConnectionPoolT};
 use fluence_libp2p::random_multiaddr::{create_memory_maddr, create_tcp_maddr};
 use fluence_libp2p::types::OneshotOutlet;
@@ -57,6 +57,8 @@ pub struct CreatedSwarm {
     // node connectivity
     #[derivative(Debug = "ignore")]
     pub connectivity: Connectivity,
+    #[derivative(Debug = "ignore")]
+    pub aquamarine_api: AquamarineApi,
 }
 
 pub fn make_swarms(n: usize) -> Vec<CreatedSwarm> {
@@ -181,6 +183,7 @@ where
         .into_iter()
         .map(|((peer_id, management_keypair, config), node, _)| {
             let connectivity = node.connectivity.clone();
+            let aquamarine_api = node.aquamarine_api.clone();
             let outlet = node.start().expect("node start");
 
             CreatedSwarm {
@@ -190,6 +193,7 @@ where
                 management_keypair,
                 outlet,
                 connectivity,
+                aquamarine_api,
             }
         })
         .collect();
@@ -286,12 +290,12 @@ pub fn create_swarm_with_runtime<RT: AquaRuntime>(
         "root_key_pair": {
             "format": format,
             "generate_on_absence": false,
-            "value": bs58::encode(config.keypair.to_vec()).into_string(),
+            "value": base64::encode(config.keypair.to_vec()),
         },
         "builtins_key_pair": {
             "format": format,
             "generate_on_absence": false,
-            "value": bs58::encode(config.builtins_keypair.to_vec()).into_string(),
+            "value": base64::encode(config.builtins_keypair.to_vec()),
         },
         "builtins_base_dir": config.builtins_dir,
         "external_multiaddresses": [config.listen_on]

@@ -28,11 +28,11 @@ pub enum AquamarineApiError {
     )]
     OneshotCancelled { particle_id: String },
     #[error(
-        r#"AquamarineApiError::AquamarineDied: particle_id = {particle_id}.
+        r#"AquamarineApiError::AquamarineDied: particle_id = {particle_id:?}.
         Aquamarine couldn't be reached from the NetworkApi.
         This is unexpected and shouldn't happen."#
     )]
-    AquamarineDied { particle_id: String },
+    AquamarineDied { particle_id: Option<String> },
     #[error(
         "AquamarineApiError::ExecutionTimedOut: particle_id = {particle_id}, timeout = {timeout}"
     )]
@@ -41,18 +41,18 @@ pub enum AquamarineApiError {
         timeout: FormattedDuration,
     },
     #[error(
-        "AquamarineApiError::AquamarineQueueFull: can't send particle {particle_id} to Aquamarine"
+        "AquamarineApiError::AquamarineQueueFull: can't send particle {particle_id:?} to Aquamarine"
     )]
-    AquamarineQueueFull { particle_id: String },
+    AquamarineQueueFull { particle_id: Option<String> },
 }
 
 impl AquamarineApiError {
-    pub fn into_particle_id(self) -> String {
+    pub fn into_particle_id(self) -> Option<String> {
         match self {
-            AquamarineApiError::ParticleExpired { particle_id } => particle_id,
-            AquamarineApiError::OneshotCancelled { particle_id } => particle_id,
+            AquamarineApiError::ParticleExpired { particle_id } => Some(particle_id),
+            AquamarineApiError::OneshotCancelled { particle_id } => Some(particle_id),
+            AquamarineApiError::ExecutionTimedOut { particle_id, .. } => Some(particle_id),
             AquamarineApiError::AquamarineDied { particle_id } => particle_id,
-            AquamarineApiError::ExecutionTimedOut { particle_id, .. } => particle_id,
             AquamarineApiError::AquamarineQueueFull { particle_id, .. } => particle_id,
         }
     }
