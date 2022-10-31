@@ -121,12 +121,6 @@ jobs:
       - name: Run cargo build
         run: cargo build --release -p particle-node
 
-      - name: Upload Cargo.lock
-        uses: actions/upload-artifact@v3
-        with:
-          name: rust-peer.Cargo.lock
-          path: Cargo.lock
-
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
 
@@ -151,7 +145,12 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      - name: Setup dasel
+        if: always()
+        uses: allejo/setup-dasel@v1
+
       - name: Print results to check summary
+        if: always()
         env:
           RUST_PEER_IMAGE_SHA: ${{ inputs.image-name }}@${{ steps.docker.outputs.digest }}
           RUST_PEER_IMAGE_NAME: ${{ inputs.image-name }}:${{ steps.version.outputs.branch }}
@@ -164,4 +163,26 @@ jobs:
           ```shell
           docker run --rm ${{ env.RUST_PEER_IMAGE_SHA }} --local
           ```
+          SNAPSHOT
+
+      - name: Print results to check summary
+        if: always()
+        env:
+          RUST_PEER_IMAGE_SHA: ${{ inputs.image-name }}@${{ steps.docker.outputs.digest }}
+          RUST_PEER_IMAGE_NAME: ${{ inputs.image-name }}:${{ steps.version.outputs.branch }}
+        run: |
+          cat <<'SNAPSHOT' >> $GITHUB_STEP_SUMMARY
+          ## rust-peer
+          digest: `${{ env.RUST_PEER_IMAGE_SHA }}`
+          image: `${{ env.RUST_PEER_IMAGE_NAME }}`
+
+          To use it run:
+          ```shell
+          docker run --rm ${{ env.RUST_PEER_IMAGE_SHA }} --local
+          ```
+          ## Used versions
+          | name   | version                                                                   |
+          | -------| ------------------------------------------------------------------------- |
+          | aquavm | $(dasel -f Cargo.lock -p toml 'package.(name=avm-server).version' -m)     |
+          | marine | $(dasel -f Cargo.lock -p toml 'package.(name=marine-runtime).version' -m) |
           SNAPSHOT
