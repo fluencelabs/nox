@@ -234,7 +234,7 @@ where
             ("array", "diff")      => binary(args, |xs: HashSet<String>, ys: HashSet<String>| -> R<Vec<String>, _> { math::diff(xs, ys) }),
             ("array", "sdiff")     => binary(args, |xs: HashSet<String>, ys: HashSet<String>| -> R<Vec<String>, _> { math::sdiff(xs, ys) }),
             ("array", "slice")     => wrap(self.array_slice(args.function_args)),
-            ("array", "length")    => wrap(self.array_length(args.fucntion_args)),
+            ("array", "length")    => wrap(self.array_length(args.function_args)),
 
             ("sig", "sign")        => wrap(self.sign(args)),
             ("sig", "verify")      => wrap(self.verify(args)),
