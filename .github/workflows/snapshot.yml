@@ -148,7 +148,7 @@ jobs:
       - name: Print results to check summary
         env:
           RUST_PEER_IMAGE_SHA: ${{ inputs.image-name }}@${{ steps.docker.outputs.digest }}
-          RUST_PEER_IMAGE_NAME: ${{ inputs.image-name }}@${{ steps.version.outputs.name }}
+          RUST_PEER_IMAGE_NAME: ${{ inputs.image-name }}:${{ steps.version.outputs.branch }}
         run: |
           cat <<'SNAPSHOT' >> $GITHUB_STEP_SUMMARY
           digest: `${{ env.RUST_PEER_IMAGE_SHA }}`
