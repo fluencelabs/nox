@@ -112,7 +112,7 @@ jobs:
           SHA: ${{ steps.version.outputs.sha }}
           RUN: ${{ github.run_number }}
           ATTEMPT: ${{ github.run_attempt }}
-        working-directory: crates/particle-node
+        working-directory: particle-node
         run: |
           cargo set-version --bump alpha
           cargo set-version "$(cargo read-manifest | jq -r .version)-${{ env.BRANCH }}-${{ env.SHA }}-${{ env.RUN }}-${{ env.ATTEMPT }}"
