@@ -778,8 +778,6 @@ fn array_length() {
     )
     .unwrap();
 
-    //
-
     assert_eq!(result, vec![
         json!(0),
         json!(5),
@@ -787,6 +785,122 @@ fn array_length() {
         json!("Local service error, ret_code is 1, error message is '\"op array_length accepts exactly 1 argument: 2 found\"'"),
         json!("Local service error, ret_code is 1, error message is '\"op array_length's argument must be an array\"'"),
     ])
+}
+
+#[test]
+fn array_slice() {
+    let result = exec_script(
+        r#"(call relay ("array" "slice") [ data sidx eidx ] result)"#,
+        hashmap! {
+            "data"      => json!(vec![1,2,3,4]),
+            "sidx"      => json!(0),
+            "eidx"      => json!(2),
+        },
+        "result",
+        1,
+    )
+    .unwrap();
+
+    let expected = vec![json!(vec![1, 2])];
+    assert_eq!(result, expected);
+
+    let result = exec_script(
+        r#"(call relay ("array" "slice") [ empty_data sidx eidx ] result)"#,
+        hashmap! {
+            "empty_data" => json!(Vec::<JValue>::new()),
+            "sidx"       => json!(0),
+            "eidx"       => json!(2),
+        },
+        "result",
+        1,
+    )
+    .unwrap();
+    assert_eq!(result[0], json!(Vec::<JValue>::new()));
+
+    let result = exec_script(
+        r#"(call relay ("array" "slice") [ data sidx eidx ] result)"#,
+        hashmap! {
+            "data"      => json!(1),
+            "sidx"      => json!(0),
+            "eidx"      => json!(2),
+        },
+        "result",
+        1,
+    );
+    assert!(result.is_err());
+    assert!(
+        format!("{:?}", result).contains("first argument must be an array, was 1"),
+        "{:?}",
+        result
+    );
+
+    let result = exec_script(
+        r#"(call relay ("array" "slice") [ eidx sidx ] result)"#,
+        hashmap! {
+            "data"      => json!(vec![1,2,3,4]),
+            "sidx"      => json!(0),
+            "eidx"      => json!(2),
+        },
+        "result",
+        1,
+    );
+    assert!(result.is_err());
+    assert!(format!("{:?}", result)
+        .contains("invalid number of parameters. need array, start index and end index"));
+
+    let result = exec_script(
+        r#"(call relay ("array" "slice") [ data eidx sidx ] result)"#,
+        hashmap! {
+            "data" => json!(vec![1,2,3,4]),
+            "sidx"       => json!(0),
+            "eidx"       => json!(2),
+        },
+        "result",
+        1,
+    );
+    assert!(result.is_err());
+    assert!(
+        format!("{:?}", result)
+            .contains("slice indexes out of bounds. start index: 2, end index: 0, array length: 4"),
+        "result is {:?}",
+        result
+    );
+
+    let result = exec_script(
+        r#"(call relay ("array" "slice") [ data bad_idx eidx ] result)"#,
+        hashmap! {
+            "data"      => json!(vec![1,2,3,4]),
+            "bad_idx"   => json!(-1),
+            "eidx"      => json!(2),
+        },
+        "result",
+        1,
+    );
+    assert!(result.is_err());
+    assert!(
+        format!("{:?}", result)
+            .contains("second argument (start index) must be an unsigned integer, was -1"),
+        "{:?}",
+        result
+    );
+
+    let result = exec_script(
+        r#"(call relay ("array" "slice") [ data sidx bad_idx] result)"#,
+        hashmap! {
+            "data"      => json!(vec![1,2,3,4]),
+            "bad_idx"   => json!(-1),
+            "sidx"      => json!(2),
+        },
+        "result",
+        1,
+    );
+    assert!(result.is_err());
+    assert!(
+        format!("{:?}", result)
+            .contains("third argument (end index) must be an unsigned integer, was -1"),
+        "{:?}",
+        result
+    );
 }
 
 #[test]

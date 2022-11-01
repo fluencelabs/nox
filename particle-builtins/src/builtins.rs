@@ -233,6 +233,8 @@ where
             ("array", "intersect") => binary(args, |xs: HashSet<String>, ys: HashSet<String>| -> R<Vec<String>, _> { math::intersect(xs, ys) }),
             ("array", "diff")      => binary(args, |xs: HashSet<String>, ys: HashSet<String>| -> R<Vec<String>, _> { math::diff(xs, ys) }),
             ("array", "sdiff")     => binary(args, |xs: HashSet<String>, ys: HashSet<String>| -> R<Vec<String>, _> { math::sdiff(xs, ys) }),
+            ("array", "slice")     => wrap(self.array_slice(args.function_args)),
+            ("array", "length")    => wrap(self.array_length(args.function_args)),
 
             ("sig", "sign")        => wrap(self.sign(args)),
             ("sig", "verify")      => wrap(self.verify(args)),
@@ -593,6 +595,59 @@ where
                 arr.len()
             ))),
         }
+    }
+
+    /// takes a range of values from an array
+    /// slice(array: []JValue, start: usize, end: usize) -> []JValue
+    fn array_slice(&self, args: Vec<serde_json::Value>) -> Result<JValue, JError> {
+        let (array, start, end) = if let [array, start, end] = &args[..] {
+            (array, start, end)
+        } else {
+            return Err(JError::new(format!(
+                "invalid number of parameters. need array, start index and end index"
+            )));
+        };
+
+        let array = match array {
+            JValue::Array(arr) if arr.is_empty() => return Ok(json!([])),
+            JValue::Array(arr) => arr,
+            e => {
+                return Err(JError::new(format!(
+                    "first argument must be an array, was {}",
+                    e
+                )));
+            }
+        };
+
+        let start = match start.as_u64() {
+            Some(n) => n as usize,
+            _ => {
+                return Err(JError::new(format!(
+                    "second argument (start index) must be an unsigned integer, was {}",
+                    start
+                )));
+            }
+        };
+
+        let end = match end.as_u64() {
+            Some(n) => n as usize,
+            _ => {
+                return Err(JError::new(format!(
+                    "third argument (end index) must be an unsigned integer, was {}",
+                    end
+                )));
+            }
+        };
+
+        if start > end || end > array.len() {
+            return Err(JError::new(format!(
+                "slice indexes out of bounds. start index: {:?}, end index: {:?}, array length: {:?}", 
+                start, end, array.len())
+            ));
+        }
+
+        let slice: Vec<JValue> = array[start..end].to_vec();
+        Ok(JValue::Array(slice))
     }
 
     fn add_module(&self, args: Args) -> Result<JValue, JError> {
