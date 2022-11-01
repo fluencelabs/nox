@@ -30,7 +30,7 @@ jobs:
     runs-on: builder
 
     outputs:
-      image: "${{ inputs.image-name }}@${{ steps.build.outputs.digest }}"
+      image: "${{ inputs.image-name }}@${{ steps.docker.outputs.digest }}"
 
     permissions:
       contents: read
@@ -92,6 +92,32 @@ jobs:
       #     NEXTEST_TEST_THREADS: 10
       #   run: cargo nextest run --release --all-features --no-fail-fast
 
+      - name: Install cargo-edit
+        uses: baptiste0928/cargo-install@v1.3.0
+        with:
+          crate: cargo-edit
+
+      - name: Generate package version
+        id: version
+        run: |
+          SHA=${{ github.event.pull_request.head.sha }}
+          echo "sha=${SHA::7}" >> $GITHUB_OUTPUT
+          echo "branch=${GITHUB_HEAD_REF//[^a-zA-Z0-9-]/-}" >> $GITHUB_OUTPUT
+
+      - name: Set package version
+        id: build
+        env:
+          BRANCH: ${{ steps.version.outputs.branch }}
+          SHA: ${{ steps.version.outputs.sha }}
+          RUN: ${{ github.run_number }}
+          ATTEMPT: ${{ github.run_attempt }}
+        working-directory: particle-node
+        run: |
+          cargo set-version --bump alpha
+          cargo set-version "$(cargo read-manifest | jq -r .version)-${{ env.BRANCH }}-${{ env.SHA }}-${{ env.RUN }}-${{ env.ATTEMPT }}"
+
+          echo "version=$(cargo read-manifest | jq -r .version)" >> $GITHUB_OUTPUT
+
       - name: Run cargo build
         run: cargo build --release -p particle-node
 
@@ -105,47 +131,44 @@ jobs:
           username: ${{ env.DOCKER_USERNAME }}
           password: ${{ env.DOCKER_PASSWORD }}
 
-      - name: Prepare image name
-        id: image
-        run: |
-          branch=${{ github.head_ref }}
-          echo "::set-output name=name::${{ inputs.image-name }}:${branch//[^a-zA-Z0-9-]/-}"
-
       - name: Build and push snapshot
-        id: build
+        id: docker
         uses: docker/build-push-action@v3
         with:
           context: .
           push: true
           file: .github/snapshot/Dockerfile
           tags: |
-            ${{ steps.image.outputs.name }}
+            ${{ inputs.image-name }}:${{ steps.version.outputs.branch }}
           labels: |
             sha=${{ github.event.pull_request.head.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Find comment in PR
-        uses: peter-evans/find-comment@v1
-        id: comment
-        with:
-          issue-number: "${{ github.event.pull_request.number }}"
-          comment-author: github-actions[bot]
-          body-includes: "## rust-peer"
+      - name: Setup dasel
+        if: always()
+        uses: allejo/setup-dasel@v1
 
-      - name: Update comment in PR
-        uses: peter-evans/create-or-update-comment@v1
+      - name: Print results to check summary
+        if: always()
         env:
-          RUST_PEER_IMAGE_SHA: ${{ inputs.image-name }}@${{ steps.build.outputs.digest }}
-        with:
-          comment-id: "${{ steps.comment.outputs.comment-id }}"
-          issue-number: "${{ github.event.pull_request.number }}"
-          edit-mode: replace
-          body: |
-            ## rust-peer
-            Docker snapshot digest is `${{ env.RUST_PEER_IMAGE_SHA }}`
-            To use it run:
-            ```shell
-            docker login docker.fluence.dev
-            docker run --rm ${{ env.RUST_PEER_IMAGE_SHA }} --local
-            ```
+          RUST_PEER_IMAGE_SHA: ${{ inputs.image-name }}@${{ steps.docker.outputs.digest }}
+          RUST_PEER_IMAGE_NAME: ${{ inputs.image-name }}:${{ steps.version.outputs.branch }}
+        run: |
+          cat <<'SNAPSHOT' >> $GITHUB_STEP_SUMMARY
+          ## rust-peer
+          digest: `${{ env.RUST_PEER_IMAGE_SHA }}`
+          image: `${{ env.RUST_PEER_IMAGE_NAME }}`
+
+          To use it run:
+          ```shell
+          docker run --rm ${{ env.RUST_PEER_IMAGE_SHA }} --local
+          ```
+          SNAPSHOT
+          cat <<VERSIONS >> $GITHUB_STEP_SUMMARY
+          ## Used versions
+          | name   | version                                                                   |
+          | -------| ------------------------------------------------------------------------- |
+          | aquavm | $(dasel -f Cargo.lock -p toml 'package.(name=avm-server).version' -m)     |
+          | marine | $(dasel -f Cargo.lock -p toml 'package.(name=marine-runtime).version' -m) |
+          VERSIONS
