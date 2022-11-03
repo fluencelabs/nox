@@ -3,26 +3,21 @@ name: Publish snapshot
 on:
   workflow_call:
     inputs:
+      ref:
+        description: "GitHub ref to checkout to"
+        type: string
+        default: "master"
       image-name:
         description: "Docker image name"
         type: string
         default: "docker.fluence.dev/rust-peer"
-      fluence-app-service-version:
-        description: "fluence-app-service version"
-        type: string
-      avm-server-version:
-        description: "avm-server version"
-        type: string
-      air-interpreter-wasm-version:
-        description: "air-interpreter-wasm version"
+      cargo-dependencies:
+        description: "Cargo dependencies map"
         type: string
     outputs:
       rust-peer-image:
         description: "rust-peer snapshot image"
         value: ${{ jobs.publish-snapshot.outputs.image }}
-
-env:
-  FORCE_COLOR: true
 
 jobs:
   publish-snapshot:
@@ -34,7 +29,6 @@ jobs:
 
     permissions:
       contents: read
-      pull-requests: write
       id-token: write
 
     steps:
@@ -42,6 +36,7 @@ jobs:
         uses: actions/checkout@v3
         with:
           repository: fluencelabs/rust-peer
+          ref: ${{ inputs.ref }}
 
       - name: Setup rust toolchain
         uses: actions-rust-lang/setup-rust-toolchain@v1
@@ -59,38 +54,11 @@ jobs:
             kv/docker-registry/basicauth/ci username | DOCKER_USERNAME ;
             kv/docker-registry/basicauth/ci password | DOCKER_PASSWORD
 
-      - name: Set fluence-app-service version from branch
-        if: inputs.fluece-app-service-version != ''
-        uses: fluencelabs/github-actions/cargo-set-dependency@main
+      - name: Set dependencies
+        if: inputs.cargo-dependencies != ''
+        uses: fluencelabs/github-actions/cargo-set-dependency@update-cargo-set-dependency
         with:
-          package: fluence-app-service
-          version: ${{ inputs.fluence-app-service-version }}
-
-      - name: Set avm-server version from branch
-        if: inputs.avm-server-version != ''
-        uses: fluencelabs/github-actions/cargo-set-dependency@main
-        with:
-          package: avm-server
-          version: ${{ inputs.avm-server-version }}
-
-      - name: Set air-interpreter-wasm version from branch
-        if: inputs.air-interpreter-wasm-version != ''
-        uses: fluencelabs/github-actions/cargo-set-dependency@main
-        with:
-          package: air-interpreter-wasm
-          version: ${{ inputs.air-interpreter-wasm-version }}
-
-      # - name: Install cargo-nextest
-      #   uses: baptiste0928/cargo-install@v1
-      #   with:
-      #     crate: cargo-nextest
-      #     version: "0.9"
-
-      # - name: Run cargo nextest
-      #   env:
-      #     NEXTEST_RETRIES: 2
-      #     NEXTEST_TEST_THREADS: 10
-      #   run: cargo nextest run --release --all-features --no-fail-fast
+          dependencies: ${{ inputs.cargo-dependencies }}
 
       - name: Install cargo-edit
         uses: baptiste0928/cargo-install@v1.3.0
@@ -145,10 +113,6 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Setup dasel
-        if: always()
-        uses: allejo/setup-dasel@v1
-
       - name: Print results to check summary
         if: always()
         env:
@@ -165,10 +129,3 @@ jobs:
           docker run --rm ${{ env.RUST_PEER_IMAGE_SHA }} --local
           ```
           SNAPSHOT
-          cat <<VERSIONS >> $GITHUB_STEP_SUMMARY
-          ## Used versions
-          | name   | version                                                                   |
-          | -------| ------------------------------------------------------------------------- |
-          | aquavm | $(dasel -f Cargo.lock -p toml 'package.(name=avm-server).version' -m)     |
-          | marine | $(dasel -f Cargo.lock -p toml 'package.(name=marine-runtime).version' -m) |
-          VERSIONS
