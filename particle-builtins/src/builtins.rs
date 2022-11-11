@@ -31,7 +31,7 @@ use libp2p::{core::Multiaddr, kad::kbucket::Key, kad::K_VALUE, PeerId};
 use multihash::{Code, MultihashDigest, MultihashGeneric};
 use parking_lot::{Mutex, RwLock};
 use serde::Deserialize;
-use serde_json::{json, Value as JValue};
+use serde_json::{json, Value as JValue, Value};
 use JValue::Array;
 
 use connection_pool::{ConnectionPoolApi, ConnectionPoolT};
@@ -44,9 +44,11 @@ use particle_modules::{
 };
 use particle_protocol::Contact;
 use particle_services::{ParticleAppServices, VIRTUAL_PARTICLE_VAULT_PREFIX};
+use particle_services::ServiceError::Forbidden;
 use peer_metrics::ServicesMetrics;
 use script_storage::ScriptStorageApi;
 use server_config::ServicesConfig;
+use uuid_utils::uuid;
 
 use crate::debug::fmt_custom_services;
 use crate::error::HostClosureCallError;
@@ -55,6 +57,36 @@ use crate::func::{binary, unary};
 use crate::identify::NodeInfo;
 use crate::outcome::{ok, wrap, wrap_unit};
 use crate::{json, math};
+
+#[derive(Derivative)]
+#[derivative(Debug)]
+pub struct SpellStorage {
+    // The blueprint for the latest spell service.
+    spell_blueprint_id: String,
+    // All blueprints that are used for spells
+    all_spell_blueprint_ids: HashSet<String>,
+    // All currently existing spells
+    registered_spells: RwLock<HashSet<String>>,
+}
+
+impl SpellStorage {
+    pub fn new(
+        spell_blueprint_id: String,
+        all_spell_blueprint_ids: HashSet<String>,
+        registered_spells: HashSet<String>,
+    ) -> Self {
+        Self {
+            spell_blueprint_id,
+            all_spell_blueprint_ids,
+            registered_spells: RwLock::new(registered_spells),
+        }
+    }
+
+    pub fn register_spell(&self, spell_id: String) {
+        let mut spells = self.registered_spells.write();
+        spells.insert(spell_id);
+    }
+}
 
 #[derive(Derivative)]
 #[derivative(Debug)]
@@ -71,6 +103,7 @@ pub struct Builtins<C> {
     pub modules: ModuleRepository,
     pub services: ParticleAppServices,
     pub node_info: NodeInfo,
+    pub spell_storage: SpellStorage,
 
     #[derivative(Debug(format_with = "fmt_custom_services"))]
     pub custom_services: RwLock<HashMap<String, HashMap<String, Mutex<ServiceFunction>>>>,
@@ -104,7 +137,27 @@ where
         let management_peer_id = config.management_peer_id;
         let builtins_management_peer_id = config.builtins_management_peer_id;
         let local_peer_id = config.local_peer_id;
+        let spells_base_dir = config.spells_base_dir.clone();
         let services = ParticleAppServices::new(config, modules.clone(), Some(services_metrics));
+
+        let spell_blueprint_id = services.load_spell_service(spells_base_dir).unwrap();
+        let all_spell_blueprint_ids = modules
+            .get_blueprints()
+            .into_iter()
+            .filter(|blueprint| blueprint.name == "spell")
+            .map(|x| x.id)
+            .collect::<HashSet<_>>();
+        let registered_spells = services
+            .list_service_with_blueprints()
+            .into_iter()
+            .filter(|(_, blueprint)| all_spell_blueprint_ids.contains(blueprint))
+            .map(|(id, _)| id)
+            .collect::<_>();
+        let spell_storage = SpellStorage::new(
+            spell_blueprint_id,
+            all_spell_blueprint_ids,
+            registered_spells,
+        );
 
         Self {
             connectivity,
@@ -116,6 +169,7 @@ where
             modules,
             services,
             node_info,
+            spell_storage,
             particles_vault_dir,
             custom_services: <_>::default(),
         }
@@ -195,6 +249,10 @@ where
             ("script", "add_from_vault")      => wrap(self.add_script_from_vault(args, particle)),
             ("script", "remove")              => wrap(self.remove_script(args, particle).await),
             ("script", "list")                => wrap(self.list_scripts().await),
+
+            ("spell", "install")              => wrap(self.spell_install(args, particle)),
+            ("spell", "list")                 => wrap(self.spell_list(args, particle)),
+            ("spell", "remove")               => wrap_unit(self.spell_remove(args, particle)),
 
             ("op", "noop")                    => FunctionOutcome::Empty,
             ("op", "array")                   => ok(Array(args.function_args)),
@@ -786,6 +844,15 @@ where
         let mut args = args.function_args.into_iter();
         let service_id_or_alias: String = Args::next("service_id_or_alias", &mut args)?;
 
+        if self.spell_storage.registered_spells.read().contains(&service_id_or_alias){
+            return Err(Forbidden {
+                user: params.init_peer_id,
+                function: "remove_service",
+                reason: "cannot remove a spell",
+            }.into());
+
+        }
+
         self.services
             .remove_service(service_id_or_alias, params.init_peer_id)?;
         Ok(())
@@ -922,6 +989,56 @@ where
 
     fn get_peer_id(&self) -> Result<JValue, JError> {
         Ok(JValue::String(self.root_keypair.get_peer_id().to_base58()))
+    }
+
+    fn spell_install(&self, sargs: Args, params: ParticleParams) -> Result<Value, JError> {
+        let mut args = sargs.function_args.clone().into_iter();
+        let _script: String = Args::next("script", &mut args)?;
+        let service_id = self.services.create_service(
+            self.spell_storage.spell_blueprint_id.clone(),
+            params.init_peer_id,
+        )?;
+        self.spell_storage.register_spell(service_id.clone());
+        let spell_args = Args {
+            service_id: service_id.clone(),
+            function_name: "set_script_source_to_file".to_string(),
+            function_args: sargs.function_args,
+            tetraplets: sargs.tetraplets,
+        };
+        let particle = ParticleParams {
+            id: uuid(),
+            init_peer_id: params.init_peer_id,
+            timestamp: now_ms() as u64,
+            ttl: params.ttl,
+            script: "".to_string(),
+            signature: vec![],
+        };
+        self.call_service(spell_args, particle);
+        Ok(JValue::String(service_id))
+    }
+
+    fn spell_list(&self, _args: Args, _params: ParticleParams) -> Result<JValue, JError> {
+        Ok(Array(
+            self.spell_storage
+                .registered_spells
+                .read()
+                .clone()
+                .into_iter()
+                .map(JValue::String)
+                .collect(),
+        ))
+    }
+    fn spell_remove(&self, args: Args, params: ParticleParams) -> Result<(), JError> {
+        let mut args = args.function_args.into_iter();
+        let spell_id: String = Args::next("spell_id", &mut args)?;
+
+        self.spell_storage
+            .registered_spells
+            .write()
+            .retain(|id| id != &spell_id);
+        self.services
+            .remove_service(spell_id, params.init_peer_id)?;
+        Ok(())
     }
 }
 

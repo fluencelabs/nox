@@ -165,7 +165,11 @@ impl ModuleRepository {
 
         Ok(())
     }
-    fn add_module(&self, module: Vec<u8>, config: TomlMarineNamedModuleConfig) -> Result<String> {
+    pub fn add_module(
+        &self,
+        module: Vec<u8>,
+        config: TomlMarineNamedModuleConfig,
+    ) -> Result<String> {
         let hash = Hash::hash(&module);
 
         let mut config = files::add_module(&self.modules_dir, &hash, &module, config)?;

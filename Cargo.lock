@@ -3958,6 +3958,7 @@ dependencies = [
  "connection-pool",
  "derivative",
  "eyre",
+ "fluence-app-service",
  "fluence-keypair",
  "futures",
  "humantime-serde",
@@ -3984,6 +3985,7 @@ dependencies = [
  "tempfile",
  "thiserror",
  "toml-utils",
+ "uuid-utils",
 ]
 
 [[package]]

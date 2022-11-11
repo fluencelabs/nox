@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 use std::ops::Deref;
+use std::path::PathBuf;
 use std::time::Instant;
 use std::{collections::HashMap, sync::Arc};
 
@@ -26,14 +27,16 @@ use parking_lot::{Mutex, RwLock};
 use serde::Serialize;
 use serde_json::{json, Value as JValue};
 
+use fluence_app_service::TomlMarineConfig;
 use fluence_libp2p::PeerId;
 use particle_args::{Args, JError};
 use particle_execution::{FunctionOutcome, ParticleParams, ParticleVault, VaultError};
-use particle_modules::ModuleRepository;
+use particle_modules::{load_module_by_path, AddBlueprint, ModuleError, ModuleRepository};
 use peer_metrics::{
     ServiceCallStats, ServiceMemoryStat, ServiceType, ServicesMetrics, ServicesMetricsBuiltin,
 };
 use server_config::ServicesConfig;
+use service_modules::{Dependency, Hash};
 
 use crate::app_service::create_app_service;
 use crate::error::ServiceError;
@@ -396,6 +399,14 @@ impl ParticleAppServices {
         Ok(self.modules.get_facade_interface(&service.blueprint_id)?)
     }
 
+    pub fn list_service_with_blueprints(&self) -> Vec<(String, String)> {
+        let services = self.services.read();
+        services
+            .iter()
+            .map(|(id, service)| (id.clone(), service.blueprint_id.clone()))
+            .collect()
+    }
+
     pub fn list_services(&self) -> Vec<JValue> {
         let services = self.services.read();
         let services = services
@@ -532,6 +543,26 @@ impl ParticleAppServices {
 
     fn create_vault(&self, particle_id: &str) -> Result<(), VaultError> {
         self.vault.create(particle_id)
+    }
+
+    pub fn load_spell_service(&self, spells_base_dir: PathBuf) -> Result<String, ModuleError> {
+        log::info!("Spell service: {}", spells_base_dir.display());
+        let spell_cfg_path = spells_base_dir.to_owned().join("Config.toml");
+        let cfg = TomlMarineConfig::load(spell_cfg_path).unwrap();
+        let spell_cfg_prefix = PathBuf::from(spells_base_dir);
+        let mut hashes = Vec::new();
+        for config in cfg.module {
+            let load_from = config
+                .load_from
+                .clone()
+                .unwrap_or(PathBuf::from(config.name.to_owned() + ".wasm"));
+            let module_path = spell_cfg_prefix.to_owned().join(load_from);
+            let module = load_module_by_path(module_path.as_ref())?;
+            let hash = self.modules.add_module(module, config)?;
+            hashes.push(Dependency::Hash(Hash::from_hex(&hash).unwrap()));
+        }
+        self.modules
+            .add_blueprint(AddBlueprint::new("spell".to_string(), hashes))
     }
 }
 

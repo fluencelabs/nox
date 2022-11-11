@@ -19,6 +19,7 @@ ivalue-utils = { path = "../crates/ivalue-utils" }
 now-millis = { path = "../crates/now-millis" }
 toml-utils = { path = "../crates/toml-utils" }
 peer-metrics = { path = "../crates/peer-metrics" }
+uuid-utils = { path = "../crates/uuid-utils/" }
 
 libp2p = { workspace = true }
 avm-server = { workspace = true }
@@ -38,6 +39,7 @@ futures = "0.3.24"
 itertools = "0.10.5"
 bytesize = "1.1.0"
 derivative = "2.2.0"
+fluence-app-service = { workspace = true }
 
 eyre = { workspace = true }
 
