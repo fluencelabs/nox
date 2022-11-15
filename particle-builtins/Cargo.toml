@@ -11,6 +11,7 @@ particle-services = { path = "../particle-services"}
 particle-modules = { path = "../particle-modules"}
 connection-pool = { path = "../connection-pool"}
 script-storage = { path = "../script-storage"}
+spell-storage = { path = "../spell-storage"}
 
 server-config = { path = "../crates/server-config"}
 kademlia = { path = "../crates/kademlia"}
@@ -38,7 +39,7 @@ rand = "0.8.5"
 futures = "0.3.24"
 itertools = "0.10.5"
 bytesize = "1.1.0"
-derivative = "2.2.0"
+derivative = { workspace = true }
 fluence-app-service = { workspace = true }
 
 eyre = { workspace = true }

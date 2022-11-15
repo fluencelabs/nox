@@ -3982,6 +3982,7 @@ dependencies = [
  "serde",
  "serde_json",
  "server-config",
+ "spell-storage",
  "tempfile",
  "thiserror",
  "toml-utils",
@@ -5306,6 +5307,14 @@ dependencies = [
  "log",
  "rand 0.8.5",
  "sha-1",
+]
+
+[[package]]
+name = "spell-storage"
+version = "0.1.0"
+dependencies = [
+ "derivative",
+ "parking_lot 0.12.1",
 ]
 
 [[package]]

@@ -1,0 +1,9 @@
+[package]
+name = "spell-storage"
+version = "0.1.0"
+authors = ["Fluence Labs"]
+edition = "2018"
+
+[dependencies]
+parking_lot = { workspace = true }
+derivative = { workspace = true }
