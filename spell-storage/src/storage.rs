@@ -26,24 +26,24 @@ impl SpellStorage {
         }
     }
 
-    pub fn register_spell(&self, spell_id: String) {
-        let mut spells = self.registered_spells.write();
-        spells.insert(spell_id);
-    }
-
-    pub fn unregister_spell(&self, spell_id: &str) {
-        self.registered_spells.write().retain(|id| id != spell_id);
-    }
-
-    pub fn has_spell(&self, spell_id: &str) -> bool {
-        self.registered_spells.read().contains(spell_id)
-    }
-
     pub fn get_registered_spells(&self) -> HashSet<String> {
         self.registered_spells.read().clone()
     }
 
     pub fn get_blueprint(&self) -> String {
         self.spell_blueprint_id.clone()
+    }
+
+    pub fn register_spell(&self, spell_id: String) {
+        let mut spells = self.registered_spells.write();
+        spells.insert(spell_id);
+    }
+
+    pub fn unregister_spell(&self, spell_id: &String) {
+        self.registered_spells.write().retain(|id| id != spell_id);
+    }
+
+    pub fn has_spell(&self, spell_id: &String) -> bool {
+        self.registered_spells.read().contains(spell_id)
     }
 }
