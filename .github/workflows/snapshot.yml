@@ -21,7 +21,7 @@ on:
 
 jobs:
   publish-snapshot:
-    name: "🐋 Publish snapshot"
+    name: "Publish snapshot"
     runs-on: builder
 
     outputs:
