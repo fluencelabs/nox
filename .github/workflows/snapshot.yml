@@ -62,7 +62,7 @@ jobs:
 
       - name: Set version
         id: snapshot
-        uses: fluencelabs/github-actions/cargo-publish-snapshot@FLU-119-cargo-publish-snapshot-skip-publish
+        uses: fluencelabs/github-actions/cargo-publish-snapshot@main
         with:
           publish: false
 
