@@ -60,7 +60,7 @@ jobs:
         with:
           dependencies: ${{ inputs.cargo-dependencies }}
 
-      - name: Publish crate snapshots
+      - name: Set version
         id: snapshot
         uses: fluencelabs/github-actions/cargo-publish-snapshot@FLU-119-cargo-publish-snapshot-skip-publish
 
