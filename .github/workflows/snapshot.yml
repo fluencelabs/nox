@@ -56,35 +56,13 @@ jobs:
 
       - name: Set dependencies
         if: inputs.cargo-dependencies != ''
-        uses: fluencelabs/github-actions/cargo-set-dependency@update-cargo-set-dependency
+        uses: fluencelabs/github-actions/cargo-set-dependency@main
         with:
           dependencies: ${{ inputs.cargo-dependencies }}
 
-      - name: Install cargo-edit
-        uses: baptiste0928/cargo-install@v1.3.0
-        with:
-          crate: cargo-edit
-
-      - name: Generate package version
-        id: version
-        run: |
-          SHA=${{ github.event.pull_request.head.sha }}
-          echo "sha=${SHA::7}" >> $GITHUB_OUTPUT
-          echo "branch=${GITHUB_HEAD_REF//[^a-zA-Z0-9-]/-}" >> $GITHUB_OUTPUT
-
-      - name: Set package version
-        id: build
-        env:
-          BRANCH: ${{ steps.version.outputs.branch }}
-          SHA: ${{ steps.version.outputs.sha }}
-          RUN: ${{ github.run_number }}
-          ATTEMPT: ${{ github.run_attempt }}
-        working-directory: particle-node
-        run: |
-          cargo set-version --bump alpha
-          cargo set-version "$(cargo read-manifest | jq -r .version)-${{ env.BRANCH }}-${{ env.SHA }}-${{ env.RUN }}-${{ env.ATTEMPT }}"
-
-          echo "version=$(cargo read-manifest | jq -r .version)" >> $GITHUB_OUTPUT
+      - name: Publish crate snapshots
+        id: snapshot
+        uses: fluencelabs/github-actions/cargo-publish-snapshot@FLU-119-cargo-publish-snapshot-skip-publish
 
       - name: Run cargo build
         run: cargo build --release -p particle-node
@@ -107,7 +85,7 @@ jobs:
           push: true
           file: .github/snapshot/Dockerfile
           tags: |
-            ${{ inputs.image-name }}:${{ steps.version.outputs.branch }}
+            ${{ inputs.image-name }}:${{ steps.snapshot.outputs.branch }}
           labels: |
             sha=${{ github.event.pull_request.head.sha }}
           cache-from: type=gha
@@ -117,7 +95,7 @@ jobs:
         if: always()
         env:
           RUST_PEER_IMAGE_SHA: ${{ inputs.image-name }}@${{ steps.docker.outputs.digest }}
-          RUST_PEER_IMAGE_NAME: ${{ inputs.image-name }}:${{ steps.version.outputs.branch }}
+          RUST_PEER_IMAGE_NAME: ${{ inputs.image-name }}:${{ steps.snapshot.outputs.branch }}
         run: |
           cat <<'SNAPSHOT' >> $GITHUB_STEP_SUMMARY
           ## rust-peer
