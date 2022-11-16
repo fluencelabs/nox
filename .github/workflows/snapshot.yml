@@ -21,7 +21,7 @@ on:
 
 jobs:
   publish-snapshot:
-    name: ":whale: Publish snapshot"
+    name: "🐋 Publish snapshot"
     runs-on: builder
 
     outputs:
@@ -63,6 +63,8 @@ jobs:
       - name: Set version
         id: snapshot
         uses: fluencelabs/github-actions/cargo-publish-snapshot@FLU-119-cargo-publish-snapshot-skip-publish
+        with:
+          publish: false
 
       - name: Run cargo build
         run: cargo build --release -p particle-node
