@@ -19,6 +19,7 @@ use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
 use std::ops::Try;
 use std::path;
+use std::path::PathBuf;
 use std::str::FromStr;
 use std::time::{Duration, Instant};
 
@@ -113,25 +114,7 @@ where
         let local_peer_id = config.local_peer_id;
         let spells_base_dir = config.spells_base_dir.clone();
         let services = ParticleAppServices::new(config, modules.clone(), Some(services_metrics));
-
-        let spell_blueprint_id = services.load_spell_service(spells_base_dir).unwrap();
-        let all_spell_blueprint_ids = modules
-            .get_blueprints()
-            .into_iter()
-            .filter(|blueprint| blueprint.name == "spell")
-            .map(|x| x.id)
-            .collect::<HashSet<_>>();
-        let registered_spells = services
-            .list_service_with_blueprints()
-            .into_iter()
-            .filter(|(_, blueprint)| all_spell_blueprint_ids.contains(blueprint))
-            .map(|(id, _)| id)
-            .collect::<_>();
-        let spell_storage = SpellStorage::new(
-            spell_blueprint_id,
-            all_spell_blueprint_ids,
-            registered_spells,
-        );
+        let spell_storage = Self::restore_spells(spells_base_dir, &services, &modules);
 
         Self {
             connectivity,
@@ -969,6 +952,7 @@ where
     fn spell_install(&self, sargs: Args, params: ParticleParams) -> Result<Value, JError> {
         let mut args = sargs.function_args.clone().into_iter();
         let script: String = Args::next("script", &mut args)?;
+        // TODO: redo config when other event are supported
         let period: u64 = Args::next("period", &mut args)?;
 
         let service_id = self
@@ -976,6 +960,7 @@ where
             .create_service(self.spell_storage.get_blueprint(), params.init_peer_id)?;
         self.spell_storage.register_spell(service_id.clone());
 
+        // Save the script to the spell.
         let script_arg = JValue::String(script);
         let script_tetraplet = sargs.tetraplets[0].clone();
         let spell_args = Args {
@@ -993,6 +978,9 @@ where
             signature: vec![],
         };
         self.call_service(spell_args, particle);
+        // TODO: also save config
+
+        // Scheduling the spell
         self.spell_scheduler_api.add(
             service_id.clone(),
             TimerConfig {
@@ -1019,6 +1007,38 @@ where
         self.services
             .remove_service(spell_id, params.init_peer_id)?;
         Ok(())
+    }
+
+    fn restore_spells(
+        spells_base_dir: PathBuf,
+        services: &ParticleAppServices,
+        modules: &ModuleRepository,
+    ) -> SpellStorage {
+        // Load the up-to-date spell service and save its blueprint_id to create spell services from it.
+        let spell_blueprint_id = services.load_spell_service(spells_base_dir).unwrap();
+        // Find blueprint ids of the already existing spells. They might be of older versions of the spell service.
+        // These blueprint ids marked with work "spell" to differ from other blueprints.
+        let all_spell_blueprint_ids = modules
+            .get_blueprints()
+            .into_iter()
+            .filter(|blueprint| blueprint.name == "spell")
+            .map(|x| x.id)
+            .collect::<HashSet<_>>();
+        // Find already created spells by corresponding blueprint_ids.
+        let registered_spells = services
+            .list_service_with_blueprints()
+            .into_iter()
+            .filter(|(_, blueprint)| all_spell_blueprint_ids.contains(blueprint))
+            .map(|(id, _)| id)
+            .collect::<_>();
+        // TODO: read spells configs
+        // TODO: reschedule spells
+
+        SpellStorage::new(
+            spell_blueprint_id,
+            all_spell_blueprint_ids,
+            registered_spells,
+        )
     }
 }
 

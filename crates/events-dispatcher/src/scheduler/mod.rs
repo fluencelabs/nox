@@ -17,6 +17,7 @@ struct Periodic<T> {
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct Scheduled<T> {
     data: Periodic<T>,
+    // the time after we need to run the task
     run_at: Instant,
 }
 
@@ -32,6 +33,7 @@ impl<T: Eq> Scheduled<T> {
     }
 }
 
+// Implement it this way for min heap
 impl<T: PartialEq + Eq> Ord for Scheduled<T> {
     fn cmp(&self, other: &Self) -> Ordering {
         other.run_at.cmp(&self.run_at)
@@ -51,6 +53,7 @@ pub struct SchedulerConfig {
 pub struct Scheduler {
     timer_resolution: Duration,
     recv_command: Inlet<Command>,
+    // what to run when its time to execute the task
     callback: Box<dyn Fn(&str) + Send>,
 }
 
