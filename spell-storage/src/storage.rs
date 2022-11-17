@@ -32,7 +32,7 @@ impl SpellStorage {
     }
 
     pub fn unregister_spell(&self, spell_id: &str) {
-        self.registered_spells.write().retain(|id| id != &spell_id);
+        self.registered_spells.write().retain(|id| id != spell_id);
     }
 
     pub fn has_spell(&self, spell_id: &str) -> bool {
