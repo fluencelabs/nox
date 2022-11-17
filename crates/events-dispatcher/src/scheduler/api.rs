@@ -1,11 +1,14 @@
 use fluence_libp2p::types::Outlet;
+use std::fmt;
 use std::time::Duration;
 use thiserror::Error;
 
+#[derive(Debug)]
 pub struct TimerConfig {
     pub period: Duration,
 }
 
+#[derive(Debug)]
 pub enum Command {
     Add { id: String, config: TimerConfig },
     Remove { id: String },
@@ -19,6 +22,12 @@ pub enum SchedulerError {
 
 pub struct SchedulerApi {
     send_command: Outlet<Command>,
+}
+
+impl fmt::Debug for SchedulerApi {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("SchedulerApi").finish()
+    }
 }
 
 impl SchedulerApi {

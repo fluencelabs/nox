@@ -1,5 +1,5 @@
 [package]
-name = "event-dispatcher"
+name = "events-dispatcher"
 version = "0.1.0"
 authors = ["Fluence Labs"]
 edition = "2018"
@@ -11,3 +11,4 @@ derivative = { workspace = true }
 futures = "0.3.24"
 fluence-libp2p = { path = "../libp2p" }
 thiserror = "1.0.37"
+log = "0.4.17"

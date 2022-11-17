@@ -45,29 +45,26 @@ impl<T: Eq> PartialOrd for Scheduled<T> {
 }
 
 pub struct SchedulerConfig {
-    timer_resolution: Duration,
+    pub timer_resolution: Duration,
 }
 
-pub struct Scheduler<F>
-where
-    F: Fn(&str) + Send + 'static,
-{
+pub struct Scheduler {
     timer_resolution: Duration,
     recv_command: Inlet<Command>,
-    callback: F,
+    callback: Box<dyn Fn(&str) + Send>,
 }
 
-impl<F> Scheduler<F>
-where
-    F: Fn(&str) + Send + 'static,
-{
-    pub fn new(config: SchedulerConfig, callback: F) -> (Self, SchedulerApi) {
+impl Scheduler {
+    pub fn new(
+        config: SchedulerConfig,
+        callback: impl Fn(&str) + Send + 'static,
+    ) -> (Self, SchedulerApi) {
         let (send, recv) = unbounded();
         let api = SchedulerApi::new(send);
         let this = Self {
             timer_resolution: config.timer_resolution,
             recv_command: recv,
-            callback,
+            callback: Box::new(callback),
         };
         (this, api)
     }
@@ -88,11 +85,13 @@ where
                                 break;
                             }
                             let task = heap.pop().unwrap();
+                            log::debug!("Executing task with id: {}", task.data.id);
                             callback(&task.data.id);
                             heap.push(task.reschedule(now));
                         }
                     },
                     command = command_channel.select_next_some() => {
+                        log::debug!("Received a command: {:?}", command);
                         match command {
                             Command::Add { id , config } => {
                                 let periodic = Periodic { id, period: config.period };
@@ -111,6 +110,7 @@ where
 
 #[test]
 fn test1() {
+    use async_std::task;
     let (scheduler, api) = Scheduler::new(
         SchedulerConfig {
             timer_resolution: Duration::from_secs(1),

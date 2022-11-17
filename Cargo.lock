@@ -1716,22 +1716,23 @@ dependencies = [
 ]
 
 [[package]]
-name = "event-dispatcher"
+name = "event-listener"
+version = "2.5.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0206175f82b8d6bf6652ff7d71a1e27fd2e4efde587fd368662814d6ec1d9ce0"
+
+[[package]]
+name = "events-dispatcher"
 version = "0.1.0"
 dependencies = [
  "async-std",
  "derivative",
  "fluence-libp2p",
  "futures",
+ "log",
  "parking_lot 0.12.1",
  "thiserror",
 ]
-
-[[package]]
-name = "event-listener"
-version = "2.5.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0206175f82b8d6bf6652ff7d71a1e27fd2e4efde587fd368662814d6ec1d9ce0"
 
 [[package]]
 name = "eyre"
@@ -3969,6 +3970,7 @@ dependencies = [
  "bytesize",
  "connection-pool",
  "derivative",
+ "events-dispatcher",
  "eyre",
  "fluence-app-service",
  "fluence-keypair",
@@ -4065,6 +4067,7 @@ dependencies = [
  "criterion",
  "ctrlc-adapter",
  "env_logger 0.9.1",
+ "events-dispatcher",
  "eyre",
  "fluence-app-service",
  "fluence-keypair",

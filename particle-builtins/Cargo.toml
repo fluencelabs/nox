@@ -21,6 +21,7 @@ now-millis = { path = "../crates/now-millis" }
 toml-utils = { path = "../crates/toml-utils" }
 peer-metrics = { path = "../crates/peer-metrics" }
 uuid-utils = { path = "../crates/uuid-utils/" }
+events-dispatcher = { path = "../crates/events-dispatcher"}
 
 libp2p = { workspace = true }
 avm-server = { workspace = true }

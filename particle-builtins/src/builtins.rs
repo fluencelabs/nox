@@ -35,6 +35,7 @@ use serde_json::{json, Value as JValue, Value};
 use JValue::Array;
 
 use connection_pool::{ConnectionPoolApi, ConnectionPoolT};
+use events_dispatcher::scheduler::api::{SchedulerApi, TimerConfig};
 use kademlia::{KademliaApi, KademliaApiT};
 use now_millis::{now_ms, now_sec};
 use particle_args::{from_base58, Args, ArgsError, JError};
@@ -64,6 +65,7 @@ use crate::{json, math};
 pub struct Builtins<C> {
     pub connectivity: C,
     pub script_storage: ScriptStorageApi,
+    pub spell_scheduler_api: SchedulerApi,
 
     pub management_peer_id: PeerId,
     pub builtins_management_peer_id: PeerId,
@@ -89,6 +91,7 @@ where
     pub fn new(
         connectivity: C,
         script_storage: ScriptStorageApi,
+        spell_scheduler_api: SchedulerApi,
         node_info: NodeInfo,
         config: ServicesConfig,
         services_metrics: ServicesMetrics,
@@ -133,6 +136,7 @@ where
         Self {
             connectivity,
             script_storage,
+            spell_scheduler_api,
             management_peer_id,
             builtins_management_peer_id,
             local_peer_id,
@@ -964,16 +968,21 @@ where
 
     fn spell_install(&self, sargs: Args, params: ParticleParams) -> Result<Value, JError> {
         let mut args = sargs.function_args.clone().into_iter();
-        let _script: String = Args::next("script", &mut args)?;
+        let script: String = Args::next("script", &mut args)?;
+        let period: u64 = Args::next("period", &mut args)?;
+
         let service_id = self
             .services
             .create_service(self.spell_storage.get_blueprint(), params.init_peer_id)?;
         self.spell_storage.register_spell(service_id.clone());
+
+        let script_arg = JValue::String(script);
+        let script_tetraplet = sargs.tetraplets[0].clone();
         let spell_args = Args {
             service_id: service_id.clone(),
             function_name: "set_script_source_to_file".to_string(),
-            function_args: sargs.function_args,
-            tetraplets: sargs.tetraplets,
+            function_args: vec![script_arg],
+            tetraplets: vec![script_tetraplet],
         };
         let particle = ParticleParams {
             id: uuid(),
@@ -984,6 +993,12 @@ where
             signature: vec![],
         };
         self.call_service(spell_args, particle);
+        self.spell_scheduler_api.add(
+            service_id.clone(),
+            TimerConfig {
+                period: Duration::from_secs(period),
+            },
+        )?;
         Ok(JValue::String(service_id))
     }
 
