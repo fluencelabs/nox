@@ -21,9 +21,9 @@ futures = "0.3.24"
 parking_lot = { workspace = true }
 eyre = { workspace = true }
 maplit = "1.0.2"
-serde_json = "1.0.86"
+serde_json = { workspace = true }
 log = "0.4.17"
 base64 = { workspace = true }
 regex = "1.6.0"
-fstrings = "0.2.3"
+fstrings = { workspace = true }
 humantime = "2.1.0"

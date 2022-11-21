@@ -1727,11 +1727,20 @@ version = "0.1.0"
 dependencies = [
  "async-std",
  "derivative",
+ "eyre",
  "fluence-libp2p",
+ "fstrings",
  "futures",
  "log",
+ "now-millis",
  "parking_lot 0.12.1",
+ "particle-args",
+ "particle-execution",
+ "particle-protocol",
+ "particle-services",
+ "serde_json",
  "thiserror",
+ "uuid-utils",
 ]
 
 [[package]]

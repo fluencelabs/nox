@@ -6,5 +6,5 @@ edition = "2018"
 
 [dependencies]
 serde = "1.0.145"
-serde_json = "1.0.86"
+serde_json = { workspace = true }
 base64 = { workspace = true }

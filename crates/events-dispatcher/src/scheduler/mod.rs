@@ -1,4 +1,5 @@
 pub mod api;
+mod script_executor;
 
 use crate::scheduler::api::*;
 use async_std::task::JoinHandle;
