@@ -39,7 +39,7 @@ impl FunctionOutcome {
     }
 
     /// Returns [false] if variant is [Err]
-    pub fn is_err(&self) -> bool {
+    pub fn not_err(&self) -> bool {
         !matches!(self, Self::Err { .. })
     }
 
