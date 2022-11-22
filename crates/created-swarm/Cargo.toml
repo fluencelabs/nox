@@ -26,9 +26,9 @@ fluence-keypair = { workspace = true }
 libp2p = { workspace = true }
 
 async-std = { workspace = true }
-futures = "0.3.24"
+futures = { workspace = true }
 derivative = "2.2.0"
 serde_json = { workspace = true }
 base64 = { workspace = true }
 serde = "1.0.145"
-maplit = "1.0.2"
+maplit = { workspace = true }

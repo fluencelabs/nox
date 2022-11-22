@@ -20,7 +20,7 @@ libp2p-metrics = { workspace = true }
 serde = { version = "1.0.145", features = ["derive"] }
 humantime-serde = "1.1.1"
 
-log = "0.4.17"
+log = { workspace = true }
 rand = "0.8.5"
 clap = "3.2.22"
 toml = "0.5.9"

@@ -5,12 +5,12 @@ edition = "2021"
 
 [dependencies]
 prometheus-client = { workspace = true }
-log = "0.4.17"
+log = { workspace = true }
 bytesize = "1.1.0"
 fluence-app-service = { workspace = true }
 fluence-libp2p = { path = "../libp2p" }
 async-std = { workspace = true }
-futures = "0.3.24"
+futures = { workspace = true }
 serde = { version = "1.0.145", features = ["derive"] }
 serde_json = { workspace = true }
 parking_lot = { workspace = true }

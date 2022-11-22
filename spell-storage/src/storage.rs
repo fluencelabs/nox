@@ -1,16 +1,17 @@
 use derivative::Derivative;
 use parking_lot::RwLock;
 use std::collections::HashSet;
+use std::sync::Arc;
 
 #[derive(Derivative)]
-#[derivative(Debug)]
+#[derivative(Debug, Clone)]
 pub struct SpellStorage {
     // The blueprint for the latest spell service.
     spell_blueprint_id: String,
     // All blueprints that are used for spells
     all_spell_blueprint_ids: HashSet<String>,
     // All currently existing spells
-    registered_spells: RwLock<HashSet<String>>,
+    registered_spells: Arc<RwLock<HashSet<String>>>,
 }
 
 impl SpellStorage {
@@ -22,7 +23,7 @@ impl SpellStorage {
         Self {
             spell_blueprint_id,
             all_spell_blueprint_ids,
-            registered_spells: RwLock::new(registered_spells),
+            registered_spells: Arc::new(RwLock::new(registered_spells)),
         }
     }
 

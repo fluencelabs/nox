@@ -11,7 +11,6 @@ particle-services = { path = "../particle-services"}
 particle-modules = { path = "../particle-modules"}
 connection-pool = { path = "../connection-pool"}
 script-storage = { path = "../script-storage"}
-spell-storage = { path = "../spell-storage"}
 
 server-config = { path = "../crates/server-config"}
 kademlia = { path = "../crates/kademlia"}
@@ -20,8 +19,7 @@ ivalue-utils = { path = "../crates/ivalue-utils" }
 now-millis = { path = "../crates/now-millis" }
 toml-utils = { path = "../crates/toml-utils" }
 peer-metrics = { path = "../crates/peer-metrics" }
-uuid-utils = { path = "../crates/uuid-utils/" }
-events-dispatcher = { path = "../crates/events-dispatcher"}
+uuid-utils = { path = "../crates/uuid-utils" }
 
 libp2p = { workspace = true }
 avm-server = { workspace = true }
@@ -31,13 +29,13 @@ fluence-keypair = { workspace = true }
 async-std = { workspace = true }
 serde_json = { workspace = true }
 serde = "1.0.145"
-log = "0.4.17"
+log = { workspace = true }
 bs58 = { workspace = true }
 parking_lot = { workspace = true }
 thiserror = "1.0.37"
 humantime-serde = "1.1.1"
 rand = "0.8.5"
-futures = "0.3.24"
+futures = { workspace = true }
 itertools = "0.10.5"
 bytesize = "1.1.0"
 derivative = { workspace = true }

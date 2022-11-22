@@ -11,6 +11,7 @@ particle-builtins = { path = "../particle-builtins" }
 connection-pool = { path = "../connection-pool"}
 script-storage = { path = "../script-storage"}
 aquamarine = { path = "../aquamarine" }
+sorcerer = { path = "../sorcerer"}
 
 fluence-libp2p = { path = "../crates/libp2p" }
 ctrlc-adapter = { path = "../crates/ctrlc-adapter"}
@@ -33,13 +34,13 @@ libp2p-metrics = { workspace = true }
 libp2p-swarm = { workspace = true }
 prometheus-client = { workspace = true }
 
-futures = "0.3.24"
+futures = { workspace = true }
 async-std = { workspace = true }
 parking_lot = { workspace = true }
 
 humantime-serde = "1.1.1"
 
-log = "0.4.17"
+log = { workspace = true }
 env_logger = "0.9.1"
 clap = "3.2.22"
 tide = "0.17.0-beta.1"
@@ -68,7 +69,7 @@ builtins = { path = "./tests/builtins"}
 fluence-app-service = { workspace = true }
 
 parking_lot = { workspace = true }
-maplit = "1.0.2"
+maplit = { workspace = true }
 serde_json = { workspace = true }
 fstrings = { workspace = true }
 serde = "1.0.145"

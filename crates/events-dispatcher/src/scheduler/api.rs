@@ -20,6 +20,7 @@ pub enum SchedulerError {
     CommandSendError,
 }
 
+#[derive(Clone)]
 pub struct SchedulerApi {
     send_command: Outlet<Command>,
 }

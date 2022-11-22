@@ -22,7 +22,7 @@ fluence-app-service = { workspace = true }
 parking_lot = { workspace = true }
 serde_json = { workspace = true }
 serde = "1.0.145"
-log = "0.4.17"
+log = { workspace = true }
 uuid = { workspace = true }
 toml = "0.5.9"
 thiserror = "1.0.37"

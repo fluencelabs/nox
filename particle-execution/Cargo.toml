@@ -12,6 +12,6 @@ fs-utils = { path = "../crates/fs-utils" }
 json-utils = { path = "../crates/json-utils" }
 
 thiserror = "1.0.37"
-futures = "0.3.24"
+futures = { workspace = true }
 serde_json = { workspace = true }
 async-std = { workspace = true }

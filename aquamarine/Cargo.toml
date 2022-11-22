@@ -21,8 +21,8 @@ particle-execution = { path = "../particle-execution" }
 avm-server = { workspace = true }
 libp2p = { workspace = true }
 
-futures = "0.3.24"
-log = "0.4.17"
+futures = { workspace = true }
+log = { workspace = true }
 async-std = { workspace = true }
 serde_json = { workspace = true }
 parking_lot = { workspace = true }

@@ -56,6 +56,7 @@ use peer_metrics::{
 };
 use script_storage::{ScriptStorageApi, ScriptStorageBackend, ScriptStorageConfig};
 use server_config::{NetworkConfig, ResolvedConfig, ServicesConfig};
+use sorcerer::Sorcerer;
 
 use crate::dispatcher::Dispatcher;
 use crate::effectors::Effectors;
@@ -77,7 +78,7 @@ pub struct Node<RT: AquaRuntime> {
     aquavm_pool: AquamarineBackend<RT, Arc<Builtins<Connectivity>>>,
     script_storage: ScriptStorageBackend,
     builtins_deployer: BuiltinsDeployer,
-    spell_scheduler: Scheduler,
+    sorcerer: Sorcerer<Connectivity>,
 
     registry: Option<Registry>,
     services_metrics_backend: ServicesMetricsBackend,
@@ -147,13 +148,6 @@ impl<RT: AquaRuntime> Node<RT> {
 
         let (particle_failures_out, particle_failures_in) = unbounded();
 
-        let (spell_scheduler, spell_scheduler_api) = Scheduler::new(
-            SchedulerConfig {
-                timer_resolution: config.script_storage_timer_resolution,
-            },
-            |id| log::warn!("Sending spell: {}", id),
-        );
-
         let (script_storage_api, script_storage_backend) = {
             let script_storage_config = ScriptStorageConfig {
                 timer_resolution: config.script_storage_timer_resolution,
@@ -179,15 +173,14 @@ impl<RT: AquaRuntime> Node<RT> {
                 )
             };
 
-        let builtins = Self::builtins(
+        let builtins = Arc::new(Self::builtins(
             connectivity.clone(),
             config.external_addresses(),
             services_config,
             script_storage_api,
-            spell_scheduler_api,
             services_metrics,
             config.node_config.root_key_pair.clone(),
-        );
+        ));
 
         let (effects_out, effects_in) = unbounded();
 
@@ -196,7 +189,7 @@ impl<RT: AquaRuntime> Node<RT> {
         let (aquavm_pool, aquamarine_api) = AquamarineBackend::new(
             pool_config,
             vm_config,
-            Arc::new(builtins),
+            builtins.clone(),
             effects_out,
             plumber_metrics,
             vm_pool_metrics,
@@ -225,6 +218,7 @@ impl<RT: AquaRuntime> Node<RT> {
             config.node_config.autodeploy_retry_attempts,
         );
 
+        let sorcerer = Sorcerer::new(builtins.clone(), aquamarine_api.clone(), config.clone());
         Ok(Self::with(
             particle_stream,
             effects_in,
@@ -235,7 +229,7 @@ impl<RT: AquaRuntime> Node<RT> {
             aquavm_pool,
             script_storage_backend,
             builtins_deployer,
-            spell_scheduler,
+            sorcerer,
             metrics_registry,
             services_metrics_backend,
             config.metrics_listen_addr(),
@@ -271,7 +265,6 @@ impl<RT: AquaRuntime> Node<RT> {
         external_addresses: Vec<Multiaddr>,
         services_config: ServicesConfig,
         script_storage_api: ScriptStorageApi,
-        spell_scheduler_api: SchedulerApi,
         services_metrics: ServicesMetrics,
         root_keypair: KeyPair,
     ) -> Builtins<Connectivity> {
@@ -284,7 +277,6 @@ impl<RT: AquaRuntime> Node<RT> {
         Builtins::new(
             connectivity,
             script_storage_api,
-            spell_scheduler_api,
             node_info,
             services_config,
             services_metrics,
@@ -306,7 +298,7 @@ impl<RT: AquaRuntime> Node<RT> {
         aquavm_pool: AquamarineBackend<RT, Arc<Builtins<Connectivity>>>,
         script_storage: ScriptStorageBackend,
         builtins_deployer: BuiltinsDeployer,
-        spell_scheduler: Scheduler,
+        sorcerer: Sorcerer<Connectivity>,
 
         registry: Option<Registry>,
         services_metrics_backend: ServicesMetricsBackend,
@@ -326,7 +318,7 @@ impl<RT: AquaRuntime> Node<RT> {
             aquavm_pool,
             script_storage,
             builtins_deployer,
-            spell_scheduler,
+            sorcerer,
 
             registry,
             services_metrics_backend,
@@ -351,7 +343,7 @@ impl<RT: AquaRuntime> Node<RT> {
         let dispatcher = self.dispatcher;
         let aquavm_pool = self.aquavm_pool;
         let script_storage = self.script_storage;
-        let spell_scheduler = self.spell_scheduler;
+        let spell_scheduler = self.sorcerer.scheduler;
         let registry = self.registry;
         let services_metrics_backend = self.services_metrics_backend;
         let metrics_listen_addr = self.metrics_listen_addr;

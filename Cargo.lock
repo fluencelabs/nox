@@ -1726,12 +1726,14 @@ name = "events-dispatcher"
 version = "0.1.0"
 dependencies = [
  "async-std",
+ "connection-pool",
  "derivative",
  "eyre",
  "fluence-libp2p",
  "fstrings",
  "futures",
  "log",
+ "maplit",
  "now-millis",
  "parking_lot 0.12.1",
  "particle-args",
@@ -3979,7 +3981,6 @@ dependencies = [
  "bytesize",
  "connection-pool",
  "derivative",
- "events-dispatcher",
  "eyre",
  "fluence-app-service",
  "fluence-keypair",
@@ -4005,7 +4006,6 @@ dependencies = [
  "serde",
  "serde_json",
  "server-config",
- "spell-storage",
  "tempfile",
  "thiserror",
  "toml-utils",
@@ -4113,6 +4113,7 @@ dependencies = [
  "serde_json",
  "server-config",
  "service-modules",
+ "sorcerer",
  "test-constants",
  "test-utils",
  "tide",
@@ -5331,6 +5332,30 @@ dependencies = [
  "log",
  "rand 0.8.5",
  "sha-1",
+]
+
+[[package]]
+name = "sorcerer"
+version = "0.1.0"
+dependencies = [
+ "aquamarine",
+ "connection-pool",
+ "events-dispatcher",
+ "futures",
+ "kademlia",
+ "log",
+ "maplit",
+ "now-millis",
+ "parking_lot 0.12.1",
+ "particle-args",
+ "particle-builtins",
+ "particle-execution",
+ "particle-modules",
+ "particle-services",
+ "serde_json",
+ "server-config",
+ "spell-storage",
+ "uuid-utils",
 ]
 
 [[package]]
