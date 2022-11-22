@@ -66,7 +66,7 @@ jobs:
 
       - name: Set version
         id: snapshot
-        uses: fluencelabs/github-actions/cargo-publish-snapshot@small-fixes
+        uses: fluencelabs/github-actions/cargo-publish-snapshot@main
         with:
           id: ${{ steps.version.outputs.id }}
           publish: false
