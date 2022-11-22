@@ -60,10 +60,15 @@ jobs:
         with:
           dependencies: ${{ inputs.cargo-dependencies }}
 
+      - name: Generate snapshot version
+        id: version
+        uses: fluencelabs/github-actions/generate-snapshot-id@main
+
       - name: Set version
         id: snapshot
-        uses: fluencelabs/github-actions/cargo-publish-snapshot@main
+        uses: fluencelabs/github-actions/cargo-publish-snapshot@small-fixes
         with:
+          id: ${{ steps.version.outputs.id }}
           publish: false
 
       - name: Run cargo build
@@ -87,9 +92,9 @@ jobs:
           push: true
           file: .github/snapshot/Dockerfile
           tags: |
-            ${{ inputs.image-name }}:${{ steps.snapshot.outputs.branch }}
+            ${{ inputs.image-name }}:${{ steps.version.outputs.branch }}
           labels: |
-            sha=${{ github.event.pull_request.head.sha }}
+            sha=${{ steps.version.outputs.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -97,7 +102,7 @@ jobs:
         if: always()
         env:
           RUST_PEER_IMAGE_SHA: ${{ inputs.image-name }}@${{ steps.docker.outputs.digest }}
-          RUST_PEER_IMAGE_NAME: ${{ inputs.image-name }}:${{ steps.snapshot.outputs.branch }}
+          RUST_PEER_IMAGE_NAME: ${{ inputs.image-name }}:${{ steps.version.outputs.branch }}
         run: |
           cat <<'SNAPSHOT' >> $GITHUB_STEP_SUMMARY
           ## rust-peer
