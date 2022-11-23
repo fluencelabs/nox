@@ -14,14 +14,25 @@
  * limitations under the License.
  */
 
+use crate::services::{get_spell_id, spell_install, spell_list, spell_remove};
+
+use std::collections::HashSet;
+use std::path::PathBuf;
+use std::sync::Arc;
+use std::time::Duration;
+
+use futures::future::BoxFuture;
+use futures::FutureExt;
+use libp2p::PeerId;
+use maplit::hashmap;
+use serde_json::{json, Value as JValue};
+use JValue::Array;
+
 use aquamarine::AquamarineApi;
 use connection_pool::ConnectionPoolApi;
 use events_dispatcher::scheduler::api::{SchedulerApi, TimerConfig};
 use events_dispatcher::scheduler::{Scheduler, SchedulerConfig};
-use futures::future::BoxFuture;
-use futures::FutureExt;
 use kademlia::KademliaApi;
-use maplit::hashmap;
 use now_millis::now_ms;
 use particle_args::{Args, JError};
 use particle_builtins::{wrap, wrap_unit, Builtins};
@@ -30,22 +41,19 @@ use particle_execution::{
 };
 use particle_modules::ModuleRepository;
 use particle_services::ParticleAppServices;
-use serde_json::{json, Value as JValue};
 use server_config::ResolvedConfig;
 use spell_storage::SpellStorage;
-use std::collections::HashSet;
-use std::path::PathBuf;
-use std::sync::Arc;
-use std::time::Duration;
 use uuid_utils::uuid;
-use JValue::Array;
 
+#[derive(Clone)]
 pub struct Sorcerer<C> {
     pub aquamarine: AquamarineApi,
     pub builtins: Arc<Builtins<C>>,
     pub spell_storage: SpellStorage,
     pub scheduler: Scheduler,
     pub spell_scheduler_api: SchedulerApi,
+    /// it is temporary, later we will use spell keypairs
+    pub node_peer_id: PeerId,
 }
 
 impl<C> Sorcerer<C>
@@ -56,6 +64,7 @@ where
         builtins: Arc<Builtins<C>>,
         aquamarine: AquamarineApi,
         config: ResolvedConfig,
+        local_peer_id: PeerId,
     ) -> Self {
         let spell_storage = Self::restore_spells(
             config.dir_config.spell_base_dir.clone(),
@@ -69,15 +78,20 @@ where
             |id| log::warn!("Sending spell: {}", id),
         );
 
-        let sorcerer = Self {
+        let mut sorcerer = Self {
             aquamarine,
             builtins,
             spell_storage,
             scheduler,
             spell_scheduler_api,
+            node_peer_id: local_peer_id,
         };
 
         sorcerer.register_service_functions();
+        let sorcerer_clone = sorcerer.clone();
+        sorcerer.scheduler.set_callback(move |id| {
+            sorcerer_clone.execute_script(id.to_string());
+        });
         sorcerer
     }
 
@@ -90,7 +104,7 @@ where
             let services = services_install.clone();
             let scheduler_api = scheduler_api_install.clone();
             async move {
-                wrap(Sorcerer::<C>::spell_install(
+                wrap(spell_install(
                     storage,
                     services,
                     scheduler_api,
@@ -106,14 +120,13 @@ where
         let remove_closure: ServiceFunction = Box::new(move |args, params| {
             let storage = storage_remove.clone();
             let services = services_remove.clone();
-            async move { wrap_unit(Sorcerer::<C>::spell_remove(storage, services, args, params)) }
-                .boxed()
+            async move { wrap_unit(spell_remove(storage, services, args, params)) }.boxed()
         });
 
         let storage_list = self.spell_storage.clone();
-        let list_closure: ServiceFunction = Box::new(move |args, params| {
+        let list_closure: ServiceFunction = Box::new(move |_args, _params| {
             let storage = storage_list.clone();
-            async move { wrap(Sorcerer::<C>::spell_list(storage, args, params)) }.boxed()
+            async move { wrap(spell_list(storage)) }.boxed()
         });
 
         let functions = hashmap! {
@@ -123,15 +136,8 @@ where
         };
         self.builtins.extend("spell".to_string(), functions);
 
-        let get_data_srv_closure: ServiceFunction = Box::new(move |args, params| async move {
-            wrap({
-                if params.id.starts_with("spell_") {
-                    Ok(json!(params.id.split('_').next().next())))
-                } else {
-                    Err()
-                }
-            })
-        });
+        let get_data_srv_closure: ServiceFunction =
+            Box::new(move |args, params| async move { wrap(get_spell_id(args, params)) });
 
         self.builtins.extend(
             "getDataSrv".to_string(),
@@ -169,78 +175,5 @@ where
             all_spell_blueprint_ids,
             registered_spells,
         )
-    }
-
-    fn spell_install(
-        spell_storage: SpellStorage,
-        services: ParticleAppServices,
-        spell_scheduler_api: SchedulerApi,
-        sargs: Args,
-        params: ParticleParams,
-    ) -> Result<JValue, JError> {
-        let mut args = sargs.function_args.clone().into_iter();
-        let script: String = Args::next("script", &mut args)?;
-        // TODO: redo config when other event are supported
-        let period: u64 = Args::next("period", &mut args)?;
-
-        let service_id =
-            services.create_service(spell_storage.get_blueprint(), params.init_peer_id)?;
-        spell_storage.register_spell(service_id.clone());
-
-        // Save the script to the spell.
-        let script_arg = JValue::String(script);
-        let script_tetraplet = sargs.tetraplets[0].clone();
-        let spell_args = Args {
-            service_id: service_id.clone(),
-            function_name: "set_script_source_to_file".to_string(),
-            function_args: vec![script_arg],
-            tetraplets: vec![script_tetraplet],
-        };
-        let particle = ParticleParams {
-            id: uuid(),
-            init_peer_id: params.init_peer_id,
-            timestamp: now_ms() as u64,
-            ttl: params.ttl,
-            script: "".to_string(),
-            signature: vec![],
-        };
-        services.call_service(spell_args, particle);
-        // TODO: also save config
-
-        // Scheduling the spell
-        spell_scheduler_api.add(
-            service_id.clone(),
-            TimerConfig {
-                period: Duration::from_secs(period),
-            },
-        )?;
-        Ok(JValue::String(service_id))
-    }
-
-    fn spell_list(
-        spell_storage: SpellStorage,
-        _args: Args,
-        _params: ParticleParams,
-    ) -> Result<JValue, JError> {
-        Ok(Array(
-            spell_storage
-                .get_registered_spells()
-                .into_iter()
-                .map(JValue::String)
-                .collect(),
-        ))
-    }
-    fn spell_remove(
-        spell_storage: SpellStorage,
-        services: ParticleAppServices,
-        args: Args,
-        params: ParticleParams,
-    ) -> Result<(), JError> {
-        let mut args = args.function_args.into_iter();
-        let spell_id: String = Args::next("spell_id", &mut args)?;
-
-        spell_storage.unregister_spell(&spell_id);
-        services.remove_service(spell_id, params.init_peer_id)?;
-        Ok(())
     }
 }

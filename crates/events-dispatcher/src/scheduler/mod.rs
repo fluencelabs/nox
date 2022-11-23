@@ -72,6 +72,10 @@ impl Scheduler {
         (this, api)
     }
 
+    pub fn set_callback(&mut self, callback: impl Fn(&str) + Send + 'static) {
+        self.callback = Box::new(callback);
+    }
+
     pub fn start(self) -> JoinHandle<()> {
         async_std::task::spawn(async move {
             let timer_resolution = self.timer_resolution;

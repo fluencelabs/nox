@@ -11,7 +11,7 @@ fluence-libp2p = { path = "../crates/libp2p" }
 fs-utils = { path = "../crates/fs-utils" }
 json-utils = { path = "../crates/json-utils" }
 
-thiserror = "1.0.37"
+thiserror = { workspace = true }
 futures = { workspace = true }
 serde_json = { workspace = true }
 async-std = { workspace = true }

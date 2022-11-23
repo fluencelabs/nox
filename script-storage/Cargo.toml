@@ -13,7 +13,7 @@ now-millis = { path = "../crates/now-millis" }
 
 async-std = { workspace = true }
 futures = { workspace = true }
-thiserror = "1.0.37"
+thiserror = { workspace = true }
 uuid = "1.2.1"
 chrono = "0.4.22"
 log = { workspace = true }

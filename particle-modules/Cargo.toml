@@ -21,7 +21,7 @@ serde_json = { workspace = true }
 toml = "0.5.9"
 log = { workspace = true }
 base64 = { workspace = true }
-thiserror = "1.0.37"
+thiserror = { workspace = true }
 parking_lot = { workspace = true }
 eyre = { workspace = true }
 fstrings = { workspace = true }

@@ -210,7 +210,7 @@ impl<RT: AquaRuntime> Node<RT> {
 
         let builtins_deployer = BuiltinsDeployer::new(
             builtins_peer_id,
-            local_peer_id,
+            local_peer_id.clone(),
             aquamarine_api.clone(),
             config.dir_config.builtins_base_dir.clone(),
             config.node_config.autodeploy_particle_ttl,
@@ -218,7 +218,12 @@ impl<RT: AquaRuntime> Node<RT> {
             config.node_config.autodeploy_retry_attempts,
         );
 
-        let sorcerer = Sorcerer::new(builtins.clone(), aquamarine_api.clone(), config.clone());
+        let sorcerer = Sorcerer::new(
+            builtins.clone(),
+            aquamarine_api.clone(),
+            config.clone(),
+            local_peer_id,
+        );
         Ok(Self::with(
             particle_stream,
             effects_in,
@@ -385,7 +390,7 @@ impl<RT: AquaRuntime> Node<RT> {
                         if let Some(Ok(_)) = event {
                             break
                         }
-                    }
+                    }p
                 )
             }
 

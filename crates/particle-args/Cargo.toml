@@ -14,5 +14,5 @@ avm-server = { workspace = true }
 serde_json = { workspace = true }
 serde = "1.0.145"
 bs58 = { workspace = true }
-thiserror = "1.0.37"
+thiserror = { workspace = true }
 eyre = { workspace = true }

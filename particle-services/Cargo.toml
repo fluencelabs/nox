@@ -25,7 +25,7 @@ serde = "1.0.145"
 log = { workspace = true }
 uuid = { workspace = true }
 toml = "0.5.9"
-thiserror = "1.0.37"
+thiserror = { workspace = true }
 derivative = "2.2.0"
 eyre = { workspace = true }
 humantime-serde = "1.1.1"
