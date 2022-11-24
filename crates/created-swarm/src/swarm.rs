@@ -218,6 +218,9 @@ pub struct SwarmConfig {
     pub tmp_dir: Option<PathBuf>,
     pub pool_size: Option<usize>,
     pub builtins_dir: Option<PathBuf>,
+    pub transport_timeout: Duration,
+    pub execution_timeout: Duration,
+    pub keep_alive_timeout: Duration,
 }
 
 impl SwarmConfig {
@@ -235,6 +238,9 @@ impl SwarmConfig {
             tmp_dir: None,
             pool_size: <_>::default(),
             builtins_dir: None,
+            transport_timeout: TRANSPORT_TIMEOUT,
+            execution_timeout: EXECUTION_TIMEOUT,
+            keep_alive_timeout: KEEP_ALIVE_TIMEOUT,
         }
     }
 }
@@ -308,9 +314,12 @@ pub fn create_swarm_with_runtime<RT: AquaRuntime>(
     create_dir(&resolved.dir_config.builtins_base_dir).expect("create builtins dir");
 
     resolved.node_config.transport_config.transport = config.transport;
-    resolved.node_config.transport_config.socket_timeout = TRANSPORT_TIMEOUT;
-    resolved.node_config.protocol_config =
-        ProtocolConfig::new(TRANSPORT_TIMEOUT, KEEP_ALIVE_TIMEOUT, TRANSPORT_TIMEOUT);
+    resolved.node_config.transport_config.socket_timeout = config.transport_timeout;
+    resolved.node_config.protocol_config = ProtocolConfig::new(
+        config.transport_timeout,
+        config.keep_alive_timeout,
+        config.transport_timeout,
+    );
 
     resolved.node_config.bootstrap_nodes = config.bootstraps.clone();
     resolved.node_config.bootstrap_config = BootstrapConfig::zero();
@@ -321,7 +330,7 @@ pub fn create_swarm_with_runtime<RT: AquaRuntime>(
     resolved.node_config.allow_local_addresses = true;
 
     resolved.node_config.aquavm_pool_size = config.pool_size.unwrap_or(1);
-    resolved.node_config.particle_execution_timeout = EXECUTION_TIMEOUT;
+    resolved.node_config.particle_execution_timeout = config.execution_timeout;
 
     let management_kp = fluence_keypair::KeyPair::generate_ed25519();
     let management_peer_id = libp2p::identity::Keypair::from(management_kp.clone())
