@@ -131,7 +131,7 @@ where
                 .or_else(|args, params| self.call_service(args, params)),
             result => {
                 if let Some(metrics) = self.services.metrics.as_ref() {
-                    metrics.observe_builtins(result.is_err(), end as f64);
+                    metrics.observe_builtins(result.not_err(), end as f64);
                 }
                 result
             }
