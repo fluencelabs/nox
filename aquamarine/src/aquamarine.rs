@@ -22,6 +22,7 @@ use async_std::{task, task::JoinHandle};
 use futures::{channel::mpsc, SinkExt, StreamExt};
 
 use fluence_libp2p::types::{BackPressuredInlet, BackPressuredOutlet, Outlet};
+use fluence_libp2p::PeerId;
 use particle_execution::{ParticleFunctionStatic, ServiceFunction};
 use particle_protocol::Particle;
 use peer_metrics::{ParticleExecutorMetrics, VmPoolMetrics};
@@ -50,11 +51,13 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> AquamarineBackend<RT, F> {
         out: EffectsChannel,
         plumber_metrics: Option<ParticleExecutorMetrics>,
         vm_pool_metrics: Option<VmPoolMetrics>,
+        host_peer_id: PeerId,
     ) -> (Self, AquamarineApi) {
+        // TODO: make `100` configurable
         let (outlet, inlet) = mpsc::channel(100);
         let sender = AquamarineApi::new(outlet, config.execution_timeout);
         let vm_pool = VmPool::new(config.pool_size, runtime_config, vm_pool_metrics);
-        let plumber = Plumber::new(vm_pool, builtins, plumber_metrics);
+        let plumber = Plumber::new(vm_pool, builtins, plumber_metrics, host_peer_id);
         let this = Self {
             inlet,
             plumber,

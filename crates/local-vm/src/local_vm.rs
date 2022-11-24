@@ -176,7 +176,6 @@ pub fn make_vm(peer_id: PeerId) -> AVM<DataStoreError> {
     ));
     let config = AVMConfig {
         data_store,
-        current_peer_id: peer_id.to_base58(),
         air_wasm_path: interpreter,
         logging_mask: i32::MAX,
         max_heap_size: None,
@@ -261,6 +260,7 @@ pub fn make_particle(
             particle_id: Cow::Owned(id.clone()),
             timestamp,
             ttl,
+            current_peer_id: Cow::Owned(peer_id.to_string()),
         };
 
         let AVMOutcome {
@@ -299,7 +299,7 @@ pub fn make_particle(
 
 pub fn read_args(
     particle: Particle,
-    _peer_id: PeerId,
+    peer_id: PeerId,
     local_vm: &mut AVM<DataStoreError>,
 ) -> Option<Result<Vec<JValue>, Vec<JValue>>> {
     let mut call_results: CallResults = <_>::default();
@@ -310,6 +310,7 @@ pub fn read_args(
             init_peer_id: Cow::Owned(particle.init_peer_id.to_string()),
             timestamp: particle.timestamp,
             ttl: particle.ttl,
+            current_peer_id: Cow::Owned(peer_id.to_string()),
         };
         let AVMOutcome {
             data,

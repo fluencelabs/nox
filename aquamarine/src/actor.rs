@@ -22,6 +22,7 @@ use std::{
 use avm_server::CallResults;
 use futures::FutureExt;
 
+use fluence_libp2p::PeerId;
 use particle_execution::{ParticleFunctionStatic, ServiceFunction};
 use particle_protocol::Particle;
 
@@ -42,6 +43,9 @@ pub struct Actor<RT, F> {
     /// Used to execute CallRequests when mailbox is empty.
     /// Particle's data is empty.
     particle: Particle,
+    /// Particles and call results will be processed in the security scope of this peer id
+    /// It's either `host_peer_id` or owner-specific spell peer id
+    current_peer_id: PeerId,
 }
 
 impl<RT, F> Actor<RT, F>
@@ -49,7 +53,7 @@ where
     RT: AquaRuntime + ParticleExecutor<Particle = (Particle, CallResults), Future = Fut<RT>>,
     F: ParticleFunctionStatic,
 {
-    pub fn new(particle: &Particle, functions: Functions<F>) -> Self {
+    pub fn new(particle: &Particle, functions: Functions<F>, current_peer_id: PeerId) -> Self {
         Self {
             deadline: Deadline::from(&particle),
             functions,
@@ -66,6 +70,7 @@ where
                 signature: particle.signature.clone(),
                 data: vec![],
             },
+            current_peer_id,
         }
     }
 
@@ -155,11 +160,18 @@ where
             return ActorPoll::Vm(vm_id, vm);
         }
 
-        let particle = particle.unwrap_or_else(|| self.particle.clone());
+        let particle = particle.unwrap_or_else(|| {
+            // If mailbox is empty, then take self.particle.
+            // Its data is empty, so `vm` will process `calls` on the old (saved on disk) data
+            self.particle.clone()
+        });
         let waker = cx.waker().clone();
         // TODO: add timeout for execution https://github.com/fluencelabs/fluence/issues/1212
         // Take ownership of vm to process particle
-        self.future = Some((vm_id, vm.execute((particle, calls), waker)));
+        self.future = Some((
+            vm_id,
+            vm.execute((particle, calls), waker, self.current_peer_id.clone()),
+        ));
 
         ActorPoll::Executing(stats)
     }
