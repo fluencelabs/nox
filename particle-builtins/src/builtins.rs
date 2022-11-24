@@ -48,7 +48,6 @@ use peer_metrics::ServicesMetrics;
 use script_storage::ScriptStorageApi;
 use server_config::ServicesConfig;
 
-
 use crate::debug::fmt_custom_services;
 use crate::error::HostClosureCallError;
 use crate::error::HostClosureCallError::{DecodeBase58, DecodeUTF8};
@@ -790,7 +789,6 @@ where
     fn remove_service(&self, args: Args, params: ParticleParams) -> Result<(), JError> {
         let mut args = args.function_args.into_iter();
         let service_id_or_alias: String = Args::next("service_id_or_alias", &mut args)?;
-
 
         // TODO: do smth with spell storage
         // if self.spell_storage.has_spell(&service_id_or_alias) {
