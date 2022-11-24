@@ -45,10 +45,12 @@ use aquamarine::{
 use builtins_deployer::BuiltinsDeployer;
 use config_utils::to_peer_id;
 use connection_pool::ConnectionPoolApi;
+use events_dispatcher::scheduler::api::Event;
 use events_dispatcher::scheduler::{api::SchedulerApi, Scheduler, SchedulerConfig};
 use fluence_libp2p::types::{BackPressuredInlet, Inlet};
 use fluence_libp2p::{build_transport, types::OneshotOutlet};
 use particle_builtins::{Builtins, NodeInfo};
+use particle_execution::{ParticleFunction, ParticleFunctionStatic};
 use particle_protocol::Particle;
 use peer_metrics::{
     ConnectionPoolMetrics, ConnectivityMetrics, ParticleExecutorMetrics, ServicesMetrics,
@@ -78,7 +80,9 @@ pub struct Node<RT: AquaRuntime> {
     aquavm_pool: AquamarineBackend<RT, Arc<Builtins<Connectivity>>>,
     script_storage: ScriptStorageBackend,
     builtins_deployer: BuiltinsDeployer,
-    sorcerer: Sorcerer<Connectivity>,
+    spell_scheduler: Scheduler,
+    spell_events_stream: Inlet<Event>,
+    sorcerer: Sorcerer,
 
     registry: Option<Registry>,
     services_metrics_backend: ServicesMetricsBackend,
@@ -218,12 +222,25 @@ impl<RT: AquaRuntime> Node<RT> {
             config.node_config.autodeploy_retry_attempts,
         );
 
-        let sorcerer = Sorcerer::new(
+        let (scheduler, spell_scheduler_api, spell_event_stream) = Scheduler::new(
+            SchedulerConfig {
+                timer_resolution: config.script_storage_timer_resolution,
+            },
+            |id| log::warn!("Sending spell: {}", id),
+        );
+
+        let (sorcerer, spell_service_functions) = Sorcerer::new(
             builtins.clone(),
             aquamarine_api.clone(),
             config.clone(),
             local_peer_id,
+            spell_scheduler_api,
         );
+
+        spell_service_functions
+            .into_iter()
+            .for_each(|(srv_id, funcs)| builtins.extend(srv_id, funcs));
+
         Ok(Self::with(
             particle_stream,
             effects_in,
@@ -234,6 +251,8 @@ impl<RT: AquaRuntime> Node<RT> {
             aquavm_pool,
             script_storage_backend,
             builtins_deployer,
+            scheduler,
+            spell_event_stream,
             sorcerer,
             metrics_registry,
             services_metrics_backend,
@@ -303,7 +322,9 @@ impl<RT: AquaRuntime> Node<RT> {
         aquavm_pool: AquamarineBackend<RT, Arc<Builtins<Connectivity>>>,
         script_storage: ScriptStorageBackend,
         builtins_deployer: BuiltinsDeployer,
-        sorcerer: Sorcerer<Connectivity>,
+        spell_scheduler: Scheduler,
+        spell_events_stream: Inlet<Event>,
+        sorcerer: Sorcerer,
 
         registry: Option<Registry>,
         services_metrics_backend: ServicesMetricsBackend,
@@ -323,6 +344,8 @@ impl<RT: AquaRuntime> Node<RT> {
             aquavm_pool,
             script_storage,
             builtins_deployer,
+            spell_scheduler,
+            spell_events_stream,
             sorcerer,
 
             registry,
@@ -348,7 +371,9 @@ impl<RT: AquaRuntime> Node<RT> {
         let dispatcher = self.dispatcher;
         let aquavm_pool = self.aquavm_pool;
         let script_storage = self.script_storage;
-        let spell_scheduler = self.sorcerer.scheduler;
+        let spell_scheduler = self.spell_scheduler;
+        let spell_events_stream = self.spell_events_stream;
+        let sorcerer = self.sorcerer;
         let registry = self.registry;
         let services_metrics_backend = self.services_metrics_backend;
         let metrics_listen_addr = self.metrics_listen_addr;
@@ -366,6 +391,7 @@ impl<RT: AquaRuntime> Node<RT> {
             let services_metrics_backend = services_metrics_backend.start();
             let script_storage = script_storage.start();
             let spell_scheduler = spell_scheduler.start();
+            let sorcerer = sorcerer.start(spell_events_stream);
             let pool = aquavm_pool.start();
             let mut connectivity = connectivity.start();
             let mut dispatcher = dispatcher.start(particle_stream, effects_stream);
@@ -390,13 +416,14 @@ impl<RT: AquaRuntime> Node<RT> {
                         if let Some(Ok(_)) = event {
                             break
                         }
-                    }p
+                    }
                 )
             }
 
             log::info!("Stopping node");
             services_metrics_backend.cancel().await;
             script_storage.cancel().await;
+            sorcerer.cancel().await;
             spell_scheduler.cancel().await;
             dispatcher.cancel().await;
             connectivity.cancel().await;

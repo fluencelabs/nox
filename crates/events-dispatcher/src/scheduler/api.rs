@@ -14,6 +14,11 @@ pub enum Command {
     Remove { id: String },
 }
 
+#[derive(Debug, Clone)]
+pub enum Event {
+    TimeTrigger { id: String },
+}
+
 #[derive(Error, Debug)]
 pub enum SchedulerError {
     #[error("can't send a message to the scheduler")]

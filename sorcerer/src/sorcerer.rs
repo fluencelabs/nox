@@ -16,13 +16,13 @@
 
 use crate::services::{get_spell_id, spell_install, spell_list, spell_remove};
 
-use std::collections::HashSet;
+use async_std::task::{spawn, JoinHandle};
+use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::sync::Arc;
-use std::time::Duration;
 
 use futures::future::BoxFuture;
-use futures::FutureExt;
+use futures::{FutureExt, StreamExt};
 use libp2p::PeerId;
 use maplit::hashmap;
 use serde_json::{json, Value as JValue};
@@ -30,8 +30,9 @@ use JValue::Array;
 
 use aquamarine::AquamarineApi;
 use connection_pool::ConnectionPoolApi;
-use events_dispatcher::scheduler::api::{SchedulerApi, TimerConfig};
+use events_dispatcher::scheduler::api::{Event, SchedulerApi, TimerConfig};
 use events_dispatcher::scheduler::{Scheduler, SchedulerConfig};
+use fluence_libp2p::types::Inlet;
 use kademlia::KademliaApi;
 use now_millis::now_ms;
 use particle_args::{Args, JError};
@@ -46,59 +47,82 @@ use spell_storage::SpellStorage;
 use uuid_utils::uuid;
 
 #[derive(Clone)]
-pub struct Sorcerer<C> {
+pub struct Sorcerer {
     pub aquamarine: AquamarineApi,
-    pub builtins: Arc<Builtins<C>>,
+    pub services: ParticleAppServices,
     pub spell_storage: SpellStorage,
-    pub scheduler: Scheduler,
-    pub spell_scheduler_api: SchedulerApi,
+    pub scheduler_api: SchedulerApi,
     /// it is temporary, later we will use spell keypairs
     pub node_peer_id: PeerId,
+    // events_recv: Inlet<Event>,
 }
 
-impl<C> Sorcerer<C>
-where
-    C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoolApi>,
-{
-    pub fn new(
+impl Sorcerer {
+    pub fn new<C>(
         builtins: Arc<Builtins<C>>,
         aquamarine: AquamarineApi,
         config: ResolvedConfig,
         local_peer_id: PeerId,
-    ) -> Self {
+        scheduler_api: SchedulerApi,
+    ) -> (Self, Vec<(String, HashMap<String, ServiceFunction>)>)
+    where
+        C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoolApi>,
+    {
         let spell_storage = Self::restore_spells(
             config.dir_config.spell_base_dir.clone(),
             &builtins.services,
             &builtins.modules,
         );
-        let (scheduler, spell_scheduler_api) = Scheduler::new(
-            SchedulerConfig {
-                timer_resolution: config.script_storage_timer_resolution,
-            },
-            |id| log::warn!("Sending spell: {}", id),
-        );
 
         let mut sorcerer = Self {
             aquamarine,
-            builtins,
+            services: builtins.services.clone(),
             spell_storage,
-            scheduler,
-            spell_scheduler_api,
+            scheduler_api,
             node_peer_id: local_peer_id,
+            // events_recv,
         };
 
-        sorcerer.register_service_functions();
-        let sorcerer_clone = sorcerer.clone();
-        sorcerer.scheduler.set_callback(move |id| {
-            sorcerer_clone.execute_script(id.to_string());
-        });
-        sorcerer
+        let spell_service_functions = sorcerer.get_spell_service_functions();
+
+        (sorcerer, spell_service_functions)
     }
 
-    fn register_service_functions(&self) {
-        let services_install = self.builtins.services.clone();
+    pub fn start(self, events_recv: Inlet<Event>) -> JoinHandle<()> {
+        spawn(async {
+            events_recv
+                .for_each_concurrent(None, move |event| {
+                    let sorcerer = self.clone();
+                    match event {
+                        Event::TimeTrigger { id } => {
+                            async move {
+                                match sorcerer.get_spell_particle(id) {
+                                    Ok(particle) => {
+                                        sorcerer
+                                            .aquamarine
+                                            .clone()
+                                            .execute(particle, None)
+                                            // do not log errors: Aquamarine will log them fine
+                                            .await
+                                            .ok();
+                                    }
+                                    Err(err) => {
+                                        log::warn!("Cannot obtain spell particle: {:?}", err);
+                                    }
+                                }
+                            }
+                        } // self.execute_script(id)},
+                    }
+                })
+                .await;
+        })
+    }
+
+    fn get_spell_service_functions(&self) -> Vec<(String, HashMap<String, ServiceFunction>)> {
+        let mut service_functions: Vec<(String, HashMap<String, ServiceFunction>)> = vec![];
+        let services_install = self.services.clone();
         let storage_install = self.spell_storage.clone();
-        let scheduler_api_install = self.spell_scheduler_api.clone();
+        let scheduler_api_install = self.scheduler_api.clone();
         let install_closure: ServiceFunction = Box::new(move |args, params| {
             let storage = storage_install.clone();
             let services = services_install.clone();
@@ -115,7 +139,7 @@ where
             .boxed()
         });
 
-        let services_remove = self.builtins.services.clone();
+        let services_remove = self.services.clone();
         let storage_remove = self.spell_storage.clone();
         let remove_closure: ServiceFunction = Box::new(move |args, params| {
             let storage = storage_remove.clone();
@@ -134,15 +158,17 @@ where
             "remove".to_string() => remove_closure,
             "list".to_string() => list_closure
         };
-        self.builtins.extend("spell".to_string(), functions);
+        service_functions.push(("spell".to_string(), functions));
 
         let get_data_srv_closure: ServiceFunction =
-            Box::new(move |args, params| async move { wrap(get_spell_id(args, params)) });
+            Box::new(move |args, params| async move { wrap(get_spell_id(args, params)) }.boxed());
 
-        self.builtins.extend(
+        service_functions.push((
             "getDataSrv".to_string(),
             hashmap! {"spell_id".to_string() => get_data_srv_closure},
-        )
+        ));
+
+        service_functions
     }
 
     fn restore_spells(

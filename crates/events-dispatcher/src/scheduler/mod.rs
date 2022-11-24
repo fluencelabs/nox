@@ -2,7 +2,7 @@ pub mod api;
 
 use crate::scheduler::api::*;
 use async_std::task::JoinHandle;
-use fluence_libp2p::types::Inlet;
+use fluence_libp2p::types::{Inlet, Outlet};
 use futures::{channel::mpsc::unbounded, select, StreamExt};
 use std::cmp::Ordering;
 use std::collections::BinaryHeap;
@@ -53,6 +53,7 @@ pub struct SchedulerConfig {
 pub struct Scheduler {
     timer_resolution: Duration,
     recv_command: Inlet<Command>,
+    triggered_events: Outlet<Event>,
     // what to run when its time to execute the task
     callback: Box<dyn Fn(&str) + Send>,
 }
@@ -61,25 +62,26 @@ impl Scheduler {
     pub fn new(
         config: SchedulerConfig,
         callback: impl Fn(&str) + Send + 'static,
-    ) -> (Self, SchedulerApi) {
+    ) -> (Self, SchedulerApi, Inlet<Event>) {
         let (send, recv) = unbounded();
+        let (here, to_sorcerer) = unbounded();
+
         let api = SchedulerApi::new(send);
         let this = Self {
             timer_resolution: config.timer_resolution,
             recv_command: recv,
+            triggered_events: here,
             callback: Box::new(callback),
         };
-        (this, api)
-    }
-
-    pub fn set_callback(&mut self, callback: impl Fn(&str) + Send + 'static) {
-        self.callback = Box::new(callback);
+        (this, api, to_sorcerer)
     }
 
     pub fn start(self) -> JoinHandle<()> {
         async_std::task::spawn(async move {
             let timer_resolution = self.timer_resolution;
             let mut command_channel = self.recv_command.fuse();
+            let event_channel = self.triggered_events.clone();
+
             let mut timer = async_std::stream::interval(timer_resolution).fuse();
             let mut heap: BinaryHeap<Scheduled<String>> = BinaryHeap::new();
             let callback = self.callback;
@@ -94,6 +96,14 @@ impl Scheduler {
                             let task = heap.pop().unwrap();
                             log::debug!("Executing task with id: {}", task.data.id);
                             callback(&task.data.id);
+                            match event_channel.unbounded_send(Event::TimeTrigger { id: task.data.id.clone() }) {
+                                Err(err) => {
+                                    let err_msg = format!("{:?}", err);
+                                    let msg = err.into_inner();
+                                    log::warn!("unable to send event {:?} to sorcerer: {:?}", msg, err_msg)
+                                }
+                                Ok(_v) => {}
+                            };
                             heap.push(task.reschedule(now));
                         }
                     },

@@ -5338,6 +5338,7 @@ name = "sorcerer"
 version = "0.1.0"
 dependencies = [
  "aquamarine",
+ "async-std",
  "connection-pool",
  "events-dispatcher",
  "eyre",

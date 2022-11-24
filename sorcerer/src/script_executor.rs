@@ -15,26 +15,21 @@
  */
 
 use eyre::eyre;
-use maplit::hashmap;
+use futures::future::BoxFuture;
+use futures::FutureExt;
 use serde_json::json;
 
 use crate::Sorcerer;
-use connection_pool::ConnectionPoolApi;
-use kademlia::KademliaApi;
 use now_millis::now_ms;
 use particle_args::Args;
 use particle_execution::{FunctionOutcome, ParticleParams};
 use particle_protocol::Particle;
-use particle_services::ParticleAppServices;
 use uuid_utils::uuid;
 
 // TODO: use some meaningful ttl
 pub static PARTICLE_TTL: u32 = 20000;
 
-impl<C> Sorcerer<C>
-where
-    C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoolApi>,
-{
+impl Sorcerer {
     fn get_spell_counter(&self, spell_id: String) -> eyre::Result<u32> {
         let spell_args = Args {
             service_id: spell_id.clone(),
@@ -52,7 +47,7 @@ where
             script: "".to_string(),
             signature: vec![],
         };
-        let func_outcome = self.builtins.services.call_service(spell_args, particle);
+        let func_outcome = self.services.call_service(spell_args, particle);
 
         match func_outcome {
             FunctionOutcome::NotDefined { args, .. } => Err(eyre!(format!(
@@ -97,7 +92,7 @@ where
             script: "".to_string(),
             signature: vec![],
         };
-        let func_outcome = self.builtins.services.call_service(spell_args, particle);
+        let func_outcome = self.services.call_service(spell_args, particle);
 
         match func_outcome {
             FunctionOutcome::NotDefined { args, .. } => Err(eyre!(format!(
@@ -141,7 +136,7 @@ where
             script: "".to_string(),
             signature: vec![],
         };
-        let func_outcome = self.builtins.services.call_service(spell_args, particle);
+        let func_outcome = self.services.call_service(spell_args, particle);
 
         match func_outcome {
             FunctionOutcome::NotDefined { args, .. } => Err(eyre!(format!(
@@ -178,7 +173,7 @@ where
         }
     }
 
-    fn get_spell_particle(&self, spell_id: String) -> eyre::Result<Particle> {
+    pub(crate) fn get_spell_particle(&self, spell_id: String) -> eyre::Result<Particle> {
         let spell_counter = self.get_spell_counter(spell_id.clone())?;
         self.set_spell_next_counter(spell_id.clone(), spell_counter + 1)?;
         let spell_script = self.get_spell_script(spell_id.clone())?;
@@ -194,12 +189,5 @@ where
         })
     }
 
-    pub async fn execute_script(&self, spell_id: String) -> eyre::Result<()> {
-        let particle = self.get_spell_particle(spell_id)?;
-
-        // Should we store future? How can we handle errors?
-        self.aquamarine.clone().execute(particle, None).await?;
-
-        Ok(())
-    }
+    // pub async fn execute_script(&self, spell_id: String) -> BoxFuture<'static, ()> {}
 }

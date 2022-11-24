@@ -94,7 +94,7 @@ pub(crate) fn spell_remove(
     Ok(())
 }
 
-pub(crate) fn get_spell_id(args: Args, params: ParticleParams) -> Result<JValue, JError> {
+pub(crate) fn get_spell_id(_args: Args, params: ParticleParams) -> Result<JValue, JError> {
     if params.id.starts_with("spell_") {
         let spell_id = params
             .id
