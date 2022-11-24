@@ -128,7 +128,7 @@ impl Scheduler {
 #[test]
 fn test1() {
     use async_std::task;
-    let (scheduler, api) = Scheduler::new(
+    let (scheduler, api, _) = Scheduler::new(
         SchedulerConfig {
             timer_resolution: Duration::from_secs(1),
         },

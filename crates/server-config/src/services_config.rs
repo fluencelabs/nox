@@ -47,8 +47,6 @@ pub struct ServicesConfig {
     pub max_heap_size: ByteSize,
     /// Default heap size in bytes available for the module unless otherwise specified.
     pub default_heap_size: Option<ByteSize>,
-    /// Path to the spells service bundle
-    pub spells_base_dir: PathBuf,
 }
 
 impl ServicesConfig {
@@ -61,7 +59,6 @@ impl ServicesConfig {
         builtins_management_peer_id: PeerId,
         max_heap_size: ByteSize,
         default_heap_size: Option<ByteSize>,
-        spells_base_dir: PathBuf,
     ) -> Result<Self, std::io::Error> {
         let base_dir = to_abs_path(base_dir);
 
@@ -77,7 +74,6 @@ impl ServicesConfig {
             builtins_management_peer_id,
             max_heap_size,
             default_heap_size,
-            spells_base_dir,
         };
 
         create_dirs(&[
