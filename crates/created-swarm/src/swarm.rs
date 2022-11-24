@@ -307,7 +307,7 @@ pub fn create_swarm_with_runtime<RT: AquaRuntime>(
     let mut resolved = node_config.resolve();
     create_dir(&resolved.dir_config.builtins_base_dir).expect("create builtins dir");
 
-    resolved.node_config.transport_config.transport = Transport::Memory;
+    resolved.node_config.transport_config.transport = config.transport;
     resolved.node_config.transport_config.socket_timeout = TRANSPORT_TIMEOUT;
     resolved.node_config.protocol_config =
         ProtocolConfig::new(TRANSPORT_TIMEOUT, KEEP_ALIVE_TIMEOUT, TRANSPORT_TIMEOUT);
