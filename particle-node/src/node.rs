@@ -222,7 +222,7 @@ impl<RT: AquaRuntime> Node<RT> {
             config.node_config.autodeploy_retry_attempts,
         );
 
-        let (scheduler, spell_scheduler_api, spell_event_stream) = Scheduler::new(
+        let (scheduler, spell_scheduler_api, spell_events_stream) = Scheduler::new(
             SchedulerConfig {
                 timer_resolution: config.script_storage_timer_resolution,
             },
@@ -252,7 +252,7 @@ impl<RT: AquaRuntime> Node<RT> {
             script_storage_backend,
             builtins_deployer,
             scheduler,
-            spell_event_stream,
+            spell_events_stream,
             sorcerer,
             metrics_registry,
             services_metrics_backend,

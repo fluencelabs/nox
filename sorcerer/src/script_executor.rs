@@ -15,8 +15,6 @@
  */
 
 use eyre::eyre;
-use futures::future::BoxFuture;
-use futures::FutureExt;
 use serde_json::json;
 
 use crate::Sorcerer;
@@ -189,5 +187,19 @@ impl Sorcerer {
         })
     }
 
-    // pub async fn execute_script(&self, spell_id: String) -> BoxFuture<'static, ()> {}
+    pub async fn execute_script(&self, spell_id: String) {
+        match self.get_spell_particle(spell_id) {
+            Ok(particle) => {
+                self.aquamarine
+                    .clone()
+                    .execute(particle, None)
+                    // do not log errors: Aquamarine will log them fine
+                    .await
+                    .ok();
+            }
+            Err(err) => {
+                log::warn!("Cannot obtain spell particle: {:?}", err);
+            }
+        }
+    }
 }

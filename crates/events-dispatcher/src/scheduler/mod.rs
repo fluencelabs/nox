@@ -53,7 +53,7 @@ pub struct SchedulerConfig {
 pub struct Scheduler {
     timer_resolution: Duration,
     recv_command: Inlet<Command>,
-    triggered_events: Outlet<Event>,
+    spell_events_out: Outlet<Event>,
     // what to run when its time to execute the task
     callback: Box<dyn Fn(&str) + Send>,
 }
@@ -64,23 +64,23 @@ impl Scheduler {
         callback: impl Fn(&str) + Send + 'static,
     ) -> (Self, SchedulerApi, Inlet<Event>) {
         let (send, recv) = unbounded();
-        let (here, to_sorcerer) = unbounded();
+        let (spell_events_out, spell_events_in) = unbounded();
 
         let api = SchedulerApi::new(send);
         let this = Self {
             timer_resolution: config.timer_resolution,
             recv_command: recv,
-            triggered_events: here,
+            spell_events_out,
             callback: Box::new(callback),
         };
-        (this, api, to_sorcerer)
+        (this, api, spell_events_in)
     }
 
     pub fn start(self) -> JoinHandle<()> {
         async_std::task::spawn(async move {
             let timer_resolution = self.timer_resolution;
             let mut command_channel = self.recv_command.fuse();
-            let event_channel = self.triggered_events.clone();
+            let spell_events_out = self.spell_events_out.clone();
 
             let mut timer = async_std::stream::interval(timer_resolution).fuse();
             let mut heap: BinaryHeap<Scheduled<String>> = BinaryHeap::new();
@@ -96,7 +96,7 @@ impl Scheduler {
                             let task = heap.pop().unwrap();
                             log::debug!("Executing task with id: {}", task.data.id);
                             callback(&task.data.id);
-                            match event_channel.unbounded_send(Event::TimeTrigger { id: task.data.id.clone() }) {
+                            match spell_events_out.unbounded_send(Event::TimeTrigger { id: task.data.id.clone() }) {
                                 Err(err) => {
                                     let err_msg = format!("{:?}", err);
                                     let msg = err.into_inner();
