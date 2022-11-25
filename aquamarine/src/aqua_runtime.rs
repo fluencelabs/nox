@@ -130,6 +130,7 @@ impl AquaRuntime for AVM<DataStoreError> {
         particle: ParticleParameters<'_, '_>,
         call_results: CallResults,
     ) -> Result<AVMOutcome, Self::Error> {
+        log::info!("executing particle {:?}", particle);
         AVM::call(self, aqua, data, particle, call_results)
     }
 
