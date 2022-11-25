@@ -786,16 +786,6 @@ where
         let mut args = args.function_args.into_iter();
         let service_id_or_alias: String = Args::next("service_id_or_alias", &mut args)?;
 
-        // TODO: do smth with spell storage
-        // if self.spell_storage.has_spell(&service_id_or_alias) {
-        //     return Err(Forbidden {
-        //         user: params.init_peer_id,
-        //         function: "remove_service",
-        //         reason: "cannot remove a spell",
-        //     }
-        //     .into());
-        // }
-
         self.services
             .remove_service(service_id_or_alias, params.init_peer_id)?;
         Ok(())

@@ -171,6 +171,20 @@ impl ParticleAppServices {
                 get_service(&services_read, &self.aliases.read(), service_id_or_alias)
                     .map_err(ServiceError::NoSuchService)?;
 
+            // tmp hack for
+            let blueprint_name = self
+                .modules
+                .get_blueprint_from_cache(&service.blueprint_id)?
+                .name;
+            if blueprint_name == "spell" {
+                return Err(Forbidden {
+                    user: init_peer_id,
+                    function: "remove_service",
+                    reason: "cannot remove a spell",
+                }
+                .into());
+            }
+
             // TODO: HACK:
             //  What a mess.
             //  service.owner_id has created the service, so can remove. that's OK.

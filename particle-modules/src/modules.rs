@@ -425,7 +425,7 @@ impl ModuleRepository {
         bp_map
     }
 
-    fn get_blueprint_from_cache(&self, id: &str) -> Result<Blueprint> {
+    pub fn get_blueprint_from_cache(&self, id: &str) -> Result<Blueprint> {
         let blueprints = self.blueprints.clone();
         let blueprints = blueprints.read();
         blueprints
