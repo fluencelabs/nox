@@ -141,8 +141,7 @@ dependencies = [
 [[package]]
 name = "air-interpreter-interface"
 version = "0.11.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fb4b1dfb22af934d2f1ad2065868cf7b0978284df270b69503eefa901963394f"
+source = "git+https://github.com/fluencelabs/aquavm?branch=feat/VM-180-overriding-current-peer-id#e072906e3540d670de53c8249b155ca3ff75fcc0"
 dependencies = [
  "fluence-it-types",
  "marine-rs-sdk",
@@ -162,8 +161,7 @@ dependencies = [
 [[package]]
 name = "air-utils"
 version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "19df2ec58bdb9160ad02be01fa97b1d00342821d821e57b6b0694f1c35be4cb4"
+source = "git+https://github.com/fluencelabs/aquavm?branch=feat/VM-180-overriding-current-peer-id#e072906e3540d670de53c8249b155ca3ff75fcc0"
 
 [[package]]
 name = "android_system_properties"
@@ -513,8 +511,7 @@ checksum = "d468802bab17cbc0cc575e9b053f41e72aa36bfa6b7f55e3529ffa43161b97fa"
 [[package]]
 name = "avm-data-store"
 version = "0.4.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c0984f261db23c85b57b0262f8e1b20f62a2acbf00c8a20a44ec6cd1f2778198"
+source = "git+https://github.com/fluencelabs/aquavm?branch=feat/VM-180-overriding-current-peer-id#e072906e3540d670de53c8249b155ca3ff75fcc0"
 dependencies = [
  "serde",
  "serde_bytes",
@@ -522,16 +519,15 @@ dependencies = [
 
 [[package]]
 name = "avm-interface"
-version = "0.26.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "68f35e070a73d50bcf3fb326f90810c98a08c6b9eff9ff9b6c1faf7c8e4a3fbf"
+version = "0.27.0"
+source = "git+https://github.com/fluencelabs/aquavm?branch=feat/VM-180-overriding-current-peer-id#e072906e3540d670de53c8249b155ca3ff75fcc0"
 dependencies = [
  "air-interpreter-interface",
  "air-utils",
  "avm-data-store",
  "log",
  "maplit",
- "polyplets",
+ "polyplets 0.3.2 (git+https://github.com/fluencelabs/aquavm?branch=feat/VM-180-overriding-current-peer-id)",
  "serde",
  "serde_json",
  "thiserror",
@@ -540,9 +536,8 @@ dependencies = [
 
 [[package]]
 name = "avm-server"
-version = "0.26.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0402c5b5a0d95a217910f2d8fb81f0d7d30c1485a4729e58457b3bb43fdd916b"
+version = "0.27.0"
+source = "git+https://github.com/fluencelabs/aquavm?branch=feat/VM-180-overriding-current-peer-id#e072906e3540d670de53c8249b155ca3ff75fcc0"
 dependencies = [
  "air-interpreter-interface",
  "air-utils",
@@ -553,7 +548,7 @@ dependencies = [
  "maplit",
  "marine-runtime",
  "parking_lot 0.12.1",
- "polyplets",
+ "polyplets 0.3.2 (git+https://github.com/fluencelabs/aquavm?branch=feat/VM-180-overriding-current-peer-id)",
  "serde",
  "serde_json",
  "thiserror",
@@ -3454,7 +3449,7 @@ dependencies = [
  "marine-macro",
  "marine-rs-sdk-main",
  "marine-timestamp-macro",
- "polyplets",
+ "polyplets 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde",
 ]
 
@@ -4286,6 +4281,16 @@ name = "polyplets"
 version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6c051f220264e391afae06b6dceda199d523ee1dc7ae8e8cba4119a378dd411f"
+dependencies = [
+ "marine-macro",
+ "marine-rs-sdk-main",
+ "serde",
+]
+
+[[package]]
+name = "polyplets"
+version = "0.3.2"
+source = "git+https://github.com/fluencelabs/aquavm?branch=feat/VM-180-overriding-current-peer-id#e072906e3540d670de53c8249b155ca3ff75fcc0"
 dependencies = [
  "marine-macro",
  "marine-rs-sdk-main",

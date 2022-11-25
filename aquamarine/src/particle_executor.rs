@@ -22,6 +22,7 @@ use avm_server::{CallResults, ParticleParameters};
 use futures::{future::BoxFuture, FutureExt};
 use humantime::format_duration as pretty;
 
+use fluence_libp2p::PeerId;
 use particle_protocol::Particle;
 
 use crate::aqua_runtime::AquaRuntime;
@@ -33,7 +34,7 @@ pub(super) type Fut<RT> = BoxFuture<'static, FutResult<RT, ParticleEffects, Inte
 pub trait ParticleExecutor {
     type Future;
     type Particle;
-    fn execute(self, p: Self::Particle, waker: Waker) -> Self::Future;
+    fn execute(self, p: Self::Particle, waker: Waker, current_peer_id: PeerId) -> Self::Future;
 }
 
 /// Result of a particle execution along a VM that has just executed the particle
@@ -50,13 +51,14 @@ impl<RT: AquaRuntime> ParticleExecutor for RT {
     type Future = Fut<Self>;
     type Particle = (Particle, CallResults);
 
-    fn execute(mut self, p: Self::Particle, waker: Waker) -> Self::Future {
+    fn execute(mut self, p: Self::Particle, waker: Waker, current_peer_id: PeerId) -> Self::Future {
         task::spawn_blocking(move || {
             let now = Instant::now();
             let (p, calls) = p;
             log::info!("Executing particle {}", p.id);
 
             let particle = ParticleParameters {
+                current_peer_id: Cow::Owned(current_peer_id.to_string()),
                 init_peer_id: Cow::Owned(p.init_peer_id.to_string()),
                 particle_id: Cow::Borrowed(&p.id),
                 timestamp: p.timestamp,
