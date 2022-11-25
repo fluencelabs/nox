@@ -298,7 +298,8 @@ pub fn create_swarm_with_runtime<RT: AquaRuntime>(
             "value": base64::encode(config.builtins_keypair.to_vec()),
         },
         "builtins_base_dir": config.builtins_dir,
-        "external_multiaddresses": [config.listen_on]
+        "external_multiaddresses": [config.listen_on],
+        "spell_base_dir": Some(to_abs_path(PathBuf::from(".spell"))),
     });
 
     let node_config: UnresolvedConfig =

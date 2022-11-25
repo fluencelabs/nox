@@ -154,9 +154,9 @@ impl Sorcerer {
         modules: &ModuleRepository,
     ) -> SpellStorage {
         // Load the up-to-date spell service and save its blueprint_id to create spell services from it.
-        let spell_blueprint_id = "iddi".to_string(); //services.load_spell_service(spells_base_dir).unwrap();
-                                                     // Find blueprint ids of the already existing spells. They might be of older versions of the spell service.
-                                                     // These blueprint ids marked with name "spell" to differ from other blueprints.
+        let spell_blueprint_id = services.load_spell_service(spells_base_dir).unwrap();
+        // Find blueprint ids of the already existing spells. They might be of older versions of the spell service.
+        // These blueprint ids marked with name "spell" to differ from other blueprints.
         let all_spell_blueprint_ids = modules
             .get_blueprints()
             .into_iter()

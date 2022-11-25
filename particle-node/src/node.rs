@@ -460,11 +460,13 @@ mod tests {
     use libp2p::core::Multiaddr;
     use maplit::hashmap;
     use serde_json::json;
+    use std::path::PathBuf;
 
     use air_interpreter_fs::{air_interpreter_path, write_default_air_interpreter};
     use aquamarine::{VmConfig, AVM};
     use config_utils::to_peer_id;
     use connected_client::ConnectedClient;
+    use fs_utils::to_abs_path;
     use server_config::{builtins_base_dir, default_base_dir, deserialize_config};
 
     use crate::Node;
@@ -478,6 +480,7 @@ mod tests {
 
         let mut config = deserialize_config(&<_>::default(), &[]).expect("deserialize config");
         config.aquavm_pool_size = 1;
+        config.dir_config.spell_base_dir = to_abs_path(PathBuf::from(".spell"));
         let vm_config = VmConfig::new(
             to_peer_id(&config.root_key_pair.clone().into()),
             config.dir_config.avm_base_dir.clone(),
