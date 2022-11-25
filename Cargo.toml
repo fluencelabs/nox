@@ -43,8 +43,8 @@ exclude = [
 
 [workspace.dependencies]
 fluence-app-service = "0.22.2"
-avm-server = { version = "0.27.0", git = "https://github.com/fluencelabs/aquavm", branch = "feat/VM-180-overriding-current-peer-id" }
-air-interpreter-wasm = "=0.31.10"
+avm-server = "0.27.0"
+air-interpreter-wasm = "=0.31.20"
 libp2p = "0.48.0"
 libp2p-core = { version = "0.36.0", default-features = false, features = [ "secp256k1" ] }
 libp2p-metrics = { version = "0.9.0", features = ["kad"] }
