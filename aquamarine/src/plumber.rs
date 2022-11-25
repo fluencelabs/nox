@@ -22,6 +22,7 @@ use std::{
 
 use futures::task::Waker;
 
+use fluence_libp2p::PeerId;
 /// For tests, mocked time is used
 #[cfg(test)]
 use mock_time::now_ms;
@@ -47,10 +48,16 @@ pub struct Plumber<RT: AquaRuntime, F> {
     builtins: Arc<F>,
     waker: Option<Waker>,
     metrics: Option<ParticleExecutorMetrics>,
+    host_peer_id: PeerId,
 }
 
 impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
-    pub fn new(vm_pool: VmPool<RT>, builtins: F, metrics: Option<ParticleExecutorMetrics>) -> Self {
+    pub fn new(
+        vm_pool: VmPool<RT>,
+        builtins: F,
+        metrics: Option<ParticleExecutorMetrics>,
+        host_peer_id: PeerId,
+    ) -> Self {
         Self {
             vm_pool,
             builtins: Arc::new(builtins),
@@ -58,6 +65,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
             actors: <_>::default(),
             waker: <_>::default(),
             metrics,
+            host_peer_id,
         }
     }
 
@@ -76,10 +84,11 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
         }
 
         let builtins = &self.builtins;
+        let host_peer_id = self.host_peer_id;
         let actor = self.actors.entry(particle.id.clone()).or_insert_with(|| {
             let params = ParticleParams::clone_from(&particle);
             let functions = Functions::new(params, builtins.clone());
-            Actor::new(&particle, functions)
+            Actor::new(&particle, functions, host_peer_id)
         });
 
         actor.ingest(particle);
@@ -228,6 +237,7 @@ mod tests {
     use std::{sync::Arc, task::Context};
 
     use avm_server::{AVMMemoryStats, AVMOutcome, CallResults, ParticleParameters};
+    use fluence_libp2p::RandomPeerId;
     use futures::future::BoxFuture;
     use futures::task::noop_waker_ref;
     use futures::FutureExt;
@@ -289,7 +299,7 @@ mod tests {
             &mut self,
             _aqua: String,
             _data: Vec<u8>,
-            _particle: ParticleParameters<'_, '_>,
+            _particle: ParticleParameters<'_>,
             _call_results: CallResults,
         ) -> Result<AVMOutcome, Self::Error> {
             Ok(AVMOutcome {
@@ -317,7 +327,7 @@ mod tests {
         // Pool is of size 1 so it's easier to control tests
         let vm_pool = VmPool::new(1, (), None);
         let builtin_mock = Arc::new(MockF);
-        Plumber::new(vm_pool, builtin_mock, None)
+        Plumber::new(vm_pool, builtin_mock, None, RandomPeerId::random())
     }
 
     fn particle(ts: u64, ttl: u32) -> Particle {

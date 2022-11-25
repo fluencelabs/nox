@@ -46,7 +46,7 @@ pub trait AquaRuntime: Sized + Send + 'static {
         &mut self,
         aqua: String,
         data: Vec<u8>,
-        particle: ParticleParameters<'_, '_>,
+        particle: ParticleParameters<'_>,
         call_results: CallResults,
     ) -> Result<AVMOutcome, Self::Error>;
 
@@ -73,7 +73,6 @@ impl AquaRuntime for AVM<DataStoreError> {
             ));
             let config = AVMConfig {
                 data_store,
-                current_peer_id: config.current_peer_id.to_string(),
                 air_wasm_path: config.air_interpreter,
                 logging_mask: i32::MAX,
                 max_heap_size: config.max_heap_size,
@@ -127,7 +126,7 @@ impl AquaRuntime for AVM<DataStoreError> {
         &mut self,
         aqua: String,
         data: Vec<u8>,
-        particle: ParticleParameters<'_, '_>,
+        particle: ParticleParameters<'_>,
         call_results: CallResults,
     ) -> Result<AVMOutcome, Self::Error> {
         AVM::call(self, aqua, data, particle, call_results)

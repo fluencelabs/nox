@@ -35,9 +35,6 @@ pub struct FluenceNetworkBehaviour {
     ping: Ping,
     pub(crate) connection_pool: ConnectionPoolBehaviour,
     pub(crate) kademlia: Kademlia,
-    // #[behaviour(ignore)]
-    // /// Whether to allow private IP addresses in identify
-    // pub(super) allow_local_addresses: bool,
 }
 
 impl FluenceNetworkBehaviour {

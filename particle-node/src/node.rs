@@ -196,6 +196,7 @@ impl<RT: AquaRuntime> Node<RT> {
             effects_out,
             plumber_metrics,
             vm_pool_metrics,
+            local_peer_id,
         );
         let effectors = Effectors::new(connectivity.clone());
         let dispatcher = {
