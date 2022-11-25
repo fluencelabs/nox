@@ -3010,9 +3010,9 @@ dependencies = [
 
 [[package]]
 name = "libp2p-pnet"
-version = "0.22.2"
+version = "0.22.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "de160c5631696cea22be326c19bd9d306e254c4964945263aea10f25f6e0864e"
+checksum = "1a5a702574223aa55d8878bdc8bf55c84a6086f87ddaddc28ce730b4caa81538"
 dependencies = [
  "futures",
  "log",
@@ -3111,9 +3111,9 @@ dependencies = [
 
 [[package]]
 name = "libp2p-swarm-derive"
-version = "0.30.2"
+version = "0.30.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f61e1e960da4bb32dc4728c69e3a6cf83992507816d2a5a7dad22a187b5b0287"
+checksum = "a0eddc4497a8b5a506013c40e8189864f9c3a00db2b25671f428ae9007f3ba32"
 dependencies = [
  "heck 0.4.0",
  "quote",
