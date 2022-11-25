@@ -141,7 +141,8 @@ dependencies = [
 [[package]]
 name = "air-interpreter-interface"
 version = "0.11.2"
-source = "git+https://github.com/fluencelabs/aquavm?branch=feat/VM-180-overriding-current-peer-id#e072906e3540d670de53c8249b155ca3ff75fcc0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fb4b1dfb22af934d2f1ad2065868cf7b0978284df270b69503eefa901963394f"
 dependencies = [
  "fluence-it-types",
  "marine-rs-sdk",
@@ -151,9 +152,9 @@ dependencies = [
 
 [[package]]
 name = "air-interpreter-wasm"
-version = "0.31.10"
+version = "0.31.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "91ff877eab93011e5737c3eb417b42b2cc7e48322ef3747ed2c181152351a4e2"
+checksum = "6adc996907226d1a2882bf397883330d559491ddfd1511ca804ce366990df3bb"
 dependencies = [
  "built",
 ]
@@ -161,7 +162,8 @@ dependencies = [
 [[package]]
 name = "air-utils"
 version = "0.1.0"
-source = "git+https://github.com/fluencelabs/aquavm?branch=feat/VM-180-overriding-current-peer-id#e072906e3540d670de53c8249b155ca3ff75fcc0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "19df2ec58bdb9160ad02be01fa97b1d00342821d821e57b6b0694f1c35be4cb4"
 
 [[package]]
 name = "android_system_properties"
@@ -511,7 +513,8 @@ checksum = "d468802bab17cbc0cc575e9b053f41e72aa36bfa6b7f55e3529ffa43161b97fa"
 [[package]]
 name = "avm-data-store"
 version = "0.4.1"
-source = "git+https://github.com/fluencelabs/aquavm?branch=feat/VM-180-overriding-current-peer-id#e072906e3540d670de53c8249b155ca3ff75fcc0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c0984f261db23c85b57b0262f8e1b20f62a2acbf00c8a20a44ec6cd1f2778198"
 dependencies = [
  "serde",
  "serde_bytes",
@@ -520,14 +523,15 @@ dependencies = [
 [[package]]
 name = "avm-interface"
 version = "0.27.0"
-source = "git+https://github.com/fluencelabs/aquavm?branch=feat/VM-180-overriding-current-peer-id#e072906e3540d670de53c8249b155ca3ff75fcc0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ec7b6ace5e485692ab1c3a1c55feed40591f21ee07a46ac08379f6b1a1a16c24"
 dependencies = [
  "air-interpreter-interface",
  "air-utils",
  "avm-data-store",
  "log",
  "maplit",
- "polyplets 0.3.2 (git+https://github.com/fluencelabs/aquavm?branch=feat/VM-180-overriding-current-peer-id)",
+ "polyplets",
  "serde",
  "serde_json",
  "thiserror",
@@ -537,7 +541,8 @@ dependencies = [
 [[package]]
 name = "avm-server"
 version = "0.27.0"
-source = "git+https://github.com/fluencelabs/aquavm?branch=feat/VM-180-overriding-current-peer-id#e072906e3540d670de53c8249b155ca3ff75fcc0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "73535682de9b3c42fd7adf912845d9af6b1cbe8b13f6074de04aedf35c631ff6"
 dependencies = [
  "air-interpreter-interface",
  "air-utils",
@@ -548,7 +553,7 @@ dependencies = [
  "maplit",
  "marine-runtime",
  "parking_lot 0.12.1",
- "polyplets 0.3.2 (git+https://github.com/fluencelabs/aquavm?branch=feat/VM-180-overriding-current-peer-id)",
+ "polyplets",
  "serde",
  "serde_json",
  "thiserror",
@@ -3472,7 +3477,7 @@ dependencies = [
  "marine-macro",
  "marine-rs-sdk-main",
  "marine-timestamp-macro",
- "polyplets 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "polyplets",
  "serde",
 ]
 
@@ -4315,16 +4320,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "polyplets"
-version = "0.3.2"
-source = "git+https://github.com/fluencelabs/aquavm?branch=feat/VM-180-overriding-current-peer-id#e072906e3540d670de53c8249b155ca3ff75fcc0"
-dependencies = [
- "marine-macro",
- "marine-rs-sdk-main",
- "serde",
-]
-
-[[package]]
 name = "polyval"
 version = "0.4.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4974,9 +4969,9 @@ checksum = "388a1df253eca08550bef6c72392cfe7c30914bf41df5269b68cbd6ff8f570a3"
 
 [[package]]
 name = "serde"
-version = "1.0.145"
+version = "1.0.147"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "728eb6351430bccb993660dfffc5a72f91ccc1295abaa8ce19b27ebe4f75568b"
+checksum = "d193d69bae983fc11a79df82342761dfbf28a99fc8d203dca4c3c1b590948965"
 dependencies = [
  "serde_derive",
 ]
@@ -5011,9 +5006,9 @@ dependencies = [
 
 [[package]]
 name = "serde_derive"
-version = "1.0.145"
+version = "1.0.147"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "81fa1584d3d1bcacd84c277a0dfe21f5b0f6accf4a23d04d4c6d61f1af522b4c"
+checksum = "4f1d362ca8fc9c3e3a7484440752472d68a6caa98f1ab81d99b5dfe517cec852"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -5031,9 +5026,9 @@ dependencies = [
 
 [[package]]
 name = "serde_json"
-version = "1.0.86"
+version = "1.0.89"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "41feea4228a6f1cd09ec7a3593a682276702cd67b5273544757dae23c096f074"
+checksum = "020ff22c755c2ed3f8cf162dbb41a7268d934702f3ed3631656ea597e08fc3db"
 dependencies = [
  "itoa",
  "ryu",

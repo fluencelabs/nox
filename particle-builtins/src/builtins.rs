@@ -196,10 +196,6 @@ where
             ("script", "remove")              => wrap(self.remove_script(args, particle).await),
             ("script", "list")                => wrap(self.list_scripts().await),
 
-            // ("spell", "install")              => wrap(self.spell_install(args, particle)),
-            // ("spell", "list")                 => wrap(self.spell_list(args, particle)),
-            // ("spell", "remove")               => wrap_unit(self.spell_remove(args, particle)),
-
             ("op", "noop")                    => FunctionOutcome::Empty,
             ("op", "array")                   => ok(Array(args.function_args)),
             ("op", "array_length")            => wrap(self.array_length(args.function_args)),
