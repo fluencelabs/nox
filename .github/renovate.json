@@ -4,7 +4,7 @@
     "config:base",
     ":semanticCommitTypeAll(chore)"
   ],
-  "enabledManagers": ["cargo", "npm", "github-actions"],
+  "enabledManagers": ["cargo", "github-actions"],
   "schedule": "every weekend",
   "packageRules": [
     {
@@ -16,14 +16,14 @@
       "prConcurrentLimit": 1
     },
     {
-      "matchManagers": [ "github-actions" ],
+      "matchManagers": ["github-actions"],
       "automerge": true,
       "automergeType": "branch",
       "prPriority": 1
     },
     {
-      "matchPackagePatterns": ["^@wasmer", "^wasmer", "^wasm-bindgen"],
-      "enabled": false
+      "matchPackagePatterns": ["^libp2p.*", "prometheus-client"],
+      "groupName": "libp2p"
     }
   ]
 }
