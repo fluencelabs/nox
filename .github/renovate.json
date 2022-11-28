@@ -1,21 +1,29 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
-    "config:base"
+    "config:base",
+    ":semanticCommitTypeAll(chore)"
   ],
-  "enabledManagers": ["cargo"],
+  "enabledManagers": ["cargo", "npm", "github-actions"],
+  "schedule": "every weekend",
   "packageRules": [
     {
-      "matchLanguages": ["rust"],
-      "matchUpdateTypes": [
-        "minor",
-        "patch"
-      ],
-      "groupName": "all non-major Rust dependencies"
+      "matchDepTypes": ["devDependencies"],
+      "prPriority": -1
     },
     {
-      "matchPackagePatterns": ["^libp2p.*", "prometheus-client"],
-      "groupName": "libp2p"
+      "matchUpdateTypes": ["major"],
+      "prConcurrentLimit": 1
+    },
+    {
+      "matchManagers": [ "github-actions" ],
+      "automerge": true,
+      "automergeType": "branch",
+      "prPriority": 1
+    },
+    {
+      "matchPackagePatterns": ["^@wasmer", "^wasmer", "^wasm-bindgen"],
+      "enabled": false
     }
   ]
 }
