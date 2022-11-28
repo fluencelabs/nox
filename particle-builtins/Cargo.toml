@@ -22,19 +22,19 @@ peer-metrics = { path = "../crates/peer-metrics" }
 
 libp2p = { workspace = true }
 avm-server = { workspace = true }
-multihash = "0.16.3"
+multihash = "0.17.0"
 fluence-keypair = { workspace = true }
 
 async-std = { workspace = true }
-serde_json = "1.0.86"
-serde = "1.0.145"
+serde_json = "1.0.89"
+serde = "1.0.148"
 log = "0.4.17"
 bs58 = { workspace = true }
 parking_lot = { workspace = true }
 thiserror = "1.0.37"
 humantime-serde = "1.1.1"
 rand = "0.8.5"
-futures = "0.3.24"
+futures = "0.3.25"
 itertools = "0.10.5"
 bytesize = "1.1.0"
 derivative = "2.2.0"

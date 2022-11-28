@@ -11,9 +11,9 @@ peer-metrics = { path = "../crates/peer-metrics" }
 
 libp2p = { workspace = true }
 
-futures = "0.3.24"
+futures = "0.3.25"
 log = "0.4.17"
-serde = "1.0.145"
+serde = "1.0.148"
 async-std = { workspace = true }
 itertools = "0.10.5"
 

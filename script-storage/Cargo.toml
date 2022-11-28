@@ -12,8 +12,8 @@ async-unlock = { path = "../crates/async-unlock" }
 now-millis = { path = "../crates/now-millis" }
 
 async-std = { workspace = true }
-futures = "0.3.24"
+futures = "0.3.25"
 thiserror = "1.0.37"
-uuid = "1.2.1"
-chrono = "0.4.22"
+uuid = "1.2.2"
+chrono = "0.4.23"
 log = "0.4.17"
