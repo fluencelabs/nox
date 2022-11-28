@@ -36,7 +36,9 @@ use serde_json::{json, Value as JValue, Value};
 use JValue::Array;
 
 use connection_pool::{ConnectionPoolApi, ConnectionPoolT};
-use events_dispatcher::scheduler::api::{SchedulerApi, TimerConfig};
+use events_dispatcher::api::{
+    EventConfig, EventsDispatcherApi, Listener, ListenerConfig, TimerConfig,
+};
 use kademlia::{KademliaApi, KademliaApiT};
 use now_millis::{now_ms, now_sec};
 use particle_args::{from_base58, Args, ArgsError, JError};
@@ -66,7 +68,7 @@ use crate::{json, math};
 pub struct Builtins<C> {
     pub connectivity: C,
     pub script_storage: ScriptStorageApi,
-    pub spell_scheduler_api: SchedulerApi,
+    pub events_dispatcher_api: EventsDispatcherApi,
 
     pub management_peer_id: PeerId,
     pub builtins_management_peer_id: PeerId,
@@ -92,7 +94,7 @@ where
     pub fn new(
         connectivity: C,
         script_storage: ScriptStorageApi,
-        spell_scheduler_api: SchedulerApi,
+        events_dispatcher_api: EventsDispatcherApi,
         node_info: NodeInfo,
         config: ServicesConfig,
         services_metrics: ServicesMetrics,
@@ -119,7 +121,7 @@ where
         Self {
             connectivity,
             script_storage,
-            spell_scheduler_api,
+            events_dispatcher_api,
             management_peer_id,
             builtins_management_peer_id,
             local_peer_id,
@@ -980,12 +982,18 @@ where
         self.call_service(spell_args, particle);
         // TODO: also save config
 
-        // Scheduling the spell
-        self.spell_scheduler_api.add(
-            service_id.clone(),
-            TimerConfig {
+        let cfg = ListenerConfig {
+            configs: vec![EventConfig::Timer(TimerConfig {
                 period: Duration::from_secs(period),
+            })],
+        };
+
+        // Scheduling the spell
+        self.events_dispatcher_api.add(
+            Listener {
+                id: service_id.clone(),
             },
+            cfg,
         )?;
         Ok(JValue::String(service_id))
     }
@@ -1003,6 +1011,7 @@ where
         let mut args = args.function_args.into_iter();
         let spell_id: String = Args::next("spell_id", &mut args)?;
 
+        // TODO: remove the spell from the event dispatcher
         self.spell_storage.unregister_spell(&spell_id);
         self.services
             .remove_service(spell_id, params.init_peer_id)?;

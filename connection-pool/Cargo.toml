@@ -8,6 +8,7 @@ edition = "2018"
 particle-protocol = { path = "../particle-protocol"}
 fluence-libp2p = { path = "../crates/libp2p" }
 peer-metrics = { path = "../crates/peer-metrics" }
+events-dispatcher = { path = "../crates/events-dispatcher" }
 
 libp2p = { workspace = true }
 

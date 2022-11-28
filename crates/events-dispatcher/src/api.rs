@@ -1,58 +1,105 @@
 use fluence_libp2p::types::Outlet;
+use fluence_libp2p::PeerId;
 use std::collections::HashSet;
+use std::time::Duration;
+use thiserror::Error;
+
+#[derive(Debug)]
+pub struct TimerConfig {
+    pub period: Duration,
+}
+
+#[derive(Debug)]
+pub enum EventConfig {
+    Timer(TimerConfig),
+    PeerEvent(PeerEventConfig),
+}
+
+#[derive(Debug)]
+pub struct PeerEventConfig {
+    pub events: HashSet<PeerEventType>,
+}
+
+#[derive(Debug)]
+pub struct ListenerConfig {
+    pub configs: Vec<EventConfig>,
+}
+
+pub type ListenerId = String;
+
+#[derive(Debug)]
+pub struct Listener {
+    pub id: ListenerId,
+}
+
+#[derive(Debug)]
+pub struct ListenerEvent {
+    pub id: ListenerId,
+    pub event: Event,
+}
 
 #[derive(Clone, Debug)]
 pub enum Event {
-    Connect { who: String },
-    Disconnect { who: String },
+    Timer,
+    Peer(PeerEvent),
 }
 
-impl Event {
-    pub(crate) fn get_type(&self) -> EventType {
+#[derive(Clone, Debug)]
+pub enum PeerEvent {
+    Connect { peer_id: PeerId },
+    Disconnect { peer_id: PeerId },
+}
+
+impl PeerEvent {
+    pub(crate) fn get_type(&self) -> PeerEventType {
         match self {
-            Event::Connect { .. } => EventType::Connect,
-            Event::Disconnect { .. } => EventType::Disconnect,
+            PeerEvent::Connect { .. } => PeerEventType::Connect,
+            PeerEvent::Disconnect { .. } => PeerEventType::Disconnect,
         }
     }
 }
 
 #[derive(PartialEq, Eq, Hash, Debug, Clone)]
-pub enum EventType {
+pub enum PeerEventType {
     Connect,
     Disconnect,
 }
 
 pub enum Command {
-    /// Subscribe a listener with a specified ID to a set of events
-    /// with a handler for this specific group of events.
-    Add(Listener<Event>, ListenerConfig),
+    /// Subscribe a listener with a specified ID to a list of events
+    Add(Listener, ListenerConfig),
     /// Remove all listeners with this ID
     Remove(ListenerId),
 }
 
-pub struct EventsDispatcherApi {
-    pub(crate) send_channel: Outlet<Command>,
+#[derive(Error, Debug)]
+pub enum DispatcherError {
+    #[error("can't send a message to the scheduler")]
+    CommandSendError,
 }
 
-impl EventsDispatcherApi {
-    pub fn send(&self, cmd: Command) {
-        self.send_channel.unbounded_send(cmd).unwrap();
+pub struct EventsDispatcherApi {
+    pub(crate) send_cmd_channel: Outlet<Command>,
+}
+
+impl std::fmt::Debug for EventsDispatcherApi {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("EventDispatcherApi").finish()
     }
 }
 
-pub type ListenerId = String;
+impl EventsDispatcherApi {
+    fn send(&self, cmd: Command) -> Result<(), DispatcherError> {
+        self.send_cmd_channel
+            .unbounded_send(cmd)
+            .map_err(|_| DispatcherError::CommandSendError)
+    }
 
-pub struct ListenerConfig {
-    pub events: HashSet<EventType>,
-}
+    pub fn add(&self, listener: Listener, config: ListenerConfig) -> Result<(), DispatcherError> {
+        self.send(Command::Add(listener, config))
+    }
 
-pub struct Listener<T> {
-    pub id: ListenerId,
-    pub callback: Box<dyn Fn(&T) + Send + Sync>,
-}
-
-impl<T> Listener<T> {
-    pub(crate) fn notify(&self, event: &T) {
-        (self.callback)(event);
+    pub fn remove(&self, id: ListenerId) -> Result<(), DispatcherError> {
+        self.send(Command::Remove(id))
     }
 }
