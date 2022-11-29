@@ -113,9 +113,10 @@ where
     )
 }
 
-pub fn make_swarms_with_keypair(n: usize, keypair: KeyPair) -> Vec<CreatedSwarm> {
+pub fn make_swarms_with_keypair(n: usize, keypair: KeyPair, spell_base_dir: Option<String>,) -> Vec<CreatedSwarm> {
     make_swarms_with_cfg(n, |mut cfg| {
         cfg.keypair = keypair.clone();
+        cfg.spell_base_dir = spell_base_dir.clone().map(PathBuf::from);
         cfg
     })
 }
@@ -124,12 +125,14 @@ pub fn make_swarms_with_builtins(
     n: usize,
     path: &Path,
     keypair: Option<KeyPair>,
+    spell_base_dir: Option<String>,
 ) -> Vec<CreatedSwarm> {
     make_swarms_with_cfg(n, |mut cfg| {
         if let Some(keypair) = &keypair {
             cfg.keypair = keypair.clone();
         }
         cfg.builtins_dir = Some(to_abs_path(path.into()));
+        cfg.spell_base_dir = spell_base_dir.clone().map(PathBuf::from);
         cfg
     })
 }
@@ -218,6 +221,7 @@ pub struct SwarmConfig {
     pub tmp_dir: Option<PathBuf>,
     pub pool_size: Option<usize>,
     pub builtins_dir: Option<PathBuf>,
+    pub spell_base_dir: Option<PathBuf>,
 }
 
 impl SwarmConfig {
@@ -235,6 +239,7 @@ impl SwarmConfig {
             tmp_dir: None,
             pool_size: <_>::default(),
             builtins_dir: None,
+            spell_base_dir: None,
         }
     }
 }
@@ -299,7 +304,7 @@ pub fn create_swarm_with_runtime<RT: AquaRuntime>(
         },
         "builtins_base_dir": config.builtins_dir,
         "external_multiaddresses": [config.listen_on],
-        "spell_base_dir": Some(to_abs_path(PathBuf::from(".spell"))),
+        "spell_base_dir": Some(config.spell_base_dir.clone().unwrap_or(to_abs_path(PathBuf::from("spell")))),
     });
 
     let node_config: UnresolvedConfig =

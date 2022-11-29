@@ -15,7 +15,7 @@
  */
 
 use super::Record;
-use crate::{load_script, SERVICES};
+use crate::{load_script, SERVICES, SPELL};
 use connected_client::ConnectedClient;
 use created_swarm::make_swarms_with_builtins;
 
@@ -28,7 +28,7 @@ fn put_get() {
     let register_put_script = load_script("dht-api.registerKeyPutValue.air");
     let get_values_script = load_script("dht-api.getValues.air");
 
-    let swarms = make_swarms_with_builtins(3, SERVICES.as_ref(), None);
+    let swarms = make_swarms_with_builtins(3, SERVICES.as_ref(), None, Some(SPELL.to_string()));
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .wrap_err("connect client")

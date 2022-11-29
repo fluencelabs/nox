@@ -3,7 +3,7 @@ set -o pipefail -o nounset -o errexit
 
 # get script directory
 CUR_DIR="$(dirname "$0")"
-SPELL_DIR="${CUR_DIR}/.spell"
+SPELL_DIR="${CUR_DIR}/spell"
 TAR="spell.tar.gz"
 
 echo "*** downloading $TAR ***"
