@@ -4,5 +4,5 @@ pub use sorcerer::Sorcerer;
 extern crate fstrings;
 
 mod script_executor;
-mod services;
 mod sorcerer;
+mod spells;

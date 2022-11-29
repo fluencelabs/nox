@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-use events_dispatcher::scheduler::api::{SchedulerApi, TimerConfig};
 use now_millis::now_ms;
 use particle_args::{Args, JError};
 use particle_execution::ParticleParams;
@@ -22,6 +21,7 @@ use particle_services::ParticleAppServices;
 use serde_json::json;
 use serde_json::Value as JValue;
 use serde_json::Value::Array;
+use spell_event_bus::scheduler::api::{SchedulerApi, TimerConfig};
 use spell_storage::SpellStorage;
 use std::time::Duration;
 use uuid_utils::uuid;

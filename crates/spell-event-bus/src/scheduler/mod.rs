@@ -54,15 +54,10 @@ pub struct Scheduler {
     timer_resolution: Duration,
     recv_command: Inlet<Command>,
     spell_events_out: Outlet<Event>,
-    // what to run when its time to execute the task
-    callback: Box<dyn Fn(&str) + Send>,
 }
 
 impl Scheduler {
-    pub fn new(
-        config: SchedulerConfig,
-        callback: impl Fn(&str) + Send + 'static,
-    ) -> (Self, SchedulerApi, Inlet<Event>) {
+    pub fn new(config: SchedulerConfig) -> (Self, SchedulerApi, Inlet<Event>) {
         let (send, recv) = unbounded();
         let (spell_events_out, spell_events_in) = unbounded();
 
@@ -71,7 +66,6 @@ impl Scheduler {
             timer_resolution: config.timer_resolution,
             recv_command: recv,
             spell_events_out,
-            callback: Box::new(callback),
         };
         (this, api, spell_events_in)
     }
@@ -84,7 +78,6 @@ impl Scheduler {
 
             let mut timer = async_std::stream::interval(timer_resolution).fuse();
             let mut heap: BinaryHeap<Scheduled<String>> = BinaryHeap::new();
-            let callback = self.callback;
             loop {
                 select!(
                     _ = timer.select_next_some() => {
@@ -95,7 +88,6 @@ impl Scheduler {
                             }
                             let task = heap.pop().unwrap();
                             log::debug!("Executing task with id: {}", task.data.id);
-                            callback(&task.data.id);
                             match spell_events_out.unbounded_send(Event::TimeTrigger { id: task.data.id.clone() }) {
                                 Err(err) => {
                                     let err_msg = format!("{:?}", err);
@@ -125,44 +117,61 @@ impl Scheduler {
     }
 }
 
-#[test]
-fn test1() {
-    use async_std::task;
-    let (scheduler, api, _) = Scheduler::new(
-        SchedulerConfig {
-            timer_resolution: Duration::from_secs(1),
-        },
-        |id| println!("{:?}", id),
-    );
-    let _ = scheduler.start();
+#[cfg(test)]
+mod tests {
+    use futures::StreamExt;
+    use std::cmp::max;
+    use std::ops::Add;
+    use std::time::Duration;
 
-    api.add(
-        "spell1".to_string(),
-        TimerConfig {
-            period: Duration::from_secs(1),
-        },
-    )
-    .unwrap();
-    api.add(
-        "spell2".to_string(),
-        TimerConfig {
-            period: Duration::from_secs(3),
-        },
-    )
-    .unwrap();
-    task::block_on(async { task::sleep(Duration::from_secs(10)).await });
+    use crate::scheduler::api::{Event, TimerConfig};
+    use crate::scheduler::{Scheduler, SchedulerConfig};
 
-    println!("remove spell2");
-    api.remove("spell2".to_string()).unwrap();
-    task::block_on(async { task::sleep(Duration::from_secs(10)).await });
+    #[test]
+    fn scheduler_add_remove_test() {
+        use async_std::task;
+        let (scheduler, api, event_stream) = Scheduler::new(SchedulerConfig {
+            timer_resolution: Duration::from_millis(1),
+        });
+        scheduler.start();
 
-    println!("add spell3");
-    api.add(
-        "spell3".to_string(),
-        TimerConfig {
-            period: Duration::from_secs(4),
-        },
-    )
-    .unwrap();
-    task::block_on(async { task::sleep(Duration::from_secs(10)).await });
+        let spell1_id = "spell1".to_string();
+        let spell2_id = "spell2".to_string();
+        let spell1_period = Duration::from_millis(7);
+        let spell2_period = Duration::from_millis(10);
+        api.add(
+            spell1_id.clone(),
+            TimerConfig {
+                period: spell1_period,
+            },
+        )
+        .unwrap();
+        api.add(
+            spell2_id.clone(),
+            TimerConfig {
+                period: spell2_period,
+            },
+        )
+        .unwrap();
+
+        // let's wait for both spell to be executed once
+        task::block_on(async {
+            task::sleep(max(spell1_period, spell2_period).add(Duration::from_millis(1))).await
+        });
+
+        // let's remove spell2"
+        api.remove(spell2_id.clone()).unwrap();
+
+        // let's collect events
+        let events = task::block_on(async { event_stream.take(3).collect::<Vec<Event>>().await });
+        assert_eq!(events.len(), 3);
+        assert_eq!(
+            events[0],
+            Event::TimeTrigger {
+                id: spell1_id.clone()
+            }
+        );
+        assert_eq!(events[1], Event::TimeTrigger { id: spell2_id });
+        assert_eq!(events[2], Event::TimeTrigger { id: spell1_id });
+    }
 }

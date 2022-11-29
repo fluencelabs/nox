@@ -50,7 +50,7 @@ pub struct UnresolvedDirConfig {
     #[serde(default)]
     pub air_interpreter_path: Option<PathBuf>,
 
-    /// Path to spells service bundle
+    /// Path to spell service files (wasms, configs)
     #[serde(default)]
     pub spell_base_dir: Option<PathBuf>,
 }

@@ -45,8 +45,6 @@ use aquamarine::{
 use builtins_deployer::BuiltinsDeployer;
 use config_utils::to_peer_id;
 use connection_pool::ConnectionPoolApi;
-use events_dispatcher::scheduler::api::Event;
-use events_dispatcher::scheduler::{api::SchedulerApi, Scheduler, SchedulerConfig};
 use fluence_libp2p::types::{BackPressuredInlet, Inlet};
 use fluence_libp2p::{build_transport, types::OneshotOutlet};
 use particle_builtins::{Builtins, NodeInfo};
@@ -59,6 +57,8 @@ use peer_metrics::{
 use script_storage::{ScriptStorageApi, ScriptStorageBackend, ScriptStorageConfig};
 use server_config::{NetworkConfig, ResolvedConfig, ServicesConfig};
 use sorcerer::Sorcerer;
+use spell_event_bus::scheduler::api::Event;
+use spell_event_bus::scheduler::{api::SchedulerApi, Scheduler, SchedulerConfig};
 
 use crate::dispatcher::Dispatcher;
 use crate::effectors::Effectors;
@@ -222,12 +222,10 @@ impl<RT: AquaRuntime> Node<RT> {
             config.node_config.autodeploy_retry_attempts,
         );
 
-        let (scheduler, spell_scheduler_api, spell_events_stream) = Scheduler::new(
-            SchedulerConfig {
+        let (scheduler, spell_scheduler_api, spell_events_stream) =
+            Scheduler::new(SchedulerConfig {
                 timer_resolution: config.script_storage_timer_resolution,
-            },
-            |id| log::warn!("Sending spell: {}", id),
-        );
+            });
 
         let (sorcerer, spell_service_functions) = Sorcerer::new(
             builtins.clone(),

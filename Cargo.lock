@@ -1741,29 +1741,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0206175f82b8d6bf6652ff7d71a1e27fd2e4efde587fd368662814d6ec1d9ce0"
 
 [[package]]
-name = "events-dispatcher"
-version = "0.1.0"
-dependencies = [
- "async-std",
- "connection-pool",
- "derivative",
- "eyre",
- "fluence-libp2p",
- "fstrings",
- "futures",
- "log",
- "now-millis",
- "parking_lot 0.12.1",
- "particle-args",
- "particle-execution",
- "particle-protocol",
- "particle-services",
- "serde_json",
- "thiserror",
- "uuid-utils",
-]
-
-[[package]]
 name = "eyre"
 version = "0.6.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4106,7 +4083,6 @@ dependencies = [
  "criterion",
  "ctrlc-adapter",
  "env_logger 0.9.3",
- "events-dispatcher",
  "eyre",
  "fluence-app-service",
  "fluence-keypair",
@@ -4144,6 +4120,7 @@ dependencies = [
  "server-config",
  "service-modules",
  "sorcerer",
+ "spell-event-bus",
  "test-constants",
  "test-utils",
  "tide",
@@ -5369,7 +5346,6 @@ dependencies = [
  "aquamarine",
  "async-std",
  "connection-pool",
- "events-dispatcher",
  "eyre",
  "fluence-libp2p",
  "fstrings",
@@ -5388,7 +5364,31 @@ dependencies = [
  "particle-services",
  "serde_json",
  "server-config",
+ "spell-event-bus",
  "spell-storage",
+ "uuid-utils",
+]
+
+[[package]]
+name = "spell-event-bus"
+version = "0.1.0"
+dependencies = [
+ "async-std",
+ "connection-pool",
+ "derivative",
+ "eyre",
+ "fluence-libp2p",
+ "fstrings",
+ "futures",
+ "log",
+ "now-millis",
+ "parking_lot 0.12.1",
+ "particle-args",
+ "particle-execution",
+ "particle-protocol",
+ "particle-services",
+ "serde_json",
+ "thiserror",
  "uuid-utils",
 ]
 

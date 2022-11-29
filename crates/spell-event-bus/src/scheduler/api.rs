@@ -14,7 +14,7 @@ pub enum Command {
     Remove { id: String },
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Event {
     TimeTrigger { id: String },
 }

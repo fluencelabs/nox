@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use crate::services::{get_spell_id, spell_install, spell_list, spell_remove};
+use crate::spells::{get_spell_id, spell_install, spell_list, spell_remove};
 
 use async_std::task::{spawn, JoinHandle};
 use std::collections::{HashMap, HashSet};
@@ -27,7 +27,6 @@ use maplit::hashmap;
 
 use aquamarine::AquamarineApi;
 use connection_pool::ConnectionPoolApi;
-use events_dispatcher::scheduler::api::{Event, SchedulerApi};
 use fluence_libp2p::types::Inlet;
 use kademlia::KademliaApi;
 use particle_builtins::{wrap, wrap_unit, Builtins};
@@ -35,6 +34,7 @@ use particle_execution::ServiceFunction;
 use particle_modules::ModuleRepository;
 use particle_services::ParticleAppServices;
 use server_config::ResolvedConfig;
+use spell_event_bus::scheduler::api::{Event, SchedulerApi};
 use spell_storage::SpellStorage;
 
 #[derive(Clone)]

@@ -13,7 +13,7 @@ particle-services = { path = "../particle-services" }
 particle-modules = { path = "../particle-modules" }
 particle-execution = { path = "../particle-execution" }
 particle-protocol = { path = "../particle-protocol" }
-events-dispatcher = { path = "../crates/events-dispatcher"}
+spell-event-bus = { path = "../crates/spell-event-bus" }
 server-config = { path = "../crates/server-config" }
 particle-args = { path = "../crates/particle-args" }
 uuid-utils = { path = "../crates/uuid-utils" }
