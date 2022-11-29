@@ -14,8 +14,6 @@ use std::sync::Arc;
 pub struct SpellStorage {
     // The blueprint for the latest spell service.
     spell_blueprint_id: String,
-    // All blueprints that are used for spells
-    all_spell_blueprint_ids: HashSet<String>,
     // All currently existing spells
     registered_spells: Arc<RwLock<HashSet<String>>>,
 }
@@ -27,11 +25,9 @@ impl SpellStorage {
         modules: &ModuleRepository,
     ) -> eyre::Result<Self> {
         let spell_blueprint_id = SpellStorage::load_spell_service(modules, spells_base_dir)?;
-        let (all_spell_blueprint_ids, registered_spells) =
-            SpellStorage::restore_spells(services, modules);
+        let registered_spells = SpellStorage::restore_spells(services, modules);
         Ok(Self {
             spell_blueprint_id,
-            all_spell_blueprint_ids,
             registered_spells: Arc::new(RwLock::new(registered_spells)),
         })
     }
@@ -61,7 +57,7 @@ impl SpellStorage {
     fn restore_spells(
         services: &ParticleAppServices,
         modules: &ModuleRepository,
-    ) -> (HashSet<String>, HashSet<String>) {
+    ) -> HashSet<String> {
         // Find blueprint ids of the already existing spells. They might be of older versions of the spell service.
         // These blueprint ids marked with name "spell" to differ from other blueprints.
         let all_spell_blueprint_ids = modules
@@ -71,14 +67,12 @@ impl SpellStorage {
             .map(|x| x.id)
             .collect::<HashSet<_>>();
         // Find already created spells by corresponding blueprint_ids.
-        let registered_spells = services
+        services
             .list_services_with_blueprints()
             .into_iter()
             .filter(|(_, blueprint)| all_spell_blueprint_ids.contains(blueprint))
             .map(|(id, _)| id)
-            .collect::<_>();
-
-        (all_spell_blueprint_ids, registered_spells)
+            .collect::<_>()
     }
 
     pub fn get_registered_spells(&self) -> HashSet<String> {
