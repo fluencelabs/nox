@@ -5,5 +5,12 @@ authors = ["Fluence Labs"]
 edition = "2018"
 
 [dependencies]
+particle-services = { path = "../particle-services" }
+particle-modules = { path = "../particle-modules" }
+service-modules = { path = "../crates/service-modules" }
+
+fluence-app-service = { workspace = true }
+
 parking_lot = { workspace = true }
 derivative = { workspace = true }
+eyre = { workspace = true }

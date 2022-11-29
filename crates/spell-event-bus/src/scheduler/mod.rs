@@ -121,7 +121,7 @@ impl Scheduler {
 mod tests {
     use futures::StreamExt;
     use std::cmp::max;
-    use std::ops::Add;
+    use std::ops::{Add, Mul};
     use std::time::Duration;
 
     use crate::scheduler::api::{Event, TimerConfig};
@@ -130,9 +130,8 @@ mod tests {
     #[test]
     fn scheduler_add_remove_test() {
         use async_std::task;
-        let (scheduler, api, event_stream) = Scheduler::new(SchedulerConfig {
-            timer_resolution: Duration::from_millis(1),
-        });
+        let timer_resolution = Duration::from_millis(1);
+        let (scheduler, api, event_stream) = Scheduler::new(SchedulerConfig { timer_resolution });
         scheduler.start();
 
         let spell1_id = "spell1".to_string();
@@ -156,7 +155,7 @@ mod tests {
 
         // let's wait for both spell to be executed once
         task::block_on(async {
-            task::sleep(max(spell1_period, spell2_period).add(Duration::from_millis(1))).await
+            task::sleep(max(spell1_period, spell2_period).add(timer_resolution.mul(2))).await
         });
 
         // let's remove spell2"

@@ -116,7 +116,7 @@ where
 pub fn make_swarms_with_keypair(
     n: usize,
     keypair: KeyPair,
-    spell_base_dir: Option<String>
+    spell_base_dir: Option<String>,
 ) -> Vec<CreatedSwarm> {
     make_swarms_with_cfg(n, |mut cfg| {
         cfg.keypair = keypair.clone();

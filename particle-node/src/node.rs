@@ -192,7 +192,7 @@ impl<RT: AquaRuntime> Node<RT> {
         let (aquavm_pool, aquamarine_api) = AquamarineBackend::new(
             pool_config,
             vm_config,
-            builtins.clone(),
+            Arc::clone(&builtins),
             effects_out,
             plumber_metrics,
             vm_pool_metrics,
@@ -228,7 +228,8 @@ impl<RT: AquaRuntime> Node<RT> {
             });
 
         let (sorcerer, spell_service_functions) = Sorcerer::new(
-            builtins.clone(),
+            builtins.services.clone(),
+            builtins.modules.clone(),
             aquamarine_api.clone(),
             config.clone(),
             local_peer_id,

@@ -16,12 +16,14 @@ server-config = { path = "../crates/server-config" }
 fluence-libp2p = { path = "../crates/libp2p" }
 particle-execution = { path = "../particle-execution" }
 peer-metrics = { path = "../crates/peer-metrics" }
+uuid-utils = { path = "../crates/uuid-utils" }
+now-millis = { path = "../crates/now-millis" }
 
 fluence-app-service = { workspace = true }
 
 parking_lot = { workspace = true }
 serde_json = { workspace = true }
-serde = "1.0.145"
+serde = { workspace = true }
 log = { workspace = true }
 uuid = { workspace = true }
 toml = "0.5.9"

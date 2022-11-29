@@ -4165,6 +4165,7 @@ dependencies = [
  "json-utils",
  "libp2p-core",
  "log",
+ "now-millis",
  "parking_lot 0.12.1",
  "particle-args",
  "particle-execution",
@@ -4179,6 +4180,7 @@ dependencies = [
  "thiserror",
  "toml",
  "uuid",
+ "uuid-utils",
 ]
 
 [[package]]
@@ -5362,6 +5364,7 @@ dependencies = [
  "particle-modules",
  "particle-protocol",
  "particle-services",
+ "serde",
  "serde_json",
  "server-config",
  "spell-event-bus",
@@ -5397,7 +5400,12 @@ name = "spell-storage"
 version = "0.1.0"
 dependencies = [
  "derivative",
+ "eyre",
+ "fluence-app-service",
  "parking_lot 0.12.1",
+ "particle-modules",
+ "particle-services",
+ "service-modules",
 ]
 
 [[package]]

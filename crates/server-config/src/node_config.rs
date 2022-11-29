@@ -118,6 +118,10 @@ pub struct NodeConfig {
     #[serde(with = "humantime_serde")]
     pub script_storage_particle_ttl: Duration,
 
+    #[serde(default = "default_spell_script_particle_ttl")]
+    #[serde(with = "humantime_serde")]
+    pub spell_script_particle_ttl: Duration,
+
     #[serde(default = "default_bootstrap_frequency")]
     pub bootstrap_frequency: usize,
 

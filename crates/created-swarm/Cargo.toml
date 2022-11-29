@@ -30,5 +30,5 @@ futures = { workspace = true }
 derivative = "2.2.0"
 serde_json = { workspace = true }
 base64 = { workspace = true }
-serde = "1.0.145"
+serde = { workspace = true }
 maplit = { workspace = true }

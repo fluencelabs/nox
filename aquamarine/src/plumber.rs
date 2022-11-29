@@ -60,6 +60,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
     ) -> Self {
         Self {
             vm_pool,
+            // TODO: I don't like with arc but I can't fix this meta hell this evening
             builtins: Arc::new(builtins),
             events: <_>::default(),
             actors: <_>::default(),

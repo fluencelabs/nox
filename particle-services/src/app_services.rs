@@ -14,8 +14,7 @@
  * limitations under the License.
  */
 use std::ops::Deref;
-use std::path::PathBuf;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 use std::{collections::HashMap, sync::Arc};
 
 use derivative::Derivative;
@@ -27,16 +26,16 @@ use parking_lot::{Mutex, RwLock};
 use serde::Serialize;
 use serde_json::{json, Value as JValue};
 
-use fluence_app_service::TomlMarineConfig;
 use fluence_libp2p::PeerId;
+use now_millis::now_ms;
 use particle_args::{Args, JError};
 use particle_execution::{FunctionOutcome, ParticleParams, ParticleVault, VaultError};
-use particle_modules::{load_module_by_path, AddBlueprint, ModuleError, ModuleRepository};
+use particle_modules::ModuleRepository;
 use peer_metrics::{
     ServiceCallStats, ServiceMemoryStat, ServiceType, ServicesMetrics, ServicesMetricsBuiltin,
 };
 use server_config::ServicesConfig;
-use service_modules::{Dependency, Hash};
+use uuid_utils::uuid;
 
 use crate::app_service::create_app_service;
 use crate::error::ServiceError;
@@ -171,7 +170,7 @@ impl ParticleAppServices {
                 get_service(&services_read, &self.aliases.read(), service_id_or_alias)
                     .map_err(ServiceError::NoSuchService)?;
 
-            // tmp hack for
+            // tmp hack to forbid spell removal via srv.remove
             let blueprint_name = self
                 .modules
                 .get_blueprint_from_cache(&service.blueprint_id)?
@@ -332,6 +331,33 @@ impl ParticleAppServices {
         }
 
         FunctionOutcome::Ok(result)
+    }
+
+    pub fn call_function(
+        &self,
+        service_id: String,
+        function_name: &str,
+        function_args: Vec<JValue>,
+        init_peer_id: PeerId,
+        particle_ttl: Duration,
+    ) -> FunctionOutcome {
+        let args = Args {
+            service_id,
+            function_name: function_name.to_string(),
+            function_args,
+            tetraplets: vec![],
+        };
+
+        let particle = ParticleParams {
+            id: uuid(),
+            init_peer_id,
+            timestamp: now_ms() as u64,
+            ttl: particle_ttl.as_millis() as u32,
+            script: "".to_string(),
+            signature: vec![],
+        };
+
+        self.call_service(args, particle)
     }
 
     pub fn add_alias(
@@ -557,26 +583,6 @@ impl ParticleAppServices {
 
     fn create_vault(&self, particle_id: &str) -> Result<(), VaultError> {
         self.vault.create(particle_id)
-    }
-
-    pub fn load_spell_service(&self, spells_base_dir: PathBuf) -> Result<String, ModuleError> {
-        let spell_cfg_path = spells_base_dir.to_owned().join("Config.toml");
-        let cfg = TomlMarineConfig::load(spell_cfg_path).unwrap();
-        let spell_cfg_prefix = PathBuf::from(spells_base_dir);
-        let mut hashes = Vec::new();
-        for config in cfg.module {
-
-            let load_from = config
-                .load_from
-                .clone()
-                .unwrap_or(PathBuf::from(config.name.to_owned() + ".wasm"));
-            let module_path = spell_cfg_prefix.to_owned().join(load_from);
-            let module = load_module_by_path(module_path.as_ref())?;
-            let hash = self.modules.add_module(module, config)?;
-            hashes.push(Dependency::Hash(Hash::from_hex(&hash).unwrap()));
-        }
-        self.modules
-            .add_blueprint(AddBlueprint::new("spell".to_string(), hashes))
     }
 }
 

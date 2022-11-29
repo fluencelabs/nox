@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-use now_millis::now_ms;
 use particle_args::{Args, JError};
 use particle_execution::ParticleParams;
 use particle_services::ParticleAppServices;
@@ -24,7 +23,6 @@ use serde_json::Value::Array;
 use spell_event_bus::scheduler::api::{SchedulerApi, TimerConfig};
 use spell_storage::SpellStorage;
 use std::time::Duration;
-use uuid_utils::uuid;
 
 pub(crate) fn spell_install(
     spell_storage: SpellStorage,
@@ -38,28 +36,20 @@ pub(crate) fn spell_install(
     // TODO: redo config when other event are supported
     let period: u64 = Args::next("period", &mut args)?;
 
+    // TODO: create service on behalf of spell keypair
     let service_id = services.create_service(spell_storage.get_blueprint(), params.init_peer_id)?;
     spell_storage.register_spell(service_id.clone());
 
-    // Save the script to the spell.
-    let script_arg = JValue::String(script);
-    let script_tetraplet = sargs.tetraplets[0].clone();
-    let spell_args = Args {
-        service_id: service_id.clone(),
-        function_name: "set_script_source_to_file".to_string(),
-        function_args: vec![script_arg],
-        tetraplets: vec![script_tetraplet],
-    };
-    let particle = ParticleParams {
-        id: uuid(),
-        init_peer_id: params.init_peer_id,
-        timestamp: now_ms() as u64,
-        ttl: params.ttl,
-        script: "".to_string(),
-        signature: vec![],
-    };
-    services.call_service(spell_args, particle);
-    // TODO: also save config
+    // Save the script to the spell
+    services.call_function(
+        service_id.clone(),
+        "set_script_source_to_file",
+        vec![json!(script)],
+        params.init_peer_id,
+        Duration::from_millis(params.ttl as u64),
+    );
+
+    // TODO: also save trigger config
 
     // Scheduling the spell
     spell_scheduler_api.add(

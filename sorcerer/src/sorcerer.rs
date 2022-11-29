@@ -17,19 +17,16 @@
 use crate::spells::{get_spell_id, spell_install, spell_list, spell_remove};
 
 use async_std::task::{spawn, JoinHandle};
-use std::collections::{HashMap, HashSet};
-use std::path::PathBuf;
-use std::sync::Arc;
+use std::collections::HashMap;
+use std::time::Duration;
 
 use futures::{FutureExt, StreamExt};
 use libp2p::PeerId;
 use maplit::hashmap;
 
 use aquamarine::AquamarineApi;
-use connection_pool::ConnectionPoolApi;
 use fluence_libp2p::types::Inlet;
-use kademlia::KademliaApi;
-use particle_builtins::{wrap, wrap_unit, Builtins};
+use particle_builtins::{wrap, wrap_unit};
 use particle_execution::ServiceFunction;
 use particle_modules::ModuleRepository;
 use particle_services::ParticleAppServices;
@@ -45,35 +42,38 @@ pub struct Sorcerer {
     pub scheduler_api: SchedulerApi,
     /// it is temporary, later we will use spell keypairs
     pub node_peer_id: PeerId,
+    pub spell_script_particle_ttl: Duration,
 }
 
 impl Sorcerer {
-    pub fn new<C>(
-        builtins: Arc<Builtins<C>>,
+    pub fn new(
+        services: ParticleAppServices,
+        modules: ModuleRepository,
         aquamarine: AquamarineApi,
         config: ResolvedConfig,
         local_peer_id: PeerId,
         scheduler_api: SchedulerApi,
-    ) -> (Self, Vec<(String, HashMap<String, ServiceFunction>)>)
-    where
-        C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoolApi>,
-    {
-        let spell_storage = Self::restore_spells(
+    ) -> (Self, Vec<(String, HashMap<String, ServiceFunction>)>) {
+        let spell_storage = SpellStorage::create(
             config.dir_config.spell_base_dir.clone(),
-            &builtins.services,
-            &builtins.modules,
-        );
+            &services,
+            &modules,
+        )
+        .expect("Spell storage creation");
 
         let sorcerer = Self {
             aquamarine,
-            services: builtins.services.clone(),
+            services,
             spell_storage,
             scheduler_api,
             node_peer_id: local_peer_id,
-            // events_recv,
+            spell_script_particle_ttl: config.spell_script_particle_ttl,
         };
 
         let spell_service_functions = sorcerer.get_spell_service_functions();
+
+        // TODO: reschedule spells
+        // sorcerer.spell_storage.get_registered_spells()
 
         (sorcerer, spell_service_functions)
     }
@@ -97,13 +97,13 @@ impl Sorcerer {
 
     fn get_spell_service_functions(&self) -> Vec<(String, HashMap<String, ServiceFunction>)> {
         let mut service_functions: Vec<(String, HashMap<String, ServiceFunction>)> = vec![];
-        let services_install = self.services.clone();
-        let storage_install = self.spell_storage.clone();
-        let scheduler_api_install = self.scheduler_api.clone();
+        let services = self.services.clone();
+        let storage = self.spell_storage.clone();
+        let scheduler = self.scheduler_api.clone();
         let install_closure: ServiceFunction = Box::new(move |args, params| {
-            let storage = storage_install.clone();
-            let services = services_install.clone();
-            let scheduler_api = scheduler_api_install.clone();
+            let storage = storage.clone();
+            let services = services.clone();
+            let scheduler_api = scheduler.clone();
             async move {
                 wrap(spell_install(
                     storage,
@@ -116,17 +116,17 @@ impl Sorcerer {
             .boxed()
         });
 
-        let services_remove = self.services.clone();
-        let storage_remove = self.spell_storage.clone();
+        let services = self.services.clone();
+        let storage = self.spell_storage.clone();
         let remove_closure: ServiceFunction = Box::new(move |args, params| {
-            let storage = storage_remove.clone();
-            let services = services_remove.clone();
+            let storage = storage.clone();
+            let services = services.clone();
             async move { wrap_unit(spell_remove(storage, services, args, params)) }.boxed()
         });
 
-        let storage_list = self.spell_storage.clone();
+        let storage = self.spell_storage.clone();
         let list_closure: ServiceFunction = Box::new(move |_args, _params| {
-            let storage = storage_list.clone();
+            let storage = storage.clone();
             async move { wrap(spell_list(storage)) }.boxed()
         });
 
@@ -146,37 +146,5 @@ impl Sorcerer {
         ));
 
         service_functions
-    }
-
-    fn restore_spells(
-        spells_base_dir: PathBuf,
-        services: &ParticleAppServices,
-        modules: &ModuleRepository,
-    ) -> SpellStorage {
-        // Load the up-to-date spell service and save its blueprint_id to create spell services from it.
-        let spell_blueprint_id = services.load_spell_service(spells_base_dir).unwrap();
-        // Find blueprint ids of the already existing spells. They might be of older versions of the spell service.
-        // These blueprint ids marked with name "spell" to differ from other blueprints.
-        let all_spell_blueprint_ids = modules
-            .get_blueprints()
-            .into_iter()
-            .filter(|blueprint| blueprint.name == "spell")
-            .map(|x| x.id)
-            .collect::<HashSet<_>>();
-        // Find already created spells by corresponding blueprint_ids.
-        let registered_spells = services
-            .list_services_with_blueprints()
-            .into_iter()
-            .filter(|(_, blueprint)| all_spell_blueprint_ids.contains(blueprint))
-            .map(|(id, _)| id)
-            .collect::<_>();
-        // TODO: read spells configs
-        // TODO: reschedule spells
-
-        SpellStorage::new(
-            spell_blueprint_id,
-            all_spell_blueprint_ids,
-            registered_spells,
-        )
     }
 }

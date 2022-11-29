@@ -28,7 +28,7 @@ fluence-keypair = { workspace = true }
 
 async-std = { workspace = true }
 serde_json = { workspace = true }
-serde = "1.0.145"
+serde = { workspace = true }
 log = { workspace = true }
 bs58 = { workspace = true }
 parking_lot = { workspace = true }

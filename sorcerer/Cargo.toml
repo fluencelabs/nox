@@ -32,3 +32,4 @@ futures = { workspace = true }
 eyre = { workspace = true}
 fstrings = { workspace = true}
 async-std = { workspace = true }
+serde = { workspace = true }

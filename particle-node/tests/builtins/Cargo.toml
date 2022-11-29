@@ -8,7 +8,7 @@ fstrings = { workspace = true }
 eyre = { workspace = true }
 maplit = { workspace = true }
 serde_json = "1.0.64"
-serde = "1.0.130"
+serde = { workspace = true }
 log = "0.4.11"
 libp2p = { workspace = true }
 

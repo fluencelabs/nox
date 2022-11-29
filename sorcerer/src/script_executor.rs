@@ -15,37 +15,43 @@
  */
 
 use eyre::eyre;
+use serde::Deserialize;
 use serde_json::json;
 
 use crate::Sorcerer;
 use now_millis::now_ms;
-use particle_args::Args;
-use particle_execution::{FunctionOutcome, ParticleParams};
+use particle_execution::FunctionOutcome;
 use particle_protocol::Particle;
-use uuid_utils::uuid;
 
-// TODO: use some meaningful ttl
-pub static PARTICLE_TTL: u32 = 20000;
+#[derive(Deserialize)]
+struct UnitValue {
+    pub success: bool,
+    pub error: String,
+}
+
+#[derive(Deserialize)]
+struct U32Value {
+    pub num: u32,
+    pub success: bool,
+    pub error: String,
+}
+
+#[derive(Deserialize)]
+pub struct Script {
+    pub source_code: String,
+    pub success: bool,
+    pub error: String,
+}
 
 impl Sorcerer {
     fn get_spell_counter(&self, spell_id: String) -> eyre::Result<u32> {
-        let spell_args = Args {
-            service_id: spell_id.clone(),
-            function_name: "get_u32".to_string(),
-            function_args: vec![json!("counter")],
-            tetraplets: vec![],
-        };
-
-        // TODO: pass and use actual spell keypair
-        let particle = ParticleParams {
-            id: uuid(),
-            init_peer_id: self.node_peer_id.clone(),
-            timestamp: now_ms() as u64,
-            ttl: PARTICLE_TTL,
-            script: "".to_string(),
-            signature: vec![],
-        };
-        let func_outcome = self.services.call_service(spell_args, particle);
+        let func_outcome = self.services.call_function(
+            spell_id,
+            "get_u32",
+            vec![json!("counter")],
+            self.node_peer_id,
+            self.spell_script_particle_ttl,
+        );
 
         match func_outcome {
             FunctionOutcome::NotDefined { args, .. } => Err(eyre!(format!(
@@ -55,16 +61,9 @@ impl Sorcerer {
             FunctionOutcome::Empty => Err(eyre!("Function get_u32 has not returned any result")),
             FunctionOutcome::Err(err) => Err(eyre!(err.to_string())),
             FunctionOutcome::Ok(v) => {
-                let success = v["success"]
-                    .as_bool()
-                    .ok_or(eyre!("Field success is missing in get_u32 result"))?;
-                let num = v["num"]
-                    .as_u64()
-                    .ok_or(eyre!("Field num is missing in get_u32 result"))?
-                    as u32;
-
-                if success {
-                    Ok(num)
+                let result: U32Value = serde_json::from_value(v)?;
+                if result.success {
+                    Ok(result.num)
                 } else {
                     // If key is not exists we will create it on the next step
                     Ok(0u32)
@@ -74,23 +73,13 @@ impl Sorcerer {
     }
 
     fn set_spell_next_counter(&self, spell_id: String, next_counter: u32) -> eyre::Result<()> {
-        let spell_args = Args {
-            service_id: spell_id.clone(),
-            function_name: "set_u32".to_string(),
-            function_args: vec![json!("counter"), json!(next_counter)],
-            tetraplets: vec![],
-        };
-
-        // TODO: pass and use actual spell keypair
-        let particle = ParticleParams {
-            id: uuid(),
-            init_peer_id: self.node_peer_id.clone(),
-            timestamp: now_ms() as u64,
-            ttl: PARTICLE_TTL,
-            script: "".to_string(),
-            signature: vec![],
-        };
-        let func_outcome = self.services.call_service(spell_args, particle);
+        let func_outcome = self.services.call_function(
+            spell_id,
+            "set_u32",
+            vec![json!("counter"), json!(next_counter)],
+            self.node_peer_id,
+            self.spell_script_particle_ttl,
+        );
 
         match func_outcome {
             FunctionOutcome::NotDefined { args, .. } => Err(eyre!(format!(
@@ -100,41 +89,25 @@ impl Sorcerer {
             FunctionOutcome::Empty => Err(eyre!("Function set_u32 has not returned any result")),
             FunctionOutcome::Err(err) => Err(eyre!(err.to_string())),
             FunctionOutcome::Ok(v) => {
-                let success = v["success"]
-                    .as_bool()
-                    .ok_or(eyre!("Field success is missing in set_u32 result"))?;
-                let error = v["error"]
-                    .as_str()
-                    .ok_or(eyre!("Field error is missing in set_u32 result"))?
-                    .to_string();
+                let result: UnitValue = serde_json::from_value(v)?;
 
-                if success {
+                if result.success {
                     Ok(())
                 } else {
-                    Err(eyre!(error))
+                    Err(eyre!(result.error))
                 }
             }
         }
     }
 
     fn get_spell_script(&self, spell_id: String) -> eyre::Result<String> {
-        let spell_args = Args {
-            service_id: spell_id.clone(),
-            function_name: "get_script_source_from_file".to_string(),
-            function_args: vec![],
-            tetraplets: vec![],
-        };
-
-        // TODO: pass and use actual spell keypair
-        let particle = ParticleParams {
-            id: uuid(),
-            init_peer_id: self.node_peer_id.clone(),
-            timestamp: now_ms() as u64,
-            ttl: PARTICLE_TTL,
-            script: "".to_string(),
-            signature: vec![],
-        };
-        let func_outcome = self.services.call_service(spell_args, particle);
+        let func_outcome = self.services.call_function(
+            spell_id,
+            "get_script_source_from_file",
+            vec![],
+            self.node_peer_id,
+            self.spell_script_particle_ttl,
+        );
 
         match func_outcome {
             FunctionOutcome::NotDefined { args, .. } => Err(eyre!(format!(
@@ -146,26 +119,12 @@ impl Sorcerer {
             )),
             FunctionOutcome::Err(err) => Err(eyre!(err.to_string())),
             FunctionOutcome::Ok(v) => {
-                let success = v["success"].as_bool().ok_or(eyre!(
-                    "Field success is missing in get_script_source_from_file result"
-                ))?;
-                let error = v["error"]
-                    .as_str()
-                    .ok_or(eyre!(
-                        "Field error is missing in get_script_source_from_file result"
-                    ))?
-                    .to_string();
-                let script = v["script"]
-                    .as_str()
-                    .ok_or(eyre!(
-                        "Field script is missing in get_script_source_from_file result"
-                    ))?
-                    .to_string();
+                let result: Script = serde_json::from_value(v)?;
 
-                if success {
-                    Ok(script)
+                if result.success {
+                    Ok(result.source_code)
                 } else {
-                    Err(eyre!(error))
+                    Err(eyre!(result.error))
                 }
             }
         }
@@ -180,7 +139,7 @@ impl Sorcerer {
             id: f!("spell_{spell_id}_{spell_counter}"),
             init_peer_id: self.node_peer_id.clone(),
             timestamp: now_ms() as u64,
-            ttl: PARTICLE_TTL,
+            ttl: self.spell_script_particle_ttl.as_millis() as u32,
             script: spell_script,
             signature: vec![],
             data: vec![],

@@ -151,6 +151,10 @@ pub fn default_script_storage_particle_ttl() -> Duration {
     Duration::from_secs(120)
 }
 
+pub fn default_spell_script_particle_ttl() -> Duration {
+    Duration::from_secs(120)
+}
+
 pub fn default_bootstrap_frequency() -> usize {
     3
 }
