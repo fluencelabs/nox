@@ -413,7 +413,7 @@ impl ParticleAppServices {
         Ok(self.modules.get_facade_interface(&service.blueprint_id)?)
     }
 
-    pub fn list_service_with_blueprints(&self) -> Vec<(String, String)> {
+    pub fn list_services_with_blueprints(&self) -> Vec<(String, String)> {
         let services = self.services.read();
         services
             .iter()
@@ -560,7 +560,6 @@ impl ParticleAppServices {
     }
 
     pub fn load_spell_service(&self, spells_base_dir: PathBuf) -> Result<String, ModuleError> {
-        log::info!("Spell service: {}", spells_base_dir.display());
         let spell_cfg_path = spells_base_dir.to_owned().join("Config.toml");
         let cfg = TomlMarineConfig::load(spell_cfg_path).unwrap();
         let spell_cfg_prefix = PathBuf::from(spells_base_dir);

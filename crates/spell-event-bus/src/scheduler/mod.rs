@@ -102,11 +102,11 @@ impl Scheduler {
                     command = command_channel.select_next_some() => {
                         log::debug!("Received a command: {:?}", command);
                         match command {
-                            Command::Add { id , config } => {
+                            Command::AddSpell { id , config } => {
                                 let periodic = Periodic { id, period: config.period };
                                 heap.push(Scheduled::new(periodic, Instant::now()))
                             },
-                            Command::Remove { id } => {
+                            Command::RemoveSpell { id } => {
                                 heap.retain(|scheduled| scheduled.data.id != id);
                             },
                         }

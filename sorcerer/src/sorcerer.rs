@@ -165,7 +165,7 @@ impl Sorcerer {
             .collect::<HashSet<_>>();
         // Find already created spells by corresponding blueprint_ids.
         let registered_spells = services
-            .list_service_with_blueprints()
+            .list_services_with_blueprints()
             .into_iter()
             .filter(|(_, blueprint)| all_spell_blueprint_ids.contains(blueprint))
             .map(|(id, _)| id)
