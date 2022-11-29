@@ -565,6 +565,7 @@ impl ParticleAppServices {
         let spell_cfg_prefix = PathBuf::from(spells_base_dir);
         let mut hashes = Vec::new();
         for config in cfg.module {
+
             let load_from = config
                 .load_from
                 .clone()
