@@ -37,7 +37,7 @@ use JValue::Array;
 
 use connection_pool::{ConnectionPoolApi, ConnectionPoolT};
 use events_dispatcher::api::{
-    EventConfig, EventsDispatcherApi, Listener, ListenerConfig, TimerConfig,
+    EventConfig, EventsDispatcherApi, Listener, ListenerConfig, TimerConfig
 };
 use kademlia::{KademliaApi, KademliaApiT};
 use now_millis::{now_ms, now_sec};
@@ -212,7 +212,7 @@ where
 
             ("spell", "install")              => wrap(self.spell_install(args, particle)),
             ("spell", "list")                 => wrap(self.spell_list(args, particle)),
-            ("spell", "remove")               => wrap_unit(self.spell_remove(args, particle)),
+            ("spell", "remove")               => wrap_unit(self.spell_remove(args, particle).await),
 
             ("op", "noop")                    => FunctionOutcome::Empty,
             ("op", "array")                   => ok(Array(args.function_args)),
@@ -982,18 +982,17 @@ where
         self.call_service(spell_args, particle);
         // TODO: also save config
 
-        let cfg = ListenerConfig {
+        // Scheduling the spell
+        let config = ListenerConfig {
             configs: vec![EventConfig::Timer(TimerConfig {
                 period: Duration::from_secs(period),
-            })],
+            })]
         };
-
-        // Scheduling the spell
         self.events_dispatcher_api.add(
             Listener {
                 id: service_id.clone(),
             },
-            cfg,
+            config
         )?;
         Ok(JValue::String(service_id))
     }
@@ -1007,11 +1006,13 @@ where
                 .collect(),
         ))
     }
-    fn spell_remove(&self, args: Args, params: ParticleParams) -> Result<(), JError> {
+
+    async fn spell_remove(&self, args: Args, params: ParticleParams) -> Result<(), JError> {
         let mut args = args.function_args.into_iter();
         let spell_id: String = Args::next("spell_id", &mut args)?;
 
-        // TODO: remove the spell from the event dispatcher
+        self.events_dispatcher_api.remove(spell_id.clone()).await?;
+
         self.spell_storage.unregister_spell(&spell_id);
         self.services
             .remove_service(spell_id, params.init_peer_id)?;

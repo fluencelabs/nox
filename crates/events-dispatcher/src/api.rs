@@ -1,8 +1,13 @@
-use fluence_libp2p::types::Outlet;
+use fluence_libp2p::types::{OneshotOutlet, Outlet};
 use fluence_libp2p::PeerId;
-use std::collections::HashSet;
 use std::time::Duration;
 use thiserror::Error;
+use futures::{
+    channel::oneshot,
+    future::BoxFuture,
+    FutureExt,
+};
+use serde::Deserialize;
 
 #[derive(Debug)]
 pub struct TimerConfig {
@@ -17,7 +22,7 @@ pub enum EventConfig {
 
 #[derive(Debug)]
 pub struct PeerEventConfig {
-    pub events: HashSet<PeerEventType>,
+    pub events: Vec<PeerEventType>,
 }
 
 #[derive(Debug)]
@@ -59,7 +64,7 @@ impl PeerEvent {
     }
 }
 
-#[derive(PartialEq, Eq, Hash, Debug, Clone)]
+#[derive(PartialEq, Eq, Hash, Debug, Clone, Deserialize)]
 pub enum PeerEventType {
     Connect,
     Disconnect,
@@ -69,13 +74,15 @@ pub enum Command {
     /// Subscribe a listener with a specified ID to a list of events
     Add(Listener, ListenerConfig),
     /// Remove all listeners with this ID
-    Remove(ListenerId),
+    Remove(ListenerId, OneshotOutlet<()>),
 }
 
 #[derive(Error, Debug)]
 pub enum DispatcherError {
-    #[error("can't send a message to the scheduler")]
-    CommandSendError,
+    #[error("can't send a message to the dispatcher")]
+    SendError,
+    #[error("can't receive a message from the dispatcher")]
+    ReplyError,
 }
 
 pub struct EventsDispatcherApi {
@@ -92,14 +99,20 @@ impl EventsDispatcherApi {
     fn send(&self, cmd: Command) -> Result<(), DispatcherError> {
         self.send_cmd_channel
             .unbounded_send(cmd)
-            .map_err(|_| DispatcherError::CommandSendError)
+            .map_err(|_| DispatcherError::SendError)
     }
 
     pub fn add(&self, listener: Listener, config: ListenerConfig) -> Result<(), DispatcherError> {
         self.send(Command::Add(listener, config))
     }
 
-    pub fn remove(&self, id: ListenerId) -> Result<(), DispatcherError> {
-        self.send(Command::Remove(id))
+    pub fn remove(&self, id: ListenerId) -> BoxFuture<'static, Result<(), DispatcherError>> {
+        let (send, recv) = oneshot::channel();
+        if let Err(err) = self.send(Command::Remove(id, send)) {
+            return futures::future::err(err).boxed();
+        }
+        recv
+            .map(|r| r.map_err(|_| DispatcherError::ReplyError))
+            .boxed()
     }
 }

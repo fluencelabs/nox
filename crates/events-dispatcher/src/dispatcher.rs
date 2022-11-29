@@ -5,7 +5,7 @@ use fluence_libp2p::types::{Inlet, Outlet};
 use futures::stream;
 use futures::{channel::mpsc::unbounded, select, StreamExt};
 use std::cmp::Ordering;
-use std::collections::{BinaryHeap, HashMap, HashSet};
+use std::collections::{BinaryHeap, HashMap};
 use std::time::{Duration, Instant};
 
 struct Listeners {
@@ -19,7 +19,7 @@ impl Listeners {
         }
     }
 
-    fn add(&mut self, listener: Arc<Listener>, event_types: HashSet<PeerEventType>) {
+    fn add(&mut self, listener: Arc<Listener>, event_types: Vec<PeerEventType>) {
         for event_type in event_types {
             self.listeners
                 .entry(event_type)
@@ -155,20 +155,27 @@ impl EventsDispatcher {
                                 }
                             }
                         },
-                        Command::Remove(listener_id) => {
+                        Command::Remove(listener_id, reply) => {
                             heap.retain(|scheduled| scheduled.data.id != listener_id);
                             listeners.remove(&listener_id);
+                            if let Err(e) = reply.send(()) {
+                                log::warn!("Can't send notification about listener {:?} removal: {:?}", listener_id, e);
+                            }
                         },
                     }
                 },
                 event = sources_channel.select_next_some() => {
                     for listener in listeners.get(&event.get_type()) {
-                        send_events.unbounded_send(ListenerEvent { id: listener.id.clone(), event: Event::Peer(event.clone()) });
+                        if let Err(e) = send_events.unbounded_send(ListenerEvent { id: listener.id.clone(), event: Event::Peer(event.clone()) }) {
+                            log::warn!("Can't send notification about event {:?}: {:?}", event, e);
+                        }
                     }
                 },
                 _ = timer.select_next_some() => {
                     let task = heap.pop().expect("billions of years have gone by already?");
-                    send_events.unbounded_send(ListenerEvent { id: task.data.id.clone(), event: Event::Timer });
+                    if let Err(e) = send_events.unbounded_send(ListenerEvent { id: task.data.id.clone(), event: Event::Timer }) {
+                        log::warn!("Can't send notification by timer: {:?}", e);
+                    }
                     heap.push(task.reschedule(now));
                 },
 

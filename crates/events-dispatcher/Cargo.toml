@@ -12,3 +12,4 @@ futures = "0.3.24"
 fluence-libp2p = { path = "../libp2p" }
 thiserror = "1.0.37"
 log = "0.4.17"
+serde = "1.0.145"
