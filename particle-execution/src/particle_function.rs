@@ -39,7 +39,7 @@ pub trait ParticleFunctionMut: 'static + Send + Sync {
     fn call_mut(&mut self, args: Args, particle: ParticleParams) -> Output<'_>;
 }
 
-pub trait ParticleFunctionStatic: 'static + Send + Sync {
+pub trait ParticleFunctionStatic: Clone + 'static + Send + Sync {
     fn call(&self, args: Args, particle: ParticleParams) -> Output<'static>;
     fn extend(&self, service: String, functions: HashMap<String, ServiceFunction>);
     fn remove(&self, service: &str) -> Option<HashMap<String, ServiceFunction>>;

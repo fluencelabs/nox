@@ -447,6 +447,7 @@ impl ParticleAppServices {
             .collect()
     }
 
+    // TODO: move JSON serialization to builtins
     pub fn list_services(&self) -> Vec<JValue> {
         let services = self.services.read();
         let services = services
@@ -464,6 +465,7 @@ impl ParticleAppServices {
         services
     }
 
+    // TODO: move JSON serialization to builtins
     pub fn get_service_mem_stats(&self, service_id: String) -> Result<Vec<JValue>, JError> {
         let services = self.services.read();
         let (service, _) = get_service(&services, &self.aliases.read(), service_id)

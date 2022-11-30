@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-use std::sync::Arc;
 use std::{
     collections::{HashMap, VecDeque},
     task::{Context, Poll},
@@ -45,7 +44,7 @@ pub struct Plumber<RT: AquaRuntime, F> {
     events: VecDeque<Result<NetworkEffects, AquamarineApiError>>,
     actors: HashMap<String, Actor<RT, F>>,
     vm_pool: VmPool<RT>,
-    builtins: Arc<F>,
+    builtins: F,
     waker: Option<Waker>,
     metrics: Option<ParticleExecutorMetrics>,
     host_peer_id: PeerId,
@@ -60,8 +59,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
     ) -> Self {
         Self {
             vm_pool,
-            // TODO: I don't like with arc but I can't fix this meta hell this evening
-            builtins: Arc::new(builtins),
+            builtins,
             events: <_>::default(),
             actors: <_>::default(),
             waker: <_>::default(),

@@ -40,7 +40,7 @@ pub struct Sorcerer {
     pub services: ParticleAppServices,
     pub spell_storage: SpellStorage,
     pub scheduler_api: SchedulerApi,
-    /// it is temporary, later we will use spell keypairs
+    /// TODO: use owner-specific spell keypairs
     pub node_peer_id: PeerId,
     pub spell_script_particle_ttl: Duration,
 }
