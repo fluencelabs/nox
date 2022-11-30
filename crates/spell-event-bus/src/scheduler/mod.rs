@@ -132,8 +132,6 @@ impl Scheduler {
 #[cfg(test)]
 mod tests {
     use futures::StreamExt;
-    use std::cmp::max;
-    use std::ops::{Add, Mul};
     use std::time::Duration;
 
     use crate::scheduler::api::{Event, TimerConfig};
@@ -143,7 +141,8 @@ mod tests {
     fn scheduler_add_remove_test() {
         use async_std::task;
         let timer_resolution = Duration::from_millis(1);
-        let (scheduler, api, event_stream) = Scheduler::new(SchedulerConfig { timer_resolution });
+        let (scheduler, api, mut event_stream) =
+            Scheduler::new(SchedulerConfig { timer_resolution });
         scheduler.start();
 
         let spell1_id = "spell1".to_string();
@@ -165,14 +164,22 @@ mod tests {
         )
         .unwrap();
 
-        // let's wait for both spell to be executed once
-        task::block_on(async { task::sleep(max(spell1_period, spell2_period)).await });
+        let mut count = 0;
+        let mut events = vec![];
+        while count < 2 {
+            if let Ok(Some(event)) = event_stream.try_next() {
+                count += 1;
+                events.push(event);
+            }
+        }
 
         // let's remove spell1"
         api.remove(spell1_id.clone()).unwrap();
 
-        // let's collect events
-        let events = task::block_on(async { event_stream.take(3).collect::<Vec<Event>>().await });
+        // let's collect one more event from spell2
+        events.extend(task::block_on(async {
+            event_stream.take(1).collect::<Vec<Event>>().await
+        }));
         assert_eq!(events.len(), 3);
         assert_eq!(
             events[0],

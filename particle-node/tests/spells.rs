@@ -14,20 +14,19 @@
  * limitations under the License.
  */
 use connected_client::ConnectedClient;
-use created_swarm::make_swarms;
+use created_swarm::{make_swarms, make_swarms_with_cfg};
 use eyre::Context;
-use log_utils::enable_logs;
 use maplit::hashmap;
 use serde_json::json;
 use std::thread::sleep;
 use std::time::Duration;
-use test_constants::KAD_TIMEOUT;
 
 #[test]
 fn spell_simple_test() {
-    enable_logs();
-    let swarms = make_swarms(1);
-    sleep(KAD_TIMEOUT);
+    let swarms = make_swarms_with_cfg(1, |mut cfg| {
+        cfg.timer_resolution = Duration::from_millis(10);
+        cfg
+    });
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .wrap_err("connect client")
         .unwrap();
@@ -58,7 +57,7 @@ fn spell_simple_test() {
     let response = client.receive_args().wrap_err("receive").unwrap();
     let spell_id = response[0].as_str().unwrap().to_string();
     assert_ne!(spell_id.len(), 0);
-    sleep(Duration::from_secs(1));
+
     let mut result = " ".to_string();
     let mut counter = 0;
     for _ in 1..10 {
