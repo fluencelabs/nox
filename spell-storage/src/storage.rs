@@ -4,7 +4,7 @@ use particle_modules::{load_module_by_path, AddBlueprint, ModuleRepository};
 
 use fluence_app_service::TomlMarineConfig;
 use particle_services::ParticleAppServices;
-use service_modules::{Dependency, Hash};
+use service_modules::{module_file_name, Dependency, Hash};
 use std::collections::HashSet;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -36,19 +36,19 @@ impl SpellStorage {
         modules: &ModuleRepository,
         spells_base_dir: PathBuf,
     ) -> eyre::Result<String> {
-        let spell_cfg_path = spells_base_dir.to_owned().join("Config.toml");
-        let cfg = TomlMarineConfig::load(spell_cfg_path).unwrap();
-        let spell_cfg_prefix = PathBuf::from(spells_base_dir);
+        let cfg = TomlMarineConfig::load(spells_base_dir.join("Config.toml"))?;
         let mut hashes = Vec::new();
         for config in cfg.module {
             let load_from = config
                 .load_from
                 .clone()
-                .unwrap_or(PathBuf::from(config.name.to_owned() + ".wasm"));
-            let module_path = spell_cfg_prefix.to_owned().join(load_from);
+                .unwrap_or(PathBuf::from(module_file_name(&Dependency::Name(
+                    config.name.clone(),
+                ))));
+            let module_path = spells_base_dir.join(load_from);
             let module = load_module_by_path(module_path.as_ref())?;
             let hash = modules.add_module(module, config)?;
-            hashes.push(Dependency::Hash(Hash::from_hex(&hash).unwrap()));
+            hashes.push(Dependency::Hash(Hash::from_hex(&hash)?));
         }
 
         Ok(modules.add_blueprint(AddBlueprint::new("spell".to_string(), hashes))?)
