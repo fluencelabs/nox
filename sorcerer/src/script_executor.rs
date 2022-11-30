@@ -17,6 +17,7 @@
 use eyre::eyre;
 use serde::Deserialize;
 use serde_json::json;
+use serde_json::Value as JValue;
 
 use crate::Sorcerer;
 use now_millis::now_ms;
@@ -43,6 +44,18 @@ pub struct Script {
     pub error: String,
 }
 
+fn process_func_outcome(func_outcome: FunctionOutcome) -> eyre::Result<JValue> {
+    match func_outcome {
+        FunctionOutcome::NotDefined { args, .. } => Err(eyre!(format!(
+            "Service with id '{}' not found (function {})",
+            args.service_id, args.function_name
+        ))),
+        FunctionOutcome::Empty => Err(eyre!("Function has not returned any result")),
+        FunctionOutcome::Err(err) => Err(eyre!(err.to_string())),
+        FunctionOutcome::Ok(v) => Ok(v),
+    }
+}
+
 impl Sorcerer {
     fn get_spell_counter(&self, spell_id: String) -> eyre::Result<u32> {
         let func_outcome = self.services.call_function(
@@ -53,22 +66,13 @@ impl Sorcerer {
             self.spell_script_particle_ttl,
         );
 
-        match func_outcome {
-            FunctionOutcome::NotDefined { args, .. } => Err(eyre!(format!(
-                "Service with id '{}' not found (function {})",
-                args.service_id, args.function_name
-            ))),
-            FunctionOutcome::Empty => Err(eyre!("Function get_u32 has not returned any result")),
-            FunctionOutcome::Err(err) => Err(eyre!(err.to_string())),
-            FunctionOutcome::Ok(v) => {
-                let result: U32Value = serde_json::from_value(v)?;
-                if result.success {
-                    Ok(result.num)
-                } else {
-                    // If key is not exists we will create it on the next step
-                    Ok(0u32)
-                }
-            }
+        let result: U32Value = serde_json::from_value(process_func_outcome(func_outcome)?)?;
+
+        if result.success {
+            Ok(result.num)
+        } else {
+            // If key is not exists we will create it on the next step
+            Ok(0u32)
         }
     }
 
@@ -81,22 +85,12 @@ impl Sorcerer {
             self.spell_script_particle_ttl,
         );
 
-        match func_outcome {
-            FunctionOutcome::NotDefined { args, .. } => Err(eyre!(format!(
-                "Service with id '{}' not found (function {})",
-                args.service_id, args.function_name
-            ))),
-            FunctionOutcome::Empty => Err(eyre!("Function set_u32 has not returned any result")),
-            FunctionOutcome::Err(err) => Err(eyre!(err.to_string())),
-            FunctionOutcome::Ok(v) => {
-                let result: UnitValue = serde_json::from_value(v)?;
+        let result: UnitValue = serde_json::from_value(process_func_outcome(func_outcome)?)?;
 
-                if result.success {
-                    Ok(())
-                } else {
-                    Err(eyre!(result.error))
-                }
-            }
+        if result.success {
+            Ok(())
+        } else {
+            Err(eyre!(result.error))
         }
     }
 
@@ -109,24 +103,12 @@ impl Sorcerer {
             self.spell_script_particle_ttl,
         );
 
-        match func_outcome {
-            FunctionOutcome::NotDefined { args, .. } => Err(eyre!(format!(
-                "Service with id '{}' not found (function {})",
-                args.service_id, args.function_name
-            ))),
-            FunctionOutcome::Empty => Err(eyre!(
-                "Function get_script_source_from_file has not returned any result"
-            )),
-            FunctionOutcome::Err(err) => Err(eyre!(err.to_string())),
-            FunctionOutcome::Ok(v) => {
-                let result: Script = serde_json::from_value(v)?;
+        let result: Script = serde_json::from_value(process_func_outcome(func_outcome)?)?;
 
-                if result.success {
-                    Ok(result.source_code)
-                } else {
-                    Err(eyre!(result.error))
-                }
-            }
+        if result.success {
+            Ok(result.source_code)
+        } else {
+            Err(eyre!(result.error))
         }
     }
 
