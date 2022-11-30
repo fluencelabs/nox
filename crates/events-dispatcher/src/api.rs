@@ -1,9 +1,9 @@
 use fluence_libp2p::types::{OneshotOutlet, Outlet};
-use fluence_libp2p::PeerId;
 use futures::{channel::oneshot, future::BoxFuture, FutureExt};
 use serde::Deserialize;
 use std::time::Duration;
 use thiserror::Error;
+use connection_pool::LifecycleEvent;
 
 #[derive(Debug)]
 pub struct TimerConfig {
@@ -46,24 +46,21 @@ pub enum Event {
 }
 
 #[derive(Clone, Debug)]
-pub enum PeerEvent {
-    Connect { peer_id: PeerId },
-    Disconnect { peer_id: PeerId },
-}
+pub struct PeerEvent(pub LifecycleEvent);
 
 impl PeerEvent {
     pub(crate) fn get_type(&self) -> PeerEventType {
-        match self {
-            PeerEvent::Connect { .. } => PeerEventType::Connect,
-            PeerEvent::Disconnect { .. } => PeerEventType::Disconnect,
+        match self.0 {
+            LifecycleEvent::Connected { .. } => PeerEventType::Connected,
+            LifecycleEvent::Disconnected { .. } => PeerEventType::Disconnected,
         }
     }
 }
 
 #[derive(PartialEq, Eq, Hash, Debug, Clone, Deserialize)]
 pub enum PeerEventType {
-    Connect,
-    Disconnect,
+    Connected,
+    Disconnected,
 }
 
 pub enum Command {

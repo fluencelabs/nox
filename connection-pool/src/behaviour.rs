@@ -43,7 +43,6 @@ use peer_metrics::ConnectionPoolMetrics;
 
 use crate::connection_pool::LifecycleEvent;
 use crate::{Command, ConnectionPoolApi};
-use events_dispatcher::api::PeerEvent;
 
 // type SwarmEventType = generate_swarm_event_type!(ConnectionPoolBehaviour);
 
@@ -116,7 +115,6 @@ pub struct ConnectionPoolBehaviour {
     events: VecDeque<SwarmEventType>,
     waker: Option<Waker>,
     pub(super) protocol_config: ProtocolConfig,
-    send_events: Outlet<PeerEvent>,
 
     metrics: Option<ConnectionPoolMetrics>,
 }
@@ -275,7 +273,6 @@ impl ConnectionPoolBehaviour {
         Self,
         BackPressuredInlet<Particle>,
         ConnectionPoolApi,
-        Inlet<PeerEvent>,
     ) {
         let (outlet, inlet) = mpsc::channel(buffer);
         let (command_outlet, command_inlet) = mpsc::unbounded();
@@ -283,7 +280,6 @@ impl ConnectionPoolBehaviour {
             outlet: command_outlet,
             send_timeout: protocol_config.upgrade_timeout * 2,
         };
-        let (send_events, recv_events) = mpsc::unbounded();
 
         let this = Self {
             peer_id,
@@ -296,11 +292,10 @@ impl ConnectionPoolBehaviour {
             events: <_>::default(),
             waker: None,
             protocol_config,
-            send_events,
             metrics,
         };
 
-        (this, inlet, api, recv_events)
+        (this, inlet, api)
     }
 
     fn wake(&self) {
@@ -441,11 +436,6 @@ impl NetworkBehaviour for ConnectionPoolBehaviour {
         failed_addresses: Option<&Vec<Multiaddr>>,
         _: usize,
     ) {
-        if let Err(e) = self.send_events.unbounded_send(PeerEvent::Connect {
-            peer_id: peer_id.clone(),
-        }) {
-            log::warn!("Failed to send peer event: {}", e);
-        }
         // mark failed addresses as such
         if let Some(failed_addresses) = failed_addresses {
             for addr in failed_addresses {
@@ -478,12 +468,6 @@ impl NetworkBehaviour for ConnectionPoolBehaviour {
         _: <Self::ConnectionHandler as IntoConnectionHandler>::Handler,
         remaining_established: usize,
     ) {
-        if let Err(e) = self.send_events.unbounded_send(PeerEvent::Disconnect {
-            peer_id: peer_id.clone(),
-        }) {
-            log::warn!("Failed to send peer event: {}", e);
-        }
-
         let multiaddr = remote_multiaddr(cp);
         if remaining_established == 0 {
             self.remove_contact(peer_id, "disconnected");

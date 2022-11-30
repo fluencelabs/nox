@@ -10,6 +10,7 @@ async-std = { workspace = true }
 derivative = { workspace = true }
 futures = "0.3.24"
 fluence-libp2p = { path = "../libp2p" }
+connection-pool = { path = "../../connection-pool/" }
 thiserror = "1.0.37"
 log = "0.4.17"
 serde = "1.0.145"

@@ -7,6 +7,7 @@ use futures::{channel::mpsc::unbounded, select, StreamExt};
 use std::cmp::Ordering;
 use std::collections::{BinaryHeap, HashMap};
 use std::time::{Duration, Instant};
+use futures::stream::BoxStream;
 
 struct Listeners {
     listeners: HashMap<PeerEventType, Vec<Arc<Listener>>>,
@@ -80,25 +81,21 @@ impl<T: Eq> PartialOrd for Scheduled<T> {
     }
 }
 
-pub struct EventsDispatcherCfg {
-    pub sources: Vec<Inlet<PeerEvent>>,
-}
-
 pub struct EventsDispatcher {
-    sources: Vec<Inlet<PeerEvent>>,
+    sources: Vec<BoxStream<'static, PeerEvent>>,
     recv_cmd_channel: Inlet<Command>,
     send_events: Outlet<ListenerEvent>,
 }
 
 impl EventsDispatcher {
-    pub fn new(cfg: EventsDispatcherCfg) -> (Self, EventsDispatcherApi, Inlet<ListenerEvent>) {
+    pub fn new(sources: Vec<BoxStream<'static, PeerEvent>>) -> (Self, EventsDispatcherApi, Inlet<ListenerEvent>) {
         let (send_cmd_channel, recv_cmd_channel) = unbounded();
         let api = EventsDispatcherApi { send_cmd_channel };
 
         let (send_events, recv_events) = unbounded();
 
         let this = Self {
-            sources: cfg.sources,
+            sources: sources,
             recv_cmd_channel,
             send_events,
         };

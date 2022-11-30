@@ -48,7 +48,6 @@ impl FluenceNetworkBehaviour {
         FluenceNetworkBehaviour,
         Connectivity,
         BackPressuredInlet<Particle>,
-        Inlet<PeerEvent>,
     ) {
         let local_public_key = cfg.key_pair.public();
         let identify = Identify::new(
@@ -63,7 +62,7 @@ impl FluenceNetworkBehaviour {
         };
 
         let (kademlia, kademlia_api) = Kademlia::new(kad_config, cfg.libp2p_metrics);
-        let (connection_pool, particle_stream, connection_pool_api, pool_events) =
+        let (connection_pool, particle_stream, connection_pool_api) =
             ConnectionPoolBehaviour::new(
                 cfg.particle_queue_buffer,
                 cfg.protocol_config,
@@ -87,6 +86,6 @@ impl FluenceNetworkBehaviour {
             metrics: cfg.connectivity_metrics,
         };
 
-        (this, connectivity, particle_stream, pool_events)
+        (this, connectivity, particle_stream)
     }
 }

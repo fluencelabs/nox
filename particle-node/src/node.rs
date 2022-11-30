@@ -44,9 +44,9 @@ use aquamarine::{
 };
 use builtins_deployer::BuiltinsDeployer;
 use config_utils::to_peer_id;
-use connection_pool::ConnectionPoolApi;
+use connection_pool::{ConnectionPoolApi, ConnectionPoolT};
 use events_dispatcher::api::*;
-use events_dispatcher::dispatcher::{EventsDispatcher, EventsDispatcherCfg};
+use events_dispatcher::dispatcher::EventsDispatcher;
 use fluence_libp2p::types::{BackPressuredInlet, Inlet};
 use fluence_libp2p::{build_transport, types::OneshotOutlet};
 use particle_builtins::{Builtins, NodeInfo};
@@ -139,18 +139,17 @@ impl<RT: AquaRuntime> Node<RT> {
             node_version,
         );
 
-        let (swarm, connectivity, particle_stream, peer_events) = Self::swarm(
+        let (swarm, connectivity, particle_stream) = Self::swarm(
             local_peer_id,
             network_config,
             transport,
             config.external_addresses(),
         );
 
-        let events_sources_cfg = EventsDispatcherCfg {
-            sources: vec![peer_events],
-        };
-        let (events_dispatcher, events_dispatcher_api, events) =
-            EventsDispatcher::new(events_sources_cfg);
+        //let (send_peer_events, recv_peer_events) = unbounded();
+        let recv_connection_pool_events = connectivity.connection_pool.lifecycle_events();
+        let (events_dispatcher, events_dispatcher_api, _recv_events) =
+            EventsDispatcher::new(vec![Box::pin(recv_connection_pool_events.map(|x| PeerEvent(x)))]);
 
         let (particle_failures_out, particle_failures_in) = unbounded();
         let (script_storage_api, script_storage_backend) = {
@@ -252,9 +251,8 @@ impl<RT: AquaRuntime> Node<RT> {
         Swarm<FluenceNetworkBehaviour>,
         Connectivity,
         BackPressuredInlet<Particle>,
-        Inlet<PeerEvent>,
     ) {
-        let (behaviour, connectivity, particle_stream, pool_events) =
+        let (behaviour, connectivity, particle_stream) =
             FluenceNetworkBehaviour::new(network_config);
         let mut swarm = Swarm::new(transport, behaviour, local_peer_id);
 
@@ -263,7 +261,7 @@ impl<RT: AquaRuntime> Node<RT> {
             Swarm::add_external_address(&mut swarm, addr, AddressScore::Finite(1));
         });
 
-        (swarm, connectivity, particle_stream, pool_events)
+        (swarm, connectivity, particle_stream)
     }
 
     pub fn builtins(

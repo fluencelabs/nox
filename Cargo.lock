@@ -1043,7 +1043,6 @@ name = "connection-pool"
 version = "0.1.0"
 dependencies = [
  "async-std",
- "events-dispatcher",
  "fluence-libp2p",
  "futures",
  "itertools",
@@ -1727,6 +1726,7 @@ name = "events-dispatcher"
 version = "0.1.0"
 dependencies = [
  "async-std",
+ "connection-pool",
  "derivative",
  "fluence-libp2p",
  "futures",

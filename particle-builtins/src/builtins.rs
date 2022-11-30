@@ -145,10 +145,10 @@ impl ConnectionPoolConfig {
     fn to_event_types(&self) -> Vec<PeerEventType> {
         let mut events = Vec::new();
         if self.connect {
-            events.push(PeerEventType::Connect);
+            events.push(PeerEventType::Connected);
         }
         if self.disconnect {
-            events.push(PeerEventType::Disconnect);
+            events.push(PeerEventType::Disconnected);
         }
         events
     }
