@@ -24,7 +24,7 @@ use std::time::Duration;
 #[test]
 fn spell_simple_test() {
     let swarms = make_swarms_with_cfg(1, |mut cfg| {
-        cfg.timer_resolution = Duration::from_millis(10);
+        cfg.timer_resolution = Duration::from_millis(20);
         cfg
     });
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
@@ -41,7 +41,7 @@ fn spell_simple_test() {
         )"#;
     let data = hashmap! {
         "script" => json!(script.to_string()),
-        "period" => json!(1),
+        "period" => json!(0),
         "client" => json!(client.peer_id.to_string()),
         "relay" => json!(client.node.to_string()),
     };
@@ -58,7 +58,7 @@ fn spell_simple_test() {
     let spell_id = response[0].as_str().unwrap().to_string();
     assert_ne!(spell_id.len(), 0);
 
-    sleep(Duration::from_secs(1));
+    // sleep(Duration::from_secs(2));
     let mut result = " ".to_string();
     let mut counter = 0;
     for _ in 1..10 {

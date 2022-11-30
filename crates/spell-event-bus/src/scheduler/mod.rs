@@ -141,14 +141,13 @@ mod tests {
     fn scheduler_add_remove_test() {
         use async_std::task;
         let timer_resolution = Duration::from_millis(1);
-        let (scheduler, api, mut event_stream) =
-            Scheduler::new(SchedulerConfig { timer_resolution });
+        let (scheduler, api, event_stream) = Scheduler::new(SchedulerConfig { timer_resolution });
         scheduler.start();
 
         let spell1_id = "spell1".to_string();
         let spell2_id = "spell2".to_string();
         let spell1_period = Duration::from_millis(5);
-        let spell2_period = Duration::from_millis(8);
+        let spell2_period = Duration::from_secs(10);
         api.add(
             spell1_id.clone(),
             TimerConfig {
@@ -164,35 +163,19 @@ mod tests {
         )
         .unwrap();
 
-        let mut count = 0;
-        let mut events = vec![];
-        while count < 2 {
-            if let Ok(Some(event)) = event_stream.try_next() {
-                count += 1;
-                events.push(event);
-            }
+        // let's remove spell2
+        api.remove(spell2_id).unwrap();
+
+        // let's collect 5 more events from spell1
+        let events = task::block_on(async { event_stream.take(5).collect::<Vec<Event>>().await });
+        assert_eq!(events.len(), 5);
+        for event in events.into_iter() {
+            assert_eq!(
+                event,
+                Event::TimeTrigger {
+                    id: spell1_id.clone()
+                }
+            );
         }
-
-        // let's remove spell1"
-        api.remove(spell1_id.clone()).unwrap();
-
-        // let's collect one more event from spell2
-        events.extend(task::block_on(async {
-            event_stream.take(1).collect::<Vec<Event>>().await
-        }));
-        assert_eq!(events.len(), 3);
-        assert_eq!(
-            events[0],
-            Event::TimeTrigger {
-                id: spell1_id.clone()
-            }
-        );
-        assert_eq!(
-            events[1],
-            Event::TimeTrigger {
-                id: spell2_id.clone()
-            }
-        );
-        assert_eq!(events[2], Event::TimeTrigger { id: spell2_id });
     }
 }
