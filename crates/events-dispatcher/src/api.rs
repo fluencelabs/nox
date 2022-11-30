@@ -1,13 +1,9 @@
 use fluence_libp2p::types::{OneshotOutlet, Outlet};
 use fluence_libp2p::PeerId;
+use futures::{channel::oneshot, future::BoxFuture, FutureExt};
+use serde::Deserialize;
 use std::time::Duration;
 use thiserror::Error;
-use futures::{
-    channel::oneshot,
-    future::BoxFuture,
-    FutureExt,
-};
-use serde::Deserialize;
 
 #[derive(Debug)]
 pub struct TimerConfig {
@@ -111,8 +107,7 @@ impl EventsDispatcherApi {
         if let Err(err) = self.send(Command::Remove(id, send)) {
             return futures::future::err(err).boxed();
         }
-        recv
-            .map(|r| r.map_err(|_| DispatcherError::ReplyError))
+        recv.map(|r| r.map_err(|_| DispatcherError::ReplyError))
             .boxed()
     }
 }

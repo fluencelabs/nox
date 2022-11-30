@@ -37,7 +37,7 @@ use JValue::Array;
 
 use connection_pool::{ConnectionPoolApi, ConnectionPoolT};
 use events_dispatcher::api::{
-    EventConfig, EventsDispatcherApi, Listener, ListenerConfig, TimerConfig
+    EventConfig, EventsDispatcherApi, Listener, ListenerConfig, TimerConfig, PeerEventConfig, PeerEventType,
 };
 use kademlia::{KademliaApi, KademliaApiT};
 use now_millis::{now_ms, now_sec};
@@ -62,6 +62,97 @@ use crate::func::{binary, unary};
 use crate::identify::NodeInfo;
 use crate::outcome::{ok, wrap, wrap_unit};
 use crate::{json, math};
+
+#[derive(Deserialize)]
+struct TriggerConfig {
+    /// Trigger spell by clock
+    pub clock: ClockConfig,
+    /// Trigger spell on connect/disconnect events
+    pub connections: ConnectionPoolConfig,
+    /// Trigger spell on blockchain blocks
+    pub blockchain: BlockChainConfig,
+}
+
+impl TriggerConfig {
+    pub fn to_listener_config(self) -> Option<ListenerConfig> {
+        let mut configs = Vec::new();
+        if !self.clock.is_empty() {
+            configs.push(EventConfig::Timer(TimerConfig {
+                period: Duration::from_secs(self.clock.period_sec as u64),
+            }));
+        }
+
+        if !self.connections.is_empty() {
+            configs.push(EventConfig::PeerEvent(PeerEventConfig {
+                events: self.connections.to_event_types(),
+            }));
+        }
+
+        let _ = self.blockchain;
+
+        if configs.is_empty() {
+            None
+        } else {
+            Some(ListenerConfig { configs })
+        }
+    }
+}
+
+#[derive(Default, Clone, Debug, Eq, PartialEq, Deserialize)]
+struct ClockConfig {
+    /// Defines when to start trigger spell.
+    /// Unix time. 0 means 'do not subscribe'
+    pub start_sec: u32,
+    /// Defines when to stop trigger spell. Will not trigger after that timestamp.
+    /// Unix time. 0 means 'never stop'
+    pub end_sec: u32,
+    /// Defines how often to trigger spell
+    /// NOTE: Subject to host clock resolution limitations.
+    ///       If small period is set, host may override it to a bigger one
+    pub period_sec: u32,
+}
+
+impl ClockConfig {
+    fn is_empty(&self) -> bool {
+        self.start_sec == 0 && self.end_sec == 0 && self.period_sec == 0
+    }
+}
+
+#[derive(Default, Clone, Debug, Eq, PartialEq, Deserialize)]
+struct BlockChainConfig {
+    /// Defines since what block to start trigger spell
+    /// 0 means 'do not subscribe'
+    /// TODO: what about blocks in the past? will host replay them?
+    pub start_block: u32,
+    /// Defines until what block to keep trigger spell. Will not trigger after that block.
+    /// 0 means 'never stop'
+    pub end_block: u32,
+}
+
+#[derive(Default, Clone, Debug, Eq, PartialEq, Deserialize)]
+struct ConnectionPoolConfig {
+    /// Defines whether to trigger spell on connect events
+    pub connect: bool,
+    /// Defines whether to trigger spell on disconnect events
+    pub disconnect: bool,
+}
+
+impl ConnectionPoolConfig {
+    fn is_empty(&self) -> bool {
+        !(self.connect || self.disconnect)
+    }
+
+    fn to_event_types(&self) -> Vec<PeerEventType> {
+        let mut events = Vec::new();
+        if self.connect {
+            events.push(PeerEventType::Connect);
+        }
+        if self.disconnect {
+            events.push(PeerEventType::Disconnect);
+        }
+        events
+    }
+}
 
 #[derive(Derivative)]
 #[derivative(Debug)]
@@ -955,7 +1046,10 @@ where
         let mut args = sargs.function_args.clone().into_iter();
         let script: String = Args::next("script", &mut args)?;
         // TODO: redo config when other event are supported
-        let period: u64 = Args::next("period", &mut args)?;
+        let config: TriggerConfig = Args::next("config", &mut args)?;
+        let config = config
+            .to_listener_config()
+            .ok_or_else(|| JError::new("spell trigger config is empty"))?;
 
         let service_id = self
             .services
@@ -983,16 +1077,11 @@ where
         // TODO: also save config
 
         // Scheduling the spell
-        let config = ListenerConfig {
-            configs: vec![EventConfig::Timer(TimerConfig {
-                period: Duration::from_secs(period),
-            })]
-        };
         self.events_dispatcher_api.add(
             Listener {
                 id: service_id.clone(),
             },
-            config
+            config,
         )?;
         Ok(JValue::String(service_id))
     }
