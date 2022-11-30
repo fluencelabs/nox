@@ -18,7 +18,6 @@ use created_swarm::make_swarms_with_cfg;
 use eyre::Context;
 use maplit::hashmap;
 use serde_json::json;
-use std::thread::sleep;
 use std::time::Duration;
 
 #[test]
@@ -58,7 +57,6 @@ fn spell_simple_test() {
     let spell_id = response[0].as_str().unwrap().to_string();
     assert_ne!(spell_id.len(), 0);
 
-    // sleep(Duration::from_secs(2));
     let mut result = " ".to_string();
     let mut counter = 0;
     for _ in 1..10 {
