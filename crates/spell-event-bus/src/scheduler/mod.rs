@@ -137,7 +137,7 @@ mod tests {
         let spell1_id = "spell1".to_string();
         let spell2_id = "spell2".to_string();
         let spell1_period = Duration::from_millis(7);
-        let spell2_period = Duration::from_millis(10);
+        let spell2_period = Duration::from_millis(8);
         api.add(
             spell1_id.clone(),
             TimerConfig {
