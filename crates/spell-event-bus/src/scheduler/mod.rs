@@ -2,6 +2,7 @@ pub mod api;
 
 use crate::scheduler::api::*;
 use async_std::task::JoinHandle;
+use eyre::eyre;
 use fluence_libp2p::types::{Inlet, Outlet};
 use futures::{channel::mpsc::unbounded, select, StreamExt};
 use std::cmp::Ordering;
@@ -22,14 +23,18 @@ struct Scheduled<T> {
 }
 
 impl<T: Eq> Scheduled<T> {
-    fn new(data: Periodic<T>, now: Instant) -> Scheduled<T> {
-        let run_at = now.checked_add(data.period).expect("time overflow?");
-        Scheduled { data, run_at }
+    fn new(data: Periodic<T>, now: Instant) -> eyre::Result<Scheduled<T>> {
+        let run_at = now
+            .checked_add(data.period)
+            .ok_or_else(|| eyre!("Timestamp overflow"))?;
+        Ok(Scheduled { data, run_at })
     }
 
-    fn reschedule(mut self, now: Instant) -> Scheduled<T> {
-        self.run_at = now.checked_add(self.data.period).expect("time overflow?");
-        self
+    fn reschedule(mut self, now: Instant) -> eyre::Result<Scheduled<T>> {
+        self.run_at = now
+            .checked_add(self.data.period)
+            .ok_or_else(|| eyre!("Timestamp overflow"))?;
+        Ok(self)
     }
 }
 
@@ -96,7 +101,11 @@ impl Scheduler {
                                 }
                                 Ok(_v) => {}
                             };
-                            heap.push(task.reschedule(now));
+                            match task.reschedule(now) {
+                                Ok(t) => heap.push(t),
+                                Err(e) => log::error!("Can't reschedule task: {:?}", e),
+                            }
+
                         }
                     },
                     command = command_channel.select_next_some() => {
@@ -104,7 +113,10 @@ impl Scheduler {
                         match command {
                             Command::AddSpell { id , config } => {
                                 let periodic = Periodic { id, period: config.period };
-                                heap.push(Scheduled::new(periodic, Instant::now()))
+                                match Scheduled::new(periodic, Instant::now()) {
+                                    Ok(t) => heap.push(t),
+                                    Err(e) => log::error!("Can't schedule task: {:?}", e),
+                                }
                             },
                             Command::RemoveSpell { id } => {
                                 heap.retain(|scheduled| scheduled.data.id != id);
@@ -136,7 +148,7 @@ mod tests {
 
         let spell1_id = "spell1".to_string();
         let spell2_id = "spell2".to_string();
-        let spell1_period = Duration::from_millis(7);
+        let spell1_period = Duration::from_millis(5);
         let spell2_period = Duration::from_millis(8);
         api.add(
             spell1_id.clone(),
@@ -154,12 +166,10 @@ mod tests {
         .unwrap();
 
         // let's wait for both spell to be executed once
-        task::block_on(async {
-            task::sleep(max(spell1_period, spell2_period).add(timer_resolution.mul(2))).await
-        });
+        task::block_on(async { task::sleep(max(spell1_period, spell2_period)).await });
 
-        // let's remove spell2"
-        api.remove(spell2_id.clone()).unwrap();
+        // let's remove spell1"
+        api.remove(spell1_id.clone()).unwrap();
 
         // let's collect events
         let events = task::block_on(async { event_stream.take(3).collect::<Vec<Event>>().await });
@@ -170,7 +180,12 @@ mod tests {
                 id: spell1_id.clone()
             }
         );
-        assert_eq!(events[1], Event::TimeTrigger { id: spell2_id });
-        assert_eq!(events[2], Event::TimeTrigger { id: spell1_id });
+        assert_eq!(
+            events[1],
+            Event::TimeTrigger {
+                id: spell2_id.clone()
+            }
+        );
+        assert_eq!(events[2], Event::TimeTrigger { id: spell2_id });
     }
 }

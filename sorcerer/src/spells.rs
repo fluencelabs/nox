@@ -79,6 +79,7 @@ pub(crate) fn spell_remove(
     let mut args = args.function_args.into_iter();
     let spell_id: String = Args::next("spell_id", &mut args)?;
 
+    // TODO: remove spells by aliases too
     spell_storage.unregister_spell(&spell_id);
     services.remove_service(spell_id, params.init_peer_id)?;
     Ok(())

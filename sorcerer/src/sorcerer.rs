@@ -67,7 +67,7 @@ impl Sorcerer {
             spell_storage,
             scheduler_api,
             node_peer_id: local_peer_id,
-            spell_script_particle_ttl: config.spell_script_particle_ttl,
+            spell_script_particle_ttl: config.max_spell_particle_ttl,
         };
 
         let spell_service_functions = sorcerer.get_spell_service_functions();
