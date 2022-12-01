@@ -113,3 +113,6 @@ target/
 *.iml
 **/*.iml
 cargo-timing*
+
+# spell service files (wasms, configs)
+particle-node/spell

@@ -48,6 +48,7 @@ use connection_pool::ConnectionPoolApi;
 use fluence_libp2p::types::{BackPressuredInlet, Inlet};
 use fluence_libp2p::{build_transport, types::OneshotOutlet};
 use particle_builtins::{Builtins, NodeInfo};
+use particle_execution::{ParticleFunction, ParticleFunctionStatic};
 use particle_protocol::Particle;
 use peer_metrics::{
     ConnectionPoolMetrics, ConnectivityMetrics, ParticleExecutorMetrics, ServicesMetrics,
@@ -55,6 +56,9 @@ use peer_metrics::{
 };
 use script_storage::{ScriptStorageApi, ScriptStorageBackend, ScriptStorageConfig};
 use server_config::{NetworkConfig, ResolvedConfig, ServicesConfig};
+use sorcerer::Sorcerer;
+use spell_event_bus::scheduler::api::Event;
+use spell_event_bus::scheduler::{api::SchedulerApi, Scheduler, SchedulerConfig};
 
 use crate::dispatcher::Dispatcher;
 use crate::effectors::Effectors;
@@ -76,6 +80,9 @@ pub struct Node<RT: AquaRuntime> {
     aquavm_pool: AquamarineBackend<RT, Arc<Builtins<Connectivity>>>,
     script_storage: ScriptStorageBackend,
     builtins_deployer: BuiltinsDeployer,
+    spell_scheduler: Scheduler,
+    spell_events_stream: Inlet<Event>,
+    sorcerer: Sorcerer,
 
     registry: Option<Registry>,
     services_metrics_backend: ServicesMetricsBackend,
@@ -169,14 +176,14 @@ impl<RT: AquaRuntime> Node<RT> {
                 )
             };
 
-        let builtins = Self::builtins(
+        let builtins = Arc::new(Self::builtins(
             connectivity.clone(),
             config.external_addresses(),
             services_config,
             script_storage_api,
             services_metrics,
             config.node_config.root_key_pair.clone(),
-        );
+        ));
 
         let (effects_out, effects_in) = unbounded();
 
@@ -185,7 +192,7 @@ impl<RT: AquaRuntime> Node<RT> {
         let (aquavm_pool, aquamarine_api) = AquamarineBackend::new(
             pool_config,
             vm_config,
-            Arc::new(builtins),
+            Arc::clone(&builtins),
             effects_out,
             plumber_metrics,
             vm_pool_metrics,
@@ -207,13 +214,31 @@ impl<RT: AquaRuntime> Node<RT> {
 
         let builtins_deployer = BuiltinsDeployer::new(
             builtins_peer_id,
-            local_peer_id,
+            local_peer_id.clone(),
             aquamarine_api.clone(),
             config.dir_config.builtins_base_dir.clone(),
             config.node_config.autodeploy_particle_ttl,
             config.node_config.force_builtins_redeploy,
             config.node_config.autodeploy_retry_attempts,
         );
+
+        let (scheduler, spell_scheduler_api, spell_events_stream) =
+            Scheduler::new(SchedulerConfig {
+                timer_resolution: config.script_storage_timer_resolution,
+            });
+
+        let (sorcerer, spell_service_functions) = Sorcerer::new(
+            builtins.services.clone(),
+            builtins.modules.clone(),
+            aquamarine_api.clone(),
+            config.clone(),
+            local_peer_id,
+            spell_scheduler_api,
+        );
+
+        spell_service_functions
+            .into_iter()
+            .for_each(|(srv_id, funcs)| builtins.extend(srv_id, funcs));
 
         Ok(Self::with(
             particle_stream,
@@ -225,6 +250,9 @@ impl<RT: AquaRuntime> Node<RT> {
             aquavm_pool,
             script_storage_backend,
             builtins_deployer,
+            scheduler,
+            spell_events_stream,
+            sorcerer,
             metrics_registry,
             services_metrics_backend,
             config.metrics_listen_addr(),
@@ -293,6 +321,9 @@ impl<RT: AquaRuntime> Node<RT> {
         aquavm_pool: AquamarineBackend<RT, Arc<Builtins<Connectivity>>>,
         script_storage: ScriptStorageBackend,
         builtins_deployer: BuiltinsDeployer,
+        spell_scheduler: Scheduler,
+        spell_events_stream: Inlet<Event>,
+        sorcerer: Sorcerer,
 
         registry: Option<Registry>,
         services_metrics_backend: ServicesMetricsBackend,
@@ -312,6 +343,9 @@ impl<RT: AquaRuntime> Node<RT> {
             aquavm_pool,
             script_storage,
             builtins_deployer,
+            spell_scheduler,
+            spell_events_stream,
+            sorcerer,
 
             registry,
             services_metrics_backend,
@@ -336,6 +370,9 @@ impl<RT: AquaRuntime> Node<RT> {
         let dispatcher = self.dispatcher;
         let aquavm_pool = self.aquavm_pool;
         let script_storage = self.script_storage;
+        let spell_scheduler = self.spell_scheduler;
+        let spell_events_stream = self.spell_events_stream;
+        let sorcerer = self.sorcerer;
         let registry = self.registry;
         let services_metrics_backend = self.services_metrics_backend;
         let metrics_listen_addr = self.metrics_listen_addr;
@@ -352,6 +389,8 @@ impl<RT: AquaRuntime> Node<RT> {
 
             let services_metrics_backend = services_metrics_backend.start();
             let script_storage = script_storage.start();
+            let spell_scheduler = spell_scheduler.start();
+            let sorcerer = sorcerer.start(spell_events_stream);
             let pool = aquavm_pool.start();
             let mut connectivity = connectivity.start();
             let mut dispatcher = dispatcher.start(particle_stream, effects_stream);
@@ -383,6 +422,8 @@ impl<RT: AquaRuntime> Node<RT> {
             log::info!("Stopping node");
             services_metrics_backend.cancel().await;
             script_storage.cancel().await;
+            sorcerer.cancel().await;
+            spell_scheduler.cancel().await;
             dispatcher.cancel().await;
             connectivity.cancel().await;
             pool.cancel().await;
@@ -418,11 +459,13 @@ mod tests {
     use libp2p::core::Multiaddr;
     use maplit::hashmap;
     use serde_json::json;
+    use std::path::PathBuf;
 
     use air_interpreter_fs::{air_interpreter_path, write_default_air_interpreter};
     use aquamarine::{VmConfig, AVM};
     use config_utils::to_peer_id;
     use connected_client::ConnectedClient;
+    use fs_utils::to_abs_path;
     use server_config::{builtins_base_dir, default_base_dir, deserialize_config};
 
     use crate::Node;
@@ -436,6 +479,7 @@ mod tests {
 
         let mut config = deserialize_config(&<_>::default(), &[]).expect("deserialize config");
         config.aquavm_pool_size = 1;
+        config.dir_config.spell_base_dir = to_abs_path(PathBuf::from("spell"));
         let vm_config = VmConfig::new(
             to_peer_id(&config.root_key_pair.clone().into()),
             config.dir_config.avm_base_dir.clone(),

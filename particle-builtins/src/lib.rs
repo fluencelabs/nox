@@ -32,6 +32,7 @@
 
 pub use builtins::Builtins;
 pub use identify::NodeInfo;
+pub use outcome::{ok, wrap, wrap_unit};
 
 mod builtins;
 mod debug;

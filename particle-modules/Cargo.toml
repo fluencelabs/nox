@@ -17,14 +17,14 @@ fluence-app-service = { workspace = true }
 marine-utils = "0.4.0"
 
 serde = { version = "1.0.145", features = ["derive"] }
-serde_json = "1.0.86"
+serde_json = { workspace = true }
 toml = "0.5.9"
-log = "0.4.17"
+log = { workspace = true }
 base64 = { workspace = true }
-thiserror = "1.0.37"
+thiserror = { workspace = true }
 parking_lot = { workspace = true }
 eyre = { workspace = true }
-fstrings = "0.2.3"
+fstrings = { workspace = true }
 bytesize = "1.1.0"
 
 [dev-dependencies]

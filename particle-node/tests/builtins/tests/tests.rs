@@ -18,6 +18,7 @@
 extern crate fstrings;
 
 pub const SERVICES: &'static str = "./services";
+pub const SPELL: &'static str = "../../spell";
 
 mod src {
     mod aqua_dht {

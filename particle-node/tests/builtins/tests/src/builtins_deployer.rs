@@ -32,7 +32,7 @@ use particle_modules::list_files;
 use service_modules::load_module;
 use test_utils::create_service;
 
-use crate::SERVICES;
+use crate::{SERVICES, SPELL};
 
 fn check_dht_builtin(client: &mut ConnectedClient) {
     std::thread::sleep(Duration::from_millis(5000));
@@ -76,7 +76,7 @@ fn check_dht_builtin(client: &mut ConnectedClient) {
 
 #[test]
 fn builtins_test() {
-    let swarms = make_swarms_with_builtins(1, Path::new(SERVICES), None);
+    let swarms = make_swarms_with_builtins(1, Path::new(SERVICES), None, Some(SPELL.to_string()));
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .wrap_err("connect client")
@@ -88,7 +88,7 @@ fn builtins_test() {
 #[test]
 fn builtins_replace_old() {
     let keypair = KeyPair::generate_ed25519();
-    let swarms = make_swarms_with_keypair(1, keypair.clone());
+    let swarms = make_swarms_with_keypair(1, keypair.clone(), Some(SPELL.to_string()));
 
     let mut client = ConnectedClient::connect_with_keypair(
         swarms[0].multiaddr.clone(),
@@ -129,7 +129,12 @@ fn builtins_replace_old() {
     swarms.into_iter().map(|s| s.outlet.send(())).for_each(drop);
 
     // restart with same keypair
-    let swarms = make_swarms_with_builtins(1, Path::new(SERVICES), Some(keypair));
+    let swarms = make_swarms_with_builtins(
+        1,
+        Path::new(SERVICES),
+        Some(keypair),
+        Some(SPELL.to_string()),
+    );
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .wrap_err("connect client")
@@ -140,7 +145,7 @@ fn builtins_replace_old() {
 
 #[test]
 fn builtins_scheduled_scripts() {
-    let swarms = make_swarms_with_builtins(1, Path::new(SERVICES), None);
+    let swarms = make_swarms_with_builtins(1, Path::new(SERVICES), None, Some(SPELL.to_string()));
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .wrap_err("connect client")
@@ -196,8 +201,12 @@ fn builtins_resolving_env_variables() {
     )
     .unwrap();
 
-    let swarms = make_swarms_with_builtins(1, Path::new("./builtins_test_env"), None);
-
+    let swarms = make_swarms_with_builtins(
+        1,
+        Path::new("./builtins_test_env"),
+        None,
+        Some(SPELL.to_string()),
+    );
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .wrap_err("connect client")
         .unwrap();

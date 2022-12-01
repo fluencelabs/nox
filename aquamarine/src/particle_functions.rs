@@ -53,7 +53,7 @@ pub struct SingleCallResult {
 
 pub struct Functions<F> {
     particle: ParticleParams,
-    builtins: Arc<F>,
+    builtins: F,
     function_calls: FuturesUnordered<BoxFuture<'static, SingleCallResult>>,
     call_results: CallResults,
     call_stats: Vec<SingleCallStat>,
@@ -61,7 +61,7 @@ pub struct Functions<F> {
 }
 
 impl<F: ParticleFunctionStatic> Functions<F> {
-    pub fn new(particle: ParticleParams, builtins: Arc<F>) -> Self {
+    pub fn new(particle: ParticleParams, builtins: F) -> Self {
         Self {
             particle,
             builtins,

@@ -36,7 +36,7 @@ use fluence_libp2p::Transport;
 use fs_utils::{create_dir, make_tmp_dir_peer_id, to_abs_path};
 use particle_node::{Connectivity, Node};
 use particle_protocol::ProtocolConfig;
-use server_config::{BootstrapConfig, UnresolvedConfig};
+use server_config::{default_script_storage_timer_resolution, BootstrapConfig, UnresolvedConfig};
 use test_constants::{EXECUTION_TIMEOUT, KEEP_ALIVE_TIMEOUT, TRANSPORT_TIMEOUT};
 use toy_vms::EasyVM;
 
@@ -113,9 +113,14 @@ where
     )
 }
 
-pub fn make_swarms_with_keypair(n: usize, keypair: KeyPair) -> Vec<CreatedSwarm> {
+pub fn make_swarms_with_keypair(
+    n: usize,
+    keypair: KeyPair,
+    spell_base_dir: Option<String>,
+) -> Vec<CreatedSwarm> {
     make_swarms_with_cfg(n, |mut cfg| {
         cfg.keypair = keypair.clone();
+        cfg.spell_base_dir = spell_base_dir.clone().map(PathBuf::from);
         cfg
     })
 }
@@ -124,12 +129,14 @@ pub fn make_swarms_with_builtins(
     n: usize,
     path: &Path,
     keypair: Option<KeyPair>,
+    spell_base_dir: Option<String>,
 ) -> Vec<CreatedSwarm> {
     make_swarms_with_cfg(n, |mut cfg| {
         if let Some(keypair) = &keypair {
             cfg.keypair = keypair.clone();
         }
         cfg.builtins_dir = Some(to_abs_path(path.into()));
+        cfg.spell_base_dir = spell_base_dir.clone().map(PathBuf::from);
         cfg
     })
 }
@@ -218,6 +225,8 @@ pub struct SwarmConfig {
     pub tmp_dir: Option<PathBuf>,
     pub pool_size: Option<usize>,
     pub builtins_dir: Option<PathBuf>,
+    pub spell_base_dir: Option<PathBuf>,
+    pub timer_resolution: Duration,
 }
 
 impl SwarmConfig {
@@ -235,6 +244,8 @@ impl SwarmConfig {
             tmp_dir: None,
             pool_size: <_>::default(),
             builtins_dir: None,
+            spell_base_dir: None,
+            timer_resolution: default_script_storage_timer_resolution(),
         }
     }
 }
@@ -298,7 +309,8 @@ pub fn create_swarm_with_runtime<RT: AquaRuntime>(
             "value": base64::encode(config.builtins_keypair.to_vec()),
         },
         "builtins_base_dir": config.builtins_dir,
-        "external_multiaddresses": [config.listen_on]
+        "external_multiaddresses": [config.listen_on],
+        "spell_base_dir": Some(config.spell_base_dir.clone().unwrap_or(to_abs_path(PathBuf::from("spell")))),
     });
 
     let node_config: UnresolvedConfig =
@@ -322,6 +334,8 @@ pub fn create_swarm_with_runtime<RT: AquaRuntime>(
 
     resolved.node_config.aquavm_pool_size = config.pool_size.unwrap_or(1);
     resolved.node_config.particle_execution_timeout = EXECUTION_TIMEOUT;
+
+    resolved.node_config.script_storage_timer_resolution = config.timer_resolution;
 
     let management_kp = fluence_keypair::KeyPair::generate_ed25519();
     let management_peer_id = libp2p::identity::Keypair::from(management_kp.clone())

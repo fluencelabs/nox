@@ -26,6 +26,8 @@ members = [
     "crates/connected-client",
     "crates/test-constants",
     "crates/peer-metrics",
+    "crates/spell-event-bus",
+    "sorcerer",
     "particle-node/tests/builtins",
     "particle-node",
     "aquamarine",
@@ -35,6 +37,7 @@ members = [
     "particle-modules",
     "connection-pool",
     "script-storage",
+    "spell-storage",
     "particle-execution",
 ]
 exclude = [
@@ -58,3 +61,11 @@ fluence-keypair = "0.8.1"
 parking_lot = "0.12.1"
 async-std = { version = "1.12.0", features = ["unstable"] }
 uuid = { version = "1.2.1", features = ["v4"] }
+derivative = "2.2.0"
+serde_json = "1.0.86"
+fstrings = "0.2.3"
+maplit = "1.0.2"
+log = "0.4.17"
+futures = "0.3.24"
+thiserror = "1.0.37"
+serde = "1.0.145"

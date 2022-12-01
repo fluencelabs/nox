@@ -1,0 +1,25 @@
+[package]
+name = "spell-event-bus"
+version = "0.1.0"
+authors = ["Fluence Labs"]
+edition = "2018"
+
+[dependencies]
+particle-services = { path = "../../particle-services"}
+particle-args = { path = "../particle-args" }
+uuid-utils = { path = "../uuid-utils" }
+now-millis = { path = "../now-millis" }
+particle-execution = { path = "../../particle-execution" }
+particle-protocol = { path = "../../particle-protocol"}
+connection-pool = { path = "../../connection-pool"}
+fluence-libp2p = { path = "../libp2p" }
+
+parking_lot = { workspace = true }
+serde_json = { workspace = true }
+async-std = { workspace = true }
+derivative = { workspace = true }
+eyre = { workspace = true }
+fstrings = { workspace = true }
+futures = { workspace = true }
+thiserror = { workspace = true }
+log = { workspace = true }

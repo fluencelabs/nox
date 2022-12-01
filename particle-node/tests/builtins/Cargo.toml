@@ -4,11 +4,11 @@ version = "0.1.0"
 edition = "2018"
 
 [dev-dependencies]
-fstrings = "0.2.3"
+fstrings = { workspace = true }
 eyre = { workspace = true }
-maplit = "1.0.2"
+maplit = { workspace = true }
 serde_json = "1.0.64"
-serde = "1.0.130"
+serde = { workspace = true }
 log = "0.4.11"
 libp2p = { workspace = true }
 

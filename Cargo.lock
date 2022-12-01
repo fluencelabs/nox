@@ -3989,6 +3989,7 @@ dependencies = [
  "connection-pool",
  "derivative",
  "eyre",
+ "fluence-app-service",
  "fluence-keypair",
  "futures",
  "humantime-serde",
@@ -4015,6 +4016,7 @@ dependencies = [
  "tempfile",
  "thiserror",
  "toml-utils",
+ "uuid-utils",
 ]
 
 [[package]]
@@ -4117,6 +4119,8 @@ dependencies = [
  "serde_json",
  "server-config",
  "service-modules",
+ "sorcerer",
+ "spell-event-bus",
  "test-constants",
  "test-utils",
  "tide",
@@ -4161,6 +4165,7 @@ dependencies = [
  "json-utils",
  "libp2p-core",
  "log",
+ "now-millis",
  "parking_lot 0.12.1",
  "particle-args",
  "particle-execution",
@@ -4175,6 +4180,7 @@ dependencies = [
  "thiserror",
  "toml",
  "uuid",
+ "uuid-utils",
 ]
 
 [[package]]
@@ -5333,6 +5339,73 @@ dependencies = [
  "log",
  "rand 0.8.5",
  "sha-1",
+]
+
+[[package]]
+name = "sorcerer"
+version = "0.1.0"
+dependencies = [
+ "aquamarine",
+ "async-std",
+ "connection-pool",
+ "eyre",
+ "fluence-libp2p",
+ "fstrings",
+ "futures",
+ "kademlia",
+ "libp2p",
+ "log",
+ "maplit",
+ "now-millis",
+ "parking_lot 0.12.1",
+ "particle-args",
+ "particle-builtins",
+ "particle-execution",
+ "particle-modules",
+ "particle-protocol",
+ "particle-services",
+ "serde",
+ "serde_json",
+ "server-config",
+ "spell-event-bus",
+ "spell-storage",
+ "uuid-utils",
+]
+
+[[package]]
+name = "spell-event-bus"
+version = "0.1.0"
+dependencies = [
+ "async-std",
+ "connection-pool",
+ "derivative",
+ "eyre",
+ "fluence-libp2p",
+ "fstrings",
+ "futures",
+ "log",
+ "now-millis",
+ "parking_lot 0.12.1",
+ "particle-args",
+ "particle-execution",
+ "particle-protocol",
+ "particle-services",
+ "serde_json",
+ "thiserror",
+ "uuid-utils",
+]
+
+[[package]]
+name = "spell-storage"
+version = "0.1.0"
+dependencies = [
+ "derivative",
+ "eyre",
+ "fluence-app-service",
+ "parking_lot 0.12.1",
+ "particle-modules",
+ "particle-services",
+ "service-modules",
 ]
 
 [[package]]
