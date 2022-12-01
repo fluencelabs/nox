@@ -34,7 +34,8 @@ struct UnitValue {
 struct U32Value {
     pub num: u32,
     pub success: bool,
-    pub _error: String,
+    #[allow(dead_code)]
+    pub error: String,
 }
 
 #[derive(Deserialize)]
