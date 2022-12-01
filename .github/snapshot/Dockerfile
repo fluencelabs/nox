@@ -6,6 +6,6 @@ ENV RUST_BACKTRACE="1"
 ADD https://github.com/fluencelabs/trust-graph/releases/download/v3.0.4/trust-graph.tar.gz trust-graph.tar.gz
 RUN mkdir -p .fluence/v1/builtins && tar -C .fluence/v1/builtins -xf trust-graph.tar.gz && rm trust-graph.tar.gz
 ADD https://github.com/fluencelabs/spell/releases/latest/download/spell.tar.gz spell.tar.gz
-RUN mkdir -p .fluence/v1 && tar -C .fluence/v1/spell -xf spell.tar.gz && rm spell.tar.gz.
+RUN mkdir -p .fluence/v1/spell && tar -C .fluence/v1/spell -xf spell.tar.gz && rm spell.tar.gz.
 ENTRYPOINT ["/usr/bin/fluence"]
 CMD ["--local"]
