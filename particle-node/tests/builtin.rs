@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-#![feature(int_log)]
-
 #[macro_use]
 extern crate fstrings;
 
