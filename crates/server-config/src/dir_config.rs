@@ -65,7 +65,7 @@ impl UnresolvedDirConfig {
         let air_interpreter_path = self
             .air_interpreter_path
             .unwrap_or(air_interpreter_path(&base));
-        let spell_base_dir = self.spell_base_dir.unwrap_or(base.join("spell_bundle"));
+        let spell_base_dir = self.spell_base_dir.unwrap_or(base.join("spell"));
 
         ResolvedDirConfig {
             base_dir: base,
