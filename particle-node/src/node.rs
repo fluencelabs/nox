@@ -46,7 +46,7 @@ use builtins_deployer::BuiltinsDeployer;
 use config_utils::to_peer_id;
 use connection_pool::{ConnectionPoolApi, ConnectionPoolT};
 use events_dispatcher::api::*;
-use events_dispatcher::dispatcher::EventsDispatcher;
+use events_dispatcher::bus::SpellEventBus;
 use fluence_libp2p::types::{BackPressuredInlet, Inlet};
 use fluence_libp2p::{build_transport, types::OneshotOutlet};
 use particle_builtins::{Builtins, NodeInfo};
@@ -78,7 +78,7 @@ pub struct Node<RT: AquaRuntime> {
     aquavm_pool: AquamarineBackend<RT, Arc<Builtins<Connectivity>>>,
     script_storage: ScriptStorageBackend,
     builtins_deployer: BuiltinsDeployer,
-    events_dispatcher: EventsDispatcher,
+    events_dispatcher: SpellEventBus,
 
     registry: Option<Registry>,
     services_metrics_backend: ServicesMetricsBackend,
@@ -149,7 +149,7 @@ impl<RT: AquaRuntime> Node<RT> {
         //let (send_peer_events, recv_peer_events) = unbounded();
         let recv_connection_pool_events = connectivity.connection_pool.lifecycle_events();
         let (events_dispatcher, events_dispatcher_api, _recv_events) =
-            EventsDispatcher::new(vec![Box::pin(recv_connection_pool_events.map(|x| PeerEvent(x)))]);
+            SpellEventBus::new(vec![recv_connection_pool_events.map(|x| PeerEvent::ConnectionPool(x)).boxed()]);
 
         let (particle_failures_out, particle_failures_in) = unbounded();
         let (script_storage_api, script_storage_backend) = {
@@ -269,7 +269,7 @@ impl<RT: AquaRuntime> Node<RT> {
         external_addresses: Vec<Multiaddr>,
         services_config: ServicesConfig,
         script_storage_api: ScriptStorageApi,
-        events_dispatcher_api: EventsDispatcherApi,
+        events_dispatcher_api: SpellEventBusApi,
         services_metrics: ServicesMetrics,
         root_keypair: KeyPair,
     ) -> Builtins<Connectivity> {
@@ -304,7 +304,7 @@ impl<RT: AquaRuntime> Node<RT> {
         aquavm_pool: AquamarineBackend<RT, Arc<Builtins<Connectivity>>>,
         script_storage: ScriptStorageBackend,
         builtins_deployer: BuiltinsDeployer,
-        events_dispatcher: EventsDispatcher,
+        events_dispatcher: SpellEventBus,
 
         registry: Option<Registry>,
         services_metrics_backend: ServicesMetricsBackend,

@@ -36,9 +36,9 @@ use serde_json::{json, Value as JValue, Value};
 use JValue::Array;
 
 use connection_pool::{ConnectionPoolApi, ConnectionPoolT};
-use events_dispatcher::api::{
-    EventConfig, EventsDispatcherApi, Listener, ListenerConfig, TimerConfig, PeerEventConfig, PeerEventType,
-};
+use events_dispatcher::{api, api::{
+     SpellEventBusApi, Spell, TimerConfig, PeerEventConfig, PeerEventType,
+}};
 use kademlia::{KademliaApi, KademliaApiT};
 use now_millis::{now_ms, now_sec};
 use particle_args::{from_base58, Args, ArgsError, JError};
@@ -74,26 +74,26 @@ struct TriggerConfig {
 }
 
 impl TriggerConfig {
-    pub fn to_listener_config(self) -> Option<ListenerConfig> {
-        let mut configs = Vec::new();
+    pub fn to_listener_config(self) -> Option<api::TriggersConfig> {
+        let mut triggers = Vec::new();
         if !self.clock.is_empty() {
-            configs.push(EventConfig::Timer(TimerConfig {
+            triggers.push(api::TriggerConfig::Timer(TimerConfig {
                 period: Duration::from_secs(self.clock.period_sec as u64),
             }));
         }
 
         if !self.connections.is_empty() {
-            configs.push(EventConfig::PeerEvent(PeerEventConfig {
+            triggers.push(api::TriggerConfig::PeerEvent(PeerEventConfig {
                 events: self.connections.to_event_types(),
             }));
         }
 
         let _ = self.blockchain;
 
-        if configs.is_empty() {
+        if triggers.is_empty() {
             None
         } else {
-            Some(ListenerConfig { configs })
+            Some(api::TriggersConfig { triggers })
         }
     }
 }
@@ -159,7 +159,7 @@ impl ConnectionPoolConfig {
 pub struct Builtins<C> {
     pub connectivity: C,
     pub script_storage: ScriptStorageApi,
-    pub events_dispatcher_api: EventsDispatcherApi,
+    pub events_dispatcher_api: SpellEventBusApi,
 
     pub management_peer_id: PeerId,
     pub builtins_management_peer_id: PeerId,
@@ -185,7 +185,7 @@ where
     pub fn new(
         connectivity: C,
         script_storage: ScriptStorageApi,
-        events_dispatcher_api: EventsDispatcherApi,
+        events_dispatcher_api: SpellEventBusApi,
         node_info: NodeInfo,
         config: ServicesConfig,
         services_metrics: ServicesMetrics,
@@ -1077,8 +1077,8 @@ where
         // TODO: also save config
 
         // Scheduling the spell
-        self.events_dispatcher_api.add(
-            Listener {
+        self.events_dispatcher_api.subscribe(
+            Spell {
                 id: service_id.clone(),
             },
             config,
@@ -1100,7 +1100,7 @@ where
         let mut args = args.function_args.into_iter();
         let spell_id: String = Args::next("spell_id", &mut args)?;
 
-        self.events_dispatcher_api.remove(spell_id.clone()).await?;
+        self.events_dispatcher_api.unsubscribe(spell_id.clone()).await?;
 
         self.spell_storage.unregister_spell(&spell_id);
         self.services
