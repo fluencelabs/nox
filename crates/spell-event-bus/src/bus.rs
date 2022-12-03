@@ -3,11 +3,11 @@ use async_std::sync::Arc;
 use async_std::task;
 use fluence_libp2p::types::{Inlet, Outlet};
 use futures::stream;
+use futures::stream::BoxStream;
 use futures::{channel::mpsc::unbounded, select, StreamExt};
 use std::cmp::Ordering;
 use std::collections::{BinaryHeap, HashMap};
 use std::time::{Duration, Instant};
-use futures::stream::BoxStream;
 
 struct Subscribers {
     subscribers: HashMap<PeerEventType, Vec<Arc<Spell>>>,
@@ -99,18 +99,22 @@ impl SubscribersState {
         for config in config.triggers {
             match config {
                 TriggerConfig::Timer(config) => {
-                    let periodic = Periodic { id: spell.clone(), period: config.period };
+                    let periodic = Periodic {
+                        id: spell.clone(),
+                        period: config.period,
+                    };
                     self.scheduled.push(Scheduled::at(periodic, Instant::now()))
-                },
+                }
                 TriggerConfig::PeerEvent(config) => {
                     self.subscribers.add(spell.clone(), config.events);
-                },
+                }
             }
         }
     }
 
     fn unsubscribe(&mut self, spell_id: SpellId) {
-        self.scheduled.retain(|scheduled| scheduled.data.id.id != spell_id);
+        self.scheduled
+            .retain(|scheduled| scheduled.data.id.id != spell_id);
         self.subscribers.remove(spell_id);
     }
 
@@ -123,7 +127,6 @@ impl SubscribersState {
             .peek()
             .map(|scheduled| scheduled.run_at.saturating_duration_since(now))
     }
-
 }
 
 pub struct SpellEventBus {
@@ -136,7 +139,9 @@ pub struct SpellEventBus {
 }
 
 impl SpellEventBus {
-    pub fn new(sources: Vec<BoxStream<'static, PeerEvent>>) -> (Self, SpellEventBusApi, Inlet<SpellEvent>) {
+    pub fn new(
+        sources: Vec<BoxStream<'static, PeerEvent>>,
+    ) -> (Self, SpellEventBusApi, Inlet<SpellEvent>) {
         let (send_cmd_channel, recv_cmd_channel) = unbounded();
         let api = SpellEventBusApi { send_cmd_channel };
 

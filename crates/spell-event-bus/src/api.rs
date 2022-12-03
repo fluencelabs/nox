@@ -1,8 +1,8 @@
+use connection_pool::LifecycleEvent;
 use fluence_libp2p::types::{OneshotOutlet, Outlet};
 use futures::{channel::oneshot, future::BoxFuture, FutureExt};
 use std::time::Duration;
 use thiserror::Error;
-use connection_pool::LifecycleEvent;
 
 #[derive(Debug)]
 pub struct TriggersConfig {
@@ -56,7 +56,9 @@ impl PeerEvent {
     pub(crate) fn get_type(&self) -> PeerEventType {
         match self {
             PeerEvent::ConnectionPool(LifecycleEvent::Connected { .. }) => PeerEventType::Connected,
-            PeerEvent::ConnectionPool(LifecycleEvent::Disconnected { .. }) => PeerEventType::Disconnected,
+            PeerEvent::ConnectionPool(LifecycleEvent::Disconnected { .. }) => {
+                PeerEventType::Disconnected
+            }
         }
     }
 }
@@ -82,6 +84,7 @@ pub enum DispatcherError {
     ReplyError,
 }
 
+#[derive(Clone)]
 pub struct SpellEventBusApi {
     pub(crate) send_cmd_channel: Outlet<Command>,
 }
