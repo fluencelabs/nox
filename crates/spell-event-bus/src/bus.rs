@@ -1,6 +1,7 @@
 use crate::api::*;
 use async_std::sync::Arc;
 use async_std::task;
+use eyre::eyre;
 use fluence_libp2p::types::{Inlet, Outlet};
 use futures::stream;
 use futures::stream::BoxStream;
@@ -57,14 +58,14 @@ struct Scheduled<T> {
 }
 
 impl<T: Eq> Scheduled<T> {
-    fn at(data: Periodic<T>, now: Instant) -> Scheduled<T> {
-        let run_at = now.checked_add(data.period).expect("time overflow?");
-        Scheduled { data, run_at }
+    fn at(data: Periodic<T>, now: Instant) -> Option<Scheduled<T>> {
+        let run_at = now.checked_add(data.period)?;
+        Some(Scheduled { data, run_at })
     }
 
-    fn reschedule(mut self, now: Instant) -> Scheduled<T> {
-        self.run_at = now.checked_add(self.data.period).expect("time overflow?");
-        self
+    fn reschedule(mut self, now: Instant) -> Option<Scheduled<T>> {
+        self.run_at = now.checked_add(self.data.period)?;
+        Some(self)
     }
 }
 
@@ -94,7 +95,7 @@ impl SubscribersState {
         }
     }
 
-    fn subscribe(&mut self, spell: Spell, config: TriggersConfig) {
+    fn subscribe(&mut self, spell: Spell, config: TriggersConfig) -> eyre::Result<()> {
         let spell = Arc::new(spell);
         for config in config.triggers {
             match config {
@@ -103,13 +104,16 @@ impl SubscribersState {
                         id: spell.clone(),
                         period: config.period,
                     };
-                    self.scheduled.push(Scheduled::at(periodic, Instant::now()))
+                    let scheduled = Scheduled::at(periodic, Instant::now())
+                        .ok_or_else(|| eyre!("time overflow"))?;
+                    self.scheduled.push(scheduled);
                 }
                 TriggerConfig::PeerEvent(config) => {
                     self.subscribers.add(spell.clone(), config.events);
                 }
             }
         }
+        Ok(())
     }
 
     fn unsubscribe(&mut self, spell_id: SpellId) {
@@ -181,37 +185,95 @@ impl SpellEventBus {
                 async_std::stream::interval(next_scheduled_in).fuse()
             };
 
-            select! {
-                command = recv_cmd_channel.select_next_some() => {
-                    match command {
-                        Command::Subscribe(spell, config) => {
-                            state.subscribe(spell, config);
-                        },
-                        Command::Unsubscribe(spell_id, reply) => {
-                            state.unsubscribe(spell_id);
-                            if let Err(e) = reply.send(()) {
-                                log::warn!("Can't send notification about spell removal: {:?}", e);
-                            }
-                        },
-                    }
-                },
-                event = sources_channel.select_next_some() => {
-                    for spell in state.subscribers(&event.get_type()) {
-                        if let Err(e) = send_events.unbounded_send(SpellEvent { id: spell.id.clone(), event: Event::Peer(event.clone()) }) {
-                            log::warn!("Can't send notification about event {:?}: {:?}", event, e);
+            let result: eyre::Result<()> = try {
+                select! {
+                    command = recv_cmd_channel.select_next_some() => {
+                        match command {
+                            Command::Subscribe(spell, config) => {
+                                state.subscribe(spell, config).map_err(|e| eyre!("Can't subscribe spell: {e}"))?;
+                            },
+                            Command::Unsubscribe(spell_id, reply) => {
+                                state.unsubscribe(spell_id);
+                                reply.send(()).map_err(|e| eyre!("Can't send notification about spell removal: {:?}", e))?;
+                            },
                         }
-                    }
-                },
-                _ = timer.select_next_some() => {
-                    // The timer is triggered only if there are some spells to be awaken.
-                    let scheduled_spell = state.scheduled.pop().expect("billions of years have gone by already?");
-                    if let Err(e) = send_events.unbounded_send(SpellEvent { id: scheduled_spell.data.id.id.clone(), event: Event::Timer }) {
-                        log::warn!("Can't send notification by timer: {:?}", e);
-                    }
-                    state.scheduled.push(scheduled_spell.reschedule(now));
-                },
-
+                    },
+                    event = sources_channel.select_next_some() => {
+                        for spell in state.subscribers(&event.get_type()) {
+                            send_events.unbounded_send(SpellEvent { id: spell.id.clone(), event: Event::Peer(event.clone()) })
+                                       .map_err(|e| eyre!("Can't send notification about event {:?}: {:?}", event, e))?;
+                        }
+                    },
+                    _ = timer.select_next_some() => {
+                        // The timer is triggered only if there are some spells to be awaken.
+                        let scheduled_spell = state.scheduled.pop().ok_or_else(eyre!("billions of years have gone by already?"));
+                        send_events.unbounded_send(SpellEvent { id: scheduled_spell.data.id.id.clone(), event: Event::Timer })
+                                   .map_err(|e| eyre!("Can't send notification by timer: {:?}", e))?;
+                        let rescheduled = scheduled_spell.reschedule(now)
+                                                         .ok_or_else(|| eyre!("Can't reschedule periodic spell"))?;
+                        state.scheduled.push(rescheduled);
+                    },
+                }
+            };
+            if let Err(e) = result {
+                log::error!("{}", e);
             }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::api::*;
+    use crate::bus::*;
+    use futures::StreamExt;
+    use std::assert_matches::assert_matches;
+    use std::time::Duration;
+
+    #[test]
+    fn test_timer() {
+        use async_std::task;
+
+        let (bus, api, event_stream) = SpellEventBus::new(vec![]);
+        bus.start();
+
+        let spell1_id = "spell1".to_string();
+        let spell2_id = "spell2".to_string();
+        let spell1_period = Duration::from_millis(5);
+        let spell2_period = Duration::from_secs(10);
+        api.subscribe(
+            Spell {
+                id: spell1_id.clone(),
+            },
+            TriggersConfig {
+                triggers: vec![TriggerConfig::Timer(TimerConfig {
+                    period: spell1_period,
+                })],
+            },
+        )
+        .unwrap();
+        api.subscribe(
+            Spell {
+                id: spell2_id.clone(),
+            },
+            TriggersConfig {
+                triggers: vec![TriggerConfig::Timer(TimerConfig {
+                    period: spell2_period,
+                })],
+            },
+        )
+        .unwrap();
+
+        // let's remove spell2
+        task::block_on(async { api.unsubscribe(spell2_id).await }).unwrap();
+
+        // let's collect 5 more events from spell1
+        let events =
+            task::block_on(async { event_stream.take(5).collect::<Vec<SpellEvent>>().await });
+        assert_eq!(events.len(), 5);
+        for event in events.into_iter() {
+            assert_eq!(event.id, spell1_id.clone(),);
+            assert_matches!(event.event, Event::Timer);
         }
     }
 }
