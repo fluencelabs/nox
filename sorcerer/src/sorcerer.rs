@@ -130,10 +130,12 @@ impl Sorcerer {
 
         let services = self.services.clone();
         let storage = self.spell_storage.clone();
+        let spell_event_bus_api = self.spell_event_bus_api.clone();
         let remove_closure: ServiceFunction = Box::new(move |args, params| {
             let storage = storage.clone();
             let services = services.clone();
-            async move { wrap_unit(spell_remove(args, params, storage, services)) }.boxed()
+            let api = spell_event_bus_api.clone();
+            async move { wrap_unit(spell_remove(api, storage, services, args, params).await) }.boxed()
         });
 
         let storage = self.spell_storage.clone();

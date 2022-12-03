@@ -23,11 +23,43 @@ use particle_execution::ParticleParams;
 use particle_services::ParticleAppServices;
 use spell_event_bus::{
     api,
-    api::{Spell, SpellEventBusApi, TimerConfig},
+    api::{Spell, SpellEventBusApi, TimerConfig, PeerEventType},
 };
 use spell_storage::SpellStorage;
-
 use crate::utils::{parse_spell_id_from, process_func_outcome};
+use std::time::Duration;
+use fluence_spell_dtos::trigger_config::{TriggerConfig};
+
+/// Convert user-friendly config to event-bus-friendly config.
+fn _from_user_config(user_config: TriggerConfig) -> Option<api::TriggersConfig> {
+    let mut triggers = Vec::new();
+    // Process timer config
+    if user_config.clock.period_sec != 0 {
+        triggers.push(api::TriggerConfig::Timer(TimerConfig {
+            period: Duration::from_secs(user_config.clock.period_sec as u64),
+        }));
+    }
+
+    // Process connections config
+    let mut pool_events = Vec::with_capacity(2);
+    if user_config.connections.connect {
+        pool_events.push(PeerEventType::Connected);
+        }
+    if user_config.connections.disconnect {
+        pool_events.push(PeerEventType::Disconnected);
+        }
+    if !pool_events.is_empty() {
+        triggers.push(api::TriggerConfig::PeerEvent(api::PeerEventConfig {
+            events: pool_events
+        }));
+    }
+
+    if triggers.is_empty() {
+        None
+    } else {
+        Some(api::TriggersConfig { triggers })
+    }
+}
 
 pub(crate) fn spell_install(
     sargs: Args,
@@ -40,7 +72,7 @@ pub(crate) fn spell_install(
     let script: String = Args::next("script", &mut args)?;
     let init_data: String = Args::next("data", &mut args)?;
     log::info!("Init data: {}", json!(init_data));
-    // TODO: redo config when other event are supported
+    // TODO: use TriggerConfig when it's deserializable
     let period: u64 = Args::next("period", &mut args)?;
 
     // TODO: create service on behalf of spell keypair
@@ -101,7 +133,9 @@ pub(crate) fn spell_list(spell_storage: SpellStorage) -> Result<JValue, JError> 
             .collect(),
     ))
 }
-pub(crate) fn spell_remove(
+
+pub(crate) async fn spell_remove(
+    spell_event_bus_api: SpellEventBusApi,
     args: Args,
     params: ParticleParams,
     spell_storage: SpellStorage,
@@ -109,6 +143,8 @@ pub(crate) fn spell_remove(
 ) -> Result<(), JError> {
     let mut args = args.function_args.into_iter();
     let spell_id: String = Args::next("spell_id", &mut args)?;
+
+    spell_event_bus_api.unsubscribe(spell_id.clone()).await?;
 
     // TODO: remove spells by aliases too
     spell_storage.unregister_spell(&spell_id);
