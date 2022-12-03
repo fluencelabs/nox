@@ -21,7 +21,10 @@ use serde_json::{json, Value as JValue, Value::Array};
 use particle_args::{Args, JError};
 use particle_execution::ParticleParams;
 use particle_services::ParticleAppServices;
-use spell_event_bus::scheduler::api::{SchedulerApi, TimerConfig};
+use spell_event_bus::{
+    api,
+    api::{Spell, SpellEventBusApi, TimerConfig},
+};
 use spell_storage::SpellStorage;
 
 use crate::utils::{parse_spell_id_from, process_func_outcome};
@@ -31,7 +34,7 @@ pub(crate) fn spell_install(
     params: ParticleParams,
     spell_storage: SpellStorage,
     services: ParticleAppServices,
-    spell_scheduler_api: SchedulerApi,
+    spell_event_bus_api: SpellEventBusApi,
 ) -> Result<JValue, JError> {
     let mut args = sargs.function_args.clone().into_iter();
     let script: String = Args::next("script", &mut args)?;
@@ -75,11 +78,16 @@ pub(crate) fn spell_install(
     // TODO: also save trigger config
 
     // Scheduling the spell
-    spell_scheduler_api.add(
-        service_id.clone(),
-        TimerConfig {
+    let config = api::TriggersConfig {
+        triggers: vec![api::TriggerConfig::Timer(TimerConfig {
             period: Duration::from_secs(period),
+        })],
+    };
+    spell_event_bus_api.subscribe(
+        Spell {
+            id: service_id.clone(),
         },
+        config,
     )?;
     Ok(JValue::String(service_id))
 }

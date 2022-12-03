@@ -29,7 +29,7 @@ use particle_execution::ServiceFunction;
 use particle_modules::ModuleRepository;
 use particle_services::ParticleAppServices;
 use server_config::ResolvedConfig;
-use spell_event_bus::scheduler::api::{Event, SchedulerApi};
+use spell_event_bus::api::{SpellEvent, SpellEventBusApi};
 use spell_storage::SpellStorage;
 
 use crate::spells::{
@@ -42,7 +42,7 @@ pub struct Sorcerer {
     pub aquamarine: AquamarineApi,
     pub services: ParticleAppServices,
     pub spell_storage: SpellStorage,
-    pub scheduler_api: SchedulerApi,
+    pub spell_event_bus_api: SpellEventBusApi,
     /// TODO: use owner-specific spell keypairs
     pub node_peer_id: PeerId,
     pub spell_script_particle_ttl: Duration,
@@ -64,6 +64,7 @@ impl Sorcerer {
         aquamarine: AquamarineApi,
         config: ResolvedConfig,
         local_peer_id: PeerId,
+        spell_event_bus_api: SpellEventBusApi,
         scheduler_api: SchedulerApi,
     ) -> (Self, Vec<CustomService>) {
         let spell_storage = SpellStorage::create(
@@ -77,7 +78,7 @@ impl Sorcerer {
             aquamarine,
             services,
             spell_storage,
-            scheduler_api,
+            spell_event_bus_api,
             node_peer_id: local_peer_id,
             spell_script_particle_ttl: config.max_spell_particle_ttl,
         };
@@ -90,17 +91,14 @@ impl Sorcerer {
         (sorcerer, spell_service_functions)
     }
 
-    pub fn start(self, spell_events_stream: Inlet<Event>) -> JoinHandle<()> {
+    pub fn start(self, spell_events_stream: Inlet<SpellEvent>) -> JoinHandle<()> {
         spawn(async {
             spell_events_stream
-                .for_each_concurrent(None, move |event| {
+                .for_each_concurrent(None, move |spell_event| {
                     let sorcerer = self.clone();
-                    match event {
-                        Event::TimeTrigger { id } => {
-                            async move {
-                                sorcerer.execute_script(id).await;
-                            }
-                        }
+                    // Note that the event that triggered the spell is in `spell_event.event`
+                    async move {
+                        sorcerer.execute_script(spell_event.id).await;
                     }
                 })
                 .await;
@@ -111,18 +109,20 @@ impl Sorcerer {
         let mut service_functions: Vec<CustomService> = vec![];
         let services = self.services.clone();
         let storage = self.spell_storage.clone();
-        let scheduler = self.scheduler_api.clone();
+        let spell_event_bus = self.spell_event_bus_api.clone();
         let install_closure: ServiceFunction = Box::new(move |args, params| {
             let storage = storage.clone();
             let services = services.clone();
-            let scheduler_api = scheduler.clone();
+            let spell_event_bus_api = spell_event_bus.clone();
             async move {
                 wrap(spell_install(
                     args,
                     params,
                     storage,
                     services,
-                    scheduler_api,
+                    spell_event_bus_api,
+                    args,
+                    params,
                 ))
             }
             .boxed()
