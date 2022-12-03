@@ -5,7 +5,7 @@ use std::time::Duration;
 use thiserror::Error;
 
 #[derive(Debug)]
-pub struct TriggersConfig {
+pub struct SpellTriggerConfigs {
     pub triggers: Vec<TriggerConfig>,
 }
 
@@ -27,11 +27,6 @@ pub struct PeerEventConfig {
 
 pub type SpellId = String;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Spell {
-    pub id: SpellId,
-}
-
 #[derive(Debug)]
 pub struct SpellEvent {
     pub id: SpellId,
@@ -40,15 +35,15 @@ pub struct SpellEvent {
 
 #[derive(Clone, Debug)]
 pub enum Event {
-    // Event is triggered by timer.
+    /// Event is triggered by timer.
     Timer,
-    // Event is triggered by peer event.
+    /// Event is triggered by a peer event.
     Peer(PeerEvent),
 }
 
 #[derive(Clone, Debug)]
 pub enum PeerEvent {
-    // Event is triggered by connection pool event
+    /// Event is triggered by connection pool event
     ConnectionPool(LifecycleEvent),
 }
 
@@ -63,6 +58,7 @@ impl PeerEvent {
     }
 }
 
+/// Types of events that are available for subscription.
 #[derive(PartialEq, Eq, Hash, Debug, Clone)]
 pub enum PeerEventType {
     Connected,
@@ -72,7 +68,7 @@ pub enum PeerEventType {
 #[derive(Debug)]
 pub(crate) enum Command {
     /// Subscribe a listener with a specified ID to a list of events
-    Subscribe(Spell, TriggersConfig),
+    Subscribe(SpellId, SpellTriggerConfigs),
     /// Remove all listeners with this ID
     Unsubscribe(SpellId, OneshotOutlet<()>),
 }
@@ -103,14 +99,15 @@ impl std::fmt::Debug for SpellEventBusApi {
 impl SpellEventBusApi {
     fn send(&self, cmd: Command) -> Result<(), EventBusError> {
         self.send_cmd_channel.unbounded_send(cmd).map_err(|e| {
-            let reason = e
-                .is_disconnected()
-                .then(|| "disconnected")
-                .unwrap_or("full")
-                .to_string();
+            let reason = if e.is_disconnected() {
+                "disconnected"
+            } else {
+                "full"
+            }
+            .to_string();
             let command = e.into_inner();
             let (id, command) = match command {
-                Command::Subscribe(spell, _) => (spell.id, "subscribe".to_string()),
+                Command::Subscribe(id, _) => (id, "subscribe".to_string()),
                 Command::Unsubscribe(id, _) => (id, "unsubscribe".to_string()),
             };
             EventBusError::SendError {
@@ -121,10 +118,18 @@ impl SpellEventBusApi {
         })
     }
 
-    pub fn subscribe(&self, spell: Spell, config: TriggersConfig) -> Result<(), EventBusError> {
-        self.send(Command::Subscribe(spell, config))
+    /// Subscribe a spell to a list of events
+    /// The spell can be subscribed multiple times to different events, but to only one timer.
+    /// Note that multiple subscriptions to the same event will result in multiple events of the same type being sent.
+    pub fn subscribe(
+        &self,
+        spell_id: SpellId,
+        config: SpellTriggerConfigs,
+    ) -> Result<(), EventBusError> {
+        self.send(Command::Subscribe(spell_id, config))
     }
 
+    /// Unsubscribe a spell from all events.
     pub fn unsubscribe(&self, id: SpellId) -> BoxFuture<'static, Result<(), EventBusError>> {
         let (send, recv) = oneshot::channel();
         if let Err(err) = self.send(Command::Unsubscribe(id.clone(), send)) {

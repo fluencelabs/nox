@@ -11,7 +11,7 @@ use std::collections::{BinaryHeap, HashMap};
 use std::time::{Duration, Instant};
 
 struct Subscribers {
-    subscribers: HashMap<PeerEventType, Vec<Arc<Spell>>>,
+    subscribers: HashMap<PeerEventType, Vec<Arc<SpellId>>>,
 }
 
 impl Subscribers {
@@ -21,7 +21,7 @@ impl Subscribers {
         }
     }
 
-    fn add(&mut self, spell_id: Arc<Spell>, event_types: Vec<PeerEventType>) {
+    fn add(&mut self, spell_id: Arc<SpellId>, event_types: Vec<PeerEventType>) {
         for event_type in event_types {
             self.subscribers
                 .entry(event_type)
@@ -30,16 +30,16 @@ impl Subscribers {
         }
     }
 
-    fn get(&self, event_type: &PeerEventType) -> impl Iterator<Item = &Arc<Spell>> {
+    fn get(&self, event_type: &PeerEventType) -> impl Iterator<Item = &Arc<SpellId>> {
         self.subscribers
             .get(event_type)
             .map(|x| x.iter())
             .unwrap_or_else(|| [].iter())
     }
 
-    fn remove(&mut self, spell_id: SpellId) {
+    fn remove(&mut self, spell_id: &SpellId) {
         for subscribers in self.subscribers.values_mut() {
-            subscribers.retain(|sub| sub.id != spell_id);
+            subscribers.retain(|sub_id| **sub_id != *spell_id);
         }
     }
 }
@@ -84,7 +84,7 @@ impl<T: Eq> PartialOrd for Scheduled<T> {
 
 struct SubscribersState {
     subscribers: Subscribers,
-    scheduled: BinaryHeap<Scheduled<Arc<Spell>>>,
+    scheduled: BinaryHeap<Scheduled<Arc<SpellId>>>,
 }
 
 impl SubscribersState {
@@ -95,13 +95,13 @@ impl SubscribersState {
         }
     }
 
-    fn subscribe(&mut self, spell: Spell, config: TriggersConfig) -> eyre::Result<()> {
-        let spell = Arc::new(spell);
+    fn subscribe(&mut self, spell_id: SpellId, config: SpellTriggerConfigs) -> eyre::Result<()> {
+        let spell_id = Arc::new(spell_id);
         for config in config.triggers {
             match config {
                 TriggerConfig::Timer(config) => {
                     let periodic = Periodic {
-                        id: spell.clone(),
+                        id: spell_id.clone(),
                         period: config.period,
                     };
                     let scheduled = Scheduled::at(periodic, Instant::now())
@@ -109,20 +109,20 @@ impl SubscribersState {
                     self.scheduled.push(scheduled);
                 }
                 TriggerConfig::PeerEvent(config) => {
-                    self.subscribers.add(spell.clone(), config.events);
+                    self.subscribers.add(spell_id.clone(), config.events);
                 }
             }
         }
         Ok(())
     }
 
-    fn unsubscribe(&mut self, spell_id: SpellId) {
+    fn unsubscribe(&mut self, spell_id: &SpellId) {
         self.scheduled
-            .retain(|scheduled| scheduled.data.id.id != spell_id);
+            .retain(|scheduled| *scheduled.data.id != *spell_id);
         self.subscribers.remove(spell_id);
     }
 
-    fn subscribers(&self, event_type: &PeerEventType) -> impl Iterator<Item = &Arc<Spell>> {
+    fn subscribers(&self, event_type: &PeerEventType) -> impl Iterator<Item = &Arc<SpellId>> {
         self.subscribers.get(event_type)
     }
 
@@ -189,25 +189,27 @@ impl SpellEventBus {
                 select! {
                     command = recv_cmd_channel.select_next_some() => {
                         match command {
-                            Command::Subscribe(spell, config) => {
-                                state.subscribe(spell, config).map_err(|e| eyre!("Can't subscribe spell: {e}"))?;
+                            Command::Subscribe(spell_id, config) => {
+                                state.subscribe(spell_id, config).map_err(|e| eyre!("Can't subscribe spell: {e}"))?;
                             },
                             Command::Unsubscribe(spell_id, reply) => {
-                                state.unsubscribe(spell_id);
+                                state.unsubscribe(&spell_id);
                                 reply.send(()).map_err(|e| eyre!("Can't send notification about spell removal: {:?}", e))?;
                             },
                         }
                     },
                     event = sources_channel.select_next_some() => {
-                        for spell in state.subscribers(&event.get_type()) {
-                            send_events.unbounded_send(SpellEvent { id: spell.id.clone(), event: Event::Peer(event.clone()) })
+                        for spell_id in state.subscribers(&event.get_type()) {
+                            let id: SpellId = (**spell_id).clone();
+                            send_events.unbounded_send(SpellEvent { id, event: Event::Peer(event.clone()) })
                                        .map_err(|e| eyre!("Can't send notification about event {:?}: {:?}", event, e))?;
                         }
                     },
                     _ = timer.select_next_some() => {
                         // The timer is triggered only if there are some spells to be awaken.
-                        let scheduled_spell = state.scheduled.pop().ok_or_else(eyre!("billions of years have gone by already?"));
-                        send_events.unbounded_send(SpellEvent { id: scheduled_spell.data.id.id.clone(), event: Event::Timer })
+                        let scheduled_spell = state.scheduled.pop().ok_or_else(|| eyre!("billions of years have gone by already?"))?;
+                        let id: SpellId = (*(scheduled_spell.data.id)).clone();
+                        send_events.unbounded_send(SpellEvent { id, event: Event::Timer })
                                    .map_err(|e| eyre!("Can't send notification by timer: {:?}", e))?;
                         let rescheduled = scheduled_spell.reschedule(now)
                                                          .ok_or_else(|| eyre!("Can't reschedule periodic spell"))?;
@@ -245,7 +247,7 @@ mod tests {
             Spell {
                 id: spell1_id.clone(),
             },
-            TriggersConfig {
+            SpellTriggerConfigs {
                 triggers: vec![TriggerConfig::Timer(TimerConfig {
                     period: spell1_period,
                 })],
@@ -256,7 +258,7 @@ mod tests {
             Spell {
                 id: spell2_id.clone(),
             },
-            TriggersConfig {
+            SpellTriggerConfigs {
                 triggers: vec![TriggerConfig::Timer(TimerConfig {
                     period: spell2_period,
                 })],

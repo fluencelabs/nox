@@ -23,7 +23,7 @@ use particle_execution::ParticleParams;
 use particle_services::ParticleAppServices;
 use spell_event_bus::{
     api,
-    api::{Spell, SpellEventBusApi, TimerConfig, PeerEventType},
+    api::{SpellEventBusApi, TimerConfig, PeerEventType},
 };
 use spell_storage::SpellStorage;
 use crate::utils::{parse_spell_id_from, process_func_outcome};
@@ -31,7 +31,7 @@ use std::time::Duration;
 use fluence_spell_dtos::trigger_config::{TriggerConfig};
 
 /// Convert user-friendly config to event-bus-friendly config.
-fn _from_user_config(user_config: TriggerConfig) -> Option<api::TriggersConfig> {
+fn _from_user_config(user_config: TriggerConfig) -> Option<api::SpellTriggerConfigs> {
     let mut triggers = Vec::new();
     // Process timer config
     if user_config.clock.period_sec != 0 {
@@ -57,7 +57,7 @@ fn _from_user_config(user_config: TriggerConfig) -> Option<api::TriggersConfig> 
     if triggers.is_empty() {
         None
     } else {
-        Some(api::TriggersConfig { triggers })
+        Some(api::SpellTriggerConfigs { triggers })
     }
 }
 
@@ -110,15 +110,13 @@ pub(crate) fn spell_install(
     // TODO: also save trigger config
 
     // Scheduling the spell
-    let config = api::TriggersConfig {
+    let config = api::SpellTriggerConfigs {
         triggers: vec![api::TriggerConfig::Timer(TimerConfig {
             period: Duration::from_secs(period),
         })],
     };
     spell_event_bus_api.subscribe(
-        Spell {
-            id: service_id.clone(),
-        },
+        service_id.clone(),
         config,
     )?;
     Ok(JValue::String(service_id))
