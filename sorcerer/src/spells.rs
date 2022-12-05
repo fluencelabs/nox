@@ -14,10 +14,8 @@
  * limitations under the License.
  */
 
-use crate::utils;
 use crate::utils::{parse_spell_id_from, process_func_outcome};
 use async_std::stream::Extend;
-use eyre::eyre;
 use fluence_spell_dtos::value::{StringValue, UnitValue};
 use particle_args::{Args, JError};
 use particle_execution::ParticleParams;
@@ -127,7 +125,7 @@ pub(crate) fn error_handler(
 ) -> Result<(), JError> {
     let spell_id = parse_spell_id_from(params.id)?;
 
-    args.function_args.extend(vec![params.timestamp]);
+    args.function_args.push(json!(params.timestamp));
     let result: UnitValue = serde_json::from_value(process_func_outcome(services.call_function(
         spell_id.clone(),
         "store_error",
@@ -139,20 +137,20 @@ pub(crate) fn error_handler(
     if result.success {
         Ok(())
     } else {
-        Err(JError::new(f!(
-            "Failed to store error {args.function_args} for spell {spell_id}: {result.error}"
+        Err(JError::new(format!(
+            "Failed to store error {:?} for spell {}: {}",
+            args.function_args, spell_id, result.error
         )))
     }
 }
 
 pub(crate) fn response_handler(
-    mut args: Args,
+    args: Args,
     params: ParticleParams,
     services: ParticleAppServices,
 ) -> Result<(), JError> {
     let spell_id = parse_spell_id_from(params.id)?;
 
-    args.function_args.extend(vec![params.timestamp]);
     let result: UnitValue = serde_json::from_value(process_func_outcome(services.call_function(
         spell_id.clone(),
         "set_json_fields",
@@ -164,8 +162,9 @@ pub(crate) fn response_handler(
     if result.success {
         Ok(())
     } else {
-        Err(JError::new(f!(
-            "Failed to store response {args.function_args} for spell {spell_id}: {result.error}"
+        Err(JError::new(format!(
+            "Failed to store response {:?} for spell {}: {}",
+            args.function_args, spell_id, result.error
         )))
     }
 }

@@ -14,19 +14,16 @@
  * limitations under the License.
  */
 
-use eyre::eyre;
 use fluence_spell_dtos::value::{ScriptValue, U32Value, UnitValue};
-use serde::Deserialize;
 use serde_json::json;
-use serde_json::Value as JValue;
 
 use crate::{utils, Sorcerer};
 use now_millis::now_ms;
-use particle_execution::FunctionOutcome;
+use particle_args::JError;
 use particle_protocol::Particle;
 
 impl Sorcerer {
-    fn get_spell_counter(&self, spell_id: String) -> eyre::Result<u32> {
+    fn get_spell_counter(&self, spell_id: String) -> Result<u32, JError> {
         let func_outcome = self.services.call_function(
             spell_id,
             "get_u32",
@@ -45,7 +42,7 @@ impl Sorcerer {
         }
     }
 
-    fn set_spell_next_counter(&self, spell_id: String, next_counter: u32) -> eyre::Result<()> {
+    fn set_spell_next_counter(&self, spell_id: String, next_counter: u32) -> Result<(), JError> {
         let func_outcome = self.services.call_function(
             spell_id,
             "set_u32",
@@ -59,11 +56,11 @@ impl Sorcerer {
         if result.success {
             Ok(())
         } else {
-            Err(eyre!(result.error))
+            Err(JError::new(result.error))
         }
     }
 
-    fn get_spell_script(&self, spell_id: String) -> eyre::Result<String> {
+    fn get_spell_script(&self, spell_id: String) -> Result<String, JError> {
         let func_outcome = self.services.call_function(
             spell_id,
             "get_script_source_from_file",
@@ -78,11 +75,11 @@ impl Sorcerer {
         if result.success {
             Ok(result.source_code)
         } else {
-            Err(eyre!(result.error))
+            Err(JError::new(result.error))
         }
     }
 
-    pub(crate) fn get_spell_particle(&self, spell_id: String) -> eyre::Result<Particle> {
+    pub(crate) fn get_spell_particle(&self, spell_id: String) -> Result<Particle, JError> {
         let spell_counter = self.get_spell_counter(spell_id.clone())?;
         self.set_spell_next_counter(spell_id.clone(), spell_counter + 1)?;
         let spell_script = self.get_spell_script(spell_id.clone())?;

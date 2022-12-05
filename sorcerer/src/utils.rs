@@ -14,31 +14,31 @@
  * limitations under the License.
  */
 
-use eyre::eyre;
+use particle_args::JError;
 use particle_execution::FunctionOutcome;
 use serde_json::Value as JValue;
 
-pub(crate) fn process_func_outcome(func_outcome: FunctionOutcome) -> eyre::Result<JValue> {
+pub(crate) fn process_func_outcome(func_outcome: FunctionOutcome) -> Result<JValue, JError> {
     match func_outcome {
-        FunctionOutcome::NotDefined { args, .. } => Err(eyre!(format!(
+        FunctionOutcome::NotDefined { args, .. } => Err(JError::new(format!(
             "Service with id '{}' not found (function {})",
             args.service_id, args.function_name
         ))),
-        FunctionOutcome::Empty => Err(eyre!("Function has not returned any result")),
-        FunctionOutcome::Err(err) => Err(eyre!(err.to_string())),
+        FunctionOutcome::Empty => Err(JError::new("Function has not returned any result")),
+        FunctionOutcome::Err(err) => Err(JError::new(err.to_string())),
         FunctionOutcome::Ok(v) => Ok(v),
     }
 }
 
-pub(crate) fn parse_spell_id_from(particle_id: String) -> eyre::Result<String> {
+pub(crate) fn parse_spell_id_from(particle_id: String) -> eyre::Result<String, JError> {
     if particle_id.starts_with("spell_") {
         Ok(particle_id
             .split('_')
             .collect::<Vec<&str>>()
             .get(1)
-            .ok_or(eyre!("Invalid particle id format"))?
+            .ok_or(JError::new("Invalid particle id format"))?
             .to_string())
     } else {
-        Err(eyre!("Invalid particle id format"))
+        Err(JError::new("Invalid particle id format"))
     }
 }
