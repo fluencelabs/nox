@@ -1,14 +1,15 @@
 use crate::api::*;
 use async_std::sync::Arc;
 use async_std::task;
-use eyre::eyre;
 use fluence_libp2p::types::{Inlet, Outlet};
+use futures::channel::mpsc::SendError;
 use futures::stream;
 use futures::stream::BoxStream;
 use futures::{channel::mpsc::unbounded, select, StreamExt};
 use std::cmp::Ordering;
 use std::collections::{BinaryHeap, HashMap};
 use std::time::{Duration, Instant};
+use thiserror::Error;
 
 struct Subscribers {
     subscribers: HashMap<PeerEventType, Vec<Arc<SpellId>>>,
@@ -45,38 +46,36 @@ impl Subscribers {
 }
 
 #[derive(Debug, PartialEq, Eq)]
-struct Periodic<T> {
-    pub id: T,
+struct Periodic {
+    pub id: Arc<SpellId>,
     pub period: Duration,
 }
 
 #[derive(Debug, PartialEq, Eq)]
-struct Scheduled<T> {
-    data: Periodic<T>,
+struct Scheduled {
+    data: Periodic,
     // the time after which we need to notify the subscriber
     run_at: Instant,
 }
 
-impl<T: Eq> Scheduled<T> {
-    fn at(data: Periodic<T>, now: Instant) -> Option<Scheduled<T>> {
-        let run_at = now.checked_add(data.period)?;
-        Some(Scheduled { data, run_at })
-    }
-
-    fn reschedule(mut self, now: Instant) -> Option<Scheduled<T>> {
-        self.run_at = now.checked_add(self.data.period)?;
-        Some(self)
+impl Scheduled {
+    // schedule to no earlier than now + data.period
+    fn at(data: Periodic, now: Instant) -> Result<Scheduled, BusError> {
+        match now.checked_add(data.period) {
+            Some(run_at) => Ok(Scheduled { data, run_at }),
+            None => Err(BusError::Schedule((*data.id).clone(), data.period)),
+        }
     }
 }
 
 // Implement it this way for min heap
-impl<T: PartialEq + Eq> Ord for Scheduled<T> {
+impl Ord for Scheduled {
     fn cmp(&self, other: &Self) -> Ordering {
         other.run_at.cmp(&self.run_at)
     }
 }
 
-impl<T: Eq> PartialOrd for Scheduled<T> {
+impl PartialOrd for Scheduled {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
@@ -84,7 +83,7 @@ impl<T: Eq> PartialOrd for Scheduled<T> {
 
 struct SubscribersState {
     subscribers: Subscribers,
-    scheduled: BinaryHeap<Scheduled<Arc<SpellId>>>,
+    scheduled: BinaryHeap<Scheduled>,
 }
 
 impl SubscribersState {
@@ -95,7 +94,11 @@ impl SubscribersState {
         }
     }
 
-    fn subscribe(&mut self, spell_id: SpellId, config: SpellTriggerConfigs) -> eyre::Result<()> {
+    fn subscribe(
+        &mut self,
+        spell_id: SpellId,
+        config: SpellTriggerConfigs,
+    ) -> Result<(), BusError> {
         let spell_id = Arc::new(spell_id);
         for config in config.triggers {
             match config {
@@ -104,8 +107,7 @@ impl SubscribersState {
                         id: spell_id.clone(),
                         period: config.period,
                     };
-                    let scheduled = Scheduled::at(periodic, Instant::now())
-                        .ok_or_else(|| eyre!("time overflow"))?;
+                    let scheduled = Scheduled::at(periodic, Instant::now())?;
                     self.scheduled.push(scheduled);
                 }
                 TriggerConfig::PeerEvent(config) => {
@@ -131,6 +133,17 @@ impl SubscribersState {
             .peek()
             .map(|scheduled| scheduled.run_at.saturating_duration_since(now))
     }
+}
+
+#[derive(Debug, Error)]
+enum BusError {
+    // oneshot::Sender doesn't provide the reasons why it failed to send a message
+    #[error("failed to unsubscribe a spell {0}: receiving end probably dropped")]
+    Unsubscribe(SpellId),
+    #[error("failed to send notification about a peer event {1:?} to spell {0}: {2}")]
+    SendEvent(SpellId, Event, SendError),
+    #[error("failed to schedule a spell {0} with period {1:?} due to time overflow")]
+    Schedule(SpellId, Duration),
 }
 
 pub struct SpellEventBus {
@@ -185,34 +198,30 @@ impl SpellEventBus {
                 async_std::stream::interval(next_scheduled_in).fuse()
             };
 
-            let result: eyre::Result<()> = try {
+            let result: Result<(), BusError> = try {
                 select! {
                     command = recv_cmd_channel.select_next_some() => {
                         match command {
                             Command::Subscribe(spell_id, config) => {
-                                state.subscribe(spell_id, config).map_err(|e| eyre!("Can't subscribe spell: {e}"))?;
+                                state.subscribe(spell_id.clone(), config)?;
                             },
                             Command::Unsubscribe(spell_id, reply) => {
                                 state.unsubscribe(&spell_id);
-                                reply.send(()).map_err(|e| eyre!("Can't send notification about spell removal: {:?}", e))?;
+                                reply.send(()).map_err(|_| BusError::Unsubscribe(spell_id))?;
                             },
                         }
                     },
                     event = sources_channel.select_next_some() => {
                         for spell_id in state.subscribers(&event.get_type()) {
-                            let id: SpellId = (**spell_id).clone();
-                            send_events.unbounded_send(SpellEvent { id, event: Event::Peer(event.clone()) })
-                                       .map_err(|e| eyre!("Can't send notification about event {:?}: {:?}", event, e))?;
+                            let event = Event::Peer(event.clone());
+                            Self::notify_spell(&send_events, spell_id, event)?;
                         }
                     },
                     _ = timer.select_next_some() => {
                         // The timer is triggered only if there are some spells to be awaken.
-                        let scheduled_spell = state.scheduled.pop().ok_or_else(|| eyre!("billions of years have gone by already?"))?;
-                        let id: SpellId = (*(scheduled_spell.data.id)).clone();
-                        send_events.unbounded_send(SpellEvent { id, event: Event::Timer })
-                                   .map_err(|e| eyre!("Can't send notification by timer: {:?}", e))?;
-                        let rescheduled = scheduled_spell.reschedule(now)
-                                                         .ok_or_else(|| eyre!("Can't reschedule periodic spell"))?;
+                        let scheduled_spell = state.scheduled.pop().expect("billions of years have gone by already?");
+                        Self::notify_spell(&send_events, &scheduled_spell.data.id, Event::Timer)?;
+                        let rescheduled = Scheduled::at(scheduled_spell.data, Instant::now())?;
                         state.scheduled.push(rescheduled);
                     },
                 }
@@ -221,6 +230,20 @@ impl SpellEventBus {
                 log::error!("{}", e);
             }
         }
+    }
+
+    fn notify_spell(
+        send_events: &Outlet<SpellEvent>,
+        id: &Arc<SpellId>,
+        event: Event,
+    ) -> Result<(), BusError> {
+        send_events
+            .unbounded_send(SpellEvent {
+                id: (**id).clone(),
+                event: event.clone(),
+            })
+            .map_err(|e| BusError::SendEvent((**id).clone(), event, e.into_send_error()))?;
+        Ok(())
     }
 }
 
