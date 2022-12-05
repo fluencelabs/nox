@@ -18,17 +18,17 @@ use std::time::Duration;
 use fluence_spell_dtos::value::{StringValue, UnitValue};
 use serde_json::{json, Value as JValue, Value::Array};
 
+use fluence_spell_dtos::trigger_config::TriggerConfig;
 use particle_args::{Args, JError};
 use particle_execution::ParticleParams;
 use particle_services::ParticleAppServices;
 use spell_event_bus::{
     api,
-    api::{SpellEventBusApi, TimerConfig, PeerEventType},
+    api::{PeerEventType, SpellEventBusApi, TimerConfig},
 };
 use spell_storage::SpellStorage;
 use crate::utils::{parse_spell_id_from, process_func_outcome};
 use std::time::Duration;
-use fluence_spell_dtos::trigger_config::{TriggerConfig};
 
 /// Convert user-friendly config to event-bus-friendly config.
 fn _from_user_config(user_config: TriggerConfig) -> Option<api::SpellTriggerConfigs> {
@@ -44,13 +44,13 @@ fn _from_user_config(user_config: TriggerConfig) -> Option<api::SpellTriggerConf
     let mut pool_events = Vec::with_capacity(2);
     if user_config.connections.connect {
         pool_events.push(PeerEventType::Connected);
-        }
+    }
     if user_config.connections.disconnect {
         pool_events.push(PeerEventType::Disconnected);
-        }
+    }
     if !pool_events.is_empty() {
         triggers.push(api::TriggerConfig::PeerEvent(api::PeerEventConfig {
-            events: pool_events
+            events: pool_events,
         }));
     }
 
@@ -115,10 +115,7 @@ pub(crate) fn spell_install(
             period: Duration::from_secs(period),
         })],
     };
-    spell_event_bus_api.subscribe(
-        service_id.clone(),
-        config,
-    )?;
+    spell_event_bus_api.subscribe(service_id.clone(), config)?;
     Ok(JValue::String(service_id))
 }
 

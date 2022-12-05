@@ -135,7 +135,8 @@ impl Sorcerer {
             let storage = storage.clone();
             let services = services.clone();
             let api = spell_event_bus_api.clone();
-            async move { wrap_unit(spell_remove(api, storage, services, args, params).await) }.boxed()
+            async move { wrap_unit(spell_remove(api, storage, services, args, params).await) }
+                .boxed()
         });
 
         let storage = self.spell_storage.clone();

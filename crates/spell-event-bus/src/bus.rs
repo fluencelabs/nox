@@ -226,7 +226,6 @@ impl SpellEventBus {
 
 #[cfg(test)]
 mod tests {
-    use crate::api::*;
     use crate::bus::*;
     use futures::StreamExt;
     use std::assert_matches::assert_matches;
@@ -244,9 +243,7 @@ mod tests {
         let spell1_period = Duration::from_millis(5);
         let spell2_period = Duration::from_secs(10);
         api.subscribe(
-            Spell {
-                id: spell1_id.clone(),
-            },
+            spell1_id.clone(),
             SpellTriggerConfigs {
                 triggers: vec![TriggerConfig::Timer(TimerConfig {
                     period: spell1_period,
@@ -255,9 +252,7 @@ mod tests {
         )
         .unwrap();
         api.subscribe(
-            Spell {
-                id: spell2_id.clone(),
-            },
+            spell2_id.clone(),
             SpellTriggerConfigs {
                 triggers: vec![TriggerConfig::Timer(TimerConfig {
                     period: spell2_period,
