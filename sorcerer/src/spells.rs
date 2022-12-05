@@ -15,7 +15,6 @@
  */
 
 use crate::utils::{parse_spell_id_from, process_func_outcome};
-use async_std::stream::Extend;
 use fluence_spell_dtos::value::{StringValue, UnitValue};
 use particle_args::{Args, JError};
 use particle_execution::ParticleParams;
