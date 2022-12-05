@@ -56,6 +56,9 @@ use crate::identify::NodeInfo;
 use crate::outcome::{ok, wrap, wrap_unit};
 use crate::{json, math};
 
+// TODO: move to appropriate place
+const DEFAULT_FUNCTION_NAME: &str = "__default__";
+
 #[derive(Derivative)]
 #[derivative(Debug)]
 pub struct Builtins<C> {
@@ -72,6 +75,10 @@ pub struct Builtins<C> {
     pub services: ParticleAppServices,
     pub node_info: NodeInfo,
 
+    /// HashMap = (service_id -> function_name -> service_function)
+    /// You can set function name to `DEFAULT_FUNCTION_NAME`
+    /// and all `function_name` mismatches will be routed to this `service_function`.
+    /// Inside `service_function` `function_name` can be obtained via `args.function_name`
     #[derivative(Debug(format_with = "fmt_custom_services"))]
     pub custom_services: RwLock<HashMap<String, HashMap<String, Mutex<ServiceFunction>>>>,
 
@@ -143,7 +150,10 @@ where
             .custom_services
             .read()
             .get(&args.service_id)
-            .and_then(|fs| fs.get(&args.function_name))
+            .and_then(|fs| {
+                fs.get(&args.function_name)
+                    .or(fs.get(DEFAULT_FUNCTION_NAME))
+            })
         {
             let mut function = function.lock();
             async_std::task::block_on(function(args, particle))

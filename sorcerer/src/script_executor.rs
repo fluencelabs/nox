@@ -15,47 +15,15 @@
  */
 
 use eyre::eyre;
+use fluence_spell_dtos::value::{ScriptValue, U32Value, UnitValue};
 use serde::Deserialize;
 use serde_json::json;
 use serde_json::Value as JValue;
 
-use crate::Sorcerer;
+use crate::{utils, Sorcerer};
 use now_millis::now_ms;
 use particle_execution::FunctionOutcome;
 use particle_protocol::Particle;
-
-#[derive(Deserialize)]
-struct UnitValue {
-    pub success: bool,
-    pub error: String,
-}
-
-#[derive(Deserialize)]
-struct U32Value {
-    pub num: u32,
-    pub success: bool,
-    #[allow(dead_code)]
-    pub error: String,
-}
-
-#[derive(Deserialize)]
-pub struct Script {
-    pub source_code: String,
-    pub success: bool,
-    pub error: String,
-}
-
-fn process_func_outcome(func_outcome: FunctionOutcome) -> eyre::Result<JValue> {
-    match func_outcome {
-        FunctionOutcome::NotDefined { args, .. } => Err(eyre!(format!(
-            "Service with id '{}' not found (function {})",
-            args.service_id, args.function_name
-        ))),
-        FunctionOutcome::Empty => Err(eyre!("Function has not returned any result")),
-        FunctionOutcome::Err(err) => Err(eyre!(err.to_string())),
-        FunctionOutcome::Ok(v) => Ok(v),
-    }
-}
 
 impl Sorcerer {
     fn get_spell_counter(&self, spell_id: String) -> eyre::Result<u32> {
@@ -67,7 +35,7 @@ impl Sorcerer {
             self.spell_script_particle_ttl,
         );
 
-        let result: U32Value = serde_json::from_value(process_func_outcome(func_outcome)?)?;
+        let result: U32Value = serde_json::from_value(utils::process_func_outcome(func_outcome)?)?;
 
         if result.success {
             Ok(result.num)
@@ -86,7 +54,7 @@ impl Sorcerer {
             self.spell_script_particle_ttl,
         );
 
-        let result: UnitValue = serde_json::from_value(process_func_outcome(func_outcome)?)?;
+        let result: UnitValue = serde_json::from_value(utils::process_func_outcome(func_outcome)?)?;
 
         if result.success {
             Ok(())
@@ -104,7 +72,8 @@ impl Sorcerer {
             self.spell_script_particle_ttl,
         );
 
-        let result: Script = serde_json::from_value(process_func_outcome(func_outcome)?)?;
+        let result: ScriptValue =
+            serde_json::from_value(utils::process_func_outcome(func_outcome)?)?;
 
         if result.success {
             Ok(result.source_code)

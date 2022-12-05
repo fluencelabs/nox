@@ -14,6 +14,11 @@
  * limitations under the License.
  */
 
+use crate::utils;
+use crate::utils::{parse_spell_id_from, process_func_outcome};
+use async_std::stream::Extend;
+use eyre::eyre;
+use fluence_spell_dtos::value::{StringValue, UnitValue};
 use particle_args::{Args, JError};
 use particle_execution::ParticleParams;
 use particle_services::ParticleAppServices;
@@ -25,11 +30,11 @@ use spell_storage::SpellStorage;
 use std::time::Duration;
 
 pub(crate) fn spell_install(
+    sargs: Args,
+    params: ParticleParams,
     spell_storage: SpellStorage,
     services: ParticleAppServices,
     spell_scheduler_api: SchedulerApi,
-    sargs: Args,
-    params: ParticleParams,
 ) -> Result<JValue, JError> {
     let mut args = sargs.function_args.clone().into_iter();
     let script: String = Args::next("script", &mut args)?;
@@ -71,10 +76,10 @@ pub(crate) fn spell_list(spell_storage: SpellStorage) -> Result<JValue, JError> 
     ))
 }
 pub(crate) fn spell_remove(
-    spell_storage: SpellStorage,
-    services: ParticleAppServices,
     args: Args,
     params: ParticleParams,
+    spell_storage: SpellStorage,
+    services: ParticleAppServices,
 ) -> Result<(), JError> {
     let mut args = args.function_args.into_iter();
     let spell_id: String = Args::next("spell_id", &mut args)?;
@@ -86,16 +91,81 @@ pub(crate) fn spell_remove(
 }
 
 pub(crate) fn get_spell_id(_args: Args, params: ParticleParams) -> Result<JValue, JError> {
-    if params.id.starts_with("spell_") {
-        let spell_id = params
-            .id
-            .split('_')
-            .collect::<Vec<&str>>()
-            .get(1)
-            .ok_or(JError(json!("Invalid particle id format")))?
-            .to_string();
-        Ok(json!(spell_id))
+    Ok(json!(parse_spell_id_from(params.id)?))
+}
+
+pub(crate) fn get_spell_arg(
+    args: Args,
+    params: ParticleParams,
+    services: ParticleAppServices,
+) -> Result<JValue, JError> {
+    let spell_id = parse_spell_id_from(params.id)?;
+    let key = args.function_name;
+
+    let result: StringValue =
+        serde_json::from_value(process_func_outcome(services.call_function(
+            spell_id.clone(),
+            "read_string",
+            vec![json!(key.clone())],
+            params.init_peer_id,
+            Duration::from_millis(params.ttl as u64),
+        ))?)?;
+
+    if result.success {
+        Ok(json!(result.str))
     } else {
-        Err(JError(json!("Invalid particle id format")))
+        Err(JError::new(f!(
+            "Failed to get argument {key} for spell {spell_id}: {result.error}"
+        )))
+    }
+}
+
+pub(crate) fn error_handler(
+    mut args: Args,
+    params: ParticleParams,
+    services: ParticleAppServices,
+) -> Result<(), JError> {
+    let spell_id = parse_spell_id_from(params.id)?;
+
+    args.function_args.extend(vec![params.timestamp]);
+    let result: UnitValue = serde_json::from_value(process_func_outcome(services.call_function(
+        spell_id.clone(),
+        "store_error",
+        args.function_args.clone(),
+        params.init_peer_id,
+        Duration::from_millis(params.ttl as u64),
+    ))?)?;
+
+    if result.success {
+        Ok(())
+    } else {
+        Err(JError::new(f!(
+            "Failed to store error {args.function_args} for spell {spell_id}: {result.error}"
+        )))
+    }
+}
+
+pub(crate) fn response_handler(
+    mut args: Args,
+    params: ParticleParams,
+    services: ParticleAppServices,
+) -> Result<(), JError> {
+    let spell_id = parse_spell_id_from(params.id)?;
+
+    args.function_args.extend(vec![params.timestamp]);
+    let result: UnitValue = serde_json::from_value(process_func_outcome(services.call_function(
+        spell_id.clone(),
+        "set_json_fields",
+        args.function_args.clone(),
+        params.init_peer_id,
+        Duration::from_millis(params.ttl as u64),
+    ))?)?;
+
+    if result.success {
+        Ok(())
+    } else {
+        Err(JError::new(f!(
+            "Failed to store response {args.function_args} for spell {spell_id}: {result.error}"
+        )))
     }
 }
