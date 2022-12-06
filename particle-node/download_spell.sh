@@ -7,7 +7,7 @@ SPELL_DIR="${CUR_DIR}/spell"
 TAR="spell.tar.gz"
 
 echo "*** downloading $TAR ***"
-URL="https://github.com/fluencelabs/spell/releases/download/v0.0.3/spell.tar.gz"
+URL="https://github.com/fluencelabs/spell/releases/latest/download/spell.tar.gz"
 curl --fail -L "$URL" -o "$TAR"
 
 echo "*** extracting $TAR ***"
