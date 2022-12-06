@@ -157,7 +157,11 @@ fn get_modules() {
     let mut iter = value.into_iter();
     let modules = iter.next().unwrap();
     let modules: Vec<ModuleDescriptor> = serde_json::from_value(modules).unwrap();
-    assert_eq!(modules[0].name.as_deref(), Some("greeting"));
+    // Now we have 3 modules: default sqlite3+spell and greeting
+    assert_eq!(modules.len(), 3);
+    assert!(modules
+        .into_iter()
+        .any(|m| m.name.as_deref() == Some("greeting")));
 
     let interfaces = iter.next();
     assert_eq!(interfaces.is_some(), true);
@@ -201,15 +205,20 @@ fn list_blueprints() {
     let args = client.receive_args().wrap_err("receive args").unwrap();
     let mut args = args.into_iter();
     let value = args.next().unwrap();
-    let bp: Vec<Blueprint> = serde_json::from_value(value)
+    let blueprints: Vec<Blueprint> = serde_json::from_value(value)
         .wrap_err("deserialize blueprint")
         .unwrap();
-    assert_eq!(bp.len(), 1);
-    assert_eq!(bp[0].name, "blueprint");
-    assert_eq!(bp[0].dependencies.len(), 2);
-    assert_eq!(bp[0].dependencies[0], hash);
+
+    // Now we have 2 blueprints: the first is for default spell service and the second is recent
+    assert_eq!(blueprints.len(), 2);
+    let bp = blueprints
+        .into_iter()
+        .find(|b| b.name == "blueprint")
+        .unwrap();
+    assert_eq!(bp.dependencies.len(), 2);
+    assert_eq!(bp.dependencies[0], hash);
     // name:$name should've been converted to hash:$hash
-    assert_eq!(bp[0].dependencies[1], hash);
+    assert_eq!(bp.dependencies[1], hash);
 
     let hash = args.next().unwrap();
     let hash: String = serde_json::from_value(hash).unwrap();

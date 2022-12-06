@@ -49,6 +49,10 @@ pub struct UnresolvedDirConfig {
     /// Path to AIR interpreter .wasm file (aquamarine.wasm)
     #[serde(default)]
     pub air_interpreter_path: Option<PathBuf>,
+
+    /// Path to spell service files (wasms, configs)
+    #[serde(default)]
+    pub spell_base_dir: Option<PathBuf>,
 }
 
 impl UnresolvedDirConfig {
@@ -61,6 +65,7 @@ impl UnresolvedDirConfig {
         let air_interpreter_path = self
             .air_interpreter_path
             .unwrap_or(air_interpreter_path(&base));
+        let spell_base_dir = self.spell_base_dir.unwrap_or(base.join("spell"));
 
         ResolvedDirConfig {
             base_dir: base,
@@ -69,6 +74,7 @@ impl UnresolvedDirConfig {
             builtins_base_dir,
             avm_base_dir,
             air_interpreter_path,
+            spell_base_dir,
         }
     }
 }
@@ -84,6 +90,7 @@ pub struct ResolvedDirConfig {
     pub avm_base_dir: PathBuf,
     /// Directory where interpreter's WASM module is stored
     pub air_interpreter_path: PathBuf,
+    pub spell_base_dir: PathBuf,
 }
 
 impl ResolvedDirConfig {

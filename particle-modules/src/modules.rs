@@ -165,7 +165,11 @@ impl ModuleRepository {
 
         Ok(())
     }
-    fn add_module(&self, module: Vec<u8>, config: TomlMarineNamedModuleConfig) -> Result<String> {
+    pub fn add_module(
+        &self,
+        module: Vec<u8>,
+        config: TomlMarineNamedModuleConfig,
+    ) -> Result<String> {
         let hash = Hash::hash(&module);
 
         let mut config = files::add_module(&self.modules_dir, &hash, &module, config)?;
@@ -421,7 +425,7 @@ impl ModuleRepository {
         bp_map
     }
 
-    fn get_blueprint_from_cache(&self, id: &str) -> Result<Blueprint> {
+    pub fn get_blueprint_from_cache(&self, id: &str) -> Result<Blueprint> {
         let blueprints = self.blueprints.clone();
         let blueprints = blueprints.read();
         blueprints

@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-#![feature(int_log)]
-
 #[macro_use]
 extern crate fstrings;
 
@@ -145,7 +143,7 @@ fn remove_service() {
 #[test]
 fn remove_service_restart() {
     let kp = KeyPair::generate_ed25519();
-    let swarms = make_swarms_with_keypair(1, kp.clone());
+    let swarms = make_swarms_with_keypair(1, kp.clone(), None);
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .wrap_err("connect client")
@@ -187,7 +185,7 @@ fn remove_service_restart() {
 
     // stop swarm
     swarms.into_iter().map(|s| s.outlet.send(())).for_each(drop);
-    let swarms = make_swarms_with_keypair(1, kp.clone());
+    let swarms = make_swarms_with_keypair(1, kp.clone(), None);
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .wrap_err("connect client")
         .unwrap();
@@ -1321,7 +1319,12 @@ fn service_stats_uninitialized() {
 #[test]
 fn sign_verify() {
     let kp = KeyPair::generate_ed25519();
-    let swarms = make_swarms_with_builtins(1, "tests/builtins/services".as_ref(), Some(kp.clone()));
+    let swarms = make_swarms_with_builtins(
+        1,
+        "tests/builtins/services".as_ref(),
+        Some(kp.clone()),
+        None,
+    );
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .wrap_err("connect client")
@@ -1374,7 +1377,7 @@ fn sign_verify() {
 
 #[test]
 fn sign_invalid_tetraplets() {
-    let swarms = make_swarms_with_builtins(2, "tests/builtins/services".as_ref(), None);
+    let swarms = make_swarms_with_builtins(2, "tests/builtins/services".as_ref(), None, None);
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .wrap_err("connect client")
@@ -1439,7 +1442,12 @@ fn sign_invalid_tetraplets() {
 #[test]
 fn sig_verify_invalid_signature() {
     let kp = KeyPair::generate_ed25519();
-    let swarms = make_swarms_with_builtins(1, "tests/builtins/services".as_ref(), Some(kp.clone()));
+    let swarms = make_swarms_with_builtins(
+        1,
+        "tests/builtins/services".as_ref(),
+        Some(kp.clone()),
+        None,
+    );
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .wrap_err("connect client")

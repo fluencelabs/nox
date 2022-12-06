@@ -21,7 +21,7 @@ use serde_json::json;
 use connected_client::ConnectedClient;
 use created_swarm::make_swarms_with_builtins;
 
-use crate::{load_script, SERVICES};
+use crate::{load_script, SERVICES, SPELL};
 
 use super::Record;
 
@@ -31,7 +31,7 @@ fn find_subscribers() {
     let init_subscribe_script = load_script("pubsub.initTopicAndSubscribeBlocking.air");
     let find_subscribers_script = load_script("pubsub.findSubscribers.air");
 
-    let swarms = make_swarms_with_builtins(3, SERVICES.as_ref(), None);
+    let swarms = make_swarms_with_builtins(3, SERVICES.as_ref(), None, Some(SPELL.to_string()));
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .wrap_err("connect client")

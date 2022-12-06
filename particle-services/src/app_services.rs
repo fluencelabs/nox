@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 use std::ops::Deref;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 use std::{collections::HashMap, sync::Arc};
 
 use derivative::Derivative;
@@ -27,6 +27,7 @@ use serde::Serialize;
 use serde_json::{json, Value as JValue};
 
 use fluence_libp2p::PeerId;
+use now_millis::now_ms;
 use particle_args::{Args, JError};
 use particle_execution::{FunctionOutcome, ParticleParams, ParticleVault, VaultError};
 use particle_modules::ModuleRepository;
@@ -34,6 +35,7 @@ use peer_metrics::{
     ServiceCallStats, ServiceMemoryStat, ServiceType, ServicesMetrics, ServicesMetricsBuiltin,
 };
 use server_config::ServicesConfig;
+use uuid_utils::uuid;
 
 use crate::app_service::create_app_service;
 use crate::error::ServiceError;
@@ -167,6 +169,20 @@ impl ParticleAppServices {
             let (service, service_id) =
                 get_service(&services_read, &self.aliases.read(), service_id_or_alias)
                     .map_err(ServiceError::NoSuchService)?;
+
+            // tmp hack to forbid spell removal via srv.remove
+            let blueprint_name = self
+                .modules
+                .get_blueprint_from_cache(&service.blueprint_id)?
+                .name;
+            if blueprint_name == "spell" {
+                return Err(Forbidden {
+                    user: init_peer_id,
+                    function: "remove_service",
+                    reason: "cannot remove a spell",
+                }
+                .into());
+            }
 
             // TODO: HACK:
             //  What a mess.
@@ -317,6 +333,33 @@ impl ParticleAppServices {
         FunctionOutcome::Ok(result)
     }
 
+    pub fn call_function(
+        &self,
+        service_id: String,
+        function_name: &str,
+        function_args: Vec<JValue>,
+        init_peer_id: PeerId,
+        particle_ttl: Duration,
+    ) -> FunctionOutcome {
+        let args = Args {
+            service_id,
+            function_name: function_name.to_string(),
+            function_args,
+            tetraplets: vec![],
+        };
+
+        let particle = ParticleParams {
+            id: uuid(),
+            init_peer_id,
+            timestamp: now_ms() as u64,
+            ttl: particle_ttl.as_millis() as u32,
+            script: "".to_string(),
+            signature: vec![],
+        };
+
+        self.call_service(args, particle)
+    }
+
     pub fn add_alias(
         &self,
         alias: String,
@@ -396,6 +439,15 @@ impl ParticleAppServices {
         Ok(self.modules.get_facade_interface(&service.blueprint_id)?)
     }
 
+    pub fn list_services_with_blueprints(&self) -> Vec<(String, String)> {
+        let services = self.services.read();
+        services
+            .iter()
+            .map(|(id, service)| (id.clone(), service.blueprint_id.clone()))
+            .collect()
+    }
+
+    // TODO: move JSON serialization to builtins
     pub fn list_services(&self) -> Vec<JValue> {
         let services = self.services.read();
         let services = services
@@ -413,6 +465,7 @@ impl ParticleAppServices {
         services
     }
 
+    // TODO: move JSON serialization to builtins
     pub fn get_service_mem_stats(&self, service_id: String) -> Result<Vec<JValue>, JError> {
         let services = self.services.read();
         let (service, _) = get_service(&services, &self.aliases.read(), service_id)

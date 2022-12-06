@@ -1,0 +1,35 @@
+[package]
+name = "sorcerer"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+aquamarine = { path = "../aquamarine" }
+spell-storage = { path = "../spell-storage" }
+particle-builtins = { path = "../particle-builtins" }
+particle-services = { path = "../particle-services" }
+particle-modules = { path = "../particle-modules" }
+particle-execution = { path = "../particle-execution" }
+particle-protocol = { path = "../particle-protocol" }
+spell-event-bus = { path = "../crates/spell-event-bus" }
+server-config = { path = "../crates/server-config" }
+particle-args = { path = "../crates/particle-args" }
+uuid-utils = { path = "../crates/uuid-utils" }
+now-millis = { path = "../crates/now-millis" }
+connection-pool = { path = "../connection-pool"}
+kademlia = { path = "../crates/kademlia"}
+fluence-libp2p = { path = "../crates/libp2p" }
+
+libp2p = { workspace = true }
+
+serde_json = { workspace = true }
+parking_lot = { workspace = true }
+log = { workspace = true }
+maplit = { workspace = true }
+futures = { workspace = true }
+eyre = { workspace = true}
+fstrings = { workspace = true}
+async-std = { workspace = true }
+serde = { workspace = true }
