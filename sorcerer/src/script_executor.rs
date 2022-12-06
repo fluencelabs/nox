@@ -28,6 +28,7 @@ impl Sorcerer {
             spell_id,
             "get_u32",
             vec![json!("counter")],
+            None,
             self.node_peer_id,
             self.spell_script_particle_ttl,
         );
@@ -47,6 +48,7 @@ impl Sorcerer {
             spell_id,
             "set_u32",
             vec![json!("counter"), json!(next_counter)],
+            None,
             self.node_peer_id,
             self.spell_script_particle_ttl,
         );
@@ -65,6 +67,7 @@ impl Sorcerer {
             spell_id,
             "get_script_source_from_file",
             vec![],
+            None,
             self.node_peer_id,
             self.spell_script_particle_ttl,
         );

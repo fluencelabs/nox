@@ -16,3 +16,4 @@ tar -C "$SPELL_DIR" -xf "$TAR"
 
 rm "$TAR"
 echo "*** done ***"
+

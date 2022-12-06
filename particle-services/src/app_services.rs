@@ -338,6 +338,7 @@ impl ParticleAppServices {
         service_id: String,
         function_name: &str,
         function_args: Vec<JValue>,
+        particle_id: Option<String>,
         init_peer_id: PeerId,
         particle_ttl: Duration,
     ) -> FunctionOutcome {
@@ -349,7 +350,7 @@ impl ParticleAppServices {
         };
 
         let particle = ParticleParams {
-            id: uuid(),
+            id: particle_id.unwrap_or(uuid()),
             init_peer_id,
             timestamp: now_ms() as u64,
             ttl: particle_ttl.as_millis() as u32,

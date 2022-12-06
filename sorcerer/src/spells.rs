@@ -47,6 +47,7 @@ pub(crate) fn spell_install(
         service_id.clone(),
         "set_script_source_to_file",
         vec![json!(script)],
+        None,
         params.init_peer_id,
         Duration::from_millis(params.ttl as u64),
     );
@@ -96,7 +97,7 @@ pub(crate) fn get_spell_arg(
     params: ParticleParams,
     services: ParticleAppServices,
 ) -> Result<JValue, JError> {
-    let spell_id = parse_spell_id_from(params.id)?;
+    let spell_id = parse_spell_id_from(params.id.clone())?;
     let key = args.function_name;
 
     let result: StringValue =
@@ -104,6 +105,7 @@ pub(crate) fn get_spell_arg(
             spell_id.clone(),
             "read_string",
             vec![json!(key.clone())],
+            Some(params.id),
             params.init_peer_id,
             Duration::from_millis(params.ttl as u64),
         ))?)?;
@@ -122,13 +124,14 @@ pub(crate) fn error_handler(
     params: ParticleParams,
     services: ParticleAppServices,
 ) -> Result<(), JError> {
-    let spell_id = parse_spell_id_from(params.id)?;
+    let spell_id = parse_spell_id_from(params.id.clone())?;
 
     args.function_args.push(json!(params.timestamp));
     let result: UnitValue = serde_json::from_value(process_func_outcome(services.call_function(
         spell_id.clone(),
         "store_error",
         args.function_args.clone(),
+        Some(params.id),
         params.init_peer_id,
         Duration::from_millis(params.ttl as u64),
     ))?)?;
@@ -148,12 +151,13 @@ pub(crate) fn response_handler(
     params: ParticleParams,
     services: ParticleAppServices,
 ) -> Result<(), JError> {
-    let spell_id = parse_spell_id_from(params.id)?;
+    let spell_id = parse_spell_id_from(params.id.clone())?;
 
     let result: UnitValue = serde_json::from_value(process_func_outcome(services.call_function(
         spell_id.clone(),
         "set_json_fields",
         args.function_args.clone(),
+        Some(params.id),
         params.init_peer_id,
         Duration::from_millis(params.ttl as u64),
     ))?)?;

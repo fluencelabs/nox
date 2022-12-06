@@ -18,10 +18,36 @@ use created_swarm::make_swarms_with_cfg;
 use eyre::Context;
 use maplit::hashmap;
 use serde_json::json;
+use serial_test::serial;
 use std::time::Duration;
 
+fn create_spell(client: &mut ConnectedClient, script: &str, period: u32) -> String {
+    let data = hashmap! {
+        "script" => json!(script.to_string()),
+        "period" => json!(period),
+        "client" => json!(client.peer_id.to_string()),
+        "relay" => json!(client.node.to_string()),
+    };
+    client.send_particle(
+        r#"
+        (seq
+            (call relay ("spell" "install") [script period] spell_id)
+            (call client ("return" "") [spell_id])
+        )"#,
+        data.clone(),
+    );
+
+    let response = client.receive_args().wrap_err("receive").unwrap();
+    let spell_id = response[0].as_str().unwrap().to_string();
+    assert_ne!(spell_id.len(), 0);
+
+    spell_id
+}
+
 #[test]
+#[serial]
 fn spell_simple_test() {
+    std::fs::remove_file("/tmp/spell.sqlite").ok();
     let swarms = make_swarms_with_cfg(1, |mut cfg| {
         cfg.timer_resolution = Duration::from_millis(20);
         cfg
@@ -38,24 +64,8 @@ fn spell_simple_test() {
                 (call %init_peer_id% (spell_id "set_string") ["result" script.$.source_code])
             )
         )"#;
-    let data = hashmap! {
-        "script" => json!(script.to_string()),
-        "period" => json!(0),
-        "client" => json!(client.peer_id.to_string()),
-        "relay" => json!(client.node.to_string()),
-    };
-    client.send_particle(
-        r#"
-        (seq
-            (call relay ("spell" "install") [script period] spell_id)
-            (call client ("return" "") [spell_id])
-        )"#,
-        data.clone(),
-    );
 
-    let response = client.receive_args().wrap_err("receive").unwrap();
-    let spell_id = response[0].as_str().unwrap().to_string();
-    assert_ne!(spell_id.len(), 0);
+    let spell_id = create_spell(&mut client, script, 0);
 
     let mut result = " ".to_string();
     let mut counter = 0;
@@ -86,4 +96,51 @@ fn spell_simple_test() {
 
     assert_eq!(result, script);
     assert_ne!(counter, 0);
+}
+
+#[test]
+#[serial]
+fn spell_error_handling_test() {
+    std::fs::remove_file("/tmp/spell.sqlite").ok();
+    let swarms = make_swarms_with_cfg(1, |mut cfg| {
+        cfg.timer_resolution = Duration::from_millis(20);
+        cfg
+    });
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .wrap_err("connect client")
+        .unwrap();
+
+    let failing_script = r#"
+        (xor
+            (call %init_peer_id% ("srv" "remove") ["non_existent_srv_id"])
+            (call %init_peer_id% ("errorHandlingSrv" "error") [%last_error% 1])        
+        )"#;
+    let spell_id = create_spell(&mut client, failing_script, 0);
+
+    // let's retrieve error from the first spell particle
+    let particle_id = format!("spell_{}_{}", spell_id, 0);
+    let mut result = vec![];
+    for _ in 1..10 {
+        let data = hashmap! {
+            "spell_id" => json!(spell_id),
+            "particle_id" => json!(particle_id),
+            "client" => json!(client.peer_id.to_string()),
+            "relay" => json!(client.node.to_string()),
+        };
+        client.send_particle(
+            r#"
+        (seq  
+            (call relay (spell_id "get_errors") [particle_id] result)
+            (call client ("return" "") [result])
+        )"#,
+            data.clone(),
+        );
+
+        let response = client.receive_args().wrap_err("receive").unwrap();
+        if !response[0].as_array().unwrap().is_empty() {
+            result = response[0].as_array().unwrap().clone();
+        }
+    }
+
+    assert_eq!(result.len(), 1);
 }
