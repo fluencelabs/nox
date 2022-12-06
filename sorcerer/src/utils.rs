@@ -14,11 +14,16 @@
  * limitations under the License.
  */
 
+use fluence_spell_dtos::value::SpellValueT;
 use particle_args::JError;
 use particle_execution::FunctionOutcome;
-use serde_json::Value as JValue;
+use serde::de::DeserializeOwned;
 
-pub(crate) fn process_func_outcome(func_outcome: FunctionOutcome) -> Result<JValue, JError> {
+/// Return Ok(T) if result.success is true, return Err(T.error) otherwise
+pub(crate) fn process_func_outcome<T>(func_outcome: FunctionOutcome) -> Result<T, JError>
+where
+    T: DeserializeOwned + SpellValueT,
+{
     match func_outcome {
         FunctionOutcome::NotDefined { args, .. } => Err(JError::new(format!(
             "Service with id '{}' not found (function {})",
@@ -26,7 +31,14 @@ pub(crate) fn process_func_outcome(func_outcome: FunctionOutcome) -> Result<JVal
         ))),
         FunctionOutcome::Empty => Err(JError::new("Function has not returned any result")),
         FunctionOutcome::Err(err) => Err(JError::new(err.to_string())),
-        FunctionOutcome::Ok(v) => Ok(v),
+        FunctionOutcome::Ok(v) => {
+            let result = serde_json::from_value::<T>(v)?;
+            if result.is_success() {
+                Ok(result)
+            } else {
+                Err(JError::new(result.get_error()))
+            }
+        }
     }
 }
 

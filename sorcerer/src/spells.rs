@@ -19,9 +19,9 @@ use fluence_spell_dtos::value::{StringValue, UnitValue};
 use particle_args::{Args, JError};
 use particle_execution::ParticleParams;
 use particle_services::ParticleAppServices;
-use serde_json::json;
 use serde_json::Value as JValue;
 use serde_json::Value::Array;
+use serde_json::{json, Value};
 use spell_event_bus::scheduler::api::{SchedulerApi, TimerConfig};
 use spell_storage::SpellStorage;
 use std::time::Duration;
@@ -35,6 +35,7 @@ pub(crate) fn spell_install(
 ) -> Result<JValue, JError> {
     let mut args = sargs.function_args.clone().into_iter();
     let script: String = Args::next("script", &mut args)?;
+    let init_data: String = Args::next("data", &mut args)?;
     // TODO: redo config when other event are supported
     let period: u64 = Args::next("period", &mut args)?;
 
@@ -43,15 +44,24 @@ pub(crate) fn spell_install(
     spell_storage.register_spell(service_id.clone());
 
     // Save the script to the spell
-    services.call_function(
+    process_func_outcome::<UnitValue>(services.call_function(
         service_id.clone(),
         "set_script_source_to_file",
         vec![json!(script)],
         None,
         params.init_peer_id,
         Duration::from_millis(params.ttl as u64),
-    );
+    ))?;
 
+    // Save init_data to the spell's KV
+    process_func_outcome::<UnitValue>(services.call_function(
+        service_id.clone(),
+        "set_json_fields",
+        vec![json!(init_data)],
+        None,
+        params.init_peer_id,
+        Duration::from_millis(params.ttl as u64),
+    ))?;
     // TODO: also save trigger config
 
     // Scheduling the spell
@@ -100,23 +110,16 @@ pub(crate) fn get_spell_arg(
     let spell_id = parse_spell_id_from(params.id.clone())?;
     let key = args.function_name;
 
-    let result: StringValue =
-        serde_json::from_value(process_func_outcome(services.call_function(
-            spell_id.clone(),
-            "read_string",
-            vec![json!(key.clone())],
-            Some(params.id),
-            params.init_peer_id,
-            Duration::from_millis(params.ttl as u64),
-        ))?)?;
-
-    if result.success {
-        Ok(json!(result.str))
-    } else {
-        Err(JError::new(f!(
-            "Failed to get argument {key} for spell {spell_id}: {result.error}"
-        )))
-    }
+    process_func_outcome::<StringValue>(services.call_function(
+        spell_id.clone(),
+        "read_string",
+        vec![json!(key.clone())],
+        Some(params.id),
+        params.init_peer_id,
+        Duration::from_millis(params.ttl as u64),
+    ))
+    .map(|v| json!(v.str))
+    .map_err(|e| JError::new(f!("Failed to get argument {key} for spell {spell_id}: {e}")))
 }
 
 pub(crate) fn error_handler(
@@ -127,23 +130,21 @@ pub(crate) fn error_handler(
     let spell_id = parse_spell_id_from(params.id.clone())?;
 
     args.function_args.push(json!(params.timestamp));
-    let result: UnitValue = serde_json::from_value(process_func_outcome(services.call_function(
+    process_func_outcome::<UnitValue>(services.call_function(
         spell_id.clone(),
         "store_error",
         args.function_args.clone(),
         Some(params.id),
         params.init_peer_id,
         Duration::from_millis(params.ttl as u64),
-    ))?)?;
-
-    if result.success {
-        Ok(())
-    } else {
-        Err(JError::new(format!(
+    ))
+    .map(drop)
+    .map_err(|e| {
+        JError::new(format!(
             "Failed to store error {:?} for spell {}: {}",
-            args.function_args, spell_id, result.error
-        )))
-    }
+            args.function_args, spell_id, e
+        ))
+    })
 }
 
 pub(crate) fn response_handler(
@@ -153,21 +154,19 @@ pub(crate) fn response_handler(
 ) -> Result<(), JError> {
     let spell_id = parse_spell_id_from(params.id.clone())?;
 
-    let result: UnitValue = serde_json::from_value(process_func_outcome(services.call_function(
+    process_func_outcome::<UnitValue>(services.call_function(
         spell_id.clone(),
         "set_json_fields",
         args.function_args.clone(),
         Some(params.id),
         params.init_peer_id,
         Duration::from_millis(params.ttl as u64),
-    ))?)?;
-
-    if result.success {
-        Ok(())
-    } else {
-        Err(JError::new(format!(
+    ))
+    .map(drop)
+    .map_err(|e| {
+        JError::new(format!(
             "Failed to store response {:?} for spell {}: {}",
-            args.function_args, spell_id, result.error
-        )))
-    }
+            args.function_args, spell_id, e
+        ))
+    })
 }

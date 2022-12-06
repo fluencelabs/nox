@@ -17,7 +17,8 @@
 use fluence_spell_dtos::value::{ScriptValue, U32Value, UnitValue};
 use serde_json::json;
 
-use crate::{utils, Sorcerer};
+use crate::utils::process_func_outcome;
+use crate::Sorcerer;
 use now_millis::now_ms;
 use particle_args::JError;
 use particle_protocol::Particle;
@@ -33,10 +34,8 @@ impl Sorcerer {
             self.spell_script_particle_ttl,
         );
 
-        let result: U32Value = serde_json::from_value(utils::process_func_outcome(func_outcome)?)?;
-
-        if result.success {
-            Ok(result.num)
+        if let Ok(res) = process_func_outcome::<U32Value>(func_outcome) {
+            Ok(res.num)
         } else {
             // If key is not exists we will create it on the next step
             Ok(0u32)
@@ -53,13 +52,7 @@ impl Sorcerer {
             self.spell_script_particle_ttl,
         );
 
-        let result: UnitValue = serde_json::from_value(utils::process_func_outcome(func_outcome)?)?;
-
-        if result.success {
-            Ok(())
-        } else {
-            Err(JError::new(result.error))
-        }
+        process_func_outcome::<UnitValue>(func_outcome).map(drop)
     }
 
     fn get_spell_script(&self, spell_id: String) -> Result<String, JError> {
@@ -72,14 +65,7 @@ impl Sorcerer {
             self.spell_script_particle_ttl,
         );
 
-        let result: ScriptValue =
-            serde_json::from_value(utils::process_func_outcome(func_outcome)?)?;
-
-        if result.success {
-            Ok(result.source_code)
-        } else {
-            Err(JError::new(result.error))
-        }
+        Ok(process_func_outcome::<ScriptValue>(func_outcome)?.source_code)
     }
 
     pub(crate) fn get_spell_particle(&self, spell_id: String) -> Result<Particle, JError> {

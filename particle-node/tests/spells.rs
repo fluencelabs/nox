@@ -17,21 +17,27 @@ use connected_client::ConnectedClient;
 use created_swarm::make_swarms_with_cfg;
 use eyre::Context;
 use maplit::hashmap;
-use serde_json::json;
-use serial_test::serial;
+use serde_json::{json, Value};
+use std::collections::HashMap;
 use std::time::Duration;
 
-fn create_spell(client: &mut ConnectedClient, script: &str, period: u32) -> String {
+fn create_spell(
+    client: &mut ConnectedClient,
+    script: &str,
+    period: u32,
+    init_data: HashMap<String, Value>,
+) -> String {
     let data = hashmap! {
         "script" => json!(script.to_string()),
         "period" => json!(period),
         "client" => json!(client.peer_id.to_string()),
         "relay" => json!(client.node.to_string()),
+        "data" => json!(json!(init_data).to_string()),
     };
     client.send_particle(
         r#"
         (seq
-            (call relay ("spell" "install") [script period] spell_id)
+            (call relay ("spell" "install") [script data period] spell_id)
             (call client ("return" "") [spell_id])
         )"#,
         data.clone(),
@@ -45,7 +51,6 @@ fn create_spell(client: &mut ConnectedClient, script: &str, period: u32) -> Stri
 }
 
 #[test]
-#[serial]
 fn spell_simple_test() {
     std::fs::remove_file("/tmp/spell.sqlite").ok();
     let swarms = make_swarms_with_cfg(1, |mut cfg| {
@@ -65,7 +70,7 @@ fn spell_simple_test() {
             )
         )"#;
 
-    let spell_id = create_spell(&mut client, script, 0);
+    let spell_id = create_spell(&mut client, script, 0, hashmap! {});
 
     let mut result = " ".to_string();
     let mut counter = 0;
@@ -99,7 +104,6 @@ fn spell_simple_test() {
 }
 
 #[test]
-#[serial]
 fn spell_error_handling_test() {
     std::fs::remove_file("/tmp/spell.sqlite").ok();
     let swarms = make_swarms_with_cfg(1, |mut cfg| {
@@ -115,7 +119,7 @@ fn spell_error_handling_test() {
             (call %init_peer_id% ("srv" "remove") ["non_existent_srv_id"])
             (call %init_peer_id% ("errorHandlingSrv" "error") [%last_error% 1])        
         )"#;
-    let spell_id = create_spell(&mut client, failing_script, 0);
+    let spell_id = create_spell(&mut client, failing_script, 0, hashmap! {});
 
     // let's retrieve error from the first spell particle
     let particle_id = format!("spell_{}_{}", spell_id, 0);
@@ -144,3 +148,6 @@ fn spell_error_handling_test() {
 
     assert_eq!(result.len(), 1);
 }
+
+#[test]
+fn spell_args_test() {}
