@@ -100,7 +100,7 @@ pub(crate) fn spell_remove(
 }
 
 pub(crate) fn get_spell_id(_args: Args, params: ParticleParams) -> Result<JValue, JError> {
-    Ok(json!(parse_spell_id_from(params.id)?))
+    Ok(json!(parse_spell_id_from(&params.id)?))
 }
 
 pub(crate) fn get_spell_arg(
@@ -108,14 +108,14 @@ pub(crate) fn get_spell_arg(
     params: ParticleParams,
     services: ParticleAppServices,
 ) -> Result<JValue, JError> {
-    let spell_id = parse_spell_id_from(params.id.clone())?;
+    let spell_id = parse_spell_id_from(&params.id)?;
     let key = args.function_name;
 
     process_func_outcome::<StringValue>(services.call_function(
-        spell_id.clone(),
+        spell_id.to_string(),
         "get_string",
         vec![json!(key.clone())],
-        Some(params.id),
+        Some(params.id.clone()),
         params.init_peer_id,
         Duration::from_millis(params.ttl as u64),
     ))
@@ -123,19 +123,19 @@ pub(crate) fn get_spell_arg(
     .map_err(|e| JError::new(f!("Failed to get argument {key} for spell {spell_id}: {e}")))
 }
 
-pub(crate) fn error_handler(
+pub(crate) fn store_error(
     mut args: Args,
     params: ParticleParams,
     services: ParticleAppServices,
 ) -> Result<(), JError> {
-    let spell_id = parse_spell_id_from(params.id.clone())?;
+    let spell_id = parse_spell_id_from(&params.id)?;
 
     args.function_args.push(json!(params.timestamp));
     process_func_outcome::<UnitValue>(services.call_function(
-        spell_id.clone(),
+        spell_id.to_string(),
         "store_error",
         args.function_args.clone(),
-        Some(params.id),
+        Some(params.id.clone()),
         params.init_peer_id,
         Duration::from_millis(params.ttl as u64),
     ))
@@ -148,18 +148,18 @@ pub(crate) fn error_handler(
     })
 }
 
-pub(crate) fn response_handler(
+pub(crate) fn store_response(
     args: Args,
     params: ParticleParams,
     services: ParticleAppServices,
 ) -> Result<(), JError> {
-    let spell_id = parse_spell_id_from(params.id.clone())?;
+    let spell_id = parse_spell_id_from(&params.id)?;
 
     process_func_outcome::<UnitValue>(services.call_function(
-        spell_id.clone(),
+        spell_id.to_string(),
         "set_json_fields",
         args.function_args.clone(),
-        Some(params.id),
+        Some(params.id.clone()),
         params.init_peer_id,
         Duration::from_millis(params.ttl as u64),
     ))

@@ -42,15 +42,17 @@ where
     }
 }
 
-pub(crate) fn parse_spell_id_from(particle_id: String) -> eyre::Result<String, JError> {
+pub(crate) fn parse_spell_id_from(particle_id: &str) -> Result<&str, JError> {
     if particle_id.starts_with("spell_") {
         Ok(particle_id
             .split('_')
             .collect::<Vec<&str>>()
             .get(1)
-            .ok_or(JError::new("Invalid particle id format"))?
-            .to_string())
+            .ok_or(JError::new("Invalid particle id format"))?)
     } else {
-        Err(JError::new("Invalid particle id format"))
+        Err(JError::new(format!(
+            "Expected spell particle id to start with 'spell_': {}",
+            particle_id
+        )))
     }
 }

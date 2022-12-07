@@ -15,8 +15,8 @@
  */
 
 use crate::spells::{
-    error_handler, get_spell_arg, get_spell_id, response_handler, spell_install, spell_list,
-    spell_remove,
+    get_spell_arg, get_spell_id, spell_install, spell_list, spell_remove, store_error,
+    store_response,
 };
 
 use async_std::task::{spawn, JoinHandle};
@@ -169,7 +169,7 @@ impl Sorcerer {
         let services = self.services.clone();
         let error_handler_closure: ServiceFunction = Box::new(move |args, params| {
             let services = services.clone();
-            async move { wrap_unit(error_handler(args, params, services)) }.boxed()
+            async move { wrap_unit(store_error(args, params, services)) }.boxed()
         });
 
         service_functions.push((
@@ -183,7 +183,7 @@ impl Sorcerer {
         let services = self.services.clone();
         let response_handler_closure: ServiceFunction = Box::new(move |args, params| {
             let services = services.clone();
-            async move { wrap_unit(response_handler(args, params, services)) }.boxed()
+            async move { wrap_unit(store_response(args, params, services)) }.boxed()
         });
 
         service_functions.push((
