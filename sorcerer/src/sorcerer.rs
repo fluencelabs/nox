@@ -14,11 +14,6 @@
  * limitations under the License.
  */
 
-use crate::spells::{
-    get_spell_arg, get_spell_id, spell_install, spell_list, spell_remove, store_error,
-    store_response,
-};
-
 use async_std::task::{spawn, JoinHandle};
 use std::collections::HashMap;
 use std::time::Duration;
@@ -36,6 +31,11 @@ use particle_services::ParticleAppServices;
 use server_config::ResolvedConfig;
 use spell_event_bus::scheduler::api::{Event, SchedulerApi};
 use spell_storage::SpellStorage;
+
+use crate::spells::{
+    get_spell_arg, get_spell_id, spell_install, spell_list, spell_remove, store_error,
+    store_response,
+};
 
 #[derive(Clone)]
 pub struct Sorcerer {
@@ -159,10 +159,7 @@ impl Sorcerer {
         });
         service_functions.push((
             "getDataSrv".to_string(),
-            hashmap! {
-                "spell_id".to_string() => get_spell_id_closure
-
-            },
+            hashmap! {"spell_id".to_string() => get_spell_id_closure},
             Some(get_spell_arg_closure),
         ));
 
@@ -174,9 +171,7 @@ impl Sorcerer {
 
         service_functions.push((
             "errorHandlingSrv".to_string(),
-            hashmap! {
-                "error".to_string() => error_handler_closure,
-            },
+            hashmap! {"error".to_string() => error_handler_closure},
             None,
         ));
 
@@ -188,9 +183,7 @@ impl Sorcerer {
 
         service_functions.push((
             "callbackSrv".to_string(),
-            hashmap! {
-                "response".to_string() => response_handler_closure,
-            },
+            hashmap! {"response".to_string() => response_handler_closure},
             None,
         ));
 

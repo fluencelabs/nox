@@ -13,18 +13,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::time::Duration;
 
-use crate::utils::{parse_spell_id_from, process_func_outcome};
 use fluence_spell_dtos::value::{StringValue, UnitValue};
+use serde_json::{json, Value as JValue, Value::Array};
+
 use particle_args::{Args, JError};
 use particle_execution::ParticleParams;
 use particle_services::ParticleAppServices;
-use serde_json::json;
-use serde_json::Value as JValue;
-use serde_json::Value::Array;
 use spell_event_bus::scheduler::api::{SchedulerApi, TimerConfig};
 use spell_storage::SpellStorage;
-use std::time::Duration;
+
+use crate::utils::{parse_spell_id_from, process_func_outcome};
 
 pub(crate) fn spell_install(
     sargs: Args,

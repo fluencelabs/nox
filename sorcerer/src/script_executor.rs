@@ -13,15 +13,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 use fluence_spell_dtos::value::{ScriptValue, U32Value, UnitValue};
 use serde_json::json;
 
-use crate::utils::process_func_outcome;
-use crate::Sorcerer;
 use now_millis::now_ms;
 use particle_args::JError;
 use particle_protocol::Particle;
+
+use crate::utils::process_func_outcome;
+use crate::Sorcerer;
 
 impl Sorcerer {
     fn get_spell_counter(&self, spell_id: String) -> Result<u32, JError> {

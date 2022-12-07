@@ -15,9 +15,10 @@
  */
 
 use fluence_spell_dtos::value::SpellValueT;
+use serde::de::DeserializeOwned;
+
 use particle_args::JError;
 use particle_execution::FunctionOutcome;
-use serde::de::DeserializeOwned;
 
 /// Return Ok(T) if result.success is true, return Err(T.error) otherwise
 pub(crate) fn process_func_outcome<T>(
