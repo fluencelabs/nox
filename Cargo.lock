@@ -4172,6 +4172,7 @@ dependencies = [
  "fluence-app-service",
  "fluence-keypair",
  "fluence-libp2p",
+ "fluence-spell-dtos",
  "fs-utils",
  "fstrings",
  "futures",
