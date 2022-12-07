@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#![feature(int_log)]
 #![feature(stmt_expr_attributes)]
 #![feature(try_trait_v2)]
 #![feature(try_blocks)]
