@@ -267,11 +267,19 @@ mod tests {
             panic!("no builtins in plumber tests!")
         }
 
-        fn extend(&self, _service: String, _functions: HashMap<String, ServiceFunction>) {
+        fn extend(
+            &self,
+            _service: String,
+            _functions: HashMap<String, ServiceFunction>,
+            _unhandled: Option<ServiceFunction>,
+        ) {
             todo!()
         }
 
-        fn remove(&self, _service: &str) -> Option<HashMap<String, ServiceFunction>> {
+        fn remove(
+            &self,
+            _service: &str,
+        ) -> Option<(HashMap<String, ServiceFunction>, Option<ServiceFunction>)> {
             todo!()
         }
     }
