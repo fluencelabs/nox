@@ -39,7 +39,7 @@ fn create_service_from_config() {
           "name": "pure_base64",
           "preopened_files": [
             [
-              "/tmp"
+              "tmp"
             ]
           ],
           "mem_pages_count": [
