@@ -29,7 +29,7 @@ use particle_execution::ServiceFunction;
 use particle_modules::ModuleRepository;
 use particle_services::ParticleAppServices;
 use server_config::ResolvedConfig;
-use spell_event_bus::api::{SpellEvent, SpellEventBusApi};
+use spell_event_bus::api::{SpellEventBusApi, TriggerEvent};
 use spell_storage::SpellStorage;
 
 use crate::spells::{
@@ -91,7 +91,7 @@ impl Sorcerer {
         (sorcerer, spell_service_functions)
     }
 
-    pub fn start(self, spell_events_stream: Inlet<SpellEvent>) -> JoinHandle<()> {
+    pub fn start(self, spell_events_stream: Inlet<TriggerEvent>) -> JoinHandle<()> {
         spawn(async {
             spell_events_stream
                 .for_each_concurrent(None, move |spell_event| {
@@ -121,9 +121,7 @@ impl Sorcerer {
                     storage,
                     services,
                     spell_event_bus_api,
-                    args,
-                    params,
-                ))
+                ).await)
             }
             .boxed()
         });
@@ -135,7 +133,7 @@ impl Sorcerer {
             let storage = storage.clone();
             let services = services.clone();
             let api = spell_event_bus_api.clone();
-            async move { wrap_unit(spell_remove(api, storage, services, args, params).await) }
+            async move { wrap_unit(spell_remove(args, params, storage, services, api).await) }
                 .boxed()
         });
 

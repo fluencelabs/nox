@@ -60,11 +60,9 @@ struct Scheduled {
 
 impl Scheduled {
     // schedule to no earlier than now + data.period
-    fn at(data: Periodic, now: Instant) -> Result<Scheduled, BusError> {
-        match now.checked_add(data.period) {
-            Some(run_at) => Ok(Scheduled { data, run_at }),
-            None => Err(BusError::Schedule((*data.id).clone(), data.period)),
-        }
+    fn at(data: Periodic, now: Instant) -> Option<Scheduled> {
+        let run_at = now.checked_add(data.period)?;
+        Some(Scheduled { data, run_at })
     }
 }
 
@@ -94,13 +92,9 @@ impl SubscribersState {
         }
     }
 
-    fn subscribe(
-        &mut self,
-        spell_id: SpellId,
-        config: SpellTriggerConfigs,
-    ) -> Result<(), BusError> {
+    fn subscribe(&mut self, spell_id: SpellId, config: &SpellTriggerConfigs) -> Option<()> {
         let spell_id = Arc::new(spell_id);
-        for config in config.triggers {
+        for config in &config.triggers {
             match config {
                 TriggerConfig::Timer(config) => {
                     let periodic = Periodic {
@@ -111,11 +105,12 @@ impl SubscribersState {
                     self.scheduled.push(scheduled);
                 }
                 TriggerConfig::PeerEvent(config) => {
-                    self.subscribers.add(spell_id.clone(), config.events);
+                    self.subscribers
+                        .add(spell_id.clone(), config.events.clone());
                 }
             }
         }
-        Ok(())
+        Some(())
     }
 
     fn unsubscribe(&mut self, spell_id: &SpellId) {
@@ -136,14 +131,12 @@ impl SubscribersState {
 }
 
 #[derive(Debug, Error)]
-enum BusError {
+enum BusInternalError {
     // oneshot::Sender doesn't provide the reasons why it failed to send a message
-    #[error("failed to unsubscribe a spell {0}: receiving end probably dropped")]
-    Unsubscribe(SpellId),
+    #[error("failed to send a result of a command execution ({1:?}) for a spell {0}: receiving end probably dropped")]
+    Reply(SpellId, Action),
     #[error("failed to send notification about a peer event {1:?} to spell {0}: {2}")]
     SendEvent(SpellId, Event, SendError),
-    #[error("failed to schedule a spell {0} with period {1:?} due to time overflow")]
-    Schedule(SpellId, Duration),
 }
 
 pub struct SpellEventBus {
@@ -152,13 +145,13 @@ pub struct SpellEventBus {
     // API connections
     recv_cmd_channel: Inlet<Command>,
     // Notify when event to which a spell subscribed happened.
-    send_events: Outlet<SpellEvent>,
+    send_events: Outlet<TriggerEvent>,
 }
 
 impl SpellEventBus {
     pub fn new(
         sources: Vec<BoxStream<'static, PeerEvent>>,
-    ) -> (Self, SpellEventBusApi, Inlet<SpellEvent>) {
+    ) -> (Self, SpellEventBusApi, Inlet<TriggerEvent>) {
         let (send_cmd_channel, recv_cmd_channel) = unbounded();
         let api = SpellEventBusApi { send_cmd_channel };
 
@@ -198,51 +191,53 @@ impl SpellEventBus {
                 async_std::stream::interval(next_scheduled_in).fuse()
             };
 
-            let result: Result<(), BusError> = try {
+            let result: Result<(), BusInternalError> = try {
                 select! {
                     command = recv_cmd_channel.select_next_some() => {
-                        match command {
-                            Command::Subscribe(spell_id, config) => {
-                                state.subscribe(spell_id.clone(), config)?;
+                        let Command { spell_id, action, reply } = command;
+                        match &action {
+                            Action::Subscribe(config) => {
+                                // TODO: make it possible to construct the config ONLY via `verify :: UserConfig -> Result<SpellTriggerConfigs, _>`.
+                                state.subscribe(spell_id.clone(), &config).expect("invalid timer config detected while subscribing a spell");
                             },
-                            Command::Unsubscribe(spell_id, reply) => {
+                            Action::Unsubscribe => {
                                 state.unsubscribe(&spell_id);
-                                reply.send(()).map_err(|_| BusError::Unsubscribe(spell_id))?;
                             },
-                        }
+                        };
+                        reply.send(()).map_err(|_| BusInternalError::Reply(spell_id, action))?;
                     },
                     event = sources_channel.select_next_some() => {
                         for spell_id in state.subscribers(&event.get_type()) {
                             let event = Event::Peer(event.clone());
-                            Self::notify_spell(&send_events, spell_id, event)?;
+                            Self::trigger_spell(&send_events, spell_id, event)?;
                         }
                     },
                     _ = timer.select_next_some() => {
                         // The timer is triggered only if there are some spells to be awaken.
                         let scheduled_spell = state.scheduled.pop().expect("billions of years have gone by already?");
-                        Self::notify_spell(&send_events, &scheduled_spell.data.id, Event::Timer)?;
-                        let rescheduled = Scheduled::at(scheduled_spell.data, Instant::now())?;
+                        Self::trigger_spell(&send_events, &scheduled_spell.data.id, Event::Timer)?;
+                        let rescheduled = Scheduled::at(scheduled_spell.data, Instant::now()).expect("invalid timer config detected while rescheduling a spell");
                         state.scheduled.push(rescheduled);
                     },
                 }
             };
             if let Err(e) = result {
-                log::error!("{}", e);
+                log::error!("spell-event-bus internal error: {}", e);
             }
         }
     }
 
-    fn notify_spell(
-        send_events: &Outlet<SpellEvent>,
+    fn trigger_spell(
+        send_events: &Outlet<TriggerEvent>,
         id: &Arc<SpellId>,
         event: Event,
-    ) -> Result<(), BusError> {
+    ) -> Result<(), BusInternalError> {
         send_events
-            .unbounded_send(SpellEvent {
+            .unbounded_send(TriggerEvent {
                 id: (**id).clone(),
                 event: event.clone(),
             })
-            .map_err(|e| BusError::SendEvent((**id).clone(), event, e.into_send_error()))?;
+            .map_err(|e| BusInternalError::SendEvent((**id).clone(), event, e.into_send_error()))?;
         Ok(())
     }
 }
@@ -265,23 +260,23 @@ mod tests {
         let spell2_id = "spell2".to_string();
         let spell1_period = Duration::from_millis(5);
         let spell2_period = Duration::from_secs(10);
-        api.subscribe(
+        task::block_on(api.subscribe(
             spell1_id.clone(),
             SpellTriggerConfigs {
                 triggers: vec![TriggerConfig::Timer(TimerConfig {
                     period: spell1_period,
                 })],
             },
-        )
+        ))
         .unwrap();
-        api.subscribe(
+        task::block_on(api.subscribe(
             spell2_id.clone(),
             SpellTriggerConfigs {
                 triggers: vec![TriggerConfig::Timer(TimerConfig {
                     period: spell2_period,
                 })],
             },
-        )
+        ))
         .unwrap();
 
         // let's remove spell2
@@ -289,7 +284,7 @@ mod tests {
 
         // let's collect 5 more events from spell1
         let events =
-            task::block_on(async { event_stream.take(5).collect::<Vec<SpellEvent>>().await });
+            task::block_on(async { event_stream.take(5).collect::<Vec<TriggerEvent>>().await });
         assert_eq!(events.len(), 5);
         for event in events.into_iter() {
             assert_eq!(event.id, spell1_id.clone(),);

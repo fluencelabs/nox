@@ -18,19 +18,20 @@ use std::time::Duration;
 use fluence_spell_dtos::value::{StringValue, UnitValue};
 use serde_json::{json, Value as JValue, Value::Array};
 
-use fluence_spell_dtos::trigger_config::TriggerConfig;
 use particle_args::{Args, JError};
 use particle_execution::ParticleParams;
 use particle_services::ParticleAppServices;
 use spell_event_bus::{
     api,
-    api::{PeerEventType, SpellEventBusApi, TimerConfig},
+    api::{SpellEventBusApi, TimerConfig},
 };
 use spell_storage::SpellStorage;
 use crate::utils::{parse_spell_id_from, process_func_outcome};
 use std::time::Duration;
 
 /// Convert user-friendly config to event-bus-friendly config.
+/*
+// Example of possible conversion implementation
 fn _from_user_config(user_config: TriggerConfig) -> Option<api::SpellTriggerConfigs> {
     let mut triggers = Vec::new();
     // Process timer config
@@ -60,8 +61,9 @@ fn _from_user_config(user_config: TriggerConfig) -> Option<api::SpellTriggerConf
         Some(api::SpellTriggerConfigs { triggers })
     }
 }
+ */
 
-pub(crate) fn spell_install(
+pub(crate) async fn spell_install(
     sargs: Args,
     params: ParticleParams,
     spell_storage: SpellStorage,
@@ -73,11 +75,12 @@ pub(crate) fn spell_install(
     let init_data: String = Args::next("data", &mut args)?;
     log::info!("Init data: {}", json!(init_data));
     // TODO: use TriggerConfig when it's deserializable
+    // TODO: validate the config before everything
     let period: u64 = Args::next("period", &mut args)?;
 
     // TODO: create service on behalf of spell keypair
-    let service_id = services.create_service(spell_storage.get_blueprint(), params.init_peer_id)?;
-    spell_storage.register_spell(service_id.clone());
+    let spell_id = services.create_service(spell_storage.get_blueprint(), params.init_peer_id)?;
+    spell_storage.register_spell(spell_id.clone());
 
     // TODO: refactor these service calls
     // Save the script to the spell
@@ -115,8 +118,21 @@ pub(crate) fn spell_install(
             period: Duration::from_secs(period),
         })],
     };
-    spell_event_bus_api.subscribe(service_id.clone(), config)?;
-    Ok(JValue::String(service_id))
+    if let Err(err) = spell_event_bus_api
+        .subscribe(spell_id.clone(), config.clone())
+        .await
+    {
+        log::error!("can't subscribe a spell {} to triggers {:?} via spell-event-bus-api: {}. Removing created spell service...", spell_id, config, err);
+
+        spell_storage.unregister_spell(&spell_id);
+        services.remove_service(spell_id, params.init_peer_id)?;
+
+        return Err(JError::new(format!(
+            "can't install a spell due to an internal error"
+        )));
+    }
+
+    Ok(JValue::String(spell_id))
 }
 
 pub(crate) fn spell_list(spell_storage: SpellStorage) -> Result<JValue, JError> {
@@ -130,16 +146,25 @@ pub(crate) fn spell_list(spell_storage: SpellStorage) -> Result<JValue, JError> 
 }
 
 pub(crate) async fn spell_remove(
-    spell_event_bus_api: SpellEventBusApi,
     args: Args,
     params: ParticleParams,
     spell_storage: SpellStorage,
     services: ParticleAppServices,
+    spell_event_bus_api: SpellEventBusApi,
 ) -> Result<(), JError> {
     let mut args = args.function_args.into_iter();
     let spell_id: String = Args::next("spell_id", &mut args)?;
-
-    spell_event_bus_api.unsubscribe(spell_id.clone()).await?;
+    if let Err(err) = spell_event_bus_api.unsubscribe(spell_id.clone()).await {
+        log::error!(
+            "can't unsubscribe a spell {} from its triggers via spell-event-bus-api: {}",
+            spell_id,
+            err
+        );
+        return Err(JError::new(format!(
+            "can't remove a spell {} due to an internal error",
+            spell_id
+        )));
+    }
 
     // TODO: remove spells by aliases too
     spell_storage.unregister_spell(&spell_id);

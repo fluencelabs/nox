@@ -57,7 +57,7 @@ use peer_metrics::{
 use script_storage::{ScriptStorageApi, ScriptStorageBackend, ScriptStorageConfig};
 use server_config::{NetworkConfig, ResolvedConfig, ServicesConfig};
 use sorcerer::Sorcerer;
-use spell_event_bus::api::{PeerEvent, SpellEvent, SpellEventBusApi};
+use spell_event_bus::api::{PeerEvent, SpellEventBusApi, TriggerEvent};
 use spell_event_bus::bus::SpellEventBus;
 
 use crate::dispatcher::Dispatcher;
@@ -81,7 +81,7 @@ pub struct Node<RT: AquaRuntime> {
     script_storage: ScriptStorageBackend,
     builtins_deployer: BuiltinsDeployer,
     spell_event_bus: SpellEventBus,
-    spell_events_stream: Inlet<SpellEvent>,
+    spell_events_stream: Inlet<TriggerEvent>,
     sorcerer: Sorcerer,
 
     registry: Option<Registry>,
@@ -324,7 +324,7 @@ impl<RT: AquaRuntime> Node<RT> {
         script_storage: ScriptStorageBackend,
         builtins_deployer: BuiltinsDeployer,
         spell_event_bus: SpellEventBus,
-        spell_events_stream: Inlet<SpellEvent>,
+        spell_events_stream: Inlet<TriggerEvent>,
         sorcerer: Sorcerer,
 
         registry: Option<Registry>,

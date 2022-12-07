@@ -1,26 +1,27 @@
 use connection_pool::LifecycleEvent;
 use fluence_libp2p::types::{OneshotOutlet, Outlet};
+use futures::channel::mpsc::SendError;
 use futures::{channel::oneshot, future::BoxFuture, FutureExt};
 use std::time::Duration;
 use thiserror::Error;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SpellTriggerConfigs {
     pub triggers: Vec<TriggerConfig>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum TriggerConfig {
     Timer(TimerConfig),
     PeerEvent(PeerEventConfig),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct TimerConfig {
     pub period: Duration,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct PeerEventConfig {
     pub events: Vec<PeerEventType>,
 }
@@ -28,7 +29,7 @@ pub struct PeerEventConfig {
 pub type SpellId = String;
 
 #[derive(Debug)]
-pub struct SpellEvent {
+pub struct TriggerEvent {
     pub id: SpellId,
     pub event: Event,
 }
@@ -66,22 +67,31 @@ pub enum PeerEventType {
 }
 
 #[derive(Debug)]
-pub(crate) enum Command {
-    /// Subscribe a listener with a specified ID to a list of events
-    Subscribe(SpellId, SpellTriggerConfigs),
-    /// Remove all listeners with this ID
-    Unsubscribe(SpellId, OneshotOutlet<()>),
+pub(crate) struct Command {
+    pub(crate) spell_id: SpellId,
+    pub(crate) action: Action,
+    pub(crate) reply: OneshotOutlet<()>,
+}
+
+#[derive(Debug, Clone)]
+pub enum Action {
+    /// Subscribe a spell to a list of triggers
+    Subscribe(SpellTriggerConfigs),
+    /// Remove all subscriptions of a spell
+    Unsubscribe,
 }
 
 #[derive(Error, Debug)]
 pub enum EventBusError {
-    #[error("can't send a command `{command}` for spell `{id}` to spell-event-bus: {reason}")]
+    #[error(
+        "can't send a command `{action:?}` for spell `{spell_id}` to spell-event-bus: {reason}"
+    )]
     SendError {
-        id: SpellId,
-        command: String,
-        reason: String,
+        spell_id: SpellId,
+        action: Action,
+        reason: SendError,
     },
-    #[error("can't receive a message from the bus on behalf of spell {0}")]
+    #[error("can't receive a message from the bus on behalf of spell {0}: sending end is probably dropped")]
     ReplyError(SpellId),
 }
 
@@ -97,25 +107,31 @@ impl std::fmt::Debug for SpellEventBusApi {
 }
 
 impl SpellEventBusApi {
-    fn send(&self, cmd: Command) -> Result<(), EventBusError> {
-        self.send_cmd_channel.unbounded_send(cmd).map_err(|e| {
-            let reason = if e.is_disconnected() {
-                "disconnected"
-            } else {
-                "full"
-            }
-            .to_string();
-            let command = e.into_inner();
-            let (id, command) = match command {
-                Command::Subscribe(id, _) => (id, "subscribe".to_string()),
-                Command::Unsubscribe(id, _) => (id, "unsubscribe".to_string()),
-            };
-            EventBusError::SendError {
-                id,
-                command,
-                reason,
-            }
-        })
+    fn send(
+        &self,
+        spell_id: SpellId,
+        action: Action,
+    ) -> BoxFuture<'static, Result<(), EventBusError>> {
+        let (send, recv) = oneshot::channel();
+        let command = Command {
+            spell_id: spell_id.clone(),
+            action: action.clone(),
+            reply: send,
+        };
+        let result =
+            self.send_cmd_channel
+                .unbounded_send(command)
+                .map_err(|e| EventBusError::SendError {
+                    spell_id: spell_id.clone(),
+                    action,
+                    reason: e.into_send_error(),
+                });
+
+        if let Err(err) = result {
+            return futures::future::err(err).boxed();
+        }
+        recv.map(|r| r.map_err(|_| EventBusError::ReplyError(spell_id)))
+            .boxed()
     }
 
     /// Subscribe a spell to a list of events
@@ -125,17 +141,12 @@ impl SpellEventBusApi {
         &self,
         spell_id: SpellId,
         config: SpellTriggerConfigs,
-    ) -> Result<(), EventBusError> {
-        self.send(Command::Subscribe(spell_id, config))
+    ) -> BoxFuture<'static, Result<(), EventBusError>> {
+        self.send(spell_id, Action::Subscribe(config))
     }
 
     /// Unsubscribe a spell from all events.
-    pub fn unsubscribe(&self, id: SpellId) -> BoxFuture<'static, Result<(), EventBusError>> {
-        let (send, recv) = oneshot::channel();
-        if let Err(err) = self.send(Command::Unsubscribe(id.clone(), send)) {
-            return futures::future::err(err).boxed();
-        }
-        recv.map(|r| r.map_err(|_| EventBusError::ReplyError(id)))
-            .boxed()
+    pub fn unsubscribe(&self, spell_id: SpellId) -> BoxFuture<'static, Result<(), EventBusError>> {
+        self.send(spell_id, Action::Unsubscribe)
     }
 }
