@@ -22,7 +22,6 @@ use serde_json::{json, Value as JValue};
 use std::collections::HashMap;
 use std::str::FromStr;
 use std::time::Duration;
-use fluence_spell_dtos::trigger_config::TriggerConfig;
 
 fn create_spell(
     client: &mut ConnectedClient,
@@ -30,11 +29,25 @@ fn create_spell(
     period: u32,
     init_data: HashMap<String, String>,
 ) -> String {
-    let mut config = TriggerConfig::default();
-    config.clock.period_sec = period;
+    let config = json!({
+        "clock": json!({
+            "period_sec": period,
+            "start_sec": 0,
+            "end_sec": 0,
+        }),
+        "connections": json!({
+            "connect": false,
+            "disconnect": false,
+        }),
+        "blockchain": json!({
+            "start_block": 0,
+            "end_block": 0,
+        }),
+    });
+
     let data = hashmap! {
         "script" => json!(script.to_string()),
-        "config" => json!(period),
+        "config" => config,
         "client" => json!(client.peer_id.to_string()),
         "relay" => json!(client.node.to_string()),
         "data" => json!(json!(init_data).to_string()),
@@ -74,9 +87,13 @@ fn spell_simple_test() {
             )
         )"#;
 
+
     let spell_id = create_spell(&mut client, script, 0, hashmap! {});
 
     let mut result = "".to_string();
+    // TODO: remove sleep when start_sec is in use
+    std::thread::sleep(Duration::from_secs(period_sec + 1));
+
     let mut counter = 0;
     for _ in 1..10 {
         let data = hashmap! {
@@ -104,8 +121,7 @@ fn spell_simple_test() {
     }
 
     assert_eq!(result, script);
-    // TODO: better check
-    // assert_ne!(counter, 0);
+    assert_ne!(counter, 0);
 }
 
 #[test]
