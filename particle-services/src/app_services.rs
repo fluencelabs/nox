@@ -335,7 +335,7 @@ impl ParticleAppServices {
 
     pub fn call_function(
         &self,
-        service_id: String,
+        service_id: &str,
         function_name: &str,
         function_args: Vec<JValue>,
         particle_id: Option<String>,
@@ -343,7 +343,7 @@ impl ParticleAppServices {
         particle_ttl: Duration,
     ) -> FunctionOutcome {
         let args = Args {
-            service_id,
+            service_id: service_id.to_string(),
             function_name: function_name.to_string(),
             function_args,
             tetraplets: vec![],

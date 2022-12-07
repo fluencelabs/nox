@@ -20,7 +20,11 @@ use particle_execution::FunctionOutcome;
 use serde::de::DeserializeOwned;
 
 /// Return Ok(T) if result.success is true, return Err(T.error) otherwise
-pub(crate) fn process_func_outcome<T>(func_outcome: FunctionOutcome) -> Result<T, JError>
+pub(crate) fn process_func_outcome<T>(
+    func_outcome: FunctionOutcome,
+    spell_id: &str,
+    function_name: &str,
+) -> Result<T, JError>
 where
     T: DeserializeOwned + SpellValueT,
 {
@@ -29,14 +33,22 @@ where
             "Service with id '{}' not found (function {})",
             args.service_id, args.function_name
         ))),
-        FunctionOutcome::Empty => Err(JError::new("Function has not returned any result")),
+        FunctionOutcome::Empty => Err(JError::new(f!(
+            "Function {spell_id}.{function_name} has not returned any result"
+        ))),
         FunctionOutcome::Err(err) => Err(JError::new(err.to_string())),
         FunctionOutcome::Ok(v) => {
             let result = serde_json::from_value::<T>(v)?;
             if result.is_success() {
                 Ok(result)
             } else {
-                Err(JError::new(result.get_error()))
+                Err(JError::new(format!(
+                    "Result of a function {}.{} cannot be parsed to {}: {}",
+                    spell_id,
+                    function_name,
+                    std::any::type_name::<T>(),
+                    result.get_error()
+                )))
             }
         }
     }

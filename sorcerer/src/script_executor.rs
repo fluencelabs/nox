@@ -26,7 +26,7 @@ use particle_protocol::Particle;
 impl Sorcerer {
     fn get_spell_counter(&self, spell_id: String) -> Result<u32, JError> {
         let func_outcome = self.services.call_function(
-            spell_id,
+            &spell_id,
             "get_u32",
             vec![json!("counter")],
             None,
@@ -34,7 +34,7 @@ impl Sorcerer {
             self.spell_script_particle_ttl,
         );
 
-        if let Ok(res) = process_func_outcome::<U32Value>(func_outcome) {
+        if let Ok(res) = process_func_outcome::<U32Value>(func_outcome, &spell_id, "get_u32") {
             Ok(res.num)
         } else {
             // If key is not exists we will create it on the next step
@@ -44,7 +44,7 @@ impl Sorcerer {
 
     fn set_spell_next_counter(&self, spell_id: String, next_counter: u32) -> Result<(), JError> {
         let func_outcome = self.services.call_function(
-            spell_id,
+            &spell_id,
             "set_u32",
             vec![json!("counter"), json!(next_counter)],
             None,
@@ -52,12 +52,12 @@ impl Sorcerer {
             self.spell_script_particle_ttl,
         );
 
-        process_func_outcome::<UnitValue>(func_outcome).map(drop)
+        process_func_outcome::<UnitValue>(func_outcome, &spell_id, "set_u32").map(drop)
     }
 
     fn get_spell_script(&self, spell_id: String) -> Result<String, JError> {
         let func_outcome = self.services.call_function(
-            spell_id,
+            &spell_id,
             "get_script_source_from_file",
             vec![],
             None,
@@ -65,7 +65,12 @@ impl Sorcerer {
             self.spell_script_particle_ttl,
         );
 
-        Ok(process_func_outcome::<ScriptValue>(func_outcome)?.source_code)
+        Ok(process_func_outcome::<ScriptValue>(
+            func_outcome,
+            &spell_id,
+            "get_script_source_from_file",
+        )?
+        .source_code)
     }
 
     pub(crate) fn get_spell_particle(&self, spell_id: String) -> Result<Particle, JError> {

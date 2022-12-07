@@ -45,24 +45,32 @@ pub(crate) fn spell_install(
     spell_storage.register_spell(service_id.clone());
 
     // Save the script to the spell
-    process_func_outcome::<UnitValue>(services.call_function(
-        service_id.clone(),
+    process_func_outcome::<UnitValue>(
+        services.call_function(
+            &service_id,
+            "set_script_source_to_file",
+            vec![json!(script)],
+            None,
+            params.init_peer_id,
+            Duration::from_millis(params.ttl as u64),
+        ),
+        &service_id,
         "set_script_source_to_file",
-        vec![json!(script)],
-        None,
-        params.init_peer_id,
-        Duration::from_millis(params.ttl as u64),
-    ))?;
+    )?;
 
     // Save init_data to the spell's KV
-    process_func_outcome::<UnitValue>(services.call_function(
-        service_id.clone(),
+    process_func_outcome::<UnitValue>(
+        services.call_function(
+            &service_id,
+            "set_json_fields",
+            vec![json!(init_data)],
+            None,
+            params.init_peer_id,
+            Duration::from_millis(params.ttl as u64),
+        ),
+        &service_id,
         "set_json_fields",
-        vec![json!(init_data)],
-        None,
-        params.init_peer_id,
-        Duration::from_millis(params.ttl as u64),
-    ))?;
+    )?;
     // TODO: also save trigger config
 
     // Scheduling the spell
@@ -111,14 +119,18 @@ pub(crate) fn get_spell_arg(
     let spell_id = parse_spell_id_from(&params.id)?;
     let key = args.function_name;
 
-    process_func_outcome::<StringValue>(services.call_function(
-        spell_id.to_string(),
+    process_func_outcome::<StringValue>(
+        services.call_function(
+            spell_id,
+            "get_string",
+            vec![json!(key.clone())],
+            Some(params.id.clone()),
+            params.init_peer_id,
+            Duration::from_millis(params.ttl as u64),
+        ),
+        spell_id,
         "get_string",
-        vec![json!(key.clone())],
-        Some(params.id.clone()),
-        params.init_peer_id,
-        Duration::from_millis(params.ttl as u64),
-    ))
+    )
     .map(|v| json!(v.str))
     .map_err(|e| JError::new(f!("Failed to get argument {key} for spell {spell_id}: {e}")))
 }
@@ -131,14 +143,18 @@ pub(crate) fn store_error(
     let spell_id = parse_spell_id_from(&params.id)?;
 
     args.function_args.push(json!(params.timestamp));
-    process_func_outcome::<UnitValue>(services.call_function(
-        spell_id.to_string(),
+    process_func_outcome::<UnitValue>(
+        services.call_function(
+            spell_id,
+            "store_error",
+            args.function_args.clone(),
+            Some(params.id.clone()),
+            params.init_peer_id,
+            Duration::from_millis(params.ttl as u64),
+        ),
+        spell_id,
         "store_error",
-        args.function_args.clone(),
-        Some(params.id.clone()),
-        params.init_peer_id,
-        Duration::from_millis(params.ttl as u64),
-    ))
+    )
     .map(drop)
     .map_err(|e| {
         JError::new(format!(
@@ -155,14 +171,18 @@ pub(crate) fn store_response(
 ) -> Result<(), JError> {
     let spell_id = parse_spell_id_from(&params.id)?;
 
-    process_func_outcome::<UnitValue>(services.call_function(
-        spell_id.to_string(),
+    process_func_outcome::<UnitValue>(
+        services.call_function(
+            spell_id,
+            "set_json_fields",
+            args.function_args.clone(),
+            Some(params.id.clone()),
+            params.init_peer_id,
+            Duration::from_millis(params.ttl as u64),
+        ),
+        spell_id,
         "set_json_fields",
-        args.function_args.clone(),
-        Some(params.id.clone()),
-        params.init_peer_id,
-        Duration::from_millis(params.ttl as u64),
-    ))
+    )
     .map(drop)
     .map_err(|e| {
         JError::new(format!(
