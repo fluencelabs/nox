@@ -18,7 +18,7 @@ use std::time::Duration;
 use fluence_spell_dtos::value::{StringValue, UnitValue};
 use serde_json::{json, Value as JValue, Value::Array};
 
-use fluence_spell_dtos::trigger_config::{TriggerConfig};
+use fluence_spell_dtos::trigger_config::TriggerConfig;
 use particle_args::{Args, JError};
 use particle_execution::ParticleParams;
 use particle_services::ParticleAppServices;
