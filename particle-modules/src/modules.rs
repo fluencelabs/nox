@@ -169,15 +169,15 @@ impl ModuleRepository {
         &self,
         module: Vec<u8>,
         config: TomlMarineNamedModuleConfig,
-    ) -> Result<String> {
+    ) -> Result<Hash> {
         let hash = Hash::hash(&module);
 
         let mut config = files::add_module(&self.modules_dir, &hash, &module, config)?;
         self.check_module_heap_size(&mut config)?;
-        let module_hash = hash.to_hex().as_ref().to_owned();
-        self.modules_by_name.lock().insert(config.name, hash);
+        // let module_hash = hash.to_hex().as_ref().to_owned();
+        self.modules_by_name.lock().insert(config.name, hash.clone());
 
-        Ok(module_hash)
+        Ok(hash)
     }
 
     fn check_vault_exists(&self, particle_id: &str) -> Result<PathBuf> {
@@ -241,7 +241,9 @@ impl ModuleRepository {
         config: TomlMarineNamedModuleConfig,
     ) -> Result<String> {
         let module = base64::decode(&module)?;
-        self.add_module(module, config)
+        let hash = self.add_module(module, config)?;
+
+        Ok(String::from(hash.to_hex().as_ref()))
     }
 
     pub fn add_module_from_vault(
@@ -260,7 +262,9 @@ impl ModuleRepository {
             .map_err(|err| ModuleNotFoundInVault { module_path, err })?;
 
         // copy module & config to module_dir
-        self.add_module(module, config)
+        let hash = self.add_module(module, config)?;
+
+        Ok(String::from(hash.to_hex().as_ref()))
     }
 
     /// Saves new blueprint to disk

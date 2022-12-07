@@ -1,13 +1,15 @@
-use derivative::Derivative;
-use parking_lot::RwLock;
-use particle_modules::{load_module_by_path, AddBlueprint, ModuleRepository};
-
-use fluence_app_service::TomlMarineConfig;
-use particle_services::ParticleAppServices;
-use service_modules::{module_file_name, Dependency, Hash};
 use std::collections::HashSet;
 use std::path::PathBuf;
 use std::sync::Arc;
+
+use derivative::Derivative;
+use eyre::eyre;
+use fluence_app_service::TomlMarineConfig;
+use parking_lot::RwLock;
+
+use particle_modules::{AddBlueprint, load_module_by_path, ModuleRepository};
+use particle_services::ParticleAppServices;
+use service_modules::{Dependency, Hash, module_file_name};
 
 #[derive(Derivative)]
 #[derivative(Debug, Clone)]
@@ -32,6 +34,21 @@ impl SpellStorage {
         })
     }
 
+    fn load_spell_service_from_crate(modules: &ModuleRepository,) -> eyre::Result<String> {
+        use fluence_spell_distro::{CONFIG, modules as spell_modules};
+
+        let spell_modules = spell_modules();
+        let cfg = TomlMarineConfig::load(CONFIG)?;
+        let mut hashes = Vec::new();
+        for config in cfg.module {
+            let module = spell_modules.get(&config.name).context(format!("there's no module {} in the fluence_spell_distro::modules", config.name))?;
+            let hash = modules.add_module(module, config).context(format!("adding spell module {}", config.name).as_str())?;
+            hashes.push(Dependency::Hash(hash))
+        }
+
+        Ok(modules.add_blueprint(AddBlueprint::new("spell".to_string(), hashes))?)
+    }
+
     fn load_spell_service(
         modules: &ModuleRepository,
         spells_base_dir: PathBuf,
@@ -48,7 +65,7 @@ impl SpellStorage {
             let module_path = spells_base_dir.join(load_from);
             let module = load_module_by_path(module_path.as_ref())?;
             let hash = modules.add_module(module, config)?;
-            hashes.push(Dependency::Hash(Hash::from_hex(&hash)?));
+            hashes.push(Dependency::Hash(hash));
         }
 
         Ok(modules.add_blueprint(AddBlueprint::new("spell".to_string(), hashes))?)

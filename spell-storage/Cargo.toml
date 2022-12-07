@@ -10,6 +10,7 @@ particle-modules = { path = "../particle-modules" }
 service-modules = { path = "../crates/service-modules" }
 
 fluence-app-service = { workspace = true }
+fluence-spell-distro = "0.1.1"
 
 parking_lot = { workspace = true }
 derivative = { workspace = true }
