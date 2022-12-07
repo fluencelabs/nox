@@ -18,21 +18,20 @@ use std::time::Duration;
 use fluence_spell_dtos::value::{StringValue, UnitValue};
 use serde_json::{json, Value as JValue, Value::Array};
 
+use fluence_spell_dtos::trigger_config::{TriggerConfig};
 use particle_args::{Args, JError};
 use particle_execution::ParticleParams;
 use particle_services::ParticleAppServices;
 use spell_event_bus::{
     api,
-    api::{SpellEventBusApi, TimerConfig},
+    api::{PeerEventType, SpellEventBusApi, TimerConfig},
 };
 use spell_storage::SpellStorage;
 use crate::utils::{parse_spell_id_from, process_func_outcome};
 use std::time::Duration;
 
 /// Convert user-friendly config to event-bus-friendly config.
-/*
-// Example of possible conversion implementation
-fn _from_user_config(user_config: TriggerConfig) -> Option<api::SpellTriggerConfigs> {
+fn from_user_config(user_config: TriggerConfig) -> Option<api::SpellTriggerConfigs> {
     let mut triggers = Vec::new();
     // Process timer config
     if user_config.clock.period_sec != 0 {
@@ -61,7 +60,6 @@ fn _from_user_config(user_config: TriggerConfig) -> Option<api::SpellTriggerConf
         Some(api::SpellTriggerConfigs { triggers })
     }
 }
- */
 
 pub(crate) async fn spell_install(
     sargs: Args,
@@ -76,7 +74,8 @@ pub(crate) async fn spell_install(
     log::info!("Init data: {}", json!(init_data));
     // TODO: use TriggerConfig when it's deserializable
     // TODO: validate the config before everything
-    let period: u64 = Args::next("period", &mut args)?;
+    let user_config: TriggerConfig = Args::next("config", &mut args)?;
+    let config = from_user_config(user_config).ok_or_else(|| JError(json!("config is empty")))?;
 
     // TODO: create service on behalf of spell keypair
     let spell_id = services.create_service(spell_storage.get_blueprint(), params.init_peer_id)?;
@@ -113,11 +112,6 @@ pub(crate) async fn spell_install(
     // TODO: also save trigger config
 
     // Scheduling the spell
-    let config = api::SpellTriggerConfigs {
-        triggers: vec![api::TriggerConfig::Timer(TimerConfig {
-            period: Duration::from_secs(period),
-        })],
-    };
     if let Err(err) = spell_event_bus_api
         .subscribe(spell_id.clone(), config.clone())
         .await
