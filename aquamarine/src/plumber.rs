@@ -96,8 +96,13 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
         }
     }
 
-    pub fn add_service(&self, service: String, functions: HashMap<String, ServiceFunction>) {
-        self.builtins.extend(service, functions)
+    pub fn add_service(
+        &self,
+        service: String,
+        functions: HashMap<String, ServiceFunction>,
+        unhandled: Option<ServiceFunction>,
+    ) {
+        self.builtins.extend(service, functions, unhandled)
     }
 
     pub fn remove_service(&self, service: String) {

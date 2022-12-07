@@ -48,6 +48,15 @@ pub struct Sorcerer {
     pub spell_script_particle_ttl: Duration,
 }
 
+type CustomService = (
+    // service id
+    String,
+    // functions
+    HashMap<String, ServiceFunction>,
+    // unhandled
+    Option<ServiceFunction>,
+);
+
 impl Sorcerer {
     pub fn new(
         services: ParticleAppServices,
@@ -56,7 +65,7 @@ impl Sorcerer {
         config: ResolvedConfig,
         local_peer_id: PeerId,
         scheduler_api: SchedulerApi,
-    ) -> (Self, Vec<(String, HashMap<String, ServiceFunction>)>) {
+    ) -> (Self, Vec<CustomService>) {
         let spell_storage = SpellStorage::create(
             config.dir_config.spell_base_dir.clone(),
             &services,
@@ -98,8 +107,8 @@ impl Sorcerer {
         })
     }
 
-    fn get_spell_service_functions(&self) -> Vec<(String, HashMap<String, ServiceFunction>)> {
-        let mut service_functions: Vec<(String, HashMap<String, ServiceFunction>)> = vec![];
+    fn get_spell_service_functions(&self) -> Vec<CustomService> {
+        let mut service_functions: Vec<CustomService> = vec![];
         let services = self.services.clone();
         let storage = self.spell_storage.clone();
         let scheduler = self.scheduler_api.clone();
@@ -138,7 +147,7 @@ impl Sorcerer {
             "remove".to_string() => remove_closure,
             "list".to_string() => list_closure
         };
-        service_functions.push(("spell".to_string(), functions));
+        service_functions.push(("spell".to_string(), functions, None));
 
         let get_spell_id_closure: ServiceFunction =
             Box::new(move |args, params| async move { wrap(get_spell_id(args, params)) }.boxed());
@@ -151,10 +160,10 @@ impl Sorcerer {
         service_functions.push((
             "getDataSrv".to_string(),
             hashmap! {
-                "spell_id".to_string() => get_spell_id_closure,
-                // TODO: use constant instead of `__default__`
-                "__default__".to_string() => get_spell_arg_closure,
+                "spell_id".to_string() => get_spell_id_closure
+
             },
+            Some(get_spell_arg_closure),
         ));
 
         let services = self.services.clone();
@@ -168,6 +177,7 @@ impl Sorcerer {
             hashmap! {
                 "error".to_string() => error_handler_closure,
             },
+            None,
         ));
 
         let services = self.services.clone();
@@ -181,6 +191,7 @@ impl Sorcerer {
             hashmap! {
                 "response".to_string() => response_handler_closure,
             },
+            None,
         ));
 
         service_functions

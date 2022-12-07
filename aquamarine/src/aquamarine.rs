@@ -78,9 +78,11 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> AquamarineBackend<RT, F> {
                     // set new particle to be executed
                     self.plumber.ingest(particle, function);
                 }
-                Poll::Ready(Some(AddService { service, functions })) => {
-                    self.plumber.add_service(service, functions)
-                }
+                Poll::Ready(Some(AddService {
+                    service,
+                    functions,
+                    unhandled,
+                })) => self.plumber.add_service(service, functions, unhandled),
 
                 Poll::Ready(Some(RemoveService { service })) => {
                     self.plumber.remove_service(service)
@@ -147,7 +149,14 @@ impl AquamarineApi {
         service: String,
         functions: HashMap<String, ServiceFunction>,
     ) -> impl Future<Output = Result<(), AquamarineApiError>> {
-        self.send_command(AddService { service, functions }, None)
+        self.send_command(
+            AddService {
+                service,
+                functions,
+                unhandled: None,
+            },
+            None,
+        )
     }
 
     pub fn remove_service(

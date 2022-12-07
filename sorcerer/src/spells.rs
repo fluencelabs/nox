@@ -19,9 +19,9 @@ use fluence_spell_dtos::value::{StringValue, UnitValue};
 use particle_args::{Args, JError};
 use particle_execution::ParticleParams;
 use particle_services::ParticleAppServices;
+use serde_json::json;
 use serde_json::Value as JValue;
 use serde_json::Value::Array;
-use serde_json::{json, Value};
 use spell_event_bus::scheduler::api::{SchedulerApi, TimerConfig};
 use spell_storage::SpellStorage;
 use std::time::Duration;
@@ -36,6 +36,7 @@ pub(crate) fn spell_install(
     let mut args = sargs.function_args.clone().into_iter();
     let script: String = Args::next("script", &mut args)?;
     let init_data: String = Args::next("data", &mut args)?;
+    log::info!("Init data: {}", json!(init_data));
     // TODO: redo config when other event are supported
     let period: u64 = Args::next("period", &mut args)?;
 
@@ -112,7 +113,7 @@ pub(crate) fn get_spell_arg(
 
     process_func_outcome::<StringValue>(services.call_function(
         spell_id.clone(),
-        "read_string",
+        "get_string",
         vec![json!(key.clone())],
         Some(params.id),
         params.init_peer_id,

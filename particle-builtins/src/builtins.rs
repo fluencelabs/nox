@@ -56,8 +56,10 @@ use crate::identify::NodeInfo;
 use crate::outcome::{ok, wrap, wrap_unit};
 use crate::{json, math};
 
-// TODO: move to appropriate place
-const DEFAULT_FUNCTION_NAME: &str = "__default__";
+pub struct CustomService {
+    pub functions: HashMap<String, Mutex<ServiceFunction>>,
+    pub unhandled: Option<Mutex<ServiceFunction>>,
+}
 
 #[derive(Derivative)]
 #[derivative(Debug)]
@@ -80,7 +82,7 @@ pub struct Builtins<C> {
     /// and all `function_name` mismatches will be routed to this `service_function`.
     /// Inside `service_function` `function_name` can be obtained via `args.function_name`
     #[derivative(Debug(format_with = "fmt_custom_services"))]
-    pub custom_services: RwLock<HashMap<String, HashMap<String, Mutex<ServiceFunction>>>>,
+    pub custom_services: RwLock<HashMap<String, CustomService>>,
 
     particles_vault_dir: path::PathBuf,
 }
@@ -151,8 +153,9 @@ where
             .read()
             .get(&args.service_id)
             .and_then(|fs| {
-                fs.get(&args.function_name)
-                    .or(fs.get(DEFAULT_FUNCTION_NAME))
+                fs.functions
+                    .get(&args.function_name)
+                    .or(fs.unhandled.as_ref())
             })
         {
             let mut function = function.lock();

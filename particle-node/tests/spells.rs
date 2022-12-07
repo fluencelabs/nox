@@ -16,16 +16,19 @@
 use connected_client::ConnectedClient;
 use created_swarm::make_swarms_with_cfg;
 use eyre::Context;
+use log_utils::enable_logs;
 use maplit::hashmap;
-use serde_json::{json, Value};
+use serde_json::{json, Value as JValue};
 use std::collections::HashMap;
+use std::str::FromStr;
+use std::thread::sleep;
 use std::time::Duration;
 
 fn create_spell(
     client: &mut ConnectedClient,
     script: &str,
     period: u32,
-    init_data: HashMap<String, Value>,
+    init_data: HashMap<String, String>,
 ) -> String {
     let data = hashmap! {
         "script" => json!(script.to_string()),
@@ -52,7 +55,6 @@ fn create_spell(
 
 #[test]
 fn spell_simple_test() {
-    std::fs::remove_file("/tmp/spell.sqlite").ok();
     let swarms = make_swarms_with_cfg(1, |mut cfg| {
         cfg.timer_resolution = Duration::from_millis(20);
         cfg
@@ -72,7 +74,7 @@ fn spell_simple_test() {
 
     let spell_id = create_spell(&mut client, script, 0, hashmap! {});
 
-    let mut result = " ".to_string();
+    let mut result = "".to_string();
     let mut counter = 0;
     for _ in 1..10 {
         let data = hashmap! {
@@ -105,7 +107,6 @@ fn spell_simple_test() {
 
 #[test]
 fn spell_error_handling_test() {
-    std::fs::remove_file("/tmp/spell.sqlite").ok();
     let swarms = make_swarms_with_cfg(1, |mut cfg| {
         cfg.timer_resolution = Duration::from_millis(20);
         cfg
@@ -150,4 +151,67 @@ fn spell_error_handling_test() {
 }
 
 #[test]
-fn spell_args_test() {}
+fn spell_args_test() {
+    enable_logs();
+    let swarms = make_swarms_with_cfg(1, |mut cfg| {
+        cfg.timer_resolution = Duration::from_millis(100);
+        cfg
+    });
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .wrap_err("connect client")
+        .unwrap();
+
+    let script = r#"
+        (seq
+            (seq
+                (call %init_peer_id% ("getDataSrv" "spell_id") [] spell_id)
+                (call %init_peer_id% ("getDataSrv" "key") [] value)
+            )
+            (call %init_peer_id% (spell_id "set_string") ["result" value])
+        )"#;
+
+    let spell_id = create_spell(
+        &mut client,
+        script,
+        1,
+        hashmap! {"key".to_string() => "value".to_string()},
+    );
+    sleep(Duration::from_secs(1));
+    let mut result = "".to_string();
+    let mut value = "".to_string();
+    for _ in 1..10 {
+        let data = hashmap! {
+            "spell_id" => json!(spell_id),
+            "client" => json!(client.peer_id.to_string()),
+            "relay" => json!(client.node.to_string()),
+        };
+        client.send_particle(
+            r#"
+        (seq
+            (seq
+                (call relay (spell_id "get_string") ["result"] result_raw)
+                (call relay (spell_id "get_string") ["key"] value_raw)
+            )
+            (call client ("return" "") [result_raw value_raw])
+        )"#,
+            data.clone(),
+        );
+
+        let response = client.receive_args().wrap_err("receive").unwrap();
+        if response[0]["success"].as_bool().unwrap() && response[1]["success"].as_bool().unwrap() {
+            result = JValue::from_str(response[0]["str"].as_str().unwrap())
+                .unwrap()
+                .as_str()
+                .unwrap()
+                .to_string();
+            value = JValue::from_str(response[1]["str"].as_str().unwrap())
+                .unwrap()
+                .as_str()
+                .unwrap()
+                .to_string();
+        }
+    }
+
+    assert_eq!(result, "value");
+    assert_eq!(result, value);
+}
