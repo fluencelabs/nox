@@ -16,12 +16,11 @@
 use connected_client::ConnectedClient;
 use created_swarm::make_swarms_with_cfg;
 use eyre::Context;
-use log_utils::enable_logs;
+
 use maplit::hashmap;
 use serde_json::{json, Value as JValue};
 use std::collections::HashMap;
 use std::str::FromStr;
-use std::thread::sleep;
 use std::time::Duration;
 
 fn create_spell(
@@ -152,7 +151,6 @@ fn spell_error_handling_test() {
 
 #[test]
 fn spell_args_test() {
-    enable_logs();
     let swarms = make_swarms_with_cfg(1, |mut cfg| {
         cfg.timer_resolution = Duration::from_millis(100);
         cfg
@@ -173,10 +171,10 @@ fn spell_args_test() {
     let spell_id = create_spell(
         &mut client,
         script,
-        1,
+        0,
         hashmap! {"key".to_string() => "value".to_string()},
     );
-    sleep(Duration::from_secs(1));
+
     let mut result = "".to_string();
     let mut value = "".to_string();
     for _ in 1..10 {
@@ -214,4 +212,57 @@ fn spell_args_test() {
 
     assert_eq!(result, "value");
     assert_eq!(result, value);
+}
+
+#[test]
+fn spell_return_test() {
+    let swarms = make_swarms_with_cfg(1, |mut cfg| {
+        cfg.timer_resolution = Duration::from_millis(100);
+        cfg
+    });
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .wrap_err("connect client")
+        .unwrap();
+
+    let script = r#"
+        (seq
+            (seq
+                (call %init_peer_id% ("getDataSrv" "spell_id") [] spell_id)
+                (call %init_peer_id% ("json" "obj") ["key" "value"] obj)
+            )
+            (seq
+                (call %init_peer_id% ("json" "stringify") [obj] result)
+                (call %init_peer_id% ("callbackSrv" "response") [result])
+            )
+        )"#;
+
+    let spell_id = create_spell(&mut client, script, 0, hashmap! {});
+
+    let mut value = "".to_string();
+    for _ in 1..10 {
+        let data = hashmap! {
+            "spell_id" => json!(spell_id),
+            "client" => json!(client.peer_id.to_string()),
+            "relay" => json!(client.node.to_string()),
+        };
+        client.send_particle(
+            r#"
+        (seq
+            (call relay (spell_id "get_string") ["key"] value_raw)
+            (call client ("return" "") [value_raw])
+        )"#,
+            data.clone(),
+        );
+
+        let response = client.receive_args().wrap_err("receive").unwrap();
+        if response[0]["success"].as_bool().unwrap() {
+            value = JValue::from_str(response[0]["str"].as_str().unwrap())
+                .unwrap()
+                .as_str()
+                .unwrap()
+                .to_string();
+        }
+    }
+
+    assert_eq!(value, "value");
 }
