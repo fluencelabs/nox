@@ -25,6 +25,7 @@ use particle_execution::{
     ParticleFunction, ParticleFunctionOutput, ParticleParams, ServiceFunction,
 };
 
+use crate::builtins::CustomService;
 use crate::Builtins;
 
 impl<C> ParticleFunction for Builtins<C>
@@ -35,20 +36,36 @@ where
         Builtins::call(self, args, particle).boxed()
     }
 
-    fn extend(&self, service: String, functions: HashMap<String, ServiceFunction>) {
+    fn extend(
+        &self,
+        service: String,
+        functions: HashMap<String, ServiceFunction>,
+        unhandled: Option<ServiceFunction>,
+    ) {
         self.custom_services.write().insert(
             service,
-            functions
-                .into_iter()
-                .map(|(k, v)| (k, Mutex::new(v)))
-                .collect(),
+            CustomService {
+                functions: functions
+                    .into_iter()
+                    .map(|(k, v)| (k, Mutex::new(v)))
+                    .collect(),
+                unhandled: unhandled.map(Mutex::new),
+            },
         );
     }
 
-    fn remove(&self, service: &str) -> Option<HashMap<String, ServiceFunction>> {
-        self.custom_services
-            .write()
-            .remove(service)
-            .map(|hm| hm.into_iter().map(|(k, v)| (k, v.into_inner())).collect())
+    fn remove(
+        &self,
+        service: &str,
+    ) -> Option<(HashMap<String, ServiceFunction>, Option<ServiceFunction>)> {
+        self.custom_services.write().remove(service).map(|hm| {
+            (
+                hm.functions
+                    .into_iter()
+                    .map(|(k, v)| (k, v.into_inner()))
+                    .collect(),
+                hm.unhandled.map(Mutex::into_inner),
+            )
+        })
     }
 }

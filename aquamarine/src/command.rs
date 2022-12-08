@@ -26,6 +26,7 @@ pub enum Command {
     AddService {
         service: String,
         functions: HashMap<String, ServiceFunction>,
+        unhandled: Option<ServiceFunction>,
     },
     RemoveService {
         service: String,
