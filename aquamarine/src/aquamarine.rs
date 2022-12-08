@@ -31,16 +31,17 @@ use crate::aqua_runtime::AquaRuntime;
 use crate::command::Command;
 use crate::command::Command::{AddService, Ingest, RemoveService};
 use crate::error::AquamarineApiError;
-use crate::particle_effects::NetworkEffects;
+use crate::particle_effects::RoutingEffects;
 use crate::vm_pool::VmPool;
 use crate::{Plumber, VmPoolConfig};
 
-pub type EffectsChannel = Outlet<Result<NetworkEffects, AquamarineApiError>>;
+pub type EffectsChannel = Outlet<Result<RoutingEffects, AquamarineApiError>>;
 
 pub struct AquamarineBackend<RT: AquaRuntime, F> {
     inlet: BackPressuredInlet<Command>,
     plumber: Plumber<RT, F>,
     out: EffectsChannel,
+    host_peer_id: PeerId,
 }
 
 impl<RT: AquaRuntime, F: ParticleFunctionStatic> AquamarineBackend<RT, F> {
@@ -57,11 +58,12 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> AquamarineBackend<RT, F> {
         let (outlet, inlet) = mpsc::channel(100);
         let sender = AquamarineApi::new(outlet, config.execution_timeout);
         let vm_pool = VmPool::new(config.pool_size, runtime_config, vm_pool_metrics);
-        let plumber = Plumber::new(vm_pool, builtins, plumber_metrics, host_peer_id);
+        let plumber = Plumber::new(vm_pool, builtins, plumber_metrics);
         let this = Self {
             inlet,
             plumber,
             out,
+            host_peer_id,
         };
 
         (this, sender)
@@ -76,7 +78,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> AquamarineBackend<RT, F> {
                 Poll::Ready(Some(Ingest { particle, function })) => {
                     wake = true;
                     // set new particle to be executed
-                    self.plumber.ingest(particle, function);
+                    self.plumber.ingest(particle, function, self.host_peer_id);
                 }
                 Poll::Ready(Some(AddService {
                     service,

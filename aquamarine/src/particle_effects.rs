@@ -49,10 +49,10 @@ pub struct InterpretationStats {
     pub success: bool,
 }
 
-/// Network part of the [[ParticleEffects]. Can't be executed by Aquamarine layer,
-/// thus delegated to outside.
+/// Routing part of the [[ParticleEffects].
+/// Instruct to send particle to either virtual or remote peers.
 #[derive(Clone, Debug)]
-pub struct NetworkEffects {
+pub struct RoutingEffects {
     pub particle: Particle,
     pub next_peers: Vec<PeerId>,
 }

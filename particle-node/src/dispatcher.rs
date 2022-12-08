@@ -18,7 +18,7 @@ use async_std::task::spawn;
 use futures::{FutureExt, SinkExt, StreamExt};
 use prometheus_client::registry::Registry;
 
-use aquamarine::{AquamarineApi, AquamarineApiError, NetworkEffects};
+use aquamarine::{AquamarineApi, AquamarineApiError, RoutingEffects};
 use fluence_libp2p::types::{BackPressuredInlet, Inlet, Outlet};
 use fluence_libp2p::PeerId;
 use particle_protocol::Particle;
@@ -27,8 +27,8 @@ use peer_metrics::DispatcherMetrics;
 use crate::effectors::Effectors;
 use crate::tasks::Tasks;
 
-// TODO: move error into NetworkEffects
-type Effects = Result<NetworkEffects, AquamarineApiError>;
+// TODO: move error into RoutingEffects
+type Effects = Result<RoutingEffects, AquamarineApiError>;
 
 #[derive(Clone)]
 pub struct Dispatcher {

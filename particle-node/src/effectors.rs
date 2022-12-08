@@ -16,7 +16,7 @@
 
 use futures::{stream::iter, SinkExt, StreamExt};
 
-use aquamarine::NetworkEffects;
+use aquamarine::RoutingEffects;
 use fluence_libp2p::types::Outlet;
 
 use crate::connectivity::Connectivity;
@@ -32,7 +32,7 @@ impl Effectors {
     }
 
     /// Perform effects that Aquamarine instructed us to
-    pub async fn execute(self, effects: NetworkEffects, particle_failures: Outlet<String>) {
+    pub async fn execute(self, effects: RoutingEffects, particle_failures: Outlet<String>) {
         if effects.particle.is_expired() {
             log::info!("Particle {} is expired", effects.particle.id);
             return;

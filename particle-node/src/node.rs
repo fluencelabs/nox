@@ -40,7 +40,7 @@ use libp2p_metrics::{Metrics, Recorder};
 use prometheus_client::registry::Registry;
 
 use aquamarine::{
-    AquaRuntime, AquamarineApi, AquamarineApiError, AquamarineBackend, NetworkEffects, VmPoolConfig,
+    AquaRuntime, AquamarineApi, AquamarineApiError, AquamarineBackend, RoutingEffects, VmPoolConfig,
 };
 use builtins_deployer::BuiltinsDeployer;
 use config_utils::to_peer_id;
@@ -71,7 +71,7 @@ use crate::behaviour::FluenceNetworkBehaviourEvent;
 // TODO: documentation
 pub struct Node<RT: AquaRuntime> {
     particle_stream: BackPressuredInlet<Particle>,
-    effects_stream: Inlet<Result<NetworkEffects, AquamarineApiError>>,
+    effects_stream: Inlet<Result<RoutingEffects, AquamarineApiError>>,
     pub swarm: Swarm<FluenceNetworkBehaviour>,
 
     pub connectivity: Connectivity,
@@ -315,7 +315,7 @@ impl<RT: AquaRuntime> Node<RT> {
     #[allow(clippy::too_many_arguments)]
     pub fn with(
         particle_stream: BackPressuredInlet<Particle>,
-        effects_stream: Inlet<Result<NetworkEffects, AquamarineApiError>>,
+        effects_stream: Inlet<Result<RoutingEffects, AquamarineApiError>>,
         swarm: Swarm<FluenceNetworkBehaviour>,
 
         connectivity: Connectivity,
