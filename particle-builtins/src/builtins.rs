@@ -57,7 +57,9 @@ use crate::outcome::{ok, wrap, wrap_unit};
 use crate::{json, math};
 
 pub struct CustomService {
+    /// (function_name -> service function)
     pub functions: HashMap<String, Mutex<ServiceFunction>>,
+    /// if set, all `function_name` mismatches with `custom_service.functions` will be routed to `unhandled`
     pub unhandled: Option<Mutex<ServiceFunction>>,
 }
 
@@ -77,10 +79,6 @@ pub struct Builtins<C> {
     pub services: ParticleAppServices,
     pub node_info: NodeInfo,
 
-    /// HashMap = (service_id -> function_name -> service_function)
-    /// You can set function name to `DEFAULT_FUNCTION_NAME`
-    /// and all `function_name` mismatches will be routed to this `service_function`.
-    /// Inside `service_function` `function_name` can be obtained via `args.function_name`
     #[derivative(Debug(format_with = "fmt_custom_services"))]
     pub custom_services: RwLock<HashMap<String, CustomService>>,
 
