@@ -44,6 +44,7 @@ pub(crate) fn spell_install(
     let service_id = services.create_service(spell_storage.get_blueprint(), params.init_peer_id)?;
     spell_storage.register_spell(service_id.clone());
 
+    // TODO: refactor these service calls
     // Save the script to the spell
     process_func_outcome::<UnitValue>(
         services.call_function(
