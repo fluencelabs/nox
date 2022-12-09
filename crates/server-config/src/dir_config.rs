@@ -13,12 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::defaults::{
-    avm_base_dir, builtins_base_dir, cert_dir, default_base_dir, services_base_dir,
-};
+use crate::defaults::{avm_base_dir, builtins_base_dir, default_base_dir, services_base_dir};
 
 use air_interpreter_fs::air_interpreter_path;
-use fs_utils::{create_dirs, to_abs_path};
+use fs_utils::{canonicalize, create_dirs, to_abs_path};
 
 use eyre::WrapErr;
 use serde::Deserialize;
@@ -29,10 +27,6 @@ pub struct UnresolvedDirConfig {
     /// Parent directory for all other node's directory
     #[serde(default = "default_base_dir")]
     pub base_dir: PathBuf,
-
-    /// Directory, where all certificates are stored.
-    #[serde(default)]
-    pub certificate_dir: Option<PathBuf>,
 
     /// Base directory for resources needed by application services
     #[serde(default)]
@@ -56,9 +50,9 @@ pub struct UnresolvedDirConfig {
 }
 
 impl UnresolvedDirConfig {
-    pub fn resolve(self) -> ResolvedDirConfig {
+    pub fn resolve(self) -> eyre::Result<ResolvedDirConfig> {
         let base = to_abs_path(self.base_dir);
-        let certificate_dir = self.certificate_dir.unwrap_or(cert_dir(&base));
+
         let services_base_dir = self.services_base_dir.unwrap_or(services_base_dir(&base));
         let builtins_base_dir = self.builtins_base_dir.unwrap_or(builtins_base_dir(&base));
         let avm_base_dir = self.avm_base_dir.unwrap_or(avm_base_dir(&base));
@@ -67,22 +61,35 @@ impl UnresolvedDirConfig {
             .unwrap_or(air_interpreter_path(&base));
         let spell_base_dir = self.spell_base_dir.unwrap_or(base.join("spell"));
 
-        ResolvedDirConfig {
+        create_dirs(&[
+            &base,
+            &services_base_dir,
+            &avm_base_dir,
+            &builtins_base_dir,
+            &spell_base_dir,
+        ])
+        .context("creating configured directories")?;
+
+        let base = canonicalize(base)?;
+        let services_base_dir = canonicalize(services_base_dir)?;
+        let builtins_base_dir = canonicalize(builtins_base_dir)?;
+        let avm_base_dir = canonicalize(avm_base_dir)?;
+        let spell_base_dir = canonicalize(spell_base_dir)?;
+
+        Ok(ResolvedDirConfig {
             base_dir: base,
-            certificate_dir,
             services_base_dir,
             builtins_base_dir,
             avm_base_dir,
             air_interpreter_path,
             spell_base_dir,
-        }
+        })
     }
 }
 
 #[derive(Clone, Debug)]
 pub struct ResolvedDirConfig {
     pub base_dir: PathBuf,
-    pub certificate_dir: PathBuf,
     pub services_base_dir: PathBuf,
     /// Directory where configs for autodeployed builtins are stored
     pub builtins_base_dir: PathBuf,
@@ -91,16 +98,4 @@ pub struct ResolvedDirConfig {
     /// Directory where interpreter's WASM module is stored
     pub air_interpreter_path: PathBuf,
     pub spell_base_dir: PathBuf,
-}
-
-impl ResolvedDirConfig {
-    pub fn create_dirs(&self) -> eyre::Result<()> {
-        create_dirs(&[
-            &self.base_dir,
-            &self.certificate_dir,
-            &self.avm_base_dir,
-            &self.builtins_base_dir,
-        ])
-        .wrap_err_with(|| format!("creating configured directories: {:#?}", self))
-    }
 }

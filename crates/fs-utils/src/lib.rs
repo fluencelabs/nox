@@ -26,7 +26,7 @@
     unreachable_patterns
 )]
 
-use eyre::eyre;
+use eyre::{eyre, Context};
 use std::fmt::Debug;
 use std::fs;
 use std::fs::Permissions;
@@ -159,4 +159,11 @@ pub fn copy_dir_all(src: impl AsRef<Path>, dst: impl AsRef<Path>) -> eyre::Resul
     }
 
     Ok(())
+}
+
+pub fn canonicalize(path: impl AsRef<Path>) -> eyre::Result<PathBuf> {
+    path.as_ref().canonicalize().context(format!(
+        "Error canonicalizing path '{}'",
+        path.as_ref().display()
+    ))
 }

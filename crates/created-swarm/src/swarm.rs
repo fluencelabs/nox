@@ -316,7 +316,7 @@ pub fn create_swarm_with_runtime<RT: AquaRuntime>(
     let node_config: UnresolvedConfig =
         UnresolvedConfig::deserialize(node_config).expect("created_swarm: deserialize config");
 
-    let mut resolved = node_config.resolve();
+    let mut resolved = node_config.resolve().expect("failed to resolve config");
     create_dir(&resolved.dir_config.builtins_base_dir).expect("create builtins dir");
 
     resolved.node_config.transport_config.transport = Transport::Memory;
