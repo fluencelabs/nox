@@ -63,3 +63,17 @@ pub fn parse(json: &str) -> Result<JValue, JError> {
 pub fn stringify(value: JValue) -> String {
     value.to_string()
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::json::parse;
+
+    #[test]
+    fn json_parse_string() {
+        use serde_json::json;
+
+        let str = json!("hellow");
+        let parsed = parse(&str.to_string());
+        assert_eq!(parsed.ok(), Some(str));
+    }
+}
