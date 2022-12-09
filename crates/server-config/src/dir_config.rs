@@ -21,9 +21,7 @@ use serde::Deserialize;
 use air_interpreter_fs::air_interpreter_path;
 use fs_utils::{create_dirs, to_abs_path};
 
-use crate::defaults::{
-    avm_base_dir, builtins_base_dir, default_base_dir, services_base_dir,
-};
+use crate::defaults::{avm_base_dir, builtins_base_dir, default_base_dir, services_base_dir};
 
 #[derive(Deserialize, Clone, Debug)]
 pub struct UnresolvedDirConfig {
@@ -95,7 +93,7 @@ impl ResolvedDirConfig {
             &self.services_base_dir,
             &self.avm_base_dir,
             &self.builtins_base_dir,
-            &self.spell_base_dir
+            &self.spell_base_dir,
         ])
         .wrap_err_with(|| format!("creating configured directories: {:#?}", self))
     }
