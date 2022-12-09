@@ -1222,18 +1222,18 @@ mod resolve_path_tests {
         });
     }
 
-    // #[test]
-    // fn test_resolve_path_not_found() {
-    //     with_env(|particle_id, real_prefix, _filename, _path| {
-    //         let virtual_path = Path::new(VIRTUAL_PARTICLE_VAULT_PREFIX)
-    //             .join(particle_id)
-    //             .join("other-file");
-    //         let result = resolve_vault_path(&real_prefix, &virtual_path, particle_id);
-    //         assert!(result.is_err());
-    //         assert!(matches!(
-    //             result.unwrap_err(),
-    //             ResolveVaultError::NotFound(_, _)
-    //         ));
-    //     });
-    // }
+    #[test]
+    fn test_resolve_path_not_found() {
+        with_env(|particle_id, real_prefix, _filename, _path| {
+            let virtual_path = Path::new(VIRTUAL_PARTICLE_VAULT_PREFIX)
+                .join(particle_id)
+                .join("other-file");
+            let result = resolve_vault_path(&real_prefix, &virtual_path, particle_id);
+            assert!(result.is_err());
+            assert!(matches!(
+                result.unwrap_err(),
+                ResolveVaultError::NotFound(_, _)
+            ));
+        });
+    }
 }
