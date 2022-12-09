@@ -113,4 +113,10 @@ jobs:
           ```shell
           docker run --rm ${{ env.RUST_PEER_IMAGE_SHA }} --local
           ```
+
+          ### Access to Fluence docker registry
+          ```
+          vault read kv/docker-registry/basicauth/dev
+          docker login docker.fluence.dev
+          ```
           SNAPSHOT
