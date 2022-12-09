@@ -1058,6 +1058,7 @@ fn resolve_vault_path(
 ) -> Result<path::PathBuf, ResolveVaultError> {
     let virtual_prefix = path::Path::new(VIRTUAL_PARTICLE_VAULT_PREFIX).join(particle_id);
     let real_prefix = particles_vault_dir.join(particle_id);
+
     let rest = path.strip_prefix(&virtual_prefix).map_err(|e| {
         ResolveVaultError::WrongVault(Some(e), path.to_path_buf(), virtual_prefix.clone())
     })?;
@@ -1066,13 +1067,13 @@ fn resolve_vault_path(
         .canonicalize()
         .map_err(|e| ResolveVaultError::NotFound(e, path.to_path_buf()))?;
     // Check again after normalization that the path leads to the real particle vault
-    if resolved_path.starts_with(real_prefix) {
+    if resolved_path.starts_with(&real_prefix) {
         Ok(resolved_path)
     } else {
         Err(ResolveVaultError::WrongVault(
             None,
-            path.to_path_buf(),
-            virtual_prefix,
+            resolved_path,
+            real_prefix,
         ))
     }
 }
@@ -1174,7 +1175,7 @@ mod resolve_path_tests {
     fn with_env(callback: fn(&str, &Path, &str, &Path) -> ()) {
         let particle_id = "particle_id";
         let dir = tempfile::tempdir().expect("can't create temp dir");
-        let real_vault_prefix = dir.path().join("vault");
+        let real_vault_prefix = dir.path().canonicalize().expect("").join("vault");
         let real_vault_dir = real_vault_prefix.join(particle_id);
         std::fs::create_dir_all(&real_vault_dir).expect("can't create dirs");
 

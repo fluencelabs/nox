@@ -40,7 +40,7 @@ mod resolved_config;
 mod services_config;
 
 pub use defaults::{builtins_base_dir, *};
-pub use resolved_config::{deserialize_config, load_config};
+pub use resolved_config::{load_config, resolve_config};
 
 pub use bootstrap_config::BootstrapConfig;
 pub use kademlia_config::KademliaConfig;
