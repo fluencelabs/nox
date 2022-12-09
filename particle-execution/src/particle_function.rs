@@ -31,8 +31,16 @@ pub type ServiceFunction =
 
 pub trait ParticleFunction: 'static + Send + Sync {
     fn call(&self, args: Args, particle: ParticleParams) -> Output<'_>;
-    fn extend(&self, service: String, functions: HashMap<String, ServiceFunction>);
-    fn remove(&self, service: &str) -> Option<HashMap<String, ServiceFunction>>;
+    fn extend(
+        &self,
+        service: String,
+        functions: HashMap<String, ServiceFunction>,
+        unhandled: Option<ServiceFunction>,
+    );
+    fn remove(
+        &self,
+        service: &str,
+    ) -> Option<(HashMap<String, ServiceFunction>, Option<ServiceFunction>)>;
 }
 
 pub trait ParticleFunctionMut: 'static + Send + Sync {
@@ -41,8 +49,16 @@ pub trait ParticleFunctionMut: 'static + Send + Sync {
 
 pub trait ParticleFunctionStatic: Clone + 'static + Send + Sync {
     fn call(&self, args: Args, particle: ParticleParams) -> Output<'static>;
-    fn extend(&self, service: String, functions: HashMap<String, ServiceFunction>);
-    fn remove(&self, service: &str) -> Option<HashMap<String, ServiceFunction>>;
+    fn extend(
+        &self,
+        service: String,
+        functions: HashMap<String, ServiceFunction>,
+        unhandled: Option<ServiceFunction>,
+    );
+    fn remove(
+        &self,
+        service: &str,
+    ) -> Option<(HashMap<String, ServiceFunction>, Option<ServiceFunction>)>;
 }
 
 impl<F: ParticleFunction> ParticleFunctionStatic for Arc<F> {
@@ -51,10 +67,19 @@ impl<F: ParticleFunction> ParticleFunctionStatic for Arc<F> {
         async move { ParticleFunction::call(this.as_ref(), args, particle).await }.boxed()
     }
 
-    fn extend(self: &Arc<F>, service: String, functions: HashMap<String, ServiceFunction>) {
-        ParticleFunction::extend(self.as_ref(), service, functions)
+    fn extend(
+        self: &Arc<F>,
+        service: String,
+        functions: HashMap<String, ServiceFunction>,
+        unhandled: Option<ServiceFunction>,
+    ) {
+        ParticleFunction::extend(self.as_ref(), service, functions, unhandled)
     }
-    fn remove(self: &Arc<F>, service: &str) -> Option<HashMap<String, ServiceFunction>> {
+
+    fn remove(
+        self: &Arc<F>,
+        service: &str,
+    ) -> Option<(HashMap<String, ServiceFunction>, Option<ServiceFunction>)> {
         ParticleFunction::remove(self.as_ref(), service)
     }
 }

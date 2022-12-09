@@ -736,9 +736,9 @@ checksum = "771fe0050b883fcc3ea2359b1a96bcfbc090b7116eae7c3c512c7a083fdf23d3"
 
 [[package]]
 name = "built"
-version = "0.5.2"
+version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5b9c056b9ed43aee5e064b683aa1ec783e19c6acec7559e3ae931b7490472fbe"
+checksum = "4f346b6890a0dfa7266974910e7df2d5088120dd54721b9b0e5aae1ae5e05715"
 dependencies = [
  "cargo-lock",
 ]
@@ -832,9 +832,9 @@ checksum = "c1db59621ec70f09c5e9b597b220c7a2b43611f4710dc03ceb8748637775692c"
 
 [[package]]
 name = "cargo-lock"
-version = "8.0.3"
+version = "7.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "031718ddb8f78aa5def78a09e90defe30151d1f6c672f937af4dd916429ed996"
+checksum = "6c408da54db4c50d4693f7e649c299bc9de9c23ead86249e5368830bb32a734b"
 dependencies = [
  "semver 1.0.14",
  "serde",
@@ -1896,13 +1896,15 @@ dependencies = [
 ]
 
 [[package]]
-name = "fluence-spell-distro"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6480de527c7b081b3800355a06f2c96e13b0f6a9d57e6f9b8653b1cfd3540820"
+name = "fluence-spell-dtos"
+version = "0.1.3"
+source = "git+https://github.com/fluencelabs/spell#8391a41a98ac8ef081c5248d50b99e0de46f4319"
 dependencies = [
- "built",
- "maplit",
+ "eyre",
+ "marine-rs-sdk",
+ "marine-sqlite-connector",
+ "serde",
+ "thiserror",
 ]
 
 [[package]]
@@ -3599,6 +3601,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "marine-sqlite-connector"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "446079866e6acd00fd5fbaab2edb62ee518144b071ea0a3eaf735c8c225021fc"
+dependencies = [
+ "marine-rs-sdk",
+]
+
+[[package]]
 name = "marine-timestamp-macro"
 version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5060,9 +5071,9 @@ checksum = "388a1df253eca08550bef6c72392cfe7c30914bf41df5269b68cbd6ff8f570a3"
 
 [[package]]
 name = "serde"
-version = "1.0.147"
+version = "1.0.149"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d193d69bae983fc11a79df82342761dfbf28a99fc8d203dca4c3c1b590948965"
+checksum = "256b9932320c590e707b94576e3cc1f7c9024d0ee6612dfbcf1cb106cbe8e055"
 dependencies = [
  "serde_derive",
 ]
@@ -5097,9 +5108,9 @@ dependencies = [
 
 [[package]]
 name = "serde_derive"
-version = "1.0.147"
+version = "1.0.149"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4f1d362ca8fc9c3e3a7484440752472d68a6caa98f1ab81d99b5dfe517cec852"
+checksum = "b4eae9b04cbffdfd550eb462ed33bc6a1b68c935127d008b27444d08380f94e4"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -5421,6 +5432,7 @@ dependencies = [
  "connection-pool",
  "eyre",
  "fluence-libp2p",
+ "fluence-spell-dtos",
  "fstrings",
  "futures",
  "kademlia",
@@ -5473,12 +5485,10 @@ dependencies = [
  "derivative",
  "eyre",
  "fluence-app-service",
- "fluence-spell-distro",
  "parking_lot 0.12.1",
  "particle-modules",
  "particle-services",
  "service-modules",
- "toml",
 ]
 
 [[package]]
@@ -5574,9 +5584,9 @@ dependencies = [
 
 [[package]]
 name = "syn"
-version = "1.0.103"
+version = "1.0.105"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a864042229133ada95abf3b54fdc62ef5ccabe9515b64717bcb9a1919e59445d"
+checksum = "60b9b43d45702de4c839cb9b51d9f529c5dd26a4aff255b42b1ebc03e88ee908"
 dependencies = [
  "proc-macro2",
  "quote",
