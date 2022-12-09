@@ -4,6 +4,7 @@ use std::sync::Arc;
 
 use derivative::Derivative;
 use eyre::eyre;
+use eyre::WrapErr;
 use fluence_app_service::TomlMarineConfig;
 use parking_lot::RwLock;
 
@@ -38,11 +39,12 @@ impl SpellStorage {
         use fluence_spell_distro::{CONFIG, modules as spell_modules};
 
         let spell_modules = spell_modules();
-        let cfg = TomlMarineConfig::load(CONFIG)?;
+        let cfg: TomlMarineConfig = toml::from_slice(CONFIG)?;
         let mut hashes = Vec::new();
         for config in cfg.module {
-            let module = spell_modules.get(&config.name).context(format!("there's no module {} in the fluence_spell_distro::modules", config.name))?;
-            let hash = modules.add_module(module, config).context(format!("adding spell module {}", config.name).as_str())?;
+            let name = config.name.clone();
+            let module = spell_modules.get(name.as_str()).ok_or(eyre!(format!("there's no module {} in the fluence_spell_distro::modules", config.name)))?;
+            let hash = modules.add_module(module.to_vec(), config).context(format!("adding spell module {}", name))?;
             hashes.push(Dependency::Hash(hash))
         }
 

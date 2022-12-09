@@ -15,3 +15,4 @@ fluence-spell-distro = "0.1.1"
 parking_lot = { workspace = true }
 derivative = { workspace = true }
 eyre = { workspace = true }
+toml = { workspace = true }

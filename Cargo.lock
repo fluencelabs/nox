@@ -1897,11 +1897,12 @@ dependencies = [
 
 [[package]]
 name = "fluence-spell-distro"
-version = "0.1.0"
+version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f7b51b2ede29705911a30d340504a0801e753b783e5cc49d906ce9c817a17623"
+checksum = "6480de527c7b081b3800355a06f2c96e13b0f6a9d57e6f9b8653b1cfd3540820"
 dependencies = [
  "built",
+ "maplit",
 ]
 
 [[package]]
@@ -5477,6 +5478,7 @@ dependencies = [
  "particle-modules",
  "particle-services",
  "service-modules",
+ "toml",
 ]
 
 [[package]]
