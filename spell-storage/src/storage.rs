@@ -29,7 +29,8 @@ impl SpellStorage {
     ) -> eyre::Result<Self> {
         let spell_config_path = spell_config_path(&spells_base_dir);
         let spell_blueprint_id = if spell_config_path.exists() {
-            Self::load_spell_service(modules, &spell_config_path)?
+            let cfg = TomlMarineConfig::load(spell_config_path)?;
+            Self::load_spell_service(cfg, &spells_base_dir, modules)?
         } else {
             Self::load_spell_service_from_crate(modules)?
         };
@@ -63,10 +64,10 @@ impl SpellStorage {
     }
 
     fn load_spell_service(
-        modules: &ModuleRepository,
+        cfg: TomlMarineConfig,
         spells_base_dir: &Path,
+        modules: &ModuleRepository,
     ) -> eyre::Result<String> {
-        let cfg = TomlMarineConfig::load(spell_config_path(spells_base_dir))?;
         let mut hashes = Vec::new();
         for config in cfg.module {
             let load_from = config
