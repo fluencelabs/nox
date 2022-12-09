@@ -54,12 +54,9 @@ impl Sorcerer {
         local_peer_id: PeerId,
         scheduler_api: SchedulerApi,
     ) -> (Self, Vec<(String, HashMap<String, ServiceFunction>)>) {
-        let spell_storage = SpellStorage::create(
-            config.dir_config.spell_base_dir.clone(),
-            &services,
-            &modules,
-        )
-        .expect("Spell storage creation");
+        let spell_storage =
+            SpellStorage::create(&config.dir_config.spell_base_dir, &services, &modules)
+                .expect("Spell storage creation");
 
         let sorcerer = Self {
             aquamarine,

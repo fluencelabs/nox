@@ -1,5 +1,5 @@
 use std::collections::HashSet;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use derivative::Derivative;
@@ -8,9 +8,9 @@ use eyre::WrapErr;
 use fluence_app_service::TomlMarineConfig;
 use parking_lot::RwLock;
 
-use particle_modules::{AddBlueprint, load_module_by_path, ModuleRepository};
+use particle_modules::{load_module_by_path, AddBlueprint, ModuleRepository};
 use particle_services::ParticleAppServices;
-use service_modules::{Dependency, module_file_name};
+use service_modules::{module_file_name, Dependency};
 
 #[derive(Derivative)]
 #[derivative(Debug, Clone)]
@@ -23,28 +23,39 @@ pub struct SpellStorage {
 
 impl SpellStorage {
     pub fn create(
-        spells_base_dir: PathBuf,
+        spells_base_dir: &Path,
         services: &ParticleAppServices,
         modules: &ModuleRepository,
     ) -> eyre::Result<Self> {
-        let spell_blueprint_id = SpellStorage::load_spell_service(modules, spells_base_dir)?;
-        let registered_spells = SpellStorage::restore_spells(services, modules);
+        let spell_config_path = spell_config_path(&spells_base_dir);
+        let spell_blueprint_id = if spell_config_path.exists() {
+            Self::load_spell_service(modules, &spell_config_path)?
+        } else {
+            Self::load_spell_service_from_crate(modules)?
+        };
+        let registered_spells = Self::restore_spells(services, modules);
+
         Ok(Self {
             spell_blueprint_id,
             registered_spells: Arc::new(RwLock::new(registered_spells)),
         })
     }
 
-    fn load_spell_service_from_crate(modules: &ModuleRepository,) -> eyre::Result<String> {
-        use fluence_spell_distro::{CONFIG, modules as spell_modules};
+    fn load_spell_service_from_crate(modules: &ModuleRepository) -> eyre::Result<String> {
+        use fluence_spell_distro::{modules as spell_modules, CONFIG};
 
         let spell_modules = spell_modules();
         let cfg: TomlMarineConfig = toml::from_slice(CONFIG)?;
         let mut hashes = Vec::new();
         for config in cfg.module {
             let name = config.name.clone();
-            let module = spell_modules.get(name.as_str()).ok_or(eyre!(format!("there's no module {} in the fluence_spell_distro::modules", config.name)))?;
-            let hash = modules.add_module(module.to_vec(), config).context(format!("adding spell module {}", name))?;
+            let module = spell_modules.get(name.as_str()).ok_or(eyre!(format!(
+                "there's no module {} in the fluence_spell_distro::modules",
+                config.name
+            )))?;
+            let hash = modules
+                .add_module(module.to_vec(), config)
+                .context(format!("adding spell module {}", name))?;
             hashes.push(Dependency::Hash(hash))
         }
 
@@ -53,9 +64,9 @@ impl SpellStorage {
 
     fn load_spell_service(
         modules: &ModuleRepository,
-        spells_base_dir: PathBuf,
+        spells_base_dir: &Path,
     ) -> eyre::Result<String> {
-        let cfg = TomlMarineConfig::load(spells_base_dir.join("Config.toml"))?;
+        let cfg = TomlMarineConfig::load(spell_config_path(spells_base_dir))?;
         let mut hashes = Vec::new();
         for config in cfg.module {
             let load_from = config
@@ -114,4 +125,8 @@ impl SpellStorage {
     pub fn has_spell(&self, spell_id: &String) -> bool {
         self.registered_spells.read().contains(spell_id)
     }
+}
+
+fn spell_config_path(spells_base_dir: &Path) -> PathBuf {
+    spells_base_dir.join("Config.toml")
 }

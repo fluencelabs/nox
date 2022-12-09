@@ -84,6 +84,7 @@ pub struct ResolvedDirConfig {
     pub avm_base_dir: PathBuf,
     /// Directory where interpreter's WASM module is stored
     pub air_interpreter_path: PathBuf,
+    /// Directory where files of the spell service are stored
     pub spell_base_dir: PathBuf,
 }
 
@@ -91,8 +92,10 @@ impl ResolvedDirConfig {
     pub fn create_dirs(&self) -> eyre::Result<()> {
         create_dirs(&[
             &self.base_dir,
+            &self.services_base_dir,
             &self.avm_base_dir,
             &self.builtins_base_dir,
+            &self.spell_base_dir
         ])
         .wrap_err_with(|| format!("creating configured directories: {:#?}", self))
     }
