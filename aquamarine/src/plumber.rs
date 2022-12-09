@@ -348,7 +348,7 @@ mod tests {
         // Pool is of size 1 so it's easier to control tests
         let vm_pool = VmPool::new(1, (), None);
         let builtin_mock = Arc::new(MockF);
-        Plumber::new(vm_pool, builtin_mock, None, RandomPeerId::random())
+        Plumber::new(vm_pool, builtin_mock, None)
     }
 
     fn particle(ts: u64, ttl: u32) -> Particle {
@@ -375,7 +375,7 @@ mod tests {
         let deadline = Deadline::from(&particle);
         assert!(!deadline.is_expired(now_ms()));
 
-        plumber.ingest(particle, None);
+        plumber.ingest(particle, None, RandomPeerId::random());
 
         assert_eq!(plumber.actors.len(), 1);
         let mut cx = context();
@@ -408,7 +408,7 @@ mod tests {
         let deadline = Deadline::from(&particle);
         assert!(deadline.is_expired(now_ms()));
 
-        plumber.ingest(particle.clone(), None);
+        plumber.ingest(particle.clone(), None, RandomPeerId::random());
 
         assert_eq!(plumber.actors.len(), 0);
 
