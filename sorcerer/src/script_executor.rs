@@ -13,107 +13,67 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-use eyre::eyre;
-use serde::Deserialize;
+use fluence_spell_dtos::value::{ScriptValue, U32Value, UnitValue};
 use serde_json::json;
-use serde_json::Value as JValue;
 
-use crate::Sorcerer;
 use now_millis::now_ms;
-use particle_execution::FunctionOutcome;
+use particle_args::JError;
 use particle_protocol::Particle;
 
-#[derive(Deserialize)]
-struct UnitValue {
-    pub success: bool,
-    pub error: String,
-}
-
-#[derive(Deserialize)]
-struct U32Value {
-    pub num: u32,
-    pub success: bool,
-    #[allow(dead_code)]
-    pub error: String,
-}
-
-#[derive(Deserialize)]
-pub struct Script {
-    pub source_code: String,
-    pub success: bool,
-    pub error: String,
-}
-
-fn process_func_outcome(func_outcome: FunctionOutcome) -> eyre::Result<JValue> {
-    match func_outcome {
-        FunctionOutcome::NotDefined { args, .. } => Err(eyre!(format!(
-            "Service with id '{}' not found (function {})",
-            args.service_id, args.function_name
-        ))),
-        FunctionOutcome::Empty => Err(eyre!("Function has not returned any result")),
-        FunctionOutcome::Err(err) => Err(eyre!(err.to_string())),
-        FunctionOutcome::Ok(v) => Ok(v),
-    }
-}
+use crate::utils::process_func_outcome;
+use crate::Sorcerer;
 
 impl Sorcerer {
-    fn get_spell_counter(&self, spell_id: String) -> eyre::Result<u32> {
+    fn get_spell_counter(&self, spell_id: String) -> Result<u32, JError> {
         let func_outcome = self.services.call_function(
-            spell_id,
+            &spell_id,
             "get_u32",
             vec![json!("counter")],
+            None,
             self.node_peer_id,
             self.spell_script_particle_ttl,
         );
 
-        let result: U32Value = serde_json::from_value(process_func_outcome(func_outcome)?)?;
-
-        if result.success {
-            Ok(result.num)
+        if let Ok(res) = process_func_outcome::<U32Value>(func_outcome, &spell_id, "get_u32") {
+            Ok(res.num)
         } else {
             // If key is not exists we will create it on the next step
             Ok(0u32)
         }
     }
 
-    fn set_spell_next_counter(&self, spell_id: String, next_counter: u32) -> eyre::Result<()> {
+    fn set_spell_next_counter(&self, spell_id: String, next_counter: u32) -> Result<(), JError> {
         let func_outcome = self.services.call_function(
-            spell_id,
+            &spell_id,
             "set_u32",
             vec![json!("counter"), json!(next_counter)],
+            None,
             self.node_peer_id,
             self.spell_script_particle_ttl,
         );
 
-        let result: UnitValue = serde_json::from_value(process_func_outcome(func_outcome)?)?;
-
-        if result.success {
-            Ok(())
-        } else {
-            Err(eyre!(result.error))
-        }
+        process_func_outcome::<UnitValue>(func_outcome, &spell_id, "set_u32").map(drop)
     }
 
-    fn get_spell_script(&self, spell_id: String) -> eyre::Result<String> {
+    fn get_spell_script(&self, spell_id: String) -> Result<String, JError> {
         let func_outcome = self.services.call_function(
-            spell_id,
+            &spell_id,
             "get_script_source_from_file",
             vec![],
+            None,
             self.node_peer_id,
             self.spell_script_particle_ttl,
         );
 
-        let result: Script = serde_json::from_value(process_func_outcome(func_outcome)?)?;
-
-        if result.success {
-            Ok(result.source_code)
-        } else {
-            Err(eyre!(result.error))
-        }
+        Ok(process_func_outcome::<ScriptValue>(
+            func_outcome,
+            &spell_id,
+            "get_script_source_from_file",
+        )?
+        .source_code)
     }
 
-    pub(crate) fn get_spell_particle(&self, spell_id: String) -> eyre::Result<Particle> {
+    pub(crate) fn get_spell_particle(&self, spell_id: String) -> Result<Particle, JError> {
         let spell_counter = self.get_spell_counter(spell_id.clone())?;
         self.set_spell_next_counter(spell_id.clone(), spell_counter + 1)?;
         let spell_script = self.get_spell_script(spell_id.clone())?;

@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-use crate::spells::{get_spell_id, spell_install, spell_list, spell_remove};
-
 use async_std::task::{spawn, JoinHandle};
 use std::collections::HashMap;
 use std::time::Duration;
@@ -34,6 +32,11 @@ use server_config::ResolvedConfig;
 use spell_event_bus::scheduler::api::{Event, SchedulerApi};
 use spell_storage::SpellStorage;
 
+use crate::spells::{
+    get_spell_arg, get_spell_id, spell_install, spell_list, spell_remove, store_error,
+    store_response,
+};
+
 #[derive(Clone)]
 pub struct Sorcerer {
     pub aquamarine: AquamarineApi,
@@ -45,6 +48,15 @@ pub struct Sorcerer {
     pub spell_script_particle_ttl: Duration,
 }
 
+type CustomService = (
+    // service id
+    String,
+    // functions
+    HashMap<String, ServiceFunction>,
+    // unhandled
+    Option<ServiceFunction>,
+);
+
 impl Sorcerer {
     pub fn new(
         services: ParticleAppServices,
@@ -53,7 +65,7 @@ impl Sorcerer {
         config: ResolvedConfig,
         local_peer_id: PeerId,
         scheduler_api: SchedulerApi,
-    ) -> (Self, Vec<(String, HashMap<String, ServiceFunction>)>) {
+    ) -> (Self, Vec<CustomService>) {
         let spell_storage = SpellStorage::create(
             config.dir_config.spell_base_dir.clone(),
             &services,
@@ -95,8 +107,8 @@ impl Sorcerer {
         })
     }
 
-    fn get_spell_service_functions(&self) -> Vec<(String, HashMap<String, ServiceFunction>)> {
-        let mut service_functions: Vec<(String, HashMap<String, ServiceFunction>)> = vec![];
+    fn get_spell_service_functions(&self) -> Vec<CustomService> {
+        let mut service_functions: Vec<CustomService> = vec![];
         let services = self.services.clone();
         let storage = self.spell_storage.clone();
         let scheduler = self.scheduler_api.clone();
@@ -106,11 +118,11 @@ impl Sorcerer {
             let scheduler_api = scheduler.clone();
             async move {
                 wrap(spell_install(
+                    args,
+                    params,
                     storage,
                     services,
                     scheduler_api,
-                    args,
-                    params,
                 ))
             }
             .boxed()
@@ -121,7 +133,7 @@ impl Sorcerer {
         let remove_closure: ServiceFunction = Box::new(move |args, params| {
             let storage = storage.clone();
             let services = services.clone();
-            async move { wrap_unit(spell_remove(storage, services, args, params)) }.boxed()
+            async move { wrap_unit(spell_remove(args, params, storage, services)) }.boxed()
         });
 
         let storage = self.spell_storage.clone();
@@ -135,14 +147,44 @@ impl Sorcerer {
             "remove".to_string() => remove_closure,
             "list".to_string() => list_closure
         };
-        service_functions.push(("spell".to_string(), functions));
+        service_functions.push(("spell".to_string(), functions, None));
 
-        let get_data_srv_closure: ServiceFunction =
+        let get_spell_id_closure: ServiceFunction =
             Box::new(move |args, params| async move { wrap(get_spell_id(args, params)) }.boxed());
 
+        let services = self.services.clone();
+        let get_spell_arg_closure: ServiceFunction = Box::new(move |args, params| {
+            let services = services.clone();
+            async move { wrap(get_spell_arg(args, params, services)) }.boxed()
+        });
         service_functions.push((
             "getDataSrv".to_string(),
-            hashmap! {"spell_id".to_string() => get_data_srv_closure},
+            hashmap! {"spell_id".to_string() => get_spell_id_closure},
+            Some(get_spell_arg_closure),
+        ));
+
+        let services = self.services.clone();
+        let error_handler_closure: ServiceFunction = Box::new(move |args, params| {
+            let services = services.clone();
+            async move { wrap_unit(store_error(args, params, services)) }.boxed()
+        });
+
+        service_functions.push((
+            "errorHandlingSrv".to_string(),
+            hashmap! {"error".to_string() => error_handler_closure},
+            None,
+        ));
+
+        let services = self.services.clone();
+        let response_handler_closure: ServiceFunction = Box::new(move |args, params| {
+            let services = services.clone();
+            async move { wrap_unit(store_response(args, params, services)) }.boxed()
+        });
+
+        service_functions.push((
+            "callbackSrv".to_string(),
+            hashmap! {"response".to_string() => response_handler_closure},
+            None,
         ));
 
         service_functions

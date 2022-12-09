@@ -56,6 +56,13 @@ use crate::identify::NodeInfo;
 use crate::outcome::{ok, wrap, wrap_unit};
 use crate::{json, math};
 
+pub struct CustomService {
+    /// (function_name -> service function)
+    pub functions: HashMap<String, Mutex<ServiceFunction>>,
+    /// if set, all `function_name` mismatches with `custom_service.functions` will be routed to `unhandled`
+    pub unhandled: Option<Mutex<ServiceFunction>>,
+}
+
 #[derive(Derivative)]
 #[derivative(Debug)]
 pub struct Builtins<C> {
@@ -73,7 +80,7 @@ pub struct Builtins<C> {
     pub node_info: NodeInfo,
 
     #[derivative(Debug(format_with = "fmt_custom_services"))]
-    pub custom_services: RwLock<HashMap<String, HashMap<String, Mutex<ServiceFunction>>>>,
+    pub custom_services: RwLock<HashMap<String, CustomService>>,
 
     particles_vault_dir: path::PathBuf,
 }
@@ -143,7 +150,11 @@ where
             .custom_services
             .read()
             .get(&args.service_id)
-            .and_then(|fs| fs.get(&args.function_name))
+            .and_then(|fs| {
+                fs.functions
+                    .get(&args.function_name)
+                    .or(fs.unhandled.as_ref())
+            })
         {
             let mut function = function.lock();
             async_std::task::block_on(function(args, particle))

@@ -238,7 +238,7 @@ impl<RT: AquaRuntime> Node<RT> {
 
         spell_service_functions
             .into_iter()
-            .for_each(|(srv_id, funcs)| builtins.extend(srv_id, funcs));
+            .for_each(|(srv_id, funcs, unhandled)| builtins.extend(srv_id, funcs, unhandled));
 
         Ok(Self::with(
             particle_stream,
