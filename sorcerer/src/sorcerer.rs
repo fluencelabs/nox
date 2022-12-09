@@ -65,7 +65,6 @@ impl Sorcerer {
         config: ResolvedConfig,
         local_peer_id: PeerId,
         spell_event_bus_api: SpellEventBusApi,
-        scheduler_api: SchedulerApi,
     ) -> (Self, Vec<CustomService>) {
         let spell_storage = SpellStorage::create(
             config.dir_config.spell_base_dir.clone(),
@@ -115,13 +114,7 @@ impl Sorcerer {
             let services = services.clone();
             let spell_event_bus_api = spell_event_bus.clone();
             async move {
-                wrap(spell_install(
-                    args,
-                    params,
-                    storage,
-                    services,
-                    spell_event_bus_api,
-                ).await)
+                wrap(spell_install(args, params, storage, services, spell_event_bus_api).await)
             }
             .boxed()
         });

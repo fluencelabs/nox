@@ -18,6 +18,7 @@ use std::time::Duration;
 use fluence_spell_dtos::value::{StringValue, UnitValue};
 use serde_json::{json, Value as JValue, Value::Array};
 
+use crate::utils::{parse_spell_id_from, process_func_outcome};
 use fluence_spell_dtos::trigger_config::TriggerConfig;
 use particle_args::{Args, JError};
 use particle_execution::ParticleParams;
@@ -27,8 +28,6 @@ use spell_event_bus::{
     api::{PeerEventType, SpellEventBusApi, TimerConfig},
 };
 use spell_storage::SpellStorage;
-use crate::utils::{parse_spell_id_from, process_func_outcome};
-use std::time::Duration;
 use thiserror::Error;
 
 const MAX_PERIOD_YEAR: u32 = 100;
@@ -106,28 +105,28 @@ pub(crate) async fn spell_install(
     // Save the script to the spell
     process_func_outcome::<UnitValue>(
         services.call_function(
-            &service_id,
+            &spell_id,
             "set_script_source_to_file",
             vec![json!(script)],
             None,
             params.init_peer_id,
             Duration::from_millis(params.ttl as u64),
         ),
-        &service_id,
+        &spell_id,
         "set_script_source_to_file",
     )?;
 
     // Save init_data to the spell's KV
     process_func_outcome::<UnitValue>(
         services.call_function(
-            &service_id,
+            &spell_id,
             "set_json_fields",
             vec![json!(init_data)],
             None,
             params.init_peer_id,
             Duration::from_millis(params.ttl as u64),
         ),
-        &service_id,
+        &spell_id,
         "set_json_fields",
     )?;
     // TODO: also save trigger config

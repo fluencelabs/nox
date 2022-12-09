@@ -87,7 +87,6 @@ fn spell_simple_test() {
             )
         )"#;
 
-
     let spell_id = create_spell(&mut client, script, 0, hashmap! {});
 
     let mut result = "".to_string();
