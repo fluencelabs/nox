@@ -33,5 +33,6 @@ eyre = { workspace = true}
 fstrings = { workspace = true}
 async-std = { workspace = true }
 serde = { workspace = true }
+thiserror = { workspace = true }
 
 fluence-spell-dtos = { git = "https://github.com/fluencelabs/spell", version = "0.1.3" }

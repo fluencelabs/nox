@@ -29,12 +29,29 @@ use spell_event_bus::{
 use spell_storage::SpellStorage;
 use crate::utils::{parse_spell_id_from, process_func_outcome};
 use std::time::Duration;
+use thiserror::Error;
+
+const MAX_PERIOD_YEAR: u32 = 100;
+
+// Set max period to 100 years in secs = 60 sec * 60 min * 24 hours * 365 days * 100 years
+const MAX_PERIOD_SEC: u32 = 60 * 60 * 24 * 365 * MAX_PERIOD_YEAR;
+
+#[derive(Debug, Error)]
+enum ConfigError {
+    #[error("invalid config: period is too big. Max period is {} years (or approx {} seconds)", MAX_PERIOD_YEAR, MAX_PERIOD_SEC)]
+    InvalidPeriod,
+    #[error("config is empty, nothing to do")]
+    EmptyConfig,
+}
 
 /// Convert user-friendly config to event-bus-friendly config.
-fn from_user_config(user_config: TriggerConfig) -> Option<api::SpellTriggerConfigs> {
+fn from_user_config(user_config: TriggerConfig) -> Result<api::SpellTriggerConfigs, ConfigError> {
     let mut triggers = Vec::new();
     // Process timer config
     if user_config.clock.period_sec != 0 {
+        if user_config.clock.period_sec > MAX_PERIOD_SEC {
+            return Err(ConfigError::InvalidPeriod);
+        }
         triggers.push(api::TriggerConfig::Timer(TimerConfig {
             period: Duration::from_secs(user_config.clock.period_sec as u64),
         }));
@@ -55,9 +72,9 @@ fn from_user_config(user_config: TriggerConfig) -> Option<api::SpellTriggerConfi
     }
 
     if triggers.is_empty() {
-        None
+       Err(ConfigError::EmptyConfig)
     } else {
-        Some(api::SpellTriggerConfigs { triggers })
+        Ok(api::SpellTriggerConfigs { triggers })
     }
 }
 
@@ -75,7 +92,7 @@ pub(crate) async fn spell_install(
     // TODO: use TriggerConfig when it's deserializable
     // TODO: validate the config before everything
     let user_config: TriggerConfig = Args::next("config", &mut args)?;
-    let config = from_user_config(user_config).ok_or_else(|| JError(json!("config is empty")))?;
+    let config = from_user_config(user_config)?;
 
     // TODO: create service on behalf of spell keypair
     let spell_id = services.create_service(spell_storage.get_blueprint(), params.init_peer_id)?;

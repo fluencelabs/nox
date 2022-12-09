@@ -5456,6 +5456,7 @@ dependencies = [
  "server-config",
  "spell-event-bus",
  "spell-storage",
+ "thiserror",
  "uuid-utils",
 ]
 
