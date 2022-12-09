@@ -38,7 +38,11 @@ const MAX_PERIOD_SEC: u32 = 60 * 60 * 24 * 365 * MAX_PERIOD_YEAR;
 
 #[derive(Debug, Error)]
 enum ConfigError {
-    #[error("invalid config: period is too big. Max period is {} years (or approx {} seconds)", MAX_PERIOD_YEAR, MAX_PERIOD_SEC)]
+    #[error(
+        "invalid config: period is too big. Max period is {} years (or approx {} seconds)",
+        MAX_PERIOD_YEAR,
+        MAX_PERIOD_SEC
+    )]
     InvalidPeriod,
     #[error("config is empty, nothing to do")]
     EmptyConfig,
@@ -72,7 +76,7 @@ fn from_user_config(user_config: TriggerConfig) -> Result<api::SpellTriggerConfi
     }
 
     if triggers.is_empty() {
-       Err(ConfigError::EmptyConfig)
+        Err(ConfigError::EmptyConfig)
     } else {
         Ok(api::SpellTriggerConfigs { triggers })
     }
