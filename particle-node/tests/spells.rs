@@ -86,8 +86,8 @@ fn spell_simple_test() {
                 (call %init_peer_id% (spell_id "set_string") ["result" script.$.source_code])
             )
         )"#;
-
-    let spell_id = create_spell(&mut client, script, 0, hashmap! {});
+    let period_sec = 1;
+    let spell_id = create_spell(&mut client, script, period_sec, hashmap! {});
 
     let mut result = "".to_string();
     // TODO: remove sleep when start_sec is in use
