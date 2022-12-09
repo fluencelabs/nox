@@ -55,7 +55,7 @@ fn create_spell(
     client.send_particle(
         r#"
         (seq
-            (call relay ("spell" "install") [script data period] spell_id)
+            (call relay ("spell" "install") [script data config] spell_id)
             (call client ("return" "") [spell_id])
         )"#,
         data.clone(),
@@ -91,7 +91,7 @@ fn spell_simple_test() {
 
     let mut result = "".to_string();
     // TODO: remove sleep when start_sec is in use
-    std::thread::sleep(Duration::from_secs(period_sec + 1));
+    std::thread::sleep(Duration::from_secs(period_sec as u64 + 1));
 
     let mut counter = 0;
     for _ in 1..10 {
