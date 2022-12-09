@@ -1057,10 +1057,7 @@ fn resolve_vault_path(
     particle_id: &str,
 ) -> Result<path::PathBuf, ResolveVaultError> {
     let virtual_prefix = path::Path::new(VIRTUAL_PARTICLE_VAULT_PREFIX).join(particle_id);
-    let real_prefix = particles_vault_dir
-        .join(particle_id)
-        .canonicalize()
-        .map_err(|e| ResolveVaultError::NotFound(e, path.to_path_buf()))?;
+    let real_prefix = particles_vault_dir.join(particle_id);
 
     let rest = path.strip_prefix(&virtual_prefix).map_err(|e| {
         ResolveVaultError::WrongVault(Some(e), path.to_path_buf(), virtual_prefix.clone())
