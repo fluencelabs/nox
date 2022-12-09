@@ -138,7 +138,10 @@ fn spell_error_handling_test() {
             (call %init_peer_id% ("srv" "remove") ["non_existent_srv_id"])
             (call %init_peer_id% ("errorHandlingSrv" "error") [%last_error% 1])        
         )"#;
-    let spell_id = create_spell(&mut client, failing_script, 0, hashmap! {});
+    let period_sec = 1;
+    let spell_id = create_spell(&mut client, failing_script, period_sec, hashmap! {});
+    std::thread::sleep(Duration::from_secs(period_sec as u64 + 1));
+
 
     // let's retrieve error from the first spell particle
     let particle_id = format!("spell_{}_{}", spell_id, 0);
@@ -187,12 +190,14 @@ fn spell_args_test() {
             (call %init_peer_id% (spell_id "set_string") ["result" value])
         )"#;
 
+    let period_sec = 1;
     let spell_id = create_spell(
         &mut client,
         script,
-        0,
+        period_sec,
         hashmap! {"key".to_string() => "value".to_string()},
     );
+    std::thread::sleep(Duration::from_secs(period_sec as u64 + 1));
 
     let mut result = "".to_string();
     let mut value = "".to_string();
@@ -255,7 +260,9 @@ fn spell_return_test() {
             )
         )"#;
 
-    let spell_id = create_spell(&mut client, script, 0, hashmap! {});
+    let period_sec = 1;
+    let spell_id = create_spell(&mut client, script, period_sec, hashmap! {});
+    std::thread::sleep(Duration::from_secs(period_sec as u64 + 1));
 
     let mut value = "".to_string();
     for _ in 1..10 {
