@@ -142,7 +142,6 @@ fn spell_error_handling_test() {
     let spell_id = create_spell(&mut client, failing_script, period_sec, hashmap! {});
     std::thread::sleep(Duration::from_secs(period_sec as u64 + 1));
 
-
     // let's retrieve error from the first spell particle
     let particle_id = format!("spell_{}_{}", spell_id, 0);
     let mut result = vec![];
