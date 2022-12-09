@@ -13,26 +13,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::defaults::{
-    avm_base_dir, builtins_base_dir, cert_dir, default_base_dir, services_base_dir,
-};
+use std::path::PathBuf;
+
+use eyre::WrapErr;
+use serde::Deserialize;
 
 use air_interpreter_fs::air_interpreter_path;
 use fs_utils::{create_dirs, to_abs_path};
 
-use eyre::WrapErr;
-use serde::Deserialize;
-use std::path::PathBuf;
+use crate::defaults::{
+    avm_base_dir, builtins_base_dir, default_base_dir, services_base_dir,
+};
 
 #[derive(Deserialize, Clone, Debug)]
 pub struct UnresolvedDirConfig {
     /// Parent directory for all other node's directory
     #[serde(default = "default_base_dir")]
     pub base_dir: PathBuf,
-
-    /// Directory, where all certificates are stored.
-    #[serde(default)]
-    pub certificate_dir: Option<PathBuf>,
 
     /// Base directory for resources needed by application services
     #[serde(default)]
@@ -58,7 +55,6 @@ pub struct UnresolvedDirConfig {
 impl UnresolvedDirConfig {
     pub fn resolve(self) -> ResolvedDirConfig {
         let base = to_abs_path(self.base_dir);
-        let certificate_dir = self.certificate_dir.unwrap_or(cert_dir(&base));
         let services_base_dir = self.services_base_dir.unwrap_or(services_base_dir(&base));
         let builtins_base_dir = self.builtins_base_dir.unwrap_or(builtins_base_dir(&base));
         let avm_base_dir = self.avm_base_dir.unwrap_or(avm_base_dir(&base));
@@ -69,7 +65,6 @@ impl UnresolvedDirConfig {
 
         ResolvedDirConfig {
             base_dir: base,
-            certificate_dir,
             services_base_dir,
             builtins_base_dir,
             avm_base_dir,
@@ -82,7 +77,6 @@ impl UnresolvedDirConfig {
 #[derive(Clone, Debug)]
 pub struct ResolvedDirConfig {
     pub base_dir: PathBuf,
-    pub certificate_dir: PathBuf,
     pub services_base_dir: PathBuf,
     /// Directory where configs for autodeployed builtins are stored
     pub builtins_base_dir: PathBuf,
@@ -97,7 +91,6 @@ impl ResolvedDirConfig {
     pub fn create_dirs(&self) -> eyre::Result<()> {
         create_dirs(&[
             &self.base_dir,
-            &self.certificate_dir,
             &self.avm_base_dir,
             &self.builtins_base_dir,
         ])

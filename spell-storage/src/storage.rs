@@ -10,7 +10,7 @@ use parking_lot::RwLock;
 
 use particle_modules::{AddBlueprint, load_module_by_path, ModuleRepository};
 use particle_services::ParticleAppServices;
-use service_modules::{Dependency, Hash, module_file_name};
+use service_modules::{Dependency, module_file_name};
 
 #[derive(Derivative)]
 #[derivative(Debug, Clone)]

@@ -71,10 +71,6 @@ pub fn default_base_dir() -> PathBuf {
     format!(".fluence/v{}", CONFIG_VERSION).into()
 }
 
-pub fn cert_dir(base_dir: &Path) -> PathBuf {
-    base_dir.join("certificates")
-}
-
 pub fn services_base_dir(base_dir: &Path) -> PathBuf {
     base_dir.join("services")
 }
