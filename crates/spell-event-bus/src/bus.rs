@@ -198,7 +198,7 @@ impl SpellEventBus {
                         match &action {
                             Action::Subscribe(config) => {
                                 // TODO: make it possible to construct the config ONLY via `verify :: UserConfig -> Result<SpellTriggerConfigs, _>`.
-                                state.subscribe(spell_id.clone(), &config).expect("invalid timer config detected while subscribing a spell");
+                                state.subscribe(spell_id.clone(), &config).unwrap_or(());
                             },
                             Action::Unsubscribe => {
                                 state.unsubscribe(&spell_id);
@@ -216,13 +216,15 @@ impl SpellEventBus {
                         // The timer is triggered only if there are some spells to be awaken.
                         let scheduled_spell = state.scheduled.pop().expect("billions of years have gone by already?");
                         Self::trigger_spell(&send_events, &scheduled_spell.data.id, Event::Timer)?;
-                        let rescheduled = Scheduled::at(scheduled_spell.data, Instant::now()).expect("invalid timer config detected while rescheduling a spell");
-                        state.scheduled.push(rescheduled);
+                        // We don't expect that timer overflow will happen.
+                        if let Some(rescheduled) = Scheduled::at(scheduled_spell.data, Instant::now()) {
+                            state.scheduled.push(rescheduled);
+                        }
                     },
                 }
             };
             if let Err(e) = result {
-                log::error!("spell-event-bus internal error: {}", e);
+                log::warn!("Error in spell event bus loop: {}", e);
             }
         }
     }

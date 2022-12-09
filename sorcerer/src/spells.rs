@@ -116,13 +116,14 @@ pub(crate) async fn spell_install(
         .subscribe(spell_id.clone(), config.clone())
         .await
     {
-        log::error!("can't subscribe a spell {} to triggers {:?} via spell-event-bus-api: {}. Removing created spell service...", spell_id, config, err);
+        log::warn!("can't subscribe a spell {} to triggers {:?} via spell-event-bus-api: {}. Removing created spell service...", spell_id, config, err);
 
         spell_storage.unregister_spell(&spell_id);
         services.remove_service(spell_id, params.init_peer_id)?;
 
         return Err(JError::new(format!(
-            "can't install a spell due to an internal error"
+            "can't install a spell due to an internal error while subscribing to the triggers: {}",
+            err
         )));
     }
 
@@ -149,14 +150,15 @@ pub(crate) async fn spell_remove(
     let mut args = args.function_args.into_iter();
     let spell_id: String = Args::next("spell_id", &mut args)?;
     if let Err(err) = spell_event_bus_api.unsubscribe(spell_id.clone()).await {
-        log::error!(
+        log::warn!(
             "can't unsubscribe a spell {} from its triggers via spell-event-bus-api: {}",
             spell_id,
             err
         );
         return Err(JError::new(format!(
-            "can't remove a spell {} due to an internal error",
-            spell_id
+            "can't remove a spell {} due to an internal error while unsubscribing from the triggers: {}",
+            spell_id,
+            err
         )));
     }
 
