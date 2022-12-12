@@ -13,8 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::time::Duration;
-
 use fluence_spell_dtos::value::{StringValue, UnitValue};
 use serde_json::{json, Value as JValue, Value::Array};
 
@@ -28,6 +26,7 @@ use spell_event_bus::{
     api::{PeerEventType, SpellEventBusApi, TimerConfig},
 };
 use spell_storage::SpellStorage;
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use thiserror::Error;
 
 const MAX_PERIOD_YEAR: u32 = 100;
@@ -43,20 +42,55 @@ enum ConfigError {
         MAX_PERIOD_SEC
     )]
     InvalidPeriod,
+    #[error("invalid config: end_sec is less than start_sec or in the past")]
+    InvalidEndSec,
     #[error("config is empty, nothing to do")]
     EmptyConfig,
 }
 
-/// Convert user-friendly config to event-bus-friendly config.
+// The only way to convert timestamp to instant I found.
+// Fails if the timestamp is in the past or overflow occurred which actually shouldn't happen.
+fn to_instant(timestamp: u64) -> Option<Instant> {
+    let target_time = UNIX_EPOCH.checked_add(Duration::from_secs(timestamp))?;
+    let duration = target_time.duration_since(SystemTime::now()).ok()?;
+    Instant::now().checked_add(duration)
+}
+
+/// Convert user-friendly config to event-bus-friendly config, validating it in the process.
 fn from_user_config(user_config: TriggerConfig) -> Result<api::SpellTriggerConfigs, ConfigError> {
     let mut triggers = Vec::new();
     // Process timer config
-    if user_config.clock.period_sec != 0 {
-        if user_config.clock.period_sec > MAX_PERIOD_SEC {
+    let clock = user_config.clock;
+    if clock.start_sec != 0 {
+        if clock.period_sec > MAX_PERIOD_SEC {
             return Err(ConfigError::InvalidPeriod);
         }
+
+        let end_at = if clock.end_sec == 0 {
+            None
+        } else if clock.end_sec > clock.start_sec {
+            match to_instant(clock.end_sec as u64) {
+                Some(end_at) => Some(end_at),
+                None => return Err(ConfigError::InvalidEndSec),
+            }
+        } else {
+            return Err(ConfigError::InvalidEndSec);
+        };
+
+        // Start now if the start time is in the past
+        let start_at = to_instant(clock.start_sec as u64).unwrap_or_else(Instant::now);
+
+        // If period is 0, then the timer will be triggered only once at start_sec and then stopped.
+        let end_at = if clock.period_sec == 0 {
+            Some(start_at)
+        } else {
+            end_at
+        };
+
         triggers.push(api::TriggerConfig::Timer(TimerConfig {
-            period: Duration::from_secs(user_config.clock.period_sec as u64),
+            period: Duration::from_secs(clock.period_sec as u64),
+            start_at,
+            end_at,
         }));
     }
 
@@ -92,8 +126,6 @@ pub(crate) async fn spell_install(
     let script: String = Args::next("script", &mut args)?;
     let init_data: String = Args::next("data", &mut args)?;
     log::info!("Init data: {}", json!(init_data));
-    // TODO: use TriggerConfig when it's deserializable
-    // TODO: validate the config before everything
     let user_config: TriggerConfig = Args::next("config", &mut args)?;
     let config = from_user_config(user_config)?;
 

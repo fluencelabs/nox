@@ -2,7 +2,7 @@ use connection_pool::LifecycleEvent;
 use fluence_libp2p::types::{OneshotOutlet, Outlet};
 use futures::channel::mpsc::SendError;
 use futures::{channel::oneshot, future::BoxFuture, FutureExt};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use thiserror::Error;
 
 #[derive(Debug, Clone)]
@@ -19,6 +19,8 @@ pub enum TriggerConfig {
 #[derive(Debug, Clone)]
 pub struct TimerConfig {
     pub period: Duration,
+    pub start_at: Instant,
+    pub end_at: Option<Instant>,
 }
 
 #[derive(Debug, Clone)]

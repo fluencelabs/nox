@@ -47,8 +47,9 @@ impl Subscribers {
 
 #[derive(Debug, PartialEq, Eq)]
 struct Periodic {
-    pub id: Arc<SpellId>,
-    pub period: Duration,
+    id: Arc<SpellId>,
+    period: Duration,
+    end_at: Option<Instant>,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -59,8 +60,14 @@ struct Scheduled {
 }
 
 impl Scheduled {
+    fn new(data: Periodic, run_at: Instant) -> Self {
+        Self { data, run_at }
+    }
     // schedule to no earlier than now + data.period
     fn at(data: Periodic, now: Instant) -> Option<Scheduled> {
+        if data.end_at.map(|end_at| end_at <= now).unwrap_or(false) {
+            return None;
+        }
         let run_at = now.checked_add(data.period)?;
         Some(Scheduled { data, run_at })
     }
@@ -100,8 +107,9 @@ impl SubscribersState {
                     let periodic = Periodic {
                         id: spell_id.clone(),
                         period: config.period,
+                        end_at: config.end_at,
                     };
-                    let scheduled = Scheduled::at(periodic, Instant::now())?;
+                    let scheduled = Scheduled::new(periodic, config.start_at);
                     self.scheduled.push(scheduled);
                 }
                 TriggerConfig::PeerEvent(config) => {
@@ -188,6 +196,8 @@ impl SpellEventBus {
             // to ensure that we don't miss newly scheduled spells.
             let mut timer = {
                 let next_scheduled_in = state.next_scheduled_in(now).unwrap_or(Duration::MAX);
+                log::trace!("Next scheduled in: {:?}", next_scheduled_in);
+                log::trace!("Scheduled: {:?}", state.scheduled);
                 async_std::stream::interval(next_scheduled_in).fuse()
             };
 
@@ -214,11 +224,14 @@ impl SpellEventBus {
                     },
                     _ = timer.select_next_some() => {
                         // The timer is triggered only if there are some spells to be awaken.
-                        let scheduled_spell = state.scheduled.pop().expect("billions of years have gone by already?");
-                        Self::trigger_spell(&send_events, &scheduled_spell.data.id, Event::Timer)?;
-                        // We don't expect that timer overflow will happen.
-                        if let Some(rescheduled) = Scheduled::at(scheduled_spell.data, Instant::now()) {
-                            state.scheduled.push(rescheduled);
+                        if let Some(scheduled_spell) = state.scheduled.pop() {
+                            log::trace!("Execute: {:?}", scheduled_spell);
+                            Self::trigger_spell(&send_events, &scheduled_spell.data.id, Event::Timer)?;
+                            // We don't expect that timer overflow will happen.
+                            if let Some(rescheduled) = Scheduled::at(scheduled_spell.data, Instant::now()) {
+                                log::trace!("Reschedule: {:?}", rescheduled);
+                                state.scheduled.push(rescheduled);
+                            }
                         }
                     },
                 }
@@ -267,6 +280,8 @@ mod tests {
             SpellTriggerConfigs {
                 triggers: vec![TriggerConfig::Timer(TimerConfig {
                     period: spell1_period,
+                    start_at: Instant::now(),
+                    end_at: None,
                 })],
             },
         ))
@@ -276,6 +291,8 @@ mod tests {
             SpellTriggerConfigs {
                 triggers: vec![TriggerConfig::Timer(TimerConfig {
                     period: spell2_period,
+                    start_at: Instant::now(),
+                    end_at: None,
                 })],
             },
         ))
