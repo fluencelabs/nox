@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-use async_std::task::{spawn, JoinHandle};
 use std::collections::HashMap;
 use std::time::Duration;
 
+use async_std::task::{spawn, JoinHandle};
 use futures::{FutureExt, StreamExt};
 use libp2p::PeerId;
 use maplit::hashmap;
@@ -66,12 +66,9 @@ impl Sorcerer {
         local_peer_id: PeerId,
         scheduler_api: SchedulerApi,
     ) -> (Self, Vec<CustomService>) {
-        let spell_storage = SpellStorage::create(
-            config.dir_config.spell_base_dir.clone(),
-            &services,
-            &modules,
-        )
-        .expect("Spell storage creation");
+        let spell_storage =
+            SpellStorage::create(&config.dir_config.spell_base_dir, &services, &modules)
+                .expect("Spell storage creation");
 
         let sorcerer = Self {
             aquamarine,
