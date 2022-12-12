@@ -82,11 +82,11 @@ pub struct UnresolvedConfig {
 }
 
 impl UnresolvedConfig {
-    pub fn resolve(self) -> ResolvedConfig {
-        ResolvedConfig {
-            dir_config: self.dir_config.resolve(),
+    pub fn resolve(self) -> eyre::Result<ResolvedConfig> {
+        Ok(ResolvedConfig {
+            dir_config: self.dir_config.resolve()?,
             node_config: self.node_config,
-        }
+        })
     }
 }
 
@@ -255,22 +255,20 @@ pub fn load_config(arguments: ArgMatches) -> eyre::Result<ResolvedConfig> {
         Vec::default()
     };
 
-    let config = deserialize_config(&arguments, &config_bytes)
+    let config = resolve_config(&arguments, &config_bytes)
         .wrap_err(eyre!("config deserialization failed"))?;
-
-    config.dir_config.create_dirs()?;
 
     Ok(config)
 }
 
-pub fn deserialize_config(arguments: &ArgMatches, content: &[u8]) -> eyre::Result<ResolvedConfig> {
+pub fn resolve_config(arguments: &ArgMatches, content: &[u8]) -> eyre::Result<ResolvedConfig> {
     let mut config: toml::value::Table =
         toml::from_slice(content).wrap_err("deserializing config")?;
 
     insert_args_to_config(arguments, &mut config)?;
 
     let config = toml::value::Value::Table(config);
-    let mut config = UnresolvedConfig::deserialize(config)?.resolve();
+    let mut config = UnresolvedConfig::deserialize(config)?.resolve()?;
 
     if arguments.is_present(LOCAL) {
         // if --local is passed, clear bootstrap nodes
@@ -297,21 +295,25 @@ mod tests {
     }
 
     #[test]
-    fn parse_config() {
-        let config = r#"
+    fn test_resolve_config() {
+        let tmp_dir = make_tmp_dir();
+        let config = format!(
+            r#"
             root_key_pair.format = "ed25519"
             root_key_pair.secret_key = "/XKBs1ydmfWGiTbh+e49GYw+14LHtu+v5BMFDIzHpvo="
             builtins_key_pair.format = "ed25519"
             builtins_key_pair.value = "Ek6l5zgX9P74MHRiRzK/FN6ftQIOD3prYdMh87nRXlEEuRX1QrdQI87MBRdphoc0url0cY5ZO58evCoGXty1zw=="
-            avm_base_dir = "/stepper"
+            avm_base_dir = "{}"
             script_storage_max_failures = 10
             
             [root_weights]
             12D3KooWB9P1xmV3c7ZPpBemovbwCiRRTKd3Kq2jsVPQN4ZukDfy = 1
             
-        "#;
+        "#,
+            tmp_dir.display()
+        );
 
-        let config = deserialize_config(&matches(), config.as_bytes()).expect("deserialize config");
+        let config = resolve_config(&matches(), config.as_bytes()).expect("deserialize config");
 
         assert_eq!(config.node_config.script_storage_max_failures, 10);
     }
@@ -335,7 +337,7 @@ mod tests {
 
         assert!(!key_path.exists());
         assert!(!builtins_key_path.exists());
-        deserialize_config(&matches(), config.as_bytes()).expect("deserialize config");
+        resolve_config(&matches(), config.as_bytes()).expect("deserialize config");
         assert!(key_path.exists());
         assert!(builtins_key_path.exists());
     }
@@ -346,12 +348,12 @@ mod tests {
             root_key_pair.generate_on_absence = true
             builtins_key_pair.generate_on_absence = true
             "#;
-        deserialize_config(&matches(), config.as_bytes()).expect("deserialize config");
+        resolve_config(&matches(), config.as_bytes()).expect("deserialize config");
     }
 
     #[test]
     fn parse_empty_config() {
-        deserialize_config(&matches(), &[]).expect("deserialize config");
+        resolve_config(&matches(), &[]).expect("deserialize config");
     }
 
     #[test]
@@ -389,7 +391,7 @@ mod tests {
         assert!(root_key_path.exists());
         assert!(builtins_key_path.exists());
 
-        deserialize_config(&matches(), config.as_bytes()).expect("deserialize config");
+        resolve_config(&matches(), config.as_bytes()).expect("deserialize config");
     }
 
     #[test]
@@ -416,7 +418,7 @@ mod tests {
         assert!(root_key_path.exists());
         assert!(builtins_key_path.exists());
 
-        deserialize_config(&matches(), config.as_bytes()).expect("deserialize config");
+        resolve_config(&matches(), config.as_bytes()).expect("deserialize config");
     }
 
     #[test]
@@ -451,7 +453,7 @@ mod tests {
         assert!(root_key_path.exists());
         assert!(builtins_key_path.exists());
 
-        deserialize_config(&matches(), config.as_bytes()).expect("deserialize config");
+        resolve_config(&matches(), config.as_bytes()).expect("deserialize config");
     }
 
     #[test]
@@ -486,6 +488,6 @@ mod tests {
         assert!(root_key_path.exists());
         assert!(builtins_key_path.exists());
 
-        deserialize_config(&matches(), config.as_bytes()).expect("deserialize config");
+        resolve_config(&matches(), config.as_bytes()).expect("deserialize config");
     }
 }
