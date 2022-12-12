@@ -116,7 +116,7 @@ jobs:
 
           ### Access to Fluence docker registry
           ```
-          vault read kv/docker-registry/basicauth/dev
+          vault read kv/basicauth/dev
           docker login docker.fluence.dev
           ```
           SNAPSHOT
