@@ -170,7 +170,6 @@ impl ModuleRepository {
 
         let mut config = files::add_module(&self.modules_dir, &hash, &module, config)?;
         self.check_module_heap_size(&mut config)?;
-        // let module_hash = hash.to_hex().as_ref().to_owned();
         self.modules_by_name
             .lock()
             .insert(config.name, hash.clone());
