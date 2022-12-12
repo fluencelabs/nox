@@ -21,14 +21,10 @@ use fluence_spell_dtos::trigger_config::TriggerConfig;
 use particle_args::{Args, JError};
 use particle_execution::ParticleParams;
 use particle_services::ParticleAppServices;
-use spell_event_bus::{
-    api,
-    api::{PeerEventType, SpellEventBusApi, TimerConfig},
-};
+use spell_event_bus::{api, api::SpellEventBusApi};
 use spell_storage::SpellStorage;
-use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
-use thiserror::Error;
-
+use std::time::Duration;
+/*
 const MAX_PERIOD_YEAR: u32 = 100;
 
 // Set max period to 100 years in secs = 60 sec * 60 min * 24 hours * 365 days * 100 years
@@ -115,6 +111,8 @@ fn from_user_config(user_config: TriggerConfig) -> Result<api::SpellTriggerConfi
     }
 }
 
+ */
+
 pub(crate) async fn spell_install(
     sargs: Args,
     params: ParticleParams,
@@ -127,7 +125,7 @@ pub(crate) async fn spell_install(
     let init_data: String = Args::next("data", &mut args)?;
     log::info!("Init data: {}", json!(init_data));
     let user_config: TriggerConfig = Args::next("config", &mut args)?;
-    let config = from_user_config(user_config)?;
+    let config = api::from_user_config(user_config)?;
 
     // TODO: create service on behalf of spell keypair
     let spell_id = services.create_service(spell_storage.get_blueprint(), params.init_peer_id)?;

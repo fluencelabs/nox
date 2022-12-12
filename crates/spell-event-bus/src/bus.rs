@@ -1,4 +1,5 @@
 use crate::api::*;
+use crate::config::{SpellTriggerConfigs, TriggerConfig};
 use async_std::sync::Arc;
 use async_std::task;
 use fluence_libp2p::types::{Inlet, Outlet};
@@ -266,6 +267,7 @@ mod tests {
 
     #[test]
     fn test_timer() {
+        use crate::config::TimerConfig;
         use async_std::task;
 
         let (bus, api, event_stream) = SpellEventBus::new(vec![]);
