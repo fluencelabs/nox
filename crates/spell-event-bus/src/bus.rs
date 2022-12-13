@@ -56,7 +56,7 @@ struct Periodic {
 #[derive(Debug, PartialEq, Eq)]
 struct Scheduled {
     data: Periodic,
-    // the time after which we need to notify the subscriber
+    /// the time after which we need to notify the subscriber
     run_at: Instant,
 }
 
@@ -149,11 +149,11 @@ enum BusInternalError {
 }
 
 pub struct SpellEventBus {
-    // List of events producers.
+    /// List of events producers.
     sources: Vec<BoxStream<'static, PeerEvent>>,
-    // API connections
+    /// API connections
     recv_cmd_channel: Inlet<Command>,
-    // Notify when event to which a spell subscribed happened.
+    /// Notify when event to which a spell subscribed happened.
     send_events: Outlet<TriggerEvent>,
 }
 
@@ -208,7 +208,6 @@ impl SpellEventBus {
                         let Command { spell_id, action, reply } = command;
                         match &action {
                             Action::Subscribe(config) => {
-                                // TODO: make it possible to construct the config ONLY via `verify :: UserConfig -> Result<SpellTriggerConfigs, _>`.
                                 state.subscribe(spell_id.clone(), &config).unwrap_or(());
                             },
                             Action::Unsubscribe => {
@@ -228,7 +227,7 @@ impl SpellEventBus {
                         if let Some(scheduled_spell) = state.scheduled.pop() {
                             log::trace!("Execute: {:?}", scheduled_spell);
                             Self::trigger_spell(&send_events, &scheduled_spell.data.id, Event::Timer)?;
-                            // We don't expect that timer overflow will happen.
+                            // Do not reschedule the spell otherwise.
                             if let Some(rescheduled) = Scheduled::at(scheduled_spell.data, Instant::now()) {
                                 log::trace!("Reschedule: {:?}", rescheduled);
                                 state.scheduled.push(rescheduled);
