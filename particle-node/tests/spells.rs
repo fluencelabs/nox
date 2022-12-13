@@ -79,9 +79,6 @@ fn spell_simple_test() {
     let spell_id = create_spell(&mut client, script, config, hashmap! {});
 
     let mut result = "".to_string();
-    // TODO: remove sleep when start_sec is in use
-    //std::thread::sleep(Duration::from_secs(period_sec as u64 + 1));
-
     let mut counter = 0;
     for _ in 1..10 {
         let data = hashmap! {
