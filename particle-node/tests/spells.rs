@@ -553,3 +553,67 @@ fn spell_store_trigger_config() {
         assert_eq!(config, result_config);
     }
 }
+
+#[test]
+fn spell_remove() {
+    let swarms = make_swarms_with_cfg(1, |mut cfg| {
+        cfg.timer_resolution = Duration::from_millis(20);
+        cfg
+    });
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .wrap_err("connect client")
+        .unwrap();
+
+    let script = r#"(call %init_peer_id% ("peer" "idenitfy") [] x)"#;
+    let mut config = TriggerConfig::default();
+    config.clock.period_sec = 2;
+    config.clock.start_sec = 1;
+    let spell_id = create_spell(&mut client, script, config, hashmap! {});
+
+    let data = hashmap! {
+        "spell_id" => json!(spell_id),
+        "relay" => json!(client.node.to_string()),
+        "client" => json!(client.peer_id.to_string()),
+    };
+
+    client.send_particle(
+        r#"
+
+    (seq
+        (call relay ("spell" "list") [] list)
+        (call client ("return" "") [list])
+    )"#,
+        data.clone(),
+    );
+
+    if let [JValue::String(result_spell_id)] = client
+        .receive_args()
+        .wrap_err("receive")
+        .unwrap()
+        .as_slice()
+    {
+        assert_eq!(&spell_id, result_spell_id);
+    }
+
+    client.send_particle(
+        r#"
+        (seq
+            (call relay ("spell" "remove") [spell_id])
+            (seq
+                (call relay ("spell" "list") [] list)
+                (call client ("return" "") [list])
+            )
+        )
+        "#,
+        data.clone(),
+    );
+
+    if let [JValue::Array(created_spells)] = client
+        .receive_args()
+        .wrap_err("receive")
+        .unwrap()
+        .as_slice()
+    {
+        assert!(created_spells.is_empty(), "no spells should exist");
+    }
+}
