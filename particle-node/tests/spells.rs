@@ -298,46 +298,34 @@ fn spell_run_oneshot() {
 
     let script = r#"
         (seq
-            (seq
-                (call %init_peer_id% ("getDataSrv" "spell_id") [] spell_id)
-                (call %init_peer_id% ("json" "obj") ["key" "value"] obj)
-            )
-            (seq
-                (call %init_peer_id% ("json" "stringify") [obj] result)
-                (call %init_peer_id% ("callbackSrv" "response") [result])
-            )
+            (call %init_peer_id% ("getDataSrv" "spell_id") [] spell_id)
+            (call %init_peer_id% (spell_id "set_string") ["result" "done"])
         )"#;
 
     // Note that when period is 0, the spell is executed only once
     let mut config = TriggerConfig::default();
     config.clock.start_sec = 1;
+    let spell_id = create_spell(&mut client, script, config.clone(), hashmap! {});
 
-    for _ in 1..5 {
-        let spell_id = create_spell(&mut client, script, config.clone(), hashmap! {});
-
-        let mut counter = 0;
-        for _ in 1..10 {
-            let data = hashmap! {
-                "spell_id" => json!(spell_id),
-                "client" => json!(client.peer_id.to_string()),
-                "relay" => json!(client.node.to_string()),
-            };
-            client.send_particle(
-                r#"
+    let data = hashmap! {
+        "spell_id" => json!(spell_id),
+        "client" => json!(client.peer_id.to_string()),
+        "relay" => json!(client.node.to_string()),
+    };
+    client.send_particle(
+        r#"
         (seq
             (call relay (spell_id "get_u32") ["counter"] counter)
             (call client ("return" "") [counter])
         )"#,
-                data.clone(),
-            );
+        data.clone(),
+    );
 
-            let response = client.receive_args().wrap_err("receive").unwrap();
-            if response[0]["success"].as_bool().unwrap() {
-                counter = response[0]["num"].as_u64().unwrap();
-            }
-        }
-
-        assert!(counter == 0 || counter == 1);
+    std::thread::sleep(Duration::from_millis(100));
+    let response = client.receive_args().wrap_err("receive").unwrap();
+    if response[0]["success"].as_bool().unwrap() {
+        let counter = response[0]["num"].as_u64().unwrap();
+        assert_eq!(counter, 1);
     }
 }
 
@@ -368,13 +356,22 @@ fn spell_install_fail_empty_config() {
     };
     client.send_particle(
         r#"
-        (seq
-            (call relay ("spell" "install") [script data config] spell_id)
-            (call client ("return" "") [spell_id])
+        (xor
+           (call relay ("spell" "install") [script data config] spell_id)
+           (call client ("return" "") [%last_error%.$.message])
         )"#,
-        data.clone(),
+        data,
     );
-    assert!(client.receive_args().is_err());
+
+    if let [JValue::String(error_msg)] = client
+        .receive_args()
+        .wrap_err("receive")
+        .unwrap()
+        .as_slice()
+    {
+        let msg = "Local service error, ret_code is 1, error message is '\"Error: config is empty, nothing to do\"'";
+        assert_eq!(msg, error_msg);
+    }
 }
 
 #[test]
@@ -393,6 +390,7 @@ fn spell_install_fail_large_period() {
     // Note that when period is 0, the spell is executed only once
     let mut config = TriggerConfig::default();
     config.clock.period_sec = MAX_PERIOD_SEC + 1;
+    config.clock.start_sec = 1;
 
     let data = hashmap! {
         "script" => json!(script.to_string()),
@@ -403,13 +401,22 @@ fn spell_install_fail_large_period() {
     };
     client.send_particle(
         r#"
-        (seq
+        (xor
             (call relay ("spell" "install") [script data config] spell_id)
-            (call client ("return" "") [spell_id])
+            (call client ("return" "") [%last_error%.$.message])
         )"#,
-        data.clone(),
+        data,
     );
-    assert!(client.receive_args().is_err());
+
+    if let [JValue::String(error_msg)] = client
+        .receive_args()
+        .wrap_err("receive")
+        .unwrap()
+        .as_slice()
+    {
+        let msg = "Local service error, ret_code is 1, error message is '\"Error: invalid config: period is too big.";
+        assert!(error_msg.starts_with(msg));
+    }
 }
 
 // Also the config considered invalid if the end_sec is in the past.
@@ -441,13 +448,22 @@ fn spell_install_fail_end_sec_past() {
     };
     client.send_particle(
         r#"
-        (seq
+        (xor
             (call relay ("spell" "install") [script data config] spell_id)
-            (call client ("return" "") [spell_id])
+            (call client ("return" "") [%last_error%.$.message])
         )"#,
         data.clone(),
     );
-    assert!(client.receive_args().is_err());
+
+    if let [JValue::String(error_msg)] = client
+        .receive_args()
+        .wrap_err("receive")
+        .unwrap()
+        .as_slice()
+    {
+        let msg = "Local service error, ret_code is 1, error message is '\"Error: invalid config: end_sec is less than start_sec or in the past\"'";
+        assert!(error_msg.starts_with(msg));
+    }
 }
 
 // Also the config considered invalid if the end_sec is less than start_sec.
@@ -484,11 +500,20 @@ fn spell_install_fail_end_sec_before_start() {
     };
     client.send_particle(
         r#"
-        (seq
+        (xor
             (call relay ("spell" "install") [script data config] spell_id)
-            (call client ("return" "") [spell_id])
+            (call client ("return" "") [%last_error%.$.message])
         )"#,
         data.clone(),
     );
-    assert!(client.receive_args().is_err());
+
+    if let [JValue::String(error_msg)] = client
+        .receive_args()
+        .wrap_err("receive")
+        .unwrap()
+        .as_slice()
+    {
+        let msg = "Local service error, ret_code is 1, error message is '\"Error: invalid config: end_sec is less than start_sec or in the past\"'";
+        assert!(error_msg.starts_with(msg));
+    }
 }
