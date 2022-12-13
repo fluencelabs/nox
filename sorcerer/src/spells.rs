@@ -37,7 +37,7 @@ pub(crate) async fn spell_install(
     let init_data: String = Args::next("data", &mut args)?;
     log::info!("Init data: {}", json!(init_data));
     let user_config: TriggerConfig = Args::next("config", &mut args)?;
-    let config = api::from_user_config(user_config)?;
+    let config = api::from_user_config(user_config.clone())?;
 
     // TODO: create service on behalf of spell keypair
     let spell_id = services.create_service(spell_storage.get_blueprint(), params.init_peer_id)?;
@@ -71,7 +71,20 @@ pub(crate) async fn spell_install(
         &spell_id,
         "set_json_fields",
     )?;
-    // TODO: also save trigger config
+
+    // Save trigger config
+    process_func_outcome::<UnitValue>(
+        services.call_function(
+            &spell_id,
+            "set_trigger_config",
+            vec![json!(user_config)],
+            None,
+            params.init_peer_id,
+            Duration::from_millis(params.ttl as u64),
+        ),
+        &spell_id,
+        "set_trigger_config",
+    )?;
 
     // Scheduling the spell
     if let Err(err) = spell_event_bus_api

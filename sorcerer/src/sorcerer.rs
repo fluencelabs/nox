@@ -14,28 +14,32 @@
  * limitations under the License.
  */
 
+use async_std::task;
 use std::collections::HashMap;
 use std::time::Duration;
 
 use async_std::task::{spawn, JoinHandle};
+use fluence_spell_dtos::trigger_config::TriggerConfigValue;
 use futures::{FutureExt, StreamExt};
 use libp2p::PeerId;
 use maplit::hashmap;
 
 use aquamarine::AquamarineApi;
 use fluence_libp2p::types::Inlet;
+use particle_args::JError;
 use particle_builtins::{wrap, wrap_unit};
 use particle_execution::ServiceFunction;
 use particle_modules::ModuleRepository;
 use particle_services::ParticleAppServices;
 use server_config::ResolvedConfig;
-use spell_event_bus::api::{SpellEventBusApi, TriggerEvent};
+use spell_event_bus::api::{from_user_config, SpellEventBusApi, TriggerEvent};
 use spell_storage::SpellStorage;
 
 use crate::spells::{
     get_spell_arg, get_spell_id, spell_install, spell_list, spell_remove, store_error,
     store_response,
 };
+use crate::utils::process_func_outcome;
 
 #[derive(Clone)]
 pub struct Sorcerer {
@@ -81,13 +85,52 @@ impl Sorcerer {
 
         let spell_service_functions = sorcerer.get_spell_service_functions();
 
-        // TODO: reschedule spells
-        // sorcerer.spell_storage.get_registered_spells()
-
         (sorcerer, spell_service_functions)
     }
 
+    async fn reschedule_spells(&self) {
+        for spell_id in self.spell_storage.get_registered_spells() {
+            log::warn!("Rescheduling spell {}", spell_id);
+            let result: Result<(), JError> = try {
+                log::warn!("getting trigger config");
+                let result = process_func_outcome::<TriggerConfigValue>(
+                    self.services.call_function(
+                        &spell_id,
+                        "get_trigger_config",
+                        vec![],
+                        None,
+                        self.node_peer_id,
+                        self.spell_script_particle_ttl,
+                    ),
+                    &spell_id,
+                    "get_trigger_config",
+                )?;
+                if !result.success {
+                    Err(JError::new(format!(
+                        "Failed to get trigger config for spell {}: {}",
+                        spell_id, result.error
+                    )))?;
+                }
+                log::warn!("parsing trigger config");
+                let config = from_user_config(result.config)?;
+                log::warn!("subscribing to event bus");
+                self.spell_event_bus_api
+                    .subscribe(spell_id.clone(), config.clone())
+                    .await?;
+            };
+            if let Err(e) = result {
+                // 1. We do not remove the spell we aren't able to reschedule. Users should be able to rerun it manually when updating trigger config.
+                // 2. Maybe we should somehow register which spell are running and which are not and notify user about it.
+                log::warn!("Failed to reschedule spell {}: {}.", spell_id, e);
+            }
+        }
+    }
+
     pub fn start(self, spell_events_stream: Inlet<TriggerEvent>) -> JoinHandle<()> {
+        // Reschedule spells here because at this point the event bus is ready to accept subscriptions.
+        // TODO: come up with better solution.
+        task::block_on(self.reschedule_spells());
+
         spawn(async {
             spell_events_stream
                 .for_each_concurrent(None, move |spell_event| {
