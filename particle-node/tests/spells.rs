@@ -20,10 +20,12 @@ use eyre::Context;
 use fluence_spell_dtos::trigger_config::TriggerConfig;
 use maplit::hashmap;
 use serde_json::{json, Value as JValue};
+use service_modules::load_module;
 use spell_event_bus::api::MAX_PERIOD_SEC;
 use std::collections::HashMap;
 use std::str::FromStr;
 use std::time::Duration;
+use test_utils::create_service;
 
 fn create_spell(
     client: &mut ConnectedClient,
@@ -615,5 +617,92 @@ fn spell_remove() {
         .as_slice()
     {
         assert!(created_spells.is_empty(), "no spells should exist");
+    }
+}
+
+#[test]
+fn spell_remove_spell_as_service() {
+    let swarms = make_swarms_with_cfg(1, |mut cfg| {
+        cfg.timer_resolution = Duration::from_millis(20);
+        cfg
+    });
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .wrap_err("connect client")
+        .unwrap();
+
+    let script = r#"(call %init_peer_id% ("peer" "idenitfy") [] x)"#;
+
+    let mut config = TriggerConfig::default();
+    config.clock.period_sec = 2;
+    config.clock.start_sec = 1;
+    let spell_id = create_spell(&mut client, script, config, hashmap! {});
+
+    let data = hashmap! {
+        "spell_id" => json!(spell_id),
+        "relay" => json!(client.node.to_string()),
+        "client" => json!(client.peer_id.to_string()),
+    };
+
+    client.send_particle(
+        r#"
+        (xor
+            (call relay ("srv" "remove") [spell_id])
+            (call client ("return" "") [%last_error%.$.message])
+        )
+        "#,
+        data.clone(),
+    );
+
+    if let [JValue::String(msg)] = client
+        .receive_args()
+        .wrap_err("receive")
+        .unwrap()
+        .as_slice()
+    {
+        let msg_end = "cannot call function 'remove_service': cannot remove a spell\"'";
+        assert!(msg.ends_with(msg_end), "should end with `{}`", msg_end);
+    }
+}
+
+#[test]
+fn spell_remove_service_as_spell() {
+    let swarms = make_swarms_with_cfg(1, |mut cfg| {
+        cfg.timer_resolution = Duration::from_millis(20);
+        cfg
+    });
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .wrap_err("connect client")
+        .unwrap();
+
+    let service = create_service(
+        &mut client,
+        "file_share",
+        load_module("tests/file_share/artifacts", "file_share").expect("load module"),
+    );
+
+    let data = hashmap! {
+        "service_id" => json!(service.id),
+        "relay" => json!(client.node.to_string()),
+        "client" => json!(client.peer_id.to_string()),
+    };
+
+    client.send_particle(
+        r#"
+        (xor
+            (call relay ("spell" "remove") [service_id])
+            (call client ("return" "") [%last_error%.$.message])
+        )
+        "#,
+        data.clone(),
+    );
+
+    if let [JValue::String(msg)] = client
+        .receive_args()
+        .wrap_err("receive")
+        .unwrap()
+        .as_slice()
+    {
+        let msg_end = "cannot call function 'remove_spell': the service isn't a spell\"'";
+        assert!(msg.ends_with(msg_end), "should end with `{}`", msg_end);
     }
 }
