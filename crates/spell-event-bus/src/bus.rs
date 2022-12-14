@@ -1,4 +1,5 @@
 use crate::api::*;
+use crate::config::{SpellTriggerConfigs, TriggerConfig};
 use async_std::sync::Arc;
 use async_std::task;
 use fluence_libp2p::types::{Inlet, Outlet};
@@ -47,20 +48,31 @@ impl Subscribers {
 
 #[derive(Debug, PartialEq, Eq)]
 struct Periodic {
-    pub id: Arc<SpellId>,
-    pub period: Duration,
+    id: Arc<SpellId>,
+    period: Duration,
+    end_at: Option<Instant>,
 }
 
 #[derive(Debug, PartialEq, Eq)]
 struct Scheduled {
     data: Periodic,
-    // the time after which we need to notify the subscriber
+    /// the time after which we need to notify the subscriber
     run_at: Instant,
 }
 
 impl Scheduled {
-    // schedule to no earlier than now + data.period
+    fn new(data: Periodic, run_at: Instant) -> Self {
+        Self { data, run_at }
+    }
+
+    /// Reschedule a spell to `now` + `period`.
+    /// Return `None` if the spell is supposed to end at the given time `end_at`.
     fn at(data: Periodic, now: Instant) -> Option<Scheduled> {
+        if data.end_at.map(|end_at| end_at <= now).unwrap_or(false) {
+            return None;
+        }
+
+        // We do checked_add here only to avoid a mere possibility of internal panic.
         let run_at = now.checked_add(data.period)?;
         Some(Scheduled { data, run_at })
     }
@@ -100,8 +112,9 @@ impl SubscribersState {
                     let periodic = Periodic {
                         id: spell_id.clone(),
                         period: config.period,
+                        end_at: config.end_at,
                     };
-                    let scheduled = Scheduled::at(periodic, Instant::now())?;
+                    let scheduled = Scheduled::new(periodic, config.start_at);
                     self.scheduled.push(scheduled);
                 }
                 TriggerConfig::PeerEvent(config) => {
@@ -140,11 +153,11 @@ enum BusInternalError {
 }
 
 pub struct SpellEventBus {
-    // List of events producers.
+    /// List of events producers.
     sources: Vec<BoxStream<'static, PeerEvent>>,
-    // API connections
+    /// API connections
     recv_cmd_channel: Inlet<Command>,
-    // Notify when event to which a spell subscribed happened.
+    /// Notify when event to which a spell subscribed happened.
     send_events: Outlet<TriggerEvent>,
 }
 
@@ -188,6 +201,8 @@ impl SpellEventBus {
             // to ensure that we don't miss newly scheduled spells.
             let mut timer = {
                 let next_scheduled_in = state.next_scheduled_in(now).unwrap_or(Duration::MAX);
+                log::trace!("Next scheduled in: {:?}", next_scheduled_in);
+                log::trace!("Scheduled: {:?}", state.scheduled);
                 async_std::stream::interval(next_scheduled_in).fuse()
             };
 
@@ -197,7 +212,6 @@ impl SpellEventBus {
                         let Command { spell_id, action, reply } = command;
                         match &action {
                             Action::Subscribe(config) => {
-                                // TODO: make it possible to construct the config ONLY via `verify :: UserConfig -> Result<SpellTriggerConfigs, _>`.
                                 state.subscribe(spell_id.clone(), &config).unwrap_or(());
                             },
                             Action::Unsubscribe => {
@@ -214,11 +228,14 @@ impl SpellEventBus {
                     },
                     _ = timer.select_next_some() => {
                         // The timer is triggered only if there are some spells to be awaken.
-                        let scheduled_spell = state.scheduled.pop().expect("billions of years have gone by already?");
-                        Self::trigger_spell(&send_events, &scheduled_spell.data.id, Event::Timer)?;
-                        // We don't expect that timer overflow will happen.
-                        if let Some(rescheduled) = Scheduled::at(scheduled_spell.data, Instant::now()) {
-                            state.scheduled.push(rescheduled);
+                        if let Some(scheduled_spell) = state.scheduled.pop() {
+                            log::trace!("Execute: {:?}", scheduled_spell);
+                            Self::trigger_spell(&send_events, &scheduled_spell.data.id, Event::Timer)?;
+                            // Do not reschedule the spell otherwise.
+                            if let Some(rescheduled) = Scheduled::at(scheduled_spell.data, Instant::now()) {
+                                log::trace!("Reschedule: {:?}", rescheduled);
+                                state.scheduled.push(rescheduled);
+                            }
                         }
                     },
                 }
@@ -253,6 +270,7 @@ mod tests {
 
     #[test]
     fn test_timer() {
+        use crate::config::TimerConfig;
         use async_std::task;
 
         let (bus, api, event_stream) = SpellEventBus::new(vec![]);
@@ -267,6 +285,8 @@ mod tests {
             SpellTriggerConfigs {
                 triggers: vec![TriggerConfig::Timer(TimerConfig {
                     period: spell1_period,
+                    start_at: Instant::now(),
+                    end_at: None,
                 })],
             },
         ))
@@ -276,6 +296,8 @@ mod tests {
             SpellTriggerConfigs {
                 triggers: vec![TriggerConfig::Timer(TimerConfig {
                     period: spell2_period,
+                    start_at: Instant::now(),
+                    end_at: None,
                 })],
             },
         ))

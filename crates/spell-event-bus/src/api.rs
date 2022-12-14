@@ -1,30 +1,11 @@
+use crate::config::SpellTriggerConfigs;
 use connection_pool::LifecycleEvent;
 use fluence_libp2p::types::{OneshotOutlet, Outlet};
 use futures::channel::mpsc::SendError;
 use futures::{channel::oneshot, future::BoxFuture, FutureExt};
-use std::time::Duration;
 use thiserror::Error;
 
-#[derive(Debug, Clone)]
-pub struct SpellTriggerConfigs {
-    pub triggers: Vec<TriggerConfig>,
-}
-
-#[derive(Debug, Clone)]
-pub enum TriggerConfig {
-    Timer(TimerConfig),
-    PeerEvent(PeerEventConfig),
-}
-
-#[derive(Debug, Clone)]
-pub struct TimerConfig {
-    pub period: Duration,
-}
-
-#[derive(Debug, Clone)]
-pub struct PeerEventConfig {
-    pub events: Vec<PeerEventType>,
-}
+pub use crate::config::*;
 
 pub type SpellId = String;
 

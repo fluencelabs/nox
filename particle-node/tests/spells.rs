@@ -17,8 +17,10 @@ use connected_client::ConnectedClient;
 use created_swarm::make_swarms_with_cfg;
 use eyre::Context;
 
+use fluence_spell_dtos::trigger_config::TriggerConfig;
 use maplit::hashmap;
 use serde_json::{json, Value as JValue};
+use spell_event_bus::api::MAX_PERIOD_SEC;
 use std::collections::HashMap;
 use std::str::FromStr;
 use std::time::Duration;
@@ -26,28 +28,12 @@ use std::time::Duration;
 fn create_spell(
     client: &mut ConnectedClient,
     script: &str,
-    period: u32,
+    config: TriggerConfig,
     init_data: HashMap<String, String>,
 ) -> String {
-    let config = json!({
-        "clock": json!({
-            "period_sec": period,
-            "start_sec": 0,
-            "end_sec": 0,
-        }),
-        "connections": json!({
-            "connect": false,
-            "disconnect": false,
-        }),
-        "blockchain": json!({
-            "start_block": 0,
-            "end_block": 0,
-        }),
-    });
-
     let data = hashmap! {
         "script" => json!(script.to_string()),
-        "config" => config,
+        "config" => json!(config),
         "client" => json!(client.peer_id.to_string()),
         "relay" => json!(client.node.to_string()),
         "data" => json!(json!(init_data).to_string()),
@@ -86,13 +72,13 @@ fn spell_simple_test() {
                 (call %init_peer_id% (spell_id "set_string") ["result" script.$.source_code])
             )
         )"#;
-    let period_sec = 1;
-    let spell_id = create_spell(&mut client, script, period_sec, hashmap! {});
+
+    let mut config = TriggerConfig::default();
+    config.clock.period_sec = 0;
+    config.clock.start_sec = 1;
+    let spell_id = create_spell(&mut client, script, config, hashmap! {});
 
     let mut result = "".to_string();
-    // TODO: remove sleep when start_sec is in use
-    std::thread::sleep(Duration::from_secs(period_sec as u64 + 1));
-
     let mut counter = 0;
     for _ in 1..10 {
         let data = hashmap! {
@@ -138,9 +124,12 @@ fn spell_error_handling_test() {
             (call %init_peer_id% ("srv" "remove") ["non_existent_srv_id"])
             (call %init_peer_id% ("errorHandlingSrv" "error") [%last_error% 1])        
         )"#;
-    let period_sec = 1;
-    let spell_id = create_spell(&mut client, failing_script, period_sec, hashmap! {});
-    std::thread::sleep(Duration::from_secs(period_sec as u64 + 1));
+
+    let mut config = TriggerConfig::default();
+    config.clock.period_sec = 1;
+    config.clock.start_sec = 1;
+
+    let spell_id = create_spell(&mut client, failing_script, config, hashmap! {});
 
     // let's retrieve error from the first spell particle
     let particle_id = format!("spell_{}_{}", spell_id, 0);
@@ -189,14 +178,16 @@ fn spell_args_test() {
             (call %init_peer_id% (spell_id "set_string") ["result" value])
         )"#;
 
-    let period_sec = 1;
+    let mut config = TriggerConfig::default();
+    config.clock.period_sec = 1;
+    config.clock.start_sec = 1;
+
     let spell_id = create_spell(
         &mut client,
         script,
-        period_sec,
+        config,
         hashmap! {"key".to_string() => "value".to_string()},
     );
-    std::thread::sleep(Duration::from_secs(period_sec as u64 + 1));
 
     let mut result = "".to_string();
     let mut value = "".to_string();
@@ -259,9 +250,11 @@ fn spell_return_test() {
             )
         )"#;
 
-    let period_sec = 1;
-    let spell_id = create_spell(&mut client, script, period_sec, hashmap! {});
-    std::thread::sleep(Duration::from_secs(period_sec as u64 + 1));
+    let mut config = TriggerConfig::default();
+    config.clock.period_sec = 1;
+    config.clock.start_sec = 1;
+
+    let spell_id = create_spell(&mut client, script, config, hashmap! {});
 
     let mut value = "".to_string();
     for _ in 1..10 {
@@ -290,4 +283,237 @@ fn spell_return_test() {
     }
 
     assert_eq!(value, "value");
+}
+
+// Check that oneshot spells are actually executed and executed only once
+#[test]
+fn spell_run_oneshot() {
+    let swarms = make_swarms_with_cfg(1, |mut cfg| {
+        cfg.timer_resolution = Duration::from_millis(100);
+        cfg
+    });
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .wrap_err("connect client")
+        .unwrap();
+
+    let script = r#"
+        (seq
+            (call %init_peer_id% ("getDataSrv" "spell_id") [] spell_id)
+            (call %init_peer_id% (spell_id "set_string") ["result" "done"])
+        )"#;
+
+    // Note that when period is 0, the spell is executed only once
+    let mut config = TriggerConfig::default();
+    config.clock.start_sec = 1;
+    let spell_id = create_spell(&mut client, script, config.clone(), hashmap! {});
+
+    let data = hashmap! {
+        "spell_id" => json!(spell_id),
+        "client" => json!(client.peer_id.to_string()),
+        "relay" => json!(client.node.to_string()),
+    };
+    client.send_particle(
+        r#"
+        (seq
+            (call relay (spell_id "get_u32") ["counter"] counter)
+            (call client ("return" "") [counter])
+        )"#,
+        data.clone(),
+    );
+
+    std::thread::sleep(Duration::from_millis(100));
+    let response = client.receive_args().wrap_err("receive").unwrap();
+    if response[0]["success"].as_bool().unwrap() {
+        let counter = response[0]["num"].as_u64().unwrap();
+        assert_eq!(counter, 1);
+    }
+}
+
+// The config considered empty if start_sec is 0. In this case we don't schedule a spell.
+// Script installation will fail because no triggers configured.
+#[test]
+fn spell_install_fail_empty_config() {
+    let swarms = make_swarms_with_cfg(1, |mut cfg| {
+        cfg.timer_resolution = Duration::from_millis(100);
+        cfg
+    });
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .wrap_err("connect client")
+        .unwrap();
+
+    let script = r#"(call %init_peer_id% ("peer" "idenitfy") [] x)"#;
+    let empty: HashMap<String, String> = HashMap::new();
+
+    // Note that when period is 0, the spell is executed only once
+    let config = TriggerConfig::default();
+
+    let data = hashmap! {
+        "script" => json!(script.to_string()),
+        "config" => json!(config),
+        "client" => json!(client.peer_id.to_string()),
+        "relay" => json!(client.node.to_string()),
+        "data" => json!(json!(empty).to_string()),
+    };
+    client.send_particle(
+        r#"
+        (xor
+           (call relay ("spell" "install") [script data config] spell_id)
+           (call client ("return" "") [%last_error%.$.message])
+        )"#,
+        data,
+    );
+
+    if let [JValue::String(error_msg)] = client
+        .receive_args()
+        .wrap_err("receive")
+        .unwrap()
+        .as_slice()
+    {
+        let msg = "Local service error, ret_code is 1, error message is '\"Error: config is empty, nothing to do\"'";
+        assert_eq!(msg, error_msg);
+    }
+}
+
+#[test]
+fn spell_install_fail_large_period() {
+    let swarms = make_swarms_with_cfg(1, |mut cfg| {
+        cfg.timer_resolution = Duration::from_millis(100);
+        cfg
+    });
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .wrap_err("connect client")
+        .unwrap();
+
+    let script = r#"(call %init_peer_id% ("peer" "idenitfy") [] x)"#;
+    let empty: HashMap<String, String> = HashMap::new();
+
+    // Note that when period is 0, the spell is executed only once
+    let mut config = TriggerConfig::default();
+    config.clock.period_sec = MAX_PERIOD_SEC + 1;
+    config.clock.start_sec = 1;
+
+    let data = hashmap! {
+        "script" => json!(script.to_string()),
+        "config" => json!(config),
+        "client" => json!(client.peer_id.to_string()),
+        "relay" => json!(client.node.to_string()),
+        "data" => json!(json!(empty).to_string()),
+    };
+    client.send_particle(
+        r#"
+        (xor
+            (call relay ("spell" "install") [script data config] spell_id)
+            (call client ("return" "") [%last_error%.$.message])
+        )"#,
+        data,
+    );
+
+    if let [JValue::String(error_msg)] = client
+        .receive_args()
+        .wrap_err("receive")
+        .unwrap()
+        .as_slice()
+    {
+        let msg = "Local service error, ret_code is 1, error message is '\"Error: invalid config: period is too big.";
+        assert!(error_msg.starts_with(msg));
+    }
+}
+
+// Also the config considered invalid if the end_sec is in the past.
+// In this case we don't schedule a spell and return error.
+#[test]
+fn spell_install_fail_end_sec_past() {
+    let swarms = make_swarms_with_cfg(1, |mut cfg| {
+        cfg.timer_resolution = Duration::from_millis(100);
+        cfg
+    });
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .wrap_err("connect client")
+        .unwrap();
+
+    let script = r#"(call %init_peer_id% ("peer" "idenitfy") [] x)"#;
+    let empty: HashMap<String, String> = HashMap::new();
+
+    // Note that when period is 0, the spell is executed only once
+    let mut config = TriggerConfig::default();
+    config.clock.start_sec = 10;
+    config.clock.end_sec = 1;
+
+    let data = hashmap! {
+        "script" => json!(script.to_string()),
+        "config" => json!(config),
+        "client" => json!(client.peer_id.to_string()),
+        "relay" => json!(client.node.to_string()),
+        "data" => json!(json!(empty).to_string()),
+    };
+    client.send_particle(
+        r#"
+        (xor
+            (call relay ("spell" "install") [script data config] spell_id)
+            (call client ("return" "") [%last_error%.$.message])
+        )"#,
+        data.clone(),
+    );
+
+    if let [JValue::String(error_msg)] = client
+        .receive_args()
+        .wrap_err("receive")
+        .unwrap()
+        .as_slice()
+    {
+        let msg = "Local service error, ret_code is 1, error message is '\"Error: invalid config: end_sec is less than start_sec or in the past\"'";
+        assert!(error_msg.starts_with(msg));
+    }
+}
+
+// Also the config considered invalid if the end_sec is less than start_sec.
+// In this case we don't schedule a spell and return error.
+#[test]
+fn spell_install_fail_end_sec_before_start() {
+    let swarms = make_swarms_with_cfg(1, |mut cfg| {
+        cfg.timer_resolution = Duration::from_millis(100);
+        cfg
+    });
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .wrap_err("connect client")
+        .unwrap();
+
+    let script = r#"(call %init_peer_id% ("peer" "idenitfy") [] x)"#;
+    let empty: HashMap<String, String> = HashMap::new();
+
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
+
+    // Note that when period is 0, the spell is executed only once
+    let mut config = TriggerConfig::default();
+    config.clock.start_sec = now as u32 + 100;
+    config.clock.end_sec = now as u32 + 90;
+
+    let data = hashmap! {
+        "script" => json!(script.to_string()),
+        "config" => json!(config),
+        "client" => json!(client.peer_id.to_string()),
+        "relay" => json!(client.node.to_string()),
+        "data" => json!(json!(empty).to_string()),
+    };
+    client.send_particle(
+        r#"
+        (xor
+            (call relay ("spell" "install") [script data config] spell_id)
+            (call client ("return" "") [%last_error%.$.message])
+        )"#,
+        data.clone(),
+    );
+
+    if let [JValue::String(error_msg)] = client
+        .receive_args()
+        .wrap_err("receive")
+        .unwrap()
+        .as_slice()
+    {
+        let msg = "Local service error, ret_code is 1, error message is '\"Error: invalid config: end_sec is less than start_sec or in the past\"'";
+        assert!(error_msg.starts_with(msg));
+    }
 }

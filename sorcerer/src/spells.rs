@@ -13,8 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::time::Duration;
-
 use fluence_spell_dtos::value::{StringValue, UnitValue};
 use serde_json::{json, Value as JValue, Value::Array};
 
@@ -23,63 +21,9 @@ use fluence_spell_dtos::trigger_config::TriggerConfig;
 use particle_args::{Args, JError};
 use particle_execution::ParticleParams;
 use particle_services::ParticleAppServices;
-use spell_event_bus::{
-    api,
-    api::{PeerEventType, SpellEventBusApi, TimerConfig},
-};
+use spell_event_bus::{api, api::SpellEventBusApi};
 use spell_storage::SpellStorage;
-use thiserror::Error;
-
-const MAX_PERIOD_YEAR: u32 = 100;
-
-// Set max period to 100 years in secs = 60 sec * 60 min * 24 hours * 365 days * 100 years
-const MAX_PERIOD_SEC: u32 = 60 * 60 * 24 * 365 * MAX_PERIOD_YEAR;
-
-#[derive(Debug, Error)]
-enum ConfigError {
-    #[error(
-        "invalid config: period is too big. Max period is {} years (or approx {} seconds)",
-        MAX_PERIOD_YEAR,
-        MAX_PERIOD_SEC
-    )]
-    InvalidPeriod,
-    #[error("config is empty, nothing to do")]
-    EmptyConfig,
-}
-
-/// Convert user-friendly config to event-bus-friendly config.
-fn from_user_config(user_config: TriggerConfig) -> Result<api::SpellTriggerConfigs, ConfigError> {
-    let mut triggers = Vec::new();
-    // Process timer config
-    if user_config.clock.period_sec != 0 {
-        if user_config.clock.period_sec > MAX_PERIOD_SEC {
-            return Err(ConfigError::InvalidPeriod);
-        }
-        triggers.push(api::TriggerConfig::Timer(TimerConfig {
-            period: Duration::from_secs(user_config.clock.period_sec as u64),
-        }));
-    }
-
-    // Process connections config
-    let mut pool_events = Vec::with_capacity(2);
-    if user_config.connections.connect {
-        pool_events.push(PeerEventType::Connected);
-    }
-    if user_config.connections.disconnect {
-        pool_events.push(PeerEventType::Disconnected);
-    }
-    if !pool_events.is_empty() {
-        triggers.push(api::TriggerConfig::PeerEvent(api::PeerEventConfig {
-            events: pool_events,
-        }));
-    }
-
-    if triggers.is_empty() {
-        Err(ConfigError::EmptyConfig)
-    } else {
-        Ok(api::SpellTriggerConfigs { triggers })
-    }
-}
+use std::time::Duration;
 
 pub(crate) async fn spell_install(
     sargs: Args,
@@ -92,10 +36,8 @@ pub(crate) async fn spell_install(
     let script: String = Args::next("script", &mut args)?;
     let init_data: String = Args::next("data", &mut args)?;
     log::info!("Init data: {}", json!(init_data));
-    // TODO: use TriggerConfig when it's deserializable
-    // TODO: validate the config before everything
     let user_config: TriggerConfig = Args::next("config", &mut args)?;
-    let config = from_user_config(user_config)?;
+    let config = api::from_user_config(user_config)?;
 
     // TODO: create service on behalf of spell keypair
     let spell_id = services.create_service(spell_storage.get_blueprint(), params.init_peer_id)?;
