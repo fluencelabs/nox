@@ -40,15 +40,20 @@ where
         ))),
         FunctionOutcome::Err(err) => Err(JError::new(err.to_string())),
         FunctionOutcome::Ok(v) => {
-            let result = serde_json::from_value::<T>(v)?;
-            if result.is_success() {
-                Ok(result)
-            } else {
-                Err(JError::new(format!(
+            let result = serde_json::from_value::<T>(v).map_err(|e| {
+                JError::new(format!(
                     "Result of a function {}.{} cannot be parsed to {}: {}",
                     spell_id,
                     function_name,
                     std::any::type_name::<T>(),
+                    e
+                ))
+            })?;
+            if result.is_success() {
+                Ok(result)
+            } else {
+                Err(JError::new(format!(
+                    "Function {spell_id}.{function_name} executed with error: {}",
                     result.get_error()
                 )))
             }
