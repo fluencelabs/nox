@@ -90,9 +90,8 @@ impl Sorcerer {
 
     async fn reschedule_spells(&self) {
         for spell_id in self.spell_storage.get_registered_spells() {
-            log::warn!("Rescheduling spell {}", spell_id);
+            log::info!("Rescheduling spell {}", spell_id);
             let result: Result<(), JError> = try {
-                log::warn!("getting trigger config");
                 let result = process_func_outcome::<TriggerConfigValue>(
                     self.services.call_function(
                         &spell_id,
@@ -105,9 +104,7 @@ impl Sorcerer {
                     &spell_id,
                     "get_trigger_config",
                 )?;
-                log::warn!("parsing trigger config");
                 let config = from_user_config(result.config)?;
-                log::warn!("subscribing to event bus");
                 self.spell_event_bus_api
                     .subscribe(spell_id.clone(), config.clone())
                     .await?;
