@@ -105,12 +105,6 @@ impl Sorcerer {
                     &spell_id,
                     "get_trigger_config",
                 )?;
-                if !result.success {
-                    Err(JError::new(format!(
-                        "Failed to get trigger config for spell {}: {}",
-                        spell_id, result.error
-                    )))?;
-                }
                 log::warn!("parsing trigger config");
                 let config = from_user_config(result.config)?;
                 log::warn!("subscribing to event bus");
