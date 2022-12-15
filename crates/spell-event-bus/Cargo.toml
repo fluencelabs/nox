@@ -10,7 +10,6 @@ particle-args = { path = "../particle-args" }
 uuid-utils = { path = "../uuid-utils" }
 now-millis = { path = "../now-millis" }
 particle-execution = { path = "../../particle-execution" }
-particle-protocol = { path = "../../particle-protocol"}
 connection-pool = { path = "../../connection-pool"}
 fluence-libp2p = { path = "../libp2p" }
 
@@ -24,3 +23,7 @@ futures = { workspace = true }
 thiserror = { workspace = true }
 log = { workspace = true }
 fluence-spell-dtos = { workspace = true }
+
+[dev-dependencies]
+libp2p = { workspace = true }
+particle-protocol = { path = "../../particle-protocol"}

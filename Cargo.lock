@@ -5485,6 +5485,7 @@ dependencies = [
  "fluence-spell-dtos",
  "fstrings",
  "futures",
+ "libp2p",
  "log",
  "now-millis",
  "parking_lot 0.12.1",
