@@ -284,7 +284,7 @@ mod tests {
             spell1_id.clone(),
             SpellTriggerConfigs {
                 triggers: vec![TriggerConfig::Timer(TimerConfig {
-                    period: spell1_period,
+                    period: spell1_period.clone(),
                     start_at: Instant::now(),
                     end_at: None,
                 })],
@@ -296,7 +296,7 @@ mod tests {
             SpellTriggerConfigs {
                 triggers: vec![TriggerConfig::Timer(TimerConfig {
                     period: spell2_period,
-                    start_at: Instant::now(),
+                    start_at: Instant::now() + spell2_period,
                     end_at: None,
                 })],
             },

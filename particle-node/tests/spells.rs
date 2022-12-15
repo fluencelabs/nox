@@ -517,3 +517,39 @@ fn spell_install_fail_end_sec_before_start() {
         assert!(error_msg.starts_with(msg));
     }
 }
+
+#[test]
+fn spell_store_trigger_config() {
+    let swarms = make_swarms_with_cfg(1, |mut cfg| {
+        cfg.timer_resolution = Duration::from_millis(100);
+        cfg
+    });
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .wrap_err("connect client")
+        .unwrap();
+
+    let script = r#"(call %init_peer_id% ("peer" "idenitfy") [] x)"#;
+    let mut config = TriggerConfig::default();
+    config.clock.period_sec = 13;
+    config.clock.start_sec = 10;
+    let spell_id = create_spell(&mut client, script, config.clone(), hashmap! {});
+    let data = hashmap! {
+        "spell_id" => json!(spell_id),
+        "client" => json!(client.peer_id.to_string()),
+        "relay" => json!(client.node.to_string()),
+    };
+    client.send_particle(
+        r#"
+        (seq
+            (call relay (spell_id "get_trigger_config") [] config)
+            (call client ("return" "") [config])
+        )"#,
+        data.clone(),
+    );
+
+    let response = client.receive_args().wrap_err("receive").unwrap();
+    if response[0]["success"].as_bool().unwrap() {
+        let result_config = serde_json::from_value(response[0]["config"].clone()).unwrap();
+        assert_eq!(config, result_config);
+    }
+}
