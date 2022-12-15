@@ -17,19 +17,15 @@ on:
     outputs:
       rust-peer-image:
         description: "rust-peer snapshot image"
-        value: ${{ jobs.publish-snapshot.outputs.image }}
+        value: ${{ jobs.publish.outputs.image }}
 
 jobs:
-  publish-snapshot:
-    name: "Publish docker snapshot"
+  build:
+    name: "Build"
     runs-on: builder
 
     outputs:
-      image: "${{ inputs.image-name }}@${{ steps.docker.outputs.digest }}"
-
-    permissions:
-      contents: read
-      id-token: write
+      sha256: "${{ steps.sha.outputs.sha256 }}"
 
     steps:
       - name: Checkout rust-peer
@@ -38,21 +34,8 @@ jobs:
           repository: fluencelabs/rust-peer
           ref: ${{ inputs.ref }}
 
-      - name: Setup rust toolchain
+      - name: Setup Rust toolchain
         uses: actions-rust-lang/setup-rust-toolchain@v1
-
-      - name: Import secrets
-        uses: hashicorp/vault-action@v2.4.3
-        with:
-          url: https://vault.fluence.dev
-          path: jwt/github
-          role: ci
-          method: jwt
-          jwtGithubAudience: "https://github.com/fluencelabs"
-          jwtTtl: 300
-          secrets: |
-            kv/docker-registry/basicauth/ci username | DOCKER_USERNAME ;
-            kv/docker-registry/basicauth/ci password | DOCKER_PASSWORD
 
       - name: Set dependencies
         if: inputs.cargo-dependencies != ''
@@ -74,6 +57,74 @@ jobs:
       - name: Run cargo build
         run: cargo build --release -p particle-node
 
+      - name: Calculate SHA256
+        id: sha
+        working-directory: ./target/release
+        run: |
+          # Calculate sha256
+          du -hs particle-node
+          sha256sum particle-node
+          sha=($(sha256sum particle-node))
+          echo "sha256=${sha}" >> $GITHUB_OUTPUT
+
+      - name: Upload rust-peer binary
+        uses: actions/upload-artifact@v3
+        with:
+          name: rust-peer
+          path: target/release/particle-node
+
+  publish:
+    name: "Publish"
+    runs-on: ubuntu-latest
+
+    needs: build
+
+    outputs:
+      image: "${{ inputs.image-name }}@${{ steps.docker.outputs.digest }}"
+
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout node-distro
+        uses: actions/checkout@v3
+        with:
+          repository: fluencelabs/node-distro
+
+      - name: Import secrets
+        uses: hashicorp/vault-action@v2.4.3
+        with:
+          url: https://vault.fluence.dev
+          path: jwt/github
+          role: ci
+          method: jwt
+          jwtGithubAudience: "https://github.com/fluencelabs"
+          jwtTtl: 300
+          secrets: |
+            kv/docker-registry/basicauth/ci username | DOCKER_USERNAME ;
+            kv/docker-registry/basicauth/ci password | DOCKER_PASSWORD
+
+      - name: Download rust-peer binary
+        uses: actions/download-artifact@v3
+        with:
+          name: rust-peer
+          path: fluence
+
+      - name: Generate snapshot version
+        id: version
+        uses: fluencelabs/github-actions/generate-snapshot-id@main
+
+      - name: Update rust-peer version
+        run: |
+          cat <<FLUENCE > fluence/fluence.json
+          {
+            "version": "${{ steps.version.outputs.branch }}",
+            "url": "file:///fluence/particle-node",
+            "sha256": "${{ needs.build.outputs.sha256 }}"
+          }
+          FLUENCE
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
 
@@ -90,7 +141,7 @@ jobs:
         with:
           context: .
           push: true
-          file: .github/snapshot/Dockerfile
+          target: ipfs
           tags: |
             ${{ inputs.image-name }}:${{ steps.version.outputs.branch }}
           labels: |

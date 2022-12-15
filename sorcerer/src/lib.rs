@@ -1,3 +1,4 @@
+#![feature(try_blocks)]
 pub use sorcerer::Sorcerer;
 
 #[macro_use]
