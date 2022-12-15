@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-use async_std::task;
 use std::collections::HashMap;
 use std::time::Duration;
 
