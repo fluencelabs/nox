@@ -61,18 +61,21 @@ jobs:
         id: sha
         working-directory: ./target/release
         run: |
+          # Calculate sha256
           du -hs particle-node
           sha256sum particle-node
-          echo "sha256=($(sha256sum particle-node))" >> $GITHUB_OUTPUTS
+          sha=($(sha256sum particle-node))
+          echo "sha256=${sha}" >> $GITHUB_OUTPUT
 
       - name: Upload rust-peer binary
         uses: actions/upload-artifact@v3
         with:
           name: rust-peer
-          path: target/release
+          path: target/release/particle-node
 
   publish:
     name: "Publish rust-peer docker image"
+    runs-on: ubuntu-latest
 
     needs: build
 
@@ -83,7 +86,7 @@ jobs:
       contents: read
       id-token: write
 
-    jobs:
+    steps:
       - name: Checkout node-distro
         uses: actions/checkout@v3
         with:
@@ -106,10 +109,14 @@ jobs:
         uses: actions/download-artifact@v3
         with:
           name: rust-peer
-          path: fluence/rust-peer
+          path: fluence
 
       - name: debug
-        run: ls -alh fluence
+        run: |
+          echo test
+          ls -alh fluence
+          sha256sum fluence/particle-node
+          echo ${{ needs.build.outputs.sha256 }}
 
       - name: Generate snapshot version
         id: version
@@ -120,7 +127,7 @@ jobs:
           cat <<FLUENCE > fluence/fluence.json
           {
             "version": "${{ steps.version.outputs.branch }}",
-            "url": "file:///fluence/rust-peer",
+            "url": "file:///fluence/particle-node",
             "sha256": "${{ needs.build.outputs.sha256 }}"
           }
           FLUENCE
