@@ -227,8 +227,6 @@ impl<RT: AquaRuntime> Node<RT> {
             .map(|x| PeerEvent::ConnectionPool(x))
             .boxed()];
 
-        // Unfortunately, API is available before the bus is running. It's used for creating spell builtins.
-        // That means that calling api before the bus is running will block execution.
         let (spell_event_bus, spell_event_bus_api, spell_events_stream) =
             SpellEventBus::new(sources);
 
@@ -394,7 +392,6 @@ impl<RT: AquaRuntime> Node<RT> {
 
             let services_metrics_backend = services_metrics_backend.start();
             let script_storage = script_storage.start();
-            // Spell bus must be run before sorcerer, because sorcerer may send events to the bus
             let spell_event_bus = spell_event_bus.start();
             let sorcerer = sorcerer.start(spell_events_stream);
             let pool = aquavm_pool.start();

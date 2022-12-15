@@ -88,7 +88,7 @@ impl Sorcerer {
         (sorcerer, spell_service_functions)
     }
 
-    async fn reschedule_spells(&self) {
+    async fn resubscribe_spells(&self) {
         for spell_id in self.spell_storage.get_registered_spells() {
             log::info!("Rescheduling spell {}", spell_id);
             let result: Result<(), JError> = try {
@@ -118,11 +118,9 @@ impl Sorcerer {
     }
 
     pub fn start(self, spell_events_stream: Inlet<TriggerEvent>) -> JoinHandle<()> {
-        // Reschedule spells here because at this point the event bus is ready to accept subscriptions.
-        // TODO: come up with better solution.
-        task::block_on(self.reschedule_spells());
-
         spawn(async {
+            self.resubscribe_spells().await;
+
             spell_events_stream
                 .for_each_concurrent(None, move |spell_event| {
                     let sorcerer = self.clone();
