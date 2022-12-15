@@ -21,8 +21,8 @@ use eyre::{eyre, Result, WrapErr};
 use regex::Regex;
 use serde_json::Value as JValue;
 
-use fs_utils::file_stem;
-use particle_modules::{list_files, AddBlueprint};
+use fs_utils::{file_stem, list_files};
+use particle_modules::AddBlueprint;
 use service_modules::{
     hash_dependencies, module_config_name_json, module_file_name, Dependency, Hash,
 };

@@ -2645,6 +2645,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "key-manager"
+version = "0.1.0"
+dependencies = [
+ "eyre",
+ "fluence-keypair",
+ "fs-utils",
+ "parking_lot 0.12.1",
+ "serde",
+ "thiserror",
+ "toml",
+]
+
+[[package]]
 name = "kv-log-macro"
 version = "1.0.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"

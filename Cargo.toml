@@ -27,6 +27,7 @@ members = [
     "crates/test-constants",
     "crates/peer-metrics",
     "crates/spell-event-bus",
+    "crates/key-manager",
     "sorcerer",
     "particle-node/tests/builtins",
     "particle-node",

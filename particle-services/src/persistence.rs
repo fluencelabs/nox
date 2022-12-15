@@ -21,8 +21,8 @@ use crate::error::ServiceError::{
 };
 
 use fluence_libp2p::{peerid_serializer, PeerId, RandomPeerId};
-use fs_utils::create_dirs;
-use particle_modules::{list_files, ModuleError};
+use fs_utils::{create_dirs, list_files};
+use particle_modules::ModuleError;
 use service_modules::{is_service, service_file_name};
 
 use serde::{Deserialize, Serialize};

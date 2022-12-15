@@ -28,7 +28,7 @@ use builtins_deployer::ALLOWED_ENV_PREFIX;
 use connected_client::ConnectedClient;
 use created_swarm::{make_swarms_with_builtins, make_swarms_with_keypair};
 use fs_utils::copy_dir_all;
-use particle_modules::list_files;
+use fs_utils::list_files;
 use service_modules::load_module;
 use test_utils::create_service;
 

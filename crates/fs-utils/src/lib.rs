@@ -167,3 +167,9 @@ pub fn canonicalize(path: impl AsRef<Path>) -> eyre::Result<PathBuf> {
         path.as_ref().display()
     ))
 }
+
+/// List files in directory
+pub fn list_files(dir: &Path) -> Option<impl Iterator<Item = PathBuf>> {
+    let dir = std::fs::read_dir(dir).ok()?;
+    Some(dir.filter_map(|p| p.ok()?.path().into()))
+}
