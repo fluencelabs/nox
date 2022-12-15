@@ -162,6 +162,7 @@ impl ParticleAppServices {
         &self,
         service_id_or_alias: String,
         init_peer_id: PeerId,
+        allow_remove_spell: bool,
     ) -> Result<(), ServiceError> {
         let removal_start_time = Instant::now();
         let service_id = {
@@ -175,11 +176,18 @@ impl ParticleAppServices {
                 .modules
                 .get_blueprint_from_cache(&service.blueprint_id)?
                 .name;
-            if blueprint_name == "spell" {
+            if blueprint_name == "spell" && !allow_remove_spell {
                 return Err(Forbidden {
                     user: init_peer_id,
                     function: "remove_service",
                     reason: "cannot remove a spell",
+                }
+                .into());
+            } else if blueprint_name != "spell" && allow_remove_spell {
+                return Err(Forbidden {
+                    user: init_peer_id,
+                    function: "remove_spell",
+                    reason: "the service isn't a spell",
                 }
                 .into());
             }
