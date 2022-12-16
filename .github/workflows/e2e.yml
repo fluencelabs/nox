@@ -42,3 +42,4 @@ jobs:
     uses: fluencelabs/fluence-cli/.github/workflows/tests.yml@main
     with:
       rust-peer-image: "${{ needs.rust-peer.outputs.rust-peer-image }}"
+      ref: FLU-169-run-ipfs-sidecar
