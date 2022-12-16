@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 use connected_client::ConnectedClient;
-use created_swarm::make_swarms_with_cfg;
+use created_swarm::make_swarms;
 use eyre::Context;
 
 use fluence_spell_dtos::trigger_config::TriggerConfig;
@@ -58,10 +58,7 @@ fn create_spell(
 
 #[test]
 fn spell_simple_test() {
-    let swarms = make_swarms_with_cfg(1, |mut cfg| {
-        cfg.timer_resolution = Duration::from_millis(20);
-        cfg
-    });
+    let swarms = make_swarms(1);
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .wrap_err("connect client")
         .unwrap();
@@ -113,10 +110,7 @@ fn spell_simple_test() {
 
 #[test]
 fn spell_error_handling_test() {
-    let swarms = make_swarms_with_cfg(1, |mut cfg| {
-        cfg.timer_resolution = Duration::from_millis(20);
-        cfg
-    });
+    let swarms = make_swarms(1);
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .wrap_err("connect client")
         .unwrap();
@@ -163,10 +157,7 @@ fn spell_error_handling_test() {
 
 #[test]
 fn spell_args_test() {
-    let swarms = make_swarms_with_cfg(1, |mut cfg| {
-        cfg.timer_resolution = Duration::from_millis(100);
-        cfg
-    });
+    let swarms = make_swarms(1);
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .wrap_err("connect client")
         .unwrap();
@@ -232,10 +223,7 @@ fn spell_args_test() {
 
 #[test]
 fn spell_return_test() {
-    let swarms = make_swarms_with_cfg(1, |mut cfg| {
-        cfg.timer_resolution = Duration::from_millis(100);
-        cfg
-    });
+    let swarms = make_swarms(1);
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .wrap_err("connect client")
         .unwrap();
@@ -290,10 +278,7 @@ fn spell_return_test() {
 // Check that oneshot spells are actually executed and executed only once
 #[test]
 fn spell_run_oneshot() {
-    let swarms = make_swarms_with_cfg(1, |mut cfg| {
-        cfg.timer_resolution = Duration::from_millis(100);
-        cfg
-    });
+    let swarms = make_swarms(1);
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .wrap_err("connect client")
         .unwrap();
@@ -335,10 +320,7 @@ fn spell_run_oneshot() {
 // Script installation will fail because no triggers configured.
 #[test]
 fn spell_install_fail_empty_config() {
-    let swarms = make_swarms_with_cfg(1, |mut cfg| {
-        cfg.timer_resolution = Duration::from_millis(100);
-        cfg
-    });
+    let swarms = make_swarms(1);
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .wrap_err("connect client")
         .unwrap();
@@ -378,10 +360,7 @@ fn spell_install_fail_empty_config() {
 
 #[test]
 fn spell_install_fail_large_period() {
-    let swarms = make_swarms_with_cfg(1, |mut cfg| {
-        cfg.timer_resolution = Duration::from_millis(100);
-        cfg
-    });
+    let swarms = make_swarms(1);
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .wrap_err("connect client")
         .unwrap();
@@ -425,10 +404,7 @@ fn spell_install_fail_large_period() {
 // In this case we don't schedule a spell and return error.
 #[test]
 fn spell_install_fail_end_sec_past() {
-    let swarms = make_swarms_with_cfg(1, |mut cfg| {
-        cfg.timer_resolution = Duration::from_millis(100);
-        cfg
-    });
+    let swarms = make_swarms(1);
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .wrap_err("connect client")
         .unwrap();
@@ -472,10 +448,7 @@ fn spell_install_fail_end_sec_past() {
 // In this case we don't schedule a spell and return error.
 #[test]
 fn spell_install_fail_end_sec_before_start() {
-    let swarms = make_swarms_with_cfg(1, |mut cfg| {
-        cfg.timer_resolution = Duration::from_millis(100);
-        cfg
-    });
+    let swarms = make_swarms(1);
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .wrap_err("connect client")
         .unwrap();
@@ -522,10 +495,7 @@ fn spell_install_fail_end_sec_before_start() {
 
 #[test]
 fn spell_store_trigger_config() {
-    let swarms = make_swarms_with_cfg(1, |mut cfg| {
-        cfg.timer_resolution = Duration::from_millis(100);
-        cfg
-    });
+    let swarms = make_swarms(1);
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .wrap_err("connect client")
         .unwrap();
@@ -580,7 +550,6 @@ fn spell_remove() {
 
     client.send_particle(
         r#"
-
     (seq
         (call relay ("spell" "list") [] list)
         (call client ("return" "") [list])
@@ -704,5 +673,75 @@ fn spell_remove_service_as_spell() {
     {
         let msg_end = "cannot call function 'remove_spell': the service isn't a spell\"'";
         assert!(msg.ends_with(msg_end), "should end with `{}`", msg_end);
+    }
+}
+
+#[test]
+fn spell_trigger_connection_pool() {
+    let swarms = make_swarms(1);
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .wrap_err("connect client")
+        .unwrap();
+
+    let script = r#"(call %init_peer_id% ("peer" "identity") [] x)"#;
+    let mut config = TriggerConfig::default();
+    config.connections.connect = true;
+    let spell_id1 = create_spell(&mut client, script.clone(), config.clone(), hashmap! {});
+
+    let mut config = TriggerConfig::default();
+    config.connections.disconnect = true;
+    let spell_id2 = create_spell(&mut client, script, config.clone(), hashmap! {});
+
+    // This connect should trigger the spell
+    let connect_num = 5;
+    for _ in 0..connect_num {
+        ConnectedClient::connect_to(swarms[0].multiaddr.clone()).unwrap();
+        std::thread::sleep(std::time::Duration::from_millis(100));
+    }
+
+    let data = hashmap! {
+        "spell_id" => json!(spell_id1),
+        "client" => json!(client.peer_id.to_string()),
+        "relay" => json!(client.node.to_string()),
+    };
+    client.send_particle(
+        r#"(seq
+            (call relay (spell_id "get_u32") ["counter"] x)
+            (call client ("return" "") [x])
+        )"#,
+        data,
+    );
+
+    if let [result] = client
+        .receive_args()
+        .wrap_err("receive")
+        .unwrap()
+        .as_slice()
+    {
+        let counter = result["num"].as_u64().unwrap();
+        assert_eq!(counter, connect_num, "connected");
+    }
+
+    let data = hashmap! {
+        "spell_id" => json!(spell_id2),
+        "client" => json!(client.peer_id.to_string()),
+        "relay" => json!(client.node.to_string()),
+    };
+    client.send_particle(
+        r#"(seq
+            (call relay (spell_id "get_u32") ["counter"] x)
+            (call client ("return" "") [x])
+        )"#,
+        data,
+    );
+
+    if let [result] = client
+        .receive_args()
+        .wrap_err("receive")
+        .unwrap()
+        .as_slice()
+    {
+        let counter = result["num"].as_u64().unwrap();
+        assert_eq!(counter, connect_num, "disconnected");
     }
 }
