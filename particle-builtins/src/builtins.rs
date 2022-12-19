@@ -796,9 +796,8 @@ where
     fn remove_service(&self, args: Args, params: ParticleParams) -> Result<(), JError> {
         let mut args = args.function_args.into_iter();
         let service_id_or_alias: String = Args::next("service_id_or_alias", &mut args)?;
-
         self.services
-            .remove_service(service_id_or_alias, params.init_peer_id)?;
+            .remove_service(service_id_or_alias, params.init_peer_id, false)?;
         Ok(())
     }
 

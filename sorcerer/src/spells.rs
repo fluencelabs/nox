@@ -94,7 +94,7 @@ pub(crate) async fn spell_install(
         log::warn!("can't subscribe a spell {} to triggers {:?} via spell-event-bus-api: {}. Removing created spell service...", spell_id, config, err);
 
         spell_storage.unregister_spell(&spell_id);
-        services.remove_service(spell_id, params.init_peer_id)?;
+        services.remove_service(spell_id, params.init_peer_id, true)?;
 
         return Err(JError::new(format!(
             "can't install a spell due to an internal error while subscribing to the triggers: {}",
@@ -139,7 +139,7 @@ pub(crate) async fn spell_remove(
 
     // TODO: remove spells by aliases too
     spell_storage.unregister_spell(&spell_id);
-    services.remove_service(spell_id, params.init_peer_id)?;
+    services.remove_service(spell_id, params.init_peer_id, true)?;
     Ok(())
 }
 
