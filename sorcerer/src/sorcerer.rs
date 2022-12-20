@@ -25,6 +25,7 @@ use maplit::hashmap;
 
 use aquamarine::AquamarineApi;
 use fluence_libp2p::types::Inlet;
+use key_manager::KeyManager;
 use particle_args::JError;
 use particle_builtins::{wrap, wrap_unit};
 use particle_execution::ServiceFunction;
@@ -49,6 +50,7 @@ pub struct Sorcerer {
     /// TODO: use owner-specific spell keypairs
     pub node_peer_id: PeerId,
     pub spell_script_particle_ttl: Duration,
+    pub key_manager: KeyManager,
 }
 
 type CustomService = (
@@ -68,6 +70,7 @@ impl Sorcerer {
         config: ResolvedConfig,
         local_peer_id: PeerId,
         spell_event_bus_api: SpellEventBusApi,
+        key_manager: KeyManager,
     ) -> (Self, Vec<CustomService>) {
         let spell_storage =
             SpellStorage::create(&config.dir_config.spell_base_dir, &services, &modules)
@@ -80,6 +83,7 @@ impl Sorcerer {
             spell_event_bus_api,
             node_peer_id: local_peer_id,
             spell_script_particle_ttl: config.max_spell_particle_ttl,
+            key_manager,
         };
 
         let spell_service_functions = sorcerer.get_spell_service_functions();
@@ -137,12 +141,24 @@ impl Sorcerer {
         let services = self.services.clone();
         let storage = self.spell_storage.clone();
         let spell_event_bus = self.spell_event_bus_api.clone();
+        let key_manager = self.key_manager.clone();
         let install_closure: ServiceFunction = Box::new(move |args, params| {
             let storage = storage.clone();
             let services = services.clone();
             let spell_event_bus_api = spell_event_bus.clone();
+            let key_manager = key_manager.clone();
             async move {
-                wrap(spell_install(args, params, storage, services, spell_event_bus_api).await)
+                wrap(
+                    spell_install(
+                        args,
+                        params,
+                        storage,
+                        services,
+                        spell_event_bus_api,
+                        key_manager,
+                    )
+                    .await,
+                )
             }
             .boxed()
         });

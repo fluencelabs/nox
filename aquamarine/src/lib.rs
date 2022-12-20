@@ -25,6 +25,7 @@
     unused_unsafe,
     unreachable_patterns
 )]
+#![feature(drain_filter)]
 
 pub use avm_server::AVM;
 // reexport

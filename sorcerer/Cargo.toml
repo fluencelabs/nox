@@ -21,6 +21,7 @@ now-millis = { path = "../crates/now-millis" }
 connection-pool = { path = "../connection-pool"}
 kademlia = { path = "../crates/kademlia"}
 fluence-libp2p = { path = "../crates/libp2p" }
+key-manager = { path = "../crates/key-manager" }
 
 libp2p = { workspace = true }
 

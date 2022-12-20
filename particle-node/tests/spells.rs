@@ -325,7 +325,7 @@ fn spell_install_fail_empty_config() {
         .wrap_err("connect client")
         .unwrap();
 
-    let script = r#"(call %init_peer_id% ("peer" "idenitfy") [] x)"#;
+    let script = r#"(call %init_peer_id% ("peer" "identify") [] x)"#;
     let empty: HashMap<String, String> = HashMap::new();
 
     // Note that when period is 0, the spell is executed only once
@@ -500,7 +500,7 @@ fn spell_store_trigger_config() {
         .wrap_err("connect client")
         .unwrap();
 
-    let script = r#"(call %init_peer_id% ("peer" "idenitfy") [] x)"#;
+    let script = r#"(call %init_peer_id% ("peer" "identify") [] x)"#;
     let mut config = TriggerConfig::default();
     config.clock.period_sec = 13;
     config.clock.start_sec = 10;

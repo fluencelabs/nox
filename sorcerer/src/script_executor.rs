@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use fluence_libp2p::PeerId;
 use fluence_spell_dtos::value::{ScriptValue, U32Value, UnitValue};
 use serde_json::json;
 
@@ -24,13 +25,13 @@ use crate::utils::process_func_outcome;
 use crate::Sorcerer;
 
 impl Sorcerer {
-    fn get_spell_counter(&self, spell_id: String) -> Result<u32, JError> {
+    fn get_spell_counter(&self, spell_id: String, peer_id: PeerId) -> Result<u32, JError> {
         let func_outcome = self.services.call_function(
             &spell_id,
             "get_u32",
             vec![json!("counter")],
             None,
-            self.node_peer_id,
+            peer_id,
             self.spell_script_particle_ttl,
         );
 
@@ -42,26 +43,31 @@ impl Sorcerer {
         }
     }
 
-    fn set_spell_next_counter(&self, spell_id: String, next_counter: u32) -> Result<(), JError> {
+    fn set_spell_next_counter(
+        &self,
+        spell_id: String,
+        next_counter: u32,
+        peer_id: PeerId,
+    ) -> Result<(), JError> {
         let func_outcome = self.services.call_function(
             &spell_id,
             "set_u32",
             vec![json!("counter"), json!(next_counter)],
             None,
-            self.node_peer_id,
+            peer_id,
             self.spell_script_particle_ttl,
         );
 
         process_func_outcome::<UnitValue>(func_outcome, &spell_id, "set_u32").map(drop)
     }
 
-    fn get_spell_script(&self, spell_id: String) -> Result<String, JError> {
+    fn get_spell_script(&self, spell_id: String, peer_id: PeerId) -> Result<String, JError> {
         let func_outcome = self.services.call_function(
             &spell_id,
             "get_script_source_from_file",
             vec![],
             None,
-            self.node_peer_id,
+            peer_id,
             self.spell_script_particle_ttl,
         );
 
@@ -74,13 +80,15 @@ impl Sorcerer {
     }
 
     pub(crate) fn get_spell_particle(&self, spell_id: String) -> Result<Particle, JError> {
-        let spell_counter = self.get_spell_counter(spell_id.clone())?;
-        self.set_spell_next_counter(spell_id.clone(), spell_counter + 1)?;
-        let spell_script = self.get_spell_script(spell_id.clone())?;
+        let spell_owner = self.services.get_service_owner(spell_id.clone())?;
+        // TODO: get spell keypair
+        let spell_counter = self.get_spell_counter(spell_id.clone(), spell_owner)?;
+        self.set_spell_next_counter(spell_id.clone(), spell_counter + 1, spell_owner)?;
+        let spell_script = self.get_spell_script(spell_id.clone(), spell_owner)?;
 
         Ok(Particle {
             id: f!("spell_{spell_id}_{spell_counter}"),
-            init_peer_id: self.node_peer_id.clone(),
+            init_peer_id: spell_owner,
             timestamp: now_ms() as u64,
             ttl: self.spell_script_particle_ttl.as_millis() as u32,
             script: spell_script,

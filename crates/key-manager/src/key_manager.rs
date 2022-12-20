@@ -22,6 +22,7 @@ use std::sync::Arc;
 use crate::persistence::{load_persisted_keypairs, persist_keypair, PersistedKeypair};
 use parking_lot::RwLock;
 
+#[derive(Clone)]
 pub struct KeyManager {
     local_peer_ids: Arc<RwLock<HashSet<String>>>,
     keypairs: Arc<RwLock<HashMap<String, KeyPair>>>,
@@ -29,11 +30,11 @@ pub struct KeyManager {
 }
 
 impl KeyManager {
-    pub fn new() -> Self {
+    pub fn new(keypairs_dir: PathBuf) -> Self {
         let this = Self {
             local_peer_ids: Arc::new(Default::default()),
             keypairs: Arc::new(Default::default()),
-            keypairs_dir: Default::default(),
+            keypairs_dir,
         };
 
         this.load_persisted_keypairs();
@@ -44,11 +45,17 @@ impl KeyManager {
         let persisted_keypairs = load_persisted_keypairs(&self.keypairs_dir);
     }
 
-    pub fn get_keypair(&self, owner_peer_id: &str) -> Option<&KeyPair> {
-        self.keypairs.read().get(owner_peer_id)
+    pub fn get_or_generate_keypair(&self, owner_peer_id: &str) -> eyre::Result<KeyPair> {
+        if let Some(k) = self.keypairs.read().get(owner_peer_id) {
+            Ok(k.clone())
+        } else {
+            let new_kp = KeyPair::generate_ed25519();
+            self.add_keypair(owner_peer_id, new_kp.clone())?;
+            Ok(new_kp)
+        }
     }
 
-    pub fn add_keypair(&mut self, owner_peer_id: &str, keypair: KeyPair) -> eyre::Result<()> {
+    pub fn add_keypair(&self, owner_peer_id: &str, keypair: KeyPair) -> eyre::Result<()> {
         persist_keypair(
             &self.keypairs_dir,
             PersistedKeypair::new(owner_peer_id.to_string(), &keypair),

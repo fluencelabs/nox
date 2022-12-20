@@ -17,6 +17,7 @@ control-macro = { path = "../crates/control-macro" }
 fs-utils = { path = "../crates/fs-utils" }
 peer-metrics = { path = "../crates/peer-metrics" }
 particle-execution = { path = "../particle-execution" }
+key-manager = { path = "../crates/key-manager" }
 
 avm-server = { workspace = true }
 libp2p = { workspace = true }

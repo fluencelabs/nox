@@ -23,7 +23,8 @@ air-interpreter-fs = { path = "../crates/air-interpreter-fs" }
 builtins-deployer = { path = "../crates/builtins-deployer" }
 fs-utils = { path = "../crates/fs-utils" }
 peer-metrics = { path = "../crates/peer-metrics" }
-spell-event-bus = { path = "../crates/spell-event-bus/" }
+spell-event-bus = { path = "../crates/spell-event-bus" }
+key-manager = { path = "../crates/key-manager" }
 
 fluence-keypair = { workspace = true }
 

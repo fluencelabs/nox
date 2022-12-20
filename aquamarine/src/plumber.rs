@@ -22,6 +22,7 @@ use std::{
 use futures::task::Waker;
 
 use fluence_libp2p::PeerId;
+use key_manager::KeyManager;
 /// For tests, mocked time is used
 #[cfg(test)]
 use mock_time::now_ms;
@@ -48,10 +49,16 @@ pub struct Plumber<RT: AquaRuntime, F> {
     builtins: F,
     waker: Option<Waker>,
     metrics: Option<ParticleExecutorMetrics>,
+    key_manager: KeyManager,
 }
 
 impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
-    pub fn new(vm_pool: VmPool<RT>, builtins: F, metrics: Option<ParticleExecutorMetrics>) -> Self {
+    pub fn new(
+        vm_pool: VmPool<RT>,
+        builtins: F,
+        metrics: Option<ParticleExecutorMetrics>,
+        key_manager: KeyManager,
+    ) -> Self {
         Self {
             vm_pool,
             builtins,
@@ -59,6 +66,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
             actors: <_>::default(),
             waker: <_>::default(),
             metrics,
+            key_manager,
         }
     }
 
@@ -124,12 +132,35 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
 
         // Gather effects and put VMs back
         let mut remote_effects = vec![];
-        let local_effects: Vec<RoutingEffects> = vec![];
+        let mut local_effects: Vec<RoutingEffects> = vec![];
         let mut mailbox_size = 0;
+        let key_manager = self.key_manager.clone();
         for actor in self.actors.values_mut() {
             if let Poll::Ready(result) = actor.poll_completed(cx) {
                 // TODO: filter result.effects and filter out local effects
-                remote_effects.push((result.effects, result.stats));
+
+                let (local_peers, remote_peers): (Vec<_>, Vec<_>) = result
+                    .effects
+                    .next_peers
+                    .into_iter()
+                    .partition(|p| key_manager.has_local_peer_id(&p.to_base58()));
+
+                if !remote_peers.is_empty() {
+                    remote_effects.push((
+                        RoutingEffects {
+                            particle: result.effects.particle.clone(),
+                            next_peers: remote_peers,
+                        },
+                        result.stats,
+                    ));
+                }
+
+                if !local_peers.is_empty() {
+                    local_effects.push(RoutingEffects {
+                        particle: result.effects.particle,
+                        next_peers: local_peers,
+                    });
+                }
                 let (vm_id, vm) = result.vm;
                 self.vm_pool.put_vm(vm_id, vm);
             }
@@ -254,6 +285,7 @@ mod tests {
     use futures::future::BoxFuture;
     use futures::task::noop_waker_ref;
     use futures::FutureExt;
+    use key_manager::KeyManager;
 
     use particle_args::Args;
     use particle_execution::{ParticleFunction, ParticleParams, ServiceFunction};
@@ -348,7 +380,8 @@ mod tests {
         // Pool is of size 1 so it's easier to control tests
         let vm_pool = VmPool::new(1, (), None);
         let builtin_mock = Arc::new(MockF);
-        Plumber::new(vm_pool, builtin_mock, None)
+        let key_manager = KeyManager::new("keypair".into());
+        Plumber::new(vm_pool, builtin_mock, None, key_manager)
     }
 
     fn particle(ts: u64, ttl: u32) -> Particle {

@@ -47,6 +47,7 @@ use config_utils::to_peer_id;
 use connection_pool::{ConnectionPoolApi, ConnectionPoolT};
 use fluence_libp2p::types::{BackPressuredInlet, Inlet};
 use fluence_libp2p::{build_transport, types::OneshotOutlet};
+use key_manager::KeyManager;
 use particle_builtins::{Builtins, NodeInfo};
 use particle_execution::{ParticleFunction, ParticleFunctionStatic};
 use particle_protocol::Particle;
@@ -91,6 +92,8 @@ pub struct Node<RT: AquaRuntime> {
 
     pub local_peer_id: PeerId,
     pub builtins_management_peer_id: PeerId,
+
+    pub key_manager: KeyManager,
 }
 
 impl<RT: AquaRuntime> Node<RT> {
@@ -187,6 +190,7 @@ impl<RT: AquaRuntime> Node<RT> {
 
         let (effects_out, effects_in) = unbounded();
 
+        let key_manager = KeyManager::new(config.dir_config.keypairs_base_dir.clone());
         let pool_config =
             VmPoolConfig::new(config.aquavm_pool_size, config.particle_execution_timeout);
         let (aquavm_pool, aquamarine_api) = AquamarineBackend::new(
@@ -197,6 +201,7 @@ impl<RT: AquaRuntime> Node<RT> {
             plumber_metrics,
             vm_pool_metrics,
             local_peer_id,
+            key_manager.clone(),
         );
         let effectors = Effectors::new(connectivity.clone());
         let dispatcher = {
@@ -237,6 +242,7 @@ impl<RT: AquaRuntime> Node<RT> {
             config.clone(),
             local_peer_id,
             spell_event_bus_api,
+            key_manager.clone(),
         );
 
         spell_service_functions
@@ -261,6 +267,7 @@ impl<RT: AquaRuntime> Node<RT> {
             config.metrics_listen_addr(),
             local_peer_id,
             builtins_peer_id,
+            key_manager,
         ))
     }
 
@@ -334,6 +341,7 @@ impl<RT: AquaRuntime> Node<RT> {
 
         local_peer_id: PeerId,
         builtins_management_peer_id: PeerId,
+        key_manager: KeyManager,
     ) -> Box<Self> {
         let node_service = Self {
             particle_stream,
@@ -356,6 +364,7 @@ impl<RT: AquaRuntime> Node<RT> {
 
             local_peer_id,
             builtins_management_peer_id,
+            key_manager,
         };
 
         Box::new(node_service)
