@@ -528,10 +528,7 @@ fn spell_store_trigger_config() {
 
 #[test]
 fn spell_remove() {
-    let swarms = make_swarms_with_cfg(1, |mut cfg| {
-        cfg.timer_resolution = Duration::from_millis(20);
-        cfg
-    });
+    let swarms = make_swarms(1);
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .wrap_err("connect client")
         .unwrap();
@@ -591,10 +588,7 @@ fn spell_remove() {
 
 #[test]
 fn spell_remove_spell_as_service() {
-    let swarms = make_swarms_with_cfg(1, |mut cfg| {
-        cfg.timer_resolution = Duration::from_millis(20);
-        cfg
-    });
+    let swarms = make_swarms(1);
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .wrap_err("connect client")
         .unwrap();
@@ -635,10 +629,7 @@ fn spell_remove_spell_as_service() {
 
 #[test]
 fn spell_remove_service_as_spell() {
-    let swarms = make_swarms_with_cfg(1, |mut cfg| {
-        cfg.timer_resolution = Duration::from_millis(20);
-        cfg
-    });
+    let swarms = make_swarms(1);
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .wrap_err("connect client")
         .unwrap();
