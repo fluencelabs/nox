@@ -17,7 +17,7 @@ on:
     outputs:
       rust-peer-image:
         description: "rust-peer snapshot image"
-        value: ${{ jobs.container.outputs.image }}
+        value: ${{ jobs.container.outputs.rust-peer-image }}
       rust-peer-sha:
         description: "rust-peer sha256 hash"
         value: ${{ jobs.build.outputs.sha256 }}
