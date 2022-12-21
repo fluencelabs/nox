@@ -17,7 +17,7 @@ on:
     outputs:
       rust-peer-image:
         description: "rust-peer snapshot image"
-        value: ${{ jobs.publish.outputs.image }}
+        value: ${{ jobs.container.outputs.image }}
       rust-peer-sha:
         description: "rust-peer sha256 hash"
         value: ${{ jobs.build.outputs.sha256 }}
@@ -76,7 +76,7 @@ jobs:
           name: rust-peer
           path: target/release/particle-node
 
-  publish:
+  container:
     needs: build
     uses: ./.github/workflows/container.yml
     with:

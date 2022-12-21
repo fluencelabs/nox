@@ -20,7 +20,7 @@ on:
         value: ${{ jobs.publish.outputs.image }}
 
 jobs:
-  publish:
+  container:
     name: "Publish ${{ inputs.flavour }}"
     runs-on: ubuntu-latest
 
