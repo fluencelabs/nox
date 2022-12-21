@@ -66,7 +66,7 @@ jobs:
           {
             "version": "${{ steps.version.outputs.branch }}",
             "url": "file:///fluence/particle-node",
-            "sha256": "${{ inputs.sha }}"
+            "sha256": "${{ inputs.rust-peer-sha }}"
           }
           FLUENCE
 
