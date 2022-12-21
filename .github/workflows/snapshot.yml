@@ -83,4 +83,3 @@ jobs:
       image-name: "docker.fluence.dev/rust-peer"
       flavour: "minimal"
       rust-peer-sha: "${{ needs.build.outputs.sha }}"
-      ref: ${{ github.ref }}
