@@ -106,8 +106,8 @@ jobs:
           ## rust-peer ${{ inputs.flavour }}
           digest: `${{ steps.docker.outputs.digest }}`
           ```
-          ${{ inputs.image-name }}:flavour_${{ steps.version.outputs.branch }}
-          ${{ inputs.image-name }}:flavour_${{ steps.version.outputs.branch }}_${{ github.run_number }}_${{ github.run_attempt }}
+          ${{ inputs.image-name }}:${{ inputs.flavour }}_${{ steps.version.outputs.branch }}
+          ${{ inputs.image-name }}:${{ inputs.flavour }}_${{ steps.version.outputs.branch }}_${{ github.run_number }}_${{ github.run_attempt }}
           ```
 
           ### Access to Fluence docker registry
