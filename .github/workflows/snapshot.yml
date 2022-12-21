@@ -181,8 +181,6 @@ jobs:
             sha=${{ steps.version.outputs.sha }}
             run_number=${{ github.run_number }}
             run_attempt=${{ github.run_attempt }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
 
       - name: Build and push rich snapshot
         id: rich
@@ -200,8 +198,6 @@ jobs:
             sha=${{ steps.version.outputs.sha }}
             run_number=${{ github.run_number }}
             run_attempt=${{ github.run_attempt }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
 
       - name: Print results to check summary
         if: always()
