@@ -24,8 +24,6 @@ jobs:
     name: "Publish container"
     runs-on: ubuntu-latest
 
-    needs: build
-
     outputs:
       image: "${{ inputs.image-name }}@${{ steps.docker.outputs.digest }}"
 
