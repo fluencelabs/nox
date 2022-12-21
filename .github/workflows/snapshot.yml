@@ -82,4 +82,4 @@ jobs:
     with:
       image-name: "docker.fluence.dev/rust-peer"
       flavour: "minimal"
-      rust-peer-sha: "${{ needs.build.outputs.sha }}"
+      rust-peer-sha: "${{ needs.build.outputs.sha256 }}"

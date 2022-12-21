@@ -21,7 +21,7 @@ on:
 
 jobs:
   publish:
-    name: "Publish container"
+    name: "Publish `${{ inputs.flavour }}"
     runs-on: ubuntu-latest
 
     outputs:
@@ -80,7 +80,7 @@ jobs:
           username: ${{ env.DOCKER_USERNAME }}
           password: ${{ env.DOCKER_PASSWORD }}
 
-      - name: Build and push snapshot
+      - name: Build and push container image
         id: docker
         uses: docker/build-push-action@v3
         with:
