@@ -21,7 +21,7 @@ on:
 
 jobs:
   publish:
-    name: "Publish `${{ inputs.flavour }}`"
+    name: "Publish ${{ inputs.flavour }}"
     runs-on: ubuntu-latest
 
     outputs:
