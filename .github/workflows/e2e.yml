@@ -19,6 +19,13 @@ jobs:
       image-name: "docker.fluence.dev/rust-peer"
       ref: ${{ github.ref }}
 
+  rust-peer-rich:
+    uses: ./.github/workflows/snapshot.yml
+    with:
+      image-name: "docker.fluence.dev/rust-peer"
+      flavour: "rich"
+      ref: ${{ github.ref }}
+
   aqua-playground:
     needs:
       - rust-peer

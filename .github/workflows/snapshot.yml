@@ -11,22 +11,17 @@ on:
         description: "Docker image name"
         type: string
         default: "docker.fluence.dev/rust-peer"
+      flavour:
+        description: "rust-peer image flavour: minimal, ipfs or rich"
+        type: string
+        default: "minimal"
       cargo-dependencies:
         description: "Cargo dependencies map"
         type: string
     outputs:
       rust-peer-image:
-        description: "rust-peer snapshot image. Compatibility with E2E. Same as minimal."
-        value: ${{ jobs.publish.outputs.minimal }}
-      rust-peer-minimal-image:
-        description: "rust-peer snapshot miminal image"
-        value: ${{ jobs.publish.outputs.minimal }}
-      rust-peer-ipfs-image:
-        description: "rust-peer snapshot ipfs image"
-        value: ${{ jobs.publish.outputs.ipfs }}
-      rust-peer-rich-image:
-        description: "rust-peer snapshot rich image"
-        value: ${{ jobs.publish.outputs.rich }}
+        description: "rust-peer snapshot image"
+        value: ${{ jobs.publish.outputs.image }}
 
 jobs:
   build:
@@ -146,18 +141,18 @@ jobs:
           username: ${{ env.DOCKER_USERNAME }}
           password: ${{ env.DOCKER_PASSWORD }}
 
-      - name: Build and push minimal snapshot
-        id: minimal
+      - name: Build and push snapshot
+        id: docker
         uses: docker/build-push-action@v3
         with:
           context: .
           push: true
-          target: minimal
+          target: ${{ inputs.flavour }}
           tags: |
-            ${{ inputs.image-name }}:minimal_${{ steps.version.outputs.branch }}
-            ${{ inputs.image-name }}:minimal_${{ steps.version.outputs.branch }}_${{ github.run_number }}_${{ github.run_attempt }}
+            ${{ inputs.image-name }}:${{ inputs.flavour }}_${{ steps.version.outputs.branch }}
+            ${{ inputs.image-name }}:${{ inputs.flavour }}_${{ steps.version.outputs.branch }}_${{ github.run_number }}_${{ github.run_attempt }}
           labels: |
-            variant=minimal
+            flavour=${{ inputs.flavour }}
             branch=${{ steps.version.outputs.branch }}
             sha=${{ steps.version.outputs.sha }}
             run_number=${{ github.run_number }}
@@ -165,65 +160,15 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Build and push ipfs snapshot
-        id: ipfs
-        uses: docker/build-push-action@v3
-        with:
-          context: .
-          push: true
-          target: ipfs
-          tags: |
-            ${{ inputs.image-name }}:ipfs_${{ steps.version.outputs.branch }}
-            ${{ inputs.image-name }}:ipfs_${{ steps.version.outputs.branch }}_${{ github.run_number }}_${{ github.run_attempt }}
-          labels: |
-            variant=ipfs
-            branch=${{ steps.version.outputs.branch }}
-            sha=${{ steps.version.outputs.sha }}
-            run_number=${{ github.run_number }}
-            run_attempt=${{ github.run_attempt }}
-
-      - name: Build and push rich snapshot
-        id: rich
-        uses: docker/build-push-action@v3
-        with:
-          context: .
-          push: true
-          target: rich
-          tags: |
-            ${{ inputs.image-name }}:rich_${{ steps.version.outputs.branch }}
-            ${{ inputs.image-name }}:rich_${{ steps.version.outputs.branch }}_${{ github.run_number }}_${{ github.run_attempt }}
-          labels: |
-            variant=rich
-            branch=${{ steps.version.outputs.branch }}
-            sha=${{ steps.version.outputs.sha }}
-            run_number=${{ github.run_number }}
-            run_attempt=${{ github.run_attempt }}
-
       - name: Print results to check summary
         if: always()
         run: |
           cat <<'SNAPSHOT' >> $GITHUB_STEP_SUMMARY
           ## rust-peer
-
-          ### minimal
-          digest: `${{ steps.minimal.outputs.digest }}`
+          digest: `${{ steps.docker.outputs.digest }}`
           ```
-          ${{ inputs.image-name }}:minimal_${{ steps.version.outputs.branch }}
-          ${{ inputs.image-name }}:minimal_${{ steps.version.outputs.branch }}_${{ github.run_number }}_${{ github.run_attempt }}
-          ```
-
-          ### ipfs
-          digest: `${{ steps.ipfs.outputs.digest }}`
-          ```
-          ${{ inputs.image-name }}:ipfs_${{ steps.version.outputs.branch }}
-          ${{ inputs.image-name }}:ipfs_${{ steps.version.outputs.branch }}_${{ github.run_number }}_${{ github.run_attempt }}
-          ```
-
-          ### rich
-          digest: `${{ steps.rich.outputs.digest }}`
-          ```
-          ${{ inputs.image-name }}:rich_${{ steps.version.outputs.branch }}
-          ${{ inputs.image-name }}:rich_${{ steps.version.outputs.branch }}_${{ github.run_number }}_${{ github.run_attempt }}
+          ${{ inputs.image-name }}:${{ inputs.flavour }}_${{ steps.version.outputs.branch }}
+          ${{ inputs.image-name }}:${{ inputs.flavour }}_${{ steps.version.outputs.branch }}_${{ github.run_number }}_${{ github.run_attempt }}
           ```
 
           ### Access to Fluence docker registry
