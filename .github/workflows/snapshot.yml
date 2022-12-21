@@ -16,8 +16,17 @@ on:
         type: string
     outputs:
       rust-peer-image:
-        description: "rust-peer snapshot image"
-        value: ${{ jobs.publish.outputs.image }}
+        description: "rust-peer snapshot image. Compatibility with E2E. Same as minimal."
+        value: ${{ jobs.publish.outputs.minimal }}
+      rust-peer-minimal-image:
+        description: "rust-peer snapshot miminal image"
+        value: ${{ jobs.publish.outputs.minimal }}
+      rust-peer-ipfs-image:
+        description: "rust-peer snapshot ipfs image"
+        value: ${{ jobs.publish.outputs.ipfs }}
+      rust-peer-rich-image:
+        description: "rust-peer snapshot rich image"
+        value: ${{ jobs.publish.outputs.rich }}
 
 jobs:
   build:
@@ -80,7 +89,9 @@ jobs:
     needs: build
 
     outputs:
-      image: "${{ inputs.image-name }}@${{ steps.docker.outputs.digest }}"
+      minimal: "${{ inputs.image-name }}@${{ steps.minimal.outputs.digest }}"
+      ipfs: "${{ inputs.image-name }}@${{ steps.ipfs.outputs.digest }}"
+      rich: "${{ inputs.image-name }}@${{ steps.rich.outputs.digest }}"
 
     permissions:
       contents: read
@@ -135,34 +146,88 @@ jobs:
           username: ${{ env.DOCKER_USERNAME }}
           password: ${{ env.DOCKER_PASSWORD }}
 
-      - name: Build and push snapshot
-        id: docker
+      - name: Build and push minimal snapshot
+        id: minimal
         uses: docker/build-push-action@v3
         with:
           context: .
           push: true
           target: minimal
           tags: |
-            ${{ inputs.image-name }}:${{ steps.version.outputs.branch }}
+            ${{ inputs.image-name }}:minimal_${{ steps.version.outputs.branch }}
+            ${{ inputs.image-name }}:minimal_${{ steps.version.outputs.branch }}_${{ github.run_number }}_${{ github.run_attempt }}
           labels: |
+            variant=minimal
+            branch=${{ steps.version.outputs.branch }}
             sha=${{ steps.version.outputs.sha }}
+            run_number=${{ github.run_number }}
+            run_attempt=${{ github.run_attempt }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build and push ipfs snapshot
+        id: ipfs
+        uses: docker/build-push-action@v3
+        with:
+          context: .
+          push: true
+          target: ipfs
+          tags: |
+            ${{ inputs.image-name }}:ipfs_${{ steps.version.outputs.branch }}
+            ${{ inputs.image-name }}:ipfs_${{ steps.version.outputs.branch }}_${{ github.run_number }}_${{ github.run_attempt }}
+          labels: |
+            variant=ipfs
+            branch=${{ steps.version.outputs.branch }}
+            sha=${{ steps.version.outputs.sha }}
+            run_number=${{ github.run_number }}
+            run_attempt=${{ github.run_attempt }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build and push rich snapshot
+        id: rich
+        uses: docker/build-push-action@v3
+        with:
+          context: .
+          push: true
+          target: rich
+          tags: |
+            ${{ inputs.image-name }}:rich_${{ steps.version.outputs.branch }}
+            ${{ inputs.image-name }}:rich_${{ steps.version.outputs.branch }}_${{ github.run_number }}_${{ github.run_attempt }}
+          labels: |
+            variant=rich
+            branch=${{ steps.version.outputs.branch }}
+            sha=${{ steps.version.outputs.sha }}
+            run_number=${{ github.run_number }}
+            run_attempt=${{ github.run_attempt }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
       - name: Print results to check summary
         if: always()
-        env:
-          RUST_PEER_IMAGE_SHA: ${{ inputs.image-name }}@${{ steps.docker.outputs.digest }}
-          RUST_PEER_IMAGE_NAME: ${{ inputs.image-name }}:${{ steps.version.outputs.branch }}
         run: |
           cat <<'SNAPSHOT' >> $GITHUB_STEP_SUMMARY
           ## rust-peer
-          digest: `${{ env.RUST_PEER_IMAGE_SHA }}`
-          image: `${{ env.RUST_PEER_IMAGE_NAME }}`
 
-          To use it run:
-          ```shell
-          docker run --rm ${{ env.RUST_PEER_IMAGE_SHA }} --local
+          ### minimal
+          digest: `${{ steps.minimal.outputs.digest }}`
+          ```
+          ${{ inputs.image-name }}:minimal_${{ steps.version.outputs.branch }}
+          ${{ inputs.image-name }}:minimal_${{ steps.version.outputs.branch }}_${{ github.run_number }}_${{ github.run_attempt }}
+          ```
+
+          ### ipfs
+          digest: `${{ steps.ipfs.outputs.digest }}`
+          ```
+          ${{ inputs.image-name }}:ipfs_${{ steps.version.outputs.branch }}
+          ${{ inputs.image-name }}:ipfs_${{ steps.version.outputs.branch }}_${{ github.run_number }}_${{ github.run_attempt }}
+          ```
+
+          ### rich
+          digest: `${{ steps.rich.outputs.digest }}`
+          ```
+          ${{ inputs.image-name }}:rich_${{ steps.version.outputs.branch }}
+          ${{ inputs.image-name }}:rich_${{ steps.version.outputs.branch }}_${{ github.run_number }}_${{ github.run_attempt }}
           ```
 
           ### Access to Fluence docker registry
