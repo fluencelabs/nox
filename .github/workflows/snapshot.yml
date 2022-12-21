@@ -78,7 +78,7 @@ jobs:
 
   publish:
     needs: build
-    uses: ./.github/workflows/snapshot.yml
+    uses: ./.github/workflows/container.yml
     with:
       image-name: "docker.fluence.dev/rust-peer"
       flavour: "minimal"
