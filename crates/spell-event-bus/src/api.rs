@@ -11,7 +11,7 @@ pub type SpellId = String;
 
 #[derive(Debug)]
 pub struct TriggerEvent {
-    pub id: SpellId,
+    pub spell_id: SpellId,
     pub event: Event,
 }
 

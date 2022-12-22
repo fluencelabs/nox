@@ -125,7 +125,7 @@ impl Sorcerer {
                     let sorcerer = self.clone();
                     // Note that the event that triggered the spell is in `spell_event.event`
                     async move {
-                        sorcerer.execute_script(spell_event.id).await;
+                        sorcerer.execute_script(spell_event.spell_id).await;
                     }
                 })
                 .await;

@@ -27,3 +27,4 @@ fluence-spell-dtos = { workspace = true }
 [dev-dependencies]
 libp2p = { workspace = true }
 particle-protocol = { path = "../../particle-protocol"}
+maplit = { workspace = true }
