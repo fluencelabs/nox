@@ -14,9 +14,11 @@
  * limitations under the License.
  */
 
+use std::convert::TryInto;
 use std::time::Duration;
 
 use derivative::Derivative;
+use fluence_keypair::{KeyPair, PublicKey, Signature};
 use libp2p::PeerId;
 use serde::{Deserialize, Serialize};
 
@@ -79,6 +81,49 @@ impl Particle {
         } else {
             Duration::default()
         }
+    }
+
+    fn get_bytes(&self) -> eyre::Result<Vec<u8>> {
+        #[derive(Serialize)]
+        struct ParticleMetadata {
+            pub id: String,
+            #[serde(with = "peerid_serializer")]
+            pub init_peer_id: PeerId,
+            pub timestamp: u64,
+            pub ttl: u32,
+            pub script: String,
+        }
+
+        Ok(bincode::serialize(&ParticleMetadata {
+            id: self.id.clone(),
+            init_peer_id: self.init_peer_id.clone(),
+            timestamp: self.timestamp,
+            ttl: self.ttl,
+            script: self.script.clone(),
+        })?)
+    }
+    pub fn sign(&mut self, keypair: &KeyPair) -> eyre::Result<()> {
+        if self.init_peer_id != keypair.get_peer_id() {
+            return Err(eyre::eyre!(
+                "Failed to sign particle {} by different peer id: expected {}, found {}",
+                self.id,
+                self.init_peer_id,
+                keypair.get_peer_id()
+            ));
+        }
+
+        self.signature = keypair
+            .sign(self.get_bytes()?.as_slice())?
+            .to_vec()
+            .to_vec();
+
+        Ok(())
+    }
+
+    pub fn verify(&self) -> eyre::Result<()> {
+        let pk: PublicKey = self.init_peer_id.try_into()?;
+        let sig = Signature::from_bytes(pk.get_key_format(), self.signature.clone());
+        Ok(pk.verify(&self.get_bytes()?, &sig)?)
     }
 }
 

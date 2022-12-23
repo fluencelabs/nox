@@ -27,6 +27,7 @@ pub fn enable_logs() {
         .filter(Some("script_storage"), Trace)
         .filter(Some("script_storage"), Trace)
         .filter(Some("sorcerer"), Trace)
+        .filter(Some("key_manager"), Trace)
         .filter(Some("spell_event_bus"), Trace)
         .filter(Some("aquamarine"), Trace)
         .filter(Some("network"), Trace)

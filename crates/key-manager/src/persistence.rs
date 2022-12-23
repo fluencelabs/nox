@@ -27,7 +27,7 @@ use std::path::Path;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct PersistedKeypair {
-    pub owner_id: String,
+    pub remote_peer_id: String,
     pub keypair_bytes: Vec<u8>,
     pub key_format: String,
 }
@@ -35,7 +35,7 @@ pub struct PersistedKeypair {
 impl PersistedKeypair {
     pub fn new(owner_id: String, keypair: &KeyPair) -> Self {
         Self {
-            owner_id,
+            remote_peer_id: owner_id,
             keypair_bytes: keypair.to_vec(),
             key_format: keypair.public().get_key_format().into(),
         }
@@ -57,7 +57,7 @@ pub fn persist_keypair(
     keypairs_dir: &Path,
     persisted_keypair: PersistedKeypair,
 ) -> Result<(), PersistedKeypairError> {
-    let path = keypairs_dir.join(keypair_file_name(&persisted_keypair.owner_id));
+    let path = keypairs_dir.join(keypair_file_name(&persisted_keypair.remote_peer_id));
     let bytes =
         toml::to_vec(&persisted_keypair).map_err(|err| SerializePersistedKeypair { err })?;
     std::fs::write(&path, bytes).map_err(|err| WriteErrorPersistedKeypair { path, err })
@@ -103,7 +103,7 @@ pub fn load_persisted_keypairs(
         .collect()
 }
 
-pub fn remove_persisted_keypair(
+pub fn _remove_persisted_keypair(
     keypairs_dir: &Path,
     owner_peer_id: String,
 ) -> Result<(), std::io::Error> {

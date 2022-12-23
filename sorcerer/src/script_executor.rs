@@ -81,12 +81,15 @@ impl Sorcerer {
 
     pub(crate) fn get_spell_particle(&self, spell_id: String) -> Result<Particle, JError> {
         let spell_owner = self.services.get_service_owner(spell_id.clone())?;
-        // TODO: get spell keypair
+        let spell_keypair = self
+            .key_manager
+            .get_keypair_by_local_peer_id(&spell_owner.to_base58())
+            .map_err(|e| JError::new(e.to_string()))?;
         let spell_counter = self.get_spell_counter(spell_id.clone(), spell_owner)?;
         self.set_spell_next_counter(spell_id.clone(), spell_counter + 1, spell_owner)?;
         let spell_script = self.get_spell_script(spell_id.clone(), spell_owner)?;
 
-        Ok(Particle {
+        let mut particle = Particle {
             id: f!("spell_{spell_id}_{spell_counter}"),
             init_peer_id: spell_owner,
             timestamp: now_ms() as u64,
@@ -94,7 +97,12 @@ impl Sorcerer {
             script: spell_script,
             signature: vec![],
             data: vec![],
-        })
+        };
+        particle
+            .sign(&spell_keypair)
+            .map_err(|e| JError::new(e.to_string()))?;
+
+        Ok(particle)
     }
 
     pub async fn execute_script(&self, spell_id: String) {

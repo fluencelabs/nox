@@ -37,14 +37,20 @@ pub(crate) async fn spell_install(
     let mut args = sargs.function_args.clone().into_iter();
     let script: String = Args::next("script", &mut args)?;
     let init_data: String = Args::next("data", &mut args)?;
-    log::info!("Init data: {}", json!(init_data));
+    log::trace!("Init data: {}", json!(init_data));
     let user_config: TriggerConfig = Args::next("config", &mut args)?;
     let config = api::from_user_config(user_config.clone())?;
 
-    let spell_peer_id = key_manager
-        .get_or_generate_keypair(&params.init_peer_id.to_base58())
-        .map_err(|e| JError::new(f!("{e}")))?
-        .get_peer_id();
+    let init_peer_id = params.init_peer_id.to_base58();
+    let spell_keypair = key_manager
+        .get_keypair_by_remote_peer_id(&init_peer_id)
+        .unwrap_or(
+            key_manager
+                .generate_keypair(&init_peer_id)
+                .map_err(|e| JError::new(e.to_string()))?,
+        );
+
+    let spell_peer_id = spell_keypair.get_peer_id();
 
     let spell_id = services.create_service(spell_storage.get_blueprint(), spell_peer_id)?;
     spell_storage.register_spell(spell_id.clone());
@@ -127,9 +133,15 @@ pub(crate) async fn spell_remove(
     spell_storage: SpellStorage,
     services: ParticleAppServices,
     spell_event_bus_api: SpellEventBusApi,
+    key_manager: KeyManager,
 ) -> Result<(), JError> {
     let mut args = args.function_args.into_iter();
     let spell_id: String = Args::next("spell_id", &mut args)?;
+    let spell_peer_id = key_manager
+        .get_keypair_by_remote_peer_id(&params.init_peer_id.to_base58())
+        .map_err(|e| JError::new(e.to_string()))?
+        .get_peer_id();
+
     if let Err(err) = spell_event_bus_api.unsubscribe(spell_id.clone()).await {
         log::warn!(
             "can't unsubscribe a spell {} from its triggers via spell-event-bus-api: {}",
@@ -145,7 +157,7 @@ pub(crate) async fn spell_remove(
 
     // TODO: remove spells by aliases too
     spell_storage.unregister_spell(&spell_id);
-    services.remove_service(spell_id, params.init_peer_id, true)?;
+    services.remove_service(spell_id, spell_peer_id, true)?;
     Ok(())
 }
 

@@ -143,7 +143,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
                     .effects
                     .next_peers
                     .into_iter()
-                    .partition(|p| key_manager.has_local_peer_id(&p.to_base58()));
+                    .partition(|p| key_manager.is_local_peer_id(&p.to_base58()));
 
                 if !remote_peers.is_empty() {
                     remote_effects.push((
@@ -156,6 +156,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
                 }
 
                 if !local_peers.is_empty() {
+                    log::trace!("Local peers: {:?}", local_peers);
                     local_effects.push(RoutingEffects {
                         particle: result.effects.particle,
                         next_peers: local_peers,

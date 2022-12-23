@@ -24,6 +24,7 @@ fluence-libp2p = { path = "../crates/libp2p" }
 key-manager = { path = "../crates/key-manager" }
 
 libp2p = { workspace = true }
+fluence-keypair = { workspace = true }
 
 serde_json = { workspace = true }
 parking_lot = { workspace = true }

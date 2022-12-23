@@ -14,9 +14,10 @@
  * limitations under the License.
  */
 
-use fluence_keypair::KeyPair;
-use std::collections::{HashMap, HashSet};
+use fluence_keypair::{KeyFormat, KeyPair};
+use std::collections::HashMap;
 use std::path::PathBuf;
+use std::str::FromStr;
 use std::sync::Arc;
 
 use crate::persistence::{load_persisted_keypairs, persist_keypair, PersistedKeypair};
@@ -24,8 +25,8 @@ use parking_lot::RwLock;
 
 #[derive(Clone)]
 pub struct KeyManager {
-    local_peer_ids: Arc<RwLock<HashSet<String>>>,
-    keypairs: Arc<RwLock<HashMap<String, KeyPair>>>,
+    local_peer_ids: Arc<RwLock<HashMap<String, Arc<KeyPair>>>>,
+    remote_peer_ids: Arc<RwLock<HashMap<String, Arc<KeyPair>>>>,
     keypairs_dir: PathBuf,
 }
 
@@ -33,7 +34,7 @@ impl KeyManager {
     pub fn new(keypairs_dir: PathBuf) -> Self {
         let this = Self {
             local_peer_ids: Arc::new(Default::default()),
-            keypairs: Arc::new(Default::default()),
+            remote_peer_ids: Arc::new(Default::default()),
             keypairs_dir,
         };
 
@@ -43,31 +44,77 @@ impl KeyManager {
 
     pub fn load_persisted_keypairs(&self) {
         let persisted_keypairs = load_persisted_keypairs(&self.keypairs_dir);
-    }
 
-    pub fn get_or_generate_keypair(&self, owner_peer_id: &str) -> eyre::Result<KeyPair> {
-        if let Some(k) = self.keypairs.read().get(owner_peer_id) {
-            Ok(k.clone())
-        } else {
-            let new_kp = KeyPair::generate_ed25519();
-            self.add_keypair(owner_peer_id, new_kp.clone())?;
-            Ok(new_kp)
+        for pkp in persisted_keypairs {
+            let res: eyre::Result<()> = try {
+                let persisted_kp = pkp?;
+                let keypair = Arc::new(KeyPair::from_vec(
+                    persisted_kp.keypair_bytes,
+                    KeyFormat::from_str(&persisted_kp.key_format)?,
+                )?);
+                let peer_id = keypair.get_peer_id().to_base58();
+                self.remote_peer_ids
+                    .write()
+                    .insert(persisted_kp.remote_peer_id, keypair.clone());
+
+                self.local_peer_ids.write().insert(peer_id, keypair.clone());
+
+                ()
+            };
+
+            if let Err(e) = res {
+                log::warn!("Failed to restore persisted keypair: {}", e);
+            }
         }
     }
 
-    pub fn add_keypair(&self, owner_peer_id: &str, keypair: KeyPair) -> eyre::Result<()> {
-        persist_keypair(
-            &self.keypairs_dir,
-            PersistedKeypair::new(owner_peer_id.to_string(), &keypair),
-        )?;
-        self.keypairs
-            .write()
-            .insert(owner_peer_id.to_string(), keypair);
-
-        Ok(())
+    pub fn has_keypair(&self, remote_peer_id: &str) -> bool {
+        self.remote_peer_ids.read().contains_key(remote_peer_id)
     }
 
-    pub fn has_local_peer_id(&self, local_peer_id: &str) -> bool {
-        self.local_peer_ids.read().contains(local_peer_id)
+    pub fn is_local_peer_id(&self, local_peer_id: &str) -> bool {
+        self.local_peer_ids.read().contains_key(local_peer_id)
+    }
+
+    pub fn get_keypair_by_remote_peer_id(
+        &self,
+        remote_peer_id: &str,
+    ) -> eyre::Result<Arc<KeyPair>> {
+        if let Some(k) = self.remote_peer_ids.read().get(remote_peer_id).cloned() {
+            Ok(k)
+        } else {
+            Err(eyre::eyre!(
+                "Keypair for peer id {} not exists",
+                remote_peer_id
+            ))
+        }
+    }
+
+    pub fn get_keypair_by_local_peer_id(&self, local_peer_id: &str) -> eyre::Result<Arc<KeyPair>> {
+        if let Some(k) = self.local_peer_ids.read().get(local_peer_id).cloned() {
+            Ok(k)
+        } else {
+            Err(eyre::eyre!(
+                "Keypair for peer id {} not exists",
+                local_peer_id
+            ))
+        }
+    }
+
+    pub fn generate_keypair(&self, remote_peer_id: &str) -> eyre::Result<Arc<KeyPair>> {
+        let keypair = Arc::new(KeyPair::generate_ed25519());
+
+        persist_keypair(
+            &self.keypairs_dir,
+            PersistedKeypair::new(remote_peer_id.to_string(), &keypair),
+        )?;
+        let peer_id = keypair.get_peer_id().to_base58();
+        self.remote_peer_ids
+            .write()
+            .insert(remote_peer_id.to_string(), keypair.clone());
+
+        self.local_peer_ids.write().insert(peer_id, keypair.clone());
+
+        Ok(keypair)
     }
 }

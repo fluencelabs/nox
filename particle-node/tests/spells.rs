@@ -18,6 +18,7 @@ use created_swarm::make_swarms;
 use eyre::Context;
 
 use fluence_spell_dtos::trigger_config::TriggerConfig;
+use log_utils::enable_logs;
 use maplit::hashmap;
 use serde_json::{json, Value as JValue};
 use service_modules::load_module;
@@ -59,6 +60,7 @@ fn create_spell(
 #[test]
 fn spell_simple_test() {
     let swarms = make_swarms(1);
+
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .wrap_err("connect client")
         .unwrap();
@@ -593,7 +595,7 @@ fn spell_remove_spell_as_service() {
         .wrap_err("connect client")
         .unwrap();
 
-    let script = r#"(call %init_peer_id% ("peer" "idenitfy") [] x)"#;
+    let script = r#"(call %init_peer_id% ("peer" "identify") [] x)"#;
 
     let mut config = TriggerConfig::default();
     config.clock.period_sec = 2;
@@ -640,6 +642,11 @@ fn spell_remove_service_as_spell() {
         load_module("tests/file_share/artifacts", "file_share").expect("load module"),
     );
 
+    let script = r#"(call %init_peer_id% ("peer" "identify") [] x)"#;
+    let mut config = TriggerConfig::default();
+    config.clock.start_sec = 1;
+    let _spell_id = create_spell(&mut client, script, config, hashmap! {});
+
     let data = hashmap! {
         "service_id" => json!(service.id),
         "relay" => json!(client.node.to_string()),
@@ -663,7 +670,12 @@ fn spell_remove_service_as_spell() {
         .as_slice()
     {
         let msg_end = "cannot call function 'remove_spell': the service isn't a spell\"'";
-        assert!(msg.ends_with(msg_end), "should end with `{}`", msg_end);
+        assert!(
+            msg.ends_with(msg_end),
+            "should end with `{}`, given msg `{}`",
+            msg_end,
+            msg
+        );
     }
 }
 
