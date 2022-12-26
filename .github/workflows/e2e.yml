@@ -19,6 +19,23 @@ jobs:
       image-name: "docker.fluence.dev/rust-peer"
       ref: ${{ github.ref }}
 
+  rust-peer-flavours:
+    name: "rust-peer"
+
+    needs: rust-peer
+
+    strategy:
+      matrix:
+        flavour:
+          - ipfs
+          - rich
+
+    uses: ./.github/workflows/container.yml
+    with:
+      image-name: "docker.fluence.dev/rust-peer"
+      flavour: "${{ matrix.flavour }}"
+      rust-peer-sha: "${{ needs.rust-peer.outputs.rust-peer-sha }}"
+
   aqua-playground:
     needs:
       - rust-peer
