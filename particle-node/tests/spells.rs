@@ -681,7 +681,7 @@ fn spell_trigger_connection_pool() {
 
     let mut config = TriggerConfig::default();
     config.connections.disconnect = true;
-    let spell_id2 = create_spell(&mut client, script, config.clone(), hashmap! {});
+    let spell_id2 = create_spell(&mut client, script, config, hashmap! {});
 
     // This connect should trigger the spell
     let connect_num = 5;

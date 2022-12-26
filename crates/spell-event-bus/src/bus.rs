@@ -434,28 +434,30 @@ mod tests {
 
     #[test]
     fn test_subscribe_connect() {
-        let (recv, hdl) = emulate_connect(Duration::from_millis(5));
-        let (bus, api, event_stream) = SpellEventBus::new(vec![recv.boxed()]);
+        let (send, recv) = unbounded();
+        let (bus, api, mut event_stream) = SpellEventBus::new(vec![recv.boxed()]);
         let bus = bus.start();
 
         let spell1_id = "spell1".to_string();
         subscribe_peer_event(&api, spell1_id.clone(), vec![PeerEventType::Connected]);
 
-        let events =
-            task::block_on(async { event_stream.take(5).collect::<Vec<TriggerEvent>>().await });
+        let peer_id = PeerId::random();
+        send_connect_event(&send, peer_id);
+
+        let event = task::block_on(async { event_stream.next().await.unwrap() });
         try_catch(
             || {
-                for event in events.into_iter() {
-                    assert_eq!(event.spell_id, spell1_id.clone());
-                    assert_matches!(
-                        event.event,
-                        Event::Peer(PeerEvent::ConnectionPool(LifecycleEvent::Connected(_)))
-                    );
-                }
+                assert_eq!(event.spell_id, spell1_id.clone());
+                let contact = Contact::new(peer_id, Vec::new());
+                assert_matches!(
+                    event.event,
+                    Event::Peer(PeerEvent::ConnectionPool(LifecycleEvent::Connected(
+                        contact
+                    )))
+                );
             },
             || {
                 task::block_on(async {
-                    hdl.cancel().await;
                     bus.cancel().await;
                 });
             },
