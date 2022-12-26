@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 use connected_client::ConnectedClient;
-use created_swarm::make_swarms_with_cfg;
+use created_swarm::make_swarms;
 use eyre::Context;
 
 use fluence_spell_dtos::trigger_config::TriggerConfig;
@@ -58,10 +58,7 @@ fn create_spell(
 
 #[test]
 fn spell_simple_test() {
-    let swarms = make_swarms_with_cfg(1, |mut cfg| {
-        cfg.timer_resolution = Duration::from_millis(20);
-        cfg
-    });
+    let swarms = make_swarms(1);
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .wrap_err("connect client")
         .unwrap();
@@ -113,10 +110,7 @@ fn spell_simple_test() {
 
 #[test]
 fn spell_error_handling_test() {
-    let swarms = make_swarms_with_cfg(1, |mut cfg| {
-        cfg.timer_resolution = Duration::from_millis(20);
-        cfg
-    });
+    let swarms = make_swarms(1);
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .wrap_err("connect client")
         .unwrap();
@@ -163,10 +157,7 @@ fn spell_error_handling_test() {
 
 #[test]
 fn spell_args_test() {
-    let swarms = make_swarms_with_cfg(1, |mut cfg| {
-        cfg.timer_resolution = Duration::from_millis(100);
-        cfg
-    });
+    let swarms = make_swarms(1);
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .wrap_err("connect client")
         .unwrap();
@@ -232,10 +223,7 @@ fn spell_args_test() {
 
 #[test]
 fn spell_return_test() {
-    let swarms = make_swarms_with_cfg(1, |mut cfg| {
-        cfg.timer_resolution = Duration::from_millis(100);
-        cfg
-    });
+    let swarms = make_swarms(1);
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .wrap_err("connect client")
         .unwrap();
@@ -290,10 +278,7 @@ fn spell_return_test() {
 // Check that oneshot spells are actually executed and executed only once
 #[test]
 fn spell_run_oneshot() {
-    let swarms = make_swarms_with_cfg(1, |mut cfg| {
-        cfg.timer_resolution = Duration::from_millis(100);
-        cfg
-    });
+    let swarms = make_swarms(1);
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .wrap_err("connect client")
         .unwrap();
@@ -335,10 +320,7 @@ fn spell_run_oneshot() {
 // Script installation will fail because no triggers configured.
 #[test]
 fn spell_install_fail_empty_config() {
-    let swarms = make_swarms_with_cfg(1, |mut cfg| {
-        cfg.timer_resolution = Duration::from_millis(100);
-        cfg
-    });
+    let swarms = make_swarms(1);
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .wrap_err("connect client")
         .unwrap();
@@ -378,10 +360,7 @@ fn spell_install_fail_empty_config() {
 
 #[test]
 fn spell_install_fail_large_period() {
-    let swarms = make_swarms_with_cfg(1, |mut cfg| {
-        cfg.timer_resolution = Duration::from_millis(100);
-        cfg
-    });
+    let swarms = make_swarms(1);
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .wrap_err("connect client")
         .unwrap();
@@ -425,10 +404,7 @@ fn spell_install_fail_large_period() {
 // In this case we don't schedule a spell and return error.
 #[test]
 fn spell_install_fail_end_sec_past() {
-    let swarms = make_swarms_with_cfg(1, |mut cfg| {
-        cfg.timer_resolution = Duration::from_millis(100);
-        cfg
-    });
+    let swarms = make_swarms(1);
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .wrap_err("connect client")
         .unwrap();
@@ -472,10 +448,7 @@ fn spell_install_fail_end_sec_past() {
 // In this case we don't schedule a spell and return error.
 #[test]
 fn spell_install_fail_end_sec_before_start() {
-    let swarms = make_swarms_with_cfg(1, |mut cfg| {
-        cfg.timer_resolution = Duration::from_millis(100);
-        cfg
-    });
+    let swarms = make_swarms(1);
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .wrap_err("connect client")
         .unwrap();
@@ -522,10 +495,7 @@ fn spell_install_fail_end_sec_before_start() {
 
 #[test]
 fn spell_store_trigger_config() {
-    let swarms = make_swarms_with_cfg(1, |mut cfg| {
-        cfg.timer_resolution = Duration::from_millis(100);
-        cfg
-    });
+    let swarms = make_swarms(1);
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .wrap_err("connect client")
         .unwrap();
@@ -558,10 +528,7 @@ fn spell_store_trigger_config() {
 
 #[test]
 fn spell_remove() {
-    let swarms = make_swarms_with_cfg(1, |mut cfg| {
-        cfg.timer_resolution = Duration::from_millis(20);
-        cfg
-    });
+    let swarms = make_swarms(1);
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .wrap_err("connect client")
         .unwrap();
@@ -580,7 +547,6 @@ fn spell_remove() {
 
     client.send_particle(
         r#"
-
     (seq
         (call relay ("spell" "list") [] list)
         (call client ("return" "") [list])
@@ -622,10 +588,7 @@ fn spell_remove() {
 
 #[test]
 fn spell_remove_spell_as_service() {
-    let swarms = make_swarms_with_cfg(1, |mut cfg| {
-        cfg.timer_resolution = Duration::from_millis(20);
-        cfg
-    });
+    let swarms = make_swarms(1);
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .wrap_err("connect client")
         .unwrap();
@@ -666,10 +629,7 @@ fn spell_remove_spell_as_service() {
 
 #[test]
 fn spell_remove_service_as_spell() {
-    let swarms = make_swarms_with_cfg(1, |mut cfg| {
-        cfg.timer_resolution = Duration::from_millis(20);
-        cfg
-    });
+    let swarms = make_swarms(1);
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .wrap_err("connect client")
         .unwrap();
@@ -705,4 +665,90 @@ fn spell_remove_service_as_spell() {
         let msg_end = "cannot call function 'remove_spell': the service isn't a spell\"'";
         assert!(msg.ends_with(msg_end), "should end with `{}`", msg_end);
     }
+}
+
+#[test]
+fn spell_trigger_connection_pool() {
+    let swarms = make_swarms(1);
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .wrap_err("connect client")
+        .unwrap();
+
+    let script = format!(
+        r#"
+        (seq
+            (seq
+                (call %init_peer_id% ("getDataSrv" "spell_id") [] spell_id)
+                (call %init_peer_id% (spell_id "get_u32") ["counter"] counter)
+            )
+            (seq
+                (call %init_peer_id% ("json" "obj") ["spell_id" spell_id "counter" counter] obj)
+                (call "{}" ("return" "") [obj])
+            )
+        )
+    "#,
+        client.peer_id
+    );
+    let mut config = TriggerConfig::default();
+    config.connections.connect = true;
+    let spell_id1 = create_spell(&mut client, &script, config.clone(), hashmap! {});
+
+    let mut config = TriggerConfig::default();
+    config.connections.disconnect = true;
+    let spell_id2 = create_spell(&mut client, &script, config, hashmap! {});
+
+    // This connect should trigger the spell
+    let connect_num = 5;
+    for _ in 0..connect_num {
+        ConnectedClient::connect_to(swarms[0].multiaddr.clone()).unwrap();
+    }
+
+    let mut spell1_counter = 0;
+    let mut spell2_counter = 0;
+
+    // we must receive `connect_num` messages from spell1 subscribed on connect and `connect_num` messages
+    // from spell1 subscribed on disconnect, so 2 * `connect_num` messages in total
+    for _ in 0..2 * connect_num {
+        if let [spell_reply] = client
+            .receive_args()
+            .wrap_err("receive")
+            .unwrap()
+            .as_slice()
+        {
+            let is_ok = spell_reply["counter"]["success"].as_bool().unwrap();
+            assert!(is_ok, "we must receive a success response");
+            let counter = spell_reply["counter"]["num"].as_u64().unwrap();
+
+            let spell_id = spell_reply["spell_id"].as_str().unwrap();
+            assert!(
+                spell_id == spell_id1 || spell_id == spell_id2,
+                "spell id must be one of the subscribed ones"
+            );
+
+            if spell_id == spell_id1 {
+                spell1_counter += 1;
+                assert_eq!(
+                    spell1_counter, counter,
+                    "we should receive messages from spells in order"
+                );
+            } else {
+                spell2_counter += 1;
+                assert_eq!(
+                    spell2_counter, counter,
+                    "we should receive messages from spells in order"
+                );
+            }
+        }
+    }
+
+    assert_eq!(
+        spell1_counter, connect_num,
+        "spell subscribed on connect must be triggered {} times",
+        connect_num
+    );
+    assert_eq!(
+        spell2_counter, connect_num,
+        "spell subscribed on disconnect must be triggered {} times",
+        connect_num
+    );
 }

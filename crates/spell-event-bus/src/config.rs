@@ -95,20 +95,19 @@ fn from_clock_config(clock: &ClockConfig) -> Result<TimerConfig, ConfigError> {
     // Start now if the start time is in the past
     let start_at = to_instant(clock.start_sec as u64).unwrap_or_else(Instant::now);
 
-    // If period is 0, then the timer will be triggered only once at start_sec and then stopped.
-    // So we set `end_at` to `start_at` to make sure that on rescheduling the spell will be stopped.
-    // I'm not sure maybe it's better to move this piece of code inside the bus module.
-    let end_at = if clock.period_sec == 0 {
-        Some(start_at)
+    // If period is 0 then the timer will be triggered only once at start_sec and then stopped.
+    let config = if clock.period_sec == 0 {
+        // Should we ignore checking end_sec if period is 0?
+        TimerConfig::oneshot(start_at)
     } else {
-        end_at
+        TimerConfig::periodic(
+            Duration::from_secs(clock.period_sec as u64),
+            start_at,
+            end_at,
+        )
     };
 
-    Ok(TimerConfig {
-        period: Duration::from_secs(clock.period_sec as u64),
-        start_at,
-        end_at,
-    })
+    Ok(config)
 }
 
 #[derive(Debug, Clone)]
@@ -127,6 +126,26 @@ pub(crate) struct TimerConfig {
     pub(crate) period: Duration,
     pub(crate) start_at: Instant,
     pub(crate) end_at: Option<Instant>,
+}
+
+impl TimerConfig {
+    pub(crate) fn periodic(period: Duration, start_at: Instant, end_at: Option<Instant>) -> Self {
+        Self {
+            period,
+            start_at,
+            end_at,
+        }
+    }
+
+    pub(crate) fn oneshot(start_at: Instant) -> Self {
+        // We set `end_at` to `start_at` to make sure that on rescheduling the spell will be stopped.
+        // I'm not sure maybe it's better to move this piece of code inside the bus module.
+        Self {
+            period: Duration::ZERO,
+            start_at,
+            end_at: Some(start_at),
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
