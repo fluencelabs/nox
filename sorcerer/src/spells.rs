@@ -143,6 +143,52 @@ pub(crate) async fn spell_remove(
     Ok(())
 }
 
+// update_config(spell_id, config)
+pub(crate) async fn spell_update_config(
+    args: Args,
+    params: ParticleParams,
+    services: ParticleAppServices,
+    spell_event_bus_api: SpellEventBusApi,
+) -> Result<(), JError> {
+    let mut args = args.function_args.into_iter();
+    let spell_id: String = Args::next("spell_id", &mut args)?;
+    let user_config: TriggerConfig = Args::next("config", &mut args)?;
+    let config = api::from_user_config(user_config.clone())?;
+
+    // TODO: proper right management
+
+    // Can't really do proper right management here, so for now this call does the job.
+    // It fails for everyone who's not a spell owner, so only the spell owner can update spell's config.
+    process_func_outcome::<UnitValue>(
+        services.call_function(
+            &spell_id,
+            "set_trigger_config",
+            vec![json!(user_config)],
+            None,
+            params.init_peer_id,
+            Duration::from_millis(params.ttl as u64),
+        ),
+        &spell_id,
+        "set_trigger_config",
+    )?;
+
+    if let Err(err) = spell_event_bus_api
+        .update_config(spell_id.clone(), config)
+        .await
+    {
+        log::warn!(
+            "can't update config of the spell {} from its triggers via spell-event-bus-api: {}; the new config is saved",
+            spell_id,
+            err
+        );
+        return Err(JError::new(format!(
+            "can't update config of the running spell {} due to an internal error: {}; the new config is saved",
+            spell_id, err
+        )));
+    }
+    Ok(())
+}
+
 pub(crate) fn get_spell_id(_args: Args, params: ParticleParams) -> Result<JValue, JError> {
     Ok(json!(parse_spell_id_from(&params.id)?))
 }

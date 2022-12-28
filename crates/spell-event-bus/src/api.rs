@@ -60,6 +60,8 @@ pub enum Action {
     Subscribe(SpellTriggerConfigs),
     /// Remove all subscriptions of a spell
     Unsubscribe,
+    /// Update trigger config of an existing spell
+    Update(SpellTriggerConfigs),
 }
 
 #[derive(Error, Debug)]
@@ -129,5 +131,13 @@ impl SpellEventBusApi {
     /// Unsubscribe a spell from all events.
     pub fn unsubscribe(&self, spell_id: SpellId) -> BoxFuture<'static, Result<(), EventBusError>> {
         self.send(spell_id, Action::Unsubscribe)
+    }
+
+    pub fn update_config(
+        &self,
+        spell_id: SpellId,
+        config: SpellTriggerConfigs,
+    ) -> BoxFuture<'static, Result<(), EventBusError>> {
+        self.send(spell_id, Action::Update(config))
     }
 }
