@@ -36,8 +36,8 @@ use spell_event_bus::api::{from_user_config, SpellEventBusApi, TriggerEvent};
 use spell_storage::SpellStorage;
 
 use crate::spells::{
-    get_spell_arg, get_spell_id, spell_install, spell_list, spell_remove, store_error,
-    store_response,
+    get_spell_arg, get_spell_id, scope_get_peer_id, spell_install, spell_list, spell_remove,
+    store_error, store_response,
 };
 use crate::utils::process_func_outcome;
 
@@ -193,7 +193,7 @@ impl Sorcerer {
         service_functions.push(("spell".to_string(), functions, None));
 
         let get_spell_id_closure: ServiceFunction =
-            Box::new(move |args, params| async move { wrap(get_spell_id(args, params)) }.boxed());
+            Box::new(move |_args, params| async move { wrap(get_spell_id(params)) }.boxed());
 
         let services = self.services.clone();
         let get_spell_arg_closure: ServiceFunction = Box::new(move |args, params| {
@@ -230,6 +230,17 @@ impl Sorcerer {
             None,
         ));
 
+        let key_manager = self.key_manager.clone();
+        let scope_closure: ServiceFunction = Box::new(move |_args, params| {
+            let key_manager = key_manager.clone();
+            async move { wrap(scope_get_peer_id(params, key_manager)) }.boxed()
+        });
+
+        service_functions.push((
+            "scope".to_string(),
+            hashmap! {"get_peer_id".to_string() => scope_closure},
+            None,
+        ));
         service_functions
     }
 }

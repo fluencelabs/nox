@@ -17,6 +17,7 @@ use fluence_spell_dtos::value::{StringValue, UnitValue};
 use serde_json::{json, Value as JValue, Value::Array};
 
 use crate::utils::{parse_spell_id_from, process_func_outcome};
+use fluence_libp2p::PeerId;
 use fluence_spell_dtos::trigger_config::TriggerConfig;
 use key_manager::KeyManager;
 use particle_args::{Args, JError};
@@ -25,6 +26,28 @@ use particle_services::ParticleAppServices;
 use spell_event_bus::{api, api::SpellEventBusApi};
 use spell_storage::SpellStorage;
 use std::time::Duration;
+
+/// For local peer ids is identity,
+/// for remote returns associated peer id or generate a new one.
+fn get_spell_peer_id(init_peer_id: PeerId, key_manager: &KeyManager) -> eyre::Result<PeerId> {
+    let init_peer_id = init_peer_id.to_base58();
+    // All "nested" spells share the same keypair.
+    // By "nested" means spells which are created by other spells
+    let spell_keypair = if key_manager.is_local_peer_id(&init_peer_id) {
+        key_manager.get_keypair_by_local_peer_id(&init_peer_id)?
+    } else {
+        match key_manager.get_keypair_by_remote_peer_id(&init_peer_id) {
+            Ok(kp) => kp,
+            _ => {
+                let kp = key_manager.generate_keypair();
+                key_manager.store_keypair(&init_peer_id, kp.clone())?;
+                kp
+            }
+        }
+    };
+
+    Ok(spell_keypair.get_peer_id())
+}
 
 pub(crate) async fn spell_install(
     sargs: Args,
@@ -41,16 +64,8 @@ pub(crate) async fn spell_install(
     let user_config: TriggerConfig = Args::next("config", &mut args)?;
     let config = api::from_user_config(user_config.clone())?;
 
-    let init_peer_id = params.init_peer_id.to_base58();
-    let spell_keypair = key_manager
-        .get_keypair_by_remote_peer_id(&init_peer_id)
-        .unwrap_or(
-            key_manager
-                .generate_keypair(&init_peer_id)
-                .map_err(|e| JError::new(e.to_string()))?,
-        );
-
-    let spell_peer_id = spell_keypair.get_peer_id();
+    let spell_peer_id = get_spell_peer_id(params.init_peer_id, &key_manager)
+        .map_err(|e| JError::new(e.to_string()))?;
 
     let spell_id = services.create_service(spell_storage.get_blueprint(), spell_peer_id)?;
     spell_storage.register_spell(spell_id.clone());
@@ -137,10 +152,8 @@ pub(crate) async fn spell_remove(
 ) -> Result<(), JError> {
     let mut args = args.function_args.into_iter();
     let spell_id: String = Args::next("spell_id", &mut args)?;
-    let spell_peer_id = key_manager
-        .get_keypair_by_remote_peer_id(&params.init_peer_id.to_base58())
-        .map_err(|e| JError::new(e.to_string()))?
-        .get_peer_id();
+    let spell_peer_id = get_spell_peer_id(params.init_peer_id, &key_manager)
+        .map_err(|e| JError::new(e.to_string()))?;
 
     if let Err(err) = spell_event_bus_api.unsubscribe(spell_id.clone()).await {
         log::warn!(
@@ -161,7 +174,7 @@ pub(crate) async fn spell_remove(
     Ok(())
 }
 
-pub(crate) fn get_spell_id(_args: Args, params: ParticleParams) -> Result<JValue, JError> {
+pub(crate) fn get_spell_id(params: ParticleParams) -> Result<JValue, JError> {
     Ok(json!(parse_spell_id_from(&params.id)?))
 }
 
@@ -244,4 +257,14 @@ pub(crate) fn store_response(
             args.function_args, spell_id, e
         ))
     })
+}
+
+// TODO: it's not quite right place for this builtin
+pub(crate) fn scope_get_peer_id(
+    params: ParticleParams,
+    key_manager: KeyManager,
+) -> Result<JValue, JError> {
+    Ok(json!(get_spell_peer_id(params.init_peer_id, &key_manager)
+        .map_err(|e| JError::new(e.to_string()))?
+        .to_base58()))
 }

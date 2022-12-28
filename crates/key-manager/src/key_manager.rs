@@ -101,9 +101,11 @@ impl KeyManager {
         }
     }
 
-    pub fn generate_keypair(&self, remote_peer_id: &str) -> eyre::Result<Arc<KeyPair>> {
-        let keypair = Arc::new(KeyPair::generate_ed25519());
+    pub fn generate_keypair(&self) -> Arc<KeyPair> {
+        Arc::new(KeyPair::generate_ed25519())
+    }
 
+    pub fn store_keypair(&self, remote_peer_id: &str, keypair: Arc<KeyPair>) -> eyre::Result<()> {
         persist_keypair(
             &self.keypairs_dir,
             PersistedKeypair::new(remote_peer_id.to_string(), &keypair),
@@ -115,6 +117,6 @@ impl KeyManager {
 
         self.local_peer_ids.write().insert(peer_id, keypair.clone());
 
-        Ok(keypair)
+        Ok(())
     }
 }
