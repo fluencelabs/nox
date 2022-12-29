@@ -143,7 +143,6 @@ pub(crate) async fn spell_remove(
     Ok(())
 }
 
-// update_config(spell_id, config)
 pub(crate) async fn spell_update_config(
     args: Args,
     params: ParticleParams,
@@ -155,9 +154,8 @@ pub(crate) async fn spell_update_config(
     let user_config: TriggerConfig = Args::next("config", &mut args)?;
     let config = api::from_user_config(user_config.clone())?;
 
-    // TODO: proper right management
-
-    // Can't really do proper right management here, so for now this call does the job.
+    // TODO: implement proper permissions management: only the creator and the spell can modify the config
+    // Can't really do proper permission management here right now, so for now this call does the job.
     // It fails for everyone who's not a spell owner, so only the spell owner can update spell's config.
     process_func_outcome::<UnitValue>(
         services.call_function(

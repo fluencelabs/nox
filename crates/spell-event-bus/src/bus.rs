@@ -12,11 +12,11 @@ use std::collections::{BinaryHeap, HashMap};
 use std::time::{Duration, Instant};
 use thiserror::Error;
 
-struct Subscribers {
+struct PeerEventSubscribers {
     subscribers: HashMap<PeerEventType, Vec<Arc<SpellId>>>,
 }
 
-impl Subscribers {
+impl PeerEventSubscribers {
     fn new() -> Self {
         Self {
             subscribers: HashMap::new(),
@@ -39,7 +39,7 @@ impl Subscribers {
             .unwrap_or_else(|| [].iter())
     }
 
-    /// Returns true spell_id was removed from subscribers
+    /// Returns true if spell_id was removed from subscribers
     fn remove(&mut self, spell_id: &SpellId) -> bool {
         let mut was_removed = false;
         for subscribers in self.subscribers.values_mut() {
@@ -97,14 +97,14 @@ impl PartialOrd for Scheduled {
 }
 
 struct SubscribersState {
-    subscribers: Subscribers,
+    subscribers: PeerEventSubscribers,
     scheduled: BinaryHeap<Scheduled>,
 }
 
 impl SubscribersState {
     fn new() -> Self {
         Self {
-            subscribers: Subscribers::new(),
+            subscribers: PeerEventSubscribers::new(),
             scheduled: BinaryHeap::new(),
         }
     }
