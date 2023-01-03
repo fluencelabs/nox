@@ -133,12 +133,14 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
         // Gather effects and put VMs back
         let mut remote_effects = vec![];
         let mut local_effects: Vec<RoutingEffects> = vec![];
+        let mut interpretation_stats = vec![];
         let mut mailbox_size = 0;
         let key_manager = self.key_manager.clone();
         for actor in self.actors.values_mut() {
             if let Poll::Ready(result) = actor.poll_completed(cx) {
                 // TODO: filter result.effects and filter out local effects
 
+                interpretation_stats.push(result.stats);
                 let (local_peers, remote_peers): (Vec<_>, Vec<_>) = result
                     .effects
                     .next_peers
@@ -146,13 +148,10 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
                     .partition(|p| key_manager.is_local_peer_id(&p.to_base58()));
 
                 if !remote_peers.is_empty() {
-                    remote_effects.push((
-                        RoutingEffects {
-                            particle: result.effects.particle.clone(),
-                            next_peers: remote_peers,
-                        },
-                        result.stats,
-                    ));
+                    remote_effects.push(RoutingEffects {
+                        particle: result.effects.particle.clone(),
+                        next_peers: remote_peers,
+                    })
                 }
 
                 if !local_peers.is_empty() {
@@ -216,7 +215,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
         }
 
         self.meter(|m| {
-            for (_, stat) in &remote_effects {
+            for stat in &interpretation_stats {
                 // count particle interpretations
                 if stat.success {
                     m.interpretation_successes.inc();
@@ -243,7 +242,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
         }
 
         // Turn effects into events, and buffer them
-        for (effect, _) in remote_effects {
+        for effect in remote_effects {
             self.events.push_back(Ok(effect));
         }
 
