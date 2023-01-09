@@ -174,6 +174,50 @@ pub(crate) async fn spell_remove(
     Ok(())
 }
 
+pub(crate) async fn spell_update_config(
+    args: Args,
+    params: ParticleParams,
+    services: ParticleAppServices,
+    spell_event_bus_api: SpellEventBusApi,
+) -> Result<(), JError> {
+    let mut args = args.function_args.into_iter();
+    let spell_id: String = Args::next("spell_id", &mut args)?;
+    let user_config: TriggerConfig = Args::next("config", &mut args)?;
+    let config = api::from_user_config(user_config.clone())?;
+
+    // TODO: implement proper permissions management: only the creator and the spell can modify the config
+    // Can't really do proper permission management here right now, so for now this call does the job.
+    // It fails for everyone who's not a spell owner, so only the spell owner can update spell's config.
+    process_func_outcome::<UnitValue>(
+        services.call_function(
+            &spell_id,
+            "set_trigger_config",
+            vec![json!(user_config)],
+            None,
+            params.init_peer_id,
+            Duration::from_millis(params.ttl as u64),
+        ),
+        &spell_id,
+        "set_trigger_config",
+    )?;
+
+    if let Err(err) = spell_event_bus_api
+        .update_config(spell_id.clone(), config)
+        .await
+    {
+        log::warn!(
+            "save config to spell service {} SUCCESS; update trigger subscriptions FAIL: {}",
+            spell_id,
+            err
+        );
+        return Err(JError::new(format!(
+            "save config to spell service {} SUCCESS\nupdate trigger subscriptions FAIL: {}\ncall update_config to try again",
+            spell_id, err
+        )));
+    }
+    Ok(())
+}
+
 pub(crate) fn get_spell_id(params: ParticleParams) -> Result<JValue, JError> {
     Ok(json!(parse_spell_id_from(&params.id)?))
 }
