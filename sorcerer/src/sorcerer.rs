@@ -35,8 +35,8 @@ use spell_event_bus::api::{from_user_config, SpellEventBusApi, TriggerEvent};
 use spell_storage::SpellStorage;
 
 use crate::spells::{
-    get_spell_arg, get_spell_id, spell_install, spell_list, spell_remove, store_error,
-    store_response,
+    get_spell_arg, get_spell_id, spell_install, spell_list, spell_remove, spell_update_config,
+    store_error, store_response,
 };
 use crate::utils::process_func_outcome;
 
@@ -164,10 +164,19 @@ impl Sorcerer {
             async move { wrap(spell_list(storage)) }.boxed()
         });
 
+        let api = self.spell_event_bus_api.clone();
+        let services = self.services.clone();
+        let update_closure: ServiceFunction = Box::new(move |args, params| {
+            let api = api.clone();
+            let services = services.clone();
+            async move { wrap_unit(spell_update_config(args, params, services, api).await) }.boxed()
+        });
+
         let functions = hashmap! {
             "install".to_string() => install_closure,
             "remove".to_string() => remove_closure,
-            "list".to_string() => list_closure
+            "list".to_string() => list_closure,
+            "update_trigger_config".to_string() => update_closure,
         };
         service_functions.push(("spell".to_string(), functions, None));
 
