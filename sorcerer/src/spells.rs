@@ -175,12 +175,12 @@ pub(crate) async fn spell_update_config(
         .await
     {
         log::warn!(
-            "can't update config of the spell {} from its triggers via spell-event-bus-api: {}; the new config is saved",
+            "save config to spell service SUCCESS; update trigger subscriptions FAIL: {}",
             spell_id,
             err
         );
         return Err(JError::new(format!(
-            "can't update config of the running spell {} due to an internal error: {}; the new config is saved",
+            "save config to spell service SUCCESS\nupdate trigger subscriptions FAIL: {}\ncall update_config to try again",
             spell_id, err
         )));
     }
