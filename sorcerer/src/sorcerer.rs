@@ -176,7 +176,7 @@ impl Sorcerer {
             "install".to_string() => install_closure,
             "remove".to_string() => remove_closure,
             "list".to_string() => list_closure,
-            "update_config".to_string() => update_closure,
+            "update_trigger_config".to_string() => update_closure,
         };
         service_functions.push(("spell".to_string(), functions, None));
 

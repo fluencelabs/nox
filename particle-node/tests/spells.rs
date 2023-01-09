@@ -786,7 +786,7 @@ fn spell_update_config() {
     };
     client.send_particle(
         r#"(seq
-                    (call relay ("spell" "update_config") [spell_id config])
+                    (call relay ("spell" "update_trigger_config") [spell_id config])
                     (call client ("return" "") ["done"])
                   )"#,
         data,
