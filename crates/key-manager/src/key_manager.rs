@@ -15,6 +15,7 @@
  */
 
 use fluence_keypair::{KeyFormat, KeyPair};
+use libp2p::PeerId;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::str::FromStr;
@@ -25,17 +26,19 @@ use parking_lot::RwLock;
 
 #[derive(Clone)]
 pub struct KeyManager {
-    local_peer_ids: Arc<RwLock<HashMap<String, Arc<KeyPair>>>>,
-    remote_peer_ids: Arc<RwLock<HashMap<String, Arc<KeyPair>>>>,
+    local_peer_ids: Arc<RwLock<HashMap<PeerId, Arc<KeyPair>>>>,
+    remote_peer_ids: Arc<RwLock<HashMap<PeerId, Arc<KeyPair>>>>,
     keypairs_dir: PathBuf,
+    host_peer_id: PeerId,
 }
 
 impl KeyManager {
-    pub fn new(keypairs_dir: PathBuf) -> Self {
+    pub fn new(keypairs_dir: PathBuf, host_peer_id: PeerId) -> Self {
         let this = Self {
             local_peer_ids: Arc::new(Default::default()),
             remote_peer_ids: Arc::new(Default::default()),
             keypairs_dir,
+            host_peer_id,
         };
 
         this.load_persisted_keypairs();
@@ -68,12 +71,16 @@ impl KeyManager {
         }
     }
 
+    pub fn get_host_peer_id(&self) -> PeerId {
+        self.host_peer_id
+    }
+
     pub fn has_keypair(&self, remote_peer_id: &str) -> bool {
         self.remote_peer_ids.read().contains_key(remote_peer_id)
     }
 
-    pub fn is_local_peer_id(&self, local_peer_id: &str) -> bool {
-        self.local_peer_ids.read().contains_key(local_peer_id)
+    pub fn is_local_peer_id(&self, local_peer_id: PeerId) -> bool {
+        self.local_peer_ids.read().contains_key(PeerId)
     }
 
     pub fn get_keypair_by_remote_peer_id(

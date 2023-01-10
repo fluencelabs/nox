@@ -37,7 +37,7 @@ where
         ))),
         FunctionOutcome::Empty => Err(JError::new(f!(
             "Function {spell_id}.{function_name} has not returned any result"
-        ))),
+        ))),q
         FunctionOutcome::Err(err) => Err(JError::new(err.to_string())),
         FunctionOutcome::Ok(v) => {
             let result = serde_json::from_value::<T>(v).map_err(|e| {

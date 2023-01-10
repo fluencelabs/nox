@@ -90,7 +90,6 @@ pub struct Node<RT: AquaRuntime> {
 
     metrics_listen_addr: SocketAddr,
 
-    pub local_peer_id: PeerId,
     pub builtins_management_peer_id: PeerId,
 
     pub key_manager: KeyManager,
@@ -103,7 +102,6 @@ impl<RT: AquaRuntime> Node<RT> {
         node_version: &'static str,
     ) -> eyre::Result<Box<Self>> {
         let key_pair: Keypair = config.node_config.root_key_pair.clone().into();
-        let local_peer_id = to_peer_id(&key_pair);
         let transport = config.transport_config.transport;
         let transport = build_transport(
             transport,
@@ -113,8 +111,13 @@ impl<RT: AquaRuntime> Node<RT> {
 
         let builtins_peer_id = to_peer_id(&config.builtins_key_pair.clone().into());
 
+        let key_manager = KeyManager::new(
+            config.dir_config.keypairs_base_dir.clone(),
+            to_peer_id(&key_pair),
+        );
+
         let services_config = ServicesConfig::new(
-            local_peer_id,
+            key_manager.get_host_peer_id(),
             config.dir_config.services_base_dir.clone(),
             config_utils::particles_vault_dir(&config.dir_config.avm_base_dir),
             config.services_envs.clone(),
@@ -146,7 +149,7 @@ impl<RT: AquaRuntime> Node<RT> {
         );
 
         let (swarm, connectivity, particle_stream) = Self::swarm(
-            local_peer_id,
+            key_manager.get_host_peer_id(),
             network_config,
             transport,
             config.external_addresses(),
@@ -159,7 +162,7 @@ impl<RT: AquaRuntime> Node<RT> {
                 timer_resolution: config.script_storage_timer_resolution,
                 max_failures: config.script_storage_max_failures,
                 particle_ttl: config.script_storage_particle_ttl,
-                peer_id: local_peer_id,
+                peer_id: key_manager.get_host_peer_id(),
             };
 
             let pool: &ConnectionPoolApi = connectivity.as_ref();
@@ -190,7 +193,6 @@ impl<RT: AquaRuntime> Node<RT> {
 
         let (effects_out, effects_in) = unbounded();
 
-        let key_manager = KeyManager::new(config.dir_config.keypairs_base_dir.clone());
         let pool_config =
             VmPoolConfig::new(config.aquavm_pool_size, config.particle_execution_timeout);
         let (aquavm_pool, aquamarine_api) = AquamarineBackend::new(
@@ -200,7 +202,6 @@ impl<RT: AquaRuntime> Node<RT> {
             effects_out,
             plumber_metrics,
             vm_pool_metrics,
-            local_peer_id,
             key_manager.clone(),
         );
         let effectors = Effectors::new(connectivity.clone());
@@ -208,7 +209,7 @@ impl<RT: AquaRuntime> Node<RT> {
             let failures = particle_failures_out;
             let parallelism = config.particle_processor_parallelism;
             Dispatcher::new(
-                local_peer_id,
+                key_manager.get_host_peer_id(),
                 aquamarine_api.clone(),
                 effectors,
                 failures,
@@ -219,7 +220,7 @@ impl<RT: AquaRuntime> Node<RT> {
 
         let builtins_deployer = BuiltinsDeployer::new(
             builtins_peer_id,
-            local_peer_id.clone(),
+            key_manager.get_host_peer_id(),
             aquamarine_api.clone(),
             config.dir_config.builtins_base_dir.clone(),
             config.node_config.autodeploy_particle_ttl,
@@ -240,7 +241,6 @@ impl<RT: AquaRuntime> Node<RT> {
             builtins.modules.clone(),
             aquamarine_api.clone(),
             config.clone(),
-            local_peer_id,
             spell_event_bus_api,
             key_manager.clone(),
         );
@@ -265,7 +265,6 @@ impl<RT: AquaRuntime> Node<RT> {
             metrics_registry,
             services_metrics_backend,
             config.metrics_listen_addr(),
-            local_peer_id,
             builtins_peer_id,
             key_manager,
         ))
@@ -339,7 +338,6 @@ impl<RT: AquaRuntime> Node<RT> {
         services_metrics_backend: ServicesMetricsBackend,
         metrics_listen_addr: SocketAddr,
 
-        local_peer_id: PeerId,
         builtins_management_peer_id: PeerId,
         key_manager: KeyManager,
     ) -> Box<Self> {
@@ -362,7 +360,6 @@ impl<RT: AquaRuntime> Node<RT> {
             services_metrics_backend,
             metrics_listen_addr,
 
-            local_peer_id,
             builtins_management_peer_id,
             key_manager,
         };

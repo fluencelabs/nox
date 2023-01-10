@@ -352,7 +352,12 @@ pub fn create_swarm_with_runtime<RT: AquaRuntime>(
     let mut node = Node::new(resolved, vm_config, "some version").expect("create node");
     node.listen(vec![config.listen_on.clone()]).expect("listen");
 
-    (node.local_peer_id, node, management_kp, config)
+    (
+        node.key_manager.get_host_peer_id(),
+        node,
+        management_kp,
+        config,
+    )
 }
 
 pub fn create_swarm(config: SwarmConfig) -> (PeerId, Box<Node<AVM>>, KeyPair, SwarmConfig) {

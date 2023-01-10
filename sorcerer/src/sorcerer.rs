@@ -20,7 +20,6 @@ use std::time::Duration;
 use async_std::task::{spawn, JoinHandle};
 use fluence_spell_dtos::trigger_config::TriggerConfigValue;
 use futures::{FutureExt, StreamExt};
-use libp2p::PeerId;
 use maplit::hashmap;
 
 use aquamarine::AquamarineApi;
@@ -47,8 +46,6 @@ pub struct Sorcerer {
     pub services: ParticleAppServices,
     pub spell_storage: SpellStorage,
     pub spell_event_bus_api: SpellEventBusApi,
-    /// TODO: use owner-specific spell keypairs
-    pub node_peer_id: PeerId,
     pub spell_script_particle_ttl: Duration,
     pub key_manager: KeyManager,
 }
@@ -68,7 +65,6 @@ impl Sorcerer {
         modules: ModuleRepository,
         aquamarine: AquamarineApi,
         config: ResolvedConfig,
-        local_peer_id: PeerId,
         spell_event_bus_api: SpellEventBusApi,
         key_manager: KeyManager,
     ) -> (Self, Vec<CustomService>) {
@@ -81,7 +77,6 @@ impl Sorcerer {
             services,
             spell_storage,
             spell_event_bus_api,
-            node_peer_id: local_peer_id,
             spell_script_particle_ttl: config.max_spell_particle_ttl,
             key_manager,
         };
@@ -95,13 +90,14 @@ impl Sorcerer {
         for spell_id in self.spell_storage.get_registered_spells() {
             log::info!("Rescheduling spell {}", spell_id);
             let result: Result<(), JError> = try {
+                let spell_owner = self.services.get_service_owner(spell_id.clone())?;
                 let result = process_func_outcome::<TriggerConfigValue>(
                     self.services.call_function(
                         &spell_id,
                         "get_trigger_config",
                         vec![],
                         None,
-                        self.node_peer_id,
+                        spell_owner,
                         self.spell_script_particle_ttl,
                     ),
                     &spell_id,

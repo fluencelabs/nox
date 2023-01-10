@@ -2652,6 +2652,7 @@ dependencies = [
  "eyre",
  "fluence-keypair",
  "fs-utils",
+ "libp2p",
  "log",
  "parking_lot 0.12.1",
  "serde",

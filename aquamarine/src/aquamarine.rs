@@ -53,13 +53,13 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> AquamarineBackend<RT, F> {
         out: EffectsChannel,
         plumber_metrics: Option<ParticleExecutorMetrics>,
         vm_pool_metrics: Option<VmPoolMetrics>,
-        host_peer_id: PeerId,
         key_manager: KeyManager,
     ) -> (Self, AquamarineApi) {
         // TODO: make `100` configurable
         let (outlet, inlet) = mpsc::channel(100);
         let sender = AquamarineApi::new(outlet, config.execution_timeout);
         let vm_pool = VmPool::new(config.pool_size, runtime_config, vm_pool_metrics);
+        let host_peer_id = key_manager.get_host_peer_id();
         let plumber = Plumber::new(vm_pool, builtins, plumber_metrics, key_manager);
         let this = Self {
             inlet,
