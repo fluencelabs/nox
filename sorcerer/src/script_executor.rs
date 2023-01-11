@@ -34,7 +34,7 @@ impl Sorcerer {
             self.spell_script_particle_ttl,
         );
 
-        let res = process_func_outcome::<U32Value>(dbg!(func_outcome), &spell_id, "get_u32");
+        let res = process_func_outcome::<U32Value>(func_outcome, &spell_id, "get_u32");
         match res {
             // If the counter does not exist, consider it to be 0.
             // It will be incremented afterwards to 1 anyway.

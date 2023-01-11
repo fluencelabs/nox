@@ -163,63 +163,35 @@ fn spell_args_test() {
         .wrap_err("connect client")
         .unwrap();
 
-    let script = r#"
+    let script = format!(
+        r#"
         (seq
             (seq
                 (call %init_peer_id% ("getDataSrv" "spell_id") [] spell_id)
-                (call %init_peer_id% ("getDataSrv" "key") [] value)
+                (call %init_peer_id% ("getDataSrv" "key") [] value_raw)
             )
-            (call %init_peer_id% (spell_id "set_string") ["result" value])
-        )"#;
+            (seq
+                (call %init_peer_id% ("json" "parse") [value_raw] value)
+                (call "{}" ("return" "") [value])
+            )
+        )"#,
+        client.peer_id
+    );
 
     let mut config = TriggerConfig::default();
     config.clock.period_sec = 1;
     config.clock.start_sec = 1;
 
-    let spell_id = create_spell(
+    create_spell(
         &mut client,
-        script,
+        &script,
         config,
         hashmap! {"key".to_string() => "value".to_string()},
     );
 
-    let mut result = "".to_string();
-    let mut value = "".to_string();
-    for _ in 1..10 {
-        let data = hashmap! {
-            "spell_id" => json!(spell_id),
-            "client" => json!(client.peer_id.to_string()),
-            "relay" => json!(client.node.to_string()),
-        };
-        client.send_particle(
-            r#"
-        (seq
-            (seq
-                (call relay (spell_id "get_string") ["result"] result_raw)
-                (call relay (spell_id "get_string") ["key"] value_raw)
-            )
-            (call client ("return" "") [result_raw value_raw])
-        )"#,
-            data.clone(),
-        );
-
-        let response = client.receive_args().wrap_err("receive").unwrap();
-        if response[0]["success"].as_bool().unwrap() && response[1]["success"].as_bool().unwrap() {
-            result = JValue::from_str(response[0]["str"].as_str().unwrap())
-                .unwrap()
-                .as_str()
-                .unwrap()
-                .to_string();
-            value = JValue::from_str(response[1]["str"].as_str().unwrap())
-                .unwrap()
-                .as_str()
-                .unwrap()
-                .to_string();
-        }
-    }
-
-    assert_eq!(result, "value");
-    assert_eq!(result, value);
+    let response = client.receive_args().wrap_err("receive").unwrap();
+    let value = response[0].as_str().unwrap().to_string();
+    assert_eq!(value, "value");
 }
 
 #[test]
@@ -229,7 +201,8 @@ fn spell_return_test() {
         .wrap_err("connect client")
         .unwrap();
 
-    let script = r#"
+    let script = format!(
+        r#"
         (seq
             (seq
                 (call %init_peer_id% ("getDataSrv" "spell_id") [] spell_id)
@@ -237,40 +210,33 @@ fn spell_return_test() {
             )
             (seq
                 (call %init_peer_id% ("json" "stringify") [obj] result)
-                (call %init_peer_id% ("callbackSrv" "response") [result])
+                (seq
+                    (call %init_peer_id% ("callbackSrv" "response") [result])
+                    (seq
+                        (call %init_peer_id% (spell_id "get_string") ["key"] value)
+                        (call "{}" ("return" "") [value])
+                    )
+                )
             )
-        )"#;
+        )"#,
+        client.peer_id
+    );
 
     let mut config = TriggerConfig::default();
     config.clock.period_sec = 1;
     config.clock.start_sec = 1;
 
-    let spell_id = create_spell(&mut client, script, config, hashmap! {});
+    create_spell(&mut client, &script, config, hashmap! {});
 
     let mut value = "".to_string();
-    for _ in 1..10 {
-        let data = hashmap! {
-            "spell_id" => json!(spell_id),
-            "client" => json!(client.peer_id.to_string()),
-            "relay" => json!(client.node.to_string()),
-        };
-        client.send_particle(
-            r#"
-        (seq
-            (call relay (spell_id "get_string") ["key"] value_raw)
-            (call client ("return" "") [value_raw])
-        )"#,
-            data.clone(),
-        );
 
-        let response = client.receive_args().wrap_err("receive").unwrap();
-        if response[0]["success"].as_bool().unwrap() {
-            value = JValue::from_str(response[0]["str"].as_str().unwrap())
-                .unwrap()
-                .as_str()
-                .unwrap()
-                .to_string();
-        }
+    let response = client.receive_args().wrap_err("receive").unwrap();
+    if response[0]["success"].as_bool().unwrap() {
+        value = JValue::from_str(response[0]["str"].as_str().unwrap())
+            .unwrap()
+            .as_str()
+            .unwrap()
+            .to_string();
     }
 
     assert_eq!(value, "value");
