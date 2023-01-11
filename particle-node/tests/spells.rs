@@ -13,19 +13,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use connected_client::ConnectedClient;
-use created_swarm::make_swarms;
-use eyre::Context;
-
-use fluence_spell_dtos::trigger_config::TriggerConfig;
-use log_utils::enable_logs;
-use maplit::hashmap;
-use serde_json::{json, Value as JValue};
-use service_modules::load_module;
-use spell_event_bus::api::MAX_PERIOD_SEC;
 use std::collections::HashMap;
 use std::str::FromStr;
 use std::time::Duration;
+
+use eyre::Context;
+use fluence_spell_dtos::trigger_config::TriggerConfig;
+use maplit::hashmap;
+use serde_json::{json, Value as JValue};
+
+use connected_client::ConnectedClient;
+use created_swarm::make_swarms;
+use service_modules::load_module;
+use spell_event_bus::api::MAX_PERIOD_SEC;
 use test_utils::create_service;
 
 fn create_spell(
@@ -756,8 +756,6 @@ fn spell_trigger_connection_pool() {
 
 #[test]
 fn spell_update_config() {
-    enable_logs();
-
     let swarms = make_swarms(1);
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .wrap_err("connect client")
@@ -824,8 +822,6 @@ fn spell_update_config() {
 
 #[test]
 fn spell_set_u32() {
-    enable_logs();
-
     let swarms = make_swarms(1);
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .wrap_err("connect client")
@@ -863,10 +859,6 @@ fn spell_set_u32() {
         data,
     );
     let mut result = client.receive_args().wrap_err("receive").unwrap();
-    // let mut result = match result {
-    //     Some(JValue::Array(array)) => array,
-    //     other => panic!("expected array, got {:?}", other),
-    // };
     assert_eq!(result.len(), 3);
     let (absent, one, two) = dbg!((result.remove(0), result.remove(0), result.remove(0)));
 
@@ -877,12 +869,4 @@ fn spell_set_u32() {
 
     assert_eq!(two["absent"], json!(false));
     assert_eq!(two["num"], json!(2));
-    // let result = match  {
-    //     (absent, one, two) => ,
-    //     None => panic!("no results from update_trigger_config particle"),
-    //     other => panic!(
-    //         "expected JSON String from update_trigger_config particle, got {:?}",
-    //         other
-    //     ),
-    // };
 }
