@@ -1,6 +1,7 @@
 use crate::config::SpellTriggerConfigs;
 use connection_pool::LifecycleEvent;
 use fluence_libp2p::types::{OneshotOutlet, Outlet};
+use fluence_libp2p::PeerId;
 use futures::channel::mpsc::SendError;
 use futures::{channel::oneshot, future::BoxFuture, FutureExt};
 use thiserror::Error;
@@ -9,7 +10,7 @@ pub use crate::config::*;
 
 pub type SpellId = String;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct TriggerEvent {
     pub spell_id: SpellId,
     pub event: Event,
@@ -18,7 +19,7 @@ pub struct TriggerEvent {
 #[derive(Clone, Debug)]
 pub enum Event {
     /// Event is triggered by timer.
-    Timer,
+    Timer(u64),
     /// Event is triggered by a peer event.
     Peer(PeerEvent),
 }
@@ -30,6 +31,20 @@ pub enum PeerEvent {
 }
 
 impl PeerEvent {
+    pub fn is_connected(&self) -> bool {
+        match self {
+            PeerEvent::ConnectionPool(LifecycleEvent::Connected { .. }) => true,
+            PeerEvent::ConnectionPool(LifecycleEvent::Disconnected { .. }) => false,
+        }
+    }
+
+    pub fn get_peer_id(&self) -> PeerId {
+        match self {
+            PeerEvent::ConnectionPool(LifecycleEvent::Connected(c)) => c.peer_id,
+            PeerEvent::ConnectionPool(LifecycleEvent::Disconnected(c)) => c.peer_id,
+        }
+    }
+
     pub(crate) fn get_type(&self) -> PeerEventType {
         match self {
             PeerEvent::ConnectionPool(LifecycleEvent::Connected { .. }) => PeerEventType::Connected,

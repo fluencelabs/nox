@@ -9,7 +9,7 @@ use futures::stream::BoxStream;
 use futures::{channel::mpsc::unbounded, select, StreamExt};
 use std::cmp::Ordering;
 use std::collections::{BinaryHeap, HashMap};
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use thiserror::Error;
 
 struct PeerEventSubscribers {
@@ -211,6 +211,7 @@ impl SpellEventBus {
         let mut state = SubscribersState::new();
         loop {
             let now = Instant::now();
+
             // Wait until the next spell should be awaken. If there are no spells wait for unreachable amount of time,
             // which means that timer won't be triggered at all. We overwrite the timer each loop (aka after each event)
             // to ensure that we don't miss newly scheduled spells.
@@ -248,7 +249,8 @@ impl SpellEventBus {
                         // The timer is triggered only if there are some spells to be awaken.
                         if let Some(scheduled_spell) = state.scheduled.pop() {
                             log::trace!("Execute: {:?}", scheduled_spell);
-                            Self::trigger_spell(&send_events, &scheduled_spell.data.id, Event::Timer)?;
+                            let timestamp_secs = SystemTime::now().duration_since(UNIX_EPOCH).expect("Time went backwards").as_secs();
+                            Self::trigger_spell(&send_events, &scheduled_spell.data.id, Event::Timer(timestamp_secs))?;
                             // Do not reschedule the spell otherwise.
                             if let Some(rescheduled) = Scheduled::at(scheduled_spell.data, Instant::now()) {
                                 log::trace!("Reschedule: {:?}", rescheduled);
