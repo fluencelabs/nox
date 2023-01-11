@@ -35,11 +35,16 @@ impl Sorcerer {
             self.spell_script_particle_ttl,
         );
 
-        if let Ok(res) = process_func_outcome::<U32Value>(func_outcome, &spell_id, "get_u32") {
-            Ok(res.num)
-        } else {
-            // If key is not exists we will create it on the next step
-            Ok(0u32)
+        let res = process_func_outcome::<U32Value>(func_outcome, &spell_id, "get_u32");
+        match res {
+            // If the counter does not exist, consider it to be 0.
+            // It will be incremented afterwards to 1 anyway.
+            Ok(res) if res.absent => Ok(0u32),
+            Ok(res) => Ok(res.num),
+            Err(err) => {
+                log::warn!("Error on get_u32 counter for spell {}: {}", spell_id, err);
+                Err(err)
+            }
         }
     }
 
