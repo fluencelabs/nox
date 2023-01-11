@@ -54,7 +54,7 @@ where
             } else {
                 Err(JError::new(format!(
                     "Function {spell_id}.{function_name} executed with error: {}",
-                    result.get_error()
+                    result.take_error()
                 )))
             }
         }

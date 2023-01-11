@@ -172,7 +172,7 @@ pub struct SpellEventBus {
     sources: Vec<BoxStream<'static, PeerEvent>>,
     /// API connections
     recv_cmd_channel: Inlet<Command>,
-    /// Notify when event to which a spell subscribed happened.
+    /// Notify when trigger happened
     send_events: Outlet<TriggerEvent>,
 }
 
@@ -215,10 +215,15 @@ impl SpellEventBus {
             // which means that timer won't be triggered at all. We overwrite the timer each loop (aka after each event)
             // to ensure that we don't miss newly scheduled spells.
             let mut timer = {
-                let next_scheduled_in = state.next_scheduled_in(now).unwrap_or(Duration::MAX);
-                log::trace!("Next scheduled in: {:?}", next_scheduled_in);
-                log::trace!("Scheduled: {:?}", state.scheduled);
-                async_std::stream::interval(next_scheduled_in).fuse()
+                let next_scheduled_in = state.next_scheduled_in(now);
+                if next_scheduled_in.is_some() {
+                    log::trace!("Next time trigger will execute in: {:?}", next_scheduled_in);
+                    log::trace!("Scheduled triggers: {:?}", state.scheduled);
+                }
+                // If there's no more scheduled triggers, then use Duration::MAX so that timer will
+                // not fire, until there's a new TimeTrigger config
+                let interval = next_scheduled_in.unwrap_or(Duration::MAX);
+                async_std::stream::interval(interval).fuse()
             };
 
             let result: Result<(), BusInternalError> = try {
@@ -473,12 +478,10 @@ mod tests {
         try_catch(
             || {
                 assert_eq!(event.spell_id, spell1_id.clone());
-                let contact = Contact::new(peer_id, Vec::new());
+                let expected = Contact::new(peer_id, Vec::new());
                 assert_matches!(
                     event.event,
-                    Event::Peer(PeerEvent::ConnectionPool(LifecycleEvent::Connected(
-                        contact
-                    )))
+                    Event::Peer(PeerEvent::ConnectionPool(LifecycleEvent::Connected(contact))) if contact == expected
                 );
             },
             || {
@@ -567,7 +570,7 @@ mod tests {
     fn test_update_config() {
         let (send, recv) = unbounded();
         let (bus, api, mut event_stream) = SpellEventBus::new(vec![recv.boxed()]);
-        let bus = bus.start();
+        let _bus = bus.start();
 
         let spell1_id = "spell1".to_string();
         subscribe_peer_event(&api, spell1_id.clone(), vec![PeerEventType::Connected]);
