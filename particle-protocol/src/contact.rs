@@ -21,7 +21,7 @@ use libp2p::{core::Multiaddr, PeerId};
 use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, Eq, PartialEq)]
 pub struct Contact {
     #[serde(with = "peerid_serializer")]
     pub peer_id: PeerId,

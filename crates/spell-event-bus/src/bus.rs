@@ -473,12 +473,10 @@ mod tests {
         try_catch(
             || {
                 assert_eq!(event.spell_id, spell1_id.clone());
-                let contact = Contact::new(peer_id, Vec::new());
+                let expected = Contact::new(peer_id, Vec::new());
                 assert_matches!(
                     event.event,
-                    Event::Peer(PeerEvent::ConnectionPool(LifecycleEvent::Connected(
-                        contact
-                    )))
+                    Event::Peer(PeerEvent::ConnectionPool(LifecycleEvent::Connected(contact))) if contact == expected
                 );
             },
             || {
@@ -567,7 +565,7 @@ mod tests {
     fn test_update_config() {
         let (send, recv) = unbounded();
         let (bus, api, mut event_stream) = SpellEventBus::new(vec![recv.boxed()]);
-        let bus = bus.start();
+        let _bus = bus.start();
 
         let spell1_id = "spell1".to_string();
         subscribe_peer_event(&api, spell1_id.clone(), vec![PeerEventType::Connected]);
