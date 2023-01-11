@@ -152,9 +152,9 @@ dependencies = [
 
 [[package]]
 name = "air-interpreter-wasm"
-version = "0.31.20"
+version = "0.35.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6adc996907226d1a2882bf397883330d559491ddfd1511ca804ce366990df3bb"
+checksum = "09b2de2aac95c18b81bd5d944f7a620d735fb70c28fe259c82b6c13126788d17"
 dependencies = [
  "built",
 ]
@@ -1903,9 +1903,9 @@ dependencies = [
 
 [[package]]
 name = "fluence-spell-distro"
-version = "0.1.1"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6480de527c7b081b3800355a06f2c96e13b0f6a9d57e6f9b8653b1cfd3540820"
+checksum = "e6089bf966763486ceba524b6391ceac71edf44b12e3fb615642e7fef2596ee9"
 dependencies = [
  "built",
  "maplit",
@@ -5508,6 +5508,7 @@ dependencies = [
  "eyre",
  "fluence-app-service",
  "fluence-spell-distro",
+ "log",
  "parking_lot 0.12.1",
  "particle-modules",
  "particle-services",

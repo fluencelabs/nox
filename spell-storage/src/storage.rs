@@ -45,6 +45,11 @@ impl SpellStorage {
     fn load_spell_service_from_crate(modules: &ModuleRepository) -> eyre::Result<String> {
         use fluence_spell_distro::{modules as spell_modules, CONFIG};
 
+        log::info!(
+            "Spell service impl version: {}",
+            fluence_spell_distro::VERSION
+        );
+
         let spell_modules = spell_modules();
         let cfg: TomlMarineConfig = toml::from_slice(CONFIG)?;
         let mut hashes = Vec::new();

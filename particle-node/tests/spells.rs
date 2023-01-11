@@ -18,6 +18,7 @@ use created_swarm::make_swarms;
 use eyre::Context;
 
 use fluence_spell_dtos::trigger_config::TriggerConfig;
+use log_utils::enable_logs;
 use maplit::hashmap;
 use serde_json::{json, Value as JValue};
 use service_modules::load_module;
@@ -755,6 +756,8 @@ fn spell_trigger_connection_pool() {
 
 #[test]
 fn spell_update_config() {
+    enable_logs();
+
     let swarms = make_swarms(1);
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .wrap_err("connect client")
@@ -786,24 +789,29 @@ fn spell_update_config() {
     };
     client.send_particle(
         r#"(seq
-                    (call relay ("spell" "update_trigger_config") [spell_id config])
-                    (call client ("return" "") ["done"])
-                  )"#,
+            (call relay ("spell" "update_trigger_config") [spell_id config])
+            ;;(call relay ("op" "noop") [])
+            (call %init_peer_id% ("return" "") ["done"])
+           )"#,
         data,
     );
-    let result = if let [JValue::String(result)] = client
-        .receive_args()
-        .wrap_err("receive")
-        .unwrap()
-        .as_slice()
-    {
-        result.clone()
-    } else {
-        "".to_string()
+    let result = client.receive_args().wrap_err("receive").unwrap().pop();
+    let result = match result {
+        Some(JValue::String(result)) => result,
+        None => panic!("no results from update_trigger_config particle"),
+        other => panic!(
+            "expected JSON String from update_trigger_config particle, got {:?}",
+            other
+        ),
     };
     assert_eq!(result, "done", "spell must be updated");
 
     drop(connected);
+    let connected = ConnectedClient::connect_to(swarms[0].multiaddr.clone()).unwrap();
+    drop(connected);
+    let connected = ConnectedClient::connect_to(swarms[0].multiaddr.clone()).unwrap();
+    drop(connected);
+
     if let [JValue::String(x)] = client
         .receive_args()
         .wrap_err("receive")
@@ -812,4 +820,69 @@ fn spell_update_config() {
     {
         assert_eq!(x, "called", "spell must be triggered after config update");
     }
+}
+
+#[test]
+fn spell_set_u32() {
+    enable_logs();
+
+    let swarms = make_swarms(1);
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .wrap_err("connect client")
+        .unwrap();
+
+    let script = format!(r#"(call "{}" ("return" "") ["called"])"#, client.peer_id);
+    let mut config = TriggerConfig::default();
+    config.connections.connect = true;
+
+    let spell_id = create_spell(&mut client, &script, config.clone(), hashmap! {});
+
+    let data = hashmap! {
+        "spell_id" => json!(spell_id),
+        "relay" => json!(client.node.to_string()),
+        "client" => json!(client.peer_id.to_string()),
+        "config" => json!(config),
+    };
+    client.send_particle(
+        r#"(seq
+            (seq
+                (call relay (spell_id "get_u32") ["test"] absent)
+                (seq
+                    (call relay (spell_id "set_u32") ["test" 1])
+                    (seq
+                        (call relay (spell_id "get_u32") ["test"] one)
+                        (seq
+                            (call relay (spell_id "set_u32") ["test" 2])
+                            (call relay (spell_id "get_u32") ["test"] two)
+                        )
+                    )
+                )
+            )
+            (call %init_peer_id% ("return" "") [absent one two])
+           )"#,
+        data,
+    );
+    let mut result = client.receive_args().wrap_err("receive").unwrap();
+    // let mut result = match result {
+    //     Some(JValue::Array(array)) => array,
+    //     other => panic!("expected array, got {:?}", other),
+    // };
+    assert_eq!(result.len(), 3);
+    let (absent, one, two) = dbg!((result.remove(0), result.remove(0), result.remove(0)));
+
+    assert_eq!(absent["absent"], json!(true));
+
+    assert_eq!(one["absent"], json!(false));
+    assert_eq!(one["num"], json!(1));
+
+    assert_eq!(two["absent"], json!(false));
+    assert_eq!(two["num"], json!(2));
+    // let result = match  {
+    //     (absent, one, two) => ,
+    //     None => panic!("no results from update_trigger_config particle"),
+    //     other => panic!(
+    //         "expected JSON String from update_trigger_config particle, got {:?}",
+    //         other
+    //     ),
+    // };
 }
