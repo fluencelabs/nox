@@ -384,7 +384,7 @@ mod tests {
                 assert_eq!(events.len(), 5);
                 for event in events.into_iter() {
                     assert_eq!(event.spell_id, spell1_id.clone(),);
-                    assert_matches!(event.event, Event::Timer);
+                    assert_matches!(event.event, Event::Timer(_));
                 }
             },
             || {
@@ -416,7 +416,7 @@ mod tests {
                 assert_eq!(events.len(), 10);
                 for event in events.into_iter() {
                     spell_ids.entry(event.spell_id).and_modify(|e| *e += 1);
-                    assert_matches!(event.event, Event::Timer);
+                    assert_matches!(event.event, Event::Timer(_));
                 }
                 for count in spell_ids.values() {
                     assert_ne!(*count, 0);
@@ -555,7 +555,7 @@ mod tests {
                             Event::Peer(PeerEvent::ConnectionPool(LifecycleEvent::Connected(_)))
                         );
                     } else if event.spell_id == spell2_id {
-                        assert_matches!(event.event, Event::Timer);
+                        assert_matches!(event.event, Event::Timer(_));
                     }
                 }
             },
