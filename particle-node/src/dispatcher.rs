@@ -27,7 +27,6 @@ use peer_metrics::DispatcherMetrics;
 use crate::effectors::Effectors;
 use crate::tasks::Tasks;
 
-// TODO: move error into RoutingEffects
 type Effects = Result<RoutingEffects, AquamarineApiError>;
 
 #[derive(Clone)]

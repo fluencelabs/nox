@@ -80,6 +80,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> AquamarineBackend<RT, F> {
                 Poll::Ready(Some(Ingest { particle, function })) => {
                     wake = true;
                     // set new particle to be executed
+                    // every particle that comes from the connection pool first executed on the host peer id
                     self.plumber.ingest(particle, function, self.host_peer_id);
                 }
                 Poll::Ready(Some(AddService {

@@ -30,13 +30,15 @@ use service_modules::load_module;
 use spell_event_bus::api::MAX_PERIOD_SEC;
 use test_utils::create_service;
 
-/// Returns `(spell_id, scope_peer_id)`
+type SpellId = String;
+type ScopePeerId = String;
+
 fn create_spell(
     client: &mut ConnectedClient,
     script: &str,
     config: TriggerConfig,
     init_data: HashMap<String, String>,
-) -> (String, String) {
+) -> (SpellId, ScopePeerId) {
     let data = hashmap! {
         "script" => json!(script.to_string()),
         "config" => json!(config),

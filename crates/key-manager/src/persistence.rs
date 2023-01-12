@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use fs_utils::{create_dirs, list_files};
+use fs_utils::{create_dir, list_files};
 
 use crate::error::PersistedKeypairError;
 use crate::error::PersistedKeypairError::{
@@ -77,15 +77,14 @@ pub fn load_persisted_keypairs(
         Some(files) => files,
         None => {
             // Attempt to create directory and exit
-            return create_dirs(&[&keypairs_dir])
-                .map_err(|err| CreateKeypairsDir {
+            if let Err(err) = create_dir(keypairs_dir) {
+                return vec![Err(CreateKeypairsDir {
                     path: keypairs_dir.to_path_buf(),
                     err,
-                })
-                .err()
-                .into_iter()
-                .map(Err)
-                .collect();
+                })];
+            }
+
+            return vec![];
         }
     };
 
