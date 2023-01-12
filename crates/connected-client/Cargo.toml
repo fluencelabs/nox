@@ -5,10 +5,10 @@ authors = ["Fluence Labs"]
 edition = "2018"
 
 [dependencies]
-particle-protocol = { path = "../../particle-protocol" }
-fluence-libp2p = { path = "../libp2p" }
-test-constants = { path = "../test-constants"}
-local-vm = { path = "../local-vm"}
+particle-protocol = { workspace = true }
+fluence-libp2p = { workspace = true }
+test-constants = { workspace = true }
+local-vm = { workspace = true }
 
 fluence-keypair = { workspace = true }
 libp2p = { workspace = true }
