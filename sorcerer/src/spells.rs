@@ -200,14 +200,10 @@ pub(crate) async fn spell_update_config(
         .await
     {
         log::warn!(
-            "save config to spell service {} SUCCESS; update trigger subscriptions FAIL: {}",
-            spell_id,
-            err
+            "save config to spell service {spell_id} SUCCESS; update trigger subscriptions FAIL: {err}"
         );
         return Err(JError::new(format!(
-            "save config to spell service {} SUCCESS\nupdate trigger subscriptions FAIL: {}\ncall update_config to try again",
-            spell_id, err
-        )));
+            "save config to spell service {spell_id} SUCCESS\nupdate trigger subscriptions FAIL: {err}\ncall update_config to try again")));
     }
     Ok(())
 }
