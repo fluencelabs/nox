@@ -1,9 +1,10 @@
 use crate::config::SpellTriggerConfigs;
 use connection_pool::LifecycleEvent;
 use fluence_libp2p::types::{OneshotOutlet, Outlet};
-use fluence_libp2p::PeerId;
+use fluence_libp2p::{peerid_serializer, PeerId};
 use futures::channel::mpsc::SendError;
 use futures::{channel::oneshot, future::BoxFuture, FutureExt};
+use serde::Serialize;
 use thiserror::Error;
 
 pub use crate::config::*;
@@ -13,44 +14,51 @@ pub type SpellId = String;
 #[derive(Debug, Clone)]
 pub struct TriggerEvent {
     pub spell_id: SpellId,
-    pub event: Event,
+    pub info: TriggerInfo,
 }
 
 #[derive(Clone, Debug)]
-pub enum Event {
+pub enum TriggerInfo {
     /// Event is triggered by timer.
-    Timer(u64),
+    Timer(TimerEvent),
     /// Event is triggered by a peer event.
     Peer(PeerEvent),
 }
 
-#[derive(Clone, Debug)]
-pub enum PeerEvent {
-    /// Event is triggered by connection pool event
-    ConnectionPool(LifecycleEvent),
+#[derive(Clone, Debug, Serialize)]
+pub struct TimerEvent {
+    pub timestamp: u64,
+}
+
+#[derive(Clone, Debug, Serialize)]
+/// Event is triggered by connection pool event
+pub struct PeerEvent {
+    #[serde(with = "peerid_serializer")]
+    pub peer_id: PeerId,
+    pub connected: bool,
+}
+
+impl From<LifecycleEvent> for PeerEvent {
+    fn from(e: LifecycleEvent) -> Self {
+        match e {
+            LifecycleEvent::Connected(c) => Self {
+                peer_id: c.peer_id,
+                connected: true,
+            },
+            LifecycleEvent::Disconnected(c) => Self {
+                peer_id: c.peer_id,
+                connected: false,
+            },
+        }
+    }
 }
 
 impl PeerEvent {
-    pub fn is_connected(&self) -> bool {
-        match self {
-            PeerEvent::ConnectionPool(LifecycleEvent::Connected { .. }) => true,
-            PeerEvent::ConnectionPool(LifecycleEvent::Disconnected { .. }) => false,
-        }
-    }
-
-    pub fn get_peer_id(&self) -> PeerId {
-        match self {
-            PeerEvent::ConnectionPool(LifecycleEvent::Connected(c)) => c.peer_id,
-            PeerEvent::ConnectionPool(LifecycleEvent::Disconnected(c)) => c.peer_id,
-        }
-    }
-
     pub(crate) fn get_type(&self) -> PeerEventType {
-        match self {
-            PeerEvent::ConnectionPool(LifecycleEvent::Connected { .. }) => PeerEventType::Connected,
-            PeerEvent::ConnectionPool(LifecycleEvent::Disconnected { .. }) => {
-                PeerEventType::Disconnected
-            }
+        if self.connected {
+            PeerEventType::Connected
+        } else {
+            PeerEventType::Disconnected
         }
     }
 }
@@ -62,6 +70,26 @@ pub enum PeerEventType {
     Disconnected,
 }
 
+#[derive(Serialize)]
+pub struct TriggerInfoAqua {
+    timer: Vec<TimerEvent>,
+    peer: Vec<PeerEvent>,
+}
+
+impl From<TriggerInfo> for TriggerInfoAqua {
+    fn from(i: TriggerInfo) -> Self {
+        match i {
+            TriggerInfo::Timer(t) => Self {
+                timer: vec![t],
+                peer: vec![],
+            },
+            TriggerInfo::Peer(p) => Self {
+                timer: vec![],
+                peer: vec![p],
+            },
+        }
+    }
+}
 #[derive(Debug)]
 pub(crate) struct Command {
     pub(crate) spell_id: SpellId,

@@ -15,6 +15,7 @@ fluence-libp2p = { path = "../libp2p" }
 
 parking_lot = { workspace = true }
 serde_json = { workspace = true }
+serde = { workspace = true }
 async-std = { workspace = true }
 derivative = { workspace = true }
 eyre = { workspace = true }

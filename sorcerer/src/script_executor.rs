@@ -19,7 +19,7 @@ use serde_json::json;
 use now_millis::now_ms;
 use particle_args::JError;
 use particle_protocol::Particle;
-use spell_event_bus::api::{Event, TriggerEvent};
+use spell_event_bus::api::{TriggerEvent, TriggerInfoAqua};
 
 use crate::utils::process_func_outcome;
 use crate::Sorcerer;
@@ -96,24 +96,7 @@ impl Sorcerer {
     }
 
     pub(crate) fn store_trigger(&self, event: TriggerEvent) -> Result<(), JError> {
-        let serialized_event = match event.event {
-            Event::Timer(t) => {
-                json!({
-                    "timer": [{"timestamp": t}],
-                    "peer": []
-                })
-            }
-            Event::Peer(p) => {
-                json!({
-                    "timer": [],
-                    "peer": [{
-                        "peer_id": p.get_peer_id().to_base58(),
-                        "connected": p.is_connected(),
-                    }]
-                })
-            }
-        }
-        .to_string();
+        let serialized_event = serde_json::to_string(&TriggerInfoAqua::from(event.info))?;
 
         let func_outcome = self.services.call_function(
             &event.spell_id,
@@ -133,19 +116,14 @@ impl Sorcerer {
             let particle = self.get_spell_particle(event.spell_id.clone())?;
 
             self.store_trigger(event.clone())?;
-            self.aquamarine
-                .clone()
-                .execute(particle, None)
-                // do not log errors: Aquamarine will log them fine
-                .await
-                .ok();
+            self.aquamarine.clone().execute(particle, None).await?;
         };
 
         if let Err(err) = error {
             log::warn!(
                 "Failed to execute spell script id: {}, event: {:?}, error: {:?}",
                 event.spell_id,
-                event.event,
+                event.info,
                 err
             );
         }
