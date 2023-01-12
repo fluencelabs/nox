@@ -905,15 +905,16 @@ fn array_slice() {
 fn timeout_race() {
     let fast_result = exec_script(
         r#"
-        (par
-            (call relay ("peer" "timeout") [1000 "slow_result"] $result)
-            ;;(ap "fast_result" $result)
-            (call relay ("op" "identity") ["fast_result"] $result)
-            ;;(call relay ("peer" "timeout") [2000 "very_slow_result"] $result)
+        (seq
+            (par
+                (call relay ("peer" "timeout") [1000 "slow_result"] $result)
+                (call relay ("op" "identity") ["fast_result"] $result)
+            )
+            (canon relay $result #result)
         )
     "#,
         <_>::default(),
-        "$result.$[0]",
+        "#result.$[0]",
         1,
     )
     .unwrap();
@@ -1610,12 +1611,12 @@ fn exec_script_as_admin(
     args.insert("relay", json!(client.node.to_string()));
 
     client.send_particle(
-        f!(r#"
+        dbg!(f!(r#"
         (seq
             {script}
             (call %init_peer_id% ("op" "return") [{result}])
         )
-        "#),
+        "#)),
         args,
     );
 
