@@ -335,7 +335,7 @@ fn fold_par_same_node_stream() {
             "relay" => json!(client.node.to_string()),
             "client" => json!(client.peer_id.to_string()),
             "permutations" => json!(permutations),
-            "flat_length" => dbg!(json!(flat.len()))
+            "flat_length" => json!(flat.len())
         },
     );
 
@@ -724,7 +724,7 @@ fn fold_null_seq_same_node_stream() {
             "relay" => json!(client.node.to_string()),
             "client" => json!(client.peer_id.to_string()),
             "permutations" => json!(permutations),
-            "flat_length" => dbg!(json!(flat.len()))
+            "flat_length" => json!(flat.len())
         },
     );
 
