@@ -26,6 +26,14 @@ jobs:
 
       - run: cargo nextest run --release --all-features --profile ci
 
+      - name: Upload test report
+        uses: dorny/test-reporter@v1
+        if: success() || failure()
+        with:
+          name: cargo nextest report
+          path: target/nextest/ci/junit.xml
+          reporter: java-junit
+
   lints:
     name: Lints
     runs-on: ubuntu-latest
