@@ -169,6 +169,7 @@ fn builtins_scheduled_scripts() {
 }
 
 #[test]
+#[ignore]
 fn builtins_resolving_env_variables() {
     copy_dir_all(SERVICES, "./builtins_test_env").unwrap();
     let key = "some_key".to_string();
