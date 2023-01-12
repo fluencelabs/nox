@@ -774,29 +774,32 @@ fn par_wait_two() {
              (seq
               (seq
                (seq
-                (seq
-                 (seq
-                  (call relay ("op" "string_to_b58") [%init_peer_id%] k)
-                  (call relay ("kad" "neighborhood") [k [] []] nodes)
-                 )
-                 (fold nodes n
-                  (par
-                   (seq
-                    (xor
-                     (call n ("peer" "timestamp_sec") [] $res)
-                     (null)
-                    )
-                    (call relay ("op" "noop") [])
-                   )
-                   (next n)
-                  )
-                 )
-                )
-                (call relay ("op" "identity") [$res.$.[0]!])
+                (call relay ("op" "string_to_b58") [%init_peer_id%] k)
+                (call relay ("kad" "neighborhood") [k [] []] nodes)
                )
-               (call relay ("op" "identity") [$res.$.[1]!])
+               (fold nodes n
+                (par
+                 (seq
+                  (xor
+                   (call n ("peer" "timestamp_sec") [] $res)
+                   (null)
+                  )
+                  (call relay ("op" "noop") [])
+                 )
+                 (next n)
+                )
+               )
               )
-              (call relay ("op" "identity") [$res.$.[2]!])
+              (seq
+               (canon relay $res #res)
+               (seq
+                (call relay ("op" "identity") [#res.$.[0]!])
+                (seq
+                 (call relay ("op" "identity") [#res.$.[1]!])
+                 (call relay ("op" "identity") [#res.$.[2]!])
+                )
+               )
+              )
              )
              (seq
               (call -relay- ("op" "noop") [])
@@ -807,7 +810,7 @@ fn par_wait_two() {
            (call -relay- ("op" "noop") [])
           )
           (xor
-           (call %init_peer_id% ("callbackSrv" "response") [$res])
+           (call %init_peer_id% ("callbackSrv" "response") [#res])
            (call %init_peer_id% ("errorHandlingSrv" "error") [%last_error% 2])
           )
          )
