@@ -46,7 +46,7 @@ impl PersistedKeypair {
 }
 
 pub fn keypair_file_name(remote_peer_id: &str) -> String {
-    format!("{}_keypair.toml", remote_peer_id)
+    format!("{remote_peer_id}_keypair.toml")
 }
 
 pub fn is_keypair(path: &Path) -> bool {

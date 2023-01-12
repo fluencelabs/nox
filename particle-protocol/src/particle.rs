@@ -96,7 +96,7 @@ impl Particle {
 
         Ok(bincode::serialize(&ParticleMetadata {
             id: self.id.clone(),
-            init_peer_id: self.init_peer_id.clone(),
+            init_peer_id: self.init_peer_id,
             timestamp: self.timestamp,
             ttl: self.ttl,
             script: self.script.clone(),
