@@ -21,26 +21,5 @@ pub const SERVICES: &'static str = "./services";
 pub const SPELL: &'static str = "../../spell";
 
 mod src {
-    mod aqua_dht {
-        mod aqua_dht;
-        mod pubsub;
-
-        #[derive(serde::Deserialize, Debug)]
-        #[allow(dead_code)]
-        pub struct Record {
-            value: String,
-            peer_id: String,
-            set_by: String,
-            relay_id: Vec<String>,
-            service_id: Vec<String>,
-            timestamp_created: u64,
-            weight: u32,
-        }
-    }
-
     mod builtins_deployer;
-}
-
-pub fn load_script(name: &str) -> String {
-    std::fs::read_to_string(format!("./tests/src/aqua_dht/aqua/{}", name)).unwrap()
 }
