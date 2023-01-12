@@ -143,7 +143,7 @@ impl VmPoolMetrics {
         self.vm_mem_measures += 1;
         let cma = self.vm_mem_cma as i64;
         let next_cma = cma + ((memory_size as i64 - cma) / self.vm_mem_measures as i64);
-        self.vm_mem_cma = next_cma.abs() as u64;
+        self.vm_mem_cma = next_cma.unsigned_abs();
         self.vm_mem_avg.set(self.vm_mem_cma);
 
         // Max mem

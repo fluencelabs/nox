@@ -175,7 +175,7 @@ fn load_blueprint_from_vault() {
 
     let blueprint_string = json!({
         "name": "file_share",
-        "dependencies": [format!("hash:{}", module_hash)]
+        "dependencies": [format!("hash:{module_hash}")]
     })
     .to_string();
     client.send_particle(

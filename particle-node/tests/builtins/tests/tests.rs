@@ -17,8 +17,8 @@
 #[macro_use]
 extern crate fstrings;
 
-pub const SERVICES: &'static str = "./services";
-pub const SPELL: &'static str = "../../spell";
+pub const SERVICES: &str = "./services";
+pub const SPELL: &str = "../../spell";
 
 mod src {
     mod aqua_dht {
@@ -42,5 +42,5 @@ mod src {
 }
 
 pub fn load_script(name: &str) -> String {
-    std::fs::read_to_string(format!("./tests/src/aqua_dht/aqua/{}", name)).unwrap()
+    std::fs::read_to_string(format!("./tests/src/aqua_dht/aqua/{name}")).unwrap()
 }

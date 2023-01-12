@@ -50,6 +50,7 @@ pub struct ServicesConfig {
 }
 
 impl ServicesConfig {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         local_peer_id: PeerId,
         base_dir: PathBuf,

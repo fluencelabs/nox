@@ -27,10 +27,10 @@ impl SpellStorage {
         services: &ParticleAppServices,
         modules: &ModuleRepository,
     ) -> eyre::Result<Self> {
-        let spell_config_path = spell_config_path(&spells_base_dir);
+        let spell_config_path = spell_config_path(spells_base_dir);
         let spell_blueprint_id = if spell_config_path.exists() {
             let cfg = TomlMarineConfig::load(spell_config_path)?;
-            Self::load_spell_service(cfg, &spells_base_dir, modules)?
+            Self::load_spell_service(cfg, spells_base_dir, modules)?
         } else {
             Self::load_spell_service_from_crate(modules)?
         };
@@ -45,6 +45,11 @@ impl SpellStorage {
     fn load_spell_service_from_crate(modules: &ModuleRepository) -> eyre::Result<String> {
         use fluence_spell_distro::{modules as spell_modules, CONFIG};
 
+        log::info!(
+            "Spell service impl version: {}",
+            fluence_spell_distro::VERSION
+        );
+
         let spell_modules = spell_modules();
         let cfg: TomlMarineConfig = toml::from_slice(CONFIG)?;
         let mut hashes = Vec::new();
@@ -56,7 +61,7 @@ impl SpellStorage {
             )))?;
             let hash = modules
                 .add_module(module.to_vec(), config)
-                .context(format!("adding spell module {}", name))?;
+                .context(format!("adding spell module {name}"))?;
             hashes.push(Dependency::Hash(hash))
         }
 

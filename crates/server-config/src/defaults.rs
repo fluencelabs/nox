@@ -68,7 +68,7 @@ pub fn default_services_metrics_timer_resolution() -> Duration {
 }
 
 pub fn default_base_dir() -> PathBuf {
-    format!(".fluence/v{}", CONFIG_VERSION).into()
+    format!(".fluence/v{CONFIG_VERSION}").into()
 }
 
 pub fn services_base_dir(base_dir: &Path) -> PathBuf {
@@ -184,7 +184,7 @@ pub fn default_key_format() -> String {
 }
 
 pub fn default_module_max_heap_size() -> bytesize::ByteSize {
-    bytesize::ByteSize::b(bytesize::gib(4 as u64) - 1)
+    bytesize::ByteSize::b(bytesize::gib(4_u64) - 1)
 }
 
 pub fn default_max_builtin_metrics_storage_size() -> usize {

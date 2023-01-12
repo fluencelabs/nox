@@ -46,6 +46,49 @@ exclude = [
 ]
 
 [workspace.dependencies]
+fluence-libp2p = { path = "crates/libp2p" }
+ctrlc-adapter = { path = "crates/ctrlc-adapter" }
+control-macro = { path = "crates/control-macro" }
+waiting-queues = { path = "crates/waiting-queues" }
+local-vm = { path = "crates/local-vm" }
+uuid-utils = { path = "crates/uuid-utils" }
+test-utils = { path = "crates/test-utils" }
+fs-utils = { path = "crates/fs-utils" }
+log-utils = { path = "crates/log-utils" }
+config-utils = { path = "crates/config-utils" }
+service-modules = { path = "crates/service-modules" }
+ivalue-utils = { path = "crates/ivalue-utils" }
+particle-args = { path = "crates/particle-args" }
+json-utils = { path = "crates/json-utils" }
+server-config = { path = "crates/server-config" }
+kademlia = { path = "crates/kademlia" }
+async-unlock = { path = "crates/async-unlock" }
+now-millis = { path = "crates/now-millis" }
+toml-utils = { path = "crates/toml-utils" }
+air-interpreter-fs = { path = "crates/air-interpreter-fs" }
+builtins-deployer = { path = "crates/builtins-deployer" }
+created-swarm = { path = "crates/created-swarm" }
+toy-vms = { path = "crates/toy-vms" }
+connected-client = { path = "crates/connected-client" }
+test-constants = { path = "crates/test-constants" }
+peer-metrics = { path = "crates/peer-metrics" }
+spell-event-bus = { path = "crates/spell-event-bus" }
+key-manager = { path = "crates/key-manager" }
+sorcerer = { path = "sorcerer" }
+builtins = { path = "particle-node/tests/builtins" }
+particle-node = { path = "particle-node" }
+aquamarine = { path = "aquamarine" }
+particle-protocol = { path = "particle-protocol" }
+particle-services = { path = "particle-services" }
+particle-builtins = { path = "particle-builtins" }
+particle-modules = { path = "particle-modules" }
+connection-pool = { path = "connection-pool" }
+script-storage = { path = "script-storage" }
+spell-storage = { path = "spell-storage" }
+particle-execution = { path = "particle-execution" }
+
+fluence-spell-dtos = "0.1.4"
+fluence-spell-distro = "0.3.0"
 fluence-app-service = "0.23.0"
 avm-server = "0.27.0"
 air-interpreter-wasm = "=0.31.20"
@@ -70,5 +113,4 @@ log = "0.4.17"
 futures = "0.3.24"
 thiserror = "1.0.37"
 serde = "1.0.145"
-fluence-spell-dtos = { git = "https://github.com/fluencelabs/spell", branch = "main" }
 toml = "0.5.9"

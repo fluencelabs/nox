@@ -286,7 +286,7 @@ impl BuiltinsDeployer {
                     .send_particle(script, hashmap! {})
                     .map_err(|e| eyre::eyre!("ping send_particle #{} failed: {}", attempt, e))?;
 
-                assert_ok(res, &format!("ping call #{} failed", attempt))?
+                assert_ok(res, &format!("ping call #{attempt} failed"))?
             };
 
             if let Err(err) = result {

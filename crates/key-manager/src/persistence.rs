@@ -22,18 +22,21 @@ use crate::error::PersistedKeypairError::{
     SerializePersistedKeypair, WriteErrorPersistedKeypair,
 };
 use fluence_keypair::KeyPair;
+use fluence_libp2p::peerid_serializer;
+use libp2p::PeerId;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct PersistedKeypair {
-    pub remote_peer_id: String,
+    #[serde(with = "peerid_serializer")]
+    pub remote_peer_id: PeerId,
     pub keypair_bytes: Vec<u8>,
     pub key_format: String,
 }
 
 impl PersistedKeypair {
-    pub fn new(owner_id: String, keypair: &KeyPair) -> Self {
+    pub fn new(owner_id: PeerId, keypair: &KeyPair) -> Self {
         Self {
             remote_peer_id: owner_id,
             keypair_bytes: keypair.to_vec(),
@@ -42,8 +45,8 @@ impl PersistedKeypair {
     }
 }
 
-pub fn keypair_file_name(service_id: &str) -> String {
-    format!("{}_keypair.toml", service_id)
+pub fn keypair_file_name(remote_peer_id: &str) -> String {
+    format!("{}_keypair.toml", remote_peer_id)
 }
 
 pub fn is_keypair(path: &Path) -> bool {
@@ -52,18 +55,20 @@ pub fn is_keypair(path: &Path) -> bool {
         .map_or(false, |n| n.ends_with("_keypair.toml"))
 }
 
-/// Persist service info to disk, so it is recreated after restart
+/// Persist keypair info to disk, so it is recreated after restart
 pub fn persist_keypair(
     keypairs_dir: &Path,
     persisted_keypair: PersistedKeypair,
 ) -> Result<(), PersistedKeypairError> {
-    let path = keypairs_dir.join(keypair_file_name(&persisted_keypair.remote_peer_id));
+    let path = keypairs_dir.join(keypair_file_name(
+        &persisted_keypair.remote_peer_id.to_base58(),
+    ));
     let bytes =
         toml::to_vec(&persisted_keypair).map_err(|err| SerializePersistedKeypair { err })?;
     std::fs::write(&path, bytes).map_err(|err| WriteErrorPersistedKeypair { path, err })
 }
 
-/// Load info about persisted services from disk, and create `AppService` for each of them
+/// Load info about persisted keypairs from disk
 pub fn load_persisted_keypairs(
     keypairs_dir: &Path,
 ) -> Vec<Result<PersistedKeypair, PersistedKeypairError>> {
@@ -87,7 +92,7 @@ pub fn load_persisted_keypairs(
     files
         .filter(|p| is_keypair(p))
         .map(|file| {
-            // Load service's persisted info
+            // Load persisted keypair
             let bytes = std::fs::read(&file).map_err(|err| ReadPersistedKeypair {
                 err,
                 path: file.to_path_buf(),
@@ -101,11 +106,4 @@ pub fn load_persisted_keypairs(
             Ok(keypair)
         })
         .collect()
-}
-
-pub fn _remove_persisted_keypair(
-    keypairs_dir: &Path,
-    owner_peer_id: String,
-) -> Result<(), std::io::Error> {
-    std::fs::remove_file(keypairs_dir.join(keypair_file_name(&owner_peer_id)))
 }

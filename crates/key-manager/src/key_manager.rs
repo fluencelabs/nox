@@ -26,8 +26,10 @@ use parking_lot::RwLock;
 
 #[derive(Clone)]
 pub struct KeyManager {
-    local_peer_ids: Arc<RwLock<HashMap<PeerId, Arc<KeyPair>>>>,
-    remote_peer_ids: Arc<RwLock<HashMap<PeerId, Arc<KeyPair>>>>,
+    /// scope_peer_id -> scope_keypair
+    scope_keypairs: Arc<RwLock<HashMap<PeerId, KeyPair>>>,
+    /// remote_peer_id -> scope_peer_id
+    scope_peer_ids: Arc<RwLock<HashMap<PeerId, PeerId>>>,
     keypairs_dir: PathBuf,
     host_peer_id: PeerId,
 }
@@ -35,8 +37,8 @@ pub struct KeyManager {
 impl KeyManager {
     pub fn new(keypairs_dir: PathBuf, host_peer_id: PeerId) -> Self {
         let this = Self {
-            local_peer_ids: Arc::new(Default::default()),
-            remote_peer_ids: Arc::new(Default::default()),
+            scope_keypairs: Arc::new(Default::default()),
+            scope_peer_ids: Arc::new(Default::default()),
             keypairs_dir,
             host_peer_id,
         };
@@ -51,16 +53,16 @@ impl KeyManager {
         for pkp in persisted_keypairs {
             let res: eyre::Result<()> = try {
                 let persisted_kp = pkp?;
-                let keypair = Arc::new(KeyPair::from_vec(
+                let keypair = KeyPair::from_vec(
                     persisted_kp.keypair_bytes,
                     KeyFormat::from_str(&persisted_kp.key_format)?,
-                )?);
-                let peer_id = keypair.get_peer_id().to_base58();
-                self.remote_peer_ids
+                )?;
+                let peer_id = keypair.get_peer_id();
+                self.scope_peer_ids
                     .write()
-                    .insert(persisted_kp.remote_peer_id, keypair.clone());
+                    .insert(persisted_kp.remote_peer_id, keypair.get_peer_id());
 
-                self.local_peer_ids.write().insert(peer_id, keypair.clone());
+                self.scope_keypairs.write().insert(peer_id, keypair);
 
                 ()
             };
@@ -75,54 +77,51 @@ impl KeyManager {
         self.host_peer_id
     }
 
-    pub fn has_keypair(&self, remote_peer_id: &str) -> bool {
-        self.remote_peer_ids.read().contains_key(remote_peer_id)
+    pub fn has_keypair(&self, remote_peer_id: PeerId) -> bool {
+        self.scope_peer_ids.read().contains_key(&remote_peer_id)
     }
 
-    pub fn is_local_peer_id(&self, local_peer_id: PeerId) -> bool {
-        self.local_peer_ids.read().contains_key(PeerId)
+    pub fn is_scope_peer_id(&self, scope_peer_id: PeerId) -> bool {
+        self.scope_keypairs.read().contains_key(&scope_peer_id)
     }
 
-    pub fn get_keypair_by_remote_peer_id(
-        &self,
-        remote_peer_id: &str,
-    ) -> eyre::Result<Arc<KeyPair>> {
-        if let Some(k) = self.remote_peer_ids.read().get(remote_peer_id).cloned() {
+    pub fn get_scope_peer_id(&self, remote_peer_id: PeerId) -> eyre::Result<PeerId> {
+        if let Some(k) = self.scope_peer_ids.read().get(&remote_peer_id).cloned() {
             Ok(k)
         } else {
             Err(eyre::eyre!(
-                "Keypair for peer id {} not exists",
+                "Scope peer id for peer id {} not exists",
                 remote_peer_id
             ))
         }
     }
 
-    pub fn get_keypair_by_local_peer_id(&self, local_peer_id: &str) -> eyre::Result<Arc<KeyPair>> {
-        if let Some(k) = self.local_peer_ids.read().get(local_peer_id).cloned() {
+    pub fn get_scope_keypair(&self, scope_peer_id: PeerId) -> eyre::Result<KeyPair> {
+        if let Some(k) = self.scope_keypairs.read().get(&scope_peer_id).cloned() {
             Ok(k)
         } else {
             Err(eyre::eyre!(
                 "Keypair for peer id {} not exists",
-                local_peer_id
+                scope_peer_id
             ))
         }
     }
 
-    pub fn generate_keypair(&self) -> Arc<KeyPair> {
-        Arc::new(KeyPair::generate_ed25519())
+    pub fn generate_keypair(&self) -> KeyPair {
+        KeyPair::generate_ed25519()
     }
 
-    pub fn store_keypair(&self, remote_peer_id: &str, keypair: Arc<KeyPair>) -> eyre::Result<()> {
+    pub fn store_keypair(&self, remote_peer_id: PeerId, keypair: KeyPair) -> eyre::Result<()> {
         persist_keypair(
             &self.keypairs_dir,
-            PersistedKeypair::new(remote_peer_id.to_string(), &keypair),
+            PersistedKeypair::new(remote_peer_id, &keypair),
         )?;
-        let peer_id = keypair.get_peer_id().to_base58();
-        self.remote_peer_ids
+        let scope_peer_id = keypair.get_peer_id();
+        self.scope_peer_ids
             .write()
-            .insert(remote_peer_id.to_string(), keypair.clone());
+            .insert(remote_peer_id, scope_peer_id);
 
-        self.local_peer_ids.write().insert(peer_id, keypair.clone());
+        self.scope_keypairs.write().insert(scope_peer_id, keypair);
 
         Ok(())
     }

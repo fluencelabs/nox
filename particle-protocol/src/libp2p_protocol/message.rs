@@ -115,7 +115,7 @@ impl std::fmt::Display for ProtocolMessage {
         match self {
             ProtocolMessage::Particle(particle) => particle.fmt(f),
             ProtocolMessage::InboundUpgradeError(error) => {
-                write!(f, "InboundUpgradeError {}", error)
+                write!(f, "InboundUpgradeError {error}")
             }
             ProtocolMessage::Upgrade => write!(f, "Upgrade"),
         }

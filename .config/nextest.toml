@@ -1,0 +1,22 @@
+# https://nexte.st/book/configuration.html
+[store]
+dir = "target/nextest"
+
+[profile.default]
+retries = 0
+test-threads = "num-cpus"
+threads-required = 1
+status-level = "pass"
+final-status-level = "fail"
+failure-output = "immediate"
+success-output = "never"
+fail-fast = true
+slow-timeout = { period = "60s" }
+leak-timeout = "100ms"
+
+[profile.ci]
+fail-fast = false
+test-threads = 10
+
+[profile.ci.junit]
+path = "junit.xml"

@@ -19,7 +19,7 @@
 pub fn enable_logs() {
     use log::LevelFilter::*;
 
-    std::env::set_var("WASM_LOG", "info");
+    std::env::set_var("WASM_LOG", "trace");
 
     env_logger::builder()
         .format_timestamp_millis()

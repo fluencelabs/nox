@@ -2,17 +2,18 @@
 name = "spell-storage"
 version = "0.1.0"
 authors = ["Fluence Labs"]
-edition = "2018"
+edition = "2021"
 
 [dependencies]
-particle-services = { path = "../particle-services" }
-particle-modules = { path = "../particle-modules" }
-service-modules = { path = "../crates/service-modules" }
+particle-services = { workspace = true }
+particle-modules = { workspace = true }
+service-modules = { workspace = true }
 
 fluence-app-service = { workspace = true }
-fluence-spell-distro = "0.1.1"
+fluence-spell-distro = { workspace = true }
 
 parking_lot = { workspace = true }
 derivative = { workspace = true }
 eyre = { workspace = true }
 toml = { workspace = true }
+log = { workspace = true }

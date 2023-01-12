@@ -125,7 +125,7 @@ impl Sorcerer {
                     let sorcerer = self.clone();
                     // Note that the event that triggered the spell is in `spell_event.event`
                     async move {
-                        sorcerer.execute_script(spell_event.spell_id).await;
+                        sorcerer.execute_script(spell_event).await;
                     }
                 })
                 .await;
@@ -183,10 +183,12 @@ impl Sorcerer {
 
         let api = self.spell_event_bus_api.clone();
         let services = self.services.clone();
+        let key_manager = self.key_manager.clone();
         let update_closure: ServiceFunction = Box::new(move |args, params| {
             let api = api.clone();
             let services = services.clone();
-            async move { wrap_unit(spell_update_config(args, params, services, api).await) }.boxed()
+            let key_manager = key_manager.clone();
+            async move { wrap_unit(spell_update_config(args, params, services, api, key_manager).await) }.boxed()
         });
 
         let functions = hashmap! {

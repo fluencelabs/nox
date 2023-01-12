@@ -218,7 +218,7 @@ fn insert_args_to_config(
                 _ => config.insert(k, String(single(arg)?.into())),
             };
         };
-        result.context(format!("error processing argument '{}'", k))?
+        result.context(format!("error processing argument '{k}'"))?
     }
 
     if let Some(key_pair_config) = config.get_mut(ROOT_KEY_PAIR).and_then(|v| v.as_table_mut()) {
@@ -249,7 +249,7 @@ pub fn load_config(arguments: ArgMatches) -> eyre::Result<ResolvedConfig> {
         log::info!("Loading config from {:?}", config_file);
 
         std::fs::read(&config_file)
-            .wrap_err_with(|| format!("Failed reading config {:?}", config_file))?
+            .wrap_err_with(|| format!("Failed reading config {config_file:?}"))?
     } else {
         log::info!("Config wasn't found, using default settings");
         Vec::default()
@@ -360,7 +360,7 @@ mod tests {
     fn duration() {
         let bs_config = BootstrapConfig::default();
         let s = toml::to_string(&bs_config).expect("serialize");
-        println!("{}", s)
+        println!("{s}")
     }
 
     #[test]
@@ -440,14 +440,10 @@ mod tests {
 
         let root_kp = KeyPair::generate_ed25519();
         let builtins_kp = KeyPair::generate_secp256k1();
-        std::fs::write(
-            &root_key_path,
-            base64::encode(root_kp.secret().unwrap().to_vec()),
-        )
-        .unwrap();
+        std::fs::write(&root_key_path, base64::encode(&root_kp.secret().unwrap())).unwrap();
         std::fs::write(
             &builtins_key_path,
-            base64::encode(builtins_kp.secret().unwrap().to_vec()),
+            base64::encode(&builtins_kp.secret().unwrap()),
         )
         .unwrap();
         assert!(root_key_path.exists());

@@ -229,9 +229,7 @@ impl<RT: AquaRuntime> Node<RT> {
         );
 
         let recv_connection_pool_events = connectivity.connection_pool.lifecycle_events();
-        let sources = vec![recv_connection_pool_events
-            .map(|x| PeerEvent::ConnectionPool(x))
-            .boxed()];
+        let sources = vec![recv_connection_pool_events.map(PeerEvent::from).boxed()];
 
         let (spell_event_bus, spell_event_bus_api, spell_events_stream) =
             SpellEventBus::new(sources);
@@ -368,6 +366,7 @@ impl<RT: AquaRuntime> Node<RT> {
     }
 
     /// Starts node service
+    #[allow(clippy::boxed_local)] // Mike said it should be boxed
     pub fn start(self: Box<Self>) -> eyre::Result<OneshotOutlet<()>> {
         let (exit_outlet, exit_inlet) = oneshot::channel();
         let mut exit_inlet = exit_inlet.into_stream().fuse();
@@ -407,7 +406,7 @@ impl<RT: AquaRuntime> Node<RT> {
             loop {
                 select!(
                     e = swarm.select_next_some() => {
-                        libp2p_metrics.as_ref().map(|m| m.record(&e));
+                        if let Some(m) = libp2p_metrics.as_ref() { m.record(&e) }
                         if let SwarmEvent::Behaviour(FluenceNetworkBehaviourEvent::Identify(i)) = e {
                             swarm.behaviour_mut().inject_identify_event(i, true)
                         }

@@ -62,7 +62,7 @@ pub fn create_app_service(
             .map_err(ServiceError::Engine)?;
 
         // Save created service to disk, so it is recreated on restart
-        let persisted = PersistedService::new(service_id.clone(), blueprint_id, aliases, owner_id);
+        let persisted = PersistedService::new(service_id, blueprint_id, aliases, owner_id);
         persist_service(&config.services_dir, persisted)?;
 
         service
@@ -73,7 +73,7 @@ pub fn create_app_service(
 /// Particle File Vaults will be available as `/tmp/vault/$particle_id`
 fn inject_vault(vault_dir: &Path, module: &mut ModuleDescriptor) {
     let wasi = &mut module.config.wasi;
-    if let None = *wasi {
+    if wasi.is_none() {
         *wasi = Some(MarineWASIConfig::default());
     }
     // SAFETY: set wasi to Some in the code above

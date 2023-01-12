@@ -123,7 +123,7 @@ pub fn create_args<'help>() -> Vec<Arg<'help>> {
             .takes_value(true)
             .short('f')
             .long("keypair-format")
-            .possible_values(&["ed25519", "secp256k1", "rsa"]),
+            .possible_values(["ed25519", "secp256k1", "rsa"]),
         Arg::new(ROOT_KEY_PAIR_GENERATE)
             .display_order(13)
             .help_heading(Some("Node keypair"))
@@ -131,7 +131,7 @@ pub fn create_args<'help>() -> Vec<Arg<'help>> {
             .short('g')
             .long("gen-keypair")
             .value_name("bool")
-            .possible_values(&["true", "false"])
+            .possible_values(["true", "false"])
             .help("generate keypair on absence"),
         Arg::new(SECRET_KEY)
             .display_order(14)

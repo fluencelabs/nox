@@ -2,17 +2,17 @@
 name = "particle-modules"
 version = "0.1.0"
 authors = ["Fluence Labs"]
-edition = "2018"
+edition = "2021"
 
 [dependencies]
-particle-execution = { path = "../particle-execution" }
+particle-execution = { workspace = true }
 
-particle-args = { path = "../crates/particle-args" }
-json-utils = { path = "../crates/json-utils" }
-fs-utils = { path = "../crates/fs-utils" }
-service-modules = { path = "../crates/service-modules" }
+particle-args = { workspace = true }
+json-utils = { workspace = true }
+fs-utils = { workspace = true }
+service-modules = { workspace = true }
 
-marine-it-parser = "0.11.0"
+marine-it-parser = "0.11.1"
 fluence-app-service = { workspace = true }
 marine-utils = "0.4.0"
 
@@ -29,4 +29,4 @@ bytesize = "1.1.0"
 
 [dev-dependencies]
 tempdir = "0.3.7"
-server-config = { path = "../crates/server-config" }
+server-config = { workspace = true }

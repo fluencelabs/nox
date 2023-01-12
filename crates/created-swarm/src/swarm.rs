@@ -40,6 +40,7 @@ use server_config::{default_script_storage_timer_resolution, BootstrapConfig, Un
 use test_constants::{EXECUTION_TIMEOUT, KEEP_ALIVE_TIMEOUT, TRANSPORT_TIMEOUT};
 use toy_vms::EasyVM;
 
+#[allow(clippy::upper_case_acronyms)]
 type AVM = aquamarine::AVM<DataStoreError>;
 
 #[derive(Derivative)]
@@ -269,9 +270,8 @@ pub fn aqua_vm_config(
     write_default_air_interpreter(&air_interpreter).expect("write air interpreter");
 
     let avm_base_dir = tmp_dir.join("interpreter");
-    let vm_config = VmConfig::new(peer_id, avm_base_dir.clone(), air_interpreter, None);
 
-    vm_config
+    VmConfig::new(peer_id, avm_base_dir, air_interpreter, None)
 }
 
 pub fn create_swarm_with_runtime<RT: AquaRuntime>(

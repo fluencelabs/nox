@@ -30,23 +30,21 @@ use std::time::Duration;
 /// For local peer ids is identity,
 /// for remote returns associated peer id or generate a new one.
 fn get_spell_peer_id(init_peer_id: PeerId, key_manager: &KeyManager) -> eyre::Result<PeerId> {
-    let init_peer_id = init_peer_id.to_base58();
     // All "nested" spells share the same keypair.
     // By "nested" means spells which are created by other spells
-    let spell_keypair = if key_manager.is_local_peer_id(&init_peer_id) {
-        key_manager.get_keypair_by_local_peer_id(&init_peer_id)?
+    if key_manager.is_scope_peer_id(init_peer_id) {
+        Ok(init_peer_id)
     } else {
-        match key_manager.get_keypair_by_remote_peer_id(&init_peer_id) {
-            Ok(kp) => kp,
+        match key_manager.get_scope_peer_id(init_peer_id) {
+            Ok(p) => Ok(p),
             _ => {
                 let kp = key_manager.generate_keypair();
-                key_manager.store_keypair(&init_peer_id, kp.clone())?;
-                kp
+                let scope_peer_id = kp.get_peer_id();
+                key_manager.store_keypair(init_peer_id, kp)?;
+                Ok(scope_peer_id)
             }
         }
-    };
-
-    Ok(spell_keypair.get_peer_id())
+    }
 }
 
 pub(crate) async fn spell_install(
@@ -124,8 +122,7 @@ pub(crate) async fn spell_install(
         services.remove_service(spell_id, spell_peer_id, true)?;
 
         return Err(JError::new(format!(
-            "can't install a spell due to an internal error while subscribing to the triggers: {}",
-            err
+            "can't install a spell due to an internal error while subscribing to the triggers: {err}"
         )));
     }
 
@@ -162,9 +159,7 @@ pub(crate) async fn spell_remove(
             err
         );
         return Err(JError::new(format!(
-            "can't remove a spell {} due to an internal error while unsubscribing from the triggers: {}",
-            spell_id,
-            err
+            "can't remove a spell {spell_id} due to an internal error while unsubscribing from the triggers: {err}"
         )));
     }
 
@@ -179,22 +174,22 @@ pub(crate) async fn spell_update_config(
     params: ParticleParams,
     services: ParticleAppServices,
     spell_event_bus_api: SpellEventBusApi,
+    key_manager: KeyManager,
 ) -> Result<(), JError> {
     let mut args = args.function_args.into_iter();
     let spell_id: String = Args::next("spell_id", &mut args)?;
+    let spell_peer_id = get_spell_peer_id(params.init_peer_id, &key_manager)
+        .map_err(|e| JError::new(e.to_string()))?;
     let user_config: TriggerConfig = Args::next("config", &mut args)?;
     let config = api::from_user_config(user_config.clone())?;
 
-    // TODO: implement proper permissions management: only the creator and the spell can modify the config
-    // Can't really do proper permission management here right now, so for now this call does the job.
-    // It fails for everyone who's not a spell owner, so only the spell owner can update spell's config.
     process_func_outcome::<UnitValue>(
         services.call_function(
             &spell_id,
             "set_trigger_config",
             vec![json!(user_config)],
             None,
-            params.init_peer_id,
+            spell_peer_id,
             Duration::from_millis(params.ttl as u64),
         ),
         &spell_id,
@@ -234,7 +229,7 @@ pub(crate) fn get_spell_arg(
         services.call_function(
             spell_id,
             "get_string",
-            vec![json!(key.clone())],
+            vec![json!(key)],
             Some(params.id.clone()),
             params.init_peer_id,
             Duration::from_millis(params.ttl as u64),

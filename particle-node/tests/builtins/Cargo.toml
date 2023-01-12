@@ -1,7 +1,7 @@
 [package]
 name = "builtins"
 version = "0.1.0"
-edition = "2018"
+edition = "2021"
 
 [dev-dependencies]
 fstrings = { workspace = true }
@@ -14,16 +14,16 @@ libp2p = { workspace = true }
 
 fluence-keypair = { workspace = true }
 
-test-utils = { path = "../../../crates/test-utils" }
-fs-utils = { path = "../../../crates/fs-utils" }
-log-utils = { path = "../../../crates/log-utils" }
-service-modules = { path = "../../../crates/service-modules" }
-builtins-deployer = { path = "../../../crates/builtins-deployer" }
-particle-modules = { path = "../../../particle-modules" }
-created-swarm = { path = "../../../crates/created-swarm" }
-connected-client = { path = "../../../crates/connected-client" }
-test-constants = { path = "../../../crates/test-constants" }
-now-millis = { path = "../../../crates/now-millis" }
-local-vm = { path = "../../../crates/local-vm" }
-json-utils = { path = "../../../crates/json-utils" }
-control-macro = { path = "../../../crates/control-macro" }
+test-utils = { workspace = true }
+fs-utils = { workspace = true }
+log-utils = { workspace = true }
+service-modules = { workspace = true }
+builtins-deployer = { workspace = true }
+particle-modules = { workspace = true }
+created-swarm = { workspace = true }
+connected-client = { workspace = true }
+test-constants = { workspace = true }
+now-millis = { workspace = true }
+local-vm = { workspace = true }
+json-utils = { workspace = true }
+control-macro = { workspace = true }

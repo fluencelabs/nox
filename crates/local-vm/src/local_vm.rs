@@ -51,7 +51,7 @@ impl Instruction {
             Null => call(),
             Seq(left, r) if *r == Null => Seq(left, call().into()),
             s @ Seq(..) => Seq(s.into(), call().into()),
-            i => panic!("Didn't expect instruction to be {:?}", i),
+            i => panic!("Didn't expect instruction to be {i:?}"),
         }
     }
 
@@ -124,7 +124,7 @@ pub fn client_functions(data: &HashMap<String, JValue>, args: Args) -> ClientFun
         },
         (service, function) => {
             let error = f!("service not found: {service} {function}");
-            println!("{}", error);
+            println!("{error}");
             log::warn!("{}", error);
             ClientFunctionsResult {
                 outcome: FunctionOutcome::Err(JError::new(error)),
@@ -166,7 +166,7 @@ pub fn make_vm(peer_id: PeerId) -> AVM<DataStoreError> {
     let interpreter = air_interpreter_path(&tmp);
     write_default_air_interpreter(&interpreter).expect("write air interpreter");
 
-    let particle_data_store: PathBuf = format!("/tmp/{}", peer_id.to_string()).into();
+    let particle_data_store: PathBuf = format!("/tmp/{peer_id}").into();
     let vault_dir = particle_data_store.join("vault");
     let anomaly_dir = particle_data_store.join("anomalies");
     let data_store = Box::new(ParticleDataStore::new(
@@ -185,7 +185,7 @@ pub fn make_vm(peer_id: PeerId) -> AVM<DataStoreError> {
         .map_err(|err| {
             log::error!("\n\n\nFailed to create local AVM: {:#?}\n\n\n", err);
 
-            println!("\n\n\nFailed to create local AVM: {:#?}\n\n\n", err);
+            println!("\n\n\nFailed to create local AVM: {err:#?}\n\n\n");
 
             err
         })
@@ -200,7 +200,7 @@ pub fn wrap_script(
     executor: Option<PeerId>,
 ) -> String {
     let executor = executor
-        .map(|p| format!("\"{}\"", p))
+        .map(|p| format!("\"{p}\""))
         .unwrap_or(String::from("%init_peer_id%"));
 
     let load_variables = if generated {

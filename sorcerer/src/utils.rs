@@ -37,7 +37,7 @@ where
         ))),
         FunctionOutcome::Empty => Err(JError::new(f!(
             "Function {spell_id}.{function_name} has not returned any result"
-        ))),q
+        ))),
         FunctionOutcome::Err(err) => Err(JError::new(err.to_string())),
         FunctionOutcome::Ok(v) => {
             let result = serde_json::from_value::<T>(v).map_err(|e| {
@@ -54,7 +54,7 @@ where
             } else {
                 Err(JError::new(format!(
                     "Function {spell_id}.{function_name} executed with error: {}",
-                    result.get_error()
+                    result.take_error()
                 )))
             }
         }
@@ -70,8 +70,7 @@ pub(crate) fn parse_spell_id_from(particle_id: &str) -> Result<&str, JError> {
             .ok_or(JError::new("Invalid particle id format"))?)
     } else {
         Err(JError::new(format!(
-            "Expected spell particle id to start with 'spell_': {}",
-            particle_id
+            "Expected spell particle id to start with 'spell_': {particle_id}"
         )))
     }
 }

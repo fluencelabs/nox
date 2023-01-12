@@ -1,0 +1,19 @@
+name: Run tests
+
+on:
+  pull_request:
+    paths-ignore:
+      - "!**.md"
+  push:
+    branches:
+      - "master"
+
+concurrency:
+  group: "${{ github.workflow }}-${{ github.ref }}"
+  cancel-in-progress: true
+
+jobs:
+  rust-peer:
+    uses: ./.github/workflows/tests.yml
+    with:
+      ref: ${{ github.ref }}

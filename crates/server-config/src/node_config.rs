@@ -272,7 +272,7 @@ where
     let config = KeypairConfig::deserialize(deserializer)?;
     config
         .get_keypair(default_path)
-        .map_err(|e| serde::de::Error::custom(format!("{:?}", e)))
+        .map_err(|e| serde::de::Error::custom(format!("{e:?}")))
 }
 
 fn parse_envs<'de, D>(deserializer: D) -> Result<HashMap<Vec<u8>, Vec<u8>>, D::Error>

@@ -138,14 +138,12 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
         let key_manager = self.key_manager.clone();
         for actor in self.actors.values_mut() {
             if let Poll::Ready(result) = actor.poll_completed(cx) {
-                // TODO: filter result.effects and filter out local effects
-
                 interpretation_stats.push(result.stats);
                 let (local_peers, remote_peers): (Vec<_>, Vec<_>) = result
                     .effects
                     .next_peers
                     .into_iter()
-                    .partition(|p| key_manager.is_local_peer_id(&p.to_base58()));
+                    .partition(|p| key_manager.is_scope_peer_id(*p));
 
                 if !remote_peers.is_empty() {
                     remote_effects.push(RoutingEffects {
@@ -155,7 +153,6 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
                 }
 
                 if !local_peers.is_empty() {
-                    log::trace!("Local peers: {:?}", local_peers);
                     local_effects.push(RoutingEffects {
                         particle: result.effects.particle,
                         next_peers: local_peers,
@@ -235,9 +232,9 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
             }
         });
 
-        for effect in local_effects.iter() {
+        for effect in local_effects.into_iter() {
             for local_peer in effect.next_peers.iter() {
-                self.ingest(effect.particle.clone(), None, local_peer.clone());
+                self.ingest(effect.particle.clone(), None, *local_peer);
             }
         }
 
@@ -475,7 +472,7 @@ pub mod mock_time {
     }
 
     pub fn now_ms() -> u64 {
-        MOCK_TIME.with(|cell| cell.borrow().clone())
+        MOCK_TIME.with(|cell| *cell.borrow())
     }
 
     pub fn set_mock_time(time: u64) {

@@ -2,12 +2,12 @@
 name = "connection-pool"
 version = "0.1.0"
 authors = ["Fluence Labs"]
-edition = "2018"
+edition = "2021"
 
 [dependencies]
-particle-protocol = { path = "../particle-protocol"}
-fluence-libp2p = { path = "../crates/libp2p" }
-peer-metrics = { path = "../crates/peer-metrics" }
+particle-protocol = { workspace = true }
+fluence-libp2p = { workspace = true }
+peer-metrics = { workspace = true }
 
 libp2p = { workspace = true }
 
