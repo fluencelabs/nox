@@ -83,7 +83,7 @@ impl Particle {
         }
     }
 
-    fn get_bytes(&self) -> eyre::Result<Vec<u8>> {
+    fn as_bytes(&self) -> eyre::Result<Vec<u8>> {
         #[derive(Serialize)]
         struct ParticleMetadata {
             pub id: String,
@@ -102,6 +102,7 @@ impl Particle {
             script: self.script.clone(),
         })?)
     }
+
     pub fn sign(&mut self, keypair: &KeyPair) -> eyre::Result<()> {
         if self.init_peer_id != keypair.get_peer_id() {
             return Err(eyre::eyre!(
@@ -112,10 +113,7 @@ impl Particle {
             ));
         }
 
-        self.signature = keypair
-            .sign(self.get_bytes()?.as_slice())?
-            .to_vec()
-            .to_vec();
+        self.signature = keypair.sign(self.as_bytes()?.as_slice())?.to_vec().to_vec();
 
         Ok(())
     }
@@ -123,7 +121,7 @@ impl Particle {
     pub fn verify(&self) -> eyre::Result<()> {
         let pk: PublicKey = self.init_peer_id.try_into()?;
         let sig = Signature::from_bytes(pk.get_key_format(), self.signature.clone());
-        Ok(pk.verify(&self.get_bytes()?, &sig)?)
+        Ok(pk.verify(&self.as_bytes()?, &sig)?)
     }
 }
 

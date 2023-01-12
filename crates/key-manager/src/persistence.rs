@@ -31,7 +31,7 @@ use std::path::Path;
 pub struct PersistedKeypair {
     #[serde(with = "peerid_serializer")]
     pub remote_peer_id: PeerId,
-    pub keypair_bytes: Vec<u8>,
+    pub private_key_bytes: Vec<u8>,
     pub key_format: String,
 }
 
@@ -39,7 +39,7 @@ impl PersistedKeypair {
     pub fn new(owner_id: PeerId, keypair: &KeyPair) -> Self {
         Self {
             remote_peer_id: owner_id,
-            keypair_bytes: keypair.to_vec(),
+            private_key_bytes: keypair.to_vec(),
             key_format: keypair.public().get_key_format().into(),
         }
     }

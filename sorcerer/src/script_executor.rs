@@ -85,7 +85,7 @@ impl Sorcerer {
         .source_code)
     }
 
-    pub(crate) fn get_spell_particle(
+    pub(crate) fn make_spell_particle(
         &self,
         spell_id: String,
         scope_peer_id: PeerId,
@@ -137,7 +137,7 @@ impl Sorcerer {
     pub async fn execute_script(&self, event: TriggerEvent) {
         let error: Result<(), JError> = try {
             let scope_peer_id = self.services.get_service_owner(event.spell_id.clone())?;
-            let particle = self.get_spell_particle(event.spell_id.clone(), scope_peer_id)?;
+            let particle = self.make_spell_particle(event.spell_id.clone(), scope_peer_id)?;
 
             self.store_trigger(event.clone(), scope_peer_id)?;
             self.aquamarine.clone().execute(particle, None).await?;

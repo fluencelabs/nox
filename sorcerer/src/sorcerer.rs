@@ -176,7 +176,7 @@ impl Sorcerer {
         });
 
         let storage = self.spell_storage.clone();
-        let list_closure: ServiceFunction = Box::new(move |_args, _params| {
+        let list_closure: ServiceFunction = Box::new(move |_, _params| {
             let storage = storage.clone();
             async move { wrap(spell_list(storage)) }.boxed()
         });
@@ -200,7 +200,7 @@ impl Sorcerer {
         service_functions.push(("spell".to_string(), functions, None));
 
         let get_spell_id_closure: ServiceFunction =
-            Box::new(move |_args, params| async move { wrap(get_spell_id(params)) }.boxed());
+            Box::new(move |_, params| async move { wrap(get_spell_id(params)) }.boxed());
 
         let services = self.services.clone();
         let get_spell_arg_closure: ServiceFunction = Box::new(move |args, params| {
@@ -238,7 +238,7 @@ impl Sorcerer {
         ));
 
         let key_manager = self.key_manager.clone();
-        let scope_closure: ServiceFunction = Box::new(move |_args, params| {
+        let scope_closure: ServiceFunction = Box::new(move |_, params| {
             let key_manager = key_manager.clone();
             async move { wrap(scope_get_peer_id(params, key_manager)) }.boxed()
         });

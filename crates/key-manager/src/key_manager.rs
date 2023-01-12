@@ -54,7 +54,7 @@ impl KeyManager {
             let res: eyre::Result<()> = try {
                 let persisted_kp = pkp?;
                 let keypair = KeyPair::from_vec(
-                    persisted_kp.keypair_bytes,
+                    persisted_kp.private_key_bytes,
                     KeyFormat::from_str(&persisted_kp.key_format)?,
                 )?;
                 let peer_id = keypair.get_peer_id();
@@ -63,8 +63,6 @@ impl KeyManager {
                     .insert(persisted_kp.remote_peer_id, keypair.get_peer_id());
 
                 self.scope_keypairs.write().insert(peer_id, keypair);
-
-                ()
             };
 
             if let Err(e) = res {
@@ -101,7 +99,7 @@ impl KeyManager {
             Ok(k)
         } else {
             Err(eyre::eyre!(
-                "Keypair for peer id {} not exists",
+                "Keypair for peer id {} does not exist",
                 scope_peer_id
             ))
         }

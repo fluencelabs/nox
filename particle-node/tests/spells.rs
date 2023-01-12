@@ -73,46 +73,30 @@ fn spell_simple_test() {
         .wrap_err("connect client")
         .unwrap();
 
-    let script = r#"
+    let script = format!(
+        r#"
         (seq
             (call %init_peer_id% ("getDataSrv" "spell_id") [] spell_id)
             (seq
-                (call %init_peer_id% (spell_id "get_script_source_from_file") [] script)
-                (call %init_peer_id% (spell_id "set_string") ["result" script.$.source_code])
+                (seq
+                    (call %init_peer_id% (spell_id "get_script_source_from_file") [] script)
+                    (call %init_peer_id% (spell_id "get_u32") ["counter"] counter)
+                )
+                (call "{}" ("return" "") [script.$.source_code counter])
             )
-        )"#;
+        )"#,
+        client.peer_id
+    );
 
     let mut config = TriggerConfig::default();
     config.clock.period_sec = 0;
     config.clock.start_sec = 1;
-    let (spell_id, _) = create_spell(&mut client, script, config, hashmap! {});
+    create_spell(&mut client, &script, config, hashmap! {});
 
-    let mut result = "".to_string();
-    let mut counter = 0;
-    for _ in 1..10 {
-        let data = hashmap! {
-            "spell_id" => json!(spell_id),
-            "client" => json!(client.peer_id.to_string()),
-            "relay" => json!(client.node.to_string()),
-        };
-        client.send_particle(
-            r#"
-        (seq
-            (seq
-                (call relay (spell_id "get_string") ["result"] result)
-                (call relay (spell_id "get_u32") ["counter"] counter)
-            )
-            (call client ("return" "") [result counter])
-        )"#,
-            data.clone(),
-        );
-
-        let response = client.receive_args().wrap_err("receive").unwrap();
-        if response[0]["success"].as_bool().unwrap() && response[1]["success"].as_bool().unwrap() {
-            result = response[0]["str"].as_str().unwrap().to_string();
-            counter = response[1]["num"].as_u64().unwrap();
-        }
-    }
+    let response = client.receive_args().wrap_err("receive").unwrap();
+    let result = response[0].as_str().unwrap().to_string();
+    assert!(response[1]["success"].as_bool().unwrap());
+    let counter = response[1]["num"].as_u64().unwrap();
 
     assert_eq!(result, script);
     assert_ne!(counter, 0);
@@ -945,36 +929,20 @@ fn spell_peer_id_test() {
         .wrap_err("connect client")
         .unwrap();
 
-    let script = r#"
-        (seq
-            (call %init_peer_id% ("getDataSrv" "spell_id") [] spell_id)
-            (call %init_peer_id% (spell_id "set_string") ["peer_id" %init_peer_id%])
-        )"#;
+    let script = format!(
+        r#"
+            (call "{}" ("return" "") [%init_peer_id%])
+        "#,
+        client.peer_id
+    );
+
     let mut config = TriggerConfig::default();
     config.clock.start_sec = 1;
-    let (spell_id, scope_peer_id) = create_spell(&mut client, script, config, hashmap! {});
+    let (_, scope_peer_id) = create_spell(&mut client, &script, config, hashmap! {});
 
-    let mut result = "".to_string();
-    for _ in 1..10 {
-        let data = hashmap! {
-            "spell_id" => json!(spell_id),
-            "client" => json!(client.peer_id.to_string()),
-            "relay" => json!(client.node.to_string()),
-        };
-        client.send_particle(
-            r#"
-        (seq
-            (call relay (spell_id "get_string") ["peer_id"] result)
-            (call client ("return" "") [result])
-        )"#,
-            data.clone(),
-        );
+    let response = client.receive_args().wrap_err("receive").unwrap();
 
-        let response = client.receive_args().wrap_err("receive").unwrap();
-        if response[0]["success"].as_bool().unwrap() {
-            result = response[0]["str"].as_str().unwrap().to_string();
-        }
-    }
+    let result = response[0].as_str().unwrap().to_string();
 
     assert_eq!(result, scope_peer_id);
 }

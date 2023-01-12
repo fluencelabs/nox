@@ -239,9 +239,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
         }
 
         // Turn effects into events, and buffer them
-        for effect in remote_effects {
-            self.events.push_back(Ok(effect));
-        }
+        self.events.extend(remote_effects.into_iter().map(Ok));
 
         // Return a new event if there is some
         if let Some(event) = self.events.pop_front() {

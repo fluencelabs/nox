@@ -31,7 +31,7 @@ use std::time::Duration;
 /// for remote returns associated peer id or generate a new one.
 fn get_spell_peer_id(init_peer_id: PeerId, key_manager: &KeyManager) -> eyre::Result<PeerId> {
     // All "nested" spells share the same keypair.
-    // By "nested" means spells which are created by other spells
+    // "nested" means spells which are created by other spells
     if key_manager.is_scope_peer_id(init_peer_id) {
         Ok(init_peer_id)
     } else {
@@ -58,7 +58,6 @@ pub(crate) async fn spell_install(
     let mut args = sargs.function_args.clone().into_iter();
     let script: String = Args::next("script", &mut args)?;
     let init_data: String = Args::next("data", &mut args)?;
-    log::trace!("Init data: {}", json!(init_data));
     let user_config: TriggerConfig = Args::next("config", &mut args)?;
     let config = api::from_user_config(user_config.clone())?;
 
