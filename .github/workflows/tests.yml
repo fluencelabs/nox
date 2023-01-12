@@ -1,4 +1,4 @@
-name: Run tests
+name: Run tests with workflow call
 
 on:
   workflow_call:
@@ -10,9 +10,6 @@ on:
       cargo-dependencies:
         description: "Cargo dependencies map"
         type: string
-  pull_request:
-    paths-ignore:
-      - "!**.md"
 
 jobs:
   lint:
