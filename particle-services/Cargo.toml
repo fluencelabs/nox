@@ -2,7 +2,7 @@
 name = "particle-services"
 version = "0.1.0"
 authors = ["Fluence Labs"]
-edition = "2018"
+edition = "2021"
 
 [dependencies]
 particle-modules = { workspace = true }

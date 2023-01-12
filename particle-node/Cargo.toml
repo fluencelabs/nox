@@ -3,7 +3,7 @@ name = "particle-node"
 version = "0.7.1"
 authors = ["Fluence Labs"]
 description = "Node implementing peer functionality in the Fluence p2p network"
-edition = "2018"
+edition = "2021"
 
 [dependencies]
 particle-protocol = { workspace = true }

@@ -2,7 +2,7 @@
 name = "tetraplets"
 version = "0.2.0"
 authors = ["Fluence Labs"]
-edition = "2018"
+edition = "2021"
 
 [dependencies]
 marine-rs-sdk = "0.7.0"

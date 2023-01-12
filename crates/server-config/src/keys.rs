@@ -74,21 +74,22 @@ pub fn decode_key(key_string: String, key_format: String) -> eyre::Result<KeyPai
         .map_err(|err| eyre!("base64 decoding failed: {}", err))
         .and_then(validate_length);
 
-    let bytes = if bytes_from_base64.is_err() {
-        let bytes_from_base58 = bs58::decode(key_string)
-            .into_vec()
-            .map_err(|err| eyre!("base58 decoding failed: {}", err))
-            .and_then(validate_length);
-        if bytes_from_base58.is_err() {
-            return Err(eyre!(
-                "Tried to decode secret key as base64 and as base58 from string {}, but failed.\nbase64 decoding error:{}\nbase58 decoding error:{}",
-                key_string, bytes_from_base64.err().unwrap(), bytes_from_base58.err().unwrap()
-            ));
-        } else {
-            bytes_from_base58.unwrap()
+    let bytes = match bytes_from_base64 {
+        Ok(bytes) => bytes,
+        Err(base64_err) => {
+            let bytes_from_base58 = bs58::decode(key_string)
+                .into_vec()
+                .map_err(|err| eyre!("base58 decoding failed: {}", err))
+                .and_then(validate_length);
+
+            match bytes_from_base58 {
+                Ok(bytes) => bytes,
+                Err(base58_err) => return Err(eyre!(
+                    "Tried to decode secret key as base64 and as base58 from string {}, but failed.\nbase64 decoding error:{}\nbase58 decoding error:{}",
+                    key_string, base64_err, base58_err
+                ))
+            }
         }
-    } else {
-        bytes_from_base64.unwrap()
     };
 
     // It seems that secp256k1 secret key length can be less than 32 byte
@@ -121,17 +122,17 @@ fn read_secret_key_from_file(key_path: &Path, key_format: String) -> eyre::Resul
 
 pub fn decode_key_pair(key_pair: Vec<u8>, key_format: String) -> eyre::Result<KeyPair> {
     KeyPair::from_vec(key_pair, KeyFormat::from_str(&key_format)?)
-            .map_err(|e| eyre!("Error decoding keypair of format {}: {:?}", key_format, e))
+        .map_err(|e| eyre!("Error decoding keypair of format {}: {:?}", key_format, e))
 }
 
 pub fn decode_secret_key(secret_key: Vec<u8>, key_format: String) -> eyre::Result<KeyPair> {
     KeyPair::from_secret_key(secret_key, KeyFormat::from_str(&key_format)?).map_err(|e| {
-            eyre!(
-                "Error decoding secret key of format {}: {:?}",
-                key_format,
-                e
-            )
-        })
+        eyre!(
+            "Error decoding secret key of format {}: {:?}",
+            key_format,
+            e
+        )
+    })
 }
 
 /// Read the file with a secret key if it exists, generate a new key pair and write it to file if not.

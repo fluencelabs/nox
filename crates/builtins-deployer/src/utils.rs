@@ -64,7 +64,7 @@ pub fn load_blueprint(path: &Path) -> Result<AddBlueprint> {
 }
 
 pub fn get_blueprint_id(modules: &[Module], name: String) -> Result<String> {
-    let mut deps_hashes: Vec<Hash> = modules.iter().map(|m| Hash::hash(&m.data)).collect();
+    let mut deps_hashes: Vec<Hash> = modules.iter().map(|m| Hash::new(&m.data)).collect();
     let facade = deps_hashes
         .pop()
         .ok_or_else(|| eyre!("invalid blueprint {}: dependencies can't be empty", name))?;
