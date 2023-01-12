@@ -362,6 +362,7 @@ impl<RT: AquaRuntime> Node<RT> {
     }
 
     /// Starts node service
+    #[allow(clippy::boxed_local)] // Mike said it should be boxed
     pub fn start(self: Box<Self>) -> eyre::Result<OneshotOutlet<()>> {
         let (exit_outlet, exit_inlet) = oneshot::channel();
         let mut exit_inlet = exit_inlet.into_stream().fuse();

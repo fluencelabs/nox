@@ -51,7 +51,7 @@ impl Instruction {
             Null => call(),
             Seq(left, r) if *r == Null => Seq(left, call().into()),
             s @ Seq(..) => Seq(s.into(), call().into()),
-            i => panic!("Didn't expect instruction to be {:?}", i),
+            i => panic!("Didn't expect instruction to be {i:?}"),
         }
     }
 

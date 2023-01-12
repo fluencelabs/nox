@@ -22,6 +22,8 @@ use peer_metrics::VmPoolMetrics;
 
 use crate::aqua_runtime::AquaRuntime;
 
+type RuntimeF = BoxFuture<'static, Result<RT, RT::Error>>;
+
 /// Pool that owns and manages aquamarine stepper VMs
 /// VMs are created asynchronously after `VmPool` creation
 /// Futures representing background VM creation are stored in `VmPool::creating_runtimes`
@@ -33,7 +35,7 @@ use crate::aqua_runtime::AquaRuntime;
 /// It is also expected that `VmPool::poll` is called periodically.
 pub struct VmPool<RT: AquaRuntime> {
     runtimes: Vec<Option<RT>>,
-    creating_runtimes: Option<Vec<BoxFuture<'static, Result<RT, RT::Error>>>>,
+    creating_runtimes: Option<Vec<RuntimeF>>,
     runtime_config: RT::Config,
     pool_size: usize,
     metrics: Option<VmPoolMetrics>,
