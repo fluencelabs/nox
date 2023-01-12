@@ -13,53 +13,28 @@ jobs:
     runs-on: builder
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
-      - uses: actions/cache@v2
+      - name: Setup Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+
+      - name: Install cargo-nextest
+        uses: baptiste0928/cargo-install@v1.3.0
         with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          crate: cargo-nextest
+          version: 0.9.22
 
-      - name: Install toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: nightly
-          override: true
-
-      - run: cargo install --locked cargo-nextest@0.9.22
-
-#      - name: Run cargo check
-#        uses: actions-rs/cargo@v1
-#        with:
-#          command: check
-
-      - run: cargo nextest run --release --all-features --no-fail-fast --retries 2 --test-threads 10
+      - run: cargo nextest run --release --all-features --profile ci
 
   lints:
     name: Lints
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
-      - uses: actions/cache@v2
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-
-      - name: Install toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: nightly
-          override: true
-          components: rustfmt, clippy
+      - name: Setup Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
 
       - name: Run cargo fmt
         uses: actions-rs/cargo@v1
