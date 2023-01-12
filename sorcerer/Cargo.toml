@@ -6,21 +6,21 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-aquamarine = { path = "../aquamarine" }
-spell-storage = { path = "../spell-storage" }
-particle-builtins = { path = "../particle-builtins" }
-particle-services = { path = "../particle-services" }
-particle-modules = { path = "../particle-modules" }
-particle-execution = { path = "../particle-execution" }
-particle-protocol = { path = "../particle-protocol" }
-spell-event-bus = { path = "../crates/spell-event-bus" }
-server-config = { path = "../crates/server-config" }
-particle-args = { path = "../crates/particle-args" }
-uuid-utils = { path = "../crates/uuid-utils" }
-now-millis = { path = "../crates/now-millis" }
-connection-pool = { path = "../connection-pool"}
-kademlia = { path = "../crates/kademlia"}
-fluence-libp2p = { path = "../crates/libp2p" }
+aquamarine = { workspace = true }
+spell-storage = { workspace = true }
+particle-builtins = { workspace = true }
+particle-services = { workspace = true }
+particle-modules = { workspace = true }
+particle-execution = { workspace = true }
+particle-protocol = { workspace = true }
+spell-event-bus = { workspace = true }
+server-config = { workspace = true }
+particle-args = { workspace = true }
+uuid-utils = { workspace = true }
+now-millis = { workspace = true }
+connection-pool = { workspace = true }
+kademlia = { workspace = true }
+fluence-libp2p = { workspace = true }
 
 libp2p = { workspace = true }
 

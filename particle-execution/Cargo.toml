@@ -4,12 +4,12 @@ version = "0.1.0"
 edition = "2018"
 
 [dependencies]
-particle-protocol = { path = "../particle-protocol" }
+particle-protocol = { workspace = true }
 
-particle-args = { path = "../crates/particle-args" }
-fluence-libp2p = { path = "../crates/libp2p" }
-fs-utils = { path = "../crates/fs-utils" }
-json-utils = { path = "../crates/json-utils" }
+particle-args = { workspace = true }
+fluence-libp2p = { workspace = true }
+fs-utils = { workspace = true }
+json-utils = { workspace = true }
 
 thiserror = { workspace = true }
 futures = { workspace = true }

@@ -5,21 +5,21 @@ authors = ["Fluence Labs"]
 edition = "2018"
 
 [dependencies]
-particle-protocol = { path = "../particle-protocol"}
-particle-execution = { path = "../particle-execution"}
-particle-services = { path = "../particle-services"}
-particle-modules = { path = "../particle-modules"}
-connection-pool = { path = "../connection-pool"}
-script-storage = { path = "../script-storage"}
+particle-protocol = { workspace = true }
+particle-execution = { workspace = true }
+particle-services = { workspace = true }
+particle-modules = { workspace = true }
+connection-pool = { workspace = true }
+script-storage = { workspace = true }
 
-server-config = { path = "../crates/server-config"}
-kademlia = { path = "../crates/kademlia"}
-particle-args = { path = "../crates/particle-args" }
-ivalue-utils = { path = "../crates/ivalue-utils" }
-now-millis = { path = "../crates/now-millis" }
-toml-utils = { path = "../crates/toml-utils" }
-peer-metrics = { path = "../crates/peer-metrics" }
-uuid-utils = { path = "../crates/uuid-utils" }
+server-config = { workspace = true }
+kademlia = { workspace = true }
+particle-args = { workspace = true }
+ivalue-utils = { workspace = true }
+now-millis = { workspace = true }
+toml-utils = { workspace = true }
+peer-metrics = { workspace = true }
+uuid-utils = { workspace = true }
 
 libp2p = { workspace = true }
 avm-server = { workspace = true }

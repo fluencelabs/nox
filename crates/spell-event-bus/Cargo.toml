@@ -5,13 +5,13 @@ authors = ["Fluence Labs"]
 edition = "2018"
 
 [dependencies]
-particle-services = { path = "../../particle-services"}
-particle-args = { path = "../particle-args" }
-uuid-utils = { path = "../uuid-utils" }
-now-millis = { path = "../now-millis" }
-particle-execution = { path = "../../particle-execution" }
-connection-pool = { path = "../../connection-pool"}
-fluence-libp2p = { path = "../libp2p" }
+particle-services = { workspace = true }
+particle-args = { workspace = true }
+uuid-utils = { workspace = true }
+now-millis = { workspace = true }
+particle-execution = { workspace = true }
+connection-pool = { workspace = true }
+fluence-libp2p = { workspace = true }
 
 parking_lot = { workspace = true }
 serde_json = { workspace = true }
@@ -26,5 +26,5 @@ fluence-spell-dtos = { workspace = true }
 
 [dev-dependencies]
 libp2p = { workspace = true }
-particle-protocol = { path = "../../particle-protocol"}
+particle-protocol = { workspace = true }
 maplit = { workspace = true }

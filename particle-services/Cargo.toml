@@ -5,19 +5,19 @@ authors = ["Fluence Labs"]
 edition = "2018"
 
 [dependencies]
-particle-modules = { path = "../particle-modules" }
-particle-protocol = { path = "../particle-protocol" }
+particle-modules = { workspace = true }
+particle-protocol = { workspace = true }
 
-fs-utils = { path = "../crates/fs-utils" }
-service-modules = { path = "../crates/service-modules" }
-json-utils = { path = "../crates/json-utils" }
-particle-args = { path = "../crates/particle-args" }
-server-config = { path = "../crates/server-config" }
-fluence-libp2p = { path = "../crates/libp2p" }
-particle-execution = { path = "../particle-execution" }
-peer-metrics = { path = "../crates/peer-metrics" }
-uuid-utils = { path = "../crates/uuid-utils" }
-now-millis = { path = "../crates/now-millis" }
+fs-utils = { workspace = true }
+service-modules = { workspace = true }
+json-utils = { workspace = true }
+particle-args = { workspace = true }
+server-config = { workspace = true }
+fluence-libp2p = { workspace = true }
+particle-execution = { workspace = true }
+peer-metrics = { workspace = true }
+uuid-utils = { workspace = true }
+now-millis = { workspace = true }
 
 fluence-app-service = { workspace = true }
 
@@ -36,4 +36,4 @@ humantime-serde = "1.1.1"
 tempdir = "0.3.7"
 libp2p-core = { workspace = true }
 base64 = { workspace = true }
-config-utils = { path = "../crates/config-utils" }
+config-utils = { workspace = true }
