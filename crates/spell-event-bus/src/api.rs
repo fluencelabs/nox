@@ -81,7 +81,7 @@ impl From<TriggerInfo> for TriggerInfoAqua {
         match i {
             TriggerInfo::Timer(t) => Self {
                 timer: vec![t],
-                peer: vec![],
+                peer: vec![], // Empty Vec corresponds to Aqua nil
             },
             TriggerInfo::Peer(p) => Self {
                 timer: vec![],
