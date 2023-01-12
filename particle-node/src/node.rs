@@ -223,9 +223,7 @@ impl<RT: AquaRuntime> Node<RT> {
         );
 
         let recv_connection_pool_events = connectivity.connection_pool.lifecycle_events();
-        let sources = vec![recv_connection_pool_events
-            .map(PeerEvent::ConnectionPool)
-            .boxed()];
+        let sources = vec![recv_connection_pool_events.map(PeerEvent::from).boxed()];
 
         let (spell_event_bus, spell_event_bus_api, spell_events_stream) =
             SpellEventBus::new(sources);
