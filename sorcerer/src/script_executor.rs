@@ -19,6 +19,7 @@ use serde_json::json;
 use now_millis::now_ms;
 use particle_args::JError;
 use particle_protocol::Particle;
+use spell_event_bus::api::{TriggerEvent, TriggerInfoAqua};
 
 use crate::utils::process_func_outcome;
 use crate::Sorcerer;
@@ -94,19 +95,37 @@ impl Sorcerer {
         })
     }
 
-    pub async fn execute_script(&self, spell_id: String) {
-        match self.get_spell_particle(spell_id) {
-            Ok(particle) => {
-                self.aquamarine
-                    .clone()
-                    .execute(particle, None)
-                    // do not log errors: Aquamarine will log them fine
-                    .await
-                    .ok();
-            }
-            Err(err) => {
-                log::warn!("Cannot make spell particle: {:?}", err);
-            }
+    pub(crate) fn store_trigger(&self, event: TriggerEvent) -> Result<(), JError> {
+        let serialized_event = serde_json::to_string(&TriggerInfoAqua::from(event.info))?;
+
+        let func_outcome = self.services.call_function(
+            &event.spell_id,
+            "list_push_string",
+            vec![json!("trigger_mailbox"), json!(serialized_event)],
+            None,
+            self.node_peer_id,
+            self.spell_script_particle_ttl,
+        );
+
+        process_func_outcome::<UnitValue>(func_outcome, &event.spell_id, "list_push_string")
+            .map(drop)
+    }
+
+    pub async fn execute_script(&self, event: TriggerEvent) {
+        let error: Result<(), JError> = try {
+            let particle = self.get_spell_particle(event.spell_id.clone())?;
+
+            self.store_trigger(event.clone())?;
+            self.aquamarine.clone().execute(particle, None).await?;
+        };
+
+        if let Err(err) = error {
+            log::warn!(
+                "Failed to execute spell script id: {}, event: {:?}, error: {:?}",
+                event.spell_id,
+                event.info,
+                err
+            );
         }
     }
 }
