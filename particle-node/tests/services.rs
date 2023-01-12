@@ -120,7 +120,10 @@ fn create_service_from_config() {
           (xor
            (seq
             (seq
-             (call -relay- ("dist" "make_blueprint") ["pure_base64" $mod_hashes] blueprint)
+             (seq
+              (canon -relay- $mod_hashes #mod_hashes)
+              (call -relay- ("dist" "make_blueprint") ["pure_base64" #mod_hashes] blueprint)
+             )
              (call -relay- ("dist" "add_blueprint") [blueprint] blueprint_id)
             )
             (call -relay- ("srv" "create") [blueprint_id] service_id)
@@ -280,7 +283,10 @@ fn handle_same_dir_in_preopens_and_mapped_dirs() {
           (xor
            (seq
             (seq
-             (call -relay- ("dist" "make_blueprint") ["pure_base64" $mod_hashes] blueprint)
+             (seq
+              (canon -relay- $mod_hashes #mod_hashes)
+              (call -relay- ("dist" "make_blueprint") ["pure_base64" #mod_hashes] blueprint)
+             )
              (call -relay- ("dist" "add_blueprint") [blueprint] blueprint_id)
             )
             (call -relay- ("srv" "create") [blueprint_id] service_id)

@@ -538,7 +538,7 @@ fn add_script_delay_oneshot() {
         (seq
             (call relay ("peer" "timestamp_sec") [] now)
             (seq
-                (call relay ("script" "add") [script $none delay])
+                (call relay ("script" "add") [script [] delay])
                 (call %init_peer_id% ("op" "return") [now])
             )
         )

@@ -124,7 +124,10 @@ fn fold_fold_fold_par_null() {
                 )
                 (seq
                     (call relay ("op" "noop") [])
-                    (call client ("return" "") [$inner])
+                    (seq
+                        (canon client $inner #inner) 
+                        (call client ("return" "") [#inner])
+                    )
                 )
             )
         )
