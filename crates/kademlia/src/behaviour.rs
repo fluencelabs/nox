@@ -633,16 +633,16 @@ mod tests {
         Swarm::dial(&mut a, e_addr.clone()).unwrap();
         a.behaviour_mut()
             .kademlia
-            .add_address(Swarm::local_peer_id(&b), b_addr.clone());
+            .add_address(Swarm::local_peer_id(&b), b_addr);
         a.behaviour_mut()
             .kademlia
             .add_address(Swarm::local_peer_id(&c), c_addr.clone());
         a.behaviour_mut()
             .kademlia
-            .add_address(Swarm::local_peer_id(&d), d_addr.clone());
+            .add_address(Swarm::local_peer_id(&d), d_addr);
         a.behaviour_mut()
             .kademlia
-            .add_address(Swarm::local_peer_id(&e), e_addr.clone());
+            .add_address(Swarm::local_peer_id(&e), e_addr);
         a.behaviour_mut().kademlia.bootstrap().ok();
 
         // b knows only a, wants to discover c
@@ -652,7 +652,7 @@ mod tests {
             .add_address(Swarm::local_peer_id(&a), a_addr);
         let (out, inlet) = oneshot::channel();
         b.behaviour_mut()
-            .discover_peer(Swarm::local_peer_id(&c).clone(), out);
+            .discover_peer(*Swarm::local_peer_id(&c), out);
         let discover_fut = inlet;
 
         let maddr = async_std::task::block_on(timeout(Duration::from_millis(200), async move {
@@ -705,7 +705,7 @@ mod tests {
         task::block_on(timeout(Duration::from_millis(200), async {
             loop {
                 node.select_next_some().await;
-                if node.behaviour_mut().failed_peers.len() >= 1 {
+                if !node.behaviour_mut().failed_peers.is_empty() {
                     break;
                 }
             }

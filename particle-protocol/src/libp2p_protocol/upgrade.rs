@@ -119,7 +119,7 @@ where
         async move {
             let decoded = upgrade::read_length_prefixed(&mut socket, MAX_BUF_SIZE).await?;
             let msg: ProtocolMessage = serde_json::from_slice(&decoded)
-                .wrap_err_with(|| format!("unable to deserialize: '{:?}'", decoded))?;
+                .wrap_err_with(|| format!("unable to deserialize: '{decoded:?}'"))?;
 
             Ok(msg)
         }
@@ -182,7 +182,7 @@ where
                 // it's ok to ignore error here: inlet might be dropped any time
                 let result = match &result {
                     Ok(_) => SendStatus::Ok,
-                    Err(err) => SendStatus::ProtocolError(format!("{:?}", err)),
+                    Err(err) => SendStatus::ProtocolError(format!("{err:?}")),
                 };
                 channel.send(result).ok();
             }
@@ -223,7 +223,7 @@ mod tests {
     fn oneshot_channel_test() {
         let mem_addr = multiaddr![Memory(thread_rng().gen::<u64>())];
         let mut transport = MemoryTransport::new().boxed();
-        transport.listen_on(mem_addr.clone()).unwrap();
+        transport.listen_on(mem_addr).unwrap();
 
         let listener_addr = match transport.select_next_some().now_or_never() {
             Some(TransportEvent::NewAddress { listen_addr, .. }) => listen_addr,
@@ -1930,7 +1930,7 @@ mod tests {
         let expected = block_on(upgrade::read_varint(&mut packet2));
         println!("array2: expected len {:?}, len {}", expected, array2.len());
 
-        let out_packet = [array, &['}' as u8]].concat();
+        let out_packet = [array, &[b'}']].concat();
 
         let mut output = Vec::new();
         block_on(upgrade::write_length_prefixed(&mut output, &out_packet)).unwrap();
@@ -1946,6 +1946,6 @@ mod tests {
 
         let mut varlength = Vec::new();
         block_on(upgrade::write_varint(&mut varlength, 16387 - 3)).unwrap();
-        println!("varlength {:?}", varlength);
+        println!("varlength {varlength:?}");
     }
 }

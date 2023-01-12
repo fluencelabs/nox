@@ -433,7 +433,7 @@ pub mod mock_time {
     }
 
     pub fn now_ms() -> u64 {
-        MOCK_TIME.with(|cell| cell.borrow().clone())
+        MOCK_TIME.with(|cell| *cell.borrow())
     }
 
     pub fn set_mock_time(time: u64) {

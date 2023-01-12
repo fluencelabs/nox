@@ -12,9 +12,7 @@ pub fn fmt_custom_services(
         .entries(services.read().iter().map(|(sid, fs)| {
             (
                 sid,
-                fs.functions
-                    .iter()
-                    .map(|(fname, _)| fname)
+                fs.functions.keys()
                     .collect::<Vec<_>>(),
             )
         }))

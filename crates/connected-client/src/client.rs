@@ -80,7 +80,7 @@ impl Client {
 
     pub fn send(&self, particle: Particle, node: PeerId) {
         if let Err(err) = self.relay_outlet.unbounded_send(Command { node, particle }) {
-            let err_msg = format!("{:?}", err);
+            let err_msg = format!("{err:?}");
             let msg = err.into_inner();
             log::warn!("Unable to send msg {:?}: {:?}", msg, err_msg)
         }
@@ -169,7 +169,7 @@ impl Client {
                     from_relay = swarm.select_next_some() => {
                         match Self::receive_from_node(from_relay, &client_outlet) {
                             Err(err) => {
-                                let err_msg = format!("{:?}", err);
+                                let err_msg = format!("{err:?}");
                                 let msg = err.into_inner();
                                 log::warn!("unable to send {:?} to node: {:?}", msg, err_msg)
                             },

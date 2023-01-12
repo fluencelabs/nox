@@ -85,7 +85,7 @@ impl Sorcerer {
 
         Ok(Particle {
             id: f!("spell_{spell_id}_{spell_counter}"),
-            init_peer_id: self.node_peer_id.clone(),
+            init_peer_id: self.node_peer_id,
             timestamp: now_ms() as u64,
             ttl: self.spell_script_particle_ttl.as_millis() as u32,
             script: spell_script,

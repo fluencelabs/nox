@@ -28,7 +28,6 @@ pub fn write_default_air_interpreter(destination: &Path) -> Result<()> {
     use std::fs::write;
 
     write(destination, INTERPRETER_WASM).wrap_err(format!(
-        "failed writing default INTERPRETER_WASM to {:?}",
-        destination
+        "failed writing default INTERPRETER_WASM to {destination:?}"
     ))
 }

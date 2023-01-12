@@ -36,7 +36,7 @@ pub async fn timeout<F, T>(dur: Duration, f: F) -> eyre::Result<T>
 where
     F: std::future::Future<Output = T>,
 {
-    Ok(async_std::future::timeout(dur, f)
+    async_std::future::timeout(dur, f)
         .await
-        .wrap_err(format!("timed out after {:?}", dur))?)
+        .wrap_err(format!("timed out after {dur:?}"))
 }

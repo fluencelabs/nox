@@ -75,8 +75,8 @@ pub fn get_blueprint_id(modules: &[Module], name: String) -> Result<String> {
 pub fn load_scheduled_scripts(path: &Path) -> Result<Vec<ScheduledScript>> {
     let mut scripts = vec![];
     if let Some(files) = list_files(&path.join("scheduled")) {
-        for path in files.into_iter() {
-            let data = fs::read_to_string(path.to_path_buf())?;
+        for path in files {
+            let data = fs::read_to_string(&path)?;
             let name = file_stem(&path)?;
 
             let mut script_info = name.split('_');

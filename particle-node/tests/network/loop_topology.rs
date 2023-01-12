@@ -31,7 +31,8 @@ fn permutations(swarms: &[CreatedSwarm]) -> Vec<Vec<(String, u32)>> {
 
     let pids = swarms.iter().map(|s| s.peer_id.to_string());
     let mut i = 0u32;
-    let pids = pids
+    
+    pids
         .permutations(swarms.len())
         .map(|p| {
             p.into_iter()
@@ -41,8 +42,7 @@ fn permutations(swarms: &[CreatedSwarm]) -> Vec<Vec<(String, u32)>> {
                 })
                 .collect()
         })
-        .collect();
-    pids
+        .collect()
 }
 
 pub struct Abuse {
@@ -58,13 +58,13 @@ fn abuse_fold(air: &str) -> Abuse {
         .unwrap();
 
     let nums: Vec<String> = (1..2).map(|i| i.to_string()).collect();
-    let vec = vec![nums.clone(), nums.clone(), nums.clone()];
+    let vec = vec![nums.clone(), nums.clone(), nums];
     let elems: Vec<(String, Vec<Vec<String>>)> = vec![
         ("a".into(), vec.clone()),
         ("a".into(), vec.clone()),
         ("a".into(), vec.clone()),
         ("a".into(), vec.clone()),
-        ("a".into(), vec.clone()),
+        ("a".into(), vec),
     ];
 
     println!("elems {}", json!(elems));
@@ -81,7 +81,7 @@ fn abuse_fold(air: &str) -> Abuse {
     client.timeout = Duration::from_secs(1);
 
     let args = client.receive_args().wrap_err("receive args");
-    let args = args.expect(format!("{} failed", json!(elems)).as_str());
+    let args = args.unwrap_or_else(|_| panic!("{} failed", json!(elems)));
     println!("args {}", json!(args));
     let output = match args.into_iter().next() {
         Some(JValue::Array(output)) => output,
@@ -133,8 +133,7 @@ fn fold_fold_fold_par_null() {
 
     let flat: Vec<Vec<String>> = input
         .into_iter()
-        .map(|(_, arr)| arr.into_iter())
-        .flatten()
+        .flat_map(|(_, arr)| arr.into_iter())
         .collect();
 
     assert_eq!(json!(flat), json!(output));
@@ -184,8 +183,7 @@ fn fold_fold_fold_par_null_join() {
 
     let flat: Vec<Vec<String>> = input
         .into_iter()
-        .map(|(_, arr)| arr.into_iter())
-        .flatten()
+        .flat_map(|(_, arr)| arr.into_iter())
         .collect();
 
     assert_eq!(json!(flat), json!(output));
@@ -243,8 +241,7 @@ fn fold_fold_fold_seq_two_par_null_folds() {
 
     let flat: Vec<Vec<String>> = input
         .into_iter()
-        .map(|(_, arr)| arr.into_iter())
-        .flatten()
+        .flat_map(|(_, arr)| arr.into_iter())
         .collect();
 
     assert_eq!(json!(flat), json!(output));
@@ -346,8 +343,7 @@ fn fold_par_same_node_stream() {
     let inner: Inner = serde_json::from_value(args.remove(0)).unwrap();
     let permutations: Inner = permutations
         .into_iter()
-        .map(|(_, perms)| perms.into_iter())
-        .flatten()
+        .flat_map(|(_, perms)| perms.into_iter())
         .collect();
     assert_eq!(permutations, inner);
 
@@ -362,7 +358,7 @@ fn fold_par_same_node_stream() {
 fn fold_fold_seq_join() {
     let swarm = make_swarms(1).remove(0);
 
-    let mut client = ConnectedClient::connect_to(swarm.multiaddr.clone())
+    let mut client = ConnectedClient::connect_to(swarm.multiaddr)
         .wrap_err("connect client")
         .unwrap();
 
@@ -373,7 +369,7 @@ fn fold_fold_seq_join() {
         })
         .collect();
 
-    let flat: Vec<_> = array.iter().flatten().map(|c| *c).collect();
+    let flat: Vec<_> = array.iter().flatten().copied().collect();
 
     client.send_particle(
         r#"
@@ -459,9 +455,7 @@ fn fold_fold_pairs_seq_join() {
 
     let flat: Vec<_> = array
         .iter()
-        .map(|(_, cs)| cs)
-        .flatten()
-        .map(|c| *c)
+        .flat_map(|(_, cs)| cs).copied()
         .collect();
 
     assert_eq!(flat.len(), 25);
@@ -537,7 +531,7 @@ fn fold_fold_pairs_seq_join() {
 fn fold_seq_join() {
     let swarm = make_swarms(1).remove(0);
 
-    let mut client = ConnectedClient::connect_to(swarm.multiaddr.clone())
+    let mut client = ConnectedClient::connect_to(swarm.multiaddr)
         .wrap_err("connect client")
         .unwrap();
 
@@ -626,8 +620,7 @@ fn fold_null_seq_same_node_stream() {
     println!("permutations {}", json!(permutations));
 
     client.send_particle(
-        format!(
-            r##"
+        r##"
         (seq
             (seq
                 (null)
@@ -717,8 +710,7 @@ fn fold_null_seq_same_node_stream() {
                 )
             )
         )
-        "##
-        )
+        "##.to_string()
         .as_str(),
         hashmap! {
             "relay" => json!(client.node.to_string()),
@@ -735,8 +727,7 @@ fn fold_null_seq_same_node_stream() {
     let inner: Inner = serde_json::from_value(args.remove(0)).unwrap();
     let permutations: Inner = permutations
         .into_iter()
-        .map(|(_, perms)| perms.into_iter())
-        .flatten()
+        .flat_map(|(_, perms)| perms.into_iter())
         .collect();
     assert_eq!(permutations, inner);
 
@@ -925,7 +916,7 @@ fn join_empty_stream() {
         },
     );
 
-    let err = client.receive_args().err().expect("receive error");
+    let err = client.receive_args().expect_err("receive error");
     assert_eq!(
         err.to_string(),
         "Received a particle, but it didn't return anything"

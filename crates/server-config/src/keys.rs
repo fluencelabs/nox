@@ -38,18 +38,18 @@ fn create_new_key_pair(key_path: &Path, key_format: KeyFormat) -> Result<KeyPair
     let secret_key = key_pair
         .secret()
         .expect("error getting secret key from keypair");
-    let encoded = base64::encode(secret_key.to_vec());
+    let encoded = base64::encode(secret_key);
 
     let mut key_file = File::create(key_path).map_err(|err| {
         std::io::Error::new(
             err.kind(),
-            format!("error creating keypair file {:?}: {:?}", key_path, err),
+            format!("error creating keypair file {key_path:?}: {err:?}"),
         )
     })?;
     key_file.write_all(encoded.as_bytes()).map_err(|err| {
         std::io::Error::new(
             err.kind(),
-            format!("error writing keypair to {:?}: {:?}", key_path, err),
+            format!("error writing keypair to {key_path:?}: {err:?}"),
         )
     })?;
 
@@ -120,22 +120,18 @@ fn read_secret_key_from_file(key_path: &Path, key_format: String) -> eyre::Resul
 }
 
 pub fn decode_key_pair(key_pair: Vec<u8>, key_format: String) -> eyre::Result<KeyPair> {
-    Ok(
-        KeyPair::from_vec(key_pair, KeyFormat::from_str(&key_format)?)
-            .map_err(|e| eyre!("Error decoding keypair of format {}: {:?}", key_format, e))?,
-    )
+    KeyPair::from_vec(key_pair, KeyFormat::from_str(&key_format)?)
+            .map_err(|e| eyre!("Error decoding keypair of format {}: {:?}", key_format, e))
 }
 
 pub fn decode_secret_key(secret_key: Vec<u8>, key_format: String) -> eyre::Result<KeyPair> {
-    Ok(
-        KeyPair::from_secret_key(secret_key, KeyFormat::from_str(&key_format)?).map_err(|e| {
+    KeyPair::from_secret_key(secret_key, KeyFormat::from_str(&key_format)?).map_err(|e| {
             eyre!(
                 "Error decoding secret key of format {}: {:?}",
                 key_format,
                 e
             )
-        })?,
-    )
+        })
 }
 
 /// Read the file with a secret key if it exists, generate a new key pair and write it to file if not.

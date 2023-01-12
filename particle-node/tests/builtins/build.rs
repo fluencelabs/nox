@@ -20,8 +20,7 @@ fn main() {
     let status = Command::new("./download_builtins.sh").status().unwrap();
     assert!(
         status.success(),
-        "download_builtins failed with {:?}",
-        status
+        "download_builtins failed with {status:?}"
     );
     println!("cargo:rerun-if-changed=download_builtins.sh");
 }

@@ -59,7 +59,7 @@ impl Connectivity {
         let contact = self.connection_pool.get_contact(target).await;
         if let Some(contact) = contact {
             // contact is connected directly to current node
-            metrics.map(|m| m.count_resolution(Resolution::Local));
+            if let Some(m) = metrics { m.count_resolution(Resolution::Local) }
             return Some(contact);
         } else {
             // contact isn't connected, have to discover it
@@ -69,10 +69,10 @@ impl Connectivity {
                     // connect to the discovered contact
                     let connected = self.connection_pool.connect(contact.clone()).await;
                     if connected {
-                        metrics.map(|m| m.count_resolution(Resolution::Kademlia));
+                        if let Some(m) = metrics { m.count_resolution(Resolution::Kademlia) }
                         return Some(contact);
                     }
-                    metrics.map(|m| m.count_resolution(Resolution::ConnectionFailed));
+                    if let Some(m) = metrics { m.count_resolution(Resolution::ConnectionFailed) }
                     log::warn!(
                         "{} Couldn't connect to {} for particle {}",
                         self.peer_id,
@@ -81,7 +81,7 @@ impl Connectivity {
                     );
                 }
                 Ok(None) => {
-                    metrics.map(|m| m.count_resolution(Resolution::KademliaNotFound));
+                    if let Some(m) = metrics { m.count_resolution(Resolution::KademliaNotFound) }
                     log::warn!(
                         "{} Couldn't discover {} for particle {}",
                         self.peer_id,
@@ -90,7 +90,7 @@ impl Connectivity {
                     );
                 }
                 Err(err) => {
-                    metrics.map(|m| m.count_resolution(Resolution::KademliaError));
+                    if let Some(m) = metrics { m.count_resolution(Resolution::KademliaError) }
                     let id = particle_id;
                     log::warn!(
                         "{} Failed to discover {} for particle {}: {}",

@@ -26,7 +26,7 @@ use std::path::PathBuf;
 pub fn load_module(path: &str, module_name: impl Into<String>) -> Result<Vec<u8>> {
     let module_name = module_file_name(&Dependency::Name(module_name.into()));
     let module = to_abs_path(PathBuf::from(path).join(module_name));
-    std::fs::read(&module).wrap_err(format!("failed to load module {:?}", module))
+    std::fs::read(&module).wrap_err(format!("failed to load module {module:?}"))
 }
 
 pub fn module_config(import_name: &str) -> JValue {

@@ -382,8 +382,8 @@ where
         particle_id: &str,
     ) -> Result<String, JError> {
         let resolved_path = resolve_vault_path(&self.particles_vault_dir, path, particle_id)?;
-        Ok(std::fs::read_to_string(resolved_path)
-            .map_err(|_| JError::new(format!("Error reading script file `{}`", path.display())))?)
+        std::fs::read_to_string(resolved_path)
+            .map_err(|_| JError::new(format!("Error reading script file `{}`", path.display())))
     }
 
     async fn remove_script(&self, args: Args, params: ParticleParams) -> Result<JValue, JError> {
@@ -570,8 +570,7 @@ where
                         Ok(acc)
                     }
                     _ => Err(JError::new(format!(
-                        "all arguments of 'concat' must be arrays: argument #{} is not",
-                        i
+                        "all arguments of 'concat' must be arrays: argument #{i} is not"
                     ))),
                 })?;
 
@@ -589,8 +588,7 @@ where
                         Ok(acc)
                     }
                     _ => Err(JError::new(format!(
-                        "all arguments of 'concat_strings' must be strings: argument #{} is not",
-                        i
+                        "all arguments of 'concat_strings' must be strings: argument #{i} is not"
                     ))),
                 })?;
 
@@ -614,9 +612,7 @@ where
         let (array, start, end) = if let [array, start, end] = &args[..] {
             (array, start, end)
         } else {
-            return Err(JError::new(format!(
-                "invalid number of parameters. need array, start index and end index"
-            )));
+            return Err(JError::new("invalid number of parameters. need array, start index and end index"));
         };
 
         let array = match array {
@@ -624,8 +620,7 @@ where
             JValue::Array(arr) => arr,
             e => {
                 return Err(JError::new(format!(
-                    "first argument must be an array, was {}",
-                    e
+                    "first argument must be an array, was {e}"
                 )));
             }
         };
@@ -634,8 +629,7 @@ where
             Some(n) => n as usize,
             _ => {
                 return Err(JError::new(format!(
-                    "second argument (start index) must be an unsigned integer, was {}",
-                    start
+                    "second argument (start index) must be an unsigned integer, was {start}"
                 )));
             }
         };
@@ -644,8 +638,7 @@ where
             Some(n) => n as usize,
             _ => {
                 return Err(JError::new(format!(
-                    "third argument (end index) must be an unsigned integer, was {}",
-                    end
+                    "third argument (end index) must be an unsigned integer, was {end}"
                 )));
             }
         };
@@ -703,7 +696,7 @@ where
             .modules
             .load_module_config_from_vault(config_path, params)?;
         let config = serde_json::to_value(config)
-            .map_err(|err| JError::new(format!("Error serializing config to JSON: {}", err)))?;
+            .map_err(|err| JError::new(format!("Error serializing config to JSON: {err}")))?;
 
         Ok(config)
     }
@@ -719,7 +712,7 @@ where
             config: <_>::default(),
         };
         let config = serde_json::to_value(config)
-            .map_err(|err| JError::new(format!("Error serializing config to JSON: {}", err)))?;
+            .map_err(|err| JError::new(format!("Error serializing config to JSON: {err}")))?;
 
         Ok(config)
     }
@@ -732,8 +725,7 @@ where
 
         let blueprint_request = serde_json::to_value(blueprint_request).map_err(|err| {
             JError::new(format!(
-                "Error serializing blueprint_request to JSON: {}",
-                err
+                "Error serializing blueprint_request to JSON: {err}"
             ))
         })?;
         Ok(blueprint_request)
@@ -753,8 +745,7 @@ where
 
         let blueprint_request = serde_json::to_value(blueprint_request).map_err(|err| {
             JError::new(format!(
-                "Error serializing blueprint_request to JSON: {}",
-                err
+                "Error serializing blueprint_request to JSON: {err}"
             ))
         })?;
         Ok(blueprint_request)
@@ -776,7 +767,7 @@ where
             .into_iter()
             .map(|bp| {
                 serde_json::to_value(&bp).map_err(|err| {
-                    JError::new(format!("error serializing blueprint {:?}: {}", bp, err))
+                    JError::new(format!("error serializing blueprint {bp:?}: {err}"))
                 })
             })
             .collect()
@@ -851,7 +842,7 @@ where
             .services
             .metrics
             .as_ref()
-            .ok_or_else(|| JError::new(format!("Service stats collection is disabled")))?;
+            .ok_or_else(|| JError::new("Service stats collection is disabled"))?;
         if let Some(result) = metrics.builtin.read(&service_id) {
             Ok(json!({
                 "status": true,
@@ -861,7 +852,7 @@ where
         } else {
             Ok(json!({
                 "status": false,
-                "error": format!("No stats were collected for the `{}` service", service_id),
+                "error": format!("No stats were collected for the `{service_id}` service"),
                 "result": [],
             }))
         }
@@ -892,12 +883,10 @@ where
                 }
 
                 if !t.json_path.is_empty() {
-                    return Err(JError::new(format!(
-                        "json_path for data tetraplet is expected to be empty"
-                    )));
+                    return Err(JError::new("json_path for data tetraplet is expected to be empty"));
                 }
             } else {
-                return Err(JError::new(format!("expected tetraplet for a scalar argument, got tetraplet for an array: {:?}, tetraplets", tetraplet)));
+                return Err(JError::new(format!("expected tetraplet for a scalar argument, got tetraplet for an array: {tetraplet:?}, tetraplets")));
             }
 
             json!(self.root_keypair.sign(&data)?.to_vec())
@@ -946,8 +935,7 @@ fn make_module_config(args: Args) -> Result<JValue, JError> {
     let max_heap_size = match max_heap_size {
         Some(s) => Some(bytesize::ByteSize::from_str(&s).map_err(|err| {
             JError::new(format!(
-                "error parsing max_heap_size from String to ByteSize: {}",
-                err
+                "error parsing max_heap_size from String to ByteSize: {err}"
             ))
         })?),
         None => None,
@@ -978,7 +966,7 @@ fn make_module_config(args: Args) -> Result<JValue, JError> {
     };
 
     let config = serde_json::to_value(config)
-        .map_err(|err| JError::new(format!("Error serializing config to JSON: {}", err)))?;
+        .map_err(|err| JError::new(format!("Error serializing config to JSON: {err}")))?;
 
     Ok(config)
 }
@@ -1099,7 +1087,7 @@ mod prop_tests {
         (n in prop::option::of(0..100_000), si in "(?i)([kmg]i)?B")
         -> Vec<String>
       {
-        n.map(|n| vec![format!("{} {}", n, si)]).unwrap_or_default()
+        n.map(|n| vec![format!("{n} {si}")]).unwrap_or_default()
       }
     }
 
@@ -1137,7 +1125,7 @@ mod prop_tests {
             let args = vec![
                 json!(name),              // required: name
                 json!(mem_pages),         // mem_pages_count = optional: None
-                json!(heap.clone()),      // optional: max_heap_size
+                json!(heap),      // optional: max_heap_size
                 json!(logger_enabled),    // optional: logger_enabled
                 json!(preopened_files),   // optional: preopened_files
                 json!(envs),              // optional: envs
@@ -1165,7 +1153,7 @@ mod resolve_path_tests {
     use std::fs::File;
     use std::path::Path;
 
-    use tempfile;
+    
 
     use particle_services::VIRTUAL_PARTICLE_VAULT_PREFIX;
 
@@ -1198,7 +1186,7 @@ mod resolve_path_tests {
             let virtual_path = Path::new(VIRTUAL_PARTICLE_VAULT_PREFIX)
                 .join(particle_id)
                 .join(filename);
-            let result = resolve_vault_path(&real_prefix, &virtual_path, particle_id).unwrap();
+            let result = resolve_vault_path(real_prefix, &virtual_path, particle_id).unwrap();
             assert_eq!(result, path);
         });
     }
@@ -1209,7 +1197,7 @@ mod resolve_path_tests {
             let virtual_path = Path::new(VIRTUAL_PARTICLE_VAULT_PREFIX)
                 .join("other-particle-id")
                 .join(filename);
-            let result = resolve_vault_path(&real_prefix, &virtual_path, particle_id);
+            let result = resolve_vault_path(real_prefix, &virtual_path, particle_id);
             assert!(result.is_err());
             assert!(matches!(
                 result.unwrap_err(),
@@ -1224,7 +1212,7 @@ mod resolve_path_tests {
             let virtual_path = Path::new(VIRTUAL_PARTICLE_VAULT_PREFIX)
                 .join(particle_id)
                 .join("other-file");
-            let result = resolve_vault_path(&real_prefix, &virtual_path, particle_id);
+            let result = resolve_vault_path(real_prefix, &virtual_path, particle_id);
             assert!(result.is_err());
             assert!(matches!(
                 result.unwrap_err(),

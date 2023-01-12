@@ -68,7 +68,7 @@ fn put_get() {
     let records = result.get_mut(0).unwrap().take();
     let records: Vec<Record> = serde_json::from_value(records).unwrap();
 
-    assert!(records.len() > 0);
+    assert!(!records.is_empty());
 
     for record in records {
         assert_eq!(&record.value, "value");
