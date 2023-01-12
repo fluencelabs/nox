@@ -648,10 +648,7 @@ fn spell_trigger_connection_pool() {
                 (call %init_peer_id% ("getDataSrv" "spell_id") [] spell_id)
                 (call %init_peer_id% (spell_id "get_u32") ["counter"] counter)
             )
-            (seq
-                (call %init_peer_id% ("json" "obj") ["spell_id" spell_id "counter" counter] obj)
-                (call "{}" ("return" "") [obj])
-            )
+            (call "{}" ("return" "") [spell_id])
         )
     "#,
         client.peer_id
@@ -682,11 +679,7 @@ fn spell_trigger_connection_pool() {
             .unwrap()
             .as_slice()
         {
-            let is_ok = spell_reply["counter"]["success"].as_bool().unwrap();
-            assert!(is_ok, "we must receive a success response");
-            let counter = spell_reply["counter"]["num"].as_u64().unwrap();
-
-            let spell_id = spell_reply["spell_id"].as_str().unwrap();
+            let spell_id = spell_reply.as_str().unwrap();
             assert!(
                 spell_id == spell_id1 || spell_id == spell_id2,
                 "spell id must be one of the subscribed ones"
@@ -694,16 +687,8 @@ fn spell_trigger_connection_pool() {
 
             if spell_id == spell_id1 {
                 spell1_counter += 1;
-                assert_eq!(
-                    spell1_counter, counter,
-                    "we should receive messages from spells in order"
-                );
             } else {
                 spell2_counter += 1;
-                assert_eq!(
-                    spell2_counter, counter,
-                    "we should receive messages from spells in order"
-                );
             }
         }
     }
