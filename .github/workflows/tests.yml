@@ -1,4 +1,4 @@
-name: Run tests with workflow call
+name: Run tests
 
 on:
   workflow_call:
@@ -32,7 +32,7 @@ jobs:
           dependencies: ${{ inputs.cargo-dependencies }}
 
       - name: Run cargo fmt
-        uses: cargo fmt --all -- --check
+        run: cargo fmt --all -- --check
 
       - name: Run cargo clippy
         run: cargo clippy -Z unstable-options --all
