@@ -237,7 +237,7 @@ fn autoremove_failed() {
                 "client" => json!(client.peer_id.to_string()),
             },
         );
-        
+
         client.wait_particle_args(list_id).unwrap()
     };
 

@@ -612,7 +612,9 @@ where
         let (array, start, end) = if let [array, start, end] = &args[..] {
             (array, start, end)
         } else {
-            return Err(JError::new("invalid number of parameters. need array, start index and end index"));
+            return Err(JError::new(
+                "invalid number of parameters. need array, start index and end index",
+            ));
         };
 
         let array = match array {
@@ -883,7 +885,9 @@ where
                 }
 
                 if !t.json_path.is_empty() {
-                    return Err(JError::new("json_path for data tetraplet is expected to be empty"));
+                    return Err(JError::new(
+                        "json_path for data tetraplet is expected to be empty",
+                    ));
                 }
             } else {
                 return Err(JError::new(format!("expected tetraplet for a scalar argument, got tetraplet for an array: {tetraplet:?}, tetraplets")));
@@ -1152,8 +1156,6 @@ mod prop_tests {
 mod resolve_path_tests {
     use std::fs::File;
     use std::path::Path;
-
-    
 
     use particle_services::VIRTUAL_PARTICLE_VAULT_PREFIX;
 

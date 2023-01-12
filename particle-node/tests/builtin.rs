@@ -73,8 +73,8 @@ fn identify() {
     );
 
     let info = client.receive_args().wrap_err("receive args").unwrap();
-    let _: NodeInfo =
-        serde_json::from_value(info[0].clone()).unwrap_or_else(|_| panic!("deserialize {:?}", info[0]));
+    let _: NodeInfo = serde_json::from_value(info[0].clone())
+        .unwrap_or_else(|_| panic!("deserialize {:?}", info[0]));
 }
 
 #[ignore]
@@ -828,7 +828,8 @@ fn array_slice() {
     assert!(result.is_err());
     assert!(
         format!("{result:?}").contains("first argument must be an array, was 1"),
-        "{}", "{result:?}"
+        "{}",
+        "{result:?}"
     );
 
     let result = exec_script(
@@ -859,7 +860,8 @@ fn array_slice() {
     assert!(
         format!("{result:?}")
             .contains("slice indexes out of bounds. start index: 2, end index: 0, array length: 4"),
-        "{}", "result is {result:?}"
+        "{}",
+        "result is {result:?}"
     );
 
     let result = exec_script(
@@ -876,7 +878,8 @@ fn array_slice() {
     assert!(
         format!("{result:?}")
             .contains("second argument (start index) must be an unsigned integer, was -1"),
-        "{}", "{result:?}"
+        "{}",
+        "{result:?}"
     );
 
     let result = exec_script(
@@ -893,7 +896,8 @@ fn array_slice() {
     assert!(
         format!("{result:?}")
             .contains("third argument (end index) must be an unsigned integer, was -1"),
-        "{}", "{result:?}"
+        "{}",
+        "{result:?}"
     );
 }
 
@@ -1351,10 +1355,7 @@ fn sign_verify() {
     if let [Array(data), Object(sig_result), Bool(result)] =
         client.receive_args().unwrap().as_slice()
     {
-        let data: Vec<_> = data
-            .iter()
-            .map(|n| n.as_u64().unwrap() as u8)
-            .collect();
+        let data: Vec<_> = data.iter().map(|n| n.as_u64().unwrap() as u8).collect();
 
         assert!(sig_result["success"].as_bool().unwrap());
         let signature = sig_result["signature"].as_array().unwrap()[0]
@@ -1438,12 +1439,7 @@ fn sign_invalid_tetraplets() {
 #[test]
 fn sig_verify_invalid_signature() {
     let kp = KeyPair::generate_ed25519();
-    let swarms = make_swarms_with_builtins(
-        1,
-        "tests/builtins/services".as_ref(),
-        Some(kp),
-        None,
-    );
+    let swarms = make_swarms_with_builtins(1, "tests/builtins/services".as_ref(), Some(kp), None);
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .wrap_err("connect client")
@@ -1614,8 +1610,6 @@ fn exec_script_as_admin(
         "#),
         args,
     );
-
-    
 
     client.receive_args().wrap_err("receive args")
 }

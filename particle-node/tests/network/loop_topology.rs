@@ -31,9 +31,8 @@ fn permutations(swarms: &[CreatedSwarm]) -> Vec<Vec<(String, u32)>> {
 
     let pids = swarms.iter().map(|s| s.peer_id.to_string());
     let mut i = 0u32;
-    
-    pids
-        .permutations(swarms.len())
+
+    pids.permutations(swarms.len())
         .map(|p| {
             p.into_iter()
                 .map(|pid| {
@@ -453,10 +452,7 @@ fn fold_fold_pairs_seq_join() {
         })
         .collect();
 
-    let flat: Vec<_> = array
-        .iter()
-        .flat_map(|(_, cs)| cs).copied()
-        .collect();
+    let flat: Vec<_> = array.iter().flat_map(|(_, cs)| cs).copied().collect();
 
     assert_eq!(flat.len(), 25);
 

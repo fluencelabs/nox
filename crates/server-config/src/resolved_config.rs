@@ -440,11 +440,7 @@ mod tests {
 
         let root_kp = KeyPair::generate_ed25519();
         let builtins_kp = KeyPair::generate_secp256k1();
-        std::fs::write(
-            &root_key_path,
-            base64::encode(&root_kp.secret().unwrap()),
-        )
-        .unwrap();
+        std::fs::write(&root_key_path, base64::encode(&root_kp.secret().unwrap())).unwrap();
         std::fs::write(
             &builtins_key_path,
             base64::encode(&builtins_kp.secret().unwrap()),

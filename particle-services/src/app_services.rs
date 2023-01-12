@@ -625,7 +625,7 @@ mod tests {
 
     fn create_pid() -> PeerId {
         let keypair = Keypair::generate_ed25519();
-        
+
         PeerId::from(keypair.public())
     }
 

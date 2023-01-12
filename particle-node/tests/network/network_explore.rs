@@ -366,13 +366,9 @@ fn explore_services_fixed() {
         if let Ok(Some(event)) = block_on(timeout(Duration::from_secs(1), receive)) {
             match event {
                 ClientEvent::Particle { particle, .. } => {
-                    let args = read_args(
-                        particle,
-                        client.peer_id,
-                        &mut client.local_vm.lock(),
-                    )
-                    .expect("read args")
-                    .expect("no error");
+                    let args = read_args(particle, client.peer_id, &mut client.local_vm.lock())
+                        .expect("read args")
+                        .expect("no error");
                     received.push(args);
                 }
                 ClientEvent::NewConnection { .. } => {}

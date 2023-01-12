@@ -46,7 +46,7 @@ pub fn build_network_transport(
 ) -> Boxed<(PeerId, StreamMuxerBox)> {
     let tcp = || {
         let tcp = TcpTransport::new(GenTcpConfig::default().nodelay(true));
-        
+
         async_std::task::block_on(dns::DnsConfig::system(tcp)).expect("Can't build DNS")
     };
 
