@@ -33,6 +33,7 @@ use test_constants::{KAD_TIMEOUT, PARTICLE_TTL, SHORT_TIMEOUT, TIMEOUT, TRANSPOR
 use crate::client::Client;
 use crate::event::ClientEvent;
 
+#[allow(clippy::upper_case_acronyms)]
 type AVM = local_vm::AVM<DataStoreError>;
 
 pub struct ConnectedClient {
@@ -243,7 +244,7 @@ impl ConnectedClient {
             }
             let particle = self.receive().ok();
             if let Some(particle) = particle {
-                if &particle.id == particle_id.as_ref() {
+                if particle.id == particle_id.as_ref() {
                     let result = read_args(particle, self.peer_id, &mut self.local_vm.lock());
                     if let Some(result) = result {
                         break result.map_err(|args| eyre!("AIR caught an error: {:?}", args));
@@ -260,7 +261,7 @@ impl ConnectedClient {
     ) -> O {
         loop {
             n -= 1;
-            if n <= 0 {
+            if n == 0 {
                 return O::default();
             }
 
