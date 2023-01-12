@@ -35,7 +35,10 @@
         )
        )
       )
-      (call node_id ("aqua-dht" "merge_two") [$res.$.[0].result! $res.$.[1].result!] v)
+      (seq
+       (canon node_id $res #res)
+       (call node_id ("aqua-dht" "merge_two") [#res.$.[0].result! #res.$.[1].result!] v)
+      )
      )
      (seq
       (call -relay- ("op" "noop") [])

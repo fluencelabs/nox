@@ -95,8 +95,10 @@ fn get_interfaces() {
                     )
                 )
             )
-            
-            (call client ("return" "") [services $interfaces])
+            (seq
+                (canon client $interfaces #interfaces)
+                (call client ("return" "") [services #interfaces])
+            )
         )
         "#,
         hashmap! {
@@ -142,7 +144,10 @@ fn get_modules() {
                         )               
                     )                    
                 )
-                (call client ("return" "") [modules $interfaces])
+                (seq
+                    (canon client $interfaces #interfaces)
+                    (call client ("return" "") [modules #interfaces])
+                )
             )
         "#,
         hashmap! {
@@ -265,7 +270,10 @@ fn explore_services() {
             )
             (seq
                 {}
-                (call client ("return" "") [#joined_addresses $neighs_inner neighs_top])
+                (seq
+                    (canon client $neighs_inner #neighs_inner)
+                    (call client ("return" "") [#joined_addresses #neighs_inner neighs_top])
+                )
             )
         )
         "#,
@@ -316,10 +324,13 @@ fn explore_services_fixed() {
             (fold peers p
                 (par
                     (seq
-                        (call p ("srv" "list") [] $services)
+                        (seq
+                            (call p ("srv" "list") [] $services)
+                            (canon p $services #services)
+                        )
                         (seq
                             (call relayId ("op" "noop") [])
-                            (call %init_peer_id% ("return" "") [p $services])
+                            (call %init_peer_id% ("return" "") [p #services])
                         )
                     )
                     (next p)
