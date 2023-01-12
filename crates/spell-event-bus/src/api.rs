@@ -90,6 +90,7 @@ impl From<TriggerInfo> for TriggerInfoAqua {
         }
     }
 }
+
 #[derive(Debug)]
 pub(crate) struct Command {
     pub(crate) spell_id: SpellId,
