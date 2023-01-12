@@ -927,20 +927,26 @@ fn timeout_wait() {
     let slow_result = exec_script(
         r#"
         (seq
-            (par
-                (call relay ("peer" "timeout") [1000 "timed_out"] $ok_or_err)
-                (call "invalid_peer" ("op" "identity") ["never"] $ok_or_err) 
-            )
-            (xor
-                (match $ok_or_err.$[0] "timed_out"
-                    (ap "timed out" $result)
+            (seq
+                (seq
+                    (par
+                        (call relay ("peer" "timeout") [1000 "timed_out"] $ok_or_err)
+                        (call "invalid_peer" ("op" "identity") ["never"] $ok_or_err) 
+                    )
+                    (canon %init_peer_id% $ok_or_err #ok_or_err)
                 )
-                (ap "impossible happened" $result)
+                (xor
+                    (match #ok_or_err.$[0] "timed_out"
+                        (ap "timed out" $result)
+                    )
+                    (ap "impossible happened" $result)
+                )
             )
+            (canon %init_peer_id% $result #result)
         )
     "#,
         <_>::default(),
-        "$result.$[0]",
+        "#result.$[0]",
         1,
     )
     .unwrap();
@@ -1586,7 +1592,7 @@ fn exec_script(
     args: HashMap<&'static str, JValue>,
     result: &str,
     node_count: usize,
-) -> Result<Vec<JValue>, eyre::Report> {
+) -> Result<Vec<JValue>, Report> {
     exec_script_as_admin(script, args, result, node_count, false)
 }
 
@@ -1596,7 +1602,7 @@ fn exec_script_as_admin(
     result: &str,
     node_count: usize,
     as_admin: bool,
-) -> Result<Vec<JValue>, eyre::Report> {
+) -> Result<Vec<JValue>, Report> {
     let swarms = make_swarms(node_count);
 
     let keypair = if as_admin {
