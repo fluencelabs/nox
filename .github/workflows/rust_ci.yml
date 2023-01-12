@@ -35,7 +35,7 @@ jobs:
           crate: cargo-nextest
           version: 0.9.45
 
-      - run: cargo nextest run --release --all-features --no-fail-fast --test-threads 10 --hide-progress-bar --final-status-level fail --success-output never
+      - run: cargo nextest run --release --all-features --no-fail-fast --test-threads 10 --hide-progress-bar --final-status-level fail --success-output never --profile ci
 
   lints:
     name: Lints

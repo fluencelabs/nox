@@ -1,0 +1,2 @@
+[profile.ci.junit]  # this can be some other profile, too
+path = "junit.xml"
