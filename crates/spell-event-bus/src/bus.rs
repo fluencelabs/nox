@@ -269,6 +269,7 @@ impl SpellEventBus {
         }
     }
 
+    #[allow(clippy::result_large_err)]
     fn trigger_spell(
         send_events: &Outlet<TriggerEvent>,
         id: &Arc<SpellId>,

@@ -190,6 +190,7 @@ impl Client {
         swarm.send(node, particle)
     }
 
+    #[allow(clippy::result_large_err)]
     fn receive_from_node(
         msg: SwarmEvent<
             ClientEvent,
