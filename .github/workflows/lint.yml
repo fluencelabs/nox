@@ -2,6 +2,10 @@ name: lint
 
 on:
   pull_request:
+    types:
+      - opened
+      - edited
+      - synchronize
 
 concurrency:
   group: "${{ github.workflow }}-${{ github.ref }}"
@@ -15,19 +19,3 @@ jobs:
       - uses: amannn/action-semantic-pull-request@v5
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  cargo:
-    name: Run cargo lints
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout sources
-        uses: actions/checkout@v3
-
-      - name: Setup Rust toolchain
-        uses: actions-rust-lang/setup-rust-toolchain@v1
-
-      - name: Run cargo fmt
-        uses: cargo fmt --all -- --check
-
-      - name: Run cargo clippy
-        run: cargo clippy -Z unstable-options --all

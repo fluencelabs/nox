@@ -15,8 +15,33 @@ on:
       - "!**.md"
 
 jobs:
+  lint:
+    name: cargo lints
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v3
+        with:
+          repository: fluencelabs/rust-peer
+          ref: ${{ inputs.ref }}
+
+      - name: Setup Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+
+      - name: Set dependencies
+        if: inputs.cargo-dependencies != ''
+        uses: fluencelabs/github-actions/cargo-set-dependency@main
+        with:
+          dependencies: ${{ inputs.cargo-dependencies }}
+
+      - name: Run cargo fmt
+        uses: cargo fmt --all -- --check
+
+      - name: Run cargo clippy
+        run: cargo clippy -Z unstable-options --all
+
   tests:
-    name: "Run cargo nextest"
+    name: cargo nextest
     runs-on: builder
 
     steps:
