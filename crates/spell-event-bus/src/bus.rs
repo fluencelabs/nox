@@ -233,7 +233,7 @@ impl SpellEventBus {
                         let Command { spell_id, action, reply } = command;
                         match &action {
                             Action::Subscribe(config) => {
-                                state.subscribe(spell_id.clone(), &config).unwrap_or(());
+                                state.subscribe(spell_id.clone(), config).unwrap_or(());
                             },
                             Action::Unsubscribe => {
                                 state.unsubscribe(&spell_id);
@@ -271,6 +271,7 @@ impl SpellEventBus {
         }
     }
 
+    #[allow(clippy::result_large_err)]
     fn trigger_spell(
         send_events: &Outlet<TriggerEvent>,
         id: &Arc<SpellId>,
@@ -450,7 +451,7 @@ mod tests {
 
         let mut counts = HashMap::new();
         counts.insert(spell1_id.clone(), 0);
-        counts.insert(spell2_id.clone(), 0);
+        counts.insert(spell2_id, 0);
         for event in events.into_iter() {
             counts.entry(event.spell_id).and_modify(|e| *e += 1);
         }

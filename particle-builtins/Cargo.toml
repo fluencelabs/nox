@@ -2,7 +2,7 @@
 name = "particle-builtins"
 version = "0.2.0"
 authors = ["Fluence Labs"]
-edition = "2018"
+edition = "2021"
 
 [dependencies]
 particle-protocol = { workspace = true }

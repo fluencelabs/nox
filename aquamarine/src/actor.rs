@@ -55,7 +55,7 @@ where
 {
     pub fn new(particle: &Particle, functions: Functions<F>, current_peer_id: PeerId) -> Self {
         Self {
-            deadline: Deadline::from(&particle),
+            deadline: Deadline::from(particle),
             functions,
             future: None,
             mailbox: <_>::default(),
@@ -170,7 +170,7 @@ where
         // Take ownership of vm to process particle
         self.future = Some((
             vm_id,
-            vm.execute((particle, calls), waker, self.current_peer_id.clone()),
+            vm.execute((particle, calls), waker, self.current_peer_id),
         ));
 
         ActorPoll::Executing(stats)

@@ -117,8 +117,8 @@ mod tests {
         let len = 10;
 
         for i in 0..len {
-            q.enqueue(k.clone(), format!("value_bad_{}", i));
-            q.enqueue(k.clone(), format!("value_good_{}", i));
+            q.enqueue(k.clone(), format!("value_bad_{i}"));
+            q.enqueue(k.clone(), format!("value_good_{i}"));
         }
 
         let removed: Vec<_> = q.remove_with(k.clone(), |v| v.contains("bad")).collect();

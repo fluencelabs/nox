@@ -36,7 +36,7 @@ pub fn start_metrics_endpoint(
         .get(|req: tide::Request<Arc<Mutex<Registry>>>| async move {
             let mut encoded = Vec::new();
             encode(&mut encoded, &req.state().lock()).map_err(|e| {
-                let msg = format!("Error while text-encoding metrics: {}", e);
+                let msg = format!("Error while text-encoding metrics: {e}");
                 log::warn!("{}", msg);
                 Error::from_str(InternalServerError, msg)
             })?;

@@ -97,8 +97,7 @@ pub(crate) async fn spell_install(
         services.remove_service(spell_id, params.init_peer_id, true)?;
 
         return Err(JError::new(format!(
-            "can't install a spell due to an internal error while subscribing to the triggers: {}",
-            err
+            "can't install a spell due to an internal error while subscribing to the triggers: {err}"
         )));
     }
 
@@ -131,9 +130,7 @@ pub(crate) async fn spell_remove(
             err
         );
         return Err(JError::new(format!(
-            "can't remove a spell {} due to an internal error while unsubscribing from the triggers: {}",
-            spell_id,
-            err
+            "can't remove a spell {spell_id} due to an internal error while unsubscribing from the triggers: {err}"
         )));
     }
 
@@ -180,8 +177,7 @@ pub(crate) async fn spell_update_config(
             err
         );
         return Err(JError::new(format!(
-            "save config to spell service {} SUCCESS\nupdate trigger subscriptions FAIL: {}\ncall update_config to try again",
-            spell_id, err
+            "save config to spell service {spell_id} SUCCESS\nupdate trigger subscriptions FAIL: {err}\ncall update_config to try again"
         )));
     }
     Ok(())
@@ -203,7 +199,7 @@ pub(crate) fn get_spell_arg(
         services.call_function(
             spell_id,
             "get_string",
-            vec![json!(key.clone())],
+            vec![json!(key)],
             Some(params.id.clone()),
             params.init_peer_id,
             Duration::from_millis(params.ttl as u64),

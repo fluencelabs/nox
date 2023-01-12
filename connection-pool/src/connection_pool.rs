@@ -30,8 +30,8 @@ pub enum LifecycleEvent {
 impl Display for LifecycleEvent {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            LifecycleEvent::Connected(c) => write!(f, "Connected {}", c),
-            LifecycleEvent::Disconnected(c) => write!(f, "Disconnected {}", c),
+            LifecycleEvent::Connected(c) => write!(f, "Connected {c}"),
+            LifecycleEvent::Disconnected(c) => write!(f, "Disconnected {c}"),
         }
     }
 }

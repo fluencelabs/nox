@@ -80,7 +80,7 @@ impl AquaRuntime for EasyVM {
             (particle.init_peer_id.to_string(), data)
         };
 
-        println!("next peer = {}", next_peer);
+        println!("next peer = {next_peer}");
 
         Ok(AVMOutcome {
             data,

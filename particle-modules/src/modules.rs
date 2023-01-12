@@ -84,7 +84,7 @@ impl ModuleRepository {
             .filter_map(|path| {
                 let name_hash: Result<_> = try {
                     let module = load_module_by_path(&path)?;
-                    let hash = Hash::hash(&module);
+                    let hash = Hash::new(&module);
 
                     Self::maybe_migrate_module(&path, &hash, modules_dir);
 
@@ -129,9 +129,9 @@ impl ModuleRepository {
             if file_name != hash.to_hex().as_ref() {
                 let new_name = module_file_name_hash(hash);
                 log::debug!(target: "migration", "renaming module {}.wasm to {}", file_name, new_name);
-                std::fs::rename(&path, modules_dir.join(module_file_name_hash(hash)))?;
+                std::fs::rename(path, modules_dir.join(module_file_name_hash(hash)))?;
                 let new_name = module_config_name_hash(hash);
-                let config = path.with_file_name(format!("{}_config.toml", file_name));
+                let config = path.with_file_name(format!("{file_name}_config.toml"));
                 log::debug!(target: "migration", "renaming config {:?} to {}", config.file_name().unwrap(), new_name);
                 std::fs::rename(&config, modules_dir.join(new_name))?;
             }
@@ -166,7 +166,7 @@ impl ModuleRepository {
         Ok(())
     }
     pub fn add_module(&self, module: Vec<u8>, config: TomlMarineNamedModuleConfig) -> Result<Hash> {
-        let hash = Hash::hash(&module);
+        let hash = Hash::new(&module);
 
         let mut config = files::add_module(&self.modules_dir, &hash, &module, config)?;
         self.check_module_heap_size(&mut config)?;
@@ -237,7 +237,7 @@ impl ModuleRepository {
         module: String,
         config: TomlMarineNamedModuleConfig,
     ) -> Result<String> {
-        let module = base64::decode(&module)?;
+        let module = base64::decode(module)?;
         let hash = self.add_module(module, config)?;
 
         Ok(String::from(hash.to_hex().as_ref()))
@@ -323,7 +323,7 @@ impl ModuleRepository {
                         log::warn!("list_modules error: {:?}", err);
                         json!({
                             "invalid_file_name": hash,
-                            "error": format!("{:?}", err).split("Stack backtrace:").next().unwrap_or_default(),
+                            "error": format!("{err:?}").split("Stack backtrace:").next().unwrap_or_default(),
                         })
                     }
                 };
@@ -380,7 +380,7 @@ impl ModuleRepository {
 
         interface.map_err(|err| {
             JError::new(
-                format!("{:?}", err)
+                format!("{err:?}")
                     // TODO: send patch to eyre so it can be done through their API
                     // Remove backtrace from the response
                     .split("Stack backtrace:")
@@ -526,8 +526,8 @@ mod tests {
             None,
         );
 
-        let dep1 = Dependency::Hash(Hash::hash(&[1, 2, 3]));
-        let dep2 = Dependency::Hash(Hash::hash(&[3, 2, 1]));
+        let dep1 = Dependency::Hash(Hash::new(&[1, 2, 3]));
+        let dep2 = Dependency::Hash(Hash::new(&[3, 2, 1]));
 
         let name1 = "bp1".to_string();
         let resp1 = repo
@@ -598,13 +598,13 @@ mod tests {
         use super::hash_dependencies;
         use crate::modules::Hash;
 
-        let dep1 = Hash::hash(&[1, 2, 3]);
-        let dep2 = Hash::hash(&[2, 1, 3]);
-        let dep3 = Hash::hash(&[3, 2, 1]);
+        let dep1 = Hash::new(&[1, 2, 3]);
+        let dep2 = Hash::new(&[2, 1, 3]);
+        let dep3 = Hash::new(&[3, 2, 1]);
 
         let hash1 = hash_dependencies(dep3.clone(), vec![dep1.clone(), dep2.clone()]);
         let hash2 = hash_dependencies(dep3.clone(), vec![dep2.clone(), dep1.clone()]);
-        let hash3 = hash_dependencies(dep1.clone(), vec![dep2.clone(), dep3.clone()]);
+        let hash3 = hash_dependencies(dep1, vec![dep2, dep3]);
         assert_eq!(hash1.to_string(), hash2.to_string());
         assert_ne!(hash2.to_string(), hash3.to_string());
     }

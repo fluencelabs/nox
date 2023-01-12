@@ -2,7 +2,7 @@
 name = "test-utils"
 version = "0.3.0"
 authors = ["Fluence Labs"]
-edition = "2018"
+edition = "2021"
 
 [dependencies]
 ivalue-utils = { workspace = true }

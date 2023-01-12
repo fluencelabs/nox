@@ -52,7 +52,7 @@ impl<'de> Deserialize<'de> for Dependency {
             ("hash", Some(hash)) => {
                 let hash = Hash::from_hex(hash).map_err(|err| {
                     let len = blake3::OUT_LEN;
-                    let msg = format!("'{}' isn't a valid {}-byte hex: {}", hash, len, err);
+                    let msg = format!("'{hash}' isn't a valid {len}-byte hex: {err}");
                     de::Error::custom(msg)
                 })?;
                 Dependency::Hash(hash)
@@ -71,7 +71,7 @@ impl Serialize for Dependency {
     {
         match self {
             Dependency::Hash(h) => format!("hash:{}", h.to_hex().as_ref()),
-            Dependency::Name(n) => format!("name:{}", n),
+            Dependency::Name(n) => format!("name:{n}"),
         }
         .serialize(s)
     }

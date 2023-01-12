@@ -9,14 +9,11 @@ pub fn fmt_custom_services(
     fmt: &mut std::fmt::Formatter<'_>,
 ) -> Result<(), std::fmt::Error> {
     fmt.debug_map()
-        .entries(services.read().iter().map(|(sid, fs)| {
-            (
-                sid,
-                fs.functions
-                    .iter()
-                    .map(|(fname, _)| fname)
-                    .collect::<Vec<_>>(),
-            )
-        }))
+        .entries(
+            services
+                .read()
+                .iter()
+                .map(|(sid, fs)| (sid, fs.functions.keys().collect::<Vec<_>>())),
+        )
         .finish()
 }

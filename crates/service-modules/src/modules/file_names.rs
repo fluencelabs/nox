@@ -23,7 +23,7 @@ use std::path::Path;
 /// Calculates filename of the config for a wasm module, given a hash or name of the module.
 pub fn module_config_name_json(module: &Dependency) -> String {
     match module {
-        Dependency::Name(name) => format!("{}_config.json", name),
+        Dependency::Name(name) => format!("{name}_config.json"),
         Dependency::Hash(hash) => format!("{}_config.json", hash.to_hex().as_ref()),
     }
 }
@@ -31,7 +31,7 @@ pub fn module_config_name_json(module: &Dependency) -> String {
 /// Calculates the name of a wasm module file, given a hash or name of the module.
 pub fn module_file_name(module: &Dependency) -> String {
     match module {
-        Dependency::Name(name) => format!("{}.wasm", name),
+        Dependency::Name(name) => format!("{name}.wasm"),
         Dependency::Hash(hash) => module_file_name_hash(hash),
     }
 }
@@ -52,7 +52,7 @@ pub fn blueprint_file_name(blueprint: &Blueprint) -> String {
 }
 
 pub fn blueprint_fname(id: &str) -> String {
-    format!("{}_blueprint.toml", id)
+    format!("{id}_blueprint.toml")
 }
 
 /// Returns true if file is named like a blueprint would be
@@ -73,7 +73,7 @@ pub fn is_module_wasm(path: &Path) -> bool {
 }
 
 pub fn service_file_name(service_id: &str) -> String {
-    format!("{}_service.toml", service_id)
+    format!("{service_id}_service.toml")
 }
 
 pub fn is_service(path: &Path) -> bool {
@@ -92,39 +92,39 @@ mod tests {
     #[test]
     fn is_wasm() {
         let path = Path::new("/.fluence/services/modules/facade_url_downloader.wasm");
-        assert!(is_module_wasm(&path));
+        assert!(is_module_wasm(path));
 
         let path = Path::new("/.fluence/services/modules/facade_url_downloader_config.toml");
-        assert!(!is_module_wasm(&path));
+        assert!(!is_module_wasm(path));
     }
 
     #[test]
     fn is_bp() {
         let path = "/.fluence/services/modules/facade_url_downloader_blueprint.toml";
-        assert!(is_blueprint(&path));
+        assert!(is_blueprint(path));
 
         let path = "/.fluence/services/modules/facade_url_downloader.wasm";
-        assert!(!is_blueprint(&path));
+        assert!(!is_blueprint(path));
     }
 
     #[test]
     fn is_srvc() {
         let path = Path::new("/.fluence/services/modules/facade_url_downloader_service.toml");
-        assert!(is_service(&path));
+        assert!(is_service(path));
 
         let path = Path::new("/.fluence/services/modules/facade_url_downloader.wasm");
-        assert!(!is_service(&path));
+        assert!(!is_service(path));
     }
 
     #[test]
     fn module_fname() {
         let path = Path::new("/.fluence/services/modules/facade_url_downloader.wasm");
         assert_eq!(
-            extract_module_file_name(&path),
+            extract_module_file_name(path),
             Some("facade_url_downloader")
         );
 
         let path = Path::new("/.fluence/services/modules/facade_url_downloader_config.toml");
-        assert_eq!(extract_module_file_name(&path), None);
+        assert_eq!(extract_module_file_name(path), None);
     }
 }

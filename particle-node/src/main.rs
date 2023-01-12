@@ -59,7 +59,7 @@ fn main() -> eyre::Result<()> {
         .init();
 
     let version = format!("{}; AIR version {}", VERSION, air_interpreter_wasm::VERSION);
-    let authors = format!("by {}", AUTHORS);
+    let authors = format!("by {AUTHORS}");
     let arg_matches = App::new("Fluence node")
         .version(version.as_str())
         .author(authors.as_str())

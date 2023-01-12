@@ -50,8 +50,7 @@ fn neighborhood() {
         let assert_contains = |id: &PeerId| {
             assert!(neighborhood
                 .iter()
-                .find(|v| **v == JValue::String(id.to_string()))
-                .is_some())
+                .any(|v| *v == JValue::String(id.to_string())))
         };
 
         assert_contains(&swarms[1].peer_id);

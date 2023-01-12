@@ -181,15 +181,13 @@ impl ParticleAppServices {
                     user: init_peer_id,
                     function: "remove_service",
                     reason: "cannot remove a spell",
-                }
-                .into());
+                });
             } else if blueprint_name != "spell" && allow_remove_spell {
                 return Err(Forbidden {
                     user: init_peer_id,
                     function: "remove_spell",
                     reason: "the service isn't a spell",
-                }
-                .into());
+                });
             }
 
             // TODO: HACK:
@@ -627,8 +625,8 @@ mod tests {
 
     fn create_pid() -> PeerId {
         let keypair = Keypair::generate_ed25519();
-        let peer_id = PeerId::from(keypair.public());
-        peer_id
+
+        PeerId::from(keypair.public())
     }
 
     fn create_pas(
@@ -641,8 +639,8 @@ mod tests {
         let max_heap_size = server_config::default_module_max_heap_size();
         let config = ServicesConfig::new(
             local_pid,
-            base_dir.clone(),
-            vault_dir.clone(),
+            base_dir,
+            vault_dir,
             HashMap::new(),
             management_pid,
             to_peer_id(&startup_kp),
@@ -674,7 +672,7 @@ mod tests {
 
         let client_pid;
         if as_manager {
-            client_pid = management_pid.clone();
+            client_pid = management_pid;
         } else {
             client_pid = create_pid();
         }
@@ -751,13 +749,13 @@ mod tests {
             .unwrap();
         let service_id1 = create_service(&pas, module_name.clone(), &hash).unwrap();
         let service_id2 = create_service(&pas, module_name.clone(), &hash).unwrap();
-        let service_id3 = create_service(&pas, module_name.clone(), &hash).unwrap();
+        let service_id3 = create_service(&pas, module_name, &hash).unwrap();
 
         let inter1 = pas.get_interface(service_id1).unwrap();
 
         // delete module and check that interfaces will be returned anyway
-        let dir = modules_dir(base_dir.path().into());
-        let module_file = dir.join(format!("{}.wasm", hash));
+        let dir = modules_dir(base_dir.path());
+        let module_file = dir.join(format!("{hash}.wasm"));
         remove_file(module_file.clone()).unwrap();
 
         let inter2 = pas.get_interface(service_id2).unwrap();
@@ -773,7 +771,7 @@ mod tests {
             .expect("load module");
 
         let config: TomlMarineNamedModuleConfig = TomlMarineNamedModuleConfig {
-            name: module_name.clone(),
+            name: module_name,
             file_name: None,
             load_from: None,
             config: TomlMarineModuleConfig {
@@ -799,7 +797,7 @@ mod tests {
 
         let module_name = "tetra".to_string();
         let hash = upload_tetra_service(&pas, module_name.clone());
-        let service_id1 = create_service(&pas, module_name.clone(), &hash).unwrap();
+        let service_id1 = create_service(&pas, module_name, &hash).unwrap();
 
         let alias = "alias";
         let result = pas.add_alias(alias.to_string(), service_id1.clone(), management_pid);
@@ -835,7 +833,7 @@ mod tests {
         let hash = upload_tetra_service(&pas, module_name.clone());
 
         let service_id1 = create_service(&pas, module_name.clone(), &hash).unwrap();
-        let service_id2 = create_service(&pas, module_name.clone(), &hash).unwrap();
+        let service_id2 = create_service(&pas, module_name, &hash).unwrap();
 
         let alias = "alias";
         // add an alias to a service
@@ -879,7 +877,7 @@ mod tests {
         let module_name = "tetra".to_string();
         let hash = upload_tetra_service(&pas, module_name.clone());
 
-        let service_id1 = create_service(&pas, module_name.clone(), &hash).unwrap();
+        let service_id1 = create_service(&pas, module_name, &hash).unwrap();
         let services = pas.services.read();
         let service_1 = services.get(&service_id1).unwrap();
 

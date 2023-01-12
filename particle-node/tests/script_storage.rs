@@ -237,8 +237,8 @@ fn autoremove_failed() {
                 "client" => json!(client.peer_id.to_string()),
             },
         );
-        let list = client.wait_particle_args(list_id).unwrap();
-        list
+
+        client.wait_particle_args(list_id).unwrap()
     };
 
     let timeout = Duration::from_secs(5);
@@ -248,12 +248,12 @@ fn autoremove_failed() {
     while now() < deadline {
         let list = get_list();
 
-        if list.len() == 0 {
+        if list.is_empty() {
             continue;
         }
 
         if let JValue::Array(arr) = &list[0] {
-            if arr.len() == 0 {
+            if arr.is_empty() {
                 continue;
             }
             let failures = arr[0].get("failures");

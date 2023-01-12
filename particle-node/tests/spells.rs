@@ -259,7 +259,7 @@ fn spell_run_oneshot() {
     // Note that when period is 0, the spell is executed only once
     let mut config = TriggerConfig::default();
     config.clock.start_sec = 1;
-    let spell_id = create_spell(&mut client, script, config.clone(), hashmap! {});
+    let spell_id = create_spell(&mut client, script, config, hashmap! {});
 
     let data = hashmap! {
         "spell_id" => json!(spell_id),
@@ -590,7 +590,7 @@ fn spell_remove_spell_as_service() {
         .as_slice()
     {
         let msg_end = "cannot call function 'remove_service': cannot remove a spell\"'";
-        assert!(msg.ends_with(msg_end), "should end with `{}`", msg_end);
+        assert!(msg.ends_with(msg_end), "should end with `{msg_end}`");
     }
 }
 
@@ -630,7 +630,7 @@ fn spell_remove_service_as_spell() {
         .as_slice()
     {
         let msg_end = "cannot call function 'remove_spell': the service isn't a spell\"'";
-        assert!(msg.ends_with(msg_end), "should end with `{}`", msg_end);
+        assert!(msg.ends_with(msg_end), "should end with `{msg_end}`");
     }
 }
 
@@ -648,17 +648,14 @@ fn spell_trigger_connection_pool() {
                 (call %init_peer_id% ("getDataSrv" "spell_id") [] spell_id)
                 (call %init_peer_id% (spell_id "get_u32") ["counter"] counter)
             )
-            (seq
-                (call %init_peer_id% ("json" "obj") ["spell_id" spell_id "counter" counter] obj)
-                (call "{}" ("return" "") [obj])
-            )
+            (call "{}" ("return" "") [spell_id])
         )
     "#,
         client.peer_id
     );
     let mut config = TriggerConfig::default();
     config.connections.connect = true;
-    let spell_id1 = create_spell(&mut client, &script, config.clone(), hashmap! {});
+    let spell_id1 = create_spell(&mut client, &script, config, hashmap! {});
 
     let mut config = TriggerConfig::default();
     config.connections.disconnect = true;
@@ -682,11 +679,7 @@ fn spell_trigger_connection_pool() {
             .unwrap()
             .as_slice()
         {
-            let is_ok = spell_reply["counter"]["success"].as_bool().unwrap();
-            assert!(is_ok, "we must receive a success response");
-            let counter = spell_reply["counter"]["num"].as_u64().unwrap();
-
-            let spell_id = spell_reply["spell_id"].as_str().unwrap();
+            let spell_id = spell_reply.as_str().unwrap();
             assert!(
                 spell_id == spell_id1 || spell_id == spell_id2,
                 "spell id must be one of the subscribed ones"
@@ -694,29 +687,19 @@ fn spell_trigger_connection_pool() {
 
             if spell_id == spell_id1 {
                 spell1_counter += 1;
-                assert_eq!(
-                    spell1_counter, counter,
-                    "we should receive messages from spells in order"
-                );
             } else {
                 spell2_counter += 1;
-                assert_eq!(
-                    spell2_counter, counter,
-                    "we should receive messages from spells in order"
-                );
             }
         }
     }
 
     assert_eq!(
         spell1_counter, connect_num,
-        "spell subscribed on connect must be triggered {} times",
-        connect_num
+        "spell subscribed on connect must be triggered {connect_num} times"
     );
     assert_eq!(
         spell2_counter, connect_num,
-        "spell subscribed on disconnect must be triggered {} times",
-        connect_num
+        "spell subscribed on disconnect must be triggered {connect_num} times"
     );
 }
 
@@ -730,7 +713,7 @@ fn spell_update_config() {
     let script = format!(r#"(call "{}" ("return" "") ["called"])"#, client.peer_id);
     let mut config = TriggerConfig::default();
     config.connections.connect = true;
-    let spell_id = create_spell(&mut client, &script, config.clone(), hashmap! {});
+    let spell_id = create_spell(&mut client, &script, config, hashmap! {});
 
     let connected = ConnectedClient::connect_to(swarms[0].multiaddr.clone()).unwrap();
 

@@ -70,8 +70,7 @@ pub(crate) fn parse_spell_id_from(particle_id: &str) -> Result<&str, JError> {
             .ok_or(JError::new("Invalid particle id format"))?)
     } else {
         Err(JError::new(format!(
-            "Expected spell particle id to start with 'spell_': {}",
-            particle_id
+            "Expected spell particle id to start with 'spell_': {particle_id}"
         )))
     }
 }
