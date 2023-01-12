@@ -1,3 +1,4 @@
+# https://nexte.st/book/configuration.html
 [store]
 dir = "target/nextest"
 
