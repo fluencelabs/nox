@@ -16,4 +16,4 @@ leak-timeout = "100ms"
 [profile.ci]
 path = "junit.xml"
 fail-fast = false
-test-threads = "10"
+test-threads = 10
