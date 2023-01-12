@@ -1617,12 +1617,12 @@ fn exec_script_as_admin(
     args.insert("relay", json!(client.node.to_string()));
 
     client.send_particle(
-        dbg!(f!(r#"
+        f!(r#"
         (seq
             {script}
             (call %init_peer_id% ("op" "return") [{result}])
         )
-        "#)),
+        "#),
         args,
     );
 
