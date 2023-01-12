@@ -5,12 +5,12 @@ authors = ["Fluence Labs"]
 edition = "2018"
 
 [dependencies]
-ivalue-utils = { path = "../ivalue-utils" }
-particle-args = { path = "../particle-args" }
-connected-client = { path = "../connected-client" }
-created-swarm = { path = "../created-swarm" }
-test-constants = { path = "../test-constants" }
-service-modules = { path = "../service-modules" }
+ivalue-utils = { workspace = true }
+particle-args = { workspace = true }
+connected-client = { workspace = true }
+created-swarm = { workspace = true }
+test-constants = { workspace = true }
+service-modules = { workspace = true }
 
 async-std = { workspace = true }
 serde_json = { workspace = true }

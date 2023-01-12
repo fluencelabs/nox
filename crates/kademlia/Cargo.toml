@@ -5,11 +5,11 @@ authors = ["Fluence Labs"]
 edition = "2018"
 
 [dependencies]
-particle-protocol = { path = "../../particle-protocol" }
+particle-protocol = { workspace = true }
 
-control-macro = { path = "../control-macro" }
-fluence-libp2p = { path = "../libp2p" }
-server-config = { path = "../server-config" }
+control-macro = { workspace = true }
+fluence-libp2p = { workspace = true }
+server-config = { workspace = true }
 
 libp2p = { workspace = true }
 libp2p-metrics = { workspace = true, features = ["kad"] }
@@ -17,7 +17,7 @@ prometheus-client = { workspace = true }
 multihash = "0.16.3"
 
 once_cell = "1.15.0"
-prost = "0.11.0"
+prost = "0.11.6"
 smallvec = "1.10.0"
 serde_json = { workspace = true }
 log = { workspace = true }

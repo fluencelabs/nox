@@ -5,7 +5,7 @@ authors = ["Fluence Labs"]
 edition = "2018"
 
 [dependencies]
-fs-utils = { path = "../fs-utils" }
+fs-utils = { workspace = true }
 
 eyre = { workspace = true }
 serde = { version = "1.0.145", features = ["derive"] }

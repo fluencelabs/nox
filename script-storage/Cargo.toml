@@ -5,11 +5,11 @@ authors = ["Fluence Labs"]
 edition = "2018"
 
 [dependencies]
-connection-pool = { path = "../connection-pool"}
-particle-protocol = { path = "../particle-protocol"}
-fluence-libp2p = { path = "../crates/libp2p" }
-async-unlock = { path = "../crates/async-unlock" }
-now-millis = { path = "../crates/now-millis" }
+connection-pool = { workspace = true }
+particle-protocol = { workspace = true }
+fluence-libp2p = { workspace = true }
+async-unlock = { workspace = true }
+now-millis = { workspace = true }
 
 async-std = { workspace = true }
 futures = { workspace = true }
