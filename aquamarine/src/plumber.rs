@@ -375,7 +375,7 @@ mod tests {
         // Pool is of size 1 so it's easier to control tests
         let vm_pool = VmPool::new(1, (), None);
         let builtin_mock = Arc::new(MockF);
-        let key_manager = KeyManager::new("keypair".into());
+        let key_manager = KeyManager::new("keypair".into(), RandomPeerId::random());
         Plumber::new(vm_pool, builtin_mock, None, key_manager)
     }
 
