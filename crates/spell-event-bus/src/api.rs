@@ -72,7 +72,9 @@ pub enum PeerEventType {
 
 #[derive(Serialize)]
 pub struct TriggerInfoAqua {
+    // Vec is a representation for Aqua optional values. This Vec always holds at most 1 element.
     timer: Vec<TimerEvent>,
+    // Vec is a representation for Aqua optional values. This Vec always holds at most 1 element.
     peer: Vec<PeerEvent>,
 }
 
