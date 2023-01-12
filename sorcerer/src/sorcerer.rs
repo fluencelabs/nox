@@ -81,7 +81,7 @@ impl Sorcerer {
             key_manager,
         };
 
-        let spell_service_functions = sorcerer.get_spell_service_functions();
+        let spell_service_functions = sorcerer.make_spell_service_functions();
 
         (sorcerer, spell_service_functions)
     }
@@ -132,7 +132,7 @@ impl Sorcerer {
         })
     }
 
-    fn get_spell_service_functions(&self) -> Vec<CustomService> {
+    fn make_spell_service_functions(&self) -> Vec<CustomService> {
         let mut service_functions: Vec<CustomService> = vec![];
         let services = self.services.clone();
         let storage = self.spell_storage.clone();

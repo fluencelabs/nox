@@ -4252,7 +4252,6 @@ version = "0.3.0"
 dependencies = [
  "async-std",
  "base64 0.20.0",
- "bincode",
  "derivative",
  "eyre",
  "fluence-keypair",
@@ -4268,6 +4267,7 @@ dependencies = [
  "serde",
  "serde_derive",
  "serde_json",
+ "thiserror",
 ]
 
 [[package]]

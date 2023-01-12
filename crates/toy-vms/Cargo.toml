@@ -13,4 +13,4 @@ avm-server = { workspace = true }
 
 futures = { workspace = true }
 serde_json = { workspace = true }
-itertools = "0.10.5"
+itertools = { workspace = true }

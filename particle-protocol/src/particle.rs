@@ -22,6 +22,10 @@ use fluence_keypair::{KeyPair, PublicKey, Signature};
 use libp2p::PeerId;
 use serde::{Deserialize, Serialize};
 
+use crate::error::ParticleError;
+use crate::error::ParticleError::{
+    DecodingError, InvalidKeypair, SignatureVerificationFailed, SigningFailed,
+};
 use fluence_libp2p::{peerid_serializer, RandomPeerId};
 use json_utils::base64_serde;
 use now_millis::now_ms;
@@ -83,45 +87,56 @@ impl Particle {
         }
     }
 
-    fn as_bytes(&self) -> eyre::Result<Vec<u8>> {
-        #[derive(Serialize)]
-        struct ParticleMetadata {
-            pub id: String,
-            #[serde(with = "peerid_serializer")]
-            pub init_peer_id: PeerId,
-            pub timestamp: u64,
-            pub ttl: u32,
-            pub script: String,
-        }
+    /// return immutable particle fields in bytes for signing
+    /// concatenation of:
+    /// - id as bytes
+    /// - init_peer_id in base58 as bytes
+    /// - timestamp u64 as little-endian bytes
+    /// - ttl u32 as little-endian bytes
+    /// - script as bytes
+    fn as_bytes(&self) -> Vec<u8> {
+        let mut bytes = vec![];
+        bytes.extend(self.id.as_bytes());
+        bytes.extend(self.init_peer_id.to_base58().as_bytes());
+        bytes.extend(self.timestamp.to_le_bytes());
+        bytes.extend(self.ttl.to_le_bytes());
+        bytes.extend(self.script.as_bytes());
 
-        Ok(bincode::serialize(&ParticleMetadata {
-            id: self.id.clone(),
-            init_peer_id: self.init_peer_id,
-            timestamp: self.timestamp,
-            ttl: self.ttl,
-            script: self.script.clone(),
-        })?)
+        bytes
     }
 
-    pub fn sign(&mut self, keypair: &KeyPair) -> eyre::Result<()> {
+    pub fn sign(&mut self, keypair: &KeyPair) -> Result<(), ParticleError> {
         if self.init_peer_id != keypair.get_peer_id() {
-            return Err(eyre::eyre!(
-                "Failed to sign particle {} by different peer id: expected {}, found {}",
-                self.id,
-                self.init_peer_id,
-                keypair.get_peer_id()
-            ));
+            return Err(InvalidKeypair {
+                id: self.id.clone(),
+                init_peer_id: self.init_peer_id.to_base58(),
+                given_peer_id: keypair.get_peer_id().to_base58(),
+            });
         }
-
-        self.signature = keypair.sign(self.as_bytes()?.as_slice())?.to_vec().to_vec();
+        self.signature = keypair
+            .sign(self.as_bytes().as_slice())
+            .map_err(|err| SigningFailed {
+                err,
+                id: self.id.clone(),
+            })?
+            .to_vec()
+            .to_vec();
 
         Ok(())
     }
 
-    pub fn verify(&self) -> eyre::Result<()> {
-        let pk: PublicKey = self.init_peer_id.try_into()?;
+    pub fn verify(&self) -> Result<(), ParticleError> {
+        let pk: PublicKey = self.init_peer_id.try_into().map_err(|err| DecodingError {
+            err,
+            id: self.id.clone(),
+        })?;
         let sig = Signature::from_bytes(pk.get_key_format(), self.signature.clone());
-        Ok(pk.verify(&self.as_bytes()?, &sig)?)
+        Ok(pk
+            .verify(&self.as_bytes(), &sig)
+            .map_err(|err| SignatureVerificationFailed {
+                err,
+                id: self.id.clone(),
+            })?)
     }
 }
 

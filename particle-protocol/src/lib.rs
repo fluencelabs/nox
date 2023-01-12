@@ -33,6 +33,7 @@ mod libp2p_protocol {
 }
 
 mod contact;
+mod error;
 mod particle;
 
 pub use contact::Contact;

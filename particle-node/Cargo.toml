@@ -41,13 +41,13 @@ futures = { workspace = true }
 async-std = { workspace = true }
 parking_lot = { workspace = true }
 
-humantime-serde = "1.1.1"
+humantime-serde = { workspace = true }
 
 log = { workspace = true }
 env_logger = "0.9.1"
 clap = "3.2.23"
 tide = "0.17.0-beta.1"
-itertools = "0.10.5"
+itertools = { workspace = true }
 eyre = { workspace = true }
 base64 = { workspace = true }
 
