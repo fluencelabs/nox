@@ -751,7 +751,7 @@ dependencies = [
 
 [[package]]
 name = "builtins"
-version = "0.1.1"
+version = "0.1.0"
 dependencies = [
  "builtins-deployer",
  "connected-client",
