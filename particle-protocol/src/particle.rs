@@ -131,12 +131,11 @@ impl Particle {
             id: self.id.clone(),
         })?;
         let sig = Signature::from_bytes(pk.get_key_format(), self.signature.clone());
-        Ok(pk
-            .verify(&self.as_bytes(), &sig)
+        pk.verify(&self.as_bytes(), &sig)
             .map_err(|err| SignatureVerificationFailed {
                 err,
                 id: self.id.clone(),
-            })?)
+            })
     }
 }
 

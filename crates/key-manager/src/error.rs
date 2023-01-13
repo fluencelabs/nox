@@ -19,6 +19,8 @@ use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum PersistedKeypairError {
+    #[error("Failed to persist keypair: RSA is not supported")]
+    CannotExtractRSASecretKey,
     #[error("Error reading persisted keypair from {path:?}: {err}")]
     ReadPersistedKeypair {
         path: PathBuf,

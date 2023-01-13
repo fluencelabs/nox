@@ -53,7 +53,7 @@ impl KeyManager {
         for pkp in persisted_keypairs {
             let res: eyre::Result<()> = try {
                 let persisted_kp = pkp?;
-                let keypair = KeyPair::from_vec(
+                let keypair = KeyPair::from_secret_key(
                     persisted_kp.private_key_bytes,
                     KeyFormat::from_str(&persisted_kp.key_format)?,
                 )?;
@@ -109,7 +109,7 @@ impl KeyManager {
     pub fn store_keypair(&self, remote_peer_id: PeerId, keypair: KeyPair) -> eyre::Result<()> {
         persist_keypair(
             &self.keypairs_dir,
-            PersistedKeypair::new(remote_peer_id, &keypair),
+            PersistedKeypair::new(remote_peer_id, &keypair)?,
         )?;
         let scope_peer_id = keypair.get_peer_id();
         self.scope_peer_ids

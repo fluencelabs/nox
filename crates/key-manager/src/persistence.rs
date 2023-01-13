@@ -18,8 +18,8 @@ use fs_utils::{create_dir, list_files};
 
 use crate::error::PersistedKeypairError;
 use crate::error::PersistedKeypairError::{
-    CreateKeypairsDir, DeserializePersistedKeypair, ReadPersistedKeypair,
-    SerializePersistedKeypair, WriteErrorPersistedKeypair,
+    CannotExtractRSASecretKey, CreateKeypairsDir, DeserializePersistedKeypair,
+    ReadPersistedKeypair, SerializePersistedKeypair, WriteErrorPersistedKeypair,
 };
 use fluence_keypair::KeyPair;
 use fluence_libp2p::peerid_serializer;
@@ -36,12 +36,12 @@ pub struct PersistedKeypair {
 }
 
 impl PersistedKeypair {
-    pub fn new(owner_id: PeerId, keypair: &KeyPair) -> Self {
-        Self {
+    pub fn new(owner_id: PeerId, keypair: &KeyPair) -> Result<Self, PersistedKeypairError> {
+        Ok(Self {
             remote_peer_id: owner_id,
-            private_key_bytes: keypair.to_vec(),
+            private_key_bytes: keypair.secret().map_err(|_| CannotExtractRSASecretKey)?,
             key_format: keypair.public().get_key_format().into(),
-        }
+        })
     }
 }
 
