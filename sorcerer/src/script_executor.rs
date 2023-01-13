@@ -17,6 +17,7 @@ use fluence_libp2p::PeerId;
 use fluence_spell_dtos::value::{ScriptValue, U32Value, UnitValue};
 use serde_json::json;
 
+use crate::error::SorcererError::{ParticleSigningFailed, ScopeKeypairMissing};
 use now_millis::now_ms;
 use particle_args::JError;
 use particle_protocol::Particle;
@@ -93,7 +94,11 @@ impl Sorcerer {
         let spell_keypair = self
             .key_manager
             .get_scope_keypair(scope_peer_id)
-            .map_err(|e| JError::new(e.to_string()))?;
+            .map_err(|err| ScopeKeypairMissing {
+                err,
+                spell_id: spell_id.clone(),
+            })?;
+
         let spell_counter = self.get_spell_counter(spell_id.clone(), scope_peer_id)?;
         self.set_spell_next_counter(spell_id.clone(), spell_counter + 1, scope_peer_id)?;
         let spell_script = self.get_spell_script(spell_id.clone(), scope_peer_id)?;
@@ -109,7 +114,7 @@ impl Sorcerer {
         };
         particle
             .sign(&spell_keypair)
-            .map_err(|e| JError::new(e.to_string()))?;
+            .map_err(|err| ParticleSigningFailed { err, spell_id })?;
 
         Ok(particle)
     }

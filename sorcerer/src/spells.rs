@@ -29,7 +29,7 @@ use std::time::Duration;
 
 /// For local peer ids is identity,
 /// for remote returns associated peer id or generate a new one.
-fn get_spell_peer_id(init_peer_id: PeerId, key_manager: &KeyManager) -> eyre::Result<PeerId> {
+fn get_spell_peer_id(init_peer_id: PeerId, key_manager: &KeyManager) -> Result<PeerId, JError> {
     // All "nested" spells share the same keypair.
     // "nested" means spells which are created by other spells
     if key_manager.is_scope_peer_id(init_peer_id) {
@@ -61,8 +61,7 @@ pub(crate) async fn spell_install(
     let user_config: TriggerConfig = Args::next("config", &mut args)?;
     let config = api::from_user_config(user_config.clone())?;
 
-    let spell_peer_id = get_spell_peer_id(params.init_peer_id, &key_manager)
-        .map_err(|e| JError::new(e.to_string()))?;
+    let spell_peer_id = get_spell_peer_id(params.init_peer_id, &key_manager)?;
 
     let spell_id = services.create_service(spell_storage.get_blueprint(), spell_peer_id)?;
     spell_storage.register_spell(spell_id.clone());
@@ -148,8 +147,7 @@ pub(crate) async fn spell_remove(
 ) -> Result<(), JError> {
     let mut args = args.function_args.into_iter();
     let spell_id: String = Args::next("spell_id", &mut args)?;
-    let spell_peer_id = get_spell_peer_id(params.init_peer_id, &key_manager)
-        .map_err(|e| JError::new(e.to_string()))?;
+    let spell_peer_id = get_spell_peer_id(params.init_peer_id, &key_manager)?;
 
     if let Err(err) = spell_event_bus_api.unsubscribe(spell_id.clone()).await {
         log::warn!(
@@ -177,8 +175,7 @@ pub(crate) async fn spell_update_config(
 ) -> Result<(), JError> {
     let mut args = args.function_args.into_iter();
     let spell_id: String = Args::next("spell_id", &mut args)?;
-    let spell_peer_id = get_spell_peer_id(params.init_peer_id, &key_manager)
-        .map_err(|e| JError::new(e.to_string()))?;
+    let spell_peer_id = get_spell_peer_id(params.init_peer_id, &key_manager)?;
     let user_config: TriggerConfig = Args::next("config", &mut args)?;
     let config = api::from_user_config(user_config.clone())?;
 
@@ -298,7 +295,7 @@ pub(crate) fn scope_get_peer_id(
     params: ParticleParams,
     key_manager: KeyManager,
 ) -> Result<JValue, JError> {
-    Ok(json!(get_spell_peer_id(params.init_peer_id, &key_manager)
-        .map_err(|e| JError::new(e.to_string()))?
-        .to_base58()))
+    Ok(json!(
+        get_spell_peer_id(params.init_peer_id, &key_manager)?.to_base58()
+    ))
 }

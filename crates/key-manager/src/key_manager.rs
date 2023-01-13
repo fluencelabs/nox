@@ -21,6 +21,7 @@ use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::Arc;
 
+use crate::error::PersistedKeypairError;
 use crate::persistence::{load_persisted_keypairs, persist_keypair, PersistedKeypair};
 use parking_lot::RwLock;
 
@@ -106,7 +107,11 @@ impl KeyManager {
         KeyPair::generate_ed25519()
     }
 
-    pub fn store_keypair(&self, remote_peer_id: PeerId, keypair: KeyPair) -> eyre::Result<()> {
+    pub fn store_keypair(
+        &self,
+        remote_peer_id: PeerId,
+        keypair: KeyPair,
+    ) -> Result<(), PersistedKeypairError> {
         persist_keypair(
             &self.keypairs_dir,
             PersistedKeypair::new(remote_peer_id, &keypair)?,
