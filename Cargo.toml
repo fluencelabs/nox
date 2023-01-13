@@ -74,7 +74,7 @@ test-constants = { path = "crates/test-constants" }
 peer-metrics = { path = "crates/peer-metrics" }
 spell-event-bus = { path = "crates/spell-event-bus" }
 sorcerer = { path = "sorcerer" }
-builtins = { path = "particle-node/tests/builtins" }
+builtins = { path = "crates/builtins-tests" }
 particle-node = { path = "particle-node" }
 aquamarine = { path = "aquamarine" }
 particle-protocol = { path = "particle-protocol" }

@@ -568,7 +568,7 @@ mod tests {
             None,
         );
 
-        let module = load_module("../particle-node/tests/tetraplets/artifacts", "tetraplets")
+        let module = load_module("../crates/particle-node-tests/tetraplets/artifacts", "tetraplets")
             .expect("load module");
 
         let config: TomlMarineNamedModuleConfig = TomlMarineNamedModuleConfig {
@@ -623,7 +623,7 @@ mod tests {
             None,
         );
 
-        let module = load_module("../particle-node/tests/tetraplets/artifacts", "tetraplets")
+        let module = load_module("../crates/particle-node-tests/tetraplets/artifacts", "tetraplets")
             .expect("load module");
 
         let config: TomlMarineNamedModuleConfig = TomlMarineNamedModuleConfig {

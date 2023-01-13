@@ -726,7 +726,7 @@ mod tests {
         let base_dir = TempDir::new("test").unwrap();
         let pas = create_pas(local_pid, management_pid, base_dir.path().into());
 
-        let module = load_module("../particle-node/tests/tetraplets/artifacts", "tetraplets")
+        let module = load_module("../crates/particle-node-tests/tetraplets/artifacts", "tetraplets")
             .expect("load module");
 
         let module_name = "tetra".to_string();
@@ -767,7 +767,7 @@ mod tests {
     }
 
     fn upload_tetra_service(pas: &ParticleAppServices, module_name: String) -> String {
-        let module = load_module("../particle-node/tests/tetraplets/artifacts", "tetraplets")
+        let module = load_module("../crates/particle-node-tests/tetraplets/artifacts", "tetraplets")
             .expect("load module");
 
         let config: TomlMarineNamedModuleConfig = TomlMarineNamedModuleConfig {
