@@ -22,6 +22,7 @@ use key_manager::KeyManager;
 use particle_args::{Args, JError};
 use particle_execution::ParticleParams;
 use particle_services::ParticleAppServices;
+use spell_event_bus::api::EventBusError;
 use spell_event_bus::{api, api::SpellEventBusApi};
 use spell_storage::SpellStorage;
 use std::time::Duration;
@@ -88,19 +89,23 @@ pub(crate) async fn spell_install(
         "set_trigger_config",
     )?;
 
-    // Scheduling the spell
-    if let Err(err) = spell_event_bus_api
-        .subscribe(spell_id.clone(), config.clone())
-        .await
-    {
-        log::warn!("can't subscribe a spell {} to triggers {:?} via spell-event-bus-api: {}. Removing created spell service...", spell_id, config, err);
+    if let Some(config) = config {
+        // Scheduling the spell
+        if let Err(err) = spell_event_bus_api
+            .subscribe(spell_id.clone(), config.clone())
+            .await
+        {
+            log::warn!("can't subscribe a spell {} to triggers {:?} via spell-event-bus-api: {}. Removing created spell service...", spell_id, config, err);
 
-        spell_storage.unregister_spell(&spell_id);
-        services.remove_service(spell_id, spell_peer_id, true)?;
+            spell_storage.unregister_spell(&spell_id);
+            services.remove_service(spell_id, params.init_peer_id, true)?;
 
-        return Err(JError::new(format!(
-            "can't install a spell due to an internal error while subscribing to the triggers: {err}"
-        )));
+            return Err(JError::new(format!(
+                "can't install a spell due to an internal error while subscribing to the triggers: {err}"
+            )));
+        }
+    } else {
+        log::trace!("empty config given for spell {}", spell_id);
     }
 
     Ok(JValue::String(spell_id))
@@ -130,9 +135,7 @@ pub(crate) async fn spell_remove(
 
     if let Err(err) = spell_event_bus_api.unsubscribe(spell_id.clone()).await {
         log::warn!(
-            "can't unsubscribe a spell {} from its triggers via spell-event-bus-api: {}",
-            spell_id,
-            err
+            "can't unsubscribe a spell {spell_id} from its triggers via spell-event-bus-api: {err}"
         );
         return Err(JError::new(format!(
             "can't remove a spell {spell_id} due to an internal error while unsubscribing from the triggers: {err}"
@@ -171,16 +174,24 @@ pub(crate) async fn spell_update_config(
         "set_trigger_config",
     )?;
 
-    if let Err(err) = spell_event_bus_api
-        .update_config(spell_id.clone(), config)
-        .await
-    {
-        log::warn!(
-            "save config to spell service {spell_id} SUCCESS; update trigger subscriptions FAIL: {err}"
-        );
+    let result: Result<(), EventBusError> = try {
+        // we unsubscribe the spell from the current config anyway
+        spell_event_bus_api.unsubscribe(spell_id.clone()).await?;
+        if let Some(config) = config {
+            // and if the config isn't empty, we subscribe it to the new one
+            spell_event_bus_api
+                .subscribe(spell_id.clone(), config.clone())
+                .await?;
+        }
+    };
+
+    if let Err(err) = result {
+        log::warn!("can't update a spell {spell_id} config via spell-event-bus-api: {err}",);
         return Err(JError::new(format!(
-            "save config to spell service {spell_id} SUCCESS\nupdate trigger subscriptions FAIL: {err}\ncall update_config to try again")));
+            "can't update a spell {spell_id} config due to an internal error while updating the triggers: {err}"
+        )));
     }
+
     Ok(())
 }
 

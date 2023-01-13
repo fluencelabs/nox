@@ -40,14 +40,10 @@ impl PeerEventSubscribers {
     }
 
     /// Returns true if spell_id was removed from subscribers
-    fn remove(&mut self, spell_id: &SpellId) -> bool {
-        let mut was_removed = false;
+    fn remove(&mut self, spell_id: &SpellId) {
         for subscribers in self.subscribers.values_mut() {
-            let subscribers_len = subscribers.len();
             subscribers.retain(|sub_id| **sub_id != *spell_id);
-            was_removed |= subscribers_len != subscribers.len();
         }
-        was_removed
     }
 }
 
@@ -132,19 +128,10 @@ impl SubscribersState {
     }
 
     /// Returns true if spell_id was removed from subscribers
-    fn unsubscribe(&mut self, spell_id: &SpellId) -> bool {
-        let prev_len = self.scheduled.len();
+    fn unsubscribe(&mut self, spell_id: &SpellId) {
         self.scheduled
             .retain(|scheduled| *scheduled.data.id != *spell_id);
-        let new_len = self.scheduled.len();
-        let removed = self.subscribers.remove(spell_id);
-        prev_len != new_len || removed
-    }
-
-    fn update(&mut self, spell_id: &SpellId, config: &SpellTriggerConfigs) {
-        if self.unsubscribe(spell_id) {
-            self.subscribe(spell_id.clone(), config);
-        }
+        self.subscribers.remove(spell_id);
     }
 
     fn subscribers(&self, event_type: &PeerEventType) -> impl Iterator<Item = &Arc<SpellId>> {
@@ -238,9 +225,6 @@ impl SpellEventBus {
                             Action::Unsubscribe => {
                                 state.unsubscribe(&spell_id);
                             },
-                            Action::Update(config) => {
-                                state.update(&spell_id, config);
-                            }
                         };
                         reply.send(()).map_err(|_| BusInternalError::Reply(spell_id, action))?;
                     },
@@ -569,53 +553,5 @@ mod tests {
                 });
             },
         );
-    }
-
-    #[test]
-    fn test_update_config() {
-        let (send, recv) = unbounded();
-        let (bus, api, mut event_stream) = SpellEventBus::new(vec![recv.boxed()]);
-        let _bus = bus.start();
-
-        let spell1_id = "spell1".to_string();
-        subscribe_peer_event(&api, spell1_id.clone(), vec![PeerEventType::Connected]);
-
-        send_connect_event(&send, PeerId::random());
-        send_disconnect_event(&send, PeerId::random());
-
-        task::block_on(async {
-            let connect_event = event_stream.next().await.unwrap();
-            let disconnect_event = event_stream.try_next();
-            assert_eq!(connect_event.spell_id, spell1_id);
-            assert_matches!(
-                connect_event.info,
-                TriggerInfo::Peer(p) if p.connected
-            );
-            assert!(
-                disconnect_event.is_err(),
-                "no spells are triggered by disconnect event"
-            );
-
-            let config = SpellTriggerConfigs {
-                triggers: vec![TriggerConfig::PeerEvent(PeerEventConfig {
-                    events: vec![PeerEventType::Disconnected],
-                })],
-            };
-            api.update_config(spell1_id.clone(), config).await.unwrap();
-
-            send_connect_event(&send, PeerId::random());
-            send_disconnect_event(&send, PeerId::random());
-            let disconnect_event = event_stream.next().await.unwrap();
-            let connect_event = event_stream.try_next();
-            assert_eq!(disconnect_event.spell_id, spell1_id);
-            assert_matches!(
-                disconnect_event.info,
-                TriggerInfo::Peer(p) if !p.connected
-            );
-            assert!(
-                connect_event.is_err(),
-                "no spells are triggered by disconnect event"
-            );
-        });
     }
 }
