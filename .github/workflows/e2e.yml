@@ -36,26 +36,46 @@ jobs:
       flavour: "${{ matrix.flavour }}"
       rust-peer-sha: "${{ needs.rust-peer.outputs.rust-peer-sha }}"
 
+  fluence-js:
+    uses: fluencelabs/fluence-js/.github/workflows/snapshot.yml@master
+    with:
+      avm-version: "0.35.3"
+
+  aqua:
+    needs:
+      - fluence-js
+    uses: fluencelabs/aqua/.github/workflows/snapshot.yml@main
+    with:
+      fluence-js-version: "${{ needs.fluence-js.outputs.fluence-js-version }}"
+
+
   aqua-playground:
     needs:
       - rust-peer
-
+      - aqua
     uses: fluencelabs/aqua-playground/.github/workflows/tests.yml@master
     with:
+      fluence-js-version: "${{ needs.fluence-js.outputs.fluence-js-version }}"
+      aqua-version: "${{ needs.aqua.outputs.aqua-version }}"
       rust-peer-image: "${{ needs.rust-peer.outputs.rust-peer-image }}"
+
 
   registry:
     needs:
       - rust-peer
-
     uses: fluencelabs/registry/.github/workflows/tests.yml@main
     with:
+      aqua-version: "${{ needs.aqua.outputs.aqua-version }}"
       rust-peer-image: "${{ needs.rust-peer.outputs.rust-peer-image }}"
+
 
   fluence-cli:
     needs:
+      - aqua
+      - fluence-js
       - rust-peer
-
     uses: fluencelabs/fluence-cli/.github/workflows/tests.yml@main
     with:
+      aqua-version: "${{ needs.aqua.outputs.aqua-version }}"
+      fluence-js-version: "${{ needs.fluence-js.outputs.fluence-js-version }}"
       rust-peer-image: "${{ needs.rust-peer.outputs.rust-peer-image }}"
