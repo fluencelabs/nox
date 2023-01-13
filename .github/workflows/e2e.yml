@@ -48,10 +48,10 @@ jobs:
     with:
       fluence-js-version: "${{ needs.fluence-js.outputs.fluence-js-version }}"
 
-
   aqua-playground:
     needs:
       - rust-peer
+      - fluence-js
       - aqua
     uses: fluencelabs/aqua-playground/.github/workflows/tests.yml@master
     with:
@@ -59,15 +59,14 @@ jobs:
       aqua-version: "${{ needs.aqua.outputs.aqua-version }}"
       rust-peer-image: "${{ needs.rust-peer.outputs.rust-peer-image }}"
 
-
   registry:
     needs:
       - rust-peer
+      - aqua
     uses: fluencelabs/registry/.github/workflows/tests.yml@main
     with:
       aqua-version: "${{ needs.aqua.outputs.aqua-version }}"
       rust-peer-image: "${{ needs.rust-peer.outputs.rust-peer-image }}"
-
 
   fluence-cli:
     needs:
