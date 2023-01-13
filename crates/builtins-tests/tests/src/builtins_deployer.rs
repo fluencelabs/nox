@@ -95,7 +95,7 @@ fn builtins_replace_old() {
         &mut client,
         "tetraplets",
         load_module(
-            "../../../particle-node-tests/tests/tetraplets/artifacts",
+            "../particle-node-tests/tests/tetraplets/artifacts",
             "tetraplets",
         )
         .expect("load module"),

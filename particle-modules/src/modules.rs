@@ -569,7 +569,7 @@ mod tests {
         );
 
         let module = load_module(
-            "../../crates/particle-node-tests/tetraplets/artifacts",
+            "../crates/particle-node-tests/tests/tetraplets/artifacts",
             "tetraplets",
         )
         .expect("load module");
@@ -627,7 +627,7 @@ mod tests {
         );
 
         let module = load_module(
-            "../../crates/particle-node-tests/tetraplets/artifacts",
+            "../crates/particle-node-tests/tests/tetraplets/artifacts",
             "tetraplets",
         )
         .expect("load module");
