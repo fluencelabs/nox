@@ -17,7 +17,6 @@ fluence-keypair = { workspace = true }
 
 test-utils = { path = "../test-utils" }
 fs-utils = { path = "../fs-utils" }
-log-utils = { path = "../log-utils" }
 service-modules = { path = "../service-modules" }
 builtins-deployer = { path = "../builtins-deployer" }
 particle-modules = { path = "../../particle-modules" }
