@@ -29,7 +29,6 @@ fluence-keypair = { workspace = true }
 serde_json = { workspace = true }
 parking_lot = { workspace = true }
 log = { workspace = true }
-maplit = { workspace = true }
 futures = { workspace = true }
 eyre = { workspace = true}
 fstrings = { workspace = true}

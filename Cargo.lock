@@ -5478,7 +5478,6 @@ dependencies = [
  "key-manager",
  "libp2p",
  "log",
- "maplit",
  "now-millis",
  "parking_lot 0.12.1",
  "particle-args",
