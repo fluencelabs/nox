@@ -19,7 +19,6 @@ use std::str::FromStr;
 use std::time::Duration;
 
 use eyre::Context;
-use log_utils::enable_logs;
 use maplit::hashmap;
 use serde_json::{json, Value as JValue};
 
@@ -491,7 +490,6 @@ fn spell_store_trigger_config() {
 #[test]
 fn spell_remove() {
     let swarms = make_swarms(1);
-    enable_logs();
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .wrap_err("connect client")
