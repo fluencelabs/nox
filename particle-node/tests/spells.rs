@@ -913,7 +913,7 @@ fn spell_set_u32() {
     );
     let mut result = client.receive_args().wrap_err("receive").unwrap();
     assert_eq!(result.len(), 3);
-    let (absent, one, two) = dbg!((result.remove(0), result.remove(0), result.remove(0)));
+    let (absent, one, two) = (result.remove(0), result.remove(0), result.remove(0));
 
     assert_eq!(absent["absent"], json!(true));
 

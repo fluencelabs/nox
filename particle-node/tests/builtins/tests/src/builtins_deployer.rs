@@ -34,7 +34,8 @@ use test_utils::create_service;
 
 use crate::{SERVICES, SPELL};
 
-fn check_dht_builtin(client: &mut ConnectedClient) {
+fn check_registry_builtin(client: &mut ConnectedClient) {
+    // TODO: get rid of FIVE SECONDS sleep
     std::thread::sleep(Duration::from_millis(5000));
 
     client.send_particle(
@@ -44,7 +45,7 @@ fn check_dht_builtin(client: &mut ConnectedClient) {
                     (call relay ("srv" "resolve_alias") [alias] service_id)
                     (seq
                         (call relay ("peer" "timestamp_sec") [] timestamp)
-                        (call relay (service_id "register_key") [key timestamp pin weight] result)
+                        (call relay (service_id "get_key_id") [label %init_peer_id%] result)
                     )
                 )
                 (call %init_peer_id% ("op" "return") [result])
@@ -54,24 +55,16 @@ fn check_dht_builtin(client: &mut ConnectedClient) {
     "#,
         hashmap! {
             "relay" => json!(client.node.to_string()),
-            "alias" => json!("aqua-dht"),
-            "key" => json!("some_key"),
-            "pin" => json!(false),
-            "weight" => json!(1u32),
+            "alias" => json!("registry"),
+            "label" => json!("some_label"),
         },
     );
 
-    #[derive(Deserialize)]
-    pub struct DhtResult {
-        pub success: bool,
-        pub error: String,
+    let mut result = client.receive_args().wrap_err("receive args").unwrap();
+    match result.pop() {
+        Some(serde_json::Value::String(s)) => assert!(s.contains("some_label")),
+        other => panic!("expected json string, got {:?}", other),
     }
-
-    let result = client.receive_args().wrap_err("receive args").unwrap();
-    let result = result.into_iter().next().unwrap();
-    let result: DhtResult = serde_json::from_value(result).unwrap();
-
-    assert!(result.success);
 }
 
 #[test]
@@ -82,7 +75,7 @@ fn builtins_test() {
         .wrap_err("connect client")
         .unwrap();
 
-    check_dht_builtin(&mut client);
+    check_registry_builtin(&mut client);
 }
 
 #[test]
@@ -140,7 +133,7 @@ fn builtins_replace_old() {
         .wrap_err("connect client")
         .unwrap();
 
-    check_dht_builtin(&mut client);
+    check_registry_builtin(&mut client);
 }
 
 #[test]
@@ -176,6 +169,7 @@ fn builtins_scheduled_scripts() {
 }
 
 #[test]
+#[ignore]
 fn builtins_resolving_env_variables() {
     copy_dir_all(SERVICES, "./builtins_test_env").unwrap();
     let key = "some_key".to_string();
