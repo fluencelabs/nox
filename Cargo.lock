@@ -744,32 +744,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "builtins"
-version = "0.1.0"
-dependencies = [
- "builtins-deployer",
- "connected-client",
- "control-macro",
- "created-swarm",
- "eyre",
- "fluence-keypair",
- "fs-utils",
- "fstrings",
- "json-utils",
- "libp2p",
- "local-vm",
- "log",
- "maplit",
- "now-millis",
- "particle-modules",
- "serde",
- "serde_json",
- "service-modules",
- "test-constants",
- "test-utils",
-]
-
-[[package]]
 name = "builtins-deployer"
 version = "0.1.0"
 dependencies = [
@@ -794,6 +768,32 @@ dependencies = [
  "serde_json",
  "service-modules",
  "uuid-utils",
+]
+
+[[package]]
+name = "builtins-tests"
+version = "0.1.0"
+dependencies = [
+ "builtins-deployer",
+ "connected-client",
+ "control-macro",
+ "created-swarm",
+ "eyre",
+ "fluence-keypair",
+ "fs-utils",
+ "fstrings",
+ "json-utils",
+ "libp2p",
+ "local-vm",
+ "log",
+ "maplit",
+ "now-millis",
+ "particle-modules",
+ "serde",
+ "serde_json",
+ "service-modules",
+ "test-constants",
+ "test-utils",
 ]
 
 [[package]]
@@ -4118,7 +4118,6 @@ dependencies = [
  "base64 0.20.0",
  "blake3 1.3.3",
  "bs58 0.4.0",
- "builtins",
  "connected-client",
  "connection-pool",
  "control-macro",

@@ -24,7 +24,6 @@ fluence-spell-dtos = { workspace = true }
 fluence-app-service = { workspace = true }
 particle-protocol = { workspace = true }
 particle-builtins = { workspace = true }
-builtins = { workspace = true }
 connection-pool = { workspace = true }
 script-storage = { workspace = true }
 aquamarine = { workspace = true }
