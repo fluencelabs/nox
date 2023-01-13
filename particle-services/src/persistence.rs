@@ -89,7 +89,7 @@ pub fn load_persisted_services(services_dir: &Path) -> Vec<Result<PersistedServi
         Some(files) => files,
         None => {
             // Attempt to create directory and exit
-            if let Err(err) = create_dir(&services_dir) {
+            if let Err(err) = create_dir(services_dir) {
                 return vec![Err(CreateServicesDir {
                     path: services_dir.to_path_buf(),
                     err,
