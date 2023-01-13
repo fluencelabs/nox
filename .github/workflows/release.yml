@@ -89,7 +89,6 @@ jobs:
           echo "sha256=${sha}" >> $GITHUB_OUTPUT
 
       - name: Upload rust-peer binary
-        id: artifact
         if: needs.release-please.outputs.rust-peer-release-created
         uses: softprops/action-gh-release@v1
         with:
@@ -104,10 +103,10 @@ jobs:
        with:
          workflow: update_fluence
          repo: fluencelabs/node-distro
-         ref: 'main'
+         ref: main
          token: ${{ secrets.PERSONAL_TOKEN }}
          inputs: '{
            "version": "${{ needs.release-please.rust-peer-tag-name }}",
-           "url": "${{ steps.artifact.outputs.result }}",
+           "url": "https://github.com/fluencelabs/rust-peer/releases/download/${{ needs.release-please.rust-peer-tag-name }}/rust-peer",
            "sha256": "${{ steps.sha.outputs.sha256 }}"
          }'
