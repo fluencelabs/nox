@@ -19,13 +19,13 @@ extern crate fstrings;
 
 use std::thread::sleep;
 
+use eyre::WrapErr;
 use fstrings::f;
 use maplit::hashmap;
 use serde_json::json;
 
 use connected_client::ConnectedClient;
 use created_swarm::make_swarms;
-use eyre::WrapErr;
 use service_modules::load_module;
 use test_constants::KAD_TIMEOUT;
 use test_utils::create_service;

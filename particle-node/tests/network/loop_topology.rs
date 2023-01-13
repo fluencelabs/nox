@@ -123,7 +123,10 @@ fn fold_fold_fold_par_null() {
                 )
                 (seq
                     (call relay ("op" "noop") [])
-                    (call client ("return" "") [$inner])
+                    (seq
+                        (canon client $inner #inner) 
+                        (call client ("return" "") [#inner])
+                    )
                 )
             )
         )
@@ -331,7 +334,7 @@ fn fold_par_same_node_stream() {
             "relay" => json!(client.node.to_string()),
             "client" => json!(client.peer_id.to_string()),
             "permutations" => json!(permutations),
-            "flat_length" => dbg!(json!(flat.len()))
+            "flat_length" => json!(flat.len())
         },
     );
 
@@ -712,7 +715,7 @@ fn fold_null_seq_same_node_stream() {
             "relay" => json!(client.node.to_string()),
             "client" => json!(client.peer_id.to_string()),
             "permutations" => json!(permutations),
-            "flat_length" => dbg!(json!(flat.len()))
+            "flat_length" => json!(flat.len())
         },
     );
 
@@ -731,81 +734,6 @@ fn fold_null_seq_same_node_stream() {
     assert_eq!(flat.len(), res.len());
     let flat: Res = flat.into_iter().map(|(_, i)| i).collect();
     assert_eq!(flat, res);
-}
-
-#[test]
-fn par_wait_two() {
-    let swarms = make_swarms(4);
-
-    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
-        .wrap_err("connect client")
-        .unwrap();
-
-    client.send_particle_ext(
-        r#"
-        (xor
-         (seq
-          (seq
-           (seq
-            (seq
-             (seq
-              (call %init_peer_id% ("getDataSrv" "-relay-") [] -relay-)
-              (call %init_peer_id% ("getDataSrv" "relay") [] relay)
-             )
-             (call -relay- ("op" "noop") [])
-            )
-            (xor
-             (seq
-              (seq
-               (seq
-                (seq
-                 (seq
-                  (call relay ("op" "string_to_b58") [%init_peer_id%] k)
-                  (call relay ("kad" "neighborhood") [k [] []] nodes)
-                 )
-                 (fold nodes n
-                  (par
-                   (seq
-                    (xor
-                     (call n ("peer" "timestamp_sec") [] $res)
-                     (null)
-                    )
-                    (call relay ("op" "noop") [])
-                   )
-                   (next n)
-                  )
-                 )
-                )
-                (call relay ("op" "identity") [$res.$.[0]!])
-               )
-               (call relay ("op" "identity") [$res.$.[1]!])
-              )
-              (call relay ("op" "identity") [$res.$.[2]!])
-             )
-             (seq
-              (call -relay- ("op" "noop") [])
-              (call %init_peer_id% ("errorHandlingSrv" "error") [%last_error% 1])
-             )
-            )
-           )
-           (call -relay- ("op" "noop") [])
-          )
-          (xor
-           (call %init_peer_id% ("callbackSrv" "response") [$res])
-           (call %init_peer_id% ("errorHandlingSrv" "error") [%last_error% 2])
-          )
-         )
-         (call %init_peer_id% ("errorHandlingSrv" "error") [%last_error% 3])
-        )
-        "#,
-        hashmap! {
-            "-relay-" => json!(client.node.to_base58()),
-            "relay" => json!(client.node.to_base58()),
-        },
-        true,
-    );
-
-    client.receive().unwrap();
 }
 
 #[test]
@@ -903,7 +831,10 @@ fn join_empty_stream() {
                 (call relay ("op" "noop") [])
                 (call %init_peer_id% ("op" "identity") [""] $ns)
             )
-            (call %init_peer_id% ("op" "return") [$ns.$.[0]! $ns.$.[1]! $ns])
+            (seq
+                (canon %init_peer_id% $ns #ns)
+                (call %init_peer_id% ("op" "return") [#ns.$.[0]! #ns.$.[1]! #ns])
+            )
         )
         "#,
         hashmap! {

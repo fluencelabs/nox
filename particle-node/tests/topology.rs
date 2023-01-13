@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 
+#[macro_use]
+extern crate fstrings;
+
 use std::thread::sleep;
 
 use eyre::WrapErr;
@@ -22,7 +25,12 @@ use serde_json::{json, Value};
 
 use connected_client::ConnectedClient;
 use created_swarm::make_swarms;
+use network::join::join_stream;
 use test_constants::KAD_TIMEOUT;
+
+pub mod network {
+    pub mod join;
+}
 
 #[test]
 fn identity() {
@@ -98,7 +106,8 @@ fn join() {
         .unwrap();
 
     client.send_particle(
-        r#"
+        format!(
+            r#"
         (seq
             (seq
                 (call relay ("op" "noop") [])
@@ -116,16 +125,18 @@ fn join() {
                 )
             )
             (seq
-                (call %init_peer_id% ("op" "noop") [$results.$.[len]!])
-                (call %init_peer_id% ("op" "return") [$results])
+                {}
+                (call %init_peer_id% ("op" "return") [#results])
             )
         )
         "#,
+            join_stream("results", "%init_peer_id%", "len", "results"),
+        ),
         hashmap! {
             "nodes" => json!(swarms.iter().map(|s| s.peer_id.to_base58()).collect::<Vec<_>>()),
             "client" => json!(client.peer_id.to_string()),
             "relay" => json!(client.node.to_string()),
-            "len" => json!(swarms.len() - 1),
+            "len" => json!(swarms.len()),
         },
     );
 

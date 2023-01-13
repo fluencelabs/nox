@@ -4,7 +4,7 @@ dir = "target/nextest"
 
 [profile.default]
 retries = 0
-test-threads = "num-cpus"
+test-threads = 10
 threads-required = 1
 status-level = "pass"
 final-status-level = "fail"
