@@ -2,14 +2,14 @@
 name = "kademlia"
 version = "0.1.0"
 authors = ["Fluence Labs"]
-edition = "2018"
+edition = "2021"
 
 [dependencies]
-particle-protocol = { path = "../../particle-protocol" }
+particle-protocol = { workspace = true }
 
-control-macro = { path = "../control-macro" }
-fluence-libp2p = { path = "../libp2p" }
-server-config = { path = "../server-config" }
+control-macro = { workspace = true }
+fluence-libp2p = { workspace = true }
+server-config = { workspace = true }
 
 libp2p = { workspace = true }
 libp2p-metrics = { workspace = true, features = ["kad"] }

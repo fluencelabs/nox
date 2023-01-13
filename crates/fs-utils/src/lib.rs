@@ -79,17 +79,17 @@ pub fn set_write_only(path: &Path) -> Result<(), std::io::Error> {
     use std::os::unix::fs::PermissionsExt;
 
     let permissions = Permissions::from_mode(0o733);
-    std::fs::set_permissions(&path, permissions).map_err(|err| {
+    std::fs::set_permissions(path, permissions).map_err(|err| {
         std::io::Error::new(
             err.kind(),
-            format!("error making path write only (733) {:?}: {:?}", err, path),
+            format!("error making path write only (733) {err:?}: {path:?}"),
         )
     })
 }
 
 pub fn create_dir<P: AsRef<Path> + Debug>(dir: P) -> Result<(), std::io::Error> {
     std::fs::create_dir_all(&dir)
-        .map_err(|err| std::io::Error::new(err.kind(), format!("{:?}: {:?}", err, dir)))
+        .map_err(|err| std::io::Error::new(err.kind(), format!("{err:?}: {dir:?}")))
 }
 
 pub fn remove_dirs<Item>(dirs: &[Item]) -> Result<(), std::io::Error>
@@ -110,7 +110,7 @@ pub fn remove_dir(dir: &Path) -> Result<(), std::io::Error> {
         Err(err) if err.kind() == ErrorKind::NotFound => Ok(()),
         Err(err) => Err(std::io::Error::new(
             err.kind(),
-            format!("error removing directory {:?}: {:?}", dir, err),
+            format!("error removing directory {dir:?}: {err:?}"),
         )),
     }
 }
@@ -122,7 +122,7 @@ pub fn remove_file(file: &Path) -> Result<(), std::io::Error> {
         Err(err) if err.kind() == ErrorKind::NotFound => Ok(()),
         Err(err) => Err(std::io::Error::new(
             err.kind(),
-            format!("error removing file {:?}: {:?}", file, err),
+            format!("error removing file {file:?}: {err:?}"),
         )),
     }
 }

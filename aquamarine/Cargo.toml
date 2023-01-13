@@ -2,21 +2,21 @@
 name = "aquamarine"
 version = "0.2.0"
 authors = ["Fluence Labs"]
-edition = "2018"
+edition = "2021"
 
 [dependencies]
-particle-protocol = { path = "../particle-protocol"}
-particle-services = { path = "../particle-services"}
-particle-builtins = { path = "../particle-builtins" }
+particle-protocol = { workspace = true }
+particle-services = { workspace = true }
+particle-builtins = { workspace = true }
 
-now-millis = { path = "../crates/now-millis" }
-fluence-libp2p = { path = "../crates/libp2p" }
-config-utils = { path = "../crates/config-utils" }
-particle-args = { path = "../crates/particle-args" }
-control-macro = { path = "../crates/control-macro" }
-fs-utils = { path = "../crates/fs-utils" }
-peer-metrics = { path = "../crates/peer-metrics" }
-particle-execution = { path = "../particle-execution" }
+now-millis = { workspace = true }
+fluence-libp2p = { workspace = true }
+config-utils = { workspace = true }
+particle-args = { workspace = true }
+control-macro = { workspace = true }
+fs-utils = { workspace = true }
+peer-metrics = { workspace = true }
+particle-execution = { workspace = true }
 
 avm-server = { workspace = true }
 libp2p = { workspace = true }

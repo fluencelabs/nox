@@ -532,7 +532,7 @@ impl NetworkBehaviour for ConnectionPoolBehaviour {
         };
         // remove failed contact
         if let Some(peer_id) = peer_id {
-            self.remove_contact(&peer_id, format!("dial failure: {}", error).as_str())
+            self.remove_contact(&peer_id, format!("dial failure: {error}").as_str())
         } else {
             log::warn!("Unknown peer dial failure: {}", error)
         }

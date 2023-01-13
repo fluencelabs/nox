@@ -2,18 +2,18 @@
 name = "local-vm"
 version = "0.1.0"
 authors = ["Fluence Labs"]
-edition = "2018"
+edition = "2021"
 
 [dependencies]
-ivalue-utils = { path = "../ivalue-utils" }
-particle-args = { path = "../particle-args" }
-particle-protocol = { path = "../../particle-protocol" }
-particle-execution = { path = "../../particle-execution" }
-now-millis = { path = "../now-millis"}
-uuid-utils = { path = "../uuid-utils" }
-fs-utils = { path = "../fs-utils"}
-aquamarine = { path = "../../aquamarine"}
-air-interpreter-fs = { path = "../air-interpreter-fs" }
+ivalue-utils = { workspace = true }
+particle-args = { workspace = true }
+particle-protocol = { workspace = true }
+particle-execution = { workspace = true }
+now-millis = { workspace = true }
+uuid-utils = { workspace = true }
+fs-utils = { workspace = true }
+aquamarine = { workspace = true }
+air-interpreter-fs = { workspace = true }
 
 air-interpreter-wasm = { workspace = true }
 avm-server = { workspace = true }

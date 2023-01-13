@@ -162,7 +162,7 @@ fn builtins_scheduled_scripts() {
     let result = result[0].as_array().unwrap();
 
     let mut scripts_count = 0;
-    for dir in list_files(&Path::new(SERVICES)).unwrap() {
+    for dir in list_files(Path::new(SERVICES)).unwrap() {
         scripts_count += list_files(&dir.join("scheduled")).unwrap().count();
     }
     assert_eq!(result.len(), scripts_count)
@@ -186,7 +186,7 @@ fn builtins_resolving_env_variables() {
     )
     "#);
     let env_variable_name = format!("{}_AQUA_DHT_{}", ALLOWED_ENV_PREFIX, "KEY");
-    let on_start_data = json!({ "key": env_variable_name.clone() });
+    let on_start_data = json!({ "key": env_variable_name });
     env::set_var(&env_variable_name[1..], key.clone());
     fs::write("./builtins_test_env/aqua-dht/on_start.air", on_start_script).unwrap();
     fs::write(

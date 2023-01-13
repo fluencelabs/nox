@@ -57,7 +57,7 @@ pub fn load_module_descriptor(modules_dir: &Path, module_hash: &Hash) -> Result<
 
 /// Load TomlMarineNamedModuleConfig from disk from a given path
 pub fn load_config_by_path(path: &Path) -> Result<TomlMarineNamedModuleConfig> {
-    let config = std::fs::read(&path).map_err(|err| NoModuleConfig {
+    let config = std::fs::read(path).map_err(|err| NoModuleConfig {
         path: path.to_path_buf(),
         err,
     })?;

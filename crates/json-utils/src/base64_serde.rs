@@ -31,5 +31,5 @@ where
     let str = String::deserialize(deserializer)?;
 
     base64::decode(str)
-        .map_err(|e| serde::de::Error::custom(format!("base64 deserialization failed: {:?}", e)))
+        .map_err(|e| serde::de::Error::custom(format!("base64 deserialization failed: {e:?}")))
 }

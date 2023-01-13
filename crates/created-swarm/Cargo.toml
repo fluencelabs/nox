@@ -2,24 +2,24 @@
 name = "created-swarm"
 version = "0.1.0"
 authors = ["Fluence Labs"]
-edition = "2018"
+edition = "2021"
 
 [dependencies]
-test-constants = { path = "../test-constants" }
-particle-execution = { path = "../../particle-execution" }
-particle-args = { path = "../particle-args" }
-config-utils = { path = "../config-utils" }
-server-config = { path = "../server-config" }
-fluence-libp2p = { path = "../libp2p" }
-particle-node = { path = "../../particle-node" }
-particle-protocol = { path = "../../particle-protocol" }
-aquamarine = { path = "../../aquamarine" }
-connection-pool = { path = "../../connection-pool" }
-script-storage = { path = "../../script-storage" }
-fs-utils = { path = "../fs-utils" }
-air-interpreter-fs = { path = "../air-interpreter-fs" }
-builtins-deployer = { path = "../builtins-deployer" }
-toy-vms = { path = "../toy-vms" }
+test-constants = { workspace = true }
+particle-execution = { workspace = true }
+particle-args = { workspace = true }
+config-utils = { workspace = true }
+server-config = { workspace = true }
+fluence-libp2p = { workspace = true }
+particle-node = { workspace = true }
+particle-protocol = { workspace = true }
+aquamarine = { workspace = true }
+connection-pool = { workspace = true }
+script-storage = { workspace = true }
+fs-utils = { workspace = true }
+air-interpreter-fs = { workspace = true }
+builtins-deployer = { workspace = true }
+toy-vms = { workspace = true }
 
 fluence-keypair = { workspace = true }
 

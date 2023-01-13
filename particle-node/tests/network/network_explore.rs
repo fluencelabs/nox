@@ -113,8 +113,8 @@ fn get_interfaces() {
     let services: Vec<Service> = serde_json::from_value(services)
         .wrap_err("deserialize services")
         .unwrap();
-    assert!(services.iter().find(|d| d.id == service1.id).is_some());
-    assert!(services.iter().find(|d| d.id == service2.id).is_some());
+    assert!(services.iter().any(|d| d.id == service1.id));
+    assert!(services.iter().any(|d| d.id == service2.id));
 
     let interfaces_count = args.next().unwrap().as_array().unwrap().len();
     assert_eq!(interfaces_count, 2);
@@ -183,8 +183,8 @@ fn list_blueprints() {
 
     let bytes = b"module";
     let raw_hash = blake3::hash(bytes).to_hex();
-    let hash = format!("hash:{}", raw_hash);
-    let name = format!("name:module");
+    let hash = format!("hash:{raw_hash}");
+    let name = "name:module".to_string();
     client.send_particle(
         r#"
         (seq
@@ -374,16 +374,12 @@ fn explore_services_fixed() {
 
     loop {
         let receive = client.receive_one();
-        if let Some(Some(event)) = block_on(timeout(Duration::from_secs(1), receive)).ok() {
+        if let Ok(Some(event)) = block_on(timeout(Duration::from_secs(1), receive)) {
             match event {
                 ClientEvent::Particle { particle, .. } => {
-                    let args = read_args(
-                        particle,
-                        client.peer_id.clone(),
-                        &mut client.local_vm.lock(),
-                    )
-                    .expect("read args")
-                    .expect("no error");
+                    let args = read_args(particle, client.peer_id, &mut client.local_vm.lock())
+                        .expect("read args")
+                        .expect("no error");
                     received.push(args);
                 }
                 ClientEvent::NewConnection { .. } => {}

@@ -129,8 +129,7 @@ impl<F: ParticleFunctionStatic> Functions<F> {
                 let result = CallServiceResult {
                     ret_code: 1,
                     result: json!(format!(
-                        "Failed to deserialize CallRequestParams to Args: {}",
-                        err
+                        "Failed to deserialize CallRequestParams to Args: {err}"
                     )),
                 };
                 let result = SingleCallResult {

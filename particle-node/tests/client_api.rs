@@ -44,7 +44,7 @@ fn call_custom_service() {
         dyn FnMut(_, _) -> BoxFuture<'static, FunctionOutcome> + 'static + Send + Sync,
     > = Box::new(move |args, params| {
         async move {
-            println!("got call!!! {:?} {:?}", args, params);
+            println!("got call!!! {args:?} {params:?}");
             FunctionOutcome::Ok(json!("hello!"))
         }
         .boxed()
@@ -63,7 +63,7 @@ fn call_custom_service() {
         let mut outlet = outlet.take();
         async move {
             let outlet = outlet.take();
-            println!("got return call!!! {:?} {:?}", args, params);
+            println!("got return call!!! {args:?} {params:?}");
             outlet.map(|out| out.send((args, params)));
             FunctionOutcome::Empty
         }
@@ -104,5 +104,5 @@ fn call_custom_service() {
         inlet.await
     }));
 
-    println!("result: {:?}", result);
+    println!("result: {result:?}");
 }

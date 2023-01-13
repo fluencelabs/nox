@@ -9,7 +9,7 @@ use futures::stream::BoxStream;
 use futures::{channel::mpsc::unbounded, select, StreamExt};
 use std::cmp::Ordering;
 use std::collections::{BinaryHeap, HashMap};
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use thiserror::Error;
 
 struct PeerEventSubscribers {
@@ -164,7 +164,7 @@ enum BusInternalError {
     #[error("failed to send a result of a command execution ({1:?}) for a spell {0}: receiving end probably dropped")]
     Reply(SpellId, Action),
     #[error("failed to send notification about a peer event {1:?} to spell {0}: {2}")]
-    SendEvent(SpellId, Event, SendError),
+    SendEvent(SpellId, TriggerInfo, SendError),
 }
 
 pub struct SpellEventBus {
@@ -211,6 +211,7 @@ impl SpellEventBus {
         let mut state = SubscribersState::new();
         loop {
             let now = Instant::now();
+
             // Wait until the next spell should be awaken. If there are no spells wait for unreachable amount of time,
             // which means that timer won't be triggered at all. We overwrite the timer each loop (aka after each event)
             // to ensure that we don't miss newly scheduled spells.
@@ -232,7 +233,7 @@ impl SpellEventBus {
                         let Command { spell_id, action, reply } = command;
                         match &action {
                             Action::Subscribe(config) => {
-                                state.subscribe(spell_id.clone(), &config).unwrap_or(());
+                                state.subscribe(spell_id.clone(), config).unwrap_or(());
                             },
                             Action::Unsubscribe => {
                                 state.unsubscribe(&spell_id);
@@ -245,7 +246,7 @@ impl SpellEventBus {
                     },
                     event = sources_channel.select_next_some() => {
                         for spell_id in state.subscribers(&event.get_type()) {
-                            let event = Event::Peer(event.clone());
+                            let event = TriggerInfo::Peer(event.clone());
                             Self::trigger_spell(&send_events, spell_id, event)?;
                         }
                     },
@@ -253,7 +254,8 @@ impl SpellEventBus {
                         // The timer is triggered only if there are some spells to be awaken.
                         if let Some(scheduled_spell) = state.scheduled.pop() {
                             log::trace!("Execute: {:?}", scheduled_spell);
-                            Self::trigger_spell(&send_events, &scheduled_spell.data.id, Event::Timer)?;
+                            let timestamp = SystemTime::now().duration_since(UNIX_EPOCH).expect("Time went backwards").as_secs();
+                            Self::trigger_spell(&send_events, &scheduled_spell.data.id, TriggerInfo::Timer(TimerEvent{ timestamp }))?;
                             // Do not reschedule the spell otherwise.
                             if let Some(rescheduled) = Scheduled::at(scheduled_spell.data, Instant::now()) {
                                 log::trace!("Reschedule: {:?}", rescheduled);
@@ -269,15 +271,16 @@ impl SpellEventBus {
         }
     }
 
+    #[allow(clippy::result_large_err)]
     fn trigger_spell(
         send_events: &Outlet<TriggerEvent>,
         id: &Arc<SpellId>,
-        event: Event,
+        event: TriggerInfo,
     ) -> Result<(), BusInternalError> {
         send_events
             .unbounded_send(TriggerEvent {
                 spell_id: (**id).clone(),
-                event: event.clone(),
+                info: event.clone(),
             })
             .map_err(|e| BusInternalError::SendEvent((**id).clone(), event, e.into_send_error()))?;
         Ok(())
@@ -311,16 +314,18 @@ mod tests {
     }
 
     fn send_connect_event(send: &Outlet<PeerEvent>, peer_id: PeerId) {
-        send.unbounded_send(PeerEvent::ConnectionPool(LifecycleEvent::Connected(
-            Contact::new(peer_id, Vec::new()),
-        )))
+        send.unbounded_send(PeerEvent::from(LifecycleEvent::Connected(Contact::new(
+            peer_id,
+            Vec::new(),
+        ))))
         .unwrap();
     }
 
     fn send_disconnect_event(send: &Outlet<PeerEvent>, peer_id: PeerId) {
-        send.unbounded_send(PeerEvent::ConnectionPool(LifecycleEvent::Disconnected(
-            Contact::new(peer_id, Vec::new()),
-        )))
+        send.unbounded_send(PeerEvent::from(LifecycleEvent::Disconnected(Contact::new(
+            peer_id,
+            Vec::new(),
+        ))))
         .unwrap();
     }
 
@@ -382,7 +387,7 @@ mod tests {
                 assert_eq!(events.len(), 5);
                 for event in events.into_iter() {
                     assert_eq!(event.spell_id, spell1_id.clone(),);
-                    assert_matches!(event.event, Event::Timer);
+                    assert_matches!(event.info, TriggerInfo::Timer(_));
                 }
             },
             || {
@@ -414,7 +419,7 @@ mod tests {
                 assert_eq!(events.len(), 10);
                 for event in events.into_iter() {
                     spell_ids.entry(event.spell_id).and_modify(|e| *e += 1);
-                    assert_matches!(event.event, Event::Timer);
+                    assert_matches!(event.info, TriggerInfo::Timer(_));
                 }
                 for count in spell_ids.values() {
                     assert_ne!(*count, 0);
@@ -446,7 +451,7 @@ mod tests {
 
         let mut counts = HashMap::new();
         counts.insert(spell1_id.clone(), 0);
-        counts.insert(spell2_id.clone(), 0);
+        counts.insert(spell2_id, 0);
         for event in events.into_iter() {
             counts.entry(event.spell_id).and_modify(|e| *e += 1);
         }
@@ -478,10 +483,10 @@ mod tests {
         try_catch(
             || {
                 assert_eq!(event.spell_id, spell1_id.clone());
-                let expected = Contact::new(peer_id, Vec::new());
+                let expected = peer_id;
                 assert_matches!(
-                    event.event,
-                    Event::Peer(PeerEvent::ConnectionPool(LifecycleEvent::Connected(contact))) if contact == expected
+                    event.info,
+                    TriggerInfo::Peer(p) if p.peer_id == expected
                 );
             },
             || {
@@ -549,11 +554,11 @@ mod tests {
                     assert!(event.spell_id == spell1_id || event.spell_id == spell2_id);
                     if event.spell_id == spell1_id {
                         assert_matches!(
-                            event.event,
-                            Event::Peer(PeerEvent::ConnectionPool(LifecycleEvent::Connected(_)))
+                            event.info,
+                           TriggerInfo::Peer(p) if p.connected
                         );
                     } else if event.spell_id == spell2_id {
-                        assert_matches!(event.event, Event::Timer);
+                        assert_matches!(event.info, TriggerInfo::Timer(_));
                     }
                 }
             },
@@ -583,8 +588,8 @@ mod tests {
             let disconnect_event = event_stream.try_next();
             assert_eq!(connect_event.spell_id, spell1_id);
             assert_matches!(
-                connect_event.event,
-                Event::Peer(PeerEvent::ConnectionPool(LifecycleEvent::Connected(_)))
+                connect_event.info,
+                TriggerInfo::Peer(p) if p.connected
             );
             assert!(
                 disconnect_event.is_err(),
@@ -604,8 +609,8 @@ mod tests {
             let connect_event = event_stream.try_next();
             assert_eq!(disconnect_event.spell_id, spell1_id);
             assert_matches!(
-                disconnect_event.event,
-                Event::Peer(PeerEvent::ConnectionPool(LifecycleEvent::Disconnected(_)))
+                disconnect_event.info,
+                TriggerInfo::Peer(p) if !p.connected
             );
             assert!(
                 connect_event.is_err(),

@@ -33,7 +33,7 @@ impl Display for FieldError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             FieldError::InvalidPeerId { peer_id, err } => {
-                write!(f, "invalid PeerId '{}': {}", peer_id, err)
+                write!(f, "invalid PeerId '{peer_id}': {err}")
             }
         }
     }
@@ -61,14 +61,10 @@ impl Display for ExecutionError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             ExecutionError::InvalidResultField { field, error } => {
-                write!(
-                    f,
-                    "Execution error: invalid result field {}: {}",
-                    field, error
-                )
+                write!(f, "Execution error: invalid result field {field}: {error}")
             }
             ExecutionError::AquamarineError(err) => {
-                write!(f, "Execution error: aquamarine error: {}", err)
+                write!(f, "Execution error: aquamarine error: {err}")
             }
         }
     }

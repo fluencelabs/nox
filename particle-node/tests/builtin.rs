@@ -73,8 +73,8 @@ fn identify() {
     );
 
     let info = client.receive_args().wrap_err("receive args").unwrap();
-    let _: NodeInfo =
-        serde_json::from_value(info[0].clone()).expect(&format!("deserialize {:?}", info[0]));
+    let _: NodeInfo = serde_json::from_value(info[0].clone())
+        .unwrap_or_else(|_| panic!("deserialize {:?}", info[0]));
 }
 
 #[ignore]
@@ -185,7 +185,7 @@ fn remove_service_restart() {
 
     // stop swarm
     swarms.into_iter().map(|s| s.outlet.send(())).for_each(drop);
-    let swarms = make_swarms_with_keypair(1, kp.clone(), None);
+    let swarms = make_swarms_with_keypair(1, kp, None);
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .wrap_err("connect client")
         .unwrap();
@@ -306,7 +306,7 @@ fn non_owner_remove_service() {
     if let [Array(before), Array(after), String(error)] = args.as_slice() {
         assert_eq!(before.len(), 1);
         assert_eq!(after.len(), 1);
-        assert!(error.len() > 0);
+        assert!(!error.is_empty());
 
         assert_eq!(error, r#"call relay ("srv" "remove") [service] "#);
     } else {
@@ -664,7 +664,7 @@ fn kad_merge() {
     let mut expected = left;
     expected.append(&mut right);
     expected = expected.into_iter().unique().collect();
-    expected.sort_by_cached_key(|id| target_key.distance(&Key::from(id.clone())));
+    expected.sort_by_cached_key(|id| target_key.distance(&Key::from(*id)));
     expected.truncate(count);
 
     assert_eq!(expected, merged);
@@ -827,9 +827,9 @@ fn array_slice() {
     );
     assert!(result.is_err());
     assert!(
-        format!("{:?}", result).contains("first argument must be an array, was 1"),
-        "{:?}",
-        result
+        format!("{result:?}").contains("first argument must be an array, was 1"),
+        "{}",
+        "{result:?}"
     );
 
     let result = exec_script(
@@ -843,7 +843,7 @@ fn array_slice() {
         1,
     );
     assert!(result.is_err());
-    assert!(format!("{:?}", result)
+    assert!(format!("{result:?}")
         .contains("invalid number of parameters. need array, start index and end index"));
 
     let result = exec_script(
@@ -858,10 +858,10 @@ fn array_slice() {
     );
     assert!(result.is_err());
     assert!(
-        format!("{:?}", result)
+        format!("{result:?}")
             .contains("slice indexes out of bounds. start index: 2, end index: 0, array length: 4"),
-        "result is {:?}",
-        result
+        "{}",
+        "result is {result:?}"
     );
 
     let result = exec_script(
@@ -876,10 +876,10 @@ fn array_slice() {
     );
     assert!(result.is_err());
     assert!(
-        format!("{:?}", result)
+        format!("{result:?}")
             .contains("second argument (start index) must be an unsigned integer, was -1"),
-        "{:?}",
-        result
+        "{}",
+        "{result:?}"
     );
 
     let result = exec_script(
@@ -894,10 +894,10 @@ fn array_slice() {
     );
     assert!(result.is_err());
     assert!(
-        format!("{:?}", result)
+        format!("{result:?}")
             .contains("third argument (end index) must be an unsigned integer, was -1"),
-        "{:?}",
-        result
+        "{}",
+        "{result:?}"
     );
 }
 
@@ -1252,7 +1252,7 @@ fn service_stats() {
             function_stats
                 .iter()
                 .find(|v| v.get("name") == Some(&json!(name)))
-                .expect(&format!("'{}' function not found", name))
+                .unwrap_or_else(|| panic!("'{name}' function not found"))
         };
 
         let not = get_func("not");
@@ -1362,16 +1362,13 @@ fn sign_verify() {
     if let [Array(data), Object(sig_result), Bool(result)] =
         client.receive_args().unwrap().as_slice()
     {
-        let data: Vec<_> = data
-            .into_iter()
-            .map(|n| n.as_u64().unwrap() as u8)
-            .collect();
+        let data: Vec<_> = data.iter().map(|n| n.as_u64().unwrap() as u8).collect();
 
         assert!(sig_result["success"].as_bool().unwrap());
         let signature = sig_result["signature"].as_array().unwrap()[0]
             .as_array()
             .unwrap()
-            .into_iter()
+            .iter()
             .map(|n| n.as_u64().unwrap() as u8)
             .collect();
         let signature = Signature::from_bytes(kp.public().get_key_format(), signature);
@@ -1438,7 +1435,7 @@ fn sign_invalid_tetraplets() {
     if let [String(host_error), String(srv_error), String(func_error)] =
         client.receive_args().unwrap().as_slice()
     {
-        assert!(host_error.contains(&format!("data is expected to be produced by service 'registry' on peer '{}', was from peer '{}'", relay, wrong_peer)));
+        assert!(host_error.contains(&format!("data is expected to be produced by service 'registry' on peer '{relay}', was from peer '{wrong_peer}'")));
         assert!(srv_error.contains("data is expected to result from a call to 'registry.get_record_bytes', was from 'op.identity'"));
         assert!(func_error.contains("data is expected to result from a call to 'registry.get_record_bytes', was from 'registry.get_key_bytes'"));
     } else {
@@ -1449,12 +1446,7 @@ fn sign_invalid_tetraplets() {
 #[test]
 fn sig_verify_invalid_signature() {
     let kp = KeyPair::generate_ed25519();
-    let swarms = make_swarms_with_builtins(
-        1,
-        "tests/builtins/services".as_ref(),
-        Some(kp.clone()),
-        None,
-    );
+    let swarms = make_swarms_with_builtins(1, "tests/builtins/services".as_ref(), Some(kp), None);
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .wrap_err("connect client")
@@ -1626,7 +1618,5 @@ fn exec_script_as_admin(
         args,
     );
 
-    let result = client.receive_args().wrap_err("receive args");
-
-    result
+    client.receive_args().wrap_err("receive args")
 }

@@ -2,7 +2,7 @@
 name = "ivalue-utils"
 version = "0.1.0"
 authors = ["Fluence Labs"]
-edition = "2018"
+edition = "2021"
 
 [dependencies]
 fluence-it-types = "0.3.2"

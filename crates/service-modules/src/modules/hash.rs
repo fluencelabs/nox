@@ -31,7 +31,7 @@ impl Hash {
     /// Hash arbitrary bytes
     ///
     /// see `From<[u8; blake3::OUT_LEN]>` to create from raw bytes without hashing them
-    pub fn hash(bytes: &[u8]) -> Self {
+    pub fn new(bytes: &[u8]) -> Self {
         Self(hash(bytes))
     }
 

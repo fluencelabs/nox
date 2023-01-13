@@ -26,6 +26,6 @@ pub fn from_base58(
         .into_vec()
         .map_err(|err| ArgsError::InvalidFormat {
             field: "key",
-            err: format!("not a base58: {}", err).into(),
+            err: format!("not a base58: {err}").into(),
         })
 }

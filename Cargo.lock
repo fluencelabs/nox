@@ -5495,6 +5495,7 @@ dependencies = [
  "particle-execution",
  "particle-protocol",
  "particle-services",
+ "serde",
  "serde_json",
  "thiserror",
  "uuid-utils",

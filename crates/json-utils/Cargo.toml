@@ -2,7 +2,7 @@
 name = "json-utils"
 version = "0.0.2"
 authors = ["Fluence Labs"]
-edition = "2018"
+edition = "2021"
 
 [dependencies]
 serde = { workspace = true }

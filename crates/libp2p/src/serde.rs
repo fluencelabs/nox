@@ -34,7 +34,7 @@ pub mod peerid_serializer {
     {
         let str = String::deserialize(deserializer)?;
         PeerId::from_str(&str).map_err(|e| {
-            serde::de::Error::custom(format!("peer id deserialization failed for {:?}", e))
+            serde::de::Error::custom(format!("peer id deserialization failed for {e:?}"))
         })
     }
 }
@@ -84,8 +84,7 @@ pub mod provider_serializer {
                     if let Some(peer_id) = peer_id_bytes {
                         let peer_id = PeerId::from_str(&peer_id).map_err(|e| {
                             serde::de::Error::custom(format!(
-                                "peer id deserialization failed for {:?}",
-                                e
+                                "peer id deserialization failed for {e:?}"
                             ))
                         })?;
                         vec.push((multiaddr, peer_id));
@@ -203,7 +202,7 @@ mod tests {
         for i in 1..=255 {
             let peer_id = RandomPeerId::random();
 
-            providers.push((Multiaddr::from(Ipv4Addr::new(i, i, i, i)), peer_id.clone()));
+            providers.push((Multiaddr::from(Ipv4Addr::new(i, i, i, i)), peer_id));
             test_peer_ids.push(peer_id);
         }
 

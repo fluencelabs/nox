@@ -2,12 +2,12 @@
 name = "particle-args"
 version = "0.1.0"
 authors = ["Fluence Labs"]
-edition = "2018"
+edition = "2021"
 
 [dependencies]
-ivalue-utils = { path = "../ivalue-utils" }
-json-utils = { path = "../json-utils" }
-control-macro = { path = "../control-macro" }
+ivalue-utils = { workspace = true }
+json-utils = { workspace = true }
+control-macro = { workspace = true }
 
 avm-server = { workspace = true }
 

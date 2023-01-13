@@ -94,7 +94,7 @@ impl DataStore for ParticleDataStore {
 
     fn read_data(&mut self, key: &str) -> Result<Vec<u8>> {
         let data_path = self.data_file(key);
-        let data = std::fs::read(&data_path).unwrap_or_default();
+        let data = std::fs::read(data_path).unwrap_or_default();
         Ok(data)
     }
 

@@ -2,10 +2,10 @@
 name = "service-modules"
 version = "0.1.0"
 authors = ["Fluence Labs"]
-edition = "2018"
+edition = "2021"
 
 [dependencies]
-fs-utils = { path = "../fs-utils" }
+fs-utils = { workspace = true }
 
 eyre = { workspace = true }
 serde = { version = "1.0.145", features = ["derive"] }
