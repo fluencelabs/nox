@@ -77,7 +77,7 @@ impl ModuleRepository {
         max_heap_size: ByteSize,
         default_heap_size: Option<ByteSize>,
     ) -> Self {
-        let modules_by_name: HashMap<_, _> = files::list_files(modules_dir)
+        let modules_by_name: HashMap<_, _> = fs_utils::list_files(modules_dir)
             .into_iter()
             .flatten()
             .filter(|path| is_module_wasm(path))
@@ -300,7 +300,7 @@ impl ModuleRepository {
 
     pub fn list_modules(&self) -> std::result::Result<JValue, JError> {
         // TODO: refactor errors to enums
-        let modules = files::list_files(&self.modules_dir)
+        let modules = fs_utils::list_files(&self.modules_dir)
             .into_iter()
             .flatten()
             .filter_map(|path| {
@@ -391,7 +391,7 @@ impl ModuleRepository {
     }
 
     fn load_blueprints(blueprints_dir: &Path) -> HashMap<String, Blueprint> {
-        let blueprints: Vec<Blueprint> = files::list_files(blueprints_dir)
+        let blueprints: Vec<Blueprint> = fs_utils::list_files(blueprints_dir)
             .into_iter()
             .flatten()
             .filter_map(|path| {

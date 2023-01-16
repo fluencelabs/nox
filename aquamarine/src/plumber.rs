@@ -22,6 +22,7 @@ use std::{
 use futures::task::Waker;
 
 use fluence_libp2p::PeerId;
+use key_manager::KeyManager;
 /// For tests, mocked time is used
 #[cfg(test)]
 use mock_time::now_ms;
@@ -36,18 +37,19 @@ use crate::actor::{Actor, ActorPoll};
 use crate::aqua_runtime::AquaRuntime;
 use crate::deadline::Deadline;
 use crate::error::AquamarineApiError;
-use crate::particle_effects::NetworkEffects;
+use crate::particle_effects::RoutingEffects;
 use crate::particle_functions::Functions;
 use crate::vm_pool::VmPool;
 
+type ParticleId = String;
 pub struct Plumber<RT: AquaRuntime, F> {
-    events: VecDeque<Result<NetworkEffects, AquamarineApiError>>,
-    actors: HashMap<String, Actor<RT, F>>,
+    events: VecDeque<Result<RoutingEffects, AquamarineApiError>>,
+    actors: HashMap<(ParticleId, PeerId), Actor<RT, F>>,
     vm_pool: VmPool<RT>,
     builtins: F,
     waker: Option<Waker>,
     metrics: Option<ParticleExecutorMetrics>,
-    host_peer_id: PeerId,
+    key_manager: KeyManager,
 }
 
 impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
@@ -55,7 +57,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
         vm_pool: VmPool<RT>,
         builtins: F,
         metrics: Option<ParticleExecutorMetrics>,
-        host_peer_id: PeerId,
+        key_manager: KeyManager,
     ) -> Self {
         Self {
             vm_pool,
@@ -64,12 +66,17 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
             actors: <_>::default(),
             waker: <_>::default(),
             metrics,
-            host_peer_id,
+            key_manager,
         }
     }
 
     /// Receives and ingests incoming particle: creates a new actor or forwards to the existing mailbox
-    pub fn ingest(&mut self, particle: Particle, function: Option<ServiceFunction>) {
+    pub fn ingest(
+        &mut self,
+        particle: Particle,
+        function: Option<ServiceFunction>,
+        scope_peer_id: PeerId,
+    ) {
         self.wake();
 
         let deadline = Deadline::from(&particle);
@@ -83,12 +90,14 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
         }
 
         let builtins = &self.builtins;
-        let host_peer_id = self.host_peer_id;
-        let actor = self.actors.entry(particle.id.clone()).or_insert_with(|| {
-            let params = ParticleParams::clone_from(&particle);
-            let functions = Functions::new(params, builtins.clone());
-            Actor::new(&particle, functions, host_peer_id)
-        });
+        let actor = self
+            .actors
+            .entry((particle.id.clone(), scope_peer_id))
+            .or_insert_with(|| {
+                let params = ParticleParams::clone_from(&particle);
+                let functions = Functions::new(params, builtins.clone());
+                Actor::new(&particle, functions, scope_peer_id)
+            });
 
         actor.ingest(particle);
         if let Some(function) = function {
@@ -112,7 +121,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
     pub fn poll(
         &mut self,
         cx: &mut Context<'_>,
-    ) -> Poll<Result<NetworkEffects, AquamarineApiError>> {
+    ) -> Poll<Result<RoutingEffects, AquamarineApiError>> {
         self.waker = Some(cx.waker().clone());
 
         self.vm_pool.poll(cx);
@@ -122,11 +131,33 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
         }
 
         // Gather effects and put VMs back
-        let mut effects = vec![];
+        let mut remote_effects = vec![];
+        let mut local_effects: Vec<RoutingEffects> = vec![];
+        let mut interpretation_stats = vec![];
         let mut mailbox_size = 0;
+        let key_manager = self.key_manager.clone();
         for actor in self.actors.values_mut() {
             if let Poll::Ready(result) = actor.poll_completed(cx) {
-                effects.push((result.effects, result.stats));
+                interpretation_stats.push(result.stats);
+                let (local_peers, remote_peers): (Vec<_>, Vec<_>) = result
+                    .effects
+                    .next_peers
+                    .into_iter()
+                    .partition(|p| key_manager.is_scope_peer_id(*p));
+
+                if !remote_peers.is_empty() {
+                    remote_effects.push(RoutingEffects {
+                        particle: result.effects.particle.clone(),
+                        next_peers: remote_peers,
+                    })
+                }
+
+                if !local_peers.is_empty() {
+                    local_effects.push(RoutingEffects {
+                        particle: result.effects.particle,
+                        next_peers: local_peers,
+                    });
+                }
                 let (vm_id, vm) = result.vm;
                 self.vm_pool.put_vm(vm_id, vm);
             }
@@ -136,7 +167,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
         // Remove expired actors
         if let Some((vm_id, mut vm)) = self.vm_pool.get_vm() {
             let now = now_ms();
-            self.actors.retain(|particle_id, actor| {
+            self.actors.retain(|(particle_id, _peer_id), actor| {
                 // if actor hasn't yet expired or is still executing, keep it
                 // TODO: if actor is expired, cancel execution and return VM back to pool
                 //       https://github.com/fluencelabs/fluence/issues/1212
@@ -181,7 +212,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
         }
 
         self.meter(|m| {
-            for (_, stat) in &effects {
+            for stat in &interpretation_stats {
                 // count particle interpretations
                 if stat.success {
                     m.interpretation_successes.inc();
@@ -201,10 +232,14 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
             }
         });
 
-        // Turn effects into events, and buffer them
-        for (effect, _) in effects {
-            self.events.push_back(Ok(effect));
+        for effect in local_effects {
+            for local_peer in effect.next_peers {
+                self.ingest(effect.particle.clone(), None, local_peer);
+            }
         }
+
+        // Turn effects into events, and buffer them
+        self.events.extend(remote_effects.into_iter().map(Ok));
 
         // Return a new event if there is some
         if let Some(event) = self.events.pop_front() {
@@ -245,6 +280,7 @@ mod tests {
     use futures::future::BoxFuture;
     use futures::task::noop_waker_ref;
     use futures::FutureExt;
+    use key_manager::KeyManager;
 
     use particle_args::Args;
     use particle_execution::{ParticleFunction, ParticleParams, ServiceFunction};
@@ -339,7 +375,8 @@ mod tests {
         // Pool is of size 1 so it's easier to control tests
         let vm_pool = VmPool::new(1, (), None);
         let builtin_mock = Arc::new(MockF);
-        Plumber::new(vm_pool, builtin_mock, None, RandomPeerId::random())
+        let key_manager = KeyManager::new("keypair".into(), RandomPeerId::random());
+        Plumber::new(vm_pool, builtin_mock, None, key_manager)
     }
 
     fn particle(ts: u64, ttl: u32) -> Particle {
@@ -366,7 +403,7 @@ mod tests {
         let deadline = Deadline::from(&particle);
         assert!(!deadline.is_expired(now_ms()));
 
-        plumber.ingest(particle, None);
+        plumber.ingest(particle, None, RandomPeerId::random());
 
         assert_eq!(plumber.actors.len(), 1);
         let mut cx = context();
@@ -399,7 +436,7 @@ mod tests {
         let deadline = Deadline::from(&particle);
         assert!(deadline.is_expired(now_ms()));
 
-        plumber.ingest(particle.clone(), None);
+        plumber.ingest(particle.clone(), None, RandomPeerId::random());
 
         assert_eq!(plumber.actors.len(), 0);
 

@@ -20,6 +20,8 @@ now-millis = { path = "../now-millis" }
 local-vm = { path = "../local-vm" }
 control-macro = { path = "../control-macro" }
 json-utils = { path = "../json-utils" }
+
+log-utils = { workspace = true }
 fluence-spell-dtos = { workspace = true }
 fluence-app-service = { workspace = true }
 particle-protocol = { workspace = true }

@@ -21,8 +21,8 @@ use crate::error::ServiceError::{
 };
 
 use fluence_libp2p::{peerid_serializer, PeerId, RandomPeerId};
-use fs_utils::create_dirs;
-use particle_modules::{list_files, ModuleError};
+use fs_utils::{create_dir, list_files};
+use particle_modules::ModuleError;
 use service_modules::{is_service, service_file_name};
 
 use serde::{Deserialize, Serialize};
@@ -89,15 +89,14 @@ pub fn load_persisted_services(services_dir: &Path) -> Vec<Result<PersistedServi
         Some(files) => files,
         None => {
             // Attempt to create directory and exit
-            return create_dirs(&[&services_dir])
-                .map_err(|err| CreateServicesDir {
+            if let Err(err) = create_dir(services_dir) {
+                return vec![Err(CreateServicesDir {
                     path: services_dir.to_path_buf(),
                     err,
-                })
-                .err()
-                .into_iter()
-                .map(Err)
-                .collect();
+                })];
+            }
+
+            return vec![];
         }
     };
 

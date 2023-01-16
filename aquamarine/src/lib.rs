@@ -25,6 +25,7 @@
     unused_unsafe,
     unreachable_patterns
 )]
+#![feature(drain_filter)]
 
 pub use avm_server::AVM;
 // reexport
@@ -34,7 +35,7 @@ pub use aqua_runtime::AquaRuntime;
 pub use config::{VmConfig, VmPoolConfig};
 pub use error::AquamarineApiError;
 pub use particle_data_store::{DataStoreError, ParticleDataStore};
-pub use particle_effects::{InterpretationStats, NetworkEffects, ParticleEffects};
+pub use particle_effects::{InterpretationStats, ParticleEffects, RoutingEffects};
 pub use plumber::Plumber;
 
 pub use crate::aquamarine::{AquamarineApi, AquamarineBackend};

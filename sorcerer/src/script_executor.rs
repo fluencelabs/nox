@@ -13,9 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use fluence_libp2p::PeerId;
 use fluence_spell_dtos::value::{ScriptValue, U32Value, UnitValue};
 use serde_json::json;
 
+use crate::error::SorcererError::{ParticleSigningFailed, ScopeKeypairMissing};
 use now_millis::now_ms;
 use particle_args::JError;
 use particle_protocol::Particle;
@@ -25,13 +27,13 @@ use crate::utils::process_func_outcome;
 use crate::Sorcerer;
 
 impl Sorcerer {
-    fn get_spell_counter(&self, spell_id: String) -> Result<u32, JError> {
+    fn get_spell_counter(&self, spell_id: String, scope_peer_id: PeerId) -> Result<u32, JError> {
         let func_outcome = self.services.call_function(
             &spell_id,
             "get_u32",
             vec![json!("counter")],
             None,
-            self.node_peer_id,
+            scope_peer_id,
             self.spell_script_particle_ttl,
         );
 
@@ -48,26 +50,31 @@ impl Sorcerer {
         }
     }
 
-    fn set_spell_next_counter(&self, spell_id: String, next_counter: u32) -> Result<(), JError> {
+    fn set_spell_next_counter(
+        &self,
+        spell_id: String,
+        next_counter: u32,
+        scope_peer_id: PeerId,
+    ) -> Result<(), JError> {
         let func_outcome = self.services.call_function(
             &spell_id,
             "set_u32",
             vec![json!("counter"), json!(next_counter)],
             None,
-            self.node_peer_id,
+            scope_peer_id,
             self.spell_script_particle_ttl,
         );
 
         process_func_outcome::<UnitValue>(func_outcome, &spell_id, "set_u32").map(drop)
     }
 
-    fn get_spell_script(&self, spell_id: String) -> Result<String, JError> {
+    fn get_spell_script(&self, spell_id: String, scope_peer_id: PeerId) -> Result<String, JError> {
         let func_outcome = self.services.call_function(
             &spell_id,
             "get_script_source_from_file",
             vec![],
             None,
-            self.node_peer_id,
+            scope_peer_id,
             self.spell_script_particle_ttl,
         );
 
@@ -79,23 +86,44 @@ impl Sorcerer {
         .source_code)
     }
 
-    pub(crate) fn get_spell_particle(&self, spell_id: String) -> Result<Particle, JError> {
-        let spell_counter = self.get_spell_counter(spell_id.clone())?;
-        self.set_spell_next_counter(spell_id.clone(), spell_counter + 1)?;
-        let spell_script = self.get_spell_script(spell_id.clone())?;
+    pub(crate) fn make_spell_particle(
+        &self,
+        spell_id: String,
+        scope_peer_id: PeerId,
+    ) -> Result<Particle, JError> {
+        let spell_keypair = self
+            .key_manager
+            .get_scope_keypair(scope_peer_id)
+            .map_err(|err| ScopeKeypairMissing {
+                err,
+                spell_id: spell_id.clone(),
+            })?;
 
-        Ok(Particle {
+        let spell_counter = self.get_spell_counter(spell_id.clone(), scope_peer_id)?;
+        self.set_spell_next_counter(spell_id.clone(), spell_counter + 1, scope_peer_id)?;
+        let spell_script = self.get_spell_script(spell_id.clone(), scope_peer_id)?;
+
+        let mut particle = Particle {
             id: f!("spell_{spell_id}_{spell_counter}"),
-            init_peer_id: self.node_peer_id,
+            init_peer_id: scope_peer_id,
             timestamp: now_ms() as u64,
             ttl: self.spell_script_particle_ttl.as_millis() as u32,
             script: spell_script,
             signature: vec![],
             data: vec![],
-        })
+        };
+        particle
+            .sign(&spell_keypair)
+            .map_err(|err| ParticleSigningFailed { err, spell_id })?;
+
+        Ok(particle)
     }
 
-    pub(crate) fn store_trigger(&self, event: TriggerEvent) -> Result<(), JError> {
+    pub(crate) fn store_trigger(
+        &self,
+        event: TriggerEvent,
+        scope_peer_id: PeerId,
+    ) -> Result<(), JError> {
         let serialized_event = serde_json::to_string(&TriggerInfoAqua::from(event.info))?;
 
         let func_outcome = self.services.call_function(
@@ -103,7 +131,7 @@ impl Sorcerer {
             "list_push_string",
             vec![json!("trigger_mailbox"), json!(serialized_event)],
             None,
-            self.node_peer_id,
+            scope_peer_id,
             self.spell_script_particle_ttl,
         );
 
@@ -113,9 +141,10 @@ impl Sorcerer {
 
     pub async fn execute_script(&self, event: TriggerEvent) {
         let error: Result<(), JError> = try {
-            let particle = self.get_spell_particle(event.spell_id.clone())?;
+            let scope_peer_id = self.services.get_service_owner(event.spell_id.clone())?;
+            let particle = self.make_spell_particle(event.spell_id.clone(), scope_peer_id)?;
 
-            self.store_trigger(event.clone())?;
+            self.store_trigger(event.clone(), scope_peer_id)?;
             self.aquamarine.clone().execute(particle, None).await?;
         };
 

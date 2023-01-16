@@ -22,8 +22,8 @@ use service_modules::{
     Blueprint, Hash,
 };
 
+use std::convert::TryInto;
 use std::path::Path;
-use std::{convert::TryInto, path::PathBuf};
 
 /// Load blueprint from disk
 pub fn load_blueprint(bp_dir: &Path, blueprint_id: &str) -> Result<Blueprint> {
@@ -65,12 +65,6 @@ pub fn load_config_by_path(path: &Path) -> Result<TomlMarineNamedModuleConfig> {
         toml::from_slice(config.as_slice()).map_err(|err| IncorrectModuleConfig { err })?;
 
     Ok(config)
-}
-
-/// List files in directory
-pub fn list_files(dir: &Path) -> Option<impl Iterator<Item = PathBuf>> {
-    let dir = std::fs::read_dir(dir).ok()?;
-    Some(dir.filter_map(|p| p.ok()?.path().into()))
 }
 
 /// Adds a module to the filesystem, overwriting existing module.

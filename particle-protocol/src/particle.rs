@@ -14,12 +14,18 @@
  * limitations under the License.
  */
 
+use std::convert::TryInto;
 use std::time::Duration;
 
 use derivative::Derivative;
+use fluence_keypair::{KeyPair, PublicKey, Signature};
 use libp2p::PeerId;
 use serde::{Deserialize, Serialize};
 
+use crate::error::ParticleError;
+use crate::error::ParticleError::{
+    DecodingError, InvalidKeypair, SignatureVerificationFailed, SigningFailed,
+};
 use fluence_libp2p::{peerid_serializer, RandomPeerId};
 use json_utils::base64_serde;
 use now_millis::now_ms;
@@ -79,6 +85,57 @@ impl Particle {
         } else {
             Duration::default()
         }
+    }
+
+    /// return immutable particle fields in bytes for signing
+    /// concatenation of:
+    /// - id as bytes
+    /// - init_peer_id in base58 as bytes
+    /// - timestamp u64 as little-endian bytes
+    /// - ttl u32 as little-endian bytes
+    /// - script as bytes
+    fn as_bytes(&self) -> Vec<u8> {
+        let mut bytes = vec![];
+        bytes.extend(self.id.as_bytes());
+        bytes.extend(self.init_peer_id.to_base58().as_bytes());
+        bytes.extend(self.timestamp.to_le_bytes());
+        bytes.extend(self.ttl.to_le_bytes());
+        bytes.extend(self.script.as_bytes());
+
+        bytes
+    }
+
+    pub fn sign(&mut self, keypair: &KeyPair) -> Result<(), ParticleError> {
+        if self.init_peer_id != keypair.get_peer_id() {
+            return Err(InvalidKeypair {
+                particle_id: self.id.clone(),
+                init_peer_id: self.init_peer_id.to_base58(),
+                given_peer_id: keypair.get_peer_id().to_base58(),
+            });
+        }
+        self.signature = keypair
+            .sign(self.as_bytes().as_slice())
+            .map_err(|err| SigningFailed {
+                err,
+                particle_id: self.id.clone(),
+            })?
+            .to_vec()
+            .to_vec();
+
+        Ok(())
+    }
+
+    pub fn verify(&self) -> Result<(), ParticleError> {
+        let pk: PublicKey = self.init_peer_id.try_into().map_err(|err| DecodingError {
+            err,
+            particle_id: self.id.clone(),
+        })?;
+        let sig = Signature::from_bytes(pk.get_key_format(), self.signature.clone());
+        pk.verify(&self.as_bytes(), &sig)
+            .map_err(|err| SignatureVerificationFailed {
+                err,
+                particle_id: self.id.clone(),
+            })
     }
 }
 

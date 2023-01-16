@@ -47,6 +47,9 @@ pub struct UnresolvedDirConfig {
     /// Path to spell service files (wasms, configs)
     #[serde(default)]
     pub spell_base_dir: Option<PathBuf>,
+
+    #[serde(default)]
+    pub keypairs_base_dir: Option<PathBuf>,
 }
 
 impl UnresolvedDirConfig {
@@ -60,6 +63,7 @@ impl UnresolvedDirConfig {
             .air_interpreter_path
             .unwrap_or(air_interpreter_path(&base));
         let spell_base_dir = self.spell_base_dir.unwrap_or(base.join("spell"));
+        let keypairs_base_dir = self.keypairs_base_dir.unwrap_or(base.join("keypairs"));
 
         create_dirs(&[
             &base,
@@ -67,6 +71,7 @@ impl UnresolvedDirConfig {
             &avm_base_dir,
             &builtins_base_dir,
             &spell_base_dir,
+            &keypairs_base_dir,
         ])
         .context("creating configured directories")?;
 
@@ -75,6 +80,7 @@ impl UnresolvedDirConfig {
         let builtins_base_dir = canonicalize(builtins_base_dir)?;
         let avm_base_dir = canonicalize(avm_base_dir)?;
         let spell_base_dir = canonicalize(spell_base_dir)?;
+        let keypairs_base_dir = canonicalize(keypairs_base_dir)?;
 
         Ok(ResolvedDirConfig {
             base_dir: base,
@@ -83,6 +89,7 @@ impl UnresolvedDirConfig {
             avm_base_dir,
             air_interpreter_path,
             spell_base_dir,
+            keypairs_base_dir,
         })
     }
 }
@@ -98,4 +105,5 @@ pub struct ResolvedDirConfig {
     /// Directory where interpreter's WASM module is stored
     pub air_interpreter_path: PathBuf,
     pub spell_base_dir: PathBuf,
+    pub keypairs_base_dir: PathBuf,
 }

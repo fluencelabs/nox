@@ -197,6 +197,7 @@ dependencies = [
  "fs-utils",
  "futures",
  "humantime",
+ "key-manager",
  "libp2p",
  "log",
  "now-millis",
@@ -2552,6 +2553,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "key-manager"
+version = "0.1.0"
+dependencies = [
+ "eyre",
+ "fluence-keypair",
+ "fluence-libp2p",
+ "fs-utils",
+ "libp2p",
+ "log",
+ "parking_lot 0.12.1",
+ "serde",
+ "thiserror",
+ "toml",
+]
+
+[[package]]
 name = "kv-log-macro"
 version = "1.0.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4087,6 +4104,7 @@ dependencies = [
  "humantime-serde",
  "itertools",
  "kademlia",
+ "key-manager",
  "libp2p",
  "libp2p-metrics",
  "libp2p-swarm",
@@ -4135,6 +4153,7 @@ dependencies = [
  "libp2p",
  "local-vm",
  "log",
+ "log-utils",
  "maplit",
  "multihash",
  "now-millis",
@@ -4166,6 +4185,7 @@ dependencies = [
  "base64 0.20.0",
  "derivative",
  "eyre",
+ "fluence-keypair",
  "fluence-libp2p",
  "futures",
  "humantime-serde",
@@ -4178,6 +4198,7 @@ dependencies = [
  "serde",
  "serde_derive",
  "serde_json",
+ "thiserror",
 ]
 
 [[package]]
@@ -5320,14 +5341,15 @@ dependencies = [
  "async-std",
  "connection-pool",
  "eyre",
+ "fluence-keypair",
  "fluence-libp2p",
  "fluence-spell-dtos",
  "fstrings",
  "futures",
  "kademlia",
+ "key-manager",
  "libp2p",
  "log",
- "maplit",
  "now-millis",
  "parking_lot 0.12.1",
  "particle-args",

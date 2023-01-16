@@ -27,7 +27,7 @@ use particle_execution::{ParticleFunctionStatic, ServiceFunction};
 use particle_protocol::Particle;
 
 use crate::deadline::Deadline;
-use crate::particle_effects::NetworkEffects;
+use crate::particle_effects::RoutingEffects;
 use crate::particle_executor::{Fut, FutResult, ParticleExecutor};
 use crate::particle_functions::{Functions, SingleCallStat};
 use crate::{AquaRuntime, InterpretationStats};
@@ -105,7 +105,7 @@ where
     pub fn poll_completed(
         &mut self,
         cx: &mut Context<'_>,
-    ) -> Poll<FutResult<(usize, RT), NetworkEffects, InterpretationStats>> {
+    ) -> Poll<FutResult<(usize, RT), RoutingEffects, InterpretationStats>> {
         use Poll::Ready;
 
         self.waker = Some(cx.waker().clone());
@@ -120,7 +120,7 @@ where
             // Schedule execution of functions
             self.functions.execute(r.effects.call_requests, waker);
 
-            let effects = NetworkEffects {
+            let effects = RoutingEffects {
                 particle: r.effects.particle,
                 next_peers: r.effects.next_peers,
             };

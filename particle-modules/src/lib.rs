@@ -34,7 +34,7 @@ mod files;
 mod modules;
 
 pub use error::ModuleError;
-pub use files::{list_files, load_blueprint, load_module_by_path, load_module_descriptor};
+pub use files::{load_blueprint, load_module_by_path, load_module_descriptor};
 pub use modules::{AddBlueprint, ModuleRepository};
 
 // reexport
@@ -42,3 +42,4 @@ pub use fluence_app_service::{
     TomlMarineModuleConfig as ModuleConfig, TomlMarineNamedModuleConfig as NamedModuleConfig,
     TomlWASIConfig as WASIConfig,
 };
+pub use fs_utils::list_files;
