@@ -108,6 +108,6 @@ jobs:
           token: ${{ secrets.PERSONAL_TOKEN }}
           inputs: '{
             "version": "${{ needs.release-please.outputs.rust-peer-tag-name }}",
-            "url": "https://github.com/fluencelabs/rust-peer/releases/download/${{ needs.release-please.rust-peer-tag-name }}/rust-peer",
+            "url": "https://github.com/fluencelabs/rust-peer/releases/download/${{ needs.release-please.outputs.rust-peer-tag-name }}/rust-peer",
             "sha256": "${{ steps.sha.outputs.sha256 }}"
           }'
