@@ -28,9 +28,9 @@ log = { workspace = true }
 uuid = { workspace = true }
 toml = "0.5.9"
 thiserror = { workspace = true }
-derivative = "2.2.0"
+derivative = { workspace = true }
 eyre = { workspace = true }
-humantime-serde = "1.1.1"
+humantime-serde = { workspace = true }
 
 [dev-dependencies]
 tempdir = "0.3.7"

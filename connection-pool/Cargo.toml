@@ -15,7 +15,7 @@ futures = { workspace = true }
 log = { workspace = true }
 serde = { workspace = true }
 async-std = { workspace = true }
-itertools = "0.10.5"
+itertools = { workspace = true }
 
 [dev-dependencies]
 parking_lot = { workspace = true }

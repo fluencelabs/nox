@@ -33,10 +33,10 @@ log = { workspace = true }
 bs58 = { workspace = true }
 parking_lot = { workspace = true }
 thiserror = { workspace = true }
-humantime-serde = "1.1.1"
+humantime-serde = { workspace = true }
 rand = "0.8.5"
 futures = { workspace = true }
-itertools = "0.10.5"
+itertools = { workspace = true }
 bytesize = "1.1.0"
 derivative = { workspace = true }
 fluence-app-service = { workspace = true }

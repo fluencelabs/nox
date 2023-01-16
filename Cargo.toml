@@ -27,6 +27,7 @@ members = [
     "crates/test-constants",
     "crates/peer-metrics",
     "crates/spell-event-bus",
+    "crates/key-manager",
     "sorcerer",
     "crates/builtins-tests",
     "crates/particle-node-tests",
@@ -73,6 +74,7 @@ connected-client = { path = "crates/connected-client" }
 test-constants = { path = "crates/test-constants" }
 peer-metrics = { path = "crates/peer-metrics" }
 spell-event-bus = { path = "crates/spell-event-bus" }
+key-manager = { path = "crates/key-manager" }
 sorcerer = { path = "sorcerer" }
 builtins-tests = { path = "crates/builtins-tests" }
 particle-node = { path = "particle-node" }
@@ -113,3 +115,5 @@ futures = "0.3.24"
 thiserror = "1.0.37"
 serde = "1.0.145"
 toml = "0.5.9"
+itertools = "0.10.5"
+humantime-serde = "1.1.1"

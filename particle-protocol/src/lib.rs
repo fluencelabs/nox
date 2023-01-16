@@ -33,9 +33,11 @@ mod libp2p_protocol {
 }
 
 mod contact;
+mod error;
 mod particle;
 
 pub use contact::Contact;
+pub use error::ParticleError;
 pub use libp2p_protocol::message::CompletionChannel;
 pub use libp2p_protocol::message::SendStatus;
 pub use libp2p_protocol::message::{HandlerMessage, ProtocolMessage};

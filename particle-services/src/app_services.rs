@@ -438,6 +438,13 @@ impl ParticleAppServices {
         Ok(service_id)
     }
 
+    pub fn get_service_owner(&self, service_id: String) -> Result<PeerId, ServiceError> {
+        let services_read = self.services.read();
+        get_service(&services_read, &self.aliases.read(), service_id)
+            .map_err(ServiceError::NoSuchService)
+            .map(|(srv, _)| srv.owner_id)
+    }
+
     pub fn get_interface(&self, service_id: String) -> Result<JValue, ServiceError> {
         let services = self.services.read();
         let (service, _) = get_service(&services, &self.aliases.read(), service_id)

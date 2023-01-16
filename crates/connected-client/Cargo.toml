@@ -18,7 +18,7 @@ futures = { workspace = true }
 serde = { version = "1.0.145", features = ["derive"] }
 serde_json = { workspace = true }
 log = { workspace = true }
-derivative = "2.2.0"
+derivative = { workspace = true }
 eyre = { workspace = true }
 parking_lot = { workspace = true }
 

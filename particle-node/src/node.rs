@@ -40,13 +40,14 @@ use libp2p_metrics::{Metrics, Recorder};
 use prometheus_client::registry::Registry;
 
 use aquamarine::{
-    AquaRuntime, AquamarineApi, AquamarineApiError, AquamarineBackend, NetworkEffects, VmPoolConfig,
+    AquaRuntime, AquamarineApi, AquamarineApiError, AquamarineBackend, RoutingEffects, VmPoolConfig,
 };
 use builtins_deployer::BuiltinsDeployer;
 use config_utils::to_peer_id;
 use connection_pool::{ConnectionPoolApi, ConnectionPoolT};
 use fluence_libp2p::types::{BackPressuredInlet, Inlet};
 use fluence_libp2p::{build_transport, types::OneshotOutlet};
+use key_manager::KeyManager;
 use particle_builtins::{Builtins, NodeInfo};
 use particle_execution::{ParticleFunction, ParticleFunctionStatic};
 use particle_protocol::Particle;
@@ -56,7 +57,7 @@ use peer_metrics::{
 };
 use script_storage::{ScriptStorageApi, ScriptStorageBackend, ScriptStorageConfig};
 use server_config::{NetworkConfig, ResolvedConfig, ServicesConfig};
-use sorcerer::Sorcerer;
+use sorcerer::{Sorcerer, SpellBuiltin};
 use spell_event_bus::api::{PeerEvent, SpellEventBusApi, TriggerEvent};
 use spell_event_bus::bus::SpellEventBus;
 
@@ -71,7 +72,7 @@ use crate::behaviour::FluenceNetworkBehaviourEvent;
 // TODO: documentation
 pub struct Node<RT: AquaRuntime> {
     particle_stream: BackPressuredInlet<Particle>,
-    effects_stream: Inlet<Result<NetworkEffects, AquamarineApiError>>,
+    effects_stream: Inlet<Result<RoutingEffects, AquamarineApiError>>,
     pub swarm: Swarm<FluenceNetworkBehaviour>,
 
     pub connectivity: Connectivity,
@@ -89,8 +90,9 @@ pub struct Node<RT: AquaRuntime> {
 
     metrics_listen_addr: SocketAddr,
 
-    pub local_peer_id: PeerId,
     pub builtins_management_peer_id: PeerId,
+
+    pub key_manager: KeyManager,
 }
 
 impl<RT: AquaRuntime> Node<RT> {
@@ -100,7 +102,6 @@ impl<RT: AquaRuntime> Node<RT> {
         node_version: &'static str,
     ) -> eyre::Result<Box<Self>> {
         let key_pair: Keypair = config.node_config.root_key_pair.clone().into();
-        let local_peer_id = to_peer_id(&key_pair);
         let transport = config.transport_config.transport;
         let transport = build_transport(
             transport,
@@ -110,8 +111,13 @@ impl<RT: AquaRuntime> Node<RT> {
 
         let builtins_peer_id = to_peer_id(&config.builtins_key_pair.clone().into());
 
+        let key_manager = KeyManager::new(
+            config.dir_config.keypairs_base_dir.clone(),
+            to_peer_id(&key_pair),
+        );
+
         let services_config = ServicesConfig::new(
-            local_peer_id,
+            key_manager.get_host_peer_id(),
             config.dir_config.services_base_dir.clone(),
             config_utils::particles_vault_dir(&config.dir_config.avm_base_dir),
             config.services_envs.clone(),
@@ -143,7 +149,7 @@ impl<RT: AquaRuntime> Node<RT> {
         );
 
         let (swarm, connectivity, particle_stream) = Self::swarm(
-            local_peer_id,
+            key_manager.get_host_peer_id(),
             network_config,
             transport,
             config.external_addresses(),
@@ -156,7 +162,7 @@ impl<RT: AquaRuntime> Node<RT> {
                 timer_resolution: config.script_storage_timer_resolution,
                 max_failures: config.script_storage_max_failures,
                 particle_ttl: config.script_storage_particle_ttl,
-                peer_id: local_peer_id,
+                peer_id: key_manager.get_host_peer_id(),
             };
 
             let pool: &ConnectionPoolApi = connectivity.as_ref();
@@ -196,14 +202,14 @@ impl<RT: AquaRuntime> Node<RT> {
             effects_out,
             plumber_metrics,
             vm_pool_metrics,
-            local_peer_id,
+            key_manager.clone(),
         );
         let effectors = Effectors::new(connectivity.clone());
         let dispatcher = {
             let failures = particle_failures_out;
             let parallelism = config.particle_processor_parallelism;
             Dispatcher::new(
-                local_peer_id,
+                key_manager.get_host_peer_id(),
                 aquamarine_api.clone(),
                 effectors,
                 failures,
@@ -214,7 +220,7 @@ impl<RT: AquaRuntime> Node<RT> {
 
         let builtins_deployer = BuiltinsDeployer::new(
             builtins_peer_id,
-            local_peer_id,
+            key_manager.get_host_peer_id(),
             aquamarine_api.clone(),
             config.dir_config.builtins_base_dir.clone(),
             config.node_config.autodeploy_particle_ttl,
@@ -233,13 +239,17 @@ impl<RT: AquaRuntime> Node<RT> {
             builtins.modules.clone(),
             aquamarine_api.clone(),
             config.clone(),
-            local_peer_id,
             spell_event_bus_api,
+            key_manager.clone(),
         );
 
-        spell_service_functions
-            .into_iter()
-            .for_each(|(srv_id, funcs, unhandled)| builtins.extend(srv_id, funcs, unhandled));
+        spell_service_functions.into_iter().for_each(
+            |SpellBuiltin {
+                 service_id,
+                 functions,
+                 unhandled,
+             }| builtins.extend(service_id, functions, unhandled),
+        );
 
         Ok(Self::with(
             particle_stream,
@@ -257,8 +267,8 @@ impl<RT: AquaRuntime> Node<RT> {
             metrics_registry,
             services_metrics_backend,
             config.metrics_listen_addr(),
-            local_peer_id,
             builtins_peer_id,
+            key_manager,
         ))
     }
 
@@ -313,7 +323,7 @@ impl<RT: AquaRuntime> Node<RT> {
     #[allow(clippy::too_many_arguments)]
     pub fn with(
         particle_stream: BackPressuredInlet<Particle>,
-        effects_stream: Inlet<Result<NetworkEffects, AquamarineApiError>>,
+        effects_stream: Inlet<Result<RoutingEffects, AquamarineApiError>>,
         swarm: Swarm<FluenceNetworkBehaviour>,
 
         connectivity: Connectivity,
@@ -330,8 +340,8 @@ impl<RT: AquaRuntime> Node<RT> {
         services_metrics_backend: ServicesMetricsBackend,
         metrics_listen_addr: SocketAddr,
 
-        local_peer_id: PeerId,
         builtins_management_peer_id: PeerId,
+        key_manager: KeyManager,
     ) -> Box<Self> {
         let node_service = Self {
             particle_stream,
@@ -352,8 +362,8 @@ impl<RT: AquaRuntime> Node<RT> {
             services_metrics_backend,
             metrics_listen_addr,
 
-            local_peer_id,
             builtins_management_peer_id,
+            key_manager,
         };
 
         Box::new(node_service)
