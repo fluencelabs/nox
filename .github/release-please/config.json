@@ -1,0 +1,52 @@
+{
+  "bootstrap-sha": "a5bed5fc40f29c1ea8493a6d259fb590d5b7e88e",
+  "release-type": "rust",
+  "bump-minor-pre-major": true,
+  "bump-patch-for-minor-pre-major": true,
+  "plugins": [
+    {
+      "type": "cargo-workspace"
+    }
+  ],
+  "packages": {
+    "crates/libp2p": {},
+    "crates/ctrlc-adapter": {},
+    "crates/control-macro": {},
+    "crates/waiting-queues": {},
+    "crates/local-vm": {},
+    "crates/uuid-utils": {},
+    "crates/test-utils": {},
+    "crates/fs-utils": {},
+    "crates/log-utils": {},
+    "crates/config-utils": {},
+    "crates/service-modules": {},
+    "crates/ivalue-utils": {},
+    "crates/particle-args": {},
+    "crates/json-utils": {},
+    "crates/server-config": {},
+    "crates/kademlia": {},
+    "crates/async-unlock": {},
+    "crates/now-millis": {},
+    "crates/toml-utils": {},
+    "crates/air-interpreter-fs": {},
+    "crates/builtins-deployer": {},
+    "crates/toy-vms": {},
+    "crates/connected-client": {},
+    "crates/test-constants": {},
+    "crates/peer-metrics": {},
+    "crates/spell-event-bus": {},
+    "sorcerer": {},
+    "particle-node": {
+      "package-name": "rust-peer"
+    },
+    "aquamarine": {},
+    "particle-protocol": {},
+    "particle-services": {},
+    "particle-builtins": {},
+    "particle-modules": {},
+    "connection-pool": {},
+    "script-storage": {},
+    "spell-storage": {},
+    "particle-execution": {}
+  }
+}

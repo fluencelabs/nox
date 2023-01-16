@@ -17,8 +17,8 @@
 #[macro_use]
 extern crate fstrings;
 
-pub const SERVICES: &'static str = "./services";
-pub const SPELL: &'static str = "../../spell";
+pub const SERVICES: &'static str = "../particle-node-tests/tests/builtins/services";
+pub const SPELL: &'static str = "../particle-node-tests/spell";
 
 mod src {
     mod builtins_deployer;

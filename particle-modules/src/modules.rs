@@ -568,8 +568,11 @@ mod tests {
             None,
         );
 
-        let module = load_module("../particle-node/tests/tetraplets/artifacts", "tetraplets")
-            .expect("load module");
+        let module = load_module(
+            "../crates/particle-node-tests/tests/tetraplets/artifacts",
+            "tetraplets",
+        )
+        .expect("load module");
 
         let config: TomlMarineNamedModuleConfig = TomlMarineNamedModuleConfig {
             name: "tetra".to_string(),
@@ -623,8 +626,11 @@ mod tests {
             None,
         );
 
-        let module = load_module("../particle-node/tests/tetraplets/artifacts", "tetraplets")
-            .expect("load module");
+        let module = load_module(
+            "../crates/particle-node-tests/tests/tetraplets/artifacts",
+            "tetraplets",
+        )
+        .expect("load module");
 
         let config: TomlMarineNamedModuleConfig = TomlMarineNamedModuleConfig {
             name: "tetra".to_string(),
