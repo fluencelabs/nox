@@ -98,16 +98,16 @@ jobs:
             ./target/release/rust-peer_SHA256_SUMS
           tag_name: ${{ needs.release-please.outputs.rust-peer-tag-name }}
 
-     - name: Update version in node-distro repo
-       if: needs.release-please.outputs.rust-peer-release-created
-       uses: benc-uk/workflow-dispatch@v1
-       with:
-         workflow: update_fluence
-         repo: fluencelabs/node-distro
-         ref: main
-         token: ${{ secrets.PERSONAL_TOKEN }}
-         inputs: '{
-           "version": "${{ needs.release-please.rust-peer-tag-name }}",
-           "url": "https://github.com/fluencelabs/rust-peer/releases/download/${{ needs.release-please.rust-peer-tag-name }}/rust-peer",
-           "sha256": "${{ steps.sha.outputs.sha256 }}"
-         }'
+      - name: Update version in node-distro repo
+        if: needs.release-please.outputs.rust-peer-release-created
+        uses: benc-uk/workflow-dispatch@v1
+        with:
+          workflow: update_fluence
+          repo: fluencelabs/node-distro
+          ref: main
+          token: ${{ secrets.PERSONAL_TOKEN }}
+          inputs: '{
+            "version": "${{ needs.release-please.outputs.rust-peer-tag-name }}",
+            "url": "https://github.com/fluencelabs/rust-peer/releases/download/${{ needs.release-please.outputs.rust-peer-tag-name }}/rust-peer",
+            "sha256": "${{ steps.sha.outputs.sha256 }}"
+          }'
