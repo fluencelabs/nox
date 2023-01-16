@@ -4153,6 +4153,7 @@ dependencies = [
  "libp2p",
  "local-vm",
  "log",
+ "log-utils",
  "maplit",
  "multihash",
  "now-millis",

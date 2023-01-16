@@ -92,8 +92,9 @@ impl KeyManager {
         if self.is_scope_peer_id(init_peer_id) {
             Ok(init_peer_id)
         } else {
-            match self.get_scope_peer_id(init_peer_id) {
-                Ok(p) => Ok(p),
+            let scope_peer_id = self.scope_peer_ids.read().get(&init_peer_id).cloned();
+            match scope_peer_id {
+                Some(p) => Ok(p),
                 _ => {
                     let kp = self.generate_keypair();
                     let scope_peer_id = kp.get_peer_id();
