@@ -23,5 +23,8 @@ jobs:
   reviewdog:
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
       - name: Lint actions
         uses: reviewdog/action-actionlint@v1
