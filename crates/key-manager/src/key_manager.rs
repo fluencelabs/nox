@@ -100,7 +100,7 @@ impl KeyManager {
             .read()
             .get(&scope_peer_id)
             .cloned()
-            .ok_or_else(|| eyre::eyre!("Keypair for peer id {} does not exist", scope_peer_id))
+            .ok_or_else(|| eyre::eyre!("Keypair for peer id {} not found", scope_peer_id))
     }
 
     pub fn generate_keypair(&self) -> KeyPair {
