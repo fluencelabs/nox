@@ -89,7 +89,7 @@ impl KeyManager {
             Ok(k)
         } else {
             Err(eyre::eyre!(
-                "Scope peer id for peer id {} not exists",
+                "Scope peer id for peer id {} not found",
                 remote_peer_id
             ))
         }
