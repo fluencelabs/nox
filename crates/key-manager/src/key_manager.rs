@@ -84,14 +84,23 @@ impl KeyManager {
         self.scope_keypairs.read().contains_key(&scope_peer_id)
     }
 
-    pub fn get_scope_peer_id(&self, remote_peer_id: PeerId) -> eyre::Result<PeerId> {
-        if let Some(k) = self.scope_peer_ids.read().get(&remote_peer_id).cloned() {
-            Ok(k)
+    /// For local peer ids is identity,
+    /// for remote returns associated peer id or generate a new one.
+    pub fn get_scope_peer_id(&self, init_peer_id: PeerId) -> Result<PeerId, PersistedKeypairError> {
+        // All "nested" spells share the same keypair.
+        // "nested" means spells which are created by other spells
+        if self.is_scope_peer_id(init_peer_id) {
+            Ok(init_peer_id)
         } else {
-            Err(eyre::eyre!(
-                "Scope peer id for peer id {} not found",
-                remote_peer_id
-            ))
+            match self.get_scope_peer_id(init_peer_id) {
+                Ok(p) => Ok(p),
+                _ => {
+                    let kp = self.generate_keypair();
+                    let scope_peer_id = kp.get_peer_id();
+                    self.store_keypair(init_peer_id, kp)?;
+                    Ok(scope_peer_id)
+                }
+            }
         }
     }
 

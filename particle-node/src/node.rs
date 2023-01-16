@@ -57,7 +57,7 @@ use peer_metrics::{
 };
 use script_storage::{ScriptStorageApi, ScriptStorageBackend, ScriptStorageConfig};
 use server_config::{NetworkConfig, ResolvedConfig, ServicesConfig};
-use sorcerer::{Sorcerer, SpellCustomService};
+use sorcerer::{Sorcerer, SpellBuiltin};
 use spell_event_bus::api::{PeerEvent, SpellEventBusApi, TriggerEvent};
 use spell_event_bus::bus::SpellEventBus;
 
@@ -244,7 +244,7 @@ impl<RT: AquaRuntime> Node<RT> {
         );
 
         spell_service_functions.into_iter().for_each(
-            |SpellCustomService {
+            |SpellBuiltin {
                  service_id,
                  functions,
                  unhandled,

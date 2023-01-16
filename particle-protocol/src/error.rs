@@ -19,28 +19,28 @@ use fluence_keypair::error::{SigningError, VerificationError};
 
 #[derive(Debug, Error)]
 pub enum ParticleError {
-    #[error("Cannot sign particle {id} with keypair not from init_peer_id {init_peer_id}: given {given_peer_id}")]
+    #[error("Cannot sign particle {particle_id} with keypair not from init_peer_id {init_peer_id}: given {given_peer_id}")]
     InvalidKeypair {
-        id: String,
+        particle_id: String,
         init_peer_id: String,
         given_peer_id: String,
     },
-    #[error("Failed to sign particle {id} signature: {err}")]
+    #[error("Failed to sign particle {particle_id} signature: {err}")]
     SigningFailed {
         #[source]
         err: SigningError,
-        id: String,
+        particle_id: String,
     },
-    #[error("Failed to verify particle {id} signature: {err}")]
+    #[error("Failed to verify particle {particle_id} signature: {err}")]
     SignatureVerificationFailed {
         #[source]
         err: VerificationError,
-        id: String,
+        particle_id: String,
     },
-    #[error("Failed to decode public key from init_peer_id of particle {id}: {err}")]
+    #[error("Failed to decode public key from init_peer_id of particle {particle_id}: {err}")]
     DecodingError {
         #[source]
         err: fluence_keypair::error::DecodingError,
-        id: String,
+        particle_id: String,
     },
 }

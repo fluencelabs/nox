@@ -232,9 +232,9 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
             }
         });
 
-        for effect in local_effects.into_iter() {
-            for local_peer in effect.next_peers.iter() {
-                self.ingest(effect.particle.clone(), None, *local_peer);
+        for effect in local_effects {
+            for local_peer in effect.next_peers {
+                self.ingest(effect.particle.clone(), None, local_peer);
             }
         }
 

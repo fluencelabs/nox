@@ -108,7 +108,7 @@ impl Particle {
     pub fn sign(&mut self, keypair: &KeyPair) -> Result<(), ParticleError> {
         if self.init_peer_id != keypair.get_peer_id() {
             return Err(InvalidKeypair {
-                id: self.id.clone(),
+                particle_id: self.id.clone(),
                 init_peer_id: self.init_peer_id.to_base58(),
                 given_peer_id: keypair.get_peer_id().to_base58(),
             });
@@ -117,7 +117,7 @@ impl Particle {
             .sign(self.as_bytes().as_slice())
             .map_err(|err| SigningFailed {
                 err,
-                id: self.id.clone(),
+                particle_id: self.id.clone(),
             })?
             .to_vec()
             .to_vec();
@@ -128,13 +128,13 @@ impl Particle {
     pub fn verify(&self) -> Result<(), ParticleError> {
         let pk: PublicKey = self.init_peer_id.try_into().map_err(|err| DecodingError {
             err,
-            id: self.id.clone(),
+            particle_id: self.id.clone(),
         })?;
         let sig = Signature::from_bytes(pk.get_key_format(), self.signature.clone());
         pk.verify(&self.as_bytes(), &sig)
             .map_err(|err| SignatureVerificationFailed {
                 err,
-                id: self.id.clone(),
+                particle_id: self.id.clone(),
             })
     }
 }
