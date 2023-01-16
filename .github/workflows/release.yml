@@ -70,11 +70,11 @@ jobs:
       - name: Publish to crates.io
         run: |
           cargo ws publish \
-            --no-git-commit \
-            --allow-dirty \
-            --from-git \
-            --skip-published \
-            --yes
+          --no-git-commit \
+          --allow-dirty \
+          --from-git \
+          --skip-published \
+          --yes
 
       - name: Rename particle-node to rust-peer
         working-directory: ./target/release/
