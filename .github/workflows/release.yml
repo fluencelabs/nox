@@ -33,7 +33,6 @@ jobs:
           RELEASE_PLEASE_OUTPUT: ${{ toJSON(steps.release.outputs) }}
         run: echo "${RELEASE_PLEASE_OUTPUT}" | jq
 
-
   crates:
     if: needs.release-please.outputs.releases-created
     runs-on: builder
@@ -71,11 +70,11 @@ jobs:
       - name: Publish to crates.io
         run: |
           cargo ws publish \
-          --no-git-commit \
-          --allow-dirty \
-          --from-git \
-          --skip-published \
-          --yes
+            --no-git-commit \
+            --allow-dirty \
+            --from-git \
+            --skip-published \
+            --yes
 
       - name: Rename particle-node to rust-peer
         working-directory: ./target/release/
@@ -99,16 +98,16 @@ jobs:
             ./target/release/rust-peer_SHA256_SUMS
           tag_name: ${{ needs.release-please.outputs.rust-peer-tag-name }}
 
-     - name: Update version in node-distro repo
-       if: needs.release-please.outputs.rust-peer-release-created
-       uses: benc-uk/workflow-dispatch@v1
-       with:
-         workflow: update_fluence
-         repo: fluencelabs/node-distro
-         ref: main
-         token: ${{ secrets.PERSONAL_TOKEN }}
-         inputs: '{
-           "version": "${{ needs.release-please.rust-peer-tag-name }}",
-           "url": "https://github.com/fluencelabs/rust-peer/releases/download/${{ needs.release-please.rust-peer-tag-name }}/rust-peer",
-           "sha256": "${{ steps.sha.outputs.sha256 }}"
-         }'
+      - name: Update version in node-distro repo
+        if: needs.release-please.outputs.rust-peer-release-created
+        uses: benc-uk/workflow-dispatch@v1
+        with:
+          workflow: update_fluence
+          repo: fluencelabs/node-distro
+          ref: main
+          token: ${{ secrets.PERSONAL_TOKEN }}
+          inputs: '{
+            "version": "${{ needs.release-please.rust-peer-tag-name }}",
+            "url": "https://github.com/fluencelabs/rust-peer/releases/download/${{ needs.release-please.rust-peer-tag-name }}/rust-peer",
+            "sha256": "${{ steps.sha.outputs.sha256 }}"
+          }'
