@@ -1,2 +1,7 @@
 {
+  "aquamarine": "0.2.0",
+  "particle-builtins": "0.2.0",
+  "particle-node": "0.7.1",
+  "particle-protocol": "0.3.0",
+  "crates/server-config": "0.2.0"
 }
