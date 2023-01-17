@@ -28,6 +28,8 @@ jobs:
 
       - name: Lint actions
         uses: reviewdog/action-actionlint@v1
+        env:
+          SHELLCHECK_OPTS: "-e SC2086"
         with:
           reporter: github-pr-check
           fail_on_error: true

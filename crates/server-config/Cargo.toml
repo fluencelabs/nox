@@ -17,7 +17,7 @@ fluence-keypair = { workspace = true }
 libp2p = { workspace = true }
 libp2p-metrics = { workspace = true }
 
-serde = { version = "1.0.145", features = ["derive"] }
+serde = { version = "1.0.152", features = ["derive"] }
 humantime-serde = { workspace = true }
 
 log = { workspace = true }
@@ -26,8 +26,8 @@ clap = "3.2.23"
 toml = "0.5.10"
 bs58 = { workspace = true }
 base64 = { workspace = true }
-num_cpus = "1.13.1"
+num_cpus = "1.15.0"
 eyre = { workspace = true }
 derivative = { workspace = true }
 bytesize = {version = "1.1.0", features = ["serde"]}
-serde_with = "2.0.1"
+serde_with = "2.2.0"
