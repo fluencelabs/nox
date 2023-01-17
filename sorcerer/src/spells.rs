@@ -105,7 +105,11 @@ pub(crate) async fn spell_install(
             )));
         }
     } else {
-        log::trace!("empty config given for spell {}", spell_id);
+        log::trace!(
+            "empty config given for spell {}, particle id {}",
+            spell_id,
+            params.id
+        );
     }
 
     Ok(JValue::String(spell_id))

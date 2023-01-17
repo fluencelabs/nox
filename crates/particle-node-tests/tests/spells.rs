@@ -906,7 +906,6 @@ fn spell_peer_id_test() {
 #[test]
 fn spell_update_config() {
     let swarms = make_swarms(1);
-    //log_utils::enable_logs();
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .wrap_err("connect client")
         .unwrap();
@@ -921,7 +920,6 @@ fn spell_update_config() {
         )"#,
         client.peer_id
     );
-    // create periodic spell
     let mut config = TriggerConfig::default();
     config.connections.connect = true;
     let (spell_id, _) = create_spell(&mut client, &script, config, hashmap! {});
@@ -987,12 +985,10 @@ fn spell_update_config() {
 #[test]
 fn spell_update_config_stopped_spell() {
     let swarms = make_swarms(1);
-    //log_utils::enable_logs();
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .wrap_err("connect client")
         .unwrap();
 
-    // Create spell that do nothing.
     let script = format!(
         r#"(seq
             (seq
