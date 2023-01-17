@@ -13,9 +13,10 @@ jobs:
     runs-on: ubuntu-latest
 
     outputs:
-      releases-created: ${{ steps.release.outputs.releases_created }}
-      rust-peer-release-created: ${{ steps.release.outputs['rust-peer--release_created'] }}
-      rust-peer-tag-name: ${{ steps.release.outputs['rust-peer--tag_name'] }}
+      release-created: ${{ steps.release.outputs['release_created'] }}
+      tag-name: ${{ steps.release.outputs['tag_name'] }}
+      version: ${{ steps.release.outputs['version'] }}
+      pr: ${{ steps.release.outputs['pr'] }}
 
     steps:
       - name: Run release-please
@@ -33,9 +34,47 @@ jobs:
           RELEASE_PLEASE_OUTPUT: ${{ toJSON(steps.release.outputs) }}
         run: echo "${RELEASE_PLEASE_OUTPUT}" | jq
 
-  crates:
-    if: needs.release-please.outputs.releases-created
-    runs-on: builder
+  bump-version:
+    if: needs.release-please.outputs.pr != null
+    runs-on: ubuntu-latest
+    needs:
+      - release-please
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          ref: ${{ fromJson(needs.release-please.outputs.pr).headBranchName }}
+
+      - name: Setup Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+
+      - name: Install cargo-edit
+        uses: baptiste0928/cargo-install@v1.3.0
+        with:
+          crate: cargo-edit
+
+      - name: Get rust-peer version
+        id: version
+        run: |
+          version="$(jq -r '.[]' .github/release-please/manifest.json)"
+          echo "version=${version}" >> $GITHUB_OUTPUT
+
+      - name: Set rust-peer version
+        run: cargo set-version -p particle-node ${{ steps.version.outputs.version }}
+
+      - name: Commit version bump
+        uses: stefanzweifel/git-auto-commit-action@v4
+        with:
+          commit_message: "chore: Bump rust-peer version to ${{ steps.version.outputs.version }}"
+          branch: ${{ fromJson(needs.release-please.outputs.pr).headBranchName }}
+
+  rust-peer:
+    if: needs.release-please.outputs.release-created
+    runs-on: ubuntu-latest
     needs:
       - release-please
 
@@ -62,20 +101,6 @@ jobs:
       - name: Build particle-node
         run: cargo build --release -p particle-node
 
-      - name: Install cargo-workspaces
-        uses: baptiste0928/cargo-install@v1.3.0
-        with:
-          crate: cargo-workspaces
-
-      - name: Publish to crates.io
-        run: |
-          cargo ws publish \
-            --no-git-commit \
-            --allow-dirty \
-            --from-git \
-            --skip-published \
-            --yes
-
       - name: Rename particle-node to rust-peer
         working-directory: ./target/release/
         run: mv particle-node rust-peer
@@ -90,13 +115,13 @@ jobs:
           echo "sha256=${sha}" >> $GITHUB_OUTPUT
 
       - name: Upload rust-peer binary
-        if: needs.release-please.outputs.rust-peer-release-created
+        if: needs.release-please.outputs.release-created
         uses: softprops/action-gh-release@v1
         with:
           files: |
             ./target/release/rust-peer
             ./target/release/rust-peer_SHA256_SUMS
-          tag_name: ${{ needs.release-please.outputs.rust-peer-tag-name }}
+          tag_name: ${{ needs.release-please.outputs.tag-name }}
 
       - name: Update version in node-distro repo
         if: needs.release-please.outputs.rust-peer-release-created
@@ -107,7 +132,7 @@ jobs:
           ref: main
           token: ${{ secrets.PERSONAL_TOKEN }}
           inputs: '{
-            "version": "${{ needs.release-please.outputs.rust-peer-tag-name }}",
-            "url": "https://github.com/fluencelabs/rust-peer/releases/download/${{ needs.release-please.outputs.rust-peer-tag-name }}/rust-peer",
+            "version": "${{ needs.release-please.outputs.tag-name }}",
+            "url": "https://github.com/fluencelabs/rust-peer/releases/download/${{ needs.release-please.outputs.tag-name }}/rust-peer",
             "sha256": "${{ steps.sha.outputs.sha256 }}"
           }'
