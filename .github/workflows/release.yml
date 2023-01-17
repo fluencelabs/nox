@@ -36,7 +36,7 @@ jobs:
 
   bump-version:
     if: needs.release-please.outputs.pr != null
-    runs-on: ubuntu-latest
+    runs-on: builder
     needs:
       - release-please
 
@@ -71,6 +71,9 @@ jobs:
         with:
           commit_message: "chore: Bump rust-peer version to ${{ steps.version.outputs.version }}"
           branch: ${{ fromJson(needs.release-please.outputs.pr).headBranchName }}
+          commit_user_name: fluencebot
+          commit_user_email: devops@fluence.one
+          commit_author: fluencebot <devops@fluence.one>
 
   rust-peer:
     if: needs.release-please.outputs.release-created
