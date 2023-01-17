@@ -305,14 +305,6 @@ mod tests {
         .unwrap();
     }
 
-    fn send_disconnect_event(send: &Outlet<PeerEvent>, peer_id: PeerId) {
-        send.unbounded_send(PeerEvent::from(LifecycleEvent::Disconnected(Contact::new(
-            peer_id,
-            Vec::new(),
-        ))))
-        .unwrap();
-    }
-
     fn emulate_connect(period: Duration) -> (Inlet<PeerEvent>, JoinHandle<()>) {
         let (send, recv) = unbounded();
         let hdl = task::spawn(async move {
