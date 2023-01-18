@@ -190,7 +190,7 @@ pub(crate) async fn spell_update_config(
     };
 
     if let Err(err) = result {
-        log::warn!("can't update a spell {spell_id} config via spell-event-bus-api: {err}",);
+        log::warn!("can't update a spell {spell_id} config via spell-event-bus-api: {err}");
         return Err(JError::new(format!(
             "can't update a spell {spell_id} config due to an internal error while updating the triggers: {err}"
         )));
