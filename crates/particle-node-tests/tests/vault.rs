@@ -136,7 +136,7 @@ fn deploy_from_vault() {
 
     let args = client.receive_args().unwrap();
     if let [String(output)] = args.as_slice() {
-        assert_eq!(output, &base64.encode(module));
+        assert_eq!(base64.decode(output).unwrap(), module);
     } else {
         panic!("#incorrect args: expected a single string, got {:?}", args);
     }

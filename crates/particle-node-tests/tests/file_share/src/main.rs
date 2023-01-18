@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+use base64::{engine::general_purpose::STANDARD_NO_PAD as base64, Engine};
 use fluence::{get_call_parameters, marine, module_manifest};
 use rand::distributions::Alphanumeric;
 use rand::Rng;
@@ -46,12 +47,12 @@ pub fn read_base64_vault_file(filename: String) -> String {
         Ok(bs) => bs,
         Err(err) => return err.to_string(),
     };
-    base64::encode(bytes)
+    base64.encode(bytes)
 }
 
 #[marine]
 pub fn create_base64_vault_file(data: String) -> String {
-    let bytes = base64::decode(data).expect("correct base64");
+    let bytes = base64.decode(data).expect("correct base64");
     store_file_name(bytes)
 }
 
