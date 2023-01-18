@@ -11,6 +11,6 @@ path = "src/main.rs"
 [workspace]
 
 [dependencies]
-fluence = "0.6.9"
+marine-rs-sdk = "0.7.1"
 rand = "0.8.4"
-base64 = { workspace = true }
+base64 = "0.21.0"

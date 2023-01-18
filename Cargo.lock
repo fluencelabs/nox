@@ -187,7 +187,7 @@ dependencies = [
  "anyhow",
  "async-std",
  "avm-server",
- "base64 0.20.0",
+ "base64 0.21.0",
  "bytesize",
  "chrono",
  "config-utils",
@@ -585,9 +585,9 @@ checksum = "9e1b586273c5702936fe7b7d6896644d8be71e6314cfe09d3167c95f712589e8"
 
 [[package]]
 name = "base64"
-version = "0.20.0"
+version = "0.21.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0ea22880d78093b0cbe17c89f64a7d457941e65759157ec6cb31a31d652b05e5"
+checksum = "a4a4ddaa51a5bc52a6948f74c06d20aaaddb71924eab79b8c97a8c556e942d6a"
 
 [[package]]
 name = "bimap"
@@ -749,7 +749,7 @@ name = "builtins-deployer"
 version = "0.1.0"
 dependencies = [
  "aquamarine",
- "base64 0.20.0",
+ "base64 0.21.0",
  "eyre",
  "fluence-libp2p",
  "fs-utils",
@@ -1189,7 +1189,7 @@ dependencies = [
  "air-interpreter-fs",
  "aquamarine",
  "async-std",
- "base64 0.20.0",
+ "base64 0.21.0",
  "builtins-deployer",
  "config-utils",
  "connection-pool",
@@ -1800,7 +1800,7 @@ name = "fluence-libp2p"
 version = "0.2.0"
 dependencies = [
  "async-std",
- "base64 0.20.0",
+ "base64 0.21.0",
  "bs58 0.4.0",
  "failure",
  "futures",
@@ -2545,7 +2545,7 @@ dependencies = [
 name = "json-utils"
 version = "0.0.2"
 dependencies = [
- "base64 0.20.0",
+ "base64 0.21.0",
  "serde",
  "serde_json",
 ]
@@ -4091,7 +4091,7 @@ dependencies = [
 name = "particle-modules"
 version = "0.1.0"
 dependencies = [
- "base64 0.20.0",
+ "base64 0.21.0",
  "bytesize",
  "eyre",
  "fluence-app-service",
@@ -4122,7 +4122,7 @@ dependencies = [
  "aquamarine",
  "async-std",
  "avm-server",
- "base64 0.20.0",
+ "base64 0.21.0",
  "blake3 1.3.3",
  "bs58 0.4.0",
  "builtins-deployer",
@@ -4170,7 +4170,7 @@ version = "0.1.0"
 dependencies = [
  "aquamarine",
  "async-std",
- "base64 0.20.0",
+ "base64 0.21.0",
  "blake3 1.3.3",
  "bs58 0.4.0",
  "connected-client",
@@ -4219,7 +4219,7 @@ name = "particle-protocol"
 version = "0.3.0"
 dependencies = [
  "async-std",
- "base64 0.20.0",
+ "base64 0.21.0",
  "derivative",
  "eyre",
  "fluence-keypair",
@@ -4242,7 +4242,7 @@ dependencies = [
 name = "particle-services"
 version = "0.1.0"
 dependencies = [
- "base64 0.20.0",
+ "base64 0.21.0",
  "config-utils",
  "derivative",
  "eyre",
@@ -5176,7 +5176,7 @@ name = "server-config"
 version = "0.2.0"
 dependencies = [
  "air-interpreter-fs",
- "base64 0.20.0",
+ "base64 0.21.0",
  "bs58 0.4.0",
  "bytesize",
  "clap",
@@ -5644,7 +5644,7 @@ name = "test-utils"
 version = "0.3.0"
 dependencies = [
  "async-std",
- "base64 0.20.0",
+ "base64 0.21.0",
  "connected-client",
  "created-swarm",
  "eyre",

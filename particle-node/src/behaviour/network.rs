@@ -13,11 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use libp2p::identify::{IdentifyConfig, IdentifyEvent};
+use libp2p::identify::IdentifyConfig;
 use libp2p::{
     identify::Identify,
-    ping::{Ping, PingConfig, PingEvent},
-    swarm::NetworkBehaviour,
+    ping::{Ping, PingConfig},
 };
 
 use connection_pool::ConnectionPoolBehaviour;

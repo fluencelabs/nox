@@ -1,24 +1,27 @@
-use super::defaults::*;
-use crate::keys::{decode_key, decode_secret_key, load_key};
-use crate::{BootstrapConfig, KademliaConfig};
-
-use fluence_keypair::KeyPair;
-use fluence_libp2p::PeerId;
-use fluence_libp2p::{peerid_serializer, Transport};
-use fs_utils::to_abs_path;
-use particle_protocol::ProtocolConfig;
-
-use derivative::Derivative;
-use eyre::eyre;
-use libp2p::core::Multiaddr;
-use serde::Deserialize;
-use serde_with::serde_as;
-use serde_with::DisplayFromStr;
 use std::collections::HashMap;
 use std::net::IpAddr;
 use std::ops::Deref;
 use std::path::PathBuf;
 use std::time::Duration;
+
+use base64::{engine::general_purpose::STANDARD as base64, Engine};
+use derivative::Derivative;
+use eyre::eyre;
+use fluence_keypair::KeyPair;
+use libp2p::core::Multiaddr;
+use serde::Deserialize;
+use serde_with::serde_as;
+use serde_with::DisplayFromStr;
+
+use fluence_libp2p::PeerId;
+use fluence_libp2p::{peerid_serializer, Transport};
+use fs_utils::to_abs_path;
+use particle_protocol::ProtocolConfig;
+
+use crate::keys::{decode_key, decode_secret_key, load_key};
+use crate::{BootstrapConfig, KademliaConfig};
+
+use super::defaults::*;
 
 #[serde_as]
 #[derive(Clone, Deserialize, Derivative)]
@@ -228,7 +231,8 @@ impl KeypairConfig {
 
         // first, try to load secret key
         if let Some(secret_key) = self.secret_key {
-            let secret_key = base64::decode(secret_key)
+            let secret_key = base64
+                .decode(secret_key)
                 .map_err(|err| eyre!("base64 decoding failed: {}", err))?;
             return decode_secret_key(secret_key.clone(), self.format.clone())
                 .map_err(|e| eyre!("Failed to decode secret key from {:?}: {}", secret_key, e));

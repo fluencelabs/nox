@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+use base64::{engine::general_purpose::STANDARD as base64, Engine};
 use eyre::WrapErr;
 use maplit::hashmap;
 use serde_json::json;
@@ -126,7 +127,7 @@ fn deploy_from_vault() {
         hashmap! {
             "relay" => json!(client.node.to_string()),
             "first_service" => json!(file_share.id),
-            "module" => json!(base64::encode(&module)),
+            "module" => json!(base64.encode(&module)),
             "q" => json!("\""),
         },
     );
@@ -135,7 +136,7 @@ fn deploy_from_vault() {
 
     let args = client.receive_args().unwrap();
     if let [String(output)] = args.as_slice() {
-        assert_eq!(output, &base64::encode(module));
+        assert_eq!(base64.decode(output).unwrap(), module);
     } else {
         panic!("#incorrect args: expected a single string, got {:?}", args);
     }
@@ -163,7 +164,7 @@ fn load_blueprint_from_vault() {
     "#,
         hashmap! {
             "relay" => json!(client.node.to_string()),
-            "module" => json!(base64::encode(module)),
+            "module" => json!(base64.encode(module)),
         },
     );
 

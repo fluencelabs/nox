@@ -14,10 +14,8 @@
  * limitations under the License.
  */
 
-use std::future::Future;
 use std::sync::Arc;
-use std::task::Poll;
-use std::{io, iter::once, net::SocketAddr};
+use std::{io, net::SocketAddr};
 
 use async_std::task;
 use eyre::WrapErr;
@@ -25,11 +23,10 @@ use fluence_keypair::KeyPair;
 use futures::{
     channel::{mpsc::unbounded, oneshot},
     select,
-    stream::{self, StreamExt},
+    stream::StreamExt,
     FutureExt,
 };
-use libp2p::identify::IdentifyEvent;
-use libp2p::swarm::{NetworkBehaviour, SwarmEvent};
+use libp2p::swarm::SwarmEvent;
 use libp2p::{
     core::{muxing::StreamMuxerBox, transport::Boxed, Multiaddr},
     identity::Keypair,
@@ -49,7 +46,7 @@ use fluence_libp2p::types::{BackPressuredInlet, Inlet};
 use fluence_libp2p::{build_transport, types::OneshotOutlet};
 use key_manager::KeyManager;
 use particle_builtins::{Builtins, NodeInfo};
-use particle_execution::{ParticleFunction, ParticleFunctionStatic};
+use particle_execution::ParticleFunctionStatic;
 use particle_protocol::Particle;
 use peer_metrics::{
     ConnectionPoolMetrics, ConnectivityMetrics, ParticleExecutorMetrics, ServicesMetrics,
@@ -58,7 +55,7 @@ use peer_metrics::{
 use script_storage::{ScriptStorageApi, ScriptStorageBackend, ScriptStorageConfig};
 use server_config::{NetworkConfig, ResolvedConfig, ServicesConfig};
 use sorcerer::{Sorcerer, SpellBuiltin};
-use spell_event_bus::api::{PeerEvent, SpellEventBusApi, TriggerEvent};
+use spell_event_bus::api::{PeerEvent, TriggerEvent};
 use spell_event_bus::bus::SpellEventBus;
 
 use crate::dispatcher::Dispatcher;
