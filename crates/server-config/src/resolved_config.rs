@@ -280,7 +280,9 @@ pub fn resolve_config(arguments: &ArgMatches, content: &[u8]) -> eyre::Result<Re
 
 #[cfg(test)]
 mod tests {
+    use base64::{engine::general_purpose::STANDARD_NO_PAD as base64, Engine};
     use fluence_keypair::KeyPair;
+
     use fs_utils::make_tmp_dir;
 
     use crate::args::create_args;
@@ -413,8 +415,8 @@ mod tests {
 
         let root_kp = KeyPair::generate_ed25519();
         let builtins_kp = KeyPair::generate_secp256k1();
-        std::fs::write(&root_key_path, base64::encode(root_kp.to_vec())).unwrap();
-        std::fs::write(&builtins_key_path, base64::encode(builtins_kp.to_vec())).unwrap();
+        std::fs::write(&root_key_path, base64.encode(root_kp.to_vec())).unwrap();
+        std::fs::write(&builtins_key_path, base64.encode(builtins_kp.to_vec())).unwrap();
         assert!(root_key_path.exists());
         assert!(builtins_key_path.exists());
 
@@ -440,10 +442,10 @@ mod tests {
 
         let root_kp = KeyPair::generate_ed25519();
         let builtins_kp = KeyPair::generate_secp256k1();
-        std::fs::write(&root_key_path, base64::encode(&root_kp.secret().unwrap())).unwrap();
+        std::fs::write(&root_key_path, base64.encode(&root_kp.secret().unwrap())).unwrap();
         std::fs::write(
             &builtins_key_path,
-            base64::encode(&builtins_kp.secret().unwrap()),
+            base64.encode(&builtins_kp.secret().unwrap()),
         )
         .unwrap();
         assert!(root_key_path.exists());

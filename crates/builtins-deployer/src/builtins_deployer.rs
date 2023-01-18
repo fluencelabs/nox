@@ -18,10 +18,12 @@ use std::path::PathBuf;
 use std::time::{Duration, Instant};
 use std::{collections::HashMap, fs};
 
+use base64::{engine::general_purpose::STANDARD_NO_PAD as base64, Engine};
 use eyre::{eyre, ErrReport, Result, WrapErr};
 use futures::channel::oneshot::channel;
 use futures::executor::block_on;
 use futures::FutureExt;
+use humantime::format_duration as pretty;
 use maplit::hashmap;
 use serde_json::{json, Value as JValue};
 
@@ -29,7 +31,6 @@ use aquamarine::AquamarineApi;
 use fluence_libp2p::PeerId;
 use fs_utils::list_files;
 use fs_utils::{file_name, to_abs_path};
-use humantime::format_duration as pretty;
 use local_vm::{client_functions, wrap_script};
 use now_millis::now_ms;
 use particle_protocol::Particle;
@@ -154,7 +155,7 @@ impl BuiltinsDeployer {
         .to_string();
 
         let data = hashmap! {
-            "module_bytes".to_string() => json!(base64::encode(&module.data)),
+            "module_bytes".to_string() => json!(base64.encode(&module.data)),
             "module_config".to_string() => json!(module.config),
         };
 

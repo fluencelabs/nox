@@ -26,6 +26,7 @@
     unreachable_patterns
 )]
 
+use base64::{engine::general_purpose::STANDARD_NO_PAD as base64, Engine};
 use clap::App;
 use env_logger::Env;
 use eyre::WrapErr;
@@ -105,7 +106,7 @@ fn start_fluence(config: ResolvedConfig) -> eyre::Result<impl Stoppable> {
     log::trace!("starting Fluence");
 
     let key_pair = config.root_key_pair.clone();
-    let base64_key_pair = base64::encode(key_pair.public().to_vec());
+    let base64_key_pair = base64.encode(key_pair.public().to_vec());
     log::info!("node public key = {}", base64_key_pair);
     log::info!("node server peer id = {}", to_peer_id(&key_pair.into()));
 

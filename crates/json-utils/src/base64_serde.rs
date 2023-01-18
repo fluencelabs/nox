@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+use base64::{engine::general_purpose::STANDARD_NO_PAD as base64, Engine};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 #[allow(clippy::ptr_arg)] // This is a serializer for Vec<u8>, it is required to be of that type
@@ -21,7 +22,7 @@ pub fn serialize<S>(value: &Vec<u8>, serializer: S) -> Result<S::Ok, S::Error>
 where
     S: Serializer,
 {
-    base64::encode(value).serialize(serializer)
+    base64.encode(value).serialize(serializer)
 }
 
 pub fn deserialize<'de, D>(deserializer: D) -> Result<Vec<u8>, D::Error>
@@ -30,6 +31,7 @@ where
 {
     let str = String::deserialize(deserializer)?;
 
-    base64::decode(str)
+    base64
+        .decode(str)
         .map_err(|e| serde::de::Error::custom(format!("base64 deserialization failed: {e:?}")))
 }

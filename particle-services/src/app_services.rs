@@ -615,6 +615,7 @@ mod tests {
     use std::fs::remove_file;
     use std::path::PathBuf;
 
+    use base64::{engine::general_purpose::STANDARD_NO_PAD as base64, Engine};
     use fluence_app_service::{TomlMarineModuleConfig, TomlMarineNamedModuleConfig};
     use libp2p_core::identity::Keypair;
     use libp2p_core::PeerId;
@@ -755,7 +756,7 @@ mod tests {
         };
         let hash = pas
             .modules
-            .add_module_base64(base64::encode(module), config)
+            .add_module_base64(base64.encode(module), config)
             .unwrap();
         let service_id1 = create_service(&pas, module_name.clone(), &hash).unwrap();
         let service_id2 = create_service(&pas, module_name.clone(), &hash).unwrap();
@@ -797,7 +798,7 @@ mod tests {
             },
         };
         pas.modules
-            .add_module_base64(base64::encode(module), config)
+            .add_module_base64(base64.encode(module), config)
             .unwrap()
     }
 
