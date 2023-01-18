@@ -119,9 +119,11 @@ impl Sorcerer {
                     "get_trigger_config",
                 )?;
                 let config = from_user_config(result.config)?;
-                self.spell_event_bus_api
-                    .subscribe(spell_id.clone(), config.clone())
-                    .await?;
+                if let Some(config) = config {
+                    self.spell_event_bus_api
+                        .subscribe(spell_id.clone(), config.clone())
+                        .await?;
+                }
             };
             if let Err(e) = result {
                 // 1. We do not remove the spell we aren't able to reschedule. Users should be able to rerun it manually when updating trigger config.

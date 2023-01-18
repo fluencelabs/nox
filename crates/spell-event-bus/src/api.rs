@@ -4,7 +4,7 @@ use fluence_libp2p::types::{OneshotOutlet, Outlet};
 use fluence_libp2p::{peerid_serializer, PeerId};
 use futures::channel::mpsc::SendError;
 use futures::{channel::oneshot, future::BoxFuture, FutureExt};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 pub use crate::config::*;
@@ -25,12 +25,12 @@ pub enum TriggerInfo {
     Peer(PeerEvent),
 }
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct TimerEvent {
     pub timestamp: u64,
 }
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 /// Event is triggered by connection pool event
 pub struct PeerEvent {
     #[serde(with = "peerid_serializer")]
@@ -70,7 +70,7 @@ pub enum PeerEventType {
     Disconnected,
 }
 
-#[derive(Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct TriggerInfoAqua {
     // Vec is a representation for Aqua optional values. This Vec always holds at most 1 element.
     timer: Vec<TimerEvent>,
@@ -93,6 +93,16 @@ impl From<TriggerInfo> for TriggerInfoAqua {
     }
 }
 
+impl From<TriggerInfoAqua> for TriggerInfo {
+    fn from(i: TriggerInfoAqua) -> Self {
+        match (i.timer.get(0), i.peer.get(0)) {
+            (Some(t), None) => Self::Timer(t.clone()),
+            (None, Some(p)) => Self::Peer(p.clone()),
+            _ => unreachable!("TriggerInfoAqua should always have either timer or peer event"),
+        }
+    }
+}
+
 #[derive(Debug)]
 pub(crate) struct Command {
     pub(crate) spell_id: SpellId,
@@ -106,8 +116,6 @@ pub enum Action {
     Subscribe(SpellTriggerConfigs),
     /// Remove all subscriptions of a spell
     Unsubscribe,
-    /// Update trigger config of an existing spell
-    Update(SpellTriggerConfigs),
 }
 
 #[derive(Error, Debug)]
@@ -177,13 +185,5 @@ impl SpellEventBusApi {
     /// Unsubscribe a spell from all events.
     pub fn unsubscribe(&self, spell_id: SpellId) -> BoxFuture<'static, Result<(), EventBusError>> {
         self.send(spell_id, Action::Unsubscribe)
-    }
-
-    pub fn update_config(
-        &self,
-        spell_id: SpellId,
-        config: SpellTriggerConfigs,
-    ) -> BoxFuture<'static, Result<(), EventBusError>> {
-        self.send(spell_id, Action::Update(config))
     }
 }

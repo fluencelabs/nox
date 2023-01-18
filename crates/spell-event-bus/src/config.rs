@@ -20,8 +20,6 @@ pub enum ConfigError {
     InvalidPeriod,
     #[error("invalid config: end_sec is less than start_sec or in the past")]
     InvalidEndSec,
-    #[error("config is empty, nothing to do")]
-    EmptyConfig,
 }
 
 /// Convert timestamp to std::time::Instant.
@@ -35,7 +33,7 @@ fn to_instant(timestamp: u64) -> Option<Instant> {
 /// Convert user-friendly config to event-bus-friendly config, validating it in the process.
 pub fn from_user_config(
     user_config: UserTriggerConfig,
-) -> Result<SpellTriggerConfigs, ConfigError> {
+) -> Result<Option<SpellTriggerConfigs>, ConfigError> {
     let mut triggers = Vec::new();
 
     // ClockConfig is considered empty if `start_sec` is zero. In this case the content of other fields are ignored.
@@ -48,11 +46,12 @@ pub fn from_user_config(
         triggers.push(TriggerConfig::PeerEvent(peer_event_config));
     }
 
-    if triggers.is_empty() {
-        Err(ConfigError::EmptyConfig)
+    let cfg = if !triggers.is_empty() {
+        Some(SpellTriggerConfigs { triggers })
     } else {
-        Ok(SpellTriggerConfigs { triggers })
-    }
+        None
+    };
+    Ok(cfg)
 }
 
 fn from_connection_config(connection_config: &ConnectionPoolConfig) -> Option<PeerEventConfig> {
