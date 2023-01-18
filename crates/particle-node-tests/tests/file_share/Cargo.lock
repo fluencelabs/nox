@@ -121,31 +121,8 @@ name = "file_share"
 version = "0.1.0"
 dependencies = [
  "base64",
- "fluence",
+ "marine-rs-sdk",
  "rand",
-]
-
-[[package]]
-name = "fluence"
-version = "0.6.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "88b09e1cd11a51ba4d169db347d009fe41ece2714eef4d5df720343733a1d5a6"
-dependencies = [
- "fluence-sdk-main",
- "marine-macro",
- "marine-timestamp-macro",
- "serde",
-]
-
-[[package]]
-name = "fluence-sdk-main"
-version = "0.6.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "68d93cde99e1494e11755a39b93863333397245c9959c774fe3bebd9e4143879"
-dependencies = [
- "log",
- "marine-macro",
- "serde",
 ]
 
 [[package]]
@@ -224,32 +201,55 @@ dependencies = [
 
 [[package]]
 name = "marine-macro"
-version = "0.6.9"
+version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f63d927851847cc3dd9e3bd0f10bdeb313859d4822d5b5f650d9d34d461ed419"
+checksum = "5e03da22f641984aad5229f780d190502196d1c0bf908d3d17f5d6bcba73e525"
 dependencies = [
  "marine-macro-impl",
+ "marine-rs-sdk-main",
 ]
 
 [[package]]
 name = "marine-macro-impl"
-version = "0.6.9"
+version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fb504be4a90e229ab453c7369cc8a9063acec819f3397802eea719cd0a232be1"
+checksum = "ca474b63cabaf8d7d9b38de87d630023cbc91ddc77e92f9c7bb745462a131b44"
 dependencies = [
  "proc-macro2",
  "quote",
  "serde",
  "serde_json",
  "syn",
- "uuid",
+]
+
+[[package]]
+name = "marine-rs-sdk"
+version = "0.7.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1cfeeb7b8cd98e32276fabfe6ab095a6aae793f3f080e7eb1c3d36b1b762397c"
+dependencies = [
+ "marine-macro",
+ "marine-rs-sdk-main",
+ "marine-timestamp-macro",
+ "polyplets",
+ "serde",
+]
+
+[[package]]
+name = "marine-rs-sdk-main"
+version = "0.7.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c43e6eac611bc5b96e80a3f3e2621eeded69fb56389aa83b6ea76ec0f243ef23"
+dependencies = [
+ "log",
+ "serde",
 ]
 
 [[package]]
 name = "marine-timestamp-macro"
-version = "0.6.9"
+version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5994c7db5567d21609f2a2e5a40d9d4564f86c17ca35b2d77007152619b9d7fc"
+checksum = "7ea4557a757e9f4d04a0b6afb047431a246963268a4cab56c62cb5355457cb2f"
 dependencies = [
  "chrono",
  "quote",
@@ -279,6 +279,17 @@ name = "once_cell"
 version = "1.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6f61fba1741ea2b3d6a1e3178721804bb716a68a6aeba1149b5d52e3d464ea66"
+
+[[package]]
+name = "polyplets"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6c051f220264e391afae06b6dceda199d523ee1dc7ae8e8cba4119a378dd411f"
+dependencies = [
+ "marine-macro",
+ "marine-rs-sdk-main",
+ "serde",
+]
 
 [[package]]
 name = "ppv-lite86"
@@ -348,18 +359,18 @@ checksum = "ddccb15bcce173023b3fedd9436f882a0739b8dfb45e4f6b6002bee5929f61b2"
 
 [[package]]
 name = "serde"
-version = "1.0.118"
+version = "1.0.152"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "06c64263859d87aa2eb554587e2d23183398d617427327cf2b3d0ed8c69e4800"
+checksum = "bb7d1f0d3021d347a83e556fc4683dea2ea09d87bccdf88ff5c12545d89d5efb"
 dependencies = [
  "serde_derive",
 ]
 
 [[package]]
 name = "serde_derive"
-version = "1.0.118"
+version = "1.0.152"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c84d3526699cd55261af4b941e4e725444df67aa4f9e6a3564f18030d12672df"
+checksum = "af487d118eecd09402d70a5d72551860e788df87b464af30e5ea6a38c75c541e"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -419,15 +430,6 @@ name = "unicode-width"
 version = "0.1.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c0edd1e5b14653f783770bce4a4dabb4a5108a5370a5f5d8cfe8710c361f6c8b"
-
-[[package]]
-name = "uuid"
-version = "0.8.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bc5cf98d8186244414c848017f0e2676b3fcb46807f6668a97dfe67359a3c4b7"
-dependencies = [
- "getrandom",
-]
 
 [[package]]
 name = "wasi"

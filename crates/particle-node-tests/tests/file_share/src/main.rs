@@ -15,7 +15,7 @@
  */
 
 use base64::{engine::general_purpose::STANDARD_NO_PAD as base64, Engine};
-use fluence::{get_call_parameters, marine, module_manifest};
+use marine_rs_sdk::{get_call_parameters, marine, module_manifest};
 use rand::distributions::Alphanumeric;
 use rand::Rng;
 use std::path::{Path, PathBuf};
