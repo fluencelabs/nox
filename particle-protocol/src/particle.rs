@@ -141,7 +141,9 @@ impl Particle {
 
 #[allow(clippy::ptr_arg)]
 fn fmt_data(data: &Vec<u8>, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
-    write!(f, "{}", base64::encode(data))
+    use base64::{engine::general_purpose::STANDARD as base64, Engine};
+
+    write!(f, "{}", base64.encode(data))
 }
 
 impl std::fmt::Display for Particle {

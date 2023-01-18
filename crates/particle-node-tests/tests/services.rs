@@ -19,6 +19,7 @@ use maplit::hashmap;
 use serde_json::json;
 use serde_json::Value as JValue;
 
+use base64::{engine::general_purpose::STANDARD as base64, Engine};
 use connected_client::ConnectedClient;
 use created_swarm::make_swarms;
 use service_modules::load_module;
@@ -155,7 +156,7 @@ fn create_service_from_config() {
     let data = hashmap! {
         "-relay-" => json!(client.node.to_string()),
         "config" => config,
-        "module_bytes" => json!(base64::encode(module)),
+        "module_bytes" => json!(base64.encode(module)),
     };
     client.send_particle_ext(script, data, true);
     let result = client.receive_args().expect("receive");
@@ -318,7 +319,7 @@ fn handle_same_dir_in_preopens_and_mapped_dirs() {
     let data = hashmap! {
         "-relay-" => json!(client.node.to_string()),
         "config" => config,
-        "module_bytes" => json!(base64::encode(module)),
+        "module_bytes" => json!(base64.encode(module)),
     };
     client.send_particle_ext(script, data, true);
     let result = client.receive_args();

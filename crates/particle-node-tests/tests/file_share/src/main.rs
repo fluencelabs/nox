@@ -14,7 +14,8 @@
  * limitations under the License.
  */
 
-use fluence::{get_call_parameters, marine, module_manifest};
+use base64::{engine::general_purpose::STANDARD as base64, Engine};
+use marine_rs_sdk::{get_call_parameters, marine, module_manifest};
 use rand::distributions::Alphanumeric;
 use rand::Rng;
 use std::path::{Path, PathBuf};
@@ -46,12 +47,12 @@ pub fn read_base64_vault_file(filename: String) -> String {
         Ok(bs) => bs,
         Err(err) => return err.to_string(),
     };
-    base64::encode(bytes)
+    base64.encode(bytes)
 }
 
 #[marine]
 pub fn create_base64_vault_file(data: String) -> String {
-    let bytes = base64::decode(data).expect("correct base64");
+    let bytes = base64.decode(data).expect("correct base64");
     store_file_name(bytes)
 }
 

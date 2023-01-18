@@ -187,7 +187,7 @@ dependencies = [
  "anyhow",
  "async-std",
  "avm-server",
- "base64 0.20.0",
+ "base64 0.21.0",
  "bytesize",
  "chrono",
  "config-utils",
@@ -585,9 +585,9 @@ checksum = "9e1b586273c5702936fe7b7d6896644d8be71e6314cfe09d3167c95f712589e8"
 
 [[package]]
 name = "base64"
-version = "0.20.0"
+version = "0.21.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0ea22880d78093b0cbe17c89f64a7d457941e65759157ec6cb31a31d652b05e5"
+checksum = "a4a4ddaa51a5bc52a6948f74c06d20aaaddb71924eab79b8c97a8c556e942d6a"
 
 [[package]]
 name = "bimap"
@@ -749,7 +749,7 @@ name = "builtins-deployer"
 version = "0.1.0"
 dependencies = [
  "aquamarine",
- "base64 0.20.0",
+ "base64 0.21.0",
  "eyre",
  "fluence-libp2p",
  "fs-utils",
@@ -1189,7 +1189,7 @@ dependencies = [
  "air-interpreter-fs",
  "aquamarine",
  "async-std",
- "base64 0.20.0",
+ "base64 0.21.0",
  "builtins-deployer",
  "config-utils",
  "connection-pool",
@@ -1612,12 +1612,12 @@ dependencies = [
 
 [[package]]
 name = "env_logger"
-version = "0.9.3"
+version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a12e6657c4c97ebab115a42dcee77225f7f482cdd841cf7088c657a42e9e00e7"
+checksum = "85cdab6a89accf66733ad5a1693a4dcced6aeff64602b634530dd73c1f3ee9f0"
 dependencies = [
- "atty",
  "humantime",
+ "is-terminal",
  "log",
  "regex",
  "termcolor",
@@ -1800,7 +1800,7 @@ name = "fluence-libp2p"
 version = "0.2.0"
 dependencies = [
  "async-std",
- "base64 0.20.0",
+ "base64 0.21.0",
  "bs58 0.4.0",
  "failure",
  "futures",
@@ -2429,6 +2429,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "io-lifetimes"
+version = "1.0.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e7d6c6f8c91b4b9ed43484ad1a938e393caf35960fce7f82a040497207bd8e9e"
+dependencies = [
+ "libc",
+ "windows-sys",
+]
+
+[[package]]
 name = "ipconfig"
 version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2445,6 +2455,18 @@ name = "ipnet"
 version = "2.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f88c5561171189e69df9d98bcf18fd5f9558300f7ea7b801eb8a0fd748bd8745"
+
+[[package]]
+name = "is-terminal"
+version = "0.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "28dfb6c8100ccc63462345b67d1bbc3679177c75ee4bf59bf29c8b1d110b8189"
+dependencies = [
+ "hermit-abi 0.2.6",
+ "io-lifetimes",
+ "rustix",
+ "windows-sys",
+]
 
 [[package]]
 name = "it-json-serde"
@@ -2523,7 +2545,7 @@ dependencies = [
 name = "json-utils"
 version = "0.0.2"
 dependencies = [
- "base64 0.20.0",
+ "base64 0.21.0",
  "serde",
  "serde_json",
 ]
@@ -3206,6 +3228,12 @@ name = "linked-hash-map"
 version = "0.5.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0717cef1bc8b636c6e1c1bbdefc09e6322da8a9321966e8928ef80d20f7f770f"
+
+[[package]]
+name = "linux-raw-sys"
+version = "0.1.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f051f77a7c8e6957c0696eac88f26b0117e54f52d3fc682ab19397a8812846a4"
 
 [[package]]
 name = "local-vm"
@@ -4063,7 +4091,7 @@ dependencies = [
 name = "particle-modules"
 version = "0.1.0"
 dependencies = [
- "base64 0.20.0",
+ "base64 0.21.0",
  "bytesize",
  "eyre",
  "fluence-app-service",
@@ -4094,7 +4122,7 @@ dependencies = [
  "aquamarine",
  "async-std",
  "avm-server",
- "base64 0.20.0",
+ "base64 0.21.0",
  "blake3 1.3.3",
  "bs58 0.4.0",
  "builtins-deployer",
@@ -4142,7 +4170,7 @@ version = "0.1.0"
 dependencies = [
  "aquamarine",
  "async-std",
- "base64 0.20.0",
+ "base64 0.21.0",
  "blake3 1.3.3",
  "bs58 0.4.0",
  "connected-client",
@@ -4191,7 +4219,7 @@ name = "particle-protocol"
 version = "0.3.0"
 dependencies = [
  "async-std",
- "base64 0.20.0",
+ "base64 0.21.0",
  "derivative",
  "eyre",
  "fluence-keypair",
@@ -4214,7 +4242,7 @@ dependencies = [
 name = "particle-services"
 version = "0.1.0"
 dependencies = [
- "base64 0.20.0",
+ "base64 0.21.0",
  "config-utils",
  "derivative",
  "eyre",
@@ -4870,6 +4898,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "rustix"
+version = "0.36.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4feacf7db682c6c329c4ede12649cd36ecab0f3be5b7d74e6a20304725db4549"
+dependencies = [
+ "bitflags",
+ "errno",
+ "io-lifetimes",
+ "libc",
+ "linux-raw-sys",
+ "windows-sys",
+]
+
+[[package]]
 name = "rustls"
 version = "0.20.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5134,7 +5176,7 @@ name = "server-config"
 version = "0.2.0"
 dependencies = [
  "air-interpreter-fs",
- "base64 0.20.0",
+ "base64 0.21.0",
  "bs58 0.4.0",
  "bytesize",
  "clap",
@@ -5602,7 +5644,7 @@ name = "test-utils"
 version = "0.3.0"
 dependencies = [
  "async-std",
- "base64 0.20.0",
+ "base64 0.21.0",
  "connected-client",
  "created-swarm",
  "eyre",
@@ -5623,18 +5665,18 @@ checksum = "222a222a5bfe1bba4a77b45ec488a741b3cb8872e5e499451fd7d0129c9c7c3d"
 
 [[package]]
 name = "thiserror"
-version = "1.0.37"
+version = "1.0.38"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "10deb33631e3c9018b9baf9dcbbc4f737320d2b576bac10f6aefa048fa407e3e"
+checksum = "6a9cd18aa97d5c45c6603caea1da6628790b37f7a34b6ca89522331c5180fed0"
 dependencies = [
  "thiserror-impl",
 ]
 
 [[package]]
 name = "thiserror-impl"
-version = "1.0.37"
+version = "1.0.38"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "982d17546b47146b28f7c22e3d08465f6b8903d0ea13c1660d9d84a6e7adcdbb"
+checksum = "1fb327af4685e4d03fa8cbcf1716380da910eeb2bb8be417e7f9fd3fb164f36f"
 dependencies = [
  "proc-macro2",
  "quote",

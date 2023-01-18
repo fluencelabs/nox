@@ -14,9 +14,10 @@
  * limitations under the License.
  */
 
-use bytesize::ByteSize;
 use std::{collections::HashMap, iter, path::Path, path::PathBuf, sync::Arc};
 
+use base64::{engine::general_purpose::STANDARD as base64, Engine};
+use bytesize::ByteSize;
 use eyre::WrapErr;
 use fluence_app_service::{ModuleDescriptor, TomlMarineNamedModuleConfig};
 use fstrings::f;
@@ -237,7 +238,7 @@ impl ModuleRepository {
         module: String,
         config: TomlMarineNamedModuleConfig,
     ) -> Result<String> {
-        let module = base64::decode(module)?;
+        let module = base64.decode(module)?;
         let hash = self.add_module(module, config)?;
 
         Ok(String::from(hash.to_hex().as_ref()))
@@ -501,9 +502,11 @@ fn resolve_hash(
 
 #[cfg(test)]
 mod tests {
+    use std::str::FromStr;
+
+    use base64::{engine::general_purpose::STANDARD as base64, Engine};
     use bytesize::ByteSize;
     use fluence_app_service::{TomlMarineModuleConfig, TomlMarineNamedModuleConfig};
-    use std::str::FromStr;
     use tempdir::TempDir;
 
     use service_modules::load_module;
@@ -589,7 +592,7 @@ mod tests {
         };
 
         let hash = repo
-            .add_module_base64(base64::encode(module), config)
+            .add_module_base64(base64.encode(module), config)
             .unwrap();
 
         let result = repo.get_interface(&hash);
@@ -646,7 +649,7 @@ mod tests {
             },
         };
 
-        let result = repo.add_module_base64(base64::encode(module), config);
+        let result = repo.add_module_base64(base64.encode(module), config);
 
         assert!(result.is_err());
         assert_eq!(

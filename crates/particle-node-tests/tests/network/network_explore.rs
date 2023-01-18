@@ -17,6 +17,7 @@ use std::str::FromStr;
 use std::thread::sleep;
 use std::time::{Duration, Instant};
 
+use base64::{engine::general_purpose::STANDARD as base64, Engine};
 use eyre::{ContextCompat, WrapErr};
 use futures::executor::block_on;
 use itertools::Itertools;
@@ -151,7 +152,7 @@ fn get_modules() {
             )
         "#,
         hashmap! {
-            "module_bytes" => json!(base64::encode(load_module("tests/tetraplets/artifacts", "tetraplets").expect("load module"))),
+            "module_bytes" => json!(base64.encode(load_module("tests/tetraplets/artifacts", "tetraplets").expect("load module"))),
             "module_config" => module_config("greeting"),
             "relay" => json!(client.node.to_string()),
             "client" => json!(client.peer_id.to_string()),
@@ -199,7 +200,7 @@ fn list_blueprints() {
         )
         "#,
         hashmap! {
-            "module_bytes" => json!(base64::encode(bytes)),
+            "module_bytes" => json!(base64.encode(bytes)),
             "module_config" => json!(module_config("module")),
             "relay" => json!(client.node.to_string()),
             "client" => json!(client.peer_id.to_string()),

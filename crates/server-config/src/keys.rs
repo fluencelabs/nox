@@ -21,6 +21,7 @@ use std::{
     path::Path,
 };
 
+use base64::{engine::general_purpose::STANDARD as base64, Engine};
 use eyre::eyre;
 use fluence_keypair::{key_pair::KeyFormat, KeyPair};
 use log::info;
@@ -38,7 +39,7 @@ fn create_new_key_pair(key_path: &Path, key_format: KeyFormat) -> Result<KeyPair
     let secret_key = key_pair
         .secret()
         .expect("error getting secret key from keypair");
-    let encoded = base64::encode(secret_key);
+    let encoded = base64.encode(secret_key);
 
     let mut key_file = File::create(key_path).map_err(|err| {
         std::io::Error::new(
@@ -70,7 +71,8 @@ pub fn decode_key(key_string: String, key_format: String) -> eyre::Result<KeyPai
         }
     }
 
-    let bytes_from_base64 = base64::decode(key_string)
+    let bytes_from_base64 = base64
+        .decode(key_string)
         .map_err(|err| eyre!("base64 decoding failed: {}", err))
         .and_then(validate_length);
 

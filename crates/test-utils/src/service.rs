@@ -14,11 +14,12 @@
  * limitations under the License.
  */
 
-use connected_client::ConnectedClient;
-
+use base64::{engine::general_purpose::STANDARD as base64, Engine};
 use eyre::WrapErr;
 use maplit::hashmap;
 use serde_json::json;
+
+use connected_client::ConnectedClient;
 
 #[derive(Debug, Clone)]
 pub struct CreatedService {
@@ -53,7 +54,7 @@ pub fn create_service(
         "client" => json!(client.peer_id.to_string()),
         "relay" => json!(client.node.to_string()),
         "module_name" => json!(module_name),
-        "module_bytes" => json!(base64::encode(module_bytes)),
+        "module_bytes" => json!(base64.encode(module_bytes)),
         "name" => json!("blueprint"),
         "dependencies" => json!([module_name]),
     };
