@@ -44,7 +44,7 @@ parking_lot = { workspace = true }
 humantime-serde = { workspace = true }
 
 log = { workspace = true }
-env_logger = "0.9.1"
+env_logger = "0.10.0"
 clap = "3.2.23"
 tide = "0.17.0-beta.1"
 itertools = { workspace = true }
