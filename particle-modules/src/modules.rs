@@ -16,7 +16,7 @@
 
 use std::{collections::HashMap, iter, path::Path, path::PathBuf, sync::Arc};
 
-use base64::{engine::general_purpose::STANDARD_NO_PAD as base64, Engine};
+use base64::{engine::general_purpose::STANDARD as base64, Engine};
 use bytesize::ByteSize;
 use eyre::WrapErr;
 use fluence_app_service::{ModuleDescriptor, TomlMarineNamedModuleConfig};
@@ -504,7 +504,7 @@ fn resolve_hash(
 mod tests {
     use std::str::FromStr;
 
-    use base64::{engine::general_purpose::STANDARD_NO_PAD as base64, Engine};
+    use base64::{engine::general_purpose::STANDARD as base64, Engine};
     use bytesize::ByteSize;
     use fluence_app_service::{TomlMarineModuleConfig, TomlMarineNamedModuleConfig};
     use tempdir::TempDir;

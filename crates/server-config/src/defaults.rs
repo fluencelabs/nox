@@ -168,7 +168,7 @@ pub fn default_processing_timeout() -> Duration {
 }
 
 pub fn default_management_peer_id() -> PeerId {
-    use base64::{engine::general_purpose::STANDARD_NO_PAD as base64, Engine};
+    use base64::{engine::general_purpose::STANDARD as base64, Engine};
 
     let kp = Keypair::generate();
     let public_key = libp2p::identity::PublicKey::Ed25519(kp.public());

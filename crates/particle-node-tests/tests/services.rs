@@ -19,7 +19,7 @@ use maplit::hashmap;
 use serde_json::json;
 use serde_json::Value as JValue;
 
-use base64::{engine::general_purpose::STANDARD_NO_PAD as base64, Engine};
+use base64::{engine::general_purpose::STANDARD as base64, Engine};
 use connected_client::ConnectedClient;
 use created_swarm::make_swarms;
 use service_modules::load_module;

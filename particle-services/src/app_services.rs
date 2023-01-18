@@ -615,7 +615,7 @@ mod tests {
     use std::fs::remove_file;
     use std::path::PathBuf;
 
-    use base64::{engine::general_purpose::STANDARD_NO_PAD as base64, Engine};
+    use base64::{engine::general_purpose::STANDARD as base64, Engine};
     use fluence_app_service::{TomlMarineModuleConfig, TomlMarineNamedModuleConfig};
     use libp2p_core::identity::Keypair;
     use libp2p_core::PeerId;

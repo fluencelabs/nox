@@ -26,7 +26,7 @@
     unreachable_patterns
 )]
 
-use base64::{engine::general_purpose::STANDARD_NO_PAD as base64, Engine};
+use base64::{engine::general_purpose::STANDARD as base64, Engine};
 use clap::App;
 use env_logger::Env;
 use eyre::WrapErr;

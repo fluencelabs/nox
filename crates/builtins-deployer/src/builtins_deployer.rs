@@ -18,7 +18,7 @@ use std::path::PathBuf;
 use std::time::{Duration, Instant};
 use std::{collections::HashMap, fs};
 
-use base64::{engine::general_purpose::STANDARD_NO_PAD as base64, Engine};
+use base64::{engine::general_purpose::STANDARD as base64, Engine};
 use eyre::{eyre, ErrReport, Result, WrapErr};
 use futures::channel::oneshot::channel;
 use futures::executor::block_on;

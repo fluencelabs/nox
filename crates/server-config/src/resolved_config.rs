@@ -280,7 +280,7 @@ pub fn resolve_config(arguments: &ArgMatches, content: &[u8]) -> eyre::Result<Re
 
 #[cfg(test)]
 mod tests {
-    use base64::{engine::general_purpose::STANDARD_NO_PAD as base64, Engine};
+    use base64::{engine::general_purpose::STANDARD as base64, Engine};
     use fluence_keypair::KeyPair;
 
     use fs_utils::make_tmp_dir;

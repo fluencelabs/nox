@@ -4,7 +4,7 @@ use std::ops::Deref;
 use std::path::PathBuf;
 use std::time::Duration;
 
-use base64::{engine::general_purpose::STANDARD_NO_PAD as base64, Engine};
+use base64::{engine::general_purpose::STANDARD as base64, Engine};
 use derivative::Derivative;
 use eyre::eyre;
 use fluence_keypair::KeyPair;

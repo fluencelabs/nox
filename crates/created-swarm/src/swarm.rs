@@ -29,7 +29,7 @@ use serde::Deserialize;
 use air_interpreter_fs::{air_interpreter_path, write_default_air_interpreter};
 use aquamarine::{AquaRuntime, VmConfig};
 use aquamarine::{AquamarineApi, DataStoreError};
-use base64::{engine::general_purpose::STANDARD_NO_PAD as base64, Engine};
+use base64::{engine::general_purpose::STANDARD as base64, Engine};
 use connection_pool::{ConnectionPoolApi, ConnectionPoolT};
 use fluence_libp2p::random_multiaddr::{create_memory_maddr, create_tcp_maddr};
 use fluence_libp2p::types::OneshotOutlet;

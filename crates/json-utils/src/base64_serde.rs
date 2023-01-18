@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use base64::{engine::general_purpose::STANDARD_NO_PAD as base64, Engine};
+use base64::{engine::general_purpose::STANDARD as base64, Engine};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 #[allow(clippy::ptr_arg)] // This is a serializer for Vec<u8>, it is required to be of that type
