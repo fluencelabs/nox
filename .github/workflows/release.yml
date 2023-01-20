@@ -81,6 +81,10 @@ jobs:
     needs:
       - release-please
 
+    permissions:
+      contents: read
+      id-token: write
+
     steps:
       - name: Checkout
         uses: actions/checkout@v3
