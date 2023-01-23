@@ -73,7 +73,7 @@ jobs:
         working-directory: ./target/release/
         run: |
           du -hs rust-peer
-          sha256sum rust-peer | tee | rust-peer_SHA256_SUMS
+          sha256sum rust-peer | tee > rust-peer_SHA256_SUMS
           sha=($(sha256sum rust-peer))
           echo "sha256=${sha}" >> $GITHUB_OUTPUT
 
