@@ -1,0 +1,100 @@
+name: "Publish rust-peer"
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        type: string
+        description: "tag to publish"
+        required: true
+      version:
+        type: string
+        description: "rust-peer version"
+        required: true
+      update-node-distro:
+        type: boolean
+        description: "whether to update node-distro"
+        required: true
+  workflow_call:
+    inputs:
+      tag:
+        type: string
+        description: "tag to publish"
+        required: true
+      version:
+        type: string
+        description: "rust-peer version"
+        required: true
+      update-node-distro:
+        type: boolean
+        description: "whether to update node-distro"
+        required: true
+
+concurrency:
+  group: "${{ github.workflow }}-${{ github.ref }}"
+
+jobs:
+  rust-peer:
+    runs-on: builder
+
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Import secrets
+        uses: hashicorp/vault-action@v2.4.3
+        with:
+          url: https://vault.fluence.dev
+          path: jwt/github
+          role: ci
+          method: jwt
+          jwtGithubAudience: "https://github.com/fluencelabs"
+          jwtTtl: 300
+          exportToken: false
+          secrets: |
+            kv/crates.io/fluencebot token | CARGO_REGISTRY_TOKEN
+
+      - name: Setup Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+
+      - name: Build particle-node
+        run: cargo build --release -p particle-node
+
+      - name: Rename particle-node to rust-peer
+        working-directory: ./target/release/
+        run: mv particle-node rust-peer
+
+      - name: Calculate SHA256
+        id: sha
+        working-directory: ./target/release/
+        run: |
+          du -hs rust-peer
+          sha256sum rust-peer | tee | rust-peer_SHA256_SUMS
+          sha=($(sha256sum rust-peer))
+          echo "sha256=${sha}" >> $GITHUB_OUTPUT
+
+      - name: Upload rust-peer binary
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            ./target/release/rust-peer
+            ./target/release/rust-peer_SHA256_SUMS
+          tag_name: ${{ github.event.inputs.tag }}
+
+      - name: Update version in node-distro repo
+        if: github.event.inputs.update-node-distro
+        uses: benc-uk/workflow-dispatch@v1
+        with:
+          workflow: update_fluence
+          repo: fluencelabs/node-distro
+          ref: main
+          token: ${{ secrets.PERSONAL_TOKEN }}
+          inputs: '{
+            "version": "${{ github.event.inputs.version }}",
+            "url": "https://github.com/fluencelabs/rust-peer/releases/download/${{ github.event.inputs.tag }}/rust-peer",
+            "sha256": "${{ steps.sha.outputs.sha256 }}"
+          }'
