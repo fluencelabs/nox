@@ -256,8 +256,8 @@ where
             ("json", "puts")       => wrap(json::puts(args)),
             ("json", "parse")      => unary(args, |s: String| -> R<JValue, _> { json::parse(&s) }),
             ("json", "stringify")  => unary(args, |v: JValue| -> R<String, _> { Ok(json::stringify(v)) }),
-            ("json", "obj_array") => unary(args, |vs: Vec<JValue>| -> R<JValue, _> { json::obj_from_array(vs) }),
-            ("json", "puts_array") => binary(args, |obj: JValue, vs: Vec<JValue>| -> R<JValue, _> { json::puts_from_array(obj, vs) }),
+            ("json", "obj_pairs") => unary(args, |vs: Vec<(String, JValue)>| -> R<JValue, _> { json::obj_from_pairs(vs) }),
+            ("json", "puts_pairs") => binary(args, |obj: JValue, vs: Vec<JValue>| -> R<JValue, _> { json::puts_from_array(obj, vs) }),
 
             _                      => FunctionOutcome::NotDefined { args, params: particle },
         }

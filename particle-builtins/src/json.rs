@@ -35,10 +35,18 @@ pub fn obj(args: Args) -> Result<JValue, JError> {
 }
 
 /// Constructs a JSON object from a list of key value pairs.
-pub fn obj_from_array(values: impl IntoIterator<Item = JValue>) -> Result<JValue, JError> {
-    let object = obj_from_iter(<_>::default(), &mut values.into_iter())?;
+pub fn obj_from_pairs(
+    values: impl IntoIterator<Item = (String, JValue)>,
+) -> Result<JValue, JError> {
+    let map = values.into_iter().fold(
+        <serde_json::Map<String, JValue>>::default(),
+        |mut acc, (k, v)| {
+            acc.insert(k, v);
+            acc
+        },
+    );
 
-    Ok(JValue::Object(object))
+    Ok(JValue::Object(map))
 }
 
 /// Inserts a value into a JSON object
