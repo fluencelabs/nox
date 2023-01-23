@@ -83,10 +83,10 @@ jobs:
           files: |
             ./target/release/rust-peer
             ./target/release/rust-peer_SHA256_SUMS
-          tag_name: ${{ github.event.inputs.tag }}
+          tag_name: ${{ inputs.tag }}
 
       - name: Update version in node-distro repo
-        if: github.event.inputs.update-node-distro
+        if: inputs.update-node-distro
         uses: benc-uk/workflow-dispatch@v1
         with:
           workflow: update_fluence
@@ -94,7 +94,7 @@ jobs:
           ref: main
           token: ${{ secrets.PERSONAL_TOKEN }}
           inputs: '{
-            "version": "${{ github.event.inputs.version }}",
-            "url": "https://github.com/fluencelabs/rust-peer/releases/download/${{ github.event.inputs.tag }}/rust-peer",
+            "version": "${{ inputs.version }}",
+            "url": "https://github.com/fluencelabs/rust-peer/releases/download/${{ inputs.tag }}/rust-peer",
             "sha256": "${{ steps.sha.outputs.sha256 }}"
           }'
