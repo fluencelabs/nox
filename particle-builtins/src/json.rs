@@ -2,7 +2,7 @@ use eyre::eyre;
 use particle_args::{Args, JError};
 use serde_json::Value as JValue;
 
-fn insert_pairs(
+fn obj_from_iter(
     mut object: serde_json::Map<String, JValue>,
     args: &mut impl Iterator<Item = JValue>,
 ) -> Result<serde_json::Map<String, JValue>, JError> {
@@ -29,7 +29,14 @@ fn insert_pairs(
 pub fn obj(args: Args) -> Result<JValue, JError> {
     let mut args = args.function_args.into_iter();
 
-    let object = insert_pairs(<_>::default(), &mut args)?;
+    let object = obj_from_iter(<_>::default(), &mut args)?;
+
+    Ok(JValue::Object(object))
+}
+
+/// Constructs a JSON object from a list of key value pairs.
+pub fn obj_from_array(values: impl IntoIterator<Item = JValue>) -> Result<JValue, JError> {
+    let object = obj_from_iter(<_>::default(), &mut values.into_iter())?;
 
     Ok(JValue::Object(object))
 }
@@ -51,9 +58,22 @@ pub fn puts(args: Args) -> Result<JValue, JError> {
     let mut args = args.function_args.into_iter();
     let object = Args::next("object", &mut args)?;
 
-    let object = insert_pairs(object, &mut args)?;
+    let object = obj_from_iter(object, &mut args)?;
 
     Ok(JValue::Object(object))
+}
+
+/// Inserts list of key value pairs into an object.
+pub fn puts_from_array(
+    object: JValue,
+    values: impl IntoIterator<Item = JValue>,
+) -> Result<JValue, JError> {
+    if let JValue::Object(map) = object {
+        let object = obj_from_iter(map, &mut values.into_iter())?;
+        Ok(JValue::Object(object))
+    } else {
+        Err(JError::new(format!("expected json object, got {}", object)))
+    }
 }
 
 pub fn parse(json: &str) -> Result<JValue, JError> {
