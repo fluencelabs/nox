@@ -1,25 +1,33 @@
-name: "publish rust peer"
+name: "Publish rust-peer"
 
 on:
   workflow_dispatch:
     inputs:
+      tag:
+        type: string
+        description: "tag to publish"
+        required: true
       version:
         type: string
-        description: 'version to publish'
+        description: "rust-peer version"
         required: true
       update-node-distro:
         type: boolean
-        description: 'whether to update node distro'
+        description: "whether to update node-distro"
         required: true
   workflow_call:
     inputs:
+      tag:
+        type: string
+        description: "tag to publish"
+        required: true
       version:
         type: string
-        description: 'aqua version to publish'
+        description: "rust-peer version"
         required: true
       update-node-distro:
         type: boolean
-        description: 'whether to update node distro'
+        description: "whether to update node-distro"
         required: true
 
 concurrency:
@@ -27,7 +35,7 @@ concurrency:
 
 jobs:
   rust-peer:
-    runs-on: ubuntu-latest
+    runs-on: builder
 
     permissions:
       contents: read
@@ -75,7 +83,7 @@ jobs:
           files: |
             ./target/release/rust-peer
             ./target/release/rust-peer_SHA256_SUMS
-          tag_name: ${{ github.event.inputs.version }}
+          tag_name: ${{ github.event.inputs.tag }}
 
       - name: Update version in node-distro repo
         if: github.event.inputs.update-node-distro
@@ -87,6 +95,6 @@ jobs:
           token: ${{ secrets.PERSONAL_TOKEN }}
           inputs: '{
             "version": "${{ github.event.inputs.version }}",
-            "url": "https://github.com/fluencelabs/rust-peer/releases/download/${{ github.event.inputs.version }}/rust-peer",
+            "url": "https://github.com/fluencelabs/rust-peer/releases/download/${{ github.event.inputs.tag }}/rust-peer",
             "sha256": "${{ steps.sha.outputs.sha256 }}"
           }'
