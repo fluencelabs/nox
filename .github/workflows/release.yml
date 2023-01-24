@@ -75,7 +75,7 @@ jobs:
           commit_user_email: devops@fluence.one
           commit_author: fluencebot <devops@fluence.one>
 
-  publish-rust-peer:
+  publish:
     if: needs.release-please.outputs.release-created
     needs: release-please
     uses: ./.github/workflows/publish.yml
@@ -83,3 +83,50 @@ jobs:
       tag: ${{ needs.release-please.outputs.tag-name }}
       version: ${{ needs.release-please.outputs.version }}
       update-node-distro: ${{ needs.release-please.outputs.release-created }}
+
+  slack:
+    if: always()
+    name: "Notify"
+    runs-on: ubuntu-latest
+
+    needs:
+      - release-please
+      - publish
+
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - uses: lwhiteley/dependent-jobs-result-check@v1
+        id: status
+        with:
+          statuses: failure
+          dependencies: ${{ toJSON(needs) }}
+
+      - name: Log output
+        run: |
+          echo "statuses:" "${{ steps.status.outputs.statuses }}"
+          echo "jobs:" "${{ steps.status.outputs.jobs }}"
+          echo "found any?:" "${{ steps.status.outputs.found }}"
+
+      - name: Import secrets
+        uses: hashicorp/vault-action@v2.4.3
+        with:
+          url: https://vault.fluence.dev
+          path: jwt/github
+          role: ci
+          method: jwt
+          jwtGithubAudience: "https://github.com/fluencelabs"
+          jwtTtl: 300
+          exportToken: false
+          secrets: |
+            kv/slack/release-please webhook | SLACK_WEBHOOK_URL
+
+      - uses: ravsamhq/notify-slack-action@v2
+        if: steps.status.outputs.found
+        with:
+          status: "failure"
+          notification_title: "*{workflow}* has {status_message}"
+          message_format: "${{ steps.status.outputs.jobs }} {status_message} in <{repo_url}|{repo}>"
+          footer: "<{run_url}>"
