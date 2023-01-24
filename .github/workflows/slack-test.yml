@@ -4,14 +4,42 @@ on:
   pull_request:
 
 jobs:
-  build:
+  release-please:
     runs-on: ubuntu-latest
+    steps:
+      - run: exit 0
+
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - run: exit 1
+
+  slack:
+    if: always()
+    name: "Notify"
+    runs-on: ubuntu-latest
+
+    needs:
+      - release-please
+      - publish
 
     permissions:
       contents: read
       id-token: write
 
     steps:
+      - uses: lwhiteley/dependent-jobs-result-check@v1
+        id: status
+        with:
+          statuses: failure
+          dependencies: ${{ toJSON(needs) }}
+
+      - name: Log output
+        run: |
+          echo "statuses:" "${{ steps.status.outputs.statuses }}"
+          echo "jobs:" "${{ steps.status.outputs.jobs }}"
+          echo "found any?:" "${{ steps.status.outputs.found }}"
+
       - name: Import secrets
         uses: hashicorp/vault-action@v2.4.3
         with:
@@ -25,11 +53,9 @@ jobs:
           secrets: |
             kv/slack/release-please webhook | SLACK_WEBHOOK_URL
 
-      - name: Fail
-        run: exit 1
-
-      - uses: act10ns/slack@v1
-        if: always()
+      - uses: ravsamhq/notify-slack-action@v2
         with:
-          status: ${{ job.status }}
-          channel: "#release-please"
+          status: ${{ steps.status.outputs.statuses }}
+          notification_title: "{workflow} has {status_message}"
+          message_format: "{emoji} *{workflow}* {status_message} in <{repo_url}|{repo}>"
+          footer: "Linked Repo <{repo_url}|{repo}>"
