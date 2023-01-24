@@ -124,7 +124,7 @@ jobs:
             kv/slack/release-please webhook | SLACK_WEBHOOK_URL
 
       - uses: ravsamhq/notify-slack-action@v2
-        if: steps.status.outputs.found
+        if: steps.status.outputs.found == true
         with:
           status: "failure"
           notification_title: "*{workflow}* has {status_message}"
