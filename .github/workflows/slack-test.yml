@@ -1,0 +1,36 @@
+name: Slack test
+
+on:
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Import secrets
+        uses: hashicorp/vault-action@v2.4.3
+        with:
+          url: https://vault.fluence.dev
+          path: jwt/github
+          role: ci
+          method: jwt
+          jwtGithubAudience: "https://github.com/fluencelabs"
+          jwtTtl: 300
+          exportToken: false
+          secrets: |
+            kv/slack/release-please webhook | SLACK_WEBHOOK_URL
+
+      - name: Fail
+        run: exit 1
+
+      - uses: act10ns/slack@v1
+        if: always()
+        with:
+          status: ${{ job.status }}
+          channel: "#release-please"
+          message: "Testing"
