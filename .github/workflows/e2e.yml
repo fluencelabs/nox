@@ -86,5 +86,20 @@ jobs:
       - fluence-cli
       - registry
       - aqua-playground
+
     steps:
-      - run: echo placeholder
+      - uses: lwhiteley/dependent-jobs-result-check@v2
+        id: status
+        with:
+          statuses: failure,cancelled
+          dependencies: ${{ toJSON(needs) }}
+
+      - name: Log output
+        run: |
+          echo "statuses:" "${{ steps.check_statuses.outputs.statuses }}"
+          echo "jobs:" "${{ steps.check_statuses.outputs.jobs }}"
+          echo "found any?:" "${{ steps.check_statuses.outputs.found }}"
+
+      - name: Fail run
+        if: fromJSON(steps.check_statuses.outputs.found)
+        run: exit 1
