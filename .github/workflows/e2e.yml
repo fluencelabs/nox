@@ -78,3 +78,13 @@ jobs:
       aqua-version: "${{ needs.aqua.outputs.aqua-version }}"
       fluence-js-version: "${{ needs.fluence-js.outputs.fluence-js-version }}"
       rust-peer-image: "${{ needs.rust-peer.outputs.rust-peer-image }}"
+
+  status:
+    runs-on: ubuntu-latest
+    if: always()
+    needs:
+      - fluence-cli
+      - registry
+      - aqua-playground
+    steps:
+      - run: echo placeholder
