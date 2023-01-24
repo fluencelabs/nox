@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: release-please
     steps:
-      - run: exit 1
+      - run: exit 0
 
   slack:
     if: always()
@@ -21,8 +21,8 @@ jobs:
     runs-on: ubuntu-latest
 
     needs:
-      - release-please
       - publish
+      - release-please
 
     permissions:
       contents: read
@@ -59,4 +59,4 @@ jobs:
           status: ${{ steps.status.outputs.statuses }}
           notification_title: "*{workflow}* has {status_message}"
           message_format: "{emoji} ${{ steps.status.outputs.jobs }} {status_message} in <{repo_url}|{repo}>"
-          footer: "Run <{run_url}>"
+          footer: "<{run_url}>"
