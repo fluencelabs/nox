@@ -32,7 +32,7 @@ jobs:
       - uses: lwhiteley/dependent-jobs-result-check@v1
         id: status
         with:
-          statuses: failure,canceled
+          statuses: failure,cancelled
           dependencies: ${{ toJSON(needs) }}
 
       - name: Log output
