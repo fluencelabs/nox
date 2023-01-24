@@ -33,4 +33,3 @@ jobs:
         with:
           status: ${{ job.status }}
           channel: "#release-please"
-          message: "Testing"
