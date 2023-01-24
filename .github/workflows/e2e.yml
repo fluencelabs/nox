@@ -96,10 +96,10 @@ jobs:
 
       - name: Log output
         run: |
-          echo "statuses:" "${{ steps.check_statuses.outputs.statuses }}"
-          echo "jobs:" "${{ steps.check_statuses.outputs.jobs }}"
-          echo "found any?:" "${{ steps.check_statuses.outputs.found }}"
+          echo "statuses:" "${{ steps.status.outputs.statuses }}"
+          echo "jobs:" "${{ steps.status.outputs.jobs }}"
+          echo "found any?:" "${{ steps.status.outputs.found }}"
 
       - name: Fail run
-        if: fromJSON(steps.check_statuses.outputs.found)
+        if: fromJSON(steps.status.outputs.found)
         run: exit 1
