@@ -11,9 +11,9 @@ jobs:
 
   publish:
     runs-on: ubuntu-latest
-    needs: release-please
+    # needs: release-please
     steps:
-      - run: exit 0
+      - run: exit 1
 
   slack:
     if: always()
@@ -32,7 +32,7 @@ jobs:
       - uses: lwhiteley/dependent-jobs-result-check@v1
         id: status
         with:
-          statuses: failure,cancelled
+          statuses: failure
           dependencies: ${{ toJSON(needs) }}
 
       - name: Log output
