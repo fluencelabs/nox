@@ -16,7 +16,7 @@
       ],
       "semanticCommitType": "fix",
       "semanticCommitScope": "deps",
-      "schedule": "at any time",
+      "schedule": "at any time"
     },
     {
       "matchPackagePatterns": ["^libp2p.*", "prometheus-client"],
