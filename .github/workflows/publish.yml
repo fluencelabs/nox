@@ -36,6 +36,7 @@ concurrency:
 jobs:
   rust-peer:
     runs-on: builder
+    timeout-minutes: 60
 
     permissions:
       contents: write
