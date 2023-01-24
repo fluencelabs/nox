@@ -32,7 +32,7 @@ jobs:
       - uses: lwhiteley/dependent-jobs-result-check@v1
         id: status
         with:
-          statuses: failure
+          statuses: failure,canceled
           dependencies: ${{ toJSON(needs) }}
 
       - name: Log output
@@ -58,5 +58,5 @@ jobs:
         with:
           status: ${{ steps.status.outputs.statuses }}
           notification_title: "*{workflow}* has {status_message}"
-          message_format: "{emoji} ${{ steps.status.outputs.jobs }} failed {status_message} in <{repo_url}|{repo}>"
-          footer: "Linked Repo <{repo_url}|{repo}>"
+          message_format: "{emoji} ${{ steps.status.outputs.jobs }} {status_message} in <{repo_url}|{repo}>"
+          footer: "Run <{run_url}>"
