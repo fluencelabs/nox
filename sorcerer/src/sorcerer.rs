@@ -155,48 +155,48 @@ impl Sorcerer {
         let mut spell_service = SpellBuiltin::new("spell");
         spell_service.append(
             "install",
-            ServiceFunction::Immut(self.make_spell_install_closure()),
+            self.make_spell_install_closure().into(),
         );
         spell_service.append(
             "remove",
-            ServiceFunction::Immut(self.make_spell_remove_closure()),
+            self.make_spell_remove_closure().into(),
         );
         spell_service.append(
             "list",
-            ServiceFunction::Immut(self.make_spell_list_closure()),
+            self.make_spell_list_closure().into(),
         );
         spell_service.append(
             "update_trigger_config",
-            ServiceFunction::Immut(self.make_spell_update_config_closure()),
+            self.make_spell_update_config_closure().into(),
         );
         spell_builtins.push(spell_service);
 
         let mut get_data_srv = SpellBuiltin::new("getDataSrv");
         get_data_srv.append(
             "spell_id",
-            ServiceFunction::Immut(self.make_get_spell_id_closure()),
+            self.make_get_spell_id_closure().into(),
         );
-        get_data_srv.set_unhandled(ServiceFunction::Immut(self.make_get_spell_arg_closure()));
+        get_data_srv.set_unhandled(self.make_get_spell_arg_closure().into());
         spell_builtins.push(get_data_srv);
 
         let mut error_handler_srv = SpellBuiltin::new("errorHandlingSrv");
         error_handler_srv.append(
             "error",
-            ServiceFunction::Immut(self.make_error_handler_closure()),
+            self.make_error_handler_closure().into(),
         );
         spell_builtins.push(error_handler_srv);
 
         let mut callback_srv = SpellBuiltin::new("callbackSrv");
         callback_srv.append(
             "response",
-            ServiceFunction::Immut(self.make_response_handler_closure()),
+            self.make_response_handler_closure().into(),
         );
         spell_builtins.push(callback_srv);
 
         let mut scope_srv = SpellBuiltin::new("scope");
         scope_srv.append(
             "get_peer_id",
-            ServiceFunction::Immut(self.make_get_scope_peer_id_closure()),
+            self.make_get_scope_peer_id_closure().into(),
         );
         spell_builtins.push(scope_srv);
 
