@@ -153,18 +153,9 @@ impl Sorcerer {
         let mut spell_builtins: Vec<SpellBuiltin> = vec![];
 
         let mut spell_service = SpellBuiltin::new("spell");
-        spell_service.append(
-            "install",
-            self.make_spell_install_closure().into(),
-        );
-        spell_service.append(
-            "remove",
-            self.make_spell_remove_closure().into(),
-        );
-        spell_service.append(
-            "list",
-            self.make_spell_list_closure().into(),
-        );
+        spell_service.append("install", self.make_spell_install_closure().into());
+        spell_service.append("remove", self.make_spell_remove_closure().into());
+        spell_service.append("list", self.make_spell_list_closure().into());
         spell_service.append(
             "update_trigger_config",
             self.make_spell_update_config_closure().into(),
@@ -172,32 +163,20 @@ impl Sorcerer {
         spell_builtins.push(spell_service);
 
         let mut get_data_srv = SpellBuiltin::new("getDataSrv");
-        get_data_srv.append(
-            "spell_id",
-            self.make_get_spell_id_closure().into(),
-        );
+        get_data_srv.append("spell_id", self.make_get_spell_id_closure().into());
         get_data_srv.set_unhandled(self.make_get_spell_arg_closure().into());
         spell_builtins.push(get_data_srv);
 
         let mut error_handler_srv = SpellBuiltin::new("errorHandlingSrv");
-        error_handler_srv.append(
-            "error",
-            self.make_error_handler_closure().into(),
-        );
+        error_handler_srv.append("error", self.make_error_handler_closure().into());
         spell_builtins.push(error_handler_srv);
 
         let mut callback_srv = SpellBuiltin::new("callbackSrv");
-        callback_srv.append(
-            "response",
-            self.make_response_handler_closure().into(),
-        );
+        callback_srv.append("response", self.make_response_handler_closure().into());
         spell_builtins.push(callback_srv);
 
         let mut scope_srv = SpellBuiltin::new("scope");
-        scope_srv.append(
-            "get_peer_id",
-            self.make_get_scope_peer_id_closure().into(),
-        );
+        scope_srv.append("get_peer_id", self.make_get_scope_peer_id_closure().into());
         spell_builtins.push(scope_srv);
 
         spell_builtins
