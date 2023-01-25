@@ -48,6 +48,18 @@ impl ServiceFunction {
     }
 }
 
+impl From<ServiceFunctionImmut> for ServiceFunction {
+    fn from(f: ServiceFunctionImmut) -> Self {
+        ServiceFunction::Immut(f)
+    }
+}
+
+impl From<ServiceFunctionMut> for ServiceFunction {
+    fn from(f: ServiceFunctionMut) -> Self {
+        ServiceFunction::Mut(parking_lot::Mutex::new(f))
+    }
+}
+
 pub trait ParticleFunction: 'static + Send + Sync {
     fn call(&self, args: Args, particle: ParticleParams) -> Output<'_>;
     fn extend(

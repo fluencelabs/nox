@@ -9,7 +9,7 @@ use serde_json::json;
 
 pub fn add_print<'a>(swarms: impl Iterator<Item = &'a mut CreatedSwarm>) {
     let print = |peer_id: PeerId| -> Box<
-        dyn FnMut(_, _) -> BoxFuture<'static, FunctionOutcome> + 'static + Send + Sync,
+        dyn Fn(_, _) -> BoxFuture<'static, FunctionOutcome> + 'static + Send + Sync,
     > {
         Box::new(move |args: particle_args::Args, _| {
             async move {
@@ -24,7 +24,7 @@ pub fn add_print<'a>(swarms: impl Iterator<Item = &'a mut CreatedSwarm>) {
         task::block_on(s.aquamarine_api.clone().add_service(
             "test".into(),
             hashmap! {
-                "print".to_string() => print(s.peer_id)
+                "print".to_string() => print(s.peer_id).into(),
             },
         ))
         .expect("add service");
