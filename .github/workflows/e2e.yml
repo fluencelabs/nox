@@ -78,3 +78,28 @@ jobs:
       aqua-version: "${{ needs.aqua.outputs.aqua-version }}"
       fluence-js-version: "${{ needs.fluence-js.outputs.fluence-js-version }}"
       rust-peer-image: "${{ needs.rust-peer.outputs.rust-peer-image }}"
+
+  status:
+    runs-on: ubuntu-latest
+    if: always()
+    needs:
+      - fluence-cli
+      - registry
+      - aqua-playground
+
+    steps:
+      - uses: lwhiteley/dependent-jobs-result-check@v1
+        id: status
+        with:
+          statuses: failure,cancelled,skipped
+          dependencies: ${{ toJSON(needs) }}
+
+      - name: Log output
+        run: |
+          echo "statuses:" "${{ steps.status.outputs.statuses }}"
+          echo "jobs:" "${{ steps.status.outputs.jobs }}"
+          echo "found any?:" "${{ steps.status.outputs.found }}"
+
+      - name: Fail run
+        if: fromJSON(steps.status.outputs.found)
+        run: exit 1

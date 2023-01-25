@@ -40,6 +40,7 @@ jobs:
   tests:
     name: cargo nextest
     runs-on: builder
+    timeout-minutes: 60
 
     steps:
       - name: Checkout rust-peer

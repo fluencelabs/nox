@@ -8,6 +8,21 @@
   "schedule": "every weekend",
   "packageRules": [
     {
+      "matchManagers": ["cargo"],
+      "matchPackagePatterns": [
+        "fluence-.*",
+        "avm-server",
+        "air-intepreter-wasm"
+      ],
+      "semanticCommitType": "fix",
+      "semanticCommitScope": "deps",
+      "schedule": "at any time"
+    },
+    {
+      "matchPackagePatterns": ["^libp2p.*", "prometheus-client"],
+      "groupName": "libp2p"
+    },
+    {
       "matchDepTypes": ["devDependencies"],
       "prPriority": -1
     },
@@ -17,13 +32,7 @@
     },
     {
       "matchManagers": ["github-actions"],
-      "automerge": true,
-      "automergeType": "branch",
       "prPriority": 1
-    },
-    {
-      "matchPackagePatterns": ["^libp2p.*", "prometheus-client"],
-      "groupName": "libp2p"
     }
   ]
 }
