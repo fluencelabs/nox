@@ -111,7 +111,7 @@ impl Client {
             let behaviour = ClientBehaviour::new(protocol_config);
 
             let transport = build_transport(transport, self.key_pair.clone(), transport_timeout);
-            Swarm::new(transport, behaviour, self.peer_id)
+            Swarm::with_threadpool_executor(transport, behaviour, self.peer_id)
         };
 
         match Swarm::dial(&mut swarm, node.clone()) {

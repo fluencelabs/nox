@@ -4,8 +4,7 @@ release:
 build: release
 
 test:
-	# run tests on release because current WASM runtime is too slow on debug
-	cargo test --release
+	cargo test
 
 server:
 	RUST_LOG="info,tide=off" \

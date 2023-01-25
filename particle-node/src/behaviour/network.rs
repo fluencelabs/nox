@@ -13,10 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use libp2p::identify::IdentifyConfig;
+use libp2p::identify::Config as IdentifyConfig;
 use libp2p::{
-    identify::Identify,
-    ping::{Ping, PingConfig},
+    identify::Behaviour as Identify,
+    ping::{Behaviour as Ping, Config as PingConfig},
+    swarm::NetworkBehaviour,
 };
 
 use connection_pool::ConnectionPoolBehaviour;
@@ -28,7 +29,7 @@ use server_config::NetworkConfig;
 use crate::connectivity::Connectivity;
 
 /// Coordinates protocols, so they can cooperate
-#[derive(::libp2p::NetworkBehaviour)]
+#[derive(NetworkBehaviour)]
 pub struct FluenceNetworkBehaviour {
     identify: Identify,
     ping: Ping,
@@ -43,7 +44,7 @@ impl FluenceNetworkBehaviour {
             IdentifyConfig::new(PROTOCOL_NAME.into(), local_public_key)
                 .with_agent_version(cfg.node_version.into()),
         );
-        let ping = Ping::new(PingConfig::new().with_keep_alive(false));
+        let ping = Ping::new(PingConfig::new());
 
         let kad_config = KademliaConfig {
             peer_id: cfg.local_peer_id,
