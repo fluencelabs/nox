@@ -25,6 +25,7 @@ use futures::executor::block_on;
 use futures::FutureExt;
 use humantime::format_duration as pretty;
 use maplit::hashmap;
+use parking_lot::Mutex;
 use serde_json::{json, Value as JValue};
 
 use aquamarine::AquamarineApi;
@@ -33,6 +34,7 @@ use fs_utils::list_files;
 use fs_utils::{file_name, to_abs_path};
 use local_vm::{client_functions, wrap_script};
 use now_millis::now_ms;
+use particle_execution::ServiceFunction;
 use particle_protocol::Particle;
 use uuid_utils::uuid;
 
@@ -118,7 +120,10 @@ impl BuiltinsDeployer {
         let future = async move {
             try {
                 aquamarine
-                    .execute(particle, Some(Box::new(closure)))
+                    .execute(
+                        particle,
+                        Some(ServiceFunction::Mut(Mutex::new(Box::new(closure)))),
+                    )
                     .await?;
 
                 let result = inlet.await;

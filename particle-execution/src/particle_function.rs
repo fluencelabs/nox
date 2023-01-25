@@ -26,8 +26,27 @@ use crate::{FunctionOutcome, ParticleParams};
 
 pub type Output<'a> = BoxFuture<'a, FunctionOutcome>;
 
-pub type ServiceFunction =
+pub type ServiceFunctionMut =
     Box<dyn FnMut(Args, ParticleParams) -> Output<'static> + 'static + Send + Sync>;
+pub type ServiceFunctionImmut =
+    Box<dyn Fn(Args, ParticleParams) -> Output<'static> + 'static + Send + Sync>;
+
+pub enum ServiceFunction {
+    Mut(parking_lot::Mutex<ServiceFunctionMut>),
+    Immut(ServiceFunctionImmut),
+}
+
+impl ServiceFunction {
+    pub fn call(&self, args: Args, particle: ParticleParams) -> Output<'static> {
+        match self {
+            ServiceFunction::Mut(f) => {
+                let mut func = f.lock();
+                func(args, particle)
+            }
+            ServiceFunction::Immut(f) => f(args, particle),
+        }
+    }
+}
 
 pub trait ParticleFunction: 'static + Send + Sync {
     fn call(&self, args: Args, particle: ParticleParams) -> Output<'_>;

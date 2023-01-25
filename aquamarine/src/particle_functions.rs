@@ -166,8 +166,8 @@ impl<F: ParticleFunctionStatic> Functions<F> {
                         let func = particle_function.unwrap();
                         // TODO: Actors would allow to get rid of Mutex
                         //       i.e., wrap each callback with a queue & channel
-                        let mut func = func.lock();
-                        let outcome = func(args, params).await;
+                        let func = func.lock();
+                        let outcome = func.call(args, params).await;
                         call_kind = FunctionKind::ParticleFunction;
                         outcome
                     }
