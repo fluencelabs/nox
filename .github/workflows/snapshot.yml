@@ -26,6 +26,7 @@ jobs:
   build:
     name: "Build"
     runs-on: builder
+    timeout-minutes: 60
 
     outputs:
       sha256: "${{ steps.sha.outputs.sha256 }}"
