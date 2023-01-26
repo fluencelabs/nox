@@ -37,7 +37,7 @@ pub(crate) async fn spell_install(
 ) -> Result<JValue, JError> {
     let mut args = sargs.function_args.clone().into_iter();
     let script: String = Args::next("script", &mut args)?;
-    let init_data: String = Args::next("data", &mut args)?;
+    let init_data: JValue = Args::next("data", &mut args)?;
     let user_config: TriggerConfig = Args::next("config", &mut args)?;
     let config = api::from_user_config(user_config.clone())?;
 
@@ -66,7 +66,7 @@ pub(crate) async fn spell_install(
         services.call_function(
             &spell_id,
             "set_json_fields",
-            vec![json!(init_data)],
+            vec![json!(init_data.to_string())],
             None,
             spell_peer_id,
             Duration::from_millis(params.ttl as u64),
@@ -211,7 +211,7 @@ pub(crate) fn get_spell_arg(
     let spell_id = parse_spell_id_from(&params.id)?;
     let key = args.function_name;
 
-    process_func_outcome::<StringValue>(
+    let str_value = process_func_outcome::<StringValue>(
         services.call_function(
             spell_id,
             "get_string",
@@ -223,8 +223,9 @@ pub(crate) fn get_spell_arg(
         spell_id,
         "get_string",
     )
-    .map(|v| json!(v.str))
-    .map_err(|e| JError::new(f!("Failed to get argument {key} for spell {spell_id}: {e}")))
+    .map_err(|e| JError::new(f!("Failed to get argument {key} for spell {spell_id}: {e}")))?;
+
+    serde_json::from_str(&str_value.str).map_err(Into::into)
 }
 
 pub(crate) fn store_error(
@@ -262,12 +263,12 @@ pub(crate) fn store_response(
     services: ParticleAppServices,
 ) -> Result<(), JError> {
     let spell_id = parse_spell_id_from(&params.id)?;
-
+    let response: JValue = Args::next("spell_id", &mut args.function_args.into_iter())?;
     process_func_outcome::<UnitValue>(
         services.call_function(
             spell_id,
             "set_json_fields",
-            args.function_args.clone(),
+            vec![json!(response.to_string())],
             Some(params.id.clone()),
             params.init_peer_id,
             Duration::from_millis(params.ttl as u64),
@@ -279,7 +280,7 @@ pub(crate) fn store_response(
     .map_err(|e| {
         JError::new(format!(
             "Failed to store response {:?} for spell {}: {}",
-            args.function_args, spell_id, e
+            response, spell_id, e
         ))
     })
 }
