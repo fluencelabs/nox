@@ -129,4 +129,4 @@ opt-level = 3
 [profile.release]
 strip = true
 lto = true
-    codegen-units = 1 # Reduce number of codegen units to increase optimizations
+codegen-units = 1 # Reduce number of codegen units to increase optimizations
