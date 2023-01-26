@@ -279,8 +279,7 @@ pub(crate) fn store_response(
     .map(drop)
     .map_err(|e| {
         JError::new(format!(
-            "Failed to store response {:?} for spell {}: {}",
-            response, spell_id, e
+            "Failed to store response {response} for spell {spell_id}: {e}"
         ))
     })
 }
