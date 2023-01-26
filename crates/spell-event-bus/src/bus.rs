@@ -69,12 +69,12 @@ impl Scheduled {
     /// Reschedule a spell to `now` + `period`.
     /// Return `None` if the spell is supposed to end at the given time `end_at`.
     fn at(data: Periodic, now: Instant) -> Option<Scheduled> {
-        if data.end_at.map(|end_at| end_at <= now).unwrap_or(false) {
+        // We do checked_add here only to avoid a mere possibility of internal panic.
+        let run_at = now.checked_add(data.period)?;
+        if data.end_at.map(|end_at| end_at <= run_at).unwrap_or(false) {
             return None;
         }
 
-        // We do checked_add here only to avoid a mere possibility of internal panic.
-        let run_at = now.checked_add(data.period)?;
         Some(Scheduled { data, run_at })
     }
 }
