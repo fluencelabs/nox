@@ -258,7 +258,7 @@ where
             ("json", "obj_pairs") => unary(args, |vs: Vec<(String, JValue)>| -> R<JValue, _> { json::obj_from_pairs(vs) }),
             ("json", "puts_pairs") => binary(args, |obj: JValue, vs: Vec<(String, JValue)>| -> R<JValue, _> { json::puts_from_pairs(obj, vs) }),
 
-            ("run-console", "print") => wrap_unit(Ok(log::info!("{}", json!(args.function_args)))),
+            ("run-console", "print") => wrap_unit(Ok(log::debug!(target: "run-console", "{}", json!(args.function_args)))),
 
             _                      => FunctionOutcome::NotDefined { args, params: particle },
         }
