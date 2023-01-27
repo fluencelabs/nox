@@ -65,7 +65,7 @@ jobs:
           version: 0.9.22
 
       - name: Run cargo nextest
-        run: cargo nextest run --all-features --profile ci
+        run: cargo nextest run --release --all-features --profile ci
 
       - name: Upload test report
         uses: dorny/test-reporter@v1
