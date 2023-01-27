@@ -27,7 +27,7 @@ use libp2p::{
         either::EitherOutput,
         Multiaddr,
     },
-    ping::{Ping, PingConfig, PingResult},
+    ping::{Behaviour as Ping, Config as PingConfig, Result as PingResult},
     swarm::{
         IntoConnectionHandler, IntoConnectionHandlerSelect, NetworkBehaviour,
         NetworkBehaviourAction, NotifyHandler, OneShotHandler, PollParameters,
@@ -52,7 +52,7 @@ pub struct ClientBehaviour {
 
 impl ClientBehaviour {
     pub fn new(protocol_config: ProtocolConfig) -> Self {
-        let ping = Ping::new(PingConfig::new().with_keep_alive(true));
+        let ping = Ping::new(PingConfig::new());
         Self {
             protocol_config,
             events: VecDeque::default(),
@@ -185,7 +185,7 @@ impl NetworkBehaviour for ClientBehaviour {
                     sender: peer_id,
                 }))
             }
-            Second(ping) => self.ping.inject_event(peer_id, cid, ping),
+            Second(ping) => self.ping.on_connection_handler_event(peer_id, cid, ping),
             First(_) => {}
         }
     }

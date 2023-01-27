@@ -17,7 +17,7 @@
 use itertools::Itertools;
 use libp2p::{
     core::{multiaddr::Protocol, Multiaddr},
-    identify::IdentifyEvent,
+    identify::Event as IdentifyEvent,
 };
 
 use super::FluenceNetworkBehaviour;

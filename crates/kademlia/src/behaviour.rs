@@ -32,6 +32,12 @@ use libp2p::core::connection::ConnectionId;
 use libp2p::core::transport::ListenerId;
 use libp2p::core::ConnectedPoint;
 use libp2p::kad::kbucket::Key;
+use libp2p::swarm::behaviour::{
+    ConnectionClosed, ConnectionEstablished, DialFailure, ExpiredExternalAddr, ExpiredListenAddr,
+    FromSwarm, ListenFailure, ListenerClosed, ListenerError, NewExternalAddr, NewListenAddr,
+    NewListener,
+};
+use libp2p::swarm::derive_prelude::AddressChange;
 use libp2p::swarm::{
     ConnectionHandler, DialError, IntoConnectionHandler, NetworkBehaviourAction, PollParameters,
 };
@@ -388,7 +394,7 @@ impl Kademlia {
         }
 
         match event {
-            KademliaEvent::OutboundQueryCompleted { id, result, .. } => match result {
+            KademliaEvent::OutboundQueryProgressed { id, result, .. } => match result {
                 QueryResult::GetClosestPeers(result) => self.closest_finished(id, result),
                 QueryResult::Bootstrap(result) => self.bootstrap_finished(id, result),
                 _ => {}
@@ -446,13 +452,16 @@ impl NetworkBehaviour for Kademlia {
         failed_addresses: Option<&Vec<Multiaddr>>,
         other_established: usize,
     ) {
-        self.kademlia.inject_connection_established(
-            peer_id,
-            connection_id,
-            endpoint,
-            failed_addresses,
-            other_established,
-        )
+        self.kademlia
+            .on_swarm_event(FromSwarm::ConnectionEstablished(ConnectionEstablished {
+                peer_id: *peer_id,
+                connection_id: *connection_id,
+                endpoint,
+                failed_addresses: failed_addresses
+                    .map(|v| v.as_slice())
+                    .unwrap_or_else(|| &[]),
+                other_established,
+            }))
     }
 
     fn inject_connection_closed(
@@ -464,7 +473,13 @@ impl NetworkBehaviour for Kademlia {
         remaining_established: usize,
     ) {
         self.kademlia
-            .inject_connection_closed(peer_id, cid, cp, handler, remaining_established)
+            .on_swarm_event(FromSwarm::ConnectionClosed(ConnectionClosed {
+                peer_id: *peer_id,
+                connection_id: *cid,
+                endpoint: cp,
+                handler,
+                remaining_established,
+            }))
     }
 
     fn inject_address_change(
@@ -474,7 +489,13 @@ impl NetworkBehaviour for Kademlia {
         old: &ConnectedPoint,
         new: &ConnectedPoint,
     ) {
-        self.kademlia.inject_address_change(peer_id, ci, old, new)
+        self.kademlia
+            .on_swarm_event(FromSwarm::AddressChange(AddressChange {
+                peer_id: *peer_id,
+                connection_id: *ci,
+                old,
+                new,
+            }))
     }
 
     fn inject_event(
@@ -483,7 +504,8 @@ impl NetworkBehaviour for Kademlia {
         connection: ConnectionId,
         event: <<Self::ConnectionHandler as IntoConnectionHandler>::Handler as ConnectionHandler>::OutEvent,
     ) {
-        self.kademlia.inject_event(peer_id, connection, event)
+        self.kademlia
+            .on_connection_handler_event(peer_id, connection, event)
     }
 
     fn inject_dial_failure(
@@ -492,7 +514,12 @@ impl NetworkBehaviour for Kademlia {
         handler: Self::ConnectionHandler,
         error: &DialError,
     ) {
-        self.kademlia.inject_dial_failure(peer_id, handler, error)
+        self.kademlia
+            .on_swarm_event(FromSwarm::DialFailure(DialFailure {
+                peer_id,
+                handler,
+                error,
+            }))
     }
 
     fn inject_listen_failure(
@@ -502,23 +529,40 @@ impl NetworkBehaviour for Kademlia {
         handler: Self::ConnectionHandler,
     ) {
         self.kademlia
-            .inject_listen_failure(local_addr, send_back_addr, handler)
+            .on_swarm_event(FromSwarm::ListenFailure(ListenFailure {
+                local_addr,
+                send_back_addr,
+                handler,
+            }))
     }
 
     fn inject_new_listener(&mut self, id: ListenerId) {
-        self.kademlia.inject_new_listener(id)
+        self.kademlia
+            .on_swarm_event(FromSwarm::NewListener(NewListener { listener_id: id }))
     }
 
     fn inject_new_listen_addr(&mut self, id: ListenerId, addr: &Multiaddr) {
-        self.kademlia.inject_new_listen_addr(id, addr)
+        self.kademlia
+            .on_swarm_event(FromSwarm::NewListenAddr(NewListenAddr {
+                listener_id: id,
+                addr,
+            }))
     }
 
     fn inject_expired_listen_addr(&mut self, id: ListenerId, addr: &Multiaddr) {
-        self.kademlia.inject_expired_listen_addr(id, addr)
+        self.kademlia
+            .on_swarm_event(FromSwarm::ExpiredListenAddr(ExpiredListenAddr {
+                listener_id: id,
+                addr,
+            }))
     }
 
     fn inject_listener_error(&mut self, id: ListenerId, err: &(dyn Error + 'static)) {
-        self.kademlia.inject_listener_error(id, err)
+        self.kademlia
+            .on_swarm_event(FromSwarm::ListenerError(ListenerError {
+                listener_id: id,
+                err,
+            }))
     }
 
     fn inject_listener_closed(
@@ -526,15 +570,21 @@ impl NetworkBehaviour for Kademlia {
         id: ListenerId,
         reason: std::result::Result<(), &std::io::Error>,
     ) {
-        self.kademlia.inject_listener_closed(id, reason)
+        self.kademlia
+            .on_swarm_event(FromSwarm::ListenerClosed(ListenerClosed {
+                listener_id: id,
+                reason,
+            }))
     }
 
     fn inject_new_external_addr(&mut self, addr: &Multiaddr) {
-        self.kademlia.inject_new_external_addr(addr)
+        self.kademlia
+            .on_swarm_event(FromSwarm::NewExternalAddr(NewExternalAddr { addr }))
     }
 
     fn inject_expired_external_addr(&mut self, addr: &Multiaddr) {
-        self.kademlia.inject_expired_external_addr(addr)
+        self.kademlia
+            .on_swarm_event(FromSwarm::ExpiredExternalAddr(ExpiredExternalAddr { addr }))
     }
 
     fn poll(
@@ -606,7 +656,8 @@ mod tests {
         let (kad, _) = Kademlia::new(config, None);
         let timeout = Duration::from_secs(20);
 
-        let mut swarm = Swarm::new(build_memory_transport(kp, timeout), kad, peer_id);
+        let mut swarm =
+            Swarm::with_threadpool_executor(build_memory_transport(kp, timeout), kad, peer_id);
 
         let mut maddr = create_memory_maddr();
         maddr.push(Protocol::P2p(peer_id.into()));

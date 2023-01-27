@@ -281,7 +281,7 @@ impl<RT: AquaRuntime> Node<RT> {
     ) {
         let (behaviour, connectivity, particle_stream) =
             FluenceNetworkBehaviour::new(network_config);
-        let mut swarm = Swarm::new(transport, behaviour, local_peer_id);
+        let mut swarm = Swarm::with_threadpool_executor(transport, behaviour, local_peer_id);
 
         // Add external addresses to Swarm
         external_addresses.iter().cloned().for_each(|addr| {

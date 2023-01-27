@@ -93,16 +93,16 @@ fluence-spell-distro = "0.3.0"
 fluence-app-service = "0.23.0"
 avm-server = "0.28.1"
 air-interpreter-wasm = "=0.35.3"
-libp2p = "0.48.0"
-libp2p-core = { version = "0.36.0", default-features = false, features = [ "secp256k1" ] }
-libp2p-metrics = { version = "0.9.0", features = ["kad"] }
-libp2p-noise = "0.39.0"
-libp2p-swarm = "0.39.0"
-prometheus-client = "0.18.0"
+libp2p = { version = "0.50.0", features = ["noise", "tcp", "dns", "websocket", "yamux", "mplex", "async-std", "kad", "ping", "identify", "macros"] }
+libp2p-core = { version = "0.38.0", default-features = false, features = ["secp256k1"] }
+libp2p-metrics = { version = "0.11.0", features = ["kad"] }
+libp2p-noise = "0.41.0"
+libp2p-swarm = { version = "0.41.1"}
+prometheus-client = "0.18.1"
 eyre = "0.6.8"
 base64 = "0.21.0"
 bs58 = "0.4.0"
-fluence-keypair = "0.8.1"
+fluence-keypair = "0.9.0"
 parking_lot = "0.12.1"
 async-std = { version = "1.12.0", features = ["unstable"] }
 uuid = { version = "1.2.2", features = ["v4"] }
@@ -117,3 +117,20 @@ serde = "1.0.152"
 toml = "0.5.10"
 itertools = "0.10.5"
 humantime-serde = "1.1.1"
+
+# Enable a small amount of optimization in debug mode
+[profile.dev]
+opt-level = 1
+
+# Enable high optimizations for dependencies, but not for our code:
+[profile.dev.package."*"]
+inherits = "release"
+codegen-units = 256
+
+[profile.dev.package.clap]
+debug-assertions = false
+
+[profile.release]
+strip = true
+lto = true
+codegen-units = 1 # Reduce number of codegen units to increase optimizations
