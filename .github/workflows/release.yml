@@ -75,19 +75,40 @@ jobs:
           commit_user_email: devops@fluence.one
           commit_author: fluencebot <devops@fluence.one>
 
-  rust-peer:
+  publish:
     if: needs.release-please.outputs.release-created
+    needs: release-please
+    uses: ./.github/workflows/publish.yml
+    with:
+      tag: ${{ needs.release-please.outputs.tag-name }}
+      version: ${{ needs.release-please.outputs.version }}
+      update-node-distro: ${{ needs.release-please.outputs.release-created }}
+
+  slack:
+    if: always()
+    name: "Notify"
     runs-on: ubuntu-latest
+
     needs:
       - release-please
+      - publish
 
     permissions:
       contents: read
       id-token: write
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v3
+      - uses: lwhiteley/dependent-jobs-result-check@v1
+        id: status
+        with:
+          statuses: failure
+          dependencies: ${{ toJSON(needs) }}
+
+      - name: Log output
+        run: |
+          echo "statuses:" "${{ steps.status.outputs.statuses }}"
+          echo "jobs:" "${{ steps.status.outputs.jobs }}"
+          echo "found any?:" "${{ steps.status.outputs.found }}"
 
       - name: Import secrets
         uses: hashicorp/vault-action@v2.4.3
@@ -100,46 +121,12 @@ jobs:
           jwtTtl: 300
           exportToken: false
           secrets: |
-            kv/crates.io/fluencebot token | CARGO_REGISTRY_TOKEN
+            kv/slack/release-please webhook | SLACK_WEBHOOK_URL
 
-      - name: Setup Rust toolchain
-        uses: actions-rust-lang/setup-rust-toolchain@v1
-
-      - name: Build particle-node
-        run: cargo build --release -p particle-node
-
-      - name: Rename particle-node to rust-peer
-        working-directory: ./target/release/
-        run: mv particle-node rust-peer
-
-      - name: Calculate SHA256
-        id: sha
-        working-directory: ./target/release/
-        run: |
-          du -hs rust-peer
-          sha256sum rust-peer | tee | rust-peer_SHA256_SUMS
-          sha=($(sha256sum rust-peer))
-          echo "sha256=${sha}" >> $GITHUB_OUTPUT
-
-      - name: Upload rust-peer binary
-        if: needs.release-please.outputs.release-created
-        uses: softprops/action-gh-release@v1
+      - uses: ravsamhq/notify-slack-action@v2
+        if: steps.status.outputs.found == 'true'
         with:
-          files: |
-            ./target/release/rust-peer
-            ./target/release/rust-peer_SHA256_SUMS
-          tag_name: ${{ needs.release-please.outputs.tag-name }}
-
-      - name: Update version in node-distro repo
-        if: needs.release-please.outputs.rust-peer-release-created
-        uses: benc-uk/workflow-dispatch@v1
-        with:
-          workflow: update_fluence
-          repo: fluencelabs/node-distro
-          ref: main
-          token: ${{ secrets.PERSONAL_TOKEN }}
-          inputs: '{
-            "version": "${{ needs.release-please.outputs.tag-name }}",
-            "url": "https://github.com/fluencelabs/rust-peer/releases/download/${{ needs.release-please.outputs.tag-name }}/rust-peer",
-            "sha256": "${{ steps.sha.outputs.sha256 }}"
-          }'
+          status: "failure"
+          notification_title: "*{workflow}* has {status_message}"
+          message_format: "${{ steps.status.outputs.jobs }} {status_message} in <{repo_url}|{repo}>"
+          footer: "<{run_url}>"

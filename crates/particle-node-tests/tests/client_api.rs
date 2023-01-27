@@ -40,20 +40,19 @@ fn call_custom_service() {
     // pub type ServiceFunction =
     // Box<dyn FnMut(Args, ParticleParams) -> Output<'static> + 'static + Send + Sync>;
 
-    let closure: Box<
-        dyn FnMut(_, _) -> BoxFuture<'static, FunctionOutcome> + 'static + Send + Sync,
-    > = Box::new(move |args, params| {
-        async move {
-            println!("got call!!! {args:?} {params:?}");
-            FunctionOutcome::Ok(json!("hello!"))
-        }
-        .boxed()
-    });
+    let closure: Box<dyn Fn(_, _) -> BoxFuture<'static, FunctionOutcome> + 'static + Send + Sync> =
+        Box::new(move |args, params| {
+            async move {
+                println!("got call!!! {args:?} {params:?}");
+                FunctionOutcome::Ok(json!("hello!"))
+            }
+            .boxed()
+        });
 
-    let add_first_f = swarms[0]
-        .aquamarine_api
-        .clone()
-        .add_service("hello".into(), hashmap! { "world".to_string() => closure });
+    let add_first_f = swarms[0].aquamarine_api.clone().add_service(
+        "hello".into(),
+        hashmap! { "world".to_string() => closure.into() },
+    );
 
     let (outlet, inlet) = channel();
     let mut outlet = Some(outlet);
@@ -70,10 +69,10 @@ fn call_custom_service() {
         .boxed()
     });
 
-    let add_second_f = swarms[1]
-        .aquamarine_api
-        .clone()
-        .add_service("op".into(), hashmap! { "return".to_string() => closure });
+    let add_second_f = swarms[1].aquamarine_api.clone().add_service(
+        "op".into(),
+        hashmap! { "return".to_string() => closure.into() },
+    );
 
     let script = format!(
         r#"

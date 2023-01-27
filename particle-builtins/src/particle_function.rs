@@ -15,7 +15,6 @@
  */
 
 use futures::FutureExt;
-use parking_lot::Mutex;
 use std::collections::HashMap;
 
 use connection_pool::ConnectionPoolApi;
@@ -45,11 +44,8 @@ where
         self.custom_services.write().insert(
             service,
             CustomService {
-                functions: functions
-                    .into_iter()
-                    .map(|(k, v)| (k, Mutex::new(v)))
-                    .collect(),
-                unhandled: unhandled.map(Mutex::new),
+                functions,
+                unhandled,
             },
         );
     }
@@ -58,14 +54,9 @@ where
         &self,
         service: &str,
     ) -> Option<(HashMap<String, ServiceFunction>, Option<ServiceFunction>)> {
-        self.custom_services.write().remove(service).map(|hm| {
-            (
-                hm.functions
-                    .into_iter()
-                    .map(|(k, v)| (k, v.into_inner()))
-                    .collect(),
-                hm.unhandled.map(Mutex::into_inner),
-            )
-        })
+        self.custom_services
+            .write()
+            .remove(service)
+            .map(|hm| (hm.functions, hm.unhandled))
     }
 }

@@ -29,7 +29,7 @@ use futures::StreamExt;
 use humantime_serde::re::humantime::format_duration as pretty;
 use libp2p::{core::Multiaddr, kad::kbucket::Key, kad::K_VALUE, PeerId};
 use multihash::{Code, MultihashDigest, MultihashGeneric};
-use parking_lot::{Mutex, RwLock};
+use parking_lot::RwLock;
 use serde::Deserialize;
 use serde_json::{json, Value as JValue};
 use JValue::Array;
@@ -58,9 +58,9 @@ use crate::{json, math};
 
 pub struct CustomService {
     /// (function_name -> service function)
-    pub functions: HashMap<String, Mutex<ServiceFunction>>,
+    pub functions: HashMap<String, ServiceFunction>,
     /// if set, all `function_name` mismatches with `custom_service.functions` will be routed to `unhandled`
-    pub unhandled: Option<Mutex<ServiceFunction>>,
+    pub unhandled: Option<ServiceFunction>,
 }
 
 #[derive(Derivative)]
@@ -156,8 +156,7 @@ where
                     .or(fs.unhandled.as_ref())
             })
         {
-            let mut function = function.lock();
-            async_std::task::block_on(function(args, particle))
+            async_std::task::block_on(function.call(args, particle))
         } else {
             FunctionOutcome::NotDefined {
                 args,
