@@ -1,4 +1,4 @@
-use eyre::eyre;
+use eyre::{eyre, Context};
 use particle_args::{Args, JError};
 use serde_json::Value as JValue;
 
@@ -72,20 +72,25 @@ pub fn puts(args: Args) -> Result<JValue, JError> {
 }
 
 /// Inserts list of key value pairs into an object.
-pub fn puts_from_array(
+pub fn puts_from_pairs(
     object: JValue,
-    values: impl IntoIterator<Item = JValue>,
+    values: impl IntoIterator<Item = (String, JValue)>,
 ) -> Result<JValue, JError> {
     if let JValue::Object(map) = object {
-        let object = obj_from_iter(map, &mut values.into_iter())?;
-        Ok(JValue::Object(object))
+        let map = values.into_iter().fold(map, |mut acc, (k, v)| {
+            acc.insert(k, v);
+            acc
+        });
+        Ok(JValue::Object(map))
     } else {
         Err(JError::new(format!("expected json object, got {}", object)))
     }
 }
 
 pub fn parse(json: &str) -> Result<JValue, JError> {
-    serde_json::from_str(json).map_err(Into::into)
+    serde_json::from_str(json)
+        .context(format!("error parsing json {json}"))
+        .map_err(|err| JError::new(format!("{:?}", err)))
 }
 
 pub fn stringify(value: JValue) -> String {
