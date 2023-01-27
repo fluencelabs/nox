@@ -83,14 +83,14 @@ pub fn puts_from_pairs(
         });
         Ok(JValue::Object(map))
     } else {
-        Err(JError::new(format!("expected json object, got {}", object)))
+        Err(JError::new(format!("expected json object, got {object}")))
     }
 }
 
 pub fn parse(json: &str) -> Result<JValue, JError> {
     serde_json::from_str(json)
         .context(format!("error parsing json {json}"))
-        .map_err(|err| JError::new(format!("{:?}", err)))
+        .map_err(JError::from_eyre)
 }
 
 pub fn stringify(value: JValue) -> String {

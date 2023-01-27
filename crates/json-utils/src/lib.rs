@@ -25,8 +25,6 @@
     unreachable_patterns
 )]
 
-use std::fmt::Display;
-
 use serde_json::Value as JValue;
 
 pub mod base64_serde;
@@ -48,6 +46,6 @@ pub fn into_array(v: JValue) -> Option<Vec<JValue>> {
 }
 
 /// Converts an error into IValue::String
-pub fn err_as_value<E: Display>(err: E) -> JValue {
-    JValue::String(format!("Error: {err}"))
+pub fn err_as_value<E: core::fmt::Debug>(err: E) -> JValue {
+    JValue::String(format!("Error: {err:?}"))
 }
