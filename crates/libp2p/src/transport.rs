@@ -21,7 +21,8 @@ use libp2p::core::muxing::StreamMuxerBox;
 use libp2p::core::transport::{Boxed, MemoryTransport};
 use libp2p::core::Multiaddr;
 use libp2p::noise;
-use libp2p::tcp::{GenTcpConfig, TcpTransport};
+use libp2p::tcp::Transport as TcpTransport;
+use libp2p::tcp::{async_io, Config as GenTcpConfig};
 use libp2p::{core, dns, identity::Keypair, PeerId, Transport as NetworkTransport};
 use serde::{Deserialize, Serialize};
 
@@ -45,7 +46,7 @@ pub fn build_network_transport(
     socket_timeout: Duration,
 ) -> Boxed<(PeerId, StreamMuxerBox)> {
     let tcp = || {
-        let tcp = TcpTransport::new(GenTcpConfig::default().nodelay(true));
+        let tcp = TcpTransport::<async_io::Tcp>::new(GenTcpConfig::default().nodelay(true));
 
         async_std::task::block_on(dns::DnsConfig::system(tcp)).expect("Can't build DNS")
     };

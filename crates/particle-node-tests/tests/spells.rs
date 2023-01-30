@@ -16,7 +16,6 @@
 #![feature(assert_matches)]
 use std::assert_matches::assert_matches;
 use std::collections::HashMap;
-use std::str::FromStr;
 use std::time::Duration;
 
 use eyre::Context;
@@ -37,14 +36,14 @@ fn create_spell(
     client: &mut ConnectedClient,
     script: &str,
     config: TriggerConfig,
-    init_data: HashMap<String, String>,
+    init_data: JValue,
 ) -> (SpellId, ScopePeerId) {
     let data = hashmap! {
         "script" => json!(script.to_string()),
         "config" => json!(config),
         "client" => json!(client.peer_id.to_string()),
         "relay" => json!(client.node.to_string()),
-        "data" => json!(json!(init_data).to_string()),
+        "data" => init_data,
     };
     client.send_particle(
         r#"
@@ -93,7 +92,7 @@ fn spell_simple_test() {
     let mut config = TriggerConfig::default();
     config.clock.period_sec = 0;
     config.clock.start_sec = 1;
-    create_spell(&mut client, &script, config, hashmap! {});
+    create_spell(&mut client, &script, config, json!({}));
 
     let response = client.receive_args().wrap_err("receive").unwrap();
     let result = response[0].as_str().unwrap().to_string();
@@ -121,7 +120,7 @@ fn spell_error_handling_test() {
     config.clock.period_sec = 1;
     config.clock.start_sec = 1;
 
-    let (spell_id, _) = create_spell(&mut client, failing_script, config, hashmap! {});
+    let (spell_id, _) = create_spell(&mut client, failing_script, config, json!({}));
 
     // let's retrieve error from the first spell particle
     let particle_id = format!("spell_{}_{}", spell_id, 0);
@@ -163,12 +162,9 @@ fn spell_args_test() {
         (seq
             (seq
                 (call %init_peer_id% ("getDataSrv" "spell_id") [] spell_id)
-                (call %init_peer_id% ("getDataSrv" "key") [] value_raw)
+                (call %init_peer_id% ("getDataSrv" "key") [] value)
             )
-            (seq
-                (call %init_peer_id% ("json" "parse") [value_raw] value)
-                (call "{}" ("return" "") [value])
-            )
+            (call "{}" ("return" "") [value])
         )"#,
         client.peer_id
     );
@@ -176,17 +172,16 @@ fn spell_args_test() {
     let mut config = TriggerConfig::default();
     config.clock.period_sec = 1;
     config.clock.start_sec = 1;
-
+    let expected_value = json! ({"a": "b", "c": 1});
     create_spell(
         &mut client,
         &script,
         config,
-        hashmap! {"key".to_string() => "value".to_string()},
+        json!({ "key": expected_value }),
     );
 
     let response = client.receive_args().wrap_err("receive").unwrap();
-    let value = response[0].as_str().unwrap().to_string();
-    assert_eq!(value, "value");
+    assert_eq!(response[0], expected_value);
 }
 
 #[test]
@@ -204,13 +199,13 @@ fn spell_return_test() {
                 (call %init_peer_id% ("json" "obj") ["key" "value"] obj)
             )
             (seq
-                (call %init_peer_id% ("json" "stringify") [obj] result)
+                (call %init_peer_id% ("callbackSrv" "response") [obj])
                 (seq
-                    (call %init_peer_id% ("callbackSrv" "response") [result])
                     (seq
-                        (call %init_peer_id% (spell_id "get_string") ["key"] value)
-                        (call "{}" ("return" "") [value])
-                    )
+                        (call %init_peer_id% (spell_id "get_string") ["key"] value_raw)
+                        (call %init_peer_id% ("json" "parse") [value_raw.$.str] value)
+                    )    
+                    (call "{}" ("return" "") [value])
                 )
             )
         )"#,
@@ -221,18 +216,10 @@ fn spell_return_test() {
     config.clock.period_sec = 1;
     config.clock.start_sec = 1;
 
-    create_spell(&mut client, &script, config, hashmap! {});
-
-    let mut value = "".to_string();
+    create_spell(&mut client, &script, config, json!({}));
 
     let response = client.receive_args().wrap_err("receive").unwrap();
-    if response[0]["success"].as_bool().unwrap() {
-        value = JValue::from_str(response[0]["str"].as_str().unwrap())
-            .unwrap()
-            .as_str()
-            .unwrap()
-            .to_string();
-    }
+    let value = response[0].as_str().unwrap().to_string();
 
     assert_eq!(value, "value");
 }
@@ -254,7 +241,7 @@ fn spell_run_oneshot() {
     // Note that when period is 0, the spell is executed only once
     let mut config = TriggerConfig::default();
     config.clock.start_sec = 1;
-    let (spell_id, _) = create_spell(&mut client, script, config, hashmap! {});
+    let (spell_id, _) = create_spell(&mut client, script, config, json!({}));
 
     let data = hashmap! {
         "spell_id" => json!(spell_id),
@@ -288,11 +275,10 @@ fn spell_install_ok_empty_config() {
         .unwrap();
 
     let script = r#"(call %init_peer_id% ("peer" "identify") [] x)"#;
-    let empty: HashMap<String, String> = HashMap::new();
 
     // Note that when period is 0, the spell is executed only once
     let config = TriggerConfig::default();
-    let (spell_id, _) = create_spell(&mut client, script, config, empty);
+    let (spell_id, _) = create_spell(&mut client, script, config, json!({}));
 
     // The spell should be installed, but should not be subscribed to any triggers
     // We cannot truly check that the spell isn't subscribed to anything right now, but we can check that
@@ -493,7 +479,7 @@ fn spell_store_trigger_config() {
     let mut config = TriggerConfig::default();
     config.clock.period_sec = 13;
     config.clock.start_sec = 10;
-    let (spell_id, _) = create_spell(&mut client, script, config.clone(), hashmap! {});
+    let (spell_id, _) = create_spell(&mut client, script, config.clone(), json!({}));
     let data = hashmap! {
         "spell_id" => json!(spell_id),
         "client" => json!(client.peer_id.to_string()),
@@ -527,7 +513,7 @@ fn spell_remove() {
     let mut config = TriggerConfig::default();
     config.clock.period_sec = 2;
     config.clock.start_sec = 1;
-    let (spell_id, scope) = create_spell(&mut client, script, config, hashmap! {});
+    let (spell_id, scope) = create_spell(&mut client, script, config, json!({}));
 
     let data = hashmap! {
         "spell_id" => json!(spell_id),
@@ -591,7 +577,7 @@ fn spell_remove_spell_as_service() {
     let mut config = TriggerConfig::default();
     config.clock.period_sec = 2;
     config.clock.start_sec = 1;
-    let (spell_id, _) = create_spell(&mut client, script, config, hashmap! {});
+    let (spell_id, _) = create_spell(&mut client, script, config, json!({}));
 
     let data = hashmap! {
         "spell_id" => json!(spell_id),
@@ -687,11 +673,11 @@ fn spell_trigger_connection_pool() {
     );
     let mut config = TriggerConfig::default();
     config.connections.connect = true;
-    let (spell_id1, _) = create_spell(&mut client, &script, config, hashmap! {});
+    let (spell_id1, _) = create_spell(&mut client, &script, config, json!({}));
 
     let mut config = TriggerConfig::default();
     config.connections.disconnect = true;
-    let (spell_id2, _) = create_spell(&mut client, &script, config, hashmap! {});
+    let (spell_id2, _) = create_spell(&mut client, &script, config, json!({}));
 
     // This connect should trigger the spell
     let connect_num = 5;
@@ -760,7 +746,7 @@ fn spell_timer_trigger_mailbox_test() {
     let mut config = TriggerConfig::default();
     config.clock.period_sec = 0;
     config.clock.start_sec = 1;
-    create_spell(&mut client, &script, config, hashmap! {});
+    create_spell(&mut client, &script, config, json!({}));
 
     let value = client.receive_args().wrap_err("receive").unwrap()[0]
         .as_object()
@@ -802,7 +788,7 @@ fn spell_connection_pool_trigger_mailbox_test() {
 
     let mut config = TriggerConfig::default();
     config.connections.disconnect = true;
-    create_spell(&mut client, &script, config.clone(), hashmap! {});
+    create_spell(&mut client, &script, config.clone(), json!({}));
 
     let disconnected_client = ConnectedClient::connect_to(swarms[0].multiaddr.clone()).unwrap();
     let disconnected_client_peer_id = disconnected_client.peer_id;
@@ -839,7 +825,7 @@ fn spell_set_u32() {
     let mut config = TriggerConfig::default();
     config.connections.connect = true;
 
-    let (spell_id, _) = create_spell(&mut client, &script, config.clone(), hashmap! {});
+    let (spell_id, _) = create_spell(&mut client, &script, config.clone(), json!({}));
 
     let data = hashmap! {
         "spell_id" => json!(spell_id),
@@ -895,7 +881,7 @@ fn spell_peer_id_test() {
 
     let mut config = TriggerConfig::default();
     config.clock.start_sec = 1;
-    let (_, scope_peer_id) = create_spell(&mut client, &script, config, hashmap! {});
+    let (_, scope_peer_id) = create_spell(&mut client, &script, config, json!({}));
 
     let response = client.receive_args().wrap_err("receive").unwrap();
 
@@ -922,7 +908,7 @@ fn spell_update_config() {
     );
     let mut config = TriggerConfig::default();
     config.connections.connect = true;
-    let (spell_id, _) = create_spell(&mut client, &script, config, hashmap! {});
+    let (spell_id, _) = create_spell(&mut client, &script, config, json!({}));
     let connected = ConnectedClient::connect_to(swarms[0].multiaddr.clone()).unwrap();
 
     if let [JValue::Object(x)] = client
@@ -1001,7 +987,7 @@ fn spell_update_config_stopped_spell() {
     );
     // create periodic spell
     let config = TriggerConfig::default();
-    let (spell_id, _) = create_spell(&mut client, &script, config, hashmap! {});
+    let (spell_id, _) = create_spell(&mut client, &script, config, json!({}));
 
     // Update trigger config to do something.
     let mut config = TriggerConfig::default();
