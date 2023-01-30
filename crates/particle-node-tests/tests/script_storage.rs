@@ -693,6 +693,11 @@ fn add_script_from_vault_wrong_vault() {
         .as_slice()
     {
         let expected_error_prefix = "Local service error, ret_code is 1, error message is '\"Error: Incorrect vault path `/tmp/vault/another-particle-id/script";
-        assert!(error_msg.starts_with(expected_error_prefix));
+        assert!(
+            error_msg.starts_with(expected_error_prefix),
+            "expected:\n{}\ngot:\n{}",
+            expected_error_prefix,
+            error_msg
+        );
     }
 }

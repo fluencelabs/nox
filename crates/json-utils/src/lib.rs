@@ -46,6 +46,6 @@ pub fn into_array(v: JValue) -> Option<Vec<JValue>> {
 }
 
 /// Converts an error into IValue::String
-pub fn err_as_value<E: core::fmt::Debug>(err: E) -> JValue {
-    JValue::String(format!("Error: {err:?}"))
+pub fn err_as_value<E: core::fmt::Debug + core::fmt::Display>(err: E) -> JValue {
+    JValue::String(format!("Error: {err}\n{err:?}"))
 }
