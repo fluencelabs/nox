@@ -34,6 +34,7 @@ use libp2p::{
     PeerId, Swarm, TransportError,
 };
 use libp2p_metrics::{Metrics, Recorder};
+use libp2p_swarm::{ConnectionLimits, SwarmBuilder};
 use prometheus_client::registry::Registry;
 
 use aquamarine::{
@@ -136,6 +137,20 @@ impl<RT: AquaRuntime> Node<RT> {
         let plumber_metrics = metrics_registry.as_mut().map(ParticleExecutorMetrics::new);
         let vm_pool_metrics = metrics_registry.as_mut().map(VmPoolMetrics::new);
 
+        let connection_limits = ConnectionLimits::default()
+            .with_max_pending_incoming(config.node_config.transport_config.max_pending_incoming)
+            .with_max_pending_outgoing(config.node_config.transport_config.max_pending_outgoing)
+            .with_max_established_incoming(
+                config.node_config.transport_config.max_established_incoming,
+            )
+            .with_max_established_outgoing(
+                config.node_config.transport_config.max_established_outgoing,
+            )
+            .with_max_established_per_peer(
+                config.node_config.transport_config.max_established_per_peer,
+            )
+            .with_max_established(config.node_config.transport_config.max_established);
+
         let network_config = NetworkConfig::new(
             libp2p_metrics,
             connectivity_metrics,
@@ -143,6 +158,7 @@ impl<RT: AquaRuntime> Node<RT> {
             key_pair,
             &config,
             node_version,
+            connection_limits,
         );
 
         let (swarm, connectivity, particle_stream) = Self::swarm(
@@ -279,9 +295,12 @@ impl<RT: AquaRuntime> Node<RT> {
         Connectivity,
         BackPressuredInlet<Particle>,
     ) {
+        let connection_limits = network_config.connection_limits.clone();
         let (behaviour, connectivity, particle_stream) =
             FluenceNetworkBehaviour::new(network_config);
-        let mut swarm = Swarm::with_threadpool_executor(transport, behaviour, local_peer_id);
+        let mut swarm = SwarmBuilder::with_async_std_executor(transport, behaviour, local_peer_id)
+            .connection_limits(connection_limits)
+            .build();
 
         // Add external addresses to Swarm
         external_addresses.iter().cloned().for_each(|addr| {
@@ -322,7 +341,6 @@ impl<RT: AquaRuntime> Node<RT> {
         particle_stream: BackPressuredInlet<Particle>,
         effects_stream: Inlet<Result<RoutingEffects, AquamarineApiError>>,
         swarm: Swarm<FluenceNetworkBehaviour>,
-
         connectivity: Connectivity,
         aquamarine_api: AquamarineApi,
         dispatcher: Dispatcher,
@@ -332,11 +350,9 @@ impl<RT: AquaRuntime> Node<RT> {
         spell_event_bus: SpellEventBus,
         spell_events_stream: Inlet<TriggerEvent>,
         sorcerer: Sorcerer,
-
         registry: Option<Registry>,
         services_metrics_backend: ServicesMetricsBackend,
         metrics_listen_addr: SocketAddr,
-
         builtins_management_peer_id: PeerId,
         key_manager: KeyManager,
     ) -> Box<Self> {

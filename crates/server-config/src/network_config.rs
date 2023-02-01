@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+use libp2p::swarm::ConnectionLimits;
 use libp2p::{core::Multiaddr, identity::Keypair, PeerId};
 use libp2p_metrics::Metrics;
 
@@ -37,6 +38,7 @@ pub struct NetworkConfig {
     pub allow_local_addresses: bool,
     pub connectivity_metrics: Option<ConnectivityMetrics>,
     pub connection_pool_metrics: Option<ConnectionPoolMetrics>,
+    pub connection_limits: ConnectionLimits,
 }
 
 impl NetworkConfig {
@@ -47,6 +49,7 @@ impl NetworkConfig {
         key_pair: Keypair,
         config: &ResolvedConfig,
         node_version: &'static str,
+        connection_limits: ConnectionLimits,
     ) -> Self {
         Self {
             node_version,
@@ -62,6 +65,7 @@ impl NetworkConfig {
             allow_local_addresses: config.allow_local_addresses,
             connectivity_metrics,
             connection_pool_metrics,
+            connection_limits,
         }
     }
 }

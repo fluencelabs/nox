@@ -40,12 +40,19 @@ pub fn default_config_path() -> PathBuf {
 pub fn default_tcp_port() -> u16 {
     7777
 }
+
 pub fn default_listen_ip() -> IpAddr {
     "0.0.0.0".parse().unwrap()
 }
+
 pub fn default_socket_timeout() -> Duration {
     Duration::from_secs(20)
 }
+
+pub fn default_max_established_per_peer_limit() -> Option<u32> {
+    Some(5)
+}
+
 pub fn default_auto_particle_ttl() -> Duration {
     Duration::from_secs(200)
 }
@@ -53,12 +60,15 @@ pub fn default_auto_particle_ttl() -> Duration {
 pub fn default_bootstrap_nodes() -> Vec<Multiaddr> {
     vec![]
 }
+
 pub fn default_websocket_port() -> u16 {
     9999
 }
+
 pub fn default_metrics_port() -> u16 {
     18080
 }
+
 pub fn default_metrics_enabled() -> bool {
     true
 }
