@@ -76,7 +76,7 @@ pub fn puts_from_pairs(
     object: JValue,
     values: impl IntoIterator<Item = (String, JValue)>,
 ) -> Result<JValue, JError> {
-    if let JValue::Object(map) = object {
+    if let JValue::Object(map) = object.clone() {
         let map = values.into_iter().fold(map, |mut acc, (k, v)| {
             acc.insert(k, v);
             acc
