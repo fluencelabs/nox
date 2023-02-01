@@ -1877,8 +1877,9 @@ dependencies = [
 
 [[package]]
 name = "fluence-keypair"
-version = "0.8.1"
-source = "git+https://github.com/fluencelabs/trust-graph?branch=update_libp2p#1e9f27cd1db6793fa76577651dc19f74ea450b61"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5fcc75906f1ce92beb78826efe2a02ee92089d853c3276bece83c629024b1c72"
 dependencies = [
  "asn1_der 0.6.3",
  "bs58 0.3.1",

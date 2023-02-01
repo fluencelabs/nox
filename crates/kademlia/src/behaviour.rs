@@ -626,6 +626,7 @@ mod tests {
     use libp2p::core::Multiaddr;
     use libp2p::identity::Keypair;
     use libp2p::multiaddr::Protocol;
+    use libp2p::swarm::SwarmBuilder;
     use libp2p::PeerId;
     use libp2p::Swarm;
 
@@ -656,8 +657,12 @@ mod tests {
         let (kad, _) = Kademlia::new(config, None);
         let timeout = Duration::from_secs(20);
 
-        let mut swarm =
-            Swarm::with_threadpool_executor(build_memory_transport(kp, timeout), kad, peer_id);
+        let mut swarm = SwarmBuilder::with_async_std_executor(
+            build_memory_transport(kp, timeout),
+            kad,
+            peer_id,
+        )
+        .build();
 
         let mut maddr = create_memory_maddr();
         maddr.push(Protocol::P2p(peer_id.into()));

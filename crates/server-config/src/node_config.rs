@@ -150,6 +150,19 @@ pub struct TransportConfig {
     #[serde(default = "default_socket_timeout")]
     #[serde(with = "humantime_serde")]
     pub socket_timeout: Duration,
+
+    pub max_pending_incoming: Option<u32>,
+
+    pub max_pending_outgoing: Option<u32>,
+
+    pub max_established_incoming: Option<u32>,
+
+    pub max_established_outgoing: Option<u32>,
+
+    #[serde(default = "default_max_established_per_peer_limit")]
+    pub max_established_per_peer: Option<u32>,
+
+    pub max_established: Option<u32>,
 }
 
 #[derive(Clone, Deserialize, Derivative)]
@@ -192,6 +205,7 @@ pub struct ListenConfig {
 #[derive(Clone, Deserialize, Debug, Copy, Eq, Hash, Ord, PartialEq, PartialOrd)]
 #[repr(transparent)]
 pub struct PeerIdSerializable(#[serde(with = "peerid_serializer")] PeerId);
+
 impl Deref for PeerIdSerializable {
     type Target = PeerId;
 

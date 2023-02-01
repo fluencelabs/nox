@@ -27,7 +27,7 @@ use futures::{
 };
 use libp2p::core::either::EitherError;
 use libp2p::core::Multiaddr;
-use libp2p::swarm::{ConnectionHandlerUpgrErr, SwarmEvent};
+use libp2p::swarm::{ConnectionHandlerUpgrErr, SwarmBuilder, SwarmEvent};
 use libp2p::{identity::Keypair, PeerId, Swarm};
 
 use fluence_libp2p::{
@@ -111,7 +111,7 @@ impl Client {
             let behaviour = ClientBehaviour::new(protocol_config);
 
             let transport = build_transport(transport, self.key_pair.clone(), transport_timeout);
-            Swarm::with_threadpool_executor(transport, behaviour, self.peer_id)
+            SwarmBuilder::with_async_std_executor(transport, behaviour, self.peer_id).build()
         };
 
         match Swarm::dial(&mut swarm, node.clone()) {
