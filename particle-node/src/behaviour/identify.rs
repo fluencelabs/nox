@@ -19,6 +19,7 @@ use libp2p::{
     core::{multiaddr::Protocol, Multiaddr},
     identify::Event as IdentifyEvent,
 };
+use particle_protocol::PROTOCOL_NAME;
 
 use super::FluenceNetworkBehaviour;
 
@@ -38,15 +39,35 @@ impl FluenceNetworkBehaviour {
 
                 let addresses = filter_addresses(info.listen_addrs, allow_local_addresses);
 
-                // Add addresses to connection pool disregarding whether it supports kademlia or not
-                // we want to have full info on non-kademlia peers as well
-                self.connection_pool
-                    .add_discovered_addresses(peer_id, addresses.clone());
+                let mut supports_kademlia = false;
+                let mut supports_fluence = false;
 
-                let supports_kademlia =
-                    info.protocols.iter().any(|p| p.contains("/ipfs/kad/1.0.0"));
-                if supports_kademlia {
-                    self.kademlia.add_kad_node(peer_id, addresses);
+                for protocol in info.protocols.iter() {
+                    if !supports_kademlia && protocol.contains("/ipfs/kad/1.0.0") {
+                        supports_kademlia = true;
+                    }
+                    if !supports_fluence && protocol.contains(PROTOCOL_NAME) {
+                        supports_fluence = true;
+                    }
+                    if supports_fluence && supports_kademlia {
+                        break;
+                    }
+                }
+
+                if supports_fluence {
+                    log::debug!("Found fluence peer {}", peer_id,);
+                    // Add addresses to connection pool disregarding whether it supports kademlia or not
+                    // we want to have full info on non-kademlia peers as well
+                    self.connection_pool
+                        .add_discovered_addresses(peer_id, addresses.clone());
+                    if supports_kademlia {
+                        self.kademlia.add_kad_node(peer_id, addresses);
+                    }
+                } else {
+                    log::debug!(
+                        "Found peer {} not supported fluence protocol, skipping...",
+                        peer_id
+                    );
                 }
             }
 

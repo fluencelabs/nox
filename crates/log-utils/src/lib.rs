@@ -19,11 +19,11 @@
 pub fn enable_logs() {
     use log::LevelFilter::*;
 
-    std::env::set_var("WASM_LOG", "trace");
+    std::env::set_var("WASM_LOG", "info");
 
     env_logger::builder()
         .format_timestamp_millis()
-        .filter_level(log::LevelFilter::Off)
+        .filter_level(log::LevelFilter::Info)
         .filter(Some("script_storage"), Trace)
         .filter(Some("script_storage"), Trace)
         .filter(Some("sorcerer"), Trace)
