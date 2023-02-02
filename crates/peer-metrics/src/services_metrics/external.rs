@@ -7,7 +7,7 @@ use prometheus_client::metrics::histogram::{linear_buckets, Histogram};
 use prometheus_client::registry::Registry;
 use std::io::{Error, Write};
 
-use fluence_app_service::ModuleDescriptor;
+use fluence_app_service::{DefaultWasmBackend, ModuleDescriptor};
 use prometheus_client::encoding::text::Encode;
 use prometheus_client::metrics::family::Family;
 
@@ -53,7 +53,7 @@ pub struct ServicesMemoryMetrics {
 
 impl ServicesMemoryMetrics {
     /// Collect the service and the service's modules  max available memory.
-    pub fn observe_service_max_mem(&self, default_max: u64, modules_config: &[ModuleDescriptor]) {
+    pub fn observe_service_max_mem(&self, default_max: u64, modules_config: &[ModuleDescriptor<DefaultWasmBackend>]) {
         let mut max_service_size = 0;
         for module_config in modules_config {
             let module_max = module_config.config.max_heap_size.unwrap_or(default_max);
@@ -223,7 +223,7 @@ impl ServicesMetricsExternal {
     }
 
     /// Collect the service and the service's modules  max available memory.
-    pub fn observe_service_max_mem(&self, default_max: u64, modules_config: &[ModuleDescriptor]) {
+    pub fn observe_service_max_mem(&self, default_max: u64, modules_config: &[ModuleDescriptor<DefaultWasmBackend>]) {
         self.memory_metrics
             .observe_service_max_mem(default_max, modules_config);
     }

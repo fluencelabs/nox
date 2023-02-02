@@ -10,7 +10,7 @@ use prometheus_client::registry::Registry;
 use futures::channel::mpsc::unbounded;
 
 use crate::ServiceCallStats::Success;
-use fluence_app_service::ModuleDescriptor;
+use fluence_app_service::{DefaultWasmBackend, ModuleDescriptor};
 use fluence_libp2p::types::Outlet;
 
 pub use crate::services_metrics::backend::ServicesMetricsBackend;
@@ -164,7 +164,7 @@ impl ServicesMetrics {
         });
     }
 
-    pub fn observe_service_config(&self, max_heap_size: u64, modules_config: &[ModuleDescriptor]) {
+    pub fn observe_service_config(&self, max_heap_size: u64, modules_config: &[ModuleDescriptor<DefaultWasmBackend>]) {
         self.observe_external(|external| {
             external.observe_service_max_mem(max_heap_size, modules_config);
         });

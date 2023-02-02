@@ -18,9 +18,7 @@ use std::time::{Duration, Instant};
 use std::{collections::HashMap, sync::Arc};
 
 use derivative::Derivative;
-use fluence_app_service::{
-    AppService, AppServiceError, CallParameters, MarineError, SecurityTetraplet, ServiceInterface,
-};
+use fluence_app_service::{AppService, AppServiceError, CallParameters, DefaultWasmBackend, MarineError, SecurityTetraplet, ServiceInterface};
 use humantime_serde::re::humantime::format_duration as pretty;
 use parking_lot::{Mutex, RwLock};
 use serde::Serialize;
@@ -51,7 +49,7 @@ type Aliases = Arc<RwLock<HashMap<String, String>>>;
 #[derivative(Debug)]
 pub struct Service {
     #[derivative(Debug(format_with = "fmt_service"))]
-    pub service: Mutex<AppService>,
+    pub service: Mutex<AppService<DefaultWasmBackend>>,
     pub blueprint_id: String,
     pub owner_id: PeerId,
     pub aliases: Vec<String>,
@@ -68,7 +66,7 @@ impl Service {
 }
 
 impl Deref for Service {
-    type Target = Mutex<AppService>;
+    type Target = Mutex<AppService<DefaultWasmBackend>>;
 
     fn deref(&self) -> &Self::Target {
         &self.service
@@ -76,7 +74,7 @@ impl Deref for Service {
 }
 
 fn fmt_service(
-    _: &Mutex<AppService>,
+    _: &Mutex<AppService<DefaultWasmBackend>>,
     f: &mut std::fmt::Formatter<'_>,
 ) -> Result<(), std::fmt::Error> {
     f.debug_struct("Mutex<AppService>").finish()
@@ -485,7 +483,7 @@ impl ParticleAppServices {
         let (service, _) = get_service(&services, &self.aliases.read(), service_id)
             .map_err(ServiceError::NoSuchService)?;
 
-        let lock = service.service.lock();
+        let mut lock = service.service.lock();
         let stats = lock.module_memory_stats();
         let stats = stats
             .0
@@ -562,7 +560,7 @@ impl ParticleAppServices {
         aliases: Vec<String>,
     ) -> Result<Option<Service>, ServiceError> {
         let creation_start_time = Instant::now();
-        let service = create_app_service(
+        let mut service = create_app_service(
             self.config.clone(),
             &self.modules,
             blueprint_id.clone(),
