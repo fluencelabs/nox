@@ -67,7 +67,7 @@ impl FluenceNetworkBehaviour {
                     }
                 } else {
                     log::debug!(
-                        target: "blocked",
+                        target: "protocols",
                         "Found peer {} not supported fluence protocol, protocols: {:?} version: {} listen addrs {:?}. skipping...",
                         peer_id, info.protocols,
                     info.protocol_version,
