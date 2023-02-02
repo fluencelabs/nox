@@ -250,12 +250,12 @@ impl ConnectionPoolBehaviour {
         self.subscribers.push(outlet);
     }
 
-    pub fn add_discovered_addresses(&mut self, peer_id: PeerId, addresses: Vec<Multiaddr>) {
+    pub fn add_discovered_addresses(&mut self, peer_id: PeerId, addresses: &[Multiaddr]) {
         self.contacts
             .entry(peer_id)
             .or_default()
             .discovered
-            .extend(addresses);
+            .extend(addresses.to_vec());
     }
 
     fn meter<U, F: Fn(&ConnectionPoolMetrics) -> U>(&self, f: F) {

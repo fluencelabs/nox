@@ -37,7 +37,7 @@ impl FluenceNetworkBehaviour {
                     info.listen_addrs
                 );
 
-                let addresses = filter_addresses(info.listen_addrs, allow_local_addresses);
+                let addresses = filter_addresses(&info.listen_addrs, allow_local_addresses);
 
                 let mut supports_kademlia = false;
                 let mut supports_fluence = false;
@@ -55,18 +55,23 @@ impl FluenceNetworkBehaviour {
                 }
 
                 if supports_fluence {
-                    log::debug!("Found fluence peer {}", peer_id,);
+                    log::debug!(target: "network", "Found fluence peer {}: protocols: {:?} version: {} listen addrs {:?}", peer_id, info.protocols,
+                    info.protocol_version,
+                    info.listen_addrs);
                     // Add addresses to connection pool disregarding whether it supports kademlia or not
                     // we want to have full info on non-kademlia peers as well
                     self.connection_pool
-                        .add_discovered_addresses(peer_id, addresses.clone());
+                        .add_discovered_addresses(peer_id, &addresses);
                     if supports_kademlia {
-                        self.kademlia.add_kad_node(peer_id, addresses);
+                        self.kademlia.add_kad_node(peer_id, &addresses);
                     }
                 } else {
                     log::debug!(
-                        "Found peer {} not supported fluence protocol, skipping...",
-                        peer_id
+                        target: "protocols",
+                        "Found peer {} not supported fluence protocol, protocols: {:?} version: {} listen addrs {:?}. skipping...",
+                        peer_id, info.protocols,
+                    info.protocol_version,
+                    info.listen_addrs
                     );
                 }
             }
@@ -82,18 +87,18 @@ impl FluenceNetworkBehaviour {
     }
 }
 
-fn filter_addresses(addresses: Vec<Multiaddr>, allow_local: bool) -> Vec<Multiaddr> {
+fn filter_addresses(addresses: &[Multiaddr], allow_local: bool) -> Vec<Multiaddr> {
     // Deduplicate addresses
-    let addresses: Vec<_> = addresses.into_iter().unique().collect();
+    let addresses = addresses.iter().unique();
 
     if allow_local {
         // Return all addresses
-        addresses
+        addresses.cloned().collect()
     } else {
         // Keep only global addresses
         addresses
-            .into_iter()
             .filter(|maddr| !is_local_maddr(maddr))
+            .cloned()
             .collect()
     }
 }
