@@ -87,7 +87,7 @@ impl FluenceNetworkBehaviour {
     }
 }
 
-fn filter_addresses(addresses: &Vec<Multiaddr>, allow_local: bool) -> Vec<Multiaddr> {
+fn filter_addresses(addresses: &[Multiaddr], allow_local: bool) -> Vec<Multiaddr> {
     // Deduplicate addresses
     let addresses = addresses.iter().unique();
 
