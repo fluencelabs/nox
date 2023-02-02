@@ -39,75 +39,10 @@ pub mod peerid_serializer {
     }
 }
 
-// waiting for https://github.com/serde-rs/serde/issues/723 that will make UX better
-pub mod provider_serializer {
-    use libp2p::{core::Multiaddr, PeerId};
-    use serde::{
-        de::{SeqAccess, Visitor},
-        ser::SerializeSeq,
-        Deserializer, Serializer,
-    };
-    use std::{fmt, str::FromStr};
-
-    pub fn serialize<S>(value: &[(Multiaddr, PeerId)], serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        let mut seq = serializer.serialize_seq(Some(2 * value.len()))?;
-        for (multiaddr, peerid) in value {
-            seq.serialize_element(multiaddr)?;
-            seq.serialize_element(&peerid.to_base58())?;
-        }
-        seq.end()
-    }
-
-    pub fn deserialize<'de, D>(deserializer: D) -> Result<Vec<(Multiaddr, PeerId)>, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        struct VecVisitor;
-        impl<'de> Visitor<'de> for VecVisitor {
-            type Value = Vec<(Multiaddr, PeerId)>;
-
-            fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-                formatter.write_str("[Multiaddr, PeerId]")
-            }
-
-            fn visit_seq<A: SeqAccess<'de>>(self, mut seq: A) -> Result<Self::Value, A::Error> {
-                let mut vec = Vec::new();
-
-                let mut raw_multiaddr = seq.next_element::<Multiaddr>()?;
-                while raw_multiaddr.is_some() {
-                    let multiaddr = raw_multiaddr.unwrap();
-                    let peer_id_bytes = seq.next_element::<String>()?;
-
-                    if let Some(peer_id) = peer_id_bytes {
-                        let peer_id = PeerId::from_str(&peer_id).map_err(|e| {
-                            serde::de::Error::custom(format!(
-                                "peer id deserialization failed for {e:?}"
-                            ))
-                        })?;
-                        vec.push((multiaddr, peer_id));
-                    } else {
-                        // Multiaddr deserialization's been successfull, but PeerId hasn't - return a error
-                        return Err(serde::de::Error::custom("failed to deserialize PeerId"));
-                    }
-
-                    raw_multiaddr = seq.next_element::<Multiaddr>()?;
-                }
-
-                Ok(vec)
-            }
-        }
-
-        deserializer.deserialize_seq(VecVisitor {})
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use crate::RandomPeerId;
-    use libp2p::{core::Multiaddr, PeerId};
+    use libp2p::PeerId;
     use serde::{Deserialize, Serialize};
     use std::str::FromStr;
 
@@ -164,49 +99,6 @@ mod tests {
             multihash_1: Multihash::from(peer_id_1),
             multihash_2: Multihash::from(peer_id_2),
         };
-
-        let serialized_test = serde_json::to_value(test.clone());
-        assert!(
-            serialized_test.is_ok(),
-            "failed to serialize test struct: {}",
-            serialized_test.err().unwrap()
-        );
-
-        let deserialized_test = serde_json::from_value::<Test>(serialized_test.unwrap());
-        assert!(
-            deserialized_test.is_ok(),
-            "failed to deserialize test struct: {}",
-            deserialized_test.err().unwrap()
-        );
-        assert_eq!(deserialized_test.unwrap(), test);
-    }
-
-    #[test]
-    fn providers() {
-        use super::provider_serializer;
-        use std::net::Ipv4Addr;
-
-        #[derive(Eq, PartialEq, Clone, Debug, Serialize, Deserialize)]
-        struct Test {
-            #[serde(with = "provider_serializer")]
-            providers: Vec<(Multiaddr, PeerId)>,
-        }
-
-        let mut providers = Vec::new();
-        let mut test_peer_ids = Vec::new();
-        providers.push((
-            Multiaddr::from(Ipv4Addr::new(0, 0, 0, 0)),
-            PeerId::from_str("QmY28NSCefB532XbERtnKHadexGuNzAfYnh5fJk6qhLsSi").unwrap(),
-        ));
-
-        for i in 1..=255 {
-            let peer_id = RandomPeerId::random();
-
-            providers.push((Multiaddr::from(Ipv4Addr::new(i, i, i, i)), peer_id));
-            test_peer_ids.push(peer_id);
-        }
-
-        let test = Test { providers };
 
         let serialized_test = serde_json::to_value(test.clone());
         assert!(

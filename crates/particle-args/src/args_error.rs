@@ -16,6 +16,7 @@
 
 use json_utils::err_as_value;
 
+use eyre::Report;
 use serde_json::{json, Value as JValue};
 use std::borrow::Cow;
 use std::fmt::{Display, Formatter};
@@ -65,6 +66,10 @@ impl Display for JError {
 impl JError {
     pub fn new(msg: impl AsRef<str>) -> Self {
         Self(json!(msg.as_ref()))
+    }
+
+    pub fn from_eyre(err: Report) -> Self {
+        JError(err_as_value(err))
     }
 }
 

@@ -25,6 +25,7 @@ use serde_json::{json, Value as JValue};
 use connected_client::ConnectedClient;
 use created_swarm::make_swarms;
 use fluence_spell_dtos::trigger_config::TriggerConfig;
+use log_utils::enable_logs;
 use service_modules::load_module;
 use spell_event_bus::api::{TriggerInfo, TriggerInfoAqua, MAX_PERIOD_SEC};
 use test_utils::create_service;
@@ -414,8 +415,11 @@ fn spell_install_fail_end_sec_past() {
         .unwrap()
         .as_slice()
     {
-        let msg = "Local service error, ret_code is 1, error message is '\"Error: invalid config: end_sec is less than start_sec or in the past\"'";
-        assert!(error_msg.starts_with(msg));
+        let expected = "Local service error, ret_code is 1, error message is '\"Error: invalid config: end_sec is less than start_sec or in the past";
+        assert!(
+            error_msg.starts_with(expected),
+            "expected:\n{expected}\ngot:\n{error_msg}"
+        );
     }
 }
 
@@ -423,6 +427,8 @@ fn spell_install_fail_end_sec_past() {
 // In this case we don't schedule a spell and return error.
 #[test]
 fn spell_install_fail_end_sec_before_start() {
+    enable_logs();
+
     let swarms = make_swarms(1);
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .wrap_err("connect client")
@@ -463,8 +469,11 @@ fn spell_install_fail_end_sec_before_start() {
         .unwrap()
         .as_slice()
     {
-        let msg = "Local service error, ret_code is 1, error message is '\"Error: invalid config: end_sec is less than start_sec or in the past\"'";
-        assert!(error_msg.starts_with(msg));
+        let expected = "Local service error, ret_code is 1, error message is '\"Error: invalid config: end_sec is less than start_sec or in the past";
+        assert!(
+            error_msg.starts_with(expected),
+            "expected:\n{expected}\ngot:\n{error_msg}"
+        );
     }
 }
 
@@ -601,10 +610,10 @@ fn spell_remove_spell_as_service() {
         .unwrap()
         .as_slice()
     {
-        let msg_end = "cannot call function 'remove_service': cannot remove a spell\"'";
+        let expected = "cannot call function 'remove_service': cannot remove a spell";
         assert!(
-            msg.ends_with(msg_end),
-            "should end with `{msg_end}`, given msg `{msg}`"
+            msg.contains(expected),
+            "should contain `{expected}`, given msg `{msg}`"
         );
     }
 }
@@ -644,10 +653,10 @@ fn spell_remove_service_as_spell() {
         .unwrap()
         .as_slice()
     {
-        let msg_end = "cannot call function 'remove_spell': the service isn't a spell\"'";
+        let expected = "cannot call function 'remove_spell': the service isn't a spell";
         assert!(
-            msg.ends_with(msg_end),
-            "should end with `{msg_end}`, given msg `{msg}`"
+            msg.contains(expected),
+            "should contain `{expected}`, given msg `{msg}`"
         );
     }
 }
