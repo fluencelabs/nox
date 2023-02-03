@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+use futures::channel::oneshot;
 use itertools::Itertools;
 use libp2p::{
     core::{multiaddr::Protocol, Multiaddr},
@@ -73,6 +74,8 @@ impl FluenceNetworkBehaviour {
                     info.protocol_version,
                     info.listen_addrs
                     );
+                    let (out, _inlet) = oneshot::channel();
+                    self.connection_pool.disconnect(peer_id, out);
                 }
             }
 

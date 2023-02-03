@@ -48,7 +48,7 @@ pub enum Command {
         out: OneshotOutlet<Option<Contact>>,
     },
     Disconnect {
-        contact: Contact,
+        peer_id: PeerId,
         out: OneshotOutlet<bool>,
     },
     IsConnected {
@@ -100,9 +100,9 @@ impl ConnectionPoolT for ConnectionPoolApi {
         self.execute(|out| Command::Connect { contact, out })
     }
 
-    fn disconnect(&self, contact: Contact) -> BoxFuture<'static, bool> {
+    fn disconnect(&self, peer_id: PeerId) -> BoxFuture<'static, bool> {
         // TODO: timeout needed? will be clearer when disconnect is implemented
-        self.execute(|out| Command::Disconnect { contact, out })
+        self.execute(|out| Command::Disconnect { peer_id, out })
     }
 
     fn is_connected(&self, peer_id: PeerId) -> BoxFuture<'static, bool> {
