@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+use futures::channel::oneshot;
 use itertools::Itertools;
 use libp2p::{
     core::{multiaddr::Protocol, Multiaddr},
@@ -37,7 +38,7 @@ impl FluenceNetworkBehaviour {
                     info.listen_addrs
                 );
 
-                let addresses = filter_addresses(&info.listen_addrs, allow_local_addresses);
+                let addresses = filter_addresses(info.listen_addrs.clone(), allow_local_addresses);
 
                 let mut supports_kademlia = false;
                 let mut supports_fluence = false;
@@ -61,18 +62,20 @@ impl FluenceNetworkBehaviour {
                     // Add addresses to connection pool disregarding whether it supports kademlia or not
                     // we want to have full info on non-kademlia peers as well
                     self.connection_pool
-                        .add_discovered_addresses(peer_id, &addresses);
+                        .add_discovered_addresses(peer_id, addresses.clone());
                     if supports_kademlia {
-                        self.kademlia.add_kad_node(peer_id, &addresses);
+                        self.kademlia.add_kad_node(peer_id, addresses);
                     }
                 } else {
                     log::debug!(
-                        target: "protocols",
+                        target: "blocked",
                         "Found peer {} not supported fluence protocol, protocols: {:?} version: {} listen addrs {:?}. skipping...",
                         peer_id, info.protocols,
                     info.protocol_version,
                     info.listen_addrs
                     );
+                    let (out, _inlet) = oneshot::channel();
+                    self.connection_pool.disconnect(peer_id, out);
                 }
             }
 
@@ -87,7 +90,7 @@ impl FluenceNetworkBehaviour {
     }
 }
 
-fn filter_addresses(addresses: &[Multiaddr], allow_local: bool) -> Vec<Multiaddr> {
+fn filter_addresses(addresses: Vec<Multiaddr>, allow_local: bool) -> Vec<Multiaddr> {
     // Deduplicate addresses
     let addresses = addresses.iter().unique();
 

@@ -425,7 +425,7 @@ impl<RT: AquaRuntime> Node<RT> {
                     e = swarm.select_next_some() => {
                         if let Some(m) = libp2p_metrics.as_ref() { m.record(&e) }
                         if let SwarmEvent::Behaviour(FluenceNetworkBehaviourEvent::Identify(i)) = e {
-                            swarm.behaviour_mut().inject_identify_event(i, true)
+                            swarm.behaviour_mut().inject_identify_event(i, true);
                         }
                     },
                     e = metrics_fut => {
