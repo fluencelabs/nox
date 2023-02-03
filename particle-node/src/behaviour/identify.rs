@@ -38,7 +38,7 @@ impl FluenceNetworkBehaviour {
                     info.listen_addrs
                 );
 
-                let addresses = filter_addresses(&info.listen_addrs, allow_local_addresses);
+                let addresses = filter_addresses(info.listen_addrs.clone(), allow_local_addresses);
 
                 let mut supports_kademlia = false;
                 let mut supports_fluence = false;
@@ -68,7 +68,7 @@ impl FluenceNetworkBehaviour {
                     }
                 } else {
                     log::debug!(
-                        target: "protocols",
+                        target: "blocked",
                         "Found peer {} not supported fluence protocol, protocols: {:?} version: {} listen addrs {:?}. skipping...",
                         peer_id, info.protocols,
                     info.protocol_version,
@@ -90,7 +90,7 @@ impl FluenceNetworkBehaviour {
     }
 }
 
-fn filter_addresses(addresses: &[Multiaddr], allow_local: bool) -> Vec<Multiaddr> {
+fn filter_addresses(addresses: Vec<Multiaddr>, allow_local: bool) -> Vec<Multiaddr> {
     // Deduplicate addresses
     let addresses = addresses.iter().unique();
 
