@@ -201,6 +201,7 @@ impl ConnectionPoolBehaviour {
             peer_id,
             connection: All,
         });
+        // TODO: signal disconnect completion only after `peer_removed` was called or Disconnect failed
         outlet.send(true).ok();
     }
 
