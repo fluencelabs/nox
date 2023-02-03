@@ -1502,13 +1502,97 @@ fn json_builtins() {
                     (call relay ("json" "obj") ["name" "nested_first" "num" 1] nested_first)
                     (call relay ("json" "obj") ["name" "nested_second" "num" 2] nested_second)
                 )
-                (call relay ("json" "obj") ["name" "outer_first" "num" 0 "nested" nested_first] outer_first)
+                (seq
+                    (call relay ("json" "obj") ["name" "outer_first" "num" 0 "nested" nested_first] outer_first)
+                    (seq
+                        (seq
+                            (seq
+                                (new $single-pair
+                                    (seq
+                                        (seq
+                                            (ap "name" $single-pair)
+                                            (ap "outer_first" $single-pair)
+                                        )
+                                        (seq
+                                            (canon relay $single-pair #single-pair-1)
+                                            (ap #single-pair-1 $pairs)
+                                        ) 
+                                    )
+                                )
+                                (new $single-pair
+                                    (seq
+                                        (seq
+                                            (ap "num" $single-pair)
+                                            (ap 0 $single-pair)
+                                        )
+                                        (seq
+                                            (canon relay $single-pair #single-pair-2)
+                                            (ap #single-pair-2 $pairs)
+                                        )
+                                    )
+                                )
+                            )
+                            (seq
+                                (new $single-pair
+                                    (seq
+                                        (seq
+                                            (ap "nested" $single-pair)
+                                            (ap nested_first $single-pair)
+                                        )
+                                        (seq
+                                            (canon relay $single-pair #single-pair-3)
+                                            (ap #single-pair-3 $pairs)
+                                        )
+                                    )
+                                )
+                                (canon relay $pairs #pairs)
+                            )
+                        )
+                        (call relay ("json" "obj_pairs") [#pairs] outer_first_pairs)
+                    )
+                )
             )
             (seq
                 ;; modify
                 (seq
-                    (call relay ("json" "put") [outer_first "nested" nested_second] outer_tmp_second)
-                    (call relay ("json" "puts") [outer_tmp_second "name" "outer_second" "num" 3] outer_second)
+                    (seq
+                        (call relay ("json" "put") [outer_first "nested" nested_second] outer_tmp_second)
+                        (call relay ("json" "puts") [outer_tmp_second "name" "outer_second" "num" 3] outer_second)
+                    )
+                    (new $puts-pairs
+                        (seq
+                            (seq
+                                (new $single-pair
+                                    (seq
+                                        (seq
+                                            (ap "name" $single-pair)
+                                            (ap "outer_second" $single-pair)
+                                        )
+                                        (seq
+                                            (canon relay $single-pair #single-pair-4)
+                                            (ap #single-pair-4 $puts-pairs)
+                                        )
+                                    )
+                                )   
+                                (new $single-pair
+                                    (seq
+                                        (seq
+                                            (ap "num" $single-pair)
+                                            (ap 3 $single-pair)
+                                        )
+                                        (seq
+                                            (canon relay $single-pair #single-pair-5)
+                                            (ap #single-pair-5 $puts-pairs)
+                                        )
+                                    )
+                                )
+                            )
+                            (seq
+                                (canon relay $puts-pairs #puts-pairs)
+                                (call relay ("json" "puts_pairs") [outer_tmp_second #puts-pairs] outer_second_pairs)
+                            )
+                        )
+                    )
                 )
                 ;; stringify and parse
                 (seq
@@ -1519,11 +1603,11 @@ fn json_builtins() {
         )
     "#,
         hashmap! {},
-        r"nested_first nested_second outer_first outer_second outer_first_string outer_first_parsed",
+        r"nested_first nested_second outer_first outer_second outer_first_string outer_first_parsed outer_first_pairs outer_second_pairs",
         1,
     ).expect("execute script");
 
-    if let [nested_first, nested_second, outer_first, outer_second, outer_first_string, outer_first_parsed] =
+    if let [nested_first, nested_second, outer_first, outer_second, outer_first_string, outer_first_parsed, outer_first_pairs, outer_second_pairs] =
         result.as_slice()
     {
         let nf_expected = json!({"name": "nested_first", "num": 1});
@@ -1535,7 +1619,9 @@ fn json_builtins() {
         assert_eq!(&nf_expected, nested_first);
         assert_eq!(&ns_expected, nested_second);
         assert_eq!(&of_expected, outer_first);
+        assert_eq!(&of_expected, outer_first_pairs);
         assert_eq!(&os_expected, outer_second);
+        assert_eq!(&os_expected, outer_second_pairs);
         assert_eq!(&of_expected.to_string(), outer_first_string);
         assert_eq!(&of_expected, outer_first_parsed);
     } else {

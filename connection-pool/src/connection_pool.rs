@@ -39,7 +39,7 @@ impl Display for LifecycleEvent {
 pub trait ConnectionPoolT {
     fn dial(&self, addr: Multiaddr) -> BoxFuture<'static, Option<Contact>>;
     fn connect(&self, contact: Contact) -> BoxFuture<'static, bool>;
-    fn disconnect(&self, contact: Contact) -> BoxFuture<'static, bool>;
+    fn disconnect(&self, peer_id: PeerId) -> BoxFuture<'static, bool>;
     fn is_connected(&self, peer_id: PeerId) -> BoxFuture<'static, bool>;
     fn get_contact(&self, peer_id: PeerId) -> BoxFuture<'static, Option<Contact>>;
     fn send(&self, to: Contact, particle: Particle) -> BoxFuture<'static, SendStatus>;
