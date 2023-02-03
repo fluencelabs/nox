@@ -62,9 +62,9 @@ impl FluenceNetworkBehaviour {
                     // Add addresses to connection pool disregarding whether it supports kademlia or not
                     // we want to have full info on non-kademlia peers as well
                     self.connection_pool
-                        .add_discovered_addresses(peer_id, &addresses);
+                        .add_discovered_addresses(peer_id, addresses.clone());
                     if supports_kademlia {
-                        self.kademlia.add_kad_node(peer_id, &addresses);
+                        self.kademlia.add_kad_node(peer_id, addresses);
                     }
                 } else {
                     log::debug!(
