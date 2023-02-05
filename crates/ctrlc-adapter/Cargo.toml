@@ -6,6 +6,6 @@ edition = "2021"
 
 [dependencies]
 # the termination feature allows to handle both SIGTERM and SIGINT
-ctrlc = { version = "3.2.4", features = ["termination"] }
+ctrlc = { version = "3.2.5", features = ["termination"] }
 async-std = { workspace = true }
 futures = { workspace = true }
