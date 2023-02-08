@@ -106,6 +106,7 @@ fn spell_simple_test() {
 
 #[test]
 fn spell_error_handling_test() {
+    enable_logs();
     let swarms = make_swarms(1);
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .wrap_err("connect client")
@@ -132,11 +133,15 @@ fn spell_error_handling_test() {
             "particle_id" => json!(particle_id),
             "client" => json!(client.peer_id.to_string()),
             "worker" => json!(worker_id),
+            "relay" => json!(client.node.to_string()),
         };
         client.send_particle(
             r#"
-        (seq  
-            (call worker (spell_id "get_errors") [particle_id] result)
+        (seq
+            (seq
+                (call relay ("op" "noop") [])
+                (call worker (spell_id "get_errors") [particle_id] result)
+            )
             (call client ("return" "") [result])
         )"#,
             data.clone(),
@@ -248,11 +253,15 @@ fn spell_run_oneshot() {
         "spell_id" => json!(spell_id),
         "client" => json!(client.peer_id.to_string()),
         "worker" => json!(worker_id),
+        "relay" => json!(client.node.to_string()),
     };
     client.send_particle(
         r#"
         (seq
-            (call worker (spell_id "get_u32") ["counter"] counter)
+            (seq
+                (call relay ("op" "noop") [])
+                (call worker (spell_id "get_u32") ["counter"] counter)
+            )
             (call client ("return" "") [counter])
         )"#,
         data.clone(),
@@ -289,12 +298,16 @@ fn spell_install_ok_empty_config() {
     client.send_particle(
         r#"
         (seq
-            (call worker (spell_id "get_u32") ["counter"] counter)
+            (seq
+                (call relay ("op" "noop") [])
+                (call worker (spell_id "get_u32") ["counter"] counter)
+            )
             (call %init_peer_id% ("return" "") [counter])
         )"#,
         hashmap! {
             "worker" => json!(worker_id),
             "spell_id" => json!(spell_id),
+            "relay" => json!(client.node.to_string()),
         },
     );
     let response = client
@@ -314,11 +327,15 @@ fn spell_install_ok_empty_config() {
     client.send_particle(
         r#"
         (seq
-            (call relay (spell_id "get_u32") ["counter"] counter)
+            (seq
+                (call relay ("op" "noop") [])
+                (call worker (spell_id "get_u32") ["counter"] counter)
+            )
             (call %init_peer_id% ("return" "") [counter])
         )"#,
         hashmap! {
             "relay" => json!(client.node.to_string()),
+            "worker" => json!(worker_id),
             "spell_id" => json!(spell_id),
         },
     );
@@ -493,11 +510,15 @@ fn spell_store_trigger_config() {
         "spell_id" => json!(spell_id),
         "client" => json!(client.peer_id.to_string()),
         "worker" => json!(worker_id),
+        "relay" => json!(client.node.to_string()),
     };
     client.send_particle(
         r#"
         (seq
-            (call worker (spell_id "get_trigger_config") [] config)
+            (seq
+                (call relay ("op" "noop") [])
+                (call worker (spell_id "get_trigger_config") [] config)
+            )
             (call client ("return" "") [config])
         )"#,
         data.clone(),
@@ -924,13 +945,17 @@ fn spell_set_u32() {
     let data = hashmap! {
         "spell_id" => json!(spell_id),
         "worker" => json!(worker_id),
+        "relay" => json!(client.node.to_string()),
         "client" => json!(client.peer_id.to_string()),
         "config" => json!(config),
     };
     client.send_particle(
         r#"(seq
             (seq
-                (call worker (spell_id "get_u32") ["test"] absent)
+                (seq
+                    (call relay ("op" "noop") [])
+                    (call worker (spell_id "get_u32") ["test"] absent)
+                )
                 (seq
                     (call worker (spell_id "set_u32") ["test" 1])
                     (seq
