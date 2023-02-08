@@ -39,7 +39,7 @@ jobs:
           repository: fluencelabs/node-distro
 
       - name: Import secrets
-        uses: hashicorp/vault-action@v2.4.3
+        uses: hashicorp/vault-action@v2.5.0
         with:
           url: https://vault.fluence.dev
           path: jwt/github
@@ -83,7 +83,7 @@ jobs:
 
       - name: Build and push container image
         id: docker
-        uses: docker/build-push-action@v3
+        uses: docker/build-push-action@v4
         with:
           context: .
           push: true

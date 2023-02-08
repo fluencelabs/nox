@@ -22,6 +22,7 @@ use std::{
 use futures::channel::mpsc;
 use futures::StreamExt;
 use libp2p::swarm::dial_opts::DialOpts;
+use libp2p::swarm::CloseConnection::All;
 use libp2p::swarm::{dial_opts, DialError, IntoConnectionHandler};
 use libp2p::{
     core::{connection::ConnectionId, ConnectedPoint, Multiaddr},
@@ -124,7 +125,7 @@ impl ConnectionPoolBehaviour {
         match cmd {
             Command::Dial { addr, out } => self.dial(addr, out),
             Command::Connect { contact, out } => self.connect(contact, out),
-            Command::Disconnect { contact, out } => self.disconnect(contact, out),
+            Command::Disconnect { peer_id, out } => self.disconnect(peer_id, out),
             Command::IsConnected { peer_id, out } => self.is_connected(peer_id, out),
             Command::GetContact { peer_id, out } => self.get_contact(peer_id, out),
             Command::Send { to, particle, out } => self.send(to, particle, out),
@@ -195,12 +196,13 @@ impl ConnectionPoolBehaviour {
         }
     }
 
-    // TODO: implement
-    pub fn disconnect(&mut self, contact: Contact, _outlet: OneshotOutlet<bool>) {
-        todo!(
-            "this doesn't make sense with OneShotHandler since connections are short-lived {:?}",
-            contact
-        )
+    pub fn disconnect(&mut self, peer_id: PeerId, outlet: OneshotOutlet<bool>) {
+        self.push_event(NetworkBehaviourAction::CloseConnection {
+            peer_id,
+            connection: All,
+        });
+        // TODO: signal disconnect completion only after `peer_removed` was called or Disconnect failed
+        outlet.send(true).ok();
     }
 
     /// Returns whether given peer is connected or not

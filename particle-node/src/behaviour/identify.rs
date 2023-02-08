@@ -14,11 +14,13 @@
  * limitations under the License.
  */
 
+use futures::channel::oneshot;
 use itertools::Itertools;
 use libp2p::{
     core::{multiaddr::Protocol, Multiaddr},
     identify::Event as IdentifyEvent,
 };
+use particle_protocol::PROTOCOL_NAME;
 
 use super::FluenceNetworkBehaviour;
 
@@ -36,17 +38,44 @@ impl FluenceNetworkBehaviour {
                     info.listen_addrs
                 );
 
-                let addresses = filter_addresses(info.listen_addrs, allow_local_addresses);
+                let addresses = filter_addresses(info.listen_addrs.clone(), allow_local_addresses);
 
-                // Add addresses to connection pool disregarding whether it supports kademlia or not
-                // we want to have full info on non-kademlia peers as well
-                self.connection_pool
-                    .add_discovered_addresses(peer_id, addresses.clone());
+                let mut supports_kademlia = false;
+                let mut supports_fluence = false;
 
-                let supports_kademlia =
-                    info.protocols.iter().any(|p| p.contains("/ipfs/kad/1.0.0"));
-                if supports_kademlia {
-                    self.kademlia.add_kad_node(peer_id, addresses);
+                for protocol in info.protocols.iter() {
+                    if !supports_kademlia && protocol.contains("/ipfs/kad/1.0.0") {
+                        supports_kademlia = true;
+                    }
+                    if !supports_fluence && protocol.contains(PROTOCOL_NAME) {
+                        supports_fluence = true;
+                    }
+                    if supports_fluence && supports_kademlia {
+                        break;
+                    }
+                }
+
+                if supports_fluence {
+                    log::debug!(target: "network", "Found fluence peer {}: protocols: {:?} version: {} listen addrs {:?}", peer_id, info.protocols,
+                    info.protocol_version,
+                    info.listen_addrs);
+                    // Add addresses to connection pool disregarding whether it supports kademlia or not
+                    // we want to have full info on non-kademlia peers as well
+                    self.connection_pool
+                        .add_discovered_addresses(peer_id, addresses.clone());
+                    if supports_kademlia {
+                        self.kademlia.add_kad_node(peer_id, addresses);
+                    }
+                } else {
+                    log::debug!(
+                        target: "blocked",
+                        "Found peer {} not supported fluence protocol, protocols: {:?} version: {} listen addrs {:?}. skipping...",
+                        peer_id, info.protocols,
+                    info.protocol_version,
+                    info.listen_addrs
+                    );
+                    let (out, _inlet) = oneshot::channel();
+                    self.connection_pool.disconnect(peer_id, out);
                 }
             }
 
@@ -63,16 +92,16 @@ impl FluenceNetworkBehaviour {
 
 fn filter_addresses(addresses: Vec<Multiaddr>, allow_local: bool) -> Vec<Multiaddr> {
     // Deduplicate addresses
-    let addresses: Vec<_> = addresses.into_iter().unique().collect();
+    let addresses = addresses.iter().unique();
 
     if allow_local {
         // Return all addresses
-        addresses
+        addresses.cloned().collect()
     } else {
         // Keep only global addresses
         addresses
-            .into_iter()
             .filter(|maddr| !is_local_maddr(maddr))
+            .cloned()
             .collect()
     }
 }
