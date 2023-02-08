@@ -31,6 +31,6 @@ chrono = "0.4.23"
 base64 = { workspace = true }
 thiserror = { workspace = true }
 humantime = "2.1.0"
-anyhow = "1.0.68"
+anyhow = "1.0.69"
 eyre = { workspace = true }
 bytesize = "1.1.0"
