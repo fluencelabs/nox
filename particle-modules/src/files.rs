@@ -16,7 +16,9 @@
 
 use crate::error::{ModuleError::*, Result};
 
-use fluence_app_service::{ConfigContext, DefaultWasmBackend, ModuleDescriptor, TomlMarineNamedModuleConfig};
+use fluence_app_service::{
+    ConfigContext, DefaultWasmBackend, ModuleDescriptor, TomlMarineNamedModuleConfig,
+};
 use service_modules::{
     blueprint_file_name, blueprint_fname, module_config_name_hash, module_file_name_hash,
     Blueprint, Hash,
@@ -37,7 +39,10 @@ pub fn load_blueprint(bp_dir: &Path, blueprint_id: &str) -> Result<Blueprint> {
 }
 
 /// Load ModuleDescriptor from disk for a given module name
-pub fn load_module_descriptor(modules_dir: &Path, module_hash: &Hash) -> Result<ModuleDescriptor<DefaultWasmBackend>> {
+pub fn load_module_descriptor(
+    modules_dir: &Path,
+    module_hash: &Hash,
+) -> Result<ModuleDescriptor<DefaultWasmBackend>> {
     let config = modules_dir.join(module_config_name_hash(module_hash));
     let config = load_config_by_path(&config)?;
     // `base_path: None` tells Marine to resolve non-absolute paths relative to the current directory

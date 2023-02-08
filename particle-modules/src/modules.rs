@@ -441,7 +441,10 @@ impl ModuleRepository {
         self.blueprints.read().values().cloned().collect()
     }
 
-    pub fn resolve_blueprint(&self, blueprint_id: &str) -> Result<Vec<ModuleDescriptor<DefaultWasmBackend>>> {
+    pub fn resolve_blueprint(
+        &self,
+        blueprint_id: &str,
+    ) -> Result<Vec<ModuleDescriptor<DefaultWasmBackend>>> {
         let blueprint = self.get_blueprint_from_cache(blueprint_id)?;
 
         // Load all module descriptors

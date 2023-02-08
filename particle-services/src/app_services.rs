@@ -18,7 +18,10 @@ use std::time::{Duration, Instant};
 use std::{collections::HashMap, sync::Arc};
 
 use derivative::Derivative;
-use fluence_app_service::{AppService, AppServiceError, CallParameters, DefaultWasmBackend, MarineError, SecurityTetraplet, ServiceInterface};
+use fluence_app_service::{
+    AppService, AppServiceError, CallParameters, DefaultWasmBackend, MarineError,
+    SecurityTetraplet, ServiceInterface,
+};
 use humantime_serde::re::humantime::format_duration as pretty;
 use parking_lot::{Mutex, RwLock};
 use serde::Serialize;

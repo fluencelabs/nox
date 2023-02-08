@@ -164,7 +164,11 @@ impl ServicesMetrics {
         });
     }
 
-    pub fn observe_service_config(&self, max_heap_size: u64, modules_config: &[ModuleDescriptor<DefaultWasmBackend>]) {
+    pub fn observe_service_config(
+        &self,
+        max_heap_size: u64,
+        modules_config: &[ModuleDescriptor<DefaultWasmBackend>],
+    ) {
         self.observe_external(|external| {
             external.observe_service_max_mem(max_heap_size, modules_config);
         });

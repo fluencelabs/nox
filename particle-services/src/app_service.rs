@@ -18,7 +18,10 @@ use crate::error::ServiceError;
 use crate::persistence::{persist_service, PersistedService};
 use crate::{Result, VIRTUAL_PARTICLE_VAULT_PREFIX};
 
-use fluence_app_service::{AppService, AppServiceConfig, DefaultWasmBackend, MarineConfig, MarineWASIConfig, ModuleDescriptor};
+use fluence_app_service::{
+    AppService, AppServiceConfig, DefaultWasmBackend, MarineConfig, MarineWASIConfig,
+    ModuleDescriptor,
+};
 use fluence_libp2p::PeerId;
 use particle_modules::ModuleRepository;
 use peer_metrics::ServicesMetrics;
