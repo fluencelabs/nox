@@ -32,8 +32,10 @@ pub enum ServiceError {
     NoSuchService(String),
     #[error("Service with id '{service}' not found (function {function})")]
     NoSuchServiceWithFunction { service: String, function: String },
-    #[error("Service with alias '{0}' not found")]
-    NoSuchAlias(String),
+    #[error("Service with id '{service_id}' is deployed on another worker {worker_id})")]
+    CallServiceFailedWrongWorker { service_id: String, worker_id: PeerId },
+    #[error("Service with alias '{0}' is not found on worker '{1}'")]
+    NoSuchAlias(String, PeerId),
     #[error("Forbidden. User id '{user}' cannot call function '{function}': {reason}")]
     Forbidden {
         user: PeerId,
@@ -42,6 +44,11 @@ pub enum ServiceError {
     },
     #[error("Cannot add alias '{0}' because there is a service with that id")]
     AliasAsServiceId(String),
+    #[error("Alias cannot be added for service {service_id} deployed on another worker {worker_id}")]
+    AliasWrongWorkerId{
+        service_id: String,
+        worker_id: PeerId
+    },
     #[error(transparent)]
     Engine(AppServiceError),
     #[error(transparent)]

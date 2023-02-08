@@ -39,6 +39,34 @@ pub mod peerid_serializer {
     }
 }
 
+pub mod peerid_serializer_opt {
+    use libp2p::PeerId;
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+    use std::str::FromStr;
+
+    pub fn serialize<S>(value: &Option<PeerId>, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        value.map(|p| p.to_base58()).serialize(serializer)
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<Option<PeerId>, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let opt: Option<String> = Option::deserialize(deserializer)?;
+        match opt {
+            None => Ok(None),
+            Some(str) => PeerId::from_str(&str)
+                .map_err(|e| {
+                    serde::de::Error::custom(format!("peer id deserialization failed for {e:?}"))
+                })
+                .map(Some),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::RandomPeerId;

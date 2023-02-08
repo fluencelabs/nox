@@ -108,6 +108,7 @@ impl Sorcerer {
                 let spell_owner = self.services.get_service_owner(spell_id.clone())?;
                 let result = process_func_outcome::<TriggerConfigValue>(
                     self.services.call_function(
+                        spell_owner,
                         &spell_id,
                         "get_trigger_config",
                         vec![],

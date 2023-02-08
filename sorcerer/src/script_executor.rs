@@ -29,6 +29,7 @@ use crate::Sorcerer;
 impl Sorcerer {
     fn get_spell_counter(&self, spell_id: String, scope_peer_id: PeerId) -> Result<u32, JError> {
         let func_outcome = self.services.call_function(
+            scope_peer_id,
             &spell_id,
             "get_u32",
             vec![json!("counter")],
@@ -57,6 +58,7 @@ impl Sorcerer {
         scope_peer_id: PeerId,
     ) -> Result<(), JError> {
         let func_outcome = self.services.call_function(
+            scope_peer_id,
             &spell_id,
             "set_u32",
             vec![json!("counter"), json!(next_counter)],
@@ -70,6 +72,7 @@ impl Sorcerer {
 
     fn get_spell_script(&self, spell_id: String, scope_peer_id: PeerId) -> Result<String, JError> {
         let func_outcome = self.services.call_function(
+            scope_peer_id,
             &spell_id,
             "get_script_source_from_file",
             vec![],
@@ -127,6 +130,7 @@ impl Sorcerer {
         let serialized_event = serde_json::to_string(&TriggerInfoAqua::from(event.info))?;
 
         let func_outcome = self.services.call_function(
+            scope_peer_id,
             &event.spell_id,
             "list_push_string",
             vec![json!("trigger_mailbox"), json!(serialized_event)],
