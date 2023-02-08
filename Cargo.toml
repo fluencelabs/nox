@@ -92,7 +92,7 @@ fluence-spell-dtos = "0.1.4"
 fluence-spell-distro = "0.3.0"
 fluence-app-service = "0.23.0"
 avm-server = "0.28.1"
-air-interpreter-wasm = "=0.35.3"
+air-interpreter-wasm = "=0.35.4"
 libp2p = { version = "0.50.0", features = ["noise", "tcp", "dns", "websocket", "yamux", "mplex", "async-std", "kad", "ping", "identify", "macros"] }
 libp2p-core = { version = "0.38.0", default-features = false, features = ["secp256k1"] }
 libp2p-metrics = { version = "0.11.0", features = ["kad"] }
