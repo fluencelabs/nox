@@ -106,7 +106,6 @@ fn spell_simple_test() {
 
 #[test]
 fn spell_error_handling_test() {
-    enable_logs();
     let swarms = make_swarms(1);
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .wrap_err("connect client")
