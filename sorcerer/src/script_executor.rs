@@ -133,7 +133,7 @@ impl Sorcerer {
             scope_peer_id,
             &event.spell_id,
             "list_push_string",
-            vec![json!("trigger_mailbox"), jsofn!(serialized_event)],
+            vec![json!("trigger_mailbox"), json!(serialized_event)],
             None,
             scope_peer_id,
             self.spell_script_particle_ttl,
