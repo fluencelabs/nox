@@ -392,6 +392,7 @@ impl ParticleAppServices {
         FunctionOutcome::Ok(result)
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn call_function(
         &self,
         worker_id: PeerId,
@@ -439,15 +440,14 @@ impl ParticleAppServices {
                     reason: "only management peer id can add top-level aliases",
                 });
             };
-        } else {
-            if init_peer_id != worker_id && init_peer_id != self.management_peer_id {
-                return Err(Forbidden {
-                    user: init_peer_id,
-                    function: "add_alias",
-                    reason: "only worker and management peer id can add worker-level aliases",
-                });
-            }
+        } else if init_peer_id != worker_id && init_peer_id != self.management_peer_id {
+            return Err(Forbidden {
+                user: init_peer_id,
+                function: "add_alias",
+                reason: "only worker and management peer id can add worker-level aliases",
+            });
         }
+
 
         // if a client trying to add an alias that equals some created service id
         // return an error
@@ -530,7 +530,7 @@ impl ParticleAppServices {
 
     pub fn get_service_owner(&self, service_id: String) -> Result<PeerId, ServiceError> {
         if let Some(service) = self.services.read().get(&service_id) {
-            return Ok(service.owner_id);
+            Ok(service.owner_id)
         } else {
             Err(ServiceError::NoSuchService(service_id))
         }

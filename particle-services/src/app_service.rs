@@ -28,6 +28,7 @@ use server_config::ServicesConfig;
 
 use std::path::Path;
 
+#[allow(clippy::too_many_arguments)]
 pub fn create_app_service(
     config: ServicesConfig,
     modules: &ModuleRepository,
