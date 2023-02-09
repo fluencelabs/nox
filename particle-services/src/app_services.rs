@@ -448,7 +448,6 @@ impl ParticleAppServices {
             });
         }
 
-
         // if a client trying to add an alias that equals some created service id
         // return an error
         if self.services.read().get(&alias).is_some() {
