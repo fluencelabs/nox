@@ -106,8 +106,13 @@ pub struct ParticleAppServices {
     pub metrics: Option<ServicesMetrics>,
 }
 
-pub fn resolve_alias(alias: String, aliases: &Aliases, worker_id: PeerId, local_peer_id: PeerId) -> Option<String> {
-    let worker_scope: Option<String> = try {  aliases.get(&worker_id)?.get(&alias).cloned()? };
+pub fn resolve_alias(
+    alias: String,
+    aliases: &Aliases,
+    worker_id: PeerId,
+    local_peer_id: PeerId,
+) -> Option<String> {
+    let worker_scope: Option<String> = try { aliases.get(&worker_id)?.get(&alias).cloned()? };
 
     if let Some(result) = worker_scope {
         Some(result)
@@ -115,7 +120,6 @@ pub fn resolve_alias(alias: String, aliases: &Aliases, worker_id: PeerId, local_
         // try to find in root scope if not found
         aliases.get(&local_peer_id)?.get(&alias).cloned()
     }
-
 }
 
 pub fn get_service<'l>(
@@ -277,7 +281,13 @@ impl ParticleAppServices {
         let worker_id = particle.host_id;
         let timestamp = particle.timestamp;
 
-        let service = get_service(&services, &aliases, worker_id, self.config.local_peer_id, function_args.service_id);
+        let service = get_service(
+            &services,
+            &aliases,
+            worker_id,
+            self.config.local_peer_id,
+            function_args.service_id,
+        );
 
         let (service, service_id) = match service {
             Ok(found) => found,
@@ -492,7 +502,13 @@ impl ParticleAppServices {
 
     pub fn resolve_alias(&self, worker_id: PeerId, alias: String) -> Result<String, ServiceError> {
         let aliases = self.aliases.read();
-       resolve_alias(alias.clone(), &aliases, worker_id, self.config.local_peer_id).ok_or_else(|| NoSuchAlias(alias, worker_id))
+        resolve_alias(
+            alias.clone(),
+            &aliases,
+            worker_id,
+            self.config.local_peer_id,
+        )
+        .ok_or_else(|| NoSuchAlias(alias, worker_id))
     }
 
     pub fn to_service_id(
@@ -526,8 +542,14 @@ impl ParticleAppServices {
         worker_id: PeerId,
     ) -> Result<JValue, ServiceError> {
         let services = self.services.read();
-        let (service, _) = get_service(&services, &self.aliases.read(), worker_id, self.config.local_peer_id, service_id)
-            .map_err(ServiceError::NoSuchService)?;
+        let (service, _) = get_service(
+            &services,
+            &self.aliases.read(),
+            worker_id,
+            self.config.local_peer_id,
+            service_id,
+        )
+        .map_err(ServiceError::NoSuchService)?;
 
         Ok(self.modules.get_facade_interface(&service.blueprint_id)?)
     }
@@ -564,8 +586,14 @@ impl ParticleAppServices {
         service_id: String,
     ) -> Result<Vec<JValue>, JError> {
         let services = self.services.read();
-        let (service, _) = get_service(&services, &self.aliases.read(), worker_id, self.config.local_peer_id, service_id)
-            .map_err(ServiceError::NoSuchService)?;
+        let (service, _) = get_service(
+            &services,
+            &self.aliases.read(),
+            worker_id,
+            self.config.local_peer_id,
+            service_id,
+        )
+        .map_err(ServiceError::NoSuchService)?;
 
         let lock = service.service.lock();
         let stats = lock.module_memory_stats();
@@ -786,6 +814,7 @@ mod tests {
         pas: &ParticleAppServices,
         module_name: String,
         module: &str,
+        worker_id: PeerId,
     ) -> Result<String, String> {
         let dep = Dependency::Hash(Hash::from_hex(module).unwrap());
         let bp = pas
@@ -793,7 +822,7 @@ mod tests {
             .add_blueprint(AddBlueprint::new(module_name, vec![dep]))
             .unwrap();
 
-        pas.create_service(bp, RandomPeerId::random(), RandomPeerId::random())
+        pas.create_service(bp, RandomPeerId::random(), worker_id)
             .map_err(|e| e.to_string())
     }
 
@@ -848,9 +877,9 @@ mod tests {
             .modules
             .add_module_base64(base64.encode(module), config)
             .unwrap();
-        let service_id1 = create_service(&pas, module_name.clone(), &hash).unwrap();
-        let service_id2 = create_service(&pas, module_name.clone(), &hash).unwrap();
-        let service_id3 = create_service(&pas, module_name, &hash).unwrap();
+        let service_id1 = create_service(&pas, module_name.clone(), &hash, local_pid).unwrap();
+        let service_id2 = create_service(&pas, module_name.clone(), &hash, local_pid).unwrap();
+        let service_id3 = create_service(&pas, module_name, &hash, local_pid).unwrap();
 
         let inter1 = pas.get_interface(service_id1, local_pid).unwrap();
 
@@ -901,7 +930,7 @@ mod tests {
 
         let module_name = "tetra".to_string();
         let hash = upload_tetra_service(&pas, module_name.clone());
-        let service_id1 = create_service(&pas, module_name, &hash).unwrap();
+        let service_id1 = create_service(&pas, module_name, &hash, local_pid).unwrap();
 
         let alias = "alias";
         let result = pas.add_alias(
@@ -911,7 +940,7 @@ mod tests {
             management_pid,
         );
         // result of the add_alias call must be ok
-        assert!(result.is_ok());
+        assert!(result.is_ok(), "{}", result.unwrap_err());
 
         let services = pas.services.read();
         let service_1 = services.get(&service_id1).unwrap();
@@ -942,8 +971,8 @@ mod tests {
         let module_name = "tetra".to_string();
         let hash = upload_tetra_service(&pas, module_name.clone());
 
-        let service_id1 = create_service(&pas, module_name.clone(), &hash).unwrap();
-        let service_id2 = create_service(&pas, module_name, &hash).unwrap();
+        let service_id1 = create_service(&pas, module_name.clone(), &hash, local_pid).unwrap();
+        let service_id2 = create_service(&pas, module_name, &hash, local_pid).unwrap();
 
         let alias = "alias";
         // add an alias to a service
@@ -998,7 +1027,7 @@ mod tests {
         let module_name = "tetra".to_string();
         let hash = upload_tetra_service(&pas, module_name.clone());
 
-        let service_id1 = create_service(&pas, module_name, &hash).unwrap();
+        let service_id1 = create_service(&pas, module_name, &hash, local_pid).unwrap();
         let services = pas.services.read();
         let service_1 = services.get(&service_id1).unwrap();
 

@@ -141,7 +141,8 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
                 interpretation_stats.push(result.stats);
                 let (local_peers, remote_peers): (Vec<_>, Vec<_>) =
                     result.effects.next_peers.into_iter().partition(|p| {
-                        key_manager.is_scope_peer_id(*p) || p.eq(&self.key_manager.get_host_peer_id())
+                        key_manager.is_scope_peer_id(*p)
+                            || p.eq(&self.key_manager.get_host_peer_id())
                     });
 
                 if !remote_peers.is_empty() {
