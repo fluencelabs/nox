@@ -12,7 +12,7 @@ on:
         description: "rust-peer version"
         required: true
       update-node-distro:
-        type: boolean
+        type: string
         description: "whether to update node-distro"
         required: true
   workflow_call:
@@ -26,7 +26,7 @@ on:
         description: "rust-peer version"
         required: true
       update-node-distro:
-        type: boolean
+        type: string
         description: "whether to update node-distro"
         required: true
 
@@ -87,7 +87,7 @@ jobs:
           tag_name: ${{ inputs.tag }}
 
       - name: Update version in node-distro repo
-        if: inputs.update-node-distro
+        if: inputs.update-node-distro == 'true'
         uses: benc-uk/workflow-dispatch@v1
         with:
           workflow: update_fluence
