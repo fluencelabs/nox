@@ -121,7 +121,7 @@ impl SpellTriggerConfigs {
             .into_iter()
             .filter_map(|trigger| trigger.into_rescheduled())
             .collect::<_>();
-        if new_triggers.len() == 0 {
+        if new_triggers.is_empty() {
             None
         } else {
             Some(SpellTriggerConfigs {
@@ -140,7 +140,7 @@ pub(crate) enum TriggerConfig {
 impl TriggerConfig {
     pub fn into_rescheduled(self) -> Option<TriggerConfig> {
         if let TriggerConfig::Timer(c) = self {
-            c.into_rescheduled().map(|x| TriggerConfig::Timer(x))
+            c.into_rescheduled().map(TriggerConfig::Timer)
         } else {
             // Peer events can't stop being relevant
             Some(self)
