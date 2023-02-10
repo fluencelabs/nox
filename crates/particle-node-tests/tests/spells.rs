@@ -62,7 +62,7 @@ fn create_spell(
     let spell_id = response[0].as_str().unwrap().to_string();
     assert_ne!(spell_id.len(), 0);
     let scope_peer_id = response[1].as_str().unwrap().to_string();
-    assert_ne!(script.len(), 0);
+    assert_ne!(scope_peer_id.len(), 0);
 
     (spell_id, scope_peer_id)
 }
@@ -121,7 +121,7 @@ fn spell_error_handling_test() {
     config.clock.period_sec = 1;
     config.clock.start_sec = 1;
 
-    let (spell_id, _) = create_spell(&mut client, failing_script, config, json!({}));
+    let (spell_id, worker_id) = create_spell(&mut client, failing_script, config, json!({}));
 
     // let's retrieve error from the first spell particle
     let particle_id = format!("spell_{}_{}", spell_id, 0);
@@ -131,12 +131,16 @@ fn spell_error_handling_test() {
             "spell_id" => json!(spell_id),
             "particle_id" => json!(particle_id),
             "client" => json!(client.peer_id.to_string()),
+            "worker" => json!(worker_id),
             "relay" => json!(client.node.to_string()),
         };
         client.send_particle(
             r#"
-        (seq  
-            (call relay (spell_id "get_errors") [particle_id] result)
+        (seq
+            (seq
+                (call relay ("op" "noop") [])
+                (call worker (spell_id "get_errors") [particle_id] result)
+            )
             (call client ("return" "") [result])
         )"#,
             data.clone(),
@@ -242,17 +246,21 @@ fn spell_run_oneshot() {
     // Note that when period is 0, the spell is executed only once
     let mut config = TriggerConfig::default();
     config.clock.start_sec = 1;
-    let (spell_id, _) = create_spell(&mut client, script, config, json!({}));
+    let (spell_id, worker_id) = create_spell(&mut client, script, config, json!({}));
 
     let data = hashmap! {
         "spell_id" => json!(spell_id),
         "client" => json!(client.peer_id.to_string()),
+        "worker" => json!(worker_id),
         "relay" => json!(client.node.to_string()),
     };
     client.send_particle(
         r#"
         (seq
-            (call relay (spell_id "get_u32") ["counter"] counter)
+            (seq
+                (call relay ("op" "noop") [])
+                (call worker (spell_id "get_u32") ["counter"] counter)
+            )
             (call client ("return" "") [counter])
         )"#,
         data.clone(),
@@ -279,7 +287,7 @@ fn spell_install_ok_empty_config() {
 
     // Note that when period is 0, the spell is executed only once
     let config = TriggerConfig::default();
-    let (spell_id, _) = create_spell(&mut client, script, config, json!({}));
+    let (spell_id, worker_id) = create_spell(&mut client, script, config, json!({}));
 
     // The spell should be installed, but should not be subscribed to any triggers
     // We cannot truly check that the spell isn't subscribed to anything right now, but we can check that
@@ -289,12 +297,16 @@ fn spell_install_ok_empty_config() {
     client.send_particle(
         r#"
         (seq
-            (call relay (spell_id "get_u32") ["counter"] counter)
+            (seq
+                (call relay ("op" "noop") [])
+                (call worker (spell_id "get_u32") ["counter"] counter)
+            )
             (call %init_peer_id% ("return" "") [counter])
         )"#,
         hashmap! {
-            "relay" => json!(client.node.to_string()),
+            "worker" => json!(worker_id),
             "spell_id" => json!(spell_id),
+            "relay" => json!(client.node.to_string()),
         },
     );
     let response = client
@@ -314,11 +326,15 @@ fn spell_install_ok_empty_config() {
     client.send_particle(
         r#"
         (seq
-            (call relay (spell_id "get_u32") ["counter"] counter)
+            (seq
+                (call relay ("op" "noop") [])
+                (call worker (spell_id "get_u32") ["counter"] counter)
+            )
             (call %init_peer_id% ("return" "") [counter])
         )"#,
         hashmap! {
             "relay" => json!(client.node.to_string()),
+            "worker" => json!(worker_id),
             "spell_id" => json!(spell_id),
         },
     );
@@ -488,16 +504,20 @@ fn spell_store_trigger_config() {
     let mut config = TriggerConfig::default();
     config.clock.period_sec = 13;
     config.clock.start_sec = 10;
-    let (spell_id, _) = create_spell(&mut client, script, config.clone(), json!({}));
+    let (spell_id, worker_id) = create_spell(&mut client, script, config.clone(), json!({}));
     let data = hashmap! {
         "spell_id" => json!(spell_id),
         "client" => json!(client.peer_id.to_string()),
+        "worker" => json!(worker_id),
         "relay" => json!(client.node.to_string()),
     };
     client.send_particle(
         r#"
         (seq
-            (call relay (spell_id "get_trigger_config") [] config)
+            (seq
+                (call relay ("op" "noop") [])
+                (call worker (spell_id "get_trigger_config") [] config)
+            )
             (call client ("return" "") [config])
         )"#,
         data.clone(),
@@ -571,6 +591,52 @@ fn spell_remove() {
         .as_slice()
     {
         assert!(created_spells.is_empty(), "no spells should exist");
+    }
+}
+
+#[test]
+fn spell_remove_by_alias() {
+    let swarms = make_swarms(1);
+
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .wrap_err("connect client")
+        .unwrap();
+
+    let script = format!(
+        r#"
+        (seq
+            (call %init_peer_id% ("getDataSrv" "spell_id") [] spell_id)
+            (seq
+                (seq
+                    (seq
+                        (call %init_peer_id% ("srv" "add_alias") ["alias" spell_id])
+                        (call %init_peer_id% ("spell" "list") [] before)
+                    )
+                    (call %init_peer_id% ("spell" "remove") ["alias"])
+                )
+                (seq
+                    (call %init_peer_id% ("spell" "list") [] after)
+                    (call "{}" ("return" "") [before after])
+                )
+            )
+        )"#,
+        client.peer_id
+    );
+
+    let mut config = TriggerConfig::default();
+    config.clock.period_sec = 2;
+    config.clock.start_sec = 1;
+    let (spell_id, _) = create_spell(&mut client, &script, config, json!({}));
+
+    if let [JValue::Array(before), JValue::Array(after)] = client
+        .receive_args()
+        .wrap_err("receive")
+        .unwrap()
+        .as_slice()
+    {
+        assert_eq!(before.len(), 1);
+        assert_eq!(before[0], spell_id);
+        assert!(after.is_empty());
     }
 }
 
@@ -658,6 +724,45 @@ fn spell_remove_service_as_spell() {
             msg.contains(expected),
             "should contain `{expected}`, given msg `{msg}`"
         );
+    }
+}
+
+#[test]
+fn spell_call_by_alias() {
+    let swarms = make_swarms(1);
+
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .wrap_err("connect client")
+        .unwrap();
+
+    let script = format!(
+        r#"
+        (seq
+            (call %init_peer_id% ("getDataSrv" "spell_id") [] spell_id)
+            (seq
+                (seq
+                    (call %init_peer_id% ("srv" "add_alias") ["alias" spell_id])
+                    (call %init_peer_id% ("alias" "get_u32") ["counter"] counter)
+                )
+
+                (call "{}" ("return" "") [counter])
+            )
+        )"#,
+        client.peer_id
+    );
+
+    let mut config = TriggerConfig::default();
+    config.clock.period_sec = 2;
+    config.clock.start_sec = 1;
+    create_spell(&mut client, &script, config, json!({}));
+
+    if let [JValue::Number(counter)] = client
+        .receive_args()
+        .wrap_err("receive")
+        .unwrap()
+        .as_slice()
+    {
+        assert_ne!(counter.as_i64().unwrap(), 0);
     }
 }
 
@@ -834,10 +939,11 @@ fn spell_set_u32() {
     let mut config = TriggerConfig::default();
     config.connections.connect = true;
 
-    let (spell_id, _) = create_spell(&mut client, &script, config.clone(), json!({}));
+    let (spell_id, worker_id) = create_spell(&mut client, &script, config.clone(), json!({}));
 
     let data = hashmap! {
         "spell_id" => json!(spell_id),
+        "worker" => json!(worker_id),
         "relay" => json!(client.node.to_string()),
         "client" => json!(client.peer_id.to_string()),
         "config" => json!(config),
@@ -845,14 +951,17 @@ fn spell_set_u32() {
     client.send_particle(
         r#"(seq
             (seq
-                (call relay (spell_id "get_u32") ["test"] absent)
                 (seq
-                    (call relay (spell_id "set_u32") ["test" 1])
+                    (call relay ("op" "noop") [])
+                    (call worker (spell_id "get_u32") ["test"] absent)
+                )
+                (seq
+                    (call worker (spell_id "set_u32") ["test" 1])
                     (seq
-                        (call relay (spell_id "get_u32") ["test"] one)
+                        (call worker (spell_id "get_u32") ["test"] one)
                         (seq
-                            (call relay (spell_id "set_u32") ["test" 2])
-                            (call relay (spell_id "get_u32") ["test"] two)
+                            (call worker (spell_id "set_u32") ["test" 2])
+                            (call worker (spell_id "get_u32") ["test"] two)
                         )
                     )
                 )
@@ -1041,5 +1150,98 @@ fn spell_update_config_stopped_spell() {
         );
     } else {
         panic!("wrong result from spell, expect trigger info with the timer event");
+    }
+}
+
+#[test]
+fn resolve_alias_wrong_worker() {
+    let swarms = make_swarms(1);
+
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .wrap_err("connect client")
+        .unwrap();
+
+    let script = format!(
+        r#"
+        (xor
+            (seq
+                (call %init_peer_id% ("getDataSrv" "spell_id") [] spell_id)
+                (seq
+                    (call %init_peer_id% ("srv" "add_alias") ["alias" spell_id])
+                    (seq
+                        (call %init_peer_id% ("srv" "resolve_alias") ["alias"] resolved)
+                        (seq
+                            (call "{0}" ("srv" "resolve_alias") ["alias"] not_resolved)
+                            (call "{1}" ("return" "") ["test failed"])
+                        )
+                    )
+                )
+             )
+            (call "{1}" ("return" "") [%last_error%.$.message])
+        )"#,
+        client.node, client.peer_id
+    );
+
+    let mut config = TriggerConfig::default();
+    config.clock.period_sec = 2;
+    config.clock.start_sec = 1;
+    create_spell(&mut client, &script, config, json!({}));
+
+    if let [JValue::String(error)] = client
+        .receive_args()
+        .wrap_err("receive")
+        .unwrap()
+        .as_slice()
+    {
+        assert!(error.starts_with("Local service error, ret_code is 1, error message is '\"Error: Service with alias 'alias' is not found on worker"));
+    }
+}
+
+#[test]
+fn resolve_global_alias() {
+    let swarms = make_swarms(1);
+
+    let mut client = ConnectedClient::connect_with_keypair(
+        swarms[0].multiaddr.clone(),
+        Some(swarms[0].management_keypair.clone()),
+    )
+    .wrap_err("connect client")
+    .unwrap();
+
+    let tetraplets_service = create_service(
+        &mut client,
+        "tetraplets",
+        load_module("tests/tetraplets/artifacts", "tetraplets").expect("load module"),
+    );
+
+    client.send_particle(
+        r#"(call relay ("srv" "add_alias") ["alias" service])"#,
+        hashmap! {
+            "relay" => json!(client.node.to_string()),
+            "service" => json!(tetraplets_service.id),
+        },
+    );
+
+    let script = format!(
+        r#"
+        (seq
+            (call %init_peer_id% ("srv" "resolve_alias") ["alias"] resolved)
+            (call "{0}" ("return" "") [resolved])
+        )"#,
+        client.peer_id
+    );
+
+    let mut config = TriggerConfig::default();
+    config.clock.period_sec = 2;
+    config.clock.start_sec = 1;
+    create_spell(&mut client, &script, config, json!({}));
+
+    if let [JValue::String(resolved)] = client
+        .receive_args()
+        .wrap_err("receive")
+        .unwrap()
+        .as_slice()
+    {
+        assert_eq!(*resolved, tetraplets_service.id);
     }
 }

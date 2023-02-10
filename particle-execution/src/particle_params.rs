@@ -23,6 +23,7 @@ use particle_protocol::Particle;
 pub struct ParticleParams {
     pub id: String,
     pub init_peer_id: PeerId,
+    pub host_id: PeerId,
     /// Unix timestamp in milliseconds
     pub timestamp: u64,
     /// TTL in milliseconds
@@ -32,7 +33,7 @@ pub struct ParticleParams {
 }
 
 impl ParticleParams {
-    pub fn clone_from(particle: &Particle) -> Self {
+    pub fn clone_from(particle: &Particle, host_id: PeerId) -> Self {
         let Particle {
             id,
             init_peer_id,
@@ -46,6 +47,7 @@ impl ParticleParams {
         Self {
             id: id.clone(),
             init_peer_id: *init_peer_id,
+            host_id,
             timestamp: *timestamp,
             ttl: *ttl,
             script: script.clone(),
