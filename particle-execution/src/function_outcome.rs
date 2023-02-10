@@ -24,6 +24,7 @@ use particle_args::{Args, JError};
 
 use crate::ParticleParams;
 
+#[allow(clippy::large_enum_variant)]
 #[derive(Debug, Clone)]
 pub enum FunctionOutcome {
     NotDefined { args: Args, params: ParticleParams },

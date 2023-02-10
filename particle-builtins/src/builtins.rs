@@ -184,8 +184,8 @@ where
 
             ("srv", "list")                   => ok(self.list_services()),
             ("srv", "create")                 => wrap(self.create_service(args, particle)),
-            ("srv", "get_interface")          => wrap(self.get_interface(args)),
-            ("srv", "resolve_alias")          => wrap(self.resolve_alias(args)),
+            ("srv", "get_interface")          => wrap(self.get_interface(args, particle)),
+            ("srv", "resolve_alias")          => wrap(self.resolve_alias(args, particle)),
             ("srv", "add_alias")              => wrap_unit(self.add_alias(args, particle)),
             ("srv", "remove")                 => wrap_unit(self.remove_service(args, particle)),
 
@@ -220,8 +220,8 @@ where
 
             ("debug", "stringify")            => self.stringify(args.function_args),
 
-            ("stat", "service_memory") => unary(args, |id: String| -> R<Vec<JValue>, _> { self.services.get_service_mem_stats(id) }),
-            ("stat", "service_stat")   => wrap(self.service_stat(args)),
+            ("stat", "service_memory") => wrap(self.service_mem_stats(args, particle)),
+            ("stat", "service_stat")   => wrap(self.service_stat(args, particle)),
 
             ("math", "add")        => binary(args, |x: i64, y: i64| -> R<i64, _> { math::add(x, y) }),
             ("math", "sub")        => binary(args, |x: i64, y: i64| -> R<i64, _> { math::sub(x, y) }),
@@ -782,9 +782,9 @@ where
         let mut args = args.function_args.into_iter();
         let blueprint_id: String = Args::next("blueprint_id", &mut args)?;
 
-        let service_id = self
-            .services
-            .create_service(blueprint_id, params.init_peer_id)?;
+        let service_id =
+            self.services
+                .create_service(blueprint_id, params.init_peer_id, params.host_id)?;
 
         Ok(JValue::String(service_id))
     }
@@ -792,8 +792,12 @@ where
     fn remove_service(&self, args: Args, params: ParticleParams) -> Result<(), JError> {
         let mut args = args.function_args.into_iter();
         let service_id_or_alias: String = Args::next("service_id_or_alias", &mut args)?;
-        self.services
-            .remove_service(service_id_or_alias, params.init_peer_id, false)?;
+        self.services.remove_service(
+            params.host_id,
+            service_id_or_alias,
+            params.init_peer_id,
+            false,
+        )?;
         Ok(())
     }
 
@@ -805,10 +809,10 @@ where
         self.services.call_service(function_args, particle)
     }
 
-    fn get_interface(&self, args: Args) -> Result<JValue, JError> {
+    fn get_interface(&self, args: Args, params: ParticleParams) -> Result<JValue, JError> {
         let mut args = args.function_args.into_iter();
         let service_id: String = Args::next("service_id", &mut args)?;
-        Ok(self.services.get_interface(service_id)?)
+        Ok(self.services.get_interface(service_id, params.host_id)?)
     }
 
     fn add_alias(&self, args: Args, params: ParticleParams) -> Result<(), JError> {
@@ -817,15 +821,14 @@ where
         let alias: String = Args::next("alias", &mut args)?;
         let service_id: String = Args::next("service_id", &mut args)?;
         self.services
-            .add_alias(alias, service_id, params.init_peer_id)?;
+            .add_alias(alias, params.host_id, service_id, params.init_peer_id)?;
         Ok(())
     }
 
-    fn resolve_alias(&self, args: Args) -> Result<JValue, JError> {
+    fn resolve_alias(&self, args: Args, params: ParticleParams) -> Result<JValue, JError> {
         let mut args = args.function_args.into_iter();
-
         let alias: String = Args::next("alias", &mut args)?;
-        let service_id = self.services.resolve_alias(alias)?;
+        let service_id = self.services.resolve_alias(params.host_id, alias)?;
 
         Ok(JValue::String(service_id))
     }
@@ -838,11 +841,22 @@ where
         self.connectivity.as_ref()
     }
 
-    fn service_stat(&self, args: Args) -> Result<JValue, JError> {
+    fn service_mem_stats(&self, args: Args, params: ParticleParams) -> Result<JValue, JError> {
+        let mut args = args.function_args.into_iter();
+        let service_id_or_alias: String = Args::next("service_id", &mut args)?;
+
+        self.services
+            .get_service_mem_stats(params.host_id, service_id_or_alias)
+            .map(Array)
+    }
+
+    fn service_stat(&self, args: Args, params: ParticleParams) -> Result<JValue, JError> {
         let mut args = args.function_args.into_iter();
         let service_id_or_alias: String = Args::next("service_id", &mut args)?;
         // Resolve aliases; also checks that the requested service exists.
-        let service_id = self.services.to_service_id(service_id_or_alias)?;
+        let service_id = self
+            .services
+            .to_service_id(params.host_id, service_id_or_alias)?;
         let metrics = self
             .services
             .metrics

@@ -20,7 +20,7 @@ use crate::error::ServiceError::{
     CreateServicesDir, DeserializePersistedService, ReadPersistedService,
 };
 
-use fluence_libp2p::{peerid_serializer, PeerId, RandomPeerId};
+use fluence_libp2p::{peerid_serializer, peerid_serializer_opt, PeerId, RandomPeerId};
 use fs_utils::{create_dir, list_files};
 use particle_modules::ModuleError;
 use service_modules::{is_service, service_file_name};
@@ -40,6 +40,10 @@ pub struct PersistedService {
     #[serde(default = "RandomPeerId::random")]
     #[serde(with = "peerid_serializer")]
     pub owner_id: PeerId,
+    // Old versions of PersistedService may omit `worker_id` field, tolerate that via set manually to root peer id
+    #[serde(default)]
+    #[serde(with = "peerid_serializer_opt")]
+    pub worker_id: Option<PeerId>,
 }
 
 impl PersistedService {
@@ -48,12 +52,14 @@ impl PersistedService {
         blueprint_id: String,
         aliases: Vec<String>,
         owner_id: PeerId,
+        worker_id: PeerId,
     ) -> Self {
         Self {
             service_id,
             blueprint_id,
             aliases,
             owner_id,
+            worker_id: Some(worker_id),
         }
     }
 
@@ -63,6 +69,7 @@ impl PersistedService {
             service.blueprint_id.clone(),
             service.aliases.clone(),
             service.owner_id,
+            service.worker_id,
         )
     }
 }
@@ -83,7 +90,10 @@ pub fn persist_service(
 }
 
 /// Load info about persisted services from disk, and create `AppService` for each of them
-pub fn load_persisted_services(services_dir: &Path) -> Vec<Result<PersistedService, ServiceError>> {
+pub fn load_persisted_services(
+    services_dir: &Path,
+    root_peer_id: PeerId,
+) -> Vec<Result<PersistedService, ServiceError>> {
     // Load all persisted service file names
     let files = match list_files(services_dir) {
         Some(files) => files,
@@ -108,11 +118,15 @@ pub fn load_persisted_services(services_dir: &Path) -> Vec<Result<PersistedServi
                 err,
                 path: file.to_path_buf(),
             })?;
-            let service =
+            let mut service: PersistedService =
                 toml::from_slice(bytes.as_slice()).map_err(|err| DeserializePersistedService {
                     err,
                     path: file.to_path_buf(),
                 })?;
+
+            if service.worker_id.is_none() {
+                service.worker_id = Some(root_peer_id)
+            }
 
             Ok(service)
         })

@@ -43,13 +43,15 @@ pub(crate) async fn spell_install(
 
     let spell_peer_id = key_manager.get_scope_peer_id(params.init_peer_id)?;
 
-    let spell_id = services.create_service(spell_storage.get_blueprint(), spell_peer_id)?;
+    let spell_id =
+        services.create_service(spell_storage.get_blueprint(), spell_peer_id, spell_peer_id)?;
     spell_storage.register_spell(spell_id.clone());
 
     // TODO: refactor these service calls
     // Save the script to the spell
     process_func_outcome::<UnitValue>(
         services.call_function(
+            spell_peer_id,
             &spell_id,
             "set_script_source_to_file",
             vec![json!(script)],
@@ -64,6 +66,7 @@ pub(crate) async fn spell_install(
     // Save init_data to the spell's KV
     process_func_outcome::<UnitValue>(
         services.call_function(
+            spell_peer_id,
             &spell_id,
             "set_json_fields",
             vec![json!(init_data.to_string())],
@@ -78,6 +81,7 @@ pub(crate) async fn spell_install(
     // Save trigger config
     process_func_outcome::<UnitValue>(
         services.call_function(
+            spell_peer_id,
             &spell_id,
             "set_trigger_config",
             vec![json!(user_config)],
@@ -98,7 +102,7 @@ pub(crate) async fn spell_install(
             log::warn!("can't subscribe a spell {} to triggers {:?} via spell-event-bus-api: {}. Removing created spell service...", spell_id, config, err);
 
             spell_storage.unregister_spell(&spell_id);
-            services.remove_service(spell_id, params.init_peer_id, true)?;
+            services.remove_service(params.host_id, spell_id, params.init_peer_id, true)?;
 
             return Err(JError::new(format!(
                 "can't install a spell due to an internal error while subscribing to the triggers: {err}"
@@ -146,9 +150,9 @@ pub(crate) async fn spell_remove(
         )));
     }
 
-    // TODO: remove spells by aliases too
+    let spell_id = services.to_service_id(params.host_id, spell_id)?;
     spell_storage.unregister_spell(&spell_id);
-    services.remove_service(spell_id, spell_peer_id, true)?;
+    services.remove_service(spell_peer_id, spell_id, spell_peer_id, true)?;
     Ok(())
 }
 
@@ -161,17 +165,18 @@ pub(crate) async fn spell_update_config(
 ) -> Result<(), JError> {
     let mut args = args.function_args.into_iter();
     let spell_id: String = Args::next("spell_id", &mut args)?;
-    let spell_peer_id = key_manager.get_scope_peer_id(params.init_peer_id)?;
+    let scope_peer_id = key_manager.get_scope_peer_id(params.init_peer_id)?;
     let user_config: TriggerConfig = Args::next("config", &mut args)?;
     let config = api::from_user_config(user_config.clone())?;
 
     process_func_outcome::<UnitValue>(
         services.call_function(
+            scope_peer_id,
             &spell_id,
             "set_trigger_config",
             vec![json!(user_config)],
             None,
-            spell_peer_id,
+            scope_peer_id,
             Duration::from_millis(params.ttl as u64),
         ),
         &spell_id,
@@ -213,6 +218,7 @@ pub(crate) fn get_spell_arg(
 
     let str_value = process_func_outcome::<StringValue>(
         services.call_function(
+            params.host_id,
             spell_id,
             "get_string",
             vec![json!(key)],
@@ -238,6 +244,7 @@ pub(crate) fn store_error(
     args.function_args.push(json!(params.timestamp));
     process_func_outcome::<UnitValue>(
         services.call_function(
+            params.host_id,
             spell_id,
             "store_error",
             args.function_args.clone(),
@@ -266,6 +273,7 @@ pub(crate) fn store_response(
     let response: JValue = Args::next("spell_id", &mut args.function_args.into_iter())?;
     process_func_outcome::<UnitValue>(
         services.call_function(
+            params.host_id,
             spell_id,
             "set_json_fields",
             vec![json!(response.to_string())],
