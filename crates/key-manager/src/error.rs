@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-use std::path::PathBuf;
 use libp2p::PeerId;
+use std::path::PathBuf;
 use thiserror::Error;
 
 #[derive(Debug, Error)]

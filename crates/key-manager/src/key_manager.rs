@@ -110,7 +110,7 @@ impl KeyManager {
             .read()
             .get(&scope_peer_id)
             .cloned()
-            .ok_or_else(|| KeyManagerError::KeypairNotFound(scope_peer_id))
+            .ok_or(KeyManagerError::KeypairNotFound(scope_peer_id))
     }
 
     pub fn generate_keypair(&self) -> KeyPair {

@@ -333,7 +333,7 @@ impl<RT: AquaRuntime> Node<RT> {
             services_config,
             services_metrics,
             root_keypair,
-            key_manager
+            key_manager,
         )
     }
 }

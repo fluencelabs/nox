@@ -90,8 +90,8 @@ pub struct Builtins<C> {
 }
 
 impl<C> Builtins<C>
-    where
-        C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoolApi>,
+where
+    C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoolApi>,
 {
     pub fn new(
         connectivity: C,
@@ -891,7 +891,11 @@ impl<C> Builtins<C>
 
             let tetraplet = tetraplets.get(0).map(|v| v.as_slice());
             if let Some([t]) = tetraplet {
-                if t.peer_pk != self.local_peer_id.to_base58() && !self.key_manager.is_scope_peer_id(PeerId::from_str(&t.peer_pk)?) {
+                if t.peer_pk != self.local_peer_id.to_base58()
+                    && !self
+                        .key_manager
+                        .is_scope_peer_id(PeerId::from_str(&t.peer_pk)?)
+                {
                     return Err(JError::new(format!(
                         "data is expected to be produced by service 'registry' on peer '{}', was from peer '{}'",
                         self.local_peer_id, t.peer_pk
@@ -899,7 +903,9 @@ impl<C> Builtins<C>
                 }
 
                 if (t.service_id.as_str(), t.function_name.as_str())
-                    != ("registry", "get_record_bytes") && (t.service_id.as_str(), t.function_name.as_str()) != ("registry", "get_record_metadata_bytes")
+                    != ("registry", "get_record_bytes")
+                    && (t.service_id.as_str(), t.function_name.as_str())
+                        != ("registry", "get_record_metadata_bytes")
                 {
                     return Err(JError::new(format!(
                         "data is expected to result from a call to 'registry.get_record_bytes' or 'registry.get_record_metadata_bytes', was from '{}.{}'",
@@ -954,7 +960,11 @@ impl<C> Builtins<C>
             ))
         } else {
             Ok(JValue::Bool(
-                self.key_manager.get_scope_keypair(params.host_id)?.public().verify(&data, &signature).is_ok(),
+                self.key_manager
+                    .get_scope_keypair(params.host_id)?
+                    .public()
+                    .verify(&data, &signature)
+                    .is_ok(),
             ))
         }
     }
@@ -963,7 +973,11 @@ impl<C> Builtins<C>
         if params.host_id == self.local_peer_id {
             Ok(JValue::String(self.root_keypair.get_peer_id().to_base58()))
         } else {
-            Ok(JValue::String(self.key_manager.get_scope_peer_id(params.init_peer_id)?.to_base58()))
+            Ok(JValue::String(
+                self.key_manager
+                    .get_scope_peer_id(params.init_peer_id)?
+                    .to_base58(),
+            ))
         }
     }
 }
@@ -1017,11 +1031,11 @@ fn make_module_config(args: Args) -> Result<JValue, JError> {
 
 fn parse_from_str<T>(
     field: &'static str,
-    mut args: &mut impl Iterator<Item=JValue>,
+    mut args: &mut impl Iterator<Item = JValue>,
 ) -> Result<Option<T>, JError>
-    where
-        T: FromStr + for<'a> Deserialize<'a>,
-        <T as FromStr>::Err: std::error::Error + 'static,
+where
+    T: FromStr + for<'a> Deserialize<'a>,
+    <T as FromStr>::Err: std::error::Error + 'static,
 {
     #[derive(thiserror::Error, Debug)]
     #[error("Error while deserializing field {field_name}")]
@@ -1055,7 +1069,7 @@ fn parse_from_str<T>(
                 field_name: field.to_string(),
                 err,
             }
-                .into()
+            .into()
         })
 }
 

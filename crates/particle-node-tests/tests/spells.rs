@@ -1248,15 +1248,9 @@ fn resolve_global_alias() {
 
 #[test]
 fn worker_sig_test() {
-    let swarms = make_swarms_with_builtins(
-        1,
-        "tests/builtins/services".as_ref(),
-        None,
-        None,
-    );
+    let swarms = make_swarms_with_builtins(1, "tests/builtins/services".as_ref(), None, None);
 
-    let mut client = ConnectedClient::connect_to(
-        swarms[0].multiaddr.clone())
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .wrap_err("connect client")
         .unwrap();
 
@@ -1264,13 +1258,16 @@ fn worker_sig_test() {
         r#"
         (seq
             (seq
-                (call %init_peer_id% ("registry" "get_record_bytes") ["key_id" "" [] [] 1 []] data)
+                (seq
+                    (call %init_peer_id% ("registry" "get_record_bytes") ["key_id" "" [] [] 1 []] data)
+                    (call %init_peer_id% ("sig" "get_peer_id") [] peer_id)
+                )
                 (seq
                     (call %init_peer_id% ("sig" "sign") [data] sig_result)
                     (call %init_peer_id% ("sig" "verify") [sig_result.$.signature.[0]! data] result)
                 )
             )
-            (call "{0}" ("op" "return") [sig_result result])
+            (call "{0}" ("op" "return") [sig_result result peer_id])
         )
        "#,
         client.peer_id
@@ -1279,16 +1276,18 @@ fn worker_sig_test() {
     let mut config = TriggerConfig::default();
     config.clock.period_sec = 2;
     config.clock.start_sec = 1;
-    create_spell(&mut client, &script, config, json!({}));
+    let (_, worker_id) = create_spell(&mut client, &script, config, json!({}));
 
     use serde_json::Value::Bool;
     use serde_json::Value::Object;
+    use serde_json::Value::String;
 
-    if let [Object(sig_result), Bool(result)] =
+    if let [Object(sig_result), Bool(result), String(peer_id)] =
         client.receive_args().unwrap().as_slice()
     {
         assert!(sig_result["success"].as_bool().unwrap());
         assert!(result);
+        assert_eq!(*peer_id, worker_id);
     } else {
         panic!("incorrect args: expected two arguments")
     }
