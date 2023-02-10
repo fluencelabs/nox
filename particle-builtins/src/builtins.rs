@@ -23,7 +23,7 @@ use std::str::FromStr;
 use std::time::{Duration, Instant};
 
 use derivative::Derivative;
-use fluence_keypair::{KeyPair, Signature};
+use fluence_keypair::{KeyFormat, KeyPair, Signature};
 use futures::stream::FuturesUnordered;
 use futures::StreamExt;
 use humantime_serde::re::humantime::format_duration as pretty;
@@ -83,6 +83,9 @@ pub struct Builtins<C> {
     pub custom_services: RwLock<HashMap<String, CustomService>>,
 
     particles_vault_dir: path::PathBuf,
+
+    #[derivative(Debug = "ignore")]
+    insecure_keypair: KeyPair,
 }
 
 impl<C> Builtins<C>
@@ -125,6 +128,8 @@ where
             node_info,
             particles_vault_dir,
             custom_services: <_>::default(),
+            insecure_keypair: KeyPair::from_secret_key((1..32).collect(), KeyFormat::Ed25519)
+                .expect("error creating insecure keypair"),
         }
     }
 
@@ -239,23 +244,27 @@ where
             ("cmp", "cmp")         => binary(args, |x: i64, y: i64| -> R<i8, _> { math::cmp(x, y) }),
 
             ("array", "sum")       => unary(args, |xs: Vec<i64> | -> R<i64, _> { math::array_sum(xs) }),
-            ("array", "dedup")     => unary(args, |xs: Vec<String>| -> R<Vec<String>, _> { math::dedup(xs) }),
+            ("array", "dedup") => unary(args, |xs: Vec<String>| -> R<Vec<String>, _> { math::dedup(xs) }),
             ("array", "intersect") => binary(args, |xs: HashSet<String>, ys: HashSet<String>| -> R<Vec<String>, _> { math::intersect(xs, ys) }),
-            ("array", "diff")      => binary(args, |xs: HashSet<String>, ys: HashSet<String>| -> R<Vec<String>, _> { math::diff(xs, ys) }),
-            ("array", "sdiff")     => binary(args, |xs: HashSet<String>, ys: HashSet<String>| -> R<Vec<String>, _> { math::sdiff(xs, ys) }),
-            ("array", "slice")     => wrap(self.array_slice(args.function_args)),
-            ("array", "length")    => wrap(self.array_length(args.function_args)),
+            ("array", "diff") => binary(args, |xs: HashSet<String>, ys: HashSet<String>| -> R<Vec<String>, _> { math::diff(xs, ys) }),
+            ("array", "sdiff") => binary(args, |xs: HashSet<String>, ys: HashSet<String>| -> R<Vec<String>, _> { math::sdiff(xs, ys) }),
+            ("array", "slice") => wrap(self.array_slice(args.function_args)),
+            ("array", "length") => wrap(self.array_length(args.function_args)),
 
-            ("sig", "sign")        => wrap(self.sign(args)),
-            ("sig", "verify")      => wrap(self.verify(args)),
+            ("sig", "sign") => wrap(self.sign(args)),
+            ("sig", "verify") => wrap(self.verify(args)),
             ("sig", "get_peer_id") => wrap(self.get_peer_id()),
 
-            ("json", "obj")        => wrap(json::obj(args)),
-            ("json", "put")        => wrap(json::put(args)),
-            ("json", "puts")       => wrap(json::puts(args)),
-            ("json", "parse")      => unary(args, |s: String| -> R<JValue, _> { json::parse(&s) }),
-            ("json", "stringify")  => unary(args, |v: JValue| -> R<String, _> { Ok(json::stringify(v)) }),
-            ("json", "obj_pairs")  => unary(args, |vs: Vec<(String, JValue)>| -> R<JValue, _> { json::obj_from_pairs(vs) }),
+            ("insecure_sig", "sign") => wrap(self.insecure_sign(args)),
+            ("insecure_sig", "verify") => wrap(self.insecure_verify(args)),
+            ("insecure_sig", "get_peer_id") => wrap(self.insecure_get_peer_id()),
+
+            ("json", "obj") => wrap(json::obj(args)),
+            ("json", "put") => wrap(json::put(args)),
+            ("json", "puts") => wrap(json::puts(args)),
+            ("json", "parse") => unary(args, |s: String| -> R<JValue, _> { json::parse(&s) }),
+            ("json", "stringify") => unary(args, |v: JValue| -> R<String, _> { Ok(json::stringify(v)) }),
+            ("json", "obj_pairs") => unary(args, |vs: Vec<(String, JValue)>| -> R<JValue, _> { json::obj_from_pairs(vs) }),
             ("json", "puts_pairs") => binary(args, |obj: JValue, vs: Vec<(String, JValue)>| -> R<JValue, _> { json::puts_from_pairs(obj, vs) }),
 
             ("run-console", "print") => wrap_unit(Ok(log::debug!(target: "run-console", "{}", json!(args.function_args)))),
@@ -942,6 +951,49 @@ where
 
     fn get_peer_id(&self) -> Result<JValue, JError> {
         Ok(JValue::String(self.root_keypair.get_peer_id().to_base58()))
+    }
+
+    fn insecure_sign(&self, args: Args) -> Result<JValue, JError> {
+        let mut args = args.function_args.into_iter();
+        let result: Result<JValue, JError> = try {
+            let data: Vec<u8> = Args::next("data", &mut args)?;
+            json!(self.insecure_keypair.sign(&data)?.to_vec())
+        };
+
+        match result {
+            Ok(sig) => Ok(json!({
+                "success": true,
+                "error": [],
+                "signature": vec![sig]
+            })),
+
+            Err(error) => Ok(json!({
+                "success": false,
+                "error": vec![JValue::from(error)],
+                "signature": []
+            })),
+        }
+    }
+
+    fn insecure_verify(&self, args: Args) -> Result<JValue, JError> {
+        let mut args = args.function_args.into_iter();
+        let signature: Vec<u8> = Args::next("signature", &mut args)?;
+        let data: Vec<u8> = Args::next("data", &mut args)?;
+        let signature =
+            Signature::from_bytes(self.insecure_keypair.public().get_key_format(), signature);
+
+        Ok(JValue::Bool(
+            self.insecure_keypair
+                .public()
+                .verify(&data, &signature)
+                .is_ok(),
+        ))
+    }
+
+    fn insecure_get_peer_id(&self) -> Result<JValue, JError> {
+        Ok(JValue::String(
+            self.insecure_keypair.get_peer_id().to_base58(),
+        ))
     }
 }
 
