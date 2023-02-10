@@ -2252,7 +2252,7 @@ dependencies = [
 [[package]]
 name = "fluence-app-service"
 version = "0.23.0"
-source = "git+https://github.com/fluencelabs/marine?branch=marine-web-milestone2#38bb37927394d8f26f895b01e8ec7e4dd79016db"
+source = "git+https://github.com/fluencelabs/marine?branch=marine-web-milestone2#856bef3fa66c69e3850cad7dc91d2746b6f5d6b6"
 dependencies = [
  "log",
  "maplit",
@@ -3026,7 +3026,7 @@ dependencies = [
 [[package]]
 name = "it-json-serde"
 version = "0.3.5"
-source = "git+https://github.com/fluencelabs/marine?branch=marine-web-milestone2#38bb37927394d8f26f895b01e8ec7e4dd79016db"
+source = "git+https://github.com/fluencelabs/marine?branch=marine-web-milestone2#856bef3fa66c69e3850cad7dc91d2746b6f5d6b6"
 dependencies = [
  "serde",
  "serde_derive",
@@ -3806,7 +3806,7 @@ dependencies = [
 [[package]]
 name = "marine-core"
 version = "0.19.0"
-source = "git+https://github.com/fluencelabs/marine?branch=marine-web-milestone2#38bb37927394d8f26f895b01e8ec7e4dd79016db"
+source = "git+https://github.com/fluencelabs/marine?branch=marine-web-milestone2#856bef3fa66c69e3850cad7dc91d2746b6f5d6b6"
 dependencies = [
  "anyhow",
  "boolinator",
@@ -3854,7 +3854,7 @@ dependencies = [
 [[package]]
 name = "marine-it-generator"
 version = "0.9.5"
-source = "git+https://github.com/fluencelabs/marine?branch=marine-web-milestone2#38bb37927394d8f26f895b01e8ec7e4dd79016db"
+source = "git+https://github.com/fluencelabs/marine?branch=marine-web-milestone2#856bef3fa66c69e3850cad7dc91d2746b6f5d6b6"
 dependencies = [
  "it-lilo 0.4.1 (git+https://github.com/fluencelabs/interface-types?branch=feat/add-store)",
  "marine-it-parser 0.11.1 (git+https://github.com/fluencelabs/marine?branch=marine-web-milestone2)",
@@ -3880,7 +3880,7 @@ dependencies = [
 [[package]]
 name = "marine-it-interfaces"
 version = "0.7.3"
-source = "git+https://github.com/fluencelabs/marine?branch=marine-web-milestone2#38bb37927394d8f26f895b01e8ec7e4dd79016db"
+source = "git+https://github.com/fluencelabs/marine?branch=marine-web-milestone2#856bef3fa66c69e3850cad7dc91d2746b6f5d6b6"
 dependencies = [
  "multimap",
  "wasmer-interface-types-fl 0.25.0",
@@ -3908,7 +3908,7 @@ dependencies = [
 [[package]]
 name = "marine-it-parser"
 version = "0.11.1"
-source = "git+https://github.com/fluencelabs/marine?branch=marine-web-milestone2#38bb37927394d8f26f895b01e8ec7e4dd79016db"
+source = "git+https://github.com/fluencelabs/marine?branch=marine-web-milestone2#856bef3fa66c69e3850cad7dc91d2746b6f5d6b6"
 dependencies = [
  "anyhow",
  "itertools",
@@ -3960,7 +3960,7 @@ dependencies = [
 [[package]]
 name = "marine-min-it-version"
 version = "0.2.1"
-source = "git+https://github.com/fluencelabs/marine?branch=marine-web-milestone2#38bb37927394d8f26f895b01e8ec7e4dd79016db"
+source = "git+https://github.com/fluencelabs/marine?branch=marine-web-milestone2#856bef3fa66c69e3850cad7dc91d2746b6f5d6b6"
 dependencies = [
  "once_cell",
  "semver 1.0.14",
@@ -3985,7 +3985,7 @@ dependencies = [
 [[package]]
 name = "marine-module-info-parser"
 version = "0.5.1"
-source = "git+https://github.com/fluencelabs/marine?branch=marine-web-milestone2#38bb37927394d8f26f895b01e8ec7e4dd79016db"
+source = "git+https://github.com/fluencelabs/marine?branch=marine-web-milestone2#856bef3fa66c69e3850cad7dc91d2746b6f5d6b6"
 dependencies = [
  "anyhow",
  "chrono",
@@ -4018,7 +4018,7 @@ dependencies = [
 [[package]]
 name = "marine-module-interface"
 version = "0.6.1"
-source = "git+https://github.com/fluencelabs/marine?branch=marine-web-milestone2#38bb37927394d8f26f895b01e8ec7e4dd79016db"
+source = "git+https://github.com/fluencelabs/marine?branch=marine-web-milestone2#856bef3fa66c69e3850cad7dc91d2746b6f5d6b6"
 dependencies = [
  "anyhow",
  "itertools",
@@ -4085,7 +4085,7 @@ dependencies = [
 [[package]]
 name = "marine-runtime"
 version = "0.24.0"
-source = "git+https://github.com/fluencelabs/marine?branch=marine-web-milestone2#38bb37927394d8f26f895b01e8ec7e4dd79016db"
+source = "git+https://github.com/fluencelabs/marine?branch=marine-web-milestone2#856bef3fa66c69e3850cad7dc91d2746b6f5d6b6"
 dependencies = [
  "bytesize",
  "it-json-serde 0.3.5 (git+https://github.com/fluencelabs/marine?branch=marine-web-milestone2)",
@@ -4137,12 +4137,12 @@ checksum = "1cff7a23a7f3925a712c34dfb9cd87994012d7743f016fd1533e12ab5a8335ca"
 [[package]]
 name = "marine-utils"
 version = "0.4.0"
-source = "git+https://github.com/fluencelabs/marine?branch=marine-web-milestone2#38bb37927394d8f26f895b01e8ec7e4dd79016db"
+source = "git+https://github.com/fluencelabs/marine?branch=marine-web-milestone2#856bef3fa66c69e3850cad7dc91d2746b6f5d6b6"
 
 [[package]]
 name = "marine-wasm-backend-traits"
 version = "0.1.0"
-source = "git+https://github.com/fluencelabs/marine?branch=marine-web-milestone2#38bb37927394d8f26f895b01e8ec7e4dd79016db"
+source = "git+https://github.com/fluencelabs/marine?branch=marine-web-milestone2#856bef3fa66c69e3850cad7dc91d2746b6f5d6b6"
 dependencies = [
  "anyhow",
  "it-memory-traits 0.3.1 (git+https://github.com/fluencelabs/interface-types?branch=feat/add-store)",
@@ -4155,10 +4155,11 @@ dependencies = [
 [[package]]
 name = "marine-wasmtime-backend"
 version = "0.1.0"
-source = "git+https://github.com/fluencelabs/marine?branch=marine-web-milestone2#38bb37927394d8f26f895b01e8ec7e4dd79016db"
+source = "git+https://github.com/fluencelabs/marine?branch=marine-web-milestone2#856bef3fa66c69e3850cad7dc91d2746b6f5d6b6"
 dependencies = [
  "anyhow",
  "it-memory-traits 0.3.1 (git+https://github.com/fluencelabs/interface-types?branch=feat/add-store)",
+ "log",
  "marine-wasm-backend-traits",
  "multimap",
  "paste",
