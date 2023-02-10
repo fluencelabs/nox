@@ -59,11 +59,11 @@ jobs:
           publish: false
 
       - name: Run cargo build
-        run: cargo build --release -p particle-node
+        run: cargo build --profile release-with-debug -p particle-node
 
       - name: Calculate SHA256
         id: sha
-        working-directory: ./target/release
+        working-directory: ./target/release-with-debug
         run: |
           # Calculate sha256
           du -hs particle-node
@@ -75,7 +75,7 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: rust-peer
-          path: target/release/particle-node
+          path: target/release-with-debug/particle-node
 
   container:
     needs: build
