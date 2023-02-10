@@ -114,10 +114,38 @@ pub struct SpellTriggerConfigs {
     pub(crate) triggers: Vec<TriggerConfig>,
 }
 
+impl SpellTriggerConfigs {
+    pub fn into_rescheduled(self) -> Option<Self> {
+        let new_triggers: Vec<TriggerConfig> = self
+            .triggers
+            .into_iter()
+            .filter_map(|trigger| trigger.into_rescheduled())
+            .collect::<_>();
+        if new_triggers.len() == 0 {
+            None
+        } else {
+            Some(SpellTriggerConfigs {
+                triggers: new_triggers,
+            })
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub(crate) enum TriggerConfig {
     Timer(TimerConfig),
     PeerEvent(PeerEventConfig),
+}
+
+impl TriggerConfig {
+    pub fn into_rescheduled(self) -> Option<TriggerConfig> {
+        if let TriggerConfig::Timer(c) = self {
+            c.into_rescheduled().map(|x| TriggerConfig::Timer(x))
+        } else {
+            // Peer events can't stop being relevant
+            Some(self)
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -145,9 +173,168 @@ impl TimerConfig {
             end_at: Some(start_at),
         }
     }
+
+    pub fn into_rescheduled(self) -> Option<TimerConfig> {
+        let now = std::time::Instant::now();
+        // Check that the spell is ended
+        if self.end_at.map(|end_at| end_at <= now).unwrap_or(false) {
+            return None;
+        }
+        // Check that the spell is oneshot and is ended
+        if self.period == Duration::ZERO && self.start_at < now {
+            return None;
+        }
+        Some(self)
+    }
 }
 
 #[derive(Debug, Clone)]
 pub(crate) struct PeerEventConfig {
     pub(crate) events: Vec<PeerEventType>,
+}
+
+#[cfg(test)]
+mod trigger_config_tests {
+    use crate::api::PeerEventType;
+    use crate::config::{PeerEventConfig, SpellTriggerConfigs, TimerConfig, TriggerConfig};
+    use std::assert_matches::assert_matches;
+    use std::time::{Duration, Instant};
+
+    #[test]
+    fn test_reschedule_ok_periodic() {
+        let now = Instant::now();
+        // start in the past
+        let start_at = now - Duration::from_secs(120);
+        let timer_config = TimerConfig::periodic(Duration::from_secs(1), start_at, None);
+
+        let rescheduled = timer_config.into_rescheduled();
+        assert!(
+            rescheduled.is_some(),
+            "should be rescheduled since the config is periodic"
+        );
+    }
+
+    #[test]
+    fn test_reschedule_ok_periodic_end_future() {
+        let now = Instant::now();
+        // start in the past
+        let start_at = now - Duration::from_secs(120);
+        let end_at = now + Duration::from_secs(120);
+        let timer_config = TimerConfig::periodic(Duration::from_secs(1), start_at, Some(end_at));
+
+        let rescheduled = timer_config.into_rescheduled();
+        assert!(
+            rescheduled.is_some(),
+            "should be rescheduled since the config is periodic and doesn't end soon"
+        );
+    }
+
+    #[test]
+    fn test_reschedule_ok_oneshot_start_future() {
+        let now = Instant::now();
+        // start in the past
+        let start_at = now + Duration::from_secs(120);
+        let timer_config = TimerConfig::oneshot(start_at);
+
+        let rescheduled = timer_config.into_rescheduled();
+        assert!(
+            rescheduled.is_some(),
+            "should be rescheduled since the oneshot config start in the future"
+        );
+    }
+
+    #[test]
+    fn test_reschedule_fail_ended() {
+        let now = Instant::now();
+        // start in the past
+        let start_at = now - Duration::from_secs(120);
+        let timer_config = TimerConfig::oneshot(start_at);
+
+        let rescheduled = timer_config.into_rescheduled();
+        assert!(
+            rescheduled.is_none(),
+            "shouldn't be rescheduled since the config is ended"
+        );
+    }
+
+    #[test]
+    fn test_reschedule_fail_oneshot_executed() {
+        let now = Instant::now();
+        // start in the past
+        let start_at = now - Duration::from_secs(120);
+        let mut timer_config = TimerConfig::oneshot(start_at);
+        // oneshot config that ends in the future (not in use bth)
+        timer_config.end_at = Some(now + Duration::from_secs(120));
+
+        let rescheduled = timer_config.into_rescheduled();
+        assert!(
+            rescheduled.is_none(),
+            "shouldn't be rescheduled since the oneshot config already shot"
+        );
+    }
+
+    #[test]
+    fn test_peer_events() {
+        let peer_events = vec![PeerEventType::Connected, PeerEventType::Disconnected];
+        let peer_event_config = PeerEventConfig {
+            events: peer_events,
+        };
+        let trigger_config = TriggerConfig::PeerEvent(peer_event_config);
+        let rescheduled = trigger_config.into_rescheduled();
+        assert!(
+            rescheduled.is_some(),
+            "should be rescheduled since the config is periodic"
+        );
+    }
+
+    // Test that ended configs are filtered out after rescheduling
+    #[test]
+    fn test_both_types_ended() {
+        let peer_events = vec![PeerEventType::Connected, PeerEventType::Disconnected];
+        let peer_event_config = PeerEventConfig {
+            events: peer_events,
+        };
+        let peer_trigger_config = TriggerConfig::PeerEvent(peer_event_config);
+        let timer_config = TriggerConfig::Timer(TimerConfig::oneshot(
+            Instant::now() - Duration::from_secs(120),
+        ));
+        let spell_trigger_config = SpellTriggerConfigs {
+            triggers: vec![peer_trigger_config, timer_config],
+        };
+        let rescheduled = spell_trigger_config.into_rescheduled();
+        assert!(
+            rescheduled.is_some(),
+            "should be rescheduled since the config is periodic"
+        );
+        assert_matches!(
+            rescheduled.unwrap().triggers[..],
+            [TriggerConfig::PeerEvent(_)]
+        );
+    }
+
+    #[test]
+    fn test_both_types_ok() {
+        let peer_events = vec![PeerEventType::Connected, PeerEventType::Disconnected];
+        let peer_event_config = PeerEventConfig {
+            events: peer_events,
+        };
+        let peer_trigger_config = TriggerConfig::PeerEvent(peer_event_config);
+        let timer_config = TriggerConfig::Timer(TimerConfig::periodic(
+            Duration::from_secs(1),
+            Instant::now(),
+            None,
+        ));
+        let spell_trigger_config = SpellTriggerConfigs {
+            triggers: vec![peer_trigger_config, timer_config],
+        };
+        let rescheduled = spell_trigger_config.into_rescheduled();
+        assert!(
+            rescheduled.is_some(),
+            "should be rescheduled since the config is periodic"
+        );
+        assert_matches!(
+            rescheduled.unwrap().triggers[..],
+            [TriggerConfig::PeerEvent(_), TriggerConfig::Timer(_)]
+        );
+    }
 }
