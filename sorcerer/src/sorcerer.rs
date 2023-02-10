@@ -108,6 +108,7 @@ impl Sorcerer {
                 let spell_owner = self.services.get_service_owner(spell_id.clone())?;
                 let result = process_func_outcome::<TriggerConfigValue>(
                     self.services.call_function(
+                        spell_owner,
                         &spell_id,
                         "get_trigger_config",
                         vec![],
@@ -119,10 +120,12 @@ impl Sorcerer {
                     "get_trigger_config",
                 )?;
                 let config = from_user_config(result.config)?;
-                if let Some(config) = config {
+                if let Some(config) = config.and_then(|c| c.into_rescheduled()) {
                     self.spell_event_bus_api
                         .subscribe(spell_id.clone(), config.clone())
                         .await?;
+                } else {
+                    log::warn!("Spell {spell_id} is not rescheduled since its config is either not found or not reschedulable");
                 }
             };
             if let Err(e) = result {

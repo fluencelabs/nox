@@ -124,7 +124,7 @@ opt-level = 1
 
 # Enable high optimizations for dependencies, but not for our code:
 [profile.dev.package."*"]
-inherits = "release"
+opt-level = 3
 codegen-units = 256
 
 [profile.dev.package.clap]

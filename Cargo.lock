@@ -4763,7 +4763,7 @@ dependencies = [
 
 [[package]]
 name = "particle-node"
-version = "0.7.3"
+version = "0.7.4"
 dependencies = [
  "air-interpreter-fs",
  "air-interpreter-wasm",

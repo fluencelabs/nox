@@ -29,6 +29,7 @@ use server_config::ServicesConfig;
 
 use std::path::Path;
 
+#[allow(clippy::too_many_arguments)]
 pub fn create_app_service(
     config: ServicesConfig,
     modules: &ModuleRepository,
@@ -36,6 +37,7 @@ pub fn create_app_service(
     service_id: String,
     aliases: Vec<String>,
     owner_id: PeerId,
+    worker_id: PeerId,
     metrics: Option<&ServicesMetrics>,
 ) -> Result<AppService<DefaultWasmBackend>> {
     try {
@@ -63,7 +65,8 @@ pub fn create_app_service(
             .map_err(ServiceError::Engine)?;
 
         // Save created service to disk, so it is recreated on restart
-        let persisted = PersistedService::new(service_id, blueprint_id, aliases, owner_id);
+        let persisted =
+            PersistedService::new(service_id, blueprint_id, aliases, owner_id, worker_id);
         persist_service(&config.services_dir, persisted)?;
 
         service
