@@ -21,7 +21,7 @@ use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::Arc;
 
-use crate::error::PersistedKeypairError;
+use crate::error::{KeyManagerError, PersistedKeypairError};
 use crate::persistence::{load_persisted_keypairs, persist_keypair, PersistedKeypair};
 use parking_lot::RwLock;
 
@@ -105,12 +105,12 @@ impl KeyManager {
         }
     }
 
-    pub fn get_scope_keypair(&self, scope_peer_id: PeerId) -> eyre::Result<KeyPair> {
+    pub fn get_scope_keypair(&self, scope_peer_id: PeerId) -> Result<KeyPair, KeyManagerError> {
         self.scope_keypairs
             .read()
             .get(&scope_peer_id)
             .cloned()
-            .ok_or_else(|| eyre::eyre!("Keypair for peer id {} not found", scope_peer_id))
+            .ok_or_else(|| KeyManagerError::KeypairNotFound(scope_peer_id))
     }
 
     pub fn generate_keypair(&self) -> KeyPair {

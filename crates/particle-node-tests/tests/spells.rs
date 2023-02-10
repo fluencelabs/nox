@@ -23,7 +23,7 @@ use maplit::hashmap;
 use serde_json::{json, Value as JValue};
 
 use connected_client::ConnectedClient;
-use created_swarm::make_swarms;
+use created_swarm::{make_swarms, make_swarms_with_builtins};
 use fluence_spell_dtos::trigger_config::TriggerConfig;
 use log_utils::enable_logs;
 use service_modules::load_module;
@@ -1243,5 +1243,53 @@ fn resolve_global_alias() {
         .as_slice()
     {
         assert_eq!(*resolved, tetraplets_service.id);
+    }
+}
+
+#[test]
+fn worker_sig_test() {
+    let swarms = make_swarms_with_builtins(
+        1,
+        "tests/builtins/services".as_ref(),
+        None,
+        None,
+    );
+
+    let mut client = ConnectedClient::connect_to(
+        swarms[0].multiaddr.clone())
+        .wrap_err("connect client")
+        .unwrap();
+
+    let script = format!(
+        r#"
+        (seq
+            (seq
+                (call %init_peer_id% ("registry" "get_record_bytes") ["key_id" "" [] [] 1 []] data)
+                (seq
+                    (call %init_peer_id% ("sig" "sign") [data] sig_result)
+                    (call %init_peer_id% ("sig" "verify") [sig_result.$.signature.[0]! data] result)
+                )
+            )
+            (call "{0}" ("op" "return") [sig_result result])
+        )
+       "#,
+        client.peer_id
+    );
+
+    let mut config = TriggerConfig::default();
+    config.clock.period_sec = 2;
+    config.clock.start_sec = 1;
+    create_spell(&mut client, &script, config, json!({}));
+
+    use serde_json::Value::Bool;
+    use serde_json::Value::Object;
+
+    if let [Object(sig_result), Bool(result)] =
+        client.receive_args().unwrap().as_slice()
+    {
+        assert!(sig_result["success"].as_bool().unwrap());
+        assert!(result);
+    } else {
+        panic!("incorrect args: expected two arguments")
     }
 }

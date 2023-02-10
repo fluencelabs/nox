@@ -101,6 +101,7 @@ pub struct ParticleAppServices {
     services: Arc<RwLock<Services>>,
     modules: ModuleRepository,
     aliases: Arc<RwLock<Aliases>>,
+    // TODO: move these peer ids to key manager
     management_peer_id: PeerId,
     builtins_management_peer_id: PeerId,
     pub metrics: Option<ServicesMetrics>,
@@ -302,14 +303,15 @@ impl ParticleAppServices {
             }
         };
 
-        if service.worker_id != worker_id {
-            return FunctionOutcome::Err(JError::from(
-                ServiceError::CallServiceFailedWrongWorker {
-                    service_id,
-                    worker_id,
-                },
-            ));
-        }
+        // TODO: figure out how to use builtins (like registry) from worker scopes
+        // if service.worker_id != worker_id {
+        //     return FunctionOutcome::Err(JError::from(
+        //         ServiceError::CallServiceFailedWrongWorker {
+        //             service_id,
+        //             worker_id,
+        //         },
+        //     ));
+        // }
 
         let service_type = ServiceType::Service(service.aliases.first().cloned());
 

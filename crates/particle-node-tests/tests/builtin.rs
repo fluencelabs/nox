@@ -1436,8 +1436,8 @@ fn sign_invalid_tetraplets() {
         client.receive_args().unwrap().as_slice()
     {
         assert!(host_error.contains(&format!("data is expected to be produced by service 'registry' on peer '{relay}', was from peer '{wrong_peer}'")));
-        assert!(srv_error.contains("data is expected to result from a call to 'registry.get_record_bytes', was from 'op.identity'"));
-        assert!(func_error.contains("data is expected to result from a call to 'registry.get_record_bytes', was from 'registry.get_key_bytes'"));
+        assert!(srv_error.contains("data is expected to result from a call to 'registry.get_record_bytes' or 'registry.get_record_metadata_bytes', was from 'op.identity'"));
+        assert!(func_error.contains("data is expected to result from a call to 'registry.get_record_bytes' or 'registry.get_record_metadata_bytes', was from 'registry.get_key_bytes'"));
     } else {
         panic!("incorrect args: expected three arguments")
     }

@@ -202,6 +202,7 @@ impl<RT: AquaRuntime> Node<RT> {
             script_storage_api,
             services_metrics,
             config.node_config.root_key_pair.clone(),
+            key_manager.clone(),
         ));
 
         let (effects_out, effects_in) = unbounded();
@@ -317,6 +318,7 @@ impl<RT: AquaRuntime> Node<RT> {
         script_storage_api: ScriptStorageApi,
         services_metrics: ServicesMetrics,
         root_keypair: KeyPair,
+        key_manager: KeyManager,
     ) -> Builtins<Connectivity> {
         let node_info = NodeInfo {
             external_addresses,
@@ -331,6 +333,7 @@ impl<RT: AquaRuntime> Node<RT> {
             services_config,
             services_metrics,
             root_keypair,
+            key_manager
         )
     }
 }

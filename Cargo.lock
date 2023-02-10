@@ -3951,6 +3951,7 @@ dependencies = [
  "itertools",
  "ivalue-utils",
  "kademlia",
+ "key-manager",
  "libp2p",
  "log",
  "multihash",

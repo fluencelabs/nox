@@ -36,6 +36,7 @@ use JValue::Array;
 
 use connection_pool::{ConnectionPoolApi, ConnectionPoolT};
 use kademlia::{KademliaApi, KademliaApiT};
+use key_manager::KeyManager;
 use now_millis::{now_ms, now_sec};
 use particle_args::{from_base58, Args, ArgsError, JError};
 use particle_execution::{FunctionOutcome, ParticleParams, ServiceFunction};
@@ -69,6 +70,7 @@ pub struct Builtins<C> {
     pub connectivity: C,
     pub script_storage: ScriptStorageApi,
 
+    // TODO: move all peer ids and keypairs to key manager
     pub management_peer_id: PeerId,
     pub builtins_management_peer_id: PeerId,
     pub local_peer_id: PeerId,
@@ -83,11 +85,13 @@ pub struct Builtins<C> {
     pub custom_services: RwLock<HashMap<String, CustomService>>,
 
     particles_vault_dir: path::PathBuf,
+    #[derivative(Debug = "ignore")]
+    key_manager: KeyManager,
 }
 
 impl<C> Builtins<C>
-where
-    C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoolApi>,
+    where
+        C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoolApi>,
 {
     pub fn new(
         connectivity: C,
@@ -96,6 +100,7 @@ where
         config: ServicesConfig,
         services_metrics: ServicesMetrics,
         root_keypair: KeyPair,
+        key_manager: KeyManager,
     ) -> Self {
         let modules_dir = &config.modules_dir;
         let blueprint_dir = &config.blueprint_dir;
@@ -125,6 +130,7 @@ where
             node_info,
             particles_vault_dir,
             custom_services: <_>::default(),
+            key_manager,
         }
     }
 
@@ -170,97 +176,97 @@ where
         use Result as R;
         #[rustfmt::skip]
         match (args.service_id.as_str(), args.function_name.as_str()) {
-            ("peer", "identify")              => ok(json!(self.node_info)),
-            ("peer", "timestamp_ms")          => ok(json!(now_ms() as u64)),
-            ("peer", "timestamp_sec")         => ok(json!(now_sec())),
-            ("peer", "is_connected")          => wrap(self.is_connected(args).await),
-            ("peer", "connect")               => wrap(self.connect(args).await),
-            ("peer", "get_contact")           => self.get_contact(args).await,
-            ("peer", "timeout")               => self.timeout(args).await,
+            ("peer", "identify") => ok(json!(self.node_info)),
+            ("peer", "timestamp_ms") => ok(json!(now_ms() as u64)),
+            ("peer", "timestamp_sec") => ok(json!(now_sec())),
+            ("peer", "is_connected") => wrap(self.is_connected(args).await),
+            ("peer", "connect") => wrap(self.connect(args).await),
+            ("peer", "get_contact") => self.get_contact(args).await,
+            ("peer", "timeout") => self.timeout(args).await,
 
-            ("kad", "neighborhood")           => wrap(self.neighborhood(args).await),
-            ("kad", "neigh_with_addrs")       => wrap(self.neighborhood_with_addresses(args).await),
-            ("kad", "merge")                  => wrap(self.kad_merge(args.function_args)),
+            ("kad", "neighborhood") => wrap(self.neighborhood(args).await),
+            ("kad", "neigh_with_addrs") => wrap(self.neighborhood_with_addresses(args).await),
+            ("kad", "merge") => wrap(self.kad_merge(args.function_args)),
 
-            ("srv", "list")                   => ok(self.list_services()),
-            ("srv", "create")                 => wrap(self.create_service(args, particle)),
-            ("srv", "get_interface")          => wrap(self.get_interface(args, particle)),
-            ("srv", "resolve_alias")          => wrap(self.resolve_alias(args, particle)),
-            ("srv", "add_alias")              => wrap_unit(self.add_alias(args, particle)),
-            ("srv", "remove")                 => wrap_unit(self.remove_service(args, particle)),
+            ("srv", "list") => ok(self.list_services()),
+            ("srv", "create") => wrap(self.create_service(args, particle)),
+            ("srv", "get_interface") => wrap(self.get_interface(args, particle)),
+            ("srv", "resolve_alias") => wrap(self.resolve_alias(args, particle)),
+            ("srv", "add_alias") => wrap_unit(self.add_alias(args, particle)),
+            ("srv", "remove") => wrap_unit(self.remove_service(args, particle)),
 
             ("dist", "add_module_from_vault") => wrap(self.add_module_from_vault(args, particle)),
-            ("dist", "add_module")            => wrap(self.add_module(args)),
-            ("dist", "add_blueprint")         => wrap(self.add_blueprint(args)),
-            ("dist", "make_module_config")    => wrap(make_module_config(args)),
-            ("dist", "load_module_config")    => wrap(self.load_module_config_from_vault(args, particle)),
+            ("dist", "add_module") => wrap(self.add_module(args)),
+            ("dist", "add_blueprint") => wrap(self.add_blueprint(args)),
+            ("dist", "make_module_config") => wrap(make_module_config(args)),
+            ("dist", "load_module_config") => wrap(self.load_module_config_from_vault(args, particle)),
             ("dist", "default_module_config") => wrap(self.default_module_config(args)),
-            ("dist", "make_blueprint")        => wrap(self.make_blueprint(args)),
-            ("dist", "load_blueprint")        => wrap(self.load_blueprint_from_vault(args, particle)),
-            ("dist", "list_modules")          => wrap(self.list_modules()),
-            ("dist", "get_module_interface")  => wrap(self.get_module_interface(args)),
-            ("dist", "list_blueprints")       => wrap(self.get_blueprints()),
+            ("dist", "make_blueprint") => wrap(self.make_blueprint(args)),
+            ("dist", "load_blueprint") => wrap(self.load_blueprint_from_vault(args, particle)),
+            ("dist", "list_modules") => wrap(self.list_modules()),
+            ("dist", "get_module_interface") => wrap(self.get_module_interface(args)),
+            ("dist", "list_blueprints") => wrap(self.get_blueprints()),
 
-            ("script", "add")                 => wrap(self.add_script_from_arg(args, particle)),
-            ("script", "add_from_vault")      => wrap(self.add_script_from_vault(args, particle)),
-            ("script", "remove")              => wrap(self.remove_script(args, particle).await),
-            ("script", "list")                => wrap(self.list_scripts().await),
+            ("script", "add") => wrap(self.add_script_from_arg(args, particle)),
+            ("script", "add_from_vault") => wrap(self.add_script_from_vault(args, particle)),
+            ("script", "remove") => wrap(self.remove_script(args, particle).await),
+            ("script", "list") => wrap(self.list_scripts().await),
 
-            ("op", "noop")                    => FunctionOutcome::Empty,
-            ("op", "array")                   => ok(Array(args.function_args)),
-            ("op", "array_length")            => wrap(self.array_length(args.function_args)),
-            ("op", "concat")                  => wrap(self.concat(args.function_args)),
-            ("op", "string_to_b58")           => wrap(self.string_to_b58(args.function_args)),
-            ("op", "string_from_b58")         => wrap(self.string_from_b58(args.function_args)),
-            ("op", "bytes_from_b58")          => wrap(self.bytes_from_b58(args.function_args)),
-            ("op", "bytes_to_b58")            => wrap(self.bytes_to_b58(args.function_args)),
-            ("op", "sha256_string")           => wrap(self.sha256_string(args.function_args)),
-            ("op", "concat_strings")          => wrap(self.concat_strings(args.function_args)),
-            ("op", "identity")                => self.identity(args.function_args),
+            ("op", "noop") => FunctionOutcome::Empty,
+            ("op", "array") => ok(Array(args.function_args)),
+            ("op", "array_length") => wrap(self.array_length(args.function_args)),
+            ("op", "concat") => wrap(self.concat(args.function_args)),
+            ("op", "string_to_b58") => wrap(self.string_to_b58(args.function_args)),
+            ("op", "string_from_b58") => wrap(self.string_from_b58(args.function_args)),
+            ("op", "bytes_from_b58") => wrap(self.bytes_from_b58(args.function_args)),
+            ("op", "bytes_to_b58") => wrap(self.bytes_to_b58(args.function_args)),
+            ("op", "sha256_string") => wrap(self.sha256_string(args.function_args)),
+            ("op", "concat_strings") => wrap(self.concat_strings(args.function_args)),
+            ("op", "identity") => self.identity(args.function_args),
 
-            ("debug", "stringify")            => self.stringify(args.function_args),
+            ("debug", "stringify") => self.stringify(args.function_args),
 
             ("stat", "service_memory") => wrap(self.service_mem_stats(args, particle)),
-            ("stat", "service_stat")   => wrap(self.service_stat(args, particle)),
+            ("stat", "service_stat") => wrap(self.service_stat(args, particle)),
 
-            ("math", "add")        => binary(args, |x: i64, y: i64| -> R<i64, _> { math::add(x, y) }),
-            ("math", "sub")        => binary(args, |x: i64, y: i64| -> R<i64, _> { math::sub(x, y) }),
-            ("math", "mul")        => binary(args, |x: i64, y: i64| -> R<i64, _> { math::mul(x, y) }),
-            ("math", "fmul")       => binary(args, |x: f64, y: f64| -> R<i64, _> { math::fmul_floor(x, y) }),
-            ("math", "div")        => binary(args, |x: i64, y: i64| -> R<i64, _> { math::div(x, y) }),
-            ("math", "rem")        => binary(args, |x: i64, y: i64| -> R<i64, _> { math::rem(x, y) }),
-            ("math", "pow")        => binary(args, |x: i64, y: u32| -> R<i64, _> { math::pow(x, y) }),
-            ("math", "log")        => binary(args, |x: i64, y: i64| -> R<u32, _> { math::log(x, y) }),
+            ("math", "add") => binary(args, |x: i64, y: i64| -> R<i64, _> { math::add(x, y) }),
+            ("math", "sub") => binary(args, |x: i64, y: i64| -> R<i64, _> { math::sub(x, y) }),
+            ("math", "mul") => binary(args, |x: i64, y: i64| -> R<i64, _> { math::mul(x, y) }),
+            ("math", "fmul") => binary(args, |x: f64, y: f64| -> R<i64, _> { math::fmul_floor(x, y) }),
+            ("math", "div") => binary(args, |x: i64, y: i64| -> R<i64, _> { math::div(x, y) }),
+            ("math", "rem") => binary(args, |x: i64, y: i64| -> R<i64, _> { math::rem(x, y) }),
+            ("math", "pow") => binary(args, |x: i64, y: u32| -> R<i64, _> { math::pow(x, y) }),
+            ("math", "log") => binary(args, |x: i64, y: i64| -> R<u32, _> { math::log(x, y) }),
 
-            ("cmp", "gt")          => binary(args, |x: i64, y: i64| -> R<bool, _> { math::gt(x, y) }),
-            ("cmp", "gte")         => binary(args, |x: i64, y: i64| -> R<bool, _> { math::gte(x, y) }),
-            ("cmp", "lt")          => binary(args, |x: i64, y: i64| -> R<bool, _> { math::lt(x, y) }),
-            ("cmp", "lte")         => binary(args, |x: i64, y: i64| -> R<bool, _> { math::lte(x, y) }),
-            ("cmp", "cmp")         => binary(args, |x: i64, y: i64| -> R<i8, _> { math::cmp(x, y) }),
+            ("cmp", "gt") => binary(args, |x: i64, y: i64| -> R<bool, _> { math::gt(x, y) }),
+            ("cmp", "gte") => binary(args, |x: i64, y: i64| -> R<bool, _> { math::gte(x, y) }),
+            ("cmp", "lt") => binary(args, |x: i64, y: i64| -> R<bool, _> { math::lt(x, y) }),
+            ("cmp", "lte") => binary(args, |x: i64, y: i64| -> R<bool, _> { math::lte(x, y) }),
+            ("cmp", "cmp") => binary(args, |x: i64, y: i64| -> R<i8, _> { math::cmp(x, y) }),
 
-            ("array", "sum")       => unary(args, |xs: Vec<i64> | -> R<i64, _> { math::array_sum(xs) }),
-            ("array", "dedup")     => unary(args, |xs: Vec<String>| -> R<Vec<String>, _> { math::dedup(xs) }),
+            ("array", "sum") => unary(args, |xs: Vec<i64>| -> R<i64, _> { math::array_sum(xs) }),
+            ("array", "dedup") => unary(args, |xs: Vec<String>| -> R<Vec<String>, _> { math::dedup(xs) }),
             ("array", "intersect") => binary(args, |xs: HashSet<String>, ys: HashSet<String>| -> R<Vec<String>, _> { math::intersect(xs, ys) }),
-            ("array", "diff")      => binary(args, |xs: HashSet<String>, ys: HashSet<String>| -> R<Vec<String>, _> { math::diff(xs, ys) }),
-            ("array", "sdiff")     => binary(args, |xs: HashSet<String>, ys: HashSet<String>| -> R<Vec<String>, _> { math::sdiff(xs, ys) }),
-            ("array", "slice")     => wrap(self.array_slice(args.function_args)),
-            ("array", "length")    => wrap(self.array_length(args.function_args)),
+            ("array", "diff") => binary(args, |xs: HashSet<String>, ys: HashSet<String>| -> R<Vec<String>, _> { math::diff(xs, ys) }),
+            ("array", "sdiff") => binary(args, |xs: HashSet<String>, ys: HashSet<String>| -> R<Vec<String>, _> { math::sdiff(xs, ys) }),
+            ("array", "slice") => wrap(self.array_slice(args.function_args)),
+            ("array", "length") => wrap(self.array_length(args.function_args)),
 
-            ("sig", "sign")        => wrap(self.sign(args)),
-            ("sig", "verify")      => wrap(self.verify(args)),
-            ("sig", "get_peer_id") => wrap(self.get_peer_id()),
+            ("sig", "sign") => wrap(self.sign(args, particle)),
+            ("sig", "verify") => wrap(self.verify(args, particle)),
+            ("sig", "get_peer_id") => wrap(self.get_peer_id(particle)),
 
-            ("json", "obj")        => wrap(json::obj(args)),
-            ("json", "put")        => wrap(json::put(args)),
-            ("json", "puts")       => wrap(json::puts(args)),
-            ("json", "parse")      => unary(args, |s: String| -> R<JValue, _> { json::parse(&s) }),
-            ("json", "stringify")  => unary(args, |v: JValue| -> R<String, _> { Ok(json::stringify(v)) }),
-            ("json", "obj_pairs")  => unary(args, |vs: Vec<(String, JValue)>| -> R<JValue, _> { json::obj_from_pairs(vs) }),
+            ("json", "obj") => wrap(json::obj(args)),
+            ("json", "put") => wrap(json::put(args)),
+            ("json", "puts") => wrap(json::puts(args)),
+            ("json", "parse") => unary(args, |s: String| -> R<JValue, _> { json::parse(&s) }),
+            ("json", "stringify") => unary(args, |v: JValue| -> R<String, _> { Ok(json::stringify(v)) }),
+            ("json", "obj_pairs") => unary(args, |vs: Vec<(String, JValue)>| -> R<JValue, _> { json::obj_from_pairs(vs) }),
             ("json", "puts_pairs") => binary(args, |obj: JValue, vs: Vec<(String, JValue)>| -> R<JValue, _> { json::puts_from_pairs(obj, vs) }),
 
             ("run-console", "print") => wrap_unit(Ok(log::debug!(target: "run-console", "{}", json!(args.function_args)))),
 
-            _                      => FunctionOutcome::NotDefined { args, params: particle },
+            _ => FunctionOutcome::NotDefined { args, params: particle },
         }
     }
 
@@ -650,7 +656,7 @@ where
 
         if start > end || end > array.len() {
             return Err(JError::new(format!(
-                "slice indexes out of bounds. start index: {:?}, end index: {:?}, array length: {:?}", 
+                "slice indexes out of bounds. start index: {:?}, end index: {:?}, array length: {:?}",
                 start, end, array.len())
             ));
         }
@@ -877,7 +883,7 @@ where
         }
     }
 
-    fn sign(&self, args: Args) -> Result<JValue, JError> {
+    fn sign(&self, args: Args, params: ParticleParams) -> Result<JValue, JError> {
         let tetraplets = args.tetraplets;
         let mut args = args.function_args.into_iter();
         let result: Result<JValue, JError> = try {
@@ -885,7 +891,7 @@ where
 
             let tetraplet = tetraplets.get(0).map(|v| v.as_slice());
             if let Some([t]) = tetraplet {
-                if t.peer_pk != self.local_peer_id.to_base58() {
+                if t.peer_pk != self.local_peer_id.to_base58() && !self.key_manager.is_scope_peer_id(PeerId::from_str(&t.peer_pk)?) {
                     return Err(JError::new(format!(
                         "data is expected to be produced by service 'registry' on peer '{}', was from peer '{}'",
                         self.local_peer_id, t.peer_pk
@@ -893,10 +899,10 @@ where
                 }
 
                 if (t.service_id.as_str(), t.function_name.as_str())
-                    != ("registry", "get_record_bytes")
+                    != ("registry", "get_record_bytes") && (t.service_id.as_str(), t.function_name.as_str()) != ("registry", "get_record_metadata_bytes")
                 {
                     return Err(JError::new(format!(
-                        "data is expected to result from a call to 'registry.get_record_bytes', was from '{}.{}'",
+                        "data is expected to result from a call to 'registry.get_record_bytes' or 'registry.get_record_metadata_bytes', was from '{}.{}'",
                         t.service_id, t.function_name
                     )));
                 }
@@ -910,7 +916,13 @@ where
                 return Err(JError::new(format!("expected tetraplet for a scalar argument, got tetraplet for an array: {tetraplet:?}, tetraplets")));
             }
 
-            json!(self.root_keypair.sign(&data)?.to_vec())
+            if params.host_id == self.local_peer_id {
+                json!(self.root_keypair.sign(&data)?.to_vec())
+            } else {
+                // if this call is initiated by worker on these worker as host_id and init_peer_id
+                let keypair = self.key_manager.get_scope_keypair(params.init_peer_id)?;
+                json!(keypair.sign(&data)?.to_vec())
+            }
         };
 
         match result {
@@ -928,20 +940,31 @@ where
         }
     }
 
-    fn verify(&self, args: Args) -> Result<JValue, JError> {
+    fn verify(&self, args: Args, params: ParticleParams) -> Result<JValue, JError> {
         let mut args = args.function_args.into_iter();
         let signature: Vec<u8> = Args::next("signature", &mut args)?;
         let data: Vec<u8> = Args::next("data", &mut args)?;
         let signature =
             Signature::from_bytes(self.root_keypair.public().get_key_format(), signature);
 
-        Ok(JValue::Bool(
-            self.root_keypair.public().verify(&data, &signature).is_ok(),
-        ))
+        // TODO: move root_keypair to key_manager and unify verification
+        if params.host_id == self.local_peer_id {
+            Ok(JValue::Bool(
+                self.root_keypair.public().verify(&data, &signature).is_ok(),
+            ))
+        } else {
+            Ok(JValue::Bool(
+                self.key_manager.get_scope_keypair(params.host_id)?.public().verify(&data, &signature).is_ok(),
+            ))
+        }
     }
 
-    fn get_peer_id(&self) -> Result<JValue, JError> {
-        Ok(JValue::String(self.root_keypair.get_peer_id().to_base58()))
+    fn get_peer_id(&self, params: ParticleParams) -> Result<JValue, JError> {
+        if params.host_id == self.local_peer_id {
+            Ok(JValue::String(self.root_keypair.get_peer_id().to_base58()))
+        } else {
+            Ok(JValue::String(self.key_manager.get_scope_peer_id(params.init_peer_id)?.to_base58()))
+        }
     }
 }
 
@@ -994,11 +1017,11 @@ fn make_module_config(args: Args) -> Result<JValue, JError> {
 
 fn parse_from_str<T>(
     field: &'static str,
-    mut args: &mut impl Iterator<Item = JValue>,
+    mut args: &mut impl Iterator<Item=JValue>,
 ) -> Result<Option<T>, JError>
-where
-    T: FromStr + for<'a> Deserialize<'a>,
-    <T as FromStr>::Err: std::error::Error + 'static,
+    where
+        T: FromStr + for<'a> Deserialize<'a>,
+        <T as FromStr>::Err: std::error::Error + 'static,
 {
     #[derive(thiserror::Error, Debug)]
     #[error("Error while deserializing field {field_name}")]
@@ -1032,7 +1055,7 @@ where
                 field_name: field.to_string(),
                 err,
             }
-            .into()
+                .into()
         })
 }
 
