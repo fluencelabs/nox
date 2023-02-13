@@ -460,12 +460,13 @@ impl ParticleAppServices {
             .get_mut(&service_id)
             .ok_or_else(|| ServiceError::NoSuchService(service_id.clone()))?;
 
-        if service.worker_id != worker_id {
-            return Err(ServiceError::AliasWrongWorkerId {
-                service_id,
-                worker_id: service.worker_id,
-            });
-        }
+        // TODO: figure out how to check for builtins (like registry, aqua-ipfs)
+        // if service.worker_id != worker_id {
+        //     return Err(ServiceError::AliasWrongWorkerId {
+        //         service_id,
+        //         worker_id: service.worker_id,
+        //     });
+        // }
 
         service.add_alias(alias.clone());
         let persisted_new = PersistedService::from_service(service_id.clone(), service);
