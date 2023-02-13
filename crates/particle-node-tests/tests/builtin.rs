@@ -1629,6 +1629,62 @@ fn json_builtins() {
     }
 }
 
+#[test]
+fn insecure_sign_verify() {
+    let kp = KeyPair::generate_ed25519();
+    let swarms = make_swarms_with_builtins(
+        1,
+        "tests/builtins/services".as_ref(),
+        Some(kp.clone()),
+        None,
+    );
+
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .wrap_err("connect client")
+        .unwrap();
+
+    client.send_particle(
+        r#"
+            (seq
+                (seq
+                    (call relay ("registry" "get_record_bytes") ["key_id" "" [] [] 1 []] data)
+                    (seq
+                        (call relay ("insecure_sig" "sign") [data] sig_result)
+                        (call relay ("insecure_sig" "verify") [sig_result.$.signature.[0]! data] result)
+                    )
+                )
+                (call %init_peer_id% ("op" "return") [data sig_result result])
+            )
+        "#,
+        hashmap! {
+            "relay" => json!(client.node.to_string()),
+        },
+    );
+
+    use serde_json::Value::Array;
+    use serde_json::Value::Bool;
+    use serde_json::Value::Object;
+
+    if let [Array(data), Object(sig_result), Bool(result)] =
+        client.receive_args().unwrap().as_slice()
+    {
+        let data: Vec<_> = data.iter().map(|n| n.as_u64().unwrap() as u8).collect();
+
+        assert!(sig_result["success"].as_bool().unwrap());
+        let signature = sig_result["signature"].as_array().unwrap()[0]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|n| n.as_u64().unwrap() as u8)
+            .collect();
+        let signature = Signature::from_bytes(kp.public().get_key_format(), signature);
+        assert!(result);
+        assert!(kp.public().verify(&data, &signature).is_ok());
+    } else {
+        panic!("incorrect args: expected three arguments")
+    }
+}
+
 fn binary(
     service: &str,
     func: &str,

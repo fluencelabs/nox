@@ -128,7 +128,7 @@ where
             node_info,
             particles_vault_dir,
             custom_services: <_>::default(),
-            insecure_keypair: KeyPair::from_secret_key((1..32).collect(), KeyFormat::Ed25519)
+            insecure_keypair: KeyPair::from_secret_key((0..32).collect(), KeyFormat::Ed25519)
                 .expect("error creating insecure keypair"),
         }
     }
