@@ -2687,6 +2687,7 @@ dependencies = [
  "log",
  "parking_lot 0.12.1",
  "serde",
+ "server-config",
  "thiserror",
  "toml",
 ]
@@ -4163,6 +4164,7 @@ dependencies = [
  "fs-utils",
  "humantime-serde",
  "json-utils",
+ "key-manager",
  "libp2p-core",
  "log",
  "now-millis",

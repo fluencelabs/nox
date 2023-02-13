@@ -17,14 +17,11 @@
 use fs_utils::{create_dirs, set_write_only, to_abs_path};
 
 use bytesize::ByteSize;
-use libp2p::PeerId;
 use std::collections::HashMap;
 use std::path::PathBuf;
 
 #[derive(Debug, Clone)]
 pub struct ServicesConfig {
-    /// Peer id of the current node
-    pub local_peer_id: PeerId,
     /// Path of the blueprint directory containing blueprints and wasm modules
     pub blueprint_dir: PathBuf,
     /// Opaque environment variables to be passed on each service creation
@@ -39,10 +36,6 @@ pub struct ServicesConfig {
     /// Dir to store directories shared between services
     /// in the span of a single particle execution  
     pub particles_vault_dir: PathBuf,
-    /// key that could manage services
-    pub management_peer_id: PeerId,
-    /// key to manage builtins services initialization
-    pub builtins_management_peer_id: PeerId,
     /// Maximum heap size in bytes available for the module.
     pub max_heap_size: ByteSize,
     /// Default heap size in bytes available for the module unless otherwise specified.
@@ -52,27 +45,21 @@ pub struct ServicesConfig {
 impl ServicesConfig {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        local_peer_id: PeerId,
         base_dir: PathBuf,
         particles_vault_dir: PathBuf,
         envs: HashMap<Vec<u8>, Vec<u8>>,
-        management_peer_id: PeerId,
-        builtins_management_peer_id: PeerId,
         max_heap_size: ByteSize,
         default_heap_size: Option<ByteSize>,
     ) -> Result<Self, std::io::Error> {
         let base_dir = to_abs_path(base_dir);
 
         let this = Self {
-            local_peer_id,
             blueprint_dir: config_utils::blueprint_dir(&base_dir),
             workdir: config_utils::workdir(&base_dir),
             modules_dir: config_utils::modules_dir(&base_dir),
             services_dir: config_utils::services_dir(&base_dir),
             particles_vault_dir,
             envs,
-            management_peer_id,
-            builtins_management_peer_id,
             max_heap_size,
             default_heap_size,
         };

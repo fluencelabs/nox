@@ -9,6 +9,7 @@ edition = "2021"
 fs-utils = { workspace = true }
 fluence-libp2p = { workspace = true}
 fluence-keypair = { workspace = true }
+server-config = { workspace = true }
 
 parking_lot = { workspace = true }
 eyre = { workspace = true }

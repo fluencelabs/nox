@@ -101,9 +101,6 @@ pub struct ParticleAppServices {
     services: Arc<RwLock<Services>>,
     modules: ModuleRepository,
     aliases: Arc<RwLock<Aliases>>,
-    // TODO: move these peer ids to key manager
-    management_peer_id: PeerId,
-    builtins_management_peer_id: PeerId,
     pub metrics: Option<ServicesMetrics>,
 }
 
@@ -152,16 +149,13 @@ impl ParticleAppServices {
         metrics: Option<ServicesMetrics>,
     ) -> Self {
         let vault = ParticleVault::new(config.particles_vault_dir.clone());
-        let management_peer_id = config.management_peer_id;
-        let builtins_management_peer_id = config.builtins_management_peer_id;
+
         let this = Self {
             config,
             vault,
             services: <_>::default(),
             modules,
             aliases: <_>::default(),
-            management_peer_id,
-            builtins_management_peer_id,
             metrics,
         };
 
