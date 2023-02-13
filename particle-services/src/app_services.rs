@@ -302,14 +302,15 @@ impl ParticleAppServices {
             }
         };
 
-        if service.worker_id != worker_id {
-            return FunctionOutcome::Err(JError::from(
-                ServiceError::CallServiceFailedWrongWorker {
-                    service_id,
-                    worker_id,
-                },
-            ));
-        }
+        // TODO: figure out how to check for builtins (like registry, aqua-ipfs)
+        // if service.worker_id != worker_id {
+        //     return FunctionOutcome::Err(JError::from(
+        //         ServiceError::CallServiceFailedWrongWorker {
+        //             service_id,
+        //             worker_id,
+        //         },
+        //     ));
+        // }
 
         let service_type = ServiceType::Service(service.aliases.first().cloned());
 
