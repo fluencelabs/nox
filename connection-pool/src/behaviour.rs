@@ -431,11 +431,7 @@ impl NetworkBehaviour for ConnectionPoolBehaviour {
         // mark failed addresses as such
         if let Some(failed_addresses) = failed_addresses {
             for addr in failed_addresses {
-                log::warn!(
-                    "failed to connect to {} {}",
-                    addr,
-                    peer_id
-                );
+                log::warn!("failed to connect to {} {}", addr, peer_id);
 
                 self.cleanup_address(Some(peer_id), addr)
             }
