@@ -41,6 +41,16 @@ jobs:
       - name: Setup Rust toolchain
         uses: actions-rust-lang/setup-rust-toolchain@v1
 
+      - name: Set current profile
+        run: |
+            echo "PROFILE=release" >> $GITHUB_ENV
+        if: !contains( github.event.pull_request.labels.*.name, 'profiling')
+
+      - name: Set current profile
+        run: |
+          echo "PROFILE=profiling" >> $GITHUB_ENV
+        if: contains( github.event.pull_request.labels.*.name, 'profiling')
+
       - name: Set dependencies
         if: inputs.cargo-dependencies != ''
         uses: fluencelabs/github-actions/cargo-set-dependency@main
@@ -59,11 +69,11 @@ jobs:
           publish: false
 
       - name: Run cargo build
-        run: cargo build --profile release-with-debug -p particle-node
+        run: cargo build --profile ${{ profile }} -p particle-node
 
       - name: Calculate SHA256
         id: sha
-        working-directory: ./target/release-with-debug
+        working-directory: ./target/${{ profile }}
         run: |
           # Calculate sha256
           du -hs particle-node
@@ -71,11 +81,13 @@ jobs:
           sha=($(sha256sum particle-node))
           echo "sha256=${sha}" >> $GITHUB_OUTPUT
 
+
       - name: Upload rust-peer binary
         uses: actions/upload-artifact@v3
         with:
           name: rust-peer
-          path: target/release-with-debug/particle-node
+          path: target/${{ profile }}/particle-node
+
 
   container:
     needs: build
