@@ -46,8 +46,8 @@ jobs:
         uses: actions-rust-lang/setup-rust-toolchain@v1
 
       - name: Set profile
+        id: profile
         run: |
-          bin/run_normal_tests
           if [[ -n "$GITHUB_PR_LABEL_PROFILING" ]]; then
             echo "profile=profiling" >> $GITHUB_OUTPUTS
           else
@@ -72,11 +72,11 @@ jobs:
           publish: false
 
       - name: Run cargo build
-        run: cargo build --profile ${{ steps.labels.outputs.profile }} -p particle-node
+        run: cargo build --profile ${{ steps.profile.outputs.profile }} -p particle-node
 
       - name: Calculate SHA256
         id: sha
-        working-directory: ./target/${{ steps.labels.outputs.profile }}
+        working-directory: ./target/${{ steps.profile.outputs.profile }}
         run: |
           # Calculate sha256
           du -hs particle-node
@@ -88,7 +88,7 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: rust-peer
-          path: target/${{ steps.labels.outputs.profile }}/particle-node
+          path: target/${{ steps.profile.outputs.profile }}/particle-node
 
   container:
     needs: build
