@@ -44,12 +44,12 @@ jobs:
       - name: Set current profile
         run: |
             echo "PROFILE=release" >> $GITHUB_ENV
-        if: !contains( github.event.pull_request.labels.*.name, 'profiling')
+        if: {{ !contains( github.event.pull_request.labels.*.name, 'profiling') }}
 
       - name: Set current profile
         run: |
           echo "PROFILE=profiling" >> $GITHUB_ENV
-        if: contains( github.event.pull_request.labels.*.name, 'profiling')
+        if: {{ contains( github.event.pull_request.labels.*.name, 'profiling') }}
 
       - name: Set dependencies
         if: inputs.cargo-dependencies != ''
