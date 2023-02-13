@@ -207,10 +207,10 @@ impl Sorcerer {
                         spell_event_bus_api,
                         key_manager,
                     )
-                        .await,
+                    .await,
                 )
             }
-                .boxed()
+            .boxed()
         })
     }
 
@@ -228,7 +228,7 @@ impl Sorcerer {
             async move {
                 wrap_unit(spell_remove(args, params, storage, services, api, key_manager).await)
             }
-                .boxed()
+            .boxed()
         })
     }
 
