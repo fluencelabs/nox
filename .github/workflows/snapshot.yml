@@ -49,9 +49,9 @@ jobs:
         id: profile
         run: |
           if [[ -n "$GITHUB_PR_LABEL_PROFILING" ]]; then
-            echo "profile=profiling" >> $GITHUB_OUTPUTS
+            echo "profile=profiling" >> $GITHUB_OUTPUT
           else
-            echo "profile=release" >> $GITHUB_OUTPUTS
+            echo "profile=release" >> $GITHUB_OUTPUT
           fi
 
       - name: Set dependencies
