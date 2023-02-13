@@ -22,7 +22,7 @@ use std::str::FromStr;
 use std::time::Duration;
 
 use eyre::{Report, WrapErr};
-use fluence_keypair::{KeyPair, Signature};
+use fluence_keypair::{KeyFormat, KeyPair, Signature};
 use itertools::Itertools;
 use libp2p::core::Multiaddr;
 use libp2p::kad::kbucket::Key;
@@ -1626,6 +1626,62 @@ fn json_builtins() {
         assert_eq!(&of_expected, outer_first_parsed);
     } else {
         panic!("Result is of incorrect shape: {:?}", result);
+    }
+}
+
+#[test]
+fn insecure_sign_verify() {
+    let kp = KeyPair::from_secret_key((0..32).collect(), KeyFormat::Ed25519).unwrap();
+    let swarms = make_swarms_with_builtins(
+        1,
+        "tests/builtins/services".as_ref(),
+        Some(kp.clone()),
+        None,
+    );
+
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .wrap_err("connect client")
+        .unwrap();
+
+    client.send_particle(
+        r#"
+            (seq
+                (seq
+                    (call relay ("registry" "get_record_bytes") ["key_id" "" [] [] 1 []] data)
+                    (seq
+                        (call relay ("insecure_sig" "sign") [data] sig_result)
+                        (call relay ("insecure_sig" "verify") [sig_result.$.signature.[0]! data] result)
+                    )
+                )
+                (call %init_peer_id% ("op" "return") [data sig_result result])
+            )
+        "#,
+        hashmap! {
+            "relay" => json!(client.node.to_string()),
+        },
+    );
+
+    use serde_json::Value::Array;
+    use serde_json::Value::Bool;
+    use serde_json::Value::Object;
+
+    if let [Array(data), Object(sig_result), Bool(result)] =
+        client.receive_args().unwrap().as_slice()
+    {
+        let data: Vec<_> = data.iter().map(|n| n.as_u64().unwrap() as u8).collect();
+
+        assert!(sig_result["success"].as_bool().unwrap());
+        let signature = sig_result["signature"].as_array().unwrap()[0]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|n| n.as_u64().unwrap() as u8)
+            .collect();
+        let signature = Signature::from_bytes(kp.public().get_key_format(), signature);
+        assert!(result);
+        assert!(kp.public().verify(&data, &signature).is_ok());
+    } else {
+        panic!("incorrect args: expected three arguments")
     }
 }
 
