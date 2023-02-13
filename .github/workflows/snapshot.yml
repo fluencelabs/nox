@@ -40,7 +40,7 @@ jobs:
 
       - name: Get PR labels
         id: labels
-        uses: joerick/pr-labels-action@v1
+        uses: joerick/pr-labels-action@v1.0.7
 
       - name: Setup Rust toolchain
         uses: actions-rust-lang/setup-rust-toolchain@v1
