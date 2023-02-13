@@ -22,7 +22,7 @@ use std::str::FromStr;
 use std::time::Duration;
 
 use eyre::{Report, WrapErr};
-use fluence_keypair::{KeyPair, Signature};
+use fluence_keypair::{KeyFormat, KeyPair, Signature};
 use itertools::Itertools;
 use libp2p::core::Multiaddr;
 use libp2p::kad::kbucket::Key;
@@ -1631,7 +1631,7 @@ fn json_builtins() {
 
 #[test]
 fn insecure_sign_verify() {
-    let kp = KeyPair::generate_ed25519();
+    let kp = KeyPair::from_secret_key((0..32).collect(), KeyFormat::Ed25519).unwrap();
     let swarms = make_swarms_with_builtins(
         1,
         "tests/builtins/services".as_ref(),
