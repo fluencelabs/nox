@@ -20,6 +20,7 @@ use std::time::Duration;
 use async_std::task::{spawn, JoinHandle};
 use fluence_spell_dtos::trigger_config::TriggerConfigValue;
 use futures::{FutureExt, StreamExt};
+use serde_json::Value;
 
 use aquamarine::AquamarineApi;
 use fluence_libp2p::types::Inlet;
@@ -167,6 +168,7 @@ impl Sorcerer {
 
         let mut get_data_srv = SpellBuiltin::new("getDataSrv");
         get_data_srv.append("spell_id", self.make_get_spell_id_closure().into());
+        get_data_srv.append("-relay-", self.make_get_relay_closure().into());
         get_data_srv.set_unhandled(self.make_get_spell_arg_closure().into());
         spell_builtins.push(get_data_srv);
 
@@ -205,10 +207,10 @@ impl Sorcerer {
                         spell_event_bus_api,
                         key_manager,
                     )
-                    .await,
+                        .await,
                 )
             }
-            .boxed()
+                .boxed()
         })
     }
 
@@ -226,7 +228,7 @@ impl Sorcerer {
             async move {
                 wrap_unit(spell_remove(args, params, storage, services, api, key_manager).await)
             }
-            .boxed()
+                .boxed()
         })
     }
 
@@ -252,6 +254,14 @@ impl Sorcerer {
 
     fn make_get_spell_id_closure(&self) -> ServiceFunctionImmut {
         Box::new(move |_, params| async move { wrap(get_spell_id(params)) }.boxed())
+    }
+
+    fn make_get_relay_closure(&self) -> ServiceFunctionImmut {
+        let relay_peer_id = self.key_manager.get_host_peer_id().to_base58();
+        Box::new(move |_, _| {
+            let relay = relay_peer_id.clone();
+            async move { wrap(Ok(Value::String(relay))) }.boxed()
+        })
     }
 
     fn make_get_spell_arg_closure(&self) -> ServiceFunctionImmut {

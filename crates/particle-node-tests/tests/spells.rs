@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 #![feature(assert_matches)]
+
 use std::assert_matches::assert_matches;
 use std::collections::HashMap;
 use std::time::Duration;
@@ -177,7 +178,7 @@ fn spell_args_test() {
     let mut config = TriggerConfig::default();
     config.clock.period_sec = 1;
     config.clock.start_sec = 1;
-    let expected_value = json! ({"a": "b", "c": 1});
+    let expected_value = json!({"a": "b", "c": 1});
     create_spell(
         &mut client,
         &script,
@@ -1007,6 +1008,7 @@ fn spell_peer_id_test() {
 
     assert_eq!(result, scope_peer_id);
 }
+
 #[test]
 fn spell_update_config() {
     let swarms = make_swarms(1);
@@ -1205,8 +1207,8 @@ fn resolve_global_alias() {
         swarms[0].multiaddr.clone(),
         Some(swarms[0].management_keypair.clone()),
     )
-    .wrap_err("connect client")
-    .unwrap();
+        .wrap_err("connect client")
+        .unwrap();
 
     let tetraplets_service = create_service(
         &mut client,
@@ -1243,5 +1245,41 @@ fn resolve_global_alias() {
         .as_slice()
     {
         assert_eq!(*resolved, tetraplets_service.id);
+    }
+}
+
+#[test]
+fn spell_relay_id_test() {
+    let swarms = make_swarms(1);
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .wrap_err("connect client")
+        .unwrap();
+
+    let script = format!(
+        r#"
+        (seq
+            (seq
+                (call %init_peer_id% ("getDataSrv" "-relay-") [] -relay-)
+                (call -relay- ("op" "identity") [-relay-] also_relay)
+            )
+            (call "{}" ("return" "") [also_relay])
+        )"#,
+        client.peer_id
+    );
+
+    let mut config = TriggerConfig::default();
+    config.clock.period_sec = 1;
+    config.clock.start_sec = 1;
+    create_spell(
+        &mut client,
+        &script,
+        config,
+        json!({}),
+    );
+
+    if let [JValue::String(relay_id)] = client.receive_args().wrap_err("receive").unwrap().as_slice() {
+        assert_eq!(*relay_id, client.node.to_base58());
+    } else {
+        panic!("expected one string result")
     }
 }
