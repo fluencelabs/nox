@@ -4091,6 +4091,7 @@ dependencies = [
  "humantime-serde",
  "itertools",
  "json-utils",
+ "key-manager",
  "libp2p",
  "local-vm",
  "log",

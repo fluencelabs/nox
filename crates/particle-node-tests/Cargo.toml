@@ -31,6 +31,7 @@ script-storage = { workspace = true }
 aquamarine = { workspace = true }
 sorcerer = { workspace = true }
 fluence-keypair = { workspace = true }
+key-manager = { workspace = true }
 fluence-libp2p = { workspace = true }
 humantime-serde = "1.1.1"
 

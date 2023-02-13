@@ -39,6 +39,7 @@ use created_swarm::{
 use fluence_libp2p::RandomPeerId;
 use fluence_libp2p::Transport;
 use json_utils::into_array;
+use key_manager::INSECURE_KEYPAIR_SEED;
 use now_millis::now_ms;
 use particle_protocol::Particle;
 use service_modules::load_module;
@@ -1631,7 +1632,7 @@ fn json_builtins() {
 
 #[test]
 fn insecure_sign_verify() {
-    let kp = KeyPair::from_secret_key((0..32).collect(), KeyFormat::Ed25519).unwrap();
+    let kp = KeyPair::from_secret_key(INSECURE_KEYPAIR_SEED.collect(), KeyFormat::Ed25519).unwrap();
     let swarms = make_swarms_with_builtins(
         1,
         "tests/builtins/services".as_ref(),

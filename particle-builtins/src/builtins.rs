@@ -23,7 +23,7 @@ use std::str::FromStr;
 use std::time::{Duration, Instant};
 
 use derivative::Derivative;
-use fluence_keypair::{KeyFormat, KeyPair, Signature};
+use fluence_keypair::{KeyPair, Signature};
 use futures::stream::FuturesUnordered;
 use futures::StreamExt;
 use humantime_serde::re::humantime::format_duration as pretty;
@@ -85,11 +85,9 @@ pub struct Builtins<C> {
     pub custom_services: RwLock<HashMap<String, CustomService>>,
 
     particles_vault_dir: path::PathBuf,
-    #[derivative(Debug = "ignore")]
-    key_manager: KeyManager,
 
     #[derivative(Debug = "ignore")]
-    insecure_keypair: KeyPair,
+    key_manager: KeyManager,
 }
 
 impl<C> Builtins<C>
@@ -134,8 +132,6 @@ where
             particles_vault_dir,
             custom_services: <_>::default(),
             key_manager,
-            insecure_keypair: KeyPair::from_secret_key((0..32).collect(), KeyFormat::Ed25519)
-                .expect("error creating insecure keypair"),
         }
     }
 
@@ -994,7 +990,7 @@ where
         let mut args = args.function_args.into_iter();
         let result: Result<JValue, JError> = try {
             let data: Vec<u8> = Args::next("data", &mut args)?;
-            json!(self.insecure_keypair.sign(&data)?.to_vec())
+            json!(self.key_manager.insecure_keypair.sign(&data)?.to_vec())
         };
 
         match result {
@@ -1017,10 +1013,10 @@ where
         let signature: Vec<u8> = Args::next("signature", &mut args)?;
         let data: Vec<u8> = Args::next("data", &mut args)?;
         let signature =
-            Signature::from_bytes(self.insecure_keypair.public().get_key_format(), signature);
+            Signature::from_bytes(self.key_manager.insecure_keypair.public().get_key_format(), signature);
 
         Ok(JValue::Bool(
-            self.insecure_keypair
+            self.key_manager.insecure_keypair
                 .public()
                 .verify(&data, &signature)
                 .is_ok(),
@@ -1029,7 +1025,7 @@ where
 
     fn insecure_get_peer_id(&self) -> Result<JValue, JError> {
         Ok(JValue::String(
-            self.insecure_keypair.get_peer_id().to_base58(),
+            self.key_manager.insecure_keypair.get_peer_id().to_base58(),
         ))
     }
 }
