@@ -303,7 +303,7 @@ impl ParticleAppServices {
             }
         };
 
-        // TODO: figure out how to use builtins (like registry) from worker scopes
+        // TODO: figure out how to check for builtins (like registry, aqua-ipfs)
         // if service.worker_id != worker_id {
         //     return FunctionOutcome::Err(JError::from(
         //         ServiceError::CallServiceFailedWrongWorker {
