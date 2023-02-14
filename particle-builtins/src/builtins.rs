@@ -70,6 +70,13 @@ pub struct Builtins<C> {
     pub connectivity: C,
     pub script_storage: ScriptStorageApi,
 
+    // TODO: move all peer ids and keypairs to key manager
+    pub management_peer_id: PeerId,
+    pub builtins_management_peer_id: PeerId,
+    pub local_peer_id: PeerId,
+    #[derivative(Debug = "ignore")]
+    pub root_keypair: KeyPair,
+
     pub modules: ModuleRepository,
     pub services: ParticleAppServices,
     pub node_info: NodeInfo,
@@ -93,6 +100,7 @@ where
         node_info: NodeInfo,
         config: ServicesConfig,
         services_metrics: ServicesMetrics,
+        root_keypair: KeyPair,
         key_manager: KeyManager,
     ) -> Self {
         let modules_dir = &config.modules_dir;
@@ -106,11 +114,18 @@ where
             config.default_heap_size,
         );
         let particles_vault_dir = vault_dir.to_path_buf();
+        let management_peer_id = config.management_peer_id;
+        let builtins_management_peer_id = config.builtins_management_peer_id;
+        let local_peer_id = config.local_peer_id;
         let services = ParticleAppServices::new(config, modules.clone(), Some(services_metrics));
 
         Self {
             connectivity,
             script_storage,
+            management_peer_id,
+            builtins_management_peer_id,
+            local_peer_id,
+            root_keypair,
             modules,
             services,
             node_info,
@@ -881,7 +896,11 @@ where
 
             let tetraplet = tetraplets.get(0).map(|v| v.as_slice());
             if let Some([t]) = tetraplet {
-                if !self.key_manager.is_local(PeerId::from_str(&t.peer_pk)?) {
+                if t.peer_pk != self.local_peer_id.to_base58()
+                    && !self
+                        .key_manager
+                        .is_scope_peer_id(PeerId::from_str(&t.peer_pk)?)
+                {
                     return Err(JError::new(format!(
                         "data is expected to be produced by service 'registry' on peer '{}', was from peer '{}'",
                         self.local_peer_id, t.peer_pk
@@ -912,7 +931,7 @@ where
                 json!(self.root_keypair.sign(&data)?.to_vec())
             } else {
                 // if this call is initiated by worker on these worker as host_id and init_peer_id
-                let keypair = self.key_manager.get_worker_keypair(params.init_peer_id)?;
+                let keypair = self.key_manager.get_scope_keypair(params.init_peer_id)?;
                 json!(keypair.sign(&data)?.to_vec())
             }
         };
@@ -947,7 +966,7 @@ where
         } else {
             Ok(JValue::Bool(
                 self.key_manager
-                    .get_worker_keypair(params.host_id)?
+                    .get_scope_keypair(params.host_id)?
                     .public()
                     .verify(&data, &signature)
                     .is_ok(),
@@ -993,14 +1012,11 @@ where
         let mut args = args.function_args.into_iter();
         let signature: Vec<u8> = Args::next("signature", &mut args)?;
         let data: Vec<u8> = Args::next("data", &mut args)?;
-        let signature = Signature::from_bytes(
-            self.key_manager.insecure_keypair.public().get_key_format(),
-            signature,
-        );
+        let signature =
+            Signature::from_bytes(self.key_manager.insecure_keypair.public().get_key_format(), signature);
 
         Ok(JValue::Bool(
-            self.key_manager
-                .insecure_keypair
+            self.key_manager.insecure_keypair
                 .public()
                 .verify(&data, &signature)
                 .is_ok(),

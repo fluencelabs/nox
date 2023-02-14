@@ -111,15 +111,16 @@ impl<RT: AquaRuntime> Node<RT> {
 
         let key_manager = KeyManager::new(
             config.dir_config.keypairs_base_dir.clone(),
-            config.node_config.root_key_pair,
-            config.management_peer_id,
-            config.node_config.builtins_key_pair,
+            to_peer_id(&key_pair),
         );
 
         let services_config = ServicesConfig::new(
+            key_manager.get_host_peer_id(),
             config.dir_config.services_base_dir.clone(),
             config_utils::particles_vault_dir(&config.dir_config.avm_base_dir),
             config.services_envs.clone(),
+            config.management_peer_id,
+            builtins_peer_id,
             config.node_config.module_max_heap_size,
             config.node_config.module_default_heap_size,
         )
@@ -200,6 +201,7 @@ impl<RT: AquaRuntime> Node<RT> {
             services_config,
             script_storage_api,
             services_metrics,
+            config.node_config.root_key_pair.clone(),
             key_manager.clone(),
         ));
 
@@ -315,6 +317,7 @@ impl<RT: AquaRuntime> Node<RT> {
         services_config: ServicesConfig,
         script_storage_api: ScriptStorageApi,
         services_metrics: ServicesMetrics,
+        root_keypair: KeyPair,
         key_manager: KeyManager,
     ) -> Builtins<Connectivity> {
         let node_info = NodeInfo {
@@ -329,6 +332,7 @@ impl<RT: AquaRuntime> Node<RT> {
             node_info,
             services_config,
             services_metrics,
+            root_keypair,
             key_manager,
         )
     }

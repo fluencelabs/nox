@@ -18,7 +18,6 @@ particle-execution = { workspace = true }
 peer-metrics = { workspace = true }
 uuid-utils = { workspace = true }
 now-millis = { workspace = true }
-key-manager = { workspace = true }
 
 fluence-app-service = { workspace = true }
 

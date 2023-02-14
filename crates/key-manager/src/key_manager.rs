@@ -26,17 +26,14 @@ use crate::error::{KeyManagerError, PersistedKeypairError};
 use crate::persistence::{load_persisted_keypairs, persist_keypair, PersistedKeypair};
 use parking_lot::RwLock;
 
-pub const INSECURE_KEYPAIR_SEED: Range<u8> = 0..32;
+pub  const INSECURE_KEYPAIR_SEED: Range<u8> = 0..32;
 
 #[derive(Clone)]
 pub struct KeyManager {
-    pub management_peer_id: PeerId,
-    pub builtins_management_peer_id: PeerId,
-    pub root_keypair: KeyPair,
-    /// worker_peer_id -> worker_keypair
-    worker_keypairs: Arc<RwLock<HashMap<PeerId, KeyPair>>>,
-    /// remote_peer_id -> worker_peer_id
-    worker_peer_ids: Arc<RwLock<HashMap<PeerId, PeerId>>>,
+    /// scope_peer_id -> scope_keypair
+    scope_keypairs: Arc<RwLock<HashMap<PeerId, KeyPair>>>,
+    /// remote_peer_id -> scope_peer_id
+    scope_peer_ids: Arc<RwLock<HashMap<PeerId, PeerId>>>,
     keypairs_dir: PathBuf,
     host_peer_id: PeerId,
     // temporary public, will refactor
@@ -44,25 +41,14 @@ pub struct KeyManager {
 }
 
 impl KeyManager {
-    pub fn new(
-        keypairs_dir: PathBuf,
-        root_keypair: KeyPair,
-        management_peer_id: PeerId,
-        builtins_kp: KeyPair,
-    ) -> Self {
+    pub fn new(keypairs_dir: PathBuf, host_peer_id: PeerId) -> Self {
         let this = Self {
-            management_peer_id,
-            builtins_management_peer_id: builtins_kp.get_peer_id(),
-            host_peer_id: root_keypair.get_peer_id(),
-            root_keypair,
-            worker_keypairs: Arc::new(Default::default()),
-            worker_peer_ids: Arc::new(Default::default()),
+            scope_keypairs: Arc::new(Default::default()),
+            scope_peer_ids: Arc::new(Default::default()),
             keypairs_dir,
-            insecure_keypair: KeyPair::from_secret_key(
-                INSECURE_KEYPAIR_SEED.collect(),
-                KeyFormat::Ed25519,
-            )
-            .expect("error creating insecure keypair"),
+            host_peer_id,
+            insecure_keypair: KeyPair::from_secret_key(INSECURE_KEYPAIR_SEED.collect(), KeyFormat::Ed25519)
+                .expect("error creating insecure keypair"),
         };
 
         this.load_persisted_keypairs();
@@ -80,11 +66,11 @@ impl KeyManager {
                     KeyFormat::from_str(&persisted_kp.key_format)?,
                 )?;
                 let peer_id = keypair.get_peer_id();
-                self.worker_peer_ids
+                self.scope_peer_ids
                     .write()
                     .insert(persisted_kp.remote_peer_id, keypair.get_peer_id());
 
-                self.worker_keypairs.write().insert(peer_id, keypair);
+                self.scope_keypairs.write().insert(peer_id, keypair);
             };
 
             if let Err(e) = res {
@@ -98,12 +84,11 @@ impl KeyManager {
     }
 
     pub fn has_keypair(&self, remote_peer_id: PeerId) -> bool {
-        self.worker_peer_ids.read().contains_key(&remote_peer_id)
+        self.scope_peer_ids.read().contains_key(&remote_peer_id)
     }
 
-    pub fn is_local(&self, worker_peer_id: PeerId) -> bool {
-        self.host_peer_id.eq(&worker_peer_id)
-            || self.worker_keypairs.read().contains_key(&worker_peer_id)
+    pub fn is_scope_peer_id(&self, scope_peer_id: PeerId) -> bool {
+        self.scope_keypairs.read().contains_key(&scope_peer_id)
     }
 
     /// For local peer ids is identity,
@@ -111,10 +96,10 @@ impl KeyManager {
     pub fn get_scope_peer_id(&self, init_peer_id: PeerId) -> Result<PeerId, PersistedKeypairError> {
         // All "nested" spells share the same keypair.
         // "nested" means spells which are created by other spells
-        if self.is_local(init_peer_id) {
+        if self.is_scope_peer_id(init_peer_id) {
             Ok(init_peer_id)
         } else {
-            let scope_peer_id = self.worker_peer_ids.read().get(&init_peer_id).cloned();
+            let scope_peer_id = self.scope_peer_ids.read().get(&init_peer_id).cloned();
             match scope_peer_id {
                 Some(p) => Ok(p),
                 _ => {
@@ -127,8 +112,8 @@ impl KeyManager {
         }
     }
 
-    pub fn get_worker_keypair(&self, scope_peer_id: PeerId) -> Result<KeyPair, KeyManagerError> {
-        self.worker_keypairs
+    pub fn get_scope_keypair(&self, scope_peer_id: PeerId) -> Result<KeyPair, KeyManagerError> {
+        self.scope_keypairs
             .read()
             .get(&scope_peer_id)
             .cloned()
@@ -149,11 +134,11 @@ impl KeyManager {
             PersistedKeypair::new(remote_peer_id, &keypair)?,
         )?;
         let scope_peer_id = keypair.get_peer_id();
-        self.worker_peer_ids
+        self.scope_peer_ids
             .write()
             .insert(remote_peer_id, scope_peer_id);
 
-        self.worker_keypairs.write().insert(scope_peer_id, keypair);
+        self.scope_keypairs.write().insert(scope_peer_id, keypair);
 
         Ok(())
     }
