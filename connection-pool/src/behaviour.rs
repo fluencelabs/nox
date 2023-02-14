@@ -370,13 +370,7 @@ impl ConnectionPoolBehaviour {
         })
     }
 
-    fn fail_address(&mut self, peer_id: Option<&PeerId>, addr: &Multiaddr) {
-        log::warn!(
-            "failed to connect to {} {}",
-            addr,
-            peer_id.map_or("unknown".to_string(), |id| id.to_string())
-        );
-
+    fn cleanup_address(&mut self, peer_id: Option<&PeerId>, addr: &Multiaddr) {
         // Notify those who waits for address dial
         if let Some(outs) = self.dialing.remove(addr) {
             for out in outs {
@@ -400,7 +394,7 @@ impl ConnectionPoolBehaviour {
             if contact.connected.is_empty() && contact.dialing.is_empty() {
                 self.remove_contact(
                     peer_id,
-                    "no more connected or dialed addresses after 'fail_address' call",
+                    "no more connected or dialed addresses after 'cleanup_address' call",
                 );
             }
         };
@@ -437,7 +431,9 @@ impl NetworkBehaviour for ConnectionPoolBehaviour {
         // mark failed addresses as such
         if let Some(failed_addresses) = failed_addresses {
             for addr in failed_addresses {
-                self.fail_address(Some(peer_id), addr)
+                log::warn!("failed to connect to {} {}", addr, peer_id);
+
+                self.cleanup_address(Some(peer_id), addr)
             }
         }
 
@@ -487,7 +483,7 @@ impl NetworkBehaviour for ConnectionPoolBehaviour {
             )
         }
 
-        self.fail_address(Some(peer_id), multiaddr);
+        self.cleanup_address(Some(peer_id), multiaddr);
     }
 
     fn inject_dial_failure(
@@ -523,11 +519,11 @@ impl NetworkBehaviour for ConnectionPoolBehaviour {
                     ConnectedPoint::Dialer { address, .. } => address,
                     ConnectedPoint::Listener { send_back_addr, .. } => send_back_addr,
                 };
-                self.fail_address(peer_id.as_ref(), addr);
+                self.cleanup_address(peer_id.as_ref(), addr);
             }
             DialError::Transport(addrs) => {
                 for (addr, _) in addrs {
-                    self.fail_address(peer_id.as_ref(), addr);
+                    self.cleanup_address(peer_id.as_ref(), addr);
                 }
             }
             _ => {}
