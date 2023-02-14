@@ -227,8 +227,8 @@ where
 
             ("debug", "stringify")            => self.stringify(args.function_args),
 
-            ("stat", "service_memory") => wrap(self.service_mem_stats(args, particle)),
-            ("stat", "service_stat")   => wrap(self.service_stat(args, particle)),
+            ("stat", "service_memory")        => wrap(self.service_mem_stats(args, particle)),
+            ("stat", "service_stat")          => wrap(self.service_stat(args, particle)),
 
             ("math", "add")                   => binary(args, |x: i64, y: i64| -> R<i64, _> { math::add(x, y) }),
             ("math", "sub")                   => binary(args, |x: i64, y: i64| -> R<i64, _> { math::sub(x, y) }),
