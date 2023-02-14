@@ -101,6 +101,7 @@ pub struct ParticleAppServices {
     services: Arc<RwLock<Services>>,
     modules: ModuleRepository,
     aliases: Arc<RwLock<Aliases>>,
+    // TODO: move these peer ids to key manager
     management_peer_id: PeerId,
     builtins_management_peer_id: PeerId,
     pub metrics: Option<ServicesMetrics>,

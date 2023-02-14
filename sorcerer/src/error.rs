@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use key_manager::KeyManagerError;
 use particle_protocol::ParticleError;
 use thiserror::Error;
 
@@ -27,7 +28,7 @@ pub enum SorcererError {
     #[error("Keypair for spell {spell_id} is missing: {err}")]
     ScopeKeypairMissing {
         #[source]
-        err: eyre::Report,
+        err: KeyManagerError,
         spell_id: String,
     },
 }
