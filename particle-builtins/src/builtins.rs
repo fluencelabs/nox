@@ -907,11 +907,11 @@ where
                     )));
                 }
 
-                if (t.service_id.as_str(), t.function_name.as_str())
-                    != ("registry", "get_record_bytes")
-                    && (t.service_id.as_str(), t.function_name.as_str())
-                        != ("registry", "get_record_metadata_bytes")
-                {
+                let duplet = (t.service_id.as_str(), t.function_name.as_str());
+                let metadata_bytes = ("registry", "get_record_metadata_bytes");
+                let record_bytes = ("registry", "get_record_bytes");
+
+                if duplet != record_bytes && duplet != metadata_bytes {
                     return Err(JError::new(format!(
                         "data is expected to result from a call to 'registry.get_record_bytes' or 'registry.get_record_metadata_bytes', was from '{}.{}'",
                         t.service_id, t.function_name
@@ -1012,11 +1012,14 @@ where
         let mut args = args.function_args.into_iter();
         let signature: Vec<u8> = Args::next("signature", &mut args)?;
         let data: Vec<u8> = Args::next("data", &mut args)?;
-        let signature =
-            Signature::from_bytes(self.key_manager.insecure_keypair.public().get_key_format(), signature);
+        let signature = Signature::from_bytes(
+            self.key_manager.insecure_keypair.public().get_key_format(),
+            signature,
+        );
 
         Ok(JValue::Bool(
-            self.key_manager.insecure_keypair
+            self.key_manager
+                .insecure_keypair
                 .public()
                 .verify(&data, &signature)
                 .is_ok(),

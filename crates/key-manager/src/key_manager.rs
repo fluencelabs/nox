@@ -26,7 +26,7 @@ use crate::error::{KeyManagerError, PersistedKeypairError};
 use crate::persistence::{load_persisted_keypairs, persist_keypair, PersistedKeypair};
 use parking_lot::RwLock;
 
-pub  const INSECURE_KEYPAIR_SEED: Range<u8> = 0..32;
+pub const INSECURE_KEYPAIR_SEED: Range<u8> = 0..32;
 
 #[derive(Clone)]
 pub struct KeyManager {
@@ -47,8 +47,11 @@ impl KeyManager {
             scope_peer_ids: Arc::new(Default::default()),
             keypairs_dir,
             host_peer_id,
-            insecure_keypair: KeyPair::from_secret_key(INSECURE_KEYPAIR_SEED.collect(), KeyFormat::Ed25519)
-                .expect("error creating insecure keypair"),
+            insecure_keypair: KeyPair::from_secret_key(
+                INSECURE_KEYPAIR_SEED.collect(),
+                KeyFormat::Ed25519,
+            )
+            .expect("error creating insecure keypair"),
         };
 
         this.load_persisted_keypairs();
