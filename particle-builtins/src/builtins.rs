@@ -930,7 +930,7 @@ where
             if params.host_id == self.local_peer_id {
                 json!(self.root_keypair.sign(&data)?.to_vec())
             } else {
-                // if this call is initiated by worker on these worker as host_id and init_peer_id
+                // if this call is initiated by the worker on this worker as host_id and init_peer_id
                 let keypair = self.key_manager.get_scope_keypair(params.init_peer_id)?;
                 json!(keypair.sign(&data)?.to_vec())
             }
