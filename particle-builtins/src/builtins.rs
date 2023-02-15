@@ -24,8 +24,6 @@ use std::time::{Duration, Instant};
 
 use derivative::Derivative;
 use fluence_keypair::{KeyPair, Signature};
-use futures::stream::FuturesUnordered;
-use futures::StreamExt;
 use humantime_serde::re::humantime::format_duration as pretty;
 use libp2p::{core::Multiaddr, kad::kbucket::Key, kad::K_VALUE, PeerId};
 use multihash::{Code, MultihashDigest, MultihashGeneric};
@@ -194,7 +192,8 @@ where
             ("srv", "get_interface")          => wrap(self.get_interface(args, particle)),
             ("srv", "resolve_alias")          => wrap(self.resolve_alias(args, particle)),
             ("srv", "add_alias")              => wrap_unit(self.add_alias(args, particle)),
-            ("srv", "remove")                 => wrap_unit(self.remove_service(args, particle)),
+            ("srv", "remove") => wrap_unit(self.remove_service(args, particle)),
+            ("srv", "info") => wrap(self.get_service_info(args, particle)),
 
             ("dist", "add_module_from_vault") => wrap(self.add_module_from_vault(args, particle)),
             ("dist", "add_module")            => wrap(self.add_module(args)),
@@ -206,7 +205,8 @@ where
             ("dist", "load_blueprint")        => wrap(self.load_blueprint_from_vault(args, particle)),
             ("dist", "list_modules")          => wrap(self.list_modules()),
             ("dist", "get_module_interface")  => wrap(self.get_module_interface(args)),
-            ("dist", "list_blueprints")       => wrap(self.get_blueprints()),
+            ("dist", "list_blueprints") => wrap(self.get_blueprints()),
+            ("dist", "get_blueprint") => wrap(self.get_blueprint(args)),
 
             ("script", "add")                 => wrap(self.add_script_from_arg(args, particle)),
             ("script", "add_from_vault")      => wrap(self.add_script_from_vault(args, particle)),
@@ -303,6 +303,9 @@ where
     }
 
     async fn neighborhood_with_addresses(&self, args: Args) -> Result<JValue, JError> {
+        use futures::stream::FuturesUnordered;
+        use futures::StreamExt;
+
         let neighbors = self.neighbor_peers(args).await?;
         let neighbors = neighbors
             .into_iter()
@@ -789,6 +792,15 @@ where
             .collect()
     }
 
+    fn get_blueprint(&self, args: Args) -> Result<JValue, JError> {
+        let mut args = args.function_args.into_iter();
+        let blueprint_id: String = Args::next("blueprint_id", &mut args)?;
+
+        let blueprint = self.modules.get_blueprint_from_cache(&blueprint_id)?;
+
+        Ok(json!(blueprint))
+    }
+
     fn create_service(&self, args: Args, params: ParticleParams) -> Result<JValue, JError> {
         let mut args = args.function_args.into_iter();
         let blueprint_id: String = Args::next("blueprint_id", &mut args)?;
@@ -842,6 +854,16 @@ where
         let service_id = self.services.resolve_alias(params.host_id, alias)?;
 
         Ok(JValue::String(service_id))
+    }
+
+    fn get_service_info(&self, args: Args, params: ParticleParams) -> Result<JValue, JError> {
+        let mut args = args.function_args.into_iter();
+        let service_id_or_alias: String = Args::next("service_id_or_alias", &mut args)?;
+        let info = self
+            .services
+            .get_service_info(params.host_id, service_id_or_alias)?;
+
+        Ok(info)
     }
 
     fn kademlia(&self) -> &KademliaApi {
