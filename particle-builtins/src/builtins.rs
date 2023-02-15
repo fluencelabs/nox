@@ -173,6 +173,7 @@ where
     // TODO: get rid of all blocking methods (std::fs and such)
     pub async fn builtins_call(&self, args: Args, particle: ParticleParams) -> FunctionOutcome {
         use Result as R;
+
         #[rustfmt::skip]
         match (args.service_id.as_str(), args.function_name.as_str()) {
             ("peer", "identify")              => ok(json!(self.node_info)),
