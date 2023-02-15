@@ -597,7 +597,8 @@ impl ParticleAppServices {
                     "id": id,
                     "blueprint_id": srv.blueprint_id,
                     "owner_id": srv.owner_id.to_string(),
-                    "aliases": srv.aliases
+                    "aliases": srv.aliases,
+                    "worker_id": srv.worker_id.to_string()
                 })
             })
             .collect();
