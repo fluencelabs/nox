@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+use libp2p::PeerId;
 use std::path::PathBuf;
 use thiserror::Error;
 
@@ -50,4 +51,10 @@ pub enum PersistedKeypairError {
         #[source]
         err: std::io::Error,
     },
+}
+
+#[derive(Debug, Error)]
+pub enum KeyManagerError {
+    #[error("Keypair for peer_id {0} not found")]
+    KeypairNotFound(PeerId),
 }

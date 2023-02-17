@@ -102,6 +102,7 @@ pub struct ParticleAppServices {
     services: Arc<RwLock<Services>>,
     modules: ModuleRepository,
     aliases: Arc<RwLock<Aliases>>,
+    // TODO: move these peer ids to key manager
     management_peer_id: PeerId,
     builtins_management_peer_id: PeerId,
     pub metrics: Option<ServicesMetrics>,
@@ -185,6 +186,30 @@ impl ParticleAppServices {
             vec![],
         )?;
         Ok(service_id)
+    }
+
+    pub fn get_service_info(
+        &self,
+        worker_id: PeerId,
+        service_id_or_alias: String,
+    ) -> Result<JValue, ServiceError> {
+        let services_read = self.services.read();
+        let (service, service_id) = get_service(
+            &services_read,
+            &self.aliases.read(),
+            worker_id,
+            self.config.local_peer_id,
+            service_id_or_alias,
+        )
+        .map_err(ServiceError::NoSuchService)?;
+
+        Ok(json!({
+            "id": service_id,
+            "blueprint_id": service.blueprint_id,
+            "owner_id": service.owner_id.to_string(),
+            "aliases": service.aliases,
+            "worker_id": service.worker_id.to_string()
+        }))
     }
 
     pub fn remove_service(
@@ -573,7 +598,8 @@ impl ParticleAppServices {
                     "id": id,
                     "blueprint_id": srv.blueprint_id,
                     "owner_id": srv.owner_id.to_string(),
-                    "aliases": srv.aliases
+                    "aliases": srv.aliases,
+                    "worker_id": srv.worker_id.to_string()
                 })
             })
             .collect();

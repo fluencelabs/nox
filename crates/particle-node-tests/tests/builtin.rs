@@ -39,6 +39,7 @@ use created_swarm::{
 use fluence_libp2p::RandomPeerId;
 use fluence_libp2p::Transport;
 use json_utils::into_array;
+use key_manager::INSECURE_KEYPAIR_SEED;
 use now_millis::now_ms;
 use particle_protocol::Particle;
 use service_modules::load_module;
@@ -1436,8 +1437,8 @@ fn sign_invalid_tetraplets() {
         client.receive_args().unwrap().as_slice()
     {
         assert!(host_error.contains(&format!("data is expected to be produced by service 'registry' on peer '{relay}', was from peer '{wrong_peer}'")));
-        assert!(srv_error.contains("data is expected to result from a call to 'registry.get_record_bytes', was from 'op.identity'"));
-        assert!(func_error.contains("data is expected to result from a call to 'registry.get_record_bytes', was from 'registry.get_key_bytes'"));
+        assert!(srv_error.contains("data is expected to result from a call to 'registry.get_record_bytes' or 'registry.get_record_metadata_bytes', was from 'op.identity'"));
+        assert!(func_error.contains("data is expected to result from a call to 'registry.get_record_bytes' or 'registry.get_record_metadata_bytes', was from 'registry.get_key_bytes'"));
     } else {
         panic!("incorrect args: expected three arguments")
     }
@@ -1631,7 +1632,7 @@ fn json_builtins() {
 
 #[test]
 fn insecure_sign_verify() {
-    let kp = KeyPair::from_secret_key((0..32).collect(), KeyFormat::Ed25519).unwrap();
+    let kp = KeyPair::from_secret_key(INSECURE_KEYPAIR_SEED.collect(), KeyFormat::Ed25519).unwrap();
     let swarms = make_swarms_with_builtins(
         1,
         "tests/builtins/services".as_ref(),

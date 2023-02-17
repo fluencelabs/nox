@@ -32,6 +32,7 @@ use libp2p::core::connection::ConnectionId;
 use libp2p::core::transport::ListenerId;
 use libp2p::core::ConnectedPoint;
 use libp2p::kad::kbucket::Key;
+use libp2p::kad::KademliaStoreInserts;
 use libp2p::swarm::behaviour::{
     ConnectionClosed, ConnectionEstablished, DialFailure, ExpiredExternalAddr, ExpiredListenAddr,
     FromSwarm, ListenFailure, ListenerClosed, ListenerError, NewExternalAddr, NewListenAddr,
@@ -130,7 +131,13 @@ impl Kademlia {
         let timer = Delay::new(config.query_timeout);
 
         let store = MemoryStore::new(config.peer_id);
-        let kademlia = kad::Kademlia::with_config(config.peer_id, store, config.as_libp2p());
+        let mut kad_config = config.as_libp2p();
+        // By default, all records from peers are automatically stored.
+        // `FilterBoth` means it's the Kademlia behaviour handler's responsibility
+        // to determine whether or not Provider records and KV records ("both") get stored,
+        // where we implement logic to validate/prune incoming records.
+        kad_config.set_record_filtering(KademliaStoreInserts::FilterBoth);
+        let kademlia = kad::Kademlia::with_config(config.peer_id, store, kad_config);
 
         let (outlet, commands) = mpsc::unbounded();
         let api = KademliaApi { outlet };

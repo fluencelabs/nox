@@ -38,8 +38,21 @@ jobs:
           repository: fluencelabs/rust-peer
           ref: ${{ inputs.ref }}
 
+      - name: Get PR labels
+        id: labels
+        uses: joerick/pr-labels-action@v1.0.7
+
       - name: Setup Rust toolchain
         uses: actions-rust-lang/setup-rust-toolchain@v1
+
+      - name: Set profile
+        id: profile
+        run: |
+          if [[ -n "$GITHUB_PR_LABEL_PROFILING" ]]; then
+            echo "profile=profiling" >> $GITHUB_OUTPUT
+          else
+            echo "profile=release" >> $GITHUB_OUTPUT
+          fi
 
       - name: Set dependencies
         if: inputs.cargo-dependencies != ''
@@ -59,11 +72,11 @@ jobs:
           publish: false
 
       - name: Run cargo build
-        run: cargo build --release -p particle-node
+        run: cargo build --profile ${{ steps.profile.outputs.profile }} -p particle-node
 
       - name: Calculate SHA256
         id: sha
-        working-directory: ./target/release
+        working-directory: ./target/${{ steps.profile.outputs.profile }}
         run: |
           # Calculate sha256
           du -hs particle-node
@@ -75,7 +88,7 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: rust-peer
-          path: target/release/particle-node
+          path: target/${{ steps.profile.outputs.profile }}/particle-node
 
   container:
     needs: build

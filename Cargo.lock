@@ -2337,9 +2337,9 @@ dependencies = [
 
 [[package]]
 name = "fluence-spell-distro"
-version = "0.3.0"
+version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e6089bf966763486ceba524b6391ceac71edf44b12e3fb615642e7fef2596ee9"
+checksum = "663c8935759cd3cc005b792c6b4edb1e52de8d6a098e42b056da9d1214753ac0"
 dependencies = [
  "built",
  "maplit",
@@ -2347,9 +2347,9 @@ dependencies = [
 
 [[package]]
 name = "fluence-spell-dtos"
-version = "0.1.4"
+version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3ebf6089388a75d73e04dc0f0357cf09b3ea28a76193c8e3dff672e1f8f69478"
+checksum = "f420504223d9378fd813337011fcde8a978df61ac414554e0cd39fa954562df0"
 dependencies = [
  "eyre",
  "marine-rs-sdk",
@@ -3252,6 +3252,12 @@ name = "libm"
 version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7fc7aa29613bd6a620df431842069224d8bc9011086b1db4c0e0cd47fa03ec9a"
+
+[[package]]
+name = "libm"
+version = "0.2.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "348108ab3fba42ec82ff6e9564fc4ca0247bdccdc68dd8af9764bbc79c3c8ffb"
 
 [[package]]
 name = "libp2p"
@@ -4527,6 +4533,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "578ede34cf02f8924ab9447f50c28075b4d3e5b269972345e7e0372b38c6cdcd"
 dependencies = [
  "autocfg",
+ "libm 0.2.6",
 ]
 
 [[package]]
@@ -4585,7 +4592,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a1914cd452d8fccd6f9db48147b29fd4ae05bea9dc5d9ad578509f72415de282"
 dependencies = [
  "cfg-if 1.0.0",
- "libm",
+ "libm 0.1.4",
 ]
 
 [[package]]
@@ -4696,6 +4703,7 @@ dependencies = [
  "itertools",
  "ivalue-utils",
  "kademlia",
+ "key-manager",
  "libp2p",
  "log",
  "multihash",
@@ -4835,6 +4843,7 @@ dependencies = [
  "humantime-serde",
  "itertools",
  "json-utils",
+ "key-manager",
  "libp2p",
  "local-vm",
  "log",
@@ -5175,9 +5184,9 @@ dependencies = [
 
 [[package]]
 name = "proptest"
-version = "1.0.0"
+version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1e0d9cc07f18492d879586c92b485def06bc850da3118075cd45d50e9c95b0e5"
+checksum = "29f1b898011ce9595050a68e60f90bad083ff2987a695a42357134c8381fba70"
 dependencies = [
  "bit-set",
  "bitflags",
@@ -5191,6 +5200,7 @@ dependencies = [
  "regex-syntax",
  "rusty-fork",
  "tempfile",
+ "unarray",
 ]
 
 [[package]]
@@ -5941,9 +5951,9 @@ dependencies = [
 
 [[package]]
 name = "serde_json"
-version = "1.0.91"
+version = "1.0.93"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "877c235533714907a8c2464236f5c4b2a17262ef1bd71f38f35ea592c8da6883"
+checksum = "cad406b69c91885b5107daf2c29572f6c8cdb3c66826821e286c533490c0bc76"
 dependencies = [
  "itoa",
  "ryu",
@@ -6891,6 +6901,12 @@ dependencies = [
  "hex",
  "static_assertions",
 ]
+
+[[package]]
+name = "unarray"
+version = "0.1.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "eaea85b334db583fe3274d12b4cd1880032beab409c0d774be044d4480ab9a94"
 
 [[package]]
 name = "unicode-bidi"

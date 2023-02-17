@@ -23,9 +23,7 @@ use std::str::FromStr;
 use std::time::{Duration, Instant};
 
 use derivative::Derivative;
-use fluence_keypair::{KeyFormat, KeyPair, Signature};
-use futures::stream::FuturesUnordered;
-use futures::StreamExt;
+use fluence_keypair::{KeyPair, Signature};
 use humantime_serde::re::humantime::format_duration as pretty;
 use libp2p::{core::Multiaddr, kad::kbucket::Key, kad::K_VALUE, PeerId};
 use multihash::{Code, MultihashDigest, MultihashGeneric};
@@ -36,6 +34,7 @@ use JValue::Array;
 
 use connection_pool::{ConnectionPoolApi, ConnectionPoolT};
 use kademlia::{KademliaApi, KademliaApiT};
+use key_manager::KeyManager;
 use now_millis::{now_ms, now_sec};
 use particle_args::{from_base58, Args, ArgsError, JError};
 use particle_execution::{FunctionOutcome, ParticleParams, ServiceFunction};
@@ -69,6 +68,7 @@ pub struct Builtins<C> {
     pub connectivity: C,
     pub script_storage: ScriptStorageApi,
 
+    // TODO: move all peer ids and keypairs to key manager
     pub management_peer_id: PeerId,
     pub builtins_management_peer_id: PeerId,
     pub local_peer_id: PeerId,
@@ -85,7 +85,7 @@ pub struct Builtins<C> {
     particles_vault_dir: path::PathBuf,
 
     #[derivative(Debug = "ignore")]
-    insecure_keypair: KeyPair,
+    key_manager: KeyManager,
 }
 
 impl<C> Builtins<C>
@@ -99,6 +99,7 @@ where
         config: ServicesConfig,
         services_metrics: ServicesMetrics,
         root_keypair: KeyPair,
+        key_manager: KeyManager,
     ) -> Self {
         let modules_dir = &config.modules_dir;
         let blueprint_dir = &config.blueprint_dir;
@@ -128,8 +129,7 @@ where
             node_info,
             particles_vault_dir,
             custom_services: <_>::default(),
-            insecure_keypair: KeyPair::from_secret_key((0..32).collect(), KeyFormat::Ed25519)
-                .expect("error creating insecure keypair"),
+            key_manager,
         }
     }
 
@@ -173,6 +173,7 @@ where
     // TODO: get rid of all blocking methods (std::fs and such)
     pub async fn builtins_call(&self, args: Args, particle: ParticleParams) -> FunctionOutcome {
         use Result as R;
+
         #[rustfmt::skip]
         match (args.service_id.as_str(), args.function_name.as_str()) {
             ("peer", "identify")              => ok(json!(self.node_info)),
@@ -193,6 +194,7 @@ where
             ("srv", "resolve_alias")          => wrap(self.resolve_alias(args, particle)),
             ("srv", "add_alias")              => wrap_unit(self.add_alias(args, particle)),
             ("srv", "remove")                 => wrap_unit(self.remove_service(args, particle)),
+            ("srv", "info")                   => wrap(self.get_service_info(args, particle)),
 
             ("dist", "add_module_from_vault") => wrap(self.add_module_from_vault(args, particle)),
             ("dist", "add_module")            => wrap(self.add_module(args)),
@@ -205,6 +207,7 @@ where
             ("dist", "list_modules")          => wrap(self.list_modules()),
             ("dist", "get_module_interface")  => wrap(self.get_module_interface(args)),
             ("dist", "list_blueprints")       => wrap(self.get_blueprints()),
+            ("dist", "get_blueprint")         => wrap(self.get_blueprint(args)),
 
             ("script", "add")                 => wrap(self.add_script_from_arg(args, particle)),
             ("script", "add_from_vault")      => wrap(self.add_script_from_vault(args, particle)),
@@ -251,9 +254,9 @@ where
             ("array", "slice")                => wrap(self.array_slice(args.function_args)),
             ("array", "length")               => wrap(self.array_length(args.function_args)),
 
-            ("sig", "sign")                   => wrap(self.sign(args)),
-            ("sig", "verify")                 => wrap(self.verify(args)),
-            ("sig", "get_peer_id")            => wrap(self.get_peer_id()),
+            ("sig", "sign")                   => wrap(self.sign(args, particle)),
+            ("sig", "verify")                 => wrap(self.verify(args, particle)),
+            ("sig", "get_peer_id")            => wrap(self.get_peer_id(particle)),
 
             ("insecure_sig", "sign")          => wrap(self.insecure_sign(args)),
             ("insecure_sig", "verify")        => wrap(self.insecure_verify(args)),
@@ -269,7 +272,7 @@ where
 
             ("run-console", "print")          => wrap_unit(Ok(log::debug!(target: "run-console", "{}", json!(args.function_args)))),
 
-            _                      => FunctionOutcome::NotDefined { args, params: particle },
+            _                                 => FunctionOutcome::NotDefined { args, params: particle },
         }
     }
 
@@ -301,6 +304,9 @@ where
     }
 
     async fn neighborhood_with_addresses(&self, args: Args) -> Result<JValue, JError> {
+        use futures::stream::FuturesUnordered;
+        use futures::StreamExt;
+
         let neighbors = self.neighbor_peers(args).await?;
         let neighbors = neighbors
             .into_iter()
@@ -659,7 +665,7 @@ where
 
         if start > end || end > array.len() {
             return Err(JError::new(format!(
-                "slice indexes out of bounds. start index: {:?}, end index: {:?}, array length: {:?}", 
+                "slice indexes out of bounds. start index: {:?}, end index: {:?}, array length: {:?}",
                 start, end, array.len())
             ));
         }
@@ -787,6 +793,15 @@ where
             .collect()
     }
 
+    fn get_blueprint(&self, args: Args) -> Result<JValue, JError> {
+        let mut args = args.function_args.into_iter();
+        let blueprint_id: String = Args::next("blueprint_id", &mut args)?;
+
+        let blueprint = self.modules.get_blueprint_from_cache(&blueprint_id)?;
+
+        Ok(json!(blueprint))
+    }
+
     fn create_service(&self, args: Args, params: ParticleParams) -> Result<JValue, JError> {
         let mut args = args.function_args.into_iter();
         let blueprint_id: String = Args::next("blueprint_id", &mut args)?;
@@ -842,6 +857,16 @@ where
         Ok(JValue::String(service_id))
     }
 
+    fn get_service_info(&self, args: Args, params: ParticleParams) -> Result<JValue, JError> {
+        let mut args = args.function_args.into_iter();
+        let service_id_or_alias: String = Args::next("service_id_or_alias", &mut args)?;
+        let info = self
+            .services
+            .get_service_info(params.host_id, service_id_or_alias)?;
+
+        Ok(info)
+    }
+
     fn kademlia(&self) -> &KademliaApi {
         self.connectivity.as_ref()
     }
@@ -886,7 +911,7 @@ where
         }
     }
 
-    fn sign(&self, args: Args) -> Result<JValue, JError> {
+    fn sign(&self, args: Args, params: ParticleParams) -> Result<JValue, JError> {
         let tetraplets = args.tetraplets;
         let mut args = args.function_args.into_iter();
         let result: Result<JValue, JError> = try {
@@ -894,18 +919,24 @@ where
 
             let tetraplet = tetraplets.get(0).map(|v| v.as_slice());
             if let Some([t]) = tetraplet {
-                if t.peer_pk != self.local_peer_id.to_base58() {
+                if t.peer_pk != self.local_peer_id.to_base58()
+                    && !self
+                        .key_manager
+                        .is_scope_peer_id(PeerId::from_str(&t.peer_pk)?)
+                {
                     return Err(JError::new(format!(
                         "data is expected to be produced by service 'registry' on peer '{}', was from peer '{}'",
                         self.local_peer_id, t.peer_pk
                     )));
                 }
 
-                if (t.service_id.as_str(), t.function_name.as_str())
-                    != ("registry", "get_record_bytes")
-                {
+                let duplet = (t.service_id.as_str(), t.function_name.as_str());
+                let metadata_bytes = ("registry", "get_record_metadata_bytes");
+                let record_bytes = ("registry", "get_record_bytes");
+
+                if duplet != record_bytes && duplet != metadata_bytes {
                     return Err(JError::new(format!(
-                        "data is expected to result from a call to 'registry.get_record_bytes', was from '{}.{}'",
+                        "data is expected to result from a call to 'registry.get_record_bytes' or 'registry.get_record_metadata_bytes', was from '{}.{}'",
                         t.service_id, t.function_name
                     )));
                 }
@@ -919,7 +950,13 @@ where
                 return Err(JError::new(format!("expected tetraplet for a scalar argument, got tetraplet for an array: {tetraplet:?}, tetraplets")));
             }
 
-            json!(self.root_keypair.sign(&data)?.to_vec())
+            if params.host_id == self.local_peer_id {
+                json!(self.root_keypair.sign(&data)?.to_vec())
+            } else {
+                // if this call is initiated by the worker on this worker as host_id and init_peer_id
+                let keypair = self.key_manager.get_scope_keypair(params.init_peer_id)?;
+                json!(keypair.sign(&data)?.to_vec())
+            }
         };
 
         match result {
@@ -937,27 +974,46 @@ where
         }
     }
 
-    fn verify(&self, args: Args) -> Result<JValue, JError> {
+    fn verify(&self, args: Args, params: ParticleParams) -> Result<JValue, JError> {
         let mut args = args.function_args.into_iter();
         let signature: Vec<u8> = Args::next("signature", &mut args)?;
         let data: Vec<u8> = Args::next("data", &mut args)?;
         let signature =
             Signature::from_bytes(self.root_keypair.public().get_key_format(), signature);
 
-        Ok(JValue::Bool(
-            self.root_keypair.public().verify(&data, &signature).is_ok(),
-        ))
+        // TODO: move root_keypair to key_manager and unify verification
+        if params.host_id == self.local_peer_id {
+            Ok(JValue::Bool(
+                self.root_keypair.public().verify(&data, &signature).is_ok(),
+            ))
+        } else {
+            Ok(JValue::Bool(
+                self.key_manager
+                    .get_scope_keypair(params.host_id)?
+                    .public()
+                    .verify(&data, &signature)
+                    .is_ok(),
+            ))
+        }
     }
 
-    fn get_peer_id(&self) -> Result<JValue, JError> {
-        Ok(JValue::String(self.root_keypair.get_peer_id().to_base58()))
+    fn get_peer_id(&self, params: ParticleParams) -> Result<JValue, JError> {
+        if params.host_id == self.local_peer_id {
+            Ok(JValue::String(self.root_keypair.get_peer_id().to_base58()))
+        } else {
+            Ok(JValue::String(
+                self.key_manager
+                    .get_scope_peer_id(params.init_peer_id)?
+                    .to_base58(),
+            ))
+        }
     }
 
     fn insecure_sign(&self, args: Args) -> Result<JValue, JError> {
         let mut args = args.function_args.into_iter();
         let result: Result<JValue, JError> = try {
             let data: Vec<u8> = Args::next("data", &mut args)?;
-            json!(self.insecure_keypair.sign(&data)?.to_vec())
+            json!(self.key_manager.insecure_keypair.sign(&data)?.to_vec())
         };
 
         match result {
@@ -979,11 +1035,14 @@ where
         let mut args = args.function_args.into_iter();
         let signature: Vec<u8> = Args::next("signature", &mut args)?;
         let data: Vec<u8> = Args::next("data", &mut args)?;
-        let signature =
-            Signature::from_bytes(self.insecure_keypair.public().get_key_format(), signature);
+        let signature = Signature::from_bytes(
+            self.key_manager.insecure_keypair.public().get_key_format(),
+            signature,
+        );
 
         Ok(JValue::Bool(
-            self.insecure_keypair
+            self.key_manager
+                .insecure_keypair
                 .public()
                 .verify(&data, &signature)
                 .is_ok(),
@@ -992,7 +1051,7 @@ where
 
     fn insecure_get_peer_id(&self) -> Result<JValue, JError> {
         Ok(JValue::String(
-            self.insecure_keypair.get_peer_id().to_base58(),
+            self.key_manager.insecure_keypair.get_peer_id().to_base58(),
         ))
     }
 }

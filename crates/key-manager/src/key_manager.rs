@@ -17,13 +17,16 @@
 use fluence_keypair::{KeyFormat, KeyPair};
 use libp2p::PeerId;
 use std::collections::HashMap;
+use std::ops::Range;
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::Arc;
 
-use crate::error::PersistedKeypairError;
+use crate::error::{KeyManagerError, PersistedKeypairError};
 use crate::persistence::{load_persisted_keypairs, persist_keypair, PersistedKeypair};
 use parking_lot::RwLock;
+
+pub const INSECURE_KEYPAIR_SEED: Range<u8> = 0..32;
 
 #[derive(Clone)]
 pub struct KeyManager {
@@ -33,6 +36,8 @@ pub struct KeyManager {
     scope_peer_ids: Arc<RwLock<HashMap<PeerId, PeerId>>>,
     keypairs_dir: PathBuf,
     host_peer_id: PeerId,
+    // temporary public, will refactor
+    pub insecure_keypair: KeyPair,
 }
 
 impl KeyManager {
@@ -42,6 +47,11 @@ impl KeyManager {
             scope_peer_ids: Arc::new(Default::default()),
             keypairs_dir,
             host_peer_id,
+            insecure_keypair: KeyPair::from_secret_key(
+                INSECURE_KEYPAIR_SEED.collect(),
+                KeyFormat::Ed25519,
+            )
+            .expect("error creating insecure keypair"),
         };
 
         this.load_persisted_keypairs();
@@ -105,12 +115,12 @@ impl KeyManager {
         }
     }
 
-    pub fn get_scope_keypair(&self, scope_peer_id: PeerId) -> eyre::Result<KeyPair> {
+    pub fn get_scope_keypair(&self, scope_peer_id: PeerId) -> Result<KeyPair, KeyManagerError> {
         self.scope_keypairs
             .read()
             .get(&scope_peer_id)
             .cloned()
-            .ok_or_else(|| eyre::eyre!("Keypair for peer id {} not found", scope_peer_id))
+            .ok_or(KeyManagerError::KeypairNotFound(scope_peer_id))
     }
 
     pub fn generate_keypair(&self) -> KeyPair {

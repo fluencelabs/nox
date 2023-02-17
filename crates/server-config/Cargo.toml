@@ -8,7 +8,7 @@ edition = "2021"
 config-utils = { workspace = true }
 fs-utils = { workspace = true }
 particle-protocol = { workspace = true }
-fluence-libp2p = { workspace = true }
+fluence-libp2p = { workspace = true, features=["async-std"] }
 air-interpreter-fs = { workspace = true }
 peer-metrics = { workspace = true }
 
