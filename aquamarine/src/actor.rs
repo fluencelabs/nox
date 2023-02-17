@@ -44,7 +44,7 @@ pub struct Actor<RT, F> {
     /// Particle's data is empty.
     particle: Particle,
     /// Particles and call results will be processed in the security scope of this peer id
-    /// It's either `host_peer_id` or owner-specific spell peer id
+    /// It's either `host_peer_id` or local worker peer id
     current_peer_id: PeerId,
 }
 

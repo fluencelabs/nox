@@ -27,14 +27,14 @@ use crate::utils::process_func_outcome;
 use crate::Sorcerer;
 
 impl Sorcerer {
-    fn get_spell_counter(&self, spell_id: String, scope_peer_id: PeerId) -> Result<u32, JError> {
+    fn get_spell_counter(&self, spell_id: String, worker_id: PeerId) -> Result<u32, JError> {
         let func_outcome = self.services.call_function(
-            scope_peer_id,
+            worker_id,
             &spell_id,
             "get_u32",
             vec![json!("counter")],
             None,
-            scope_peer_id,
+            worker_id,
             self.spell_script_particle_ttl,
         );
 
@@ -55,29 +55,29 @@ impl Sorcerer {
         &self,
         spell_id: String,
         next_counter: u32,
-        scope_peer_id: PeerId,
+        worker_id: PeerId,
     ) -> Result<(), JError> {
         let func_outcome = self.services.call_function(
-            scope_peer_id,
+            worker_id,
             &spell_id,
             "set_u32",
             vec![json!("counter"), json!(next_counter)],
             None,
-            scope_peer_id,
+            worker_id,
             self.spell_script_particle_ttl,
         );
 
         process_func_outcome::<UnitValue>(func_outcome, &spell_id, "set_u32").map(drop)
     }
 
-    fn get_spell_script(&self, spell_id: String, scope_peer_id: PeerId) -> Result<String, JError> {
+    fn get_spell_script(&self, spell_id: String, worker_id: PeerId) -> Result<String, JError> {
         let func_outcome = self.services.call_function(
-            scope_peer_id,
+            worker_id,
             &spell_id,
             "get_script_source_from_file",
             vec![],
             None,
-            scope_peer_id,
+            worker_id,
             self.spell_script_particle_ttl,
         );
 
@@ -92,23 +92,23 @@ impl Sorcerer {
     pub(crate) fn make_spell_particle(
         &self,
         spell_id: String,
-        scope_peer_id: PeerId,
+        worker_id: PeerId,
     ) -> Result<Particle, JError> {
         let spell_keypair = self
             .key_manager
-            .get_scope_keypair(scope_peer_id)
+            .get_worker_keypair(worker_id)
             .map_err(|err| ScopeKeypairMissing {
                 err,
                 spell_id: spell_id.clone(),
             })?;
 
-        let spell_counter = self.get_spell_counter(spell_id.clone(), scope_peer_id)?;
-        self.set_spell_next_counter(spell_id.clone(), spell_counter + 1, scope_peer_id)?;
-        let spell_script = self.get_spell_script(spell_id.clone(), scope_peer_id)?;
+        let spell_counter = self.get_spell_counter(spell_id.clone(), worker_id)?;
+        self.set_spell_next_counter(spell_id.clone(), spell_counter + 1, worker_id)?;
+        let spell_script = self.get_spell_script(spell_id.clone(), worker_id)?;
 
         let mut particle = Particle {
             id: f!("spell_{spell_id}_{spell_counter}"),
-            init_peer_id: scope_peer_id,
+            init_peer_id: worker_id,
             timestamp: now_ms() as u64,
             ttl: self.spell_script_particle_ttl.as_millis() as u32,
             script: spell_script,
@@ -125,17 +125,17 @@ impl Sorcerer {
     pub(crate) fn store_trigger(
         &self,
         event: TriggerEvent,
-        scope_peer_id: PeerId,
+        worker_id: PeerId,
     ) -> Result<(), JError> {
         let serialized_event = serde_json::to_string(&TriggerInfoAqua::from(event.info))?;
 
         let func_outcome = self.services.call_function(
-            scope_peer_id,
+            worker_id,
             &event.spell_id,
             "list_push_string",
             vec![json!("trigger_mailbox"), json!(serialized_event)],
             None,
-            scope_peer_id,
+            worker_id,
             self.spell_script_particle_ttl,
         );
 
@@ -145,10 +145,12 @@ impl Sorcerer {
 
     pub async fn execute_script(&self, event: TriggerEvent) {
         let error: Result<(), JError> = try {
-            let scope_peer_id = self.services.get_service_owner(event.spell_id.clone())?;
-            let particle = self.make_spell_particle(event.spell_id.clone(), scope_peer_id)?;
+            let worker_id = self
+                .services
+                .get_service_owner(event.spell_id.clone(), None)?;
+            let particle = self.make_spell_particle(event.spell_id.clone(), worker_id)?;
 
-            self.store_trigger(event.clone(), scope_peer_id)?;
+            self.store_trigger(event.clone(), worker_id)?;
             self.aquamarine.clone().execute(particle, None).await?;
         };
 

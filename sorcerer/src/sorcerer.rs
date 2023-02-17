@@ -35,8 +35,8 @@ use spell_event_bus::api::{from_user_config, SpellEventBusApi, TriggerEvent};
 use spell_storage::SpellStorage;
 
 use crate::spells::{
-    get_spell_arg, get_spell_id, scope_get_peer_id, spell_install, spell_list, spell_remove,
-    spell_update_config, store_error, store_response,
+    get_spell_arg, get_spell_id, spell_install, spell_list, spell_remove, spell_update_config,
+    store_error, store_response,
 };
 use crate::utils::process_func_outcome;
 
@@ -106,7 +106,7 @@ impl Sorcerer {
         for spell_id in self.spell_storage.get_registered_spells() {
             log::info!("Rescheduling spell {}", spell_id);
             let result: Result<(), JError> = try {
-                let spell_owner = self.services.get_service_owner(spell_id.clone())?;
+                let spell_owner = self.services.get_service_owner(spell_id.clone(), None)?;
                 let result = process_func_outcome::<TriggerConfigValue>(
                     self.services.call_function(
                         spell_owner,
@@ -179,10 +179,6 @@ impl Sorcerer {
         let mut callback_srv = SpellBuiltin::new("callbackSrv");
         callback_srv.append("response", self.make_response_handler_closure().into());
         spell_builtins.push(callback_srv);
-
-        let mut scope_srv = SpellBuiltin::new("scope");
-        scope_srv.append("get_peer_id", self.make_get_scope_peer_id_closure().into());
-        spell_builtins.push(scope_srv);
 
         spell_builtins
     }
@@ -285,14 +281,6 @@ impl Sorcerer {
         Box::new(move |args, params| {
             let services = services.clone();
             async move { wrap_unit(store_response(args, params, services)) }.boxed()
-        })
-    }
-
-    fn make_get_scope_peer_id_closure(&self) -> ServiceFunctionImmut {
-        let key_manager = self.key_manager.clone();
-        Box::new(move |_, params| {
-            let key_manager = key_manager.clone();
-            async move { wrap(scope_get_peer_id(params, key_manager)) }.boxed()
         })
     }
 }

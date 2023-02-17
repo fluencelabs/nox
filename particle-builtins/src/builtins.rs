@@ -270,6 +270,9 @@ where
             ("json", "obj_pairs")             => unary(args, |vs: Vec<(String, JValue)>| -> R<JValue, _> { json::obj_from_pairs(vs) }),
             ("json", "puts_pairs")            => binary(args, |obj: JValue, vs: Vec<(String, JValue)>| -> R<JValue, _> { json::puts_from_pairs(obj, vs) }),
 
+            ("worker", "create")              => wrap(self.create_worker(args, particle)),
+            ("worker", "get_peer_id")         => wrap(self.get_worker_peer_id(args, particle)),
+
             ("run-console", "print")          => wrap_unit(Ok(log::debug!(target: "run-console", "{}", json!(args.function_args)))),
 
             _                                 => FunctionOutcome::NotDefined { args, params: particle },
@@ -920,9 +923,7 @@ where
             let tetraplet = tetraplets.get(0).map(|v| v.as_slice());
             if let Some([t]) = tetraplet {
                 if t.peer_pk != self.local_peer_id.to_base58()
-                    && !self
-                        .key_manager
-                        .is_scope_peer_id(PeerId::from_str(&t.peer_pk)?)
+                    && !self.key_manager.is_worker(PeerId::from_str(&t.peer_pk)?)
                 {
                     return Err(JError::new(format!(
                         "data is expected to be produced by service 'registry' on peer '{}', was from peer '{}'",
@@ -936,7 +937,7 @@ where
 
                 if duplet != record_bytes && duplet != metadata_bytes {
                     return Err(JError::new(format!(
-                        "data is expected to result from a call to 'registry.get_record_bytes' or 'registry.get_record_metadata_bytes', was from '{}.{}'",
+                        "data is expected to result from a call to 'registry.get_record_bytes' or 'registry.get_r  ecord_metadata_bytes', was from '{}.{}'",
                         t.service_id, t.function_name
                     )));
                 }
@@ -954,7 +955,7 @@ where
                 json!(self.root_keypair.sign(&data)?.to_vec())
             } else {
                 // if this call is initiated by the worker on this worker as host_id and init_peer_id
-                let keypair = self.key_manager.get_scope_keypair(params.init_peer_id)?;
+                let keypair = self.key_manager.get_worker_keypair(params.init_peer_id)?;
                 json!(keypair.sign(&data)?.to_vec())
             }
         };
@@ -989,7 +990,7 @@ where
         } else {
             Ok(JValue::Bool(
                 self.key_manager
-                    .get_scope_keypair(params.host_id)?
+                    .get_worker_keypair(params.host_id)?
                     .public()
                     .verify(&data, &signature)
                     .is_ok(),
@@ -998,15 +999,7 @@ where
     }
 
     fn get_peer_id(&self, params: ParticleParams) -> Result<JValue, JError> {
-        if params.host_id == self.local_peer_id {
-            Ok(JValue::String(self.root_keypair.get_peer_id().to_base58()))
-        } else {
-            Ok(JValue::String(
-                self.key_manager
-                    .get_scope_peer_id(params.init_peer_id)?
-                    .to_base58(),
-            ))
-        }
+        Ok(JValue::String(params.host_id.to_base58()))
     }
 
     fn insecure_sign(&self, args: Args) -> Result<JValue, JError> {
@@ -1052,6 +1045,26 @@ where
     fn insecure_get_peer_id(&self) -> Result<JValue, JError> {
         Ok(JValue::String(
             self.key_manager.insecure_keypair.get_peer_id().to_base58(),
+        ))
+    }
+
+    fn create_worker(&self, args: Args, params: ParticleParams) -> Result<JValue, JError> {
+        let mut args = args.function_args.into_iter();
+        let deal_id: Option<String> = Args::next_opt("service_id_or_alias", &mut args)?;
+        Ok(JValue::String(
+            self.key_manager
+                .create_worker(deal_id, params.init_peer_id)?
+                .to_base58(),
+        ))
+    }
+
+    fn get_worker_peer_id(&self, args: Args, params: ParticleParams) -> Result<JValue, JError> {
+        let mut args = args.function_args.into_iter();
+        let deal_id: Option<String> = Args::next_opt("service_id_or_alias", &mut args)?;
+        let deal_id = deal_id.unwrap_or(KeyManager::generate_deal_id(params.init_peer_id));
+
+        Ok(JValue::String(
+            self.key_manager.get_worker_id(deal_id)?.to_base58(),
         ))
     }
 }

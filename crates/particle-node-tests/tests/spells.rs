@@ -31,14 +31,14 @@ use spell_event_bus::api::{TriggerInfo, TriggerInfoAqua, MAX_PERIOD_SEC};
 use test_utils::create_service;
 
 type SpellId = String;
-type ScopePeerId = String;
+type WorkerPeerId = String;
 
 fn create_spell(
     client: &mut ConnectedClient,
     script: &str,
     config: TriggerConfig,
     init_data: JValue,
-) -> (SpellId, ScopePeerId) {
+) -> (SpellId, WorkerPeerId) {
     let data = hashmap! {
         "script" => json!(script.to_string()),
         "config" => json!(config),
@@ -49,10 +49,13 @@ fn create_spell(
     client.send_particle(
         r#"
         (seq
-            (call relay ("spell" "install") [script data config] spell_id)
+            (xor
+                (call relay ("worker" "create") [] worker_peer_id)
+                (call relay ("worker" "get_peer_id") [] worker_peer_id)
+            )
             (seq
-                (call relay ("scope" "get_peer_id") [] scope_peer_id)
-                (call client ("return" "") [spell_id scope_peer_id])
+                (call worker_peer_id ("spell" "install") [script data config] spell_id)
+                (call client ("return" "") [spell_id worker_peer_id])
             )
         )"#,
         data.clone(),
@@ -61,10 +64,10 @@ fn create_spell(
     let response = client.receive_args().wrap_err("receive").unwrap();
     let spell_id = response[0].as_str().unwrap().to_string();
     assert_ne!(spell_id.len(), 0);
-    let scope_peer_id = response[1].as_str().unwrap().to_string();
-    assert_ne!(scope_peer_id.len(), 0);
+    let worker_id = response[1].as_str().unwrap().to_string();
+    assert_ne!(worker_id.len(), 0);
 
-    (spell_id, scope_peer_id)
+    (spell_id, worker_id)
 }
 
 #[test]
@@ -542,12 +545,13 @@ fn spell_remove() {
     let mut config = TriggerConfig::default();
     config.clock.period_sec = 2;
     config.clock.start_sec = 1;
-    let (spell_id, scope) = create_spell(&mut client, script, config, json!({}));
+    let (spell_id, worker_id) = create_spell(&mut client, script, config, json!({}));
 
     let data = hashmap! {
         "spell_id" => json!(spell_id),
         "relay" => json!(client.node.to_string()),
         "client" => json!(client.peer_id.to_string()),
+        "worker" => json!(worker_id.clone())
     };
 
     client.send_particle(
@@ -572,8 +576,8 @@ fn spell_remove() {
         r#"
         (seq
             (seq
-                (call relay ("scope" "get_peer_id") [] scope_id)
-                (call relay ("spell" "remove") [spell_id])
+                (call relay ("op" "noop") [])
+                (call worker ("spell" "remove") [spell_id])
             )
             (seq
                 (call relay ("spell" "list") [] list)
@@ -586,7 +590,10 @@ fn spell_remove() {
 
     if let [JValue::Array(created_spells)] = client
         .receive_args()
-        .wrap_err(format!("receive by {}, scope {}", client.peer_id, scope))
+        .wrap_err(format!(
+            "receive by {}, worker {}",
+            client.peer_id, worker_id
+        ))
         .unwrap()
         .as_slice()
     {
@@ -596,6 +603,7 @@ fn spell_remove() {
 
 #[test]
 fn spell_remove_by_alias() {
+    enable_logs();
     let swarms = make_swarms(1);
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
@@ -706,7 +714,10 @@ fn spell_remove_service_as_spell() {
     client.send_particle(
         r#"
         (xor
-            (call relay ("spell" "remove") [service_id])
+            (seq
+                (call relay ("worker" "create") [] worker)
+                (call worker ("spell" "remove") [service_id])
+            )
             (call client ("return" "") [%last_error%.$.message])
         )
         "#,
@@ -999,13 +1010,13 @@ fn spell_peer_id_test() {
 
     let mut config = TriggerConfig::default();
     config.clock.start_sec = 1;
-    let (_, scope_peer_id) = create_spell(&mut client, &script, config, json!({}));
+    let (_, worker_peer_id) = create_spell(&mut client, &script, config, json!({}));
 
     let response = client.receive_args().wrap_err("receive").unwrap();
 
     let result = response[0].as_str().unwrap().to_string();
 
-    assert_eq!(result, scope_peer_id);
+    assert_eq!(result, worker_peer_id);
 }
 
 #[test]
@@ -1027,7 +1038,7 @@ fn spell_update_config() {
     );
     let mut config = TriggerConfig::default();
     config.connections.connect = true;
-    let (spell_id, _) = create_spell(&mut client, &script, config, json!({}));
+    let (spell_id, worker_id) = create_spell(&mut client, &script, config, json!({}));
     let connected = ConnectedClient::connect_to(swarms[0].multiaddr.clone()).unwrap();
 
     if let [JValue::Object(x)] = client
@@ -1049,12 +1060,17 @@ fn spell_update_config() {
     let data = hashmap! {
         "spell_id" => json!(spell_id),
         "relay" => json!(client.node.to_string()),
+        "worker" => json!(worker_id),
         "client" => json!(client.peer_id.to_string()),
         "config" => json!(config),
     };
     client.send_particle(
-        r#"(seq
-            (call relay ("spell" "update_trigger_config") [spell_id config])
+        r#"
+        (seq
+            (seq
+                (call relay ("op" "noop") [])
+                (call worker ("spell" "update_trigger_config") [spell_id config])
+            )
             (call %init_peer_id% ("return" "") ["done"])
            )"#,
         data,
@@ -1106,7 +1122,7 @@ fn spell_update_config_stopped_spell() {
     );
     // create periodic spell
     let config = TriggerConfig::default();
-    let (spell_id, _) = create_spell(&mut client, &script, config, json!({}));
+    let (spell_id, worker_id) = create_spell(&mut client, &script, config, json!({}));
 
     // Update trigger config to do something.
     let mut config = TriggerConfig::default();
@@ -1114,14 +1130,19 @@ fn spell_update_config_stopped_spell() {
     let data = hashmap! {
         "spell_id" => json!(spell_id),
         "relay" => json!(client.node.to_string()),
+        "worker" => json!(worker_id),
         "client" => json!(client.peer_id.to_string()),
         "config" => json!(config),
     };
     client.send_particle(
-        r#"(seq
-            (call relay ("spell" "update_trigger_config") [spell_id config])
+        r#"
+        (seq
+            (seq
+                (call relay ("op" "noop") [])
+                (call worker ("spell" "update_trigger_config") [spell_id config])
+            )
             (call %init_peer_id% ("return" "") ["done"])
-           )"#,
+        )"#,
         data,
     );
     let result = client.receive_args().wrap_err("receive").unwrap().pop();
