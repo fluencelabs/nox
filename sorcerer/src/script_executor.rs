@@ -147,7 +147,7 @@ impl Sorcerer {
         let error: Result<(), JError> = try {
             let worker_id = self
                 .services
-                .get_service_owner(event.spell_id.clone(), None)?;
+                .get_service_owner(event.spell_id.clone(), self.key_manager.get_host_peer_id())?;
             let particle = self.make_spell_particle(event.spell_id.clone(), worker_id)?;
 
             self.store_trigger(event.clone(), worker_id)?;

@@ -107,14 +107,14 @@ pub struct ParticleAppServices {
     pub metrics: Option<ServicesMetrics>,
 }
 
-/// if worker is not None, firstly, try to find by alias in worker scope, secondly, in root scope
+/// firstly, try to find by alias in worker scope, secondly, in root scope
 pub fn resolve_alias(
     alias: String,
     aliases: &Aliases,
-    worker_id: Option<PeerId>,
+    worker_id: PeerId,
     local_peer_id: PeerId,
 ) -> Option<String> {
-    let worker_scope: Option<String> = try { aliases.get(&worker_id?)?.get(&alias).cloned()? };
+    let worker_scope: Option<String> = try { aliases.get(&worker_id)?.get(&alias).cloned()? };
 
     if let Some(result) = worker_scope {
         Some(result)
@@ -127,7 +127,7 @@ pub fn resolve_alias(
 pub fn get_service<'l>(
     services: &'l Services,
     aliases: &Aliases,
-    worker_id: Option<PeerId>,
+    worker_id: PeerId,
     local_peer_id: PeerId,
     id_or_alias: String,
 ) -> Result<(&'l Service, String), String> {
@@ -197,7 +197,7 @@ impl ParticleAppServices {
         let (service, service_id) = get_service(
             &services_read,
             &self.aliases.read(),
-            Some(worker_id),
+            worker_id,
             self.config.local_peer_id,
             service_id_or_alias,
         )
@@ -225,7 +225,7 @@ impl ParticleAppServices {
             let (service, service_id) = get_service(
                 &services_read,
                 &self.aliases.read(),
-                Some(worker_id),
+                worker_id,
                 self.config.local_peer_id,
                 service_id_or_alias,
             )
@@ -310,7 +310,7 @@ impl ParticleAppServices {
         let service = get_service(
             &services,
             &aliases,
-            Some(worker_id),
+            worker_id,
             self.config.local_peer_id,
             function_args.service_id,
         );
@@ -531,7 +531,7 @@ impl ParticleAppServices {
         resolve_alias(
             alias.clone(),
             &aliases,
-            Some(worker_id),
+            worker_id,
             self.config.local_peer_id,
         )
         .ok_or_else(|| NoSuchAlias(alias, worker_id))
@@ -546,7 +546,7 @@ impl ParticleAppServices {
         let (_, service_id) = get_service(
             &services,
             &self.aliases.read(),
-            Some(worker_id),
+            worker_id,
             self.config.local_peer_id,
             service_id_or_alias,
         )
@@ -557,7 +557,7 @@ impl ParticleAppServices {
     pub fn get_service_owner(
         &self,
         id_or_alias: String,
-        worker_id: Option<PeerId>,
+        worker_id: PeerId,
     ) -> Result<PeerId, ServiceError> {
         let services = self.services.read();
         let (service, _) = get_service(
@@ -581,7 +581,7 @@ impl ParticleAppServices {
         let (service, _) = get_service(
             &services,
             &self.aliases.read(),
-            Some(worker_id),
+            worker_id,
             self.config.local_peer_id,
             service_id,
         )
@@ -626,7 +626,7 @@ impl ParticleAppServices {
         let (service, _) = get_service(
             &services,
             &self.aliases.read(),
-            Some(worker_id),
+            worker_id,
             self.config.local_peer_id,
             service_id,
         )

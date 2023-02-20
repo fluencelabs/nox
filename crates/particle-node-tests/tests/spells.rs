@@ -1350,3 +1350,81 @@ fn spell_relay_id_test() {
         panic!("expected one string result")
     }
 }
+
+#[test]
+fn spell_create_worker_twice() {
+    let swarms = make_swarms(1);
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .wrap_err("connect client")
+        .unwrap();
+
+    let data = hashmap! {
+        "client" => json!(client.peer_id.to_string()),
+        "relay" => json!(client.node.to_string()),
+    };
+    client.send_particle(
+        r#"
+        (xor
+            (seq
+                (seq
+                    (call relay ("worker" "create") ["deal_id"] worker_peer_id)
+                    (call relay ("worker" "get_peer_id") ["deal_id"] get_worker_peer_id)
+                )
+                (seq
+                    (call relay ("worker" "create") ["deal_id"] failed_create)
+                    (call client ("return" "") ["test failed"])
+                )
+            )
+            (call client ("return" "") [%last_error%.$.message worker_peer_id get_worker_peer_id])
+        )"#,
+        data.clone(),
+    );
+
+    let response = client.receive_args().wrap_err("receive").unwrap();
+    let error_msg = response[0].as_str().unwrap().to_string();
+    assert!(error_msg.contains("Worker for deal_id already exists"));
+    let worker_id = response[1].as_str().unwrap().to_string();
+    assert_ne!(worker_id.len(), 0);
+    let get_worker_id = response[2].as_str().unwrap().to_string();
+    assert_eq!(worker_id, get_worker_id);
+}
+
+#[test]
+fn spell_install_root_scope() {
+    let swarms = make_swarms(1);
+
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .wrap_err("connect client")
+        .unwrap();
+
+    let script = r#"(call %init_peer_id% ("getDataSrv" "spell_id") [] spell_id)"#;
+
+    let mut config = TriggerConfig::default();
+    config.clock.period_sec = 0;
+    config.clock.start_sec = 1;
+
+    let data = hashmap! {
+        "script" => json!(script.to_string()),
+        "config" => json!(config),
+        "client" => json!(client.peer_id.to_string()),
+        "relay" => json!(client.node.to_string()),
+        "data" => json!({})
+    };
+    client.send_particle(
+        r#"
+        (seq
+            (seq
+                (call relay ("spell" "install") [script data config] spell_id)
+                (call relay ("worker" "get_peer_id") [] worker_peer_id)
+            )
+            (call client ("return" "") [spell_id worker_peer_id])
+        )"#,
+        data.clone(),
+    );
+
+    let response = client.receive_args().wrap_err("receive").unwrap();
+    let spell_id = response[0].as_str().unwrap().to_string();
+    assert_ne!(spell_id.len(), 0);
+    let worker_id = response[1].as_str().unwrap().to_string();
+    assert_ne!(worker_id, client.node.to_base58());
+}

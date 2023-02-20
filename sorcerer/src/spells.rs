@@ -145,7 +145,7 @@ pub(crate) async fn spell_remove(
 
     let worker_id = params.host_id;
     let init_peer_id = params.init_peer_id;
-    let spell_owner = services.get_service_owner(spell_id.clone(), None)?;
+    let spell_owner = services.get_service_owner(spell_id.clone(), params.host_id)?;
     let worker_creator = key_manager.get_worker_creator(worker_id)?;
 
     let is_spell_owner = init_peer_id == spell_owner;
@@ -185,7 +185,7 @@ pub(crate) async fn spell_update_config(
 
     let worker_id = params.host_id;
     let init_peer_id = params.init_peer_id;
-    let spell_owner = services.get_service_owner(spell_id.clone(), None)?;
+    let spell_owner = services.get_service_owner(spell_id.clone(), worker_id)?;
     let worker_creator = key_manager.get_worker_creator(worker_id)?;
 
     let is_spell_owner = init_peer_id == spell_owner;
