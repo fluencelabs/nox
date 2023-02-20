@@ -1050,7 +1050,7 @@ where
 
     fn create_worker(&self, args: Args, params: ParticleParams) -> Result<JValue, JError> {
         let mut args = args.function_args.into_iter();
-        let deal_id: Option<String> = Args::next_opt("service_id_or_alias", &mut args)?;
+        let deal_id: Option<String> = Args::next_opt("deal_id", &mut args)?;
         Ok(JValue::String(
             self.key_manager
                 .create_worker(deal_id, params.init_peer_id)?
@@ -1060,7 +1060,7 @@ where
 
     fn get_worker_peer_id(&self, args: Args, params: ParticleParams) -> Result<JValue, JError> {
         let mut args = args.function_args.into_iter();
-        let deal_id: Option<String> = Args::next_opt("service_id_or_alias", &mut args)?;
+        let deal_id: Option<String> = Args::next_opt("deal_id", &mut args)?;
         let deal_id = deal_id.unwrap_or(KeyManager::generate_deal_id(params.init_peer_id));
 
         Ok(JValue::String(
