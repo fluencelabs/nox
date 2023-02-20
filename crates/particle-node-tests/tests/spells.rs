@@ -1428,3 +1428,52 @@ fn spell_install_root_scope() {
     let worker_id = response[1].as_str().unwrap().to_string();
     assert_ne!(worker_id, client.node.to_base58());
 }
+
+#[test]
+fn spell_create_worker_same_deal_id_different_peer() {
+    let swarms = make_swarms(1);
+    let mut client1 = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .wrap_err("connect client")
+        .unwrap();
+
+    let mut client2 = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .wrap_err("connect client")
+        .unwrap();
+
+    let data = hashmap! {
+        "client" => json!(client1.peer_id.to_string()),
+        "relay" => json!(client1.node.to_string()),
+    };
+    client1.send_particle(
+        r#"
+        (seq
+            (call relay ("worker" "create") ["deal_id"] worker_peer_id)
+            (call client ("return" "") [worker_peer_id])
+        )"#,
+        data.clone(),
+    );
+
+    let response = client1.receive_args().wrap_err("receive").unwrap();
+    let worker_id = response[0].as_str().unwrap().to_string();
+    assert_ne!(worker_id.len(), 0);
+
+    let data = hashmap! {
+        "client" => json!(client2.peer_id.to_string()),
+        "relay" => json!(client2.node.to_string()),
+    };
+    client2.send_particle(
+        r#"
+        (xor
+            (seq
+                (call relay ("worker" "create") ["deal_id"] worker_peer_id)
+                (call client ("return" "") ["test_failed"])
+            )
+            (call client ("return" "") [%last_error%.$.message])
+        )"#,
+        data.clone(),
+    );
+
+    let response = client2.receive_args().wrap_err("receive").unwrap();
+    let error_msg = response[0].as_str().unwrap().to_string();
+    assert!(error_msg.contains("Worker for deal_id already exists"));
+}
