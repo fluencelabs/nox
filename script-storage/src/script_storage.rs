@@ -18,16 +18,10 @@ use crate::ScriptStorageConfig;
 
 use async_unlock::unlock;
 use connection_pool::{ConnectionPoolApi, ConnectionPoolT};
-use fluence_libp2p::types::{Inlet, OneshotOutlet, Outlet};
 use fluence_libp2p::PeerId;
 use particle_protocol::{Contact, Particle};
 
-use async_std::{sync::Mutex, task, task::JoinHandle};
-use futures::{
-    channel::{mpsc::unbounded, oneshot},
-    future::BoxFuture,
-    FutureExt, StreamExt, TryFutureExt,
-};
+use futures::{future::BoxFuture, FutureExt, StreamExt, TryFutureExt};
 use now_millis::now_ms;
 use std::{
     borrow::Borrow,
@@ -37,9 +31,16 @@ use std::{
     time::{Duration, Instant},
 };
 use thiserror::Error;
+use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
+use tokio::sync::{oneshot, Mutex};
+use tokio::task;
+use tokio::task::JoinHandle;
+use tokio::time::interval;
+use tokio_stream::wrappers::IntervalStream;
 
 #[derive(Clone, Hash, Debug, PartialEq, Eq)]
 pub struct ScriptId(pub Arc<String>);
+
 impl Borrow<String> for ScriptId {
     fn borrow(&self) -> &String {
         self.0.borrow()
@@ -120,20 +121,20 @@ pub enum Command {
     },
     RemoveScript {
         uuid: String,
-        outlet: OneshotOutlet<Result<bool, ScriptStorageError>>,
+        outlet: oneshot::Sender<Result<bool, ScriptStorageError>>,
         actor: PeerId,
         by_admin: bool,
     },
     ListScripts {
-        outlet: OneshotOutlet<HashMap<ScriptId, Script>>,
+        outlet: oneshot::Sender<HashMap<ScriptId, Script>>,
     },
 }
 
 pub struct ScriptStorageBackend {
-    inlet: Inlet<Command>,
+    inlet: UnboundedReceiver<Command>,
     scripts: Mutex<HashMap<ScriptId, Script>>,
     sent_particles: Mutex<HashMap<ParticleId, SentParticle>>,
-    failed_particles: Inlet<ParticleId>,
+    failed_particles: UnboundedReceiver<ParticleId>,
     connection_pool: ConnectionPoolApi,
     config: ScriptStorageConfig,
 }
@@ -141,10 +142,10 @@ pub struct ScriptStorageBackend {
 impl ScriptStorageBackend {
     pub fn new(
         connection_pool: ConnectionPoolApi,
-        failed_particles: Inlet<ParticleId>,
+        failed_particles: UnboundedReceiver<ParticleId>,
         config: ScriptStorageConfig,
     ) -> (ScriptStorageApi, Self) {
-        let (outlet, inlet) = unbounded();
+        let (outlet, inlet) = unbounded_channel();
         let api = ScriptStorageApi { outlet };
         let this = ScriptStorageBackend {
             inlet,
@@ -157,35 +158,33 @@ impl ScriptStorageBackend {
         (api, this)
     }
 
-    pub fn start(self) -> JoinHandle<()> {
-        use futures::select;
+    pub fn start(mut self) -> JoinHandle<()> {
+        use tokio::select;
 
-        task::spawn(async move {
+        task::Builder::new().name("Script storage").spawn(async move {
             let scripts = self.scripts;
             let sent_particles = self.sent_particles;
             let pool = self.connection_pool;
             let config = self.config;
             let max_failures = self.config.max_failures;
 
-            let mut failed_particles = self.failed_particles.fuse();
-            let mut inlet = self.inlet.fuse();
-            let mut timer = async_std::stream::interval(self.config.timer_resolution).fuse();
+            let mut timer = IntervalStream::new(interval(self.config.timer_resolution));
 
             loop {
                 select! {
-                    command = inlet.select_next_some() => {
+                    Some(command) = self.inlet.recv() => {
                         execute_command(command, &scripts).await;
                     },
-                    failed = failed_particles.select_next_some() => {
+                    Some(failed) = self.failed_particles.recv() => {
                         remove_failed_scripts(failed, &sent_particles, &scripts, max_failures).await;
                     },
-                    _ = timer.select_next_some() => {
+                    _ = timer.next() => {
                         execute_scripts(&pool, &scripts, &sent_particles, config).await;
                         cleanup(&sent_particles).await;
                     }
                 }
             }
-        })
+        }).expect("Could not spawn task")
     }
 }
 
@@ -332,7 +331,7 @@ async fn cleanup(sent_particles: &Mutex<HashMap<ParticleId, SentParticle>>) {
 
 #[derive(Debug, Clone)]
 pub struct ScriptStorageApi {
-    pub outlet: Outlet<Command>,
+    pub outlet: UnboundedSender<Command>,
 }
 
 #[derive(Error, Debug)]
@@ -348,7 +347,7 @@ pub enum ScriptStorageError {
 impl ScriptStorageApi {
     fn send(&self, command: Command) -> Result<(), ScriptStorageError> {
         self.outlet
-            .unbounded_send(command)
+            .send(command)
             .map_err(|_| ScriptStorageError::OutletError)
     }
 

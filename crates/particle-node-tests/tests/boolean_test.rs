@@ -17,8 +17,6 @@
 #[macro_use]
 extern crate fstrings;
 
-use std::thread::sleep;
-
 use eyre::WrapErr;
 use fstrings::f;
 use maplit::hashmap;
@@ -30,19 +28,21 @@ use service_modules::load_module;
 use test_constants::KAD_TIMEOUT;
 use test_utils::create_service;
 
-#[test]
-fn pass_boolean() {
-    let swarms = make_swarms(3);
-    sleep(KAD_TIMEOUT);
+#[tokio::test]
+async fn pass_boolean() {
+    let swarms = make_swarms(3).await;
+    tokio::time::sleep(KAD_TIMEOUT).await;
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
         .wrap_err("connect client")
         .unwrap();
     let tetraplets_service = create_service(
         &mut client,
         "tetraplets",
         load_module("tests/tetraplets/artifacts", "tetraplets").expect("load module"),
-    );
+    )
+    .await;
 
     let script = f!(r#"
     (seq
@@ -61,8 +61,7 @@ fn pass_boolean() {
         "fal" => json!(false),
     };
 
-    client.send_particle(script, data.clone());
+    let args = client.execute_particle(script, data.clone()).await.unwrap();
 
-    let args = client.receive_args().wrap_err("receive").unwrap();
     assert_eq!(args, vec![json!(false), json!(true)]);
 }

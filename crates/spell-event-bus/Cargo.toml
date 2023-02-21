@@ -16,7 +16,9 @@ fluence-libp2p = { workspace = true }
 parking_lot = { workspace = true }
 serde_json = { workspace = true }
 serde = { workspace = true }
-async-std = { workspace = true }
+
+tokio = { workspace = true }
+tokio-stream = { workspace = true }
 derivative = { workspace = true }
 eyre = { workspace = true }
 fstrings = { workspace = true }
@@ -29,3 +31,4 @@ fluence-spell-dtos = { workspace = true }
 libp2p = { workspace = true }
 particle-protocol = { workspace = true }
 maplit = { workspace = true }
+log-utils = { workspace = true }

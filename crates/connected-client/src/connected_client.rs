@@ -17,17 +17,15 @@
 use core::ops::Deref;
 use std::{cell::LazyCell, collections::HashMap, ops::DerefMut, time::Duration};
 
-use async_std::task;
 use eyre::Result;
 use eyre::{bail, eyre, WrapErr};
 use fluence_keypair::KeyPair;
-use libp2p::{core::Multiaddr, PeerId};
-use parking_lot::Mutex;
-use serde_json::Value as JValue;
-
 use fluence_libp2p::Transport;
+use libp2p::{core::Multiaddr, PeerId};
 use local_vm::{make_particle, make_vm, read_args, DataStoreError};
+use parking_lot::Mutex;
 use particle_protocol::Particle;
+use serde_json::{Value as JValue, Value};
 use test_constants::{KAD_TIMEOUT, PARTICLE_TTL, SHORT_TIMEOUT, TIMEOUT, TRANSPORT_TIMEOUT};
 
 use crate::client::Client;
@@ -84,26 +82,26 @@ impl DerefMut for ConnectedClient {
 }
 
 impl ConnectedClient {
-    pub fn connect_to(node_address: Multiaddr) -> Result<Self> {
-        Self::connect_with_keypair(node_address, None)
+    pub async fn connect_to(node_address: Multiaddr) -> Result<Self> {
+        Self::connect_with_keypair(node_address, None).await
     }
 
-    pub fn connect_to_with_timeout(
+    pub async fn connect_to_with_timeout(
         node_address: Multiaddr,
         timeout: Duration,
         particle_ttl: Option<Duration>,
     ) -> Result<Self> {
-        Self::connect_with_timeout(node_address, None, timeout, particle_ttl)
+        Self::connect_with_timeout(node_address, None, timeout, particle_ttl).await
     }
 
-    pub fn connect_with_keypair(
+    pub async fn connect_with_keypair(
         node_address: Multiaddr,
         key_pair: Option<KeyPair>,
     ) -> Result<Self> {
-        Self::connect_with_timeout(node_address, key_pair, TRANSPORT_TIMEOUT, None)
+        Self::connect_with_timeout(node_address, key_pair, TRANSPORT_TIMEOUT, None).await
     }
 
-    pub fn connect_with_timeout(
+    pub async fn connect_with_timeout(
         node_address: Multiaddr,
         key_pair: Option<KeyPair>,
         timeout: Duration,
@@ -138,7 +136,10 @@ impl ConnectedClient {
 
             result
         };
-        Ok(task::block_on(self::timeout(TIMEOUT, connect))??)
+
+        let result = self::timeout(TIMEOUT, connect).await??;
+
+        Ok(result)
     }
 
     pub fn new(
@@ -175,6 +176,16 @@ impl ConnectedClient {
         self.send_particle_ext(script, data, false)
     }
 
+    pub async fn execute_particle(
+        &mut self,
+        script: impl Into<String>,
+        data: HashMap<&str, JValue>,
+    ) -> Result<Vec<JValue>> {
+        let particle_id = self.send_particle_ext(script, data, false);
+        let result = self.wait_particle_args(particle_id.clone()).await;
+        result
+    }
+
     pub fn send_particle_ext(
         &mut self,
         script: impl Into<String>,
@@ -199,34 +210,44 @@ impl ConnectedClient {
         id
     }
 
-    pub fn maybe_receive(&mut self) -> Option<Particle> {
+    pub async fn maybe_receive(&mut self) -> Option<Particle> {
         let short_timeout = self.short_timeout();
         let receive = self.client.receive_one();
-        let particle = task::block_on(timeout(short_timeout, receive)).ok()??;
-
+        let particle = timeout(short_timeout, receive).await.ok()??;
         match particle {
             ClientEvent::Particle { particle, .. } => Some(particle),
             _ => None,
         }
     }
 
-    pub fn receive(&mut self) -> Result<Particle> {
+    pub async fn receive(&mut self) -> Result<Particle> {
+        let head = self.fetched.pop();
+
+        match head {
+            Some(particle) => Ok(particle),
+            None => self.raw_receive().await,
+        }
+    }
+
+    async fn raw_receive(&mut self) -> Result<Particle> {
         let tout = self.timeout();
-        let result = task::block_on(timeout(tout, async {
+        let result = timeout(tout, async {
             loop {
                 let result = self.client.receive_one().await;
                 if let Some(ClientEvent::Particle { particle, .. }) = result {
                     break particle;
                 }
             }
-        }))
-        .wrap_err("receive particle")?;
+        })
+        .await;
+        let result = result.wrap_err("receive particle")?;
 
         Ok(result)
     }
 
-    pub fn receive_args(&mut self) -> Result<Vec<JValue>> {
-        let particle = self.receive().wrap_err("receive_args")?;
+    pub async fn receive_args(&mut self) -> Result<Vec<JValue>> {
+        let particle = self.receive().await.wrap_err("receive_args")?;
+        println!("{} received particle {}", self.peer_id, particle.id);
         let result = read_args(particle, self.peer_id, &mut self.local_vm.lock());
         match result {
             Some(result) => result.map_err(|args| eyre!("AIR caught an error: {:?}", args)),
@@ -235,26 +256,52 @@ impl ConnectedClient {
     }
 
     /// Wait for a particle with specified `particle_id`, and read "op" "return" result from it
-    pub fn wait_particle_args(&mut self, particle_id: impl AsRef<str>) -> Result<Vec<JValue>> {
+    pub async fn wait_particle_args(
+        &mut self,
+        particle_id: impl AsRef<str>,
+    ) -> Result<Vec<JValue>> {
+        log::info!("wait_particle_args {:?}", self.fetched);
+        let head = self
+            .fetched
+            .iter()
+            .position(|particle| particle.id == particle_id.as_ref());
+
+        match head {
+            Some(index) => {
+                let particle = self.fetched.remove(index);
+                let result = read_args(particle, self.peer_id, &mut self.local_vm.lock());
+                if let Some(result) = result {
+                    result.map_err(|args| eyre!("AIR caught an error: {:?}", args))
+                } else {
+                    self.raw_wait_particle_args(particle_id).await
+                }
+            }
+            None => self.raw_wait_particle_args(particle_id).await,
+        }
+    }
+
+    async fn raw_wait_particle_args(&mut self, particle_id: impl AsRef<str>) -> Result<Vec<Value>> {
         let mut max = 100;
         loop {
             max -= 1;
             if max <= 0 {
                 bail!("timed out waiting for particle {}", particle_id.as_ref());
             }
-            let particle = self.receive().ok();
+            let particle = self.raw_receive().await.ok();
             if let Some(particle) = particle {
                 if particle.id == particle_id.as_ref() {
                     let result = read_args(particle, self.peer_id, &mut self.local_vm.lock());
                     if let Some(result) = result {
                         break result.map_err(|args| eyre!("AIR caught an error: {:?}", args));
                     }
+                } else {
+                    self.fetched.push(particle)
                 }
             }
         }
     }
 
-    pub fn listen_for_n<O: Default, F: Fn(Result<Vec<JValue>, Vec<JValue>>) -> O>(
+    pub async fn listen_for_n<O: Default, F: Fn(Result<Vec<JValue>, Vec<JValue>>) -> O>(
         &mut self,
         mut n: usize,
         f: F,
@@ -265,7 +312,7 @@ impl ConnectedClient {
                 return O::default();
             }
 
-            let particle = self.receive().ok();
+            let particle = self.receive().await.ok();
             if let Some(particle) = particle {
                 let args = read_args(particle, self.peer_id, &mut self.local_vm.lock());
                 if let Some(args) = args {
@@ -280,7 +327,7 @@ pub async fn timeout<F, T>(dur: Duration, f: F) -> eyre::Result<T>
 where
     F: std::future::Future<Output = T>,
 {
-    async_std::future::timeout(dur, f)
+    tokio::time::timeout(dur, f)
         .await
         .wrap_err(format!("timed out after {dur:?}"))
 }

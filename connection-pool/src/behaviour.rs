@@ -14,13 +14,7 @@
  * limitations under the License.
  */
 
-use std::{
-    collections::{hash_map::Entry, HashMap, HashSet, VecDeque},
-    task::{Context, Poll, Waker},
-};
-
-use futures::channel::mpsc;
-use futures::StreamExt;
+use futures::{Sink, StreamExt};
 use libp2p::swarm::dial_opts::DialOpts;
 use libp2p::swarm::CloseConnection::All;
 use libp2p::swarm::{dial_opts, DialError, IntoConnectionHandler};
@@ -32,11 +26,17 @@ use libp2p::{
     },
     PeerId,
 };
+use std::pin::Pin;
+use std::{
+    collections::{hash_map::Entry, HashMap, HashSet, VecDeque},
+    task::{Context, Poll, Waker},
+};
+use tokio::sync::mpsc::{unbounded_channel, Receiver};
+use tokio::sync::{mpsc, oneshot};
+use tokio_stream::wrappers::UnboundedReceiverStream;
+use tokio_util::sync::PollSender;
 
 use fluence_libp2p::remote_multiaddr;
-use fluence_libp2p::types::{
-    BackPressuredInlet, BackPressuredOutlet, Inlet, OneshotOutlet, Outlet,
-};
 use particle_protocol::{
     CompletionChannel, Contact, HandlerMessage, Particle, ProtocolConfig, SendStatus,
 };
@@ -63,10 +63,10 @@ struct Peer {
     /// Dialed but not yet connected addresses
     dialing: HashSet<Multiaddr>,
     /// Channels to notify when any dial succeeds or peer is already connected
-    dial_promises: Vec<OneshotOutlet<bool>>,
+    dial_promises: Vec<oneshot::Sender<bool>>,
     // TODO: this layout of `dialing` and `dial_promises` doesn't allow to check specific addresses for reachability
     //       if check reachability for specific maddrs is ever required, one would need to maintain the following info:
-    //       reachability_promises: HashMap<Multiaddr, Vec<OneshotOutlet<bool>>
+    //       reachability_promises: HashMap<Multiaddr, Vec<oneshot::Sender<bool>>
 }
 
 impl Peer {
@@ -90,7 +90,7 @@ impl Peer {
 
     pub fn dialing(
         addresses: impl IntoIterator<Item = Multiaddr>,
-        outlet: OneshotOutlet<bool>,
+        outlet: oneshot::Sender<bool>,
     ) -> Self {
         Peer {
             connected: Default::default(),
@@ -104,14 +104,14 @@ impl Peer {
 pub struct ConnectionPoolBehaviour {
     peer_id: PeerId,
 
-    commands: Inlet<Command>,
+    commands: UnboundedReceiverStream<Command>,
 
-    outlet: BackPressuredOutlet<Particle>,
-    subscribers: Vec<Outlet<LifecycleEvent>>,
+    outlet: PollSender<Particle>,
+    subscribers: Vec<mpsc::UnboundedSender<LifecycleEvent>>,
 
     queue: VecDeque<Particle>,
     contacts: HashMap<PeerId, Peer>,
-    dialing: HashMap<Multiaddr, Vec<OneshotOutlet<Option<Contact>>>>,
+    dialing: HashMap<Multiaddr, Vec<oneshot::Sender<Option<Contact>>>>,
 
     events: VecDeque<SwarmEventType>,
     waker: Option<Waker>,
@@ -136,7 +136,7 @@ impl ConnectionPoolBehaviour {
 
     /// Dial `address`, and send contact back on success
     /// `None` means something prevented us from connecting - dial reach failure or something else
-    pub fn dial(&mut self, address: Multiaddr, out: OneshotOutlet<Option<Contact>>) {
+    pub fn dial(&mut self, address: Multiaddr, out: oneshot::Sender<Option<Contact>>) {
         // TODO: return Contact immediately if that address is already connected
         self.dialing.entry(address.clone()).or_default().push(out);
 
@@ -150,7 +150,7 @@ impl ConnectionPoolBehaviour {
     /// Connect to the contact by all of its known addresses and return whether connection succeeded
     /// If contact is already being dialed and there are no new addresses in Contact, don't dial
     /// If contact is already connected, return `true` immediately
-    pub fn connect(&mut self, new_contact: Contact, outlet: OneshotOutlet<bool>) {
+    pub fn connect(&mut self, new_contact: Contact, outlet: oneshot::Sender<bool>) {
         let addresses = match self.contacts.entry(new_contact.peer_id) {
             Entry::Occupied(mut entry) => {
                 let known_contact = entry.get_mut();
@@ -196,7 +196,7 @@ impl ConnectionPoolBehaviour {
         }
     }
 
-    pub fn disconnect(&mut self, peer_id: PeerId, outlet: OneshotOutlet<bool>) {
+    pub fn disconnect(&mut self, peer_id: PeerId, outlet: oneshot::Sender<bool>) {
         self.push_event(NetworkBehaviourAction::CloseConnection {
             peer_id,
             connection: All,
@@ -206,19 +206,19 @@ impl ConnectionPoolBehaviour {
     }
 
     /// Returns whether given peer is connected or not
-    pub fn is_connected(&self, peer_id: PeerId, outlet: OneshotOutlet<bool>) {
+    pub fn is_connected(&self, peer_id: PeerId, outlet: oneshot::Sender<bool>) {
         outlet.send(self.contacts.contains_key(&peer_id)).ok();
     }
 
     /// Returns contact for a given peer if it is known
-    pub fn get_contact(&self, peer_id: PeerId, outlet: OneshotOutlet<Option<Contact>>) {
+    pub fn get_contact(&self, peer_id: PeerId, outlet: oneshot::Sender<Option<Contact>>) {
         let contact = self.get_contact_impl(peer_id);
         outlet.send(contact).ok();
     }
 
     /// Sends a particle to a connected contact. Returns whether sending succeeded or not
     /// Result is sent to channel inside `upgrade_outbound` in ProtocolHandler
-    pub fn send(&mut self, to: Contact, particle: Particle, outlet: OneshotOutlet<SendStatus>) {
+    pub fn send(&mut self, to: Contact, particle: Particle, outlet: oneshot::Sender<SendStatus>) {
         if to.peer_id == self.peer_id {
             // If particle is sent to the current node, process it locally
             self.queue.push_back(particle);
@@ -243,12 +243,12 @@ impl ConnectionPoolBehaviour {
     }
 
     /// Returns number of connected contacts
-    pub fn count_connections(&mut self, outlet: OneshotOutlet<usize>) {
+    pub fn count_connections(&mut self, outlet: oneshot::Sender<usize>) {
         outlet.send(self.contacts.len()).ok();
     }
 
     /// Subscribes given channel for all `LifecycleEvent`s
-    pub fn add_subscriber(&mut self, outlet: Outlet<LifecycleEvent>) {
+    pub fn add_subscriber(&mut self, outlet: mpsc::UnboundedSender<LifecycleEvent>) {
         self.subscribers.push(outlet);
     }
 
@@ -271,9 +271,10 @@ impl ConnectionPoolBehaviour {
         protocol_config: ProtocolConfig,
         peer_id: PeerId,
         metrics: Option<ConnectionPoolMetrics>,
-    ) -> (Self, BackPressuredInlet<Particle>, ConnectionPoolApi) {
+    ) -> (Self, Receiver<Particle>, ConnectionPoolApi) {
         let (outlet, inlet) = mpsc::channel(buffer);
-        let (command_outlet, command_inlet) = mpsc::unbounded();
+        let outlet = PollSender::new(outlet);
+        let (command_outlet, command_inlet) = unbounded_channel();
         let api = ConnectionPoolApi {
             outlet: command_outlet,
             send_timeout: protocol_config.upgrade_timeout * 2,
@@ -282,7 +283,7 @@ impl ConnectionPoolBehaviour {
         let this = Self {
             peer_id,
             outlet,
-            commands: command_inlet,
+            commands: UnboundedReceiverStream::new(command_inlet),
             subscribers: <_>::default(),
             queue: <_>::default(),
             contacts: <_>::default(),
@@ -336,7 +337,7 @@ impl ConnectionPoolBehaviour {
 
     fn lifecycle_event(&mut self, event: LifecycleEvent) {
         self.subscribers.retain(|out| {
-            let ok = out.unbounded_send(event.clone());
+            let ok = out.send(event.clone());
             ok.is_ok()
         })
     }
@@ -486,6 +487,29 @@ impl NetworkBehaviour for ConnectionPoolBehaviour {
         self.cleanup_address(Some(peer_id), multiaddr);
     }
 
+    fn inject_event(
+        &mut self,
+        from: PeerId,
+        _: ConnectionId,
+        event: <Self::ConnectionHandler as ConnectionHandler>::OutEvent,
+    ) {
+        match event {
+            HandlerMessage::InParticle(particle) => {
+                log::trace!(target: "network", "{}: received particle {} from {}; queue {}", self.peer_id, particle.id, from, self.queue.len());
+                self.meter(|m| {
+                    m.particle_queue_size.set(self.queue.len() as u64 + 1);
+                    m.received_particles.inc();
+                    m.particle_sizes.observe(particle.data.len() as f64);
+                });
+                self.queue.push_back(particle);
+                self.wake();
+            }
+            HandlerMessage::InboundUpgradeError(err) => log::warn!("UpgradeError: {:?}", err),
+            HandlerMessage::Upgrade => {}
+            HandlerMessage::OutParticle(..) => unreachable!("can't receive OutParticle"),
+        }
+    }
+
     fn inject_dial_failure(
         &mut self,
         peer_id: Option<PeerId>,
@@ -549,40 +573,18 @@ impl NetworkBehaviour for ConnectionPoolBehaviour {
         );
     }
 
-    fn inject_event(
-        &mut self,
-        from: PeerId,
-        _: ConnectionId,
-        event: <Self::ConnectionHandler as ConnectionHandler>::OutEvent,
-    ) {
-        match event {
-            HandlerMessage::InParticle(particle) => {
-                log::trace!(target: "network", "{}: received particle {} from {}; queue {}", self.peer_id, particle.id, from, self.queue.len());
-                self.meter(|m| {
-                    m.particle_queue_size.set(self.queue.len() as u64 + 1);
-                    m.received_particles.inc();
-                    m.particle_sizes.observe(particle.data.len() as f64);
-                });
-                self.queue.push_back(particle);
-                self.wake();
-            }
-            HandlerMessage::InboundUpgradeError(err) => log::warn!("UpgradeError: {:?}", err),
-            HandlerMessage::Upgrade => {}
-            HandlerMessage::OutParticle(..) => unreachable!("can't receive OutParticle"),
-        }
-    }
-
     fn poll(&mut self, cx: &mut Context<'_>, _: &mut impl PollParameters) -> Poll<SwarmEventType> {
         self.waker = Some(cx.waker().clone());
 
         loop {
             // Check backpressure on the outlet
-            match self.outlet.poll_ready(cx) {
+            let mut outlet = Pin::new(&mut self.outlet);
+            match outlet.as_mut().poll_ready(cx) {
                 Poll::Ready(Ok(_)) => {
                     // channel is ready to consume more particles, so send them
                     if let Some(particle) = self.queue.pop_front() {
                         let particle_id = particle.id.clone();
-                        if let Err(err) = self.outlet.start_send(particle) {
+                        if let Err(err) = outlet.start_send(particle) {
                             log::error!("Failed to send particle to outlet: {}", err)
                         } else {
                             log::trace!(target: "execution", "Sent particle {} to execution", particle_id);

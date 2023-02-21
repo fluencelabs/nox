@@ -3,3 +3,6 @@ retry = 50
 
 [registries]
 fluence = { index = "git://crates.fluence.dev/index" }
+
+[build]
+rustflags = ["--cfg", "tokio_unstable"]

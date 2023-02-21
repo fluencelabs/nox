@@ -14,29 +14,15 @@
  * limitations under the License.
  */
 
-use std::{thread::sleep, time::Duration};
+use std::time::Duration;
 
 use eyre::WrapErr;
-
-use connected_client::ConnectedClient;
-use created_swarm::make_swarms_with_cfg;
-use test_constants::KAD_TIMEOUT;
-
-pub fn connect_swarms(node_count: usize) -> impl Fn(usize) -> ConnectedClient {
-    let swarms = make_swarms_with_cfg(node_count, |mut cfg| {
-        cfg.pool_size = Some(3);
-        cfg
-    });
-    sleep(KAD_TIMEOUT);
-
-    move |i| ConnectedClient::connect_to(swarms[i].multiaddr.clone()).expect("connect client")
-}
 
 pub async fn timeout<F, T>(dur: Duration, f: F) -> eyre::Result<T>
 where
     F: std::future::Future<Output = T>,
 {
-    async_std::future::timeout(dur, f)
+    tokio::time::timeout(dur, f)
         .await
         .wrap_err(format!("timed out after {dur:?}"))
 }

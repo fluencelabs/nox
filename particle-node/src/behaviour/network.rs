@@ -19,9 +19,9 @@ use libp2p::{
     ping::{Behaviour as Ping, Config as PingConfig},
     swarm::NetworkBehaviour,
 };
+use tokio::sync::mpsc;
 
 use connection_pool::ConnectionPoolBehaviour;
-use fluence_libp2p::types::BackPressuredInlet;
 use kademlia::{Kademlia, KademliaConfig};
 use particle_protocol::{Particle, PROTOCOL_NAME};
 use server_config::NetworkConfig;
@@ -38,7 +38,7 @@ pub struct FluenceNetworkBehaviour {
 }
 
 impl FluenceNetworkBehaviour {
-    pub fn new(cfg: NetworkConfig) -> (Self, Connectivity, BackPressuredInlet<Particle>) {
+    pub fn new(cfg: NetworkConfig) -> (Self, Connectivity, mpsc::Receiver<Particle>) {
         let local_public_key = cfg.key_pair.public();
         let identify = Identify::new(
             IdentifyConfig::new(PROTOCOL_NAME.into(), local_public_key)

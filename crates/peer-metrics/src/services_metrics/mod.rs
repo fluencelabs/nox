@@ -5,20 +5,17 @@ pub mod message;
 
 use std::{fmt, time::Duration};
 
-use prometheus_client::registry::Registry;
-
-use futures::channel::mpsc::unbounded;
-
-use crate::ServiceCallStats::Success;
-use fluence_app_service::ModuleDescriptor;
-use fluence_libp2p::types::Outlet;
-
 pub use crate::services_metrics::backend::ServicesMetricsBackend;
 pub use crate::services_metrics::builtin::ServicesMetricsBuiltin;
 pub use crate::services_metrics::external::ServiceType;
 use crate::services_metrics::external::ServiceTypeLabel;
 pub use crate::services_metrics::external::ServicesMetricsExternal;
 pub use crate::services_metrics::message::{ServiceCallStats, ServiceMemoryStat};
+use crate::ServiceCallStats::Success;
+use fluence_app_service::ModuleDescriptor;
+use prometheus_client::registry::Registry;
+use tokio::sync::mpsc;
+use tokio::sync::mpsc::unbounded_channel;
 
 use crate::services_metrics::message::ServiceMetricsMsg;
 
@@ -26,7 +23,7 @@ use crate::services_metrics::message::ServiceMetricsMsg;
 pub struct ServicesMetrics {
     pub external: Option<ServicesMetricsExternal>,
     pub builtin: ServicesMetricsBuiltin,
-    metrics_backend_outlet: Outlet<ServiceMetricsMsg>,
+    metrics_backend_outlet: mpsc::UnboundedSender<ServiceMetricsMsg>,
 }
 
 impl fmt::Debug for ServicesMetrics {
@@ -38,7 +35,7 @@ impl fmt::Debug for ServicesMetrics {
 impl ServicesMetrics {
     pub fn new(
         external: Option<ServicesMetricsExternal>,
-        metrics_backend_outlet: Outlet<ServiceMetricsMsg>,
+        metrics_backend_outlet: mpsc::UnboundedSender<ServiceMetricsMsg>,
         max_builtin_storage_size: usize,
     ) -> Self {
         Self {
@@ -53,7 +50,7 @@ impl ServicesMetrics {
         max_builtin_storage_size: usize,
         registry: &mut Registry,
     ) -> (ServicesMetricsBackend, Self) {
-        let (outlet, inlet) = unbounded();
+        let (outlet, inlet) = unbounded_channel();
 
         let external = ServicesMetricsExternal::new(registry);
         let memory_metrics = external.memory_metrics.clone();
@@ -69,7 +66,7 @@ impl ServicesMetrics {
     }
 
     pub fn with_simple_backend(max_builtin_storage_size: usize) -> (ServicesMetricsBackend, Self) {
-        let (outlet, inlet) = unbounded();
+        let (outlet, inlet) = unbounded_channel();
         let metrics = Self::new(None, outlet, max_builtin_storage_size);
         let backend = ServicesMetricsBackend::new(metrics.builtin.clone(), inlet);
         (backend, metrics)
@@ -194,7 +191,7 @@ impl ServicesMetrics {
     }
 
     fn send(&self, msg: ServiceMetricsMsg) {
-        let result = self.metrics_backend_outlet.unbounded_send(msg);
+        let result = self.metrics_backend_outlet.send(msg);
         if let Err(e) = result {
             log::warn!("Can't save services' metrics: {:?}", e);
         }

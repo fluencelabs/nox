@@ -18,9 +18,9 @@ use std::future::Future;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
-use async_std::task::JoinHandle;
 use futures::future::FusedFuture;
 use futures::FutureExt;
+use tokio::task::JoinHandle;
 
 /// Holds handles to spawned tasks
 pub struct Tasks {
@@ -36,7 +36,7 @@ impl Tasks {
 
     pub async fn cancel(self) {
         for task in self.tasks {
-            task.cancel().await;
+            task.abort();
         }
     }
 }

@@ -17,22 +17,22 @@
 use std::collections::HashMap;
 use std::time::Duration;
 
-use async_std::task::{spawn, JoinHandle};
+use aquamarine::AquamarineApi;
 use fluence_spell_dtos::trigger_config::TriggerConfigValue;
 use futures::{FutureExt, StreamExt};
-use serde_json::Value;
-
-use aquamarine::AquamarineApi;
-use fluence_libp2p::types::Inlet;
 use key_manager::KeyManager;
 use particle_args::JError;
 use particle_builtins::{wrap, wrap_unit};
 use particle_execution::{ServiceFunction, ServiceFunctionImmut};
 use particle_modules::ModuleRepository;
 use particle_services::ParticleAppServices;
+use serde_json::Value;
 use server_config::ResolvedConfig;
 use spell_event_bus::api::{from_user_config, SpellEventBusApi, TriggerEvent};
 use spell_storage::SpellStorage;
+use tokio::sync::mpsc;
+use tokio::task::JoinHandle;
+use tokio_stream::wrappers::UnboundedReceiverStream;
 
 use crate::spells::{
     get_spell_arg, get_spell_id, spell_install, spell_list, spell_remove, spell_update_config,
@@ -139,20 +139,26 @@ impl Sorcerer {
         }
     }
 
-    pub fn start(self, spell_events_stream: Inlet<TriggerEvent>) -> JoinHandle<()> {
-        spawn(async {
-            self.resubscribe_spells().await;
-
-            spell_events_stream
-                .for_each_concurrent(None, move |spell_event| {
-                    let sorcerer = self.clone();
-                    // Note that the event that triggered the spell is in `spell_event.event`
-                    async move {
-                        sorcerer.execute_script(spell_event).await;
-                    }
-                })
-                .await;
-        })
+    pub fn start(
+        self,
+        spell_events_receiver: mpsc::UnboundedReceiver<TriggerEvent>,
+    ) -> JoinHandle<()> {
+        tokio::task::Builder::new()
+            .name("sorcerer")
+            .spawn(async {
+                self.resubscribe_spells().await;
+                let spell_events_stream = UnboundedReceiverStream::new(spell_events_receiver);
+                spell_events_stream
+                    .for_each_concurrent(None, move |spell_event| {
+                        let sorcerer = self.clone();
+                        // Note that the event that triggered the spell is in `spell_event.event`
+                        async move {
+                            sorcerer.execute_script(spell_event).await;
+                        }
+                    })
+                    .await;
+            })
+            .expect("Could not spawn task")
     }
 
     fn make_spell_builtins(&self) -> Vec<SpellBuiltin> {

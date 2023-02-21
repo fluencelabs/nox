@@ -14,38 +14,51 @@
  * limitations under the License.
  */
 
+use std::future::Future;
 use std::io;
 use std::net::SocketAddr;
+use std::pin::Pin;
 use std::sync::Arc;
 
-use futures::future::BoxFuture;
-use futures::FutureExt;
-use parking_lot::Mutex;
+use hyper::service::{make_service_fn, service_fn};
+use hyper::{Body, Request, Response, Server};
+use prometheus_client::encoding::text::encode;
 use prometheus_client::registry::Registry;
 
-pub fn start_metrics_endpoint(
-    registry: Registry,
-    listen_addr: SocketAddr,
-) -> BoxFuture<'static, io::Result<()>> {
-    use prometheus_client::encoding::text::encode;
-    use tide::{Error, StatusCode::InternalServerError};
+pub async fn start_metrics_endpoint(registry: Registry, listen_addr: SocketAddr) {
+    let registry = Arc::new(registry);
+    Server::bind(&listen_addr)
+        .serve(make_service_fn(move |_conn| {
+            let registry = registry.clone();
+            async move {
+                let handler = make_handler(registry);
+                Ok::<_, io::Error>(service_fn(handler))
+            }
+        }))
+        .await
+        .expect("Could not start metrics")
+}
 
-    let registry = Arc::new(Mutex::new(registry));
-    let mut app = tide::with_state(registry);
-    app.at("/metrics")
-        .get(|req: tide::Request<Arc<Mutex<Registry>>>| async move {
-            let mut encoded = Vec::new();
-            encode(&mut encoded, &req.state().lock()).map_err(|e| {
-                let msg = format!("Error while text-encoding metrics: {e}");
-                log::warn!("{}", msg);
-                Error::from_str(InternalServerError, msg)
-            })?;
-            let response = tide::Response::builder(200)
-                .body(encoded)
-                .content_type("application/openmetrics-text; version=1.0.0; charset=utf-8")
-                .build();
-            Ok(response)
-        });
-
-    app.listen(listen_addr).boxed()
+fn make_handler(
+    registry: Arc<Registry>,
+) -> impl Fn(Request<Body>) -> Pin<Box<dyn Future<Output = io::Result<Response<Body>>> + Send>> {
+    // This closure accepts a request and responds with the OpenMetrics encoding of our metrics.
+    move |_req: Request<Body>| {
+        let reg = registry.clone();
+        Box::pin(async move {
+            let mut buf = Vec::new();
+            encode(&mut buf, &reg.clone())
+                .map_err(|e| io::Error::new(std::io::ErrorKind::Other, e))
+                .map(|_| {
+                    let body = Body::from(buf);
+                    Response::builder()
+                        .header(
+                            hyper::header::CONTENT_TYPE,
+                            "application/openmetrics-text; version=1.0.0; charset=utf-8",
+                        )
+                        .body(body)
+                        .unwrap()
+                })
+        })
+    }
 }

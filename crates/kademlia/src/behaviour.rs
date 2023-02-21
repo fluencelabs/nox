@@ -25,8 +25,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use futures::channel::mpsc;
-use futures::{FutureExt, StreamExt};
+use futures::FutureExt;
 use futures_timer::Delay;
 use libp2p::core::connection::ConnectionId;
 use libp2p::core::transport::ListenerId;
@@ -54,9 +53,9 @@ use libp2p::{
 };
 use libp2p_metrics::{Metrics, Recorder};
 use multihash::Multihash;
+use tokio::sync::{mpsc, oneshot};
 
 use control_macro::get_return;
-use fluence_libp2p::types::{Inlet, OneshotOutlet};
 use particle_protocol::Contact;
 
 use crate::error::{KademliaError, Result};
@@ -79,18 +78,18 @@ impl Deref for KademliaConfig {
 #[derive(Debug)]
 pub enum PendingQuery {
     Peer(PeerId),
-    Neighborhood(OneshotOutlet<Result<Vec<PeerId>>>),
-    Unit(OneshotOutlet<Result<()>>),
+    Neighborhood(oneshot::Sender<Result<Vec<PeerId>>>),
+    Unit(oneshot::Sender<Result<()>>),
 }
 
 #[derive(Debug)]
 struct PendingPeer {
-    out: OneshotOutlet<Result<Vec<Multiaddr>>>,
+    out: oneshot::Sender<Result<Vec<Multiaddr>>>,
     created: Instant,
 }
 
 impl PendingPeer {
-    pub fn new(out: OneshotOutlet<Result<Vec<Multiaddr>>>) -> Self {
+    pub fn new(out: oneshot::Sender<Result<Vec<Multiaddr>>>) -> Self {
         Self {
             out,
             created: Instant::now(),
@@ -114,7 +113,7 @@ impl FailedPeer {
 
 pub struct Kademlia {
     kademlia: kad::Kademlia<MemoryStore>,
-    commands: Inlet<Command>,
+    commands: mpsc::UnboundedReceiver<Command>,
 
     queries: HashMap<QueryId, PendingQuery>,
     pending_peers: HashMap<PeerId, Vec<PendingPeer>>,
@@ -139,7 +138,7 @@ impl Kademlia {
         kad_config.set_record_filtering(KademliaStoreInserts::FilterBoth);
         let kademlia = kad::Kademlia::with_config(config.peer_id, store, kad_config);
 
-        let (outlet, commands) = mpsc::unbounded();
+        let (outlet, commands) = mpsc::unbounded_channel();
         let api = KademliaApi { outlet };
 
         let behaviour = Self {
@@ -184,7 +183,7 @@ impl Kademlia {
         }
     }
 
-    pub fn bootstrap(&mut self, outlet: OneshotOutlet<Result<()>>) {
+    pub fn bootstrap(&mut self, outlet: oneshot::Sender<Result<()>>) {
         if let Ok(query_id) = self.kademlia.bootstrap() {
             self.queries.insert(query_id, PendingQuery::Unit(outlet));
             self.wake();
@@ -193,11 +192,11 @@ impl Kademlia {
         }
     }
 
-    pub fn local_lookup(&mut self, peer: &PeerId, outlet: OneshotOutlet<Vec<Multiaddr>>) {
+    pub fn local_lookup(&mut self, peer: &PeerId, outlet: oneshot::Sender<Vec<Multiaddr>>) {
         outlet.send(self.kademlia.addresses_of_peer(peer)).ok();
     }
 
-    pub fn discover_peer(&mut self, peer: PeerId, outlet: OneshotOutlet<Result<Vec<Multiaddr>>>) {
+    pub fn discover_peer(&mut self, peer: PeerId, outlet: oneshot::Sender<Result<Vec<Multiaddr>>>) {
         let local = self.kademlia.addresses_of_peer(&peer);
         if !local.is_empty() {
             outlet.send(Ok(local)).ok();
@@ -227,7 +226,7 @@ impl Kademlia {
         &mut self,
         key: Multihash,
         count: usize,
-        outlet: OneshotOutlet<Result<Vec<PeerId>>>,
+        outlet: oneshot::Sender<Result<Vec<PeerId>>>,
     ) {
         let key: Key<Multihash> = key.into();
         let peers = self.kademlia.get_closest_local_peers(&key);
@@ -240,7 +239,7 @@ impl Kademlia {
     pub fn remote_neighborhood(
         &mut self,
         key: Multihash,
-        outlet: OneshotOutlet<Result<Vec<PeerId>>>,
+        outlet: oneshot::Sender<Result<Vec<PeerId>>>,
     ) {
         let query_id = self.kademlia.get_closest_peers(key);
         self.queries
@@ -317,7 +316,7 @@ impl Kademlia {
 
         // Ingest and execute new commands
         let mut wake = false;
-        while let Poll::Ready(Some(cmd)) = self.commands.poll_next_unpin(cx) {
+        while let Poll::Ready(Some(cmd)) = self.commands.poll_recv(cx) {
             wake = true;
             self.execute(cmd)
         }
@@ -627,8 +626,6 @@ mod tests {
     use std::task::Poll;
     use std::time::Duration;
 
-    use async_std::task;
-    use futures::channel::oneshot;
     use futures::StreamExt;
     use libp2p::core::Multiaddr;
     use libp2p::identity::Keypair;
@@ -636,6 +633,7 @@ mod tests {
     use libp2p::swarm::SwarmBuilder;
     use libp2p::PeerId;
     use libp2p::Swarm;
+    use tokio::sync::oneshot;
 
     use fluence_libp2p::random_multiaddr::create_memory_maddr;
     use fluence_libp2p::{build_memory_transport, RandomPeerId};
@@ -664,12 +662,9 @@ mod tests {
         let (kad, _) = Kademlia::new(config, None);
         let timeout = Duration::from_secs(20);
 
-        let mut swarm = SwarmBuilder::with_async_std_executor(
-            build_memory_transport(kp, timeout),
-            kad,
-            peer_id,
-        )
-        .build();
+        let mut swarm =
+            SwarmBuilder::with_tokio_executor(build_memory_transport(kp, timeout), kad, peer_id)
+                .build();
 
         let mut maddr = create_memory_maddr();
         maddr.push(Protocol::P2p(peer_id.into()));
@@ -679,9 +674,9 @@ mod tests {
         (swarm, maddr)
     }
 
-    #[test]
-    fn discovery() {
-        use async_std::future::timeout;
+    #[tokio::test]
+    async fn discovery() {
+        use tokio::time::timeout;
 
         let (mut a, a_addr) = make_node();
         let (mut b, b_addr) = make_node();
@@ -718,24 +713,28 @@ mod tests {
             .discover_peer(*Swarm::local_peer_id(&c), out);
         let discover_fut = inlet;
 
-        let maddr = async_std::task::block_on(timeout(Duration::from_millis(200), async move {
+        let maddr = timeout(Duration::from_millis(200), async move {
             let mut swarms = vec![a, b, c, d, e];
-            let t = task::spawn(futures::future::poll_fn(move |ctx| {
-                for (_, swarm) in swarms.iter_mut().enumerate() {
-                    loop {
-                        if !swarm.poll_next_unpin(ctx).is_ready() {
-                            break;
+            let t = tokio::task::Builder::new()
+                .name("Kademlia")
+                .spawn(futures::future::poll_fn(move |ctx| {
+                    for (_, swarm) in swarms.iter_mut().enumerate() {
+                        loop {
+                            if !swarm.poll_next_unpin(ctx).is_ready() {
+                                break;
+                            }
                         }
                     }
-                }
-                ctx.waker().wake_by_ref();
-                Poll::Pending as Poll<()>
-            }));
+                    ctx.waker().wake_by_ref();
+                    Poll::Pending as Poll<()>
+                }))
+                .expect("Could not spawn task");
 
             let maddr = discover_fut.await;
-            t.cancel().await;
+            t.abort();
             maddr
-        }));
+        })
+        .await;
 
         assert_eq!(maddr.unwrap().unwrap().unwrap()[0], c_addr);
     }
@@ -753,9 +752,9 @@ mod tests {
         assert_eq!(node.behaviour().queries.len(), 1);
     }
 
-    #[test]
-    fn ban() {
-        use async_std::future::timeout;
+    #[tokio::test]
+    async fn ban() {
+        use tokio::time::timeout;
 
         let (mut node, _) = make_node();
         let peer = RandomPeerId::random();
@@ -765,14 +764,15 @@ mod tests {
         assert_eq!(node.behaviour_mut().queries.len(), 1);
 
         // Wait until peer is banned
-        task::block_on(timeout(Duration::from_millis(200), async {
+        timeout(Duration::from_millis(200), async {
             loop {
                 node.select_next_some().await;
                 if !node.behaviour_mut().failed_peers.is_empty() {
                     break;
                 }
             }
-        }))
+        })
+        .await
         .ok();
 
         assert_eq!(node.behaviour_mut().failed_peers.len(), 1);
@@ -787,7 +787,8 @@ mod tests {
         let (out, inlet) = oneshot::channel();
         node.behaviour_mut().discover_peer(peer, out);
 
-        let banned = task::block_on(timeout(Duration::from_millis(200), inlet))
+        let banned = timeout(Duration::from_millis(200), inlet)
+            .await
             .unwrap()
             .unwrap();
         assert!(matches!(banned, Err(KademliaError::PeerBanned)));

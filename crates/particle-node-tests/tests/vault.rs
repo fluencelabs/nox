@@ -24,24 +24,26 @@ use created_swarm::make_swarms;
 use service_modules::load_module;
 use test_utils::{create_service, CreatedService};
 
-fn create_file_share(client: &mut ConnectedClient) -> CreatedService {
+async fn create_file_share(client: &mut ConnectedClient) -> CreatedService {
     create_service(
         client,
         "file_share",
         load_module("tests/file_share/artifacts", "file_share").expect("load module"),
     )
+    .await
 }
 
-#[test]
-fn share_file() {
-    let swarms = make_swarms(1);
+#[tokio::test]
+async fn share_file() {
+    let swarms = make_swarms(1).await;
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
         .wrap_err("connect client")
         .unwrap();
 
-    let first = create_file_share(&mut client);
-    let second = create_file_share(&mut client);
+    let first = create_file_share(&mut client).await;
+    let second = create_file_share(&mut client).await;
 
     client.send_particle(
         r#"
@@ -69,22 +71,23 @@ fn share_file() {
 
     use serde_json::Value::String;
 
-    if let [String(output)] = client.receive_args().unwrap().as_slice() {
+    if let [String(output)] = client.receive_args().await.unwrap().as_slice() {
         assert_eq!(output, "Hello!");
     } else {
         panic!("incorrect args: expected a single string")
     }
 }
 
-#[test]
-fn deploy_from_vault() {
-    let swarms = make_swarms(1);
+#[tokio::test]
+async fn deploy_from_vault() {
+    let swarms = make_swarms(1).await;
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
         .wrap_err("connect client")
         .unwrap();
 
-    let file_share = create_file_share(&mut client);
+    let file_share = create_file_share(&mut client).await;
     let module = load_module("tests/file_share/artifacts", "file_share").expect("load module");
 
     client.send_particle(
@@ -134,7 +137,7 @@ fn deploy_from_vault() {
 
     use serde_json::Value::String;
 
-    let args = client.receive_args().unwrap();
+    let args = client.receive_args().await.unwrap();
     if let [String(output)] = args.as_slice() {
         assert_eq!(base64.decode(output).unwrap(), module);
     } else {
@@ -142,11 +145,12 @@ fn deploy_from_vault() {
     }
 }
 
-#[test]
-fn load_blueprint_from_vault() {
-    let swarms = make_swarms(1);
+#[tokio::test]
+async fn load_blueprint_from_vault() {
+    let swarms = make_swarms(1).await;
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
         .wrap_err("connect client")
         .unwrap();
 
@@ -168,11 +172,11 @@ fn load_blueprint_from_vault() {
         },
     );
 
-    let args = client.receive_args().unwrap();
+    let args = client.receive_args().await.unwrap();
     let module_hash = args[0].as_str().expect("single string");
 
     // create service from blueprint stored in vault
-    let file_share = create_file_share(&mut client);
+    let file_share = create_file_share(&mut client).await;
 
     let blueprint_string = json!({
         "name": "file_share",
@@ -207,7 +211,7 @@ fn load_blueprint_from_vault() {
 
     use serde_json::Value::String;
 
-    let args = client.receive_args().unwrap();
+    let args = client.receive_args().await.unwrap();
     if let [String(output)] = args.as_slice() {
         assert_eq!(output, &blueprint_string);
     } else {

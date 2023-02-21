@@ -12,8 +12,7 @@ local-vm = { workspace = true }
 
 fluence-keypair = { workspace = true }
 libp2p = { workspace = true }
-
-async-std = { workspace = true }
+tokio = { workspace = true }
 futures = { workspace = true }
 serde = { version = "1.0.152", features = ["derive"] }
 serde_json = { workspace = true }
@@ -25,3 +24,4 @@ parking_lot = { workspace = true }
 [dev-dependencies]
 rand = "0.8.5"
 log = { version = "0.4.17", features = ["serde"] }
+

@@ -9,7 +9,9 @@ log = { workspace = true }
 bytesize = "1.1.0"
 fluence-app-service = { workspace = true }
 fluence-libp2p = { workspace = true }
-async-std = { workspace = true }
+
+tokio = { workspace = true }
+tokio-stream = { workspace = true }
 futures = { workspace = true }
 serde = { version = "1.0.152", features = ["derive"] }
 serde_json = { workspace = true }

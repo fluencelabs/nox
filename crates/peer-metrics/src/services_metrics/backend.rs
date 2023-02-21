@@ -1,11 +1,12 @@
 use std::collections::HashMap;
 use std::time;
 
-use async_std::task;
-use futures::select;
 use futures::stream::StreamExt;
-
-use fluence_libp2p::types::Inlet;
+use tokio::select;
+use tokio::sync::mpsc;
+use tokio::task::{Builder, JoinHandle};
+use tokio::time::interval;
+use tokio_stream::wrappers::IntervalStream;
 
 use crate::services_metrics::builtin::ServicesMetricsBuiltin;
 use crate::services_metrics::external::{ServiceTypeLabel, ServicesMemoryMetrics};
@@ -28,7 +29,7 @@ struct ExternalMetricsBackend {
 /// requests from critical sections of code (where we can't afford to wait on locks)
 /// to store some metrics.
 pub struct ServicesMetricsBackend {
-    inlet: Inlet<ServiceMetricsMsg>,
+    inlet: mpsc::UnboundedReceiver<ServiceMetricsMsg>,
     external_metrics: Option<ExternalMetricsBackend>,
     builtin_metrics: ServicesMetricsBuiltin,
 }
@@ -39,7 +40,7 @@ impl ServicesMetricsBackend {
         timer_resolution: time::Duration,
         memory_metrics: ServicesMemoryMetrics,
         builtin_metrics: ServicesMetricsBuiltin,
-        inlet: Inlet<ServiceMetricsMsg>,
+        inlet: mpsc::UnboundedReceiver<ServiceMetricsMsg>,
     ) -> Self {
         let external_metrics = ExternalMetricsBackend {
             timer_resolution,
@@ -54,7 +55,10 @@ impl ServicesMetricsBackend {
     }
 
     /// Create a backend with only builtin metrics gathering enabled.
-    pub fn new(builtin_metrics: ServicesMetricsBuiltin, inlet: Inlet<ServiceMetricsMsg>) -> Self {
+    pub fn new(
+        builtin_metrics: ServicesMetricsBuiltin,
+        inlet: mpsc::UnboundedReceiver<ServiceMetricsMsg>,
+    ) -> Self {
         Self {
             inlet,
             external_metrics: None,
@@ -62,7 +66,7 @@ impl ServicesMetricsBackend {
         }
     }
 
-    pub fn start(self) -> task::JoinHandle<()> {
+    pub fn start(self) -> JoinHandle<()> {
         if let Some(external_metrics) = self.external_metrics {
             Self::start_with_external(self.inlet, self.builtin_metrics, external_metrics)
         } else {
@@ -71,18 +75,17 @@ impl ServicesMetricsBackend {
     }
 
     fn start_with_external(
-        inlet: Inlet<ServiceMetricsMsg>,
+        mut inlet: mpsc::UnboundedReceiver<ServiceMetricsMsg>,
         builtin_metrics: ServicesMetricsBuiltin,
         external_metrics: ExternalMetricsBackend,
-    ) -> task::JoinHandle<()> {
-        task::spawn(async move {
-            let mut inlet = inlet.fuse();
-            let mut timer = async_std::stream::interval(external_metrics.timer_resolution).fuse();
+    ) -> JoinHandle<()> {
+        Builder::new().name("Metrics").spawn(async move {
+            let mut timer = IntervalStream::new(interval(external_metrics.timer_resolution));
             let mut services_memory_stats = external_metrics.services_memory_stats;
             let memory_metrics = external_metrics.memory_metrics;
             loop {
                 select! {
-                    msg = inlet.select_next_some() => {
+                    Some(msg) = inlet.recv() => {
                         match msg {
                             // save data to the map
                             ServiceMetricsMsg::Memory { service_id, service_type, memory_stat } => {
@@ -93,24 +96,23 @@ impl ServicesMetricsBackend {
                             },
                         }
                     },
-                    _ = timer.select_next_some() => {
+                    _ = timer.next() => {
                         // send data to prometheus
                         Self::store_service_mem(&memory_metrics, &services_memory_stats);
                     }
                 }
             }
-        })
+        }).expect("Could not spawn task")
     }
 
     fn start_builtin_only(
-        inlet: Inlet<ServiceMetricsMsg>,
+        mut inlet: mpsc::UnboundedReceiver<ServiceMetricsMsg>,
         builtin_metrics: ServicesMetricsBuiltin,
-    ) -> task::JoinHandle<()> {
-        task::spawn(async move {
-            let mut inlet = inlet.fuse();
+    ) -> JoinHandle<()> {
+        Builder::new().name("Metrics").spawn(async move {
             loop {
                 select! {
-                    msg = inlet.select_next_some() => {
+                    Some(msg) = inlet.recv() => {
                         match msg {
                             ServiceMetricsMsg::Memory{..} => {},
                             ServiceMetricsMsg::CallStats { service_id, function_name, stats } => {
@@ -120,7 +122,7 @@ impl ServicesMetricsBackend {
                     },
                 }
             }
-        })
+        }).expect("Could not spawn task")
     }
 
     /// Collect the current service memory metrics including memory metrics of the modules

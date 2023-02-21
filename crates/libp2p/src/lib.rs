@@ -31,15 +31,14 @@ mod macros;
 pub mod random_multiaddr;
 mod random_peer_id;
 mod serde;
-#[cfg(feature = "async-std")]
+#[cfg(feature = "tokio")]
 mod transport;
-pub mod types;
 
 pub use self::serde::*;
 pub use connected_point::*;
 pub use macros::*;
 pub use random_peer_id::RandomPeerId;
-#[cfg(feature = "async-std")]
+#[cfg(feature = "tokio")]
 pub use transport::{build_memory_transport, build_transport, Transport};
 
 // libp2p reexports

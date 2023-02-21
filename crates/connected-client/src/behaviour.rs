@@ -52,7 +52,8 @@ pub struct ClientBehaviour {
 
 impl ClientBehaviour {
     pub fn new(protocol_config: ProtocolConfig) -> Self {
-        let ping = Ping::new(PingConfig::new());
+        #[allow(deprecated)]
+        let ping = Ping::new(PingConfig::new().with_keep_alive(true));
         Self {
             protocol_config,
             events: VecDeque::default(),
@@ -206,7 +207,7 @@ impl NetworkBehaviour for ClientBehaviour {
             let addresses = addresses.iter().map(|(a, _)| a.clone()).collect();
             self.reconnect = async move {
                 // TODO: move timeout to config
-                async_std::task::sleep(Duration::from_secs(1)).await;
+                tokio::time::sleep(Duration::from_secs(1)).await;
                 addresses
             }
             .boxed()

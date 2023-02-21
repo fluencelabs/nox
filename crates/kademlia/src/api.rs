@@ -16,12 +16,11 @@
 
 use std::convert::identity;
 
-use futures::{channel::oneshot, future::BoxFuture, FutureExt};
+use futures::{future::BoxFuture, FutureExt};
 use libp2p::{core::Multiaddr, PeerId};
 use multihash::Multihash;
-
-use fluence_libp2p::types::{OneshotOutlet, Outlet};
 use particle_protocol::Contact;
+use tokio::sync::{mpsc, oneshot};
 
 use crate::error::{KademliaError, Result};
 
@@ -43,36 +42,36 @@ pub enum Command {
     },
     LocalLookup {
         peer: PeerId,
-        out: OneshotOutlet<Vec<Multiaddr>>,
+        out: oneshot::Sender<Vec<Multiaddr>>,
     },
     Bootstrap {
-        out: OneshotOutlet<Result<()>>,
+        out: oneshot::Sender<Result<()>>,
     },
     DiscoverPeer {
         peer: PeerId,
-        out: OneshotOutlet<Result<Vec<Multiaddr>>>,
+        out: oneshot::Sender<Result<Vec<Multiaddr>>>,
     },
     Neighborhood {
         key: Multihash,
         count: usize,
-        out: OneshotOutlet<Result<Vec<PeerId>>>,
+        out: oneshot::Sender<Result<Vec<PeerId>>>,
     },
 }
 
 #[derive(Clone, Debug)]
 pub struct KademliaApi {
     // NOTE: marked `pub` to be available in benchmarks
-    pub outlet: Outlet<Command>,
+    pub outlet: mpsc::UnboundedSender<Command>,
 }
 
 impl KademliaApi {
     fn execute<R, F>(&self, cmd: F) -> Future<Result<R>>
     where
         R: Send + Sync + 'static,
-        F: FnOnce(OneshotOutlet<Result<R>>) -> Command,
+        F: FnOnce(oneshot::Sender<Result<R>>) -> Command,
     {
         let (out, inlet) = oneshot::channel();
-        if self.outlet.unbounded_send(cmd(out)).is_err() {
+        if self.outlet.send(cmd(out)).is_err() {
             return futures::future::err(KademliaError::Cancelled).boxed();
         }
         inlet
@@ -88,14 +87,14 @@ impl KademliaApiT for KademliaApi {
 
     fn add_contact(&self, contact: Contact) -> bool {
         let cmd = Command::AddContact { contact };
-        let send = self.outlet.unbounded_send(cmd);
+        let send = self.outlet.send(cmd);
         send.is_ok()
     }
 
     fn local_lookup(&self, peer: PeerId) -> Future<Result<Vec<Multiaddr>>> {
         let (out, inlet) = oneshot::channel();
         let cmd = Command::LocalLookup { peer, out };
-        let send = self.outlet.unbounded_send(cmd);
+        let send = self.outlet.send(cmd);
         if send.is_err() {
             return futures::future::err(KademliaError::Cancelled).boxed();
         }

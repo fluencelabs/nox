@@ -219,8 +219,8 @@ mod tests {
         100, 97, 116, 97, 34, 58, 34, 34, 125,
     ];
 
-    #[test]
-    fn oneshot_channel_test() {
+    #[tokio::test]
+    async fn oneshot_channel_test() {
         let mem_addr = multiaddr![Memory(thread_rng().gen::<u64>())];
         let mut transport = MemoryTransport::new().boxed();
         transport.listen_on(mem_addr).unwrap();
@@ -230,7 +230,7 @@ mod tests {
             p => panic!("MemoryTransport not listening on an address!: {:?}", p),
         };
 
-        let inbound = async_std::task::spawn(async move {
+        let inbound = tokio::task::spawn(async move {
             let (listener_upgrade, _) = transport.select_next_some().await.into_incoming().unwrap();
             // let listener_event = poll_fn(|ctx| Pin::new(&mut transport).poll(ctx)).await;
             // let listener_event = listener.next().await.unwrap();
@@ -239,23 +239,19 @@ mod tests {
             let config = ProtocolConfig::default();
             upgrade::apply_inbound(conn, config).await.unwrap()
         });
+        let msg: ProtocolMessage = serde_json::from_slice(&BYTES).unwrap();
+        let sent_particle = match msg {
+            ProtocolMessage::Particle(p) => p,
+            _ => unreachable!("must be particle"),
+        };
+        let msg = HandlerMessage::OutParticle(sent_particle.clone(), <_>::default());
+        let mut transport = MemoryTransport::new();
+        let c = transport.dial(listener_addr).unwrap().await.unwrap();
+        upgrade::apply_outbound(c, msg, upgrade::Version::V1)
+            .await
+            .unwrap();
 
-        let sent_particle = async_std::task::block_on(async move {
-            let msg: ProtocolMessage = serde_json::from_slice(&BYTES).unwrap();
-            let particle = match msg {
-                ProtocolMessage::Particle(p) => p,
-                _ => unreachable!("must be particle"),
-            };
-            let msg = HandlerMessage::OutParticle(particle.clone(), <_>::default());
-            let mut transport = MemoryTransport::new();
-            let c = transport.dial(listener_addr).unwrap().await.unwrap();
-            upgrade::apply_outbound(c, msg, upgrade::Version::V1)
-                .await
-                .unwrap();
-            particle
-        });
-
-        let received_particle = futures::executor::block_on(inbound);
+        let received_particle = inbound.await.unwrap();
 
         match received_particle {
             HandlerMessage::InParticle(received_particle) => {
@@ -275,8 +271,8 @@ mod tests {
         test_msg.unwrap();
     }
 
-    #[test]
-    fn length_prefixed() {
+    #[tokio::test]
+    async fn length_prefixed() {
         let array: &[u8] = &[
             232, 137, 2, 123, 34, 97, 99, 116, 105, 111, 110, 34, 58, 34, 80, 97, 114, 116, 105,
             99, 108, 101, 34, 44, 34, 105, 100, 34, 58, 34, 57, 54, 57, 56, 53, 98, 101, 51, 45,
@@ -1920,22 +1916,23 @@ mod tests {
             68, 69, 53, 76, 68, 69, 48, 77, 121, 119, 121, 77, 122, 73, 115, 77, 106, 77, 121, 76,
             68, 85, 120, 76, 68, 69, 51, 77, 105,
         ];
-        use async_std::task::block_on;
 
         let mut packet1 = array.clone();
-        let expected = block_on(upgrade::read_varint(&mut packet1));
+        let expected = upgrade::read_varint(&mut packet1).await;
         println!("array1: expected len {:?}, len {}", expected, array.len());
 
         let mut packet2 = array2.clone();
-        let expected = block_on(upgrade::read_varint(&mut packet2));
+        let expected = upgrade::read_varint(&mut packet2).await;
         println!("array2: expected len {:?}, len {}", expected, array2.len());
 
         let out_packet = [array, &[b'}']].concat();
 
         let mut output = Vec::new();
-        block_on(upgrade::write_length_prefixed(&mut output, &out_packet)).unwrap();
+        upgrade::write_length_prefixed(&mut output, &out_packet)
+            .await
+            .unwrap();
 
-        let length = block_on(upgrade::read_varint(&mut output.as_slice()));
+        let length = upgrade::read_varint(&mut output.as_slice()).await;
         println!(
             "array1: output length {:?}, packet length {}",
             length,
@@ -1945,7 +1942,9 @@ mod tests {
         println!("encoded with length {:?}", &output[..10]);
 
         let mut varlength = Vec::new();
-        block_on(upgrade::write_varint(&mut varlength, 16387 - 3)).unwrap();
+        upgrade::write_varint(&mut varlength, 16387 - 3)
+            .await
+            .unwrap();
         println!("varlength {varlength:?}");
     }
 }

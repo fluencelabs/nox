@@ -1,16 +1,18 @@
 use crate::api::*;
 use crate::config::{SpellTriggerConfigs, TriggerConfig};
-use async_std::sync::Arc;
-use async_std::task;
-use fluence_libp2p::types::{Inlet, Outlet};
-use futures::channel::mpsc::SendError;
-use futures::stream;
 use futures::stream::BoxStream;
-use futures::{channel::mpsc::unbounded, select, StreamExt};
+use futures::StreamExt;
+use futures::{future, FutureExt};
 use std::cmp::Ordering;
 use std::collections::{BinaryHeap, HashMap};
+use std::pin::Pin;
+use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use thiserror::Error;
+use tokio::select;
+use tokio::sync::mpsc;
+use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
+use tokio::task;
 
 struct PeerEventSubscribers {
     subscribers: HashMap<PeerEventType, Vec<Arc<SpellId>>>,
@@ -151,26 +153,30 @@ enum BusInternalError {
     #[error("failed to send a result of a command execution ({1:?}) for a spell {0}: receiving end probably dropped")]
     Reply(SpellId, Action),
     #[error("failed to send notification about a peer event {1:?} to spell {0}: {2}")]
-    SendEvent(SpellId, TriggerInfo, SendError),
+    SendEvent(SpellId, TriggerInfo, Pin<Box<dyn std::error::Error>>),
 }
 
 pub struct SpellEventBus {
     /// List of events producers.
     sources: Vec<BoxStream<'static, PeerEvent>>,
     /// API connections
-    recv_cmd_channel: Inlet<Command>,
+    recv_cmd_channel: UnboundedReceiver<Command>,
     /// Notify when trigger happened
-    send_events: Outlet<TriggerEvent>,
+    send_events: UnboundedSender<TriggerEvent>,
 }
 
 impl SpellEventBus {
     pub fn new(
         sources: Vec<BoxStream<'static, PeerEvent>>,
-    ) -> (Self, SpellEventBusApi, Inlet<TriggerEvent>) {
-        let (send_cmd_channel, recv_cmd_channel) = unbounded();
+    ) -> (
+        Self,
+        SpellEventBusApi,
+        mpsc::UnboundedReceiver<TriggerEvent>,
+    ) {
+        let (send_cmd_channel, recv_cmd_channel) = unbounded_channel();
         let api = SpellEventBusApi { send_cmd_channel };
 
-        let (send_events, recv_events) = unbounded();
+        let (send_events, recv_events) = mpsc::unbounded_channel();
 
         let this = Self {
             sources,
@@ -181,19 +187,21 @@ impl SpellEventBus {
     }
 
     pub fn start(self) -> task::JoinHandle<()> {
-        task::spawn(self.run())
+        task::Builder::new()
+            .name("Bus")
+            .spawn(self.run())
+            .expect("Could not spawn task")
     }
 
-    async fn run(self) {
+    async fn run(mut self) {
         let send_events = self.send_events;
 
-        let mut recv_cmd_channel = self.recv_cmd_channel.fuse();
         let sources = self
             .sources
             .into_iter()
             .map(|source| source.fuse())
             .collect::<Vec<_>>();
-        let mut sources_channel = stream::select_all(sources);
+        let mut sources_channel = futures::stream::select_all(sources);
 
         let mut state = SubscribersState::new();
         loop {
@@ -202,21 +210,26 @@ impl SpellEventBus {
             // Wait until the next spell should be awaken. If there are no spells wait for unreachable amount of time,
             // which means that timer won't be triggered at all. We overwrite the timer each loop (aka after each event)
             // to ensure that we don't miss newly scheduled spells.
-            let mut timer = {
+            let timer_task = {
                 let next_scheduled_in = state.next_scheduled_in(now);
                 if next_scheduled_in.is_some() {
                     log::trace!("Next time trigger will execute in: {:?}", next_scheduled_in);
                     log::trace!("Scheduled triggers: {:?}", state.scheduled);
                 }
-                // If there's no more scheduled triggers, then use Duration::MAX so that timer will
-                // not fire, until there's a new TimeTrigger config
-                let interval = next_scheduled_in.unwrap_or(Duration::MAX);
-                async_std::stream::interval(interval).fuse()
+                next_scheduled_in
+                    .map(|duration| {
+                        if duration > Duration::ZERO {
+                            tokio::time::sleep(duration).boxed()
+                        } else {
+                            future::ready(()).boxed()
+                        }
+                    })
+                    .unwrap_or_else(|| future::pending::<()>().boxed())
             };
 
             let result: Result<(), BusInternalError> = try {
                 select! {
-                    command = recv_cmd_channel.select_next_some() => {
+                    Some(command) = self.recv_cmd_channel.recv() => {
                         let Command { spell_id, action, reply } = command;
                         match &action {
                             Action::Subscribe(config) => {
@@ -226,15 +239,17 @@ impl SpellEventBus {
                                 state.unsubscribe(&spell_id);
                             },
                         };
-                        reply.send(()).map_err(|_| BusInternalError::Reply(spell_id, action))?;
+                        reply.send(()).map_err(|_| {
+                            BusInternalError::Reply(spell_id, action)
+                        })?;
                     },
-                    event = sources_channel.select_next_some() => {
+                    Some(event) = sources_channel.next() => {
                         for spell_id in state.subscribers(&event.get_type()) {
                             let event = TriggerInfo::Peer(event.clone());
                             Self::trigger_spell(&send_events, spell_id, event)?;
                         }
                     },
-                    _ = timer.select_next_some() => {
+                    _ = timer_task => {
                         // The timer is triggered only if there are some spells to be awaken.
                         if let Some(scheduled_spell) = state.scheduled.pop() {
                             log::trace!("Execute: {:?}", scheduled_spell);
@@ -257,16 +272,16 @@ impl SpellEventBus {
 
     #[allow(clippy::result_large_err)]
     fn trigger_spell(
-        send_events: &Outlet<TriggerEvent>,
+        send_events: &UnboundedSender<TriggerEvent>,
         id: &Arc<SpellId>,
         event: TriggerInfo,
     ) -> Result<(), BusInternalError> {
         send_events
-            .unbounded_send(TriggerEvent {
+            .send(TriggerEvent {
                 spell_id: (**id).clone(),
                 info: event.clone(),
             })
-            .map_err(|e| BusInternalError::SendEvent((**id).clone(), event, e.into_send_error()))?;
+            .map_err(|e| BusInternalError::SendEvent((**id).clone(), event, Box::pin(e)))?;
         Ok(())
     }
 }
@@ -274,14 +289,16 @@ impl SpellEventBus {
 #[cfg(test)]
 mod tests {
     use crate::bus::*;
-    use async_std::task::JoinHandle;
     use connection_pool::LifecycleEvent;
     use futures::StreamExt;
     use libp2p::PeerId;
+    use log_utils::enable_logs;
     use maplit::hashmap;
     use particle_protocol::Contact;
     use std::assert_matches::assert_matches;
     use std::time::Duration;
+    use tokio::task::JoinHandle;
+    use tokio_stream::wrappers::UnboundedReceiverStream;
 
     // Safely call teardown after test.
     fn try_catch<T>(test: T, teardown: impl FnOnce())
@@ -297,67 +314,83 @@ mod tests {
         }
     }
 
-    fn send_connect_event(send: &Outlet<PeerEvent>, peer_id: PeerId) {
-        send.unbounded_send(PeerEvent::from(LifecycleEvent::Connected(Contact::new(
-            peer_id,
-            Vec::new(),
-        ))))
-        .unwrap();
+    fn send_connect_event(sender: &UnboundedSender<PeerEvent>, peer_id: PeerId) {
+        sender
+            .send(PeerEvent::from(LifecycleEvent::Connected(Contact::new(
+                peer_id,
+                Vec::new(),
+            ))))
+            .unwrap();
     }
 
-    fn emulate_connect(period: Duration) -> (Inlet<PeerEvent>, JoinHandle<()>) {
-        let (send, recv) = unbounded();
-        let hdl = task::spawn(async move {
-            let mut interval = async_std::stream::interval(period).fuse();
-            loop {
-                select! {
-                    _ = interval.select_next_some() => {
-                        send_connect_event(&send, PeerId::random());
+    fn emulate_connect(period: Duration) -> (UnboundedReceiver<PeerEvent>, JoinHandle<()>) {
+        let (send, recv) = unbounded_channel();
+        let hdl = task::Builder::new()
+            .name("emulate_connect")
+            .spawn(async move {
+                let mut task = Some(tokio::time::sleep(period).boxed());
+                loop {
+                    let task = task.as_mut().expect("Could not get task");
+                    select! {
+                        _ = task => {
+                            send_connect_event(&send, PeerId::random());
+                        }
                     }
                 }
-            }
-        });
+            })
+            .expect("Could not spawn task");
         (recv, hdl)
     }
 
-    fn subscribe_peer_event(api: &SpellEventBusApi, spell_id: SpellId, events: Vec<PeerEventType>) {
-        task::block_on(api.subscribe(
+    async fn subscribe_peer_event(
+        api: &SpellEventBusApi,
+        spell_id: SpellId,
+        events: Vec<PeerEventType>,
+    ) {
+        api.subscribe(
             spell_id,
             SpellTriggerConfigs {
                 triggers: vec![TriggerConfig::PeerEvent(PeerEventConfig { events })],
             },
-        ))
-        .unwrap();
+        )
+        .await
+        .expect("Could not subscribe peer event");
     }
 
-    fn subscribe_timer(api: &SpellEventBusApi, spell_id: SpellId, config: TimerConfig) {
-        task::block_on(api.subscribe(
+    async fn subscribe_timer(api: &SpellEventBusApi, spell_id: SpellId, config: TimerConfig) {
+        api.subscribe(
             spell_id,
             SpellTriggerConfigs {
                 triggers: vec![TriggerConfig::Timer(config)],
             },
-        ))
-        .unwrap();
+        )
+        .await
+        .expect("Could not subscribe timer");
     }
 
-    fn subscribe_periodic_endless(api: &SpellEventBusApi, spell_id: SpellId, period: Duration) {
+    async fn subscribe_periodic_endless(
+        api: &SpellEventBusApi,
+        spell_id: SpellId,
+        period: Duration,
+    ) {
         subscribe_timer(
             api,
             spell_id,
             TimerConfig::periodic(period, Instant::now(), None),
-        );
+        )
+        .await;
     }
 
-    #[test]
-    fn test_subscribe_one() {
-        let (bus, api, event_stream) = SpellEventBus::new(vec![]);
+    #[tokio::test]
+    async fn test_subscribe_one() {
+        let (bus, api, event_receiver) = SpellEventBus::new(vec![]);
         let bus = bus.start();
+        let event_stream = UnboundedReceiverStream::new(event_receiver);
 
         let spell1_id = "spell1".to_string();
-        subscribe_periodic_endless(&api, spell1_id.clone(), Duration::from_millis(5));
+        subscribe_periodic_endless(&api, spell1_id.clone(), Duration::from_millis(5)).await;
 
-        let events =
-            task::block_on(async { event_stream.take(5).collect::<Vec<TriggerEvent>>().await });
+        let events = event_stream.take(5).collect::<Vec<TriggerEvent>>().await;
         try_catch(
             || {
                 assert_eq!(events.len(), 5);
@@ -367,17 +400,16 @@ mod tests {
                 }
             },
             || {
-                task::block_on(async {
-                    bus.cancel().await;
-                });
+                bus.abort();
             },
         );
     }
 
-    #[test]
-    fn test_subscribe_many() {
-        let (bus, api, event_stream) = SpellEventBus::new(vec![]);
+    #[tokio::test]
+    async fn test_subscribe_many() {
+        let (bus, api, event_receiver) = SpellEventBus::new(vec![]);
         let bus = bus.start();
+        let event_stream = UnboundedReceiverStream::new(event_receiver);
 
         let mut spell_ids = hashmap![
             "spell1".to_string() => 0,
@@ -385,11 +417,10 @@ mod tests {
             "spell3".to_string() => 0,
         ];
         for spell_id in spell_ids.keys() {
-            subscribe_periodic_endless(&api, spell_id.clone(), Duration::from_millis(5));
+            subscribe_periodic_endless(&api, spell_id.clone(), Duration::from_millis(5)).await;
         }
 
-        let events =
-            task::block_on(async { event_stream.take(10).collect::<Vec<TriggerEvent>>().await });
+        let events = event_stream.take(10).collect::<Vec<TriggerEvent>>().await;
         try_catch(
             move || {
                 assert_eq!(events.len(), 10);
@@ -402,28 +433,27 @@ mod tests {
                 }
             },
             || {
-                task::block_on(async {
-                    bus.cancel().await;
-                });
+                bus.abort();
             },
         );
     }
 
-    #[test]
-    fn test_subscribe_oneshot() {
-        let (bus, api, event_stream) = SpellEventBus::new(vec![]);
+    #[tokio::test]
+    async fn test_subscribe_oneshot() {
+        let (bus, api, event_receiver) = SpellEventBus::new(vec![]);
         let bus = bus.start();
+        let event_stream = UnboundedReceiverStream::new(event_receiver);
         let spell1_id = "spell1".to_string();
         subscribe_timer(
             &api,
             spell1_id.clone(),
             TimerConfig::oneshot(Instant::now()),
-        );
+        )
+        .await;
         let spell2_id = "spell2".to_string();
-        subscribe_periodic_endless(&api, spell2_id.clone(), Duration::from_millis(5));
+        subscribe_periodic_endless(&api, spell2_id.clone(), Duration::from_millis(5)).await;
 
-        let events =
-            task::block_on(async { event_stream.take(5).collect::<Vec<TriggerEvent>>().await });
+        let events = event_stream.take(5).collect::<Vec<TriggerEvent>>().await;
 
         let mut counts = HashMap::new();
         counts.insert(spell1_id.clone(), 0);
@@ -436,26 +466,26 @@ mod tests {
                 assert_eq!(*counts.get(&spell1_id).unwrap(), 1);
             },
             || {
-                task::block_on(async {
-                    bus.cancel().await;
-                });
+                bus.abort();
             },
         );
     }
 
-    #[test]
-    fn test_subscribe_connect() {
-        let (send, recv) = unbounded();
-        let (bus, api, mut event_stream) = SpellEventBus::new(vec![recv.boxed()]);
+    #[tokio::test]
+    async fn test_subscribe_connect() {
+        let (send, recv) = unbounded_channel();
+        let recv = UnboundedReceiverStream::new(recv).boxed();
+        let (bus, api, event_receiver) = SpellEventBus::new(vec![recv]);
+        let mut event_stream = UnboundedReceiverStream::new(event_receiver);
         let bus = bus.start();
 
         let spell1_id = "spell1".to_string();
-        subscribe_peer_event(&api, spell1_id.clone(), vec![PeerEventType::Connected]);
+        subscribe_peer_event(&api, spell1_id.clone(), vec![PeerEventType::Connected]).await;
 
         let peer_id = PeerId::random();
         send_connect_event(&send, peer_id);
 
-        let event = task::block_on(async { event_stream.next().await.unwrap() });
+        let event = event_stream.next().await.unwrap();
         try_catch(
             || {
                 assert_eq!(event.spell_id, spell1_id.clone());
@@ -466,64 +496,56 @@ mod tests {
                 );
             },
             || {
-                task::block_on(async {
-                    bus.cancel().await;
-                });
+                bus.abort();
             },
         );
     }
 
-    #[test]
-    fn test_unsubscribe() {
-        use async_std::task;
-
-        let (send, recv) = unbounded();
-        let (bus, api, mut event_stream) = SpellEventBus::new(vec![recv.boxed()]);
+    #[tokio::test]
+    async fn test_unsubscribe() {
+        enable_logs();
+        let (send, recv) = unbounded_channel();
+        let recv = UnboundedReceiverStream::new(recv).boxed();
+        let (bus, api, mut event_receiver) = SpellEventBus::new(vec![recv]);
         let bus = bus.start();
 
         let spell1_id = "spell1".to_string();
-        subscribe_peer_event(&api, spell1_id.clone(), vec![PeerEventType::Connected]);
+        subscribe_peer_event(&api, spell1_id.clone(), vec![PeerEventType::Connected]).await;
 
         let spell2_id = "spell2".to_string();
-        subscribe_peer_event(&api, spell2_id.clone(), vec![PeerEventType::Connected]);
+        subscribe_peer_event(&api, spell2_id.clone(), vec![PeerEventType::Connected]).await;
         send_connect_event(&send, PeerId::random());
 
-        task::block_on(async {
-            let triggered_spell_a = event_stream.next().await.unwrap().spell_id;
-            let triggered_spell_b = event_stream.next().await.unwrap().spell_id;
-            let triggered = vec![triggered_spell_a, triggered_spell_b];
-            assert!(triggered.contains(&spell1_id), "spell_1 must be triggered");
-            assert!(triggered.contains(&spell2_id), "spell_2 must be triggered");
+        let triggered_spell_a = event_receiver.recv().await.unwrap().spell_id;
+        let triggered_spell_b = event_receiver.recv().await.unwrap().spell_id;
+        let triggered = vec![triggered_spell_a, triggered_spell_b];
+        assert!(triggered.contains(&spell1_id), "spell_1 must be triggered");
+        assert!(triggered.contains(&spell2_id), "spell_2 must be triggered");
 
-            api.unsubscribe(spell2_id).await.unwrap();
-            send_connect_event(&send, PeerId::random());
-            let triggered_spell_1 = event_stream.next().await.unwrap().spell_id;
-            assert_eq!(spell1_id, triggered_spell_1);
-            assert!(
-                event_stream.try_next().is_err(),
-                "no other spells must be triggered"
-            );
-        });
-
-        task::block_on(async {
-            bus.cancel().await;
-        });
+        api.unsubscribe(spell2_id).await.unwrap();
+        send_connect_event(&send, PeerId::random());
+        let triggered_spell_1 = event_receiver.recv().await.unwrap().spell_id;
+        assert_eq!(spell1_id, triggered_spell_1);
+        let result = event_receiver.try_recv();
+        assert!(result.is_err(), "no other spells must be triggered");
+        bus.abort();
     }
 
-    #[test]
-    fn test_subscribe_many_spells_with_diff_event_types() {
+    #[tokio::test]
+    async fn test_subscribe_many_spells_with_diff_event_types() {
         let (recv, hdl) = emulate_connect(Duration::from_millis(10));
-        let (bus, api, event_stream) = SpellEventBus::new(vec![recv.boxed()]);
+        let recv = UnboundedReceiverStream::new(recv).boxed();
+        let (bus, api, event_receiver) = SpellEventBus::new(vec![recv]);
+        let event_stream = UnboundedReceiverStream::new(event_receiver);
         let bus = bus.start();
 
         let spell1_id = "spell1".to_string();
-        subscribe_peer_event(&api, spell1_id.clone(), vec![PeerEventType::Connected]);
+        subscribe_peer_event(&api, spell1_id.clone(), vec![PeerEventType::Connected]).await;
 
         let spell2_id = "spell2".to_string();
-        subscribe_periodic_endless(&api, spell2_id.clone(), Duration::from_millis(5));
+        subscribe_periodic_endless(&api, spell2_id.clone(), Duration::from_millis(5)).await;
 
-        let events =
-            task::block_on(async { event_stream.take(10).collect::<Vec<TriggerEvent>>().await });
+        let events = event_stream.take(10).collect::<Vec<TriggerEvent>>().await;
         try_catch(
             || {
                 for event in events.into_iter() {
@@ -539,10 +561,8 @@ mod tests {
                 }
             },
             || {
-                task::block_on(async {
-                    hdl.cancel().await;
-                    bus.cancel().await;
-                });
+                hdl.abort();
+                bus.abort();
             },
         );
     }

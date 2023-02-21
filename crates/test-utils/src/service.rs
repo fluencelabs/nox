@@ -15,7 +15,6 @@
  */
 
 use base64::{engine::general_purpose::STANDARD as base64, Engine};
-use eyre::WrapErr;
 use maplit::hashmap;
 use serde_json::json;
 
@@ -26,7 +25,7 @@ pub struct CreatedService {
     pub id: String,
 }
 
-pub fn create_service(
+pub async fn create_service(
     client: &mut ConnectedClient,
     module_name: &str,
     module_bytes: Vec<u8>,
@@ -59,8 +58,7 @@ pub fn create_service(
         "dependencies" => json!([module_name]),
     };
 
-    client.send_particle(script, data);
-    let response = client.receive_args().wrap_err("receive args").unwrap();
+    let response = client.execute_particle(script, data).await.unwrap();
 
     let service_id = response[0]
         .as_str()

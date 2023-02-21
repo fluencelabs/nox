@@ -21,10 +21,12 @@ pub fn enable_logs() {
 
     std::env::set_var("WASM_LOG", "info");
 
-    env_logger::builder()
+    env_logger::Builder::from_default_env()
         .format_timestamp_millis()
         .filter_level(log::LevelFilter::Info)
+        .filter(Some("builtins_deployer"), Trace)
         .filter(Some("script_storage"), Trace)
+        .filter(Some("run-console"), Trace)
         .filter(Some("script_storage"), Trace)
         .filter(Some("sorcerer"), Trace)
         .filter(Some("key_manager"), Trace)
@@ -63,4 +65,8 @@ pub fn enable_logs() {
         .filter(Some("walrus"), Info)
         .try_init()
         .ok();
+}
+
+pub fn enable_console() {
+    console_subscriber::init();
 }

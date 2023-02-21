@@ -14,34 +14,33 @@
  * limitations under the License.
  */
 
-use futures::FutureExt;
+use async_trait::async_trait;
 use std::collections::HashMap;
 
 use connection_pool::ConnectionPoolApi;
 use kademlia::KademliaApi;
 use particle_args::Args;
-use particle_execution::{
-    ParticleFunction, ParticleFunctionOutput, ParticleParams, ServiceFunction,
-};
+use particle_execution::{FunctionOutcome, ParticleFunction, ParticleParams, ServiceFunction};
 
 use crate::builtins::CustomService;
 use crate::Builtins;
 
+#[async_trait]
 impl<C> ParticleFunction for Builtins<C>
 where
     C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoolApi>,
 {
-    fn call(&self, args: Args, particle: ParticleParams) -> ParticleFunctionOutput<'_> {
-        Builtins::call(self, args, particle).boxed()
+    async fn call(&self, args: Args, particle: ParticleParams) -> FunctionOutcome {
+        Builtins::call(self, args, particle).await
     }
 
-    fn extend(
+    async fn extend(
         &self,
         service: String,
         functions: HashMap<String, ServiceFunction>,
         unhandled: Option<ServiceFunction>,
     ) {
-        self.custom_services.write().insert(
+        self.custom_services.write().await.insert(
             service,
             CustomService {
                 functions,
@@ -50,13 +49,11 @@ where
         );
     }
 
-    fn remove(
-        &self,
-        service: &str,
-    ) -> Option<(HashMap<String, ServiceFunction>, Option<ServiceFunction>)> {
+    async fn remove(&self, service: &str) {
         self.custom_services
             .write()
+            .await
             .remove(service)
-            .map(|hm| (hm.functions, hm.unhandled))
+            .map(|hm| (hm.functions, hm.unhandled));
     }
 }
