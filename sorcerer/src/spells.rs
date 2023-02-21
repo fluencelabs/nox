@@ -151,10 +151,11 @@ pub(crate) async fn spell_remove(
     let is_spell_owner = init_peer_id == spell_owner;
     let is_worker_creator = init_peer_id == worker_creator;
     let is_worker = init_peer_id == worker_id;
+    let is_management = key_manager.is_management(init_peer_id);
 
-    if !is_spell_owner && !is_worker_creator && !is_worker {
+    if !is_spell_owner && !is_worker_creator && !is_worker && !is_management {
         return Err(JError::new(format!(
-            "Failed to remove spell {spell_id}, spell can be removed by spell owner {spell_owner}, or worker creator {worker_creator}, or worker itself {worker_id}"
+            "Failed to remove spell {spell_id}, spell can be removed by spell owner {spell_owner}, worker creator {worker_creator}, worker itself {worker_id} or peer manager"
         )));
     }
 
@@ -191,10 +192,11 @@ pub(crate) async fn spell_update_config(
     let is_spell_owner = init_peer_id == spell_owner;
     let is_worker_creator = init_peer_id == worker_creator;
     let is_worker = init_peer_id == worker_id;
+    let is_management = key_manager.is_management(init_peer_id);
 
-    if !is_spell_owner && !is_worker_creator && !is_worker {
+    if !is_spell_owner && !is_worker_creator && !is_worker && !is_management {
         return Err(JError::new(format!(
-            "Failed to update spell config {spell_id}, spell config can be updated by spell owner {spell_owner}, or worker creator {worker_creator}, or worker itself {worker_id}"
+            "Failed to update spell config {spell_id}, spell config can be updated by spell owner {spell_owner}, worker creator {worker_creator}, worker itself {worker_id} or peer manager"
         )));
     }
 

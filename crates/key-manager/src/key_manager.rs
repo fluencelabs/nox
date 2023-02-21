@@ -43,10 +43,11 @@ pub struct KeyManager {
     host_peer_id: PeerId,
     // temporary public, will refactor
     pub insecure_keypair: KeyPair,
+    management_peer_id: PeerId,
 }
 
 impl KeyManager {
-    pub fn new(keypairs_dir: PathBuf, host_peer_id: PeerId) -> Self {
+    pub fn new(keypairs_dir: PathBuf, host_peer_id: PeerId, management_peer_id: PeerId) -> Self {
         let this = Self {
             worker_keypairs: Arc::new(Default::default()),
             worker_ids: Arc::new(Default::default()),
@@ -58,6 +59,7 @@ impl KeyManager {
                 KeyFormat::Ed25519,
             )
             .expect("error creating insecure keypair"),
+            management_peer_id,
         };
 
         this.load_persisted_keypairs();
@@ -100,12 +102,16 @@ impl KeyManager {
         self.worker_keypairs.read().contains_key(&peer_id)
     }
 
+    pub fn is_management(&self, peer_id: PeerId) -> bool {
+        self.management_peer_id == peer_id
+    }
+
     pub fn get_host_peer_id(&self) -> PeerId {
         self.host_peer_id
     }
 
     pub fn generate_deal_id(init_peer_id: PeerId) -> String {
-        format!("direct_hosting_{}", init_peer_id)
+        format!("direct_hosting_{init_peer_id}")
     }
 
     pub fn create_worker(
