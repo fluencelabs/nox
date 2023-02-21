@@ -379,6 +379,7 @@ mod tests {
             "keypair".into(),
             RandomPeerId::random(),
             RandomPeerId::random(),
+            RandomPeerId::random(),
         );
         Plumber::new(vm_pool, builtin_mock, None, key_manager)
     }

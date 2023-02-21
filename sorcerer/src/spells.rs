@@ -175,7 +175,12 @@ pub(crate) async fn spell_remove(
 
     let spell_id = services.to_service_id(params.host_id, spell_id)?;
     spell_storage.unregister_spell(&spell_id);
-    services.remove_service(worker_id, spell_id, worker_id, true)?;
+    let owner_id = if is_worker_creator {
+        worker_id
+    } else {
+        init_peer_id
+    };
+    services.remove_service(worker_id, spell_id, owner_id, true)?;
     Ok(())
 }
 
@@ -201,7 +206,7 @@ pub(crate) async fn spell_update_config(
 
     if !is_spell_owner && !is_worker_creator && !is_worker && !is_management {
         return Err(JError::new(format!(
-            "Failed to update spell config {spell_id}, spell config can be updated by spell owner {spell_owner}, worker creator {worker_creator}, worker itself {worker_id} or peer manager"
+            "Failed to update spell config {spell_id}, spell config can be updated by spell owner {spell_owner}, worker creator {worker_creator}, worker itself {worker_id} or peer manager; init_peer_id={init_peer_id}"
         )));
     }
 

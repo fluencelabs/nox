@@ -44,10 +44,16 @@ pub struct KeyManager {
     // temporary public, will refactor
     pub insecure_keypair: KeyPair,
     management_peer_id: PeerId,
+    builtins_management_peer_id: PeerId,
 }
 
 impl KeyManager {
-    pub fn new(keypairs_dir: PathBuf, host_peer_id: PeerId, management_peer_id: PeerId) -> Self {
+    pub fn new(
+        keypairs_dir: PathBuf,
+        host_peer_id: PeerId,
+        management_peer_id: PeerId,
+        builtins_management_peer_id: PeerId,
+    ) -> Self {
         let this = Self {
             worker_keypairs: Arc::new(Default::default()),
             worker_ids: Arc::new(Default::default()),
@@ -60,6 +66,7 @@ impl KeyManager {
             )
             .expect("error creating insecure keypair"),
             management_peer_id,
+            builtins_management_peer_id,
         };
 
         this.load_persisted_keypairs();
@@ -103,7 +110,7 @@ impl KeyManager {
     }
 
     pub fn is_management(&self, peer_id: PeerId) -> bool {
-        self.management_peer_id == peer_id
+        self.management_peer_id == peer_id || self.builtins_management_peer_id == peer_id
     }
 
     pub fn get_host_peer_id(&self) -> PeerId {
@@ -150,11 +157,15 @@ impl KeyManager {
     }
 
     pub fn get_worker_creator(&self, worker_id: PeerId) -> Result<PeerId, KeyManagerError> {
-        self.worker_creators
-            .read()
-            .get(&worker_id)
-            .cloned()
-            .ok_or(WorkerNotFound(worker_id))
+        if self.is_host(worker_id) {
+            Ok(worker_id)
+        } else {
+            self.worker_creators
+                .read()
+                .get(&worker_id)
+                .cloned()
+                .ok_or(WorkerNotFound(worker_id))
+        }
     }
 
     pub fn generate_keypair(&self) -> KeyPair {
