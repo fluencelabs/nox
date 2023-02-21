@@ -107,6 +107,7 @@ pub struct ParticleAppServices {
     pub metrics: Option<ServicesMetrics>,
 }
 
+/// firstly, try to find by alias in worker scope, secondly, in root scope
 pub fn resolve_alias(
     alias: String,
     aliases: &Aliases,
@@ -553,12 +554,22 @@ impl ParticleAppServices {
         Ok(service_id)
     }
 
-    pub fn get_service_owner(&self, service_id: String) -> Result<PeerId, ServiceError> {
-        if let Some(service) = self.services.read().get(&service_id) {
-            Ok(service.owner_id)
-        } else {
-            Err(ServiceError::NoSuchService(service_id))
-        }
+    pub fn get_service_owner(
+        &self,
+        id_or_alias: String,
+        worker_id: PeerId,
+    ) -> Result<PeerId, ServiceError> {
+        let services = self.services.read();
+        let (service, _) = get_service(
+            &services,
+            &self.aliases.read(),
+            worker_id,
+            self.config.local_peer_id,
+            id_or_alias,
+        )
+        .map_err(ServiceError::NoSuchService)?;
+
+        Ok(service.owner_id)
     }
 
     pub fn get_interface(

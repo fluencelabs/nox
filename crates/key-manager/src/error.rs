@@ -19,7 +19,7 @@ use std::path::PathBuf;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
-pub enum PersistedKeypairError {
+pub enum KeyManagerError {
     #[error("Failed to persist keypair: RSA is not supported")]
     CannotExtractRSASecretKey,
     #[error("Error reading persisted keypair from {path:?}: {err}")]
@@ -51,10 +51,12 @@ pub enum PersistedKeypairError {
         #[source]
         err: std::io::Error,
     },
-}
-
-#[derive(Debug, Error)]
-pub enum KeyManagerError {
     #[error("Keypair for peer_id {0} not found")]
     KeypairNotFound(PeerId),
+    #[error("Worker for {deal_id} already exists")]
+    WorkerAlreadyExists { deal_id: String },
+    #[error("Worker for deal_id {0} not found")]
+    WorkerNotFoundByDeal(String),
+    #[error("Worker {0} not found")]
+    WorkerNotFound(PeerId),
 }

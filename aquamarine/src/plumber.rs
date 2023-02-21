@@ -75,7 +75,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
         &mut self,
         particle: Particle,
         function: Option<ServiceFunction>,
-        scope_peer_id: PeerId,
+        worker_id: PeerId,
     ) {
         self.wake();
 
@@ -92,11 +92,11 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
         let builtins = &self.builtins;
         let actor = self
             .actors
-            .entry((particle.id.clone(), scope_peer_id))
+            .entry((particle.id.clone(), worker_id))
             .or_insert_with(|| {
-                let params = ParticleParams::clone_from(&particle, scope_peer_id);
+                let params = ParticleParams::clone_from(&particle, worker_id);
                 let functions = Functions::new(params, builtins.clone());
-                Actor::new(&particle, functions, scope_peer_id)
+                Actor::new(&particle, functions, worker_id)
             });
 
         actor.ingest(particle);
@@ -139,11 +139,11 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
         for actor in self.actors.values_mut() {
             if let Poll::Ready(result) = actor.poll_completed(cx) {
                 interpretation_stats.push(result.stats);
-                let (local_peers, remote_peers): (Vec<_>, Vec<_>) =
-                    result.effects.next_peers.into_iter().partition(|p| {
-                        key_manager.is_scope_peer_id(*p)
-                            || p.eq(&self.key_manager.get_host_peer_id())
-                    });
+                let (local_peers, remote_peers): (Vec<_>, Vec<_>) = result
+                    .effects
+                    .next_peers
+                    .into_iter()
+                    .partition(|p| key_manager.is_local(*p));
 
                 if !remote_peers.is_empty() {
                     remote_effects.push(RoutingEffects {
@@ -375,7 +375,11 @@ mod tests {
         // Pool is of size 1 so it's easier to control tests
         let vm_pool = VmPool::new(1, (), None);
         let builtin_mock = Arc::new(MockF);
-        let key_manager = KeyManager::new("keypair".into(), RandomPeerId::random());
+        let key_manager = KeyManager::new(
+            "keypair".into(),
+            RandomPeerId::random(),
+            RandomPeerId::random(),
+        );
         Plumber::new(vm_pool, builtin_mock, None, key_manager)
     }
 

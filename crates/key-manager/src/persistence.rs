@@ -16,8 +16,8 @@
 
 use fs_utils::{create_dir, list_files};
 
-use crate::error::PersistedKeypairError;
-use crate::error::PersistedKeypairError::{
+use crate::error::KeyManagerError;
+use crate::error::KeyManagerError::{
     CannotExtractRSASecretKey, CreateKeypairsDir, DeserializePersistedKeypair,
     ReadPersistedKeypair, SerializePersistedKeypair, WriteErrorPersistedKeypair,
 };
@@ -30,17 +30,23 @@ use std::path::Path;
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct PersistedKeypair {
     #[serde(with = "peerid_serializer")]
-    pub remote_peer_id: PeerId,
+    pub deal_creator: PeerId,
     pub private_key_bytes: Vec<u8>,
     pub key_format: String,
+    pub deal_id: String,
 }
 
 impl PersistedKeypair {
-    pub fn new(owner_id: PeerId, keypair: &KeyPair) -> Result<Self, PersistedKeypairError> {
+    pub fn new(
+        deal_creator: PeerId,
+        keypair: &KeyPair,
+        deal_id: String,
+    ) -> Result<Self, KeyManagerError> {
         Ok(Self {
-            remote_peer_id: owner_id,
+            deal_creator,
             private_key_bytes: keypair.secret().map_err(|_| CannotExtractRSASecretKey)?,
             key_format: keypair.public().get_key_format().into(),
+            deal_id,
         })
     }
 }
@@ -59,10 +65,8 @@ pub fn is_keypair(path: &Path) -> bool {
 pub fn persist_keypair(
     keypairs_dir: &Path,
     persisted_keypair: PersistedKeypair,
-) -> Result<(), PersistedKeypairError> {
-    let path = keypairs_dir.join(keypair_file_name(
-        &persisted_keypair.remote_peer_id.to_base58(),
-    ));
+) -> Result<(), KeyManagerError> {
+    let path = keypairs_dir.join(keypair_file_name(&persisted_keypair.deal_id));
     let bytes =
         toml::to_vec(&persisted_keypair).map_err(|err| SerializePersistedKeypair { err })?;
     std::fs::write(&path, bytes).map_err(|err| WriteErrorPersistedKeypair { path, err })
@@ -71,7 +75,7 @@ pub fn persist_keypair(
 /// Load info about persisted keypairs from disk
 pub fn load_persisted_keypairs(
     keypairs_dir: &Path,
-) -> Vec<Result<PersistedKeypair, PersistedKeypairError>> {
+) -> Vec<Result<PersistedKeypair, KeyManagerError>> {
     // Load all persisted service file names
     let files = match list_files(keypairs_dir) {
         Some(files) => files,
