@@ -937,7 +937,7 @@ where
 
                 if duplet != record_bytes && duplet != metadata_bytes {
                     return Err(JError::new(format!(
-                        "data is expected to result from a call to 'registry.get_record_bytes' or 'registry.get_r  ecord_metadata_bytes', was from '{}.{}'",
+                        "data is expected to result from a call to 'registry.get_record_bytes' or 'registry.get_record_metadata_bytes', was from '{}.{}'",
                         t.service_id, t.function_name
                     )));
                 }
