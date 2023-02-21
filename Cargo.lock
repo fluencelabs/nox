@@ -571,23 +571,23 @@ checksum = "d468802bab17cbc0cc575e9b053f41e72aa36bfa6b7f55e3529ffa43161b97fa"
 
 [[package]]
 name = "avm-data-store"
-version = "0.4.1"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c0984f261db23c85b57b0262f8e1b20f62a2acbf00c8a20a44ec6cd1f2778198"
+checksum = "c29c4d8392c23cee5446f8cd7567a109bc99032f8edd392b3cdf084f113b4452"
 dependencies = [
+ "avm-interface",
  "serde",
  "serde_bytes",
 ]
 
 [[package]]
 name = "avm-interface"
-version = "0.28.1"
+version = "0.28.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4134d2c98d57c45e25e989478680ef5913f9cbf50582e06b49970bc7e5c5df3f"
+checksum = "58b191a3d1c46e279598d7115e4f2fe1b46d6c471c4bd2d743d24c93e028dd10"
 dependencies = [
  "air-interpreter-interface",
  "air-utils",
- "avm-data-store",
  "log",
  "maplit",
  "polyplets",
@@ -599,9 +599,9 @@ dependencies = [
 
 [[package]]
 name = "avm-server"
-version = "0.28.1"
+version = "0.29.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "547c8574fbebc15a5ba0f0753cac6f988863b33e89d8a3ce3b669df9442444cb"
+checksum = "cf6d28fbd85adca98681e85f3578f8d339627da1cc3b0a83f82718eb5df9d581"
 dependencies = [
  "air-interpreter-interface",
  "air-utils",
@@ -3421,9 +3421,9 @@ dependencies = [
 
 [[package]]
 name = "marine-runtime"
-version = "0.24.0"
+version = "0.24.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ba3726e9dccce778d0b848ebc9adb312f33f338128bb182aa5ed8429f3f7aac1"
+checksum = "545262bf5b68d2b4f4b9eed2557f09421cc4bb62a10e71c307140f27b6411b9c"
 dependencies = [
  "bytesize",
  "it-json-serde",
@@ -5047,9 +5047,9 @@ dependencies = [
 
 [[package]]
 name = "serde_bytes"
-version = "0.11.7"
+version = "0.11.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cfc50e8183eeeb6178dcb167ae34a8051d63535023ae38b5d8d12beae193d37b"
+checksum = "416bda436f9aab92e02c8e10d49a15ddd339cea90b6e340fe51ed97abb548294"
 dependencies = [
  "serde",
 ]
