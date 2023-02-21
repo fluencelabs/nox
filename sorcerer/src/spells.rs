@@ -42,7 +42,12 @@ pub(crate) async fn spell_install(
     let config = api::from_user_config(user_config.clone())?;
 
     let worker_id = if key_manager.is_host(params.host_id) {
-        key_manager.create_worker(None, params.init_peer_id)?
+        // direct hosting
+        let deal_id = KeyManager::generate_deal_id(params.init_peer_id);
+        match key_manager.get_worker_id(deal_id.clone()) {
+            Ok(id) => id,
+            Err(_) => key_manager.create_worker(Some(deal_id), params.init_peer_id)?,
+        }
     } else {
         params.host_id
     };

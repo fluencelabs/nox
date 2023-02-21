@@ -487,7 +487,10 @@ impl ParticleAppServices {
             .get_mut(&service_id)
             .ok_or_else(|| ServiceError::NoSuchService(service_id.clone()))?;
 
-        if service.worker_id != worker_id {
+        if service.worker_id != worker_id
+            && init_peer_id != self.management_peer_id
+            && init_peer_id != self.builtins_management_peer_id
+        {
             return Err(ServiceError::AliasWrongWorkerId {
                 service_id,
                 worker_id: service.worker_id,
