@@ -185,7 +185,7 @@ impl BuiltinsDeployer {
 
         let result = self
             .send_particle(script, hashmap! {"name".to_string() => json!(name)})
-            .wrap_err(format!("remove_service call failed, service {}", name))?;
+            .wrap_err(format!("remove_service call failed, service {name}"))?;
 
         assert_ok(result, "remove_service call failed")
     }

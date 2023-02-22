@@ -21,6 +21,7 @@ use crate::error::KeyManagerError::{
     CannotExtractRSASecretKey, CreateKeypairsDir, DeserializePersistedKeypair,
     ReadPersistedKeypair, SerializePersistedKeypair, WriteErrorPersistedKeypair,
 };
+use crate::KeyManager;
 use fluence_keypair::KeyPair;
 use fluence_libp2p::peerid_serializer;
 use libp2p::PeerId;
@@ -30,9 +31,11 @@ use std::path::Path;
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct PersistedKeypair {
     #[serde(with = "peerid_serializer")]
+    #[serde(alias = "remote_peer_id")]
     pub deal_creator: PeerId,
     pub private_key_bytes: Vec<u8>,
     pub key_format: String,
+    #[serde(default)]
     pub deal_id: String,
 }
 
@@ -100,11 +103,15 @@ pub fn load_persisted_keypairs(
                 err,
                 path: file.to_path_buf(),
             })?;
-            let keypair =
+            let mut keypair: PersistedKeypair =
                 toml::from_slice(bytes.as_slice()).map_err(|err| DeserializePersistedKeypair {
                     err,
                     path: file.to_path_buf(),
                 })?;
+
+            if keypair.deal_id.is_empty() {
+                keypair.deal_id = KeyManager::generate_deal_id(keypair.deal_creator);
+            }
 
             Ok(keypair)
         })
