@@ -42,7 +42,12 @@ pub(crate) async fn spell_install(
     let config = api::from_user_config(user_config.clone())?;
 
     let worker_id = if key_manager.is_host(params.host_id) {
-        key_manager.create_worker(None, params.init_peer_id)?
+        // direct hosting
+        let deal_id = KeyManager::generate_deal_id(params.init_peer_id);
+        match key_manager.get_worker_id(deal_id.clone()) {
+            Ok(id) => id,
+            Err(_) => key_manager.create_worker(Some(deal_id), params.init_peer_id)?,
+        }
     } else {
         params.host_id
     };
@@ -170,7 +175,12 @@ pub(crate) async fn spell_remove(
 
     let spell_id = services.to_service_id(params.host_id, spell_id)?;
     spell_storage.unregister_spell(&spell_id);
-    services.remove_service(worker_id, spell_id, worker_id, true)?;
+    let owner_id = if is_worker_creator {
+        worker_id
+    } else {
+        init_peer_id
+    };
+    services.remove_service(worker_id, spell_id, owner_id, true)?;
     Ok(())
 }
 
@@ -196,7 +206,7 @@ pub(crate) async fn spell_update_config(
 
     if !is_spell_owner && !is_worker_creator && !is_worker && !is_management {
         return Err(JError::new(format!(
-            "Failed to update spell config {spell_id}, spell config can be updated by spell owner {spell_owner}, worker creator {worker_creator}, worker itself {worker_id} or peer manager"
+            "Failed to update spell config {spell_id}, spell config can be updated by spell owner {spell_owner}, worker creator {worker_creator}, worker itself {worker_id} or peer manager; init_peer_id={init_peer_id}"
         )));
     }
 
