@@ -5,7 +5,7 @@ Rust Peer is the reference implementation of the [Fluence](https://fluence.netwo
 
 ## Installation and Usage
 
-Rust peer is distributed as a [docker image](https://github.com/fluencelabs/rust-peer-distro/releases). To start a local instance of Rust peer, run:
+Rust peer is distributed in [rust-peer-distro repo](https://github.com/fluencelabs/rust-peer-distro) as a [docker image](https://github.com/fluencelabs/rust-peer-distro/releases). To start a local instance of Rust peer, run:
 
 ```bash
 docker pull fluencelabs/rust-peer:latest
