@@ -112,6 +112,8 @@ impl<RT: AquaRuntime> Node<RT> {
         let key_manager = KeyManager::new(
             config.dir_config.keypairs_base_dir.clone(),
             to_peer_id(&key_pair),
+            config.management_peer_id,
+            builtins_peer_id,
         );
 
         let services_config = ServicesConfig::new(

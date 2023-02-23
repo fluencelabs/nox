@@ -1633,12 +1633,7 @@ fn json_builtins() {
 #[test]
 fn insecure_sign_verify() {
     let kp = KeyPair::from_secret_key(INSECURE_KEYPAIR_SEED.collect(), KeyFormat::Ed25519).unwrap();
-    let swarms = make_swarms_with_builtins(
-        1,
-        "tests/builtins/services".as_ref(),
-        Some(kp.clone()),
-        None,
-    );
+    let swarms = make_swarms_with_builtins(1, "tests/builtins/services".as_ref(), None, None);
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .wrap_err("connect client")
