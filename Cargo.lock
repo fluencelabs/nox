@@ -5175,6 +5175,7 @@ dependencies = [
  "fs-utils",
  "humantime-serde",
  "libp2p",
+ "libp2p-core",
  "libp2p-metrics",
  "log",
  "num_cpus",

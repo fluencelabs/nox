@@ -61,11 +61,11 @@ pub fn decode_key(key_string: String, key_format: String) -> eyre::Result<KeyPai
     let key_string = key_string.trim();
 
     fn validate_length(v: Vec<u8>) -> eyre::Result<Vec<u8>> {
-        if v.len() == 64 || v.len() <= 32 {
+        if v.len() == 64 || v.len() == 68 || v.len() <= 32 {
             Ok(v)
         } else {
             Err(eyre!(
-                "secret key length must be 32 (or 64 for keypair), was {}",
+                "secret key length must be 32, 64 or 68 (for libp2p keys), was {}",
                 v.len()
             ))
         }
@@ -76,23 +76,23 @@ pub fn decode_key(key_string: String, key_format: String) -> eyre::Result<KeyPai
         .map_err(|err| eyre!("base64 decoding failed: {}", err))
         .and_then(validate_length);
 
-    let bytes = match bytes_from_base64 {
-        Ok(bytes) => bytes,
-        Err(base64_err) => {
-            let bytes_from_base58 = bs58::decode(key_string)
+    let bytes = bytes_from_base64
+        .and_then(|bytes| {
+            if bytes.len() == 68 {
+                libp2p_core::identity::Keypair::from_protobuf_encoding(&bytes)
+                    .map_err(|err| eyre!("protobuf decoding failed: {}", err))
+                    .map(|_| bytes)
+            } else {
+                Ok(bytes)
+            }
+        })
+        .unwrap_or_else(|_| {
+            bs58::decode(key_string)
                 .into_vec()
                 .map_err(|err| eyre!("base58 decoding failed: {}", err))
-                .and_then(validate_length);
-
-            match bytes_from_base58 {
-                Ok(bytes) => bytes,
-                Err(base58_err) => return Err(eyre!(
-                    "Tried to decode secret key as base64 and as base58 from string {}, but failed.\nbase64 decoding error:{}\nbase58 decoding error:{}",
-                    key_string, base64_err, base58_err
-                ))
-            }
-        }
-    };
+                .and_then(validate_length)
+                .unwrap()
+        });
 
     // It seems that secp256k1 secret key length can be less than 32 byte
     // so for everything longer than 32 we try decode keypair, and shorter – decode secret key
