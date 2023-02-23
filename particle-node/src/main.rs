@@ -50,6 +50,10 @@ trait Stoppable {
     fn stop(self);
 }
 
+#[cfg(feature = "dhat-heap")]
+#[global_allocator]
+static ALLOC: dhat::Alloc = dhat::Alloc;
+
 fn main() -> eyre::Result<()> {
     // TODO: maybe set log level via flag?
     env_logger::Builder::from_env(Env::default().default_filter_or("INFO"))

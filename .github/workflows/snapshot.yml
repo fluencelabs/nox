@@ -49,9 +49,9 @@ jobs:
         id: profile
         run: |
           if [[ -n "$GITHUB_PR_LABEL_PROFILING" ]]; then
-            echo "profile=profiling" >> $GITHUB_OUTPUT
+            echo "flags=--profile=profiling --features particle-node/dhat-heap" >> $GITHUB_OUTPUT
           else
-            echo "profile=release" >> $GITHUB_OUTPUT
+            echo "flags=--profile=release" >> $GITHUB_OUTPUT
           fi
 
       - name: Set dependencies
@@ -72,7 +72,7 @@ jobs:
           publish: false
 
       - name: Run cargo build
-        run: cargo build --profile ${{ steps.profile.outputs.profile }} -p particle-node
+        run: cargo build ${{ steps.profile.outputs.flags }} -p particle-node
 
       - name: Calculate SHA256
         id: sha
