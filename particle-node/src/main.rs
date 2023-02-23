@@ -55,6 +55,8 @@ trait Stoppable {
 static ALLOC: dhat::Alloc = dhat::Alloc;
 
 fn main() -> eyre::Result<()> {
+    #[cfg(feature = "dhat-heap")]
+    let _profiler = dhat::Profiler::new_heap();
     // TODO: maybe set log level via flag?
     env_logger::Builder::from_env(Env::default().default_filter_or("INFO"))
         .format_timestamp_micros()
