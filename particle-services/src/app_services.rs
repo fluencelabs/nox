@@ -217,8 +217,8 @@ impl ParticleAppServices {
             "id": service_id,
             "blueprint_id": service.blueprint_id,
             "owner_id": service.owner_id.to_string(),
-            // TODO: add service.root_aliases ???
-            "aliases": service.worker_aliases,
+            "worker_aliases": service.worker_aliases,
+            "aliases": srv.root_aliases,
             "worker_id": service.worker_id.to_string()
         }))
     }
