@@ -1,67 +1,43 @@
-# Fluence Project
+# Rust Peer
 
-**Fluence is a peer-to-peer computing protocol and a software licensing
-system.**
+Rust Peer is the reference implementation of the [Fluence](https://fluence.network) peer. It is used as a Relay for all Clients and as a Host for all Workers.
 
-_The project is a work in progress!_
 
-[fluence.network](https://fluence.network)
+## Installation and Usage
 
-See the [Vision manifesto](http://fluence.one/manifesto.html), follow updates on
-[Twitter](https://twitter.com/fluence_project) or subscribe to the
-[newsletter](https://fluence.network/).
-
-For documentation, go [here](https://fluence.dev/)
-
-# Fluence stack
-
-|         Layer         |                                                               Tech                                                               |              Scale              |               State               |                                                   Based on                                                   |
-| :-------------------: | :------------------------------------------------------------------------------------------------------------------------------: | :-----------------------------: | :-------------------------------: | :----------------------------------------------------------------------------------------------------------: |
-|       Execution       |                                         [Marine](https://github.com/fluencelabs/marine)                                          |           Single peer           | Disk, network, external processes | Wasm, [IT](https://github.com/fluencelabs/interface-types), [Wasmer*](https://github.com/fluencelabs/wasmer) |
-|      Composition      |                                           [Aqua](https://github.com/fluencelabs/aqua)                                            |         Involved peers          |      Results and signatures       |                                                ⇅, π-calculus                                                 |
-|       Topology        | [TrustGraph](https://github.com/fluencelabs/fluence/tree/master/trust-graph), [DHT*](https://github.com/fluencelabs/rust-libp2p) | Distributed with Kademlia* algo |    Actual state of the network    |                               [libp2p](https://github.com/libp2p/rust-libp2p)                                |
-| Security & Accounting |                                                            Blockchain                                                            |          Whole network          |        Licenses & payments        |                                                  substrate?                                                  |
-
-<br/>
-
-<p width="100%">
-<img alt="aquamarine scheme" align="center" src="images/aqua_marine_stack.png"/>
-</p>
-
-## Quick summary
-
-Fluence protocol aims to empower internet applications with interoperability,
-resilience, and security. Fluence makes it possible to publish, run, compose,
-and monetize applications without intermediaries or central servers.
-
-- **Fluence** is an open runtime for internet applications. A purely
-  peer-to-peer architecture allows to build distributed applications without
-  reliance on centralized platforms. Fluence incorporates concepts of Web of
-  Trust, DPKI, S/Kademlia, and is built with libp2p and WebAssembly.
-- **Fluence** is a business model for the open source. Fluence enables the
-  blockchain-based software licensing system, allowing authors to earn income
-  from their applications usage over the protocol. The infrastructure
-  maintenance is outsourced to the open market of compute providers via the Open
-  Source as a Service (OSaaS) model.
-
-## Run
-
-### Prebuilt docker image
+Rust peer is distributed in [rust-peer-distro repo](https://github.com/fluencelabs/rust-peer-distro) as a [docker image](https://github.com/fluencelabs/rust-peer-distro/releases). To start a local instance of Rust peer, run:
 
 ```bash
-docker run -d --name fluence -e RUST_LOG="info" -p 7777 -p 9999 fluencelabs/fluence
+docker pull fluencelabs/rust-peer:latest
+docker run -d --name fluence -e RUST_LOG="info" -p 7777:7777 -p 9999:9999 fluencelabs/rust-peer:latest --local --keypair-value=gKdiCSUr1TFGFEgu2t8Ch1XEUsrN5A2UfBLjSZvfci9SPR3NvZpACfcpPGC3eY4zma1pk7UvYv5zb1VjvPHwCjj
 ```
 
-Ports will be assigned randomly by your OS.
+This will setup a network of one Rust peer and an IPFS sidecar, not connected to any other network. Next, run some [Aqua](https://github.com/fluencelabs/aqua) against it:
 
-## **Contributing**
+```bash
+npm i -g @fluencelabs/aqua@unstable
+aqua remote list_modules --addr /ip4/127.0.0.1/tcp/9999/ws/p2p/12D3KooWKEprYXUXqoV5xSBeyqrWLpQLLH4PXfvVkDJtmcqmh5V3
+```
 
-While the project is a still in the early stage of development, you are welcome
-to track progress and contribute. At the current moment we don't have detailed
-instructions on how to join development or which code guidelines to follow.
-However, you can expect more info to appear soon enough. In the meanwhile, check
-out the [basic contributing rules](CONTRIBUTING.md).
+For more info about the docker image (image version flavours, environment variables, deployment examples) and documentation for Rust peer operators, see the [rust-peer-distro](https://github.com/fluencelabs/rust-peer-distro) repository.
 
-## **License**
 
-[Apache 2.0](LICENSE)
+## Documentation
+
+Comprehensive documentation on everything related to Fluence can be found [here](https://fluence.dev/). Check also our [YouTube channel](https://www.youtube.com/@fluencelabs).
+
+
+## Support
+
+Please, file an [issue](https://github.com/fluencelabs/rust-peer/issues) if you find a bug. You can also contact us at [Discord](https://discord.com/invite/5qSnPZKh7u) or [Telegram](https://t.me/fluence_project).  We will do our best to resolve the issue ASAP.
+
+
+## Contributing
+
+Any interested person is welcome to contribute to the project. Please, make sure you read and follow some basic [rules](./CONTRIBUTING.md). The Contributor License Agreement can be found [here](./FluenceCLA).
+
+
+## License
+
+All software code is copyright (c) Fluence Labs, Inc. under the [Apache-2.0](./LICENSE) license.
+
