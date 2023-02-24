@@ -29,6 +29,10 @@ on:
         type: string
         description: "whether to update node-distro"
         required: true
+    secrets:
+      PERSONAL_TOKEN:
+        description: "A token passed from the caller workflow"
+        required: true
 
 jobs:
   rust-peer:
