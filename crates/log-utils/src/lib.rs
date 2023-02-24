@@ -14,24 +14,24 @@
  * limitations under the License.
  */
 
-#[allow(dead_code)]
-// Enables logging, filtering out unnecessary details
-pub fn enable_logs() {
+pub fn filter_module_logs(
+    mut builder: env_logger::Builder,
+    are_you_debugging: bool,
+) -> env_logger::Builder {
     use log::LevelFilter::*;
 
-    std::env::set_var("WASM_LOG", "info");
+    let default_level = if are_you_debugging { Trace } else { Info };
+    let spam_level = Error;
 
-    env_logger::builder()
-        .format_timestamp_millis()
-        .filter_level(log::LevelFilter::Info)
-        .filter(Some("script_storage"), Trace)
-        .filter(Some("script_storage"), Trace)
-        .filter(Some("sorcerer"), Trace)
-        .filter(Some("key_manager"), Trace)
-        .filter(Some("spell_event_bus"), Trace)
-        .filter(Some("aquamarine"), Trace)
-        .filter(Some("network"), Trace)
-        .filter(Some("network_api"), Trace)
+    builder
+        .filter(Some("script_storage"), default_level)
+        .filter(Some("script_storage"), default_level)
+        .filter(Some("sorcerer"), default_level)
+        .filter(Some("key_manager"), default_level)
+        .filter(Some("spell_event_bus"), default_level)
+        .filter(Some("aquamarine"), default_level)
+        .filter(Some("network"), default_level)
+        .filter(Some("network_api"), default_level)
         .filter(Some("aquamarine::actor"), Debug)
         .filter(Some("particle_node::bootstrapper"), Info)
         .filter(Some("yamux::connection::stream"), Info)
@@ -59,8 +59,21 @@ pub fn enable_logs() {
         .filter(Some("async_std"), Info)
         .filter(Some("async_io"), Info)
         .filter(Some("polling"), Info)
-        .filter(Some("cranelift_codegen"), Info)
-        .filter(Some("walrus"), Info)
+        .filter(Some("cranelift_codegen"), spam_level)
+        .filter(Some("walrus"), spam_level);
+
+    builder
+}
+
+#[allow(dead_code)]
+// Enables logging, filtering out unnecessary details
+pub fn enable_logs() {
+    use log::LevelFilter::*;
+
+    std::env::set_var("WASM_LOG", "info");
+
+    filter_module_logs(env_logger::builder(), true)
+        .format_timestamp_millis()
         .try_init()
         .ok();
 }
