@@ -193,6 +193,7 @@ dependencies = [
  "config-utils",
  "control-macro",
  "eyre",
+ "fluence-keypair",
  "fluence-libp2p",
  "fs-utils",
  "futures",

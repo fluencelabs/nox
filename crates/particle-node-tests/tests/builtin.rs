@@ -1345,7 +1345,10 @@ fn sign_verify() {
                     (call relay ("registry" "get_record_bytes") ["key_id" "" [] [] 1 []] data)
                     (seq
                         (call relay ("sig" "sign") [data] sig_result)
-                        (call relay ("sig" "verify") [sig_result.$.signature.[0]! data] result)
+                        (xor
+                            (call relay ("sig" "verify") [sig_result.$.signature.[0]! data] result)
+                            (call %init_peer_id% ("op" "return") [sig_result.$.error])
+                        )
                     )
                 )
                 (call %init_peer_id% ("op" "return") [data sig_result result])

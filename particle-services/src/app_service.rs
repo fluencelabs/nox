@@ -35,7 +35,6 @@ pub fn create_app_service(
     blueprint_id: String,
     service_id: String,
     aliases: Vec<String>,
-    root_aliases: Vec<String>,
     owner_id: PeerId,
     worker_id: PeerId,
     metrics: Option<&ServicesMetrics>,
@@ -65,14 +64,8 @@ pub fn create_app_service(
             .map_err(ServiceError::Engine)?;
 
         // Save created service to disk, so it is recreated on restart
-        let persisted = PersistedService::new(
-            service_id,
-            blueprint_id,
-            aliases,
-            root_aliases,
-            owner_id,
-            worker_id,
-        );
+        let persisted =
+            PersistedService::new(service_id, blueprint_id, aliases, owner_id, worker_id);
         persist_service(&config.services_dir, persisted)?;
 
         service
