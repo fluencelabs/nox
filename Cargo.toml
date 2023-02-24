@@ -88,8 +88,8 @@ script-storage = { path = "script-storage" }
 spell-storage = { path = "spell-storage" }
 particle-execution = { path = "particle-execution" }
 
-fluence-spell-dtos = "0.4.0"
-fluence-spell-distro = "0.4.0"
+fluence-spell-dtos = "0.5.0"
+fluence-spell-distro = "0.5.0"
 fluence-app-service = "0.23.0"
 avm-server = "0.28.1"
 air-interpreter-wasm = "=0.35.4"
