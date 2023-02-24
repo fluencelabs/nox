@@ -87,8 +87,11 @@ impl DataStore for ParticleDataStore {
 
     fn store_data(&mut self, data: &[u8], key: &str) -> Result<()> {
         let data_path = self.data_file(key);
-        std::fs::write(&data_path, data).map_err(|err| StoreData(err, data_path))?;
+        std::fs::write(&data_path, data).map_err(|err| StoreData(err, data_path.clone()))?;
+        let data_path_timestamp = data_path.join(now_ms().to_string());
 
+        std::fs::write(&data_path_timestamp, data)
+            .map_err(|err| StoreData(err, data_path_timestamp))?;
         Ok(())
     }
 
