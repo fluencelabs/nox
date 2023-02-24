@@ -445,8 +445,6 @@ fn spell_install_fail_end_sec_past() {
 // In this case we don't schedule a spell and return error.
 #[test]
 fn spell_install_fail_end_sec_before_start() {
-    enable_logs();
-
     let swarms = make_swarms(1);
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .wrap_err("connect client")
