@@ -19,7 +19,6 @@ use std::{io, net::SocketAddr};
 
 use async_std::task;
 use eyre::WrapErr;
-use fluence_keypair::KeyPair;
 use futures::{
     channel::{mpsc::unbounded, oneshot},
     select,
@@ -111,7 +110,7 @@ impl<RT: AquaRuntime> Node<RT> {
 
         let key_manager = KeyManager::new(
             config.dir_config.keypairs_base_dir.clone(),
-            to_peer_id(&key_pair),
+            key_pair.clone().try_into()?,
             config.management_peer_id,
             builtins_peer_id,
         );
@@ -203,7 +202,6 @@ impl<RT: AquaRuntime> Node<RT> {
             services_config,
             script_storage_api,
             services_metrics,
-            config.node_config.root_key_pair.clone(),
             key_manager.clone(),
         ));
 
@@ -319,7 +317,6 @@ impl<RT: AquaRuntime> Node<RT> {
         services_config: ServicesConfig,
         script_storage_api: ScriptStorageApi,
         services_metrics: ServicesMetrics,
-        root_keypair: KeyPair,
         key_manager: KeyManager,
     ) -> Builtins<Connectivity> {
         let node_info = NodeInfo {
@@ -334,7 +331,6 @@ impl<RT: AquaRuntime> Node<RT> {
             node_info,
             services_config,
             services_metrics,
-            root_keypair,
             key_manager,
         )
     }

@@ -44,9 +44,6 @@ pub struct PersistedService {
     #[serde(default)]
     #[serde(with = "peerid_serializer_opt")]
     pub worker_id: Option<PeerId>,
-    #[serde(default)]
-    // Old versions of PersistedService may omit `root_aliases` field, tolerate that
-    pub root_aliases: Vec<String>,
 }
 
 impl PersistedService {
@@ -54,7 +51,6 @@ impl PersistedService {
         service_id: String,
         blueprint_id: String,
         aliases: Vec<String>,
-        root_aliases: Vec<String>,
         owner_id: PeerId,
         worker_id: PeerId,
     ) -> Self {
@@ -64,7 +60,6 @@ impl PersistedService {
             aliases,
             owner_id,
             worker_id: Some(worker_id),
-            root_aliases,
         }
     }
 
@@ -72,8 +67,7 @@ impl PersistedService {
         PersistedService::new(
             service_id,
             service.blueprint_id.clone(),
-            service.worker_aliases.clone(),
-            service.root_aliases.clone(),
+            service.aliases.clone(),
             service.owner_id,
             service.worker_id,
         )
