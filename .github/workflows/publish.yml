@@ -30,9 +30,6 @@ on:
         description: "whether to update node-distro"
         required: true
 
-concurrency:
-  group: "${{ github.workflow }}-${{ github.ref }}"
-
 jobs:
   rust-peer:
     runs-on: builder

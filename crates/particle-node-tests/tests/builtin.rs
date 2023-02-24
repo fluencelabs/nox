@@ -1758,3 +1758,139 @@ fn exec_script_as_admin(
 
     client.receive_args().wrap_err("receive args")
 }
+
+#[test]
+fn add_alias_list() {
+    let swarms = make_swarms(1);
+    let mut client = ConnectedClient::connect_with_keypair(
+        swarms[0].multiaddr.clone(),
+        Some(swarms[0].management_keypair.clone()),
+    )
+    .wrap_err("connect client")
+    .unwrap();
+
+    let tetraplets_service = create_service(
+        &mut client,
+        "tetraplets",
+        load_module("tests/tetraplets/artifacts", "tetraplets").expect("load module"),
+    );
+
+    let alias = "tetraplets".to_string();
+    client.send_particle(
+        r#"
+        (seq
+            (seq
+                (call relay ("srv" "add_alias") [alias service])
+                (call relay ("srv" "list") [] list)
+            )
+            (call %init_peer_id% ("op" "return") [list])
+        )
+    "#,
+        hashmap! {
+            "relay" => json!(client.node.to_string()),
+            "service" => json!(tetraplets_service.id),
+            "alias" => json!(alias.clone())
+        },
+    );
+
+    use serde_json::Value::Array;
+
+    if let [Array(list)] = client.receive_args().unwrap().as_slice() {
+        assert_eq!(list.len(), 1);
+
+        let service_info = &list[0];
+        let aliases = service_info
+            .as_object()
+            .unwrap()
+            .get("aliases")
+            .unwrap()
+            .as_array()
+            .unwrap();
+        assert_eq!(aliases.len(), 1);
+        assert_eq!(aliases[0].as_str().unwrap(), alias)
+    } else {
+        panic!("incorrect args: expected an array")
+    }
+}
+
+#[test]
+fn aliases_restart() {
+    let kp = KeyPair::generate_ed25519();
+    let swarms = make_swarms_with_keypair(1, kp.clone(), None);
+
+    let mut client = ConnectedClient::connect_with_keypair(
+        swarms[0].multiaddr.clone(),
+        Some(swarms[0].management_keypair.clone()),
+    )
+    .wrap_err("connect client")
+    .unwrap();
+
+    let tetraplets_service = create_service(
+        &mut client,
+        "tetraplets",
+        load_module("tests/tetraplets/artifacts", "tetraplets").expect("load module"),
+    );
+
+    let alias = "tetraplets".to_string();
+    client.send_particle(
+        r#"
+        (xor
+            (seq
+                (call relay ("srv" "add_alias") [alias service])
+                (call %init_peer_id% ("op" "return") ["ok"])
+            )
+            (call %init_peer_id% ("op" "return") [%last_error%.$.instruction])
+        )
+    "#,
+        hashmap! {
+            "relay" => json!(client.node.to_string()),
+            "service" => json!(tetraplets_service.id),
+            "alias" => json!(alias.clone())
+        },
+    );
+
+    if let [JValue::String(result)] = client.receive_args().unwrap().as_slice() {
+        assert_eq!(*result, "ok");
+    }
+
+    use serde_json::Value::Array;
+
+    // stop swarm
+    swarms.into_iter().map(|s| s.outlet.send(())).for_each(drop);
+    let swarms = make_swarms_with_keypair(1, kp, None);
+    let mut client = ConnectedClient::connect_with_keypair(
+        swarms[0].multiaddr.clone(),
+        Some(swarms[0].management_keypair.clone()),
+    )
+    .wrap_err("connect client")
+    .unwrap();
+
+    client.send_particle(
+        r#"
+        (seq
+            (call relay ("srv" "list") [] list_after)
+            (call %init_peer_id% ("op" "return") [list_after])
+        )
+    "#,
+        hashmap! {
+            "relay" => json!(client.node.to_string()),
+            "service" => json!(tetraplets_service.id),
+        },
+    );
+
+    if let [Array(after)] = client.receive_args().unwrap().as_slice() {
+        assert_eq!(after.len(), 1);
+        let service_info = &after[0];
+        let aliases = service_info
+            .as_object()
+            .unwrap()
+            .get("aliases")
+            .unwrap()
+            .as_array()
+            .unwrap();
+        assert_eq!(aliases.len(), 1);
+        assert_eq!(aliases[0].as_str().unwrap(), alias)
+    } else {
+        panic!("incorrect args: expected array")
+    }
+}
