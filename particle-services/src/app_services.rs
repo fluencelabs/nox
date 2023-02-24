@@ -354,7 +354,13 @@ impl ParticleAppServices {
         //     ));
         // }
 
-        let service_type = ServiceType::Service(service.worker_aliases.first().cloned());
+        let service_type = ServiceType::Service(
+            service
+                .root_aliases
+                .first()
+                .or_else(|| service.worker_aliases.first())
+                .cloned(),
+        );
 
         // TODO: move particle vault creation to aquamarine::particle_functions
         self.create_vault(&particle.id)?;
