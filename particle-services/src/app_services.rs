@@ -217,8 +217,8 @@ impl ParticleAppServices {
             "id": service_id,
             "blueprint_id": service.blueprint_id,
             "owner_id": service.owner_id.to_string(),
-            // TODO: add service.root_aliases ???
-            "aliases": service.worker_aliases,
+            "worker_aliases": service.worker_aliases,
+            "aliases": service.root_aliases,
             "worker_id": service.worker_id.to_string()
         }))
     }
@@ -636,7 +636,8 @@ impl ParticleAppServices {
                     "id": id,
                     "blueprint_id": srv.blueprint_id,
                     "owner_id": srv.owner_id.to_string(),
-                    "aliases": srv.worker_aliases,
+                    "worker_aliases": srv.worker_aliases,
+                    "aliases": srv.root_aliases,
                     "worker_id": srv.worker_id.to_string()
                 })
             })
@@ -710,7 +711,7 @@ impl ParticleAppServices {
             };
 
             // worker_aliases
-            {
+            if worker_id != self.config.local_peer_id {
                 let mut binding = self.aliases.write();
                 let aliases = binding.entry(worker_id).or_default();
                 for alias in s.aliases.into_iter() {
@@ -730,7 +731,7 @@ impl ParticleAppServices {
             {
                 let mut binding = self.aliases.write();
                 let aliases = binding.entry(self.config.local_peer_id).or_default();
-                for alias in s.root_aliases.into_iter() {
+                for alias in s.root_aliases.iter() {
                     let old = aliases.insert(alias.clone(), s.service_id.clone());
                     if let Some(old) = old {
                         log::warn!(
@@ -748,9 +749,10 @@ impl ParticleAppServices {
             );
 
             log::info!(
-                "Persisted service {} created in {}",
+                "Persisted service {} created in {}, aliases: {:?}",
                 s.service_id,
-                pretty(start.elapsed())
+                pretty(start.elapsed()),
+                s.root_aliases
             );
         }
     }
@@ -771,7 +773,7 @@ impl ParticleAppServices {
             blueprint_id.clone(),
             service_id.clone(),
             worker_aliases.clone(),
-            root_aliases,
+            root_aliases.clone(),
             owner_id,
             worker_id,
             self.metrics.as_ref(),
@@ -785,14 +787,14 @@ impl ParticleAppServices {
         })?;
         let stats = service.module_memory_stats();
         let stats = ServiceMemoryStat::new(&stats);
-        let service_type = ServiceType::Service(worker_aliases.first().cloned());
+        let service_type = ServiceType::Service(root_aliases.first().cloned());
         let service = Service {
             service: Mutex::new(service),
             blueprint_id,
             owner_id,
             worker_aliases,
             worker_id,
-            root_aliases: vec![],
+            root_aliases,
         };
 
         let replaced = self.services.write().insert(service_id.clone(), service);
@@ -1116,11 +1118,21 @@ mod tests {
         let pas = create_pas(local_pid, management_pid, base_dir.into_path());
 
         let module_name = "tetra".to_string();
+        let alias = "alias".to_string();
         let hash = upload_tetra_service(&pas, module_name.clone());
 
         let service_id1 = create_service(&pas, module_name, &hash, local_pid).unwrap();
+        pas.add_alias(
+            alias.clone(),
+            local_pid,
+            service_id1.clone(),
+            management_pid,
+        )
+        .unwrap();
         let services = pas.services.read();
         let service_1 = services.get(&service_id1).unwrap();
+        assert_eq!(service_1.root_aliases.len(), 1);
+        assert_eq!(service_1.root_aliases[0], alias);
 
         let persisted_services: Vec<_> =
             load_persisted_services(&pas.config.services_dir, local_pid)
@@ -1129,6 +1141,7 @@ mod tests {
                 .unwrap();
         let persisted_service_1 = persisted_services.first().unwrap();
         assert_eq!(service_1.worker_aliases, persisted_service_1.aliases);
+        assert_eq!(service_1.root_aliases, persisted_service_1.root_aliases);
         assert_eq!(service_1.blueprint_id, persisted_service_1.blueprint_id);
         assert_eq!(service_id1, persisted_service_1.service_id);
         assert_eq!(service_1.owner_id, persisted_service_1.owner_id);
