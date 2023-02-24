@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.8.1](https://github.com/fluencelabs/rust-peer/compare/rust-peer-v0.8.0...rust-peer-v0.8.1) (2023-02-24)
+
+
+### Features
+
+* **workers:** allow to deploy decider to root scope, fix aliasing ([#1488](https://github.com/fluencelabs/rust-peer/issues/1488)) ([193a6e7](https://github.com/fluencelabs/rust-peer/commit/193a6e7ff4af40ea1d90b42a6aff3629e86f52ac))
+
+
+### Bug Fixes
+
+* builtin redeploy and associated aliases bug ([#1486](https://github.com/fluencelabs/rust-peer/issues/1486)) ([2c11e35](https://github.com/fluencelabs/rust-peer/commit/2c11e3569c5bc35c3857335e1040b64abe3deedb))
+* **deps:** Bump spell to 0.5.0 ([#1483](https://github.com/fluencelabs/rust-peer/issues/1483)) ([b03da8b](https://github.com/fluencelabs/rust-peer/commit/b03da8b1e866d9ffa0887e4fc48b9ecc109799ee))
+* **keypairs:** load persisted keypair in a backward-compatible way ([#1481](https://github.com/fluencelabs/rust-peer/issues/1481)) ([ab51b9c](https://github.com/fluencelabs/rust-peer/commit/ab51b9cf32f0bf83776617d8c81113eb51285d8c))
+* **metrics:** fix call metrics collection for aliased services ([#1487](https://github.com/fluencelabs/rust-peer/issues/1487)) ([0e7b76e](https://github.com/fluencelabs/rust-peer/commit/0e7b76e0f16847f7af554d784dd9ab316d9fc063))
+* **spell:** update spell to 0.5.2 ([#1489](https://github.com/fluencelabs/rust-peer/issues/1489)) ([d79a0da](https://github.com/fluencelabs/rust-peer/commit/d79a0da72ff2c0cd4491f30fde477d95b97b0342))
+
 ## [0.8.0](https://github.com/fluencelabs/rust-peer/compare/rust-peer-v0.7.4...rust-peer-v0.8.0) (2023-02-22)
 
 
