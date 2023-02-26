@@ -25,7 +25,6 @@ use serde_json::{json, Value as JValue};
 use connected_client::ConnectedClient;
 use created_swarm::{make_swarms, make_swarms_with_builtins};
 use fluence_spell_dtos::trigger_config::TriggerConfig;
-use log_utils::enable_logs;
 use service_modules::load_module;
 use spell_event_bus::api::{TriggerInfo, TriggerInfoAqua, MAX_PERIOD_SEC};
 use test_utils::create_service;
@@ -446,8 +445,6 @@ fn spell_install_fail_end_sec_past() {
 // In this case we don't schedule a spell and return error.
 #[test]
 fn spell_install_fail_end_sec_before_start() {
-    enable_logs();
-
     let swarms = make_swarms(1);
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .wrap_err("connect client")
@@ -603,7 +600,6 @@ fn spell_remove() {
 
 #[test]
 fn spell_remove_by_alias() {
-    enable_logs();
     let swarms = make_swarms(1);
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
@@ -695,9 +691,12 @@ fn spell_remove_spell_as_service() {
 #[test]
 fn spell_remove_service_as_spell() {
     let swarms = make_swarms(1);
-    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
-        .wrap_err("connect client")
-        .unwrap();
+    let mut client = ConnectedClient::connect_with_keypair(
+        swarms[0].multiaddr.clone(),
+        Some(swarms[0].management_keypair.clone()),
+    )
+    .wrap_err("connect client")
+    .unwrap();
 
     let service = create_service(
         &mut client,
@@ -714,10 +713,7 @@ fn spell_remove_service_as_spell() {
     client.send_particle(
         r#"
         (xor
-            (seq
-                (call relay ("worker" "create") [] worker)
-                (call worker ("spell" "remove") [service_id])
-            )
+            (call relay ("spell" "remove") [service_id])  
             (call client ("return" "") [%last_error%.$.message])
         )
         "#,
@@ -1393,9 +1389,12 @@ fn spell_create_worker_twice() {
 fn spell_install_root_scope() {
     let swarms = make_swarms(1);
 
-    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
-        .wrap_err("connect client")
-        .unwrap();
+    let mut client = ConnectedClient::connect_with_keypair(
+        swarms[0].multiaddr.clone(),
+        Some(swarms[0].management_keypair.clone()),
+    )
+    .wrap_err("connect client")
+    .unwrap();
 
     let script = r#"(call %init_peer_id% ("getDataSrv" "spell_id") [] spell_id)"#;
 
@@ -1415,9 +1414,9 @@ fn spell_install_root_scope() {
         (seq
             (seq
                 (call relay ("spell" "install") [script data config] spell_id)
-                (call relay ("worker" "get_peer_id") [] worker_peer_id)
+                (call relay ("srv" "info") [spell_id] info)
             )
-            (call client ("return" "") [spell_id worker_peer_id])
+            (call client ("return" "") [spell_id info.$.worker_id])
         )"#,
         data.clone(),
     );
@@ -1426,7 +1425,7 @@ fn spell_install_root_scope() {
     let spell_id = response[0].as_str().unwrap().to_string();
     assert_ne!(spell_id.len(), 0);
     let worker_id = response[1].as_str().unwrap().to_string();
-    assert_ne!(worker_id, client.node.to_base58());
+    assert_eq!(worker_id, client.node.to_base58());
 }
 
 #[test]

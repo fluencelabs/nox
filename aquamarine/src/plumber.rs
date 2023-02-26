@@ -276,6 +276,7 @@ mod tests {
     use std::{sync::Arc, task::Context};
 
     use avm_server::{AVMMemoryStats, AVMOutcome, CallResults, ParticleParameters};
+    use fluence_keypair::KeyPair;
     use fluence_libp2p::RandomPeerId;
     use futures::future::BoxFuture;
     use futures::task::noop_waker_ref;
@@ -377,6 +378,7 @@ mod tests {
         let builtin_mock = Arc::new(MockF);
         let key_manager = KeyManager::new(
             "keypair".into(),
+            KeyPair::generate_ed25519(),
             RandomPeerId::random(),
             RandomPeerId::random(),
         );

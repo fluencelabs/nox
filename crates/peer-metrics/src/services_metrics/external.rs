@@ -24,7 +24,7 @@ impl Encode for ServiceType {
         let label = match self {
             ServiceType::Builtin => "builtin",
             ServiceType::Service(Some(x)) => x,
-            ServiceType::Service(_) => "service",
+            ServiceType::Service(_) => "non-aliased-services",
         };
 
         writer.write_all(label.as_bytes())?;
