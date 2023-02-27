@@ -82,9 +82,14 @@ where
         self.future.is_some()
     }
 
-    pub fn cleanup(&self, particle_id: &str, vm: &mut RT) -> eyre::Result<()> {
+    pub fn cleanup(
+        &self,
+        particle_id: &str,
+        current_peer_id: &str,
+        vm: &mut RT,
+    ) -> eyre::Result<()> {
         // TODO: remove dirs without using vm https://github.com/fluencelabs/fluence/issues/1216
-        vm.cleanup(particle_id)?;
+        vm.cleanup(particle_id, current_peer_id)?;
         Ok(())
     }
 

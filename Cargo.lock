@@ -141,7 +141,7 @@ dependencies = [
 [[package]]
 name = "air-interpreter-interface"
 version = "0.12.1"
-source = "git+https://github.com/fluencelabs/aquavm?branch=bug/prev_data_data_race#b500144dba1a31ccc543e100b0beeea6a0d68b57"
+source = "git+https://github.com/fluencelabs/aquavm?branch=bug/prev_data_data_race#337c55b21e5b9b96af8d86db22b42f5f2e4cbd18"
 dependencies = [
  "fluence-it-types",
  "marine-rs-sdk",
@@ -161,7 +161,7 @@ dependencies = [
 [[package]]
 name = "air-utils"
 version = "0.1.0"
-source = "git+https://github.com/fluencelabs/aquavm?branch=bug/prev_data_data_race#b500144dba1a31ccc543e100b0beeea6a0d68b57"
+source = "git+https://github.com/fluencelabs/aquavm?branch=bug/prev_data_data_race#337c55b21e5b9b96af8d86db22b42f5f2e4cbd18"
 
 [[package]]
 name = "android_system_properties"
@@ -571,7 +571,7 @@ checksum = "d468802bab17cbc0cc575e9b053f41e72aa36bfa6b7f55e3529ffa43161b97fa"
 [[package]]
 name = "avm-data-store"
 version = "0.5.0"
-source = "git+https://github.com/fluencelabs/aquavm?branch=bug/prev_data_data_race#b500144dba1a31ccc543e100b0beeea6a0d68b57"
+source = "git+https://github.com/fluencelabs/aquavm?branch=bug/prev_data_data_race#337c55b21e5b9b96af8d86db22b42f5f2e4cbd18"
 dependencies = [
  "avm-interface",
  "serde",
@@ -581,7 +581,7 @@ dependencies = [
 [[package]]
 name = "avm-interface"
 version = "0.28.2"
-source = "git+https://github.com/fluencelabs/aquavm?branch=bug/prev_data_data_race#b500144dba1a31ccc543e100b0beeea6a0d68b57"
+source = "git+https://github.com/fluencelabs/aquavm?branch=bug/prev_data_data_race#337c55b21e5b9b96af8d86db22b42f5f2e4cbd18"
 dependencies = [
  "air-interpreter-interface",
  "air-utils",
@@ -597,7 +597,7 @@ dependencies = [
 [[package]]
 name = "avm-server"
 version = "0.29.0"
-source = "git+https://github.com/fluencelabs/aquavm?branch=bug/prev_data_data_race#b500144dba1a31ccc543e100b0beeea6a0d68b57"
+source = "git+https://github.com/fluencelabs/aquavm?branch=bug/prev_data_data_race#337c55b21e5b9b96af8d86db22b42f5f2e4cbd18"
 dependencies = [
  "air-interpreter-interface",
  "air-utils",
@@ -4325,7 +4325,7 @@ dependencies = [
 [[package]]
 name = "polyplets"
 version = "0.3.2"
-source = "git+https://github.com/fluencelabs/aquavm?branch=bug/prev_data_data_race#b500144dba1a31ccc543e100b0beeea6a0d68b57"
+source = "git+https://github.com/fluencelabs/aquavm?branch=bug/prev_data_data_race#337c55b21e5b9b96af8d86db22b42f5f2e4cbd18"
 dependencies = [
  "marine-macro",
  "marine-rs-sdk-main",
