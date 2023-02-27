@@ -50,15 +50,17 @@ impl ParticleDataStore {
         }
     }
 
-    pub fn data_file(&self, key: &str) -> PathBuf {
+    pub fn data_file(&self, particle_id: &str, current_peer_id: &str) -> PathBuf {
+        let key = store_key_from_components(particle_id, current_peer_id);
         self.particle_data_store.join(key)
     }
 
     /// Returns $ANOMALY_DATA_STORE/$particle_id/$timestamp
-    pub fn anomaly_dir(&self, key: &str) -> PathBuf {
+    pub fn anomaly_dir(&self, particle_id: &str, current_peer_id: &str) -> PathBuf {
+        let key = store_key_from_components(particle_id, current_peer_id);
         [
             self.anomaly_data_store.as_path(),
-            Path::new(key),
+            Path::new(&key),
             Path::new(&now_ms().to_string()),
         ]
         .iter()
@@ -86,22 +88,22 @@ impl DataStore for ParticleDataStore {
         Ok(())
     }
 
-    fn store_data(&mut self, data: &[u8], key: &str) -> Result<()> {
-        let data_path = self.data_file(key);
+    fn store_data(&mut self, data: &[u8], particle_id: &str, current_peer_id: &str) -> Result<()> {
+        let data_path = self.data_file(particle_id, current_peer_id);
         std::fs::write(&data_path, data).map_err(|err| StoreData(err, data_path))?;
 
         Ok(())
     }
 
-    fn read_data(&mut self, key: &str) -> Result<Vec<u8>> {
-        let data_path = self.data_file(key);
+    fn read_data(&mut self, particle_id: &str, current_peer_id: &str) -> Result<Vec<u8>> {
+        let data_path = self.data_file(particle_id, current_peer_id);
         let data = std::fs::read(data_path).unwrap_or_default();
         Ok(data)
     }
 
-    fn cleanup_data(&mut self, key: &str) -> Result<()> {
-        remove_file(&self.data_file(key)).map_err(CleanupData)?;
-        self.vault.cleanup(key)?;
+    fn cleanup_data(&mut self, particle_id: &str, current_peer_id: &str) -> Result<()> {
+        remove_file( &self.data_file(particle_id, current_peer_id)).map_err(CleanupData)?;
+        self.vault.cleanup(particle_id)?;
 
         Ok(())
     }
@@ -119,10 +121,11 @@ impl DataStore for ParticleDataStore {
 
     fn collect_anomaly_data(
         &mut self,
-        key: &str,
+        particle_id: &str,
+        current_peer_id: &str,
         anomaly_data: AnomalyData<'_>,
     ) -> std::result::Result<(), Self::Error> {
-        let path = self.anomaly_dir(key);
+        let path = self.anomaly_dir(particle_id, current_peer_id);
         create_dir(&path).map_err(DataStoreError::CreateAnomalyDir)?;
 
         let file = path.join("data");
@@ -149,4 +152,8 @@ pub enum DataStoreError {
     WriteAnomaly(#[source] std::io::Error, PathBuf),
     #[error("error serializing anomaly data")]
     SerializeAnomaly(#[source] serde_json::error::Error),
+}
+
+fn store_key_from_components(particle_id: &str, current_peer_id: &str) -> String {
+    format!("particle_{particle_id}-peer_{current_peer_id}")
 }
