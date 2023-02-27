@@ -91,7 +91,7 @@ impl AquaRuntime for EasyVM {
         })
     }
 
-    fn cleanup(&mut self, _particle_id: &str) -> Result<(), Self::Error> {
+    fn cleanup(&mut self, _particle_id: &str, _current_peer_id: &str) -> Result<(), Self::Error> {
         // Nothing to cleanup in EasyVM
         Ok(())
     }
