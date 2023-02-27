@@ -102,7 +102,7 @@ impl DataStore for ParticleDataStore {
     }
 
     fn cleanup_data(&mut self, particle_id: &str, current_peer_id: &str) -> Result<()> {
-        remove_file( &self.data_file(particle_id, current_peer_id)).map_err(CleanupData)?;
+        remove_file(&self.data_file(particle_id, current_peer_id)).map_err(CleanupData)?;
         self.vault.cleanup(particle_id)?;
 
         Ok(())
