@@ -17,6 +17,7 @@
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
+use avm_server::avm_runner::RawAVMOutcome;
 use avm_server::{AnomalyData, DataStore};
 use thiserror::Error;
 
@@ -105,8 +106,15 @@ impl DataStore for ParticleDataStore {
         Ok(())
     }
 
-    fn detect_anomaly(&self, execution_time: Duration, memory_delta: usize) -> bool {
-        execution_time > EXECUTION_TIME_THRESHOLD || memory_delta > MEMORY_DELTA_BYTES_THRESHOLD
+    fn detect_anomaly(
+        &self,
+        execution_time: Duration,
+        memory_delta: usize,
+        outcome: &RawAVMOutcome,
+    ) -> bool {
+        execution_time > EXECUTION_TIME_THRESHOLD
+            || memory_delta > MEMORY_DELTA_BYTES_THRESHOLD
+            || outcome.ret_code != 0
     }
 
     fn collect_anomaly_data(

@@ -167,7 +167,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
         // Remove expired actors
         if let Some((vm_id, mut vm)) = self.vm_pool.get_vm() {
             let now = now_ms();
-            self.actors.retain(|(particle_id, _peer_id), actor| {
+            self.actors.retain(|(particle_id, peer_id), actor| {
                 // if actor hasn't yet expired or is still executing, keep it
                 // TODO: if actor is expired, cancel execution and return VM back to pool
                 //       https://github.com/fluencelabs/fluence/issues/1212
@@ -175,10 +175,13 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
                     return true; // keep actor
                 }
 
-                log::debug!("Reaping particle's actor {}", particle_id);
+                // TODO: dont copypaste it from aquavm repo. This is just a hotfix.
+                let storage_key = format!("particle_{}-peer_{}", particle_id, peer_id);
+
+                log::debug!("Reaping particle's actor {}", &storage_key);
                 // cleanup files and dirs after particle processing (vault & prev_data)
                 // TODO: do not pass vm https://github.com/fluencelabs/fluence/issues/1216
-                if let Err(err) = actor.cleanup(particle_id, &mut vm) {
+                if let Err(err) = actor.cleanup(&storage_key, &mut vm) {
                     log::warn!(
                         "Error cleaning up after particle {}: {:?}",
                         particle_id,
