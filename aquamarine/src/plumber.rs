@@ -176,7 +176,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
                 }
 
                 // TODO: dont copypaste it from aquavm repo. This is just a hotfix.
-                let storage_key = format!("particle_{}-peer_{}", particle_id, peer_id);
+                let storage_key = format!("particle_{particle_id}-peer_{peer_id}");
 
                 log::debug!("Reaping particle's actor {}", &storage_key);
                 // cleanup files and dirs after particle processing (vault & prev_data)
