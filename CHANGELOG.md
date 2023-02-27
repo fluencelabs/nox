@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.2](https://github.com/fluencelabs/rust-peer/compare/rust-peer-v0.8.1...rust-peer-v0.8.2) (2023-02-27)
+
+
+### Bug Fixes
+
+* **avm-server:** update avm-server to one that user particle_id and peer_id in data_store ([#1494](https://github.com/fluencelabs/rust-peer/issues/1494)) ([5ede2b0](https://github.com/fluencelabs/rust-peer/commit/5ede2b031bc20fc7cb1220727cbc6c424610bafa))
+
 ## [0.8.1](https://github.com/fluencelabs/rust-peer/compare/rust-peer-v0.8.0...rust-peer-v0.8.1) (2023-02-24)
 
 
