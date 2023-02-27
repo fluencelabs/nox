@@ -180,7 +180,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
                 );
                 // cleanup files and dirs after particle processing (vault & prev_data)
                 // TODO: do not pass vm https://github.com/fluencelabs/fluence/issues/1216
-                if let Err(err) = actor.cleanup(&particle_id, &peer_id.to_string(), &mut vm) {
+                if let Err(err) = actor.cleanup(particle_id, &peer_id.to_string(), &mut vm) {
                     log::warn!(
                         "Error cleaning up after particle {}: {:?}",
                         particle_id,
