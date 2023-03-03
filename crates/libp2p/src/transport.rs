@@ -74,7 +74,7 @@ where
 {
     let multiplex = {
         let mut mplex = libp2p::mplex::MplexConfig::default();
-        mplex.set_max_num_streams(1024 * 1024);
+        mplex.set_max_num_streams(1024 * 1024 + 16);
 
         let mut yamux = libp2p::yamux::YamuxConfig::default();
         yamux.set_max_num_streams(1024 * 1024);
