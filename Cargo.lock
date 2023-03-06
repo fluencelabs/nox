@@ -5458,6 +5458,7 @@ dependencies = [
  "eyre",
  "fluence-app-service",
  "fluence-spell-distro",
+ "libp2p",
  "log",
  "parking_lot 0.12.1",
  "particle-modules",

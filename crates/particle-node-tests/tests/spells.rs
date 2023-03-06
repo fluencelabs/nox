@@ -27,7 +27,7 @@ use created_swarm::{make_swarms, make_swarms_with_builtins};
 use fluence_spell_dtos::trigger_config::TriggerConfig;
 use service_modules::load_module;
 use spell_event_bus::api::{TriggerInfo, TriggerInfoAqua, MAX_PERIOD_SEC};
-use test_utils::create_service;
+use test_utils::{create_service, create_service_worker};
 
 type SpellId = String;
 type WorkerPeerId = String;
@@ -1475,4 +1475,83 @@ fn spell_create_worker_same_deal_id_different_peer() {
     let response = client2.receive_args().wrap_err("receive").unwrap();
     let error_msg = response[0].as_str().unwrap().to_string();
     assert!(error_msg.contains("Worker for deal_id already exists"));
+}
+
+#[test]
+fn create_remove_worker() {
+    let swarms = make_swarms(1);
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .wrap_err("connect client")
+        .unwrap();
+
+    let script = r#"(call %init_peer_id% ("getDataSrv" "spell_id") [] spell_id)"#;
+    let mut config = TriggerConfig::default();
+    config.clock.period_sec = 0;
+    config.clock.start_sec = 1;
+
+    let (spell_id, worker_id) = create_spell(&mut client, &script, config, json!({}));
+    let service = create_service_worker(
+        &mut client,
+        "file_share",
+        load_module("tests/file_share/artifacts", "file_share").expect("load module"),
+        worker_id.clone(),
+    );
+    let data = hashmap! {
+        "client" => json!(client.peer_id.to_string()),
+        "relay" => json!(client.node.to_string()),
+        "worker_id" => json!(worker_id.clone()),
+        "spell_id" => json!(spell_id.clone()),
+        "srv_id" => json!(service.id.clone()),
+    };
+    client.send_particle(
+        r#"
+        (xor
+            (seq
+                (seq
+                    (call relay ("op" "noop") [])
+                    (call worker_id ("srv" "list") [] before)
+                )
+                (seq
+                    (seq
+                        (call relay ("worker" "remove") [worker_id])
+                        (xor
+                            (call relay ("srv" "info") [spell_id] info1)
+                            (call relay ("op" "identity") [%last_error%.$.message] err1)
+                        )
+                    )
+                    (seq
+                        (xor
+                            (call relay ("srv" "info") [srv_id] info2)
+                            (call relay ("op" "identity") [%last_error%.$.message] err2)
+                        )
+                        (call client ("return" "") [before err1 err2])
+                    )
+                )
+            )
+            (call client ("return" "") [%last_error%.$.message])
+        )
+    "#,
+        data.clone(),
+    );
+
+    if let [JValue::Array(before), JValue::String(spell_err), JValue::String(srv_err)] = client
+        .receive_args()
+        .wrap_err("receive")
+        .unwrap()
+        .as_slice()
+    {
+        assert_eq!(before.len(), 2);
+        log::info!("RESULT {:?}", before);
+
+        let before: Vec<String> = before
+            .into_iter()
+            .map(|s| s.get("id").unwrap().as_str().unwrap().to_string())
+            .collect();
+        assert!(before.contains(&spell_id));
+        assert!(before.contains(&service.id));
+        assert!(spell_err.contains(&format!("Service with id '{spell_id}' not found")));
+        assert!(srv_err.contains(&format!("Service with id '{}' not found", service.id)));
+    } else {
+        panic!("expected one string result")
+    }
 }

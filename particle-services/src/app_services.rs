@@ -49,6 +49,15 @@ type ServiceAlias = String;
 type Services = HashMap<ServiceId, Service>;
 type Aliases = HashMap<PeerId, HashMap<ServiceAlias, ServiceId>>;
 
+#[derive(Debug)]
+pub struct ServiceInfo {
+    pub id: String,
+    pub blueprint_id: String,
+    pub owner_id: PeerId,
+    pub aliases: Vec<ServiceAlias>,
+    pub worker_id: PeerId,
+}
+
 #[derive(Derivative)]
 #[derivative(Debug)]
 pub struct Service {
@@ -67,6 +76,16 @@ impl Service {
 
     pub fn add_alias(&mut self, alias: String) {
         self.aliases.push(alias);
+    }
+
+    pub fn get_info(&self, id: &str) -> ServiceInfo {
+        ServiceInfo {
+            id: id.to_string(),
+            blueprint_id: self.blueprint_id.clone(),
+            owner_id: self.owner_id.clone(),
+            aliases: self.aliases.clone(),
+            worker_id: self.worker_id,
+        }
     }
 }
 
@@ -212,6 +231,35 @@ impl ParticleAppServices {
         }))
     }
 
+    pub fn remove_services(&self, worker_id: PeerId) -> Result<(), ServiceError> {
+        let removed_services: Vec<ServiceInfo> = {
+            // TODO: it's highly ineffective, services should be organised by workers
+            self.services
+                .write()
+                .drain_filter(|_, srv| srv.worker_id == worker_id)
+                .map(|(id, srv)| srv.get_info(&id))
+                .collect()
+        };
+
+        for srv in removed_services.into_iter() {
+            if let Err(err) = remove_persisted_service(&self.config.services_dir, srv.id.clone()) {
+                log::warn!(
+                    "Error while removing persisted service for {}: {:?}",
+                    srv.id,
+                    err
+                )
+            }
+
+            if let Some(aliases) = self.aliases.write().get_mut(&srv.worker_id) {
+                for alias in srv.aliases.into_iter() {
+                    aliases.remove(&alias);
+                }
+            }
+        }
+
+        Ok(())
+    }
+
     pub fn remove_service(
         &self,
         worker_id: PeerId,
@@ -258,7 +306,8 @@ impl ParticleAppServices {
             //      It actually needs to be able to remove only builtins (services deployed from FS on start),
             //      but there's no way to tell which one's are "builtins", so we allow it to remove
             //      all services.
-            if service.owner_id != init_peer_id
+            if service.worker_id != init_peer_id
+                && service.owner_id != init_peer_id
                 && self.management_peer_id != init_peer_id
                 && self.builtins_management_peer_id != init_peer_id
             {
@@ -623,11 +672,11 @@ impl ParticleAppServices {
         Ok(self.modules.get_facade_interface(&service.blueprint_id)?)
     }
 
-    pub fn list_services_with_blueprints(&self) -> Vec<(String, String)> {
+    pub fn list_services_with_blueprints(&self) -> Vec<ServiceInfo> {
         let services = self.services.read();
         services
             .iter()
-            .map(|(id, service)| (id.clone(), service.blueprint_id.clone()))
+            .map(|(id, service)| service.get_info(id))
             .collect()
     }
 

@@ -266,8 +266,9 @@ where
             ("json", "obj_pairs")             => unary(args, |vs: Vec<(String, JValue)>| -> R<JValue, _> { json::obj_from_pairs(vs) }),
             ("json", "puts_pairs")            => binary(args, |obj: JValue, vs: Vec<(String, JValue)>| -> R<JValue, _> { json::puts_from_pairs(obj, vs) }),
 
-            ("worker", "create")              => wrap(self.create_worker(args, particle)),
-            ("worker", "get_peer_id")         => wrap(self.get_worker_peer_id(args, particle)),
+            // ("worker", "create")              => wrap(self.create_worker(args, particle)),
+            // ("worker", "get_peer_id")         => wrap(self.get_worker_peer_id(args, particle)),
+            // ("worker", "remove")              => wrap_unit(self.remove_worker(args, particle)),
 
             ("run-console", "print")          => wrap_unit(Ok(log::debug!(target: "run-console", "{}", json!(args.function_args)))),
 
@@ -1026,26 +1027,6 @@ where
     fn insecure_get_peer_id(&self) -> Result<JValue, JError> {
         Ok(JValue::String(
             self.key_manager.insecure_keypair.get_peer_id().to_base58(),
-        ))
-    }
-
-    fn create_worker(&self, args: Args, params: ParticleParams) -> Result<JValue, JError> {
-        let mut args = args.function_args.into_iter();
-        let deal_id: Option<String> = Args::next_opt("deal_id", &mut args)?;
-        Ok(JValue::String(
-            self.key_manager
-                .create_worker(deal_id, params.init_peer_id)?
-                .to_base58(),
-        ))
-    }
-
-    fn get_worker_peer_id(&self, args: Args, params: ParticleParams) -> Result<JValue, JError> {
-        let mut args = args.function_args.into_iter();
-        let deal_id: Option<String> = Args::next_opt("deal_id", &mut args)?;
-        let deal_id = deal_id.unwrap_or(KeyManager::generate_deal_id(params.init_peer_id));
-
-        Ok(JValue::String(
-            self.key_manager.get_worker_id(deal_id)?.to_base58(),
         ))
     }
 }

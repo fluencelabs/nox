@@ -45,6 +45,12 @@ pub enum KeyManagerError {
         #[source]
         err: std::io::Error,
     },
+    #[error("Error removing persisted keypair {path:?}: {err}")]
+    RemoveErrorPersistedKeypair {
+        path: PathBuf,
+        #[source]
+        err: std::io::Error,
+    },
     #[error("Error creating directory for persisted keypairs {path:?}: {err}")]
     CreateKeypairsDir {
         path: PathBuf,

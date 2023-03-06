@@ -23,22 +23,29 @@ use std::str::FromStr;
 use std::sync::Arc;
 
 use crate::error::KeyManagerError;
-use crate::persistence::{load_persisted_keypairs, persist_keypair, PersistedKeypair};
+use crate::persistence::{
+    load_persisted_keypairs, persist_keypair, remove_keypair, PersistedKeypair,
+};
 use crate::KeyManagerError::{WorkerAlreadyExists, WorkerNotFound, WorkerNotFoundByDeal};
 use parking_lot::RwLock;
 
 pub const INSECURE_KEYPAIR_SEED: Range<u8> = 0..32;
 
 type DealId = String;
+type WorkerId = PeerId;
+
+#[derive(Clone)]
+pub struct WorkerInfo {
+    pub deal_id: String,
+    pub creator: PeerId,
+}
 
 #[derive(Clone)]
 pub struct KeyManager {
     /// worker_id -> worker_keypair
-    worker_keypairs: Arc<RwLock<HashMap<PeerId, KeyPair>>>,
-    /// deal_id -> worker_id
-    worker_ids: Arc<RwLock<HashMap<DealId, PeerId>>>,
-    /// worker_id -> init_peer_id of worker creator
-    worker_creators: Arc<RwLock<HashMap<PeerId, PeerId>>>,
+    worker_keypairs: Arc<RwLock<HashMap<WorkerId, KeyPair>>>,
+    worker_ids: Arc<RwLock<HashMap<DealId, WorkerId>>>,
+    worker_infos: Arc<RwLock<HashMap<WorkerId, WorkerInfo>>>,
     keypairs_dir: PathBuf,
     host_peer_id: PeerId,
     // temporary public, will refactor
@@ -58,7 +65,7 @@ impl KeyManager {
         let this = Self {
             worker_keypairs: Arc::new(Default::default()),
             worker_ids: Arc::new(Default::default()),
-            worker_creators: Arc::new(Default::default()),
+            worker_infos: Arc::new(Default::default()),
             keypairs_dir,
             host_peer_id: root_keypair.get_peer_id(),
             insecure_keypair: KeyPair::from_secret_key(
@@ -142,12 +149,36 @@ impl KeyManager {
         }
     }
 
-    pub fn get_worker_id(&self, deal_id: String) -> Result<PeerId, KeyManagerError> {
+    pub fn get_worker_id(
+        &self,
+        deal_id: Option<String>,
+        init_peer_id: PeerId,
+    ) -> Result<PeerId, KeyManagerError> {
+        // if deal_id is not provided, we associate it with init_peer_id
+        let deal_id = deal_id.unwrap_or(Self::generate_deal_id(init_peer_id));
         self.worker_ids
             .read()
             .get(&deal_id)
             .cloned()
             .ok_or(WorkerNotFoundByDeal(deal_id))
+    }
+
+    pub fn get_deal_id(&self, worker_id: PeerId) -> Result<DealId, KeyManagerError> {
+        self.worker_infos
+            .read()
+            .get(&worker_id)
+            .ok_or_else(|| KeyManagerError::WorkerNotFound(worker_id))
+            .map(|info| info.deal_id.clone())
+    }
+
+    pub fn remove_worker(&self, worker_id: PeerId) -> Result<(), KeyManagerError> {
+        let deal_id = self.get_deal_id(worker_id)?;
+        remove_keypair(&self.keypairs_dir, &deal_id)?;
+        self.worker_ids.write().remove(&deal_id);
+        self.worker_infos.write().remove(&worker_id);
+        self.worker_keypairs.write().remove(&worker_id);
+
+        Ok(())
     }
 
     pub fn get_worker_keypair(&self, worker_id: PeerId) -> Result<KeyPair, KeyManagerError> {
@@ -166,11 +197,12 @@ impl KeyManager {
         if self.is_host(worker_id) {
             Ok(worker_id)
         } else {
-            self.worker_creators
+            self.worker_infos
                 .read()
                 .get(&worker_id)
                 .cloned()
                 .ok_or(WorkerNotFound(worker_id))
+                .map(|i| i.creator)
         }
     }
 
@@ -189,8 +221,14 @@ impl KeyManager {
             PersistedKeypair::new(deal_creator, &keypair, deal_id.clone())?,
         )?;
         let worker_id = keypair.get_peer_id();
-        self.worker_ids.write().insert(deal_id, worker_id);
-        self.worker_creators.write().insert(worker_id, deal_creator);
+        self.worker_ids.write().insert(deal_id.clone(), worker_id);
+        self.worker_infos.write().insert(
+            worker_id,
+            WorkerInfo {
+                deal_id,
+                creator: deal_creator,
+            },
+        );
         self.worker_keypairs.write().insert(worker_id, keypair);
 
         Ok(())
