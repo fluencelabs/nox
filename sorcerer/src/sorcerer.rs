@@ -23,6 +23,11 @@ use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
 use tokio_stream::wrappers::UnboundedReceiverStream;
 
+use crate::spells::{
+    get_spell_arg, get_spell_id, spell_install, spell_list, spell_remove, spell_update_config,
+    store_error, store_response,
+};
+use crate::utils::process_func_outcome;
 use aquamarine::AquamarineApi;
 use key_manager::KeyManager;
 use particle_args::JError;
