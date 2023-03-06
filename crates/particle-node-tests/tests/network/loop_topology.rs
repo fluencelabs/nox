@@ -591,8 +591,6 @@ async fn fold_seq_join() {
 #[tokio::test]
 #[ignore = "client function isn't called when fold ends with null"]
 async fn fold_null_seq_same_node_stream() {
-    // enable_logs();
-
     let mut swarms = make_swarms(3).await;
 
     add_print(swarms.iter_mut()).await;

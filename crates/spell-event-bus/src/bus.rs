@@ -292,7 +292,6 @@ mod tests {
     use connection_pool::LifecycleEvent;
     use futures::StreamExt;
     use libp2p::PeerId;
-    use log_utils::enable_logs;
     use maplit::hashmap;
     use particle_protocol::Contact;
     use std::assert_matches::assert_matches;
@@ -503,7 +502,6 @@ mod tests {
 
     #[tokio::test]
     async fn test_unsubscribe() {
-        enable_logs();
         let (send, recv) = unbounded_channel();
         let recv = UnboundedReceiverStream::new(recv).boxed();
         let (bus, api, mut event_receiver) = SpellEventBus::new(vec![recv]);

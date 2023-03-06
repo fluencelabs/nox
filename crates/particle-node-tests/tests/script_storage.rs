@@ -26,7 +26,6 @@ use serde_json::{json, Value};
 use connected_client::ConnectedClient;
 use created_swarm::make_swarms;
 use humantime_serde::re::humantime::format_duration;
-use log_utils::enable_logs;
 use now_millis::now;
 use service_modules::load_module;
 use std::time::Duration;
@@ -620,7 +619,6 @@ async fn add_script_delay_oneshot() {
 
 #[tokio::test]
 async fn add_script_random_delay() {
-    enable_logs();
     let swarms = make_swarms(1).await;
 
     let interval = 3u64;

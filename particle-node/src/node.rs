@@ -497,14 +497,12 @@ mod tests {
     use config_utils::to_peer_id;
     use connected_client::ConnectedClient;
     use fs_utils::to_abs_path;
-    use log_utils::enable_logs;
     use server_config::{builtins_base_dir, default_base_dir, resolve_config};
 
     use crate::Node;
 
     #[tokio::test]
     async fn run_node() {
-        enable_logs();
         let base_dir = default_base_dir();
         fs_utils::create_dir(&base_dir).unwrap();
         fs_utils::create_dir(builtins_base_dir(&base_dir)).unwrap();
