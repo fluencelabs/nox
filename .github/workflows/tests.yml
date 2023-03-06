@@ -62,7 +62,7 @@ jobs:
       - uses: taiki-e/install-action@nextest
 
       - name: Run cargo nextest
-        run: cargo nextest run --release --all-features --profile ci
+        run: cargo llvm-cov nextest --all-featuers --profile ci --lcov --output-path lcov.info
 
       - name: Upload test report
         uses: dorny/test-reporter@v1
@@ -71,10 +71,6 @@ jobs:
           name: cargo nextest report
           path: target/nextest/ci/junit.xml
           reporter: java-junit
-
-      - name: Collect coverage data
-        if: inputs.cargo-dependencies == ''
-        run: cargo llvm-cov nextest --lcov --output-path lcov.info
 
       - name: Coveralls upload
         if: inputs.cargo-dependencies == ''
