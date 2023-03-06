@@ -62,7 +62,7 @@ jobs:
       - uses: taiki-e/install-action@nextest
 
       - name: Run cargo nextest
-        run: cargo llvm-cov nextest --all-features --profile ci --lcov --output-path lcov.info
+        run: cargo llvm-cov nextest --release --all-features --profile ci --lcov --output-path lcov.info
 
       - name: Upload test report
         uses: dorny/test-reporter@v1
