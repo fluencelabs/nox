@@ -26,7 +26,6 @@ use serde_json::{json, Value as JValue};
 use connected_client::ConnectedClient;
 use created_swarm::{make_swarms, make_swarms_with_builtins};
 use fluence_spell_dtos::trigger_config::TriggerConfig;
-use log_utils::enable_logs;
 use service_modules::load_module;
 use spell_event_bus::api::{TriggerInfo, TriggerInfoAqua, MAX_PERIOD_SEC};
 use test_utils::create_service;
@@ -113,7 +112,6 @@ async fn spell_simple_test() {
 
 #[tokio::test]
 async fn spell_error_handling_test() {
-    enable_logs();
     let swarms = make_swarms(1).await;
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .await
@@ -461,8 +459,6 @@ async fn spell_install_fail_end_sec_past() {
 // In this case we don't schedule a spell and return error.
 #[tokio::test]
 async fn spell_install_fail_end_sec_before_start() {
-    enable_logs();
-
     let swarms = make_swarms(1).await;
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .await
@@ -512,7 +508,6 @@ async fn spell_install_fail_end_sec_before_start() {
 
 #[tokio::test]
 async fn spell_store_trigger_config() {
-    enable_logs();
     let swarms = make_swarms(1).await;
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .await
@@ -615,7 +610,6 @@ async fn spell_remove() {
 
 #[tokio::test]
 async fn spell_remove_by_alias() {
-    enable_logs();
     let swarms = make_swarms(1).await;
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
@@ -707,7 +701,6 @@ async fn spell_remove_spell_as_service() {
 
 #[tokio::test]
 async fn spell_remove_service_as_spell() {
-    enable_logs();
     let swarms = make_swarms(1).await;
     let mut client = ConnectedClient::connect_with_keypair(
         swarms[0].multiaddr.clone(),
@@ -911,7 +904,6 @@ async fn spell_timer_trigger_mailbox_test() {
 
 #[tokio::test]
 async fn spell_connection_pool_trigger_mailbox_test() {
-    enable_logs();
     let swarms = make_swarms(1).await;
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .await
@@ -1046,7 +1038,6 @@ async fn spell_set_u32() {
 
 #[tokio::test]
 async fn spell_peer_id_test() {
-    enable_logs();
     let swarms = make_swarms(1).await;
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .await
@@ -1242,7 +1233,6 @@ async fn spell_update_config_stopped_spell() {
 
 #[tokio::test]
 async fn resolve_alias_wrong_worker() {
-    enable_logs();
     let swarms = make_swarms(1).await;
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())

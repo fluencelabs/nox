@@ -20,7 +20,6 @@ use std::{env, fs, path::Path};
 use eyre::WrapErr;
 use fluence_keypair::KeyPair;
 use fstrings::f;
-use log_utils::enable_logs;
 use maplit::hashmap;
 use serde::Deserialize;
 use serde_json::json;
@@ -84,7 +83,6 @@ async fn builtins_test() {
 
 #[tokio::test]
 async fn builtins_replace_old() {
-    enable_logs();
     let keypair = KeyPair::generate_ed25519();
     let swarms = make_swarms_with_keypair(1, keypair.clone(), Some(SPELL.to_string())).await;
 
@@ -153,7 +151,6 @@ async fn builtins_replace_old() {
 
 #[tokio::test]
 async fn builtins_scheduled_scripts() {
-    enable_logs();
     let swarms =
         make_swarms_with_builtins(1, Path::new(SERVICES), None, Some(SPELL.to_string())).await;
 

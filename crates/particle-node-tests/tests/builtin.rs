@@ -32,7 +32,6 @@ use key_manager::INSECURE_KEYPAIR_SEED;
 use libp2p::core::Multiaddr;
 use libp2p::kad::kbucket::Key;
 use libp2p::PeerId;
-use log_utils::{enable_console, enable_logs};
 use maplit::hashmap;
 use now_millis::now_ms;
 use particle_protocol::Particle;
@@ -105,8 +104,6 @@ async fn big_identity() {
 
 #[tokio::test]
 async fn remove_service() {
-    enable_logs();
-    enable_console();
     let swarms = make_swarms(1).await;
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
@@ -736,8 +733,6 @@ async fn noop() {
 
 #[tokio::test]
 async fn identity() {
-    enable_logs();
-    enable_console();
     let result = exec_script(
         r#"(call relay ("op" "identity") ["hi"] result)"#,
         <_>::default(),
@@ -768,7 +763,6 @@ async fn identity() {
 
 #[tokio::test]
 async fn array() {
-    enable_logs();
     let result = exec_script(
         r#"(call relay ("op" "array") ["hi"] result)"#,
         <_>::default(),
@@ -1474,7 +1468,6 @@ async fn service_stats_uninitialized() {
 
 #[tokio::test]
 async fn sign_verify() {
-    enable_logs();
     let kp = KeyPair::generate_ed25519();
     let swarms = make_swarms_with_builtins(
         1,
