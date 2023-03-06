@@ -12,9 +12,10 @@ on:
         type: string
 
 jobs:
-  lint:
-    name: cargo lints
-    runs-on: builder
+  lints:
+    if: inputs.cargo-dependencies == ''
+    name: "cargo lints"
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
         uses: actions/checkout@v3
@@ -24,12 +25,6 @@ jobs:
 
       - name: Setup Rust toolchain
         uses: actions-rust-lang/setup-rust-toolchain@v1
-
-      - name: Set dependencies
-        if: inputs.cargo-dependencies != ''
-        uses: fluencelabs/github-actions/cargo-set-dependency@main
-        with:
-          dependencies: ${{ inputs.cargo-dependencies }}
 
       - name: Run cargo fmt
         run: cargo fmt --all -- --check
@@ -65,6 +60,11 @@ jobs:
           version: 0.9.22
 
       - name: Run cargo nextest
+        env:
+          # required by grcov
+          CARGO_INCREMENTAL: 0
+          RUSTFLAGS: "-Zprofile -Ccodegen-units=1 -Copt-level=0 -Clink-dead-code -Coverflow-checks=off -Zpanic_abort_tests -Cpanic=abort"
+          RUSTDOCFLAGS: "-Cpanic=abort"
         run: cargo nextest run --release --all-features --profile ci
 
       - name: Upload test report
@@ -74,3 +74,25 @@ jobs:
           name: cargo nextest report
           path: target/nextest/ci/junit.xml
           reporter: java-junit
+
+      - name: Setup grcov
+        uses: SierraSoftworks/setup-grcov@v1
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          version: latest
+
+      - name: Run grcov
+        id: coverage
+        uses: actions-rs/grcov@v0.1
+
+      - name: Coveralls upload
+        uses: coverallsapp/github-action@v1
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path-to-lcov: ${{ steps.coverage.outputs.report }}
+
+      - name: Archive code coverage results
+        uses: actions/upload-artifact@v1
+        with:
+          name: code-coverage-report.zip
+          path: ${{ steps.coverage.outputs.report }}
