@@ -266,10 +266,6 @@ where
             ("json", "obj_pairs")             => unary(args, |vs: Vec<(String, JValue)>| -> R<JValue, _> { json::obj_from_pairs(vs) }),
             ("json", "puts_pairs")            => binary(args, |obj: JValue, vs: Vec<(String, JValue)>| -> R<JValue, _> { json::puts_from_pairs(obj, vs) }),
 
-            // ("worker", "create")              => wrap(self.create_worker(args, particle)),
-            // ("worker", "get_peer_id")         => wrap(self.get_worker_peer_id(args, particle)),
-            // ("worker", "remove")              => wrap_unit(self.remove_worker(args, particle)),
-
             ("run-console", "print")          => wrap_unit(Ok(log::debug!(target: "run-console", "{}", json!(args.function_args)))),
 
             _                                 => FunctionOutcome::NotDefined { args, params: particle },

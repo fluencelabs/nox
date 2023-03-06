@@ -176,17 +176,15 @@ pub(crate) async fn spell_remove(
 
     let worker_id = params.host_id;
     let init_peer_id = params.init_peer_id;
-    let spell_owner = services.get_service_owner(spell_id.clone(), params.host_id)?;
     let worker_creator = key_manager.get_worker_creator(worker_id)?;
 
-    let is_spell_owner = init_peer_id == spell_owner;
     let is_worker_creator = init_peer_id == worker_creator;
     let is_worker = init_peer_id == worker_id;
     let is_management = key_manager.is_management(init_peer_id);
 
-    if !is_spell_owner && !is_worker_creator && !is_worker && !is_management {
+    if !is_worker_creator && !is_worker && !is_management {
         return Err(JError::new(format!(
-            "Failed to remove spell {spell_id}, spell can be removed by spell owner {spell_owner}, worker creator {worker_creator}, worker itself {worker_id} or peer manager"
+            "Failed to remove spell {spell_id}, spell can be removed by worker creator {worker_creator}, worker itself {worker_id} or peer manager"
         )));
     }
 
@@ -214,17 +212,15 @@ pub(crate) async fn spell_update_config(
 
     let worker_id = params.host_id;
     let init_peer_id = params.init_peer_id;
-    let spell_owner = services.get_service_owner(spell_id.clone(), worker_id)?;
     let worker_creator = key_manager.get_worker_creator(worker_id)?;
 
-    let is_spell_owner = init_peer_id == spell_owner;
     let is_worker_creator = init_peer_id == worker_creator;
     let is_worker = init_peer_id == worker_id;
     let is_management = key_manager.is_management(init_peer_id);
 
-    if !is_spell_owner && !is_worker_creator && !is_worker && !is_management {
+    if !is_worker_creator && !is_worker && !is_management {
         return Err(JError::new(format!(
-            "Failed to update spell config {spell_id}, spell config can be updated by spell owner {spell_owner}, worker creator {worker_creator}, worker itself {worker_id} or peer manager; init_peer_id={init_peer_id}"
+            "Failed to update spell config {spell_id}, spell config can be updated by worker creator {worker_creator}, worker itself {worker_id} or peer manager; init_peer_id={init_peer_id}"
         )));
     }
 

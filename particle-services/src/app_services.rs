@@ -302,6 +302,7 @@ impl ParticleAppServices {
             //  What a mess.
             //  service.owner_id has created the service, so can remove. that's OK.
             //  management_peer_id is the node admin, can remove any service. that's OK.
+            //  service.worker_id is the worker itself, so can remove. that's OK.
             //  builtins_management_peer_id is a HACKity hack:
             //      It actually needs to be able to remove only builtins (services deployed from FS on start),
             //      but there's no way to tell which one's are "builtins", so we allow it to remove
