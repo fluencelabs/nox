@@ -92,12 +92,20 @@ impl KeyManager {
                     persisted_kp.private_key_bytes,
                     KeyFormat::from_str(&persisted_kp.key_format)?,
                 )?;
-                let peer_id = keypair.get_peer_id();
+                let worker_id = keypair.get_peer_id();
                 self.worker_ids
                     .write()
-                    .insert(persisted_kp.deal_id, keypair.get_peer_id());
+                    .insert(persisted_kp.deal_id.clone(), keypair.get_peer_id());
 
-                self.worker_keypairs.write().insert(peer_id, keypair);
+                self.worker_keypairs.write().insert(worker_id, keypair);
+
+                self.worker_infos.write().insert(
+                    worker_id,
+                    WorkerInfo {
+                        deal_id: persisted_kp.deal_id,
+                        creator: persisted_kp.deal_creator,
+                    },
+                );
             };
 
             if let Err(e) = res {
