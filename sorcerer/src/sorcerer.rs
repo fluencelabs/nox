@@ -23,6 +23,11 @@ use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
 use tokio_stream::wrappers::UnboundedReceiverStream;
 
+use crate::spells::{
+    get_spell_arg, get_spell_id, spell_install, spell_list, spell_remove, spell_update_config,
+    store_error, store_response,
+};
+use crate::utils::process_func_outcome;
 use aquamarine::AquamarineApi;
 use key_manager::KeyManager;
 use particle_args::JError;
@@ -34,11 +39,6 @@ use serde_json::Value;
 use server_config::ResolvedConfig;
 use spell_event_bus::api::{from_user_config, SpellEventBusApi, TriggerEvent};
 use spell_storage::SpellStorage;
-use crate::spells::{
-    get_spell_arg, get_spell_id, spell_install, spell_list, spell_remove, spell_update_config,
-    store_error, store_response,
-};
-use crate::utils::process_func_outcome;
 
 #[derive(Clone)]
 pub struct Sorcerer {
