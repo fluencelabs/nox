@@ -29,6 +29,9 @@ jobs:
       - name: Run cargo fmt
         run: cargo fmt --all -- --check
 
+      - name: Install Protoc
+        uses: arduino/setup-protoc@v1
+
       - name: Run cargo clippy
         run: cargo clippy -Z unstable-options --all
 
@@ -63,8 +66,8 @@ jobs:
         env:
           # required by grcov
           CARGO_INCREMENTAL: 0
-          RUSTFLAGS: "-Zprofile -Ccodegen-units=1 -Copt-level=0 -Clink-dead-code -Coverflow-checks=off -Zpanic_abort_tests -Cpanic=abort"
-          RUSTDOCFLAGS: "-Cpanic=abort"
+          RUSTFLAGS: "-Zprofile -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests"
+          RUSTDOCFLAGS: "-Zprofile -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests"
         run: cargo nextest run --release --all-features --profile ci
 
       - name: Upload test report
