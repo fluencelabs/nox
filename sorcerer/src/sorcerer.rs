@@ -17,9 +17,13 @@
 use std::collections::HashMap;
 use std::time::Duration;
 
-use aquamarine::AquamarineApi;
 use fluence_spell_dtos::trigger_config::TriggerConfigValue;
 use futures::{FutureExt, StreamExt};
+use tokio::sync::mpsc;
+use tokio::task::JoinHandle;
+use tokio_stream::wrappers::UnboundedReceiverStream;
+
+use aquamarine::AquamarineApi;
 use key_manager::KeyManager;
 use particle_args::JError;
 use particle_builtins::{wrap, wrap_unit};
@@ -30,10 +34,6 @@ use serde_json::Value;
 use server_config::ResolvedConfig;
 use spell_event_bus::api::{from_user_config, SpellEventBusApi, TriggerEvent};
 use spell_storage::SpellStorage;
-use tokio::sync::mpsc;
-use tokio::task::JoinHandle;
-use tokio_stream::wrappers::UnboundedReceiverStream;
-
 use crate::spells::{
     get_spell_arg, get_spell_id, spell_install, spell_list, spell_remove, spell_update_config,
     store_error, store_response,
