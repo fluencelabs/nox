@@ -31,6 +31,8 @@ jobs:
 
       - name: Install Protoc
         uses: arduino/setup-protoc@v1
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Run cargo clippy
         run: cargo clippy -Z unstable-options --all
