@@ -76,22 +76,26 @@ jobs:
           reporter: java-junit
 
       - name: Setup grcov
+        if: inputs.cargo-dependencies == ''
         uses: SierraSoftworks/setup-grcov@v1
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           version: latest
 
       - name: Run grcov
+        if: inputs.cargo-dependencies == ''
         id: coverage
         uses: actions-rs/grcov@v0.1
 
       - name: Coveralls upload
+        if: inputs.cargo-dependencies == ''
         uses: coverallsapp/github-action@v1
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           path-to-lcov: ${{ steps.coverage.outputs.report }}
 
       - name: Archive code coverage results
+        if: inputs.cargo-dependencies == ''
         uses: actions/upload-artifact@v1
         with:
           name: code-coverage-report.zip
