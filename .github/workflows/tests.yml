@@ -56,18 +56,10 @@ jobs:
         with:
           dependencies: ${{ inputs.cargo-dependencies }}
 
-      - name: Install cargo-nextest
-        uses: baptiste0928/cargo-install@v1.3.0
-        with:
-          crate: cargo-nextest
-          version: 0.9.22
+      - uses: taiki-e/install-action@cargo-llvm-cov
+      - uses: taiki-e/install-action@nextest
 
       - name: Run cargo nextest
-        env:
-          # required by grcov
-          CARGO_INCREMENTAL: 0
-          RUSTFLAGS: "-Zprofile -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests"
-          RUSTDOCFLAGS: "-Zprofile -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests"
         run: cargo nextest run --release --all-features --profile ci
 
       - name: Upload test report
@@ -78,28 +70,20 @@ jobs:
           path: target/nextest/ci/junit.xml
           reporter: java-junit
 
-      - name: Setup grcov
+      - name: Collect coverage data
         if: inputs.cargo-dependencies == ''
-        uses: SierraSoftworks/setup-grcov@v1
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          version: latest
-
-      - name: Run grcov
-        if: inputs.cargo-dependencies == ''
-        id: coverage
-        uses: actions-rs/grcov@v0.1
+        run: cargo llvm-cov nextest --lcov --output-path lcov.info
 
       - name: Coveralls upload
         if: inputs.cargo-dependencies == ''
         uses: coverallsapp/github-action@v1
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          path-to-lcov: ${{ steps.coverage.outputs.report }}
+          path-to-lcov: lcov.info
 
       - name: Archive code coverage results
         if: inputs.cargo-dependencies == ''
         uses: actions/upload-artifact@v1
         with:
           name: code-coverage-report.zip
-          path: ${{ steps.coverage.outputs.report }}
+          path: lcov.info
