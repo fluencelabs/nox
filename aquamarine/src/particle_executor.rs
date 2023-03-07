@@ -83,8 +83,8 @@ impl<RT: AquaRuntime> ParticleExecutor for RT {
                 effects,
                 stats,
             }
-        }).expect("Could not spawn task");
+        }).expect("Could not spawn 'Particle' task");
 
-        async { task.await.expect("Could not join task") }.boxed()
+        async { task.await.expect("Could not join 'Particle' task") }.boxed()
     }
 }
