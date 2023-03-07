@@ -21,6 +21,7 @@ key-manager = { workspace = true}
 
 avm-server = { workspace = true }
 libp2p = { workspace = true }
+fluence-keypair = { workspace = true }
 
 futures = { workspace = true }
 log = { workspace = true }

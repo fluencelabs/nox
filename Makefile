@@ -8,7 +8,7 @@ test:
 	cargo test --release
 
 server:
-	RUST_LOG="info,tide=off" \
+	RUST_LOG="info,tide=off,run-console=debug" \
 	cargo run --release -p particle-node
 
 server-debug:

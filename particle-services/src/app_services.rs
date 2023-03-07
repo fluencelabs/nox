@@ -56,26 +56,17 @@ pub struct Service {
     pub service: Mutex<AppService>,
     pub blueprint_id: String,
     pub owner_id: PeerId,
-    pub worker_aliases: Vec<ServiceAlias>,
+    pub aliases: Vec<ServiceAlias>,
     pub worker_id: PeerId,
-    pub root_aliases: Vec<ServiceAlias>,
 }
 
 impl Service {
     pub fn remove_alias(&mut self, alias: &str) {
-        self.worker_aliases.retain(|a| a.ne(alias));
+        self.aliases.retain(|a| a.ne(alias));
     }
 
     pub fn add_alias(&mut self, alias: String) {
-        self.worker_aliases.push(alias);
-    }
-
-    pub fn remove_root_alias(&mut self, alias: &str) {
-        self.root_aliases.retain(|a| a.ne(alias));
-    }
-
-    pub fn add_root_alias(&mut self, alias: String) {
-        self.root_aliases.push(alias);
+        self.aliases.push(alias);
     }
 }
 
@@ -183,16 +174,15 @@ impl ParticleAppServices {
     pub fn create_service(
         &self,
         blueprint_id: String,
-        init_peer_id: PeerId,
+        owner_id: PeerId,
         worker_id: PeerId,
     ) -> Result<String, ServiceError> {
         let service_id = uuid::Uuid::new_v4().to_string();
         self.create_service_inner(
             blueprint_id,
-            init_peer_id,
+            owner_id,
             worker_id,
             service_id.clone(),
-            vec![],
             vec![],
         )?;
         Ok(service_id)
@@ -217,8 +207,7 @@ impl ParticleAppServices {
             "id": service_id,
             "blueprint_id": service.blueprint_id,
             "owner_id": service.owner_id.to_string(),
-            // TODO: add service.root_aliases ???
-            "aliases": service.worker_aliases,
+            "aliases": service.aliases,
             "worker_id": service.worker_id.to_string()
         }))
     }
@@ -292,14 +281,8 @@ impl ParticleAppServices {
         }
         let service = self.services.write().remove(&service_id).unwrap();
 
-        if let Some(aliases) = self.aliases.write().get_mut(&worker_id) {
-            for alias in service.worker_aliases.iter() {
-                aliases.remove(alias);
-            }
-        }
-
-        if let Some(aliases) = self.aliases.write().get_mut(&self.config.local_peer_id) {
-            for alias in service.root_aliases.iter() {
+        if let Some(aliases) = self.aliases.write().get_mut(&service.worker_id) {
+            for alias in service.aliases.iter() {
                 aliases.remove(alias);
             }
         }
@@ -354,7 +337,7 @@ impl ParticleAppServices {
         //     ));
         // }
 
-        let service_type = ServiceType::Service(service.worker_aliases.first().cloned());
+        let service_type = ServiceType::Service(service.aliases.first().cloned());
 
         // TODO: move particle vault creation to aquamarine::particle_functions
         self.create_vault(&particle.id)?;
@@ -503,7 +486,7 @@ impl ParticleAppServices {
             .get_mut(&service_id)
             .ok_or_else(|| ServiceError::NoSuchService(service_id.clone()))?;
 
-        if !is_root_scope && service.worker_id != worker_id {
+        if service.worker_id != worker_id {
             // service is deployed on another worker_id
             return Err(ServiceError::AliasWrongWorkerId {
                 service_id,
@@ -511,28 +494,25 @@ impl ParticleAppServices {
             });
         }
 
-        if is_root_scope {
-            service.add_root_alias(alias.clone());
-        } else {
-            service.add_alias(alias.clone());
-        }
+        service.add_alias(alias.clone());
 
         let persisted_new = PersistedService::from_service(service_id.clone(), service);
 
         // Find a service with the same alias if any
-        let previous_owner_id: Option<_> =
-            try { self.aliases.read().get(&worker_id)?.get(&alias).cloned()? };
+        let previous_owner_id: Option<_> = try {
+            self.aliases
+                .read()
+                .get(&service.worker_id)?
+                .get(&alias)
+                .cloned()?
+        };
 
         // If there is such a service remove the alias from its list of aliases
         let previous_owner = try {
             let previous_owner_id = previous_owner_id?;
             let previous_owner_service = services.get_mut(&previous_owner_id)?;
 
-            if is_root_scope {
-                previous_owner_service.remove_root_alias(&alias);
-            } else {
-                previous_owner_service.remove_alias(&alias);
-            }
+            previous_owner_service.remove_alias(&alias);
 
             PersistedService::from_service(previous_owner_id, previous_owner_service)
         };
@@ -600,6 +580,31 @@ impl ParticleAppServices {
         Ok(service.owner_id)
     }
 
+    pub fn check_service_worker_id(
+        &self,
+        id_or_alias: String,
+        worker_id: PeerId,
+    ) -> Result<(), ServiceError> {
+        let services = self.services.read();
+        let (service, _) = get_service(
+            &services,
+            &self.aliases.read(),
+            worker_id,
+            self.config.local_peer_id,
+            id_or_alias.clone(),
+        )
+        .map_err(ServiceError::NoSuchService)?;
+
+        if service.worker_id != worker_id {
+            Err(ServiceError::CallServiceFailedWrongWorker {
+                service_id: id_or_alias,
+                worker_id,
+            })
+        } else {
+            Ok(())
+        }
+    }
+
     pub fn get_interface(
         &self,
         service_id: String,
@@ -627,16 +632,17 @@ impl ParticleAppServices {
     }
 
     // TODO: move JSON serialization to builtins
-    pub fn list_services(&self) -> Vec<JValue> {
+    pub fn list_services(&self, worker_id: PeerId) -> Vec<JValue> {
         let services = self.services.read();
         let services = services
             .iter()
+            .filter(|(_, srv)| srv.worker_id.eq(&worker_id))
             .map(|(id, srv)| {
                 json!({
                     "id": id,
                     "blueprint_id": srv.blueprint_id,
                     "owner_id": srv.owner_id.to_string(),
-                    "aliases": srv.worker_aliases,
+                    "aliases": srv.aliases,
                     "worker_id": srv.worker_id.to_string()
                 })
             })
@@ -698,7 +704,6 @@ impl ParticleAppServices {
                 worker_id,
                 s.service_id.clone(),
                 s.aliases.clone(),
-                s.root_aliases.clone(),
             );
             let replaced = match result {
                 Ok(replaced) => replaced,
@@ -709,48 +714,30 @@ impl ParticleAppServices {
                 }
             };
 
-            // worker_aliases
-            {
-                let mut binding = self.aliases.write();
-                let aliases = binding.entry(worker_id).or_default();
-                for alias in s.aliases.into_iter() {
-                    let old = aliases.insert(alias.clone(), s.service_id.clone());
-                    if let Some(old) = old {
-                        log::warn!(
-                            "Alias `{}` is the same for {} and {}",
-                            alias,
-                            old,
-                            s.service_id
-                        );
-                    }
+            let mut binding = self.aliases.write();
+            let aliases = binding.entry(worker_id).or_default();
+            for alias in s.aliases.iter() {
+                let old = aliases.insert(alias.clone(), s.service_id.clone());
+                if let Some(old) = old {
+                    log::warn!(
+                        "Alias `{}` is the same for {} and {}",
+                        alias,
+                        old,
+                        s.service_id
+                    );
                 }
             }
 
-            // root_aliases
-            {
-                let mut binding = self.aliases.write();
-                let aliases = binding.entry(self.config.local_peer_id).or_default();
-                for alias in s.root_aliases.into_iter() {
-                    let old = aliases.insert(alias.clone(), s.service_id.clone());
-                    if let Some(old) = old {
-                        log::warn!(
-                            "Alias `{}` is the same for {} and {}",
-                            alias,
-                            old,
-                            s.service_id
-                        );
-                    }
-                }
-            }
             debug_assert!(
                 replaced.is_none(),
                 "shouldn't replace any existing services"
             );
 
             log::info!(
-                "Persisted service {} created in {}",
+                "Persisted service {} created in {}, aliases: {:?}",
                 s.service_id,
-                pretty(start.elapsed())
+                pretty(start.elapsed()),
+                s.aliases
             );
         }
     }
@@ -761,8 +748,7 @@ impl ParticleAppServices {
         owner_id: PeerId,
         worker_id: PeerId,
         service_id: String,
-        worker_aliases: Vec<String>,
-        root_aliases: Vec<String>,
+        aliases: Vec<String>,
     ) -> Result<Option<Service>, ServiceError> {
         let creation_start_time = Instant::now();
         let service = create_app_service(
@@ -770,8 +756,7 @@ impl ParticleAppServices {
             &self.modules,
             blueprint_id.clone(),
             service_id.clone(),
-            worker_aliases.clone(),
-            root_aliases,
+            aliases.clone(),
             owner_id,
             worker_id,
             self.metrics.as_ref(),
@@ -785,14 +770,13 @@ impl ParticleAppServices {
         })?;
         let stats = service.module_memory_stats();
         let stats = ServiceMemoryStat::new(&stats);
-        let service_type = ServiceType::Service(worker_aliases.first().cloned());
+        let service_type = ServiceType::Service(aliases.first().cloned());
         let service = Service {
             service: Mutex::new(service),
             blueprint_id,
             owner_id,
-            worker_aliases,
+            aliases,
             worker_id,
-            root_aliases: vec![],
         };
 
         let replaced = self.services.write().insert(service_id.clone(), service);
@@ -1034,7 +1018,7 @@ mod tests {
         let services = pas.services.read();
         let service_1 = services.get(&service_id1).unwrap();
         // the service's alias list must contain the alias
-        assert_eq!(service_1.root_aliases, vec![alias.to_string()]);
+        assert_eq!(service_1.aliases, vec![alias.to_string()]);
 
         let persisted_services: Vec<_> =
             load_persisted_services(&pas.config.services_dir, local_pid)
@@ -1047,7 +1031,7 @@ mod tests {
             .unwrap();
 
         // the persisted service's alias list must contain the alias
-        assert_eq!(persisted_service_1.root_aliases, vec![alias.to_string()]);
+        assert_eq!(persisted_service_1.aliases, vec![alias.to_string()]);
     }
 
     #[test]
@@ -1085,9 +1069,9 @@ mod tests {
         let service_1 = services.get(&service_id1).unwrap();
         let service_2 = services.get(&service_id2).unwrap();
         // the first service's alias list must not contain the alias
-        assert_eq!(service_1.root_aliases, Vec::<String>::new());
+        assert_eq!(service_1.aliases, Vec::<String>::new());
         // the second service's alias list must contain the alias
-        assert_eq!(service_2.root_aliases, vec![alias.to_string()]);
+        assert_eq!(service_2.aliases, vec![alias.to_string()]);
 
         let persisted_services: Vec<_> =
             load_persisted_services(&pas.config.services_dir, local_pid)
@@ -1103,9 +1087,9 @@ mod tests {
             .find(|s| s.service_id == service_id2)
             .unwrap();
         // the first persisted service's alias list must not contain the alias
-        assert_eq!(persisted_service_1.root_aliases, Vec::<String>::new());
+        assert_eq!(persisted_service_1.aliases, Vec::<String>::new());
         // the second persisted service's alias list must contain the alias
-        assert_eq!(persisted_service_2.root_aliases, vec![alias.to_string()]);
+        assert_eq!(persisted_service_2.aliases, vec![alias.to_string()]);
     }
 
     #[test]
@@ -1116,11 +1100,21 @@ mod tests {
         let pas = create_pas(local_pid, management_pid, base_dir.into_path());
 
         let module_name = "tetra".to_string();
+        let alias = "alias".to_string();
         let hash = upload_tetra_service(&pas, module_name.clone());
 
         let service_id1 = create_service(&pas, module_name, &hash, local_pid).unwrap();
+        pas.add_alias(
+            alias.clone(),
+            local_pid,
+            service_id1.clone(),
+            management_pid,
+        )
+        .unwrap();
         let services = pas.services.read();
         let service_1 = services.get(&service_id1).unwrap();
+        assert_eq!(service_1.aliases.len(), 1);
+        assert_eq!(service_1.aliases[0], alias);
 
         let persisted_services: Vec<_> =
             load_persisted_services(&pas.config.services_dir, local_pid)
@@ -1128,7 +1122,8 @@ mod tests {
                 .collect::<Result<_, _>>()
                 .unwrap();
         let persisted_service_1 = persisted_services.first().unwrap();
-        assert_eq!(service_1.worker_aliases, persisted_service_1.aliases);
+        assert_eq!(service_1.aliases, persisted_service_1.aliases);
+        assert_eq!(service_1.aliases, persisted_service_1.aliases);
         assert_eq!(service_1.blueprint_id, persisted_service_1.blueprint_id);
         assert_eq!(service_id1, persisted_service_1.service_id);
         assert_eq!(service_1.owner_id, persisted_service_1.owner_id);

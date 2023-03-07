@@ -193,6 +193,7 @@ dependencies = [
  "config-utils",
  "control-macro",
  "eyre",
+ "fluence-keypair",
  "fluence-libp2p",
  "fs-utils",
  "futures",
@@ -571,23 +572,23 @@ checksum = "d468802bab17cbc0cc575e9b053f41e72aa36bfa6b7f55e3529ffa43161b97fa"
 
 [[package]]
 name = "avm-data-store"
-version = "0.4.1"
+version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c0984f261db23c85b57b0262f8e1b20f62a2acbf00c8a20a44ec6cd1f2778198"
+checksum = "dab61002187a7a5620714d654e762aa170bee8c4796f843112f47aaf87ccc959"
 dependencies = [
+ "avm-interface",
  "serde",
  "serde_bytes",
 ]
 
 [[package]]
 name = "avm-interface"
-version = "0.28.1"
+version = "0.28.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4134d2c98d57c45e25e989478680ef5913f9cbf50582e06b49970bc7e5c5df3f"
+checksum = "58b191a3d1c46e279598d7115e4f2fe1b46d6c471c4bd2d743d24c93e028dd10"
 dependencies = [
  "air-interpreter-interface",
  "air-utils",
- "avm-data-store",
  "log",
  "maplit",
  "polyplets",
@@ -599,9 +600,9 @@ dependencies = [
 
 [[package]]
 name = "avm-server"
-version = "0.28.1"
+version = "0.30.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "547c8574fbebc15a5ba0f0753cac6f988863b33e89d8a3ce3b669df9442444cb"
+checksum = "c9f9d8f50f05bce1e605dbb75434f642ea2eca33155cfe9916736906032d8c1f"
 dependencies = [
  "air-interpreter-interface",
  "air-utils",
@@ -610,7 +611,7 @@ dependencies = [
  "eyre",
  "log",
  "maplit",
- "marine-runtime",
+ "marine-runtime 0.24.1",
  "parking_lot 0.12.1",
  "polyplets",
  "serde",
@@ -1863,14 +1864,14 @@ dependencies = [
 
 [[package]]
 name = "fluence-app-service"
-version = "0.23.0"
+version = "0.24.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3264bb11b79b9e3e4e5b722d986efd461e4606477ba2e454e61ddf79bc1d3bf1"
+checksum = "01f30287ef4929e130a59373c7517b22fcf8141495c15b0af26fb68263d7706b"
 dependencies = [
  "log",
  "maplit",
  "marine-min-it-version",
- "marine-runtime",
+ "marine-runtime 0.25.0",
  "serde",
  "serde_derive",
  "serde_json",
@@ -1938,9 +1939,9 @@ dependencies = [
 
 [[package]]
 name = "fluence-spell-distro"
-version = "0.3.2"
+version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "663c8935759cd3cc005b792c6b4edb1e52de8d6a098e42b056da9d1214753ac0"
+checksum = "83b0281b7fcad5cfeba6b649943bea4b5021a4d6451b7a785b168937db3b75ea"
 dependencies = [
  "built",
  "maplit",
@@ -1948,9 +1949,9 @@ dependencies = [
 
 [[package]]
 name = "fluence-spell-dtos"
-version = "0.3.2"
+version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f420504223d9378fd813337011fcde8a978df61ac414554e0cd39fa954562df0"
+checksum = "0787be924074871d9da8b85885ddb2622d3e5453423588ec52ca5474f3f2fdb6"
 dependencies = [
  "eyre",
  "marine-rs-sdk",
@@ -3437,9 +3438,37 @@ dependencies = [
 
 [[package]]
 name = "marine-runtime"
-version = "0.24.0"
+version = "0.24.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ba3726e9dccce778d0b848ebc9adb312f33f338128bb182aa5ed8429f3f7aac1"
+checksum = "545262bf5b68d2b4f4b9eed2557f09421cc4bb62a10e71c307140f27b6411b9c"
+dependencies = [
+ "bytesize",
+ "it-json-serde",
+ "itertools",
+ "log",
+ "marine-core",
+ "marine-module-interface",
+ "marine-rs-sdk",
+ "marine-rs-sdk-main",
+ "marine-utils",
+ "safe-transmute",
+ "serde",
+ "serde_derive",
+ "serde_json",
+ "serde_with 2.2.0",
+ "thiserror",
+ "toml",
+ "wasmer-interface-types-fl",
+ "wasmer-runtime-core-fl",
+ "wasmer-runtime-fl",
+ "wasmer-wasi-fl",
+]
+
+[[package]]
+name = "marine-runtime"
+version = "0.25.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7c18411817a9bcfcc6e6322d12c91d5f6265dd9dc16b696e1c7703e47d2a23b7"
 dependencies = [
  "bytesize",
  "it-json-serde",
@@ -4052,7 +4081,7 @@ dependencies = [
 
 [[package]]
 name = "particle-node"
-version = "0.8.0"
+version = "0.8.2"
 dependencies = [
  "air-interpreter-fs",
  "air-interpreter-wasm",
@@ -5074,9 +5103,9 @@ dependencies = [
 
 [[package]]
 name = "serde_bytes"
-version = "0.11.7"
+version = "0.11.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cfc50e8183eeeb6178dcb167ae34a8051d63535023ae38b5d8d12beae193d37b"
+checksum = "416bda436f9aab92e02c8e10d49a15ddd339cea90b6e340fe51ed97abb548294"
 dependencies = [
  "serde",
 ]

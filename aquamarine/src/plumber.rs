@@ -167,7 +167,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
         // Remove expired actors
         if let Some((vm_id, mut vm)) = self.vm_pool.get_vm() {
             let now = now_ms();
-            self.actors.retain(|(particle_id, _peer_id), actor| {
+            self.actors.retain(|(particle_id, peer_id), actor| {
                 // if actor hasn't yet expired or is still executing, keep it
                 // TODO: if actor is expired, cancel execution and return VM back to pool
                 //       https://github.com/fluencelabs/fluence/issues/1212
@@ -175,10 +175,12 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
                     return true; // keep actor
                 }
 
-                log::debug!("Reaping particle's actor {}", particle_id);
+                log::debug!(
+                    "Reaping particle's actor particle_id={particle_id}, peer_id={peer_id})"
+                );
                 // cleanup files and dirs after particle processing (vault & prev_data)
                 // TODO: do not pass vm https://github.com/fluencelabs/fluence/issues/1216
-                if let Err(err) = actor.cleanup(particle_id, &mut vm) {
+                if let Err(err) = actor.cleanup(particle_id, &peer_id.to_string(), &mut vm) {
                     log::warn!(
                         "Error cleaning up after particle {}: {:?}",
                         particle_id,
@@ -276,6 +278,7 @@ mod tests {
     use std::{sync::Arc, task::Context};
 
     use avm_server::{AVMMemoryStats, AVMOutcome, CallResults, ParticleParameters};
+    use fluence_keypair::KeyPair;
     use fluence_libp2p::RandomPeerId;
     use futures::future::BoxFuture;
     use futures::task::noop_waker_ref;
@@ -359,7 +362,11 @@ mod tests {
             })
         }
 
-        fn cleanup(&mut self, _particle_id: &str) -> Result<(), Self::Error> {
+        fn cleanup(
+            &mut self,
+            _particle_id: &str,
+            _current_peer_id: &str,
+        ) -> Result<(), Self::Error> {
             Ok(())
         }
 
@@ -377,7 +384,7 @@ mod tests {
         let builtin_mock = Arc::new(MockF);
         let key_manager = KeyManager::new(
             "keypair".into(),
-            RandomPeerId::random(),
+            KeyPair::generate_ed25519(),
             RandomPeerId::random(),
             RandomPeerId::random(),
         );
