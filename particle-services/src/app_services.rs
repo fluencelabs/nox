@@ -26,7 +26,7 @@ use parking_lot::{Mutex, RwLock};
 use serde::Serialize;
 use serde_json::{json, Value as JValue};
 
-use fluence_libp2p::PeerId;
+use fluence_libp2p::{peerid_serializer, PeerId};
 use now_millis::now_ms;
 use particle_args::{Args, JError};
 use particle_execution::{FunctionOutcome, ParticleParams, ParticleVault, VaultError};
@@ -49,12 +49,14 @@ type ServiceAlias = String;
 type Services = HashMap<ServiceId, Service>;
 type Aliases = HashMap<PeerId, HashMap<ServiceAlias, ServiceId>>;
 
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 pub struct ServiceInfo {
     pub id: String,
     pub blueprint_id: String,
+    #[serde(with = "peerid_serializer")]
     pub owner_id: PeerId,
     pub aliases: Vec<ServiceAlias>,
+    #[serde(with = "peerid_serializer")]
     pub worker_id: PeerId,
 }
 
@@ -222,13 +224,7 @@ impl ParticleAppServices {
         )
         .map_err(ServiceError::NoSuchService)?;
 
-        Ok(json!({
-            "id": service_id,
-            "blueprint_id": service.blueprint_id,
-            "owner_id": service.owner_id.to_string(),
-            "aliases": service.aliases,
-            "worker_id": service.worker_id.to_string()
-        }))
+        Ok(json!(service.get_info(&service_id)))
     }
 
     pub fn remove_services(&self, worker_id: PeerId) -> Result<(), ServiceError> {
@@ -673,7 +669,7 @@ impl ParticleAppServices {
         Ok(self.modules.get_facade_interface(&service.blueprint_id)?)
     }
 
-    pub fn list_services_with_blueprints(&self) -> Vec<ServiceInfo> {
+    pub fn list_services_with_info(&self) -> Vec<ServiceInfo> {
         let services = self.services.read();
         services
             .iter()
@@ -681,21 +677,12 @@ impl ParticleAppServices {
             .collect()
     }
 
-    // TODO: move JSON serialization to builtins
     pub fn list_services(&self, worker_id: PeerId) -> Vec<JValue> {
         let services = self.services.read();
         let services = services
             .iter()
             .filter(|(_, srv)| srv.worker_id.eq(&worker_id))
-            .map(|(id, srv)| {
-                json!({
-                    "id": id,
-                    "blueprint_id": srv.blueprint_id,
-                    "owner_id": srv.owner_id.to_string(),
-                    "aliases": srv.aliases,
-                    "worker_id": srv.worker_id.to_string()
-                })
-            })
+            .map(|(id, srv)| json!(srv.get_info(id)))
             .collect();
 
         services

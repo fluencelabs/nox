@@ -107,7 +107,7 @@ impl SpellStorage {
             .collect::<HashSet<_>>();
         // Find already created spells by corresponding blueprint_ids.
         services
-            .list_services_with_blueprints()
+            .list_services_with_info()
             .into_iter()
             .filter(|s| all_spell_blueprint_ids.contains(&s.blueprint_id))
             .map(|s| (s.id, s.worker_id))
