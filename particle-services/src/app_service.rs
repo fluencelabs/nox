@@ -50,6 +50,7 @@ pub fn create_app_service(
         }
 
         let modules = AppServiceConfig {
+            service_working_dir: config.workdir.join(&service_id),
             service_base_dir: config.workdir,
             marine_config: MarineConfig {
                 modules_dir: Some(config.modules_dir),
