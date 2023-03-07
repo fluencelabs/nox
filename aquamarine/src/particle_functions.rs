@@ -178,7 +178,7 @@ impl<F: ParticleFunctionStatic> Functions<F> {
             .expect("Could not spawn task");
 
         async move {
-            let (result, call_kind) = result.await.expect("Could not join");
+            let (result, call_kind) = result.await.expect("Could not 'Call function' join");
             let elapsed = start.elapsed();
 
             let result = match result {

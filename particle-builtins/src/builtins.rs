@@ -87,8 +87,8 @@ pub struct Builtins<C> {
 }
 
 impl<C> Builtins<C>
-    where
-        C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoolApi>,
+where
+    C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoolApi>,
 {
     pub fn new(
         connectivity: C,
@@ -161,7 +161,8 @@ impl<C> Builtins<C>
                 fs.functions
                     .get(&args.function_name)
                     .or(fs.unhandled.as_ref())
-            }) {
+            })
+        {
             function.call(args, particle).await
         } else {
             FunctionOutcome::NotDefined {
@@ -1103,11 +1104,11 @@ fn make_module_config(args: Args) -> Result<JValue, JError> {
 
 fn parse_from_str<T>(
     field: &'static str,
-    mut args: &mut impl Iterator<Item=JValue>,
+    mut args: &mut impl Iterator<Item = JValue>,
 ) -> Result<Option<T>, JError>
-    where
-        T: FromStr + for<'a> Deserialize<'a>,
-        <T as FromStr>::Err: std::error::Error + 'static,
+where
+    T: FromStr + for<'a> Deserialize<'a>,
+    <T as FromStr>::Err: std::error::Error + 'static,
 {
     #[derive(thiserror::Error, Debug)]
     #[error("Error while deserializing field {field_name}")]
@@ -1141,7 +1142,7 @@ fn parse_from_str<T>(
                 field_name: field.to_string(),
                 err,
             }
-                .into()
+            .into()
         })
 }
 

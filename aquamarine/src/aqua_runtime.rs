@@ -82,9 +82,9 @@ impl AquaRuntime for AVM<DataStoreError> {
                 waker.wake();
                 Ok(vm)
             })
-            .expect("Could not spawn task");
+            .expect("Could not spawn 'Create AVM' task");
 
-        async { task.await.expect("Could not join task") }.boxed()
+        async { task.await.expect("Could not join 'Create AVM' task") }.boxed()
     }
 
     fn into_effects(
