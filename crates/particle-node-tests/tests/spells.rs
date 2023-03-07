@@ -1541,7 +1541,6 @@ fn create_remove_worker() {
         .as_slice()
     {
         assert_eq!(before.len(), 2);
-        log::info!("RESULT {:?}", before);
 
         let before: Vec<String> = before
             .into_iter()
