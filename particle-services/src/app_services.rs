@@ -82,7 +82,7 @@ impl Service {
         ServiceInfo {
             id: id.to_string(),
             blueprint_id: self.blueprint_id.clone(),
-            owner_id: self.owner_id.clone(),
+            owner_id: self.owner_id,
             aliases: self.aliases.clone(),
             worker_id: self.worker_id,
         }
