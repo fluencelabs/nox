@@ -18,8 +18,8 @@ use std::future::Future;
 use std::task::Poll;
 use std::time::Duration;
 
-use futures::{channel::mpsc, SinkExt, StreamExt};
-use tokio::sync::mpsc::UnboundedSender;
+use futures::StreamExt;
+use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
 
 use fluence_libp2p::PeerId;
@@ -36,7 +36,7 @@ use crate::particle_effects::RoutingEffects;
 use crate::vm_pool::VmPool;
 use crate::{Plumber, VmPoolConfig};
 
-pub type EffectsChannel = UnboundedSender<Result<RoutingEffects, AquamarineApiError>>;
+pub type EffectsChannel = mpsc::UnboundedSender<Result<RoutingEffects, AquamarineApiError>>;
 
 pub struct AquamarineBackend<RT: AquaRuntime, F> {
     inlet: mpsc::Receiver<Command>,
@@ -76,7 +76,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> AquamarineBackend<RT, F> {
 
         // check if there are new particles
         loop {
-            match self.inlet.poll_next_unpin(cx) {
+            match self.inlet.poll_recv(cx) {
                 Poll::Ready(Some(Ingest { particle, function })) => {
                     wake = true;
                     // set new particle to be executed
@@ -182,20 +182,15 @@ impl AquamarineApi {
     ) -> impl Future<Output = Result<(), AquamarineApiError>> {
         use AquamarineApiError::*;
 
-        let mut interpreters = self.outlet;
+        let interpreters = self.outlet;
 
         async move {
             let sent = interpreters.send(command).await;
 
             sent.map_err(|err| match err {
-                err if err.is_disconnected() => {
+                _err => {
                     log::error!("Aquamarine outlet died!");
                     AquamarineDied { particle_id }
-                }
-                _ /* if err.is_full() */ => {
-                    // This couldn't happen AFAIU, because `SinkExt::send` checks for availability
-                    log::error!("UNREACHABLE: Aquamarine outlet reported being full!");
-                    AquamarineQueueFull { particle_id }
                 }
             })
         }

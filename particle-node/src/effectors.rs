@@ -15,7 +15,7 @@
  */
 
 use futures::{stream::iter, StreamExt};
-use tokio::sync::mpsc::UnboundedSender;
+use tokio::sync::mpsc;
 
 use aquamarine::RoutingEffects;
 
@@ -35,7 +35,7 @@ impl Effectors {
     pub async fn execute(
         self,
         effects: RoutingEffects,
-        particle_failures: UnboundedSender<String>,
+        particle_failures: mpsc::UnboundedSender<String>,
     ) {
         if effects.particle.is_expired() {
             log::info!("Particle {} is expired", effects.particle.id);

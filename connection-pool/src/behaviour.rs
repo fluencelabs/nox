@@ -31,7 +31,6 @@ use std::{
     collections::{hash_map::Entry, HashMap, HashSet, VecDeque},
     task::{Context, Poll, Waker},
 };
-use tokio::sync::mpsc::{unbounded_channel, Receiver};
 use tokio::sync::{mpsc, oneshot};
 use tokio_stream::wrappers::UnboundedReceiverStream;
 use tokio_util::sync::PollSender;
@@ -271,10 +270,10 @@ impl ConnectionPoolBehaviour {
         protocol_config: ProtocolConfig,
         peer_id: PeerId,
         metrics: Option<ConnectionPoolMetrics>,
-    ) -> (Self, Receiver<Particle>, ConnectionPoolApi) {
+    ) -> (Self, mpsc::Receiver<Particle>, ConnectionPoolApi) {
         let (outlet, inlet) = mpsc::channel(buffer);
         let outlet = PollSender::new(outlet);
-        let (command_outlet, command_inlet) = unbounded_channel();
+        let (command_outlet, command_inlet) = mpsc::unbounded_channel();
         let api = ConnectionPoolApi {
             outlet: command_outlet,
             send_timeout: protocol_config.upgrade_timeout * 2,

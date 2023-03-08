@@ -31,8 +31,7 @@ use std::{
     time::{Duration, Instant},
 };
 use thiserror::Error;
-use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
-use tokio::sync::{oneshot, Mutex};
+use tokio::sync::{mpsc, oneshot, Mutex};
 use tokio::task;
 use tokio::task::JoinHandle;
 use tokio::time::interval;
@@ -131,10 +130,10 @@ pub enum Command {
 }
 
 pub struct ScriptStorageBackend {
-    inlet: UnboundedReceiver<Command>,
+    inlet: mpsc::UnboundedReceiver<Command>,
     scripts: Mutex<HashMap<ScriptId, Script>>,
     sent_particles: Mutex<HashMap<ParticleId, SentParticle>>,
-    failed_particles: UnboundedReceiver<ParticleId>,
+    failed_particles: mpsc::UnboundedReceiver<ParticleId>,
     connection_pool: ConnectionPoolApi,
     config: ScriptStorageConfig,
 }
@@ -142,10 +141,10 @@ pub struct ScriptStorageBackend {
 impl ScriptStorageBackend {
     pub fn new(
         connection_pool: ConnectionPoolApi,
-        failed_particles: UnboundedReceiver<ParticleId>,
+        failed_particles: mpsc::UnboundedReceiver<ParticleId>,
         config: ScriptStorageConfig,
     ) -> (ScriptStorageApi, Self) {
-        let (outlet, inlet) = unbounded_channel();
+        let (outlet, inlet) = mpsc::unbounded_channel();
         let api = ScriptStorageApi { outlet };
         let this = ScriptStorageBackend {
             inlet,
@@ -331,7 +330,7 @@ async fn cleanup(sent_particles: &Mutex<HashMap<ParticleId, SentParticle>>) {
 
 #[derive(Debug, Clone)]
 pub struct ScriptStorageApi {
-    pub outlet: UnboundedSender<Command>,
+    pub outlet: mpsc::UnboundedSender<Command>,
 }
 
 #[derive(Error, Debug)]
