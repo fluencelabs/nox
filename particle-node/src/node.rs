@@ -49,7 +49,6 @@ use server_config::{NetworkConfig, ResolvedConfig, ServicesConfig};
 use sorcerer::{Sorcerer, SpellBuiltin};
 use spell_event_bus::api::{PeerEvent, TriggerEvent};
 use spell_event_bus::bus::SpellEventBus;
-use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver};
 use tokio::sync::{mpsc, oneshot};
 use tokio::task;
 
@@ -64,7 +63,7 @@ use crate::behaviour::FluenceNetworkBehaviourEvent;
 // TODO: documentation
 pub struct Node<RT: AquaRuntime> {
     particle_stream: mpsc::Receiver<Particle>,
-    effects_stream: UnboundedReceiver<Result<RoutingEffects, AquamarineApiError>>,
+    effects_stream: mpsc::UnboundedReceiver<Result<RoutingEffects, AquamarineApiError>>,
     pub swarm: Swarm<FluenceNetworkBehaviour>,
 
     pub connectivity: Connectivity,
@@ -164,7 +163,7 @@ impl<RT: AquaRuntime> Node<RT> {
             config.external_addresses(),
         );
 
-        let (particle_failures_out, particle_failures_in) = unbounded_channel();
+        let (particle_failures_out, particle_failures_in) = mpsc::unbounded_channel();
 
         let (script_storage_api, script_storage_backend) = {
             let script_storage_config = ScriptStorageConfig {
@@ -200,7 +199,7 @@ impl<RT: AquaRuntime> Node<RT> {
             key_manager.clone(),
         ));
 
-        let (effects_out, effects_in) = unbounded_channel();
+        let (effects_out, effects_in) = mpsc::unbounded_channel();
 
         let pool_config =
             VmPoolConfig::new(config.aquavm_pool_size, config.particle_execution_timeout);
@@ -342,7 +341,7 @@ impl<RT: AquaRuntime> Node<RT> {
     #[allow(clippy::too_many_arguments)]
     pub fn with(
         particle_stream: mpsc::Receiver<Particle>,
-        effects_stream: UnboundedReceiver<Result<RoutingEffects, AquamarineApiError>>,
+        effects_stream: mpsc::UnboundedReceiver<Result<RoutingEffects, AquamarineApiError>>,
         swarm: Swarm<FluenceNetworkBehaviour>,
         connectivity: Connectivity,
         aquamarine_api: AquamarineApi,

@@ -4,8 +4,7 @@ use fluence_libp2p::{peerid_serializer, PeerId};
 use serde::{Deserialize, Serialize};
 use std::pin::Pin;
 use thiserror::Error;
-use tokio::sync::mpsc::UnboundedSender;
-use tokio::sync::oneshot;
+use tokio::sync::{mpsc, oneshot};
 
 pub use crate::config::*;
 
@@ -134,7 +133,7 @@ pub enum EventBusError {
 
 #[derive(Clone)]
 pub struct SpellEventBusApi {
-    pub(crate) send_cmd_channel: UnboundedSender<Command>,
+    pub(crate) send_cmd_channel: mpsc::UnboundedSender<Command>,
 }
 
 impl std::fmt::Debug for SpellEventBusApi {

@@ -11,7 +11,6 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use thiserror::Error;
 use tokio::select;
 use tokio::sync::mpsc;
-use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 use tokio::task;
 
 struct PeerEventSubscribers {
@@ -160,9 +159,9 @@ pub struct SpellEventBus {
     /// List of events producers.
     sources: Vec<BoxStream<'static, PeerEvent>>,
     /// API connections
-    recv_cmd_channel: UnboundedReceiver<Command>,
+    recv_cmd_channel: mpsc::UnboundedReceiver<Command>,
     /// Notify when trigger happened
-    send_events: UnboundedSender<TriggerEvent>,
+    send_events: mpsc::UnboundedSender<TriggerEvent>,
 }
 
 impl SpellEventBus {
@@ -173,7 +172,7 @@ impl SpellEventBus {
         SpellEventBusApi,
         mpsc::UnboundedReceiver<TriggerEvent>,
     ) {
-        let (send_cmd_channel, recv_cmd_channel) = unbounded_channel();
+        let (send_cmd_channel, recv_cmd_channel) = mpsc::unbounded_channel();
         let api = SpellEventBusApi { send_cmd_channel };
 
         let (send_events, recv_events) = mpsc::unbounded_channel();
@@ -272,7 +271,7 @@ impl SpellEventBus {
 
     #[allow(clippy::result_large_err)]
     fn trigger_spell(
-        send_events: &UnboundedSender<TriggerEvent>,
+        send_events: &mpsc::UnboundedSender<TriggerEvent>,
         id: &Arc<SpellId>,
         event: TriggerInfo,
     ) -> Result<(), BusInternalError> {
@@ -313,7 +312,7 @@ mod tests {
         }
     }
 
-    fn send_connect_event(sender: &UnboundedSender<PeerEvent>, peer_id: PeerId) {
+    fn send_connect_event(sender: &mpsc::UnboundedSender<PeerEvent>, peer_id: PeerId) {
         sender
             .send(PeerEvent::from(LifecycleEvent::Connected(Contact::new(
                 peer_id,
@@ -322,8 +321,8 @@ mod tests {
             .unwrap();
     }
 
-    fn emulate_connect(period: Duration) -> (UnboundedReceiver<PeerEvent>, JoinHandle<()>) {
-        let (send, recv) = unbounded_channel();
+    fn emulate_connect(period: Duration) -> (mpsc::UnboundedReceiver<PeerEvent>, JoinHandle<()>) {
+        let (send, recv) = mpsc::unbounded_channel();
         let hdl = task::Builder::new()
             .name("emulate_connect")
             .spawn(async move {
@@ -472,7 +471,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_subscribe_connect() {
-        let (send, recv) = unbounded_channel();
+        let (send, recv) = mpsc::unbounded_channel();
         let recv = UnboundedReceiverStream::new(recv).boxed();
         let (bus, api, event_receiver) = SpellEventBus::new(vec![recv]);
         let mut event_stream = UnboundedReceiverStream::new(event_receiver);
@@ -502,7 +501,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_unsubscribe() {
-        let (send, recv) = unbounded_channel();
+        let (send, recv) = mpsc::unbounded_channel();
         let recv = UnboundedReceiverStream::new(recv).boxed();
         let (bus, api, mut event_receiver) = SpellEventBus::new(vec![recv]);
         let bus = bus.start();

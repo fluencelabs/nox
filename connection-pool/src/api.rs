@@ -18,7 +18,6 @@ use std::time::Duration;
 
 use futures::{future::BoxFuture, stream::BoxStream, FutureExt, StreamExt};
 use libp2p::{core::Multiaddr, PeerId};
-use tokio::sync::mpsc::{unbounded_channel, UnboundedSender};
 use tokio::sync::{mpsc, oneshot};
 use tokio_stream::wrappers::UnboundedReceiverStream;
 
@@ -68,7 +67,7 @@ pub enum Command {
 #[derive(Clone, Debug)]
 pub struct ConnectionPoolApi {
     // TODO: marked as `pub` to be available in benchmarks
-    pub outlet: UnboundedSender<Command>,
+    pub outlet: mpsc::UnboundedSender<Command>,
     pub send_timeout: Duration,
 }
 
@@ -137,7 +136,7 @@ impl ConnectionPoolT for ConnectionPoolApi {
     }
 
     fn lifecycle_events(&self) -> BoxStream<'static, LifecycleEvent> {
-        let (out, inlet) = unbounded_channel();
+        let (out, inlet) = mpsc::unbounded_channel();
         let cmd = Command::LifecycleEvents { out };
         if self.outlet.send(cmd).is_err() {
             return futures::stream::empty().boxed();
