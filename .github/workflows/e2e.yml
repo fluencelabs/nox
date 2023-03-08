@@ -37,6 +37,8 @@ jobs:
       rust-peer-sha: "${{ needs.rust-peer.outputs.rust-peer-sha }}"
 
   js-client:
+    needs:
+      - rust-peer
     uses: fluencelabs/js-client/.github/workflows/tests.yml@master
     with:
       rust-peer-image: "${{ needs.rust-peer.outputs.rust-peer-image }}"
