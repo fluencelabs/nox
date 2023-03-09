@@ -406,7 +406,7 @@ impl<RT: AquaRuntime> Node<RT> {
         let services_metrics_backend = self.services_metrics_backend;
         let metrics_listen_addr = self.metrics_listen_addr;
         let task_name = peer_id
-            .map(|x| format!("node-{}", x))
+            .map(|x| format!("node-{x}"))
             .unwrap_or("node".to_owned());
 
         task::Builder::new().name(&task_name.clone()).spawn(async move {
