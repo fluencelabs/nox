@@ -18,10 +18,9 @@ use std::error::Error;
 use std::fmt::{Display, Formatter};
 use std::str::FromStr;
 
-use avm_server::{AVMError, AVMOutcome, CallRequests};
+use crate::aqua_runtime::CreateAVMError;
+use avm_server::{AVMOutcome, CallRequests};
 use libp2p::PeerId;
-
-use crate::particle_data_store::DataStoreError;
 
 #[derive(Debug)]
 pub enum FieldError {
@@ -45,7 +44,7 @@ pub enum ExecutionError {
         field: &'static str,
         error: FieldError,
     },
-    AquamarineError(AVMError<DataStoreError>),
+    AquamarineError(CreateAVMError),
 }
 
 impl Error for ExecutionError {
@@ -78,7 +77,7 @@ fn parse_peer_id(s: &str) -> Result<PeerId, FieldError> {
 }
 
 pub fn parse_outcome(
-    outcome: Result<AVMOutcome, AVMError<DataStoreError>>,
+    outcome: Result<AVMOutcome, CreateAVMError>,
 ) -> Result<(Vec<u8>, Vec<PeerId>, CallRequests), ExecutionError> {
     let outcome = outcome.map_err(ExecutionError::AquamarineError)?;
 

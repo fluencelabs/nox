@@ -55,9 +55,17 @@ pub trait AquaRuntime: Sized + Send + 'static {
     fn memory_stats(&self) -> AVMMemoryStats;
 }
 
+#[derive(Debug, thiserror::Error)]
+pub enum CreateAVMError {
+    #[error(transparent)]
+    AVWError(AVMError<DataStoreError>),
+    #[error("Could not create AVM")]
+    Fatal,
+}
+
 impl AquaRuntime for AVM<DataStoreError> {
     type Config = VmConfig;
-    type Error = AVMError<DataStoreError>;
+    type Error = CreateAVMError;
 
     /// Creates `AVM` in background (on blocking threadpool)
     fn create_runtime(
@@ -87,24 +95,21 @@ impl AquaRuntime for AVM<DataStoreError> {
         async {
             let result = task.await;
             match result {
-                Ok(res) => res,
+                Ok(res) => res.map_err(|err| CreateAVMError::AVWError(err)),
                 Err(e) => {
                     if e.is_cancelled() {
                         log::warn!("AVM creation task was cancelled");
                     } else {
                         log::error!("AVM creation task panic");
                     }
-                    Err(AVMError::<DataStoreError>::VMCreationError)
+                    Err(CreateAVMError::Fatal)
                 }
             }
         }
         .boxed()
     }
 
-    fn into_effects(
-        outcome: Result<AVMOutcome, AVMError<DataStoreError>>,
-        p: Particle,
-    ) -> ParticleEffects {
+    fn into_effects(outcome: Result<AVMOutcome, CreateAVMError>, p: Particle) -> ParticleEffects {
         match parse_outcome(outcome) {
             Ok((data, peers, calls)) if !peers.is_empty() || !calls.is_empty() => {
                 #[rustfmt::skip]
@@ -147,11 +152,13 @@ impl AquaRuntime for AVM<DataStoreError> {
         call_results: CallResults,
     ) -> Result<AVMOutcome, Self::Error> {
         AVM::call(self, aqua, data, particle, call_results)
+            .map_err(|err| CreateAVMError::AVWError(err))
     }
 
     #[inline]
     fn cleanup(&mut self, particle_id: &str, current_peer_id: &str) -> Result<(), Self::Error> {
         AVM::cleanup_data(self, particle_id, current_peer_id)
+            .map_err(|err| CreateAVMError::AVWError(err))
     }
 
     fn memory_stats(&self) -> AVMMemoryStats {
