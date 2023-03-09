@@ -84,10 +84,10 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> AquamarineBackend<RT, F> {
                     self.plumber.ingest(particle, function, self.host_peer_id);
                 }
                 Poll::Ready(Some(AddService {
-                                     service,
-                                     functions,
-                                     unhandled,
-                                 })) => self.plumber.add_service(service, functions, unhandled),
+                    service,
+                    functions,
+                    unhandled,
+                })) => self.plumber.add_service(service, functions, unhandled),
 
                 Poll::Ready(Some(RemoveService { service })) => {
                     self.plumber.remove_service(service)
@@ -148,7 +148,7 @@ impl AquamarineApi {
         self,
         particle: Particle,
         function: Option<ServiceFunction>,
-    ) -> impl Future<Output=Result<(), AquamarineApiError>> {
+    ) -> impl Future<Output = Result<(), AquamarineApiError>> {
         let particle_id = particle.id.clone();
         self.send_command(Ingest { particle, function }, Some(particle_id))
     }
@@ -157,7 +157,7 @@ impl AquamarineApi {
         self,
         service: String,
         functions: HashMap<String, ServiceFunction>,
-    ) -> impl Future<Output=Result<(), AquamarineApiError>> {
+    ) -> impl Future<Output = Result<(), AquamarineApiError>> {
         self.send_command(
             AddService {
                 service,
@@ -171,7 +171,7 @@ impl AquamarineApi {
     pub fn remove_service(
         self,
         service: String,
-    ) -> impl Future<Output=Result<(), AquamarineApiError>> {
+    ) -> impl Future<Output = Result<(), AquamarineApiError>> {
         self.send_command(RemoveService { service }, None)
     }
 
@@ -179,7 +179,7 @@ impl AquamarineApi {
         self,
         command: Command,
         particle_id: Option<String>,
-    ) -> impl Future<Output=Result<(), AquamarineApiError>> {
+    ) -> impl Future<Output = Result<(), AquamarineApiError>> {
         use AquamarineApiError::*;
 
         let interpreters = self.outlet;
