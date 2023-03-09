@@ -130,7 +130,7 @@ where
                 next_peers: r.effects.next_peers,
             };
             return Poll::Ready(FutResult {
-                vm: (vm_id, r.vm),
+                vm: r.vm.map(|vm| (vm_id, vm)),
                 effects,
                 stats: r.stats,
             });
