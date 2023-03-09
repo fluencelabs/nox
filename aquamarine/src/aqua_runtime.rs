@@ -95,7 +95,7 @@ impl AquaRuntime for AVM<DataStoreError> {
         async {
             let result = task.await;
             match result {
-                Ok(res) => res.map_err(|err| CreateAVMError::AVWError(err)),
+                Ok(res) => res.map_err(CreateAVMError::AVWError),
                 Err(e) => {
                     if e.is_cancelled() {
                         log::warn!("AVM creation task was cancelled");
@@ -152,13 +152,13 @@ impl AquaRuntime for AVM<DataStoreError> {
         call_results: CallResults,
     ) -> Result<AVMOutcome, Self::Error> {
         AVM::call(self, aqua, data, particle, call_results)
-            .map_err(|err| CreateAVMError::AVWError(err))
+            .map_err(CreateAVMError::AVWError)
     }
 
     #[inline]
     fn cleanup(&mut self, particle_id: &str, current_peer_id: &str) -> Result<(), Self::Error> {
         AVM::cleanup_data(self, particle_id, current_peer_id)
-            .map_err(|err| CreateAVMError::AVWError(err))
+            .map_err(CreateAVMError::AVWError)
     }
 
     fn memory_stats(&self) -> AVMMemoryStats {
