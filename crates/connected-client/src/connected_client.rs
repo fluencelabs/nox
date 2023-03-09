@@ -182,8 +182,7 @@ impl ConnectedClient {
         data: HashMap<&str, JValue>,
     ) -> Result<Vec<JValue>> {
         let particle_id = self.send_particle_ext(script, data, false);
-        let result = self.wait_particle_args(particle_id.clone()).await;
-        result
+        self.wait_particle_args(particle_id.clone()).await
     }
 
     pub fn send_particle_ext(
