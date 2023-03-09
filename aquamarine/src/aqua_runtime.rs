@@ -84,7 +84,21 @@ impl AquaRuntime for AVM<DataStoreError> {
             })
             .expect("Could not spawn 'Create AVM' task");
 
-        async { task.await.expect("Could not join 'Create AVM' task") }.boxed()
+        async {
+            let result = task.await;
+            match result {
+                Ok(res) => res,
+                Err(e) => {
+                    if e.is_cancelled() {
+                        log::warn!("AVM creation task was cancelled");
+                    } else {
+                        log::error!("AVM creation task panic");
+                    }
+                    Err(AVMError::<DataStoreError>::VMCreationError)
+                }
+            }
+        }
+        .boxed()
     }
 
     fn into_effects(
