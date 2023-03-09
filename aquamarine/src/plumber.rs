@@ -124,7 +124,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
         task::Builder::new()
             .name("Add service")
             .spawn(task)
-            .expect("Could not add service");
+            .expect("Could not spawn add service task");
     }
 
     pub fn remove_service(&self, service: String) {
@@ -135,7 +135,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
         task::Builder::new()
             .name("Remove service")
             .spawn(task)
-            .expect("Could not add service");
+            .expect("Could not spawn remove service task");
     }
 
     pub fn poll(
@@ -178,8 +178,9 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
                         next_peers: local_peers,
                     });
                 }
-                let (vm_id, vm) = result.vm;
-                self.vm_pool.put_vm(vm_id, vm);
+                if let Some((vm_id, vm)) = result.vm {
+                    self.vm_pool.put_vm(vm_id, vm)
+                }
             }
             mailbox_size += actor.mailbox_size();
         }
