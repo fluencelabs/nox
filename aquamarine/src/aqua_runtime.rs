@@ -151,14 +151,12 @@ impl AquaRuntime for AVM<DataStoreError> {
         particle: ParticleParameters<'_>,
         call_results: CallResults,
     ) -> Result<AVMOutcome, Self::Error> {
-        AVM::call(self, aqua, data, particle, call_results)
-            .map_err(CreateAVMError::AVWError)
+        AVM::call(self, aqua, data, particle, call_results).map_err(CreateAVMError::AVWError)
     }
 
     #[inline]
     fn cleanup(&mut self, particle_id: &str, current_peer_id: &str) -> Result<(), Self::Error> {
-        AVM::cleanup_data(self, particle_id, current_peer_id)
-            .map_err(CreateAVMError::AVWError)
+        AVM::cleanup_data(self, particle_id, current_peer_id).map_err(CreateAVMError::AVWError)
     }
 
     fn memory_stats(&self) -> AVMMemoryStats {
