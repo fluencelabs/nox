@@ -25,6 +25,7 @@ use humantime_serde::re::humantime::format_duration as pretty;
 use parking_lot::{Mutex, RwLock};
 use serde::Serialize;
 use serde_json::{json, Value as JValue};
+use tracing::Span;
 
 use fluence_libp2p::PeerId;
 use now_millis::now_ms;
@@ -58,6 +59,7 @@ pub struct Service {
     pub owner_id: PeerId,
     pub aliases: Vec<ServiceAlias>,
     pub worker_id: PeerId,
+    span: Span,
 }
 
 impl Service {
@@ -772,6 +774,14 @@ impl ParticleAppServices {
         let stats = ServiceMemoryStat::new(&stats);
         let service_type = ServiceType::Service(aliases.first().cloned());
         let service = Service {
+            span: tracing::trace_span!(
+                target: "fluence::service",
+                "runtime.spawn",
+                task.name = format!("Service {} {:?}", service_id, aliases),
+                service.id = service_id,
+                blueprint.id = blueprint_id,
+                worker.id = worker_id.to_string()
+            ),
             service: Mutex::new(service),
             blueprint_id,
             owner_id,

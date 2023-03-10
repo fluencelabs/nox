@@ -21,6 +21,7 @@ now-millis = { workspace = true }
 
 fluence-app-service = { workspace = true }
 
+tracing = { workspace = true }
 parking_lot = { workspace = true }
 serde_json = { workspace = true }
 serde = { workspace = true }

@@ -21,6 +21,7 @@ use std::{
 
 use avm_server::CallResults;
 use futures::FutureExt;
+use tracing::Span;
 
 use fluence_libp2p::PeerId;
 use particle_execution::{ParticleFunctionStatic, ServiceFunction};
@@ -46,6 +47,8 @@ pub struct Actor<RT, F> {
     /// Particles and call results will be processed in the security scope of this peer id
     /// It's either `host_peer_id` or local worker peer id
     current_peer_id: PeerId,
+    #[allow(dead_code)]
+    span: Span,
 }
 
 impl<RT, F> Actor<RT, F>
@@ -54,12 +57,30 @@ where
     F: ParticleFunctionStatic,
 {
     pub fn new(particle: &Particle, functions: Functions<F>, current_peer_id: PeerId) -> Self {
+        // let span = tracing::trace_span!(
+        //     target: "tokio::task",
+        //     "runtime.spawn",
+        //     "kind",
+        //     task.name = "",
+        //     task.id = ""
+        // );
+
+        let span = tracing::trace_span!(
+            target: "fluence::actor",
+            "runtime.spawn",
+            task.name = format!("Actor {}", particle.id),
+            particle.id = particle.id,
+            particle.ttl = particle.ttl,
+            mailbox.size = 0
+        );
+
         Self {
             deadline: Deadline::from(particle),
             functions,
             future: None,
             mailbox: <_>::default(),
             waker: None,
+            span,
             // Clone particle without data
             particle: Particle {
                 id: particle.id.clone(),
@@ -72,10 +93,6 @@ where
             },
             current_peer_id,
         }
-    }
-
-    pub fn particle_id(&self) -> &str {
-        &self.particle.id
     }
 
     pub fn is_expired(&self, now_ms: u64) -> bool {
@@ -98,7 +115,9 @@ where
     }
 
     pub fn mailbox_size(&self) -> usize {
-        self.mailbox.len()
+        let len = self.mailbox.len();
+        self.span.record("mailbox.size", len);
+        len
     }
 
     pub fn set_function(&mut self, function: ServiceFunction) {

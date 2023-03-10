@@ -75,7 +75,6 @@ impl<RT: AquaRuntime> VmPool<RT> {
     pub fn get_vm(&mut self) -> Option<(usize, RT)> {
         let mut runtimes = self.runtimes.iter_mut();
         let vm = runtimes.find_map(|vm| vm.take());
-        println!("get vm {:?}", vm.as_ref().map(|(id, _)| id));
 
         let free_vms_count = self.runtimes.iter().filter(|vm| vm.is_some()).count();
         self.meter(|m| {
@@ -93,7 +92,6 @@ impl<RT: AquaRuntime> VmPool<RT> {
 
     /// Puts VM back to the pool
     pub fn put_vm(&mut self, id: usize, vm: RT) {
-        println!("put vm {id}");
         debug_assert!(
             self.runtimes[id].is_none(),
             "put_vm must never happen before get_vm {id}"
@@ -146,10 +144,7 @@ impl<RT: AquaRuntime> VmPool<RT> {
 
                 // Put created vm to self.vms
                 match vm {
-                    Ok(vm) => {
-                        println!("created vm {idx}");
-                        vms[idx] = Some((idx, vm))
-                    }
+                    Ok(vm) => vms[idx] = Some((idx, vm)),
                     Err(err) => log::error!("Failed to create vm: {:?}", err), // TODO: don't panic
                 }
 

@@ -4441,6 +4441,7 @@ dependencies = [
  "tempdir",
  "thiserror",
  "toml",
+ "tracing",
  "uuid",
  "uuid-utils",
 ]
