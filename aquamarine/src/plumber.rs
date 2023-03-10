@@ -54,10 +54,6 @@ pub struct Plumber<RT: AquaRuntime, F> {
     key_manager: KeyManager,
 }
 
-unsafe impl<RT: AquaRuntime, F: ParticleFunctionStatic> Send for Plumber<RT, F> {}
-
-unsafe impl<RT: AquaRuntime, F: ParticleFunctionStatic> Sync for Plumber<RT, F> {}
-
 impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
     pub fn new(
         vm_pool: VmPool<RT>,
@@ -179,6 +175,10 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
                     });
                 }
                 if let Some((vm_id, vm)) = result.vm {
+                    println!(
+                        "actor {} finished execution, gave vm back {vm_id}",
+                        actor.particle_id()
+                    );
                     self.vm_pool.put_vm(vm_id, vm)
                 }
             }
@@ -211,6 +211,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
                 false // remove actor
             });
 
+            println!("nothing to cleanup with that {vm_id}");
             self.vm_pool.put_vm(vm_id, vm);
         }
 
@@ -218,8 +219,14 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
         let mut stats = vec![];
         for actor in self.actors.values_mut() {
             if let Some((vm_id, vm)) = self.vm_pool.get_vm() {
+                println!("giving vm {vm_id} to actor {}", actor.particle_id());
                 match actor.poll_next(vm_id, vm, cx) {
-                    ActorPoll::Vm(vm_id, vm) => self.vm_pool.put_vm(vm_id, vm),
+                    ActorPoll::Vm(vm_id, vm) => {
+                        println!(
+                            "actor {} has nothing to execute and gave us vm back immediately {vm_id}", actor.particle_id()
+                        );
+                        self.vm_pool.put_vm(vm_id, vm)
+                    }
                     ActorPoll::Executing(mut s) => stats.append(&mut s),
                 }
             } else {

@@ -34,8 +34,8 @@ type RuntimeF<RT> = BoxFuture<'static, Result<RT, <RT as AquaRuntime>::Error>>;
 /// returned back via `put_vm`.
 /// It is also expected that `VmPool::poll` is called periodically.
 pub struct VmPool<RT: AquaRuntime> {
-    runtimes: Vec<Option<RT>>,
-    creating_runtimes: Option<Vec<RuntimeF<RT>>>,
+    runtimes: Vec<Option<(usize, RT)>>,
+    creating_runtimes: Option<Vec<(usize, RuntimeF<RT>)>>,
     runtime_config: RT::Config,
     pool_size: usize,
     metrics: Option<VmPoolMetrics>,
@@ -56,7 +56,7 @@ impl<RT: AquaRuntime> VmPool<RT> {
             metrics,
         };
 
-        this.runtimes.resize_with(pool_size, || None);
+        this.runtimes = (0..pool_size).map(|_| None).collect();
         this.meter(|m| m.set_pool_size(pool_size));
 
         this
@@ -73,10 +73,9 @@ impl<RT: AquaRuntime> VmPool<RT> {
 
     /// Takes VM from pool
     pub fn get_vm(&mut self) -> Option<(usize, RT)> {
-        let runtimes = self.runtimes.iter_mut();
-        let vm = runtimes
-            .enumerate()
-            .find_map(|(idx, vm)| vm.take().map(|vm| (idx, vm)));
+        let mut runtimes = self.runtimes.iter_mut();
+        let vm = runtimes.find_map(|vm| vm.take());
+        println!("get vm {:?}", vm.as_ref().map(|(id, _)| id));
 
         let free_vms_count = self.runtimes.iter().filter(|vm| vm.is_some()).count();
         self.meter(|m| {
@@ -94,12 +93,13 @@ impl<RT: AquaRuntime> VmPool<RT> {
 
     /// Puts VM back to the pool
     pub fn put_vm(&mut self, id: usize, vm: RT) {
+        println!("put vm {id}");
         debug_assert!(
             self.runtimes[id].is_none(),
-            "put_vm must never happen before get_vm"
+            "put_vm must never happen before get_vm {id}"
         );
         let memory_stats = vm.memory_stats();
-        self.runtimes[id] = Some(vm);
+        self.runtimes[id] = Some((id, vm));
 
         let free_vms_count = self.runtimes.iter().filter(|vm| vm.is_some()).count();
         self.meter(|m| {
@@ -116,11 +116,11 @@ impl<RT: AquaRuntime> VmPool<RT> {
             None => {
                 self.creating_runtimes = Some(
                     (0..self.pool_size)
-                        .map(|_| {
+                        .map(|i| {
                             let config = self.runtime_config.clone();
                             let waker = cx.waker().clone();
 
-                            RT::create_runtime(config, waker)
+                            (i, RT::create_runtime(config, waker))
                         })
                         .collect(),
                 );
@@ -134,7 +134,9 @@ impl<RT: AquaRuntime> VmPool<RT> {
         let mut i = 0;
         while i < creating_vms.len() {
             let vms = &mut self.runtimes;
-            let fut = &mut creating_vms[i];
+            let idx_fut = &mut creating_vms[i];
+            let idx = idx_fut.0;
+            let fut = &mut idx_fut.1;
             if let Poll::Ready(vm) = fut.poll_unpin(cx) {
                 // Remove completed future
                 creating_vms.remove(i);
@@ -144,7 +146,10 @@ impl<RT: AquaRuntime> VmPool<RT> {
 
                 // Put created vm to self.vms
                 match vm {
-                    Ok(vm) => vms[i] = Some(vm),
+                    Ok(vm) => {
+                        println!("created vm {idx}");
+                        vms[idx] = Some((idx, vm))
+                    }
                     Err(err) => log::error!("Failed to create vm: {:?}", err), // TODO: don't panic
                 }
 

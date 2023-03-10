@@ -74,6 +74,10 @@ where
         }
     }
 
+    pub fn particle_id(&self) -> &str {
+        &self.particle.id
+    }
+
     pub fn is_expired(&self, now_ms: u64) -> bool {
         self.deadline.is_expired(now_ms)
     }
