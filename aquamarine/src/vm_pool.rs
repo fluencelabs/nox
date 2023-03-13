@@ -35,7 +35,7 @@ type RuntimeF<RT> = BoxFuture<'static, Result<RT, <RT as AquaRuntime>::Error>>;
 /// It is also expected that `VmPool::poll` is called periodically.
 pub struct VmPool<RT: AquaRuntime> {
     runtimes: Vec<Option<RT>>,
-    creating_runtimes: Option<Vec<RuntimeF<RT>>>,
+    creating_runtimes: Option<Vec<(usize, RuntimeF<RT>)>>,
     runtime_config: RT::Config,
     pool_size: usize,
     metrics: Option<VmPoolMetrics>,
@@ -116,11 +116,11 @@ impl<RT: AquaRuntime> VmPool<RT> {
             None => {
                 self.creating_runtimes = Some(
                     (0..self.pool_size)
-                        .map(|_| {
+                        .map(|id| {
                             let config = self.runtime_config.clone();
                             let waker = cx.waker().clone();
 
-                            RT::create_runtime(config, waker)
+                            (id, RT::create_runtime(config, waker))
                         })
                         .collect(),
                 );
@@ -131,26 +131,28 @@ impl<RT: AquaRuntime> VmPool<RT> {
 
         let mut wake = false;
 
-        let mut i = 0;
-        while i < creating_vms.len() {
+        let mut fut_index = 0;
+        while fut_index < creating_vms.len() {
             let vms = &mut self.runtimes;
-            let fut = &mut creating_vms[i];
+            let idx_fut = &mut creating_vms[fut_index];
+            let id = idx_fut.0;
+            let fut = &mut idx_fut.1;
             if let Poll::Ready(vm) = fut.poll_unpin(cx) {
                 // Remove completed future
-                creating_vms.remove(i);
+                creating_vms.remove(fut_index);
                 if creating_vms.is_empty() {
                     log::info!("All {} AquaVMs created.", self.pool_size)
                 }
 
                 // Put created vm to self.vms
                 match vm {
-                    Ok(vm) => vms[i] = Some(vm),
+                    Ok(vm) => vms[id] = Some(vm),
                     Err(err) => log::error!("Failed to create vm: {:?}", err), // TODO: don't panic
                 }
 
                 wake = true;
             }
-            i += 1;
+            fut_index += 1;
         }
 
         if wake {
