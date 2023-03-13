@@ -157,8 +157,8 @@ pub(crate) fn spell_list(spell_storage: SpellStorage) -> Result<JValue, JError> 
     Ok(Array(
         spell_storage
             .get_registered_spells()
-            .into_iter()
-            .map(|(id, _)| JValue::String(id))
+            .into_keys()
+            .map(JValue::String)
             .collect(),
     ))
 }
