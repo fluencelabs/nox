@@ -1949,9 +1949,9 @@ dependencies = [
 
 [[package]]
 name = "fluence-spell-dtos"
-version = "0.5.2"
+version = "0.5.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0787be924074871d9da8b85885ddb2622d3e5453423588ec52ca5474f3f2fdb6"
+checksum = "4eb956a13584a914f5498b561d1cf492d671898f7f7bfb2cefde244641c2c158"
 dependencies = [
  "eyre",
  "marine-rs-sdk",
