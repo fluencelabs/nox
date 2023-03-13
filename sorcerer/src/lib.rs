@@ -1,6 +1,6 @@
 #![feature(try_blocks)]
+#![feature(extend_one)]
 pub use sorcerer::Sorcerer;
-pub use sorcerer::SpellBuiltin;
 
 #[macro_use]
 extern crate fstrings;

@@ -237,7 +237,7 @@ impl ParticleAppServices {
                 .collect()
         };
 
-        for srv in removed_services.into_iter() {
+        for srv in removed_services {
             if let Err(err) = remove_persisted_service(&self.config.services_dir, srv.id.clone()) {
                 log::warn!(
                     "Error while removing persisted service for {}: {:?}",
@@ -247,7 +247,7 @@ impl ParticleAppServices {
             }
 
             if let Some(aliases) = self.aliases.write().get_mut(&srv.worker_id) {
-                for alias in srv.aliases.into_iter() {
+                for alias in srv.aliases {
                     aliases.remove(&alias);
                 }
             }

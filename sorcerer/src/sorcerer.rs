@@ -26,7 +26,7 @@ use aquamarine::AquamarineApi;
 use fluence_libp2p::types::Inlet;
 use key_manager::KeyManager;
 use particle_args::JError;
-use particle_builtins::{wrap, wrap_unit};
+use particle_builtins::{wrap, wrap_unit, CustomService};
 use particle_execution::ServiceFunction;
 use particle_modules::ModuleRepository;
 use particle_services::ParticleAppServices;
@@ -51,38 +51,6 @@ pub struct Sorcerer {
     pub key_manager: KeyManager,
 }
 
-pub struct SpellBuiltin {
-    pub service_id: String,
-    pub functions: HashMap<String, ServiceFunction>,
-    pub unhandled: Option<ServiceFunction>,
-}
-
-impl SpellBuiltin {
-    pub fn new(
-        service_id: &str,
-        funcs: Vec<(&str, ServiceFunction)>,
-        unhandled: Option<ServiceFunction>,
-    ) -> Self {
-        Self {
-            service_id: service_id.to_string(),
-            functions: funcs
-                .into_iter()
-                .map(|(name, f)| (name.to_string(), f))
-                .collect(),
-            unhandled,
-        }
-    }
-
-    pub fn append(&mut self, function_name: &str, service_function: ServiceFunction) {
-        self.functions
-            .insert(function_name.to_string(), service_function);
-    }
-
-    pub fn set_unhandled(&mut self, unhandled: ServiceFunction) {
-        self.unhandled = Some(unhandled)
-    }
-}
-
 impl Sorcerer {
     pub fn new(
         services: ParticleAppServices,
@@ -91,7 +59,7 @@ impl Sorcerer {
         config: ResolvedConfig,
         spell_event_bus_api: SpellEventBusApi,
         key_manager: KeyManager,
-    ) -> (Self, Vec<SpellBuiltin>) {
+    ) -> (Self, HashMap<String, CustomService>) {
         let spell_storage =
             SpellStorage::create(&config.dir_config.spell_base_dir, &services, &modules)
                 .expect("Spell storage creation");
@@ -106,7 +74,7 @@ impl Sorcerer {
         };
 
         let mut builtin_functions = sorcerer.make_spell_builtins();
-        builtin_functions.push(sorcerer.make_worker_builtin());
+        builtin_functions.extend_one(sorcerer.make_worker_builtin());
 
         (sorcerer, builtin_functions)
     }
@@ -164,60 +132,63 @@ impl Sorcerer {
         })
     }
 
-    fn make_spell_builtins(&self) -> Vec<SpellBuiltin> {
-        let mut spell_builtins: Vec<SpellBuiltin> = vec![];
+    fn make_spell_builtins(&self) -> HashMap<String, CustomService> {
+        let mut spell_builtins: HashMap<String, CustomService> = HashMap::new();
 
-        let spell_service = SpellBuiltin::new(
-            "spell",
-            vec![
-                ("install", self.make_spell_install_closure()),
-                ("remove", self.make_spell_remove_closure()),
-                ("list", self.make_spell_list_closure()),
-                (
-                    "update_trigger_config",
-                    self.make_spell_update_config_closure(),
-                ),
-            ],
-            None,
+        spell_builtins.insert(
+            "spell".to_string(),
+            CustomService::new(
+                vec![
+                    ("install", self.make_spell_install_closure()),
+                    ("remove", self.make_spell_remove_closure()),
+                    ("list", self.make_spell_list_closure()),
+                    (
+                        "update_trigger_config",
+                        self.make_spell_update_config_closure(),
+                    ),
+                ],
+                None,
+            ),
         );
-        spell_builtins.push(spell_service);
 
-        let get_data_srv = SpellBuiltin::new(
-            "getDataSrv",
-            vec![
-                ("spell_id", self.make_get_spell_id_closure()),
-                ("-relay-", self.make_get_relay_closure()),
-            ],
-            Some(self.make_get_spell_arg_closure()),
+        spell_builtins.insert(
+            "getDataSrv".to_string(),
+            CustomService::new(
+                vec![
+                    ("spell_id", self.make_get_spell_id_closure()),
+                    ("-relay-", self.make_get_relay_closure()),
+                ],
+                Some(self.make_get_spell_arg_closure()),
+            ),
         );
-        spell_builtins.push(get_data_srv);
 
-        let error_handler_srv = SpellBuiltin::new(
-            "errorHandlingSrv",
-            vec![("error", self.make_error_handler_closure())],
-            None,
+        spell_builtins.insert(
+            "errorHandlingSrv".to_string(),
+            CustomService::new(vec![("error", self.make_error_handler_closure())], None),
         );
-        spell_builtins.push(error_handler_srv);
 
-        let callback_srv = SpellBuiltin::new(
-            "callbackSrv",
-            vec![("response", self.make_response_handler_closure())],
-            None,
+        spell_builtins.insert(
+            "callbackSrv".to_string(),
+            CustomService::new(
+                vec![("response", self.make_response_handler_closure())],
+                None,
+            ),
         );
-        spell_builtins.push(callback_srv);
 
         spell_builtins
     }
 
-    fn make_worker_builtin(&self) -> SpellBuiltin {
-        SpellBuiltin::new(
-            "worker",
-            vec![
-                ("create", self.make_worker_create_closure()),
-                ("get_peer_id", self.make_worker_get_peer_id_closure()),
-                ("remove", self.make_worker_remove_closure()),
-            ],
-            None,
+    fn make_worker_builtin(&self) -> (String, CustomService) {
+        (
+            "worker".to_string(),
+            CustomService::new(
+                vec![
+                    ("create", self.make_worker_create_closure()),
+                    ("get_peer_id", self.make_worker_get_peer_id_closure()),
+                    ("remove", self.make_worker_remove_closure()),
+                ],
+                None,
+            ),
         )
     }
 

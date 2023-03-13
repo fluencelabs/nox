@@ -66,7 +66,7 @@ pub trait ParticleFunction: 'static + Send + Sync {
         &self,
         service: String,
         functions: HashMap<String, ServiceFunction>,
-        unhandled: Option<ServiceFunction>,
+        fallback: Option<ServiceFunction>,
     );
     fn remove(
         &self,
@@ -84,7 +84,7 @@ pub trait ParticleFunctionStatic: Clone + 'static + Send + Sync {
         &self,
         service: String,
         functions: HashMap<String, ServiceFunction>,
-        unhandled: Option<ServiceFunction>,
+        fallback: Option<ServiceFunction>,
     );
     fn remove(
         &self,
@@ -102,9 +102,9 @@ impl<F: ParticleFunction> ParticleFunctionStatic for Arc<F> {
         self: &Arc<F>,
         service: String,
         functions: HashMap<String, ServiceFunction>,
-        unhandled: Option<ServiceFunction>,
+        fallback: Option<ServiceFunction>,
     ) {
-        ParticleFunction::extend(self.as_ref(), service, functions, unhandled)
+        ParticleFunction::extend(self.as_ref(), service, functions, fallback)
     }
 
     fn remove(

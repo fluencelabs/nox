@@ -109,9 +109,9 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
         &self,
         service: String,
         functions: HashMap<String, ServiceFunction>,
-        unhandled: Option<ServiceFunction>,
+        fallback: Option<ServiceFunction>,
     ) {
-        self.builtins.extend(service, functions, unhandled)
+        self.builtins.extend(service, functions, fallback)
     }
 
     pub fn remove_service(&self, service: String) {
@@ -310,7 +310,7 @@ mod tests {
             &self,
             _service: String,
             _functions: HashMap<String, ServiceFunction>,
-            _unhandled: Option<ServiceFunction>,
+            _fallback: Option<ServiceFunction>,
         ) {
             todo!()
         }

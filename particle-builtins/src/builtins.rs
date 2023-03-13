@@ -58,8 +58,20 @@ use crate::{json, math};
 pub struct CustomService {
     /// (function_name -> service function)
     pub functions: HashMap<String, ServiceFunction>,
-    /// if set, all `function_name` mismatches with `custom_service.functions` will be routed to `unhandled`
-    pub unhandled: Option<ServiceFunction>,
+    /// if set, all `function_name` mismatches with `custom_service.functions` will be routed to `fallback`
+    pub fallback: Option<ServiceFunction>,
+}
+
+impl CustomService {
+    pub fn new(funcs: Vec<(&str, ServiceFunction)>, fallback: Option<ServiceFunction>) -> Self {
+        Self {
+            functions: funcs
+                .into_iter()
+                .map(|(name, f)| (name.to_string(), f))
+                .collect(),
+            fallback,
+        }
+    }
 }
 
 #[derive(Derivative)]
@@ -154,7 +166,7 @@ where
             .and_then(|fs| {
                 fs.functions
                     .get(&args.function_name)
-                    .or(fs.unhandled.as_ref())
+                    .or(fs.fallback.as_ref())
             })
         {
             async_std::task::block_on(function.call(args, particle))

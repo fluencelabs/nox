@@ -39,13 +39,13 @@ where
         &self,
         service: String,
         functions: HashMap<String, ServiceFunction>,
-        unhandled: Option<ServiceFunction>,
+        fallback: Option<ServiceFunction>,
     ) {
         self.custom_services.write().insert(
             service,
             CustomService {
                 functions,
-                unhandled,
+                fallback,
             },
         );
     }
@@ -57,6 +57,6 @@ where
         self.custom_services
             .write()
             .remove(service)
-            .map(|hm| (hm.functions, hm.unhandled))
+            .map(|hm| (hm.functions, hm.fallback))
     }
 }
