@@ -12,7 +12,7 @@ json-utils = { workspace = true }
 fs-utils = { workspace = true }
 service-modules = { workspace = true }
 
-marine-it-parser = "0.11.1"
+marine-it-parser = { version = "0.11.1", branch = "marine-web-milestone2", git = "https://github.com/fluencelabs/marine" }
 fluence-app-service = { workspace = true }
 marine-utils = "0.4.0"
 

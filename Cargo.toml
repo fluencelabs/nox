@@ -91,7 +91,7 @@ particle-execution = { path = "particle-execution" }
 fluence-spell-dtos = "=0.5.2"
 fluence-spell-distro = "=0.5.2"
 fluence-app-service = { version = "0.24.0", branch = "marine-web-milestone2", git = "https://github.com/fluencelabs/marine" }
-avm-server = "0.30.0"
+avm-server = { version = "0.30.0",  branch = "feat/new-marine", git = "https://github.com/fluencelabs/aquavm" }
 air-interpreter-wasm = "=0.35.4"
 libp2p = { version = "0.50.0", features = ["noise", "tcp", "dns", "websocket", "yamux", "mplex", "async-std", "kad", "ping", "identify", "macros"] }
 libp2p-core = { version = "0.38.0", default-features = false, features = ["secp256k1"] }
