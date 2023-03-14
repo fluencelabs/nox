@@ -57,9 +57,11 @@ static ALLOC: dhat::Alloc = dhat::Alloc;
 #[tokio::main]
 async fn main() -> eyre::Result<()> {
     #[cfg(feature = "dhat-heap")]
-        let _profiler = dhat::Profiler::new_heap();
+    let _profiler = dhat::Profiler::new_heap();
     // TODO: maybe set log level via flag?
-    console_subscriber::init();
+    if let Ok(_) = std::env::var("TOKIO_CONSOLE_ENABLED") {
+        console_subscriber::init();
+    }
 
     env_logger::Builder::from_env(Env::default().default_filter_or("INFO"))
         .format_timestamp_micros()
