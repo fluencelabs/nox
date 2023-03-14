@@ -5,6 +5,9 @@ authors = ["Fluence Labs"]
 description = "Node implementing peer functionality in the Fluence p2p network"
 edition = "2021"
 
+[features]
+dhat-heap = ["dep:dhat"]
+
 [dependencies]
 particle-protocol = { workspace = true }
 particle-builtins = { workspace = true }
@@ -13,6 +16,7 @@ connection-pool = { workspace = true }
 script-storage = { workspace = true }
 aquamarine = { workspace = true }
 sorcerer = { workspace = true }
+dhat = { version = "0.3.2", optional = true }
 
 
 fluence-libp2p = { workspace = true }
