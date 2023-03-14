@@ -28,6 +28,7 @@ use crate::spells::{
     store_error, store_response,
 };
 use crate::utils::process_func_outcome;
+use crate::worker_builins::{create_worker, get_worker_peer_id, remove_worker};
 use aquamarine::AquamarineApi;
 use key_manager::KeyManager;
 use particle_args::JError;
@@ -39,12 +40,6 @@ use serde_json::Value;
 use server_config::ResolvedConfig;
 use spell_event_bus::api::{from_user_config, SpellEventBusApi, TriggerEvent};
 use spell_storage::SpellStorage;
-use crate::spells::{
-    get_spell_arg, get_spell_id, spell_install, spell_list, spell_remove, spell_update_config,
-    store_error, store_response,
-};
-use crate::utils::process_func_outcome;
-use crate::worker_builins::{create_worker, get_worker_peer_id, remove_worker};
 
 #[derive(Clone)]
 pub struct Sorcerer {

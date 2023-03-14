@@ -1554,10 +1554,11 @@ async fn spell_create_worker_same_deal_id_different_peer() {
     assert!(error_msg.contains("Worker for deal_id already exists"));
 }
 
-#[test]
-fn create_remove_worker() {
-    let swarms = make_swarms(1);
+#[tokio::test]
+async fn create_remove_worker() {
+    let swarms = make_swarms(1).await;
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
         .wrap_err("connect client")
         .unwrap();
 
@@ -1566,13 +1567,14 @@ fn create_remove_worker() {
     config.clock.period_sec = 0;
     config.clock.start_sec = 1;
 
-    let (spell_id, worker_id) = create_spell(&mut client, &script, config, json!({}));
+    let (spell_id, worker_id) = create_spell(&mut client, &script, config, json!({})).await;
     let service = create_service_worker(
         &mut client,
         "file_share",
         load_module("tests/file_share/artifacts", "file_share").expect("load module"),
         worker_id.clone(),
-    );
+    )
+    .await;
     let data = hashmap! {
         "client" => json!(client.peer_id.to_string()),
         "relay" => json!(client.node.to_string()),
@@ -1613,6 +1615,7 @@ fn create_remove_worker() {
 
     if let [JValue::Array(before), JValue::String(spell_err), JValue::String(srv_err)] = client
         .receive_args()
+        .await
         .wrap_err("receive")
         .unwrap()
         .as_slice()

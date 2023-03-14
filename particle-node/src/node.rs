@@ -119,7 +119,7 @@ impl<RT: AquaRuntime> Node<RT> {
             config.node_config.module_max_heap_size,
             config.node_config.module_default_heap_size,
         )
-            .expect("create services config");
+        .expect("create services config");
 
         let mut metrics_registry = if config.metrics_config.metrics_enabled {
             Some(Registry::default())
@@ -253,12 +253,12 @@ impl<RT: AquaRuntime> Node<RT> {
 
         spell_service_functions.into_iter().for_each(
             move |(
-                      service_id,
-                      CustomService {
-                          functions,
-                          fallback,
-                      },
-                  )| {
+                service_id,
+                CustomService {
+                    functions,
+                    fallback,
+                },
+            )| {
                 let builtin = builtins.clone();
                 let task = async move { builtin.extend(service_id, functions, fallback).await };
                 task::Builder::new()
