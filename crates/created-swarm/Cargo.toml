@@ -22,10 +22,14 @@ builtins-deployer = { workspace = true }
 toy-vms = { workspace = true }
 
 fluence-keypair = { workspace = true }
+log = { workspace = true }
+tracing = { workspace = true }
 
 libp2p = { workspace = true }
 
-async-std = { workspace = true }
+
+tokio = { workspace = true }
+tokio-stream = { workspace = true }
 futures = { workspace = true }
 derivative = { workspace = true }
 serde_json = { workspace = true }

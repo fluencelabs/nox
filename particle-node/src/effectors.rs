@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-use futures::{stream::iter, SinkExt, StreamExt};
+use futures::{stream::iter, StreamExt};
+use tokio::sync::mpsc::UnboundedSender;
 
 use aquamarine::RoutingEffects;
-use fluence_libp2p::types::Outlet;
 
 use crate::connectivity::Connectivity;
 
@@ -32,7 +32,11 @@ impl Effectors {
     }
 
     /// Perform effects that Aquamarine instructed us to
-    pub async fn execute(self, effects: RoutingEffects, particle_failures: Outlet<String>) {
+    pub async fn execute(
+        self,
+        effects: RoutingEffects,
+        particle_failures: UnboundedSender<String>,
+    ) {
         if effects.particle.is_expired() {
             log::info!("Particle {} is expired", effects.particle.id);
             return;
@@ -46,7 +50,7 @@ impl Effectors {
             let connectivity = connectivity.clone();
             let particle = particle.clone();
             let particle_id = particle.id.clone();
-            let mut particle_failures = particle_failures.clone();
+            let particle_failures = particle_failures.clone();
             async move {
                 // resolve contact
                 if let Some(contact) = connectivity.resolve_contact(target, &particle.id).await {
@@ -58,7 +62,7 @@ impl Effectors {
                     }
                 }
                 // not exited yet, so either resolve or send failed. Report failure.
-                particle_failures.send(particle_id).await.ok();
+                particle_failures.send(particle_id).ok();
             }
         })
         .await;

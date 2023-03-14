@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 #![feature(assert_matches)]
+
 use std::assert_matches::assert_matches;
 use std::collections::HashMap;
 use std::time::Duration;
@@ -25,6 +26,7 @@ use serde_json::{json, Value as JValue};
 use connected_client::ConnectedClient;
 use created_swarm::{make_swarms, make_swarms_with_builtins};
 use fluence_spell_dtos::trigger_config::TriggerConfig;
+use log_utils::enable_logs;
 use service_modules::load_module;
 use spell_event_bus::api::{TriggerInfo, TriggerInfoAqua, MAX_PERIOD_SEC};
 use test_utils::{create_service, create_service_worker};
@@ -32,7 +34,7 @@ use test_utils::{create_service, create_service_worker};
 type SpellId = String;
 type WorkerPeerId = String;
 
-fn create_spell(
+async fn create_spell(
     client: &mut ConnectedClient,
     script: &str,
     config: TriggerConfig,
@@ -45,8 +47,9 @@ fn create_spell(
         "relay" => json!(client.node.to_string()),
         "data" => init_data,
     };
-    client.send_particle(
-        r#"
+    let response = client
+        .execute_particle(
+            r#"
         (seq
             (xor
                 (call relay ("worker" "create") [] worker_peer_id)
@@ -57,10 +60,11 @@ fn create_spell(
                 (call client ("return" "") [spell_id worker_peer_id])
             )
         )"#,
-        data.clone(),
-    );
+            data.clone(),
+        )
+        .await
+        .unwrap();
 
-    let response = client.receive_args().wrap_err("receive").unwrap();
     let spell_id = response[0].as_str().unwrap().to_string();
     assert_ne!(spell_id.len(), 0);
     let worker_id = response[1].as_str().unwrap().to_string();
@@ -69,11 +73,12 @@ fn create_spell(
     (spell_id, worker_id)
 }
 
-#[test]
-fn spell_simple_test() {
-    let swarms = make_swarms(1);
+#[tokio::test]
+async fn spell_simple_test() {
+    let swarms = make_swarms(1).await;
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
         .wrap_err("connect client")
         .unwrap();
 
@@ -95,9 +100,9 @@ fn spell_simple_test() {
     let mut config = TriggerConfig::default();
     config.clock.period_sec = 0;
     config.clock.start_sec = 1;
-    create_spell(&mut client, &script, config, json!({}));
+    create_spell(&mut client, &script, config, json!({})).await;
 
-    let response = client.receive_args().wrap_err("receive").unwrap();
+    let response = client.receive_args().await.wrap_err("receive").unwrap();
     let result = response[0].as_str().unwrap().to_string();
     assert!(response[1]["success"].as_bool().unwrap());
     let counter = response[1]["num"].as_u64().unwrap();
@@ -106,10 +111,12 @@ fn spell_simple_test() {
     assert_ne!(counter, 0);
 }
 
-#[test]
-fn spell_error_handling_test() {
-    let swarms = make_swarms(1);
+#[tokio::test]
+async fn spell_error_handling_test() {
+    enable_logs();
+    let swarms = make_swarms(1).await;
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
         .wrap_err("connect client")
         .unwrap();
 
@@ -120,23 +127,25 @@ fn spell_error_handling_test() {
         )"#;
 
     let mut config = TriggerConfig::default();
-    config.clock.period_sec = 1;
-    config.clock.start_sec = 1;
+    config.clock.period_sec = 2;
+    config.clock.start_sec = 2;
 
-    let (spell_id, worker_id) = create_spell(&mut client, failing_script, config, json!({}));
+    let (spell_id, worker_id) = create_spell(&mut client, failing_script, config, json!({})).await;
 
     // let's retrieve error from the first spell particle
     let particle_id = format!("spell_{}_{}", spell_id, 0);
-    let mut result = vec![];
-    for _ in 1..10 {
-        let data = hashmap! {
-            "spell_id" => json!(spell_id),
-            "particle_id" => json!(particle_id),
-            "client" => json!(client.peer_id.to_string()),
-            "worker" => json!(worker_id),
-            "relay" => json!(client.node.to_string()),
-        };
-        client.send_particle(
+    let data = hashmap! {
+        "spell_id" => json!(spell_id),
+        "particle_id" => json!(particle_id),
+        "client" => json!(client.peer_id.to_string()),
+        "worker" => json!(worker_id),
+        "relay" => json!(client.node.to_string()),
+    };
+
+    tokio::time::sleep(Duration::from_secs(3)).await;
+
+    let response = client
+        .execute_particle(
             r#"
         (seq
             (seq
@@ -146,21 +155,25 @@ fn spell_error_handling_test() {
             (call client ("return" "") [result])
         )"#,
             data.clone(),
-        );
+        )
+        .await
+        .unwrap();
 
-        let response = client.receive_args().wrap_err("receive").unwrap();
-        if !response[0].as_array().unwrap().is_empty() {
-            result = response[0].as_array().unwrap().clone();
-        }
+    let mut result = vec![];
+    if !response[0].as_array().unwrap().is_empty() {
+        result = response[0].as_array().unwrap().clone();
     }
 
     assert_eq!(result.len(), 1);
+
+    swarms.into_iter().map(|s| s.outlet.send(())).for_each(drop);
 }
 
-#[test]
-fn spell_args_test() {
-    let swarms = make_swarms(1);
+#[tokio::test]
+async fn spell_args_test() {
+    let swarms = make_swarms(1).await;
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
         .wrap_err("connect client")
         .unwrap();
 
@@ -185,16 +198,18 @@ fn spell_args_test() {
         &script,
         config,
         json!({ "key": expected_value }),
-    );
+    )
+    .await;
 
-    let response = client.receive_args().wrap_err("receive").unwrap();
+    let response = client.receive_args().await.wrap_err("receive").unwrap();
     assert_eq!(response[0], expected_value);
 }
 
-#[test]
-fn spell_return_test() {
-    let swarms = make_swarms(1);
+#[tokio::test]
+async fn spell_return_test() {
+    let swarms = make_swarms(1).await;
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
         .wrap_err("connect client")
         .unwrap();
 
@@ -223,19 +238,20 @@ fn spell_return_test() {
     config.clock.period_sec = 1;
     config.clock.start_sec = 1;
 
-    create_spell(&mut client, &script, config, json!({}));
+    create_spell(&mut client, &script, config, json!({})).await;
 
-    let response = client.receive_args().wrap_err("receive").unwrap();
+    let response = client.receive_args().await.wrap_err("receive").unwrap();
     let value = response[0].as_str().unwrap().to_string();
 
     assert_eq!(value, "value");
 }
 
 // Check that oneshot spells are actually executed and executed only once
-#[test]
-fn spell_run_oneshot() {
-    let swarms = make_swarms(1);
+#[tokio::test]
+async fn spell_run_oneshot() {
+    let swarms = make_swarms(1).await;
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
         .wrap_err("connect client")
         .unwrap();
 
@@ -248,7 +264,7 @@ fn spell_run_oneshot() {
     // Note that when period is 0, the spell is executed only once
     let mut config = TriggerConfig::default();
     config.clock.start_sec = 1;
-    let (spell_id, worker_id) = create_spell(&mut client, script, config, json!({}));
+    let (spell_id, worker_id) = create_spell(&mut client, script, config, json!({})).await;
 
     let data = hashmap! {
         "spell_id" => json!(spell_id),
@@ -256,8 +272,9 @@ fn spell_run_oneshot() {
         "worker" => json!(worker_id),
         "relay" => json!(client.node.to_string()),
     };
-    client.send_particle(
-        r#"
+    let response = client
+        .execute_particle(
+            r#"
         (seq
             (seq
                 (call relay ("op" "noop") [])
@@ -265,11 +282,11 @@ fn spell_run_oneshot() {
             )
             (call client ("return" "") [counter])
         )"#,
-        data.clone(),
-    );
+            data.clone(),
+        )
+        .await
+        .unwrap();
 
-    std::thread::sleep(Duration::from_millis(100));
-    let response = client.receive_args().wrap_err("receive").unwrap();
     if response[0]["success"].as_bool().unwrap() {
         let counter = response[0]["num"].as_u64().unwrap();
         assert_eq!(counter, 1);
@@ -278,10 +295,11 @@ fn spell_run_oneshot() {
 
 // The config considered empty if start_sec is 0. In this case we don't schedule a spell.
 // Script installation will fail because no triggers configured.
-#[test]
-fn spell_install_ok_empty_config() {
-    let swarms = make_swarms(1);
+#[tokio::test]
+async fn spell_install_ok_empty_config() {
+    let swarms = make_swarms(1).await;
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
         .wrap_err("connect client")
         .unwrap();
 
@@ -289,15 +307,16 @@ fn spell_install_ok_empty_config() {
 
     // Note that when period is 0, the spell is executed only once
     let config = TriggerConfig::default();
-    let (spell_id, worker_id) = create_spell(&mut client, script, config, json!({}));
+    let (spell_id, worker_id) = create_spell(&mut client, script, config, json!({})).await;
 
     // The spell should be installed, but should not be subscribed to any triggers
     // We cannot truly check that the spell isn't subscribed to anything right now, but we can check that
     // it's counter is zero on different occasions:
 
     // 1. Check that the spell wasn't executed immediately after installation (the case of `start_sec` <= now)
-    client.send_particle(
-        r#"
+    let response = client
+        .execute_particle(
+            r#"
         (seq
             (seq
                 (call relay ("op" "noop") [])
@@ -305,28 +324,29 @@ fn spell_install_ok_empty_config() {
             )
             (call %init_peer_id% ("return" "") [counter])
         )"#,
-        hashmap! {
-            "worker" => json!(worker_id),
-            "spell_id" => json!(spell_id),
-            "relay" => json!(client.node.to_string()),
-        },
-    );
-    let response = client
-        .receive_args()
-        .wrap_err("receive counter first try")
+            hashmap! {
+                "worker" => json!(worker_id),
+                "spell_id" => json!(spell_id),
+                "relay" => json!(client.node.to_string()),
+            },
+        )
+        .await
         .unwrap();
+
     if response[0]["success"].as_bool().unwrap() {
         let counter = response[0]["num"].as_u64().unwrap();
         assert_eq!(counter, 0);
     }
     // 2. Connect and disconnect a client to the same node. The spell should not be executed
     let connected = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
         .wrap_err("connect client")
         .unwrap();
     drop(connected);
 
-    client.send_particle(
-        r#"
+    let response = client
+        .execute_particle(
+            r#"
         (seq
             (seq
                 (call relay ("op" "noop") [])
@@ -334,15 +354,13 @@ fn spell_install_ok_empty_config() {
             )
             (call %init_peer_id% ("return" "") [counter])
         )"#,
-        hashmap! {
-            "relay" => json!(client.node.to_string()),
-            "worker" => json!(worker_id),
-            "spell_id" => json!(spell_id),
-        },
-    );
-    let response = client
-        .receive_args()
-        .wrap_err("receive counter second try")
+            hashmap! {
+                "relay" => json!(client.node.to_string()),
+                "worker" => json!(worker_id),
+                "spell_id" => json!(spell_id),
+            },
+        )
+        .await
         .unwrap();
     if response[0]["success"].as_bool().unwrap() {
         let counter = response[0]["num"].as_u64().unwrap();
@@ -352,10 +370,11 @@ fn spell_install_ok_empty_config() {
     // 3. We cannot check that it's not scheduled to run in the future, but it's ok for now.
 }
 
-#[test]
-fn spell_install_fail_large_period() {
-    let swarms = make_swarms(1);
+#[tokio::test]
+async fn spell_install_fail_large_period() {
+    let swarms = make_swarms(1).await;
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
         .wrap_err("connect client")
         .unwrap();
 
@@ -374,21 +393,19 @@ fn spell_install_fail_large_period() {
         "relay" => json!(client.node.to_string()),
         "data" => json!(json!(empty).to_string()),
     };
-    client.send_particle(
-        r#"
+    let result = client
+        .execute_particle(
+            r#"
         (xor
             (call relay ("spell" "install") [script data config] spell_id)
             (call client ("return" "") [%last_error%.$.message])
         )"#,
-        data,
-    );
+            data,
+        )
+        .await
+        .unwrap();
 
-    if let [JValue::String(error_msg)] = client
-        .receive_args()
-        .wrap_err("receive")
-        .unwrap()
-        .as_slice()
-    {
+    if let [JValue::String(error_msg)] = result.as_slice() {
         let msg = "Local service error, ret_code is 1, error message is '\"Error: invalid config: period is too big.";
         assert!(error_msg.starts_with(msg));
     }
@@ -396,10 +413,11 @@ fn spell_install_fail_large_period() {
 
 // Also the config considered invalid if the end_sec is in the past.
 // In this case we don't schedule a spell and return error.
-#[test]
-fn spell_install_fail_end_sec_past() {
-    let swarms = make_swarms(1);
+#[tokio::test]
+async fn spell_install_fail_end_sec_past() {
+    let swarms = make_swarms(1).await;
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
         .wrap_err("connect client")
         .unwrap();
 
@@ -418,21 +436,19 @@ fn spell_install_fail_end_sec_past() {
         "relay" => json!(client.node.to_string()),
         "data" => json!(json!(empty).to_string()),
     };
-    client.send_particle(
-        r#"
+    let result = client
+        .execute_particle(
+            r#"
         (xor
             (call relay ("spell" "install") [script data config] spell_id)
             (call client ("return" "") [%last_error%.$.message])
         )"#,
-        data.clone(),
-    );
+            data.clone(),
+        )
+        .await
+        .unwrap();
 
-    if let [JValue::String(error_msg)] = client
-        .receive_args()
-        .wrap_err("receive")
-        .unwrap()
-        .as_slice()
-    {
+    if let [JValue::String(error_msg)] = result.as_slice() {
         let expected = "Local service error, ret_code is 1, error message is '\"Error: invalid config: end_sec is less than start_sec or in the past";
         assert!(
             error_msg.starts_with(expected),
@@ -443,10 +459,13 @@ fn spell_install_fail_end_sec_past() {
 
 // Also the config considered invalid if the end_sec is less than start_sec.
 // In this case we don't schedule a spell and return error.
-#[test]
-fn spell_install_fail_end_sec_before_start() {
-    let swarms = make_swarms(1);
+#[tokio::test]
+async fn spell_install_fail_end_sec_before_start() {
+    enable_logs();
+
+    let swarms = make_swarms(1).await;
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
         .wrap_err("connect client")
         .unwrap();
 
@@ -470,21 +489,19 @@ fn spell_install_fail_end_sec_before_start() {
         "relay" => json!(client.node.to_string()),
         "data" => json!(json!(empty).to_string()),
     };
-    client.send_particle(
-        r#"
+    let result = client
+        .execute_particle(
+            r#"
         (xor
             (call relay ("spell" "install") [script data config] spell_id)
             (call client ("return" "") [%last_error%.$.message])
         )"#,
-        data.clone(),
-    );
+            data.clone(),
+        )
+        .await
+        .unwrap();
 
-    if let [JValue::String(error_msg)] = client
-        .receive_args()
-        .wrap_err("receive")
-        .unwrap()
-        .as_slice()
-    {
+    if let [JValue::String(error_msg)] = result.as_slice() {
         let expected = "Local service error, ret_code is 1, error message is '\"Error: invalid config: end_sec is less than start_sec or in the past";
         assert!(
             error_msg.starts_with(expected),
@@ -493,10 +510,12 @@ fn spell_install_fail_end_sec_before_start() {
     }
 }
 
-#[test]
-fn spell_store_trigger_config() {
-    let swarms = make_swarms(1);
+#[tokio::test]
+async fn spell_store_trigger_config() {
+    enable_logs();
+    let swarms = make_swarms(1).await;
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
         .wrap_err("connect client")
         .unwrap();
 
@@ -504,15 +523,16 @@ fn spell_store_trigger_config() {
     let mut config = TriggerConfig::default();
     config.clock.period_sec = 13;
     config.clock.start_sec = 10;
-    let (spell_id, worker_id) = create_spell(&mut client, script, config.clone(), json!({}));
+    let (spell_id, worker_id) = create_spell(&mut client, script, config.clone(), json!({})).await;
     let data = hashmap! {
         "spell_id" => json!(spell_id),
         "client" => json!(client.peer_id.to_string()),
         "worker" => json!(worker_id),
         "relay" => json!(client.node.to_string()),
     };
-    client.send_particle(
-        r#"
+    let response = client
+        .execute_particle(
+            r#"
         (seq
             (seq
                 (call relay ("op" "noop") [])
@@ -520,21 +540,23 @@ fn spell_store_trigger_config() {
             )
             (call client ("return" "") [config])
         )"#,
-        data.clone(),
-    );
+            data.clone(),
+        )
+        .await
+        .unwrap();
 
-    let response = client.receive_args().wrap_err("receive").unwrap();
     if response[0]["success"].as_bool().unwrap() {
         let result_config = serde_json::from_value(response[0]["config"].clone()).unwrap();
         assert_eq!(config, result_config);
     }
 }
 
-#[test]
-fn spell_remove() {
-    let swarms = make_swarms(1);
+#[tokio::test]
+async fn spell_remove() {
+    let swarms = make_swarms(1).await;
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
         .wrap_err("connect client")
         .unwrap();
 
@@ -542,7 +564,7 @@ fn spell_remove() {
     let mut config = TriggerConfig::default();
     config.clock.period_sec = 2;
     config.clock.start_sec = 1;
-    let (spell_id, worker_id) = create_spell(&mut client, script, config, json!({}));
+    let (spell_id, worker_id) = create_spell(&mut client, script, config, json!({})).await;
 
     let data = hashmap! {
         "spell_id" => json!(spell_id),
@@ -551,26 +573,25 @@ fn spell_remove() {
         "worker" => json!(worker_id.clone())
     };
 
-    client.send_particle(
-        r#"
+    let result = client
+        .execute_particle(
+            r#"
     (seq
         (call relay ("spell" "list") [] list)
         (call client ("return" "") [list])
     )"#,
-        data.clone(),
-    );
+            data.clone(),
+        )
+        .await
+        .unwrap();
 
-    if let [JValue::String(result_spell_id)] = client
-        .receive_args()
-        .wrap_err("receive")
-        .unwrap()
-        .as_slice()
-    {
+    if let [JValue::String(result_spell_id)] = result.as_slice() {
         assert_eq!(&spell_id, result_spell_id);
     }
 
-    client.send_particle(
-        r#"
+    let result = client
+        .execute_particle(
+            r#"
         (seq
             (seq
                 (call relay ("op" "noop") [])
@@ -582,27 +603,23 @@ fn spell_remove() {
             )
         )
         "#,
-        data.clone(),
-    );
+            data.clone(),
+        )
+        .await
+        .unwrap();
 
-    if let [JValue::Array(created_spells)] = client
-        .receive_args()
-        .wrap_err(format!(
-            "receive by {}, worker {}",
-            client.peer_id, worker_id
-        ))
-        .unwrap()
-        .as_slice()
-    {
+    if let [JValue::Array(created_spells)] = result.as_slice() {
         assert!(created_spells.is_empty(), "no spells should exist");
     }
 }
 
-#[test]
-fn spell_remove_by_alias() {
-    let swarms = make_swarms(1);
+#[tokio::test]
+async fn spell_remove_by_alias() {
+    enable_logs();
+    let swarms = make_swarms(1).await;
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
         .wrap_err("connect client")
         .unwrap();
 
@@ -630,10 +647,11 @@ fn spell_remove_by_alias() {
     let mut config = TriggerConfig::default();
     config.clock.period_sec = 2;
     config.clock.start_sec = 1;
-    let (spell_id, _) = create_spell(&mut client, &script, config, json!({}));
+    let (spell_id, _) = create_spell(&mut client, &script, config, json!({})).await;
 
     if let [JValue::Array(before), JValue::Array(after)] = client
         .receive_args()
+        .await
         .wrap_err("receive")
         .unwrap()
         .as_slice()
@@ -644,10 +662,11 @@ fn spell_remove_by_alias() {
     }
 }
 
-#[test]
-fn spell_remove_spell_as_service() {
-    let swarms = make_swarms(1);
+#[tokio::test]
+async fn spell_remove_spell_as_service() {
+    let swarms = make_swarms(1).await;
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
         .wrap_err("connect client")
         .unwrap();
 
@@ -656,7 +675,7 @@ fn spell_remove_spell_as_service() {
     let mut config = TriggerConfig::default();
     config.clock.period_sec = 2;
     config.clock.start_sec = 1;
-    let (spell_id, _) = create_spell(&mut client, script, config, json!({}));
+    let (spell_id, _) = create_spell(&mut client, script, config, json!({})).await;
 
     let data = hashmap! {
         "spell_id" => json!(spell_id),
@@ -664,22 +683,20 @@ fn spell_remove_spell_as_service() {
         "client" => json!(client.peer_id.to_string()),
     };
 
-    client.send_particle(
-        r#"
+    let result = client
+        .execute_particle(
+            r#"
         (xor
             (call relay ("srv" "remove") [spell_id])
             (call client ("return" "") [%last_error%.$.message])
         )
         "#,
-        data.clone(),
-    );
+            data.clone(),
+        )
+        .await
+        .unwrap();
 
-    if let [JValue::String(msg)] = client
-        .receive_args()
-        .wrap_err("receive")
-        .unwrap()
-        .as_slice()
-    {
+    if let [JValue::String(msg)] = result.as_slice() {
         let expected = "cannot call function 'remove_service': cannot remove a spell";
         assert!(
             msg.contains(expected),
@@ -688,21 +705,21 @@ fn spell_remove_spell_as_service() {
     }
 }
 
-#[test]
-fn spell_remove_service_as_spell() {
-    let swarms = make_swarms(1);
-    let mut client = ConnectedClient::connect_with_keypair(
-        swarms[0].multiaddr.clone(),
-        Some(swarms[0].management_keypair.clone()),
-    )
-    .wrap_err("connect client")
-    .unwrap();
+#[tokio::test]
+async fn spell_remove_service_as_spell() {
+    enable_logs();
+    let swarms = make_swarms(1).await;
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
+        .wrap_err("connect client")
+        .unwrap();
 
     let service = create_service(
         &mut client,
         "file_share",
         load_module("tests/file_share/artifacts", "file_share").expect("load module"),
-    );
+    )
+    .await;
 
     let data = hashmap! {
         "service_id" => json!(service.id),
@@ -710,22 +727,20 @@ fn spell_remove_service_as_spell() {
         "client" => json!(client.peer_id.to_string()),
     };
 
-    client.send_particle(
-        r#"
+    let result = client
+        .execute_particle(
+            r#"
         (xor
-            (call relay ("spell" "remove") [service_id])  
+            (call relay ("spell" "remove") [service_id])
             (call client ("return" "") [%last_error%.$.message])
         )
         "#,
-        data.clone(),
-    );
+            data.clone(),
+        )
+        .await
+        .unwrap();
 
-    if let [JValue::String(msg)] = client
-        .receive_args()
-        .wrap_err("receive")
-        .unwrap()
-        .as_slice()
-    {
+    if let [JValue::String(msg)] = result.as_slice() {
         let expected = "cannot call function 'remove_spell': the service isn't a spell";
         assert!(
             msg.contains(expected),
@@ -734,11 +749,12 @@ fn spell_remove_service_as_spell() {
     }
 }
 
-#[test]
-fn spell_call_by_alias() {
-    let swarms = make_swarms(1);
+#[tokio::test]
+async fn spell_call_by_alias() {
+    let swarms = make_swarms(1).await;
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
         .wrap_err("connect client")
         .unwrap();
 
@@ -761,10 +777,11 @@ fn spell_call_by_alias() {
     let mut config = TriggerConfig::default();
     config.clock.period_sec = 2;
     config.clock.start_sec = 1;
-    create_spell(&mut client, &script, config, json!({}));
+    create_spell(&mut client, &script, config, json!({})).await;
 
     if let [JValue::Number(counter)] = client
         .receive_args()
+        .await
         .wrap_err("receive")
         .unwrap()
         .as_slice()
@@ -773,10 +790,11 @@ fn spell_call_by_alias() {
     }
 }
 
-#[test]
-fn spell_trigger_connection_pool() {
-    let swarms = make_swarms(1);
+#[tokio::test]
+async fn spell_trigger_connection_pool() {
+    let swarms = make_swarms(1).await;
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
         .wrap_err("connect client")
         .unwrap();
 
@@ -794,16 +812,18 @@ fn spell_trigger_connection_pool() {
     );
     let mut config = TriggerConfig::default();
     config.connections.connect = true;
-    let (spell_id1, _) = create_spell(&mut client, &script, config, json!({}));
+    let (spell_id1, _) = create_spell(&mut client, &script, config, json!({})).await;
 
     let mut config = TriggerConfig::default();
     config.connections.disconnect = true;
-    let (spell_id2, _) = create_spell(&mut client, &script, config, json!({}));
+    let (spell_id2, _) = create_spell(&mut client, &script, config, json!({})).await;
 
     // This connect should trigger the spell
     let connect_num = 5;
     for _ in 0..connect_num {
-        ConnectedClient::connect_to(swarms[0].multiaddr.clone()).unwrap();
+        ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+            .await
+            .unwrap();
     }
 
     let mut spell1_counter = 0;
@@ -814,6 +834,7 @@ fn spell_trigger_connection_pool() {
     for _ in 0..2 * connect_num {
         if let [spell_reply] = client
             .receive_args()
+            .await
             .wrap_err("receive")
             .unwrap()
             .as_slice()
@@ -842,10 +863,11 @@ fn spell_trigger_connection_pool() {
     );
 }
 
-#[test]
-fn spell_timer_trigger_mailbox_test() {
-    let swarms = make_swarms(1);
+#[tokio::test]
+async fn spell_timer_trigger_mailbox_test() {
+    let swarms = make_swarms(1).await;
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
         .wrap_err("connect client")
         .unwrap();
     let script = format!(
@@ -867,9 +889,9 @@ fn spell_timer_trigger_mailbox_test() {
     let mut config = TriggerConfig::default();
     config.clock.period_sec = 0;
     config.clock.start_sec = 1;
-    create_spell(&mut client, &script, config, json!({}));
+    create_spell(&mut client, &script, config, json!({})).await;
 
-    let value = client.receive_args().wrap_err("receive").unwrap()[0]
+    let value = client.receive_args().await.wrap_err("receive").unwrap()[0]
         .as_object()
         .cloned()
         .unwrap();
@@ -884,24 +906,32 @@ fn spell_timer_trigger_mailbox_test() {
     assert!(timer["timestamp"].as_i64().unwrap() > 0);
 }
 
-#[test]
-fn spell_connection_pool_trigger_mailbox_test() {
-    let swarms = make_swarms(1);
+#[tokio::test]
+async fn spell_connection_pool_trigger_mailbox_test() {
+    enable_logs();
+    let swarms = make_swarms(1).await;
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
         .wrap_err("connect client")
         .unwrap();
 
     let script = format!(
         r#"
-        (seq
+        (xor
             (seq
-                (call %init_peer_id% ("getDataSrv" "spell_id") [] spell_id)
-                (call %init_peer_id% (spell_id "list_pop_string") ["trigger_mailbox"] trigger)
+                (seq
+                    (call %init_peer_id% ("getDataSrv" "spell_id") [] spell_id)
+                    (seq
+                        (call %init_peer_id% (spell_id "list_pop_string") ["trigger_mailbox"] trigger)
+                        (call %init_peer_id% ("run-console" "print") ["pop mailbox, trigger:" trigger])
+                    )
+                )
+                (seq
+                    (call %init_peer_id% ("json" "parse") [trigger.$.str] obj)
+                    (call "{}" ("return" "") [obj])
+                )
             )
-            (seq
-                (call %init_peer_id% ("json" "parse") [trigger.$.str] obj)
-                (call "{}" ("return" "") [obj])
-            )
+            (call %init_peer_id% ("run-console" "print") ["herror" %last_error%])
         )
     "#,
         client.peer_id
@@ -909,36 +939,55 @@ fn spell_connection_pool_trigger_mailbox_test() {
 
     let mut config = TriggerConfig::default();
     config.connections.disconnect = true;
-    create_spell(&mut client, &script, config.clone(), json!({}));
+    create_spell(&mut client, &script, config.clone(), json!({})).await;
+    log::info!("created spell");
 
-    let disconnected_client = ConnectedClient::connect_to(swarms[0].multiaddr.clone()).unwrap();
+    let disconnected_client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
+        .unwrap();
     let disconnected_client_peer_id = disconnected_client.peer_id;
+    log::info!("will disconnect");
     disconnected_client.client.stop();
 
-    let value = client.receive_args().wrap_err("receive").unwrap()[0]
-        .as_object()
-        .cloned()
-        .unwrap();
+    log::info!("Main client: {}", client.peer_id);
+    log::info!("Disconnected client: {}", disconnected_client_peer_id);
 
-    assert!(value.contains_key("peer"));
-    assert!(value.contains_key("timer"));
-    assert_eq!(value["timer"].as_array().unwrap().len(), 0);
-    let peer_opt = value["peer"].as_array().cloned().unwrap();
-    assert_eq!(peer_opt.len(), 1);
-    let peer = peer_opt[0].as_object().cloned().unwrap();
-    assert!(peer.contains_key("peer_id"));
-    assert!(peer.contains_key("connected"));
-    assert_eq!(
-        peer["peer_id"].as_str().unwrap(),
-        disconnected_client_peer_id.to_base58()
-    );
-    assert!(!peer["connected"].as_bool().unwrap());
+    loop {
+        client.timeout = Duration::from_secs(30);
+        let value = client.receive_args().await.wrap_err("receive").unwrap()[0]
+            .as_object()
+            .cloned()
+            .unwrap();
+
+        assert!(value.contains_key("peer"));
+        assert!(value.contains_key("timer"));
+        assert_eq!(value["timer"].as_array().unwrap().len(), 0);
+        let peer_opt = value["peer"].as_array().cloned().unwrap();
+        assert_eq!(peer_opt.len(), 1);
+        let peer = peer_opt[0].as_object().cloned().unwrap();
+        assert!(peer.contains_key("peer_id"));
+        assert!(peer.contains_key("connected"));
+
+        if peer["peer_id"] == JValue::String(client.peer_id.to_string()) {
+            // we got a Peer event about `client`, just ignore it and wait for the next trigger
+            continue;
+        }
+
+        assert_eq!(
+            peer["peer_id"].as_str().unwrap(),
+            disconnected_client_peer_id.to_base58()
+        );
+        assert_eq!(peer["connected"].as_bool().unwrap(), false);
+
+        break;
+    }
 }
 
-#[test]
-fn spell_set_u32() {
-    let swarms = make_swarms(1);
+#[tokio::test]
+async fn spell_set_u32() {
+    let swarms = make_swarms(1).await;
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
         .wrap_err("connect client")
         .unwrap();
 
@@ -946,7 +995,7 @@ fn spell_set_u32() {
     let mut config = TriggerConfig::default();
     config.connections.connect = true;
 
-    let (spell_id, worker_id) = create_spell(&mut client, &script, config.clone(), json!({}));
+    let (spell_id, worker_id) = create_spell(&mut client, &script, config.clone(), json!({})).await;
 
     let data = hashmap! {
         "spell_id" => json!(spell_id),
@@ -955,8 +1004,9 @@ fn spell_set_u32() {
         "client" => json!(client.peer_id.to_string()),
         "config" => json!(config),
     };
-    client.send_particle(
-        r#"(seq
+    let mut result = client
+        .execute_particle(
+            r#"(seq
             (seq
                 (seq
                     (call relay ("op" "noop") [])
@@ -975,9 +1025,10 @@ fn spell_set_u32() {
             )
             (call %init_peer_id% ("return" "") [absent one two])
            )"#,
-        data,
-    );
-    let mut result = client.receive_args().wrap_err("receive").unwrap();
+            data,
+        )
+        .await
+        .unwrap();
     assert_eq!(result.len(), 3);
     let (absent, one, two) = (result.remove(0), result.remove(0), result.remove(0));
 
@@ -990,10 +1041,12 @@ fn spell_set_u32() {
     assert_eq!(two["num"], json!(2));
 }
 
-#[test]
-fn spell_peer_id_test() {
-    let swarms = make_swarms(1);
+#[tokio::test]
+async fn spell_peer_id_test() {
+    enable_logs();
+    let swarms = make_swarms(1).await;
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
         .wrap_err("connect client")
         .unwrap();
 
@@ -1006,19 +1059,20 @@ fn spell_peer_id_test() {
 
     let mut config = TriggerConfig::default();
     config.clock.start_sec = 1;
-    let (_, worker_peer_id) = create_spell(&mut client, &script, config, json!({}));
+    let (_, worker_peer_id) = create_spell(&mut client, &script, config, json!({})).await;
 
-    let response = client.receive_args().wrap_err("receive").unwrap();
+    let response = client.receive_args().await.wrap_err("receive").unwrap();
 
     let result = response[0].as_str().unwrap().to_string();
 
     assert_eq!(result, worker_peer_id);
 }
 
-#[test]
-fn spell_update_config() {
-    let swarms = make_swarms(1);
+#[tokio::test]
+async fn spell_update_config() {
+    let swarms = make_swarms(1).await;
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
         .wrap_err("connect client")
         .unwrap();
 
@@ -1034,11 +1088,14 @@ fn spell_update_config() {
     );
     let mut config = TriggerConfig::default();
     config.connections.connect = true;
-    let (spell_id, worker_id) = create_spell(&mut client, &script, config, json!({}));
-    let connected = ConnectedClient::connect_to(swarms[0].multiaddr.clone()).unwrap();
+    let (spell_id, worker_id) = create_spell(&mut client, &script, config, json!({})).await;
+    let connected = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
+        .unwrap();
 
     if let [JValue::Object(x)] = client
         .receive_args()
+        .await
         .wrap_err("receive")
         .unwrap()
         .as_slice()
@@ -1060,8 +1117,9 @@ fn spell_update_config() {
         "client" => json!(client.peer_id.to_string()),
         "config" => json!(config),
     };
-    client.send_particle(
-        r#"
+    let mut result = client
+        .execute_particle(
+            r#"
         (seq
             (seq
                 (call relay ("op" "noop") [])
@@ -1069,9 +1127,11 @@ fn spell_update_config() {
             )
             (call %init_peer_id% ("return" "") ["done"])
            )"#,
-        data,
-    );
-    let result = client.receive_args().wrap_err("receive").unwrap().pop();
+            data,
+        )
+        .await
+        .unwrap();
+    let result = result.pop();
     let result = match result {
         Some(JValue::String(result)) => result,
         None => panic!("no results from update_trigger_config particle"),
@@ -1086,6 +1146,7 @@ fn spell_update_config() {
 
     if let [JValue::Object(x)] = client
         .receive_args()
+        .await
         .wrap_err("receive")
         .unwrap()
         .as_slice()
@@ -1099,10 +1160,11 @@ fn spell_update_config() {
     }
 }
 
-#[test]
-fn spell_update_config_stopped_spell() {
-    let swarms = make_swarms(1);
+#[tokio::test]
+async fn spell_update_config_stopped_spell() {
+    let swarms = make_swarms(1).await;
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
         .wrap_err("connect client")
         .unwrap();
 
@@ -1118,7 +1180,7 @@ fn spell_update_config_stopped_spell() {
     );
     // create periodic spell
     let config = TriggerConfig::default();
-    let (spell_id, worker_id) = create_spell(&mut client, &script, config, json!({}));
+    let (spell_id, worker_id) = create_spell(&mut client, &script, config, json!({})).await;
 
     // Update trigger config to do something.
     let mut config = TriggerConfig::default();
@@ -1130,8 +1192,9 @@ fn spell_update_config_stopped_spell() {
         "client" => json!(client.peer_id.to_string()),
         "config" => json!(config),
     };
-    client.send_particle(
-        r#"
+    let mut result = client
+        .execute_particle(
+            r#"
         (seq
             (seq
                 (call relay ("op" "noop") [])
@@ -1139,9 +1202,11 @@ fn spell_update_config_stopped_spell() {
             )
             (call %init_peer_id% ("return" "") ["done"])
         )"#,
-        data,
-    );
-    let result = client.receive_args().wrap_err("receive").unwrap().pop();
+            data,
+        )
+        .await
+        .unwrap();
+    let result = result.pop();
     let result = match result {
         Some(JValue::String(result)) => result,
         None => panic!("no results from update_trigger_config particle"),
@@ -1154,6 +1219,7 @@ fn spell_update_config_stopped_spell() {
 
     if let [JValue::Object(x)] = client
         .receive_args()
+        .await
         .wrap_err("receive")
         .unwrap()
         .as_slice()
@@ -1171,11 +1237,13 @@ fn spell_update_config_stopped_spell() {
     }
 }
 
-#[test]
-fn resolve_alias_wrong_worker() {
-    let swarms = make_swarms(1);
+#[tokio::test]
+async fn resolve_alias_wrong_worker() {
+    enable_logs();
+    let swarms = make_swarms(1).await;
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
         .wrap_err("connect client")
         .unwrap();
 
@@ -1203,10 +1271,11 @@ fn resolve_alias_wrong_worker() {
     let mut config = TriggerConfig::default();
     config.clock.period_sec = 2;
     config.clock.start_sec = 1;
-    create_spell(&mut client, &script, config, json!({}));
+    create_spell(&mut client, &script, config, json!({})).await;
 
     if let [JValue::String(error)] = client
         .receive_args()
+        .await
         .wrap_err("receive")
         .unwrap()
         .as_slice()
@@ -1215,14 +1284,15 @@ fn resolve_alias_wrong_worker() {
     }
 }
 
-#[test]
-fn resolve_global_alias() {
-    let swarms = make_swarms(1);
+#[tokio::test]
+async fn resolve_global_alias() {
+    let swarms = make_swarms(1).await;
 
     let mut client = ConnectedClient::connect_with_keypair(
         swarms[0].multiaddr.clone(),
         Some(swarms[0].management_keypair.clone()),
     )
+    .await
     .wrap_err("connect client")
     .unwrap();
 
@@ -1230,7 +1300,8 @@ fn resolve_global_alias() {
         &mut client,
         "tetraplets",
         load_module("tests/tetraplets/artifacts", "tetraplets").expect("load module"),
-    );
+    )
+    .await;
 
     client.send_particle(
         r#"(call relay ("srv" "add_alias") ["alias" service])"#,
@@ -1252,10 +1323,11 @@ fn resolve_global_alias() {
     let mut config = TriggerConfig::default();
     config.clock.period_sec = 2;
     config.clock.start_sec = 1;
-    create_spell(&mut client, &script, config, json!({}));
+    create_spell(&mut client, &script, config, json!({})).await;
 
     if let [JValue::String(resolved)] = client
         .receive_args()
+        .await
         .wrap_err("receive")
         .unwrap()
         .as_slice()
@@ -1264,11 +1336,12 @@ fn resolve_global_alias() {
     }
 }
 
-#[test]
-fn worker_sig_test() {
-    let swarms = make_swarms_with_builtins(1, "tests/builtins/services".as_ref(), None, None);
+#[tokio::test]
+async fn worker_sig_test() {
+    let swarms = make_swarms_with_builtins(1, "tests/builtins/services".as_ref(), None, None).await;
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
         .wrap_err("connect client")
         .unwrap();
 
@@ -1294,14 +1367,14 @@ fn worker_sig_test() {
     let mut config = TriggerConfig::default();
     config.clock.period_sec = 2;
     config.clock.start_sec = 1;
-    let (_, worker_id) = create_spell(&mut client, &script, config, json!({}));
+    let (_, worker_id) = create_spell(&mut client, &script, config, json!({})).await;
 
     use serde_json::Value::Bool;
     use serde_json::Value::Object;
     use serde_json::Value::String;
 
     if let [Object(sig_result), Bool(result), String(peer_id)] =
-        client.receive_args().unwrap().as_slice()
+        client.receive_args().await.unwrap().as_slice()
     {
         assert!(sig_result["success"].as_bool().unwrap());
         assert!(result);
@@ -1311,10 +1384,11 @@ fn worker_sig_test() {
     }
 }
 
-#[test]
-fn spell_relay_id_test() {
-    let swarms = make_swarms(1);
+#[tokio::test]
+async fn spell_relay_id_test() {
+    let swarms = make_swarms(1).await;
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
         .wrap_err("connect client")
         .unwrap();
 
@@ -1333,10 +1407,11 @@ fn spell_relay_id_test() {
     let mut config = TriggerConfig::default();
     config.clock.period_sec = 1;
     config.clock.start_sec = 1;
-    create_spell(&mut client, &script, config, json!({}));
+    create_spell(&mut client, &script, config, json!({})).await;
 
     if let [JValue::String(relay_id)] = client
         .receive_args()
+        .await
         .wrap_err("receive")
         .unwrap()
         .as_slice()
@@ -1347,10 +1422,11 @@ fn spell_relay_id_test() {
     }
 }
 
-#[test]
-fn spell_create_worker_twice() {
-    let swarms = make_swarms(1);
+#[tokio::test]
+async fn spell_create_worker_twice() {
+    let swarms = make_swarms(1).await;
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
         .wrap_err("connect client")
         .unwrap();
 
@@ -1376,7 +1452,7 @@ fn spell_create_worker_twice() {
         data.clone(),
     );
 
-    let response = client.receive_args().wrap_err("receive").unwrap();
+    let response = client.receive_args().await.wrap_err("receive").unwrap();
     let error_msg = response[0].as_str().unwrap().to_string();
     assert!(error_msg.contains("Worker for deal_id already exists"));
     let worker_id = response[1].as_str().unwrap().to_string();
@@ -1385,14 +1461,15 @@ fn spell_create_worker_twice() {
     assert_eq!(worker_id, get_worker_id);
 }
 
-#[test]
-fn spell_install_root_scope() {
-    let swarms = make_swarms(1);
+#[tokio::test]
+async fn spell_install_root_scope() {
+    let swarms = make_swarms(1).await;
 
     let mut client = ConnectedClient::connect_with_keypair(
         swarms[0].multiaddr.clone(),
         Some(swarms[0].management_keypair.clone()),
     )
+    .await
     .wrap_err("connect client")
     .unwrap();
 
@@ -1409,8 +1486,9 @@ fn spell_install_root_scope() {
         "relay" => json!(client.node.to_string()),
         "data" => json!({})
     };
-    client.send_particle(
-        r#"
+    let response = client
+        .execute_particle(
+            r#"
         (seq
             (seq
                 (call relay ("spell" "install") [script data config] spell_id)
@@ -1418,24 +1496,26 @@ fn spell_install_root_scope() {
             )
             (call client ("return" "") [spell_id info.$.worker_id])
         )"#,
-        data.clone(),
-    );
-
-    let response = client.receive_args().wrap_err("receive").unwrap();
+            data.clone(),
+        )
+        .await
+        .unwrap();
     let spell_id = response[0].as_str().unwrap().to_string();
     assert_ne!(spell_id.len(), 0);
     let worker_id = response[1].as_str().unwrap().to_string();
     assert_eq!(worker_id, client.node.to_base58());
 }
 
-#[test]
-fn spell_create_worker_same_deal_id_different_peer() {
-    let swarms = make_swarms(1);
+#[tokio::test]
+async fn spell_create_worker_same_deal_id_different_peer() {
+    let swarms = make_swarms(1).await;
     let mut client1 = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
         .wrap_err("connect client")
         .unwrap();
 
     let mut client2 = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
         .wrap_err("connect client")
         .unwrap();
 
@@ -1443,16 +1523,18 @@ fn spell_create_worker_same_deal_id_different_peer() {
         "client" => json!(client1.peer_id.to_string()),
         "relay" => json!(client1.node.to_string()),
     };
-    client1.send_particle(
-        r#"
+    let response = client1
+        .execute_particle(
+            r#"
         (seq
             (call relay ("worker" "create") ["deal_id"] worker_peer_id)
             (call client ("return" "") [worker_peer_id])
         )"#,
-        data.clone(),
-    );
+            data.clone(),
+        )
+        .await
+        .unwrap();
 
-    let response = client1.receive_args().wrap_err("receive").unwrap();
     let worker_id = response[0].as_str().unwrap().to_string();
     assert_ne!(worker_id.len(), 0);
 
@@ -1460,8 +1542,9 @@ fn spell_create_worker_same_deal_id_different_peer() {
         "client" => json!(client2.peer_id.to_string()),
         "relay" => json!(client2.node.to_string()),
     };
-    client2.send_particle(
-        r#"
+    let response = client2
+        .execute_particle(
+            r#"
         (xor
             (seq
                 (call relay ("worker" "create") ["deal_id"] worker_peer_id)
@@ -1469,10 +1552,11 @@ fn spell_create_worker_same_deal_id_different_peer() {
             )
             (call client ("return" "") [%last_error%.$.message])
         )"#,
-        data.clone(),
-    );
+            data.clone(),
+        )
+        .await
+        .unwrap();
 
-    let response = client2.receive_args().wrap_err("receive").unwrap();
     let error_msg = response[0].as_str().unwrap().to_string();
     assert!(error_msg.contains("Worker for deal_id already exists"));
 }

@@ -1,6 +1,5 @@
 use std::collections::HashMap;
-
-use parking_lot::RwLock;
+use tokio::sync::RwLock;
 
 use crate::builtins::CustomService;
 
@@ -11,7 +10,7 @@ pub fn fmt_custom_services(
     fmt.debug_map()
         .entries(
             services
-                .read()
+                .blocking_read()
                 .iter()
                 .map(|(sid, fs)| (sid, fs.functions.keys().collect::<Vec<_>>())),
         )

@@ -49,10 +49,11 @@ pub struct Abuse {
     output: Vec<JValue>,
 }
 
-fn abuse_fold(air: &str) -> Abuse {
-    let swarms = make_swarms(1);
+async fn abuse_fold(air: &str) -> Abuse {
+    let swarms = make_swarms(1).await;
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
         .wrap_err("connect client")
         .unwrap();
 
@@ -79,7 +80,7 @@ fn abuse_fold(air: &str) -> Abuse {
 
     client.timeout = Duration::from_secs(1);
 
-    let args = client.receive_args().wrap_err("receive args");
+    let args = client.receive_args().await.wrap_err("receive args");
     let args = args.unwrap_or_else(|_| panic!("{} failed", json!(elems)));
     println!("args {}", json!(args));
     let output = match args.into_iter().next() {
@@ -96,8 +97,8 @@ fn abuse_fold(air: &str) -> Abuse {
     }
 }
 
-#[test]
-fn fold_fold_fold_par_null() {
+#[tokio::test]
+async fn fold_fold_fold_par_null() {
     let Abuse { input, output } = abuse_fold(
         r#"
         (new $inner
@@ -131,7 +132,8 @@ fn fold_fold_fold_par_null() {
             )
         )
         "#,
-    );
+    )
+    .await;
 
     let flat: Vec<Vec<String>> = input
         .into_iter()
@@ -141,8 +143,8 @@ fn fold_fold_fold_par_null() {
     assert_eq!(json!(flat), json!(output));
 }
 
-#[test]
-fn fold_fold_fold_par_null_join() {
+#[tokio::test]
+async fn fold_fold_fold_par_null_join() {
     let Abuse { input, output } = abuse_fold(
         format!(
             r#"
@@ -181,7 +183,8 @@ fn fold_fold_fold_par_null_join() {
             join_stream("result", "relay", "#inner.length", "joined_result"),
         )
         .as_str(),
-    );
+    )
+    .await;
 
     let flat: Vec<Vec<String>> = input
         .into_iter()
@@ -191,8 +194,8 @@ fn fold_fold_fold_par_null_join() {
     assert_eq!(json!(flat), json!(output));
 }
 
-#[test]
-fn fold_fold_fold_seq_two_par_null_folds() {
+#[tokio::test]
+async fn fold_fold_fold_seq_two_par_null_folds_flaky() {
     let Abuse { input, output } = abuse_fold(
         format!(
             r#"
@@ -239,7 +242,8 @@ fn fold_fold_fold_seq_two_par_null_folds() {
             join_stream("result", "relay", "#inner.length", "joined_result")
         )
         .as_str(),
-    );
+    )
+    .await;
 
     let flat: Vec<Vec<String>> = input
         .into_iter()
@@ -249,11 +253,12 @@ fn fold_fold_fold_seq_two_par_null_folds() {
     assert_eq!(json!(flat), json!(output));
 }
 
-#[test]
-fn fold_par_same_node_stream() {
-    let swarms = make_swarms(3);
+#[tokio::test]
+async fn fold_par_same_node_stream() {
+    let swarms = make_swarms(3).await;
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
         .wrap_err("connect client")
         .unwrap();
 
@@ -338,7 +343,11 @@ fn fold_par_same_node_stream() {
         },
     );
 
-    let mut args = client.receive_args().wrap_err("receive args").unwrap();
+    let mut args = client
+        .receive_args()
+        .await
+        .wrap_err("receive args")
+        .unwrap();
     type Inner = Vec<Vec<(String, u32)>>;
     type Res = Vec<u32>;
 
@@ -356,11 +365,12 @@ fn fold_par_same_node_stream() {
     assert_eq!(flat, res);
 }
 
-#[test]
-fn fold_fold_seq_join() {
-    let swarm = make_swarms(1).remove(0);
+#[tokio::test]
+async fn fold_fold_seq_join() {
+    let swarm = make_swarms(1).await.remove(0);
 
     let mut client = ConnectedClient::connect_to(swarm.multiaddr)
+        .await
         .wrap_err("connect client")
         .unwrap();
 
@@ -427,7 +437,7 @@ fn fold_fold_seq_join() {
         },
     );
 
-    let mut args = client.receive_args().expect("receive args");
+    let mut args = client.receive_args().await.expect("receive args");
     let can = args.remove(0);
     let can: Vec<char> = serde_json::from_value(can).unwrap();
     assert_eq!(can, flat);
@@ -436,13 +446,14 @@ fn fold_fold_seq_join() {
     assert_eq!(stream, array);
 }
 
-#[test]
-fn fold_fold_pairs_seq_join() {
-    let mut swarms = make_swarms(5);
+#[tokio::test]
+async fn fold_fold_pairs_seq_join() {
+    let mut swarms = make_swarms(5).await;
 
-    add_print(swarms.iter_mut());
+    add_print(swarms.iter_mut()).await;
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
         .wrap_err("connect client")
         .unwrap();
 
@@ -516,7 +527,7 @@ fn fold_fold_pairs_seq_join() {
         },
     );
 
-    let mut args = client.receive_args().expect("receive args");
+    let mut args = client.receive_args().await.expect("receive args");
     let can = args.remove(0);
     let can: Vec<char> = serde_json::from_value(can).unwrap();
     assert_eq!(can.len(), flat.len());
@@ -526,11 +537,12 @@ fn fold_fold_pairs_seq_join() {
     assert_eq!(stream, array);
 }
 
-#[test]
-fn fold_seq_join() {
-    let swarm = make_swarms(1).remove(0);
+#[tokio::test]
+async fn fold_seq_join() {
+    let swarm = make_swarms(1).await.remove(0);
 
     let mut client = ConnectedClient::connect_to(swarm.multiaddr)
+        .await
         .wrap_err("connect client")
         .unwrap();
 
@@ -571,21 +583,22 @@ fn fold_seq_join() {
         },
     );
 
-    let arg = client.receive_args().expect("receive args").remove(0);
+    let arg = client.receive_args().await.expect("receive args").remove(0);
     let can: Vec<u32> = serde_json::from_value(arg).unwrap();
     assert_eq!(can, array);
 }
 
-#[test]
+#[tokio::test]
 #[ignore = "client function isn't called when fold ends with null"]
-fn fold_null_seq_same_node_stream() {
+async fn fold_null_seq_same_node_stream() {
     // enable_logs();
 
-    let mut swarms = make_swarms(3);
+    let mut swarms = make_swarms(3).await;
 
-    add_print(swarms.iter_mut());
+    add_print(swarms.iter_mut()).await;
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
         .wrap_err("connect client")
         .unwrap();
 
@@ -710,7 +723,7 @@ fn fold_null_seq_same_node_stream() {
             )
         )
         "##.to_string()
-        .as_str(),
+            .as_str(),
         hashmap! {
             "relay" => json!(client.node.to_string()),
             "client" => json!(client.peer_id.to_string()),
@@ -719,7 +732,11 @@ fn fold_null_seq_same_node_stream() {
         },
     );
 
-    let mut args = client.receive_args().wrap_err("receive args").unwrap();
+    let mut args = client
+        .receive_args()
+        .await
+        .wrap_err("receive args")
+        .unwrap();
     type Inner = Vec<Vec<(String, u32)>>;
     type Res = Vec<u32>;
 
@@ -736,11 +753,12 @@ fn fold_null_seq_same_node_stream() {
     assert_eq!(flat, res);
 }
 
-#[test]
-fn fold_via() {
-    let swarms = make_swarms(4);
+#[tokio::test]
+async fn fold_via() {
+    let swarms = make_swarms(4).await;
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
         .wrap_err("connect client")
         .unwrap();
 
@@ -813,14 +831,15 @@ fn fold_via() {
         true,
     );
 
-    client.receive().unwrap();
+    client.receive().await.unwrap();
 }
 
-#[test]
-fn join_empty_stream() {
-    let swarms = make_swarms(1);
+#[tokio::test]
+async fn join_empty_stream() {
+    let swarms = make_swarms(1).await;
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
         .wrap_err("connect client")
         .unwrap();
 
@@ -843,7 +862,7 @@ fn join_empty_stream() {
         },
     );
 
-    let err = client.receive_args().expect_err("receive error");
+    let err = client.receive_args().await.expect_err("receive error");
     assert_eq!(
         err.to_string(),
         "Received a particle, but it didn't return anything"

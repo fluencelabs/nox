@@ -17,12 +17,10 @@
 use std::borrow::Cow;
 use std::{task::Waker, time::Instant};
 
-use async_std::task;
 use avm_server::{CallResults, ParticleParameters};
+use fluence_libp2p::PeerId;
 use futures::{future::BoxFuture, FutureExt};
 use humantime::format_duration as pretty;
-
-use fluence_libp2p::PeerId;
 use particle_protocol::Particle;
 
 use crate::aqua_runtime::AquaRuntime;
@@ -52,9 +50,9 @@ impl<RT: AquaRuntime> ParticleExecutor for RT {
     type Particle = (Particle, CallResults);
 
     fn execute(mut self, p: Self::Particle, waker: Waker, current_peer_id: PeerId) -> Self::Future {
-        task::spawn_blocking(move || {
+        let (p, calls) = p;
+        let task = tokio::task::Builder::new().name(&format!("Particle {}", p.id)).spawn_blocking(move || {
             let now = Instant::now();
-            let (p, calls) = p;
             log::info!("Executing particle {}", p.id);
 
             let particle = ParticleParameters {
@@ -62,9 +60,10 @@ impl<RT: AquaRuntime> ParticleExecutor for RT {
                 init_peer_id: Cow::Owned(p.init_peer_id.to_string()),
                 particle_id: Cow::Borrowed(&p.id),
                 timestamp: p.timestamp,
-                ttl: p.ttl
+                ttl: p.ttl,
             };
-            let result = self.call(p.script.clone(), p.data.clone(), particle, calls);
+            let result = self.call(p.script.clone(), p.data.clone(), particle.clone(), calls);
+
             let interpretation_time = now.elapsed();
             let new_data_len = result.as_ref().map(|e| e.data.len()).ok();
             let stats = InterpretationStats { interpretation_time, new_data_len, success: result.is_ok() };
@@ -82,9 +81,10 @@ impl<RT: AquaRuntime> ParticleExecutor for RT {
             FutResult {
                 vm: self,
                 effects,
-                stats
+                stats,
             }
-        })
-        .boxed()
+        }).expect("Could not spawn task");
+
+        async { task.await.expect("Could not join task") }.boxed()
     }
 }

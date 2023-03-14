@@ -18,10 +18,10 @@ use std::future::Future;
 use std::task::Poll;
 use std::time::Duration;
 
-use async_std::{task, task::JoinHandle};
 use futures::{channel::mpsc, SinkExt, StreamExt};
+use tokio::sync::mpsc::UnboundedSender;
+use tokio::task::JoinHandle;
 
-use fluence_libp2p::types::{BackPressuredInlet, BackPressuredOutlet, Outlet};
 use fluence_libp2p::PeerId;
 use key_manager::KeyManager;
 use particle_execution::{ParticleFunctionStatic, ServiceFunction};
@@ -36,10 +36,10 @@ use crate::particle_effects::RoutingEffects;
 use crate::vm_pool::VmPool;
 use crate::{Plumber, VmPoolConfig};
 
-pub type EffectsChannel = Outlet<Result<RoutingEffects, AquamarineApiError>>;
+pub type EffectsChannel = UnboundedSender<Result<RoutingEffects, AquamarineApiError>>;
 
 pub struct AquamarineBackend<RT: AquaRuntime, F> {
-    inlet: BackPressuredInlet<Command>,
+    inlet: mpsc::Receiver<Command>,
     plumber: Plumber<RT, F>,
     out: EffectsChannel,
     host_peer_id: PeerId,
@@ -101,7 +101,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> AquamarineBackend<RT, F> {
         while let Poll::Ready(effects) = self.plumber.poll(cx) {
             wake = true;
             // send results back
-            let sent = self.out.unbounded_send(effects);
+            let sent = self.out.send(effects);
             if let Err(err) = sent {
                 log::error!("Aquamarine effects outlet has died: {}", err);
             }
@@ -116,23 +116,27 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> AquamarineBackend<RT, F> {
 
     pub fn start(mut self) -> JoinHandle<()> {
         let mut stream = futures::stream::poll_fn(move |cx| self.poll(cx).map(|_| Some(()))).fuse();
-        task::spawn(async move {
-            loop {
-                stream.next().await;
-            }
-        })
+        let result = tokio::task::Builder::new()
+            .name("AVM")
+            .spawn(async move {
+                loop {
+                    stream.next().await;
+                }
+            })
+            .expect("Could not spawn task");
+        result
     }
 }
 
 #[derive(Clone)]
 pub struct AquamarineApi {
-    outlet: BackPressuredOutlet<Command>,
+    outlet: mpsc::Sender<Command>,
     #[allow(dead_code)]
     execution_timeout: Duration,
 }
 
 impl AquamarineApi {
-    pub fn new(outlet: BackPressuredOutlet<Command>, execution_timeout: Duration) -> Self {
+    pub fn new(outlet: mpsc::Sender<Command>, execution_timeout: Duration) -> Self {
         Self {
             outlet,
             execution_timeout,

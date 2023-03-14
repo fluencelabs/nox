@@ -20,22 +20,24 @@ extern crate fstrings;
 use eyre::WrapErr;
 use fstrings::f;
 use maplit::hashmap;
-use serde_json::json;
 use serde_json::Value as JValue;
+use serde_json::{json, Value};
 
 use connected_client::ConnectedClient;
 use created_swarm::make_swarms;
 use humantime_serde::re::humantime::format_duration;
+use log_utils::enable_logs;
 use now_millis::now;
 use service_modules::load_module;
 use std::time::Duration;
 use test_utils::{create_service, CreatedService};
 
-#[test]
-fn stream_hello() {
-    let swarms = make_swarms(1);
+#[tokio::test]
+async fn stream_hello() {
+    let swarms = make_swarms(1).await;
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
         .wrap_err("connect client")
         .unwrap();
 
@@ -54,17 +56,18 @@ fn stream_hello() {
     );
 
     for _ in 1..10 {
-        let res = client.receive_args().wrap_err("receive").unwrap();
+        let res = client.receive_args().await.wrap_err("receive").unwrap();
         let res = res.into_iter().next().unwrap();
         assert_eq!(res, "hello");
     }
 }
 
-#[test]
-fn remove_script() {
-    let swarms = make_swarms(1);
+#[tokio::test]
+async fn remove_script() {
+    let swarms = make_swarms(1).await;
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
         .wrap_err("connect client")
         .unwrap();
 
@@ -72,61 +75,68 @@ fn remove_script() {
         (call "{client.peer_id}" ("op" "return") ["hello"])
     "#);
 
-    client.send_particle(
-        r#"
+    let args = client
+        .execute_particle(
+            r#"
         (seq
             (call relay ("script" "add") [script "0"] id)
             (call client ("op" "return") [id])
         )
         "#,
-        hashmap! {
-            "relay" => json!(client.node.to_string()),
-            "client" => json!(client.peer_id.to_string()),
-            "script" => json!(script),
-        },
-    );
+            hashmap! {
+                "relay" => json!(client.node.to_string()),
+                "client" => json!(client.peer_id.to_string()),
+                "script" => json!(script),
+            },
+        )
+        .await
+        .unwrap();
 
-    let args = client.receive_args().wrap_err("receive args").unwrap();
     let script_id = args.into_iter().next().unwrap();
-    let remove_id = client.send_particle(
-        r#"
+    let removed = client
+        .execute_particle(
+            r#"
         (seq
             (call relay ("script" "remove") [id] removed)
             (call client ("op" "return") [removed])
         )
         "#,
-        hashmap! {
-            "relay" => json!(client.node.to_string()),
-            "client" => json!(client.peer_id.to_string()),
-            "id" => json!(script_id),
-        },
-    );
+            hashmap! {
+                "relay" => json!(client.node.to_string()),
+                "client" => json!(client.peer_id.to_string()),
+                "id" => json!(script_id),
+            },
+        )
+        .await
+        .unwrap();
 
-    let removed = client.wait_particle_args(remove_id).unwrap();
     assert_eq!(removed, vec![serde_json::Value::Bool(true)]);
 
-    let list_id = client.send_particle(
-        r#"
+    let list = client
+        .execute_particle(
+            r#"
         (seq
             (call relay ("script" "list") [] list)
             (call client ("op" "return") [list])
         )
         "#,
-        hashmap! {
-            "relay" => json!(client.node.to_string()),
-            "client" => json!(client.peer_id.to_string()),
-        },
-    );
-    let list = client.wait_particle_args(list_id).unwrap();
+            hashmap! {
+                "relay" => json!(client.node.to_string()),
+                "client" => json!(client.peer_id.to_string()),
+            },
+        )
+        .await
+        .unwrap();
     assert_eq!(list, vec![serde_json::Value::Array(vec![])]);
 }
 
-#[test]
+#[tokio::test]
 /// Check that auto-particle can be delivered through network hops
-fn script_routing() {
-    let swarms = make_swarms(3);
+async fn script_routing() {
+    let swarms = make_swarms(3).await;
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
         .wrap_err("connect client")
         .unwrap();
 
@@ -152,17 +162,22 @@ fn script_routing() {
     );
 
     for _ in 1..10 {
-        let res = client.receive_args().wrap_err("receive args").unwrap();
+        let res = client
+            .receive_args()
+            .await
+            .wrap_err("receive args")
+            .unwrap();
         let res = res.into_iter().next().unwrap();
         assert_eq!(res, "hello");
     }
 }
 
-#[test]
-fn autoremove_singleshot() {
-    let swarms = make_swarms(1);
+#[tokio::test]
+async fn autoremove_singleshot() {
+    let swarms = make_swarms(1).await;
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
         .wrap_err("connect client")
         .unwrap();
 
@@ -181,7 +196,11 @@ fn autoremove_singleshot() {
         },
     );
 
-    let res = client.receive_args().wrap_err("receive args").unwrap();
+    let res = client
+        .receive_args()
+        .await
+        .wrap_err("receive args")
+        .unwrap();
     let res = res.into_iter().next().unwrap();
     assert_eq!(res, "hello");
 
@@ -197,15 +216,33 @@ fn autoremove_singleshot() {
             "client" => json!(client.peer_id.to_string()),
         },
     );
-    let list = client.wait_particle_args(list_id).unwrap();
+    let list = client.wait_particle_args(list_id).await.unwrap();
     assert_eq!(list, vec![serde_json::Value::Array(vec![])]);
 }
 
-#[test]
-fn autoremove_failed() {
-    let swarms = make_swarms(1);
+async fn get_list(client: &mut ConnectedClient) -> Vec<Value> {
+    let list_id = client.send_particle(
+        r#"
+            (seq
+                (call relay ("script" "list") [] list)
+                (call client ("op" "return") [list])
+            )
+            "#,
+        hashmap! {
+        "relay" => json ! (client.node.to_string()),
+        "client" => json ! (client.peer_id.to_string()),
+        },
+    );
+
+    client.wait_particle_args(list_id).await.unwrap()
+}
+
+#[tokio::test]
+async fn autoremove_failed() {
+    let swarms = make_swarms(1).await;
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
         .wrap_err("connect client")
         .unwrap();
 
@@ -224,29 +261,12 @@ fn autoremove_failed() {
         },
     );
 
-    let mut get_list = move || {
-        let list_id = client.send_particle(
-            r#"
-            (seq
-                (call relay ("script" "list") [] list)
-                (call client ("op" "return") [list])
-            )
-            "#,
-            hashmap! {
-                "relay" => json!(client.node.to_string()),
-                "client" => json!(client.peer_id.to_string()),
-            },
-        );
-
-        client.wait_particle_args(list_id).unwrap()
-    };
-
     let timeout = Duration::from_secs(5);
     let deadline = now() + timeout;
 
     // wait for script to appear in the list
     while now() < deadline {
-        let list = get_list();
+        let list = get_list(&mut client).await;
 
         if list.is_empty() {
             continue;
@@ -270,11 +290,11 @@ fn autoremove_failed() {
 
     // wait for script to disappear from the list
     while now() < deadline {
-        let list = get_list();
+        let list = get_list(&mut client).await;
         if list == vec![serde_json::Value::Array(vec![])] {
             return;
         }
-        std::thread::sleep(Duration::from_millis(100));
+        tokio::time::sleep(Duration::from_millis(100)).await;
     }
 
     panic!(
@@ -283,11 +303,12 @@ fn autoremove_failed() {
     );
 }
 
-#[test]
-fn remove_script_unauth() {
-    let swarms = make_swarms(1);
+#[tokio::test]
+async fn remove_script_unauth() {
+    let swarms = make_swarms(1).await;
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
         .wrap_err("connect client")
         .unwrap();
 
@@ -296,66 +317,69 @@ fn remove_script_unauth() {
     "#);
 
     // add script
-    client.send_particle(
-        r#"
+    let args = client
+        .execute_particle(
+            r#"
         (seq
             (call relay ("script" "add") [script "0"] id)
             (call client ("op" "return") [id])
         )
         "#,
-        hashmap! {
-            "relay" => json!(client.node.to_string()),
-            "client" => json!(client.peer_id.to_string()),
-            "script" => json!(script),
-        },
-    );
+            hashmap! {
+                "relay" => json!(client.node.to_string()),
+                "client" => json!(client.peer_id.to_string()),
+                "script" => json!(script),
+            },
+        )
+        .await
+        .unwrap();
 
-    let args = client.receive_args().wrap_err("receive args").unwrap();
     let script_id = args.into_iter().next().unwrap();
 
     // try to remove from another client, should fail
     let mut client2 = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
         .wrap_err("connect client")
         .unwrap();
-    let remove_id = client2.send_particle(
-        r#"
+    let removed = client2
+        .execute_particle(
+            r#"
         (xor
             (call relay ("script" "remove") [id] removed)
             (call client ("op" "return") ["failed"])
         )
         "#,
-        hashmap! {
-            "relay" => json!(client2.node.to_string()),
-            "client" => json!(client2.peer_id.to_string()),
-            "id" => json!(script_id),
-        },
-    );
+            hashmap! {
+                "relay" => json!(client2.node.to_string()),
+                "client" => json!(client2.peer_id.to_string()),
+                "id" => json!(script_id),
+            },
+        )
+        .await
+        .unwrap();
 
-    let removed = client2.wait_particle_args(remove_id).unwrap();
     assert_eq!(
         removed,
         vec![serde_json::Value::String("failed".to_string())]
     );
 
     // check script is still in the list
-    let list_id = client.send_particle(
-        r#"
+    let list = client
+        .execute_particle(
+            r#"
         (seq
             (call relay ("script" "list") [] list)
             (call client ("op" "return") [list])
         )
         "#,
-        hashmap! {
-            "relay" => json!(client.node.to_string()),
-            "client" => json!(client.peer_id.to_string()),
-        },
-    );
-    let list = client
-        .wait_particle_args(list_id)
-        .unwrap()
-        .into_iter()
-        .next()
+            hashmap! {
+                "relay" => json!(client.node.to_string()),
+                "client" => json!(client.peer_id.to_string()),
+            },
+        )
+        .await
         .unwrap();
+    let list = list.into_iter().next().unwrap();
     if let serde_json::Value::Array(list) = list {
         assert_eq!(list.len(), 1);
     } else {
@@ -363,46 +387,51 @@ fn remove_script_unauth() {
     }
 
     // remove with owner
-    let remove_id = client.send_particle(
-        r#"
+    let removed = client
+        .execute_particle(
+            r#"
         (seq
             (call relay ("script" "remove") [id] removed)
             (call client ("op" "return") [removed])
         )
         "#,
-        hashmap! {
-            "relay" => json!(client.node.to_string()),
-            "client" => json!(client.peer_id.to_string()),
-            "id" => json!(script_id),
-        },
-    );
+            hashmap! {
+                "relay" => json!(client.node.to_string()),
+                "client" => json!(client.peer_id.to_string()),
+                "id" => json!(script_id),
+            },
+        )
+        .await
+        .unwrap();
 
     // check removal succeeded
-    let removed = client.wait_particle_args(remove_id).unwrap();
     assert_eq!(removed, vec![serde_json::Value::Bool(true)]);
 
     // check script is not in the list anymore
-    let list_id = client.send_particle(
-        r#"
+    let list = client
+        .execute_particle(
+            r#"
         (seq
             (call relay ("script" "list") [] list)
             (call client ("op" "return") [list])
         )
         "#,
-        hashmap! {
-            "relay" => json!(client.node.to_string()),
-            "client" => json!(client.peer_id.to_string()),
-        },
-    );
-    let list = client.wait_particle_args(list_id).unwrap();
+            hashmap! {
+                "relay" => json!(client.node.to_string()),
+                "client" => json!(client.peer_id.to_string()),
+            },
+        )
+        .await
+        .unwrap();
     assert_eq!(list, vec![serde_json::Value::Array(vec![])]);
 }
 
-#[test]
-fn remove_script_management_key() {
-    let swarms = make_swarms(1);
+#[tokio::test]
+async fn remove_script_management_key() {
+    let swarms = make_swarms(1).await;
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
         .wrap_err("connect client")
         .unwrap();
 
@@ -411,21 +440,23 @@ fn remove_script_management_key() {
     "#);
 
     // add script
-    client.send_particle(
-        r#"
+    let args = client
+        .execute_particle(
+            r#"
         (seq
             (call relay ("script" "add") [script "0"] id)
             (call client ("op" "return") [id])
         )
         "#,
-        hashmap! {
-            "relay" => json!(client.node.to_string()),
-            "client" => json!(client.peer_id.to_string()),
-            "script" => json!(script),
-        },
-    );
+            hashmap! {
+                "relay" => json!(client.node.to_string()),
+                "client" => json!(client.peer_id.to_string()),
+                "script" => json!(script),
+            },
+        )
+        .await
+        .unwrap();
 
-    let args = client.receive_args().wrap_err("receive args").unwrap();
     let script_id = args.into_iter().next().unwrap();
 
     // try to remove with management key
@@ -433,6 +464,7 @@ fn remove_script_management_key() {
         swarms[0].multiaddr.clone(),
         Some(swarms[0].management_keypair.clone()),
     )
+    .await
     .wrap_err("connect client")
     .unwrap();
 
@@ -451,7 +483,7 @@ fn remove_script_management_key() {
     );
 
     // check removal succeeded
-    let removed = client2.wait_particle_args(remove_id).unwrap();
+    let removed = client2.wait_particle_args(remove_id).await.unwrap();
     assert_eq!(removed, vec![serde_json::Value::Bool(true)]);
 
     // check script is not in the list anymore
@@ -467,17 +499,18 @@ fn remove_script_management_key() {
             "client" => json!(client.peer_id.to_string()),
         },
     );
-    let list = client.wait_particle_args(list_id).unwrap();
+    let list = client.wait_particle_args(list_id).await.unwrap();
     assert_eq!(list, vec![serde_json::Value::Array(vec![])]);
 }
 
-#[test]
-fn add_script_delay() {
-    let swarms = make_swarms(1);
+#[tokio::test]
+async fn add_script_delay() {
+    let swarms = make_swarms(1).await;
 
     let delay = 3u64;
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
         .wrap_err("connect client")
         .unwrap();
 
@@ -488,8 +521,9 @@ fn add_script_delay() {
         )
     "#);
 
-    let now_id = client.send_particle(
-        r#"
+    let mut res = client
+        .execute_particle(
+            r#"
         (seq
             (call relay ("peer" "timestamp_sec") [] now)
             (seq
@@ -498,17 +532,19 @@ fn add_script_delay() {
             )
         )
         "#,
-        hashmap! {
-            "relay" => json!(client.node.to_string()),
-            "delay" => json!(delay),
-            "script" => json!(script),
-        },
-    );
+            hashmap! {
+                "relay" => json!(client.node.to_string()),
+                "delay" => json!(delay),
+                "script" => json!(script),
+            },
+        )
+        .await
+        .unwrap();
 
-    let res = client.wait_particle_args(now_id).unwrap().pop().unwrap();
+    let res = res.pop().unwrap();
     let now = res.as_u64().unwrap();
 
-    let res = client.receive_args().wrap_err("receive").unwrap();
+    let res = client.receive_args().await.wrap_err("receive").unwrap();
     let res = res.into_iter().next().unwrap().as_u64().unwrap();
     let eps = 10u64;
     let expected = now + delay;
@@ -516,13 +552,14 @@ fn add_script_delay() {
     assert!(check_range.contains(&res));
 }
 
-#[test]
-fn add_script_delay_oneshot() {
-    let swarms = make_swarms(1);
+#[tokio::test]
+async fn add_script_delay_oneshot() {
+    let swarms = make_swarms(1).await;
 
     let delay = 4u64;
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
         .wrap_err("connect client")
         .unwrap();
 
@@ -533,8 +570,9 @@ fn add_script_delay_oneshot() {
         )
     "#);
 
-    let now_id = client.send_particle(
-        r#"
+    let mut res = client
+        .execute_particle(
+            r#"
         (seq
             (call relay ("peer" "timestamp_sec") [] now)
             (seq
@@ -543,46 +581,52 @@ fn add_script_delay_oneshot() {
             )
         )
         "#,
-        hashmap! {
-            "relay" => json!(client.node.to_string()),
-            "delay" => json!(delay),
-            "script" => json!(script),
-        },
-    );
+            hashmap! {
+                "relay" => json!(client.node.to_string()),
+                "delay" => json!(delay),
+                "script" => json!(script),
+            },
+        )
+        .await
+        .unwrap();
 
-    let res = client.wait_particle_args(now_id).unwrap().pop().unwrap();
+    let res = res.pop().unwrap();
     let now = res.as_u64().unwrap();
 
-    let res = client.receive_args().wrap_err("receive").unwrap();
+    let res = client.receive_args().await.wrap_err("receive").unwrap();
     let res = res.into_iter().next().unwrap().as_u64().unwrap();
     let eps = 10u64;
     let expected = now + delay;
     let check_range = expected - eps..expected + eps;
     assert!(check_range.contains(&res));
 
-    let list_id = client.send_particle(
-        r#"
+    let list = client
+        .execute_particle(
+            r#"
         (seq
             (call relay ("script" "list") [] list)
             (call client ("op" "return") [list])
         )
         "#,
-        hashmap! {
-            "relay" => json!(client.node.to_string()),
-            "client" => json!(client.peer_id.to_string()),
-        },
-    );
-    let list = client.wait_particle_args(list_id).unwrap();
+            hashmap! {
+                "relay" => json!(client.node.to_string()),
+                "client" => json!(client.peer_id.to_string()),
+            },
+        )
+        .await
+        .unwrap();
     assert_eq!(list, vec![serde_json::Value::Array(vec![])]);
 }
 
-#[test]
-fn add_script_random_delay() {
-    let swarms = make_swarms(1);
+#[tokio::test]
+async fn add_script_random_delay() {
+    enable_logs();
+    let swarms = make_swarms(1).await;
 
     let interval = 3u64;
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
         .wrap_err("connect client")
         .unwrap();
 
@@ -593,8 +637,9 @@ fn add_script_random_delay() {
         )
     "#);
 
-    let now_id = client.send_particle(
-        f!(r#"
+    let mut res = client
+        .execute_particle(
+            f!(r#"
         (seq
             (call relay ("peer" "timestamp_sec") [] now)
             (seq
@@ -603,42 +648,48 @@ fn add_script_random_delay() {
             )
         )
         "#),
-        hashmap! {
-            "relay" => json!(client.node.to_string()),
-            "script" => json!(script),
-        },
-    );
+            hashmap! {
+                "relay" => json!(client.node.to_string()),
+                "script" => json!(script),
+            },
+        )
+        .await
+        .unwrap();
 
-    let res = client.wait_particle_args(now_id).unwrap().pop().unwrap();
+    let res = res.pop().unwrap();
     let now = res.as_u64().unwrap();
 
-    let res = client.receive_args().wrap_err("receive").unwrap();
+    let res = client.receive_args().await.wrap_err("receive").unwrap();
     let res = res.into_iter().next().unwrap().as_u64().unwrap();
     let eps = 2u64;
     let expected = now + interval + eps;
+    log::info!("res {}", res);
+    log::info!("expected {}", expected);
     assert!((now..=expected).contains(&res));
 }
 
-fn create_file_share(client: &mut ConnectedClient) -> CreatedService {
+async fn create_file_share(client: &mut ConnectedClient) -> CreatedService {
     create_service(
         client,
         "file_share",
         load_module("tests/file_share/artifacts", "file_share").expect("load module"),
     )
+    .await
 }
 
-#[test]
-fn add_script_from_vault_ok() {
-    let swarms = make_swarms(1);
+#[tokio::test]
+async fn add_script_from_vault_ok() {
+    let swarms = make_swarms(1).await;
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
         .wrap_err("connect client")
         .unwrap();
 
     let script = f!(r#"
         (call "{client.peer_id}" ("op" "return") ["hello"])
     "#);
-    let fileshare = create_file_share(&mut client);
+    let fileshare = create_file_share(&mut client).await;
     client.send_particle(
         r#"
             (seq
@@ -654,25 +705,26 @@ fn add_script_from_vault_ok() {
     );
 
     for _ in 1..10 {
-        let res = client.receive_args().wrap_err("receive").unwrap();
+        let res = client.receive_args().await.wrap_err("receive").unwrap();
         let res = res.into_iter().next().unwrap();
         assert_eq!(res, "hello");
     }
 }
 
-#[test]
-fn add_script_from_vault_wrong_vault() {
-    let swarms = make_swarms(1);
+#[tokio::test]
+async fn add_script_from_vault_wrong_vault() {
+    let swarms = make_swarms(1).await;
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
         .wrap_err("connect client")
         .unwrap();
 
     let script = f!(r#"
         (call "{client.peer_id}" ("op" "return") ["hello"])
     "#);
-    let fileshare = create_file_share(&mut client);
-    client.send_particle(
+    let fileshare = create_file_share(&mut client).await;
+    let result = client.execute_particle(
         r#"
            (xor
                (call relay ("script" "add_from_vault") ["/tmp/vault/another-particle-id/script" "0"])
@@ -684,14 +736,9 @@ fn add_script_from_vault_wrong_vault() {
             "script" => json!(script),
             "fileshare" => json!(fileshare.id),
         },
-    );
+    ).await.unwrap();
 
-    if let [JValue::String(error_msg)] = client
-        .receive_args()
-        .wrap_err("receive")
-        .unwrap()
-        .as_slice()
-    {
+    if let [JValue::String(error_msg)] = result.as_slice() {
         let expected_error_prefix = "Local service error, ret_code is 1, error message is '\"Error: Incorrect vault path `/tmp/vault/another-particle-id/script";
         assert!(
             error_msg.starts_with(expected_error_prefix),

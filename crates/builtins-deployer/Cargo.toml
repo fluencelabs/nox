@@ -16,8 +16,10 @@ fs-utils = { workspace = true }
 uuid-utils = { workspace = true }
 now-millis = { workspace = true }
 fluence-libp2p = { workspace = true }
+tracing = { workspace = true }
 
 futures = { workspace = true }
+tokio = { workspace = true }
 parking_lot = { workspace = true }
 eyre = { workspace = true }
 maplit = { workspace = true }

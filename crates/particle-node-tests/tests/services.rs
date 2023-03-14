@@ -24,11 +24,12 @@ use connected_client::ConnectedClient;
 use created_swarm::make_swarms;
 use service_modules::load_module;
 
-#[test]
-fn create_service_from_config() {
-    let swarms = make_swarms(1);
+#[tokio::test]
+async fn create_service_from_config() {
+    let swarms = make_swarms(1).await;
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
         .wrap_err("connect client")
         .unwrap();
 
@@ -159,24 +160,27 @@ fn create_service_from_config() {
         "module_bytes" => json!(base64.encode(module)),
     };
     client.send_particle_ext(script, data, true);
-    let result = client.receive_args().expect("receive");
+    let result = client.receive_args().await.expect("receive");
     if let [JValue::String(service_id)] = &result[..] {
-        client.send_particle(
-            r#"
+        let result = client
+            .execute_particle(
+                r#"
             (seq
                 (call relay ("srv" "list") [] list)
                 (call %init_peer_id% ("op" "return") [list])
             )
             "#,
-            hashmap! {
-                "relay" => json!(client.node.to_string()),
-                "service" => json!(service_id),
-            },
-        );
+                hashmap! {
+                    "relay" => json!(client.node.to_string()),
+                    "service" => json!(service_id),
+                },
+            )
+            .await
+            .unwrap();
 
         use serde_json::Value::Array;
 
-        if let [Array(sids)] = client.receive_args().unwrap().as_slice() {
+        if let [Array(sids)] = result.as_slice() {
             let sid = sids.first().unwrap().get("id").unwrap();
             assert_eq!(sid, &json!(service_id))
         } else {
@@ -185,11 +189,12 @@ fn create_service_from_config() {
     }
 }
 
-#[test]
-fn handle_same_dir_in_preopens_and_mapped_dirs() {
-    let swarms = make_swarms(1);
+#[tokio::test]
+async fn handle_same_dir_in_preopens_and_mapped_dirs() {
+    let swarms = make_swarms(1).await;
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
         .wrap_err("connect client")
         .unwrap();
 
@@ -322,7 +327,7 @@ fn handle_same_dir_in_preopens_and_mapped_dirs() {
         "module_bytes" => json!(base64.encode(module)),
     };
     client.send_particle_ext(script, data, true);
-    let result = client.receive_args();
+    let result = client.receive_args().await;
     if result.is_ok() {
         panic!("expected error for module with invalid config")
     }

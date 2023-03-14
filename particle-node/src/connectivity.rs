@@ -18,10 +18,10 @@ use std::cmp::min;
 use std::collections::HashSet;
 use std::time::Duration;
 
-use async_std::task::{sleep, spawn};
 use futures::{stream::iter, StreamExt};
 use humantime_serde::re::humantime::format_duration as pretty;
 use libp2p::Multiaddr;
+use tokio::time::sleep;
 
 use connection_pool::{ConnectionPoolApi, ConnectionPoolT, LifecycleEvent};
 use fluence_libp2p::PeerId;
@@ -48,8 +48,14 @@ pub struct Connectivity {
 
 impl Connectivity {
     pub fn start(self) -> Tasks {
-        let reconnect_bootstraps = spawn(self.clone().reconnect_bootstraps());
-        let run_bootstrap = spawn(self.kademlia_bootstrap());
+        let reconnect_bootstraps = tokio::task::Builder::new()
+            .name("reconnect_bootstraps")
+            .spawn(self.clone().reconnect_bootstraps())
+            .expect("Could not spawn task");
+        let run_bootstrap = tokio::task::Builder::new()
+            .name("run_bootstrap")
+            .spawn(self.kademlia_bootstrap())
+            .expect("Could not spawn task");
 
         Tasks::new("Connectivity", vec![run_bootstrap, reconnect_bootstraps])
     }
@@ -160,8 +166,7 @@ impl Connectivity {
 
         // Count connected (and reconnected) bootstrap nodes
         let connections = {
-            use async_std::stream::StreamExt as stream;
-
+            use tokio_stream::StreamExt as stream;
             let events = pool.lifecycle_events();
             stream::filter_map(events, move |e| {
                 log::trace!(target: "network", "Connection pool event: {:?}", e);
@@ -200,7 +205,7 @@ impl Connectivity {
         let metrics = self.metrics.as_ref();
 
         let disconnections = {
-            use async_std::stream::StreamExt as stream;
+            use tokio_stream::StreamExt as stream;
 
             let bootstrap_nodes = bootstrap_nodes.clone();
             let events = pool.lifecycle_events();

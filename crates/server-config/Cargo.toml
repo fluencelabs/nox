@@ -8,7 +8,7 @@ edition = "2021"
 config-utils = { workspace = true }
 fs-utils = { workspace = true }
 particle-protocol = { workspace = true }
-fluence-libp2p = { workspace = true, features=["async-std"] }
+fluence-libp2p = { workspace = true, features = ["tokio"] }
 air-interpreter-fs = { workspace = true }
 peer-metrics = { workspace = true }
 
@@ -29,5 +29,5 @@ base64 = { workspace = true }
 num_cpus = "1.15.0"
 eyre = { workspace = true }
 derivative = { workspace = true }
-bytesize = {version = "1.1.0", features = ["serde"]}
+bytesize = { version = "1.1.0", features = ["serde"] }
 serde_with = "2.2.0"

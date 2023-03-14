@@ -14,12 +14,11 @@
  * limitations under the License.
  */
 
+use async_trait::async_trait;
 use std::collections::HashMap;
 use std::sync::Arc;
 
 use futures::future::BoxFuture;
-use futures::FutureExt;
-
 use particle_args::Args;
 
 use crate::{FunctionOutcome, ParticleParams};
@@ -32,18 +31,18 @@ pub type ServiceFunctionImmut =
     Box<dyn Fn(Args, ParticleParams) -> Output<'static> + 'static + Send + Sync>;
 
 pub enum ServiceFunction {
-    Mut(parking_lot::Mutex<ServiceFunctionMut>),
+    Mut(tokio::sync::Mutex<ServiceFunctionMut>),
     Immut(ServiceFunctionImmut),
 }
 
 impl ServiceFunction {
-    pub fn call(&self, args: Args, particle: ParticleParams) -> Output<'static> {
+    pub async fn call(&self, args: Args, particle: ParticleParams) -> FunctionOutcome {
         match self {
             ServiceFunction::Mut(f) => {
-                let mut func = f.lock();
-                func(args, particle)
+                let mut func = f.lock().await;
+                func(args, particle).await
             }
-            ServiceFunction::Immut(f) => f(args, particle),
+            ServiceFunction::Immut(f) => f(args, particle).await,
         }
     }
 }
@@ -56,61 +55,55 @@ impl From<ServiceFunctionImmut> for ServiceFunction {
 
 impl From<ServiceFunctionMut> for ServiceFunction {
     fn from(f: ServiceFunctionMut) -> Self {
-        ServiceFunction::Mut(parking_lot::Mutex::new(f))
+        ServiceFunction::Mut(tokio::sync::Mutex::new(f))
     }
 }
 
+#[async_trait]
 pub trait ParticleFunction: 'static + Send + Sync {
-    fn call(&self, args: Args, particle: ParticleParams) -> Output<'_>;
-    fn extend(
+    async fn call(&self, args: Args, particle: ParticleParams) -> FunctionOutcome;
+    async fn extend(
         &self,
         service: String,
         functions: HashMap<String, ServiceFunction>,
         fallback: Option<ServiceFunction>,
     );
-    fn remove(
-        &self,
-        service: &str,
-    ) -> Option<(HashMap<String, ServiceFunction>, Option<ServiceFunction>)>;
+    async fn remove(&self, service: &str);
 }
 
 pub trait ParticleFunctionMut: 'static + Send + Sync {
     fn call_mut(&mut self, args: Args, particle: ParticleParams) -> Output<'_>;
 }
 
+#[async_trait]
 pub trait ParticleFunctionStatic: Clone + 'static + Send + Sync {
-    fn call(&self, args: Args, particle: ParticleParams) -> Output<'static>;
-    fn extend(
+    async fn call(&self, args: Args, particle: ParticleParams) -> FunctionOutcome;
+    async fn extend(
         &self,
         service: String,
         functions: HashMap<String, ServiceFunction>,
         fallback: Option<ServiceFunction>,
     );
-    fn remove(
-        &self,
-        service: &str,
-    ) -> Option<(HashMap<String, ServiceFunction>, Option<ServiceFunction>)>;
+    async fn remove(&self, service: &str);
 }
 
+#[async_trait]
 impl<F: ParticleFunction> ParticleFunctionStatic for Arc<F> {
-    fn call(self: &Arc<F>, args: Args, particle: ParticleParams) -> Output<'static> {
+    async fn call(self: &Arc<F>, args: Args, particle: ParticleParams) -> FunctionOutcome {
         let this = self.clone();
-        async move { ParticleFunction::call(this.as_ref(), args, particle).await }.boxed()
+        ParticleFunction::call(this.as_ref(), args, particle).await
     }
 
-    fn extend(
+    async fn extend(
         self: &Arc<F>,
         service: String,
         functions: HashMap<String, ServiceFunction>,
         fallback: Option<ServiceFunction>,
     ) {
-        ParticleFunction::extend(self.as_ref(), service, functions, fallback)
+        ParticleFunction::extend(self.as_ref(), service, functions, fallback).await;
     }
 
-    fn remove(
-        self: &Arc<F>,
-        service: &str,
-    ) -> Option<(HashMap<String, ServiceFunction>, Option<ServiceFunction>)> {
-        ParticleFunction::remove(self.as_ref(), service)
+    async fn remove(self: &Arc<F>, service: &str) {
+        ParticleFunction::remove(self.as_ref(), service).await;
     }
 }

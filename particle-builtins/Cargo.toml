@@ -27,7 +27,8 @@ avm-server = { workspace = true }
 multihash = "0.16.3"
 fluence-keypair = { workspace = true }
 
-async-std = { workspace = true }
+
+tokio = { workspace = true }
 serde_json = { workspace = true }
 serde = { workspace = true }
 log = { workspace = true }
@@ -41,7 +42,7 @@ itertools = { workspace = true }
 bytesize = "1.1.0"
 derivative = { workspace = true }
 fluence-app-service = { workspace = true }
-
+async-trait = { version = "0.1.64"}
 eyre = { workspace = true }
 
 [dev-dependencies]

@@ -12,7 +12,8 @@ created-swarm = { workspace = true }
 test-constants = { workspace = true }
 service-modules = { workspace = true }
 
-async-std = { workspace = true }
+
+tokio = { workspace = true }
 serde_json = { workspace = true }
 fstrings = { workspace = true }
 maplit = { workspace = true }

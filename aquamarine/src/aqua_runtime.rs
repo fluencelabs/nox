@@ -16,7 +16,6 @@
 
 use std::{error::Error, task::Waker};
 
-use async_std::task;
 use avm_server::{
     AVMConfig, AVMError, AVMMemoryStats, AVMOutcome, CallResults, ParticleParameters, AVM,
 };
@@ -65,23 +64,27 @@ impl AquaRuntime for AVM<DataStoreError> {
         config: Self::Config,
         waker: Waker,
     ) -> BoxFuture<'static, Result<Self, Self::Error>> {
-        task::spawn_blocking(move || {
-            let data_store = Box::new(ParticleDataStore::new(
-                config.particles_dir,
-                config.particles_vault_dir,
-                config.particles_anomaly_dir,
-            ));
-            let config = AVMConfig {
-                data_store,
-                air_wasm_path: config.air_interpreter,
-                logging_mask: i32::MAX,
-                max_heap_size: config.max_heap_size,
-            };
-            let vm = AVM::new(config);
-            waker.wake();
-            vm
-        })
-        .boxed()
+        let task = tokio::task::Builder::new()
+            .name("Create AVM")
+            .spawn_blocking(move || {
+                let data_store = Box::new(ParticleDataStore::new(
+                    config.particles_dir,
+                    config.particles_vault_dir,
+                    config.particles_anomaly_dir,
+                ));
+                let config = AVMConfig {
+                    data_store,
+                    air_wasm_path: config.air_interpreter,
+                    logging_mask: i32::MAX,
+                    max_heap_size: config.max_heap_size,
+                };
+                let vm = AVM::new(config)?;
+                waker.wake();
+                Ok(vm)
+            })
+            .expect("Could not spawn task");
+
+        async { task.await.expect("Could not join task") }.boxed()
     }
 
     fn into_effects(

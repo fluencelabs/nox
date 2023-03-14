@@ -5,7 +5,7 @@ authors = ["Fluence Labs"]
 edition = "2021"
 
 [features]
-async-std = ["dep:async-std"]
+tokio = ["dep:tokio"]
 
 [dependencies]
 libp2p = { workspace = true }
@@ -13,7 +13,7 @@ libp2p-noise = { workspace = true }
 multihash = { version = "0.16.3", features = ["serde-codec"] }
 futures = { workspace = true }
 futures-util = "0.3.26"
-async-std = { workspace = true, optional = true }
+tokio = { workspace = true, optional = true }
 serde = { version = "1.0.152", features = ["derive"] }
 serde_json = { workspace = true }
 bs58 = { workspace = true }

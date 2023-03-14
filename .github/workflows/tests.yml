@@ -35,6 +35,8 @@ jobs:
         run: cargo fmt --all -- --check
 
       - name: Run cargo clippy
+        env:
+          RUSTFLAGS: "--cfg tokio_unstable"
         run: cargo clippy -Z unstable-options --all
 
   tests:
@@ -65,6 +67,8 @@ jobs:
           version: 0.9.22
 
       - name: Run cargo nextest
+        env:
+          RUSTFLAGS: "--cfg tokio_unstable"
         run: cargo nextest run --release --all-features --profile ci
 
       - name: Upload test report
