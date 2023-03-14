@@ -6,7 +6,7 @@ use derivative::Derivative;
 use eyre::eyre;
 use eyre::WrapErr;
 use fluence_app_service::TomlMarineConfig;
-use libp2p::PeerId;
+use fluence_libp2p::PeerId;
 use parking_lot::RwLock;
 
 use particle_modules::{load_module_by_path, AddBlueprint, ModuleRepository};

@@ -11,7 +11,7 @@ service-modules = { workspace = true }
 
 fluence-app-service = { workspace = true }
 fluence-spell-distro = { workspace = true }
-libp2p = { workspace = true }
+fluence-libp2p = { workspace = true }
 
 parking_lot = { workspace = true }
 derivative = { workspace = true }

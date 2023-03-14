@@ -182,9 +182,13 @@ impl KeyManager {
     pub fn remove_worker(&self, worker_id: PeerId) -> Result<(), KeyManagerError> {
         let deal_id = self.get_deal_id(worker_id)?;
         remove_keypair(&self.keypairs_dir, &deal_id)?;
-        self.worker_ids.write().remove(&deal_id);
-        self.worker_infos.write().remove(&worker_id);
-        self.worker_keypairs.write().remove(&worker_id);
+        let removed_worker_id = self.worker_ids.write().remove(&deal_id);
+        let removed_worker_info = self.worker_infos.write().remove(&worker_id);
+        let removed_worker_kp = self.worker_keypairs.write().remove(&worker_id);
+
+        debug_assert!(removed_worker_id.is_some(), "worker_id does not exist");
+        debug_assert!(removed_worker_info.is_some(), "worker info does not exist");
+        debug_assert!(removed_worker_kp.is_some(), "worker kp does not exist");
 
         Ok(())
     }
