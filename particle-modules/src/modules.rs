@@ -19,7 +19,7 @@ use std::{collections::HashMap, iter, path::Path, path::PathBuf, sync::Arc};
 use base64::{engine::general_purpose::STANDARD as base64, Engine};
 use bytesize::ByteSize;
 use eyre::WrapErr;
-use fluence_app_service::{DefaultWasmBackend, ModuleDescriptor, TomlMarineNamedModuleConfig};
+use fluence_app_service::{ModuleDescriptor, TomlMarineNamedModuleConfig};
 use fstrings::f;
 use marine_it_parser::module_interface;
 use parking_lot::{Mutex, RwLock};
@@ -441,10 +441,7 @@ impl ModuleRepository {
         self.blueprints.read().values().cloned().collect()
     }
 
-    pub fn resolve_blueprint(
-        &self,
-        blueprint_id: &str,
-    ) -> Result<Vec<ModuleDescriptor<DefaultWasmBackend>>> {
+    pub fn resolve_blueprint(&self, blueprint_id: &str) -> Result<Vec<ModuleDescriptor>> {
         let blueprint = self.get_blueprint_from_cache(blueprint_id)?;
 
         // Load all module descriptors

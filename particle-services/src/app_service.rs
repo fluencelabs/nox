@@ -19,8 +19,7 @@ use crate::persistence::{persist_service, PersistedService};
 use crate::{Result, VIRTUAL_PARTICLE_VAULT_PREFIX};
 
 use fluence_app_service::{
-    AppService, AppServiceConfig, DefaultWasmBackend, MarineConfig, MarineWASIConfig,
-    ModuleDescriptor,
+    AppService, AppServiceConfig, MarineConfig, MarineWASIConfig, ModuleDescriptor,
 };
 use fluence_libp2p::PeerId;
 use particle_modules::ModuleRepository;
@@ -39,7 +38,7 @@ pub fn create_app_service(
     owner_id: PeerId,
     worker_id: PeerId,
     metrics: Option<&ServicesMetrics>,
-) -> Result<AppService<DefaultWasmBackend>> {
+) -> Result<AppService> {
     try {
         let mut modules_config = modules.resolve_blueprint(&blueprint_id)?;
         modules_config
@@ -76,7 +75,7 @@ pub fn create_app_service(
 
 /// Map `vault_dir` to `/tmp/vault` inside the service.
 /// Particle File Vaults will be available as `/tmp/vault/$particle_id`
-fn inject_vault(vault_dir: &Path, module: &mut ModuleDescriptor<DefaultWasmBackend>) {
+fn inject_vault(vault_dir: &Path, module: &mut ModuleDescriptor) {
     let wasi = &mut module.config.wasi;
     if wasi.is_none() {
         *wasi = Some(MarineWASIConfig::default());
