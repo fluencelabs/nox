@@ -26,7 +26,7 @@ use parking_lot::{Mutex, RwLock};
 use serde::Serialize;
 use serde_json::{json, Value as JValue};
 
-use fluence_libp2p::PeerId;
+use fluence_libp2p::{peerid_serializer, PeerId};
 use now_millis::now_ms;
 use particle_args::{Args, JError};
 use particle_execution::{FunctionOutcome, ParticleParams, ParticleVault, VaultError};
@@ -49,6 +49,17 @@ type ServiceAlias = String;
 type Services = HashMap<ServiceId, Service>;
 type Aliases = HashMap<PeerId, HashMap<ServiceAlias, ServiceId>>;
 
+#[derive(Debug, Serialize)]
+pub struct ServiceInfo {
+    pub id: String,
+    pub blueprint_id: String,
+    #[serde(with = "peerid_serializer")]
+    pub owner_id: PeerId,
+    pub aliases: Vec<ServiceAlias>,
+    #[serde(with = "peerid_serializer")]
+    pub worker_id: PeerId,
+}
+
 #[derive(Derivative)]
 #[derivative(Debug)]
 pub struct Service {
@@ -67,6 +78,16 @@ impl Service {
 
     pub fn add_alias(&mut self, alias: String) {
         self.aliases.push(alias);
+    }
+
+    pub fn get_info(&self, id: &str) -> ServiceInfo {
+        ServiceInfo {
+            id: id.to_string(),
+            blueprint_id: self.blueprint_id.clone(),
+            owner_id: self.owner_id,
+            aliases: self.aliases.clone(),
+            worker_id: self.worker_id,
+        }
     }
 }
 
@@ -203,13 +224,36 @@ impl ParticleAppServices {
         )
         .map_err(ServiceError::NoSuchService)?;
 
-        Ok(json!({
-            "id": service_id,
-            "blueprint_id": service.blueprint_id,
-            "owner_id": service.owner_id.to_string(),
-            "aliases": service.aliases,
-            "worker_id": service.worker_id.to_string()
-        }))
+        Ok(json!(service.get_info(&service_id)))
+    }
+
+    pub fn remove_services(&self, worker_id: PeerId) -> Result<(), ServiceError> {
+        let removed_services: Vec<ServiceInfo> = {
+            // TODO: it's highly ineffective, services should be organised by workers
+            self.services
+                .write()
+                .drain_filter(|_, srv| srv.worker_id == worker_id)
+                .map(|(id, srv)| srv.get_info(&id))
+                .collect()
+        };
+
+        for srv in removed_services {
+            if let Err(err) = remove_persisted_service(&self.config.services_dir, srv.id.clone()) {
+                log::warn!(
+                    "Error while removing persisted service for {}: {:?}",
+                    srv.id,
+                    err
+                )
+            }
+
+            if let Some(aliases) = self.aliases.write().get_mut(&srv.worker_id) {
+                for alias in srv.aliases {
+                    aliases.remove(&alias);
+                }
+            }
+        }
+
+        Ok(())
     }
 
     pub fn remove_service(
@@ -254,11 +298,13 @@ impl ParticleAppServices {
             //  What a mess.
             //  service.owner_id has created the service, so can remove. that's OK.
             //  management_peer_id is the node admin, can remove any service. that's OK.
+            //  service.worker_id is the worker itself, so can remove. that's OK.
             //  builtins_management_peer_id is a HACKity hack:
             //      It actually needs to be able to remove only builtins (services deployed from FS on start),
             //      but there's no way to tell which one's are "builtins", so we allow it to remove
             //      all services.
-            if service.owner_id != init_peer_id
+            if service.worker_id != init_peer_id
+                && service.owner_id != init_peer_id
                 && self.management_peer_id != init_peer_id
                 && self.builtins_management_peer_id != init_peer_id
             {
@@ -623,29 +669,20 @@ impl ParticleAppServices {
         Ok(self.modules.get_facade_interface(&service.blueprint_id)?)
     }
 
-    pub fn list_services_with_blueprints(&self) -> Vec<(String, String)> {
+    pub fn list_services_with_info(&self) -> Vec<ServiceInfo> {
         let services = self.services.read();
         services
             .iter()
-            .map(|(id, service)| (id.clone(), service.blueprint_id.clone()))
+            .map(|(id, service)| service.get_info(id))
             .collect()
     }
 
-    // TODO: move JSON serialization to builtins
     pub fn list_services(&self, worker_id: PeerId) -> Vec<JValue> {
         let services = self.services.read();
         let services = services
             .iter()
             .filter(|(_, srv)| srv.worker_id.eq(&worker_id))
-            .map(|(id, srv)| {
-                json!({
-                    "id": id,
-                    "blueprint_id": srv.blueprint_id,
-                    "owner_id": srv.owner_id.to_string(),
-                    "aliases": srv.aliases,
-                    "worker_id": srv.worker_id.to_string()
-                })
-            })
+            .map(|(id, srv)| json!(srv.get_info(id)))
             .collect();
 
         services

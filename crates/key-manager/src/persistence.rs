@@ -22,6 +22,7 @@ use crate::error::KeyManagerError::{
     ReadPersistedKeypair, SerializePersistedKeypair, WriteErrorPersistedKeypair,
 };
 use crate::KeyManager;
+use crate::KeyManagerError::RemoveErrorPersistedKeypair;
 use fluence_keypair::KeyPair;
 use fluence_libp2p::peerid_serializer;
 use libp2p::PeerId;
@@ -54,8 +55,8 @@ impl PersistedKeypair {
     }
 }
 
-pub fn keypair_file_name(remote_peer_id: &str) -> String {
-    format!("{remote_peer_id}_keypair.toml")
+pub fn keypair_file_name(deal_id: &str) -> String {
+    format!("{deal_id}_keypair.toml")
 }
 
 pub fn is_keypair(path: &Path) -> bool {
@@ -116,4 +117,9 @@ pub fn load_persisted_keypairs(
             Ok(keypair)
         })
         .collect()
+}
+
+pub fn remove_keypair(keypairs_dir: &Path, deal_id: &str) -> Result<(), KeyManagerError> {
+    let path = keypairs_dir.join(keypair_file_name(deal_id));
+    std::fs::remove_file(path.clone()).map_err(|err| RemoveErrorPersistedKeypair { path, err })
 }

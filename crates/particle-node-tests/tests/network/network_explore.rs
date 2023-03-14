@@ -314,7 +314,7 @@ fn explore_services() {
 }
 
 #[test]
-fn explore_services_fixed() {
+fn explore_services_fixed_flaky() {
     let swarms = make_swarms(5);
     sleep(KAD_TIMEOUT);
 

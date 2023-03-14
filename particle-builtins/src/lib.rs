@@ -29,7 +29,7 @@
     unreachable_patterns
 )]
 
-pub use builtins::Builtins;
+pub use builtins::{Builtins, CustomService};
 pub use identify::NodeInfo;
 pub use outcome::{ok, wrap, wrap_unit};
 

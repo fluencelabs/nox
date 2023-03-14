@@ -19,6 +19,7 @@ use serde_json::{json, Value as JValue, Value::Array};
 use crate::utils::{parse_spell_id_from, process_func_outcome};
 use fluence_spell_dtos::trigger_config::TriggerConfig;
 use key_manager::KeyManager;
+use libp2p::PeerId;
 use particle_args::{Args, JError};
 use particle_execution::ParticleParams;
 use particle_services::ParticleAppServices;
@@ -26,6 +27,27 @@ use spell_event_bus::api::EventBusError;
 use spell_event_bus::{api, api::SpellEventBusApi};
 use spell_storage::SpellStorage;
 use std::time::Duration;
+
+pub(crate) async fn remove_spell(
+    spell_storage: &SpellStorage,
+    services: &ParticleAppServices,
+    spell_event_bus_api: &SpellEventBusApi,
+    spell_id: String,
+    worker_id: PeerId,
+) -> Result<(), JError> {
+    if let Err(err) = spell_event_bus_api.unsubscribe(spell_id.clone()).await {
+        log::warn!(
+            "can't unsubscribe a spell {spell_id} from its triggers via spell-event-bus-api: {err}"
+        );
+        return Err(JError::new(format!(
+            "can't remove a spell {spell_id} due to an internal error while unsubscribing from the triggers: {err}"
+        )));
+    }
+
+    spell_storage.unregister_spell(&spell_id);
+    services.remove_service(worker_id, spell_id, worker_id, true)?;
+    Ok(())
+}
 
 pub(crate) async fn spell_install(
     sargs: Args,
@@ -57,7 +79,7 @@ pub(crate) async fn spell_install(
     }
 
     let spell_id = services.create_service(spell_storage.get_blueprint(), worker_id, worker_id)?;
-    spell_storage.register_spell(spell_id.clone());
+    spell_storage.register_spell(spell_id.clone(), worker_id);
 
     // TODO: refactor these service calls
     // Save the script to the spell
@@ -135,7 +157,7 @@ pub(crate) fn spell_list(spell_storage: SpellStorage) -> Result<JValue, JError> 
     Ok(Array(
         spell_storage
             .get_registered_spells()
-            .into_iter()
+            .into_keys()
             .map(JValue::String)
             .collect(),
     ))
@@ -153,8 +175,6 @@ pub(crate) async fn spell_remove(
     let spell_id: String = Args::next("spell_id", &mut args)?;
 
     let worker_id = params.host_id;
-    services.check_service_worker_id(spell_id.clone(), worker_id)?;
-
     let init_peer_id = params.init_peer_id;
     let worker_creator = key_manager.get_worker_creator(worker_id)?;
 
@@ -168,24 +188,16 @@ pub(crate) async fn spell_remove(
         )));
     }
 
-    if let Err(err) = spell_event_bus_api.unsubscribe(spell_id.clone()).await {
-        log::warn!(
-            "can't unsubscribe a spell {spell_id} from its triggers via spell-event-bus-api: {err}"
-        );
-        return Err(JError::new(format!(
-            "can't remove a spell {spell_id} due to an internal error while unsubscribing from the triggers: {err}"
-        )));
-    }
-
     let spell_id = services.to_service_id(params.host_id, spell_id)?;
-    spell_storage.unregister_spell(&spell_id);
-    let owner_id = if is_worker_creator {
-        worker_id
-    } else {
-        init_peer_id
-    };
-    services.remove_service(worker_id, spell_id, owner_id, true)?;
-    Ok(())
+
+    remove_spell(
+        &spell_storage,
+        &services,
+        &spell_event_bus_api,
+        spell_id,
+        worker_id,
+    )
+    .await
 }
 
 pub(crate) async fn spell_update_config(
@@ -199,8 +211,6 @@ pub(crate) async fn spell_update_config(
     let spell_id: String = Args::next("spell_id", &mut args)?;
 
     let worker_id = params.host_id;
-    services.check_service_worker_id(spell_id.clone(), worker_id)?;
-
     let init_peer_id = params.init_peer_id;
     let worker_creator = key_manager.get_worker_creator(worker_id)?;
 

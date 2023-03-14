@@ -86,8 +86,8 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> AquamarineBackend<RT, F> {
                 Poll::Ready(Some(AddService {
                     service,
                     functions,
-                    unhandled,
-                })) => self.plumber.add_service(service, functions, unhandled),
+                    fallback,
+                })) => self.plumber.add_service(service, functions, fallback),
 
                 Poll::Ready(Some(RemoveService { service })) => {
                     self.plumber.remove_service(service)
@@ -158,7 +158,7 @@ impl AquamarineApi {
             AddService {
                 service,
                 functions,
-                unhandled: None,
+                fallback: None,
             },
             None,
         )

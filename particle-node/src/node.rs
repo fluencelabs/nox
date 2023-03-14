@@ -45,7 +45,7 @@ use connection_pool::{ConnectionPoolApi, ConnectionPoolT};
 use fluence_libp2p::types::{BackPressuredInlet, Inlet};
 use fluence_libp2p::{build_transport, types::OneshotOutlet};
 use key_manager::KeyManager;
-use particle_builtins::{Builtins, NodeInfo};
+use particle_builtins::{Builtins, CustomService, NodeInfo};
 use particle_execution::ParticleFunctionStatic;
 use particle_protocol::Particle;
 use peer_metrics::{
@@ -54,7 +54,7 @@ use peer_metrics::{
 };
 use script_storage::{ScriptStorageApi, ScriptStorageBackend, ScriptStorageConfig};
 use server_config::{NetworkConfig, ResolvedConfig, ServicesConfig};
-use sorcerer::{Sorcerer, SpellBuiltin};
+use sorcerer::Sorcerer;
 use spell_event_bus::api::{PeerEvent, TriggerEvent};
 use spell_event_bus::bus::SpellEventBus;
 
@@ -258,11 +258,13 @@ impl<RT: AquaRuntime> Node<RT> {
         );
 
         spell_service_functions.into_iter().for_each(
-            |SpellBuiltin {
-                 service_id,
-                 functions,
-                 unhandled,
-             }| builtins.extend(service_id, functions, unhandled),
+            |(
+                service_id,
+                CustomService {
+                    functions,
+                    fallback,
+                },
+            )| builtins.extend(service_id, functions, fallback),
         );
 
         Ok(Self::with(

@@ -5512,6 +5512,7 @@ dependencies = [
  "derivative",
  "eyre",
  "fluence-app-service",
+ "fluence-libp2p",
  "fluence-spell-distro",
  "log",
  "parking_lot 0.12.1",

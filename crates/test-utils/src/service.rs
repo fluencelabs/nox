@@ -31,6 +31,15 @@ pub fn create_service(
     module_name: &str,
     module_bytes: Vec<u8>,
 ) -> CreatedService {
+    create_service_worker(client, module_name, module_bytes, client.node.to_string())
+}
+
+pub fn create_service_worker(
+    client: &mut ConnectedClient,
+    module_name: &str,
+    module_bytes: Vec<u8>,
+    worker_id: String,
+) -> CreatedService {
     let script = f!(r#"
     (seq
         (seq
@@ -43,7 +52,7 @@ pub fn create_service(
                 (call relay ("dist" "add_blueprint") [blueprint] blueprint_id)
             )
             (seq
-                (call relay ("srv" "create") [blueprint_id] service_id)
+                (call worker_id ("srv" "create") [blueprint_id] service_id)
                 (call client ("return" "") [service_id] client_result)
             )
         )
@@ -53,6 +62,7 @@ pub fn create_service(
     let data = hashmap! {
         "client" => json!(client.peer_id.to_string()),
         "relay" => json!(client.node.to_string()),
+        "worker_id" => json!(worker_id),
         "module_name" => json!(module_name),
         "module_bytes" => json!(base64.encode(module_bytes)),
         "name" => json!("blueprint"),
