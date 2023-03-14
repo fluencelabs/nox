@@ -96,7 +96,7 @@ impl SpellStorage {
     fn restore_spells(
         services: &ParticleAppServices,
         modules: &ModuleRepository,
-    ) -> HashMap<String, PeerId> {
+    ) -> HashMap<String, WorkerId> {
         // Find blueprint ids of the already existing spells. They might be of older versions of the spell service.
         // These blueprint ids marked with name "spell" to differ from other blueprints.
         let all_spell_blueprint_ids = modules
