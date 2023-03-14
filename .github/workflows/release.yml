@@ -54,7 +54,7 @@ jobs:
         uses: actions-rust-lang/setup-rust-toolchain@v1
 
       - name: Install cargo-edit
-        uses: baptiste0928/cargo-install@v1.3.0
+        uses: baptiste0928/cargo-install@v1.3.1
         with:
           crate: cargo-edit
 
