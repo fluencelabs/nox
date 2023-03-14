@@ -59,7 +59,7 @@ jobs:
           dependencies: ${{ inputs.cargo-dependencies }}
 
       - name: Install cargo-nextest
-        uses: baptiste0928/cargo-install@v1.3.0
+        uses: baptiste0928/cargo-install@v1.3.1
         with:
           crate: cargo-nextest
           version: 0.9.22
