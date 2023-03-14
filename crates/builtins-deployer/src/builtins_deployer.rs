@@ -185,7 +185,7 @@ impl BuiltinsDeployer {
 
         let result = self
             .send_particle(script, hashmap! {"name".to_string() => json!(name)})
-            .wrap_err("remove_service call failed")?;
+            .wrap_err(format!("remove_service call failed, service {name}"))?;
 
         assert_ok(result, "remove_service call failed")
     }
@@ -213,13 +213,17 @@ impl BuiltinsDeployer {
             "alias".to_string() => json!(builtin.name),
         };
 
-        let result = self
-            .send_particle(script, data)
-            .wrap_err("send_particle in create_service call failed")?;
+        let result = self.send_particle(script, data).wrap_err(format!(
+            "send_particle in create_service call failed, service {}",
+            builtin.name
+        ))?;
 
-        assert_ok(result, "create_service call failed")?;
+        assert_ok(
+            result,
+            format!("create_service for {} call failed", builtin.name).as_str(),
+        )?;
 
-        log::info!("service was created!");
+        log::info!("service {} was created!", builtin.name);
 
         Ok(())
     }

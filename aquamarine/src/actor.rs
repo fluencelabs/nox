@@ -44,7 +44,7 @@ pub struct Actor<RT, F> {
     /// Particle's data is empty.
     particle: Particle,
     /// Particles and call results will be processed in the security scope of this peer id
-    /// It's either `host_peer_id` or owner-specific spell peer id
+    /// It's either `host_peer_id` or local worker peer id
     current_peer_id: PeerId,
 }
 
@@ -82,9 +82,14 @@ where
         self.future.is_some()
     }
 
-    pub fn cleanup(&self, particle_id: &str, vm: &mut RT) -> eyre::Result<()> {
+    pub fn cleanup(
+        &self,
+        particle_id: &str,
+        current_peer_id: &str,
+        vm: &mut RT,
+    ) -> eyre::Result<()> {
         // TODO: remove dirs without using vm https://github.com/fluencelabs/fluence/issues/1216
-        vm.cleanup(particle_id)?;
+        vm.cleanup(particle_id, current_peer_id)?;
         Ok(())
     }
 

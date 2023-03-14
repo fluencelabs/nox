@@ -22,36 +22,53 @@ use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::Arc;
 
-use crate::error::{KeyManagerError, PersistedKeypairError};
+use crate::error::KeyManagerError;
 use crate::persistence::{load_persisted_keypairs, persist_keypair, PersistedKeypair};
+use crate::KeyManagerError::{WorkerAlreadyExists, WorkerNotFound, WorkerNotFoundByDeal};
 use parking_lot::RwLock;
 
 pub const INSECURE_KEYPAIR_SEED: Range<u8> = 0..32;
 
+type DealId = String;
+
 #[derive(Clone)]
 pub struct KeyManager {
-    /// scope_peer_id -> scope_keypair
-    scope_keypairs: Arc<RwLock<HashMap<PeerId, KeyPair>>>,
-    /// remote_peer_id -> scope_peer_id
-    scope_peer_ids: Arc<RwLock<HashMap<PeerId, PeerId>>>,
+    /// worker_id -> worker_keypair
+    worker_keypairs: Arc<RwLock<HashMap<PeerId, KeyPair>>>,
+    /// deal_id -> worker_id
+    worker_ids: Arc<RwLock<HashMap<DealId, PeerId>>>,
+    /// worker_id -> init_peer_id of worker creator
+    worker_creators: Arc<RwLock<HashMap<PeerId, PeerId>>>,
     keypairs_dir: PathBuf,
     host_peer_id: PeerId,
     // temporary public, will refactor
     pub insecure_keypair: KeyPair,
+    pub root_keypair: KeyPair,
+    management_peer_id: PeerId,
+    builtins_management_peer_id: PeerId,
 }
 
 impl KeyManager {
-    pub fn new(keypairs_dir: PathBuf, host_peer_id: PeerId) -> Self {
+    pub fn new(
+        keypairs_dir: PathBuf,
+        root_keypair: KeyPair,
+        management_peer_id: PeerId,
+        builtins_management_peer_id: PeerId,
+    ) -> Self {
         let this = Self {
-            scope_keypairs: Arc::new(Default::default()),
-            scope_peer_ids: Arc::new(Default::default()),
+            worker_keypairs: Arc::new(Default::default()),
+            worker_ids: Arc::new(Default::default()),
+            worker_creators: Arc::new(Default::default()),
             keypairs_dir,
-            host_peer_id,
+            host_peer_id: root_keypair.get_peer_id(),
             insecure_keypair: KeyPair::from_secret_key(
                 INSECURE_KEYPAIR_SEED.collect(),
                 KeyFormat::Ed25519,
             )
             .expect("error creating insecure keypair"),
+            root_keypair,
+            management_peer_id,
+            builtins_management_peer_id,
         };
 
         this.load_persisted_keypairs();
@@ -69,11 +86,11 @@ impl KeyManager {
                     KeyFormat::from_str(&persisted_kp.key_format)?,
                 )?;
                 let peer_id = keypair.get_peer_id();
-                self.scope_peer_ids
+                self.worker_ids
                     .write()
-                    .insert(persisted_kp.remote_peer_id, keypair.get_peer_id());
+                    .insert(persisted_kp.deal_id, keypair.get_peer_id());
 
-                self.scope_keypairs.write().insert(peer_id, keypair);
+                self.worker_keypairs.write().insert(peer_id, keypair);
             };
 
             if let Err(e) = res {
@@ -82,45 +99,79 @@ impl KeyManager {
         }
     }
 
+    pub fn is_local(&self, peer_id: PeerId) -> bool {
+        self.is_host(peer_id) || self.is_worker(peer_id)
+    }
+
+    pub fn is_host(&self, peer_id: PeerId) -> bool {
+        self.host_peer_id == peer_id
+    }
+
+    pub fn is_worker(&self, peer_id: PeerId) -> bool {
+        self.worker_keypairs.read().contains_key(&peer_id)
+    }
+
+    pub fn is_management(&self, peer_id: PeerId) -> bool {
+        self.management_peer_id == peer_id || self.builtins_management_peer_id == peer_id
+    }
+
     pub fn get_host_peer_id(&self) -> PeerId {
         self.host_peer_id
     }
 
-    pub fn has_keypair(&self, remote_peer_id: PeerId) -> bool {
-        self.scope_peer_ids.read().contains_key(&remote_peer_id)
+    pub fn generate_deal_id(init_peer_id: PeerId) -> String {
+        format!("direct_hosting_{init_peer_id}")
     }
 
-    pub fn is_scope_peer_id(&self, scope_peer_id: PeerId) -> bool {
-        self.scope_keypairs.read().contains_key(&scope_peer_id)
-    }
-
-    /// For local peer ids is identity,
-    /// for remote returns associated peer id or generate a new one.
-    pub fn get_scope_peer_id(&self, init_peer_id: PeerId) -> Result<PeerId, PersistedKeypairError> {
-        // All "nested" spells share the same keypair.
-        // "nested" means spells which are created by other spells
-        if self.is_scope_peer_id(init_peer_id) {
-            Ok(init_peer_id)
-        } else {
-            let scope_peer_id = self.scope_peer_ids.read().get(&init_peer_id).cloned();
-            match scope_peer_id {
-                Some(p) => Ok(p),
-                _ => {
-                    let kp = self.generate_keypair();
-                    let scope_peer_id = kp.get_peer_id();
-                    self.store_keypair(init_peer_id, kp)?;
-                    Ok(scope_peer_id)
-                }
+    pub fn create_worker(
+        &self,
+        deal_id: Option<String>,
+        init_peer_id: PeerId,
+    ) -> Result<PeerId, KeyManagerError> {
+        // if deal_id is not provided, we associate it with init_peer_id
+        let deal_id = deal_id.unwrap_or(Self::generate_deal_id(init_peer_id));
+        let worker_id = self.worker_ids.read().get(&deal_id).cloned();
+        match worker_id {
+            Some(_) => Err(WorkerAlreadyExists { deal_id }),
+            _ => {
+                let kp = self.generate_keypair();
+                let worker_id = kp.get_peer_id();
+                self.store_keypair(deal_id, init_peer_id, kp)?;
+                Ok(worker_id)
             }
         }
     }
 
-    pub fn get_scope_keypair(&self, scope_peer_id: PeerId) -> Result<KeyPair, KeyManagerError> {
-        self.scope_keypairs
+    pub fn get_worker_id(&self, deal_id: String) -> Result<PeerId, KeyManagerError> {
+        self.worker_ids
             .read()
-            .get(&scope_peer_id)
+            .get(&deal_id)
             .cloned()
-            .ok_or(KeyManagerError::KeypairNotFound(scope_peer_id))
+            .ok_or(WorkerNotFoundByDeal(deal_id))
+    }
+
+    pub fn get_worker_keypair(&self, worker_id: PeerId) -> Result<KeyPair, KeyManagerError> {
+        if self.is_host(worker_id) {
+            Ok(self.root_keypair.clone())
+        } else {
+            self.worker_keypairs
+                .read()
+                .get(&worker_id)
+                .cloned()
+                .ok_or(KeyManagerError::KeypairNotFound(worker_id))
+        }
+    }
+
+    pub fn get_worker_creator(&self, worker_id: PeerId) -> Result<PeerId, KeyManagerError> {
+        if self.is_host(worker_id) {
+            Ok(worker_id)
+        } else {
+            self.worker_creators
+                .read()
+                .get(&worker_id)
+                .cloned()
+                .ok_or(WorkerNotFound(worker_id))
+        }
     }
 
     pub fn generate_keypair(&self) -> KeyPair {
@@ -129,19 +180,18 @@ impl KeyManager {
 
     pub fn store_keypair(
         &self,
-        remote_peer_id: PeerId,
+        deal_id: DealId,
+        deal_creator: PeerId,
         keypair: KeyPair,
-    ) -> Result<(), PersistedKeypairError> {
+    ) -> Result<(), KeyManagerError> {
         persist_keypair(
             &self.keypairs_dir,
-            PersistedKeypair::new(remote_peer_id, &keypair)?,
+            PersistedKeypair::new(deal_creator, &keypair, deal_id.clone())?,
         )?;
-        let scope_peer_id = keypair.get_peer_id();
-        self.scope_peer_ids
-            .write()
-            .insert(remote_peer_id, scope_peer_id);
-
-        self.scope_keypairs.write().insert(scope_peer_id, keypair);
+        let worker_id = keypair.get_peer_id();
+        self.worker_ids.write().insert(deal_id, worker_id);
+        self.worker_creators.write().insert(worker_id, deal_creator);
+        self.worker_keypairs.write().insert(worker_id, keypair);
 
         Ok(())
     }

@@ -40,23 +40,35 @@ pub(crate) async fn spell_install(
     let init_data: JValue = Args::next("data", &mut args)?;
     let user_config: TriggerConfig = Args::next("config", &mut args)?;
     let config = api::from_user_config(user_config.clone())?;
+    let init_peer_id = params.init_peer_id;
 
-    let spell_peer_id = key_manager.get_scope_peer_id(params.init_peer_id)?;
+    let is_management = key_manager.is_management(init_peer_id);
+    if key_manager.is_host(params.host_id) && !is_management {
+        return Err(JError::new("Failed to install spell in the root scope, only management peer id can install top-level spells"));
+    }
 
-    let spell_id =
-        services.create_service(spell_storage.get_blueprint(), spell_peer_id, spell_peer_id)?;
+    let worker_id = params.host_id;
+    let worker_creator = key_manager.get_worker_creator(params.host_id)?;
+
+    let is_worker = init_peer_id == worker_id;
+    let is_worker_creator = init_peer_id == worker_creator;
+    if !is_management && !is_worker && !is_worker_creator {
+        return Err(JError::new(format!("Failed to install spell on {worker_id}, spell can be installed by worker creator {worker_creator}, worker itself {worker_id} or peer manager; init_peer_id={init_peer_id}")));
+    }
+
+    let spell_id = services.create_service(spell_storage.get_blueprint(), worker_id, worker_id)?;
     spell_storage.register_spell(spell_id.clone());
 
     // TODO: refactor these service calls
     // Save the script to the spell
     process_func_outcome::<UnitValue>(
         services.call_function(
-            spell_peer_id,
+            worker_id,
             &spell_id,
             "set_script_source_to_file",
             vec![json!(script)],
             None,
-            spell_peer_id,
+            worker_id,
             Duration::from_millis(params.ttl as u64),
         ),
         &spell_id,
@@ -66,12 +78,12 @@ pub(crate) async fn spell_install(
     // Save init_data to the spell's KV
     process_func_outcome::<UnitValue>(
         services.call_function(
-            spell_peer_id,
+            worker_id,
             &spell_id,
             "set_json_fields",
             vec![json!(init_data.to_string())],
             None,
-            spell_peer_id,
+            worker_id,
             Duration::from_millis(params.ttl as u64),
         ),
         &spell_id,
@@ -81,12 +93,12 @@ pub(crate) async fn spell_install(
     // Save trigger config
     process_func_outcome::<UnitValue>(
         services.call_function(
-            spell_peer_id,
+            worker_id,
             &spell_id,
             "set_trigger_config",
             vec![json!(user_config)],
             None,
-            spell_peer_id,
+            worker_id,
             Duration::from_millis(params.ttl as u64),
         ),
         &spell_id,
@@ -139,7 +151,22 @@ pub(crate) async fn spell_remove(
 ) -> Result<(), JError> {
     let mut args = args.function_args.into_iter();
     let spell_id: String = Args::next("spell_id", &mut args)?;
-    let spell_peer_id = key_manager.get_scope_peer_id(params.init_peer_id)?;
+
+    let worker_id = params.host_id;
+    services.check_service_worker_id(spell_id.clone(), worker_id)?;
+
+    let init_peer_id = params.init_peer_id;
+    let worker_creator = key_manager.get_worker_creator(worker_id)?;
+
+    let is_worker_creator = init_peer_id == worker_creator;
+    let is_worker = init_peer_id == worker_id;
+    let is_management = key_manager.is_management(init_peer_id);
+
+    if !is_worker_creator && !is_worker && !is_management {
+        return Err(JError::new(format!(
+            "Failed to remove spell {spell_id}, spell can be removed by worker creator {worker_creator}, worker itself {worker_id} or peer manager"
+        )));
+    }
 
     if let Err(err) = spell_event_bus_api.unsubscribe(spell_id.clone()).await {
         log::warn!(
@@ -152,7 +179,12 @@ pub(crate) async fn spell_remove(
 
     let spell_id = services.to_service_id(params.host_id, spell_id)?;
     spell_storage.unregister_spell(&spell_id);
-    services.remove_service(spell_peer_id, spell_id, spell_peer_id, true)?;
+    let owner_id = if is_worker_creator {
+        worker_id
+    } else {
+        init_peer_id
+    };
+    services.remove_service(worker_id, spell_id, owner_id, true)?;
     Ok(())
 }
 
@@ -165,18 +197,34 @@ pub(crate) async fn spell_update_config(
 ) -> Result<(), JError> {
     let mut args = args.function_args.into_iter();
     let spell_id: String = Args::next("spell_id", &mut args)?;
-    let scope_peer_id = key_manager.get_scope_peer_id(params.init_peer_id)?;
+
+    let worker_id = params.host_id;
+    services.check_service_worker_id(spell_id.clone(), worker_id)?;
+
+    let init_peer_id = params.init_peer_id;
+    let worker_creator = key_manager.get_worker_creator(worker_id)?;
+
+    let is_worker_creator = init_peer_id == worker_creator;
+    let is_worker = init_peer_id == worker_id;
+    let is_management = key_manager.is_management(init_peer_id);
+
+    if !is_worker_creator && !is_worker && !is_management {
+        return Err(JError::new(format!(
+            "Failed to update spell config {spell_id}, spell config can be updated by worker creator {worker_creator}, worker itself {worker_id} or peer manager; init_peer_id={init_peer_id}"
+        )));
+    }
+
     let user_config: TriggerConfig = Args::next("config", &mut args)?;
     let config = api::from_user_config(user_config.clone())?;
 
     process_func_outcome::<UnitValue>(
         services.call_function(
-            scope_peer_id,
+            worker_id,
             &spell_id,
             "set_trigger_config",
             vec![json!(user_config)],
             None,
-            scope_peer_id,
+            worker_id,
             Duration::from_millis(params.ttl as u64),
         ),
         &spell_id,
@@ -290,14 +338,4 @@ pub(crate) fn store_response(
             "Failed to store response {response} for spell {spell_id}: {e}"
         ))
     })
-}
-
-// TODO: it's not quite right place for this builtin
-pub(crate) fn scope_get_peer_id(
-    params: ParticleParams,
-    key_manager: KeyManager,
-) -> Result<JValue, JError> {
-    Ok(json!(key_manager
-        .get_scope_peer_id(params.init_peer_id)?
-        .to_base58()))
 }

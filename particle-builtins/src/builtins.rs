@@ -23,7 +23,7 @@ use std::str::FromStr;
 use std::time::{Duration, Instant};
 
 use derivative::Derivative;
-use fluence_keypair::{KeyPair, Signature};
+use fluence_keypair::Signature;
 use humantime_serde::re::humantime::format_duration as pretty;
 use libp2p::{core::Multiaddr, kad::kbucket::Key, kad::K_VALUE, PeerId};
 use multihash::{Code, MultihashDigest, MultihashGeneric};
@@ -72,8 +72,6 @@ pub struct Builtins<C> {
     pub management_peer_id: PeerId,
     pub builtins_management_peer_id: PeerId,
     pub local_peer_id: PeerId,
-    #[derivative(Debug = "ignore")]
-    pub root_keypair: KeyPair,
 
     pub modules: ModuleRepository,
     pub services: ParticleAppServices,
@@ -98,7 +96,6 @@ where
         node_info: NodeInfo,
         config: ServicesConfig,
         services_metrics: ServicesMetrics,
-        root_keypair: KeyPair,
         key_manager: KeyManager,
     ) -> Self {
         let modules_dir = &config.modules_dir;
@@ -123,7 +120,6 @@ where
             management_peer_id,
             builtins_management_peer_id,
             local_peer_id,
-            root_keypair,
             modules,
             services,
             node_info,
@@ -188,7 +184,7 @@ where
             ("kad", "neigh_with_addrs")       => wrap(self.neighborhood_with_addresses(args).await),
             ("kad", "merge")                  => wrap(self.kad_merge(args.function_args)),
 
-            ("srv", "list")                   => ok(self.list_services()),
+            ("srv", "list")                   => ok(self.list_services(particle)),
             ("srv", "create")                 => wrap(self.create_service(args, particle)),
             ("srv", "get_interface")          => wrap(self.get_interface(args, particle)),
             ("srv", "resolve_alias")          => wrap(self.resolve_alias(args, particle)),
@@ -269,6 +265,9 @@ where
             ("json", "stringify")             => unary(args, |v: JValue| -> R<String, _> { Ok(json::stringify(v)) }),
             ("json", "obj_pairs")             => unary(args, |vs: Vec<(String, JValue)>| -> R<JValue, _> { json::obj_from_pairs(vs) }),
             ("json", "puts_pairs")            => binary(args, |obj: JValue, vs: Vec<(String, JValue)>| -> R<JValue, _> { json::puts_from_pairs(obj, vs) }),
+
+            ("worker", "create")              => wrap(self.create_worker(args, particle)),
+            ("worker", "get_peer_id")         => wrap(self.get_worker_peer_id(args, particle)),
 
             ("run-console", "print")          => wrap_unit(Ok(log::debug!(target: "run-console", "{}", json!(args.function_args)))),
 
@@ -825,8 +824,8 @@ where
         Ok(())
     }
 
-    fn list_services(&self) -> JValue {
-        JValue::Array(self.services.list_services())
+    fn list_services(&self, params: ParticleParams) -> JValue {
+        JValue::Array(self.services.list_services(params.host_id))
     }
 
     fn call_service(&self, function_args: Args, particle: ParticleParams) -> FunctionOutcome {
@@ -920,9 +919,7 @@ where
             let tetraplet = tetraplets.get(0).map(|v| v.as_slice());
             if let Some([t]) = tetraplet {
                 if t.peer_pk != self.local_peer_id.to_base58()
-                    && !self
-                        .key_manager
-                        .is_scope_peer_id(PeerId::from_str(&t.peer_pk)?)
+                    && !self.key_manager.is_worker(PeerId::from_str(&t.peer_pk)?)
                 {
                     return Err(JError::new(format!(
                         "data is expected to be produced by service 'registry' on peer '{}', was from peer '{}'",
@@ -950,13 +947,8 @@ where
                 return Err(JError::new(format!("expected tetraplet for a scalar argument, got tetraplet for an array: {tetraplet:?}, tetraplets")));
             }
 
-            if params.host_id == self.local_peer_id {
-                json!(self.root_keypair.sign(&data)?.to_vec())
-            } else {
-                // if this call is initiated by the worker on this worker as host_id and init_peer_id
-                let keypair = self.key_manager.get_scope_keypair(params.init_peer_id)?;
-                json!(keypair.sign(&data)?.to_vec())
-            }
+            let keypair = self.key_manager.get_worker_keypair(params.host_id)?;
+            json!(keypair.sign(&data)?.to_vec())
         };
 
         match result {
@@ -978,35 +970,17 @@ where
         let mut args = args.function_args.into_iter();
         let signature: Vec<u8> = Args::next("signature", &mut args)?;
         let data: Vec<u8> = Args::next("data", &mut args)?;
-        let signature =
-            Signature::from_bytes(self.root_keypair.public().get_key_format(), signature);
+        let pk = self
+            .key_manager
+            .get_worker_keypair(params.host_id)?
+            .public();
+        let signature = Signature::from_bytes(pk.get_key_format(), signature);
 
-        // TODO: move root_keypair to key_manager and unify verification
-        if params.host_id == self.local_peer_id {
-            Ok(JValue::Bool(
-                self.root_keypair.public().verify(&data, &signature).is_ok(),
-            ))
-        } else {
-            Ok(JValue::Bool(
-                self.key_manager
-                    .get_scope_keypair(params.host_id)?
-                    .public()
-                    .verify(&data, &signature)
-                    .is_ok(),
-            ))
-        }
+        Ok(JValue::Bool(pk.verify(&data, &signature).is_ok()))
     }
 
     fn get_peer_id(&self, params: ParticleParams) -> Result<JValue, JError> {
-        if params.host_id == self.local_peer_id {
-            Ok(JValue::String(self.root_keypair.get_peer_id().to_base58()))
-        } else {
-            Ok(JValue::String(
-                self.key_manager
-                    .get_scope_peer_id(params.init_peer_id)?
-                    .to_base58(),
-            ))
-        }
+        Ok(JValue::String(params.host_id.to_base58()))
     }
 
     fn insecure_sign(&self, args: Args) -> Result<JValue, JError> {
@@ -1052,6 +1026,26 @@ where
     fn insecure_get_peer_id(&self) -> Result<JValue, JError> {
         Ok(JValue::String(
             self.key_manager.insecure_keypair.get_peer_id().to_base58(),
+        ))
+    }
+
+    fn create_worker(&self, args: Args, params: ParticleParams) -> Result<JValue, JError> {
+        let mut args = args.function_args.into_iter();
+        let deal_id: Option<String> = Args::next_opt("deal_id", &mut args)?;
+        Ok(JValue::String(
+            self.key_manager
+                .create_worker(deal_id, params.init_peer_id)?
+                .to_base58(),
+        ))
+    }
+
+    fn get_worker_peer_id(&self, args: Args, params: ParticleParams) -> Result<JValue, JError> {
+        let mut args = args.function_args.into_iter();
+        let deal_id: Option<String> = Args::next_opt("deal_id", &mut args)?;
+        let deal_id = deal_id.unwrap_or(KeyManager::generate_deal_id(params.init_peer_id));
+
+        Ok(JValue::String(
+            self.key_manager.get_worker_id(deal_id)?.to_base58(),
         ))
     }
 }

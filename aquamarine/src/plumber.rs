@@ -75,7 +75,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
         &mut self,
         particle: Particle,
         function: Option<ServiceFunction>,
-        scope_peer_id: PeerId,
+        worker_id: PeerId,
     ) {
         self.wake();
 
@@ -92,11 +92,11 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
         let builtins = &self.builtins;
         let actor = self
             .actors
-            .entry((particle.id.clone(), scope_peer_id))
+            .entry((particle.id.clone(), worker_id))
             .or_insert_with(|| {
-                let params = ParticleParams::clone_from(&particle, scope_peer_id);
+                let params = ParticleParams::clone_from(&particle, worker_id);
                 let functions = Functions::new(params, builtins.clone());
-                Actor::new(&particle, functions, scope_peer_id)
+                Actor::new(&particle, functions, worker_id)
             });
 
         actor.ingest(particle);
@@ -139,11 +139,11 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
         for actor in self.actors.values_mut() {
             if let Poll::Ready(result) = actor.poll_completed(cx) {
                 interpretation_stats.push(result.stats);
-                let (local_peers, remote_peers): (Vec<_>, Vec<_>) =
-                    result.effects.next_peers.into_iter().partition(|p| {
-                        key_manager.is_scope_peer_id(*p)
-                            || p.eq(&self.key_manager.get_host_peer_id())
-                    });
+                let (local_peers, remote_peers): (Vec<_>, Vec<_>) = result
+                    .effects
+                    .next_peers
+                    .into_iter()
+                    .partition(|p| key_manager.is_local(*p));
 
                 if !remote_peers.is_empty() {
                     remote_effects.push(RoutingEffects {
@@ -167,7 +167,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
         // Remove expired actors
         if let Some((vm_id, mut vm)) = self.vm_pool.get_vm() {
             let now = now_ms();
-            self.actors.retain(|(particle_id, _peer_id), actor| {
+            self.actors.retain(|(particle_id, peer_id), actor| {
                 // if actor hasn't yet expired or is still executing, keep it
                 // TODO: if actor is expired, cancel execution and return VM back to pool
                 //       https://github.com/fluencelabs/fluence/issues/1212
@@ -175,10 +175,12 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
                     return true; // keep actor
                 }
 
-                log::debug!("Reaping particle's actor {}", particle_id);
+                log::debug!(
+                    "Reaping particle's actor particle_id={particle_id}, peer_id={peer_id})"
+                );
                 // cleanup files and dirs after particle processing (vault & prev_data)
                 // TODO: do not pass vm https://github.com/fluencelabs/fluence/issues/1216
-                if let Err(err) = actor.cleanup(particle_id, &mut vm) {
+                if let Err(err) = actor.cleanup(particle_id, &peer_id.to_string(), &mut vm) {
                     log::warn!(
                         "Error cleaning up after particle {}: {:?}",
                         particle_id,
@@ -276,6 +278,7 @@ mod tests {
     use std::{sync::Arc, task::Context};
 
     use avm_server::{AVMMemoryStats, AVMOutcome, CallResults, ParticleParameters};
+    use fluence_keypair::KeyPair;
     use fluence_libp2p::RandomPeerId;
     use futures::future::BoxFuture;
     use futures::task::noop_waker_ref;
@@ -359,7 +362,11 @@ mod tests {
             })
         }
 
-        fn cleanup(&mut self, _particle_id: &str) -> Result<(), Self::Error> {
+        fn cleanup(
+            &mut self,
+            _particle_id: &str,
+            _current_peer_id: &str,
+        ) -> Result<(), Self::Error> {
             Ok(())
         }
 
@@ -375,7 +382,12 @@ mod tests {
         // Pool is of size 1 so it's easier to control tests
         let vm_pool = VmPool::new(1, (), None);
         let builtin_mock = Arc::new(MockF);
-        let key_manager = KeyManager::new("keypair".into(), RandomPeerId::random());
+        let key_manager = KeyManager::new(
+            "keypair".into(),
+            KeyPair::generate_ed25519(),
+            RandomPeerId::random(),
+            RandomPeerId::random(),
+        );
         Plumber::new(vm_pool, builtin_mock, None, key_manager)
     }
 
