@@ -20,7 +20,6 @@ dhat = { version = "0.3.2", optional = true }
 
 
 fluence-libp2p = { workspace = true }
-ctrlc-adapter = { workspace = true }
 server-config = { workspace = true }
 config-utils = { workspace = true }
 kademlia = { workspace = true }
@@ -42,15 +41,19 @@ libp2p-swarm = { workspace = true }
 prometheus-client = { workspace = true }
 
 futures = { workspace = true }
-async-std = { workspace = true }
+
+tokio = { workspace = true, features = ["full", "tracing"] }
+tokio-stream = { workspace = true }
 parking_lot = { workspace = true }
 
 humantime-serde = { workspace = true }
 
 log = { workspace = true }
 env_logger = "0.10.0"
+tracing-log = { version = "0.1.3", features = ["env_logger"] }
+console-subscriber = { version = "0.1.8", features = ["parking_lot"] }
 clap = "3.2.23"
-tide = "0.17.0-beta.1"
+hyper = "0.14.24"
 itertools = { workspace = true }
 eyre = { workspace = true }
 base64 = { workspace = true }
@@ -66,6 +69,7 @@ blake3 = "1.3.3"
 rand = "0.8.5"
 bs58 = { workspace = true }
 connected-client = { path = "../crates/connected-client" }
+log-utils = { workspace = true }
 
 [[bench]]
 name = "network_api_bench"

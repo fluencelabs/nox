@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
-use futures::channel::oneshot;
 use itertools::Itertools;
 use libp2p::{
     core::{multiaddr::Protocol, Multiaddr},
     identify::Event as IdentifyEvent,
 };
 use particle_protocol::PROTOCOL_NAME;
+use tokio::sync::oneshot;
 
 use super::FluenceNetworkBehaviour;
 

@@ -32,7 +32,8 @@ log = { workspace = true }
 futures = { workspace = true }
 eyre = { workspace = true}
 fstrings = { workspace = true}
-async-std = { workspace = true }
+tokio = { workspace = true }
+tokio-stream = { workspace = true }
 serde = { workspace = true }
 thiserror = { workspace = true }
 

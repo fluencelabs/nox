@@ -6,6 +6,7 @@ pub type ModuleName = String;
 pub type MemorySize = u64;
 
 /// Service function call stats to store in memory
+#[derive(Debug)]
 pub enum ServiceCallStats {
     Success {
         memory_delta_bytes: f64,
@@ -18,6 +19,7 @@ pub enum ServiceCallStats {
 }
 
 /// Messages to the metrics backend
+#[derive(Debug)]
 pub enum ServiceMetricsMsg {
     Memory {
         service_id: String,
@@ -31,7 +33,7 @@ pub enum ServiceMetricsMsg {
     },
 }
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct ServiceMemoryStat {
     /// Memory used by the service
     pub used_mem: MemorySize,

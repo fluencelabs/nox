@@ -18,10 +18,9 @@ use std::convert::identity;
 use std::path::Path;
 use std::{path::PathBuf, time::Duration};
 
-use async_std::task;
 use derivative::Derivative;
 use fluence_keypair::KeyPair;
-use futures::{stream::iter, StreamExt};
+use futures::{stream::iter, FutureExt, StreamExt};
 use libp2p::core::multiaddr::Protocol;
 use libp2p::{core::Multiaddr, PeerId};
 use serde::Deserialize;
@@ -32,13 +31,14 @@ use aquamarine::{AquamarineApi, DataStoreError};
 use base64::{engine::general_purpose::STANDARD as base64, Engine};
 use connection_pool::{ConnectionPoolApi, ConnectionPoolT};
 use fluence_libp2p::random_multiaddr::{create_memory_maddr, create_tcp_maddr};
-use fluence_libp2p::types::OneshotOutlet;
 use fluence_libp2p::Transport;
 use fs_utils::{create_dir, make_tmp_dir_peer_id, to_abs_path};
+use futures::future::join_all;
 use particle_node::{Connectivity, Node};
 use particle_protocol::ProtocolConfig;
 use server_config::{default_script_storage_timer_resolution, BootstrapConfig, UnresolvedConfig};
 use test_constants::{EXECUTION_TIMEOUT, KEEP_ALIVE_TIMEOUT, TRANSPORT_TIMEOUT};
+use tokio::sync::oneshot;
 use toy_vms::EasyVM;
 
 #[allow(clippy::upper_case_acronyms)]
@@ -55,7 +55,7 @@ pub struct CreatedSwarm {
     #[derivative(Debug = "ignore")]
     pub management_keypair: KeyPair,
     // stop signal
-    pub outlet: OneshotOutlet<()>,
+    pub outlet: oneshot::Sender<()>,
     // node connectivity
     #[derivative(Debug = "ignore")]
     pub connectivity: Connectivity,
@@ -63,11 +63,13 @@ pub struct CreatedSwarm {
     pub aquamarine_api: AquamarineApi,
 }
 
-pub fn make_swarms(n: usize) -> Vec<CreatedSwarm> {
-    make_swarms_with_cfg(n, identity)
+#[tracing::instrument]
+pub async fn make_swarms(n: usize) -> Vec<CreatedSwarm> {
+    make_swarms_with_cfg(n, identity).await
 }
 
-pub fn make_swarms_with_cfg<F>(n: usize, mut update_cfg: F) -> Vec<CreatedSwarm>
+#[tracing::instrument(skip(update_cfg))]
+pub async fn make_swarms_with_cfg<F>(n: usize, mut update_cfg: F) -> Vec<CreatedSwarm>
 where
     F: FnMut(SwarmConfig) -> SwarmConfig,
 {
@@ -78,9 +80,10 @@ where
         identity,
         true,
     )
+    .await
 }
 
-pub fn make_swarms_with_transport_and_mocked_vm(
+pub async fn make_swarms_with_transport_and_mocked_vm(
     n: usize,
     transport: Transport,
 ) -> Vec<CreatedSwarm> {
@@ -94,9 +97,10 @@ pub fn make_swarms_with_transport_and_mocked_vm(
         identity,
         true,
     )
+    .await
 }
 
-pub fn make_swarms_with_mocked_vm<F, B>(
+pub async fn make_swarms_with_mocked_vm<F, B>(
     n: usize,
     mut update_cfg: F,
     delay: Option<Duration>,
@@ -113,9 +117,10 @@ where
         bootstraps,
         true,
     )
+    .await
 }
 
-pub fn make_swarms_with_keypair(
+pub async fn make_swarms_with_keypair(
     n: usize,
     keypair: KeyPair,
     spell_base_dir: Option<String>,
@@ -125,9 +130,10 @@ pub fn make_swarms_with_keypair(
         cfg.spell_base_dir = spell_base_dir.clone().map(PathBuf::from);
         cfg
     })
+    .await
 }
 
-pub fn make_swarms_with_builtins(
+pub async fn make_swarms_with_builtins(
     n: usize,
     path: &Path,
     keypair: Option<KeyPair>,
@@ -141,9 +147,10 @@ pub fn make_swarms_with_builtins(
         cfg.spell_base_dir = spell_base_dir.clone().map(PathBuf::from);
         cfg
     })
+    .await
 }
 
-pub fn make_swarms_with<RT: AquaRuntime, F, M, B>(
+pub async fn make_swarms_with<RT: AquaRuntime, F, M, B>(
     n: usize,
     mut create_node: F,
     mut create_maddr: M,
@@ -160,7 +167,7 @@ where
         .iter()
         .map(|addr| {
             #[rustfmt::skip]
-            let addrs = addrs.iter().filter(|&a| a != addr).cloned().collect::<Vec<_>>();
+                let addrs = addrs.iter().filter(|&a| a != addr).cloned().collect::<Vec<_>>();
             let bootstraps = bootstraps(addrs);
             let bootstraps_num = bootstraps.len();
             let (id, node, m_kp, config) = create_node(bootstraps, addr.clone());
@@ -188,27 +195,33 @@ where
     });
 
     // start all nodes
-    let infos = nodes
-        .into_iter()
-        .map(|((peer_id, management_keypair, config), node, _)| {
+    let infos = join_all(nodes.into_iter().map(
+        move |((peer_id, management_keypair, config), node, _)| {
             let connectivity = node.connectivity.clone();
             let aquamarine_api = node.aquamarine_api.clone();
-            let outlet = node.start().expect("node start");
+            async move {
+                let outlet = node
+                    .start(Some(peer_id.to_string()))
+                    .await
+                    .expect("node start");
 
-            CreatedSwarm {
-                peer_id,
-                multiaddr: config.listen_on,
-                tmp_dir: config.tmp_dir.unwrap(),
-                management_keypair,
-                outlet,
-                connectivity,
-                aquamarine_api,
+                CreatedSwarm {
+                    peer_id,
+                    multiaddr: config.listen_on,
+                    tmp_dir: config.tmp_dir.unwrap(),
+                    management_keypair,
+                    outlet,
+                    connectivity,
+                    aquamarine_api,
+                }
             }
-        })
-        .collect();
+            .boxed()
+        },
+    ))
+    .await;
 
     if wait_connected {
-        task::block_on(connected);
+        connected.await;
     }
 
     infos
@@ -275,6 +288,7 @@ pub fn aqua_vm_config(
     VmConfig::new(peer_id, avm_base_dir, air_interpreter, None)
 }
 
+#[tracing::instrument(skip(vm_config))]
 pub fn create_swarm_with_runtime<RT: AquaRuntime>(
     mut config: SwarmConfig,
     vm_config: impl Fn(BaseVmConfig) -> RT::Config,
@@ -361,6 +375,7 @@ pub fn create_swarm_with_runtime<RT: AquaRuntime>(
     )
 }
 
+#[tracing::instrument]
 pub fn create_swarm(config: SwarmConfig) -> (PeerId, Box<Node<AVM>>, KeyPair, SwarmConfig) {
     create_swarm_with_runtime(config, aqua_vm_config)
 }

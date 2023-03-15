@@ -16,7 +16,6 @@
 
 use std::{error::Error, task::Waker};
 
-use async_std::task;
 use avm_server::{
     AVMConfig, AVMError, AVMMemoryStats, AVMOutcome, CallResults, ParticleParameters, AVM,
 };
@@ -56,38 +55,61 @@ pub trait AquaRuntime: Sized + Send + 'static {
     fn memory_stats(&self) -> AVMMemoryStats;
 }
 
+#[derive(Debug, thiserror::Error)]
+pub enum CreateAVMError {
+    #[error(transparent)]
+    AVWError(AVMError<DataStoreError>),
+    #[error("Could not create AVM")]
+    Fatal,
+}
+
 impl AquaRuntime for AVM<DataStoreError> {
     type Config = VmConfig;
-    type Error = AVMError<DataStoreError>;
+    type Error = CreateAVMError;
 
     /// Creates `AVM` in background (on blocking threadpool)
     fn create_runtime(
         config: Self::Config,
         waker: Waker,
     ) -> BoxFuture<'static, Result<Self, Self::Error>> {
-        task::spawn_blocking(move || {
-            let data_store = Box::new(ParticleDataStore::new(
-                config.particles_dir,
-                config.particles_vault_dir,
-                config.particles_anomaly_dir,
-            ));
-            let config = AVMConfig {
-                data_store,
-                air_wasm_path: config.air_interpreter,
-                logging_mask: i32::MAX,
-                max_heap_size: config.max_heap_size,
-            };
-            let vm = AVM::new(config);
-            waker.wake();
-            vm
-        })
+        let task = tokio::task::Builder::new()
+            .name("Create AVM")
+            .spawn_blocking(move || {
+                let data_store = Box::new(ParticleDataStore::new(
+                    config.particles_dir,
+                    config.particles_vault_dir,
+                    config.particles_anomaly_dir,
+                ));
+                let config = AVMConfig {
+                    data_store,
+                    air_wasm_path: config.air_interpreter,
+                    logging_mask: i32::MAX,
+                    max_heap_size: config.max_heap_size,
+                };
+                let vm = AVM::new(config)?;
+                waker.wake();
+                Ok(vm)
+            })
+            .expect("Could not spawn 'Create AVM' task");
+
+        async {
+            let result = task.await;
+            match result {
+                Ok(res) => res.map_err(CreateAVMError::AVWError),
+                Err(e) => {
+                    if e.is_cancelled() {
+                        log::warn!("AVM creation task was cancelled");
+                    } else {
+                        log::error!("AVM creation task panic");
+                    }
+                    Err(CreateAVMError::Fatal)
+                }
+            }
+        }
         .boxed()
     }
 
-    fn into_effects(
-        outcome: Result<AVMOutcome, AVMError<DataStoreError>>,
-        p: Particle,
-    ) -> ParticleEffects {
+    fn into_effects(outcome: Result<AVMOutcome, CreateAVMError>, p: Particle) -> ParticleEffects {
         match parse_outcome(outcome) {
             Ok((data, peers, calls)) if !peers.is_empty() || !calls.is_empty() => {
                 #[rustfmt::skip]
@@ -129,12 +151,12 @@ impl AquaRuntime for AVM<DataStoreError> {
         particle: ParticleParameters<'_>,
         call_results: CallResults,
     ) -> Result<AVMOutcome, Self::Error> {
-        AVM::call(self, aqua, data, particle, call_results)
+        AVM::call(self, aqua, data, particle, call_results).map_err(CreateAVMError::AVWError)
     }
 
     #[inline]
     fn cleanup(&mut self, particle_id: &str, current_peer_id: &str) -> Result<(), Self::Error> {
-        AVM::cleanup_data(self, particle_id, current_peer_id)
+        AVM::cleanup_data(self, particle_id, current_peer_id).map_err(CreateAVMError::AVWError)
     }
 
     fn memory_stats(&self) -> AVMMemoryStats {

@@ -18,18 +18,16 @@ use std::thread::sleep;
 use std::time::{Duration, Instant};
 
 use base64::{engine::general_purpose::STANDARD as base64, Engine};
+use connected_client::{ClientEvent, ConnectedClient};
+use created_swarm::make_swarms;
 use eyre::{ContextCompat, WrapErr};
-use futures::executor::block_on;
 use itertools::Itertools;
 use libp2p::core::Multiaddr;
+use local_vm::read_args;
 use maplit::hashmap;
 use serde::Deserialize;
 use serde_json::json;
 use serde_json::Value as JValue;
-
-use connected_client::{ClientEvent, ConnectedClient};
-use created_swarm::make_swarms;
-use local_vm::read_args;
 use service_modules::{load_module, module_config};
 use test_constants::KAD_TIMEOUT;
 use test_utils::{create_service, timeout};
@@ -65,24 +63,27 @@ pub struct ModuleDescriptor {
     pub error: Option<String>,
 }
 
-#[test]
-fn get_interfaces() {
-    let swarms = make_swarms(1);
-    sleep(KAD_TIMEOUT);
+#[tokio::test]
+async fn get_interfaces() {
+    let swarms = make_swarms(1).await;
+    tokio::time::sleep(KAD_TIMEOUT).await;
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
         .wrap_err("connect client")
         .unwrap();
     let service1 = create_service(
         &mut client,
         "tetraplets",
         load_module("tests/tetraplets/artifacts", "tetraplets").expect("load"),
-    );
+    )
+    .await;
     let service2 = create_service(
         &mut client,
         "tetraplets",
         load_module("tests/tetraplets/artifacts", "tetraplets").expect("load"),
-    );
+    )
+    .await;
 
     client.send_particle(
         r#"
@@ -108,7 +109,11 @@ fn get_interfaces() {
         },
     );
 
-    let args = client.receive_args().wrap_err("receive args").unwrap();
+    let args = client
+        .receive_args()
+        .await
+        .wrap_err("receive args")
+        .unwrap();
     let mut args = args.into_iter();
     let services = args.next().unwrap();
     let services: Vec<Service> = serde_json::from_value(services)
@@ -121,12 +126,13 @@ fn get_interfaces() {
     assert_eq!(interfaces_count, 2);
 }
 
-#[test]
-fn get_modules() {
-    let swarms = make_swarms(3);
-    sleep(KAD_TIMEOUT);
+#[tokio::test]
+async fn get_modules() {
+    let swarms = make_swarms(3).await;
+    tokio::time::sleep(KAD_TIMEOUT).await;
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
         .wrap_err("connect client")
         .unwrap();
 
@@ -159,7 +165,11 @@ fn get_modules() {
         },
     );
 
-    let value = client.receive_args().wrap_err("receive args").unwrap();
+    let value = client
+        .receive_args()
+        .await
+        .wrap_err("receive args")
+        .unwrap();
     let mut iter = value.into_iter();
     let modules = iter.next().unwrap();
     let modules: Vec<ModuleDescriptor> = serde_json::from_value(modules).unwrap();
@@ -173,12 +183,13 @@ fn get_modules() {
     assert_eq!(interfaces.is_some(), true);
 }
 
-#[test]
-fn list_blueprints() {
-    let swarms = make_swarms(3);
-    sleep(KAD_TIMEOUT);
+#[tokio::test]
+async fn list_blueprints() {
+    let swarms = make_swarms(3).await;
+    tokio::time::sleep(KAD_TIMEOUT).await;
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
         .wrap_err("connect client")
         .unwrap();
 
@@ -208,7 +219,11 @@ fn list_blueprints() {
         },
     );
 
-    let args = client.receive_args().wrap_err("receive args").unwrap();
+    let args = client
+        .receive_args()
+        .await
+        .wrap_err("receive args")
+        .unwrap();
     let mut args = args.into_iter();
     let value = args.next().unwrap();
     let blueprints: Vec<Blueprint> = serde_json::from_value(value)
@@ -231,12 +246,14 @@ fn list_blueprints() {
     assert_eq!(hash.as_str(), raw_hash.as_str());
 }
 
-#[test]
-fn explore_services() {
-    let swarms = make_swarms(5);
-    sleep(KAD_TIMEOUT);
+#[tokio::test]
+async fn explore_services() {
+    let swarms = make_swarms(5).await;
+
+    tokio::time::sleep(KAD_TIMEOUT).await;
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
         .wrap_err("connect client")
         .unwrap();
 
@@ -282,7 +299,7 @@ fn explore_services() {
                 "external_addresses",
                 "relay",
                 &total_neighs.to_string(),
-                "joined_addresses"
+                "joined_addresses",
             )
         )
         .as_str(),
@@ -292,7 +309,11 @@ fn explore_services() {
         },
     );
 
-    let args = client.receive_args().wrap_err("receive args").unwrap();
+    let args = client
+        .receive_args()
+        .await
+        .wrap_err("receive args")
+        .unwrap();
     let external_addrs = args.into_iter().next().unwrap();
     let external_addrs = external_addrs.as_array().unwrap();
     let mut external_addrs = external_addrs
@@ -313,9 +334,9 @@ fn explore_services() {
     assert_eq!(external_addrs, expected_addrs);
 }
 
-#[test]
-fn explore_services_fixed_flaky() {
-    let swarms = make_swarms(5);
+#[tokio::test]
+async fn explore_services_fixed_flaky() {
+    let swarms = make_swarms(5).await;
     sleep(KAD_TIMEOUT);
 
     // language=Clojure
@@ -343,16 +364,19 @@ fn explore_services_fixed_flaky() {
     let peers = swarms.iter().skip(1);
     for peer in peers {
         let mut client = ConnectedClient::connect_to(peer.multiaddr.clone())
+            .await
             .wrap_err("connect client")
             .unwrap();
         create_service(
             &mut client,
             "tetraplets",
             load_module("tests/tetraplets/artifacts", "tetraplets").expect("load module"),
-        );
+        )
+        .await;
     }
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
         .wrap_err("connect client")
         .unwrap();
 
@@ -374,8 +398,8 @@ fn explore_services_fixed_flaky() {
     let mut received = Vec::new();
 
     loop {
-        let receive = client.receive_one();
-        if let Ok(Some(event)) = block_on(timeout(Duration::from_secs(1), receive)) {
+        let receive_task = client.receive_one();
+        if let Ok(Some(event)) = timeout(Duration::from_secs(1), receive_task).await {
             match event {
                 ClientEvent::Particle { particle, .. } => {
                     let args = read_args(particle, client.peer_id, &mut client.local_vm.lock())

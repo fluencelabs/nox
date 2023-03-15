@@ -31,10 +31,8 @@ mod behaviour;
 mod client;
 mod command;
 mod connected_client;
-mod connection;
 mod event;
 
 pub use crate::connected_client::ConnectedClient;
 pub use command::ClientCommand;
-pub use connection::connect_real;
 pub use event::ClientEvent;

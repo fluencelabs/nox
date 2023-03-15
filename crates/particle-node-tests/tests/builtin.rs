@@ -17,32 +17,30 @@
 #[macro_use]
 extern crate fstrings;
 
-use std::collections::HashMap;
-use std::str::FromStr;
-use std::time::Duration;
-
-use eyre::{Report, WrapErr};
-use fluence_keypair::{KeyFormat, KeyPair, Signature};
-use itertools::Itertools;
-use libp2p::core::Multiaddr;
-use libp2p::kad::kbucket::Key;
-use libp2p::PeerId;
-use maplit::hashmap;
-use serde::Deserialize;
-use serde_json::{json, Value as JValue};
-
 use connected_client::ConnectedClient;
 use created_swarm::{
     make_swarms, make_swarms_with_builtins, make_swarms_with_keypair,
     make_swarms_with_transport_and_mocked_vm,
 };
+use eyre::{Report, WrapErr};
+use fluence_keypair::{KeyFormat, KeyPair, Signature};
 use fluence_libp2p::RandomPeerId;
 use fluence_libp2p::Transport;
+use itertools::Itertools;
 use json_utils::into_array;
 use key_manager::INSECURE_KEYPAIR_SEED;
+use libp2p::core::Multiaddr;
+use libp2p::kad::kbucket::Key;
+use libp2p::PeerId;
+use maplit::hashmap;
 use now_millis::now_ms;
 use particle_protocol::Particle;
+use serde::Deserialize;
+use serde_json::{json, Value as JValue};
 use service_modules::load_module;
+use std::collections::HashMap;
+use std::str::FromStr;
+use std::time::Duration;
 use test_constants::PARTICLE_TTL;
 use test_utils::create_service;
 
@@ -52,11 +50,12 @@ struct NodeInfo {
     pub external_addresses: Vec<Multiaddr>,
 }
 
-#[test]
-fn identify() {
-    let swarms = make_swarms(1);
+#[tokio::test]
+async fn identify() {
+    let swarms = make_swarms(1).await;
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
         .wrap_err("connect client")
         .unwrap();
 
@@ -73,17 +72,22 @@ fn identify() {
         },
     );
 
-    let info = client.receive_args().wrap_err("receive args").unwrap();
+    let info = client
+        .receive_args()
+        .await
+        .wrap_err("receive args")
+        .unwrap();
     let _: NodeInfo = serde_json::from_value(info[0].clone())
         .unwrap_or_else(|_| panic!("deserialize {:?}", info[0]));
 }
 
 #[ignore]
-#[test]
-fn big_identity() {
-    let swarms = make_swarms_with_transport_and_mocked_vm(1, Transport::Network);
+#[tokio::test]
+async fn big_identity() {
+    let swarms = make_swarms_with_transport_and_mocked_vm(1, Transport::Network).await;
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
         .wrap_err("connect client")
         .unwrap();
 
@@ -95,14 +99,15 @@ fn big_identity() {
     client.send(particle);
 
     client.timeout = Duration::from_secs(60);
-    client.receive().wrap_err("receive").unwrap();
+    client.receive().await.wrap_err("receive").unwrap();
 }
 
-#[test]
-fn remove_service() {
-    let swarms = make_swarms(1);
+#[tokio::test]
+async fn remove_service() {
+    let swarms = make_swarms(1).await;
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
         .wrap_err("connect client")
         .unwrap();
 
@@ -110,7 +115,8 @@ fn remove_service() {
         &mut client,
         "tetraplets",
         load_module("tests/tetraplets/artifacts", "tetraplets").expect("load module"),
-    );
+    )
+    .await;
 
     client.send_particle(
         r#"
@@ -133,7 +139,7 @@ fn remove_service() {
 
     use serde_json::Value::Array;
 
-    if let [Array(before), Array(after)] = client.receive_args().unwrap().as_slice() {
+    if let [Array(before), Array(after)] = client.receive_args().await.unwrap().as_slice() {
         assert_eq!(before.len(), 1);
         assert_eq!(after.len(), 0);
     } else {
@@ -141,12 +147,13 @@ fn remove_service() {
     }
 }
 
-#[test]
-fn remove_service_restart() {
+#[tokio::test]
+async fn remove_service_restart() {
     let kp = KeyPair::generate_ed25519();
-    let swarms = make_swarms_with_keypair(1, kp.clone(), None);
+    let swarms = make_swarms_with_keypair(1, kp.clone(), None).await;
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
         .wrap_err("connect client")
         .unwrap();
 
@@ -154,7 +161,8 @@ fn remove_service_restart() {
         &mut client,
         "tetraplets",
         load_module("tests/tetraplets/artifacts", "tetraplets").expect("load module"),
-    );
+    )
+    .await;
 
     client.send_particle(
         r#"
@@ -177,7 +185,7 @@ fn remove_service_restart() {
 
     use serde_json::Value::Array;
 
-    if let [Array(before), Array(after)] = client.receive_args().unwrap().as_slice() {
+    if let [Array(before), Array(after)] = client.receive_args().await.unwrap().as_slice() {
         assert_eq!(before.len(), 1);
         assert_eq!(after.len(), 0);
     } else {
@@ -186,8 +194,9 @@ fn remove_service_restart() {
 
     // stop swarm
     swarms.into_iter().map(|s| s.outlet.send(())).for_each(drop);
-    let swarms = make_swarms_with_keypair(1, kp, None);
+    let swarms = make_swarms_with_keypair(1, kp, None).await;
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
         .wrap_err("connect client")
         .unwrap();
 
@@ -204,21 +213,22 @@ fn remove_service_restart() {
         },
     );
 
-    if let [Array(after)] = client.receive_args().unwrap().as_slice() {
+    if let [Array(after)] = client.receive_args().await.unwrap().as_slice() {
         assert_eq!(after.len(), 0);
     } else {
         panic!("incorrect args: expected array")
     }
 }
 
-#[test]
-fn remove_service_by_alias() {
-    let swarms = make_swarms(1);
+#[tokio::test]
+async fn remove_service_by_alias() {
+    let swarms = make_swarms(1).await;
 
     let mut client = ConnectedClient::connect_with_keypair(
         swarms[0].multiaddr.clone(),
         Some(swarms[0].management_keypair.clone()),
     )
+    .await
     .wrap_err("connect client")
     .unwrap();
 
@@ -226,7 +236,8 @@ fn remove_service_by_alias() {
         &mut client,
         "tetraplets",
         load_module("tests/tetraplets/artifacts", "tetraplets").expect("load module"),
-    );
+    )
+    .await;
 
     client.send_particle(
         r#"
@@ -253,7 +264,7 @@ fn remove_service_by_alias() {
 
     use serde_json::Value::Array;
 
-    if let [Array(before), Array(after)] = client.receive_args().unwrap().as_slice() {
+    if let [Array(before), Array(after)] = client.receive_args().await.unwrap().as_slice() {
         assert_eq!(before.len(), 1);
         assert_eq!(after.len(), 0);
     } else {
@@ -261,15 +272,17 @@ fn remove_service_by_alias() {
     }
 }
 
-#[test]
-fn non_owner_remove_service() {
-    let swarms = make_swarms(1);
+#[tokio::test]
+async fn non_owner_remove_service() {
+    let swarms = make_swarms(1).await;
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
         .wrap_err("connect client")
         .unwrap();
 
     let mut client2 = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
         .wrap_err("connect client")
         .unwrap();
 
@@ -277,7 +290,8 @@ fn non_owner_remove_service() {
         &mut client,
         "tetraplets",
         load_module("tests/tetraplets/artifacts", "tetraplets").expect("load module"),
-    );
+    )
+    .await;
 
     client2.send_particle(
         r#"
@@ -303,7 +317,7 @@ fn non_owner_remove_service() {
 
     use serde_json::Value::{Array, String};
 
-    let args = client2.receive_args().unwrap();
+    let args = client2.receive_args().await.unwrap();
     if let [Array(before), Array(after), String(error)] = args.as_slice() {
         assert_eq!(before.len(), 1);
         assert_eq!(after.len(), 1);
@@ -315,14 +329,15 @@ fn non_owner_remove_service() {
     }
 }
 
-#[test]
-fn resolve_alias() {
-    let swarms = make_swarms(1);
+#[tokio::test]
+async fn resolve_alias() {
+    let swarms = make_swarms(1).await;
 
     let mut client = ConnectedClient::connect_with_keypair(
         swarms[0].multiaddr.clone(),
         Some(swarms[0].management_keypair.clone()),
     )
+    .await
     .wrap_err("connect client")
     .unwrap();
 
@@ -330,7 +345,8 @@ fn resolve_alias() {
         &mut client,
         "tetraplets",
         load_module("tests/tetraplets/artifacts", "tetraplets").expect("load module"),
-    );
+    )
+    .await;
 
     client.send_particle(
         r#"
@@ -349,18 +365,23 @@ fn resolve_alias() {
         },
     );
 
-    let service_id = client.receive_args().wrap_err("receive args").unwrap();
+    let service_id = client
+        .receive_args()
+        .await
+        .wrap_err("receive args")
+        .unwrap();
     let service_id = service_id.into_iter().next().unwrap();
     let service_id: String = serde_json::from_value(service_id).unwrap();
 
     assert_eq!(tetraplets_service.id, service_id);
 }
 
-#[test]
-fn resolve_alias_not_exists() {
-    let swarms = make_swarms(1);
+#[tokio::test]
+async fn resolve_alias_not_exists() {
+    let swarms = make_swarms(1).await;
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
         .wrap_err("connect client")
         .unwrap();
 
@@ -380,7 +401,11 @@ fn resolve_alias_not_exists() {
         },
     );
 
-    let error = client.receive_args().wrap_err("receive args").unwrap();
+    let error = client
+        .receive_args()
+        .await
+        .wrap_err("receive args")
+        .unwrap();
     let error = error.into_iter().next().unwrap();
     let failed_instruction = error.as_str().unwrap();
     assert_eq!(
@@ -389,14 +414,15 @@ fn resolve_alias_not_exists() {
     );
 }
 
-#[test]
-fn resolve_alias_removed() {
-    let swarms = make_swarms(1);
+#[tokio::test]
+async fn resolve_alias_removed() {
+    let swarms = make_swarms(1).await;
 
     let mut client = ConnectedClient::connect_with_keypair(
         swarms[0].multiaddr.clone(),
         Some(swarms[0].management_keypair.clone()),
     )
+    .await
     .wrap_err("connect client")
     .unwrap();
 
@@ -404,7 +430,8 @@ fn resolve_alias_removed() {
         &mut client,
         "tetraplets",
         load_module("tests/tetraplets/artifacts", "tetraplets").expect("load module"),
-    );
+    )
+    .await;
 
     client.send_particle(
         r#"
@@ -426,7 +453,11 @@ fn resolve_alias_removed() {
         },
     );
 
-    let error = client.receive_args().wrap_err("receive args").unwrap();
+    let error = client
+        .receive_args()
+        .await
+        .wrap_err("receive args")
+        .unwrap();
     let error = error.into_iter().next().unwrap();
     let failed_instruction = error.as_str().unwrap();
     assert_eq!(
@@ -435,11 +466,12 @@ fn resolve_alias_removed() {
     );
 }
 
-#[test]
-fn timestamp_ms() {
-    let swarms = make_swarms(1);
+#[tokio::test]
+async fn timestamp_ms() {
+    let swarms = make_swarms(1).await;
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
         .wrap_err("connect client")
         .unwrap();
 
@@ -456,16 +488,21 @@ fn timestamp_ms() {
         },
     );
 
-    let result = client.receive_args().wrap_err("receive args").unwrap();
+    let result = client
+        .receive_args()
+        .await
+        .wrap_err("receive args")
+        .unwrap();
     let result = result.into_iter().next().unwrap();
     let _: u64 = serde_json::from_value(result).unwrap();
 }
 
-#[test]
-fn timestamp_sec() {
-    let swarms = make_swarms(1);
+#[tokio::test]
+async fn timestamp_sec() {
+    let swarms = make_swarms(1).await;
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
         .wrap_err("connect client")
         .unwrap();
 
@@ -482,13 +519,17 @@ fn timestamp_sec() {
         },
     );
 
-    let result = client.receive_args().wrap_err("receive args").unwrap();
+    let result = client
+        .receive_args()
+        .await
+        .wrap_err("receive args")
+        .unwrap();
     let result = result.into_iter().next().unwrap();
     let _: u64 = serde_json::from_value(result).unwrap();
 }
 
-#[test]
-fn base58_string_builtins() {
+#[tokio::test]
+async fn base58_string_builtins() {
     let script = r#"
     (seq
         (call relay ("op" "string_to_b58") [string] b58_string_out)
@@ -506,14 +547,16 @@ fn base58_string_builtins() {
         "b58_string" => json!(b58_string),
     };
 
-    let result = exec_script(script, args, "b58_string_out string_out identity_string", 1).unwrap();
+    let result = exec_script(script, args, "b58_string_out string_out identity_string", 1)
+        .await
+        .unwrap();
     assert_eq!(result[0], JValue::String(b58_string));
     assert_eq!(result[1], JValue::String(string.into()));
     assert_eq!(result[2], JValue::String(string.into()));
 }
 
-#[test]
-fn base58_bytes_builtins() {
+#[tokio::test]
+async fn base58_bytes_builtins() {
     let script = r#"
     (seq
         (call relay ("op" "bytes_to_b58") [bytes] b58_string_out)
@@ -531,15 +574,17 @@ fn base58_bytes_builtins() {
         "bytes" => json!(bytes),
     };
 
-    let result = exec_script(script, args, "b58_string_out bytes_out identity_bytes", 1).unwrap();
+    let result = exec_script(script, args, "b58_string_out bytes_out identity_bytes", 1)
+        .await
+        .unwrap();
     // let array = into_array(result).expect("must be an array");
     assert_eq!(result[0], json!(b58_string));
     assert_eq!(result[1], json!(bytes));
     assert_eq!(result[2], json!(bytes));
 }
 
-#[test]
-fn sha256() {
+#[tokio::test]
+async fn sha256() {
     use multihash::{Code, MultihashDigest};
 
     let script = r#"
@@ -571,6 +616,7 @@ fn sha256() {
         "string_mhash string_digest bytes_mhash bytes_digest",
         1,
     )
+    .await
     .unwrap();
 
     // multihash as base58
@@ -589,8 +635,8 @@ fn sha256() {
     assert_eq!(result[3], json!(sha_256.digest()));
 }
 
-#[test]
-fn neighborhood() {
+#[tokio::test]
+async fn neighborhood() {
     let script = r#"
     (seq
         (seq
@@ -616,6 +662,7 @@ fn neighborhood() {
         "neighborhood_by_key neighborhood_by_mhash error",
         2,
     )
+    .await
     .unwrap();
     let neighborhood_by_key = into_array(result[0].take())
         .expect("neighborhood is an array")
@@ -632,8 +679,8 @@ fn neighborhood() {
     assert!(error.contains("Invalid multihash"));
 }
 
-#[test]
-fn kad_merge() {
+#[tokio::test]
+async fn kad_merge() {
     let target = RandomPeerId::random();
     let left = (1..10).map(|_| RandomPeerId::random()).collect::<Vec<_>>();
     let mut right = (1..10).map(|_| RandomPeerId::random()).collect::<Vec<_>>();
@@ -651,7 +698,7 @@ fn kad_merge() {
         "count" => json!(count),
     };
 
-    let result = exec_script(script, args, "merged", 1).unwrap();
+    let result = exec_script(script, args, "merged", 1).await.unwrap();
     let merged = result.into_iter().next().expect("merged is defined");
     let merged = into_array(merged).expect("merged is an array");
     let merged = merged
@@ -671,26 +718,28 @@ fn kad_merge() {
     assert_eq!(expected, merged);
 }
 
-#[test]
-fn noop() {
+#[tokio::test]
+async fn noop() {
     let result = exec_script(
         r#"(call relay ("op" "noop") ["hi"] result)"#,
         <_>::default(),
         "result",
         1,
     )
+    .await
     .unwrap();
     assert_eq!(result, vec![json!("")])
 }
 
-#[test]
-fn identity() {
+#[tokio::test]
+async fn identity() {
     let result = exec_script(
         r#"(call relay ("op" "identity") ["hi"] result)"#,
         <_>::default(),
         "result",
         1,
     )
+    .await
     .unwrap();
     assert_eq!(result, vec![json!("hi")]);
 
@@ -705,25 +754,29 @@ fn identity() {
         "error",
         1,
     )
+    .await
     .unwrap();
+
     let error = error[0].as_str().unwrap();
     assert!(error.contains("identity accepts up to 1 arguments, received 2 arguments"));
 }
 
-#[test]
-fn array() {
+#[tokio::test]
+async fn array() {
     let result = exec_script(
         r#"(call relay ("op" "array") ["hi"] result)"#,
         <_>::default(),
         "result",
         1,
     )
+    .await
     .unwrap();
+    log::info!("result {:?}", result);
     assert_eq!(result, vec![json!(["hi"])])
 }
 
-#[test]
-fn concat() {
+#[tokio::test]
+async fn concat() {
     let result = exec_script(
         r#"(call relay ("op" "concat") [zerozero one empty two three fourfive empty] result)"#,
         hashmap! {
@@ -737,12 +790,13 @@ fn concat() {
         "result",
         1,
     )
+    .await
     .unwrap();
     assert_eq!(result, vec![json!([0, 0, 1, 2, 3, 4, 5])])
 }
 
-#[test]
-fn array_length() {
+#[tokio::test]
+async fn array_length() {
     let result = exec_script(
         r#"
         (seq
@@ -775,6 +829,7 @@ fn array_length() {
         "zero five zero_error count_error type_error",
         1,
     )
+    .await
     .unwrap();
 
     assert_eq!(result, vec![
@@ -786,23 +841,8 @@ fn array_length() {
     ])
 }
 
-#[test]
-fn array_slice() {
-    let result = exec_script(
-        r#"(call relay ("array" "slice") [ data sidx eidx ] result)"#,
-        hashmap! {
-            "data"      => json!(vec![1,2,3,4]),
-            "sidx"      => json!(0),
-            "eidx"      => json!(2),
-        },
-        "result",
-        1,
-    )
-    .unwrap();
-
-    let expected = vec![json!(vec![1, 2])];
-    assert_eq!(result, expected);
-
+#[tokio::test]
+async fn empty_array_slice() {
     let result = exec_script(
         r#"(call relay ("array" "slice") [ empty_data sidx eidx ] result)"#,
         hashmap! {
@@ -813,9 +853,13 @@ fn array_slice() {
         "result",
         1,
     )
+    .await
     .unwrap();
     assert_eq!(result[0], json!(Vec::<JValue>::new()));
+}
 
+#[tokio::test]
+async fn not_array_slice() {
     let result = exec_script(
         r#"(call relay ("array" "slice") [ data sidx eidx ] result)"#,
         hashmap! {
@@ -825,14 +869,18 @@ fn array_slice() {
         },
         "result",
         1,
-    );
+    )
+    .await;
     assert!(result.is_err());
     assert!(
         format!("{result:?}").contains("first argument must be an array, was 1"),
         "{}",
         "{result:?}"
     );
+}
 
+#[tokio::test]
+async fn array_slice_wrong_args_count() {
     let result = exec_script(
         r#"(call relay ("array" "slice") [ eidx sidx ] result)"#,
         hashmap! {
@@ -842,11 +890,15 @@ fn array_slice() {
         },
         "result",
         1,
-    );
+    )
+    .await;
     assert!(result.is_err());
     assert!(format!("{result:?}")
         .contains("invalid number of parameters. need array, start index and end index"));
+}
 
+#[tokio::test]
+async fn array_slice_out_of_bounds() {
     let result = exec_script(
         r#"(call relay ("array" "slice") [ data eidx sidx ] result)"#,
         hashmap! {
@@ -856,7 +908,8 @@ fn array_slice() {
         },
         "result",
         1,
-    );
+    )
+    .await;
     assert!(result.is_err());
     assert!(
         format!("{result:?}")
@@ -864,7 +917,10 @@ fn array_slice() {
         "{}",
         "result is {result:?}"
     );
+}
 
+#[tokio::test]
+async fn array_slice_wrong_second_arg() {
     let result = exec_script(
         r#"(call relay ("array" "slice") [ data bad_idx eidx ] result)"#,
         hashmap! {
@@ -874,7 +930,8 @@ fn array_slice() {
         },
         "result",
         1,
-    );
+    )
+    .await;
     assert!(result.is_err());
     assert!(
         format!("{result:?}")
@@ -882,7 +939,10 @@ fn array_slice() {
         "{}",
         "{result:?}"
     );
+}
 
+#[tokio::test]
+async fn array_slice_wrong_third_arg() {
     let result = exec_script(
         r#"(call relay ("array" "slice") [ data sidx bad_idx] result)"#,
         hashmap! {
@@ -892,7 +952,8 @@ fn array_slice() {
         },
         "result",
         1,
-    );
+    )
+    .await;
     assert!(result.is_err());
     assert!(
         format!("{result:?}")
@@ -902,8 +963,27 @@ fn array_slice() {
     );
 }
 
-#[test]
-fn timeout_race() {
+#[tokio::test]
+async fn array_slice() {
+    let result = exec_script(
+        r#"(call relay ("array" "slice") [ data sidx eidx ] result)"#,
+        hashmap! {
+            "data"      => json!(vec![1,2,3,4]),
+            "sidx"      => json!(0),
+            "eidx"      => json!(2),
+        },
+        "result",
+        1,
+    )
+    .await
+    .unwrap();
+
+    let expected = vec![json!(vec![1, 2])];
+    assert_eq!(result, expected);
+}
+
+#[tokio::test]
+async fn timeout_race() {
     let fast_result = exec_script(
         r#"
         (seq
@@ -918,13 +998,14 @@ fn timeout_race() {
         "#result.$[0]",
         1,
     )
+    .await
     .unwrap();
 
     assert_eq!(&fast_result[0], "fast_result");
 }
 
-#[test]
-fn timeout_wait() {
+#[tokio::test]
+async fn timeout_wait() {
     let slow_result = exec_script(
         r#"
         (seq
@@ -950,14 +1031,15 @@ fn timeout_wait() {
         "#result.$[0]",
         1,
     )
+    .await
     .unwrap();
 
     assert_eq!(&slow_result[0], "timed out");
 }
 
-#[test]
-fn debug_stringify() {
-    fn stringify(value: impl Into<JValue>) -> String {
+#[tokio::test]
+async fn debug_stringify_flaky() {
+    async fn stringify(value: impl Into<JValue>) -> String {
         let mut result = exec_script(
             r#"(call relay ("debug" "stringify") [value] result)"#,
             hashmap! {
@@ -966,16 +1048,17 @@ fn debug_stringify() {
             "result",
             1,
         )
+        .await
         .unwrap();
 
         result[0].take().as_str().unwrap().to_string()
     }
 
-    assert_eq!(stringify("hello"), r#""hello""#);
-    assert_eq!(stringify(101), r#"101"#);
-    assert_eq!(stringify(json!({ "a": "b" })), r#"{"a":"b"}"#);
-    assert_eq!(stringify(json!(["a"])), r#"["a"]"#);
-    assert_eq!(stringify(json!(["a", "b"])), r#"["a","b"]"#);
+    assert_eq!(stringify("hello").await, r#""hello""#);
+    assert_eq!(stringify(101).await, r#"101"#);
+    assert_eq!(stringify(json!({ "a": "b" })).await, r#"{"a":"b"}"#);
+    assert_eq!(stringify(json!(["a"])).await, r#"["a"]"#);
+    assert_eq!(stringify(json!(["a", "b"])).await, r#"["a","b"]"#);
 
     let result = exec_script(
         r#"(call relay ("debug" "stringify") [] result)"#,
@@ -983,6 +1066,7 @@ fn debug_stringify() {
         "result",
         1,
     )
+    .await
     .unwrap();
     assert_eq!(
         result[0].as_str().unwrap().to_string(),
@@ -995,13 +1079,14 @@ fn debug_stringify() {
         "result",
         1,
     )
+    .await
     .unwrap();
     assert_eq!(result[0].as_str().unwrap().to_string(), r#"["a","b"]"#);
 }
 
-#[test]
+#[tokio::test]
 // checks that type errors are caught by XOR
-fn xor_type_error() {
+async fn xor_type_error() {
     let result = exec_script(
         r#"
         (xor
@@ -1015,6 +1100,7 @@ fn xor_type_error() {
         "error",
         1,
     )
+    .await
     .unwrap();
     assert_eq!(
         result[0].get("error_code"),
@@ -1022,61 +1108,98 @@ fn xor_type_error() {
     )
 }
 
-#[test]
-fn math_cmp() {
-    assert_eq!(binary("math", "add", 2, 2).unwrap(), json!(4));
-
-    assert_eq!(binary("math", "sub", 2, 2).unwrap(), json!(0));
-    assert_eq!(binary("math", "sub", 2, 3).unwrap(), json!(-1));
-
-    assert_eq!(binary("math", "mul", 2, 2).unwrap(), json!(4));
-    assert_eq!(binary("math", "mul", 2, 0).unwrap(), json!(0));
-    assert_eq!(binary("math", "mul", 2, -1).unwrap(), json!(-2));
-
-    assert_eq!(binary("math", "fmul", 10, 0.66).unwrap(), json!(6));
-    assert_eq!(binary("math", "fmul", 0.5, 0.5).unwrap(), json!(0));
-    assert_eq!(binary("math", "fmul", 100.5, 0.5).unwrap(), json!(50));
-
-    assert_eq!(binary("math", "div", 2, 2).unwrap(), json!(1));
-    assert_eq!(binary("math", "div", 2, 3).unwrap(), json!(0));
-    assert_eq!(binary("math", "div", 10, 5).unwrap(), json!(2));
-
-    assert_eq!(binary("math", "rem", 10, 3).unwrap(), json!(1));
-
-    assert_eq!(binary("math", "pow", 2, 2).unwrap(), json!(4));
-    assert_eq!(binary("math", "pow", 2, 0).unwrap(), json!(1));
-
-    assert_eq!(binary("math", "log", 2, 2).unwrap(), json!(1));
-    assert_eq!(binary("math", "log", 2, 4).unwrap(), json!(2));
-
-    assert_eq!(binary("cmp", "gt", 2, 4).unwrap(), json!(false));
-    assert_eq!(binary("cmp", "gte", 2, 4).unwrap(), json!(false));
-    assert_eq!(binary("cmp", "gte", 4, 2).unwrap(), json!(true));
-    assert_eq!(binary("cmp", "gte", 2, 2).unwrap(), json!(true));
-
-    assert_eq!(binary("cmp", "lt", 2, 4).unwrap(), json!(true));
-    assert_eq!(binary("cmp", "lte", 2, 4).unwrap(), json!(true));
-    assert_eq!(binary("cmp", "lte", 4, 2).unwrap(), json!(false));
-    assert_eq!(binary("cmp", "lte", 2, 2).unwrap(), json!(true));
-
-    assert_eq!(binary("cmp", "cmp", 2, 4).unwrap(), json!(-1));
-    assert_eq!(binary("cmp", "cmp", 2, -4).unwrap(), json!(1));
-    assert_eq!(binary("cmp", "cmp", 2, 2).unwrap(), json!(0));
-
-    // overflow
+#[tokio::test]
+async fn math_add() {
+    assert_eq!(binary("math", "add", 2, 2).await.unwrap(), json!(4));
     assert!(format!(
         "{:?}",
-        binary("math", "add", i64::MAX, i64::MAX).err().unwrap()
+        binary("math", "add", i64::MAX, i64::MAX)
+            .await
+            .err()
+            .unwrap()
     )
     .contains("overflow"));
-    assert!(format!("{:?}", binary("math", "div", 2, 0).err().unwrap()).contains("overflow"));
 }
 
-#[test]
-fn array_ops() {
-    assert_eq!(unary("array", "sum", vec![1, 2, 3]).unwrap(), json!(6));
+#[tokio::test]
+async fn math_sub() {
+    assert_eq!(binary("math", "sub", 2, 2).await.unwrap(), json!(0));
+    assert_eq!(binary("math", "sub", 2, 3).await.unwrap(), json!(-1));
+}
 
-    match unary("array", "dedup", vec!["a", "a", "b", "c", "a", "b", "c"]) {
+#[tokio::test]
+async fn math_mul() {
+    assert_eq!(binary("math", "mul", 2, 2).await.unwrap(), json!(4));
+    assert_eq!(binary("math", "mul", 2, 0).await.unwrap(), json!(0));
+    assert_eq!(binary("math", "mul", 2, -1).await.unwrap(), json!(-2));
+}
+
+#[tokio::test]
+async fn math_fmul() {
+    assert_eq!(binary("math", "fmul", 10, 0.66).await.unwrap(), json!(6));
+    assert_eq!(binary("math", "fmul", 0.5, 0.5).await.unwrap(), json!(0));
+    assert_eq!(binary("math", "fmul", 100.5, 0.5).await.unwrap(), json!(50));
+}
+
+#[tokio::test]
+async fn math_div() {
+    assert_eq!(binary("math", "div", 2, 2).await.unwrap(), json!(1));
+    assert_eq!(binary("math", "div", 2, 3).await.unwrap(), json!(0));
+    assert_eq!(binary("math", "div", 10, 5).await.unwrap(), json!(2));
+    assert!(format!("{:?}", binary("math", "div", 2, 0).await.err().unwrap()).contains("overflow"));
+}
+
+#[tokio::test]
+async fn math_rem() {
+    assert_eq!(binary("math", "rem", 10, 3).await.unwrap(), json!(1));
+}
+
+#[tokio::test]
+async fn math_pow() {
+    assert_eq!(binary("math", "pow", 2, 2).await.unwrap(), json!(4));
+    assert_eq!(binary("math", "pow", 2, 0).await.unwrap(), json!(1));
+}
+
+#[tokio::test]
+async fn math_log() {
+    assert_eq!(binary("math", "log", 2, 2).await.unwrap(), json!(1));
+    assert_eq!(binary("math", "log", 2, 4).await.unwrap(), json!(2));
+}
+
+#[tokio::test]
+async fn cmp_gt() {
+    assert_eq!(binary("cmp", "gt", 2, 4).await.unwrap(), json!(false));
+    assert_eq!(binary("cmp", "gte", 2, 4).await.unwrap(), json!(false));
+    assert_eq!(binary("cmp", "gte", 4, 2).await.unwrap(), json!(true));
+    assert_eq!(binary("cmp", "gte", 2, 2).await.unwrap(), json!(true));
+}
+
+#[tokio::test]
+async fn cmp_le() {
+    assert_eq!(binary("cmp", "lt", 2, 4).await.unwrap(), json!(true));
+    assert_eq!(binary("cmp", "lte", 2, 4).await.unwrap(), json!(true));
+    assert_eq!(binary("cmp", "lte", 4, 2).await.unwrap(), json!(false));
+    assert_eq!(binary("cmp", "lte", 2, 2).await.unwrap(), json!(true));
+}
+
+#[tokio::test]
+async fn cmp_cmp() {
+    assert_eq!(binary("cmp", "cmp", 2, 4).await.unwrap(), json!(-1));
+    assert_eq!(binary("cmp", "cmp", 2, -4).await.unwrap(), json!(1));
+    assert_eq!(binary("cmp", "cmp", 2, 2).await.unwrap(), json!(0));
+}
+
+#[tokio::test]
+async fn array_sum() {
+    assert_eq!(
+        unary("array", "sum", vec![1, 2, 3]).await.unwrap(),
+        json!(6)
+    );
+}
+
+#[tokio::test]
+async fn array_dedup() {
+    match unary("array", "dedup", vec!["a", "a", "b", "c", "a", "b", "c"]).await {
         Ok(JValue::Array(arr)) => {
             let mut arr: Vec<_> = arr
                 .into_iter()
@@ -1087,13 +1210,18 @@ fn array_ops() {
         }
         unexpected => panic!("expected array, got {:?}", unexpected),
     };
+}
 
+#[tokio::test]
+async fn array_intersect() {
     match binary(
         "array",
         "intersect",
         vec!["a", "b", "c"],
         vec!["c", "b", "d"],
-    ) {
+    )
+    .await
+    {
         Ok(JValue::Array(arr)) => {
             let mut arr: Vec<_> = arr
                 .into_iter()
@@ -1104,15 +1232,21 @@ fn array_ops() {
         }
         unexpected => panic!("expected array, got {:?}", unexpected),
     };
+}
 
-    match binary("array", "diff", vec!["a", "b", "c"], vec!["c", "b", "d"]) {
+#[tokio::test]
+async fn array_diff() {
+    match binary("array", "diff", vec!["a", "b", "c"], vec!["c", "b", "d"]).await {
         Ok(JValue::Array(arr)) => {
             assert_eq!(arr, vec!["a"])
         }
         unexpected => panic!("expected array, got {:?}", unexpected),
     }
+}
 
-    match binary("array", "sdiff", vec!["a", "b", "c"], vec!["c", "b", "d"]) {
+#[tokio::test]
+async fn array_sdiff() {
+    match binary("array", "sdiff", vec!["a", "b", "c"], vec!["c", "b", "d"]).await {
         Ok(JValue::Array(arr)) => {
             let mut arr: Vec<_> = arr
                 .into_iter()
@@ -1125,9 +1259,9 @@ fn array_ops() {
     }
 }
 
-#[test]
+#[tokio::test]
 // checks that it is possible to use math's results as array indexes
-fn index_by_math() {
+async fn index_by_math() {
     let element = exec_script(
         r#"
     (seq
@@ -1143,16 +1277,18 @@ fn index_by_math() {
         "element",
         1,
     )
+    .await
     .unwrap();
 
     assert_eq!(element[0], json!(4));
 }
 
-#[test]
-fn service_mem() {
-    let swarms = make_swarms(1);
+#[tokio::test]
+async fn service_mem() {
+    let swarms = make_swarms(1).await;
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
         .wrap_err("connect client")
         .unwrap();
 
@@ -1160,7 +1296,8 @@ fn service_mem() {
         &mut client,
         "tetraplets",
         load_module("tests/tetraplets/artifacts", "tetraplets").expect("load module"),
-    );
+    )
+    .await;
 
     client.send_particle(
         r#"
@@ -1177,18 +1314,19 @@ fn service_mem() {
 
     use serde_json::Value::Array;
 
-    if let [Array(stats)] = client.receive_args().unwrap().as_slice() {
+    if let [Array(stats)] = client.receive_args().await.unwrap().as_slice() {
         assert_eq!(stats[0].get("name"), Some(&json!("tetraplets")));
     } else {
         panic!("incorrect args: expected single arrays of module memory stats")
     }
 }
 
-#[test]
-fn service_stats() {
-    let swarms = make_swarms(1);
+#[tokio::test]
+async fn service_stats() {
+    let swarms = make_swarms(1).await;
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
         .wrap_err("connect client")
         .unwrap();
 
@@ -1196,7 +1334,8 @@ fn service_stats() {
         &mut client,
         "tetraplets",
         load_module("tests/tetraplets/artifacts", "tetraplets").expect("load module"),
-    );
+    )
+    .await;
 
     let particle_id = client.send_particle(
         r#"
@@ -1220,6 +1359,7 @@ fn service_stats() {
     );
     client
         .wait_particle_args(particle_id)
+        .await
         .expect("receive particle");
 
     client.send_particle(
@@ -1235,7 +1375,7 @@ fn service_stats() {
         },
     );
 
-    if let Ok([result]) = client.receive_args().as_deref() {
+    if let Ok([result]) = client.receive_args().await.as_deref() {
         assert_eq!(result.get("error"), Some(&json!("")));
         assert_eq!(result.get("status"), Some(&json!(true)));
 
@@ -1281,11 +1421,12 @@ fn service_stats() {
     }
 }
 
-#[test]
-fn service_stats_uninitialized() {
-    let swarms = make_swarms(1);
+#[tokio::test]
+async fn service_stats_uninitialized() {
+    let swarms = make_swarms(1).await;
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
         .wrap_err("connect client")
         .unwrap();
 
@@ -1293,7 +1434,8 @@ fn service_stats_uninitialized() {
         &mut client,
         "tetraplets",
         load_module("tests/tetraplets/artifacts", "tetraplets").expect("load module"),
-    );
+    )
+    .await;
 
     client.send_particle(
         r#"
@@ -1310,7 +1452,7 @@ fn service_stats_uninitialized() {
 
     use serde_json::Value::Object;
 
-    if let Ok([Object(result)]) = client.receive_args().as_deref() {
+    if let Ok([Object(result)]) = client.receive_args().await.as_deref() {
         assert_eq!(
             result.get("error"),
             Some(&json!(format!(
@@ -1324,21 +1466,23 @@ fn service_stats_uninitialized() {
     }
 }
 
-#[test]
-fn sign_verify() {
+#[tokio::test]
+async fn sign_verify() {
     let kp = KeyPair::generate_ed25519();
     let swarms = make_swarms_with_builtins(
         1,
         "tests/builtins/services".as_ref(),
         Some(kp.clone()),
         None,
-    );
+    )
+    .await;
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
         .wrap_err("connect client")
         .unwrap();
 
-    client.send_particle(
+    let _particle_id = client.send_particle(
         r#"
             (seq
                 (seq
@@ -1364,7 +1508,7 @@ fn sign_verify() {
     use serde_json::Value::Object;
 
     if let [Array(data), Object(sig_result), Bool(result)] =
-        client.receive_args().unwrap().as_slice()
+        client.receive_args().await.unwrap().as_slice()
     {
         let data: Vec<_> = data.iter().map(|n| n.as_u64().unwrap() as u8).collect();
 
@@ -1383,11 +1527,12 @@ fn sign_verify() {
     }
 }
 
-#[test]
-fn sign_invalid_tetraplets() {
-    let swarms = make_swarms_with_builtins(2, "tests/builtins/services".as_ref(), None, None);
+#[tokio::test]
+async fn sign_invalid_tetraplets() {
+    let swarms = make_swarms_with_builtins(2, "tests/builtins/services".as_ref(), None, None).await;
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
         .wrap_err("connect client")
         .unwrap();
 
@@ -1437,7 +1582,7 @@ fn sign_invalid_tetraplets() {
     use serde_json::Value::String;
 
     if let [String(host_error), String(srv_error), String(func_error)] =
-        client.receive_args().unwrap().as_slice()
+        client.receive_args().await.unwrap().as_slice()
     {
         assert!(host_error.contains(&format!("data is expected to be produced by service 'registry' on peer '{relay}', was from peer '{wrong_peer}'")));
         assert!(srv_error.contains("data is expected to result from a call to 'registry.get_record_bytes' or 'registry.get_record_metadata_bytes', was from 'op.identity'"));
@@ -1447,12 +1592,14 @@ fn sign_invalid_tetraplets() {
     }
 }
 
-#[test]
-fn sig_verify_invalid_signature() {
+#[tokio::test]
+async fn sig_verify_invalid_signature() {
     let kp = KeyPair::generate_ed25519();
-    let swarms = make_swarms_with_builtins(1, "tests/builtins/services".as_ref(), Some(kp), None);
+    let swarms =
+        make_swarms_with_builtins(1, "tests/builtins/services".as_ref(), Some(kp), None).await;
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
         .wrap_err("connect client")
         .unwrap();
 
@@ -1481,7 +1628,7 @@ fn sig_verify_invalid_signature() {
 
     use serde_json::Value::Bool;
 
-    if let [Bool(result1), Bool(result2)] = client.receive_args().unwrap().as_slice() {
+    if let [Bool(result1), Bool(result2)] = client.receive_args().await.unwrap().as_slice() {
         assert!(
             !result1,
             "verification of invalid signature should be failed"
@@ -1495,8 +1642,8 @@ fn sig_verify_invalid_signature() {
     }
 }
 
-#[test]
-fn json_builtins() {
+#[tokio::test]
+async fn json_builtins() {
     let result = exec_script(
         r#"
         (seq
@@ -1609,7 +1756,7 @@ fn json_builtins() {
         hashmap! {},
         r"nested_first nested_second outer_first outer_second outer_first_string outer_first_parsed outer_first_pairs outer_second_pairs",
         1,
-    ).expect("execute script");
+    ).await.expect("execute script");
 
     if let [nested_first, nested_second, outer_first, outer_second, outer_first_string, outer_first_parsed, outer_first_pairs, outer_second_pairs] =
         result.as_slice()
@@ -1633,12 +1780,13 @@ fn json_builtins() {
     }
 }
 
-#[test]
-fn insecure_sign_verify() {
+#[tokio::test]
+async fn insecure_sign_verify() {
     let kp = KeyPair::from_secret_key(INSECURE_KEYPAIR_SEED.collect(), KeyFormat::Ed25519).unwrap();
-    let swarms = make_swarms_with_builtins(1, "tests/builtins/services".as_ref(), None, None);
+    let swarms = make_swarms_with_builtins(1, "tests/builtins/services".as_ref(), None, None).await;
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
         .wrap_err("connect client")
         .unwrap();
 
@@ -1665,7 +1813,7 @@ fn insecure_sign_verify() {
     use serde_json::Value::Object;
 
     if let [Array(data), Object(sig_result), Bool(result)] =
-        client.receive_args().unwrap().as_slice()
+        client.receive_args().await.unwrap().as_slice()
     {
         let data: Vec<_> = data.iter().map(|n| n.as_u64().unwrap() as u8).collect();
 
@@ -1684,7 +1832,7 @@ fn insecure_sign_verify() {
     }
 }
 
-fn binary(
+async fn binary(
     service: &str,
     func: &str,
     x: impl Into<JValue>,
@@ -1700,12 +1848,13 @@ fn binary(
         },
         "result",
         1,
-    );
+    )
+    .await;
 
     result.map(|mut r| r[0].take())
 }
 
-fn unary(service: &str, func: &str, x: impl Into<JValue>) -> Result<JValue, Report> {
+async fn unary(service: &str, func: &str, x: impl Into<JValue>) -> Result<JValue, Report> {
     let result = exec_script(
         r#"(call relay (service func) [x] result)"#,
         hashmap! {
@@ -1715,28 +1864,29 @@ fn unary(service: &str, func: &str, x: impl Into<JValue>) -> Result<JValue, Repo
         },
         "result",
         1,
-    );
+    )
+    .await;
 
     result.map(|mut r| r[0].take())
 }
 
-fn exec_script(
+async fn exec_script(
     script: &str,
     args: HashMap<&'static str, JValue>,
     result: &str,
     node_count: usize,
 ) -> Result<Vec<JValue>, Report> {
-    exec_script_as_admin(script, args, result, node_count, false)
+    exec_script_as_admin(script, args, result, node_count, false).await
 }
 
-fn exec_script_as_admin(
-    script: &str,
+async fn exec_script_as_admin<'a>(
+    script: &'a str,
     mut args: HashMap<&'static str, JValue>,
-    result: &str,
+    result: &'a str,
     node_count: usize,
     as_admin: bool,
 ) -> Result<Vec<JValue>, Report> {
-    let swarms = make_swarms(node_count);
+    let swarms = make_swarms(node_count).await;
 
     let keypair = if as_admin {
         Some(swarms[0].management_keypair.clone())
@@ -1744,31 +1894,37 @@ fn exec_script_as_admin(
         None
     };
     let mut client = ConnectedClient::connect_with_keypair(swarms[0].multiaddr.clone(), keypair)
+        .await
         .wrap_err("connect client")
         .unwrap();
 
     args.insert("relay", json!(client.node.to_string()));
 
-    client.send_particle(
-        f!(r#"
+    let result = client
+        .execute_particle(
+            f!(r#"
         (seq
             {script}
             (call %init_peer_id% ("op" "return") [{result}])
         )
         "#),
-        args,
-    );
+            args,
+        )
+        .await;
 
-    client.receive_args().wrap_err("receive args")
+    swarms.into_iter().map(|s| s.outlet.send(())).for_each(drop);
+
+    result
 }
 
-#[test]
-fn add_alias_list() {
-    let swarms = make_swarms(1);
+#[tokio::test]
+async fn add_alias_list() {
+    let swarms = make_swarms(1).await;
     let mut client = ConnectedClient::connect_with_keypair(
         swarms[0].multiaddr.clone(),
         Some(swarms[0].management_keypair.clone()),
     )
+    .await
     .wrap_err("connect client")
     .unwrap();
 
@@ -1776,7 +1932,8 @@ fn add_alias_list() {
         &mut client,
         "tetraplets",
         load_module("tests/tetraplets/artifacts", "tetraplets").expect("load module"),
-    );
+    )
+    .await;
 
     let alias = "tetraplets".to_string();
     client.send_particle(
@@ -1798,7 +1955,7 @@ fn add_alias_list() {
 
     use serde_json::Value::Array;
 
-    if let [Array(list)] = client.receive_args().unwrap().as_slice() {
+    if let [Array(list)] = client.receive_args().await.unwrap().as_slice() {
         assert_eq!(list.len(), 1);
 
         let service_info = &list[0];
@@ -1816,15 +1973,16 @@ fn add_alias_list() {
     }
 }
 
-#[test]
-fn aliases_restart() {
+#[tokio::test]
+async fn aliases_restart() {
     let kp = KeyPair::generate_ed25519();
-    let swarms = make_swarms_with_keypair(1, kp.clone(), None);
+    let swarms = make_swarms_with_keypair(1, kp.clone(), None).await;
 
     let mut client = ConnectedClient::connect_with_keypair(
         swarms[0].multiaddr.clone(),
         Some(swarms[0].management_keypair.clone()),
     )
+    .await
     .wrap_err("connect client")
     .unwrap();
 
@@ -1832,7 +1990,8 @@ fn aliases_restart() {
         &mut client,
         "tetraplets",
         load_module("tests/tetraplets/artifacts", "tetraplets").expect("load module"),
-    );
+    )
+    .await;
 
     let alias = "tetraplets".to_string();
     client.send_particle(
@@ -1852,7 +2011,7 @@ fn aliases_restart() {
         },
     );
 
-    if let [JValue::String(result)] = client.receive_args().unwrap().as_slice() {
+    if let [JValue::String(result)] = client.receive_args().await.unwrap().as_slice() {
         assert_eq!(*result, "ok");
     }
 
@@ -1860,11 +2019,12 @@ fn aliases_restart() {
 
     // stop swarm
     swarms.into_iter().map(|s| s.outlet.send(())).for_each(drop);
-    let swarms = make_swarms_with_keypair(1, kp, None);
+    let swarms = make_swarms_with_keypair(1, kp, None).await;
     let mut client = ConnectedClient::connect_with_keypair(
         swarms[0].multiaddr.clone(),
         Some(swarms[0].management_keypair.clone()),
     )
+    .await
     .wrap_err("connect client")
     .unwrap();
 
@@ -1881,7 +2041,7 @@ fn aliases_restart() {
         },
     );
 
-    if let [Array(after)] = client.receive_args().unwrap().as_slice() {
+    if let [Array(after)] = client.receive_args().await.unwrap().as_slice() {
         assert_eq!(after.len(), 1);
         let service_info = &after[0];
         let aliases = service_info

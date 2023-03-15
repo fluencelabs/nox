@@ -16,7 +16,6 @@
 
 use std::time::Duration;
 
-use async_std::task::block_on;
 use futures::channel::oneshot::channel;
 use futures::future::BoxFuture;
 use futures::FutureExt;
@@ -31,9 +30,9 @@ use test_constants::PARTICLE_TTL;
 use test_utils::timeout;
 use uuid_utils::uuid;
 
-#[test]
-fn call_custom_service() {
-    let swarms = make_swarms(2);
+#[tokio::test]
+async fn call_custom_service() {
+    let swarms = make_swarms(2).await;
 
     // pub type Output<'a> = BoxFuture<'a, FunctionOutcome>;
     //
@@ -96,12 +95,13 @@ fn call_custom_service() {
 
     let exec_f = swarms[1].aquamarine_api.clone().execute(particle, None);
 
-    let result = block_on(timeout(Duration::from_secs(30), async move {
+    let result = timeout(Duration::from_secs(30), async move {
         add_first_f.await.expect("add_first_f");
         add_second_f.await.expect("add_second_f");
         exec_f.await.expect("exec_f");
         inlet.await
-    }));
+    })
+    .await;
 
     println!("result: {result:?}");
 }

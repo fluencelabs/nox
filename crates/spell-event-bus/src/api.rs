@@ -1,11 +1,10 @@
 use crate::config::SpellTriggerConfigs;
 use connection_pool::LifecycleEvent;
-use fluence_libp2p::types::{OneshotOutlet, Outlet};
 use fluence_libp2p::{peerid_serializer, PeerId};
-use futures::channel::mpsc::SendError;
-use futures::{channel::oneshot, future::BoxFuture, FutureExt};
 use serde::{Deserialize, Serialize};
+use std::pin::Pin;
 use thiserror::Error;
+use tokio::sync::{mpsc, oneshot};
 
 pub use crate::config::*;
 
@@ -107,7 +106,7 @@ impl From<TriggerInfoAqua> for TriggerInfo {
 pub(crate) struct Command {
     pub(crate) spell_id: SpellId,
     pub(crate) action: Action,
-    pub(crate) reply: OneshotOutlet<()>,
+    pub(crate) reply: oneshot::Sender<()>,
 }
 
 #[derive(Debug, Clone)]
@@ -126,7 +125,7 @@ pub enum EventBusError {
     SendError {
         spell_id: SpellId,
         action: Action,
-        reason: SendError,
+        reason: Pin<Box<dyn std::error::Error + Send>>,
     },
     #[error("can't receive a message from the bus on behalf of spell {0}: sending end is probably dropped")]
     ReplyError(SpellId),
@@ -134,7 +133,7 @@ pub enum EventBusError {
 
 #[derive(Clone)]
 pub struct SpellEventBusApi {
-    pub(crate) send_cmd_channel: Outlet<Command>,
+    pub(crate) send_cmd_channel: mpsc::UnboundedSender<Command>,
 }
 
 impl std::fmt::Debug for SpellEventBusApi {
@@ -144,46 +143,39 @@ impl std::fmt::Debug for SpellEventBusApi {
 }
 
 impl SpellEventBusApi {
-    fn send(
-        &self,
-        spell_id: SpellId,
-        action: Action,
-    ) -> BoxFuture<'static, Result<(), EventBusError>> {
+    async fn send(&self, spell_id: SpellId, action: Action) -> Result<(), EventBusError> {
         let (send, recv) = oneshot::channel();
         let command = Command {
             spell_id: spell_id.clone(),
             action: action.clone(),
             reply: send,
         };
-        let result =
-            self.send_cmd_channel
-                .unbounded_send(command)
-                .map_err(|e| EventBusError::SendError {
-                    spell_id: spell_id.clone(),
-                    action,
-                    reason: e.into_send_error(),
-                });
+        self.send_cmd_channel
+            .send(command)
+            .map_err(|e| EventBusError::SendError {
+                spell_id: spell_id.clone(),
+                action,
+                reason: Box::pin(e),
+            })?;
 
-        if let Err(err) = result {
-            return futures::future::err(err).boxed();
-        }
-        recv.map(|r| r.map_err(|_| EventBusError::ReplyError(spell_id)))
-            .boxed()
+        recv.await
+            .map_err(|_| EventBusError::ReplyError(spell_id))?;
+        Ok(())
     }
 
     /// Subscribe a spell to a list of events
     /// The spell can be subscribed multiple times to different events, but to only one timer.
     /// Note that multiple subscriptions to the same event will result in multiple events of the same type being sent.
-    pub fn subscribe(
+    pub async fn subscribe(
         &self,
         spell_id: SpellId,
         config: SpellTriggerConfigs,
-    ) -> BoxFuture<'static, Result<(), EventBusError>> {
-        self.send(spell_id, Action::Subscribe(config))
+    ) -> Result<(), EventBusError> {
+        self.send(spell_id, Action::Subscribe(config)).await
     }
 
     /// Unsubscribe a spell from all events.
-    pub fn unsubscribe(&self, spell_id: SpellId) -> BoxFuture<'static, Result<(), EventBusError>> {
-        self.send(spell_id, Action::Unsubscribe)
+    pub async fn unsubscribe(&self, spell_id: SpellId) -> Result<(), EventBusError> {
+        self.send(spell_id, Action::Unsubscribe).await
     }
 }

@@ -24,15 +24,13 @@ use futures::future::BoxFuture;
 use futures::stream::FuturesUnordered;
 use futures::{FutureExt, StreamExt};
 use humantime::format_duration as pretty;
-use parking_lot::Mutex;
-use serde_json::json;
-use serde_json::Value as JValue;
-
 use particle_args::{Args, JError};
 use particle_execution::{
     FunctionOutcome, ParticleFunctionStatic, ParticleParams, ServiceFunction,
 };
 use peer_metrics::FunctionKind;
+use serde_json::json;
+use serde_json::Value as JValue;
 
 #[derive(Clone, Debug)]
 /// Performance statistics about executed function call
@@ -57,7 +55,7 @@ pub struct Functions<F> {
     function_calls: FuturesUnordered<BoxFuture<'static, SingleCallResult>>,
     call_results: CallResults,
     call_stats: Vec<SingleCallStat>,
-    particle_function: Option<Arc<Mutex<ServiceFunction>>>,
+    particle_function: Option<Arc<tokio::sync::Mutex<ServiceFunction>>>,
 }
 
 impl<F: ParticleFunctionStatic> Functions<F> {
@@ -104,7 +102,7 @@ impl<F: ParticleFunctionStatic> Functions<F> {
     }
 
     pub fn set_function(&mut self, function: ServiceFunction) {
-        self.particle_function = Some(Arc::new(Mutex::new(function)));
+        self.particle_function = Some(Arc::new(tokio::sync::Mutex::new(function)));
     }
 
     // TODO: currently AFAIK there's no cooperation between tasks/executors because all futures
@@ -120,8 +118,6 @@ impl<F: ParticleFunctionStatic> Functions<F> {
         call: CallRequestParams,
         waker: Waker,
     ) -> BoxFuture<'static, SingleCallResult> {
-        use async_std::task::{block_on, spawn_blocking};
-
         // Deserialize params
         let args = match Args::try_from(call) {
             Ok(args) => args,
@@ -152,9 +148,12 @@ impl<F: ParticleFunctionStatic> Functions<F> {
         let params = self.particle.clone();
         let builtins = self.builtins.clone();
         let particle_function = self.particle_function.clone();
-
-        let result = spawn_blocking(move || {
-            block_on(async move {
+        let result = tokio::task::Builder::new()
+            .name(&format!(
+                "Call function {}:{}",
+                args.service_id, args.function_name
+            ))
+            .spawn(async move {
                 let outcome = builtins.call(args, params).await;
                 // record whether call was handled by builtin or not. needed for stats.
                 let mut call_kind = FunctionKind::Service;
@@ -166,7 +165,7 @@ impl<F: ParticleFunctionStatic> Functions<F> {
                         let func = particle_function.unwrap();
                         // TODO: Actors would allow to get rid of Mutex
                         //       i.e., wrap each callback with a queue & channel
-                        let func = func.lock();
+                        let func = func.lock().await;
                         let outcome = func.call(args, params).await;
                         call_kind = FunctionKind::ParticleFunction;
                         outcome
@@ -176,10 +175,10 @@ impl<F: ParticleFunctionStatic> Functions<F> {
                 };
                 (outcome, call_kind)
             })
-        });
+            .expect("Could not spawn task");
 
         async move {
-            let (result, call_kind) = result.await;
+            let (result, call_kind) = result.await.expect("Could not 'Call function' join");
             let elapsed = start.elapsed();
 
             let result = match result {

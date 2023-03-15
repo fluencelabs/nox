@@ -16,25 +16,17 @@
 
 use std::{error::Error, time::Duration};
 
-use async_std::{task, task::JoinHandle};
 use derivative::Derivative;
-use futures::{
-    channel::{mpsc, mpsc::TrySendError, oneshot},
-    future::FusedFuture,
-    select,
-    stream::{Fuse, StreamExt},
-    FutureExt,
-};
+use futures::stream::StreamExt;
 use libp2p::core::either::EitherError;
 use libp2p::core::Multiaddr;
 use libp2p::swarm::{ConnectionHandlerUpgrErr, SwarmBuilder, SwarmEvent};
 use libp2p::{identity::Keypair, PeerId, Swarm};
+use tokio::sync::mpsc::error::SendError;
+use tokio::sync::{mpsc, oneshot};
+use tokio::{select, task, task::JoinHandle};
 
-use fluence_libp2p::{
-    build_transport,
-    types::{Inlet, OneshotOutlet, Outlet},
-    Transport,
-};
+use fluence_libp2p::{build_transport, Transport};
 use particle_protocol::{Particle, ProtocolConfig};
 
 use crate::api::ParticleApi;
@@ -53,17 +45,18 @@ pub struct Client {
     pub key_pair: Keypair,
     pub peer_id: PeerId,
     /// Channel to send commands to node
-    relay_outlet: Outlet<Command>,
+    relay_outlet: mpsc::UnboundedSender<Command>,
     /// Stream of messages received from node
-    client_inlet: Fuse<Inlet<ClientEvent>>,
-    stop_outlet: OneshotOutlet<()>,
+    client_inlet: mpsc::UnboundedReceiver<ClientEvent>,
+    stop_outlet: oneshot::Sender<()>,
+    pub(crate) fetched: Vec<Particle>,
 }
 
 impl Client {
     fn new(
-        relay_outlet: Outlet<Command>,
-        client_inlet: Inlet<ClientEvent>,
-        stop_outlet: OneshotOutlet<()>,
+        relay_outlet: mpsc::UnboundedSender<Command>,
+        client_inlet: mpsc::UnboundedReceiver<ClientEvent>,
+        stop_outlet: oneshot::Sender<()>,
         key_pair: Option<Keypair>,
     ) -> Self {
         let key = key_pair.unwrap_or_else(Keypair::generate_ed25519);
@@ -73,21 +66,22 @@ impl Client {
             key_pair: key,
             peer_id,
             relay_outlet,
-            client_inlet: client_inlet.fuse(),
+            client_inlet,
             stop_outlet,
+            fetched: vec![],
         }
     }
 
     pub fn send(&self, particle: Particle, node: PeerId) {
-        if let Err(err) = self.relay_outlet.unbounded_send(Command { node, particle }) {
+        if let Err(err) = self.relay_outlet.send(Command { node, particle }) {
             let err_msg = format!("{err:?}");
-            let msg = err.into_inner();
+            let msg = err;
             log::warn!("Unable to send msg {:?}: {:?}", msg, err_msg)
         }
     }
 
-    pub fn receive_one(&mut self) -> impl FusedFuture<Output = Option<ClientEvent>> + '_ {
-        self.client_inlet.next()
+    pub async fn receive_one(&mut self) -> Option<ClientEvent> {
+        self.client_inlet.recv().await
     }
 
     pub fn stop(self) {
@@ -111,7 +105,7 @@ impl Client {
             let behaviour = ClientBehaviour::new(protocol_config);
 
             let transport = build_transport(transport, self.key_pair.clone(), transport_timeout);
-            SwarmBuilder::with_async_std_executor(transport, behaviour, self.peer_id).build()
+            SwarmBuilder::with_tokio_executor(transport, behaviour, self.peer_id).build()
         };
 
         match Swarm::dial(&mut swarm, node.clone()) {
@@ -138,8 +132,8 @@ impl Client {
         key_pair: Option<Keypair>,
         transport_timeout: Duration,
     ) -> Result<(Client, JoinHandle<()>), Box<dyn Error>> {
-        let (client_outlet, client_inlet) = mpsc::unbounded();
-        let (relay_outlet, relay_inlet) = mpsc::unbounded();
+        let (client_outlet, client_inlet) = mpsc::unbounded_channel();
+        let (relay_outlet, mut relay_inlet) = mpsc::unbounded_channel();
 
         let (stop_outlet, stop_inlet) = oneshot::channel();
 
@@ -151,37 +145,38 @@ impl Client {
         );
         let client = Client::new(relay_outlet, client_inlet, stop_outlet, key_pair);
         let mut swarm = client.dial(relay, transport, transport_timeout, protocol_config)?;
+        let mut stop_inlet = Some(stop_inlet);
 
-        let mut relay_inlet = relay_inlet.fuse();
-        let mut stop = stop_inlet.into_stream().fuse();
-
-        let task = task::spawn(async move {
-            loop {
-                select!(
-                    // Messages that were scheduled via client.send() method
-                    to_relay = relay_inlet.next() => {
-                        if let Some(cmd) = to_relay {
-                            Self::send_to_node(swarm.behaviour_mut(), cmd)
+        let task = task::Builder::new()
+            .name("Client")
+            .spawn(async move {
+                loop {
+                    let stop_inlet = stop_inlet.as_mut().expect("Could not get stop inlet");
+                    select!(
+                        // Messages that were scheduled via client.send() method
+                        to_relay = relay_inlet.recv() => {
+                            if let Some(cmd) = to_relay {
+                                Self::send_to_node(swarm.behaviour_mut(), cmd)
+                            }
                         }
-                    }
 
-                    // Messages that were received from relay node
-                    from_relay = swarm.select_next_some() => {
-                        match Self::receive_from_node(from_relay, &client_outlet) {
-                            Err(err) => {
-                                let err_msg = format!("{err:?}");
-                                let msg = err.into_inner();
-                                log::warn!("unable to send {:?} to node: {:?}", msg, err_msg)
-                            },
-                            Ok(_v) => {},
-                        }
-                    },
-                    _ = stop.next() => break,
-                )
-            }
-        });
+                        // Messages that were received from relay node
+                        Some(from_relay) = swarm.next() => {
+                            match Self::receive_from_node(from_relay, &client_outlet) {
+                                Err(err) => {
+                                    let err_msg = format!("{err:?}");
+                                    let msg = err;
+                                    log::warn!("unable to send {:?} to node: {:?}", msg, err_msg)
+                                },
+                                Ok(_v) => {},
+                            }
+                        },
+                        _ = stop_inlet => break,
+                    )
+                }
+            })
+            .expect("Could not spawn task");
 
-        // TODO: return client only when connection is established, i.e. wait for an event from swarm
         Ok((client, task))
     }
 
@@ -196,11 +191,11 @@ impl Client {
             ClientEvent,
             EitherError<ConnectionHandlerUpgrErr<std::io::Error>, libp2p::ping::Failure>,
         >,
-        client_outlet: &Outlet<ClientEvent>,
-    ) -> Result<(), TrySendError<ClientEvent>> {
+        client_outlet: &mpsc::UnboundedSender<ClientEvent>,
+    ) -> Result<(), SendError<ClientEvent>> {
         if let SwarmEvent::Behaviour(msg) = msg {
             // Message will be available through client.receive_one
-            client_outlet.unbounded_send(msg)
+            client_outlet.send(msg)
         } else {
             Ok(())
         }

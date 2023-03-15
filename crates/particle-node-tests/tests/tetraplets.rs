@@ -17,8 +17,6 @@
 #[macro_use]
 extern crate fstrings;
 
-use std::thread::sleep;
-
 use fstrings::f;
 use maplit::hashmap;
 use serde_json::json;
@@ -32,19 +30,21 @@ use test_utils::create_service;
 
 use eyre::WrapErr;
 
-#[test]
-fn test_tetraplets() {
-    let swarms = make_swarms(3);
-    sleep(KAD_TIMEOUT);
+#[tokio::test]
+async fn test_tetraplets() {
+    let swarms = make_swarms(3).await;
+    tokio::time::sleep(KAD_TIMEOUT).await;
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
         .wrap_err("connect client")
         .unwrap();
     let tetraplets_service = create_service(
         &mut client,
         "tetraplets",
         load_module("tests/tetraplets/artifacts", "tetraplets").expect("load module"),
-    );
+    )
+    .await;
 
     let script = f!(r#"
     (seq
@@ -84,7 +84,7 @@ fn test_tetraplets() {
 
     client.send_particle(script, data.clone());
 
-    let args = client.receive_args().wrap_err("receive").unwrap();
+    let args = client.receive_args().await.wrap_err("receive").unwrap();
     let mut args = args.into_iter();
 
     let ap_literal_tetraplets = args.next().unwrap();

@@ -34,12 +34,13 @@ use test_utils::create_service;
 
 use crate::{SERVICES, SPELL};
 
-fn check_registry_builtin(client: &mut ConnectedClient) {
+async fn check_registry_builtin(client: &mut ConnectedClient) {
     // TODO: get rid of FIVE SECONDS sleep
-    std::thread::sleep(Duration::from_millis(5000));
+    tokio::time::sleep(Duration::from_millis(5000)).await;
 
-    client.send_particle(
-        r#"(xor
+    let mut result = client
+        .execute_particle(
+            r#"(xor
             (seq
                 (seq
                     (call relay ("srv" "resolve_alias") [alias] service_id)
@@ -53,40 +54,43 @@ fn check_registry_builtin(client: &mut ConnectedClient) {
             (call %init_peer_id% ("op" "return") [%last_error%])
         )
     "#,
-        hashmap! {
-            "relay" => json!(client.node.to_string()),
-            "alias" => json!("registry"),
-            "label" => json!("some_label"),
-        },
-    );
-
-    let mut result = client.receive_args().wrap_err("receive args").unwrap();
+            hashmap! {
+                "relay" => json!(client.node.to_string()),
+                "alias" => json!("registry"),
+                "label" => json!("some_label"),
+            },
+        )
+        .await
+        .unwrap();
     match result.pop() {
         Some(serde_json::Value::String(s)) => assert!(s.contains("some_label")),
         other => panic!("expected json string, got {:?}", other),
     }
 }
 
-#[test]
-fn builtins_test() {
-    let swarms = make_swarms_with_builtins(1, Path::new(SERVICES), None, Some(SPELL.to_string()));
+#[tokio::test]
+async fn builtins_test() {
+    let swarms =
+        make_swarms_with_builtins(1, Path::new(SERVICES), None, Some(SPELL.to_string())).await;
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
         .wrap_err("connect client")
         .unwrap();
 
-    check_registry_builtin(&mut client);
+    check_registry_builtin(&mut client).await;
 }
 
-#[test]
-fn builtins_replace_old() {
+#[tokio::test]
+async fn builtins_replace_old() {
     let keypair = KeyPair::generate_ed25519();
-    let swarms = make_swarms_with_keypair(1, keypair.clone(), Some(SPELL.to_string()));
+    let swarms = make_swarms_with_keypair(1, keypair.clone(), Some(SPELL.to_string())).await;
 
     let mut client = ConnectedClient::connect_with_keypair(
         swarms[0].multiaddr.clone(),
         Some(swarms[0].management_keypair.clone()),
     )
+    .await
     .wrap_err("connect client")
     .unwrap();
 
@@ -99,10 +103,12 @@ fn builtins_replace_old() {
             "tetraplets",
         )
         .expect("load module"),
-    );
+    )
+    .await;
 
-    client.send_particle(
-        r#"
+    let result = client
+        .execute_particle(
+            r#"
         (xor
             (seq
                 (call relay ("srv" "add_alias") [alias service])
@@ -111,14 +117,15 @@ fn builtins_replace_old() {
             (call %init_peer_id% ("op" "return") [%last_error%.$.instruction])
         )
     "#,
-        hashmap! {
-            "relay" => json!(client.node.to_string()),
-            "service" => json!(tetraplets_service.id),
-            "alias" => json!("aqua-dht".to_string()),
-        },
-    );
+            hashmap! {
+                "relay" => json!(client.node.to_string()),
+                "service" => json!(tetraplets_service.id),
+                "alias" => json!("aqua-dht".to_string()),
+            },
+        )
+        .await
+        .unwrap();
 
-    let result = client.receive_args().unwrap();
     let result = result[0].as_str().unwrap();
     assert_eq!(result, "ok");
 
@@ -131,25 +138,30 @@ fn builtins_replace_old() {
         Path::new(SERVICES),
         Some(keypair),
         Some(SPELL.to_string()),
-    );
+    )
+    .await;
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
         .wrap_err("connect client")
         .unwrap();
 
-    check_registry_builtin(&mut client);
+    check_registry_builtin(&mut client).await;
 }
 
-#[test]
-fn builtins_scheduled_scripts() {
-    let swarms = make_swarms_with_builtins(1, Path::new(SERVICES), None, Some(SPELL.to_string()));
+#[tokio::test]
+async fn builtins_scheduled_scripts() {
+    let swarms =
+        make_swarms_with_builtins(1, Path::new(SERVICES), None, Some(SPELL.to_string())).await;
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
         .wrap_err("connect client")
         .unwrap();
 
-    client.send_particle(
-        r#"(xor
+    let result = client
+        .execute_particle(
+            r#"(xor
             (seq
                 (call relay ("script" "list") [] result)
                 (call %init_peer_id% ("op" "return") [result])
@@ -157,12 +169,13 @@ fn builtins_scheduled_scripts() {
             (call %init_peer_id% ("op" "return") [%last_error%.$.instruction])
         )
     "#,
-        hashmap! {
-            "relay" => json!(client.node.to_string()),
-        },
-    );
+            hashmap! {
+                "relay" => json!(client.node.to_string()),
+            },
+        )
+        .await
+        .unwrap();
 
-    let result = client.receive_args().wrap_err("receive args").unwrap();
     let result = result[0].as_array().unwrap();
 
     let mut scripts_count = 0;
@@ -172,9 +185,9 @@ fn builtins_scheduled_scripts() {
     assert_eq!(result.len(), scripts_count)
 }
 
-#[test]
+#[tokio::test]
 #[ignore]
-fn builtins_resolving_env_variables() {
+async fn builtins_resolving_env_variables() {
     copy_dir_all(SERVICES, "./builtins_test_env").unwrap();
     let key = "some_key".to_string();
     let on_start_script = f!(r#"
@@ -204,13 +217,16 @@ fn builtins_resolving_env_variables() {
         Path::new("./builtins_test_env"),
         None,
         Some(SPELL.to_string()),
-    );
+    )
+    .await;
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
         .wrap_err("connect client")
         .unwrap();
 
-    client.send_particle(
-        f!(r#"(xor
+    let result = client
+        .execute_particle(
+            f!(r#"(xor
             (seq
                 (seq
                     (call relay ("peer" "timestamp_sec") [] timestamp1)
@@ -221,12 +237,12 @@ fn builtins_resolving_env_variables() {
             (call %init_peer_id% ("op" "return") [%last_error%.$.instruction])
         )
     "#),
-        hashmap! {
-            "relay" => json!(client.node.to_string()),
-        },
-    );
-
-    let result = client.receive_args().wrap_err("receive args").unwrap();
+            hashmap! {
+                "relay" => json!(client.node.to_string()),
+            },
+        )
+        .await
+        .unwrap();
 
     #[derive(Deserialize)]
     pub struct Key {

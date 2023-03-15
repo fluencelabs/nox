@@ -21,13 +21,13 @@ use test_constants::KAD_TIMEOUT;
 use eyre::WrapErr;
 use maplit::hashmap;
 use serde_json::json;
-use std::thread::sleep;
 
-#[test]
-fn echo_particle() {
-    let swarms = make_swarms(3);
-    sleep(KAD_TIMEOUT);
+#[tokio::test]
+async fn echo_particle() {
+    let swarms = make_swarms(3).await;
+    tokio::time::sleep(KAD_TIMEOUT).await;
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
         .wrap_err("connect client")
         .unwrap();
 
@@ -36,14 +36,16 @@ fn echo_particle() {
         "client" => json!(client.peer_id.to_string()),
         "relay" => json!(client.node.to_string()),
     };
-    client.send_particle(
-        r#"
+    let response = client
+        .execute_particle(
+            r#"
         (seq
             (call relay ("op" "noop") [])
             (call client ("return" "") [name])
         )"#,
-        data.clone(),
-    );
-    let response = client.receive_args().wrap_err("receive").unwrap();
+            data.clone(),
+        )
+        .await
+        .unwrap();
     assert_eq!(data["name"], response[0]);
 }

@@ -17,7 +17,7 @@ control-macro = { workspace = true }
 fs-utils = { workspace = true }
 peer-metrics = { workspace = true }
 particle-execution = { workspace = true }
-key-manager = { workspace = true}
+key-manager = { workspace = true }
 
 avm-server = { workspace = true }
 libp2p = { workspace = true }
@@ -25,7 +25,10 @@ fluence-keypair = { workspace = true }
 
 futures = { workspace = true }
 log = { workspace = true }
-async-std = { workspace = true }
+
+tokio = { workspace = true }
+tokio-stream = { workspace = true }
+tracing = { workspace = true }
 serde_json = { workspace = true }
 parking_lot = { workspace = true }
 chrono = "0.4.23"
@@ -35,3 +38,4 @@ humantime = "2.1.0"
 anyhow = "1.0.69"
 eyre = { workspace = true }
 bytesize = "1.1.0"
+async-trait = "0.1.64"

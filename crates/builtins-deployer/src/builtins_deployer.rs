@@ -18,24 +18,22 @@ use std::path::PathBuf;
 use std::time::{Duration, Instant};
 use std::{collections::HashMap, fs};
 
+use aquamarine::AquamarineApi;
 use base64::{engine::general_purpose::STANDARD as base64, Engine};
 use eyre::{eyre, ErrReport, Result, WrapErr};
-use futures::channel::oneshot::channel;
-use futures::executor::block_on;
-use futures::FutureExt;
-use humantime::format_duration as pretty;
-use maplit::hashmap;
-use parking_lot::Mutex;
-use serde_json::{json, Value as JValue};
-
-use aquamarine::AquamarineApi;
 use fluence_libp2p::PeerId;
 use fs_utils::list_files;
 use fs_utils::{file_name, to_abs_path};
+use futures::FutureExt;
+use humantime::format_duration as pretty;
 use local_vm::{client_functions, wrap_script};
+use maplit::hashmap;
 use now_millis::now_ms;
+use particle_args::Args;
 use particle_execution::ServiceFunction;
 use particle_protocol::Particle;
+use serde_json::{json, Value as JValue};
+use tokio::sync::oneshot::channel;
 use uuid_utils::uuid;
 
 use crate::builtin::{Builtin, Module};
@@ -77,7 +75,7 @@ impl BuiltinsDeployer {
         }
     }
 
-    fn send_particle(
+    async fn send_particle(
         &mut self,
         script: String,
         mut data: HashMap<String, JValue>,
@@ -90,9 +88,8 @@ impl BuiltinsDeployer {
         let (outlet, inlet) = channel();
 
         let mut outlet = Some(outlet);
-        let closure = move |args, _| {
+        let closure = move |args: Args, _| {
             let result = client_functions(&data, args);
-
             if let Some(returned) = result.returned {
                 if let Some(outlet) = outlet.take() {
                     outlet.send(returned).expect("send response back")
@@ -117,37 +114,37 @@ impl BuiltinsDeployer {
         };
         let sent = Instant::now();
 
-        let future = async move {
-            try {
-                aquamarine
-                    .execute(
-                        particle,
-                        Some(ServiceFunction::Mut(Mutex::new(Box::new(closure)))),
-                    )
-                    .await?;
+        let result = try {
+            aquamarine
+                .execute(
+                    particle.clone(),
+                    Some(ServiceFunction::Mut(tokio::sync::Mutex::new(Box::new(
+                        closure,
+                    )))),
+                )
+                .await?;
 
-                let result = inlet.await;
-                result
-                    .map_err(|err| {
-                        let failed = sent.elapsed();
-                        eyre!(
-                            "error reading from inlet: {:?} (TTL = {}, duration = {})",
-                            err,
-                            pretty(self.particle_ttl),
-                            pretty(failed)
-                        )
-                    })?
-                    .map_err(|args| eyre!("AIR caught an error on args: {:?}", args))?
-            }
+            let result = inlet.await;
+
+            result
+                .map_err(|err| {
+                    let failed = sent.elapsed();
+                    eyre!(
+                        "error reading from inlet: {:?} (TTL = {}, duration = {})",
+                        err,
+                        pretty(self.particle_ttl),
+                        pretty(failed)
+                    )
+                })?
+                .map_err(|args| eyre!("AIR caught an error on args: {:?}", args))?
         };
 
-        let result = block_on(future);
         let finished = sent.elapsed();
         log::debug!(target: "execution", "sending particle took {}", pretty(finished));
         result
     }
 
-    fn add_module(&mut self, module: &Module) -> eyre::Result<()> {
+    async fn add_module(&mut self, module: &Module) -> eyre::Result<()> {
         let script = r#"
         (xor
             (seq
@@ -166,12 +163,13 @@ impl BuiltinsDeployer {
 
         let result = self
             .send_particle(script, data)
+            .await
             .wrap_err("add_module call failed")?;
 
         assert_ok(result, "add_module call failed")
     }
 
-    fn remove_service(&mut self, name: String) -> eyre::Result<()> {
+    async fn remove_service(&mut self, name: String) -> eyre::Result<()> {
         let script = r#"
         (xor
             (seq
@@ -185,12 +183,13 @@ impl BuiltinsDeployer {
 
         let result = self
             .send_particle(script, hashmap! {"name".to_string() => json!(name)})
+            .await
             .wrap_err(format!("remove_service call failed, service {name}"))?;
 
         assert_ok(result, "remove_service call failed")
     }
 
-    fn create_service(&mut self, builtin: &Builtin) -> eyre::Result<()> {
+    async fn create_service(&mut self, builtin: &Builtin) -> eyre::Result<()> {
         let script = r#"
         (xor
             (seq
@@ -213,7 +212,7 @@ impl BuiltinsDeployer {
             "alias".to_string() => json!(builtin.name),
         };
 
-        let result = self.send_particle(script, data).wrap_err(format!(
+        let result = self.send_particle(script, data).await.wrap_err(format!(
             "send_particle in create_service call failed, service {}",
             builtin.name
         ))?;
@@ -230,7 +229,7 @@ impl BuiltinsDeployer {
 
     // TODO: right now, if AIR in on_start.air is invalid, everything just hangs
     //       https://github.com/fluencelabs/fluence/issues/1214
-    fn run_on_start(&mut self, builtin: &Builtin) -> eyre::Result<()> {
+    async fn run_on_start(&mut self, builtin: &Builtin) -> eyre::Result<()> {
         if builtin.on_start_script.is_some() && builtin.on_start_data.is_some() {
             let data: HashMap<String, JValue> = serde_json::from_str(&resolve_env_variables(
                 builtin.on_start_data.as_ref().unwrap(),
@@ -239,6 +238,7 @@ impl BuiltinsDeployer {
 
             let res = self
                 .send_particle(builtin.on_start_script.as_ref().unwrap().to_string(), data)
+                .await
                 .wrap_err("on_start send_particle failed")?;
             return assert_ok(res, "on_start call failed");
         }
@@ -246,7 +246,7 @@ impl BuiltinsDeployer {
         Ok(())
     }
 
-    fn run_scheduled_scripts(&mut self, builtin: &Builtin) -> eyre::Result<()> {
+    async fn run_scheduled_scripts(&mut self, builtin: &Builtin) -> eyre::Result<()> {
         for scheduled_script in builtin.scheduled_scripts.iter() {
             let script = r#"
             (xor
@@ -264,7 +264,7 @@ impl BuiltinsDeployer {
                 "interval_sec".to_string() => json!(scheduled_script.interval_sec),
             };
 
-            let res = self.send_particle(script, data).wrap_err(format!(
+            let res = self.send_particle(script, data).await.wrap_err(format!(
                 "scheduled script {} run failed",
                 scheduled_script.name
             ))?;
@@ -278,7 +278,8 @@ impl BuiltinsDeployer {
         Ok(())
     }
 
-    fn wait_for_vm_pool(&mut self) -> Result<()> {
+    #[tracing::instrument(skip(self))]
+    async fn wait_for_vm_pool(&mut self) -> Result<()> {
         let mut attempt = 0u16;
         loop {
             attempt += 1;
@@ -294,6 +295,7 @@ impl BuiltinsDeployer {
 
                 let res = self
                     .send_particle(script, hashmap! {})
+                    .await
                     .map_err(|e| eyre::eyre!("ping send_particle #{} failed: {}", attempt, e))?;
 
                 assert_ok(res, &format!("ping call #{attempt} failed"))?
@@ -316,7 +318,8 @@ impl BuiltinsDeployer {
         Ok(())
     }
 
-    pub fn deploy_builtin_services(&mut self) -> Result<()> {
+    #[tracing::instrument(skip(self))]
+    pub async fn deploy_builtin_services(&mut self) -> Result<()> {
         let from_disk = self.list_builtins()?;
         if from_disk.is_empty() {
             log::info!("No builtin services found at {:?}", self.builtins_base_dir);
@@ -329,10 +332,8 @@ impl BuiltinsDeployer {
             self.builtins_base_dir
         );
 
-        self.wait_for_vm_pool()?;
-
-        let mut local_services = self.get_service_blueprints()?;
-
+        self.wait_for_vm_pool().await?;
+        let mut local_services = self.get_service_blueprints().await?;
         let mut to_create = vec![];
         let mut to_start = vec![];
 
@@ -340,7 +341,7 @@ impl BuiltinsDeployer {
         if self.force_redeploy {
             for builtin in from_disk.iter() {
                 if local_services.contains_key(&builtin.name) {
-                    self.remove_service(builtin.name.clone())?;
+                    self.remove_service(builtin.name.clone()).await?;
                     local_services.remove(&builtin.name);
                 }
             }
@@ -352,7 +353,7 @@ impl BuiltinsDeployer {
                 // already deployed
                 // if blueprint_id has changed, then redeploy builtin
                 Some(bp_id) if *bp_id != builtin.blueprint_id => {
-                    self.remove_service(builtin.name.clone())?;
+                    self.remove_service(builtin.name.clone()).await?;
                     to_create.push(builtin)
                 }
                 // already deployed with expected blueprint_id
@@ -366,8 +367,8 @@ impl BuiltinsDeployer {
 
         for builtin in to_create {
             let result: Result<()> = try {
-                self.upload_modules(builtin)?;
-                self.create_service(builtin)?;
+                self.upload_modules(builtin).await?;
+                self.create_service(builtin).await?;
                 to_start.push(builtin);
             };
 
@@ -378,8 +379,8 @@ impl BuiltinsDeployer {
         }
 
         for builtin in to_start.into_iter() {
-            self.run_on_start(builtin)?;
-            self.run_scheduled_scripts(builtin)?;
+            self.run_on_start(builtin).await?;
+            self.run_scheduled_scripts(builtin).await?;
 
             log::info!("Builtin service {} successfully started", builtin.name);
         }
@@ -387,15 +388,17 @@ impl BuiltinsDeployer {
         Ok(())
     }
 
-    fn upload_modules(&mut self, builtin: &Builtin) -> Result<()> {
+    async fn upload_modules(&mut self, builtin: &Builtin) -> Result<()> {
         for module in builtin.modules.iter() {
             self.add_module(module)
+                .await
                 .wrap_err(format!("builtin {} module upload failed", builtin.name))?;
         }
 
         Ok(())
     }
 
+    #[tracing::instrument(skip(self))]
     fn list_builtins(&self) -> Result<Vec<Builtin>> {
         let builtins_dir = to_abs_path(self.builtins_base_dir.clone());
         let builtins = list_files(&builtins_dir)
@@ -438,17 +441,17 @@ impl BuiltinsDeployer {
             })
             .for_each(drop);
 
-        return if !failed.is_empty() {
+        if !failed.is_empty() {
             Err(eyre!(
                 "failed to load builtins from disk {:?}",
                 builtins_dir
             ))
         } else {
             Ok(successful)
-        };
+        }
     }
 
-    fn get_service_blueprints(&mut self) -> Result<HashMap<String, String>> {
+    async fn get_service_blueprints(&mut self) -> Result<HashMap<String, String>> {
         let script = r#"
         (xor
             (seq
@@ -459,9 +462,9 @@ impl BuiltinsDeployer {
         )
         "#
         .to_string();
-
         let result = self
             .send_particle(script, hashmap! {})
+            .await
             .wrap_err("srv list call failed")?;
         let result = match result.get(0) {
             Some(JValue::Array(result)) => result,

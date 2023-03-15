@@ -17,8 +17,6 @@
 #[macro_use]
 extern crate fstrings;
 
-use std::thread::sleep;
-
 use eyre::WrapErr;
 use maplit::hashmap;
 use serde_json::{json, Value};
@@ -32,15 +30,17 @@ pub mod network {
     pub mod join;
 }
 
-#[test]
-fn identity() {
-    let swarms = make_swarms(3);
-    sleep(KAD_TIMEOUT);
+#[tokio::test]
+async fn identity() {
+    let swarms = make_swarms(3).await;
+    tokio::time::sleep(KAD_TIMEOUT).await;
 
     let mut a = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
         .wrap_err("connect client")
         .unwrap();
     let mut b = ConnectedClient::connect_to(swarms[1].multiaddr.clone())
+        .await
         .wrap_err("connect client")
         .unwrap();
 
@@ -68,13 +68,14 @@ fn identity() {
         },
     );
 
-    b.receive().wrap_err("receive").unwrap();
+    b.receive().await.wrap_err("receive").unwrap();
 }
 
-#[test]
-fn init_peer_id() {
-    let swarms = make_swarms(3);
+#[tokio::test]
+async fn init_peer_id() {
+    let swarms = make_swarms(3).await;
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
         .wrap_err("connect client")
         .unwrap();
 
@@ -94,14 +95,15 @@ fn init_peer_id() {
         },
     );
 
-    client.receive().wrap_err("receive").unwrap();
+    client.receive().await.wrap_err("receive").unwrap();
 }
 
-#[test]
-fn join() {
-    let swarms = make_swarms(3);
+#[tokio::test]
+async fn join() {
+    let swarms = make_swarms(3).await;
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
         .wrap_err("connect client")
         .unwrap();
 
@@ -140,18 +142,20 @@ fn join() {
         },
     );
 
-    let received = client.listen_for_n(4, |peer_ids| {
-        match peer_ids.as_ref().map(|v| v.as_slice()) {
-            Ok(&[Value::Array(ref arr)]) => {
-                assert_eq!(arr.len(), swarms.len());
-                true
+    let received = client
+        .listen_for_n(4, |peer_ids| {
+            match peer_ids.as_ref().map(|v| v.as_slice()) {
+                Ok(&[Value::Array(ref arr)]) => {
+                    assert_eq!(arr.len(), swarms.len());
+                    true
+                }
+                other => panic!(
+                    "expected array of {} elements, got {:?}",
+                    swarms.len(),
+                    other
+                ),
             }
-            other => panic!(
-                "expected array of {} elements, got {:?}",
-                swarms.len(),
-                other
-            ),
-        }
-    });
+        })
+        .await;
     assert!(received);
 }

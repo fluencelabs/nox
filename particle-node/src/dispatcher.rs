@@ -14,15 +14,14 @@
  * limitations under the License.
  */
 
-use async_std::task::spawn;
-use futures::{FutureExt, SinkExt, StreamExt};
-use prometheus_client::registry::Registry;
-
 use aquamarine::{AquamarineApi, AquamarineApiError, RoutingEffects};
-use fluence_libp2p::types::{BackPressuredInlet, Inlet, Outlet};
 use fluence_libp2p::PeerId;
+use futures::{FutureExt, StreamExt};
 use particle_protocol::Particle;
 use peer_metrics::DispatcherMetrics;
+use prometheus_client::registry::Registry;
+use tokio::sync::mpsc;
+use tokio_stream::wrappers::{ReceiverStream, UnboundedReceiverStream};
 
 use crate::effectors::Effectors;
 use crate::tasks::Tasks;
@@ -36,7 +35,7 @@ pub struct Dispatcher {
     /// Number of concurrently processed particles
     particle_parallelism: Option<usize>,
     aquamarine: AquamarineApi,
-    particle_failures_sink: Outlet<String>,
+    particle_failures_sink: mpsc::UnboundedSender<String>,
     effectors: Effectors,
     metrics: Option<DispatcherMetrics>,
 }
@@ -46,7 +45,7 @@ impl Dispatcher {
         peer_id: PeerId,
         aquamarine: AquamarineApi,
         effectors: Effectors,
-        particle_failures_sink: Outlet<String>,
+        particle_failures_sink: mpsc::UnboundedSender<String>,
         particle_parallelism: Option<usize>,
         registry: Option<&mut Registry>,
     ) -> Self {
@@ -64,12 +63,20 @@ impl Dispatcher {
 impl Dispatcher {
     pub fn start(
         self,
-        particle_stream: BackPressuredInlet<Particle>,
-        effects_stream: Inlet<Effects>,
+        particle_stream: mpsc::Receiver<Particle>,
+        effects_stream: mpsc::UnboundedReceiver<Effects>,
     ) -> Tasks {
         log::info!("starting dispatcher");
-        let particles = spawn(self.clone().process_particles(particle_stream));
-        let effects = spawn(self.process_effects(effects_stream));
+        let particle_stream = ReceiverStream::new(particle_stream);
+        let effects_stream = UnboundedReceiverStream::new(effects_stream);
+        let particles = tokio::task::Builder::new()
+            .name("particles")
+            .spawn(self.clone().process_particles(particle_stream))
+            .expect("Could not spawn task");
+        let effects = tokio::task::Builder::new()
+            .name("effects")
+            .spawn(self.process_effects(effects_stream))
+            .expect("Could not spawn task");
 
         Tasks::new("Dispatcher", vec![particles, effects])
     }
@@ -116,7 +123,7 @@ impl Dispatcher {
         effects_stream
             .for_each_concurrent(parallelism, move |effects| {
                 let effectors = effectors.clone();
-                let mut particle_failures = particle_failures.clone();
+                let particle_failures = particle_failures.clone();
 
                 async move {
                     match effects {
@@ -130,7 +137,7 @@ impl Dispatcher {
                             log::warn!("Error executing particle: {}", err);
                             // and send indication about particle failure to the outer world
                             if let Some(particle_id) = err.into_particle_id() {
-                                particle_failures.send(particle_id).await.ok();
+                                particle_failures.send(particle_id).ok();
                             }
                         }
                     };

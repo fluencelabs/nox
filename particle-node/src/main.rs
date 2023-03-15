@@ -30,13 +30,13 @@ use base64::{engine::general_purpose::STANDARD as base64, Engine};
 use clap::App;
 use env_logger::Env;
 use eyre::WrapErr;
-use futures::channel::oneshot;
 use log::LevelFilter;
+use tokio::signal;
+use tokio::sync::oneshot;
 
 use air_interpreter_fs::write_default_air_interpreter;
 use aquamarine::{VmConfig, AVM};
 use config_utils::to_peer_id;
-use ctrlc_adapter::block_until_ctrlc;
 use fs_utils::to_abs_path;
 use particle_node::Node;
 use server_config::args::create_args;
@@ -54,10 +54,15 @@ trait Stoppable {
 #[global_allocator]
 static ALLOC: dhat::Alloc = dhat::Alloc;
 
-fn main() -> eyre::Result<()> {
+#[tokio::main]
+async fn main() -> eyre::Result<()> {
     #[cfg(feature = "dhat-heap")]
     let _profiler = dhat::Profiler::new_heap();
     // TODO: maybe set log level via flag?
+    if let Ok(_) = std::env::var("TOKIO_CONSOLE_ENABLED") {
+        console_subscriber::init();
+    }
+
     env_logger::Builder::from_env(Env::default().default_filter_or("INFO"))
         .format_timestamp_micros()
         // Disable most spamming modules
@@ -95,11 +100,12 @@ fn main() -> eyre::Result<()> {
     write_default_air_interpreter(&interpreter_path)?;
     log::info!("AIR interpreter: {:?}", interpreter_path);
 
-    let fluence = start_fluence(config)?;
+    let fluence = start_fluence(config).await?;
     log::info!("Fluence has been successfully started.");
 
     log::info!("Waiting for Ctrl-C to exit...");
-    block_until_ctrlc();
+
+    signal::ctrl_c().await.expect("Failed to listen for event");
 
     log::info!("Shutting down...");
     fluence.stop();
@@ -108,13 +114,14 @@ fn main() -> eyre::Result<()> {
 }
 
 // NOTE: to stop Fluence just call Stoppable::stop()
-fn start_fluence(config: ResolvedConfig) -> eyre::Result<impl Stoppable> {
+async fn start_fluence(config: ResolvedConfig) -> eyre::Result<impl Stoppable> {
     log::trace!("starting Fluence");
 
     let key_pair = config.root_key_pair.clone();
     let base64_key_pair = base64.encode(key_pair.public().to_vec());
+    let peer_id = to_peer_id(&key_pair.into());
     log::info!("node public key = {}", base64_key_pair);
-    log::info!("node server peer id = {}", to_peer_id(&key_pair.into()));
+    log::info!("node server peer id = {}", peer_id);
 
     let listen_addrs = config.listen_multiaddrs();
     let vm_config = vm_config(&config);
@@ -123,7 +130,10 @@ fn start_fluence(config: ResolvedConfig) -> eyre::Result<impl Stoppable> {
         Node::new(config, vm_config, VERSION).wrap_err("error create node instance")?;
     node.listen(listen_addrs).wrap_err("error on listen")?;
 
-    let node_exit_outlet = node.start().wrap_err("node failed to start")?;
+    let node_exit_outlet = node
+        .start(Some(peer_id.to_string()))
+        .await
+        .wrap_err("node failed to start")?;
 
     struct Fluence {
         node_exit_outlet: oneshot::Sender<()>,

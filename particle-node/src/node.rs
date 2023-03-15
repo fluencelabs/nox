@@ -17,14 +17,16 @@
 use std::sync::Arc;
 use std::{io, net::SocketAddr};
 
-use async_std::task;
-use eyre::WrapErr;
-use futures::{
-    channel::{mpsc::unbounded, oneshot},
-    select,
-    stream::StreamExt,
-    FutureExt,
+use aquamarine::{
+    AquaRuntime, AquamarineApi, AquamarineApiError, AquamarineBackend, RoutingEffects, VmPoolConfig,
 };
+use builtins_deployer::BuiltinsDeployer;
+use config_utils::to_peer_id;
+use connection_pool::{ConnectionPoolApi, ConnectionPoolT};
+use eyre::WrapErr;
+use fluence_libp2p::build_transport;
+use futures::{stream::StreamExt, FutureExt};
+use key_manager::KeyManager;
 use libp2p::swarm::SwarmEvent;
 use libp2p::{
     core::{muxing::StreamMuxerBox, transport::Boxed, Multiaddr},
@@ -34,17 +36,6 @@ use libp2p::{
 };
 use libp2p_metrics::{Metrics, Recorder};
 use libp2p_swarm::{ConnectionLimits, SwarmBuilder};
-use prometheus_client::registry::Registry;
-
-use aquamarine::{
-    AquaRuntime, AquamarineApi, AquamarineApiError, AquamarineBackend, RoutingEffects, VmPoolConfig,
-};
-use builtins_deployer::BuiltinsDeployer;
-use config_utils::to_peer_id;
-use connection_pool::{ConnectionPoolApi, ConnectionPoolT};
-use fluence_libp2p::types::{BackPressuredInlet, Inlet};
-use fluence_libp2p::{build_transport, types::OneshotOutlet};
-use key_manager::KeyManager;
 use particle_builtins::{Builtins, CustomService, NodeInfo};
 use particle_execution::ParticleFunctionStatic;
 use particle_protocol::Particle;
@@ -52,11 +43,14 @@ use peer_metrics::{
     ConnectionPoolMetrics, ConnectivityMetrics, ParticleExecutorMetrics, ServicesMetrics,
     ServicesMetricsBackend, VmPoolMetrics,
 };
+use prometheus_client::registry::Registry;
 use script_storage::{ScriptStorageApi, ScriptStorageBackend, ScriptStorageConfig};
 use server_config::{NetworkConfig, ResolvedConfig, ServicesConfig};
 use sorcerer::Sorcerer;
 use spell_event_bus::api::{PeerEvent, TriggerEvent};
 use spell_event_bus::bus::SpellEventBus;
+use tokio::sync::{mpsc, oneshot};
+use tokio::task;
 
 use crate::dispatcher::Dispatcher;
 use crate::effectors::Effectors;
@@ -68,8 +62,8 @@ use crate::behaviour::FluenceNetworkBehaviourEvent;
 
 // TODO: documentation
 pub struct Node<RT: AquaRuntime> {
-    particle_stream: BackPressuredInlet<Particle>,
-    effects_stream: Inlet<Result<RoutingEffects, AquamarineApiError>>,
+    particle_stream: mpsc::Receiver<Particle>,
+    effects_stream: mpsc::UnboundedReceiver<Result<RoutingEffects, AquamarineApiError>>,
     pub swarm: Swarm<FluenceNetworkBehaviour>,
 
     pub connectivity: Connectivity,
@@ -79,7 +73,7 @@ pub struct Node<RT: AquaRuntime> {
     script_storage: ScriptStorageBackend,
     builtins_deployer: BuiltinsDeployer,
     spell_event_bus: SpellEventBus,
-    spell_events_stream: Inlet<TriggerEvent>,
+    spell_events_receiver: mpsc::UnboundedReceiver<TriggerEvent>,
     sorcerer: Sorcerer,
 
     registry: Option<Registry>,
@@ -169,7 +163,7 @@ impl<RT: AquaRuntime> Node<RT> {
             config.external_addresses(),
         );
 
-        let (particle_failures_out, particle_failures_in) = unbounded();
+        let (particle_failures_out, particle_failures_in) = mpsc::unbounded_channel();
 
         let (script_storage_api, script_storage_backend) = {
             let script_storage_config = ScriptStorageConfig {
@@ -205,7 +199,7 @@ impl<RT: AquaRuntime> Node<RT> {
             key_manager.clone(),
         ));
 
-        let (effects_out, effects_in) = unbounded();
+        let (effects_out, effects_in) = mpsc::unbounded_channel();
 
         let pool_config =
             VmPoolConfig::new(config.aquavm_pool_size, config.particle_execution_timeout);
@@ -245,7 +239,7 @@ impl<RT: AquaRuntime> Node<RT> {
         let recv_connection_pool_events = connectivity.connection_pool.lifecycle_events();
         let sources = vec![recv_connection_pool_events.map(PeerEvent::from).boxed()];
 
-        let (spell_event_bus, spell_event_bus_api, spell_events_stream) =
+        let (spell_event_bus, spell_event_bus_api, spell_events_receiver) =
             SpellEventBus::new(sources);
 
         let (sorcerer, spell_service_functions) = Sorcerer::new(
@@ -258,13 +252,20 @@ impl<RT: AquaRuntime> Node<RT> {
         );
 
         spell_service_functions.into_iter().for_each(
-            |(
+            move |(
                 service_id,
                 CustomService {
                     functions,
                     fallback,
                 },
-            )| builtins.extend(service_id, functions, fallback),
+            )| {
+                let builtin = builtins.clone();
+                let task = async move { builtin.extend(service_id, functions, fallback).await };
+                task::Builder::new()
+                    .name("Builtin extend")
+                    .spawn(task)
+                    .expect("Could not spawn task");
+            },
         );
 
         Ok(Self::with(
@@ -278,7 +279,7 @@ impl<RT: AquaRuntime> Node<RT> {
             script_storage_backend,
             builtins_deployer,
             spell_event_bus,
-            spell_events_stream,
+            spell_events_receiver,
             sorcerer,
             metrics_registry,
             services_metrics_backend,
@@ -296,12 +297,12 @@ impl<RT: AquaRuntime> Node<RT> {
     ) -> (
         Swarm<FluenceNetworkBehaviour>,
         Connectivity,
-        BackPressuredInlet<Particle>,
+        mpsc::Receiver<Particle>,
     ) {
         let connection_limits = network_config.connection_limits.clone();
         let (behaviour, connectivity, particle_stream) =
             FluenceNetworkBehaviour::new(network_config);
-        let mut swarm = SwarmBuilder::with_async_std_executor(transport, behaviour, local_peer_id)
+        let mut swarm = SwarmBuilder::with_tokio_executor(transport, behaviour, local_peer_id)
             .connection_limits(connection_limits)
             .build();
 
@@ -341,8 +342,8 @@ impl<RT: AquaRuntime> Node<RT> {
 impl<RT: AquaRuntime> Node<RT> {
     #[allow(clippy::too_many_arguments)]
     pub fn with(
-        particle_stream: BackPressuredInlet<Particle>,
-        effects_stream: Inlet<Result<RoutingEffects, AquamarineApiError>>,
+        particle_stream: mpsc::Receiver<Particle>,
+        effects_stream: mpsc::UnboundedReceiver<Result<RoutingEffects, AquamarineApiError>>,
         swarm: Swarm<FluenceNetworkBehaviour>,
         connectivity: Connectivity,
         aquamarine_api: AquamarineApi,
@@ -351,7 +352,7 @@ impl<RT: AquaRuntime> Node<RT> {
         script_storage: ScriptStorageBackend,
         builtins_deployer: BuiltinsDeployer,
         spell_event_bus: SpellEventBus,
-        spell_events_stream: Inlet<TriggerEvent>,
+        spell_events_receiver: mpsc::UnboundedReceiver<TriggerEvent>,
         sorcerer: Sorcerer,
         registry: Option<Registry>,
         services_metrics_backend: ServicesMetricsBackend,
@@ -371,7 +372,7 @@ impl<RT: AquaRuntime> Node<RT> {
             script_storage,
             builtins_deployer,
             spell_event_bus,
-            spell_events_stream,
+            spell_events_receiver,
             sorcerer,
 
             registry,
@@ -387,9 +388,11 @@ impl<RT: AquaRuntime> Node<RT> {
 
     /// Starts node service
     #[allow(clippy::boxed_local)] // Mike said it should be boxed
-    pub fn start(self: Box<Self>) -> eyre::Result<OneshotOutlet<()>> {
+    pub async fn start(
+        self: Box<Self>,
+        peer_id: Option<String>,
+    ) -> eyre::Result<oneshot::Sender<()>> {
         let (exit_outlet, exit_inlet) = oneshot::channel();
-        let mut exit_inlet = exit_inlet.into_stream().fuse();
 
         let particle_stream = self.particle_stream;
         let effects_stream = self.effects_stream;
@@ -399,67 +402,67 @@ impl<RT: AquaRuntime> Node<RT> {
         let aquavm_pool = self.aquavm_pool;
         let script_storage = self.script_storage;
         let spell_event_bus = self.spell_event_bus;
-        let spell_events_stream = self.spell_events_stream;
+        let spell_events_receiver = self.spell_events_receiver;
         let sorcerer = self.sorcerer;
         let registry = self.registry;
         let services_metrics_backend = self.services_metrics_backend;
         let metrics_listen_addr = self.metrics_listen_addr;
+        let task_name = peer_id
+            .map(|x| format!("node-{x}"))
+            .unwrap_or("node".to_owned());
 
-        task::spawn(async move {
-            let (metrics_fut, libp2p_metrics) = if let Some(mut registry) = registry {
+        task::Builder::new().name(&task_name.clone()).spawn(async move {
+            let (mut metrics_fut, libp2p_metrics) = if let Some(mut registry) = registry {
                 let libp2p_metrics = Metrics::new(&mut registry);
-                let fut = start_metrics_endpoint(registry, metrics_listen_addr);
+                log::info!("metrics_listen_addr {}", metrics_listen_addr);
+                let fut = start_metrics_endpoint(registry, metrics_listen_addr).boxed();
                 (fut, Some(libp2p_metrics))
             } else {
-                (futures::future::ready(Ok(())).boxed(), None)
+                (futures::future::pending().boxed(), None)
             };
-            let mut metrics_fut = metrics_fut.fuse();
 
             let services_metrics_backend = services_metrics_backend.start();
             let script_storage = script_storage.start();
             let spell_event_bus = spell_event_bus.start();
-            let sorcerer = sorcerer.start(spell_events_stream);
+            let sorcerer = sorcerer.start(spell_events_receiver);
             let pool = aquavm_pool.start();
             let mut connectivity = connectivity.start();
             let mut dispatcher = dispatcher.start(particle_stream, effects_stream);
+            let mut exit_inlet = Some(exit_inlet);
 
             loop {
-                select!(
-                    e = swarm.select_next_some() => {
+                let exit_inlet = exit_inlet.as_mut().expect("Could not get exit inlet");
+                tokio::select! {
+                    Some(e) = swarm.next() => {
                         if let Some(m) = libp2p_metrics.as_ref() { m.record(&e) }
                         if let SwarmEvent::Behaviour(FluenceNetworkBehaviourEvent::Identify(i)) = e {
                             swarm.behaviour_mut().inject_identify_event(i, true);
                         }
                     },
-                    e = metrics_fut => {
-                        if let Err(err) = e {
-                            log::warn!("Metrics returned error: {}", err)
-                        }
-                    },
-                    _ = connectivity => {},
-                    _ = dispatcher => {},
-                    event = exit_inlet.next() => {
-                        // Ignore Err and None – if exit_outlet is dropped, we'll run forever!
-                        if let Some(Ok(_)) = event {
-                            break
-                        }
+                    _ = &mut metrics_fut => {},
+                    _ = &mut connectivity => {},
+                    _ = &mut dispatcher => {},
+                    _ = exit_inlet => {
+                        log::info!("Exit inlet");
+                        break;
                     }
-                )
+                }
             }
 
             log::info!("Stopping node");
-            services_metrics_backend.cancel().await;
-            script_storage.cancel().await;
-            spell_event_bus.cancel().await;
-            sorcerer.cancel().await;
+            services_metrics_backend.abort();
+            script_storage.abort();
+            spell_event_bus.abort();
+            sorcerer.abort();
             dispatcher.cancel().await;
             connectivity.cancel().await;
-            pool.cancel().await;
-        });
+            pool.abort();
+        }).expect("Could not spawn task");
 
         let mut builtins_deployer = self.builtins_deployer;
         builtins_deployer
             .deploy_builtin_services()
+            .await
             .wrap_err("builtins deploy failed")?;
 
         Ok(exit_outlet)
@@ -483,7 +486,6 @@ impl<RT: AquaRuntime> Node<RT> {
 
 #[cfg(test)]
 mod tests {
-    use eyre::WrapErr;
     use libp2p::core::Multiaddr;
     use maplit::hashmap;
     use serde_json::json;
@@ -498,8 +500,8 @@ mod tests {
 
     use crate::Node;
 
-    #[test]
-    fn run_node() {
+    #[tokio::test]
+    async fn run_node() {
         let base_dir = default_base_dir();
         fs_utils::create_dir(&base_dir).unwrap();
         fs_utils::create_dir(builtins_base_dir(&base_dir)).unwrap();
@@ -519,23 +521,29 @@ mod tests {
 
         let listening_address: Multiaddr = "/ip4/127.0.0.1/tcp/7777".parse().unwrap();
         node.listen(vec![listening_address.clone()]).unwrap();
-        node.start().expect("start node");
+        let exit_outlet = node.start(None).await.expect("start node");
 
-        let mut client = ConnectedClient::connect_to(listening_address).expect("connect client");
+        let mut client = ConnectedClient::connect_to(listening_address)
+            .await
+            .expect("connect client");
         let data = hashmap! {
             "name" => json!("folex"),
             "client" => json!(client.peer_id.to_string()),
             "relay" => json!(client.node.to_string()),
         };
-        client.send_particle(
-            r#"
+        client
+            .execute_particle(
+                r#"
                 (seq
                     (call relay ("op" "identity") [])
                     (call client ("return" "") [name])
                 )
             "#,
-            data.clone(),
-        );
-        client.receive_args().wrap_err("receive args").unwrap();
+                data.clone(),
+            )
+            .await
+            .unwrap();
+
+        exit_outlet.send(()).unwrap();
     }
 }

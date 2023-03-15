@@ -20,6 +20,7 @@ use std::{
 };
 
 use futures::task::Waker;
+use tokio::task;
 
 use fluence_libp2p::PeerId;
 use key_manager::KeyManager;
@@ -42,6 +43,7 @@ use crate::particle_functions::Functions;
 use crate::vm_pool::VmPool;
 
 type ParticleId = String;
+
 pub struct Plumber<RT: AquaRuntime, F> {
     events: VecDeque<Result<RoutingEffects, AquamarineApiError>>,
     actors: HashMap<(ParticleId, PeerId), Actor<RT, F>>,
@@ -51,6 +53,10 @@ pub struct Plumber<RT: AquaRuntime, F> {
     metrics: Option<ParticleExecutorMetrics>,
     key_manager: KeyManager,
 }
+
+unsafe impl<RT: AquaRuntime, F: ParticleFunctionStatic> Send for Plumber<RT, F> {}
+
+unsafe impl<RT: AquaRuntime, F: ParticleFunctionStatic> Sync for Plumber<RT, F> {}
 
 impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
     pub fn new(
@@ -111,11 +117,25 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
         functions: HashMap<String, ServiceFunction>,
         fallback: Option<ServiceFunction>,
     ) {
-        self.builtins.extend(service, functions, fallback)
+        let builtins = self.builtins.clone();
+        let task = async move {
+            builtins.extend(service, functions, fallback).await;
+        };
+        task::Builder::new()
+            .name("Add service")
+            .spawn(task)
+            .expect("Could not spawn add service task");
     }
 
     pub fn remove_service(&self, service: String) {
-        self.builtins.remove(&service);
+        let builtins = self.builtins.clone();
+        let task = async move {
+            builtins.remove(&service).await;
+        };
+        task::Builder::new()
+            .name("Remove service")
+            .spawn(task)
+            .expect("Could not spawn remove service task");
     }
 
     pub fn poll(
@@ -158,8 +178,9 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
                         next_peers: local_peers,
                     });
                 }
-                let (vm_id, vm) = result.vm;
-                self.vm_pool.put_vm(vm_id, vm);
+                if let Some((vm_id, vm)) = result.vm {
+                    self.vm_pool.put_vm(vm_id, vm)
+                }
             }
             mailbox_size += actor.mailbox_size();
         }
@@ -212,7 +233,6 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
                 break;
             }
         }
-
         self.meter(|m| {
             for stat in &interpretation_stats {
                 // count particle interpretations
@@ -286,7 +306,7 @@ mod tests {
     use key_manager::KeyManager;
 
     use particle_args::Args;
-    use particle_execution::{ParticleFunction, ParticleParams, ServiceFunction};
+    use particle_execution::{FunctionOutcome, ParticleFunction, ParticleParams, ServiceFunction};
     use particle_protocol::Particle;
 
     use crate::deadline::Deadline;
@@ -295,18 +315,17 @@ mod tests {
     use crate::vm_pool::VmPool;
     use crate::AquamarineApiError::ParticleExpired;
     use crate::{AquaRuntime, ParticleEffects, Plumber};
+    use async_trait::async_trait;
 
     struct MockF;
+
+    #[async_trait]
     impl ParticleFunction for MockF {
-        fn call(
-            &self,
-            _args: Args,
-            _particle: ParticleParams,
-        ) -> particle_execution::ParticleFunctionOutput<'_> {
+        async fn call(&self, _args: Args, _particle: ParticleParams) -> FunctionOutcome {
             panic!("no builtins in plumber tests!")
         }
 
-        fn extend(
+        async fn extend(
             &self,
             _service: String,
             _functions: HashMap<String, ServiceFunction>,
@@ -315,15 +334,13 @@ mod tests {
             todo!()
         }
 
-        fn remove(
-            &self,
-            _service: &str,
-        ) -> Option<(HashMap<String, ServiceFunction>, Option<ServiceFunction>)> {
+        async fn remove(&self, _service: &str) {
             todo!()
         }
     }
 
     struct VMMock;
+
     impl AquaRuntime for VMMock {
         type Config = ();
         type Error = Infallible;

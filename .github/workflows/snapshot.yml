@@ -74,6 +74,8 @@ jobs:
           publish: false
 
       - name: Run cargo build
+        env:
+          RUSTFLAGS: "--cfg tokio_unstable"
         run: cargo build ${{ steps.profile.outputs.flags }} -p particle-node
 
       - name: Calculate SHA256

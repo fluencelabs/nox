@@ -17,12 +17,11 @@
 use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
-
-use fluence_libp2p::types::OneshotOutlet;
+use tokio::sync::oneshot;
 
 use crate::Particle;
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub enum SendStatus {
     Ok,
     TimedOut {
@@ -31,33 +30,23 @@ pub enum SendStatus {
     },
     ProtocolError(String),
     NotConnected,
+    #[default]
     ConnectionPoolDied,
 }
 
-impl Default for SendStatus {
-    fn default() -> Self {
-        SendStatus::ConnectionPoolDied
-    }
-}
-
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub enum CompletionChannel {
+    #[default]
     Ignore,
-    Oneshot(OneshotOutlet<SendStatus>),
+    Oneshot(oneshot::Sender<SendStatus>),
 }
 
 impl CompletionChannel {
-    pub fn outlet(self) -> Option<OneshotOutlet<SendStatus>> {
+    pub fn outlet(self) -> Option<oneshot::Sender<SendStatus>> {
         match self {
             CompletionChannel::Ignore => None,
             CompletionChannel::Oneshot(outlet) => Some(outlet),
         }
-    }
-}
-
-impl Default for CompletionChannel {
-    fn default() -> Self {
-        CompletionChannel::Ignore
     }
 }
 
@@ -76,7 +65,7 @@ pub enum HandlerMessage {
 }
 
 impl HandlerMessage {
-    pub fn into_protocol_message(self) -> (ProtocolMessage, Option<OneshotOutlet<SendStatus>>) {
+    pub fn into_protocol_message(self) -> (ProtocolMessage, Option<oneshot::Sender<SendStatus>>) {
         match self {
             HandlerMessage::OutParticle(particle, channel) => {
                 (ProtocolMessage::Particle(particle), channel.outlet())

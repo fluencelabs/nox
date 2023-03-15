@@ -24,26 +24,29 @@ use connected_client::ConnectedClient;
 use created_swarm::make_swarms;
 use particle_protocol::Contact;
 
-#[test]
-fn neighborhood() {
-    let swarms = make_swarms(3);
+#[tokio::test]
+async fn neighborhood() {
+    let swarms = make_swarms(3).await;
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
         .wrap_err("connect client")
         .unwrap();
 
-    client.send_particle(
-        r#"
+    let response = client
+        .execute_particle(
+            r#"
             (seq
                 (call node ("kad" "neighborhood") [node] peers)
                 (call client ("return" "") [peers] void)
             )
         "#,
-        hashmap! {
-            "node" => json!(client.node.to_string()),
-            "client" => json!(client.peer_id.to_string())
-        },
-    );
-    let response = client.receive_args().wrap_err("receive").unwrap();
+            hashmap! {
+                "node" => json!(client.node.to_string()),
+                "client" => json!(client.peer_id.to_string())
+            },
+        )
+        .await
+        .unwrap();
     if let JValue::Array(neighborhood) = response[0].clone() {
         assert_eq!(neighborhood.len(), 2);
 
@@ -60,26 +63,29 @@ fn neighborhood() {
     }
 }
 
-#[test]
-fn neighborhood_with_addresses() {
-    let swarms = make_swarms(3);
+#[tokio::test]
+async fn neighborhood_with_addresses() {
+    let swarms = make_swarms(3).await;
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
         .wrap_err("connect client")
         .unwrap();
 
-    client.send_particle(
-        r#"
+    let response = client
+        .execute_particle(
+            r#"
             (seq
                 (call node ("kad" "neigh_with_addrs") [node] peers)
                 (call client ("return" "") [peers] void)
             )
         "#,
-        hashmap! {
-            "node" => json!(client.node.to_string()),
-            "client" => json!(client.peer_id.to_string())
-        },
-    );
-    let response = client.receive_args().wrap_err("receive").unwrap();
+            hashmap! {
+                "node" => json!(client.node.to_string()),
+                "client" => json!(client.peer_id.to_string())
+            },
+        )
+        .await
+        .unwrap();
     let neighborhood = response.into_iter().next().expect("empty response");
     let neighborhood: Vec<Contact> =
         serde_json::from_value(neighborhood).expect("deserialize neighborhood");
