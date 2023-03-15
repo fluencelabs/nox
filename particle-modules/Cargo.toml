@@ -12,9 +12,9 @@ json-utils = { workspace = true }
 fs-utils = { workspace = true }
 service-modules = { workspace = true }
 
-marine-it-parser = "0.11.1"
+marine-it-parser = { workspace = true }
 fluence-app-service = { workspace = true }
-marine-utils = "0.4.0"
+marine-utils = { workspace = true }
 
 serde = { version = "1.0.152", features = ["derive"] }
 serde_json = { workspace = true }
