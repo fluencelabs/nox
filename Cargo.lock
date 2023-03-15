@@ -145,7 +145,7 @@ version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1d08a76fa95c921a07e4c9872811b707a3f446b6e841eefa60e66e7fd88a4d0e"
 dependencies = [
- "fluence-it-types",
+ "fluence-it-types 0.3.2",
  "marine-rs-sdk",
  "serde",
  "serde_json",
@@ -1918,6 +1918,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "fluence-it-types"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d57951373d9ece94e8494a7b2f8a3772c56e290a7b7972a24eaecd7292b11083"
+dependencies = [
+ "it-to-bytes",
+ "serde",
+ "variant_count",
+]
+
+[[package]]
 name = "fluence-keypair"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2718,7 +2729,7 @@ version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "59726dde6ea2df9ad15bb67341103879cb94f26642ee0e40bf9a426f8e69bec8"
 dependencies = [
- "fluence-it-types",
+ "fluence-it-types 0.3.2",
  "it-memory-traits",
  "log",
  "paste",
@@ -2759,7 +2770,7 @@ checksum = "4217ad341ebadf8d8e724e264f13e593e0648f5b3e94b3896a5df283be015ecc"
 name = "ivalue-utils"
 version = "0.1.0"
 dependencies = [
- "fluence-it-types",
+ "fluence-it-types 0.4.0",
  "serde_json",
 ]
 
@@ -6750,7 +6761,7 @@ version = "0.24.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ba2a3bf176a65a5a1a136be5b9440395c2ba4493a3a07ea70cac553fe924185d"
 dependencies = [
- "fluence-it-types",
+ "fluence-it-types 0.3.2",
  "it-lilo",
  "it-memory-traits",
  "it-to-bytes",

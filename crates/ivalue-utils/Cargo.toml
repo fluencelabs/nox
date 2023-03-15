@@ -5,5 +5,5 @@ authors = ["Fluence Labs"]
 edition = "2021"
 
 [dependencies]
-fluence-it-types = "0.3.2"
+fluence-it-types = "0.4.0"
 serde_json = { workspace = true }
