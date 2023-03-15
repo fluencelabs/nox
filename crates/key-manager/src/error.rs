@@ -32,12 +32,12 @@ pub enum KeyManagerError {
     DeserializePersistedKeypair {
         path: PathBuf,
         #[source]
-        err: toml::de::Error,
+        err: toml_edit::de::Error,
     },
     #[error("Error serializing persisted keypair: {err}")]
     SerializePersistedKeypair {
         #[source]
-        err: toml::ser::Error,
+        err: toml_edit::ser::Error,
     },
     #[error("Error writing persisted keypair to {path:?}: {err}")]
     WriteErrorPersistedKeypair {

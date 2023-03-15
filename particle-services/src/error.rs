@@ -75,7 +75,7 @@ pub enum ServiceError {
     DeserializePersistedService {
         path: PathBuf,
         #[source]
-        err: toml::de::Error,
+        err: toml_edit::de::Error,
     },
     #[error("Error creating directory for persisted services {path:?}: {err}")]
     CreateServicesDir {

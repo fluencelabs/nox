@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 fs-utils = { workspace = true }
-fluence-libp2p = { workspace = true}
+fluence-libp2p = { workspace = true }
 fluence-keypair = { workspace = true }
 
 parking_lot = { workspace = true }
@@ -15,5 +15,6 @@ eyre = { workspace = true }
 thiserror = { workspace = true }
 serde = { workspace = true }
 toml = { workspace = true }
+toml_edit = { workspace = true, features = ["serde"] }
 log = { workspace = true }
 libp2p = { workspace = true }

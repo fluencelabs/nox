@@ -59,7 +59,7 @@ impl SpellStorage {
         );
 
         let spell_modules = spell_modules();
-        let cfg: TomlMarineConfig = toml::from_slice(CONFIG)?;
+        let cfg: TomlMarineConfig = toml_edit::de::from_slice(CONFIG)?;
         let mut hashes = Vec::new();
         for config in cfg.module {
             let name = config.name.clone();

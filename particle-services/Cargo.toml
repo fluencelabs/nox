@@ -26,7 +26,8 @@ serde_json = { workspace = true }
 serde = { workspace = true }
 log = { workspace = true }
 uuid = { workspace = true }
-toml = "0.7.3"
+toml = { workspace = true }
+toml_edit = { workspace = true, features = ["serde"] }
 thiserror = { workspace = true }
 derivative = { workspace = true }
 eyre = { workspace = true }
