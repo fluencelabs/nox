@@ -49,7 +49,7 @@ use crate::{Command, ConnectionPoolApi};
 // TODO: replace with generate_swarm_event_type
 type SwarmEventType = libp2p::swarm::NetworkBehaviourAction<
     (),
-    OneShotHandler<ProtocolConfig, HandlerMessage, HandlerMessage>,
+    HandlerMessage,
 >;
 
 #[derive(Debug, Default)]
@@ -578,8 +578,29 @@ impl NetworkBehaviour for ConnectionPoolBehaviour {
         }
     }
 
+    fn on_connection_handler_event(&mut self, from: PeerId, _connection_id: ConnectionId, event: THandlerOutEvent<Self>) {
+        match event {
+            HandlerMessage::InParticle(particle) => {
+                log::trace!(target: "network", "{}: received particle {} from {}; queue {}", self.peer_id, particle.id, from, self.queue.len());
+                self.meter(|m| {
+                    let particle_queue_size = i64::try_from(self.queue.len()).map(|x| x + 1);
+                    match particle_queue_size {
+                        Ok(particle_queue_size) => m.particle_queue_size.set(particle_queue_size),
+                        Err(e) => log::warn!("Could not convert metric particle_queue_size {}", e),
+                    }
+                    m.received_particles.inc();
+                    m.particle_sizes.observe(particle.data.len() as f64);
+                });
+                self.queue.push_back(particle);
+                self.wake();
+            }
+            HandlerMessage::InboundUpgradeError(err) => log::warn!("UpgradeError: {:?}", err),
+            HandlerMessage::Upgrade => {}
+            HandlerMessage::OutParticle(..) => unreachable!("can't receive OutParticle"),
+        }
+    }
 
-    fn poll(&mut self, cx: &mut Context<'_>, _: &mut impl PollParameters) -> Poll<SwarmEventType> {
+    fn poll(&mut self, cx: &mut Context<'_>, params: &mut impl PollParameters) -> Poll<SwarmEventType> {
         self.waker = Some(cx.waker().clone());
 
         loop {
@@ -630,27 +651,5 @@ impl NetworkBehaviour for ConnectionPoolBehaviour {
         }
 
         Poll::Pending
-    }
-
-    fn on_connection_handler_event(&mut self, from: PeerId, _connection_id: ConnectionId, event: THandlerOutEvent<Self>) {
-        match event {
-            HandlerMessage::InParticle(particle) => {
-                log::trace!(target: "network", "{}: received particle {} from {}; queue {}", self.peer_id, particle.id, from, self.queue.len());
-                self.meter(|m| {
-                    let particle_queue_size = i64::try_from(self.queue.len()).map(|x| x + 1);
-                    match particle_queue_size {
-                        Ok(particle_queue_size) => m.particle_queue_size.set(particle_queue_size),
-                        Err(e) => log::warn!("Could not convert metric particle_queue_size {}", e),
-                    }
-                    m.received_particles.inc();
-                    m.particle_sizes.observe(particle.data.len() as f64);
-                });
-                self.queue.push_back(particle);
-                self.wake();
-            }
-            HandlerMessage::InboundUpgradeError(err) => log::warn!("UpgradeError: {:?}", err),
-            HandlerMessage::Upgrade => {}
-            HandlerMessage::OutParticle(..) => unreachable!("can't receive OutParticle"),
-        }
     }
 }
