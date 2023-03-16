@@ -6,12 +6,13 @@ mod particle_executor;
 mod services_metrics;
 mod vm_pool;
 
+use std::fmt::Debug;
 pub use connection_pool::ConnectionPoolMetrics;
 pub use connectivity::ConnectivityMetrics;
 pub use connectivity::Resolution;
 pub use dispatcher::DispatcherMetrics;
 pub use particle_executor::{FunctionKind, ParticleExecutorMetrics};
-use prometheus_client::encoding::text::SendSyncEncodeMetric;
+use prometheus_client::encoding::EncodeMetric;
 use prometheus_client::registry::Registry;
 pub use services_metrics::{
     ServiceCallStats, ServiceMemoryStat, ServiceType, ServicesMetrics, ServicesMetricsBackend,
@@ -63,8 +64,8 @@ fn to_mib(values: std::vec::IntoIter<u64>) -> std::vec::IntoIter<f64> {
 
 pub(self) fn register<M>(registry: &mut Registry, metric: M, name: &str, help: &str) -> M
 where
-    M: 'static + SendSyncEncodeMetric + Clone,
+    M: 'static + EncodeMetric + Clone + Send + Sync + Debug,
 {
-    registry.register(name, help, Box::new(metric.clone()));
+    registry.register(name, help, metric.clone());
     metric
 }

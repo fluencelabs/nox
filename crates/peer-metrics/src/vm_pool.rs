@@ -35,70 +35,66 @@ impl VmPoolMetrics {
         let sub_registry = registry.sub_registry_with_prefix("aqua_vm_pool");
 
         let pool_size = Gauge::default();
-        sub_registry.register(
-            "pool_size",
-            "Size of the AquaVM pool",
-            Box::new(pool_size.clone()),
-        );
+        sub_registry.register("pool_size", "Size of the AquaVM pool", pool_size.clone());
 
         let free_vms = Gauge::default();
         sub_registry.register(
             "free_vms",
             "Number of currently free AquaVMs",
-            Box::new(free_vms.clone()),
+            free_vms.clone(),
         );
 
         let get_vm = Counter::default();
         sub_registry.register(
             "get_vm",
             "Number of times an AquaVM has been taken from the pool",
-            Box::new(get_vm.clone()),
+            get_vm.clone(),
         );
 
         let put_vm = Counter::default();
         sub_registry.register(
             "put_vm",
             "Number of times an AquaVM has been put back to the pool",
-            Box::new(put_vm.clone()),
+            put_vm.clone(),
         );
 
         let no_free_vm = Counter::default();
         sub_registry.register(
             "no_free_vm",
             "Number of time when we tried to take an AquaVM from an empty pool",
-            Box::new(no_free_vm.clone()),
+            no_free_vm.clone(),
         );
 
         let vm_mem_max = Gauge::default();
         sub_registry.register(
             "vm_mem_max",
             "Maximum allocated memory among all interpreters (after first interpretation)",
-            Box::new(vm_mem_max.clone()),
+            vm_mem_max.clone(),
         );
         let vm_mem_min = Gauge::default();
         sub_registry.register(
             "vm_mem_min",
             "Minumum allocated memory among all interpreters (after first interpretation)",
-            Box::new(vm_mem_min.clone()),
+            vm_mem_min.clone(),
         );
         let vm_mem_total = Gauge::default();
         sub_registry.register(
             "vm_mem_total",
             "Total memory allocated by all interpreters on node",
-            Box::new(vm_mem_total.clone()),
+            vm_mem_total.clone(),
         );
         let vm_mem_avg = Gauge::default();
         sub_registry.register(
             "vm_mem_avg",
             "Average allocated memory of an interpreter",
-            Box::new(vm_mem_avg.clone()),
+            vm_mem_avg.clone(),
         );
         // 1mb, 5mb, 10mb, 25mb, 50mb, 100mb, 200mb
         let vm_mem_histo = Histogram::new(mem_buckets());
         sub_registry.register(
             "vm_mem_histo",
             "Interpreter memory size distribution",
-            Box::new(vm_mem_histo.clone()),
+            vm_mem_histo.clone(),
         );
 
         Self {
@@ -122,8 +118,16 @@ impl VmPoolMetrics {
     }
 
     pub fn set_pool_size(&mut self, size: usize) {
-        self.pool_size.set(size as u64);
         self.vm_mems.resize(size, 0);
+        let size = i64::try_from(size);
+        match size {
+            Ok(size) => {
+                self.pool_size.set(size);
+            }
+            Err(err) => {
+                log::warn!("Could not set pool_size metric {}", err);
+            }
+        }
     }
 
     pub fn measure_memory(&mut self, idx: usize, memory_size: u64) {
@@ -144,23 +148,56 @@ impl VmPoolMetrics {
         let cma = self.vm_mem_cma as i64;
         let next_cma = cma + ((memory_size as i64 - cma) / self.vm_mem_measures as i64);
         self.vm_mem_cma = next_cma.unsigned_abs();
-        self.vm_mem_avg.set(self.vm_mem_cma);
+        let vm_mem_cma = i64::try_from(self.vm_mem_cma);
+        match vm_mem_cma {
+            Ok(vm_mem_cma) => {
+                self.vm_mem_avg.set(vm_mem_cma);
+            }
+            Err(err) => {
+                log::warn!("Could not set vm_mem_cma metric {}", err);
+            }
+        }
 
         // Max mem
         self.vm_mem_max_value = max(self.vm_mem_max_value, memory_size);
-        self.vm_mem_max.set(self.vm_mem_max_value);
+        let vm_mem_max_value = i64::try_from(self.vm_mem_max_value);
+        match vm_mem_max_value {
+            Ok(vm_mem_max_value) => {
+                self.vm_mem_max.set(vm_mem_max_value);
+            }
+            Err(err) => {
+                log::warn!("Could not set vm_mem_max_value metric {}", err);
+            }
+        }
 
         // Min mem
         self.vm_mem_min_value = min(self.vm_mem_min_value, memory_size);
-        self.vm_mem_min.set(self.vm_mem_min_value);
+        let vm_mem_min_value = i64::try_from(self.vm_mem_min_value);
+        match vm_mem_min_value {
+            Ok(vm_mem_min_value) => {
+                self.vm_mem_min.set(vm_mem_min_value);
+            }
+            Err(err) => {
+                log::warn!("Could not set vm_mem_min_value metric {}", err);
+            }
+        }
 
         // Total
         debug_assert!(idx < self.vm_mems.len());
         if let Some(prev) = self.vm_mems.get_mut(idx) {
             if *prev != memory_size {
                 *prev = memory_size;
-                let total = self.vm_mems.iter().sum();
-                self.vm_mem_total.set(total);
+                let total: u64 = self.vm_mems.iter().sum();
+
+                let total = i64::try_from(total);
+                match total {
+                    Ok(total) => {
+                        self.vm_mem_total.set(total);
+                    }
+                    Err(err) => {
+                        log::warn!("Could not set total metric {}", err);
+                    }
+                }
             }
         } else {
             log::error!(
