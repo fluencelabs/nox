@@ -139,10 +139,8 @@ impl ConnectionPoolBehaviour {
         // TODO: return Contact immediately if that address is already connected
         self.dialing.entry(address.clone()).or_default().push(out);
 
-        let handler = self.new_handler();
         self.push_event(NetworkBehaviourAction::Dial {
-            opts: DialOpts::unknown_peer_id().address(address).build(),
-            handler,
+            opts: DialOpts::unknown_peer_id().address(address).build()
         });
     }
 
@@ -185,12 +183,10 @@ impl ConnectionPoolBehaviour {
         };
 
         if !addresses.is_empty() {
-            let handler = self.new_handler();
             self.push_event(NetworkBehaviourAction::Dial {
                 opts: DialOpts::peer_id(new_contact.peer_id)
                     .addresses(addresses)
-                    .build(),
-                handler,
+                    .build()
             });
         }
     }
@@ -330,8 +326,13 @@ impl ConnectionPoolBehaviour {
                 out.send(contact.clone()).ok();
             }
         }
-
-        self.meter(|m| m.connected_peers.set(self.contacts.len() as u64));
+        let connected_peers = i64::try_from(self.contacts.len());
+        match connected_peers {
+            Ok(connected_peers) => {
+                self.meter(|m| m.connected_peers.set(connected_peers));
+            }
+            Err(e) => log::warn!("Could not convert metric connected_peers {}", e),
+        }
     }
 
     fn lifecycle_event(&mut self, event: LifecycleEvent) {
@@ -359,7 +360,13 @@ impl ConnectionPoolBehaviour {
                 out.send(false).ok();
             }
 
-            self.meter(|m| m.connected_peers.set(self.contacts.len() as u64));
+            let connected_peers = i64::try_from(self.contacts.len());
+            match connected_peers {
+                Ok(connected_peers) => {
+                    self.meter(|m| m.connected_peers.set(connected_peers));
+                }
+                Err(e) => log::warn!("Could not convert metric connected_peers {}", e),
+            }
         }
     }
 
@@ -585,7 +592,9 @@ impl NetworkBehaviour for ConnectionPoolBehaviour {
                 self.meter(|m| {
                     let particle_queue_size = i64::try_from(self.queue.len()).map(|x| x + 1);
                     match particle_queue_size {
-                        Ok(particle_queue_size) => m.particle_queue_size.set(particle_queue_size),
+                        Ok(particle_queue_size) => {
+                            m.particle_queue_size.set(particle_queue_size);
+                        }
                         Err(e) => log::warn!("Could not convert metric particle_queue_size {}", e),
                     }
                     m.received_particles.inc();
@@ -600,7 +609,7 @@ impl NetworkBehaviour for ConnectionPoolBehaviour {
         }
     }
 
-    fn poll(&mut self, cx: &mut Context<'_>, params: &mut impl PollParameters) -> Poll<SwarmEventType> {
+    fn poll(&mut self, cx: &mut Context<'_>, _params: &mut impl PollParameters) -> Poll<SwarmEventType> {
         self.waker = Some(cx.waker().clone());
 
         loop {
@@ -640,7 +649,13 @@ impl NetworkBehaviour for ConnectionPoolBehaviour {
             }
         }
 
-        self.meter(|m| m.particle_queue_size.set(self.queue.len() as u64));
+        let particle_queue_size = i64::try_from(self.queue.len());
+        match particle_queue_size {
+            Ok(particle_queue_size) => {
+                self.meter(|m| m.particle_queue_size.set(particle_queue_size));
+            }
+            Err(e) => log::warn!("Could not convert metric particle_queue_size {}", e),
+        }
 
         while let Poll::Ready(Some(cmd)) = self.commands.poll_next_unpin(cx) {
             self.execute(cmd)

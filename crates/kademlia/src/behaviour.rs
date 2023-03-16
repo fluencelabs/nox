@@ -48,7 +48,6 @@ use libp2p::{
     swarm::NetworkBehaviour,
     PeerId,
 };
-use libp2p::kad::handler::KademliaHandler;
 use libp2p_metrics::{Metrics, Recorder};
 use multihash::Multihash;
 use tokio::sync::{mpsc, oneshot};
@@ -57,7 +56,7 @@ use control_macro::get_return;
 use particle_protocol::Contact;
 
 use crate::error::{KademliaError, Result};
-use crate::{Command, KademliaApi};
+use crate::{behaviour, Command, KademliaApi};
 
 pub struct KademliaConfig {
     pub peer_id: PeerId,
@@ -194,7 +193,7 @@ impl Kademlia {
         peer_id: &PeerId,
         cid: &ConnectionId,
         cp: &ConnectedPoint,
-        handler: <Self::ConnectionHandler>::Handler,
+        handler: <Kademlia as NetworkBehaviour>::ConnectionHandle,
         remaining_established: usize,
     ) {
         self.kademlia
