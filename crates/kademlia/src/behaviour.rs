@@ -37,7 +37,7 @@ use libp2p::swarm::behaviour::{
     NewListener,
 };
 use libp2p::swarm::derive_prelude::AddressChange;
-use libp2p::swarm::{ConnectionHandler, ConnectionId, DialError, ListenError, NetworkBehaviourAction, PollParameters, THandlerOutEvent};
+use libp2p::swarm::{ConnectionHandler, ConnectionId, DialError, ListenError, NetworkBehaviourAction, PollParameters, THandlerInEvent, THandlerOutEvent};
 use libp2p::{
     core::Multiaddr,
     kad::{
@@ -48,6 +48,7 @@ use libp2p::{
     swarm::NetworkBehaviour,
     PeerId,
 };
+use libp2p::kad::handler::KademliaHandler;
 use libp2p_metrics::{Metrics, Recorder};
 use multihash::Multihash;
 use tokio::sync::{mpsc, oneshot};
@@ -122,6 +123,7 @@ pub struct Kademlia {
     metrics: Option<Metrics>,
 }
 
+
 impl Kademlia {
     pub fn new(config: KademliaConfig, metrics: Option<Metrics>) -> (Self, KademliaApi) {
         let timer = Delay::new(config.query_timeout);
@@ -189,12 +191,7 @@ impl Kademlia {
     }
 
     fn on_connection_closed(
-        &mut self,
-        peer_id: &PeerId,
-        cid: &ConnectionId,
-        cp: &ConnectedPoint,
-        handler: <Kademlia as NetworkBehaviour>::ConnectionHandle,
-        remaining_established: usize,
+        &mut self, peer_id: &PeerId, cid: &ConnectionId, cp: &ConnectedPoint, handler: KademliaHandler<QueryId>, remaining_established: usize,
     ) {
         self.kademlia
             .on_swarm_event(FromSwarm::ConnectionClosed(ConnectionClosed {
@@ -584,7 +581,7 @@ impl NetworkBehaviour for Kademlia {
     fn on_swarm_event(&mut self, event: FromSwarm<Self::ConnectionHandler>) {
         match event {
             FromSwarm::ConnectionEstablished(e) => {
-                self.on_established(&e.peer_id, &e.connection_id, e.endpoint, &e.failed_addresses.to_vec())
+                self.on_established(&e.peer_id, &e.connection_id, e.endpoint, &e.failed_addresses.to_vec());
             }
             FromSwarm::ConnectionClosed(e) => {
                 self.on_connection_closed(&e.peer_id, &e.connection_id, e.endpoint, e.handler, e.remaining_established)
@@ -627,11 +624,7 @@ impl NetworkBehaviour for Kademlia {
             .on_connection_handler_event(peer_id, connection_id, event)
     }
 
-    fn poll(
-        &mut self,
-        cx: &mut Context<'_>,
-        params: &mut impl PollParameters,
-    ) -> Poll<NetworkBehaviourAction<(), Self::ConnectionHandler>> {
+    fn poll(&mut self, cx: &mut Context<'_>, params: &mut impl PollParameters) -> Poll<NetworkBehaviourAction<(), THandlerInEvent<Self>>> {
         use NetworkBehaviourAction::*;
         use Poll::{Pending, Ready};
 

@@ -47,10 +47,7 @@ use crate::{Command, ConnectionPoolApi};
 // type SwarmEventType = generate_swarm_event_type!(ConnectionPoolBehaviour);
 
 // TODO: replace with generate_swarm_event_type
-type SwarmEventType = libp2p::swarm::NetworkBehaviourAction<
-    (),
-    HandlerMessage,
->;
+type SwarmEventType = NetworkBehaviourAction<(), HandlerMessage>;
 
 #[derive(Debug, Default)]
 /// [Peer] is the representation of [Contact] extended with precise connectivity information
