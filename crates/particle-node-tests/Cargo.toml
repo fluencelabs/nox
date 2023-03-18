@@ -41,7 +41,7 @@ maplit = { workspace = true }
 serde_json = { workspace = true }
 fstrings = { workspace = true }
 serde = { workspace = true }
-multihash = "0.16.3"
+multihash = "0.17.0"
 blake3 = "1.3.3"
 rand = "0.8.5"
 bs58 = { workspace = true }

@@ -245,8 +245,22 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
                 let time = stat.interpretation_time.as_secs_f64();
                 m.interpretation_time_sec.observe(time);
 
-                m.total_actors_mailbox.set(mailbox_size as u64);
-                m.alive_actors.set(self.actors.len() as u64);
+                let mailbox_size = i64::try_from(mailbox_size);
+                match mailbox_size {
+                    Ok(mailbox_size) => {
+                        m.total_actors_mailbox.set(mailbox_size);
+                    }
+                    Err(e) => log::warn!("Could not convert metric mailbox_size {}", e),
+                }
+
+                let alive_actors = i64::try_from(self.actors.len());
+
+                match alive_actors {
+                    Ok(alive_actors) => {
+                        m.alive_actors.set(alive_actors);
+                    }
+                    Err(e) => log::warn!("Could not convert metric alive_actors {}", e),
+                }
             }
 
             for stat in &stats {

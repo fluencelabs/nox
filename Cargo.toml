@@ -101,7 +101,7 @@ air-interpreter-wasm = "=0.37.0"
 
 # libp2p
 libp2p = { version = "0.51.1", features = ["noise", "tcp", "dns", "websocket", "yamux", "mplex", "tokio", "kad", "ping", "identify", "macros"] }
-libp2p-core = { version = "0.39.0", default-features = false, features = ["secp256k1"] }
+libp2p-core = { version = "0.39.1", default-features = false, features = ["secp256k1"] }
 libp2p-metrics = { version = "0.12.0", features = ["kad"] }
 libp2p-noise = "0.42.1"
 libp2p-swarm = { version = "0.42.0" }

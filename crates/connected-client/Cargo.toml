@@ -20,6 +20,7 @@ log = { workspace = true }
 derivative = { workspace = true }
 eyre = { workspace = true }
 parking_lot = { workspace = true }
+either = "1.8.1"
 
 [dev-dependencies]
 rand = "0.8.5"

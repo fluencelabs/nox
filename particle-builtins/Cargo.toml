@@ -24,7 +24,7 @@ key-manager = { workspace = true }
 
 libp2p = { workspace = true }
 avm-server = { workspace = true }
-multihash = "0.16.3"
+multihash = "0.17.0"
 fluence-keypair = { workspace = true }
 
 

@@ -57,7 +57,7 @@ use control_macro::get_return;
 use particle_protocol::Contact;
 
 use crate::error::{KademliaError, Result};
-use crate::{behaviour, Command, KademliaApi};
+use crate::{Command, KademliaApi};
 
 pub struct KademliaConfig {
     pub peer_id: PeerId,
@@ -581,7 +581,7 @@ impl NetworkBehaviour for Kademlia {
     fn on_swarm_event(&mut self, event: FromSwarm<Self::ConnectionHandler>) {
         match event {
             FromSwarm::ConnectionEstablished(e) => {
-                self.on_established(&e.peer_id, &e.connection_id, e.endpoint, &e.failed_addresses.to_vec());
+                self.on_established(&e.peer_id, &e.connection_id, e.endpoint, &e.failed_addresses.to_vec(), e.other_established);
             }
             FromSwarm::ConnectionClosed(e) => {
                 self.on_connection_closed(&e.peer_id, &e.connection_id, e.endpoint, e.handler, e.remaining_established)

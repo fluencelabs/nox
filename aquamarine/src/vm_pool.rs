@@ -86,7 +86,15 @@ impl<RT: AquaRuntime> VmPool<RT> {
                 m.no_free_vm.inc();
             }
 
-            m.free_vms.set(free_vms_count as u64);
+            let free_vms_count = i64::try_from(free_vms_count);
+            match free_vms_count {
+                Ok(free_vms_count) => {
+                    m.free_vms.set(free_vms_count);
+                }
+                Err(e) => {
+                    log::warn!("Could not convert metric free_vms {}", e)
+                }
+            }
         });
 
         vm
@@ -104,7 +112,15 @@ impl<RT: AquaRuntime> VmPool<RT> {
         let free_vms_count = self.runtimes.iter().filter(|vm| vm.is_some()).count();
         self.meter(|m| {
             m.put_vm.inc();
-            m.free_vms.set(free_vms_count as u64);
+
+            let free_vms_count = i64::try_from(free_vms_count);
+            match free_vms_count {
+                Ok(free_vms_count) => {
+                    m.free_vms.set(free_vms_count);
+                }
+                Err(e) => log::warn!("Could not convert metric free_vms {}", e),
+            }
+
             m.measure_memory(id, memory_stats.memory_size as u64);
             // TODO: measure max memory
         });
