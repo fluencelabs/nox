@@ -42,7 +42,7 @@ itertools = { workspace = true }
 bytesize = "1.1.0"
 derivative = { workspace = true }
 fluence-app-service = { workspace = true }
-async-trait = { version = "0.1.64"}
+async-trait = { version = "0.1.67"}
 eyre = { workspace = true }
 
 [dev-dependencies]
