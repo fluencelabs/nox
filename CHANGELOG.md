@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.9.0](https://github.com/fluencelabs/rust-peer/compare/rust-peer-v0.8.2...rust-peer-v0.9.0) (2023-03-21)
+
+
+### ⚠ BREAKING CHANGES
+
+* **marine,avm:** avm-server 0.31.0, fluence-app-service 0.25.0 ([#1506](https://github.com/fluencelabs/rust-peer/issues/1506))
+* **deps:** update fluence-app-service minor version ([#1497](https://github.com/fluencelabs/rust-peer/issues/1497))
+
+### Features
+
+* **async runtime:** move async-std to tokio ([#1469](https://github.com/fluencelabs/rust-peer/issues/1469)) ([08615a2](https://github.com/fluencelabs/rust-peer/commit/08615a25711e7584d42ca2e97449e7812be5e332))
+* **deps:** update fluence-app-service minor version ([#1497](https://github.com/fluencelabs/rust-peer/issues/1497)) ([8c82741](https://github.com/fluencelabs/rust-peer/commit/8c82741468083d38daaf73fd3a59be1f90fc2d2d))
+* **marine,avm:** avm-server 0.31.0, fluence-app-service 0.25.0 ([#1506](https://github.com/fluencelabs/rust-peer/issues/1506)) ([23820e9](https://github.com/fluencelabs/rust-peer/commit/23820e93e8c5a5749f976f63520544fa88c621a2))
+* **worker:** add worker.remove [fixes NET-354 NET-376] ([#1499](https://github.com/fluencelabs/rust-peer/issues/1499)) ([97f552f](https://github.com/fluencelabs/rust-peer/commit/97f552f4fdbd94d943bd4896f5e8491ab791cd0e))
+
+
+### Bug Fixes
+
+* **deps:** update rust crate fluence-it-types to 0.4.0 ([#1467](https://github.com/fluencelabs/rust-peer/issues/1467)) ([34cfc85](https://github.com/fluencelabs/rust-peer/commit/34cfc853a3dd1ac57d6806491e1b074690be62f0))
+* **deps:** update rust crate fluence-spell-distro to v0.5.6 ([#1516](https://github.com/fluencelabs/rust-peer/issues/1516)) ([97ceb92](https://github.com/fluencelabs/rust-peer/commit/97ceb9202d0e665dc29f728bf4ce60e474e7f5c2))
+* **deps:** update rust crate fluence-spell-dtos to v0.5.4 ([#1471](https://github.com/fluencelabs/rust-peer/issues/1471)) ([b7c6b4d](https://github.com/fluencelabs/rust-peer/commit/b7c6b4d206330d4c8d05932f533d43c1c078f1ca))
+
 ## [0.8.2](https://github.com/fluencelabs/rust-peer/compare/rust-peer-v0.8.1...rust-peer-v0.8.2) (2023-02-27)
 
 
