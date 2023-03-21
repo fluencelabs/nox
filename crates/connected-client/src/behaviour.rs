@@ -175,11 +175,7 @@ impl NetworkBehaviour for ClientBehaviour {
     fn addresses_of_peer(&mut self, _: &PeerId) -> Vec<Multiaddr> {
         vec![]
     }
-
-    /*    fn poll(&mut self, cx: &mut Context<'_>, params: &mut impl PollParameters) -> Poll<NetworkBehaviourAction<Self::OutEvent, THandlerInEvent<Self>>> {
-        todo!()
-    }
-    */
+    
     fn on_swarm_event(&mut self, event: FromSwarm<'_, Self::ConnectionHandler>) {
         match event {
             FromSwarm::ConnectionEstablished(e) => {
