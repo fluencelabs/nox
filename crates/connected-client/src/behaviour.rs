@@ -21,17 +21,16 @@ use either::Either;
 
 use futures::future::BoxFuture;
 use futures::FutureExt;
-use libp2p::swarm::{ConnectionId, DialError, FromSwarm, IntoConnectionHandler, THandlerOutEvent};
+use libp2p::swarm::{
+    ConnectionId, DialError, FromSwarm, IntoConnectionHandler, THandlerInEvent,
+    THandlerOutEvent,
+};
 use libp2p::{
-    core::{
-        connection::{ConnectedPoint},
-        either::EitherFuture,
-        Multiaddr,
-    },
+    core::{connection::ConnectedPoint, Multiaddr},
     ping::{Behaviour as Ping, Config as PingConfig},
     swarm::{
-        IntoConnectionHandlerSelect, NetworkBehaviour,
-        NetworkBehaviourAction, NotifyHandler, OneShotHandler, PollParameters,
+        IntoConnectionHandlerSelect, NetworkBehaviour, NetworkBehaviourAction, NotifyHandler,
+        OneShotHandler, PollParameters,
     },
     PeerId,
 };
@@ -40,8 +39,7 @@ use particle_protocol::{HandlerMessage, Particle, ProtocolConfig};
 
 use crate::ClientEvent;
 
-pub type SwarmEventType =
-NetworkBehaviourAction<ClientEvent, <ClientBehaviour as NetworkBehaviour>::ConnectionHandler>;
+pub type SwarmEventType = NetworkBehaviourAction<ClientEvent, THandlerInEvent<ClientBehaviour>>;
 
 pub struct ClientBehaviour {
     protocol_config: ProtocolConfig,
@@ -54,7 +52,7 @@ pub struct ClientBehaviour {
 impl ClientBehaviour {
     pub fn new(protocol_config: ProtocolConfig) -> Self {
         #[allow(deprecated)]
-            let ping = Ping::new(PingConfig::new().with_keep_alive(true));
+        let ping = Ping::new(PingConfig::new().with_keep_alive(true));
         Self {
             protocol_config,
             events: VecDeque::default(),
@@ -67,7 +65,7 @@ impl ClientBehaviour {
     pub fn call(&mut self, peer_id: PeerId, call: Particle) {
         self.events
             .push_back(NetworkBehaviourAction::NotifyHandler {
-                event: Either::First(HandlerMessage::OutParticle(call, <_>::default())),
+                event: Either::Left(HandlerMessage::OutParticle(call, <_>::default())),
                 handler: NotifyHandler::Any,
                 peer_id,
             });
@@ -81,11 +79,7 @@ impl ClientBehaviour {
         }
     }
 
-    fn on_connection_established(
-        &mut self,
-        peer_id: &PeerId,
-        cp: &ConnectedPoint,
-    ) {
+    fn on_connection_established(&mut self, peer_id: &PeerId, cp: &ConnectedPoint) {
         let multiaddr = match cp {
             ConnectedPoint::Dialer { address, .. } => address,
             ConnectedPoint::Listener {
@@ -110,11 +104,7 @@ impl ClientBehaviour {
         ))
     }
 
-    fn on_dial_failure(
-        &mut self,
-        peer_id: Option<PeerId>,
-        error: &DialError,
-    ) {
+    fn on_dial_failure(&mut self, peer_id: Option<PeerId>, error: &DialError) {
         log::warn!(
             "Failed to connect to {:?}: {:?}, reconnecting",
             peer_id,
@@ -128,8 +118,8 @@ impl ClientBehaviour {
                 tokio::time::sleep(Duration::from_secs(1)).await;
                 addresses
             }
-                .boxed()
-                .into();
+            .boxed()
+            .into();
         }
     }
 
@@ -151,9 +141,8 @@ impl ClientBehaviour {
                     peer_id,
                     address
                 );
-                let handler = self.new_handler();
                 self.events.push_back(NetworkBehaviourAction::Dial {
-                    opts: address.clone().into()
+                    opts: address.clone().into(),
                 });
             }
             ConnectedPoint::Listener {
@@ -173,7 +162,7 @@ impl ClientBehaviour {
 
 impl NetworkBehaviour for ClientBehaviour {
     type ConnectionHandler = IntoConnectionHandlerSelect<
-        <OneShotHandler<ProtocolConfig, HandlerMessage, HandlerMessage>>::Handler,
+        <OneShotHandler<ProtocolConfig, HandlerMessage, HandlerMessage> as IntoConnectionHandler>::Handler,
         <Ping as NetworkBehaviour>::ConnectionHandler,
     >;
 
@@ -187,8 +176,7 @@ impl NetworkBehaviour for ClientBehaviour {
         vec![]
     }
 
-
-/*    fn poll(&mut self, cx: &mut Context<'_>, params: &mut impl PollParameters) -> Poll<NetworkBehaviourAction<Self::OutEvent, THandlerInEvent<Self>>> {
+    /*    fn poll(&mut self, cx: &mut Context<'_>, params: &mut impl PollParameters) -> Poll<NetworkBehaviourAction<Self::OutEvent, THandlerInEvent<Self>>> {
         todo!()
     }
     */
@@ -215,47 +203,49 @@ impl NetworkBehaviour for ClientBehaviour {
         }
     }
 
-    fn on_connection_handler_event(&mut self, peer_id: PeerId, cid: ConnectionId, event: THandlerOutEvent<Self>) {
+    fn on_connection_handler_event(
+        &mut self,
+        peer_id: PeerId,
+        cid: ConnectionId,
+        event: THandlerOutEvent<Self>,
+    ) {
         use ClientEvent::Particle;
-        use EitherFuture::*;
         use NetworkBehaviourAction::GenerateEvent;
 
         match event {
-            First(HandlerMessage::InParticle(particle)) => {
+            Either::Left(HandlerMessage::InParticle(particle)) => {
                 self.events.push_back(GenerateEvent(Particle {
                     particle,
                     sender: peer_id,
                 }))
             }
-            Second(ping) => self.ping.on_connection_handler_event(peer_id, cid, ping),
-            First(_) => {}
+            Either::Right(ping) => self.ping.on_connection_handler_event(peer_id, cid, ping),
+            Either::Left(_) => {}
         }
     }
 
     fn poll(
-          &mut self,
-          cx: &mut Context<'_>,
-          params: &mut impl PollParameters,
-      ) -> Poll<SwarmEventType> {
-          self.waker = Some(cx.waker().clone());
+        &mut self,
+        cx: &mut Context<'_>,
+        params: &mut impl PollParameters,
+    ) -> Poll<SwarmEventType> {
+        self.waker = Some(cx.waker().clone());
 
-          // just polling it to the end
-          while self.ping.poll(cx, params).is_ready() {}
+        // just polling it to the end
+        while self.ping.poll(cx, params).is_ready() {}
 
-          if let Some(Poll::Ready(addresses)) = self.reconnect.as_mut().map(|r| r.poll_unpin(cx)) {
-              self.reconnect = None;
-              for addr in addresses {
-                  self.events.push_back(NetworkBehaviourAction::Dial {
-                      opts: addr.into(),
-                  });
-              }
-          }
+        if let Some(Poll::Ready(addresses)) = self.reconnect.as_mut().map(|r| r.poll_unpin(cx)) {
+            self.reconnect = None;
+            for addr in addresses {
+                self.events
+                    .push_back(NetworkBehaviourAction::Dial { opts: addr.into() });
+            }
+        }
 
-          if let Some(event) = self.events.pop_front() {
-              return Poll::Ready(event);
-          }
+        if let Some(event) = self.events.pop_front() {
+            return Poll::Ready(event);
+        }
 
-          Poll::Pending
-      }
-
+        Poll::Pending
+    }
 }
