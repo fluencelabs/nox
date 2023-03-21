@@ -332,7 +332,10 @@ impl Kademlia {
     fn addresses_of_peer(&mut self, peer_id: &PeerId) -> Vec<Multiaddr> {
         let lookup_result = self.kademlia.kbucket(*peer_id);
         match lookup_result {
-            None => vec![],
+            None => {
+                log::debug!("Could not find addresses for peer_id {}", peer_id);
+                vec![]
+            }
             Some(bucket_ref) => bucket_ref
                 .iter()
                 .flat_map(|entry| entry.node.value.iter().cloned())

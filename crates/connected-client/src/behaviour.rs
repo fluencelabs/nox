@@ -21,8 +21,10 @@ use std::time::Duration;
 
 use futures::future::BoxFuture;
 use futures::FutureExt;
+use libp2p::core::Endpoint;
 use libp2p::swarm::{
-    ConnectionId, DialError, FromSwarm, IntoConnectionHandler, THandlerInEvent, THandlerOutEvent,
+    ConnectionDenied, ConnectionHandler, ConnectionId, DialError, FromSwarm, IntoConnectionHandler,
+    THandler, THandlerInEvent, THandlerOutEvent,
 };
 use libp2p::{
     core::{connection::ConnectedPoint, Multiaddr},
@@ -167,8 +169,43 @@ impl NetworkBehaviour for ClientBehaviour {
 
     type OutEvent = ClientEvent;
 
-    fn new_handler(&mut self) -> Self::ConnectionHandler {
-        IntoConnectionHandler::select(self.protocol_config.clone().into(), self.ping.new_handler())
+    fn handle_established_inbound_connection(
+        &mut self,
+        connection_id: ConnectionId,
+        peer_id: PeerId,
+        local_addr: &Multiaddr,
+        remote_addr: &Multiaddr,
+    ) -> Result<THandler<Self>, ConnectionDenied> {
+        let ping_handler: THandler<Ping> = self.ping.handle_established_inbound_connection(
+            connection_id,
+            peer_id,
+            local_addr,
+            remote_addr,
+        )?;
+        let oneshot_handler: OneShotHandler<ProtocolConfig, HandlerMessage, HandlerMessage> =
+            self.protocol_config.clone().into();
+
+        let result = ConnectionHandler::select(oneshot_handler, ping_handler);
+        Ok(result)
+    }
+
+    fn handle_established_outbound_connection(
+        &mut self,
+        connection_id: ConnectionId,
+        peer: PeerId,
+        addr: &Multiaddr,
+        role_override: Endpoint,
+    ) -> Result<THandler<Self>, ConnectionDenied> {
+        let ping_handler = self.ping.handle_established_outbound_connection(
+            connection_id,
+            peer,
+            addr,
+            role_override,
+        )?;
+        let oneshot_handler: OneShotHandler<ProtocolConfig, HandlerMessage, HandlerMessage> =
+            self.protocol_config.clone().into();
+        let result = ConnectionHandler::select(oneshot_handler, ping_handler);
+        Ok(result)
     }
 
     fn on_swarm_event(&mut self, event: FromSwarm<'_, Self::ConnectionHandler>) {
