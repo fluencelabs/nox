@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.9.1](https://github.com/fluencelabs/rust-peer/compare/rust-peer-v0.9.0...rust-peer-v0.9.1) (2023-03-21)
+
+
+### Bug Fixes
+
+* **ci:** fix tokio build for publish ([#1518](https://github.com/fluencelabs/rust-peer/issues/1518)) ([8e7efac](https://github.com/fluencelabs/rust-peer/commit/8e7efac096d2ec36e71056301d7e7b012a0015c3))
+* **deps:** update rust crate fluence-spell-dtos to v0.5.6 ([#1517](https://github.com/fluencelabs/rust-peer/issues/1517)) ([d93bece](https://github.com/fluencelabs/rust-peer/commit/d93bece432cc6962b607ee99d83713f62ca572d1))
+
 ## [0.9.0](https://github.com/fluencelabs/rust-peer/compare/rust-peer-v0.8.2...rust-peer-v0.9.0) (2023-03-21)
 
 
