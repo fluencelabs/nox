@@ -19,10 +19,10 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use fluence_keypair::KeyPair;
-use libp2p::core::{Multiaddr};
+use libp2p::core::Multiaddr;
 use libp2p::identity::ed25519::Keypair;
-use libp2p::identity::{PublicKey};
-use libp2p::{PeerId};
+use libp2p::identity::PublicKey;
+use libp2p::PeerId;
 
 use fluence_libp2p::Transport;
 

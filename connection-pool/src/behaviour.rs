@@ -17,12 +17,11 @@
 use futures::{Sink, StreamExt};
 use libp2p::swarm::dial_opts::DialOpts;
 use libp2p::swarm::CloseConnection::All;
-use libp2p::swarm::{ConnectionId, dial_opts, DialError, FromSwarm, THandlerOutEvent};
+use libp2p::swarm::{dial_opts, ConnectionId, DialError, FromSwarm, THandlerOutEvent};
 use libp2p::{
     core::{ConnectedPoint, Multiaddr},
     swarm::{
-        NetworkBehaviour, NetworkBehaviourAction, NotifyHandler, OneShotHandler,
-        PollParameters,
+        NetworkBehaviour, NetworkBehaviourAction, NotifyHandler, OneShotHandler, PollParameters,
     },
     PeerId,
 };
@@ -66,7 +65,7 @@ struct Peer {
 }
 
 impl Peer {
-    pub fn addresses(&self) -> impl Iterator<Item=&Multiaddr> {
+    pub fn addresses(&self) -> impl Iterator<Item = &Multiaddr> {
         self.connected
             .iter()
             .chain(&self.discovered)
@@ -75,7 +74,7 @@ impl Peer {
             .into_iter()
     }
 
-    pub fn connected(addresses: impl IntoIterator<Item=Multiaddr>) -> Self {
+    pub fn connected(addresses: impl IntoIterator<Item = Multiaddr>) -> Self {
         Peer {
             connected: addresses.into_iter().collect(),
             discovered: Default::default(),
@@ -85,7 +84,7 @@ impl Peer {
     }
 
     pub fn dialing(
-        addresses: impl IntoIterator<Item=Multiaddr>,
+        addresses: impl IntoIterator<Item = Multiaddr>,
         outlet: oneshot::Sender<bool>,
     ) -> Self {
         Peer {
@@ -137,7 +136,7 @@ impl ConnectionPoolBehaviour {
         self.dialing.entry(address.clone()).or_default().push(out);
 
         self.push_event(NetworkBehaviourAction::Dial {
-            opts: DialOpts::unknown_peer_id().address(address).build()
+            opts: DialOpts::unknown_peer_id().address(address).build(),
         });
     }
 
@@ -183,7 +182,7 @@ impl ConnectionPoolBehaviour {
             self.push_event(NetworkBehaviourAction::Dial {
                 opts: DialOpts::peer_id(new_contact.peer_id)
                     .addresses(addresses)
-                    .build()
+                    .build(),
             });
         }
     }
@@ -434,11 +433,7 @@ impl ConnectionPoolBehaviour {
         self.cleanup_address(Some(peer_id), multiaddr);
     }
 
-    fn on_dial_failure(
-        &mut self,
-        peer_id: Option<PeerId>,
-        error: &DialError,
-    ) {
+    fn on_dial_failure(&mut self, peer_id: Option<PeerId>, error: &DialError) {
         use dial_opts::PeerCondition::{Disconnected, NotDialing};
         if let DialError::DialPeerConditionFalse(Disconnected | NotDialing) = error {
             // So, if you tell libp2p to dial a peer, there's an option dial_opts::PeerCondition
@@ -483,18 +478,13 @@ impl ConnectionPoolBehaviour {
         }
     }
 
-    fn on_listen_failure(
-        &mut self,
-        local_addr: &Multiaddr,
-        send_back_addr: &Multiaddr,
-    ) {
+    fn on_listen_failure(&mut self, local_addr: &Multiaddr, send_back_addr: &Multiaddr) {
         log::warn!(
             "Error accepting incoming connection from {} to our local address {}",
             send_back_addr,
             local_addr
         );
     }
-
 
     fn cleanup_address(&mut self, peer_id: Option<&PeerId>, addr: &Multiaddr) {
         // Notify those who waits for address dial
@@ -567,10 +557,7 @@ impl NetworkBehaviour for ConnectionPoolBehaviour {
                 self.on_dial_failure(event.peer_id, event.error);
             }
             FromSwarm::ListenFailure(event) => {
-                self.on_listen_failure(
-                    event.local_addr,
-                    event.send_back_addr,
-                );
+                self.on_listen_failure(event.local_addr, event.send_back_addr);
             }
             FromSwarm::NewListener(_) => {}
             FromSwarm::NewListenAddr(_) => {}
@@ -582,7 +569,12 @@ impl NetworkBehaviour for ConnectionPoolBehaviour {
         }
     }
 
-    fn on_connection_handler_event(&mut self, from: PeerId, _connection_id: ConnectionId, event: THandlerOutEvent<Self>) {
+    fn on_connection_handler_event(
+        &mut self,
+        from: PeerId,
+        _connection_id: ConnectionId,
+        event: THandlerOutEvent<Self>,
+    ) {
         match event {
             HandlerMessage::InParticle(particle) => {
                 log::trace!(target: "network", "{}: received particle {} from {}; queue {}", self.peer_id, particle.id, from, self.queue.len());
@@ -606,7 +598,11 @@ impl NetworkBehaviour for ConnectionPoolBehaviour {
         }
     }
 
-    fn poll(&mut self, cx: &mut Context<'_>, _params: &mut impl PollParameters) -> Poll<SwarmEventType> {
+    fn poll(
+        &mut self,
+        cx: &mut Context<'_>,
+        _params: &mut impl PollParameters,
+    ) -> Poll<SwarmEventType> {
         self.waker = Some(cx.waker().clone());
 
         loop {

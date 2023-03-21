@@ -6,7 +6,6 @@ mod particle_executor;
 mod services_metrics;
 mod vm_pool;
 
-use std::fmt::Debug;
 pub use connection_pool::ConnectionPoolMetrics;
 pub use connectivity::ConnectivityMetrics;
 pub use connectivity::Resolution;
@@ -18,6 +17,7 @@ pub use services_metrics::{
     ServiceCallStats, ServiceMemoryStat, ServiceType, ServicesMetrics, ServicesMetricsBackend,
     ServicesMetricsBuiltin, ServicesMetricsExternal,
 };
+use std::fmt::Debug;
 pub use vm_pool::VmPoolMetrics;
 
 // TODO:

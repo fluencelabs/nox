@@ -14,16 +14,15 @@
  * limitations under the License.
  */
 
+use either::Either;
 use std::collections::VecDeque;
 use std::task::{Context, Poll, Waker};
 use std::time::Duration;
-use either::Either;
 
 use futures::future::BoxFuture;
 use futures::FutureExt;
 use libp2p::swarm::{
-    ConnectionId, DialError, FromSwarm, IntoConnectionHandler, THandlerInEvent,
-    THandlerOutEvent,
+    ConnectionId, DialError, FromSwarm, IntoConnectionHandler, THandlerInEvent, THandlerOutEvent,
 };
 use libp2p::{
     core::{connection::ConnectedPoint, Multiaddr},
@@ -172,10 +171,6 @@ impl NetworkBehaviour for ClientBehaviour {
         IntoConnectionHandler::select(self.protocol_config.clone().into(), self.ping.new_handler())
     }
 
-    fn addresses_of_peer(&mut self, _: &PeerId) -> Vec<Multiaddr> {
-        vec![]
-    }
-    
     fn on_swarm_event(&mut self, event: FromSwarm<'_, Self::ConnectionHandler>) {
         match event {
             FromSwarm::ConnectionEstablished(e) => {
