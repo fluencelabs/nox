@@ -1,11 +1,3 @@
-mod connection_pool;
-mod connectivity;
-mod dispatcher;
-mod network_protocol;
-mod particle_executor;
-mod services_metrics;
-mod vm_pool;
-
 use std::fmt::Debug;
 
 use prometheus_client::encoding::EncodeMetric;
@@ -17,10 +9,18 @@ pub use connectivity::Resolution;
 pub use dispatcher::DispatcherMetrics;
 pub use particle_executor::{FunctionKind, ParticleExecutorMetrics};
 pub use services_metrics::{
-    ServiceCallStats, ServiceMemoryStat, ServiceType, ServicesMetrics, ServicesMetricsBackend,
-    ServicesMetricsBuiltin, ServicesMetricsExternal,
+    ServiceCallStats, ServiceMemoryStat, ServicesMetrics, ServicesMetricsBackend, ServicesMetricsBuiltin,
+    ServicesMetricsExternal, ServiceType,
 };
 pub use vm_pool::VmPoolMetrics;
+
+mod connection_pool;
+mod connectivity;
+mod dispatcher;
+mod network_protocol;
+mod particle_executor;
+mod services_metrics;
+mod vm_pool;
 
 // TODO:
 // - service heap statistics
