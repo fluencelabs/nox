@@ -697,12 +697,6 @@ checksum = "cfa8873f51c92e232f9bac4065cddef41b714152812bfc5f7672ba16d6ef8cd9"
 
 [[package]]
 name = "bs58"
-version = "0.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "476e9cd489f9e121e02ffa6014a8ef220ecb15c05ed23fc34cca13925dc283fb"
-
-[[package]]
-name = "bs58"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "771fe0050b883fcc3ea2359b1a96bcfbc090b7116eae7c3c512c7a083fdf23d3"
@@ -1515,36 +1509,12 @@ dependencies = [
 
 [[package]]
 name = "darling"
-version = "0.13.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a01d95850c592940db9b8194bc39f4bc0e89dee5c4265e4b1807c34a9aba453c"
-dependencies = [
- "darling_core 0.13.4",
- "darling_macro 0.13.4",
-]
-
-[[package]]
-name = "darling"
 version = "0.14.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b0dd3cd20dc6b5a876612a6e5accfe7f3dd883db6d07acfbf14c128f61550dfa"
 dependencies = [
- "darling_core 0.14.2",
- "darling_macro 0.14.2",
-]
-
-[[package]]
-name = "darling_core"
-version = "0.13.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "859d65a907b6852c9361e3185c862aae7fafd2887876799fa55f5f99dc40d610"
-dependencies = [
- "fnv",
- "ident_case",
- "proc-macro2",
- "quote",
- "strsim",
- "syn 1.0.105",
+ "darling_core",
+ "darling_macro",
 ]
 
 [[package]]
@@ -1563,22 +1533,11 @@ dependencies = [
 
 [[package]]
 name = "darling_macro"
-version = "0.13.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9c972679f83bdf9c42bd905396b6c3588a843a17f0f16dfcfa3e2c5d57441835"
-dependencies = [
- "darling_core 0.13.4",
- "quote",
- "syn 1.0.105",
-]
-
-[[package]]
-name = "darling_macro"
 version = "0.14.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7618812407e9402654622dd402b0a89dff9ba93badd6540781526117b92aab7e"
 dependencies = [
- "darling_core 0.14.2",
+ "darling_core",
  "quote",
  "syn 1.0.105",
 ]
@@ -1674,7 +1633,7 @@ version = "0.11.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1f91d4cfa921f1c05904dc3c57b4a32c38aed3340cce209f3a6fd1478babafc4"
 dependencies = [
- "darling 0.14.2",
+ "darling",
  "proc-macro2",
  "quote",
  "syn 1.0.105",
@@ -2054,26 +2013,23 @@ dependencies = [
 
 [[package]]
 name = "fluence-keypair"
-version = "0.9.0"
+version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5fcc75906f1ce92beb78826efe2a02ee92089d853c3276bece83c629024b1c72"
+checksum = "24052ad697a4d61ea610357d0c19155aa4ecea3d8b78672afb0a579b77bd5893"
 dependencies = [
  "asn1_der 0.6.3",
- "bs58 0.3.1",
- "ed25519",
+ "bs58",
  "ed25519-dalek",
  "eyre",
  "lazy_static",
- "libp2p-core",
+ "libp2p-identity",
  "libsecp256k1",
- "rand 0.7.3",
+ "multihash 0.18.0",
+ "rand 0.8.5",
  "ring",
  "serde",
  "serde_bytes",
- "serde_json",
- "serde_with 1.14.0",
- "sha2 0.9.9",
- "signature",
+ "sha2 0.10.6",
  "thiserror",
  "zeroize",
 ]
@@ -2083,14 +2039,14 @@ name = "fluence-libp2p"
 version = "0.2.0"
 dependencies = [
  "base64 0.21.0",
- "bs58 0.4.0",
+ "bs58",
  "failure",
  "futures",
  "futures-util",
  "libp2p",
  "libp2p-noise",
  "log",
- "multihash",
+ "multihash 0.16.3",
  "rand 0.8.5",
  "serde",
  "serde_json",
@@ -2934,7 +2890,7 @@ dependencies = [
 name = "kademlia"
 version = "0.1.0"
 dependencies = [
- "bs58 0.4.0",
+ "bs58",
  "control-macro",
  "fluence-libp2p",
  "futures",
@@ -2942,7 +2898,7 @@ dependencies = [
  "libp2p",
  "libp2p-metrics",
  "log",
- "multihash",
+ "multihash 0.16.3",
  "once_cell",
  "particle-protocol",
  "prometheus-client",
@@ -3035,7 +2991,7 @@ dependencies = [
  "libp2p-webrtc",
  "libp2p-websocket",
  "libp2p-yamux",
- "multiaddr",
+ "multiaddr 0.16.0",
  "parking_lot 0.12.1",
  "pin-project",
  "smallvec",
@@ -3048,7 +3004,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b6a8fcd392ff67af6cc3f03b1426c41f7f26b6b9aff2dc632c1c56dd649e571f"
 dependencies = [
  "asn1_der 0.7.5",
- "bs58 0.4.0",
+ "bs58",
  "ed25519-dalek",
  "either",
  "fnv",
@@ -3057,8 +3013,8 @@ dependencies = [
  "instant",
  "libsecp256k1",
  "log",
- "multiaddr",
- "multihash",
+ "multiaddr 0.16.0",
+ "multihash 0.16.3",
  "multistream-select",
  "once_cell",
  "parking_lot 0.12.1",
@@ -3066,7 +3022,6 @@ dependencies = [
  "prost",
  "prost-build",
  "rand 0.8.5",
- "ring",
  "rw-stream-sink",
  "sec1",
  "sha2 0.10.6",
@@ -3110,6 +3065,28 @@ dependencies = [
  "smallvec",
  "thiserror",
  "void",
+]
+
+[[package]]
+name = "libp2p-identity"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8a8ea433ae0cea7e3315354305237b9897afe45278b2118a7a57ca744e70fd27"
+dependencies = [
+ "asn1_der 0.7.5",
+ "bs58",
+ "ed25519-dalek",
+ "libsecp256k1",
+ "log",
+ "multiaddr 0.17.0",
+ "multihash 0.17.0",
+ "prost",
+ "quick-protobuf",
+ "rand 0.8.5",
+ "ring",
+ "sha2 0.10.6",
+ "thiserror",
+ "zeroize",
 ]
 
 [[package]]
@@ -3335,7 +3312,7 @@ dependencies = [
  "libp2p-core",
  "libp2p-noise",
  "log",
- "multihash",
+ "multihash 0.16.3",
  "prost",
  "prost-build",
  "prost-codec",
@@ -3738,7 +3715,7 @@ dependencies = [
  "serde",
  "serde_derive",
  "serde_json",
- "serde_with 2.2.0",
+ "serde_with",
  "thiserror",
  "toml",
  "wasmer-interface-types-fl",
@@ -3938,7 +3915,25 @@ dependencies = [
  "byteorder",
  "data-encoding",
  "multibase",
- "multihash",
+ "multihash 0.16.3",
+ "percent-encoding",
+ "serde",
+ "static_assertions",
+ "unsigned-varint",
+ "url",
+]
+
+[[package]]
+name = "multiaddr"
+version = "0.17.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3b53e0cc5907a5c216ba6584bf74be8ab47d6d6289f72793b2dddbf15dc3bf8c"
+dependencies = [
+ "arrayref",
+ "byteorder",
+ "data-encoding",
+ "multibase",
+ "multihash 0.17.0",
  "percent-encoding",
  "serde",
  "static_assertions",
@@ -3971,6 +3966,36 @@ dependencies = [
  "multihash-derive",
  "serde",
  "serde-big-array",
+ "sha2 0.10.6",
+ "sha3",
+ "unsigned-varint",
+]
+
+[[package]]
+name = "multihash"
+version = "0.17.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "835d6ff01d610179fbce3de1694d007e500bf33a7f29689838941d6bf783ae40"
+dependencies = [
+ "core2",
+ "digest 0.10.6",
+ "multihash-derive",
+ "sha2 0.10.6",
+ "unsigned-varint",
+]
+
+[[package]]
+name = "multihash"
+version = "0.18.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "15e5d911412e631e1de11eb313e4dd71f73fd964401102aab23d6c8327c431ba"
+dependencies = [
+ "blake2b_simd",
+ "blake2s_simd",
+ "blake3",
+ "core2",
+ "digest 0.10.6",
+ "multihash-derive",
  "sha2 0.10.6",
  "sha3",
  "unsigned-varint",
@@ -4303,7 +4328,7 @@ name = "particle-args"
 version = "0.1.0"
 dependencies = [
  "avm-server",
- "bs58 0.4.0",
+ "bs58",
  "control-macro",
  "eyre",
  "ivalue-utils",
@@ -4319,7 +4344,7 @@ version = "0.2.0"
 dependencies = [
  "async-trait",
  "avm-server",
- "bs58 0.4.0",
+ "bs58",
  "bytesize",
  "connection-pool",
  "derivative",
@@ -4334,7 +4359,7 @@ dependencies = [
  "key-manager",
  "libp2p",
  "log",
- "multihash",
+ "multihash 0.16.3",
  "now-millis",
  "parking_lot 0.12.1",
  "particle-args",
@@ -4409,7 +4434,7 @@ dependencies = [
  "avm-server",
  "base64 0.21.0",
  "blake3",
- "bs58 0.4.0",
+ "bs58",
  "builtins-deployer",
  "clap",
  "config-utils",
@@ -4435,7 +4460,7 @@ dependencies = [
  "log",
  "log-utils",
  "maplit",
- "multihash",
+ "multihash 0.16.3",
  "parking_lot 0.12.1",
  "particle-builtins",
  "particle-execution",
@@ -4461,7 +4486,7 @@ dependencies = [
  "aquamarine",
  "base64 0.21.0",
  "blake3",
- "bs58 0.4.0",
+ "bs58",
  "connected-client",
  "connection-pool",
  "control-macro",
@@ -4482,7 +4507,7 @@ dependencies = [
  "log",
  "log-utils",
  "maplit",
- "multihash",
+ "multihash 0.16.3",
  "now-millis",
  "parking_lot 0.12.1",
  "particle-args",
@@ -4946,6 +4971,15 @@ name = "quick-error"
 version = "2.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a993555f31e5a609f617c12db6250dedcac1b0a85076912c436e6fc9b2c8e6a3"
+
+[[package]]
+name = "quick-protobuf"
+version = "0.8.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9d6da84cc204722a989e01ba2f6e1e276e190f22263d0cb6ce8526fcdb0d2e1f"
+dependencies = [
+ "byteorder",
+]
 
 [[package]]
 name = "quicksink"
@@ -5541,16 +5575,6 @@ dependencies = [
 
 [[package]]
 name = "serde_with"
-version = "1.14.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "678b5a069e50bf00ecd22d0cd8ddf7c236f68581b03db652061ed5eb13a312ff"
-dependencies = [
- "serde",
- "serde_with_macros 1.5.2",
-]
-
-[[package]]
-name = "serde_with"
 version = "2.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "30d904179146de381af4c93d3af6ca4984b3152db687dacb9c3c35e86f39809c"
@@ -5561,20 +5585,8 @@ dependencies = [
  "indexmap",
  "serde",
  "serde_json",
- "serde_with_macros 2.2.0",
+ "serde_with_macros",
  "time 0.3.17",
-]
-
-[[package]]
-name = "serde_with_macros"
-version = "1.5.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e182d6ec6f05393cc0e5ed1bf81ad6db3a8feedf8ee515ecdd369809bcce8082"
-dependencies = [
- "darling 0.13.4",
- "proc-macro2",
- "quote",
- "syn 1.0.105",
 ]
 
 [[package]]
@@ -5583,7 +5595,7 @@ version = "2.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a1966009f3c05f095697c537312f5415d1e3ed31ce0a56942bac4c771c5c335e"
 dependencies = [
- "darling 0.14.2",
+ "darling",
  "proc-macro2",
  "quote",
  "syn 1.0.105",
@@ -5595,7 +5607,7 @@ version = "0.2.0"
 dependencies = [
  "air-interpreter-fs",
  "base64 0.21.0",
- "bs58 0.4.0",
+ "bs58",
  "bytesize",
  "clap",
  "config-utils",
@@ -5613,7 +5625,7 @@ dependencies = [
  "peer-metrics",
  "rand 0.8.5",
  "serde",
- "serde_with 2.2.0",
+ "serde_with",
  "toml",
 ]
 
