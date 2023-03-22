@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - master
+      - fix_rustdoc
   workflow_dispatch:
 
 env:
@@ -31,7 +32,7 @@ jobs:
           components: rustfmt, rust-src
 
       - name: Build Documentation
-        run: RUSTDOCFLAGS="--enable-index-page -Zunstable-options" cargo +nightly doc --all --no-deps
+        run: RUSTDOCFLAGS="--enable-index-page -Zunstable-options --cfg tokio_unstable" cargo +nightly doc --all --no-deps
 
       - name: Deploy Docs
         uses: peaceiris/actions-gh-pages@v3.9.2
