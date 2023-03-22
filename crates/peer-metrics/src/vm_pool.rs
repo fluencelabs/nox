@@ -119,15 +119,7 @@ impl VmPoolMetrics {
 
     pub fn set_pool_size(&mut self, size: usize) {
         self.vm_mems.resize(size, 0);
-        let size = i64::try_from(size);
-        match size {
-            Ok(size) => {
-                self.pool_size.set(size);
-            }
-            Err(err) => {
-                log::warn!("Could not set pool_size metric {}", err);
-            }
-        }
+        self.pool_size.set(size as i64);
     }
 
     pub fn measure_memory(&mut self, idx: usize, memory_size: u64) {

@@ -835,12 +835,6 @@ mod tests {
         })
         .await;
 
-        println!("maddr {:?}", maddr);
-        println!("a_addr {:?}", a_addr);
-        println!("b_addr {:?}", b_addr);
-        println!("c_addr {:?}", c_addr);
-        println!("d_addr {:?}", d_addr);
-        println!("e_addr {:?}", e_addr);
         assert_eq!(maddr.unwrap().unwrap().unwrap()[0], c_addr);
     }
 

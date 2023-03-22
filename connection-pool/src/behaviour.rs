@@ -322,13 +322,7 @@ impl ConnectionPoolBehaviour {
                 out.send(contact.clone()).ok();
             }
         }
-        let connected_peers = i64::try_from(self.contacts.len());
-        match connected_peers {
-            Ok(connected_peers) => {
-                self.meter(|m| m.connected_peers.set(connected_peers));
-            }
-            Err(e) => log::warn!("Could not convert metric connected_peers {}", e),
-        }
+        self.meter(|m| m.connected_peers.set(self.contacts.len() as i64));
     }
 
     fn lifecycle_event(&mut self, event: LifecycleEvent) {
@@ -355,14 +349,7 @@ impl ConnectionPoolBehaviour {
                 // if dial was in progress, notify waiters
                 out.send(false).ok();
             }
-
-            let connected_peers = i64::try_from(self.contacts.len());
-            match connected_peers {
-                Ok(connected_peers) => {
-                    self.meter(|m| m.connected_peers.set(connected_peers));
-                }
-                Err(e) => log::warn!("Could not convert metric connected_peers {}", e),
-            }
+            self.meter(|m| m.connected_peers.set(self.contacts.len() as i64));
         }
     }
 
@@ -579,13 +566,7 @@ impl NetworkBehaviour for ConnectionPoolBehaviour {
             HandlerMessage::InParticle(particle) => {
                 log::trace!(target: "network", "{}: received particle {} from {}; queue {}", self.peer_id, particle.id, from, self.queue.len());
                 self.meter(|m| {
-                    let particle_queue_size = i64::try_from(self.queue.len()).map(|x| x + 1);
-                    match particle_queue_size {
-                        Ok(particle_queue_size) => {
-                            m.particle_queue_size.set(particle_queue_size);
-                        }
-                        Err(e) => log::warn!("Could not convert metric particle_queue_size {}", e),
-                    }
+                    m.particle_queue_size.set(self.queue.len() as i64 + 1);
                     m.received_particles.inc();
                     m.particle_sizes.observe(particle.data.len() as f64);
                 });
@@ -642,14 +623,7 @@ impl NetworkBehaviour for ConnectionPoolBehaviour {
             }
         }
 
-        let particle_queue_size = i64::try_from(self.queue.len());
-        match particle_queue_size {
-            Ok(particle_queue_size) => {
-                self.meter(|m| m.particle_queue_size.set(particle_queue_size));
-            }
-            Err(e) => log::warn!("Could not convert metric particle_queue_size {}", e),
-        }
-
+        self.meter(|m| m.particle_queue_size.set(self.queue.len() as i64));
         while let Poll::Ready(Some(cmd)) = self.commands.poll_next_unpin(cx) {
             self.execute(cmd)
         }
