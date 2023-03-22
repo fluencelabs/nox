@@ -16,7 +16,6 @@
  * limitations under the License.
  */
 
-extern crate core;
 
 mod api;
 mod behaviour;
