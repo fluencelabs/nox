@@ -158,20 +158,32 @@ impl ServicesMetricsBackend {
             }
 
             if matches!(service_type, ServiceType::Service(Some(_))) {
-                memory_metrics
-                    .mem_used_total_bytes
-                    .get_or_create(&service_type_label)
-                    .set(service_stat.used_mem);
+                let used_mem = i64::try_from(service_stat.used_mem);
+                match used_mem {
+                    Ok(used_mem) => {
+                        memory_metrics
+                            .mem_used_total_bytes
+                            .get_or_create(&service_type_label)
+                            .set(used_mem);
+                    }
+                    Err(e) => log::warn!("Could not convert metric used_mem {}", e),
+                }
             } else {
                 unaliased_service_total_memory += service_stat.used_mem
             }
         }
 
-        memory_metrics
-            .mem_used_total_bytes
-            .get_or_create(&ServiceTypeLabel {
-                service_type: ServiceType::Service(None),
-            })
-            .set(unaliased_service_total_memory);
+        let unaliased_service_total_memory = i64::try_from(unaliased_service_total_memory);
+        match unaliased_service_total_memory {
+            Ok(unaliased_service_total_memory) => {
+                memory_metrics
+                    .mem_used_total_bytes
+                    .get_or_create(&ServiceTypeLabel {
+                        service_type: ServiceType::Service(None),
+                    })
+                    .set(unaliased_service_total_memory);
+            }
+            _ => log::warn!("Could not convert metric unaliased_service_total_memory"),
+        }
     }
 }

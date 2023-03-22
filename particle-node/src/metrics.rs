@@ -46,7 +46,7 @@ fn make_handler(
     move |_req: Request<Body>| {
         let reg = registry.clone();
         Box::pin(async move {
-            let mut buf = Vec::new();
+            let mut buf = std::string::String::new();
             encode(&mut buf, &reg.clone())
                 .map_err(|e| io::Error::new(std::io::ErrorKind::Other, e))
                 .map(|_| {

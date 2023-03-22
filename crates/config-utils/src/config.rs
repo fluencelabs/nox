@@ -13,8 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-use libp2p_core::{identity::Keypair, PeerId};
+use libp2p_identity::Keypair;
+use libp2p_identity::PeerId;
 use std::path::{Path, PathBuf};
 
 pub fn workdir(base_dir: &Path) -> PathBuf {

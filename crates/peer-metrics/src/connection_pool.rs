@@ -19,7 +19,7 @@ impl ConnectionPoolMetrics {
         sub_registry.register(
             "received_particles",
             "Number of particles received from the network (not unique)",
-            Box::new(received_particles.clone()),
+            received_particles.clone(),
         );
 
         // from 100 bytes to 100 MB
@@ -27,21 +27,21 @@ impl ConnectionPoolMetrics {
         sub_registry.register(
             "particle_sizes",
             "Distribution of particle data sizes",
-            Box::new(particle_sizes.clone()),
+            particle_sizes.clone(),
         );
 
         let connected_peers = Gauge::default();
         sub_registry.register(
             "connected_peers",
             "Number of peers we have connections to at a given moment",
-            Box::new(connected_peers.clone()),
+            connected_peers.clone(),
         );
 
         let particle_queue_size = Gauge::default();
         sub_registry.register(
             "particle_queue_size",
             "Size of a particle queue in connection pool",
-            Box::new(particle_queue_size.clone()),
+            particle_queue_size.clone(),
         );
 
         Self {

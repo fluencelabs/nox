@@ -845,8 +845,7 @@ mod tests {
 
     use base64::{engine::general_purpose::STANDARD as base64, Engine};
     use fluence_app_service::{TomlMarineModuleConfig, TomlMarineNamedModuleConfig};
-    use libp2p_core::identity::Keypair;
-    use libp2p_core::PeerId;
+    use libp2p_identity::{Keypair, PeerId};
     use tempdir::TempDir;
 
     use config_utils::{modules_dir, to_peer_id};
