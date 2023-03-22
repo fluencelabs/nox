@@ -23,19 +23,17 @@ use futures::future::BoxFuture;
 use futures::FutureExt;
 use libp2p::core::Endpoint;
 use libp2p::swarm::{
-    ConnectionDenied, ConnectionHandler, ConnectionId, DialError, FromSwarm, IntoConnectionHandler,
-    THandler, THandlerInEvent, THandlerOutEvent,
+    ConnectionDenied, ConnectionHandler, ConnectionHandlerSelect, ConnectionId, DialError,
+    FromSwarm, THandler, THandlerInEvent, THandlerOutEvent,
 };
 use libp2p::{
     core::{connection::ConnectedPoint, Multiaddr},
     ping::{Behaviour as Ping, Config as PingConfig},
     swarm::{
-        IntoConnectionHandlerSelect, NetworkBehaviour, NetworkBehaviourAction, NotifyHandler,
-        OneShotHandler, PollParameters,
+        NetworkBehaviour, NetworkBehaviourAction, NotifyHandler, OneShotHandler, PollParameters,
     },
     PeerId,
 };
-
 use particle_protocol::{HandlerMessage, Particle, ProtocolConfig};
 
 use crate::ClientEvent;
@@ -162,8 +160,8 @@ impl ClientBehaviour {
 }
 
 impl NetworkBehaviour for ClientBehaviour {
-    type ConnectionHandler = IntoConnectionHandlerSelect<
-        <OneShotHandler<ProtocolConfig, HandlerMessage, HandlerMessage> as IntoConnectionHandler>::Handler,
+    type ConnectionHandler = ConnectionHandlerSelect<
+        OneShotHandler<ProtocolConfig, HandlerMessage, HandlerMessage>,
         <Ping as NetworkBehaviour>::ConnectionHandler,
     >;
 

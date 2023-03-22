@@ -4555,7 +4555,7 @@ dependencies = [
  "fs-utils",
  "humantime-serde",
  "json-utils",
- "libp2p-core",
+ "libp2p-identity",
  "log",
  "now-millis",
  "parking_lot 0.12.1",

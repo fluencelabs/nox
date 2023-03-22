@@ -34,6 +34,6 @@ humantime-serde = { workspace = true }
 
 [dev-dependencies]
 tempdir = "0.3.7"
-libp2p-core = { workspace = true }
+libp2p-identity = { workspace = true }
 base64 = { workspace = true }
 config-utils = { workspace = true }
