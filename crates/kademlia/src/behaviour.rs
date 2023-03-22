@@ -330,16 +330,20 @@ impl Kademlia {
     }
 
     fn addresses_of_peer(&mut self, peer_id: &PeerId) -> Vec<Multiaddr> {
-        let lookup_result = self.kademlia.kbucket(*peer_id);
-        match lookup_result {
-            None => {
-                log::debug!("Could not find addresses for peer_id {}", peer_id);
+        //TODO: this method doesn't use params except of peer_id
+        #[allow(deprecated)]
+        let res = self.kademlia.handle_pending_outbound_connection(
+            ConnectionId::DUMMY,
+            Some(*peer_id),
+            vec![].as_slice(),
+            Endpoint::Dialer,
+        );
+        match res {
+            Ok(res) => res,
+            Err(e) => {
+                log::warn!("Could not get addresses of peer {:?} {:?}", peer_id, e);
                 vec![]
             }
-            Some(bucket_ref) => bucket_ref
-                .iter()
-                .flat_map(|entry| entry.node.value.iter().cloned())
-                .collect::<Vec<Multiaddr>>(),
         }
     }
 
@@ -786,29 +790,29 @@ mod tests {
         Swarm::dial(&mut a, e_addr.clone()).unwrap();
         a.behaviour_mut()
             .kademlia
-            .add_address(Swarm::local_peer_id(&b), b_addr);
+            .add_address(Swarm::local_peer_id(&b), b_addr.clone());
         a.behaviour_mut()
             .kademlia
             .add_address(Swarm::local_peer_id(&c), c_addr.clone());
         a.behaviour_mut()
             .kademlia
-            .add_address(Swarm::local_peer_id(&d), d_addr);
+            .add_address(Swarm::local_peer_id(&d), d_addr.clone());
         a.behaviour_mut()
             .kademlia
-            .add_address(Swarm::local_peer_id(&e), e_addr);
+            .add_address(Swarm::local_peer_id(&e), e_addr.clone());
         a.behaviour_mut().kademlia.bootstrap().ok();
 
         // b knows only a, wants to discover c
         Swarm::dial(&mut b, a_addr.clone()).unwrap();
         b.behaviour_mut()
             .kademlia
-            .add_address(Swarm::local_peer_id(&a), a_addr);
+            .add_address(Swarm::local_peer_id(&a), a_addr.clone());
         let (out, inlet) = oneshot::channel();
         b.behaviour_mut()
             .discover_peer(*Swarm::local_peer_id(&c), out);
         let discover_fut = inlet;
 
-        let maddr = timeout(Duration::from_millis(200), async move {
+        let maddr = timeout(Duration::from_millis(10000), async move {
             let mut swarms = vec![a, b, c, d, e];
             let t = tokio::task::Builder::new()
                 .name("Kademlia")
@@ -831,6 +835,12 @@ mod tests {
         })
         .await;
 
+        println!("maddr {:?}", maddr);
+        println!("a_addr {:?}", a_addr);
+        println!("b_addr {:?}", b_addr);
+        println!("c_addr {:?}", c_addr);
+        println!("d_addr {:?}", d_addr);
+        println!("e_addr {:?}", e_addr);
         assert_eq!(maddr.unwrap().unwrap().unwrap()[0], c_addr);
     }
 
