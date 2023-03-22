@@ -9,8 +9,8 @@ pub use connectivity::Resolution;
 pub use dispatcher::DispatcherMetrics;
 pub use particle_executor::{FunctionKind, ParticleExecutorMetrics};
 pub use services_metrics::{
-    ServiceCallStats, ServiceMemoryStat, ServicesMetrics, ServicesMetricsBackend, ServicesMetricsBuiltin,
-    ServicesMetricsExternal, ServiceType,
+    ServiceCallStats, ServiceMemoryStat, ServiceType, ServicesMetrics, ServicesMetricsBackend,
+    ServicesMetricsBuiltin, ServicesMetricsExternal,
 };
 pub use vm_pool::VmPoolMetrics;
 
