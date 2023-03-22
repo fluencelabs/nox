@@ -27,7 +27,7 @@ impl DispatcherMetrics {
         sub_registry.register(
             "particles_expired",
             "Number of particles expired by TTL",
-            Box::new(expired_particles.clone()),
+            expired_particles.clone(),
         );
 
         DispatcherMetrics { expired_particles }

@@ -1,9 +1,9 @@
-use prometheus_client::encoding::text::Encode;
+use prometheus_client::encoding::{EncodeLabelSet, EncodeLabelValue};
 use prometheus_client::metrics::counter::Counter;
 use prometheus_client::metrics::family::Family;
 use prometheus_client::registry::Registry;
 
-#[derive(Encode, Hash, Clone, Eq, PartialEq)]
+#[derive(EncodeLabelValue, Hash, Clone, Eq, PartialEq, Debug)]
 pub enum Resolution {
     Local,
     Kademlia,
@@ -11,7 +11,7 @@ pub enum Resolution {
     KademliaError,
     ConnectionFailed,
 }
-#[derive(Encode, Hash, Clone, Eq, PartialEq)]
+#[derive(EncodeLabelSet, Hash, Clone, Eq, PartialEq, Debug)]
 pub struct ResolutionLabel {
     action: Resolution,
 }
@@ -32,35 +32,35 @@ impl ConnectivityMetrics {
         sub_registry.register(
             "contact_resolve",
             "Counters regarding contact resolution in particle processing",
-            Box::new(contact_resolve.clone()),
+            contact_resolve.clone(),
         );
 
         let particle_send_success = Counter::default();
         sub_registry.register(
             "particle_send_success",
             "Number of sent particles",
-            Box::new(particle_send_success.clone()),
+            particle_send_success.clone(),
         );
 
         let particle_send_failure = Counter::default();
         sub_registry.register(
             "particle_send_failure",
             "Number of errors on particle sending",
-            Box::new(particle_send_failure.clone()),
+            particle_send_failure.clone(),
         );
 
         let bootstrap_disconnected = Counter::default();
         sub_registry.register(
             "bootstrap_disconnected",
             "Number of times peer disconnected from bootstrap peers",
-            Box::new(bootstrap_disconnected.clone()),
+            bootstrap_disconnected.clone(),
         );
 
         let bootstrap_connected = Counter::default();
         sub_registry.register(
             "bootstrap_connected",
             "Number of times peer connected (or reconnected) to a bootstrap peer",
-            Box::new(bootstrap_connected.clone()),
+            bootstrap_connected.clone(),
         );
 
         Self {

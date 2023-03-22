@@ -58,8 +58,8 @@ static ALLOC: dhat::Alloc = dhat::Alloc;
 async fn main() -> eyre::Result<()> {
     #[cfg(feature = "dhat-heap")]
     let _profiler = dhat::Profiler::new_heap();
-    // TODO: maybe set log level via flag?
-    if let Ok(_) = std::env::var("TOKIO_CONSOLE_ENABLED") {
+
+    if std::env::var("TOKIO_CONSOLE_ENABLED").is_ok() {
         console_subscriber::init();
     }
 

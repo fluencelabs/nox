@@ -5,10 +5,10 @@ use prometheus_client::metrics::counter::Counter;
 use prometheus_client::metrics::gauge::Gauge;
 use prometheus_client::metrics::histogram::{linear_buckets, Histogram};
 use prometheus_client::registry::Registry;
-use std::io::{Error, Write};
+use std::fmt::Write;
 
 use fluence_app_service::ModuleDescriptor;
-use prometheus_client::encoding::text::Encode;
+use prometheus_client::encoding::{EncodeLabelSet, EncodeLabelValue, LabelValueEncoder};
 use prometheus_client::metrics::family::Family;
 
 use crate::{execution_time_buckets, mem_buckets_4gib, mem_buckets_8gib, register};
@@ -19,20 +19,19 @@ pub enum ServiceType {
     Service(Option<String>),
 }
 
-impl Encode for ServiceType {
-    fn encode(&self, writer: &mut dyn Write) -> Result<(), Error> {
+impl EncodeLabelValue for ServiceType {
+    fn encode(&self, encoder: &mut LabelValueEncoder) -> Result<(), std::fmt::Error> {
         let label = match self {
             ServiceType::Builtin => "builtin",
             ServiceType::Service(Some(x)) => x,
             ServiceType::Service(_) => "non-aliased-services",
         };
-
-        writer.write_all(label.as_bytes())?;
+        encoder.write_str(label)?;
         Ok(())
     }
 }
 
-#[derive(Encode, Hash, Clone, Eq, PartialEq)]
+#[derive(EncodeLabelSet, Hash, Clone, Eq, PartialEq, Debug)]
 pub struct ServiceTypeLabel {
     pub service_type: ServiceType,
 }

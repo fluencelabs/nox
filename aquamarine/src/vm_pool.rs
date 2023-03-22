@@ -85,8 +85,7 @@ impl<RT: AquaRuntime> VmPool<RT> {
             if vm.is_none() {
                 m.no_free_vm.inc();
             }
-
-            m.free_vms.set(free_vms_count as u64);
+            m.free_vms.set(free_vms_count as i64);
         });
 
         vm
@@ -104,7 +103,7 @@ impl<RT: AquaRuntime> VmPool<RT> {
         let free_vms_count = self.runtimes.iter().filter(|vm| vm.is_some()).count();
         self.meter(|m| {
             m.put_vm.inc();
-            m.free_vms.set(free_vms_count as u64);
+            m.free_vms.set(free_vms_count as i64);
             m.measure_memory(id, memory_stats.memory_size as u64);
             // TODO: measure max memory
         });
