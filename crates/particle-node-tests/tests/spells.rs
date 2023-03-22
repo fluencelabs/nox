@@ -1634,3 +1634,90 @@ async fn create_remove_worker() {
         panic!("expected one string result")
     }
 }
+
+#[tokio::test]
+async fn spell_update_trigger_by_alias() {
+    let swarms = make_swarms(1).await;
+    let mut client = ConnectedClient::connect_with_keypair(
+        swarms[0].multiaddr.clone(),
+        Some(swarms[0].management_keypair.clone()),
+    )
+    .await
+    .wrap_err("connect client")
+    .unwrap();
+
+    let script = format!(
+        r#"
+        (seq
+            (seq
+                (call %init_peer_id% ("getDataSrv" "spell_id") [] spell_id)
+                (call %init_peer_id% (spell_id "get_u32") ["counter"] counter)
+            )
+            (call "{}" ("return" "") [spell_id])
+        )
+    "#,
+        client.peer_id
+    );
+
+    let mut config = TriggerConfig::default();
+    config.connections.connect = true;
+    let (spell_id, worker) = create_spell(&mut client, &script, config, json!({})).await;
+
+    let mut new_config = TriggerConfig::default();
+    new_config.connections.connect = true;
+    new_config.connections.disconnect = true;
+
+    let id = client.send_particle(
+        r#"(seq
+                    (seq
+                        (call relay ("op" "noop") [])
+                        (call worker ("srv" "add_alias") ["alias" spell_id])
+                    )
+                    (seq
+                        (call worker ("spell" "update_trigger_config") ["alias" config])
+                        (call %init_peer_id% ("return" "") ["ok"])
+                    )
+                )"#,
+        hashmap! {
+            "relay" => json!(client.node.to_string()),
+            "worker" => json!(worker),
+            "spell_id" => json!(spell_id.clone()),
+            "config" => json!(new_config)
+        },
+    );
+
+    client.wait_particle_args(id).await.unwrap();
+
+    // This connect should trigger the spell
+    let connect_num = 3;
+    for _ in 0..connect_num {
+        ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+            .await
+            .unwrap();
+    }
+
+    let mut trigger_counter = 0;
+
+    // we must receive `connect_num` messages on connect and `connect_num` messages
+    // on disconnect, so 2 * `connect_num` messages in total
+    for _ in 0..2 * connect_num {
+        if let [spell_reply] = client
+            .receive_args()
+            .await
+            .wrap_err("receive")
+            .unwrap()
+            .as_slice()
+        {
+            let given_spell_id = spell_reply.as_str().unwrap();
+            assert_eq!(spell_id, given_spell_id);
+
+            trigger_counter += 1;
+        }
+    }
+
+    assert_eq!(
+        trigger_counter,
+        connect_num * 2,
+        "spell must be triggered {connect_num} * 2 times"
+    );
+}
