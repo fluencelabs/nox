@@ -6,18 +6,20 @@ mod particle_executor;
 mod services_metrics;
 mod vm_pool;
 
+use std::fmt::Debug;
+
+use prometheus_client::encoding::EncodeMetric;
+use prometheus_client::registry::Registry;
+
 pub use connection_pool::ConnectionPoolMetrics;
 pub use connectivity::ConnectivityMetrics;
 pub use connectivity::Resolution;
 pub use dispatcher::DispatcherMetrics;
 pub use particle_executor::{FunctionKind, ParticleExecutorMetrics};
-use prometheus_client::encoding::EncodeMetric;
-use prometheus_client::registry::Registry;
 pub use services_metrics::{
     ServiceCallStats, ServiceMemoryStat, ServiceType, ServicesMetrics, ServicesMetricsBackend,
     ServicesMetricsBuiltin, ServicesMetricsExternal,
 };
-use std::fmt::Debug;
 pub use vm_pool::VmPoolMetrics;
 
 // TODO:

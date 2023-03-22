@@ -16,7 +16,6 @@
  * limitations under the License.
  */
 
-
 mod api;
 mod behaviour;
 mod error;
