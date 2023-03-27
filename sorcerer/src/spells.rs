@@ -208,7 +208,7 @@ pub(crate) async fn spell_update_config(
     key_manager: KeyManager,
 ) -> Result<(), JError> {
     let mut args = args.function_args.into_iter();
-    let spell_id: String = Args::next("spell_id", &mut args)?;
+    let spell_id_or_alias: String = Args::next("spell_id", &mut args)?;
 
     let worker_id = params.host_id;
     let init_peer_id = params.init_peer_id;
@@ -220,9 +220,11 @@ pub(crate) async fn spell_update_config(
 
     if !is_worker_creator && !is_worker && !is_management {
         return Err(JError::new(format!(
-            "Failed to update spell config {spell_id}, spell config can be updated by worker creator {worker_creator}, worker itself {worker_id} or peer manager; init_peer_id={init_peer_id}"
+            "Failed to update spell config {spell_id_or_alias}, spell config can be updated by worker creator {worker_creator}, worker itself {worker_id} or peer manager; init_peer_id={init_peer_id}"
         )));
     }
+
+    let spell_id = services.to_service_id(worker_id, spell_id_or_alias.clone())?;
 
     let user_config: TriggerConfig = Args::next("config", &mut args)?;
     let config = api::from_user_config(user_config.clone())?;
@@ -253,9 +255,11 @@ pub(crate) async fn spell_update_config(
     };
 
     if let Err(err) = result {
-        log::warn!("can't update a spell {spell_id} config via spell-event-bus-api: {err}");
+        log::warn!(
+            "can't update a spell {spell_id_or_alias} config via spell-event-bus-api: {err}"
+        );
         return Err(JError::new(format!(
-            "can't update a spell {spell_id} config due to an internal error while updating the triggers: {err}"
+            "can't update a spell {spell_id_or_alias} config due to an internal error while updating the triggers: {err}"
         )));
     }
 
