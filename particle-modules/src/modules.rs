@@ -36,9 +36,10 @@ use service_modules::{
 
 use crate::error::ModuleError::{
     BlueprintNotFound, BlueprintNotFoundInVault, ConfigNotFoundInVault, EmptyDependenciesList,
-    FacadeShouldBeHash, IncorrectVaultBlueprint, IncorrectVaultModuleConfig, InvalidBlueprintPath,
-    InvalidModuleConfigPath, InvalidModuleName, InvalidModulePath, MaxHeapSizeOverflow,
-    ModuleNotFoundInVault, ReadModuleInterfaceError, VaultDoesNotExist,
+    FacadeShouldBeHash, ForbiddenMountedBinary, IncorrectVaultBlueprint,
+    IncorrectVaultModuleConfig, InvalidBlueprintPath, InvalidModuleConfigPath, InvalidModuleName,
+    InvalidModulePath, MaxHeapSizeOverflow, ModuleNotFoundInVault, ReadModuleInterfaceError,
+    VaultDoesNotExist,
 };
 use crate::error::Result;
 use crate::files::{self, load_config_by_path, load_module_by_path, load_module_descriptor};
@@ -68,6 +69,7 @@ pub struct ModuleRepository {
     blueprints: Arc<RwLock<HashMap<String, Blueprint>>>,
     max_heap_size: ByteSize,
     default_heap_size: Option<ByteSize>,
+    allowed_binaries: Vec<PathBuf>,
 }
 
 impl ModuleRepository {
@@ -77,6 +79,7 @@ impl ModuleRepository {
         particles_vault_dir: &Path,
         max_heap_size: ByteSize,
         default_heap_size: Option<ByteSize>,
+        allowed_binaries: Vec<PathBuf>,
     ) -> Self {
         let modules_by_name: HashMap<_, _> = fs_utils::list_files(modules_dir)
             .into_iter()
@@ -117,6 +120,7 @@ impl ModuleRepository {
             particles_vault_dir: particles_vault_dir.to_path_buf(),
             max_heap_size,
             default_heap_size,
+            allowed_binaries,
         }
     }
 
@@ -166,11 +170,29 @@ impl ModuleRepository {
 
         Ok(())
     }
+
+    fn check_module_mounted_binaries(&self, config: &TomlMarineNamedModuleConfig) -> Result<()> {
+        if let Some(binaries) = &config.config.mounted_binaries {
+            for requested_binary in binaries.values() {
+                if let Some(requested_binary) = requested_binary.as_str() {
+                    let requested_binary_path = Path::new(requested_binary).to_path_buf();
+                    if !self.allowed_binaries.contains(&requested_binary_path) {
+                        return Err(ForbiddenMountedBinary {
+                            forbidden_path: requested_binary.to_string(),
+                        });
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+
     pub fn add_module(&self, module: Vec<u8>, config: TomlMarineNamedModuleConfig) -> Result<Hash> {
         let hash = Hash::new(&module);
 
         let mut config = files::add_module(&self.modules_dir, &hash, &module, config)?;
         self.check_module_heap_size(&mut config)?;
+        self.check_module_mounted_binaries(&config)?;
         self.modules_by_name
             .lock()
             .insert(config.name, hash.clone());

@@ -138,6 +138,9 @@ pub struct NodeConfig {
     #[serde(with = "peerid_serializer")]
     #[serde(default = "default_management_peer_id")]
     pub management_peer_id: PeerId,
+
+    #[serde(default = "default_allowed_binaries")]
+    pub allowed_binaries: Vec<String>,
 }
 
 #[derive(Clone, Deserialize, Derivative, Copy)]

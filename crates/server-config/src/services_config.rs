@@ -19,7 +19,7 @@ use fs_utils::{create_dirs, set_write_only, to_abs_path};
 use bytesize::ByteSize;
 use libp2p::PeerId;
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone)]
 pub struct ServicesConfig {
@@ -47,6 +47,8 @@ pub struct ServicesConfig {
     pub max_heap_size: ByteSize,
     /// Default heap size in bytes available for the module unless otherwise specified.
     pub default_heap_size: Option<ByteSize>,
+    /// List of allowed binaries paths
+    pub allowed_binaries: Vec<PathBuf>,
 }
 
 impl ServicesConfig {
@@ -60,8 +62,22 @@ impl ServicesConfig {
         builtins_management_peer_id: PeerId,
         max_heap_size: ByteSize,
         default_heap_size: Option<ByteSize>,
+        allowed_binaries: Vec<String>,
     ) -> Result<Self, std::io::Error> {
         let base_dir = to_abs_path(base_dir);
+
+        let allowed_binaries = allowed_binaries
+            .into_iter()
+            .map(|path_str| {
+                let path = Path::new(&path_str);
+                match path.try_exists() {
+                    Err(err) => log::warn!("cannot check binary `{path_str}`: {err}"),
+                    Ok(false) => log::warn!("binary `{path_str}` does not exist"),
+                    _ => {}
+                };
+                path.to_path_buf()
+            })
+            .collect::<_>();
 
         let this = Self {
             local_peer_id,
@@ -75,6 +91,7 @@ impl ServicesConfig {
             builtins_management_peer_id,
             max_heap_size,
             default_heap_size,
+            allowed_binaries,
         };
 
         create_dirs(&[
