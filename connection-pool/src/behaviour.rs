@@ -17,12 +17,11 @@
 use futures::{Sink, StreamExt};
 use libp2p::swarm::dial_opts::DialOpts;
 use libp2p::swarm::CloseConnection::All;
-use libp2p::swarm::{dial_opts, DialError, IntoConnectionHandler};
+use libp2p::swarm::{dial_opts, ConnectionId, DialError, FromSwarm, THandlerOutEvent};
 use libp2p::{
-    core::{connection::ConnectionId, ConnectedPoint, Multiaddr},
+    core::{ConnectedPoint, Multiaddr},
     swarm::{
-        ConnectionHandler, NetworkBehaviour, NetworkBehaviourAction, NotifyHandler, OneShotHandler,
-        PollParameters,
+        NetworkBehaviour, NetworkBehaviourAction, NotifyHandler, OneShotHandler, PollParameters,
     },
     PeerId,
 };
@@ -47,10 +46,7 @@ use crate::{Command, ConnectionPoolApi};
 // type SwarmEventType = generate_swarm_event_type!(ConnectionPoolBehaviour);
 
 // TODO: replace with generate_swarm_event_type
-type SwarmEventType = libp2p::swarm::NetworkBehaviourAction<
-    (),
-    OneShotHandler<ProtocolConfig, HandlerMessage, HandlerMessage>,
->;
+type SwarmEventType = NetworkBehaviourAction<(), HandlerMessage>;
 
 #[derive(Debug, Default)]
 /// [Peer] is the representation of [Contact] extended with precise connectivity information
@@ -139,10 +135,8 @@ impl ConnectionPoolBehaviour {
         // TODO: return Contact immediately if that address is already connected
         self.dialing.entry(address.clone()).or_default().push(out);
 
-        let handler = self.new_handler();
         self.push_event(NetworkBehaviourAction::Dial {
             opts: DialOpts::unknown_peer_id().address(address).build(),
-            handler,
         });
     }
 
@@ -185,12 +179,10 @@ impl ConnectionPoolBehaviour {
         };
 
         if !addresses.is_empty() {
-            let handler = self.new_handler();
             self.push_event(NetworkBehaviourAction::Dial {
                 opts: DialOpts::peer_id(new_contact.peer_id)
                     .addresses(addresses)
                     .build(),
-                handler,
             });
         }
     }
@@ -330,8 +322,7 @@ impl ConnectionPoolBehaviour {
                 out.send(contact.clone()).ok();
             }
         }
-
-        self.meter(|m| m.connected_peers.set(self.contacts.len() as u64));
+        self.meter(|m| m.connected_peers.set(self.contacts.len() as i64));
     }
 
     fn lifecycle_event(&mut self, event: LifecycleEvent) {
@@ -358,8 +349,7 @@ impl ConnectionPoolBehaviour {
                 // if dial was in progress, notify waiters
                 out.send(false).ok();
             }
-
-            self.meter(|m| m.connected_peers.set(self.contacts.len() as u64));
+            self.meter(|m| m.connected_peers.set(self.contacts.len() as i64));
         }
     }
 
@@ -368,6 +358,119 @@ impl ConnectionPoolBehaviour {
             peer_id,
             addresses: c.addresses().cloned().collect(),
         })
+    }
+
+    fn on_connection_established(
+        &mut self,
+        peer_id: &PeerId,
+        cp: &ConnectedPoint,
+        failed_addresses: &Vec<Multiaddr>,
+    ) {
+        // mark failed addresses as such
+        for addr in failed_addresses {
+            log::warn!("failed to connect to {} {}", addr, peer_id);
+
+            self.cleanup_address(Some(peer_id), addr)
+        }
+
+        let multiaddr = remote_multiaddr(cp).clone();
+        log::debug!(
+            target: "network",
+            "{}: connection established with {} @ {}",
+            self.peer_id,
+            peer_id,
+            multiaddr
+        );
+
+        self.add_connected_address(*peer_id, multiaddr.clone());
+
+        self.lifecycle_event(LifecycleEvent::Connected(Contact::new(
+            *peer_id,
+            vec![multiaddr],
+        )))
+    }
+
+    fn on_connection_closed(
+        &mut self,
+        peer_id: &PeerId,
+        cp: &ConnectedPoint,
+        remaining_established: usize,
+    ) {
+        let multiaddr = remote_multiaddr(cp);
+        if remaining_established == 0 {
+            self.remove_contact(peer_id, "disconnected");
+            log::debug!(
+                target: "network",
+                "{}: connection lost with {} @ {}",
+                self.peer_id,
+                peer_id,
+                multiaddr
+            );
+        } else {
+            log::debug!(
+                target: "network",
+                "{}: {} connections remaining established with {}. {} has just closed.",
+                self.peer_id,
+                remaining_established,
+                peer_id,
+                multiaddr
+            )
+        }
+
+        self.cleanup_address(Some(peer_id), multiaddr);
+    }
+
+    fn on_dial_failure(&mut self, peer_id: Option<PeerId>, error: &DialError) {
+        use dial_opts::PeerCondition::{Disconnected, NotDialing};
+        if let DialError::DialPeerConditionFalse(Disconnected | NotDialing) = error {
+            // So, if you tell libp2p to dial a peer, there's an option dial_opts::PeerCondition
+            // The default one is Disconnected.
+            // So, if you asked libp2p to connect to a peer, and the peer IS ALREADY CONNECTED,
+            // libp2p will tell you that dial has failed.
+            // We need to ignore this "failure" in case condition is Disconnected or NotDialing.
+            // Because this basically means that peer has already connected while our Dial was processed.
+            // That could happen in several cases:
+            //  1. `dial` was called by multiaddress of an already-connected peer
+            //  2. `connect` was called with new multiaddresses, but target peer is already connected
+            //  3. unknown data race
+            log::info!("Dialing attempt to an already connected peer {:?}", peer_id);
+            return;
+        }
+
+        log::warn!(
+            "Error dialing peer {}: {:?}",
+            peer_id.map_or("unknown".to_string(), |id| id.to_string()),
+            error
+        );
+        match error {
+            DialError::WrongPeerId { endpoint, .. } => {
+                let addr = match endpoint {
+                    ConnectedPoint::Dialer { address, .. } => address,
+                    ConnectedPoint::Listener { send_back_addr, .. } => send_back_addr,
+                };
+                self.cleanup_address(peer_id.as_ref(), addr);
+            }
+            DialError::Transport(addrs) => {
+                for (addr, _) in addrs {
+                    self.cleanup_address(peer_id.as_ref(), addr);
+                }
+            }
+            _ => {}
+        };
+        // remove failed contact
+        if let Some(peer_id) = peer_id {
+            self.remove_contact(&peer_id, format!("dial failure: {error}").as_str())
+        } else {
+            log::warn!("Unknown peer dial failure: {}", error)
+        }
+    }
+
+    fn on_listen_failure(&mut self, local_addr: &Multiaddr, send_back_addr: &Multiaddr) {
+        log::warn!(
+            "Error accepting incoming connection from {} to our local address {}",
+            send_back_addr,
+            local_addr
+        );
     }
 
     fn cleanup_address(&mut self, peer_id: Option<&PeerId>, addr: &Multiaddr) {
@@ -420,83 +523,50 @@ impl NetworkBehaviour for ConnectionPoolBehaviour {
             .collect()
     }
 
-    fn inject_connection_established(
-        &mut self,
-        peer_id: &PeerId,
-        _connection_id: &ConnectionId,
-        cp: &ConnectedPoint,
-        failed_addresses: Option<&Vec<Multiaddr>>,
-        _: usize,
-    ) {
-        // mark failed addresses as such
-        if let Some(failed_addresses) = failed_addresses {
-            for addr in failed_addresses {
-                log::warn!("failed to connect to {} {}", addr, peer_id);
-
-                self.cleanup_address(Some(peer_id), addr)
+    fn on_swarm_event(&mut self, event: FromSwarm<'_, Self::ConnectionHandler>) {
+        match event {
+            FromSwarm::ConnectionEstablished(event) => {
+                self.on_connection_established(
+                    &event.peer_id,
+                    event.endpoint,
+                    &event.failed_addresses.to_vec(),
+                );
             }
+            FromSwarm::ConnectionClosed(event) => {
+                self.on_connection_closed(
+                    &event.peer_id,
+                    event.endpoint,
+                    event.remaining_established,
+                );
+            }
+            FromSwarm::AddressChange(_) => {}
+            FromSwarm::DialFailure(event) => {
+                self.on_dial_failure(event.peer_id, event.error);
+            }
+            FromSwarm::ListenFailure(event) => {
+                self.on_listen_failure(event.local_addr, event.send_back_addr);
+            }
+            FromSwarm::NewListener(_) => {}
+            FromSwarm::NewListenAddr(_) => {}
+            FromSwarm::ExpiredListenAddr(_) => {}
+            FromSwarm::ListenerError(_) => {}
+            FromSwarm::ListenerClosed(_) => {}
+            FromSwarm::NewExternalAddr(_) => {}
+            FromSwarm::ExpiredExternalAddr(_) => {}
         }
-
-        let multiaddr = remote_multiaddr(cp).clone();
-        log::debug!(
-            target: "network",
-            "{}: connection established with {} @ {}",
-            self.peer_id,
-            peer_id,
-            multiaddr
-        );
-
-        self.add_connected_address(*peer_id, multiaddr.clone());
-
-        self.lifecycle_event(LifecycleEvent::Connected(Contact::new(
-            *peer_id,
-            vec![multiaddr],
-        )))
     }
 
-    fn inject_connection_closed(
-        &mut self,
-        peer_id: &PeerId,
-        _: &ConnectionId,
-        cp: &ConnectedPoint,
-        _: <Self::ConnectionHandler as IntoConnectionHandler>::Handler,
-        remaining_established: usize,
-    ) {
-        let multiaddr = remote_multiaddr(cp);
-        if remaining_established == 0 {
-            self.remove_contact(peer_id, "disconnected");
-            log::debug!(
-                target: "network",
-                "{}: connection lost with {} @ {}",
-                self.peer_id,
-                peer_id,
-                multiaddr
-            );
-        } else {
-            log::debug!(
-                target: "network",
-                "{}: {} connections remaining established with {}. {} has just closed.",
-                self.peer_id,
-                remaining_established,
-                peer_id,
-                multiaddr
-            )
-        }
-
-        self.cleanup_address(Some(peer_id), multiaddr);
-    }
-
-    fn inject_event(
+    fn on_connection_handler_event(
         &mut self,
         from: PeerId,
-        _: ConnectionId,
-        event: <Self::ConnectionHandler as ConnectionHandler>::OutEvent,
+        _connection_id: ConnectionId,
+        event: THandlerOutEvent<Self>,
     ) {
         match event {
             HandlerMessage::InParticle(particle) => {
                 log::trace!(target: "network", "{}: received particle {} from {}; queue {}", self.peer_id, particle.id, from, self.queue.len());
                 self.meter(|m| {
-                    m.particle_queue_size.set(self.queue.len() as u64 + 1);
+                    m.particle_queue_size.set(self.queue.len() as i64 + 1);
                     m.received_particles.inc();
                     m.particle_sizes.observe(particle.data.len() as f64);
                 });
@@ -509,70 +579,11 @@ impl NetworkBehaviour for ConnectionPoolBehaviour {
         }
     }
 
-    fn inject_dial_failure(
+    fn poll(
         &mut self,
-        peer_id: Option<PeerId>,
-        _handler: Self::ConnectionHandler,
-        error: &DialError,
-    ) {
-        use dial_opts::PeerCondition::{Disconnected, NotDialing};
-        if let DialError::DialPeerConditionFalse(Disconnected | NotDialing) = error {
-            // So, if you tell libp2p to dial a peer, there's an option dial_opts::PeerCondition
-            // The default one is Disconnected.
-            // So, if you asked libp2p to connect to a peer, and the peer IS ALREADY CONNECTED,
-            // libp2p will tell you that dial has failed.
-            // We need to ignore this "failure" in case condition is Disconnected or NotDialing.
-            // Because this basically means that peer has already connected while our Dial was processed.
-            // That could happen in several cases:
-            //  1. `dial` was called by multiaddress of an already-connected peer
-            //  2. `connect` was called with new multiaddresses, but target peer is already connected
-            //  3. unknown data race
-            log::info!("Dialing attempt to an already connected peer {:?}", peer_id);
-            return;
-        }
-
-        log::warn!(
-            "Error dialing peer {}: {:?}",
-            peer_id.map_or("unknown".to_string(), |id| id.to_string()),
-            error
-        );
-        match error {
-            DialError::WrongPeerId { endpoint, .. } => {
-                let addr = match endpoint {
-                    ConnectedPoint::Dialer { address, .. } => address,
-                    ConnectedPoint::Listener { send_back_addr, .. } => send_back_addr,
-                };
-                self.cleanup_address(peer_id.as_ref(), addr);
-            }
-            DialError::Transport(addrs) => {
-                for (addr, _) in addrs {
-                    self.cleanup_address(peer_id.as_ref(), addr);
-                }
-            }
-            _ => {}
-        };
-        // remove failed contact
-        if let Some(peer_id) = peer_id {
-            self.remove_contact(&peer_id, format!("dial failure: {error}").as_str())
-        } else {
-            log::warn!("Unknown peer dial failure: {}", error)
-        }
-    }
-
-    fn inject_listen_failure(
-        &mut self,
-        local_addr: &Multiaddr,
-        send_back_addr: &Multiaddr,
-        _handler: Self::ConnectionHandler,
-    ) {
-        log::warn!(
-            "Error accepting incoming connection from {} to our local address {}",
-            send_back_addr,
-            local_addr
-        );
-    }
-
-    fn poll(&mut self, cx: &mut Context<'_>, _: &mut impl PollParameters) -> Poll<SwarmEventType> {
+        cx: &mut Context<'_>,
+        _params: &mut impl PollParameters,
+    ) -> Poll<SwarmEventType> {
         self.waker = Some(cx.waker().clone());
 
         loop {
@@ -612,8 +623,7 @@ impl NetworkBehaviour for ConnectionPoolBehaviour {
             }
         }
 
-        self.meter(|m| m.particle_queue_size.set(self.queue.len() as u64));
-
+        self.meter(|m| m.particle_queue_size.set(self.queue.len() as i64));
         while let Poll::Ready(Some(cmd)) = self.commands.poll_next_unpin(cx) {
             self.execute(cmd)
         }

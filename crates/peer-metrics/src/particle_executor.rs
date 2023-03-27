@@ -1,4 +1,4 @@
-use prometheus_client::encoding::text::Encode;
+use prometheus_client::encoding::{EncodeLabelSet, EncodeLabelValue};
 use prometheus_client::metrics::counter::Counter;
 use prometheus_client::metrics::family::Family;
 use prometheus_client::metrics::gauge::Gauge;
@@ -8,7 +8,7 @@ use std::time::Duration;
 
 use crate::execution_time_buckets;
 
-#[derive(Copy, Clone, Debug, Encode, Hash, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, EncodeLabelValue, Hash, Eq, PartialEq)]
 pub enum FunctionKind {
     Service,
     ParticleFunction,
@@ -16,7 +16,7 @@ pub enum FunctionKind {
     NotHappened,
 }
 
-#[derive(Encode, Hash, Clone, Eq, PartialEq)]
+#[derive(EncodeLabelSet, Hash, Clone, Eq, PartialEq, Debug)]
 pub struct FunctionKindLabel {
     function_kind: FunctionKind,
 }
@@ -41,34 +41,34 @@ impl ParticleExecutorMetrics {
         sub_registry.register(
             "interpretation_time_sec",
             "Distribution of time it took to run the interpreter once",
-            Box::new(interpretation_time_sec.clone()),
+            interpretation_time_sec.clone(),
         );
 
         let interpretation_successes = Counter::default();
         sub_registry.register(
             "interpretation_successes",
             "Number successfully interpreted particles",
-            Box::new(interpretation_successes.clone()),
+            interpretation_successes.clone(),
         );
 
         let interpretation_failures = Counter::default();
         sub_registry.register(
             "interpretation_failures",
             "Number of failed particle interpretations",
-            Box::new(interpretation_failures.clone()),
+            interpretation_failures.clone(),
         );
 
         let total_actors_mailbox = Gauge::default();
         sub_registry.register(
             "total_actors_mailbox",
             "Cumulative sum of all actors' mailboxes",
-            Box::new(total_actors_mailbox.clone()),
+            total_actors_mailbox.clone(),
         );
         let alive_actors = Gauge::default();
         sub_registry.register(
             "alive_actors",
             "Number of currently alive actors (1 particle id = 1 actor)",
-            Box::new(alive_actors.clone()),
+            alive_actors.clone(),
         );
 
         let service_call_time_sec: Family<_, _> =
@@ -76,19 +76,19 @@ impl ParticleExecutorMetrics {
         sub_registry.register(
             "service_call_time_sec",
             "Distribution of time it took to execute a single service or builtin call",
-            Box::new(service_call_time_sec.clone()),
+            service_call_time_sec.clone(),
         );
         let service_call_success = Family::default();
         sub_registry.register(
             "service_call_success",
             "Number of succeeded service calls",
-            Box::new(service_call_success.clone()),
+            service_call_success.clone(),
         );
         let service_call_failure = Family::default();
         sub_registry.register(
             "service_call_failure",
             "Number of failed service calls",
-            Box::new(service_call_failure.clone()),
+            service_call_failure.clone(),
         );
 
         Self {

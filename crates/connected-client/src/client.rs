@@ -17,8 +17,8 @@
 use std::{error::Error, time::Duration};
 
 use derivative::Derivative;
+use either::Either;
 use futures::stream::StreamExt;
-use libp2p::core::either::EitherError;
 use libp2p::core::Multiaddr;
 use libp2p::swarm::{ConnectionHandlerUpgrErr, SwarmBuilder, SwarmEvent};
 use libp2p::{identity::Keypair, PeerId, Swarm};
@@ -189,7 +189,7 @@ impl Client {
     fn receive_from_node(
         msg: SwarmEvent<
             ClientEvent,
-            EitherError<ConnectionHandlerUpgrErr<std::io::Error>, libp2p::ping::Failure>,
+            Either<ConnectionHandlerUpgrErr<std::io::Error>, libp2p::ping::Failure>,
         >,
         client_outlet: &mpsc::UnboundedSender<ClientEvent>,
     ) -> Result<(), SendError<ClientEvent>> {

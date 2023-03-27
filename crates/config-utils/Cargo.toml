@@ -5,4 +5,4 @@ authors = ["Fluence Labs"]
 edition = "2021"
 
 [dependencies]
-libp2p-core = { workspace = true }
+libp2p-identity = { workspace = true, features = ["ed25519"] }

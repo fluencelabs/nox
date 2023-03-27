@@ -21,6 +21,7 @@ use std::time::Duration;
 use fluence_keypair::KeyPair;
 use libp2p::core::Multiaddr;
 use libp2p::identity::ed25519::Keypair;
+use libp2p::identity::PublicKey;
 use libp2p::PeerId;
 
 use fluence_libp2p::Transport;
@@ -181,7 +182,8 @@ pub fn default_management_peer_id() -> PeerId {
     use base64::{engine::general_purpose::STANDARD as base64, Engine};
 
     let kp = Keypair::generate();
-    let public_key = libp2p::identity::PublicKey::Ed25519(kp.public());
+    #[allow(deprecated)]
+    let public_key = PublicKey::Ed25519(kp.public());
     let peer_id = PeerId::from(public_key);
 
     log::warn!(
