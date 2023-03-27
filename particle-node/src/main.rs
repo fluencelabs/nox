@@ -68,13 +68,19 @@ async fn main() -> eyre::Result<()> {
         // Disable most spamming modules
         .filter_module("cranelift_codegen", LevelFilter::Off)
         .filter_module("wasmer_wasi_fl", LevelFilter::Off)
-        .filter_module("aquamarine::particle_executor", LevelFilter::Off)
-        .filter_module("tracing::span", LevelFilter::Off)
-        .filter_module("network", LevelFilter::Off)
-        .filter_module("execution", LevelFilter::Off)
-        .filter_module("particle_protocol", LevelFilter::Off)
-        .filter_module("avm_server::runner", LevelFilter::Off)
-        .filter_module("ipfs_effector", LevelFilter::Off)
+        .filter_module("walrus", LevelFilter::Off)
+        .filter_module("wasmer_interface_types_fl", LevelFilter::Off)
+        .filter_module("polling", LevelFilter::Off)
+        .filter_module("tide", LevelFilter::Error)
+        .filter_module("tokio_threadpool", LevelFilter::Error)
+        .filter_module("tokio_reactor", LevelFilter::Error)
+        .filter_module("mio", LevelFilter::Error)
+        .filter_module("tokio_io", LevelFilter::Error)
+        .filter_module("soketto", LevelFilter::Error)
+        .filter_module("cranelift_codegen", LevelFilter::Error)
+        .filter_module("async_io", LevelFilter::Error)
+        .filter_module("wasmer_interface_types_fl", LevelFilter::Error)
+        .filter_module("wasmer_wasi", LevelFilter::Error)
         .init();
 
     let version = format!("{}; AIR version {}", VERSION, air_interpreter_wasm::VERSION);
