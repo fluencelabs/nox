@@ -72,14 +72,9 @@ async fn main() -> eyre::Result<()> {
         .filter_module("tracing::span", LevelFilter::Off)
         .filter_module("network", LevelFilter::Off)
         .filter_module("execution", LevelFilter::Off)
-        .filter_module(
-            "particle_protocol::libp2p_protocol::upgrade",
-            LevelFilter::Off,
-        )
+        .filter_module("particle_protocol", LevelFilter::Off)
         .filter_module("avm_server::runner", LevelFilter::Off)
-        .filter_module("", LevelFilter::Off)
-        .filter_module("", LevelFilter::Off)
-        .filter_module("", LevelFilter::Off)
+        .filter_module("ipfs_effector", LevelFilter::Off)
         .init();
 
     let version = format!("{}; AIR version {}", VERSION, air_interpreter_wasm::VERSION);
