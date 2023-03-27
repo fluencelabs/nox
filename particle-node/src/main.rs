@@ -68,6 +68,18 @@ async fn main() -> eyre::Result<()> {
         // Disable most spamming modules
         .filter_module("cranelift_codegen", LevelFilter::Off)
         .filter_module("wasmer_wasi_fl", LevelFilter::Off)
+        .filter_module("aquamarine::particle_executor", LevelFilter::Off)
+        .filter_module("tracing::span", LevelFilter::Off)
+        .filter_module("network", LevelFilter::Off)
+        .filter_module("execution", LevelFilter::Off)
+        .filter_module(
+            "particle_protocol::libp2p_protocol::upgrade",
+            LevelFilter::Off,
+        )
+        .filter_module("avm_server::runner", LevelFilter::Off)
+        .filter_module("", LevelFilter::Off)
+        .filter_module("", LevelFilter::Off)
+        .filter_module("", LevelFilter::Off)
         .init();
 
     let version = format!("{}; AIR version {}", VERSION, air_interpreter_wasm::VERSION);
