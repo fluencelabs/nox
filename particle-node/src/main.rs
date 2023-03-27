@@ -67,10 +67,11 @@ async fn main() -> eyre::Result<()> {
         .format_timestamp_micros()
         // Disable most spamming modules
         .filter_module("cranelift_codegen", LevelFilter::Off)
-        .filter_module("wasmer_wasi_fl", LevelFilter::Off)
         .filter_module("walrus", LevelFilter::Off)
-        .filter_module("wasmer_interface_types_fl", LevelFilter::Off)
         .filter_module("polling", LevelFilter::Off)
+        .filter_module("wasmer_wasi_fl", LevelFilter::Error)
+        .filter_module("wasmer_interface_types_fl", LevelFilter::Error)
+        .filter_module("wasmer_wasi", LevelFilter::Error)
         .filter_module("tide", LevelFilter::Error)
         .filter_module("tokio_threadpool", LevelFilter::Error)
         .filter_module("tokio_reactor", LevelFilter::Error)
@@ -79,8 +80,6 @@ async fn main() -> eyre::Result<()> {
         .filter_module("soketto", LevelFilter::Error)
         .filter_module("cranelift_codegen", LevelFilter::Error)
         .filter_module("async_io", LevelFilter::Error)
-        .filter_module("wasmer_interface_types_fl", LevelFilter::Error)
-        .filter_module("wasmer_wasi", LevelFilter::Error)
         .init();
 
     let version = format!("{}; AIR version {}", VERSION, air_interpreter_wasm::VERSION);
