@@ -87,7 +87,7 @@ spell-storage = { path = "spell-storage" }
 particle-execution = { path = "particle-execution" }
 
 # spell
-fluence-spell-dtos = "=0.5.6"
+fluence-spell-dtos = "=0.5.7"
 fluence-spell-distro = "=0.5.6"
 
 # marine
