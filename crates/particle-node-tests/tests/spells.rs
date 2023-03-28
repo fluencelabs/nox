@@ -33,6 +33,30 @@ use test_utils::{create_service, create_service_worker};
 type SpellId = String;
 type WorkerPeerId = String;
 
+async fn create_worker(client: &mut ConnectedClient, deal_id: String) -> WorkerPeerId {
+    let data = hashmap! {
+        "deal_id" => json!(deal_id.to_string()),
+        "relay" => json!(client.node.to_string()),
+        "client" => json!(client.peer_id.to_string()),
+    };
+    let response = client
+        .execute_particle(
+            r#"
+            (seq
+                (call relay ("worker" "create") [deal_id] worker_peer_id)
+                (call client ("return" "") [worker_peer_id])
+            )"#,
+            data.clone(),
+        )
+        .await
+        .unwrap();
+
+    let worker_id = response[0].as_str().unwrap().to_string();
+    assert_ne!(worker_id.len(), 0);
+
+    worker_id
+}
+
 async fn create_spell(
     client: &mut ConnectedClient,
     script: &str,
@@ -1631,7 +1655,7 @@ async fn create_remove_worker() {
         assert!(spell_err.contains(&format!("Service with id '{spell_id}' not found")));
         assert!(srv_err.contains(&format!("Service with id '{}' not found", service.id)));
     } else {
-        panic!("expected one string result")
+        panic!("expected array and two strings")
     }
 }
 
@@ -1720,4 +1744,46 @@ async fn spell_update_trigger_by_alias() {
         connect_num * 2,
         "spell must be triggered {connect_num} * 2 times"
     );
+}
+
+#[tokio::test]
+async fn test_worker_list() {
+    let swarms = make_swarms(1).await;
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
+        .wrap_err("connect client")
+        .unwrap();
+
+    let worker_id1 = create_worker(&mut client, "deal_id1".to_string()).await;
+    let worker_id2 = create_worker(&mut client, "deal_id2".to_string()).await;
+
+    client.send_particle(
+        r#"(seq
+                    (call relay ("worker" "list") [] result)
+                    (call client ("return" "") [result])
+                )"#,
+        hashmap! {
+            "relay" => json!(client.node.to_string()),
+            "client" => json!(client.peer_id.to_string())
+        },
+    );
+
+    if let [JValue::Array(workers)] = client
+        .receive_args()
+        .await
+        .wrap_err("receive")
+        .unwrap()
+        .as_slice()
+    {
+        assert_eq!(workers.len(), 2);
+
+        let workers: Vec<String> = workers
+            .into_iter()
+            .map(|s| s.as_str().unwrap().to_string())
+            .collect();
+        assert!(workers.contains(&worker_id1));
+        assert!(workers.contains(&worker_id2));
+    } else {
+        panic!("expected one array result")
+    }
 }

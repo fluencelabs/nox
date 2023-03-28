@@ -28,7 +28,7 @@ use crate::spells::{
     store_error, store_response,
 };
 use crate::utils::process_func_outcome;
-use crate::worker_builins::{create_worker, get_worker_peer_id, remove_worker};
+use crate::worker_builins::{create_worker, get_worker_peer_id, remove_worker, worker_list};
 use aquamarine::AquamarineApi;
 use key_manager::KeyManager;
 use particle_args::JError;
@@ -192,6 +192,7 @@ impl Sorcerer {
                     ("create", self.make_worker_create_closure()),
                     ("get_peer_id", self.make_worker_get_peer_id_closure()),
                     ("remove", self.make_worker_remove_closure()),
+                    ("list", self.make_worker_list_closure()),
                 ],
                 None,
             ),
@@ -314,6 +315,14 @@ impl Sorcerer {
         ServiceFunction::Immut(Box::new(move |args, params| {
             let key_manager = key_manager.clone();
             async move { wrap(get_worker_peer_id(args, params, key_manager)) }.boxed()
+        }))
+    }
+
+    fn make_worker_list_closure(&self) -> ServiceFunction {
+        let key_manager = self.key_manager.clone();
+        ServiceFunction::Immut(Box::new(move |_, _| {
+            let key_manager = key_manager.clone();
+            async move { wrap(worker_list(key_manager)) }.boxed()
         }))
     }
 

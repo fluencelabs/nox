@@ -99,3 +99,13 @@ pub(crate) async fn remove_worker(
     services.remove_services(worker_id)?;
     Ok(())
 }
+
+pub(crate) fn worker_list(key_manager: KeyManager) -> Result<JValue, JError> {
+    Ok(JValue::Array(
+        key_manager
+            .list_workers()
+            .into_iter()
+            .map(|p| JValue::String(p.to_base58()))
+            .collect(),
+    ))
+}
