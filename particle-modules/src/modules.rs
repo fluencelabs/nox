@@ -549,6 +549,7 @@ mod tests {
             vault_dir.path(),
             max_heap_size,
             None,
+            vec![],
         );
 
         let dep1 = Dependency::Hash(Hash::new(&[1, 2, 3]));
@@ -591,6 +592,7 @@ mod tests {
             vault_dir.path(),
             max_heap_size,
             None,
+            vec![],
         );
 
         let module = load_module(
@@ -649,6 +651,7 @@ mod tests {
             vault_dir.path(),
             max_heap_size,
             None,
+            vec![],
         );
 
         let module = load_module(
