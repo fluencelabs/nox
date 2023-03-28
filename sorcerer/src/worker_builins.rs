@@ -75,10 +75,9 @@ pub(crate) async fn remove_worker(
 
     let spells: Vec<_> = spell_storage
         .get_registered_spells()
-        .into_iter()
-        .filter(|(_, w_id)| w_id.eq(&worker_id))
-        .map(|(id, _)| id)
-        .collect();
+        .get(&worker_id)
+        .cloned()
+        .unwrap_or_default();
 
     for s in spells {
         remove_spell(

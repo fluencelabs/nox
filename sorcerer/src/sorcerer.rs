@@ -80,7 +80,12 @@ impl Sorcerer {
     }
 
     async fn resubscribe_spells(&self) {
-        for (spell_id, _) in self.spell_storage.get_registered_spells() {
+        for spell_id in self
+            .spell_storage
+            .get_registered_spells()
+            .values()
+            .flatten()
+        {
             log::info!("Rescheduling spell {}", spell_id);
             let result: Result<(), JError> = try {
                 let spell_owner = self
@@ -246,9 +251,9 @@ impl Sorcerer {
 
     fn make_spell_list_closure(&self) -> ServiceFunction {
         let storage = self.spell_storage.clone();
-        ServiceFunction::Immut(Box::new(move |_, _| {
+        ServiceFunction::Immut(Box::new(move |_, params| {
             let storage = storage.clone();
-            async move { wrap(spell_list(storage)) }.boxed()
+            async move { wrap(spell_list(params, storage)) }.boxed()
         }))
     }
 
