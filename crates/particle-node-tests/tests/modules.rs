@@ -23,7 +23,11 @@ use service_modules::load_module;
 
 #[tokio::test]
 async fn test_add_module_mounted_binaries() {
-    let swarms = make_swarms(1).await;
+    let swarms = make_swarms_with_cfg(1, |mut cfg| {
+        cfg.allowed_binaries = vec!["/usr/bin/curl".to_string()];
+        cfg
+    })
+    .await;
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .await
