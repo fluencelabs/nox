@@ -881,6 +881,7 @@ mod tests {
             to_peer_id(&startup_kp),
             max_heap_size,
             None,
+            vec![],
         )
         .unwrap();
 
@@ -890,6 +891,7 @@ mod tests {
             &config.particles_vault_dir,
             max_heap_size,
             None,
+            vec![],
         );
 
         ParticleAppServices::new(config, repo, None)
