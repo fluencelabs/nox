@@ -21,12 +21,16 @@ use serde_json::Value as JValue;
 
 use base64::{engine::general_purpose::STANDARD as base64, Engine};
 use connected_client::ConnectedClient;
-use created_swarm::make_swarms;
+use created_swarm::{make_swarms, make_swarms_with_cfg};
 use service_modules::load_module;
 
 #[tokio::test]
 async fn create_service_from_config() {
-    let swarms = make_swarms(1).await;
+    let swarms = make_swarms_with_cfg(1, |mut cfg| {
+        cfg.allowed_binaries = vec!["/tmp".to_string()];
+        cfg
+    })
+    .await;
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .await

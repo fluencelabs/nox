@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
+use base64::{engine::general_purpose::STANDARD as base64, Engine};
 use connected_client::ConnectedClient;
 use created_swarm::make_swarms;
-use service_modules::load_module;
-use base64::{engine::general_purpose::STANDARD as base64, Engine};
 use maplit::hashmap;
 use serde_json::json;
+use service_modules::load_module;
 
 #[tokio::test]
 async fn test_add_module_mounted_binaries() {
@@ -31,19 +31,19 @@ async fn test_add_module_mounted_binaries() {
     let module = load_module("tests/tetraplets/artifacts", "tetraplets").expect("load module");
 
     let config = json!(
-        {
-            "name": "tetraplets",
-            "mem_pages_count": 100,
-            "logger_enabled": true,
-            "wasi": {
-                "envs": json!({}),
-                "preopened_files": vec!["/tmp"],
-                "mapped_dirs": json!({}),
-            },
-            "mounted_binaries": json!({"cmd": "/usr/bin/curl"})
-        });
+    {
+        "name": "tetraplets",
+        "mem_pages_count": 100,
+        "logger_enabled": true,
+        "wasi": {
+            "envs": json!({}),
+            "preopened_files": vec!["/tmp"],
+            "mapped_dirs": json!({}),
+        },
+        "mounted_binaries": json!({"cmd": "/usr/bin/curl"})
+    });
 
-   let script = r#"
+    let script = r#"
     (xor
        (seq
            (call node ("dist" "add_module") [module_bytes module_config])
@@ -68,7 +68,6 @@ async fn test_add_module_mounted_binaries() {
     }
 }
 
-
 #[tokio::test]
 async fn test_add_module_mounted_binaries_forbidden() {
     let swarms = make_swarms(1).await;
@@ -79,19 +78,19 @@ async fn test_add_module_mounted_binaries_forbidden() {
     let module = load_module("tests/tetraplets/artifacts", "tetraplets").expect("load module");
 
     let config = json!(
-        {
-            "name": "tetraplets",
-            "mem_pages_count": 100,
-            "logger_enabled": true,
-            "wasi": {
-                "envs": json!({}),
-                "preopened_files": vec!["/tmp"],
-                "mapped_dirs": json!({}),
-            },
-            "mounted_binaries": json!({"cmd": "/usr/bin/behbehbeh"})
-        });
+    {
+        "name": "tetraplets",
+        "mem_pages_count": 100,
+        "logger_enabled": true,
+        "wasi": {
+            "envs": json!({}),
+            "preopened_files": vec!["/tmp"],
+            "mapped_dirs": json!({}),
+        },
+        "mounted_binaries": json!({"cmd": "/usr/bin/behbehbeh"})
+    });
 
-   let script = r#"
+    let script = r#"
     (xor
        (seq
            (call node ("dist" "add_module") [module_bytes module_config])
