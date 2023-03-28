@@ -220,7 +220,7 @@ async fn spell_args_test() {
         client.peer_id
     );
 
-    let config = make_clock_config(1, 1);
+    let config = make_clock_config(1, 1, 0);
 
     let expected_value = json!({"a": "b", "c": 1});
     create_spell(
@@ -265,7 +265,7 @@ async fn spell_return_test() {
         client.peer_id
     );
 
-    let config = make_clock_config(1, 1);
+    let config = make_clock_config(1, 1, 0);
     create_spell(&mut client, &script, config, json!({}), None).await;
 
     let response = client.receive_args().await.wrap_err("receive").unwrap();
@@ -290,7 +290,7 @@ async fn spell_run_oneshot() {
         )"#;
 
     // Note that when period is 0, the spell is executed only once
-    let config = make_clock_config(0, 1);
+    let config = make_clock_config(0, 1, 0);
     let (spell_id, worker_id) = create_spell(&mut client, script, config, json!({}), None).await;
 
     let data = hashmap! {
@@ -409,7 +409,7 @@ async fn spell_install_fail_large_period() {
     let empty: HashMap<String, String> = HashMap::new();
 
     // Note that when period is 0, the spell is executed only once
-    let config = make_clock_config(MAX_PERIOD_SEC + 1, 1);
+    let config = make_clock_config(MAX_PERIOD_SEC + 1, 1, 0);
 
     let data = hashmap! {
         "script" => json!(script.to_string()),
@@ -579,7 +579,7 @@ async fn spell_remove() {
         .unwrap();
 
     let script = r#"(call %init_peer_id% ("peer" "identify") [] x)"#;
-    let config = make_clock_config(2, 1);
+    let config = make_clock_config(2, 1, 0);
     let (spell_id, worker_id) = create_spell(&mut client, script, config, json!({}), None).await;
 
     let data = hashmap! {
