@@ -14,7 +14,13 @@
  * limitations under the License.
  */
 
-use std::{collections::{HashMap, HashSet}, iter, path::Path, path::PathBuf, sync::Arc};
+use std::{
+    collections::{HashMap, HashSet},
+    iter,
+    path::Path,
+    path::PathBuf,
+    sync::Arc,
+};
 
 use base64::{engine::general_purpose::STANDARD as base64, Engine};
 use bytesize::ByteSize;
