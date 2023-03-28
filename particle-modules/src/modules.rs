@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use std::{collections::HashMap, iter, path::Path, path::PathBuf, sync::Arc};
+use std::{collections::{HashMap, HashSet}, iter, path::Path, path::PathBuf, sync::Arc};
 
 use base64::{engine::general_purpose::STANDARD as base64, Engine};
 use bytesize::ByteSize;
@@ -69,7 +69,7 @@ pub struct ModuleRepository {
     blueprints: Arc<RwLock<HashMap<String, Blueprint>>>,
     max_heap_size: ByteSize,
     default_heap_size: Option<ByteSize>,
-    allowed_binaries: Vec<PathBuf>,
+    allowed_binaries: HashSet<PathBuf>,
 }
 
 impl ModuleRepository {
@@ -79,7 +79,7 @@ impl ModuleRepository {
         particles_vault_dir: &Path,
         max_heap_size: ByteSize,
         default_heap_size: Option<ByteSize>,
-        allowed_binaries: Vec<PathBuf>,
+        allowed_binaries: HashSet<PathBuf>,
     ) -> Self {
         let modules_by_name: HashMap<_, _> = fs_utils::list_files(modules_dir)
             .into_iter()
@@ -175,8 +175,8 @@ impl ModuleRepository {
         if let Some(binaries) = &config.config.mounted_binaries {
             for requested_binary in binaries.values() {
                 if let Some(requested_binary) = requested_binary.as_str() {
-                    let requested_binary_path = Path::new(requested_binary).to_path_buf();
-                    if !self.allowed_binaries.contains(&requested_binary_path) {
+                    let requested_binary_path = Path::new(requested_binary);
+                    if !self.allowed_binaries.contains(requested_binary_path) {
                         return Err(ForbiddenMountedBinary {
                             forbidden_path: requested_binary.to_string(),
                         });
@@ -549,7 +549,7 @@ mod tests {
             vault_dir.path(),
             max_heap_size,
             None,
-            vec![],
+            Default::default(),
         );
 
         let dep1 = Dependency::Hash(Hash::new(&[1, 2, 3]));
@@ -592,7 +592,7 @@ mod tests {
             vault_dir.path(),
             max_heap_size,
             None,
-            vec![],
+            Default::default(),
         );
 
         let module = load_module(
@@ -651,7 +651,7 @@ mod tests {
             vault_dir.path(),
             max_heap_size,
             None,
-            vec![],
+            Default::default(),
         );
 
         let module = load_module(

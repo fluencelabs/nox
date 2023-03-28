@@ -18,7 +18,7 @@ use fs_utils::{create_dirs, set_write_only, to_abs_path};
 
 use bytesize::ByteSize;
 use libp2p::PeerId;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone)]
@@ -48,7 +48,7 @@ pub struct ServicesConfig {
     /// Default heap size in bytes available for the module unless otherwise specified.
     pub default_heap_size: Option<ByteSize>,
     /// List of allowed binaries paths
-    pub allowed_binaries: Vec<PathBuf>,
+    pub allowed_binaries: HashSet<PathBuf>,
 }
 
 impl ServicesConfig {

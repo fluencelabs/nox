@@ -27,7 +27,7 @@ use service_modules::load_module;
 #[tokio::test]
 async fn create_service_from_config() {
     let swarms = make_swarms_with_cfg(1, |mut cfg| {
-        cfg.allowed_binaries = vec!["/tmp".to_string()];
+        cfg.allowed_binaries = vec!["/does/not/exist".to_string()];
         cfg
     })
     .await;
@@ -68,11 +68,11 @@ async fn create_service_from_config() {
             [
               [
                 "abc",
-                "/tmp"
+                "/does/not/exist"
               ],
               [
                 "2222",
-                "/tmp"
+                "/does/not/exist"
               ]
             ]
           ]
