@@ -98,7 +98,7 @@ async fn create_spell(
     (spell_id, worker_id)
 }
 
-fn get_clock_config(period_sec: u32, start_sec: u32, end_sec: u32) -> TriggerConfig {
+fn make_clock_config(period_sec: u32, start_sec: u32, end_sec: u32) -> TriggerConfig {
     TriggerConfig {
         clock: ClockConfig {
             start_sec,
@@ -133,7 +133,7 @@ async fn spell_simple_test() {
         client.peer_id
     );
 
-    let config = get_clock_config(0, 1, 0);
+    let config = make_clock_config(0, 1, 0);
     create_spell(&mut client, &script, config, json!({}), None).await;
 
     let response = client.receive_args().await.wrap_err("receive").unwrap();
@@ -159,7 +159,7 @@ async fn spell_error_handling_test() {
             (call %init_peer_id% ("errorHandlingSrv" "error") [%last_error% 1])        
         )"#;
 
-    let config = get_clock_config(2, 3, 0);
+    let config = make_clock_config(2, 3, 0);
     let (spell_id, worker_id) =
         create_spell(&mut client, failing_script, config, json!({}), None).await;
 
@@ -220,7 +220,7 @@ async fn spell_args_test() {
         client.peer_id
     );
 
-    let config = get_clock_config(1, 1);
+    let config = make_clock_config(1, 1);
 
     let expected_value = json!({"a": "b", "c": 1});
     create_spell(
@@ -265,7 +265,7 @@ async fn spell_return_test() {
         client.peer_id
     );
 
-    let config = get_clock_config(1, 1);
+    let config = make_clock_config(1, 1);
     create_spell(&mut client, &script, config, json!({}), None).await;
 
     let response = client.receive_args().await.wrap_err("receive").unwrap();
@@ -290,7 +290,7 @@ async fn spell_run_oneshot() {
         )"#;
 
     // Note that when period is 0, the spell is executed only once
-    let config = get_clock_config(0, 1);
+    let config = make_clock_config(0, 1);
     let (spell_id, worker_id) = create_spell(&mut client, script, config, json!({}), None).await;
 
     let data = hashmap! {
@@ -409,7 +409,7 @@ async fn spell_install_fail_large_period() {
     let empty: HashMap<String, String> = HashMap::new();
 
     // Note that when period is 0, the spell is executed only once
-    let config = get_clock_config(MAX_PERIOD_SEC + 1, 1);
+    let config = make_clock_config(MAX_PERIOD_SEC + 1, 1);
 
     let data = hashmap! {
         "script" => json!(script.to_string()),
@@ -450,7 +450,7 @@ async fn spell_install_fail_end_sec_past() {
     let empty: HashMap<String, String> = HashMap::new();
 
     // Note that when period is 0, the spell is executed only once
-    let mut config = get_clock_config(0, 10, 1);
+    let mut config = make_clock_config(0, 10, 1);
 
     let data = hashmap! {
         "script" => json!(script.to_string()),
@@ -499,7 +499,7 @@ async fn spell_install_fail_end_sec_before_start() {
         .as_secs();
 
     // Note that when period is 0, the spell is executed only once
-    let config = get_clock_config(0, now as u32 + 100, now as u32 + 90);
+    let config = make_clock_config(0, now as u32 + 100, now as u32 + 90);
 
     let data = hashmap! {
         "script" => json!(script.to_string()),
@@ -538,7 +538,7 @@ async fn spell_store_trigger_config() {
         .unwrap();
 
     let script = r#"(call %init_peer_id% ("peer" "identify") [] x)"#;
-    let mut config = get_clock_config(13, 10, 0);
+    let mut config = make_clock_config(13, 10, 0);
 
     let (spell_id, worker_id) =
         create_spell(&mut client, script, config.clone(), json!({}), None).await;
@@ -579,7 +579,7 @@ async fn spell_remove() {
         .unwrap();
 
     let script = r#"(call %init_peer_id% ("peer" "identify") [] x)"#;
-    let config = get_clock_config(2, 1);
+    let config = make_clock_config(2, 1);
     let (spell_id, worker_id) = create_spell(&mut client, script, config, json!({}), None).await;
 
     let data = hashmap! {
@@ -659,7 +659,7 @@ async fn spell_remove_by_alias() {
         client.peer_id
     );
 
-    let config = get_clock_config(2, 1, 0);
+    let config = make_clock_config(2, 1, 0);
     let (spell_id, _) = create_spell(&mut client, &script, config, json!({}), None).await;
 
     if let [JValue::Array(before), JValue::Array(after)] = client
@@ -685,7 +685,7 @@ async fn spell_remove_spell_as_service() {
 
     let script = r#"(call %init_peer_id% ("peer" "identify") [] x)"#;
 
-    let config = get_clock_config(2, 1, 0);
+    let config = make_clock_config(2, 1, 0);
     let (spell_id, _) = create_spell(&mut client, script, config, json!({}), None).await;
 
     let data = hashmap! {
@@ -787,7 +787,7 @@ async fn spell_call_by_alias() {
         client.peer_id
     );
 
-    let config = get_clock_config(2, 1, 0);
+    let config = make_clock_config(2, 1, 0);
     create_spell(&mut client, &script, config, json!({}), None).await;
 
     if let [JValue::Number(counter)] = client
@@ -897,7 +897,7 @@ async fn spell_timer_trigger_mailbox_test() {
         client.peer_id
     );
 
-    let config = get_clock_config(0, 1, 0);
+    let config = make_clock_config(0, 1, 0);
     create_spell(&mut client, &script, config, json!({}), None).await;
 
     let value = client.receive_args().await.wrap_err("receive").unwrap()[0]
@@ -1065,7 +1065,7 @@ async fn spell_peer_id_test() {
         client.peer_id
     );
 
-    let config = get_clock_config(0, 1, 0);
+    let config = make_clock_config(0, 1, 0);
     let (_, worker_peer_id) = create_spell(&mut client, &script, config, json!({}), None).await;
 
     let response = client.receive_args().await.wrap_err("receive").unwrap();
@@ -1190,7 +1190,7 @@ async fn spell_update_config_stopped_spell() {
     let (spell_id, worker_id) = create_spell(&mut client, &script, config, json!({}), None).await;
 
     // Update trigger config to do something.
-    let config = get_clock_config(0, 1, 0);
+    let config = make_clock_config(0, 1, 0);
     let data = hashmap! {
         "spell_id" => json!(spell_id),
         "relay" => json!(client.node.to_string()),
@@ -1273,7 +1273,7 @@ async fn resolve_alias_wrong_worker() {
         client.node, client.peer_id
     );
 
-    let config = get_clock_config(2, 1, 0);
+    let config = make_clock_config(2, 1, 0);
     create_spell(&mut client, &script, config, json!({}), None).await;
 
     if let [JValue::String(error)] = client
@@ -1323,7 +1323,7 @@ async fn resolve_global_alias() {
         client.peer_id
     );
 
-    let config = get_clock_config(2, 1, 0);
+    let config = make_clock_config(2, 1, 0);
     create_spell(&mut client, &script, config, json!({}), None).await;
 
     if let [JValue::String(resolved)] = client
@@ -1365,7 +1365,7 @@ async fn worker_sig_test() {
         client.peer_id
     );
 
-    let config = get_clock_config(2, 1, 0);
+    let config = make_clock_config(2, 1, 0);
     let (_, worker_id) = create_spell(&mut client, &script, config, json!({}), None).await;
 
     use serde_json::Value::Bool;
@@ -1403,7 +1403,7 @@ async fn spell_relay_id_test() {
         client.peer_id
     );
 
-    let config = get_clock_config(1, 1, 0);
+    let config = make_clock_config(1, 1, 0);
     create_spell(&mut client, &script, config, json!({}), None).await;
 
     if let [JValue::String(relay_id)] = client
@@ -1472,7 +1472,7 @@ async fn spell_install_root_scope() {
 
     let script = r#"(call %init_peer_id% ("getDataSrv" "spell_id") [] spell_id)"#;
 
-    let config = get_clock_config(0, 1, 0);
+    let config = make_clock_config(0, 1, 0);
 
     let data = hashmap! {
         "script" => json!(script.to_string()),
@@ -1565,7 +1565,7 @@ async fn create_remove_worker() {
         .unwrap();
 
     let script = r#"(call %init_peer_id% ("getDataSrv" "spell_id") [] spell_id)"#;
-    let config = get_clock_config(0, 1, 0);
+    let config = make_clock_config(0, 1, 0);
 
     let (spell_id, worker_id) = create_spell(&mut client, &script, config, json!({}), None).await;
     let service = create_service_worker(
@@ -1774,7 +1774,7 @@ async fn test_spell_list() {
 
     let script = r#"(call %init_peer_id% ("peer" "identify") [] x)"#;
 
-    let config = get_clock_config(0, 1, 0);
+    let config = make_clock_config(0, 1, 0);
     let (spell_id1, _worker_id1) = create_spell(
         &mut client,
         script,
