@@ -126,7 +126,7 @@ impl SpellStorage {
 
     pub fn register_spell(&self, worker_id: WorkerId, spell_id: String) {
         let mut spells = self.registered_spells.write();
-        spells.entry(worker_id).or_default().push(spell_id)
+        spells.entry(worker_id).or_default().push(spell_id);
     }
 
     pub fn unregister_spell(&self, worker_id: WorkerId, spell_id: &str) {
