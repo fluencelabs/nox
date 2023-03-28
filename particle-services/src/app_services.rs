@@ -73,7 +73,9 @@ pub struct Service {
 
 impl Service {
     pub fn remove_alias(&mut self, alias: &str) {
-        self.aliases.retain(|a| a.ne(alias));
+        if let Some(pos) = self.aliases.iter().position(|x| *x == alias) {
+            self.aliases.remove(pos);
+        }
     }
 
     pub fn add_alias(&mut self, alias: String) {
@@ -540,10 +542,6 @@ impl ParticleAppServices {
             });
         }
 
-        service.add_alias(alias.clone());
-
-        let persisted_new = PersistedService::from_service(service_id.clone(), service);
-
         // Find a service with the same alias if any
         let previous_owner_id: Option<_> = try {
             self.aliases
@@ -552,6 +550,15 @@ impl ParticleAppServices {
                 .get(&alias)
                 .cloned()?
         };
+
+        if Some(service_id.clone()) == previous_owner_id {
+            // service already has this alias
+            return Ok(());
+        }
+
+        service.add_alias(alias.clone());
+
+        let persisted_new = PersistedService::from_service(service_id.clone(), service);
 
         // If there is such a service remove the alias from its list of aliases
         let previous_owner = try {
@@ -1126,6 +1133,56 @@ mod tests {
         assert_eq!(persisted_service_1.aliases, Vec::<String>::new());
         // the second persisted service's alias list must contain the alias
         assert_eq!(persisted_service_2.aliases, vec![alias.to_string()]);
+    }
+
+    #[test]
+    fn test_add_alias_twice() {
+        let base_dir = TempDir::new("test4").unwrap();
+        let local_pid = create_pid();
+        let management_pid = create_pid();
+        let pas = create_pas(local_pid, management_pid, base_dir.into_path());
+
+        let module_name = "tetra".to_string();
+        let hash = upload_tetra_service(&pas, module_name.clone());
+
+        let service_id = create_service(&pas, module_name.clone(), &hash, local_pid).unwrap();
+
+        let alias = "alias";
+        // add an alias to a service
+        pas.add_alias(
+            alias.to_string(),
+            local_pid,
+            service_id.clone(),
+            management_pid,
+        )
+        .unwrap();
+        // give the alias to service again
+        pas.add_alias(
+            alias.to_string(),
+            local_pid,
+            service_id.clone(),
+            management_pid,
+        )
+        .unwrap();
+
+        let services = pas.services.read();
+        let service = services.get(&service_id).unwrap();
+
+        // the service's alias list must contain only 1 alias
+        assert_eq!(service.aliases, vec![alias.to_string()]);
+
+        let persisted_services: Vec<_> =
+            load_persisted_services(&pas.config.services_dir, local_pid)
+                .into_iter()
+                .collect::<Result<_, _>>()
+                .unwrap();
+        let persisted_service = persisted_services
+            .iter()
+            .find(|s| s.service_id == service_id)
+            .unwrap();
+
+        // the persisted service's alias list must contain only one alias
+        assert_eq!(persisted_service.aliases, vec![alias.to_string()]);
     }
 
     #[test]
