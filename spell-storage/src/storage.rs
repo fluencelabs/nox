@@ -130,10 +130,9 @@ impl SpellStorage {
     }
 
     pub fn unregister_spell(&self, worker_id: WorkerId, spell_id: &str) {
-        self.registered_spells
-            .write()
-            .get_mut(&worker_id)
-            .map(|lst| lst.retain(|a| a.ne(spell_id)));
+        if let Some(lst) = self.registered_spells.write().get_mut(&worker_id) {
+            lst.retain(|a| a.ne(spell_id));
+        }
     }
 }
 

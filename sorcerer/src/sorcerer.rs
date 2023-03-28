@@ -94,14 +94,14 @@ impl Sorcerer {
                 let result = process_func_outcome::<TriggerConfigValue>(
                     self.services.call_function(
                         spell_owner,
-                        &spell_id,
+                        spell_id,
                         "get_trigger_config",
                         vec![],
                         None,
                         spell_owner,
                         self.spell_script_particle_ttl,
                     ),
-                    &spell_id,
+                    spell_id,
                     "get_trigger_config",
                 )?;
                 let config = from_user_config(result.config)?;
