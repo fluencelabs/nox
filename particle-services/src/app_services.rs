@@ -551,8 +551,12 @@ impl ParticleAppServices {
                 .cloned()?
         };
 
-        if Some(service_id.clone()) == previous_owner_id {
-            // service already has this alias
+        let is_the_same_service = previous_owner_id
+            .clone()
+            .is_some_and(|id| id.eq(&service_id));
+
+        if is_the_same_service {
+            // service already has this alias, nothing to do
             return Ok(());
         }
 
