@@ -17,4 +17,4 @@ serde_json = { workspace = true }
 
 tokio = { workspace = true }
 parking_lot = { workspace = true }
-async-trait = { version = "0.1.64"}
+async-trait = { version = "0.1.68"}

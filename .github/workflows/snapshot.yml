@@ -29,7 +29,8 @@ jobs:
     uses: ./.github/workflows/build.yml
     with:
       ref: ${{ inputs.ref }}
-
+    name: "Build"
+ 
   container:
     needs: build
     uses: ./.github/workflows/container.yml

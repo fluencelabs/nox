@@ -64,6 +64,8 @@ jobs:
         uses: actions-rust-lang/setup-rust-toolchain@v1
 
       - name: Build particle-node
+        env:
+          RUSTFLAGS: "--cfg tokio_unstable"
         run: cargo build --release -p particle-node
 
       - name: Rename particle-node to rust-peer

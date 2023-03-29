@@ -24,7 +24,7 @@ key-manager = { workspace = true }
 
 libp2p = { workspace = true }
 avm-server = { workspace = true }
-multihash = "0.16.3"
+multihash = { workspace = true }
 fluence-keypair = { workspace = true }
 
 
@@ -42,7 +42,7 @@ itertools = { workspace = true }
 bytesize = "1.1.0"
 derivative = { workspace = true }
 fluence-app-service = { workspace = true }
-async-trait = { version = "0.1.64"}
+async-trait = { version = "0.1.68" }
 eyre = { workspace = true }
 
 [dev-dependencies]

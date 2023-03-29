@@ -8,7 +8,7 @@ on:
 env:
   CARGO_INCREMENTAL: 0
   CARGO_NET_RETRY: 2
-  RUSTFLAGS: ""
+  RUSTFLAGS: "--cfg tokio_unstable"
   RUSTUP_MAX_RETRIES: 10
 
 jobs:

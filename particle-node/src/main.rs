@@ -58,8 +58,8 @@ static ALLOC: dhat::Alloc = dhat::Alloc;
 async fn main() -> eyre::Result<()> {
     #[cfg(feature = "dhat-heap")]
     let _profiler = dhat::Profiler::new_heap();
-    // TODO: maybe set log level via flag?
-    if let Ok(_) = std::env::var("TOKIO_CONSOLE_ENABLED") {
+
+    if std::env::var("TOKIO_CONSOLE_ENABLED").is_ok() {
         console_subscriber::init();
     }
 
@@ -67,7 +67,21 @@ async fn main() -> eyre::Result<()> {
         .format_timestamp_micros()
         // Disable most spamming modules
         .filter_module("cranelift_codegen", LevelFilter::Off)
-        .filter_module("wasmer_wasi_fl", LevelFilter::Off)
+        .filter_module("walrus", LevelFilter::Off)
+        .filter_module("polling", LevelFilter::Off)
+        .filter_module("wasmer_wasi_fl", LevelFilter::Error)
+        .filter_module("wasmer_interface_types_fl", LevelFilter::Error)
+        .filter_module("wasmer_wasi", LevelFilter::Error)
+        .filter_module("tide", LevelFilter::Error)
+        .filter_module("tokio_threadpool", LevelFilter::Error)
+        .filter_module("tokio_reactor", LevelFilter::Error)
+        .filter_module("mio", LevelFilter::Error)
+        .filter_module("tokio_io", LevelFilter::Error)
+        .filter_module("soketto", LevelFilter::Error)
+        .filter_module("cranelift_codegen", LevelFilter::Error)
+        .filter_module("async_io", LevelFilter::Error)
+        .filter_module("tracing", LevelFilter::Error)
+        .filter_module("avm_server::runner", LevelFilter::Error)
         .init();
 
     let version = format!("{}; AIR version {}", VERSION, air_interpreter_wasm::VERSION);
