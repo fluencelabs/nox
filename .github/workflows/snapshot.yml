@@ -1,10 +1,11 @@
-name: Publish snapshot
+# Compatibility workflow
+name: "Publish snapshot"
 
 on:
   workflow_call:
     inputs:
       ref:
-        description: "GitHub ref to checkout to"
+        description: "git ref to checkout to"
         type: string
         default: "master"
       image-name:
@@ -14,6 +15,7 @@ on:
       cargo-dependencies:
         description: "Cargo dependencies map"
         type: string
+        default: "null"
     outputs:
       rust-peer-image:
         description: "rust-peer snapshot image"
@@ -24,76 +26,11 @@ on:
 
 jobs:
   build:
+    uses: ./.github/workflows/build.yml
+    with:
+      ref: ${{ inputs.ref }}
     name: "Build"
-    runs-on: builder
-    timeout-minutes: 60
-
-    outputs:
-      sha256: "${{ steps.sha.outputs.sha256 }}"
-
-    steps:
-      - name: Checkout rust-peer
-        uses: actions/checkout@v3
-        with:
-          repository: fluencelabs/rust-peer
-          ref: ${{ inputs.ref }}
-
-      - name: Get PR labels
-        id: labels
-        uses: joerick/pr-labels-action@v1.0.8
-
-      - name: Setup Rust toolchain
-        uses: actions-rust-lang/setup-rust-toolchain@v1
-
-      - name: Set profile
-        id: profile
-        run: |
-          if [[ -n "$GITHUB_PR_LABEL_PROFILING" ]]; then
-            echo "profile=profiling" >> $GITHUB_OUTPUT
-            echo "flags=--profile=profiling --features particle-node/dhat-heap" >> $GITHUB_OUTPUT
-          else
-            echo "profile=release" >> $GITHUB_OUTPUT
-            echo "flags=--profile=release" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Set dependencies
-        if: inputs.cargo-dependencies != ''
-        uses: fluencelabs/github-actions/cargo-set-dependency@main
-        with:
-          dependencies: ${{ inputs.cargo-dependencies }}
-
-      - name: Generate snapshot version
-        id: version
-        uses: fluencelabs/github-actions/generate-snapshot-id@main
-
-      - name: Set version
-        id: snapshot
-        uses: fluencelabs/github-actions/cargo-publish-snapshot@main
-        with:
-          id: ${{ steps.version.outputs.id }}
-          publish: false
-
-      - name: Run cargo build
-        env:
-          RUSTFLAGS: "--cfg tokio_unstable"
-        run: cargo build ${{ steps.profile.outputs.flags }} -p particle-node
-
-      - name: Calculate SHA256
-        id: sha
-        working-directory: ./target/${{ steps.profile.outputs.profile }}
-        run: |
-          # Calculate sha256
-          du -hs particle-node
-          sha256sum particle-node
-          sha=($(sha256sum particle-node))
-          echo "sha256=${sha}" >> $GITHUB_OUTPUT
-
-      - name: Upload rust-peer binary
-        uses: actions/upload-artifact@v3
-        with:
-          name: rust-peer
-          path: target/${{ steps.profile.outputs.profile }}/particle-node
-
+ 
   container:
     needs: build
     uses: ./.github/workflows/container.yml
