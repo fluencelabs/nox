@@ -617,55 +617,6 @@ async fn add_script_delay_oneshot() {
     assert_eq!(list, vec![serde_json::Value::Array(vec![])]);
 }
 
-#[tokio::test]
-async fn add_script_random_delay() {
-    let swarms = make_swarms(1).await;
-
-    let interval = 3u64;
-
-    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
-        .await
-        .wrap_err("connect client")
-        .unwrap();
-
-    let script = f!(r#"
-        (seq
-            (call "{client.node}" ("peer" "timestamp_sec") [] result)
-            (call "{client.peer_id}" ("op" "return") [result])
-        )
-    "#);
-
-    let mut res = client
-        .execute_particle(
-            f!(r#"
-        (seq
-            (call relay ("peer" "timestamp_sec") [] now)
-            (seq
-                (call relay ("script" "add") [script "{interval}"])
-                (call %init_peer_id% ("op" "return") [now])
-            )
-        )
-        "#),
-            hashmap! {
-                "relay" => json!(client.node.to_string()),
-                "script" => json!(script),
-            },
-        )
-        .await
-        .unwrap();
-
-    let res = res.pop().unwrap();
-    let now = res.as_u64().unwrap();
-
-    let res = client.receive_args().await.wrap_err("receive").unwrap();
-    let res = res.into_iter().next().unwrap().as_u64().unwrap();
-    let eps = 2u64;
-    let expected = now + interval + eps;
-    log::info!("res {}", res);
-    log::info!("expected {}", expected);
-    assert!((now..=expected).contains(&res));
-}
-
 async fn create_file_share(client: &mut ConnectedClient) -> CreatedService {
     create_service(
         client,

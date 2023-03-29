@@ -119,6 +119,7 @@ where
             vault_dir,
             config.max_heap_size,
             config.default_heap_size,
+            config.allowed_binaries.clone(),
         );
         let particles_vault_dir = vault_dir.to_path_buf();
         let management_peer_id = config.management_peer_id;
