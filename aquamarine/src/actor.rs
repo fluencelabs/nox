@@ -123,7 +123,11 @@ where
 
             let waker = cx.waker().clone();
             // Schedule execution of functions
-            self.functions.execute(r.effects.call_requests, waker);
+            self.functions.execute(
+                r.effects.particle.id.clone(),
+                r.effects.call_requests,
+                waker,
+            );
 
             let effects = RoutingEffects {
                 particle: r.effects.particle,
