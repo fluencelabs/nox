@@ -40,7 +40,6 @@ jobs:
       - uses: taiki-e/install-action@nextest
 
       - name: Run cargo nextest
-        env:
         run: cargo nextest run --release --all-features --profile ci
 
       - name: Upload test report
@@ -56,4 +55,3 @@ jobs:
 
       - name: Run cargo clippy
         run: cargo clippy -Z unstable-options --all
-
