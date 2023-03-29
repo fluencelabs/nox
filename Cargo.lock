@@ -4406,6 +4406,7 @@ dependencies = [
  "eyre",
  "fluence-keypair",
  "fluence-libp2p",
+ "fluence-spell-distro",
  "fs-utils",
  "fstrings",
  "futures",

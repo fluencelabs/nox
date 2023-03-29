@@ -327,6 +327,12 @@ impl<RT: AquaRuntime> Node<RT> {
             external_addresses,
             node_version: env!("CARGO_PKG_VERSION"),
             air_version: air_interpreter_wasm::VERSION,
+            spell_version: fluence_spell_distro::VERSION,
+            allowed_binaries: services_config
+                .allowed_binaries
+                .iter()
+                .map(|s| s.to_string_lossy().to_string())
+                .collect::<_>(),
         };
 
         Builtins::new(
