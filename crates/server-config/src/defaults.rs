@@ -204,3 +204,7 @@ pub fn default_module_max_heap_size() -> bytesize::ByteSize {
 pub fn default_max_builtin_metrics_storage_size() -> usize {
     5
 }
+
+pub fn default_allowed_binaries() -> Vec<String> {
+    vec!["/usr/bin/curl".to_string(), "/usr/bin/ipfs".to_string()]
+}

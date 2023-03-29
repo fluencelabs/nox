@@ -179,6 +179,8 @@ pub enum ModuleError {
         max_heap_size_wanted: u64,
         max_heap_size_allowed: u64,
     },
+    #[error("Config error: requested mounted binary {forbidden_path} is forbidden on this host")]
+    ForbiddenMountedBinary { forbidden_path: String },
 }
 
 impl From<ModuleError> for JValue {
