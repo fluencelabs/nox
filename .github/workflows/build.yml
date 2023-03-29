@@ -1,5 +1,4 @@
-# Compatibility workflow
-name: "Publish snapshot"
+name: "Build rust-peer binary"
 
 on:
   workflow_call:
@@ -8,18 +7,11 @@ on:
         description: "git ref to checkout to"
         type: string
         default: "master"
-      image-name:
-        description: "Docker image name"
-        type: string
-        default: "docker.fluence.dev/rust-peer"
       cargo-dependencies:
         description: "Cargo dependencies map"
         type: string
         default: "null"
     outputs:
-      rust-peer-image:
-        description: "rust-peer snapshot image"
-        value: ${{ jobs.container.outputs.rust-peer-image }}
       rust-peer-sha:
         description: "rust-peer sha256 hash"
         value: ${{ jobs.build.outputs.sha256 }}
@@ -43,12 +35,12 @@ jobs:
           repository: fluencelabs/rust-peer
           ref: ${{ inputs.ref }}
 
+      - name: Setup Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+
       - name: Get PR labels
         id: labels
         uses: joerick/pr-labels-action@v1.0.7
-
-      - name: Setup Rust toolchain
-        uses: actions-rust-lang/setup-rust-toolchain@v1
 
       - name: Set profile
         id: profile
@@ -96,11 +88,3 @@ jobs:
         with:
           name: rust-peer
           path: target/${{ steps.profile.outputs.profile }}/particle-node
-
-  container:
-    needs: build
-    uses: ./.github/workflows/container.yml
-    with:
-      image-name: "docker.fluence.dev/rust-peer"
-      flavour: "minimal"
-      rust-peer-sha: "${{ needs.build.outputs.sha256 }}"

@@ -3,10 +3,25 @@ name: "e2e"
 on:
   pull_request:
     paths-ignore:
-      - "!**.md"
+      - "**.md"
+      - ".github/**"
+      - "!.github/workflows/e2e.yml"
+      - "!.github/workflows/snapshot.yml"
+      - "!.github/workflows/container.yml"
+    types:
+      - "labeled"
+      - "synchronize"
+      - "opened"
+      - "reopened"
   push:
     branches:
       - "master"
+    paths-ignore:
+      - "**.md"
+      - ".github/**"
+      - "!.github/workflows/e2e.yml"
+      - "!.github/workflows/snapshot.yml"
+      - "!.github/workflows/container.yml"
 
 concurrency:
   group: "${{ github.workflow }}-${{ github.ref }}"
@@ -14,16 +29,22 @@ concurrency:
 
 jobs:
   rust-peer:
-    uses: ./.github/workflows/snapshot.yml
+    if: >
+      # runs when even is push to master
+      github.event_name == 'push' ||
+      (
+        # or when triggered by PR with that has label 'e2e'
+        contains(github.event.pull_request.labels.*.name, 'e2e') &&
+        # and is not from fork
+        !github.event.pull_request.head.repo.fork
+      )
+    uses: ./.github/workflows/build.yml
     with:
-      image-name: "docker.fluence.dev/rust-peer"
       ref: ${{ github.ref }}
 
   rust-peer-flavours:
     name: "rust-peer"
-
     needs: rust-peer
-
     strategy:
       matrix:
         flavour:
@@ -36,37 +57,61 @@ jobs:
       flavour: "${{ matrix.flavour }}"
       rust-peer-sha: "${{ needs.rust-peer.outputs.rust-peer-sha }}"
 
+  rust-peer-flavours:
+    name: "rust-peer"
+    needs: rust-peer
+    strategy:
+      matrix:
+        flavour:
+          - ipfs
+          - rich
+
+    uses: ./.github/workflows/container.yml
+    with:
+      image-name: "docker.fluence.dev/rust-peer"
+      flavour: "${{ matrix.flavour }}"
+      rust-peer-sha: "${{ needs.rust-peer.outputs.rust-peer-sha }}"
+
+  rust-peer-snapshot:
+    name: "rust-peer"
+    needs: rust-peer
+    uses: ./.github/workflows/container.yml
+    with:
+      image-name: "docker.fluence.dev/rust-peer"
+      flavour: "minimal"
+      rust-peer-sha: "${{ needs.rust-peer.outputs.rust-peer-sha }}"
+
   js-client:
     needs:
-      - rust-peer
+      - rust-peer-snapshot
     uses: fluencelabs/js-client/.github/workflows/tests.yml@master
     with:
-      rust-peer-image: "${{ needs.rust-peer.outputs.rust-peer-image }}"
+      rust-peer-image: "${{ needs.rust-peer-snapshot.outputs.rust-peer-image }}"
 
   aqua-playground:
     needs:
-      - rust-peer
+      - rust-peer-snapshot
     uses: fluencelabs/aqua-playground/.github/workflows/tests.yml@master
     with:
-      rust-peer-image: "${{ needs.rust-peer.outputs.rust-peer-image }}"
+      rust-peer-image: "${{ needs.rust-peer-snapshot.outputs.rust-peer-image }}"
 
   registry:
     needs:
-      - rust-peer
+      - rust-peer-snapshot
     uses: fluencelabs/registry/.github/workflows/tests.yml@main
     with:
-      rust-peer-image: "${{ needs.rust-peer.outputs.rust-peer-image }}"
+      rust-peer-image: "${{ needs.rust-peer-snapshot.outputs.rust-peer-image }}"
 
   fluence-cli:
     needs:
-      - rust-peer
+      - rust-peer-snapshot
     uses: fluencelabs/fluence-cli/.github/workflows/tests.yml@main
     with:
-      rust-peer-image: "${{ needs.rust-peer.outputs.rust-peer-image }}"
+      rust-peer-image: "${{ needs.rust-peer-snapshot.outputs.rust-peer-image }}"
 
   status:
+    name: "e2e status"
     runs-on: ubuntu-latest
-    if: always()
     needs:
       - fluence-cli
       - registry
