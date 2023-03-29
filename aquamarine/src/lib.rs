@@ -48,6 +48,7 @@ mod config;
 mod deadline;
 mod error;
 mod invoke;
+mod log;
 mod particle_data_store;
 mod particle_effects;
 mod particle_executor;
