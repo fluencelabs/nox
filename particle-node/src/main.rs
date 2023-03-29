@@ -80,6 +80,8 @@ async fn main() -> eyre::Result<()> {
         .filter_module("soketto", LevelFilter::Error)
         .filter_module("cranelift_codegen", LevelFilter::Error)
         .filter_module("async_io", LevelFilter::Error)
+        .filter_module("tracing", LevelFilter::Error)
+        .filter_module("avm_server::runner", LevelFilter::Error)
         .init();
 
     let version = format!("{}; AIR version {}", VERSION, air_interpreter_wasm::VERSION);
