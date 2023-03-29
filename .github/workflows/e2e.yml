@@ -30,12 +30,9 @@ concurrency:
 jobs:
   rust-peer:
     if: >
-      # runs when even is push to master
       github.event_name == 'push' ||
       (
-        # or when triggered by PR with that has label 'e2e'
         contains(github.event.pull_request.labels.*.name, 'e2e') &&
-        # and is not from fork
         !github.event.pull_request.head.repo.fork
       )
     uses: ./.github/workflows/build.yml
