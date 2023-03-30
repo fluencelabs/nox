@@ -7,6 +7,7 @@ use eyre::eyre;
 use eyre::WrapErr;
 use fluence_app_service::TomlMarineConfig;
 use fluence_libp2p::PeerId;
+use itertools::Itertools;
 use parking_lot::RwLock;
 
 use particle_modules::{load_module_by_path, AddBlueprint, ModuleRepository};
@@ -14,6 +15,7 @@ use particle_services::ParticleAppServices;
 use service_modules::{module_file_name, Dependency};
 
 type WorkerId = PeerId;
+type SpellId = String;
 
 #[derive(Derivative)]
 #[derivative(Debug, Clone)]
@@ -21,7 +23,7 @@ pub struct SpellStorage {
     // The blueprint for the latest spell service.
     spell_blueprint_id: String,
     // All currently existing spells
-    registered_spells: Arc<RwLock<HashMap<String, WorkerId>>>,
+    registered_spells: Arc<RwLock<HashMap<WorkerId, Vec<SpellId>>>>,
 }
 
 impl SpellStorage {
@@ -96,7 +98,7 @@ impl SpellStorage {
     fn restore_spells(
         services: &ParticleAppServices,
         modules: &ModuleRepository,
-    ) -> HashMap<String, WorkerId> {
+    ) -> HashMap<WorkerId, Vec<SpellId>> {
         // Find blueprint ids of the already existing spells. They might be of older versions of the spell service.
         // These blueprint ids marked with name "spell" to differ from other blueprints.
         let all_spell_blueprint_ids = modules
@@ -110,11 +112,11 @@ impl SpellStorage {
             .list_services_with_info()
             .into_iter()
             .filter(|s| all_spell_blueprint_ids.contains(&s.blueprint_id))
-            .map(|s| (s.id, s.worker_id))
-            .collect::<_>()
+            .map(|s| (s.worker_id, s.id))
+            .into_group_map()
     }
 
-    pub fn get_registered_spells(&self) -> HashMap<String, WorkerId> {
+    pub fn get_registered_spells(&self) -> HashMap<WorkerId, Vec<SpellId>> {
         self.registered_spells.read().clone()
     }
 
@@ -122,13 +124,15 @@ impl SpellStorage {
         self.spell_blueprint_id.clone()
     }
 
-    pub fn register_spell(&self, spell_id: String, worker_id: WorkerId) {
+    pub fn register_spell(&self, worker_id: WorkerId, spell_id: String) {
         let mut spells = self.registered_spells.write();
-        spells.insert(spell_id, worker_id);
+        spells.entry(worker_id).or_default().push(spell_id);
     }
 
-    pub fn unregister_spell(&self, spell_id: &str) {
-        self.registered_spells.write().remove(spell_id);
+    pub fn unregister_spell(&self, worker_id: WorkerId, spell_id: &str) {
+        if let Some(spells) = self.registered_spells.write().get_mut(&worker_id) {
+            spells.retain(|sp_id| sp_id.ne(spell_id));
+        }
     }
 }
 

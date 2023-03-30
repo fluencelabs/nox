@@ -44,7 +44,7 @@ pub(crate) async fn remove_spell(
         )));
     }
 
-    spell_storage.unregister_spell(&spell_id);
+    spell_storage.unregister_spell(worker_id, &spell_id);
     services.remove_service(worker_id, spell_id, worker_id, true)?;
     Ok(())
 }
@@ -79,7 +79,7 @@ pub(crate) async fn spell_install(
     }
 
     let spell_id = services.create_service(spell_storage.get_blueprint(), worker_id, worker_id)?;
-    spell_storage.register_spell(spell_id.clone(), worker_id);
+    spell_storage.register_spell(worker_id, spell_id.clone());
 
     // TODO: refactor these service calls
     // Save the script to the spell
@@ -135,7 +135,7 @@ pub(crate) async fn spell_install(
         {
             log::warn!("can't subscribe a spell {} to triggers {:?} via spell-event-bus-api: {}. Removing created spell service...", spell_id, config, err);
 
-            spell_storage.unregister_spell(&spell_id);
+            spell_storage.unregister_spell(worker_id, &spell_id);
             services.remove_service(params.host_id, spell_id, params.init_peer_id, true)?;
 
             return Err(JError::new(format!(
@@ -153,11 +153,17 @@ pub(crate) async fn spell_install(
     Ok(JValue::String(spell_id))
 }
 
-pub(crate) fn spell_list(spell_storage: SpellStorage) -> Result<JValue, JError> {
+pub(crate) fn spell_list(
+    params: ParticleParams,
+    spell_storage: SpellStorage,
+) -> Result<JValue, JError> {
     Ok(Array(
         spell_storage
             .get_registered_spells()
-            .into_keys()
+            .get(&params.host_id)
+            .cloned()
+            .unwrap_or_default()
+            .into_iter()
             .map(JValue::String)
             .collect(),
     ))

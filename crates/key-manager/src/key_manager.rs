@@ -171,6 +171,10 @@ impl KeyManager {
             .ok_or(WorkerNotFoundByDeal(deal_id))
     }
 
+    pub fn list_workers(&self) -> Vec<WorkerId> {
+        self.worker_infos.read().keys().cloned().collect()
+    }
+
     pub fn get_deal_id(&self, worker_id: PeerId) -> Result<DealId, KeyManagerError> {
         self.worker_infos
             .read()
