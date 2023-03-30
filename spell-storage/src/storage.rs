@@ -29,9 +29,9 @@ impl SpellStorage {
         spells_base_dir: &Path,
         services: &ParticleAppServices,
         modules: &ModuleRepository,
-    ) -> eyre::Result<Self> {
+    ) -> eyre::Result<(Self, String)> {
         let spell_config_path = spell_config_path(spells_base_dir);
-        let spell_blueprint_id = if spell_config_path.exists() {
+        let (spell_blueprint_id, spell_version) = if spell_config_path.exists() {
             let cfg = TomlMarineConfig::load(spell_config_path)?;
             Self::load_spell_service(cfg, spells_base_dir, modules)?
         } else {
@@ -39,13 +39,16 @@ impl SpellStorage {
         };
         let registered_spells = Self::restore_spells(services, modules);
 
-        Ok(Self {
-            spell_blueprint_id,
-            registered_spells: Arc::new(RwLock::new(registered_spells)),
-        })
+        Ok((
+            Self {
+                spell_blueprint_id,
+                registered_spells: Arc::new(RwLock::new(registered_spells)),
+            },
+            spell_version,
+        ))
     }
 
-    fn load_spell_service_from_crate(modules: &ModuleRepository) -> eyre::Result<String> {
+    fn load_spell_service_from_crate(modules: &ModuleRepository) -> eyre::Result<(String, String)> {
         use fluence_spell_distro::{modules as spell_modules, CONFIG};
 
         log::info!(
@@ -68,15 +71,19 @@ impl SpellStorage {
             hashes.push(Dependency::Hash(hash))
         }
 
-        Ok(modules.add_blueprint(AddBlueprint::new("spell".to_string(), hashes))?)
+        Ok((
+            modules.add_blueprint(AddBlueprint::new("spell".to_string(), hashes))?,
+            fluence_spell_distro::VERSION.to_string(),
+        ))
     }
 
     fn load_spell_service(
         cfg: TomlMarineConfig,
         spells_base_dir: &Path,
         modules: &ModuleRepository,
-    ) -> eyre::Result<String> {
+    ) -> eyre::Result<(String, String)> {
         let mut hashes = Vec::new();
+        let mut versions = Vec::new();
         for config in cfg.module {
             let load_from = config
                 .load_from
@@ -87,10 +94,16 @@ impl SpellStorage {
             let module_path = spells_base_dir.join(load_from);
             let module = load_module_by_path(module_path.as_ref())?;
             let hash = modules.add_module(module, config)?;
+            let hex = hash.to_hex();
+            let hex = hex.as_ref();
+            versions.push(String::from(&hex[..8]));
             hashes.push(Dependency::Hash(hash));
         }
-
-        Ok(modules.add_blueprint(AddBlueprint::new("spell".to_string(), hashes))?)
+        let spell_disk_version = format!("wasm hashes {}", versions.join(" "));
+        Ok((
+            modules.add_blueprint(AddBlueprint::new("spell".to_string(), hashes))?,
+            spell_disk_version,
+        ))
     }
 
     fn restore_spells(

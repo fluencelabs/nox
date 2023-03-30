@@ -191,9 +191,14 @@ impl<RT: AquaRuntime> Node<RT> {
                 )
             };
 
+        let allowed_binaries = services_config
+            .allowed_binaries
+            .iter()
+            .map(|s| s.to_string_lossy().to_string())
+            .collect::<_>();
+
         let builtins = Arc::new(Self::builtins(
             connectivity.clone(),
-            config.external_addresses(),
             services_config,
             script_storage_api,
             services_metrics,
@@ -243,6 +248,13 @@ impl<RT: AquaRuntime> Node<RT> {
         let (spell_event_bus, spell_event_bus_api, spell_events_receiver) =
             SpellEventBus::new(sources);
 
+        let initial_node_info = NodeInfo {
+            external_addresses: config.external_addresses(),
+            node_version: env!("CARGO_PKG_VERSION"),
+            air_version: air_interpreter_wasm::VERSION,
+            spell_version: fluence_spell_distro::VERSION.to_string(),
+            allowed_binaries,
+        };
         let (sorcerer, spell_service_functions) = Sorcerer::new(
             builtins.services.clone(),
             builtins.modules.clone(),
@@ -250,6 +262,7 @@ impl<RT: AquaRuntime> Node<RT> {
             config.clone(),
             spell_event_bus_api,
             key_manager.clone(),
+            initial_node_info,
         );
 
         spell_service_functions.into_iter().for_each(
@@ -317,28 +330,14 @@ impl<RT: AquaRuntime> Node<RT> {
 
     pub fn builtins(
         connectivity: Connectivity,
-        external_addresses: Vec<Multiaddr>,
         services_config: ServicesConfig,
         script_storage_api: ScriptStorageApi,
         services_metrics: ServicesMetrics,
         key_manager: KeyManager,
     ) -> Builtins<Connectivity> {
-        let node_info = NodeInfo {
-            external_addresses,
-            node_version: env!("CARGO_PKG_VERSION"),
-            air_version: air_interpreter_wasm::VERSION,
-            spell_version: fluence_spell_distro::VERSION,
-            allowed_binaries: services_config
-                .allowed_binaries
-                .iter()
-                .map(|s| s.to_string_lossy().to_string())
-                .collect::<_>(),
-        };
-
         Builtins::new(
             connectivity,
             script_storage_api,
-            node_info,
             services_config,
             services_metrics,
             key_manager,
