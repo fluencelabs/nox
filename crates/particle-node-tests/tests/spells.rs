@@ -450,7 +450,7 @@ async fn spell_install_fail_end_sec_past() {
     let empty: HashMap<String, String> = HashMap::new();
 
     // Note that when period is 0, the spell is executed only once
-    let mut config = make_clock_config(0, 10, 1);
+    let config = make_clock_config(0, 10, 1);
 
     let data = hashmap! {
         "script" => json!(script.to_string()),
@@ -538,7 +538,7 @@ async fn spell_store_trigger_config() {
         .unwrap();
 
     let script = r#"(call %init_peer_id% ("peer" "identify") [] x)"#;
-    let mut config = make_clock_config(13, 10, 0);
+    let config = make_clock_config(13, 10, 0);
 
     let (spell_id, worker_id) =
         create_spell(&mut client, script, config.clone(), json!({}), None).await;
