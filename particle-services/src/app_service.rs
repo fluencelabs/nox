@@ -34,33 +34,27 @@ pub fn create_app_service(
     service_id: String,
     metrics: Option<&ServicesMetrics>,
 ) -> Result<AppService> {
-    try {
-        let mut modules_config = modules.resolve_blueprint(&blueprint_id)?;
-        modules_config
-            .iter_mut()
-            .for_each(|module| inject_vault(&config.particles_vault_dir, module));
+    let mut modules_config = modules.resolve_blueprint(&blueprint_id)?;
+    modules_config
+        .iter_mut()
+        .for_each(|module| inject_vault(&config.particles_vault_dir, module));
 
-        if let Some(metrics) = metrics.as_ref() {
-            metrics.observe_service_config(config.max_heap_size.as_u64(), &modules_config);
-        }
-
-        let modules = AppServiceConfig {
-            service_working_dir: config.workdir.join(&service_id),
-            service_base_dir: config.workdir,
-            marine_config: MarineConfig {
-                modules_dir: Some(config.modules_dir),
-                modules_config,
-                default_modules_config: None,
-            },
-        };
-
-        log::debug!("Creating service {}, envs: {:?}", service_id, config.envs);
-
-        let service =
-            AppService::new(modules, service_id, config.envs).map_err(ServiceError::Engine)?;
-
-        service
+    if let Some(metrics) = metrics.as_ref() {
+        metrics.observe_service_config(config.max_heap_size.as_u64(), &modules_config);
     }
+
+    let modules = AppServiceConfig {
+        service_working_dir: config.workdir.join(&service_id),
+        service_base_dir: config.workdir,
+        marine_config: MarineConfig {
+            modules_dir: Some(config.modules_dir),
+            modules_config,
+            default_modules_config: None,
+        },
+    };
+
+    log::debug!("Creating service {}, envs: {:?}", service_id, config.envs);
+    AppService::new(modules, service_id, config.envs).map_err(ServiceError::Engine)
 }
 
 /// Map `vault_dir` to `/tmp/vault` inside the service.
