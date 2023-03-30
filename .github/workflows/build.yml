@@ -28,6 +28,15 @@ jobs:
     outputs:
       sha256: "${{ steps.sha.outputs.sha256 }}"
 
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86_64
+          - arch: aarch64
+    container:
+      image: messense/rust-musl-cross:${{ matrix.arch }}-musl
+
     steps:
       - name: Checkout rust-peer
         uses: actions/checkout@v3
@@ -86,5 +95,5 @@ jobs:
       - name: Upload rust-peer binary
         uses: actions/upload-artifact@v3
         with:
-          name: rust-peer
+          name: rust-peer-${{ arch }}
           path: target/${{ steps.profile.outputs.profile }}/particle-node
