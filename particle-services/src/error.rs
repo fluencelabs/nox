@@ -45,6 +45,10 @@ pub enum ServiceError {
         function: &'static str,
         reason: &'static str,
     },
+    #[error("Forbidden. User id '{0}' cannot call function 'add_alias': only management peer id can add top-level aliases")]
+    ForbiddenAliasRoot(PeerId),
+    #[error("Forbidden. User id '{0}' cannot call function 'add_alias': only worker and management peer id can add worker-level aliases")]
+    ForbiddenAliasWorker(PeerId),
     #[error("Cannot add alias '{0}' because there is a service with that id")]
     AliasAsServiceId(String),
     #[error(

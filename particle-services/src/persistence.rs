@@ -47,30 +47,14 @@ pub struct PersistedService {
 }
 
 impl PersistedService {
-    pub fn new(
-        service_id: String,
-        blueprint_id: String,
-        aliases: Vec<String>,
-        owner_id: PeerId,
-        worker_id: PeerId,
-    ) -> Self {
-        Self {
-            service_id,
-            blueprint_id,
-            aliases,
-            owner_id,
-            worker_id: Some(worker_id),
+    pub fn from_service(service: &Service) -> Self {
+        PersistedService {
+            service_id: service.service_id.clone(),
+            blueprint_id: service.blueprint_id.clone(),
+            aliases: service.aliases.clone(),
+            owner_id: service.owner_id,
+            worker_id: Some(service.worker_id),
         }
-    }
-
-    pub fn from_service(service_id: String, service: &Service) -> Self {
-        PersistedService::new(
-            service_id,
-            service.blueprint_id.clone(),
-            service.aliases.clone(),
-            service.owner_id,
-            service.worker_id,
-        )
     }
 }
 

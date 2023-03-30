@@ -15,13 +15,12 @@
  */
 
 use crate::error::ServiceError;
-use crate::persistence::{persist_service, PersistedService};
 use crate::{Result, VIRTUAL_PARTICLE_VAULT_PREFIX};
 
 use fluence_app_service::{
     AppService, AppServiceConfig, MarineConfig, MarineWASIConfig, ModuleDescriptor,
 };
-use fluence_libp2p::PeerId;
+
 use particle_modules::ModuleRepository;
 use peer_metrics::ServicesMetrics;
 use server_config::ServicesConfig;
@@ -34,9 +33,7 @@ pub fn create_app_service(
     modules: &ModuleRepository,
     blueprint_id: String,
     service_id: String,
-    aliases: Vec<String>,
-    owner_id: PeerId,
-    worker_id: PeerId,
+
     metrics: Option<&ServicesMetrics>,
 ) -> Result<AppService> {
     try {
@@ -63,11 +60,6 @@ pub fn create_app_service(
 
         let service = AppService::new(modules, service_id.clone(), config.envs)
             .map_err(ServiceError::Engine)?;
-
-        // Save created service to disk, so it is recreated on restart
-        let persisted =
-            PersistedService::new(service_id, blueprint_id, aliases, owner_id, worker_id);
-        persist_service(&config.services_dir, persisted)?;
 
         service
     }
