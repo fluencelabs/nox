@@ -8,6 +8,7 @@ on:
       - "!.github/workflows/e2e.yml"
       - "!.github/workflows/snapshot.yml"
       - "!.github/workflows/container.yml"
+      - "!.github/workflows/build.yml"
     types:
       - "labeled"
       - "synchronize"
@@ -22,6 +23,7 @@ on:
       - "!.github/workflows/e2e.yml"
       - "!.github/workflows/snapshot.yml"
       - "!.github/workflows/container.yml"
+      - "!.github/workflows/build.yml"
 
 concurrency:
   group: "${{ github.workflow }}-${{ github.ref }}"
