@@ -16,7 +16,6 @@
 
 use crate::error::ServiceError;
 use crate::{Result, VIRTUAL_PARTICLE_VAULT_PREFIX};
-
 use fluence_app_service::{
     AppService, AppServiceConfig, MarineConfig, MarineWASIConfig, ModuleDescriptor,
 };
