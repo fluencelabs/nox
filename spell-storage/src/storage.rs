@@ -30,7 +30,6 @@ impl SpellStorage {
         services: &ParticleAppServices,
         modules: &ModuleRepository,
     ) -> eyre::Result<Self> {
-        log::info!("creating spell storage");
         let spell_config_path = spell_config_path(spells_base_dir);
         let spell_blueprint_id = if spell_config_path.exists() {
             let cfg = TomlMarineConfig::load(spell_config_path)?;
@@ -48,7 +47,6 @@ impl SpellStorage {
 
     fn load_spell_service_from_crate(modules: &ModuleRepository) -> eyre::Result<String> {
         use fluence_spell_distro::{modules as spell_modules, CONFIG};
-        log::info!("load from crate");
 
         log::info!(
             "Spell service impl version: {}",
@@ -78,7 +76,6 @@ impl SpellStorage {
         spells_base_dir: &Path,
         modules: &ModuleRepository,
     ) -> eyre::Result<String> {
-        log::info!("load from disk");
         let mut hashes = Vec::new();
         for config in cfg.module {
             let load_from = config
