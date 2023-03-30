@@ -16,10 +16,10 @@
 
 use crate::error::ServiceError;
 use crate::{Result, VIRTUAL_PARTICLE_VAULT_PREFIX};
+
 use fluence_app_service::{
     AppService, AppServiceConfig, MarineConfig, MarineWASIConfig, ModuleDescriptor,
 };
-
 use particle_modules::ModuleRepository;
 use peer_metrics::ServicesMetrics;
 use server_config::ServicesConfig;
@@ -32,7 +32,6 @@ pub fn create_app_service(
     modules: &ModuleRepository,
     blueprint_id: String,
     service_id: String,
-
     metrics: Option<&ServicesMetrics>,
 ) -> Result<AppService> {
     try {
@@ -57,8 +56,8 @@ pub fn create_app_service(
 
         log::debug!("Creating service {}, envs: {:?}", service_id, config.envs);
 
-        let service = AppService::new(modules, service_id.clone(), config.envs)
-            .map_err(ServiceError::Engine)?;
+        let service =
+            AppService::new(modules, service_id, config.envs).map_err(ServiceError::Engine)?;
 
         service
     }

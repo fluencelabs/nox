@@ -31,7 +31,7 @@ use fluence_libp2p::{peerid_serializer, PeerId};
 use now_millis::now_ms;
 use particle_args::{Args, JError};
 use particle_execution::{FunctionOutcome, ParticleParams, ParticleVault, VaultError};
-use particle_modules::{ModuleError, ModuleRepository};
+use particle_modules::ModuleRepository;
 use peer_metrics::{
     ServiceCallStats, ServiceMemoryStat, ServiceType, ServicesMetrics, ServicesMetricsBuiltin,
 };
@@ -92,7 +92,7 @@ impl Service {
             worker_id,
         }
     }
-    pub fn persist(&self, services_dir: &Path) -> Result<(), ModuleError> {
+    pub fn persist(&self, services_dir: &Path) -> Result<(), ServiceError> {
         persist_service(services_dir, PersistedService::from_service(self))
     }
 
@@ -204,10 +204,10 @@ fn get_service_mut<'l>(
 
     if service.worker_id != worker_id {
         // service is deployed on another worker_id
-        return Err(ServiceError::AliasWrongWorkerId {
+        Err(ServiceError::AliasWrongWorkerId {
             service_id: service_id.to_string(),
             worker_id: service.worker_id,
-        });
+        })
     } else {
         Ok(service)
     }
@@ -546,17 +546,14 @@ impl ParticleAppServices {
         let mut services = self.services.write();
         let service = get_service_mut(&mut services, worker_id, &service_id)?;
         service.add_alias(alias);
-        service.persist(&self.config.services_dir)?;
-
-        Ok(())
+        service.persist(&self.config.services_dir)
     }
 
     fn get_service_id(&self, worker_id: PeerId, alias: &str) -> Option<ServiceId> {
         self.aliases
             .read()
             .get(&worker_id)
-            .map(|aliases| aliases.get(alias))
-            .flatten()
+            .and_then(|aliases| aliases.get(alias))
             .cloned()
     }
 
@@ -569,9 +566,7 @@ impl ParticleAppServices {
         let mut services = self.services.write();
         let service = get_service_mut(&mut services, worker_id, service_id)?;
         service.remove_alias(&alias);
-        service.persist(&self.config.services_dir)?;
-
-        Ok(())
+        service.persist(&self.config.services_dir)
     }
 
     pub fn add_alias(
@@ -844,8 +839,8 @@ impl ParticleAppServices {
             aliases,
             worker_id,
         );
-
         // Save created service to disk, so it is recreated on restart
+        service.persist(&self.config.services_dir)?;
 
         let replaced = self.services.write().insert(service_id.clone(), service);
         let creation_end_time = creation_start_time.elapsed().as_secs();

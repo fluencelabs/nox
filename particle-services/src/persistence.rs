@@ -22,9 +22,9 @@ use crate::error::ServiceError::{
 
 use fluence_libp2p::{peerid_serializer, peerid_serializer_opt, PeerId, RandomPeerId};
 use fs_utils::{create_dir, list_files};
-use particle_modules::ModuleError;
 use service_modules::{is_service, service_file_name};
 
+use crate::ServiceError::{SerializePersistedService, WritePersistedService};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 
@@ -62,15 +62,13 @@ impl PersistedService {
 pub fn persist_service(
     services_dir: &Path,
     persisted_service: PersistedService,
-) -> Result<(), ModuleError> {
-    use ModuleError::*;
-
+) -> Result<(), ServiceError> {
     let path = services_dir.join(service_file_name(&persisted_service.service_id));
     let bytes = toml::to_vec(&persisted_service).map_err(|err| SerializePersistedService {
         err,
         config: Box::new(persisted_service.clone()),
     })?;
-    std::fs::write(&path, bytes).map_err(|err| WriteConfig { path, err })
+    std::fs::write(&path, bytes).map_err(|err| WritePersistedService { path, err })
 }
 
 /// Load info about persisted services from disk, and create `AppService` for each of them
