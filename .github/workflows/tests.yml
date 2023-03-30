@@ -1,46 +1,23 @@
-name: Run tests
+name: "Run tests with workflow_call"
 
 on:
   workflow_call:
     inputs:
       ref:
-        description: "GitHub ref to checkout to"
+        description: "git ref to checkout to"
         type: string
         default: "master"
       cargo-dependencies:
         description: "Cargo dependencies map"
         type: string
+        default: "null"
+
+env:
+  RUSTFLAGS: "-D warnings --cfg tokio_unstable"
 
 jobs:
-  lint:
-    name: cargo lints
-    runs-on: builder
-    steps:
-      - name: Checkout sources
-        uses: actions/checkout@v3
-        with:
-          repository: fluencelabs/rust-peer
-          ref: ${{ inputs.ref }}
-
-      - name: Setup Rust toolchain
-        uses: actions-rust-lang/setup-rust-toolchain@v1
-
-      - name: Set dependencies
-        if: inputs.cargo-dependencies != ''
-        uses: fluencelabs/github-actions/cargo-set-dependency@main
-        with:
-          dependencies: ${{ inputs.cargo-dependencies }}
-
-      - name: Run cargo fmt
-        run: cargo fmt --all -- --check
-
-      - name: Run cargo clippy
-        env:
-          RUSTFLAGS: "--cfg tokio_unstable"
-        run: cargo clippy -Z unstable-options --all
-
   tests:
-    name: cargo nextest
+    name: "cargo nextest"
     runs-on: builder
     timeout-minutes: 60
 
@@ -55,20 +32,14 @@ jobs:
         uses: actions-rust-lang/setup-rust-toolchain@v1
 
       - name: Set dependencies
-        if: inputs.cargo-dependencies != ''
+        if: inputs.cargo-dependencies != 'null'
         uses: fluencelabs/github-actions/cargo-set-dependency@main
         with:
           dependencies: ${{ inputs.cargo-dependencies }}
 
-      - name: Install cargo-nextest
-        uses: baptiste0928/cargo-install@v1.3.1
-        with:
-          crate: cargo-nextest
-          version: 0.9.22
+      - uses: taiki-e/install-action@nextest
 
       - name: Run cargo nextest
-        env:
-          RUSTFLAGS: "--cfg tokio_unstable"
         run: cargo nextest run --release --all-features --profile ci
 
       - name: Upload test report
@@ -78,3 +49,9 @@ jobs:
           name: cargo nextest report
           path: target/nextest/ci/junit.xml
           reporter: java-junit
+
+      - name: Run cargo fmt
+        run: cargo fmt --all -- --check
+
+      - name: Run cargo clippy
+        run: cargo clippy -Z unstable-options --all
