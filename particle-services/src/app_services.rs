@@ -972,7 +972,7 @@ mod tests {
         assert!(resp.is_err());
         assert!(matches!(
             resp.err().unwrap(),
-            ServiceError::Forbidden { .. }
+            ServiceError::ForbiddenAliasRoot { .. }
         ))
     }
 
