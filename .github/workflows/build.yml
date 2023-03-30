@@ -95,5 +95,5 @@ jobs:
       - name: Upload rust-peer binary
         uses: actions/upload-artifact@v3
         with:
-          name: rust-peer-${{ arch }}
+          name: rust-peer-${{ matrix.arch }}
           path: target/${{ steps.profile.outputs.profile }}/particle-node
