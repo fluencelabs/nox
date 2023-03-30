@@ -29,7 +29,7 @@ use crate::spells::{
     store_error, store_response,
 };
 use crate::utils::process_func_outcome;
-use crate::worker_builins::{create_worker, get_worker_peer_id, remove_worker};
+use crate::worker_builins::{create_worker, get_worker_peer_id, remove_worker, worker_list};
 use aquamarine::AquamarineApi;
 use key_manager::KeyManager;
 use particle_args::JError;
@@ -84,7 +84,12 @@ impl Sorcerer {
     }
 
     async fn resubscribe_spells(&self) {
-        for (spell_id, _) in self.spell_storage.get_registered_spells() {
+        for spell_id in self
+            .spell_storage
+            .get_registered_spells()
+            .values()
+            .flatten()
+        {
             log::info!("Rescheduling spell {}", spell_id);
             let result: Result<(), JError> = try {
                 let spell_owner = self
@@ -93,14 +98,14 @@ impl Sorcerer {
                 let result = process_func_outcome::<TriggerConfigValue>(
                     self.services.call_function(
                         spell_owner,
-                        &spell_id,
+                        spell_id,
                         "get_trigger_config",
                         vec![],
                         None,
                         spell_owner,
                         self.spell_script_particle_ttl,
                     ),
-                    &spell_id,
+                    spell_id,
                     "get_trigger_config",
                 )?;
                 let config = from_user_config(result.config)?;
@@ -196,6 +201,7 @@ impl Sorcerer {
                     ("create", self.make_worker_create_closure()),
                     ("get_peer_id", self.make_worker_get_peer_id_closure()),
                     ("remove", self.make_worker_remove_closure()),
+                    ("list", self.make_worker_list_closure()),
                 ],
                 None,
             ),
@@ -249,9 +255,9 @@ impl Sorcerer {
 
     fn make_spell_list_closure(&self) -> ServiceFunction {
         let storage = self.spell_storage.clone();
-        ServiceFunction::Immut(Box::new(move |_, _| {
+        ServiceFunction::Immut(Box::new(move |_, params| {
             let storage = storage.clone();
-            async move { wrap(spell_list(storage)) }.boxed()
+            async move { wrap(spell_list(params, storage)) }.boxed()
         }))
     }
 
@@ -318,6 +324,14 @@ impl Sorcerer {
         ServiceFunction::Immut(Box::new(move |args, params| {
             let key_manager = key_manager.clone();
             async move { wrap(get_worker_peer_id(args, params, key_manager)) }.boxed()
+        }))
+    }
+
+    fn make_worker_list_closure(&self) -> ServiceFunction {
+        let key_manager = self.key_manager.clone();
+        ServiceFunction::Immut(Box::new(move |_, _| {
+            let key_manager = key_manager.clone();
+            async move { wrap(worker_list(key_manager)) }.boxed()
         }))
     }
 
