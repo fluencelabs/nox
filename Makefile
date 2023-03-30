@@ -8,7 +8,7 @@ test:
 	cargo test --release
 
 server:
-	RUST_LOG="info,tide=off,run-console=debug" \
+	RUST_LOG="info,tide=off,tracing=off,avm_server=off,run-console=debug" \
 	cargo run --release -p particle-node
 
 server-debug:
@@ -33,7 +33,9 @@ server-debug:
     wasmer_interface_types_fl=info,\
     async_std=info,\
     async_io=info,\
-    polling=info" \
+    polling=info, \
+    avm_server=off,\
+    tracing=off"\
 	cargo run --release -p particle-node -- -c ./deploy/Config.default.toml
 
 .PHONY: server server-debug test release build deploy

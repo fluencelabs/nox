@@ -242,6 +242,7 @@ pub struct SwarmConfig {
     pub builtins_dir: Option<PathBuf>,
     pub spell_base_dir: Option<PathBuf>,
     pub timer_resolution: Duration,
+    pub allowed_binaries: Vec<String>,
 }
 
 impl SwarmConfig {
@@ -261,6 +262,7 @@ impl SwarmConfig {
             builtins_dir: None,
             spell_base_dir: None,
             timer_resolution: default_script_storage_timer_resolution(),
+            allowed_binaries: vec![],
         }
     }
 }
@@ -351,6 +353,7 @@ pub fn create_swarm_with_runtime<RT: AquaRuntime>(
     resolved.node_config.particle_execution_timeout = EXECUTION_TIMEOUT;
 
     resolved.node_config.script_storage_timer_resolution = config.timer_resolution;
+    resolved.node_config.allowed_binaries = config.allowed_binaries.clone();
 
     let management_kp = fluence_keypair::KeyPair::generate_ed25519();
     let management_peer_id = libp2p::identity::Keypair::from(management_kp.clone())

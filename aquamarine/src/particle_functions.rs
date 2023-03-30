@@ -24,13 +24,16 @@ use futures::future::BoxFuture;
 use futures::stream::FuturesUnordered;
 use futures::{FutureExt, StreamExt};
 use humantime::format_duration as pretty;
+use serde_json::json;
+use serde_json::Value as JValue;
+
 use particle_args::{Args, JError};
 use particle_execution::{
     FunctionOutcome, ParticleFunctionStatic, ParticleParams, ServiceFunction,
 };
 use peer_metrics::FunctionKind;
-use serde_json::json;
-use serde_json::Value as JValue;
+
+use crate::log::builtin_log_level;
 
 #[derive(Clone, Debug)]
 /// Performance statistics about executed function call
@@ -44,6 +47,7 @@ pub struct SingleCallStat {
 
 #[derive(Clone, Debug)]
 pub struct SingleCallResult {
+    /// `call_id` comes from AVM's CallRequest
     call_id: u32,
     result: CallServiceResult,
     stat: SingleCallStat,
@@ -85,10 +89,10 @@ impl<F: ParticleFunctionStatic> Functions<F> {
     }
 
     /// Add a bunch of call requests to execution
-    pub fn execute(&mut self, requests: CallRequests, waker: Waker) {
+    pub fn execute(&mut self, particle_id: String, requests: CallRequests, waker: Waker) {
         let futs: Vec<_> = requests
             .into_iter()
-            .map(|(id, call)| self.call(id, call, waker.clone()))
+            .map(|(id, call)| self.call(particle_id.clone(), id, call, waker.clone()))
             .collect();
         self.function_calls.extend(futs);
     }
@@ -114,6 +118,7 @@ impl<F: ParticleFunctionStatic> Functions<F> {
     //       maybe it's a good option.
     fn call(
         &self,
+        particle_id: String,
         call_id: u32,
         call: CallRequestParams,
         waker: Waker,
@@ -142,6 +147,7 @@ impl<F: ParticleFunctionStatic> Functions<F> {
         };
 
         let log_args = format!("{:?} {:?}", args.service_id, args.function_name);
+        let log_level = builtin_log_level(&args.service_id);
 
         let start = Instant::now();
 
@@ -192,10 +198,21 @@ impl<F: ParticleFunctionStatic> Functions<F> {
             };
 
             if let Err(err) = &result {
-                let elapsed = pretty(elapsed);
-                log::warn!("Failed host call {} ({}): {}", log_args, elapsed, err)
+                log::warn!(
+                    "Failed host call {} ({}) [{}]: {}",
+                    log_args,
+                    pretty(elapsed),
+                    particle_id,
+                    err
+                )
             } else {
-                log::info!("Executed host call {} ({})", log_args, pretty(elapsed));
+                log::log!(
+                    log_level,
+                    "Executed host call {} ({}) [{}]",
+                    log_args,
+                    pretty(elapsed),
+                    particle_id
+                );
             };
 
             let stats = SingleCallStat {
