@@ -46,7 +46,7 @@ jobs:
         uses: dorny/test-reporter@v1
         if: success() || failure()
         with:
-          name: cargo nextest report
+          name: rust-peer report
           path: target/nextest/ci/junit.xml
           reporter: java-junit
 
