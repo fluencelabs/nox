@@ -19,7 +19,6 @@ use std::time::Duration;
 
 use fluence_spell_dtos::trigger_config::TriggerConfigValue;
 use futures::{FutureExt, StreamExt};
-use serde_json::json;
 use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
 use tokio_stream::wrappers::UnboundedReceiverStream;
@@ -33,7 +32,7 @@ use crate::worker_builins::{create_worker, get_worker_peer_id, remove_worker, wo
 use aquamarine::AquamarineApi;
 use key_manager::KeyManager;
 use particle_args::JError;
-use particle_builtins::{ok, wrap, wrap_unit, CustomService, NodeInfo};
+use particle_builtins::{wrap, wrap_unit, CustomService};
 use particle_execution::ServiceFunction;
 use particle_modules::ModuleRepository;
 use particle_services::ParticleAppServices;
@@ -60,12 +59,10 @@ impl Sorcerer {
         config: ResolvedConfig,
         spell_event_bus_api: SpellEventBusApi,
         key_manager: KeyManager,
-        mut node_info: NodeInfo,
-    ) -> (Self, HashMap<String, CustomService>) {
+    ) -> (Self, HashMap<String, CustomService>, String) {
         let (spell_storage, spell_version) =
             SpellStorage::create(&config.dir_config.spell_base_dir, &services, &modules)
                 .expect("Spell storage creation");
-        node_info.spell_version = spell_version;
 
         let sorcerer = Self {
             aquamarine,
@@ -78,9 +75,8 @@ impl Sorcerer {
 
         let mut builtin_functions = sorcerer.make_spell_builtins();
         builtin_functions.extend_one(sorcerer.make_worker_builtin());
-        builtin_functions.extend_one(sorcerer.make_peer_builtin(node_info));
 
-        (sorcerer, builtin_functions)
+        (sorcerer, builtin_functions, spell_version)
     }
 
     async fn resubscribe_spells(&self) {
@@ -350,22 +346,6 @@ impl Sorcerer {
                 wrap_unit(remove_worker(args, params, key_manager, services, storage, api).await)
             }
             .boxed()
-        }))
-    }
-
-    fn make_peer_builtin(&self, node_info: NodeInfo) -> (String, CustomService) {
-        (
-            "peer".to_string(),
-            CustomService::new(
-                vec![("identify", self.make_peer_identify_closure(node_info))],
-                None,
-            ),
-        )
-    }
-    fn make_peer_identify_closure(&self, node_info: NodeInfo) -> ServiceFunction {
-        ServiceFunction::Immut(Box::new(move |_args, _params| {
-            let node_info = node_info.clone();
-            async move { ok(json!(node_info)) }.boxed()
         }))
     }
 }

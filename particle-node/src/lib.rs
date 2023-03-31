@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#![feature(extend_one)]
 #![feature(try_blocks)]
 #![feature(drain_filter)]
 #![feature(ip)]
@@ -28,6 +29,7 @@
     unreachable_patterns
 )]
 
+mod builtins;
 mod connectivity;
 mod dispatcher;
 mod effectors;

@@ -20,6 +20,7 @@ dhat = { version = "0.3.2", optional = true }
 fluence-spell-distro = { workspace = true }
 
 
+serde_json = { workspace = true }
 fluence-libp2p = { workspace = true }
 server-config = { workspace = true }
 config-utils = { workspace = true }
