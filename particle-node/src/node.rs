@@ -34,7 +34,7 @@ use libp2p::{
     swarm::AddressScore,
     PeerId, Swarm, TransportError,
 };
-use libp2p_metrics::{Metrics, Recorder};
+use libp2p_metrics::Metrics;
 use libp2p_swarm::{ConnectionLimits, SwarmBuilder};
 use particle_builtins::{Builtins, CustomService, NodeInfo};
 use particle_execution::ParticleFunctionStatic;
@@ -413,13 +413,11 @@ impl<RT: AquaRuntime> Node<RT> {
             .unwrap_or("node".to_owned());
 
         task::Builder::new().name(&task_name.clone()).spawn(async move {
-            let (mut metrics_fut, libp2p_metrics) = if let Some(mut registry) = registry {
-                let libp2p_metrics = Metrics::new(&mut registry);
+            let mut metrics_fut= if let Some(registry) = registry {
                 log::info!("metrics_listen_addr {}", metrics_listen_addr);
-                let fut = start_metrics_endpoint(registry, metrics_listen_addr).boxed();
-                (fut, Some(libp2p_metrics))
+                start_metrics_endpoint(registry, metrics_listen_addr).boxed()
             } else {
-                (futures::future::pending().boxed(), None)
+                futures::future::pending().boxed()
             };
 
             let services_metrics_backend = services_metrics_backend.start();
@@ -435,7 +433,6 @@ impl<RT: AquaRuntime> Node<RT> {
                 let exit_inlet = exit_inlet.as_mut().expect("Could not get exit inlet");
                 tokio::select! {
                     Some(e) = swarm.next() => {
-                        if let Some(m) = libp2p_metrics.as_ref() { m.record(&e) }
                         if let SwarmEvent::Behaviour(FluenceNetworkBehaviourEvent::Identify(i)) = e {
                             swarm.behaviour_mut().inject_identify_event(i, true);
                         }
