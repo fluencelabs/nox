@@ -52,6 +52,7 @@ use spell_event_bus::bus::SpellEventBus;
 use tokio::sync::{mpsc, oneshot};
 use tokio::task;
 
+use crate::builtins::make_peer_builtin;
 use crate::dispatcher::Dispatcher;
 use crate::effectors::Effectors;
 use crate::metrics::start_metrics_endpoint;
@@ -192,9 +193,14 @@ impl<RT: AquaRuntime> Node<RT> {
                 )
             };
 
+        let allowed_binaries = services_config
+            .allowed_binaries
+            .iter()
+            .map(|s| s.to_string_lossy().to_string())
+            .collect::<_>();
+
         let builtins = Arc::new(Self::builtins(
             connectivity.clone(),
-            config.external_addresses(),
             services_config,
             script_storage_api,
             services_metrics,
@@ -244,7 +250,7 @@ impl<RT: AquaRuntime> Node<RT> {
         let (spell_event_bus, spell_event_bus_api, spell_events_receiver) =
             SpellEventBus::new(sources);
 
-        let (sorcerer, spell_service_functions) = Sorcerer::new(
+        let (sorcerer, mut custom_service_functions, spell_version) = Sorcerer::new(
             builtins.services.clone(),
             builtins.modules.clone(),
             aquamarine_api.clone(),
@@ -253,7 +259,16 @@ impl<RT: AquaRuntime> Node<RT> {
             key_manager.clone(),
         );
 
-        spell_service_functions.into_iter().for_each(
+        let node_info = NodeInfo {
+            external_addresses: config.external_addresses(),
+            node_version: env!("CARGO_PKG_VERSION"),
+            air_version: air_interpreter_wasm::VERSION,
+            spell_version,
+            allowed_binaries,
+        };
+        custom_service_functions.extend_one(make_peer_builtin(node_info));
+
+        custom_service_functions.into_iter().for_each(
             move |(
                 service_id,
                 CustomService {
@@ -319,22 +334,14 @@ impl<RT: AquaRuntime> Node<RT> {
 
     pub fn builtins(
         connectivity: Connectivity,
-        external_addresses: Vec<Multiaddr>,
         services_config: ServicesConfig,
         script_storage_api: ScriptStorageApi,
         services_metrics: ServicesMetrics,
         key_manager: KeyManager,
     ) -> Builtins<Connectivity> {
-        let node_info = NodeInfo {
-            external_addresses,
-            node_version: env!("CARGO_PKG_VERSION"),
-            air_version: air_interpreter_wasm::VERSION,
-        };
-
         Builtins::new(
             connectivity,
             script_storage_api,
-            node_info,
             services_config,
             services_metrics,
             key_manager,
