@@ -249,7 +249,7 @@ impl<RT: AquaRuntime> Node<RT> {
         let (spell_event_bus, spell_event_bus_api, spell_events_receiver) =
             SpellEventBus::new(sources);
 
-        let (sorcerer, mut spell_service_functions, spell_version) = Sorcerer::new(
+        let (sorcerer, mut custom_service_functions, spell_version) = Sorcerer::new(
             builtins.services.clone(),
             builtins.modules.clone(),
             aquamarine_api.clone(),
@@ -265,9 +265,9 @@ impl<RT: AquaRuntime> Node<RT> {
             spell_version,
             allowed_binaries,
         };
-        spell_service_functions.extend_one(make_peer_builtin(node_info));
+        custom_service_functions.extend_one(make_peer_builtin(node_info));
 
-        spell_service_functions.into_iter().for_each(
+        custom_service_functions.into_iter().for_each(
             move |(
                 service_id,
                 CustomService {
