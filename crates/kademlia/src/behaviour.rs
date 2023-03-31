@@ -16,6 +16,7 @@
 
 use std::error::Error;
 use std::ops::Mul;
+use std::sync::Arc;
 use std::task::{Context, Poll};
 use std::{
     cmp::min,
@@ -126,11 +127,11 @@ pub struct Kademlia {
     waker: Option<Waker>,
     // Timer to track timed out requests, and return errors ASAP
     timer: Delay,
-    metrics: Option<Metrics>,
+    metrics: Option<Arc<Metrics>>,
 }
 
 impl Kademlia {
-    pub fn new(config: KademliaConfig, metrics: Option<Metrics>) -> (Self, KademliaApi) {
+    pub fn new(config: KademliaConfig, metrics: Option<Arc<Metrics>>) -> (Self, KademliaApi) {
         let timer = Delay::new(config.query_timeout);
 
         let store = MemoryStore::new(config.peer_id);
@@ -550,7 +551,7 @@ impl Kademlia {
     }
 
     fn inject_kad_event(&mut self, event: KademliaEvent) {
-        if let Some(metrics) = &self.metrics {
+        if let Some(metrics) = self.metrics.as_ref() {
             metrics.record(&event);
         }
 
