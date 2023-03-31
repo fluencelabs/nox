@@ -77,7 +77,7 @@ pub struct Node<RT: AquaRuntime> {
     sorcerer: Sorcerer,
 
     registry: Option<Registry>,
-    libp2p_metrics: Arc<Option<Metrics>>,
+    libp2p_metrics: Option<Arc<Metrics>>,
     services_metrics_backend: ServicesMetricsBackend,
 
     metrics_listen_addr: SocketAddr,
@@ -128,7 +128,7 @@ impl<RT: AquaRuntime> Node<RT> {
         } else {
             None
         };
-        let libp2p_metrics = Arc::new(metrics_registry.as_mut().map(Metrics::new));
+        let libp2p_metrics = metrics_registry.as_mut().map(|r| Arc::new(Metrics::new(r)));
         let connectivity_metrics = metrics_registry.as_mut().map(ConnectivityMetrics::new);
         let connection_pool_metrics = metrics_registry.as_mut().map(ConnectionPoolMetrics::new);
         let plumber_metrics = metrics_registry.as_mut().map(ParticleExecutorMetrics::new);
@@ -358,7 +358,7 @@ impl<RT: AquaRuntime> Node<RT> {
         spell_events_receiver: mpsc::UnboundedReceiver<TriggerEvent>,
         sorcerer: Sorcerer,
         registry: Option<Registry>,
-        libp2p_metrics: Arc<Option<Metrics>>,
+        libp2p_metrics: Option<Arc<Metrics>>,
         services_metrics_backend: ServicesMetricsBackend,
         metrics_listen_addr: SocketAddr,
         builtins_management_peer_id: PeerId,

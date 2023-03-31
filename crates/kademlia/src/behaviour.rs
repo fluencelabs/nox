@@ -127,11 +127,11 @@ pub struct Kademlia {
     waker: Option<Waker>,
     // Timer to track timed out requests, and return errors ASAP
     timer: Delay,
-    metrics: Arc<Option<Metrics>>,
+    metrics: Option<Arc<Metrics>>,
 }
 
 impl Kademlia {
-    pub fn new(config: KademliaConfig, metrics: Arc<Option<Metrics>>) -> (Self, KademliaApi) {
+    pub fn new(config: KademliaConfig, metrics: Option<Arc<Metrics>>) -> (Self, KademliaApi) {
         let timer = Delay::new(config.query_timeout);
 
         let store = MemoryStore::new(config.peer_id);

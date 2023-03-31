@@ -31,7 +31,7 @@ pub struct NetworkConfig {
     pub node_version: &'static str,
     pub bootstrap_nodes: Vec<Multiaddr>,
     pub bootstrap: BootstrapConfig,
-    pub libp2p_metrics: Arc<Option<Metrics>>,
+    pub libp2p_metrics: Option<Arc<Metrics>>,
     pub protocol_config: ProtocolConfig,
     pub kademlia_config: KademliaConfig,
     pub particle_queue_buffer: usize,
@@ -44,7 +44,7 @@ pub struct NetworkConfig {
 
 impl NetworkConfig {
     pub fn new(
-        libp2p_metrics: Arc<Option<Metrics>>,
+        libp2p_metrics: Option<Arc<Metrics>>,
         connectivity_metrics: Option<ConnectivityMetrics>,
         connection_pool_metrics: Option<ConnectionPoolMetrics>,
         key_pair: Keypair,
