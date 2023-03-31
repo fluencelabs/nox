@@ -17,7 +17,6 @@ script-storage = { workspace = true }
 aquamarine = { workspace = true }
 sorcerer = { workspace = true }
 dhat = { version = "0.3.2", optional = true }
-fluence-spell-distro = { workspace = true }
 
 
 serde_json = { workspace = true }
