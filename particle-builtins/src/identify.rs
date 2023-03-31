@@ -22,4 +22,6 @@ pub struct NodeInfo {
     pub external_addresses: Vec<Multiaddr>,
     pub node_version: &'static str,
     pub air_version: &'static str,
+    pub spell_version: String,
+    pub allowed_binaries: Vec<String>,
 }

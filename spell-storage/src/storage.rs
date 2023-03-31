@@ -7,6 +7,7 @@ use eyre::eyre;
 use eyre::WrapErr;
 use fluence_app_service::TomlMarineConfig;
 use fluence_libp2p::PeerId;
+use itertools::Itertools;
 use parking_lot::RwLock;
 
 use particle_modules::{load_module_by_path, AddBlueprint, ModuleRepository};
@@ -14,6 +15,7 @@ use particle_services::ParticleAppServices;
 use service_modules::{module_file_name, Dependency};
 
 type WorkerId = PeerId;
+type SpellId = String;
 
 #[derive(Derivative)]
 #[derivative(Debug, Clone)]
@@ -21,7 +23,7 @@ pub struct SpellStorage {
     // The blueprint for the latest spell service.
     spell_blueprint_id: String,
     // All currently existing spells
-    registered_spells: Arc<RwLock<HashMap<String, WorkerId>>>,
+    registered_spells: Arc<RwLock<HashMap<WorkerId, Vec<SpellId>>>>,
 }
 
 impl SpellStorage {
@@ -29,9 +31,9 @@ impl SpellStorage {
         spells_base_dir: &Path,
         services: &ParticleAppServices,
         modules: &ModuleRepository,
-    ) -> eyre::Result<Self> {
+    ) -> eyre::Result<(Self, String)> {
         let spell_config_path = spell_config_path(spells_base_dir);
-        let spell_blueprint_id = if spell_config_path.exists() {
+        let (spell_blueprint_id, spell_version) = if spell_config_path.exists() {
             let cfg = TomlMarineConfig::load(spell_config_path)?;
             Self::load_spell_service(cfg, spells_base_dir, modules)?
         } else {
@@ -39,13 +41,16 @@ impl SpellStorage {
         };
         let registered_spells = Self::restore_spells(services, modules);
 
-        Ok(Self {
-            spell_blueprint_id,
-            registered_spells: Arc::new(RwLock::new(registered_spells)),
-        })
+        Ok((
+            Self {
+                spell_blueprint_id,
+                registered_spells: Arc::new(RwLock::new(registered_spells)),
+            },
+            spell_version,
+        ))
     }
 
-    fn load_spell_service_from_crate(modules: &ModuleRepository) -> eyre::Result<String> {
+    fn load_spell_service_from_crate(modules: &ModuleRepository) -> eyre::Result<(String, String)> {
         use fluence_spell_distro::{modules as spell_modules, CONFIG};
 
         log::info!(
@@ -68,15 +73,19 @@ impl SpellStorage {
             hashes.push(Dependency::Hash(hash))
         }
 
-        Ok(modules.add_blueprint(AddBlueprint::new("spell".to_string(), hashes))?)
+        Ok((
+            modules.add_blueprint(AddBlueprint::new("spell".to_string(), hashes))?,
+            fluence_spell_distro::VERSION.to_string(),
+        ))
     }
 
     fn load_spell_service(
         cfg: TomlMarineConfig,
         spells_base_dir: &Path,
         modules: &ModuleRepository,
-    ) -> eyre::Result<String> {
+    ) -> eyre::Result<(String, String)> {
         let mut hashes = Vec::new();
+        let mut versions = Vec::new();
         for config in cfg.module {
             let load_from = config
                 .load_from
@@ -87,16 +96,22 @@ impl SpellStorage {
             let module_path = spells_base_dir.join(load_from);
             let module = load_module_by_path(module_path.as_ref())?;
             let hash = modules.add_module(module, config)?;
+            let hex = hash.to_hex();
+            let hex = hex.as_ref();
+            versions.push(String::from(&hex[..8]));
             hashes.push(Dependency::Hash(hash));
         }
-
-        Ok(modules.add_blueprint(AddBlueprint::new("spell".to_string(), hashes))?)
+        let spell_disk_version = format!("wasm hashes {}", versions.join(" "));
+        Ok((
+            modules.add_blueprint(AddBlueprint::new("spell".to_string(), hashes))?,
+            spell_disk_version,
+        ))
     }
 
     fn restore_spells(
         services: &ParticleAppServices,
         modules: &ModuleRepository,
-    ) -> HashMap<String, WorkerId> {
+    ) -> HashMap<WorkerId, Vec<SpellId>> {
         // Find blueprint ids of the already existing spells. They might be of older versions of the spell service.
         // These blueprint ids marked with name "spell" to differ from other blueprints.
         let all_spell_blueprint_ids = modules
@@ -110,11 +125,11 @@ impl SpellStorage {
             .list_services_with_info()
             .into_iter()
             .filter(|s| all_spell_blueprint_ids.contains(&s.blueprint_id))
-            .map(|s| (s.id, s.worker_id))
-            .collect::<_>()
+            .map(|s| (s.worker_id, s.id))
+            .into_group_map()
     }
 
-    pub fn get_registered_spells(&self) -> HashMap<String, WorkerId> {
+    pub fn get_registered_spells(&self) -> HashMap<WorkerId, Vec<SpellId>> {
         self.registered_spells.read().clone()
     }
 
@@ -122,13 +137,15 @@ impl SpellStorage {
         self.spell_blueprint_id.clone()
     }
 
-    pub fn register_spell(&self, spell_id: String, worker_id: WorkerId) {
+    pub fn register_spell(&self, worker_id: WorkerId, spell_id: String) {
         let mut spells = self.registered_spells.write();
-        spells.insert(spell_id, worker_id);
+        spells.entry(worker_id).or_default().push(spell_id);
     }
 
-    pub fn unregister_spell(&self, spell_id: &str) {
-        self.registered_spells.write().remove(spell_id);
+    pub fn unregister_spell(&self, worker_id: WorkerId, spell_id: &str) {
+        if let Some(spells) = self.registered_spells.write().get_mut(&worker_id) {
+            spells.retain(|sp_id| sp_id.ne(spell_id));
+        }
     }
 }
 
