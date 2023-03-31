@@ -26,15 +26,15 @@ on:
 
 jobs:
   build:
+    name: "Build"
     uses: ./.github/workflows/build.yml
     with:
       ref: ${{ inputs.ref }}
-    name: "Build"
- 
+
   container:
     needs: build
     uses: ./.github/workflows/container.yml
     with:
       image-name: "docker.fluence.dev/rust-peer"
       flavour: "minimal"
-      rust-peer-sha: "${{ needs.build.outputs.sha256 }}"
+      rust-peer-sha: "${{ needs.build.outputs.rust-peer-sha256 }}"
