@@ -34,7 +34,7 @@ use libp2p::{
     swarm::AddressScore,
     PeerId, Swarm, TransportError,
 };
-use libp2p_metrics::Metrics;
+use libp2p_metrics::{Metrics, Recorder};
 use libp2p_swarm::{ConnectionLimits, SwarmBuilder};
 use particle_builtins::{Builtins, CustomService, NodeInfo};
 use particle_execution::ParticleFunctionStatic;
@@ -77,6 +77,7 @@ pub struct Node<RT: AquaRuntime> {
     sorcerer: Sorcerer,
 
     registry: Option<Registry>,
+    libp2p_metrics: Arc<Option<Metrics>>,
     services_metrics_backend: ServicesMetricsBackend,
 
     metrics_listen_addr: SocketAddr,
@@ -127,7 +128,7 @@ impl<RT: AquaRuntime> Node<RT> {
         } else {
             None
         };
-        let libp2p_metrics = metrics_registry.as_mut().map(Metrics::new);
+        let libp2p_metrics = Arc::new(metrics_registry.as_mut().map(Metrics::new));
         let connectivity_metrics = metrics_registry.as_mut().map(ConnectivityMetrics::new);
         let connection_pool_metrics = metrics_registry.as_mut().map(ConnectionPoolMetrics::new);
         let plumber_metrics = metrics_registry.as_mut().map(ParticleExecutorMetrics::new);
@@ -148,7 +149,7 @@ impl<RT: AquaRuntime> Node<RT> {
             .with_max_established(config.node_config.transport_config.max_established);
 
         let network_config = NetworkConfig::new(
-            libp2p_metrics,
+            libp2p_metrics.clone(),
             connectivity_metrics,
             connection_pool_metrics,
             key_pair,
@@ -283,6 +284,7 @@ impl<RT: AquaRuntime> Node<RT> {
             spell_events_receiver,
             sorcerer,
             metrics_registry,
+            libp2p_metrics,
             services_metrics_backend,
             config.metrics_listen_addr(),
             builtins_peer_id,
@@ -356,6 +358,7 @@ impl<RT: AquaRuntime> Node<RT> {
         spell_events_receiver: mpsc::UnboundedReceiver<TriggerEvent>,
         sorcerer: Sorcerer,
         registry: Option<Registry>,
+        libp2p_metrics: Arc<Option<Metrics>>,
         services_metrics_backend: ServicesMetricsBackend,
         metrics_listen_addr: SocketAddr,
         builtins_management_peer_id: PeerId,
@@ -377,6 +380,7 @@ impl<RT: AquaRuntime> Node<RT> {
             sorcerer,
 
             registry,
+            libp2p_metrics,
             services_metrics_backend,
             metrics_listen_addr,
 
@@ -411,6 +415,7 @@ impl<RT: AquaRuntime> Node<RT> {
         let task_name = peer_id
             .map(|x| format!("node-{x}"))
             .unwrap_or("node".to_owned());
+        let libp2p_metrics = self.libp2p_metrics;
 
         task::Builder::new().name(&task_name.clone()).spawn(async move {
             let mut metrics_fut= if let Some(registry) = registry {
@@ -433,6 +438,7 @@ impl<RT: AquaRuntime> Node<RT> {
                 let exit_inlet = exit_inlet.as_mut().expect("Could not get exit inlet");
                 tokio::select! {
                     Some(e) = swarm.next() => {
+                        if let Some(m) = libp2p_metrics.as_ref() { m.record(&e) }
                         if let SwarmEvent::Behaviour(FluenceNetworkBehaviourEvent::Identify(i)) = e {
                             swarm.behaviour_mut().inject_identify_event(i, true);
                         }

@@ -17,6 +17,7 @@
 use libp2p::swarm::ConnectionLimits;
 use libp2p::{core::Multiaddr, identity::Keypair, PeerId};
 use libp2p_metrics::Metrics;
+use std::sync::Arc;
 
 use config_utils::to_peer_id;
 use particle_protocol::ProtocolConfig;
@@ -30,7 +31,7 @@ pub struct NetworkConfig {
     pub node_version: &'static str,
     pub bootstrap_nodes: Vec<Multiaddr>,
     pub bootstrap: BootstrapConfig,
-    pub libp2p_metrics: Option<Metrics>,
+    pub libp2p_metrics: Arc<Option<Metrics>>,
     pub protocol_config: ProtocolConfig,
     pub kademlia_config: KademliaConfig,
     pub particle_queue_buffer: usize,
@@ -43,7 +44,7 @@ pub struct NetworkConfig {
 
 impl NetworkConfig {
     pub fn new(
-        libp2p_metrics: Option<Metrics>,
+        libp2p_metrics: Arc<Option<Metrics>>,
         connectivity_metrics: Option<ConnectivityMetrics>,
         connection_pool_metrics: Option<ConnectionPoolMetrics>,
         key_pair: Keypair,
