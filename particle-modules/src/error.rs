@@ -48,12 +48,6 @@ pub enum ModuleError {
         err: toml::ser::Error,
         blueprint: Blueprint,
     },
-    #[error("Error serializing persisted service config to toml: {err} {config:?}")]
-    SerializePersistedService {
-        #[source]
-        err: toml::ser::Error,
-        config: Box<dyn Debug + Send + Sync>,
-    },
     #[error("Error saving config to {path:?}: {err}")]
     WriteConfig {
         path: PathBuf,

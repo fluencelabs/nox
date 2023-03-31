@@ -15,13 +15,11 @@
  */
 
 use crate::error::ServiceError;
-use crate::persistence::{persist_service, PersistedService};
 use crate::{Result, VIRTUAL_PARTICLE_VAULT_PREFIX};
 
 use fluence_app_service::{
     AppService, AppServiceConfig, MarineConfig, MarineWASIConfig, ModuleDescriptor,
 };
-use fluence_libp2p::PeerId;
 use particle_modules::ModuleRepository;
 use peer_metrics::ServicesMetrics;
 use server_config::ServicesConfig;
@@ -34,43 +32,29 @@ pub fn create_app_service(
     modules: &ModuleRepository,
     blueprint_id: String,
     service_id: String,
-    aliases: Vec<String>,
-    owner_id: PeerId,
-    worker_id: PeerId,
     metrics: Option<&ServicesMetrics>,
 ) -> Result<AppService> {
-    try {
-        let mut modules_config = modules.resolve_blueprint(&blueprint_id)?;
-        modules_config
-            .iter_mut()
-            .for_each(|module| inject_vault(&config.particles_vault_dir, module));
+    let mut modules_config = modules.resolve_blueprint(&blueprint_id)?;
+    modules_config
+        .iter_mut()
+        .for_each(|module| inject_vault(&config.particles_vault_dir, module));
 
-        if let Some(metrics) = metrics.as_ref() {
-            metrics.observe_service_config(config.max_heap_size.as_u64(), &modules_config);
-        }
-
-        let modules = AppServiceConfig {
-            service_working_dir: config.workdir.join(&service_id),
-            service_base_dir: config.workdir,
-            marine_config: MarineConfig {
-                modules_dir: Some(config.modules_dir),
-                modules_config,
-                default_modules_config: None,
-            },
-        };
-
-        log::debug!("Creating service {}, envs: {:?}", service_id, config.envs);
-
-        let service = AppService::new(modules, service_id.clone(), config.envs)
-            .map_err(ServiceError::Engine)?;
-
-        // Save created service to disk, so it is recreated on restart
-        let persisted =
-            PersistedService::new(service_id, blueprint_id, aliases, owner_id, worker_id);
-        persist_service(&config.services_dir, persisted)?;
-
-        service
+    if let Some(metrics) = metrics.as_ref() {
+        metrics.observe_service_config(config.max_heap_size.as_u64(), &modules_config);
     }
+
+    let modules = AppServiceConfig {
+        service_working_dir: config.workdir.join(&service_id),
+        service_base_dir: config.workdir,
+        marine_config: MarineConfig {
+            modules_dir: Some(config.modules_dir),
+            modules_config,
+            default_modules_config: None,
+        },
+    };
+
+    log::debug!("Creating service {}, envs: {:?}", service_id, config.envs);
+    AppService::new(modules, service_id, config.envs).map_err(ServiceError::Engine)
 }
 
 /// Map `vault_dir` to `/tmp/vault` inside the service.

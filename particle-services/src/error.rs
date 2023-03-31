@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+use std::fmt::Debug;
 use std::path::PathBuf;
 
 use fluence_app_service::AppServiceError;
@@ -45,6 +46,10 @@ pub enum ServiceError {
         function: &'static str,
         reason: &'static str,
     },
+    #[error("Forbidden. User id '{0}' cannot call function 'add_alias': only management peer id can add top-level aliases")]
+    ForbiddenAliasRoot(PeerId),
+    #[error("Forbidden. User id '{0}' cannot call function 'add_alias': only worker and management peer id can add worker-level aliases")]
+    ForbiddenAliasWorker(PeerId),
     #[error("Cannot add alias '{0}' because there is a service with that id")]
     AliasAsServiceId(String),
     #[error(
@@ -89,6 +94,18 @@ pub enum ServiceError {
     },
     #[error(transparent)]
     VaultError(#[from] VaultError),
+    #[error("Error serializing persisted service config to toml: {err} {config:?}")]
+    SerializePersistedService {
+        #[source]
+        err: toml::ser::Error,
+        config: Box<dyn Debug + Send + Sync>,
+    },
+    #[error("Error saving persisted service to {path:?}: {err}")]
+    WritePersistedService {
+        path: PathBuf,
+        #[source]
+        err: std::io::Error,
+    },
 }
 
 impl From<AppServiceError> for ServiceError {
