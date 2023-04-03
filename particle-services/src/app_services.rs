@@ -483,17 +483,17 @@ impl ParticleAppServices {
             })?;
 
         let call_time_sec = call_time_start.elapsed().as_secs_f64();
-        let new_memory = service.module_memory_stats();
-        let new_memory_usage = ServicesMetricsBuiltin::get_used_memory(&new_memory);
-
-        let memory_delta_bytes = new_memory_usage - old_mem_usage;
-        let stats = ServiceCallStats::Success {
-            memory_delta_bytes: memory_delta_bytes as f64,
-            call_time_sec,
-            timestamp,
-        };
-
         if let Some(metrics) = self.metrics.as_ref() {
+            let new_memory = service.module_memory_stats();
+            let new_memory_usage = ServicesMetricsBuiltin::get_used_memory(&new_memory);
+
+            let memory_delta_bytes = new_memory_usage - old_mem_usage;
+            let stats = ServiceCallStats::Success {
+                memory_delta_bytes: memory_delta_bytes as f64,
+                call_time_sec,
+                timestamp,
+            };
+
             metrics.observe_service_state(
                 service_id,
                 function_name,
@@ -823,9 +823,7 @@ impl ParticleAppServices {
         )
         .inspect_err(|_| {
             if let Some(metrics) = self.metrics.as_ref() {
-                metrics.observe_external(|external| {
-                    external.creation_failure_count.inc();
-                })
+                metrics.observe_created_failed();
             }
         })?;
         let stats = service.module_memory_stats();

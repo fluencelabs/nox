@@ -155,6 +155,12 @@ impl ServicesMetrics {
         });
     }
 
+    pub fn observe_created_failed(&self) {
+        self.observe_external(|external| {
+            external.creation_failure_count.inc();
+        });
+    }
+
     pub fn observe_removed(&self, removal_time: f64) {
         self.observe_external(|external| {
             external.observe_removed(removal_time);
@@ -167,7 +173,7 @@ impl ServicesMetrics {
         });
     }
 
-    pub fn observe_external<F>(&self, callback: F)
+    fn observe_external<F>(&self, callback: F)
     where
         F: FnOnce(&ServicesMetricsExternal),
     {
