@@ -428,7 +428,12 @@ impl ParticleAppServices {
         // Metrics collection are enables for services with aliases which are installed on root worker or worker spells.
         let allowed_alias = if worker_id == self.config.local_peer_id {
             service.aliases.first().cloned()
-        } else if service.aliases.iter().any(|alias| alias == "worker-spell") {
+        } else if service
+            .aliases
+            .first()
+            .map(|alias| alias == "worker-spell")
+            .unwrap_or(false)
+        {
             Some("worker-spell".to_string())
         } else {
             None
