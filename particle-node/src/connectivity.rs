@@ -129,11 +129,11 @@ impl Connectivity {
         let sent = self.connection_pool.send(contact.clone(), particle).await;
         match &sent {
             SendStatus::Ok => {
-                metrics.map(|m| m.particle_send_success.inc());
+                metrics.map(|m| m.send_particle_ok(&id));
                 log::info!("Sent particle {} to {}", id, contact);
             }
             err => {
-                metrics.map(|m| m.particle_send_failure.inc());
+                metrics.map(|m| m.send_particle_failed(&id));
                 log::warn!(
                     "Failed to send particle {} to {}, reason: {:?}",
                     id,

@@ -94,7 +94,7 @@ impl Dispatcher {
                 let metrics = metrics.clone();
 
                 if particle.is_expired() {
-                    metrics.map(|m| m.expired_particles.inc());
+                    metrics.map(|m| m.particle_expired(&particle.id));
                     log::info!("Particle {} expired", particle.id);
                     return async {}.boxed();
                 }
