@@ -26,14 +26,14 @@ use libp2p::{
     swarm::OneShotHandler,
 };
 use log::LevelFilter;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use crate::libp2p_protocol::message::ProtocolMessage;
 use crate::{HandlerMessage, SendStatus, PROTOCOL_NAME};
 
 // TODO: embed pings into the protocol?
 // TODO: embed identify into the protocol?
-#[derive(Clone, Deserialize, Debug)]
+#[derive(Clone, Deserialize, Serialize, Debug)]
 pub struct ProtocolConfig {
     /// Timeout for applying the given upgrade on a substream
     #[serde(with = "humantime_serde")]

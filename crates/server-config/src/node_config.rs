@@ -7,9 +7,9 @@ use std::time::Duration;
 use base64::{engine::general_purpose::STANDARD as base64, Engine};
 use derivative::Derivative;
 use eyre::eyre;
-use fluence_keypair::KeyPair;
+use fluence_keypair::{KeyFormat, KeyPair};
 use libp2p::core::Multiaddr;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize, Serializer};
 use serde_with::serde_as;
 use serde_with::DisplayFromStr;
 
@@ -24,15 +24,21 @@ use crate::{BootstrapConfig, KademliaConfig};
 use super::defaults::*;
 
 #[serde_as]
-#[derive(Clone, Deserialize, Derivative)]
+#[derive(Clone, Deserialize, Serialize, Derivative)]
 #[derivative(Debug)]
 pub struct NodeConfig {
-    #[serde(deserialize_with = "parse_or_load_root_keypair")]
+    #[serde(
+        deserialize_with = "parse_or_load_root_keypair",
+        serialize_with = "serialize_keypair"
+    )]
     #[serde(default = "default_root_keypair")]
     #[derivative(Debug = "ignore")]
     pub root_key_pair: KeyPair,
 
-    #[serde(deserialize_with = "parse_or_load_builtins_keypair")]
+    #[serde(
+        deserialize_with = "parse_or_load_builtins_keypair",
+        serialize_with = "serialize_keypair"
+    )]
     #[serde(default = "default_builtins_keypair")]
     #[derivative(Debug = "ignore")]
     pub builtins_key_pair: KeyPair,
@@ -143,7 +149,7 @@ pub struct NodeConfig {
     pub allowed_binaries: Vec<String>,
 }
 
-#[derive(Clone, Deserialize, Derivative, Copy)]
+#[derive(Clone, Deserialize, Serialize, Derivative, Copy)]
 #[derivative(Debug)]
 pub struct TransportConfig {
     #[serde(default = "default_transport")]
@@ -168,7 +174,7 @@ pub struct TransportConfig {
     pub max_established: Option<u32>,
 }
 
-#[derive(Clone, Deserialize, Derivative)]
+#[derive(Clone, Deserialize, Serialize, Derivative)]
 #[derivative(Debug)]
 pub struct MetricsConfig {
     #[serde(default = "default_metrics_enabled")]
@@ -186,7 +192,7 @@ pub struct MetricsConfig {
     pub max_builtin_metrics_storage_size: usize,
 }
 
-#[derive(Clone, Deserialize, Derivative)]
+#[derive(Clone, Deserialize, Serialize, Derivative)]
 #[derivative(Debug)]
 pub struct ListenConfig {
     /// For TCP connections
@@ -205,7 +211,7 @@ pub struct ListenConfig {
     pub listen_multiaddrs: Vec<Multiaddr>,
 }
 
-#[derive(Clone, Deserialize, Debug, Copy, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[derive(Clone, Deserialize, Serialize, Debug, Copy, Eq, Hash, Ord, PartialEq, PartialOrd)]
 #[repr(transparent)]
 pub struct PeerIdSerializable(#[serde(with = "peerid_serializer")] PeerId);
 
@@ -217,14 +223,14 @@ impl Deref for PeerIdSerializable {
     }
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Serialize, Debug)]
 #[serde(untagged)]
 pub enum PathOrValue {
     Value { value: String },
     Path { path: PathBuf },
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Serialize, Debug)]
 pub struct KeypairConfig {
     #[serde(default = "default_key_format")]
     pub format: String,
@@ -281,6 +287,28 @@ where
     parse_or_load_keypair(deserializer, default_builtins_keypair_path())
 }
 
+fn serialize_keypair<S>(key_pair: &KeyPair, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    let secret = key_pair
+        .secret()
+        .ok()
+        .and_then(|bytes| String::from_utf8(bytes).ok());
+    let format: String = match key_pair {
+        KeyPair::Ed25519(_) => KeyFormat::Ed25519,
+        KeyPair::Rsa(_) => KeyFormat::Rsa,
+        KeyPair::Secp256k1(_) => KeyFormat::Secp256k1,
+    }
+    .into();
+    let config = KeypairConfig {
+        format,
+        keypair: None,
+        secret_key: secret,
+        generate_on_absence: false,
+    };
+    KeypairConfig::serialize(&config, serializer)
+}
 /// Try to decode keypair from string as base58,
 /// if failed – load keypair from file pointed at by same string
 fn parse_or_load_keypair<'de, D>(

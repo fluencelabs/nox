@@ -19,7 +19,7 @@ use air_interpreter_fs::air_interpreter_path;
 use fs_utils::{canonicalize, create_dirs, to_abs_path};
 
 use eyre::WrapErr;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
 #[derive(Deserialize, Clone, Debug)]
@@ -94,7 +94,7 @@ impl UnresolvedDirConfig {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ResolvedDirConfig {
     pub base_dir: PathBuf,
     pub services_base_dir: PathBuf,

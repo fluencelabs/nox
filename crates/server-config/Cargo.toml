@@ -11,7 +11,6 @@ particle-protocol = { workspace = true }
 fluence-libp2p = { workspace = true, features = ["tokio"] }
 air-interpreter-fs = { workspace = true }
 peer-metrics = { workspace = true }
-
 fluence-keypair = { workspace = true }
 
 libp2p = { workspace = true }
@@ -22,8 +21,7 @@ humantime-serde = { workspace = true }
 
 log = { workspace = true }
 rand = "0.8.5"
-clap = "3.2.23"
-toml = "0.5.10"
+clap = { version = "4.1.13", features = ["derive"] }
 bs58 = { workspace = true }
 base64 = { workspace = true }
 num_cpus = "1.15.0"
@@ -31,3 +29,7 @@ eyre = { workspace = true }
 derivative = { workspace = true }
 bytesize = { version = "1.1.0", features = ["serde"] }
 serde_with = "2.2.0"
+figment = { version = "0.10.8", features = ["parking_lot", "toml", "yaml", "json", "env"] }
+
+[dev-dependencies]
+figment = { version = "0.10.8", features = ["test"] }
