@@ -271,7 +271,7 @@ impl<RT: AquaRuntime> Node<RT> {
                 m,
                 node_info.node_version.to_string(),
                 node_info.air_version.to_string(),
-                node_info.spell_version,
+                node_info.spell_version.clone(),
             );
         }
         custom_service_functions.extend_one(make_peer_builtin(node_info));
