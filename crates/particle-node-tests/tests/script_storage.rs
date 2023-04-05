@@ -20,15 +20,12 @@ extern crate fstrings;
 use eyre::WrapErr;
 use fstrings::f;
 use maplit::hashmap;
+use serde_json::json;
 use serde_json::Value as JValue;
-use serde_json::{json, Value};
 
 use connected_client::ConnectedClient;
 use created_swarm::make_swarms;
-use humantime_serde::re::humantime::format_duration;
-use now_millis::now;
 use service_modules::load_module;
-use std::time::Duration;
 use test_utils::{create_service, CreatedService};
 
 #[tokio::test]
@@ -217,23 +214,6 @@ async fn autoremove_singleshot() {
     );
     let list = client.wait_particle_args(list_id).await.unwrap();
     assert_eq!(list, vec![serde_json::Value::Array(vec![])]);
-}
-
-async fn get_list(client: &mut ConnectedClient) -> Vec<Value> {
-    let list_id = client.send_particle(
-        r#"
-            (seq
-                (call relay ("script" "list") [] list)
-                (call client ("op" "return") [list])
-            )
-            "#,
-        hashmap! {
-        "relay" => json ! (client.node.to_string()),
-        "client" => json ! (client.peer_id.to_string()),
-        },
-    );
-
-    client.wait_particle_args(list_id).await.unwrap()
 }
 
 #[tokio::test]
