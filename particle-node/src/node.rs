@@ -266,6 +266,9 @@ impl<RT: AquaRuntime> Node<RT> {
             spell_version,
             allowed_binaries,
         };
+        metrics_registry.as_mut().map(|r| {
+            peer_metrics::add_info_metrics(r, node_info.node_version, node_info.air_version);
+        });
         custom_service_functions.extend_one(make_peer_builtin(node_info));
 
         custom_service_functions.into_iter().for_each(
