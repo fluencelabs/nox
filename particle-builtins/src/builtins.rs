@@ -138,14 +138,19 @@ where
     }
 
     pub async fn call(&self, args: Args, particle: ParticleParams) -> FunctionOutcome {
-        let start = Instant::now();
+        let mut start = Instant::now();
         let result = self.builtins_call(args, particle).await;
+        let result = match result {
+            FunctionOutcome::NotDefined { args, params } => {
+                start = Instant::now();
+                self.custom_service_call(args, params).await
+            }
+            result => result,
+        };
         let end = start.elapsed().as_secs();
+
         match result {
-            FunctionOutcome::NotDefined { args, params } => self
-                .custom_service_call(args, params)
-                .await
-                .or_else(|args, params| self.call_service(args, params)),
+            FunctionOutcome::NotDefined { args, params } => self.call_service(args, params),
             result => {
                 if let Some(metrics) = self.services.metrics.as_ref() {
                     metrics.observe_builtins(result.not_err(), end as f64);

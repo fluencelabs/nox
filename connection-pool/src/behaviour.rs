@@ -566,9 +566,11 @@ impl NetworkBehaviour for ConnectionPoolBehaviour {
             HandlerMessage::InParticle(particle) => {
                 log::trace!(target: "network", "{}: received particle {} from {}; queue {}", self.peer_id, particle.id, from, self.queue.len());
                 self.meter(|m| {
-                    m.particle_queue_size.set(self.queue.len() as i64 + 1);
-                    m.received_particles.inc();
-                    m.particle_sizes.observe(particle.data.len() as f64);
+                    m.incoming_particle(
+                        &particle.id,
+                        self.queue.len() as i64 + 1,
+                        particle.data.len() as f64,
+                    )
                 });
                 self.queue.push_back(particle);
                 self.wake();
