@@ -151,13 +151,15 @@ pub fn resolve_config(raw_args: Vec<OsString>) -> eyre::Result<ResolvedConfig> {
 
     let config_builder = config_builder
         .merge(Env::prefixed("FLUENCE_"))
-        .merge(cli_config);
+        .merge(cli_config.clone());
 
     let config: UnresolvedConfig = config_builder.extract()?;
 
     let config = config.resolve()?;
 
-    log::info!("Loaded config: {:#?}", config);
+    if let Some(true) = cli_config.print_config {
+        log::info!("Loaded config: {:#?}", config);
+    }
 
     Ok(config)
 }

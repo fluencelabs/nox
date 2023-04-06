@@ -134,7 +134,7 @@ pub(crate) struct Args {
         help = "keypair path (conflicts with --keypair-value)",
         help_heading = "Node keypair",
         display_order = 11,
-        conflicts_with = "ROOT_KEY_PAIR_PATH",
+        conflicts_with = "ROOT_KEY_PAIR_VALUE",
         conflicts_with = "SECRET_KEY"
     )]
     keypair_path: Option<PathBuf>,
@@ -229,6 +229,16 @@ pub(crate) struct Args {
         display_order = 21
     )]
     aqua_pool_size: Option<PathBuf>,
+    #[arg(
+        long,
+        value_parser = clap::value_parser!(bool),
+        id = "PRINT_CONFIG",
+        help = "Print applied config",
+        help_heading = "Node configuration",
+        display_order = 22,
+        action =  clap::ArgAction::SetTrue
+    )]
+    pub(crate) print_config: Option<bool>,
 }
 
 impl figment::Provider for Args {
