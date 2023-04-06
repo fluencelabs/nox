@@ -7,7 +7,7 @@ pub fn add_info_metrics(
     air_version: String,
     spell_version: String,
 ) {
-    let sub_registry = registry.sub_registry_with_prefix("rust_peer_info");
+    let sub_registry = registry.sub_registry_with_prefix("rust_peer");
     let info = Info::new(vec![
         ("peer-version", node_version),
         ("air-version", air_version),
