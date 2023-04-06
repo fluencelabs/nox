@@ -7,6 +7,7 @@ pub use connection_pool::ConnectionPoolMetrics;
 pub use connectivity::ConnectivityMetrics;
 pub use connectivity::Resolution;
 pub use dispatcher::DispatcherMetrics;
+pub use info::add_info_metrics;
 pub use particle_executor::{FunctionKind, ParticleExecutorMetrics};
 pub use services_metrics::{
     ServiceCallStats, ServiceMemoryStat, ServiceType, ServicesMetrics, ServicesMetricsBackend,
@@ -17,6 +18,7 @@ pub use vm_pool::VmPoolMetrics;
 mod connection_pool;
 mod connectivity;
 mod dispatcher;
+mod info;
 mod network_protocol;
 mod particle_executor;
 mod services_metrics;
