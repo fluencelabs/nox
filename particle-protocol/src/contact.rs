@@ -39,8 +39,13 @@ impl Display for Contact {
         if self.addresses.is_empty() {
             write!(f, "{} @ [no addr]", self.peer_id)
         } else {
-            let addrs = self.addresses.iter().join(" ");
-            write!(f, "{} @ [{}]", self.peer_id, addrs)
+            write!(
+                f,
+                "{} @ [{}, ({} more)]",
+                self.peer_id,
+                self.addresses[0],
+                self.addresses.len() - 1
+            )
         }
     }
 }
