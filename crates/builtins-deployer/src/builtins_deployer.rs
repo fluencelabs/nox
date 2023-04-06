@@ -385,6 +385,8 @@ impl BuiltinsDeployer {
             log::info!("Builtin service {} successfully started", builtin.name);
         }
 
+        log::info!("Finished. Exiting.");
+
         Ok(())
     }
 
