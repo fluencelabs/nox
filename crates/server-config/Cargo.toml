@@ -22,7 +22,7 @@ humantime-serde = { workspace = true }
 
 log = { workspace = true }
 rand = "0.8.5"
-clap = "3.2.23"
+clap = "4.2.1"
 toml = "0.5.10"
 bs58 = { workspace = true }
 base64 = { workspace = true }
