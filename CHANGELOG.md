@@ -1,5 +1,37 @@
 # Changelog
 
+## [0.10.0](https://github.com/fluencelabs/rust-peer/compare/rust-peer-v0.9.1...rust-peer-v0.10.0) (2023-04-06)
+
+
+### ⚠ BREAKING CHANGES
+
+* **builtins:** add worker.list, move spell.list to worker scope [fixes NET-401 NET-435] ([#1537](https://github.com/fluencelabs/rust-peer/issues/1537))
+* **logs:** reduce logs ([#1534](https://github.com/fluencelabs/rust-peer/issues/1534))
+
+### Features
+
+* add restriction for installing modules with forbidden mounted binaries [NET-428] ([#1535](https://github.com/fluencelabs/rust-peer/issues/1535)) ([481dbd4](https://github.com/fluencelabs/rust-peer/commit/481dbd46c9eda18d22ec590514c71f9bfbb257d3))
+* **builtins:** add worker.list, move spell.list to worker scope [fixes NET-401 NET-435] ([#1537](https://github.com/fluencelabs/rust-peer/issues/1537)) ([3884374](https://github.com/fluencelabs/rust-peer/commit/38843745fd028cecde275f3170053f62fcce06dc))
+* collect metrics for spell particles separately [fixes NET-439] ([#1550](https://github.com/fluencelabs/rust-peer/issues/1550)) ([5711171](https://github.com/fluencelabs/rust-peer/commit/57111712bc88882f5d4510fa9cebe6868f87725b))
+* extend peer identify with spell service version and allowed mounted binaries list [fixes NET-429 NET-381] ([#1540](https://github.com/fluencelabs/rust-peer/issues/1540)) ([30eff87](https://github.com/fluencelabs/rust-peer/commit/30eff87e1f9e20b01d7ffebb481dd820085775a7))
+* **logs:** reduce logs ([#1534](https://github.com/fluencelabs/rust-peer/issues/1534)) ([dc69146](https://github.com/fluencelabs/rust-peer/commit/dc69146d6d096c2453450efad7e08d768ba78439))
+* **metrics:** add rust-peer version info in prometheus metrics [fixes NET-422] ([#1552](https://github.com/fluencelabs/rust-peer/issues/1552)) ([460446b](https://github.com/fluencelabs/rust-peer/commit/460446b01bab79117a4d61c6e40965d3e72a9945))
+
+
+### Bug Fixes
+
+* bug with repeated alias for service [NET-434] ([#1536](https://github.com/fluencelabs/rust-peer/issues/1536)) ([ff455be](https://github.com/fluencelabs/rust-peer/commit/ff455be54132a5b08977d91ef5bf67e6264d2c80))
+* collect separate metrics for root alised services and worker spells [fixes NET-431] ([#1539](https://github.com/fluencelabs/rust-peer/issues/1539)) ([270cfd2](https://github.com/fluencelabs/rust-peer/commit/270cfd2c3a1236fc2cbb19b68b0bb4714e871148))
+* **deps:** update rust crate air-interpreter-wasm to v0.38.0 ([#1502](https://github.com/fluencelabs/rust-peer/issues/1502)) ([12c74fb](https://github.com/fluencelabs/rust-peer/commit/12c74fbe8cbedcc701838d153d4d8e85af80e979))
+* **deps:** update rust crate fluence-app-service to 0.25.1 ([#1522](https://github.com/fluencelabs/rust-peer/issues/1522)) ([446c342](https://github.com/fluencelabs/rust-peer/commit/446c3422ec8c386f2f5d1eb0a62b69245e04863b))
+* **deps:** update rust crate fluence-app-service to 0.25.3 ([#1541](https://github.com/fluencelabs/rust-peer/issues/1541)) ([e5ecf30](https://github.com/fluencelabs/rust-peer/commit/e5ecf30ad79bcfa70b214f3a07f94507153270f4))
+* **deps:** update rust crate fluence-it-types to 0.4.1 ([#1523](https://github.com/fluencelabs/rust-peer/issues/1523)) ([0480d06](https://github.com/fluencelabs/rust-peer/commit/0480d06ea7a187d0511f4198a0ccb53edf4c5bfc))
+* **deps:** update rust crate fluence-spell-distro to v0.5.7 ([#1532](https://github.com/fluencelabs/rust-peer/issues/1532)) ([d027160](https://github.com/fluencelabs/rust-peer/commit/d027160ad8341d4bac9b22e3dc18630488307141))
+* **deps:** update rust crate fluence-spell-dtos to v0.5.7 ([#1533](https://github.com/fluencelabs/rust-peer/issues/1533)) ([804cab8](https://github.com/fluencelabs/rust-peer/commit/804cab8a0ea2ef513671f3a27ec9d543ad9ce5db))
+* don't create libp2p metrics twice [fixes NET-348] ([#1545](https://github.com/fluencelabs/rust-peer/issues/1545)) ([d023865](https://github.com/fluencelabs/rust-peer/commit/d0238657e6c0e23df1ac14efea3b25e2efb270ac))
+* **metrics:** collect metrics for custom services [fixes NET-438] ([#1549](https://github.com/fluencelabs/rust-peer/issues/1549)) ([ed1ce37](https://github.com/fluencelabs/rust-peer/commit/ed1ce37b393f8aa94f31f40ea5bff59194eadf7c))
+* **spells:** update trigger config by alias [NET-418] ([#1521](https://github.com/fluencelabs/rust-peer/issues/1521)) ([0531848](https://github.com/fluencelabs/rust-peer/commit/053184859054c3cc2aa684a5c67d74a7125d87f7))
+
 ## [0.9.1](https://github.com/fluencelabs/rust-peer/compare/rust-peer-v0.9.0...rust-peer-v0.9.1) (2023-03-21)
 
 
