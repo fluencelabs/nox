@@ -83,7 +83,7 @@ impl DataStore for ParticleDataStore {
     fn initialize(&mut self) -> Result<()> {
         create_dir(&self.particle_data_store).map_err(CreateDataStore)?;
 
-        self.vault.initialize()?;
+        // self.vault.initialize()?;
 
         Ok(())
     }
