@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-use fluence_libp2p::peerid_serializer;
+use std::fmt::{Display, Formatter};
 
-use itertools::Itertools;
 use libp2p::{core::Multiaddr, PeerId};
 use serde::{Deserialize, Serialize};
-use std::fmt::{Display, Formatter};
+
+use fluence_libp2p::peerid_serializer;
 
 #[derive(Debug, Clone, Deserialize, Serialize, Eq, PartialEq)]
 pub struct Contact {
@@ -39,8 +39,13 @@ impl Display for Contact {
         if self.addresses.is_empty() {
             write!(f, "{} @ [no addr]", self.peer_id)
         } else {
-            let addrs = self.addresses.iter().join(" ");
-            write!(f, "{} @ [{}]", self.peer_id, addrs)
+            write!(
+                f,
+                "{} @ [{}, ({} more)]",
+                self.peer_id,
+                self.addresses[0],
+                self.addresses.len() - 1
+            )
         }
     }
 }
