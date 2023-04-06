@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-use fluence_libp2p::peerid_serializer;
+use std::fmt::{Display, Formatter};
 
-use itertools::Itertools;
 use libp2p::{core::Multiaddr, PeerId};
 use serde::{Deserialize, Serialize};
-use std::fmt::{Display, Formatter};
+
+use fluence_libp2p::peerid_serializer;
 
 #[derive(Debug, Clone, Deserialize, Serialize, Eq, PartialEq)]
 pub struct Contact {
