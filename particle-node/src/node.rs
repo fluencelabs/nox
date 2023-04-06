@@ -23,6 +23,7 @@ use aquamarine::{
 use builtins_deployer::BuiltinsDeployer;
 use config_utils::to_peer_id;
 use connection_pool::{ConnectionPoolApi, ConnectionPoolT};
+use eyre::WrapErr;
 use fluence_libp2p::build_transport;
 use futures::{stream::StreamExt, FutureExt};
 use key_manager::KeyManager;
@@ -420,7 +421,7 @@ impl<RT: AquaRuntime> Node<RT> {
         let dispatcher = self.dispatcher;
         let aquavm_pool = self.aquavm_pool;
         let script_storage = self.script_storage;
-        let mut spell_event_bus = Some(self.spell_event_bus);
+        let spell_event_bus = self.spell_event_bus;
         let spell_events_receiver = self.spell_events_receiver;
         let sorcerer = self.sorcerer;
         let registry = self.registry;
@@ -430,7 +431,6 @@ impl<RT: AquaRuntime> Node<RT> {
             .map(|x| format!("node-{x}"))
             .unwrap_or("node".to_owned());
         let libp2p_metrics = self.libp2p_metrics;
-        let mut builtins_deployer = self.builtins_deployer;
 
         task::Builder::new().name(&task_name.clone()).spawn(async move {
             let mut metrics_fut= if let Some(registry) = registry {
@@ -448,8 +448,6 @@ impl<RT: AquaRuntime> Node<RT> {
             let mut dispatcher = dispatcher.start(particle_stream, effects_stream);
             let mut exit_inlet = Some(exit_inlet);
 
-            let mut builtins_f = builtins_deployer.deploy_builtin_services().boxed().fuse();
-
             loop {
                 let exit_inlet = exit_inlet.as_mut().expect("Could not get exit inlet");
                 tokio::select! {
@@ -462,10 +460,6 @@ impl<RT: AquaRuntime> Node<RT> {
                     _ = &mut metrics_fut => {},
                     _ = &mut connectivity => {},
                     _ = &mut dispatcher => {},
-                    _ = &mut builtins_f => {
-                        log::info!("builtins_f finished! Starting spell bus");
-                        spell_event_bus.take().map(|bus| bus.start());
-                    },
                     _ = exit_inlet => {
                         log::info!("Exit inlet");
                         break;
@@ -483,11 +477,15 @@ impl<RT: AquaRuntime> Node<RT> {
             pool.abort();
         }).expect("Could not spawn task");
 
-        // let mut builtins_deployer = self.builtins_deployer;
-        // builtins_deployer
-        //     .deploy_builtin_services()
-        //     .await
-        //     .wrap_err("builtins deploy failed")?;
+        let mut builtins_deployer = self.builtins_deployer;
+        builtins_deployer
+            .deploy_builtin_services()
+            .await
+            .wrap_err("builtins deploy failed")?;
+
+        log::error!("starting spell event bus");
+
+        spell_event_bus.start();
 
         Ok(exit_outlet)
     }

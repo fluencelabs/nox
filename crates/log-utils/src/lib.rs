@@ -61,8 +61,10 @@ pub fn enable_logs() {
         .filter(Some("async_std"), Info)
         .filter(Some("async_io"), Info)
         .filter(Some("polling"), Info)
-        .filter(Some("cranelift_codegen"), Info)
-        .filter(Some("walrus"), Info)
+        .filter(Some("cranelift_codegen"), Warn)
+        .filter(Some("walrus"), Off)
+        .filter(Some("tracing"), Off)
+        .filter(Some("avm_server"), Off)
         .try_init()
         .ok();
 }
