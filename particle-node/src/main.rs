@@ -38,11 +38,11 @@ use aquamarine::{VmConfig, AVM};
 use config_utils::to_peer_id;
 use fs_utils::to_abs_path;
 use particle_node::Node;
-use server_config::{load_config, ResolvedConfig};
+use server_config::{load_config, ConfigData, ResolvedConfig};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const AUTHORS: &str = env!("CARGO_PKG_AUTHORS");
-const _DESCRIPTION: &str = env!("CARGO_PKG_DESCRIPTION");
+const DESCRIPTION: &str = env!("CARGO_PKG_DESCRIPTION");
 
 trait Stoppable {
     fn stop(self);
@@ -105,8 +105,14 @@ async fn main() -> eyre::Result<()> {
 +-------------------------------------------------+
     "#
     );
-
-    let config = load_config()?;
+    let version = format!("{}; AIR version {}", VERSION, air_interpreter_wasm::VERSION);
+    let authors = format!("by {AUTHORS}");
+    let config_data = ConfigData {
+        version,
+        authors,
+        description: DESCRIPTION.to_string(),
+    };
+    let config = load_config(Some(config_data))?;
 
     let interpreter_path = to_abs_path(config.dir_config.air_interpreter_path.clone());
     write_default_air_interpreter(&interpreter_path)?;

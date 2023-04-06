@@ -23,7 +23,7 @@ use std::fmt::Debug;
 use std::path::PathBuf;
 
 #[derive(Parser, Debug, Serialize, Clone)]
-pub(crate) struct Args {
+pub(crate) struct DerivedArgs {
     #[arg(
         short,
         long,
@@ -241,7 +241,7 @@ pub(crate) struct Args {
     pub(crate) print_config: Option<bool>,
 }
 
-impl figment::Provider for Args {
+impl figment::Provider for DerivedArgs {
     fn metadata(&self) -> Metadata {
         Metadata::named("Args")
     }

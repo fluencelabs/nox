@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use clap::Parser;
+use clap::{Args, Command, FromArgMatches};
 use std::ffi::OsString;
 use std::net::SocketAddr;
 use std::ops::{Deref, DerefMut};
@@ -123,13 +123,36 @@ impl ResolvedConfig {
     }
 }
 
-pub fn load_config() -> eyre::Result<ResolvedConfig> {
-    let raw_args = std::env::args_os().collect::<Vec<_>>();
-    resolve_config(raw_args)
+pub struct ConfigData {
+    pub version: String,
+    pub authors: String,
+    pub description: String,
 }
 
-pub fn resolve_config(raw_args: Vec<OsString>) -> eyre::Result<ResolvedConfig> {
-    let cli_config = args::Args::parse_from(raw_args);
+pub fn load_config(data: Option<ConfigData>) -> eyre::Result<ResolvedConfig> {
+    let raw_args = std::env::args_os().collect::<Vec<_>>();
+    resolve_config(raw_args, data)
+}
+
+pub fn resolve_config(
+    raw_args: Vec<OsString>,
+    data: Option<ConfigData>,
+) -> eyre::Result<ResolvedConfig> {
+    let command = Command::new("Fluence node").override_usage(r#"particle-node [FLAGS] [OPTIONS]"#);
+    let command = if let Some(data) = data {
+        command
+            .version(&data.version)
+            .author(&data.authors)
+            .about(data.description)
+    } else {
+        command
+    };
+
+    let raw_cli_config = args::DerivedArgs::augment_args(command);
+    let matches = raw_cli_config.get_matches_from(raw_args);
+    let cli_config = args::DerivedArgs::from_arg_matches(&matches)
+        .map_err(|err| err.exit())
+        .unwrap();
 
     let config_builder: Figment = Figment::new();
     let config_builder = if let Some(config_path) = cli_config.config.clone() {
@@ -189,7 +212,7 @@ mod tests {
 
         "#)?;
 
-            let config = resolve_config(vec![]).expect("Could not load config");
+            let config = resolve_config(vec![], None).expect("Could not load config");
             assert_eq!(config.node_config.script_storage_max_failures, 10);
             Ok(())
         });
@@ -218,7 +241,7 @@ mod tests {
 
             assert!(!key_path.exists());
             assert!(!builtins_key_path.exists());
-            let _config = resolve_config(vec![]).expect("Could not load config");
+            let _config = resolve_config(vec![], None).expect("Could not load config");
             assert!(key_path.exists());
             assert!(builtins_key_path.exists());
             Ok(())
@@ -235,14 +258,14 @@ mod tests {
             builtins_key_pair.generate_on_absence = true
             "#,
             )?;
-            let _config = resolve_config(vec![]).expect("Could not load config");
+            let _config = resolve_config(vec![], None).expect("Could not load config");
             Ok(())
         });
     }
 
     #[test]
     fn load_empty_config() {
-        let _config = resolve_config(vec![]).expect("Could not load config");
+        let _config = resolve_config(vec![], None).expect("Could not load config");
     }
 
     #[test]
@@ -278,7 +301,7 @@ mod tests {
             assert!(root_key_path.exists());
             assert!(builtins_key_path.exists());
 
-            let _config = resolve_config(vec![]).expect("Could not load config");
+            let _config = resolve_config(vec![], None).expect("Could not load config");
 
             Ok(())
         });
@@ -313,7 +336,7 @@ mod tests {
             assert!(root_key_path.exists());
             assert!(builtins_key_path.exists());
 
-            let _config = resolve_config(vec![]).expect("Could not load config");
+            let _config = resolve_config(vec![], None).expect("Could not load config");
 
             Ok(())
         });
@@ -352,7 +375,7 @@ mod tests {
             assert!(root_key_path.exists());
             assert!(builtins_key_path.exists());
 
-            let _config = resolve_config(vec![]).expect("Could not load config");
+            let _config = resolve_config(vec![], None).expect("Could not load config");
 
             Ok(())
         });
@@ -395,7 +418,7 @@ mod tests {
             assert!(root_key_path.exists());
             assert!(builtins_key_path.exists());
 
-            let _config = resolve_config(vec![]).expect("Could not load config");
+            let _config = resolve_config(vec![], None).expect("Could not load config");
 
             Ok(())
         });
