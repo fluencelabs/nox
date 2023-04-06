@@ -442,7 +442,6 @@ impl<RT: AquaRuntime> Node<RT> {
 
             let services_metrics_backend = services_metrics_backend.start();
             let script_storage = script_storage.start();
-            let spell_event_bus = spell_event_bus.start();
             let sorcerer = sorcerer.start(spell_events_receiver);
             let pool = aquavm_pool.start();
             let mut connectivity = connectivity.start();
@@ -471,7 +470,7 @@ impl<RT: AquaRuntime> Node<RT> {
             log::info!("Stopping node");
             services_metrics_backend.abort();
             script_storage.abort();
-            spell_event_bus.abort();
+            // spell_event_bus.abort();
             sorcerer.abort();
             dispatcher.cancel().await;
             connectivity.cancel().await;
@@ -483,6 +482,8 @@ impl<RT: AquaRuntime> Node<RT> {
             .deploy_builtin_services()
             .await
             .wrap_err("builtins deploy failed")?;
+
+        spell_event_bus.start();
 
         Ok(exit_outlet)
     }
