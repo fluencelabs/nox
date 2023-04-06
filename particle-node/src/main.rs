@@ -43,6 +43,7 @@ use server_config::{load_config, ConfigData, ResolvedConfig};
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const AUTHORS: &str = env!("CARGO_PKG_AUTHORS");
 const DESCRIPTION: &str = env!("CARGO_PKG_DESCRIPTION");
+const PKG_NAME: &str = env!("CARGO_PKG_NAME");
 
 trait Stoppable {
     fn stop(self);
@@ -82,16 +83,6 @@ async fn main() -> eyre::Result<()> {
         .filter_module("avm_server::runner", LevelFilter::Error)
         .init();
 
-    let _version = format!("{}; AIR version {}", VERSION, air_interpreter_wasm::VERSION);
-    let _authors = format!("by {AUTHORS}");
-    /*    let arg_matches = App::new("Fluence node")
-    .version(version.as_str())
-    .author(authors.as_str())
-    .about(DESCRIPTION)
-    .override_usage(r#"particle-node [FLAGS] [OPTIONS]"#)
-    .args(create_args().as_slice())
-    .get_matches();*/
-
     log::info!(
         r#"
 +-------------------------------------------------+
@@ -108,6 +99,7 @@ async fn main() -> eyre::Result<()> {
     let version = format!("{}; AIR version {}", VERSION, air_interpreter_wasm::VERSION);
     let authors = format!("by {AUTHORS}");
     let config_data = ConfigData {
+        binary_name: PKG_NAME.to_string(),
         version,
         authors,
         description: DESCRIPTION.to_string(),

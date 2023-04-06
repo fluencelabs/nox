@@ -124,6 +124,7 @@ impl ResolvedConfig {
 }
 
 pub struct ConfigData {
+    pub binary_name: String,
     pub version: String,
     pub authors: String,
     pub description: String,
@@ -138,21 +139,20 @@ pub fn resolve_config(
     raw_args: Vec<OsString>,
     data: Option<ConfigData>,
 ) -> eyre::Result<ResolvedConfig> {
-    let command = Command::new("Fluence node").override_usage(r#"particle-node [FLAGS] [OPTIONS]"#);
+    let command = Command::new("Fluence peer");
     let command = if let Some(data) = data {
         command
             .version(&data.version)
             .author(&data.authors)
             .about(data.description)
+            .override_usage(format!("{} [FLAGS] [OPTIONS]", data.binary_name))
     } else {
         command
     };
 
     let raw_cli_config = args::DerivedArgs::augment_args(command);
     let matches = raw_cli_config.get_matches_from(raw_args);
-    let cli_config = args::DerivedArgs::from_arg_matches(&matches)
-        .map_err(|err| err.exit())
-        .unwrap();
+    let cli_config = args::DerivedArgs::from_arg_matches(&matches)?;
 
     let config_builder: Figment = Figment::new();
     let config_builder = if let Some(config_path) = cli_config.config.clone() {
