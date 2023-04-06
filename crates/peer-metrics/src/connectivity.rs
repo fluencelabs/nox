@@ -1,3 +1,4 @@
+use crate::{ParticleLabel, ParticleType};
 use prometheus_client::encoding::{EncodeLabelSet, EncodeLabelValue};
 use prometheus_client::metrics::counter::Counter;
 use prometheus_client::metrics::family::Family;
@@ -15,11 +16,12 @@ pub enum Resolution {
 pub struct ResolutionLabel {
     action: Resolution,
 }
+
 #[derive(Clone)]
 pub struct ConnectivityMetrics {
     contact_resolve: Family<ResolutionLabel, Counter>,
-    pub particle_send_success: Counter,
-    pub particle_send_failure: Counter,
+    pub particle_send_success: Family<ParticleLabel, Counter>,
+    pub particle_send_failure: Family<ParticleLabel, Counter>,
     pub bootstrap_disconnected: Counter,
     pub bootstrap_connected: Counter,
 }
@@ -35,14 +37,14 @@ impl ConnectivityMetrics {
             contact_resolve.clone(),
         );
 
-        let particle_send_success = Counter::default();
+        let particle_send_success = Family::default();
         sub_registry.register(
             "particle_send_success",
             "Number of sent particles",
             particle_send_success.clone(),
         );
 
-        let particle_send_failure = Counter::default();
+        let particle_send_failure = Family::default();
         sub_registry.register(
             "particle_send_failure",
             "Number of errors on particle sending",
@@ -75,6 +77,22 @@ impl ConnectivityMetrics {
     pub fn count_resolution(&self, resolution: Resolution) {
         self.contact_resolve
             .get_or_create(&ResolutionLabel { action: resolution })
+            .inc();
+    }
+
+    pub fn send_particle_ok(&self, particle: &str) {
+        self.particle_send_success
+            .get_or_create(&ParticleLabel {
+                particle_type: ParticleType::from_particle(particle),
+            })
+            .inc();
+    }
+
+    pub fn send_particle_failed(&self, particle: &str) {
+        self.particle_send_failure
+            .get_or_create(&ParticleLabel {
+                particle_type: ParticleType::from_particle(particle),
+            })
             .inc();
     }
 }

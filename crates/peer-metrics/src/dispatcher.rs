@@ -1,9 +1,11 @@
+use crate::{ParticleLabel, ParticleType};
 use prometheus_client::metrics::counter::Counter;
+use prometheus_client::metrics::family::Family;
 use prometheus_client::registry::Registry;
 
 #[derive(Clone)]
 pub struct DispatcherMetrics {
-    pub expired_particles: Counter,
+    pub expired_particles: Family<ParticleLabel, Counter>,
 }
 
 impl DispatcherMetrics {
@@ -23,7 +25,7 @@ impl DispatcherMetrics {
         //     Box::new(parallelism),
         // );
 
-        let expired_particles = Counter::default();
+        let expired_particles = Family::default();
         sub_registry.register(
             "particles_expired",
             "Number of particles expired by TTL",
@@ -31,5 +33,13 @@ impl DispatcherMetrics {
         );
 
         DispatcherMetrics { expired_particles }
+    }
+
+    pub fn particle_expired(&self, particle_id: &str) {
+        self.expired_particles
+            .get_or_create(&ParticleLabel {
+                particle_type: ParticleType::from_particle(particle_id),
+            })
+            .inc();
     }
 }
