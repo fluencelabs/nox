@@ -13,5 +13,5 @@ pub fn add_info_metrics(
         ("air-version", air_version),
         ("spell-version", spell_version),
     ]);
-    sub_registry.register("version", "Rust Peer versions", info);
+    sub_registry.register("build", "Rust Peer Info", info);
 }
