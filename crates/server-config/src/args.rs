@@ -236,7 +236,7 @@ pub(crate) struct DerivedArgs {
         help = "Print applied config",
         help_heading = "Node configuration",
         display_order = 22,
-        action =  clap::ArgAction::SetTrue
+        action = clap::ArgAction::SetTrue
     )]
     pub(crate) print_config: Option<bool>,
 }
