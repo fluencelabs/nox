@@ -264,7 +264,7 @@ mod tests {
             builtins_key_pair.generate_on_absence = true
             "#,
             )?;
-=            let _config = resolve_config(vec![], None).expect("Could not load config");
+            let _config = resolve_config(vec![], None).expect("Could not load config");
             Ok(())
         });
     }
