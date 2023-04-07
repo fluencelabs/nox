@@ -22,7 +22,7 @@ use eyre::WrapErr;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
-#[derive(Deserialize, Clone, Debug)]
+#[derive(Deserialize, Serialize, Clone, Debug)]
 pub struct UnresolvedDirConfig {
     /// Parent directory for all other node's directory
     #[serde(default = "default_base_dir")]

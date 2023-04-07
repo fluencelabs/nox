@@ -30,7 +30,7 @@ use serde::{Deserialize, Serialize};
 use crate::dir_config::{ResolvedDirConfig, UnresolvedDirConfig};
 use crate::node_config::NodeConfig;
 
-#[derive(Clone, Deserialize, Debug)]
+#[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct UnresolvedConfig {
     #[serde(flatten)]
     dir_config: UnresolvedDirConfig,
@@ -177,7 +177,6 @@ pub fn resolve_config(
         .merge(cli_config.clone());
 
     let config: UnresolvedConfig = config_builder.extract()?;
-
     let config = config.resolve()?;
 
     if let Some(true) = cli_config.print_config {

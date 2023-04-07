@@ -14,13 +14,102 @@
  * limitations under the License.
  */
 
-use clap::Parser;
+use crate::node_config::{PathOrValue};
+use clap::{Args, Parser};
 use figment::error::Kind::InvalidType;
 use figment::value::{Dict, Map, Value};
 use figment::{Error, Metadata, Profile};
-use serde::Serialize;
+use serde::ser::SerializeStruct;
+use serde::{Serialize, Serializer};
 use std::fmt::Debug;
 use std::path::PathBuf;
+
+#[derive(Args, Debug, Clone)]
+pub struct RootKeyPairArgs {
+    #[arg(
+        short('k'),
+        long,
+        id = "ROOT_KEY_PAIR_VALUE",
+        help = "keypair in base64 (conflicts with --keypair-path)",
+        value_name = "BYTES",
+        help_heading = "Node keypair",
+        display_order = 10,
+        conflicts_with = "ROOT_KEY_PAIR_PATH",
+        conflicts_with = "SECRET_KEY"
+    )]
+    value: Option<String>,
+    #[arg(
+        short('p'),
+        long,
+        id = "ROOT_KEY_PAIR_PATH",
+        help = "keypair path (conflicts with --keypair-value)",
+        help_heading = "Node keypair",
+        display_order = 11,
+        conflicts_with = "ROOT_KEY_PAIR_VALUE",
+        conflicts_with = "SECRET_KEY"
+    )]
+    path: Option<PathBuf>,
+    #[arg(
+    short('f'),
+    long,
+    value_parser(["ed25519", "secp256k1", "rsa"]),
+    id = "ROOT_KEY_FORMAT",
+    help_heading = "Node keypair",
+    display_order = 12,
+    )]
+    format: Option<String>,
+
+    #[arg(
+    short('g'),
+    long,
+    value_parser = clap::value_parser!(bool),
+    id = "ROOT_KEY_PAIR_GENERATE",
+    help_heading = "Node keypair",
+    display_order = 13,
+    action =  clap::ArgAction::SetTrue
+    )]
+    generate_on_absence: Option<bool>,
+    #[arg(
+        short('y'),
+        long,
+        id = "SECRET_KEY",
+        help_heading = "Node keypair",
+        help = "Node secret key in base64 (usually 32 bytes)",
+        display_order = 14,
+        conflicts_with = "ROOT_KEY_PAIR_PATH",
+        conflicts_with = "ROOT_KEY_PAIR_VALUE"
+    )]
+    secret_key: Option<String>,
+}
+
+impl Serialize for RootKeyPairArgs {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut struct_serializer = serializer.serialize_struct("KeypairConfig", 4)?;
+
+        if let Some(generate_on_absence) = &self.generate_on_absence {
+            struct_serializer.serialize_field("generate_on_absence", generate_on_absence)?;
+        }
+        if let Some(format) = &self.format {
+            struct_serializer.serialize_field("format", format)?;
+        }
+        if let Some(value) = &self.value {
+            let value = PathOrValue::Value {
+                value: value.clone(),
+            };
+            struct_serializer.serialize_field("value", &value)?;
+        }
+        if let Some(value) = &self.path {
+            let value = PathOrValue::Path {
+                path: value.clone(),
+            };
+            struct_serializer.serialize_field("path", &value)?;
+        }
+        struct_serializer.end()
+    }
+}
 
 #[derive(Parser, Debug, Serialize, Clone)]
 pub(crate) struct DerivedArgs {
@@ -115,60 +204,10 @@ pub(crate) struct DerivedArgs {
         action =  clap::ArgAction::SetTrue
     )]
     local: Option<bool>,
-    #[arg(
-        short('k'),
-        long,
-        id = "ROOT_KEY_PAIR_VALUE",
-        help = "keypair in base64 (conflicts with --keypair-path)",
-        value_name = "BYTES",
-        help_heading = "Node keypair",
-        display_order = 10,
-        conflicts_with = "ROOT_KEY_PAIR_PATH",
-        conflicts_with = "SECRET_KEY"
-    )]
-    keypair_value: Option<String>,
-    #[arg(
-        short('p'),
-        long,
-        id = "ROOT_KEY_PAIR_PATH",
-        help = "keypair path (conflicts with --keypair-value)",
-        help_heading = "Node keypair",
-        display_order = 11,
-        conflicts_with = "ROOT_KEY_PAIR_VALUE",
-        conflicts_with = "SECRET_KEY"
-    )]
-    keypair_path: Option<PathBuf>,
-    #[arg(
-        short('f'),
-        long,
-        value_parser(["ed25519", "secp256k1", "rsa"]),
-        id = "ROOT_KEY_FORMAT",
-        help_heading = "Node keypair",
-        display_order = 12,
-    )]
-    keypair_format: Option<String>,
 
-    #[arg(
-        short('g'),
-        long,
-        value_parser = clap::value_parser!(bool),
-        id = "ROOT_KEY_PAIR_GENERATE",
-        help_heading = "Node keypair",
-        display_order = 13,
-        action =  clap::ArgAction::SetTrue
-    )]
-    generate_on_absence: Option<bool>,
-    #[arg(
-        short('y'),
-        long,
-        id = "SECRET_KEY",
-        help_heading = "Node keypair",
-        help = "Node secret key in base64 (usually 32 bytes)",
-        display_order = 14,
-        conflicts_with = "ROOT_KEY_PAIR_PATH",
-        conflicts_with = "ROOT_KEY_PAIR_VALUE"
-    )]
-    secret_key: Option<String>,
+    #[command(flatten)]
+    root_key_pair: RootKeyPairArgs,
+
     #[arg(
         short('c'),
         long,

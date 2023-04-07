@@ -26,6 +26,132 @@ use super::defaults::*;
 #[serde_as]
 #[derive(Clone, Deserialize, Serialize, Derivative)]
 #[derivative(Debug)]
+pub struct UnresolvedNodeConfig {
+    #[serde(
+        deserialize_with = "parse_or_load_root_keypair",
+        serialize_with = "serialize_keypair"
+    )]
+    #[serde(default = "default_root_keypair")]
+    #[derivative(Debug = "ignore")]
+    pub root_key_pair: KeyPair,
+
+    #[serde(
+        deserialize_with = "parse_or_load_builtins_keypair",
+        serialize_with = "serialize_keypair"
+    )]
+    #[serde(default = "default_builtins_keypair")]
+    #[derivative(Debug = "ignore")]
+    pub builtins_key_pair: KeyPair,
+
+    /// Particle ttl for autodeploy
+    #[serde(default = "default_auto_particle_ttl")]
+    #[serde(with = "humantime_serde")]
+    pub autodeploy_particle_ttl: Duration,
+
+    /// Configure the number of ping attempts to check the readiness of the vm pool.
+    /// Total wait time is the autodeploy_particle_ttl times the number of attempts.
+    #[serde(default = "default_autodeploy_retry_attempts")]
+    pub autodeploy_retry_attempts: u16,
+
+    /// Affects builtins autodeploy. If set to true, then all builtins should be recreated and their state is cleaned up.
+    #[serde(default)]
+    pub force_builtins_redeploy: bool,
+
+    #[serde(flatten)]
+    pub transport_config: TransportConfig,
+
+    #[serde(flatten)]
+    pub listen_config: ListenConfig,
+
+    /// Bootstrap nodes to join to the Fluence network
+    #[serde(default = "default_bootstrap_nodes")]
+    pub bootstrap_nodes: Vec<Multiaddr>,
+
+    /// External address to advertise via identify protocol
+    pub external_address: Option<IpAddr>,
+
+    /// External multiaddresses to advertise; more flexible that IpAddr
+    #[serde(default)]
+    pub external_multiaddresses: Vec<Multiaddr>,
+
+    #[serde(flatten)]
+    pub metrics_config: MetricsConfig,
+
+    #[serde(default)]
+    pub bootstrap_config: BootstrapConfig,
+
+    #[serde(default)]
+    pub root_weights: HashMap<PeerIdSerializable, u32>,
+
+    #[serde(default)]
+    #[serde(deserialize_with = "parse_envs")]
+    pub services_envs: HashMap<Vec<u8>, Vec<u8>>,
+
+    #[serde(default)]
+    pub protocol_config: ProtocolConfig,
+
+    /// Number of stepper VMs to create. By default, `num_cpus::get() * 2` is used
+    #[serde(default = "default_aquavm_pool_size")]
+    pub aquavm_pool_size: usize,
+
+    /// Maximum heap size in bytes available for an interpreter instance.
+    #[serde_as(as = "Option<DisplayFromStr>")]
+    #[serde(default)]
+    pub aquavm_max_heap_size: Option<bytesize::ByteSize>,
+
+    /// Maximum heap size in bytes available for a WASM module.
+    #[serde_as(as = "DisplayFromStr")]
+    #[serde(default = "default_module_max_heap_size")]
+    pub module_max_heap_size: bytesize::ByteSize,
+
+    /// Default heap size in bytes available for a WASM module unless otherwise specified.
+    #[serde_as(as = "Option<DisplayFromStr>")]
+    #[serde(default)]
+    pub module_default_heap_size: Option<bytesize::ByteSize>,
+
+    #[serde(default)]
+    pub kademlia: KademliaConfig,
+
+    #[serde(default = "default_particle_queue_buffer_size")]
+    pub particle_queue_buffer: usize,
+    #[serde(default = "default_particle_processor_parallelism")]
+    pub particle_processor_parallelism: Option<usize>,
+
+    #[serde(default = "default_script_storage_timer_resolution")]
+    pub script_storage_timer_resolution: Duration,
+
+    #[serde(default = "default_script_storage_max_failures")]
+    pub script_storage_max_failures: u8,
+
+    #[serde(default = "default_script_storage_particle_ttl")]
+    #[serde(with = "humantime_serde")]
+    pub script_storage_particle_ttl: Duration,
+
+    #[serde(default = "default_max_spell_particle_ttl")]
+    #[serde(with = "humantime_serde")]
+    pub max_spell_particle_ttl: Duration,
+
+    #[serde(default = "default_bootstrap_frequency")]
+    pub bootstrap_frequency: usize,
+
+    #[serde(default)]
+    pub allow_local_addresses: bool,
+
+    #[serde(default = "default_execution_timeout")]
+    #[serde(with = "humantime_serde")]
+    pub particle_execution_timeout: Duration,
+
+    #[serde(with = "peerid_serializer")]
+    #[serde(default = "default_management_peer_id")]
+    pub management_peer_id: PeerId,
+
+    #[serde(default = "default_allowed_binaries")]
+    pub allowed_binaries: Vec<String>,
+}
+
+#[serde_as]
+#[derive(Clone, Deserialize, Serialize, Derivative)]
+#[derivative(Debug)]
 pub struct NodeConfig {
     #[serde(
         deserialize_with = "parse_or_load_root_keypair",
