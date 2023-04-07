@@ -160,7 +160,7 @@ pub(crate) struct DerivedArgs {
     external_multiaddresses: Option<Vec<String>>,
     #[arg(
         short('a'),
-        long,
+        long("allow-private-ips"),
         name = "ALLOW_PRIVATE_IPS",
         help = "allow private IP addresses from other nodes",
         help_heading = "Networking",
