@@ -154,7 +154,8 @@ pub(crate) struct DerivedArgs {
         value_name = "MULTIADDR",
         help_heading = "Networking",
         display_order = 5,
-        value_delimiter = ','
+        action =  clap::ArgAction::Append,
+        num_args = 1..
     )]
     external_multiaddresses: Option<Vec<String>>,
     #[arg(
@@ -175,8 +176,9 @@ pub(crate) struct DerivedArgs {
         value_name = "MULTIADDR",
         help_heading = "Networking",
         display_order = 7,
-        value_delimiter = ',',
-        conflicts_with = "LOCAL"
+        conflicts_with = "LOCAL",
+        action =  clap::ArgAction::Append,
+        num_args = 1..
     )]
     bootstrap_nodes: Option<Vec<String>>,
     #[arg(
