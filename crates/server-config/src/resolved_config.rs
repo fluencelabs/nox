@@ -182,7 +182,6 @@ mod tests {
     use base64::{engine::general_purpose::STANDARD as base64, Engine};
     use figment::Jail;
     use fluence_keypair::KeyPair;
-    use std::str::FromStr;
 
     use super::*;
 
