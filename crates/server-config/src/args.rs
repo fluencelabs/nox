@@ -148,7 +148,7 @@ pub(crate) struct DerivedArgs {
     external_address: Option<String>,
     #[arg(
         short('z'),
-        long,
+        long("external-maddrs"),
         id = "EXTERNAL_MULTIADDRS",
         help = "external multiaddresses to advertize",
         value_name = "MULTIADDR",
