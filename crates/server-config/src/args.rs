@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-use crate::node_config::{PathOrValue};
 use clap::{Args, Parser};
 use figment::error::Kind::InvalidType;
 use figment::value::{Dict, Map, Value};
@@ -96,16 +95,13 @@ impl Serialize for RootKeyPairArgs {
             struct_serializer.serialize_field("format", format)?;
         }
         if let Some(value) = &self.value {
-            let value = PathOrValue::Value {
-                value: value.clone(),
-            };
             struct_serializer.serialize_field("value", &value)?;
         }
         if let Some(value) = &self.path {
-            let value = PathOrValue::Path {
-                path: value.clone(),
-            };
             struct_serializer.serialize_field("path", &value)?;
+        }
+        if let Some(value) = &self.secret_key {
+            struct_serializer.serialize_field("secret_key", &value)?;
         }
         struct_serializer.end()
     }
@@ -206,7 +202,7 @@ pub(crate) struct DerivedArgs {
     local: Option<bool>,
 
     #[command(flatten)]
-    root_key_pair: RootKeyPairArgs,
+    root_key_pair: Option<RootKeyPairArgs>,
 
     #[arg(
         short('c'),

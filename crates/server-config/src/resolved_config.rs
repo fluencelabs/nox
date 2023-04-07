@@ -28,35 +28,26 @@ use libp2p::core::{multiaddr::Protocol, Multiaddr};
 use serde::{Deserialize, Serialize};
 
 use crate::dir_config::{ResolvedDirConfig, UnresolvedDirConfig};
-use crate::node_config::NodeConfig;
+use crate::node_config::{NodeConfig, UnresolvedNodeConfig};
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct UnresolvedConfig {
     #[serde(flatten)]
     dir_config: UnresolvedDirConfig,
     #[serde(flatten)]
-    node_config: NodeConfig,
-    #[serde(default)]
-    local: Option<bool>,
+    node_config: UnresolvedNodeConfig,
 }
 
 impl UnresolvedConfig {
-    pub fn resolve(mut self) -> eyre::Result<ResolvedConfig> {
-        let bootstrap_nodes = match self.local {
-            Some(true) => vec![],
-            _ => self.node_config.bootstrap_nodes,
-        };
-
-        self.node_config.bootstrap_nodes = bootstrap_nodes;
-
+    pub fn resolve(self) -> eyre::Result<ResolvedConfig> {
         Ok(ResolvedConfig {
             dir_config: self.dir_config.resolve()?,
-            node_config: self.node_config,
+            node_config: self.node_config.resolve()?,
         })
     }
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug)]
 pub struct ResolvedConfig {
     pub dir_config: ResolvedDirConfig,
     pub node_config: NodeConfig,
@@ -266,14 +257,14 @@ mod tests {
     #[test]
     fn load_empty_keypair() {
         Jail::expect_with(|jail| {
-            jail.create_file(
+            let _file = jail.create_file(
                 "Config.toml",
                 r#"
             root_key_pair.generate_on_absence = true
             builtins_key_pair.generate_on_absence = true
             "#,
             )?;
-            let _config = resolve_config(vec![], None).expect("Could not load config");
+=            let _config = resolve_config(vec![], None).expect("Could not load config");
             Ok(())
         });
     }
