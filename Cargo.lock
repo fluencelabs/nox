@@ -4501,7 +4501,6 @@ dependencies = [
  "fluence-libp2p",
  "futures",
  "humantime-serde",
- "itertools",
  "json-utils",
  "libp2p",
  "log",

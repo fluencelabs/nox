@@ -841,7 +841,12 @@ impl ParticleAppServices {
         })?;
         let stats = service.module_memory_stats();
         let stats = ServiceMemoryStat::new(&stats);
-        let service_type = ServiceType::Service(aliases.first().cloned());
+        let allowed_alias = if worker_id == self.config.local_peer_id {
+            aliases.first().cloned()
+        } else {
+            None
+        };
+        let service_type = ServiceType::Service(allowed_alias);
         let service = Service::new(
             Mutex::new(service),
             service_id.clone(),
