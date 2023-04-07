@@ -213,9 +213,22 @@ mod tests {
         "#)?;
 
             let config = resolve_config(vec![], None).expect("Could not load config");
+            let resolved_secret = encode_secret(&config);
             assert_eq!(config.node_config.script_storage_max_failures, 10);
+            assert_eq!(
+                resolved_secret,
+                "/XKBs1ydmfWGiTbh+e49GYw+14LHtu+v5BMFDIzHpvo="
+            );
             Ok(())
         });
+    }
+
+    fn encode_secret(config: &ResolvedConfig) -> String {
+        match config.root_key_pair.clone() {
+            KeyPair::Ed25519(x) => base64.encode(x.secret().0),
+            KeyPair::Rsa(_) => "".to_string(),
+            KeyPair::Secp256k1(_) => "".to_string(),
+        }
     }
 
     #[test]
@@ -241,9 +254,12 @@ mod tests {
 
             assert!(!key_path.exists());
             assert!(!builtins_key_path.exists());
-            let _config = resolve_config(vec![], None).expect("Could not load config");
+            let config = resolve_config(vec![], None).expect("Could not load config");
+            let resolved_secret = encode_secret(&config);
+
             assert!(key_path.exists());
             assert!(builtins_key_path.exists());
+            assert!(!resolved_secret.is_empty());
             Ok(())
         });
     }
@@ -301,7 +317,9 @@ mod tests {
             assert!(root_key_path.exists());
             assert!(builtins_key_path.exists());
 
-            let _config = resolve_config(vec![], None).expect("Could not load config");
+            let config = resolve_config(vec![], None).expect("Could not load config");
+            let resolved_secret = encode_secret(&config);
+            assert_eq!(resolved_secret, base64.encode(root_kp.secret().unwrap()));
 
             Ok(())
         });
