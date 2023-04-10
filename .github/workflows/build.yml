@@ -78,7 +78,7 @@ jobs:
           publish: false
 
       - name: Install cross compile things
-        run: sudo apt-install -y g++-aarch64-linux-gnu libc6-dev-arm64-cross
+        run: sudo apt-get install -y g++-aarch64-linux-gnu libc6-dev-arm64-cross
 
       - name: Run cargo build
         run: cargo build ${{ steps.profile.outputs.flags }} -p particle-node --target ${{ matrix.arch }}-unknown-linux-gnu
