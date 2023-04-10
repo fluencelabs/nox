@@ -158,9 +158,17 @@ pub fn resolve_config(
             config_builder
         }
     } else {
+        let (toml, json) = home::home_dir()
+            .map(|home| {
+                let path = format!("{}/.fluence/v1", home.display());
+                let json = format!("{}/Config.json", path);
+                let toml = format!("{}/Config.toml", path);
+                (toml, json)
+            })
+            .unwrap_or(("Config.toml".to_string(), "Config.json".to_string()));
         config_builder
-            .merge(Toml::file(Env::var_or("FLUENCE_CONFIG", "Config.toml")))
-            .merge(Json::file(Env::var_or("FLUENCE_CONFIG", "Config.json")))
+            .merge(Toml::file(Env::var_or("FLUENCE_CONFIG", toml)))
+            .merge(Json::file(Env::var_or("FLUENCE_CONFIG", json)))
     };
 
     let config_builder = config_builder
