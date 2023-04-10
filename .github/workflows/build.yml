@@ -36,7 +36,7 @@ jobs:
       matrix:
         include:
           - arch: x86_64
-          - arch: aarch64
+          # - arch: aarch64
 
     steps:
       - name: Checkout rust-peer
@@ -86,20 +86,8 @@ jobs:
       - name: Run cargo build
         run: cargo build ${{ steps.profile.outputs.flags }} -p particle-node --target ${{ matrix.arch }}-unknown-linux-gnu
 
-      - run: tree ./target
-
-      # - name: Calculate SHA256
-      #   id: sha
-      #   working-directory: ./target/${{ steps.profile.outputs.profile }}
-      #   run: |
-      #     # Calculate sha256
-      #     du -hs particle-node
-      #     sha256sum particle-node
-      #     sha=($(sha256sum particle-node))
-      #     echo "sha256=${sha}" >> $GITHUB_OUTPUT
-
-      # - name: Upload rust-peer binary
-      #   uses: actions/upload-artifact@v3
-      #   with:
-      #     name: rust-peer-${{ matrix.arch }}
-      #     path: target/${{ steps.profile.outputs.profile }}/particle-node
+      - name: Upload rust-peer binary
+        uses: actions/upload-artifact@v3
+        with:
+          name: rust-peer-${{ matrix.arch }}
+          path: target/${{ matrix.arch }}-unknown-linux-gnu/${{ steps.profile.outputs.profile }}/particle-node

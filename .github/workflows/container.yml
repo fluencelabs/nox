@@ -4,7 +4,7 @@ on:
   workflow_call:
     inputs:
       rust-peer-sha:
-        description: "sha256 hash of rust-peer binary"
+        description: "sha256 hash of rust-peer binary not used"
         type: string
       image-name:
         description: "Docker image name"
@@ -32,11 +32,18 @@ jobs:
       contents: read
       id-token: write
 
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86_64
+          # - arch: aarch64
+
     steps:
-      - name: Checkout node-distro
+      - name: Checkout rust-peer-distro
         uses: actions/checkout@v3
         with:
-          repository: fluencelabs/node-distro
+          repository: fluencelabs/rust-peer-distro
 
       - name: Import secrets
         uses: hashicorp/vault-action@v2.5.0
@@ -54,8 +61,18 @@ jobs:
       - name: Download rust-peer binary
         uses: actions/download-artifact@v3
         with:
-          name: rust-peer
+          name: rust-peer-${{ matrix.arch }}
           path: fluence
+
+      - name: Calculate SHA256
+        id: sha
+        working-directory: ./fluence
+        run: |
+          # Calculate sha256
+          du -hs particle-node
+          sha256sum particle-node
+          sha=($(sha256sum particle-node))
+          echo "sha256=${sha}" >> $GITHUB_OUTPUT
 
       - name: Generate snapshot version
         id: version
@@ -67,7 +84,7 @@ jobs:
           {
             "version": "${{ steps.version.outputs.branch }}",
             "url": "file:///fluence/particle-node",
-            "sha256": "${{ inputs.rust-peer-sha }}"
+            "sha256": "${{ steps.sha.outputs.sha }}"
           }
           FLUENCE
 

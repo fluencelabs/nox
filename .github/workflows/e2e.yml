@@ -49,12 +49,14 @@ jobs:
         flavour:
           - ipfs
           - rich
+        arch:
+          - x86_64
+          - aarch64
 
     uses: ./.github/workflows/container.yml
     with:
       image-name: "docker.fluence.dev/rust-peer"
       flavour: "${{ matrix.flavour }}"
-      rust-peer-sha: "${{ needs.rust-peer.outputs.rust-peer-sha }}"
 
   rust-peer-snapshot:
     name: "rust-peer"
@@ -63,7 +65,6 @@ jobs:
     with:
       image-name: "docker.fluence.dev/rust-peer"
       flavour: "minimal"
-      rust-peer-sha: "${{ needs.rust-peer.outputs.rust-peer-sha }}"
 
   js-client:
     needs:
