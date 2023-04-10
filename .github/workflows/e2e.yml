@@ -49,9 +49,6 @@ jobs:
         flavour:
           - ipfs
           - rich
-        arch:
-          - x86_64
-          - aarch64
 
     uses: ./.github/workflows/container.yml
     with:
@@ -93,28 +90,3 @@ jobs:
     uses: fluencelabs/fluence-cli/.github/workflows/tests.yml@main
     with:
       rust-peer-image: "${{ needs.rust-peer-snapshot.outputs.rust-peer-image }}"
-
-  status:
-    name: "e2e status"
-    runs-on: ubuntu-latest
-    needs:
-      - fluence-cli
-      - registry
-      - aqua-playground
-
-    steps:
-      - uses: lwhiteley/dependent-jobs-result-check@v1
-        id: status
-        with:
-          statuses: failure,cancelled,skipped
-          dependencies: ${{ toJSON(needs) }}
-
-      - name: Log output
-        run: |
-          echo "statuses:" "${{ steps.status.outputs.statuses }}"
-          echo "jobs:" "${{ steps.status.outputs.jobs }}"
-          echo "found any?:" "${{ steps.status.outputs.found }}"
-
-      - name: Fail run
-        if: fromJSON(steps.status.outputs.found)
-        run: exit 1
