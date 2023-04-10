@@ -86,6 +86,8 @@ jobs:
       - name: Run cargo build
         run: cargo build ${{ steps.profile.outputs.flags }} -p particle-node --target ${{ matrix.arch }}-unknown-linux-gnu
 
+      - run: tree ./target
+
       # - name: Calculate SHA256
       #   id: sha
       #   working-directory: ./target/${{ steps.profile.outputs.profile }}
@@ -101,5 +103,3 @@ jobs:
       #   with:
       #     name: rust-peer-${{ matrix.arch }}
       #     path: target/${{ steps.profile.outputs.profile }}/particle-node
-      - name: Install cross compile things
-        run: sudo apt-install -y g++-aarch64-linux-gnu libc6-dev-arm64-cross
