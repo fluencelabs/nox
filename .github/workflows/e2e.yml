@@ -82,6 +82,7 @@ jobs:
       - rust-peer-snapshot
     uses: fluencelabs/registry/.github/workflows/tests.yml@main
     with:
+      ref: debug-builtins
       rust-peer-image: "${{ needs.rust-peer-snapshot.outputs.rust-peer-image }}"
 
   fluence-cli:
