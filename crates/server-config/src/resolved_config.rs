@@ -21,7 +21,7 @@ use std::ops::{Deref, DerefMut};
 
 use crate::args;
 use figment::{
-    providers::{Env, Format, Json, Toml},
+    providers::{Env, Format, Toml},
     Figment,
 };
 use libp2p::core::{multiaddr::Protocol, Multiaddr};
@@ -151,24 +151,20 @@ pub fn resolve_config(
         if let Some(extension) = extension {
             match extension.to_str() {
                 Some("toml") => config_builder.merge(Toml::file(config_path)),
-                Some("json") => config_builder.merge(Json::file(config_path)),
                 _ => config_builder,
             }
         } else {
             config_builder
         }
     } else {
-        let (toml, json) = home::home_dir()
+        let default_file = home::home_dir()
             .map(|home| {
                 let path = format!("{}/.fluence/v1", home.display());
-                let json = format!("{}/Config.json", path);
                 let toml = format!("{}/Config.toml", path);
-                (toml, json)
+                toml
             })
-            .unwrap_or(("Config.toml".to_string(), "Config.json".to_string()));
-        config_builder
-            .merge(Toml::file(Env::var_or("FLUENCE_CONFIG", toml)))
-            .merge(Json::file(Env::var_or("FLUENCE_CONFIG", json)))
+            .unwrap_or("Config.toml".to_string());
+        config_builder.merge(Toml::file(Env::var_or("FLUENCE_CONFIG", default_file)))
     };
 
     let config_builder = config_builder
@@ -209,6 +205,10 @@ mod tests {
             12D3KooWB9P1xmV3c7ZPpBemovbwCiRRTKd3Kq2jsVPQN4ZukDfy = 1
 
         "#)?;
+            jail.set_env(
+                "FLUENCE_CONFIG",
+                format!("{}/Config.toml", jail.directory().display()),
+            );
 
             let config = resolve_config(vec![], None).expect("Could not load config");
             let resolved_secret = encode_secret(&config);
@@ -249,6 +249,10 @@ mod tests {
                     builtins_key_path.to_string_lossy(),
                 ),
             )?;
+            jail.set_env(
+                "FLUENCE_CONFIG",
+                format!("{}/Config.toml", jail.directory().display()),
+            );
 
             assert!(!key_path.exists());
             assert!(!builtins_key_path.exists());
@@ -303,6 +307,11 @@ mod tests {
                     builtins_key_path.to_string_lossy(),
                 ),
             )?;
+
+            jail.set_env(
+                "FLUENCE_CONFIG",
+                format!("{}/Config.toml", jail.directory().display()),
+            );
 
             let root_kp = KeyPair::generate_ed25519();
             let builtins_kp = KeyPair::generate_secp256k1();
