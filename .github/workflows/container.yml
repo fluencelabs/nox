@@ -14,6 +14,10 @@ on:
         description: "rust-peer flavour"
         type: string
         default: "minimal"
+      arch:
+        description: "Binary arch"
+        type: string
+        default: x86_64
     outputs:
       rust-peer-image:
         description: "rust-peer snapshot image"
@@ -31,13 +35,6 @@ jobs:
     permissions:
       contents: read
       id-token: write
-
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - arch: x86_64
-          # - arch: aarch64
 
     steps:
       - name: Checkout rust-peer-distro
@@ -61,7 +58,7 @@ jobs:
       - name: Download rust-peer binary
         uses: actions/download-artifact@v3
         with:
-          name: rust-peer-${{ matrix.arch }}
+          name: rust-peer-${{ inputs.arch }}
           path: fluence
 
       - name: Calculate SHA256
