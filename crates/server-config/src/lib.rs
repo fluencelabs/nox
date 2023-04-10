@@ -40,7 +40,9 @@ mod resolved_config;
 mod services_config;
 
 pub use defaults::{builtins_base_dir, *};
-pub use resolved_config::{load_config, resolve_config};
+pub use resolved_config::load_config;
+pub use resolved_config::resolve_config;
+pub use resolved_config::ConfigData;
 
 pub use bootstrap_config::BootstrapConfig;
 pub use kademlia_config::KademliaConfig;
@@ -48,13 +50,3 @@ pub use network_config::NetworkConfig;
 pub use node_config::{NodeConfig, TransportConfig};
 pub use resolved_config::{ResolvedConfig, UnresolvedConfig};
 pub use services_config::ServicesConfig;
-
-pub mod config_keys {
-    pub use crate::resolved_config::{
-        ALLOW_PRIVATE_IPS, AQUA_VM_POOL_SIZE, BLUEPRINT_DIR, BOOTSTRAP_FREQ, BOOTSTRAP_NODE,
-        CERTIFICATE_DIR, CONFIG_FILE, EXTERNAL_ADDR, EXTERNAL_MULTIADDRS, LOCAL,
-        MANAGEMENT_PEER_ID, METRICS_PORT, ROOT_KEY_FORMAT, ROOT_KEY_PAIR_GENERATE,
-        ROOT_KEY_PAIR_PATH, ROOT_KEY_PAIR_VALUE, SECRET_KEY, SERVICES_WORKDIR, SERVICE_ENVS,
-        TCP_PORT, WEBSOCKET_PORT,
-    };
-}

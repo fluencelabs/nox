@@ -17,10 +17,10 @@
 use std::time::Duration;
 
 use libp2p::kad::KademliaConfig as LibP2PKadConfig;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 /// see `libp2p_kad::KademliaConfig`
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct KademliaConfig {
     pub max_packet_size: Option<usize>,
     #[serde(with = "humantime_serde")]
