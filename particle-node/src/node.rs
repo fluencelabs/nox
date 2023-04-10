@@ -526,7 +526,7 @@ mod tests {
         fs_utils::create_dir(builtins_base_dir(&base_dir)).unwrap();
         write_default_air_interpreter(&air_interpreter_path(&base_dir)).unwrap();
 
-        let mut config = resolve_config(&<_>::default(), &[]).expect("deserialize config");
+        let mut config = resolve_config(vec![], None).expect("deserialize config");
         config.aquavm_pool_size = 1;
         config.dir_config.spell_base_dir = to_abs_path(PathBuf::from("spell"));
         let vm_config = VmConfig::new(

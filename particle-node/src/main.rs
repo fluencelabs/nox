@@ -27,7 +27,6 @@
 )]
 
 use base64::{engine::general_purpose::STANDARD as base64, Engine};
-use clap::App;
 use env_logger::Env;
 use eyre::WrapErr;
 use log::LevelFilter;
@@ -39,12 +38,12 @@ use aquamarine::{VmConfig, AVM};
 use config_utils::to_peer_id;
 use fs_utils::to_abs_path;
 use particle_node::Node;
-use server_config::args::create_args;
-use server_config::{load_config, ResolvedConfig};
+use server_config::{load_config, ConfigData, ResolvedConfig};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const AUTHORS: &str = env!("CARGO_PKG_AUTHORS");
 const DESCRIPTION: &str = env!("CARGO_PKG_DESCRIPTION");
+const PKG_NAME: &str = env!("CARGO_PKG_NAME");
 
 trait Stoppable {
     fn stop(self);
@@ -84,16 +83,6 @@ async fn main() -> eyre::Result<()> {
         .filter_module("avm_server::runner", LevelFilter::Error)
         .init();
 
-    let version = format!("{}; AIR version {}", VERSION, air_interpreter_wasm::VERSION);
-    let authors = format!("by {AUTHORS}");
-    let arg_matches = App::new("Fluence node")
-        .version(version.as_str())
-        .author(authors.as_str())
-        .about(DESCRIPTION)
-        .override_usage(r#"particle-node [FLAGS] [OPTIONS]"#)
-        .args(create_args().as_slice())
-        .get_matches();
-
     log::info!(
         r#"
 +-------------------------------------------------+
@@ -107,8 +96,15 @@ async fn main() -> eyre::Result<()> {
 +-------------------------------------------------+
     "#
     );
-
-    let config = load_config(arg_matches)?;
+    let version = format!("{}; AIR version {}", VERSION, air_interpreter_wasm::VERSION);
+    let authors = format!("by {AUTHORS}");
+    let config_data = ConfigData {
+        binary_name: PKG_NAME.to_string(),
+        version,
+        authors,
+        description: DESCRIPTION.to_string(),
+    };
+    let config = load_config(Some(config_data))?;
 
     let interpreter_path = to_abs_path(config.dir_config.air_interpreter_path.clone());
     write_default_air_interpreter(&interpreter_path)?;
