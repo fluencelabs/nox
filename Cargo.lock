@@ -2157,7 +2157,7 @@ dependencies = [
  "libp2p",
  "libp2p-noise",
  "log",
- "multihash 0.17.0",
+ "multihash 0.18.0",
  "rand 0.8.5",
  "serde",
  "serde_json",
@@ -2609,15 +2609,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "home"
-version = "0.5.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "747309b4b440c06d57b0b25f2aee03ee9b5e5397d288c60e21fc709bb98a7408"
-dependencies = [
- "winapi",
-]
-
-[[package]]
 name = "hostname"
 version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3040,7 +3031,7 @@ dependencies = [
  "libp2p-identity",
  "libp2p-metrics",
  "log",
- "multihash 0.17.0",
+ "multihash 0.18.0",
  "once_cell",
  "particle-protocol",
  "prometheus-client",
@@ -4081,16 +4072,10 @@ version = "0.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "835d6ff01d610179fbce3de1694d007e500bf33a7f29689838941d6bf783ae40"
 dependencies = [
- "blake2b_simd",
- "blake2s_simd",
- "blake3",
  "core2",
  "digest 0.10.6",
  "multihash-derive",
- "serde",
- "serde-big-array",
  "sha2 0.10.6",
- "sha3",
  "unsigned-varint",
 ]
 
@@ -4106,6 +4091,8 @@ dependencies = [
  "core2",
  "digest 0.10.6",
  "multihash-derive",
+ "serde",
+ "serde-big-array",
  "sha2 0.10.6",
  "sha3",
  "unsigned-varint",
@@ -4451,7 +4438,7 @@ dependencies = [
  "key-manager",
  "libp2p",
  "log",
- "multihash 0.17.0",
+ "multihash 0.18.0",
  "now-millis",
  "parking_lot 0.12.1",
  "particle-args",
@@ -4551,7 +4538,7 @@ dependencies = [
  "log",
  "log-utils",
  "maplit",
- "multihash 0.17.0",
+ "multihash 0.18.0",
  "parking_lot 0.12.1",
  "particle-builtins",
  "particle-execution",
@@ -4598,7 +4585,7 @@ dependencies = [
  "log",
  "log-utils",
  "maplit",
- "multihash 0.17.0",
+ "multihash 0.18.0",
  "now-millis",
  "parking_lot 0.12.1",
  "particle-args",
@@ -5717,7 +5704,6 @@ dependencies = [
  "fluence-keypair",
  "fluence-libp2p",
  "fs-utils",
- "home",
  "humantime-serde",
  "libp2p",
  "libp2p-metrics",
