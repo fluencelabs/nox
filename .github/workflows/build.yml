@@ -34,8 +34,6 @@ jobs:
         include:
           - arch: x86_64
           - arch: aarch64
-    container:
-      image: messense/rust-musl-cross:${{ matrix.arch }}-musl
 
     steps:
       - name: Checkout rust-peer
@@ -80,7 +78,7 @@ jobs:
           publish: false
 
       - name: Run cargo build
-        run: cargo build ${{ steps.profile.outputs.flags }} -p particle-node
+        run: cargo build ${{ steps.profile.outputs.flags }} -p particle-node --target ${{ matrix.arch }}-unknown-linux-gnu
 
       - name: Calculate SHA256
         id: sha
