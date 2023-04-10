@@ -52,6 +52,7 @@ use spell_event_bus::bus::SpellEventBus;
 use tokio::sync::{mpsc, oneshot};
 use tokio::task;
 
+use crate::builtins::make_peer_builtin;
 use crate::dispatcher::Dispatcher;
 use crate::effectors::Effectors;
 use crate::metrics::start_metrics_endpoint;
@@ -77,6 +78,7 @@ pub struct Node<RT: AquaRuntime> {
     sorcerer: Sorcerer,
 
     registry: Option<Registry>,
+    libp2p_metrics: Option<Arc<Metrics>>,
     services_metrics_backend: ServicesMetricsBackend,
 
     metrics_listen_addr: SocketAddr,
@@ -127,7 +129,7 @@ impl<RT: AquaRuntime> Node<RT> {
         } else {
             None
         };
-        let libp2p_metrics = metrics_registry.as_mut().map(Metrics::new);
+        let libp2p_metrics = metrics_registry.as_mut().map(|r| Arc::new(Metrics::new(r)));
         let connectivity_metrics = metrics_registry.as_mut().map(ConnectivityMetrics::new);
         let connection_pool_metrics = metrics_registry.as_mut().map(ConnectionPoolMetrics::new);
         let plumber_metrics = metrics_registry.as_mut().map(ParticleExecutorMetrics::new);
@@ -148,7 +150,7 @@ impl<RT: AquaRuntime> Node<RT> {
             .with_max_established(config.node_config.transport_config.max_established);
 
         let network_config = NetworkConfig::new(
-            libp2p_metrics,
+            libp2p_metrics.clone(),
             connectivity_metrics,
             connection_pool_metrics,
             key_pair,
@@ -191,9 +193,14 @@ impl<RT: AquaRuntime> Node<RT> {
                 )
             };
 
+        let allowed_binaries = services_config
+            .allowed_binaries
+            .iter()
+            .map(|s| s.to_string_lossy().to_string())
+            .collect::<_>();
+
         let builtins = Arc::new(Self::builtins(
             connectivity.clone(),
-            config.external_addresses(),
             services_config,
             script_storage_api,
             services_metrics,
@@ -243,7 +250,7 @@ impl<RT: AquaRuntime> Node<RT> {
         let (spell_event_bus, spell_event_bus_api, spell_events_receiver) =
             SpellEventBus::new(sources);
 
-        let (sorcerer, spell_service_functions) = Sorcerer::new(
+        let (sorcerer, mut custom_service_functions, spell_version) = Sorcerer::new(
             builtins.services.clone(),
             builtins.modules.clone(),
             aquamarine_api.clone(),
@@ -252,7 +259,24 @@ impl<RT: AquaRuntime> Node<RT> {
             key_manager.clone(),
         );
 
-        spell_service_functions.into_iter().for_each(
+        let node_info = NodeInfo {
+            external_addresses: config.external_addresses(),
+            node_version: env!("CARGO_PKG_VERSION"),
+            air_version: air_interpreter_wasm::VERSION,
+            spell_version,
+            allowed_binaries,
+        };
+        if let Some(m) = metrics_registry.as_mut() {
+            peer_metrics::add_info_metrics(
+                m,
+                node_info.node_version.to_string(),
+                node_info.air_version.to_string(),
+                node_info.spell_version.clone(),
+            );
+        }
+        custom_service_functions.extend_one(make_peer_builtin(node_info));
+
+        custom_service_functions.into_iter().for_each(
             move |(
                 service_id,
                 CustomService {
@@ -283,6 +307,7 @@ impl<RT: AquaRuntime> Node<RT> {
             spell_events_receiver,
             sorcerer,
             metrics_registry,
+            libp2p_metrics,
             services_metrics_backend,
             config.metrics_listen_addr(),
             builtins_peer_id,
@@ -317,22 +342,14 @@ impl<RT: AquaRuntime> Node<RT> {
 
     pub fn builtins(
         connectivity: Connectivity,
-        external_addresses: Vec<Multiaddr>,
         services_config: ServicesConfig,
         script_storage_api: ScriptStorageApi,
         services_metrics: ServicesMetrics,
         key_manager: KeyManager,
     ) -> Builtins<Connectivity> {
-        let node_info = NodeInfo {
-            external_addresses,
-            node_version: env!("CARGO_PKG_VERSION"),
-            air_version: air_interpreter_wasm::VERSION,
-        };
-
         Builtins::new(
             connectivity,
             script_storage_api,
-            node_info,
             services_config,
             services_metrics,
             key_manager,
@@ -356,6 +373,7 @@ impl<RT: AquaRuntime> Node<RT> {
         spell_events_receiver: mpsc::UnboundedReceiver<TriggerEvent>,
         sorcerer: Sorcerer,
         registry: Option<Registry>,
+        libp2p_metrics: Option<Arc<Metrics>>,
         services_metrics_backend: ServicesMetricsBackend,
         metrics_listen_addr: SocketAddr,
         builtins_management_peer_id: PeerId,
@@ -377,6 +395,7 @@ impl<RT: AquaRuntime> Node<RT> {
             sorcerer,
 
             registry,
+            libp2p_metrics,
             services_metrics_backend,
             metrics_listen_addr,
 
@@ -411,15 +430,14 @@ impl<RT: AquaRuntime> Node<RT> {
         let task_name = peer_id
             .map(|x| format!("node-{x}"))
             .unwrap_or("node".to_owned());
+        let libp2p_metrics = self.libp2p_metrics;
 
         task::Builder::new().name(&task_name.clone()).spawn(async move {
-            let (mut metrics_fut, libp2p_metrics) = if let Some(mut registry) = registry {
-                let libp2p_metrics = Metrics::new(&mut registry);
+            let mut metrics_fut= if let Some(registry) = registry {
                 log::info!("metrics_listen_addr {}", metrics_listen_addr);
-                let fut = start_metrics_endpoint(registry, metrics_listen_addr).boxed();
-                (fut, Some(libp2p_metrics))
+                start_metrics_endpoint(registry, metrics_listen_addr).boxed()
             } else {
-                (futures::future::pending().boxed(), None)
+                futures::future::pending().boxed()
             };
 
             let services_metrics_backend = services_metrics_backend.start();

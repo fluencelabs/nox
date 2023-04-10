@@ -21,7 +21,6 @@ serde_derive = "1.0.158"
 humantime-serde = { workspace = true }
 log = { workspace = true }
 derivative = { workspace = true }
-itertools = { workspace = true }
 base64 = { workspace = true }
 tokio = { workspace = true }
 

@@ -1,6 +1,6 @@
 [package]
 name = "particle-node"
-version = "0.9.1"
+version = "0.10.0"
 authors = ["Fluence Labs"]
 description = "Node implementing peer functionality in the Fluence p2p network"
 edition = "2021"
@@ -19,6 +19,7 @@ sorcerer = { workspace = true }
 dhat = { version = "0.3.2", optional = true }
 
 
+serde_json = { workspace = true }
 fluence-libp2p = { workspace = true }
 server-config = { workspace = true }
 config-utils = { workspace = true }

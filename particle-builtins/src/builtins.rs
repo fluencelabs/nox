@@ -51,7 +51,6 @@ use crate::debug::fmt_custom_services;
 use crate::error::HostClosureCallError;
 use crate::error::HostClosureCallError::{DecodeBase58, DecodeUTF8};
 use crate::func::{binary, unary};
-use crate::identify::NodeInfo;
 use crate::outcome::{ok, wrap, wrap_unit};
 use crate::{json, math};
 
@@ -87,8 +86,6 @@ pub struct Builtins<C> {
 
     pub modules: ModuleRepository,
     pub services: ParticleAppServices,
-    pub node_info: NodeInfo,
-
     #[derivative(Debug(format_with = "fmt_custom_services"))]
     pub custom_services: RwLock<HashMap<String, CustomService>>,
 
@@ -105,7 +102,6 @@ where
     pub fn new(
         connectivity: C,
         script_storage: ScriptStorageApi,
-        node_info: NodeInfo,
         config: ServicesConfig,
         services_metrics: ServicesMetrics,
         key_manager: KeyManager,
@@ -135,7 +131,6 @@ where
             local_peer_id,
             modules,
             services,
-            node_info,
             particles_vault_dir,
             custom_services: <_>::default(),
             key_manager,
@@ -143,14 +138,19 @@ where
     }
 
     pub async fn call(&self, args: Args, particle: ParticleParams) -> FunctionOutcome {
-        let start = Instant::now();
+        let mut start = Instant::now();
         let result = self.builtins_call(args, particle).await;
+        let result = match result {
+            FunctionOutcome::NotDefined { args, params } => {
+                start = Instant::now();
+                self.custom_service_call(args, params).await
+            }
+            result => result,
+        };
         let end = start.elapsed().as_secs();
+
         match result {
-            FunctionOutcome::NotDefined { args, params } => self
-                .custom_service_call(args, params)
-                .await
-                .or_else(|args, params| self.call_service(args, params)),
+            FunctionOutcome::NotDefined { args, params } => self.call_service(args, params),
             result => {
                 if let Some(metrics) = self.services.metrics.as_ref() {
                     metrics.observe_builtins(result.not_err(), end as f64);
@@ -191,7 +191,6 @@ where
 
         #[rustfmt::skip]
         match (args.service_id.as_str(), args.function_name.as_str()) {
-            ("peer", "identify") => ok(json!(self.node_info)),
             ("peer", "timestamp_ms") => ok(json!(now_ms() as u64)),
             ("peer", "timestamp_sec") => ok(json!(now_sec())),
             ("peer", "is_connected") => wrap(self.is_connected(args).await),

@@ -1,12 +1,13 @@
 use std::fmt::Debug;
 
-use prometheus_client::encoding::EncodeMetric;
+use prometheus_client::encoding::{EncodeLabelSet, EncodeLabelValue, EncodeMetric};
 use prometheus_client::registry::Registry;
 
 pub use connection_pool::ConnectionPoolMetrics;
 pub use connectivity::ConnectivityMetrics;
 pub use connectivity::Resolution;
 pub use dispatcher::DispatcherMetrics;
+pub use info::add_info_metrics;
 pub use particle_executor::{FunctionKind, ParticleExecutorMetrics};
 pub use services_metrics::{
     ServiceCallStats, ServiceMemoryStat, ServiceType, ServicesMetrics, ServicesMetricsBackend,
@@ -17,6 +18,7 @@ pub use vm_pool::VmPoolMetrics;
 mod connection_pool;
 mod connectivity;
 mod dispatcher;
+mod info;
 mod network_protocol;
 mod particle_executor;
 mod services_metrics;
@@ -28,6 +30,27 @@ mod vm_pool;
 // - individual actor mailbox size: max and histogram
 // - count 'Error processing inbound ProtocolMessage: unexpected end of file'
 // - number of scheduled script executions
+
+#[derive(EncodeLabelValue, Hash, Clone, Eq, PartialEq, Debug)]
+pub enum ParticleType {
+    Spell,
+    Common,
+}
+
+impl ParticleType {
+    fn from_particle(particle_id: &str) -> Self {
+        if particle_id.starts_with("spell_") {
+            ParticleType::Spell
+        } else {
+            ParticleType::Common
+        }
+    }
+}
+
+#[derive(EncodeLabelSet, Hash, Clone, Eq, PartialEq, Debug)]
+pub struct ParticleLabel {
+    particle_type: ParticleType,
+}
 
 /// from 100 microseconds to 120 seconds
 pub(self) fn execution_time_buckets() -> std::vec::IntoIter<f64> {

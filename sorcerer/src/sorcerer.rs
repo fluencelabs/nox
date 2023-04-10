@@ -59,8 +59,8 @@ impl Sorcerer {
         config: ResolvedConfig,
         spell_event_bus_api: SpellEventBusApi,
         key_manager: KeyManager,
-    ) -> (Self, HashMap<String, CustomService>) {
-        let spell_storage =
+    ) -> (Self, HashMap<String, CustomService>, String) {
+        let (spell_storage, spell_version) =
             SpellStorage::create(&config.dir_config.spell_base_dir, &services, &modules)
                 .expect("Spell storage creation");
 
@@ -76,7 +76,7 @@ impl Sorcerer {
         let mut builtin_functions = sorcerer.make_spell_builtins();
         builtin_functions.extend_one(sorcerer.make_worker_builtin());
 
-        (sorcerer, builtin_functions)
+        (sorcerer, builtin_functions, spell_version)
     }
 
     async fn resubscribe_spells(&self) {

@@ -20,15 +20,12 @@ extern crate fstrings;
 use eyre::WrapErr;
 use fstrings::f;
 use maplit::hashmap;
+use serde_json::json;
 use serde_json::Value as JValue;
-use serde_json::{json, Value};
 
 use connected_client::ConnectedClient;
 use created_swarm::make_swarms;
-use humantime_serde::re::humantime::format_duration;
-use now_millis::now;
 use service_modules::load_module;
-use std::time::Duration;
 use test_utils::{create_service, CreatedService};
 
 #[tokio::test]
@@ -217,89 +214,6 @@ async fn autoremove_singleshot() {
     );
     let list = client.wait_particle_args(list_id).await.unwrap();
     assert_eq!(list, vec![serde_json::Value::Array(vec![])]);
-}
-
-async fn get_list(client: &mut ConnectedClient) -> Vec<Value> {
-    let list_id = client.send_particle(
-        r#"
-            (seq
-                (call relay ("script" "list") [] list)
-                (call client ("op" "return") [list])
-            )
-            "#,
-        hashmap! {
-        "relay" => json ! (client.node.to_string()),
-        "client" => json ! (client.peer_id.to_string()),
-        },
-    );
-
-    client.wait_particle_args(list_id).await.unwrap()
-}
-
-#[tokio::test]
-async fn autoremove_failed() {
-    let swarms = make_swarms(1).await;
-
-    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
-        .await
-        .wrap_err("connect client")
-        .unwrap();
-
-    let script = f!(r#"
-        INVALID SCRIPT
-    "#);
-
-    client.send_particle(
-        r#"
-        (call relay ("script" "add") [script])
-        "#,
-        hashmap! {
-            "relay" => json!(client.node.to_string()),
-            "client" => json!(client.peer_id.to_string()),
-            "script" => json!(script),
-        },
-    );
-
-    let timeout = Duration::from_secs(5);
-    let deadline = now() + timeout;
-
-    // wait for script to appear in the list
-    while now() < deadline {
-        let list = get_list(&mut client).await;
-
-        if list.is_empty() {
-            continue;
-        }
-
-        if let JValue::Array(arr) = &list[0] {
-            if arr.is_empty() {
-                continue;
-            }
-            let failures = arr[0].get("failures");
-            assert_eq!(failures, Some(&json!(0)));
-            break;
-        } else {
-            panic!("expected array");
-        }
-    }
-
-    if now() >= deadline {
-        panic!("timed out adding script after {}", format_duration(timeout));
-    }
-
-    // wait for script to disappear from the list
-    while now() < deadline {
-        let list = get_list(&mut client).await;
-        if list == vec![serde_json::Value::Array(vec![])] {
-            return;
-        }
-        tokio::time::sleep(Duration::from_millis(100)).await;
-    }
-
-    panic!(
-        "failed script wasn't deleted after {}",
-        format_duration(timeout)
-    );
 }
 
 #[tokio::test]

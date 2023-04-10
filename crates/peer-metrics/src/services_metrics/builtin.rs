@@ -15,7 +15,7 @@ use crate::services_metrics::message::ServiceCallStats;
 type ServiceId = String;
 type Name = String;
 
-/// Store a part of series of numeric observations and some parameters that desribe the series.
+/// Store a part of series of numeric observations and some parameters that describe the series.
 /// The number of stored observations is now a constant MAX_METRICS_STORAGE_SIZE.
 #[derive(Default, Debug, Clone, Serialize)]
 pub struct NumericSeriesStat {

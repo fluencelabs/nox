@@ -14,7 +14,7 @@ fluence-keypair = { workspace = true }
 libp2p = { workspace = true }
 tokio = { workspace = true }
 futures = { workspace = true }
-serde = { version = "1.0.158", features = ["derive"] }
+serde = { version = "1.0.159", features = ["derive"] }
 serde_json = { workspace = true }
 log = { workspace = true }
 derivative = { workspace = true }

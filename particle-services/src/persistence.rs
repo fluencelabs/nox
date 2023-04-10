@@ -22,9 +22,9 @@ use crate::error::ServiceError::{
 
 use fluence_libp2p::{peerid_serializer, peerid_serializer_opt, PeerId, RandomPeerId};
 use fs_utils::{create_dir, list_files};
-use particle_modules::ModuleError;
 use service_modules::{is_service, service_file_name};
 
+use crate::ServiceError::{SerializePersistedService, WritePersistedService};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 
@@ -47,30 +47,14 @@ pub struct PersistedService {
 }
 
 impl PersistedService {
-    pub fn new(
-        service_id: String,
-        blueprint_id: String,
-        aliases: Vec<String>,
-        owner_id: PeerId,
-        worker_id: PeerId,
-    ) -> Self {
-        Self {
-            service_id,
-            blueprint_id,
-            aliases,
-            owner_id,
-            worker_id: Some(worker_id),
+    pub fn from_service(service: &Service) -> Self {
+        PersistedService {
+            service_id: service.service_id.clone(),
+            blueprint_id: service.blueprint_id.clone(),
+            aliases: service.aliases.clone(),
+            owner_id: service.owner_id,
+            worker_id: Some(service.worker_id),
         }
-    }
-
-    pub fn from_service(service_id: String, service: &Service) -> Self {
-        PersistedService::new(
-            service_id,
-            service.blueprint_id.clone(),
-            service.aliases.clone(),
-            service.owner_id,
-            service.worker_id,
-        )
     }
 }
 
@@ -78,15 +62,13 @@ impl PersistedService {
 pub fn persist_service(
     services_dir: &Path,
     persisted_service: PersistedService,
-) -> Result<(), ModuleError> {
-    use ModuleError::*;
-
+) -> Result<(), ServiceError> {
     let path = services_dir.join(service_file_name(&persisted_service.service_id));
     let bytes = toml::to_vec(&persisted_service).map_err(|err| SerializePersistedService {
         err,
         config: Box::new(persisted_service.clone()),
     })?;
-    std::fs::write(&path, bytes).map_err(|err| WriteConfig { path, err })
+    std::fs::write(&path, bytes).map_err(|err| WritePersistedService { path, err })
 }
 
 /// Load info about persisted services from disk, and create `AppService` for each of them
