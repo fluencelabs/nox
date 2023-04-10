@@ -157,14 +157,7 @@ pub fn resolve_config(
             config_builder
         }
     } else {
-        let default_file = home::home_dir()
-            .map(|home| {
-                let path = format!("{}/.fluence/v1", home.display());
-                let toml = format!("{}/Config.toml", path);
-                toml
-            })
-            .unwrap_or("Config.toml".to_string());
-        config_builder.merge(Toml::file(Env::var_or("FLUENCE_CONFIG", default_file)))
+        config_builder.merge(Toml::file(Env::var_or("FLUENCE_CONFIG", "Config.toml")))
     };
 
     let config_builder = config_builder
@@ -205,10 +198,6 @@ mod tests {
             12D3KooWB9P1xmV3c7ZPpBemovbwCiRRTKd3Kq2jsVPQN4ZukDfy = 1
 
         "#)?;
-            jail.set_env(
-                "FLUENCE_CONFIG",
-                format!("{}/Config.toml", jail.directory().display()),
-            );
 
             let config = resolve_config(vec![], None).expect("Could not load config");
             let resolved_secret = encode_secret(&config);
@@ -249,10 +238,6 @@ mod tests {
                     builtins_key_path.to_string_lossy(),
                 ),
             )?;
-            jail.set_env(
-                "FLUENCE_CONFIG",
-                format!("{}/Config.toml", jail.directory().display()),
-            );
 
             assert!(!key_path.exists());
             assert!(!builtins_key_path.exists());
@@ -307,11 +292,6 @@ mod tests {
                     builtins_key_path.to_string_lossy(),
                 ),
             )?;
-
-            jail.set_env(
-                "FLUENCE_CONFIG",
-                format!("{}/Config.toml", jail.directory().display()),
-            );
 
             let root_kp = KeyPair::generate_ed25519();
             let builtins_kp = KeyPair::generate_secp256k1();
