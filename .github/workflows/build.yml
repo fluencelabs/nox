@@ -36,7 +36,7 @@ jobs:
       matrix:
         include:
           - arch: x86_64
-          - arch: aarch64
+          # - arch: aarch64
 
     steps:
       - name: Checkout rust-peer
@@ -79,9 +79,6 @@ jobs:
         with:
           id: ${{ steps.version.outputs.id }}
           publish: false
-
-      - name: Install cross compile things
-        run: sudo apt-get install -y g++-aarch64-linux-gnu libc6-dev-arm64-cross tree
 
       - name: Run cargo build
         run: cargo build ${{ steps.profile.outputs.flags }} -p particle-node --target ${{ matrix.arch }}-unknown-linux-gnu
