@@ -12,7 +12,7 @@ libp2p = { workspace = true }
 libp2p-noise = { workspace = true }
 multihash = { workspace = true, features = ["serde-codec"] }
 futures = { workspace = true }
-futures-util = "0.3.26"
+futures-util = "0.3.28"
 tokio = { workspace = true, optional = true }
 serde = { version = "1.0.159", features = ["derive"] }
 serde_json = { workspace = true }
