@@ -52,7 +52,8 @@ impl NetworkConfig {
         key_pair: Keypair,
         config: &ResolvedConfig,
         node_version: &'static str,
-        #[allow(deprecated)] connection_limits: ConnectionLimits,
+        #[allow(deprecated)]
+        connection_limits: ConnectionLimits,
     ) -> Self {
         Self {
             node_version,
