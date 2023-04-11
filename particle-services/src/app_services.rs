@@ -872,12 +872,7 @@ impl ParticleAppServices {
         } else {
             None
         };
-        // How to detect that the service is a spell?
-        // Afaik there's no way to detect that the service is a spell FAST
-        // We can check blueprint name, but it's not reliable
-        // Need to rework that
 
-        // This approach doesn't work since not only spells calls spell functions
         if service.is_spell {
             ServiceType::Spell(allowed_alias)
         } else {
