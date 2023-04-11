@@ -60,10 +60,7 @@ pub enum ServiceType {
 
 impl ServiceType {
     fn is_spell(&self) -> bool {
-        match self {
-            ServiceType::Spell => true,
-            _ => false,
-        }
+        matches!(self, ServiceType::Spell)
     }
 }
 
@@ -442,7 +439,7 @@ impl ParticleAppServices {
         //     ));
         // }
         // Metrics collection are enables for services with aliases which are installed on root worker or worker spells.
-        let service_type = self.get_service_type(&service, &worker_id);
+        let service_type = self.get_service_type(service, &worker_id);
 
         // TODO: move particle vault creation to aquamarine::particle_functions
         self.create_vault(&particle.id)?;
