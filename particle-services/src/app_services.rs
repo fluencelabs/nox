@@ -69,6 +69,8 @@ pub struct Service {
     pub service: Mutex<AppService>,
     pub service_id: String,
     pub blueprint_id: String,
+    // temp hack to detect if the service is a spell
+    pub is_spell: bool,
     pub owner_id: PeerId,
     pub aliases: Vec<ServiceAlias>,
     pub worker_id: PeerId,
@@ -79,6 +81,7 @@ impl Service {
         service: Mutex<AppService>,
         service_id: String,
         blueprint_id: String,
+        is_spell: bool,
         owner_id: PeerId,
         aliases: Vec<ServiceAlias>,
         worker_id: PeerId,
@@ -87,6 +90,7 @@ impl Service {
             service,
             service_id,
             blueprint_id,
+            is_spell,
             owner_id,
             aliases,
             worker_id,
@@ -324,17 +328,13 @@ impl ParticleAppServices {
             )?;
 
             // tmp hack to forbid spell removal via srv.remove
-            let blueprint_name = self
-                .modules
-                .get_blueprint_from_cache(&service.blueprint_id)?
-                .name;
-            if blueprint_name == "spell" && !allow_remove_spell {
+            if service.is_spell && !allow_remove_spell {
                 return Err(Forbidden {
                     user: init_peer_id,
                     function: "remove_service",
                     reason: "cannot remove a spell",
                 });
-            } else if blueprint_name != "spell" && allow_remove_spell {
+            } else if !service.is_spell && allow_remove_spell {
                 return Err(Forbidden {
                     user: init_peer_id,
                     function: "remove_spell",
@@ -829,27 +829,26 @@ impl ParticleAppServices {
         })?;
         let stats = service.module_memory_stats();
         let stats = ServiceMemoryStat::new(&stats);
+
         // Would be nice to determine that we create a spell service, but we don't have a reliable way to detect it yet
-        let allowed_alias = if worker_id == self.config.local_peer_id {
-            aliases.first().cloned()
-        } else {
-            None
-        };
-        let service_type = ServiceType::Service(allowed_alias);
+        // so for now temp hack
+        let blueprint_name = self.modules.get_blueprint_from_cache(&blueprint_id)?.name;
+        let is_spell = blueprint_name == "spell";
         let service = Service::new(
             Mutex::new(service),
             service_id.clone(),
             blueprint_id,
+            is_spell,
             owner_id,
             aliases,
             worker_id,
         );
         // Save created service to disk, so it is recreated on restart
         service.persist(&self.config.services_dir)?;
-
+        let service_type = self.get_service_type(&service, &worker_id);
         let replaced = self.services.write().insert(service_id.clone(), service);
-        let creation_end_time = creation_start_time.elapsed().as_secs();
         if let Some(m) = self.metrics.as_ref() {
+            let creation_end_time = creation_start_time.elapsed().as_secs();
             m.observe_created(service_id, service_type, stats, creation_end_time as f64);
         }
 
@@ -878,16 +877,12 @@ impl ParticleAppServices {
         // We can check blueprint name, but it's not reliable
         // Need to rework that
 
-        /*
         // This approach doesn't work since not only spells calls spell functions
-        if particle_id.starts_with("spell_") {
+        if service.is_spell {
             ServiceType::Spell(allowed_alias)
         } else {
             ServiceType::Service(allowed_alias)
         }
-        */
-
-        ServiceType::Service(allowed_alias)
     }
 }
 
