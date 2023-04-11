@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#[allow(deprecated)]
 use libp2p::swarm::ConnectionLimits;
 use libp2p::{core::Multiaddr, identity::Keypair, PeerId};
 use libp2p_metrics::Metrics;
@@ -39,10 +40,12 @@ pub struct NetworkConfig {
     pub allow_local_addresses: bool,
     pub connectivity_metrics: Option<ConnectivityMetrics>,
     pub connection_pool_metrics: Option<ConnectionPoolMetrics>,
+    #[allow(deprecated)]
     pub connection_limits: ConnectionLimits,
 }
 
 impl NetworkConfig {
+    #[allow(deprecated)]
     pub fn new(
         libp2p_metrics: Option<Arc<Metrics>>,
         connectivity_metrics: Option<ConnectivityMetrics>,
