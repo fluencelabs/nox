@@ -22,6 +22,7 @@ use std::time::Duration;
 use futures::future::BoxFuture;
 use futures::FutureExt;
 use libp2p::core::Endpoint;
+use libp2p::swarm::ToSwarm::GenerateEvent;
 use libp2p::swarm::{
     ConnectionDenied, ConnectionHandler, ConnectionHandlerSelect, ConnectionId, DialError,
     FromSwarm, THandler, THandlerInEvent, THandlerOutEvent,
@@ -29,16 +30,14 @@ use libp2p::swarm::{
 use libp2p::{
     core::{connection::ConnectedPoint, Multiaddr},
     ping::{Behaviour as Ping, Config as PingConfig},
-    swarm::{
-        NetworkBehaviour, NetworkBehaviourAction, NotifyHandler, OneShotHandler, PollParameters,
-    },
+    swarm::{NetworkBehaviour, NotifyHandler, OneShotHandler, PollParameters, ToSwarm},
     PeerId,
 };
 use particle_protocol::{HandlerMessage, Particle, ProtocolConfig};
 
 use crate::ClientEvent;
 
-pub type SwarmEventType = NetworkBehaviourAction<ClientEvent, THandlerInEvent<ClientBehaviour>>;
+pub type SwarmEventType = ToSwarm<ClientEvent, THandlerInEvent<ClientBehaviour>>;
 
 pub struct ClientBehaviour {
     protocol_config: ProtocolConfig,
@@ -62,12 +61,11 @@ impl ClientBehaviour {
     }
 
     pub fn call(&mut self, peer_id: PeerId, call: Particle) {
-        self.events
-            .push_back(NetworkBehaviourAction::NotifyHandler {
-                event: Either::Left(HandlerMessage::OutParticle(call, <_>::default())),
-                handler: NotifyHandler::Any,
-                peer_id,
-            });
+        self.events.push_back(ToSwarm::NotifyHandler {
+            event: Either::Left(HandlerMessage::OutParticle(call, <_>::default())),
+            handler: NotifyHandler::Any,
+            peer_id,
+        });
 
         self.wake();
     }
@@ -95,12 +93,11 @@ impl ClientBehaviour {
             }
         };
 
-        self.events.push_back(NetworkBehaviourAction::GenerateEvent(
-            ClientEvent::NewConnection {
+        self.events
+            .push_back(ToSwarm::GenerateEvent(ClientEvent::NewConnection {
                 peer_id: *peer_id,
                 multiaddr: multiaddr.clone(),
-            },
-        ))
+            }))
     }
 
     fn on_dial_failure(&mut self, peer_id: Option<PeerId>, error: &DialError) {
@@ -140,7 +137,7 @@ impl ClientBehaviour {
                     peer_id,
                     address
                 );
-                self.events.push_back(NetworkBehaviourAction::Dial {
+                self.events.push_back(ToSwarm::Dial {
                     opts: address.clone().into(),
                 });
             }
@@ -236,7 +233,6 @@ impl NetworkBehaviour for ClientBehaviour {
         event: THandlerOutEvent<Self>,
     ) {
         use ClientEvent::Particle;
-        use NetworkBehaviourAction::GenerateEvent;
 
         match event {
             Either::Left(HandlerMessage::InParticle(particle)) => {
@@ -263,8 +259,7 @@ impl NetworkBehaviour for ClientBehaviour {
         if let Some(Poll::Ready(addresses)) = self.reconnect.as_mut().map(|r| r.poll_unpin(cx)) {
             self.reconnect = None;
             for addr in addresses {
-                self.events
-                    .push_back(NetworkBehaviourAction::Dial { opts: addr.into() });
+                self.events.push_back(ToSwarm::Dial { opts: addr.into() });
             }
         }
 

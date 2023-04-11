@@ -27,6 +27,8 @@ use eyre::WrapErr;
 use fluence_libp2p::build_transport;
 use futures::{stream::StreamExt, FutureExt};
 use key_manager::KeyManager;
+#[allow(deprecated)]
+use libp2p::swarm::ConnectionLimits;
 use libp2p::swarm::SwarmEvent;
 use libp2p::{
     core::{muxing::StreamMuxerBox, transport::Boxed, Multiaddr},
@@ -35,7 +37,7 @@ use libp2p::{
     PeerId, Swarm, TransportError,
 };
 use libp2p_metrics::{Metrics, Recorder};
-use libp2p_swarm::{ConnectionLimits, SwarmBuilder};
+use libp2p_swarm::SwarmBuilder;
 use particle_builtins::{Builtins, CustomService, NodeInfo};
 use particle_execution::ParticleFunctionStatic;
 use particle_protocol::Particle;
@@ -135,6 +137,7 @@ impl<RT: AquaRuntime> Node<RT> {
         let plumber_metrics = metrics_registry.as_mut().map(ParticleExecutorMetrics::new);
         let vm_pool_metrics = metrics_registry.as_mut().map(VmPoolMetrics::new);
 
+        #[allow(deprecated)]
         let connection_limits = ConnectionLimits::default()
             .with_max_pending_incoming(config.node_config.transport_config.max_pending_incoming)
             .with_max_pending_outgoing(config.node_config.transport_config.max_pending_outgoing)

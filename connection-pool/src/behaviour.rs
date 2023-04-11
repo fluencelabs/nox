@@ -17,12 +17,10 @@
 use futures::{Sink, StreamExt};
 use libp2p::swarm::dial_opts::DialOpts;
 use libp2p::swarm::CloseConnection::All;
-use libp2p::swarm::{dial_opts, ConnectionId, DialError, FromSwarm, THandlerOutEvent};
+use libp2p::swarm::{dial_opts, ConnectionId, DialError, FromSwarm, THandlerOutEvent, ToSwarm};
 use libp2p::{
     core::{ConnectedPoint, Multiaddr},
-    swarm::{
-        NetworkBehaviour, NetworkBehaviourAction, NotifyHandler, OneShotHandler, PollParameters,
-    },
+    swarm::{NetworkBehaviour, NotifyHandler, OneShotHandler, PollParameters},
     PeerId,
 };
 use std::pin::Pin;
@@ -46,7 +44,7 @@ use crate::{Command, ConnectionPoolApi};
 // type SwarmEventType = generate_swarm_event_type!(ConnectionPoolBehaviour);
 
 // TODO: replace with generate_swarm_event_type
-type SwarmEventType = NetworkBehaviourAction<(), HandlerMessage>;
+type SwarmEventType = ToSwarm<(), HandlerMessage>;
 
 #[derive(Debug, Default)]
 /// [Peer] is the representation of [Contact] extended with precise connectivity information
@@ -135,7 +133,7 @@ impl ConnectionPoolBehaviour {
         // TODO: return Contact immediately if that address is already connected
         self.dialing.entry(address.clone()).or_default().push(out);
 
-        self.push_event(NetworkBehaviourAction::Dial {
+        self.push_event(ToSwarm::Dial {
             opts: DialOpts::unknown_peer_id().address(address).build(),
         });
     }
@@ -179,7 +177,7 @@ impl ConnectionPoolBehaviour {
         };
 
         if !addresses.is_empty() {
-            self.push_event(NetworkBehaviourAction::Dial {
+            self.push_event(ToSwarm::Dial {
                 opts: DialOpts::peer_id(new_contact.peer_id)
                     .addresses(addresses)
                     .build(),
@@ -188,7 +186,7 @@ impl ConnectionPoolBehaviour {
     }
 
     pub fn disconnect(&mut self, peer_id: PeerId, outlet: oneshot::Sender<bool>) {
-        self.push_event(NetworkBehaviourAction::CloseConnection {
+        self.push_event(ToSwarm::CloseConnection {
             peer_id,
             connection: All,
         });
@@ -218,7 +216,7 @@ impl ConnectionPoolBehaviour {
         } else if self.contacts.contains_key(&to.peer_id) {
             log::debug!(target: "network", "{}: Sending particle {} to {}", self.peer_id, particle.id, to.peer_id);
             // Send particle to remote peer
-            self.push_event(NetworkBehaviourAction::NotifyHandler {
+            self.push_event(ToSwarm::NotifyHandler {
                 peer_id: to.peer_id,
                 handler: NotifyHandler::Any,
                 event: HandlerMessage::OutParticle(particle, CompletionChannel::Oneshot(outlet)),

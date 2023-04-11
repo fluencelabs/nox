@@ -39,13 +39,12 @@ use libp2p::swarm::behaviour::{
     NewListener,
 };
 use libp2p::swarm::derive_prelude::AddressChange;
-use libp2p::swarm::DialError;
 use libp2p::swarm::ListenError;
-use libp2p::swarm::NetworkBehaviourAction;
 use libp2p::swarm::PollParameters;
 use libp2p::swarm::THandlerInEvent;
 use libp2p::swarm::THandlerOutEvent;
 use libp2p::swarm::{ConnectionDenied, ConnectionId, THandler};
+use libp2p::swarm::{DialError, ToSwarm};
 use libp2p::{
     core::Multiaddr,
     kad::{
@@ -697,9 +696,9 @@ impl NetworkBehaviour for Kademlia {
         &mut self,
         cx: &mut Context<'_>,
         params: &mut impl PollParameters,
-    ) -> Poll<NetworkBehaviourAction<(), THandlerInEvent<Self>>> {
-        use NetworkBehaviourAction::*;
+    ) -> Poll<ToSwarm<(), THandlerInEvent<Self>>> {
         use Poll::{Pending, Ready};
+        use ToSwarm::*;
 
         loop {
             if self.poll(cx).is_pending() {
