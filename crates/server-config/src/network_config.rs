@@ -45,6 +45,7 @@ pub struct NetworkConfig {
 }
 
 impl NetworkConfig {
+    #[allow(deprecated)]
     pub fn new(
         libp2p_metrics: Option<Arc<Metrics>>,
         connectivity_metrics: Option<ConnectivityMetrics>,
@@ -52,7 +53,6 @@ impl NetworkConfig {
         key_pair: Keypair,
         config: &ResolvedConfig,
         node_version: &'static str,
-        #[allow(deprecated)]
         connection_limits: ConnectionLimits,
     ) -> Self {
         Self {
