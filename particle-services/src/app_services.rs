@@ -33,7 +33,8 @@ use particle_args::{Args, JError};
 use particle_execution::{FunctionOutcome, ParticleParams, ParticleVault, VaultError};
 use particle_modules::ModuleRepository;
 use peer_metrics::{
-    ServiceCallStats, ServiceMemoryStat, ServiceType, ServicesMetrics, ServicesMetricsBuiltin,
+    ServiceCallStats, ServiceMemoryStat, ServiceType as MetricServiceType, ServicesMetrics,
+    ServicesMetricsBuiltin,
 };
 use server_config::ServicesConfig;
 use uuid_utils::uuid;
@@ -50,6 +51,21 @@ type ServiceId = String;
 type ServiceAlias = String;
 type Services = HashMap<ServiceId, Service>;
 type Aliases = HashMap<PeerId, HashMap<ServiceAlias, ServiceId>>;
+
+#[derive(Debug)]
+pub enum ServiceType {
+    Service,
+    Spell,
+}
+
+impl ServiceType {
+    fn is_spell(&self) -> bool {
+        match self {
+            ServiceType::Spell => true,
+            _ => false,
+        }
+    }
+}
 
 #[derive(Debug, Serialize)]
 pub struct ServiceInfo {
@@ -70,7 +86,7 @@ pub struct Service {
     pub service_id: String,
     pub blueprint_id: String,
     // temp hack to detect if the service is a spell
-    pub is_spell: bool,
+    pub service_type: ServiceType,
     pub owner_id: PeerId,
     pub aliases: Vec<ServiceAlias>,
     pub worker_id: PeerId,
@@ -81,7 +97,7 @@ impl Service {
         service: Mutex<AppService>,
         service_id: String,
         blueprint_id: String,
-        is_spell: bool,
+        service_type: ServiceType,
         owner_id: PeerId,
         aliases: Vec<ServiceAlias>,
         worker_id: PeerId,
@@ -90,7 +106,7 @@ impl Service {
             service,
             service_id,
             blueprint_id,
-            is_spell,
+            service_type,
             owner_id,
             aliases,
             worker_id,
@@ -328,13 +344,13 @@ impl ParticleAppServices {
             )?;
 
             // tmp hack to forbid spell removal via srv.remove
-            if service.is_spell && !allow_remove_spell {
+            if service.service_type.is_spell() && !allow_remove_spell {
                 return Err(Forbidden {
                     user: init_peer_id,
                     function: "remove_service",
                     reason: "cannot remove a spell",
                 });
-            } else if !service.is_spell && allow_remove_spell {
+            } else if !service.service_type.is_spell() && allow_remove_spell {
                 return Err(Forbidden {
                     user: init_peer_id,
                     function: "remove_spell",
@@ -833,12 +849,16 @@ impl ParticleAppServices {
         // Would be nice to determine that we create a spell service, but we don't have a reliable way to detect it yet
         // so for now temp hack
         let blueprint_name = self.modules.get_blueprint_from_cache(&blueprint_id)?.name;
-        let is_spell = blueprint_name == "spell";
+        let service_type = if blueprint_name == "spell" {
+            ServiceType::Spell
+        } else {
+            ServiceType::Service
+        };
         let service = Service::new(
             Mutex::new(service),
             service_id.clone(),
             blueprint_id,
-            is_spell,
+            service_type,
             owner_id,
             aliases,
             worker_id,
@@ -859,7 +879,7 @@ impl ParticleAppServices {
         self.vault.create(particle_id)
     }
 
-    fn get_service_type(&self, service: &Service, worker_id: &PeerId) -> ServiceType {
+    fn get_service_type(&self, service: &Service, worker_id: &PeerId) -> MetricServiceType {
         let allowed_alias = if self.config.local_peer_id.eq(worker_id) {
             service.aliases.first().cloned()
         } else if service
@@ -873,10 +893,10 @@ impl ParticleAppServices {
             None
         };
 
-        if service.is_spell {
-            ServiceType::Spell(allowed_alias)
+        if service.service_type.is_spell() {
+            MetricServiceType::Spell(allowed_alias)
         } else {
-            ServiceType::Service(allowed_alias)
+            MetricServiceType::Service(allowed_alias)
         }
     }
 }

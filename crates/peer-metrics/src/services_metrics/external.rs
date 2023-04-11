@@ -100,7 +100,7 @@ impl ServicesMetricsExternal {
 
         let services_count: Family<_, _> = register(
             sub_registry,
-            Family::new_with_constructor(|| Gauge::default()),
+            Family::new_with_constructor(Gauge::default),
             "services_count",
             "number of currently running services",
         );
@@ -121,14 +121,14 @@ impl ServicesMetricsExternal {
 
         let creation_count: Family<_, _> = register(
             sub_registry,
-            Family::new_with_constructor(|| Counter::default()),
+            Family::new_with_constructor(Counter::default),
             "creation_count",
             "number of srv create calls",
         );
 
         let removal_count: Family<_, _> = register(
             sub_registry,
-            Family::new_with_constructor(|| Counter::default()),
+            Family::new_with_constructor(Counter::default),
             "removal_count",
             "number of srv remove calls",
         );
