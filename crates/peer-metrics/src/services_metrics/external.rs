@@ -16,6 +16,7 @@ use crate::{execution_time_buckets, mem_buckets_4gib, mem_buckets_8gib, register
 #[derive(Hash, Clone, Eq, PartialEq, Debug)]
 pub enum ServiceType {
     Builtin,
+    Spell(Option<String>),
     Service(Option<String>),
 }
 
@@ -23,6 +24,8 @@ impl EncodeLabelValue for ServiceType {
     fn encode(&self, encoder: &mut LabelValueEncoder) -> Result<(), std::fmt::Error> {
         let label = match self {
             ServiceType::Builtin => "builtin",
+            ServiceType::Spell(Some(x)) => x,
+            ServiceType::Spell(_) => "spell",
             ServiceType::Service(Some(x)) => x,
             ServiceType::Service(_) => "non-aliased-services",
         };
@@ -66,15 +69,15 @@ impl ServicesMemoryMetrics {
 #[derive(Clone)]
 pub struct ServicesMetricsExternal {
     /// Number of currently running services
-    pub services_count: Gauge,
+    pub services_count: Family<ServiceTypeLabel, Gauge>,
     /// How long it took to create a service
-    pub creation_time_msec: Histogram,
+    pub creation_time_msec: Family<ServiceTypeLabel, Histogram>,
     /// How long it took to remove a service
-    pub removal_time_msec: Histogram,
+    pub removal_time_msec: Family<ServiceTypeLabel, Histogram>,
     /// Number of (srv create) calls
-    pub creation_count: Counter,
+    pub creation_count: Family<ServiceTypeLabel, Counter>,
     /// Number of (srv remove) calls
-    pub removal_count: Counter,
+    pub removal_count: Family<ServiceTypeLabel, Counter>,
 
     /// Number of (srv create) failures
     pub creation_failure_count: Counter,
@@ -95,37 +98,37 @@ impl ServicesMetricsExternal {
     pub fn new(registry: &mut Registry) -> Self {
         let sub_registry = registry.sub_registry_with_prefix("services");
 
-        let services_count = register(
+        let services_count: Family<_, _> = register(
             sub_registry,
-            Gauge::default(),
+            Family::new_with_constructor(|| Gauge::default()),
             "services_count",
             "number of currently running services",
         );
 
-        let creation_time_msec = register(
+        let creation_time_msec: Family<_, _> = register(
             sub_registry,
-            Histogram::new(execution_time_buckets()),
+            Family::new_with_constructor(|| Histogram::new(execution_time_buckets())),
             "creation_time_msec",
             "how long it took to create a service",
         );
 
-        let removal_time_msec = register(
+        let removal_time_msec: Family<_, _> = register(
             sub_registry,
-            Histogram::new(execution_time_buckets()),
+            Family::new_with_constructor(|| Histogram::new(execution_time_buckets())),
             "removal_time_msec",
             "how long it took to remove a service",
         );
 
-        let creation_count = register(
+        let creation_count: Family<_, _> = register(
             sub_registry,
-            Counter::default(),
+            Family::new_with_constructor(|| Counter::default()),
             "creation_count",
             "number of srv create calls",
         );
 
-        let removal_count = register(
+        let removal_count: Family<_, _> = register(
             sub_registry,
-            Counter::default(),
+            Family::new_with_constructor(|| Counter::default()),
             "removal_count",
             "number of srv remove calls",
         );
@@ -228,16 +231,22 @@ impl ServicesMetricsExternal {
     }
 
     /// Collect all metrics that are relevant on service removal.
-    pub fn observe_removed(&self, removal_time: f64) {
-        self.removal_count.inc();
-        self.services_count.dec();
-        self.removal_time_msec.observe(removal_time);
+    pub fn observe_removed(&self, service_type: ServiceType, removal_time: f64) {
+        let label = ServiceTypeLabel { service_type };
+        self.removal_count.get_or_create(&label).inc();
+        self.services_count.get_or_create(&label).dec();
+        self.removal_time_msec
+            .get_or_create(&label)
+            .observe(removal_time);
     }
 
-    pub fn observe_created(&self, modules_num: f64, creation_time: f64) {
-        self.services_count.inc();
+    pub fn observe_created(&self, service_type: ServiceType, modules_num: f64, creation_time: f64) {
+        let label = ServiceTypeLabel { service_type };
+        self.services_count.get_or_create(&label).inc();
         self.modules_in_services_count.observe(modules_num);
-        self.creation_count.inc();
-        self.creation_time_msec.observe(creation_time);
+        self.creation_count.get_or_create(&label).inc();
+        self.creation_time_msec
+            .get_or_create(&label)
+            .observe(creation_time);
     }
 }

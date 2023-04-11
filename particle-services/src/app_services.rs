@@ -374,6 +374,7 @@ impl ParticleAppServices {
             )
         }
         let service = self.services.write().remove(&service_id).unwrap();
+        let service_type = self.get_service_type(&service, &service.worker_id);
 
         if let Some(aliases) = self.aliases.write().get_mut(&service.worker_id) {
             for alias in service.aliases.iter() {
@@ -383,7 +384,7 @@ impl ParticleAppServices {
 
         let removal_end_time = removal_start_time.elapsed().as_secs();
         if let Some(metrics) = self.metrics.as_ref() {
-            metrics.observe_removed(removal_end_time as f64);
+            metrics.observe_removed(service_type, removal_end_time as f64);
         }
 
         Ok(())
@@ -424,21 +425,8 @@ impl ParticleAppServices {
         //         },
         //     ));
         // }
-
         // Metrics collection are enables for services with aliases which are installed on root worker or worker spells.
-        let allowed_alias = if worker_id == self.config.local_peer_id {
-            service.aliases.first().cloned()
-        } else if service
-            .aliases
-            .first()
-            .map(|alias| alias == "worker-spell")
-            .unwrap_or(false)
-        {
-            Some("worker-spell".to_string())
-        } else {
-            None
-        };
-        let service_type = ServiceType::Service(allowed_alias);
+        let service_type = self.get_service_type(&service, &worker_id);
 
         // TODO: move particle vault creation to aquamarine::particle_functions
         self.create_vault(&particle.id)?;
@@ -841,6 +829,7 @@ impl ParticleAppServices {
         })?;
         let stats = service.module_memory_stats();
         let stats = ServiceMemoryStat::new(&stats);
+        // Would be nice to determine that we create a spell service, but we don't have a reliable way to detect it yet
         let allowed_alias = if worker_id == self.config.local_peer_id {
             aliases.first().cloned()
         } else {
@@ -869,6 +858,36 @@ impl ParticleAppServices {
 
     fn create_vault(&self, particle_id: &str) -> Result<(), VaultError> {
         self.vault.create(particle_id)
+    }
+
+    fn get_service_type(&self, service: &Service, worker_id: &PeerId) -> ServiceType {
+        let allowed_alias = if self.config.local_peer_id.eq(worker_id) {
+            service.aliases.first().cloned()
+        } else if service
+            .aliases
+            .first()
+            .map(|alias| alias == "worker-spell")
+            .unwrap_or(false)
+        {
+            Some("worker-spell".to_string())
+        } else {
+            None
+        };
+        // How to detect that the service is a spell?
+        // Afaik there's no way to detect that the service is a spell FAST
+        // We can check blueprint name, but it's not reliable
+        // Need to rework that
+
+        /*
+        // This approach doesn't work since not only spells calls spell functions
+        if particle_id.starts_with("spell_") {
+            ServiceType::Spell(allowed_alias)
+        } else {
+            ServiceType::Service(allowed_alias)
+        }
+        */
+
+        ServiceType::Service(allowed_alias)
     }
 }
 
