@@ -111,10 +111,6 @@ impl Service {
         }
     }
 
-    pub fn is_spell(&self) -> bool {
-        self.service_type.is_spell()
-    }
-
     pub fn persist(&self, services_dir: &Path) -> Result<(), ServiceError> {
         persist_service(services_dir, PersistedService::from_service(self))
     }
