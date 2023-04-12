@@ -20,7 +20,7 @@ type SpellId = String;
 #[derive(Derivative)]
 #[derivative(Debug, Clone)]
 pub struct SpellStorage {
-    // The blueprint for the latest spell service.
+    // The blueprint for the latest spell service. It's used to create new spells
     spell_blueprint_id: String,
     // All currently existing spells
     registered_spells: Arc<RwLock<HashMap<WorkerId, Vec<SpellId>>>>,
@@ -39,7 +39,7 @@ impl SpellStorage {
         } else {
             Self::load_spell_service_from_crate(modules)?
         };
-        let registered_spells = Self::restore_spells(services, modules);
+        let registered_spells = Self::restore_spells(services);
 
         Ok((
             Self {
@@ -108,23 +108,11 @@ impl SpellStorage {
         ))
     }
 
-    fn restore_spells(
-        services: &ParticleAppServices,
-        modules: &ModuleRepository,
-    ) -> HashMap<WorkerId, Vec<SpellId>> {
-        // Find blueprint ids of the already existing spells. They might be of older versions of the spell service.
-        // These blueprint ids marked with name "spell" to differ from other blueprints.
-        let all_spell_blueprint_ids = modules
-            .get_blueprints()
-            .into_iter()
-            .filter(|blueprint| blueprint.name == "spell")
-            .map(|x| x.id)
-            .collect::<HashSet<_>>();
-        // Find already created spells by corresponding blueprint_ids.
+    fn restore_spells(services: &ParticleAppServices) -> HashMap<WorkerId, Vec<SpellId>> {
         services
             .list_services_with_info()
             .into_iter()
-            .filter(|s| all_spell_blueprint_ids.contains(&s.blueprint_id))
+            .filter(|s| s.service_type.is_spell())
             .map(|s| (s.worker_id, s.id))
             .into_group_map()
     }

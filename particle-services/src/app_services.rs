@@ -60,7 +60,7 @@ pub enum ServiceType {
 }
 
 impl ServiceType {
-    fn is_spell(&self) -> bool {
+    pub fn is_spell(&self) -> bool {
         matches!(self, ServiceType::Spell)
     }
 }
@@ -69,6 +69,7 @@ impl ServiceType {
 pub struct ServiceInfo {
     pub id: String,
     pub blueprint_id: String,
+    pub service_type: ServiceType,
     #[serde(with = "peerid_serializer")]
     pub owner_id: PeerId,
     pub aliases: Vec<ServiceAlias>,
@@ -83,7 +84,6 @@ pub struct Service {
     pub service: Mutex<AppService>,
     pub service_id: String,
     pub blueprint_id: String,
-    // temp hack to detect if the service is a spell
     pub service_type: ServiceType,
     pub owner_id: PeerId,
     pub aliases: Vec<ServiceAlias>,
@@ -110,6 +110,11 @@ impl Service {
             worker_id,
         }
     }
+
+    pub fn is_spell(&self) -> bool {
+        self.service_type.is_spell()
+    }
+
     pub fn persist(&self, services_dir: &Path) -> Result<(), ServiceError> {
         persist_service(services_dir, PersistedService::from_service(self))
     }
@@ -128,6 +133,7 @@ impl Service {
         ServiceInfo {
             id: id.to_string(),
             blueprint_id: self.blueprint_id.clone(),
+            service_type: self.service_type.clone(),
             owner_id: self.owner_id,
             aliases: self.aliases.clone(),
             worker_id: self.worker_id,
