@@ -33,7 +33,8 @@ use particle_args::{Args, JError};
 use particle_execution::{FunctionOutcome, ParticleParams, ParticleVault, VaultError};
 use particle_modules::ModuleRepository;
 use peer_metrics::{
-    ServiceCallStats, ServiceMemoryStat, ServiceType, ServicesMetrics, ServicesMetricsBuiltin,
+    ServiceCallStats, ServiceMemoryStat, ServiceType as MetricServiceType, ServicesMetrics,
+    ServicesMetricsBuiltin,
 };
 use server_config::ServicesConfig;
 use uuid_utils::uuid;
@@ -50,6 +51,18 @@ type ServiceId = String;
 type ServiceAlias = String;
 type Services = HashMap<ServiceId, Service>;
 type Aliases = HashMap<PeerId, HashMap<ServiceAlias, ServiceId>>;
+
+#[derive(Debug)]
+pub enum ServiceType {
+    Service,
+    Spell,
+}
+
+impl ServiceType {
+    fn is_spell(&self) -> bool {
+        matches!(self, ServiceType::Spell)
+    }
+}
 
 #[derive(Debug, Serialize)]
 pub struct ServiceInfo {
@@ -69,6 +82,8 @@ pub struct Service {
     pub service: Mutex<AppService>,
     pub service_id: String,
     pub blueprint_id: String,
+    // temp hack to detect if the service is a spell
+    pub service_type: ServiceType,
     pub owner_id: PeerId,
     pub aliases: Vec<ServiceAlias>,
     pub worker_id: PeerId,
@@ -79,6 +94,7 @@ impl Service {
         service: Mutex<AppService>,
         service_id: String,
         blueprint_id: String,
+        service_type: ServiceType,
         owner_id: PeerId,
         aliases: Vec<ServiceAlias>,
         worker_id: PeerId,
@@ -87,6 +103,7 @@ impl Service {
             service,
             service_id,
             blueprint_id,
+            service_type,
             owner_id,
             aliases,
             worker_id,
@@ -324,17 +341,13 @@ impl ParticleAppServices {
             )?;
 
             // tmp hack to forbid spell removal via srv.remove
-            let blueprint_name = self
-                .modules
-                .get_blueprint_from_cache(&service.blueprint_id)?
-                .name;
-            if blueprint_name == "spell" && !allow_remove_spell {
+            if service.service_type.is_spell() && !allow_remove_spell {
                 return Err(Forbidden {
                     user: init_peer_id,
                     function: "remove_service",
                     reason: "cannot remove a spell",
                 });
-            } else if blueprint_name != "spell" && allow_remove_spell {
+            } else if !service.service_type.is_spell() && allow_remove_spell {
                 return Err(Forbidden {
                     user: init_peer_id,
                     function: "remove_spell",
@@ -374,6 +387,7 @@ impl ParticleAppServices {
             )
         }
         let service = self.services.write().remove(&service_id).unwrap();
+        let service_type = self.get_service_type(&service, &service.worker_id);
 
         if let Some(aliases) = self.aliases.write().get_mut(&service.worker_id) {
             for alias in service.aliases.iter() {
@@ -383,7 +397,7 @@ impl ParticleAppServices {
 
         let removal_end_time = removal_start_time.elapsed().as_secs();
         if let Some(metrics) = self.metrics.as_ref() {
-            metrics.observe_removed(removal_end_time as f64);
+            metrics.observe_removed(service_type, removal_end_time as f64);
         }
 
         Ok(())
@@ -424,21 +438,8 @@ impl ParticleAppServices {
         //         },
         //     ));
         // }
-
         // Metrics collection are enables for services with aliases which are installed on root worker or worker spells.
-        let allowed_alias = if worker_id == self.config.local_peer_id {
-            service.aliases.first().cloned()
-        } else if service
-            .aliases
-            .first()
-            .map(|alias| alias == "worker-spell")
-            .unwrap_or(false)
-        {
-            Some("worker-spell".to_string())
-        } else {
-            None
-        };
-        let service_type = ServiceType::Service(allowed_alias);
+        let service_type = self.get_service_type(service, &worker_id);
 
         // TODO: move particle vault creation to aquamarine::particle_functions
         self.create_vault(&particle.id)?;
@@ -841,26 +842,30 @@ impl ParticleAppServices {
         })?;
         let stats = service.module_memory_stats();
         let stats = ServiceMemoryStat::new(&stats);
-        let allowed_alias = if worker_id == self.config.local_peer_id {
-            aliases.first().cloned()
+
+        // Would be nice to determine that we create a spell service, but we don't have a reliable way to detect it yet
+        // so for now temp hack
+        let blueprint_name = self.modules.get_blueprint_from_cache(&blueprint_id)?.name;
+        let service_type = if blueprint_name == "spell" {
+            ServiceType::Spell
         } else {
-            None
+            ServiceType::Service
         };
-        let service_type = ServiceType::Service(allowed_alias);
         let service = Service::new(
             Mutex::new(service),
             service_id.clone(),
             blueprint_id,
+            service_type,
             owner_id,
             aliases,
             worker_id,
         );
         // Save created service to disk, so it is recreated on restart
         service.persist(&self.config.services_dir)?;
-
+        let service_type = self.get_service_type(&service, &worker_id);
         let replaced = self.services.write().insert(service_id.clone(), service);
-        let creation_end_time = creation_start_time.elapsed().as_secs();
         if let Some(m) = self.metrics.as_ref() {
+            let creation_end_time = creation_start_time.elapsed().as_secs();
             m.observe_created(service_id, service_type, stats, creation_end_time as f64);
         }
 
@@ -869,6 +874,27 @@ impl ParticleAppServices {
 
     fn create_vault(&self, particle_id: &str) -> Result<(), VaultError> {
         self.vault.create(particle_id)
+    }
+
+    fn get_service_type(&self, service: &Service, worker_id: &PeerId) -> MetricServiceType {
+        let allowed_alias = if self.config.local_peer_id.eq(worker_id) {
+            service.aliases.first().cloned()
+        } else if service
+            .aliases
+            .first()
+            .map(|alias| alias == "worker-spell")
+            .unwrap_or(false)
+        {
+            Some("worker-spell".to_string())
+        } else {
+            None
+        };
+
+        if service.service_type.is_spell() {
+            MetricServiceType::Spell(allowed_alias)
+        } else {
+            MetricServiceType::Service(allowed_alias)
+        }
     }
 }
 
