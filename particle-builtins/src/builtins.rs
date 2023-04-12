@@ -42,7 +42,7 @@ use particle_modules::{
     AddBlueprint, ModuleConfig, ModuleRepository, NamedModuleConfig, WASIConfig,
 };
 use particle_protocol::Contact;
-use particle_services::{ParticleAppServices, VIRTUAL_PARTICLE_VAULT_PREFIX};
+use particle_services::{ParticleAppServices, ServiceType, VIRTUAL_PARTICLE_VAULT_PREFIX};
 use peer_metrics::ServicesMetrics;
 use script_storage::ScriptStorageApi;
 use server_config::ServicesConfig;
@@ -819,9 +819,12 @@ where
         let mut args = args.function_args.into_iter();
         let blueprint_id: String = Args::next("blueprint_id", &mut args)?;
 
-        let service_id =
-            self.services
-                .create_service(blueprint_id, params.init_peer_id, params.host_id)?;
+        let service_id = self.services.create_service(
+            ServiceType::Service,
+            blueprint_id,
+            params.init_peer_id,
+            params.host_id,
+        )?;
 
         Ok(JValue::String(service_id))
     }

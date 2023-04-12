@@ -24,7 +24,7 @@ use fluence_app_service::{
 };
 use humantime_serde::re::humantime::format_duration as pretty;
 use parking_lot::{Mutex, RwLock};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Value as JValue};
 
 use fluence_libp2p::{peerid_serializer, PeerId};
@@ -52,7 +52,8 @@ type ServiceAlias = String;
 type Services = HashMap<ServiceId, Service>;
 type Aliases = HashMap<PeerId, HashMap<ServiceAlias, ServiceId>>;
 
-#[derive(Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "lowercase")]
 pub enum ServiceType {
     Service,
     Spell,
@@ -257,12 +258,14 @@ impl ParticleAppServices {
 
     pub fn create_service(
         &self,
+        service_type: ServiceType,
         blueprint_id: String,
         owner_id: PeerId,
         worker_id: PeerId,
     ) -> Result<String, ServiceError> {
         let service_id = uuid::Uuid::new_v4().to_string();
         self.create_service_inner(
+            service_type,
             blueprint_id,
             owner_id,
             worker_id,
@@ -775,7 +778,25 @@ impl ParticleAppServices {
         for s in services {
             let worker_id = s.worker_id.expect("every service must have worker id");
             let start = Instant::now();
+            // If the service_type doesn't set in PersitedService, will try to find out if it's a spell by blueprint name
+            // This is mostly done for migration from the old detection method to the new.
+            let service_type = s.service_type.unwrap_or_else(|| {
+                let is_spell: Option<_> = try {
+                    let blueprint_name = self
+                        .modules
+                        .get_blueprint_from_cache(&s.blueprint_id)
+                        .ok()?
+                        .name;
+                    blueprint_name == "spell"
+                };
+                if is_spell.unwrap_or(false) {
+                    ServiceType::Spell
+                } else {
+                    ServiceType::Service
+                }
+            });
             let result = self.create_service_inner(
+                service_type,
                 s.blueprint_id,
                 s.owner_id,
                 worker_id,
@@ -821,6 +842,7 @@ impl ParticleAppServices {
 
     fn create_service_inner(
         &self,
+        service_type: ServiceType,
         blueprint_id: String,
         owner_id: PeerId,
         worker_id: PeerId,
@@ -843,14 +865,6 @@ impl ParticleAppServices {
         let stats = service.module_memory_stats();
         let stats = ServiceMemoryStat::new(&stats);
 
-        // Would be nice to determine that we create a spell service, but we don't have a reliable way to detect it yet
-        // so for now temp hack
-        let blueprint_name = self.modules.get_blueprint_from_cache(&blueprint_id)?.name;
-        let service_type = if blueprint_name == "spell" {
-            ServiceType::Spell
-        } else {
-            ServiceType::Service
-        };
         let service = Service::new(
             Mutex::new(service),
             service_id.clone(),
@@ -923,6 +937,7 @@ mod tests {
     use service_modules::load_module;
     use service_modules::{Dependency, Hash};
 
+    use crate::app_services::ServiceType;
     use crate::persistence::load_persisted_services;
     use crate::{ParticleAppServices, ServiceError};
 
@@ -1001,7 +1016,7 @@ mod tests {
             .add_blueprint(AddBlueprint::new(module_name, vec![dep]))
             .unwrap();
 
-        pas.create_service(bp, RandomPeerId::random(), worker_id)
+        pas.create_service(ServiceType::Service, bp, RandomPeerId::random(), worker_id)
             .map_err(|e| e.to_string())
     }
 

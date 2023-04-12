@@ -22,7 +22,7 @@ use key_manager::KeyManager;
 use libp2p::PeerId;
 use particle_args::{Args, JError};
 use particle_execution::ParticleParams;
-use particle_services::ParticleAppServices;
+use particle_services::{ParticleAppServices, ServiceType};
 use spell_event_bus::api::EventBusError;
 use spell_event_bus::{api, api::SpellEventBusApi};
 use spell_storage::SpellStorage;
@@ -78,7 +78,12 @@ pub(crate) async fn spell_install(
         return Err(JError::new(format!("Failed to install spell on {worker_id}, spell can be installed by worker creator {worker_creator}, worker itself {worker_id} or peer manager; init_peer_id={init_peer_id}")));
     }
 
-    let spell_id = services.create_service(spell_storage.get_blueprint(), worker_id, worker_id)?;
+    let spell_id = services.create_service(
+        ServiceType::Spell,
+        spell_storage.get_blueprint(),
+        worker_id,
+        worker_id,
+    )?;
     spell_storage.register_spell(worker_id, spell_id.clone());
 
     // TODO: refactor these service calls
