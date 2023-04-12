@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.11.0](https://github.com/fluencelabs/rust-peer/compare/rust-peer-v0.10.0...rust-peer-v0.11.0) (2023-04-12)
+
+
+### ⚠ BREAKING CHANGES
+
+* **logs:** print only first address of a Contact ([#1555](https://github.com/fluencelabs/rust-peer/issues/1555))
+* **vault:** do not create vault on every particle ([#1553](https://github.com/fluencelabs/rust-peer/issues/1553))
+
+### Features
+
+* add service metrics for spells [fixes NET-441] ([#1565](https://github.com/fluencelabs/rust-peer/issues/1565)) ([947dfa8](https://github.com/fluencelabs/rust-peer/commit/947dfa8bfb75b438e79014c8585a4963c377c20b))
+* **config:** Layered configuration [fixes NET-424] ([#1551](https://github.com/fluencelabs/rust-peer/issues/1551)) ([8e20c10](https://github.com/fluencelabs/rust-peer/commit/8e20c10705a7ff817d6a0f54909ef582415c7775))
+* **logs:** print only first address of a Contact ([#1555](https://github.com/fluencelabs/rust-peer/issues/1555)) ([32a46b2](https://github.com/fluencelabs/rust-peer/commit/32a46b225a7ad8245c17908271cfc52739e6b989))
+* **vault:** do not create vault on every particle ([#1553](https://github.com/fluencelabs/rust-peer/issues/1553)) ([aa0dd94](https://github.com/fluencelabs/rust-peer/commit/aa0dd94b87d17d9238d8d23736184bd74f95c1a1))
+
+
+### Bug Fixes
+
+* **deps:** update rust crate fluence-spell-distro to v0.5.9 ([#1559](https://github.com/fluencelabs/rust-peer/issues/1559)) ([47f5e20](https://github.com/fluencelabs/rust-peer/commit/47f5e206a2c5212ed87806b21f857feb4cdafc4e))
+* **deps:** update rust crate fluence-spell-dtos to v0.5.9 ([#1560](https://github.com/fluencelabs/rust-peer/issues/1560)) ([f762b8b](https://github.com/fluencelabs/rust-peer/commit/f762b8b2f9eaa4c008dd931e3df651436a4ff2cb))
+* **metrics:** Change _ to - in rust_peer_build_info ([#1558](https://github.com/fluencelabs/rust-peer/issues/1558)) ([c741e24](https://github.com/fluencelabs/rust-peer/commit/c741e24e826c74722167259b3fc578495c860586))
+* **metrics:** restrict metrics collection of aliased service on creation ([#1557](https://github.com/fluencelabs/rust-peer/issues/1557)) ([040eb50](https://github.com/fluencelabs/rust-peer/commit/040eb505fce48d48e38a075d9bf50558a542467d))
+
 ## [0.10.0](https://github.com/fluencelabs/rust-peer/compare/rust-peer-v0.9.1...rust-peer-v0.10.0) (2023-04-06)
 
 
