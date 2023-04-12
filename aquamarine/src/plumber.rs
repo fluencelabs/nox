@@ -197,6 +197,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
                 }
 
                 log::debug!(
+                    target: "particle_reap",
                     "Reaping particle's actor particle_id={particle_id}, peer_id={peer_id})"
                 );
                 // cleanup files and dirs after particle processing (vault & prev_data)

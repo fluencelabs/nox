@@ -83,7 +83,7 @@ impl DataStore for ParticleDataStore {
     fn initialize(&mut self) -> Result<()> {
         create_dir(&self.particle_data_store).map_err(CreateDataStore)?;
 
-        // self.vault.initialize()?;
+        self.vault.initialize()?;
 
         Ok(())
     }
@@ -102,6 +102,7 @@ impl DataStore for ParticleDataStore {
     }
 
     fn cleanup_data(&mut self, particle_id: &str, current_peer_id: &str) -> Result<()> {
+        log::debug!(target: "particle_reap", "Cleaning up particle data for particle {}", particle_id);
         remove_file(&self.data_file(particle_id, current_peer_id)).map_err(CleanupData)?;
         self.vault.cleanup(particle_id)?;
 
