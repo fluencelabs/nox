@@ -49,12 +49,12 @@ pub struct RootKeyPairArgs {
     )]
     path: Option<PathBuf>,
     #[arg(
-    short('f'),
-    long,
-    value_parser(["ed25519", "secp256k1", "rsa"]),
-    id = "ROOT_KEY_FORMAT",
-    help_heading = "Node keypair",
-    display_order = 12,
+        short('f'),
+        long,
+        value_parser(["ed25519", "secp256k1", "rsa"]),
+        id = "ROOT_KEY_FORMAT",
+        help_heading = "Node keypair",
+        display_order = 12,
     )]
     format: Option<String>,
 
