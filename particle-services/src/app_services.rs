@@ -447,6 +447,7 @@ impl ParticleAppServices {
         let service_type = self.get_service_type(service, &worker_id);
 
         // TODO: move particle vault creation to aquamarine::particle_functions
+        log::debug!(target: "particle_reap", "Creating vault for particle {} {} {} {:?}", particle.id, service_id, service.blueprint_id, service_type);
         self.create_vault(&particle.id)?;
         let params = CallParameters {
             host_id: worker_id.to_string(),
