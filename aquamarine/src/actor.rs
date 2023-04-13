@@ -34,9 +34,9 @@ use crate::{AquaRuntime, InterpretationStats};
 
 pub struct Actor<RT, F> {
     /// Particle of that actor is expired after that deadline
-    deadline: Deadline,
+    pub deadline: Deadline,
     future: Option<(usize, Fut<RT>)>,
-    mailbox: VecDeque<Particle>,
+    pub mailbox: VecDeque<Particle>,
     waker: Option<Waker>,
     functions: Functions<F>,
     /// Particle that's memoized on the actor creation.
