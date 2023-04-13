@@ -68,7 +68,7 @@ impl ParticleDataStore {
     }
 
     pub fn create_particle_vault(&self, key: &str) -> Result<()> {
-        log::debug!(target: "particle_reap", "Creating particle vault {}", key);
+        log::debug!(target: "particle_reap", "Creating particle vault create_particle_vault {}", key);
         self.vault.create(key)?;
 
         Ok(())
