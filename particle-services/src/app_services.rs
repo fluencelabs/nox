@@ -889,7 +889,7 @@ impl ParticleAppServices {
     }
 
     fn create_vault(&self, particle_id: &str) -> Result<(), VaultError> {
-        log::debug!(target: "particle_reap", "Creating particle vault create_vault {}", particle_id);
+        log::debug!(target: "particle_reap", "Creating particle vault {}", particle_id);
         self.vault.create(particle_id)
     }
 

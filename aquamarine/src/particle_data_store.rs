@@ -66,13 +66,6 @@ impl ParticleDataStore {
         .iter()
         .collect()
     }
-
-    pub fn create_particle_vault(&self, key: &str) -> Result<()> {
-        log::debug!(target: "particle_reap", "Creating particle vault create_particle_vault {}", key);
-        self.vault.create(key)?;
-
-        Ok(())
-    }
 }
 
 const EXECUTION_TIME_THRESHOLD: Duration = Duration::from_millis(500);
