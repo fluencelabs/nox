@@ -6,8 +6,11 @@ use prometheus_client::registry::Registry;
 
 #[derive(Clone)]
 pub struct SpellMetrics {
+    // How much spell _particles_ were created by the node
     spell_particles_created: Counter,
+    // How much spells are scheduled to run _now_
     spell_scheduled_now: Gauge,
+    // Distribution of spell's scheduled periods
     spell_periods: Histogram,
 }
 
@@ -44,8 +47,10 @@ impl SpellMetrics {
     }
 
     fn periods_buckets() -> std::vec::IntoIter<f64> {
-        // 1 sec, 30 sec, 1 min, 5 min, 10 min,  1 hour, 12 hours, 1 day, 1 week, 1 month
+        // 0.0 sec, 1 sec, 30 sec, 1 min, 5 min, 10 min,  1 hour, 12 hours, 1 day, 1 week, 1 month
+        // 0 means that the spell is oneshot or reacts only on events
         vec![
+            0.0,
             1.0,
             30.0,
             60.0,
