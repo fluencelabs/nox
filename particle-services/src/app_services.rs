@@ -23,7 +23,6 @@ use fluence_app_service::{
     AppService, AppServiceError, CallParameters, MarineError, SecurityTetraplet, ServiceInterface,
 };
 use humantime_serde::re::humantime::format_duration as pretty;
-use log::log;
 use parking_lot::{Mutex, RwLock};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value as JValue};
@@ -409,7 +408,12 @@ impl ParticleAppServices {
         Ok(())
     }
 
-    pub fn call_service(&self, function_args: Args, particle: ParticleParams) -> FunctionOutcome {
+    pub fn call_service(
+        &self,
+        function_args: Args,
+        particle: ParticleParams,
+        create_vault: bool,
+    ) -> FunctionOutcome {
         let call_time_start = Instant::now();
         let services = self.services.read();
         let aliases = self.aliases.read();
@@ -448,8 +452,9 @@ impl ParticleAppServices {
         let service_type = self.get_service_type(service, &worker_id);
 
         // TODO: move particle vault creation to aquamarine::particle_functions
-        log::debug!(target: "particle_reap", "Creating vault for particle {} {} {} {:?}", particle.id, service_id, service.blueprint_id, service_type);
-        self.create_vault(&particle.id)?;
+        if create_vault {
+            self.create_vault(&particle.id)?;
+        }
         let params = CallParameters {
             host_id: worker_id.to_string(),
             particle_id: particle.id,
@@ -537,6 +542,7 @@ impl ParticleAppServices {
         particle_id: Option<String>,
         init_peer_id: PeerId,
         particle_ttl: Duration,
+        create_vault: bool,
     ) -> FunctionOutcome {
         let args = Args {
             service_id: service_id.to_string(),
@@ -555,8 +561,7 @@ impl ParticleAppServices {
             signature: vec![],
         };
 
-        log::debug!(target: "particle_reap", "Before call_service app_services {}", particle.id);
-        self.call_service(args, particle)
+        self.call_service(args, particle, create_vault)
     }
 
     fn add_alias_inner(
@@ -892,7 +897,6 @@ impl ParticleAppServices {
     }
 
     fn create_vault(&self, particle_id: &str) -> Result<(), VaultError> {
-        log::debug!(target: "particle_reap", "Creating particle vault {}", particle_id);
         self.vault.create(particle_id)
     }
 
