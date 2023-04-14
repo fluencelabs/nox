@@ -846,6 +846,7 @@ where
     }
 
     fn call_service(&self, function_args: Args, particle: ParticleParams) -> FunctionOutcome {
+        log::debug!(target: "particle_reap", "Before call_service call_service {}", particle.id);
         self.services.call_service(function_args, particle)
     }
 

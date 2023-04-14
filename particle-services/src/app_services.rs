@@ -23,6 +23,7 @@ use fluence_app_service::{
     AppService, AppServiceError, CallParameters, MarineError, SecurityTetraplet, ServiceInterface,
 };
 use humantime_serde::re::humantime::format_duration as pretty;
+use log::log;
 use parking_lot::{Mutex, RwLock};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value as JValue};
@@ -554,6 +555,7 @@ impl ParticleAppServices {
             signature: vec![],
         };
 
+        log::debug!(target: "particle_reap", "Before call_service app_services {}", particle.id);
         self.call_service(args, particle)
     }
 
