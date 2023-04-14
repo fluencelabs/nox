@@ -302,7 +302,7 @@ pub(crate) fn get_spell_arg(
             Some(params.id.clone()),
             params.init_peer_id,
             Duration::from_millis(params.ttl as u64),
-            true, //TODO: check it
+            false,
         ),
         spell_id,
         "get_string",
