@@ -25,6 +25,7 @@ use fs_utils::{create_dir, list_files};
 use service_modules::{is_service, service_file_name};
 
 use crate::ServiceError::{SerializePersistedService, WritePersistedService};
+use crate::ServiceType;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 
@@ -32,6 +33,7 @@ use std::path::Path;
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct PersistedService {
     pub service_id: String,
+    pub service_type: Option<ServiceType>,
     pub blueprint_id: String,
     #[serde(default)]
     // Old versions of PersistedService may omit `aliases` field, tolerate that
@@ -50,6 +52,7 @@ impl PersistedService {
     pub fn from_service(service: &Service) -> Self {
         PersistedService {
             service_id: service.service_id.clone(),
+            service_type: Some(service.service_type.clone()),
             blueprint_id: service.blueprint_id.clone(),
             aliases: service.aliases.clone(),
             owner_id: service.owner_id,
