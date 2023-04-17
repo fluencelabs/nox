@@ -45,7 +45,9 @@ use crate::error::ServiceError::{AliasAsServiceId, Forbidden, NoSuchAlias};
 use crate::persistence::{
     load_persisted_services, persist_service, remove_persisted_service, PersistedService,
 };
-use crate::ServiceError::{ForbiddenAliasRoot, ForbiddenAliasWorker, NoSuchService};
+use crate::ServiceError::{
+    ForbiddenAliasRoot, ForbiddenAliasSpell, ForbiddenAliasWorker, NoSuchService,
+};
 
 type ServiceId = String;
 type ServiceAlias = String;
@@ -176,11 +178,18 @@ pub struct ParticleAppServices {
 
 /// firstly, try to find by alias in worker scope, secondly, in root scope
 pub fn resolve_alias(
+    particle_id: &str,
     alias: String,
     aliases: &Aliases,
     worker_id: PeerId,
     local_peer_id: PeerId,
 ) -> Option<String> {
+    if alias == "spell" {
+        if let Some(spell_id) = ParticleParams::get_spell_id(particle_id) {
+            return Some(spell_id);
+        }
+    }
+
     let worker_scope: Option<String> = try { aliases.get(&worker_id)?.get(&alias).cloned()? };
 
     if let Some(result) = worker_scope {
@@ -192,6 +201,7 @@ pub fn resolve_alias(
 }
 
 pub fn get_service<'l>(
+    particle_id: &str,
     services: &'l Services,
     aliases: &Aliases,
     worker_id: PeerId,
@@ -205,7 +215,13 @@ pub fn get_service<'l>(
 
     // retrieve service by alias
     let by_alias: Option<_> = try {
-        let resolved_id = resolve_alias(id_or_alias.clone(), aliases, worker_id, local_peer_id)?;
+        let resolved_id = resolve_alias(
+            particle_id,
+            id_or_alias.clone(),
+            aliases,
+            worker_id,
+            local_peer_id,
+        )?;
         let service = services.get(&resolved_id)?;
         (service, resolved_id.clone())
     };
@@ -283,11 +299,13 @@ impl ParticleAppServices {
 
     pub fn get_service_info(
         &self,
+        particle_id: &str,
         worker_id: PeerId,
         service_id_or_alias: String,
     ) -> Result<JValue, ServiceError> {
         let services_read = self.services.read();
         let (service, service_id) = get_service(
+            particle_id,
             &services_read,
             &self.aliases.read(),
             worker_id,
@@ -329,6 +347,7 @@ impl ParticleAppServices {
 
     pub fn remove_service(
         &self,
+        particle_id: &str,
         worker_id: PeerId,
         service_id_or_alias: String,
         init_peer_id: PeerId,
@@ -338,6 +357,7 @@ impl ParticleAppServices {
         let service_id = {
             let services_read = self.services.read();
             let (service, service_id) = get_service(
+                particle_id,
                 &services_read,
                 &self.aliases.read(),
                 worker_id,
@@ -416,6 +436,7 @@ impl ParticleAppServices {
         let timestamp = particle.timestamp;
 
         let service = get_service(
+            &particle.id,
             &services,
             &aliases,
             worker_id,
@@ -611,6 +632,10 @@ impl ParticleAppServices {
             return Err(AliasAsServiceId(alias));
         }
 
+        if alias == "spell" {
+            return Err(ForbiddenAliasSpell);
+        }
+
         if !self.service_exists(&service_id) {
             return Err(NoSuchService(service_id));
         }
@@ -630,9 +655,15 @@ impl ParticleAppServices {
         Ok(())
     }
 
-    pub fn resolve_alias(&self, worker_id: PeerId, alias: String) -> Result<String, ServiceError> {
+    pub fn resolve_alias(
+        &self,
+        particle_id: &str,
+        worker_id: PeerId,
+        alias: String,
+    ) -> Result<String, ServiceError> {
         let aliases = self.aliases.read();
         resolve_alias(
+            particle_id,
             alias.clone(),
             &aliases,
             worker_id,
@@ -643,11 +674,13 @@ impl ParticleAppServices {
 
     pub fn to_service_id(
         &self,
+        particle_id: &str,
         worker_id: PeerId,
         service_id_or_alias: String,
     ) -> Result<String, ServiceError> {
         let services = self.services.read();
         let (_, service_id) = get_service(
+            particle_id,
             &services,
             &self.aliases.read(),
             worker_id,
@@ -659,11 +692,13 @@ impl ParticleAppServices {
 
     pub fn get_service_owner(
         &self,
+        particle_id: &str,
         id_or_alias: String,
         worker_id: PeerId,
     ) -> Result<PeerId, ServiceError> {
         let services = self.services.read();
         let (service, _) = get_service(
+            particle_id,
             &services,
             &self.aliases.read(),
             worker_id,
@@ -676,11 +711,13 @@ impl ParticleAppServices {
 
     pub fn check_service_worker_id(
         &self,
+        particle_id: &str,
         id_or_alias: String,
         worker_id: PeerId,
     ) -> Result<(), ServiceError> {
         let services = self.services.read();
         let (service, _) = get_service(
+            particle_id,
             &services,
             &self.aliases.read(),
             worker_id,
@@ -700,11 +737,13 @@ impl ParticleAppServices {
 
     pub fn get_interface(
         &self,
+        particle_id: &str,
         service_id: String,
         worker_id: PeerId,
     ) -> Result<JValue, ServiceError> {
         let services = self.services.read();
         let (service, _) = get_service(
+            particle_id,
             &services,
             &self.aliases.read(),
             worker_id,
@@ -736,11 +775,13 @@ impl ParticleAppServices {
 
     pub fn get_service_mem_stats(
         &self,
+        particle_id: &str,
         worker_id: PeerId,
         service_id: String,
     ) -> Result<Vec<JValue>, JError> {
         let services = self.services.read();
         let (service, _) = get_service(
+            particle_id,
             &services,
             &self.aliases.read(),
             worker_id,
@@ -1077,15 +1118,15 @@ mod tests {
         let service_id2 = create_service(&pas, module_name.clone(), &hash, local_pid).unwrap();
         let service_id3 = create_service(&pas, module_name, &hash, local_pid).unwrap();
 
-        let inter1 = pas.get_interface(service_id1, local_pid).unwrap();
+        let inter1 = pas.get_interface("", service_id1, local_pid).unwrap();
 
         // delete module and check that interfaces will be returned anyway
         let dir = modules_dir(base_dir.path());
         let module_file = dir.join(format!("{hash}.wasm"));
         remove_file(module_file.clone()).unwrap();
 
-        let inter2 = pas.get_interface(service_id2, local_pid).unwrap();
-        let inter3 = pas.get_interface(service_id3, local_pid).unwrap();
+        let inter2 = pas.get_interface("", service_id2, local_pid).unwrap();
+        let inter3 = pas.get_interface("", service_id3, local_pid).unwrap();
 
         assert_eq!(module_file.exists(), false);
         assert_eq!(inter1, inter2);

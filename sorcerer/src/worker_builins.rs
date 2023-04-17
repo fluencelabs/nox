@@ -81,6 +81,7 @@ pub(crate) async fn remove_worker(
 
     for s in spells {
         remove_spell(
+            &params.id,
             &spell_storage,
             &services,
             &spell_event_bus_api,

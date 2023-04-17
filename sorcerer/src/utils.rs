@@ -18,7 +18,7 @@ use fluence_spell_dtos::value::SpellValueT;
 use serde::de::DeserializeOwned;
 
 use particle_args::JError;
-use particle_execution::FunctionOutcome;
+use particle_execution::{FunctionOutcome, ParticleParams};
 
 // TODO: change function name to the better one
 /// Return Ok(T) if result.success is true, return Err(T.error) otherwise
@@ -61,16 +61,9 @@ where
     }
 }
 
-pub(crate) fn parse_spell_id_from(particle_id: &str) -> Result<&str, JError> {
-    if particle_id.starts_with("spell_") {
-        Ok(particle_id
-            .split('_')
-            .collect::<Vec<&str>>()
-            .get(1)
-            .ok_or(JError::new("Invalid particle id format"))?)
-    } else {
-        Err(JError::new(format!(
-            "Expected spell particle id to start with 'spell_': {particle_id}"
-        )))
-    }
+pub(crate) fn parse_spell_id_from(particle: &ParticleParams) -> Result<String, JError> {
+    ParticleParams::get_spell_id(&particle.id).ok_or(JError::new(format!(
+        "Invalid particle id: expected 'spell_{{SPELL_ID}}_{{COUNTER}}', got {}",
+        particle.id
+    )))
 }

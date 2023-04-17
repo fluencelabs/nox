@@ -26,6 +26,7 @@ use serde_json::{json, Value as JValue};
 use connected_client::ConnectedClient;
 use created_swarm::{make_swarms, make_swarms_with_builtins};
 use fluence_spell_dtos::trigger_config::{ClockConfig, TriggerConfig};
+use log_utils::enable_logs;
 use service_modules::load_module;
 use spell_event_bus::api::{TriggerInfo, TriggerInfoAqua, MAX_PERIOD_SEC};
 use test_utils::{create_service, create_service_worker};
@@ -781,7 +782,7 @@ async fn spell_call_by_alias() {
                     (call %init_peer_id% ("alias" "get_u32") ["counter"] counter)
                 )
 
-                (call "{}" ("return" "") [counter])
+                (call "{}" ("return" "") [counter.$.num])
             )
         )"#,
         client.peer_id
@@ -1839,5 +1840,51 @@ async fn test_spell_list() {
         assert!(worker2_spells[0].as_str().unwrap().eq(&spell_id3));
     } else {
         panic!("expected one array result")
+    }
+}
+
+#[tokio::test]
+async fn spell_call_by_default_alias() {
+    enable_logs();
+    let swarms = make_swarms(1).await;
+
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
+        .wrap_err("connect client")
+        .unwrap();
+
+    let script = format!(
+        r#"
+        (seq
+            (seq
+                (call %init_peer_id% ("spell" "get_u32") ["counter"] counter)
+                (seq
+                    (call %init_peer_id% ("srv" "resolve_alias") ["spell"] spell_id)
+                    (xor
+                        (call %init_peer_id% ("srv" "add_alias") ["spell" spell_id])
+                        (call %init_peer_id% ("op" "noop") [])
+                    )
+                )
+            )
+            (call "{}" ("return" "") [counter.$.num spell_id %last_error%.$.message])
+        )"#,
+        client.peer_id
+    );
+
+    let config = make_clock_config(2, 1, 0);
+    let (expected_spell_id, _) = create_spell(&mut client, &script, config, json!({}), None).await;
+
+    if let [JValue::Number(counter), JValue::String(spell_id), JValue::String(error)] = client
+        .receive_args()
+        .await
+        .wrap_err("receive")
+        .unwrap()
+        .as_slice()
+    {
+        assert_ne!(counter.as_i64().unwrap(), 0);
+        assert_eq!(spell_id, &expected_spell_id);
+        assert!(error.contains("Cannot add alias 'spell' because it is reserved"));
+    } else {
+        panic!("expected one integer and two strings")
     }
 }
