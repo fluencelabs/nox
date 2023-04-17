@@ -3,6 +3,7 @@ use crate::config::{SpellTriggerConfigs, TriggerConfig};
 use futures::stream::BoxStream;
 use futures::StreamExt;
 use futures::{future, FutureExt};
+use peer_metrics::SpellMetrics;
 use std::cmp::Ordering;
 use std::collections::{BinaryHeap, HashMap};
 use std::pin::Pin;
@@ -162,10 +163,13 @@ pub struct SpellEventBus {
     recv_cmd_channel: mpsc::UnboundedReceiver<Command>,
     /// Notify when trigger happened
     send_events: mpsc::UnboundedSender<TriggerEvent>,
+    /// Spell metrics
+    spell_metrics: Option<SpellMetrics>,
 }
 
 impl SpellEventBus {
     pub fn new(
+        spell_metrics: Option<SpellMetrics>,
         sources: Vec<BoxStream<'static, PeerEvent>>,
     ) -> (
         Self,
@@ -181,6 +185,7 @@ impl SpellEventBus {
             sources,
             recv_cmd_channel,
             send_events,
+            spell_metrics,
         };
         (this, api, recv_events)
     }
@@ -258,6 +263,8 @@ impl SpellEventBus {
                             if let Some(rescheduled) = Scheduled::at(scheduled_spell.data, Instant::now()) {
                                 log::trace!("Reschedule: {:?}", rescheduled);
                                 state.scheduled.push(rescheduled);
+                            } else if let Some(m) = &self.spell_metrics {
+                                    m.observe_finished_spell();
                             }
                         }
                     },
@@ -381,7 +388,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_subscribe_one() {
-        let (bus, api, event_receiver) = SpellEventBus::new(vec![]);
+        let (bus, api, event_receiver) = SpellEventBus::new(None, vec![]);
         let bus = bus.start();
         let event_stream = UnboundedReceiverStream::new(event_receiver);
 
@@ -405,7 +412,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_subscribe_many() {
-        let (bus, api, event_receiver) = SpellEventBus::new(vec![]);
+        let (bus, api, event_receiver) = SpellEventBus::new(None, vec![]);
         let bus = bus.start();
         let event_stream = UnboundedReceiverStream::new(event_receiver);
 
@@ -438,7 +445,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_subscribe_oneshot() {
-        let (bus, api, event_receiver) = SpellEventBus::new(vec![]);
+        let (bus, api, event_receiver) = SpellEventBus::new(None, vec![]);
         let bus = bus.start();
         let event_stream = UnboundedReceiverStream::new(event_receiver);
         let spell1_id = "spell1".to_string();
@@ -473,7 +480,7 @@ mod tests {
     async fn test_subscribe_connect() {
         let (send, recv) = mpsc::unbounded_channel();
         let recv = UnboundedReceiverStream::new(recv).boxed();
-        let (bus, api, event_receiver) = SpellEventBus::new(vec![recv]);
+        let (bus, api, event_receiver) = SpellEventBus::new(None, vec![recv]);
         let mut event_stream = UnboundedReceiverStream::new(event_receiver);
         let bus = bus.start();
 
@@ -503,7 +510,7 @@ mod tests {
     async fn test_unsubscribe() {
         let (send, recv) = mpsc::unbounded_channel();
         let recv = UnboundedReceiverStream::new(recv).boxed();
-        let (bus, api, mut event_receiver) = SpellEventBus::new(vec![recv]);
+        let (bus, api, mut event_receiver) = SpellEventBus::new(None, vec![recv]);
         let bus = bus.start();
 
         let spell1_id = "spell1".to_string();
@@ -532,7 +539,7 @@ mod tests {
     async fn test_subscribe_many_spells_with_diff_event_types() {
         let (recv, hdl) = emulate_connect(Duration::from_millis(10));
         let recv = UnboundedReceiverStream::new(recv).boxed();
-        let (bus, api, event_receiver) = SpellEventBus::new(vec![recv]);
+        let (bus, api, event_receiver) = SpellEventBus::new(None, vec![recv]);
         let event_stream = UnboundedReceiverStream::new(event_receiver);
         let bus = bus.start();
 
