@@ -428,7 +428,12 @@ impl ParticleAppServices {
         Ok(())
     }
 
-    pub fn call_service(&self, function_args: Args, particle: ParticleParams) -> FunctionOutcome {
+    pub fn call_service(
+        &self,
+        function_args: Args,
+        particle: ParticleParams,
+        create_vault: bool,
+    ) -> FunctionOutcome {
         let call_time_start = Instant::now();
         let services = self.services.read();
         let aliases = self.aliases.read();
@@ -468,7 +473,9 @@ impl ParticleAppServices {
         let service_type = self.get_service_type(service, &worker_id);
 
         // TODO: move particle vault creation to aquamarine::particle_functions
-        self.create_vault(&particle.id)?;
+        if create_vault {
+            self.create_vault(&particle.id)?;
+        }
         let params = CallParameters {
             host_id: worker_id.to_string(),
             particle_id: particle.id,
@@ -574,7 +581,7 @@ impl ParticleAppServices {
             signature: vec![],
         };
 
-        self.call_service(args, particle)
+        self.call_service(args, particle, false)
     }
 
     fn add_alias_inner(
