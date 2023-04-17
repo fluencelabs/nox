@@ -542,7 +542,6 @@ impl ParticleAppServices {
         particle_id: Option<String>,
         init_peer_id: PeerId,
         particle_ttl: Duration,
-        create_vault: bool,
     ) -> FunctionOutcome {
         let args = Args {
             service_id: service_id.to_string(),
@@ -561,7 +560,7 @@ impl ParticleAppServices {
             signature: vec![],
         };
 
-        self.call_service(args, particle, create_vault)
+        self.call_service(args, particle, false)
     }
 
     fn add_alias_inner(

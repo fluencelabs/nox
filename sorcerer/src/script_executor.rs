@@ -36,7 +36,6 @@ impl Sorcerer {
             None,
             worker_id,
             self.spell_script_particle_ttl,
-            false,
         );
 
         let res = process_func_outcome::<U32Value>(func_outcome, &spell_id, "get_u32");
@@ -66,7 +65,6 @@ impl Sorcerer {
             None,
             worker_id,
             self.spell_script_particle_ttl,
-            false,
         );
 
         process_func_outcome::<UnitValue>(func_outcome, &spell_id, "set_u32").map(drop)
@@ -81,7 +79,6 @@ impl Sorcerer {
             None,
             worker_id,
             self.spell_script_particle_ttl,
-            false,
         );
 
         Ok(process_func_outcome::<ScriptValue>(
@@ -141,7 +138,6 @@ impl Sorcerer {
             None,
             worker_id,
             self.spell_script_particle_ttl,
-            false,
         );
 
         process_func_outcome::<UnitValue>(func_outcome, &event.spell_id, "list_push_string")

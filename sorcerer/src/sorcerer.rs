@@ -100,7 +100,6 @@ impl Sorcerer {
                         None,
                         spell_owner,
                         self.spell_script_particle_ttl,
-                        false,
                     ),
                     spell_id,
                     "get_trigger_config",
