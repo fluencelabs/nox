@@ -2135,7 +2135,7 @@ dependencies = [
  "lazy_static",
  "libp2p-identity",
  "libsecp256k1",
- "multihash 0.18.0",
+ "multihash 0.18.1",
  "rand 0.8.5",
  "ring",
  "serde",
@@ -2157,7 +2157,7 @@ dependencies = [
  "libp2p",
  "libp2p-noise",
  "log",
- "multihash 0.17.0",
+ "multihash 0.18.1",
  "rand 0.8.5",
  "serde",
  "serde_json",
@@ -3031,10 +3031,10 @@ dependencies = [
  "libp2p-identity",
  "libp2p-metrics",
  "log",
- "multihash 0.17.0",
+ "multihash 0.18.1",
  "once_cell",
  "particle-protocol",
- "prometheus-client",
+ "prometheus-client 0.20.0",
  "prost",
  "serde_json",
  "server-config",
@@ -3100,9 +3100,9 @@ checksum = "348108ab3fba42ec82ff6e9564fc4ca0247bdccdc68dd8af9764bbc79c3c8ffb"
 
 [[package]]
 name = "libp2p"
-version = "0.51.2"
+version = "0.51.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ab78d6d2201578bb3a33dff33c540af6b8f0bdcd751b4028e798e868c2ca0722"
+checksum = "f210d259724eae82005b5c48078619b7745edb7b76de370b03f8ba59ea103097"
 dependencies = [
  "bytes",
  "futures",
@@ -3300,7 +3300,7 @@ dependencies = [
  "libp2p-kad",
  "libp2p-ping",
  "libp2p-swarm",
- "prometheus-client",
+ "prometheus-client 0.19.0",
 ]
 
 [[package]]
@@ -4097,6 +4097,19 @@ version = "0.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "835d6ff01d610179fbce3de1694d007e500bf33a7f29689838941d6bf783ae40"
 dependencies = [
+ "core2",
+ "digest 0.10.6",
+ "multihash-derive",
+ "sha2 0.10.6",
+ "unsigned-varint",
+]
+
+[[package]]
+name = "multihash"
+version = "0.18.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cfd8a792c1694c6da4f68db0a9d707c72bd260994da179e6030a5dcee00bb815"
+dependencies = [
  "blake2b_simd",
  "blake2s_simd",
  "blake3",
@@ -4105,23 +4118,6 @@ dependencies = [
  "multihash-derive",
  "serde",
  "serde-big-array",
- "sha2 0.10.6",
- "sha3",
- "unsigned-varint",
-]
-
-[[package]]
-name = "multihash"
-version = "0.18.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "15e5d911412e631e1de11eb313e4dd71f73fd964401102aab23d6c8327c431ba"
-dependencies = [
- "blake2b_simd",
- "blake2s_simd",
- "blake3",
- "core2",
- "digest 0.10.6",
- "multihash-derive",
  "sha2 0.10.6",
  "sha3",
  "unsigned-varint",
@@ -4467,7 +4463,7 @@ dependencies = [
  "key-manager",
  "libp2p",
  "log",
- "multihash 0.17.0",
+ "multihash 0.18.1",
  "now-millis",
  "parking_lot 0.12.1",
  "particle-args",
@@ -4567,13 +4563,13 @@ dependencies = [
  "log",
  "log-utils",
  "maplit",
- "multihash 0.17.0",
+ "multihash 0.18.1",
  "parking_lot 0.12.1",
  "particle-builtins",
  "particle-execution",
  "particle-protocol",
  "peer-metrics",
- "prometheus-client",
+ "prometheus-client 0.20.0",
  "rand 0.8.5",
  "script-storage",
  "serde",
@@ -4614,7 +4610,7 @@ dependencies = [
  "log",
  "log-utils",
  "maplit",
- "multihash 0.17.0",
+ "multihash 0.18.1",
  "now-millis",
  "parking_lot 0.12.1",
  "particle-args",
@@ -4732,7 +4728,7 @@ dependencies = [
  "futures",
  "log",
  "parking_lot 0.12.1",
- "prometheus-client",
+ "prometheus-client 0.20.0",
  "serde",
  "serde_json",
  "tokio",
@@ -4955,6 +4951,18 @@ name = "prometheus-client"
 version = "0.19.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5d6fa99d535dd930d1249e6c79cb3c2915f9172a540fe2b02a4c8f9ca954721e"
+dependencies = [
+ "dtoa",
+ "itoa",
+ "parking_lot 0.12.1",
+ "prometheus-client-derive-encode",
+]
+
+[[package]]
+name = "prometheus-client"
+version = "0.20.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e227aeb6c2cfec819e999c4773b35f8c7fa37298a203ff46420095458eee567e"
 dependencies = [
  "dtoa",
  "itoa",
