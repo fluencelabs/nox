@@ -47,7 +47,7 @@ impl SpellMetrics {
     }
 
     fn periods_buckets() -> std::vec::IntoIter<f64> {
-        // 0.0 sec, 1 sec, 30 sec, 1 min, 5 min, 10 min,  1 hour, 12 hours, 1 day, 1 week, 1 month
+        // 0.0 sec, 1 sec, 30 sec, 1 min, 5 min, 10 min, 1 hour, 12 hours, 1 day, 1 week, 1 month
         // 0 means that the spell is oneshot or reacts only on events
         vec![
             0.0,

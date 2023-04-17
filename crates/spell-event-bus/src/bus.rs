@@ -263,10 +263,8 @@ impl SpellEventBus {
                             if let Some(rescheduled) = Scheduled::at(scheduled_spell.data, Instant::now()) {
                                 log::trace!("Reschedule: {:?}", rescheduled);
                                 state.scheduled.push(rescheduled);
-                            } else {
-                                if let Some(m) = &self.spell_metrics {
+                            } else if let Some(m) = &self.spell_metrics {
                                     m.observe_finished_spell();
-                                }
                             }
                         }
                     },
