@@ -188,6 +188,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
         // Remove expired actors
         if let Some((vm_id, mut vm)) = self.vm_pool.get_vm() {
             let now = now_ms();
+
             self.actors.retain(|(particle_id, peer_id), actor| {
                 // if actor hasn't yet expired or is still executing, keep it
                 // TODO: if actor is expired, cancel execution and return VM back to pool
@@ -195,8 +196,8 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
                 if !actor.is_expired(now) || actor.is_executing() {
                     return true; // keep actor
                 }
-
                 log::debug!(
+                    target: "particle_reap",
                     "Reaping particle's actor particle_id={particle_id}, peer_id={peer_id})"
                 );
                 // cleanup files and dirs after particle processing (vault & prev_data)

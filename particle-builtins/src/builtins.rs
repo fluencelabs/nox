@@ -846,7 +846,7 @@ where
     }
 
     fn call_service(&self, function_args: Args, particle: ParticleParams) -> FunctionOutcome {
-        self.services.call_service(function_args, particle)
+        self.services.call_service(function_args, particle, true)
     }
 
     fn get_interface(&self, args: Args, params: ParticleParams) -> Result<JValue, JError> {
