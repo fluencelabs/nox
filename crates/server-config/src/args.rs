@@ -27,7 +27,7 @@ use std::path::PathBuf;
 pub struct RootKeyPairArgs {
     #[arg(
         short('k'),
-        long,
+        long("keypair-value"),
         id = "ROOT_KEY_PAIR_VALUE",
         help = "keypair in base64 (conflicts with --keypair-path)",
         value_name = "BYTES",
@@ -39,7 +39,7 @@ pub struct RootKeyPairArgs {
     value: Option<String>,
     #[arg(
         short('p'),
-        long,
+        long("keypair-path"),
         id = "ROOT_KEY_PAIR_PATH",
         help = "keypair path (conflicts with --keypair-value)",
         help_heading = "Node keypair",
@@ -50,7 +50,7 @@ pub struct RootKeyPairArgs {
     path: Option<PathBuf>,
     #[arg(
         short('f'),
-        long,
+        long("keypair-format"),
         value_parser(["ed25519", "secp256k1", "rsa"]),
         id = "ROOT_KEY_FORMAT",
         help_heading = "Node keypair",
@@ -59,13 +59,12 @@ pub struct RootKeyPairArgs {
     format: Option<String>,
 
     #[arg(
-    short('g'),
-    long,
-    value_parser = clap::value_parser!(bool),
-    id = "ROOT_KEY_PAIR_GENERATE",
-    help_heading = "Node keypair",
-    display_order = 13,
-    action =  clap::ArgAction::SetTrue
+        short('g'),
+        value_parser = clap::value_parser!(bool),
+        id = "ROOT_KEY_PAIR_GENERATE",
+        help_heading = "Node keypair",
+        display_order = 13,
+        action =  clap::ArgAction::SetTrue
     )]
     generate_on_absence: Option<bool>,
     #[arg(
@@ -138,7 +137,7 @@ pub(crate) struct DerivedArgs {
     metrics_port: Option<u16>,
     #[arg(
         short('x'),
-        long,
+        long("external-ip"),
         id = "EXTERNAL_ADDR",
         help = "node external IP address to advertise to other peers",
         value_name = "IP",
