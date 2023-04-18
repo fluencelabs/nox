@@ -60,6 +60,7 @@ pub struct RootKeyPairArgs {
 
     #[arg(
         short('g'),
+        long("gen-keypair"),
         value_parser = clap::value_parser!(bool),
         id = "ROOT_KEY_PAIR_GENERATE",
         help_heading = "Node keypair",
