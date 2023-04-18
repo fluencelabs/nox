@@ -37,5 +37,5 @@ thiserror = { workspace = true }
 humantime = "2.1.0"
 anyhow = "1.0.70"
 eyre = { workspace = true }
-bytesize = "1.1.0"
+bytesize = "1.2.0"
 async-trait = "0.1.68"

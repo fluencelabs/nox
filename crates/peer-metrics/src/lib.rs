@@ -13,6 +13,7 @@ pub use services_metrics::{
     ServiceCallStats, ServiceMemoryStat, ServiceType, ServicesMetrics, ServicesMetricsBackend,
     ServicesMetricsBuiltin, ServicesMetricsExternal,
 };
+pub use spell_metrics::SpellMetrics;
 pub use vm_pool::VmPoolMetrics;
 
 mod connection_pool;
@@ -22,6 +23,7 @@ mod info;
 mod network_protocol;
 mod particle_executor;
 mod services_metrics;
+mod spell_metrics;
 mod vm_pool;
 
 // TODO:

@@ -43,7 +43,7 @@ use particle_execution::ParticleFunctionStatic;
 use particle_protocol::Particle;
 use peer_metrics::{
     ConnectionPoolMetrics, ConnectivityMetrics, ParticleExecutorMetrics, ServicesMetrics,
-    ServicesMetricsBackend, VmPoolMetrics,
+    ServicesMetricsBackend, SpellMetrics, VmPoolMetrics,
 };
 use prometheus_client::registry::Registry;
 use script_storage::{ScriptStorageApi, ScriptStorageBackend, ScriptStorageConfig};
@@ -136,6 +136,7 @@ impl<RT: AquaRuntime> Node<RT> {
         let connection_pool_metrics = metrics_registry.as_mut().map(ConnectionPoolMetrics::new);
         let plumber_metrics = metrics_registry.as_mut().map(ParticleExecutorMetrics::new);
         let vm_pool_metrics = metrics_registry.as_mut().map(VmPoolMetrics::new);
+        let spell_metrics = metrics_registry.as_mut().map(SpellMetrics::new);
 
         #[allow(deprecated)]
         let connection_limits = ConnectionLimits::default()
@@ -251,7 +252,7 @@ impl<RT: AquaRuntime> Node<RT> {
         let sources = vec![recv_connection_pool_events.map(PeerEvent::from).boxed()];
 
         let (spell_event_bus, spell_event_bus_api, spell_events_receiver) =
-            SpellEventBus::new(sources);
+            SpellEventBus::new(spell_metrics.clone(), sources);
 
         let (sorcerer, mut custom_service_functions, spell_version) = Sorcerer::new(
             builtins.services.clone(),
@@ -260,6 +261,7 @@ impl<RT: AquaRuntime> Node<RT> {
             config.clone(),
             spell_event_bus_api,
             key_manager.clone(),
+            spell_metrics,
         );
 
         let node_info = NodeInfo {

@@ -154,6 +154,9 @@ impl Sorcerer {
             let particle = self.make_spell_particle(event.spell_id.clone(), worker_id)?;
 
             self.store_trigger(event.clone(), worker_id)?;
+            if let Some(m) = &self.spell_metrics {
+                m.observe_spell_cast();
+            }
             self.aquamarine.clone().execute(particle, None).await?;
         };
 
