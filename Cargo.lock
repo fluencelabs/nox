@@ -3625,8 +3625,9 @@ name = "log-utils"
 version = "0.1.0"
 dependencies = [
  "console-subscriber",
- "env_logger",
  "log",
+ "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]
