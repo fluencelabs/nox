@@ -14,7 +14,7 @@ pub fn log_layer<S>() -> impl Layer<S>
 where
     S: Subscriber + for<'span> LookupSpan<'span>,
 {
-    let log_layer = tracing_logfmt::layer().with_filter(
+    tracing_logfmt::layer().with_filter(
         tracing_subscriber::EnvFilter::builder()
             .with_default_directive(LevelFilter::INFO.into())
             .from_env_lossy()
@@ -32,8 +32,7 @@ where
             .add_directive("cranelift_codegen=error".parse().unwrap())
             .add_directive("tracing=error".parse().unwrap())
             .add_directive("avm_server::runner=error".parse().unwrap()),
-    );
-    log_layer
+    )
 }
 
 pub fn tokio_console_layer<S>() -> Option<impl Layer<S>>
