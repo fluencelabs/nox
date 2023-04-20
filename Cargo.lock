@@ -2135,7 +2135,7 @@ dependencies = [
  "lazy_static",
  "libp2p-identity",
  "libsecp256k1",
- "multihash 0.18.0",
+ "multihash 0.18.1",
  "rand 0.8.5",
  "ring",
  "serde",
@@ -4112,9 +4112,9 @@ dependencies = [
 
 [[package]]
 name = "multihash"
-version = "0.18.0"
+version = "0.18.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "15e5d911412e631e1de11eb313e4dd71f73fd964401102aab23d6c8327c431ba"
+checksum = "cfd8a792c1694c6da4f68db0a9d707c72bd260994da179e6030a5dcee00bb815"
 dependencies = [
  "blake2b_simd",
  "blake2s_simd",
