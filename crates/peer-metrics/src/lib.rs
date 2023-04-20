@@ -8,6 +8,7 @@ pub use connectivity::ConnectivityMetrics;
 pub use connectivity::Resolution;
 pub use dispatcher::DispatcherMetrics;
 pub use info::add_info_metrics;
+use particle_execution::ParticleParams;
 pub use particle_executor::{FunctionKind, ParticleExecutorMetrics};
 pub use services_metrics::{
     ServiceCallStats, ServiceMemoryStat, ServiceType, ServicesMetrics, ServicesMetricsBackend,
@@ -41,7 +42,7 @@ pub enum ParticleType {
 
 impl ParticleType {
     fn from_particle(particle_id: &str) -> Self {
-        if particle_id.starts_with("spell_") {
+        if ParticleParams::is_spell_particle(particle_id) {
             ParticleType::Spell
         } else {
             ParticleType::Common

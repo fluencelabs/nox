@@ -9,6 +9,7 @@ log = { workspace = true }
 bytesize = "1.2.0"
 fluence-app-service = { workspace = true }
 fluence-libp2p = { workspace = true }
+particle-execution = { workspace = true }
 
 tokio = { workspace = true }
 tokio-stream = { workspace = true }

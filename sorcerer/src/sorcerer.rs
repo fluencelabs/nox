@@ -92,9 +92,11 @@ impl Sorcerer {
         {
             log::info!("Rescheduling spell {}", spell_id);
             let result: Result<(), JError> = try {
-                let spell_owner = self
-                    .services
-                    .get_service_owner(spell_id.clone(), self.key_manager.get_host_peer_id())?;
+                let spell_owner = self.services.get_service_owner(
+                    "",
+                    spell_id.clone(),
+                    self.key_manager.get_host_peer_id(),
+                )?;
                 let result = process_func_outcome::<TriggerConfigValue>(
                     self.services.call_function(
                         spell_owner,

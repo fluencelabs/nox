@@ -52,6 +52,8 @@ pub enum ServiceError {
     ForbiddenAliasWorker(PeerId),
     #[error("Cannot add alias '{0}' because there is a service with that id")]
     AliasAsServiceId(String),
+    #[error("Cannot add alias '{0}' because it is reserved")]
+    ForbiddenAlias(String),
     #[error(
         "Alias cannot be added for service {service_id} deployed on another worker {worker_id}"
     )]

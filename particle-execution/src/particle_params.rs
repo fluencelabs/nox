@@ -54,4 +54,16 @@ impl ParticleParams {
             signature: signature.clone(),
         }
     }
+
+    pub fn is_spell_particle(particle_id: &str) -> bool {
+        particle_id.starts_with("spell")
+    }
+
+    pub fn get_spell_id(particle_id: &str) -> Option<String> {
+        if ParticleParams::is_spell_particle(particle_id) {
+            particle_id.split('_').nth(1).map(|s| s.to_string())
+        } else {
+            None
+        }
+    }
 }

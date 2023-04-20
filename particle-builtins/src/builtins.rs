@@ -833,6 +833,7 @@ where
         let mut args = args.function_args.into_iter();
         let service_id_or_alias: String = Args::next("service_id_or_alias", &mut args)?;
         self.services.remove_service(
+            &params.id,
             params.host_id,
             service_id_or_alias,
             params.init_peer_id,
@@ -852,7 +853,9 @@ where
     fn get_interface(&self, args: Args, params: ParticleParams) -> Result<JValue, JError> {
         let mut args = args.function_args.into_iter();
         let service_id: String = Args::next("service_id", &mut args)?;
-        Ok(self.services.get_interface(service_id, params.host_id)?)
+        Ok(self
+            .services
+            .get_interface(&params.id, service_id, params.host_id)?)
     }
 
     fn add_alias(&self, args: Args, params: ParticleParams) -> Result<(), JError> {
@@ -868,7 +871,9 @@ where
     fn resolve_alias(&self, args: Args, params: ParticleParams) -> Result<JValue, JError> {
         let mut args = args.function_args.into_iter();
         let alias: String = Args::next("alias", &mut args)?;
-        let service_id = self.services.resolve_alias(params.host_id, alias)?;
+        let service_id = self
+            .services
+            .resolve_alias(&params.id, params.host_id, alias)?;
 
         Ok(JValue::String(service_id))
     }
@@ -876,9 +881,9 @@ where
     fn get_service_info(&self, args: Args, params: ParticleParams) -> Result<JValue, JError> {
         let mut args = args.function_args.into_iter();
         let service_id_or_alias: String = Args::next("service_id_or_alias", &mut args)?;
-        let info = self
-            .services
-            .get_service_info(params.host_id, service_id_or_alias)?;
+        let info =
+            self.services
+                .get_service_info(&params.id, params.host_id, service_id_or_alias)?;
 
         Ok(info)
     }
@@ -896,7 +901,7 @@ where
         let service_id_or_alias: String = Args::next("service_id", &mut args)?;
 
         self.services
-            .get_service_mem_stats(params.host_id, service_id_or_alias)
+            .get_service_mem_stats(&params.id, params.host_id, service_id_or_alias)
             .map(Array)
     }
 
@@ -904,9 +909,9 @@ where
         let mut args = args.function_args.into_iter();
         let service_id_or_alias: String = Args::next("service_id", &mut args)?;
         // Resolve aliases; also checks that the requested service exists.
-        let service_id = self
-            .services
-            .to_service_id(params.host_id, service_id_or_alias)?;
+        let service_id =
+            self.services
+                .to_service_id(&params.id, params.host_id, service_id_or_alias)?;
         let metrics = self
             .services
             .metrics
