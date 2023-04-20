@@ -46,7 +46,7 @@ use crate::persistence::{
     load_persisted_services, persist_service, remove_persisted_service, PersistedService,
 };
 use crate::ServiceError::{
-    ForbiddenAliasRoot, ForbiddenAliasSpell, ForbiddenAliasWorker, NoSuchService,
+    ForbiddenAlias, ForbiddenAliasRoot, ForbiddenAliasWorker, NoSuchService,
 };
 
 type ServiceId = String;
@@ -184,7 +184,7 @@ pub fn resolve_alias(
     worker_id: PeerId,
     local_peer_id: PeerId,
 ) -> Option<String> {
-    if alias == "spell" {
+    if alias == "spell" || alias == "self" {
         if let Some(spell_id) = ParticleParams::get_spell_id(particle_id) {
             return Some(spell_id);
         }
@@ -639,8 +639,8 @@ impl ParticleAppServices {
             return Err(AliasAsServiceId(alias));
         }
 
-        if alias == "spell" {
-            return Err(ForbiddenAliasSpell);
+        if alias == "spell" || alias == "self" {
+            return Err(ForbiddenAlias(alias));
         }
 
         if !self.service_exists(&service_id) {

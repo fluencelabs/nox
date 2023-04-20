@@ -1855,16 +1855,28 @@ async fn spell_call_by_default_alias() {
         r#"
         (seq
             (seq
-                (call %init_peer_id% ("spell" "get_u32") ["counter"] counter)
                 (seq
-                    (call %init_peer_id% ("srv" "resolve_alias") ["spell"] spell_id)
-                    (xor
-                        (call %init_peer_id% ("srv" "add_alias") ["spell" spell_id])
-                        (call %init_peer_id% ("op" "noop") [])
+                    (call %init_peer_id% ("spell" "get_u32") ["counter"] counter1)
+                    (seq
+                        (call %init_peer_id% ("srv" "resolve_alias") ["spell"] spell_id1)
+                        (xor
+                            (call %init_peer_id% ("srv" "add_alias") ["spell" spell_id1])
+                            (call %init_peer_id% ("op" "identity") [%last_error%.$.message] error1)
+                        )
+                    )
+                )
+                (seq
+                    (call %init_peer_id% ("self" "get_u32") ["counter"] counter2)
+                    (seq
+                        (call %init_peer_id% ("srv" "resolve_alias") ["self"] spell_id2)
+                        (xor
+                            (call %init_peer_id% ("srv" "add_alias") ["self" spell_id2])
+                            (call %init_peer_id% ("op" "identity") [%last_error%.$.message] error2)
+                        )
                     )
                 )
             )
-            (call "{}" ("return" "") [counter.$.num spell_id %last_error%.$.message])
+            (call "{}" ("return" "") [counter1.$.num spell_id1 counter2.$.num spell_id2 error1 error2])
         )"#,
         client.peer_id
     );
@@ -1872,17 +1884,22 @@ async fn spell_call_by_default_alias() {
     let config = make_clock_config(2, 1, 0);
     let (expected_spell_id, _) = create_spell(&mut client, &script, config, json!({}), None).await;
 
-    if let [JValue::Number(counter), JValue::String(spell_id), JValue::String(error)] = client
-        .receive_args()
-        .await
-        .wrap_err("receive")
-        .unwrap()
-        .as_slice()
+    if let [JValue::Number(counter1), JValue::String(spell_id1), JValue::String(error1), JValue::Number(counter2), JValue::String(spell_id2), JValue::String(error2)] =
+        client
+            .receive_args()
+            .await
+            .wrap_err("receive")
+            .unwrap()
+            .as_slice()
     {
-        assert_ne!(counter.as_i64().unwrap(), 0);
-        assert_eq!(spell_id, &expected_spell_id);
-        assert!(error.contains("Cannot add alias 'spell' because it is reserved"));
+        assert_ne!(counter1.as_i64().unwrap(), 0);
+        assert_eq!(spell_id1, &expected_spell_id);
+        assert!(error1.contains("Cannot add alias 'spell' because it is reserved"));
+
+        assert_ne!(counter2.as_i64().unwrap(), 0);
+        assert_eq!(spell_id2, &expected_spell_id);
+        assert!(error2.contains("Cannot add alias 'self' because it is reserved"));
     } else {
-        panic!("expected one integer and two strings")
+        panic!("expected (int, str, str, int, str, str) result");
     }
 }
