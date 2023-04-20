@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.11.1](https://github.com/fluencelabs/rust-peer/compare/rust-peer-v0.11.0...rust-peer-v0.11.1) (2023-04-20)
+
+
+### Features
+
+* add service type to distinguish services and spells ([#1567](https://github.com/fluencelabs/rust-peer/issues/1567)) ([d80f89b](https://github.com/fluencelabs/rust-peer/commit/d80f89bc8617a07b7cb3bb4103f1a015b924946e))
+* **metrics:** add additional spell metrics [fixes NET-437] ([#1569](https://github.com/fluencelabs/rust-peer/issues/1569)) ([ab851ac](https://github.com/fluencelabs/rust-peer/commit/ab851accde1dfaca92b4011add1774caaa2bf9ea))
+* **spells:** resolve spell_id by 'spell' and 'self' [NET-419] ([#1578](https://github.com/fluencelabs/rust-peer/issues/1578)) ([65b2b26](https://github.com/fluencelabs/rust-peer/commit/65b2b269c1355463c612d37f260d81c4422a793e))
+
+
+### Bug Fixes
+
+* long arguments [fixes NET-442] ([#1579](https://github.com/fluencelabs/rust-peer/issues/1579)) ([e4fd400](https://github.com/fluencelabs/rust-peer/commit/e4fd400cede9fb2d5c8df14324588a55520d4195))
+* unnecessary vault creation ([#1566](https://github.com/fluencelabs/rust-peer/issues/1566)) ([a9be656](https://github.com/fluencelabs/rust-peer/commit/a9be6562a37ac40c5150dafd3b219a72486ef631))
+
 ## [0.11.0](https://github.com/fluencelabs/rust-peer/compare/rust-peer-v0.10.0...rust-peer-v0.11.0) (2023-04-12)
 
 
