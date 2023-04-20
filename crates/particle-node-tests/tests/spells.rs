@@ -1876,7 +1876,7 @@ async fn spell_call_by_default_alias() {
                     )
                 )
             )
-            (call "{}" ("return" "") [counter1.$.num spell_id1 counter2.$.num spell_id2 error1 error2])
+            (call "{}" ("return" "") [counter1.$.num spell_id1 error1 counter2.$.num spell_id2 error2])
         )"#,
         client.peer_id
     );
