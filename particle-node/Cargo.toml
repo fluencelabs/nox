@@ -60,7 +60,7 @@ tracing = { workspace = true, features = ["async-await", "log"] }
 tracing-subscriber.workspace = true
 tracing-logfmt = "0.3.1"
 tracing-opentelemetry = "0.18.0"
-opentelemetry = { version = "0.18.0", features = ["rt-tokio"] }
+opentelemetry = { version = "0.18.0", features = ["rt-tokio-current-thread"] }
 opentelemetry-otlp = "0.11.0"
 
 [dev-dependencies]

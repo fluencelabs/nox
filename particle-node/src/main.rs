@@ -54,7 +54,7 @@ trait Stoppable {
 #[global_allocator]
 static ALLOC: dhat::Alloc = dhat::Alloc;
 
-#[tokio::main]
+#[tokio::main(flavor = "current_thread")]
 async fn main() -> eyre::Result<()> {
     #[cfg(feature = "dhat-heap")]
     let _profiler = dhat::Profiler::new_heap();
@@ -92,15 +92,27 @@ async fn main() -> eyre::Result<()> {
     write_default_air_interpreter(&interpreter_path)?;
     log::info!("AIR interpreter: {:?}", interpreter_path);
 
-    let fluence = start_fluence(config).await?;
-    log::info!("Fluence has been successfully started.");
+    //TODO: add thread count configuration based on config
+    tokio::task::spawn_blocking(|| {
+        let result: eyre::Result<()> = tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .expect("Could not make tokio runtime")
+            .block_on(async {
+                let fluence = start_fluence(config).await?;
+                log::info!("Fluence has been successfully started.");
+                log::info!("Waiting for Ctrl-C to exit...");
 
-    log::info!("Waiting for Ctrl-C to exit...");
+                signal::ctrl_c().await.expect("Failed to listen for event");
+                log::info!("Shutting down...");
 
-    signal::ctrl_c().await.expect("Failed to listen for event");
+                fluence.stop();
+                Ok(())
+            });
+        result
+    })
+    .await??;
 
-    log::info!("Shutting down...");
-    fluence.stop();
     Ok(())
 }
 
