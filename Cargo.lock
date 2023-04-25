@@ -2171,9 +2171,9 @@ dependencies = [
 
 [[package]]
 name = "fluence-spell-dtos"
-version = "0.5.9"
+version = "0.5.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5c010198d67695880fb990150af9736baed29d9e3fcdbd13a1ede0017c300dd0"
+checksum = "69b0bfe10a567d7ff7dc053682c5b1637b3cf80489f8d3b0c8468301b0cc8480"
 dependencies = [
  "eyre",
  "marine-rs-sdk",
@@ -3858,10 +3858,11 @@ dependencies = [
 
 [[package]]
 name = "marine-sqlite-connector"
-version = "0.6.0"
+version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "446079866e6acd00fd5fbaab2edb62ee518144b071ea0a3eaf735c8c225021fc"
+checksum = "86eaa30516099f17935d484d6c632a69d8922f5d64606ba21563959ad93c4507"
 dependencies = [
+ "bytesize",
  "marine-rs-sdk",
 ]
 
@@ -6704,9 +6705,9 @@ dependencies = [
 
 [[package]]
 name = "tracing-subscriber"
-version = "0.3.16"
+version = "0.3.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a6176eae26dd70d0c919749377897b54a9276bd7061339665dd68777926b5a70"
+checksum = "30a651bc37f915e81f087d86e62a18eec5f79550c7faff886f7090b4ea757c77"
 dependencies = [
  "matchers",
  "nu-ansi-term",
