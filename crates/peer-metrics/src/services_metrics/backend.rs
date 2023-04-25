@@ -158,7 +158,7 @@ impl ServicesMetricsBackend {
                     .observe(*stat.1 as f64)
             }
             match service_type {
-                ServiceType::Service(Some(x)) | ServiceType::Spell(Some(x)) => {
+                ServiceType::Service(Some(_)) | ServiceType::Spell(Some(_)) => {
                     let used_mem = i64::try_from(service_stat.used_mem);
                     match used_mem {
                         Ok(used_mem) => {
