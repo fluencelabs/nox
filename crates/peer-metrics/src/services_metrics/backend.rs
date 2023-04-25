@@ -137,8 +137,6 @@ impl ServicesMetricsBackend {
     }
 
     /// Actually send all collected memory memory_metrics to Prometheus.
-    ///
-    /// TODO: this all system looks overcomplicated, need to look into ways to simplify it.
     fn store_service_mem(
         memory_metrics: &ServicesMemoryMetrics,
         all_stats: &HashMap<ServiceId, (ServiceType, ServiceMemoryStat)>,
@@ -173,7 +171,7 @@ impl ServicesMetricsBackend {
                     }
                 }
                 ServiceType::Spell(_) => {
-                    unaliased_spell_total_memory += service_stat.used_mem;
+                    unaliased_spells_total_memory += service_stat.used_mem;
                 }
                 _ => {
                     unaliased_service_total_memory += service_stat.used_mem;
@@ -193,14 +191,14 @@ impl ServicesMetricsBackend {
             _ => log::warn!("Could not convert metric unaliased_service_total_memory"),
         }
 
-        match i64::try_from(unaliased_spell_total_memory) {
-            Ok(unaliased_spell_total_memory) => {
+        match i64::try_from(unaliased_spells_total_memory) {
+            Ok(unaliased_spells_total_memory) => {
                 memory_metrics
                     .mem_used_total_bytes
                     .get_or_create(&ServiceTypeLabel {
                         service_type: ServiceType::Spell(None),
                     })
-                    .set(unaliased_spell_total_memory);
+                    .set(unaliased_spells_total_memory);
             }
             _ => log::warn!("Could not convert metric unaliased_service_total_memory"),
         }
