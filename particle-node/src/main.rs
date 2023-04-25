@@ -27,17 +27,18 @@
 )]
 
 use base64::{engine::general_purpose::STANDARD as base64, Engine};
-use env_logger::Env;
+
 use eyre::WrapErr;
-use log::LevelFilter;
 use tokio::signal;
 use tokio::sync::oneshot;
+use tracing_subscriber::layer::SubscriberExt;
+use tracing_subscriber::util::SubscriberInitExt;
 
 use air_interpreter_fs::write_default_air_interpreter;
 use aquamarine::{VmConfig, AVM};
 use config_utils::to_peer_id;
 use fs_utils::to_abs_path;
-use particle_node::Node;
+use particle_node::{log_layer, tokio_console_layer, tracing_layer, Node};
 use server_config::{load_config, ConfigData, ResolvedConfig};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -53,34 +54,15 @@ trait Stoppable {
 #[global_allocator]
 static ALLOC: dhat::Alloc = dhat::Alloc;
 
-#[tokio::main]
+#[tokio::main(flavor = "current_thread")]
 async fn main() -> eyre::Result<()> {
     #[cfg(feature = "dhat-heap")]
     let _profiler = dhat::Profiler::new_heap();
 
-    if std::env::var("TOKIO_CONSOLE_ENABLED").is_ok() {
-        console_subscriber::init();
-    }
-
-    env_logger::Builder::from_env(Env::default().default_filter_or("INFO"))
-        .format_timestamp_micros()
-        // Disable most spamming modules
-        .filter_module("cranelift_codegen", LevelFilter::Off)
-        .filter_module("walrus", LevelFilter::Off)
-        .filter_module("polling", LevelFilter::Off)
-        .filter_module("wasmer_wasi_fl", LevelFilter::Error)
-        .filter_module("wasmer_interface_types_fl", LevelFilter::Error)
-        .filter_module("wasmer_wasi", LevelFilter::Error)
-        .filter_module("tide", LevelFilter::Error)
-        .filter_module("tokio_threadpool", LevelFilter::Error)
-        .filter_module("tokio_reactor", LevelFilter::Error)
-        .filter_module("mio", LevelFilter::Error)
-        .filter_module("tokio_io", LevelFilter::Error)
-        .filter_module("soketto", LevelFilter::Error)
-        .filter_module("cranelift_codegen", LevelFilter::Error)
-        .filter_module("async_io", LevelFilter::Error)
-        .filter_module("tracing", LevelFilter::Error)
-        .filter_module("avm_server::runner", LevelFilter::Error)
+    tracing_subscriber::registry()
+        .with(log_layer())
+        .with(tokio_console_layer())
+        .with(tracing_layer()?)
         .init();
 
     log::info!(
@@ -110,15 +92,26 @@ async fn main() -> eyre::Result<()> {
     write_default_air_interpreter(&interpreter_path)?;
     log::info!("AIR interpreter: {:?}", interpreter_path);
 
-    let fluence = start_fluence(config).await?;
-    log::info!("Fluence has been successfully started.");
+    //TODO: add thread count configuration based on config
+    tokio::task::spawn_blocking(|| {
+        let result: eyre::Result<()> = tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .expect("Could not make tokio runtime")
+            .block_on(async {
+                let fluence = start_fluence(config).await?;
+                log::info!("Fluence has been successfully started.");
+                log::info!("Waiting for Ctrl-C to exit...");
 
-    log::info!("Waiting for Ctrl-C to exit...");
+                signal::ctrl_c().await.expect("Failed to listen for event");
+                log::info!("Shutting down...");
 
-    signal::ctrl_c().await.expect("Failed to listen for event");
-
-    log::info!("Shutting down...");
-    fluence.stop();
+                fluence.stop();
+                Ok(())
+            });
+        result
+    })
+    .await??;
 
     Ok(())
 }
