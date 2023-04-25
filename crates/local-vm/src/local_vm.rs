@@ -284,7 +284,7 @@ pub fn make_particle(
         }
     }
 
-    log::info!("Made a particle {}", id);
+    tracing::info!(particle_id = id, "Made a particle");
 
     Particle {
         id,

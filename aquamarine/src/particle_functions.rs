@@ -198,7 +198,8 @@ impl<F: ParticleFunctionStatic> Functions<F> {
             };
 
             if let Err(err) = &result {
-                log::warn!(
+                tracing::warn!(
+                    particle_id = particle_id,
                     "Failed host call {} ({}) [{}]: {}",
                     log_args,
                     pretty(elapsed),

@@ -59,14 +59,19 @@ async fn main() -> eyre::Result<()> {
     #[cfg(feature = "dhat-heap")]
     let _profiler = dhat::Profiler::new_heap();
 
-    tracing_subscriber::registry()
-        .with(log_layer())
-        .with(tokio_console_layer())
-        .with(tracing_layer()?)
-        .init();
+    let version = format!("{}; AIR version {}", VERSION, air_interpreter_wasm::VERSION);
+    let authors = format!("by {AUTHORS}");
+    let config_data = ConfigData {
+        binary_name: PKG_NAME.to_string(),
+        version,
+        authors,
+        description: DESCRIPTION.to_string(),
+    };
+    let config = load_config(Some(config_data))?;
 
-    log::info!(
-        r#"
+    if !config.no_banner {
+        println!(
+            r#"
 +-------------------------------------------------+
 | Hello from the Fluence Team. If you encounter   |
 | any troubles with node operation, please update |
@@ -77,16 +82,18 @@ async fn main() -> eyre::Result<()> {
 | github.com/fluencelabs/fluence/discussions      |
 +-------------------------------------------------+
     "#
-    );
-    let version = format!("{}; AIR version {}", VERSION, air_interpreter_wasm::VERSION);
-    let authors = format!("by {AUTHORS}");
-    let config_data = ConfigData {
-        binary_name: PKG_NAME.to_string(),
-        version,
-        authors,
-        description: DESCRIPTION.to_string(),
-    };
-    let config = load_config(Some(config_data))?;
+        );
+    }
+
+    tracing_subscriber::registry()
+        .with(log_layer(config.log.clone()))
+        .with(tokio_console_layer())
+        .with(tracing_layer()?)
+        .init();
+
+    if config.print_config {
+        log::info!("Loaded config: {:#?}", config);
+    }
 
     let interpreter_path = to_abs_path(config.dir_config.air_interpreter_path.clone());
     write_default_air_interpreter(&interpreter_path)?;

@@ -97,7 +97,7 @@ impl Dispatcher {
                     if let Some(m) = metrics {
                         m.particle_expired(&particle.id);
                     }
-                    log::info!("Particle {} expired", particle.id);
+                    tracing::info!(particle_id = particle.id, "Particle expired");
                     return async {}.boxed();
                 }
 
