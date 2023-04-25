@@ -2152,7 +2152,7 @@ dependencies = [
  "libp2p",
  "libp2p-noise",
  "log",
- "multihash 0.17.0",
+ "multihash 0.18.1",
  "rand 0.8.5",
  "serde",
  "serde_json",
@@ -3008,10 +3008,10 @@ dependencies = [
  "libp2p-identity",
  "libp2p-metrics",
  "log",
- "multihash 0.17.0",
+ "multihash 0.18.1",
  "once_cell",
  "particle-protocol",
- "prometheus-client",
+ "prometheus-client 0.20.0",
  "prost",
  "serde_json",
  "server-config",
@@ -3277,7 +3277,7 @@ dependencies = [
  "libp2p-kad",
  "libp2p-ping",
  "libp2p-swarm",
- "prometheus-client",
+ "prometheus-client 0.19.0",
 ]
 
 [[package]]
@@ -4075,16 +4075,10 @@ version = "0.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "835d6ff01d610179fbce3de1694d007e500bf33a7f29689838941d6bf783ae40"
 dependencies = [
- "blake2b_simd",
- "blake2s_simd",
- "blake3",
  "core2",
  "digest 0.10.6",
  "multihash-derive",
- "serde",
- "serde-big-array",
  "sha2 0.10.6",
- "sha3",
  "unsigned-varint",
 ]
 
@@ -4100,6 +4094,8 @@ dependencies = [
  "core2",
  "digest 0.10.6",
  "multihash-derive",
+ "serde",
+ "serde-big-array",
  "sha2 0.10.6",
  "sha3",
  "unsigned-varint",
@@ -4541,7 +4537,7 @@ dependencies = [
  "key-manager",
  "libp2p",
  "log",
- "multihash 0.17.0",
+ "multihash 0.18.1",
  "now-millis",
  "parking_lot 0.12.1",
  "particle-args",
@@ -4640,7 +4636,7 @@ dependencies = [
  "log",
  "log-utils",
  "maplit",
- "multihash 0.17.0",
+ "multihash 0.18.1",
  "opentelemetry",
  "opentelemetry-otlp",
  "parking_lot 0.12.1",
@@ -4648,7 +4644,7 @@ dependencies = [
  "particle-execution",
  "particle-protocol",
  "peer-metrics",
- "prometheus-client",
+ "prometheus-client 0.20.0",
  "rand 0.8.5",
  "script-storage",
  "serde",
@@ -4693,7 +4689,7 @@ dependencies = [
  "log",
  "log-utils",
  "maplit",
- "multihash 0.17.0",
+ "multihash 0.18.1",
  "now-millis",
  "parking_lot 0.12.1",
  "particle-args",
@@ -4812,7 +4808,7 @@ dependencies = [
  "log",
  "parking_lot 0.12.1",
  "particle-execution",
- "prometheus-client",
+ "prometheus-client 0.20.0",
  "serde",
  "serde_json",
  "tokio",
@@ -5055,6 +5051,18 @@ name = "prometheus-client"
 version = "0.19.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5d6fa99d535dd930d1249e6c79cb3c2915f9172a540fe2b02a4c8f9ca954721e"
+dependencies = [
+ "dtoa",
+ "itoa",
+ "parking_lot 0.12.1",
+ "prometheus-client-derive-encode",
+]
+
+[[package]]
+name = "prometheus-client"
+version = "0.20.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e227aeb6c2cfec819e999c4773b35f8c7fa37298a203ff46420095458eee567e"
 dependencies = [
  "dtoa",
  "itoa",
@@ -6704,9 +6712,9 @@ dependencies = [
 
 [[package]]
 name = "tracing-subscriber"
-version = "0.3.16"
+version = "0.3.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a6176eae26dd70d0c919749377897b54a9276bd7061339665dd68777926b5a70"
+checksum = "30a651bc37f915e81f087d86e62a18eec5f79550c7faff886f7090b4ea757c77"
 dependencies = [
  "matchers",
  "nu-ansi-term",
