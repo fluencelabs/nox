@@ -200,10 +200,9 @@ impl<F: ParticleFunctionStatic> Functions<F> {
             if let Err(err) = &result {
                 tracing::warn!(
                     particle_id = particle_id,
-                    "Failed host call {} ({}) [{}]: {}",
+                    "Failed host call {} ({}): {}",
                     log_args,
                     pretty(elapsed),
-                    particle_id,
                     err
                 )
             } else {

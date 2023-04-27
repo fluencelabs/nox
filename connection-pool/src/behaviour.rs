@@ -214,7 +214,7 @@ impl ConnectionPoolBehaviour {
             outlet.send(SendStatus::Ok).ok();
             self.wake();
         } else if self.contacts.contains_key(&to.peer_id) {
-            tracing::debug!(target: "network",particle_id = particle.id , "{}: Sending particle {} to {}", self.peer_id, particle.id, to.peer_id);
+            tracing::debug!(target: "network",particle_id = particle.id , "{}: Sending particle to {}", self.peer_id, to.peer_id);
             // Send particle to remote peer
             self.push_event(ToSwarm::NotifyHandler {
                 peer_id: to.peer_id,
