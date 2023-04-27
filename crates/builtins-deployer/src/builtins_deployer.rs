@@ -140,7 +140,7 @@ impl BuiltinsDeployer {
         };
 
         let finished = sent.elapsed();
-        log::debug!(target: "execution", "sending particle took {}", pretty(finished));
+        tracing::debug!(target: "execution", particle_id = particle.id, "sending particle took {}", pretty(finished));
         result
     }
 

@@ -38,7 +38,7 @@ impl Effectors {
         particle_failures: mpsc::UnboundedSender<String>,
     ) {
         if effects.particle.is_expired() {
-            log::info!("Particle {} is expired", effects.particle.id);
+            tracing::info!(particle_id = effects.particle.id, "Particle is expired");
             return;
         }
 

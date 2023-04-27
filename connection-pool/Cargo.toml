@@ -13,6 +13,7 @@ libp2p = { workspace = true }
 
 futures = { workspace = true }
 log = { workspace = true }
+tracing = { workspace = true }
 serde = { workspace = true }
 tokio = { workspace = true }
 tokio-stream = { workspace = true }

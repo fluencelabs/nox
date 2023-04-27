@@ -155,10 +155,10 @@ pub(crate) async fn spell_install(
             )));
         }
     } else {
-        log::trace!(
-            "empty config given for spell {}, particle id {}",
-            spell_id,
-            params.id
+        tracing::trace!(
+            particle_id = params.id,
+            "empty config given for spell {}",
+            spell_id
         );
     }
 

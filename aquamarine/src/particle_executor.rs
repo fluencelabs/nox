@@ -55,7 +55,7 @@ impl<RT: AquaRuntime> ParticleExecutor for RT {
         let cloned_particle = particle.clone();
         let task = tokio::task::Builder::new().name(&format!("Particle {}", particle.id)).spawn_blocking(move || {
             let now = Instant::now();
-            log::info!("Executing particle {}", particle.id);
+            tracing::info!(particle_id = particle.id, "Executing particle");
 
             let particle_params = ParticleParameters {
                 current_peer_id: Cow::Owned(current_peer_id.to_string()),
@@ -71,10 +71,10 @@ impl<RT: AquaRuntime> ParticleExecutor for RT {
             let stats = InterpretationStats { interpretation_time, new_data_len, success: result.is_ok() };
 
             if let Err(err) = &result {
-                log::warn!("Error executing particle {:#?}: {}", particle, err)
+                tracing::warn!(particle_id = particle.id, "Error executing particle {:#?}: {}", particle, err)
             } else {
                 let len = new_data_len.map(|l| l as i32).unwrap_or(-1);
-                log::trace!(target: "execution", "Particle {} interpreted in {} [{} bytes => {} bytes]", particle.id, pretty(interpretation_time), particle.data.len(), len);
+                tracing::trace!(target: "execution", particle_id = particle.id, "Particle interpreted in {} [{} bytes => {} bytes]", pretty(interpretation_time), particle.data.len(), len);
             }
             let effects = Self::into_effects(result, particle);
 
@@ -93,9 +93,12 @@ impl<RT: AquaRuntime> ParticleExecutor for RT {
                 Ok(res) => res,
                 Err(err) => {
                     if err.is_cancelled() {
-                        log::warn!("Particle task {} was cancelled", cloned_particle.id);
+                        tracing::warn!(
+                            particle_id = cloned_particle.id,
+                            "Particle task was cancelled"
+                        );
                     } else {
-                        log::error!("Particle task {} panic", cloned_particle.id);
+                        tracing::error!(particle_id = cloned_particle.id, "Particle task panic");
                     }
                     let stats = InterpretationStats {
                         interpretation_time: Duration::ZERO,

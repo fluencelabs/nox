@@ -313,9 +313,9 @@ async fn remove_failed_scripts(
         })
         .await;
     } else if particle_id.starts_with("auto") {
-        log::warn!(
-            "Reported auto particle {} as failed, but no scheduled script found",
-            particle_id
+        tracing::warn!(
+            particle_id = particle_id,
+            "Reported auto particle as failed, but no scheduled script found"
         );
     }
 }

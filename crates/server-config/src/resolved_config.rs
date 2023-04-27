@@ -18,6 +18,7 @@ use clap::{Args, Command, FromArgMatches};
 use std::ffi::OsString;
 use std::net::SocketAddr;
 use std::ops::{Deref, DerefMut};
+use std::str::FromStr;
 
 use crate::args;
 use figment::{
@@ -36,6 +37,12 @@ pub struct UnresolvedConfig {
     dir_config: UnresolvedDirConfig,
     #[serde(flatten)]
     node_config: UnresolvedNodeConfig,
+    #[serde(default)]
+    pub log: Option<LogConfig>,
+
+    pub no_banner: Option<bool>,
+
+    pub print_config: Option<bool>,
 }
 
 impl UnresolvedConfig {
@@ -43,7 +50,35 @@ impl UnresolvedConfig {
         Ok(ResolvedConfig {
             dir_config: self.dir_config.resolve()?,
             node_config: self.node_config.resolve()?,
+            log: self.log,
+            no_banner: self.no_banner.unwrap_or(false),
+            print_config: self.print_config.unwrap_or(false),
         })
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct LogConfig {
+    pub format: LogFormat,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum LogFormat {
+    #[serde(rename = "logfmt")]
+    Logfmt,
+    #[serde(rename = "default")]
+    Default,
+}
+
+impl FromStr for LogFormat {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.trim().to_ascii_lowercase().as_str() {
+            "logfmt" => Ok(LogFormat::Logfmt),
+            "default" => Ok(LogFormat::Default),
+            _ => Err("Unsupported log format".to_string()),
+        }
     }
 }
 
@@ -51,6 +86,9 @@ impl UnresolvedConfig {
 pub struct ResolvedConfig {
     pub dir_config: ResolvedDirConfig,
     pub node_config: NodeConfig,
+    pub log: Option<LogConfig>,
+    pub no_banner: bool,
+    pub print_config: bool,
 }
 
 impl Deref for ResolvedConfig {
@@ -161,15 +199,12 @@ pub fn resolve_config(
     };
 
     let config_builder = config_builder
-        .merge(Env::prefixed("FLUENCE_"))
-        .merge(cli_config.clone());
+        .merge(Env::prefixed("FLUENCE_").split("_"))
+        .merge(cli_config);
 
-    let config: UnresolvedConfig = config_builder.extract()?;
-    let config = config.resolve()?;
+    let unresolved_config: UnresolvedConfig = config_builder.extract()?;
 
-    if let Some(true) = cli_config.print_config {
-        log::info!("Loaded config: {:#?}", config);
-    }
+    let config = unresolved_config.resolve()?;
 
     Ok(config)
 }
