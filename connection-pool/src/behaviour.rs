@@ -214,7 +214,7 @@ impl ConnectionPoolBehaviour {
             outlet.send(SendStatus::Ok).ok();
             self.wake();
         } else if self.contacts.contains_key(&to.peer_id) {
-            log::debug!(target: "network", "{}: Sending particle {} to {}", self.peer_id, particle.id, to.peer_id);
+            tracing::debug!(target: "network",particle_id = particle.id , "{}: Sending particle to {}", self.peer_id, to.peer_id);
             // Send particle to remote peer
             self.push_event(ToSwarm::NotifyHandler {
                 peer_id: to.peer_id,
@@ -222,9 +222,9 @@ impl ConnectionPoolBehaviour {
                 event: HandlerMessage::OutParticle(particle, CompletionChannel::Oneshot(outlet)),
             });
         } else {
-            log::warn!(
-                "Won't send particle {} to contact {}: not connected",
-                particle.id,
+            tracing::warn!(
+                particle_id = particle.id,
+                "Won't send particle to contact {}: not connected",
                 to.peer_id
             );
             outlet.send(SendStatus::NotConnected).ok();
@@ -562,7 +562,7 @@ impl NetworkBehaviour for ConnectionPoolBehaviour {
     ) {
         match event {
             HandlerMessage::InParticle(particle) => {
-                log::trace!(target: "network", "{}: received particle {} from {}; queue {}", self.peer_id, particle.id, from, self.queue.len());
+                tracing::trace!(target: "network", particle_id = particle.id,"{}: received particle from {}; queue {}", self.peer_id, from, self.queue.len());
                 self.meter(|m| {
                     m.incoming_particle(
                         &particle.id,
@@ -595,9 +595,13 @@ impl NetworkBehaviour for ConnectionPoolBehaviour {
                     if let Some(particle) = self.queue.pop_front() {
                         let particle_id = particle.id.clone();
                         if let Err(err) = outlet.start_send(particle) {
-                            log::error!("Failed to send particle to outlet: {}", err)
+                            tracing::error!(
+                                particle_id = particle_id,
+                                "Failed to send particle to outlet: {}",
+                                err
+                            )
                         } else {
-                            log::trace!(target: "execution", "Sent particle {} to execution", particle_id);
+                            tracing::trace!(target: "execution",particle_id = particle_id, "Sent particle to execution");
                         }
                     } else {
                         break;

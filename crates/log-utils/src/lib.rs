@@ -56,11 +56,11 @@ pub fn enable_logs() {
                 .add_directive("libp2p_kad::iterlog=info".parse().unwrap())
                 .add_directive("libp2p_plaintext=info".parse().unwrap())
                 .add_directive("libp2p_identify::protocol=info".parse().unwrap())
-                .add_directive("cranelift_codegen=info".parse().unwrap())
+                .add_directive("cranelift_codegen=off".parse().unwrap())
+                .add_directive("cranelift_codegen::context=off".parse().unwrap())
                 .add_directive("wasmer_wasi=info".parse().unwrap())
                 .add_directive("wasmer_interface_types_fl=info".parse().unwrap())
                 .add_directive("polling=info".parse().unwrap())
-                .add_directive("cranelift_codegen=info".parse().unwrap())
                 .add_directive("walrus=info".parse().unwrap()),
         )
         .try_init()

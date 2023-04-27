@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+use crate::LogFormat;
 use clap::{Args, Parser};
 use figment::error::Kind::InvalidType;
 use figment::value::{Dict, Map, Value};
@@ -105,6 +106,17 @@ impl Serialize for RootKeyPairArgs {
         }
         struct_serializer.end()
     }
+}
+
+#[derive(Args, Debug, Clone, Serialize)]
+pub struct LogArgs {
+    #[arg(
+        long("log-format"),
+        id = "LOG_FORMAT",
+        help_heading = "Node configuration",
+        display_order = 24
+    )]
+    pub(crate) format: Option<LogFormat>,
 }
 
 #[derive(Parser, Debug, Serialize, Clone)]
@@ -276,6 +288,19 @@ pub(crate) struct DerivedArgs {
         action = clap::ArgAction::SetTrue
     )]
     pub(crate) print_config: Option<bool>,
+    #[arg(
+        long,
+        value_parser = clap::value_parser!(bool),
+        id = "NO_BANNER",
+        help = "Disable banner",
+        help_heading = "Node configuration",
+        display_order = 23,
+        action = clap::ArgAction::SetTrue
+    )]
+    pub(crate) no_banner: Option<bool>,
+
+    #[command(flatten)]
+    log: Option<LogArgs>,
 }
 
 impl figment::Provider for DerivedArgs {

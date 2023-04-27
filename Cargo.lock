@@ -1128,6 +1128,7 @@ dependencies = [
  "tokio",
  "tokio-stream",
  "tokio-util",
+ "tracing",
 ]
 
 [[package]]
@@ -3597,6 +3598,7 @@ dependencies = [
  "particle-execution",
  "particle-protocol",
  "serde_json",
+ "tracing",
  "uuid-utils",
 ]
 
@@ -3627,6 +3629,7 @@ dependencies = [
  "console-subscriber",
  "log",
  "tracing",
+ "tracing-logfmt",
  "tracing-subscriber",
 ]
 
@@ -5707,6 +5710,7 @@ dependencies = [
  "thiserror",
  "tokio",
  "tokio-stream",
+ "tracing",
  "uuid",
 ]
 
@@ -5874,7 +5878,6 @@ dependencies = [
  "humantime-serde",
  "libp2p",
  "libp2p-metrics",
- "log",
  "num_cpus",
  "particle-protocol",
  "peer-metrics",
@@ -6078,6 +6081,7 @@ dependencies = [
  "thiserror",
  "tokio",
  "tokio-stream",
+ "tracing",
  "uuid-utils",
 ]
 

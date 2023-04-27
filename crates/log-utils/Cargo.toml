@@ -9,3 +9,4 @@ log = { workspace = true }
 tracing = { workspace = true, features = ["async-await", "log"] }
 tracing-subscriber.workspace = true
 console-subscriber = { version = "0.1.8", features = ["parking_lot"] }
+tracing-logfmt = "0.3.1"

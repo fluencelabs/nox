@@ -85,22 +85,22 @@ impl Connectivity {
                     if let Some(m) = metrics {
                         m.count_resolution(Resolution::ConnectionFailed)
                     }
-                    log::warn!(
-                        "{} Couldn't connect to {} for particle {}",
+                    tracing::warn!(
+                        particle_id = particle_id,
+                        "{} Couldn't connect to {}",
                         self.peer_id,
-                        target,
-                        particle_id
+                        target
                     );
                 }
                 Ok(None) => {
                     if let Some(m) = metrics {
                         m.count_resolution(Resolution::KademliaNotFound)
                     }
-                    log::warn!(
-                        "{} Couldn't discover {} for particle {}",
+                    tracing::warn!(
+                        particle_id = particle_id,
+                        "{} Couldn't discover {}",
                         self.peer_id,
-                        target,
-                        particle_id
+                        target
                     );
                 }
                 Err(err) => {
@@ -108,11 +108,11 @@ impl Connectivity {
                         m.count_resolution(Resolution::KademliaError)
                     }
                     let id = particle_id;
-                    log::warn!(
-                        "{} Failed to discover {} for particle {}: {}",
+                    tracing::warn!(
+                        particle_id = id,
+                        "{} Failed to discover {}: {}",
                         self.peer_id,
                         target,
-                        id,
                         err
                     );
                 }
@@ -123,7 +123,7 @@ impl Connectivity {
     }
 
     pub async fn send(&self, contact: Contact, particle: Particle) -> bool {
-        log::debug!("Sending particle {} to {}", particle.id, contact);
+        tracing::debug!(particle_id = particle.id, "Sending particle to {}", contact);
         let metrics = self.metrics.as_ref();
         let id = particle.id.clone();
         let sent = self.connection_pool.send(contact.clone(), particle).await;
@@ -132,15 +132,15 @@ impl Connectivity {
                 if let Some(m) = metrics {
                     m.send_particle_ok(&id)
                 }
-                log::info!("Sent particle {} to {}", id, contact);
+                tracing::info!(particle_id = id, "Sent particle to {}", contact);
             }
             err => {
                 if let Some(m) = metrics {
                     m.send_particle_failed(&id);
                 }
-                log::warn!(
-                    "Failed to send particle {} to {}, reason: {:?}",
-                    id,
+                tracing::warn!(
+                    particle_id = id,
+                    "Failed to send particle to {}, reason: {:?}",
                     contact,
                     err
                 )
