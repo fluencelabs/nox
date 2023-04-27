@@ -47,4 +47,4 @@ eyre = { workspace = true }
 
 [dev-dependencies]
 proptest = "1.1.0"
-tempfile = "3.3.0"
+tempfile = "3.5.0"
