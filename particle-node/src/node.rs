@@ -49,7 +49,7 @@ use prometheus_client::registry::Registry;
 use script_storage::{ScriptStorageApi, ScriptStorageBackend, ScriptStorageConfig};
 use server_config::{NetworkConfig, ResolvedConfig, ServicesConfig};
 use sorcerer::Sorcerer;
-use spell_event_bus::api::{PeerEvent, TriggerEvent};
+use spell_event_bus::api::{PeerEvent, SpellEventBusApi, TriggerEvent};
 use spell_event_bus::bus::SpellEventBus;
 use tokio::sync::{mpsc, oneshot};
 use tokio::task;
@@ -75,6 +75,7 @@ pub struct Node<RT: AquaRuntime> {
     aquavm_pool: AquamarineBackend<RT, Arc<Builtins<Connectivity>>>,
     script_storage: ScriptStorageBackend,
     builtins_deployer: BuiltinsDeployer,
+    spell_event_bus_api: SpellEventBusApi,
     spell_event_bus: SpellEventBus,
     spell_events_receiver: mpsc::UnboundedReceiver<TriggerEvent>,
     sorcerer: Sorcerer,
@@ -259,7 +260,7 @@ impl<RT: AquaRuntime> Node<RT> {
             builtins.modules.clone(),
             aquamarine_api.clone(),
             config.clone(),
-            spell_event_bus_api,
+            spell_event_bus_api.clone(),
             key_manager.clone(),
             spell_metrics,
         );
@@ -308,6 +309,7 @@ impl<RT: AquaRuntime> Node<RT> {
             aquavm_pool,
             script_storage_backend,
             builtins_deployer,
+            spell_event_bus_api,
             spell_event_bus,
             spell_events_receiver,
             sorcerer,
@@ -374,6 +376,7 @@ impl<RT: AquaRuntime> Node<RT> {
         aquavm_pool: AquamarineBackend<RT, Arc<Builtins<Connectivity>>>,
         script_storage: ScriptStorageBackend,
         builtins_deployer: BuiltinsDeployer,
+        spell_event_bus_api: SpellEventBusApi,
         spell_event_bus: SpellEventBus,
         spell_events_receiver: mpsc::UnboundedReceiver<TriggerEvent>,
         sorcerer: Sorcerer,
@@ -395,6 +398,7 @@ impl<RT: AquaRuntime> Node<RT> {
             aquavm_pool,
             script_storage,
             builtins_deployer,
+            spell_event_bus_api,
             spell_event_bus,
             spell_events_receiver,
             sorcerer,
@@ -488,6 +492,11 @@ impl<RT: AquaRuntime> Node<RT> {
             .deploy_builtin_services()
             .await
             .wrap_err("builtins deploy failed")?;
+
+        let result = self.spell_event_bus_api.run_scheduling().await;
+        if let Err(e) = result {
+            log::error!("running spell event bus failed: {}", e);
+        }
 
         Ok(exit_outlet)
     }

@@ -150,8 +150,10 @@ impl SubscribersState {
 #[derive(Debug, Error)]
 enum BusInternalError {
     // oneshot::Sender doesn't provide the reasons why it failed to send a message
-    #[error("failed to send a result of a command execution ({1:?}) for a spell {0}: receiving end probably dropped")]
-    Reply(SpellId, Action),
+    #[error(
+        "failed to send a result of a command execution ({0:?}): receiving end probably dropped"
+    )]
+    Reply(Action),
     #[error("failed to send notification about a peer event {1:?} to spell {0}: {2}")]
     SendEvent(SpellId, TriggerInfo, Pin<Box<dyn std::error::Error>>),
 }
@@ -192,7 +194,7 @@ impl SpellEventBus {
 
     pub fn start(self) -> task::JoinHandle<()> {
         task::Builder::new()
-            .name("Bus")
+            .name("spell-bus")
             .spawn(self.run())
             .expect("Could not spawn task")
     }
@@ -208,6 +210,33 @@ impl SpellEventBus {
         let mut sources_channel = futures::stream::select_all(sources);
 
         let mut state = SubscribersState::new();
+        loop {
+            let result: Result<(), BusInternalError> = try {
+                select! {
+                    Some(command) = self.recv_cmd_channel.recv() => {
+                        let Command { action, reply } = command;
+                        match &action {
+                            Action::Subscribe(spell_id, config) => {
+                                state.subscribe(spell_id.clone(), config).unwrap_or(());
+                            },
+                            Action::Unsubscribe(spell_id) => {
+                                state.unsubscribe(&spell_id);
+                            },
+                            Action::Run => {
+                                break;
+                            }
+                        };
+                        reply.send(()).map_err(|_| {
+                            BusInternalError::Reply(action)
+                        })?;
+                    }
+                }
+            };
+            if let Err(e) = result {
+                log::warn!("Error in spell event bus loop: {}", e);
+            }
+        }
+
         loop {
             let now = Instant::now();
 
@@ -234,17 +263,20 @@ impl SpellEventBus {
             let result: Result<(), BusInternalError> = try {
                 select! {
                     Some(command) = self.recv_cmd_channel.recv() => {
-                        let Command { spell_id, action, reply } = command;
+                        let Command { action, reply } = command;
                         match &action {
-                            Action::Subscribe(config) => {
+                            Action::Subscribe(spell_id, config) => {
                                 state.subscribe(spell_id.clone(), config).unwrap_or(());
                             },
-                            Action::Unsubscribe => {
+                            Action::Unsubscribe(spell_id) => {
                                 state.unsubscribe(&spell_id);
                             },
+                            Action::Run => {
+                                log::error!("Can't run spell bus twice");
+                            }
                         };
                         reply.send(()).map_err(|_| {
-                            BusInternalError::Reply(spell_id, action)
+                            BusInternalError::Reply(action)
                         })?;
                     },
                     Some(event) = sources_channel.next() => {
@@ -264,7 +296,7 @@ impl SpellEventBus {
                                 log::trace!("Reschedule: {:?}", rescheduled);
                                 state.scheduled.push(rescheduled);
                             } else if let Some(m) = &self.spell_metrics {
-                                    m.observe_finished_spell();
+                                m.observe_finished_spell();
                             }
                         }
                     },
