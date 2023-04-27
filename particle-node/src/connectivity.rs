@@ -87,7 +87,7 @@ impl Connectivity {
                     }
                     tracing::warn!(
                         particle_id = particle_id,
-                        "{} Couldn't connect to {} for particle",
+                        "{} Couldn't connect to {}",
                         self.peer_id,
                         target
                     );
