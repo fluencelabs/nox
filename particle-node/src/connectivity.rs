@@ -110,7 +110,7 @@ impl Connectivity {
                     let id = particle_id;
                     tracing::warn!(
                         particle_id = id,
-                        "{} Failed to discover {} for particle: {}",
+                        "{} Failed to discover {}: {}",
                         self.peer_id,
                         target,
                         err
