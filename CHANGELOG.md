@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.11.2](https://github.com/fluencelabs/rust-peer/compare/rust-peer-v0.11.1...rust-peer-v0.11.2) (2023-04-27)
+
+
+### Features
+
+* **logging:** add structured fields in logging + new log format ([#1590](https://github.com/fluencelabs/rust-peer/issues/1590)) ([0c06f1b](https://github.com/fluencelabs/rust-peer/commit/0c06f1bd1e56b86b490a489b0b45e7dcb336f1d5))
+* **logging:** structured logging and tracing ([#1582](https://github.com/fluencelabs/rust-peer/issues/1582)) ([7e97e45](https://github.com/fluencelabs/rust-peer/commit/7e97e4551236514c4bcb6a27cc3216bb817a2ab8))
+
+
+### Bug Fixes
+
+* **deps:** update rust crate fluence-spell-distro to v0.5.11 ([#1580](https://github.com/fluencelabs/rust-peer/issues/1580)) ([cb4e69e](https://github.com/fluencelabs/rust-peer/commit/cb4e69eebdb9617ed8f0083cd8c5c911039e99e1))
+* **deps:** update rust crate fluence-spell-dtos to v0.5.11 ([#1581](https://github.com/fluencelabs/rust-peer/issues/1581)) ([2bd135e](https://github.com/fluencelabs/rust-peer/commit/2bd135e3c354d708f8c216c350a8e558d8243968))
+* **metrics:** provide separate memory metrics for spells ([#1591](https://github.com/fluencelabs/rust-peer/issues/1591)) ([9034e4a](https://github.com/fluencelabs/rust-peer/commit/9034e4adfe065d5ae179e2831be05a0cda57eaaf))
+
 ## [0.11.1](https://github.com/fluencelabs/rust-peer/compare/rust-peer-v0.11.0...rust-peer-v0.11.1) (2023-04-20)
 
 
