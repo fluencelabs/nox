@@ -114,8 +114,8 @@ pub enum Action {
     Subscribe(SpellId, SpellTriggerConfigs),
     /// Remove all subscriptions of a spell
     Unsubscribe(SpellId),
-    /// Actually run the scheduling
-    Run,
+    /// Actually start the scheduling
+    Start,
 }
 
 #[derive(Error, Debug)]
@@ -174,7 +174,7 @@ impl SpellEventBusApi {
         self.send(Action::Unsubscribe(spell_id)).await
     }
 
-    pub async fn run_scheduling(&self) -> Result<(), EventBusError> {
-        self.send(Action::Run).await
+    pub async fn start_scheduling(&self) -> Result<(), EventBusError> {
+        self.send(Action::Start).await
     }
 }

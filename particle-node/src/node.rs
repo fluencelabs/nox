@@ -493,7 +493,7 @@ impl<RT: AquaRuntime> Node<RT> {
             .await
             .wrap_err("builtins deploy failed")?;
 
-        let result = self.spell_event_bus_api.run_scheduling().await;
+        let result = self.spell_event_bus_api.start_scheduling().await;
         if let Err(e) = result {
             log::error!("running spell event bus failed: {}", e);
         }
