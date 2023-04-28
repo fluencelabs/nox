@@ -104,7 +104,6 @@ impl From<TriggerInfoAqua> for TriggerInfo {
 
 #[derive(Debug)]
 pub(crate) struct Command {
-    pub(crate) spell_id: SpellId,
     pub(crate) action: Action,
     pub(crate) reply: oneshot::Sender<()>,
 }
@@ -112,23 +111,22 @@ pub(crate) struct Command {
 #[derive(Debug, Clone)]
 pub enum Action {
     /// Subscribe a spell to a list of triggers
-    Subscribe(SpellTriggerConfigs),
+    Subscribe(SpellId, SpellTriggerConfigs),
     /// Remove all subscriptions of a spell
-    Unsubscribe,
+    Unsubscribe(SpellId),
+    /// Actually start the scheduling
+    Start,
 }
 
 #[derive(Error, Debug)]
 pub enum EventBusError {
-    #[error(
-        "can't send a command `{action:?}` for spell `{spell_id}` to spell-event-bus: {reason}"
-    )]
+    #[error("can't send a command `{action:?}` to spell-event-bus: {reason}")]
     SendError {
-        spell_id: SpellId,
         action: Action,
         reason: Pin<Box<dyn std::error::Error + Send>>,
     },
-    #[error("can't receive a message from the bus on behalf of spell {0}: sending end is probably dropped")]
-    ReplyError(SpellId),
+    #[error("can't receive a message from the bus on behalf of a command {0:?}: sending end is probably dropped")]
+    ReplyError(Action),
 }
 
 #[derive(Clone)]
@@ -143,23 +141,20 @@ impl std::fmt::Debug for SpellEventBusApi {
 }
 
 impl SpellEventBusApi {
-    async fn send(&self, spell_id: SpellId, action: Action) -> Result<(), EventBusError> {
+    async fn send(&self, action: Action) -> Result<(), EventBusError> {
         let (send, recv) = oneshot::channel();
         let command = Command {
-            spell_id: spell_id.clone(),
             action: action.clone(),
             reply: send,
         };
         self.send_cmd_channel
             .send(command)
             .map_err(|e| EventBusError::SendError {
-                spell_id: spell_id.clone(),
-                action,
+                action: action.clone(),
                 reason: Box::pin(e),
             })?;
 
-        recv.await
-            .map_err(|_| EventBusError::ReplyError(spell_id))?;
+        recv.await.map_err(|_| EventBusError::ReplyError(action))?;
         Ok(())
     }
 
@@ -171,11 +166,15 @@ impl SpellEventBusApi {
         spell_id: SpellId,
         config: SpellTriggerConfigs,
     ) -> Result<(), EventBusError> {
-        self.send(spell_id, Action::Subscribe(config)).await
+        self.send(Action::Subscribe(spell_id, config)).await
     }
 
     /// Unsubscribe a spell from all events.
     pub async fn unsubscribe(&self, spell_id: SpellId) -> Result<(), EventBusError> {
-        self.send(spell_id, Action::Unsubscribe).await
+        self.send(Action::Unsubscribe(spell_id)).await
+    }
+
+    pub async fn start_scheduling(&self) -> Result<(), EventBusError> {
+        self.send(Action::Start).await
     }
 }

@@ -71,8 +71,8 @@ impl ServicesConfig {
             .map(|path_str| {
                 let path = Path::new(&path_str);
                 match path.try_exists() {
-                    Err(err) => log::warn!("cannot check binary `{path_str}`: {err}"),
-                    Ok(false) => log::warn!("binary `{path_str}` does not exist"),
+                    Err(err) => println!("cannot check binary `{path_str}`: {err}"),
+                    Ok(false) => println!("binary `{path_str}` does not exist"),
                     _ => {}
                 };
                 path.to_path_buf()
