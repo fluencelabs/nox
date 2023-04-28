@@ -150,8 +150,10 @@ impl SubscribersState {
 #[derive(Debug, Error)]
 enum BusInternalError {
     // oneshot::Sender doesn't provide the reasons why it failed to send a message
-    #[error("failed to send a result of a command execution ({1:?}) for a spell {0}: receiving end probably dropped")]
-    Reply(SpellId, Action),
+    #[error(
+        "failed to send a result of a command execution ({0:?}): receiving end probably dropped"
+    )]
+    Reply(Action),
     #[error("failed to send notification about a peer event {1:?} to spell {0}: {2}")]
     SendEvent(SpellId, TriggerInfo, Pin<Box<dyn std::error::Error>>),
 }
@@ -192,7 +194,7 @@ impl SpellEventBus {
 
     pub fn start(self) -> task::JoinHandle<()> {
         task::Builder::new()
-            .name("Bus")
+            .name("spell-bus")
             .spawn(self.run())
             .expect("Could not spawn task")
     }
@@ -208,6 +210,7 @@ impl SpellEventBus {
         let mut sources_channel = futures::stream::select_all(sources);
 
         let mut state = SubscribersState::new();
+        let mut is_started = false;
         loop {
             let now = Instant::now();
 
@@ -234,26 +237,29 @@ impl SpellEventBus {
             let result: Result<(), BusInternalError> = try {
                 select! {
                     Some(command) = self.recv_cmd_channel.recv() => {
-                        let Command { spell_id, action, reply } = command;
+                        let Command { action, reply } = command;
                         match &action {
-                            Action::Subscribe(config) => {
+                            Action::Subscribe(spell_id, config) => {
                                 state.subscribe(spell_id.clone(), config).unwrap_or(());
                             },
-                            Action::Unsubscribe => {
-                                state.unsubscribe(&spell_id);
+                            Action::Unsubscribe(spell_id) => {
+                                state.unsubscribe(spell_id);
                             },
+                            Action::Start => {
+                                is_started = true;
+                            }
                         };
                         reply.send(()).map_err(|_| {
-                            BusInternalError::Reply(spell_id, action)
+                            BusInternalError::Reply(action)
                         })?;
                     },
-                    Some(event) = sources_channel.next() => {
+                    Some(event) = sources_channel.next(), if is_started => {
                         for spell_id in state.subscribers(&event.get_type()) {
                             let event = TriggerInfo::Peer(event.clone());
                             Self::trigger_spell(&send_events, spell_id, event)?;
                         }
                     },
-                    _ = timer_task => {
+                    _ = timer_task, if is_started => {
                         // The timer is triggered only if there are some spells to be awaken.
                         if let Some(scheduled_spell) = state.scheduled.pop() {
                             log::trace!("Execute: {:?}", scheduled_spell);
@@ -264,7 +270,7 @@ impl SpellEventBus {
                                 log::trace!("Reschedule: {:?}", rescheduled);
                                 state.scheduled.push(rescheduled);
                             } else if let Some(m) = &self.spell_metrics {
-                                    m.observe_finished_spell();
+                                m.observe_finished_spell();
                             }
                         }
                     },
@@ -390,6 +396,7 @@ mod tests {
     async fn test_subscribe_one() {
         let (bus, api, event_receiver) = SpellEventBus::new(None, vec![]);
         let bus = bus.start();
+        let _ = api.start_scheduling().await;
         let event_stream = UnboundedReceiverStream::new(event_receiver);
 
         let spell1_id = "spell1".to_string();
@@ -414,6 +421,7 @@ mod tests {
     async fn test_subscribe_many() {
         let (bus, api, event_receiver) = SpellEventBus::new(None, vec![]);
         let bus = bus.start();
+        let _ = api.start_scheduling().await;
         let event_stream = UnboundedReceiverStream::new(event_receiver);
 
         let mut spell_ids = hashmap![
@@ -447,6 +455,7 @@ mod tests {
     async fn test_subscribe_oneshot() {
         let (bus, api, event_receiver) = SpellEventBus::new(None, vec![]);
         let bus = bus.start();
+        let _ = api.start_scheduling().await;
         let event_stream = UnboundedReceiverStream::new(event_receiver);
         let spell1_id = "spell1".to_string();
         subscribe_timer(
@@ -483,6 +492,7 @@ mod tests {
         let (bus, api, event_receiver) = SpellEventBus::new(None, vec![recv]);
         let mut event_stream = UnboundedReceiverStream::new(event_receiver);
         let bus = bus.start();
+        let _ = api.start_scheduling().await;
 
         let spell1_id = "spell1".to_string();
         subscribe_peer_event(&api, spell1_id.clone(), vec![PeerEventType::Connected]).await;
@@ -512,6 +522,7 @@ mod tests {
         let recv = UnboundedReceiverStream::new(recv).boxed();
         let (bus, api, mut event_receiver) = SpellEventBus::new(None, vec![recv]);
         let bus = bus.start();
+        let _ = api.start_scheduling().await;
 
         let spell1_id = "spell1".to_string();
         subscribe_peer_event(&api, spell1_id.clone(), vec![PeerEventType::Connected]).await;
@@ -542,6 +553,7 @@ mod tests {
         let (bus, api, event_receiver) = SpellEventBus::new(None, vec![recv]);
         let event_stream = UnboundedReceiverStream::new(event_receiver);
         let bus = bus.start();
+        let _ = api.start_scheduling().await;
 
         let spell1_id = "spell1".to_string();
         subscribe_peer_event(&api, spell1_id.clone(), vec![PeerEventType::Connected]).await;
