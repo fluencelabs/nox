@@ -396,7 +396,7 @@ mod tests {
     async fn test_subscribe_one() {
         let (bus, api, event_receiver) = SpellEventBus::new(None, vec![]);
         let bus = bus.start();
-        api.run_scheduler().await;
+        let _ = api.start_scheduling().await;
         let event_stream = UnboundedReceiverStream::new(event_receiver);
 
         let spell1_id = "spell1".to_string();
@@ -421,7 +421,7 @@ mod tests {
     async fn test_subscribe_many() {
         let (bus, api, event_receiver) = SpellEventBus::new(None, vec![]);
         let bus = bus.start();
-        api.run_scheduler().await;
+        let _ = api.start_scheduling().await;
         let event_stream = UnboundedReceiverStream::new(event_receiver);
 
         let mut spell_ids = hashmap![
@@ -455,7 +455,7 @@ mod tests {
     async fn test_subscribe_oneshot() {
         let (bus, api, event_receiver) = SpellEventBus::new(None, vec![]);
         let bus = bus.start();
-        api.run_scheduler().await;
+        let _ = api.start_scheduling().await;
         let event_stream = UnboundedReceiverStream::new(event_receiver);
         let spell1_id = "spell1".to_string();
         subscribe_timer(
@@ -492,7 +492,7 @@ mod tests {
         let (bus, api, event_receiver) = SpellEventBus::new(None, vec![recv]);
         let mut event_stream = UnboundedReceiverStream::new(event_receiver);
         let bus = bus.start();
-        api.run_scheduler().await;
+        let _ = api.start_scheduling().await;
 
         let spell1_id = "spell1".to_string();
         subscribe_peer_event(&api, spell1_id.clone(), vec![PeerEventType::Connected]).await;
@@ -522,7 +522,7 @@ mod tests {
         let recv = UnboundedReceiverStream::new(recv).boxed();
         let (bus, api, mut event_receiver) = SpellEventBus::new(None, vec![recv]);
         let bus = bus.start();
-        api.run_scheduler().await;
+        let _ = api.start_scheduling().await;
 
         let spell1_id = "spell1".to_string();
         subscribe_peer_event(&api, spell1_id.clone(), vec![PeerEventType::Connected]).await;
@@ -553,7 +553,7 @@ mod tests {
         let (bus, api, event_receiver) = SpellEventBus::new(None, vec![recv]);
         let event_stream = UnboundedReceiverStream::new(event_receiver);
         let bus = bus.start();
-        api.run_scheduler().await;
+        let _ = api.start_scheduling().await;
 
         let spell1_id = "spell1".to_string();
         subscribe_peer_event(&api, spell1_id.clone(), vec![PeerEventType::Connected]).await;
