@@ -29,6 +29,7 @@ use connected_client::ConnectedClient;
 use created_swarm::{make_swarms_with_builtins, make_swarms_with_keypair};
 use fs_utils::copy_dir_all;
 use fs_utils::list_files;
+use log_utils::enable_logs;
 use service_modules::load_module;
 use test_utils::create_service;
 
@@ -70,6 +71,7 @@ async fn check_registry_builtin(client: &mut ConnectedClient) {
 
 #[tokio::test]
 async fn builtins_test() {
+    enable_logs();
     let swarms =
         make_swarms_with_builtins(1, Path::new(SERVICES), None, Some(SPELL.to_string())).await;
 

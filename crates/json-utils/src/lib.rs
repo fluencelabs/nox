@@ -25,6 +25,7 @@
     unreachable_patterns
 )]
 
+use itertools::Itertools;
 use serde_json::Value as JValue;
 
 pub mod base64_serde;
@@ -48,4 +49,26 @@ pub fn into_array(v: JValue) -> Option<Vec<JValue>> {
 /// Converts an error into IValue::String
 pub fn err_as_value<E: core::fmt::Debug + core::fmt::Display>(err: E) -> JValue {
     JValue::String(format!("Error: {err}\n{err:?}"))
+}
+
+fn sort_json_object(map: &mut serde_json::Map<String, JValue>) -> serde_json::Map<String, JValue> {
+    let mut sorted_map = serde_json::Map::new();
+    for value in map.values_mut() {
+        if let JValue::Object(ref mut obj) = value {
+            sorted_map.append(&mut sort_json_object(obj));
+        }
+    }
+
+    sorted_map
+        .into_iter()
+        .sorted_by_key(|(k, _)| k.clone())
+        .collect()
+}
+
+pub fn normalize_json(mut json: JValue) -> Result<JValue, serde_json::Error> {
+    if let JValue::Object(ref mut obj) = json {
+        sort_json_object(obj);
+    }
+
+    Ok(json)
 }

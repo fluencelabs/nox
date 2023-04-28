@@ -692,9 +692,9 @@ where
         let module_bytes: String = Args::next("module_bytes", &mut args)?;
         let config = Args::next("config", &mut args)?;
 
-        let module_hash = self.modules.add_module_base64(module_bytes, config)?;
+        let hash = self.modules.add_module_base64(module_bytes, config)?;
 
-        Ok(JValue::String(module_hash))
+        Ok(json!(hash))
     }
 
     fn add_module_from_vault(&self, args: Args, params: ParticleParams) -> Result<JValue, JError> {
@@ -706,14 +706,15 @@ where
             .modules
             .add_module_from_vault(module_path, config, params)?;
 
-        Ok(JValue::String(module_hash))
+        Ok(json!(module_hash))
     }
 
     fn add_blueprint(&self, args: Args) -> Result<JValue, JError> {
         let mut args = args.function_args.into_iter();
-        let blueprint_request: AddBlueprint = Args::next("blueprint_request", &mut args)?;
-
-        let blueprint_id = self.modules.add_blueprint(blueprint_request)?;
+        let blueprint_request: String = Args::next("blueprint_request", &mut args)?;
+        let blueprint = AddBlueprint::decode(&blueprint_request.as_bytes())
+            .map_err(|err| JError::new(format!("Error deserializing blueprint: {err}")))?;
+        let blueprint_id = self.modules.add_blueprint(blueprint)?;
         Ok(JValue::String(blueprint_id))
     }
 
@@ -756,12 +757,12 @@ where
         let dependencies = Args::next("dependencies", &mut args)?;
         let blueprint_request = AddBlueprint { name, dependencies };
 
-        let blueprint_request = serde_json::to_value(blueprint_request).map_err(|err| {
+        let blueprint_request = blueprint_request.to_string().map_err(|err| {
             JError::new(format!(
-                "Error serializing blueprint_request to JSON: {err}"
+                "Error serializing blueprint_request to IPLD: {err}"
             ))
         })?;
-        Ok(blueprint_request)
+        Ok(json!(blueprint_request))
     }
 
     fn load_blueprint_from_vault(
@@ -776,12 +777,12 @@ where
             .modules
             .load_blueprint_from_vault(blueprint_path, params)?;
 
-        let blueprint_request = serde_json::to_value(blueprint_request).map_err(|err| {
+        let blueprint_request = blueprint_request.to_string().map_err(|err| {
             JError::new(format!(
-                "Error serializing blueprint_request to JSON: {err}"
+                "Error serializing blueprint_request to IPLD: {err}"
             ))
         })?;
-        Ok(blueprint_request)
+        Ok(json!(blueprint_request))
     }
 
     fn list_modules(&self) -> Result<JValue, JError> {

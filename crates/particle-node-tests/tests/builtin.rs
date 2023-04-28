@@ -1764,7 +1764,7 @@ async fn json_builtins() {
         let nf_expected = json!({"name": "nested_first", "num": 1});
         let ns_expected = json!({"name": "nested_second", "num": 2});
 
-        let of_expected = json!({"name": "outer_first", "num": 0, "nested": nf_expected});
+        let of_expected = json!({"name": "outer_first", "nested": nf_expected, "num": 0 });
         let os_expected = json!({"name": "outer_second", "num": 3, "nested": ns_expected });
 
         assert_eq!(&nf_expected, nested_first);

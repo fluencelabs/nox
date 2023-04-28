@@ -26,17 +26,14 @@
     unreachable_patterns
 )]
 
-pub use modules::blueprint::Blueprint;
+pub use cid_utils::Hash;
+pub use modules::blueprint::{AddBlueprint, Blueprint};
 pub use modules::dependencies::*;
-pub use modules::dependency::Dependency;
 pub use modules::file_names::*;
 pub use modules::fixture::{load_module, module_config};
-pub use modules::hash::Hash;
-
 mod modules {
     pub mod blueprint;
     pub mod dependencies;
-    pub mod dependency;
     pub mod file_names;
     pub mod fixture;
     pub mod hash;

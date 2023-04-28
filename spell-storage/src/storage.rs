@@ -12,7 +12,7 @@ use parking_lot::RwLock;
 
 use particle_modules::{load_module_by_path, AddBlueprint, ModuleRepository};
 use particle_services::ParticleAppServices;
-use service_modules::{module_file_name, Dependency};
+use service_modules::module_file_name;
 
 type WorkerId = PeerId;
 type SpellId = String;
@@ -67,10 +67,10 @@ impl SpellStorage {
                 "there's no module {} in the fluence_spell_distro::modules",
                 config.name
             )))?;
-            let hash = modules
+            let module_hash = modules
                 .add_module(module.to_vec(), config)
                 .context(format!("adding spell module {name}"))?;
-            hashes.push(Dependency::Hash(hash))
+            hashes.push(module_hash);
         }
 
         Ok((
@@ -90,16 +90,12 @@ impl SpellStorage {
             let load_from = config
                 .load_from
                 .clone()
-                .unwrap_or(PathBuf::from(module_file_name(&Dependency::Name(
-                    config.name.clone(),
-                ))));
+                .unwrap_or(PathBuf::from(module_file_name(&config.name)));
             let module_path = spells_base_dir.join(load_from);
             let module = load_module_by_path(module_path.as_ref())?;
-            let hash = modules.add_module(module, config)?;
-            let hex = hash.to_hex();
-            let hex = hex.as_ref();
-            versions.push(String::from(&hex[..8]));
-            hashes.push(Dependency::Hash(hash));
+            let module_hash = modules.add_module(module, config)?;
+            versions.push(String::from(&module_hash.to_string()[..8]));
+            hashes.push(module_hash);
         }
         let spell_disk_version = format!("wasm hashes {}", versions.join(" "));
         Ok((

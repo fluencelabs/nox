@@ -985,7 +985,7 @@ mod tests {
     use particle_modules::{AddBlueprint, ModuleRepository};
     use server_config::ServicesConfig;
     use service_modules::load_module;
-    use service_modules::{Dependency, Hash};
+    use service_modules::Hash;
 
     use crate::app_services::ServiceType;
     use crate::persistence::load_persisted_services;
@@ -1060,7 +1060,7 @@ mod tests {
         module: &str,
         worker_id: PeerId,
     ) -> Result<String, String> {
-        let dep = Dependency::Hash(Hash::from_hex(module).unwrap());
+        let dep = Hash::from_string(module).unwrap();
         let bp = pas
             .modules
             .add_blueprint(AddBlueprint::new(module_name, vec![dep]))
@@ -1117,19 +1117,19 @@ mod tests {
                 logging_mask: None,
             },
         };
-        let hash = pas
+        let m_hash = pas
             .modules
             .add_module_base64(base64.encode(module), config)
             .unwrap();
-        let service_id1 = create_service(&pas, module_name.clone(), &hash, local_pid).unwrap();
-        let service_id2 = create_service(&pas, module_name.clone(), &hash, local_pid).unwrap();
-        let service_id3 = create_service(&pas, module_name, &hash, local_pid).unwrap();
+        let service_id1 = create_service(&pas, module_name.clone(), &m_hash, local_pid).unwrap();
+        let service_id2 = create_service(&pas, module_name.clone(), &m_hash, local_pid).unwrap();
+        let service_id3 = create_service(&pas, module_name, &m_hash, local_pid).unwrap();
 
         let inter1 = pas.get_interface("", service_id1, local_pid).unwrap();
 
         // delete module and check that interfaces will be returned anyway
         let dir = modules_dir(base_dir.path());
-        let module_file = dir.join(format!("{hash}.wasm"));
+        let module_file = dir.join(format!("{m_hash}.wasm"));
         remove_file(module_file.clone()).unwrap();
 
         let inter2 = pas.get_interface("", service_id2, local_pid).unwrap();
@@ -1173,8 +1173,8 @@ mod tests {
         let pas = create_pas(local_pid, management_pid, base_dir.into_path());
 
         let module_name = "tetra".to_string();
-        let hash = upload_tetra_service(&pas, module_name.clone());
-        let service_id1 = create_service(&pas, module_name, &hash, local_pid).unwrap();
+        let m_hash = upload_tetra_service(&pas, module_name.clone());
+        let service_id1 = create_service(&pas, module_name, &m_hash, local_pid).unwrap();
 
         let alias = "alias";
         let result = pas.add_alias(
@@ -1213,10 +1213,10 @@ mod tests {
         let pas = create_pas(local_pid, management_pid, base_dir.into_path());
 
         let module_name = "tetra".to_string();
-        let hash = upload_tetra_service(&pas, module_name.clone());
+        let m_hash = upload_tetra_service(&pas, module_name.clone());
 
-        let service_id1 = create_service(&pas, module_name.clone(), &hash, local_pid).unwrap();
-        let service_id2 = create_service(&pas, module_name, &hash, local_pid).unwrap();
+        let service_id1 = create_service(&pas, module_name.clone(), &m_hash, local_pid).unwrap();
+        let service_id2 = create_service(&pas, module_name, &m_hash, local_pid).unwrap();
 
         let alias = "alias";
         // add an alias to a service
@@ -1271,9 +1271,9 @@ mod tests {
         let pas = create_pas(local_pid, management_pid, base_dir.into_path());
 
         let module_name = "tetra".to_string();
-        let hash = upload_tetra_service(&pas, module_name.clone());
+        let m_hash = upload_tetra_service(&pas, module_name.clone());
 
-        let service_id = create_service(&pas, module_name.clone(), &hash, local_pid).unwrap();
+        let service_id = create_service(&pas, module_name.clone(), &m_hash, local_pid).unwrap();
 
         let alias = "alias";
         // add an alias to a service
@@ -1322,9 +1322,9 @@ mod tests {
 
         let module_name = "tetra".to_string();
         let alias = "alias".to_string();
-        let hash = upload_tetra_service(&pas, module_name.clone());
+        let m_hash = upload_tetra_service(&pas, module_name.clone());
 
-        let service_id1 = create_service(&pas, module_name, &hash, local_pid).unwrap();
+        let service_id1 = create_service(&pas, module_name, &m_hash, local_pid).unwrap();
         pas.add_alias(
             alias.clone(),
             local_pid,

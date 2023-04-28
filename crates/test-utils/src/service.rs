@@ -19,6 +19,7 @@ use maplit::hashmap;
 use serde_json::json;
 
 use connected_client::ConnectedClient;
+use service_modules::Hash;
 
 #[derive(Debug, Clone)]
 pub struct CreatedService {
@@ -63,9 +64,9 @@ pub async fn create_service_worker(
         "relay" => json!(client.node.to_string()),
         "worker_id" => json!(worker_id),
         "module_name" => json!(module_name),
+        "dependencies" => json!([Hash::new_bytes(&module_bytes).unwrap()]),
         "module_bytes" => json!(base64.encode(module_bytes)),
         "name" => json!("blueprint"),
-        "dependencies" => json!([module_name]),
     };
 
     let response = client.execute_particle(script, data).await.unwrap();

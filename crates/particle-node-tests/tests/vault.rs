@@ -106,21 +106,19 @@ async fn deploy_from_vault() {
                     (seq
                         (call relay ("dist" "add_module_from_vault") [filename module_config] module_hash)
                         (seq
-                            (call relay ("op" "concat_strings") ["hash:" module_hash] annotated_hash)
+                            (call relay ("op" "array") [module_hash] dependencies)
                             (seq
-                                (call relay ("op" "array") [annotated_hash] dependencies)
+                                (call relay ("dist" "make_blueprint") ["file_share" dependencies] blueprint)
                                 (seq
-                                    (call relay ("dist" "make_blueprint") ["file_share" dependencies] blueprint)
+                                    (call relay ("dist" "add_blueprint") [blueprint] blueprint_id)
                                     (seq
-                                        (call relay ("dist" "add_blueprint") [blueprint] blueprint_id)
-                                        (seq
-                                            (call relay ("srv" "create") [blueprint_id] second_service)
-                                            (call relay (second_service "read_base64_vault_file") [filename] output_content)
-                                        )
+                                        (call relay ("srv" "create") [blueprint_id] second_service)
+                                        (call relay (second_service "read_base64_vault_file") [filename] output_content)
                                     )
                                 )
                             )
-                        )                
+                        )
+                                       
                     )
                 )
             )
@@ -160,7 +158,7 @@ async fn load_blueprint_from_vault() {
         r#"
         (seq
             (seq
-                (call relay ("dist" "default_module_config") ["file_share"] config)                
+                (call relay ("dist" "default_module_config") ["file_share" module] config)                
                 (call relay ("dist" "add_module") [module config] hash)
             )
             (call %init_peer_id% ("op" "return") [hash])
@@ -180,7 +178,7 @@ async fn load_blueprint_from_vault() {
 
     let blueprint_string = json!({
         "name": "file_share",
-        "dependencies": [format!("hash:{module_hash}")]
+        "dependencies": [module_hash],
     })
     .to_string();
     client.send_particle(
