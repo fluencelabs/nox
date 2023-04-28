@@ -243,7 +243,7 @@ impl SpellEventBus {
                                 state.subscribe(spell_id.clone(), config).unwrap_or(());
                             },
                             Action::Unsubscribe(spell_id) => {
-                                state.unsubscribe(&spell_id);
+                                state.unsubscribe(spell_id);
                             },
                             Action::Start => {
                                 is_started = true;
