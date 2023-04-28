@@ -54,6 +54,7 @@ pub fn build_network_transport(
 
     let transport = {
         let mut websocket = libp2p::websocket::WsConfig::new(tcp());
+        websocket.use_deflate(true);
         websocket.set_tls_config(libp2p::websocket::tls::Config::client());
         websocket.or_transport(tcp())
     };
