@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.11.3](https://github.com/fluencelabs/rust-peer/compare/rust-peer-v0.11.2...rust-peer-v0.11.3) (2023-04-28)
+
+
+### Bug Fixes
+
+* **spells:** start resubscribed spells scheduling after full node initialization [fixes NET-459] ([#1592](https://github.com/fluencelabs/rust-peer/issues/1592)) ([1016f36](https://github.com/fluencelabs/rust-peer/commit/1016f368cbd6e9804908842ee2562bff0e241e0e))
+
 ## [0.11.2](https://github.com/fluencelabs/rust-peer/compare/rust-peer-v0.11.1...rust-peer-v0.11.2) (2023-04-27)
 
 
