@@ -201,7 +201,10 @@ async fn list_blueprints() {
             (call relay ("dist" "add_module") [module_bytes module_config] module_hash)
             (seq
                 (seq
-                    (call relay ("dist" "add_blueprint") [blueprint] blueprint_id)
+                    (seq
+                        (call relay ("dist" "make_blueprint") [name dependencies] blueprint)
+                        (call relay ("dist" "add_blueprint") [blueprint] blueprint_id)
+                    )
                     (call relay ("dist" "list_blueprints") [] blueprints)
                 )
                 (call client ("return" "") [blueprints module_hash])
@@ -213,7 +216,8 @@ async fn list_blueprints() {
             "module_config" => json!(module_config("module")),
             "relay" => json!(client.node.to_string()),
             "client" => json!(client.peer_id.to_string()),
-            "blueprint" => json!({ "name": "blueprint", "dependencies": [ module_hash ] }),
+            "name" => json!("blueprint"),
+            "dependencies" => json!(vec![module_hash.clone()]) ,
         },
     );
 

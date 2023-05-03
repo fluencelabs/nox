@@ -126,6 +126,6 @@ fn test_blueprint_hash() {
     .unwrap();
     assert_eq!(
         blueprint.id.to_string(),
-        "bafyreicpdnxse3ubhxeuxuzoanj22xs6m2jfmx6475zga5ntjtk4d6ygpi"
+        "bafkreifdehdwcppttfsqaju4kodgn5wgbefrarbzc72k4sore2bwpeq2fa"
     );
 }
