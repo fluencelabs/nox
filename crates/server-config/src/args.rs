@@ -270,14 +270,14 @@ pub(crate) struct DerivedArgs {
     )]
     services_workdir: Option<PathBuf>,
     #[arg(
-        long,
+        long("aqua-pool-size"),
         id = "AQUA_VM_POOL_SIZE",
         help_heading = "AIR configuration",
         help = "Number of AquaVM instances (particle script execution parallelism)",
         value_name = "NUM",
         display_order = 21
     )]
-    aqua_pool_size: Option<PathBuf>,
+    aquavm_pool_size: Option<usize>,
     #[arg(
         long,
         value_parser = clap::value_parser!(bool),
