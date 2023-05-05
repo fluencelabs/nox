@@ -79,7 +79,7 @@ async fn main() -> eyre::Result<()> {
 |     docker pull fluencelabs/rust-peer:latest    |
 |                                                 |
 | or contact us at                                |
-| github.com/fluencelabs/fluence/discussions      |
+| https://discord.com/invite/5qSnPZKh7u           |
 +-------------------------------------------------+
     "#
         );
