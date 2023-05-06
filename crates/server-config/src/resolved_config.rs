@@ -15,6 +15,7 @@
  */
 
 use clap::{Args, Command, FromArgMatches};
+use std::collections::HashMap;
 use std::ffi::OsString;
 use std::net::SocketAddr;
 use std::ops::{Deref, DerefMut};
@@ -199,7 +200,7 @@ pub fn resolve_config(
     };
 
     let config_builder = config_builder
-        .merge(Env::prefixed("FLUENCE_").split("_"))
+        .merge(Env::prefixed("FLUENCE_"))
         .merge(cli_config);
 
     let unresolved_config: UnresolvedConfig = config_builder.extract()?;
