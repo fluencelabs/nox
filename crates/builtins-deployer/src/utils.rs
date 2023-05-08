@@ -55,9 +55,9 @@ pub fn load_modules(path: &Path, dependencies: &[Hash]) -> Result<Vec<Module>> {
 }
 
 pub fn load_blueprint(path: &Path) -> Result<AddBlueprint> {
-    Ok(AddBlueprint::decode(
+    AddBlueprint::decode(
         &fs::read(path.join("blueprint.json")).wrap_err(eyre!("blueprint {:?} not found", path))?,
-    )?)
+    )
 }
 
 pub fn load_scheduled_scripts(path: &Path) -> Result<Vec<ScheduledScript>> {

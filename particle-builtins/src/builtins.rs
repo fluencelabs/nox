@@ -712,7 +712,7 @@ where
     fn add_blueprint(&self, args: Args) -> Result<JValue, JError> {
         let mut args = args.function_args.into_iter();
         let blueprint_request: String = Args::next("blueprint_request", &mut args)?;
-        let blueprint = AddBlueprint::decode(&blueprint_request.as_bytes())
+        let blueprint = AddBlueprint::decode(blueprint_request.as_bytes())
             .map_err(|err| JError::new(format!("Error deserializing blueprint: {err}")))?;
         let blueprint_id = self.modules.add_blueprint(blueprint)?;
         Ok(JValue::String(blueprint_id))
