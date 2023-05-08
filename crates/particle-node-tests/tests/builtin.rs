@@ -1545,7 +1545,7 @@ async fn sign_invalid_tetraplets() {
                     (seq
                         (seq
                             (call relay ("op" "noop") [])
-                            (call wrong_peer ("registry" "get_record_metadata_bytes") ["key_id" "" 0 "" "" [] [] []] data)
+                            (call wrong_peer ("registry" "get_record_metadata_bytes") ["key_id" "" 0 "" "" [] [] []] data1)
                         )
                         (xor
                             (call relay ("sig" "sign") [data1] sig_result1)
