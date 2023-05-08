@@ -1486,7 +1486,7 @@ async fn sign_verify() {
         r#"
             (seq
                 (seq
-                    (call relay ("registry" "get_record_bytes") ["key_id" "" [] [] 1 []] data)
+                    (call relay ("registry" "get_record_metadata_bytes") ["key_id" "" 0 "" "" [] [] []] data)
                     (seq
                         (call relay ("sig" "sign") [data] sig_result)
                         (xor
@@ -1545,7 +1545,7 @@ async fn sign_invalid_tetraplets() {
                     (seq
                         (seq
                             (call relay ("op" "noop") [])
-                            (call wrong_peer ("registry" "get_record_bytes") ["key_id" "" [] [] 1 []] data1)
+                            (call wrong_peer ("registry" "get_record_metadata_bytes") ["key_id" "" 0 "" "" [] [] []] data)
                         )
                         (xor
                             (call relay ("sig" "sign") [data1] sig_result1)
@@ -1607,7 +1607,7 @@ async fn sig_verify_invalid_signature() {
         r#"
             (seq
                 (seq
-                    (call relay ("registry" "get_record_bytes") ["key_id" "" [] [] 1 []] data)
+                    (call relay ("registry" "get_record_metadata_bytes") ["key_id" "" 0 "" "" [] [] []] data)
                     (seq
                         (call relay ("sig" "sign") [data] sig_result)
                         (seq
@@ -1794,7 +1794,7 @@ async fn insecure_sign_verify() {
         r#"
             (seq
                 (seq
-                    (call relay ("registry" "get_record_bytes") ["key_id" "" [] [] 1 []] data)
+                    (call relay ("registry" "get_record_metadata_bytes") ["key_id" "" 0 "" "" [] [] []] data)
                     (seq
                         (call relay ("insecure_sig" "sign") [data] sig_result)
                         (call relay ("insecure_sig" "verify") [sig_result.$.signature.[0]! data] result)

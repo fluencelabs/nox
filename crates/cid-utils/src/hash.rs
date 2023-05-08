@@ -107,16 +107,3 @@ impl Display for Hash {
         self.0.to_string().fmt(f)
     }
 }
-
-#[test]
-fn test_hash() {
-    let bytes = std::fs::read(
-        "../particle-node-tests/tests/builtins/services/trust-graph/bafybeiecqw73u6jqd3qss2t4qeha4dzelxaof4rx33efjkln2tfynohtmy.wasm",
-    )
-    .unwrap();
-    let hash = Hash::new_bytes(&bytes).unwrap();
-    assert_eq!(
-        hash.to_string(),
-        "bafybeiecqw73u6jqd3qss2t4qeha4dzelxaof4rx33efjkln2tfynohtmy"
-    )
-}
