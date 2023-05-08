@@ -7,7 +7,7 @@ SERVICES_DIR="${BUILTINS_DIR}/../particle-node-tests/tests/builtins/services"
 TAR="registry.tar.gz"
 
 echo "*** downloading $TAR ***"
-URL="https://github.com/fluencelabs/registry/releases/download/v0.8.5/registry.tar.gz"
+URL="https://github.com/fluencelabs/registry/releases/download/registry-v0.8.5/registry.tar.gz"
 curl --fail -L "$URL" -o "$TAR"
 
 echo "*** extracting $TAR ***"
