@@ -14,13 +14,12 @@
  * limitations under the License.
  */
 
-use clap::{Args, Command, FromArgMatches};
 use std::ffi::OsString;
 use std::net::SocketAddr;
 use std::ops::{Deref, DerefMut};
 use std::str::FromStr;
 
-use crate::args;
+use clap::{Args, Command, FromArgMatches};
 use figment::{
     providers::{Env, Format, Toml},
     Figment,
@@ -28,6 +27,7 @@ use figment::{
 use libp2p::core::{multiaddr::Protocol, Multiaddr};
 use serde::{Deserialize, Serialize};
 
+use crate::args;
 use crate::dir_config::{ResolvedDirConfig, UnresolvedDirConfig};
 use crate::node_config::{NodeConfig, UnresolvedNodeConfig};
 
@@ -199,7 +199,7 @@ pub fn resolve_config(
     };
 
     let config_builder = config_builder
-        .merge(Env::prefixed("FLUENCE_").split("_"))
+        .merge(Env::prefixed("FLUENCE_"))
         .merge(cli_config);
 
     let unresolved_config: UnresolvedConfig = config_builder.extract()?;

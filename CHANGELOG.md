@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.11.4](https://github.com/fluencelabs/rust-peer/compare/rust-peer-v0.11.3...rust-peer-v0.11.4) (2023-05-06)
+
+
+### Bug Fixes
+
+* aqua-pool-size argument ([96fdf54](https://github.com/fluencelabs/rust-peer/commit/96fdf54ba0b4c50ec8904d3f7ffbda15ab6d3772))
+* **config:** aqua-pool-size argument ([#1606](https://github.com/fluencelabs/rust-peer/issues/1606)) ([96fdf54](https://github.com/fluencelabs/rust-peer/commit/96fdf54ba0b4c50ec8904d3f7ffbda15ab6d3772))
+* **config:** correctly parse env variables ([#1607](https://github.com/fluencelabs/rust-peer/issues/1607)) ([2f77e04](https://github.com/fluencelabs/rust-peer/commit/2f77e040cd7c9ba3839ace5b5d4a2a6be9bcf929))
+* **startup:** Change link in "hello" message to Discord ([#1604](https://github.com/fluencelabs/rust-peer/issues/1604)) ([c3c8b23](https://github.com/fluencelabs/rust-peer/commit/c3c8b2377efe3dffcd250778e3d407bac2bede39))
+
 ## [0.11.3](https://github.com/fluencelabs/rust-peer/compare/rust-peer-v0.11.2...rust-peer-v0.11.3) (2023-04-28)
 
 
