@@ -62,7 +62,7 @@ impl KademliaConfig {
             if let Some(replication_factor) = std::num::NonZeroUsize::new(replication_factor) {
                 cfg.set_replication_factor(replication_factor);
             } else {
-                println!(
+                log::warn!(
                     "Invalid config value: replication_factor must be > 0, was {:?}",
                     self.replication_factor
                 )

@@ -529,7 +529,7 @@ mod tests {
     use config_utils::to_peer_id;
     use connected_client::ConnectedClient;
     use fs_utils::to_abs_path;
-    use server_config::{builtins_base_dir, default_base_dir, resolve_config};
+    use server_config::{builtins_base_dir, default_base_dir, load_config_with_args};
 
     use crate::Node;
 
@@ -540,7 +540,7 @@ mod tests {
         fs_utils::create_dir(builtins_base_dir(&base_dir)).unwrap();
         write_default_air_interpreter(&air_interpreter_path(&base_dir)).unwrap();
 
-        let mut config = resolve_config(vec![], None).expect("deserialize config");
+        let mut config = load_config_with_args(vec![], None).expect("deserialize config");
         config.aquavm_pool_size = 1;
         config.dir_config.spell_base_dir = to_abs_path(PathBuf::from("spell"));
         let vm_config = VmConfig::new(

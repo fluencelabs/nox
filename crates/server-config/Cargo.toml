@@ -12,6 +12,7 @@ fluence-libp2p = { workspace = true, features = ["tokio"] }
 air-interpreter-fs = { workspace = true }
 peer-metrics = { workspace = true }
 fluence-keypair = { workspace = true }
+log = "0.4.17"
 
 libp2p = { workspace = true }
 libp2p-metrics = { workspace = true }

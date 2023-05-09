@@ -5913,6 +5913,7 @@ dependencies = [
  "humantime-serde",
  "libp2p",
  "libp2p-metrics",
+ "log",
  "num_cpus",
  "particle-protocol",
  "peer-metrics",

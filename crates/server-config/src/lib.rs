@@ -41,7 +41,7 @@ mod services_config;
 
 pub use defaults::{builtins_base_dir, *};
 pub use resolved_config::load_config;
-pub use resolved_config::resolve_config;
+pub use resolved_config::load_config_with_args;
 pub use resolved_config::ConfigData;
 
 pub use bootstrap_config::BootstrapConfig;

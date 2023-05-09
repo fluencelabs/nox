@@ -50,9 +50,6 @@ impl UnresolvedConfig {
         Ok(ResolvedConfig {
             dir_config: self.dir_config.resolve()?,
             node_config: self.node_config.resolve()?,
-            log: self.log,
-            no_banner: self.no_banner.unwrap_or(false),
-            print_config: self.print_config.unwrap_or(false),
         })
     }
 }
@@ -62,7 +59,7 @@ pub struct LogConfig {
     pub format: LogFormat,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub enum LogFormat {
     #[serde(rename = "logfmt")]
     Logfmt,
@@ -86,9 +83,6 @@ impl FromStr for LogFormat {
 pub struct ResolvedConfig {
     pub dir_config: ResolvedDirConfig,
     pub node_config: NodeConfig,
-    pub log: Option<LogConfig>,
-    pub no_banner: bool,
-    pub print_config: bool,
 }
 
 impl Deref for ResolvedConfig {
@@ -159,15 +153,15 @@ pub struct ConfigData {
     pub description: String,
 }
 
-pub fn load_config(data: Option<ConfigData>) -> eyre::Result<ResolvedConfig> {
+pub fn load_config(data: Option<ConfigData>) -> eyre::Result<UnresolvedConfig> {
     let raw_args = std::env::args_os().collect::<Vec<_>>();
-    resolve_config(raw_args, data)
+    load_config_with_args(raw_args, data)
 }
 
-pub fn resolve_config(
+pub fn load_config_with_args(
     raw_args: Vec<OsString>,
     data: Option<ConfigData>,
-) -> eyre::Result<ResolvedConfig> {
+) -> eyre::Result<UnresolvedConfig> {
     let command = Command::new("Fluence peer");
     let command = if let Some(data) = data {
         command
@@ -199,12 +193,10 @@ pub fn resolve_config(
     };
 
     let config_builder = config_builder
-        .merge(Env::prefixed("FLUENCE_"))
+        .merge(Env::prefixed("FLUENCE_").split("__"))
         .merge(cli_config);
 
-    let unresolved_config: UnresolvedConfig = config_builder.extract()?;
-
-    let config = unresolved_config.resolve()?;
+    let config: UnresolvedConfig = config_builder.extract()?;
 
     Ok(config)
 }
@@ -234,7 +226,8 @@ mod tests {
 
         "#)?;
 
-            let config = resolve_config(vec![], None).expect("Could not load config");
+            let config = load_config_with_args(vec![], None).expect("Could not load config");
+            let config = config.resolve().unwrap();
             let resolved_secret = encode_secret(&config);
             assert_eq!(config.node_config.script_storage_max_failures, 10);
             assert_eq!(
@@ -276,7 +269,8 @@ mod tests {
 
             assert!(!key_path.exists());
             assert!(!builtins_key_path.exists());
-            let config = resolve_config(vec![], None).expect("Could not load config");
+            let config = load_config_with_args(vec![], None).expect("Could not load config");
+            let config = config.resolve().unwrap();
             let resolved_secret = encode_secret(&config);
 
             assert!(key_path.exists());
@@ -296,14 +290,14 @@ mod tests {
             builtins_key_pair.generate_on_absence = true
             "#,
             )?;
-            let _config = resolve_config(vec![], None).expect("Could not load config");
+            let _config = load_config_with_args(vec![], None).expect("Could not load config");
             Ok(())
         });
     }
 
     #[test]
     fn load_empty_config() {
-        let _config = resolve_config(vec![], None).expect("Could not load config");
+        let _config = load_config_with_args(vec![], None).expect("Could not load config");
     }
 
     #[test]
@@ -339,7 +333,9 @@ mod tests {
             assert!(root_key_path.exists());
             assert!(builtins_key_path.exists());
 
-            let config = resolve_config(vec![], None).expect("Could not load config");
+            let config = load_config_with_args(vec![], None).expect("Could not load config");
+            let config = config.resolve().unwrap();
+
             let resolved_secret = encode_secret(&config);
             assert_eq!(resolved_secret, base64.encode(root_kp.secret().unwrap()));
 
@@ -376,7 +372,7 @@ mod tests {
             assert!(root_key_path.exists());
             assert!(builtins_key_path.exists());
 
-            let _config = resolve_config(vec![], None).expect("Could not load config");
+            let _config = load_config_with_args(vec![], None).expect("Could not load config");
 
             Ok(())
         });
@@ -415,7 +411,7 @@ mod tests {
             assert!(root_key_path.exists());
             assert!(builtins_key_path.exists());
 
-            let _config = resolve_config(vec![], None).expect("Could not load config");
+            let _config = load_config_with_args(vec![], None).expect("Could not load config");
 
             Ok(())
         });
@@ -458,7 +454,91 @@ mod tests {
             assert!(root_key_path.exists());
             assert!(builtins_key_path.exists());
 
-            let _config = resolve_config(vec![], None).expect("Could not load config");
+            let _config = load_config_with_args(vec![], None).expect("Could not load config");
+
+            Ok(())
+        });
+    }
+
+    #[test]
+    fn load_log_format_with_env() {
+        Jail::expect_with(|jail| {
+            jail.set_env("FLUENCE_LOG__FORMAT", "logfmt");
+
+            let config = load_config_with_args(vec![], None).expect("Could not load config");
+            let log_fmt = config.log.map(|x| x.format);
+            assert_eq!(log_fmt, Some(LogFormat::Logfmt));
+            Ok(())
+        });
+    }
+
+    #[test]
+    fn load_log_format_with_args() {
+        Jail::expect_with(|_jail| {
+            let args = vec![
+                OsString::from("particle-node"),
+                OsString::from("--log-format"),
+                OsString::from("logfmt"),
+            ];
+            let config = load_config_with_args(args, None).expect("Could not load config");
+            let log_fmt = config.log.map(|x| x.format);
+            assert_eq!(log_fmt, Some(LogFormat::Logfmt));
+            Ok(())
+        });
+    }
+
+    #[test]
+    fn load_log_format_with_file() {
+        Jail::expect_with(|jail| {
+            jail.create_file(
+                "Config.toml",
+                r#"
+            [log]
+            format = "logfmt"
+            "#,
+            )?;
+
+            let config = load_config_with_args(vec![], None).expect("Could not load config");
+            let log_fmt = config.log.map(|x| x.format);
+            assert_eq!(log_fmt, Some(LogFormat::Logfmt));
+            Ok(())
+        })
+    }
+
+    #[test]
+    fn load_allowed_binaries_with_file() {
+        Jail::expect_with(|jail| {
+            jail.create_file(
+                "Config.toml",
+                r#"
+            allowed_binaries = ["/bin/sh"]
+            "#,
+            )?;
+
+            let config = load_config_with_args(vec![], None).expect("Could not load config");
+            assert_eq!(
+                config
+                    .node_config
+                    .allowed_binaries,
+                vec!("/bin/sh".to_string())
+            );
+
+            Ok(())
+        });
+    }
+
+    #[test]
+    fn load_allowed_binaries_with_env() {
+        Jail::expect_with(|jail| {
+            jail.set_env("FLUENCE_ALLOWED_BINARIES", "[\"/bin/sh\"]");
+
+            let config = load_config_with_args(vec![], None).expect("Could not load config");
+            assert_eq!(
+                config
+                    .node_config
+                    .allowed_binaries,
+                vec!("/bin/sh".to_string())
+            );
 
             Ok(())
         });
