@@ -88,9 +88,9 @@ async fn main() -> eyre::Result<()> {
         }
     }
     tracing_subscriber::registry()
-        .with(log_layer(config.log.clone()))
+        .with(log_layer(&config.log))
         .with(tokio_console_layer())
-        .with(tracing_layer()?)
+        .with(tracing_layer(&config.tracing)?)
         .init();
 
     if let Some(true) = config.print_config {
@@ -107,6 +107,7 @@ async fn main() -> eyre::Result<()> {
     tokio::task::spawn_blocking(|| {
         let result: eyre::Result<()> = tokio::runtime::Builder::new_multi_thread()
             .enable_all()
+            .thread_name("tokio")
             .build()
             .expect("Could not make tokio runtime")
             .block_on(async {

@@ -2,16 +2,15 @@ use console_subscriber::ConsoleLayer;
 use opentelemetry::sdk::Resource;
 use opentelemetry::KeyValue;
 use opentelemetry_otlp::WithExportConfig;
-use server_config::{LogConfig, LogFormat};
+use server_config::{LogConfig, LogFormat, TracingConfig};
 use tracing::level_filters::LevelFilter;
 use tracing::Subscriber;
 use tracing_subscriber::registry::LookupSpan;
 use tracing_subscriber::Layer;
 
 const TOKIO_CONSOLE_VAR: &str = "FLUENCE_TOKIO_CONSOLE_ENABLED";
-const TRACING_TRACER_VAR: &str = "FLUENCE_TRACING_TRACER";
 
-pub fn log_layer<S>(log_config: Option<LogConfig>) -> impl Layer<S>
+pub fn log_layer<S>(log_config: &Option<LogConfig>) -> impl Layer<S>
 where
     S: Subscriber + for<'span> LookupSpan<'span>,
 {
@@ -33,7 +32,10 @@ where
         .add_directive("tracing=error".parse().unwrap())
         .add_directive("avm_server::runner=error".parse().unwrap());
 
-    let log_format = log_config.map(|c| c.format).unwrap_or(LogFormat::Default);
+    let log_format = log_config
+        .as_ref()
+        .map(|c| &c.format)
+        .unwrap_or(&LogFormat::Default);
 
     let layer = match log_format {
         LogFormat::Logfmt => tracing_logfmt::builder()
@@ -62,29 +64,32 @@ where
         .ok()
 }
 
-pub fn tracing_layer<S>() -> eyre::Result<Option<impl Layer<S>>>
+pub fn tracing_layer<S>(
+    tracing_config: &Option<TracingConfig>,
+) -> eyre::Result<Option<impl Layer<S>>>
 where
     S: Subscriber + for<'span> LookupSpan<'span>,
 {
-    let tracing_layer = match std::env::var(TRACING_TRACER_VAR)
-        .unwrap_or_default()
-        .trim()
-        .to_ascii_lowercase()
-        .as_str()
-    {
-        "otlp" => {
+    let tracing_config = tracing_config.as_ref().unwrap_or(&TracingConfig::Disabled);
+    let tracing_layer = match tracing_config {
+        TracingConfig::Disabled => None,
+        TracingConfig::Otlp { endpoint } => {
             let resource = Resource::new(vec![KeyValue::new("service.name", "rust-peer")]);
 
             let tracer = opentelemetry_otlp::new_pipeline()
                 .tracing()
-                .with_exporter(opentelemetry_otlp::new_exporter().tonic().with_env())
+                .with_exporter(
+                    opentelemetry_otlp::new_exporter()
+                        .tonic()
+                        .with_endpoint(endpoint),
+                )
                 .with_trace_config(opentelemetry::sdk::trace::config().with_resource(resource))
                 .install_batch(opentelemetry::runtime::TokioCurrentThread)?;
 
             let tracing_layer = tracing_opentelemetry::layer::<S>().with_tracer(tracer);
             Some(tracing_layer)
         }
-        _ => None,
     };
+
     Ok(tracing_layer)
 }

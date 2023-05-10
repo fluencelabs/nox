@@ -50,5 +50,6 @@ pub use network_config::NetworkConfig;
 pub use node_config::{NodeConfig, TransportConfig};
 pub use resolved_config::LogConfig;
 pub use resolved_config::LogFormat;
+pub use resolved_config::TracingConfig;
 pub use resolved_config::{ResolvedConfig, UnresolvedConfig};
 pub use services_config::ServicesConfig;

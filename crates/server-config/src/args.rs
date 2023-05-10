@@ -113,10 +113,43 @@ pub struct LogArgs {
     #[arg(
         long("log-format"),
         id = "LOG_FORMAT",
+        help = "logging format",
         help_heading = "Node configuration",
         display_order = 24
     )]
-    pub(crate) format: Option<LogFormat>,
+    pub format: Option<LogFormat>,
+}
+
+#[derive(Args, Debug, Clone, Serialize)]
+pub struct TracingArgs {
+    #[arg(
+        long,
+        id = "TRACING_TYPE",
+        help = "Tracing type",
+        help_heading = "Node configuration",
+        display_order = 25,
+        value_enum
+    )]
+    #[serde(rename = "type")]
+    tracing_type: Option<TracingType>,
+
+    #[arg(
+        long("tracing-otlp-endpoint"),
+        id = "TRACING_OTLP_ENDPOINT",
+        value_name = "URL",
+        help = "oltp endpoint",
+        help_heading = "Node configuration",
+        display_order = 26
+    )]
+    pub endpoint: Option<String>,
+}
+
+#[derive(clap::ValueEnum, Debug, Clone, Serialize)]
+pub enum TracingType {
+    #[serde(rename = "disabled")]
+    Disabled,
+    #[serde(rename = "otlp")]
+    Otlp,
 }
 
 #[derive(Parser, Debug, Serialize, Clone)]
@@ -301,6 +334,9 @@ pub(crate) struct DerivedArgs {
 
     #[command(flatten)]
     log: Option<LogArgs>,
+
+    #[command(flatten)]
+    tracing: Option<TracingArgs>,
 }
 
 impl figment::Provider for DerivedArgs {

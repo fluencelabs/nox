@@ -39,6 +39,8 @@ pub struct UnresolvedConfig {
     node_config: UnresolvedNodeConfig,
     #[serde(default)]
     pub log: Option<LogConfig>,
+    #[serde(default)]
+    pub tracing: Option<TracingConfig>,
 
     pub no_banner: Option<bool>,
 
@@ -77,6 +79,15 @@ impl FromStr for LogFormat {
             _ => Err("Unsupported log format".to_string()),
         }
     }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+#[serde(tag = "type")]
+pub enum TracingConfig {
+    #[serde(rename = "disabled")]
+    Disabled,
+    #[serde(rename = "otlp")]
+    Otlp { endpoint: String },
 }
 
 #[derive(Clone, Debug)]
@@ -517,9 +528,7 @@ mod tests {
 
             let config = load_config_with_args(vec![], None).expect("Could not load config");
             assert_eq!(
-                config
-                    .node_config
-                    .allowed_binaries,
+                config.node_config.allowed_binaries,
                 vec!("/bin/sh".to_string())
             );
 
@@ -534,12 +543,118 @@ mod tests {
 
             let config = load_config_with_args(vec![], None).expect("Could not load config");
             assert_eq!(
-                config
-                    .node_config
-                    .allowed_binaries,
+                config.node_config.allowed_binaries,
                 vec!("/bin/sh".to_string())
             );
 
+            Ok(())
+        });
+    }
+
+    #[test]
+    fn load_tracing_disabled_with_file() {
+        Jail::expect_with(|jail| {
+            jail.create_file(
+                "Config.toml",
+                r#"
+            [tracing]
+            type = "disabled"
+            "#,
+            )?;
+
+            let config = load_config_with_args(vec![], None).expect("Could not load config");
+            assert_eq!(config.tracing, Some(TracingConfig::Disabled));
+            Ok(())
+        })
+    }
+
+    #[test]
+    fn load_tracing_otlp_with_file() {
+        Jail::expect_with(|jail| {
+            jail.create_file(
+                "Config.toml",
+                r#"
+            [tracing]
+            type = "otlp"
+            endpoint = "test"
+            "#,
+            )?;
+
+            let config = load_config_with_args(vec![], None).expect("Could not load config");
+            assert_eq!(
+                config.tracing,
+                Some(TracingConfig::Otlp {
+                    endpoint: "test".to_string()
+                })
+            );
+            Ok(())
+        })
+    }
+
+    #[test]
+    fn load_tracing_disabled_with_env() {
+        Jail::expect_with(|jail| {
+            jail.set_env("FLUENCE_TRACING__TYPE", "disabled");
+
+            let config = load_config_with_args(vec![], None).expect("Could not load config");
+            assert_eq!(config.tracing, Some(TracingConfig::Disabled));
+            Ok(())
+        });
+    }
+
+    #[test]
+    fn load_tracing_otlp_with_env() {
+        Jail::expect_with(|jail| {
+            jail.set_env("FLUENCE_TRACING__TYPE", "otlp");
+            jail.set_env("FLUENCE_TRACING__ENDPOINT", "test");
+
+            let config = load_config_with_args(vec![], None).expect("Could not load config");
+            assert_eq!(
+                config.tracing,
+                Some(TracingConfig::Otlp {
+                    endpoint: "test".to_string()
+                })
+            );
+            Ok(())
+        });
+    }
+
+    #[test]
+    fn load_tracing_disabled_with_args() {
+        Jail::expect_with(|jail| {
+            jail.set_env("FLUENCE_TRACING__TYPE", "otlp");
+            jail.set_env("FLUENCE_TRACING__ENDPOINT", "test");
+
+            let args = vec![
+                OsString::from("particle-node"),
+                OsString::from("--tracing-type"),
+                OsString::from("disabled"),
+            ];
+            let config = load_config_with_args(args, None).expect("Could not load config");
+            assert_eq!(config.tracing, Some(TracingConfig::Disabled));
+            Ok(())
+        });
+    }
+
+    #[test]
+    fn load_tracing_otlp_with_args() {
+        Jail::expect_with(|jail| {
+            jail.set_env("FLUENCE_TRACING__TYPE", "disabled");
+
+            let args = vec![
+                OsString::from("particle-node"),
+                OsString::from("--tracing-type"),
+                OsString::from("otlp"),
+                OsString::from("--tracing-otlp-endpoint"),
+                OsString::from("test"),
+            ];
+            let config = load_config_with_args(args, None).expect("Could not load config");
+            assert_eq!(
+                config.tracing,
+                Some(TracingConfig::Otlp {
+                    endpoint: "test".to_string()
+                })
+            );
             Ok(())
         });
     }
