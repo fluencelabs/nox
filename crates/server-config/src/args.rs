@@ -16,9 +16,7 @@
 
 use crate::LogFormat;
 use clap::{Args, Parser};
-use figment::error::Kind::InvalidType;
-use figment::value::{Dict, Map, Value};
-use figment::{Error, Metadata, Profile};
+use config::{ConfigError, Map, Source, Value};
 use serde::ser::SerializeStruct;
 use serde::{Serialize, Serializer};
 use std::fmt::Debug;
@@ -123,7 +121,7 @@ pub struct LogArgs {
 #[derive(Args, Debug, Clone, Serialize)]
 pub struct TracingArgs {
     #[arg(
-        long,
+        long("tracing-type"),
         id = "TRACING_TYPE",
         help = "Tracing type",
         help_heading = "Node configuration",
@@ -131,7 +129,7 @@ pub struct TracingArgs {
         value_enum
     )]
     #[serde(rename = "type")]
-    tracing_type: Option<TracingType>,
+    tpe: Option<TracingType>,
 
     #[arg(
         long("tracing-otlp-endpoint"),
@@ -339,7 +337,21 @@ pub(crate) struct DerivedArgs {
     tracing: Option<TracingArgs>,
 }
 
-impl figment::Provider for DerivedArgs {
+impl Source for DerivedArgs {
+    fn clone_into_box(&self) -> Box<dyn Source + Send + Sync> {
+        Box::new(self.clone())
+    }
+
+    fn collect(&self) -> Result<Map<String, Value>, ConfigError> {
+        let source_str =
+            toml::to_string(&self).map_err(|e| config::ConfigError::Foreign(Box::new(e)))?;
+        let result = toml::de::from_str(&source_str)
+            .map_err(|e| config::ConfigError::Foreign(Box::new(e)))?;
+        Ok(result)
+    }
+}
+
+/*impl figment::Provider for DerivedArgs {
     fn metadata(&self) -> Metadata {
         Metadata::named("Args")
     }
@@ -352,6 +364,7 @@ impl figment::Provider for DerivedArgs {
             .into_dict()
             .map(|dict| {
                 let a = dict.into_iter().filter_map(|(key, value)| match value {
+                    Value::String(_, str) if str.is_empty() => None,
                     Value::Empty(_, _) => None,
                     value => Some((key, value)),
                 });
@@ -361,3 +374,4 @@ impl figment::Provider for DerivedArgs {
         Ok(Map::from([(Profile::Default, dict)]))
     }
 }
+*/

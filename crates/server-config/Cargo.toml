@@ -13,6 +13,7 @@ air-interpreter-fs = { workspace = true }
 peer-metrics = { workspace = true }
 fluence-keypair = { workspace = true }
 log = "0.4.17"
+toml = "0.7.3"
 
 libp2p = { workspace = true }
 libp2p-metrics = { workspace = true }
@@ -28,8 +29,9 @@ num_cpus = "1.15.0"
 eyre = { workspace = true }
 derivative = { workspace = true }
 bytesize = { version = "1.2.0", features = ["serde"] }
-serde_with = "2.3.3"
-figment = { version = "0.10.8", features = ["parking_lot", "toml", "yaml", "json", "env"] }
+serde_with = "2.3.2"
+config = { version = "0.13.1" ,default-features = false, features=["toml"] }
 
 [dev-dependencies]
-figment = { version = "0.10.8", features = ["test"] }
+temp-env = "0.3.0"
+tempfile = "3.5.0"
