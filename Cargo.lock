@@ -2120,9 +2120,9 @@ dependencies = [
 
 [[package]]
 name = "fluence-keypair"
-version = "0.10.0"
+version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "24052ad697a4d61ea610357d0c19155aa4ecea3d8b78672afb0a579b77bd5893"
+checksum = "ab5ed0ab3b8a69317a0452fdb52e35613a8ac5e4a638b21c774ed1ae9195662b"
 dependencies = [
  "asn1_der 0.6.3",
  "bs58",
