@@ -89,7 +89,7 @@ async fn main() -> eyre::Result<()> {
     }
     tracing_subscriber::registry()
         .with(log_layer(&config.log))
-        .with(tokio_console_layer())
+        .with(tokio_console_layer(&config.console)?)
         .with(tracing_layer(&config.tracing)?)
         .init();
 

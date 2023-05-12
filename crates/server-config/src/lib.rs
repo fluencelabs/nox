@@ -48,6 +48,7 @@ pub use bootstrap_config::BootstrapConfig;
 pub use kademlia_config::KademliaConfig;
 pub use network_config::NetworkConfig;
 pub use node_config::{NodeConfig, TransportConfig};
+pub use resolved_config::ConsoleConfig;
 pub use resolved_config::LogConfig;
 pub use resolved_config::LogFormat;
 pub use resolved_config::TracingConfig;

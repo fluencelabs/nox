@@ -350,28 +350,3 @@ impl Source for DerivedArgs {
         Ok(result)
     }
 }
-
-/*impl figment::Provider for DerivedArgs {
-    fn metadata(&self) -> Metadata {
-        Metadata::named("Args")
-    }
-
-    fn data(&self) -> Result<Map<Profile, Dict>, Error> {
-        let value = Value::serialize(self)?;
-
-        let error = InvalidType(value.to_actual(), "map".into());
-        let dict = value
-            .into_dict()
-            .map(|dict| {
-                let a = dict.into_iter().filter_map(|(key, value)| match value {
-                    Value::String(_, str) if str.is_empty() => None,
-                    Value::Empty(_, _) => None,
-                    value => Some((key, value)),
-                });
-                a.collect::<Dict>()
-            })
-            .ok_or(error)?;
-        Ok(Map::from([(Profile::Default, dict)]))
-    }
-}
-*/

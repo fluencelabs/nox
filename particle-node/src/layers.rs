@@ -1,14 +1,14 @@
 use console_subscriber::ConsoleLayer;
+use eyre::anyhow;
 use opentelemetry::sdk::Resource;
 use opentelemetry::KeyValue;
 use opentelemetry_otlp::WithExportConfig;
-use server_config::{LogConfig, LogFormat, TracingConfig};
+use server_config::{ConsoleConfig, LogConfig, LogFormat, TracingConfig};
+use std::net::{SocketAddr, ToSocketAddrs};
 use tracing::level_filters::LevelFilter;
 use tracing::Subscriber;
 use tracing_subscriber::registry::LookupSpan;
 use tracing_subscriber::Layer;
-
-const TOKIO_CONSOLE_VAR: &str = "FLUENCE_TOKIO_CONSOLE_ENABLED";
 
 pub fn log_layer<S>(log_config: &Option<LogConfig>) -> impl Layer<S>
 where
@@ -55,13 +55,25 @@ where
     layer
 }
 
-pub fn tokio_console_layer<S>() -> Option<impl Layer<S>>
+pub fn tokio_console_layer<S>(
+    console_config: &Option<ConsoleConfig>,
+) -> eyre::Result<Option<impl Layer<S>>>
 where
     S: Subscriber + for<'a> LookupSpan<'a>,
 {
-    std::env::var(TOKIO_CONSOLE_VAR)
-        .map(|_| ConsoleLayer::builder().with_default_env().spawn())
-        .ok()
+    let console = console_config.as_ref().unwrap_or(&ConsoleConfig::Disabled);
+
+    let console_layer = match console {
+        ConsoleConfig::Disabled => None,
+        ConsoleConfig::Enabled { bind } => {
+            let addr: SocketAddr = bind
+                .to_socket_addrs()?
+                .next()
+                .ok_or_else(|| anyhow!("tokio console could not resolve bind address"))?;
+            Some(ConsoleLayer::builder().server_addr(addr).spawn())
+        }
+    };
+    Ok(console_layer)
 }
 
 pub fn tracing_layer<S>(

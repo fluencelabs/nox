@@ -39,6 +39,8 @@ pub struct UnresolvedConfig {
     pub log: Option<LogConfig>,
     #[serde(default)]
     pub tracing: Option<TracingConfig>,
+    #[serde(default)]
+    pub console: Option<ConsoleConfig>,
 
     pub no_banner: Option<bool>,
 
@@ -85,9 +87,16 @@ pub enum TracingConfig {
     #[serde(rename = "disabled")]
     Disabled,
     #[serde(rename = "otlp")]
-    Otlp {
-        endpoint: String
-    },
+    Otlp { endpoint: String },
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+#[serde(tag = "type")]
+pub enum ConsoleConfig {
+    #[serde(rename = "disabled")]
+    Disabled,
+    #[serde(rename = "enabled")]
+    Enabled { bind: String },
 }
 
 #[derive(Clone, Debug)]
