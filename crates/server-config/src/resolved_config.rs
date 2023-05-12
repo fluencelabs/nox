@@ -199,7 +199,7 @@ pub fn load_config_with_args(
     let file_source = cli_config
         .config
         .clone()
-        .or_else(|| std::env::var_os("FLUENCE__CONFIG").map(PathBuf::from))
+        .or_else(|| std::env::var_os("FLUENCE_CONFIG").map(PathBuf::from))
         .map(|path| File::from(path).format(FileFormat::Toml))
         .unwrap_or(
             File::with_name("Config.toml")
@@ -209,6 +209,7 @@ pub fn load_config_with_args(
 
     let env_source = Environment::with_prefix("FLUENCE")
         .try_parsing(true)
+        .prefix_separator("_")
         .separator("__")
         .list_separator(",")
         .with_list_parse_key("allowed_binaries");
@@ -236,7 +237,7 @@ mod tests {
     #[test]
     fn load_allowed_binaries_with_env() {
         temp_env::with_var(
-            "FLUENCE__ALLOWED_BINARIES",
+            "FLUENCE_ALLOWED_BINARIES",
             Some("/bin/sh,/bin/bash"),
             || {
                 let config = load_config_with_args(vec![], None).expect("Could not load config");
@@ -266,7 +267,7 @@ mod tests {
         "#).expect("Could not write in file");
 
         let path = file.path().display().to_string();
-        temp_env::with_var("FLUENCE__CONFIG", Some(path), || {
+        temp_env::with_var("FLUENCE_CONFIG", Some(path), || {
             let config = load_config_with_args(vec![], None).expect("Could not load config");
             let config = config.resolve().unwrap();
             let resolved_secret = encode_secret(&config);
@@ -312,7 +313,7 @@ mod tests {
         assert!(!builtins_key_path.exists());
 
         let path = file.path().display().to_string();
-        temp_env::with_var("FLUENCE__CONFIG", Some(path), || {
+        temp_env::with_var("FLUENCE_CONFIG", Some(path), || {
             let config = load_config_with_args(vec![], None).expect("Could not load config");
             let config = config.resolve().unwrap();
             let resolved_secret = encode_secret(&config);
@@ -338,7 +339,7 @@ mod tests {
         .expect("Could not write in file");
 
         let path = file.path().display().to_string();
-        temp_env::with_var("FLUENCE__CONFIG", Some(path), || {
+        temp_env::with_var("FLUENCE_CONFIG", Some(path), || {
             let _config = load_config_with_args(vec![], None).expect("Could not load config");
         })
     }
@@ -372,7 +373,7 @@ mod tests {
         .expect("Could not write in file");
         let path = file.path().display().to_string();
 
-        temp_env::with_var("FLUENCE__CONFIG", Some(path), || {
+        temp_env::with_var("FLUENCE_CONFIG", Some(path), || {
             let root_kp = KeyPair::generate_ed25519();
             let builtins_kp = KeyPair::generate_secp256k1();
             std::fs::write(&root_key_path, bs58::encode(root_kp.to_vec()).into_vec()).unwrap();
@@ -417,7 +418,7 @@ mod tests {
 
         let path = file.path().display().to_string();
 
-        temp_env::with_var("FLUENCE__CONFIG", Some(path), || {
+        temp_env::with_var("FLUENCE_CONFIG", Some(path), || {
             let root_kp = KeyPair::generate_ed25519();
             let builtins_kp = KeyPair::generate_secp256k1();
             std::fs::write(&root_key_path, base64.encode(root_kp.to_vec())).unwrap();
@@ -454,7 +455,7 @@ mod tests {
         let root_kp = KeyPair::generate_ed25519();
         let path = file.path().display().to_string();
 
-        temp_env::with_var("FLUENCE__CONFIG", Some(path), || {
+        temp_env::with_var("FLUENCE_CONFIG", Some(path), || {
             let builtins_kp = KeyPair::generate_secp256k1();
             std::fs::write(&root_key_path, base64.encode(&root_kp.secret().unwrap())).unwrap();
             std::fs::write(
@@ -494,7 +495,7 @@ mod tests {
 
         let path = file.path().display().to_string();
 
-        temp_env::with_var("FLUENCE__CONFIG", Some(path), || {
+        temp_env::with_var("FLUENCE_CONFIG", Some(path), || {
             let root_kp = KeyPair::generate_ed25519();
             let builtins_kp = KeyPair::generate_secp256k1();
             std::fs::write(
@@ -516,7 +517,7 @@ mod tests {
 
     #[test]
     fn load_log_format_with_env() {
-        temp_env::with_var("FLUENCE__LOG__FORMAT", Some("logfmt"), || {
+        temp_env::with_var("FLUENCE_LOG__FORMAT", Some("logfmt"), || {
             let config = load_config_with_args(vec![], None).expect("Could not load config");
             let log_fmt = config.log.map(|x| x.format);
             assert_eq!(log_fmt, Some(LogFormat::Logfmt));
@@ -549,7 +550,7 @@ mod tests {
 
         let path = file.path().display().to_string();
 
-        temp_env::with_var("FLUENCE__CONFIG", Some(path), || {
+        temp_env::with_var("FLUENCE_CONFIG", Some(path), || {
             let config = load_config_with_args(vec![], None).expect("Could not load config");
             let log_fmt = config.log.map(|x| x.format);
             assert_eq!(log_fmt, Some(LogFormat::Logfmt));
@@ -569,7 +570,7 @@ mod tests {
 
         let path = file.path().display().to_string();
 
-        temp_env::with_var("FLUENCE__CONFIG", Some(path), || {
+        temp_env::with_var("FLUENCE_CONFIG", Some(path), || {
             let config = load_config_with_args(vec![], None).expect("Could not load config");
             assert_eq!(
                 config.node_config.allowed_binaries,
@@ -592,7 +593,7 @@ mod tests {
 
         let path = file.path().display().to_string();
 
-        temp_env::with_var("FLUENCE__CONFIG", Some(path), || {
+        temp_env::with_var("FLUENCE_CONFIG", Some(path), || {
             let config = load_config_with_args(vec![], None).expect("Could not load config");
             assert_eq!(config.tracing, Some(TracingConfig::Disabled));
         });
@@ -613,7 +614,7 @@ mod tests {
 
         let path = file.path().display().to_string();
 
-        temp_env::with_var("FLUENCE__CONFIG", Some(path), || {
+        temp_env::with_var("FLUENCE_CONFIG", Some(path), || {
             let config = load_config_with_args(vec![], None).expect("Could not load config");
             assert_eq!(
                 config.tracing,
@@ -626,7 +627,7 @@ mod tests {
 
     #[test]
     fn load_tracing_disabled_with_env() {
-        temp_env::with_var("FLUENCE__TRACING__TYPE", Some("disabled"), || {
+        temp_env::with_var("FLUENCE_TRACING__TYPE", Some("disabled"), || {
             let config = load_config_with_args(vec![], None).expect("Could not load config");
             assert_eq!(config.tracing, Some(TracingConfig::Disabled));
         });
@@ -636,8 +637,8 @@ mod tests {
     fn load_tracing_otlp_with_env() {
         temp_env::with_vars(
             [
-                ("FLUENCE__TRACING__TYPE", Some("otlp")),
-                ("FLUENCE__TRACING__ENDPOINT", Some("test")),
+                ("FLUENCE_TRACING__TYPE", Some("otlp")),
+                ("FLUENCE_TRACING__ENDPOINT", Some("test")),
             ],
             || {
                 let config = load_config_with_args(vec![], None).expect("Could not load config");
