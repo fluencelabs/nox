@@ -27,7 +27,7 @@ num_cpus = "1.15.0"
 eyre = { workspace = true }
 derivative = { workspace = true }
 bytesize = { version = "1.2.0", features = ["serde"] }
-serde_with = "2.3.2"
+serde_with = "2.3.3"
 figment = { version = "0.10.8", features = ["parking_lot", "toml", "yaml", "json", "env"] }
 
 [dev-dependencies]
