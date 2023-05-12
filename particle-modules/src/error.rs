@@ -36,8 +36,6 @@ pub enum ModuleError {
         #[source]
         err: std::io::Error,
     },
-    // #[error("Error hashing module: {0}")]
-    // HashModulError(#[source])
     #[error("Error serializing config to toml: {err} {config:?}")]
     SerializeConfig {
         #[source]

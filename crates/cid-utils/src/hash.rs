@@ -29,6 +29,9 @@ use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 use crate::unixfs::mod_Data::DataType;
 use crate::unixfs::Data as UnixFsMetadata;
 
+/// CHUNK_SIZE is the size of the chunks that we use to split the data into before hashing.
+/// 262144 is the default size used by the go-ipfs implementation.
+/// It should be used everywhere in the Fluence stack to produce the same CIDs.
 const CHUNK_SIZE: usize = 262144;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]

@@ -84,28 +84,6 @@ impl ModuleRepository {
         }
     }
 
-    /// check that module file name is equal to module hash
-    /// if not, rename module and config files
-    // fn maybe_migrate_module(path: &Path, hash: &Hash, modules_dir: &Path) {
-    //     use eyre::eyre;
-    //
-    //     let migrated: eyre::Result<_> = try {
-    //         let file_name = extract_module_file_name(path).ok_or_else(|| eyre!("no file name"))?;
-    //         if file_name != hash.to_string() {
-    //             let new_name = module_file_name_hash(hash);
-    //             log::debug!(target: "migration", "renaming module {}.wasm to {}", file_name, new_name);
-    //             std::fs::rename(path, modules_dir.join(module_file_name_hash(hash)))?;
-    //             let new_name = module_config_name_hash(hash);
-    //             let config = path.with_file_name(format!("{file_name}_config.toml"));
-    //             log::debug!(target: "migration", "renaming config {:?} to {}", config.file_name().unwrap(), new_name);
-    //             std::fs::rename(&config, modules_dir.join(new_name))?;
-    //         }
-    //     };
-    //
-    //     if let Err(e) = migrated {
-    //         log::warn!("Module {:?} migration failed: {:?}", path, e);
-    //     }
-    // }
 
     // set default if max_heap_size and mem_pages_count are not specified
     fn check_module_heap_size(&self, config: &mut TomlMarineNamedModuleConfig) -> Result<()> {
@@ -542,22 +520,6 @@ mod tests {
         let result = repo.get_interface(&m_hash);
         assert!(result.is_ok())
     }
-
-    // #[test]
-    // fn test_hash_dependency() {
-    //     use super::hash_dependencies;
-    //     use crate::modules::Hash;
-    //
-    //     let dep1 = Hash::new(&[1, 2, 3]);
-    //     let dep2 = Hash::new(&[2, 1, 3]);
-    //     let dep3 = Hash::new(&[3, 2, 1]);
-    //
-    //     let hash1 = hash_dependencies(dep3.clone(), vec![dep1.clone(), dep2.clone()]);
-    //     let hash2 = hash_dependencies(dep3.clone(), vec![dep2.clone(), dep1.clone()]);
-    //     let hash3 = hash_dependencies(dep1, vec![dep2, dep3]);
-    //     assert_eq!(hash1.to_string(), hash2.to_string());
-    //     assert_ne!(hash2.to_string(), hash3.to_string());
-    // }
 
     #[test]
     fn test_add_module_max_heap_size_overflow() {
