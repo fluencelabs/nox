@@ -84,7 +84,6 @@ impl ModuleRepository {
         }
     }
 
-
     // set default if max_heap_size and mem_pages_count are not specified
     fn check_module_heap_size(&self, config: &mut TomlMarineNamedModuleConfig) -> Result<()> {
         let heap_size = match (config.config.max_heap_size, config.config.mem_pages_count) {
