@@ -34,6 +34,7 @@ impl AddBlueprint {
     }
 
     pub fn get_ipld(&self) -> Ipld {
+        // BTreeMap is used internally by IPLD, so we use it here to avoid conversions
         let mut map = BTreeMap::new();
         map.insert("name".to_string(), Ipld::String(self.name.clone()));
         map.insert(

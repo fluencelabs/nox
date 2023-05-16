@@ -158,7 +158,7 @@ async fn load_blueprint_from_vault() {
         r#"
         (seq
             (seq
-                (call relay ("dist" "default_module_config") ["file_share" module] config)                
+                (call relay ("dist" "default_module_config") ["file_share"] config)                
                 (call relay ("dist" "add_module") [module config] hash)
             )
             (call %init_peer_id% ("op" "return") [hash])

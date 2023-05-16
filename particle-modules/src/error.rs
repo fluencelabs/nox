@@ -42,7 +42,7 @@ pub enum ModuleError {
         err: toml::ser::Error,
         config: TomlMarineNamedModuleConfig,
     },
-    #[error("Error serializing config to json: {0}")]
+    #[error("Error serializing module config to json: {0}")]
     SerializeConfigJson(#[source] serde_json::error::Error),
     #[error("Error serializing blueprint to toml: {err} {blueprint:?}")]
     SerializeBlueprint {

@@ -711,9 +711,10 @@ where
 
     fn add_blueprint(&self, args: Args) -> Result<JValue, JError> {
         let mut args = args.function_args.into_iter();
-        let blueprint_request: String = Args::next("blueprint_request", &mut args)?;
-        let blueprint = AddBlueprint::decode(blueprint_request.as_bytes())
-            .map_err(|err| JError::new(format!("Error deserializing blueprint: {err}")))?;
+        let blueprint: String = Args::next("blueprint", &mut args)?;
+        let blueprint = AddBlueprint::decode(blueprint.as_bytes()).map_err(|err| {
+            JError::new(format!("Error deserializing blueprint from IPLD: {err}"))
+        })?;
         let blueprint_id = self.modules.add_blueprint(blueprint)?;
         Ok(JValue::String(blueprint_id))
     }
@@ -755,14 +756,12 @@ where
         let mut args = args.function_args.into_iter();
         let name = Args::next("name", &mut args)?;
         let dependencies = Args::next("dependencies", &mut args)?;
-        let blueprint_request = AddBlueprint { name, dependencies };
+        let blueprint = AddBlueprint { name, dependencies };
 
-        let blueprint_request = blueprint_request.to_string().map_err(|err| {
-            JError::new(format!(
-                "Error serializing blueprint_request to IPLD: {err}"
-            ))
-        })?;
-        Ok(json!(blueprint_request))
+        let blueprint = blueprint
+            .to_string()
+            .map_err(|err| JError::new(format!("Error serializing blueprint to IPLD: {err}")))?;
+        Ok(json!(blueprint))
     }
 
     fn load_blueprint_from_vault(
@@ -773,16 +772,14 @@ where
         let mut args = args.function_args.into_iter();
         let blueprint_path = Args::next("blueprint_path", &mut args)?;
 
-        let blueprint_request = self
+        let blueprint = self
             .modules
             .load_blueprint_from_vault(blueprint_path, params)?;
 
-        let blueprint_request = blueprint_request.to_string().map_err(|err| {
-            JError::new(format!(
-                "Error serializing blueprint_request to IPLD: {err}"
-            ))
-        })?;
-        Ok(json!(blueprint_request))
+        let blueprint = blueprint
+            .to_string()
+            .map_err(|err| JError::new(format!("Error serializing blueprint to IPLD: {err}")))?;
+        Ok(json!(blueprint))
     }
 
     fn list_modules(&self) -> Result<JValue, JError> {
