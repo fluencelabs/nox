@@ -37,7 +37,6 @@ pub struct NetworkConfig {
     pub kademlia_config: KademliaConfig,
     pub particle_queue_buffer: usize,
     pub bootstrap_frequency: usize,
-    pub allow_local_addresses: bool,
     pub connectivity_metrics: Option<ConnectivityMetrics>,
     pub connection_pool_metrics: Option<ConnectionPoolMetrics>,
     #[allow(deprecated)]
@@ -66,7 +65,6 @@ impl NetworkConfig {
             kademlia_config: config.kademlia.clone(),
             particle_queue_buffer: config.particle_queue_buffer,
             bootstrap_frequency: config.bootstrap_frequency,
-            allow_local_addresses: config.allow_local_addresses,
             connectivity_metrics,
             connection_pool_metrics,
             connection_limits,
