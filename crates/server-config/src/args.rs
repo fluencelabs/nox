@@ -16,9 +16,7 @@
 
 use crate::LogFormat;
 use clap::{Args, Parser};
-use figment::error::Kind::InvalidType;
-use figment::value::{Dict, Map, Value};
-use figment::{Error, Metadata, Profile};
+use config::{ConfigError, Map, Source, Value};
 use serde::ser::SerializeStruct;
 use serde::{Serialize, Serializer};
 use std::fmt::Debug;
@@ -113,10 +111,43 @@ pub struct LogArgs {
     #[arg(
         long("log-format"),
         id = "LOG_FORMAT",
+        help = "logging format",
         help_heading = "Node configuration",
         display_order = 24
     )]
-    pub(crate) format: Option<LogFormat>,
+    pub format: Option<LogFormat>,
+}
+
+#[derive(Args, Debug, Clone, Serialize)]
+pub struct TracingArgs {
+    #[arg(
+        long("tracing-type"),
+        id = "TRACING_TYPE",
+        help = "Tracing type",
+        help_heading = "Node configuration",
+        display_order = 25,
+        value_enum
+    )]
+    #[serde(rename = "type")]
+    tpe: Option<TracingType>,
+
+    #[arg(
+        long("tracing-otlp-endpoint"),
+        id = "TRACING_OTLP_ENDPOINT",
+        value_name = "URL",
+        help = "oltp endpoint",
+        help_heading = "Node configuration",
+        display_order = 26
+    )]
+    pub endpoint: Option<String>,
+}
+
+#[derive(clap::ValueEnum, Debug, Clone, Serialize)]
+pub enum TracingType {
+    #[serde(rename = "disabled")]
+    Disabled,
+    #[serde(rename = "otlp")]
+    Otlp,
 }
 
 #[derive(Parser, Debug, Serialize, Clone)]
@@ -301,27 +332,21 @@ pub(crate) struct DerivedArgs {
 
     #[command(flatten)]
     log: Option<LogArgs>,
+
+    #[command(flatten)]
+    tracing: Option<TracingArgs>,
 }
 
-impl figment::Provider for DerivedArgs {
-    fn metadata(&self) -> Metadata {
-        Metadata::named("Args")
+impl Source for DerivedArgs {
+    fn clone_into_box(&self) -> Box<dyn Source + Send + Sync> {
+        Box::new(self.clone())
     }
 
-    fn data(&self) -> Result<Map<Profile, Dict>, Error> {
-        let value = Value::serialize(self)?;
-
-        let error = InvalidType(value.to_actual(), "map".into());
-        let dict = value
-            .into_dict()
-            .map(|dict| {
-                let a = dict.into_iter().filter_map(|(key, value)| match value {
-                    Value::Empty(_, _) => None,
-                    value => Some((key, value)),
-                });
-                a.collect::<Dict>()
-            })
-            .ok_or(error)?;
-        Ok(Map::from([(Profile::Default, dict)]))
+    fn collect(&self) -> Result<Map<String, Value>, ConfigError> {
+        let source_str =
+            toml::to_string(&self).map_err(|e| config::ConfigError::Foreign(Box::new(e)))?;
+        let result = toml::de::from_str(&source_str)
+            .map_err(|e| config::ConfigError::Foreign(Box::new(e)))?;
+        Ok(result)
     }
 }

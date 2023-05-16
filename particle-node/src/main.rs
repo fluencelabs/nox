@@ -69,9 +69,11 @@ async fn main() -> eyre::Result<()> {
     };
     let config = load_config(Some(config_data))?;
 
-    if !config.no_banner {
-        println!(
-            r#"
+    match config.no_banner {
+        Some(true) => {}
+        _ => {
+            println!(
+                r#"
 +-------------------------------------------------+
 | Hello from the Fluence Team. If you encounter   |
 | any troubles with node operation, please update |
@@ -82,18 +84,20 @@ async fn main() -> eyre::Result<()> {
 | https://discord.com/invite/5qSnPZKh7u           |
 +-------------------------------------------------+
     "#
-        );
+            )
+        }
     }
-
     tracing_subscriber::registry()
-        .with(log_layer(config.log.clone()))
-        .with(tokio_console_layer())
-        .with(tracing_layer()?)
+        .with(log_layer(&config.log))
+        .with(tokio_console_layer(&config.console)?)
+        .with(tracing_layer(&config.tracing)?)
         .init();
 
-    if config.print_config {
+    if let Some(true) = config.print_config {
         log::info!("Loaded config: {:#?}", config);
     }
+
+    let config = config.resolve()?;
 
     let interpreter_path = to_abs_path(config.dir_config.air_interpreter_path.clone());
     write_default_air_interpreter(&interpreter_path)?;
@@ -103,6 +107,7 @@ async fn main() -> eyre::Result<()> {
     tokio::task::spawn_blocking(|| {
         let result: eyre::Result<()> = tokio::runtime::Builder::new_multi_thread()
             .enable_all()
+            .thread_name("tokio")
             .build()
             .expect("Could not make tokio runtime")
             .block_on(async {
