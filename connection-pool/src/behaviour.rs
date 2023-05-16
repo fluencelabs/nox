@@ -562,7 +562,7 @@ impl NetworkBehaviour for ConnectionPoolBehaviour {
     ) {
         match event {
             HandlerMessage::InParticle(particle) => {
-                tracing::trace!(target: "network", particle_id = particle.id,"{}: received particle from {}; queue {}", self.peer_id, from, self.queue.len());
+                tracing::info!(target: "network", particle_id = particle.id,"{}: received particle from {}; queue {}", self.peer_id, from, self.queue.len());
                 self.meter(|m| {
                     m.incoming_particle(
                         &particle.id,
