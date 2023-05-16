@@ -204,6 +204,8 @@ pub fn resolve_config(
 
     let unresolved_config: UnresolvedConfig = config_builder.extract()?;
 
+    println!("{:#?}", unresolved_config);
+
     let config = unresolved_config.resolve()?;
 
     Ok(config)
@@ -237,6 +239,7 @@ mod tests {
             let config = resolve_config(vec![], None).expect("Could not load config");
             let resolved_secret = encode_secret(&config);
             assert_eq!(config.node_config.script_storage_max_failures, 10);
+            assert_eq!(config.node_config.allow_local_addresses, false);
             assert_eq!(
                 resolved_secret,
                 "/XKBs1ydmfWGiTbh+e49GYw+14LHtu+v5BMFDIzHpvo="
