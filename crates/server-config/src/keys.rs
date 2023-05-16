@@ -144,7 +144,7 @@ pub fn load_key(
 ) -> eyre::Result<KeyPair> {
     if !key_path.exists() {
         return if generate_on_absence {
-            println!("Generating a new key to {:?}", key_path);
+            log::info!("Generating a new key to {:?}", key_path);
             Ok(create_new_key_pair(
                 &key_path,
                 KeyFormat::from_str(&key_format)?,
