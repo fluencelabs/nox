@@ -12,3 +12,6 @@ bytes = "1.0.1"
 base64 = { workspace = true }
 quick-protobuf = "0.8.1"
 eyre = { workspace = true }
+
+[build-dependencies]
+pb-rs = "0.10.0"

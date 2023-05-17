@@ -39,14 +39,15 @@ pub struct Hash(pub Cid);
 
 impl Hash {
     pub fn new_bytes(bytes: &[u8]) -> eyre::Result<Self> {
-        let chunks: Vec<Vec<u8>> = bytes.chunks(CHUNK_SIZE).map(|c| c.to_vec()).collect();
+        let chunks: Vec<&[u8]> = bytes.chunks(CHUNK_SIZE).map(|c| c).collect();
         let mut links = Vec::new();
         let mut blocksizes = Vec::new();
         for chunk in chunks {
-            let digest = Code::Sha2_256.digest(&chunk);
+            let digest = Code::Sha2_256.digest(chunk);
             let cid = Cid::new_v1(Raw.into(), digest);
             links.push(PbLink {
                 cid,
+                // name for links should be empty, with None it produces results different from go-ipfs
                 name: Some("".to_string()),
                 size: Some(chunk.len() as u64),
             });
@@ -70,7 +71,7 @@ impl Hash {
 
         let pb_node = PbNode {
             links,
-            data: Some(Bytes::copy_from_slice(&metadata_bytes)),
+            data: Some(Bytes::from(metadata_bytes)),
         };
         let digest = Code::Sha2_256.digest(pb_node.into_bytes().borrow());
         Ok(Hash(Cid::new_v1(DagPb.into(), digest)))

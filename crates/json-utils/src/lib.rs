@@ -25,7 +25,6 @@
     unreachable_patterns
 )]
 
-use itertools::Itertools;
 use serde_json::Value as JValue;
 
 pub mod base64_serde;
