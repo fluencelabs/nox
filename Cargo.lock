@@ -4815,7 +4815,7 @@ dependencies = [
 
 [[package]]
 name = "particle-node"
-version = "0.11.4"
+version = "0.12.0"
 dependencies = [
  "air-interpreter-fs",
  "air-interpreter-wasm",
