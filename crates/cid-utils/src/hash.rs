@@ -38,8 +38,8 @@ const CHUNK_SIZE: usize = 262144;
 pub struct Hash(pub Cid);
 
 impl Hash {
-    pub fn new_bytes(bytes: &[u8]) -> eyre::Result<Self> {
-        let chunks: Vec<&[u8]> = bytes.chunks(CHUNK_SIZE).map(|c| c).collect();
+    pub fn new(bytes: &[u8]) -> eyre::Result<Self> {
+        let chunks: Vec<&[u8]> = bytes.chunks(CHUNK_SIZE).collect();
         let mut links = Vec::new();
         let mut blocksizes = Vec::new();
         for chunk in chunks {

@@ -126,7 +126,7 @@ impl ModuleRepository {
 
     pub fn add_module(&self, module: Vec<u8>, config: TomlMarineNamedModuleConfig) -> Result<Hash> {
         // TODO: remove unwrap
-        let hash = Hash::new_bytes(&module).unwrap();
+        let hash = Hash::new(&module).unwrap();
 
         let mut config = files::add_module(&self.modules_dir, &hash, &module, config)?;
         self.check_module_heap_size(&mut config)?;
@@ -449,8 +449,8 @@ mod tests {
             Default::default(),
         );
 
-        let dep1 = Hash::new_bytes(&[1, 2, 3]).unwrap();
-        let dep2 = Hash::new_bytes(&[3, 2, 1]).unwrap();
+        let dep1 = Hash::new(&[1, 2, 3]).unwrap();
+        let dep2 = Hash::new(&[3, 2, 1]).unwrap();
 
         let name1 = "bp1".to_string();
         let resp1 = repo

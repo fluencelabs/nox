@@ -194,7 +194,7 @@ async fn list_blueprints() {
         .unwrap();
 
     let bytes = b"module";
-    let module_hash = Hash::new_bytes(bytes).unwrap().to_string();
+    let module_hash = Hash::new(bytes).unwrap().to_string();
     client.send_particle(
         r#"
         (seq

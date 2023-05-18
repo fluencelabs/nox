@@ -100,7 +100,7 @@ pub struct Blueprint {
 
 impl Blueprint {
     pub fn new(add_blueprint: AddBlueprint) -> eyre::Result<Self> {
-        let id = Hash::new_bytes(&add_blueprint.encode()?)?.to_string();
+        let id = Hash::new(&add_blueprint.encode()?)?.to_string();
 
         Ok(Self {
             name: add_blueprint.name,

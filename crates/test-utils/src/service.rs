@@ -64,7 +64,7 @@ pub async fn create_service_worker(
         "relay" => json!(client.node.to_string()),
         "worker_id" => json!(worker_id),
         "module_name" => json!(module_name),
-        "dependencies" => json!([Hash::new_bytes(&module_bytes).unwrap()]),
+        "dependencies" => json!([Hash::new(&module_bytes).unwrap()]),
         "module_bytes" => json!(base64.encode(module_bytes)),
         "name" => json!("blueprint"),
     };
