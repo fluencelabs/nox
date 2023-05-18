@@ -272,6 +272,7 @@ mod tests {
             let config = config.resolve().unwrap();
             let resolved_secret = encode_secret(&config);
             assert_eq!(config.node_config.script_storage_max_failures, 10);
+            assert_eq!(config.node_config.allow_local_addresses, false);
             assert_eq!(
                 resolved_secret,
                 "/XKBs1ydmfWGiTbh+e49GYw+14LHtu+v5BMFDIzHpvo="
