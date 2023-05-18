@@ -112,7 +112,7 @@ async fn create_service_from_config() {
                   (call -relay- ("dist" "make_module_config") [m-0.$.name! m-0.$.mem_pages_count! m-0.$.max_heap_size! m-0.$.logger_enabled! m-0.$.preopened_files! m-0.$.envs! m-0.$.mapped_dirs! m-0.$.mounted_binaries! m-0.$.logging_mask!] conf)
                   (call -relay- ("dist" "add_module") [module_bytes conf] mod)
                  )
-                 (call -relay- ("op" "identity") [mod] $mod_hashes)
+                 (ap mod $mod_hashes)
                 )
                 (call %init_peer_id% ("errorHandlingSrv" "error") [%last_error% 2])
                )
