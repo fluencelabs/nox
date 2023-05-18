@@ -22,7 +22,7 @@ fn main() {
     // Re-run this build.rs if the proto changes
     println!(
         "cargo:rerun-if-changed={}",
-        unixfs_proto_path.to_str().unwrap()
+        unixfs_proto_path.to_str().expect("valid .proto path")
     );
 
     let config_builder = ConfigBuilder::new(
@@ -31,8 +31,12 @@ fn main() {
         None,
         &[unixfs_proto_path.parent().unwrap()],
     )
-    .unwrap();
-    FileDescriptor::run(&config_builder.single_module(true).build()).unwrap();
+    .expect("create config builder for rs generation");
 
+    // generate rs from proto
+    FileDescriptor::run(&config_builder.single_module(true).build())
+        .expect("generate rs from proto");
+
+    // pb_rs generates mod.rs, but we don't need it and there is no way to turn it off
     std::fs::remove_file("src/mod.rs").unwrap();
 }
