@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.12.0](https://github.com/fluencelabs/rust-peer/compare/rust-peer-v0.11.4...rust-peer-v0.12.0) (2023-05-18)
+
+
+### ⚠ BREAKING CHANGES
+
+* **dist:** make blueprint an IPLD, use CID as module ids [fixes NET-412 NET-432] ([#1595](https://github.com/fluencelabs/rust-peer/issues/1595))
+* **config:** Introduce tracing config, change allowed_binaries list format ([#1608](https://github.com/fluencelabs/rust-peer/issues/1608))
+
+### Features
+
+* **config:** Introduce tracing config, change allowed_binaries list format ([#1608](https://github.com/fluencelabs/rust-peer/issues/1608)) ([6f7c684](https://github.com/fluencelabs/rust-peer/commit/6f7c68462dd69eb1f8b60a5b18f29fbd43884cd3))
+* **dist:** make blueprint an IPLD, use CID as module ids [fixes NET-412 NET-432] ([#1595](https://github.com/fluencelabs/rust-peer/issues/1595)) ([720a2b3](https://github.com/fluencelabs/rust-peer/commit/720a2b353bd9ae7766329c5b02e3f2a34b37b903))
+* **log:** change 'particle received' log to info ([0047edf](https://github.com/fluencelabs/rust-peer/commit/0047edfa60a06345aebbb5c5ed53de793963b08b))
+* **log:** change 'particle received' log to info [NET-472] ([#1616](https://github.com/fluencelabs/rust-peer/issues/1616)) ([0047edf](https://github.com/fluencelabs/rust-peer/commit/0047edfa60a06345aebbb5c5ed53de793963b08b))
+
+
+### Bug Fixes
+
+* **deps:** update rust crate fluence-keypair to 0.10.1 ([#1609](https://github.com/fluencelabs/rust-peer/issues/1609)) ([f5e0807](https://github.com/fluencelabs/rust-peer/commit/f5e080721ab43d154776dc4548b1280c2b089fb5))
+* **identify:** fix address logging ([#1619](https://github.com/fluencelabs/rust-peer/issues/1619)) ([f90fdbf](https://github.com/fluencelabs/rust-peer/commit/f90fdbf5babfbd0cad8a8811c9869e07e9ad072e))
+* **network:** fixed allow private addrs ([#1618](https://github.com/fluencelabs/rust-peer/issues/1618)) ([7efb490](https://github.com/fluencelabs/rust-peer/commit/7efb490af05693dcc4b46f9152b11359a4c384ef))
+
 ## [0.11.4](https://github.com/fluencelabs/rust-peer/compare/rust-peer-v0.11.3...rust-peer-v0.11.4) (2023-05-06)
 
 
