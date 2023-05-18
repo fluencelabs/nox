@@ -89,6 +89,8 @@ pub struct Node<RT: AquaRuntime> {
     pub builtins_management_peer_id: PeerId,
 
     pub key_manager: KeyManager,
+
+    allow_local_addresses: bool,
 }
 
 impl<RT: AquaRuntime> Node<RT> {
@@ -163,6 +165,8 @@ impl<RT: AquaRuntime> Node<RT> {
             node_version,
             connection_limits,
         );
+
+        let allow_local_addresses = config.allow_local_addresses;
 
         let (swarm, connectivity, particle_stream) = Self::swarm(
             key_manager.get_host_peer_id(),
@@ -319,6 +323,7 @@ impl<RT: AquaRuntime> Node<RT> {
             config.metrics_listen_addr(),
             builtins_peer_id,
             key_manager,
+            allow_local_addresses,
         ))
     }
 
@@ -386,6 +391,7 @@ impl<RT: AquaRuntime> Node<RT> {
         metrics_listen_addr: SocketAddr,
         builtins_management_peer_id: PeerId,
         key_manager: KeyManager,
+        allow_local_addresses: bool,
     ) -> Box<Self> {
         let node_service = Self {
             particle_stream,
@@ -410,6 +416,7 @@ impl<RT: AquaRuntime> Node<RT> {
 
             builtins_management_peer_id,
             key_manager,
+            allow_local_addresses,
         };
 
         Box::new(node_service)
@@ -440,6 +447,7 @@ impl<RT: AquaRuntime> Node<RT> {
             .map(|x| format!("node-{x}"))
             .unwrap_or("node".to_owned());
         let libp2p_metrics = self.libp2p_metrics;
+        let allow_local_addresses = self.allow_local_addresses;
 
         task::Builder::new().name(&task_name.clone()).spawn(async move {
             let mut metrics_fut= if let Some(registry) = registry {
@@ -457,14 +465,13 @@ impl<RT: AquaRuntime> Node<RT> {
             let mut connectivity = connectivity.start();
             let mut dispatcher = dispatcher.start(particle_stream, effects_stream);
             let mut exit_inlet = Some(exit_inlet);
-
             loop {
                 let exit_inlet = exit_inlet.as_mut().expect("Could not get exit inlet");
                 tokio::select! {
                     Some(e) = swarm.next() => {
                         if let Some(m) = libp2p_metrics.as_ref() { m.record(&e) }
                         if let SwarmEvent::Behaviour(FluenceNetworkBehaviourEvent::Identify(i)) = e {
-                            swarm.behaviour_mut().inject_identify_event(i, true);
+                            swarm.behaviour_mut().inject_identify_event(i, allow_local_addresses);
                         }
                     },
                     _ = &mut metrics_fut => {},
