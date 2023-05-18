@@ -26,6 +26,9 @@ parking_lot = { workspace = true }
 eyre = { workspace = true }
 fstrings = { workspace = true }
 bytesize = "1.2.0"
+cid = { workspace = true }
+libipld = { workspace = true }
+itertools = { workspace = true }
 
 [dev-dependencies]
 tempdir = "0.3.7"

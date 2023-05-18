@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 Fluence Labs Limited
+ * Copyright 2020 Fluence Labs Limited
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,18 +14,7 @@
  * limitations under the License.
  */
 
-use crate::Hash;
-use std::iter;
+mod hash;
+mod unixfs;
 
-pub fn hash_dependencies(facade: Hash, mut deps: Vec<Hash>) -> Hash {
-    let mut hasher = blake3::Hasher::new();
-    deps.sort_by(|a, b| a.as_bytes().cmp(b.as_bytes()));
-
-    for d in deps.iter().chain(iter::once(&facade)) {
-        hasher.update(d.as_bytes());
-    }
-
-    let hash = hasher.finalize();
-    let bytes = hash.as_bytes();
-    Hash::from(*bytes)
-}
+pub use hash::Hash;

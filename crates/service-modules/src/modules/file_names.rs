@@ -15,35 +15,28 @@
  */
 
 use super::blueprint::Blueprint;
-use super::hash::Hash;
-use crate::Dependency;
+use cid_utils::Hash;
 
 use std::path::Path;
 
 /// Calculates filename of the config for a wasm module, given a hash or name of the module.
-pub fn module_config_name_json(module: &Dependency) -> String {
-    match module {
-        Dependency::Name(name) => format!("{name}_config.json"),
-        Dependency::Hash(hash) => format!("{}_config.json", hash.to_hex().as_ref()),
-    }
+pub fn module_config_name_json(hash: &Hash) -> String {
+    format!("{hash}_config.json")
 }
 
 /// Calculates the name of a wasm module file, given a hash or name of the module.
-pub fn module_file_name(module: &Dependency) -> String {
-    match module {
-        Dependency::Name(name) => format!("{name}.wasm"),
-        Dependency::Hash(hash) => module_file_name_hash(hash),
-    }
+pub fn module_file_name(name: &str) -> String {
+    format!("{name}.wasm")
 }
 
 /// Calculates filename of the config for a wasm module
-pub fn module_config_name_hash(module_hash: &Hash) -> String {
-    format!("{}_config.toml", module_hash.to_hex().as_ref())
+pub fn module_config_name_hash(config_hash: &Hash) -> String {
+    format!("{config_hash}_config.toml")
 }
 
 /// Calculates the name of a wasm module file, given a hash of the module.
 pub fn module_file_name_hash(module_hash: &Hash) -> String {
-    format!("{}.wasm", module_hash.to_hex().as_ref())
+    format!("{module_hash}.wasm")
 }
 
 /// Calculates filename of the blueprint

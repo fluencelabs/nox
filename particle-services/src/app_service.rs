@@ -43,7 +43,7 @@ pub fn create_app_service(
         metrics.observe_service_config(config.max_heap_size.as_u64(), &modules_config);
     }
 
-    let modules = AppServiceConfig {
+    let app_config = AppServiceConfig {
         service_working_dir: config.workdir.join(&service_id),
         service_base_dir: config.workdir,
         marine_config: MarineConfig {
@@ -54,7 +54,7 @@ pub fn create_app_service(
     };
 
     log::debug!("Creating service {}, envs: {:?}", service_id, config.envs);
-    AppService::new(modules, service_id, config.envs).map_err(ServiceError::Engine)
+    AppService::new(app_config, service_id, config.envs).map_err(ServiceError::Engine)
 }
 
 /// Map `vault_dir` to `/tmp/vault` inside the service.

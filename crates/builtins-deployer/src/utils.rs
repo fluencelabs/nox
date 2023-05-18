@@ -23,9 +23,7 @@ use serde_json::Value as JValue;
 
 use fs_utils::{file_stem, list_files};
 use particle_modules::AddBlueprint;
-use service_modules::{
-    hash_dependencies, module_config_name_json, module_file_name, Dependency, Hash,
-};
+use service_modules::{module_config_name_json, module_file_name_hash, Hash};
 
 use crate::builtin::{Module, ScheduledScript};
 use crate::ALLOWED_ENV_PREFIX;
@@ -38,11 +36,11 @@ pub fn assert_ok(result: Vec<JValue>, err_msg: &str) -> eyre::Result<()> {
     }
 }
 
-pub fn load_modules(path: &Path, dependencies: &[Dependency]) -> Result<Vec<Module>> {
+pub fn load_modules(path: &Path, dependencies: &[Hash]) -> Result<Vec<Module>> {
     let mut modules: Vec<Module> = vec![];
-    for dep in dependencies.iter() {
-        let config = path.join(Path::new(&module_config_name_json(dep)));
-        let module = path.join(&module_file_name(dep));
+    for hash in dependencies.iter() {
+        let config = path.join(&module_config_name_json(hash));
+        let module = path.join(&module_file_name_hash(hash));
 
         modules.push(Module {
             data: fs::read(module.clone()).wrap_err(eyre!("module {:?} not found", module))?,
@@ -57,19 +55,9 @@ pub fn load_modules(path: &Path, dependencies: &[Dependency]) -> Result<Vec<Modu
 }
 
 pub fn load_blueprint(path: &Path) -> Result<AddBlueprint> {
-    Ok(serde_json::from_str(
-        &fs::read_to_string(path.join("blueprint.json"))
-            .wrap_err(eyre!("blueprint {:?} not found", path))?,
-    )?)
-}
-
-pub fn get_blueprint_id(modules: &[Module], name: String) -> Result<String> {
-    let mut deps_hashes: Vec<Hash> = modules.iter().map(|m| Hash::new(&m.data)).collect();
-    let facade = deps_hashes
-        .pop()
-        .ok_or_else(|| eyre!("invalid blueprint {}: dependencies can't be empty", name))?;
-
-    Ok(hash_dependencies(facade, deps_hashes).to_string())
+    AddBlueprint::decode(
+        &fs::read(path.join("blueprint.json")).wrap_err(eyre!("blueprint {:?} not found", path))?,
+    )
 }
 
 pub fn load_scheduled_scripts(path: &Path) -> Result<Vec<ScheduledScript>> {

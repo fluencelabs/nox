@@ -1351,7 +1351,7 @@ async fn worker_sig_test() {
         (seq
             (seq
                 (seq
-                    (call %init_peer_id% ("registry" "get_record_bytes") ["key_id" "" [] [] 1 []] data)
+                    (call %init_peer_id% ("registry" "get_record_metadata_bytes") ["key_id" "" 0 "" "" [] [] []] data)
                     (call %init_peer_id% ("sig" "get_peer_id") [] peer_id)
                 )
                 (seq
