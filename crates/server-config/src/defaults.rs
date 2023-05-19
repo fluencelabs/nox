@@ -204,3 +204,23 @@ pub fn default_max_builtin_metrics_storage_size() -> usize {
 pub fn default_allowed_binaries() -> Vec<String> {
     vec!["/usr/bin/curl".to_string(), "/usr/bin/ipfs".to_string()]
 }
+
+pub fn default_ipfs_multiaddr() -> String {
+    "/dns4/ipfs.fluence.dev/tcp/5001".to_string()
+}
+
+pub fn default_spell_period_sec() -> u32 {
+    121
+}
+
+pub fn default_deal_network_name() -> String {
+    "aurora-testnet".to_string()
+}
+
+pub fn default_deal_contract_address_hex() -> String {
+    "0xb497e025D3095A197E30Ca84DEc36a637E649868".to_string()
+}
+
+pub fn default_deal_contract_block_hex() -> String {
+    "0x75f3fbc".to_string()
+}

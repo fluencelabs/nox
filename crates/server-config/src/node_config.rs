@@ -19,6 +19,7 @@ use fs_utils::to_abs_path;
 use particle_protocol::ProtocolConfig;
 
 use crate::keys::{decode_key, decode_secret_key, load_key};
+use crate::system_services_config::SystemServicesConfig;
 use crate::{BootstrapConfig, KademliaConfig};
 
 use super::defaults::*;
@@ -140,6 +141,9 @@ pub struct UnresolvedNodeConfig {
 
     #[serde(default = "default_allowed_binaries")]
     pub allowed_binaries: Vec<String>,
+
+    #[serde(default)]
+    pub system_services_config: SystemServicesConfig,
 }
 
 impl UnresolvedNodeConfig {
@@ -192,6 +196,7 @@ impl UnresolvedNodeConfig {
             transport_config: self.transport_config,
             listen_config: self.listen_config,
             allowed_binaries: self.allowed_binaries,
+            system_services_config: self.system_services_config,
         };
 
         Ok(result)
@@ -275,6 +280,8 @@ pub struct NodeConfig {
     pub management_peer_id: PeerId,
 
     pub allowed_binaries: Vec<String>,
+
+    pub system_services_config: SystemServicesConfig,
 }
 
 #[derive(Clone, Deserialize, Serialize, Derivative, Copy)]

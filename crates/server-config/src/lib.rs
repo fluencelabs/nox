@@ -38,6 +38,7 @@ mod network_config;
 mod node_config;
 mod resolved_config;
 mod services_config;
+mod system_services_config;
 
 pub use defaults::{builtins_base_dir, *};
 pub use resolved_config::load_config;
@@ -54,3 +55,4 @@ pub use resolved_config::LogFormat;
 pub use resolved_config::TracingConfig;
 pub use resolved_config::{ResolvedConfig, UnresolvedConfig};
 pub use services_config::ServicesConfig;
+pub use system_services_config::{AquaIpfsConfig, DeciderConfig, SystemServicesConfig};
