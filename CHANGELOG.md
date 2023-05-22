@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.12.1](https://github.com/fluencelabs/rust-peer/compare/rust-peer-v0.12.0...rust-peer-v0.12.1) (2023-05-22)
+
+
+### Bug Fixes
+
+* **async:** move builtins call to blocking threadpool ([#1621](https://github.com/fluencelabs/rust-peer/issues/1621)) ([7e18801](https://github.com/fluencelabs/rust-peer/commit/7e188014e9bafbe5d6d9b15c6e62ea7b4b879b27))
+
 ## [0.12.0](https://github.com/fluencelabs/rust-peer/compare/rust-peer-v0.11.4...rust-peer-v0.12.0) (2023-05-18)
 
 
