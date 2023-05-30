@@ -1,5 +1,51 @@
 # Changelog
 
+## [0.12.1](https://github.com/fluencelabs/rust-peer/compare/rust-peer-v0.12.0...rust-peer-v0.12.1) (2023-05-22)
+
+
+### Bug Fixes
+
+* **async:** move builtins call to blocking threadpool ([#1621](https://github.com/fluencelabs/rust-peer/issues/1621)) ([7e18801](https://github.com/fluencelabs/rust-peer/commit/7e188014e9bafbe5d6d9b15c6e62ea7b4b879b27))
+
+## [0.12.0](https://github.com/fluencelabs/rust-peer/compare/rust-peer-v0.11.4...rust-peer-v0.12.0) (2023-05-18)
+
+
+### ⚠ BREAKING CHANGES
+
+* **dist:** make blueprint an IPLD, use CID as module ids [fixes NET-412 NET-432] ([#1595](https://github.com/fluencelabs/rust-peer/issues/1595))
+* **config:** Introduce tracing config, change allowed_binaries list format ([#1608](https://github.com/fluencelabs/rust-peer/issues/1608))
+
+### Features
+
+* **config:** Introduce tracing config, change allowed_binaries list format ([#1608](https://github.com/fluencelabs/rust-peer/issues/1608)) ([6f7c684](https://github.com/fluencelabs/rust-peer/commit/6f7c68462dd69eb1f8b60a5b18f29fbd43884cd3))
+* **dist:** make blueprint an IPLD, use CID as module ids [fixes NET-412 NET-432] ([#1595](https://github.com/fluencelabs/rust-peer/issues/1595)) ([720a2b3](https://github.com/fluencelabs/rust-peer/commit/720a2b353bd9ae7766329c5b02e3f2a34b37b903))
+* **log:** change 'particle received' log to info ([0047edf](https://github.com/fluencelabs/rust-peer/commit/0047edfa60a06345aebbb5c5ed53de793963b08b))
+* **log:** change 'particle received' log to info [NET-472] ([#1616](https://github.com/fluencelabs/rust-peer/issues/1616)) ([0047edf](https://github.com/fluencelabs/rust-peer/commit/0047edfa60a06345aebbb5c5ed53de793963b08b))
+
+
+### Bug Fixes
+
+* **deps:** update rust crate fluence-keypair to 0.10.1 ([#1609](https://github.com/fluencelabs/rust-peer/issues/1609)) ([f5e0807](https://github.com/fluencelabs/rust-peer/commit/f5e080721ab43d154776dc4548b1280c2b089fb5))
+* **identify:** fix address logging ([#1619](https://github.com/fluencelabs/rust-peer/issues/1619)) ([f90fdbf](https://github.com/fluencelabs/rust-peer/commit/f90fdbf5babfbd0cad8a8811c9869e07e9ad072e))
+* **network:** fixed allow private addrs ([#1618](https://github.com/fluencelabs/rust-peer/issues/1618)) ([7efb490](https://github.com/fluencelabs/rust-peer/commit/7efb490af05693dcc4b46f9152b11359a4c384ef))
+
+## [0.11.4](https://github.com/fluencelabs/rust-peer/compare/rust-peer-v0.11.3...rust-peer-v0.11.4) (2023-05-06)
+
+
+### Bug Fixes
+
+* aqua-pool-size argument ([96fdf54](https://github.com/fluencelabs/rust-peer/commit/96fdf54ba0b4c50ec8904d3f7ffbda15ab6d3772))
+* **config:** aqua-pool-size argument ([#1606](https://github.com/fluencelabs/rust-peer/issues/1606)) ([96fdf54](https://github.com/fluencelabs/rust-peer/commit/96fdf54ba0b4c50ec8904d3f7ffbda15ab6d3772))
+* **config:** correctly parse env variables ([#1607](https://github.com/fluencelabs/rust-peer/issues/1607)) ([2f77e04](https://github.com/fluencelabs/rust-peer/commit/2f77e040cd7c9ba3839ace5b5d4a2a6be9bcf929))
+* **startup:** Change link in "hello" message to Discord ([#1604](https://github.com/fluencelabs/rust-peer/issues/1604)) ([c3c8b23](https://github.com/fluencelabs/rust-peer/commit/c3c8b2377efe3dffcd250778e3d407bac2bede39))
+
+## [0.11.3](https://github.com/fluencelabs/rust-peer/compare/rust-peer-v0.11.2...rust-peer-v0.11.3) (2023-04-28)
+
+
+### Bug Fixes
+
+* **spells:** start resubscribed spells scheduling after full node initialization [fixes NET-459] ([#1592](https://github.com/fluencelabs/rust-peer/issues/1592)) ([1016f36](https://github.com/fluencelabs/rust-peer/commit/1016f368cbd6e9804908842ee2562bff0e241e0e))
+
 ## [0.11.2](https://github.com/fluencelabs/rust-peer/compare/rust-peer-v0.11.1...rust-peer-v0.11.2) (2023-04-27)
 
 

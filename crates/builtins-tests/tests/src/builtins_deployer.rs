@@ -63,7 +63,7 @@ async fn check_registry_builtin(client: &mut ConnectedClient) {
         .await
         .unwrap();
     match result.pop() {
-        Some(serde_json::Value::String(s)) => assert!(s.contains("some_label")),
+        Some(serde_json::Value::String(s)) => assert!(!s.contains("error")),
         other => panic!("expected json string, got {:?}", other),
     }
 }

@@ -21,6 +21,7 @@ toml-utils = { workspace = true }
 peer-metrics = { workspace = true }
 uuid-utils = { workspace = true }
 key-manager = { workspace = true }
+service-modules = { workspace = true }
 
 libp2p = { workspace = true }
 avm-server = { workspace = true }
@@ -44,6 +45,7 @@ derivative = { workspace = true }
 fluence-app-service = { workspace = true }
 async-trait = { version = "0.1.68" }
 eyre = { workspace = true }
+base64 = { workspace = true }
 
 [dev-dependencies]
 proptest = "1.1.0"

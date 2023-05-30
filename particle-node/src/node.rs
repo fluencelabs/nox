@@ -49,7 +49,7 @@ use prometheus_client::registry::Registry;
 use script_storage::{ScriptStorageApi, ScriptStorageBackend, ScriptStorageConfig};
 use server_config::{NetworkConfig, ResolvedConfig, ServicesConfig};
 use sorcerer::Sorcerer;
-use spell_event_bus::api::{PeerEvent, TriggerEvent};
+use spell_event_bus::api::{PeerEvent, SpellEventBusApi, TriggerEvent};
 use spell_event_bus::bus::SpellEventBus;
 use tokio::sync::{mpsc, oneshot};
 use tokio::task;
@@ -75,6 +75,7 @@ pub struct Node<RT: AquaRuntime> {
     aquavm_pool: AquamarineBackend<RT, Arc<Builtins<Connectivity>>>,
     script_storage: ScriptStorageBackend,
     builtins_deployer: BuiltinsDeployer,
+    spell_event_bus_api: SpellEventBusApi,
     spell_event_bus: SpellEventBus,
     spell_events_receiver: mpsc::UnboundedReceiver<TriggerEvent>,
     sorcerer: Sorcerer,
@@ -88,6 +89,8 @@ pub struct Node<RT: AquaRuntime> {
     pub builtins_management_peer_id: PeerId,
 
     pub key_manager: KeyManager,
+
+    allow_local_addresses: bool,
 }
 
 impl<RT: AquaRuntime> Node<RT> {
@@ -162,6 +165,8 @@ impl<RT: AquaRuntime> Node<RT> {
             node_version,
             connection_limits,
         );
+
+        let allow_local_addresses = config.allow_local_addresses;
 
         let (swarm, connectivity, particle_stream) = Self::swarm(
             key_manager.get_host_peer_id(),
@@ -259,7 +264,7 @@ impl<RT: AquaRuntime> Node<RT> {
             builtins.modules.clone(),
             aquamarine_api.clone(),
             config.clone(),
-            spell_event_bus_api,
+            spell_event_bus_api.clone(),
             key_manager.clone(),
             spell_metrics,
         );
@@ -308,6 +313,7 @@ impl<RT: AquaRuntime> Node<RT> {
             aquavm_pool,
             script_storage_backend,
             builtins_deployer,
+            spell_event_bus_api,
             spell_event_bus,
             spell_events_receiver,
             sorcerer,
@@ -317,6 +323,7 @@ impl<RT: AquaRuntime> Node<RT> {
             config.metrics_listen_addr(),
             builtins_peer_id,
             key_manager,
+            allow_local_addresses,
         ))
     }
 
@@ -374,6 +381,7 @@ impl<RT: AquaRuntime> Node<RT> {
         aquavm_pool: AquamarineBackend<RT, Arc<Builtins<Connectivity>>>,
         script_storage: ScriptStorageBackend,
         builtins_deployer: BuiltinsDeployer,
+        spell_event_bus_api: SpellEventBusApi,
         spell_event_bus: SpellEventBus,
         spell_events_receiver: mpsc::UnboundedReceiver<TriggerEvent>,
         sorcerer: Sorcerer,
@@ -383,6 +391,7 @@ impl<RT: AquaRuntime> Node<RT> {
         metrics_listen_addr: SocketAddr,
         builtins_management_peer_id: PeerId,
         key_manager: KeyManager,
+        allow_local_addresses: bool,
     ) -> Box<Self> {
         let node_service = Self {
             particle_stream,
@@ -395,6 +404,7 @@ impl<RT: AquaRuntime> Node<RT> {
             aquavm_pool,
             script_storage,
             builtins_deployer,
+            spell_event_bus_api,
             spell_event_bus,
             spell_events_receiver,
             sorcerer,
@@ -406,6 +416,7 @@ impl<RT: AquaRuntime> Node<RT> {
 
             builtins_management_peer_id,
             key_manager,
+            allow_local_addresses,
         };
 
         Box::new(node_service)
@@ -436,6 +447,7 @@ impl<RT: AquaRuntime> Node<RT> {
             .map(|x| format!("node-{x}"))
             .unwrap_or("node".to_owned());
         let libp2p_metrics = self.libp2p_metrics;
+        let allow_local_addresses = self.allow_local_addresses;
 
         task::Builder::new().name(&task_name.clone()).spawn(async move {
             let mut metrics_fut= if let Some(registry) = registry {
@@ -453,14 +465,13 @@ impl<RT: AquaRuntime> Node<RT> {
             let mut connectivity = connectivity.start();
             let mut dispatcher = dispatcher.start(particle_stream, effects_stream);
             let mut exit_inlet = Some(exit_inlet);
-
             loop {
                 let exit_inlet = exit_inlet.as_mut().expect("Could not get exit inlet");
                 tokio::select! {
                     Some(e) = swarm.next() => {
                         if let Some(m) = libp2p_metrics.as_ref() { m.record(&e) }
                         if let SwarmEvent::Behaviour(FluenceNetworkBehaviourEvent::Identify(i)) = e {
-                            swarm.behaviour_mut().inject_identify_event(i, true);
+                            swarm.behaviour_mut().inject_identify_event(i, allow_local_addresses);
                         }
                     },
                     _ = &mut metrics_fut => {},
@@ -488,6 +499,11 @@ impl<RT: AquaRuntime> Node<RT> {
             .deploy_builtin_services()
             .await
             .wrap_err("builtins deploy failed")?;
+
+        let result = self.spell_event_bus_api.start_scheduling().await;
+        if let Err(e) = result {
+            log::error!("running spell event bus failed: {}", e);
+        }
 
         Ok(exit_outlet)
     }
@@ -520,7 +536,7 @@ mod tests {
     use config_utils::to_peer_id;
     use connected_client::ConnectedClient;
     use fs_utils::to_abs_path;
-    use server_config::{builtins_base_dir, default_base_dir, resolve_config};
+    use server_config::{builtins_base_dir, default_base_dir, load_config_with_args};
 
     use crate::Node;
 
@@ -531,7 +547,10 @@ mod tests {
         fs_utils::create_dir(builtins_base_dir(&base_dir)).unwrap();
         write_default_air_interpreter(&air_interpreter_path(&base_dir)).unwrap();
 
-        let mut config = resolve_config(vec![], None).expect("deserialize config");
+        let mut config = load_config_with_args(vec![], None)
+            .expect("Could not load config")
+            .resolve()
+            .expect("Could not resolve config");
         config.aquavm_pool_size = 1;
         config.dir_config.spell_base_dir = to_abs_path(PathBuf::from("spell"));
         let vm_config = VmConfig::new(

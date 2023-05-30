@@ -35,7 +35,7 @@ mod modules;
 
 pub use error::ModuleError;
 pub use files::{load_blueprint, load_module_by_path, load_module_descriptor};
-pub use modules::{AddBlueprint, ModuleRepository};
+pub use modules::ModuleRepository;
 
 // reexport
 pub use fluence_app_service::{
@@ -43,3 +43,4 @@ pub use fluence_app_service::{
     TomlWASIConfig as WASIConfig,
 };
 pub use fs_utils::list_files;
+pub use service_modules::AddBlueprint;

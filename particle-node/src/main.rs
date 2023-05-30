@@ -54,8 +54,7 @@ trait Stoppable {
 #[global_allocator]
 static ALLOC: dhat::Alloc = dhat::Alloc;
 
-#[tokio::main(flavor = "current_thread")]
-async fn main() -> eyre::Result<()> {
+fn main() -> eyre::Result<()> {
     #[cfg(feature = "dhat-heap")]
     let _profiler = dhat::Profiler::new_heap();
 
@@ -69,9 +68,11 @@ async fn main() -> eyre::Result<()> {
     };
     let config = load_config(Some(config_data))?;
 
-    if !config.no_banner {
-        println!(
-            r#"
+    match config.no_banner {
+        Some(true) => {}
+        _ => {
+            println!(
+                r#"
 +-------------------------------------------------+
 | Hello from the Fluence Team. If you encounter   |
 | any troubles with node operation, please update |
@@ -79,48 +80,46 @@ async fn main() -> eyre::Result<()> {
 |     docker pull fluencelabs/rust-peer:latest    |
 |                                                 |
 | or contact us at                                |
-| github.com/fluencelabs/fluence/discussions      |
+| https://discord.com/invite/5qSnPZKh7u           |
 +-------------------------------------------------+
     "#
-        );
+            )
+        }
     }
-
-    tracing_subscriber::registry()
-        .with(log_layer(config.log.clone()))
-        .with(tokio_console_layer())
-        .with(tracing_layer()?)
-        .init();
-
-    if config.print_config {
-        log::info!("Loaded config: {:#?}", config);
-    }
-
-    let interpreter_path = to_abs_path(config.dir_config.air_interpreter_path.clone());
-    write_default_air_interpreter(&interpreter_path)?;
-    log::info!("AIR interpreter: {:?}", interpreter_path);
 
     //TODO: add thread count configuration based on config
-    tokio::task::spawn_blocking(|| {
-        let result: eyre::Result<()> = tokio::runtime::Builder::new_multi_thread()
-            .enable_all()
-            .build()
-            .expect("Could not make tokio runtime")
-            .block_on(async {
-                let fluence = start_fluence(config).await?;
-                log::info!("Fluence has been successfully started.");
-                log::info!("Waiting for Ctrl-C to exit...");
+    tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .thread_name("tokio")
+        .build()
+        .expect("Could not make tokio runtime")
+        .block_on(async {
+            tracing_subscriber::registry()
+                .with(log_layer(&config.log))
+                .with(tokio_console_layer(&config.console)?)
+                .with(tracing_layer(&config.tracing)?)
+                .init();
 
-                signal::ctrl_c().await.expect("Failed to listen for event");
-                log::info!("Shutting down...");
+            if let Some(true) = config.print_config {
+                log::info!("Loaded config: {:#?}", config);
+            }
 
-                fluence.stop();
-                Ok(())
-            });
-        result
-    })
-    .await??;
+            let config = config.resolve()?;
 
-    Ok(())
+            let interpreter_path = to_abs_path(config.dir_config.air_interpreter_path.clone());
+            write_default_air_interpreter(&interpreter_path)?;
+            log::info!("AIR interpreter: {:?}", interpreter_path);
+
+            let fluence = start_fluence(config).await?;
+            log::info!("Fluence has been successfully started.");
+            log::info!("Waiting for Ctrl-C to exit...");
+
+            signal::ctrl_c().await.expect("Failed to listen for event");
+            log::info!("Shutting down...");
+
+            fluence.stop();
+            Ok(())
+        })
 }
 
 // NOTE: to stop Fluence just call Stoppable::stop()

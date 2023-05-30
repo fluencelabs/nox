@@ -28,7 +28,7 @@ use maplit::hashmap;
 use serde::Deserialize;
 use serde_json::json;
 use serde_json::Value as JValue;
-use service_modules::{load_module, module_config};
+use service_modules::{load_module, module_config, Hash};
 use test_constants::KAD_TIMEOUT;
 use test_utils::{create_service, timeout};
 
@@ -194,16 +194,17 @@ async fn list_blueprints() {
         .unwrap();
 
     let bytes = b"module";
-    let raw_hash = blake3::hash(bytes).to_hex();
-    let hash = format!("hash:{raw_hash}");
-    let name = "name:module".to_string();
+    let module_hash = Hash::new(bytes).unwrap().to_string();
     client.send_particle(
         r#"
         (seq
             (call relay ("dist" "add_module") [module_bytes module_config] module_hash)
             (seq
                 (seq
-                    (call relay ("dist" "add_blueprint") [blueprint] blueprint_id)
+                    (seq
+                        (call relay ("dist" "make_blueprint") [name dependencies] blueprint)
+                        (call relay ("dist" "add_blueprint") [blueprint] blueprint_id)
+                    )
                     (call relay ("dist" "list_blueprints") [] blueprints)
                 )
                 (call client ("return" "") [blueprints module_hash])
@@ -215,7 +216,8 @@ async fn list_blueprints() {
             "module_config" => json!(module_config("module")),
             "relay" => json!(client.node.to_string()),
             "client" => json!(client.peer_id.to_string()),
-            "blueprint" => json!({ "name": "blueprint", "dependencies": [ hash, name ] }),
+            "name" => json!("blueprint"),
+            "dependencies" => json!(vec![module_hash.clone()]) ,
         },
     );
 
@@ -236,14 +238,11 @@ async fn list_blueprints() {
         .into_iter()
         .find(|b| b.name == "blueprint")
         .unwrap();
-    assert_eq!(bp.dependencies.len(), 2);
-    assert_eq!(bp.dependencies[0], hash);
-    // name:$name should've been converted to hash:$hash
-    assert_eq!(bp.dependencies[1], hash);
+    assert_eq!(bp.dependencies.len(), 1);
+    assert_eq!(bp.dependencies[0], module_hash);
 
     let hash = args.next().unwrap();
-    let hash: String = serde_json::from_value(hash).unwrap();
-    assert_eq!(hash.as_str(), raw_hash.as_str());
+    assert_eq!(hash.as_str().unwrap(), module_hash);
 }
 
 #[tokio::test]

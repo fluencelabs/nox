@@ -42,12 +42,16 @@ pub enum ModuleError {
         err: toml::ser::Error,
         config: TomlMarineNamedModuleConfig,
     },
+    #[error("Error serializing module config to json: {0}")]
+    SerializeConfigJson(#[source] serde_json::error::Error),
     #[error("Error serializing blueprint to toml: {err} {blueprint:?}")]
     SerializeBlueprint {
         #[source]
         err: toml::ser::Error,
         blueprint: Blueprint,
     },
+    #[error("Error serializing blueprint to json: {0}")]
+    SerializeBlueprintJson(String),
     #[error("Error saving config to {path:?}: {err}")]
     WriteConfig {
         path: PathBuf,
@@ -163,7 +167,7 @@ pub enum ModuleError {
     IncorrectVaultBlueprint {
         blueprint_path: PathBuf,
         #[source]
-        err: serde_json::Error,
+        err: eyre::Report,
     },
 
     #[error(
