@@ -257,6 +257,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7de8ce5e0f9f8d88245311066a578d72b7af3e7088f32783804676302df237e4"
 
 [[package]]
+name = "aqua-ipfs-distro-test"
+version = "0.5.12-1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e89592b132e620ace47291e279298fbbfa731c200be46fd6d260017bf8894f5d"
+dependencies = [
+ "built 0.5.2",
+ "maplit",
+]
+
+[[package]]
 name = "aquamarine"
 version = "0.2.0"
 dependencies = [
@@ -1758,6 +1768,18 @@ checksum = "a5bbed42daaa95e780b60a50546aa345b8413a1e46f9a40a12907d3598f038db"
 dependencies = [
  "data-encoding",
  "syn 1.0.105",
+]
+
+[[package]]
+name = "decider-distro-test"
+version = "0.4.8-2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "646afd2c3341fc62698dfbc300ca499f2446727592e33a0fb8413dd5d03d172e"
+dependencies = [
+ "built 0.5.2",
+ "fluence-spell-dtos",
+ "maplit",
+ "serde_json",
 ]
 
 [[package]]
@@ -4863,6 +4885,7 @@ dependencies = [
  "server-config",
  "sorcerer",
  "spell-event-bus",
+ "system-service-deployer",
  "tokio",
  "tokio-stream",
  "tracing",
@@ -5656,6 +5679,16 @@ name = "regex-syntax"
 version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a5996294f19bd3aae0453a862ad728f60e6600695733dd5df01da90c54363a3c"
+
+[[package]]
+name = "registry-distro-test"
+version = "0.8.4-2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c1a6ddd923f09213e77b85b6b829959a55b802f7d45b8b8164e4833a525adff2"
+dependencies = [
+ "built 0.5.2",
+ "maplit",
+]
 
 [[package]]
 name = "remove_dir_all"
@@ -6511,6 +6544,35 @@ dependencies = [
 ]
 
 [[package]]
+name = "system-service-deployer"
+version = "0.1.0"
+dependencies = [
+ "aqua-ipfs-distro-test",
+ "decider-distro-test",
+ "eyre",
+ "fluence-app-service",
+ "fluence-spell-dtos",
+ "libp2p",
+ "log",
+ "maplit",
+ "now-millis",
+ "particle-args",
+ "particle-execution",
+ "particle-modules",
+ "particle-services",
+ "registry-distro-test",
+ "serde",
+ "serde_json",
+ "server-config",
+ "service-modules",
+ "sorcerer",
+ "spell-event-bus",
+ "spell-storage",
+ "toml 0.5.10",
+ "trust-graph-distro-test",
+]
+
+[[package]]
 name = "target-lexicon"
 version = "0.12.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7058,6 +7120,19 @@ dependencies = [
  "tokio",
  "tracing",
  "trust-dns-proto",
+]
+
+[[package]]
+name = "trust-graph-distro-test"
+version = "0.4.1-3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "013fe1d5c919a03f0a74b495d1971e24a4589a43712668bf35daa8c8f1662424"
+dependencies = [
+ "built 0.5.2",
+ "lazy_static",
+ "maplit",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

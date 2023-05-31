@@ -22,7 +22,7 @@ use particle_execution::{FunctionOutcome, ParticleParams};
 
 // TODO: change function name to the better one
 /// Return Ok(T) if result.success is true, return Err(T.error) otherwise
-pub(crate) fn process_func_outcome<T>(
+pub fn process_func_outcome<T>(
     func_outcome: FunctionOutcome,
     spell_id: &str,
     function_name: &str,

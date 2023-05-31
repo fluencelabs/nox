@@ -41,6 +41,7 @@ members = [
     "script-storage",
     "spell-storage",
     "particle-execution",
+    "crates/system-service-deployer"
 ]
 exclude = [
     "particle-node/tests/tetraplets",
@@ -87,6 +88,7 @@ connection-pool = { path = "connection-pool" }
 script-storage = { path = "script-storage" }
 spell-storage = { path = "spell-storage" }
 particle-execution = { path = "particle-execution" }
+system-service-deployer = { path = "crates/system-service-deployer" }
 
 # spell
 fluence-spell-dtos = "=0.5.11"

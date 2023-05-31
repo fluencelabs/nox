@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+use eyre::eyre;
 use std::sync::Arc;
 use std::{io, net::SocketAddr};
 
@@ -23,7 +24,6 @@ use aquamarine::{
 use builtins_deployer::BuiltinsDeployer;
 use config_utils::to_peer_id;
 use connection_pool::{ConnectionPoolApi, ConnectionPoolT};
-use eyre::WrapErr;
 use fluence_libp2p::build_transport;
 use futures::{stream::StreamExt, FutureExt};
 use key_manager::KeyManager;
@@ -51,6 +51,7 @@ use server_config::{NetworkConfig, ResolvedConfig, ServicesConfig};
 use sorcerer::Sorcerer;
 use spell_event_bus::api::{PeerEvent, SpellEventBusApi, TriggerEvent};
 use spell_event_bus::bus::SpellEventBus;
+use system_service_deployer::SystemServiceDeployer;
 use tokio::sync::{mpsc, oneshot};
 use tokio::task;
 
@@ -75,6 +76,8 @@ pub struct Node<RT: AquaRuntime> {
     aquavm_pool: AquamarineBackend<RT, Arc<Builtins<Connectivity>>>,
     script_storage: ScriptStorageBackend,
     builtins_deployer: BuiltinsDeployer,
+    system_service_deployer: SystemServiceDeployer,
+
     spell_event_bus_api: SpellEventBusApi,
     spell_event_bus: SpellEventBus,
     spell_events_receiver: mpsc::UnboundedReceiver<TriggerEvent>,
@@ -286,6 +289,9 @@ impl<RT: AquaRuntime> Node<RT> {
         }
         custom_service_functions.extend_one(make_peer_builtin(node_info));
 
+        let services = builtins.services.clone();
+        let modules = builtins.modules.clone();
+
         custom_service_functions.into_iter().for_each(
             move |(
                 service_id,
@@ -303,6 +309,17 @@ impl<RT: AquaRuntime> Node<RT> {
             },
         );
 
+        let system_services_config = config.system_services_config.clone();
+        let deployer = system_service_deployer::SystemServiceDeployer::new(
+            services,
+            modules,
+            sorcerer.spell_storage.clone(),
+            spell_event_bus_api.clone(),
+            key_manager.get_host_peer_id(),
+            config.management_peer_id,
+            system_services_config,
+        );
+
         Ok(Self::with(
             particle_stream,
             effects_in,
@@ -313,6 +330,7 @@ impl<RT: AquaRuntime> Node<RT> {
             aquavm_pool,
             script_storage_backend,
             builtins_deployer,
+            deployer,
             spell_event_bus_api,
             spell_event_bus,
             spell_events_receiver,
@@ -381,6 +399,7 @@ impl<RT: AquaRuntime> Node<RT> {
         aquavm_pool: AquamarineBackend<RT, Arc<Builtins<Connectivity>>>,
         script_storage: ScriptStorageBackend,
         builtins_deployer: BuiltinsDeployer,
+        system_service_deployer: SystemServiceDeployer,
         spell_event_bus_api: SpellEventBusApi,
         spell_event_bus: SpellEventBus,
         spell_events_receiver: mpsc::UnboundedReceiver<TriggerEvent>,
@@ -404,6 +423,7 @@ impl<RT: AquaRuntime> Node<RT> {
             aquavm_pool,
             script_storage,
             builtins_deployer,
+            system_service_deployer,
             spell_event_bus_api,
             spell_event_bus,
             spell_events_receiver,
@@ -494,11 +514,13 @@ impl<RT: AquaRuntime> Node<RT> {
             pool.abort();
         }).expect("Could not spawn task");
 
-        let mut builtins_deployer = self.builtins_deployer;
-        builtins_deployer
-            .deploy_builtin_services()
-            .await
-            .wrap_err("builtins deploy failed")?;
+        // Need to move somewhere else, since it doesn't use the fact that the node is initialized
+        let deployer = self.system_service_deployer;
+        if let Err(e) = deployer.deploy_system_services().await {
+            // because I think that running node without these service is useless
+            // it's debatable though
+            return Err(eyre!("installing system services failed: {}", e));
+        }
 
         let result = self.spell_event_bus_api.start_scheduling().await;
         if let Err(e) = result {

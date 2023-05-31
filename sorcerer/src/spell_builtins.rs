@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 use fluence_spell_dtos::value::{StringValue, UnitValue};
-use serde_json::{json, Value as JValue, Value::Array};
+use serde_json::{json, Value as JValue, Value, Value::Array};
 
 use crate::utils::{parse_spell_id_from, process_func_outcome};
 use fluence_spell_dtos::trigger_config::TriggerConfig;
@@ -62,7 +62,6 @@ pub(crate) async fn spell_install(
     let script: String = Args::next("script", &mut args)?;
     let init_data: JValue = Args::next("data", &mut args)?;
     let user_config: TriggerConfig = Args::next("config", &mut args)?;
-    let config = api::from_user_config(user_config.clone())?;
     let init_peer_id = params.init_peer_id;
 
     let is_management = key_manager.is_management(init_peer_id);
@@ -78,6 +77,38 @@ pub(crate) async fn spell_install(
     if !is_management && !is_worker && !is_worker_creator {
         return Err(JError::new(format!("Failed to install spell on {worker_id}, spell can be installed by worker creator {worker_creator}, worker itself {worker_id} or peer manager; init_peer_id={init_peer_id}")));
     }
+
+    let spell_id = spell_install_inner(
+        &services,
+        &spell_storage,
+        &spell_event_bus_api,
+        worker_id,
+        params.host_id,
+        params.init_peer_id,
+        params.id,
+        params.ttl as u64,
+        user_config,
+        script,
+        init_data,
+    )
+    .await?;
+    Ok(JValue::String(spell_id))
+}
+
+pub async fn spell_install_inner(
+    services: &ParticleAppServices,
+    spell_storage: &SpellStorage,
+    spell_event_bus_api: &SpellEventBusApi,
+    worker_id: PeerId,
+    host_id: PeerId,
+    init_peer_id: PeerId,
+    particle_id: String,
+    ttl: u64,
+    user_config: TriggerConfig,
+    script: String,
+    init_data: Value,
+) -> Result<String, JError> {
+    let config = api::from_user_config(user_config.clone())?;
 
     let spell_id = services.create_service(
         ServiceType::Spell,
@@ -97,7 +128,7 @@ pub(crate) async fn spell_install(
             vec![json!(script)],
             None,
             worker_id,
-            Duration::from_millis(params.ttl as u64),
+            Duration::from_millis(ttl),
         ),
         &spell_id,
         "set_script_source_to_file",
@@ -112,7 +143,7 @@ pub(crate) async fn spell_install(
             vec![json!(init_data.to_string())],
             None,
             worker_id,
-            Duration::from_millis(params.ttl as u64),
+            Duration::from_millis(ttl),
         ),
         &spell_id,
         "set_json_fields",
@@ -127,7 +158,7 @@ pub(crate) async fn spell_install(
             vec![json!(user_config)],
             None,
             worker_id,
-            Duration::from_millis(params.ttl as u64),
+            Duration::from_millis(ttl),
         ),
         &spell_id,
         "set_trigger_config",
@@ -142,13 +173,7 @@ pub(crate) async fn spell_install(
             log::warn!("can't subscribe a spell {} to triggers {:?} via spell-event-bus-api: {}. Removing created spell service...", spell_id, config, err);
 
             spell_storage.unregister_spell(worker_id, &spell_id);
-            services.remove_service(
-                &params.id,
-                params.host_id,
-                spell_id,
-                params.init_peer_id,
-                true,
-            )?;
+            services.remove_service(&particle_id, host_id, spell_id, init_peer_id, true)?;
 
             return Err(JError::new(format!(
                 "can't install a spell due to an internal error while subscribing to the triggers: {err}"
@@ -156,13 +181,13 @@ pub(crate) async fn spell_install(
         }
     } else {
         tracing::trace!(
-            particle_id = params.id,
+            particle_id = particle_id,
             "empty config given for spell {}",
             spell_id
         );
     }
 
-    Ok(JValue::String(spell_id))
+    Ok(spell_id)
 }
 
 pub(crate) fn spell_list(
