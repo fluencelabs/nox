@@ -63,6 +63,15 @@ jobs:
       image-name: "docker.fluence.dev/rust-peer"
       flavour: "minimal"
 
+  rust-peer-arm-snapshot:
+    name: "rust-peer"
+    needs: rust-peer
+    uses: ./.github/workflows/container.yml
+    with:
+      image-name: "docker.fluence.dev/rust-peer"
+      flavour: "minimal"
+      arch: aarch64
+
   js-client:
     needs:
       - rust-peer-snapshot
