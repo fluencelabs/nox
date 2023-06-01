@@ -21,7 +21,7 @@ on:
 
 jobs:
   publish:
-    name: "Publish ${{ inputs.flavour }} ${{ inputs.aarch }}"
+    name: "Publish ${{ inputs.flavour }}"
     runs-on: ubuntu-latest
     timeout-minutes: 60
 
