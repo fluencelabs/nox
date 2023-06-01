@@ -82,7 +82,7 @@ jobs:
             "version": "${{ steps.version.outputs.branch }}",
             "url": "file:///fluence/particle-node",
             "sha256": "${{ steps.sha.outputs.sha256 }}"
-          }' fluence/services.json)
+          }' fluence/fluence.json)
 
           echo "$UPDATED" > fluence/fluence.json
 
