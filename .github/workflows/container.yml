@@ -84,7 +84,7 @@ jobs:
             "sha256": "${{ steps.sha.outputs.sha256 }}"
           }' fluence/services.json)
 
-          echo "$UPDATED" > fluence/services.json
+          echo "$UPDATED" > fluence/fluence.json
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
