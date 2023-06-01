@@ -33,13 +33,13 @@ use particle_args::Args;
 use particle_execution::ServiceFunction;
 use particle_protocol::Particle;
 use serde_json::{json, Value as JValue};
+use service_modules::Blueprint;
 use tokio::sync::oneshot::channel;
 use uuid_utils::uuid;
 
 use crate::builtin::{Builtin, Module};
 use crate::utils::{
-    assert_ok, get_blueprint_id, load_blueprint, load_modules, load_scheduled_scripts,
-    resolve_env_variables,
+    assert_ok, load_blueprint, load_modules, load_scheduled_scripts, resolve_env_variables,
 };
 
 pub struct BuiltinsDeployer {
@@ -140,7 +140,7 @@ impl BuiltinsDeployer {
         };
 
         let finished = sent.elapsed();
-        log::debug!(target: "execution", "sending particle took {}", pretty(finished));
+        tracing::debug!(target: "execution", particle_id = particle.id, "sending particle took {}", pretty(finished));
         result
     }
 
@@ -208,7 +208,7 @@ impl BuiltinsDeployer {
         .to_string();
 
         let data = hashmap! {
-            "blueprint".to_string() => json!(builtin.blueprint),
+            "blueprint".to_string() => json!(builtin.blueprint.to_string()?),
             "alias".to_string() => json!(builtin.name),
         };
 
@@ -410,16 +410,16 @@ impl BuiltinsDeployer {
             |(mut successful, mut failed): (Vec<Builtin>, Vec<ErrReport>), path| {
                 let result = try {
                     let name = file_name(&path)?;
-                    let blueprint = load_blueprint(&path)?;
-                    let modules = load_modules(&path, &blueprint.dependencies)?;
-                    let blueprint_id = get_blueprint_id(&modules, name.clone())?;
+                    let add_blueprint = load_blueprint(&path)?;
+                    let modules = load_modules(&path, &add_blueprint.dependencies)?;
+                    let blueprint = Blueprint::new(add_blueprint.clone())?;
                     let scheduled_scripts = load_scheduled_scripts(&path)?;
 
                     Builtin {
                         name,
                         modules,
-                        blueprint,
-                        blueprint_id,
+                        blueprint: add_blueprint,
+                        blueprint_id: blueprint.id,
                         on_start_script: fs::read_to_string(path.join("on_start.air")).ok(),
                         on_start_data: fs::read_to_string(path.join("on_start.json")).ok(),
                         scheduled_scripts,

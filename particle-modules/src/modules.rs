@@ -16,7 +16,6 @@
 
 use std::{
     collections::{HashMap, HashSet},
-    iter,
     path::Path,
     path::PathBuf,
     sync::Arc,
@@ -28,49 +27,32 @@ use eyre::WrapErr;
 use fluence_app_service::{ModuleDescriptor, TomlMarineNamedModuleConfig};
 use fstrings::f;
 use marine_it_parser::module_interface;
-use parking_lot::{Mutex, RwLock};
-use serde::{Deserialize, Serialize};
+use parking_lot::RwLock;
 use serde_json::{json, Value as JValue};
 
 use fs_utils::file_name;
 use particle_args::JError;
 use particle_execution::ParticleParams;
 use service_modules::{
-    extract_module_file_name, hash_dependencies, is_blueprint, is_module_wasm,
-    module_config_name_hash, module_file_name_hash, Blueprint, Dependency, Hash,
+    extract_module_file_name, is_blueprint, module_config_name_hash, module_file_name_hash,
+    AddBlueprint, Blueprint, Hash,
 };
 
 use crate::error::ModuleError::{
     BlueprintNotFound, BlueprintNotFoundInVault, ConfigNotFoundInVault, EmptyDependenciesList,
-    FacadeShouldBeHash, ForbiddenMountedBinary, IncorrectVaultBlueprint,
-    IncorrectVaultModuleConfig, InvalidBlueprintPath, InvalidModuleConfigPath, InvalidModuleName,
-    InvalidModulePath, MaxHeapSizeOverflow, ModuleNotFoundInVault, ReadModuleInterfaceError,
-    VaultDoesNotExist,
+    ForbiddenMountedBinary, IncorrectVaultBlueprint, IncorrectVaultModuleConfig,
+    InvalidBlueprintPath, InvalidModuleConfigPath, InvalidModulePath, MaxHeapSizeOverflow,
+    ModuleNotFoundInVault, ReadModuleInterfaceError, VaultDoesNotExist,
 };
 use crate::error::Result;
-use crate::files::{self, load_config_by_path, load_module_by_path, load_module_descriptor};
-
-type ModuleName = String;
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct AddBlueprint {
-    pub name: String,
-    pub dependencies: Vec<Dependency>,
-}
-
-impl AddBlueprint {
-    pub fn new(name: String, dependencies: Vec<Dependency>) -> Self {
-        Self { name, dependencies }
-    }
-}
+use crate::files::{self, load_config_by_path, load_module_descriptor};
+use crate::ModuleError::SerializeBlueprintJson;
 
 #[derive(Debug, Clone)]
 pub struct ModuleRepository {
     modules_dir: PathBuf,
     blueprints_dir: PathBuf,
     particles_vault_dir: PathBuf,
-    /// Map of module_config.name to blake3::hash(module bytes)
-    modules_by_name: Arc<Mutex<HashMap<ModuleName, Hash>>>,
     module_interface_cache: Arc<RwLock<HashMap<Hash, JValue>>>,
     blueprints: Arc<RwLock<HashMap<String, Blueprint>>>,
     max_heap_size: ByteSize,
@@ -87,38 +69,10 @@ impl ModuleRepository {
         default_heap_size: Option<ByteSize>,
         allowed_binaries: HashSet<PathBuf>,
     ) -> Self {
-        let modules_by_name: HashMap<_, _> = fs_utils::list_files(modules_dir)
-            .into_iter()
-            .flatten()
-            .filter(|path| is_module_wasm(path))
-            .filter_map(|path| {
-                let name_hash: Result<_> = try {
-                    let module = load_module_by_path(&path)?;
-                    let hash = Hash::new(&module);
-
-                    Self::maybe_migrate_module(&path, &hash, modules_dir);
-
-                    let module = load_module_descriptor(modules_dir, &hash)?;
-                    (module.import_name, hash)
-                };
-
-                match name_hash {
-                    Ok(name_hash) => Some(name_hash),
-                    Err(err) => {
-                        log::warn!("Error loading module list: {:?}", err);
-                        None
-                    }
-                }
-            })
-            .collect();
-
-        let modules_by_name = Arc::new(Mutex::new(modules_by_name));
-
         let blueprints = Self::load_blueprints(blueprints_dir);
         let blueprints_cache = Arc::new(RwLock::new(blueprints));
 
         Self {
-            modules_by_name,
             modules_dir: modules_dir.to_path_buf(),
             blueprints_dir: blueprints_dir.to_path_buf(),
             module_interface_cache: <_>::default(),
@@ -127,29 +81,6 @@ impl ModuleRepository {
             max_heap_size,
             default_heap_size,
             allowed_binaries,
-        }
-    }
-
-    /// check that module file name is equal to module hash
-    /// if not, rename module and config files
-    fn maybe_migrate_module(path: &Path, hash: &Hash, modules_dir: &Path) {
-        use eyre::eyre;
-
-        let migrated: eyre::Result<_> = try {
-            let file_name = extract_module_file_name(path).ok_or_else(|| eyre!("no file name"))?;
-            if file_name != hash.to_hex().as_ref() {
-                let new_name = module_file_name_hash(hash);
-                log::debug!(target: "migration", "renaming module {}.wasm to {}", file_name, new_name);
-                std::fs::rename(path, modules_dir.join(module_file_name_hash(hash)))?;
-                let new_name = module_config_name_hash(hash);
-                let config = path.with_file_name(format!("{file_name}_config.toml"));
-                log::debug!(target: "migration", "renaming config {:?} to {}", config.file_name().unwrap(), new_name);
-                std::fs::rename(&config, modules_dir.join(new_name))?;
-            }
-        };
-
-        if let Err(e) = migrated {
-            log::warn!("Module {:?} migration failed: {:?}", path, e);
         }
     }
 
@@ -194,14 +125,12 @@ impl ModuleRepository {
     }
 
     pub fn add_module(&self, module: Vec<u8>, config: TomlMarineNamedModuleConfig) -> Result<Hash> {
-        let hash = Hash::new(&module);
+        // TODO: remove unwrap
+        let hash = Hash::new(&module).unwrap();
 
         let mut config = files::add_module(&self.modules_dir, &hash, &module, config)?;
         self.check_module_heap_size(&mut config)?;
         self.check_module_mounted_binaries(&config)?;
-        self.modules_by_name
-            .lock()
-            .insert(config.name, hash.clone());
 
         Ok(hash)
     }
@@ -246,7 +175,7 @@ impl ModuleRepository {
             blueprint_path,
         })?;
         let blueprint_path = vault_path.join(blueprint_fname);
-        let blueprint = std::fs::read(&blueprint_path).map_err(|err| {
+        let data = std::fs::read(&blueprint_path).map_err(|err| {
             let blueprint_path = blueprint_path.clone();
             BlueprintNotFoundInVault {
                 blueprint_path,
@@ -254,7 +183,7 @@ impl ModuleRepository {
             }
         })?;
 
-        serde_json::from_slice(&blueprint).map_err(|err| IncorrectVaultBlueprint {
+        AddBlueprint::decode(&data).map_err(|err| IncorrectVaultBlueprint {
             blueprint_path,
             err,
         })
@@ -269,7 +198,7 @@ impl ModuleRepository {
         let module = base64.decode(module)?;
         let hash = self.add_module(module, config)?;
 
-        Ok(String::from(hash.to_hex().as_ref()))
+        Ok(hash.to_string())
     }
 
     pub fn add_module_from_vault(
@@ -290,34 +219,18 @@ impl ModuleRepository {
         // copy module & config to module_dir
         let hash = self.add_module(module, config)?;
 
-        Ok(String::from(hash.to_hex().as_ref()))
+        Ok(hash.to_string())
     }
 
     /// Saves new blueprint to disk
     pub fn add_blueprint(&self, blueprint: AddBlueprint) -> Result<String> {
-        // resolve dependencies by name to hashes, if any
-        let mut dependencies: Vec<Hash> = blueprint
-            .dependencies
-            .into_iter()
-            .map(|module| resolve_hash(&self.modules_by_name, module))
-            .collect::<Result<_>>()?;
-
         let blueprint_name = blueprint.name.clone();
-        let facade = dependencies
-            .pop()
-            .ok_or(EmptyDependenciesList { id: blueprint_name })?;
+        if blueprint.dependencies.is_empty() {
+            return Err(EmptyDependenciesList { id: blueprint_name });
+        }
 
-        let hash = hash_dependencies(facade.clone(), dependencies.clone()).to_hex();
-
-        let blueprint = Blueprint {
-            id: hash.as_ref().to_string(),
-            dependencies: dependencies
-                .into_iter()
-                .map(Dependency::Hash)
-                .chain(iter::once(Dependency::Hash(facade)))
-                .collect(),
-            name: blueprint.name,
-        };
+        let blueprint =
+            Blueprint::new(blueprint).map_err(|err| SerializeBlueprintJson(err.to_string()))?;
         files::add_blueprint(&self.blueprints_dir, &blueprint)?;
 
         self.blueprints
@@ -335,7 +248,7 @@ impl ModuleRepository {
             .filter_map(|path| {
                 let hash = extract_module_file_name(&path)?;
                 let result: eyre::Result<_> = try {
-                    let hash = Hash::from_hex(hash).wrap_err(f!("invalid module name {path:?}"))?;
+                    let hash = Hash::from_string(hash).wrap_err(f!("invalid module name {path:?}"))?;
                     let config = self.modules_dir.join(module_config_name_hash(&hash));
                     let config = load_config_by_path(&config).wrap_err(f!("load config ${config:?}"))?;
 
@@ -344,8 +257,8 @@ impl ModuleRepository {
 
                 let result = match result {
                     Ok((hash, config)) => json!({
-                        "name": config.name,
-                        "hash": hash.to_hex().as_ref(),
+                        "name": config.name, 
+                        "hash": hash.to_string(),
                         "config": config.config,
                     }),
                     Err(err) => {
@@ -378,13 +291,7 @@ impl ModuleRepository {
                 let dep = bp
                     .get_facade_module()
                     .ok_or(EmptyDependenciesList { id: id.to_string() })?;
-
-                let hash = match dep {
-                    Dependency::Hash(hash) => hash,
-                    Dependency::Name(_) => return Err(FacadeShouldBeHash { id: id.to_string() }),
-                };
-
-                self.get_interface_by_hash(&hash)
+                self.get_interface_by_hash(&dep)
             }
         }
     }
@@ -398,7 +305,7 @@ impl ModuleRepository {
     pub fn get_interface(&self, hex_hash: &str) -> std::result::Result<JValue, JError> {
         // TODO: refactor errors to ModuleErrors enum
         let interface: eyre::Result<_> = try {
-            let hash = Hash::from_hex(hex_hash)?;
+            let hash = Hash::from_string(hex_hash)?;
 
             get_interface_by_hash(
                 &self.modules_dir,
@@ -476,9 +383,8 @@ impl ModuleRepository {
         let module_descriptors: Vec<_> = blueprint
             .dependencies
             .into_iter()
-            .map(|module| {
-                let hash = resolve_hash(&self.modules_by_name, module)?;
-                let config = load_module_descriptor(&self.modules_dir, &hash)?;
+            .map(|m_hash| {
+                let config = load_module_descriptor(&self.modules_dir, &m_hash)?;
                 Ok(config)
             })
             .collect::<Result<_>>()?;
@@ -513,21 +419,6 @@ fn get_interface_by_hash(
     Ok(interface)
 }
 
-fn resolve_hash(
-    modules: &Arc<Mutex<HashMap<ModuleName, Hash>>>,
-    module: Dependency,
-) -> Result<Hash> {
-    match module {
-        Dependency::Hash(hash) => Ok(hash),
-        Dependency::Name(name) => {
-            // resolve module hash by name
-            let map = modules.lock();
-            let hash = map.get(&name).cloned();
-            hash.ok_or_else(|| InvalidModuleName(name.clone()))
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use std::str::FromStr;
@@ -538,7 +429,7 @@ mod tests {
     use tempdir::TempDir;
 
     use service_modules::load_module;
-    use service_modules::{Dependency, Hash};
+    use service_modules::Hash;
 
     use crate::error::ModuleError::MaxHeapSizeOverflow;
     use crate::{AddBlueprint, ModuleRepository};
@@ -558,8 +449,8 @@ mod tests {
             Default::default(),
         );
 
-        let dep1 = Dependency::Hash(Hash::new(&[1, 2, 3]));
-        let dep2 = Dependency::Hash(Hash::new(&[3, 2, 1]));
+        let dep1 = Hash::new(&[1, 2, 3]).unwrap();
+        let dep2 = Hash::new(&[3, 2, 1]).unwrap();
 
         let name1 = "bp1".to_string();
         let resp1 = repo
@@ -578,12 +469,12 @@ mod tests {
             .add_blueprint(AddBlueprint::new("bp2".to_string(), vec![dep1, dep2]))
             .unwrap();
         let bps2 = repo.get_blueprints();
-        assert_eq!(bps2.len(), 1);
-        let bp2 = bps2.get(0).unwrap();
+        assert_eq!(bps2.len(), 2);
+        let bp2 = bps2.into_iter().find(|bp| bp.name == name2).unwrap();
         assert_eq!(bp2.name, name2);
 
-        assert_eq!(resp1, resp2);
-        assert_eq!(bp1.id, bp2.id);
+        assert_ne!(resp1, resp2);
+        assert_ne!(bp1.id, bp2.id);
     }
 
     #[test]
@@ -621,28 +512,12 @@ mod tests {
             },
         };
 
-        let hash = repo
+        let m_hash = repo
             .add_module_base64(base64.encode(module), config)
             .unwrap();
 
-        let result = repo.get_interface(&hash);
+        let result = repo.get_interface(&m_hash);
         assert!(result.is_ok())
-    }
-
-    #[test]
-    fn test_hash_dependency() {
-        use super::hash_dependencies;
-        use crate::modules::Hash;
-
-        let dep1 = Hash::new(&[1, 2, 3]);
-        let dep2 = Hash::new(&[2, 1, 3]);
-        let dep3 = Hash::new(&[3, 2, 1]);
-
-        let hash1 = hash_dependencies(dep3.clone(), vec![dep1.clone(), dep2.clone()]);
-        let hash2 = hash_dependencies(dep3.clone(), vec![dep2.clone(), dep1.clone()]);
-        let hash3 = hash_dependencies(dep1, vec![dep2, dep3]);
-        assert_eq!(hash1.to_string(), hash2.to_string());
-        assert_ne!(hash2.to_string(), hash3.to_string());
     }
 
     #[test]

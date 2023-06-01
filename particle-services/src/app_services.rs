@@ -24,7 +24,7 @@ use fluence_app_service::{
 };
 use humantime_serde::re::humantime::format_duration as pretty;
 use parking_lot::{Mutex, RwLock};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Value as JValue};
 
 use fluence_libp2p::{peerid_serializer, PeerId};
@@ -33,7 +33,8 @@ use particle_args::{Args, JError};
 use particle_execution::{FunctionOutcome, ParticleParams, ParticleVault, VaultError};
 use particle_modules::ModuleRepository;
 use peer_metrics::{
-    ServiceCallStats, ServiceMemoryStat, ServiceType, ServicesMetrics, ServicesMetricsBuiltin,
+    ServiceCallStats, ServiceMemoryStat, ServiceType as MetricServiceType, ServicesMetrics,
+    ServicesMetricsBuiltin,
 };
 use server_config::ServicesConfig;
 use uuid_utils::uuid;
@@ -44,17 +45,33 @@ use crate::error::ServiceError::{AliasAsServiceId, Forbidden, NoSuchAlias};
 use crate::persistence::{
     load_persisted_services, persist_service, remove_persisted_service, PersistedService,
 };
-use crate::ServiceError::{ForbiddenAliasRoot, ForbiddenAliasWorker, NoSuchService};
+use crate::ServiceError::{
+    ForbiddenAlias, ForbiddenAliasRoot, ForbiddenAliasWorker, NoSuchService,
+};
 
 type ServiceId = String;
 type ServiceAlias = String;
 type Services = HashMap<ServiceId, Service>;
 type Aliases = HashMap<PeerId, HashMap<ServiceAlias, ServiceId>>;
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "lowercase")]
+pub enum ServiceType {
+    Service,
+    Spell,
+}
+
+impl ServiceType {
+    pub fn is_spell(&self) -> bool {
+        matches!(self, ServiceType::Spell)
+    }
+}
+
 #[derive(Debug, Serialize)]
 pub struct ServiceInfo {
     pub id: String,
     pub blueprint_id: String,
+    pub service_type: ServiceType,
     #[serde(with = "peerid_serializer")]
     pub owner_id: PeerId,
     pub aliases: Vec<ServiceAlias>,
@@ -69,6 +86,7 @@ pub struct Service {
     pub service: Mutex<AppService>,
     pub service_id: String,
     pub blueprint_id: String,
+    pub service_type: ServiceType,
     pub owner_id: PeerId,
     pub aliases: Vec<ServiceAlias>,
     pub worker_id: PeerId,
@@ -79,6 +97,7 @@ impl Service {
         service: Mutex<AppService>,
         service_id: String,
         blueprint_id: String,
+        service_type: ServiceType,
         owner_id: PeerId,
         aliases: Vec<ServiceAlias>,
         worker_id: PeerId,
@@ -87,11 +106,13 @@ impl Service {
             service,
             service_id,
             blueprint_id,
+            service_type,
             owner_id,
             aliases,
             worker_id,
         }
     }
+
     pub fn persist(&self, services_dir: &Path) -> Result<(), ServiceError> {
         persist_service(services_dir, PersistedService::from_service(self))
     }
@@ -110,6 +131,7 @@ impl Service {
         ServiceInfo {
             id: id.to_string(),
             blueprint_id: self.blueprint_id.clone(),
+            service_type: self.service_type.clone(),
             owner_id: self.owner_id,
             aliases: self.aliases.clone(),
             worker_id: self.worker_id,
@@ -156,11 +178,18 @@ pub struct ParticleAppServices {
 
 /// firstly, try to find by alias in worker scope, secondly, in root scope
 pub fn resolve_alias(
+    particle_id: &str,
     alias: String,
     aliases: &Aliases,
     worker_id: PeerId,
     local_peer_id: PeerId,
 ) -> Option<String> {
+    if alias == "spell" || alias == "self" {
+        if let Some(spell_id) = ParticleParams::get_spell_id(particle_id) {
+            return Some(spell_id);
+        }
+    }
+
     let worker_scope: Option<String> = try { aliases.get(&worker_id)?.get(&alias).cloned()? };
 
     if let Some(result) = worker_scope {
@@ -172,6 +201,7 @@ pub fn resolve_alias(
 }
 
 pub fn get_service<'l>(
+    particle_id: &str,
     services: &'l Services,
     aliases: &Aliases,
     worker_id: PeerId,
@@ -185,7 +215,13 @@ pub fn get_service<'l>(
 
     // retrieve service by alias
     let by_alias: Option<_> = try {
-        let resolved_id = resolve_alias(id_or_alias.clone(), aliases, worker_id, local_peer_id)?;
+        let resolved_id = resolve_alias(
+            particle_id,
+            id_or_alias.clone(),
+            aliases,
+            worker_id,
+            local_peer_id,
+        )?;
         let service = services.get(&resolved_id)?;
         (service, resolved_id.clone())
     };
@@ -240,12 +276,14 @@ impl ParticleAppServices {
 
     pub fn create_service(
         &self,
+        service_type: ServiceType,
         blueprint_id: String,
         owner_id: PeerId,
         worker_id: PeerId,
     ) -> Result<String, ServiceError> {
         let service_id = uuid::Uuid::new_v4().to_string();
         self.create_service_inner(
+            service_type,
             blueprint_id,
             owner_id,
             worker_id,
@@ -261,11 +299,13 @@ impl ParticleAppServices {
 
     pub fn get_service_info(
         &self,
+        particle_id: &str,
         worker_id: PeerId,
         service_id_or_alias: String,
     ) -> Result<JValue, ServiceError> {
         let services_read = self.services.read();
         let (service, service_id) = get_service(
+            particle_id,
             &services_read,
             &self.aliases.read(),
             worker_id,
@@ -307,6 +347,7 @@ impl ParticleAppServices {
 
     pub fn remove_service(
         &self,
+        particle_id: &str,
         worker_id: PeerId,
         service_id_or_alias: String,
         init_peer_id: PeerId,
@@ -316,6 +357,7 @@ impl ParticleAppServices {
         let service_id = {
             let services_read = self.services.read();
             let (service, service_id) = get_service(
+                particle_id,
                 &services_read,
                 &self.aliases.read(),
                 worker_id,
@@ -324,17 +366,13 @@ impl ParticleAppServices {
             )?;
 
             // tmp hack to forbid spell removal via srv.remove
-            let blueprint_name = self
-                .modules
-                .get_blueprint_from_cache(&service.blueprint_id)?
-                .name;
-            if blueprint_name == "spell" && !allow_remove_spell {
+            if service.service_type.is_spell() && !allow_remove_spell {
                 return Err(Forbidden {
                     user: init_peer_id,
                     function: "remove_service",
                     reason: "cannot remove a spell",
                 });
-            } else if blueprint_name != "spell" && allow_remove_spell {
+            } else if !service.service_type.is_spell() && allow_remove_spell {
                 return Err(Forbidden {
                     user: init_peer_id,
                     function: "remove_spell",
@@ -374,6 +412,7 @@ impl ParticleAppServices {
             )
         }
         let service = self.services.write().remove(&service_id).unwrap();
+        let service_type = self.get_service_type(&service, &service.worker_id);
 
         if let Some(aliases) = self.aliases.write().get_mut(&service.worker_id) {
             for alias in service.aliases.iter() {
@@ -383,13 +422,18 @@ impl ParticleAppServices {
 
         let removal_end_time = removal_start_time.elapsed().as_secs();
         if let Some(metrics) = self.metrics.as_ref() {
-            metrics.observe_removed(removal_end_time as f64);
+            metrics.observe_removed(service_type, removal_end_time as f64);
         }
 
         Ok(())
     }
 
-    pub fn call_service(&self, function_args: Args, particle: ParticleParams) -> FunctionOutcome {
+    pub fn call_service(
+        &self,
+        function_args: Args,
+        particle: ParticleParams,
+        create_vault: bool,
+    ) -> FunctionOutcome {
         let call_time_start = Instant::now();
         let services = self.services.read();
         let aliases = self.aliases.read();
@@ -397,6 +441,7 @@ impl ParticleAppServices {
         let timestamp = particle.timestamp;
 
         let service = get_service(
+            &particle.id,
             &services,
             &aliases,
             worker_id,
@@ -424,24 +469,13 @@ impl ParticleAppServices {
         //         },
         //     ));
         // }
-
         // Metrics collection are enables for services with aliases which are installed on root worker or worker spells.
-        let allowed_alias = if worker_id == self.config.local_peer_id {
-            service.aliases.first().cloned()
-        } else if service
-            .aliases
-            .first()
-            .map(|alias| alias == "worker-spell")
-            .unwrap_or(false)
-        {
-            Some("worker-spell".to_string())
-        } else {
-            None
-        };
-        let service_type = ServiceType::Service(allowed_alias);
+        let service_type = self.get_service_type(service, &worker_id);
 
         // TODO: move particle vault creation to aquamarine::particle_functions
-        self.create_vault(&particle.id)?;
+        if create_vault {
+            self.create_vault(&particle.id)?;
+        }
         let params = CallParameters {
             host_id: worker_id.to_string(),
             particle_id: particle.id,
@@ -547,7 +581,7 @@ impl ParticleAppServices {
             signature: vec![],
         };
 
-        self.call_service(args, particle)
+        self.call_service(args, particle, false)
     }
 
     fn add_alias_inner(
@@ -605,6 +639,10 @@ impl ParticleAppServices {
             return Err(AliasAsServiceId(alias));
         }
 
+        if alias == "spell" || alias == "self" {
+            return Err(ForbiddenAlias(alias));
+        }
+
         if !self.service_exists(&service_id) {
             return Err(NoSuchService(service_id));
         }
@@ -624,9 +662,15 @@ impl ParticleAppServices {
         Ok(())
     }
 
-    pub fn resolve_alias(&self, worker_id: PeerId, alias: String) -> Result<String, ServiceError> {
+    pub fn resolve_alias(
+        &self,
+        particle_id: &str,
+        worker_id: PeerId,
+        alias: String,
+    ) -> Result<String, ServiceError> {
         let aliases = self.aliases.read();
         resolve_alias(
+            particle_id,
             alias.clone(),
             &aliases,
             worker_id,
@@ -637,11 +681,13 @@ impl ParticleAppServices {
 
     pub fn to_service_id(
         &self,
+        particle_id: &str,
         worker_id: PeerId,
         service_id_or_alias: String,
     ) -> Result<String, ServiceError> {
         let services = self.services.read();
         let (_, service_id) = get_service(
+            particle_id,
             &services,
             &self.aliases.read(),
             worker_id,
@@ -653,11 +699,13 @@ impl ParticleAppServices {
 
     pub fn get_service_owner(
         &self,
+        particle_id: &str,
         id_or_alias: String,
         worker_id: PeerId,
     ) -> Result<PeerId, ServiceError> {
         let services = self.services.read();
         let (service, _) = get_service(
+            particle_id,
             &services,
             &self.aliases.read(),
             worker_id,
@@ -670,11 +718,13 @@ impl ParticleAppServices {
 
     pub fn check_service_worker_id(
         &self,
+        particle_id: &str,
         id_or_alias: String,
         worker_id: PeerId,
     ) -> Result<(), ServiceError> {
         let services = self.services.read();
         let (service, _) = get_service(
+            particle_id,
             &services,
             &self.aliases.read(),
             worker_id,
@@ -694,11 +744,13 @@ impl ParticleAppServices {
 
     pub fn get_interface(
         &self,
+        particle_id: &str,
         service_id: String,
         worker_id: PeerId,
     ) -> Result<JValue, ServiceError> {
         let services = self.services.read();
         let (service, _) = get_service(
+            particle_id,
             &services,
             &self.aliases.read(),
             worker_id,
@@ -730,11 +782,13 @@ impl ParticleAppServices {
 
     pub fn get_service_mem_stats(
         &self,
+        particle_id: &str,
         worker_id: PeerId,
         service_id: String,
     ) -> Result<Vec<JValue>, JError> {
         let services = self.services.read();
         let (service, _) = get_service(
+            particle_id,
             &services,
             &self.aliases.read(),
             worker_id,
@@ -774,7 +828,25 @@ impl ParticleAppServices {
         for s in services {
             let worker_id = s.worker_id.expect("every service must have worker id");
             let start = Instant::now();
+            // If the service_type doesn't set in PersitedService, will try to find out if it's a spell by blueprint name
+            // This is mostly done for migration from the old detection method to the new.
+            let service_type = s.service_type.unwrap_or_else(|| {
+                let is_spell: Option<_> = try {
+                    let blueprint_name = self
+                        .modules
+                        .get_blueprint_from_cache(&s.blueprint_id)
+                        .ok()?
+                        .name;
+                    blueprint_name == "spell"
+                };
+                if is_spell.unwrap_or(false) {
+                    ServiceType::Spell
+                } else {
+                    ServiceType::Service
+                }
+            });
             let result = self.create_service_inner(
+                service_type,
                 s.blueprint_id,
                 s.owner_id,
                 worker_id,
@@ -820,6 +892,7 @@ impl ParticleAppServices {
 
     fn create_service_inner(
         &self,
+        service_type: ServiceType,
         blueprint_id: String,
         owner_id: PeerId,
         worker_id: PeerId,
@@ -841,26 +914,22 @@ impl ParticleAppServices {
         })?;
         let stats = service.module_memory_stats();
         let stats = ServiceMemoryStat::new(&stats);
-        let allowed_alias = if worker_id == self.config.local_peer_id {
-            aliases.first().cloned()
-        } else {
-            None
-        };
-        let service_type = ServiceType::Service(allowed_alias);
+
         let service = Service::new(
             Mutex::new(service),
             service_id.clone(),
             blueprint_id,
+            service_type,
             owner_id,
             aliases,
             worker_id,
         );
         // Save created service to disk, so it is recreated on restart
         service.persist(&self.config.services_dir)?;
-
+        let service_type = self.get_service_type(&service, &worker_id);
         let replaced = self.services.write().insert(service_id.clone(), service);
-        let creation_end_time = creation_start_time.elapsed().as_secs();
         if let Some(m) = self.metrics.as_ref() {
+            let creation_end_time = creation_start_time.elapsed().as_secs();
             m.observe_created(service_id, service_type, stats, creation_end_time as f64);
         }
 
@@ -869,6 +938,27 @@ impl ParticleAppServices {
 
     fn create_vault(&self, particle_id: &str) -> Result<(), VaultError> {
         self.vault.create(particle_id)
+    }
+
+    fn get_service_type(&self, service: &Service, worker_id: &PeerId) -> MetricServiceType {
+        let allowed_alias = if self.config.local_peer_id.eq(worker_id) {
+            service.aliases.first().cloned()
+        } else if service
+            .aliases
+            .first()
+            .map(|alias| alias == "worker-spell")
+            .unwrap_or(false)
+        {
+            Some("worker-spell".to_string())
+        } else {
+            None
+        };
+
+        if service.service_type.is_spell() {
+            MetricServiceType::Spell(allowed_alias)
+        } else {
+            MetricServiceType::Service(allowed_alias)
+        }
     }
 }
 
@@ -895,8 +985,9 @@ mod tests {
     use particle_modules::{AddBlueprint, ModuleRepository};
     use server_config::ServicesConfig;
     use service_modules::load_module;
-    use service_modules::{Dependency, Hash};
+    use service_modules::Hash;
 
+    use crate::app_services::ServiceType;
     use crate::persistence::load_persisted_services;
     use crate::{ParticleAppServices, ServiceError};
 
@@ -969,13 +1060,13 @@ mod tests {
         module: &str,
         worker_id: PeerId,
     ) -> Result<String, String> {
-        let dep = Dependency::Hash(Hash::from_hex(module).unwrap());
+        let dep = Hash::from_string(module).unwrap();
         let bp = pas
             .modules
             .add_blueprint(AddBlueprint::new(module_name, vec![dep]))
             .unwrap();
 
-        pas.create_service(bp, RandomPeerId::random(), worker_id)
+        pas.create_service(ServiceType::Service, bp, RandomPeerId::random(), worker_id)
             .map_err(|e| e.to_string())
     }
 
@@ -1026,23 +1117,23 @@ mod tests {
                 logging_mask: None,
             },
         };
-        let hash = pas
+        let m_hash = pas
             .modules
             .add_module_base64(base64.encode(module), config)
             .unwrap();
-        let service_id1 = create_service(&pas, module_name.clone(), &hash, local_pid).unwrap();
-        let service_id2 = create_service(&pas, module_name.clone(), &hash, local_pid).unwrap();
-        let service_id3 = create_service(&pas, module_name, &hash, local_pid).unwrap();
+        let service_id1 = create_service(&pas, module_name.clone(), &m_hash, local_pid).unwrap();
+        let service_id2 = create_service(&pas, module_name.clone(), &m_hash, local_pid).unwrap();
+        let service_id3 = create_service(&pas, module_name, &m_hash, local_pid).unwrap();
 
-        let inter1 = pas.get_interface(service_id1, local_pid).unwrap();
+        let inter1 = pas.get_interface("", service_id1, local_pid).unwrap();
 
         // delete module and check that interfaces will be returned anyway
         let dir = modules_dir(base_dir.path());
-        let module_file = dir.join(format!("{hash}.wasm"));
+        let module_file = dir.join(format!("{m_hash}.wasm"));
         remove_file(module_file.clone()).unwrap();
 
-        let inter2 = pas.get_interface(service_id2, local_pid).unwrap();
-        let inter3 = pas.get_interface(service_id3, local_pid).unwrap();
+        let inter2 = pas.get_interface("", service_id2, local_pid).unwrap();
+        let inter3 = pas.get_interface("", service_id3, local_pid).unwrap();
 
         assert_eq!(module_file.exists(), false);
         assert_eq!(inter1, inter2);
@@ -1082,8 +1173,8 @@ mod tests {
         let pas = create_pas(local_pid, management_pid, base_dir.into_path());
 
         let module_name = "tetra".to_string();
-        let hash = upload_tetra_service(&pas, module_name.clone());
-        let service_id1 = create_service(&pas, module_name, &hash, local_pid).unwrap();
+        let m_hash = upload_tetra_service(&pas, module_name.clone());
+        let service_id1 = create_service(&pas, module_name, &m_hash, local_pid).unwrap();
 
         let alias = "alias";
         let result = pas.add_alias(
@@ -1122,10 +1213,10 @@ mod tests {
         let pas = create_pas(local_pid, management_pid, base_dir.into_path());
 
         let module_name = "tetra".to_string();
-        let hash = upload_tetra_service(&pas, module_name.clone());
+        let m_hash = upload_tetra_service(&pas, module_name.clone());
 
-        let service_id1 = create_service(&pas, module_name.clone(), &hash, local_pid).unwrap();
-        let service_id2 = create_service(&pas, module_name, &hash, local_pid).unwrap();
+        let service_id1 = create_service(&pas, module_name.clone(), &m_hash, local_pid).unwrap();
+        let service_id2 = create_service(&pas, module_name, &m_hash, local_pid).unwrap();
 
         let alias = "alias";
         // add an alias to a service
@@ -1180,9 +1271,9 @@ mod tests {
         let pas = create_pas(local_pid, management_pid, base_dir.into_path());
 
         let module_name = "tetra".to_string();
-        let hash = upload_tetra_service(&pas, module_name.clone());
+        let m_hash = upload_tetra_service(&pas, module_name.clone());
 
-        let service_id = create_service(&pas, module_name.clone(), &hash, local_pid).unwrap();
+        let service_id = create_service(&pas, module_name.clone(), &m_hash, local_pid).unwrap();
 
         let alias = "alias";
         // add an alias to a service
@@ -1231,9 +1322,9 @@ mod tests {
 
         let module_name = "tetra".to_string();
         let alias = "alias".to_string();
-        let hash = upload_tetra_service(&pas, module_name.clone());
+        let m_hash = upload_tetra_service(&pas, module_name.clone());
 
-        let service_id1 = create_service(&pas, module_name, &hash, local_pid).unwrap();
+        let service_id1 = create_service(&pas, module_name, &m_hash, local_pid).unwrap();
         pas.add_alias(
             alias.clone(),
             local_pid,

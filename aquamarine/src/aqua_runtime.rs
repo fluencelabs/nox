@@ -113,7 +113,7 @@ impl AquaRuntime for AVM<DataStoreError> {
         match parse_outcome(outcome) {
             Ok((data, peers, calls)) if !peers.is_empty() || !calls.is_empty() => {
                 #[rustfmt::skip]
-                log::debug!("Particle {} executed: {} call requests, {} next peers", p.id, calls.len(), peers.len());
+                tracing::debug!(particle_id = p.id, "Particle executed: {} call requests, {} next peers", calls.len(), peers.len());
 
                 ParticleEffects {
                     next_peers: peers,
@@ -122,22 +122,36 @@ impl AquaRuntime for AVM<DataStoreError> {
                 }
             }
             Ok((data, ..)) => {
-                log::warn!(
-                    "Executed particle {}, next_peer_pks is empty, no call requests. Nothing to do.",
-                    p.id
+                tracing::warn!(
+                    particle_id = p.id,
+                    "Executed particle, next_peer_pks is empty, no call requests. Nothing to do.",
                 );
                 if log::max_level() >= LevelFilter::Debug {
                     let data = String::from_utf8_lossy(data.as_slice());
-                    log::debug!("particle {} next_peer_pks = [], data: {}", p.id, data);
+                    tracing::debug!(
+                        particle_id = p.id,
+                        "particle next_peer_pks = [], data: {}",
+                        data
+                    );
                 }
                 ParticleEffects::empty(Particle { data, ..p })
             }
             Err(ExecutionError::AquamarineError(err)) => {
-                log::warn!("Error executing particle {:#?}: {}", p, err);
+                tracing::warn!(
+                    particle_id = p.id,
+                    "Error executing particle {:#?}: {}",
+                    p,
+                    err
+                );
                 ParticleEffects::empty(p)
             }
             Err(err @ ExecutionError::InvalidResultField { .. }) => {
-                log::warn!("Error parsing outcome for particle {:#?}: {}", p, err);
+                tracing::warn!(
+                    particle_id = p.id,
+                    "Error parsing outcome for particle {:#?}: {}",
+                    p,
+                    err
+                );
                 ParticleEffects::empty(p)
             }
         }

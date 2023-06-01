@@ -150,7 +150,11 @@ impl ServicesMetrics {
         creation_time: f64,
     ) {
         self.observe_external(|external| {
-            external.observe_created(stats.modules_stats.len() as f64, creation_time);
+            external.observe_created(
+                service_type.clone(),
+                stats.modules_stats.len() as f64,
+                creation_time,
+            );
             self.observe_service_mem(service_id, service_type, stats);
         });
     }
@@ -161,9 +165,9 @@ impl ServicesMetrics {
         });
     }
 
-    pub fn observe_removed(&self, removal_time: f64) {
+    pub fn observe_removed(&self, service_type: ServiceType, removal_time: f64) {
         self.observe_external(|external| {
-            external.observe_removed(removal_time);
+            external.observe_removed(service_type, removal_time);
         });
     }
 

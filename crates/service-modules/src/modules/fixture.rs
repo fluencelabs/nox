@@ -14,9 +14,6 @@
  * limitations under the License.
  */
 
-use crate::modules::dependency::Dependency;
-use crate::modules::file_names::module_file_name;
-
 use fs_utils::to_abs_path;
 
 use eyre::{Result, WrapErr};
@@ -24,22 +21,21 @@ use serde_json::{json, Value as JValue};
 use std::path::PathBuf;
 
 pub fn load_module(path: &str, module_name: impl Into<String>) -> Result<Vec<u8>> {
-    let module_name = module_file_name(&Dependency::Name(module_name.into()));
+    let module_name = format!("{}.wasm", module_name.into());
     let module = to_abs_path(PathBuf::from(path).join(module_name));
     std::fs::read(&module).wrap_err(format!("failed to load module {module:?}"))
 }
 
 pub fn module_config(import_name: &str) -> JValue {
-    serde_json::json!(
-        {
-            "name": import_name,
-            "mem_pages_count": 100,
-            "logger_enabled": true,
-            "wasi": {
-                "envs": json!({}),
-                "preopened_files": vec!["/tmp"],
-                "mapped_dirs": json!({}),
-            }
+    json!(
+    {
+        "name": import_name,
+        "mem_pages_count": 100,
+        "logger_enabled": true,
+        "wasi": {
+            "envs": json!({}),
+            "preopened_files": vec!["/tmp"],
+            "mapped_dirs": json!({}),
         }
-    )
+    })
 }

@@ -22,13 +22,14 @@ use key_manager::KeyManager;
 use libp2p::PeerId;
 use particle_args::{Args, JError};
 use particle_execution::ParticleParams;
-use particle_services::ParticleAppServices;
+use particle_services::{ParticleAppServices, ServiceType};
 use spell_event_bus::api::EventBusError;
 use spell_event_bus::{api, api::SpellEventBusApi};
 use spell_storage::SpellStorage;
 use std::time::Duration;
 
 pub(crate) async fn remove_spell(
+    particle_id: &str,
     spell_storage: &SpellStorage,
     services: &ParticleAppServices,
     spell_event_bus_api: &SpellEventBusApi,
@@ -45,7 +46,7 @@ pub(crate) async fn remove_spell(
     }
 
     spell_storage.unregister_spell(worker_id, &spell_id);
-    services.remove_service(worker_id, spell_id, worker_id, true)?;
+    services.remove_service(particle_id, worker_id, spell_id, worker_id, true)?;
     Ok(())
 }
 
@@ -78,7 +79,12 @@ pub(crate) async fn spell_install(
         return Err(JError::new(format!("Failed to install spell on {worker_id}, spell can be installed by worker creator {worker_creator}, worker itself {worker_id} or peer manager; init_peer_id={init_peer_id}")));
     }
 
-    let spell_id = services.create_service(spell_storage.get_blueprint(), worker_id, worker_id)?;
+    let spell_id = services.create_service(
+        ServiceType::Spell,
+        spell_storage.get_blueprint(),
+        worker_id,
+        worker_id,
+    )?;
     spell_storage.register_spell(worker_id, spell_id.clone());
 
     // TODO: refactor these service calls
@@ -136,17 +142,23 @@ pub(crate) async fn spell_install(
             log::warn!("can't subscribe a spell {} to triggers {:?} via spell-event-bus-api: {}. Removing created spell service...", spell_id, config, err);
 
             spell_storage.unregister_spell(worker_id, &spell_id);
-            services.remove_service(params.host_id, spell_id, params.init_peer_id, true)?;
+            services.remove_service(
+                &params.id,
+                params.host_id,
+                spell_id,
+                params.init_peer_id,
+                true,
+            )?;
 
             return Err(JError::new(format!(
                 "can't install a spell due to an internal error while subscribing to the triggers: {err}"
             )));
         }
     } else {
-        log::trace!(
-            "empty config given for spell {}, particle id {}",
-            spell_id,
-            params.id
+        tracing::trace!(
+            particle_id = params.id,
+            "empty config given for spell {}",
+            spell_id
         );
     }
 
@@ -194,9 +206,10 @@ pub(crate) async fn spell_remove(
         )));
     }
 
-    let spell_id = services.to_service_id(params.host_id, spell_id)?;
+    let spell_id = services.to_service_id(&params.id, params.host_id, spell_id)?;
 
     remove_spell(
+        &params.id,
         &spell_storage,
         &services,
         &spell_event_bus_api,
@@ -230,7 +243,7 @@ pub(crate) async fn spell_update_config(
         )));
     }
 
-    let spell_id = services.to_service_id(worker_id, spell_id_or_alias.clone())?;
+    let spell_id = services.to_service_id(&params.id, worker_id, spell_id_or_alias.clone())?;
 
     let user_config: TriggerConfig = Args::next("config", &mut args)?;
     let config = api::from_user_config(user_config.clone())?;
@@ -273,7 +286,7 @@ pub(crate) async fn spell_update_config(
 }
 
 pub(crate) fn get_spell_id(params: ParticleParams) -> Result<JValue, JError> {
-    Ok(json!(parse_spell_id_from(&params.id)?))
+    Ok(json!(parse_spell_id_from(&params)?))
 }
 
 pub(crate) fn get_spell_arg(
@@ -281,20 +294,20 @@ pub(crate) fn get_spell_arg(
     params: ParticleParams,
     services: ParticleAppServices,
 ) -> Result<JValue, JError> {
-    let spell_id = parse_spell_id_from(&params.id)?;
+    let spell_id = parse_spell_id_from(&params)?;
     let key = args.function_name;
 
     let str_value = process_func_outcome::<StringValue>(
         services.call_function(
             params.host_id,
-            spell_id,
+            &spell_id,
             "get_string",
             vec![json!(key)],
             Some(params.id.clone()),
             params.init_peer_id,
             Duration::from_millis(params.ttl as u64),
         ),
-        spell_id,
+        &spell_id,
         "get_string",
     )
     .map_err(|e| JError::new(f!("Failed to get argument {key} for spell {spell_id}: {e}")))?;
@@ -307,20 +320,20 @@ pub(crate) fn store_error(
     params: ParticleParams,
     services: ParticleAppServices,
 ) -> Result<(), JError> {
-    let spell_id = parse_spell_id_from(&params.id)?;
+    let spell_id = parse_spell_id_from(&params)?;
 
     args.function_args.push(json!(params.timestamp));
     process_func_outcome::<UnitValue>(
         services.call_function(
             params.host_id,
-            spell_id,
+            &spell_id,
             "store_error",
             args.function_args.clone(),
             Some(params.id.clone()),
             params.init_peer_id,
             Duration::from_millis(params.ttl as u64),
         ),
-        spell_id,
+        &spell_id,
         "store_error",
     )
     .map(drop)
@@ -337,19 +350,19 @@ pub(crate) fn store_response(
     params: ParticleParams,
     services: ParticleAppServices,
 ) -> Result<(), JError> {
-    let spell_id = parse_spell_id_from(&params.id)?;
+    let spell_id = parse_spell_id_from(&params)?;
     let response: JValue = Args::next("spell_id", &mut args.function_args.into_iter())?;
     process_func_outcome::<UnitValue>(
         services.call_function(
             params.host_id,
-            spell_id,
+            &spell_id,
             "set_json_fields",
             vec![json!(response.to_string())],
             Some(params.id.clone()),
             params.init_peer_id,
             Duration::from_millis(params.ttl as u64),
         ),
-        spell_id,
+        &spell_id,
         "set_json_fields",
     )
     .map(drop)

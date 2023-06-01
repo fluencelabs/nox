@@ -182,7 +182,7 @@ pub fn default_management_peer_id() -> PeerId {
     let public_key = PublicKey::Ed25519(kp.public());
     let peer_id = PeerId::from(public_key);
 
-    log::warn!(
+    log::info!(
         "New management key generated. ed25519 private key in base64 = {}",
         base64.encode(kp.secret()),
     );

@@ -14,10 +14,9 @@
  * limitations under the License.
  */
 
+use crate::LogFormat;
 use clap::{Args, Parser};
-use figment::error::Kind::InvalidType;
-use figment::value::{Dict, Map, Value};
-use figment::{Error, Metadata, Profile};
+use config::{ConfigError, Map, Source, Value};
 use serde::ser::SerializeStruct;
 use serde::{Serialize, Serializer};
 use std::fmt::Debug;
@@ -27,7 +26,7 @@ use std::path::PathBuf;
 pub struct RootKeyPairArgs {
     #[arg(
         short('k'),
-        long,
+        long("keypair-value"),
         id = "ROOT_KEY_PAIR_VALUE",
         help = "keypair in base64 (conflicts with --keypair-path)",
         value_name = "BYTES",
@@ -39,7 +38,7 @@ pub struct RootKeyPairArgs {
     value: Option<String>,
     #[arg(
         short('p'),
-        long,
+        long("keypair-path"),
         id = "ROOT_KEY_PAIR_PATH",
         help = "keypair path (conflicts with --keypair-value)",
         help_heading = "Node keypair",
@@ -49,23 +48,23 @@ pub struct RootKeyPairArgs {
     )]
     path: Option<PathBuf>,
     #[arg(
-    short('f'),
-    long,
-    value_parser(["ed25519", "secp256k1", "rsa"]),
-    id = "ROOT_KEY_FORMAT",
-    help_heading = "Node keypair",
-    display_order = 12,
+        short('f'),
+        long("keypair-format"),
+        value_parser(["ed25519", "secp256k1", "rsa"]),
+        id = "ROOT_KEY_FORMAT",
+        help_heading = "Node keypair",
+        display_order = 12,
     )]
     format: Option<String>,
 
     #[arg(
-    short('g'),
-    long,
-    value_parser = clap::value_parser!(bool),
-    id = "ROOT_KEY_PAIR_GENERATE",
-    help_heading = "Node keypair",
-    display_order = 13,
-    action =  clap::ArgAction::SetTrue
+        short('g'),
+        long("gen-keypair"),
+        value_parser = clap::value_parser!(bool),
+        id = "ROOT_KEY_PAIR_GENERATE",
+        help_heading = "Node keypair",
+        display_order = 13,
+        action =  clap::ArgAction::SetTrue
     )]
     generate_on_absence: Option<bool>,
     #[arg(
@@ -107,6 +106,50 @@ impl Serialize for RootKeyPairArgs {
     }
 }
 
+#[derive(Args, Debug, Clone, Serialize)]
+pub struct LogArgs {
+    #[arg(
+        long("log-format"),
+        id = "LOG_FORMAT",
+        help = "logging format",
+        help_heading = "Node configuration",
+        display_order = 24
+    )]
+    pub format: Option<LogFormat>,
+}
+
+#[derive(Args, Debug, Clone, Serialize)]
+pub struct TracingArgs {
+    #[arg(
+        long("tracing-type"),
+        id = "TRACING_TYPE",
+        help = "Tracing type",
+        help_heading = "Node configuration",
+        display_order = 25,
+        value_enum
+    )]
+    #[serde(rename = "type")]
+    tpe: Option<TracingType>,
+
+    #[arg(
+        long("tracing-otlp-endpoint"),
+        id = "TRACING_OTLP_ENDPOINT",
+        value_name = "URL",
+        help = "oltp endpoint",
+        help_heading = "Node configuration",
+        display_order = 26
+    )]
+    pub endpoint: Option<String>,
+}
+
+#[derive(clap::ValueEnum, Debug, Clone, Serialize)]
+pub enum TracingType {
+    #[serde(rename = "disabled")]
+    Disabled,
+    #[serde(rename = "otlp")]
+    Otlp,
+}
+
 #[derive(Parser, Debug, Serialize, Clone)]
 pub(crate) struct DerivedArgs {
     #[arg(
@@ -138,7 +181,7 @@ pub(crate) struct DerivedArgs {
     metrics_port: Option<u16>,
     #[arg(
         short('x'),
-        long,
+        long("external-ip"),
         id = "EXTERNAL_ADDR",
         help = "node external IP address to advertise to other peers",
         value_name = "IP",
@@ -258,14 +301,14 @@ pub(crate) struct DerivedArgs {
     )]
     services_workdir: Option<PathBuf>,
     #[arg(
-        long,
+        long("aqua-pool-size"),
         id = "AQUA_VM_POOL_SIZE",
         help_heading = "AIR configuration",
         help = "Number of AquaVM instances (particle script execution parallelism)",
         value_name = "NUM",
         display_order = 21
     )]
-    aqua_pool_size: Option<PathBuf>,
+    aquavm_pool_size: Option<usize>,
     #[arg(
         long,
         value_parser = clap::value_parser!(bool),
@@ -276,27 +319,34 @@ pub(crate) struct DerivedArgs {
         action = clap::ArgAction::SetTrue
     )]
     pub(crate) print_config: Option<bool>,
+    #[arg(
+        long,
+        value_parser = clap::value_parser!(bool),
+        id = "NO_BANNER",
+        help = "Disable banner",
+        help_heading = "Node configuration",
+        display_order = 23,
+        action = clap::ArgAction::SetTrue
+    )]
+    pub(crate) no_banner: Option<bool>,
+
+    #[command(flatten)]
+    log: Option<LogArgs>,
+
+    #[command(flatten)]
+    tracing: Option<TracingArgs>,
 }
 
-impl figment::Provider for DerivedArgs {
-    fn metadata(&self) -> Metadata {
-        Metadata::named("Args")
+impl Source for DerivedArgs {
+    fn clone_into_box(&self) -> Box<dyn Source + Send + Sync> {
+        Box::new(self.clone())
     }
 
-    fn data(&self) -> Result<Map<Profile, Dict>, Error> {
-        let value = Value::serialize(self)?;
-
-        let error = InvalidType(value.to_actual(), "map".into());
-        let dict = value
-            .into_dict()
-            .map(|dict| {
-                let a = dict.into_iter().filter_map(|(key, value)| match value {
-                    Value::Empty(_, _) => None,
-                    value => Some((key, value)),
-                });
-                a.collect::<Dict>()
-            })
-            .ok_or(error)?;
-        Ok(Map::from([(Profile::Default, dict)]))
+    fn collect(&self) -> Result<Map<String, Value>, ConfigError> {
+        let source_str =
+            toml::to_string(&self).map_err(|e| config::ConfigError::Foreign(Box::new(e)))?;
+        let result = toml::de::from_str(&source_str)
+            .map_err(|e| config::ConfigError::Foreign(Box::new(e)))?;
+        Ok(result)
     }
 }

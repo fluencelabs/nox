@@ -22,6 +22,7 @@ connection-pool = { workspace = true }
 kademlia = { workspace = true }
 fluence-libp2p = { workspace = true }
 key-manager = { workspace = true }
+peer-metrics = { workspace = true }
 
 libp2p = { workspace = true }
 fluence-keypair = { workspace = true }
@@ -29,6 +30,7 @@ fluence-keypair = { workspace = true }
 serde_json = { workspace = true }
 parking_lot = { workspace = true }
 log = { workspace = true }
+tracing = { workspace = true }
 futures = { workspace = true }
 eyre = { workspace = true}
 fstrings = { workspace = true}

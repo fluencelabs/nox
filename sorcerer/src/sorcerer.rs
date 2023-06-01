@@ -36,6 +36,7 @@ use particle_builtins::{wrap, wrap_unit, CustomService};
 use particle_execution::ServiceFunction;
 use particle_modules::ModuleRepository;
 use particle_services::ParticleAppServices;
+use peer_metrics::SpellMetrics;
 use serde_json::Value;
 use server_config::ResolvedConfig;
 use spell_event_bus::api::{from_user_config, SpellEventBusApi, TriggerEvent};
@@ -49,6 +50,7 @@ pub struct Sorcerer {
     pub spell_event_bus_api: SpellEventBusApi,
     pub spell_script_particle_ttl: Duration,
     pub key_manager: KeyManager,
+    pub spell_metrics: Option<SpellMetrics>,
 }
 
 impl Sorcerer {
@@ -59,6 +61,7 @@ impl Sorcerer {
         config: ResolvedConfig,
         spell_event_bus_api: SpellEventBusApi,
         key_manager: KeyManager,
+        spell_metrics: Option<SpellMetrics>,
     ) -> (Self, HashMap<String, CustomService>, String) {
         let (spell_storage, spell_version) =
             SpellStorage::create(&config.dir_config.spell_base_dir, &services, &modules)
@@ -71,6 +74,7 @@ impl Sorcerer {
             spell_event_bus_api,
             spell_script_particle_ttl: config.max_spell_particle_ttl,
             key_manager,
+            spell_metrics,
         };
 
         let mut builtin_functions = sorcerer.make_spell_builtins();
@@ -88,9 +92,11 @@ impl Sorcerer {
         {
             log::info!("Rescheduling spell {}", spell_id);
             let result: Result<(), JError> = try {
-                let spell_owner = self
-                    .services
-                    .get_service_owner(spell_id.clone(), self.key_manager.get_host_peer_id())?;
+                let spell_owner = self.services.get_service_owner(
+                    "",
+                    spell_id.clone(),
+                    self.key_manager.get_host_peer_id(),
+                )?;
                 let result = process_func_outcome::<TriggerConfigValue>(
                     self.services.call_function(
                         spell_owner,
@@ -104,11 +110,15 @@ impl Sorcerer {
                     spell_id,
                     "get_trigger_config",
                 )?;
+                let period = result.config.clock.period_sec;
                 let config = from_user_config(result.config)?;
                 if let Some(config) = config.and_then(|c| c.into_rescheduled()) {
                     self.spell_event_bus_api
-                        .subscribe(spell_id.clone(), config.clone())
+                        .subscribe(spell_id.clone(), config)
                         .await?;
+                    if let Some(m) = &self.spell_metrics {
+                        m.observe_started_spell(period);
+                    }
                 } else {
                     log::warn!("Spell {spell_id} is not rescheduled since its config is either not found or not reschedulable");
                 }

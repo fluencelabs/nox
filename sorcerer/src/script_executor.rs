@@ -146,12 +146,17 @@ impl Sorcerer {
 
     pub async fn execute_script(&self, event: TriggerEvent) {
         let error: Result<(), JError> = try {
-            let worker_id = self
-                .services
-                .get_service_owner(event.spell_id.clone(), self.key_manager.get_host_peer_id())?;
+            let worker_id = self.services.get_service_owner(
+                "",
+                event.spell_id.clone(),
+                self.key_manager.get_host_peer_id(),
+            )?;
             let particle = self.make_spell_particle(event.spell_id.clone(), worker_id)?;
 
             self.store_trigger(event.clone(), worker_id)?;
+            if let Some(m) = &self.spell_metrics {
+                m.observe_spell_cast();
+            }
             self.aquamarine.clone().execute(particle, None).await?;
         };
 

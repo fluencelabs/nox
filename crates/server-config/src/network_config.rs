@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#[allow(deprecated)]
 use libp2p::swarm::ConnectionLimits;
 use libp2p::{core::Multiaddr, identity::Keypair, PeerId};
 use libp2p_metrics::Metrics;
@@ -36,13 +37,14 @@ pub struct NetworkConfig {
     pub kademlia_config: KademliaConfig,
     pub particle_queue_buffer: usize,
     pub bootstrap_frequency: usize,
-    pub allow_local_addresses: bool,
     pub connectivity_metrics: Option<ConnectivityMetrics>,
     pub connection_pool_metrics: Option<ConnectionPoolMetrics>,
+    #[allow(deprecated)]
     pub connection_limits: ConnectionLimits,
 }
 
 impl NetworkConfig {
+    #[allow(deprecated)]
     pub fn new(
         libp2p_metrics: Option<Arc<Metrics>>,
         connectivity_metrics: Option<ConnectivityMetrics>,
@@ -63,7 +65,6 @@ impl NetworkConfig {
             kademlia_config: config.kademlia.clone(),
             particle_queue_buffer: config.particle_queue_buffer,
             bootstrap_frequency: config.bootstrap_frequency,
-            allow_local_addresses: config.allow_local_addresses,
             connectivity_metrics,
             connection_pool_metrics,
             connection_limits,

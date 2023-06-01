@@ -781,7 +781,7 @@ async fn spell_call_by_alias() {
                     (call %init_peer_id% ("alias" "get_u32") ["counter"] counter)
                 )
 
-                (call "{}" ("return" "") [counter])
+                (call "{}" ("return" "") [counter.$.num])
             )
         )"#,
         client.peer_id
@@ -1351,7 +1351,7 @@ async fn worker_sig_test() {
         (seq
             (seq
                 (seq
-                    (call %init_peer_id% ("registry" "get_record_bytes") ["key_id" "" [] [] 1 []] data)
+                    (call %init_peer_id% ("registry" "get_record_metadata_bytes") ["key_id" "" 0 "" "" [] [] []] data)
                     (call %init_peer_id% ("sig" "get_peer_id") [] peer_id)
                 )
                 (seq
@@ -1839,5 +1839,67 @@ async fn test_spell_list() {
         assert!(worker2_spells[0].as_str().unwrap().eq(&spell_id3));
     } else {
         panic!("expected one array result")
+    }
+}
+
+#[tokio::test]
+async fn spell_call_by_default_alias() {
+    let swarms = make_swarms(1).await;
+
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
+        .wrap_err("connect client")
+        .unwrap();
+
+    let script = format!(
+        r#"
+        (seq
+            (seq
+                (seq
+                    (call %init_peer_id% ("spell" "get_u32") ["counter"] counter1)
+                    (seq
+                        (call %init_peer_id% ("srv" "resolve_alias") ["spell"] spell_id1)
+                        (xor
+                            (call %init_peer_id% ("srv" "add_alias") ["spell" spell_id1])
+                            (call %init_peer_id% ("op" "identity") [%last_error%.$.message] error1)
+                        )
+                    )
+                )
+                (seq
+                    (call %init_peer_id% ("self" "get_u32") ["counter"] counter2)
+                    (seq
+                        (call %init_peer_id% ("srv" "resolve_alias") ["self"] spell_id2)
+                        (xor
+                            (call %init_peer_id% ("srv" "add_alias") ["self" spell_id2])
+                            (call %init_peer_id% ("op" "identity") [%last_error%.$.message] error2)
+                        )
+                    )
+                )
+            )
+            (call "{}" ("return" "") [counter1.$.num spell_id1 error1 counter2.$.num spell_id2 error2])
+        )"#,
+        client.peer_id
+    );
+
+    let config = make_clock_config(2, 1, 0);
+    let (expected_spell_id, _) = create_spell(&mut client, &script, config, json!({}), None).await;
+
+    if let [JValue::Number(counter1), JValue::String(spell_id1), JValue::String(error1), JValue::Number(counter2), JValue::String(spell_id2), JValue::String(error2)] =
+        client
+            .receive_args()
+            .await
+            .wrap_err("receive")
+            .unwrap()
+            .as_slice()
+    {
+        assert_ne!(counter1.as_i64().unwrap(), 0);
+        assert_eq!(spell_id1, &expected_spell_id);
+        assert!(error1.contains("Cannot add alias 'spell' because it is reserved"));
+
+        assert_ne!(counter2.as_i64().unwrap(), 0);
+        assert_eq!(spell_id2, &expected_spell_id);
+        assert!(error2.contains("Cannot add alias 'self' because it is reserved"));
+    } else {
+        panic!("expected (int, str, str, int, str, str) result");
     }
 }

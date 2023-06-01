@@ -42,7 +42,7 @@ use particle_modules::{
     AddBlueprint, ModuleConfig, ModuleRepository, NamedModuleConfig, WASIConfig,
 };
 use particle_protocol::Contact;
-use particle_services::{ParticleAppServices, VIRTUAL_PARTICLE_VAULT_PREFIX};
+use particle_services::{ParticleAppServices, ServiceType, VIRTUAL_PARTICLE_VAULT_PREFIX};
 use peer_metrics::ServicesMetrics;
 use script_storage::ScriptStorageApi;
 use server_config::ServicesConfig;
@@ -692,9 +692,9 @@ where
         let module_bytes: String = Args::next("module_bytes", &mut args)?;
         let config = Args::next("config", &mut args)?;
 
-        let module_hash = self.modules.add_module_base64(module_bytes, config)?;
+        let hash = self.modules.add_module_base64(module_bytes, config)?;
 
-        Ok(JValue::String(module_hash))
+        Ok(json!(hash))
     }
 
     fn add_module_from_vault(&self, args: Args, params: ParticleParams) -> Result<JValue, JError> {
@@ -706,14 +706,16 @@ where
             .modules
             .add_module_from_vault(module_path, config, params)?;
 
-        Ok(JValue::String(module_hash))
+        Ok(json!(module_hash))
     }
 
     fn add_blueprint(&self, args: Args) -> Result<JValue, JError> {
         let mut args = args.function_args.into_iter();
-        let blueprint_request: AddBlueprint = Args::next("blueprint_request", &mut args)?;
-
-        let blueprint_id = self.modules.add_blueprint(blueprint_request)?;
+        let blueprint: String = Args::next("blueprint", &mut args)?;
+        let blueprint = AddBlueprint::decode(blueprint.as_bytes()).map_err(|err| {
+            JError::new(format!("Error deserializing blueprint from IPLD: {err}"))
+        })?;
+        let blueprint_id = self.modules.add_blueprint(blueprint)?;
         Ok(JValue::String(blueprint_id))
     }
 
@@ -754,14 +756,12 @@ where
         let mut args = args.function_args.into_iter();
         let name = Args::next("name", &mut args)?;
         let dependencies = Args::next("dependencies", &mut args)?;
-        let blueprint_request = AddBlueprint { name, dependencies };
+        let blueprint = AddBlueprint { name, dependencies };
 
-        let blueprint_request = serde_json::to_value(blueprint_request).map_err(|err| {
-            JError::new(format!(
-                "Error serializing blueprint_request to JSON: {err}"
-            ))
-        })?;
-        Ok(blueprint_request)
+        let blueprint = blueprint
+            .to_string()
+            .map_err(|err| JError::new(format!("Error serializing blueprint to IPLD: {err}")))?;
+        Ok(json!(blueprint))
     }
 
     fn load_blueprint_from_vault(
@@ -772,16 +772,14 @@ where
         let mut args = args.function_args.into_iter();
         let blueprint_path = Args::next("blueprint_path", &mut args)?;
 
-        let blueprint_request = self
+        let blueprint = self
             .modules
             .load_blueprint_from_vault(blueprint_path, params)?;
 
-        let blueprint_request = serde_json::to_value(blueprint_request).map_err(|err| {
-            JError::new(format!(
-                "Error serializing blueprint_request to JSON: {err}"
-            ))
-        })?;
-        Ok(blueprint_request)
+        let blueprint = blueprint
+            .to_string()
+            .map_err(|err| JError::new(format!("Error serializing blueprint to IPLD: {err}")))?;
+        Ok(json!(blueprint))
     }
 
     fn list_modules(&self) -> Result<JValue, JError> {
@@ -819,9 +817,12 @@ where
         let mut args = args.function_args.into_iter();
         let blueprint_id: String = Args::next("blueprint_id", &mut args)?;
 
-        let service_id =
-            self.services
-                .create_service(blueprint_id, params.init_peer_id, params.host_id)?;
+        let service_id = self.services.create_service(
+            ServiceType::Service,
+            blueprint_id,
+            params.init_peer_id,
+            params.host_id,
+        )?;
 
         Ok(JValue::String(service_id))
     }
@@ -830,6 +831,7 @@ where
         let mut args = args.function_args.into_iter();
         let service_id_or_alias: String = Args::next("service_id_or_alias", &mut args)?;
         self.services.remove_service(
+            &params.id,
             params.host_id,
             service_id_or_alias,
             params.init_peer_id,
@@ -843,13 +845,15 @@ where
     }
 
     fn call_service(&self, function_args: Args, particle: ParticleParams) -> FunctionOutcome {
-        self.services.call_service(function_args, particle)
+        self.services.call_service(function_args, particle, true)
     }
 
     fn get_interface(&self, args: Args, params: ParticleParams) -> Result<JValue, JError> {
         let mut args = args.function_args.into_iter();
         let service_id: String = Args::next("service_id", &mut args)?;
-        Ok(self.services.get_interface(service_id, params.host_id)?)
+        Ok(self
+            .services
+            .get_interface(&params.id, service_id, params.host_id)?)
     }
 
     fn add_alias(&self, args: Args, params: ParticleParams) -> Result<(), JError> {
@@ -865,7 +869,9 @@ where
     fn resolve_alias(&self, args: Args, params: ParticleParams) -> Result<JValue, JError> {
         let mut args = args.function_args.into_iter();
         let alias: String = Args::next("alias", &mut args)?;
-        let service_id = self.services.resolve_alias(params.host_id, alias)?;
+        let service_id = self
+            .services
+            .resolve_alias(&params.id, params.host_id, alias)?;
 
         Ok(JValue::String(service_id))
     }
@@ -873,9 +879,9 @@ where
     fn get_service_info(&self, args: Args, params: ParticleParams) -> Result<JValue, JError> {
         let mut args = args.function_args.into_iter();
         let service_id_or_alias: String = Args::next("service_id_or_alias", &mut args)?;
-        let info = self
-            .services
-            .get_service_info(params.host_id, service_id_or_alias)?;
+        let info =
+            self.services
+                .get_service_info(&params.id, params.host_id, service_id_or_alias)?;
 
         Ok(info)
     }
@@ -893,7 +899,7 @@ where
         let service_id_or_alias: String = Args::next("service_id", &mut args)?;
 
         self.services
-            .get_service_mem_stats(params.host_id, service_id_or_alias)
+            .get_service_mem_stats(&params.id, params.host_id, service_id_or_alias)
             .map(Array)
     }
 
@@ -901,9 +907,9 @@ where
         let mut args = args.function_args.into_iter();
         let service_id_or_alias: String = Args::next("service_id", &mut args)?;
         // Resolve aliases; also checks that the requested service exists.
-        let service_id = self
-            .services
-            .to_service_id(params.host_id, service_id_or_alias)?;
+        let service_id =
+            self.services
+                .to_service_id(&params.id, params.host_id, service_id_or_alias)?;
         let metrics = self
             .services
             .metrics

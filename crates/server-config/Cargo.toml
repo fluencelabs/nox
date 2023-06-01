@@ -12,24 +12,26 @@ fluence-libp2p = { workspace = true, features = ["tokio"] }
 air-interpreter-fs = { workspace = true }
 peer-metrics = { workspace = true }
 fluence-keypair = { workspace = true }
+log = "0.4.17"
+toml = "0.7.3"
 
 libp2p = { workspace = true }
 libp2p-metrics = { workspace = true }
 
-serde = { version = "1.0.159", features = ["derive"] }
+serde = { version = "1.0.160", features = ["derive"] }
 humantime-serde = { workspace = true }
-serde_json = "1.0.95"
-log = { workspace = true }
+serde_json = "1.0.96"
 rand = "0.8.5"
-clap = { version = "4.1.13", features = ["derive", "string"] }
+clap = { version = "4.2.7", features = ["derive", "string"] }
 bs58 = { workspace = true }
 base64 = { workspace = true }
 num_cpus = "1.15.0"
 eyre = { workspace = true }
 derivative = { workspace = true }
-bytesize = { version = "1.1.0", features = ["serde"] }
-serde_with = "2.2.0"
-figment = { version = "0.10.8", features = ["parking_lot", "toml", "yaml", "json", "env"] }
+bytesize = { version = "1.2.0", features = ["serde"] }
+serde_with = "3.0.0"
+config = { version = "0.13.3", default-features = false, features = ["toml"] }
 
 [dev-dependencies]
-figment = { version = "0.10.8", features = ["test"] }
+temp-env = "0.3.0"
+tempfile = "3.5.0"

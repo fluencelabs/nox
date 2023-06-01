@@ -26,6 +26,7 @@ futures = { workspace = true }
 thiserror = { workspace = true }
 log = { workspace = true }
 fluence-spell-dtos = { workspace = true }
+peer-metrics = { workspace = true }
 
 [dev-dependencies]
 libp2p = { workspace = true }

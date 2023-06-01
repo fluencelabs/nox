@@ -26,6 +26,7 @@ use futures::{FutureExt, StreamExt};
 use humantime::format_duration as pretty;
 use serde_json::json;
 use serde_json::Value as JValue;
+use tokio::runtime::Handle;
 
 use particle_args::{Args, JError};
 use particle_execution::{
@@ -159,27 +160,29 @@ impl<F: ParticleFunctionStatic> Functions<F> {
                 "Call function {}:{}",
                 args.service_id, args.function_name
             ))
-            .spawn(async move {
-                let outcome = builtins.call(args, params).await;
-                // record whether call was handled by builtin or not. needed for stats.
-                let mut call_kind = FunctionKind::Service;
-                let outcome = match outcome {
-                    // If particle_function isn't set, just return what we have
-                    outcome if particle_function.is_none() => outcome,
-                    // If builtins weren't defined over these args, try particle_function
-                    FunctionOutcome::NotDefined { args, params } => {
-                        let func = particle_function.unwrap();
-                        // TODO: Actors would allow to get rid of Mutex
-                        //       i.e., wrap each callback with a queue & channel
-                        let func = func.lock().await;
-                        let outcome = func.call(args, params).await;
-                        call_kind = FunctionKind::ParticleFunction;
-                        outcome
-                    }
-                    // Builtins were called, return their outcome
-                    outcome => outcome,
-                };
-                (outcome, call_kind)
+            .spawn_blocking(|| {
+                Handle::current().block_on(async move {
+                    let outcome = builtins.call(args, params).await;
+                    // record whether call was handled by builtin or not. needed for stats.
+                    let mut call_kind = FunctionKind::Service;
+                    let outcome = match outcome {
+                        // If particle_function isn't set, just return what we have
+                        outcome if particle_function.is_none() => outcome,
+                        // If builtins weren't defined over these args, try particle_function
+                        FunctionOutcome::NotDefined { args, params } => {
+                            let func = particle_function.unwrap();
+                            // TODO: Actors would allow to get rid of Mutex
+                            //       i.e., wrap each callback with a queue & channel
+                            let func = func.lock().await;
+                            let outcome = func.call(args, params).await;
+                            call_kind = FunctionKind::ParticleFunction;
+                            outcome
+                        }
+                        // Builtins were called, return their outcome
+                        outcome => outcome,
+                    };
+                    (outcome, call_kind)
+                })
             })
             .expect("Could not spawn task");
 
@@ -198,11 +201,11 @@ impl<F: ParticleFunctionStatic> Functions<F> {
             };
 
             if let Err(err) = &result {
-                log::warn!(
-                    "Failed host call {} ({}) [{}]: {}",
+                tracing::warn!(
+                    particle_id = particle_id,
+                    "Failed host call {} ({}): {}",
                     log_args,
                     pretty(elapsed),
-                    particle_id,
                     err
                 )
             } else {

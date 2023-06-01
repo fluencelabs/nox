@@ -19,7 +19,7 @@
       "schedule": "at any time"
     },
     {
-      "matchPackagePatterns": ["^libp2p.*", "prometheus-client"],
+      "matchPackagePatterns": ["^libp2p.*", "prometheus-client", "multihash"],
       "groupName": "libp2p"
     },
     {

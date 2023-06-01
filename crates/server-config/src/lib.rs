@@ -41,12 +41,16 @@ mod services_config;
 
 pub use defaults::{builtins_base_dir, *};
 pub use resolved_config::load_config;
-pub use resolved_config::resolve_config;
+pub use resolved_config::load_config_with_args;
 pub use resolved_config::ConfigData;
 
 pub use bootstrap_config::BootstrapConfig;
 pub use kademlia_config::KademliaConfig;
 pub use network_config::NetworkConfig;
 pub use node_config::{NodeConfig, TransportConfig};
+pub use resolved_config::ConsoleConfig;
+pub use resolved_config::LogConfig;
+pub use resolved_config::LogFormat;
+pub use resolved_config::TracingConfig;
 pub use resolved_config::{ResolvedConfig, UnresolvedConfig};
 pub use services_config::ServicesConfig;

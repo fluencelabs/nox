@@ -14,19 +14,18 @@
  * limitations under the License.
  */
 
-use clap::{Args, Command, FromArgMatches};
 use std::ffi::OsString;
 use std::net::SocketAddr;
 use std::ops::{Deref, DerefMut};
+use std::path::PathBuf;
+use std::str::FromStr;
 
-use crate::args;
-use figment::{
-    providers::{Env, Format, Toml},
-    Figment,
-};
+use clap::{Args, Command, FromArgMatches};
+use config::{Config, Environment, File, FileFormat};
 use libp2p::core::{multiaddr::Protocol, Multiaddr};
 use serde::{Deserialize, Serialize};
 
+use crate::args;
 use crate::dir_config::{ResolvedDirConfig, UnresolvedDirConfig};
 use crate::node_config::{NodeConfig, UnresolvedNodeConfig};
 
@@ -36,6 +35,16 @@ pub struct UnresolvedConfig {
     dir_config: UnresolvedDirConfig,
     #[serde(flatten)]
     node_config: UnresolvedNodeConfig,
+    #[serde(default)]
+    pub log: Option<LogConfig>,
+    #[serde(default)]
+    pub tracing: Option<TracingConfig>,
+    #[serde(default)]
+    pub console: Option<ConsoleConfig>,
+
+    pub no_banner: Option<bool>,
+
+    pub print_config: Option<bool>,
 }
 
 impl UnresolvedConfig {
@@ -45,6 +54,48 @@ impl UnresolvedConfig {
             node_config: self.node_config.resolve()?,
         })
     }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct LogConfig {
+    pub format: LogFormat,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "lowercase")]
+pub enum LogFormat {
+    Logfmt,
+    Default,
+}
+
+impl FromStr for LogFormat {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.trim().to_ascii_lowercase().as_str() {
+            "logfmt" => Ok(LogFormat::Logfmt),
+            "default" => Ok(LogFormat::Default),
+            _ => Err("Unsupported log format".to_string()),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+#[serde(tag = "type")]
+pub enum TracingConfig {
+    #[serde(rename = "disabled")]
+    Disabled,
+    #[serde(rename = "otlp")]
+    Otlp { endpoint: String },
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+#[serde(tag = "type")]
+pub enum ConsoleConfig {
+    #[serde(rename = "disabled")]
+    Disabled,
+    #[serde(rename = "enabled")]
+    Enabled { bind: String },
 }
 
 #[derive(Clone, Debug)]
@@ -121,15 +172,15 @@ pub struct ConfigData {
     pub description: String,
 }
 
-pub fn load_config(data: Option<ConfigData>) -> eyre::Result<ResolvedConfig> {
+pub fn load_config(data: Option<ConfigData>) -> eyre::Result<UnresolvedConfig> {
     let raw_args = std::env::args_os().collect::<Vec<_>>();
-    resolve_config(raw_args, data)
+    load_config_with_args(raw_args, data)
 }
 
-pub fn resolve_config(
+pub fn load_config_with_args(
     raw_args: Vec<OsString>,
     data: Option<ConfigData>,
-) -> eyre::Result<ResolvedConfig> {
+) -> eyre::Result<UnresolvedConfig> {
     let command = Command::new("Fluence peer");
     let command = if let Some(data) = data {
         command
@@ -145,31 +196,31 @@ pub fn resolve_config(
     let matches = raw_cli_config.get_matches_from(raw_args);
     let cli_config = args::DerivedArgs::from_arg_matches(&matches)?;
 
-    let config_builder: Figment = Figment::new();
-    let config_builder = if let Some(config_path) = cli_config.config.clone() {
-        let extension = config_path.extension();
-        if let Some(extension) = extension {
-            match extension.to_str() {
-                Some("toml") => config_builder.merge(Toml::file(config_path)),
-                _ => config_builder,
-            }
-        } else {
-            config_builder
-        }
-    } else {
-        config_builder.merge(Toml::file(Env::var_or("FLUENCE_CONFIG", "Config.toml")))
-    };
+    let file_source = cli_config
+        .config
+        .clone()
+        .or_else(|| std::env::var_os("FLUENCE_CONFIG").map(PathBuf::from))
+        .map(|path| File::from(path).format(FileFormat::Toml))
+        .unwrap_or(
+            File::with_name("Config.toml")
+                .required(false)
+                .format(FileFormat::Toml),
+        );
 
-    let config_builder = config_builder
-        .merge(Env::prefixed("FLUENCE_"))
-        .merge(cli_config.clone());
+    let env_source = Environment::with_prefix("FLUENCE")
+        .try_parsing(true)
+        .prefix_separator("_")
+        .separator("__")
+        .list_separator(",")
+        .with_list_parse_key("allowed_binaries");
 
-    let config: UnresolvedConfig = config_builder.extract()?;
-    let config = config.resolve()?;
+    let config = Config::builder()
+        .add_source(file_source)
+        .add_source(env_source)
+        .add_source(cli_config)
+        .build()?;
 
-    if let Some(true) = cli_config.print_config {
-        log::info!("Loaded config: {:#?}", config);
-    }
+    let config: UnresolvedConfig = config.try_deserialize()?;
 
     Ok(config)
 }
@@ -177,36 +228,55 @@ pub fn resolve_config(
 #[cfg(test)]
 mod tests {
     use base64::{engine::general_purpose::STANDARD as base64, Engine};
-    use figment::Jail;
     use fluence_keypair::KeyPair;
+    use std::io::Write;
+    use tempfile::{tempdir, NamedTempFile};
 
     use super::*;
 
     #[test]
+    fn load_allowed_binaries_with_env() {
+        temp_env::with_var(
+            "FLUENCE_ALLOWED_BINARIES",
+            Some("/bin/sh,/bin/bash"),
+            || {
+                let config = load_config_with_args(vec![], None).expect("Could not load config");
+                assert_eq!(
+                    config.node_config.allowed_binaries,
+                    vec!("/bin/sh".to_string(), "/bin/bash".to_string())
+                );
+            },
+        )
+    }
+
+    #[test]
     fn load_config_simple() {
-        Jail::expect_with(|jail| {
-            jail.create_file("Config.toml",
-                             r#"
+        let mut file = NamedTempFile::new().expect("Could not create temp file");
+        write!(
+            file,
+            r#"
             root_key_pair.format = "ed25519"
             root_key_pair.secret_key = "/XKBs1ydmfWGiTbh+e49GYw+14LHtu+v5BMFDIzHpvo="
             builtins_key_pair.format = "ed25519"
             builtins_key_pair.value = "Ek6l5zgX9P74MHRiRzK/FN6ftQIOD3prYdMh87nRXlEEuRX1QrdQI87MBRdphoc0url0cY5ZO58evCoGXty1zw=="
-            avm_base_dir = "{}"
             script_storage_max_failures = 10
 
             [root_weights]
             12D3KooWB9P1xmV3c7ZPpBemovbwCiRRTKd3Kq2jsVPQN4ZukDfy = 1
 
-        "#)?;
+        "#).expect("Could not write in file");
 
-            let config = resolve_config(vec![], None).expect("Could not load config");
+        let path = file.path().display().to_string();
+        temp_env::with_var("FLUENCE_CONFIG", Some(path), || {
+            let config = load_config_with_args(vec![], None).expect("Could not load config");
+            let config = config.resolve().unwrap();
             let resolved_secret = encode_secret(&config);
             assert_eq!(config.node_config.script_storage_max_failures, 10);
+            assert_eq!(config.node_config.allow_local_addresses, false);
             assert_eq!(
                 resolved_secret,
                 "/XKBs1ydmfWGiTbh+e49GYw+14LHtu+v5BMFDIzHpvo="
             );
-            Ok(())
         });
     }
 
@@ -220,13 +290,14 @@ mod tests {
 
     #[test]
     fn load_path_keypair_generate() {
-        Jail::expect_with(|jail| {
-            let key_path = jail.directory().join("secret_key.ed25519");
-            let builtins_key_path = jail.directory().join("builtins_secret_key.ed25519");
-            jail.create_file(
-                "Config.toml",
-                &format!(
-                    r#"
+        let dir = tempdir().expect("Could not create temp dir");
+        let mut file = NamedTempFile::new_in(dir.path()).expect("Could not create temp file");
+
+        let key_path = dir.path().join("secret_key.ed25519");
+        let builtins_key_path = dir.path().join("builtins_secret_key.ed25519");
+        write!(
+            file,
+            r#"
             root_key_pair.format = "ed25519"
             root_key_pair.path = "{}"
             root_key_pair.generate_on_absence = true
@@ -234,53 +305,62 @@ mod tests {
             builtins_key_pair.path = "{}"
             builtins_key_pair.generate_on_absence = true
             "#,
-                    key_path.to_string_lossy(),
-                    builtins_key_path.to_string_lossy(),
-                ),
-            )?;
+            key_path.to_string_lossy(),
+            builtins_key_path.to_string_lossy(),
+        )
+        .expect("Could not write in file");
 
-            assert!(!key_path.exists());
-            assert!(!builtins_key_path.exists());
-            let config = resolve_config(vec![], None).expect("Could not load config");
+        assert!(!key_path.exists());
+        assert!(!builtins_key_path.exists());
+
+        let path = file.path().display().to_string();
+        temp_env::with_var("FLUENCE_CONFIG", Some(path), || {
+            let config = load_config_with_args(vec![], None).expect("Could not load config");
+            let config = config.resolve().unwrap();
             let resolved_secret = encode_secret(&config);
 
             assert!(key_path.exists());
             assert!(builtins_key_path.exists());
             assert!(!resolved_secret.is_empty());
-            Ok(())
         });
     }
 
     #[test]
     fn load_empty_keypair() {
-        Jail::expect_with(|jail| {
-            let _file = jail.create_file(
-                "Config.toml",
-                r#"
+        let dir = tempdir().expect("Could not create temp dir");
+        let mut file = NamedTempFile::new_in(dir.path()).expect("Could not create temp file");
+
+        write!(
+            file,
+            r#"
             root_key_pair.generate_on_absence = true
             builtins_key_pair.generate_on_absence = true
-            "#,
-            )?;
-            let _config = resolve_config(vec![], None).expect("Could not load config");
-            Ok(())
-        });
+            "#
+        )
+        .expect("Could not write in file");
+
+        let path = file.path().display().to_string();
+        temp_env::with_var("FLUENCE_CONFIG", Some(path), || {
+            let _config = load_config_with_args(vec![], None).expect("Could not load config");
+        })
     }
 
     #[test]
     fn load_empty_config() {
-        let _config = resolve_config(vec![], None).expect("Could not load config");
+        let _config = load_config_with_args(vec![], None).expect("Could not load config");
     }
 
     #[test]
     fn load_base58_keypair() {
-        Jail::expect_with(|jail| {
-            let root_key_path = jail.directory().join("secret_key.ed25519");
-            let builtins_key_path = jail.directory().join("builtins_secret_key.ed25519");
+        let dir = tempdir().expect("Could not create temp dir");
+        let mut file = NamedTempFile::new_in(dir.path()).expect("Could not create temp file");
 
-            jail.create_file(
-                "Config.toml",
-                &format!(
-                    r#"
+        let root_key_path = dir.path().join("secret_key.ed25519");
+        let builtins_key_path = dir.path().join("builtins_secret_key.ed25519");
+
+        write!(
+            file,
+            r#"
             root_key_pair.format = "ed25519"
             root_key_pair.path = "{}"
             root_key_pair.generate_on_absence = false
@@ -288,11 +368,13 @@ mod tests {
             builtins_key_pair.path = "{}"
             builtins_key_pair.generate_on_absence = false
             "#,
-                    root_key_path.to_string_lossy(),
-                    builtins_key_path.to_string_lossy(),
-                ),
-            )?;
+            root_key_path.to_string_lossy(),
+            builtins_key_path.to_string_lossy()
+        )
+        .expect("Could not write in file");
+        let path = file.path().display().to_string();
 
+        temp_env::with_var("FLUENCE_CONFIG", Some(path), || {
             let root_kp = KeyPair::generate_ed25519();
             let builtins_kp = KeyPair::generate_secp256k1();
             std::fs::write(&root_key_path, bs58::encode(root_kp.to_vec()).into_vec()).unwrap();
@@ -304,24 +386,25 @@ mod tests {
             assert!(root_key_path.exists());
             assert!(builtins_key_path.exists());
 
-            let config = resolve_config(vec![], None).expect("Could not load config");
+            let config = load_config_with_args(vec![], None).expect("Could not load config");
+            let config = config.resolve().unwrap();
+
             let resolved_secret = encode_secret(&config);
             assert_eq!(resolved_secret, base64.encode(root_kp.secret().unwrap()));
-
-            Ok(())
         });
     }
 
     #[test]
     fn load_base64_keypair() {
-        Jail::expect_with(|jail| {
-            let root_key_path = jail.directory().join("secret_key.ed25519");
-            let builtins_key_path = jail.directory().join("builtins_secret_key.ed25519");
+        let dir = tempdir().expect("Could not create temp dir");
+        let mut file = NamedTempFile::new_in(dir.path()).expect("Could not create temp file");
 
-            jail.create_file(
-                "Config.toml",
-                &format!(
-                    r#"
+        let root_key_path = dir.path().join("secret_key.ed25519");
+        let builtins_key_path = dir.path().join("builtins_secret_key.ed25519");
+
+        write!(
+            file,
+            r#"
             root_key_pair.format = "ed25519"
             root_key_pair.path = "{}"
             root_key_pair.generate_on_absence = false
@@ -329,11 +412,14 @@ mod tests {
             builtins_key_pair.path = "{}"
             builtins_key_pair.generate_on_absence = false
             "#,
-                    root_key_path.to_string_lossy(),
-                    builtins_key_path.to_string_lossy(),
-                ),
-            )?;
+            root_key_path.to_string_lossy(),
+            builtins_key_path.to_string_lossy(),
+        )
+        .expect("Could not write in file");
 
+        let path = file.path().display().to_string();
+
+        temp_env::with_var("FLUENCE_CONFIG", Some(path), || {
             let root_kp = KeyPair::generate_ed25519();
             let builtins_kp = KeyPair::generate_secp256k1();
             std::fs::write(&root_key_path, base64.encode(root_kp.to_vec())).unwrap();
@@ -341,35 +427,36 @@ mod tests {
             assert!(root_key_path.exists());
             assert!(builtins_key_path.exists());
 
-            let _config = resolve_config(vec![], None).expect("Could not load config");
-
-            Ok(())
+            let _config = load_config_with_args(vec![], None).expect("Could not load config");
         });
     }
 
     #[test]
     fn load_base64_secret_key() {
-        Jail::expect_with(|jail| {
-            let root_key_path = jail.directory().join("secret_key.ed25519");
-            let builtins_key_path = jail.directory().join("builtins_secret_key.ed25519");
+        let dir = tempdir().expect("Could not create temp dir");
+        let mut file = NamedTempFile::new_in(dir.path()).expect("Could not create temp file");
 
-            jail.create_file(
-                "Config.toml",
-                &format!(
-                    r#"
-            root_key_pair.format = "ed25519"
+        let root_key_path = dir.path().join("secret_key.ed25519");
+        let builtins_key_path = dir.path().join("builtins_secret_key.ed25519");
+
+        write!(
+            file,
+            r#"
+             root_key_pair.format = "ed25519"
             root_key_pair.path = "{}"
             root_key_pair.generate_on_absence = false
             builtins_key_pair.format = "ed25519"
             builtins_key_pair.path = "{}"
             builtins_key_pair.generate_on_absence = false
             "#,
-                    root_key_path.to_string_lossy(),
-                    builtins_key_path.to_string_lossy(),
-                ),
-            )?;
+            root_key_path.to_string_lossy(),
+            builtins_key_path.to_string_lossy(),
+        )
+        .expect("Could not write in file");
+        let root_kp = KeyPair::generate_ed25519();
+        let path = file.path().display().to_string();
 
-            let root_kp = KeyPair::generate_ed25519();
+        temp_env::with_var("FLUENCE_CONFIG", Some(path), || {
             let builtins_kp = KeyPair::generate_secp256k1();
             std::fs::write(&root_key_path, base64.encode(&root_kp.secret().unwrap())).unwrap();
             std::fs::write(
@@ -380,22 +467,21 @@ mod tests {
             assert!(root_key_path.exists());
             assert!(builtins_key_path.exists());
 
-            let _config = resolve_config(vec![], None).expect("Could not load config");
-
-            Ok(())
+            let _config = load_config_with_args(vec![], None).expect("Could not load config");
         });
     }
 
     #[test]
     fn load_base58_secret_key() {
-        Jail::expect_with(|jail| {
-            let root_key_path = jail.directory().join("secret_key.ed25519");
-            let builtins_key_path = jail.directory().join("builtins_secret_key.ed25519");
+        let dir = tempdir().expect("Could not create temp dir");
+        let mut file = NamedTempFile::new_in(dir.path()).expect("Could not create temp file");
 
-            jail.create_file(
-                "Config.toml",
-                &format!(
-                    r#"
+        let root_key_path = dir.path().join("secret_key.ed25519");
+        let builtins_key_path = dir.path().join("builtins_secret_key.ed25519");
+
+        write!(
+            file,
+            r#"
             root_key_pair.format = "ed25519"
             root_key_pair.path = "{}"
             root_key_pair.generate_on_absence = false
@@ -403,11 +489,14 @@ mod tests {
             builtins_key_pair.path = "{}"
             builtins_key_pair.generate_on_absence = false
             "#,
-                    root_key_path.to_string_lossy(),
-                    builtins_key_path.to_string_lossy(),
-                ),
-            )?;
+            root_key_path.to_string_lossy(),
+            builtins_key_path.to_string_lossy(),
+        )
+        .expect("Could not write in file");
 
+        let path = file.path().display().to_string();
+
+        temp_env::with_var("FLUENCE_CONFIG", Some(path), || {
             let root_kp = KeyPair::generate_ed25519();
             let builtins_kp = KeyPair::generate_secp256k1();
             std::fs::write(
@@ -423,9 +512,183 @@ mod tests {
             assert!(root_key_path.exists());
             assert!(builtins_key_path.exists());
 
-            let _config = resolve_config(vec![], None).expect("Could not load config");
+            let _config = load_config_with_args(vec![], None).expect("Could not load config");
+        });
+    }
 
-            Ok(())
+    #[test]
+    fn load_log_format_with_env() {
+        temp_env::with_var("FLUENCE_LOG__FORMAT", Some("logfmt"), || {
+            let config = load_config_with_args(vec![], None).expect("Could not load config");
+            let log_fmt = config.log.map(|x| x.format);
+            assert_eq!(log_fmt, Some(LogFormat::Logfmt));
+        });
+    }
+
+    #[test]
+    fn load_log_format_with_args() {
+        let args = vec![
+            OsString::from("particle-node"),
+            OsString::from("--log-format"),
+            OsString::from("logfmt"),
+        ];
+        let config = load_config_with_args(args, None).expect("Could not load config");
+        let log_fmt = config.log.map(|x| x.format);
+        assert_eq!(log_fmt, Some(LogFormat::Logfmt));
+    }
+
+    #[test]
+    fn load_log_format_with_file() {
+        let mut file = NamedTempFile::new().expect("Could not create temp file");
+        write!(
+            file,
+            r#"
+            [log]
+            format = "logfmt"
+            "#
+        )
+        .expect("Could not write in file");
+
+        let path = file.path().display().to_string();
+
+        temp_env::with_var("FLUENCE_CONFIG", Some(path), || {
+            let config = load_config_with_args(vec![], None).expect("Could not load config");
+            let log_fmt = config.log.map(|x| x.format);
+            assert_eq!(log_fmt, Some(LogFormat::Logfmt));
+        });
+    }
+
+    #[test]
+    fn load_allowed_binaries_with_file() {
+        let mut file = NamedTempFile::new().expect("Could not create temp file");
+        write!(
+            file,
+            r#"
+            allowed_binaries = ["/bin/sh"]
+            "#
+        )
+        .expect("Could not write in file");
+
+        let path = file.path().display().to_string();
+
+        temp_env::with_var("FLUENCE_CONFIG", Some(path), || {
+            let config = load_config_with_args(vec![], None).expect("Could not load config");
+            assert_eq!(
+                config.node_config.allowed_binaries,
+                vec!("/bin/sh".to_string())
+            );
+        });
+    }
+
+    #[test]
+    fn load_tracing_disabled_with_file() {
+        let mut file = NamedTempFile::new().expect("Could not create temp file");
+        write!(
+            file,
+            r#"
+            [tracing]
+            type = "disabled"
+            "#
+        )
+        .expect("Could not write in file");
+
+        let path = file.path().display().to_string();
+
+        temp_env::with_var("FLUENCE_CONFIG", Some(path), || {
+            let config = load_config_with_args(vec![], None).expect("Could not load config");
+            assert_eq!(config.tracing, Some(TracingConfig::Disabled));
+        });
+    }
+
+    #[test]
+    fn load_tracing_otlp_with_file() {
+        let mut file = NamedTempFile::new().expect("Could not create temp file");
+        write!(
+            file,
+            r#"
+            [tracing]
+            type = "otlp"
+            endpoint = "test"
+            "#
+        )
+        .expect("Could not write in file");
+
+        let path = file.path().display().to_string();
+
+        temp_env::with_var("FLUENCE_CONFIG", Some(path), || {
+            let config = load_config_with_args(vec![], None).expect("Could not load config");
+            assert_eq!(
+                config.tracing,
+                Some(TracingConfig::Otlp {
+                    endpoint: "test".to_string()
+                })
+            );
+        });
+    }
+
+    #[test]
+    fn load_tracing_disabled_with_env() {
+        temp_env::with_var("FLUENCE_TRACING__TYPE", Some("disabled"), || {
+            let config = load_config_with_args(vec![], None).expect("Could not load config");
+            assert_eq!(config.tracing, Some(TracingConfig::Disabled));
+        });
+    }
+
+    #[test]
+    fn load_tracing_otlp_with_env() {
+        temp_env::with_vars(
+            [
+                ("FLUENCE_TRACING__TYPE", Some("otlp")),
+                ("FLUENCE_TRACING__ENDPOINT", Some("test")),
+            ],
+            || {
+                let config = load_config_with_args(vec![], None).expect("Could not load config");
+                assert_eq!(
+                    config.tracing,
+                    Some(TracingConfig::Otlp {
+                        endpoint: "test".to_string()
+                    })
+                );
+            },
+        );
+    }
+
+    #[test]
+    fn load_tracing_disabled_with_args() {
+        temp_env::with_vars(
+            [
+                ("FLUENCE_TRACING__TYPE", Some("otlp")),
+                ("FLUENCE_TRACING__ENDPOINT", Some("test")),
+            ],
+            || {
+                let args = vec![
+                    OsString::from("particle-node"),
+                    OsString::from("--tracing-type"),
+                    OsString::from("disabled"),
+                ];
+                let config = load_config_with_args(args, None).expect("Could not load config");
+                assert_eq!(config.tracing, Some(TracingConfig::Disabled));
+            },
+        );
+    }
+
+    #[test]
+    fn load_tracing_otlp_with_args() {
+        temp_env::with_var("FLUENCE_TRACING__TYPE", Some("disabled"), || {
+            let args = vec![
+                OsString::from("particle-node"),
+                OsString::from("--tracing-type"),
+                OsString::from("otlp"),
+                OsString::from("--tracing-otlp-endpoint"),
+                OsString::from("test"),
+            ];
+            let config = load_config_with_args(args, None).expect("Could not load config");
+            assert_eq!(
+                config.tracing,
+                Some(TracingConfig::Otlp {
+                    endpoint: "test".to_string()
+                })
+            );
         });
     }
 }

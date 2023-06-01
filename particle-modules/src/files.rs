@@ -81,10 +81,11 @@ pub fn add_module(
     // replace existing configuration with a new one
     // TODO HACK: use custom structure for API; TomlMarineNamedModuleConfig is too powerful and clumsy.
     // Set file_name = ${hash}.wasm
-    config.file_name = Some(module_config_name_hash(module_hash));
+    config.file_name = Some(module_file_name_hash(module_hash));
     // The `load_from` field overrides `modules_dir` for a single module,
     // so we set `load_from` to `None`, telling Marine to load modules from the `modules_dir`
     config.load_from = None;
+
     let toml = toml::to_string_pretty(&config).map_err(|err| SerializeConfig {
         err,
         config: config.clone(),

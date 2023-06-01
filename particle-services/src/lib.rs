@@ -30,6 +30,7 @@
 pub use fluence_app_service::{IType, IValue};
 
 pub use app_services::ParticleAppServices;
+pub use app_services::ServiceType;
 
 pub use crate::error::ServiceError;
 

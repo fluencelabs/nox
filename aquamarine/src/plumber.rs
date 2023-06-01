@@ -87,7 +87,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
 
         let deadline = Deadline::from(&particle);
         if deadline.is_expired(now_ms()) {
-            log::info!("Particle {} is expired, ignoring", particle.id);
+            tracing::info!(particle_id = particle.id, "Particle is expired, ignoring");
             self.events
                 .push_back(Err(AquamarineApiError::ParticleExpired {
                     particle_id: particle.id,
@@ -188,6 +188,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
         // Remove expired actors
         if let Some((vm_id, mut vm)) = self.vm_pool.get_vm() {
             let now = now_ms();
+
             self.actors.retain(|(particle_id, peer_id), actor| {
                 // if actor hasn't yet expired or is still executing, keep it
                 // TODO: if actor is expired, cancel execution and return VM back to pool
@@ -195,16 +196,17 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
                 if !actor.is_expired(now) || actor.is_executing() {
                     return true; // keep actor
                 }
-
-                log::debug!(
-                    "Reaping particle's actor particle_id={particle_id}, peer_id={peer_id})"
+                tracing::debug!(
+                    target: "particle_reap",
+                    particle_id = particle_id,
+                    "Reaping particle's actor peer_id={peer_id})"
                 );
                 // cleanup files and dirs after particle processing (vault & prev_data)
                 // TODO: do not pass vm https://github.com/fluencelabs/fluence/issues/1216
                 if let Err(err) = actor.cleanup(particle_id, &peer_id.to_string(), &mut vm) {
-                    log::warn!(
-                        "Error cleaning up after particle {}: {:?}",
-                        particle_id,
+                    tracing::warn!(
+                        particle_id = particle_id,
+                        "Error cleaning up after particle {:?}",
                         err
                     )
                 }

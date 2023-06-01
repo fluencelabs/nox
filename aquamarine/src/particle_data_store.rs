@@ -66,12 +66,6 @@ impl ParticleDataStore {
         .iter()
         .collect()
     }
-
-    pub fn create_particle_vault(&self, key: &str) -> Result<()> {
-        self.vault.create(key)?;
-
-        Ok(())
-    }
 }
 
 const EXECUTION_TIME_THRESHOLD: Duration = Duration::from_millis(500);
@@ -83,12 +77,13 @@ impl DataStore for ParticleDataStore {
     fn initialize(&mut self) -> Result<()> {
         create_dir(&self.particle_data_store).map_err(CreateDataStore)?;
 
-        // self.vault.initialize()?;
+        self.vault.initialize()?;
 
         Ok(())
     }
 
     fn store_data(&mut self, data: &[u8], particle_id: &str, current_peer_id: &str) -> Result<()> {
+        tracing::debug!(target: "particle_reap", particle_id = particle_id, "Storing data for particle");
         let data_path = self.data_file(particle_id, current_peer_id);
         std::fs::write(&data_path, data).map_err(|err| StoreData(err, data_path))?;
 
@@ -102,6 +97,7 @@ impl DataStore for ParticleDataStore {
     }
 
     fn cleanup_data(&mut self, particle_id: &str, current_peer_id: &str) -> Result<()> {
+        tracing::debug!(target: "particle_reap", particle_id = particle_id, "Cleaning up particle data for particle");
         remove_file(&self.data_file(particle_id, current_peer_id)).map_err(CleanupData)?;
         self.vault.cleanup(particle_id)?;
 

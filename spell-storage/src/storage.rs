@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
@@ -12,7 +12,7 @@ use parking_lot::RwLock;
 
 use particle_modules::{load_module_by_path, AddBlueprint, ModuleRepository};
 use particle_services::ParticleAppServices;
-use service_modules::{module_file_name, Dependency};
+use service_modules::module_file_name;
 
 type WorkerId = PeerId;
 type SpellId = String;
@@ -20,7 +20,7 @@ type SpellId = String;
 #[derive(Derivative)]
 #[derivative(Debug, Clone)]
 pub struct SpellStorage {
-    // The blueprint for the latest spell service.
+    // The blueprint for the latest spell service. It's used to create new spells
     spell_blueprint_id: String,
     // All currently existing spells
     registered_spells: Arc<RwLock<HashMap<WorkerId, Vec<SpellId>>>>,
@@ -39,7 +39,7 @@ impl SpellStorage {
         } else {
             Self::load_spell_service_from_crate(modules)?
         };
-        let registered_spells = Self::restore_spells(services, modules);
+        let registered_spells = Self::restore_spells(services);
 
         Ok((
             Self {
@@ -67,10 +67,10 @@ impl SpellStorage {
                 "there's no module {} in the fluence_spell_distro::modules",
                 config.name
             )))?;
-            let hash = modules
+            let module_hash = modules
                 .add_module(module.to_vec(), config)
                 .context(format!("adding spell module {name}"))?;
-            hashes.push(Dependency::Hash(hash))
+            hashes.push(module_hash);
         }
 
         Ok((
@@ -90,16 +90,12 @@ impl SpellStorage {
             let load_from = config
                 .load_from
                 .clone()
-                .unwrap_or(PathBuf::from(module_file_name(&Dependency::Name(
-                    config.name.clone(),
-                ))));
+                .unwrap_or(PathBuf::from(module_file_name(&config.name)));
             let module_path = spells_base_dir.join(load_from);
             let module = load_module_by_path(module_path.as_ref())?;
-            let hash = modules.add_module(module, config)?;
-            let hex = hash.to_hex();
-            let hex = hex.as_ref();
-            versions.push(String::from(&hex[..8]));
-            hashes.push(Dependency::Hash(hash));
+            let module_hash = modules.add_module(module, config)?;
+            versions.push(String::from(&module_hash.to_string()[..8]));
+            hashes.push(module_hash);
         }
         let spell_disk_version = format!("wasm hashes {}", versions.join(" "));
         Ok((
@@ -108,23 +104,11 @@ impl SpellStorage {
         ))
     }
 
-    fn restore_spells(
-        services: &ParticleAppServices,
-        modules: &ModuleRepository,
-    ) -> HashMap<WorkerId, Vec<SpellId>> {
-        // Find blueprint ids of the already existing spells. They might be of older versions of the spell service.
-        // These blueprint ids marked with name "spell" to differ from other blueprints.
-        let all_spell_blueprint_ids = modules
-            .get_blueprints()
-            .into_iter()
-            .filter(|blueprint| blueprint.name == "spell")
-            .map(|x| x.id)
-            .collect::<HashSet<_>>();
-        // Find already created spells by corresponding blueprint_ids.
+    fn restore_spells(services: &ParticleAppServices) -> HashMap<WorkerId, Vec<SpellId>> {
         services
             .list_services_with_info()
             .into_iter()
-            .filter(|s| all_spell_blueprint_ids.contains(&s.blueprint_id))
+            .filter(|s| s.service_type.is_spell())
             .map(|s| (s.worker_id, s.id))
             .into_group_map()
     }

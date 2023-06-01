@@ -24,7 +24,6 @@ use std::{
 use base64::{engine::general_purpose::STANDARD as base64, Engine};
 use eyre::eyre;
 use fluence_keypair::{key_pair::KeyFormat, KeyPair};
-use log::info;
 
 use fs_utils::create_dirs;
 
@@ -145,7 +144,7 @@ pub fn load_key(
 ) -> eyre::Result<KeyPair> {
     if !key_path.exists() {
         return if generate_on_absence {
-            info!("Generating a new key to {:?}", key_path);
+            log::info!("Generating a new key to {key_path:?}");
             Ok(create_new_key_pair(
                 &key_path,
                 KeyFormat::from_str(&key_format)?,
