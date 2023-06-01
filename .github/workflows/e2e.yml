@@ -54,7 +54,6 @@ jobs:
     with:
       image-name: "docker.fluence.dev/rust-peer"
       flavour: "${{ matrix.flavour }}"
-      arch: "${{ matrix.arch }}"
 
   rust-peer-snapshot:
     name: "rust-peer"
