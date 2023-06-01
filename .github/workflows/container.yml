@@ -14,10 +14,6 @@ on:
         description: "rust-peer flavour"
         type: string
         default: "minimal"
-      arch:
-        description: "Binary arch"
-        type: string
-        default: x86_64
     outputs:
       rust-peer-image:
         description: "rust-peer snapshot image"
@@ -59,18 +55,20 @@ jobs:
       - name: Download rust-peer binary
         uses: actions/download-artifact@v3
         with:
-          name: rust-peer-${{ inputs.arch }}
           path: fluence
 
       - name: Calculate SHA256
         id: sha
         working-directory: ./fluence
         run: |
+          ls -alh -R
           # Calculate sha256
-          du -hs particle-node
-          sha256sum particle-node
-          sha=($(sha256sum particle-node))
-          echo "sha256=${sha}" >> $GITHUB_OUTPUT
+          for arch in x86_64,aarch64; do
+            du -hs rust-peer-${arch}/particle-node
+            sha256sum rust-peer-${arch}/particle-node
+            sha=($(sha256sum rust-peer-${arch}/particle-node))
+            echo "sha256_${arch}=${sha}" >> $GITHUB_OUTPUT
+          done
 
       - name: Generate snapshot version
         id: version
@@ -78,13 +76,23 @@ jobs:
 
       - name: Update rust-peer version
         run: |
-          UPDATED=$(jq '."${{ inputs.arch }}" = {
-            "version": "${{ steps.version.outputs.branch }}",
-            "url": "file:///fluence/particle-node",
-            "sha256": "${{ steps.sha.outputs.sha256 }}"
-          }' fluence/fluence.json)
+          cat <<FLUENCE > fluence/fluence.json
+          {
+            "x86_64": {
+              "version": "${{ steps.version.outputs.branch }}",
+              "url": "file:///fluence/rust-peer-x86_64/particle-node",
+              "sha256": "${{ steps.sha.outputs.sha256_x86_64 }}"
+            },
+            "aarch64": {
+              "version": "${{ steps.version.outputs.branch }}",
+              "url": "file:///fluence/rust-peer-aarch64/particle-node",
+              "sha256": "${{ steps.sha.outputs.sha256_aarch64 }}"
+            }
+          }
+          FLUENCE
 
-          echo "$UPDATED" > fluence/fluence.json
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v1
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
@@ -105,6 +113,7 @@ jobs:
           context: .
           push: true
           target: ${{ inputs.flavour }}
+          platforms: linux/amd64,linux/arm64
           tags: |
             ${{ inputs.image-name }}:${{ inputs.flavour }}_${{ steps.version.outputs.branch }}
             ${{ inputs.image-name }}:${{ inputs.flavour }}_${{ steps.version.outputs.branch }}_${{ github.run_number }}_${{ github.run_attempt }}
