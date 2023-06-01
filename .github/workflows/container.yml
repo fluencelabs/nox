@@ -63,7 +63,7 @@ jobs:
         run: |
           ls -alh -R
           # Calculate sha256
-          for arch in x86_64,aarch64; do
+          for arch in x86_64 aarch64; do
             du -hs rust-peer-${arch}/particle-node
             sha256sum rust-peer-${arch}/particle-node
             sha=($(sha256sum rust-peer-${arch}/particle-node))
