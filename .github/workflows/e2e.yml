@@ -49,9 +49,6 @@ jobs:
         flavour:
           - ipfs
           - rich
-        include:
-          - arch: x86_64
-          # - arch: aarch64
 
     uses: ./.github/workflows/container.yml
     with:

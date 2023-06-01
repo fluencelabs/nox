@@ -4,7 +4,7 @@ on:
   workflow_call:
     inputs:
       rust-peer-sha:
-        description: "sha256 hash of rust-peer binary not used"
+        description: "sha256 hash of rust-peer binary"
         type: string
       image-name:
         description: "Docker image name"

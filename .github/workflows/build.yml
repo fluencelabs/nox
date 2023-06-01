@@ -22,11 +22,7 @@ jobs:
     runs-on: builder
     timeout-minutes: 60
 
-    env:
-      RUSTFLAGS: "-D warnings --cfg tokio_unstable"
-      CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
-      CC_aarch64_unknown_linux_gnu: aarch64-linux-gnu-gcc
-      CXX_aarch64_unknown_linux_gnu: aarch64-linux-gnu-g++
+    env: ${{ matrix.env }}
 
     outputs:
       sha256: "${{ steps.sha.outputs.sha256 }}"
@@ -36,7 +32,14 @@ jobs:
       matrix:
         include:
           - arch: x86_64
-          # - arch: aarch64
+            env:
+              RUSTFLAGS: "-D warnings --cfg tokio_unstable"
+          - arch: aarch64
+            env:
+              RUSTFLAGS: "-D warnings --cfg tokio_unstable"
+              CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
+              CC_aarch64_unknown_linux_gnu: aarch64-linux-gnu-gcc
+              CXX_aarch64_unknown_linux_gnu: aarch64-linux-gnu-g++
 
     steps:
       - name: Checkout rust-peer
