@@ -89,5 +89,5 @@ jobs:
       - name: Upload rust-peer binary
         uses: actions/upload-artifact@v3
         with:
-          name: nox-${{ matrix.arch }}
+          name: rust-peer-${{ matrix.arch }}
           path: target/${{ matrix.arch }}-unknown-linux-gnu/${{ steps.profile.outputs.profile }}/particle-node
