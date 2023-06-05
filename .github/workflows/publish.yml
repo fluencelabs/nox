@@ -98,7 +98,7 @@ jobs:
           tag_name: ${{ inputs.tag }}
 
   distro:
-    if: inputs.update-node-distro == 'true'
+    if: inputs.update-distro == 'true'
     needs: rust-peer
     runs-on: ubuntu-latest
     steps:
