@@ -33,11 +33,10 @@ jobs:
       id-token: write
 
     steps:
-      - name: Checkout rust-peer-distro
+      - name: Checkout nox-distro
         uses: actions/checkout@v3
         with:
-          repository: fluencelabs/rust-peer-distro
-          ref: FLU-299
+          repository: fluencelabs/nox-distro
 
       - name: Import secrets
         uses: hashicorp/vault-action@v2.5.0
@@ -52,7 +51,7 @@ jobs:
             kv/docker-registry/basicauth/ci username | DOCKER_USERNAME ;
             kv/docker-registry/basicauth/ci password | DOCKER_PASSWORD
 
-      - name: Download rust-peer binary
+      - name: Download nox binary
         uses: actions/download-artifact@v3
         with:
           path: fluence
@@ -72,8 +71,6 @@ jobs:
       - name: Generate snapshot version
         id: version
         uses: fluencelabs/github-actions/generate-snapshot-id@main
-
-      - run: ls -alhr fluence
 
       - name: Update rust-peer version
         run: |
