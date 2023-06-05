@@ -64,10 +64,13 @@ jobs:
       - name: Update rust-peer version
         run: |
           cat <<FLUENCE > fluence/fluence.json
+          
           {
-            "version": "${{ steps.version.outputs.branch }}",
-            "url": "file:///fluence/particle-node",
-            "sha256": "${{ inputs.rust-peer-sha }}"
+            "x86_64": {
+              "version": "${{ steps.version.outputs.branch }}",
+              "url": "file:///fluence/particle-node",
+              "sha256": "${{ inputs.rust-peer-sha }}"
+            }
           }
           FLUENCE
 
