@@ -841,7 +841,7 @@ where
     }
 
     fn list_services(&self, params: ParticleParams) -> JValue {
-        JValue::Array(self.services.list_services(params.host_id))
+        json!(self.services.list_services(params.host_id))
     }
 
     fn call_service(&self, function_args: Args, particle: ParticleParams) -> FunctionOutcome {
@@ -883,7 +883,7 @@ where
             self.services
                 .get_service_info(&params.id, params.host_id, service_id_or_alias)?;
 
-        Ok(info)
+        Ok(json!(info))
     }
 
     fn kademlia(&self) -> &KademliaApi {

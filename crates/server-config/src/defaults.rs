@@ -213,8 +213,8 @@ pub fn default_spell_period_sec() -> u32 {
     121
 }
 
-pub fn default_deal_network_name() -> String {
-    "aurora-testnet".to_string()
+pub fn default_deal_network_api_endpoint() -> String {
+    "https://testnet.aurora.dev".to_string()
 }
 
 pub fn default_deal_contract_address_hex() -> String {

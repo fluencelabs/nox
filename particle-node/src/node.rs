@@ -14,14 +14,12 @@
  * limitations under the License.
  */
 
-use eyre::eyre;
 use std::sync::Arc;
 use std::{io, net::SocketAddr};
 
 use aquamarine::{
     AquaRuntime, AquamarineApi, AquamarineApiError, AquamarineBackend, RoutingEffects, VmPoolConfig,
 };
-use builtins_deployer::BuiltinsDeployer;
 use config_utils::to_peer_id;
 use connection_pool::{ConnectionPoolApi, ConnectionPoolT};
 use fluence_libp2p::build_transport;
@@ -75,7 +73,6 @@ pub struct Node<RT: AquaRuntime> {
     pub dispatcher: Dispatcher,
     aquavm_pool: AquamarineBackend<RT, Arc<Builtins<Connectivity>>>,
     script_storage: ScriptStorageBackend,
-    builtins_deployer: BuiltinsDeployer,
     system_service_deployer: SystemServiceDeployer,
 
     spell_event_bus_api: SpellEventBusApi,
@@ -246,16 +243,6 @@ impl<RT: AquaRuntime> Node<RT> {
             )
         };
 
-        let builtins_deployer = BuiltinsDeployer::new(
-            builtins_peer_id,
-            key_manager.get_host_peer_id(),
-            aquamarine_api.clone(),
-            config.dir_config.builtins_base_dir.clone(),
-            config.node_config.autodeploy_particle_ttl,
-            config.node_config.force_builtins_redeploy,
-            config.node_config.autodeploy_retry_attempts,
-        );
-
         let recv_connection_pool_events = connectivity.connection_pool.lifecycle_events();
         let sources = vec![recv_connection_pool_events.map(PeerEvent::from).boxed()];
 
@@ -316,7 +303,7 @@ impl<RT: AquaRuntime> Node<RT> {
             sorcerer.spell_storage.clone(),
             spell_event_bus_api.clone(),
             key_manager.get_host_peer_id(),
-            config.management_peer_id,
+            builtins_peer_id,
             system_services_config,
         );
 
@@ -329,7 +316,6 @@ impl<RT: AquaRuntime> Node<RT> {
             dispatcher,
             aquavm_pool,
             script_storage_backend,
-            builtins_deployer,
             deployer,
             spell_event_bus_api,
             spell_event_bus,
@@ -398,7 +384,6 @@ impl<RT: AquaRuntime> Node<RT> {
         dispatcher: Dispatcher,
         aquavm_pool: AquamarineBackend<RT, Arc<Builtins<Connectivity>>>,
         script_storage: ScriptStorageBackend,
-        builtins_deployer: BuiltinsDeployer,
         system_service_deployer: SystemServiceDeployer,
         spell_event_bus_api: SpellEventBusApi,
         spell_event_bus: SpellEventBus,
@@ -422,7 +407,6 @@ impl<RT: AquaRuntime> Node<RT> {
             dispatcher,
             aquavm_pool,
             script_storage,
-            builtins_deployer,
             system_service_deployer,
             spell_event_bus_api,
             spell_event_bus,
@@ -514,12 +498,10 @@ impl<RT: AquaRuntime> Node<RT> {
             pool.abort();
         }).expect("Could not spawn task");
 
-        // Need to move somewhere else, since it doesn't use the fact that the node is initialized
+        // Note: need to be after the start of the node to be able to subscribe spells
         let deployer = self.system_service_deployer;
         if let Err(e) = deployer.deploy_system_services().await {
-            // because I think that running node without these service is useless
-            // it's debatable though
-            return Err(eyre!("installing system services failed: {}", e));
+            log::error!("installing system services failed: {}", e);
         }
 
         let result = self.spell_event_bus_api.start_scheduling().await;

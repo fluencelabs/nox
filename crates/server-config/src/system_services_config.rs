@@ -51,8 +51,8 @@ pub struct DeciderConfig {
     #[serde(default = "default_ipfs_multiaddr")]
     pub worker_ipfs_multiaddr: String,
     // FIXME: I think these fields should not have default values, but it's only for now
-    #[serde(default = "default_deal_network_name")]
-    pub network_name: String,
+    #[serde(default = "default_deal_network_api_endpoint")]
+    pub network_api_endpoint: String,
     #[serde(default = "default_deal_contract_address_hex")]
     pub contract_address_hex: String,
     #[serde(default = "default_deal_contract_block_hex")]
@@ -65,7 +65,7 @@ impl Default for DeciderConfig {
             decider_period_sec: default_spell_period_sec(),
             worker_period_sec: default_spell_period_sec(),
             worker_ipfs_multiaddr: default_ipfs_multiaddr(),
-            network_name: default_deal_network_name(),
+            network_api_endpoint: default_deal_network_api_endpoint(),
             contract_address_hex: default_deal_contract_address_hex(),
             contract_block_hex: default_deal_contract_block_hex(),
         }

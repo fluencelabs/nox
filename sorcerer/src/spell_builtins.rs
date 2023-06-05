@@ -13,11 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use fluence_spell_dtos::value::{StringValue, UnitValue};
+use fluence_spell_dtos::value::{ScriptValue, SpellValueT, StringValue, UnitValue};
 use serde_json::{json, Value as JValue, Value, Value::Array};
 
 use crate::utils::{parse_spell_id_from, process_func_outcome};
-use fluence_spell_dtos::trigger_config::TriggerConfig;
+use fluence_spell_dtos::trigger_config::{TriggerConfig, TriggerConfigValue};
 use key_manager::KeyManager;
 use libp2p::PeerId;
 use particle_args::{Args, JError};
@@ -127,7 +127,7 @@ pub async fn spell_install_inner(
             "set_script_source_to_file",
             vec![json!(script)],
             None,
-            worker_id,
+            init_peer_id,
             Duration::from_millis(ttl),
         ),
         &spell_id,
@@ -142,7 +142,7 @@ pub async fn spell_install_inner(
             "set_json_fields",
             vec![json!(init_data.to_string())],
             None,
-            worker_id,
+            init_peer_id,
             Duration::from_millis(ttl),
         ),
         &spell_id,
@@ -157,7 +157,7 @@ pub async fn spell_install_inner(
             "set_trigger_config",
             vec![json!(user_config)],
             None,
-            worker_id,
+            init_peer_id,
             Duration::from_millis(ttl),
         ),
         &spell_id,
@@ -188,6 +188,81 @@ pub async fn spell_install_inner(
     }
 
     Ok(spell_id)
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct SpellInfo {
+    pub script: String,
+    pub trigger_config: TriggerConfig,
+}
+
+pub fn get_spell_info(
+    services: &ParticleAppServices,
+    host_id: PeerId,
+    init_peer_id: PeerId,
+    ttl: u64,
+    spell_id: String,
+) -> Result<SpellInfo, JError> {
+    let trigger_config_value = process_func_outcome::<TriggerConfigValue>(
+        services.call_function(
+            host_id,
+            &spell_id,
+            "get_trigger_config",
+            vec![],
+            None,
+            init_peer_id,
+            Duration::from_millis(ttl),
+        ),
+        &spell_id,
+        "get_trigger_config",
+    )
+    .map_err(|e| JError::new(f!("Failed to get trigger_config for spell {spell_id}: {e}")))?;
+    let trigger_config = if trigger_config_value.is_success() {
+        trigger_config_value.config
+    } else {
+        return Err(JError::new(trigger_config_value.error));
+    };
+
+    let script_value = process_func_outcome::<ScriptValue>(
+        services.call_function(
+            host_id,
+            &spell_id,
+            "get_script_source_from_file",
+            vec![],
+            None,
+            init_peer_id,
+            Duration::from_millis(ttl),
+        ),
+        &spell_id,
+        "get_script_source_from_file",
+    )
+    .map_err(|e| JError::new(f!("Failed to get trigger_config for spell {spell_id}: {e}")))?;
+    let script = if script_value.is_success() {
+        script_value.source_code
+    } else {
+        return Err(JError::new(script_value.error));
+    };
+    Ok(SpellInfo {
+        script,
+        trigger_config,
+    })
+}
+
+// It's not in use, do we need it? I just wanted `get_spell_info`, and added this one as well
+pub fn spell_info(
+    args: Args,
+    params: ParticleParams,
+    services: &ParticleAppServices,
+) -> Result<JValue, JError> {
+    let mut args = args.function_args.into_iter();
+    let spell_id: String = Args::next("spell_id", &mut args)?;
+    Ok(json!(get_spell_info(
+        &services,
+        params.host_id,
+        params.init_peer_id,
+        params.ttl as u64,
+        spell_id,
+    )?))
 }
 
 pub(crate) fn spell_list(
