@@ -769,12 +769,12 @@ impl ParticleAppServices {
             .collect()
     }
 
-    pub fn list_services(&self, worker_id: PeerId) -> Vec<JValue> {
+    pub fn list_services(&self, worker_id: PeerId) -> Vec<ServiceInfo> {
         let services = self.services.read();
         let services = services
             .iter()
             .filter(|(_, srv)| srv.worker_id.eq(&worker_id))
-            .map(|(id, srv)| json!(srv.get_info(id)))
+            .map(|(id, srv)| srv.get_info(id))
             .collect();
 
         services
