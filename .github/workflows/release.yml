@@ -83,7 +83,7 @@ jobs:
     with:
       tag: ${{ needs.release-please.outputs.tag-name }}
       version: ${{ needs.release-please.outputs.version }}
-      update-node-distro: ${{ needs.release-please.outputs.release-created }}
+      update-distro: ${{ needs.release-please.outputs.release-created }}
     secrets:
       PERSONAL_TOKEN: ${{ secrets.PERSONAL_TOKEN }}
 

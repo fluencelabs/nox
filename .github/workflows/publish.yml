@@ -11,7 +11,7 @@ on:
         type: string
         description: "rust-peer version"
         required: true
-      update-node-distro:
+      update-distro:
         type: string
         description: "whether to update node-distro"
         required: true
@@ -25,7 +25,7 @@ on:
         type: string
         description: "rust-peer version"
         required: true
-      update-node-distro:
+      update-distro:
         type: string
         description: "whether to update node-distro"
         required: true
@@ -42,6 +42,10 @@ jobs:
     permissions:
       contents: write
       id-token: write
+
+    outputs:
+      sha256_x86_64: ${{ steps.sha.outputs.sha256_x86_64 }}
+      sha256_aarch64: ${{ steps.sha.outputs.sha256_aarch64 }}
 
     steps:
       - name: Checkout
@@ -93,8 +97,12 @@ jobs:
             ./rust-peer_SHA256_SUMS
           tag_name: ${{ inputs.tag }}
 
-      - name: Update version in node-distro repo
-        if: inputs.update-node-distro == 'true'
+  distro:
+    if: inputs.update-node-distro == 'true'
+    needs: rust-peer
+    runs-on: ubuntu-latest
+    steps:
+      - name: Update version in distro repo
         uses: fluencelabs/rust-peer-distro/.github/workflows/update_fluence.yml@main
         with:
           version: |
@@ -102,11 +110,11 @@ jobs:
               "x86_64": {
                 "version": "${{ inputs.version }}",
                 "url": "https://github.com/fluencelabs/rust-peer/releases/download/${{ inputs.tag }}/rust-peer-x86_64",
-                "sha256": "${{ steps.sha.outputs.sha256_x86_64 }}"
+                "sha256": "${{ needs.rust-peer.outputs.sha256_x86_64 }}"
               },
               "aarch64": {
                 "version": "${{ inputs.version }}",
                 "url": "https://github.com/fluencelabs/rust-peer/releases/download/${{ inputs.tag }}/rust-peer-aarch64",
-                "sha256": "${{ steps.sha.outputs.sha256_aarch64 }}"
+                "sha256": "${{ needs.rust-peer.outputs.sha256_aarch64 }}"
               }
             }
