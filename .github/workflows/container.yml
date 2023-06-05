@@ -55,11 +55,11 @@ jobs:
       - name: Download rust-peer binary
         uses: actions/download-artifact@v3
         with:
-          path: binary
+          path: fluence
 
       - name: Calculate SHA256
         id: sha
-        working-directory: ./binary
+        working-directory: ./fluence
         run: |
           # Calculate sha256
           for arch in x86_64 aarch64; do
@@ -73,18 +73,20 @@ jobs:
         id: version
         uses: fluencelabs/github-actions/generate-snapshot-id@main
 
+      - run: ls -alhr fluence
+
       - name: Update rust-peer version
         run: |
           cat <<FLUENCE > fluence/fluence.json
           {
             "x86_64": {
               "version": "${{ steps.version.outputs.branch }}",
-              "url": "file:///binary/rust-peer-x86_64/particle-node",
+              "url": "file:///fluence/rust-peer-x86_64/particle-node",
               "sha256": "${{ steps.sha.outputs.sha256_x86_64 }}"
             },
             "aarch64": {
               "version": "${{ steps.version.outputs.branch }}",
-              "url": "file:///binary/rust-peer-aarch64/particle-node",
+              "url": "file:///fluence/rust-peer-aarch64/particle-node",
               "sha256": "${{ steps.sha.outputs.sha256_aarch64 }}"
             }
           }
