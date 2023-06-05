@@ -100,21 +100,18 @@ jobs:
   distro:
     if: inputs.update-distro == 'true'
     needs: rust-peer
-    runs-on: ubuntu-latest
-    steps:
-      - name: Update version in distro repo
-        uses: fluencelabs/rust-peer-distro/.github/workflows/update_fluence.yml@main
-        with:
-          version: |
-            {
-              "x86_64": {
-                "version": "${{ inputs.version }}",
-                "url": "https://github.com/fluencelabs/rust-peer/releases/download/${{ inputs.tag }}/rust-peer-x86_64",
-                "sha256": "${{ needs.rust-peer.outputs.sha256_x86_64 }}"
-              },
-              "aarch64": {
-                "version": "${{ inputs.version }}",
-                "url": "https://github.com/fluencelabs/rust-peer/releases/download/${{ inputs.tag }}/rust-peer-aarch64",
-                "sha256": "${{ needs.rust-peer.outputs.sha256_aarch64 }}"
-              }
-            }
+    uses: fluencelabs/rust-peer-distro/.github/workflows/update_fluence.yml@main
+    with:
+      version: |
+        {
+          "x86_64": {
+            "version": "${{ inputs.version }}",
+            "url": "https://github.com/fluencelabs/rust-peer/releases/download/${{ inputs.tag }}/rust-peer-x86_64",
+            "sha256": "${{ needs.rust-peer.outputs.sha256_x86_64 }}"
+          },
+          "aarch64": {
+            "version": "${{ inputs.version }}",
+            "url": "https://github.com/fluencelabs/rust-peer/releases/download/${{ inputs.tag }}/rust-peer-aarch64",
+            "sha256": "${{ needs.rust-peer.outputs.sha256_aarch64 }}"
+          }
+        }
