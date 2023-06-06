@@ -11,7 +11,7 @@ on:
         type: string
         description: "rust-peer version"
         required: true
-      update-node-distro:
+      update-distro:
         type: string
         description: "whether to update node-distro"
         required: true
@@ -25,7 +25,7 @@ on:
         type: string
         description: "rust-peer version"
         required: true
-      update-node-distro:
+      update-distro:
         type: string
         description: "whether to update node-distro"
         required: true
@@ -42,6 +42,10 @@ jobs:
     permissions:
       contents: write
       id-token: write
+
+    outputs:
+      sha256_x86_64: ${{ steps.sha.outputs.sha256_x86_64 }}
+      sha256_aarch64: ${{ steps.sha.outputs.sha256_aarch64 }}
 
     steps:
       - name: Checkout
@@ -74,31 +78,40 @@ jobs:
 
       - name: Calculate SHA256
         id: sha
-        working-directory: ./target/release/
         run: |
-          du -hs rust-peer
-          sha256sum rust-peer | tee > rust-peer_SHA256_SUMS
-          sha=($(sha256sum rust-peer))
-          echo "sha256=${sha}" >> $GITHUB_OUTPUT
+          # Calculate sha256
+          for arch in x86_64 aarch64; do
+            mv ./target/release/rust-peer-${arch}/particle-node rust-peer-${arch}
+            du -hs rust-peer-${arch}
+            sha256sum rust-peer-${arch} | tee >> rust-peer_SHA256_SUMS
+            sha=($(sha256sum rust-peer-${arch}))
+            echo "sha256_${arch}=${sha}" >> $GITHUB_OUTPUT
+          done
 
       - name: Upload rust-peer binary
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            ./target/release/rust-peer
-            ./target/release/rust-peer_SHA256_SUMS
+            ./rust-peer-x86_64
+            ./rust-peer-aarch64
+            ./rust-peer_SHA256_SUMS
           tag_name: ${{ inputs.tag }}
 
-      - name: Update version in node-distro repo
-        if: inputs.update-node-distro == 'true'
-        uses: benc-uk/workflow-dispatch@v1
-        with:
-          workflow: update_fluence
-          repo: fluencelabs/node-distro
-          ref: main
-          token: ${{ secrets.PERSONAL_TOKEN }}
-          inputs: '{
+  distro:
+    if: inputs.update-distro == 'true'
+    needs: rust-peer
+    uses: fluencelabs/rust-peer-distro/.github/workflows/update_fluence.yml@main
+    with:
+      version: |
+        {
+          "x86_64": {
             "version": "${{ inputs.version }}",
-            "url": "https://github.com/fluencelabs/rust-peer/releases/download/${{ inputs.tag }}/rust-peer",
-            "sha256": "${{ steps.sha.outputs.sha256 }}"
-          }'
+            "url": "https://github.com/fluencelabs/rust-peer/releases/download/${{ inputs.tag }}/rust-peer-x86_64",
+            "sha256": "${{ needs.rust-peer.outputs.sha256_x86_64 }}"
+          },
+          "aarch64": {
+            "version": "${{ inputs.version }}",
+            "url": "https://github.com/fluencelabs/rust-peer/releases/download/${{ inputs.tag }}/rust-peer-aarch64",
+            "sha256": "${{ needs.rust-peer.outputs.sha256_aarch64 }}"
+          }
+        }

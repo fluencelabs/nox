@@ -18,15 +18,28 @@ on:
 
 jobs:
   build:
-    name: "Build rust-peer"
+    name: "Build nox (${{ matrix.arch }})"
     runs-on: builder
     timeout-minutes: 60
 
-    env:
-      RUSTFLAGS: "-D warnings --cfg tokio_unstable"
+    env: ${{ matrix.env }}
 
     outputs:
       sha256: "${{ steps.sha.outputs.sha256 }}"
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86_64
+            env:
+              RUSTFLAGS: "-D warnings --cfg tokio_unstable"
+          - arch: aarch64
+            env:
+              RUSTFLAGS: "-D warnings --cfg tokio_unstable"
+              CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
+              CC_aarch64_unknown_linux_gnu: aarch64-linux-gnu-gcc
+              CXX_aarch64_unknown_linux_gnu: aarch64-linux-gnu-g++
 
     steps:
       - name: Checkout rust-peer
@@ -36,7 +49,7 @@ jobs:
           ref: ${{ inputs.ref }}
 
       - name: Setup Rust toolchain
-        uses: actions-rust-lang/setup-rust-toolchain@v1
+        uses: actions-rust-lang/setup-rust-toolchain@v1.4
 
       - name: Get PR labels
         id: labels
@@ -71,20 +84,10 @@ jobs:
           publish: false
 
       - name: Run cargo build
-        run: cargo build ${{ steps.profile.outputs.flags }} -p particle-node
-
-      - name: Calculate SHA256
-        id: sha
-        working-directory: ./target/${{ steps.profile.outputs.profile }}
-        run: |
-          # Calculate sha256
-          du -hs particle-node
-          sha256sum particle-node
-          sha=($(sha256sum particle-node))
-          echo "sha256=${sha}" >> $GITHUB_OUTPUT
+        run: cargo build ${{ steps.profile.outputs.flags }} -p particle-node --target ${{ matrix.arch }}-unknown-linux-gnu
 
       - name: Upload rust-peer binary
         uses: actions/upload-artifact@v3
         with:
-          name: rust-peer
-          path: target/${{ steps.profile.outputs.profile }}/particle-node
+          name: rust-peer-${{ matrix.arch }}
+          path: target/${{ matrix.arch }}-unknown-linux-gnu/${{ steps.profile.outputs.profile }}/particle-node
