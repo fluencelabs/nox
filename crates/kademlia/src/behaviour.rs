@@ -171,6 +171,13 @@ impl Kademlia {
     }
 
     pub fn add_kad_node(&mut self, peer: PeerId, addresses: Vec<Multiaddr>) {
+        /*
+          PeerA <=> PeerB:
+              identify
+              fluence
+               kad
+        */
+
         for addr in addresses {
             self.kademlia.add_address(&peer, addr.clone());
         }

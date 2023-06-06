@@ -31,6 +31,35 @@ pub struct ParticleEffects {
     pub call_requests: CallRequests,
 }
 
+// init peer = PeerIdJsClientJopa
+// current peer = PeerIdA, other peer = PeerIdB
+// worker on current peer = PeerIdW
+// avm = AquaVM::new(current_peer = PeerIdA)
+// (par
+//   (call PeerIdB ("srv" "create") [blueprint_id] service_id)
+//   (call PeerIdA ("peer" "identify") [] identify)
+//   (call PeerIdW ("peer" "identify") [] identify) => next_peers = [ PeerIdW ]
+// ) => {
+//     next_peers = [ PeerIdB ]
+//     call_requests = [ ("peer" "identify") [] ]
+//  }
+//
+
+/*
+
+ (call PeerIdA ("op" "noop") [])
+    (call PeerIdW ("peer" "identify") [])
+    (call PeerIdG ("peer" "identify") [])
+    (call PeerIdX ("peer" "identify") [])
+
+ PeerIdA: {
+   W: ...
+   G: ...
+   X: ...
+ }
+
+*/
+
 impl ParticleEffects {
     pub fn empty(particle: Particle) -> Self {
         Self {

@@ -73,10 +73,11 @@ impl FluenceNetworkBehaviour {
                         target: "blocked",
                         "Found peer {} not supported fluence protocol, protocols: {:?} version: {} listen addrs {:?}. skipping...",
                         peer_id, info.protocols,
-                    info.protocol_version,
-                    info.listen_addrs
+                        info.protocol_version,
+                        info.listen_addrs
                     );
                     let (out, _inlet) = oneshot::channel();
+
                     self.connection_pool.disconnect(peer_id, out);
                 }
             }

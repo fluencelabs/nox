@@ -152,6 +152,13 @@ where
 
         self.functions.poll(cx);
 
+        // particle_id: A, worker: W ==> 1
+        // particle_id: A, worker: W ==> 1
+        // particle_id: B, worker: W ==> 2
+        // particle_id: A, worker: G ==> 3
+
+        // disk.read(data) => execute(data1, ...) => data1' => disk.write(data)
+
         // Return vm if previous particle is still executing
         if self.is_executing() {
             return ActorPoll::Vm(vm_id, vm);
