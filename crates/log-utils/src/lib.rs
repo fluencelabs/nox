@@ -36,7 +36,7 @@ pub fn enable_logs() {
                 .add_directive("network=trace".parse().unwrap())
                 .add_directive("network_api=trace".parse().unwrap())
                 .add_directive("aquamarine::actor=debug".parse().unwrap())
-                .add_directive("particle_node::bootstrapper=info".parse().unwrap())
+                .add_directive("nox::bootstrapper=info".parse().unwrap())
                 .add_directive("yamux::connection::stream=info".parse().unwrap())
                 .add_directive("tokio_threadpool=info".parse().unwrap())
                 .add_directive("tokio_reactor=info".parse().unwrap())

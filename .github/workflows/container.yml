@@ -4,19 +4,23 @@ on:
   workflow_call:
     inputs:
       rust-peer-sha:
-        description: "sha256 hash of rust-peer binary"
+        description: "sha256 hash of nox binary"
         type: string
       image-name:
         description: "Docker image name"
         type: string
-        default: "docker.fluence.dev/rust-peer"
+        default: "docker.fluence.dev/nox"
       flavour:
-        description: "rust-peer flavour"
+        description: "nox flavour"
         type: string
         default: "minimal"
     outputs:
+      # compatibility output
       rust-peer-image:
         description: "rust-peer snapshot image"
+        value: ${{ jobs.publish.outputs.image }}
+      nox-image:
+        description: "nox snapshot image"
         value: ${{ jobs.publish.outputs.image }}
 
 jobs:
@@ -62,9 +66,9 @@ jobs:
         run: |
           # Calculate sha256
           for arch in x86_64 aarch64; do
-            du -hs rust-peer-${arch}/particle-node
-            sha256sum rust-peer-${arch}/particle-node
-            sha=($(sha256sum rust-peer-${arch}/particle-node))
+            du -hs nox-${arch}/nox
+            sha256sum nox-${arch}/nox
+            sha=($(sha256sum nox-${arch}/nox))
             echo "sha256_${arch}=${sha}" >> $GITHUB_OUTPUT
           done
 
@@ -72,18 +76,18 @@ jobs:
         id: version
         uses: fluencelabs/github-actions/generate-snapshot-id@main
 
-      - name: Update rust-peer version
+      - name: Update nox version
         run: |
           cat <<FLUENCE > fluence/fluence.json
           {
             "x86_64": {
               "version": "${{ steps.version.outputs.branch }}",
-              "url": "file:///fluence/rust-peer-x86_64/particle-node",
+              "url": "file:///fluence/nox-x86_64/nox",
               "sha256": "${{ steps.sha.outputs.sha256_x86_64 }}"
             },
             "aarch64": {
               "version": "${{ steps.version.outputs.branch }}",
-              "url": "file:///fluence/rust-peer-aarch64/particle-node",
+              "url": "file:///fluence/nox-aarch64/nox",
               "sha256": "${{ steps.sha.outputs.sha256_aarch64 }}"
             }
           }
@@ -128,7 +132,7 @@ jobs:
         if: always()
         run: |
           cat <<'SNAPSHOT' >> $GITHUB_STEP_SUMMARY
-          ## rust-peer ${{ inputs.flavour }}
+          ## nox ${{ inputs.flavour }}
           digest: `${{ steps.docker.outputs.digest }}`
           ```
           ${{ inputs.image-name }}:${{ inputs.flavour }}_${{ steps.version.outputs.branch }}

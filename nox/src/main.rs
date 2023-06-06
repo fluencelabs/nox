@@ -38,7 +38,7 @@ use air_interpreter_fs::write_default_air_interpreter;
 use aquamarine::{VmConfig, AVM};
 use config_utils::to_peer_id;
 use fs_utils::to_abs_path;
-use particle_node::{log_layer, tokio_console_layer, tracing_layer, Node};
+use nox::{log_layer, tokio_console_layer, tracing_layer, Node};
 use server_config::{load_config, ConfigData, ResolvedConfig};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");

@@ -30,7 +30,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  rust-peer:
+  nox:
     if: >
       github.event_name == 'push' ||
       (
@@ -41,9 +41,9 @@ jobs:
     with:
       ref: ${{ github.ref }}
 
-  rust-peer-flavours:
-    name: "rust-peer"
-    needs: rust-peer
+  nox-flavours:
+    name: "nox"
+    needs: nox
     strategy:
       matrix:
         flavour:
@@ -52,41 +52,41 @@ jobs:
 
     uses: ./.github/workflows/container.yml
     with:
-      image-name: "docker.fluence.dev/rust-peer"
+      image-name: "docker.fluence.dev/nox"
       flavour: "${{ matrix.flavour }}"
 
-  rust-peer-snapshot:
-    name: "rust-peer"
-    needs: rust-peer
+  nox-snapshot:
+    name: "nox"
+    needs: nox
     uses: ./.github/workflows/container.yml
     with:
-      image-name: "docker.fluence.dev/rust-peer"
+      image-name: "docker.fluence.dev/nox"
       flavour: "minimal"
 
   js-client:
     needs:
-      - rust-peer-snapshot
+      - nox-snapshot
     uses: fluencelabs/js-client/.github/workflows/tests.yml@master
     with:
-      rust-peer-image: "${{ needs.rust-peer-snapshot.outputs.rust-peer-image }}"
+      rust-peer-image: "${{ needs.nox-snapshot.outputs.nox-image }}"
 
   aqua-playground:
     needs:
-      - rust-peer-snapshot
+      - nox-snapshot
     uses: fluencelabs/aqua-playground/.github/workflows/tests.yml@master
     with:
-      rust-peer-image: "${{ needs.rust-peer-snapshot.outputs.rust-peer-image }}"
+      rust-peer-image: "${{ needs.nox-snapshot.outputs.nox-image }}"
 
   registry:
     needs:
-      - rust-peer-snapshot
+      - nox-snapshot
     uses: fluencelabs/registry/.github/workflows/tests.yml@main
     with:
-      rust-peer-image: "${{ needs.rust-peer-snapshot.outputs.rust-peer-image }}"
+      rust-peer-image: "${{ needs.nox-snapshot.outputs.nox-image }}"
 
   fluence-cli:
     needs:
-      - rust-peer-snapshot
+      - nox-snapshot
     uses: fluencelabs/fluence-cli/.github/workflows/tests.yml@main
     with:
-      rust-peer-image: "${{ needs.rust-peer-snapshot.outputs.rust-peer-image }}"
+      rust-peer-image: "${{ needs.nox-snapshot.outputs.nox-image }}"

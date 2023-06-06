@@ -1098,7 +1098,7 @@ mod tests {
         let pas = create_pas(local_pid, management_pid, base_dir.path().into());
 
         let module = load_module(
-            "../crates/particle-node-tests/tests/tetraplets/artifacts",
+            "../crates/nox-tests/tests/tetraplets/artifacts",
             "tetraplets",
         )
         .expect("load module");
@@ -1142,7 +1142,7 @@ mod tests {
 
     fn upload_tetra_service(pas: &ParticleAppServices, module_name: String) -> String {
         let module = load_module(
-            "../crates/particle-node-tests/tests/tetraplets/artifacts",
+            "../crates/nox-tests/tests/tetraplets/artifacts",
             "tetraplets",
         )
         .expect("load module");

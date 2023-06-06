@@ -528,7 +528,7 @@ mod tests {
     #[test]
     fn load_log_format_with_args() {
         let args = vec![
-            OsString::from("particle-node"),
+            OsString::from("nox"),
             OsString::from("--log-format"),
             OsString::from("logfmt"),
         ];
@@ -662,7 +662,7 @@ mod tests {
             ],
             || {
                 let args = vec![
-                    OsString::from("particle-node"),
+                    OsString::from("nox"),
                     OsString::from("--tracing-type"),
                     OsString::from("disabled"),
                 ];
@@ -676,7 +676,7 @@ mod tests {
     fn load_tracing_otlp_with_args() {
         temp_env::with_var("FLUENCE_TRACING__TYPE", Some("disabled"), || {
             let args = vec![
-                OsString::from("particle-node"),
+                OsString::from("nox"),
                 OsString::from("--tracing-type"),
                 OsString::from("otlp"),
                 OsString::from("--tracing-otlp-endpoint"),
