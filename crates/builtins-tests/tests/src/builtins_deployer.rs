@@ -98,11 +98,7 @@ async fn builtins_replace_old() {
     let tetraplets_service = create_service(
         &mut client,
         "tetraplets",
-        load_module(
-            "../nox-tests/tests/tetraplets/artifacts",
-            "tetraplets",
-        )
-        .expect("load module"),
+        load_module("../nox-tests/tests/tetraplets/artifacts", "tetraplets").expect("load module"),
     )
     .await;
 
