@@ -209,8 +209,9 @@ pub fn default_ipfs_multiaddr() -> String {
     "/dns4/ipfs.fluence.dev/tcp/5001".to_string()
 }
 
+// 15 minutes
 pub fn default_spell_period_sec() -> u32 {
-    121
+    900
 }
 
 pub fn default_deal_network_api_endpoint() -> String {
@@ -222,5 +223,5 @@ pub fn default_deal_contract_address_hex() -> String {
 }
 
 pub fn default_deal_contract_block_hex() -> String {
-    "0x75f3fbc".to_string()
+    "latest".to_string()
 }

@@ -4885,7 +4885,7 @@ dependencies = [
  "server-config",
  "sorcerer",
  "spell-event-bus",
- "system-service-deployer",
+ "system-services",
  "tokio",
  "tokio-stream",
  "tracing",
@@ -6544,7 +6544,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "system-service-deployer"
+name = "system-services"
 version = "0.1.0"
 dependencies = [
  "aqua-ipfs-distro-test",

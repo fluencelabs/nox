@@ -49,7 +49,7 @@ use server_config::{NetworkConfig, ResolvedConfig, ServicesConfig};
 use sorcerer::Sorcerer;
 use spell_event_bus::api::{PeerEvent, SpellEventBusApi, TriggerEvent};
 use spell_event_bus::bus::SpellEventBus;
-use system_service_deployer::SystemServiceDeployer;
+use system_services::Deployer;
 use tokio::sync::{mpsc, oneshot};
 use tokio::task;
 
@@ -73,7 +73,7 @@ pub struct Node<RT: AquaRuntime> {
     pub dispatcher: Dispatcher,
     aquavm_pool: AquamarineBackend<RT, Arc<Builtins<Connectivity>>>,
     script_storage: ScriptStorageBackend,
-    system_service_deployer: SystemServiceDeployer,
+    system_service_deployer: Deployer,
 
     spell_event_bus_api: SpellEventBusApi,
     spell_event_bus: SpellEventBus,
@@ -296,8 +296,8 @@ impl<RT: AquaRuntime> Node<RT> {
             },
         );
 
-        let system_services_config = config.system_services_config.clone();
-        let deployer = system_service_deployer::SystemServiceDeployer::new(
+        let system_services_config = config.system_services.clone();
+        let system_services_deployer = Deployer::new(
             services,
             modules,
             sorcerer.spell_storage.clone(),
@@ -316,7 +316,7 @@ impl<RT: AquaRuntime> Node<RT> {
             dispatcher,
             aquavm_pool,
             script_storage_backend,
-            deployer,
+            system_services_deployer,
             spell_event_bus_api,
             spell_event_bus,
             spell_events_receiver,
@@ -384,7 +384,7 @@ impl<RT: AquaRuntime> Node<RT> {
         dispatcher: Dispatcher,
         aquavm_pool: AquamarineBackend<RT, Arc<Builtins<Connectivity>>>,
         script_storage: ScriptStorageBackend,
-        system_service_deployer: SystemServiceDeployer,
+        system_service_deployer: Deployer,
         spell_event_bus_api: SpellEventBusApi,
         spell_event_bus: SpellEventBus,
         spell_events_receiver: mpsc::UnboundedReceiver<TriggerEvent>,
@@ -501,7 +501,7 @@ impl<RT: AquaRuntime> Node<RT> {
         // Note: need to be after the start of the node to be able to subscribe spells
         let deployer = self.system_service_deployer;
         if let Err(e) = deployer.deploy_system_services().await {
-            log::error!("installing system services failed: {}", e);
+            log::error!("deploying system services failed: {}", e);
         }
 
         let result = self.spell_event_bus_api.start_scheduling().await;

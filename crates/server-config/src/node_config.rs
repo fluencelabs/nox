@@ -143,7 +143,7 @@ pub struct UnresolvedNodeConfig {
     pub allowed_binaries: Vec<String>,
 
     #[serde(default)]
-    pub system_services_config: SystemServicesConfig,
+    pub system_services: SystemServicesConfig,
 }
 
 impl UnresolvedNodeConfig {
@@ -196,7 +196,7 @@ impl UnresolvedNodeConfig {
             transport_config: self.transport_config,
             listen_config: self.listen_config,
             allowed_binaries: self.allowed_binaries,
-            system_services_config: self.system_services_config,
+            system_services: self.system_services,
         };
 
         Ok(result)
@@ -281,7 +281,7 @@ pub struct NodeConfig {
 
     pub allowed_binaries: Vec<String>,
 
-    pub system_services_config: SystemServicesConfig,
+    pub system_services: SystemServicesConfig,
 }
 
 #[derive(Clone, Deserialize, Serialize, Derivative, Copy)]

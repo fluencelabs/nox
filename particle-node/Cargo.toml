@@ -29,7 +29,7 @@ fs-utils = { workspace = true }
 peer-metrics = { workspace = true }
 spell-event-bus = { workspace = true }
 key-manager = { workspace = true }
-system-service-deployer = { workspace = true }
+system-services = { workspace = true }
 
 fluence-keypair = { workspace = true }
 

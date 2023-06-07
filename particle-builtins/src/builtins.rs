@@ -841,7 +841,7 @@ where
     }
 
     fn list_services(&self, params: ParticleParams) -> JValue {
-        json!(self.services.list_services(params.host_id))
+        Array(self.services.list_services(params.host_id))
     }
 
     fn call_service(&self, function_args: Args, particle: ParticleParams) -> FunctionOutcome {
