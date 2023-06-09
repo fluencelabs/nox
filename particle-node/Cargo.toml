@@ -24,7 +24,6 @@ server-config = { workspace = true }
 config-utils = { workspace = true }
 kademlia = { workspace = true }
 air-interpreter-fs = { workspace = true }
-builtins-deployer = { workspace = true }
 fs-utils = { workspace = true }
 peer-metrics = { workspace = true }
 spell-event-bus = { workspace = true }

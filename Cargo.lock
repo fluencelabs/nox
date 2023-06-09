@@ -793,63 +793,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "builtins-deployer"
-version = "0.1.0"
-dependencies = [
- "aquamarine",
- "base64 0.21.0",
- "eyre",
- "fluence-libp2p",
- "fs-utils",
- "fstrings",
- "futures",
- "humantime 2.1.0",
- "local-vm",
- "log",
- "maplit",
- "now-millis",
- "parking_lot 0.12.1",
- "particle-args",
- "particle-execution",
- "particle-modules",
- "particle-protocol",
- "regex",
- "serde_json",
- "service-modules",
- "tokio",
- "tracing",
- "uuid-utils",
-]
-
-[[package]]
-name = "builtins-tests"
-version = "0.1.0"
-dependencies = [
- "builtins-deployer",
- "connected-client",
- "control-macro",
- "created-swarm",
- "eyre",
- "fluence-keypair",
- "fs-utils",
- "fstrings",
- "json-utils",
- "libp2p",
- "local-vm",
- "log",
- "log-utils",
- "maplit",
- "now-millis",
- "particle-modules",
- "serde",
- "serde_json",
- "service-modules",
- "test-constants",
- "test-utils",
- "tokio",
-]
-
-[[package]]
 name = "bumpalo"
 version = "3.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1445,7 +1388,6 @@ dependencies = [
  "air-interpreter-fs",
  "aquamarine",
  "base64 0.21.0",
- "builtins-deployer",
  "config-utils",
  "connection-pool",
  "derivative",
@@ -4846,7 +4788,6 @@ dependencies = [
  "base64 0.21.0",
  "blake3",
  "bs58",
- "builtins-deployer",
  "config-utils",
  "connected-client",
  "connection-pool",
