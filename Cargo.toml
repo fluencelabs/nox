@@ -28,8 +28,8 @@ members = [
     "crates/spell-event-bus",
     "crates/key-manager",
     "sorcerer",
-    "crates/particle-node-tests",
-    "particle-node",
+    "crates/nox-tests",
+    "nox",
     "aquamarine",
     "particle-protocol",
     "particle-services",
@@ -42,7 +42,7 @@ members = [
     "crates/system-services"
 ]
 exclude = [
-    "particle-node/tests/tetraplets",
+    "nox/tests/tetraplets",
 ]
 
 [workspace.dependencies]
@@ -74,7 +74,7 @@ spell-event-bus = { path = "crates/spell-event-bus" }
 key-manager = { path = "crates/key-manager" }
 cid-utils = { path = "crates/cid-utils" }
 sorcerer = { path = "sorcerer" }
-particle-node = { path = "particle-node" }
+nox = { path = "nox" }
 aquamarine = { path = "aquamarine" }
 particle-protocol = { path = "particle-protocol" }
 particle-services = { path = "particle-services" }

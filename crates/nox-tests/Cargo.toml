@@ -1,5 +1,5 @@
 [package]
-name = "particle-node-tests"
+name = "nox-tests"
 version = "0.1.0"
 edition = "2021"
 publish = false
@@ -8,7 +8,7 @@ publish = false
 uuid-utils = { path = "../uuid-utils" }
 test-utils = { path = "../test-utils" }
 service-modules = { path = "../service-modules" }
-particle-node = { path = "../../particle-node" }
+nox = { path = "../../nox" }
 particle-modules = { path = "../../particle-modules" }
 particle-execution = { path = "../../particle-execution" }
 particle-args = { path = "../particle-args" }

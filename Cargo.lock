@@ -257,16 +257,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7de8ce5e0f9f8d88245311066a578d72b7af3e7088f32783804676302df237e4"
 
 [[package]]
-name = "aqua-ipfs-distro"
-version = "0.5.14"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2e7f5f52ae024519186876aadb631e97386f28187e76815bb764c596511101dc"
-dependencies = [
- "built 0.5.2",
- "maplit",
-]
-
-[[package]]
 name = "aquamarine"
 version = "0.2.0"
 dependencies = [
@@ -790,6 +780,63 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "96f9cdd34d6eb553f9ea20e5bf84abb7b13c729f113fc1d8e49dc00ad9fa8738"
 dependencies = [
  "cargo-lock",
+]
+
+[[package]]
+name = "builtins-deployer"
+version = "0.1.0"
+dependencies = [
+ "aquamarine",
+ "base64 0.21.0",
+ "eyre",
+ "fluence-libp2p",
+ "fs-utils",
+ "fstrings",
+ "futures",
+ "humantime 2.1.0",
+ "local-vm",
+ "log",
+ "maplit",
+ "now-millis",
+ "parking_lot 0.12.1",
+ "particle-args",
+ "particle-execution",
+ "particle-modules",
+ "particle-protocol",
+ "regex",
+ "serde_json",
+ "service-modules",
+ "tokio",
+ "tracing",
+ "uuid-utils",
+]
+
+[[package]]
+name = "builtins-tests"
+version = "0.1.0"
+dependencies = [
+ "builtins-deployer",
+ "connected-client",
+ "control-macro",
+ "created-swarm",
+ "eyre",
+ "fluence-keypair",
+ "fs-utils",
+ "fstrings",
+ "json-utils",
+ "libp2p",
+ "local-vm",
+ "log",
+ "log-utils",
+ "maplit",
+ "now-millis",
+ "particle-modules",
+ "serde",
+ "serde_json",
+ "service-modules",
+ "test-constants",
+ "test-utils",
+ "tokio",
 ]
 
 [[package]]
@@ -1388,6 +1435,7 @@ dependencies = [
  "air-interpreter-fs",
  "aquamarine",
  "base64 0.21.0",
+ "builtins-deployer",
  "config-utils",
  "connection-pool",
  "derivative",
@@ -1398,9 +1446,9 @@ dependencies = [
  "libp2p",
  "log",
  "maplit",
+ "nox",
  "particle-args",
  "particle-execution",
- "particle-node",
  "particle-protocol",
  "script-storage",
  "serde",
@@ -1710,18 +1758,6 @@ checksum = "a5bbed42daaa95e780b60a50546aa345b8413a1e46f9a40a12907d3598f038db"
 dependencies = [
  "data-encoding",
  "syn 1.0.105",
-]
-
-[[package]]
-name = "decider-distro"
-version = "0.4.15"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4032fc22844d3ed3f66ce16c81ce226dde08f4a53a63b671c5fbf47e03875ffb"
-dependencies = [
- "built 0.5.2",
- "fluence-spell-dtos",
- "maplit",
- "serde_json",
 ]
 
 [[package]]
@@ -4407,6 +4443,116 @@ name = "now-millis"
 version = "0.1.0"
 
 [[package]]
+name = "nox"
+version = "0.12.0"
+dependencies = [
+ "air-interpreter-fs",
+ "air-interpreter-wasm",
+ "aquamarine",
+ "avm-server",
+ "base64 0.21.0",
+ "blake3",
+ "bs58",
+ "builtins-deployer",
+ "config-utils",
+ "connected-client",
+ "connection-pool",
+ "console-subscriber",
+ "dhat",
+ "eyre",
+ "fluence-keypair",
+ "fluence-libp2p",
+ "fs-utils",
+ "fstrings",
+ "futures",
+ "humantime-serde",
+ "hyper",
+ "itertools",
+ "kademlia",
+ "key-manager",
+ "libp2p",
+ "libp2p-metrics",
+ "libp2p-swarm",
+ "log",
+ "log-utils",
+ "maplit",
+ "multihash 0.17.0",
+ "opentelemetry",
+ "opentelemetry-otlp",
+ "parking_lot 0.12.1",
+ "particle-builtins",
+ "particle-execution",
+ "particle-protocol",
+ "peer-metrics",
+ "prometheus-client",
+ "rand 0.8.5",
+ "script-storage",
+ "serde",
+ "serde_json",
+ "server-config",
+ "sorcerer",
+ "spell-event-bus",
+ "tokio",
+ "tokio-stream",
+ "tracing",
+ "tracing-log",
+ "tracing-logfmt",
+ "tracing-opentelemetry",
+ "tracing-subscriber",
+]
+
+[[package]]
+name = "nox-tests"
+version = "0.1.0"
+dependencies = [
+ "aquamarine",
+ "base64 0.21.0",
+ "blake3",
+ "bs58",
+ "connected-client",
+ "connection-pool",
+ "control-macro",
+ "created-swarm",
+ "eyre",
+ "fluence-app-service",
+ "fluence-keypair",
+ "fluence-libp2p",
+ "fluence-spell-dtos",
+ "fstrings",
+ "futures",
+ "humantime-serde",
+ "itertools",
+ "json-utils",
+ "key-manager",
+ "libp2p",
+ "local-vm",
+ "log",
+ "log-utils",
+ "maplit",
+ "multihash 0.17.0",
+ "now-millis",
+ "nox",
+ "parking_lot 0.12.1",
+ "particle-args",
+ "particle-builtins",
+ "particle-execution",
+ "particle-modules",
+ "particle-protocol",
+ "rand 0.8.5",
+ "script-storage",
+ "serde",
+ "serde_json",
+ "service-modules",
+ "sorcerer",
+ "spell-event-bus",
+ "test-constants",
+ "test-utils",
+ "tokio",
+ "toy-vms",
+ "uuid-utils",
+]
+
+[[package]]
 name = "nu-ansi-term"
 version = "0.46.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4775,116 +4921,6 @@ dependencies = [
  "tempdir",
  "thiserror",
  "toml 0.5.10",
-]
-
-[[package]]
-name = "particle-node"
-version = "0.12.0"
-dependencies = [
- "air-interpreter-fs",
- "air-interpreter-wasm",
- "aquamarine",
- "avm-server",
- "base64 0.21.0",
- "blake3",
- "bs58",
- "config-utils",
- "connected-client",
- "connection-pool",
- "console-subscriber",
- "dhat",
- "eyre",
- "fluence-keypair",
- "fluence-libp2p",
- "fs-utils",
- "fstrings",
- "futures",
- "humantime-serde",
- "hyper",
- "itertools",
- "kademlia",
- "key-manager",
- "libp2p",
- "libp2p-metrics",
- "libp2p-swarm",
- "log",
- "log-utils",
- "maplit",
- "multihash 0.17.0",
- "opentelemetry",
- "opentelemetry-otlp",
- "parking_lot 0.12.1",
- "particle-builtins",
- "particle-execution",
- "particle-protocol",
- "peer-metrics",
- "prometheus-client",
- "rand 0.8.5",
- "script-storage",
- "serde",
- "serde_json",
- "server-config",
- "sorcerer",
- "spell-event-bus",
- "system-services",
- "tokio",
- "tokio-stream",
- "tracing",
- "tracing-log",
- "tracing-logfmt",
- "tracing-opentelemetry",
- "tracing-subscriber",
-]
-
-[[package]]
-name = "particle-node-tests"
-version = "0.1.0"
-dependencies = [
- "aquamarine",
- "base64 0.21.0",
- "blake3",
- "bs58",
- "connected-client",
- "connection-pool",
- "control-macro",
- "created-swarm",
- "eyre",
- "fluence-app-service",
- "fluence-keypair",
- "fluence-libp2p",
- "fluence-spell-dtos",
- "fstrings",
- "futures",
- "humantime-serde",
- "itertools",
- "json-utils",
- "key-manager",
- "libp2p",
- "local-vm",
- "log",
- "log-utils",
- "maplit",
- "multihash 0.17.0",
- "now-millis",
- "parking_lot 0.12.1",
- "particle-args",
- "particle-builtins",
- "particle-execution",
- "particle-modules",
- "particle-node",
- "particle-protocol",
- "rand 0.8.5",
- "script-storage",
- "serde",
- "serde_json",
- "service-modules",
- "sorcerer",
- "spell-event-bus",
- "test-constants",
- "test-utils",
- "tokio",
- "toy-vms",
- "uuid-utils",
 ]
 
 [[package]]
@@ -5620,16 +5656,6 @@ name = "regex-syntax"
 version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a5996294f19bd3aae0453a862ad728f60e6600695733dd5df01da90c54363a3c"
-
-[[package]]
-name = "registry-distro"
-version = "0.8.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c85639be0ec692599f96709399f7441fa7a53034909081239624810b56d44cec"
-dependencies = [
- "built 0.5.2",
- "maplit",
-]
 
 [[package]]
 name = "remove_dir_all"
@@ -6485,35 +6511,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "system-services"
-version = "0.1.0"
-dependencies = [
- "aqua-ipfs-distro",
- "decider-distro",
- "eyre",
- "fluence-app-service",
- "fluence-spell-dtos",
- "libp2p",
- "log",
- "maplit",
- "now-millis",
- "particle-args",
- "particle-execution",
- "particle-modules",
- "particle-services",
- "registry-distro",
- "serde",
- "serde_json",
- "server-config",
- "service-modules",
- "sorcerer",
- "spell-event-bus",
- "spell-storage",
- "toml 0.5.10",
- "trust-graph-distro",
-]
-
-[[package]]
 name = "target-lexicon"
 version = "0.12.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7061,19 +7058,6 @@ dependencies = [
  "tokio",
  "tracing",
  "trust-dns-proto",
-]
-
-[[package]]
-name = "trust-graph-distro"
-version = "0.4.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d84f24ea1f10b42a6803f9e846cf7b93b021f56a7dd6a05ee0b2360a9b69144d"
-dependencies = [
- "built 0.5.2",
- "lazy_static",
- "maplit",
- "serde",
- "serde_json",
 ]
 
 [[package]]
