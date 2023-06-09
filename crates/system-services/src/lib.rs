@@ -1,6 +1,5 @@
 #![feature(try_blocks)]
 use eyre::eyre;
-use eyre::WrapErr;
 use fluence_app_service::TomlMarineConfig;
 use fluence_spell_dtos::trigger_config::TriggerConfig;
 use libp2p::PeerId;
