@@ -160,27 +160,26 @@ impl Deployer {
         let deployed = self
             .deploy_system_service(registry_distro)
             .map_err(|e| JError::new(e.to_string()))?;
-        let registry_service_id = match deployed {
+        match deployed {
             ServiceStatus::Existing(id) => {
                 log::info!("found `registry` [{id}] service, no need to redeploy",);
-                return Ok(());
             }
-            ServiceStatus::Created(id) => id,
+            ServiceStatus::Created(id) => {
+                log::info!("deployed `registry` [{id}] service");
+            }
         };
 
-        log::info!("deployed `registry` [{}] service", registry_service_id);
         for spell_distro in registry_spell_distros {
             let spell_name = spell_distro.name.to_string();
             let deployed = self.deploy_system_spell(spell_distro).await?;
-            let spell_id = match deployed {
+            match deployed {
                 ServiceStatus::Existing(id) => {
                     log::info!("found `{spell_name}` [{id}] spell, no need to redeploy");
-                    continue;
                 }
-                ServiceStatus::Created(id) => id,
+                ServiceStatus::Created(id) => {
+                    log::info!("deployed `{spell_name}` [{id}] spell");
+                }
             };
-
-            log::info!("deployed `{spell_name}` [{spell_id}] spell");
         }
         Ok(())
     }
@@ -196,7 +195,7 @@ impl Deployer {
         };
         log::info!("deployed `trust-graph` [{service_id}] service");
 
-        let certs = &trust_graph_distro_test::KRAS_CERTS;
+        let certs = &trust_graph_distro::KRAS_CERTS;
 
         self.call_service(
             "trust-graph",
@@ -218,7 +217,7 @@ impl Deployer {
 
     // The plan is to move this to the corresponding crates
     fn get_trust_graph_distro() -> ServiceDistro {
-        use trust_graph_distro_test::*;
+        use trust_graph_distro::*;
         ServiceDistro {
             modules: modules(),
             config: CONFIG,
@@ -227,7 +226,7 @@ impl Deployer {
     }
 
     fn get_registry_distro() -> (ServiceDistro, Vec<SpellDistro>) {
-        use registry_distro_test::*;
+        use registry_distro::*;
 
         let distro = ServiceDistro {
             modules: modules(),
@@ -252,7 +251,7 @@ impl Deployer {
     }
 
     fn get_ipfs_service_distro() -> ServiceDistro {
-        use aqua_ipfs_distro_test::*;
+        use aqua_ipfs_distro::*;
         ServiceDistro {
             modules: modules(),
             config: CONFIG,
@@ -261,8 +260,7 @@ impl Deployer {
     }
 
     fn get_connector_distro() -> ServiceDistro {
-        use decider_distro_test::*;
-        let connector_service_distro = connector_service_modules();
+        let connector_service_distro = decider_distro::connector_service_modules();
         ServiceDistro {
             modules: connector_service_distro.modules,
             config: connector_service_distro.config,
@@ -271,14 +269,14 @@ impl Deployer {
     }
 
     fn get_decider_distro(decider_settings: DeciderConfig) -> SpellDistro {
-        let decider_config = decider_distro_test::DeciderConfig {
+        let decider_config = decider_distro::DeciderConfig {
             worker_period_sec: decider_settings.worker_period_sec,
             worker_ipfs_multiaddr: decider_settings.worker_ipfs_multiaddr,
             chain_network: decider_settings.network_api_endpoint,
             chain_contract_addr: decider_settings.contract_address_hex,
             chain_contract_block_hex: decider_settings.contract_block_hex,
         };
-        let decider_spell_distro = decider_distro_test::decider_spell(decider_config);
+        let decider_spell_distro = decider_distro::decider_spell(decider_config);
         let mut decider_trigger_config = TriggerConfig::default();
         decider_trigger_config.clock.start_sec = 1;
         decider_trigger_config.clock.period_sec = decider_settings.decider_period_sec;
