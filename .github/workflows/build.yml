@@ -1,4 +1,4 @@
-name: "Build rust-peer binary"
+name: "Build nox binary"
 
 on:
   workflow_call:
@@ -12,8 +12,12 @@ on:
         type: string
         default: "null"
     outputs:
+      # compatibility output
       rust-peer-sha:
-        description: "rust-peer sha256 hash"
+        description: "nox sha256 hash"
+        value: ${{ jobs.build.outputs.sha256 }}
+      nox-sha:
+        description: "nox sha256 hash"
         value: ${{ jobs.build.outputs.sha256 }}
 
 jobs:
@@ -42,10 +46,10 @@ jobs:
               CXX_aarch64_unknown_linux_gnu: aarch64-linux-gnu-g++
 
     steps:
-      - name: Checkout rust-peer
+      - name: Checkout repository
         uses: actions/checkout@v3
         with:
-          repository: fluencelabs/rust-peer
+          repository: fluencelabs/nox
           ref: ${{ inputs.ref }}
 
       - name: Setup Rust toolchain
@@ -84,10 +88,10 @@ jobs:
           publish: false
 
       - name: Run cargo build
-        run: cargo build ${{ steps.profile.outputs.flags }} -p particle-node --target ${{ matrix.arch }}-unknown-linux-gnu
+        run: cargo build ${{ steps.profile.outputs.flags }} -p nox --target ${{ matrix.arch }}-unknown-linux-gnu
 
-      - name: Upload rust-peer binary
+      - name: Upload nox binary
         uses: actions/upload-artifact@v3
         with:
-          name: rust-peer-${{ matrix.arch }}
-          path: target/${{ matrix.arch }}-unknown-linux-gnu/${{ steps.profile.outputs.profile }}/particle-node
+          name: nox-${{ matrix.arch }}
+          path: target/${{ matrix.arch }}-unknown-linux-gnu/${{ steps.profile.outputs.profile }}/nox

@@ -30,8 +30,8 @@ members = [
     "crates/key-manager",
     "sorcerer",
     "crates/builtins-tests",
-    "crates/particle-node-tests",
-    "particle-node",
+    "crates/nox-tests",
+    "nox",
     "aquamarine",
     "particle-protocol",
     "particle-services",
@@ -43,7 +43,7 @@ members = [
     "particle-execution",
 ]
 exclude = [
-    "particle-node/tests/tetraplets",
+    "nox/tests/tetraplets",
 ]
 
 [workspace.dependencies]
@@ -77,7 +77,7 @@ key-manager = { path = "crates/key-manager" }
 cid-utils = { path = "crates/cid-utils" }
 sorcerer = { path = "sorcerer" }
 builtins-tests = { path = "crates/builtins-tests" }
-particle-node = { path = "particle-node" }
+nox = { path = "nox" }
 aquamarine = { path = "aquamarine" }
 particle-protocol = { path = "particle-protocol" }
 particle-services = { path = "particle-services" }

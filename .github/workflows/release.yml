@@ -58,19 +58,19 @@ jobs:
         with:
           crate: cargo-edit
 
-      - name: Get rust-peer version
+      - name: Get nox version
         id: version
         run: |
           version="$(jq -r '.[]' .github/release-please/manifest.json)"
           echo "version=${version}" >> $GITHUB_OUTPUT
 
-      - name: Set rust-peer version
-        run: cargo set-version -p particle-node ${{ steps.version.outputs.version }}
+      - name: Set nox version
+        run: cargo set-version -p nox ${{ steps.version.outputs.version }}
 
       - name: Commit version bump
         uses: stefanzweifel/git-auto-commit-action@v4
         with:
-          commit_message: "chore: Bump rust-peer version to ${{ steps.version.outputs.version }}"
+          commit_message: "chore: Bump nox version to ${{ steps.version.outputs.version }}"
           branch: ${{ fromJson(needs.release-please.outputs.pr).headBranchName }}
           commit_user_name: fluencebot
           commit_user_email: devops@fluence.one

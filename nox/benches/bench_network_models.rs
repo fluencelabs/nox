@@ -35,7 +35,7 @@
 // use fs_utils::make_tmp_dir;
 // use kademlia::KademliaApi;
 // use particle_closures::{HostClosures, NodeInfo};
-// use particle_node::{ConnectionPoolCommand, Connectivity, KademliaCommand};
+// use nox::{ConnectionPoolCommand, Connectivity, KademliaCommand};
 // use particle_protocol::{Contact, Particle};
 // use script_storage::ScriptStorageApi;
 // use server_config::ServicesConfig;

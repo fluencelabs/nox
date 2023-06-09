@@ -34,7 +34,7 @@ use fluence_libp2p::random_multiaddr::{create_memory_maddr, create_tcp_maddr};
 use fluence_libp2p::Transport;
 use fs_utils::{create_dir, make_tmp_dir_peer_id, to_abs_path};
 use futures::future::join_all;
-use particle_node::{Connectivity, Node};
+use nox::{Connectivity, Node};
 use particle_protocol::ProtocolConfig;
 use server_config::{default_script_storage_timer_resolution, BootstrapConfig, UnresolvedConfig};
 use test_constants::{EXECUTION_TIMEOUT, KEEP_ALIVE_TIMEOUT, TRANSPORT_TIMEOUT};

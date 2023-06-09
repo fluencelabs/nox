@@ -1,4 +1,4 @@
-name: "Publish rust-peer"
+name: "Publish nox"
 
 on:
   workflow_dispatch:
@@ -9,11 +9,11 @@ on:
         required: true
       version:
         type: string
-        description: "rust-peer version"
+        description: "nox version"
         required: true
       update-distro:
         type: string
-        description: "whether to update node-distro"
+        description: "whether to update nox-distro"
         required: true
   workflow_call:
     inputs:
@@ -23,11 +23,11 @@ on:
         required: true
       version:
         type: string
-        description: "rust-peer version"
+        description: "nox version"
         required: true
       update-distro:
         type: string
-        description: "whether to update node-distro"
+        description: "whether to update nox-distro"
         required: true
     secrets:
       PERSONAL_TOKEN:
@@ -35,7 +35,7 @@ on:
         required: true
 
 jobs:
-  rust-peer:
+  nox:
     runs-on: builder
     timeout-minutes: 60
 
@@ -48,7 +48,7 @@ jobs:
       sha256_aarch64: ${{ steps.sha.outputs.sha256_aarch64 }}
 
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v3
 
       - name: Import secrets
@@ -67,51 +67,47 @@ jobs:
       - name: Setup Rust toolchain
         uses: actions-rust-lang/setup-rust-toolchain@v1
 
-      - name: Build particle-node
+      - name: Build nox binary
         env:
           RUSTFLAGS: "--cfg tokio_unstable"
-        run: cargo build --release -p particle-node
-
-      - name: Rename particle-node to rust-peer
-        working-directory: ./target/release/
-        run: mv particle-node rust-peer
+        run: cargo build --release -p nox
 
       - name: Calculate SHA256
         id: sha
         run: |
           # Calculate sha256
           for arch in x86_64 aarch64; do
-            mv ./target/release/rust-peer-${arch}/particle-node rust-peer-${arch}
-            du -hs rust-peer-${arch}
-            sha256sum rust-peer-${arch} | tee >> rust-peer_SHA256_SUMS
-            sha=($(sha256sum rust-peer-${arch}))
+            mv ./target/release/nox-${arch}/nox nox-${arch}
+            du -hs nox-${arch}
+            sha256sum nox-${arch} | tee >> nox_SHA256_SUMS
+            sha=($(sha256sum nox-${arch}))
             echo "sha256_${arch}=${sha}" >> $GITHUB_OUTPUT
           done
 
-      - name: Upload rust-peer binary
+      - name: Upload nox binary
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            ./rust-peer-x86_64
-            ./rust-peer-aarch64
-            ./rust-peer_SHA256_SUMS
+            ./nox-x86_64
+            ./nox-aarch64
+            ./nox_SHA256_SUMS
           tag_name: ${{ inputs.tag }}
 
   distro:
     if: inputs.update-distro == 'true'
     needs: rust-peer
-    uses: fluencelabs/rust-peer-distro/.github/workflows/update_fluence.yml@main
+    uses: fluencelabs/nox-distro/.github/workflows/update_fluence.yml@main
     with:
       version: |
         {
           "x86_64": {
             "version": "${{ inputs.version }}",
-            "url": "https://github.com/fluencelabs/rust-peer/releases/download/${{ inputs.tag }}/rust-peer-x86_64",
-            "sha256": "${{ needs.rust-peer.outputs.sha256_x86_64 }}"
+            "url": "https://github.com/fluencelabs/nox/releases/download/${{ inputs.tag }}/nox-x86_64",
+            "sha256": "${{ needs.nox.outputs.sha256_x86_64 }}"
           },
           "aarch64": {
             "version": "${{ inputs.version }}",
-            "url": "https://github.com/fluencelabs/rust-peer/releases/download/${{ inputs.tag }}/rust-peer-aarch64",
-            "sha256": "${{ needs.rust-peer.outputs.sha256_aarch64 }}"
+            "url": "https://github.com/fluencelabs/nox/releases/download/${{ inputs.tag }}/nox-aarch64",
+            "sha256": "${{ needs.nox.outputs.sha256_aarch64 }}"
           }
         }

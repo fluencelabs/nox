@@ -22,10 +22,10 @@ jobs:
     timeout-minutes: 60
 
     steps:
-      - name: Checkout rust-peer
+      - name: Checkout repository
         uses: actions/checkout@v3
         with:
-          repository: fluencelabs/rust-peer
+          repository: fluencelabs/nox
           ref: ${{ inputs.ref }}
 
       - name: Setup Rust toolchain
@@ -46,7 +46,7 @@ jobs:
         uses: dorny/test-reporter@v1
         if: success() || failure()
         with:
-          name: rust-peer report
+          name: nox report
           path: target/nextest/ci/junit.xml
           reporter: java-junit
 
