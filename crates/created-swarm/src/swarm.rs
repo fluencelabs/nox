@@ -243,6 +243,7 @@ pub struct SwarmConfig {
     pub spell_base_dir: Option<PathBuf>,
     pub timer_resolution: Duration,
     pub allowed_binaries: Vec<String>,
+    pub disabled_system_services: Vec<String>,
 }
 
 impl SwarmConfig {
@@ -262,7 +263,13 @@ impl SwarmConfig {
             builtins_dir: None,
             spell_base_dir: None,
             timer_resolution: default_script_storage_timer_resolution(),
-            allowed_binaries: vec![],
+            allowed_binaries: vec!["/usr/bin/ipfs".to_string(), "/usr/bin/curl".to_string()],
+            disabled_system_services: vec![
+                "decider".to_string(),
+                "aqua-ipfs".to_string(),
+                "registry".to_string(),
+                "trust-graph".to_string(),
+            ],
         }
     }
 }
@@ -354,6 +361,7 @@ pub fn create_swarm_with_runtime<RT: AquaRuntime>(
 
     resolved.node_config.script_storage_timer_resolution = config.timer_resolution;
     resolved.node_config.allowed_binaries = config.allowed_binaries.clone();
+    resolved.system_services.disable = config.disabled_system_services.clone();
 
     let management_kp = fluence_keypair::KeyPair::generate_ed25519();
     let management_peer_id = libp2p::identity::Keypair::from(management_kp.clone())

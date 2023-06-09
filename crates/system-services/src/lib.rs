@@ -88,13 +88,22 @@ impl Deployer {
     }
 
     pub async fn deploy_system_services(&self) -> Result<(), JError> {
-        self.deploy_aqua_ipfs()?;
-        self.deploy_trust_graph()?;
+        if !self.config.disable.contains(&"aqua-ipfs".to_string()) {
+            self.deploy_aqua_ipfs()?;
+        }
 
-        self.deploy_registry().await?;
+        if !self.config.disable.contains(&"trust-graph".to_string()) {
+            self.deploy_trust_graph()?;
+        }
+        if !self.config.disable.contains(&"registry".to_string()) {
+            self.deploy_registry().await?;
+        }
 
-        self.deploy_connector()?;
-        self.deploy_decider().await
+        if !self.config.disable.contains(&"decider".to_string()) {
+            self.deploy_connector()?;
+            self.deploy_decider().await?;
+        }
+        Ok(())
     }
 
     fn deploy_aqua_ipfs(&self) -> Result<(), JError> {
@@ -570,10 +579,13 @@ impl Deployer {
             let hash = self
                 .modules_repo
                 .add_module(module.to_vec(), config)
-                .context(format!(
-                    "adding module {name} of service `{}`",
-                    service_distro.name
-                ))?;
+                .map_err(|e| {
+                    eyre!(
+                        "error while adding module {name} of service `{}`: {:?}",
+                        service_distro.name,
+                        e
+                    )
+                })?;
             hashes.push(hash)
         }
         let blueprint_id = self

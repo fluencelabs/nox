@@ -20,6 +20,8 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Serialize, Deserialize, Debug, Default)]
 pub struct SystemServicesConfig {
     #[serde(default)]
+    pub disable: Vec<String>,
+    #[serde(default)]
     pub aqua_ipfs: AquaIpfsConfig,
     #[serde(default)]
     pub decider: DeciderConfig,
