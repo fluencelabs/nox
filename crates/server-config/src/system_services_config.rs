@@ -54,6 +54,8 @@ pub struct SystemServicesConfig {
     #[serde(default = "default_system_services")]
     pub enable: Vec<ServiceKey>,
     #[serde(default)]
+    pub disable: Vec<String>,
+    #[serde(default)]
     pub aqua_ipfs: AquaIpfsConfig,
     #[serde(default)]
     pub decider: DeciderConfig,
