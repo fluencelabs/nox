@@ -46,9 +46,9 @@ impl Default for AquaIpfsConfig {
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct DeciderConfig {
-    #[serde(default = "default_spell_period_sec")]
+    #[serde(default = "default_decider_spell_period_sec")]
     pub decider_period_sec: u32,
-    #[serde(default = "default_spell_period_sec")]
+    #[serde(default = "default_worker_spell_period_sec")]
     pub worker_period_sec: u32,
     #[serde(default = "default_ipfs_multiaddr")]
     pub worker_ipfs_multiaddr: String,
@@ -63,8 +63,8 @@ pub struct DeciderConfig {
 impl Default for DeciderConfig {
     fn default() -> Self {
         Self {
-            decider_period_sec: default_spell_period_sec(),
-            worker_period_sec: default_spell_period_sec(),
+            decider_period_sec: default_decider_spell_period_sec(),
+            worker_period_sec: default_worker_spell_period_sec(),
             worker_ipfs_multiaddr: default_ipfs_multiaddr(),
             network_api_endpoint: default_deal_network_api_endpoint(),
             contract_address_hex: default_deal_contract_address_hex(),

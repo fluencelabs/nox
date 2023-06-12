@@ -210,8 +210,13 @@ pub fn default_ipfs_multiaddr() -> String {
 }
 
 // 15 minutes
-pub fn default_spell_period_sec() -> u32 {
+pub fn default_worker_spell_period_sec() -> u32 {
     900
+}
+
+// 2 minutes
+pub fn default_decider_spell_period_sec() -> u32 {
+    120
 }
 
 pub fn default_deal_network_api_endpoint() -> String {
