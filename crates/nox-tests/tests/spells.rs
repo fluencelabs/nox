@@ -24,7 +24,7 @@ use maplit::hashmap;
 use serde_json::{json, Value as JValue};
 
 use connected_client::ConnectedClient;
-use created_swarm::{make_swarms, make_swarms_with_builtins};
+use created_swarm::{make_swarms, make_swarms_with_cfg};
 use fluence_spell_dtos::trigger_config::{ClockConfig, TriggerConfig};
 use service_modules::load_module;
 use spell_event_bus::api::{TriggerInfo, TriggerInfoAqua, MAX_PERIOD_SEC};
@@ -1355,7 +1355,12 @@ async fn resolve_global_alias() {
 
 #[tokio::test]
 async fn worker_sig_test() {
-    let swarms = make_swarms_with_builtins(1, "tests/builtins/services".as_ref(), None, None).await;
+    let swarms = make_swarms_with_cfg(1, |mut cfg| {
+        cfg.disabled_system_services
+            .retain(|service| service != "registry");
+        cfg
+    })
+    .await;
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .await

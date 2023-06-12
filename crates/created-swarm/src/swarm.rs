@@ -15,7 +15,6 @@
  */
 
 use std::convert::identity;
-use std::path::Path;
 use std::{path::PathBuf, time::Duration};
 
 use derivative::Derivative;
@@ -127,23 +126,6 @@ pub async fn make_swarms_with_keypair(
 ) -> Vec<CreatedSwarm> {
     make_swarms_with_cfg(n, |mut cfg| {
         cfg.keypair = keypair.clone();
-        cfg.spell_base_dir = spell_base_dir.clone().map(PathBuf::from);
-        cfg
-    })
-    .await
-}
-
-pub async fn make_swarms_with_builtins(
-    n: usize,
-    path: &Path,
-    keypair: Option<KeyPair>,
-    spell_base_dir: Option<String>,
-) -> Vec<CreatedSwarm> {
-    make_swarms_with_cfg(n, |mut cfg| {
-        if let Some(keypair) = &keypair {
-            cfg.keypair = keypair.clone();
-        }
-        cfg.builtins_dir = Some(to_abs_path(path.into()));
         cfg.spell_base_dir = spell_base_dir.clone().map(PathBuf::from);
         cfg
     })
