@@ -22,13 +22,8 @@ jobs:
       - name: Install Protoc
         uses: arduino/setup-protoc@v1
 
-      - name: Install Rust toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: nightly
-          profile: minimal
-          override: true
-          components: rustfmt, rust-src
+      - name: Setup Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
 
       - name: Build Documentation
         run: RUSTDOCFLAGS="--enable-index-page -Zunstable-options" cargo +nightly doc --all --no-deps
