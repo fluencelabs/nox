@@ -87,6 +87,23 @@ impl Deployer {
     }
 
     pub async fn deploy_system_services(&self) -> Result<(), JError> {
+        /*
+        let deployers: HashMap<_, Box<dyn FnOnce(&Deployer) -> Result<(), JError>>> = maplit::hashmap! {
+           "aqua-ipfs" => Box::new(Self::deploy_aqua_ipfs),
+            "trust-graph" => Box::new(Self::deploy_trust_graph),
+            /*
+            "registry" => || self.deploy_registry(),
+            "decider" => || { self.deploy_connector()?; self.deploy_decider().await },
+             */
+        };
+
+        for (name, deployer) in deployers {
+            if !self.config.disable.contains(&name.to_string()) {
+                deployer()?;
+            }
+        }
+        */
+
         if !self.config.disable.contains(&"aqua-ipfs".to_string()) {
             self.deploy_aqua_ipfs()?;
         }

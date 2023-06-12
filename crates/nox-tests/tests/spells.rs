@@ -26,7 +26,6 @@ use serde_json::{json, Value as JValue};
 use connected_client::ConnectedClient;
 use created_swarm::{make_swarms, make_swarms_with_builtins};
 use fluence_spell_dtos::trigger_config::{ClockConfig, TriggerConfig};
-use log_utils::enable_logs;
 use service_modules::load_module;
 use spell_event_bus::api::{TriggerInfo, TriggerInfoAqua, MAX_PERIOD_SEC};
 use test_utils::{create_service, create_service_worker};
@@ -425,7 +424,10 @@ async fn spell_install_fail_large_period() {
         .execute_particle(
             r#"
         (xor
-            (call worker_id ("spell" "install") [script data config] spell_id)
+            (seq
+                (call relay ("op" "noop") [])            
+                (call worker_id ("spell" "install") [script data config] spell_id)
+            )
             (call client ("return" "") [%last_error%.$.message])
         )"#,
             data,
@@ -443,6 +445,7 @@ async fn spell_install_fail_large_period() {
 // In this case we don't schedule a spell and return error.
 #[tokio::test]
 async fn spell_install_fail_end_sec_past() {
+    log_utils::enable_logs();
     let swarms = make_swarms(1).await;
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .await
@@ -464,18 +467,21 @@ async fn spell_install_fail_end_sec_past() {
         "relay" => json!(client.node.to_string()),
         "data" => json!(json!(empty).to_string()),
     };
+
     let result = client
         .execute_particle(
             r#"
         (xor
-            (call worker_id ("spell" "install") [script data config] spell_id)
+            (seq
+                (call relay ("op" "noop") [])            
+                (call worker_id ("spell" "install") [script data config] spell_id)
+            )
             (call client ("return" "") [%last_error%.$.message])
         )"#,
             data.clone(),
         )
         .await
         .unwrap();
-
     if let [JValue::String(error_msg)] = result.as_slice() {
         let expected = "Local service error, ret_code is 1, error message is '\"Error: invalid config: end_sec is less than start_sec or in the past";
         assert!(
@@ -519,7 +525,10 @@ async fn spell_install_fail_end_sec_before_start() {
         .execute_particle(
             r#"
         (xor
-            (call worker_id ("spell" "install") [script data config] spell_id)
+            (seq
+                (call relay ("op" "noop") [])            
+                (call worker_id ("spell" "install") [script data config] spell_id)
+            )
             (call client ("return" "") [%last_error%.$.message])
         )"#,
             data.clone(),
