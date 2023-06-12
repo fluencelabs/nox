@@ -57,7 +57,7 @@ jobs:
 
       - name: Get PR labels
         id: labels
-        uses: joerick/pr-labels-action@v1.0.7
+        uses: joerick/pr-labels-action@v1.0.9
 
       - name: Set profile
         id: profile
