@@ -349,7 +349,7 @@ impl Deployer {
 
     async fn clean_old_spell(&self, spell_name: &str, spell_id: String) {
         let result = remove_spell(
-            "system-services-deployment",
+            DEPLOYER_PARTICLE_ID,
             &self.spell_storage,
             &self.services,
             &self.spell_event_bus_api,
@@ -385,7 +385,7 @@ impl Deployer {
             &self.spell_storage,
             &self.spell_event_bus_api,
             self.root_worker_id,
-            "system-services-deployment".to_string(),
+            DEPLOYER_PARTICLE_ID.to_string(),
             DEPLOYER_TTL,
             spell_distro.trigger_config,
             spell_distro.air.to_string(),
