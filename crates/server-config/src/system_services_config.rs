@@ -16,11 +16,44 @@
 
 use super::defaults::*;
 use serde::{Deserialize, Serialize};
+use std::fmt::Formatter;
+
+#[non_exhaustive]
+#[derive(Clone, Serialize, Deserialize, Debug, PartialEq, Eq)]
+#[serde(rename_all = "kebab-case")]
+pub enum ServiceKey {
+    AquaIpfs,
+    TrustGraph,
+    Registry,
+    Decider,
+}
+
+impl ServiceKey {
+    pub fn all_values() -> Vec<Self> {
+        vec![
+            Self::AquaIpfs,
+            Self::TrustGraph,
+            Self::Registry,
+            Self::Decider,
+        ]
+    }
+}
+
+impl std::fmt::Display for ServiceKey {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::AquaIpfs => write!(f, "aqua-ipfs"),
+            Self::TrustGraph => write!(f, "trust-graph"),
+            Self::Registry => write!(f, "registry"),
+            Self::Decider => write!(f, "decider"),
+        }
+    }
+}
 
 #[derive(Clone, Serialize, Deserialize, Debug, Default)]
 pub struct SystemServicesConfig {
     #[serde(default)]
-    pub disable: Vec<String>,
+    pub disable: Vec<ServiceKey>,
     #[serde(default)]
     pub aqua_ipfs: AquaIpfsConfig,
     #[serde(default)]

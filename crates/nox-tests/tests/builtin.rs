@@ -37,6 +37,7 @@ use now_millis::now_ms;
 use particle_protocol::Particle;
 use serde::Deserialize;
 use serde_json::{json, Value as JValue};
+use server_config::system_services_config::ServiceKey::Registry;
 use service_modules::load_module;
 use std::collections::HashMap;
 use std::str::FromStr;
@@ -1540,7 +1541,7 @@ async fn sign_verify() {
 async fn sign_invalid_tetraplets() {
     let swarms = make_swarms_with_cfg(2, |mut cfg| {
         cfg.disabled_system_services
-            .retain(|service| service != "registry");
+            .retain(|service| service != Registry);
         cfg
     })
     .await;
@@ -1610,7 +1611,7 @@ async fn sign_invalid_tetraplets() {
 async fn sig_verify_invalid_signature() {
     let swarms = make_swarms_with_cfg(1, |mut cfg| {
         cfg.disabled_system_services
-            .retain(|service| service != "registry");
+            .retain(|service| service != Registry);
         cfg
     })
     .await;
@@ -1802,7 +1803,7 @@ async fn insecure_sign_verify() {
     let kp = KeyPair::from_secret_key(INSECURE_KEYPAIR_SEED.collect(), KeyFormat::Ed25519).unwrap();
     let swarms = make_swarms_with_cfg(1, |mut cfg| {
         cfg.disabled_system_services
-            .retain(|service| service != "registry");
+            .retain(|service| service != Registry);
         cfg
     })
     .await;

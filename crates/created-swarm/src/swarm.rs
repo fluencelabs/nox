@@ -225,11 +225,13 @@ pub struct SwarmConfig {
     pub spell_base_dir: Option<PathBuf>,
     pub timer_resolution: Duration,
     pub allowed_binaries: Vec<String>,
-    pub disabled_system_services: Vec<String>,
+    pub disabled_system_services: Vec<server_config::system_services_config::ServiceKey>,
 }
 
 impl SwarmConfig {
     pub fn new(bootstraps: Vec<Multiaddr>, listen_on: Multiaddr) -> Self {
+        use server_config::system_services_config::ServiceKey;
+
         let transport = match listen_on.iter().next() {
             Some(Protocol::Memory(_)) => Transport::Memory,
             _ => Transport::Network,
@@ -246,12 +248,7 @@ impl SwarmConfig {
             spell_base_dir: None,
             timer_resolution: default_script_storage_timer_resolution(),
             allowed_binaries: vec!["/usr/bin/ipfs".to_string(), "/usr/bin/curl".to_string()],
-            disabled_system_services: vec![
-                "decider".to_string(),
-                "aqua-ipfs".to_string(),
-                "registry".to_string(),
-                "trust-graph".to_string(),
-            ],
+            disabled_system_services: ServiceKey::all_values(),
         }
     }
 }

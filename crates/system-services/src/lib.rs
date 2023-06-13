@@ -8,7 +8,8 @@ use particle_execution::FunctionOutcome;
 use particle_modules::{AddBlueprint, ModuleRepository};
 use particle_services::{ParticleAppServices, ServiceError, ServiceType};
 use serde_json::{json, Value as JValue};
-use server_config::{DeciderConfig, SystemServicesConfig};
+use server_config::system_services_config::ServiceKey::*;
+use server_config::{system_services_config::ServiceKey, DeciderConfig, SystemServicesConfig};
 use sorcerer::{get_spell_info, install_spell, remove_spell};
 use spell_event_bus::api::SpellEventBusApi;
 use spell_storage::SpellStorage;
@@ -41,11 +42,11 @@ enum ServiceUpdateStatus {
 struct ServiceDistro {
     modules: HashMap<&'static str, &'static [u8]>,
     config: &'static [u8],
-    name: &'static str,
+    name: String,
 }
 
 struct SpellDistro {
-    name: &'static str,
+    name: String,
     air: &'static str,
     kv: HashMap<&'static str, JValue>,
     trigger_config: TriggerConfig,
@@ -86,66 +87,59 @@ impl Deployer {
         }
     }
 
-    pub async fn deploy_system_services(&self) -> Result<(), JError> {
-        /*
-        let deployers: HashMap<_, Box<dyn FnOnce(&Deployer) -> Result<(), JError>>> = maplit::hashmap! {
-           "aqua-ipfs" => Box::new(Self::deploy_aqua_ipfs),
-            "trust-graph" => Box::new(Self::deploy_trust_graph),
-            /*
-            "registry" => || self.deploy_registry(),
-            "decider" => || { self.deploy_connector()?; self.deploy_decider().await },
-             */
-        };
-
-        for (name, deployer) in deployers {
-            if !self.config.disable.contains(&name.to_string()) {
-                deployer()?;
+    async fn deploy_system_service(&self, key: &ServiceKey) -> Result<(), JError> {
+        match key {
+            AquaIpfs => self.deploy_aqua_ipfs(),
+            TrustGraph => self.deploy_trust_graph(),
+            Registry => self.deploy_registry().await,
+            Decider => {
+                self.deploy_connector()?;
+                self.deploy_decider().await
+            }
+            x => {
+                log::error!("installation of a service {x} is not implemented",);
+                Ok(())
             }
         }
-        */
+    }
 
-        if !self.config.disable.contains(&"aqua-ipfs".to_string()) {
-            self.deploy_aqua_ipfs()?;
-        }
-
-        if !self.config.disable.contains(&"trust-graph".to_string()) {
-            self.deploy_trust_graph()?;
-        }
-        if !self.config.disable.contains(&"registry".to_string()) {
-            self.deploy_registry().await?;
-        }
-
-        if !self.config.disable.contains(&"decider".to_string()) {
-            self.deploy_connector()?;
-            self.deploy_decider().await?;
+    pub async fn deploy_system_services(&self) -> Result<(), JError> {
+        let services_to_deploy = ServiceKey::all_values()
+            .into_iter()
+            .filter(|service| !self.config.disable.contains(&service))
+            .collect::<Vec<_>>();
+        for service in services_to_deploy {
+            self.deploy_system_service(&service).await?;
         }
         Ok(())
     }
 
     fn deploy_aqua_ipfs(&self) -> Result<(), JError> {
         let aqua_ipfs_distro = Self::get_ipfs_service_distro();
-        let service_id = match self.deploy_system_service(aqua_ipfs_distro)? {
-            ServiceStatus::Existing(id) => {
-                log::info!("found `aqua-ipfs` [{id}] service, no need to redeploy");
+        let service_name = aqua_ipfs_distro.name.clone();
+        let service_id = match self.deploy_service_common(aqua_ipfs_distro)? {
+            ServiceStatus::Existing(_id) => {
                 return Ok(());
             }
-            ServiceStatus::Created(id) => {
-                log::info!("deployed `aqua-ipfs` [{id}] service");
-                id
-            }
+            ServiceStatus::Created(id) => id,
         };
 
-        self.call_service(
-            "aqua-ipfs",
+        let set_local_result = self.call_service(
+            &service_name,
             "set_local_api_multiaddr",
             vec![json!(self.config.aqua_ipfs.local_api_multiaddr)],
-        )?;
+        );
 
-        self.call_service(
-            "aqua-ipfs",
+        let set_external_result = self.call_service(
+            &service_name,
             "set_external_api_multiaddr",
             vec![json!(self.config.aqua_ipfs.external_api_multiaddr)],
-        )?;
+        );
+
+        // try to set local and external api multiaddrs, and only then produce an error
+        set_local_result?;
+        set_external_result?;
+
         log::info!("initialized `aqua-ipfs` [{}] service", service_id);
 
         Ok(())
@@ -153,77 +147,43 @@ impl Deployer {
 
     fn deploy_connector(&self) -> Result<(), JError> {
         let connector_distro = Self::get_connector_distro();
-        let deployed = self.deploy_system_service(connector_distro)?;
-        match deployed {
-            ServiceStatus::Existing(id) => {
-                log::info!("found `fluence_aurora_connector` [{id}] service, no need to redeploy");
-            }
-            ServiceStatus::Created(id) => {
-                log::info!("deployed `fluence_aurora_connector` [{id}] service");
-            }
-        };
+        let _deployed = self.deploy_service_common(connector_distro)?;
         Ok(())
     }
 
     async fn deploy_decider(&self) -> Result<(), JError> {
         let decider_distro = Self::get_decider_distro(self.config.decider.clone());
-        let deployed = self.deploy_system_spell(decider_distro).await?;
-        match deployed {
-            ServiceStatus::Existing(id) => {
-                log::info!("found `decider` [{id}] spell, no need to redeploy");
-            }
-            ServiceStatus::Created(id) => {
-                log::info!("deployed `decider` [{id}] spell");
-            }
-        };
+        let _deployed = self.deploy_system_spell(decider_distro).await?;
 
         Ok(())
     }
 
     async fn deploy_registry(&self) -> Result<(), JError> {
         let (registry_distro, registry_spell_distros) = Self::get_registry_distro();
-        let deployed = self
-            .deploy_system_service(registry_distro)
+        let _deployed = self
+            .deploy_service_common(registry_distro)
             .map_err(|e| JError::new(e.to_string()))?;
-        match deployed {
-            ServiceStatus::Existing(id) => {
-                log::info!("found `registry` [{id}] service, no need to redeploy",);
-            }
-            ServiceStatus::Created(id) => {
-                log::info!("deployed `registry` [{id}] service");
-            }
-        };
 
         for spell_distro in registry_spell_distros {
-            let spell_name = spell_distro.name.to_string();
-            let deployed = self.deploy_system_spell(spell_distro).await?;
-            match deployed {
-                ServiceStatus::Existing(id) => {
-                    log::info!("found `{spell_name}` [{id}] spell, no need to redeploy");
-                }
-                ServiceStatus::Created(id) => {
-                    log::info!("deployed `{spell_name}` [{id}] spell");
-                }
-            };
+            let _deployed = self.deploy_system_spell(spell_distro).await?;
         }
         Ok(())
     }
 
     fn deploy_trust_graph(&self) -> Result<(), JError> {
         let service_distro = Self::get_trust_graph_distro();
-        let service_id = match self.deploy_system_service(service_distro)? {
-            ServiceStatus::Existing(id) => {
-                log::info!("found `trust-graph` [{id}] service, no need to redeploy",);
+        let service_name = service_distro.name.clone();
+        let service_id = match self.deploy_service_common(service_distro)? {
+            ServiceStatus::Existing(_id) => {
                 return Ok(());
             }
             ServiceStatus::Created(id) => id,
         };
-        log::info!("deployed `trust-graph` [{service_id}] service");
 
         let certs = &trust_graph_distro::KRAS_CERTS;
 
         self.call_service(
-            "trust-graph",
+            &service_name,
             "set_root",
             vec![json!(certs.root_node), json!(certs.max_chain_length)],
         )?;
@@ -231,12 +191,12 @@ impl Deployer {
         let timestamp = now_millis::now_sec();
         for cert_chain in &certs.certs {
             self.call_service(
-                "trust-graph",
+                &service_name,
                 "insert_cert",
                 vec![json!(cert_chain), json!(timestamp)],
             )?;
         }
-        log::info!("initialized `trust-graph` [{service_id}] service");
+        log::info!("initialized `{service_name}` [{service_id}] service");
         Ok(())
     }
 
@@ -246,7 +206,7 @@ impl Deployer {
         ServiceDistro {
             modules: modules(),
             config: CONFIG,
-            name: "trust-graph",
+            name: TrustGraph.to_string(),
         }
     }
 
@@ -256,7 +216,7 @@ impl Deployer {
         let distro = ServiceDistro {
             modules: modules(),
             config: CONFIG,
-            name: "registry",
+            name: Registry.to_string(),
         };
         let spells_distro = scripts()
             .into_iter()
@@ -265,7 +225,7 @@ impl Deployer {
                 trigger_config.clock.start_sec = 1;
                 trigger_config.clock.period_sec = script.period_sec;
                 SpellDistro {
-                    name: script.name,
+                    name: script.name.to_string(),
                     air: script.air,
                     kv: HashMap::new(),
                     trigger_config,
@@ -280,7 +240,7 @@ impl Deployer {
         ServiceDistro {
             modules: modules(),
             config: CONFIG,
-            name: "aqua-ipfs",
+            name: AquaIpfs.to_string(),
         }
     }
 
@@ -289,7 +249,7 @@ impl Deployer {
         ServiceDistro {
             modules: connector_service_distro.modules,
             config: connector_service_distro.config,
-            name: connector_service_distro.name,
+            name: connector_service_distro.name.to_string(),
         }
     }
 
@@ -306,7 +266,7 @@ impl Deployer {
         decider_trigger_config.clock.start_sec = 1;
         decider_trigger_config.clock.period_sec = decider_settings.decider_period_sec;
         SpellDistro {
-            name: "decider",
+            name: Decider.to_string(),
             air: decider_spell_distro.air,
             kv: decider_spell_distro.kv,
             trigger_config: decider_trigger_config,
@@ -370,17 +330,20 @@ impl Deployer {
         &self,
         spell_distro: SpellDistro,
     ) -> Result<ServiceStatus, JError> {
+        let spell_name = spell_distro.name.clone();
         match self.find_same_spell(&spell_distro) {
             ServiceUpdateStatus::NeedUpdate(spell_id) => {
-                self.clean_old_spell(spell_distro.name, spell_id).await;
+                log::info!("found existing spell `{spell_name}` [{spell_id}]; will redeploy",);
+                self.clean_old_spell(&spell_name, spell_id).await;
             }
             ServiceUpdateStatus::NoUpdate(spell_id) => {
+                log::info!("found existing spell `{spell_name}` [{spell_id}]; no need to redeploy",);
                 return Ok(ServiceStatus::Existing(spell_id));
             }
             ServiceUpdateStatus::NotFound => {}
         }
-        let spell_id = self.deploy_new_system_spell(spell_distro).await?;
-
+        let spell_id = self.deploy_spell_common(spell_distro).await?;
+        log::info!("deployed a system spell `{spell_name}` [{spell_id}]",);
         Ok(ServiceStatus::Created(spell_id))
     }
 
@@ -402,12 +365,11 @@ impl Deployer {
             let empty_config = TriggerConfig::default();
             // Stop old spell
             let result: Result<_, JError> = try {
-                // Unsubscribe spell from execution
-                self.spell_event_bus_api
-                    .unsubscribe(spell_id.clone())
-                    .await?;
                 // Stop the spell to avoid re-subscription
-                self.call_service(&spell_id, "set_trigger_config", vec![json!(empty_config)])
+                self.call_service(&spell_id, "set_trigger_config", vec![json!(empty_config)])?;
+
+                // Unsubscribe spell from execution
+                self.spell_event_bus_api.unsubscribe(spell_id.clone()).await
             };
             if let Err(err) = result {
                 log::error!(
@@ -417,7 +379,7 @@ impl Deployer {
         }
     }
 
-    async fn deploy_new_system_spell(&self, spell_distro: SpellDistro) -> Result<String, JError> {
+    async fn deploy_spell_common(&self, spell_distro: SpellDistro) -> Result<String, JError> {
         let spell_id = install_spell(
             &self.services,
             &self.spell_storage,
@@ -508,17 +470,18 @@ impl Deployer {
         ServiceUpdateStatus::NoUpdate(spell.id)
     }
 
-    fn deploy_system_service(
+    fn deploy_service_common(
         &self,
         service_distro: ServiceDistro,
     ) -> Result<ServiceStatus, JError> {
-        let service_name = service_distro.name;
+        let service_name = service_distro.name.clone();
         let blueprint_id = self
             .add_modules(service_distro)
             .map_err(|e| JError::new(e.to_string()))?;
 
         match self.find_same_service(service_name.to_string(), &blueprint_id) {
             ServiceUpdateStatus::NeedUpdate(service_id) => {
+                log::info!("found existing service {service_name} [{service_id}]; will redeploy");
                 let result = self.services.remove_service(
                     DEPLOYER_PARTICLE_ID,
                     self.root_worker_id,
@@ -533,6 +496,9 @@ impl Deployer {
                 }
             }
             ServiceUpdateStatus::NoUpdate(service_id) => {
+                log::info!(
+                    "found existing service {service_name} [{service_id}]; no need to redeploy"
+                );
                 return Ok(ServiceStatus::Existing(service_id));
             }
             ServiceUpdateStatus::NotFound => {}
@@ -550,6 +516,7 @@ impl Deployer {
             service_id.clone(),
             self.management_id,
         )?;
+        log::info!("deployed service {service_name} [{service_id}]");
         Ok(ServiceStatus::Created(service_id))
     }
 
@@ -562,7 +529,7 @@ impl Deployer {
         if let Ok(service) = existing_service {
             if service.service_type == ServiceType::Spell {
                 log::warn!(
-                    "alias `{}` already used for a spell [{}]; it will be used for a service, the spell won't be removed",
+                    "alias `{}` already used for a spell [{}]; it will be used for a new service, the spell won't be removed",
                     service_name,
                     service.id
                 );
