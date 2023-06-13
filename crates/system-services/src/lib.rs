@@ -97,18 +97,14 @@ impl Deployer {
                 self.deploy_decider().await
             }
             x => {
-                log::error!("installation of a service {x} is not implemented",);
+                log::error!("installation of a service `{x}` is not implemented",);
                 Ok(())
             }
         }
     }
 
     pub async fn deploy_system_services(&self) -> Result<(), JError> {
-        let services_to_deploy = ServiceKey::all_values()
-            .into_iter()
-            .filter(|service| !self.config.disable.contains(&service))
-            .collect::<Vec<_>>();
-        for service in services_to_deploy {
+        for service in &self.config.enable {
             self.deploy_system_service(&service).await?;
         }
         Ok(())

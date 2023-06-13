@@ -1540,8 +1540,7 @@ async fn sign_verify() {
 #[tokio::test]
 async fn sign_invalid_tetraplets() {
     let swarms = make_swarms_with_cfg(2, |mut cfg| {
-        cfg.disabled_system_services
-            .retain(|service| service != Registry);
+        cfg.enabled_system_services = vec![Registry];
         cfg
     })
     .await;
@@ -1610,8 +1609,7 @@ async fn sign_invalid_tetraplets() {
 #[tokio::test]
 async fn sig_verify_invalid_signature() {
     let swarms = make_swarms_with_cfg(1, |mut cfg| {
-        cfg.disabled_system_services
-            .retain(|service| service != Registry);
+        cfg.enabled_system_services = vec![Registry];
         cfg
     })
     .await;
@@ -1802,8 +1800,7 @@ async fn json_builtins() {
 async fn insecure_sign_verify() {
     let kp = KeyPair::from_secret_key(INSECURE_KEYPAIR_SEED.collect(), KeyFormat::Ed25519).unwrap();
     let swarms = make_swarms_with_cfg(1, |mut cfg| {
-        cfg.disabled_system_services
-            .retain(|service| service != Registry);
+        cfg.enabled_system_services = vec![Registry];
         cfg
     })
     .await;

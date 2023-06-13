@@ -1355,8 +1355,8 @@ async fn resolve_global_alias() {
 #[tokio::test]
 async fn worker_sig_test() {
     let swarms = make_swarms_with_cfg(1, |mut cfg| {
-        cfg.disabled_system_services
-            .retain(|service| service != "registry");
+        cfg.enabled_system_services =
+            vec![server_config::system_services_config::ServiceKey::Registry];
         cfg
     })
     .await;

@@ -50,14 +50,24 @@ impl std::fmt::Display for ServiceKey {
     }
 }
 
-#[derive(Clone, Serialize, Deserialize, Debug, Default)]
+#[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct SystemServicesConfig {
-    #[serde(default)]
-    pub disable: Vec<ServiceKey>,
+    #[serde(default = "default_system_services")]
+    pub enable: Vec<ServiceKey>,
     #[serde(default)]
     pub aqua_ipfs: AquaIpfsConfig,
     #[serde(default)]
     pub decider: DeciderConfig,
+}
+
+impl Default for SystemServicesConfig {
+    fn default() -> Self {
+        Self {
+            enable: default_system_services(),
+            aqua_ipfs: Default::default(),
+            decider: Default::default(),
+        }
+    }
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug)]

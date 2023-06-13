@@ -225,13 +225,11 @@ pub struct SwarmConfig {
     pub spell_base_dir: Option<PathBuf>,
     pub timer_resolution: Duration,
     pub allowed_binaries: Vec<String>,
-    pub disabled_system_services: Vec<server_config::system_services_config::ServiceKey>,
+    pub enabled_system_services: Vec<server_config::system_services_config::ServiceKey>,
 }
 
 impl SwarmConfig {
     pub fn new(bootstraps: Vec<Multiaddr>, listen_on: Multiaddr) -> Self {
-        use server_config::system_services_config::ServiceKey;
-
         let transport = match listen_on.iter().next() {
             Some(Protocol::Memory(_)) => Transport::Memory,
             _ => Transport::Network,
@@ -248,7 +246,7 @@ impl SwarmConfig {
             spell_base_dir: None,
             timer_resolution: default_script_storage_timer_resolution(),
             allowed_binaries: vec!["/usr/bin/ipfs".to_string(), "/usr/bin/curl".to_string()],
-            disabled_system_services: ServiceKey::all_values(),
+            enabled_system_services: vec![],
         }
     }
 }
@@ -340,7 +338,7 @@ pub fn create_swarm_with_runtime<RT: AquaRuntime>(
 
     resolved.node_config.script_storage_timer_resolution = config.timer_resolution;
     resolved.node_config.allowed_binaries = config.allowed_binaries.clone();
-    resolved.system_services.disable = config.disabled_system_services.clone();
+    resolved.system_services.enable = config.enabled_system_services.clone();
 
     let management_kp = fluence_keypair::KeyPair::generate_ed25519();
     let management_peer_id = libp2p::identity::Keypair::from(management_kp.clone())

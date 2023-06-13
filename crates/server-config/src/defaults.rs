@@ -27,6 +27,7 @@ use libp2p::PeerId;
 use fluence_libp2p::Transport;
 
 use crate::node_config::{KeypairConfig, PathOrValue};
+use crate::system_services_config::ServiceKey;
 
 const CONFIG_VERSION: usize = 1;
 
@@ -203,6 +204,10 @@ pub fn default_max_builtin_metrics_storage_size() -> usize {
 
 pub fn default_allowed_binaries() -> Vec<String> {
     vec!["/usr/bin/curl".to_string(), "/usr/bin/ipfs".to_string()]
+}
+
+pub fn default_system_services() -> Vec<ServiceKey> {
+    ServiceKey::all_values()
 }
 
 pub fn default_ipfs_multiaddr() -> String {
