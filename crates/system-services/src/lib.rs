@@ -105,7 +105,7 @@ impl Deployer {
 
     pub async fn deploy_system_services(&self) -> Result<(), JError> {
         for service in &self.config.enable {
-            self.deploy_system_service(&service).await?;
+            self.deploy_system_service(service).await?;
         }
         Ok(())
     }
@@ -277,7 +277,7 @@ impl Deployer {
     ) -> Result<(), JError> {
         let result = self.services.call_function(
             self.root_worker_id,
-            &service_id,
+            service_id,
             function_name,
             args,
             None,
@@ -569,7 +569,7 @@ impl Deployer {
         }
         let blueprint_id = self
             .modules_repo
-            .add_blueprint(AddBlueprint::new(service_distro.name.to_string(), hashes))?;
+            .add_blueprint(AddBlueprint::new(service_distro.name, hashes))?;
         Ok(blueprint_id)
     }
 }

@@ -50,6 +50,7 @@ pub async fn remove_spell(
     Ok(())
 }
 
+#[allow(clippy::too_many_arguments)]
 pub async fn install_spell(
     services: &ParticleAppServices,
     spell_storage: &SpellStorage,
