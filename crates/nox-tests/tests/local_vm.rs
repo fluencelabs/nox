@@ -18,6 +18,7 @@
 #[macro_use]
 extern crate fstrings;
 
+use fluence_keypair::KeyPair;
 use std::time::Duration;
 
 use maplit::hashmap;
@@ -28,8 +29,10 @@ use local_vm::{make_particle, make_vm, read_args};
 
 #[test]
 fn make() {
-    let client_a = RandomPeerId::random();
-    let client_b = RandomPeerId::random();
+    let keypair_a = KeyPair::generate_ed25519();
+    let keypair_b = KeyPair::generate_ed25519();
+    let client_a = keypair_a.get_peer_id();
+    let client_b = keypair_b.get_peer_id();
 
     let mut local_vm_a = make_vm(client_a);
     let mut local_vm_b = make_vm(client_b);
@@ -57,7 +60,7 @@ fn make() {
         Duration::from_secs(20),
     );
 
-    let args = read_args(particle, client_b, &mut local_vm_b)
+    let args = read_args(particle, client_b, &mut local_vm_b, &keypair_b)
         .expect("read args")
         .expect("read args");
     assert_eq!(data["a"], args[0]);

@@ -101,11 +101,8 @@ impl<RT: AquaRuntime> Node<RT> {
     ) -> eyre::Result<Box<Self>> {
         let key_pair: Keypair = config.node_config.root_key_pair.clone().into();
         let transport = config.transport_config.transport;
-        let transport = build_transport(
-            transport,
-            key_pair.clone(),
-            config.transport_config.socket_timeout,
-        );
+        let transport =
+            build_transport(transport, &key_pair, config.transport_config.socket_timeout);
 
         let builtins_peer_id = to_peer_id(&config.builtins_key_pair.clone().into());
 

@@ -109,18 +109,34 @@ impl<RT: AquaRuntime> VmPool<RT> {
         });
     }
 
+    pub fn recreate_avm(&mut self, id: usize, cx: &mut Context<'_>) {
+        if self.creating_runtimes.is_none() {
+            log::error!(
+                "Attempt to recreate an AVM before initialization (self.creating_runtimes is None), ignoring"
+            );
+            return;
+        }
+
+        let avm_f = self.create_avm(cx);
+        if let Some(creating_vms) = self.creating_runtimes.as_mut() {
+            creating_vms.push((id, avm_f))
+        }
+    }
+
+    fn create_avm(&self, cx: &mut Context<'_>) -> RuntimeF<RT> {
+        let config = self.runtime_config.clone();
+        let waker = cx.waker().clone();
+
+        RT::create_runtime(config, waker)
+    }
+
     /// Moves created VMs from `creating_vms` to `vms`
     pub fn poll(&mut self, cx: &mut Context<'_>) {
         let creating_vms = match &mut self.creating_runtimes {
             None => {
                 self.creating_runtimes = Some(
                     (0..self.pool_size)
-                        .map(|id| {
-                            let config = self.runtime_config.clone();
-                            let waker = cx.waker().clone();
-
-                            (id, RT::create_runtime(config, waker))
-                        })
+                        .map(|id| (id, self.create_avm(cx)))
                         .collect(),
                 );
                 self.creating_runtimes.as_mut().unwrap()

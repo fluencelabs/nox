@@ -3785,6 +3785,7 @@ dependencies = [
  "air-interpreter-wasm",
  "aquamarine",
  "avm-server",
+ "fluence-keypair",
  "fs-utils",
  "fstrings",
  "ivalue-utils",
@@ -6919,6 +6920,7 @@ version = "0.1.0"
 dependencies = [
  "aquamarine",
  "avm-server",
+ "fluence-keypair",
  "fluence-libp2p",
  "futures",
  "itertools",

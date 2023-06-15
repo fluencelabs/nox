@@ -19,7 +19,8 @@ use std::{
     task::{Context, Poll, Waker},
 };
 
-use avm_server::CallResults;
+use fluence_keypair::KeyPair;
+use futures::future::BoxFuture;
 use futures::FutureExt;
 
 use fluence_libp2p::PeerId;
@@ -28,14 +29,33 @@ use particle_protocol::Particle;
 
 use crate::deadline::Deadline;
 use crate::particle_effects::RoutingEffects;
-use crate::particle_executor::{Fut, FutResult, ParticleExecutor};
+use crate::particle_executor::{FutResult, ParticleExecutor};
 use crate::particle_functions::{Functions, SingleCallStat};
-use crate::{AquaRuntime, InterpretationStats};
+use crate::{AquaRuntime, InterpretationStats, ParticleEffects};
+
+struct Reusables<RT> {
+    vm_id: usize,
+    vm: Option<RT>,
+}
+//
+// pub enum ActorState<RT> {
+//     /// In the process of executing a particle
+//     Executing {
+//         future: BoxFuture<'static, (Reusables<RT>, ParticleEffects, InterpretationStats)>,
+//     },
+//     /// Ready to execute a particle
+//     Ready {
+//         /// Key pair to sign function calls inside AVM
+//         /// It is None when it is moved inside `future`
+//         /// After `future` is completed, `key_pair` is set again
+//         key_pair: KeyPair,
+//     },
+// }
 
 pub struct Actor<RT, F> {
     /// Particle of that actor is expired after that deadline
     deadline: Deadline,
-    future: Option<(usize, Fut<RT>)>,
+    future: Option<BoxFuture<'static, (Reusables<RT>, ParticleEffects, InterpretationStats)>>,
     mailbox: VecDeque<Particle>,
     waker: Option<Waker>,
     functions: Functions<F>,
@@ -46,17 +66,24 @@ pub struct Actor<RT, F> {
     /// Particles and call results will be processed in the security scope of this peer id
     /// It's either `host_peer_id` or local worker peer id
     current_peer_id: PeerId,
+    key_pair: KeyPair,
 }
 
 impl<RT, F> Actor<RT, F>
 where
-    RT: AquaRuntime + ParticleExecutor<Particle = (Particle, CallResults), Future = Fut<RT>>,
+    RT: AquaRuntime,
     F: ParticleFunctionStatic,
 {
-    pub fn new(particle: &Particle, functions: Functions<F>, current_peer_id: PeerId) -> Self {
+    pub fn new(
+        particle: &Particle,
+        functions: Functions<F>,
+        current_peer_id: PeerId,
+        key_pair: KeyPair,
+    ) -> Self {
         Self {
             deadline: Deadline::from(particle),
             functions,
+            // state: ActorState::Ready { key_pair },
             future: None,
             mailbox: <_>::default(),
             waker: None,
@@ -71,6 +98,7 @@ where
                 data: vec![],
             },
             current_peer_id,
+            key_pair,
         }
     }
 
@@ -110,7 +138,7 @@ where
     pub fn poll_completed(
         &mut self,
         cx: &mut Context<'_>,
-    ) -> Poll<FutResult<(usize, RT), RoutingEffects, InterpretationStats>> {
+    ) -> Poll<FutResult<(usize, Option<RT>), RoutingEffects, InterpretationStats>> {
         use Poll::Ready;
 
         self.waker = Some(cx.waker().clone());
@@ -118,25 +146,24 @@ where
         self.functions.poll(cx);
 
         // Poll AquaVM future
-        if let Some((vm_id, Ready(r))) = self.future.as_mut().map(|(i, f)| (*i, f.poll_unpin(cx))) {
+        if let Some(Ready((reusables, effects, stats))) =
+            self.future.as_mut().map(|f| f.poll_unpin(cx))
+        {
             self.future.take();
 
             let waker = cx.waker().clone();
             // Schedule execution of functions
-            self.functions.execute(
-                r.effects.particle.id.clone(),
-                r.effects.call_requests,
-                waker,
-            );
+            self.functions
+                .execute(effects.particle.id.clone(), effects.call_requests, waker);
 
             let effects = RoutingEffects {
-                particle: r.effects.particle,
-                next_peers: r.effects.next_peers,
+                particle: effects.particle,
+                next_peers: effects.next_peers,
             };
-            return Poll::Ready(FutResult {
-                vm: r.vm.map(|vm| (vm_id, vm)),
+            return Ready(FutResult {
+                runtime: (reusables.vm_id, reusables.vm),
                 effects,
-                stats: r.stats,
+                stats: stats,
             });
         }
 
@@ -175,12 +202,25 @@ where
             self.particle.clone()
         });
         let waker = cx.waker().clone();
-        // TODO: add timeout for execution https://github.com/fluencelabs/fluence/issues/1212
         // Take ownership of vm to process particle
-        self.future = Some((
-            vm_id,
-            vm.execute((particle, calls), waker, self.current_peer_id),
-        ));
+        let peer_id = self.current_peer_id;
+        // TODO: get rid of this clone by recovering key_pair after `vm.execute` (not trivial to implement)
+        let key_pair = self.key_pair.clone();
+        // TODO: add timeout for execution https://github.com/fluencelabs/fluence/issues/1212
+        self.future = Some(
+            async move {
+                let res = vm
+                    .execute((particle, calls), waker, peer_id, key_pair)
+                    .await;
+
+                let reusables = Reusables {
+                    vm_id,
+                    vm: res.runtime,
+                };
+                (reusables, res.effects, res.stats)
+            }
+            .boxed(),
+        );
 
         ActorPoll::Executing(stats)
     }

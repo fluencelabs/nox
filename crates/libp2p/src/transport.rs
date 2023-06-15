@@ -29,7 +29,7 @@ use serde::{Deserialize, Serialize};
 
 pub fn build_transport(
     transport: Transport,
-    key_pair: Keypair,
+    key_pair: &Keypair,
     timeout: Duration,
 ) -> Boxed<(PeerId, StreamMuxerBox)> {
     match transport {
@@ -43,7 +43,7 @@ pub fn build_transport(
 /// Transport is based on TCP with SECIO as the encryption layer and MPLEX otr YAMUX as
 /// the multiplexing layer.
 pub fn build_network_transport(
-    key_pair: Keypair,
+    key_pair: &Keypair,
     socket_timeout: Duration,
 ) -> Boxed<(PeerId, StreamMuxerBox)> {
     let tcp = || {
@@ -63,7 +63,7 @@ pub fn build_network_transport(
 
 pub fn configure_transport<T, C>(
     transport: T,
-    key_pair: Keypair,
+    key_pair: &Keypair,
     transport_timeout: Duration,
 ) -> Boxed<(PeerId, StreamMuxerBox)>
 where
@@ -84,7 +84,7 @@ where
     };
 
     let keys = noise::Keypair::<noise::X25519Spec>::new()
-        .into_authentic(&key_pair)
+        .into_authentic(key_pair)
         .expect("create noise keypair");
     let auth = libp2p::noise::NoiseConfig::xx(keys);
 
@@ -97,7 +97,7 @@ where
 }
 
 pub fn build_memory_transport(
-    key_pair: Keypair,
+    key_pair: &Keypair,
     transport_timeout: Duration,
 ) -> Boxed<(PeerId, StreamMuxerBox)> {
     let transport = MemoryTransport::default();

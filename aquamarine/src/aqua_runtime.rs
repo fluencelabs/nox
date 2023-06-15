@@ -19,6 +19,7 @@ use std::{error::Error, task::Waker};
 use avm_server::{
     AVMConfig, AVMError, AVMMemoryStats, AVMOutcome, CallResults, ParticleParameters, AVM,
 };
+use fluence_keypair::KeyPair;
 use futures::{future::BoxFuture, FutureExt};
 use log::LevelFilter;
 
@@ -47,6 +48,7 @@ pub trait AquaRuntime: Sized + Send + 'static {
         data: Vec<u8>,
         particle: ParticleParameters<'_>,
         call_results: CallResults,
+        key_pair: &KeyPair,
     ) -> Result<AVMOutcome, Self::Error>;
 
     fn cleanup(&mut self, particle_id: &str, current_peer_id: &str) -> Result<(), Self::Error>;
@@ -164,8 +166,10 @@ impl AquaRuntime for AVM<DataStoreError> {
         data: Vec<u8>,
         particle: ParticleParameters<'_>,
         call_results: CallResults,
+        key_pair: &KeyPair,
     ) -> Result<AVMOutcome, Self::Error> {
-        AVM::call(self, aqua, data, particle, call_results).map_err(CreateAVMError::AVWError)
+        AVM::call(self, aqua, data, particle, call_results, key_pair)
+            .map_err(CreateAVMError::AVWError)
     }
 
     #[inline]

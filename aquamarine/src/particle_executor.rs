@@ -19,27 +19,36 @@ use std::time::Duration;
 use std::{task::Waker, time::Instant};
 
 use avm_server::{CallResults, ParticleParameters};
-use fluence_libp2p::PeerId;
+use fluence_keypair::KeyPair;
 use futures::{future::BoxFuture, FutureExt};
 use humantime::format_duration as pretty;
+
+use fluence_libp2p::PeerId;
 use particle_protocol::Particle;
 
 use crate::aqua_runtime::AquaRuntime;
 use crate::particle_effects::ParticleEffects;
 use crate::InterpretationStats;
 
-pub(super) type Fut<RT> = BoxFuture<'static, FutResult<RT, ParticleEffects, InterpretationStats>>;
+pub(super) type AVMRes<RT> = FutResult<RT, ParticleEffects, InterpretationStats>;
+pub(super) type Fut<RT> = BoxFuture<'static, AVMRes<RT>>;
 
 pub trait ParticleExecutor {
     type Future;
     type Particle;
-    fn execute(self, p: Self::Particle, waker: Waker, current_peer_id: PeerId) -> Self::Future;
+    fn execute(
+        self,
+        p: Self::Particle,
+        waker: Waker,
+        current_peer_id: PeerId,
+        key_pair: KeyPair,
+    ) -> Self::Future;
 }
 
 /// Result of a particle execution along a VM that has just executed the particle
 pub struct FutResult<RT, Eff, Stats> {
-    /// AVM that just executed a particle
-    pub vm: Option<RT>,
+    /// Return back AVM that just executed a particle and other reusable entities needed for execution
+    pub runtime: RT,
     /// Effects produced by particle execution
     pub effects: Eff,
     /// Performance stats
@@ -47,10 +56,16 @@ pub struct FutResult<RT, Eff, Stats> {
 }
 
 impl<RT: AquaRuntime> ParticleExecutor for RT {
-    type Future = Fut<Self>;
+    type Future = Fut<Option<Self>>;
     type Particle = (Particle, CallResults);
 
-    fn execute(mut self, p: Self::Particle, waker: Waker, current_peer_id: PeerId) -> Self::Future {
+    fn execute(
+        mut self,
+        p: Self::Particle,
+        waker: Waker,
+        current_peer_id: PeerId,
+        key_pair: KeyPair,
+    ) -> Self::Future {
         let (particle, calls) = p;
         let cloned_particle = particle.clone();
         let task = tokio::task::Builder::new().name(&format!("Particle {}", particle.id)).spawn_blocking(move || {
@@ -64,7 +79,7 @@ impl<RT: AquaRuntime> ParticleExecutor for RT {
                 timestamp: particle.timestamp,
                 ttl: particle.ttl,
             };
-            let result = self.call(particle.script.clone(), particle.data.clone(), particle_params.clone(), calls);
+            let result = self.call(particle.script.clone(), particle.data.clone(), particle_params.clone(), calls, &key_pair);
 
             let interpretation_time = now.elapsed();
             let new_data_len = result.as_ref().map(|e| e.data.len()).ok();
@@ -81,7 +96,7 @@ impl<RT: AquaRuntime> ParticleExecutor for RT {
             waker.wake();
 
             FutResult {
-                vm: Some(self),
+                runtime: Some(self),
                 effects,
                 stats,
             }
@@ -107,7 +122,9 @@ impl<RT: AquaRuntime> ParticleExecutor for RT {
                     };
                     let effects = ParticleEffects::empty(cloned_particle);
                     FutResult {
-                        vm: None,
+                        // We loose an AVM instance here
+                        // But it will be recreated via VmPool
+                        runtime: None,
                         effects,
                         stats,
                     }
