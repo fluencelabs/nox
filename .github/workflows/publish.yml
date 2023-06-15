@@ -95,7 +95,7 @@ jobs:
 
   distro:
     if: inputs.update-distro == 'true'
-    needs: rust-peer
+    needs: nox
     uses: fluencelabs/nox-distro/.github/workflows/update_fluence.yml@main
     with:
       version: |
