@@ -41,12 +41,14 @@ impl AquaRuntime for EasyVM {
         futures::future::ok(EasyVM { delay }).boxed()
     }
 
-    fn into_effects(outcome: Result<AVMOutcome, Self::Error>, mut p: Particle) -> ParticleEffects {
+    fn into_effects(
+        outcome: Result<AVMOutcome, Self::Error>,
+        _particle_id: String,
+    ) -> ParticleEffects {
         let outcome = outcome.unwrap();
-        p.data = outcome.data;
 
         ParticleEffects {
-            particle: p,
+            new_data: outcome.data,
             next_peers: outcome
                 .next_peer_pks
                 .iter()

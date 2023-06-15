@@ -377,8 +377,8 @@ mod tests {
         }
 
         fn into_effects(
-            _outcome: Result<AVMOutcome, Self::Error>,
-            _p: Particle,
+            outcome: Result<AVMOutcome, Self::Error>,
+            particle_id: String,
         ) -> ParticleEffects {
             ParticleEffects {
                 particle: Default::default(),

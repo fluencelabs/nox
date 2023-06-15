@@ -154,16 +154,19 @@ where
             let waker = cx.waker().clone();
             // Schedule execution of functions
             self.functions
-                .execute(effects.particle.id.clone(), effects.call_requests, waker);
+                .execute(self.particle.id.clone(), effects.call_requests, waker);
 
             let effects = RoutingEffects {
-                particle: effects.particle,
+                particle: Particle {
+                    data: effects.new_data,
+                    ..self.particle.clone()
+                },
                 next_peers: effects.next_peers,
             };
             return Ready(FutResult {
                 runtime: (reusables.vm_id, reusables.vm),
                 effects,
-                stats: stats,
+                stats,
             });
         }
 
