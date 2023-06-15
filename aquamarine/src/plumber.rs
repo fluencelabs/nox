@@ -389,11 +389,11 @@ mod tests {
 
         fn call(
             &mut self,
-            aqua: String,
-            data: Vec<u8>,
-            particle: ParticleParameters<'_>,
-            call_results: CallResults,
-            key_pair: &KeyPair,
+            _aqua: String,
+            _data: Vec<u8>,
+            _particle: ParticleParameters<'_>,
+            _call_results: CallResults,
+            _key_pair: &KeyPair,
         ) -> Result<AVMOutcome, Self::Error> {
             Ok(AVMOutcome {
                 data: vec![],

@@ -24,7 +24,6 @@ use std::time::Duration;
 use maplit::hashmap;
 use serde_json::json;
 
-use fluence_libp2p::RandomPeerId;
 use local_vm::{make_particle, make_vm, read_args};
 
 #[test]
@@ -58,6 +57,7 @@ fn make() {
         &mut local_vm_a,
         false,
         Duration::from_secs(20),
+        &keypair_b,
     );
 
     let args = read_args(particle, client_b, &mut local_vm_b, &keypair_b)

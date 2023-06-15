@@ -727,7 +727,6 @@ mod tests {
 
     use futures::StreamExt;
     use libp2p::core::Multiaddr;
-    use libp2p::identity::Keypair;
     use libp2p::multiaddr::Protocol;
     use libp2p::swarm::SwarmBuilder;
     use libp2p::PeerId;
@@ -754,15 +753,17 @@ mod tests {
     }
 
     fn make_node() -> (Swarm<Kademlia>, Multiaddr) {
-        let kp = Keypair::generate_ed25519();
-        let public_key = kp.public();
-        let peer_id = PeerId::from(public_key);
+        use fluence_keypair::KeyPair;
+
+        let kp = KeyPair::generate_ed25519();
+        let peer_id = kp.get_peer_id();
         let config = kad_config(peer_id);
         let (kad, _) = Kademlia::new(config, None);
         let timeout = Duration::from_secs(20);
 
+        let kp = kp.into();
         let mut swarm =
-            SwarmBuilder::with_tokio_executor(build_memory_transport(kp, timeout), kad, peer_id)
+            SwarmBuilder::with_tokio_executor(build_memory_transport(&kp, timeout), kad, peer_id)
                 .build();
 
         let mut maddr = create_memory_maddr();

@@ -3112,6 +3112,7 @@ version = "0.1.0"
 dependencies = [
  "bs58",
  "control-macro",
+ "fluence-keypair",
  "fluence-libp2p",
  "futures",
  "futures-timer",
