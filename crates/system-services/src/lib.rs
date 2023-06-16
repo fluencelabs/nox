@@ -104,7 +104,13 @@ impl Deployer {
     }
 
     pub async fn deploy_system_services(&self) -> Result<(), JError> {
-        for service in &self.config.enable {
+        for service in &self
+            .config
+            .enable
+            .iter()
+            .collect::<std::collections::HashSet<_>>()
+        {
+            log::info!("{service}");
             self.deploy_system_service(service).await?;
         }
         Ok(())
