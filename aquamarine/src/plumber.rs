@@ -387,11 +387,11 @@ mod tests {
         }
 
         fn into_effects(
-            outcome: Result<AVMOutcome, Self::Error>,
-            particle_id: String,
+            _outcome: Result<AVMOutcome, Self::Error>,
+            _particle_id: String,
         ) -> ParticleEffects {
             ParticleEffects {
-                particle: Default::default(),
+                new_data: vec![],
                 next_peers: vec![],
                 call_requests: Default::default(),
             }

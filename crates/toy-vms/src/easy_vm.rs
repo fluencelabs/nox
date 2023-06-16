@@ -24,7 +24,6 @@ use itertools::Itertools;
 use aquamarine::{AquaRuntime, ParticleEffects};
 use fluence_keypair::KeyPair;
 use fluence_libp2p::PeerId;
-use particle_protocol::Particle;
 
 pub struct EasyVM {
     delay: Option<Duration>,
