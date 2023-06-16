@@ -37,20 +37,6 @@ struct Reusables<RT> {
     vm_id: usize,
     vm: Option<RT>,
 }
-//
-// pub enum ActorState<RT> {
-//     /// In the process of executing a particle
-//     Executing {
-//         future: BoxFuture<'static, (Reusables<RT>, ParticleEffects, InterpretationStats)>,
-//     },
-//     /// Ready to execute a particle
-//     Ready {
-//         /// Key pair to sign function calls inside AVM
-//         /// It is None when it is moved inside `future`
-//         /// After `future` is completed, `key_pair` is set again
-//         key_pair: KeyPair,
-//     },
-// }
 
 pub struct Actor<RT, F> {
     /// Particle of that actor is expired after that deadline
@@ -83,7 +69,6 @@ where
         Self {
             deadline: Deadline::from(particle),
             functions,
-            // state: ActorState::Ready { key_pair },
             future: None,
             mailbox: <_>::default(),
             waker: None,
@@ -130,6 +115,7 @@ where
     }
 
     pub fn ingest(&mut self, particle: Particle) {
+        // tracing::info!(particle_id = self.particle.id, "put particle to mailbox");
         self.mailbox.push_back(particle);
         self.wake();
     }
@@ -190,7 +176,20 @@ where
         // Take the next particle
         let particle = self.mailbox.pop_front();
 
+        // let particle_id = self.particle.id.clone();
+        // let span = tracing::span!(Level::INFO, particle_id = particle_id);
+        // let _enter = span.enter();
+
+        // tracing::info!(
+        //     particle_id = self.particle.id,
+        //     "mailbox {}, particle {}, calls {}",
+        //     self.mailbox.len(),
+        //     particle.is_some() as u32,
+        //     calls.len()
+        // );
+
         if particle.is_none() && calls.is_empty() {
+            // tracing::info!(particle_id = self.particle.id, "will return VM");
             debug_assert!(stats.is_empty(), "stats must be empty if calls are empty");
             // Nothing to execute, return vm
             return ActorPoll::Vm(vm_id, vm);
@@ -207,11 +206,16 @@ where
         // TODO: get rid of this clone by recovering key_pair after `vm.execute` (not trivial to implement)
         let key_pair = self.key_pair.clone();
         // TODO: add timeout for execution https://github.com/fluencelabs/fluence/issues/1212
+        // tracing::info!(particle_id = self.particle.id, "will create future");
         self.future = Some(
             async move {
+                // let particle_id = particle.id.clone();
+                // tracing::info!(particle_id = particle.id, "will execute particle");
                 let res = vm
                     .execute((particle, calls), waker, peer_id, key_pair)
                     .await;
+
+                // tracing::info!(particle_id = particle_id, "executed particle");
 
                 let reusables = Reusables {
                     vm_id,
@@ -221,6 +225,7 @@ where
             }
             .boxed(),
         );
+        self.wake();
 
         ActorPoll::Executing(stats)
     }

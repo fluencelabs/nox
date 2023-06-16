@@ -247,7 +247,6 @@ impl ConnectedClient {
 
     pub async fn receive_args(&mut self) -> Result<Vec<JValue>> {
         let particle = self.receive().await.wrap_err("receive_args")?;
-        println!("{} received particle {}", self.peer_id, particle.id);
         let result = read_args(
             particle,
             self.peer_id,
@@ -265,7 +264,6 @@ impl ConnectedClient {
         &mut self,
         particle_id: impl AsRef<str>,
     ) -> Result<Vec<JValue>> {
-        log::info!("wait_particle_args {:?}", self.fetched);
         let head = self
             .fetched
             .iter()
