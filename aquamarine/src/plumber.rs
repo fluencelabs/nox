@@ -113,6 +113,8 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
             }
         };
 
+        debug_assert!(actor.is_ok(), "no such worker: {:#?}", actor.err());
+
         match actor {
             Ok(actor) => {
                 actor.ingest(particle);
@@ -201,7 +203,8 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
                 if let Some(vm) = vm {
                     self.vm_pool.put_vm(vm_id, vm);
                 } else {
-                    // if `result.vm` is None, then we must ask VmPool to recreate that AVM
+                    // if `result.vm` is None, then an AVM instance was lost due to
+                    // panic or cancellation, and we must ask VmPool to recreate that AVM
                     self.vm_pool.recreate_avm(vm_id, cx);
                 }
             }
@@ -278,8 +281,15 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
             }
         });
 
+        // tracing::info!(
+        //     "local: {:?}, remote: {:?}",
+        //     local_effects.len(),
+        //     remote_effects.len()
+        // );
+
         for effect in local_effects {
             for local_peer in effect.next_peers {
+                // tracing::info!("ingesting local particle");
                 self.ingest(effect.particle.clone(), None, local_peer);
             }
         }
