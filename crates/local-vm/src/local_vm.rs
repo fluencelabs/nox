@@ -238,6 +238,7 @@ pub fn wrap_script(
     script
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn make_particle(
     peer_id: PeerId,
     service_in: &HashMap<String, JValue>,

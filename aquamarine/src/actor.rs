@@ -149,7 +149,7 @@ where
             return Ready(FutResult {
                 runtime: (reusables.vm_id, reusables.vm),
                 effects,
-                stats: stats,
+                stats,
             });
         }
 
