@@ -152,9 +152,9 @@ dependencies = [
 
 [[package]]
 name = "air-interpreter-interface"
-version = "0.39.1-feat-VM-276-aquavm-keypair-8f203ea-1585-1.0"
+version = "0.39.1-feat-VM-276-aquavm-keypair-775a729-1587-1.0"
 source = "registry+git://crates.fluence.dev/index"
-checksum = "77e5a598bbb0044db0ee7c8f34d92b3fb5a0e6c04e51c1a7ea2383d534f016e7"
+checksum = "d3b376f4fd985e462165bbc98881bc875624daf425a253a08178e6ad83b26693"
 dependencies = [
  "fluence-it-types",
  "marine-rs-sdk",
@@ -164,18 +164,18 @@ dependencies = [
 
 [[package]]
 name = "air-interpreter-wasm"
-version = "0.39.1-feat-VM-276-aquavm-keypair-8f203ea-1585-1.0"
+version = "0.39.1-feat-VM-276-aquavm-keypair-775a729-1587-1.0"
 source = "registry+git://crates.fluence.dev/index"
-checksum = "7726d10ba51df68ea2bf3e0006f03158f47a07123a9bf4bbacef5987d6aecc5f"
+checksum = "b8cf9f5015a4d4abf4af8ab85b7b63d5c47b7f7c57f096d241230fd2a092f673"
 dependencies = [
  "built 0.6.0",
 ]
 
 [[package]]
 name = "air-utils"
-version = "0.39.1-feat-VM-276-aquavm-keypair-8f203ea-1585-1.0"
+version = "0.39.1-feat-VM-276-aquavm-keypair-775a729-1587-1.0"
 source = "registry+git://crates.fluence.dev/index"
-checksum = "856ba1e58ff6519ae5df7545a108ab376b954c012ca4f010b5bc47deae7de7c6"
+checksum = "ec901e2a06c84cb86f0f128356cc88169e1bf2ce409f177cb8adb6a3f6ff56d8"
 
 [[package]]
 name = "ambient-authority"
@@ -510,9 +510,9 @@ checksum = "d468802bab17cbc0cc575e9b053f41e72aa36bfa6b7f55e3529ffa43161b97fa"
 
 [[package]]
 name = "avm-data-store"
-version = "0.39.1-feat-VM-276-aquavm-keypair-8f203ea-1585-1.0"
+version = "0.39.1-feat-VM-276-aquavm-keypair-775a729-1587-1.0"
 source = "registry+git://crates.fluence.dev/index"
-checksum = "9bd32761b8a75249d92ca8de8616034489406ecca6cb0453a93ec00d7abc7f1a"
+checksum = "0f54d3433acc292b712197afb934683ca02662a4f05a9be724fd03a0f722224e"
 dependencies = [
  "avm-interface",
  "serde",
@@ -521,15 +521,15 @@ dependencies = [
 
 [[package]]
 name = "avm-interface"
-version = "0.39.1-feat-VM-276-aquavm-keypair-8f203ea-1585-1.0"
+version = "0.39.1-feat-VM-276-aquavm-keypair-775a729-1587-1.0"
 source = "registry+git://crates.fluence.dev/index"
-checksum = "1c6c7fd43178e98feba76b671348579ae62c9175159bbde2f5528217ce2da836"
+checksum = "348520635c46b9ac901f2583a36df6022f8836b70e264d4c4c0577dc5faf8aaf"
 dependencies = [
  "air-interpreter-interface",
  "air-utils",
  "log",
  "maplit",
- "polyplets 0.39.1-feat-VM-276-aquavm-keypair-8f203ea-1585-1.0",
+ "polyplets 0.39.1-feat-VM-276-aquavm-keypair-775a729-1587-1.0",
  "serde",
  "serde_json",
  "thiserror",
@@ -538,9 +538,9 @@ dependencies = [
 
 [[package]]
 name = "avm-server"
-version = "0.39.1-feat-VM-276-aquavm-keypair-8f203ea-1585-1.0"
+version = "0.39.1-feat-VM-276-aquavm-keypair-775a729-1587-1.0"
 source = "registry+git://crates.fluence.dev/index"
-checksum = "1105ed7fa82d46401ee02cbcbcf81adb24569c7747d8d8f006c8d28e9c61ef39"
+checksum = "618dc50a36a36f0197e8ee0c83cead03c09a7904a3ee7d60b5ff55e88fd81011"
 dependencies = [
  "air-interpreter-interface",
  "air-utils",
@@ -552,7 +552,7 @@ dependencies = [
  "maplit",
  "marine-runtime",
  "parking_lot 0.12.1",
- "polyplets 0.39.1-feat-VM-276-aquavm-keypair-8f203ea-1585-1.0",
+ "polyplets 0.39.1-feat-VM-276-aquavm-keypair-775a729-1587-1.0",
  "serde",
  "serde_json",
  "thiserror",
@@ -5156,9 +5156,9 @@ dependencies = [
 
 [[package]]
 name = "polyplets"
-version = "0.39.1-feat-VM-276-aquavm-keypair-8f203ea-1585-1.0"
+version = "0.39.1-feat-VM-276-aquavm-keypair-775a729-1587-1.0"
 source = "registry+git://crates.fluence.dev/index"
-checksum = "73768d39daddd58e6df284fa3cca44bbf0833a672c9b34c5dbe8d8b1d0caf6b6"
+checksum = "039f18fc96409cde67b4047e88d6818d91e9b99f98b2831582d4f6e9a5d24ed4"
 dependencies = [
  "marine-macro",
  "marine-rs-sdk-main",
