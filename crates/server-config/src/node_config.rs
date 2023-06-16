@@ -249,7 +249,7 @@ impl UnresolvedNodeConfig {
             log::warn!("Override configuration of decider system spell (api endpoint) from ENV");
         }
 
-        if let Ok(decider_contract_addr) = std::env::var("FLUENCE_ENV_CONNECTOR_CONTRACT") {
+        if let Ok(decider_contract_addr) = std::env::var("FLUENCE_ENV_CONNECTOR_CONTRACT_ADDRESS") {
             self.system_services.decider.contract_address_hex = decider_contract_addr;
             log::warn!(
                 "Override configuration of decider system spell (contract address) from ENV"

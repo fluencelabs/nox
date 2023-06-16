@@ -110,7 +110,6 @@ impl Deployer {
             .iter()
             .collect::<std::collections::HashSet<_>>()
         {
-            log::info!("{service}");
             self.deploy_system_service(service).await?;
         }
         Ok(())
