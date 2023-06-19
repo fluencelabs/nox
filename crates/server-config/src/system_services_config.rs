@@ -18,7 +18,6 @@ use super::defaults::*;
 use serde::{Deserialize, Serialize};
 use std::fmt::Formatter;
 
-#[non_exhaustive]
 #[derive(Clone, Serialize, Deserialize, Debug, PartialEq, Eq, Hash)]
 #[serde(rename_all = "kebab-case")]
 pub enum ServiceKey {

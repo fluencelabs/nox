@@ -6511,6 +6511,7 @@ dependencies = [
  "spell-event-bus",
  "spell-storage",
  "toml 0.5.10",
+ "tracing",
  "trust-graph-distro",
 ]
 

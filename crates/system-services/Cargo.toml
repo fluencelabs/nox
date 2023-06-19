@@ -30,4 +30,6 @@ spell-storage = { workspace = true }
 spell-event-bus = { workspace = true }
 now-millis = { workspace = true }
 server-config = { workspace = true }
+tracing = { workspace = true }
+
 

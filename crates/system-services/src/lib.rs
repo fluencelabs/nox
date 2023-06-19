@@ -13,7 +13,7 @@ use server_config::{system_services_config::ServiceKey, DeciderConfig, SystemSer
 use sorcerer::{get_spell_info, install_spell, remove_spell};
 use spell_event_bus::api::SpellEventBusApi;
 use spell_storage::SpellStorage;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::time::Duration;
 
 const DEPLOYER_TTL: u64 = 60_000;
@@ -96,20 +96,12 @@ impl Deployer {
                 self.deploy_connector()?;
                 self.deploy_decider().await
             }
-            x => {
-                log::error!("installation of a service `{x}` is not implemented",);
-                Ok(())
-            }
         }
     }
 
     pub async fn deploy_system_services(&self) -> Result<(), JError> {
-        for service in &self
-            .config
-            .enable
-            .iter()
-            .collect::<std::collections::HashSet<_>>()
-        {
+        let services = &self.config.enable.iter().collect::<HashSet<_>>();
+        for service in services {
             self.deploy_system_service(service).await?;
         }
         Ok(())
@@ -148,14 +140,13 @@ impl Deployer {
 
     fn deploy_connector(&self) -> Result<(), JError> {
         let connector_distro = Self::get_connector_distro();
-        let _deployed = self.deploy_service_common(connector_distro)?;
+        self.deploy_service_common(connector_distro)?;
         Ok(())
     }
 
     async fn deploy_decider(&self) -> Result<(), JError> {
         let decider_distro = Self::get_decider_distro(self.config.decider.clone());
-        let _deployed = self.deploy_system_spell(decider_distro).await?;
-
+        self.deploy_system_spell(decider_distro).await?;
         Ok(())
     }
 
@@ -166,7 +157,7 @@ impl Deployer {
             .map_err(|e| JError::new(e.to_string()))?;
 
         for spell_distro in registry_spell_distros {
-            let _deployed = self.deploy_system_spell(spell_distro).await?;
+            self.deploy_system_spell(spell_distro).await?;
         }
         Ok(())
     }
@@ -334,17 +325,25 @@ impl Deployer {
         let spell_name = spell_distro.name.clone();
         match self.find_same_spell(&spell_distro) {
             ServiceUpdateStatus::NeedUpdate(spell_id) => {
-                log::info!("found existing spell `{spell_name}` [{spell_id}]; will redeploy",);
+                tracing::debug!(
+                    spell_name,
+                    spell_id,
+                    "found existing spell that needs to be updated; will remove tha old spell and deploy a new one",
+                );
                 self.clean_old_spell(&spell_name, spell_id).await;
             }
             ServiceUpdateStatus::NoUpdate(spell_id) => {
-                log::info!("found existing spell `{spell_name}` [{spell_id}]; no need to redeploy",);
+                tracing::debug!(
+                    spell_name,
+                    spell_id,
+                    "found existing spell that don't need to be updated; will not update",
+                );
                 return Ok(ServiceStatus::Existing(spell_id));
             }
             ServiceUpdateStatus::NotFound => {}
         }
         let spell_id = self.deploy_spell_common(spell_distro).await?;
-        log::info!("deployed a system spell `{spell_name}` [{spell_id}]",);
+        tracing::info!(spell_name, spell_id, "deployed a system spell",);
         Ok(ServiceStatus::Created(spell_id))
     }
 
@@ -359,8 +358,10 @@ impl Deployer {
         )
         .await;
         if let Err(err) = result {
-            log::error!(
-                "Failed to remove old spell `{spell_name}` [{spell_id}] (trying to stop it): {err}",
+            tracing::error!(
+                spell_name,
+                spell_id,
+                "Failed to remove old spell (trying to stop it): {err}",
             );
 
             let empty_config = TriggerConfig::default();
@@ -373,8 +374,10 @@ impl Deployer {
                 self.spell_event_bus_api.unsubscribe(spell_id.clone()).await
             };
             if let Err(err) = result {
-                log::error!(
-                    "couldn't stop the old spell {spell_name} (will install new spell nevertheless): {err}",
+                tracing::error!(
+                    spell_name,
+                    spell_id,
+                    "couldn't stop the old spell (will install new spell nevertheless): {err}",
                 );
             }
         }
@@ -482,23 +485,26 @@ impl Deployer {
 
         match self.find_same_service(service_name.to_string(), &blueprint_id) {
             ServiceUpdateStatus::NeedUpdate(service_id) => {
-                log::info!("found existing service {service_name} [{service_id}]; will redeploy");
+                tracing::debug!(service_name, service_id, "found existing service that needs to be updated; will remove the olf service and deploy a new one");
                 let result = self.services.remove_service(
                     DEPLOYER_PARTICLE_ID,
                     self.root_worker_id,
-                    service_id,
+                    service_id.clone(),
                     self.root_worker_id,
                     false,
                 );
                 if let Err(err) = result {
-                    log::error!(
-                        "couldn't remove the old service {service_name} (will install new service nevertheless): {err}",
+                    tracing::error!(
+                        service_name, service_id,
+                        "couldn't remove the old service (will install new service nevertheless): {err}",
                     );
                 }
             }
             ServiceUpdateStatus::NoUpdate(service_id) => {
-                log::info!(
-                    "found existing service {service_name} [{service_id}]; no need to redeploy"
+                tracing::debug!(
+                    service_name,
+                    service_id,
+                    "found existing service that don't need to be updated; will skip update"
                 );
                 return Ok(ServiceStatus::Existing(service_id));
             }
@@ -517,7 +523,7 @@ impl Deployer {
             service_id.clone(),
             self.management_id,
         )?;
-        log::info!("deployed service {service_name} [{service_id}]");
+        tracing::info!(service_name, service_id, "deployed a new service");
         Ok(ServiceStatus::Created(service_id))
     }
 
