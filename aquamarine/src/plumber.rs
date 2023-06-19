@@ -282,15 +282,8 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
             }
         });
 
-        // tracing::info!(
-        //     "local: {:?}, remote: {:?}",
-        //     local_effects.len(),
-        //     remote_effects.len()
-        // );
-
         for effect in local_effects {
             for local_peer in effect.next_peers {
-                // tracing::info!("ingesting local particle");
                 self.ingest(effect.particle.clone(), None, local_peer);
             }
         }
