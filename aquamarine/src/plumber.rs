@@ -205,6 +205,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
                 } else {
                     // if `result.vm` is None, then an AVM instance was lost due to
                     // panic or cancellation, and we must ask VmPool to recreate that AVM
+                    // TODO: add a Count metric to count how often we call `recreate_avm`
                     self.vm_pool.recreate_avm(vm_id, cx);
                 }
             }
