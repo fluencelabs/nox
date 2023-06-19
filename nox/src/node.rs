@@ -501,20 +501,12 @@ impl<RT: AquaRuntime> Node<RT> {
         // Note: need to be after the start of the node to be able to subscribe spells
         let deployer = self.system_service_deployer;
         if let Err(e) = deployer.deploy_system_services().await {
-            exit_outlet
-                .send(())
-                .expect("failed to stop node through exit outlet");
-            log::error!("deploying system services failed: {e}");
-            return Err(eyre::eyre!("deploying system services failed"));
+            return Err(eyre::eyre!("deploying system services failed: {e}"));
         }
 
         let result = self.spell_event_bus_api.start_scheduling().await;
         if let Err(e) = result {
-            exit_outlet
-                .send(())
-                .expect("failed to stop node through exit outlet");
-            log::error!("running spell event bus failed: {e}");
-            return Err(eyre::eyre!("running spell event bus failed"));
+            return Err(eyre::eyre!("running spell event bus failed": {e}));
         }
 
         Ok(exit_outlet)
