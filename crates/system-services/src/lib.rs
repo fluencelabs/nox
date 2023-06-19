@@ -3,7 +3,6 @@ use eyre::eyre;
 use fluence_app_service::TomlMarineConfig;
 use fluence_spell_dtos::trigger_config::TriggerConfig;
 use libp2p::PeerId;
-use particle_args::JError;
 use particle_execution::FunctionOutcome;
 use particle_modules::{AddBlueprint, ModuleRepository};
 use particle_services::{ParticleAppServices, ServiceError, ServiceType};
@@ -87,7 +86,7 @@ impl Deployer {
         }
     }
 
-    async fn deploy_system_service(&self, key: &ServiceKey) -> Result<(), JError> {
+    async fn deploy_system_service(&self, key: &ServiceKey) -> eyre::Result<()> {
         match key {
             AquaIpfs => self.deploy_aqua_ipfs(),
             TrustGraph => self.deploy_trust_graph(),
@@ -99,7 +98,7 @@ impl Deployer {
         }
     }
 
-    pub async fn deploy_system_services(&self) -> Result<(), JError> {
+    pub async fn deploy_system_services(&self) -> eyre::Result<()> {
         let services = &self.config.enable.iter().collect::<HashSet<_>>();
         for service in services {
             self.deploy_system_service(service).await?;
@@ -107,7 +106,7 @@ impl Deployer {
         Ok(())
     }
 
-    fn deploy_aqua_ipfs(&self) -> Result<(), JError> {
+    fn deploy_aqua_ipfs(&self) -> eyre::Result<()> {
         let aqua_ipfs_distro = Self::get_ipfs_service_distro();
         let service_name = aqua_ipfs_distro.name.clone();
         let service_id = match self.deploy_service_common(aqua_ipfs_distro)? {
@@ -138,23 +137,21 @@ impl Deployer {
         Ok(())
     }
 
-    fn deploy_connector(&self) -> Result<(), JError> {
+    fn deploy_connector(&self) -> eyre::Result<()> {
         let connector_distro = Self::get_connector_distro();
         self.deploy_service_common(connector_distro)?;
         Ok(())
     }
 
-    async fn deploy_decider(&self) -> Result<(), JError> {
+    async fn deploy_decider(&self) -> eyre::Result<()> {
         let decider_distro = Self::get_decider_distro(self.config.decider.clone());
         self.deploy_system_spell(decider_distro).await?;
         Ok(())
     }
 
-    async fn deploy_registry(&self) -> Result<(), JError> {
+    async fn deploy_registry(&self) -> eyre::Result<()> {
         let (registry_distro, registry_spell_distros) = Self::get_registry_distro();
-        let _deployed = self
-            .deploy_service_common(registry_distro)
-            .map_err(|e| JError::new(e.to_string()))?;
+        let _deployed = self.deploy_service_common(registry_distro)?;
 
         for spell_distro in registry_spell_distros {
             self.deploy_system_spell(spell_distro).await?;
@@ -162,7 +159,7 @@ impl Deployer {
         Ok(())
     }
 
-    fn deploy_trust_graph(&self) -> Result<(), JError> {
+    fn deploy_trust_graph(&self) -> eyre::Result<()> {
         let service_distro = Self::get_trust_graph_distro();
         let service_name = service_distro.name.clone();
         let service_id = match self.deploy_service_common(service_distro)? {
@@ -270,7 +267,7 @@ impl Deployer {
         service_id: &str,
         function_name: &'static str,
         args: Vec<JValue>,
-    ) -> Result<(), JError> {
+    ) -> eyre::Result<()> {
         let result = self.services.call_function(
             self.root_worker_id,
             service_id,
@@ -289,39 +286,34 @@ impl Deployer {
                     let is_success = result["success"].as_bool()?;
                     if !is_success {
                         if let Some(error) = result["error"].as_str() {
-                            Err(JError::new(format!(
+                            Err(eyre!(
                                 "Call {service_id}.{function_name} returned error: {}",
                                 error
-                            )))
+                            ))
                         } else {
-                            Err(JError::new(format!(
-                                "Call {service_id}.{function_name} returned error"
-                            )))
+                            Err(eyre!("Call {service_id}.{function_name} returned error"))
                         }
                     } else {
                         Ok(())
                     }
                 };
                 call_result.unwrap_or_else(|| {
-                    Err(JError::new(format!(
+                    Err(eyre!(
                         "Call {service_id}.{function_name} return invalid result: {result}"
-                    )))
+                    ))
                 })
             }
-            FunctionOutcome::NotDefined { .. } => Err(JError::new(format!(
-                "Service {service_id} ({function_name}) not found"
-            ))),
-            FunctionOutcome::Empty => Err(JError::new(format!(
+            FunctionOutcome::NotDefined { .. } => {
+                Err(eyre!("Service {service_id} ({function_name}) not found"))
+            }
+            FunctionOutcome::Empty => Err(eyre!(
                 "Call {service_id}.{function_name} didn't return any result"
-            ))),
-            FunctionOutcome::Err(err) => Err(err),
+            )),
+            FunctionOutcome::Err(err) => Err(eyre!(err)),
         }
     }
 
-    async fn deploy_system_spell(
-        &self,
-        spell_distro: SpellDistro,
-    ) -> Result<ServiceStatus, JError> {
+    async fn deploy_system_spell(&self, spell_distro: SpellDistro) -> eyre::Result<ServiceStatus> {
         let spell_name = spell_distro.name.clone();
         match self.find_same_spell(&spell_distro) {
             ServiceUpdateStatus::NeedUpdate(spell_id) => {
@@ -366,7 +358,7 @@ impl Deployer {
 
             let empty_config = TriggerConfig::default();
             // Stop old spell
-            let result: Result<_, JError> = try {
+            let result: eyre::Result<_> = try {
                 // Stop the spell to avoid re-subscription
                 self.call_service(&spell_id, "set_trigger_config", vec![json!(empty_config)])?;
 
@@ -383,7 +375,7 @@ impl Deployer {
         }
     }
 
-    async fn deploy_spell_common(&self, spell_distro: SpellDistro) -> Result<String, JError> {
+    async fn deploy_spell_common(&self, spell_distro: SpellDistro) -> eyre::Result<String> {
         let spell_id = install_spell(
             &self.services,
             &self.spell_storage,
@@ -395,7 +387,8 @@ impl Deployer {
             spell_distro.air.to_string(),
             json!(spell_distro.kv),
         )
-        .await?;
+        .await
+        .map_err(|e| eyre!(e))?;
         self.services.add_alias(
             spell_distro.name.to_string(),
             self.root_worker_id,
@@ -474,14 +467,9 @@ impl Deployer {
         ServiceUpdateStatus::NoUpdate(spell.id)
     }
 
-    fn deploy_service_common(
-        &self,
-        service_distro: ServiceDistro,
-    ) -> Result<ServiceStatus, JError> {
+    fn deploy_service_common(&self, service_distro: ServiceDistro) -> eyre::Result<ServiceStatus> {
         let service_name = service_distro.name.clone();
-        let blueprint_id = self
-            .add_modules(service_distro)
-            .map_err(|e| JError::new(e.to_string()))?;
+        let blueprint_id = self.add_modules(service_distro)?;
 
         match self.find_same_service(service_name.to_string(), &blueprint_id) {
             ServiceUpdateStatus::NeedUpdate(service_id) => {

@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+use eyre::WrapErr;
 use std::sync::Arc;
 use std::{io, net::SocketAddr};
 
@@ -500,14 +501,16 @@ impl<RT: AquaRuntime> Node<RT> {
 
         // Note: need to be after the start of the node to be able to subscribe spells
         let deployer = self.system_service_deployer;
-        if let Err(e) = deployer.deploy_system_services().await {
-            return Err(eyre::eyre!("deploying system services failed: {e}"));
-        }
+        deployer
+            .deploy_system_services()
+            .await
+            .context("deploying system services failed")?;
 
-        let result = self.spell_event_bus_api.start_scheduling().await;
-        if let Err(e) = result {
-            return Err(eyre::eyre!("running spell event bus failed: {e}"));
-        }
+        self.spell_event_bus_api
+            .start_scheduling()
+            .await
+            .map_err(|e| eyre::eyre!("{e}"))
+            .context("running spell event bus failed")?;
 
         Ok(exit_outlet)
     }
@@ -557,6 +560,7 @@ mod tests {
             .expect("Could not resolve config");
         config.aquavm_pool_size = 1;
         config.dir_config.spell_base_dir = to_abs_path(PathBuf::from("spell"));
+        config.system_services.enable = vec![];
         let vm_config = VmConfig::new(
             to_peer_id(&config.root_key_pair.clone().into()),
             config.dir_config.avm_base_dir.clone(),
