@@ -506,7 +506,7 @@ impl<RT: AquaRuntime> Node<RT> {
 
         let result = self.spell_event_bus_api.start_scheduling().await;
         if let Err(e) = result {
-            return Err(eyre::eyre!("running spell event bus failed": {e}));
+            return Err(eyre::eyre!("running spell event bus failed: {e}"));
         }
 
         Ok(exit_outlet)
