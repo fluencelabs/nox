@@ -224,6 +224,26 @@ pub fn default_decider_spell_period_sec() -> u32 {
     120
 }
 
+// 60 minutes
+pub fn default_registry_spell_period_sec() -> u32 {
+    3600
+}
+
+// 24 hours 
+pub fn default_registry_expired_spell_period_sec() -> u32 {
+    86400
+}
+
+// 12 hours 
+pub fn default_registry_renew_spell_period_sec() -> u32 {
+    43200
+}
+
+// 60 minutes
+pub fn default_registry_replicate_spell_period_sec() -> u32 {
+    3600
+}
+
 pub fn default_deal_network_api_endpoint() -> String {
     "https://testnet.aurora.dev".to_string()
 }
