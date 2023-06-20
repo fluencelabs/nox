@@ -54,7 +54,7 @@ type ServiceAlias = String;
 type Services = HashMap<ServiceId, Service>;
 type Aliases = HashMap<PeerId, HashMap<ServiceAlias, ServiceId>>;
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub enum ServiceType {
     Service,
@@ -302,7 +302,7 @@ impl ParticleAppServices {
         particle_id: &str,
         worker_id: PeerId,
         service_id_or_alias: String,
-    ) -> Result<JValue, ServiceError> {
+    ) -> Result<ServiceInfo, ServiceError> {
         let services_read = self.services.read();
         let (service, service_id) = get_service(
             particle_id,
@@ -313,7 +313,7 @@ impl ParticleAppServices {
             service_id_or_alias,
         )?;
 
-        Ok(json!(service.get_info(&service_id)))
+        Ok(service.get_info(&service_id))
     }
 
     pub fn remove_services(&self, worker_id: PeerId) -> Result<(), ServiceError> {

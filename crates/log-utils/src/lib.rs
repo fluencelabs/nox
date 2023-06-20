@@ -26,7 +26,6 @@ pub fn enable_logs() {
             tracing_subscriber::EnvFilter::builder()
                 .with_default_directive(LevelFilter::TRACE.into())
                 .from_env_lossy()
-                .add_directive("builtins_deployer=trace".parse().unwrap())
                 .add_directive("script_storage=trace".parse().unwrap())
                 .add_directive("run-console=trace".parse().unwrap())
                 .add_directive("sorcerer=trace".parse().unwrap())

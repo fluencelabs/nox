@@ -18,7 +18,6 @@ connection-pool = { workspace = true }
 script-storage = { workspace = true }
 fs-utils = { workspace = true }
 air-interpreter-fs = { workspace = true }
-builtins-deployer = { workspace = true }
 toy-vms = { workspace = true }
 
 fluence-keypair = { workspace = true }

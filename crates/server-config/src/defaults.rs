@@ -27,6 +27,7 @@ use libp2p::PeerId;
 use fluence_libp2p::Transport;
 
 use crate::node_config::{KeypairConfig, PathOrValue};
+use crate::system_services_config::ServiceKey;
 
 const CONFIG_VERSION: usize = 1;
 
@@ -203,4 +204,34 @@ pub fn default_max_builtin_metrics_storage_size() -> usize {
 
 pub fn default_allowed_binaries() -> Vec<String> {
     vec!["/usr/bin/curl".to_string(), "/usr/bin/ipfs".to_string()]
+}
+
+pub fn default_system_services() -> Vec<ServiceKey> {
+    ServiceKey::all_values()
+}
+
+pub fn default_ipfs_multiaddr() -> String {
+    "/dns4/ipfs.fluence.dev/tcp/5001".to_string()
+}
+
+// 15 minutes
+pub fn default_worker_spell_period_sec() -> u32 {
+    900
+}
+
+// 2 minutes
+pub fn default_decider_spell_period_sec() -> u32 {
+    120
+}
+
+pub fn default_deal_network_api_endpoint() -> String {
+    "https://testnet.aurora.dev".to_string()
+}
+
+pub fn default_deal_contract_address_hex() -> String {
+    "0xb497e025D3095A197E30Ca84DEc36a637E649868".to_string()
+}
+
+pub fn default_deal_contract_block_hex() -> String {
+    "latest".to_string()
 }

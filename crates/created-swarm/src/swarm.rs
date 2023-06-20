@@ -15,7 +15,6 @@
  */
 
 use std::convert::identity;
-use std::path::Path;
 use std::{path::PathBuf, time::Duration};
 
 use derivative::Derivative;
@@ -133,23 +132,6 @@ pub async fn make_swarms_with_keypair(
     .await
 }
 
-pub async fn make_swarms_with_builtins(
-    n: usize,
-    path: &Path,
-    keypair: Option<KeyPair>,
-    spell_base_dir: Option<String>,
-) -> Vec<CreatedSwarm> {
-    make_swarms_with_cfg(n, |mut cfg| {
-        if let Some(keypair) = &keypair {
-            cfg.keypair = keypair.clone();
-        }
-        cfg.builtins_dir = Some(to_abs_path(path.into()));
-        cfg.spell_base_dir = spell_base_dir.clone().map(PathBuf::from);
-        cfg
-    })
-    .await
-}
-
 pub async fn make_swarms_with<RT: AquaRuntime, F, M, B>(
     n: usize,
     mut create_node: F,
@@ -243,6 +225,7 @@ pub struct SwarmConfig {
     pub spell_base_dir: Option<PathBuf>,
     pub timer_resolution: Duration,
     pub allowed_binaries: Vec<String>,
+    pub enabled_system_services: Vec<server_config::system_services_config::ServiceKey>,
 }
 
 impl SwarmConfig {
@@ -262,7 +245,8 @@ impl SwarmConfig {
             builtins_dir: None,
             spell_base_dir: None,
             timer_resolution: default_script_storage_timer_resolution(),
-            allowed_binaries: vec![],
+            allowed_binaries: vec!["/usr/bin/ipfs".to_string(), "/usr/bin/curl".to_string()],
+            enabled_system_services: vec![],
         }
     }
 }
@@ -354,6 +338,7 @@ pub fn create_swarm_with_runtime<RT: AquaRuntime>(
 
     resolved.node_config.script_storage_timer_resolution = config.timer_resolution;
     resolved.node_config.allowed_binaries = config.allowed_binaries.clone();
+    resolved.system_services.enable = config.enabled_system_services.clone();
 
     let management_kp = fluence_keypair::KeyPair::generate_ed25519();
     let management_peer_id = libp2p::identity::Keypair::from(management_kp.clone())

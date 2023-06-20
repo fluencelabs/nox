@@ -24,7 +24,7 @@ use maplit::hashmap;
 use serde_json::{json, Value as JValue};
 
 use connected_client::ConnectedClient;
-use created_swarm::{make_swarms, make_swarms_with_builtins};
+use created_swarm::{make_swarms, make_swarms_with_cfg};
 use fluence_spell_dtos::trigger_config::{ClockConfig, TriggerConfig};
 use log_utils::enable_logs;
 use service_modules::load_module;
@@ -410,11 +410,13 @@ async fn spell_install_fail_large_period() {
 
     let script = r#"(call %init_peer_id% ("peer" "identify") [] x)"#;
     let empty: HashMap<String, String> = HashMap::new();
+    let worker_id = create_worker(&mut client, None).await;
 
     // Note that when period is 0, the spell is executed only once
     let config = make_clock_config(MAX_PERIOD_SEC + 1, 1, 0);
 
     let data = hashmap! {
+        "worker_id" => json!(worker_id),
         "script" => json!(script.to_string()),
         "config" => json!(config),
         "client" => json!(client.peer_id.to_string()),
@@ -425,7 +427,10 @@ async fn spell_install_fail_large_period() {
         .execute_particle(
             r#"
         (xor
-            (call relay ("spell" "install") [script data config] spell_id)
+            (seq
+                (call relay ("op" "noop") [])            
+                (call worker_id ("spell" "install") [script data config] spell_id)
+            )
             (call client ("return" "") [%last_error%.$.message])
         )"#,
             data,
@@ -454,26 +459,31 @@ async fn spell_install_fail_end_sec_past() {
 
     // Note that when period is 0, the spell is executed only once
     let config = make_clock_config(0, 10, 1);
+    let worker_id = create_worker(&mut client, None).await;
 
     let data = hashmap! {
+        "worker_id" => json!(worker_id),
         "script" => json!(script.to_string()),
         "config" => json!(config),
         "client" => json!(client.peer_id.to_string()),
         "relay" => json!(client.node.to_string()),
         "data" => json!(json!(empty).to_string()),
     };
+
     let result = client
         .execute_particle(
             r#"
         (xor
-            (call relay ("spell" "install") [script data config] spell_id)
+            (seq
+                (call relay ("op" "noop") [])            
+                (call worker_id ("spell" "install") [script data config] spell_id)
+            )
             (call client ("return" "") [%last_error%.$.message])
         )"#,
             data.clone(),
         )
         .await
         .unwrap();
-
     if let [JValue::String(error_msg)] = result.as_slice() {
         let expected = "Local service error, ret_code is 1, error message is '\"Error: invalid config: end_sec is less than start_sec or in the past";
         assert!(
@@ -503,8 +513,10 @@ async fn spell_install_fail_end_sec_before_start() {
 
     // Note that when period is 0, the spell is executed only once
     let config = make_clock_config(0, now as u32 + 100, now as u32 + 90);
+    let worker_id = create_worker(&mut client, None).await;
 
     let data = hashmap! {
+        "worker_id" => json!(worker_id),
         "script" => json!(script.to_string()),
         "config" => json!(config),
         "client" => json!(client.peer_id.to_string()),
@@ -515,7 +527,10 @@ async fn spell_install_fail_end_sec_before_start() {
         .execute_particle(
             r#"
         (xor
-            (call relay ("spell" "install") [script data config] spell_id)
+            (seq
+                (call relay ("op" "noop") [])            
+                (call worker_id ("spell" "install") [script data config] spell_id)
+            )
             (call client ("return" "") [%last_error%.$.message])
         )"#,
             data.clone(),
@@ -1342,7 +1357,12 @@ async fn resolve_global_alias() {
 
 #[tokio::test]
 async fn worker_sig_test() {
-    let swarms = make_swarms_with_builtins(1, "tests/builtins/services".as_ref(), None, None).await;
+    let swarms = make_swarms_with_cfg(1, |mut cfg| {
+        cfg.enabled_system_services =
+            vec![server_config::system_services_config::ServiceKey::Registry];
+        cfg
+    })
+    .await;
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .await

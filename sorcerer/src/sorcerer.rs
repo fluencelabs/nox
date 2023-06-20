@@ -23,7 +23,7 @@ use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
 use tokio_stream::wrappers::UnboundedReceiverStream;
 
-use crate::spells::{
+use crate::spell_builtins::{
     get_spell_arg, get_spell_id, spell_install, spell_list, spell_remove, spell_update_config,
     store_error, store_response,
 };
