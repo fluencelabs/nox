@@ -13,11 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use fluence_spell_dtos::value::{StringValue, UnitValue};
-use serde_json::{json, Value as JValue, Value::Array};
+use fluence_spell_dtos::value::{ScriptValue, SpellValueT, StringValue, UnitValue};
+use serde_json::{json, Value as JValue, Value, Value::Array};
 
 use crate::utils::{parse_spell_id_from, process_func_outcome};
-use fluence_spell_dtos::trigger_config::TriggerConfig;
+use fluence_spell_dtos::trigger_config::{TriggerConfig, TriggerConfigValue};
 use key_manager::KeyManager;
 use libp2p::PeerId;
 use particle_args::{Args, JError};
@@ -28,7 +28,7 @@ use spell_event_bus::{api, api::SpellEventBusApi};
 use spell_storage::SpellStorage;
 use std::time::Duration;
 
-pub(crate) async fn remove_spell(
+pub async fn remove_spell(
     particle_id: &str,
     spell_storage: &SpellStorage,
     services: &ParticleAppServices,
@@ -50,34 +50,19 @@ pub(crate) async fn remove_spell(
     Ok(())
 }
 
-pub(crate) async fn spell_install(
-    sargs: Args,
-    params: ParticleParams,
-    spell_storage: SpellStorage,
-    services: ParticleAppServices,
-    spell_event_bus_api: SpellEventBusApi,
-    key_manager: KeyManager,
-) -> Result<JValue, JError> {
-    let mut args = sargs.function_args.clone().into_iter();
-    let script: String = Args::next("script", &mut args)?;
-    let init_data: JValue = Args::next("data", &mut args)?;
-    let user_config: TriggerConfig = Args::next("config", &mut args)?;
+#[allow(clippy::too_many_arguments)]
+pub async fn install_spell(
+    services: &ParticleAppServices,
+    spell_storage: &SpellStorage,
+    spell_event_bus_api: &SpellEventBusApi,
+    worker_id: PeerId,
+    particle_id: String,
+    ttl: u64,
+    user_config: TriggerConfig,
+    script: String,
+    init_data: Value,
+) -> Result<String, JError> {
     let config = api::from_user_config(user_config.clone())?;
-    let init_peer_id = params.init_peer_id;
-
-    let is_management = key_manager.is_management(init_peer_id);
-    if key_manager.is_host(params.host_id) && !is_management {
-        return Err(JError::new("Failed to install spell in the root scope, only management peer id can install top-level spells"));
-    }
-
-    let worker_id = params.host_id;
-    let worker_creator = key_manager.get_worker_creator(params.host_id)?;
-
-    let is_worker = init_peer_id == worker_id;
-    let is_worker_creator = init_peer_id == worker_creator;
-    if !is_management && !is_worker && !is_worker_creator {
-        return Err(JError::new(format!("Failed to install spell on {worker_id}, spell can be installed by worker creator {worker_creator}, worker itself {worker_id} or peer manager; init_peer_id={init_peer_id}")));
-    }
 
     let spell_id = services.create_service(
         ServiceType::Spell,
@@ -97,7 +82,7 @@ pub(crate) async fn spell_install(
             vec![json!(script)],
             None,
             worker_id,
-            Duration::from_millis(params.ttl as u64),
+            Duration::from_millis(ttl),
         ),
         &spell_id,
         "set_script_source_to_file",
@@ -112,7 +97,7 @@ pub(crate) async fn spell_install(
             vec![json!(init_data.to_string())],
             None,
             worker_id,
-            Duration::from_millis(params.ttl as u64),
+            Duration::from_millis(ttl),
         ),
         &spell_id,
         "set_json_fields",
@@ -127,7 +112,7 @@ pub(crate) async fn spell_install(
             vec![json!(user_config)],
             None,
             worker_id,
-            Duration::from_millis(params.ttl as u64),
+            Duration::from_millis(ttl),
         ),
         &spell_id,
         "set_trigger_config",
@@ -142,13 +127,7 @@ pub(crate) async fn spell_install(
             log::warn!("can't subscribe a spell {} to triggers {:?} via spell-event-bus-api: {}. Removing created spell service...", spell_id, config, err);
 
             spell_storage.unregister_spell(worker_id, &spell_id);
-            services.remove_service(
-                &params.id,
-                params.host_id,
-                spell_id,
-                params.init_peer_id,
-                true,
-            )?;
+            services.remove_service(&particle_id, worker_id, spell_id, worker_id, true)?;
 
             return Err(JError::new(format!(
                 "can't install a spell due to an internal error while subscribing to the triggers: {err}"
@@ -156,12 +135,111 @@ pub(crate) async fn spell_install(
         }
     } else {
         tracing::trace!(
-            particle_id = params.id,
+            particle_id = particle_id,
             "empty config given for spell {}",
             spell_id
         );
     }
 
+    Ok(spell_id)
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct SpellInfo {
+    pub script: String,
+    pub trigger_config: TriggerConfig,
+}
+
+pub fn get_spell_info(
+    services: &ParticleAppServices,
+    worker_id: PeerId,
+    ttl: u64,
+    spell_id: String,
+) -> Result<SpellInfo, JError> {
+    let trigger_config_value = process_func_outcome::<TriggerConfigValue>(
+        services.call_function(
+            worker_id,
+            &spell_id,
+            "get_trigger_config",
+            vec![],
+            None,
+            worker_id,
+            Duration::from_millis(ttl),
+        ),
+        &spell_id,
+        "get_trigger_config",
+    )
+    .map_err(|e| JError::new(f!("Failed to get trigger_config for spell {spell_id}: {e}")))?;
+    let trigger_config = if trigger_config_value.is_success() {
+        trigger_config_value.config
+    } else {
+        return Err(JError::new(trigger_config_value.error));
+    };
+
+    let script_value = process_func_outcome::<ScriptValue>(
+        services.call_function(
+            worker_id,
+            &spell_id,
+            "get_script_source_from_file",
+            vec![],
+            None,
+            worker_id,
+            Duration::from_millis(ttl),
+        ),
+        &spell_id,
+        "get_script_source_from_file",
+    )
+    .map_err(|e| JError::new(f!("Failed to get trigger_config for spell {spell_id}: {e}")))?;
+    if script_value.is_success() {
+        Ok(SpellInfo {
+            script: script_value.source_code,
+            trigger_config,
+        })
+    } else {
+        Err(JError::new(script_value.error))
+    }
+}
+
+pub(crate) async fn spell_install(
+    sargs: Args,
+    params: ParticleParams,
+    spell_storage: SpellStorage,
+    services: ParticleAppServices,
+    spell_event_bus_api: SpellEventBusApi,
+    key_manager: KeyManager,
+) -> Result<JValue, JError> {
+    let mut args = sargs.function_args.clone().into_iter();
+    let script: String = Args::next("script", &mut args)?;
+    let init_data: JValue = Args::next("data", &mut args)?;
+    let user_config: TriggerConfig = Args::next("config", &mut args)?;
+    let init_peer_id = params.init_peer_id;
+
+    let is_management = key_manager.is_management(init_peer_id);
+    if key_manager.is_host(params.host_id) && !is_management {
+        return Err(JError::new("Failed to install spell in the root scope, only management peer id can install top-level spells"));
+    }
+
+    let worker_id = params.host_id;
+    let worker_creator = key_manager.get_worker_creator(params.host_id)?;
+
+    let is_worker = init_peer_id == worker_id;
+    let is_worker_creator = init_peer_id == worker_creator;
+    if !is_management && !is_worker && !is_worker_creator {
+        return Err(JError::new(format!("Failed to install spell on {worker_id}, spell can be installed by worker creator {worker_creator}, worker itself {worker_id} or peer manager; init_peer_id={init_peer_id}")));
+    }
+
+    let spell_id = install_spell(
+        &services,
+        &spell_storage,
+        &spell_event_bus_api,
+        worker_id,
+        params.id,
+        params.ttl as u64,
+        user_config,
+        script,
+        init_data,
+    )
+    .await?;
     Ok(JValue::String(spell_id))
 }
 

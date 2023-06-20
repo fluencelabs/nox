@@ -14,16 +14,15 @@
  * limitations under the License.
  */
 
+use eyre::WrapErr;
 use std::sync::Arc;
 use std::{io, net::SocketAddr};
 
 use aquamarine::{
     AquaRuntime, AquamarineApi, AquamarineApiError, AquamarineBackend, RoutingEffects, VmPoolConfig,
 };
-use builtins_deployer::BuiltinsDeployer;
 use config_utils::to_peer_id;
 use connection_pool::{ConnectionPoolApi, ConnectionPoolT};
-use eyre::WrapErr;
 use fluence_libp2p::build_transport;
 use futures::{stream::StreamExt, FutureExt};
 use key_manager::KeyManager;
@@ -51,6 +50,7 @@ use server_config::{NetworkConfig, ResolvedConfig, ServicesConfig};
 use sorcerer::Sorcerer;
 use spell_event_bus::api::{PeerEvent, SpellEventBusApi, TriggerEvent};
 use spell_event_bus::bus::SpellEventBus;
+use system_services::Deployer;
 use tokio::sync::{mpsc, oneshot};
 use tokio::task;
 
@@ -74,7 +74,8 @@ pub struct Node<RT: AquaRuntime> {
     pub dispatcher: Dispatcher,
     aquavm_pool: AquamarineBackend<RT, Arc<Builtins<Connectivity>>>,
     script_storage: ScriptStorageBackend,
-    builtins_deployer: BuiltinsDeployer,
+    system_service_deployer: Deployer,
+
     spell_event_bus_api: SpellEventBusApi,
     spell_event_bus: SpellEventBus,
     spell_events_receiver: mpsc::UnboundedReceiver<TriggerEvent>,
@@ -243,16 +244,6 @@ impl<RT: AquaRuntime> Node<RT> {
             )
         };
 
-        let builtins_deployer = BuiltinsDeployer::new(
-            builtins_peer_id,
-            key_manager.get_host_peer_id(),
-            aquamarine_api.clone(),
-            config.dir_config.builtins_base_dir.clone(),
-            config.node_config.autodeploy_particle_ttl,
-            config.node_config.force_builtins_redeploy,
-            config.node_config.autodeploy_retry_attempts,
-        );
-
         let recv_connection_pool_events = connectivity.connection_pool.lifecycle_events();
         let sources = vec![recv_connection_pool_events.map(PeerEvent::from).boxed()];
 
@@ -286,6 +277,9 @@ impl<RT: AquaRuntime> Node<RT> {
         }
         custom_service_functions.extend_one(make_peer_builtin(node_info));
 
+        let services = builtins.services.clone();
+        let modules = builtins.modules.clone();
+
         custom_service_functions.into_iter().for_each(
             move |(
                 service_id,
@@ -303,6 +297,17 @@ impl<RT: AquaRuntime> Node<RT> {
             },
         );
 
+        let system_services_config = config.system_services.clone();
+        let system_services_deployer = Deployer::new(
+            services,
+            modules,
+            sorcerer.spell_storage.clone(),
+            spell_event_bus_api.clone(),
+            key_manager.get_host_peer_id(),
+            builtins_peer_id,
+            system_services_config,
+        );
+
         Ok(Self::with(
             particle_stream,
             effects_in,
@@ -312,7 +317,7 @@ impl<RT: AquaRuntime> Node<RT> {
             dispatcher,
             aquavm_pool,
             script_storage_backend,
-            builtins_deployer,
+            system_services_deployer,
             spell_event_bus_api,
             spell_event_bus,
             spell_events_receiver,
@@ -380,7 +385,7 @@ impl<RT: AquaRuntime> Node<RT> {
         dispatcher: Dispatcher,
         aquavm_pool: AquamarineBackend<RT, Arc<Builtins<Connectivity>>>,
         script_storage: ScriptStorageBackend,
-        builtins_deployer: BuiltinsDeployer,
+        system_service_deployer: Deployer,
         spell_event_bus_api: SpellEventBusApi,
         spell_event_bus: SpellEventBus,
         spell_events_receiver: mpsc::UnboundedReceiver<TriggerEvent>,
@@ -403,7 +408,7 @@ impl<RT: AquaRuntime> Node<RT> {
             dispatcher,
             aquavm_pool,
             script_storage,
-            builtins_deployer,
+            system_service_deployer,
             spell_event_bus_api,
             spell_event_bus,
             spell_events_receiver,
@@ -494,16 +499,18 @@ impl<RT: AquaRuntime> Node<RT> {
             pool.abort();
         }).expect("Could not spawn task");
 
-        let mut builtins_deployer = self.builtins_deployer;
-        builtins_deployer
-            .deploy_builtin_services()
+        // Note: need to be after the start of the node to be able to subscribe spells
+        let deployer = self.system_service_deployer;
+        deployer
+            .deploy_system_services()
             .await
-            .wrap_err("builtins deploy failed")?;
+            .context("deploying system services failed")?;
 
-        let result = self.spell_event_bus_api.start_scheduling().await;
-        if let Err(e) = result {
-            log::error!("running spell event bus failed: {}", e);
-        }
+        self.spell_event_bus_api
+            .start_scheduling()
+            .await
+            .map_err(|e| eyre::eyre!("{e}"))
+            .context("running spell event bus failed")?;
 
         Ok(exit_outlet)
     }
@@ -553,6 +560,7 @@ mod tests {
             .expect("Could not resolve config");
         config.aquavm_pool_size = 1;
         config.dir_config.spell_base_dir = to_abs_path(PathBuf::from("spell"));
+        config.system_services.enable = vec![];
         let vm_config = VmConfig::new(
             to_peer_id(&config.root_key_pair.clone().into()),
             config.dir_config.avm_base_dir.clone(),

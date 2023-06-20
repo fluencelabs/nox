@@ -8,7 +8,7 @@ test:
 	cargo test --release
 
 server:
-	RUST_LOG="info,tide=off,tracing=off,avm_server=off,run-console=debug" \
+	RUST_LOG="info,tide=off,tracing=off,avm_server=off,run-console=debug,system_services=debug,sorcerer::spell_builtins=debug,sorcerer=debug" \
 	cargo run --release -p nox
 
 server-debug:
