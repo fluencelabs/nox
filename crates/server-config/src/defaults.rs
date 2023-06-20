@@ -225,6 +225,8 @@ pub fn default_decider_spell_period_sec() -> u32 {
 }
 
 // 60 minutes
+// This is an interval setting for a spell in general.
+// should be the smallest common denominator of other intervals.
 pub fn default_registry_spell_period_sec() -> u32 {
     3600
 }
