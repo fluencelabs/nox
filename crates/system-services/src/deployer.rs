@@ -152,7 +152,7 @@ impl Deployer {
     async fn deploy_registry(&self) -> eyre::Result<()> {
         let (registry_distro, registry_spell_distro) =
             Self::get_registry_distro(self.config.registry.clone());
-        let _deployed = self.deploy_service_common(registry_distro)?;
+        self.deploy_service_common(registry_distro)?;
         self.deploy_system_spell(registry_spell_distro).await?;
         Ok(())
     }
