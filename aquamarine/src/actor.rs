@@ -115,7 +115,6 @@ where
     }
 
     pub fn ingest(&mut self, particle: Particle) {
-        // tracing::info!(particle_id = self.particle.id, "put particle to mailbox");
         self.mailbox.push_back(particle);
         self.wake();
     }
@@ -140,10 +139,13 @@ where
             let waker = cx.waker().clone();
             // Schedule execution of functions
             self.functions
-                .execute(effects.particle.id.clone(), effects.call_requests, waker);
+                .execute(self.particle.id.clone(), effects.call_requests, waker);
 
             let effects = RoutingEffects {
-                particle: effects.particle,
+                particle: Particle {
+                    data: effects.new_data,
+                    ..self.particle.clone()
+                },
                 next_peers: effects.next_peers,
             };
             return Ready(FutResult {
@@ -176,20 +178,7 @@ where
         // Take the next particle
         let particle = self.mailbox.pop_front();
 
-        // let particle_id = self.particle.id.clone();
-        // let span = tracing::span!(Level::INFO, particle_id = particle_id);
-        // let _enter = span.enter();
-
-        // tracing::info!(
-        //     particle_id = self.particle.id,
-        //     "mailbox {}, particle {}, calls {}",
-        //     self.mailbox.len(),
-        //     particle.is_some() as u32,
-        //     calls.len()
-        // );
-
         if particle.is_none() && calls.is_empty() {
-            // tracing::info!(particle_id = self.particle.id, "will return VM");
             debug_assert!(stats.is_empty(), "stats must be empty if calls are empty");
             // Nothing to execute, return vm
             return ActorPoll::Vm(vm_id, vm);
@@ -206,16 +195,11 @@ where
         // TODO: get rid of this clone by recovering key_pair after `vm.execute` (not trivial to implement)
         let key_pair = self.key_pair.clone();
         // TODO: add timeout for execution https://github.com/fluencelabs/fluence/issues/1212
-        // tracing::info!(particle_id = self.particle.id, "will create future");
         self.future = Some(
             async move {
-                // let particle_id = particle.id.clone();
-                // tracing::info!(particle_id = particle.id, "will execute particle");
                 let res = vm
                     .execute((particle, calls), waker, peer_id, key_pair)
                     .await;
-
-                // tracing::info!(particle_id = particle_id, "executed particle");
 
                 let reusables = Reusables {
                     vm_id,
