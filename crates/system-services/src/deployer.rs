@@ -214,7 +214,7 @@ impl Deployer {
         trigger_config.clock.start_sec = 1;
         trigger_config.clock.period_sec = config.registry_period_sec;
         let spell_distro = SpellDistro {
-            name: Registry.to_string(),
+            name: "registry-spell".to_string(),
             air: spell_distro.air,
             kv: spell_distro.init_data,
             trigger_config,
