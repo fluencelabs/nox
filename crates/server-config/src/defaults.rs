@@ -229,12 +229,12 @@ pub fn default_registry_spell_period_sec() -> u32 {
     3600
 }
 
-// 24 hours 
+// 24 hours
 pub fn default_registry_expired_spell_period_sec() -> u32 {
     86400
 }
 
-// 12 hours 
+// 12 hours
 pub fn default_registry_renew_spell_period_sec() -> u32 {
     43200
 }
