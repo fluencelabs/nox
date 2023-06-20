@@ -6,6 +6,7 @@ use particle_execution::FunctionOutcome;
 use particle_modules::{AddBlueprint, ModuleRepository};
 use particle_services::{ParticleAppServices, ServiceError, ServiceType};
 use serde_json::{json, Value as JValue};
+use server_config::system_services_config::RegistryConfig;
 use server_config::system_services_config::ServiceKey::*;
 use server_config::{system_services_config::ServiceKey, DeciderConfig, SystemServicesConfig};
 use sorcerer::{get_spell_info, install_spell, remove_spell};
@@ -149,12 +150,10 @@ impl Deployer {
     }
 
     async fn deploy_registry(&self) -> eyre::Result<()> {
-        let (registry_distro, registry_spell_distros) = Self::get_registry_distro();
-        let _deployed = self.deploy_service_common(registry_distro)?;
-
-        for spell_distro in registry_spell_distros {
-            self.deploy_system_spell(spell_distro).await?;
-        }
+        let (registry_distro, registry_spell_distro) =
+            Self::get_registry_distro(self.config.registry.clone());
+        self.deploy_service_common(registry_distro)?;
+        self.deploy_system_spell(registry_spell_distro).await?;
         Ok(())
     }
 
@@ -198,29 +197,30 @@ impl Deployer {
         }
     }
 
-    fn get_registry_distro() -> (ServiceDistro, Vec<SpellDistro>) {
-        use registry_distro::*;
-
+    fn get_registry_distro(config: RegistryConfig) -> (ServiceDistro, SpellDistro) {
         let distro = ServiceDistro {
-            modules: modules(),
-            config: CONFIG,
+            modules: registry_distro::modules(),
+            config: registry_distro::CONFIG,
             name: Registry.to_string(),
         };
-        let spells_distro = scripts()
-            .into_iter()
-            .map(|script| {
-                let mut trigger_config = TriggerConfig::default();
-                trigger_config.clock.start_sec = 1;
-                trigger_config.clock.period_sec = script.period_sec;
-                SpellDistro {
-                    name: script.name.to_string(),
-                    air: script.air,
-                    kv: HashMap::new(),
-                    trigger_config,
-                }
-            })
-            .collect::<_>();
-        (distro, spells_distro)
+
+        let registry_config = registry_distro::RegistryConfig {
+            expired_interval: config.expired_period_sec,
+            renew_interval: config.renew_period_sec,
+            replicate_interval: config.replicate_period_sec,
+        };
+        let spell_distro = registry_distro::registry_spell(registry_config);
+        let mut trigger_config = TriggerConfig::default();
+        trigger_config.clock.start_sec = 1;
+        trigger_config.clock.period_sec = config.registry_period_sec;
+        let spell_distro = SpellDistro {
+            name: "registry-spell".to_string(),
+            air: spell_distro.air,
+            kv: spell_distro.init_data,
+            trigger_config,
+        };
+
+        (distro, spell_distro)
     }
 
     fn get_ipfs_service_distro() -> ServiceDistro {
