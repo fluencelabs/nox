@@ -19,6 +19,7 @@ use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
 use std::ops::Try;
 use std::path;
+use std::path::Path;
 use std::str::FromStr;
 use std::time::{Duration, Instant};
 
@@ -284,6 +285,7 @@ where
             ("json", "obj_pairs") => unary(args, |vs: Vec<(String, JValue)>| -> R<JValue, _> { json::obj_from_pairs(vs) }),
             ("json", "puts_pairs") => binary(args, |obj: JValue, vs: Vec<(String, JValue)>| -> R<JValue, _> { json::puts_from_pairs(obj, vs) }),
 
+            ("vault", "cat") => wrap(self.vault_cat(args, particle)),
             ("run-console", "print")          => wrap_unit(Ok(log::debug!(target: "run-console", "{}", json!(args.function_args)))),
 
             _ => FunctionOutcome::NotDefined { args, params: particle },
@@ -1047,6 +1049,16 @@ where
         Ok(JValue::String(
             self.key_manager.insecure_keypair.get_peer_id().to_base58(),
         ))
+    }
+
+    fn vault_cat(&self, args: Args, params: ParticleParams) -> Result<JValue, JError> {
+        let mut args = args.function_args.into_iter();
+        let path: String = Args::next("path", &mut args)?;
+        let resolved_path =
+            resolve_vault_path(&self.particles_vault_dir, Path::new(&path), &params.id)?;
+        std::fs::read_to_string(resolved_path)
+            .map(JValue::String)
+            .map_err(|_| JError::new(format!("Error reading vault file `{}`", path)))
     }
 }
 
