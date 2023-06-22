@@ -88,6 +88,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
 
+    needs: nox
+
     permissions:
       contents: write
       id-token: write
