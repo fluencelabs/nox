@@ -1,18 +1,5 @@
 # Changelog
 
-## [0.13.0](https://github.com/fluencelabs/nox/compare/rust-peer-v0.12.1...rust-peer-v0.13.0) (2023-06-22)
-
-
-### ⚠ BREAKING CHANGES
-
-* **avm:** update to avm 0.39.1 ([#1627](https://github.com/fluencelabs/nox/issues/1627))
-
-### Features
-
-* **avm:** update to avm 0.39.1 ([#1627](https://github.com/fluencelabs/nox/issues/1627)) ([e6b1afa](https://github.com/fluencelabs/nox/commit/e6b1afa0417d873cf94c4646a723d267e51fdfba))
-* Migrate Registry to spell ([#1629](https://github.com/fluencelabs/nox/issues/1629)) ([978ea2c](https://github.com/fluencelabs/nox/commit/978ea2cf64015e47027fd64a60dee2f06a7b3cab))
-* **system-service-deployer:** introduce new system service deployment system [fixes NET-487] ([#1623](https://github.com/fluencelabs/nox/issues/1623)) ([f272c02](https://github.com/fluencelabs/nox/commit/f272c02434a7f20df3ec2258e47e47570b90cbbd))
-
 ## [0.12.1](https://github.com/fluencelabs/rust-peer/compare/rust-peer-v0.12.0...rust-peer-v0.12.1) (2023-05-22)
 
 
