@@ -36,6 +36,7 @@ on:
 
 jobs:
   nox:
+    name: "Build nox (${{ matrix.arch }})"
     runs-on: builder
     timeout-minutes: 60
 
