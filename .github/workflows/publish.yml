@@ -106,13 +106,15 @@ jobs:
     steps:
       - name: Download nox binaries
         uses: actions/download-artifact@v3
+        with:
+          path: binaries
 
       - name: Calculate SHA256
         id: sha
         run: |
           # Calculate sha256
           for arch in x86_64 aarch64; do
-            mv nox-${arch}/nox nox-${arch}
+            mv binaries/nox-${arch}/nox nox-${arch}
             du -hs nox-${arch}
             sha256sum nox-${arch} | tee >> nox_SHA256_SUMS
             sha=($(sha256sum nox-${arch}))
