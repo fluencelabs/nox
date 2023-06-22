@@ -79,7 +79,7 @@ jobs:
             kv/crates.io/fluencebot token | CARGO_REGISTRY_TOKEN
 
       - name: Run cargo build
-        run: cargo build release -p nox --target ${{ matrix.arch }}-unknown-linux-gnu
+        run: cargo build --release -p nox --target ${{ matrix.arch }}-unknown-linux-gnu
 
       - name: Upload nox binary
         uses: actions/upload-artifact@v3
