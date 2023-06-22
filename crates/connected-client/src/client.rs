@@ -18,10 +18,11 @@ use std::{error::Error, time::Duration};
 
 use derivative::Derivative;
 use either::Either;
+use fluence_keypair::{KeyPair, Signature};
 use futures::stream::StreamExt;
 use libp2p::core::Multiaddr;
 use libp2p::swarm::{ConnectionHandlerUpgrErr, SwarmBuilder, SwarmEvent};
-use libp2p::{identity::Keypair, PeerId, Swarm};
+use libp2p::{PeerId, Swarm};
 use tokio::sync::mpsc::error::SendError;
 use tokio::sync::{mpsc, oneshot};
 use tokio::{select, task, task::JoinHandle};
@@ -42,7 +43,7 @@ struct Command {
 #[derivative(Debug)]
 pub struct Client {
     #[derivative(Debug = "ignore")]
-    pub key_pair: Keypair,
+    pub key_pair: KeyPair,
     pub peer_id: PeerId,
     /// Channel to send commands to node
     relay_outlet: mpsc::UnboundedSender<Command>,
@@ -57,10 +58,10 @@ impl Client {
         relay_outlet: mpsc::UnboundedSender<Command>,
         client_inlet: mpsc::UnboundedReceiver<ClientEvent>,
         stop_outlet: oneshot::Sender<()>,
-        key_pair: Option<Keypair>,
+        key_pair: Option<KeyPair>,
     ) -> Self {
-        let key = key_pair.unwrap_or_else(Keypair::generate_ed25519);
-        let peer_id = key.public().to_peer_id();
+        let key = key_pair.unwrap_or_else(KeyPair::generate_ed25519);
+        let peer_id = key.get_peer_id();
 
         Client {
             key_pair: key,
@@ -90,7 +91,7 @@ impl Client {
         }
     }
 
-    pub fn sign(&self, bytes: &[u8]) -> Vec<u8> {
+    pub fn sign(&self, bytes: &[u8]) -> Signature {
         self.key_pair.sign(bytes).expect("signing error")
     }
 
@@ -104,7 +105,8 @@ impl Client {
         let mut swarm = {
             let behaviour = ClientBehaviour::new(protocol_config);
 
-            let transport = build_transport(transport, self.key_pair.clone(), transport_timeout);
+            let kp = self.key_pair.clone().into();
+            let transport = build_transport(transport, &kp, transport_timeout);
             SwarmBuilder::with_tokio_executor(transport, behaviour, self.peer_id).build()
         };
 
@@ -129,7 +131,7 @@ impl Client {
     pub async fn connect_with(
         relay: Multiaddr,
         transport: Transport,
-        key_pair: Option<Keypair>,
+        key_pair: Option<KeyPair>,
         transport_timeout: Duration,
     ) -> Result<(Client, JoinHandle<()>), Box<dyn Error>> {
         let (client_outlet, client_inlet) = mpsc::unbounded_channel();

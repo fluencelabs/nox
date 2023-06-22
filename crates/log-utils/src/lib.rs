@@ -24,7 +24,7 @@ pub fn enable_logs() {
     tracing_subscriber::fmt()
         .with_env_filter(
             tracing_subscriber::EnvFilter::builder()
-                .with_default_directive(LevelFilter::INFO.into())
+                .with_default_directive(LevelFilter::TRACE.into())
                 .from_env_lossy()
                 .add_directive("script_storage=trace".parse().unwrap())
                 .add_directive("run-console=trace".parse().unwrap())
@@ -60,7 +60,18 @@ pub fn enable_logs() {
                 .add_directive("wasmer_wasi=info".parse().unwrap())
                 .add_directive("wasmer_interface_types_fl=info".parse().unwrap())
                 .add_directive("polling=info".parse().unwrap())
-                .add_directive("walrus=info".parse().unwrap()),
+                .add_directive("walrus=info".parse().unwrap())
+                .add_directive("regalloc2=info".parse().unwrap())
+                .add_directive("cranelift_wasm=info".parse().unwrap())
+                .add_directive("wasmtime_cranelift=info".parse().unwrap())
+                .add_directive("tokio=info".parse().unwrap())
+                .add_directive("libp2p_noise=info".parse().unwrap())
+                .add_directive("yamux=info".parse().unwrap())
+                .add_directive("wasmtime_jit=info".parse().unwrap())
+                .add_directive("wasi_common=info".parse().unwrap())
+                .add_directive("particle_reap=info".parse().unwrap())
+                .add_directive("marine_core::module::marine_module=info".parse().unwrap())
+                .add_directive("runtime::resource=info".parse().unwrap()),
         )
         .try_init()
         .ok();

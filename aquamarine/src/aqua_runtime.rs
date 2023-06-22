@@ -19,10 +19,9 @@ use std::{error::Error, task::Waker};
 use avm_server::{
     AVMConfig, AVMError, AVMMemoryStats, AVMOutcome, CallResults, ParticleParameters, AVM,
 };
+use fluence_keypair::KeyPair;
 use futures::{future::BoxFuture, FutureExt};
 use log::LevelFilter;
-
-use particle_protocol::Particle;
 
 use crate::config::VmConfig;
 use crate::invoke::{parse_outcome, ExecutionError};
@@ -39,7 +38,10 @@ pub trait AquaRuntime: Sized + Send + 'static {
     ) -> BoxFuture<'static, Result<Self, Self::Error>>;
 
     // TODO: move into_effects inside call
-    fn into_effects(outcome: Result<AVMOutcome, Self::Error>, p: Particle) -> ParticleEffects;
+    fn into_effects(
+        outcome: Result<AVMOutcome, Self::Error>,
+        particle_id: String,
+    ) -> ParticleEffects;
 
     fn call(
         &mut self,
@@ -47,6 +49,7 @@ pub trait AquaRuntime: Sized + Send + 'static {
         data: Vec<u8>,
         particle: ParticleParameters<'_>,
         call_results: CallResults,
+        key_pair: &KeyPair,
     ) -> Result<AVMOutcome, Self::Error>;
 
     fn cleanup(&mut self, particle_id: &str, current_peer_id: &str) -> Result<(), Self::Error>;
@@ -109,50 +112,39 @@ impl AquaRuntime for AVM<DataStoreError> {
         .boxed()
     }
 
-    fn into_effects(outcome: Result<AVMOutcome, CreateAVMError>, p: Particle) -> ParticleEffects {
+    fn into_effects(
+        outcome: Result<AVMOutcome, Self::Error>,
+        particle_id: String,
+    ) -> ParticleEffects {
         match parse_outcome(outcome) {
-            Ok((data, peers, calls)) if !peers.is_empty() || !calls.is_empty() => {
+            Ok((new_data, peers, calls)) if !peers.is_empty() || !calls.is_empty() => {
                 #[rustfmt::skip]
-                tracing::debug!(particle_id = p.id, "Particle executed: {} call requests, {} next peers", calls.len(), peers.len());
+                tracing::debug!(particle_id, "Particle executed: {} call requests, {} next peers", calls.len(), peers.len());
 
                 ParticleEffects {
                     next_peers: peers,
                     call_requests: calls,
-                    particle: Particle { data, ..p },
+                    new_data,
                 }
             }
             Ok((data, ..)) => {
                 tracing::warn!(
-                    particle_id = p.id,
+                    particle_id,
                     "Executed particle, next_peer_pks is empty, no call requests. Nothing to do.",
                 );
                 if log::max_level() >= LevelFilter::Debug {
                     let data = String::from_utf8_lossy(data.as_slice());
-                    tracing::debug!(
-                        particle_id = p.id,
-                        "particle next_peer_pks = [], data: {}",
-                        data
-                    );
+                    tracing::debug!(particle_id, "particle next_peer_pks = [], data: {}", data);
                 }
-                ParticleEffects::empty(Particle { data, ..p })
+                ParticleEffects::empty()
             }
             Err(ExecutionError::AquamarineError(err)) => {
-                tracing::warn!(
-                    particle_id = p.id,
-                    "Error executing particle {:#?}: {}",
-                    p,
-                    err
-                );
-                ParticleEffects::empty(p)
+                tracing::warn!(particle_id, "Error executing particle: {}", err);
+                ParticleEffects::empty()
             }
             Err(err @ ExecutionError::InvalidResultField { .. }) => {
-                tracing::warn!(
-                    particle_id = p.id,
-                    "Error parsing outcome for particle {:#?}: {}",
-                    p,
-                    err
-                );
-                ParticleEffects::empty(p)
+                tracing::warn!(particle_id, "Error parsing outcome for particle: {}", err);
+                ParticleEffects::empty()
             }
         }
     }
@@ -164,8 +156,10 @@ impl AquaRuntime for AVM<DataStoreError> {
         data: Vec<u8>,
         particle: ParticleParameters<'_>,
         call_results: CallResults,
+        key_pair: &KeyPair,
     ) -> Result<AVMOutcome, Self::Error> {
-        AVM::call(self, aqua, data, particle, call_results).map_err(CreateAVMError::AVWError)
+        AVM::call(self, aqua, data, particle, call_results, key_pair)
+            .map_err(CreateAVMError::AVWError)
     }
 
     #[inline]

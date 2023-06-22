@@ -23,8 +23,8 @@ use libp2p::PeerId;
 #[derive(Clone, Debug)]
 /// Effects produced by particle execution. Currently the only effect is that of sending particles.
 pub struct ParticleEffects {
-    /// Particle associated with these effects
-    pub particle: Particle,
+    /// New particle data
+    pub new_data: Vec<u8>,
     /// Instruction to send particle to these peers
     pub next_peers: Vec<PeerId>,
     /// Instruction to execute host calls
@@ -32,9 +32,9 @@ pub struct ParticleEffects {
 }
 
 impl ParticleEffects {
-    pub fn empty(particle: Particle) -> Self {
+    pub fn empty() -> Self {
         Self {
-            particle,
+            new_data: vec![],
             next_peers: vec![],
             call_requests: <_>::default(),
         }

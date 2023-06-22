@@ -96,8 +96,8 @@ marine-utils = "0.5.0"
 marine-it-parser = "0.12.1"
 
 # avm
-avm-server = "0.31.0"
-air-interpreter-wasm = "=0.38.0"
+avm-server = { version = "=0.39.1-feat-VM-276-aquavm-keypair-775a729-1587-1.0", registry = "fluence" }
+air-interpreter-wasm = { version = "=0.39.1-feat-VM-276-aquavm-keypair-775a729-1587-1.0", registry = "fluence" }
 
 # libp2p
 libp2p = { version = "0.51.3", features = ["noise", "tcp", "dns", "websocket", "yamux", "mplex", "tokio", "kad", "ping", "identify", "macros"] }

@@ -14,15 +14,16 @@
  * limitations under the License.
  */
 
-use aquamarine::{AquaRuntime, ParticleEffects};
-use avm_server::{AVMMemoryStats, AVMOutcome, CallResults, ParticleParameters};
-use fluence_libp2p::PeerId;
-use particle_protocol::Particle;
-
-use futures::{future::BoxFuture, FutureExt};
-use itertools::Itertools;
 use std::str::FromStr;
 use std::{convert::Infallible, task::Waker, time::Duration};
+
+use avm_server::{AVMMemoryStats, AVMOutcome, CallResults, ParticleParameters};
+use futures::{future::BoxFuture, FutureExt};
+use itertools::Itertools;
+
+use aquamarine::{AquaRuntime, ParticleEffects};
+use fluence_keypair::KeyPair;
+use fluence_libp2p::PeerId;
 
 pub struct EasyVM {
     delay: Option<Duration>,
@@ -39,12 +40,14 @@ impl AquaRuntime for EasyVM {
         futures::future::ok(EasyVM { delay }).boxed()
     }
 
-    fn into_effects(outcome: Result<AVMOutcome, Self::Error>, mut p: Particle) -> ParticleEffects {
+    fn into_effects(
+        outcome: Result<AVMOutcome, Self::Error>,
+        _particle_id: String,
+    ) -> ParticleEffects {
         let outcome = outcome.unwrap();
-        p.data = outcome.data;
 
         ParticleEffects {
-            particle: p,
+            new_data: outcome.data,
             next_peers: outcome
                 .next_peer_pks
                 .iter()
@@ -56,10 +59,11 @@ impl AquaRuntime for EasyVM {
 
     fn call(
         &mut self,
-        script: String,
+        aqua: String,
         data: Vec<u8>,
-        particle: ParticleParameters,
+        particle: ParticleParameters<'_>,
         _call_results: CallResults,
+        _key_pair: &KeyPair,
     ) -> Result<AVMOutcome, Self::Error> {
         if let Some(delay) = self.delay {
             std::thread::sleep(delay);
@@ -68,7 +72,7 @@ impl AquaRuntime for EasyVM {
         // if the script starts with '!', then emulate routing logic
         // that allows to avoid using real AVM, but still
         // describe complex topologies
-        let (next_peer, data) = if script.starts_with('!') {
+        let (next_peer, data) = if aqua.starts_with('!') {
             // data contains peer ids separated by comma
             let next_peers = String::from_utf8_lossy(&data);
             let mut next_peers = next_peers.split(',');

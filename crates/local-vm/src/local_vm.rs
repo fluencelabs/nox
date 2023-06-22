@@ -27,6 +27,7 @@ use serde_json::Value as JValue;
 
 use air_interpreter_fs::{air_interpreter_path, write_default_air_interpreter};
 use aquamarine::{DataStoreError, ParticleDataStore};
+use fluence_keypair::KeyPair;
 use fs_utils::make_tmp_dir;
 use now_millis::now_ms;
 use particle_args::{Args, JError};
@@ -237,6 +238,7 @@ pub fn wrap_script(
     script
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn make_particle(
     peer_id: PeerId,
     service_in: &HashMap<String, JValue>,
@@ -245,6 +247,7 @@ pub fn make_particle(
     local_vm: &mut AVM<DataStoreError>,
     generated: bool,
     particle_ttl: Duration,
+    key_pair: &KeyPair,
 ) -> Particle {
     let script = wrap_script(script, service_in, relay, generated, None);
 
@@ -268,7 +271,13 @@ pub fn make_particle(
             call_requests,
             ..
         } = local_vm
-            .call(script.clone(), particle_data, particle, call_results)
+            .call(
+                script.clone(),
+                particle_data,
+                particle,
+                call_results,
+                key_pair,
+            )
             .expect("execute & make particle");
 
         particle_data = data;
@@ -301,6 +310,7 @@ pub fn read_args(
     particle: Particle,
     peer_id: PeerId,
     local_vm: &mut AVM<DataStoreError>,
+    key_pair: &KeyPair,
 ) -> Option<Result<Vec<JValue>, Vec<JValue>>> {
     let mut call_results: CallResults = <_>::default();
     let mut particle_data = particle.data;
@@ -317,7 +327,13 @@ pub fn read_args(
             call_requests,
             ..
         } = local_vm
-            .call(&particle.script, particle_data, params, call_results)
+            .call(
+                &particle.script,
+                particle_data,
+                params,
+                call_results,
+                key_pair,
+            )
             .expect("execute & make particle");
 
         particle_data = data;
