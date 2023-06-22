@@ -58,6 +58,8 @@ jobs:
               CC_aarch64_unknown_linux_gnu: aarch64-linux-gnu-gcc
               CXX_aarch64_unknown_linux_gnu: aarch64-linux-gnu-g++
 
+    env: ${{ matrix.env }}
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
