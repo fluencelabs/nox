@@ -148,3 +148,6 @@ jobs:
             "sha256": "${{ needs.upload.outputs.sha256_aarch64 }}"
           }
         }
+
+    secrets:
+      token: ${{ secrets.FLUENCEBOT_RELEASE_PLEASE_PAT }}
