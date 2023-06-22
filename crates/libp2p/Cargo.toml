@@ -10,6 +10,7 @@ tokio = ["dep:tokio"]
 [dependencies]
 libp2p = { workspace = true }
 libp2p-noise = { workspace = true }
+libp2p-mplex = { workspace = true }
 multihash = { workspace = true, features = ["serde-codec"] }
 futures = { workspace = true }
 futures-util = "0.3.28"

@@ -21,7 +21,6 @@ use libp2p::core::muxing::StreamMuxerBox;
 use libp2p::core::transport::{Boxed, MemoryTransport};
 use libp2p::core::Multiaddr;
 use libp2p::dns::TokioDnsConfig;
-use libp2p::noise;
 use libp2p::tcp::Transport as TcpTransport;
 use libp2p::tcp::{tokio::Tcp as TokioTcp, Config as GenTcpConfig};
 use libp2p::{core, identity::Keypair, PeerId, Transport as NetworkTransport};
@@ -74,23 +73,20 @@ where
     T::Error: Send + Unpin + Sync + 'static,
 {
     let multiplex = {
-        let mut mplex = libp2p::mplex::MplexConfig::default();
+        let mut mplex = libp2p_mplex::MplexConfig::default();
         mplex.set_max_num_streams(1024 * 1024);
 
-        let mut yamux = libp2p::yamux::YamuxConfig::default();
+        let mut yamux = libp2p::yamux::Config::default();
         yamux.set_max_num_streams(1024 * 1024);
 
         core::upgrade::SelectUpgrade::new(yamux, mplex)
     };
 
-    let keys = noise::Keypair::<noise::X25519Spec>::new()
-        .into_authentic(key_pair)
-        .expect("create noise keypair");
-    let auth = libp2p::noise::NoiseConfig::xx(keys);
+    let auth_config = libp2p::noise::Config::new(&key_pair).expect("create noise keypair");
 
     transport
         .upgrade(core::upgrade::Version::V1)
-        .authenticate(auth.into_authenticated())
+        .authenticate(auth_config)
         .multiplex(multiplex)
         .timeout(transport_timeout)
         .boxed()

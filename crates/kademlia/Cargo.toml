@@ -13,7 +13,7 @@ server-config = { workspace = true }
 fluence-keypair = { workspace = true }
 
 libp2p = { workspace = true }
-libp2p-identity = { workspace = true, features = ["multihash"] }
+libp2p-identity = { workspace = true }
 libp2p-metrics = { workspace = true, features = ["kad"] }
 prometheus-client = { workspace = true }
 multihash = { workspace = true }
