@@ -23,7 +23,7 @@ use std::{collections::HashMap, time::Duration};
 use avm_server::{AVMConfig, AVMOutcome, CallResults, CallServiceResult, ParticleParameters, AVM};
 use fstrings::f;
 use libp2p::PeerId;
-use serde_json::Value as JValue;
+use serde_json::{json, Value as JValue};
 
 use air_interpreter_fs::{air_interpreter_path, write_default_air_interpreter};
 use aquamarine::{DataStoreError, ParticleDataStore};
@@ -123,6 +123,14 @@ pub fn client_functions(data: &HashMap<String, JValue>, args: Args) -> ClientFun
             outcome: FunctionOutcome::Empty,
             returned: None,
         },
+        ("run-console", "print") => {
+            println!("run-console: {}", json!(args.function_args));
+            log::info!("run-console: {}", json!(args.function_args));
+            ClientFunctionsResult {
+                outcome: FunctionOutcome::Empty,
+                returned: None,
+            }
+        }
         (service, function) => {
             let error = f!("service not found: {service} {function}");
             println!("{error}");
