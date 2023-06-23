@@ -145,7 +145,7 @@ impl Deployer {
 
     async fn deploy_decider(&self) -> eyre::Result<()> {
         let decider_distro = Self::get_decider_distro(self.config.decider.clone());
-        self.deploy_system_spell(decider_distro).await?;
+        self.deploy_system_spell_common(decider_distro).await?;
         Ok(())
     }
 
@@ -312,16 +312,31 @@ impl Deployer {
         }
     }
 
-    async fn deploy_system_spell(&self, spell_distro: SpellDistro) -> eyre::Result<ServiceStatus> {
+    async fn deploy_system_spell_common(
+        &self,
+        spell_distro: SpellDistro,
+    ) -> eyre::Result<ServiceStatus> {
         let spell_name = spell_distro.name.clone();
         match self.find_same_spell(&spell_distro) {
             ServiceUpdateStatus::NeedUpdate(spell_id) => {
                 tracing::debug!(
                     spell_name,
                     spell_id,
-                    "found existing spell that needs to be updated; will remove tha old spell and deploy a new one",
+                    "found existing spell that needs to be updated; will try to update script, trigger config and init data",
                 );
-                self.clean_old_spell(&spell_name, spell_id).await;
+                if let Err(err) = self.update_spell(&spell_distro, &spell_id).await {
+                    tracing::warn!(
+                        spell_id,
+                        spell_name,
+                        "can't update a spell (will remove the old spell and deploy a new one): {err}"
+                    );
+                    self.clean_old_spell(&spell_name, spell_id).await;
+                    let spell_id = self.deploy_spell_common(spell_distro).await?;
+                    tracing::info!(spell_name, spell_id, "redeployed a system spell",);
+                    return Ok(ServiceStatus::Created(spell_id));
+                }
+                tracing::info!(spell_name, spell_id, "updated a system spell");
+                Ok(ServiceStatus::Existing(spell_id))
             }
             ServiceUpdateStatus::NoUpdate(spell_id) => {
                 tracing::debug!(
@@ -329,13 +344,67 @@ impl Deployer {
                     spell_id,
                     "found existing spell that don't need to be updated; will not update",
                 );
-                return Ok(ServiceStatus::Existing(spell_id));
+                Ok(ServiceStatus::Existing(spell_id))
             }
-            ServiceUpdateStatus::NotFound => {}
+            ServiceUpdateStatus::NotFound => {
+                let spell_id = self.deploy_spell_common(spell_distro).await?;
+                tracing::info!(spell_name, spell_id, "deployed a system spell",);
+                Ok(ServiceStatus::Created(spell_id))
+            }
         }
-        let spell_id = self.deploy_spell_common(spell_distro).await?;
-        tracing::info!(spell_name, spell_id, "deployed a system spell",);
-        Ok(ServiceStatus::Created(spell_id))
+    }
+
+    // Updating spell is:
+    // - updating script
+    // - updating trigger config
+    // - updating kv
+    async fn update_spell(&self, spell_distro: &SpellDistro, spell_id: &str) -> eyre::Result<()> {
+        // stop spell
+        let result = self
+            .spell_event_bus_api
+            .unsubscribe(spell_id.to_string())
+            .await;
+        if let Err(err) = result {
+            tracing::warn!(
+                spell_id,
+                "failed to unsubscribe spell (will try to update the spell nevertheless): {err}"
+            );
+        }
+
+        // update spell
+        self.call_service(
+            spell_id,
+            "set_script_source_to_file",
+            vec![json!(spell_distro.air)],
+        )?;
+
+        let trigger_config = spell_event_bus::api::from_user_config(&spell_distro.trigger_config)?;
+        self.call_service(
+            spell_id,
+            "set_trigger_config",
+            vec![json!(spell_distro.trigger_config)],
+        )?;
+
+        // What to do with decider, who updates its from_block from the first run?
+        // To we need to update "counter" too.clone(.clone(.clone()))?
+        // Let's save old_counter
+        self.call_service(
+            spell_id,
+            "set_json_fields",
+            vec![json!(json!(spell_distro.kv).to_string())],
+        )?;
+
+        // resubscribe spell
+        if let Some(trigger_config) = trigger_config {
+            let result = self
+                .spell_event_bus_api
+                .subscribe(spell_id.to_string(), trigger_config)
+                .await;
+            if let Err(err) = result {
+                return Err(eyre!("{err}"));
+            }
+        }
+        Ok(())
     }
 
     async fn clean_old_spell(&self, spell_name: &str, spell_id: String) {
