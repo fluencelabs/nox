@@ -69,6 +69,7 @@ jobs:
     uses: fluencelabs/js-client/.github/workflows/tests.yml@FLU-353
     with:
       nox-image: "${{ needs.nox-snapshot.outputs.nox-image }}"
+      ref: FLU-353
 
   aqua:
     needs:
@@ -83,6 +84,7 @@ jobs:
     uses: fluencelabs/registry/.github/workflows/tests.yml@FLU-353
     with:
       nox-image: "${{ needs.nox-snapshot.outputs.nox-image }}"
+      ref: FLU-353
 
   flox:
     needs:
@@ -90,3 +92,4 @@ jobs:
     uses: fluencelabs/flox/.github/workflows/tests.yml@FLU-353
     with:
       nox-image: "${{ needs.nox-snapshot.outputs.nox-image }}"
+      ref: FLU-353
