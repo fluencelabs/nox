@@ -153,7 +153,8 @@ impl Deployer {
         let (registry_distro, registry_spell_distro) =
             Self::get_registry_distro(self.config.registry.clone());
         self.deploy_service_common(registry_distro)?;
-        self.deploy_system_spell(registry_spell_distro).await?;
+        self.deploy_system_spell_common(registry_spell_distro)
+            .await?;
         Ok(())
     }
 
