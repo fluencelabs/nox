@@ -145,7 +145,7 @@ impl Deployer {
 
     async fn deploy_decider(&self) -> eyre::Result<()> {
         let decider_distro = Self::get_decider_distro(self.config.decider.clone());
-        self.deploy_system_spell_common(decider_distro).await?;
+        self.deploy_system_spell(decider_distro).await?;
         Ok(())
     }
 
@@ -153,8 +153,7 @@ impl Deployer {
         let (registry_distro, registry_spell_distro) =
             Self::get_registry_distro(self.config.registry.clone());
         self.deploy_service_common(registry_distro)?;
-        self.deploy_system_spell_common(registry_spell_distro)
-            .await?;
+        self.deploy_system_spell(registry_spell_distro).await?;
         Ok(())
     }
 
@@ -313,10 +312,7 @@ impl Deployer {
         }
     }
 
-    async fn deploy_system_spell_common(
-        &self,
-        spell_distro: SpellDistro,
-    ) -> eyre::Result<ServiceStatus> {
+    async fn deploy_system_spell(&self, spell_distro: SpellDistro) -> eyre::Result<ServiceStatus> {
         let spell_name = spell_distro.name.clone();
         match self.find_same_spell(&spell_distro) {
             ServiceUpdateStatus::NeedUpdate(spell_id) => {
@@ -325,19 +321,23 @@ impl Deployer {
                     spell_id,
                     "found existing spell that needs to be updated; will try to update script, trigger config and init data",
                 );
-                if let Err(err) = self.update_spell(&spell_distro, &spell_id).await {
-                    tracing::warn!(
-                        spell_id,
-                        spell_name,
-                        "can't update a spell (will remove the old spell and deploy a new one): {err}"
-                    );
-                    self.clean_old_spell(&spell_name, spell_id).await;
-                    let spell_id = self.deploy_spell_common(spell_distro).await?;
-                    tracing::info!(spell_name, spell_id, "redeployed a system spell",);
-                    return Ok(ServiceStatus::Created(spell_id));
+                match self.update_spell(&spell_distro, &spell_id).await {
+                    Err(err) => {
+                        tracing::warn!(
+                            spell_id,
+                            spell_name,
+                            "can't update a spell (will redeploy it): {err}"
+                        );
+                        self.clean_old_spell(&spell_name, spell_id).await;
+                        let spell_id = self.deploy_spell_common(spell_distro).await?;
+                        tracing::info!(spell_name, spell_id, "redeployed a system spell",);
+                        Ok(ServiceStatus::Created(spell_id))
+                    }
+                    Ok(()) => {
+                        tracing::info!(spell_name, spell_id, "updated a system spell");
+                        Ok(ServiceStatus::Existing(spell_id))
+                    }
                 }
-                tracing::info!(spell_name, spell_id, "updated a system spell");
-                Ok(ServiceStatus::Existing(spell_id))
             }
             ServiceUpdateStatus::NoUpdate(spell_id) => {
                 tracing::debug!(
