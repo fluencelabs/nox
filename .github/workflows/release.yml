@@ -85,7 +85,7 @@ jobs:
       version: ${{ needs.release-please.outputs.version }}
       update-distro: ${{ needs.release-please.outputs.release-created }}
     secrets:
-      PERSONAL_TOKEN: ${{ secrets.PERSONAL_TOKEN }}
+      PERSONAL_TOKEN: ${{ secrets.FLUENCEBOT_RELEASE_PLEASE_PAT }}
 
   slack:
     if: always()

@@ -15,6 +15,10 @@ on:
         type: string
         description: "whether to update nox-distro"
         required: true
+    secrets:
+      PERSONAL_TOKEN:
+        description: "A token passed from the caller workflow"
+        required: true
   workflow_call:
     inputs:
       tag:
@@ -135,7 +139,7 @@ jobs:
     needs: upload
     uses: fluencelabs/nox-distro/.github/workflows/update_fluence.yml@main
     secrets:
-      token: ${{ secrets.FLUENCEBOT_RELEASE_PLEASE_PAT }}
+      token: ${{ secrets.PERSONAL_TOKEN }}
     with:
       version: "${{ inputs.version }}"
       content: |
