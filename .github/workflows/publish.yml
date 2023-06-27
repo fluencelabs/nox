@@ -1,24 +1,6 @@
 name: "Publish nox"
 
 on:
-  workflow_dispatch:
-    inputs:
-      tag:
-        type: string
-        description: "tag to publish"
-        required: true
-      version:
-        type: string
-        description: "nox version"
-        required: true
-      update-distro:
-        type: string
-        description: "whether to update nox-distro"
-        required: true
-    secrets:
-      PERSONAL_TOKEN:
-        description: "A token passed from the caller workflow"
-        required: true
   workflow_call:
     inputs:
       tag:
