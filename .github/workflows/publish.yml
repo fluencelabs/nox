@@ -1,20 +1,6 @@
 name: "Publish nox"
 
 on:
-  workflow_dispatch:
-    inputs:
-      tag:
-        type: string
-        description: "tag to publish"
-        required: true
-      version:
-        type: string
-        description: "nox version"
-        required: true
-      update-distro:
-        type: string
-        description: "whether to update nox-distro"
-        required: true
   workflow_call:
     inputs:
       tag:
@@ -134,8 +120,11 @@ jobs:
     if: inputs.update-distro == 'true'
     needs: upload
     uses: fluencelabs/nox-distro/.github/workflows/update_fluence.yml@main
+    secrets:
+      token: ${{ secrets.PERSONAL_TOKEN }}
     with:
-      version: |
+      version: "${{ inputs.version }}"
+      content: |
         {
           "x86_64": {
             "version": "${{ inputs.version }}",
@@ -148,6 +137,3 @@ jobs:
             "sha256": "${{ needs.upload.outputs.sha256_aarch64 }}"
           }
         }
-
-    secrets:
-      token: ${{ secrets.FLUENCEBOT_RELEASE_PLEASE_PAT }}
