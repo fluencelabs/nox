@@ -134,8 +134,11 @@ jobs:
     if: inputs.update-distro == 'true'
     needs: upload
     uses: fluencelabs/nox-distro/.github/workflows/update_fluence.yml@main
+    secrets:
+      token: ${{ secrets.FLUENCEBOT_RELEASE_PLEASE_PAT }}
     with:
-      version: |
+      version: "${{ inputs.version }}"
+      content: |
         {
           "x86_64": {
             "version": "${{ inputs.version }}",
@@ -148,6 +151,3 @@ jobs:
             "sha256": "${{ needs.upload.outputs.sha256_aarch64 }}"
           }
         }
-
-    secrets:
-      token: ${{ secrets.FLUENCEBOT_RELEASE_PLEASE_PAT }}
