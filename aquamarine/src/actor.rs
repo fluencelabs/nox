@@ -22,6 +22,7 @@ use std::{
 use fluence_keypair::KeyPair;
 use futures::future::BoxFuture;
 use futures::FutureExt;
+use tracing::{Instrument};
 
 use fluence_libp2p::PeerId;
 use particle_execution::{ParticleFunctionStatic, ServiceFunction};
@@ -53,6 +54,7 @@ pub struct Actor<RT, F> {
     /// It's either `host_peer_id` or local worker peer id
     current_peer_id: PeerId,
     key_pair: KeyPair,
+    deal_id: Option<String>,
 }
 
 impl<RT, F> Actor<RT, F>
@@ -65,6 +67,7 @@ where
         functions: Functions<F>,
         current_peer_id: PeerId,
         key_pair: KeyPair,
+        deal_id: Option<String>,
     ) -> Self {
         Self {
             deadline: Deadline::from(particle),
@@ -84,6 +87,7 @@ where
             },
             current_peer_id,
             key_pair,
+            deal_id,
         }
     }
 
@@ -125,6 +129,10 @@ where
         cx: &mut Context<'_>,
     ) -> Poll<FutResult<(usize, Option<RT>), RoutingEffects, InterpretationStats>> {
         use Poll::Ready;
+
+        let span = tracing::info_span!("Actor", deal_id = self.deal_id);
+
+        let _aa = span.enter();
 
         self.waker = Some(cx.waker().clone());
 
@@ -195,6 +203,8 @@ where
         // TODO: get rid of this clone by recovering key_pair after `vm.execute` (not trivial to implement)
         let key_pair = self.key_pair.clone();
         // TODO: add timeout for execution https://github.com/fluencelabs/fluence/issues/1212
+        let deal_id = self.deal_id.clone();
+        let span = tracing::info_span!("Actor", deal_id = deal_id);
         self.future = Some(
             async move {
                 let res = vm
@@ -207,6 +217,7 @@ where
                 };
                 (reusables, res.effects, res.stats)
             }
+            .instrument(span)
             .boxed(),
         );
         self.wake();

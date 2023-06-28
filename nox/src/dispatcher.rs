@@ -90,14 +90,18 @@ impl Dispatcher {
         let metrics = self.metrics;
         particle_stream
             .for_each_concurrent(parallelism, move |particle| {
+                let span = tracing::span!(tracing::Level::INFO, "Dispatcher received particle", particle_id = particle.id);
+
                 let aquamarine = aquamarine.clone();
                 let metrics = metrics.clone();
+
+                let _guard = span.enter();
 
                 if particle.is_expired() {
                     if let Some(m) = metrics {
                         m.particle_expired(&particle.id);
                     }
-                    tracing::info!(particle_id = particle.id, "Particle is expired");
+                    tracing::info!("Particle is expired");
                     return async {}.boxed();
                 }
 
