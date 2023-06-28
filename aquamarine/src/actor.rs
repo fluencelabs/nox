@@ -131,7 +131,6 @@ where
     ) -> Poll<FutResult<(usize, Option<RT>), RoutingEffects, InterpretationStats>> {
         use Poll::Ready;
 
-
         self.waker = Some(cx.waker().clone());
 
         self.functions.poll(cx);
@@ -140,7 +139,6 @@ where
         if let Some(Ready((reusables, effects, stats))) =
             self.future.as_mut().map(|f| f.poll_unpin(cx))
         {
-
             let _entered = self.span.enter();
 
             self.future.take();
