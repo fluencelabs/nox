@@ -1804,7 +1804,7 @@ async fn test_spell_list() {
         script,
         config.clone(),
         json!({}),
-        Some("worker1".to_string()),
+        Some("deal_id_1".to_string()),
     )
     .await;
 
@@ -1813,7 +1813,7 @@ async fn test_spell_list() {
         script,
         config.clone(),
         json!({}),
-        Some("worker1".to_string()),
+        Some("deal_id_1".to_string()),
     )
     .await;
 
@@ -1822,7 +1822,7 @@ async fn test_spell_list() {
         script,
         config.clone(),
         json!({}),
-        Some("worker2".to_string()),
+        Some("deal_id_2".to_string()),
     )
     .await;
 
