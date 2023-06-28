@@ -15,15 +15,15 @@
  */
 
 use crate::error::ServiceError;
-use crate::{Result, VIRTUAL_PARTICLE_VAULT_PREFIX};
+use crate::Result;
 
 use fluence_app_service::{
     AppService, AppServiceConfig, MarineConfig, MarineWASIConfig, ModuleDescriptor,
 };
+use particle_execution::VIRTUAL_PARTICLE_VAULT_PREFIX;
 use particle_modules::ModuleRepository;
 use peer_metrics::ServicesMetrics;
 use server_config::ServicesConfig;
-
 use std::path::Path;
 
 #[allow(clippy::too_many_arguments)]

@@ -30,7 +30,7 @@ use serde_json::{json, Value as JValue};
 use fluence_libp2p::{peerid_serializer, PeerId};
 use now_millis::now_ms;
 use particle_args::{Args, JError};
-use particle_execution::{FunctionOutcome, ParticleParams, ParticleVault, VaultError};
+use particle_execution::{FunctionOutcome, ParticleParams, ParticleVault};
 use particle_modules::ModuleRepository;
 use peer_metrics::{
     ServiceCallStats, ServiceMemoryStat, ServiceType as MetricServiceType, ServicesMetrics,
@@ -166,7 +166,7 @@ pub struct VmDescriptor<'a> {
 pub struct ParticleAppServices {
     config: ServicesConfig,
     // TODO: move vault to Plumber or Actor
-    vault: ParticleVault,
+    pub vault: ParticleVault,
     services: Arc<RwLock<Services>>,
     modules: ModuleRepository,
     aliases: Arc<RwLock<Aliases>>,
@@ -474,8 +474,9 @@ impl ParticleAppServices {
 
         // TODO: move particle vault creation to aquamarine::particle_functions
         if create_vault {
-            self.create_vault(&particle.id)?;
+            self.vault.create(&particle.id)?;
         }
+
         let params = CallParameters {
             host_id: worker_id.to_string(),
             particle_id: particle.id,
@@ -934,10 +935,6 @@ impl ParticleAppServices {
         }
 
         Ok(replaced)
-    }
-
-    fn create_vault(&self, particle_id: &str) -> Result<(), VaultError> {
-        self.vault.create(particle_id)
     }
 
     fn get_service_type(&self, service: &Service, worker_id: &PeerId) -> MetricServiceType {
