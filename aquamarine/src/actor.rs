@@ -22,7 +22,7 @@ use std::{
 use fluence_keypair::KeyPair;
 use futures::future::BoxFuture;
 use futures::FutureExt;
-use tracing::{Instrument};
+use tracing::Instrument;
 
 use fluence_libp2p::PeerId;
 use particle_execution::{ParticleFunctionStatic, ServiceFunction};
@@ -132,7 +132,7 @@ where
 
         let span = tracing::info_span!("Actor", deal_id = self.deal_id);
 
-        let _aa = span.enter();
+        let _entered = span.enter();
 
         self.waker = Some(cx.waker().clone());
 
