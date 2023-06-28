@@ -27,7 +27,7 @@ use humantime::format_duration as pretty;
 use serde_json::json;
 use serde_json::Value as JValue;
 use tokio::runtime::Handle;
-use tracing::{Instrument};
+use tracing::Instrument;
 
 use particle_args::{Args, JError};
 use particle_execution::{
