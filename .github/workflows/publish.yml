@@ -1,20 +1,6 @@
 name: "Publish nox"
 
 on:
-  workflow_dispatch:
-    inputs:
-      tag:
-        type: string
-        description: "tag to publish"
-        required: true
-      version:
-        type: string
-        description: "nox version"
-        required: true
-      update-distro:
-        type: string
-        description: "whether to update nox-distro"
-        required: true
   workflow_call:
     inputs:
       tag:
@@ -36,6 +22,7 @@ on:
 
 jobs:
   nox:
+    name: "Build nox (${{ matrix.arch }})"
     runs-on: builder
     timeout-minutes: 60
 
@@ -43,13 +30,28 @@ jobs:
       contents: write
       id-token: write
 
-    outputs:
-      sha256_x86_64: ${{ steps.sha.outputs.sha256_x86_64 }}
-      sha256_aarch64: ${{ steps.sha.outputs.sha256_aarch64 }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86_64
+            env:
+              RUSTFLAGS: "-D warnings --cfg tokio_unstable"
+          - arch: aarch64
+            env:
+              RUSTFLAGS: "-D warnings --cfg tokio_unstable"
+              CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
+              CC_aarch64_unknown_linux_gnu: aarch64-linux-gnu-gcc
+              CXX_aarch64_unknown_linux_gnu: aarch64-linux-gnu-g++
+
+    env: ${{ matrix.env }}
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
+
+      - name: Setup Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1.4
 
       - name: Import secrets
         uses: hashicorp/vault-action@v2.5.0
@@ -64,20 +66,41 @@ jobs:
           secrets: |
             kv/crates.io/fluencebot token | CARGO_REGISTRY_TOKEN
 
-      - name: Setup Rust toolchain
-        uses: actions-rust-lang/setup-rust-toolchain@v1
+      - name: Run cargo build
+        run: cargo build --release -p nox --target ${{ matrix.arch }}-unknown-linux-gnu
 
-      - name: Build nox binary
-        env:
-          RUSTFLAGS: "--cfg tokio_unstable"
-        run: cargo build --release -p nox
+      - name: Upload nox binary
+        uses: actions/upload-artifact@v3
+        with:
+          name: nox-${{ matrix.arch }}
+          path: target/${{ matrix.arch }}-unknown-linux-gnu/release/nox
+
+  upload:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    needs: nox
+
+    permissions:
+      contents: write
+      id-token: write
+
+    outputs:
+      sha256_x86_64: ${{ steps.sha.outputs.sha256_x86_64 }}
+      sha256_aarch64: ${{ steps.sha.outputs.sha256_aarch64 }}
+
+    steps:
+      - name: Download nox binaries
+        uses: actions/download-artifact@v3
+        with:
+          path: binaries
 
       - name: Calculate SHA256
         id: sha
         run: |
           # Calculate sha256
           for arch in x86_64 aarch64; do
-            mv ./target/release/nox-${arch}/nox nox-${arch}
+            mv binaries/nox-${arch}/nox nox-${arch}
             du -hs nox-${arch}
             sha256sum nox-${arch} | tee >> nox_SHA256_SUMS
             sha=($(sha256sum nox-${arch}))
@@ -95,19 +118,22 @@ jobs:
 
   distro:
     if: inputs.update-distro == 'true'
-    needs: nox
+    needs: upload
     uses: fluencelabs/nox-distro/.github/workflows/update_fluence.yml@main
+    secrets:
+      token: ${{ secrets.PERSONAL_TOKEN }}
     with:
-      version: |
+      version: "${{ inputs.version }}"
+      content: |
         {
           "x86_64": {
             "version": "${{ inputs.version }}",
             "url": "https://github.com/fluencelabs/nox/releases/download/${{ inputs.tag }}/nox-x86_64",
-            "sha256": "${{ needs.nox.outputs.sha256_x86_64 }}"
+            "sha256": "${{ needs.upload.outputs.sha256_x86_64 }}"
           },
           "aarch64": {
             "version": "${{ inputs.version }}",
             "url": "https://github.com/fluencelabs/nox/releases/download/${{ inputs.tag }}/nox-aarch64",
-            "sha256": "${{ needs.nox.outputs.sha256_aarch64 }}"
+            "sha256": "${{ needs.upload.outputs.sha256_aarch64 }}"
           }
         }

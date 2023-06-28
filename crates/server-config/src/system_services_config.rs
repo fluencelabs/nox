@@ -57,6 +57,8 @@ pub struct SystemServicesConfig {
     pub aqua_ipfs: AquaIpfsConfig,
     #[serde(default)]
     pub decider: DeciderConfig,
+    #[serde(default)]
+    pub registry: RegistryConfig,
 }
 
 impl Default for SystemServicesConfig {
@@ -65,6 +67,7 @@ impl Default for SystemServicesConfig {
             enable: default_system_services(),
             aqua_ipfs: Default::default(),
             decider: Default::default(),
+            registry: Default::default(),
         }
     }
 }
@@ -111,6 +114,29 @@ impl Default for DeciderConfig {
             network_api_endpoint: default_deal_network_api_endpoint(),
             contract_address_hex: default_deal_contract_address_hex(),
             contract_block_hex: default_deal_contract_block_hex(),
+        }
+    }
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug)]
+pub struct RegistryConfig {
+    #[serde(default = "default_registry_spell_period_sec")]
+    pub registry_period_sec: u32,
+    #[serde(default = "default_registry_expired_spell_period_sec")]
+    pub expired_period_sec: u32,
+    #[serde(default = "default_registry_renew_spell_period_sec")]
+    pub renew_period_sec: u32,
+    #[serde(default = "default_registry_replicate_spell_period_sec")]
+    pub replicate_period_sec: u32,
+}
+
+impl Default for RegistryConfig {
+    fn default() -> Self {
+        Self {
+            registry_period_sec: default_registry_spell_period_sec(),
+            expired_period_sec: default_registry_expired_spell_period_sec(),
+            renew_period_sec: default_registry_renew_spell_period_sec(),
+            replicate_period_sec: default_registry_replicate_spell_period_sec(),
         }
     }
 }

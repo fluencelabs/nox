@@ -152,9 +152,9 @@ dependencies = [
 
 [[package]]
 name = "air-interpreter-interface"
-version = "0.13.0"
+version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0596e75dc1f4622c945e2e0a3d29802581642ee018595adfaf02803df72974b2"
+checksum = "1da4da8dd8544549512050b9ec7381a868ffdc22c1f0ffd48ee964aa11b5b13b"
 dependencies = [
  "fluence-it-types",
  "marine-rs-sdk",
@@ -164,18 +164,18 @@ dependencies = [
 
 [[package]]
 name = "air-interpreter-wasm"
-version = "0.38.0"
+version = "0.40.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8cca8dfe8e6bbc279fd33e29d719136dc02a0c107454f9f524c6f261edbea22f"
+checksum = "6bbd93603551aed5643678ebab24a6e7296f8637dcc91b20141ff0c82694fb72"
 dependencies = [
  "built 0.6.0",
 ]
 
 [[package]]
 name = "air-utils"
-version = "0.1.0"
+version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "19df2ec58bdb9160ad02be01fa97b1d00342821d821e57b6b0694f1c35be4cb4"
+checksum = "27e5902caa8fc602834c5fbca2192e799e3d98f42e38b863cb22302a14b63a89"
 
 [[package]]
 name = "ambient-authority"
@@ -252,9 +252,9 @@ dependencies = [
 
 [[package]]
 name = "anyhow"
-version = "1.0.70"
+version = "1.0.71"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7de8ce5e0f9f8d88245311066a578d72b7af3e7088f32783804676302df237e4"
+checksum = "9c7d0618f0e0b7e8ff11427422b64564d5fb0be1940354bfe2e0529b18a9d9b8"
 
 [[package]]
 name = "aqua-ipfs-distro"
@@ -520,9 +520,9 @@ checksum = "d468802bab17cbc0cc575e9b053f41e72aa36bfa6b7f55e3529ffa43161b97fa"
 
 [[package]]
 name = "avm-data-store"
-version = "0.6.1"
+version = "0.6.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1f55c80916ed1390da25aa784e64f89f95dd252ba5b9f06905712a0033f034e5"
+checksum = "5694d1aef5090284d1f80ac809fc6cb43582dd30dd6d1089234b05fbcb987cdf"
 dependencies = [
  "avm-interface",
  "serde",
@@ -531,9 +531,9 @@ dependencies = [
 
 [[package]]
 name = "avm-interface"
-version = "0.28.3"
+version = "0.28.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cb644a13853826946f8fa3803d5aafd039b745ed71f36bb283b23baa84d91f9f"
+checksum = "bee26536a5bd4fac970cca43abfa029ab38ed78b940f12397b57ce9c5c0c0069"
 dependencies = [
  "air-interpreter-interface",
  "air-utils",
@@ -548,15 +548,16 @@ dependencies = [
 
 [[package]]
 name = "avm-server"
-version = "0.31.0"
+version = "0.32.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "06ce846a4aa224cbf249d0cf22fbed4a08dec113f581ebee2d95f68a60199048"
+checksum = "692354ef27feee02da5fd49f80c045e4c54f0d3de19949551b3b6395cc5c4d26"
 dependencies = [
  "air-interpreter-interface",
  "air-utils",
  "avm-data-store",
  "avm-interface",
  "eyre",
+ "fluence-keypair",
  "log",
  "maplit",
  "marine-runtime",
@@ -3075,6 +3076,7 @@ version = "0.1.0"
 dependencies = [
  "bs58",
  "control-macro",
+ "fluence-keypair",
  "fluence-libp2p",
  "futures",
  "futures-timer",
@@ -3748,6 +3750,7 @@ dependencies = [
  "air-interpreter-wasm",
  "aquamarine",
  "avm-server",
+ "fluence-keypair",
  "fs-utils",
  "fstrings",
  "ivalue-utils",
@@ -4408,7 +4411,7 @@ version = "0.1.0"
 
 [[package]]
 name = "nox"
-version = "0.12.0"
+version = "0.13.1"
 dependencies = [
  "air-interpreter-fs",
  "air-interpreter-wasm",
@@ -5624,12 +5627,13 @@ checksum = "a5996294f19bd3aae0453a862ad728f60e6600695733dd5df01da90c54363a3c"
 
 [[package]]
 name = "registry-distro"
-version = "0.8.5"
+version = "0.8.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c85639be0ec692599f96709399f7441fa7a53034909081239624810b56d44cec"
+checksum = "a956d9bd2f29fcfedd615c94c7febddb19f31e9a93790dada3da84348a6ad58b"
 dependencies = [
  "built 0.5.2",
  "maplit",
+ "serde_json",
 ]
 
 [[package]]
@@ -5931,9 +5935,9 @@ dependencies = [
 
 [[package]]
 name = "serde"
-version = "1.0.160"
+version = "1.0.164"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bb2f3770c8bce3bcda7e149193a069a0f4365bda1fa5cd88e03bca26afc1216c"
+checksum = "9e8c8cf938e98f769bc164923b06dce91cea1751522f46f8466461af04c9027d"
 dependencies = [
  "serde_derive",
 ]
@@ -5958,9 +5962,9 @@ dependencies = [
 
 [[package]]
 name = "serde_derive"
-version = "1.0.160"
+version = "1.0.164"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "291a097c63d8497e00160b166a967a4a79c64f3facdd01cbd7502231688d77df"
+checksum = "d9735b638ccc51c28bf6914d90a2e9725b377144fc612c49a611fddd1b631d68"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -6912,6 +6916,7 @@ version = "0.1.0"
 dependencies = [
  "aquamarine",
  "avm-server",
+ "fluence-keypair",
  "fluence-libp2p",
  "futures",
  "itertools",
