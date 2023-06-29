@@ -21,7 +21,6 @@ use serde_json::json;
 
 use connected_client::ConnectedClient;
 use created_swarm::make_swarms;
-use log_utils::enable_logs;
 use service_modules::{load_module, AddBlueprint, Hash};
 use test_utils::{create_service, CreatedService};
 
@@ -221,7 +220,6 @@ async fn load_blueprint_from_vault() {
 
 #[tokio::test]
 async fn put_cat_vault() {
-    enable_logs();
     let swarms = make_swarms(1).await;
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
