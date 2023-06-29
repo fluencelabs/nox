@@ -1076,7 +1076,7 @@ where
             .vault
             .cat(&params.id, Path::new(&path))
             .map(JValue::String)
-            .map_err(|_| JError::new(format!("Error reading vault file `{}`", path)))
+            .map_err(|_| JError::new(format!("Error reading vault file `{path}`")))
     }
 }
 

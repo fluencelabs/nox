@@ -72,7 +72,7 @@ impl ParticleVault {
     }
 
     pub fn cat(&self, particle_id: &str, virtual_path: &Path) -> Result<String, VaultError> {
-        let real_path = self.to_real_path(&virtual_path, particle_id)?;
+        let real_path = self.to_real_path(virtual_path, particle_id)?;
 
         let contents = std::fs::read_to_string(real_path)
             .map_err(|e| VaultError::ReadVault(e, virtual_path.to_path_buf()))?;
