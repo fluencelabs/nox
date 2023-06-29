@@ -417,10 +417,13 @@ where
         path: &path::Path,
         particle_id: &str,
     ) -> Result<String, JError> {
-        self.services
-            .vault
-            .cat(particle_id, path)
-            .map_err(|_| JError::new(format!("Error reading script file `{}`", path.display())))
+        self.services.vault.cat(particle_id, path).map_err(|e| {
+            JError::new(format!(
+                "Error reading script file `{}`: {}",
+                path.display(),
+                e
+            ))
+        })
     }
 
     async fn remove_script(&self, args: Args, params: ParticleParams) -> Result<JValue, JError> {
