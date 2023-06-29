@@ -437,11 +437,12 @@ impl ConnectionPoolBehaviour {
         }
     }
 
-    fn on_listen_failure(&mut self, local_addr: &Multiaddr, send_back_addr: &Multiaddr) {
+    fn on_listen_failure<'a>(&mut self, event: ListenFailure<'a>) {
         log::warn!(
-            "Error accepting incoming connection from {} to our local address {}",
-            send_back_addr,
-            local_addr
+            "Error accepting incoming connection from {} to our local address {}: {:?}",
+            event.send_back_addr,
+            event.local_addr,
+            event.error
         );
     }
 
@@ -577,7 +578,7 @@ impl NetworkBehaviour for ConnectionPoolBehaviour {
                 self.on_dial_failure(event.peer_id, event.error);
             }
             FromSwarm::ListenFailure(event) => {
-                self.on_listen_failure(event.local_addr, event.send_back_addr);
+                self.on_listen_failure(event);
             }
             FromSwarm::NewListener(_) => {}
             FromSwarm::NewListenAddr(_) => {}
