@@ -203,8 +203,6 @@ async fn spell_error_handling_test() {
 
 #[tokio::test]
 async fn spell_args_test() {
-    enable_logs();
-
     let swarms = make_swarms(1).await;
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .await
@@ -1789,7 +1787,6 @@ async fn test_worker_list() {
 
 #[tokio::test]
 async fn test_spell_list() {
-    enable_logs();
     let swarms = make_swarms(1).await;
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .await

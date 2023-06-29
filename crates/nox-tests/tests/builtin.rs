@@ -845,8 +845,6 @@ async fn array_length() {
 
 #[tokio::test]
 async fn empty_array_slice() {
-    enable_logs();
-
     let result = exec_script(
         r#"(call relay ("array" "slice") [ empty_data sidx eidx ] result)"#,
         hashmap! {
