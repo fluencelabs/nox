@@ -17,6 +17,7 @@ use libp2p::identify::Config as IdentifyConfig;
 use libp2p::{
     identify::Behaviour as Identify,
     ping::{Behaviour as Ping, Config as PingConfig},
+    connection_limits::{Behaviour as ConnectionLimits},
     swarm::NetworkBehaviour,
 };
 use tokio::sync::mpsc;
@@ -33,6 +34,7 @@ use crate::connectivity::Connectivity;
 pub struct FluenceNetworkBehaviour {
     identify: Identify,
     ping: Ping,
+    connection_limits: ConnectionLimits,
     pub(crate) connection_pool: ConnectionPoolBehaviour,
     pub(crate) kademlia: Kademlia,
 }
@@ -59,9 +61,13 @@ impl FluenceNetworkBehaviour {
             cfg.connection_pool_metrics,
         );
 
+
+        let connection_limits = ConnectionLimits::new(cfg.connection_limits);
+
         let this = Self {
             kademlia,
             connection_pool,
+            connection_limits,
             identify,
             ping,
         };

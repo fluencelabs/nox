@@ -338,16 +338,14 @@ impl<RT: AquaRuntime> Node<RT> {
         Connectivity,
         mpsc::Receiver<Particle>,
     ) {
-        let connection_limits = network_config.connection_limits.clone();
         let (behaviour, connectivity, particle_stream) =
             FluenceNetworkBehaviour::new(network_config);
         let mut swarm = SwarmBuilder::with_tokio_executor(transport, behaviour, local_peer_id)
-            .connection_limits(connection_limits)
             .build();
 
         // Add external addresses to Swarm
         external_addresses.iter().cloned().for_each(|addr| {
-            Swarm::add_external_address(&mut swarm, addr, AddressScore::Finite(1));
+            Swarm::add_external_address(&mut swarm, addr);
         });
 
         (swarm, connectivity, particle_stream)
