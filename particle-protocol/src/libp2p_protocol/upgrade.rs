@@ -89,16 +89,15 @@ impl<OutProto: libp2p::swarm::handler::OutboundUpgradeSend, OutEvent> From<Proto
 // 100 Mb
 #[allow(clippy::identity_op)]
 const MAX_BUF_SIZE: usize = 100 * 1024 * 1024;
-const PROTOCOL_INFO: &[u8] = PROTOCOL_NAME.as_bytes();
 
 macro_rules! impl_upgrade_info {
     ($tname:ident) => {
         impl UpgradeInfo for $tname {
-            type Info = &'static [u8];
+            type Info = &'static str;
             type InfoIter = iter::Once<Self::Info>;
 
             fn protocol_info(&self) -> Self::InfoIter {
-                iter::once(PROTOCOL_INFO)
+                iter::once(PROTOCOL_NAME)
             }
         }
     };

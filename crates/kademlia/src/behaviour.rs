@@ -30,21 +30,18 @@ use futures::FutureExt;
 use futures_timer::Delay;
 use libp2p::core::transport::ListenerId;
 use libp2p::core::{ConnectedPoint, Endpoint};
-use libp2p::kad::handler::KademliaHandler;
-use libp2p::kad::kbucket::Key;
 use libp2p::kad::KademliaStoreInserts;
 use libp2p::swarm::behaviour::{
-    ConnectionClosed, ConnectionEstablished, DialFailure, ExpiredExternalAddr, ExpiredListenAddr,
-    FromSwarm, ListenFailure, ListenerClosed, ListenerError, NewExternalAddr, NewListenAddr,
-    NewListener,
+    ConnectionClosed, ConnectionEstablished, DialFailure, ExpiredListenAddr, FromSwarm,
+    ListenFailure, ListenerClosed, ListenerError, NewListenAddr, NewListener,
 };
 use libp2p::swarm::derive_prelude::AddressChange;
-use libp2p::swarm::ListenError;
 use libp2p::swarm::PollParameters;
 use libp2p::swarm::THandlerInEvent;
 use libp2p::swarm::THandlerOutEvent;
 use libp2p::swarm::{ConnectionDenied, ConnectionId, THandler};
 use libp2p::swarm::{DialError, ToSwarm};
+use libp2p::swarm::{ExternalAddrExpired, ListenError, NewExternalAddrCandidate};
 use libp2p::{
     core::Multiaddr,
     kad::{
@@ -55,6 +52,8 @@ use libp2p::{
     swarm::NetworkBehaviour,
     PeerId,
 };
+use libp2p_kad::handler::KademliaHandler;
+use libp2p_kad::kbucket::Key;
 use libp2p_metrics::{Metrics, Recorder};
 use multihash::Multihash;
 use tokio::sync::{mpsc, oneshot};
@@ -200,7 +199,7 @@ impl Kademlia {
         peer_id: &PeerId,
         cid: &ConnectionId,
         cp: &ConnectedPoint,
-        handler: KademliaHandler<QueryId>,
+        handler: KademliaHandler,
         remaining_established: usize,
     ) {
         self.kademlia
@@ -215,12 +214,14 @@ impl Kademlia {
 
     fn on_expired_external_addr(&mut self, addr: &Multiaddr) {
         self.kademlia
-            .on_swarm_event(FromSwarm::ExpiredExternalAddr(ExpiredExternalAddr { addr }))
+            .on_swarm_event(FromSwarm::ExternalAddrExpired(ExternalAddrExpired { addr }))
     }
 
     fn on_new_external_addr(&mut self, addr: &Multiaddr) {
         self.kademlia
-            .on_swarm_event(FromSwarm::NewExternalAddr(NewExternalAddr { addr }))
+            .on_swarm_event(FromSwarm::NewExternalAddrCandidate(
+                NewExternalAddrCandidate { addr },
+            ))
     }
 
     fn on_listener_closed(
@@ -595,7 +596,7 @@ fn has_timed_out(now: Instant, timestamp: Instant, timeout: Duration, wake: &mut
 
 impl NetworkBehaviour for Kademlia {
     type ConnectionHandler = <kad::Kademlia<MemoryStore> as NetworkBehaviour>::ConnectionHandler;
-    type OutEvent = ();
+    type ToSwarm = ();
 
     fn handle_established_inbound_connection(
         &mut self,
@@ -627,8 +628,18 @@ impl NetworkBehaviour for Kademlia {
         )
     }
 
-    fn addresses_of_peer(&mut self, peer_id: &PeerId) -> Vec<Multiaddr> {
-        self.addresses_of_peer(peer_id)
+    fn handle_pending_outbound_connection(
+        &mut self,
+        _connection_id: ConnectionId,
+        maybe_peer: Option<PeerId>,
+        _addresses: &[Multiaddr],
+        _effective_role: Endpoint,
+    ) -> std::result::Result<Vec<Multiaddr>, ConnectionDenied> {
+        let peer_id = match maybe_peer {
+            None => return Ok(vec![]),
+            Some(peer_id) => peer_id,
+        };
+        Ok(self.addresses_of_peer(peer_id))
     }
 
     fn on_swarm_event(&mut self, event: FromSwarm<Self::ConnectionHandler>) {
@@ -713,8 +724,12 @@ impl NetworkBehaviour for Kademlia {
                 Ready(GenerateEvent(e)) => self.inject_kad_event(e),
                 Ready(Dial { opts }) => return Ready(Dial { opts }),
                 Ready(NotifyHandler { peer_id, handler, event }) => return Ready(NotifyHandler { peer_id, handler, event }),
-                Ready(ReportObservedAddr { address, score }) => return Ready(ReportObservedAddr { address, score }),
-                Ready(CloseConnection { peer_id, connection }) => return Ready(CloseConnection { peer_id, connection })
+                Ready(NewExternalAddrCandidate(address)) => return Ready(NewExternalAddrCandidate(address)),
+                Ready(ExternalAddrConfirmed(address)) => return Ready(ExternalAddrConfirmed(address)),
+                Ready(ExternalAddrExpired(address)) => return Ready(ExternalAddrExpired(address)),
+                Ready(CloseConnection { peer_id, connection }) => return Ready(CloseConnection { peer_id, connection }),
+                Ready(ListenOn { opts }) => return Ready(ListenOn {opts}),
+                Ready(RemoveListener { id }) => return Ready(RemoveListener {id})
             }
         }
     }
