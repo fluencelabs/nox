@@ -21,8 +21,9 @@ use either::Either;
 use fluence_keypair::{KeyPair, Signature};
 use futures::stream::StreamExt;
 use libp2p::core::Multiaddr;
-use libp2p::swarm::{ConnectionHandlerUpgrErr, SwarmBuilder, SwarmEvent};
+use libp2p::swarm::{SwarmBuilder, SwarmEvent};
 use libp2p::{PeerId, Swarm};
+use libp2p_swarm::handler::StreamUpgradeError;
 use tokio::sync::mpsc::error::SendError;
 use tokio::sync::{mpsc, oneshot};
 use tokio::{select, task, task::JoinHandle};
@@ -191,7 +192,7 @@ impl Client {
     fn receive_from_node(
         msg: SwarmEvent<
             ClientEvent,
-            Either<ConnectionHandlerUpgrErr<std::io::Error>, libp2p::ping::Failure>,
+            Either<StreamUpgradeError<std::io::Error>, libp2p::ping::Failure>,
         >,
         client_outlet: &mpsc::UnboundedSender<ClientEvent>,
     ) -> Result<(), SendError<ClientEvent>> {

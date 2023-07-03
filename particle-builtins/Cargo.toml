@@ -24,8 +24,9 @@ key-manager = { workspace = true }
 service-modules = { workspace = true }
 
 libp2p = { workspace = true }
+libp2p-kad = { workspace = true }
 avm-server = { workspace = true }
-multihash = { workspace = true }
+multihash = { workspace = true, features = ["serde-codec"] }
 fluence-keypair = { workspace = true }
 
 

@@ -32,8 +32,8 @@ use libp2p::core::transport::ListenerId;
 use libp2p::core::{ConnectedPoint, Endpoint};
 use libp2p::kad::KademliaStoreInserts;
 use libp2p::swarm::behaviour::{
-    ConnectionClosed, ConnectionEstablished, DialFailure, ExpiredListenAddr, FromSwarm,
-    ListenFailure, ListenerClosed, ListenerError, NewListenAddr, NewListener,
+    ConnectionClosed, ConnectionEstablished, DialFailure, ExpiredListenAddr, ExternalAddrConfirmed,
+    FromSwarm, ListenFailure, ListenerClosed, ListenerError, NewListenAddr, NewListener,
 };
 use libp2p::swarm::derive_prelude::AddressChange;
 use libp2p::swarm::PollParameters;
@@ -52,8 +52,7 @@ use libp2p::{
     swarm::NetworkBehaviour,
     PeerId,
 };
-use libp2p_kad::handler::KademliaHandler;
-use libp2p_kad::kbucket::Key;
+use libp2p_kad::KBucketKey;
 use libp2p_metrics::{Metrics, Recorder};
 use multihash::Multihash;
 use tokio::sync::{mpsc, oneshot};
@@ -199,7 +198,7 @@ impl Kademlia {
         peer_id: &PeerId,
         cid: &ConnectionId,
         cp: &ConnectedPoint,
-        handler: KademliaHandler,
+        handler: <Kademlia as NetworkBehaviour>::ConnectionHandler,
         remaining_established: usize,
     ) {
         self.kademlia
@@ -209,6 +208,13 @@ impl Kademlia {
                 endpoint: cp,
                 handler,
                 remaining_established,
+            }))
+    }
+
+    fn on_external_addr_confirmed(&mut self, addr: &Multiaddr) {
+        self.kademlia
+            .on_swarm_event(FromSwarm::ExternalAddrConfirmed(ExternalAddrConfirmed {
+                addr,
             }))
     }
 
@@ -331,10 +337,10 @@ impl Kademlia {
     }
 
     fn addresses_of_peer(&mut self, peer_id: &PeerId) -> Vec<Multiaddr> {
+        let conn_id = ConnectionId::new_unchecked(1);
         //TODO: this method doesn't use params except of peer_id
-        #[allow(deprecated)]
         let res = self.kademlia.handle_pending_outbound_connection(
-            ConnectionId::DUMMY,
+            conn_id,
             Some(*peer_id),
             vec![].as_slice(),
             Endpoint::Dialer,
@@ -380,11 +386,11 @@ impl Kademlia {
 
     pub fn neighborhood(
         &mut self,
-        key: Multihash,
+        key: Multihash<64>,
         count: usize,
         outlet: oneshot::Sender<Result<Vec<PeerId>>>,
     ) {
-        let key: Key<Multihash> = key.into();
+        let key: KBucketKey<Multihash<64>> = key.into();
         let peers = self.kademlia.get_closest_local_peers(&key);
         let peers = peers.take(count);
         let peers = peers.map(|p| p.into_preimage());
@@ -394,7 +400,7 @@ impl Kademlia {
 
     pub fn remote_neighborhood(
         &mut self,
-        key: Multihash,
+        key: Multihash<64>,
         outlet: oneshot::Sender<Result<Vec<PeerId>>>,
     ) {
         let query_id = self.kademlia.get_closest_peers(key);
@@ -639,7 +645,7 @@ impl NetworkBehaviour for Kademlia {
             None => return Ok(vec![]),
             Some(peer_id) => peer_id,
         };
-        Ok(self.addresses_of_peer(peer_id))
+        Ok(self.addresses_of_peer(&peer_id))
     }
 
     fn on_swarm_event(&mut self, event: FromSwarm<Self::ConnectionHandler>) {
@@ -684,11 +690,14 @@ impl NetworkBehaviour for Kademlia {
             FromSwarm::ListenerClosed(e) => {
                 self.on_listener_closed(e.listener_id, e.reason);
             }
-            FromSwarm::NewExternalAddr(e) => {
+            FromSwarm::NewExternalAddrCandidate(e) => {
                 self.on_new_external_addr(e.addr);
             }
-            FromSwarm::ExpiredExternalAddr(e) => {
+            FromSwarm::ExternalAddrExpired(e) => {
                 self.on_expired_external_addr(e.addr);
+            }
+            FromSwarm::ExternalAddrConfirmed(e) => {
+                self.on_external_addr_confirmed(e.addr);
             }
         }
     }

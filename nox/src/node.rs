@@ -26,15 +26,14 @@ use connection_pool::{ConnectionPoolApi, ConnectionPoolT};
 use fluence_libp2p::build_transport;
 use futures::{stream::StreamExt, FutureExt};
 use key_manager::KeyManager;
-#[allow(deprecated)]
-use libp2p::swarm::ConnectionLimits;
 use libp2p::swarm::SwarmEvent;
 use libp2p::{
     core::{muxing::StreamMuxerBox, transport::Boxed, Multiaddr},
     identity::Keypair,
-    swarm::AddressScore,
     PeerId, Swarm, TransportError,
 };
+#[allow(deprecated)]
+use libp2p_connection_limits::ConnectionLimits;
 use libp2p_metrics::{Metrics, Recorder};
 use libp2p_swarm::SwarmBuilder;
 use particle_builtins::{Builtins, CustomService, NodeInfo};

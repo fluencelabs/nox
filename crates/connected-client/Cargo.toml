@@ -12,6 +12,7 @@ local-vm = { workspace = true }
 
 fluence-keypair = { workspace = true }
 libp2p = { workspace = true }
+libp2p-swarm = { workspace = true }
 tokio = { workspace = true }
 futures = { workspace = true }
 serde = { version = "1.0.164", features = ["derive"] }
