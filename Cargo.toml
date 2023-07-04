@@ -112,7 +112,7 @@ prometheus-client = "0.19.0"
 eyre = "0.6.8"
 base64 = "0.21.0"
 bs58 = "0.4.0"
-fluence-keypair = "0.10.1"
+fluence-keypair = "0.10.3"
 parking_lot = "0.12.1"
 tokio = { version = "1.25.0", features = ["full", "tracing"] }
 tokio-stream = { version = "0.1.14" }
