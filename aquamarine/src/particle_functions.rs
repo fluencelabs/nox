@@ -35,7 +35,7 @@ use particle_execution::{
 };
 use peer_metrics::FunctionKind;
 
-use crate::log::builtin_log_level;
+use crate::log::builtin_log_fn;
 
 #[derive(Clone, Debug)]
 /// Performance statistics about executed function call
@@ -149,7 +149,7 @@ impl<F: ParticleFunctionStatic> Functions<F> {
         };
 
         let log_args = format!("{:?} {:?}", args.service_id, args.function_name);
-        let log_fn = builtin_log_level(&args.service_id);
+        let log_fn = builtin_log_fn(&args.service_id);
 
         let start = Instant::now();
 

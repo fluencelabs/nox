@@ -1,7 +1,7 @@
 use humantime::FormattedDuration;
 
-/// Function that prescribes different log levels for different builtin namespaces
-pub fn builtin_log_level(service: &str) -> fn((String, FormattedDuration, String)) -> () {
+/// Function that logs for different builtin namespaces
+pub fn builtin_log_fn(service: &str) -> fn((String, FormattedDuration, String)) -> () {
     match service {
         "array" | "cmp" | "debug" | "math" | "op" | "getDataSrv" | "run-console" => {
             |(args, elapsed, particle_id)| {
