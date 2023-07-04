@@ -842,6 +842,7 @@ async fn array_length() {
 
 #[tokio::test]
 async fn empty_array_slice() {
+
     let result = exec_script(
         r#"(call relay ("array" "slice") [ empty_data sidx eidx ] result)"#,
         hashmap! {
