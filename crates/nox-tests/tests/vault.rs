@@ -251,6 +251,6 @@ async fn put_cat_vault() {
     if let [String(output)] = args.as_slice() {
         assert_eq!(*output, payload);
     } else {
-        panic!("#incorrect args: expected a single string, got {:?}", args);
+        panic!("incorrect args: expected a single string, got {:?}", args);
     }
 }
