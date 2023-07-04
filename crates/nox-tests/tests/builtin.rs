@@ -16,7 +16,6 @@
 
 #[macro_use]
 extern crate fstrings;
-
 use connected_client::ConnectedClient;
 use created_swarm::{
     make_swarms, make_swarms_with_cfg, make_swarms_with_keypair,
@@ -30,7 +29,6 @@ use itertools::Itertools;
 use json_utils::into_array;
 use key_manager::INSECURE_KEYPAIR_SEED;
 use libp2p::core::Multiaddr;
-use libp2p::kad::kbucket::Key;
 use libp2p::PeerId;
 use maplit::hashmap;
 use now_millis::now_ms;
@@ -42,6 +40,8 @@ use service_modules::load_module;
 use std::collections::HashMap;
 use std::str::FromStr;
 use std::time::Duration;
+use libp2p::kad::KBucketKey;
+use multihash::Multihash;
 use test_constants::PARTICLE_TTL;
 use test_utils::create_service;
 
@@ -586,7 +586,6 @@ async fn base58_bytes_builtins() {
 
 #[tokio::test]
 async fn sha256() {
-    use multihash::{Code, MultihashDigest};
 
     let script = r#"
     (seq
@@ -606,7 +605,7 @@ async fn sha256() {
     "#;
 
     let string = "hello, как слышно? ХОРОШО!";
-    let sha_256 = Code::Sha2_256.digest(string.as_bytes());
+    let sha_256: Multihash<64> = Multihash::wrap(0x12,string.as_bytes()).unwrap();
     let args = hashmap! {
         "string" => json!(string),
     };
@@ -709,11 +708,11 @@ async fn kad_merge() {
         })
         .collect::<Vec<_>>();
 
-    let target_key = Key::from(target);
+    let target_key = KBucketKey::from(target);
     let mut expected = left;
     expected.append(&mut right);
     expected = expected.into_iter().unique().collect();
-    expected.sort_by_cached_key(|id| target_key.distance(&Key::from(*id)));
+    expected.sort_by_cached_key(|id| target_key.distance(&KBucketKey::from(*id)));
     expected.truncate(count);
 
     assert_eq!(expected, merged);

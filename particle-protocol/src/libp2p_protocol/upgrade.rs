@@ -195,12 +195,13 @@ where
 #[cfg(test)]
 mod tests {
     use futures::prelude::*;
-    use libp2p::core::transport::TransportEvent;
+    use libp2p::core::transport::{ListenerId, TransportEvent};
     use libp2p::core::{
         multiaddr::multiaddr,
         transport::{memory::MemoryTransport, Transport},
         upgrade,
     };
+    use libp2p::{InboundUpgrade, OutboundUpgrade};
     use rand::{thread_rng, Rng};
 
     use crate::libp2p_protocol::message::ProtocolMessage;
@@ -222,7 +223,8 @@ mod tests {
     async fn oneshot_channel_test() {
         let mem_addr = multiaddr![Memory(thread_rng().gen::<u64>())];
         let mut transport = MemoryTransport::new().boxed();
-        transport.listen_on(mem_addr).unwrap();
+        let listener_id = ListenerId::next();
+        transport.listen_on(listener_id, mem_addr).unwrap();
 
         let listener_addr = match transport.select_next_some().now_or_never() {
             Some(TransportEvent::NewAddress { listen_addr, .. }) => listen_addr,
@@ -235,8 +237,9 @@ mod tests {
             // let listener_event = listener.next().await.unwrap();
             // let (listener_upgrade, _) = listener_event.unwrap().into_upgrade().unwrap();
             let conn = listener_upgrade.await.unwrap();
+
             let config = ProtocolConfig::default();
-            upgrade::apply_inbound(conn, config).await.unwrap()
+            config.upgrade_inbound(conn, "/test/1").await.unwrap()
         });
         let msg: ProtocolMessage = serde_json::from_slice(&BYTES).unwrap();
         let sent_particle = match msg {
@@ -246,10 +249,7 @@ mod tests {
         let msg = HandlerMessage::OutParticle(sent_particle.clone(), <_>::default());
         let mut transport = MemoryTransport::new();
         let c = transport.dial(listener_addr).unwrap().await.unwrap();
-        upgrade::apply_outbound(c, msg, upgrade::Version::V1)
-            .await
-            .unwrap();
-
+        msg.upgrade_outbound(c, "/test/1").await.unwrap();
         let received_particle = inbound.await.unwrap();
 
         match received_particle {

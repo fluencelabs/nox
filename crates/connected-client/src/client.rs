@@ -169,7 +169,7 @@ impl Client {
                                 Err(err) => {
                                     let err_msg = format!("{err:?}");
                                     let msg = err;
-                                    log::warn!("unable to send {:?} to node: {:?}", msg, err_msg)
+                                    log::warn!("unable to send {:?} to node: {:?}", msg, err_msg);
                                 },
                                 Ok(_v) => {},
                             }
@@ -192,7 +192,7 @@ impl Client {
     fn receive_from_node(
         msg: SwarmEvent<
             ClientEvent,
-            Either<StreamUpgradeError<std::io::Error>, libp2p::ping::Failure>,
+            Either<StreamUpgradeError<std::io::Error>, void::Void>,
         >,
         client_outlet: &mpsc::UnboundedSender<ClientEvent>,
     ) -> Result<(), SendError<ClientEvent>> {

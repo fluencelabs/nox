@@ -22,6 +22,7 @@ derivative = { workspace = true }
 eyre = { workspace = true }
 parking_lot = { workspace = true }
 either = "1.8.1"
+void = "1.0.2"
 
 [dev-dependencies]
 rand = "0.8.5"

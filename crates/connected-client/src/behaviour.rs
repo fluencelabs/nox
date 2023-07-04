@@ -223,6 +223,7 @@ impl NetworkBehaviour for ClientBehaviour {
             FromSwarm::ListenerClosed(_) => {}
             FromSwarm::NewExternalAddrCandidate(_) => {}
             FromSwarm::ExternalAddrExpired(_) => {}
+            FromSwarm::ExternalAddrConfirmed(_) => {}
         }
     }
 

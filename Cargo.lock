@@ -1129,6 +1129,7 @@ dependencies = [
  "serde_json",
  "test-constants",
  "tokio",
+ "void",
 ]
 
 [[package]]
@@ -1137,7 +1138,7 @@ version = "0.1.0"
 dependencies = [
  "fluence-libp2p",
  "futures",
- "itertools",
+ "itertools 0.10.5",
  "libp2p",
  "log",
  "parking_lot",
@@ -1350,7 +1351,7 @@ dependencies = [
  "cranelift-codegen",
  "cranelift-entity",
  "cranelift-frontend",
- "itertools",
+ "itertools 0.10.5",
  "log",
  "smallvec",
  "wasmparser 0.100.0",
@@ -3002,6 +3003,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "itertools"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b1c173a5686ce8bfa551b3563d0c2170bf24ca44da99c7ca4bfdab5418c3fe57"
+dependencies = [
+ "either",
+]
+
+[[package]]
 name = "itoa"
 version = "1.0.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3058,7 +3068,7 @@ name = "json-utils"
 version = "0.0.2"
 dependencies = [
  "base64 0.21.0",
- "itertools",
+ "itertools 0.10.5",
  "serde",
  "serde_json",
 ]
@@ -3887,7 +3897,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3b64614a1221d786babc99ae3c67c1fd051246476e18e107b0d21764da8ac636"
 dependencies = [
  "anyhow",
- "itertools",
+ "itertools 0.10.5",
  "marine-it-interfaces",
  "marine-module-interface",
  "marine-wasm-backend-traits",
@@ -3955,7 +3965,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "49d8f21255b94f1c8b2731a2b49c2ed34f955ed2e11dae3fb6c580a346d10bdd"
 dependencies = [
  "anyhow",
- "itertools",
+ "itertools 0.10.5",
  "marine-it-interfaces",
  "nom",
  "semver",
@@ -3997,7 +4007,7 @@ dependencies = [
  "bytesize",
  "it-json-serde",
  "it-memory-traits",
- "itertools",
+ "itertools 0.10.5",
  "log",
  "marine-core",
  "marine-module-interface",
@@ -4426,7 +4436,7 @@ dependencies = [
  "futures",
  "humantime-serde",
  "hyper",
- "itertools",
+ "itertools 0.10.5",
  "kademlia",
  "key-manager",
  "libp2p",
@@ -4481,10 +4491,11 @@ dependencies = [
  "fstrings",
  "futures",
  "humantime-serde",
- "itertools",
+ "itertools 0.11.0",
  "json-utils",
  "key-manager",
  "libp2p",
+ "libp2p-kad",
  "local-vm",
  "log",
  "log-utils",
@@ -4784,7 +4795,7 @@ dependencies = [
  "fluence-keypair",
  "futures",
  "humantime-serde",
- "itertools",
+ "itertools 0.10.5",
  "ivalue-utils",
  "kademlia",
  "key-manager",
@@ -4842,7 +4853,7 @@ dependencies = [
  "fluence-app-service",
  "fs-utils",
  "fstrings",
- "itertools",
+ "itertools 0.10.5",
  "json-utils",
  "libipld",
  "log",
@@ -5238,7 +5249,7 @@ checksum = "276470f7f281b0ed53d2ae42dd52b4a8d08853a3c70e7fe95882acbb98a6ae94"
 dependencies = [
  "bytes",
  "heck 0.4.0",
- "itertools",
+ "itertools 0.10.5",
  "lazy_static",
  "log",
  "multimap",
@@ -5259,7 +5270,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e5d2d8d10f3c6ded6da8b05b5fb3b8a5082514344d56c9f871412d29b4e075b4"
 dependencies = [
  "anyhow",
- "itertools",
+ "itertools 0.10.5",
  "proc-macro2",
  "quote",
  "syn 1.0.105",
@@ -6288,7 +6299,7 @@ dependencies = [
  "fluence-app-service",
  "fluence-libp2p",
  "fluence-spell-distro",
- "itertools",
+ "itertools 0.10.5",
  "log",
  "parking_lot",
  "particle-modules",
@@ -6897,7 +6908,7 @@ dependencies = [
  "fluence-keypair",
  "fluence-libp2p",
  "futures",
- "itertools",
+ "itertools 0.10.5",
  "particle-protocol",
  "serde_json",
 ]
@@ -7446,7 +7457,7 @@ dependencies = [
  "it-lilo",
  "it-memory-traits",
  "it-to-bytes",
- "itertools",
+ "itertools 0.10.5",
  "log",
  "nom",
  "safe-transmute",
