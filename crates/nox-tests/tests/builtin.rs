@@ -29,8 +29,10 @@ use itertools::Itertools;
 use json_utils::into_array;
 use key_manager::INSECURE_KEYPAIR_SEED;
 use libp2p::core::Multiaddr;
+use libp2p::kad::KBucketKey;
 use libp2p::PeerId;
 use maplit::hashmap;
+use multihash::Multihash;
 use now_millis::now_ms;
 use particle_protocol::Particle;
 use serde::Deserialize;
@@ -40,8 +42,6 @@ use service_modules::load_module;
 use std::collections::HashMap;
 use std::str::FromStr;
 use std::time::Duration;
-use libp2p::kad::KBucketKey;
-use multihash::Multihash;
 use test_constants::PARTICLE_TTL;
 use test_utils::create_service;
 
@@ -586,7 +586,6 @@ async fn base58_bytes_builtins() {
 
 #[tokio::test]
 async fn sha256() {
-
     let script = r#"
     (seq
         (seq
@@ -605,7 +604,7 @@ async fn sha256() {
     "#;
 
     let string = "hello, как слышно? ХОРОШО!";
-    let sha_256: Multihash<64> = Multihash::wrap(0x12,string.as_bytes()).unwrap();
+    let sha_256: Multihash<64> = Multihash::wrap(0x12, string.as_bytes()).unwrap();
     let args = hashmap! {
         "string" => json!(string),
     };

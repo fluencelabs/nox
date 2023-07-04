@@ -190,10 +190,7 @@ impl Client {
 
     #[allow(clippy::result_large_err)]
     fn receive_from_node(
-        msg: SwarmEvent<
-            ClientEvent,
-            Either<StreamUpgradeError<std::io::Error>, void::Void>,
-        >,
+        msg: SwarmEvent<ClientEvent, Either<StreamUpgradeError<std::io::Error>, void::Void>>,
         client_outlet: &mpsc::UnboundedSender<ClientEvent>,
     ) -> Result<(), SendError<ClientEvent>> {
         if let SwarmEvent::Behaviour(msg) = msg {

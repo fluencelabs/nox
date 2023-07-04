@@ -15,9 +15,9 @@
  */
 use libp2p::identify::Config as IdentifyConfig;
 use libp2p::{
+    connection_limits::Behaviour as ConnectionLimits,
     identify::Behaviour as Identify,
     ping::{Behaviour as Ping, Config as PingConfig},
-    connection_limits::{Behaviour as ConnectionLimits},
     swarm::NetworkBehaviour,
 };
 use tokio::sync::mpsc;
@@ -60,7 +60,6 @@ impl FluenceNetworkBehaviour {
             cfg.local_peer_id,
             cfg.connection_pool_metrics,
         );
-
 
         let connection_limits = ConnectionLimits::new(cfg.connection_limits);
 

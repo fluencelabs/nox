@@ -340,8 +340,8 @@ impl<RT: AquaRuntime> Node<RT> {
     ) {
         let (behaviour, connectivity, particle_stream) =
             FluenceNetworkBehaviour::new(network_config);
-        let mut swarm = SwarmBuilder::with_tokio_executor(transport, behaviour, local_peer_id)
-            .build();
+        let mut swarm =
+            SwarmBuilder::with_tokio_executor(transport, behaviour, local_peer_id).build();
 
         // Add external addresses to Swarm
         external_addresses.iter().cloned().for_each(|addr| {
