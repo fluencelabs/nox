@@ -1,4 +1,3 @@
-use crate::config::SpellTriggerConfigs;
 use connection_pool::LifecycleEvent;
 use fluence_libp2p::{peerid_serializer, PeerId};
 use serde::{Deserialize, Serialize};
