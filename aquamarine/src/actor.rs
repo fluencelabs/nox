@@ -202,7 +202,6 @@ where
         // TODO: get rid of this clone by recovering key_pair after `vm.execute` (not trivial to implement)
         let key_pair = self.key_pair.clone();
         // TODO: add timeout for execution https://github.com/fluencelabs/fluence/issues/1212
-        let span = self.span.clone();
         self.future = Some(
             async move {
                 let res = vm
@@ -215,7 +214,7 @@ where
                 };
                 (reusables, res.effects, res.stats)
             }
-            .instrument(span)
+            .instrument(self.span.clone())
             .boxed(),
         );
         self.wake();
