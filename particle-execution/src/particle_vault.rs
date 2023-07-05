@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+use fluence_app_service::{MarineWASIConfig, ModuleDescriptor};
 use std::path;
 use std::path::{Path, PathBuf};
 
@@ -86,6 +87,8 @@ impl ParticleVault {
         Ok(())
     }
 
+    /// Converts real path in `vault_dir` to virtual path with `VIRTUAL_PARTICLE_VAULT_PREFIX`.
+    /// Virtual path looks like `/tmp/vault/<particle_id>/<path>`.
     fn to_virtual_path(&self, path: &Path, particle_id: &str) -> Result<PathBuf, VaultError> {
         let virtual_prefix = path::Path::new(VIRTUAL_PARTICLE_VAULT_PREFIX).join(particle_id);
         let real_prefix = self.vault_dir.join(particle_id);
@@ -96,6 +99,7 @@ impl ParticleVault {
         Ok(virtual_prefix.join(rest))
     }
 
+    /// Converts virtual path with `VIRTUAL_PARTICLE_VAULT_PREFIX` to real path in `vault_dir`.
     fn to_real_path(&self, path: &Path, particle_id: &str) -> Result<PathBuf, VaultError> {
         let virtual_prefix = path::Path::new(VIRTUAL_PARTICLE_VAULT_PREFIX).join(particle_id);
         let real_prefix = self.vault_dir.join(particle_id);
@@ -113,6 +117,23 @@ impl ParticleVault {
         } else {
             Err(WrongVault(None, resolved_path, real_prefix))
         }
+    }
+
+    /// Map `vault_dir` to `/tmp/vault` inside the service.
+    /// Particle File Vaults will be available as `/tmp/vault/$particle_id`
+    pub fn inject_vault(&self, module: &mut ModuleDescriptor) {
+        let wasi = &mut module.config.wasi;
+        if wasi.is_none() {
+            *wasi = Some(MarineWASIConfig::default());
+        }
+        // SAFETY: set wasi to Some in the code above
+        let wasi = wasi.as_mut().unwrap();
+
+        let vault_dir = self.vault_dir.to_path_buf();
+
+        wasi.preopened_files.insert(vault_dir.clone());
+        wasi.mapped_dirs
+            .insert(VIRTUAL_PARTICLE_VAULT_PREFIX.into(), vault_dir);
     }
 }
 
