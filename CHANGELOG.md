@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.13.1](https://github.com/fluencelabs/nox/compare/rust-peer-v0.13.0...rust-peer-v0.13.1) (2023-06-27)
+
+
+### Bug Fixes
+
+* **avm:** avm 0.40, avm-server 0.32 ([#1647](https://github.com/fluencelabs/nox/issues/1647)) ([777f6e1](https://github.com/fluencelabs/nox/commit/777f6e1c3b7f21695b8b41da820a0033f417c342))
+
 ## [0.13.0](https://github.com/fluencelabs/nox/compare/rust-peer-v0.12.1...rust-peer-v0.13.0) (2023-06-22)
 
 
