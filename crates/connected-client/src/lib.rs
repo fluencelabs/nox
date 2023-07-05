@@ -1,4 +1,4 @@
-#![feature(once_cell)]
+#![feature(lazy_cell)]
 /*
  * Copyright 2021 Fluence Labs Limited
  *
