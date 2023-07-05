@@ -104,7 +104,8 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
                 let key_pair = self.key_manager.get_worker_keypair(worker_id);
                 let deal_id = self.key_manager.get_deal_id(worker_id).ok();
                 key_pair.map(|kp| {
-                    let actor = Actor::new(&particle, functions, worker_id, kp, deal_id);
+                    let span = tracing::info_span!("Actor", deal_id = deal_id);
+                    let actor = Actor::new(&particle, functions, worker_id, kp, span);
                     entry.insert(actor)
                 })
             }

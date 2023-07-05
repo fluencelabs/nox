@@ -67,9 +67,8 @@ where
         functions: Functions<F>,
         current_peer_id: PeerId,
         key_pair: KeyPair,
-        deal_id: Option<String>,
+        span: Span,
     ) -> Self {
-        let span = tracing::info_span!("Actor", deal_id = deal_id);
         Self {
             deadline: Deadline::from(particle),
             functions,
