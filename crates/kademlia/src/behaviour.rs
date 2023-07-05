@@ -412,7 +412,7 @@ impl Kademlia {
 
 impl Kademlia {
     fn peer_discovered(&mut self, peer: PeerId, addresses: Vec<Multiaddr>) {
-        log::trace!(
+        tracing::trace!(
             target: "network",
             "discovered peer {} with {:?} addresses",
             peer,
@@ -781,6 +781,8 @@ mod tests {
 
         let kp = KeyPair::generate_ed25519();
         let peer_id = kp.get_peer_id();
+        let span = tracing::info_span!("Node", peer_id = peer_id.to_base58());
+        let _guard = span.enter();
         let config = kad_config(peer_id);
         let (kad, _) = Kademlia::new(config, None);
         let timeout = Duration::from_secs(20);
@@ -793,7 +795,7 @@ mod tests {
         let mut maddr = create_memory_maddr();
         maddr.push(Protocol::P2p(peer_id.into()));
 
-        Swarm::listen_on(&mut swarm, maddr.clone()).ok();
+        Swarm::listen_on(&mut swarm, maddr.clone()).expect("Could not make swarm");
 
         (swarm, maddr)
     }
@@ -801,6 +803,8 @@ mod tests {
     #[tokio::test]
     async fn discovery() {
         use tokio::time::timeout;
+
+        log_utils::enable_logs();
 
         let (mut a, a_addr) = make_node();
         let (mut b, b_addr) = make_node();
