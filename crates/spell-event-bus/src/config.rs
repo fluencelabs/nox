@@ -32,7 +32,7 @@ fn to_instant(timestamp: u64) -> Option<Instant> {
 
 /// Convert user-friendly config to event-bus-friendly config, validating it in the process.
 pub fn from_user_config(
-    user_config: UserTriggerConfig,
+    user_config: &UserTriggerConfig,
 ) -> Result<Option<SpellTriggerConfigs>, ConfigError> {
     let mut triggers = Vec::new();
 

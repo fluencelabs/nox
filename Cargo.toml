@@ -87,8 +87,8 @@ particle-execution = { path = "particle-execution" }
 system-services = { path = "crates/system-services" }
 
 # spell
-fluence-spell-dtos = "=0.5.11"
-fluence-spell-distro = "=0.5.11"
+fluence-spell-dtos = "=0.5.15"
+fluence-spell-distro = "=0.5.15"
 
 # marine
 fluence-app-service = "0.25.3"
