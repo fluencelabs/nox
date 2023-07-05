@@ -203,7 +203,11 @@ pub fn default_max_builtin_metrics_storage_size() -> usize {
 }
 
 pub fn default_allowed_binaries() -> Vec<String> {
-    vec!["/usr/bin/curl".to_string(), "/usr/bin/ipfs".to_string()]
+    vec![
+        "/usr/bin/curl".to_string(),
+        "/usr/bin/ipfs".to_string(),
+        "/opt/homebrew/bin/ipfs".to_string(),
+    ]
 }
 
 pub fn default_system_services() -> Vec<ServiceKey> {
@@ -221,7 +225,7 @@ pub fn default_worker_spell_period_sec() -> u32 {
 
 // 2 minutes
 pub fn default_decider_spell_period_sec() -> u32 {
-    120
+    30
 }
 
 // 60 minutes

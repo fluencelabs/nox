@@ -390,7 +390,11 @@ pub(crate) fn get_spell_arg(
     )
     .map_err(|e| JError::new(f!("Failed to get argument {key} for spell {spell_id}: {e}")))?;
 
-    serde_json::from_str(&str_value.str).map_err(Into::into)
+    serde_json::from_str(&str_value.str).map_err(|e| {
+        JError::new(f!(
+            "Failed to parse argument {key} {str_value.str} ${str_value.error} for spell {spell_id}: {e}"
+        ))
+    })
 }
 
 pub(crate) fn store_error(

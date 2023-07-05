@@ -128,7 +128,7 @@ impl AquaRuntime for AVM<DataStoreError> {
                 }
             }
             Ok((data, ..)) => {
-                tracing::warn!(
+                tracing::info!(
                     particle_id,
                     "Executed particle, next_peer_pks is empty, no call requests. Nothing to do.",
                 );

@@ -20,6 +20,7 @@ const DEPLOYER_TTL: u64 = 60_000;
 const DEPLOYER_PARTICLE_ID: &str = "system-services-deployment";
 
 // A status of a service/spell after deployment
+#[derive(Clone, Debug)]
 enum ServiceStatus {
     // Id of a newly created service
     Created(String),
@@ -28,6 +29,7 @@ enum ServiceStatus {
 }
 
 // Status of the service or spell before deployment
+#[derive(Clone, Debug)]
 enum ServiceUpdateStatus {
     // A service is found and we need to update it
     NeedUpdate(String),
@@ -38,12 +40,14 @@ enum ServiceUpdateStatus {
 }
 
 // This is supposed to be in a separate lib for all system services crates
+#[derive(Clone, Debug)]
 struct ServiceDistro {
     modules: HashMap<&'static str, &'static [u8]>,
-    config: &'static [u8],
+    config: Vec<u8>,
     name: String,
 }
 
+#[derive(Clone, Debug)]
 struct SpellDistro {
     name: String,
     air: &'static str,
@@ -51,6 +55,7 @@ struct SpellDistro {
     trigger_config: TriggerConfig,
 }
 
+#[derive(Clone, Debug)]
 pub struct Deployer {
     // These fields are used for deploying system services
     services: ParticleAppServices,
@@ -192,7 +197,7 @@ impl Deployer {
         use trust_graph_distro::*;
         ServiceDistro {
             modules: modules(),
-            config: CONFIG,
+            config: CONFIG.to_vec(),
             name: TrustGraph.to_string(),
         }
     }
@@ -200,7 +205,7 @@ impl Deployer {
     fn get_registry_distro(config: RegistryConfig) -> (ServiceDistro, SpellDistro) {
         let distro = ServiceDistro {
             modules: registry_distro::modules(),
-            config: registry_distro::CONFIG,
+            config: registry_distro::CONFIG.to_vec(),
             name: Registry.to_string(),
         };
 
@@ -225,9 +230,11 @@ impl Deployer {
 
     fn get_ipfs_service_distro() -> ServiceDistro {
         use aqua_ipfs_distro::*;
+        let config = String::from_utf8_lossy(CONFIG);
+        let config = config.replace("/usr/bin/ipfs", "/opt/homebrew/bin/ipfs");
         ServiceDistro {
             modules: modules(),
-            config: CONFIG,
+            config: config.as_bytes().to_vec(),
             name: AquaIpfs.to_string(),
         }
     }
@@ -236,7 +243,7 @@ impl Deployer {
         let connector_service_distro = decider_distro::connector_service_modules();
         ServiceDistro {
             modules: connector_service_distro.modules,
-            config: connector_service_distro.config,
+            config: connector_service_distro.config.to_vec(),
             name: connector_service_distro.name.to_string(),
         }
     }
@@ -541,7 +548,7 @@ impl Deployer {
     }
 
     fn add_modules(&self, service_distro: ServiceDistro) -> eyre::Result<String> {
-        let marine_config: TomlMarineConfig = toml::from_slice(service_distro.config)?;
+        let marine_config: TomlMarineConfig = toml::from_slice(&service_distro.config)?;
         let mut hashes = Vec::new();
         for config in marine_config.module {
             let name = config.name.clone();

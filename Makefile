@@ -8,34 +8,24 @@ test:
 	cargo test --release
 
 server:
-	RUST_LOG="info,tide=off,tracing=off,avm_server=off,run-console=debug,system_services=debug,sorcerer::spell_builtins=debug,sorcerer=debug" \
+    WASM_LOG="trace" \
+	RUST_LOG="debug,aquamarine::aqua_runtime=off,ipfs_effector=off,ipfs_pure=off,system_services=debug,marine_core::module::marine_module=info,aquamarine=warn,tokio_threadpool=info,tokio_reactor=info,mio=info,tokio_io=info,soketto=info,yamux=info,multistream_select=info,libp2p_secio=info,libp2p_websocket::framed=info,libp2p_ping=info,libp2p_core::upgrade::apply=info,libp2p_kad::kbucket=info,cranelift_codegen=info,wasmer_wasi=info,cranelift_codegen=info,wasmer_wasi=info,run-console=trace,wasmtime_cranelift=off,wasmtime_jit=off,particle_reap=off" \
 	cargo run --release -p nox
 
-server-debug:
-	RUST_LOG="debug,\
-	tide=off,\
-	cranelift_codegen=info,\
-    yamux::connection::stream=info,\
-    tokio_threadpool=info,\
-    tokio_reactor=info,\
-    mio=info,\
-    tokio_io=info,\
-    soketto=info,\
-    yamux=info,\
-    multistream_select=info,\
-    libp2p_secio=info,\
-    libp2p_websocket::framed=info,\
-    libp2p_ping=info,\
-    libp2p_core::upgrade::apply=info,\
-    libp2p_plaintext=info,\
-    cranelift_codegen=info,\
-    wasmer_wasi=info,\
-    wasmer_interface_types_fl=info,\
-    async_std=info,\
-    async_io=info,\
-    polling=info, \
-    avm_server=off,\
-    tracing=off"\
-	cargo run --release -p nox -- -c ./deploy/Config.default.toml
+local-env:
+	docker compose -f docker-compose.yml up -d
 
-.PHONY: server server-debug test release build deploy
+local-env-logs:
+	docker compose -f docker-compose.yml logs -f
+
+local-nox:
+	FLUENCE_ENV_AQUA_IPFS_EXTERNAL_API_MULTIADDR="/ip4/127.0.0.1/tcp/5001" \
+	FLUENCE_ENV_CONNECTOR_API_ENDPOINT=http://127.0.0.1:8545 \
+	FLUENCE_ENV_CONNECTOR_CONTRACT_ADDRESS="0xea6777e8c011E7968605fd012A9Dd49401ec386C" \
+	FLUENCE_ENV_CONNECTOR_FROM_BLOCK=earliest \
+	FLUENCE_ENV_AQUA_IPFS_LOCAL_API_MULTIADDR="/ip4/127.0.0.1/tcp/5001" \
+	WASM_LOG="trace" \
+	RUST_LOG="debug,aquamarine::aqua_runtime=off,ipfs_effector=off,ipfs_pure=off,system_services=debug,marine_core::module::marine_module=info,aquamarine=warn,tokio_threadpool=info,tokio_reactor=info,mio=info,tokio_io=info,soketto=info,yamux=info,multistream_select=info,libp2p_secio=info,libp2p_websocket::framed=info,libp2p_ping=info,libp2p_core::upgrade::apply=info,libp2p_kad::kbucket=info,cranelift_codegen=info,wasmer_wasi=info,cranelift_codegen=info,wasmer_wasi=info,run-console=trace,wasmtime_cranelift=off,wasmtime_jit=off,particle_reap=off" \
+	cargo run --release -p nox
+
+.PHONY: server server-debug test release build deploy local-nox local-env local-env-logs
