@@ -32,7 +32,6 @@ use key_manager::INSECURE_KEYPAIR_SEED;
 use libp2p::core::Multiaddr;
 use libp2p::kad::kbucket::Key;
 use libp2p::PeerId;
-use log_utils::enable_logs;
 use maplit::hashmap;
 use now_millis::now_ms;
 use particle_protocol::Particle;
@@ -845,8 +844,6 @@ async fn array_length() {
 
 #[tokio::test]
 async fn empty_array_slice() {
-    enable_logs();
-
     let result = exec_script(
         r#"(call relay ("array" "slice") [ empty_data sidx eidx ] result)"#,
         hashmap! {

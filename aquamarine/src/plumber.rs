@@ -55,10 +55,6 @@ pub struct Plumber<RT: AquaRuntime, F> {
     key_manager: KeyManager,
 }
 
-unsafe impl<RT: AquaRuntime, F: ParticleFunctionStatic> Send for Plumber<RT, F> {}
-
-unsafe impl<RT: AquaRuntime, F: ParticleFunctionStatic> Sync for Plumber<RT, F> {}
-
 impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
     pub fn new(
         vm_pool: VmPool<RT>,
@@ -97,8 +93,8 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
         }
 
         let builtins = &self.builtins;
-
-        let entry = self.actors.entry((particle.id.clone(), worker_id));
+        let key = (particle.id.clone(), worker_id);
+        let entry = self.actors.entry(key);
 
         let actor = match entry {
             Entry::Occupied(actor) => Ok(actor.into_mut()),
@@ -106,8 +102,10 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
                 let params = ParticleParams::clone_from(&particle, worker_id);
                 let functions = Functions::new(params, builtins.clone());
                 let key_pair = self.key_manager.get_worker_keypair(worker_id);
+                let deal_id = self.key_manager.get_deal_id(worker_id).ok();
                 key_pair.map(|kp| {
-                    let actor = Actor::new(&particle, functions, worker_id, kp);
+                    let span = tracing::info_span!("Actor", deal_id = deal_id);
+                    let actor = Actor::new(&particle, functions, worker_id, kp, span);
                     entry.insert(actor)
                 })
             }
