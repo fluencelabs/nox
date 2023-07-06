@@ -50,7 +50,7 @@ humantime-serde = { workspace = true }
 
 log = { workspace = true }
 tracing-log = { version = "0.1.3" }
-console-subscriber = { version = "0.1.8", features = ["parking_lot"] }
+console-subscriber = { version = "0.1.10", features = ["parking_lot"] }
 hyper = "0.14.26"
 itertools = { workspace = true }
 eyre = { workspace = true }
