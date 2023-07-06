@@ -152,9 +152,9 @@ dependencies = [
 
 [[package]]
 name = "air-interpreter-interface"
-version = "0.39.1-feat-VM-276-aquavm-keypair-775a729-1587-1.0"
-source = "registry+git://crates.fluence.dev/index"
-checksum = "d3b376f4fd985e462165bbc98881bc875624daf425a253a08178e6ad83b26693"
+version = "0.14.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1da4da8dd8544549512050b9ec7381a868ffdc22c1f0ffd48ee964aa11b5b13b"
 dependencies = [
  "fluence-it-types",
  "marine-rs-sdk",
@@ -164,18 +164,18 @@ dependencies = [
 
 [[package]]
 name = "air-interpreter-wasm"
-version = "0.39.1-feat-VM-276-aquavm-keypair-775a729-1587-1.0"
-source = "registry+git://crates.fluence.dev/index"
-checksum = "b8cf9f5015a4d4abf4af8ab85b7b63d5c47b7f7c57f096d241230fd2a092f673"
+version = "0.40.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6bbd93603551aed5643678ebab24a6e7296f8637dcc91b20141ff0c82694fb72"
 dependencies = [
  "built 0.6.0",
 ]
 
 [[package]]
 name = "air-utils"
-version = "0.39.1-feat-VM-276-aquavm-keypair-775a729-1587-1.0"
-source = "registry+git://crates.fluence.dev/index"
-checksum = "ec901e2a06c84cb86f0f128356cc88169e1bf2ce409f177cb8adb6a3f6ff56d8"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "27e5902caa8fc602834c5fbca2192e799e3d98f42e38b863cb22302a14b63a89"
 
 [[package]]
 name = "ambient-authority"
@@ -520,9 +520,9 @@ checksum = "d468802bab17cbc0cc575e9b053f41e72aa36bfa6b7f55e3529ffa43161b97fa"
 
 [[package]]
 name = "avm-data-store"
-version = "0.39.1-feat-VM-276-aquavm-keypair-775a729-1587-1.0"
-source = "registry+git://crates.fluence.dev/index"
-checksum = "0f54d3433acc292b712197afb934683ca02662a4f05a9be724fd03a0f722224e"
+version = "0.6.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5694d1aef5090284d1f80ac809fc6cb43582dd30dd6d1089234b05fbcb987cdf"
 dependencies = [
  "avm-interface",
  "serde",
@@ -531,15 +531,15 @@ dependencies = [
 
 [[package]]
 name = "avm-interface"
-version = "0.39.1-feat-VM-276-aquavm-keypair-775a729-1587-1.0"
-source = "registry+git://crates.fluence.dev/index"
-checksum = "348520635c46b9ac901f2583a36df6022f8836b70e264d4c4c0577dc5faf8aaf"
+version = "0.28.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bee26536a5bd4fac970cca43abfa029ab38ed78b940f12397b57ce9c5c0c0069"
 dependencies = [
  "air-interpreter-interface",
  "air-utils",
  "log",
  "maplit",
- "polyplets 0.39.1-feat-VM-276-aquavm-keypair-775a729-1587-1.0",
+ "polyplets",
  "serde",
  "serde_json",
  "thiserror",
@@ -548,9 +548,9 @@ dependencies = [
 
 [[package]]
 name = "avm-server"
-version = "0.39.1-feat-VM-276-aquavm-keypair-775a729-1587-1.0"
-source = "registry+git://crates.fluence.dev/index"
-checksum = "618dc50a36a36f0197e8ee0c83cead03c09a7904a3ee7d60b5ff55e88fd81011"
+version = "0.32.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "692354ef27feee02da5fd49f80c045e4c54f0d3de19949551b3b6395cc5c4d26"
 dependencies = [
  "air-interpreter-interface",
  "air-utils",
@@ -562,7 +562,7 @@ dependencies = [
  "maplit",
  "marine-runtime",
  "parking_lot 0.12.1",
- "polyplets 0.39.1-feat-VM-276-aquavm-keypair-775a729-1587-1.0",
+ "polyplets",
  "serde",
  "serde_json",
  "thiserror",
@@ -1715,9 +1715,9 @@ dependencies = [
 
 [[package]]
 name = "decider-distro"
-version = "0.4.15"
+version = "0.4.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4032fc22844d3ed3f66ce16c81ce226dde08f4a53a63b671c5fbf47e03875ffb"
+checksum = "351f997a14e873afbf45945c0108257d69cdb1d1e05ce730335ad8585ab4942f"
 dependencies = [
  "built 0.5.2",
  "fluence-spell-dtos",
@@ -2223,19 +2223,19 @@ dependencies = [
 
 [[package]]
 name = "fluence-spell-distro"
-version = "0.5.11"
+version = "0.5.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "660439d22fc4cb67624186711b1456d0d0bb5738be7c634cd9c0e2efb7e79e95"
+checksum = "ef2e206739678a261a485d8eaea1419490b484cffd52769c19f0bd64e121a8d5"
 dependencies = [
- "built 0.5.2",
+ "built 0.6.0",
  "maplit",
 ]
 
 [[package]]
 name = "fluence-spell-dtos"
-version = "0.5.11"
+version = "0.5.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "69b0bfe10a567d7ff7dc053682c5b1637b3cf80489f8d3b0c8468301b0cc8480"
+checksum = "881d131b2a14052874645e459ee63486f18ea689bb78481dd43df32ac707da6a"
 dependencies = [
  "eyre",
  "marine-rs-sdk",
@@ -3981,7 +3981,7 @@ dependencies = [
  "marine-macro",
  "marine-rs-sdk-main",
  "marine-timestamp-macro",
- "polyplets 0.3.2",
+ "polyplets",
  "serde",
 ]
 
@@ -4411,7 +4411,7 @@ version = "0.1.0"
 
 [[package]]
 name = "nox"
-version = "0.13.0"
+version = "0.13.1"
 dependencies = [
  "air-interpreter-fs",
  "air-interpreter-wasm",
@@ -5113,17 +5113,6 @@ name = "polyplets"
 version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6c051f220264e391afae06b6dceda199d523ee1dc7ae8e8cba4119a378dd411f"
-dependencies = [
- "marine-macro",
- "marine-rs-sdk-main",
- "serde",
-]
-
-[[package]]
-name = "polyplets"
-version = "0.39.1-feat-VM-276-aquavm-keypair-775a729-1587-1.0"
-source = "registry+git://crates.fluence.dev/index"
-checksum = "039f18fc96409cde67b4047e88d6818d91e9b99f98b2831582d4f6e9a5d24ed4"
 dependencies = [
  "marine-macro",
  "marine-rs-sdk-main",

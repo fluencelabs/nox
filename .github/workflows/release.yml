@@ -54,7 +54,7 @@ jobs:
         uses: actions-rust-lang/setup-rust-toolchain@v1
 
       - name: Install cargo-edit
-        uses: baptiste0928/cargo-install@v2.0.0
+        uses: baptiste0928/cargo-install@v2.1.0
         with:
           crate: cargo-edit
 
@@ -85,7 +85,7 @@ jobs:
       version: ${{ needs.release-please.outputs.version }}
       update-distro: ${{ needs.release-please.outputs.release-created }}
     secrets:
-      PERSONAL_TOKEN: ${{ secrets.PERSONAL_TOKEN }}
+      PERSONAL_TOKEN: ${{ secrets.FLUENCEBOT_RELEASE_PLEASE_PAT }}
 
   slack:
     if: always()
@@ -114,7 +114,7 @@ jobs:
           echo "found any?:" "${{ steps.status.outputs.found }}"
 
       - name: Import secrets
-        uses: hashicorp/vault-action@v2.5.0
+        uses: hashicorp/vault-action@v2.7.1
         with:
           url: https://vault.fluence.dev
           path: jwt/github

@@ -87,8 +87,8 @@ particle-execution = { path = "particle-execution" }
 system-services = { path = "crates/system-services" }
 
 # spell
-fluence-spell-dtos = "=0.5.11"
-fluence-spell-distro = "=0.5.11"
+fluence-spell-dtos = "=0.5.15"
+fluence-spell-distro = "=0.5.15"
 
 # marine
 fluence-app-service = "0.25.3"
@@ -96,8 +96,8 @@ marine-utils = "0.5.0"
 marine-it-parser = "0.12.1"
 
 # avm
-avm-server = { version = "=0.39.1-feat-VM-276-aquavm-keypair-775a729-1587-1.0", registry = "fluence" }
-air-interpreter-wasm = { version = "=0.39.1-feat-VM-276-aquavm-keypair-775a729-1587-1.0", registry = "fluence" }
+avm-server = { version = "0.32.0" }
+air-interpreter-wasm = { version = "0.40.0" }
 
 # libp2p
 libp2p = { version = "0.51.3", features = ["noise", "tcp", "dns", "websocket", "yamux", "mplex", "tokio", "kad", "ping", "identify", "macros"] }
