@@ -4850,6 +4850,7 @@ name = "particle-execution"
 version = "0.1.0"
 dependencies = [
  "async-trait",
+ "fluence-app-service",
  "fluence-libp2p",
  "fs-utils",
  "futures",

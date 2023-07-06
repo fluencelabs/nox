@@ -20,7 +20,8 @@ use std::{collections::HashMap, sync::Arc};
 
 use derivative::Derivative;
 use fluence_app_service::{
-    AppService, AppServiceError, CallParameters, MarineError, SecurityTetraplet, ServiceInterface,
+    AppService, AppServiceConfig, AppServiceError, CallParameters, MarineConfig, MarineError,
+    SecurityTetraplet, ServiceInterface,
 };
 use humantime_serde::re::humantime::format_duration as pretty;
 use parking_lot::{Mutex, RwLock};
@@ -30,7 +31,7 @@ use serde_json::{json, Value as JValue};
 use fluence_libp2p::{peerid_serializer, PeerId};
 use now_millis::now_ms;
 use particle_args::{Args, JError};
-use particle_execution::{FunctionOutcome, ParticleParams, ParticleVault, VaultError};
+use particle_execution::{FunctionOutcome, ParticleParams, ParticleVault};
 use particle_modules::ModuleRepository;
 use peer_metrics::{
     ServiceCallStats, ServiceMemoryStat, ServiceType as MetricServiceType, ServicesMetrics,
@@ -39,7 +40,6 @@ use peer_metrics::{
 use server_config::ServicesConfig;
 use uuid_utils::uuid;
 
-use crate::app_service::create_app_service;
 use crate::error::ServiceError;
 use crate::error::ServiceError::{AliasAsServiceId, Forbidden, NoSuchAlias};
 use crate::persistence::{
@@ -166,7 +166,7 @@ pub struct VmDescriptor<'a> {
 pub struct ParticleAppServices {
     config: ServicesConfig,
     // TODO: move vault to Plumber or Actor
-    vault: ParticleVault,
+    pub vault: ParticleVault,
     services: Arc<RwLock<Services>>,
     modules: ModuleRepository,
     aliases: Arc<RwLock<Aliases>>,
@@ -474,8 +474,9 @@ impl ParticleAppServices {
 
         // TODO: move particle vault creation to aquamarine::particle_functions
         if create_vault {
-            self.create_vault(&particle.id)?;
+            self.vault.create(&particle.id)?;
         }
+
         let params = CallParameters {
             host_id: worker_id.to_string(),
             particle_id: particle.id,
@@ -900,18 +901,13 @@ impl ParticleAppServices {
         aliases: Vec<String>,
     ) -> Result<Option<Service>, ServiceError> {
         let creation_start_time = Instant::now();
-        let service = create_app_service(
-            self.config.clone(),
-            &self.modules,
-            blueprint_id.clone(),
-            service_id.clone(),
-            self.metrics.as_ref(),
-        )
-        .inspect_err(|_| {
-            if let Some(metrics) = self.metrics.as_ref() {
-                metrics.observe_created_failed();
-            }
-        })?;
+        let service = self
+            .create_app_service(blueprint_id.clone(), service_id.clone())
+            .inspect_err(|_| {
+                if let Some(metrics) = self.metrics.as_ref() {
+                    metrics.observe_created_failed();
+                }
+            })?;
         let stats = service.module_memory_stats();
         let stats = ServiceMemoryStat::new(&stats);
 
@@ -936,8 +932,37 @@ impl ParticleAppServices {
         Ok(replaced)
     }
 
-    fn create_vault(&self, particle_id: &str) -> Result<(), VaultError> {
-        self.vault.create(particle_id)
+    fn create_app_service(
+        &self,
+        blueprint_id: String,
+        service_id: String,
+    ) -> Result<AppService, ServiceError> {
+        let mut modules_config = self.modules.resolve_blueprint(&blueprint_id)?;
+        modules_config
+            .iter_mut()
+            .for_each(|module| self.vault.inject_vault(module));
+
+        if let Some(metrics) = self.metrics.as_ref() {
+            metrics.observe_service_config(self.config.max_heap_size.as_u64(), &modules_config);
+        }
+
+        let app_config = AppServiceConfig {
+            service_working_dir: self.config.workdir.join(&service_id),
+            service_base_dir: self.config.workdir.clone(),
+            marine_config: MarineConfig {
+                modules_dir: Some(self.config.modules_dir.clone()),
+                modules_config,
+                default_modules_config: None,
+            },
+        };
+
+        log::debug!(
+            "Creating service {}, envs: {:?}",
+            service_id,
+            self.config.envs
+        );
+        AppService::new(app_config, service_id, self.config.envs.clone())
+            .map_err(ServiceError::Engine)
     }
 
     fn get_service_type(&self, service: &Service, worker_id: &PeerId) -> MetricServiceType {

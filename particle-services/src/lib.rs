@@ -34,11 +34,6 @@ pub use app_services::ServiceType;
 
 pub use crate::error::ServiceError;
 
-mod app_service;
 mod app_services;
 mod error;
 mod persistence;
-
-pub(crate) type Result<T> = std::result::Result<T, ServiceError>;
-
-pub const VIRTUAL_PARTICLE_VAULT_PREFIX: &str = "/tmp/vault";
