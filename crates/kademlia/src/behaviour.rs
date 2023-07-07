@@ -56,6 +56,7 @@ use libp2p_kad::KBucketKey;
 use libp2p_metrics::{Metrics, Recorder};
 use multihash::Multihash;
 use tokio::sync::{mpsc, oneshot};
+#[cfg(test)]
 use tracing::{info_span, Span};
 
 use control_macro::get_return;
