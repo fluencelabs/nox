@@ -814,6 +814,7 @@ mod tests {
         maddr.push(Protocol::P2p(peer_id.into()));
 
         Swarm::listen_on(&mut swarm, maddr.clone()).expect("Could not make swarm");
+        //TODO: make explicit set_mode for Kademlia behaviour after release libp2p-kad 0.44.2
         Swarm::add_external_address(&mut swarm, maddr.clone());
 
         tracing::info!("Node created");
