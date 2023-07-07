@@ -56,6 +56,7 @@ use libp2p_kad::KBucketKey;
 use libp2p_metrics::{Metrics, Recorder};
 use multihash::Multihash;
 use tokio::sync::{mpsc, oneshot};
+use tracing::{info_span, Span};
 
 use control_macro::get_return;
 use particle_protocol::Contact;
@@ -125,10 +126,16 @@ pub struct Kademlia {
     // Timer to track timed out requests, and return errors ASAP
     timer: Delay,
     metrics: Option<Arc<Metrics>>,
+    #[cfg(test)]
+    parent_span: Span,
 }
 
 impl Kademlia {
-    pub fn new(config: KademliaConfig, metrics: Option<Arc<Metrics>>) -> (Self, KademliaApi) {
+    pub fn new(
+        config: KademliaConfig,
+        metrics: Option<Arc<Metrics>>,
+        #[cfg(test)] parent_span: Span,
+    ) -> (Self, KademliaApi) {
         let timer = Delay::new(config.query_timeout);
 
         let store = MemoryStore::new(config.peer_id);
@@ -153,6 +160,8 @@ impl Kademlia {
             waker: None,
             timer,
             metrics,
+            #[cfg(test)]
+            parent_span,
         };
 
         (behaviour, api)
@@ -480,6 +489,8 @@ impl Kademlia {
         let mut wake = false;
         while let Poll::Ready(Some(cmd)) = self.commands.poll_recv(cx) {
             wake = true;
+            #[cfg(test)]
+            tracing::info!("Received command: {:?}", cmd);
             self.execute(cmd)
         }
         if wake {
@@ -507,6 +518,8 @@ impl Kademlia {
             let mut timed_out = false;
             for p in expired {
                 timed_out = true;
+                #[cfg(test)]
+                tracing::info!("Expired peer {:?}", p);
                 // notify expired
                 p.out.send(Err(KademliaError::PeerTimedOut)).ok();
             }
@@ -557,6 +570,8 @@ impl Kademlia {
     }
 
     fn inject_kad_event(&mut self, event: KademliaEvent) {
+        #[cfg(test)]
+        tracing::info!("inject_kad_event: {:?}", event);
         if let Some(metrics) = self.metrics.as_ref() {
             metrics.record(&event);
         }
@@ -619,6 +634,20 @@ impl NetworkBehaviour for Kademlia {
         )
     }
 
+    fn handle_pending_outbound_connection(
+        &mut self,
+        _connection_id: ConnectionId,
+        maybe_peer: Option<PeerId>,
+        _addresses: &[Multiaddr],
+        _effective_role: Endpoint,
+    ) -> std::result::Result<Vec<Multiaddr>, ConnectionDenied> {
+        let peer_id = match maybe_peer {
+            None => return Ok(vec![]),
+            Some(peer_id) => peer_id,
+        };
+        Ok(self.addresses_of_peer(&peer_id))
+    }
+
     fn handle_established_outbound_connection(
         &mut self,
         connection_id: ConnectionId,
@@ -632,20 +661,6 @@ impl NetworkBehaviour for Kademlia {
             addr,
             role_override,
         )
-    }
-
-    fn handle_pending_outbound_connection(
-        &mut self,
-        _connection_id: ConnectionId,
-        maybe_peer: Option<PeerId>,
-        _addresses: &[Multiaddr],
-        _effective_role: Endpoint,
-    ) -> std::result::Result<Vec<Multiaddr>, ConnectionDenied> {
-        let peer_id = match maybe_peer {
-            None => return Ok(vec![]),
-            Some(peer_id) => peer_id,
-        };
-        Ok(self.addresses_of_peer(&peer_id))
     }
 
     fn on_swarm_event(&mut self, event: FromSwarm<Self::ConnectionHandler>) {
@@ -719,7 +734,10 @@ impl NetworkBehaviour for Kademlia {
     ) -> Poll<ToSwarm<(), THandlerInEvent<Self>>> {
         use Poll::{Pending, Ready};
         use ToSwarm::*;
-
+        #[cfg(test)]
+        let eba = info_span!(parent: &self.parent_span, "Kademlia");
+        #[cfg(test)]
+        let _enter = eba.enter();
         loop {
             if self.poll(cx).is_pending() {
                 break;
@@ -784,7 +802,7 @@ mod tests {
         let span = tracing::info_span!("Node", peer_id = peer_id.to_base58());
         let _guard = span.enter();
         let config = kad_config(peer_id);
-        let (kad, _) = Kademlia::new(config, None);
+        let (kad, _) = Kademlia::new(config, None, span.clone());
         let timeout = Duration::from_secs(20);
 
         let kp = kp.into();
@@ -796,7 +814,9 @@ mod tests {
         maddr.push(Protocol::P2p(peer_id.into()));
 
         Swarm::listen_on(&mut swarm, maddr.clone()).expect("Could not make swarm");
+        Swarm::add_external_address(&mut swarm, maddr.clone());
 
+        tracing::info!("Node created");
         (swarm, maddr)
     }
 
