@@ -25,7 +25,7 @@
 [Provide any additional information or context that may be helpful for the reviewer.]
 
 ## Reviewer Checklist
-- [ ] Code has been reviewed for quality and adherence to guidelines (https://doc.rust-lang.org/1.0.0/style/README.html).
+- [ ] Code has been reviewed for quality and adherence to [guidelines](https://doc.rust-lang.org/1.0.0/style/README.html).
 - [ ] Tests have been reviewed and are sufficient to validate the changes.
 - [ ] Documentation has been reviewed and is up to date.
 - [ ] Any questions or concerns have been addressed.
