@@ -489,8 +489,6 @@ impl Kademlia {
         let mut wake = false;
         while let Poll::Ready(Some(cmd)) = self.commands.poll_recv(cx) {
             wake = true;
-            #[cfg(test)]
-            tracing::info!("Received command: {:?}", cmd);
             self.execute(cmd)
         }
         if wake {
@@ -518,8 +516,6 @@ impl Kademlia {
             let mut timed_out = false;
             for p in expired {
                 timed_out = true;
-                #[cfg(test)]
-                tracing::info!("Expired peer {:?}", p);
                 // notify expired
                 p.out.send(Err(KademliaError::PeerTimedOut)).ok();
             }
@@ -570,8 +566,6 @@ impl Kademlia {
     }
 
     fn inject_kad_event(&mut self, event: KademliaEvent) {
-        #[cfg(test)]
-        tracing::info!("inject_kad_event: {:?}", event);
         if let Some(metrics) = self.metrics.as_ref() {
             metrics.record(&event);
         }
