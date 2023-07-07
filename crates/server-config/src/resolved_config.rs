@@ -35,15 +35,11 @@ pub struct UnresolvedConfig {
     dir_config: UnresolvedDirConfig,
     #[serde(flatten)]
     node_config: UnresolvedNodeConfig,
-    #[serde(default)]
+
     pub log: Option<LogConfig>,
-    #[serde(default)]
     pub tracing: Option<TracingConfig>,
-    #[serde(default)]
     pub console: Option<ConsoleConfig>,
-
     pub no_banner: Option<bool>,
-
     pub print_config: Option<bool>,
 }
 
