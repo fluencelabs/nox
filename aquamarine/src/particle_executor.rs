@@ -82,6 +82,7 @@ impl<RT: AquaRuntime> ParticleExecutor for RT {
                     timestamp: particle.timestamp,
                     ttl: particle.ttl,
                 };
+                // println!("particle {} call results {:?}", particle.id, calls);
                 let result = self.call(
                     particle.script,
                     particle.data,
@@ -103,8 +104,13 @@ impl<RT: AquaRuntime> ParticleExecutor for RT {
                         particle_id = particle.id,
                         "Error executing particle: {}",
                         err
-                    )
+                    );
                 } else {
+                    // println!(
+                    //     "particle {} new_data {:?}",
+                    //     particle.id,
+                    //     result.as_ref().map(|r| &r.data).unwrap()
+                    // );
                     let len = new_data_len.map(|l| l as i32).unwrap_or(-1);
                     tracing::trace!(
                         target: "execution", particle_id = particle.id,

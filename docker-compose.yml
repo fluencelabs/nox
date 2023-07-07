@@ -7,7 +7,7 @@ networks:
 
 services:
   aurora:
-    image: docker.fluence.dev/aurora:main-9e7523f-4-1
+    image: docker.fluence.dev/aurora:deal-aurora-v0.2.4
     ports:
       - 8545:8545
     networks:

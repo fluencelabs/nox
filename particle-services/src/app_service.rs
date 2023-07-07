@@ -53,7 +53,7 @@ pub fn create_app_service(
         },
     };
 
-    log::debug!("Creating service {}, envs: {:?}", service_id, config.envs);
+    log::debug!("Creating service {}", service_id);
     AppService::new(app_config, service_id, config.envs).map_err(ServiceError::Engine)
 }
 
