@@ -82,7 +82,7 @@ where
         core::upgrade::SelectUpgrade::new(yamux, mplex)
     };
 
-    let auth_config = libp2p::noise::Config::new(&key_pair).expect("create noise keypair");
+    let auth_config = libp2p::noise::Config::new(key_pair).expect("create noise keypair");
 
     transport
         .upgrade(core::upgrade::Version::V1)
