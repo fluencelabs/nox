@@ -10,6 +10,12 @@
 ## Proposed Changes
 [List the specific changes and additions introduced by this pull request.]
 
+## Screenshots (if applicable)
+[Add any relevant screenshots or animated GIFs to showcase the changes.]
+
+## Additional Notes
+[Provide any additional information or context that may be helpful for the reviewer.]
+
 ## Checklist
 - [ ] The code follows the project's coding conventions and style guidelines.
 - [ ] All tests related to the changes have passed successfully.
@@ -17,12 +23,6 @@
 - [ ] All new and existing unit tests have passed.
 - [ ] I have self-reviewed my code and ensured its quality.
 - [ ] I have added/updated necessary comments to aid understanding.
-
-## Screenshots (if applicable)
-[Add any relevant screenshots or animated GIFs to showcase the changes.]
-
-## Additional Notes
-[Provide any additional information or context that may be helpful for the reviewer.]
 
 ## Reviewer Checklist
 - [ ] Code has been reviewed for quality and adherence to [guidelines](https://doc.rust-lang.org/1.0.0/style/README.html).
