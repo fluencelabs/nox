@@ -57,7 +57,7 @@ use libp2p_metrics::{Metrics, Recorder};
 use multihash::Multihash;
 use tokio::sync::{mpsc, oneshot};
 #[cfg(test)]
-use tracing::{Span};
+use tracing::Span;
 
 use control_macro::get_return;
 use particle_protocol::Contact;
