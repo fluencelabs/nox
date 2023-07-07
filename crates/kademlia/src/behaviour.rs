@@ -57,7 +57,7 @@ use libp2p_metrics::{Metrics, Recorder};
 use multihash::Multihash;
 use tokio::sync::{mpsc, oneshot};
 #[cfg(test)]
-use tracing::{info_span, Span};
+use tracing::{Span};
 
 use control_macro::get_return;
 use particle_protocol::Contact;
@@ -730,7 +730,7 @@ impl NetworkBehaviour for Kademlia {
         use Poll::{Pending, Ready};
         use ToSwarm::*;
         #[cfg(test)]
-        let eba = info_span!(parent: &self.parent_span, "Kademlia");
+        let eba = tracing::info_span!(parent: &self.parent_span, "Kademlia");
         #[cfg(test)]
         let _enter = eba.enter();
         loop {

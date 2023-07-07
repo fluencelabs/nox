@@ -29,8 +29,8 @@ futures = { workspace = true }
 futures-timer = "3.0.2"
 thiserror = { workspace = true }
 tokio = { workspace = true }
+tracing = { workspace = true }
 
 [dev-dependencies]
 log-utils = { workspace = true }
-tracing = { workspace = true }
 
