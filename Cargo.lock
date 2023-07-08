@@ -2634,7 +2634,8 @@ dependencies = [
  "parking_lot",
  "serde",
  "thiserror",
- "toml 0.5.11",
+ "toml 0.7.6",
+ "toml_edit",
 ]
 
 [[package]]
@@ -4225,7 +4226,8 @@ dependencies = [
  "service-modules",
  "tempdir",
  "thiserror",
- "toml 0.5.11",
+ "toml 0.7.6",
+ "toml_edit",
 ]
 
 [[package]]
@@ -4279,7 +4281,8 @@ dependencies = [
  "service-modules",
  "tempdir",
  "thiserror",
- "toml 0.5.11",
+ "toml 0.7.6",
+ "toml_edit",
  "uuid",
  "uuid-utils",
 ]
@@ -5474,7 +5477,8 @@ dependencies = [
  "particle-modules",
  "particle-services",
  "service-modules",
- "toml 0.5.11",
+ "toml 0.7.6",
+ "toml_edit",
 ]
 
 [[package]]
@@ -5625,7 +5629,7 @@ dependencies = [
  "sorcerer",
  "spell-event-bus",
  "spell-storage",
- "toml 0.5.11",
+ "toml 0.7.6",
  "tracing",
  "trust-graph-distro",
 ]
@@ -5890,7 +5894,7 @@ dependencies = [
 name = "toml-utils"
 version = "0.0.1"
 dependencies = [
- "toml 0.5.11",
+ "toml 0.7.6",
 ]
 
 [[package]]
