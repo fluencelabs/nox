@@ -11,4 +11,4 @@ eyre = { workspace = true }
 serde = { version = "1.0.167", features = ["derive"] }
 serde_json = { workspace = true }
 blake3 = "1.4.1"
-faster-hex = "0.6.1"
+faster-hex = "0.8.0"
