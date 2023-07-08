@@ -101,7 +101,7 @@ avm-server = { version = "0.32.0" }
 air-interpreter-wasm = { version = "0.41.0" }
 
 # libp2p
-libp2p = { version = "0.52.0", features = ["noise", "tcp", "dns", "websocket", "yamux", "tokio", "kad", "ping", "identify", "macros"] }
+libp2p = { version = "0.52.1", features = ["noise", "tcp", "dns", "websocket", "yamux", "tokio", "kad", "ping", "identify", "macros"] }
 libp2p-core = { version = "0.40.0", default-features = false, features = ["secp256k1"] }
 libp2p-metrics = "0.13.0"
 libp2p-noise = "0.43.0"
