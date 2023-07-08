@@ -43,7 +43,7 @@ jobs:
           repository: fluencelabs/nox-distro
 
       - name: Import secrets
-        uses: hashicorp/vault-action@v2.7.1
+        uses: hashicorp/vault-action@v2.7.2
         with:
           url: https://vault.fluence.dev
           path: jwt/github
