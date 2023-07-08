@@ -980,7 +980,7 @@ version = "0.1.0"
 dependencies = [
  "fluence-libp2p",
  "futures",
- "itertools 0.10.5",
+ "itertools 0.11.0",
  "libp2p",
  "log",
  "parking_lot",
@@ -2584,7 +2584,7 @@ name = "json-utils"
 version = "0.0.2"
 dependencies = [
  "base64 0.21.2",
- "itertools 0.10.5",
+ "itertools 0.11.0",
  "serde",
  "serde_json",
 ]
@@ -3850,7 +3850,7 @@ dependencies = [
  "futures",
  "humantime-serde",
  "hyper",
- "itertools 0.10.5",
+ "itertools 0.11.0",
  "kademlia",
  "key-manager",
  "libp2p",
@@ -4158,7 +4158,7 @@ dependencies = [
  "fluence-keypair",
  "futures",
  "humantime-serde",
- "itertools 0.10.5",
+ "itertools 0.11.0",
  "ivalue-utils",
  "kademlia",
  "key-manager",
@@ -4217,7 +4217,7 @@ dependencies = [
  "fluence-app-service",
  "fs-utils",
  "fstrings",
- "itertools 0.10.5",
+ "itertools 0.11.0",
  "json-utils",
  "libipld",
  "log",
@@ -5517,7 +5517,7 @@ dependencies = [
  "fluence-app-service",
  "fluence-libp2p",
  "fluence-spell-distro",
- "itertools 0.10.5",
+ "itertools 0.11.0",
  "log",
  "parking_lot",
  "particle-modules",
@@ -6078,7 +6078,7 @@ dependencies = [
  "fluence-keypair",
  "fluence-libp2p",
  "futures",
- "itertools 0.10.5",
+ "itertools 0.11.0",
  "particle-protocol",
  "serde_json",
 ]
