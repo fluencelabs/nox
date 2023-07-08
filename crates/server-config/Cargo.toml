@@ -27,7 +27,7 @@ rand = "0.8.5"
 clap = { version = "4.3.11", features = ["derive", "string"] }
 bs58 = { workspace = true }
 base64 = { workspace = true }
-num_cpus = "1.15.0"
+num_cpus = "1.16.0"
 eyre = { workspace = true }
 derivative = { workspace = true }
 bytesize = { version = "1.2.0", features = ["serde"] }
