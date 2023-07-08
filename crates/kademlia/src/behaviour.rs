@@ -30,21 +30,18 @@ use futures::FutureExt;
 use futures_timer::Delay;
 use libp2p::core::transport::ListenerId;
 use libp2p::core::{ConnectedPoint, Endpoint};
-use libp2p::kad::handler::KademliaHandler;
-use libp2p::kad::kbucket::Key;
 use libp2p::kad::KademliaStoreInserts;
 use libp2p::swarm::behaviour::{
-    ConnectionClosed, ConnectionEstablished, DialFailure, ExpiredExternalAddr, ExpiredListenAddr,
-    FromSwarm, ListenFailure, ListenerClosed, ListenerError, NewExternalAddr, NewListenAddr,
-    NewListener,
+    ConnectionClosed, ConnectionEstablished, DialFailure, ExpiredListenAddr, ExternalAddrConfirmed,
+    FromSwarm, ListenFailure, ListenerClosed, ListenerError, NewListenAddr, NewListener,
 };
 use libp2p::swarm::derive_prelude::AddressChange;
-use libp2p::swarm::ListenError;
 use libp2p::swarm::PollParameters;
 use libp2p::swarm::THandlerInEvent;
 use libp2p::swarm::THandlerOutEvent;
 use libp2p::swarm::{ConnectionDenied, ConnectionId, THandler};
 use libp2p::swarm::{DialError, ToSwarm};
+use libp2p::swarm::{ExternalAddrExpired, ListenError, NewExternalAddrCandidate};
 use libp2p::{
     core::Multiaddr,
     kad::{
@@ -55,9 +52,12 @@ use libp2p::{
     swarm::NetworkBehaviour,
     PeerId,
 };
+use libp2p_kad::KBucketKey;
 use libp2p_metrics::{Metrics, Recorder};
 use multihash::Multihash;
 use tokio::sync::{mpsc, oneshot};
+#[cfg(test)]
+use tracing::Span;
 
 use control_macro::get_return;
 use particle_protocol::Contact;
@@ -127,10 +127,16 @@ pub struct Kademlia {
     // Timer to track timed out requests, and return errors ASAP
     timer: Delay,
     metrics: Option<Arc<Metrics>>,
+    #[cfg(test)]
+    parent_span: Span,
 }
 
 impl Kademlia {
-    pub fn new(config: KademliaConfig, metrics: Option<Arc<Metrics>>) -> (Self, KademliaApi) {
+    pub fn new(
+        config: KademliaConfig,
+        metrics: Option<Arc<Metrics>>,
+        #[cfg(test)] parent_span: Span,
+    ) -> (Self, KademliaApi) {
         let timer = Delay::new(config.query_timeout);
 
         let store = MemoryStore::new(config.peer_id);
@@ -155,6 +161,8 @@ impl Kademlia {
             waker: None,
             timer,
             metrics,
+            #[cfg(test)]
+            parent_span,
         };
 
         (behaviour, api)
@@ -200,7 +208,7 @@ impl Kademlia {
         peer_id: &PeerId,
         cid: &ConnectionId,
         cp: &ConnectedPoint,
-        handler: KademliaHandler<QueryId>,
+        handler: <Kademlia as NetworkBehaviour>::ConnectionHandler,
         remaining_established: usize,
     ) {
         self.kademlia
@@ -213,14 +221,23 @@ impl Kademlia {
             }))
     }
 
+    fn on_external_addr_confirmed(&mut self, addr: &Multiaddr) {
+        self.kademlia
+            .on_swarm_event(FromSwarm::ExternalAddrConfirmed(ExternalAddrConfirmed {
+                addr,
+            }))
+    }
+
     fn on_expired_external_addr(&mut self, addr: &Multiaddr) {
         self.kademlia
-            .on_swarm_event(FromSwarm::ExpiredExternalAddr(ExpiredExternalAddr { addr }))
+            .on_swarm_event(FromSwarm::ExternalAddrExpired(ExternalAddrExpired { addr }))
     }
 
     fn on_new_external_addr(&mut self, addr: &Multiaddr) {
         self.kademlia
-            .on_swarm_event(FromSwarm::NewExternalAddr(NewExternalAddr { addr }))
+            .on_swarm_event(FromSwarm::NewExternalAddrCandidate(
+                NewExternalAddrCandidate { addr },
+            ))
     }
 
     fn on_listener_closed(
@@ -330,10 +347,10 @@ impl Kademlia {
     }
 
     fn addresses_of_peer(&mut self, peer_id: &PeerId) -> Vec<Multiaddr> {
+        let conn_id = ConnectionId::new_unchecked(1);
         //TODO: this method doesn't use params except of peer_id
-        #[allow(deprecated)]
         let res = self.kademlia.handle_pending_outbound_connection(
-            ConnectionId::DUMMY,
+            conn_id,
             Some(*peer_id),
             vec![].as_slice(),
             Endpoint::Dialer,
@@ -379,11 +396,11 @@ impl Kademlia {
 
     pub fn neighborhood(
         &mut self,
-        key: Multihash,
+        key: Multihash<64>,
         count: usize,
         outlet: oneshot::Sender<Result<Vec<PeerId>>>,
     ) {
-        let key: Key<Multihash> = key.into();
+        let key: KBucketKey<Multihash<64>> = key.into();
         let peers = self.kademlia.get_closest_local_peers(&key);
         let peers = peers.take(count);
         let peers = peers.map(|p| p.into_preimage());
@@ -393,7 +410,7 @@ impl Kademlia {
 
     pub fn remote_neighborhood(
         &mut self,
-        key: Multihash,
+        key: Multihash<64>,
         outlet: oneshot::Sender<Result<Vec<PeerId>>>,
     ) {
         let query_id = self.kademlia.get_closest_peers(key);
@@ -405,7 +422,7 @@ impl Kademlia {
 
 impl Kademlia {
     fn peer_discovered(&mut self, peer: PeerId, addresses: Vec<Multiaddr>) {
-        log::trace!(
+        tracing::trace!(
             target: "network",
             "discovered peer {} with {:?} addresses",
             peer,
@@ -595,7 +612,7 @@ fn has_timed_out(now: Instant, timestamp: Instant, timeout: Duration, wake: &mut
 
 impl NetworkBehaviour for Kademlia {
     type ConnectionHandler = <kad::Kademlia<MemoryStore> as NetworkBehaviour>::ConnectionHandler;
-    type OutEvent = ();
+    type ToSwarm = ();
 
     fn handle_established_inbound_connection(
         &mut self,
@@ -612,6 +629,20 @@ impl NetworkBehaviour for Kademlia {
         )
     }
 
+    fn handle_pending_outbound_connection(
+        &mut self,
+        _connection_id: ConnectionId,
+        maybe_peer: Option<PeerId>,
+        _addresses: &[Multiaddr],
+        _effective_role: Endpoint,
+    ) -> std::result::Result<Vec<Multiaddr>, ConnectionDenied> {
+        let peer_id = match maybe_peer {
+            None => return Ok(vec![]),
+            Some(peer_id) => peer_id,
+        };
+        Ok(self.addresses_of_peer(&peer_id))
+    }
+
     fn handle_established_outbound_connection(
         &mut self,
         connection_id: ConnectionId,
@@ -625,10 +656,6 @@ impl NetworkBehaviour for Kademlia {
             addr,
             role_override,
         )
-    }
-
-    fn addresses_of_peer(&mut self, peer_id: &PeerId) -> Vec<Multiaddr> {
-        self.addresses_of_peer(peer_id)
     }
 
     fn on_swarm_event(&mut self, event: FromSwarm<Self::ConnectionHandler>) {
@@ -673,11 +700,14 @@ impl NetworkBehaviour for Kademlia {
             FromSwarm::ListenerClosed(e) => {
                 self.on_listener_closed(e.listener_id, e.reason);
             }
-            FromSwarm::NewExternalAddr(e) => {
+            FromSwarm::NewExternalAddrCandidate(e) => {
                 self.on_new_external_addr(e.addr);
             }
-            FromSwarm::ExpiredExternalAddr(e) => {
+            FromSwarm::ExternalAddrExpired(e) => {
                 self.on_expired_external_addr(e.addr);
+            }
+            FromSwarm::ExternalAddrConfirmed(e) => {
+                self.on_external_addr_confirmed(e.addr);
             }
         }
     }
@@ -699,7 +729,10 @@ impl NetworkBehaviour for Kademlia {
     ) -> Poll<ToSwarm<(), THandlerInEvent<Self>>> {
         use Poll::{Pending, Ready};
         use ToSwarm::*;
-
+        #[cfg(test)]
+        let eba = tracing::info_span!(parent: &self.parent_span, "Kademlia");
+        #[cfg(test)]
+        let _enter = eba.enter();
         loop {
             if self.poll(cx).is_pending() {
                 break;
@@ -713,8 +746,12 @@ impl NetworkBehaviour for Kademlia {
                 Ready(GenerateEvent(e)) => self.inject_kad_event(e),
                 Ready(Dial { opts }) => return Ready(Dial { opts }),
                 Ready(NotifyHandler { peer_id, handler, event }) => return Ready(NotifyHandler { peer_id, handler, event }),
-                Ready(ReportObservedAddr { address, score }) => return Ready(ReportObservedAddr { address, score }),
-                Ready(CloseConnection { peer_id, connection }) => return Ready(CloseConnection { peer_id, connection })
+                Ready(NewExternalAddrCandidate(address)) => return Ready(NewExternalAddrCandidate(address)),
+                Ready(ExternalAddrConfirmed(address)) => return Ready(ExternalAddrConfirmed(address)),
+                Ready(ExternalAddrExpired(address)) => return Ready(ExternalAddrExpired(address)),
+                Ready(CloseConnection { peer_id, connection }) => return Ready(CloseConnection { peer_id, connection }),
+                Ready(ListenOn { opts }) => return Ready(ListenOn {opts}),
+                Ready(RemoveListener { id }) => return Ready(RemoveListener {id})
             }
         }
     }
@@ -757,8 +794,10 @@ mod tests {
 
         let kp = KeyPair::generate_ed25519();
         let peer_id = kp.get_peer_id();
+        let span = tracing::info_span!("Node", peer_id = peer_id.to_base58());
+        let _guard = span.enter();
         let config = kad_config(peer_id);
-        let (kad, _) = Kademlia::new(config, None);
+        let (kad, _) = Kademlia::new(config, None, span.clone());
         let timeout = Duration::from_secs(20);
 
         let kp = kp.into();
@@ -769,14 +808,19 @@ mod tests {
         let mut maddr = create_memory_maddr();
         maddr.push(Protocol::P2p(peer_id.into()));
 
-        Swarm::listen_on(&mut swarm, maddr.clone()).ok();
+        Swarm::listen_on(&mut swarm, maddr.clone()).expect("Could not make swarm");
+        //TODO: make explicit set_mode for Kademlia behaviour after release libp2p-kad 0.44.2
+        Swarm::add_external_address(&mut swarm, maddr.clone());
 
+        tracing::info!("Node created");
         (swarm, maddr)
     }
 
     #[tokio::test]
     async fn discovery() {
         use tokio::time::timeout;
+
+        log_utils::enable_logs();
 
         let (mut a, a_addr) = make_node();
         let (mut b, b_addr) = make_node();

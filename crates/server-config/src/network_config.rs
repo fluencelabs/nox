@@ -14,9 +14,8 @@
  * limitations under the License.
  */
 
-#[allow(deprecated)]
-use libp2p::swarm::ConnectionLimits;
 use libp2p::{core::Multiaddr, identity::Keypair, PeerId};
+use libp2p_connection_limits::ConnectionLimits;
 use libp2p_metrics::Metrics;
 use std::sync::Arc;
 

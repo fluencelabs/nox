@@ -13,7 +13,8 @@ server-config = { workspace = true }
 fluence-keypair = { workspace = true }
 
 libp2p = { workspace = true }
-libp2p-identity = { workspace = true, features = ["multihash"] }
+libp2p-identity = { workspace = true }
+libp2p-kad = { workspace = true }
 libp2p-metrics = { workspace = true, features = ["kad"] }
 prometheus-client = { workspace = true }
 multihash = { workspace = true }
@@ -28,6 +29,8 @@ futures = { workspace = true }
 futures-timer = "3.0.2"
 thiserror = { workspace = true }
 tokio = { workspace = true }
+tracing = { workspace = true }
 
 [dev-dependencies]
+log-utils = { workspace = true }
 

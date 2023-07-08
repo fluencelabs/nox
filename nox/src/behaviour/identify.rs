@@ -44,10 +44,10 @@ impl FluenceNetworkBehaviour {
                 let mut supports_fluence = false;
 
                 for protocol in info.protocols.iter() {
-                    if !supports_kademlia && protocol.contains("/ipfs/kad/1.0.0") {
+                    if !supports_kademlia && protocol.eq(&"/ipfs/kad/1.0.0") {
                         supports_kademlia = true;
                     }
-                    if !supports_fluence && protocol.contains(PROTOCOL_NAME) {
+                    if !supports_fluence && protocol.eq(&PROTOCOL_NAME) {
                         supports_fluence = true;
                     }
                     if supports_fluence && supports_kademlia {

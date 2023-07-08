@@ -26,15 +26,14 @@ use connection_pool::{ConnectionPoolApi, ConnectionPoolT};
 use fluence_libp2p::build_transport;
 use futures::{stream::StreamExt, FutureExt};
 use key_manager::KeyManager;
-#[allow(deprecated)]
-use libp2p::swarm::ConnectionLimits;
 use libp2p::swarm::SwarmEvent;
 use libp2p::{
     core::{muxing::StreamMuxerBox, transport::Boxed, Multiaddr},
     identity::Keypair,
-    swarm::AddressScore,
     PeerId, Swarm, TransportError,
 };
+#[allow(deprecated)]
+use libp2p_connection_limits::ConnectionLimits;
 use libp2p_metrics::{Metrics, Recorder};
 use libp2p_swarm::SwarmBuilder;
 use particle_builtins::{Builtins, CustomService, NodeInfo};
@@ -339,16 +338,14 @@ impl<RT: AquaRuntime> Node<RT> {
         Connectivity,
         mpsc::Receiver<Particle>,
     ) {
-        let connection_limits = network_config.connection_limits.clone();
         let (behaviour, connectivity, particle_stream) =
             FluenceNetworkBehaviour::new(network_config);
-        let mut swarm = SwarmBuilder::with_tokio_executor(transport, behaviour, local_peer_id)
-            .connection_limits(connection_limits)
-            .build();
+        let mut swarm =
+            SwarmBuilder::with_tokio_executor(transport, behaviour, local_peer_id).build();
 
         // Add external addresses to Swarm
         external_addresses.iter().cloned().for_each(|addr| {
-            Swarm::add_external_address(&mut swarm, addr, AddressScore::Finite(1));
+            Swarm::add_external_address(&mut swarm, addr);
         });
 
         (swarm, connectivity, particle_stream)
