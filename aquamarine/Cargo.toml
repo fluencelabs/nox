@@ -38,4 +38,4 @@ humantime = "2.1.0"
 anyhow = "1.0.71"
 eyre = { workspace = true }
 bytesize = "1.2.0"
-async-trait = "0.1.68"
+async-trait = "0.1.71"
