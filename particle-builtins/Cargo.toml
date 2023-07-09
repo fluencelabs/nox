@@ -50,4 +50,4 @@ base64 = { workspace = true }
 
 [dev-dependencies]
 proptest = "1.2.0"
-tempfile = "3.5.0"
+tempfile = "3.6.0"
