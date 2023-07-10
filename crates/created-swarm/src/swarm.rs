@@ -183,7 +183,7 @@ where
             let aquamarine_api = node.aquamarine_api.clone();
             async move {
                 let outlet = node
-                    .start(Some(peer_id.to_string()))
+                    .start(peer_id)
                     .await
                     .expect("node start");
 
@@ -312,6 +312,7 @@ pub fn create_swarm_with_runtime<RT: AquaRuntime>(
         "builtins_base_dir": config.builtins_dir,
         "external_multiaddresses": [config.listen_on],
         "spell_base_dir": Some(config.spell_base_dir.clone().unwrap_or(to_abs_path(PathBuf::from("spell")))),
+        "http_port": null
     });
 
     let node_config: UnresolvedConfig =
