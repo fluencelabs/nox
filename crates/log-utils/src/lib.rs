@@ -121,6 +121,12 @@ impl LogSpec {
 
         self
     }
+
+    pub fn with_directives(mut self, directives: Vec<Directive>) -> Self {
+        self.directives = self.directives.into_iter().chain(directives).collect();
+
+        self
+    }
 }
 
 pub fn enable_logs_for(spec: LogSpec) {
