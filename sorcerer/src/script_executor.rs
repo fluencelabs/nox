@@ -133,8 +133,8 @@ impl Sorcerer {
         let func_outcome = self.services.call_function(
             worker_id,
             &event.spell_id,
-            "list_push_string",
-            vec![json!("trigger_mailbox"), json!(serialized_event)],
+            "store_mailbox_message",
+            vec![json!(serialized_event)],
             None,
             worker_id,
             self.spell_script_particle_ttl,
