@@ -15,7 +15,7 @@
  */
 
 use log::Level;
-use tracing_subscriber::filter::{Directive, LevelFilter};
+use tracing_subscriber::filter::Directive;
 
 fn default_directives() -> Vec<Directive> {
     let namespaces = vec![
@@ -87,7 +87,7 @@ pub fn enable_console() {
 }
 
 pub struct LogSpec {
-    level: Level
+    level: tracing::metadata::Level,
     directives: Vec<Directive>,
     wasm_log: Level,
 }
@@ -96,7 +96,7 @@ impl Default for LogSpec {
     fn default() -> Self {
         Self::new(vec![])
             .with_defaults()
-            .with_level(Level::Info)
+            .with_level(tracing::metadata::Level::INFO)
             .with_wasm_level(Level::Info)
     }
 }
@@ -104,13 +104,13 @@ impl Default for LogSpec {
 impl LogSpec {
     pub fn new(directives: Vec<Directive>) -> Self {
         Self {
-            level: Level::Info,
+            level: tracing::metadata::Level::INFO,
             directives,
             wasm_log: Level::Info,
         }
     }
 
-    pub fn with_level(mut self, level: Level) -> Self {
+    pub fn with_level(mut self, level: tracing::metadata::Level) -> Self {
         self.level = level;
 
         self
