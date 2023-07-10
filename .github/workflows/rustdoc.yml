@@ -29,7 +29,7 @@ jobs:
       - name: Build documentation
         env:
           RUSTDOCFLAGS: "--enable-index-page -Zunstable-options"
-        run: cargo +nightly doc --all --no-deps
+        run: cargo doc --all --no-deps
 
       # - name: Deploy Docs
       #   uses: peaceiris/actions-gh-pages@v3.9.3
