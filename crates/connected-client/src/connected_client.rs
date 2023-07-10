@@ -203,6 +203,7 @@ impl ConnectedClient {
             &mut self.local_vm.lock(),
             generated,
             self.particle_ttl(),
+            &self.key_pair,
         );
         let id = particle.id.clone();
         self.send(particle);
@@ -246,8 +247,12 @@ impl ConnectedClient {
 
     pub async fn receive_args(&mut self) -> Result<Vec<JValue>> {
         let particle = self.receive().await.wrap_err("receive_args")?;
-        println!("{} received particle {}", self.peer_id, particle.id);
-        let result = read_args(particle, self.peer_id, &mut self.local_vm.lock());
+        let result = read_args(
+            particle,
+            self.peer_id,
+            &mut self.local_vm.lock(),
+            &self.key_pair,
+        );
         match result {
             Some(result) => result.map_err(|args| eyre!("AIR caught an error: {:?}", args)),
             None => Err(eyre!("Received a particle, but it didn't return anything")),
@@ -259,7 +264,6 @@ impl ConnectedClient {
         &mut self,
         particle_id: impl AsRef<str>,
     ) -> Result<Vec<JValue>> {
-        log::info!("wait_particle_args {:?}", self.fetched);
         let head = self
             .fetched
             .iter()
@@ -268,7 +272,12 @@ impl ConnectedClient {
         match head {
             Some(index) => {
                 let particle = self.fetched.remove(index);
-                let result = read_args(particle, self.peer_id, &mut self.local_vm.lock());
+                let result = read_args(
+                    particle,
+                    self.peer_id,
+                    &mut self.local_vm.lock(),
+                    &self.key_pair,
+                );
                 if let Some(result) = result {
                     result.map_err(|args| eyre!("AIR caught an error: {:?}", args))
                 } else {
@@ -289,7 +298,12 @@ impl ConnectedClient {
             let particle = self.raw_receive().await.ok();
             if let Some(particle) = particle {
                 if particle.id == particle_id.as_ref() {
-                    let result = read_args(particle, self.peer_id, &mut self.local_vm.lock());
+                    let result = read_args(
+                        particle,
+                        self.peer_id,
+                        &mut self.local_vm.lock(),
+                        &self.key_pair,
+                    );
                     if let Some(result) = result {
                         break result.map_err(|args| eyre!("AIR caught an error: {:?}", args));
                     }
@@ -313,7 +327,12 @@ impl ConnectedClient {
 
             let particle = self.receive().await.ok();
             if let Some(particle) = particle {
-                let args = read_args(particle, self.peer_id, &mut self.local_vm.lock());
+                let args = read_args(
+                    particle,
+                    self.peer_id,
+                    &mut self.local_vm.lock(),
+                    &self.key_pair,
+                );
                 if let Some(args) = args {
                     return f(args);
                 }

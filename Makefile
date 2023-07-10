@@ -8,8 +8,8 @@ test:
 	cargo test --release
 
 server:
-	RUST_LOG="info,tide=off,tracing=off,avm_server=off,run-console=debug" \
-	cargo run --release -p particle-node
+	RUST_LOG="info,tide=off,tracing=off,avm_server=off,run-console=debug,system_services=debug,sorcerer::spell_builtins=debug,sorcerer=debug" \
+	cargo run --release -p nox
 
 server-debug:
 	RUST_LOG="debug,\
@@ -36,6 +36,6 @@ server-debug:
     polling=info, \
     avm_server=off,\
     tracing=off"\
-	cargo run --release -p particle-node -- -c ./deploy/Config.default.toml
+	cargo run --release -p nox -- -c ./deploy/Config.default.toml
 
 .PHONY: server server-debug test release build deploy

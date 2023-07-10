@@ -19,6 +19,7 @@ use fs_utils::to_abs_path;
 use particle_protocol::ProtocolConfig;
 
 use crate::keys::{decode_key, decode_secret_key, load_key};
+use crate::system_services_config::{ServiceKey, SystemServicesConfig};
 use crate::{BootstrapConfig, KademliaConfig};
 
 use super::defaults::*;
@@ -140,10 +141,15 @@ pub struct UnresolvedNodeConfig {
 
     #[serde(default = "default_allowed_binaries")]
     pub allowed_binaries: Vec<String>,
+
+    #[serde(default)]
+    pub system_services: SystemServicesConfig,
 }
 
 impl UnresolvedNodeConfig {
-    pub fn resolve(self) -> eyre::Result<NodeConfig> {
+    pub fn resolve(mut self) -> eyre::Result<NodeConfig> {
+        self.load_system_services_envs();
+
         let bootstrap_nodes = match self.local {
             Some(true) => vec![],
             _ => self.bootstrap_nodes,
@@ -192,9 +198,68 @@ impl UnresolvedNodeConfig {
             transport_config: self.transport_config,
             listen_config: self.listen_config,
             allowed_binaries: self.allowed_binaries,
+            system_services: self.system_services,
         };
 
         Ok(result)
+    }
+
+    // This is a temporary solution to save backward compatibility for some time
+    // Couldn't figure out how to use layered configs for this
+    // Print warning not to forget to fix it in the future
+    fn load_system_services_envs(&mut self) {
+        if let Ok(aqua_ipfs_external_addr) =
+            std::env::var("FLUENCE_ENV_AQUA_IPFS_EXTERNAL_API_MULTIADDR")
+        {
+            self.system_services.aqua_ipfs.external_api_multiaddr = aqua_ipfs_external_addr;
+            log::warn!(
+                "Override configuration of aqua-ipfs system service (external multiaddr) from ENV"
+            );
+        }
+
+        if let Ok(aqua_ipfs_local_addr) = std::env::var("FLUENCE_ENV_AQUA_IPFS_LOCAL_API_MULTIADDR")
+        {
+            self.system_services.aqua_ipfs.local_api_multiaddr = aqua_ipfs_local_addr;
+            log::warn!(
+                "Override configuration of aqua-ipfs system service (local multiaddr) from ENV"
+            );
+        }
+
+        if let Ok(enable_decider) = std::env::var("FLUENCE_ENV_CONNECTOR_JOIN_ALL_DEALS") {
+            match enable_decider.as_str() {
+                "true" => {
+                    self.system_services.enable.push(ServiceKey::Decider);
+                    log::warn!(
+                        "Override configuration of system services (enable decider) from ENV"
+                    );
+                }
+                "false" => {
+                    self.system_services
+                        .enable
+                        .retain(|key| *key != ServiceKey::Decider);
+                    log::warn!(
+                        "Override configuration of system services (disable decider) from ENV"
+                    );
+                }
+                _ => {}
+            }
+        }
+        if let Ok(decider_api_endpoint) = std::env::var("FLUENCE_ENV_CONNECTOR_API_ENDPOINT") {
+            self.system_services.decider.network_api_endpoint = decider_api_endpoint;
+            log::warn!("Override configuration of decider system spell (api endpoint) from ENV");
+        }
+
+        if let Ok(decider_contract_addr) = std::env::var("FLUENCE_ENV_CONNECTOR_CONTRACT_ADDRESS") {
+            self.system_services.decider.contract_address_hex = decider_contract_addr;
+            log::warn!(
+                "Override configuration of decider system spell (contract address) from ENV"
+            );
+        }
+
+        if let Ok(decider_from_block) = std::env::var("FLUENCE_ENV_CONNECTOR_FROM_BLOCK") {
+            self.system_services.decider.contract_block_hex = decider_from_block;
+            log::warn!("Override configuration of decider system spell (from block) from ENV");
+        }
     }
 }
 
@@ -275,6 +340,8 @@ pub struct NodeConfig {
     pub management_peer_id: PeerId,
 
     pub allowed_binaries: Vec<String>,
+
+    pub system_services: SystemServicesConfig,
 }
 
 #[derive(Clone, Deserialize, Serialize, Derivative, Copy)]

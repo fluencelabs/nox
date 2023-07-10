@@ -19,27 +19,36 @@ use std::time::Duration;
 use std::{task::Waker, time::Instant};
 
 use avm_server::{CallResults, ParticleParameters};
-use fluence_libp2p::PeerId;
+use fluence_keypair::KeyPair;
 use futures::{future::BoxFuture, FutureExt};
 use humantime::format_duration as pretty;
+
+use fluence_libp2p::PeerId;
 use particle_protocol::Particle;
 
 use crate::aqua_runtime::AquaRuntime;
 use crate::particle_effects::ParticleEffects;
 use crate::InterpretationStats;
 
-pub(super) type Fut<RT> = BoxFuture<'static, FutResult<RT, ParticleEffects, InterpretationStats>>;
+pub(super) type AVMRes<RT> = FutResult<RT, ParticleEffects, InterpretationStats>;
+pub(super) type Fut<RT> = BoxFuture<'static, AVMRes<RT>>;
 
 pub trait ParticleExecutor {
     type Future;
     type Particle;
-    fn execute(self, p: Self::Particle, waker: Waker, current_peer_id: PeerId) -> Self::Future;
+    fn execute(
+        self,
+        p: Self::Particle,
+        waker: Waker,
+        current_peer_id: PeerId,
+        key_pair: KeyPair,
+    ) -> Self::Future;
 }
 
 /// Result of a particle execution along a VM that has just executed the particle
 pub struct FutResult<RT, Eff, Stats> {
-    /// AVM that just executed a particle
-    pub vm: Option<RT>,
+    /// Return back AVM that just executed a particle and other reusable entities needed for execution
+    pub runtime: RT,
     /// Effects produced by particle execution
     pub effects: Eff,
     /// Performance stats
@@ -47,45 +56,76 @@ pub struct FutResult<RT, Eff, Stats> {
 }
 
 impl<RT: AquaRuntime> ParticleExecutor for RT {
-    type Future = Fut<Self>;
+    type Future = Fut<Option<Self>>;
     type Particle = (Particle, CallResults);
 
-    fn execute(mut self, p: Self::Particle, waker: Waker, current_peer_id: PeerId) -> Self::Future {
+    fn execute(
+        mut self,
+        p: Self::Particle,
+        waker: Waker,
+        current_peer_id: PeerId,
+        key_pair: KeyPair,
+    ) -> Self::Future {
         let (particle, calls) = p;
-        let cloned_particle = particle.clone();
-        let task = tokio::task::Builder::new().name(&format!("Particle {}", particle.id)).spawn_blocking(move || {
-            let now = Instant::now();
-            tracing::info!(particle_id = particle.id, "Executing particle");
+        let particle_id = particle.id.clone();
+        let data_len = particle.data.len();
+        let span = tracing::info_span!("Execute");
+        let task = tokio::task::Builder::new()
+            .name(&format!("Particle {}", particle.id))
+            .spawn_blocking(move || {
+                span.in_scope(move || {
+                    let now = Instant::now();
+                    tracing::info!(particle_id = particle.id, "Executing particle");
 
-            let particle_params = ParticleParameters {
-                current_peer_id: Cow::Owned(current_peer_id.to_string()),
-                init_peer_id: Cow::Owned(particle.init_peer_id.to_string()),
-                particle_id: Cow::Borrowed(&particle.id),
-                timestamp: particle.timestamp,
-                ttl: particle.ttl,
-            };
-            let result = self.call(particle.script.clone(), particle.data.clone(), particle_params.clone(), calls);
+                    let particle_params = ParticleParameters {
+                        current_peer_id: Cow::Owned(current_peer_id.to_string()),
+                        init_peer_id: Cow::Owned(particle.init_peer_id.to_string()),
+                        particle_id: Cow::Borrowed(&particle.id),
+                        timestamp: particle.timestamp,
+                        ttl: particle.ttl,
+                    };
+                    let result = self.call(
+                        particle.script,
+                        particle.data,
+                        particle_params,
+                        calls,
+                        &key_pair,
+                    );
 
-            let interpretation_time = now.elapsed();
-            let new_data_len = result.as_ref().map(|e| e.data.len()).ok();
-            let stats = InterpretationStats { interpretation_time, new_data_len, success: result.is_ok() };
+                    let interpretation_time = now.elapsed();
+                    let new_data_len = result.as_ref().map(|e| e.data.len()).ok();
+                    let stats = InterpretationStats {
+                        interpretation_time,
+                        new_data_len,
+                        success: result.is_ok(),
+                    };
 
-            if let Err(err) = &result {
-                tracing::warn!(particle_id = particle.id, "Error executing particle {:#?}: {}", particle, err)
-            } else {
-                let len = new_data_len.map(|l| l as i32).unwrap_or(-1);
-                tracing::trace!(target: "execution", particle_id = particle.id, "Particle interpreted in {} [{} bytes => {} bytes]", pretty(interpretation_time), particle.data.len(), len);
-            }
-            let effects = Self::into_effects(result, particle);
+                    if let Err(err) = &result {
+                        tracing::warn!(
+                            particle_id = particle.id,
+                            "Error executing particle: {}",
+                            err
+                        )
+                    } else {
+                        let len = new_data_len.map(|l| l as i32).unwrap_or(-1);
+                        tracing::trace!(
+                            target: "execution", particle_id = particle.id,
+                            "Particle interpreted in {} [{} bytes => {} bytes]",
+                            pretty(interpretation_time), data_len, len
+                        );
+                    }
+                    let effects = Self::into_effects(result, particle.id);
 
-            waker.wake();
+                    waker.wake();
 
-            FutResult {
-                vm: Some(self),
-                effects,
-                stats,
-            }
-        }).expect("Could not spawn 'Particle' task");
+                    FutResult {
+                        runtime: Some(self),
+                        effects,
+                        stats,
+                    }
+                })
+            })
+            .expect("Could not spawn 'Particle' task");
 
         async move {
             let result = task.await;
@@ -93,21 +133,20 @@ impl<RT: AquaRuntime> ParticleExecutor for RT {
                 Ok(res) => res,
                 Err(err) => {
                     if err.is_cancelled() {
-                        tracing::warn!(
-                            particle_id = cloned_particle.id,
-                            "Particle task was cancelled"
-                        );
+                        tracing::warn!(particle_id, "Particle task was cancelled");
                     } else {
-                        tracing::error!(particle_id = cloned_particle.id, "Particle task panic");
+                        tracing::error!(particle_id, "Particle task panic");
                     }
                     let stats = InterpretationStats {
                         interpretation_time: Duration::ZERO,
                         new_data_len: None,
                         success: false,
                     };
-                    let effects = ParticleEffects::empty(cloned_particle);
+                    let effects = ParticleEffects::empty();
                     FutResult {
-                        vm: None,
+                        // We loose an AVM instance here
+                        // But it will be recreated via VmPool
+                        runtime: None,
                         effects,
                         stats,
                     }

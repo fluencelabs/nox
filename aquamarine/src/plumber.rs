@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+use std::collections::hash_map::Entry;
 use std::{
     collections::{HashMap, VecDeque},
     task::{Context, Poll},
@@ -54,10 +55,6 @@ pub struct Plumber<RT: AquaRuntime, F> {
     key_manager: KeyManager,
 }
 
-unsafe impl<RT: AquaRuntime, F: ParticleFunctionStatic> Send for Plumber<RT, F> {}
-
-unsafe impl<RT: AquaRuntime, F: ParticleFunctionStatic> Sync for Plumber<RT, F> {}
-
 impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
     pub fn new(
         vm_pool: VmPool<RT>,
@@ -96,18 +93,39 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
         }
 
         let builtins = &self.builtins;
-        let actor = self
-            .actors
-            .entry((particle.id.clone(), worker_id))
-            .or_insert_with(|| {
+        let key = (particle.id.clone(), worker_id);
+        let entry = self.actors.entry(key);
+
+        let actor = match entry {
+            Entry::Occupied(actor) => Ok(actor.into_mut()),
+            Entry::Vacant(entry) => {
                 let params = ParticleParams::clone_from(&particle, worker_id);
                 let functions = Functions::new(params, builtins.clone());
-                Actor::new(&particle, functions, worker_id)
-            });
+                let key_pair = self.key_manager.get_worker_keypair(worker_id);
+                let deal_id = self.key_manager.get_deal_id(worker_id).ok();
+                key_pair.map(|kp| {
+                    let span = tracing::info_span!("Actor", deal_id = deal_id);
+                    let actor = Actor::new(&particle, functions, worker_id, kp, span);
+                    entry.insert(actor)
+                })
+            }
+        };
 
-        actor.ingest(particle);
-        if let Some(function) = function {
-            actor.set_function(function);
+        debug_assert!(actor.is_ok(), "no such worker: {:#?}", actor.err());
+
+        match actor {
+            Ok(actor) => {
+                actor.ingest(particle);
+                if let Some(function) = function {
+                    actor.set_function(function);
+                }
+            }
+            Err(err) => log::warn!(
+                "No such worker {}, rejected particle {}: {:?}",
+                worker_id,
+                particle.id,
+                err
+            ),
         }
     }
 
@@ -178,8 +196,15 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
                         next_peers: local_peers,
                     });
                 }
-                if let Some((vm_id, vm)) = result.vm {
-                    self.vm_pool.put_vm(vm_id, vm)
+
+                let (vm_id, vm) = result.runtime;
+                if let Some(vm) = vm {
+                    self.vm_pool.put_vm(vm_id, vm);
+                } else {
+                    // if `result.vm` is None, then an AVM instance was lost due to
+                    // panic or cancellation, and we must ask VmPool to recreate that AVM
+                    // TODO: add a Count metric to count how often we call `recreate_avm`
+                    self.vm_pool.recreate_avm(vm_id, cx);
                 }
             }
             mailbox_size += actor.mailbox_size();
@@ -355,10 +380,10 @@ mod tests {
 
         fn into_effects(
             _outcome: Result<AVMOutcome, Self::Error>,
-            _p: Particle,
+            _particle_id: String,
         ) -> ParticleEffects {
             ParticleEffects {
-                particle: Default::default(),
+                new_data: vec![],
                 next_peers: vec![],
                 call_requests: Default::default(),
             }
@@ -370,6 +395,7 @@ mod tests {
             _data: Vec<u8>,
             _particle: ParticleParameters<'_>,
             _call_results: CallResults,
+            _key_pair: &KeyPair,
         ) -> Result<AVMOutcome, Self::Error> {
             Ok(AVMOutcome {
                 data: vec![],

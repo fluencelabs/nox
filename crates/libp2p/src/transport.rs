@@ -21,7 +21,6 @@ use libp2p::core::muxing::StreamMuxerBox;
 use libp2p::core::transport::{Boxed, MemoryTransport};
 use libp2p::core::Multiaddr;
 use libp2p::dns::TokioDnsConfig;
-use libp2p::noise;
 use libp2p::tcp::Transport as TcpTransport;
 use libp2p::tcp::{tokio::Tcp as TokioTcp, Config as GenTcpConfig};
 use libp2p::{core, identity::Keypair, PeerId, Transport as NetworkTransport};
@@ -29,7 +28,7 @@ use serde::{Deserialize, Serialize};
 
 pub fn build_transport(
     transport: Transport,
-    key_pair: Keypair,
+    key_pair: &Keypair,
     timeout: Duration,
 ) -> Boxed<(PeerId, StreamMuxerBox)> {
     match transport {
@@ -43,7 +42,7 @@ pub fn build_transport(
 /// Transport is based on TCP with SECIO as the encryption layer and MPLEX otr YAMUX as
 /// the multiplexing layer.
 pub fn build_network_transport(
-    key_pair: Keypair,
+    key_pair: &Keypair,
     socket_timeout: Duration,
 ) -> Boxed<(PeerId, StreamMuxerBox)> {
     let tcp = || {
@@ -64,7 +63,7 @@ pub fn build_network_transport(
 
 pub fn configure_transport<T, C>(
     transport: T,
-    key_pair: Keypair,
+    key_pair: &Keypair,
     transport_timeout: Duration,
 ) -> Boxed<(PeerId, StreamMuxerBox)>
 where
@@ -75,30 +74,27 @@ where
     T::Error: Send + Unpin + Sync + 'static,
 {
     let multiplex = {
-        let mut mplex = libp2p::mplex::MplexConfig::default();
+        let mut mplex = libp2p_mplex::MplexConfig::default();
         mplex.set_max_num_streams(1024 * 1024);
 
-        let mut yamux = libp2p::yamux::YamuxConfig::default();
+        let mut yamux = libp2p::yamux::Config::default();
         yamux.set_max_num_streams(1024 * 1024);
 
         core::upgrade::SelectUpgrade::new(yamux, mplex)
     };
 
-    let keys = noise::Keypair::<noise::X25519Spec>::new()
-        .into_authentic(&key_pair)
-        .expect("create noise keypair");
-    let auth = libp2p::noise::NoiseConfig::xx(keys);
+    let auth_config = libp2p::noise::Config::new(key_pair).expect("create noise keypair");
 
     transport
         .upgrade(core::upgrade::Version::V1)
-        .authenticate(auth.into_authenticated())
+        .authenticate(auth_config)
         .multiplex(multiplex)
         .timeout(transport_timeout)
         .boxed()
 }
 
 pub fn build_memory_transport(
-    key_pair: Keypair,
+    key_pair: &Keypair,
     transport_timeout: Duration,
 ) -> Boxed<(PeerId, StreamMuxerBox)> {
     let transport = MemoryTransport::default();

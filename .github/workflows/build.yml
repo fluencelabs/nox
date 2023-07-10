@@ -1,4 +1,4 @@
-name: "Build rust-peer binary"
+name: "Build nox binary"
 
 on:
   workflow_call:
@@ -12,35 +12,48 @@ on:
         type: string
         default: "null"
     outputs:
-      rust-peer-sha:
-        description: "rust-peer sha256 hash"
+      nox-sha:
+        description: "nox sha256 hash"
         value: ${{ jobs.build.outputs.sha256 }}
 
 jobs:
   build:
-    name: "Build rust-peer"
+    name: "Build nox (${{ matrix.arch }})"
     runs-on: builder
     timeout-minutes: 60
 
-    env:
-      RUSTFLAGS: "-D warnings --cfg tokio_unstable"
+    env: ${{ matrix.env }}
 
     outputs:
       sha256: "${{ steps.sha.outputs.sha256 }}"
 
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86_64
+            env:
+              RUSTFLAGS: "-D warnings --cfg tokio_unstable"
+          - arch: aarch64
+            env:
+              RUSTFLAGS: "-D warnings --cfg tokio_unstable"
+              CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
+              CC_aarch64_unknown_linux_gnu: aarch64-linux-gnu-gcc
+              CXX_aarch64_unknown_linux_gnu: aarch64-linux-gnu-g++
+
     steps:
-      - name: Checkout rust-peer
+      - name: Checkout repository
         uses: actions/checkout@v3
         with:
-          repository: fluencelabs/rust-peer
+          repository: fluencelabs/nox
           ref: ${{ inputs.ref }}
 
       - name: Setup Rust toolchain
-        uses: actions-rust-lang/setup-rust-toolchain@v1
+        uses: actions-rust-lang/setup-rust-toolchain@v1.5
 
       - name: Get PR labels
         id: labels
-        uses: joerick/pr-labels-action@v1.0.7
+        uses: joerick/pr-labels-action@v1.0.9
 
       - name: Set profile
         id: profile
@@ -71,20 +84,10 @@ jobs:
           publish: false
 
       - name: Run cargo build
-        run: cargo build ${{ steps.profile.outputs.flags }} -p particle-node
+        run: cargo build ${{ steps.profile.outputs.flags }} -p nox --target ${{ matrix.arch }}-unknown-linux-gnu
 
-      - name: Calculate SHA256
-        id: sha
-        working-directory: ./target/${{ steps.profile.outputs.profile }}
-        run: |
-          # Calculate sha256
-          du -hs particle-node
-          sha256sum particle-node
-          sha=($(sha256sum particle-node))
-          echo "sha256=${sha}" >> $GITHUB_OUTPUT
-
-      - name: Upload rust-peer binary
+      - name: Upload nox binary
         uses: actions/upload-artifact@v3
         with:
-          name: rust-peer
-          path: target/${{ steps.profile.outputs.profile }}/particle-node
+          name: nox-${{ matrix.arch }}
+          path: target/${{ matrix.arch }}-unknown-linux-gnu/${{ steps.profile.outputs.profile }}/nox

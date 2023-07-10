@@ -493,7 +493,7 @@ mod tests {
         );
 
         let module = load_module(
-            "../crates/particle-node-tests/tests/tetraplets/artifacts",
+            "../crates/nox-tests/tests/tetraplets/artifacts",
             "tetraplets",
         )
         .expect("load module");
@@ -536,7 +536,7 @@ mod tests {
         );
 
         let module = load_module(
-            "../crates/particle-node-tests/tests/tetraplets/artifacts",
+            "../crates/nox-tests/tests/tetraplets/artifacts",
             "tetraplets",
         )
         .expect("load module");

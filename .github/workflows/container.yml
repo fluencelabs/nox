@@ -3,20 +3,20 @@ name: Publish docker container
 on:
   workflow_call:
     inputs:
-      rust-peer-sha:
-        description: "sha256 hash of rust-peer binary"
+      nox-sha:
+        description: "sha256 hash of nox binary"
         type: string
       image-name:
         description: "Docker image name"
         type: string
-        default: "docker.fluence.dev/rust-peer"
+        default: "docker.fluence.dev/nox"
       flavour:
-        description: "rust-peer flavour"
+        description: "nox flavour"
         type: string
         default: "minimal"
     outputs:
-      rust-peer-image:
-        description: "rust-peer snapshot image"
+      nox-image:
+        description: "nox snapshot image"
         value: ${{ jobs.publish.outputs.image }}
 
 jobs:
@@ -33,13 +33,13 @@ jobs:
       id-token: write
 
     steps:
-      - name: Checkout node-distro
+      - name: Checkout nox-distro
         uses: actions/checkout@v3
         with:
-          repository: fluencelabs/node-distro
+          repository: fluencelabs/nox-distro
 
       - name: Import secrets
-        uses: hashicorp/vault-action@v2.5.0
+        uses: hashicorp/vault-action@v2.7.2
         with:
           url: https://vault.fluence.dev
           path: jwt/github
@@ -51,28 +51,51 @@ jobs:
             kv/docker-registry/basicauth/ci username | DOCKER_USERNAME ;
             kv/docker-registry/basicauth/ci password | DOCKER_PASSWORD
 
-      - name: Download rust-peer binary
+      - name: Download nox binary
         uses: actions/download-artifact@v3
         with:
-          name: rust-peer
           path: fluence
+
+      - name: Calculate SHA256
+        id: sha
+        working-directory: ./fluence
+        run: |
+          # Calculate sha256
+          for arch in x86_64 aarch64; do
+            du -hs nox-${arch}/nox
+            sha256sum nox-${arch}/nox
+            sha=($(sha256sum nox-${arch}/nox))
+            echo "sha256_${arch}=${sha}" >> $GITHUB_OUTPUT
+          done
 
       - name: Generate snapshot version
         id: version
         uses: fluencelabs/github-actions/generate-snapshot-id@main
 
-      - name: Update rust-peer version
+      - name: Update nox version
         run: |
           cat <<FLUENCE > fluence/fluence.json
           {
-            "version": "${{ steps.version.outputs.branch }}",
-            "url": "file:///fluence/particle-node",
-            "sha256": "${{ inputs.rust-peer-sha }}"
+            "x86_64": {
+              "version": "${{ steps.version.outputs.branch }}",
+              "url": "file:///fluence/nox-x86_64/nox",
+              "sha256": "${{ steps.sha.outputs.sha256_x86_64 }}"
+            },
+            "aarch64": {
+              "version": "${{ steps.version.outputs.branch }}",
+              "url": "file:///fluence/nox-aarch64/nox",
+              "sha256": "${{ steps.sha.outputs.sha256_aarch64 }}"
+            }
           }
           FLUENCE
 
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v2
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
+        with:
+          platforms: linux/amd64,linux/arm64
 
       - name: Login to DockerHub
         uses: docker/login-action@v2
@@ -88,6 +111,7 @@ jobs:
           context: .
           push: true
           target: ${{ inputs.flavour }}
+          platforms: linux/amd64,linux/arm64
           tags: |
             ${{ inputs.image-name }}:${{ inputs.flavour }}_${{ steps.version.outputs.branch }}
             ${{ inputs.image-name }}:${{ inputs.flavour }}_${{ steps.version.outputs.branch }}_${{ github.run_number }}_${{ github.run_attempt }}
@@ -104,7 +128,7 @@ jobs:
         if: always()
         run: |
           cat <<'SNAPSHOT' >> $GITHUB_STEP_SUMMARY
-          ## rust-peer ${{ inputs.flavour }}
+          ## nox ${{ inputs.flavour }}
           digest: `${{ steps.docker.outputs.digest }}`
           ```
           ${{ inputs.image-name }}:${{ inputs.flavour }}_${{ steps.version.outputs.branch }}

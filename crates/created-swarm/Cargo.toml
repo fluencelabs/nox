@@ -11,14 +11,13 @@ particle-args = { workspace = true }
 config-utils = { workspace = true }
 server-config = { workspace = true }
 fluence-libp2p = { workspace = true }
-particle-node = { workspace = true }
+nox = { workspace = true }
 particle-protocol = { workspace = true }
 aquamarine = { workspace = true }
 connection-pool = { workspace = true }
 script-storage = { workspace = true }
 fs-utils = { workspace = true }
 air-interpreter-fs = { workspace = true }
-builtins-deployer = { workspace = true }
 toy-vms = { workspace = true }
 
 fluence-keypair = { workspace = true }

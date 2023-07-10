@@ -17,7 +17,7 @@ use fluence_libp2p::PeerId;
 use serde_json::Value as JValue;
 use std::str::FromStr;
 
-use crate::spells::remove_spell;
+use crate::spell_builtins::remove_spell;
 use key_manager::KeyManager;
 use particle_args::{Args, JError};
 use particle_execution::ParticleParams;

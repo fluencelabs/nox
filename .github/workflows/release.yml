@@ -54,23 +54,23 @@ jobs:
         uses: actions-rust-lang/setup-rust-toolchain@v1
 
       - name: Install cargo-edit
-        uses: baptiste0928/cargo-install@v2.0.0
+        uses: baptiste0928/cargo-install@v2.1.0
         with:
           crate: cargo-edit
 
-      - name: Get rust-peer version
+      - name: Get nox version
         id: version
         run: |
           version="$(jq -r '.[]' .github/release-please/manifest.json)"
           echo "version=${version}" >> $GITHUB_OUTPUT
 
-      - name: Set rust-peer version
-        run: cargo set-version -p particle-node ${{ steps.version.outputs.version }}
+      - name: Set nox version
+        run: cargo set-version -p nox ${{ steps.version.outputs.version }}
 
       - name: Commit version bump
         uses: stefanzweifel/git-auto-commit-action@v4
         with:
-          commit_message: "chore: Bump rust-peer version to ${{ steps.version.outputs.version }}"
+          commit_message: "chore: Bump nox version to ${{ steps.version.outputs.version }}"
           branch: ${{ fromJson(needs.release-please.outputs.pr).headBranchName }}
           commit_user_name: fluencebot
           commit_user_email: devops@fluence.one
@@ -83,9 +83,9 @@ jobs:
     with:
       tag: ${{ needs.release-please.outputs.tag-name }}
       version: ${{ needs.release-please.outputs.version }}
-      update-node-distro: ${{ needs.release-please.outputs.release-created }}
+      update-distro: ${{ needs.release-please.outputs.release-created }}
     secrets:
-      PERSONAL_TOKEN: ${{ secrets.PERSONAL_TOKEN }}
+      PERSONAL_TOKEN: ${{ secrets.FLUENCEBOT_RELEASE_PLEASE_PAT }}
 
   slack:
     if: always()
@@ -114,7 +114,7 @@ jobs:
           echo "found any?:" "${{ steps.status.outputs.found }}"
 
       - name: Import secrets
-        uses: hashicorp/vault-action@v2.5.0
+        uses: hashicorp/vault-action@v2.7.2
         with:
           url: https://vault.fluence.dev
           path: jwt/github

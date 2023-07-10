@@ -27,6 +27,7 @@ use libp2p::PeerId;
 use fluence_libp2p::Transport;
 
 use crate::node_config::{KeypairConfig, PathOrValue};
+use crate::system_services_config::ServiceKey;
 
 const CONFIG_VERSION: usize = 1;
 
@@ -178,8 +179,7 @@ pub fn default_management_peer_id() -> PeerId {
     use base64::{engine::general_purpose::STANDARD as base64, Engine};
 
     let kp = Keypair::generate();
-    #[allow(deprecated)]
-    let public_key = PublicKey::Ed25519(kp.public());
+    let public_key: PublicKey = PublicKey::from(kp.public()); //TODO: safe unwrap
     let peer_id = PeerId::from(public_key);
 
     log::info!(
@@ -203,4 +203,56 @@ pub fn default_max_builtin_metrics_storage_size() -> usize {
 
 pub fn default_allowed_binaries() -> Vec<String> {
     vec!["/usr/bin/curl".to_string(), "/usr/bin/ipfs".to_string()]
+}
+
+pub fn default_system_services() -> Vec<ServiceKey> {
+    ServiceKey::all_values()
+}
+
+pub fn default_ipfs_multiaddr() -> String {
+    "/dns4/ipfs.fluence.dev/tcp/5001".to_string()
+}
+
+// 15 minutes
+pub fn default_worker_spell_period_sec() -> u32 {
+    900
+}
+
+// 2 minutes
+pub fn default_decider_spell_period_sec() -> u32 {
+    120
+}
+
+// 60 minutes
+// This is an interval setting for a spell in general.
+// should be the smallest common denominator of other intervals.
+pub fn default_registry_spell_period_sec() -> u32 {
+    3600
+}
+
+// 24 hours
+pub fn default_registry_expired_spell_period_sec() -> u32 {
+    86400
+}
+
+// 12 hours
+pub fn default_registry_renew_spell_period_sec() -> u32 {
+    43200
+}
+
+// 60 minutes
+pub fn default_registry_replicate_spell_period_sec() -> u32 {
+    3600
+}
+
+pub fn default_deal_network_api_endpoint() -> String {
+    "https://testnet.aurora.dev".to_string()
+}
+
+pub fn default_deal_contract_address_hex() -> String {
+    "0xb497e025D3095A197E30Ca84DEc36a637E649868".to_string()
+}
+
+pub fn default_deal_contract_block_hex() -> String {
+    "latest".to_string()
 }

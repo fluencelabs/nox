@@ -8,6 +8,7 @@ on:
       - "!.github/workflows/e2e.yml"
       - "!.github/workflows/snapshot.yml"
       - "!.github/workflows/container.yml"
+      - "!.github/workflows/build.yml"
     types:
       - "labeled"
       - "synchronize"
@@ -22,13 +23,14 @@ on:
       - "!.github/workflows/e2e.yml"
       - "!.github/workflows/snapshot.yml"
       - "!.github/workflows/container.yml"
+      - "!.github/workflows/build.yml"
 
 concurrency:
   group: "${{ github.workflow }}-${{ github.ref }}"
   cancel-in-progress: true
 
 jobs:
-  rust-peer:
+  nox:
     if: >
       github.event_name == 'push' ||
       (
@@ -39,9 +41,9 @@ jobs:
     with:
       ref: ${{ github.ref }}
 
-  rust-peer-flavours:
-    name: "rust-peer"
-    needs: rust-peer
+  nox-flavours:
+    name: "nox"
+    needs: nox
     strategy:
       matrix:
         flavour:
@@ -50,68 +52,41 @@ jobs:
 
     uses: ./.github/workflows/container.yml
     with:
-      image-name: "docker.fluence.dev/rust-peer"
+      image-name: "docker.fluence.dev/nox"
       flavour: "${{ matrix.flavour }}"
-      rust-peer-sha: "${{ needs.rust-peer.outputs.rust-peer-sha }}"
 
-  rust-peer-snapshot:
-    name: "rust-peer"
-    needs: rust-peer
+  nox-snapshot:
+    name: "nox"
+    needs: nox
     uses: ./.github/workflows/container.yml
     with:
-      image-name: "docker.fluence.dev/rust-peer"
+      image-name: "docker.fluence.dev/nox"
       flavour: "minimal"
-      rust-peer-sha: "${{ needs.rust-peer.outputs.rust-peer-sha }}"
 
   js-client:
     needs:
-      - rust-peer-snapshot
+      - nox-snapshot
     uses: fluencelabs/js-client/.github/workflows/tests.yml@master
     with:
-      rust-peer-image: "${{ needs.rust-peer-snapshot.outputs.rust-peer-image }}"
+      nox-image: "${{ needs.nox-snapshot.outputs.nox-image }}"
 
-  aqua-playground:
+  aqua:
     needs:
-      - rust-peer-snapshot
-    uses: fluencelabs/aqua-playground/.github/workflows/tests.yml@master
+      - nox-snapshot
+    uses: fluencelabs/aqua/.github/workflows/tests.yml@main
     with:
-      rust-peer-image: "${{ needs.rust-peer-snapshot.outputs.rust-peer-image }}"
+      nox-image: "${{ needs.nox-snapshot.outputs.nox-image }}"
 
   registry:
     needs:
-      - rust-peer-snapshot
+      - nox-snapshot
     uses: fluencelabs/registry/.github/workflows/tests.yml@main
     with:
-      rust-peer-image: "${{ needs.rust-peer-snapshot.outputs.rust-peer-image }}"
+      nox-image: "${{ needs.nox-snapshot.outputs.nox-image }}"
 
-  fluence-cli:
+  flox:
     needs:
-      - rust-peer-snapshot
-    uses: fluencelabs/fluence-cli/.github/workflows/tests.yml@main
+      - nox-snapshot
+    uses: fluencelabs/flox/.github/workflows/tests.yml@main
     with:
-      rust-peer-image: "${{ needs.rust-peer-snapshot.outputs.rust-peer-image }}"
-
-  status:
-    name: "e2e status"
-    runs-on: ubuntu-latest
-    needs:
-      - fluence-cli
-      - registry
-      - aqua-playground
-
-    steps:
-      - uses: lwhiteley/dependent-jobs-result-check@v1
-        id: status
-        with:
-          statuses: failure,cancelled,skipped
-          dependencies: ${{ toJSON(needs) }}
-
-      - name: Log output
-        run: |
-          echo "statuses:" "${{ steps.status.outputs.statuses }}"
-          echo "jobs:" "${{ steps.status.outputs.jobs }}"
-          echo "found any?:" "${{ steps.status.outputs.found }}"
-
-      - name: Fail run
-        if: fromJSON(steps.status.outputs.found)
-        run: exit 1
+      nox-image: "${{ needs.nox-snapshot.outputs.nox-image }}"

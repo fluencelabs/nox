@@ -10,6 +10,7 @@ particle-args = { workspace = true }
 fluence-libp2p = { workspace = true }
 fs-utils = { workspace = true }
 json-utils = { workspace = true }
+fluence-app-service = { workspace = true }
 
 thiserror = { workspace = true }
 futures = { workspace = true }
@@ -17,4 +18,4 @@ serde_json = { workspace = true }
 
 tokio = { workspace = true }
 parking_lot = { workspace = true }
-async-trait = { version = "0.1.68"}
+async-trait = { version = "0.1.71"}

@@ -50,7 +50,7 @@ pub struct ClientBehaviour {
 impl ClientBehaviour {
     pub fn new(protocol_config: ProtocolConfig) -> Self {
         #[allow(deprecated)]
-        let ping = Ping::new(PingConfig::new().with_keep_alive(true));
+        let ping = Ping::new(PingConfig::new());
         Self {
             protocol_config,
             events: VecDeque::default(),
@@ -162,7 +162,7 @@ impl NetworkBehaviour for ClientBehaviour {
         <Ping as NetworkBehaviour>::ConnectionHandler,
     >;
 
-    type OutEvent = ClientEvent;
+    type ToSwarm = ClientEvent;
 
     fn handle_established_inbound_connection(
         &mut self,
@@ -221,8 +221,9 @@ impl NetworkBehaviour for ClientBehaviour {
             FromSwarm::ExpiredListenAddr(_) => {}
             FromSwarm::ListenerError(_) => {}
             FromSwarm::ListenerClosed(_) => {}
-            FromSwarm::NewExternalAddr(_) => {}
-            FromSwarm::ExpiredExternalAddr(_) => {}
+            FromSwarm::NewExternalAddrCandidate(_) => {}
+            FromSwarm::ExternalAddrExpired(_) => {}
+            FromSwarm::ExternalAddrConfirmed(_) => {}
         }
     }
 
