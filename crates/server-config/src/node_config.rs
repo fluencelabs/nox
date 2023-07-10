@@ -78,8 +78,7 @@ pub struct UnresolvedNodeConfig {
     pub root_weights: HashMap<PeerIdSerializable, u32>,
 
     #[serde(default)]
-    #[serde(deserialize_with = "parse_envs")]
-    pub services_envs: HashMap<Vec<u8>, Vec<u8>>,
+    pub services_envs: HashMap<String, String>,
 
     #[serde(default)]
     pub protocol_config: ProtocolConfig,
@@ -301,7 +300,7 @@ pub struct NodeConfig {
 
     pub root_weights: HashMap<PeerIdSerializable, u32>,
 
-    pub services_envs: HashMap<Vec<u8>, Vec<u8>>,
+    pub services_envs: HashMap<String, String>,
 
     pub protocol_config: ProtocolConfig,
 
@@ -477,17 +476,4 @@ impl KeypairConfig {
             Value { value } => decode_key(value, self.format),
         }
     }
-}
-
-fn parse_envs<'de, D>(deserializer: D) -> Result<HashMap<Vec<u8>, Vec<u8>>, D::Error>
-where
-    D: serde::Deserializer<'de>,
-{
-    let envs = HashMap::<String, String>::deserialize(deserializer)?;
-    let envs = envs
-        .into_iter()
-        .map(|(k, v)| (k.into_bytes(), v.into_bytes()))
-        .collect();
-
-    Ok(envs)
 }
