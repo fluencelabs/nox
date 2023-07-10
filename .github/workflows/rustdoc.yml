@@ -1,5 +1,6 @@
 name: rustdoc
 on:
+  pull_request:
   push:
     branches:
       - master
@@ -25,14 +26,16 @@ jobs:
       - name: Setup Rust toolchain
         uses: actions-rust-lang/setup-rust-toolchain@v1
 
-      - name: Build Documentation
-        run: RUSTDOCFLAGS="--enable-index-page -Zunstable-options" cargo +nightly doc --all --no-deps
+      - name: Build documentation
+        env:
+          RUSTDOCFLAGS: "--enable-index-page -Zunstable-options"
+        run: cargo +nightly doc --all --no-deps
 
-      - name: Deploy Docs
-        uses: peaceiris/actions-gh-pages@v3.9.3
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_branch: gh-pages
-          publish_dir: ./target/doc
-          force_orphan: true
-          cname: doc.fluence.dev
+      # - name: Deploy Docs
+      #   uses: peaceiris/actions-gh-pages@v3.9.3
+      #   with:
+      #     github_token: ${{ secrets.GITHUB_TOKEN }}
+      #     publish_branch: gh-pages
+      #     publish_dir: ./target/doc
+      #     force_orphan: true
+      #     cname: doc.fluence.dev
