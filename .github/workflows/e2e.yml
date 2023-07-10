@@ -66,31 +66,27 @@ jobs:
   js-client:
     needs:
       - nox-snapshot
-    uses: fluencelabs/js-client/.github/workflows/tests.yml@FLU-353
+    uses: fluencelabs/js-client/.github/workflows/tests.yml@master
     with:
       nox-image: "${{ needs.nox-snapshot.outputs.nox-image }}"
-      ref: FLU-353
 
   aqua:
     needs:
       - nox-snapshot
-    uses: fluencelabs/aqua/.github/workflows/tests.yml@FLU-353
+    uses: fluencelabs/aqua/.github/workflows/tests.yml@main
     with:
       nox-image: "${{ needs.nox-snapshot.outputs.nox-image }}"
-      ref: FLU-353
 
   registry:
     needs:
       - nox-snapshot
-    uses: fluencelabs/registry/.github/workflows/tests.yml@FLU-353
+    uses: fluencelabs/registry/.github/workflows/tests.yml@main
     with:
       nox-image: "${{ needs.nox-snapshot.outputs.nox-image }}"
-      ref: FLU-353
 
   flox:
     needs:
       - nox-snapshot
-    uses: fluencelabs/flox/.github/workflows/tests.yml@FLU-353
+    uses: fluencelabs/flox/.github/workflows/tests.yml@main
     with:
       nox-image: "${{ needs.nox-snapshot.outputs.nox-image }}"
-      ref: FLU-353
