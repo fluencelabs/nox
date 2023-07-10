@@ -3,7 +3,7 @@ name: Publish docker container
 on:
   workflow_call:
     inputs:
-      rust-peer-sha:
+      nox-sha:
         description: "sha256 hash of nox binary"
         type: string
       image-name:
@@ -15,10 +15,6 @@ on:
         type: string
         default: "minimal"
     outputs:
-      # compatibility output
-      rust-peer-image:
-        description: "rust-peer snapshot image"
-        value: ${{ jobs.publish.outputs.image }}
       nox-image:
         description: "nox snapshot image"
         value: ${{ jobs.publish.outputs.image }}
