@@ -87,6 +87,7 @@ pub fn enable_console() {
 }
 
 pub struct LogSpec {
+    level: Level
     directives: Vec<Directive>,
     wasm_log: Level,
 }
@@ -95,6 +96,7 @@ impl Default for LogSpec {
     fn default() -> Self {
         Self::new(vec![])
             .with_defaults()
+            .with_level(Level::Info)
             .with_wasm_level(Level::Info)
     }
 }
@@ -102,9 +104,16 @@ impl Default for LogSpec {
 impl LogSpec {
     pub fn new(directives: Vec<Directive>) -> Self {
         Self {
+            level: Level::Info,
             directives,
             wasm_log: Level::Info,
         }
+    }
+
+    pub fn with_level(mut self, level: Level) -> Self {
+        self.level = level;
+
+        self
     }
 
     pub fn with_defaults(mut self) -> Self {
@@ -133,7 +142,7 @@ pub fn enable_logs_for(spec: LogSpec) {
     std::env::set_var("WASM_LOG", spec.wasm_log.to_string().to_lowercase());
 
     let mut filter = tracing_subscriber::EnvFilter::builder()
-        .with_default_directive(LevelFilter::TRACE.into())
+        .with_default_directive(spec.level.into())
         .from_env_lossy();
 
     for d in spec.directives {
