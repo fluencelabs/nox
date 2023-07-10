@@ -72,6 +72,13 @@ jobs:
         with:
           dependencies: ${{ inputs.cargo-dependencies }}
 
+      - name: Upload nox binary
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: Cargo.lock
+          path: Cargo.lock
+
       - name: Generate snapshot version
         id: version
         uses: fluencelabs/github-actions/generate-snapshot-id@main
