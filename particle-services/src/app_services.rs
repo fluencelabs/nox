@@ -29,6 +29,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value as JValue};
 
 use fluence_libp2p::{peerid_serializer, PeerId};
+use health::{HealthCheck, HealthCheckRegistry};
 use now_millis::now_ms;
 use particle_args::{Args, JError};
 use particle_execution::{FunctionOutcome, ParticleParams, ParticleVault};
@@ -174,6 +175,7 @@ pub struct ParticleAppServices {
     management_peer_id: PeerId,
     builtins_management_peer_id: PeerId,
     pub metrics: Option<ServicesMetrics>,
+    health: Option<PersistedServiceHealthCheck>,
 }
 
 /// firstly, try to find by alias in worker scope, secondly, in root scope
@@ -254,11 +256,17 @@ impl ParticleAppServices {
         config: ServicesConfig,
         modules: ModuleRepository,
         metrics: Option<ServicesMetrics>,
+        health_registry: Option<&mut HealthCheckRegistry>,
     ) -> Self {
         let vault = ParticleVault::new(config.particles_vault_dir.clone());
         let management_peer_id = config.management_peer_id;
         let builtins_management_peer_id = config.builtins_management_peer_id;
-        let this = Self {
+        let health = health_registry.map(|registry| {
+            let persisted_services = PersistedServiceHealthCheck::new();
+            registry.register("persisted_services", persisted_services.clone());
+            persisted_services
+        });
+        let mut this = Self {
             config,
             vault,
             services: <_>::default(),
@@ -267,6 +275,7 @@ impl ParticleAppServices {
             management_peer_id,
             builtins_management_peer_id,
             metrics,
+            health,
         };
 
         this.create_persisted_services();
@@ -814,10 +823,15 @@ impl ParticleAppServices {
         Ok(stats)
     }
 
-    fn create_persisted_services(&self) {
+    fn create_persisted_services(&mut self) {
         let services =
-            load_persisted_services(&self.config.services_dir, self.config.local_peer_id)
-                .into_iter();
+            load_persisted_services(&self.config.services_dir, self.config.local_peer_id);
+        let service_count = services.len();
+        if let Some(h) = self.health.as_mut() {
+            h.start_loading()
+        }
+        let services = services.into_iter();
+
         let services = services.filter_map(|r| match r {
             Ok(service) => service.into(),
             Err(err) => {
@@ -826,6 +840,7 @@ impl ParticleAppServices {
             }
         });
 
+        let mut loaded_service_count = 0;
         for s in services {
             let worker_id = s.worker_id.expect("every service must have worker id");
             let start = Instant::now();
@@ -881,13 +896,18 @@ impl ParticleAppServices {
                 replaced.is_none(),
                 "shouldn't replace any existing services"
             );
-
+            loaded_service_count += 1;
             log::info!(
                 "Persisted service {} created in {}, aliases: {:?}",
                 s.service_id,
                 pretty(start.elapsed()),
                 s.aliases
             );
+        }
+        if loaded_service_count != service_count {
+            if let Some(h) = self.health.as_mut() {
+                h.mark_has_errors()
+            }
         }
     }
 
@@ -1383,4 +1403,47 @@ mod tests {
     //       - get_interface
     //       - list_services
     //       - test on service persisting
+}
+
+#[derive(Debug, Clone)]
+pub struct PersistedServiceHealthCheck {
+    started: Arc<Mutex<bool>>,
+    has_errors: Arc<Mutex<bool>>,
+}
+
+impl PersistedServiceHealthCheck {
+    pub fn new() -> Self {
+        PersistedServiceHealthCheck {
+            started: Arc::new(Mutex::new(false)),
+            has_errors: Arc::new(Mutex::new(false)),
+        }
+    }
+
+    pub fn start_loading(&mut self) {
+        let mut guard = self.started.lock();
+        *guard = true;
+    }
+
+    pub fn mark_has_errors(&mut self) {
+        let mut guard = self.has_errors.lock();
+        *guard = true;
+    }
+}
+
+impl HealthCheck for PersistedServiceHealthCheck {
+    fn check(&self) -> eyre::Result<()> {
+        let started_guard = self.started.lock();
+        let errors_guard = self.has_errors.lock();
+        let started = *started_guard;
+        if started {
+            let has_errors = *errors_guard;
+            if has_errors {
+                Err(eyre::eyre!("Persisted services loading failed"))
+            } else {
+                Ok(())
+            }
+        } else {
+            Err(eyre::eyre!("Not loaded yet"))
+        }
+    }
 }

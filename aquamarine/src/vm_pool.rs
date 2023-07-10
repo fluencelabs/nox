@@ -14,9 +14,12 @@
  * limitations under the License.
  */
 
+use std::sync::Arc;
 use std::task::{Context, Poll};
 
 use futures::{future::BoxFuture, FutureExt};
+use health::{HealthCheck, HealthCheckRegistry};
+use parking_lot::Mutex;
 
 use peer_metrics::VmPoolMetrics;
 
@@ -39,6 +42,7 @@ pub struct VmPool<RT: AquaRuntime> {
     runtime_config: RT::Config,
     pool_size: usize,
     metrics: Option<VmPoolMetrics>,
+    health: Option<VMPoolHealCheck>,
 }
 
 impl<RT: AquaRuntime> VmPool<RT> {
@@ -47,13 +51,21 @@ impl<RT: AquaRuntime> VmPool<RT> {
         pool_size: usize,
         runtime_config: RT::Config,
         metrics: Option<VmPoolMetrics>,
+        health_registry: Option<&mut HealthCheckRegistry>,
     ) -> Self {
+        let health = health_registry.map(|registry| {
+            let vm_pool = VMPoolHealCheck::new(pool_size);
+            registry.register("vm_pool", vm_pool.clone());
+            vm_pool
+        });
+
         let mut this = Self {
             runtimes: Vec::with_capacity(pool_size),
             creating_runtimes: None,
             runtime_config,
             pool_size,
             metrics,
+            health,
         };
 
         this.runtimes.resize_with(pool_size, || None);
@@ -161,7 +173,10 @@ impl<RT: AquaRuntime> VmPool<RT> {
 
                 // Put created vm to self.vms
                 match vm {
-                    Ok(vm) => vms[id] = Some(vm),
+                    Ok(vm) => {
+                        vms[id] = Some(vm);
+                        self.health.as_ref().map(|h| h.increment_count());
+                    }
                     Err(err) => log::error!("Failed to create vm: {:?}", err), // TODO: don't panic
                 }
 
@@ -173,5 +188,41 @@ impl<RT: AquaRuntime> VmPool<RT> {
         if wake {
             cx.waker().wake_by_ref()
         }
+    }
+}
+
+#[derive(Clone)]
+pub struct VMPoolHealCheck {
+    expected_count: usize,
+    current_count: Arc<Mutex<usize>>,
+}
+
+impl VMPoolHealCheck {
+    pub fn new(expected_count: usize) -> Self {
+        Self {
+            expected_count,
+            current_count: Arc::new(Mutex::new(0)),
+        }
+    }
+
+    pub fn increment_count(&self) {
+        let mut guard = self.current_count.lock();
+        *guard += 1;
+    }
+}
+
+impl HealthCheck for VMPoolHealCheck {
+    fn check(&self) -> eyre::Result<()> {
+        let guard = self.current_count.lock();
+        let current = *guard;
+        if self.expected_count != current {
+            return Err(eyre::eyre!(
+                "VM pool isn't full. Current: {}, Expected: {}",
+                current,
+                self.expected_count
+            ));
+        }
+
+        Ok(())
     }
 }

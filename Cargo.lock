@@ -243,6 +243,7 @@ dependencies = [
  "fluence-libp2p",
  "fs-utils",
  "futures",
+ "health",
  "humantime 2.1.0",
  "key-manager",
  "libp2p",
@@ -2140,6 +2141,13 @@ dependencies = [
  "flate2",
  "nom",
  "num-traits",
+]
+
+[[package]]
+name = "health"
+version = "0.1.0"
+dependencies = [
+ "eyre",
 ]
 
 [[package]]
@@ -4061,6 +4069,7 @@ dependencies = [
  "fs-utils",
  "fstrings",
  "futures",
+ "health",
  "humantime-serde",
  "hyper",
  "itertools 0.11.0",
@@ -4369,6 +4378,7 @@ dependencies = [
  "fluence-app-service",
  "fluence-keypair",
  "futures",
+ "health",
  "humantime-serde",
  "itertools 0.11.0",
  "ivalue-utils",
@@ -4481,6 +4491,7 @@ dependencies = [
  "fluence-app-service",
  "fluence-libp2p",
  "fs-utils",
+ "health",
  "humantime-serde",
  "json-utils",
  "libp2p-identity",
