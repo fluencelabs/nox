@@ -10,8 +10,8 @@ json-utils = { workspace = true }
 cid-utils = { workspace = true }
 
 eyre = { workspace = true }
-serde = { version = "1.0.164", features = ["derive"] }
-faster-hex = "0.6.1"
+serde = { version = "1.0.171", features = ["derive"] }
+faster-hex = "0.8.0"
 maplit = { workspace = true }
 serde_json = { workspace = true }
 libipld = { workspace = true }

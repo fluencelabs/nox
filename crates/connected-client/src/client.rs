@@ -21,8 +21,9 @@ use either::Either;
 use fluence_keypair::{KeyPair, Signature};
 use futures::stream::StreamExt;
 use libp2p::core::Multiaddr;
-use libp2p::swarm::{ConnectionHandlerUpgrErr, SwarmBuilder, SwarmEvent};
+use libp2p::swarm::{SwarmBuilder, SwarmEvent};
 use libp2p::{PeerId, Swarm};
+use libp2p_swarm::handler::StreamUpgradeError;
 use tokio::sync::mpsc::error::SendError;
 use tokio::sync::{mpsc, oneshot};
 use tokio::{select, task, task::JoinHandle};
@@ -168,7 +169,7 @@ impl Client {
                                 Err(err) => {
                                     let err_msg = format!("{err:?}");
                                     let msg = err;
-                                    log::warn!("unable to send {:?} to node: {:?}", msg, err_msg)
+                                    log::warn!("unable to send {:?} to node: {:?}", msg, err_msg);
                                 },
                                 Ok(_v) => {},
                             }
@@ -189,10 +190,7 @@ impl Client {
 
     #[allow(clippy::result_large_err)]
     fn receive_from_node(
-        msg: SwarmEvent<
-            ClientEvent,
-            Either<ConnectionHandlerUpgrErr<std::io::Error>, libp2p::ping::Failure>,
-        >,
+        msg: SwarmEvent<ClientEvent, Either<StreamUpgradeError<std::io::Error>, void::Void>>,
         client_outlet: &mpsc::UnboundedSender<ClientEvent>,
     ) -> Result<(), SendError<ClientEvent>> {
         if let SwarmEvent::Behaviour(msg) = msg {

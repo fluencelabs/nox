@@ -116,8 +116,8 @@ mod tests {
 
         #[derive(Eq, PartialEq, Clone, Debug, Serialize, Deserialize)]
         struct Test {
-            multihash_1: Multihash,
-            multihash_2: Multihash,
+            multihash_1: Multihash<64>,
+            multihash_2: Multihash<64>,
         }
 
         let peer_id_1 = RandomPeerId::random();

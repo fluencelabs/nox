@@ -68,25 +68,25 @@ jobs:
       - nox-snapshot
     uses: fluencelabs/js-client/.github/workflows/tests.yml@master
     with:
-      rust-peer-image: "${{ needs.nox-snapshot.outputs.nox-image }}"
+      nox-image: "${{ needs.nox-snapshot.outputs.nox-image }}"
 
-  aqua-playground:
+  aqua:
     needs:
       - nox-snapshot
-    uses: fluencelabs/aqua-playground/.github/workflows/tests.yml@master
+    uses: fluencelabs/aqua/.github/workflows/tests.yml@main
     with:
-      rust-peer-image: "${{ needs.nox-snapshot.outputs.nox-image }}"
+      nox-image: "${{ needs.nox-snapshot.outputs.nox-image }}"
 
   registry:
     needs:
       - nox-snapshot
     uses: fluencelabs/registry/.github/workflows/tests.yml@main
     with:
-      rust-peer-image: "${{ needs.nox-snapshot.outputs.nox-image }}"
+      nox-image: "${{ needs.nox-snapshot.outputs.nox-image }}"
 
-  fluence-cli:
+  flox:
     needs:
       - nox-snapshot
-    uses: fluencelabs/fluence-cli/.github/workflows/tests.yml@main
+    uses: fluencelabs/flox/.github/workflows/tests.yml@main
     with:
-      rust-peer-image: "${{ needs.nox-snapshot.outputs.nox-image }}"
+      nox-image: "${{ needs.nox-snapshot.outputs.nox-image }}"

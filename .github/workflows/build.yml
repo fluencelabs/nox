@@ -12,10 +12,6 @@ on:
         type: string
         default: "null"
     outputs:
-      # compatibility output
-      rust-peer-sha:
-        description: "nox sha256 hash"
-        value: ${{ jobs.build.outputs.sha256 }}
       nox-sha:
         description: "nox sha256 hash"
         value: ${{ jobs.build.outputs.sha256 }}

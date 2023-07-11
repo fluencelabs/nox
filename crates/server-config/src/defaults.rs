@@ -179,8 +179,7 @@ pub fn default_management_peer_id() -> PeerId {
     use base64::{engine::general_purpose::STANDARD as base64, Engine};
 
     let kp = Keypair::generate();
-    #[allow(deprecated)]
-    let public_key = PublicKey::Ed25519(kp.public());
+    let public_key: PublicKey = PublicKey::from(kp.public()); //TODO: safe unwrap
     let peer_id = PeerId::from(public_key);
 
     log::info!(

@@ -26,8 +26,8 @@ use std::time::{Duration, Instant};
 use derivative::Derivative;
 use fluence_keypair::Signature;
 use humantime_serde::re::humantime::format_duration as pretty;
-use libp2p::{core::Multiaddr, kad::kbucket::Key, kad::K_VALUE, PeerId};
-use multihash::{Code, MultihashDigest, MultihashGeneric};
+use libp2p::{core::Multiaddr, kad::KBucketKey, kad::K_VALUE, PeerId};
+use multihash::Multihash;
 use serde::Deserialize;
 use serde_json::{json, Value as JValue};
 use tokio::sync::RwLock;
@@ -302,9 +302,9 @@ where
         let count = count.unwrap_or_else(|| K_VALUE.get());
 
         let key = if already_hashed == Some(true) {
-            MultihashGeneric::from_bytes(&key)?
+            Multihash::from_bytes(&key)?
         } else {
-            Code::Sha2_256.digest(&key)
+            Multihash::wrap(0x12, &key[..])?
         };
         let neighbors = self.kademlia().neighborhood(key, count).await?;
 
@@ -523,7 +523,7 @@ where
         let string: String = Args::next("string", &mut args)?;
         let digest_only: Option<bool> = Args::next_opt("digest_only", &mut args)?;
         let as_bytes: Option<bool> = Args::next_opt("as_bytes", &mut args)?;
-        let multihash = Code::Sha2_256.digest(string.as_bytes());
+        let multihash: Multihash<64> = Multihash::wrap(0x12, string.as_bytes())?;
 
         let result = if digest_only == Some(true) {
             multihash.digest().to_vec()
@@ -550,14 +550,14 @@ where
         let count = count.unwrap_or_else(|| K_VALUE.get());
 
         let target = bs58::decode(target).into_vec().map_err(DecodeBase58)?;
-        let target = Key::from(target);
+        let target = KBucketKey::from(target);
         let left = left.into_iter();
         let right = right.into_iter();
 
-        let mut keys: Vec<Key<_>> = left
+        let mut keys: Vec<KBucketKey<_>> = left
             .chain(right)
             .map(|b58_str| {
-                Ok(Key::from(
+                Ok(KBucketKey::from(
                     bs58::decode(b58_str).into_vec().map_err(DecodeBase58)?,
                 ))
             })
