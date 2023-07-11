@@ -202,7 +202,7 @@ impl UnresolvedNodeConfig {
             listen_config: self.listen_config,
             allowed_binaries: self.allowed_binaries,
             system_services: self.system_services,
-            http_config: self.http_config
+            http_config: self.http_config,
         };
 
         Ok(result)
@@ -347,7 +347,7 @@ pub struct NodeConfig {
 
     pub system_services: SystemServicesConfig,
 
-    pub http_config: Option<HttpConfig>
+    pub http_config: Option<HttpConfig>,
 }
 
 #[derive(Clone, Deserialize, Serialize, Derivative, Copy)]

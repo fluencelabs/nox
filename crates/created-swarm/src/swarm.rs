@@ -182,10 +182,7 @@ where
             let connectivity = node.connectivity.clone();
             let aquamarine_api = node.aquamarine_api.clone();
             async move {
-                let outlet = node
-                    .start(peer_id)
-                    .await
-                    .expect("node start");
+                let outlet = node.start(peer_id).await.expect("node start");
 
                 CreatedSwarm {
                     peer_id,

@@ -524,10 +524,10 @@ impl<RT: AquaRuntime> Node<RT> {
 #[cfg(test)]
 mod tests {
     use libp2p::core::Multiaddr;
+    use libp2p::PeerId;
     use maplit::hashmap;
     use serde_json::json;
     use std::path::PathBuf;
-    use libp2p::PeerId;
 
     use air_interpreter_fs::{air_interpreter_path, write_default_air_interpreter};
     use aquamarine::{VmConfig, AVM};
