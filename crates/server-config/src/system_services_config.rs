@@ -81,8 +81,8 @@ pub struct AquaIpfsConfig {
     pub external_api_multiaddr: String,
     #[serde(default = "default_ipfs_multiaddr")]
     pub local_api_multiaddr: String,
-    #[serde(default)]
-    pub ipfs_binary_path: Option<String>,
+    #[serde(default = "default_ipfs_binary_path")]
+    pub ipfs_binary_path: String,
 }
 
 impl Default for AquaIpfsConfig {
@@ -90,15 +90,23 @@ impl Default for AquaIpfsConfig {
         Self {
             external_api_multiaddr: default_ipfs_multiaddr(),
             local_api_multiaddr: default_ipfs_multiaddr(),
-            ipfs_binary_path: None,
+            ipfs_binary_path: default_ipfs_binary_path(),
         }
     }
 }
 
-#[derive(Clone, Serialize, Deserialize, Debug, Default)]
+#[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct ConnectorConfig {
-    #[serde(default)]
-    pub curl_binary_path: Option<String>,
+    #[serde(default = "default_curl_binary_path")]
+    pub curl_binary_path: String,
+}
+
+impl Default for ConnectorConfig {
+    fn default() -> Self {
+        Self {
+            curl_binary_path: default_curl_binary_path(),
+        }
+    }
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug)]

@@ -230,14 +230,12 @@ impl Deployer {
     fn get_ipfs_service_distro(config: &AquaIpfsConfig) -> eyre::Result<ServiceDistro> {
         use aqua_ipfs_distro::*;
         let mut marine_config: TomlMarineConfig = toml::from_slice(CONFIG)?;
-        if let Some(curl_path) = &config.ipfs_binary_path {
-            Self::apply_binary_path_change(
-                &mut marine_config,
-                "ipfs_effector",
-                "ipfs",
-                curl_path.clone(),
-            );
-        }
+        Self::apply_binary_path_override(
+            &mut marine_config,
+            "ipfs_effector",
+            "ipfs",
+            config.ipfs_binary_path.clone(),
+        );
 
         Ok(ServiceDistro {
             modules: modules(),
@@ -250,14 +248,12 @@ impl Deployer {
         let connector_service_distro = decider_distro::connector_service_modules();
         let mut marine_config: TomlMarineConfig =
             toml::from_slice(connector_service_distro.config)?;
-        if let Some(curl_path) = &config.curl_binary_path {
-            Self::apply_binary_path_change(
-                &mut marine_config,
-                "curl_adapter",
-                "curl",
-                curl_path.clone(),
-            );
-        }
+        Self::apply_binary_path_override(
+            &mut marine_config,
+            "curl_adapter",
+            "curl",
+            config.curl_binary_path.clone(),
+        );
 
         Ok(ServiceDistro {
             modules: connector_service_distro.modules,
@@ -665,7 +661,7 @@ impl Deployer {
         Ok(blueprint_id)
     }
 
-    fn apply_binary_path_change(
+    fn apply_binary_path_override(
         config: &mut TomlMarineConfig,
         module_name: &str,
         binary_name: &str,
