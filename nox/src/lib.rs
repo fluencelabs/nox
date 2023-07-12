@@ -33,8 +33,8 @@ mod builtins;
 mod connectivity;
 mod dispatcher;
 mod effectors;
+mod http;
 mod layers;
-mod metrics;
 mod node;
 mod tasks;
 

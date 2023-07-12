@@ -71,6 +71,9 @@ pub struct UnresolvedNodeConfig {
     #[serde(flatten)]
     pub metrics_config: MetricsConfig,
 
+    #[serde(flatten)]
+    pub http_config: Option<HttpConfig>,
+
     #[serde(default)]
     pub bootstrap_config: BootstrapConfig,
 
@@ -199,6 +202,7 @@ impl UnresolvedNodeConfig {
             listen_config: self.listen_config,
             allowed_binaries: self.allowed_binaries,
             system_services: self.system_services,
+            http_config: self.http_config,
         };
 
         Ok(result)
@@ -342,6 +346,8 @@ pub struct NodeConfig {
     pub allowed_binaries: Vec<String>,
 
     pub system_services: SystemServicesConfig,
+
+    pub http_config: Option<HttpConfig>,
 }
 
 #[derive(Clone, Deserialize, Serialize, Derivative, Copy)]
@@ -369,15 +375,18 @@ pub struct TransportConfig {
     pub max_established: Option<u32>,
 }
 
+#[derive(Clone, Deserialize, Serialize, Derivative, Copy)]
+#[derivative(Debug)]
+pub struct HttpConfig {
+    #[serde(default = "default_http_port")]
+    pub http_port: u16,
+}
+
 #[derive(Clone, Deserialize, Serialize, Derivative)]
 #[derivative(Debug)]
 pub struct MetricsConfig {
     #[serde(default = "default_metrics_enabled")]
     pub metrics_enabled: bool,
-
-    /// Metrics port
-    #[serde(default = "default_metrics_port")]
-    pub metrics_port: u16,
 
     #[serde(default = "default_services_metrics_timer_resolution")]
     #[serde(with = "humantime_serde")]
