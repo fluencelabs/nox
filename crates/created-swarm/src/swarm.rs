@@ -350,7 +350,8 @@ pub fn create_swarm_with_runtime<RT: AquaRuntime>(
         listen_on: config.listen_on.clone(),
         manager: management_peer_id,
     });
-    let mut node = Node::new(resolved, vm_config, "some version").expect("create node");
+    let mut node =
+        Node::new(resolved, vm_config, "some version", "some version").expect("create node");
     node.listen(vec![config.listen_on.clone()]).expect("listen");
 
     (

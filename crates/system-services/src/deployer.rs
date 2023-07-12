@@ -65,6 +65,14 @@ pub struct Deployer {
     config: SystemServicesConfig,
 }
 
+#[derive(Debug, Clone)]
+pub struct Versions {
+    pub aqua_ipfs_version: &'static str,
+    pub trust_graph_version: &'static str,
+    pub registry_version: &'static str,
+    pub decider_version: &'static str,
+}
+
 impl Deployer {
     pub fn new(
         services: ParticleAppServices,
@@ -83,6 +91,14 @@ impl Deployer {
             root_worker_id,
             management_id,
             config,
+        }
+    }
+    pub fn versions(&self) -> Versions {
+        Versions {
+            aqua_ipfs_version: aqua_ipfs_distro::VERSION,
+            trust_graph_version: trust_graph_distro::VERSION,
+            registry_version: registry_distro::VERSION,
+            decider_version: decider_distro::VERSION,
         }
     }
 

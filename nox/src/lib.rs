@@ -55,3 +55,24 @@ pub use kademlia::Command as KademliaCommand;
 pub use layers::log_layer;
 pub use layers::tokio_console_layer;
 pub use layers::tracing_layer;
+
+#[derive(Debug, Clone)]
+pub struct Versions {
+    pub node_version: &'static str,
+    pub air_version: &'static str,
+    pub system_service: system_services::Versions,
+}
+
+impl Versions {
+    pub fn new(
+        node_version: &'static str,
+        air_version: &'static str,
+        system_service: system_services::Versions,
+    ) -> Self {
+        Self {
+            node_version,
+            air_version,
+            system_service,
+        }
+    }
+}

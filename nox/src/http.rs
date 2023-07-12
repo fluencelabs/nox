@@ -1,3 +1,4 @@
+use crate::Versions;
 use axum::body::Body;
 use axum::http::header::CONTENT_TYPE;
 use axum::{
@@ -45,6 +46,19 @@ async fn handle_peer_id(State(state): State<RouteState>) -> Response {
     .into_response()
 }
 
+async fn handle_versions(State(state): State<RouteState>) -> Response {
+    let versions = &state.0.versions;
+    Json(json!({
+        "node": versions.node_version,
+        "air": versions.air_version,
+        "aqua_ipfs": versions.system_service.aqua_ipfs_version,
+        "trust_graph": versions.system_service.trust_graph_version,
+        "registry": versions.system_service.registry_version,
+        "decider": versions.system_service.decider_version,
+    }))
+    .into_response()
+}
+
 #[derive(Debug, Clone)]
 struct RouteState(Arc<Inner>);
 
@@ -52,17 +66,24 @@ struct RouteState(Arc<Inner>);
 struct Inner {
     registry: Option<Registry>,
     peer_id: PeerId,
+    versions: Versions,
 }
 
 pub async fn start_http_endpoint(
     listen_addr: SocketAddr,
     registry: Option<Registry>,
     peer_id: PeerId,
+    versions: Versions,
 ) {
-    let state = RouteState(Arc::new(Inner { registry, peer_id }));
+    let state = RouteState(Arc::new(Inner {
+        registry,
+        peer_id,
+        versions,
+    }));
     let app: Router = Router::new()
         .route("/metrics", get(handle_metrics))
         .route("/peer_id", get(handle_peer_id))
+        .route("/versions", get(handle_versions))
         .fallback(handler_404)
         .with_state(state);
 
