@@ -56,7 +56,7 @@ use tokio::task;
 use crate::builtins::make_peer_builtin;
 use crate::dispatcher::Dispatcher;
 use crate::effectors::Effectors;
-use crate::Connectivity;
+use crate::{Connectivity, Versions};
 
 use super::behaviour::FluenceNetworkBehaviour;
 use crate::behaviour::FluenceNetworkBehaviourEvent;
@@ -91,6 +91,7 @@ pub struct Node<RT: AquaRuntime> {
     pub key_manager: KeyManager,
 
     allow_local_addresses: bool,
+    versions: Versions,
 }
 
 impl<RT: AquaRuntime> Node<RT> {
@@ -98,6 +99,7 @@ impl<RT: AquaRuntime> Node<RT> {
         config: ResolvedConfig,
         vm_config: RT::Config,
         node_version: &'static str,
+        air_version: &'static str,
     ) -> eyre::Result<Box<Self>> {
         let key_pair: Keypair = config.node_config.root_key_pair.clone().into();
         let transport = config.transport_config.transport;
@@ -304,6 +306,12 @@ impl<RT: AquaRuntime> Node<RT> {
             system_services_config,
         );
 
+        let versions = Versions::new(
+            node_version,
+            air_version,
+            system_services_deployer.versions(),
+        );
+
         Ok(Self::with(
             particle_stream,
             effects_in,
@@ -325,6 +333,7 @@ impl<RT: AquaRuntime> Node<RT> {
             builtins_peer_id,
             key_manager,
             allow_local_addresses,
+            versions,
         ))
     }
 
@@ -391,6 +400,7 @@ impl<RT: AquaRuntime> Node<RT> {
         builtins_management_peer_id: PeerId,
         key_manager: KeyManager,
         allow_local_addresses: bool,
+        versions: Versions,
     ) -> Box<Self> {
         let node_service = Self {
             particle_stream,
@@ -415,6 +425,7 @@ impl<RT: AquaRuntime> Node<RT> {
             builtins_management_peer_id,
             key_manager,
             allow_local_addresses,
+            versions,
         };
 
         Box::new(node_service)
@@ -441,11 +452,12 @@ impl<RT: AquaRuntime> Node<RT> {
         let task_name = format!("node-{peer_id}");
         let libp2p_metrics = self.libp2p_metrics;
         let allow_local_addresses = self.allow_local_addresses;
+        let versions = self.versions;
 
         task::Builder::new().name(&task_name.clone()).spawn(async move {
             let mut http_server = if let Some(http_listen_addr) = http_listen_addr{
                 log::info!("Starting http endpoint at {}", http_listen_addr);
-                start_http_endpoint(http_listen_addr, registry, peer_id).boxed()
+                start_http_endpoint(http_listen_addr, registry, peer_id, versions).boxed()
             } else {
                 futures::future::pending().boxed()
             };
@@ -559,7 +571,7 @@ mod tests {
             None,
         );
         let mut node: Box<Node<AVM<_>>> =
-            Node::new(config, vm_config, "some version").expect("create node");
+            Node::new(config, vm_config, "some version", "some version").expect("create node");
 
         let listening_address: Multiaddr = "/ip4/127.0.0.1/tcp/7777".parse().unwrap();
         node.listen(vec![listening_address.clone()]).unwrap();
