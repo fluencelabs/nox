@@ -262,7 +262,7 @@ impl<RT: AquaRuntime> Node<RT> {
             external_addresses: config.external_addresses(),
             node_version: env!("CARGO_PKG_VERSION"),
             air_version: air_interpreter_wasm::VERSION,
-            spell_version,
+            spell_version: spell_version.clone(),
             allowed_binaries,
         };
         if let Some(m) = metrics_registry.as_mut() {
@@ -307,8 +307,9 @@ impl<RT: AquaRuntime> Node<RT> {
         );
 
         let versions = Versions::new(
-            node_version,
-            air_version,
+            node_version.to_string(),
+            air_version.to_string(),
+            spell_version,
             system_services_deployer.versions(),
         );
 
