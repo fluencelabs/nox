@@ -144,11 +144,9 @@ impl ResolvedConfig {
         addrs
     }
 
-    pub fn metrics_listen_addr(&self) -> SocketAddr {
-        SocketAddr::new(
-            self.listen_config.listen_ip,
-            self.metrics_config.metrics_port,
-        )
+    pub fn http_listen_addr(&self) -> Option<SocketAddr> {
+        self.http_config
+            .map(|config| SocketAddr::new(self.listen_config.listen_ip, config.http_port))
     }
 
     pub fn listen_multiaddrs(&self) -> Vec<Multiaddr> {

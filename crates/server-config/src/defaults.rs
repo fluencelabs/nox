@@ -63,7 +63,7 @@ pub fn default_websocket_port() -> u16 {
     9999
 }
 
-pub fn default_metrics_port() -> u16 {
+pub fn default_http_port() -> u16 {
     18080
 }
 

@@ -218,9 +218,9 @@ checksum = "9c7d0618f0e0b7e8ff11427422b64564d5fb0be1940354bfe2e0529b18a9d9b8"
 
 [[package]]
 name = "aqua-ipfs-distro"
-version = "0.5.14"
+version = "0.5.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2e7f5f52ae024519186876aadb631e97386f28187e76815bb764c596511101dc"
+checksum = "4babf22570f433b4ccabdfeb57a152712e35b562d36abc096197efc0f1b50d03"
 dependencies = [
  "built 0.5.2",
  "maplit",
@@ -457,6 +457,7 @@ checksum = "f8175979259124331c1d7bf6586ee7e0da434155e4b2d48ec2c8386281d8df39"
 dependencies = [
  "async-trait",
  "axum-core",
+ "axum-macros",
  "bitflags 1.3.2",
  "bytes",
  "futures-util",
@@ -471,7 +472,11 @@ dependencies = [
  "pin-project-lite 0.2.10",
  "rustversion",
  "serde",
+ "serde_json",
+ "serde_path_to_error",
+ "serde_urlencoded",
  "sync_wrapper",
+ "tokio",
  "tower",
  "tower-layer",
  "tower-service",
@@ -492,6 +497,18 @@ dependencies = [
  "rustversion",
  "tower-layer",
  "tower-service",
+]
+
+[[package]]
+name = "axum-macros"
+version = "0.3.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2bb524613be645939e280b7279f7b017f98cf7f5ef084ec374df373530e73277"
+dependencies = [
+ "heck 0.4.1",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.25",
 ]
 
 [[package]]
@@ -2913,9 +2930,9 @@ dependencies = [
 
 [[package]]
 name = "libp2p-kad"
-version = "0.44.1"
+version = "0.44.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5588b884dcb1dadc04e49de342f634f60cf28b6beaaca5a4fe3dd1f09bb30041"
+checksum = "f0eeb75763862ff762c3240722fbed06ff6bb025d6afbdf2ce887f3610657789"
 dependencies = [
  "arrayvec",
  "asynchronous-codec",
@@ -3041,9 +3058,9 @@ dependencies = [
 
 [[package]]
 name = "libp2p-swarm"
-version = "0.43.0"
+version = "0.43.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a6f1fe3817492f88c5298c8b5fbaa5ff3a0c802ecf4e79be4e341cf07abfa82f"
+checksum = "5de15b2097fc3bde063df8c202803538ff467fedb18f01c13bc5da55913d246c"
 dependencies = [
  "either",
  "fnv",
@@ -4029,6 +4046,7 @@ dependencies = [
  "air-interpreter-wasm",
  "aquamarine",
  "avm-server",
+ "axum",
  "base64 0.21.2",
  "blake3",
  "bs58",
@@ -4044,7 +4062,6 @@ dependencies = [
  "fstrings",
  "futures",
  "humantime-serde",
- "hyper",
  "itertools 0.11.0",
  "kademlia",
  "key-manager",
@@ -4701,9 +4718,9 @@ dependencies = [
 
 [[package]]
 name = "prometheus-client"
-version = "0.21.1"
+version = "0.21.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "78c2f43e8969d51935d2a7284878ae053ba30034cd563f673cde37ba5205685e"
+checksum = "3c99afa9a01501019ac3a14d71d9f94050346f55ca471ce90c799a15c58f61e2"
 dependencies = [
  "dtoa",
  "itoa",
@@ -5328,11 +5345,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "serde_path_to_error"
+version = "0.1.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f7f05c1d5476066defcdfacce1f52fc3cae3af1d3089727100c02ae92e5abbe0"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "serde_spanned"
 version = "0.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "96426c9936fd7a0124915f9185ea1d20aa9445cc9821142f0a73bc9207a2e186"
 dependencies = [
+ "serde",
+]
+
+[[package]]
+name = "serde_urlencoded"
+version = "0.7.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d3491c14715ca2294c4d6a88f15e84739788c1d030eed8c110436aafdaa2f3fd"
+dependencies = [
+ "form_urlencoded",
+ "itoa",
+ "ryu",
  "serde",
 ]
 
