@@ -43,7 +43,7 @@ enum ServiceUpdateStatus {
 #[derive(Clone, Debug)]
 struct ServiceDistro {
     modules: HashMap<&'static str, &'static [u8]>,
-    config: Vec<u8>,
+    config: &'static [u8],
     name: String,
 }
 
@@ -197,7 +197,7 @@ impl Deployer {
         use trust_graph_distro::*;
         ServiceDistro {
             modules: modules(),
-            config: CONFIG.to_vec(),
+            config: CONFIG,
             name: TrustGraph.to_string(),
         }
     }
@@ -205,7 +205,7 @@ impl Deployer {
     fn get_registry_distro(config: RegistryConfig) -> (ServiceDistro, SpellDistro) {
         let distro = ServiceDistro {
             modules: registry_distro::modules(),
-            config: registry_distro::CONFIG.to_vec(),
+            config: registry_distro::CONFIG,
             name: Registry.to_string(),
         };
 
@@ -230,11 +230,9 @@ impl Deployer {
 
     fn get_ipfs_service_distro() -> ServiceDistro {
         use aqua_ipfs_distro::*;
-        let config = String::from_utf8_lossy(CONFIG);
-        let config = config.replace("/usr/bin/ipfs", "/opt/homebrew/bin/ipfs");
         ServiceDistro {
             modules: modules(),
-            config: config.as_bytes().to_vec(),
+            config: CONFIG,
             name: AquaIpfs.to_string(),
         }
     }
@@ -243,7 +241,7 @@ impl Deployer {
         let connector_service_distro = decider_distro::connector_service_modules();
         ServiceDistro {
             modules: connector_service_distro.modules,
-            config: connector_service_distro.config.to_vec(),
+            config: connector_service_distro.config,
             name: connector_service_distro.name.to_string(),
         }
     }
@@ -618,7 +616,7 @@ impl Deployer {
     }
 
     fn add_modules(&self, service_distro: ServiceDistro) -> eyre::Result<String> {
-        let marine_config: TomlMarineConfig = toml::from_slice(&service_distro.config)?;
+        let marine_config: TomlMarineConfig = toml::from_slice(service_distro.config)?;
         let mut hashes = Vec::new();
         for config in marine_config.module {
             let name = config.name.clone();
