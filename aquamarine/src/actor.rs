@@ -22,6 +22,7 @@ use std::{
 use fluence_keypair::KeyPair;
 use futures::future::BoxFuture;
 use futures::FutureExt;
+use tracing::{Instrument, Span};
 
 use fluence_libp2p::PeerId;
 use particle_execution::{ParticleFunctionStatic, ServiceFunction};
@@ -53,6 +54,7 @@ pub struct Actor<RT, F> {
     /// It's either `host_peer_id` or local worker peer id
     current_peer_id: PeerId,
     key_pair: KeyPair,
+    span: Span,
 }
 
 impl<RT, F> Actor<RT, F>
@@ -65,6 +67,7 @@ where
         functions: Functions<F>,
         current_peer_id: PeerId,
         key_pair: KeyPair,
+        span: Span,
     ) -> Self {
         Self {
             deadline: Deadline::from(particle),
@@ -84,6 +87,7 @@ where
             },
             current_peer_id,
             key_pair,
+            span,
         }
     }
 
@@ -134,6 +138,8 @@ where
         if let Some(Ready((reusables, effects, stats))) =
             self.future.as_mut().map(|f| f.poll_unpin(cx))
         {
+            let _entered = self.span.enter();
+
             self.future.take();
 
             let waker = cx.waker().clone();
@@ -207,6 +213,7 @@ where
                 };
                 (reusables, res.effects, res.stats)
             }
+            .instrument(self.span.clone())
             .boxed(),
         );
         self.wake();

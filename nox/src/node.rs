@@ -26,15 +26,14 @@ use connection_pool::{ConnectionPoolApi, ConnectionPoolT};
 use fluence_libp2p::build_transport;
 use futures::{stream::StreamExt, FutureExt};
 use key_manager::KeyManager;
-#[allow(deprecated)]
-use libp2p::swarm::ConnectionLimits;
 use libp2p::swarm::SwarmEvent;
 use libp2p::{
     core::{muxing::StreamMuxerBox, transport::Boxed, Multiaddr},
     identity::Keypair,
-    swarm::AddressScore,
     PeerId, Swarm, TransportError,
 };
+#[allow(deprecated)]
+use libp2p_connection_limits::ConnectionLimits;
 use libp2p_metrics::{Metrics, Recorder};
 use libp2p_swarm::SwarmBuilder;
 use particle_builtins::{Builtins, CustomService, NodeInfo};
@@ -57,11 +56,11 @@ use tokio::task;
 use crate::builtins::make_peer_builtin;
 use crate::dispatcher::Dispatcher;
 use crate::effectors::Effectors;
-use crate::metrics::start_metrics_endpoint;
 use crate::Connectivity;
 
 use super::behaviour::FluenceNetworkBehaviour;
 use crate::behaviour::FluenceNetworkBehaviourEvent;
+use crate::http::start_http_endpoint;
 
 // TODO: documentation
 pub struct Node<RT: AquaRuntime> {
@@ -85,7 +84,7 @@ pub struct Node<RT: AquaRuntime> {
     libp2p_metrics: Option<Arc<Metrics>>,
     services_metrics_backend: ServicesMetricsBackend,
 
-    metrics_listen_addr: SocketAddr,
+    http_listen_addr: Option<SocketAddr>,
 
     pub builtins_management_peer_id: PeerId,
 
@@ -322,7 +321,7 @@ impl<RT: AquaRuntime> Node<RT> {
             metrics_registry,
             libp2p_metrics,
             services_metrics_backend,
-            config.metrics_listen_addr(),
+            config.http_listen_addr(),
             builtins_peer_id,
             key_manager,
             allow_local_addresses,
@@ -339,16 +338,14 @@ impl<RT: AquaRuntime> Node<RT> {
         Connectivity,
         mpsc::Receiver<Particle>,
     ) {
-        let connection_limits = network_config.connection_limits.clone();
         let (behaviour, connectivity, particle_stream) =
             FluenceNetworkBehaviour::new(network_config);
-        let mut swarm = SwarmBuilder::with_tokio_executor(transport, behaviour, local_peer_id)
-            .connection_limits(connection_limits)
-            .build();
+        let mut swarm =
+            SwarmBuilder::with_tokio_executor(transport, behaviour, local_peer_id).build();
 
         // Add external addresses to Swarm
         external_addresses.iter().cloned().for_each(|addr| {
-            Swarm::add_external_address(&mut swarm, addr, AddressScore::Finite(1));
+            Swarm::add_external_address(&mut swarm, addr);
         });
 
         (swarm, connectivity, particle_stream)
@@ -390,7 +387,7 @@ impl<RT: AquaRuntime> Node<RT> {
         registry: Option<Registry>,
         libp2p_metrics: Option<Arc<Metrics>>,
         services_metrics_backend: ServicesMetricsBackend,
-        metrics_listen_addr: SocketAddr,
+        http_listen_addr: Option<SocketAddr>,
         builtins_management_peer_id: PeerId,
         key_manager: KeyManager,
         allow_local_addresses: bool,
@@ -414,8 +411,7 @@ impl<RT: AquaRuntime> Node<RT> {
             registry,
             libp2p_metrics,
             services_metrics_backend,
-            metrics_listen_addr,
-
+            http_listen_addr,
             builtins_management_peer_id,
             key_manager,
             allow_local_addresses,
@@ -426,10 +422,7 @@ impl<RT: AquaRuntime> Node<RT> {
 
     /// Starts node service
     #[allow(clippy::boxed_local)] // Mike said it should be boxed
-    pub async fn start(
-        self: Box<Self>,
-        peer_id: Option<String>,
-    ) -> eyre::Result<oneshot::Sender<()>> {
+    pub async fn start(self: Box<Self>, peer_id: PeerId) -> eyre::Result<oneshot::Sender<()>> {
         let (exit_outlet, exit_inlet) = oneshot::channel();
 
         let particle_stream = self.particle_stream;
@@ -444,20 +437,19 @@ impl<RT: AquaRuntime> Node<RT> {
         let sorcerer = self.sorcerer;
         let registry = self.registry;
         let services_metrics_backend = self.services_metrics_backend;
-        let metrics_listen_addr = self.metrics_listen_addr;
-        let task_name = peer_id
-            .map(|x| format!("node-{x}"))
-            .unwrap_or("node".to_owned());
+        let http_listen_addr = self.http_listen_addr;
+        let task_name = format!("node-{peer_id}");
         let libp2p_metrics = self.libp2p_metrics;
         let allow_local_addresses = self.allow_local_addresses;
 
         task::Builder::new().name(&task_name.clone()).spawn(async move {
-            let mut metrics_fut= if let Some(registry) = registry {
-                log::info!("metrics_listen_addr {}", metrics_listen_addr);
-                start_metrics_endpoint(registry, metrics_listen_addr).boxed()
+            let mut http_server = if let Some(http_listen_addr) = http_listen_addr{
+                log::info!("Starting http endpoint at {}", http_listen_addr);
+                start_http_endpoint(http_listen_addr, registry, peer_id).boxed()
             } else {
                 futures::future::pending().boxed()
             };
+
 
             let services_metrics_backend = services_metrics_backend.start();
             let script_storage = script_storage.start();
@@ -476,7 +468,7 @@ impl<RT: AquaRuntime> Node<RT> {
                             swarm.behaviour_mut().inject_identify_event(i, allow_local_addresses);
                         }
                     },
-                    _ = &mut metrics_fut => {},
+                    _ = &mut http_server => {},
                     _ = &mut connectivity => {},
                     _ = &mut dispatcher => {},
                     _ = exit_inlet => {
@@ -531,6 +523,7 @@ impl<RT: AquaRuntime> Node<RT> {
 #[cfg(test)]
 mod tests {
     use libp2p::core::Multiaddr;
+    use libp2p::PeerId;
     use maplit::hashmap;
     use serde_json::json;
     use std::path::PathBuf;
@@ -558,6 +551,7 @@ mod tests {
         config.aquavm_pool_size = 1;
         config.dir_config.spell_base_dir = to_abs_path(PathBuf::from("spell"));
         config.system_services.enable = vec![];
+        config.http_config = None;
         let vm_config = VmConfig::new(
             to_peer_id(&config.root_key_pair.clone().into()),
             config.dir_config.avm_base_dir.clone(),
@@ -569,7 +563,8 @@ mod tests {
 
         let listening_address: Multiaddr = "/ip4/127.0.0.1/tcp/7777".parse().unwrap();
         node.listen(vec![listening_address.clone()]).unwrap();
-        let exit_outlet = node.start(None).await.expect("start node");
+        let peer_id = PeerId::random();
+        let exit_outlet = node.start(peer_id).await.expect("start node");
 
         let mut client = ConnectedClient::connect_to(listening_address)
             .await

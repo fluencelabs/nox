@@ -139,10 +139,7 @@ async fn start_fluence(config: ResolvedConfig) -> eyre::Result<impl Stoppable> {
         Node::new(config, vm_config, VERSION).wrap_err("error create node instance")?;
     node.listen(listen_addrs).wrap_err("error on listen")?;
 
-    let node_exit_outlet = node
-        .start(Some(peer_id.to_string()))
-        .await
-        .wrap_err("node failed to start")?;
+    let node_exit_outlet = node.start(peer_id).await.wrap_err("node failed to start")?;
 
     struct Fluence {
         node_exit_outlet: oneshot::Sender<()>,

@@ -69,64 +69,61 @@ impl<RT: AquaRuntime> ParticleExecutor for RT {
         let (particle, calls) = p;
         let particle_id = particle.id.clone();
         let data_len = particle.data.len();
+        let span = tracing::info_span!("Execute");
         let task = tokio::task::Builder::new()
             .name(&format!("Particle {}", particle.id))
             .spawn_blocking(move || {
-                let now = Instant::now();
-                tracing::info!(particle_id = particle.id, "Executing particle");
+                span.in_scope(move || {
+                    let now = Instant::now();
+                    tracing::info!(particle_id = particle.id, "Executing particle");
 
-                let particle_params = ParticleParameters {
-                    current_peer_id: Cow::Owned(current_peer_id.to_string()),
-                    init_peer_id: Cow::Owned(particle.init_peer_id.to_string()),
-                    particle_id: Cow::Borrowed(&particle.id),
-                    timestamp: particle.timestamp,
-                    ttl: particle.ttl,
-                };
-                // println!("particle {} call results {:?}", particle.id, calls);
-                let result = self.call(
-                    particle.script,
-                    particle.data,
-                    particle_params,
-                    calls,
-                    &key_pair,
-                );
-
-                let interpretation_time = now.elapsed();
-                let new_data_len = result.as_ref().map(|e| e.data.len()).ok();
-                let stats = InterpretationStats {
-                    interpretation_time,
-                    new_data_len,
-                    success: result.is_ok(),
-                };
-
-                if let Err(err) = &result {
-                    tracing::warn!(
-                        particle_id = particle.id,
-                        "Error executing particle: {}",
-                        err
+                    let particle_params = ParticleParameters {
+                        current_peer_id: Cow::Owned(current_peer_id.to_string()),
+                        init_peer_id: Cow::Owned(particle.init_peer_id.to_string()),
+                        particle_id: Cow::Borrowed(&particle.id),
+                        timestamp: particle.timestamp,
+                        ttl: particle.ttl,
+                    };
+                    let result = self.call(
+                        particle.script,
+                        particle.data,
+                        particle_params,
+                        calls,
+                        &key_pair,
                     );
-                } else {
-                    // println!(
-                    //     "particle {} new_data {:?}",
-                    //     particle.id,
-                    //     result.as_ref().map(|r| &r.data).unwrap()
-                    // );
-                    let len = new_data_len.map(|l| l as i32).unwrap_or(-1);
-                    tracing::trace!(
-                        target: "execution", particle_id = particle.id,
-                        "Particle interpreted in {} [{} bytes => {} bytes]",
-                        pretty(interpretation_time), data_len, len
-                    );
-                }
-                let effects = Self::into_effects(result, particle.id);
 
-                waker.wake();
+                    let interpretation_time = now.elapsed();
+                    let new_data_len = result.as_ref().map(|e| e.data.len()).ok();
+                    let stats = InterpretationStats {
+                        interpretation_time,
+                        new_data_len,
+                        success: result.is_ok(),
+                    };
 
-                FutResult {
-                    runtime: Some(self),
-                    effects,
-                    stats,
-                }
+                    if let Err(err) = &result {
+                        tracing::warn!(
+                            particle_id = particle.id,
+                            "Error executing particle: {}",
+                            err
+                        )
+                    } else {
+                        let len = new_data_len.map(|l| l as i32).unwrap_or(-1);
+                        tracing::trace!(
+                            target: "execution", particle_id = particle.id,
+                            "Particle interpreted in {} [{} bytes => {} bytes]",
+                            pretty(interpretation_time), data_len, len
+                        );
+                    }
+                    let effects = Self::into_effects(result, particle.id);
+
+                    waker.wake();
+
+                    FutResult {
+                        runtime: Some(self),
+                        effects,
+                        stats,
+                    }
+                })
             })
             .expect("Could not spawn 'Particle' task");
 

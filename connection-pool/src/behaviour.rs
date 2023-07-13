@@ -15,9 +15,13 @@
  */
 
 use futures::{Sink, StreamExt};
+use libp2p::core::Endpoint;
 use libp2p::swarm::dial_opts::DialOpts;
 use libp2p::swarm::CloseConnection::All;
-use libp2p::swarm::{dial_opts, ConnectionId, DialError, FromSwarm, THandlerOutEvent, ToSwarm};
+use libp2p::swarm::{
+    dial_opts, ConnectionDenied, ConnectionId, DialError, FromSwarm, THandler, THandlerOutEvent,
+    ToSwarm,
+};
 use libp2p::{
     core::{ConnectedPoint, Multiaddr},
     swarm::{NetworkBehaviour, NotifyHandler, OneShotHandler, PollParameters},
@@ -358,36 +362,6 @@ impl ConnectionPoolBehaviour {
         })
     }
 
-    fn on_connection_established(
-        &mut self,
-        peer_id: &PeerId,
-        cp: &ConnectedPoint,
-        failed_addresses: &Vec<Multiaddr>,
-    ) {
-        // mark failed addresses as such
-        for addr in failed_addresses {
-            log::warn!("failed to connect to {} {}", addr, peer_id);
-
-            self.cleanup_address(Some(peer_id), addr)
-        }
-
-        let multiaddr = remote_multiaddr(cp).clone();
-        log::debug!(
-            target: "network",
-            "{}: connection established with {} @ {}",
-            self.peer_id,
-            peer_id,
-            multiaddr
-        );
-
-        self.add_connected_address(*peer_id, multiaddr.clone());
-
-        self.lifecycle_event(LifecycleEvent::Connected(Contact::new(
-            *peer_id,
-            vec![multiaddr],
-        )))
-    }
-
     fn on_connection_closed(
         &mut self,
         peer_id: &PeerId,
@@ -504,31 +478,92 @@ impl ConnectionPoolBehaviour {
 
 impl NetworkBehaviour for ConnectionPoolBehaviour {
     type ConnectionHandler = OneShotHandler<ProtocolConfig, HandlerMessage, HandlerMessage>;
-    type OutEvent = ();
+    type ToSwarm = ();
 
-    fn new_handler(&mut self) -> Self::ConnectionHandler {
-        self.protocol_config.clone().into()
+    fn handle_pending_inbound_connection(
+        &mut self,
+        _connection_id: ConnectionId,
+        _local_addr: &Multiaddr,
+        _remote_addr: &Multiaddr,
+    ) -> Result<(), ConnectionDenied> {
+        Ok(())
     }
 
-    // TODO: seems like there's no need in that method anymore IFF it is used only for dialing
-    //       see https://github.com/libp2p/rust-libp2p/blob/master/swarm/CHANGELOG.md#0320-2021-11-16
-    //       ACTION: remove this method. ALSO: remove `self.contacts`?
-    fn addresses_of_peer(&mut self, peer_id: &PeerId) -> Vec<Multiaddr> {
-        self.contacts
-            .get(peer_id)
+    fn handle_established_inbound_connection(
+        &mut self,
+        _connection_id: ConnectionId,
+        peer_id: PeerId,
+        _local_addr: &Multiaddr,
+        remote_addr: &Multiaddr,
+    ) -> Result<THandler<Self>, ConnectionDenied> {
+        log::debug!(
+            target: "network",
+            "{}: inbound connection established with {} @ {}",
+            self.peer_id,
+            peer_id,
+            remote_addr
+        );
+
+        self.add_connected_address(peer_id, remote_addr.clone());
+
+        self.lifecycle_event(LifecycleEvent::Connected(Contact::new(
+            peer_id,
+            vec![remote_addr.clone()],
+        )));
+
+        Ok(self.protocol_config.clone().into())
+    }
+
+    fn handle_pending_outbound_connection(
+        &mut self,
+        _connection_id: ConnectionId,
+        maybe_peer: Option<PeerId>,
+        _addresses: &[Multiaddr],
+        _effective_role: Endpoint,
+    ) -> Result<Vec<Multiaddr>, ConnectionDenied> {
+        let peer_id = match maybe_peer {
+            None => return Ok(vec![]),
+            Some(peer_id) => peer_id,
+        };
+        Ok(self
+            .contacts
+            .get(&peer_id)
             .into_iter()
             .flat_map(|p| p.addresses().cloned())
-            .collect()
+            .collect())
+    }
+
+    fn handle_established_outbound_connection(
+        &mut self,
+        _connection_id: ConnectionId,
+        peer_id: PeerId,
+        addr: &Multiaddr,
+        _role_override: Endpoint,
+    ) -> Result<THandler<Self>, ConnectionDenied> {
+        log::debug!(
+            target: "network",
+            "{}: outbound connection established with {} @ {}",
+            self.peer_id,
+            peer_id,
+            addr
+        );
+
+        self.add_connected_address(peer_id, addr.clone());
+
+        self.lifecycle_event(LifecycleEvent::Connected(Contact::new(
+            peer_id,
+            vec![addr.clone()],
+        )));
+        Ok(self.protocol_config.clone().into())
     }
 
     fn on_swarm_event(&mut self, event: FromSwarm<'_, Self::ConnectionHandler>) {
         match event {
             FromSwarm::ConnectionEstablished(event) => {
-                self.on_connection_established(
-                    &event.peer_id,
-                    event.endpoint,
-                    &event.failed_addresses.to_vec(),
-                );
+                for addr in event.failed_addresses {
+                    log::warn!("failed to connect to {} {}", addr, event.peer_id);
+                    self.cleanup_address(Some(&event.peer_id), addr)
+                }
             }
             FromSwarm::ConnectionClosed(event) => {
                 self.on_connection_closed(
@@ -549,8 +584,10 @@ impl NetworkBehaviour for ConnectionPoolBehaviour {
             FromSwarm::ExpiredListenAddr(_) => {}
             FromSwarm::ListenerError(_) => {}
             FromSwarm::ListenerClosed(_) => {}
-            FromSwarm::NewExternalAddr(_) => {}
-            FromSwarm::ExpiredExternalAddr(_) => {}
+
+            FromSwarm::NewExternalAddrCandidate(_) => {}
+            FromSwarm::ExternalAddrConfirmed(_) => {}
+            FromSwarm::ExternalAddrExpired(_) => {}
         }
     }
 

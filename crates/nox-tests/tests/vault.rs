@@ -217,3 +217,40 @@ async fn load_blueprint_from_vault() {
         panic!("#incorrect args: expected a single string, got {:?}", args);
     }
 }
+
+#[tokio::test]
+async fn put_cat_vault() {
+    let swarms = make_swarms(1).await;
+
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
+        .wrap_err("connect client")
+        .unwrap();
+
+    let payload = "test-test-test".to_string();
+
+    client.send_particle(
+        r#"
+        (seq
+            (seq
+                (call relay ("vault" "put") [payload] filename)
+                (call relay ("vault" "cat") [filename] output_content)
+            )
+            (call %init_peer_id% ("op" "return") [output_content])
+        )
+        "#,
+        hashmap! {
+            "relay" => json!(client.node.to_string()),
+            "payload" => json!(payload.clone()),
+        },
+    );
+
+    use serde_json::Value::String;
+
+    let args = client.receive_args().await.unwrap();
+    if let [String(output)] = args.as_slice() {
+        assert_eq!(*output, payload);
+    } else {
+        panic!("incorrect args: expected a single string, got {:?}", args);
+    }
+}

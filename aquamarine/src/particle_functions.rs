@@ -27,6 +27,7 @@ use humantime::format_duration as pretty;
 use serde_json::json;
 use serde_json::Value as JValue;
 use tokio::runtime::Handle;
+use tracing::Instrument;
 
 use particle_args::{Args, JError};
 use particle_execution::{
@@ -34,7 +35,7 @@ use particle_execution::{
 };
 use peer_metrics::FunctionKind;
 
-use crate::log::builtin_log_level;
+use crate::log::builtin_log_fn;
 
 #[derive(Clone, Debug)]
 /// Performance statistics about executed function call
@@ -148,13 +149,13 @@ impl<F: ParticleFunctionStatic> Functions<F> {
         };
 
         let log_args = format!("{:?} {:?}", args.service_id, args.function_name);
-        let log_level = builtin_log_level(&args.service_id);
-
+        let service_id = args.service_id.clone();
         let start = Instant::now();
 
         let params = self.particle.clone();
         let builtins = self.builtins.clone();
         let particle_function = self.particle_function.clone();
+        let span = tracing::span!(tracing::Level::INFO, "Function");
         let result = tokio::task::Builder::new()
             .name(&format!(
                 "Call function {}:{}",
@@ -209,13 +210,7 @@ impl<F: ParticleFunctionStatic> Functions<F> {
                     err
                 )
             } else {
-                log::log!(
-                    log_level,
-                    "Executed host call {} ({}) [{}]",
-                    log_args,
-                    pretty(elapsed),
-                    particle_id
-                );
+                builtin_log_fn(&service_id, log_args, pretty(elapsed), particle_id);
             };
 
             let stats = SingleCallStat {
@@ -243,6 +238,7 @@ impl<F: ParticleFunctionStatic> Functions<F> {
                 stat: stats,
             }
         }
+        .instrument(span)
         .boxed()
     }
 }

@@ -62,7 +62,7 @@ pub async fn install_spell(
     script: String,
     init_data: Value,
 ) -> Result<String, JError> {
-    let config = api::from_user_config(user_config.clone())?;
+    let config = api::from_user_config(&user_config)?;
 
     let spell_id = services.create_service(
         ServiceType::Spell,
@@ -324,7 +324,7 @@ pub(crate) async fn spell_update_config(
     let spell_id = services.to_service_id(&params.id, worker_id, spell_id_or_alias.clone())?;
 
     let user_config: TriggerConfig = Args::next("config", &mut args)?;
-    let config = api::from_user_config(user_config.clone())?;
+    let config = api::from_user_config(&user_config)?;
 
     process_func_outcome::<UnitValue>(
         services.call_function(

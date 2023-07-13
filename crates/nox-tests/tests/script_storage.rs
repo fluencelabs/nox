@@ -602,7 +602,7 @@ async fn add_script_from_vault_wrong_vault() {
     ).await.unwrap();
 
     if let [JValue::String(error_msg)] = result.as_slice() {
-        let expected_error_prefix = "Local service error, ret_code is 1, error message is '\"Error: Incorrect vault path `/tmp/vault/another-particle-id/script";
+        let expected_error_prefix = r#"Local service error, ret_code is 1, error message is '"Error reading script file `/tmp/vault/another-particle-id/script`: Incorrect vault path"#;
         assert!(
             error_msg.starts_with(expected_error_prefix),
             "expected:\n{expected_error_prefix}\ngot:\n{error_msg}"

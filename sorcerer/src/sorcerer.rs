@@ -111,7 +111,7 @@ impl Sorcerer {
                     "get_trigger_config",
                 )?;
                 let period = result.config.clock.period_sec;
-                let config = from_user_config(result.config)?;
+                let config = from_user_config(&result.config)?;
                 if let Some(config) = config.and_then(|c| c.into_rescheduled()) {
                     self.spell_event_bus_api
                         .subscribe(spell_id.clone(), config)

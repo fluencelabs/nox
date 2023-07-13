@@ -19,14 +19,15 @@ use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
 use std::ops::Try;
 use std::path;
+use std::path::Path;
 use std::str::FromStr;
 use std::time::{Duration, Instant};
 
 use derivative::Derivative;
 use fluence_keypair::Signature;
 use humantime_serde::re::humantime::format_duration as pretty;
-use libp2p::{core::Multiaddr, kad::kbucket::Key, kad::K_VALUE, PeerId};
-use multihash::{Code, MultihashDigest, MultihashGeneric};
+use libp2p::{core::Multiaddr, kad::KBucketKey, kad::K_VALUE, PeerId};
+use multihash::Multihash;
 use serde::Deserialize;
 use serde_json::{json, Value as JValue};
 use tokio::sync::RwLock;
@@ -42,10 +43,11 @@ use particle_modules::{
     AddBlueprint, ModuleConfig, ModuleRepository, NamedModuleConfig, WASIConfig,
 };
 use particle_protocol::Contact;
-use particle_services::{ParticleAppServices, ServiceType, VIRTUAL_PARTICLE_VAULT_PREFIX};
+use particle_services::{ParticleAppServices, ServiceType};
 use peer_metrics::ServicesMetrics;
 use script_storage::ScriptStorageApi;
 use server_config::ServicesConfig;
+use uuid_utils::uuid;
 
 use crate::debug::fmt_custom_services;
 use crate::error::HostClosureCallError;
@@ -284,6 +286,8 @@ where
             ("json", "obj_pairs") => unary(args, |vs: Vec<(String, JValue)>| -> R<JValue, _> { json::obj_from_pairs(vs) }),
             ("json", "puts_pairs") => binary(args, |obj: JValue, vs: Vec<(String, JValue)>| -> R<JValue, _> { json::puts_from_pairs(obj, vs) }),
 
+            ("vault", "put") => wrap(self.vault_put(args, particle)),
+            ("vault", "cat") => wrap(self.vault_cat(args, particle)),
             ("run-console", "print")          => wrap_unit(Ok(log::debug!(target: "run-console", "{}", json!(args.function_args)))),
 
             _ => FunctionOutcome::NotDefined { args, params: particle },
@@ -298,9 +302,9 @@ where
         let count = count.unwrap_or_else(|| K_VALUE.get());
 
         let key = if already_hashed == Some(true) {
-            MultihashGeneric::from_bytes(&key)?
+            Multihash::from_bytes(&key)?
         } else {
-            Code::Sha2_256.digest(&key)
+            Multihash::wrap(0x12, &key[..])?
         };
         let neighbors = self.kademlia().neighborhood(key, count).await?;
 
@@ -413,9 +417,13 @@ where
         path: &path::Path,
         particle_id: &str,
     ) -> Result<String, JError> {
-        let resolved_path = resolve_vault_path(&self.particles_vault_dir, path, particle_id)?;
-        std::fs::read_to_string(resolved_path)
-            .map_err(|_| JError::new(format!("Error reading script file `{}`", path.display())))
+        self.services.vault.cat(particle_id, path).map_err(|e| {
+            JError::new(format!(
+                "Error reading script file `{}`: {}",
+                path.display(),
+                e
+            ))
+        })
     }
 
     async fn remove_script(&self, args: Args, params: ParticleParams) -> Result<JValue, JError> {
@@ -515,7 +523,7 @@ where
         let string: String = Args::next("string", &mut args)?;
         let digest_only: Option<bool> = Args::next_opt("digest_only", &mut args)?;
         let as_bytes: Option<bool> = Args::next_opt("as_bytes", &mut args)?;
-        let multihash = Code::Sha2_256.digest(string.as_bytes());
+        let multihash: Multihash<64> = Multihash::wrap(0x12, string.as_bytes())?;
 
         let result = if digest_only == Some(true) {
             multihash.digest().to_vec()
@@ -542,14 +550,14 @@ where
         let count = count.unwrap_or_else(|| K_VALUE.get());
 
         let target = bs58::decode(target).into_vec().map_err(DecodeBase58)?;
-        let target = Key::from(target);
+        let target = KBucketKey::from(target);
         let left = left.into_iter();
         let right = right.into_iter();
 
-        let mut keys: Vec<Key<_>> = left
+        let mut keys: Vec<KBucketKey<_>> = left
             .chain(right)
             .map(|b58_str| {
-                Ok(Key::from(
+                Ok(KBucketKey::from(
                     bs58::decode(b58_str).into_vec().map_err(DecodeBase58)?,
                 ))
             })
@@ -1048,6 +1056,28 @@ where
             self.key_manager.insecure_keypair.get_peer_id().to_base58(),
         ))
     }
+
+    fn vault_put(&self, args: Args, params: ParticleParams) -> Result<JValue, JError> {
+        let mut args = args.function_args.into_iter();
+        let data: String = Args::next("data", &mut args)?;
+        let name = uuid();
+        let virtual_path = self
+            .services
+            .vault
+            .put(&params.id, Path::new(&name), &data)?;
+
+        Ok(JValue::String(virtual_path.display().to_string()))
+    }
+
+    fn vault_cat(&self, args: Args, params: ParticleParams) -> Result<JValue, JError> {
+        let mut args = args.function_args.into_iter();
+        let path: String = Args::next("path", &mut args)?;
+        self.services
+            .vault
+            .cat(&params.id, Path::new(&path))
+            .map(JValue::String)
+            .map_err(|_| JError::new(format!("Error reading vault file `{path}`")))
+    }
 }
 
 fn make_module_config(args: Args) -> Result<JValue, JError> {
@@ -1151,46 +1181,6 @@ fn get_delay(delay: Option<Duration>, interval: Option<Duration>) -> Duration {
     }
 }
 
-#[derive(thiserror::Error, Debug)]
-enum ResolveVaultError {
-    #[error("Incorrect vault path `{1}`: doesn't belong to vault (`{2}`)")]
-    WrongVault(
-        #[source] Option<path::StripPrefixError>,
-        path::PathBuf,
-        path::PathBuf,
-    ),
-    #[error("Incorrect vault  path `{1}`: doesn't exist")]
-    NotFound(#[source] std::io::Error, path::PathBuf),
-}
-
-/// Map the given virtual path to the real one from the file system of the node.
-fn resolve_vault_path(
-    particles_vault_dir: &path::Path,
-    path: &path::Path,
-    particle_id: &str,
-) -> Result<path::PathBuf, ResolveVaultError> {
-    let virtual_prefix = path::Path::new(VIRTUAL_PARTICLE_VAULT_PREFIX).join(particle_id);
-    let real_prefix = particles_vault_dir.join(particle_id);
-
-    let rest = path.strip_prefix(&virtual_prefix).map_err(|e| {
-        ResolveVaultError::WrongVault(Some(e), path.to_path_buf(), virtual_prefix.clone())
-    })?;
-    let real_path = real_prefix.join(rest);
-    let resolved_path = real_path
-        .canonicalize()
-        .map_err(|e| ResolveVaultError::NotFound(e, path.to_path_buf()))?;
-    // Check again after normalization that the path leads to the real particle vault
-    if resolved_path.starts_with(&real_prefix) {
-        Ok(resolved_path)
-    } else {
-        Err(ResolveVaultError::WrongVault(
-            None,
-            resolved_path,
-            real_prefix,
-        ))
-    }
-}
-
 #[cfg(test)]
 mod prop_tests {
     use std::str::FromStr;
@@ -1271,77 +1261,5 @@ mod prop_tests {
             let config_heap = config.get("max_heap_size").map(|h| bytesize::ByteSize::from_str(h.as_str().unwrap()).unwrap().to_string());
             prop_assert_eq!(prop_heap, config_heap);
         }
-    }
-}
-
-#[cfg(test)]
-mod resolve_path_tests {
-    use std::fs::File;
-    use std::path::Path;
-
-    use particle_services::VIRTUAL_PARTICLE_VAULT_PREFIX;
-
-    use crate::builtins::{resolve_vault_path, ResolveVaultError};
-
-    fn with_env(callback: fn(&str, &Path, &str, &Path) -> ()) {
-        let particle_id = "particle_id";
-        let dir = tempfile::tempdir().expect("can't create temp dir");
-        let real_vault_prefix = dir.path().canonicalize().expect("").join("vault");
-        let real_vault_dir = real_vault_prefix.join(particle_id);
-        std::fs::create_dir_all(&real_vault_dir).expect("can't create dirs");
-
-        let filename = "file";
-        let real_path = real_vault_dir.join(filename);
-        File::create(&real_path).expect("can't create a file");
-
-        callback(
-            particle_id,
-            real_vault_prefix.as_path(),
-            filename,
-            real_path.as_path(),
-        );
-
-        dir.close().ok();
-    }
-
-    #[test]
-    fn test_resolve_path_ok() {
-        with_env(|particle_id, real_prefix, filename, path| {
-            let virtual_path = Path::new(VIRTUAL_PARTICLE_VAULT_PREFIX)
-                .join(particle_id)
-                .join(filename);
-            let result = resolve_vault_path(real_prefix, &virtual_path, particle_id).unwrap();
-            assert_eq!(result, path);
-        });
-    }
-
-    #[test]
-    fn test_resolve_path_wrong_vault() {
-        with_env(|particle_id, real_prefix, filename, _path| {
-            let virtual_path = Path::new(VIRTUAL_PARTICLE_VAULT_PREFIX)
-                .join("other-particle-id")
-                .join(filename);
-            let result = resolve_vault_path(real_prefix, &virtual_path, particle_id);
-            assert!(result.is_err());
-            assert!(matches!(
-                result.unwrap_err(),
-                ResolveVaultError::WrongVault(_, _, _)
-            ));
-        });
-    }
-
-    #[test]
-    fn test_resolve_path_not_found() {
-        with_env(|particle_id, real_prefix, _filename, _path| {
-            let virtual_path = Path::new(VIRTUAL_PARTICLE_VAULT_PREFIX)
-                .join(particle_id)
-                .join("other-file");
-            let result = resolve_vault_path(real_prefix, &virtual_path, particle_id);
-            assert!(result.is_err());
-            assert!(matches!(
-                result.unwrap_err(),
-                ResolveVaultError::NotFound(_, _)
-            ));
-        });
     }
 }
