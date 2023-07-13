@@ -50,7 +50,7 @@ async fn handle_versions(State(state): State<RouteState>) -> Response {
     let versions = &state.0.versions;
     Json(json!({
         "node": versions.node_version,
-        "air": versions.air_version,
+        "avm": versions.avm_version,
         "spell": versions.spell_version,
         "aqua_ipfs": versions.system_service.aqua_ipfs_version,
         "trust_graph": versions.system_service.trust_graph_version,
