@@ -71,7 +71,7 @@ fn default_directives() -> Vec<Directive> {
         .into_iter()
         .map(|ns| {
             ns.parse()
-                .unwrap_or_else(|e| format!("cannot parse {ns} to Directive: {e}"))
+                .unwrap_or_else(|e| panic!("cannot parse {ns} to Directive: {e}"))
         })
         .collect()
 }
