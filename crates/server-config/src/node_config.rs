@@ -167,6 +167,10 @@ impl UnresolvedNodeConfig {
             .unwrap_or(KeypairConfig::default())
             .get_keypair(default_builtins_keypair_path())?;
 
+        let mut allowed_binaries = self.allowed_binaries;
+        allowed_binaries.push(self.system_services.aqua_ipfs.ipfs_binary_path.clone());
+        allowed_binaries.push(self.system_services.connector.curl_binary_path.clone());
+
         let result = NodeConfig {
             bootstrap_nodes,
             root_key_pair,
@@ -199,7 +203,7 @@ impl UnresolvedNodeConfig {
             force_builtins_redeploy: self.force_builtins_redeploy,
             transport_config: self.transport_config,
             listen_config: self.listen_config,
-            allowed_binaries: self.allowed_binaries,
+            allowed_binaries,
             system_services: self.system_services,
             http_config: self.http_config,
         };
