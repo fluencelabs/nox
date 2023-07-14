@@ -668,7 +668,7 @@ impl Deployer {
         module_name: &str,
         // The name of the binary to override
         binary_name: &str,
-        // Path to the binary to use insteadt
+        // Path to the binary to use instead
         binary_path: String,
     ) {
         if let Some(module_config) = config.module.iter_mut().find(|p| p.name == module_name) {
