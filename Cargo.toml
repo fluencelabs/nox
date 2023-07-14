@@ -89,7 +89,7 @@ system-services = { path = "crates/system-services" }
 
 # spell
 fluence-spell-dtos = "=0.5.15"
-fluence-spell-distro = "=0.5.15"
+fluence-spell-distro = "=0.5.16"
 
 # marine
 fluence-app-service = {version = "=0.26.4-feat-wasm-backend-interface-update-b3cf050-636-1.0", registry = "fluence"}
