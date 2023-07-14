@@ -52,7 +52,7 @@ use libp2p::{
     swarm::NetworkBehaviour,
     PeerId,
 };
-use libp2p_kad::KBucketKey;
+use libp2p_kad::{KBucketKey, Mode};
 use libp2p_metrics::{Metrics, Recorder};
 use multihash::Multihash;
 use tokio::sync::{mpsc, oneshot};
@@ -146,7 +146,8 @@ impl Kademlia {
         // to determine whether or not Provider records and KV records ("both") get stored,
         // where we implement logic to validate/prune incoming records.
         kad_config.set_record_filtering(KademliaStoreInserts::FilterBoth);
-        let kademlia = kad::Kademlia::with_config(config.peer_id, store, kad_config);
+        let mut kademlia = kad::Kademlia::with_config(config.peer_id, store, kad_config);
+        kademlia.set_mode(Some(Mode::Server));
 
         let (outlet, commands) = mpsc::unbounded_channel();
         let api = KademliaApi { outlet };
@@ -809,8 +810,6 @@ mod tests {
         maddr.push(Protocol::P2p(peer_id.into()));
 
         Swarm::listen_on(&mut swarm, maddr.clone()).expect("Could not make swarm");
-        //TODO: make explicit set_mode for Kademlia behaviour after release libp2p-kad 0.44.2
-        Swarm::add_external_address(&mut swarm, maddr.clone());
 
         tracing::info!("Node created");
         (swarm, maddr)
@@ -819,8 +818,6 @@ mod tests {
     #[tokio::test]
     async fn discovery() {
         use tokio::time::timeout;
-
-        log_utils::enable_logs();
 
         let (mut a, a_addr) = make_node();
         let (mut b, b_addr) = make_node();

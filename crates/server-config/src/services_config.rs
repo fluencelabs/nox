@@ -29,7 +29,7 @@ pub struct ServicesConfig {
     pub blueprint_dir: PathBuf,
     /// Opaque environment variables to be passed on each service creation
     /// TODO: isolate envs of different modules (i.e., module A shouldn't access envs of module B)
-    pub envs: HashMap<Vec<u8>, Vec<u8>>,
+    pub envs: HashMap<String, String>,
     /// Working dir for services
     pub workdir: PathBuf,
     /// Dir to store .wasm modules and their configs
@@ -57,7 +57,7 @@ impl ServicesConfig {
         local_peer_id: PeerId,
         base_dir: PathBuf,
         particles_vault_dir: PathBuf,
-        envs: HashMap<Vec<u8>, Vec<u8>>,
+        envs: HashMap<String, String>,
         management_peer_id: PeerId,
         builtins_management_peer_id: PeerId,
         max_heap_size: ByteSize,

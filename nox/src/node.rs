@@ -551,6 +551,7 @@ mod tests {
         config.aquavm_pool_size = 1;
         config.dir_config.spell_base_dir = to_abs_path(PathBuf::from("spell"));
         config.system_services.enable = vec![];
+        config.http_config = None;
         let vm_config = VmConfig::new(
             to_peer_id(&config.root_key_pair.clone().into()),
             config.dir_config.avm_base_dir.clone(),
