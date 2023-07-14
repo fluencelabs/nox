@@ -4062,6 +4062,7 @@ dependencies = [
  "fstrings",
  "futures",
  "humantime-serde",
+ "hyper",
  "itertools 0.11.0",
  "kademlia",
  "key-manager",
