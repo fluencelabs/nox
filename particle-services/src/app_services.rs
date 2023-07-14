@@ -961,6 +961,7 @@ impl ParticleAppServices {
             service_id,
             self.config.envs
         );
+
         AppService::new(app_config, service_id, self.config.envs.clone())
             .map_err(ServiceError::Engine)
     }

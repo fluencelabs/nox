@@ -63,7 +63,7 @@ pub fn default_websocket_port() -> u16 {
     9999
 }
 
-pub fn default_metrics_port() -> u16 {
+pub fn default_http_port() -> u16 {
     18080
 }
 
@@ -255,4 +255,12 @@ pub fn default_deal_contract_address_hex() -> String {
 
 pub fn default_deal_contract_block_hex() -> String {
     "latest".to_string()
+}
+
+pub fn default_ipfs_binary_path() -> String {
+    "/usr/bin/ipfs".to_string()
+}
+
+pub fn default_curl_binary_path() -> String {
+    "/usr/bin/curl".to_string()
 }

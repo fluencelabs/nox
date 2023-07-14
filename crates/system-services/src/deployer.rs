@@ -6,9 +6,11 @@ use particle_execution::FunctionOutcome;
 use particle_modules::{AddBlueprint, ModuleRepository};
 use particle_services::{ParticleAppServices, ServiceError, ServiceType};
 use serde_json::{json, Value as JValue};
-use server_config::system_services_config::RegistryConfig;
 use server_config::system_services_config::ServiceKey::*;
-use server_config::{system_services_config::ServiceKey, DeciderConfig, SystemServicesConfig};
+use server_config::system_services_config::{ConnectorConfig, RegistryConfig};
+use server_config::{
+    system_services_config::ServiceKey, AquaIpfsConfig, DeciderConfig, SystemServicesConfig,
+};
 use sorcerer::{get_spell_info, install_spell, remove_spell};
 use spell_event_bus::api::SpellEventBusApi;
 use spell_storage::SpellStorage;
@@ -40,7 +42,7 @@ enum ServiceUpdateStatus {
 // This is supposed to be in a separate lib for all system services crates
 struct ServiceDistro {
     modules: HashMap<&'static str, &'static [u8]>,
-    config: &'static [u8],
+    config: TomlMarineConfig,
     name: String,
 }
 
@@ -107,7 +109,7 @@ impl Deployer {
     }
 
     fn deploy_aqua_ipfs(&self) -> eyre::Result<()> {
-        let aqua_ipfs_distro = Self::get_ipfs_service_distro();
+        let aqua_ipfs_distro = Self::get_ipfs_service_distro(&self.config.aqua_ipfs)?;
         let service_name = aqua_ipfs_distro.name.clone();
         let service_id = match self.deploy_service_common(aqua_ipfs_distro)? {
             ServiceStatus::Existing(_id) => {
@@ -138,7 +140,7 @@ impl Deployer {
     }
 
     fn deploy_connector(&self) -> eyre::Result<()> {
-        let connector_distro = Self::get_connector_distro();
+        let connector_distro = Self::get_connector_distro(&self.config.connector)?;
         self.deploy_service_common(connector_distro)?;
         Ok(())
     }
@@ -151,14 +153,14 @@ impl Deployer {
 
     async fn deploy_registry(&self) -> eyre::Result<()> {
         let (registry_distro, registry_spell_distro) =
-            Self::get_registry_distro(self.config.registry.clone());
+            Self::get_registry_distro(self.config.registry.clone())?;
         self.deploy_service_common(registry_distro)?;
         self.deploy_system_spell(registry_spell_distro).await?;
         Ok(())
     }
 
     fn deploy_trust_graph(&self) -> eyre::Result<()> {
-        let service_distro = Self::get_trust_graph_distro();
+        let service_distro = Self::get_trust_graph_distro()?;
         let service_name = service_distro.name.clone();
         let service_id = match self.deploy_service_common(service_distro)? {
             ServiceStatus::Existing(_id) => {
@@ -188,19 +190,21 @@ impl Deployer {
     }
 
     // The plan is to move this to the corresponding crates
-    fn get_trust_graph_distro() -> ServiceDistro {
+    fn get_trust_graph_distro() -> eyre::Result<ServiceDistro> {
         use trust_graph_distro::*;
-        ServiceDistro {
+        let config: TomlMarineConfig = toml::from_slice(CONFIG)?;
+        Ok(ServiceDistro {
             modules: modules(),
-            config: CONFIG,
+            config,
             name: TrustGraph.to_string(),
-        }
+        })
     }
 
-    fn get_registry_distro(config: RegistryConfig) -> (ServiceDistro, SpellDistro) {
+    fn get_registry_distro(config: RegistryConfig) -> eyre::Result<(ServiceDistro, SpellDistro)> {
+        let marine_config: TomlMarineConfig = toml::from_slice(registry_distro::CONFIG)?;
         let distro = ServiceDistro {
             modules: registry_distro::modules(),
-            config: registry_distro::CONFIG,
+            config: marine_config,
             name: Registry.to_string(),
         };
 
@@ -220,25 +224,42 @@ impl Deployer {
             trigger_config,
         };
 
-        (distro, spell_distro)
+        Ok((distro, spell_distro))
     }
 
-    fn get_ipfs_service_distro() -> ServiceDistro {
+    fn get_ipfs_service_distro(config: &AquaIpfsConfig) -> eyre::Result<ServiceDistro> {
         use aqua_ipfs_distro::*;
-        ServiceDistro {
+        let mut marine_config: TomlMarineConfig = toml::from_slice(CONFIG)?;
+        Self::apply_binary_path_override(
+            &mut marine_config,
+            "ipfs_effector",
+            "ipfs",
+            config.ipfs_binary_path.clone(),
+        );
+
+        Ok(ServiceDistro {
             modules: modules(),
-            config: CONFIG,
+            config: marine_config,
             name: AquaIpfs.to_string(),
-        }
+        })
     }
 
-    fn get_connector_distro() -> ServiceDistro {
+    fn get_connector_distro(config: &ConnectorConfig) -> eyre::Result<ServiceDistro> {
         let connector_service_distro = decider_distro::connector_service_modules();
-        ServiceDistro {
+        let mut marine_config: TomlMarineConfig =
+            toml::from_slice(connector_service_distro.config)?;
+        Self::apply_binary_path_override(
+            &mut marine_config,
+            "curl_adapter",
+            "curl",
+            config.curl_binary_path.clone(),
+        );
+
+        Ok(ServiceDistro {
             modules: connector_service_distro.modules,
-            config: connector_service_distro.config,
+            config: marine_config,
             name: connector_service_distro.name.to_string(),
-        }
+        })
     }
 
     fn get_decider_distro(decider_settings: DeciderConfig) -> SpellDistro {
@@ -611,9 +632,8 @@ impl Deployer {
     }
 
     fn add_modules(&self, service_distro: ServiceDistro) -> eyre::Result<String> {
-        let marine_config: TomlMarineConfig = toml::from_slice(service_distro.config)?;
         let mut hashes = Vec::new();
-        for config in marine_config.module {
+        for config in service_distro.config.module {
             let name = config.name.clone();
             // TODO: introduce nice errors for this
             let module = service_distro
@@ -639,5 +659,24 @@ impl Deployer {
             .modules_repo
             .add_blueprint(AddBlueprint::new(service_distro.name, hashes))?;
         Ok(blueprint_id)
+    }
+
+    /// Override a binary path to a binary for a module in the service configuration
+    fn apply_binary_path_override(
+        config: &mut TomlMarineConfig,
+        // Name of the module for which we override the path
+        module_name: &str,
+        // The name of the binary to override
+        binary_name: &str,
+        // Path to the binary to use instead
+        binary_path: String,
+    ) {
+        if let Some(module_config) = config.module.iter_mut().find(|p| p.name == module_name) {
+            if let Some(mounted_binaries) = &mut module_config.config.mounted_binaries {
+                if let Some(path) = mounted_binaries.get_mut(binary_name) {
+                    *path = toml::Value::String(binary_path);
+                }
+            }
+        }
     }
 }

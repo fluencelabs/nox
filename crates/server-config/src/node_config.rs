@@ -71,6 +71,9 @@ pub struct UnresolvedNodeConfig {
     #[serde(flatten)]
     pub metrics_config: MetricsConfig,
 
+    #[serde(flatten)]
+    pub http_config: Option<HttpConfig>,
+
     #[serde(default)]
     pub bootstrap_config: BootstrapConfig,
 
@@ -78,8 +81,7 @@ pub struct UnresolvedNodeConfig {
     pub root_weights: HashMap<PeerIdSerializable, u32>,
 
     #[serde(default)]
-    #[serde(deserialize_with = "parse_envs")]
-    pub services_envs: HashMap<Vec<u8>, Vec<u8>>,
+    pub services_envs: HashMap<String, String>,
 
     #[serde(default)]
     pub protocol_config: ProtocolConfig,
@@ -165,6 +167,10 @@ impl UnresolvedNodeConfig {
             .unwrap_or(KeypairConfig::default())
             .get_keypair(default_builtins_keypair_path())?;
 
+        let mut allowed_binaries = self.allowed_binaries;
+        allowed_binaries.push(self.system_services.aqua_ipfs.ipfs_binary_path.clone());
+        allowed_binaries.push(self.system_services.connector.curl_binary_path.clone());
+
         let result = NodeConfig {
             bootstrap_nodes,
             root_key_pair,
@@ -197,8 +203,9 @@ impl UnresolvedNodeConfig {
             force_builtins_redeploy: self.force_builtins_redeploy,
             transport_config: self.transport_config,
             listen_config: self.listen_config,
-            allowed_binaries: self.allowed_binaries,
+            allowed_binaries,
             system_services: self.system_services,
+            http_config: self.http_config,
         };
 
         Ok(result)
@@ -301,7 +308,7 @@ pub struct NodeConfig {
 
     pub root_weights: HashMap<PeerIdSerializable, u32>,
 
-    pub services_envs: HashMap<Vec<u8>, Vec<u8>>,
+    pub services_envs: HashMap<String, String>,
 
     pub protocol_config: ProtocolConfig,
 
@@ -342,6 +349,8 @@ pub struct NodeConfig {
     pub allowed_binaries: Vec<String>,
 
     pub system_services: SystemServicesConfig,
+
+    pub http_config: Option<HttpConfig>,
 }
 
 #[derive(Clone, Deserialize, Serialize, Derivative, Copy)]
@@ -369,15 +378,18 @@ pub struct TransportConfig {
     pub max_established: Option<u32>,
 }
 
+#[derive(Clone, Deserialize, Serialize, Derivative, Copy)]
+#[derivative(Debug)]
+pub struct HttpConfig {
+    #[serde(default = "default_http_port")]
+    pub http_port: u16,
+}
+
 #[derive(Clone, Deserialize, Serialize, Derivative)]
 #[derivative(Debug)]
 pub struct MetricsConfig {
     #[serde(default = "default_metrics_enabled")]
     pub metrics_enabled: bool,
-
-    /// Metrics port
-    #[serde(default = "default_metrics_port")]
-    pub metrics_port: u16,
 
     #[serde(default = "default_services_metrics_timer_resolution")]
     #[serde(with = "humantime_serde")]
@@ -477,17 +489,4 @@ impl KeypairConfig {
             Value { value } => decode_key(value, self.format),
         }
     }
-}
-
-fn parse_envs<'de, D>(deserializer: D) -> Result<HashMap<Vec<u8>, Vec<u8>>, D::Error>
-where
-    D: serde::Deserializer<'de>,
-{
-    let envs = HashMap::<String, String>::deserialize(deserializer)?;
-    let envs = envs
-        .into_iter()
-        .map(|(k, v)| (k.into_bytes(), v.into_bytes()))
-        .collect();
-
-    Ok(envs)
 }

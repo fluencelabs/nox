@@ -59,6 +59,8 @@ pub struct SystemServicesConfig {
     pub decider: DeciderConfig,
     #[serde(default)]
     pub registry: RegistryConfig,
+    #[serde(default)]
+    pub connector: ConnectorConfig,
 }
 
 impl Default for SystemServicesConfig {
@@ -68,6 +70,7 @@ impl Default for SystemServicesConfig {
             aqua_ipfs: Default::default(),
             decider: Default::default(),
             registry: Default::default(),
+            connector: Default::default(),
         }
     }
 }
@@ -78,6 +81,8 @@ pub struct AquaIpfsConfig {
     pub external_api_multiaddr: String,
     #[serde(default = "default_ipfs_multiaddr")]
     pub local_api_multiaddr: String,
+    #[serde(default = "default_ipfs_binary_path")]
+    pub ipfs_binary_path: String,
 }
 
 impl Default for AquaIpfsConfig {
@@ -85,6 +90,21 @@ impl Default for AquaIpfsConfig {
         Self {
             external_api_multiaddr: default_ipfs_multiaddr(),
             local_api_multiaddr: default_ipfs_multiaddr(),
+            ipfs_binary_path: default_ipfs_binary_path(),
+        }
+    }
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug)]
+pub struct ConnectorConfig {
+    #[serde(default = "default_curl_binary_path")]
+    pub curl_binary_path: String,
+}
+
+impl Default for ConnectorConfig {
+    fn default() -> Self {
+        Self {
+            curl_binary_path: default_curl_binary_path(),
         }
     }
 }
