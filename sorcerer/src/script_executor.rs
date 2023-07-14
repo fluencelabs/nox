@@ -140,7 +140,22 @@ impl Sorcerer {
             self.spell_script_particle_ttl,
         );
 
-        process_func_outcome::<UnitValue>(func_outcome, &event.spell_id, "push_mailbox").map(drop)
+        match process_func_outcome::<UnitValue>(func_outcome, &event.spell_id, "push_mailbox") {
+            Ok(_) => Ok(()),
+            Err(err) => {
+                // fallback for older spell versions
+                let func_outcome = self.services.call_function(
+                    worker_id,
+                    &event.spell_id,
+                    "list_push_string",
+                    vec![json!("trigger_mailbox"), json!(serialized_event)],
+                    None,
+                    worker_id,
+                    self.spell_script_particle_ttl,
+                );
+                process_func_outcome::<UnitValue>(func_outcome, &event.spell_id, "list_push_string")
+            }
+        }
     }
 
     pub async fn execute_script(&self, event: TriggerEvent) {
