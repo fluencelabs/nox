@@ -151,7 +151,7 @@ mod tests {
         let status = response.status();
         let body = hyper::body::to_bytes(response.into_body()).await.unwrap();
         assert_eq!(status, StatusCode::OK);
-        assert_eq!(&body[..], b"{\"node\":\"node_test_version\",\"avm\":\"avm_test_version\",\"spell\":\"spell_test_version\",\"aqua_ipfs\":\"aqua_ipfs_test_version\",\"trust_graph\":\"trust_graph_test_version\",\"registry\":\"registry_test_version\",\"decider\":\"decider_test_version\"}");
+        assert_eq!(&body[..], r#"{"node":"node_test_version","avm":"avm_test_version","spell":"spell_test_version","aqua_ipfs":"aqua_ipfs_test_version","trust_graph":"trust_graph_test_version","registry":"registry_test_version","decider":"decider_test_version"}"#.as_bytes());
     }
 
     #[tokio::test]
@@ -183,7 +183,7 @@ mod tests {
         assert_eq!(status, StatusCode::OK);
         assert_eq!(
             &body[..],
-            format!("{{\"peer_id\":\"{}\"}}", peer_id).as_bytes()
+            format!(r#"{{"peer_id":"{}"}}"#, peer_id).as_bytes()
         );
     }
 }
