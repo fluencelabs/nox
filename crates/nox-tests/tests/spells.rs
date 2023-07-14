@@ -901,7 +901,7 @@ async fn spell_timer_trigger_mailbox_test() {
         (seq
             (seq
                 (call %init_peer_id% ("getDataSrv" "spell_id") [] spell_id)
-                (call %init_peer_id% (spell_id "list_pop_string") ["trigger_mailbox"] trigger)
+                (call %init_peer_id% (spell_id "pop_mailbox") [] trigger)
             )
             (seq
                 (call %init_peer_id% ("json" "parse") [trigger.$.str] obj)
@@ -945,7 +945,7 @@ async fn spell_connection_pool_trigger_mailbox_test() {
                 (seq
                     (call %init_peer_id% ("getDataSrv" "spell_id") [] spell_id)
                     (seq
-                        (call %init_peer_id% (spell_id "list_pop_string") ["trigger_mailbox"] trigger)
+                        (call %init_peer_id% (spell_id "pop_mailbox") [] trigger)
                         (call %init_peer_id% ("run-console" "print") ["pop mailbox, trigger:" trigger])
                     )
                 )
@@ -1102,7 +1102,7 @@ async fn spell_update_config() {
         r#"(seq
             (seq
                 (call %init_peer_id% ("getDataSrv" "spell_id") [] spell_id)
-                (call %init_peer_id% (spell_id "list_pop_string") ["trigger_mailbox"] result)
+                (call %init_peer_id% (spell_id "pop_mailbox") [] result)
              )
             (call "{}" ("return" "") [result])
         )"#,
@@ -1194,7 +1194,7 @@ async fn spell_update_config_stopped_spell() {
         r#"(seq
             (seq
                 (call %init_peer_id% ("getDataSrv" "spell_id") [] spell_id)
-                (call %init_peer_id% (spell_id "list_pop_string") ["trigger_mailbox"] result)
+                (call %init_peer_id% (spell_id "pop_mailbox") [] result)
              )
             (call "{}" ("return" "") [result])
         )"#,
