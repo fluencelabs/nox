@@ -140,8 +140,7 @@ impl Sorcerer {
             self.spell_script_particle_ttl,
         );
 
-        process_func_outcome::<UnitValue>(func_outcome, &event.spell_id, "list_push_string")
-            .map(drop)
+        process_func_outcome::<UnitValue>(func_outcome, &event.spell_id, "push_mailbox").map(drop)
     }
 
     pub async fn execute_script(&self, event: TriggerEvent) {
