@@ -19,8 +19,8 @@ use libp2p::core::Endpoint;
 use libp2p::swarm::dial_opts::DialOpts;
 use libp2p::swarm::CloseConnection::All;
 use libp2p::swarm::{
-    dial_opts, ConnectionDenied, ConnectionId, DialError, FromSwarm, THandler, THandlerOutEvent,
-    ToSwarm,
+    dial_opts, ConnectionDenied, ConnectionId, DialError, FromSwarm, ListenFailure, THandler,
+    THandlerOutEvent, ToSwarm,
 };
 use libp2p::{
     core::{ConnectedPoint, Multiaddr},
@@ -437,11 +437,12 @@ impl ConnectionPoolBehaviour {
         }
     }
 
-    fn on_listen_failure(&mut self, local_addr: &Multiaddr, send_back_addr: &Multiaddr) {
+    fn on_listen_failure(&mut self, event: ListenFailure<'_>) {
         log::warn!(
-            "Error accepting incoming connection from {} to our local address {}",
-            send_back_addr,
-            local_addr
+            "Error accepting incoming connection from {} to our local address {}: {:?}",
+            event.send_back_addr,
+            event.local_addr,
+            event.error
         );
     }
 
@@ -577,7 +578,7 @@ impl NetworkBehaviour for ConnectionPoolBehaviour {
                 self.on_dial_failure(event.peer_id, event.error);
             }
             FromSwarm::ListenFailure(event) => {
-                self.on_listen_failure(event.local_addr, event.send_back_addr);
+                self.on_listen_failure(event);
             }
             FromSwarm::NewListener(_) => {}
             FromSwarm::NewListenAddr(_) => {}
