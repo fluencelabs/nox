@@ -183,7 +183,7 @@ mod tests {
         assert_eq!(status, StatusCode::OK);
         assert_eq!(
             &body[..],
-            format!(br#"{{"peer_id":"{}"}}"#, peer_id)
+            format!(r#"{{"peer_id":"{}"}}"#, peer_id).as_bytes()
         );
     }
 }
