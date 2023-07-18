@@ -136,7 +136,8 @@ async fn start_fluence(config: ResolvedConfig) -> eyre::Result<impl Stoppable> {
     let vm_config = vm_config(&config);
 
     let mut node: Box<Node<AVM<_>>> =
-        Node::new(config, vm_config, VERSION).wrap_err("error create node instance")?;
+        Node::new(config, vm_config, VERSION, air_interpreter_wasm::VERSION)
+            .wrap_err("error create node instance")?;
     node.listen(listen_addrs).wrap_err("error on listen")?;
 
     let node_exit_outlet = node.start(peer_id).await.wrap_err("node failed to start")?;
