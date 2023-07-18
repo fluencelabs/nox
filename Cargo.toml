@@ -123,7 +123,7 @@ tokio-stream = { version = "0.1.14" }
 tokio-util = { version = "0.7.8" }
 uuid = { version = "1.4.0", features = ["v4"] }
 derivative = "2.2.0"
-serde_json = { version = "1.0.100", features = ["preserve_order"] }
+serde_json = { version = "1.0.103", features = ["preserve_order"] }
 fstrings = "0.2.3"
 maplit = "1.0.2"
 log = "0.4.19"
