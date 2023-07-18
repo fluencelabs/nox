@@ -14,6 +14,7 @@ use prometheus_client::registry::Registry;
 use serde_json::json;
 use std::net::SocketAddr;
 use std::sync::Arc;
+use tokio::sync::Notify;
 
 async fn handler_404() -> impl IntoResponse {
     (StatusCode::NOT_FOUND, "nothing to see here")
@@ -75,6 +76,7 @@ pub async fn start_http_endpoint(
     registry: Option<Registry>,
     peer_id: PeerId,
     versions: Versions,
+    notify: Arc<Notify>,
 ) {
     let state = RouteState(Arc::new(Inner {
         registry,
@@ -88,10 +90,9 @@ pub async fn start_http_endpoint(
         .fallback(handler_404)
         .with_state(state);
 
-    axum::Server::bind(&listen_addr)
-        .serve(app.into_make_service())
-        .await
-        .expect("Could not make http endpoint")
+    let server = axum::Server::bind(&listen_addr).serve(app.into_make_service());
+    notify.notify_one();
+    server.await.expect("Could not make http endpoint")
 }
 
 #[cfg(test)]
@@ -99,7 +100,6 @@ mod tests {
     use super::*;
     use axum::http::Request;
     use std::net::{SocketAddr, TcpListener};
-    use tokio::time::sleep;
 
     fn get_free_tcp_port() -> u16 {
         let listener = TcpListener::bind("127.0.0.1:0").expect("Failed to bind to port 0");
@@ -131,11 +131,13 @@ mod tests {
         let port = get_free_tcp_port();
         let addr = format!("127.0.0.1:{port}").parse::<SocketAddr>().unwrap();
 
+        let notify = Arc::new(Notify::new());
+        let cloned_notify = notify.clone();
         tokio::spawn(async move {
-            start_http_endpoint(addr, None, PeerId::random(), test_versions()).await;
+            start_http_endpoint(addr, None, PeerId::random(), test_versions(), cloned_notify).await;
         });
 
-        sleep(tokio::time::Duration::from_secs(1)).await;
+        notify.notified().await;
 
         let client = hyper::Client::new();
 
@@ -161,11 +163,13 @@ mod tests {
         let addr = format!("127.0.0.1:{port}").parse::<SocketAddr>().unwrap();
         let peer_id = PeerId::random();
 
+        let notify = Arc::new(Notify::new());
+        let cloned_notify = notify.clone();
         tokio::spawn(async move {
-            start_http_endpoint(addr, None, peer_id, test_versions()).await;
+            start_http_endpoint(addr, None, peer_id, test_versions(), cloned_notify).await;
         });
 
-        sleep(tokio::time::Duration::from_secs(1)).await;
+        notify.notified().await;
 
         let client = hyper::Client::new();
 

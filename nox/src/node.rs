@@ -50,7 +50,7 @@ use sorcerer::Sorcerer;
 use spell_event_bus::api::{PeerEvent, SpellEventBusApi, TriggerEvent};
 use spell_event_bus::bus::SpellEventBus;
 use system_services::Deployer;
-use tokio::sync::{mpsc, oneshot};
+use tokio::sync::{mpsc, oneshot, Notify};
 use tokio::task;
 
 use crate::builtins::make_peer_builtin;
@@ -458,7 +458,7 @@ impl<RT: AquaRuntime> Node<RT> {
         task::Builder::new().name(&task_name.clone()).spawn(async move {
             let mut http_server = if let Some(http_listen_addr) = http_listen_addr{
                 log::info!("Starting http endpoint at {}", http_listen_addr);
-                start_http_endpoint(http_listen_addr, registry, peer_id, versions).boxed()
+                start_http_endpoint(http_listen_addr, registry, peer_id, versions, Arc::new(Notify::new())).boxed()
             } else {
                 futures::future::pending().boxed()
             };
