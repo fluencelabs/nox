@@ -70,7 +70,8 @@ fn default_directives() -> Vec<Directive> {
     namespaces
         .into_iter()
         .map(|ns| {
-            ns.parse()
+            ns.trim()
+                .parse()
                 .unwrap_or_else(|e| panic!("cannot parse {ns} to Directive: {e}"))
         })
         .collect()

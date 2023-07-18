@@ -127,7 +127,7 @@ impl Sorcerer {
         event: TriggerEvent,
         worker_id: PeerId,
     ) -> Result<(), JError> {
-        log::info!("storing trigger {:?}", event);
+        log::trace!("storing trigger {:?}", event);
         let serialized_event = serde_json::to_string(&TriggerInfoAqua::from(event.info))?;
 
         let func_outcome = self.services.call_function(

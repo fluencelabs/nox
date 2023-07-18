@@ -150,6 +150,8 @@ pub struct UnresolvedNodeConfig {
 
 impl UnresolvedNodeConfig {
     pub fn resolve(mut self) -> eyre::Result<NodeConfig> {
+        println!("system services: {:#?}", self.system_services);
+
         self.load_system_services_envs();
 
         let bootstrap_nodes = match self.local {

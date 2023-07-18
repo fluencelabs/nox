@@ -21,7 +21,7 @@ use std::path::PathBuf;
 use std::str::FromStr;
 
 use clap::{Args, Command, FromArgMatches};
-use config::{Config, Environment, File, FileFormat};
+use config::{Config, Environment, File, FileFormat, Source};
 use libp2p::core::{multiaddr::Protocol, Multiaddr};
 use serde::{Deserialize, Serialize};
 
@@ -206,7 +206,13 @@ pub fn load_config_with_args(
         .prefix_separator("_")
         .separator("__")
         .list_separator(",")
-        .with_list_parse_key("allowed_binaries");
+        .with_list_parse_key("allowed_binaries")
+        .with_list_parse_key("external_multiaddresses")
+        .with_list_parse_key("bootstrap_nodes")
+        .with_list_parse_key("listen_config.listen_multiaddrs")
+        .with_list_parse_key("system_services.enable");
+
+    println!("env_source: {:#?}", env_source.collect());
 
     let config = Config::builder()
         .add_source(file_source)

@@ -148,7 +148,16 @@ impl<F: ParticleFunctionStatic> Functions<F> {
             }
         };
 
-        let log_args = format!("{:?} {:?}", args.service_id, args.function_name);
+        let log_args = format!(
+            "{:?} {:?} {}",
+            args.service_id,
+            args.function_name,
+            args.function_args
+                .iter()
+                .next()
+                .map(|v| v.to_string())
+                .unwrap_or(String::new())
+        );
         let service_id = args.service_id.clone();
         let start = Instant::now();
 
