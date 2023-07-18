@@ -29,26 +29,20 @@ pub struct UnresolvedDirConfig {
     pub base_dir: PathBuf,
 
     /// Base directory for resources needed by application services
-    #[serde(default)]
     pub services_base_dir: Option<PathBuf>,
 
     /// Base directory for builtin services
-    #[serde(default)]
     pub builtins_base_dir: Option<PathBuf>,
 
     /// Base directory for resources needed by application services
-    #[serde(default)]
     pub avm_base_dir: Option<PathBuf>,
 
     /// Path to AIR interpreter .wasm file (aquamarine.wasm)
-    #[serde(default)]
     pub air_interpreter_path: Option<PathBuf>,
 
     /// Path to spell service files (wasms, configs)
-    #[serde(default)]
     pub spell_base_dir: Option<PathBuf>,
 
-    #[serde(default)]
     pub keypairs_base_dir: Option<PathBuf>,
 }
 
