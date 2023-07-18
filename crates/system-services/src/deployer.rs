@@ -22,6 +22,7 @@ const DEPLOYER_TTL: u64 = 60_000;
 const DEPLOYER_PARTICLE_ID: &str = "system-services-deployment";
 
 // A status of a service/spell after deployment
+#[derive(Clone, Debug)]
 enum ServiceStatus {
     // Id of a newly created service
     Created(String),
@@ -30,6 +31,7 @@ enum ServiceStatus {
 }
 
 // Status of the service or spell before deployment
+#[derive(Clone, Debug)]
 enum ServiceUpdateStatus {
     // A service is found and we need to update it
     NeedUpdate(String),
@@ -40,12 +42,14 @@ enum ServiceUpdateStatus {
 }
 
 // This is supposed to be in a separate lib for all system services crates
+#[derive(Clone, Debug)]
 struct ServiceDistro {
     modules: HashMap<&'static str, &'static [u8]>,
     config: TomlMarineConfig,
     name: String,
 }
 
+#[derive(Clone, Debug)]
 struct SpellDistro {
     name: String,
     air: &'static str,
@@ -53,6 +57,7 @@ struct SpellDistro {
     trigger_config: TriggerConfig,
 }
 
+#[derive(Clone, Debug)]
 pub struct Deployer {
     // These fields are used for deploying system services
     services: ParticleAppServices,
