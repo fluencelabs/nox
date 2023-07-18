@@ -80,8 +80,8 @@ async fn abuse_fold(air: &str) -> Abuse {
 
     client.timeout = Duration::from_secs(1);
 
-    let args = client.receive_args().await.wrap_err("receive args");
-    let args = args.unwrap_or_else(|_| panic!("{} failed", json!(elems)));
+    let args = client.receive_args().await;
+    let args = args.unwrap_or_else(|e| panic!("Failed. Elements: {}. Reason: {}", json!(elems), e));
     println!("args {}", json!(args));
     let output = match args.into_iter().next() {
         Some(JValue::Array(output)) => output,
