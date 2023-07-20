@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.13.2](https://github.com/fluencelabs/nox/compare/rust-peer-v0.13.1...rust-peer-v0.13.2) (2023-07-20)
+
+
+### Features
+
+* **builtins:** add vault.cat, vault.put + refactoring [NET-489 NET-491] ([#1631](https://github.com/fluencelabs/nox/issues/1631)) ([18fb419](https://github.com/fluencelabs/nox/commit/18fb41967b9ceec0d0d23085bd889abbbac90059))
+* **builtins:** remove builtins dir from configs ([#1711](https://github.com/fluencelabs/nox/issues/1711)) ([9bce547](https://github.com/fluencelabs/nox/commit/9bce547b1b330d6f66784ca3c432f6ac634472c4))
+* **decider:** update to 0.4.17 ([#1702](https://github.com/fluencelabs/nox/issues/1702)) ([453470d](https://github.com/fluencelabs/nox/commit/453470d881940719a78b168aed6107e1418c7f33))
+* **http:** added versions endpoint ([#1700](https://github.com/fluencelabs/nox/issues/1700)) ([ada94e5](https://github.com/fluencelabs/nox/commit/ada94e51025e2499fde4dd934c740e1e155246e9))
+* **makefile:** introduce local-env to run local aurora & ipfs ([#1701](https://github.com/fluencelabs/nox/issues/1701)) ([9199ab1](https://github.com/fluencelabs/nox/commit/9199ab1747cafaf63e68435697a242ffced0fd0d))
+* **metrics:** added metrics and peer_id endpoints ([#1699](https://github.com/fluencelabs/nox/issues/1699)) ([c42b919](https://github.com/fluencelabs/nox/commit/c42b9193fdb015c1fb8031c2a62edabc2c354986))
+* **spell:** update to new mailbox [NET-505] ([#1694](https://github.com/fluencelabs/nox/issues/1694)) ([15f1921](https://github.com/fluencelabs/nox/commit/15f1921f31ee73e285e5ff5d32cbe7ac6c7a29e5))
+* **tracing:** introduce deal_id-based trace logs to particle execution ([#1656](https://github.com/fluencelabs/nox/issues/1656)) ([760e7c8](https://github.com/fluencelabs/nox/commit/760e7c8b83a75782397e610e945963e17b13ff8e))
+
+
+### Bug Fixes
+
+* **deps:** update rust crate air-interpreter-wasm to 0.41.0 ([#1659](https://github.com/fluencelabs/nox/issues/1659)) ([be8d5c6](https://github.com/fluencelabs/nox/commit/be8d5c6ffe2a93a378b506161059606e0214278c))
+* **deps:** update rust crate air-interpreter-wasm to 0.42.0 ([#1709](https://github.com/fluencelabs/nox/issues/1709)) ([fd8bc24](https://github.com/fluencelabs/nox/commit/fd8bc24c48001d410d8b0d6f206af818e78e852c))
+* **error:** log error on accepting incoming connection ([#1657](https://github.com/fluencelabs/nox/issues/1657)) ([06f7668](https://github.com/fluencelabs/nox/commit/06f766852a0dc152067e04f9160a89ec29336c78))
+* **system-services:** allow overriding binary paths for system services [fixes NET-503] ([#1663](https://github.com/fluencelabs/nox/issues/1663)) ([d4ff356](https://github.com/fluencelabs/nox/commit/d4ff3564b57e39de8d1625b4fd934412495bdbe1))
+* **system-services:** update system spell without redeploying [fixes NET-490] ([#1649](https://github.com/fluencelabs/nox/issues/1649)) ([0d4f833](https://github.com/fluencelabs/nox/commit/0d4f833fefc5ce8624a0f7e7dcc7d85292025027))
+
 ## [0.13.1](https://github.com/fluencelabs/nox/compare/rust-peer-v0.13.0...rust-peer-v0.13.1) (2023-06-27)
 
 
