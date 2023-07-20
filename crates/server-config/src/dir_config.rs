@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::defaults::{avm_base_dir, builtins_base_dir, default_base_dir, services_base_dir};
+use crate::defaults::{avm_base_dir, default_base_dir, services_base_dir};
 
 use air_interpreter_fs::air_interpreter_path;
 use fs_utils::{canonicalize, create_dirs, to_abs_path};
@@ -30,9 +30,6 @@ pub struct UnresolvedDirConfig {
 
     /// Base directory for resources needed by application services
     pub services_base_dir: Option<PathBuf>,
-
-    /// Base directory for builtin services
-    pub builtins_base_dir: Option<PathBuf>,
 
     /// Base directory for resources needed by application services
     pub avm_base_dir: Option<PathBuf>,
@@ -51,7 +48,6 @@ impl UnresolvedDirConfig {
         let base = to_abs_path(self.base_dir);
 
         let services_base_dir = self.services_base_dir.unwrap_or(services_base_dir(&base));
-        let builtins_base_dir = self.builtins_base_dir.unwrap_or(builtins_base_dir(&base));
         let avm_base_dir = self.avm_base_dir.unwrap_or(avm_base_dir(&base));
         let air_interpreter_path = self
             .air_interpreter_path
@@ -63,7 +59,6 @@ impl UnresolvedDirConfig {
             &base,
             &services_base_dir,
             &avm_base_dir,
-            &builtins_base_dir,
             &spell_base_dir,
             &keypairs_base_dir,
         ])
@@ -71,7 +66,6 @@ impl UnresolvedDirConfig {
 
         let base = canonicalize(base)?;
         let services_base_dir = canonicalize(services_base_dir)?;
-        let builtins_base_dir = canonicalize(builtins_base_dir)?;
         let avm_base_dir = canonicalize(avm_base_dir)?;
         let spell_base_dir = canonicalize(spell_base_dir)?;
         let keypairs_base_dir = canonicalize(keypairs_base_dir)?;
@@ -79,7 +73,6 @@ impl UnresolvedDirConfig {
         Ok(ResolvedDirConfig {
             base_dir: base,
             services_base_dir,
-            builtins_base_dir,
             avm_base_dir,
             air_interpreter_path,
             spell_base_dir,
@@ -92,8 +85,6 @@ impl UnresolvedDirConfig {
 pub struct ResolvedDirConfig {
     pub base_dir: PathBuf,
     pub services_base_dir: PathBuf,
-    /// Directory where configs for autodeployed builtins are stored
-    pub builtins_base_dir: PathBuf,
     /// Directory where particle's prev_data is stored
     pub avm_base_dir: PathBuf,
     /// Directory where interpreter's WASM module is stored

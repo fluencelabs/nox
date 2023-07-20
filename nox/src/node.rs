@@ -546,7 +546,7 @@ mod tests {
     use config_utils::to_peer_id;
     use connected_client::ConnectedClient;
     use fs_utils::to_abs_path;
-    use server_config::{builtins_base_dir, default_base_dir, load_config_with_args};
+    use server_config::{default_base_dir, load_config_with_args};
 
     use crate::Node;
 
@@ -554,7 +554,6 @@ mod tests {
     async fn run_node() {
         let base_dir = default_base_dir();
         fs_utils::create_dir(&base_dir).unwrap();
-        fs_utils::create_dir(builtins_base_dir(&base_dir)).unwrap();
         write_default_air_interpreter(&air_interpreter_path(&base_dir)).unwrap();
 
         let mut config = load_config_with_args(vec![], None)

@@ -83,10 +83,6 @@ pub fn services_base_dir(base_dir: &Path) -> PathBuf {
     base_dir.join("services")
 }
 
-pub fn builtins_base_dir(base_dir: &Path) -> PathBuf {
-    base_dir.join("builtins")
-}
-
 pub fn avm_base_dir(base_dir: &Path) -> PathBuf {
     base_dir.join("stepper")
 }
