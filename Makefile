@@ -81,6 +81,8 @@ local-nox:
 	wasmtime_jit=off,\
 	libp2p_tcp=off,\
 	libp2p_swarm=off,\
+	particle_protocol::libp2p_protocol::upgrade=info,\
+	libp2p_mplex=off,\
 	particle_reap=off" \
 	cargo run --release -p nox -- --secret-key "74c9Fl8I+XFwlTRnLAyYlSML+Jk6zIkZgtQoo5deuGk="
 

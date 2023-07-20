@@ -212,7 +212,7 @@ pub(crate) async fn spell_install(
     let mut args = sargs.function_args.clone().into_iter();
     let script: String = Args::next("script", &mut args)?;
     let init_data: JValue = Args::next("data", &mut args)?;
-    let user_config: TriggerConfig = Args::next("config", &mut args)?;
+    let trigger_config: TriggerConfig = Args::next("trigger_config", &mut args)?;
     let init_peer_id = params.init_peer_id;
 
     let is_management = key_manager.is_management(init_peer_id);
@@ -236,7 +236,7 @@ pub(crate) async fn spell_install(
         worker_id,
         params.id,
         params.ttl as u64,
-        user_config,
+        trigger_config,
         script,
         init_data,
     )
@@ -454,4 +454,21 @@ pub(crate) fn store_response(
             "Failed to store response {response} for spell {spell_id}: {e}"
         ))
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use fluence_spell_dtos::trigger_config::TriggerConfig;
+
+    #[test]
+    fn deserialize_trigger_config() {
+        let json = r#"{
+            "clock": { "period_sec": 10 },
+            "blockchain": {},
+            "connections": {}
+        }"#;
+
+        let config: TriggerConfig = serde_json::from_str(json).expect("deserialize");
+        assert_eq!(config.clock.period_sec, 10);
+    }
 }
