@@ -88,8 +88,8 @@ particle-execution = { path = "particle-execution" }
 system-services = { path = "crates/system-services" }
 
 # spell
-fluence-spell-dtos = "=0.5.16"
-fluence-spell-distro = "=0.5.16"
+fluence-spell-dtos = { version = "=0.5.17-improve-mailbox-7b84264-327-1.0", registry = "fluence" }
+fluence-spell-distro = { version = "=0.5.17-improve-mailbox-7b84264-327-1.0", registry = "fluence" }
 
 # marine
 fluence-app-service = {version = "=0.26.4-feat-wasm-backend-interface-update-b3cf050-636-1.0", registry = "fluence"}

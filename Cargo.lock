@@ -1432,7 +1432,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f003ae3f41b86aa1a241acc1a64e76b8a1dc96439e978558494c0669f1304eb6"
 dependencies = [
  "built 0.6.1",
- "fluence-spell-dtos",
+ "fluence-spell-dtos 0.5.16",
  "maplit",
  "serde_json",
 ]
@@ -1802,9 +1802,9 @@ dependencies = [
 
 [[package]]
 name = "fluence-spell-distro"
-version = "0.5.16"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "08daeec21c1e6420cb77ffd235d2c6ef7397decd41bc1da256372b81e6be79e9"
+version = "0.5.17-improve-mailbox-7b84264-327-1.0"
+source = "registry+git://crates.fluence.dev/index"
+checksum = "3c3ab904169f8321a956d3b3f76e95409fd6fe91239ab794f59ba060215a2a2b"
 dependencies = [
  "built 0.6.1",
  "maplit",
@@ -1815,6 +1815,19 @@ name = "fluence-spell-dtos"
 version = "0.5.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "207cbc13ce9eb7e2c7c3e95e3bd7e4d62393f0ec598b65201684fb690624030c"
+dependencies = [
+ "eyre",
+ "marine-rs-sdk",
+ "marine-sqlite-connector",
+ "serde",
+ "thiserror",
+]
+
+[[package]]
+name = "fluence-spell-dtos"
+version = "0.5.17-improve-mailbox-7b84264-327-1.0"
+source = "registry+git://crates.fluence.dev/index"
+checksum = "c07c52228b9f8276b74c5ba50b8866f6a49cdc3ad77f548306b6d41aceee5a0e"
 dependencies = [
  "eyre",
  "marine-rs-sdk",
@@ -4115,7 +4128,7 @@ dependencies = [
  "fluence-app-service",
  "fluence-keypair",
  "fluence-libp2p",
- "fluence-spell-dtos",
+ "fluence-spell-dtos 0.5.17-improve-mailbox-7b84264-327-1.0",
  "fstrings",
  "futures",
  "humantime-serde",
@@ -5641,7 +5654,7 @@ dependencies = [
  "eyre",
  "fluence-keypair",
  "fluence-libp2p",
- "fluence-spell-dtos",
+ "fluence-spell-dtos 0.5.17-improve-mailbox-7b84264-327-1.0",
  "fstrings",
  "futures",
  "kademlia",
@@ -5677,7 +5690,7 @@ dependencies = [
  "derivative",
  "eyre",
  "fluence-libp2p",
- "fluence-spell-dtos",
+ "fluence-spell-dtos 0.5.17-improve-mailbox-7b84264-327-1.0",
  "fstrings",
  "futures",
  "libp2p",
@@ -5848,7 +5861,7 @@ dependencies = [
  "decider-distro",
  "eyre",
  "fluence-app-service",
- "fluence-spell-dtos",
+ "fluence-spell-dtos 0.5.17-improve-mailbox-7b84264-327-1.0",
  "libp2p",
  "log",
  "maplit",
