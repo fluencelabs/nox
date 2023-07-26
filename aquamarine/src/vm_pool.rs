@@ -53,9 +53,9 @@ impl<RT: AquaRuntime> VmPool<RT> {
         health_registry: Option<&mut HealthCheckRegistry>,
     ) -> Self {
         let health = health_registry.map(|registry| {
-            let vm_pool = VMPoolHealCheck::new(pool_size);
-            registry.register("vm_pool", vm_pool.clone());
-            vm_pool
+            let health = VMPoolHealCheck::new(pool_size);
+            registry.register("vm_pool", health.clone());
+            health
         });
 
         let mut this = Self {
