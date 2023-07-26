@@ -26,7 +26,7 @@ impl HealthCheckRegistry {
         let mut oks = Vec::new();
 
         for (name, check) in &self.checks {
-            match check.check() {
+            match check.status() {
                 Ok(_) => oks.push(name.clone()),
                 Err(_) => {
                     fails.push(name.clone());
