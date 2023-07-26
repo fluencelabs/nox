@@ -22,7 +22,7 @@ on:
 jobs:
   publish:
     name: "Publish ${{ inputs.flavour }}"
-    runs-on: ubuntu-latest
+    runs-on: builder
     timeout-minutes: 60
 
     outputs:
