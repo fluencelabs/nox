@@ -827,7 +827,7 @@ impl ParticleAppServices {
     fn create_persisted_services(&mut self) {
         let services =
             load_persisted_services(&self.config.services_dir, self.config.local_peer_id);
-        let service_count = services.len();
+        let loaded_service_count = services.len();
         if let Some(h) = self.health.as_mut() {
             h.start_creation()
         }
@@ -905,7 +905,7 @@ impl ParticleAppServices {
                 s.aliases
             );
         }
-        if created_service_count == service_count {
+        if created_service_count == loaded_service_count {
             if let Some(h) = self.health.as_mut() {
                 h.finish_creation()
             }
