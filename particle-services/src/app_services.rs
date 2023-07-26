@@ -1073,7 +1073,7 @@ mod tests {
             Default::default(),
         );
 
-        ParticleAppServices::new(config, repo, None)
+        ParticleAppServices::new(config, repo, None, None)
     }
 
     fn call_add_alias_raw(
