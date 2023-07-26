@@ -1,6 +1,6 @@
 use health::HealthCheck;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
 
 #[derive(Clone)]
 pub struct VMPoolHealth {
