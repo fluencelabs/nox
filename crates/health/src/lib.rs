@@ -21,7 +21,7 @@ impl HealthCheckRegistry {
         self.checks.push((name.to_string(), Box::new(check)));
     }
 
-    pub fn check(&self) -> HealthCheckResult {
+    pub fn status(&self) -> HealthStatus {
         let mut fails = Vec::new();
         let mut oks = Vec::new();
 
