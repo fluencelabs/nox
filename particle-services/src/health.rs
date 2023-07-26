@@ -40,7 +40,7 @@ impl HealthCheck for PersistedServiceHealth {
                 Ok(())
             }
         } else {
-            Err(eyre::eyre!("Not loaded yet"))
+            Err(eyre::eyre!("Persisted services creation hasn't started yet"))
         }
     }
 }
