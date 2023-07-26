@@ -222,10 +222,10 @@ impl Connectivity {
                     let addresses = addresses.collect::<Vec<_>>();
                     if !addresses.is_empty() {
                         metrics.map(|m| m.bootstrap_disconnected.inc());
-                        health.map(|h| {
+                        if let Some(h) = health {
                             h.bootstrap_nodes
                                 .on_bootstrap_disconnected(addresses.clone())
-                        });
+                        }
                     };
                     return Some(iter(addresses));
                 }
@@ -248,7 +248,9 @@ impl Connectivity {
                     let ok = kademlia.add_contact(contact);
                     debug_assert!(ok, "kademlia.add_contact");
                     metrics.map(|m| m.bootstrap_connected.inc());
-                    health.map(|h| h.bootstrap_nodes.on_bootstrap_connected(addr));
+                    if let Some(h) = health {
+                        h.bootstrap_nodes.on_bootstrap_connected(addr)
+                    }
                     break;
                 }
 

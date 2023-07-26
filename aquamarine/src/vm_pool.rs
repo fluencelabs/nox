@@ -174,7 +174,9 @@ impl<RT: AquaRuntime> VmPool<RT> {
                 match vm {
                     Ok(vm) => {
                         vms[id] = Some(vm);
-                        self.health.as_ref().map(|h| h.increment_count());
+                        if let Some(h) = self.health.as_ref() {
+                            h.increment_count()
+                        }
                     }
                     Err(err) => log::error!("Failed to create vm: {:?}", err), // TODO: don't panic
                 }

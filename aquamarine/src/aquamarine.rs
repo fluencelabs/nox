@@ -47,6 +47,7 @@ pub struct AquamarineBackend<RT: AquaRuntime, F> {
 }
 
 impl<RT: AquaRuntime, F: ParticleFunctionStatic> AquamarineBackend<RT, F> {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         config: VmPoolConfig,
         runtime_config: RT::Config,
