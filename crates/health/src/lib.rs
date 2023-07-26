@@ -2,7 +2,6 @@
 //!
 //! See [`HealthCheckRegistry`] for details.
 
-
 pub trait HealthCheck: Send + Sync + 'static {
     fn status(&self) -> eyre::Result<()>;
 }

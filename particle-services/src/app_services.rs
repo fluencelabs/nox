@@ -841,7 +841,7 @@ impl ParticleAppServices {
             }
         });
 
-        let mut loaded_service_count = 0;
+        let mut created_service_count = 0;
         for s in services {
             let worker_id = s.worker_id.expect("every service must have worker id");
             let start = Instant::now();
@@ -897,7 +897,7 @@ impl ParticleAppServices {
                 replaced.is_none(),
                 "shouldn't replace any existing services"
             );
-            loaded_service_count += 1;
+            created_service_count += 1;
             log::info!(
                 "Persisted service {} created in {}, aliases: {:?}",
                 s.service_id,
@@ -905,7 +905,7 @@ impl ParticleAppServices {
                 s.aliases
             );
         }
-        if loaded_service_count != service_count {
+        if created_service_count != service_count {
             if let Some(h) = self.health.as_mut() {
                 h.finish_creation()
             }

@@ -80,9 +80,7 @@ async fn handle_health(State(state): State<RouteState>) -> axum::response::Resul
         .as_ref()
         .ok_or((StatusCode::NOT_FOUND, "nothing to see here"))?;
     let result = match registry.status() {
-        HealthStatus::Ok(keys) => {
-            (StatusCode::OK, Json(make_json(keys, "Ok"))).into_response()
-        }
+        HealthStatus::Ok(keys) => (StatusCode::OK, Json(make_json(keys, "Ok"))).into_response(),
         HealthStatus::Warning(ok, fail) => {
             let mut result = make_json(ok, "Ok");
             let mut fail = make_json(fail, "Fail");

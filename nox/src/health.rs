@@ -1,6 +1,6 @@
 use health::HealthCheck;
 use libp2p::Multiaddr;
-use parking_lot::{RwLock};
+use parking_lot::RwLock;
 use std::collections::HashMap;
 use std::sync::Arc;
 
