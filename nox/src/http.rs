@@ -19,7 +19,7 @@ use std::sync::Arc;
 use tokio::sync::Notify;
 
 async fn handler_404() -> impl IntoResponse {
-    (StatusCode::NOT_FOUND, "nothing to see here")
+    (StatusCode::NOT_FOUND, "No such endpoint")
 }
 
 async fn handle_metrics(State(state): State<RouteState>) -> axum::response::Result<Response<Body>> {
@@ -28,7 +28,7 @@ async fn handle_metrics(State(state): State<RouteState>) -> axum::response::Resu
         .0
         .metric_registry
         .as_ref()
-        .ok_or((StatusCode::NOT_FOUND, "nothing to see here"))?;
+        .ok_or((StatusCode::NOT_FOUND, "No such endpoint"))?;
     encode(&mut buf, registry).map_err(|e| {
         tracing::warn!("Metrics encode error: {}", e);
         ErrorResponse::from(StatusCode::INTERNAL_SERVER_ERROR)
@@ -78,7 +78,7 @@ async fn handle_health(State(state): State<RouteState>) -> axum::response::Resul
         .0
         .health_registry
         .as_ref()
-        .ok_or((StatusCode::NOT_FOUND, "nothing to see here"))?;
+        .ok_or((StatusCode::NOT_FOUND, "No such endpoint"))?;
     let result = match registry.status() {
         HealthStatus::Ok(keys) => (StatusCode::OK, Json(make_json(keys, "Ok"))).into_response(),
         HealthStatus::Warning(ok, fail) => {
