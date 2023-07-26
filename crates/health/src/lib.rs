@@ -1,3 +1,8 @@
+//! Health check registry implementation.
+//!
+//! See [`HealthCheckRegistry`] for details.
+
+
 pub trait HealthCheck: Send + Sync + 'static {
     fn check(&self) -> eyre::Result<()>;
 }
@@ -6,12 +11,17 @@ pub struct HealthCheckRegistry {
     checks: Vec<(String, Box<dyn HealthCheck>)>,
 }
 
+///  The result of the health check, which can be one of the following:
+/// HealthCheckResult::Ok(oks): If all health checks pass successfully. oks is a vector containing the names of the passed health checks.
+/// HealthCheckResult::Fail(fails): If all health checks fail. fails is a vector containing the names of the failed health checks.
+/// HealthCheckResult::Warning(oks, fails): If some health checks pass while others fail. oks is a vector containing the names of the passed health checks, and fails is a vector containing the names of the failed health checks.
 pub enum HealthCheckResult {
     Ok(Vec<String>),
     Warning(Vec<String>, Vec<String>),
     Fail(Vec<String>),
 }
-
+/// A HealthCheckRegistry is a collection of health checks that can be registered and executed.
+/// Each health check is associated with a name and is expected to implement the HealthCheck trait.
 impl HealthCheckRegistry {
     pub fn new() -> Self {
         HealthCheckRegistry { checks: Vec::new() }
