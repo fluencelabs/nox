@@ -30,7 +30,7 @@ async fn handle_metrics(State(state): State<RouteState>) -> axum::response::Resu
         .as_ref()
         .ok_or((StatusCode::NOT_FOUND, "nothing to see here"))?;
     encode(&mut buf, registry).map_err(|e| {
-        tracing::warn!("Could not encode metrics: {}", e);
+        tracing::warn!("Metrics encode error: {}", e);
         ErrorResponse::from(StatusCode::INTERNAL_SERVER_ERROR)
     })?;
 
