@@ -86,6 +86,9 @@ jobs:
           id: ${{ steps.version.outputs.id }}
           publish: false
 
+      - name: Install missing things
+        run: sudo apt-get install -y gcc-multilib
+
       - name: Run cargo build
         run: cargo build ${{ steps.profile.outputs.flags }} -p nox --target ${{ matrix.arch }}-unknown-linux-gnu
 
