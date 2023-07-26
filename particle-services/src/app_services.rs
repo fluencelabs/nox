@@ -43,7 +43,7 @@ use uuid_utils::uuid;
 
 use crate::error::ServiceError;
 use crate::error::ServiceError::{AliasAsServiceId, Forbidden, NoSuchAlias};
-use crate::health::PersistedServiceHealthCheck;
+use crate::health::PersistedServiceHealth;
 use crate::persistence::{
     load_persisted_services, persist_service, remove_persisted_service, PersistedService,
 };
@@ -176,7 +176,7 @@ pub struct ParticleAppServices {
     management_peer_id: PeerId,
     builtins_management_peer_id: PeerId,
     pub metrics: Option<ServicesMetrics>,
-    health: Option<PersistedServiceHealthCheck>,
+    health: Option<PersistedServiceHealth>,
 }
 
 /// firstly, try to find by alias in worker scope, secondly, in root scope
@@ -263,7 +263,7 @@ impl ParticleAppServices {
         let management_peer_id = config.management_peer_id;
         let builtins_management_peer_id = config.builtins_management_peer_id;
         let health = health_registry.map(|registry| {
-            let persisted_services = PersistedServiceHealthCheck::new();
+            let persisted_services = PersistedServiceHealth::new();
             registry.register("persisted_services", persisted_services.clone());
             persisted_services
         });

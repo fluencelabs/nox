@@ -5,16 +5,16 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 #[derive(Clone)]
-pub struct ConnectivityHealthChecks {
-    pub bootstrap_nodes: BootstrapNodesHealthCheck,
+pub struct ConnectivityHealth {
+    pub bootstrap_nodes: BootstrapNodesHealth,
 }
 
 #[derive(Clone)]
-pub struct BootstrapNodesHealthCheck {
+pub struct BootstrapNodesHealth {
     bootstrap_nodes_statuses: Arc<Mutex<HashMap<Multiaddr, bool>>>,
 }
 
-impl BootstrapNodesHealthCheck {
+impl BootstrapNodesHealth {
     pub fn new(bootstrap_nodes: Vec<Multiaddr>) -> Self {
         let bootstrap_nodes_statuses = bootstrap_nodes
             .into_iter()
@@ -38,7 +38,7 @@ impl BootstrapNodesHealthCheck {
     }
 }
 
-impl HealthCheck for BootstrapNodesHealthCheck {
+impl HealthCheck for BootstrapNodesHealth {
     fn check(&self) -> eyre::Result<()> {
         let guard = self.bootstrap_nodes_statuses.lock();
         for (addr, connected) in guard.iter() {

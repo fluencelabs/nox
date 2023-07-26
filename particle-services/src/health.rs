@@ -3,14 +3,14 @@ use parking_lot::Mutex;
 use std::sync::Arc;
 
 #[derive(Debug, Clone)]
-pub struct PersistedServiceHealthCheck {
+pub struct PersistedServiceHealth {
     started: Arc<Mutex<bool>>,
     has_errors: Arc<Mutex<bool>>,
 }
 
-impl PersistedServiceHealthCheck {
+impl PersistedServiceHealth {
     pub fn new() -> Self {
-        PersistedServiceHealthCheck {
+        PersistedServiceHealth {
             started: Arc::new(Mutex::new(false)),
             has_errors: Arc::new(Mutex::new(false)),
         }
@@ -27,7 +27,7 @@ impl PersistedServiceHealthCheck {
     }
 }
 
-impl HealthCheck for PersistedServiceHealthCheck {
+impl HealthCheck for PersistedServiceHealth {
     fn check(&self) -> eyre::Result<()> {
         let started_guard = self.started.lock();
         let errors_guard = self.has_errors.lock();

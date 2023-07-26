@@ -22,7 +22,7 @@ use health::HealthCheckRegistry;
 use peer_metrics::VmPoolMetrics;
 
 use crate::aqua_runtime::AquaRuntime;
-use crate::health::VMPoolHealCheck;
+use crate::health::VMPoolHealth;
 
 type RuntimeF<RT> = BoxFuture<'static, Result<RT, <RT as AquaRuntime>::Error>>;
 
@@ -41,7 +41,7 @@ pub struct VmPool<RT: AquaRuntime> {
     runtime_config: RT::Config,
     pool_size: usize,
     metrics: Option<VmPoolMetrics>,
-    health: Option<VMPoolHealCheck>,
+    health: Option<VMPoolHealth>,
 }
 
 impl<RT: AquaRuntime> VmPool<RT> {
@@ -53,7 +53,7 @@ impl<RT: AquaRuntime> VmPool<RT> {
         health_registry: Option<&mut HealthCheckRegistry>,
     ) -> Self {
         let health = health_registry.map(|registry| {
-            let health = VMPoolHealCheck::new(pool_size);
+            let health = VMPoolHealth::new(pool_size);
             registry.register("vm_pool", health.clone());
             health
         });

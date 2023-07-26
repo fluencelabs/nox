@@ -3,12 +3,12 @@ use parking_lot::Mutex;
 use std::sync::Arc;
 
 #[derive(Clone)]
-pub struct VMPoolHealCheck {
+pub struct VMPoolHealth {
     expected_count: usize,
     current_count: Arc<Mutex<usize>>,
 }
 
-impl VMPoolHealCheck {
+impl VMPoolHealth {
     pub fn new(expected_count: usize) -> Self {
         Self {
             expected_count,
@@ -22,7 +22,7 @@ impl VMPoolHealCheck {
     }
 }
 
-impl HealthCheck for VMPoolHealCheck {
+impl HealthCheck for VMPoolHealth {
     fn check(&self) -> eyre::Result<()> {
         let guard = self.current_count.lock();
         let current = *guard;

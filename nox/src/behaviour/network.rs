@@ -29,7 +29,7 @@ use particle_protocol::{Particle, PROTOCOL_NAME};
 use server_config::NetworkConfig;
 
 use crate::connectivity::Connectivity;
-use crate::health::{BootstrapNodesHealthCheck, ConnectivityHealthChecks};
+use crate::health::{BootstrapNodesHealth, ConnectivityHealth};
 
 /// Coordinates protocols, so they can cooperate
 #[derive(NetworkBehaviour)]
@@ -79,10 +79,10 @@ impl FluenceNetworkBehaviour {
         let bootstrap_nodes = cfg.bootstrap_nodes.clone();
 
         let health = health_registry.map(|registry| {
-            let bootstrap_nodes = BootstrapNodesHealthCheck::new(bootstrap_nodes);
+            let bootstrap_nodes = BootstrapNodesHealth::new(bootstrap_nodes);
             registry.register("bootstrap_nodes", bootstrap_nodes.clone());
 
-            ConnectivityHealthChecks { bootstrap_nodes }
+            ConnectivityHealth { bootstrap_nodes }
         });
 
         let connectivity = Connectivity {

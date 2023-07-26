@@ -18,7 +18,7 @@ use std::cmp::min;
 use std::collections::HashSet;
 use std::time::Duration;
 
-use crate::health::ConnectivityHealthChecks;
+use crate::health::ConnectivityHealth;
 use connection_pool::{ConnectionPoolApi, ConnectionPoolT, LifecycleEvent};
 use fluence_libp2p::PeerId;
 use futures::{stream::iter, StreamExt};
@@ -44,7 +44,7 @@ pub struct Connectivity {
     /// This setting specify that N.
     pub bootstrap_frequency: usize,
     pub metrics: Option<ConnectivityMetrics>,
-    pub health: Option<ConnectivityHealthChecks>,
+    pub health: Option<ConnectivityHealth>,
 }
 
 impl Connectivity {
