@@ -905,7 +905,7 @@ impl ParticleAppServices {
                 s.aliases
             );
         }
-        if created_service_count != service_count {
+        if created_service_count == service_count {
             if let Some(h) = self.health.as_mut() {
                 h.finish_creation()
             }
