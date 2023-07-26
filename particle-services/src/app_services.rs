@@ -29,7 +29,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value as JValue};
 
 use fluence_libp2p::{peerid_serializer, PeerId};
-use health::{HealthCheck, HealthCheckRegistry};
+use health::HealthCheckRegistry;
 use now_millis::now_ms;
 use particle_args::{Args, JError};
 use particle_execution::{FunctionOutcome, ParticleParams, ParticleVault};
@@ -43,6 +43,7 @@ use uuid_utils::uuid;
 
 use crate::error::ServiceError;
 use crate::error::ServiceError::{AliasAsServiceId, Forbidden, NoSuchAlias};
+use crate::health::PersistedServiceHealthCheck;
 use crate::persistence::{
     load_persisted_services, persist_service, remove_persisted_service, PersistedService,
 };
@@ -1403,47 +1404,4 @@ mod tests {
     //       - get_interface
     //       - list_services
     //       - test on service persisting
-}
-
-#[derive(Debug, Clone)]
-pub struct PersistedServiceHealthCheck {
-    started: Arc<Mutex<bool>>,
-    has_errors: Arc<Mutex<bool>>,
-}
-
-impl PersistedServiceHealthCheck {
-    pub fn new() -> Self {
-        PersistedServiceHealthCheck {
-            started: Arc::new(Mutex::new(false)),
-            has_errors: Arc::new(Mutex::new(false)),
-        }
-    }
-
-    pub fn start_loading(&mut self) {
-        let mut guard = self.started.lock();
-        *guard = true;
-    }
-
-    pub fn mark_has_errors(&mut self) {
-        let mut guard = self.has_errors.lock();
-        *guard = true;
-    }
-}
-
-impl HealthCheck for PersistedServiceHealthCheck {
-    fn check(&self) -> eyre::Result<()> {
-        let started_guard = self.started.lock();
-        let errors_guard = self.has_errors.lock();
-        let started = *started_guard;
-        if started {
-            let has_errors = *errors_guard;
-            if has_errors {
-                Err(eyre::eyre!("Persisted services loading failed"))
-            } else {
-                Ok(())
-            }
-        } else {
-            Err(eyre::eyre!("Not loaded yet"))
-        }
-    }
 }

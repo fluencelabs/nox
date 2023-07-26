@@ -28,7 +28,8 @@ use kademlia::{Kademlia, KademliaConfig};
 use particle_protocol::{Particle, PROTOCOL_NAME};
 use server_config::NetworkConfig;
 
-use crate::connectivity::{BootstrapNodesHealthCheck, Connectivity, ConnectivityHealthChecks};
+use crate::connectivity::Connectivity;
+use crate::health::{BootstrapNodesHealthCheck, ConnectivityHealthChecks};
 
 /// Coordinates protocols, so they can cooperate
 #[derive(NetworkBehaviour)]

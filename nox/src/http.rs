@@ -90,7 +90,7 @@ async fn handle_health(State(state): State<RouteState>) -> axum::response::Resul
             (StatusCode::TOO_MANY_REQUESTS, Json(result)).into_response()
         }
         HealthCheckResult::Fail(keys) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
+            StatusCode::SERVICE_UNAVAILABLE,
             Json(make_json(keys, "Fail")),
         )
             .into_response(),
