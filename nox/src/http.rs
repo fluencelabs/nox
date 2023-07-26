@@ -42,7 +42,7 @@ async fn handle_metrics(State(state): State<RouteState>) -> axum::response::Resu
         )
         .body(body)
         .map_err(|e| {
-            tracing::warn!("Could not create response: {}", e);
+            tracing::warn!("Could not create metric response: {}", e);
             ErrorResponse::from(StatusCode::INTERNAL_SERVER_ERROR)
         })
 }
@@ -70,7 +70,7 @@ async fn handle_versions(State(state): State<RouteState>) -> Response {
 }
 
 async fn handle_health(State(state): State<RouteState>) -> axum::response::Result<Response> {
-    fn make_json(keys: Vec<String>, status: &str) -> Vec<Value> {
+    fn make_json(keys: Vec<&'static str>, status: &str) -> Vec<Value> {
         keys.into_iter().map(|k| json!({k: status})).collect()
     }
 
