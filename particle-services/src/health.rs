@@ -1,36 +1,36 @@
 use health::HealthCheck;
-use parking_lot::Mutex;
-use std::sync::Arc;
+use std::sync::{Arc};
+use parking_lot::RwLock;
 
 #[derive(Debug, Clone)]
 pub struct PersistedServiceHealth {
-    started: Arc<Mutex<bool>>,
-    has_errors: Arc<Mutex<bool>>,
+    started: Arc<RwLock<bool>>,
+    has_errors: Arc<RwLock<bool>>,
 }
 
 impl PersistedServiceHealth {
     pub fn new() -> Self {
         PersistedServiceHealth {
-            started: Arc::new(Mutex::new(false)),
-            has_errors: Arc::new(Mutex::new(false)),
+            started: Arc::new(RwLock::new(false)),
+            has_errors: Arc::new(RwLock::new(false)),
         }
     }
 
-    pub fn start_loading(&mut self) {
-        let mut guard = self.started.lock();
+    pub fn start_creation(&mut self) {
+        let mut guard = self.started.write();
         *guard = true;
     }
 
-    pub fn mark_has_errors(&mut self) {
-        let mut guard = self.has_errors.lock();
+    pub fn finish_creation(&mut self) {
+        let mut guard = self.has_errors.write();
         *guard = true;
     }
 }
 
 impl HealthCheck for PersistedServiceHealth {
-    fn check(&self) -> eyre::Result<()> {
-        let started_guard = self.started.lock();
-        let errors_guard = self.has_errors.lock();
+    fn status(&self) -> eyre::Result<()> {
+        let started_guard = self.started.read();
+        let errors_guard = self.has_errors.read();
         let started = *started_guard;
         if started {
             let has_errors = *errors_guard;

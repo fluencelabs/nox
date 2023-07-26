@@ -4,7 +4,7 @@
 
 
 pub trait HealthCheck: Send + Sync + 'static {
-    fn check(&self) -> eyre::Result<()>;
+    fn status(&self) -> eyre::Result<()>;
 }
 
 pub struct HealthCheckRegistry {
@@ -15,7 +15,7 @@ pub struct HealthCheckRegistry {
 /// HealthCheckResult::Ok(oks): If all health checks pass successfully. oks is a vector containing the names of the passed health checks.
 /// HealthCheckResult::Fail(fails): If all health checks fail. fails is a vector containing the names of the failed health checks.
 /// HealthCheckResult::Warning(oks, fails): If some health checks pass while others fail. oks is a vector containing the names of the passed health checks, and fails is a vector containing the names of the failed health checks.
-pub enum HealthCheckResult {
+pub enum HealthStatus {
     Ok(Vec<String>),
     Warning(Vec<String>, Vec<String>),
     Fail(Vec<String>),
@@ -45,11 +45,11 @@ impl HealthCheckRegistry {
         }
 
         if fails.is_empty() {
-            HealthCheckResult::Ok(oks)
+            HealthStatus::Ok(oks)
         } else if oks.is_empty() {
-            HealthCheckResult::Fail(fails)
+            HealthStatus::Fail(fails)
         } else {
-            HealthCheckResult::Warning(oks, fails)
+            HealthStatus::Warning(oks, fails)
         }
     }
 }

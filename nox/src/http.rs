@@ -9,7 +9,7 @@ use axum::{
     routing::get,
     Json, Router,
 };
-use health::{HealthCheckRegistry, HealthCheckResult};
+use health::{HealthCheckRegistry, HealthStatus};
 use libp2p::PeerId;
 use prometheus_client::encoding::text::encode;
 use prometheus_client::registry::Registry;
@@ -79,17 +79,17 @@ async fn handle_health(State(state): State<RouteState>) -> axum::response::Resul
         .health_registry
         .as_ref()
         .ok_or((StatusCode::NOT_FOUND, "nothing to see here"))?;
-    let result = match registry.check() {
-        HealthCheckResult::Ok(keys) => {
+    let result = match registry.status() {
+        HealthStatus::Ok(keys) => {
             (StatusCode::OK, Json(make_json(keys, "Ok"))).into_response()
         }
-        HealthCheckResult::Warning(ok, fail) => {
+        HealthStatus::Warning(ok, fail) => {
             let mut result = make_json(ok, "Ok");
             let mut fail = make_json(fail, "Fail");
             result.append(&mut fail);
             (StatusCode::TOO_MANY_REQUESTS, Json(result)).into_response()
         }
-        HealthCheckResult::Fail(keys) => (
+        HealthStatus::Fail(keys) => (
             StatusCode::SERVICE_UNAVAILABLE,
             Json(make_json(keys, "Fail")),
         )

@@ -23,7 +23,7 @@ impl VMPoolHealth {
 }
 
 impl HealthCheck for VMPoolHealth {
-    fn check(&self) -> eyre::Result<()> {
+    fn status(&self) -> eyre::Result<()> {
         let guard = self.current_count.lock();
         let current = *guard;
         if self.expected_count != current {
