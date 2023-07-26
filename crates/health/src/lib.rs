@@ -36,7 +36,7 @@ impl HealthCheckRegistry {
 
         if fails.is_empty() {
             HealthCheckResult::Ok(oks)
-        } else if fails.len() == self.checks.len() {
+        } else if oks.is_empty() {
             HealthCheckResult::Fail(fails)
         } else {
             HealthCheckResult::Warning(oks, fails)
