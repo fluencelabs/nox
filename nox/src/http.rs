@@ -138,6 +138,7 @@ pub async fn start_http_endpoint(
 mod tests {
     use super::*;
     use axum::http::Request;
+    use health::HealthCheck;
     use std::net::{SocketAddr, TcpListener};
 
     fn get_free_tcp_port() -> u16 {
@@ -236,5 +237,205 @@ mod tests {
             &body[..],
             format!(r#"{{"peer_id":"{}"}}"#, peer_id).as_bytes()
         );
+    }
+
+    #[tokio::test]
+    async fn test_health_route_empty_registry() {
+        // Create a test server
+        let port = get_free_tcp_port();
+        let addr = format!("127.0.0.1:{port}").parse::<SocketAddr>().unwrap();
+        let peer_id = PeerId::random();
+
+        let notify = Arc::new(Notify::new());
+        let cloned_notify = notify.clone();
+        let health_registry = HealthCheckRegistry::new();
+        tokio::spawn(async move {
+            start_http_endpoint(
+                addr,
+                None,
+                Some(health_registry),
+                peer_id,
+                test_versions(),
+                cloned_notify,
+            )
+            .await;
+        });
+
+        notify.notified().await;
+
+        let client = hyper::Client::new();
+
+        let response = client
+            .request(
+                Request::builder()
+                    .uri(format!("http://{}/health", addr))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let status = response.status();
+        let body = hyper::body::to_bytes(response.into_body()).await.unwrap();
+        println!("body: {:?}", String::from_utf8(body.to_vec().clone()));
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(&body[..], (r#"[]"#).as_bytes());
+    }
+
+    #[tokio::test]
+    async fn test_health_route_success_checks() {
+        // Create a test server
+        let port = get_free_tcp_port();
+        let addr = format!("127.0.0.1:{port}").parse::<SocketAddr>().unwrap();
+        let peer_id = PeerId::random();
+
+        let notify = Arc::new(Notify::new());
+        let cloned_notify = notify.clone();
+        let mut health_registry = HealthCheckRegistry::new();
+        struct SuccessHealthCheck {}
+        impl HealthCheck for SuccessHealthCheck {
+            fn status(&self) -> eyre::Result<()> {
+                Ok(())
+            }
+        }
+        let success_check = SuccessHealthCheck {};
+        health_registry.register("test_check", success_check);
+        tokio::spawn(async move {
+            start_http_endpoint(
+                addr,
+                None,
+                Some(health_registry),
+                peer_id,
+                test_versions(),
+                cloned_notify,
+            )
+            .await;
+        });
+
+        notify.notified().await;
+
+        let client = hyper::Client::new();
+
+        let response = client
+            .request(
+                Request::builder()
+                    .uri(format!("http://{}/health", addr))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let status = response.status();
+        let body = hyper::body::to_bytes(response.into_body()).await.unwrap();
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(&body[..], (r#"[{"test_check":"Ok"}]"#).as_bytes());
+    }
+
+    #[tokio::test]
+    async fn test_health_route_warn_checks() {
+        // Create a test server
+        let port = get_free_tcp_port();
+        let addr = format!("127.0.0.1:{port}").parse::<SocketAddr>().unwrap();
+        let peer_id = PeerId::random();
+
+        let notify = Arc::new(Notify::new());
+        let cloned_notify = notify.clone();
+        let mut health_registry = HealthCheckRegistry::new();
+        struct SuccessHealthCheck {}
+        impl HealthCheck for SuccessHealthCheck {
+            fn status(&self) -> eyre::Result<()> {
+                Ok(())
+            }
+        }
+        let success_check = SuccessHealthCheck {};
+        struct FailHealthCheck {}
+        impl HealthCheck for FailHealthCheck {
+            fn status(&self) -> eyre::Result<()> {
+                Err(eyre::eyre!("Failed"))
+            }
+        }
+        let fail_check = FailHealthCheck {};
+        health_registry.register("test_check", success_check);
+        health_registry.register("test_check_2", fail_check);
+        tokio::spawn(async move {
+            start_http_endpoint(
+                addr,
+                None,
+                Some(health_registry),
+                peer_id,
+                test_versions(),
+                cloned_notify,
+            )
+            .await;
+        });
+
+        notify.notified().await;
+
+        let client = hyper::Client::new();
+
+        let response = client
+            .request(
+                Request::builder()
+                    .uri(format!("http://{}/health", addr))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let status = response.status();
+        let body = hyper::body::to_bytes(response.into_body()).await.unwrap();
+        assert_eq!(status, StatusCode::TOO_MANY_REQUESTS);
+        assert_eq!(
+            &body[..],
+            (r#"[{"test_check":"Ok"},{"test_check_2":"Fail"}]"#).as_bytes()
+        );
+    }
+
+    #[tokio::test]
+    async fn test_health_route_fail_checks() {
+        // Create a test server
+        let port = get_free_tcp_port();
+        let addr = format!("127.0.0.1:{port}").parse::<SocketAddr>().unwrap();
+        let peer_id = PeerId::random();
+
+        let notify = Arc::new(Notify::new());
+        let cloned_notify = notify.clone();
+        let mut health_registry = HealthCheckRegistry::new();
+        struct FailHealthCheck {}
+        impl HealthCheck for FailHealthCheck {
+            fn status(&self) -> eyre::Result<()> {
+                Err(eyre::eyre!("Failed"))
+            }
+        }
+        let fail_check = FailHealthCheck {};
+        health_registry.register("test_check", fail_check);
+        tokio::spawn(async move {
+            start_http_endpoint(
+                addr,
+                None,
+                Some(health_registry),
+                peer_id,
+                test_versions(),
+                cloned_notify,
+            )
+            .await;
+        });
+
+        notify.notified().await;
+
+        let client = hyper::Client::new();
+
+        let response = client
+            .request(
+                Request::builder()
+                    .uri(format!("http://{}/health", addr))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let status = response.status();
+        let body = hyper::body::to_bytes(response.into_body()).await.unwrap();
+        assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE);
+        assert_eq!(&body[..], (r#"[{"test_check":"Fail"}]"#).as_bytes());
     }
 }
