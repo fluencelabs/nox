@@ -69,6 +69,7 @@ async fn handle_versions(State(state): State<RouteState>) -> Response {
     .into_response()
 }
 
+/// Health check endpoint follows consul contract https://developer.hashicorp.com/consul/docs/services/usage/checks#http-checks
 async fn handle_health(State(state): State<RouteState>) -> axum::response::Result<Response> {
     fn make_json(keys: Vec<&'static str>, status: &str) -> Vec<Value> {
         keys.into_iter().map(|k| json!({k: status})).collect()
