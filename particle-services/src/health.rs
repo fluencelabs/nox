@@ -12,7 +12,7 @@ impl PersistedServiceHealth {
     pub fn new() -> Self {
         PersistedServiceHealth {
             started: Arc::new(RwLock::new(false)),
-            has_errors: Arc::new(RwLock::new(true)), //this is true by default because we wont to show error while loading in progress
+            has_errors: Arc::new(RwLock::new(true)), // this is true by default because we wont to show error while loading in progress
         }
     }
 
