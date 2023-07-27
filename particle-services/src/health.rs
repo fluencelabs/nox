@@ -46,3 +46,50 @@ impl HealthCheck for PersistedServiceHealth {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::thread;
+
+    #[test]
+    fn test_persisted_service_health_not_started() {
+        let health = PersistedServiceHealth::new();
+        let status = health.status();
+        assert!(status.is_err());
+    }
+
+    #[test]
+    fn test_persisted_service_health_started_with_errors() {
+        let mut health = PersistedServiceHealth::new();
+        health.start_creation();
+        let status = health.status();
+        assert!(status.is_err());
+    }
+
+    #[test]
+    fn test_persisted_service_health_started_without_errors() {
+        let mut health = PersistedServiceHealth::new();
+        health.start_creation();
+        health.finish_creation();
+        let status = health.status();
+        assert!(status.is_ok());
+    }
+
+    #[test]
+    fn persisted_service_health_concurrent_access() {
+        let persisted_health = Arc::new(RwLock::new(PersistedServiceHealth::new()));
+        let health_clone = persisted_health.clone();
+
+        let thread_handle = thread::spawn(move || {
+            let mut health = health_clone.write();
+            health.start_creation();
+            health.finish_creation();
+        });
+
+        thread_handle.join().unwrap();
+
+        let status = persisted_health.read().status();
+        assert!(status.is_ok());
+    }
+}

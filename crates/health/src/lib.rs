@@ -14,6 +14,7 @@ pub struct HealthCheckRegistry {
 /// HealthCheckResult::Ok(oks): If all health checks pass successfully. oks is a vector containing the names of the passed health checks.
 /// HealthCheckResult::Fail(fails): If all health checks fail. fails is a vector containing the names of the failed health checks.
 /// HealthCheckResult::Warning(oks, fails): If some health checks pass while others fail. oks is a vector containing the names of the passed health checks, and fails is a vector containing the names of the failed health checks.
+#[derive(Debug, PartialEq)]
 pub enum HealthStatus {
     Ok(Vec<&'static str>),
     Warning(Vec<&'static str>, Vec<&'static str>),
@@ -56,5 +57,69 @@ impl HealthCheckRegistry {
 impl Default for HealthCheckRegistry {
     fn default() -> Self {
         HealthCheckRegistry::new()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // A mock health check implementation for testing purposes.
+    struct MockHealthCheck {
+        should_pass: bool,
+    }
+
+    impl HealthCheck for MockHealthCheck {
+        fn status(&self) -> eyre::Result<()> {
+            if self.should_pass {
+                Ok(())
+            } else {
+                Err(eyre::eyre!("Health check failed"))
+            }
+        }
+    }
+
+    #[test]
+    fn test_health_check_registry_empty() {
+        let registry = HealthCheckRegistry::new();
+        let status = registry.status();
+        assert_eq!(status, HealthStatus::Ok(vec![]))
+    }
+
+    #[test]
+    fn test_health_check_registry_single_check_pass() {
+        let mut registry = HealthCheckRegistry::new();
+        let mock_check = MockHealthCheck { should_pass: true };
+        registry.register("MockCheck1", mock_check);
+
+        let status = registry.status();
+        assert_eq!(status, HealthStatus::Ok(vec!["MockCheck1"]))
+    }
+
+    #[test]
+    fn test_health_check_registry_single_check_fail() {
+        let mut registry = HealthCheckRegistry::new();
+        let mock_check = MockHealthCheck { should_pass: false };
+        registry.register("MockCheck1", mock_check);
+
+        let status = registry.status();
+        assert_eq!(status, HealthStatus::Fail(vec!["MockCheck1"]))
+    }
+
+    #[test]
+    fn test_health_check_registry_multiple_checks() {
+        let mut registry = HealthCheckRegistry::new();
+        let mock_check1 = MockHealthCheck { should_pass: true };
+        let mock_check2 = MockHealthCheck { should_pass: false };
+        let mock_check3 = MockHealthCheck { should_pass: true };
+        registry.register("MockCheck1", mock_check1);
+        registry.register("MockCheck2", mock_check2);
+        registry.register("MockCheck3", mock_check3);
+
+        let status = registry.status();
+        assert_eq!(
+            status,
+            HealthStatus::Warning(vec!["MockCheck1", "MockCheck3"], vec!["MockCheck2"])
+        );
     }
 }
