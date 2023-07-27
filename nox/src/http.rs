@@ -276,7 +276,6 @@ mod tests {
             .unwrap();
         let status = response.status();
         let body = hyper::body::to_bytes(response.into_body()).await.unwrap();
-        println!("body: {:?}", String::from_utf8(body.to_vec().clone()));
         assert_eq!(status, StatusCode::OK);
         assert_eq!(&body[..], (r#"[]"#).as_bytes());
     }
