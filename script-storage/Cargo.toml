@@ -16,7 +16,7 @@ tokio = { workspace = true }
 tokio-stream = { workspace = true }
 futures = { workspace = true }
 thiserror = { workspace = true }
-uuid = "1.4.0"
+uuid = "1.4.1"
 chrono = "0.4.26"
 log = { workspace = true }
 tracing = { workspace = true }
