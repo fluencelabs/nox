@@ -901,12 +901,9 @@ async fn spell_timer_trigger_mailbox_test() {
         (seq
             (seq
                 (call %init_peer_id% ("getDataSrv" "spell_id") [] spell_id)
-                (call %init_peer_id% (spell_id "get_string") ["trigger"] trigger)
+                (call %init_peer_id% ("getDataSrv" "trigger") [] trigger)
             )
-            (seq
-                (call %init_peer_id% ("json" "parse") [trigger.$.str] obj)
-                (call "{}" ("return" "") [obj])
-            )
+            (call "{}" ("return" "") [trigger])
         )
     "#,
         client.peer_id
@@ -945,14 +942,11 @@ async fn spell_connection_pool_trigger_test() {
                 (seq
                     (call %init_peer_id% ("getDataSrv" "spell_id") [] spell_id)
                     (seq
-                        (call %init_peer_id% (spell_id "get_string") ["trigger"] trigger)
-                        (call %init_peer_id% ("run-console" "print") ["get_string, trigger:" trigger])
+                        (call %init_peer_id% ("getDataSrv" "trigger") [] trigger)
+                        (call %init_peer_id% ("run-console" "print") ["getDataSrv, trigger:" trigger])
                     )
                 )
-                (seq
-                    (call %init_peer_id% ("json" "parse") [trigger.$.str] obj)
-                    (call "{}" ("return" "") [obj])
-                )
+                (call "{}" ("return" "") [trigger])
             )
             (call %init_peer_id% ("run-console" "print") ["herror" %last_error%])
         )
@@ -1102,7 +1096,7 @@ async fn spell_update_config() {
         r#"(seq
             (seq
                 (call %init_peer_id% ("getDataSrv" "spell_id") [] spell_id)
-                (call %init_peer_id% (spell_id "get_string") ["trigger"] trigger)
+                (call %init_peer_id% ("getDataSrv" "trigger") [] trigger)
              )
             (call "{}" ("return" "") [trigger])
         )"#,
@@ -1115,15 +1109,14 @@ async fn spell_update_config() {
         .await
         .unwrap();
 
-    if let [JValue::Object(x)] = client
+    if let [trigger] = client
         .receive_args()
         .await
         .wrap_err("receive")
         .unwrap()
         .as_slice()
     {
-        assert_eq!(x["absent"], JValue::Bool(false), "spell must be triggered");
-        let info: TriggerInfoAqua = serde_json::from_str(x["str"].as_str().unwrap()).unwrap();
+        let info: TriggerInfoAqua = serde_json::from_str(&trigger.to_string()).unwrap();
         let info: TriggerInfo = info.into();
         assert_matches!(info, TriggerInfo::Peer(p) if p.connected, "spell must be triggered by the `connected` event");
     } else {
@@ -1166,15 +1159,14 @@ async fn spell_update_config() {
 
     drop(connected);
 
-    if let [JValue::Object(x)] = client
+    if let [trigger] = client
         .receive_args()
         .await
         .wrap_err("receive")
         .unwrap()
         .as_slice()
     {
-        assert_eq!(x["absent"], JValue::Bool(false), "spell must be triggered");
-        let info: TriggerInfoAqua = serde_json::from_str(x["str"].as_str().unwrap()).unwrap();
+        let info: TriggerInfoAqua = serde_json::from_str(&trigger.to_string()).unwrap();
         let info: TriggerInfo = info.into();
         assert_matches!(info, TriggerInfo::Peer(p) if !p.connected, "spell must be triggered by the `disconnected` event");
     } else {
@@ -1194,7 +1186,7 @@ async fn spell_update_config_stopped_spell() {
         r#"(seq
             (seq
                 (call %init_peer_id% ("getDataSrv" "spell_id") [] spell_id)
-                (call %init_peer_id% (spell_id "get_string") ["trigger"] trigger)
+                (call %init_peer_id% ("getDataSrv" "trigger") [] trigger)
              )
             (call "{}" ("return" "") [trigger])
         )"#,
@@ -1238,15 +1230,14 @@ async fn spell_update_config_stopped_spell() {
     };
     assert_eq!(result, "done", "spell must be updated");
 
-    if let [JValue::Object(x)] = client
+    if let [trigger] = client
         .receive_args()
         .await
         .wrap_err("receive")
         .unwrap()
         .as_slice()
     {
-        assert_eq!(x["absent"], JValue::Bool(false), "spell must be triggered");
-        let info: TriggerInfoAqua = serde_json::from_str(x["str"].as_str().unwrap()).unwrap();
+        let info: TriggerInfoAqua = serde_json::from_str(&trigger.to_string()).unwrap();
         let info: TriggerInfo = info.into();
         assert_matches!(
             info,
