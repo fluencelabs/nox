@@ -4120,6 +4120,7 @@ dependencies = [
  "connection-pool",
  "control-macro",
  "created-swarm",
+ "dhat",
  "eyre",
  "fluence-app-service",
  "fluence-keypair",
@@ -4158,6 +4159,7 @@ dependencies = [
  "test-utils",
  "tokio",
  "toy-vms",
+ "tracing",
  "uuid-utils",
 ]
 
