@@ -123,7 +123,7 @@ parking_lot = "0.12.1"
 tokio = { version = "1.29.1", features = ["full", "tracing"] }
 tokio-stream = { version = "0.1.14" }
 tokio-util = { version = "0.7.8" }
-uuid = { version = "1.4.0", features = ["v4"] }
+uuid = { version = "1.4.1", features = ["v4"] }
 derivative = "2.2.0"
 serde_json = { version = "1.0.103", features = ["preserve_order"] }
 fstrings = "0.2.3"
@@ -133,13 +133,13 @@ tracing = { version = "0.1.37", default-features = false, features = ["log"] }
 tracing-subscriber = "0.3.17"
 futures = "0.3.28"
 thiserror = "1.0.43"
-serde = "1.0.171"
+serde = "1.0.177"
 toml = "0.5.10"
 itertools = "0.11.0"
 humantime-serde = "1.1.1"
 cid = "0.10.1"
 libipld = "0.16.0"
-axum = "0.6.18"
+axum = "0.6.19"
 
 # Enable a small amount of optimization in debug mode
 [profile.dev]
