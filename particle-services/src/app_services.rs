@@ -29,6 +29,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value as JValue};
 
 use fluence_libp2p::{peerid_serializer, PeerId};
+use health::HealthCheckRegistry;
 use now_millis::now_ms;
 use particle_args::{Args, JError};
 use particle_execution::{FunctionOutcome, ParticleParams, ParticleVault};
@@ -42,6 +43,7 @@ use uuid_utils::uuid;
 
 use crate::error::ServiceError;
 use crate::error::ServiceError::{AliasAsServiceId, Forbidden, NoSuchAlias};
+use crate::health::PersistedServiceHealth;
 use crate::persistence::{
     load_persisted_services, persist_service, remove_persisted_service, PersistedService,
 };
@@ -174,6 +176,7 @@ pub struct ParticleAppServices {
     management_peer_id: PeerId,
     builtins_management_peer_id: PeerId,
     pub metrics: Option<ServicesMetrics>,
+    health: Option<PersistedServiceHealth>,
 }
 
 /// firstly, try to find by alias in worker scope, secondly, in root scope
@@ -254,11 +257,17 @@ impl ParticleAppServices {
         config: ServicesConfig,
         modules: ModuleRepository,
         metrics: Option<ServicesMetrics>,
+        health_registry: Option<&mut HealthCheckRegistry>,
     ) -> Self {
         let vault = ParticleVault::new(config.particles_vault_dir.clone());
         let management_peer_id = config.management_peer_id;
         let builtins_management_peer_id = config.builtins_management_peer_id;
-        let this = Self {
+        let health = health_registry.map(|registry| {
+            let persisted_services = PersistedServiceHealth::new();
+            registry.register("persisted_services", persisted_services.clone());
+            persisted_services
+        });
+        let mut this = Self {
             config,
             vault,
             services: <_>::default(),
@@ -267,6 +276,7 @@ impl ParticleAppServices {
             management_peer_id,
             builtins_management_peer_id,
             metrics,
+            health,
         };
 
         this.create_persisted_services();
@@ -814,10 +824,15 @@ impl ParticleAppServices {
         Ok(stats)
     }
 
-    fn create_persisted_services(&self) {
+    fn create_persisted_services(&mut self) {
         let services =
-            load_persisted_services(&self.config.services_dir, self.config.local_peer_id)
-                .into_iter();
+            load_persisted_services(&self.config.services_dir, self.config.local_peer_id);
+        let loaded_service_count = services.len();
+        if let Some(h) = self.health.as_mut() {
+            h.start_creation()
+        }
+        let services = services.into_iter();
+
         let services = services.filter_map(|r| match r {
             Ok(service) => service.into(),
             Err(err) => {
@@ -826,6 +841,7 @@ impl ParticleAppServices {
             }
         });
 
+        let mut created_service_count = 0;
         for s in services {
             let worker_id = s.worker_id.expect("every service must have worker id");
             let start = Instant::now();
@@ -881,13 +897,18 @@ impl ParticleAppServices {
                 replaced.is_none(),
                 "shouldn't replace any existing services"
             );
-
+            created_service_count += 1;
             log::info!(
                 "Persisted service {} created in {}, aliases: {:?}",
                 s.service_id,
                 pretty(start.elapsed()),
                 s.aliases
             );
+        }
+        if created_service_count == loaded_service_count {
+            if let Some(h) = self.health.as_mut() {
+                h.finish_creation()
+            }
         }
     }
 
@@ -1053,7 +1074,7 @@ mod tests {
             Default::default(),
         );
 
-        ParticleAppServices::new(config, repo, None)
+        ParticleAppServices::new(config, repo, None, None)
     }
 
     fn call_add_alias_raw(

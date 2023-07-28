@@ -28,6 +28,7 @@ members = [
     "crates/peer-metrics",
     "crates/spell-event-bus",
     "crates/key-manager",
+    "crates/health",
     "sorcerer",
     "crates/nox-tests",
     "nox",
@@ -86,6 +87,7 @@ script-storage = { path = "script-storage" }
 spell-storage = { path = "spell-storage" }
 particle-execution = { path = "particle-execution" }
 system-services = { path = "crates/system-services" }
+health = { path = "crates/health" }
 
 # spell
 fluence-spell-dtos = "=0.5.17"

@@ -33,6 +33,7 @@ mod builtins;
 mod connectivity;
 mod dispatcher;
 mod effectors;
+mod health;
 mod http;
 mod layers;
 mod node;

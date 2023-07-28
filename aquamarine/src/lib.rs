@@ -47,6 +47,7 @@ mod command;
 mod config;
 mod deadline;
 mod error;
+mod health;
 mod invoke;
 mod log;
 mod particle_data_store;

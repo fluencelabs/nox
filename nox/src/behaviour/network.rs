@@ -23,11 +23,13 @@ use libp2p::{
 use tokio::sync::mpsc;
 
 use connection_pool::ConnectionPoolBehaviour;
+use health::HealthCheckRegistry;
 use kademlia::{Kademlia, KademliaConfig};
 use particle_protocol::{Particle, PROTOCOL_NAME};
 use server_config::NetworkConfig;
 
 use crate::connectivity::Connectivity;
+use crate::health::{BootstrapNodesHealth, ConnectivityHealth};
 
 /// Coordinates protocols, so they can cooperate
 #[derive(NetworkBehaviour)]
@@ -40,7 +42,10 @@ pub struct FluenceNetworkBehaviour {
 }
 
 impl FluenceNetworkBehaviour {
-    pub fn new(cfg: NetworkConfig) -> (Self, Connectivity, mpsc::Receiver<Particle>) {
+    pub fn new(
+        cfg: NetworkConfig,
+        health_registry: Option<&mut HealthCheckRegistry>,
+    ) -> (Self, Connectivity, mpsc::Receiver<Particle>) {
         let local_public_key = cfg.key_pair.public();
         let identify = Identify::new(
             IdentifyConfig::new(PROTOCOL_NAME.into(), local_public_key)
@@ -71,6 +76,15 @@ impl FluenceNetworkBehaviour {
             ping,
         };
 
+        let bootstrap_nodes = cfg.bootstrap_nodes.clone();
+
+        let health = health_registry.map(|registry| {
+            let bootstrap_nodes = BootstrapNodesHealth::new(bootstrap_nodes);
+            registry.register("bootstrap_nodes", bootstrap_nodes.clone());
+
+            ConnectivityHealth { bootstrap_nodes }
+        });
+
         let connectivity = Connectivity {
             peer_id: cfg.local_peer_id,
             kademlia: kademlia_api,
@@ -78,6 +92,7 @@ impl FluenceNetworkBehaviour {
             bootstrap_nodes: cfg.bootstrap_nodes.into_iter().collect(),
             bootstrap_frequency: cfg.bootstrap_frequency,
             metrics: cfg.connectivity_metrics,
+            health,
         };
 
         (this, connectivity, particle_stream)

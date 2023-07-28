@@ -47,6 +47,7 @@ fluence-app-service = { workspace = true }
 async-trait = { version = "0.1.72" }
 eyre = { workspace = true }
 base64 = { workspace = true }
+health = { workspace = true }
 
 [dev-dependencies]
 proptest = "1.2.0"
