@@ -1229,6 +1229,7 @@ dependencies = [
  "fluence-libp2p",
  "fs-utils",
  "futures",
+ "hyper",
  "libp2p",
  "log",
  "maplit",

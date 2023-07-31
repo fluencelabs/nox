@@ -15,11 +15,12 @@
  */
 
 use std::convert::identity;
+use std::net::TcpListener;
 use std::{path::PathBuf, time::Duration};
 
 use derivative::Derivative;
 use fluence_keypair::KeyPair;
-use futures::{stream::iter, FutureExt, StreamExt};
+use futures::{FutureExt, StreamExt};
 use libp2p::core::multiaddr::Protocol;
 use libp2p::{core::Multiaddr, PeerId};
 use serde::Deserialize;
@@ -28,17 +29,21 @@ use air_interpreter_fs::{air_interpreter_path, write_default_air_interpreter};
 use aquamarine::{AquaRuntime, VmConfig};
 use aquamarine::{AquamarineApi, DataStoreError};
 use base64::{engine::general_purpose::STANDARD as base64, Engine};
-use connection_pool::{ConnectionPoolApi, ConnectionPoolT};
+//use connection_pool::{ConnectionPoolApi, ConnectionPoolT};
 use fluence_libp2p::random_multiaddr::{create_memory_maddr, create_tcp_maddr};
 use fluence_libp2p::Transport;
 use fs_utils::{create_dir, make_tmp_dir_peer_id, to_abs_path};
 use futures::future::join_all;
+use futures::stream::iter;
+use hyper::{Body, Request, StatusCode};
 use nox::{Connectivity, Node};
 use particle_protocol::ProtocolConfig;
 use server_config::{default_script_storage_timer_resolution, BootstrapConfig, UnresolvedConfig};
 use test_constants::{EXECUTION_TIMEOUT, KEEP_ALIVE_TIMEOUT, TRANSPORT_TIMEOUT};
 use tokio::sync::oneshot;
 use toy_vms::EasyVM;
+
+const POLLING_INTERVAL: Duration = Duration::from_millis(100);
 
 #[allow(clippy::upper_case_acronyms)]
 type AVM = aquamarine::AVM<DataStoreError>;
@@ -140,7 +145,7 @@ pub async fn make_swarms_with<RT: AquaRuntime, F, M, B>(
     wait_connected: bool,
 ) -> Vec<CreatedSwarm>
 where
-    F: FnMut(Vec<Multiaddr>, Multiaddr) -> (PeerId, Box<Node<RT>>, KeyPair, SwarmConfig),
+    F: FnMut(Vec<Multiaddr>, Multiaddr) -> (PeerId, Box<Node<RT>>, KeyPair, SwarmConfig, u16),
     M: FnMut() -> Multiaddr,
     B: FnMut(Vec<Multiaddr>) -> Vec<Multiaddr>,
 {
@@ -148,33 +153,18 @@ where
     let nodes = addrs
         .iter()
         .map(|addr| {
-            #[rustfmt::skip]
-                let addrs = addrs.iter().filter(|&a| a != addr).cloned().collect::<Vec<_>>();
+            let addrs = addrs
+                .iter()
+                .filter(|&a| a != addr)
+                .cloned()
+                .collect::<Vec<_>>();
             let bootstraps = bootstraps(addrs);
-            let bootstraps_num = bootstraps.len();
-            let (id, node, m_kp, config) = create_node(bootstraps, addr.clone());
-            ((id, m_kp, config), node, bootstraps_num)
+            let (id, node, m_kp, config, http_port) = create_node(bootstraps, addr.clone());
+            ((id, m_kp, config), node, http_port)
         })
         .collect::<Vec<_>>();
 
-    let pools = iter(
-        nodes
-            .iter()
-            .map(|(_, n, bootstraps_num)| (n.connectivity.clone(), *bootstraps_num))
-            .collect::<Vec<_>>(),
-    );
-    let connected = pools.for_each_concurrent(None, |(pool, bootstraps_num)| async move {
-        let pool = AsRef::<ConnectionPoolApi>::as_ref(&pool);
-        let mut events = pool.lifecycle_events();
-        loop {
-            let num = pool.count_connections().await;
-            if num >= bootstraps_num {
-                break;
-            }
-            // wait until something changes
-            events.next().await;
-        }
-    });
+    let http_ports: Vec<u16> = nodes.iter().map(|(_, _, http_port)| *http_port).collect();
 
     // start all nodes
     let infos = join_all(nodes.into_iter().map(
@@ -200,10 +190,36 @@ where
     .await;
 
     if wait_connected {
-        connected.await;
+        wait_connected_on_ports(http_ports).await;
     }
 
     infos
+}
+
+async fn wait_connected_on_ports(http_ports: Vec<u16>) {
+    let http_client = &hyper::Client::new();
+
+    let connected = iter(http_ports).for_each_concurrent(None, |http_port| async move {
+        loop {
+            let response = http_client
+                .request(
+                    Request::builder()
+                        .uri(format!("http://localhost:{}/health", http_port))
+                        .body(Body::empty())
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+
+            if response.status() == StatusCode::OK {
+                break;
+            }
+
+            tokio::time::sleep(POLLING_INTERVAL).await
+        }
+    });
+
+    connected.await;
 }
 
 #[derive(Clone, Derivative)]
@@ -271,11 +287,21 @@ pub fn aqua_vm_config(
     VmConfig::new(peer_id, avm_base_dir, air_interpreter, None)
 }
 
+fn get_free_tcp_port() -> u16 {
+    let listener = TcpListener::bind("127.0.0.1:0").expect("Failed to bind to port 0");
+    let socket_addr = listener
+        .local_addr()
+        .expect("Failed to retrieve local address");
+    let port = socket_addr.port();
+    drop(listener);
+    port
+}
+
 #[tracing::instrument(skip(vm_config))]
 pub fn create_swarm_with_runtime<RT: AquaRuntime>(
     mut config: SwarmConfig,
     vm_config: impl Fn(BaseVmConfig) -> RT::Config,
-) -> (PeerId, Box<Node<RT>>, KeyPair, SwarmConfig) {
+) -> (PeerId, Box<Node<RT>>, KeyPair, SwarmConfig, u16) {
     use serde_json::json;
 
     let format = match &config.keypair {
@@ -294,6 +320,8 @@ pub fn create_swarm_with_runtime<RT: AquaRuntime>(
     let tmp_dir = config.tmp_dir.as_ref().unwrap();
     create_dir(tmp_dir).expect("create tmp dir");
 
+    let http_port = get_free_tcp_port();
+
     let node_config = json!({
         "base_dir": tmp_dir.to_string_lossy(),
         "root_key_pair": {
@@ -309,7 +337,7 @@ pub fn create_swarm_with_runtime<RT: AquaRuntime>(
         "builtins_base_dir": config.builtins_dir,
         "external_multiaddresses": [config.listen_on],
         "spell_base_dir": Some(config.spell_base_dir.clone().unwrap_or(to_abs_path(PathBuf::from("spell")))),
-        "http_port": null
+        "http_port": http_port
     });
 
     let node_config: UnresolvedConfig =
@@ -358,10 +386,11 @@ pub fn create_swarm_with_runtime<RT: AquaRuntime>(
         node,
         management_kp,
         config,
+        http_port,
     )
 }
 
 #[tracing::instrument]
-pub fn create_swarm(config: SwarmConfig) -> (PeerId, Box<Node<AVM>>, KeyPair, SwarmConfig) {
+pub fn create_swarm(config: SwarmConfig) -> (PeerId, Box<Node<AVM>>, KeyPair, SwarmConfig, u16) {
     create_swarm_with_runtime(config, aqua_vm_config)
 }
