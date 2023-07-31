@@ -334,10 +334,12 @@ pub fn create_swarm_with_runtime<RT: AquaRuntime>(
             "generate_on_absence": false,
             "value": base64.encode(config.builtins_keypair.to_vec()),
         },
+
         "builtins_base_dir": config.builtins_dir,
         "external_multiaddresses": [config.listen_on],
         "spell_base_dir": Some(config.spell_base_dir.clone().unwrap_or(to_abs_path(PathBuf::from("spell")))),
-        "http_port": http_port
+        "http_port": http_port,
+        "listen_ip": "127.0.0.1"
     });
 
     let node_config: UnresolvedConfig =
