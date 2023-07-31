@@ -18,16 +18,16 @@ use std::cmp::min;
 use std::collections::HashSet;
 use std::time::Duration;
 
-use futures::{stream::iter, StreamExt};
-use humantime_serde::re::humantime::format_duration as pretty;
-use libp2p::Multiaddr;
-use tokio::time::sleep;
-
+use crate::health::ConnectivityHealth;
 use connection_pool::{ConnectionPoolApi, ConnectionPoolT, LifecycleEvent};
 use fluence_libp2p::PeerId;
+use futures::{stream::iter, StreamExt};
+use humantime_serde::re::humantime::format_duration as pretty;
 use kademlia::{KademliaApi, KademliaApiT, KademliaError};
+use libp2p::Multiaddr;
 use particle_protocol::{Contact, Particle, SendStatus};
 use peer_metrics::{ConnectivityMetrics, Resolution};
+use tokio::time::sleep;
 
 use crate::tasks::Tasks;
 
@@ -44,6 +44,7 @@ pub struct Connectivity {
     /// This setting specify that N.
     pub bootstrap_frequency: usize,
     pub metrics: Option<ConnectivityMetrics>,
+    pub health: Option<ConnectivityHealth>,
 }
 
 impl Connectivity {
@@ -207,6 +208,7 @@ impl Connectivity {
         let kademlia = self.kademlia;
         let bootstrap_nodes = self.bootstrap_nodes;
         let metrics = self.metrics.as_ref();
+        let health = self.health.as_ref();
 
         let disconnections = {
             use tokio_stream::StreamExt as stream;
@@ -215,11 +217,17 @@ impl Connectivity {
             let events = pool.lifecycle_events();
             stream::filter_map(events, move |e| {
                 if let LifecycleEvent::Disconnected(Contact { addresses, .. }) = e {
-                    metrics.map(|m| m.bootstrap_disconnected.inc());
                     let addresses = addresses.into_iter();
                     let addresses = addresses.filter(|addr| bootstrap_nodes.contains(addr));
-                    let addresses = iter(addresses.collect::<Vec<_>>());
-                    return Some(addresses);
+                    let addresses = addresses.collect::<Vec<_>>();
+                    if !addresses.is_empty() {
+                        metrics.map(|m| m.bootstrap_disconnected.inc());
+                        if let Some(h) = health {
+                            h.bootstrap_nodes
+                                .on_bootstrap_disconnected(addresses.clone())
+                        }
+                    };
+                    return Some(iter(addresses));
                 }
                 None
             })
@@ -240,6 +248,9 @@ impl Connectivity {
                     let ok = kademlia.add_contact(contact);
                     debug_assert!(ok, "kademlia.add_contact");
                     metrics.map(|m| m.bootstrap_connected.inc());
+                    if let Some(h) = health {
+                        h.bootstrap_nodes.on_bootstrap_connected(addr)
+                    }
                     break;
                 }
 

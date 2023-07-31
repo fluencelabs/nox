@@ -71,6 +71,10 @@ pub fn default_metrics_enabled() -> bool {
     true
 }
 
+pub fn default_health_check_enabled() -> bool {
+    true
+}
+
 pub fn default_services_metrics_timer_resolution() -> Duration {
     Duration::from_secs(60)
 }

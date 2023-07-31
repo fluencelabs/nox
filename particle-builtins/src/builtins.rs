@@ -34,6 +34,7 @@ use tokio::sync::RwLock;
 use JValue::Array;
 
 use connection_pool::{ConnectionPoolApi, ConnectionPoolT};
+use health::HealthCheckRegistry;
 use kademlia::{KademliaApi, KademliaApiT};
 use key_manager::KeyManager;
 use now_millis::{now_ms, now_sec};
@@ -107,6 +108,7 @@ where
         config: ServicesConfig,
         services_metrics: ServicesMetrics,
         key_manager: KeyManager,
+        health_registry: Option<&mut HealthCheckRegistry>,
     ) -> Self {
         let modules_dir = &config.modules_dir;
         let blueprint_dir = &config.blueprint_dir;
@@ -123,7 +125,12 @@ where
         let management_peer_id = config.management_peer_id;
         let builtins_management_peer_id = config.builtins_management_peer_id;
         let local_peer_id = config.local_peer_id;
-        let services = ParticleAppServices::new(config, modules.clone(), Some(services_metrics));
+        let services = ParticleAppServices::new(
+            config,
+            modules.clone(),
+            Some(services_metrics),
+            health_registry,
+        );
 
         Self {
             connectivity,

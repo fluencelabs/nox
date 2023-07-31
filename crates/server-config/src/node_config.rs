@@ -72,6 +72,9 @@ pub struct UnresolvedNodeConfig {
     pub metrics_config: MetricsConfig,
 
     #[serde(flatten)]
+    pub health_config: HealthConfig,
+
+    #[serde(flatten)]
     pub http_config: Option<HttpConfig>,
 
     #[serde(default)]
@@ -178,6 +181,7 @@ impl UnresolvedNodeConfig {
             external_address: self.external_address,
             external_multiaddresses: self.external_multiaddresses,
             metrics_config: self.metrics_config,
+            health_config: self.health_config,
             bootstrap_config: self.bootstrap_config,
             root_weights: self.root_weights,
             services_envs: self.services_envs,
@@ -304,6 +308,8 @@ pub struct NodeConfig {
 
     pub metrics_config: MetricsConfig,
 
+    pub health_config: HealthConfig,
+
     pub bootstrap_config: BootstrapConfig,
 
     pub root_weights: HashMap<PeerIdSerializable, u32>,
@@ -397,6 +403,13 @@ pub struct MetricsConfig {
 
     #[serde(default = "default_max_builtin_metrics_storage_size")]
     pub max_builtin_metrics_storage_size: usize,
+}
+
+#[derive(Clone, Deserialize, Serialize, Derivative)]
+#[derivative(Debug)]
+pub struct HealthConfig {
+    #[serde(default = "default_health_check_enabled")]
+    pub health_check_enabled: bool,
 }
 
 #[derive(Clone, Deserialize, Serialize, Derivative)]

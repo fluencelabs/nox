@@ -25,6 +25,7 @@ use config_utils::to_peer_id;
 use connection_pool::{ConnectionPoolApi, ConnectionPoolT};
 use fluence_libp2p::build_transport;
 use futures::{stream::StreamExt, FutureExt};
+use health::HealthCheckRegistry;
 use key_manager::KeyManager;
 use libp2p::swarm::SwarmEvent;
 use libp2p::{
@@ -32,7 +33,6 @@ use libp2p::{
     identity::Keypair,
     PeerId, Swarm, TransportError,
 };
-#[allow(deprecated)]
 use libp2p_connection_limits::ConnectionLimits;
 use libp2p_metrics::{Metrics, Recorder};
 use libp2p_swarm::SwarmBuilder;
@@ -80,7 +80,8 @@ pub struct Node<RT: AquaRuntime> {
     spell_events_receiver: mpsc::UnboundedReceiver<TriggerEvent>,
     sorcerer: Sorcerer,
 
-    registry: Option<Registry>,
+    metrics_registry: Option<Registry>,
+    health_registry: Option<HealthCheckRegistry>,
     libp2p_metrics: Option<Arc<Metrics>>,
     services_metrics_backend: ServicesMetricsBackend,
 
@@ -133,6 +134,13 @@ impl<RT: AquaRuntime> Node<RT> {
         } else {
             None
         };
+
+        let mut health_registry = if config.health_config.health_check_enabled {
+            Some(HealthCheckRegistry::default())
+        } else {
+            None
+        };
+
         let libp2p_metrics = metrics_registry.as_mut().map(|r| Arc::new(Metrics::new(r)));
         let connectivity_metrics = metrics_registry.as_mut().map(ConnectivityMetrics::new);
         let connection_pool_metrics = metrics_registry.as_mut().map(ConnectionPoolMetrics::new);
@@ -172,6 +180,7 @@ impl<RT: AquaRuntime> Node<RT> {
             network_config,
             transport,
             config.external_addresses(),
+            health_registry.as_mut(),
         );
 
         let (particle_failures_out, particle_failures_in) = mpsc::unbounded_channel();
@@ -213,6 +222,7 @@ impl<RT: AquaRuntime> Node<RT> {
             script_storage_api,
             services_metrics,
             key_manager.clone(),
+            health_registry.as_mut(),
         ));
 
         let (effects_out, effects_in) = mpsc::unbounded_channel();
@@ -226,6 +236,7 @@ impl<RT: AquaRuntime> Node<RT> {
             effects_out,
             plumber_metrics,
             vm_pool_metrics,
+            health_registry.as_mut(),
             key_manager.clone(),
         );
         let effectors = Effectors::new(connectivity.clone());
@@ -328,6 +339,7 @@ impl<RT: AquaRuntime> Node<RT> {
             spell_events_receiver,
             sorcerer,
             metrics_registry,
+            health_registry,
             libp2p_metrics,
             services_metrics_backend,
             config.http_listen_addr(),
@@ -343,13 +355,14 @@ impl<RT: AquaRuntime> Node<RT> {
         network_config: NetworkConfig,
         transport: Boxed<(PeerId, StreamMuxerBox)>,
         external_addresses: Vec<Multiaddr>,
+        health_registry: Option<&mut HealthCheckRegistry>,
     ) -> (
         Swarm<FluenceNetworkBehaviour>,
         Connectivity,
         mpsc::Receiver<Particle>,
     ) {
         let (behaviour, connectivity, particle_stream) =
-            FluenceNetworkBehaviour::new(network_config);
+            FluenceNetworkBehaviour::new(network_config, health_registry);
         let mut swarm =
             SwarmBuilder::with_tokio_executor(transport, behaviour, local_peer_id).build();
 
@@ -367,6 +380,7 @@ impl<RT: AquaRuntime> Node<RT> {
         script_storage_api: ScriptStorageApi,
         services_metrics: ServicesMetrics,
         key_manager: KeyManager,
+        health_registry: Option<&mut HealthCheckRegistry>,
     ) -> Builtins<Connectivity> {
         Builtins::new(
             connectivity,
@@ -374,6 +388,7 @@ impl<RT: AquaRuntime> Node<RT> {
             services_config,
             services_metrics,
             key_manager,
+            health_registry,
         )
     }
 }
@@ -394,7 +409,8 @@ impl<RT: AquaRuntime> Node<RT> {
         spell_event_bus: SpellEventBus,
         spell_events_receiver: mpsc::UnboundedReceiver<TriggerEvent>,
         sorcerer: Sorcerer,
-        registry: Option<Registry>,
+        metrics_registry: Option<Registry>,
+        health_registry: Option<HealthCheckRegistry>,
         libp2p_metrics: Option<Arc<Metrics>>,
         services_metrics_backend: ServicesMetricsBackend,
         http_listen_addr: Option<SocketAddr>,
@@ -419,7 +435,8 @@ impl<RT: AquaRuntime> Node<RT> {
             spell_events_receiver,
             sorcerer,
 
-            registry,
+            metrics_registry,
+            health_registry,
             libp2p_metrics,
             services_metrics_backend,
             http_listen_addr,
@@ -447,7 +464,8 @@ impl<RT: AquaRuntime> Node<RT> {
         let spell_event_bus = self.spell_event_bus;
         let spell_events_receiver = self.spell_events_receiver;
         let sorcerer = self.sorcerer;
-        let registry = self.registry;
+        let metrics_registry = self.metrics_registry;
+        let health_registry = self.health_registry;
         let services_metrics_backend = self.services_metrics_backend;
         let http_listen_addr = self.http_listen_addr;
         let task_name = format!("node-{peer_id}");
@@ -458,7 +476,7 @@ impl<RT: AquaRuntime> Node<RT> {
         task::Builder::new().name(&task_name.clone()).spawn(async move {
             let mut http_server = if let Some(http_listen_addr) = http_listen_addr{
                 log::info!("Starting http endpoint at {}", http_listen_addr);
-                start_http_endpoint(http_listen_addr, registry, peer_id, versions, Arc::new(Notify::new())).boxed()
+                start_http_endpoint(http_listen_addr, metrics_registry, health_registry, peer_id, versions, Arc::new(Notify::new())).boxed()
             } else {
                 futures::future::pending().boxed()
             };

@@ -17,10 +17,12 @@
 use std::task::{Context, Poll};
 
 use futures::{future::BoxFuture, FutureExt};
+use health::HealthCheckRegistry;
 
 use peer_metrics::VmPoolMetrics;
 
 use crate::aqua_runtime::AquaRuntime;
+use crate::health::VMPoolHealth;
 
 type RuntimeF<RT> = BoxFuture<'static, Result<RT, <RT as AquaRuntime>::Error>>;
 
@@ -39,6 +41,7 @@ pub struct VmPool<RT: AquaRuntime> {
     runtime_config: RT::Config,
     pool_size: usize,
     metrics: Option<VmPoolMetrics>,
+    health: Option<VMPoolHealth>,
 }
 
 impl<RT: AquaRuntime> VmPool<RT> {
@@ -47,13 +50,21 @@ impl<RT: AquaRuntime> VmPool<RT> {
         pool_size: usize,
         runtime_config: RT::Config,
         metrics: Option<VmPoolMetrics>,
+        health_registry: Option<&mut HealthCheckRegistry>,
     ) -> Self {
+        let health = health_registry.map(|registry| {
+            let health = VMPoolHealth::new(pool_size);
+            registry.register("vm_pool", health.clone());
+            health
+        });
+
         let mut this = Self {
             runtimes: Vec::with_capacity(pool_size),
             creating_runtimes: None,
             runtime_config,
             pool_size,
             metrics,
+            health,
         };
 
         this.runtimes.resize_with(pool_size, || None);
@@ -161,7 +172,12 @@ impl<RT: AquaRuntime> VmPool<RT> {
 
                 // Put created vm to self.vms
                 match vm {
-                    Ok(vm) => vms[id] = Some(vm),
+                    Ok(vm) => {
+                        vms[id] = Some(vm);
+                        if let Some(h) = self.health.as_ref() {
+                            h.increment_count()
+                        }
+                    }
                     Err(err) => log::error!("Failed to create vm: {:?}", err), // TODO: don't panic
                 }
 
