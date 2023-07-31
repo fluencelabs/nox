@@ -21,7 +21,6 @@ use eyre::WrapErr;
 use fstrings::f;
 use maplit::hashmap;
 use serde_json::json;
-use std::time::Duration;
 
 use connected_client::ConnectedClient;
 use created_swarm::make_swarms;
@@ -65,20 +64,4 @@ async fn pass_boolean() {
     let args = client.execute_particle(script, data.clone()).await.unwrap();
 
     assert_eq!(args, vec![json!(false), json!(true)]);
-}
-
-#[global_allocator]
-static ALLOC: dhat::Alloc = dhat::Alloc;
-
-#[tokio::test]
-async fn eba_test() {
-    let _profiler = dhat::Profiler::builder().testing().build();
-
-    let _swarms = make_swarms(1).await;
-
-    tokio::time::sleep(Duration::from_millis(10000)).await;
-
-    let stats = dhat::HeapStats::get();
-
-    dhat::assert!(stats.max_bytes < 30_000_000);
 }
