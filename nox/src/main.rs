@@ -31,9 +31,9 @@ use base64::{engine::general_purpose::STANDARD as base64, Engine};
 use eyre::WrapErr;
 use tokio::signal;
 use tokio::sync::oneshot;
-use tracing_subscriber::EnvFilter;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
+use tracing_subscriber::EnvFilter;
 
 use air_interpreter_fs::write_default_air_interpreter;
 use aquamarine::{VmConfig, AVM};
