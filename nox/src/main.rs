@@ -31,6 +31,7 @@ use base64::{engine::general_purpose::STANDARD as base64, Engine};
 use eyre::WrapErr;
 use tokio::signal;
 use tokio::sync::oneshot;
+use tracing_subscriber::EnvFilter;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 
@@ -95,6 +96,7 @@ fn main() -> eyre::Result<()> {
         .expect("Could not make tokio runtime")
         .block_on(async {
             tracing_subscriber::registry()
+                .with(EnvFilter::from_default_env())
                 .with(log_layer(&config.log))
                 .with(tokio_console_layer(&config.console)?)
                 .with(tracing_layer(&config.tracing)?)
