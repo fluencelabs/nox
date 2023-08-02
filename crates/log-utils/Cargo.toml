@@ -8,4 +8,5 @@ edition = "2021"
 log = { workspace = true }
 tracing = { workspace = true, features = ["async-await", "log"] }
 tracing-subscriber = { workspace = true, features = ["parking_lot"] }
+console-subscriber = { workspace = true, features = ["parking_lot"] }
 tracing-logfmt = "0.3.2"
