@@ -4,6 +4,7 @@
     "config:base",
     ":semanticCommitTypeAll(chore)"
   ],
+  "allowCustomCrateRegistries": "true",
   "enabledManagers": ["cargo", "github-actions"],
   "schedule": "every weekend",
   "packageRules": [
