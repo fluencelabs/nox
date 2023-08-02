@@ -35,4 +35,4 @@ serde_json = { workspace = true }
 base64 = { workspace = true }
 serde = { workspace = true }
 maplit = { workspace = true }
-hyper = "0.14.27"
+hyper = { workspace = true }
