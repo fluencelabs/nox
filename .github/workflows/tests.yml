@@ -28,6 +28,8 @@ jobs:
           repository: fluencelabs/nox
           ref: ${{ inputs.ref }}
 
+      - run: curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
+
       - name: Setup Rust toolchain
         uses: moonrepo/setup-rust@v1
         with:
