@@ -64,7 +64,7 @@ pub struct CreatedSwarm {
     pub connectivity: Connectivity,
     #[derivative(Debug = "ignore")]
     pub aquamarine_api: AquamarineApi,
-    http_bind_addr: SocketAddr,
+    http_listen_addr: SocketAddr,
 }
 
 #[tracing::instrument]
@@ -184,7 +184,7 @@ where
                     exit_outlet: started_node.exit_outlet,
                     connectivity,
                     aquamarine_api,
-                    http_bind_addr: http.listen_addr,
+                    http_listen_addr: http.listen_addr,
                 }
             }
             .boxed()
@@ -195,7 +195,7 @@ where
     if wait_connected {
         let addrs = infos
             .iter()
-            .map(|info| info.http_bind_addr)
+            .map(|info| info.http_listen_addr)
             .collect::<Vec<_>>();
         wait_connected_on_addrs(addrs).await;
     }

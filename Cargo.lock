@@ -4121,7 +4121,6 @@ dependencies = [
  "connection-pool",
  "control-macro",
  "created-swarm",
- "dhat",
  "eyre",
  "fluence-app-service",
  "fluence-keypair",
