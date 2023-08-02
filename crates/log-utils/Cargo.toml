@@ -7,6 +7,6 @@ edition = "2021"
 [dependencies]
 log = { workspace = true }
 tracing = { workspace = true, features = ["async-await", "log"] }
-tracing-subscriber = { workspace = true, features = ["parking_lot"] }
+tracing-subscriber = { workspace = true, features = ["parking_lot", "env-filter"] }
 console-subscriber = { workspace = true, features = ["parking_lot"] }
 tracing-logfmt = "0.3.2"
