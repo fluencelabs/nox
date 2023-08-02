@@ -15,7 +15,7 @@
  */
 
 use std::convert::identity;
-use std::net::TcpListener;
+use std::net::SocketAddr;
 use std::{path::PathBuf, time::Duration};
 
 use derivative::Derivative;
@@ -58,12 +58,13 @@ pub struct CreatedSwarm {
     #[derivative(Debug = "ignore")]
     pub management_keypair: KeyPair,
     // stop signal
-    pub outlet: oneshot::Sender<()>,
+    pub exit_outlet: oneshot::Sender<()>,
     // node connectivity
     #[derivative(Debug = "ignore")]
     pub connectivity: Connectivity,
     #[derivative(Debug = "ignore")]
     pub aquamarine_api: AquamarineApi,
+    http_bind_addr: SocketAddr,
 }
 
 #[tracing::instrument]
@@ -163,27 +164,27 @@ where
         })
         .collect::<Vec<_>>();
 
-    let http_ports: Vec<u16> = nodes
-        .iter()
-        .map(|((_, _, config), _)| config.http_port)
-        .collect();
-
     // start all nodes
     let infos = join_all(nodes.into_iter().map(
         move |((peer_id, management_keypair, config), node)| {
             let connectivity = node.connectivity.clone();
             let aquamarine_api = node.aquamarine_api.clone();
             async move {
-                let outlet = node.start(peer_id).await.expect("node start");
+                let started_node = node.start(peer_id).await.expect("node start");
 
+                let http = started_node
+                    .http_bind_inlet
+                    .await
+                    .expect("Could not bind http");
                 CreatedSwarm {
                     peer_id,
                     multiaddr: config.listen_on,
                     tmp_dir: config.tmp_dir.unwrap(),
                     management_keypair,
-                    outlet,
+                    exit_outlet: started_node.exit_outlet,
                     connectivity,
                     aquamarine_api,
+                    http_bind_addr: http.listen_addr,
                 }
             }
             .boxed()
@@ -192,21 +193,25 @@ where
     .await;
 
     if wait_connected {
-        wait_connected_on_ports(http_ports).await;
+        let addrs = infos
+            .iter()
+            .map(|info| info.http_bind_addr)
+            .collect::<Vec<_>>();
+        wait_connected_on_addrs(addrs).await;
     }
 
     infos
 }
 
-async fn wait_connected_on_ports(http_ports: Vec<u16>) {
+async fn wait_connected_on_addrs(addrs: Vec<SocketAddr>) {
     let http_client = &hyper::Client::new();
 
-    let healthcheck = iter(http_ports).for_each_concurrent(None, |http_port| async move {
+    let healthcheck = iter(addrs).for_each_concurrent(None, |addr| async move {
         loop {
             let response = http_client
                 .request(
                     Request::builder()
-                        .uri(format!("http://127.0.0.1:{}/health", http_port))
+                        .uri(format!("http://{}/health", addr))
                         .body(Body::empty())
                         .unwrap(),
                 )
@@ -250,7 +255,6 @@ impl SwarmConfig {
             Some(Protocol::Memory(_)) => Transport::Memory,
             _ => Transport::Network,
         };
-        let http_port = get_free_tcp_port();
         Self {
             keypair: fluence_keypair::KeyPair::generate_ed25519(),
             builtins_keypair: fluence_keypair::KeyPair::generate_ed25519(),
@@ -264,7 +268,7 @@ impl SwarmConfig {
             timer_resolution: default_script_storage_timer_resolution(),
             allowed_binaries: vec!["/usr/bin/ipfs".to_string(), "/usr/bin/curl".to_string()],
             enabled_system_services: vec![],
-            http_port,
+            http_port: 0,
         }
     }
 }
@@ -290,16 +294,6 @@ pub fn aqua_vm_config(
     let avm_base_dir = tmp_dir.join("interpreter");
 
     VmConfig::new(peer_id, avm_base_dir, air_interpreter, None)
-}
-
-fn get_free_tcp_port() -> u16 {
-    let listener = TcpListener::bind("127.0.0.1:0").expect("Failed to bind to port 0");
-    let socket_addr = listener
-        .local_addr()
-        .expect("Failed to retrieve local address");
-    let port = socket_addr.port();
-    drop(listener);
-    port
 }
 
 #[tracing::instrument(skip(vm_config))]

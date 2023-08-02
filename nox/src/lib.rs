@@ -47,6 +47,7 @@ mod behaviour {
 }
 
 pub use behaviour::{FluenceNetworkBehaviour, FluenceNetworkBehaviourEvent};
+pub use http::StartedHttp;
 pub use node::Node;
 
 // to be available in benchmarks
