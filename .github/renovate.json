@@ -24,6 +24,10 @@
       "groupName": "libp2p"
     },
     {
+      "matchPackagePatterns": ["opentelemetry", "opentelemetry-otlp", "tracing-opentelemetry"],
+      "groupName": "opentelemetry"
+    },
+    {
       "matchDepTypes": ["devDependencies"],
       "prPriority": -1
     },
