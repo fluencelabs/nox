@@ -35,7 +35,6 @@ jobs:
         with:
           inherit-toolchain: true
           bins: cargo-nextest
-          cache: false
 
       - name: Setup sccache
         uses: mozilla-actions/sccache-action@v0.0.3

@@ -56,7 +56,6 @@ jobs:
         uses: moonrepo/setup-rust@v1
         with:
           inherit-toolchain: true
-          cache: false
 
       - name: Setup sccache
         uses: mozilla-actions/sccache-action@v0.0.3
