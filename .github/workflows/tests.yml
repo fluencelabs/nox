@@ -34,7 +34,7 @@ jobs:
         uses: moonrepo/setup-rust@v1
         with:
           inherit-toolchain: true
-          bins: nextest
+          bins: cargo-nextest
           cache: false
 
       - name: Setup sccache
