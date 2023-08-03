@@ -71,10 +71,12 @@ jobs:
         uses: moonrepo/setup-rust@v1
         with:
           inherit-toolchain: true
-          cache-target: ${{ matrix.arch }}-unknown-linux-gnu/${{ steps.profile.outputs.profile }}
+          cache: false
 
-      - name: Setup sccache
-        uses: mozilla-actions/sccache-action@v0.0.3
+      - uses: Swatinem/rust-cache@v2
+
+      # - name: Setup sccache
+      #   uses: mozilla-actions/sccache-action@v0.0.3
 
       - name: Set dependencies
         if: inputs.cargo-dependencies != 'null'
