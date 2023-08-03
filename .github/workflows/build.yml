@@ -78,7 +78,7 @@ jobs:
         with:
           cache-directories: ~/.cache/sccache
           # save cache only on merge to master
-          # save-if: ${{ github.event_name == 'push' }}
+          save-if: ${{ github.event_name == 'push' }}
 
       - name: Setup sccache
         uses: mozilla-actions/sccache-action@v0.0.3
