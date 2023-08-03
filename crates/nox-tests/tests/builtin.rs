@@ -194,7 +194,10 @@ async fn remove_service_restart() {
     }
 
     // stop swarm
-    swarms.into_iter().map(|s| s.outlet.send(())).for_each(drop);
+    swarms
+        .into_iter()
+        .map(|s| s.exit_outlet.send(()))
+        .for_each(drop);
     let swarms = make_swarms_with_keypair(1, kp, None).await;
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .await
@@ -1930,7 +1933,10 @@ async fn exec_script_as_admin<'a>(
         )
         .await;
 
-    swarms.into_iter().map(|s| s.outlet.send(())).for_each(drop);
+    swarms
+        .into_iter()
+        .map(|s| s.exit_outlet.send(()))
+        .for_each(drop);
 
     result
 }
@@ -2036,7 +2042,10 @@ async fn aliases_restart() {
     use serde_json::Value::Array;
 
     // stop swarm
-    swarms.into_iter().map(|s| s.outlet.send(())).for_each(drop);
+    swarms
+        .into_iter()
+        .map(|s| s.exit_outlet.send(()))
+        .for_each(drop);
     let swarms = make_swarms_with_keypair(1, kp, None).await;
     let mut client = ConnectedClient::connect_with_keypair(
         swarms[0].multiaddr.clone(),
