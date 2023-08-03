@@ -15,11 +15,12 @@
  */
 
 use std::convert::identity;
+use std::net::SocketAddr;
 use std::{path::PathBuf, time::Duration};
 
 use derivative::Derivative;
 use fluence_keypair::KeyPair;
-use futures::{stream::iter, FutureExt, StreamExt};
+use futures::{FutureExt, StreamExt};
 use libp2p::core::multiaddr::Protocol;
 use libp2p::{core::Multiaddr, PeerId};
 use serde::Deserialize;
@@ -28,17 +29,20 @@ use air_interpreter_fs::{air_interpreter_path, write_default_air_interpreter};
 use aquamarine::{AquaRuntime, VmConfig};
 use aquamarine::{AquamarineApi, DataStoreError};
 use base64::{engine::general_purpose::STANDARD as base64, Engine};
-use connection_pool::{ConnectionPoolApi, ConnectionPoolT};
 use fluence_libp2p::random_multiaddr::{create_memory_maddr, create_tcp_maddr};
 use fluence_libp2p::Transport;
 use fs_utils::{create_dir, make_tmp_dir_peer_id, to_abs_path};
 use futures::future::join_all;
+use futures::stream::iter;
+use hyper::{Body, Request, StatusCode};
 use nox::{Connectivity, Node};
 use particle_protocol::ProtocolConfig;
 use server_config::{default_script_storage_timer_resolution, BootstrapConfig, UnresolvedConfig};
 use test_constants::{EXECUTION_TIMEOUT, KEEP_ALIVE_TIMEOUT, TRANSPORT_TIMEOUT};
 use tokio::sync::oneshot;
 use toy_vms::EasyVM;
+
+const HEALTH_CHECK_POLLING_INTERVAL: Duration = Duration::from_millis(100);
 
 #[allow(clippy::upper_case_acronyms)]
 type AVM = aquamarine::AVM<DataStoreError>;
@@ -54,12 +58,13 @@ pub struct CreatedSwarm {
     #[derivative(Debug = "ignore")]
     pub management_keypair: KeyPair,
     // stop signal
-    pub outlet: oneshot::Sender<()>,
+    pub exit_outlet: oneshot::Sender<()>,
     // node connectivity
     #[derivative(Debug = "ignore")]
     pub connectivity: Connectivity,
     #[derivative(Debug = "ignore")]
     pub aquamarine_api: AquamarineApi,
+    http_listen_addr: SocketAddr,
 }
 
 #[tracing::instrument]
@@ -148,50 +153,38 @@ where
     let nodes = addrs
         .iter()
         .map(|addr| {
-            #[rustfmt::skip]
-                let addrs = addrs.iter().filter(|&a| a != addr).cloned().collect::<Vec<_>>();
+            let addrs = addrs
+                .iter()
+                .filter(|&a| a != addr)
+                .cloned()
+                .collect::<Vec<_>>();
             let bootstraps = bootstraps(addrs);
-            let bootstraps_num = bootstraps.len();
             let (id, node, m_kp, config) = create_node(bootstraps, addr.clone());
-            ((id, m_kp, config), node, bootstraps_num)
+            ((id, m_kp, config), node)
         })
         .collect::<Vec<_>>();
 
-    let pools = iter(
-        nodes
-            .iter()
-            .map(|(_, n, bootstraps_num)| (n.connectivity.clone(), *bootstraps_num))
-            .collect::<Vec<_>>(),
-    );
-    let connected = pools.for_each_concurrent(None, |(pool, bootstraps_num)| async move {
-        let pool = AsRef::<ConnectionPoolApi>::as_ref(&pool);
-        let mut events = pool.lifecycle_events();
-        loop {
-            let num = pool.count_connections().await;
-            if num >= bootstraps_num {
-                break;
-            }
-            // wait until something changes
-            events.next().await;
-        }
-    });
-
     // start all nodes
     let infos = join_all(nodes.into_iter().map(
-        move |((peer_id, management_keypair, config), node, _)| {
+        move |((peer_id, management_keypair, config), node)| {
             let connectivity = node.connectivity.clone();
             let aquamarine_api = node.aquamarine_api.clone();
             async move {
-                let outlet = node.start(peer_id).await.expect("node start");
+                let started_node = node.start(peer_id).await.expect("node start");
 
+                let http = started_node
+                    .http_bind_inlet
+                    .await
+                    .expect("Could not bind http");
                 CreatedSwarm {
                     peer_id,
                     multiaddr: config.listen_on,
                     tmp_dir: config.tmp_dir.unwrap(),
                     management_keypair,
-                    outlet,
+                    exit_outlet: started_node.exit_outlet,
                     connectivity,
                     aquamarine_api,
+                    http_listen_addr: http.listen_addr,
                 }
             }
             .boxed()
@@ -200,10 +193,40 @@ where
     .await;
 
     if wait_connected {
-        connected.await;
+        let addrs = infos
+            .iter()
+            .map(|info| info.http_listen_addr)
+            .collect::<Vec<_>>();
+        wait_connected_on_addrs(addrs).await;
     }
 
     infos
+}
+
+async fn wait_connected_on_addrs(addrs: Vec<SocketAddr>) {
+    let http_client = &hyper::Client::new();
+
+    let healthcheck = iter(addrs).for_each_concurrent(None, |addr| async move {
+        loop {
+            let response = http_client
+                .request(
+                    Request::builder()
+                        .uri(format!("http://{}/health", addr))
+                        .body(Body::empty())
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+
+            if response.status() == StatusCode::OK {
+                break;
+            }
+
+            tokio::time::sleep(HEALTH_CHECK_POLLING_INTERVAL).await
+        }
+    });
+
+    healthcheck.await;
 }
 
 #[derive(Clone, Derivative)]
@@ -223,6 +246,7 @@ pub struct SwarmConfig {
     pub timer_resolution: Duration,
     pub allowed_binaries: Vec<String>,
     pub enabled_system_services: Vec<server_config::system_services_config::ServiceKey>,
+    pub http_port: u16,
 }
 
 impl SwarmConfig {
@@ -244,6 +268,7 @@ impl SwarmConfig {
             timer_resolution: default_script_storage_timer_resolution(),
             allowed_binaries: vec!["/usr/bin/ipfs".to_string(), "/usr/bin/curl".to_string()],
             enabled_system_services: vec![],
+            http_port: 0,
         }
     }
 }
@@ -306,10 +331,12 @@ pub fn create_swarm_with_runtime<RT: AquaRuntime>(
             "generate_on_absence": false,
             "value": base64.encode(config.builtins_keypair.to_vec()),
         },
+
         "builtins_base_dir": config.builtins_dir,
         "external_multiaddresses": [config.listen_on],
         "spell_base_dir": Some(config.spell_base_dir.clone().unwrap_or(to_abs_path(PathBuf::from("spell")))),
-        "http_port": null
+        "http_port": config.http_port,
+        "listen_ip": "127.0.0.1"
     });
 
     let node_config: UnresolvedConfig =
