@@ -14,8 +14,6 @@ on:
 
 env:
   RUSTFLAGS: "-D warnings --cfg tokio_unstable"
-  SCCACHE_GHA_ENABLED: "true"
-  RUSTC_WRAPPER: "sccache"
 
 jobs:
   tests:
@@ -31,13 +29,7 @@ jobs:
           ref: ${{ inputs.ref }}
 
       - name: Setup Rust toolchain
-        uses: moonrepo/setup-rust@v1
-        with:
-          inherit-toolchain: true
-          bins: cargo-nextest
-
-      - name: Setup sccache
-        uses: mozilla-actions/sccache-action@v0.0.3
+        uses: dsherret/rust-toolchain-file@v1
 
       - name: Set dependencies
         if: inputs.cargo-dependencies != 'null'

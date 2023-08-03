@@ -51,11 +51,12 @@ jobs:
           token: ${{ secrets.FLUENCEBOT_RELEASE_PLEASE_PAT }}
 
       - name: Setup Rust toolchain
-        uses: moonrepo/setup-rust@v1
+        uses: dsherret/rust-toolchain-file@v1
+
+      - name: Install cargo-edit
+        uses: baptiste0928/cargo-install@v2.1.0
         with:
-          inherit-toolchain: true
-          bins: cargo-edit
-          cache: false
+          crate: cargo-edit
 
       - name: Get nox version
         id: version
