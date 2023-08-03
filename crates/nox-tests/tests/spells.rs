@@ -197,7 +197,10 @@ async fn spell_error_handling_test() {
 
     assert_eq!(result.len(), 1);
 
-    swarms.into_iter().map(|s| s.outlet.send(())).for_each(drop);
+    swarms
+        .into_iter()
+        .map(|s| s.exit_outlet.send(()))
+        .for_each(drop);
 }
 
 #[tokio::test]

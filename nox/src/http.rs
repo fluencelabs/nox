@@ -16,7 +16,7 @@ use prometheus_client::registry::Registry;
 use serde_json::{json, Value};
 use std::net::SocketAddr;
 use std::sync::Arc;
-use tokio::sync::Notify;
+use tokio::sync::oneshot;
 
 async fn handler_404() -> impl IntoResponse {
     (StatusCode::NOT_FOUND, "No such endpoint")
@@ -106,6 +106,10 @@ struct Inner {
     peer_id: PeerId,
     versions: Versions,
 }
+#[derive(Debug)]
+pub struct StartedHttp {
+    pub listen_addr: SocketAddr,
+}
 
 pub async fn start_http_endpoint(
     listen_addr: SocketAddr,
@@ -113,7 +117,7 @@ pub async fn start_http_endpoint(
     health_registry: Option<HealthCheckRegistry>,
     peer_id: PeerId,
     versions: Versions,
-    notify: Arc<Notify>,
+    notify: oneshot::Sender<StartedHttp>,
 ) {
     let state = RouteState(Arc::new(Inner {
         metric_registry,
@@ -130,7 +134,11 @@ pub async fn start_http_endpoint(
         .with_state(state);
 
     let server = axum::Server::bind(&listen_addr).serve(app.into_make_service());
-    notify.notify_one();
+    notify
+        .send(StartedHttp {
+            listen_addr: server.local_addr(),
+        })
+        .expect("Could not send http info");
     server.await.expect("Could not make http endpoint")
 }
 
@@ -139,17 +147,7 @@ mod tests {
     use super::*;
     use axum::http::Request;
     use health::HealthCheck;
-    use std::net::{SocketAddr, TcpListener};
-
-    fn get_free_tcp_port() -> u16 {
-        let listener = TcpListener::bind("127.0.0.1:0").expect("Failed to bind to port 0");
-        let socket_addr = listener
-            .local_addr()
-            .expect("Failed to retrieve local address");
-        let port = socket_addr.port();
-        drop(listener);
-        port
-    }
+    use std::net::SocketAddr;
 
     fn test_versions() -> Versions {
         Versions {
@@ -168,11 +166,9 @@ mod tests {
     #[tokio::test]
     async fn test_version_route() {
         // Create a test server
-        let port = get_free_tcp_port();
-        let addr = format!("127.0.0.1:{port}").parse::<SocketAddr>().unwrap();
+        let addr = format!("127.0.0.1:0").parse::<SocketAddr>().unwrap();
 
-        let notify = Arc::new(Notify::new());
-        let cloned_notify = notify.clone();
+        let (notify_sender, notify_receiver) = oneshot::channel();
         tokio::spawn(async move {
             start_http_endpoint(
                 addr,
@@ -180,19 +176,19 @@ mod tests {
                 None,
                 PeerId::random(),
                 test_versions(),
-                cloned_notify,
+                notify_sender,
             )
             .await;
         });
 
-        notify.notified().await;
+        let http_info = notify_receiver.await.unwrap();
 
         let client = hyper::Client::new();
 
         let response = client
             .request(
                 Request::builder()
-                    .uri(format!("http://{}/versions", addr))
+                    .uri(format!("http://{}/versions", http_info.listen_addr))
                     .body(Body::empty())
                     .unwrap(),
             )
@@ -207,24 +203,22 @@ mod tests {
     #[tokio::test]
     async fn test_peer_id_route() {
         // Create a test server
-        let port = get_free_tcp_port();
-        let addr = format!("127.0.0.1:{port}").parse::<SocketAddr>().unwrap();
+        let addr = format!("127.0.0.1:0").parse::<SocketAddr>().unwrap();
         let peer_id = PeerId::random();
 
-        let notify = Arc::new(Notify::new());
-        let cloned_notify = notify.clone();
+        let (notify_sender, notify_receiver) = oneshot::channel();
         tokio::spawn(async move {
-            start_http_endpoint(addr, None, None, peer_id, test_versions(), cloned_notify).await;
+            start_http_endpoint(addr, None, None, peer_id, test_versions(), notify_sender).await;
         });
 
-        notify.notified().await;
+        let http_info = notify_receiver.await.unwrap();
 
         let client = hyper::Client::new();
 
         let response = client
             .request(
                 Request::builder()
-                    .uri(format!("http://{}/peer_id", addr))
+                    .uri(format!("http://{}/peer_id", http_info.listen_addr))
                     .body(Body::empty())
                     .unwrap(),
             )
@@ -242,12 +236,10 @@ mod tests {
     #[tokio::test]
     async fn test_health_route_empty_registry() {
         // Create a test server
-        let port = get_free_tcp_port();
-        let addr = format!("127.0.0.1:{port}").parse::<SocketAddr>().unwrap();
+        let addr = format!("127.0.0.1:0").parse::<SocketAddr>().unwrap();
         let peer_id = PeerId::random();
 
-        let notify = Arc::new(Notify::new());
-        let cloned_notify = notify.clone();
+        let (notify_sender, notify_receiver) = oneshot::channel();
         let health_registry = HealthCheckRegistry::new();
         tokio::spawn(async move {
             start_http_endpoint(
@@ -256,19 +248,19 @@ mod tests {
                 Some(health_registry),
                 peer_id,
                 test_versions(),
-                cloned_notify,
+                notify_sender,
             )
             .await;
         });
 
-        notify.notified().await;
+        let http_info = notify_receiver.await.unwrap();
 
         let client = hyper::Client::new();
 
         let response = client
             .request(
                 Request::builder()
-                    .uri(format!("http://{}/health", addr))
+                    .uri(format!("http://{}/health", http_info.listen_addr))
                     .body(Body::empty())
                     .unwrap(),
             )
@@ -283,12 +275,10 @@ mod tests {
     #[tokio::test]
     async fn test_health_route_success_checks() {
         // Create a test server
-        let port = get_free_tcp_port();
-        let addr = format!("127.0.0.1:{port}").parse::<SocketAddr>().unwrap();
+        let addr = format!("127.0.0.1:0").parse::<SocketAddr>().unwrap();
         let peer_id = PeerId::random();
 
-        let notify = Arc::new(Notify::new());
-        let cloned_notify = notify.clone();
+        let (notify_sender, notify_receiver) = oneshot::channel();
         let mut health_registry = HealthCheckRegistry::new();
         struct SuccessHealthCheck {}
         impl HealthCheck for SuccessHealthCheck {
@@ -305,19 +295,19 @@ mod tests {
                 Some(health_registry),
                 peer_id,
                 test_versions(),
-                cloned_notify,
+                notify_sender,
             )
             .await;
         });
 
-        notify.notified().await;
+        let http_info = notify_receiver.await.unwrap();
 
         let client = hyper::Client::new();
 
         let response = client
             .request(
                 Request::builder()
-                    .uri(format!("http://{}/health", addr))
+                    .uri(format!("http://{}/health", http_info.listen_addr))
                     .body(Body::empty())
                     .unwrap(),
             )
@@ -332,12 +322,10 @@ mod tests {
     #[tokio::test]
     async fn test_health_route_warn_checks() {
         // Create a test server
-        let port = get_free_tcp_port();
-        let addr = format!("127.0.0.1:{port}").parse::<SocketAddr>().unwrap();
+        let addr = format!("127.0.0.1:0").parse::<SocketAddr>().unwrap();
         let peer_id = PeerId::random();
 
-        let notify = Arc::new(Notify::new());
-        let cloned_notify = notify.clone();
+        let (notify_sender, notify_receiver) = oneshot::channel();
         let mut health_registry = HealthCheckRegistry::new();
         struct SuccessHealthCheck {}
         impl HealthCheck for SuccessHealthCheck {
@@ -362,19 +350,19 @@ mod tests {
                 Some(health_registry),
                 peer_id,
                 test_versions(),
-                cloned_notify,
+                notify_sender,
             )
             .await;
         });
 
-        notify.notified().await;
+        let http_info = notify_receiver.await.unwrap();
 
         let client = hyper::Client::new();
 
         let response = client
             .request(
                 Request::builder()
-                    .uri(format!("http://{}/health", addr))
+                    .uri(format!("http://{}/health", http_info.listen_addr))
                     .body(Body::empty())
                     .unwrap(),
             )
@@ -392,12 +380,10 @@ mod tests {
     #[tokio::test]
     async fn test_health_route_fail_checks() {
         // Create a test server
-        let port = get_free_tcp_port();
-        let addr = format!("127.0.0.1:{port}").parse::<SocketAddr>().unwrap();
+        let addr = format!("127.0.0.1:0").parse::<SocketAddr>().unwrap();
         let peer_id = PeerId::random();
 
-        let notify = Arc::new(Notify::new());
-        let cloned_notify = notify.clone();
+        let (notify_sender, notify_receiver) = oneshot::channel();
         let mut health_registry = HealthCheckRegistry::new();
         struct FailHealthCheck {}
         impl HealthCheck for FailHealthCheck {
@@ -414,19 +400,19 @@ mod tests {
                 Some(health_registry),
                 peer_id,
                 test_versions(),
-                cloned_notify,
+                notify_sender,
             )
             .await;
         });
 
-        notify.notified().await;
+        let http_info = notify_receiver.await.unwrap();
 
         let client = hyper::Client::new();
 
         let response = client
             .request(
                 Request::builder()
-                    .uri(format!("http://{}/health", addr))
+                    .uri(format!("http://{}/health", http_info.listen_addr))
                     .body(Body::empty())
                     .unwrap(),
             )
