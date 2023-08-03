@@ -33,11 +33,11 @@ jobs:
         include:
           - arch: x86_64
             env:
-              RUSTFLAGS: "-D warnings --cfg tokio_unstable -C link-arg=-fuse-ld=/usr/local/bin/mold"
+              RUSTFLAGS: "-D warnings --cfg tokio_unstable -C link-arg=-B/usr/local/bin/mold"
               RUSTC_WRAPPER: "sccache"
           - arch: aarch64
             env:
-              RUSTFLAGS: "-D warnings --cfg tokio_unstable -C link-arg=-fuse-ld=/usr/local/bin/mold"
+              RUSTFLAGS: "-D warnings --cfg tokio_unstable -C link-arg=-B/usr/local/bin/mold"
               RUSTC_WRAPPER: "sccache"
               CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
               CC_aarch64_unknown_linux_gnu: aarch64-linux-gnu-gcc
