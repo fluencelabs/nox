@@ -34,12 +34,12 @@ jobs:
           - arch: x86_64
             env:
               RUSTFLAGS: "-D warnings --cfg tokio_unstable"
-              SCCACHE_GHA_ENABLED: "true"
+              SCCACHE_GHA_ENABLED: "on"
               RUSTC_WRAPPER: "sccache"
           - arch: aarch64
             env:
               RUSTFLAGS: "-D warnings --cfg tokio_unstable"
-              SCCACHE_GHA_ENABLED: "true"
+              SCCACHE_GHA_ENABLED: "on"
               RUSTC_WRAPPER: "sccache"
               CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
               CC_aarch64_unknown_linux_gnu: aarch64-linux-gnu-gcc
@@ -71,6 +71,8 @@ jobs:
         uses: dsherret/rust-toolchain-file@v1
 
       - uses: Swatinem/rust-cache@v2
+        with:
+          cache-directories: ~/.cache/sccache
 
       - name: Setup sccache
         uses: mozilla-actions/sccache-action@v0.0.3
@@ -100,7 +102,3 @@ jobs:
         with:
           name: nox-${{ matrix.arch }}
           path: target/${{ matrix.arch }}-unknown-linux-gnu/${{ steps.profile.outputs.profile }}/nox
-
-      - name: Setup tmate session
-        if: failure()
-        uses: mxschmitt/action-tmate@v3
