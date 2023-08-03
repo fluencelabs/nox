@@ -54,7 +54,7 @@ jobs:
         uses: moonrepo/setup-rust@v1
         with:
           inherit-toolchain: true
-          cache-target: release
+          cache: false
 
       - name: Import secrets
         uses: hashicorp/vault-action@v2.7.3

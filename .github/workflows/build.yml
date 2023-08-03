@@ -34,9 +34,13 @@ jobs:
           - arch: x86_64
             env:
               RUSTFLAGS: "-D warnings --cfg tokio_unstable"
+              SCCACHE_GHA_ENABLED: "true"
+              RUSTC_WRAPPER: "sccache"
           - arch: aarch64
             env:
               RUSTFLAGS: "-D warnings --cfg tokio_unstable"
+              SCCACHE_GHA_ENABLED: "true"
+              RUSTC_WRAPPER: "sccache"
               CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
               CC_aarch64_unknown_linux_gnu: aarch64-linux-gnu-gcc
               CXX_aarch64_unknown_linux_gnu: aarch64-linux-gnu-g++
@@ -52,7 +56,10 @@ jobs:
         uses: moonrepo/setup-rust@v1
         with:
           inherit-toolchain: true
-          cache-target: release
+          cache: false
+
+      - name: Setup sccache
+        uses: mozilla-actions/sccache-action@v0.0.3
 
       - name: Get PR labels
         id: labels

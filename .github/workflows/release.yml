@@ -54,12 +54,8 @@ jobs:
         uses: moonrepo/setup-rust@v1
         with:
           inherit-toolchain: true
-          cache-target: debug
-
-      - name: Install cargo-edit
-        uses: baptiste0928/cargo-install@v2.1.0
-        with:
-          crate: cargo-edit
+          bins: cargo-edit
+          cache: false
 
       - name: Get nox version
         id: version

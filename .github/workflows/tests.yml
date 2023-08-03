@@ -14,6 +14,8 @@ on:
 
 env:
   RUSTFLAGS: "-D warnings --cfg tokio_unstable"
+  SCCACHE_GHA_ENABLED: "true"
+  RUSTC_WRAPPER: "sccache"
 
 jobs:
   tests:
@@ -32,15 +34,17 @@ jobs:
         uses: moonrepo/setup-rust@v1
         with:
           inherit-toolchain: true
-          cache-target: debug
+          bins: nextest
+          cache: false
+
+      - name: Setup sccache
+        uses: mozilla-actions/sccache-action@v0.0.3
 
       - name: Set dependencies
         if: inputs.cargo-dependencies != 'null'
         uses: fluencelabs/github-actions/cargo-set-dependency@main
         with:
           dependencies: ${{ inputs.cargo-dependencies }}
-
-      - uses: taiki-e/install-action@nextest
 
       - name: Run cargo nextest
         run: cargo nextest run --release --all-features --profile ci
@@ -57,4 +61,8 @@ jobs:
         run: cargo fmt --all -- --check
 
       - name: Run cargo clippy
-        run: cargo clippy -Z unstable-options --all
+        uses: giraffate/clippy-action@v1
+        with:
+          reporter: github-pr-review
+          clippy_flags: -Z unstable-options --all
+          fail_on_error: true
