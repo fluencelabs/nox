@@ -50,11 +50,6 @@ jobs:
           repository: fluencelabs/nox
           ref: ${{ inputs.ref }}
 
-      - name: Dump GitHub context
-        env:
-          GITHUB_CONTEXT: ${{ toJSON(github) }}
-        run: echo "$GITHUB_CONTEXT"
-
       - name: Get PR labels
         id: labels
         uses: joerick/pr-labels-action@v1.0.9
@@ -82,7 +77,7 @@ jobs:
         with:
           cache-directories: ~/.cache/sccache
           # save cache only on merge to master
-          save-if: ${{ github.event_name == 'push' && github.repository == 'fluencelabs/nox' }}
+          save-if: ${{ github.event_name == 'push' }}
 
       - name: Setup sccache
         uses: mozilla-actions/sccache-action@v0.0.3
