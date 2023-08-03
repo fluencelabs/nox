@@ -52,6 +52,11 @@ jobs:
           repository: fluencelabs/nox
           ref: ${{ inputs.ref }}
 
+      - name: Dump GitHub context
+        env:
+          GITHUB_CONTEXT: ${{ toJSON(github) }}
+        run: echo "$GITHUB_CONTEXT"
+
       - name: Get PR labels
         id: labels
         uses: joerick/pr-labels-action@v1.0.9
@@ -84,17 +89,6 @@ jobs:
         uses: fluencelabs/github-actions/cargo-set-dependency@main
         with:
           dependencies: ${{ inputs.cargo-dependencies }}
-
-      - name: Generate snapshot version
-        id: version
-        uses: fluencelabs/github-actions/generate-snapshot-id@main
-
-      - name: Set version
-        id: snapshot
-        uses: fluencelabs/github-actions/cargo-publish-snapshot@main
-        with:
-          id: ${{ steps.version.outputs.id }}
-          publish: false
 
       - name: Run cargo build
         run: cargo build ${{ steps.profile.outputs.flags }} -p nox --target ${{ matrix.arch }}-unknown-linux-gnu
