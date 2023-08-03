@@ -50,7 +50,7 @@ use sorcerer::Sorcerer;
 use spell_event_bus::api::{PeerEvent, SpellEventBusApi, TriggerEvent};
 use spell_event_bus::bus::SpellEventBus;
 use system_services::Deployer;
-use tokio::sync::{mpsc, oneshot, Notify};
+use tokio::sync::{mpsc, oneshot};
 use tokio::task;
 
 use crate::builtins::make_peer_builtin;
@@ -60,7 +60,7 @@ use crate::{Connectivity, Versions};
 
 use super::behaviour::FluenceNetworkBehaviour;
 use crate::behaviour::FluenceNetworkBehaviourEvent;
-use crate::http::start_http_endpoint;
+use crate::http::{start_http_endpoint, StartedHttp};
 
 // TODO: documentation
 pub struct Node<RT: AquaRuntime> {
@@ -393,6 +393,11 @@ impl<RT: AquaRuntime> Node<RT> {
     }
 }
 
+pub struct StartedNode {
+    pub exit_outlet: oneshot::Sender<()>,
+    pub http_bind_inlet: oneshot::Receiver<StartedHttp>,
+}
+
 impl<RT: AquaRuntime> Node<RT> {
     #[allow(clippy::too_many_arguments)]
     pub fn with(
@@ -451,8 +456,9 @@ impl<RT: AquaRuntime> Node<RT> {
 
     /// Starts node service
     #[allow(clippy::boxed_local)] // Mike said it should be boxed
-    pub async fn start(self: Box<Self>, peer_id: PeerId) -> eyre::Result<oneshot::Sender<()>> {
+    pub async fn start(self: Box<Self>, peer_id: PeerId) -> eyre::Result<StartedNode> {
         let (exit_outlet, exit_inlet) = oneshot::channel();
+        let (http_bind_outlet, http_bind_inlet) = oneshot::channel();
 
         let particle_stream = self.particle_stream;
         let effects_stream = self.effects_stream;
@@ -476,7 +482,7 @@ impl<RT: AquaRuntime> Node<RT> {
         task::Builder::new().name(&task_name.clone()).spawn(async move {
             let mut http_server = if let Some(http_listen_addr) = http_listen_addr{
                 log::info!("Starting http endpoint at {}", http_listen_addr);
-                start_http_endpoint(http_listen_addr, metrics_registry, health_registry, peer_id, versions, Arc::new(Notify::new())).boxed()
+                start_http_endpoint(http_listen_addr, metrics_registry, health_registry, peer_id, versions, http_bind_outlet).boxed()
             } else {
                 futures::future::pending().boxed()
             };
@@ -532,7 +538,10 @@ impl<RT: AquaRuntime> Node<RT> {
             .map_err(|e| eyre::eyre!("{e}"))
             .context("running spell event bus failed")?;
 
-        Ok(exit_outlet)
+        Ok(StartedNode {
+            exit_outlet,
+            http_bind_inlet,
+        })
     }
 
     /// Starts node service listener.
@@ -594,7 +603,7 @@ mod tests {
         let listening_address: Multiaddr = "/ip4/127.0.0.1/tcp/7777".parse().unwrap();
         node.listen(vec![listening_address.clone()]).unwrap();
         let peer_id = PeerId::random();
-        let exit_outlet = node.start(peer_id).await.expect("start node");
+        let started_node = node.start(peer_id).await.expect("start node");
 
         let mut client = ConnectedClient::connect_to(listening_address)
             .await
@@ -617,6 +626,6 @@ mod tests {
             .await
             .unwrap();
 
-        exit_outlet.send(()).unwrap();
+        started_node.exit_outlet.send(()).unwrap();
     }
 }
