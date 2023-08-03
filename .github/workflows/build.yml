@@ -52,14 +52,6 @@ jobs:
           repository: fluencelabs/nox
           ref: ${{ inputs.ref }}
 
-      - name: Setup Rust toolchain
-        uses: moonrepo/setup-rust@v1
-        with:
-          inherit-toolchain: true
-
-      - name: Setup sccache
-        uses: mozilla-actions/sccache-action@v0.0.3
-
       - name: Get PR labels
         id: labels
         uses: joerick/pr-labels-action@v1.0.9
@@ -74,6 +66,15 @@ jobs:
             echo "profile=release" >> $GITHUB_OUTPUT
             echo "flags=--profile=release" >> $GITHUB_OUTPUT
           fi
+
+      - name: Setup Rust toolchain
+        uses: moonrepo/setup-rust@v1
+        with:
+          inherit-toolchain: true
+          cache-target: ${{ matrix.arch }}-unknown-linux-gnu/${{ steps.profile.outputs.profile }}
+
+      - name: Setup sccache
+        uses: mozilla-actions/sccache-action@v0.0.3
 
       - name: Set dependencies
         if: inputs.cargo-dependencies != 'null'
@@ -100,3 +101,7 @@ jobs:
         with:
           name: nox-${{ matrix.arch }}
           path: target/${{ matrix.arch }}-unknown-linux-gnu/${{ steps.profile.outputs.profile }}/nox
+
+      - name: Setup tmate session
+        if: failure()
+        uses: mxschmitt/action-tmate@v3
