@@ -51,10 +51,7 @@ jobs:
           token: ${{ secrets.FLUENCEBOT_RELEASE_PLEASE_PAT }}
 
       - name: Setup Rust toolchain
-        uses: moonrepo/setup-rust@v1
-        with:
-          inherit-toolchain: true
-          cache-target: debug
+        uses: dsherret/rust-toolchain-file@v1
 
       - name: Install cargo-edit
         uses: baptiste0928/cargo-install@v2.1.0

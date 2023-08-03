@@ -29,18 +29,16 @@ jobs:
           ref: ${{ inputs.ref }}
 
       - name: Setup Rust toolchain
-        uses: moonrepo/setup-rust@v1
-        with:
-          inherit-toolchain: true
-          cache-target: debug
+        uses: dsherret/rust-toolchain-file@v1
+
+      - name: Setup nextest
+        uses: taiki-e/install-action@nextest
 
       - name: Set dependencies
         if: inputs.cargo-dependencies != 'null'
         uses: fluencelabs/github-actions/cargo-set-dependency@main
         with:
           dependencies: ${{ inputs.cargo-dependencies }}
-
-      - uses: taiki-e/install-action@nextest
 
       - name: Run cargo nextest
         run: cargo nextest run --release --all-features --profile ci
@@ -57,4 +55,8 @@ jobs:
         run: cargo fmt --all -- --check
 
       - name: Run cargo clippy
-        run: cargo clippy -Z unstable-options --all
+        uses: giraffate/clippy-action@v1
+        with:
+          reporter: github-pr-review
+          clippy_flags: -Z unstable-options --all
+          fail_on_error: true
