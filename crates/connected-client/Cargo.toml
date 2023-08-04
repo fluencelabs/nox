@@ -15,13 +15,13 @@ libp2p = { workspace = true }
 libp2p-swarm = { workspace = true }
 tokio = { workspace = true }
 futures = { workspace = true }
-serde = { version = "1.0.171", features = ["derive"] }
+serde = { version = "1.0.180", features = ["derive"] }
 serde_json = { workspace = true }
 log = { workspace = true }
 derivative = { workspace = true }
 eyre = { workspace = true }
 parking_lot = { workspace = true }
-either = "1.8.1"
+either = "1.9.0"
 void = "1.0.2"
 
 [dev-dependencies]

@@ -33,6 +33,7 @@ mod builtins;
 mod connectivity;
 mod dispatcher;
 mod effectors;
+mod health;
 mod http;
 mod layers;
 mod node;
@@ -46,6 +47,7 @@ mod behaviour {
 }
 
 pub use behaviour::{FluenceNetworkBehaviour, FluenceNetworkBehaviourEvent};
+pub use http::StartedHttp;
 pub use node::Node;
 
 // to be available in benchmarks

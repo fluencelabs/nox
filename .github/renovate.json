@@ -4,6 +4,7 @@
     "config:base",
     ":semanticCommitTypeAll(chore)"
   ],
+  "allowCustomCrateRegistries": "true",
   "enabledManagers": ["cargo", "github-actions"],
   "schedule": "every weekend",
   "packageRules": [
@@ -21,6 +22,10 @@
     {
       "matchPackagePatterns": ["^libp2p.*", "prometheus-client", "multihash"],
       "groupName": "libp2p"
+    },
+    {
+      "matchPackagePatterns": ["opentelemetry", "opentelemetry-otlp", "tracing-opentelemetry"],
+      "groupName": "opentelemetry"
     },
     {
       "matchDepTypes": ["devDependencies"],

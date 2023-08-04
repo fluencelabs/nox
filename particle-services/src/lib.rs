@@ -36,4 +36,5 @@ pub use crate::error::ServiceError;
 
 mod app_services;
 mod error;
+mod health;
 mod persistence;

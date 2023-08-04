@@ -38,7 +38,6 @@ pub struct NetworkConfig {
     pub bootstrap_frequency: usize,
     pub connectivity_metrics: Option<ConnectivityMetrics>,
     pub connection_pool_metrics: Option<ConnectionPoolMetrics>,
-    #[allow(deprecated)]
     pub connection_limits: ConnectionLimits,
 }
 
