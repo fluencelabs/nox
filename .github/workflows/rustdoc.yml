@@ -10,6 +10,7 @@ env:
   CARGO_NET_RETRY: 2
   RUSTFLAGS: "--cfg tokio_unstable"
   RUSTUP_MAX_RETRIES: 10
+  RUSTC_WRAPPER: "sccache"
 
 jobs:
   rustdoc:
@@ -24,6 +25,16 @@ jobs:
 
       - name: Setup Rust toolchain
         uses: dsherret/rust-toolchain-file@v1
+
+      - name: Setup cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          cache-directories: ~/.cache/sccache
+          shared-key: build
+          save-if: false
+
+      - name: Setup sccache
+        uses: mozilla-actions/sccache-action@v0.0.3
 
       - name: Build documentation
         env:
