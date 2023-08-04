@@ -41,7 +41,7 @@ members = [
     "script-storage",
     "spell-storage",
     "particle-execution",
-    "crates/system-services"
+    "crates/system-services",
 ]
 exclude = [
     "nox/tests/tetraplets",
