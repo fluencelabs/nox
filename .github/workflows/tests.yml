@@ -59,13 +59,6 @@ jobs:
       - name: Run cargo nextest
         run: cargo nextest run --release --all-features --profile ci
 
-      - name: Run cargo clippy
-        uses: giraffate/clippy-action@v1
-        with:
-          reporter: github-pr-review
-          clippy_flags: -Z unstable-options --all
-          fail_on_error: true
-
       - name: Upload test report
         uses: dorny/test-reporter@v1
         if: success() || failure()

@@ -35,10 +35,11 @@ jobs:
           fail_on_error: true
 
   cargo:
-    runs-on: ubuntu-latest
+    runs-on: builder
 
     env:
-      RUSTFLAGS: "-D warnings --cfg tokio_unstable"
+      RUSTFLAGS: "-D warnings --cfg tokio_unstable -C link-arg=-B/usr/local/bin/mold"
+      RUSTC_WRAPPER: "sccache"
 
     steps:
       - name: Checkout
@@ -47,5 +48,30 @@ jobs:
       - name: Setup Rust toolchain
         uses: dsherret/rust-toolchain-file@v1
 
+      - name: Setup cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          cache-directories: ~/.cache/sccache
+          shared-key: nox
+          save-if: false
+
+      - name: Setup sccache
+        uses: mozilla-actions/sccache-action@v0.0.3
+
+      - name: Setup mold linker
+        uses: rui314/setup-mold@v1
+        with:
+          make-default: false
+
+      - name: Run cargo build
+        run: cargo build
+
       - name: Run cargo fmt
         run: cargo fmt --all -- --check
+
+      - name: Run cargo clippy
+        uses: giraffate/clippy-action@v1
+        with:
+          reporter: github-pr-review
+          clippy_flags: -Z unstable-options --all
+          fail_on_error: true
