@@ -36,7 +36,7 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           cache-directories: ~/.cache/sccache
-          shared-key: build
+          shared-key: nox
           save-if: false
 
       - name: Setup sccache
@@ -58,6 +58,13 @@ jobs:
 
       - name: Run cargo nextest
         run: cargo nextest run --release --all-features --profile ci
+
+      - name: Run cargo clippy
+        uses: giraffate/clippy-action@v1
+        with:
+          reporter: github-pr-review
+          clippy_flags: -Z unstable-options --all
+          fail_on_error: true
 
       - name: Upload test report
         uses: dorny/test-reporter@v1

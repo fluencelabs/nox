@@ -10,7 +10,6 @@ env:
   CARGO_NET_RETRY: 2
   RUSTFLAGS: "--cfg tokio_unstable"
   RUSTUP_MAX_RETRIES: 10
-  RUSTC_WRAPPER: "sccache"
 
 jobs:
   rustdoc:
