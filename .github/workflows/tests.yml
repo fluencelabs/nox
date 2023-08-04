@@ -56,6 +56,13 @@ jobs:
         with:
           dependencies: ${{ inputs.cargo-dependencies }}
 
+      - name: Run cargo clippy
+        uses: giraffate/clippy-action@v1
+        with:
+          reporter: github-pr-review
+          clippy_flags: -Z unstable-options --all
+          fail_on_error: true
+
       - name: Run cargo nextest
         run: cargo nextest run --release --all-features --profile ci
 
@@ -69,10 +76,3 @@ jobs:
 
       - name: Run cargo fmt
         run: cargo fmt --all -- --check
-
-      - name: Run cargo clippy
-        uses: giraffate/clippy-action@v1
-        with:
-          reporter: github-pr-review
-          clippy_flags: -Z unstable-options --all
-          fail_on_error: true
