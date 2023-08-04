@@ -13,7 +13,7 @@ on:
         default: "null"
 
 env:
-  RUSTFLAGS: "-D warnings --cfg tokio_unstable"
+  RUSTFLAGS: "-D warnings --cfg tokio_unstable -C link-arg=-B/usr/local/bin/mold"
   RUSTC_WRAPPER: "sccache"
 
 jobs:
@@ -41,6 +41,11 @@ jobs:
 
       - name: Setup sccache
         uses: mozilla-actions/sccache-action@v0.0.3
+
+      - name: Setup mold linker
+        uses: rui314/setup-mold@v1
+        with:
+          make-default: false
 
       - name: Setup nextest
         uses: taiki-e/install-action@nextest

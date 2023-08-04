@@ -26,16 +26,6 @@ jobs:
       - name: Setup Rust toolchain
         uses: dsherret/rust-toolchain-file@v1
 
-      - name: Setup cache
-        uses: Swatinem/rust-cache@v2
-        with:
-          cache-directories: ~/.cache/sccache
-          shared-key: build
-          save-if: false
-
-      - name: Setup sccache
-        uses: mozilla-actions/sccache-action@v0.0.3
-
       - name: Build documentation
         env:
           RUSTDOCFLAGS: "--enable-index-page -Zunstable-options"
