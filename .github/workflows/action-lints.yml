@@ -1,0 +1,25 @@
+name: action lints
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/**"
+
+concurrency:
+  group: "${{ github.workflow }}-${{ github.ref }}"
+  cancel-in-progress: true
+
+jobs:
+  reviewdog:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Lint actions
+        uses: reviewdog/action-actionlint@v1
+        env:
+          SHELLCHECK_OPTS: "-e SC2086 -e SC2207 -e SC2128"
+        with:
+          reporter: github-pr-check
+          fail_on_error: true

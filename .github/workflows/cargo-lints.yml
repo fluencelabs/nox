@@ -1,39 +1,17 @@
-name: lint
+name: cargo lints
 
 on:
   pull_request:
-    types:
-      - opened
-      - edited
-      - synchronize
+    paths-ignore:
+      - "**.md"
+      - ".github/**"
+      - "!.github/workflows/cargo-lints.yml"
 
 concurrency:
   group: "${{ github.workflow }}-${{ github.ref }}"
   cancel-in-progress: true
 
 jobs:
-  pr:
-    name: Validate PR title
-    runs-on: ubuntu-latest
-    steps:
-      - uses: amannn/action-semantic-pull-request@v5
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  reviewdog:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-
-      - name: Lint actions
-        uses: reviewdog/action-actionlint@v1
-        env:
-          SHELLCHECK_OPTS: "-e SC2086 -e SC2207 -e SC2128"
-        with:
-          reporter: github-pr-check
-          fail_on_error: true
-
   cargo:
     runs-on: builder
 
@@ -63,11 +41,11 @@ jobs:
         with:
           make-default: false
 
-      - name: Run cargo build
-        run: cargo build
+      - name: Run cargo check
+        run: cargo check
 
       - name: Run cargo fmt
-        run: cargo fmt --all -- --check
+        uses: actions-rust-lang/rustfmt@v1
 
       - name: Run cargo clippy
         uses: giraffate/clippy-action@v1
