@@ -122,7 +122,10 @@ jobs:
             run_number=${{ github.run_number }}
             run_attempt=${{ github.run_attempt }}
           cache-from: type=gha
-          cache-to: type=gha,mode=max
+          # github allows only 10GB of cache
+          # so save cache only on merge to master
+          # to use less space and speed up CI
+          cache-to: ${{ github.event == 'push' && 'type=gha,mode=max' || '' }}
 
       - name: Print results to check summary
         if: always()
