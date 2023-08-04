@@ -38,8 +38,7 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      RUSTFLAGS: "-D warnings --cfg tokio_unstable -C link-arg=-B/usr/local/bin/mold"
-      RUSTC_WRAPPER: "sccache"
+      RUSTFLAGS: "-D warnings --cfg tokio_unstable"
 
     steps:
       - name: Checkout
