@@ -1,9 +1,10 @@
-name: action lints
+name: lint
 
 on:
   pull_request:
     paths:
       - ".github/workflows/**"
+      - ".github/renovate.json"
 
 concurrency:
   group: "${{ github.workflow }}-${{ github.ref }}"
@@ -23,3 +24,14 @@ jobs:
         with:
           reporter: github-pr-check
           fail_on_error: true
+
+  renovate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Renovate Config Validator
+        uses: tj-actions/renovate-config-validator@v2
+        with:
+          config_file: .github/renovate.json
