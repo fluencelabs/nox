@@ -31,7 +31,7 @@ num_cpus = "1.16.0"
 eyre = { workspace = true }
 derivative = { workspace = true }
 bytesize = { version = "1.2.0", features = ["serde"] }
-serde_with = "3.1.0"
+serde_with = "3.2.0"
 config = { version = "0.13.3", default-features = false, features = ["toml"] }
 
 [dev-dependencies]
