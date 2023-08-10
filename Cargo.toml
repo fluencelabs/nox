@@ -158,6 +158,7 @@ debug-assertions = false
 [profile.release]
 strip = true
 lto = false
+panic = 'abort'
 codegen-units = 1 # Reduce number of codegen units to increase optimizations
 
 [profile.profiling]
