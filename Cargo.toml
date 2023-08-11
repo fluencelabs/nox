@@ -140,7 +140,7 @@ itertools = "0.11.0"
 humantime-serde = "1.1.1"
 cid = "0.10.1"
 libipld = "0.16.0"
-axum = "0.6.19"
+axum = "0.6.20"
 hyper = "0.14.27"
 
 # Enable a small amount of optimization in debug mode
