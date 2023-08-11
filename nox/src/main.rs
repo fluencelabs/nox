@@ -39,7 +39,7 @@ use air_interpreter_fs::write_default_air_interpreter;
 use aquamarine::{VmConfig, AVM};
 use config_utils::to_peer_id;
 use fs_utils::to_abs_path;
-use nox::{log_layer, tokio_console_layer, tracing_layer, Node};
+use nox::{log_layer, tokio_console_layer, tracing_layer, Node, StartedHttp};
 use server_config::{load_config, ConfigData, ResolvedConfig};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -147,6 +147,8 @@ async fn start_fluence(config: ResolvedConfig) -> eyre::Result<impl Stoppable> {
 
     struct Fluence {
         node_exit_outlet: oneshot::Sender<()>,
+        #[allow(dead_code)]
+        http_bind_inlet: oneshot::Receiver<StartedHttp>,
     }
 
     impl Stoppable for Fluence {
@@ -159,6 +161,7 @@ async fn start_fluence(config: ResolvedConfig) -> eyre::Result<impl Stoppable> {
 
     Ok(Fluence {
         node_exit_outlet: started_node.exit_outlet,
+        http_bind_inlet: started_node.http_bind_inlet,
     })
 }
 

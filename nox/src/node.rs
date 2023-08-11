@@ -487,7 +487,6 @@ impl<RT: AquaRuntime> Node<RT> {
                 futures::future::pending().boxed()
             };
 
-
             let services_metrics_backend = services_metrics_backend.start();
             let script_storage = script_storage.start();
             let spell_event_bus = spell_event_bus.start();
