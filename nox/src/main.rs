@@ -77,7 +77,7 @@ fn main() -> eyre::Result<()> {
 | Hello from the Fluence Team. If you encounter   |
 | any troubles with node operation, please update |
 | the node via                                    |
-|     docker pull fluencelabs/rust-peer:latest    |
+|     docker pull fluencelabs/nox:latest          |
 |                                                 |
 | or contact us at                                |
 | https://discord.com/invite/5qSnPZKh7u           |

@@ -690,4 +690,31 @@ mod tests {
             );
         });
     }
+
+    #[test]
+    fn load_http_port_with_env() {
+        temp_env::with_vars([("FLUENCE_HTTP_PORT", Some("1234"))], || {
+            let config = load_config_with_args(vec![], None).expect("Could not load config");
+            assert_eq!(
+                config.node_config.http_config.map(|x| x.http_port),
+                Some(1234)
+            );
+        });
+    }
+
+    #[test]
+    fn load_http_port_with_args() {
+        temp_env::with_vars([("FLUENCE_HTTP_PORT", Some("1234"))], || {
+            let args = vec![
+                OsString::from("nox"),
+                OsString::from("--http-port"),
+                OsString::from("1001"),
+            ];
+            let config = load_config_with_args(args, None).expect("Could not load config");
+            assert_eq!(
+                config.node_config.http_config.map(|x| x.http_port),
+                Some(1001)
+            );
+        });
+    }
 }

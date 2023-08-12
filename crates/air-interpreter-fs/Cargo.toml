@@ -8,7 +8,7 @@ edition = "2021"
 air-interpreter-wasm = { workspace = true }
 
 eyre = { workspace = true }
-serde = { version = "1.0.180", features = ["derive"] }
+serde = { version = "1.0.183", features = ["derive"] }
 serde_json = { workspace = true }
 blake3 = "1.4.1"
 faster-hex = "0.8.0"

@@ -173,12 +173,12 @@ pub(crate) struct DerivedArgs {
     #[arg(
         short('s'),
         long,
-        id = "METRICS_PORT",
-        help = "open metrics port",
+        id = "HTTP_PORT",
+        help = "http port",
         help_heading = "Networking",
         display_order = 3
     )]
-    metrics_port: Option<u16>,
+    http_port: Option<u16>,
     #[arg(
         short('x'),
         long("external-ip"),
