@@ -144,7 +144,8 @@ pub fn enable_logs_for(spec: LogSpec) {
 
     let mut filter = tracing_subscriber::EnvFilter::builder()
         .with_default_directive(spec.level.into())
-        .from_env_lossy();
+        .from_env()
+        .expect("invalid RUST_LOG");
 
     for d in spec.directives {
         filter = filter.add_directive(d);

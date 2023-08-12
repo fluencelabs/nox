@@ -385,7 +385,7 @@ impl Deployer {
                 tracing::debug!(
                     spell_name,
                     spell_id,
-                    "found existing spell that don't need to be updated; will not update",
+                    "found existing spell that doesn't need to be updated; will not update",
                 );
                 Ok(ServiceStatus::Existing(spell_id))
             }
@@ -603,7 +603,7 @@ impl Deployer {
                 tracing::debug!(
                     service_name,
                     service_id,
-                    "found existing service that don't need to be updated; will skip update"
+                    "found existing service that doesn't need to be updated; will skip update"
                 );
                 return Ok(ServiceStatus::Existing(service_id));
             }

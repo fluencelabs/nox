@@ -21,7 +21,7 @@ use std::path::PathBuf;
 use std::str::FromStr;
 
 use clap::{Args, Command, FromArgMatches};
-use config::{Config, Environment, File, FileFormat, Source};
+use config::{Config, Environment, File, FileFormat};
 use libp2p::core::{multiaddr::Protocol, Multiaddr};
 use serde::{Deserialize, Serialize};
 
@@ -212,8 +212,6 @@ pub fn load_config_with_args(
         .with_list_parse_key("listen_config.listen_multiaddrs")
         .with_list_parse_key("system_services.enable");
 
-    println!("env_source: {:#?}", env_source.collect());
-
     let config = Config::builder()
         .add_source(file_source)
         .add_source(env_source)
@@ -227,9 +225,10 @@ pub fn load_config_with_args(
 
 #[cfg(test)]
 mod tests {
+    use std::io::Write;
+
     use base64::{engine::general_purpose::STANDARD as base64, Engine};
     use fluence_keypair::KeyPair;
-    use std::io::Write;
     use tempfile::{tempdir, NamedTempFile};
 
     use super::*;
