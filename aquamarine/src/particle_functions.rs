@@ -24,6 +24,7 @@ use futures::future::BoxFuture;
 use futures::stream::FuturesUnordered;
 use futures::{FutureExt, StreamExt};
 use humantime::format_duration as pretty;
+use log::Level;
 use serde_json::json;
 use serde_json::Value as JValue;
 use tokio::runtime::Handle;
@@ -148,16 +149,16 @@ impl<F: ParticleFunctionStatic> Functions<F> {
             }
         };
 
-        let log_args = format!(
-            "{:?} {:?} {}",
-            args.service_id,
-            args.function_name,
-            args.function_args
-                .iter()
-                .next()
-                .map(|v| v.to_string())
-                .unwrap_or(String::new())
-        );
+        let log_args = format!("{:?} {:?} {}", args.service_id, args.function_name, {
+            if log::max_level() >= Level::Debug {
+                args.function_args
+                    .first()
+                    .map(|v| v.to_string())
+                    .unwrap_or(String::new())
+            } else {
+                String::new()
+            }
+        });
         let service_id = args.service_id.clone();
         let start = Instant::now();
 

@@ -89,7 +89,6 @@ pub async fn install_spell(
     )?;
 
     // Save init_data to the spell's KV
-    println!("init_data: {:#?}", init_data);
     process_func_outcome::<UnitValue>(
         services.call_function(
             worker_id,
