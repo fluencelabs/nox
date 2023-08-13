@@ -173,7 +173,7 @@ where
                 let started_node = node.start(peer_id).await.expect("node start");
                 let http_listen_addr = started_node
                     .http_listen_addr
-                    .expect("could not take http lister addr");
+                    .expect("could not take http listen addr");
                 CreatedSwarm {
                     peer_id,
                     multiaddr: config.listen_on,
