@@ -171,7 +171,9 @@ where
             let aquamarine_api = node.aquamarine_api.clone();
             async move {
                 let started_node = node.start(peer_id).await.expect("node start");
-                let http_listen_addr = started_node.http_listen_addr.expect("could not take http lister addr");
+                let http_listen_addr = started_node
+                    .http_listen_addr
+                    .expect("could not take http lister addr");
                 CreatedSwarm {
                     peer_id,
                     multiaddr: config.listen_on,
