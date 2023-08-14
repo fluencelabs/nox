@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.14.1](https://github.com/fluencelabs/nox/compare/rust-peer-v0.14.0...rust-peer-v0.14.1) (2023-08-14)
+
+
+### Bug Fixes
+
+* **http:** fixed listen address getting logic ([#1762](https://github.com/fluencelabs/nox/issues/1762)) ([1205a79](https://github.com/fluencelabs/nox/commit/1205a79c6ad3ef8df60010964aafcfb3af80ad10))
+
 ## [0.14.0](https://github.com/fluencelabs/nox/compare/rust-peer-v0.13.3...rust-peer-v0.14.0) (2023-08-14)
 
 
