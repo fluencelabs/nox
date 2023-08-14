@@ -14,9 +14,13 @@ pub fn log_layer<S>(log_config: &Option<LogConfig>) -> impl Layer<S>
 where
     S: Subscriber + for<'span> LookupSpan<'span>,
 {
+    let rust_log = std::env::var("RUST_LOG")
+        .unwrap_or_default()
+        .replace(char::is_whitespace, "");
+
     let env_filter = tracing_subscriber::EnvFilter::builder()
         .with_default_directive(LevelFilter::INFO.into())
-        .from_env_lossy()
+        .parse_lossy(rust_log)
         .add_directive("cranelift_codegen=off".parse().unwrap())
         .add_directive("walrus=off".parse().unwrap())
         .add_directive("polling=off".parse().unwrap())

@@ -206,7 +206,11 @@ pub fn load_config_with_args(
         .prefix_separator("_")
         .separator("__")
         .list_separator(",")
-        .with_list_parse_key("allowed_binaries");
+        .with_list_parse_key("allowed_binaries")
+        .with_list_parse_key("external_multiaddresses")
+        .with_list_parse_key("bootstrap_nodes")
+        .with_list_parse_key("listen_config.listen_multiaddrs")
+        .with_list_parse_key("system_services.enable");
 
     let config = Config::builder()
         .add_source(file_source)
@@ -221,9 +225,10 @@ pub fn load_config_with_args(
 
 #[cfg(test)]
 mod tests {
+    use std::io::Write;
+
     use base64::{engine::general_purpose::STANDARD as base64, Engine};
     use fluence_keypair::KeyPair;
-    use std::io::Write;
     use tempfile::{tempdir, NamedTempFile};
 
     use super::*;

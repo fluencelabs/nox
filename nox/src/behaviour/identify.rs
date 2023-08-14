@@ -56,10 +56,11 @@ impl FluenceNetworkBehaviour {
                 }
 
                 if supports_fluence {
+                    let protocols = info.protocols.iter().map(|p| p.to_string());
                     log::debug!(
                         target: "network",
                         "Found fluence peer {}: protocols: {:?} version: {} listen addrs {:?}",
-                        peer_id, info.protocols, info.protocol_version, addresses
+                        peer_id, protocols, info.protocol_version, addresses
                     );
                     // Add addresses to connection pool disregarding whether it supports kademlia or not
                     // we want to have full info on non-kademlia peers as well
