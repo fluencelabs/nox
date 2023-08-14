@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.14.0](https://github.com/fluencelabs/nox/compare/rust-peer-v0.13.3...rust-peer-v0.14.0) (2023-08-14)
+
+
+### ⚠ BREAKING CHANGES
+
+* **env, log:** RUST_LOG and other envs parsing ([#1755](https://github.com/fluencelabs/nox/issues/1755))
+
+### Bug Fixes
+
+* **config:** fix http port argument ([#1751](https://github.com/fluencelabs/nox/issues/1751)) ([84c4315](https://github.com/fluencelabs/nox/commit/84c43151693a4bfcabc7683d9b3c6b4e508ff427))
+* **env, log:** RUST_LOG and other envs parsing ([#1755](https://github.com/fluencelabs/nox/issues/1755)) ([ea172c1](https://github.com/fluencelabs/nox/commit/ea172c1f42823549aeef0ba5ebd41794682babdf))
+
 ## [0.13.3](https://github.com/fluencelabs/nox/compare/rust-peer-v0.13.2...rust-peer-v0.13.3) (2023-08-08)
 
 
