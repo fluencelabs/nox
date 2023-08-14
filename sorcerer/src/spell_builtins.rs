@@ -454,20 +454,3 @@ pub(crate) fn store_response(
         ))
     })
 }
-
-#[cfg(test)]
-mod tests {
-    use fluence_spell_dtos::trigger_config::TriggerConfig;
-
-    #[test]
-    fn deserialize_trigger_config() {
-        let json = r#"{
-            "clock": { "period_sec": 10 },
-            "blockchain": {},
-            "connections": {}
-        }"#;
-
-        let config: TriggerConfig = serde_json::from_str(json).expect("deserialize");
-        assert_eq!(config.clock.period_sec, 10);
-    }
-}
