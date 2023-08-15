@@ -119,10 +119,14 @@ pub struct DeciderConfig {
     pub worker_ipfs_multiaddr: String,
     #[serde(default = "default_deal_network_api_endpoint")]
     pub network_api_endpoint: String,
-    #[serde(default = "default_deal_contract_address_hex")]
-    pub contract_address_hex: String,
-    #[serde(default = "default_deal_contract_block_hex")]
-    pub contract_block_hex: String,
+    #[serde(default = "default_matcher_address")]
+    pub matcher_address: String,
+    #[serde(default = "default_decider_start_block_hex")]
+    pub start_block: String,
+    #[serde(default = "default_decider_worker_gas")]
+    pub worker_gas: u64,
+    #[serde(default)]
+    pub wallet_key: Option<String>,
 }
 
 impl Default for DeciderConfig {
@@ -132,8 +136,10 @@ impl Default for DeciderConfig {
             worker_period_sec: default_worker_spell_period_sec(),
             worker_ipfs_multiaddr: default_ipfs_multiaddr(),
             network_api_endpoint: default_deal_network_api_endpoint(),
-            contract_address_hex: default_deal_contract_address_hex(),
-            contract_block_hex: default_deal_contract_block_hex(),
+            matcher_address: default_matcher_address(),
+            start_block: default_decider_start_block_hex(),
+            worker_gas: default_decider_worker_gas(),
+            wallet_key: None,
         }
     }
 }

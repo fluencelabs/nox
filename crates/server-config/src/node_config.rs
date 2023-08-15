@@ -261,14 +261,14 @@ impl UnresolvedNodeConfig {
         }
 
         if let Ok(decider_contract_addr) = std::env::var("FLUENCE_ENV_CONNECTOR_CONTRACT_ADDRESS") {
-            self.system_services.decider.contract_address_hex = decider_contract_addr;
+            self.system_services.decider.matcher_address = decider_contract_addr;
             log::warn!(
                 "Override configuration of decider system spell (contract address) from ENV"
             );
         }
 
         if let Ok(decider_from_block) = std::env::var("FLUENCE_ENV_CONNECTOR_FROM_BLOCK") {
-            self.system_services.decider.contract_block_hex = decider_from_block;
+            self.system_services.decider.start_block = decider_from_block;
             log::warn!("Override configuration of decider system spell (from block) from ENV");
         }
     }

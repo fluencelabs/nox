@@ -167,7 +167,12 @@ impl Deployer {
     }
 
     async fn deploy_decider(&self) -> eyre::Result<()> {
-        let decider_distro = Self::get_decider_distro(self.config.decider.clone());
+        let wallet_key = match self.config.decider.wallet_key.clone() {
+            None => return Err(eyre!("Decider enabled, but wallet_key is not set. Please set it via env FLUENCE_SYSTEM_SERVICES__DECIDER__WALLET_KEY or in Config.toml")),
+            Some(key) => key
+        };
+
+        let decider_distro = Self::get_decider_distro(self.config.decider.clone(), wallet_key);
         self.deploy_system_spell(decider_distro).await?;
         Ok(())
     }
@@ -283,13 +288,15 @@ impl Deployer {
         })
     }
 
-    fn get_decider_distro(decider_settings: DeciderConfig) -> SpellDistro {
+    fn get_decider_distro(decider_settings: DeciderConfig, wallet_key: String) -> SpellDistro {
         let decider_config = decider_distro::DeciderConfig {
             worker_period_sec: decider_settings.worker_period_sec,
             worker_ipfs_multiaddr: decider_settings.worker_ipfs_multiaddr,
             chain_network: decider_settings.network_api_endpoint,
-            chain_contract_addr: decider_settings.contract_address_hex,
-            chain_contract_block_hex: decider_settings.contract_block_hex,
+            chain_contract_block_hex: decider_settings.start_block,
+            chain_matcher_addr: decider_settings.matcher_address,
+            chain_workers_gas: decider_settings.worker_gas,
+            chain_wallet_key: wallet_key,
         };
         let decider_spell_distro = decider_distro::decider_spell(decider_config);
         let mut decider_trigger_config = TriggerConfig::default();

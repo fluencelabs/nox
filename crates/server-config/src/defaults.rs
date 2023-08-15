@@ -249,12 +249,17 @@ pub fn default_deal_network_api_endpoint() -> String {
     "https://testnet.aurora.dev".to_string()
 }
 
-pub fn default_deal_contract_address_hex() -> String {
-    "0xb497e025D3095A197E30Ca84DEc36a637E649868".to_string()
+pub fn default_matcher_address() -> String {
+    // on mumbai
+    "0x606FDCD779C8a08597501C0c629A10Df3aCF2935".to_string()
 }
 
-pub fn default_deal_contract_block_hex() -> String {
+pub fn default_decider_start_block_hex() -> String {
     "latest".to_string()
+}
+
+pub fn default_decider_worker_gas() -> u64 {
+    210_000
 }
 
 pub fn default_ipfs_binary_path() -> String {
