@@ -271,6 +271,31 @@ impl UnresolvedNodeConfig {
             self.system_services.decider.start_block = decider_from_block;
             log::warn!("Override configuration of decider system spell (from block) from ENV");
         }
+
+        if let Ok(decider_wallet_key) = std::env::var("FLUENCE_ENV_CONNECTOR_WALLET_KEY") {
+            self.system_services.decider.wallet_key = Some(decider_wallet_key);
+            log::warn!("Override configuration of decider system spell (wallet key) from ENV");
+        }
+
+        if let Ok(worker_gas) = std::env::var("FLUENCE_ENV_CONNECTOR_WORKER_GAS") {
+            match worker_gas.parse() {
+                Ok(worker_gas) => {
+                    self.system_services.decider.worker_gas = worker_gas;
+                    log::warn!(
+                        "Override configuration of decider system spell (worker gas) from ENV"
+                    );
+                }
+                Err(err) => log::warn!(
+                    "Unable to override worker gas, value is not a valid u64: {}",
+                    err
+                ),
+            }
+        }
+
+        if let Ok(decider_wallet_key) = std::env::var("FLUENCE_ENV_CONNECTOR_WALLET_KEY") {
+            self.system_services.decider.wallet_key = Some(decider_wallet_key);
+            log::warn!("Override configuration of decider system spell (wallet key) from ENV");
+        }
     }
 }
 
