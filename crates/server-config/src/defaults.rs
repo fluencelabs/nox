@@ -251,7 +251,7 @@ pub fn default_decider_network_api_endpoint() -> String {
 
 pub fn default_matcher_address() -> String {
     // on mumbai
-    "0x606FDCD779C8a08597501C0c629A10Df3aCF2935".to_string()
+    "0x48772E71Ee51946beC258D4127eDDF110A7dCbeD".to_string()
 }
 
 pub fn default_decider_start_block_hex() -> String {
