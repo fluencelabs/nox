@@ -246,7 +246,7 @@ pub fn default_registry_replicate_spell_period_sec() -> u32 {
 }
 
 pub fn default_decider_network_api_endpoint() -> String {
-    "https://polygon-mumbai.gateway.tenderly.co".to_string()
+    "https://endpoints.omniatech.io/v1/matic/mumbai/public".to_string()
 }
 
 pub fn default_matcher_address() -> String {
