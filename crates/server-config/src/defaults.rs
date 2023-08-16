@@ -245,7 +245,7 @@ pub fn default_registry_replicate_spell_period_sec() -> u32 {
     3600
 }
 
-pub fn default_deal_network_api_endpoint() -> String {
+pub fn default_decider_network_api_endpoint() -> String {
     "https://polygon-mumbai.gateway.tenderly.co".to_string()
 }
 
@@ -268,4 +268,9 @@ pub fn default_ipfs_binary_path() -> String {
 
 pub fn default_curl_binary_path() -> String {
     "/usr/bin/curl".to_string()
+}
+
+pub fn default_decider_network_id() -> u64 {
+    // 80001 = polygon mumbai
+    80001
 }

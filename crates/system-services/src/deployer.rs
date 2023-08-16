@@ -288,20 +288,21 @@ impl Deployer {
         })
     }
 
-    fn get_decider_distro(decider_settings: DeciderConfig, wallet_key: String) -> SpellDistro {
+    fn get_decider_distro(config: DeciderConfig, wallet_key: String) -> SpellDistro {
         let decider_config = decider_distro::DeciderConfig {
-            worker_period_sec: decider_settings.worker_period_sec,
-            worker_ipfs_multiaddr: decider_settings.worker_ipfs_multiaddr,
-            chain_network: decider_settings.network_api_endpoint,
-            chain_contract_block_hex: decider_settings.start_block,
-            chain_matcher_addr: decider_settings.matcher_address,
-            chain_workers_gas: decider_settings.worker_gas,
+            worker_period_sec: config.worker_period_sec,
+            worker_ipfs_multiaddr: config.worker_ipfs_multiaddr,
+            chain_api_endpoint: config.network_api_endpoint,
+            chain_network_id: config.network_id,
+            chain_contract_block_hex: config.start_block,
+            chain_matcher_addr: config.matcher_address,
+            chain_workers_gas: config.worker_gas,
             chain_wallet_key: wallet_key,
         };
         let decider_spell_distro = decider_distro::decider_spell(decider_config);
         let mut decider_trigger_config = TriggerConfig::default();
         decider_trigger_config.clock.start_sec = 1;
-        decider_trigger_config.clock.period_sec = decider_settings.decider_period_sec;
+        decider_trigger_config.clock.period_sec = config.decider_period_sec;
         SpellDistro {
             name: Decider.to_string(),
             air: decider_spell_distro.air,
