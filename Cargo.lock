@@ -5772,6 +5772,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "spell-service-api"
+version = "0.1.0"
+dependencies = [
+ "config-utils",
+ "fluence-app-service",
+ "fluence-libp2p",
+ "fluence-spell-dtos",
+ "libp2p-identity",
+ "maplit",
+ "particle-execution",
+ "particle-modules",
+ "particle-services",
+ "serde",
+ "serde_json",
+ "server-config",
+ "spell-storage",
+ "tempdir",
+ "thiserror",
+]
+
+[[package]]
 name = "spell-storage"
 version = "0.1.0"
 dependencies = [
