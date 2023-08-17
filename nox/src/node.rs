@@ -260,6 +260,7 @@ impl<RT: AquaRuntime> Node<RT> {
         let (spell_event_bus, spell_event_bus_api, spell_events_receiver) =
             SpellEventBus::new(spell_metrics.clone(), sources);
 
+        let spell_service_api = spell_service_api::SpellServiceApi::new(builtins.services.clone());
         let (sorcerer, mut custom_service_functions, spell_version) = Sorcerer::new(
             builtins.services.clone(),
             builtins.modules.clone(),
@@ -267,6 +268,7 @@ impl<RT: AquaRuntime> Node<RT> {
             config.clone(),
             spell_event_bus_api.clone(),
             key_manager.clone(),
+            spell_service_api.clone(),
             spell_metrics,
         );
 
@@ -313,6 +315,7 @@ impl<RT: AquaRuntime> Node<RT> {
             modules,
             sorcerer.spell_storage.clone(),
             spell_event_bus_api.clone(),
+            spell_service_api.clone(),
             key_manager.get_host_peer_id(),
             builtins_peer_id,
             system_services_config,

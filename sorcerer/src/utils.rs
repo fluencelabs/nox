@@ -20,6 +20,8 @@ use serde::de::DeserializeOwned;
 use particle_args::JError;
 use particle_execution::{FunctionOutcome, ParticleParams};
 
+// TODO: mark as such for CI to pass, remove later
+#[allow(dead_code)]
 // TODO: change function name to the better one
 /// Return Ok(T) if result.success is true, return Err(T.error) otherwise
 pub fn process_func_outcome<T>(

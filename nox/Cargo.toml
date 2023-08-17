@@ -30,6 +30,7 @@ peer-metrics = { workspace = true }
 spell-event-bus = { workspace = true }
 key-manager = { workspace = true }
 system-services = { workspace = true }
+spell-service-api = { workspace = true }
 
 fluence-keypair = { workspace = true }
 

@@ -13,6 +13,7 @@ use server_config::{
 };
 use sorcerer::{get_spell_info, install_spell, remove_spell};
 use spell_event_bus::api::SpellEventBusApi;
+use spell_service_api::{CallParams, SpellServiceApi};
 use spell_storage::SpellStorage;
 use std::collections::{HashMap, HashSet};
 use std::time::Duration;
@@ -65,6 +66,7 @@ pub struct Deployer {
     // These fields are used for deploying system spells
     spell_storage: SpellStorage,
     spell_event_bus_api: SpellEventBusApi,
+    spell_service_api: SpellServiceApi,
     // These fields are used for deploying services and spells from the node name
     root_worker_id: PeerId,
     management_id: PeerId,
@@ -86,6 +88,7 @@ impl Deployer {
         modules_repo: ModuleRepository,
         spell_storage: SpellStorage,
         spell_event_bus_api: SpellEventBusApi,
+        spell_service_api: SpellServiceApi,
         root_worker_id: PeerId,
         management_id: PeerId,
         config: SystemServicesConfig,
@@ -95,6 +98,7 @@ impl Deployer {
             modules_repo,
             spell_storage,
             spell_event_bus_api,
+            spell_service_api,
             root_worker_id,
             management_id,
             config,
@@ -414,28 +418,24 @@ impl Deployer {
             );
         }
 
-        // update spell
-        self.call_service(
-            spell_id,
-            "set_script_source_to_file",
-            vec![json!(spell_distro.air)],
-        )?;
-
         let trigger_config = spell_event_bus::api::from_user_config(&spell_distro.trigger_config)?;
-        self.call_service(
-            spell_id,
-            "set_trigger_config",
-            vec![json!(spell_distro.trigger_config)],
-        )?;
 
+        let params = CallParams::local(
+            spell_id.to_string(),
+            self.root_worker_id,
+            Duration::from_millis(DEPLOYER_TTL),
+        );
+        // update trigger config
+        self.spell_service_api
+            .set_trigger_config(params.clone(), spell_distro.trigger_config.clone())?;
+        // update spell
+        self.spell_service_api
+            .set_script(params.clone(), spell_distro.air.to_string())?;
         // What to do with decider, who updates its from_block from the first run?
         // To we need to update "counter" too.clone(.clone(.clone()))?
         // Let's save old_counter
-        self.call_service(
-            spell_id,
-            "set_json_fields",
-            vec![json!(json!(spell_distro.kv).to_string())],
-        )?;
+        self.spell_service_api
+            .update_kv(params, json!(spell_distro.kv))?;
 
         // resubscribe spell
         if let Some(trigger_config) = trigger_config {
@@ -471,7 +471,13 @@ impl Deployer {
             // Stop old spell
             let result: eyre::Result<_> = try {
                 // Stop the spell to avoid re-subscription
-                self.call_service(&spell_id, "set_trigger_config", vec![json!(empty_config)])?;
+                let params = CallParams::local(
+                    spell_id.clone(),
+                    self.root_worker_id,
+                    Duration::from_millis(DEPLOYER_TTL),
+                );
+                self.spell_service_api
+                    .set_trigger_config(params, empty_config)?;
 
                 // Unsubscribe spell from execution
                 self.spell_event_bus_api.unsubscribe(spell_id.clone()).await
@@ -491,6 +497,7 @@ impl Deployer {
             &self.services,
             &self.spell_storage,
             &self.spell_event_bus_api,
+            &self.spell_service_api,
             self.root_worker_id,
             DEPLOYER_PARTICLE_ID.to_string(),
             DEPLOYER_TTL,
@@ -544,7 +551,7 @@ impl Deployer {
 
         // Request a script and a trigger config from the spell
         let spell_info = get_spell_info(
-            &self.services,
+            &self.spell_service_api,
             self.root_worker_id,
             DEPLOYER_TTL,
             spell.id.clone(),
