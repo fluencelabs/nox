@@ -14,11 +14,8 @@
  * limitations under the License.
  */
 
-use fluence_spell_dtos::value::SpellValueT;
-use serde::de::DeserializeOwned;
-
 use particle_args::JError;
-use particle_execution::{FunctionOutcome, ParticleParams};
+use particle_execution::ParticleParams;
 
 pub(crate) fn parse_spell_id_from(particle: &ParticleParams) -> Result<String, JError> {
     ParticleParams::get_spell_id(&particle.id).ok_or(JError::new(format!(
