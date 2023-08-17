@@ -307,7 +307,7 @@ pub(crate) fn get_spell_arg(
     let key = args.function_name;
     let call_params = CallParams::from(spell_id.clone(), params);
 
-    let str_value: String = spell_service_api
+    let str_value = spell_service_api
         .get_string(call_params, key.clone())
         .map_err(|e| JError::new(f!("Failed to get argument {key} for spell {spell_id}: {e}")))
         .and_then(|value| value.ok_or_else(|| JError::new("value not found")))?;

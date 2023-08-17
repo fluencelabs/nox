@@ -161,7 +161,7 @@ impl SpellServiceApi {
             args: vec![json!(key)],
         };
         let result = self.call::<StringValue>(params, function)?;
-        Ok(result.absent.then_some(result.str))
+        Ok((!result.absent).then_some(result.str))
     }
 
     pub fn set_string(
@@ -185,7 +185,7 @@ impl SpellServiceApi {
             args: vec![json!("counter")],
         };
         let result = self.call::<U32Value>(params, function)?;
-        Ok(result.absent.then_some(result.num))
+        Ok((!result.absent).then_some(result.num))
     }
 
     /// Update the counter (how many times the spell was run)
@@ -260,7 +260,6 @@ impl SpellServiceApi {
     }
 }
 
-/*
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;
@@ -282,7 +281,7 @@ mod tests {
     use serde_json::json;
     use std::time::Duration;
 
-    use crate::SpellServiceApi;
+    use crate::{CallParams, SpellServiceApi};
 
     const TTL: Duration = Duration::from_millis(100000);
 
@@ -335,7 +334,7 @@ mod tests {
             .map_err(|e| e.to_string())
     }
 
-    fn setup() -> (SpellServiceApi, PeerId, String) {
+    fn setup() -> (SpellServiceApi, CallParams) {
         let base_dir = TempDir::new("test3").unwrap();
         let local_pid = create_pid();
         let management_pid = create_pid();
@@ -345,68 +344,59 @@ mod tests {
         let (storage, _) = spell_storage::SpellStorage::create(Path::new(""), &pas, &repo).unwrap();
         let spell_service_blueprint_id = storage.get_blueprint();
         let spell_id = create_spell(&pas, spell_service_blueprint_id, local_pid).unwrap();
-        (api, local_pid, spell_id)
+        let params = CallParams::local(spell_id, local_pid, TTL);
+        (api, params)
     }
 
     #[test]
     fn test_counter() {
-        let (api, worker_id, spell_id) = setup();
-        let result1 = api.get_counter(worker_id.clone(), spell_id.clone(), TTL);
+        let (api, params) = setup();
+        let result1 = api.get_counter(params.clone());
         assert!(
             result1.is_ok(),
             "must be able to get a counter of an empty spell"
         );
         assert_eq!(
             result1.unwrap(),
-            0,
+            None,
             "the counter of an empty spell must be zero"
         );
         let new_counter = 7;
-        let result2 = api.set_counter(worker_id.clone(), spell_id.clone(), new_counter, TTL);
+        let result2 = api.set_counter(params.clone(), new_counter);
         assert!(
             result2.is_ok(),
             "must be able to set a counter of an empty spell"
         );
-        let result3 = api.get_counter(worker_id, spell_id, TTL);
+        let result3 = api.get_counter(params);
         assert!(
             result3.is_ok(),
             "must be able to get a counter of an empty spell again"
         );
         assert_eq!(
             result3.unwrap(),
-            new_counter as u32,
+            Some(new_counter),
             "must be able to load an updated counter"
         );
     }
 
     #[test]
     fn test_script() {
-        let (api, worker_id, spell_id) = setup();
+        let (api, params) = setup();
         let script_original = "(noop)".to_string();
-        let result1 = api.set_script(
-            worker_id.clone(),
-            spell_id.clone(),
-            script_original.clone(),
-            TTL,
-        );
+        let result1 = api.set_script(params.clone(), script_original.clone());
         assert!(result1.is_ok(), "must be able to update script");
-        let script = api.get_script(worker_id, spell_id, TTL);
+        let script = api.get_script(params);
         assert!(script.is_ok(), "must be able to load script");
         assert_eq!(script.unwrap(), script_original, "scripts must be equal");
     }
 
     #[test]
     fn test_trigger_config() {
-        let (api, worker_id, spell_id) = setup();
+        let (api, params) = setup();
         let trigger_config_original = TriggerConfig::default();
-        let result1 = api.set_trigger_config(
-            worker_id.clone(),
-            spell_id.clone(),
-            trigger_config_original.clone(),
-            TTL,
-        );
+        let result1 = api.set_trigger_config(params.clone(), trigger_config_original.clone());
         assert!(result1.is_ok(), "must be able to set trigger config");
-        let result2 = api.get_trigger_config(worker_id, spell_id, TTL);
+        let result2 = api.get_trigger_config(params);
         assert!(result2.is_ok(), "must be able to get trigger config");
         assert_eq!(
             result2.unwrap(),
@@ -417,22 +407,26 @@ mod tests {
 
     #[test]
     fn test_kv() {
-        let (api, worker_id, spell_id) = setup();
+        let (api, params) = setup();
         let init_data = hashmap! {
             "a1" => json!(1),
             "b1" => json!("test"),
         };
-        let result1 = api.update_kv(worker_id.clone(), spell_id.clone(), json!(init_data), TTL);
+        let result1 = api.update_kv(params.clone(), json!(init_data));
         assert!(result1.is_ok(), "must be able to update kv");
 
-        let result = api.get_string(params.clone(), "a1".to_string);
-        assert!(result.is_ok(), "must be able to add get_string");
-        assert_eq!(result.unwrap().str, "1", "must be able to add get_string");
-
-        let result = api.get_string(params.clone(), "b1".to_string);
+        let result = api.get_string(params.clone(), "a1".to_string());
         assert!(result.is_ok(), "must be able to add get_string");
         assert_eq!(
-            result.unwrap().str,
+            result.unwrap().unwrap(),
+            "1",
+            "must be able to add get_string"
+        );
+
+        let result = api.get_string(params, "b1".to_string());
+        assert!(result.is_ok(), "must be able to add get_string");
+        assert_eq!(
+            result.unwrap().unwrap(),
             "\"test\"",
             "must be able to add get_string"
         );
@@ -440,26 +434,21 @@ mod tests {
 
     #[test]
     fn test_trigger_event() {
-        let (api, worker_id, spell_id) = setup();
+        let (api, params) = setup();
         let trigger_event = json!({
             "peer": json!([]),
             "timer": vec![json!({
                 "timestamp": 1
             })]
         });
-        let result = api.set_trigger_event(
-            worker_id.clone(),
-            spell_id.clone(),
-            trigger_event.clone(),
-            TTL,
-        );
+        let result = api.set_trigger_event(params.clone(), trigger_event.to_string());
         assert!(result.is_ok(), "must be able to set trigger event");
 
         let function = super::Function {
             name: "get_string",
             args: vec![json!("trigger")],
         };
-        let result = api.call::<StringValue>(worker_id, spell_id, function, TTL);
+        let result = api.call::<StringValue>(params, function);
         assert!(result.is_ok(), "must be able to add get_string");
         let trigger_event_read: Result<serde_json::Value, _> =
             serde_json::from_str(&result.unwrap().str);
@@ -474,4 +463,3 @@ mod tests {
         );
     }
 }
-*/

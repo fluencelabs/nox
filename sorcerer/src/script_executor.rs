@@ -93,8 +93,7 @@ impl Sorcerer {
         let serialized_event = serde_json::to_string(&TriggerInfoAqua::from(event.info))?;
         let params = CallParams::local(event.spell_id, worker_id, self.spell_script_particle_ttl);
         self.spell_service_api
-            // should it be `api.set_string` or `api.set_trigger`, so that "trigger" keyword is a part of API?
-            .set_string(params, "trigger".to_string(), serialized_event)
+            .set_trigger_event(params, serialized_event)
             .map_err(|e| JError::new(e.to_string()))
     }
 
