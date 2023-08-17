@@ -209,7 +209,7 @@ impl SpellServiceApi {
             name: "store_error",
             args,
         };
-        let _ = self.call::<UnitValue>(params, function);
+        let _ = self.call::<UnitValue>(params, function)?;
         Ok(())
     }
 

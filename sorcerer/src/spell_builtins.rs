@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-//use fluence_spell_dtos::value::{StringValue, UnitValue};
 use serde_json::{json, Value as JValue, Value, Value::Array};
 
 use crate::utils::parse_spell_id_from;
@@ -75,7 +74,6 @@ pub async fn install_spell(
     spell_storage.register_spell(worker_id, spell_id.clone());
 
     let params = CallParams::local(spell_id.clone(), worker_id, Duration::from_millis(ttl));
-    // TODO: refactor these service calls
     // Save the script to the spell
     spell_service_api.set_script(params.clone(), script)?;
     // Save init_data to the spell's KV
@@ -322,7 +320,6 @@ pub(crate) fn get_spell_arg(
 pub(crate) fn store_error(
     mut args: Args,
     params: ParticleParams,
-    // services: ParticleAppServices,
     spell_service_api: SpellServiceApi,
 ) -> Result<(), JError> {
     let spell_id = parse_spell_id_from(&params)?;
