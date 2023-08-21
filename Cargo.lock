@@ -1394,9 +1394,9 @@ dependencies = [
 
 [[package]]
 name = "decider-distro"
-version = "0.4.18-compute-peer-match-b73ac4a-281-1.0"
+version = "0.4.18-compute-peer-match-7155ff7-282-1.0"
 source = "registry+git://crates.fluence.dev/index"
-checksum = "557acde9b90c5bb1a7af639b958986e9c5b86a7ec228ca9026760334ea02910a"
+checksum = "4c8bc99d2c22cf2f84c9e0bc141ba497386cfda254ba7bc4e26ed9b90248689e"
 dependencies = [
  "built 0.6.1",
  "fluence-spell-dtos",
