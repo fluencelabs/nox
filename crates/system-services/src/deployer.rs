@@ -66,7 +66,7 @@ pub struct Deployer {
     // These fields are used for deploying system spells
     spell_storage: SpellStorage,
     spell_event_bus_api: SpellEventBusApi,
-    spell_service_api: SpellServiceApi,
+    spells_api: SpellServiceApi,
     // These fields are used for deploying services and spells from the node name
     root_worker_id: PeerId,
     management_id: PeerId,
@@ -83,6 +83,7 @@ pub struct Versions {
 }
 
 impl Deployer {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         services: ParticleAppServices,
         modules_repo: ModuleRepository,
@@ -98,7 +99,7 @@ impl Deployer {
             modules_repo,
             spell_storage,
             spell_event_bus_api,
-            spell_service_api,
+            spells_api: spell_service_api,
             root_worker_id,
             management_id,
             config,
@@ -426,16 +427,13 @@ impl Deployer {
             Duration::from_millis(DEPLOYER_TTL),
         );
         // update trigger config
-        self.spell_service_api
-            .set_trigger_config(params.clone(), spell_distro.trigger_config.clone())?;
+        let config = spell_distro.trigger_config.clone();
+        self.spells_api.set_trigger_config(params.clone(), config)?;
         // update spell
-        self.spell_service_api
-            .set_script(params.clone(), spell_distro.air.to_string())?;
-        // What to do with decider, who updates its from_block from the first run?
-        // To we need to update "counter" too.clone(.clone(.clone()))?
+        let air = spell_distro.air.to_string();
+        self.spells_api.set_script(params.clone(), air)?;
         // Let's save old_counter
-        self.spell_service_api
-            .update_kv(params, json!(spell_distro.kv))?;
+        self.spells_api.update_kv(params, json!(spell_distro.kv))?;
 
         // resubscribe spell
         if let Some(trigger_config) = trigger_config {
@@ -476,8 +474,7 @@ impl Deployer {
                     self.root_worker_id,
                     Duration::from_millis(DEPLOYER_TTL),
                 );
-                self.spell_service_api
-                    .set_trigger_config(params, empty_config)?;
+                self.spells_api.set_trigger_config(params, empty_config)?;
 
                 // Unsubscribe spell from execution
                 self.spell_event_bus_api.unsubscribe(spell_id.clone()).await
@@ -497,7 +494,7 @@ impl Deployer {
             &self.services,
             &self.spell_storage,
             &self.spell_event_bus_api,
-            &self.spell_service_api,
+            &self.spells_api,
             self.root_worker_id,
             DEPLOYER_PARTICLE_ID.to_string(),
             DEPLOYER_TTL,
@@ -551,7 +548,7 @@ impl Deployer {
 
         // Request a script and a trigger config from the spell
         let spell_info = get_spell_info(
-            &self.spell_service_api,
+            &self.spells_api,
             self.root_worker_id,
             DEPLOYER_TTL,
             spell.id.clone(),
