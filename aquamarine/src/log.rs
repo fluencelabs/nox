@@ -8,8 +8,9 @@ pub fn builtin_log_fn(
     particle_id: String,
 ) {
     match service {
-        "array" | "cmp" | "debug" | "math" | "op" | "getDataSrv" | "run-console" => {
+        "array" | "cmp" | "debug" | "math" | "op" | "getDataSrv" | "run-console" | "json" => {
             tracing::event!(
+                target: "aquamarine",
                 tracing::Level::DEBUG,
                 "Executed host call {} ({}) [{}]",
                 args,
@@ -18,6 +19,7 @@ pub fn builtin_log_fn(
             )
         }
         "peer" | "script" | "stat" | "sig" | "srv" | "dist" | "kad" => tracing::event!(
+            target: "aquamarine",
             tracing::Level::INFO,
             "Executed host call {} ({}) [{}]",
             args,
@@ -25,6 +27,7 @@ pub fn builtin_log_fn(
             particle_id
         ),
         _ => tracing::event!(
+            target: "aquamarine",
             tracing::Level::INFO,
             "Executed host call {} ({}) [{}]",
             args,

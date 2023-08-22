@@ -48,7 +48,7 @@ local-nox:
 	FLUENCE_ENV_AQUA_IPFS_EXTERNAL_API_MULTIADDR="/ip4/127.0.0.1/tcp/5001" \
 	FLUENCE_ENV_CONNECTOR_API_ENDPOINT="https://endpoints.omniatech.io/v1/matic/mumbai/public" \
 	FLUENCE_ENV_CONNECTOR_CONTRACT_ADDRESS="0x48772E71Ee51946beC258D4127eDDF110A7dCbeD" \
-	FLUENCE_ENV_CONNECTOR_WALLET_KEY="3639cc2d3d27abf76509077efc0be6093290f0f8739c00bdda6504b9d9fc66c2" \
+	FLUENCE_ENV_CONNECTOR_WALLET_KEY="8447c3b0ebbb09f3153ec59702459ee23c4af524e7882de9f5718f14c3f0e00b" \
 	FLUENCE_ENV_CONNECTOR_FROM_BLOCK=0x253fee1 \
 	FLUENCE_ENV_AQUA_IPFS_LOCAL_API_MULTIADDR="/ip4/127.0.0.1/tcp/5001" \
 	FLUENCE_SYSTEM_SERVICES__DECIDER__DECIDER_PERIOD_SEC=30 \
@@ -56,12 +56,12 @@ local-nox:
 	FLUENCE_SYSTEM_SERVICES__ENABLE="aqua-ipfs,decider" \
 	WASM_LOG="trace" \
 	RUST_LOG="debug,\
-		aquamarine::aqua_runtime=error,\
+		aquamarine=info,\
+		aquamarine::aqua_runtime=warn,\
 		ipfs_effector=off,\
 		ipfs_pure=off,\
 		system_services=debug,\
 		marine_core::module::marine_module=info,\
-		aquamarine=warn,\
 		tokio_threadpool=info,\
 		tokio_reactor=info,\
 		mio=info,\
@@ -86,6 +86,6 @@ local-nox:
 		particle_protocol::libp2p_protocol::upgrade=info,\
 		libp2p_mplex=off,\
 		particle_reap=off" \
-	cargo run -p nox -- --secret-key "74c9Fl8I+XFwlTRnLAyYlSML+Jk6zIkZgtQoo5deuGk="
+	cargo run -p nox -- --secret-key "74c9Fl8I+XFwlTRnLAyYlSML+Jk6zIkZgtQoo5deuGk=" --aqua-pool-size 3
 
 .PHONY: server server-debug test release build deploy local-nox local-env local-env-logs
