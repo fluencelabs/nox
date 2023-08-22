@@ -4138,6 +4138,7 @@ dependencies = [
  "server-config",
  "sorcerer",
  "spell-event-bus",
+ "spell-service-api",
  "system-services",
  "tokio",
  "tokio-stream",
@@ -5733,6 +5734,7 @@ dependencies = [
  "serde_json",
  "server-config",
  "spell-event-bus",
+ "spell-service-api",
  "spell-storage",
  "thiserror",
  "tokio",
@@ -5769,6 +5771,27 @@ dependencies = [
  "tokio",
  "tokio-stream",
  "uuid-utils",
+]
+
+[[package]]
+name = "spell-service-api"
+version = "0.1.0"
+dependencies = [
+ "config-utils",
+ "fluence-app-service",
+ "fluence-libp2p",
+ "fluence-spell-dtos",
+ "libp2p-identity",
+ "maplit",
+ "particle-execution",
+ "particle-modules",
+ "particle-services",
+ "serde",
+ "serde_json",
+ "server-config",
+ "spell-storage",
+ "tempdir",
+ "thiserror",
 ]
 
 [[package]]
@@ -5936,6 +5959,7 @@ dependencies = [
  "service-modules",
  "sorcerer",
  "spell-event-bus",
+ "spell-service-api",
  "spell-storage",
  "toml 0.5.11",
  "tracing",
