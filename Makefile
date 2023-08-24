@@ -58,6 +58,7 @@ local-nox:
 	RUST_LOG="debug,\
 		aquamarine=info,\
 		aquamarine::aqua_runtime=warn,\
+		aquamarine::particle_executor=warn,\
 		ipfs_effector=off,\
 		ipfs_pure=off,\
 		system_services=debug,\
