@@ -36,6 +36,10 @@ impl ServiceKey {
             Self::Decider,
         ]
     }
+
+    pub fn from_string(name: &str) -> Option<ServiceKey> {
+        serde_json::from_str::<ServiceKey>(name).ok()
+    }
 }
 
 impl std::fmt::Display for ServiceKey {

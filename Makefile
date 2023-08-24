@@ -9,7 +9,7 @@ test:
 
 server:
 	WASM_LOG="trace" \
-	RUST_LOG="debug,\
+	RUST_LOG="info,\
 	aquamarine::aqua_runtime=off,\
 	ipfs_effector=off,\
 	ipfs_pure=off,\
@@ -32,7 +32,7 @@ server:
 	wasmer_wasi=info,\
 	cranelift_codegen=info,\
 	wasmer_wasi=info,\
-	run-console=trace,\
+	run-console=debug,\
 	wasmtime_cranelift=off,\
 	wasmtime_jit=off,\
 	particle_reap=off" \

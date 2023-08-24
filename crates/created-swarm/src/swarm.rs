@@ -374,8 +374,20 @@ pub fn create_swarm_with_runtime<RT: AquaRuntime>(
         listen_on: config.listen_on.clone(),
         manager: management_peer_id,
     });
-    let mut node =
-        Node::new(resolved, vm_config, "some version", "some version").expect("create node");
+
+    let system_services_config = resolved.system_services.clone();
+    let system_service_distros =
+        system_services::SystemServiceDistros::default_from(system_services_config)
+            .expect("Failed to get default system service distros");
+
+    let mut node = Node::new(
+        resolved,
+        vm_config,
+        "some version",
+        "some version",
+        system_service_distros,
+    )
+    .expect("create node");
     node.listen(vec![config.listen_on.clone()]).expect("listen");
 
     (
