@@ -27,6 +27,7 @@ members = [
     "crates/test-constants",
     "crates/peer-metrics",
     "crates/spell-event-bus",
+    "crates/spell-service-api",
     "crates/key-manager",
     "crates/health",
     "sorcerer",
@@ -73,6 +74,7 @@ connected-client = { path = "crates/connected-client" }
 test-constants = { path = "crates/test-constants" }
 peer-metrics = { path = "crates/peer-metrics" }
 spell-event-bus = { path = "crates/spell-event-bus" }
+spell-service-api = { path = "crates/spell-service-api" }
 key-manager = { path = "crates/key-manager" }
 cid-utils = { path = "crates/cid-utils" }
 sorcerer = { path = "sorcerer" }

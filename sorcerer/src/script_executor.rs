@@ -14,41 +14,23 @@
  * limitations under the License.
  */
 use fluence_libp2p::PeerId;
-use fluence_spell_dtos::value::{ScriptValue, U32Value, UnitValue};
-use serde_json::json;
 
 use crate::error::SorcererError::{ParticleSigningFailed, ScopeKeypairMissing};
 use now_millis::now_ms;
 use particle_args::JError;
 use particle_protocol::Particle;
 use spell_event_bus::api::{TriggerEvent, TriggerInfoAqua};
+use spell_service_api::CallParams;
 
-use crate::utils::process_func_outcome;
 use crate::Sorcerer;
 
 impl Sorcerer {
     fn get_spell_counter(&self, spell_id: String, worker_id: PeerId) -> Result<u32, JError> {
-        let func_outcome = self.services.call_function(
-            worker_id,
-            &spell_id,
-            "get_u32",
-            vec![json!("counter")],
-            None,
-            worker_id,
-            self.spell_script_particle_ttl,
-        );
-
-        let res = process_func_outcome::<U32Value>(func_outcome, &spell_id, "get_u32");
-        match res {
-            // If the counter does not exist, consider it to be 0.
-            // It will be incremented afterwards to 1 anyway.
-            Ok(res) if res.absent => Ok(0u32),
-            Ok(res) => Ok(res.num),
-            Err(err) => {
-                log::warn!("Error on get_u32 counter for spell {}: {}", spell_id, err);
-                Err(err)
-            }
-        }
+        let params = CallParams::local(spell_id, worker_id, self.spell_script_particle_ttl);
+        let counter = self.spell_service_api.get_counter(params)?;
+        // If the counter does not exist, consider it to be 0.
+        // It will be incremented afterwards to 1 anyway.
+        Ok(counter.unwrap_or(0u32))
     }
 
     fn set_spell_next_counter(
@@ -57,36 +39,17 @@ impl Sorcerer {
         next_counter: u32,
         worker_id: PeerId,
     ) -> Result<(), JError> {
-        let func_outcome = self.services.call_function(
-            worker_id,
-            &spell_id,
-            "set_u32",
-            vec![json!("counter"), json!(next_counter)],
-            None,
-            worker_id,
-            self.spell_script_particle_ttl,
-        );
-
-        process_func_outcome::<UnitValue>(func_outcome, &spell_id, "set_u32").map(drop)
+        let params = CallParams::local(spell_id, worker_id, self.spell_script_particle_ttl);
+        self.spell_service_api
+            .set_counter(params, next_counter)
+            .map_err(|e| JError::new(e.to_string()))
     }
 
     fn get_spell_script(&self, spell_id: String, worker_id: PeerId) -> Result<String, JError> {
-        let func_outcome = self.services.call_function(
-            worker_id,
-            &spell_id,
-            "get_script_source_from_file",
-            vec![],
-            None,
-            worker_id,
-            self.spell_script_particle_ttl,
-        );
-
-        Ok(process_func_outcome::<ScriptValue>(
-            func_outcome,
-            &spell_id,
-            "get_script_source_from_file",
-        )?
-        .source_code)
+        let params = CallParams::local(spell_id, worker_id, self.spell_script_particle_ttl);
+        self.spell_service_api
+            .get_script(params)
+            .map_err(|e| JError::new(e.to_string()))
     }
 
     pub(crate) fn make_spell_particle(
@@ -128,21 +91,10 @@ impl Sorcerer {
         worker_id: PeerId,
     ) -> Result<(), JError> {
         let serialized_event = serde_json::to_string(&TriggerInfoAqua::from(event.info))?;
-
-        process_func_outcome::<UnitValue>(
-            self.services.call_function(
-                worker_id,
-                &event.spell_id,
-                "set_string",
-                vec![json!("trigger"), json!(serialized_event)],
-                None,
-                worker_id,
-                self.spell_script_particle_ttl,
-            ),
-            &event.spell_id,
-            "set_string",
-        )
-        .map(drop)
+        let params = CallParams::local(event.spell_id, worker_id, self.spell_script_particle_ttl);
+        self.spell_service_api
+            .set_trigger_event(params, serialized_event)
+            .map_err(|e| JError::new(e.to_string()))
     }
 
     pub async fn execute_script(&self, event: TriggerEvent) {

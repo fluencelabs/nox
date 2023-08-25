@@ -8,7 +8,7 @@ test:
 	cargo test --release
 
 server:
-    WASM_LOG="trace" \
+	WASM_LOG="trace" \
 	RUST_LOG="debug,\
 	aquamarine::aqua_runtime=off,\
 	ipfs_effector=off,\
