@@ -1,3 +1,4 @@
+#![feature(assert_matches)]
 /*
  * Copyright 2021 Fluence Labs Limited
  *
@@ -16,13 +17,118 @@
 
 use eyre::WrapErr;
 use maplit::hashmap;
-use serde_json::json;
 use serde_json::Value as JValue;
+use serde_json::{json, Value};
+use std::assert_matches::assert_matches;
 
 use base64::{engine::general_purpose::STANDARD as base64, Engine};
 use connected_client::ConnectedClient;
 use created_swarm::{make_swarms, make_swarms_with_cfg};
 use service_modules::load_module;
+use system_services::{PackageDistro, ServiceDistro};
+
+#[tokio::test]
+async fn test_system_service_override() {
+    // We need to include bytes, not read them, since the ServiceDistro expects module bytes as `&'static [u8]`
+    // It's unnecessary to allow not static links or even vectors since in real life in real life we need only this
+    let module = include_bytes!("./tetraplets/artifacts/tetraplets.wasm");
+    let config = json!({
+      "module": [
+        {
+          "name": "tetraplets",
+          "config" : {
+            "preopened_files": [
+               [
+                 "tmp"
+               ]
+            ],
+        }}
+      ]
+    });
+
+    let config = serde_json::from_value(config).expect("parse module config");
+    let m: &'static [u8] = module;
+    let service_name = "test-service".to_string();
+
+    let service = ServiceDistro {
+        name: service_name.clone(),
+        modules: hashmap! {
+            "tetraplets" => m,
+        },
+        config,
+    };
+    let name = service_name.clone();
+    let init: system_services::InitService = Box::new(move |call, status| {
+        let name = name.clone();
+        let service_status = status
+            .services
+            .get(&name)
+            .expect("deployment status for the service");
+        assert_matches!(
+            service_status,
+            system_services::ServiceStatus::Created(_),
+            "wrong deployment status"
+        );
+        let result: eyre::Result<_> = call(name.clone(), "not".to_string(), vec![json!(false)]);
+        assert!(
+            result.is_err(),
+            "must be error due to the the call interface restrictions"
+        );
+        let error = result.unwrap_err().to_string();
+        assert_eq!(
+            error,
+            format!("Call {}.not return invalid result: true", name),
+            "the service call must return invalid result due to the call interface restrictions"
+        );
+        Ok(())
+    });
+    let package = PackageDistro {
+        name: service_name.clone(),
+        version: "some-version",
+        services: vec![service],
+        spells: vec![],
+        init: Some(std::sync::Arc::new(init)),
+    };
+    let swarms = make_swarms_with_cfg(1, move |mut cfg| {
+        cfg.extend_system_services = vec![package.clone()];
+        cfg
+    })
+    .await;
+
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
+        .wrap_err("connect client")
+        .unwrap();
+    let data = hashmap! {
+        "relay" => json!(client.node.to_string()),
+    };
+    let response = client
+        .execute_particle(
+            r#"
+                (seq
+                    (call relay ("srv" "list") [] list)
+                    (call %init_peer_id% ("return" "") [list])
+                ) 
+            "#,
+            data,
+        )
+        .await
+        .unwrap();
+    if let [Value::Array(list)] = response.as_slice() {
+        assert_eq!(list.len(), 1, "expected only one service to be installed");
+        if let Value::Object(obj) = &list[0] {
+            let aliases = obj
+                .get("aliases")
+                .expect("srv.list must return a list of aliases for a service")
+                .as_array()
+                .expect("list of aliases must be a list");
+            assert_eq!(aliases.len(), 1, "test-service must have only 1 alias");
+            assert_eq!(aliases[0], service_name, "wrong alias for the test-service");
+        }
+    } else {
+        panic!("wrong result, expected list of services")
+    }
+}
 
 #[tokio::test]
 async fn create_service_from_config() {

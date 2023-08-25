@@ -5,6 +5,7 @@ use server_config::system_services_config::{
     AquaIpfsConfig, ConnectorConfig, DeciderConfig, RegistryConfig, ServiceKey, ServiceKey::*,
     SystemServicesConfig,
 };
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use crate::{
@@ -22,26 +23,31 @@ pub struct Versions {
 
 #[derive(Clone, Debug)]
 pub struct SystemServiceDistros {
-    pub(crate) distros: Vec<PackageDistro>,
+    pub(crate) distros: HashMap<String, PackageDistro>,
     pub(crate) versions: Versions,
 }
 
 impl SystemServiceDistros {
-    // is it okay to ignore the config here?
-    pub fn new(distros: Vec<PackageDistro>) -> Self {
-        let versions = Self::versions_from(&distros);
-        Self { distros, versions }
+    /// With overriding existing packages
+    pub fn extend(mut self, distros: Vec<PackageDistro>) -> Self {
+        for distro in distros {
+            self.distros.insert(distro.name.clone(), distro);
+        }
+        self
     }
 
     pub fn default_from(config: SystemServicesConfig) -> eyre::Result<Self> {
-        let distros: Vec<PackageDistro> = config
+        let distros: HashMap<String, PackageDistro> = config
             .enable
             .iter()
-            .map(|key| match key {
-                AquaIpfs => default_aqua_ipfs_distro(&config.aqua_ipfs),
-                TrustGraph => default_trust_graph_distro(),
-                Registry => default_registry_distro(&config.registry),
-                Decider => default_decider_distro(&config.decider, &config.connector),
+            .map(|key| {
+                let distro = match key {
+                    AquaIpfs => default_aqua_ipfs_distro(&config.aqua_ipfs),
+                    TrustGraph => default_trust_graph_distro(),
+                    Registry => default_registry_distro(&config.registry),
+                    Decider => default_decider_distro(&config.decider, &config.connector),
+                };
+                distro.map(|d| (d.name.clone(), d))
             })
             .collect::<eyre::Result<_>>()?;
 
@@ -59,25 +65,21 @@ impl SystemServiceDistros {
         }
     }
 
-    fn versions_from(packages: &Vec<PackageDistro>) -> Versions {
+    fn versions_from(packages: &HashMap<String, PackageDistro>) -> Versions {
         let mut versions = Self::default_versions();
-        let package_versions = packages
-            .iter()
-            .map(|p| (p.name.clone(), p.version))
-            .collect::<Vec<_>>();
-        for (name, version) in package_versions {
+        for (name, package) in packages {
             match ServiceKey::from_string(&name) {
                 Some(AquaIpfs) => {
-                    versions.aqua_ipfs_version = version;
+                    versions.aqua_ipfs_version = package.version;
                 }
                 Some(Registry) => {
-                    versions.registry_version = version;
+                    versions.registry_version = package.version;
                 }
                 Some(TrustGraph) => {
-                    versions.trust_graph_version = version;
+                    versions.trust_graph_version = package.version;
                 }
                 Some(Decider) => {
-                    versions.decider_version = version;
+                    versions.decider_version = package.version;
                 }
                 _ => {}
             }

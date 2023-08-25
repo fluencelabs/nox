@@ -244,6 +244,7 @@ pub struct SwarmConfig {
     pub timer_resolution: Duration,
     pub allowed_binaries: Vec<String>,
     pub enabled_system_services: Vec<server_config::system_services_config::ServiceKey>,
+    pub extend_system_services: Vec<system_services::PackageDistro>,
     pub http_port: u16,
 }
 
@@ -266,6 +267,7 @@ impl SwarmConfig {
             timer_resolution: default_script_storage_timer_resolution(),
             allowed_binaries: vec!["/usr/bin/ipfs".to_string(), "/usr/bin/curl".to_string()],
             enabled_system_services: vec![],
+            extend_system_services: vec![],
             http_port: 0,
         }
     }
@@ -378,7 +380,8 @@ pub fn create_swarm_with_runtime<RT: AquaRuntime>(
     let system_services_config = resolved.system_services.clone();
     let system_service_distros =
         system_services::SystemServiceDistros::default_from(system_services_config)
-            .expect("Failed to get default system service distros");
+            .expect("Failed to get default system service distros")
+            .extend(config.extend_system_services.clone());
 
     let mut node = Node::new(
         resolved,

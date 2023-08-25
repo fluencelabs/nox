@@ -18,6 +18,11 @@ use std::sync::Arc;
 /// - service name
 /// - function name
 /// - function arguments
+///
+/// Restriction:
+/// The functions called via this callback must return a result with execution status in field `status: bool`
+/// and error message in the field `error: string`.
+/// Otherwise, the output will be consider invalid.
 pub type CallService = Box<dyn Fn(String, String, Vec<Value>) -> eyre::Result<()> + Send + Sync>;
 
 /// Initialization function to initialize services
@@ -45,7 +50,7 @@ pub struct PackageDistro {
     pub init: Option<Arc<InitService>>,
 }
 
-impl std::fmt::Debug for PackageDistro {
+impl<'a> std::fmt::Debug for PackageDistro {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("PackageDistro")
             .field("name", &self.name)

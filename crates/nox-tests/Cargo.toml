@@ -21,6 +21,7 @@ local-vm = { path = "../local-vm" }
 control-macro = { path = "../control-macro" }
 json-utils = { path = "../json-utils" }
 server-config = { workspace = true }
+system-services = { workspace = true }
 
 log-utils = { workspace = true }
 fluence-spell-dtos = { workspace = true }

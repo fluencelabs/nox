@@ -76,7 +76,6 @@ impl Deployer {
 
     pub async fn deploy_system_services(self) -> eyre::Result<()> {
         // TODO: Can we do this without cloning?
-        let distros = self.system_service_distros.distros.clone();
 
         let services = self.services.clone();
         let root_worker_id = self.root_worker_id;
@@ -84,8 +83,8 @@ impl Deployer {
             call_service(&services, root_worker_id, &srv, &fnc, args)
         });
 
-        for distro in distros {
-            self.deploy_package(&call, distro).await?;
+        for distro in self.system_service_distros.distros.values() {
+            self.deploy_package(&call, distro.clone()).await?;
         }
         Ok(())
     }

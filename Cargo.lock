@@ -4196,6 +4196,7 @@ dependencies = [
  "service-modules",
  "sorcerer",
  "spell-event-bus",
+ "system-services",
  "test-constants",
  "test-utils",
  "tokio",
