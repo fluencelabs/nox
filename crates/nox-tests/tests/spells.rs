@@ -1917,3 +1917,46 @@ async fn spell_call_by_default_alias() {
         panic!("expected (int, str, str, int, str, str) result");
     }
 }
+
+#[tokio::test]
+async fn get_worker_peer_id_opt() {
+    let swarms = make_swarms(1).await;
+
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
+        .wrap_err("connect client")
+        .unwrap();
+
+    let data = hashmap! {
+        "relay" => json!(client.node.to_string()),
+        "client" => json!(client.peer_id.to_string()),
+    };
+    let response = client
+        .execute_particle(
+            r#"
+            (seq
+                (seq
+                    (call relay ("worker" "get_peer_id_opt") ["deal_id"] worker_peer_id_before)
+                    (call relay ("worker" "create") ["deal_id"] worker_peer_id)
+                )
+                (seq
+                    (call relay ("worker" "get_peer_id_opt") ["deal_id"] worker_peer_id_after)
+                    (call client ("return" "") [worker_peer_id_before worker_peer_id worker_peer_id_after])
+                )
+            )"#,
+            data.clone(),
+        )
+        .await
+        .unwrap();
+
+    if let [JValue::Array(worker_id_before), JValue::String(worker_peer_id), JValue::Array(worker_id_after)] =
+        response.as_slice()
+    {
+        assert_eq!(worker_id_before.len(), 0);
+        assert_eq!(worker_id_after.len(), 1);
+        let worker_id = worker_id_after[0].as_str().unwrap().to_string();
+        assert_eq!(worker_id, *worker_peer_id);
+    } else {
+        panic!("expected result")
+    }
+}
