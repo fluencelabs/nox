@@ -608,7 +608,9 @@ mod tests {
             config.dir_config.air_interpreter_path.clone(),
             None,
         );
-        let system_service_distros = SystemServiceDistros::new(vec![]);
+        let system_service_distros =
+            SystemServiceDistros::default_from(config.system_services.clone())
+                .expect("can't create system services");
         let mut node: Box<Node<AVM<_>>> = Node::new(
             config,
             vm_config,
