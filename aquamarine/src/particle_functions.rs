@@ -149,16 +149,10 @@ impl<F: ParticleFunctionStatic> Functions<F> {
         };
 
         let log_args = format!("{:?} {:?} {}", args.service_id, args.function_name, {
-            tracing::if_log_enabled! { tracing::Level::DEBUG,
-                {
-                    args.function_args
-                        .first()
-                        .map(|v| v.to_string())
-                        .unwrap_or(String::new())
-                } else {
-                    String::new()
-                }
-            }
+            args.function_args
+                .first()
+                .map(|v| v.to_string())
+                .unwrap_or(String::new())
         });
         let service_id = args.service_id.clone();
         let start = Instant::now();
