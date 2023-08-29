@@ -146,6 +146,8 @@ pub(crate) async fn spell_install(
     let script: String = Args::next("script", &mut args)?;
     let init_data: JValue = Args::next("data", &mut args)?;
     let trigger_config: TriggerConfig = Args::next("trigger_config", &mut args)?;
+    let alias: Option<String> = Args::next_opt("alias", &mut args)?;
+
     let init_peer_id = params.init_peer_id;
 
     let is_management = key_manager.is_management(init_peer_id);
@@ -168,13 +170,34 @@ pub(crate) async fn spell_install(
         &spell_event_bus_api,
         &spell_service_api,
         worker_id,
-        params.id,
+        params.id.clone(),
         params.ttl as u64,
         trigger_config,
         script,
         init_data,
     )
     .await?;
+
+    if let Some(alias) = alias {
+        if let Err(e) = services.add_alias(alias.clone(), worker_id, spell_id.clone(), worker_id) {
+            // Remove the spell if we failed to add an alias
+            remove_spell(
+                &params.id,
+                &spell_storage,
+                &services,
+                &spell_event_bus_api,
+                spell_id.clone(),
+                worker_id,
+            )
+            .await?;
+
+            return Err(JError::new(format!(
+                "Failed to add alias {} for spell {}: {:?}",
+                alias, spell_id, e
+            )));
+        }
+    }
+
     Ok(JValue::String(spell_id))
 }
 
