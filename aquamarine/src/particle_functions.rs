@@ -215,7 +215,7 @@ impl<F: ParticleFunctionStatic> Functions<F> {
                     err
                 )
             } else {
-                builtin_log_fn(&service_id, log_args, pretty(elapsed), particle_id);
+                builtin_log_fn(&service_id, &log_args, pretty(elapsed), particle_id);
             };
 
             let stats = SingleCallStat {

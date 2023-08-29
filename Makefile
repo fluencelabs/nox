@@ -35,7 +35,7 @@ server:
 	run-console=trace,\
 	wasmtime_cranelift=off,\
 	wasmtime_jit=off,\
-	particle_reap=off" \
+	particle_reap=trace" \
 	cargo run --release -p nox
 
 local-env:
@@ -49,16 +49,25 @@ local-env-logs:
 
 local-nox:
 	FLUENCE_ENV_AQUA_IPFS_EXTERNAL_API_MULTIADDR="/ip4/127.0.0.1/tcp/5001" \
-	FLUENCE_ENV_CONNECTOR_API_ENDPOINT="https://endpoints.omniatech.io/v1/matic/mumbai/public" \
-	FLUENCE_ENV_CONNECTOR_CONTRACT_ADDRESS="0x48772E71Ee51946beC258D4127eDDF110A7dCbeD" \
-	FLUENCE_ENV_CONNECTOR_WALLET_KEY="8447c3b0ebbb09f3153ec59702459ee23c4af524e7882de9f5718f14c3f0e00b" \
-	FLUENCE_ENV_CONNECTOR_FROM_BLOCK=latest \
+    FLUENCE_ENV_CONNECTOR_API_ENDPOINT="http://127.0.0.1:8545" \
+	FLUENCE_ENV_CONNECTOR_CONTRACT_ADDRESS="0x0f68c702dC151D07038fA40ab3Ed1f9b8BAC2981" \
+	FLUENCE_ENV_CONNECTOR_WALLET_KEY="0xfdc4ba94809c7930fe4676b7d845cbf8fa5c1beae8744d959530e5073004cf3f" \
+	FLUENCE_ENV_CONNECTOR_FROM_BLOCK=earliest \
 	FLUENCE_ENV_AQUA_IPFS_LOCAL_API_MULTIADDR="/ip4/127.0.0.1/tcp/5001" \
-	FLUENCE_SYSTEM_SERVICES__DECIDER__DECIDER_PERIOD_SEC=30 \
+	FLUENCE_SYSTEM_SERVICES__DECIDER__DECIDER_PERIOD_SEC=60 \
+	FLUENCE_MAX_SPELL_PARTICLE_TTL="55s" \
+	FLUENCE_SYSTEM_SERVICES__DECIDER__NETWORK_ID=31337 \
 	FLUENCE_SYSTEM_SERVICES__AQUA_IPFS__IPFS_BINARY_PATH="$(shell which ipfs)" \
 	FLUENCE_SYSTEM_SERVICES__ENABLE="aqua-ipfs,decider" \
 	WASM_LOG="trace" \
 	RUST_LOG="debug,\
+		execution=trace,\
+		expired=info,\
+		effectors=info,\
+		dispatcher=info,\
+		aquamarine::plumber=info,\
+		aquamarine::partice_functions=debug,\
+		aquamarine::log=debug,\
 		aquamarine=info,\
 		aquamarine::aqua_runtime=warn,\
 		aquamarine::particle_executor=warn,\
@@ -89,7 +98,7 @@ local-nox:
 		libp2p_swarm=off,\
 		particle_protocol::libp2p_protocol::upgrade=info,\
 		libp2p_mplex=off,\
-		particle_reap=off" \
-	cargo run -p nox -- --secret-key "74c9Fl8I+XFwlTRnLAyYlSML+Jk6zIkZgtQoo5deuGk=" --aqua-pool-size 3
+		particle_reap=debug" \
+	cargo run -p nox -- -k "2WijTVdhVRzyZamWjqPx4V4iNMrajegNMwNa2PmvPSZV6RRpo5M2fsPWdQr22HVRubuJhhSw8BrWiGt6FPhFAuXy" --aqua-pool-size 3 --ws-port 9992
 
 .PHONY: server server-debug test release build deploy local-nox local-env local-env-logs

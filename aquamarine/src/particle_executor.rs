@@ -109,7 +109,7 @@ impl<RT: AquaRuntime> ParticleExecutor for RT {
                     } else {
                         let len = new_data_len.map(|l| l as i32).unwrap_or(-1);
                         tracing::trace!(
-                            target: "execution", particle_id = particle.id,
+                            target: "execution", particle_id = particle.id, ttl = particle.ttl,
                             "Particle interpreted in {} [{} bytes => {} bytes]",
                             pretty(interpretation_time), data_len, len
                         );
