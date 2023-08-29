@@ -632,7 +632,6 @@ impl NetworkBehaviour for ConnectionPoolBehaviour {
                     // channel is ready to consume more particles, so send them
                     if let Some(particle) = self.queue.pop_front() {
                         let particle_id = particle.id.clone();
-                        let ttl = particle.ttl;
                         if let Err(err) = outlet.start_send(particle) {
                             tracing::error!(
                                 particle_id = particle_id,
@@ -642,7 +641,7 @@ impl NetworkBehaviour for ConnectionPoolBehaviour {
                         } else {
                             tracing::trace!(
                                 target: "execution",
-                                particle_id = particle_id, ttl = ttl,
+                                particle_id = particle_id,
                                 "Sent particle to execution"
                             );
                         }

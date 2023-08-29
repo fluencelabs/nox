@@ -84,8 +84,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
 
         let deadline = Deadline::from(&particle);
         if deadline.is_expired(now_ms()) {
-            tracing::info!(target: "expired", particle_id = particle.id, "Particle is expired (trace)");
-            log::info!(target: "expired", "Particle is expired (log)");
+            tracing::info!(target: "expired", particle_id = particle.id, "Particle is expired");
             self.events
                 .push_back(Err(AquamarineApiError::ParticleExpired {
                     particle_id: particle.id,

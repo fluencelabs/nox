@@ -99,6 +99,6 @@ local-nox:
 		particle_protocol::libp2p_protocol::upgrade=info,\
 		libp2p_mplex=off,\
 		particle_reap=debug" \
-	cargo run -p nox -- -k "2WijTVdhVRzyZamWjqPx4V4iNMrajegNMwNa2PmvPSZV6RRpo5M2fsPWdQr22HVRubuJhhSw8BrWiGt6FPhFAuXy" --aqua-pool-size 3 --ws-port 9992
+	cargo run --release -p nox -- -k "2WijTVdhVRzyZamWjqPx4V4iNMrajegNMwNa2PmvPSZV6RRpo5M2fsPWdQr22HVRubuJhhSw8BrWiGt6FPhFAuXy" --aqua-pool-size 3 --ws-port 9992
 
 .PHONY: server server-debug test release build deploy local-nox local-env local-env-logs

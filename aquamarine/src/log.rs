@@ -10,7 +10,7 @@ fn truncate(s: &str) -> &str {
 
 /// Function that logs for different builtin namespaces
 pub fn builtin_log_fn(service: &str, args: &str, elapsed: FormattedDuration, particle_id: String) {
-    let args = truncate(&args);
+    let args = truncate(args);
     match service {
         "array" | "cmp" | "debug" | "math" | "op" | "getDataSrv" | "run-console" | "json" => {
             tracing::event!(
