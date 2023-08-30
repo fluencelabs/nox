@@ -14,7 +14,7 @@ pub fn builtin_log_fn(service: &str, args: &str, elapsed: FormattedDuration, par
     match service {
         "array" | "cmp" | "debug" | "math" | "op" | "getDataSrv" | "run-console" | "json" => {
             tracing::event!(
-                tracing::Level::DEBUG,
+                tracing::Level::TRACE,
                 "Executed host call {} ({}) [{}]",
                 args,
                 elapsed,
@@ -22,14 +22,14 @@ pub fn builtin_log_fn(service: &str, args: &str, elapsed: FormattedDuration, par
             )
         }
         "peer" | "script" | "stat" | "sig" | "srv" | "dist" | "kad" => tracing::event!(
-            tracing::Level::INFO,
+            tracing::Level::DEBUG,
             "Executed host call {} ({}) [{}]",
             args,
             elapsed,
             particle_id
         ),
         _ => tracing::event!(
-            tracing::Level::INFO,
+            tracing::Level::DEBUG,
             "Executed host call {} ({}) [{}]",
             args,
             elapsed,
