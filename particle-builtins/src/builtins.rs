@@ -295,7 +295,18 @@ where
 
             ("vault", "put") => wrap(self.vault_put(args, particle)),
             ("vault", "cat") => wrap(self.vault_cat(args, particle)),
-            ("run-console", "print")          => wrap_unit(Ok(log::debug!(target: "run-console", "{}", json!(args.function_args)))),
+            ("run-console", "print") => {
+                let args = args.function_args.iter();
+                let decider = args.filter_map(JValue::as_str).any(|s| s.contains("decider"));
+                if decider {
+                    // if log comes from decider, log it as INFO
+                    log::info!(target: "run-console", "{}", json!(args.function_args));
+                } else {
+                    // log everything else as DEBUG
+                    log::debug!(target: "run-console", "{}", json!(args.function_args));
+                }
+                wrap_unit(Ok(()))
+            },
 
             _ => FunctionOutcome::NotDefined { args, params: particle },
         }
