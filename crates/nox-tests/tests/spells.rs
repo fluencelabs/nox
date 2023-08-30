@@ -1936,11 +1936,11 @@ async fn get_worker_peer_id_opt() {
             r#"
             (seq
                 (seq
-                    (call relay ("worker" "get_peer_id_opt") ["deal_id"] worker_peer_id_before)
+                    (call relay ("worker" "get_worker_id") ["deal_id"] worker_peer_id_before)
                     (call relay ("worker" "create") ["deal_id"] worker_peer_id)
                 )
                 (seq
-                    (call relay ("worker" "get_peer_id_opt") ["deal_id"] worker_peer_id_after)
+                    (call relay ("worker" "get_worker_id") ["deal_id"] worker_peer_id_after)
                     (call client ("return" "") [worker_peer_id_before worker_peer_id worker_peer_id_after])
                 )
             )"#,

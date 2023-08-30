@@ -200,11 +200,8 @@ impl Sorcerer {
             CustomService::new(
                 vec![
                     ("create", self.make_worker_create_closure()),
-                    ("get_peer_id", self.make_worker_get_peer_id_closure()),
-                    (
-                        "get_peer_id_opt",
-                        self.make_worker_get_peer_id_opt_closure(),
-                    ),
+                    ("get_peer_id", self.make_worker_get_peer_id_closure()), // TODO: will be DEPRECATED soon
+                    ("get_worker_id", self.make_worker_get_worker_id_closure()),
                     ("remove", self.make_worker_remove_closure()),
                     ("list", self.make_worker_list_closure()),
                 ],
@@ -342,6 +339,7 @@ impl Sorcerer {
         }))
     }
 
+    // TODO: will be DEPRECATED soon
     fn make_worker_get_peer_id_closure(&self) -> ServiceFunction {
         let key_manager = self.key_manager.clone();
         ServiceFunction::Immut(Box::new(move |args, params| {
@@ -350,7 +348,7 @@ impl Sorcerer {
         }))
     }
 
-    fn make_worker_get_peer_id_opt_closure(&self) -> ServiceFunction {
+    fn make_worker_get_worker_id_closure(&self) -> ServiceFunction {
         let key_manager = self.key_manager.clone();
         ServiceFunction::Immut(Box::new(move |args, params| {
             let key_manager = key_manager.clone();
