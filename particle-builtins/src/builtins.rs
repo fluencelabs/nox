@@ -849,7 +849,7 @@ where
         self.services.remove_service(
             &params.id,
             params.host_id,
-            service_id_or_alias,
+            &service_id_or_alias,
             params.init_peer_id,
             false,
         )?;

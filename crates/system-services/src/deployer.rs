@@ -454,7 +454,7 @@ impl Deployer {
             &self.spell_storage,
             &self.services,
             &self.spell_event_bus_api,
-            spell_id.clone(),
+            &spell_id,
             self.root_worker_id,
         )
         .await;
@@ -592,7 +592,7 @@ impl Deployer {
                 let result = self.services.remove_service(
                     DEPLOYER_PARTICLE_ID,
                     self.root_worker_id,
-                    service_id.clone(),
+                    &service_id,
                     self.root_worker_id,
                     false,
                 );
