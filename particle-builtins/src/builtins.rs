@@ -297,8 +297,8 @@ where
             ("vault", "put") => wrap(self.vault_put(args, particle)),
             ("vault", "cat") => wrap(self.vault_cat(args, particle)),
             ("run-console", "print") => {
-                let args = args.function_args.iter();
-                let decider = args.filter_map(JValue::as_str).any(|s| s.contains("decider"));
+                let function_args = args.function_args.iter();
+                let decider = function_args.filter_map(JValue::as_str).any(|s| s.contains("decider"));
                 if decider {
                     // if log comes from decider, log it as INFO
                     log::info!(target: "run-console", "{}", json!(args.function_args));
