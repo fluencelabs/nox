@@ -45,8 +45,8 @@ pub async fn remove_spell(
         )));
     }
 
-    spell_storage.unregister_spell(worker_id, &spell_id);
-    services.remove_service(particle_id, worker_id, &spell_id, worker_id, true)?;
+    spell_storage.unregister_spell(worker_id, spell_id);
+    services.remove_service(particle_id, worker_id, spell_id, worker_id, true)?;
     Ok(())
 }
 
