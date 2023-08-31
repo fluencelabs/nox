@@ -215,6 +215,7 @@ where
             ("srv", "create") => wrap(self.create_service(args, particle)),
             ("srv", "get_interface") => wrap(self.get_interface(args, particle)),
             ("srv", "resolve_alias") => wrap(self.resolve_alias(args, particle)),
+            ("srv", "resolve_alias_opt") => wrap(self.resolve_alias_opt(args, particle)),
             ("srv", "add_alias") => wrap_unit(self.add_alias(args, particle)),
             ("srv", "remove") => wrap_unit(self.remove_service(args, particle)),
             ("srv", "info") => wrap(self.get_service_info(args, particle)),
@@ -889,6 +890,18 @@ where
             .resolve_alias(&params.id, params.host_id, alias)?;
 
         Ok(JValue::String(service_id))
+    }
+
+    fn resolve_alias_opt(&self, args: Args, params: ParticleParams) -> Result<JValue, JError> {
+        let mut args = args.function_args.into_iter();
+        let alias: String = Args::next("alias", &mut args)?;
+        let service_id_opt = self
+            .services
+            .resolve_alias(&params.id, params.host_id, alias)
+            .map(|id| vec![JValue::String(id)])
+            .unwrap_or(vec![]);
+
+        Ok(Array(service_id_opt))
     }
 
     fn get_service_info(&self, args: Args, params: ParticleParams) -> Result<JValue, JError> {
