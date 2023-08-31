@@ -85,7 +85,7 @@ pub(crate) async fn remove_worker(
             &spell_storage,
             &services,
             &spell_event_bus_api,
-            s,
+            &s,
             worker_id,
         )
         .await
