@@ -33,10 +33,10 @@ pub async fn remove_spell(
     spell_storage: &SpellStorage,
     services: &ParticleAppServices,
     spell_event_bus_api: &SpellEventBusApi,
-    spell_id: String,
+    spell_id: &str,
     worker_id: PeerId,
 ) -> Result<(), JError> {
-    if let Err(err) = spell_event_bus_api.unsubscribe(spell_id.clone()).await {
+    if let Err(err) = spell_event_bus_api.unsubscribe(spell_id.to_string()).await {
         log::warn!(
             "can't unsubscribe a spell {spell_id} from its triggers via spell-event-bus-api: {err}"
         );
@@ -45,7 +45,7 @@ pub async fn remove_spell(
         )));
     }
 
-    spell_storage.unregister_spell(worker_id, &spell_id);
+    spell_storage.unregister_spell(worker_id, spell_id);
     services.remove_service(particle_id, worker_id, spell_id, worker_id, true)?;
     Ok(())
 }
@@ -90,7 +90,7 @@ pub async fn install_spell(
             log::warn!("can't subscribe a spell {} to triggers {:?} via spell-event-bus-api: {}. Removing created spell service...", spell_id, config, err);
 
             spell_storage.unregister_spell(worker_id, &spell_id);
-            services.remove_service(&particle_id, worker_id, spell_id, worker_id, true)?;
+            services.remove_service(&particle_id, worker_id, &spell_id, worker_id, true)?;
 
             return Err(JError::new(format!(
                 "can't install a spell due to an internal error while subscribing to the triggers: {err}"
@@ -146,6 +146,8 @@ pub(crate) async fn spell_install(
     let script: String = Args::next("script", &mut args)?;
     let init_data: JValue = Args::next("data", &mut args)?;
     let trigger_config: TriggerConfig = Args::next("trigger_config", &mut args)?;
+    let alias: Option<String> = Args::next_opt("alias", &mut args)?;
+
     let init_peer_id = params.init_peer_id;
 
     let is_management = key_manager.is_management(init_peer_id);
@@ -168,13 +170,34 @@ pub(crate) async fn spell_install(
         &spell_event_bus_api,
         &spell_service_api,
         worker_id,
-        params.id,
+        params.id.clone(),
         params.ttl as u64,
         trigger_config,
         script,
         init_data,
     )
     .await?;
+
+    if let Some(alias) = alias {
+        if let Err(e) = services.add_alias(alias.clone(), worker_id, spell_id.clone(), worker_id) {
+            // Remove the spell if we failed to add an alias
+            remove_spell(
+                &params.id,
+                &spell_storage,
+                &services,
+                &spell_event_bus_api,
+                &spell_id,
+                worker_id,
+            )
+            .await?;
+
+            return Err(JError::new(format!(
+                "Failed to add alias {} for spell {}: {:?}",
+                alias, spell_id, e
+            )));
+        }
+    }
+
     Ok(JValue::String(spell_id))
 }
 
@@ -226,7 +249,7 @@ pub(crate) async fn spell_remove(
         &spell_storage,
         &services,
         &spell_event_bus_api,
-        spell_id,
+        &spell_id,
         worker_id,
     )
     .await
