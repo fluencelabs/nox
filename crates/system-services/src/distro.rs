@@ -109,7 +109,7 @@ pub fn default_trust_graph_distro() -> eyre::Result<PackageDistro> {
                         vec![json!(cert_chain), json!(timestamp)],
                     )?;
                 }
-                log::info!("initialized `{}` [{id}] service", name);
+                tracing::info!(service_id = id, service_alias = name, "initialized service");
             }
             Ok(()) as eyre::Result<()>
         };
@@ -158,7 +158,7 @@ pub fn default_aqua_ipfs_distro(config: &AquaIpfsConfig) -> eyre::Result<Package
                 set_local_result?;
                 set_external_result?;
 
-                log::info!("initialized `{name}` [{id}] service");
+                tracing::info!(service_id = id, service_alias = name, "initialized service");
             }
             Ok(())
         };

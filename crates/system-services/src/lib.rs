@@ -14,6 +14,9 @@ use serde_json::Value;
 use std::collections::HashMap;
 use std::sync::Arc;
 
+type ServiceName = String;
+type FunctionName = String;
+
 /// Call service functions. Accepts
 /// - service name
 /// - function name
@@ -23,7 +26,8 @@ use std::sync::Arc;
 /// The functions called via this callback must return a result with execution status in field `status: bool`
 /// and error message in the field `error: string`.
 /// Otherwise, the output will be consider invalid.
-pub type CallService = Box<dyn Fn(String, String, Vec<Value>) -> eyre::Result<()> + Send + Sync>;
+pub type CallService =
+    Box<dyn Fn(ServiceName, FunctionName, Vec<Value>) -> eyre::Result<()> + Send + Sync>;
 
 /// Initialization function to initialize services
 /// - accepts `DeploymentStatus` of services and spells to be able to update or initialize the services

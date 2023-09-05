@@ -15,7 +15,7 @@ use spell_storage::SpellStorage;
 use std::collections::HashMap;
 use std::time::Duration;
 
-const DEPLOYER_TTL: u64 = 60_000;
+const DEPLOYER_TTL: Duration = Duration::from_millis(60_000);
 
 const DEPLOYER_PARTICLE_ID: &str = "system-services-deployment";
 
@@ -173,11 +173,7 @@ impl Deployer {
         }
 
         let trigger_config = spell_event_bus::api::from_user_config(&spell_distro.trigger_config)?;
-        let params = CallParams::local(
-            spell_id.to_string(),
-            self.root_worker_id,
-            Duration::from_millis(DEPLOYER_TTL),
-        );
+        let params = CallParams::local(spell_id.to_string(), self.root_worker_id, DEPLOYER_TTL);
         // update trigger config
         let config = spell_distro.trigger_config.clone();
         self.spells_api.set_trigger_config(params.clone(), config)?;
@@ -221,11 +217,7 @@ impl Deployer {
             // Stop old spell
             let result: eyre::Result<_> = try {
                 // Stop the spell to avoid re-subscription
-                let params = CallParams::local(
-                    spell_id.clone(),
-                    self.root_worker_id,
-                    Duration::from_millis(DEPLOYER_TTL),
-                );
+                let params = CallParams::local(spell_id.clone(), self.root_worker_id, DEPLOYER_TTL);
                 self.spells_api.set_trigger_config(params, empty_config)?;
 
                 // Unsubscribe spell from execution
@@ -453,7 +445,7 @@ fn call_service(
         args,
         None,
         root_worker_id,
-        Duration::from_millis(DEPLOYER_TTL),
+        DEPLOYER_TTL,
     );
     // similar to process_func_outcome in sorcerer/src/utils.rs, but that func is
     // to specialized to spell specific

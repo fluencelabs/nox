@@ -58,7 +58,7 @@ pub async fn install_spell(
     spell_service_api: &SpellServiceApi,
     worker_id: PeerId,
     particle_id: String,
-    ttl: u64,
+    ttl: Duration,
     user_config: TriggerConfig,
     script: String,
     init_data: Value,
@@ -73,7 +73,7 @@ pub async fn install_spell(
     )?;
     spell_storage.register_spell(worker_id, spell_id.clone());
 
-    let params = CallParams::local(spell_id.clone(), worker_id, Duration::from_millis(ttl));
+    let params = CallParams::local(spell_id.clone(), worker_id, ttl);
     // Save the script to the spell
     spell_service_api.set_script(params.clone(), script)?;
     // Save init_data to the spell's KV
@@ -116,10 +116,10 @@ pub struct SpellInfo {
 pub fn get_spell_info(
     spell_service_api: &SpellServiceApi,
     worker_id: PeerId,
-    ttl: u64,
+    ttl: Duration,
     spell_id: String,
 ) -> Result<SpellInfo, JError> {
-    let params = CallParams::local(spell_id.clone(), worker_id, Duration::from_millis(ttl));
+    let params = CallParams::local(spell_id.clone(), worker_id, ttl);
     let trigger_config = spell_service_api
         .get_trigger_config(params.clone())
         .map_err(|e| JError::new(f!("Failed to get trigger_config for spell {spell_id}: {e}")))?;
@@ -171,7 +171,7 @@ pub(crate) async fn spell_install(
         &spell_service_api,
         worker_id,
         params.id.clone(),
-        params.ttl as u64,
+        Duration::from_millis(params.ttl as u64),
         trigger_config,
         script,
         init_data,
