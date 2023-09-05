@@ -35,7 +35,7 @@ server:
 	run-console=debug,\
 	wasmtime_cranelift=off,\
 	wasmtime_jit=off,\
-	particle_reap=trace" \
+	particle_reap=debug" \
 	cargo run --release -p nox
 
 local-env:

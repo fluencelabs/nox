@@ -243,13 +243,24 @@ pub fn default_decider_distro(
         config: marine_config,
         name: connector_service_distro.name.to_string(),
     };
+
+    let wallet_key = match decider_config.wallet_key.clone() {
+        // TODO: set default wallet key somewhere in nox-distro, etc
+        //None => return Err(eyre!("Decider enabled, but wallet_key is not set. Please set it via env FLUENCE_ENV_CONNECTOR_WALLET_KEY or in Config.toml")),
+        None => "0xfdc4ba94809c7930fe4676b7d845cbf8fa5c1beae8744d959530e5073004cf3f".to_string(),
+        Some(key) => key,
+    };
+
     // prepare decider
     let decider_settings = decider_distro::DeciderConfig {
         worker_period_sec: decider_config.worker_period_sec,
         worker_ipfs_multiaddr: decider_config.worker_ipfs_multiaddr.clone(),
-        chain_network: decider_config.network_api_endpoint.clone(),
-        chain_contract_addr: decider_config.contract_address_hex.clone(),
-        chain_contract_block_hex: decider_config.contract_block_hex.clone(),
+        chain_api_endpoint: decider_config.network_api_endpoint.clone(),
+        chain_network_id: decider_config.network_id,
+        chain_contract_block_hex: decider_config.start_block.clone(),
+        chain_matcher_addr: decider_config.matcher_address.clone(),
+        chain_workers_gas: decider_config.worker_gas,
+        chain_wallet_key: wallet_key,
     };
     let decider_spell_distro = decider_distro::decider_spell(decider_settings);
     let mut decider_trigger_config = TriggerConfig::default();
