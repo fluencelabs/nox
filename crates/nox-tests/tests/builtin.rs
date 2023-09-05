@@ -419,6 +419,89 @@ async fn resolve_alias_not_exists() {
 }
 
 #[tokio::test]
+async fn resolve_alias_opt() {
+    let swarms = make_swarms(1).await;
+
+    let mut client = ConnectedClient::connect_with_keypair(
+        swarms[0].multiaddr.clone(),
+        Some(swarms[0].management_keypair.clone()),
+    )
+    .await
+    .wrap_err("connect client")
+    .unwrap();
+
+    let tetraplets_service = create_service(
+        &mut client,
+        "tetraplets",
+        load_module("tests/tetraplets/artifacts", "tetraplets").expect("load module"),
+    )
+    .await;
+
+    client.send_particle(
+        r#"
+        (seq
+            (seq
+                (call relay ("srv" "add_alias") [alias service])
+                (call relay ("srv" "resolve_alias_opt") [alias] result)
+            )
+            (call %init_peer_id% ("op" "return") [result.$.[0]!])
+        )
+    "#,
+        hashmap! {
+            "relay" => json!(client.node.to_string()),
+            "service" => json!(tetraplets_service.id),
+            "alias" => json!("some_alias".to_string()),
+        },
+    );
+
+    let service_id = client
+        .receive_args()
+        .await
+        .wrap_err("receive args")
+        .unwrap();
+    let service_id_opt = service_id.into_iter().next().unwrap();
+    let service_id: String = serde_json::from_value(service_id_opt).unwrap();
+
+    assert_eq!(tetraplets_service.id, service_id);
+}
+
+#[tokio::test]
+async fn resolve_alias_opt_not_exists() {
+    let swarms = make_swarms(1).await;
+
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
+        .wrap_err("connect client")
+        .unwrap();
+
+    client.send_particle(
+        r#"
+        (xor
+            (seq
+                (call relay ("srv" "resolve_alias_opt") [alias] result)
+                (call %init_peer_id% ("op" "return") [result])
+            )
+            (call %init_peer_id% ("op" "return") [%last_error%.$.instruction])
+        )
+    "#,
+        hashmap! {
+            "relay" => json!(client.node.to_string()),
+            "alias" => json!("some_alias".to_string()),
+        },
+    );
+
+    let result = client
+        .receive_args()
+        .await
+        .wrap_err("receive args")
+        .unwrap();
+    let result = result.into_iter().next().unwrap();
+    let result: Vec<String> = serde_json::from_value(result).unwrap();
+
+    assert_eq!(result.len(), 0);
+}
+
+#[tokio::test]
 async fn resolve_alias_removed() {
     let swarms = make_swarms(1).await;
 

@@ -359,7 +359,7 @@ impl ParticleAppServices {
         &self,
         particle_id: &str,
         worker_id: PeerId,
-        service_id_or_alias: String,
+        service_id_or_alias: &str,
         init_peer_id: PeerId,
         allow_remove_spell: bool,
     ) -> Result<(), ServiceError> {
@@ -372,7 +372,7 @@ impl ParticleAppServices {
                 &self.aliases.read(),
                 worker_id,
                 self.config.local_peer_id,
-                service_id_or_alias,
+                service_id_or_alias.to_string(),
             )?;
 
             // tmp hack to forbid spell removal via srv.remove

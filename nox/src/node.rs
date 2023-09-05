@@ -315,7 +315,7 @@ impl<RT: AquaRuntime> Node<RT> {
             modules,
             sorcerer.spell_storage.clone(),
             spell_event_bus_api.clone(),
-            spell_service_api.clone(),
+            spell_service_api,
             key_manager.get_host_peer_id(),
             builtins_peer_id,
             system_service_distros,

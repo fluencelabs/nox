@@ -54,6 +54,22 @@ pub(crate) fn get_worker_peer_id(
     ))
 }
 
+pub(crate) fn get_worker_peer_id_opt(
+    args: Args,
+    params: ParticleParams,
+    key_manager: KeyManager,
+) -> Result<JValue, JError> {
+    let mut args = args.function_args.into_iter();
+    let deal_id: Option<String> = Args::next_opt("deal_id", &mut args)?;
+
+    Ok(JValue::Array(
+        key_manager
+            .get_worker_id(deal_id, params.init_peer_id)
+            .map(|id| vec![JValue::String(id.to_base58())])
+            .unwrap_or_default(),
+    ))
+}
+
 pub(crate) async fn remove_worker(
     args: Args,
     params: ParticleParams,
@@ -85,7 +101,7 @@ pub(crate) async fn remove_worker(
             &spell_storage,
             &services,
             &spell_event_bus_api,
-            s,
+            &s,
             worker_id,
         )
         .await
