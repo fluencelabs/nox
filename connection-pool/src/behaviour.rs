@@ -639,7 +639,11 @@ impl NetworkBehaviour for ConnectionPoolBehaviour {
                                 err
                             )
                         } else {
-                            tracing::trace!(target: "execution",particle_id = particle_id, "Sent particle to execution");
+                            tracing::trace!(
+                                target: "execution",
+                                particle_id = particle_id,
+                                "Sent particle to execution"
+                            );
                         }
                     } else {
                         break;

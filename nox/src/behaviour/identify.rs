@@ -56,7 +56,7 @@ impl FluenceNetworkBehaviour {
                 }
 
                 if supports_fluence {
-                    let protocols = info.protocols.iter().map(|p| p.to_string());
+                    let protocols: Vec<_> = info.protocols.iter().map(|p| p.to_string()).collect();
                     log::debug!(
                         target: "network",
                         "Found fluence peer {}: protocols: {:?} version: {} listen addrs {:?}",
@@ -74,8 +74,8 @@ impl FluenceNetworkBehaviour {
                         target: "blocked",
                         "Found peer {} not supported fluence protocol, protocols: {:?} version: {} listen addrs {:?}. skipping...",
                         peer_id, info.protocols,
-                    info.protocol_version,
-                    info.listen_addrs
+                        info.protocol_version,
+                        info.listen_addrs
                     );
                     let (out, _inlet) = oneshot::channel();
                     self.connection_pool.disconnect(peer_id, out);

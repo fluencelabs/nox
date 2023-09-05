@@ -83,7 +83,7 @@ impl DataStore for ParticleDataStore {
     }
 
     fn store_data(&mut self, data: &[u8], particle_id: &str, current_peer_id: &str) -> Result<()> {
-        tracing::debug!(target: "particle_reap", particle_id = particle_id, "Storing data for particle");
+        tracing::trace!(target: "particle_reap", particle_id = particle_id, "Storing data for particle");
         let data_path = self.data_file(particle_id, current_peer_id);
         std::fs::write(&data_path, data).map_err(|err| StoreData(err, data_path))?;
 
