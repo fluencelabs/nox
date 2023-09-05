@@ -173,8 +173,12 @@ impl Deployer {
 
     async fn deploy_decider(&self) -> eyre::Result<()> {
         let wallet_key = match self.config.decider.wallet_key.clone() {
-            None => return Err(eyre!("Decider enabled, but wallet_key is not set. Please set it via env FLUENCE_ENV_CONNECTOR_WALLET_KEY or in Config.toml")),
-            Some(key) => key
+            // TODO: set default wallet key somewhere in nox-distro, etc
+            //None => return Err(eyre!("Decider enabled, but wallet_key is not set. Please set it via env FLUENCE_ENV_CONNECTOR_WALLET_KEY or in Config.toml")),
+            None => {
+                "0xfdc4ba94809c7930fe4676b7d845cbf8fa5c1beae8744d959530e5073004cf3f".to_string()
+            }
+            Some(key) => key,
         };
 
         let decider_distro = Self::get_decider_distro(self.config.decider.clone(), wallet_key);
