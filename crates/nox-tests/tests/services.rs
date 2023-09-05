@@ -30,7 +30,7 @@ use system_services::{PackageDistro, ServiceDistro};
 #[tokio::test]
 async fn test_system_service_override() {
     // We need to include bytes, not read them, since the ServiceDistro expects module bytes as `&'static [u8]`
-    // It's unnecessary to allow not static links or even vectors since in real life in real life we need only this
+    // It's unnecessary to allow not static links or even vectors since real life we need only this
     let module = include_bytes!("./tetraplets/artifacts/tetraplets.wasm");
     let config = json!({
       "module": [
