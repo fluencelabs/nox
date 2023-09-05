@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.14.2](https://github.com/fluencelabs/nox/compare/rust-peer-v0.14.1...rust-peer-v0.14.2) (2023-09-05)
+
+
+### Features
+
+* **builtins:** add resolve_alias_opt [NET-528] ([#1769](https://github.com/fluencelabs/nox/issues/1769)) ([b352cad](https://github.com/fluencelabs/nox/commit/b352cad8837e3e53616eb4857bb3768d03fcc129))
+* **decider:** new decider ([#1764](https://github.com/fluencelabs/nox/issues/1764)) ([cd49dd2](https://github.com/fluencelabs/nox/commit/cd49dd2b76bc1aec647cb188329162ca09e94e1e))
+* **spells:** add opt `alias` arg to spell install [NET-529] ([#1772](https://github.com/fluencelabs/nox/issues/1772)) ([fe8eab2](https://github.com/fluencelabs/nox/commit/fe8eab2ab98269fdee23574901f51b4dafa66140))
+* **workers:** add Worker.get_worker_id [NET-523] ([#1771](https://github.com/fluencelabs/nox/issues/1771)) ([a45cf79](https://github.com/fluencelabs/nox/commit/a45cf799200abbf2884fe4881b10ad85a20c6a18))
+
 ## [0.14.1](https://github.com/fluencelabs/nox/compare/rust-peer-v0.14.0...rust-peer-v0.14.1) (2023-08-14)
 
 
