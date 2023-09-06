@@ -2047,15 +2047,18 @@ async fn set_alias_by_worker_creator() {
         &mut client,
         "tetraplets",
         load_module("tests/tetraplets/artifacts", "tetraplets").expect("load module"),
-        worker_id,
+        worker_id.clone(),
     )
     .await;
 
     client.send_particle(
         r#"(seq
-                    (call relay ("srv" "add_alias") ["alias" service])
                     (seq
-                        (call relay ("srv" "resolve_alias_opt") ["alias"] resolved)
+                        (call relay ("op" "noop") []) 
+                        (call worker ("srv" "add_alias") ["alias" service])
+                    )
+                    (seq
+                        (call worker ("srv" "resolve_alias_opt") ["alias"] resolved)
                         (call client ("return" "") [resolved.$.[0]!])
                     )
                 )"#,
@@ -2063,6 +2066,7 @@ async fn set_alias_by_worker_creator() {
             "relay" => json!(client.node.to_string()),
             "client" => json!(client.peer_id.to_string()),
             "service" => json!(tetraplets_service.id),
+            "worker" => json!(worker_id),
         },
     );
 
