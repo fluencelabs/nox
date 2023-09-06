@@ -206,7 +206,11 @@ pub fn load_config_with_args(
         .prefix_separator("_")
         .separator("__")
         .list_separator(",")
-        .with_list_parse_key("allowed_binaries");
+        .with_list_parse_key("allowed_binaries")
+        .with_list_parse_key("external_multiaddresses")
+        .with_list_parse_key("bootstrap_nodes")
+        .with_list_parse_key("listen_config.listen_multiaddrs")
+        .with_list_parse_key("system_services.enable");
 
     let config = Config::builder()
         .add_source(file_source)
@@ -221,9 +225,10 @@ pub fn load_config_with_args(
 
 #[cfg(test)]
 mod tests {
+    use std::io::Write;
+
     use base64::{engine::general_purpose::STANDARD as base64, Engine};
     use fluence_keypair::KeyPair;
-    use std::io::Write;
     use tempfile::{tempdir, NamedTempFile};
 
     use super::*;
@@ -682,6 +687,33 @@ mod tests {
                 Some(TracingConfig::Otlp {
                     endpoint: "test".to_string()
                 })
+            );
+        });
+    }
+
+    #[test]
+    fn load_http_port_with_env() {
+        temp_env::with_vars([("FLUENCE_HTTP_PORT", Some("1234"))], || {
+            let config = load_config_with_args(vec![], None).expect("Could not load config");
+            assert_eq!(
+                config.node_config.http_config.map(|x| x.http_port),
+                Some(1234)
+            );
+        });
+    }
+
+    #[test]
+    fn load_http_port_with_args() {
+        temp_env::with_vars([("FLUENCE_HTTP_PORT", Some("1234"))], || {
+            let args = vec![
+                OsString::from("nox"),
+                OsString::from("--http-port"),
+                OsString::from("1001"),
+            ];
+            let config = load_config_with_args(args, None).expect("Could not load config");
+            assert_eq!(
+                config.node_config.http_config.map(|x| x.http_port),
+                Some(1001)
             );
         });
     }

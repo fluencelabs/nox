@@ -24,6 +24,7 @@ use aquamarine::{
 use config_utils::to_peer_id;
 use connection_pool::{ConnectionPoolApi, ConnectionPoolT};
 use fluence_libp2p::build_transport;
+use futures::future::OptionFuture;
 use futures::{stream::StreamExt, FutureExt};
 use health::HealthCheckRegistry;
 use key_manager::KeyManager;
@@ -60,7 +61,7 @@ use crate::{Connectivity, Versions};
 
 use super::behaviour::FluenceNetworkBehaviour;
 use crate::behaviour::FluenceNetworkBehaviourEvent;
-use crate::http::{start_http_endpoint, StartedHttp};
+use crate::http::start_http_endpoint;
 
 // TODO: documentation
 pub struct Node<RT: AquaRuntime> {
@@ -259,6 +260,7 @@ impl<RT: AquaRuntime> Node<RT> {
         let (spell_event_bus, spell_event_bus_api, spell_events_receiver) =
             SpellEventBus::new(spell_metrics.clone(), sources);
 
+        let spell_service_api = spell_service_api::SpellServiceApi::new(builtins.services.clone());
         let (sorcerer, mut custom_service_functions, spell_version) = Sorcerer::new(
             builtins.services.clone(),
             builtins.modules.clone(),
@@ -266,6 +268,7 @@ impl<RT: AquaRuntime> Node<RT> {
             config.clone(),
             spell_event_bus_api.clone(),
             key_manager.clone(),
+            spell_service_api.clone(),
             spell_metrics,
         );
 
@@ -312,6 +315,7 @@ impl<RT: AquaRuntime> Node<RT> {
             modules,
             sorcerer.spell_storage.clone(),
             spell_event_bus_api.clone(),
+            spell_service_api,
             key_manager.get_host_peer_id(),
             builtins_peer_id,
             system_services_config,
@@ -395,7 +399,7 @@ impl<RT: AquaRuntime> Node<RT> {
 
 pub struct StartedNode {
     pub exit_outlet: oneshot::Sender<()>,
-    pub http_bind_inlet: oneshot::Receiver<StartedHttp>,
+    pub http_listen_addr: Option<SocketAddr>,
 }
 
 impl<RT: AquaRuntime> Node<RT> {
@@ -538,9 +542,15 @@ impl<RT: AquaRuntime> Node<RT> {
             .map_err(|e| eyre::eyre!("{e}"))
             .context("running spell event bus failed")?;
 
+        let http_listen_addr = OptionFuture::from(http_listen_addr.map(|_| async {
+            let addr = http_bind_inlet.await.expect("http bind sender is dropped");
+            addr.listen_addr
+        }))
+        .await;
+
         Ok(StartedNode {
             exit_outlet,
-            http_bind_inlet,
+            http_listen_addr,
         })
     }
 

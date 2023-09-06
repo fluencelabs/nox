@@ -13,6 +13,7 @@ use server_config::{
 };
 use sorcerer::{get_spell_info, install_spell, remove_spell};
 use spell_event_bus::api::SpellEventBusApi;
+use spell_service_api::{CallParams, SpellServiceApi};
 use spell_storage::SpellStorage;
 use std::collections::{HashMap, HashSet};
 use std::time::Duration;
@@ -65,6 +66,7 @@ pub struct Deployer {
     // These fields are used for deploying system spells
     spell_storage: SpellStorage,
     spell_event_bus_api: SpellEventBusApi,
+    spells_api: SpellServiceApi,
     // These fields are used for deploying services and spells from the node name
     root_worker_id: PeerId,
     management_id: PeerId,
@@ -81,11 +83,13 @@ pub struct Versions {
 }
 
 impl Deployer {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         services: ParticleAppServices,
         modules_repo: ModuleRepository,
         spell_storage: SpellStorage,
         spell_event_bus_api: SpellEventBusApi,
+        spell_service_api: SpellServiceApi,
         root_worker_id: PeerId,
         management_id: PeerId,
         config: SystemServicesConfig,
@@ -95,6 +99,7 @@ impl Deployer {
             modules_repo,
             spell_storage,
             spell_event_bus_api,
+            spells_api: spell_service_api,
             root_worker_id,
             management_id,
             config,
@@ -167,7 +172,16 @@ impl Deployer {
     }
 
     async fn deploy_decider(&self) -> eyre::Result<()> {
-        let decider_distro = Self::get_decider_distro(self.config.decider.clone());
+        let wallet_key = match self.config.decider.wallet_key.clone() {
+            // TODO: set default wallet key somewhere in nox-distro, etc
+            //None => return Err(eyre!("Decider enabled, but wallet_key is not set. Please set it via env FLUENCE_ENV_CONNECTOR_WALLET_KEY or in Config.toml")),
+            None => {
+                "0xfdc4ba94809c7930fe4676b7d845cbf8fa5c1beae8744d959530e5073004cf3f".to_string()
+            }
+            Some(key) => key,
+        };
+
+        let decider_distro = Self::get_decider_distro(self.config.decider.clone(), wallet_key);
         self.deploy_system_spell(decider_distro).await?;
         Ok(())
     }
@@ -283,18 +297,21 @@ impl Deployer {
         })
     }
 
-    fn get_decider_distro(decider_settings: DeciderConfig) -> SpellDistro {
+    fn get_decider_distro(config: DeciderConfig, wallet_key: String) -> SpellDistro {
         let decider_config = decider_distro::DeciderConfig {
-            worker_period_sec: decider_settings.worker_period_sec,
-            worker_ipfs_multiaddr: decider_settings.worker_ipfs_multiaddr,
-            chain_network: decider_settings.network_api_endpoint,
-            chain_contract_addr: decider_settings.contract_address_hex,
-            chain_contract_block_hex: decider_settings.contract_block_hex,
+            worker_period_sec: config.worker_period_sec,
+            worker_ipfs_multiaddr: config.worker_ipfs_multiaddr,
+            chain_api_endpoint: config.network_api_endpoint,
+            chain_network_id: config.network_id,
+            chain_contract_block_hex: config.start_block,
+            chain_matcher_addr: config.matcher_address,
+            chain_workers_gas: config.worker_gas,
+            chain_wallet_key: wallet_key,
         };
         let decider_spell_distro = decider_distro::decider_spell(decider_config);
         let mut decider_trigger_config = TriggerConfig::default();
         decider_trigger_config.clock.start_sec = 1;
-        decider_trigger_config.clock.period_sec = decider_settings.decider_period_sec;
+        decider_trigger_config.clock.period_sec = config.decider_period_sec;
         SpellDistro {
             name: Decider.to_string(),
             air: decider_spell_distro.air,
@@ -385,7 +402,7 @@ impl Deployer {
                 tracing::debug!(
                     spell_name,
                     spell_id,
-                    "found existing spell that don't need to be updated; will not update",
+                    "found existing spell that doesn't need to be updated; will not update",
                 );
                 Ok(ServiceStatus::Existing(spell_id))
             }
@@ -414,28 +431,21 @@ impl Deployer {
             );
         }
 
-        // update spell
-        self.call_service(
-            spell_id,
-            "set_script_source_to_file",
-            vec![json!(spell_distro.air)],
-        )?;
-
         let trigger_config = spell_event_bus::api::from_user_config(&spell_distro.trigger_config)?;
-        self.call_service(
-            spell_id,
-            "set_trigger_config",
-            vec![json!(spell_distro.trigger_config)],
-        )?;
 
-        // What to do with decider, who updates its from_block from the first run?
-        // To we need to update "counter" too.clone(.clone(.clone()))?
+        let params = CallParams::local(
+            spell_id.to_string(),
+            self.root_worker_id,
+            Duration::from_millis(DEPLOYER_TTL),
+        );
+        // update trigger config
+        let config = spell_distro.trigger_config.clone();
+        self.spells_api.set_trigger_config(params.clone(), config)?;
+        // update spell
+        let air = spell_distro.air.to_string();
+        self.spells_api.set_script(params.clone(), air)?;
         // Let's save old_counter
-        self.call_service(
-            spell_id,
-            "set_json_fields",
-            vec![json!(json!(spell_distro.kv).to_string())],
-        )?;
+        self.spells_api.update_kv(params, json!(spell_distro.kv))?;
 
         // resubscribe spell
         if let Some(trigger_config) = trigger_config {
@@ -456,7 +466,7 @@ impl Deployer {
             &self.spell_storage,
             &self.services,
             &self.spell_event_bus_api,
-            spell_id.clone(),
+            &spell_id,
             self.root_worker_id,
         )
         .await;
@@ -471,7 +481,12 @@ impl Deployer {
             // Stop old spell
             let result: eyre::Result<_> = try {
                 // Stop the spell to avoid re-subscription
-                self.call_service(&spell_id, "set_trigger_config", vec![json!(empty_config)])?;
+                let params = CallParams::local(
+                    spell_id.clone(),
+                    self.root_worker_id,
+                    Duration::from_millis(DEPLOYER_TTL),
+                );
+                self.spells_api.set_trigger_config(params, empty_config)?;
 
                 // Unsubscribe spell from execution
                 self.spell_event_bus_api.unsubscribe(spell_id.clone()).await
@@ -491,6 +506,7 @@ impl Deployer {
             &self.services,
             &self.spell_storage,
             &self.spell_event_bus_api,
+            &self.spells_api,
             self.root_worker_id,
             DEPLOYER_PARTICLE_ID.to_string(),
             DEPLOYER_TTL,
@@ -544,7 +560,7 @@ impl Deployer {
 
         // Request a script and a trigger config from the spell
         let spell_info = get_spell_info(
-            &self.services,
+            &self.spells_api,
             self.root_worker_id,
             DEPLOYER_TTL,
             spell.id.clone(),
@@ -588,7 +604,7 @@ impl Deployer {
                 let result = self.services.remove_service(
                     DEPLOYER_PARTICLE_ID,
                     self.root_worker_id,
-                    service_id.clone(),
+                    &service_id,
                     self.root_worker_id,
                     false,
                 );
@@ -603,7 +619,7 @@ impl Deployer {
                 tracing::debug!(
                     service_name,
                     service_id,
-                    "found existing service that don't need to be updated; will skip update"
+                    "found existing service that doesn't need to be updated; will skip update"
                 );
                 return Ok(ServiceStatus::Existing(service_id));
             }

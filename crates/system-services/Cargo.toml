@@ -7,29 +7,29 @@ edition = "2021"
 
 [dependencies]
 aqua-ipfs-distro = "=0.5.17"
-decider-distro = "=0.4.17"
+decider-distro = "=0.5.0"
 registry-distro = "=0.8.7"
 trust-graph-distro = "=0.4.7"
 
 maplit = { workspace = true }
 toml = { workspace = true }
 fluence-app-service = { workspace = true }
-particle-modules = { workspace = true }
-particle-services = { workspace = true }
 eyre = {workspace = true}
 libp2p = { workspace = true }
-service-modules = { workspace = true }
 log = { workspace = true }
 serde_json = { workspace = true }
 serde = { workspace = true }
 fluence-spell-dtos = { workspace = true }
-sorcerer = { workspace = true }
-particle-execution = { workspace = true }
-particle-args = { workspace = true }
-spell-storage = { workspace = true }
-spell-event-bus = { workspace = true }
-now-millis = { workspace = true }
-server-config = { workspace = true }
 tracing = { workspace = true }
 
-
+sorcerer = { workspace = true }
+spell-storage = { workspace = true }
+spell-event-bus = { workspace = true }
+spell-service-api = { workspace = true }
+particle-execution = { workspace = true }
+particle-modules = { workspace = true }
+particle-services = { workspace = true }
+particle-args = { workspace = true }
+now-millis = { workspace = true }
+server-config = { workspace = true }
+service-modules = { workspace = true }

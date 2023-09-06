@@ -33,7 +33,6 @@ use tokio::signal;
 use tokio::sync::oneshot;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
-use tracing_subscriber::EnvFilter;
 
 use air_interpreter_fs::write_default_air_interpreter;
 use aquamarine::{VmConfig, AVM};
@@ -78,7 +77,7 @@ fn main() -> eyre::Result<()> {
 | Hello from the Fluence Team. If you encounter   |
 | any troubles with node operation, please update |
 | the node via                                    |
-|     docker pull fluencelabs/rust-peer:latest    |
+|     docker pull fluencelabs/nox:latest          |
 |                                                 |
 | or contact us at                                |
 | https://discord.com/invite/5qSnPZKh7u           |
@@ -96,8 +95,6 @@ fn main() -> eyre::Result<()> {
         .expect("Could not make tokio runtime")
         .block_on(async {
             tracing_subscriber::registry()
-                //takes log levels from env variable RUST_LOG
-                .with(EnvFilter::from_default_env())
                 .with(log_layer(&config.log))
                 .with(tokio_console_layer(&config.console)?)
                 .with(tracing_layer(&config.tracing)?)

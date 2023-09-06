@@ -27,6 +27,7 @@ members = [
     "crates/test-constants",
     "crates/peer-metrics",
     "crates/spell-event-bus",
+    "crates/spell-service-api",
     "crates/key-manager",
     "crates/health",
     "sorcerer",
@@ -41,7 +42,7 @@ members = [
     "script-storage",
     "spell-storage",
     "particle-execution",
-    "crates/system-services"
+    "crates/system-services",
 ]
 exclude = [
     "nox/tests/tetraplets",
@@ -73,6 +74,7 @@ connected-client = { path = "crates/connected-client" }
 test-constants = { path = "crates/test-constants" }
 peer-metrics = { path = "crates/peer-metrics" }
 spell-event-bus = { path = "crates/spell-event-bus" }
+spell-service-api = { path = "crates/spell-service-api" }
 key-manager = { path = "crates/key-manager" }
 cid-utils = { path = "crates/cid-utils" }
 sorcerer = { path = "sorcerer" }
@@ -99,8 +101,8 @@ marine-utils = "0.5.0"
 marine-it-parser = "0.12.2"
 
 # avm
-avm-server = { version = "0.32.0" }
-air-interpreter-wasm = { version = "0.42.0" }
+avm-server = { version = "0.32.2" }
+air-interpreter-wasm = { version = "0.43.1" }
 
 # libp2p
 libp2p = { version = "0.52.1", features = ["noise", "tcp", "dns", "websocket", "yamux", "tokio", "kad", "ping", "identify", "macros"] }
@@ -108,10 +110,10 @@ libp2p-core = { version = "0.40.0", default-features = false, features = ["secp2
 libp2p-metrics = "0.13.0"
 libp2p-noise = "0.43.0"
 libp2p-mplex = "0.40.0"
-libp2p-swarm = "0.43.1"
-libp2p-identity = "0.2.1"
-libp2p-connection-limits = "0.2.0"
-libp2p-kad = "0.44.2"
+libp2p-swarm = "0.43.2"
+libp2p-identity = "0.2.2"
+libp2p-connection-limits = "0.2.1"
+libp2p-kad = "0.44.3"
 multihash = "0.19.0"
 prometheus-client = "0.21.2"
 
@@ -125,22 +127,22 @@ tokio-stream = { version = "0.1.14" }
 tokio-util = { version = "0.7.8" }
 uuid = { version = "1.4.1", features = ["v4"] }
 derivative = "2.2.0"
-serde_json = { version = "1.0.103", features = ["preserve_order"] }
+serde_json = { version = "1.0.105", features = ["preserve_order"] }
 fstrings = "0.2.3"
 maplit = "1.0.2"
-log = "0.4.19"
+log = "0.4.20"
 tracing = { version = "0.1.37", default-features = false, features = ["log"] }
 tracing-subscriber = "0.3.17"
 console-subscriber = "0.1.10"
 futures = "0.3.28"
 thiserror = "1.0.44"
-serde = "1.0.177"
+serde = "1.0.183"
 toml = "0.5.10"
 itertools = "0.11.0"
 humantime-serde = "1.1.1"
 cid = "0.10.1"
 libipld = "0.16.0"
-axum = "0.6.19"
+axum = "0.6.20"
 hyper = "0.14.27"
 
 # Enable a small amount of optimization in debug mode

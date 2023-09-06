@@ -60,6 +60,46 @@ async fn create_worker(client: &mut ConnectedClient, deal_id: Option<String>) ->
     worker_id
 }
 
+async fn create_spell_with_alias(
+    client: &mut ConnectedClient,
+    script: &str,
+    config: TriggerConfig,
+    init_data: JValue,
+    deal_id: Option<String>,
+    alias: String,
+) -> (SpellId, WorkerPeerId) {
+    let worker_id = create_worker(client, deal_id).await;
+    let data = hashmap! {
+        "script" => json!(script.to_string()),
+        "config" => json!(config),
+        "client" => json!(client.peer_id.to_string()),
+        "relay" => json!(client.node.to_string()),
+        "worker_id" => json!(worker_id.clone()),
+        "alias" => json!(alias),
+        "data" => init_data,
+    };
+
+    let response = client
+        .execute_particle(
+            r#"
+        (seq
+            (call relay ("op" "noop") [])            
+            (seq
+                (call worker_id ("spell" "install") [script data config alias] spell_id)
+                (call client ("return" "") [spell_id])
+            )
+        )"#,
+            data.clone(),
+        )
+        .await
+        .unwrap();
+
+    let spell_id = response[0].as_str().unwrap().to_string();
+    assert_ne!(spell_id.len(), 0);
+
+    (spell_id, worker_id)
+}
+
 async fn create_spell(
     client: &mut ConnectedClient,
     script: &str,
@@ -275,6 +315,37 @@ async fn spell_return_test() {
     let value = response[0].as_str().unwrap().to_string();
 
     assert_eq!(value, "value");
+}
+
+#[tokio::test]
+async fn spell_install_alias() {
+    let swarms = make_swarms(1).await;
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
+        .wrap_err("connect client")
+        .unwrap();
+
+    let alias = "spell_alias".to_string();
+    let script = format!(
+        r#"
+        (seq
+            (seq
+                (call %init_peer_id% ("getDataSrv" "spell_id") [] actual_spell_id)
+                (call %init_peer_id% ("srv" "resolve_alias") ["{}"] aliased_spell_id)
+            )
+            (call "{}" ("return" "") [actual_spell_id aliased_spell_id])
+        )"#,
+        alias, client.peer_id
+    );
+
+    let config = make_clock_config(1, 1, 0);
+    create_spell_with_alias(&mut client, &script, config, json!({}), None, alias).await;
+
+    let response = client.receive_args().await.wrap_err("receive").unwrap();
+    let actual_spell_id = response[0].as_str().unwrap().to_string();
+    let aliased_spell_id = response[1].as_str().unwrap().to_string();
+
+    assert_eq!(actual_spell_id, aliased_spell_id);
 }
 
 // Check that oneshot spells are actually executed and executed only once
@@ -1915,5 +1986,48 @@ async fn spell_call_by_default_alias() {
         assert!(error2.contains("Cannot add alias 'self' because it is reserved"));
     } else {
         panic!("expected (int, str, str, int, str, str) result");
+    }
+}
+
+#[tokio::test]
+async fn get_worker_peer_id_opt() {
+    let swarms = make_swarms(1).await;
+
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
+        .wrap_err("connect client")
+        .unwrap();
+
+    let data = hashmap! {
+        "relay" => json!(client.node.to_string()),
+        "client" => json!(client.peer_id.to_string()),
+    };
+    let response = client
+        .execute_particle(
+            r#"
+            (seq
+                (seq
+                    (call relay ("worker" "get_worker_id") ["deal_id"] worker_peer_id_before)
+                    (call relay ("worker" "create") ["deal_id"] worker_peer_id)
+                )
+                (seq
+                    (call relay ("worker" "get_worker_id") ["deal_id"] worker_peer_id_after)
+                    (call client ("return" "") [worker_peer_id_before worker_peer_id worker_peer_id_after])
+                )
+            )"#,
+            data.clone(),
+        )
+        .await
+        .unwrap();
+
+    if let [JValue::Array(worker_id_before), JValue::String(worker_peer_id), JValue::Array(worker_id_after)] =
+        response.as_slice()
+    {
+        assert_eq!(worker_id_before.len(), 0);
+        assert_eq!(worker_id_after.len(), 1);
+        let worker_id = worker_id_after[0].as_str().unwrap().to_string();
+        assert_eq!(worker_id, *worker_peer_id);
+    } else {
+        panic!("expected result")
     }
 }

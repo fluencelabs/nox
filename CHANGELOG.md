@@ -1,5 +1,50 @@
 # Changelog
 
+## [0.14.2](https://github.com/fluencelabs/nox/compare/rust-peer-v0.14.1...rust-peer-v0.14.2) (2023-09-05)
+
+
+### Features
+
+* **builtins:** add resolve_alias_opt [NET-528] ([#1769](https://github.com/fluencelabs/nox/issues/1769)) ([b352cad](https://github.com/fluencelabs/nox/commit/b352cad8837e3e53616eb4857bb3768d03fcc129))
+* **decider:** new decider ([#1764](https://github.com/fluencelabs/nox/issues/1764)) ([cd49dd2](https://github.com/fluencelabs/nox/commit/cd49dd2b76bc1aec647cb188329162ca09e94e1e))
+* **spells:** add opt `alias` arg to spell install [NET-529] ([#1772](https://github.com/fluencelabs/nox/issues/1772)) ([fe8eab2](https://github.com/fluencelabs/nox/commit/fe8eab2ab98269fdee23574901f51b4dafa66140))
+* **workers:** add Worker.get_worker_id [NET-523] ([#1771](https://github.com/fluencelabs/nox/issues/1771)) ([a45cf79](https://github.com/fluencelabs/nox/commit/a45cf799200abbf2884fe4881b10ad85a20c6a18))
+
+## [0.14.1](https://github.com/fluencelabs/nox/compare/rust-peer-v0.14.0...rust-peer-v0.14.1) (2023-08-14)
+
+
+### Bug Fixes
+
+* **http:** fixed listen address getting logic ([#1762](https://github.com/fluencelabs/nox/issues/1762)) ([1205a79](https://github.com/fluencelabs/nox/commit/1205a79c6ad3ef8df60010964aafcfb3af80ad10))
+
+## [0.14.0](https://github.com/fluencelabs/nox/compare/rust-peer-v0.13.3...rust-peer-v0.14.0) (2023-08-14)
+
+
+### ⚠ BREAKING CHANGES
+
+* **env, log:** RUST_LOG and other envs parsing ([#1755](https://github.com/fluencelabs/nox/issues/1755))
+
+### Bug Fixes
+
+* **config:** fix http port argument ([#1751](https://github.com/fluencelabs/nox/issues/1751)) ([84c4315](https://github.com/fluencelabs/nox/commit/84c43151693a4bfcabc7683d9b3c6b4e508ff427))
+* **env, log:** RUST_LOG and other envs parsing ([#1755](https://github.com/fluencelabs/nox/issues/1755)) ([ea172c1](https://github.com/fluencelabs/nox/commit/ea172c1f42823549aeef0ba5ebd41794682babdf))
+
+## [0.13.3](https://github.com/fluencelabs/nox/compare/rust-peer-v0.13.2...rust-peer-v0.13.3) (2023-08-08)
+
+
+### Features
+
+* **http:** Added http healthcheck endpoint ([#1725](https://github.com/fluencelabs/nox/issues/1725)) ([ba2c9d1](https://github.com/fluencelabs/nox/commit/ba2c9d118049d944a0eb7cd1d3e8fda598af65cf))
+* **spells:** store last trigger by `trigger` key in KV [NET-511] ([#1728](https://github.com/fluencelabs/nox/issues/1728)) ([7272040](https://github.com/fluencelabs/nox/commit/7272040b37de66c32bd6f35e5c5e505bdaad40af))
+* **tests:** Wait for healtcheck in nox tests ([#1739](https://github.com/fluencelabs/nox/issues/1739)) ([2c4748c](https://github.com/fluencelabs/nox/commit/2c4748c4d2a61da8a1f2cde58758a8c793a095b7))
+
+
+### Bug Fixes
+
+* **deps:** update rust crate air-interpreter-wasm to 0.43.1 ([#1750](https://github.com/fluencelabs/nox/issues/1750)) ([4f94c2c](https://github.com/fluencelabs/nox/commit/4f94c2c708c6c49367607d5d66a453451ae7fb56))
+* **deps:** update rust crate avm-server to 0.32.2 ([#1744](https://github.com/fluencelabs/nox/issues/1744)) ([d6569d0](https://github.com/fluencelabs/nox/commit/d6569d09db61d29e1af570128288e5042bfb3b6f))
+* **spell:** bump spell to 0.5.17 and fix tests ([#1724](https://github.com/fluencelabs/nox/issues/1724)) ([671881c](https://github.com/fluencelabs/nox/commit/671881c0c74d319249c098eead06d672fa6230c0))
+
 ## [0.13.2](https://github.com/fluencelabs/nox/compare/rust-peer-v0.13.1...rust-peer-v0.13.2) (2023-07-20)
 
 

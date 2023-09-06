@@ -84,7 +84,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
 
         let deadline = Deadline::from(&particle);
         if deadline.is_expired(now_ms()) {
-            tracing::info!(particle_id = particle.id, "Particle is expired, ignoring");
+            tracing::info!(target: "expired", particle_id = particle.id, "Particle is expired");
             self.events
                 .push_back(Err(AquamarineApiError::ParticleExpired {
                     particle_id: particle.id,
@@ -214,7 +214,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
         if let Some((vm_id, mut vm)) = self.vm_pool.get_vm() {
             let now = now_ms();
 
-            self.actors.retain(|(particle_id, peer_id), actor| {
+            self.actors.retain(|(particle_id, worker_id), actor| {
                 // if actor hasn't yet expired or is still executing, keep it
                 // TODO: if actor is expired, cancel execution and return VM back to pool
                 //       https://github.com/fluencelabs/fluence/issues/1212
@@ -223,12 +223,12 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
                 }
                 tracing::debug!(
                     target: "particle_reap",
-                    particle_id = particle_id,
-                    "Reaping particle's actor peer_id={peer_id})"
+                    particle_id = particle_id, worker_id = worker_id.to_string(),
+                    "Reaping particle's actor"
                 );
                 // cleanup files and dirs after particle processing (vault & prev_data)
                 // TODO: do not pass vm https://github.com/fluencelabs/fluence/issues/1216
-                if let Err(err) = actor.cleanup(particle_id, &peer_id.to_string(), &mut vm) {
+                if let Err(err) = actor.cleanup(particle_id, &worker_id.to_string(), &mut vm) {
                     tracing::warn!(
                         particle_id = particle_id,
                         "Error cleaning up after particle {:?}",

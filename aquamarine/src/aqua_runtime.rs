@@ -119,7 +119,11 @@ impl AquaRuntime for AVM<DataStoreError> {
         match parse_outcome(outcome) {
             Ok((new_data, peers, calls)) if !peers.is_empty() || !calls.is_empty() => {
                 #[rustfmt::skip]
-                tracing::debug!(particle_id, "Particle executed: {} call requests, {} next peers", calls.len(), peers.len());
+                tracing::debug!(
+                    target: "execution",
+                    particle_id,
+                    "Particle executed: {} call requests, {} next peers", calls.len(), peers.len()
+                );
 
                 ParticleEffects {
                     next_peers: peers,
@@ -128,7 +132,8 @@ impl AquaRuntime for AVM<DataStoreError> {
                 }
             }
             Ok((data, ..)) => {
-                tracing::info!(
+                tracing::debug!(
+                    target: "execution",
                     particle_id,
                     "Executed particle, next_peer_pks is empty, no call requests. Nothing to do.",
                 );
@@ -139,11 +144,11 @@ impl AquaRuntime for AVM<DataStoreError> {
                 ParticleEffects::empty()
             }
             Err(ExecutionError::AquamarineError(err)) => {
-                tracing::warn!(particle_id, "Error executing particle: {}", err);
+                tracing::warn!(target: "execution", particle_id, "Error executing particle: {}", err);
                 ParticleEffects::empty()
             }
             Err(err @ ExecutionError::InvalidResultField { .. }) => {
-                tracing::warn!(particle_id, "Error parsing outcome for particle: {}", err);
+                tracing::warn!(target: "execution", particle_id, "Error parsing outcome for particle: {}", err);
                 ParticleEffects::empty()
             }
         }

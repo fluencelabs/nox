@@ -75,7 +75,7 @@ impl<RT: AquaRuntime> ParticleExecutor for RT {
             .spawn_blocking(move || {
                 span.in_scope(move || {
                     let now = Instant::now();
-                    tracing::info!(particle_id = particle.id, "Executing particle");
+                    tracing::trace!(target: "execution", particle_id = particle.id, "Executing particle");
 
                     let particle_params = ParticleParameters {
                         current_peer_id: Cow::Owned(current_peer_id.to_string()),

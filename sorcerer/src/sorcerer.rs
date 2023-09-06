@@ -17,7 +17,6 @@
 use std::collections::HashMap;
 use std::time::Duration;
 
-use fluence_spell_dtos::trigger_config::TriggerConfigValue;
 use futures::{FutureExt, StreamExt};
 use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
@@ -27,7 +26,6 @@ use crate::spell_builtins::{
     get_spell_arg, get_spell_id, spell_install, spell_list, spell_remove, spell_update_config,
     store_error, store_response,
 };
-use crate::utils::process_func_outcome;
 use crate::worker_builins::{create_worker, get_worker_peer_id, remove_worker, worker_list};
 use aquamarine::AquamarineApi;
 use key_manager::KeyManager;
@@ -40,6 +38,7 @@ use peer_metrics::SpellMetrics;
 use serde_json::Value;
 use server_config::ResolvedConfig;
 use spell_event_bus::api::{from_user_config, SpellEventBusApi, TriggerEvent};
+use spell_service_api::{CallParams, SpellServiceApi};
 use spell_storage::SpellStorage;
 
 #[derive(Clone)]
@@ -50,6 +49,7 @@ pub struct Sorcerer {
     pub spell_event_bus_api: SpellEventBusApi,
     pub spell_script_particle_ttl: Duration,
     pub key_manager: KeyManager,
+    pub spell_service_api: SpellServiceApi,
     pub spell_metrics: Option<SpellMetrics>,
 }
 
@@ -61,6 +61,7 @@ impl Sorcerer {
         config: ResolvedConfig,
         spell_event_bus_api: SpellEventBusApi,
         key_manager: KeyManager,
+        spell_service_api: SpellServiceApi,
         spell_metrics: Option<SpellMetrics>,
     ) -> (Self, HashMap<String, CustomService>, String) {
         let (spell_storage, spell_version) =
@@ -74,6 +75,7 @@ impl Sorcerer {
             spell_event_bus_api,
             spell_script_particle_ttl: config.max_spell_particle_ttl,
             key_manager,
+            spell_service_api,
             spell_metrics,
         };
 
@@ -97,21 +99,14 @@ impl Sorcerer {
                     spell_id.clone(),
                     self.key_manager.get_host_peer_id(),
                 )?;
-                let result = process_func_outcome::<TriggerConfigValue>(
-                    self.services.call_function(
-                        spell_owner,
-                        spell_id,
-                        "get_trigger_config",
-                        vec![],
-                        None,
-                        spell_owner,
-                        self.spell_script_particle_ttl,
-                    ),
-                    spell_id,
-                    "get_trigger_config",
-                )?;
-                let period = result.config.clock.period_sec;
-                let config = from_user_config(&result.config)?;
+                let params = CallParams::local(
+                    spell_id.clone(),
+                    spell_owner,
+                    self.spell_script_particle_ttl,
+                );
+                let config = self.spell_service_api.get_trigger_config(params)?;
+                let period = config.clock.period_sec;
+                let config = from_user_config(&config)?;
                 if let Some(config) = config.and_then(|c| c.into_rescheduled()) {
                     self.spell_event_bus_api
                         .subscribe(spell_id.clone(), config)
@@ -205,7 +200,8 @@ impl Sorcerer {
             CustomService::new(
                 vec![
                     ("create", self.make_worker_create_closure()),
-                    ("get_peer_id", self.make_worker_get_peer_id_closure()),
+                    ("get_peer_id", self.make_worker_get_peer_id_closure()), // TODO: will be DEPRECATED soon
+                    ("get_worker_id", self.make_worker_get_worker_id_closure()),
                     ("remove", self.make_worker_remove_closure()),
                     ("list", self.make_worker_list_closure()),
                 ],
@@ -219,10 +215,12 @@ impl Sorcerer {
         let storage = self.spell_storage.clone();
         let spell_event_bus = self.spell_event_bus_api.clone();
         let key_manager = self.key_manager.clone();
+        let spell_service_api = self.spell_service_api.clone();
         ServiceFunction::Immut(Box::new(move |args, params| {
             let storage = storage.clone();
             let services = services.clone();
             let spell_event_bus_api = spell_event_bus.clone();
+            let spell_service_api = spell_service_api.clone();
             let key_manager = key_manager.clone();
             async move {
                 wrap(
@@ -232,6 +230,7 @@ impl Sorcerer {
                         storage,
                         services,
                         spell_event_bus_api,
+                        spell_service_api,
                         key_manager,
                     )
                     .await,
@@ -268,14 +267,29 @@ impl Sorcerer {
     }
 
     fn make_spell_update_config_closure(&self) -> ServiceFunction {
-        let api = self.spell_event_bus_api.clone();
+        let spell_event_bus_api = self.spell_event_bus_api.clone();
         let services = self.services.clone();
         let key_manager = self.key_manager.clone();
+        let spell_service_api = self.spell_service_api.clone();
         ServiceFunction::Immut(Box::new(move |args, params| {
-            let api = api.clone();
+            let spell_event_bus_api = spell_event_bus_api.clone();
             let services = services.clone();
+            let spell_service_api = spell_service_api.clone();
             let key_manager = key_manager.clone();
-            async move { wrap_unit(spell_update_config(args, params, services, api, key_manager).await) }.boxed()
+            async move {
+                wrap_unit(
+                    spell_update_config(
+                        args,
+                        params,
+                        services,
+                        spell_event_bus_api,
+                        spell_service_api,
+                        key_manager,
+                    )
+                    .await,
+                )
+            }
+            .boxed()
         }))
     }
 
@@ -294,26 +308,26 @@ impl Sorcerer {
     }
 
     fn make_get_spell_arg_closure(&self) -> ServiceFunction {
-        let services = self.services.clone();
+        let spell_service_api = self.spell_service_api.clone();
         ServiceFunction::Immut(Box::new(move |args, params| {
-            let services = services.clone();
-            async move { wrap(get_spell_arg(args, params, services)) }.boxed()
+            let spell_service_api = spell_service_api.clone();
+            async move { wrap(get_spell_arg(args, params, spell_service_api)) }.boxed()
         }))
     }
 
     fn make_error_handler_closure(&self) -> ServiceFunction {
-        let services = self.services.clone();
+        let spell_service_api = self.spell_service_api.clone();
         ServiceFunction::Immut(Box::new(move |args, params| {
-            let services = services.clone();
-            async move { wrap_unit(store_error(args, params, services)) }.boxed()
+            let spell_service_api = spell_service_api.clone();
+            async move { wrap_unit(store_error(args, params, spell_service_api)) }.boxed()
         }))
     }
 
     fn make_response_handler_closure(&self) -> ServiceFunction {
-        let services = self.services.clone();
+        let spell_service_api = self.spell_service_api.clone();
         ServiceFunction::Immut(Box::new(move |args, params| {
-            let services = services.clone();
-            async move { wrap_unit(store_response(args, params, services)) }.boxed()
+            let spell_service_api = spell_service_api.clone();
+            async move { wrap_unit(store_response(args, params, spell_service_api)) }.boxed()
         }))
     }
 
@@ -325,11 +339,27 @@ impl Sorcerer {
         }))
     }
 
+    // TODO: will be DEPRECATED soon
     fn make_worker_get_peer_id_closure(&self) -> ServiceFunction {
         let key_manager = self.key_manager.clone();
         ServiceFunction::Immut(Box::new(move |args, params| {
             let key_manager = key_manager.clone();
             async move { wrap(get_worker_peer_id(args, params, key_manager)) }.boxed()
+        }))
+    }
+
+    fn make_worker_get_worker_id_closure(&self) -> ServiceFunction {
+        let key_manager = self.key_manager.clone();
+        ServiceFunction::Immut(Box::new(move |args, params| {
+            let key_manager = key_manager.clone();
+            async move {
+                wrap(crate::worker_builins::get_worker_peer_id_opt(
+                    args,
+                    params,
+                    key_manager,
+                ))
+            }
+            .boxed()
         }))
     }
 

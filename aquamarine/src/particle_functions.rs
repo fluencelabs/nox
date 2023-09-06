@@ -148,7 +148,12 @@ impl<F: ParticleFunctionStatic> Functions<F> {
             }
         };
 
-        let log_args = format!("{:?} {:?}", args.service_id, args.function_name);
+        let log_args = format!(
+            "{:?} {:?} {}",
+            args.service_id,
+            args.function_name,
+            json!(&args.function_args)
+        );
         let service_id = args.service_id.clone();
         let start = Instant::now();
 
@@ -210,7 +215,7 @@ impl<F: ParticleFunctionStatic> Functions<F> {
                     err
                 )
             } else {
-                builtin_log_fn(&service_id, log_args, pretty(elapsed), particle_id);
+                builtin_log_fn(&service_id, &log_args, pretty(elapsed), particle_id);
             };
 
             let stats = SingleCallStat {

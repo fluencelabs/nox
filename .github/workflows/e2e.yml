@@ -45,10 +45,11 @@ jobs:
     name: "nox"
     needs: nox
     strategy:
+      fail-fast: false
       matrix:
         flavour:
           - ipfs
-          - rich
+          # - rich
 
     uses: ./.github/workflows/container.yml
     with:
