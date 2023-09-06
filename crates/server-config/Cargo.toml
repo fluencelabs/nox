@@ -12,7 +12,7 @@ fluence-libp2p = { workspace = true, features = ["tokio"] }
 air-interpreter-fs = { workspace = true }
 peer-metrics = { workspace = true }
 fluence-keypair = { workspace = true }
-log = "0.4.19"
+log = "0.4.20"
 toml = "0.7.3"
 
 
@@ -22,7 +22,7 @@ libp2p-connection-limits = { workspace = true }
 
 serde = { version = "1.0.183", features = ["derive"] }
 humantime-serde = { workspace = true }
-serde_json = "1.0.104"
+serde_json = "1.0.105"
 rand = "0.8.5"
 clap = { version = "4.3.19", features = ["derive", "string"] }
 bs58 = { workspace = true }
