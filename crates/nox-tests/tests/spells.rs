@@ -2031,3 +2031,48 @@ async fn get_worker_peer_id_opt() {
         panic!("expected result")
     }
 }
+
+#[tokio::test]
+async fn set_alias_by_worker_creator() {
+    let swarms = make_swarms(1).await;
+
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
+        .wrap_err("connect client")
+        .unwrap();
+
+    let worker_id = create_worker(&mut client, None).await;
+
+    let tetraplets_service = create_service_worker(
+        &mut client,
+        "tetraplets",
+        load_module("tests/tetraplets/artifacts", "tetraplets").expect("load module"),
+        worker_id,
+    )
+    .await;
+
+    client.send_particle(
+        r#"(seq
+                    (call relay ("srv" "add_alias") ["alias" service])
+                    (seq
+                        (call relay ("srv" "resolve_alias_opt") ["alias"] resolved)
+                        (call client ("return" "") [resolved.$.[0]!])
+                    )
+                )"#,
+        hashmap! {
+            "relay" => json!(client.node.to_string()),
+            "client" => json!(client.peer_id.to_string()),
+            "service" => json!(tetraplets_service.id),
+        },
+    );
+
+    if let [JValue::String(resolved)] = client
+        .receive_args()
+        .await
+        .wrap_err("receive")
+        .unwrap()
+        .as_slice()
+    {
+        assert_eq!(*resolved, tetraplets_service.id);
+    }
+}
