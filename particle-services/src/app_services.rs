@@ -1153,6 +1153,7 @@ mod tests {
     #[test]
     fn test_get_interface_cache() {
         let root_keypair = Keypair::generate_ed25519();
+        let local_pid = PeerId::from(root_keypair.public());
         let management_pid = create_pid();
         let base_dir = TempDir::new("test").unwrap();
         let pas = create_pas(root_keypair, management_pid, base_dir.path().into());
