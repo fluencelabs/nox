@@ -3574,6 +3574,25 @@ dependencies = [
 
 [[package]]
 name = "marine-it-parser"
+version = "0.13.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "52907d7e7b9487a029dd3d99e647307c8808d7fba327e27113b0807d4868b315"
+dependencies = [
+ "anyhow",
+ "itertools 0.10.5",
+ "marine-it-interfaces 0.8.1",
+ "marine-module-interface 0.7.1",
+ "marine-wasm-backend-traits 0.3.0",
+ "nom",
+ "semver",
+ "serde",
+ "thiserror",
+ "walrus 0.20.1",
+ "wasmer-interface-types-fl",
+]
+
+[[package]]
+name = "marine-it-parser"
 version = "0.26.4-feat-wasm-backend-interface-update-b3cf050-636-1.0"
 source = "registry+git://crates.fluence.dev/index"
 checksum = "b9fb085eeacb98775fc0226d7b0c7849897556e22d6a80be572cb24586808725"
@@ -3923,21 +3942,6 @@ name = "marine-utils"
 version = "0.26.4-feat-wasm-backend-interface-update-b3cf050-636-1.0"
 source = "registry+git://crates.fluence.dev/index"
 checksum = "94ad75f658702ec8aa65c1b25f4a2ddea1727e7ecf4c68890a89b3cd42b44e50"
-
-[[package]]
-name = "marine-wasm-backend-traits"
-version = "0.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "251d7e65706b84504680f058d6794331e474f89996fc3d4856b43bad6ca1cf21"
-dependencies = [
- "anyhow",
- "it-memory-traits",
- "multimap",
- "paste",
- "thiserror",
- "wasmer-interface-types-fl",
- "wasmparser 0.101.1",
-]
 
 [[package]]
 name = "marine-wasm-backend-traits"
@@ -4792,6 +4796,7 @@ dependencies = [
  "health",
  "humantime-serde",
  "json-utils",
+ "key-manager",
  "libp2p-identity",
  "log",
  "now-millis",
@@ -6133,6 +6138,7 @@ dependencies = [
  "fluence-app-service",
  "fluence-libp2p",
  "fluence-spell-dtos",
+ "key-manager",
  "libp2p-identity",
  "maplit",
  "particle-execution",
