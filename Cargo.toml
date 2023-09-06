@@ -130,7 +130,7 @@ derivative = "2.2.0"
 serde_json = { version = "1.0.105", features = ["preserve_order"] }
 fstrings = "0.2.3"
 maplit = "1.0.2"
-log = "0.4.19"
+log = "0.4.20"
 tracing = { version = "0.1.37", default-features = false, features = ["log"] }
 tracing-subscriber = "0.3.17"
 console-subscriber = "0.1.10"
