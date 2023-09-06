@@ -98,10 +98,10 @@ fluence-spell-distro = "=0.5.18"
 # marine
 fluence-app-service = { version = "=0.26.4-feat-wasm-backend-interface-update-b3cf050-636-1.0", registry = "fluence" }
 marine-utils = "0.5.0"
-marine-it-parser = "0.12.1"
+marine-it-parser = "0.12.2"
 
 # avm
-avm-server = { version = "0.32.2" }
+avm-server = { version = "0.33.0" }
 air-interpreter-wasm = { version = "0.43.1" }
 
 # libp2p
