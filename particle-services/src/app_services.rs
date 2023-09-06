@@ -1049,7 +1049,7 @@ mod tests {
     }
 
     fn create_pas(
-        local_pid: PeerId,
+        root_keypair: Keypair,
         management_pid: PeerId,
         base_dir: PathBuf,
     ) -> ParticleAppServices {
@@ -1059,13 +1059,13 @@ mod tests {
         let max_heap_size = server_config::default_module_max_heap_size();
         let key_manager = KeyManager::new(
             keypairs_dir,
-            startup_kp.clone().into(),
+            root_keypair.clone().into(),
             management_pid,
             to_peer_id(&startup_kp),
         );
 
         let config = ServicesConfig::new(
-            local_pid,
+            PeerId::from(root_keypair.public()),
             base_dir,
             vault_dir,
             HashMap::new(),
@@ -1095,9 +1095,10 @@ mod tests {
         service_id: String,
     ) -> Result<(), ServiceError> {
         let base_dir = TempDir::new("test3").unwrap();
-        let local_pid = create_pid();
+        let root_keypair = Keypair::generate_ed25519();
+        let local_pid = PeerId::from(root_keypair.public());
         let management_pid = create_pid();
-        let pas = create_pas(local_pid, management_pid, base_dir.into_path());
+        let pas = create_pas(root_keypair, management_pid, base_dir.into_path());
 
         let client_pid;
         if as_manager {
@@ -1151,10 +1152,10 @@ mod tests {
 
     #[test]
     fn test_get_interface_cache() {
-        let local_pid = create_pid();
+        let root_keypair = Keypair::generate_ed25519();
         let management_pid = create_pid();
         let base_dir = TempDir::new("test").unwrap();
-        let pas = create_pas(local_pid, management_pid, base_dir.path().into());
+        let pas = create_pas(root_keypair, management_pid, base_dir.path().into());
 
         let module = load_module(
             "../crates/nox-tests/tests/tetraplets/artifacts",
@@ -1227,9 +1228,10 @@ mod tests {
     #[test]
     fn test_add_alias() {
         let base_dir = TempDir::new("test4").unwrap();
-        let local_pid = create_pid();
+        let root_keypair = Keypair::generate_ed25519();
+        let local_pid = PeerId::from(root_keypair.public());
         let management_pid = create_pid();
-        let pas = create_pas(local_pid, management_pid, base_dir.into_path());
+        let pas = create_pas(root_keypair, management_pid, base_dir.into_path());
 
         let module_name = "tetra".to_string();
         let m_hash = upload_tetra_service(&pas, module_name.clone());
@@ -1267,9 +1269,10 @@ mod tests {
     #[test]
     fn test_add_alias_repeated() {
         let base_dir = TempDir::new("test4").unwrap();
-        let local_pid = create_pid();
+        let root_keypair = Keypair::generate_ed25519();
+        let local_pid = PeerId::from(root_keypair.public());
         let management_pid = create_pid();
-        let pas = create_pas(local_pid, management_pid, base_dir.into_path());
+        let pas = create_pas(root_keypair, management_pid, base_dir.into_path());
 
         let module_name = "tetra".to_string();
         let m_hash = upload_tetra_service(&pas, module_name.clone());
@@ -1325,9 +1328,10 @@ mod tests {
     #[test]
     fn test_add_alias_twice() {
         let base_dir = TempDir::new("test4").unwrap();
-        let local_pid = create_pid();
+        let root_keypair = Keypair::generate_ed25519();
+        let local_pid = PeerId::from(root_keypair.public());
         let management_pid = create_pid();
-        let pas = create_pas(local_pid, management_pid, base_dir.into_path());
+        let pas = create_pas(root_keypair, management_pid, base_dir.into_path());
 
         let module_name = "tetra".to_string();
         let m_hash = upload_tetra_service(&pas, module_name.clone());
@@ -1375,9 +1379,10 @@ mod tests {
     #[test]
     fn test_persisted_service() {
         let base_dir = TempDir::new("test4").unwrap();
-        let local_pid = create_pid();
+        let root_keypair = Keypair::generate_ed25519();
+        let local_pid = PeerId::from(root_keypair.public());
         let management_pid = create_pid();
-        let pas = create_pas(local_pid, management_pid, base_dir.into_path());
+        let pas = create_pas(root_keypair, management_pid, base_dir.into_path());
 
         let module_name = "tetra".to_string();
         let alias = "alias".to_string();
