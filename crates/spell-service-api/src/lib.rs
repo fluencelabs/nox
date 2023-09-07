@@ -277,6 +277,7 @@ mod tests {
 
     use fluence_spell_dtos::trigger_config::TriggerConfig;
     use fluence_spell_dtos::value::*;
+    use key_manager::KeyManager;
     use maplit::hashmap;
     use serde_json::json;
     use std::time::Duration;
@@ -298,6 +299,14 @@ mod tests {
     ) -> (ParticleAppServices, ModuleRepository) {
         let startup_kp = Keypair::generate_ed25519();
         let vault_dir = base_dir.join("..").join("vault");
+        let keypairs_dir = base_dir.join("..").join("keypairs");
+
+        let key_manager = KeyManager::new(
+            keypairs_dir,
+            startup_kp.clone().into(),
+            management_pid,
+            to_peer_id(&startup_kp),
+        );
         let max_heap_size = server_config::default_module_max_heap_size();
         let config = ServicesConfig::new(
             local_pid,
@@ -321,7 +330,7 @@ mod tests {
             Default::default(),
         );
 
-        let pas = ParticleAppServices::new(config, repo.clone(), None, None);
+        let pas = ParticleAppServices::new(config, repo.clone(), None, None, key_manager);
         (pas, repo)
     }
 

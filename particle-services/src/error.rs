@@ -48,7 +48,7 @@ pub enum ServiceError {
     },
     #[error("Forbidden. User id '{0}' cannot call function 'add_alias': only management peer id can add top-level aliases")]
     ForbiddenAliasRoot(PeerId),
-    #[error("Forbidden. User id '{0}' cannot call function 'add_alias': only worker and management peer id can add worker-level aliases")]
+    #[error("Forbidden. User id '{0}' cannot call function 'add_alias': only worker, worker creator and management peer id can add worker-level aliases")]
     ForbiddenAliasWorker(PeerId),
     #[error("Cannot add alias '{0}' because there is a service with that id")]
     AliasAsServiceId(String),
@@ -108,6 +108,8 @@ pub enum ServiceError {
         #[source]
         err: std::io::Error,
     },
+    #[error("Internal error, smth bad happened: {0}")]
+    InternalError(String),
 }
 
 impl From<AppServiceError> for ServiceError {
