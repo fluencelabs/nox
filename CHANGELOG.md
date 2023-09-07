@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.14.4](https://github.com/fluencelabs/nox/compare/rust-peer-v0.14.3...rust-peer-v0.14.4) (2023-09-06)
+
+
+### Features
+
+* update decider ([#1780](https://github.com/fluencelabs/nox/issues/1780)) ([f4419f7](https://github.com/fluencelabs/nox/commit/f4419f743c8e988b010681778af196ac65b38bc5))
+
+## [0.14.3](https://github.com/fluencelabs/nox/compare/rust-peer-v0.14.2...rust-peer-v0.14.3) (2023-09-06)
+
+
+### Features
+
+* **worker:** allow to add alias for worker creator ([#1779](https://github.com/fluencelabs/nox/issues/1779)) ([ada1276](https://github.com/fluencelabs/nox/commit/ada127679d5e1bd38a55bad5fa5d9ec72cc67cc1))
+
+
+### Bug Fixes
+
+* **deps:** update rust crate avm-server to 0.33.0 ([#1777](https://github.com/fluencelabs/nox/issues/1777)) ([98ea570](https://github.com/fluencelabs/nox/commit/98ea570461ac0fe5172f18aeddd4110545c539d0))
+* **deps:** update rust crate fluence-spell-distro to v0.5.18 ([#1774](https://github.com/fluencelabs/nox/issues/1774)) ([c51ae71](https://github.com/fluencelabs/nox/commit/c51ae715451d66fc14484b3a0e7a266c6e781bdf))
+* **deps:** update rust crate fluence-spell-dtos to v0.5.18 ([#1775](https://github.com/fluencelabs/nox/issues/1775)) ([99233c3](https://github.com/fluencelabs/nox/commit/99233c334293cd5bbd6e4f5ff1f2909ec5538e0d))
+
 ## [0.14.2](https://github.com/fluencelabs/nox/compare/rust-peer-v0.14.1...rust-peer-v0.14.2) (2023-09-05)
 
 

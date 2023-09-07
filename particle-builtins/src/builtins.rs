@@ -130,6 +130,7 @@ where
             modules.clone(),
             Some(services_metrics),
             health_registry,
+            key_manager.clone(),
         );
 
         Self {

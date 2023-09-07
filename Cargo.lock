@@ -1457,9 +1457,9 @@ dependencies = [
 
 [[package]]
 name = "decider-distro"
-version = "0.5.0"
+version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0d677150abe73fcc5d83588bf4bd930f46988ff818572fb52c4bb6eb3e58852c"
+checksum = "92c569dd630b417f6d389d5feaa0545afdd58a1800018ba924b262f908826daf"
 dependencies = [
  "built 0.6.1",
  "fluence-spell-dtos",
@@ -4309,7 +4309,7 @@ version = "0.1.0"
 
 [[package]]
 name = "nox"
-version = "0.14.2"
+version = "0.14.4"
 dependencies = [
  "air-interpreter-fs",
  "air-interpreter-wasm",
@@ -4796,6 +4796,7 @@ dependencies = [
  "health",
  "humantime-serde",
  "json-utils",
+ "key-manager",
  "libp2p-identity",
  "log",
  "now-millis",
@@ -6137,6 +6138,7 @@ dependencies = [
  "fluence-app-service",
  "fluence-libp2p",
  "fluence-spell-dtos",
+ "key-manager",
  "libp2p-identity",
  "maplit",
  "particle-execution",

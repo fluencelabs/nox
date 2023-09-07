@@ -8,6 +8,7 @@ edition = "2021"
 [dependencies]
 particle-services = { workspace = true }
 particle-execution = { workspace = true }
+key-manager = { workspace = true }
 
 fluence-libp2p = { workspace = true }
 fluence-spell-dtos = { workspace = true }

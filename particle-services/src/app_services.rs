@@ -30,6 +30,7 @@ use serde_json::{json, Value as JValue};
 
 use fluence_libp2p::{peerid_serializer, PeerId};
 use health::HealthCheckRegistry;
+use key_manager::KeyManager;
 use now_millis::now_ms;
 use particle_args::{Args, JError};
 use particle_execution::{FunctionOutcome, ParticleParams, ParticleVault};
@@ -48,7 +49,7 @@ use crate::persistence::{
     load_persisted_services, persist_service, remove_persisted_service, PersistedService,
 };
 use crate::ServiceError::{
-    ForbiddenAlias, ForbiddenAliasRoot, ForbiddenAliasWorker, NoSuchService,
+    ForbiddenAlias, ForbiddenAliasRoot, ForbiddenAliasWorker, InternalError, NoSuchService,
 };
 
 type ServiceId = String;
@@ -164,7 +165,8 @@ pub struct VmDescriptor<'a> {
     owner_id: &'a str,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Derivative)]
+#[derivative(Debug, Clone)]
 pub struct ParticleAppServices {
     config: ServicesConfig,
     // TODO: move vault to Plumber or Actor
@@ -172,9 +174,8 @@ pub struct ParticleAppServices {
     services: Arc<RwLock<Services>>,
     modules: ModuleRepository,
     aliases: Arc<RwLock<Aliases>>,
-    // TODO: move these peer ids to key manager
-    management_peer_id: PeerId,
-    builtins_management_peer_id: PeerId,
+    #[derivative(Debug = "ignore")]
+    key_manager: KeyManager,
     pub metrics: Option<ServicesMetrics>,
     health: Option<PersistedServiceHealth>,
 }
@@ -258,10 +259,10 @@ impl ParticleAppServices {
         modules: ModuleRepository,
         metrics: Option<ServicesMetrics>,
         health_registry: Option<&mut HealthCheckRegistry>,
+        key_manager: KeyManager,
     ) -> Self {
         let vault = ParticleVault::new(config.particles_vault_dir.clone());
-        let management_peer_id = config.management_peer_id;
-        let builtins_management_peer_id = config.builtins_management_peer_id;
+
         let health = health_registry.map(|registry| {
             let persisted_services = PersistedServiceHealth::new();
             registry.register("persisted_services", persisted_services.clone());
@@ -273,8 +274,7 @@ impl ParticleAppServices {
             services: <_>::default(),
             modules,
             aliases: <_>::default(),
-            management_peer_id,
-            builtins_management_peer_id,
+            key_manager,
             metrics,
             health,
         };
@@ -401,8 +401,7 @@ impl ParticleAppServices {
             //      all services.
             if service.worker_id != init_peer_id
                 && service.owner_id != init_peer_id
-                && self.management_peer_id != init_peer_id
-                && self.builtins_management_peer_id != init_peer_id
+                && !self.key_manager.is_management(init_peer_id)
             {
                 return Err(Forbidden {
                     user: init_peer_id,
@@ -634,14 +633,18 @@ impl ParticleAppServices {
         service_id: String,
         init_peer_id: PeerId,
     ) -> Result<(), ServiceError> {
-        let is_management = init_peer_id == self.management_peer_id
-            || init_peer_id == self.builtins_management_peer_id;
-        let is_root_scope = worker_id == self.config.local_peer_id;
+        let is_management = self.key_manager.is_management(init_peer_id);
+        let is_root_scope = self.key_manager.is_host(worker_id);
         let is_worker = init_peer_id == worker_id;
+        let worker_creator = self
+            .key_manager
+            .get_worker_creator(worker_id)
+            .map_err(|e| InternalError(format!("{e:?}")))?; // worker creator is always set
+        let is_worker_creator = init_peer_id == worker_creator;
 
         if is_root_scope && !is_management {
             return Err(ForbiddenAliasRoot(init_peer_id));
-        } else if !is_worker && !is_management {
+        } else if !is_worker && !is_management && !is_worker_creator {
             return Err(ForbiddenAliasWorker(init_peer_id));
         }
 
@@ -1029,6 +1032,7 @@ mod tests {
 
     use config_utils::{modules_dir, to_peer_id};
     use fluence_libp2p::RandomPeerId;
+    use key_manager::KeyManager;
     use particle_modules::{AddBlueprint, ModuleRepository};
     use server_config::ServicesConfig;
     use service_modules::load_module;
@@ -1045,15 +1049,23 @@ mod tests {
     }
 
     fn create_pas(
-        local_pid: PeerId,
+        root_keypair: Keypair,
         management_pid: PeerId,
         base_dir: PathBuf,
     ) -> ParticleAppServices {
         let startup_kp = Keypair::generate_ed25519();
         let vault_dir = base_dir.join("..").join("vault");
+        let keypairs_dir = base_dir.join("..").join("keypairs");
         let max_heap_size = server_config::default_module_max_heap_size();
+        let key_manager = KeyManager::new(
+            keypairs_dir,
+            root_keypair.clone().into(),
+            management_pid,
+            to_peer_id(&startup_kp),
+        );
+
         let config = ServicesConfig::new(
-            local_pid,
+            PeerId::from(root_keypair.public()),
             base_dir,
             vault_dir,
             HashMap::new(),
@@ -1074,7 +1086,7 @@ mod tests {
             Default::default(),
         );
 
-        ParticleAppServices::new(config, repo, None, None)
+        ParticleAppServices::new(config, repo, None, None, key_manager)
     }
 
     fn call_add_alias_raw(
@@ -1083,9 +1095,10 @@ mod tests {
         service_id: String,
     ) -> Result<(), ServiceError> {
         let base_dir = TempDir::new("test3").unwrap();
-        let local_pid = create_pid();
+        let root_keypair = Keypair::generate_ed25519();
+        let local_pid = PeerId::from(root_keypair.public());
         let management_pid = create_pid();
-        let pas = create_pas(local_pid, management_pid, base_dir.into_path());
+        let pas = create_pas(root_keypair, management_pid, base_dir.into_path());
 
         let client_pid;
         if as_manager {
@@ -1139,10 +1152,11 @@ mod tests {
 
     #[test]
     fn test_get_interface_cache() {
-        let local_pid = create_pid();
+        let root_keypair = Keypair::generate_ed25519();
+        let local_pid = PeerId::from(root_keypair.public());
         let management_pid = create_pid();
         let base_dir = TempDir::new("test").unwrap();
-        let pas = create_pas(local_pid, management_pid, base_dir.path().into());
+        let pas = create_pas(root_keypair, management_pid, base_dir.path().into());
 
         let module = load_module(
             "../crates/nox-tests/tests/tetraplets/artifacts",
@@ -1215,9 +1229,10 @@ mod tests {
     #[test]
     fn test_add_alias() {
         let base_dir = TempDir::new("test4").unwrap();
-        let local_pid = create_pid();
+        let root_keypair = Keypair::generate_ed25519();
+        let local_pid = PeerId::from(root_keypair.public());
         let management_pid = create_pid();
-        let pas = create_pas(local_pid, management_pid, base_dir.into_path());
+        let pas = create_pas(root_keypair, management_pid, base_dir.into_path());
 
         let module_name = "tetra".to_string();
         let m_hash = upload_tetra_service(&pas, module_name.clone());
@@ -1255,9 +1270,10 @@ mod tests {
     #[test]
     fn test_add_alias_repeated() {
         let base_dir = TempDir::new("test4").unwrap();
-        let local_pid = create_pid();
+        let root_keypair = Keypair::generate_ed25519();
+        let local_pid = PeerId::from(root_keypair.public());
         let management_pid = create_pid();
-        let pas = create_pas(local_pid, management_pid, base_dir.into_path());
+        let pas = create_pas(root_keypair, management_pid, base_dir.into_path());
 
         let module_name = "tetra".to_string();
         let m_hash = upload_tetra_service(&pas, module_name.clone());
@@ -1313,9 +1329,10 @@ mod tests {
     #[test]
     fn test_add_alias_twice() {
         let base_dir = TempDir::new("test4").unwrap();
-        let local_pid = create_pid();
+        let root_keypair = Keypair::generate_ed25519();
+        let local_pid = PeerId::from(root_keypair.public());
         let management_pid = create_pid();
-        let pas = create_pas(local_pid, management_pid, base_dir.into_path());
+        let pas = create_pas(root_keypair, management_pid, base_dir.into_path());
 
         let module_name = "tetra".to_string();
         let m_hash = upload_tetra_service(&pas, module_name.clone());
@@ -1363,9 +1380,10 @@ mod tests {
     #[test]
     fn test_persisted_service() {
         let base_dir = TempDir::new("test4").unwrap();
-        let local_pid = create_pid();
+        let root_keypair = Keypair::generate_ed25519();
+        let local_pid = PeerId::from(root_keypair.public());
         let management_pid = create_pid();
-        let pas = create_pas(local_pid, management_pid, base_dir.into_path());
+        let pas = create_pas(root_keypair, management_pid, base_dir.into_path());
 
         let module_name = "tetra".to_string();
         let alias = "alias".to_string();
