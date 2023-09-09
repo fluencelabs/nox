@@ -1888,7 +1888,7 @@ dependencies = [
  "libp2p-mplex",
  "libp2p-noise",
  "log",
- "multihash 0.19.0",
+ "multihash 0.19.1",
  "rand 0.8.5",
  "serde",
  "serde_json",
@@ -2734,7 +2734,7 @@ dependencies = [
  "libp2p-metrics",
  "log",
  "log-utils",
- "multihash 0.19.0",
+ "multihash 0.19.1",
  "once_cell",
  "particle-protocol",
  "prometheus-client",
@@ -2954,7 +2954,7 @@ dependencies = [
  "libp2p-identity",
  "log",
  "multiaddr",
- "multihash 0.19.0",
+ "multihash 0.19.1",
  "multistream-select",
  "once_cell",
  "parking_lot",
@@ -3016,7 +3016,7 @@ dependencies = [
  "ed25519-dalek 2.0.0",
  "libsecp256k1",
  "log",
- "multihash 0.19.0",
+ "multihash 0.19.1",
  "quick-protobuf",
  "rand 0.8.5",
  "ring",
@@ -3123,7 +3123,7 @@ dependencies = [
  "libp2p-identity",
  "log",
  "multiaddr",
- "multihash 0.19.0",
+ "multihash 0.19.1",
  "once_cell",
  "quick-protobuf",
  "rand 0.8.5",
@@ -4126,7 +4126,7 @@ dependencies = [
  "data-encoding",
  "libp2p-identity",
  "multibase",
- "multihash 0.19.0",
+ "multihash 0.19.1",
  "percent-encoding",
  "serde",
  "static_assertions",
@@ -4164,9 +4164,9 @@ dependencies = [
 
 [[package]]
 name = "multihash"
-version = "0.19.0"
+version = "0.19.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2fd59dcc2bbe70baabeac52cd22ae52c55eefe6c38ff11a9439f16a350a939f2"
+checksum = "076d548d76a0e2a0d4ab471d0b1c36c577786dfc4471242035d97a12a735c492"
 dependencies = [
  "core2",
  "serde",
@@ -4343,7 +4343,7 @@ dependencies = [
  "log",
  "log-utils",
  "maplit",
- "multihash 0.19.0",
+ "multihash 0.19.1",
  "opentelemetry",
  "opentelemetry-otlp",
  "parking_lot",
@@ -4399,7 +4399,7 @@ dependencies = [
  "log",
  "log-utils",
  "maplit",
- "multihash 0.19.0",
+ "multihash 0.19.1",
  "now-millis",
  "nox",
  "parking_lot",
@@ -4689,7 +4689,7 @@ dependencies = [
  "libp2p",
  "libp2p-kad",
  "log",
- "multihash 0.19.0",
+ "multihash 0.19.1",
  "now-millis",
  "parking_lot",
  "particle-args",
