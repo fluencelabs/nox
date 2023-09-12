@@ -4413,7 +4413,6 @@ dependencies = [
  "script-storage",
  "serde",
  "serde_json",
- "server-config",
  "service-modules",
  "sorcerer",
  "spell-event-bus",

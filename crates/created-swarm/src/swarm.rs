@@ -37,7 +37,10 @@ use futures::stream::iter;
 use hyper::{Body, Request, StatusCode};
 use nox::{Connectivity, Node};
 use particle_protocol::ProtocolConfig;
-use server_config::{default_script_storage_timer_resolution, BootstrapConfig, UnresolvedConfig};
+use server_config::{
+    default_script_storage_timer_resolution, system_services_config, BootstrapConfig,
+    UnresolvedConfig,
+};
 use test_constants::{EXECUTION_TIMEOUT, KEEP_ALIVE_TIMEOUT, TRANSPORT_TIMEOUT};
 use tokio::sync::oneshot;
 use toy_vms::EasyVM;
@@ -243,7 +246,7 @@ pub struct SwarmConfig {
     pub spell_base_dir: Option<PathBuf>,
     pub timer_resolution: Duration,
     pub allowed_binaries: Vec<String>,
-    pub enabled_system_services: Vec<server_config::system_services_config::ServiceKey>,
+    pub enabled_system_services: Vec<String>,
     pub extend_system_services: Vec<system_services::PackageDistro>,
     pub http_port: u16,
 }
@@ -362,7 +365,14 @@ pub fn create_swarm_with_runtime<RT: AquaRuntime>(
 
     resolved.node_config.script_storage_timer_resolution = config.timer_resolution;
     resolved.node_config.allowed_binaries = config.allowed_binaries.clone();
-    resolved.system_services.enable = config.enabled_system_services.clone();
+    resolved.system_services.enable = config
+        .enabled_system_services
+        .iter()
+        .map(|service| {
+            system_services_config::ServiceKey::from_string(service)
+                .expect("service {service} doesn't exist")
+        })
+        .collect();
 
     let management_kp = fluence_keypair::KeyPair::generate_ed25519();
     let management_peer_id = libp2p::identity::Keypair::from(management_kp.clone())
