@@ -110,7 +110,7 @@ impl fmt::Debug for SpellDistro {
                 "air",
                 &format!("{}...", self.air.chars().take(20).collect::<String>()),
             )
-            .field("kv", &self.kv)
+            .field("kv", &self.kv.keys())
             .field("trigger_config", &self.trigger_config)
             .finish()
     }
