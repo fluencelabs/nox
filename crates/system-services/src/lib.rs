@@ -12,6 +12,7 @@ use fluence_app_service::TomlMarineConfig;
 use fluence_spell_dtos::trigger_config::TriggerConfig;
 use serde_json::Value;
 use std::collections::HashMap;
+use std::fmt;
 use std::sync::Arc;
 
 type ServiceName = String;
@@ -67,7 +68,7 @@ impl<'a> std::fmt::Debug for PackageDistro {
 }
 
 /// Service distribution description that provides enough information for the service installation.
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct ServiceDistro {
     /// WASM modules of the service by their names
     pub modules: HashMap<&'static str, &'static [u8]>,
@@ -77,8 +78,18 @@ pub struct ServiceDistro {
     pub name: String,
 }
 
+impl fmt::Debug for ServiceDistro {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("ServiceDistro")
+            .field("modules", &self.modules.keys())
+            .field("config", &self.config)
+            .field("name", &self.name)
+            .finish()
+    }
+}
+
 /// Spell distribution description that provides enough information for the spell installation.
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct SpellDistro {
     /// The name of the spell which is also used as an alias for the spell
     pub name: String,
@@ -89,6 +100,20 @@ pub struct SpellDistro {
     pub kv: HashMap<&'static str, Value>,
     /// The trigger config for the spell
     pub trigger_config: TriggerConfig,
+}
+
+impl fmt::Debug for SpellDistro {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("SpellDistro")
+            .field("name", &self.name)
+            .field(
+                "air",
+                &format!("{}...", self.air.chars().take(20).collect::<String>()),
+            )
+            .field("kv", &self.kv)
+            .field("trigger_config", &self.trigger_config)
+            .finish()
+    }
 }
 
 /// A status of a service/spell after deployment
