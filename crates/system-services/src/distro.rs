@@ -37,6 +37,7 @@ impl SystemServiceDistros {
     }
 
     pub fn default_from(config: SystemServicesConfig) -> eyre::Result<Self> {
+        log::warn!("{:?}", config);
         let distros: HashMap<String, PackageDistro> = config
             .enable
             .iter()
@@ -215,7 +216,7 @@ pub fn default_registry_distro(config: &RegistryConfig) -> eyre::Result<PackageD
         trigger_config,
     };
     let package = PackageDistro {
-        name: Decider.to_string(),
+        name: Registry.to_string(),
         version: registry_distro::VERSION,
         services: vec![service_distro],
         spells: vec![spell_distro],
