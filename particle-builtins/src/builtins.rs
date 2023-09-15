@@ -82,11 +82,6 @@ pub struct Builtins<C> {
     pub connectivity: C,
     pub script_storage: ScriptStorageApi,
 
-    // TODO: move all peer ids and keypairs to key manager
-    pub management_peer_id: PeerId,
-    pub builtins_management_peer_id: PeerId,
-    pub local_peer_id: PeerId,
-
     pub modules: ModuleRepository,
     pub services: ParticleAppServices,
     #[derivative(Debug(format_with = "fmt_custom_services"))]
@@ -122,9 +117,6 @@ where
             config.allowed_binaries.clone(),
         );
         let particles_vault_dir = vault_dir.to_path_buf();
-        let management_peer_id = config.management_peer_id;
-        let builtins_management_peer_id = config.builtins_management_peer_id;
-        let local_peer_id = config.local_peer_id;
         let services = ParticleAppServices::new(
             config,
             modules.clone(),
@@ -136,9 +128,6 @@ where
         Self {
             connectivity,
             script_storage,
-            management_peer_id,
-            builtins_management_peer_id,
-            local_peer_id,
             modules,
             services,
             particles_vault_dir,
@@ -449,7 +438,7 @@ where
     async fn remove_script(&self, args: Args, params: ParticleParams) -> Result<JValue, JError> {
         let mut args = args.function_args.into_iter();
 
-        let force = params.init_peer_id == self.management_peer_id;
+        let force = self.key_manager.is_management(params.init_peer_id);
 
         let uuid: String = Args::next("uuid", &mut args)?;
         let actor = params.init_peer_id;
@@ -978,12 +967,10 @@ where
 
             let tetraplet = tetraplets.get(0).map(|v| v.as_slice());
             if let Some([t]) = tetraplet {
-                if t.peer_pk != self.local_peer_id.to_base58()
-                    && !self.key_manager.is_worker(PeerId::from_str(&t.peer_pk)?)
-                {
+                if !self.key_manager.is_local(PeerId::from_str(&t.peer_pk)?) {
                     return Err(JError::new(format!(
                         "data is expected to be produced by service 'registry' on peer '{}', was from peer '{}'",
-                        self.local_peer_id, t.peer_pk
+                        self.key_manager.get_host_peer_id(), t.peer_pk
                     )));
                 }
 
