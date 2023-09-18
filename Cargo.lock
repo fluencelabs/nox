@@ -232,7 +232,7 @@ dependencies = [
  "anyhow",
  "async-trait",
  "avm-server",
- "base64 0.21.2",
+ "base64 0.21.4",
  "bytesize",
  "chrono",
  "config-utils",
@@ -557,9 +557,9 @@ checksum = "9e1b586273c5702936fe7b7d6896644d8be71e6314cfe09d3167c95f712589e8"
 
 [[package]]
 name = "base64"
-version = "0.21.2"
+version = "0.21.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "604178f6c5c21f02dc555784810edfb88d34ac2c73b2eae109655649ee73ce3d"
+checksum = "9ba43ea6f343b788c8764558649e08df62f86c6ef251fdaeb1ffd010a9ae50a2"
 
 [[package]]
 name = "base64ct"
@@ -880,7 +880,7 @@ dependencies = [
 name = "cid-utils"
 version = "0.1.0"
 dependencies = [
- "base64 0.21.2",
+ "base64 0.21.4",
  "bytes",
  "eyre",
  "libipld",
@@ -1248,7 +1248,7 @@ version = "0.1.0"
 dependencies = [
  "air-interpreter-fs",
  "aquamarine",
- "base64 0.21.2",
+ "base64 0.21.4",
  "config-utils",
  "connection-pool",
  "derivative",
@@ -1880,7 +1880,7 @@ dependencies = [
 name = "fluence-libp2p"
 version = "0.2.0"
 dependencies = [
- "base64 0.21.2",
+ "base64 0.21.4",
  "bs58",
  "failure",
  "futures",
@@ -2713,7 +2713,7 @@ dependencies = [
 name = "json-utils"
 version = "0.0.2"
 dependencies = [
- "base64 0.21.2",
+ "base64 0.21.4",
  "itertools 0.11.0",
  "serde",
  "serde_json",
@@ -4317,7 +4317,7 @@ dependencies = [
  "aquamarine",
  "avm-server",
  "axum",
- "base64 0.21.2",
+ "base64 0.21.4",
  "blake3",
  "bs58",
  "config-utils",
@@ -4376,7 +4376,7 @@ name = "nox-tests"
 version = "0.1.0"
 dependencies = [
  "aquamarine",
- "base64 0.21.2",
+ "base64 0.21.4",
  "blake3",
  "bs58",
  "connected-client",
@@ -4672,7 +4672,7 @@ version = "0.2.0"
 dependencies = [
  "async-trait",
  "avm-server",
- "base64 0.21.2",
+ "base64 0.21.4",
  "bs58",
  "bytesize",
  "connection-pool",
@@ -4735,7 +4735,7 @@ dependencies = [
 name = "particle-modules"
 version = "0.1.0"
 dependencies = [
- "base64 0.21.2",
+ "base64 0.21.4",
  "bytesize",
  "cid",
  "eyre",
@@ -4764,7 +4764,7 @@ dependencies = [
 name = "particle-protocol"
 version = "0.3.0"
 dependencies = [
- "base64 0.21.2",
+ "base64 0.21.4",
  "derivative",
  "eyre",
  "fluence-keypair",
@@ -4787,7 +4787,7 @@ dependencies = [
 name = "particle-services"
 version = "0.1.0"
 dependencies = [
- "base64 0.21.2",
+ "base64 0.21.4",
  "config-utils",
  "derivative",
  "eyre",
@@ -5821,7 +5821,7 @@ version = "3.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1402f54f9a3b9e2efe71c1cea24e648acce55887983553eeb858cf3115acfd49"
 dependencies = [
- "base64 0.21.2",
+ "base64 0.21.4",
  "chrono",
  "hex",
  "indexmap 1.9.3",
@@ -5861,7 +5861,7 @@ name = "server-config"
 version = "0.2.0"
 dependencies = [
  "air-interpreter-fs",
- "base64 0.21.2",
+ "base64 0.21.4",
  "bs58",
  "bytesize",
  "clap 4.4.2",
@@ -6390,7 +6390,7 @@ version = "0.1.0"
 name = "test-utils"
 version = "0.3.0"
 dependencies = [
- "base64 0.21.2",
+ "base64 0.21.4",
  "connected-client",
  "created-swarm",
  "eyre",
@@ -6626,7 +6626,7 @@ checksum = "3082666a3a6433f7f511c7192923fa1fe07c69332d3c6a2e6bb040b569199d5a"
 dependencies = [
  "async-trait",
  "axum",
- "base64 0.21.2",
+ "base64 0.21.4",
  "bytes",
  "futures-core",
  "futures-util",
