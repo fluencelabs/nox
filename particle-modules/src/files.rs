@@ -30,8 +30,8 @@ pub fn load_blueprint(bp_dir: &Path, blueprint_id: &str) -> Result<Blueprint> {
     let bp_path = bp_dir.join(blueprint_fname(blueprint_id));
     let blueprint =
         std::fs::read(&bp_path).map_err(|err| NoSuchBlueprint { path: bp_path, err })?;
-    let blueprint: Blueprint =
-        toml_edit::de::from_slice(blueprint.as_slice()).map_err(|err| IncorrectBlueprint { err })?;
+    let blueprint: Blueprint = toml_edit::de::from_slice(blueprint.as_slice())
+        .map_err(|err| IncorrectBlueprint { err })?;
 
     Ok(blueprint)
 }
@@ -61,8 +61,8 @@ pub fn load_config_by_path(path: &Path) -> Result<TomlMarineNamedModuleConfig> {
         path: path.to_path_buf(),
         err,
     })?;
-    let config: TomlMarineNamedModuleConfig =
-        toml_edit::de::from_slice(config.as_slice()).map_err(|err| IncorrectModuleConfig { err })?;
+    let config: TomlMarineNamedModuleConfig = toml_edit::de::from_slice(config.as_slice())
+        .map_err(|err| IncorrectModuleConfig { err })?;
 
     Ok(config)
 }

@@ -71,8 +71,8 @@ pub fn persist_keypair(
     persisted_keypair: PersistedKeypair,
 ) -> Result<(), KeyManagerError> {
     let path = keypairs_dir.join(keypair_file_name(&persisted_keypair.deal_id));
-    let bytes =
-        toml_edit::ser::to_vec(&persisted_keypair).map_err(|err| SerializePersistedKeypair { err })?;
+    let bytes = toml_edit::ser::to_vec(&persisted_keypair)
+        .map_err(|err| SerializePersistedKeypair { err })?;
     std::fs::write(&path, bytes).map_err(|err| WriteErrorPersistedKeypair { path, err })
 }
 
@@ -104,8 +104,8 @@ pub fn load_persisted_keypairs(
                 err,
                 path: file.to_path_buf(),
             })?;
-            let mut keypair: PersistedKeypair =
-                toml_edit::de::from_slice(bytes.as_slice()).map_err(|err| DeserializePersistedKeypair {
+            let mut keypair: PersistedKeypair = toml_edit::de::from_slice(bytes.as_slice())
+                .map_err(|err| DeserializePersistedKeypair {
                     err,
                     path: file.to_path_buf(),
                 })?;

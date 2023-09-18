@@ -67,10 +67,11 @@ pub fn persist_service(
     persisted_service: PersistedService,
 ) -> Result<(), ServiceError> {
     let path = services_dir.join(service_file_name(&persisted_service.service_id));
-    let bytes = toml_edit::ser::to_vec(&persisted_service).map_err(|err| SerializePersistedService {
-        err,
-        config: Box::new(persisted_service.clone()),
-    })?;
+    let bytes =
+        toml_edit::ser::to_vec(&persisted_service).map_err(|err| SerializePersistedService {
+            err,
+            config: Box::new(persisted_service.clone()),
+        })?;
     std::fs::write(&path, bytes).map_err(|err| WritePersistedService { path, err })
 }
 
@@ -103,8 +104,8 @@ pub fn load_persisted_services(
                 err,
                 path: file.to_path_buf(),
             })?;
-            let mut service: PersistedService =
-                toml_edit::de::from_slice(bytes.as_slice()).map_err(|err| DeserializePersistedService {
+            let mut service: PersistedService = toml_edit::de::from_slice(bytes.as_slice())
+                .map_err(|err| DeserializePersistedService {
                     err,
                     path: file.to_path_buf(),
                 })?;
