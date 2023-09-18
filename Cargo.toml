@@ -92,7 +92,7 @@ system-services = { path = "crates/system-services" }
 health = { path = "crates/health" }
 
 # spell
-fluence-spell-dtos = "=0.5.18"
+fluence-spell-dtos = "=0.5.20"
 fluence-spell-distro = "=0.5.18"
 
 # marine
