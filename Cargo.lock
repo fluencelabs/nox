@@ -118,9 +118,9 @@ dependencies = [
 
 [[package]]
 name = "air-interpreter-wasm"
-version = "0.46.0"
+version = "0.47.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "53c987980876074321ebf701a922b5c9644f17760c716832cfdc4f37775f6c31"
+checksum = "80917e2bca037c70a5a6d9fa60010b15e9637b0a4ff9fa9e8517b94e179d625f"
 dependencies = [
  "built 0.6.1",
 ]
@@ -232,7 +232,7 @@ dependencies = [
  "anyhow",
  "async-trait",
  "avm-server",
- "base64 0.21.2",
+ "base64 0.21.4",
  "bytesize",
  "chrono",
  "config-utils",
@@ -287,7 +287,7 @@ dependencies = [
  "num-traits",
  "rusticata-macros",
  "thiserror",
- "time 0.3.22",
+ "time",
 ]
 
 [[package]]
@@ -557,9 +557,9 @@ checksum = "9e1b586273c5702936fe7b7d6896644d8be71e6314cfe09d3167c95f712589e8"
 
 [[package]]
 name = "base64"
-version = "0.21.2"
+version = "0.21.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "604178f6c5c21f02dc555784810edfb88d34ac2c73b2eae109655649ee73ce3d"
+checksum = "9ba43ea6f343b788c8764558649e08df62f86c6ef251fdaeb1ffd010a9ae50a2"
 
 [[package]]
 name = "base64ct"
@@ -849,18 +849,17 @@ dependencies = [
 
 [[package]]
 name = "chrono"
-version = "0.4.26"
+version = "0.4.31"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ec837a71355b28f6556dbd569b37b3f363091c0bd4b2e735674521b4c5fd9bc5"
+checksum = "7f2c685bad3eb3d45a01354cedb7d5faa66194d1d58ba6e267a8de788f79db38"
 dependencies = [
  "android-tzdata",
  "iana-time-zone",
  "js-sys",
  "num-traits",
  "serde",
- "time 0.1.45",
  "wasm-bindgen",
- "winapi",
+ "windows-targets 0.48.1",
 ]
 
 [[package]]
@@ -880,7 +879,7 @@ dependencies = [
 name = "cid-utils"
 version = "0.1.0"
 dependencies = [
- "base64 0.21.2",
+ "base64 0.21.4",
  "bytes",
  "eyre",
  "libipld",
@@ -1248,7 +1247,7 @@ version = "0.1.0"
 dependencies = [
  "air-interpreter-fs",
  "aquamarine",
- "base64 0.21.2",
+ "base64 0.21.4",
  "config-utils",
  "connection-pool",
  "derivative",
@@ -1268,6 +1267,7 @@ dependencies = [
  "serde",
  "serde_json",
  "server-config",
+ "system-services",
  "test-constants",
  "tokio",
  "tokio-stream",
@@ -1762,9 +1762,9 @@ checksum = "4443176a9f2c162692bd3d352d745ef9413eec5782a80d8fd6f8a1ac692a07f7"
 
 [[package]]
 name = "faster-hex"
-version = "0.8.0"
+version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e9042d281a5eec0f2387f8c3ea6c4514e2cf2732c90a85aaf383b761ee3b290d"
+checksum = "239f7bfb930f820ab16a9cd95afc26f88264cf6905c960b340a615384aa3338a"
 dependencies = [
  "serde",
 ]
@@ -1879,7 +1879,7 @@ dependencies = [
 name = "fluence-libp2p"
 version = "0.2.0"
 dependencies = [
- "base64 0.21.2",
+ "base64 0.21.4",
  "bs58",
  "failure",
  "futures",
@@ -1888,7 +1888,7 @@ dependencies = [
  "libp2p-mplex",
  "libp2p-noise",
  "log",
- "multihash 0.19.0",
+ "multihash 0.19.1",
  "rand 0.8.5",
  "serde",
  "serde_json",
@@ -2712,7 +2712,7 @@ dependencies = [
 name = "json-utils"
 version = "0.0.2"
 dependencies = [
- "base64 0.21.2",
+ "base64 0.21.4",
  "itertools 0.11.0",
  "serde",
  "serde_json",
@@ -2734,7 +2734,7 @@ dependencies = [
  "libp2p-metrics",
  "log",
  "log-utils",
- "multihash 0.19.0",
+ "multihash 0.19.1",
  "once_cell",
  "particle-protocol",
  "prometheus-client",
@@ -2954,7 +2954,7 @@ dependencies = [
  "libp2p-identity",
  "log",
  "multiaddr",
- "multihash 0.19.0",
+ "multihash 0.19.1",
  "multistream-select",
  "once_cell",
  "parking_lot",
@@ -3016,7 +3016,7 @@ dependencies = [
  "ed25519-dalek 2.0.0",
  "libsecp256k1",
  "log",
- "multihash 0.19.0",
+ "multihash 0.19.1",
  "quick-protobuf",
  "rand 0.8.5",
  "ring",
@@ -3123,7 +3123,7 @@ dependencies = [
  "libp2p-identity",
  "log",
  "multiaddr",
- "multihash 0.19.0",
+ "multihash 0.19.1",
  "once_cell",
  "quick-protobuf",
  "rand 0.8.5",
@@ -4126,7 +4126,7 @@ dependencies = [
  "data-encoding",
  "libp2p-identity",
  "multibase",
- "multihash 0.19.0",
+ "multihash 0.19.1",
  "percent-encoding",
  "serde",
  "static_assertions",
@@ -4164,9 +4164,9 @@ dependencies = [
 
 [[package]]
 name = "multihash"
-version = "0.19.0"
+version = "0.19.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2fd59dcc2bbe70baabeac52cd22ae52c55eefe6c38ff11a9439f16a350a939f2"
+checksum = "076d548d76a0e2a0d4ab471d0b1c36c577786dfc4471242035d97a12a735c492"
 dependencies = [
  "core2",
  "serde",
@@ -4309,14 +4309,14 @@ version = "0.1.0"
 
 [[package]]
 name = "nox"
-version = "0.14.5"
+version = "0.14.6"
 dependencies = [
  "air-interpreter-fs",
  "air-interpreter-wasm",
  "aquamarine",
  "avm-server",
  "axum",
- "base64 0.21.2",
+ "base64 0.21.4",
  "blake3",
  "bs58",
  "config-utils",
@@ -4343,7 +4343,7 @@ dependencies = [
  "log",
  "log-utils",
  "maplit",
- "multihash 0.19.0",
+ "multihash 0.19.1",
  "opentelemetry",
  "opentelemetry-otlp",
  "parking_lot",
@@ -4375,7 +4375,7 @@ name = "nox-tests"
 version = "0.1.0"
 dependencies = [
  "aquamarine",
- "base64 0.21.2",
+ "base64 0.21.4",
  "blake3",
  "bs58",
  "connected-client",
@@ -4399,7 +4399,7 @@ dependencies = [
  "log",
  "log-utils",
  "maplit",
- "multihash 0.19.0",
+ "multihash 0.19.1",
  "now-millis",
  "nox",
  "parking_lot",
@@ -4412,10 +4412,10 @@ dependencies = [
  "script-storage",
  "serde",
  "serde_json",
- "server-config",
  "service-modules",
  "sorcerer",
  "spell-event-bus",
+ "system-services",
  "test-constants",
  "test-utils",
  "tokio",
@@ -4671,7 +4671,7 @@ version = "0.2.0"
 dependencies = [
  "async-trait",
  "avm-server",
- "base64 0.21.2",
+ "base64 0.21.4",
  "bs58",
  "bytesize",
  "connection-pool",
@@ -4689,7 +4689,7 @@ dependencies = [
  "libp2p",
  "libp2p-kad",
  "log",
- "multihash 0.19.0",
+ "multihash 0.19.1",
  "now-millis",
  "parking_lot",
  "particle-args",
@@ -4734,7 +4734,7 @@ dependencies = [
 name = "particle-modules"
 version = "0.1.0"
 dependencies = [
- "base64 0.21.2",
+ "base64 0.21.4",
  "bytesize",
  "cid",
  "eyre",
@@ -4763,7 +4763,7 @@ dependencies = [
 name = "particle-protocol"
 version = "0.3.0"
 dependencies = [
- "base64 0.21.2",
+ "base64 0.21.4",
  "derivative",
  "eyre",
  "fluence-keypair",
@@ -4786,7 +4786,7 @@ dependencies = [
 name = "particle-services"
 version = "0.1.0"
 dependencies = [
- "base64 0.21.2",
+ "base64 0.21.4",
  "config-utils",
  "derivative",
  "eyre",
@@ -5389,7 +5389,7 @@ checksum = "ffbe84efe2f38dea12e9bfc1f65377fdf03e53a18cb3b995faedf7934c7e785b"
 dependencies = [
  "pem",
  "ring",
- "time 0.3.22",
+ "time",
  "yasna",
 ]
 
@@ -5811,7 +5811,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_with_macros 2.3.3",
- "time 0.3.22",
+ "time",
 ]
 
 [[package]]
@@ -5820,7 +5820,7 @@ version = "3.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1402f54f9a3b9e2efe71c1cea24e648acce55887983553eeb858cf3115acfd49"
 dependencies = [
- "base64 0.21.2",
+ "base64 0.21.4",
  "chrono",
  "hex",
  "indexmap 1.9.3",
@@ -5828,7 +5828,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_with_macros 3.2.0",
- "time 0.3.22",
+ "time",
 ]
 
 [[package]]
@@ -5860,7 +5860,7 @@ name = "server-config"
 version = "0.2.0"
 dependencies = [
  "air-interpreter-fs",
- "base64 0.21.2",
+ "base64 0.21.4",
  "bs58",
  "bytesize",
  "clap 4.4.2",
@@ -6389,7 +6389,7 @@ version = "0.1.0"
 name = "test-utils"
 version = "0.3.0"
 dependencies = [
- "base64 0.21.2",
+ "base64 0.21.4",
  "connected-client",
  "created-swarm",
  "eyre",
@@ -6446,17 +6446,6 @@ checksum = "3fdd6f064ccff2d6567adcb3873ca630700f00b5ad3f060c25b5dcfd9a4ce152"
 dependencies = [
  "cfg-if",
  "once_cell",
-]
-
-[[package]]
-name = "time"
-version = "0.1.45"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1b797afad3f312d1c66a56d11d0316f916356d11bd158fbc6ca6389ff6bf805a"
-dependencies = [
- "libc",
- "wasi 0.10.0+wasi-snapshot-preview1",
- "winapi",
 ]
 
 [[package]]
@@ -6625,7 +6614,7 @@ checksum = "3082666a3a6433f7f511c7192923fa1fe07c69332d3c6a2e6bb040b569199d5a"
 dependencies = [
  "async-trait",
  "axum",
- "base64 0.21.2",
+ "base64 0.21.4",
  "bytes",
  "futures-core",
  "futures-util",
@@ -6742,7 +6731,7 @@ version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ce2fb2783ed7727b30a78ebecb49d59c98102b1f384105aa27d632487875a67b"
 dependencies = [
- "time 0.3.22",
+ "time",
  "tracing",
  "tracing-core",
  "tracing-subscriber",
@@ -7083,12 +7072,6 @@ name = "wasi"
 version = "0.9.0+wasi-snapshot-preview1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cccddf32554fecc6acb585f82a32a72e28b48f8c4c1883ddfeeeaa96f7d8e519"
-
-[[package]]
-name = "wasi"
-version = "0.10.0+wasi-snapshot-preview1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1a143597ca7c7793eff794def352d41792a93c481eb1042423ff7ff72ba2c31f"
 
 [[package]]
 name = "wasi"
@@ -7859,7 +7842,7 @@ dependencies = [
  "oid-registry",
  "rusticata-macros",
  "thiserror",
- "time 0.3.22",
+ "time",
 ]
 
 [[package]]
@@ -7883,7 +7866,7 @@ version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e17bb3549cc1321ae1296b9cdc2698e2b6cb1992adfa19a8c72e5b7a738f44cd"
 dependencies = [
- "time 0.3.22",
+ "time",
 ]
 
 [[package]]

@@ -1,35 +1,23 @@
+use crate::distro::*;
+use crate::CallService;
+use crate::{DeploymentStatus, PackageDistro, ServiceDistro, ServiceStatus, SpellDistro};
 use eyre::eyre;
-use fluence_app_service::TomlMarineConfig;
 use fluence_spell_dtos::trigger_config::TriggerConfig;
 use libp2p::PeerId;
 use particle_execution::FunctionOutcome;
 use particle_modules::{AddBlueprint, ModuleRepository};
 use particle_services::{ParticleAppServices, ServiceError, ServiceType};
 use serde_json::{json, Value as JValue};
-use server_config::system_services_config::ServiceKey::*;
-use server_config::system_services_config::{ConnectorConfig, RegistryConfig};
-use server_config::{
-    system_services_config::ServiceKey, AquaIpfsConfig, DeciderConfig, SystemServicesConfig,
-};
 use sorcerer::{get_spell_info, install_spell, remove_spell};
 use spell_event_bus::api::SpellEventBusApi;
 use spell_service_api::{CallParams, SpellServiceApi};
 use spell_storage::SpellStorage;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::time::Duration;
 
-const DEPLOYER_TTL: u64 = 60_000;
+const DEPLOYER_TTL: Duration = Duration::from_millis(60_000);
 
 const DEPLOYER_PARTICLE_ID: &str = "system-services-deployment";
-
-// A status of a service/spell after deployment
-#[derive(Clone, Debug)]
-enum ServiceStatus {
-    // Id of a newly created service
-    Created(String),
-    // Id of a already existing service
-    Existing(String),
-}
 
 // Status of the service or spell before deployment
 #[derive(Clone, Debug)]
@@ -40,22 +28,6 @@ enum ServiceUpdateStatus {
     NoUpdate(String),
     // A service isn't found
     NotFound,
-}
-
-// This is supposed to be in a separate lib for all system services crates
-#[derive(Clone, Debug)]
-struct ServiceDistro {
-    modules: HashMap<&'static str, &'static [u8]>,
-    config: TomlMarineConfig,
-    name: String,
-}
-
-#[derive(Clone, Debug)]
-struct SpellDistro {
-    name: String,
-    air: &'static str,
-    kv: HashMap<&'static str, JValue>,
-    trigger_config: TriggerConfig,
 }
 
 #[derive(Clone, Debug)]
@@ -71,15 +43,7 @@ pub struct Deployer {
     root_worker_id: PeerId,
     management_id: PeerId,
 
-    config: SystemServicesConfig,
-}
-
-#[derive(Debug, Clone)]
-pub struct Versions {
-    pub aqua_ipfs_version: &'static str,
-    pub trust_graph_version: &'static str,
-    pub registry_version: &'static str,
-    pub decider_version: &'static str,
+    system_service_distros: SystemServiceDistros,
 }
 
 impl Deployer {
@@ -92,7 +56,7 @@ impl Deployer {
         spell_service_api: SpellServiceApi,
         root_worker_id: PeerId,
         management_id: PeerId,
-        config: SystemServicesConfig,
+        system_service_distros: SystemServiceDistros,
     ) -> Self {
         Self {
             services,
@@ -102,273 +66,50 @@ impl Deployer {
             spells_api: spell_service_api,
             root_worker_id,
             management_id,
-            config,
+
+            system_service_distros,
         }
     }
     pub fn versions(&self) -> Versions {
-        Versions {
-            aqua_ipfs_version: aqua_ipfs_distro::VERSION,
-            trust_graph_version: trust_graph_distro::VERSION,
-            registry_version: registry_distro::VERSION,
-            decider_version: decider_distro::VERSION,
-        }
+        self.system_service_distros.versions.clone()
     }
 
-    async fn deploy_system_service(&self, key: &ServiceKey) -> eyre::Result<()> {
-        match key {
-            AquaIpfs => self.deploy_aqua_ipfs(),
-            TrustGraph => self.deploy_trust_graph(),
-            Registry => self.deploy_registry().await,
-            Decider => {
-                self.deploy_connector()?;
-                self.deploy_decider().await
-            }
-        }
-    }
+    pub async fn deploy_system_services(self) -> eyre::Result<()> {
+        // TODO: Can we do this without cloning?
 
-    pub async fn deploy_system_services(&self) -> eyre::Result<()> {
-        let services = &self.config.enable.iter().collect::<HashSet<_>>();
-        for service in services {
-            self.deploy_system_service(service).await?;
+        let services = self.services.clone();
+        let root_worker_id = self.root_worker_id;
+        let call: CallService = Box::new(move |srv, fnc, args| {
+            call_service(&services, root_worker_id, &srv, &fnc, args)
+        });
+
+        for distro in self.system_service_distros.distros.values() {
+            self.deploy_package(&call, distro.clone()).await?;
         }
         Ok(())
     }
 
-    fn deploy_aqua_ipfs(&self) -> eyre::Result<()> {
-        let aqua_ipfs_distro = Self::get_ipfs_service_distro(&self.config.aqua_ipfs)?;
-        let service_name = aqua_ipfs_distro.name.clone();
-        let service_id = match self.deploy_service_common(aqua_ipfs_distro)? {
-            ServiceStatus::Existing(_id) => {
-                return Ok(());
-            }
-            ServiceStatus::Created(id) => id,
-        };
-
-        let set_local_result = self.call_service(
-            &service_name,
-            "set_local_api_multiaddr",
-            vec![json!(self.config.aqua_ipfs.local_api_multiaddr)],
-        );
-
-        let set_external_result = self.call_service(
-            &service_name,
-            "set_external_api_multiaddr",
-            vec![json!(self.config.aqua_ipfs.external_api_multiaddr)],
-        );
-
-        // try to set local and external api multiaddrs, and only then produce an error
-        set_local_result?;
-        set_external_result?;
-
-        log::info!("initialized `aqua-ipfs` [{}] service", service_id);
-
-        Ok(())
-    }
-
-    fn deploy_connector(&self) -> eyre::Result<()> {
-        let connector_distro = Self::get_connector_distro(&self.config.connector)?;
-        self.deploy_service_common(connector_distro)?;
-        Ok(())
-    }
-
-    async fn deploy_decider(&self) -> eyre::Result<()> {
-        let wallet_key = match self.config.decider.wallet_key.clone() {
-            // TODO: set default wallet key somewhere in nox-distro, etc
-            //None => return Err(eyre!("Decider enabled, but wallet_key is not set. Please set it via env FLUENCE_ENV_CONNECTOR_WALLET_KEY or in Config.toml")),
-            None => {
-                "0xfdc4ba94809c7930fe4676b7d845cbf8fa5c1beae8744d959530e5073004cf3f".to_string()
-            }
-            Some(key) => key,
-        };
-
-        let decider_distro = Self::get_decider_distro(self.config.decider.clone(), wallet_key);
-        self.deploy_system_spell(decider_distro).await?;
-        Ok(())
-    }
-
-    async fn deploy_registry(&self) -> eyre::Result<()> {
-        let (registry_distro, registry_spell_distro) =
-            Self::get_registry_distro(self.config.registry.clone())?;
-        self.deploy_service_common(registry_distro)?;
-        self.deploy_system_spell(registry_spell_distro).await?;
-        Ok(())
-    }
-
-    fn deploy_trust_graph(&self) -> eyre::Result<()> {
-        let service_distro = Self::get_trust_graph_distro()?;
-        let service_name = service_distro.name.clone();
-        let service_id = match self.deploy_service_common(service_distro)? {
-            ServiceStatus::Existing(_id) => {
-                return Ok(());
-            }
-            ServiceStatus::Created(id) => id,
-        };
-
-        let certs = &trust_graph_distro::KRAS_CERTS;
-
-        self.call_service(
-            &service_name,
-            "set_root",
-            vec![json!(certs.root_node), json!(certs.max_chain_length)],
-        )?;
-
-        let timestamp = now_millis::now_sec();
-        for cert_chain in &certs.certs {
-            self.call_service(
-                &service_name,
-                "insert_cert",
-                vec![json!(cert_chain), json!(timestamp)],
-            )?;
+    async fn deploy_package(&self, call: &CallService, package: PackageDistro) -> eyre::Result<()> {
+        let mut services = HashMap::new();
+        for service_distro in package.services {
+            let name = service_distro.name.clone();
+            let result = self.deploy_service_common(service_distro)?;
+            services.insert(name, result);
         }
-        log::info!("initialized `{service_name}` [{service_id}] service");
+
+        let mut spells = HashMap::new();
+        for spell_distro in package.spells {
+            let name = spell_distro.name.clone();
+            let result = self.deploy_system_spell(spell_distro).await?;
+            spells.insert(name, result);
+        }
+        let status = DeploymentStatus { services, spells };
+
+        if let Some(init) = package.init {
+            init(call, status)?;
+        }
+
         Ok(())
-    }
-
-    // The plan is to move this to the corresponding crates
-    fn get_trust_graph_distro() -> eyre::Result<ServiceDistro> {
-        use trust_graph_distro::*;
-        let config: TomlMarineConfig = toml::from_slice(CONFIG)?;
-        Ok(ServiceDistro {
-            modules: modules(),
-            config,
-            name: TrustGraph.to_string(),
-        })
-    }
-
-    fn get_registry_distro(config: RegistryConfig) -> eyre::Result<(ServiceDistro, SpellDistro)> {
-        let marine_config: TomlMarineConfig = toml::from_slice(registry_distro::CONFIG)?;
-        let distro = ServiceDistro {
-            modules: registry_distro::modules(),
-            config: marine_config,
-            name: Registry.to_string(),
-        };
-
-        let registry_config = registry_distro::RegistryConfig {
-            expired_interval: config.expired_period_sec,
-            renew_interval: config.renew_period_sec,
-            replicate_interval: config.replicate_period_sec,
-        };
-        let spell_distro = registry_distro::registry_spell(registry_config);
-        let mut trigger_config = TriggerConfig::default();
-        trigger_config.clock.start_sec = 1;
-        trigger_config.clock.period_sec = config.registry_period_sec;
-        let spell_distro = SpellDistro {
-            name: "registry-spell".to_string(),
-            air: spell_distro.air,
-            kv: spell_distro.init_data,
-            trigger_config,
-        };
-
-        Ok((distro, spell_distro))
-    }
-
-    fn get_ipfs_service_distro(config: &AquaIpfsConfig) -> eyre::Result<ServiceDistro> {
-        use aqua_ipfs_distro::*;
-        let mut marine_config: TomlMarineConfig = toml::from_slice(CONFIG)?;
-        Self::apply_binary_path_override(
-            &mut marine_config,
-            "ipfs_effector",
-            "ipfs",
-            config.ipfs_binary_path.clone(),
-        );
-
-        Ok(ServiceDistro {
-            modules: modules(),
-            config: marine_config,
-            name: AquaIpfs.to_string(),
-        })
-    }
-
-    fn get_connector_distro(config: &ConnectorConfig) -> eyre::Result<ServiceDistro> {
-        let connector_service_distro = decider_distro::connector_service_modules();
-        let mut marine_config: TomlMarineConfig =
-            toml::from_slice(connector_service_distro.config)?;
-        Self::apply_binary_path_override(
-            &mut marine_config,
-            "curl_adapter",
-            "curl",
-            config.curl_binary_path.clone(),
-        );
-
-        Ok(ServiceDistro {
-            modules: connector_service_distro.modules,
-            config: marine_config,
-            name: connector_service_distro.name.to_string(),
-        })
-    }
-
-    fn get_decider_distro(config: DeciderConfig, wallet_key: String) -> SpellDistro {
-        let decider_config = decider_distro::DeciderConfig {
-            worker_period_sec: config.worker_period_sec,
-            worker_ipfs_multiaddr: config.worker_ipfs_multiaddr,
-            chain_api_endpoint: config.network_api_endpoint,
-            chain_network_id: config.network_id,
-            chain_contract_block_hex: config.start_block,
-            chain_matcher_addr: config.matcher_address,
-            chain_workers_gas: config.worker_gas,
-            chain_wallet_key: wallet_key,
-        };
-        let decider_spell_distro = decider_distro::decider_spell(decider_config);
-        let mut decider_trigger_config = TriggerConfig::default();
-        decider_trigger_config.clock.start_sec = 1;
-        decider_trigger_config.clock.period_sec = config.decider_period_sec;
-        SpellDistro {
-            name: Decider.to_string(),
-            air: decider_spell_distro.air,
-            kv: decider_spell_distro.kv,
-            trigger_config: decider_trigger_config,
-        }
-    }
-
-    fn call_service(
-        &self,
-        service_id: &str,
-        function_name: &'static str,
-        args: Vec<JValue>,
-    ) -> eyre::Result<()> {
-        let result = self.services.call_function(
-            self.root_worker_id,
-            service_id,
-            function_name,
-            args,
-            None,
-            self.root_worker_id,
-            Duration::from_millis(DEPLOYER_TTL),
-        );
-        // similar to process_func_outcome in sorcerer/src/utils.rs, but that func is
-        // to specialized to spell specific
-        match result {
-            FunctionOutcome::Ok(result) => {
-                let call_result: Option<Result<_, _>> = try {
-                    let result = result.as_object()?;
-                    let is_success = result["success"].as_bool()?;
-                    if !is_success {
-                        if let Some(error) = result["error"].as_str() {
-                            Err(eyre!(
-                                "Call {service_id}.{function_name} returned error: {}",
-                                error
-                            ))
-                        } else {
-                            Err(eyre!("Call {service_id}.{function_name} returned error"))
-                        }
-                    } else {
-                        Ok(())
-                    }
-                };
-                call_result.unwrap_or_else(|| {
-                    Err(eyre!(
-                        "Call {service_id}.{function_name} return invalid result: {result}"
-                    ))
-                })
-            }
-            FunctionOutcome::NotDefined { .. } => {
-                Err(eyre!("Service {service_id} ({function_name}) not found"))
-            }
-            FunctionOutcome::Empty => Err(eyre!(
-                "Call {service_id}.{function_name} didn't return any result"
-            )),
-            FunctionOutcome::Err(err) => Err(eyre!(err)),
-        }
     }
 
     async fn deploy_system_spell(&self, spell_distro: SpellDistro) -> eyre::Result<ServiceStatus> {
@@ -432,12 +173,7 @@ impl Deployer {
         }
 
         let trigger_config = spell_event_bus::api::from_user_config(&spell_distro.trigger_config)?;
-
-        let params = CallParams::local(
-            spell_id.to_string(),
-            self.root_worker_id,
-            Duration::from_millis(DEPLOYER_TTL),
-        );
+        let params = CallParams::local(spell_id.to_string(), self.root_worker_id, DEPLOYER_TTL);
         // update trigger config
         let config = spell_distro.trigger_config.clone();
         self.spells_api.set_trigger_config(params.clone(), config)?;
@@ -481,11 +217,7 @@ impl Deployer {
             // Stop old spell
             let result: eyre::Result<_> = try {
                 // Stop the spell to avoid re-subscription
-                let params = CallParams::local(
-                    spell_id.clone(),
-                    self.root_worker_id,
-                    Duration::from_millis(DEPLOYER_TTL),
-                );
+                let params = CallParams::local(spell_id.clone(), self.root_worker_id, DEPLOYER_TTL);
                 self.spells_api.set_trigger_config(params, empty_config)?;
 
                 // Unsubscribe spell from execution
@@ -600,7 +332,7 @@ impl Deployer {
 
         match self.find_same_service(service_name.to_string(), &blueprint_id) {
             ServiceUpdateStatus::NeedUpdate(service_id) => {
-                tracing::debug!(service_name, service_id, "found existing service that needs to be updated; will remove the olf service and deploy a new one");
+                tracing::debug!(service_name, service_id, "found existing service that needs to be updated; will remove the old service and deploy a new one");
                 let result = self.services.remove_service(
                     DEPLOYER_PARTICLE_ID,
                     self.root_worker_id,
@@ -697,23 +429,56 @@ impl Deployer {
             .add_blueprint(AddBlueprint::new(service_distro.name, hashes))?;
         Ok(blueprint_id)
     }
+}
 
-    /// Override a binary path to a binary for a module in the service configuration
-    fn apply_binary_path_override(
-        config: &mut TomlMarineConfig,
-        // Name of the module for which we override the path
-        module_name: &str,
-        // The name of the binary to override
-        binary_name: &str,
-        // Path to the binary to use instead
-        binary_path: String,
-    ) {
-        if let Some(module_config) = config.module.iter_mut().find(|p| p.name == module_name) {
-            if let Some(mounted_binaries) = &mut module_config.config.mounted_binaries {
-                if let Some(path) = mounted_binaries.get_mut(binary_name) {
-                    *path = toml::Value::String(binary_path);
+fn call_service(
+    services: &ParticleAppServices,
+    root_worker_id: PeerId,
+    service_id: &str,
+    function_name: &str,
+    args: Vec<JValue>,
+) -> eyre::Result<()> {
+    let result = services.call_function(
+        root_worker_id,
+        service_id,
+        function_name,
+        args,
+        None,
+        root_worker_id,
+        DEPLOYER_TTL,
+    );
+    // similar to process_func_outcome in sorcerer/src/utils.rs, but that func is
+    // to specialized to spell specific
+    match result {
+        FunctionOutcome::Ok(result) => {
+            let call_result: Option<Result<_, _>> = try {
+                let result = result.as_object()?;
+                let is_success = result["success"].as_bool()?;
+                if !is_success {
+                    if let Some(error) = result["error"].as_str() {
+                        Err(eyre!(
+                            "Call {service_id}.{function_name} returned error: {}",
+                            error
+                        ))
+                    } else {
+                        Err(eyre!("Call {service_id}.{function_name} returned error"))
+                    }
+                } else {
+                    Ok(())
                 }
-            }
+            };
+            call_result.unwrap_or_else(|| {
+                Err(eyre!(
+                    "Call {service_id}.{function_name} return invalid result: {result}"
+                ))
+            })
         }
+        FunctionOutcome::NotDefined { .. } => {
+            Err(eyre!("Service {service_id} ({function_name}) not found"))
+        }
+        FunctionOutcome::Empty => Err(eyre!(
+            "Call {service_id}.{function_name} didn't return any result"
+        )),
+        FunctionOutcome::Err(err) => Err(eyre!(err)),
     }
 }

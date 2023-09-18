@@ -36,6 +36,16 @@ impl ServiceKey {
             Self::Decider,
         ]
     }
+
+    pub fn from_string(name: &str) -> Option<ServiceKey> {
+        match name {
+            "aqua-ipfs" => Some(ServiceKey::AquaIpfs),
+            "trust-graph" => Some(ServiceKey::TrustGraph),
+            "registry" => Some(ServiceKey::Registry),
+            "decider" => Some(ServiceKey::Decider),
+            _ => None,
+        }
+    }
 }
 
 impl std::fmt::Display for ServiceKey {
