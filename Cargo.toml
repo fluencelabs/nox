@@ -114,7 +114,7 @@ libp2p-swarm = "0.43.3"
 libp2p-identity = "0.2.3"
 libp2p-connection-limits = "0.2.1"
 libp2p-kad = "0.44.4"
-multihash = "0.19.0"
+multihash = "0.19.1"
 prometheus-client = "0.21.2"
 
 eyre = "0.6.8"
