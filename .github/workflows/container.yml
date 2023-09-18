@@ -34,7 +34,7 @@ jobs:
 
     steps:
       - name: Checkout nox-distro
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           repository: fluencelabs/nox-distro
 
