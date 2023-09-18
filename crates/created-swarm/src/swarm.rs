@@ -37,7 +37,10 @@ use futures::stream::iter;
 use hyper::{Body, Request, StatusCode};
 use nox::{Connectivity, Node};
 use particle_protocol::ProtocolConfig;
-use server_config::{default_script_storage_timer_resolution, BootstrapConfig, UnresolvedConfig};
+use server_config::{
+    default_script_storage_timer_resolution, system_services_config, BootstrapConfig,
+    UnresolvedConfig,
+};
 use test_constants::{EXECUTION_TIMEOUT, KEEP_ALIVE_TIMEOUT, TRANSPORT_TIMEOUT};
 use tokio::sync::oneshot;
 use toy_vms::EasyVM;
@@ -243,7 +246,8 @@ pub struct SwarmConfig {
     pub spell_base_dir: Option<PathBuf>,
     pub timer_resolution: Duration,
     pub allowed_binaries: Vec<String>,
-    pub enabled_system_services: Vec<server_config::system_services_config::ServiceKey>,
+    pub enabled_system_services: Vec<String>,
+    pub extend_system_services: Vec<system_services::PackageDistro>,
     pub http_port: u16,
 }
 
@@ -266,6 +270,7 @@ impl SwarmConfig {
             timer_resolution: default_script_storage_timer_resolution(),
             allowed_binaries: vec!["/usr/bin/ipfs".to_string(), "/usr/bin/curl".to_string()],
             enabled_system_services: vec![],
+            extend_system_services: vec![],
             http_port: 0,
         }
     }
@@ -360,7 +365,14 @@ pub fn create_swarm_with_runtime<RT: AquaRuntime>(
 
     resolved.node_config.script_storage_timer_resolution = config.timer_resolution;
     resolved.node_config.allowed_binaries = config.allowed_binaries.clone();
-    resolved.system_services.enable = config.enabled_system_services.clone();
+    resolved.system_services.enable = config
+        .enabled_system_services
+        .iter()
+        .map(|service| {
+            system_services_config::ServiceKey::from_string(service)
+                .expect(&format!("service {service} doesn't exist"))
+        })
+        .collect();
 
     let management_kp = fluence_keypair::KeyPair::generate_ed25519();
     let management_peer_id = libp2p::identity::Keypair::from(management_kp.clone())
@@ -374,8 +386,21 @@ pub fn create_swarm_with_runtime<RT: AquaRuntime>(
         listen_on: config.listen_on.clone(),
         manager: management_peer_id,
     });
-    let mut node =
-        Node::new(resolved, vm_config, "some version", "some version").expect("create node");
+
+    let system_services_config = resolved.system_services.clone();
+    let system_service_distros =
+        system_services::SystemServiceDistros::default_from(system_services_config)
+            .expect("Failed to get default system service distros")
+            .extend(config.extend_system_services.clone());
+
+    let mut node = Node::new(
+        resolved,
+        vm_config,
+        "some version",
+        "some version",
+        system_service_distros,
+    )
+    .expect("create node");
     node.listen(vec![config.listen_on.clone()]).expect("listen");
 
     (

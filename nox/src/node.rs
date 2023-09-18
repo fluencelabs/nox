@@ -50,7 +50,7 @@ use server_config::{NetworkConfig, ResolvedConfig, ServicesConfig};
 use sorcerer::Sorcerer;
 use spell_event_bus::api::{PeerEvent, SpellEventBusApi, TriggerEvent};
 use spell_event_bus::bus::SpellEventBus;
-use system_services::Deployer;
+use system_services::{Deployer, SystemServiceDistros};
 use tokio::sync::{mpsc, oneshot};
 use tokio::task;
 
@@ -102,6 +102,7 @@ impl<RT: AquaRuntime> Node<RT> {
         vm_config: RT::Config,
         node_version: &'static str,
         air_version: &'static str,
+        system_service_distros: SystemServiceDistros,
     ) -> eyre::Result<Box<Self>> {
         let key_pair: Keypair = config.node_config.root_key_pair.clone().into();
         let transport = config.transport_config.transport;
@@ -309,7 +310,6 @@ impl<RT: AquaRuntime> Node<RT> {
             },
         );
 
-        let system_services_config = config.system_services.clone();
         let system_services_deployer = Deployer::new(
             services,
             modules,
@@ -318,7 +318,7 @@ impl<RT: AquaRuntime> Node<RT> {
             spell_service_api,
             key_manager.get_host_peer_id(),
             builtins_peer_id,
-            system_services_config,
+            system_service_distros,
         );
 
         let versions = Versions::new(
@@ -584,6 +584,7 @@ mod tests {
     use connected_client::ConnectedClient;
     use fs_utils::to_abs_path;
     use server_config::{default_base_dir, load_config_with_args};
+    use system_services::SystemServiceDistros;
 
     use crate::Node;
 
@@ -607,8 +608,17 @@ mod tests {
             config.dir_config.air_interpreter_path.clone(),
             None,
         );
-        let mut node: Box<Node<AVM<_>>> =
-            Node::new(config, vm_config, "some version", "some version").expect("create node");
+        let system_service_distros =
+            SystemServiceDistros::default_from(config.system_services.clone())
+                .expect("can't create system services");
+        let mut node: Box<Node<AVM<_>>> = Node::new(
+            config,
+            vm_config,
+            "some version",
+            "some version",
+            system_service_distros,
+        )
+        .expect("create node");
 
         let listening_address: Multiaddr = "/ip4/127.0.0.1/tcp/7777".parse().unwrap();
         node.listen(vec![listening_address.clone()]).unwrap();
