@@ -240,7 +240,7 @@ impl SpellEventBus {
                         let Command { action, reply } = command;
                         match &action {
                             Action::Subscribe(spell_id, config) => {
-                                log::trace!("Subscribe {spell_id} to {:?config}");
+                                log::trace!("Subscribe {spell_id} to {:?}", config);
                                 state.subscribe(spell_id.clone(), config).unwrap_or(());
                             },
                             Action::Unsubscribe(spell_id) => {
