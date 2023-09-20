@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.14.6](https://github.com/fluencelabs/nox/compare/rust-peer-v0.14.5...rust-peer-v0.14.6) (2023-09-15)
+
+
+### Features
+
+* **system-services, tests:** composable and overridable system services [NET-530, NET-531] ([#1770](https://github.com/fluencelabs/nox/issues/1770)) ([459ec72](https://github.com/fluencelabs/nox/commit/459ec72a0c9bbcd93ec7a12b4eb097dbda2ee40f))
+
+
+### Bug Fixes
+
+* **deps:** update rust crate air-interpreter-wasm to 0.47.0 ([#1785](https://github.com/fluencelabs/nox/issues/1785)) ([33ac736](https://github.com/fluencelabs/nox/commit/33ac7361a8d749dea5e9b8372ee3930a0929582f))
+
 ## [0.14.5](https://github.com/fluencelabs/nox/compare/rust-peer-v0.14.4...rust-peer-v0.14.5) (2023-09-07)
 
 

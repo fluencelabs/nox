@@ -94,8 +94,8 @@ health = { path = "crates/health" }
 subnet-resolver = { path = "crates/subnet-resolver" }
 
 # spell
-fluence-spell-dtos = "=0.5.18"
-fluence-spell-distro = "=0.5.18"
+fluence-spell-dtos = "=0.5.20"
+fluence-spell-distro = "=0.5.20"
 
 # marine
 fluence-app-service = { version = "=0.26.4-feat-wasm-backend-interface-update-b3cf050-636-1.0", registry = "fluence" }
@@ -104,7 +104,7 @@ marine-it-parser = "0.12.2"
 
 # avm
 avm-server = { version = "0.33.0" }
-air-interpreter-wasm = { version = "0.46.0" }
+air-interpreter-wasm = { version = "0.47.0" }
 
 # libp2p
 libp2p = { version = "0.52.3", features = ["noise", "tcp", "dns", "websocket", "yamux", "tokio", "kad", "ping", "identify", "macros"] }
@@ -116,11 +116,11 @@ libp2p-swarm = "0.43.3"
 libp2p-identity = "0.2.3"
 libp2p-connection-limits = "0.2.1"
 libp2p-kad = "0.44.4"
-multihash = "0.19.0"
+multihash = "0.19.1"
 prometheus-client = "0.21.2"
 
 eyre = "0.6.8"
-base64 = "0.21.2"
+base64 = "0.21.4"
 bs58 = "0.5.0"
 fluence-keypair = "0.10.3"
 parking_lot = "0.12.1"
