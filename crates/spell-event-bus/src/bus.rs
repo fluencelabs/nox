@@ -5,7 +5,7 @@ use futures::StreamExt;
 use futures::{future, FutureExt};
 use peer_metrics::SpellMetrics;
 use std::cmp::Ordering;
-use std::collections::{BinaryHeap, HashMap};
+use std::collections::{BinaryHeap, HashMap, HashSet};
 use std::pin::Pin;
 use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
@@ -97,6 +97,7 @@ impl PartialOrd for Scheduled {
 struct SubscribersState {
     subscribers: PeerEventSubscribers,
     scheduled: BinaryHeap<Scheduled>,
+    active: HashSet<Arc<SpellId>>,
 }
 
 impl SubscribersState {
@@ -104,10 +105,19 @@ impl SubscribersState {
         Self {
             subscribers: PeerEventSubscribers::new(),
             scheduled: BinaryHeap::new(),
+            active: HashSet::new(),
         }
     }
 
     fn subscribe(&mut self, spell_id: SpellId, config: &SpellTriggerConfigs) -> Option<()> {
+        if self.active.contains(&spell_id) {
+            // TODO: not sure it's the most correct way to handle this case, but for now it's fine
+            log::trace!(
+                "spell {spell_id} is already running; re-subscribe to the new configuration"
+            );
+            self.unsubscribe(&spell_id);
+        }
+
         let spell_id = Arc::new(spell_id);
         for config in &config.triggers {
             match config {
@@ -126,11 +136,13 @@ impl SubscribersState {
                 }
             }
         }
+        self.active.insert(spell_id);
         Some(())
     }
 
     /// Returns true if spell_id was removed from subscribers
     fn unsubscribe(&mut self, spell_id: &SpellId) {
+        self.active.remove(spell_id);
         self.scheduled
             .retain(|scheduled| *scheduled.data.id != *spell_id);
         self.subscribers.remove(spell_id);
@@ -267,13 +279,17 @@ impl SpellEventBus {
                         if let Some(scheduled_spell) = state.scheduled.pop() {
                             log::trace!("Execute: {:?}", scheduled_spell);
                             let timestamp = SystemTime::now().duration_since(UNIX_EPOCH).expect("Time went backwards").as_secs();
+                            let spell_id = scheduled_spell.data.id.clone();
                             Self::trigger_spell(&send_events, &scheduled_spell.data.id, TriggerInfo::Timer(TimerEvent{ timestamp }))?;
                             // Do not reschedule the spell otherwise.
                             if let Some(rescheduled) = Scheduled::at(scheduled_spell.data, Instant::now()) {
                                 log::trace!("Reschedule: {:?}", rescheduled);
                                 state.scheduled.push(rescheduled);
-                            } else if let Some(m) = &self.spell_metrics {
-                                m.observe_finished_spell();
+                            } else {
+                                state.active.remove(&spell_id);
+                                if let Some(m) = &self.spell_metrics {
+                                    m.observe_finished_spell();
+                                }
                             }
                         }
                     },
@@ -382,6 +398,10 @@ mod tests {
         .expect("Could not subscribe timer");
     }
 
+    async fn subscribe_oneshot(api: &SpellEventBusApi, spell_id: SpellId) {
+        subscribe_timer(api, spell_id, TimerConfig::oneshot(Instant::now())).await;
+    }
+
     async fn subscribe_periodic_endless(
         api: &SpellEventBusApi,
         spell_id: SpellId,
@@ -461,12 +481,8 @@ mod tests {
         let _ = api.start_scheduling().await;
         let event_stream = UnboundedReceiverStream::new(event_receiver);
         let spell1_id = "spell1".to_string();
-        subscribe_timer(
-            &api,
-            spell1_id.clone(),
-            TimerConfig::oneshot(Instant::now()),
-        )
-        .await;
+        subscribe_oneshot(&api, spell1_id.clone()).await;
+
         let spell2_id = "spell2".to_string();
         subscribe_periodic_endless(&api, spell2_id.clone(), Duration::from_millis(5)).await;
 
@@ -581,6 +597,82 @@ mod tests {
             },
             || {
                 hdl.abort();
+                bus.abort();
+            },
+        );
+    }
+
+    #[tokio::test]
+    async fn test_double_subscribe_before_run() {
+        //log_utils::enable_logs();
+        let (bus, api, event_receiver) = SpellEventBus::new(None, vec![]);
+        let bus = bus.start();
+        let mut event_stream = UnboundedReceiverStream::new(event_receiver).fuse();
+        let spell1_id = "spell1".to_string();
+        subscribe_oneshot(&api, spell1_id.clone()).await;
+        subscribe_oneshot(&api, spell1_id.clone()).await;
+        let _ = api.start_scheduling().await;
+
+        let mut events = Vec::new();
+        // try to receive events twice, we should never receive the second event
+        for _ in 0..2 {
+            let timer = tokio::time::sleep(Duration::from_millis(10));
+            select! {
+                event = event_stream.select_next_some() => {
+                    events.push(event);
+                },
+                _ = timer => { break; }
+            }
+        }
+
+        try_catch(
+            || {
+                assert_eq!(
+                    events.len(),
+                    1,
+                    "double subscription of the same spell on the same event isn't allowed"
+                );
+                assert_eq!(events[0].spell_id, spell1_id.clone(),);
+                assert_matches!(events[0].info, TriggerInfo::Timer(_));
+            },
+            || {
+                bus.abort();
+            },
+        );
+    }
+
+    #[tokio::test]
+    async fn test_resubscribing_same_spell() {
+        //log_utils::enable_logs();
+        let (bus, api, mut event_receiver) = SpellEventBus::new(None, vec![]);
+        let bus = bus.start();
+        let _ = api.start_scheduling().await;
+        //let event_stream = UnboundedReceiverStream::new(event_receiver);
+        let spell1_id = "spell1".to_string();
+        subscribe_oneshot(&api, spell1_id.clone()).await;
+        let event1 = event_receiver.recv().await.unwrap();
+        subscribe_oneshot(&api, spell1_id.clone()).await;
+        let event2 = tokio::time::timeout(Duration::from_millis(10), event_receiver.recv()).await;
+
+        try_catch(
+            || {
+                assert_eq!(
+                    event1.spell_id,
+                    spell1_id.clone(),
+                    "first subscription isn't correct"
+                );
+                let event2 = event2.ok().flatten();
+                assert!(
+                    event2.is_some(),
+                    "the second subscription of the same spell is ignored"
+                );
+                assert_eq!(
+                    event2.unwrap().spell_id,
+                    spell1_id,
+                    "the second subscription isn't correct"
+                );
+            },
+            || {
                 bus.abort();
             },
         );
