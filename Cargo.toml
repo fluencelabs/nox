@@ -32,6 +32,7 @@ members = [
     "crates/health",
     "sorcerer",
     "crates/nox-tests",
+    "crates/subnet-resolver",
     "nox",
     "aquamarine",
     "particle-protocol",
@@ -90,6 +91,7 @@ spell-storage = { path = "spell-storage" }
 particle-execution = { path = "particle-execution" }
 system-services = { path = "crates/system-services" }
 health = { path = "crates/health" }
+subnet-resolver = { path = "crates/subnet-resolver" }
 
 # spell
 fluence-spell-dtos = "=0.5.18"

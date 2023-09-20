@@ -22,6 +22,7 @@ peer-metrics = { workspace = true }
 uuid-utils = { workspace = true }
 key-manager = { workspace = true }
 service-modules = { workspace = true }
+subnet-resolver = { workspace = true }
 
 libp2p = { workspace = true }
 libp2p-kad = { workspace = true }

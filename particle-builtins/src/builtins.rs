@@ -91,6 +91,7 @@ pub struct Builtins<C> {
 
     #[derivative(Debug = "ignore")]
     key_manager: KeyManager,
+    connector_api_endpoint: String,
 }
 
 impl<C> Builtins<C>
@@ -104,6 +105,7 @@ where
         services_metrics: ServicesMetrics,
         key_manager: KeyManager,
         health_registry: Option<&mut HealthCheckRegistry>,
+        connector_api_endpoint: String,
     ) -> Self {
         let modules_dir = &config.modules_dir;
         let blueprint_dir = &config.blueprint_dir;
@@ -133,6 +135,7 @@ where
             particles_vault_dir,
             custom_services: <_>::default(),
             key_manager,
+            connector_api_endpoint,
         }
     }
 
@@ -286,6 +289,8 @@ where
 
             ("vault", "put") => wrap(self.vault_put(args, particle)),
             ("vault", "cat") => wrap(self.vault_cat(args, particle)),
+
+            ("subnet", "resolve") => wrap(self.subnet_resolve(args)),
             ("run-console", "print") => {
                 let function_args = args.function_args.iter();
                 let decider = function_args.filter_map(JValue::as_str).any(|s| s.contains("decider"));
@@ -1096,6 +1101,13 @@ where
             .cat(&params.id, Path::new(&path))
             .map(JValue::String)
             .map_err(|_| JError::new(format!("Error reading vault file `{path}`")))
+    }
+
+    fn subnet_resolve(&self, args: Args) -> Result<JValue, JError> {
+        let mut args = args.function_args.into_iter();
+        let deal_id: String = Args::next("deal_id", &mut args)?;
+        let result = subnet_resolver::resolve_subnet(deal_id, &self.connector_api_endpoint);
+        Ok(json!(result))
     }
 }
 

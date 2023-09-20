@@ -249,6 +249,7 @@ pub struct SwarmConfig {
     pub enabled_system_services: Vec<String>,
     pub extend_system_services: Vec<system_services::PackageDistro>,
     pub http_port: u16,
+    pub connector_api_endpoint: Option<String>,
 }
 
 impl SwarmConfig {
@@ -272,6 +273,7 @@ impl SwarmConfig {
             enabled_system_services: vec![],
             extend_system_services: vec![],
             http_port: 0,
+            connector_api_endpoint: None,
         }
     }
 }
@@ -373,6 +375,10 @@ pub fn create_swarm_with_runtime<RT: AquaRuntime>(
                 .expect(&format!("service {service} doesn't exist"))
         })
         .collect();
+
+    if let Some(endpoint) = config.connector_api_endpoint.clone() {
+        resolved.system_services.decider.network_api_endpoint = endpoint;
+    }
 
     let management_kp = fluence_keypair::KeyPair::generate_ed25519();
     let management_peer_id = libp2p::identity::Keypair::from(management_kp.clone())
