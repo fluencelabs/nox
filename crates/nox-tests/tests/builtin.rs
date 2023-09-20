@@ -2188,7 +2188,6 @@ async fn subnet_resolve() {
     let mock = server
         .mock("POST", "/")
         .with_body_from_request(move |req| {
-            println!("req: {:?}", req);
             let body = req.body().expect("mock: get req body");
             let body: serde_json::Value =
                 serde_json::from_slice(body).expect("mock: parse req body as json");
@@ -2215,7 +2214,6 @@ async fn subnet_resolve() {
         .create();
 
     let swarms = make_swarms_with_cfg(1, |mut cfg| {
-        cfg.enabled_system_services = vec!["decider".to_string()];
         cfg.connector_api_endpoint = Some(url.clone());
         cfg
     })
@@ -2244,7 +2242,6 @@ async fn subnet_resolve() {
     let mut result = client.receive_args().await.unwrap();
 
     let subnet: Subnet = serde_json::from_value(result.remove(0)).unwrap();
-    println!("subnet: {:#?}", subnet);
 
     let pats: Vec<_> = subnet
         .workers
