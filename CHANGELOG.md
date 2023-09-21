@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.14.7](https://github.com/fluencelabs/nox/compare/rust-peer-v0.14.6...rust-peer-v0.14.7) (2023-09-21)
+
+
+### Features
+
+* **builtins:** implement subnet.resolve [NET-549] ([#1798](https://github.com/fluencelabs/nox/issues/1798)) ([85665e2](https://github.com/fluencelabs/nox/commit/85665e2caa7f1dd668576be5a41125d02c38f577))
+
+
+### Bug Fixes
+
+* **deps:** update rust crate fluence-spell-distro to v0.5.20 ([#1781](https://github.com/fluencelabs/nox/issues/1781)) ([9e380ac](https://github.com/fluencelabs/nox/commit/9e380acc03a3b4e015d052c6969bfdb2055db1d0))
+* **deps:** update rust crate fluence-spell-dtos to v0.5.20 ([#1782](https://github.com/fluencelabs/nox/issues/1782)) ([09c9b49](https://github.com/fluencelabs/nox/commit/09c9b4967dbcbfc9010884ec0c7e29f5bcde8ccb))
+
 ## [0.14.6](https://github.com/fluencelabs/nox/compare/rust-peer-v0.14.5...rust-peer-v0.14.6) (2023-09-15)
 
 
