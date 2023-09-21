@@ -15,7 +15,7 @@ pub fn parse_chain_data(data: &str) -> Result<Vec<Token>, ChainDataError> {
     if data.is_empty() {
         return Err(ChainDataError::Empty);
     }
-    let data = decode_hex(&data).map_err(ChainDataError::DecodeHex)?;
+    let data = decode_hex(data).map_err(ChainDataError::DecodeHex)?;
     let signature: ParamType = Array(Box::new(Tuple(vec![
         // bytes32 id
         FixedBytes(32),
@@ -71,7 +71,7 @@ fn decode_pats(data: String) -> Result<Vec<Worker>, ResolveSubnetError> {
             .map_err(|e| ResolveSubnetError::InvalidPeerId(e, "compute_peer_id"))?;
         let worker_id = next_opt(&mut tuple, "compute_worker_id", Token::into_fixed_bytes)?;
         // if all bytes are 0, then worker_id is considered empty
-        let all_zeros = worker_id.iter().find(|b| **b != 0).is_none();
+        let all_zeros = worker_id.iter().any(|b| *b != 0);
         let worker_id = if all_zeros {
             vec![]
         } else {
