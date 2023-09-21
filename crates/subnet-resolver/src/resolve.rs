@@ -94,6 +94,7 @@ fn decode_pats(data: String) -> Result<Vec<Worker>, ResolveSubnetError> {
 pub fn resolve_subnet(deal_id: String, api_endpoint: &str) -> Subnet {
     let res: Result<_, ResolveSubnetError> = try {
         // Description of the `getPATs` function from the `chain.workers` smart contract on chain
+        #[allow(deprecated)]
         let input = Function {
             name: String::from("getPATs"),
             inputs: vec![],
