@@ -3,4 +3,4 @@ mod error;
 mod resolve;
 mod utils;
 
-pub use resolve::{resolve_subnet, Subnet, Worker};
+pub use resolve::{resolve_subnet, SubnetResolveResult, Worker};

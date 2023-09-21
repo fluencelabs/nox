@@ -6,9 +6,9 @@ use libp2p_identity::{ParseError, PeerId};
 pub(crate) const PEER_ID_PREFIX: &[u8] = &[0, 36, 8, 1, 18, 32];
 
 pub(crate) fn parse_peer_id(bytes: Vec<u8>) -> Result<PeerId, ParseError> {
-    let peer_id = &[PEER_ID_PREFIX, &bytes].concat();
+    let peer_id = [PEER_ID_PREFIX, &bytes].concat();
 
-    PeerId::from_bytes(peer_id)
+    PeerId::from_bytes(&peer_id)
 }
 
 pub(crate) fn decode_hex(h: &str) -> Result<Vec<u8>, hex::FromHexError> {

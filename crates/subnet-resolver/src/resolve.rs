@@ -42,9 +42,10 @@ pub struct Worker {
     pub worker_id: Vec<String>,
 }
 #[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct Subnet {
+pub struct SubnetResolveResult {
+    pub success: bool,
     pub workers: Vec<Worker>,
-    error: Vec<String>,
+    pub error: Vec<String>,
 }
 
 fn decode_pats(data: String) -> Result<Vec<Worker>, ResolveSubnetError> {
@@ -71,7 +72,7 @@ fn decode_pats(data: String) -> Result<Vec<Worker>, ResolveSubnetError> {
             .map_err(|e| ResolveSubnetError::InvalidPeerId(e, "compute_peer_id"))?;
         let worker_id = next_opt(&mut tuple, "compute_worker_id", Token::into_fixed_bytes)?;
         // if all bytes are 0, then worker_id is considered empty
-        let all_zeros = worker_id.iter().any(|b| *b != 0);
+        let all_zeros = worker_id.iter().all(|b| *b == 0);
         let worker_id = if all_zeros {
             vec![]
         } else {
@@ -91,7 +92,7 @@ fn decode_pats(data: String) -> Result<Vec<Worker>, ResolveSubnetError> {
     Ok(result)
 }
 
-pub fn resolve_subnet(deal_id: String, api_endpoint: &str) -> Subnet {
+pub fn resolve_subnet(deal_id: String, api_endpoint: &str) -> SubnetResolveResult {
     let res: Result<_, ResolveSubnetError> = try {
         // Description of the `getPATs` function from the `chain.workers` smart contract on chain
         #[allow(deprecated)]
@@ -116,11 +117,13 @@ pub fn resolve_subnet(deal_id: String, api_endpoint: &str) -> Subnet {
     };
 
     match res {
-        Ok(workers) => Subnet {
+        Ok(workers) => SubnetResolveResult {
+            success: true,
             workers,
             error: vec![],
         },
-        Err(err) => Subnet {
+        Err(err) => SubnetResolveResult {
+            success: false,
             workers: vec![],
             error: vec![format!("{}", err)],
         },

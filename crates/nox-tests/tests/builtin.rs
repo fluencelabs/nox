@@ -41,7 +41,7 @@ use service_modules::load_module;
 use std::collections::HashMap;
 use std::str::FromStr;
 use std::time::Duration;
-use subnet_resolver::Subnet;
+use subnet_resolver::SubnetResolveResult;
 use test_constants::PARTICLE_TTL;
 use test_utils::create_service;
 
@@ -2241,18 +2241,14 @@ async fn subnet_resolve() {
 
     let mut result = client.receive_args().await.unwrap();
 
-    let subnet: Subnet = serde_json::from_value(result.remove(0)).unwrap();
+    let subnet: SubnetResolveResult = serde_json::from_value(result.remove(0)).unwrap();
 
+    assert!(subnet.success, "{:?}", subnet.error);
+    assert_eq!(subnet.error.len(), 0);
     let pats: Vec<_> = subnet
         .workers
         .iter()
-        .map(|p| {
-            (
-                p.pat_id.as_str(),
-                p.host_id.as_str(),
-                p.worker_id.as_slice(),
-            )
-        })
+        .map(|p| (p.pat_id.as_str(), p.host_id.as_str(), p.worker_id.clone()))
         .collect();
 
     assert_eq!(
@@ -2261,17 +2257,17 @@ async fn subnet_resolve() {
             (
                 "0x2b7083358039745e731fb9809204d9304b48797406593e180b4e5a762a473214",
                 "12D3KooWCPFLtcLwzT1k4gsacu3gkM2gYJTXdnTSfsPFZ67FrD4F",
-                ["12D3KooWLvhtdbBuFTzxvDXUGYcyxyeZrab1tZWEY4YY8K6PTjTH".to_string()].as_slice()
+                vec!["12D3KooWLvhtdbBuFTzxvDXUGYcyxyeZrab1tZWEY4YY8K6PTjTH".to_string()],
             ),
             (
                 "0xdbfb375f013a592c50174ad241c67a4cf1b9ec81c902900b75f801f83cd2657a",
                 "12D3KooWCPFLtcLwzT1k4gsacu3gkM2gYJTXdnTSfsPFZ67FrD4F",
-                [].as_slice()
+                vec![],
             ),
             (
                 "0xec7c6fea91d971bc7c5ed340ec86265bb93386fff248e842a1a69a94b58d2d9e",
                 "12D3KooWCPFLtcLwzT1k4gsacu3gkM2gYJTXdnTSfsPFZ67FrD4F",
-                [].as_slice()
+                vec![],
             ),
         ]
     );
