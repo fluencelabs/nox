@@ -225,6 +225,7 @@ impl<RT: AquaRuntime> Node<RT> {
             services_metrics,
             key_manager.clone(),
             health_registry.as_mut(),
+            config.system_services.decider.network_api_endpoint.clone(),
         ));
 
         let (effects_out, effects_in) = mpsc::unbounded_channel();
@@ -385,6 +386,7 @@ impl<RT: AquaRuntime> Node<RT> {
         services_metrics: ServicesMetrics,
         key_manager: KeyManager,
         health_registry: Option<&mut HealthCheckRegistry>,
+        connector_api_endpoint: String,
     ) -> Builtins<Connectivity> {
         Builtins::new(
             connectivity,
@@ -393,6 +395,7 @@ impl<RT: AquaRuntime> Node<RT> {
             services_metrics,
             key_manager,
             health_registry,
+            connector_api_endpoint,
         )
     }
 }
