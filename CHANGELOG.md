@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.14.8](https://github.com/fluencelabs/nox/compare/rust-peer-v0.14.7...rust-peer-v0.14.8) (2023-09-22)
+
+
+### Bug Fixes
+
+* **deps:** update rust crate air-interpreter-wasm to 0.48.0 ([#1800](https://github.com/fluencelabs/nox/issues/1800)) ([31bd096](https://github.com/fluencelabs/nox/commit/31bd09684ca25c18b014d2b576ee6210f0ca3bdc))
+
 ## [0.14.7](https://github.com/fluencelabs/nox/compare/rust-peer-v0.14.6...rust-peer-v0.14.7) (2023-09-21)
 
 
