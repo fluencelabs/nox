@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.14.9](https://github.com/fluencelabs/nox/compare/rust-peer-v0.14.8...rust-peer-v0.14.9) (2023-09-22)
+
+
+### Features
+
+* **decider:** allow to set ipfs multiaddr from env [fixes NET-544] ([#1802](https://github.com/fluencelabs/nox/issues/1802)) ([a0606bc](https://github.com/fluencelabs/nox/commit/a0606bc069051b592106dec1929508781bce253d))
+
+
+### Bug Fixes
+
+* **deps:** update rust crate avm-server to 0.33.1 ([#1799](https://github.com/fluencelabs/nox/issues/1799)) ([4dfa59d](https://github.com/fluencelabs/nox/commit/4dfa59d761a71b0c2f63466584cd207af5354886))
+
 ## [0.14.8](https://github.com/fluencelabs/nox/compare/rust-peer-v0.14.7...rust-peer-v0.14.8) (2023-09-22)
 
 
