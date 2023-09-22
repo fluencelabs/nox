@@ -217,9 +217,9 @@ checksum = "a4668cab20f66d8d020e1fbc0ebe47217433c1b6c8f2040faf858554e394ace6"
 
 [[package]]
 name = "aqua-ipfs-distro"
-version = "0.5.17"
+version = "0.5.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4babf22570f433b4ccabdfeb57a152712e35b562d36abc096197efc0f1b50d03"
+checksum = "63178298024f3d55029d308292ae71d292b5934f9860431074b84f9eace5fa0c"
 dependencies = [
  "built 0.5.2",
  "maplit",
