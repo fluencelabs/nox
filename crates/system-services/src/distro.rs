@@ -142,12 +142,9 @@ pub fn default_aqua_ipfs_distro(config: &AquaIpfsConfig) -> eyre::Result<Package
         let local_api_multiaddr = config.local_api_multiaddr.clone();
         let external_api_multiaddr = config.external_api_multiaddr.clone();
         let init = move |call: &CallService, deployment: DeploymentStatus| {
-            if let Some(status) = deployment.services.get(&name) {
-                let id = match status {
-                    ServiceStatus::Created(id) => id,
-                    ServiceStatus::Existing(id) => id,
-                };
-
+            if let Some(ServiceStatus::Created(id)) | ServiceStatus::Existing(id) =
+                deployment.services.get(&name)
+            {
                 let set_local_result = call(
                     name.clone(),
                     "set_local_api_multiaddr".to_string(),
