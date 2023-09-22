@@ -257,24 +257,42 @@ impl UnresolvedNodeConfig {
         }
         if let Ok(decider_api_endpoint) = std::env::var("FLUENCE_ENV_CONNECTOR_API_ENDPOINT") {
             self.system_services.decider.network_api_endpoint = decider_api_endpoint;
-            log::warn!("Override configuration of decider system spell (api endpoint) from ENV");
+            log::warn!(
+                "Override configuration of decider system spell (api endpoint) from ENV to {}",
+                decider_api_endpoint
+            );
         }
 
         if let Ok(decider_contract_addr) = std::env::var("FLUENCE_ENV_CONNECTOR_CONTRACT_ADDRESS") {
             self.system_services.decider.matcher_address = decider_contract_addr;
             log::warn!(
-                "Override configuration of decider system spell (contract address) from ENV"
+                "Override configuration of decider system spell (contract address) from ENV to  {}",
+                decider_contract_addr
             );
         }
 
         if let Ok(decider_from_block) = std::env::var("FLUENCE_ENV_CONNECTOR_FROM_BLOCK") {
             self.system_services.decider.start_block = decider_from_block;
-            log::warn!("Override configuration of decider system spell (from block) from ENV");
+            log::warn!(
+                "Override configuration of decider system spell (from block) from ENV to {}",
+                decider_from_block
+            );
         }
 
         if let Ok(decider_wallet_key) = std::env::var("FLUENCE_ENV_CONNECTOR_WALLET_KEY") {
             self.system_services.decider.wallet_key = Some(decider_wallet_key);
-            log::warn!("Override configuration of decider system spell (wallet key) from ENV");
+            log::warn!(
+                "Override configuration of decider system spell (wallet key) from ENV to {}",
+                decider_wallet_key
+            );
+        }
+
+        if let Ok(worker_ipfs_multiaddr) = std::env::var("FLUENCE_ENV_DECIDER_IPFS_MULTIADDR") {
+            self.system_services.decider.worker_ipfs_multiaddr = worker_ipfs_multiaddr;
+            log::warn!(
+                "Override configuration of decider system spell (ipfs multiaddr) from ENV to {}",
+                worker_ipfs_multiaddr
+            );
         }
 
         if let Ok(worker_gas) = std::env::var("FLUENCE_ENV_CONNECTOR_WORKER_GAS") {
@@ -282,7 +300,7 @@ impl UnresolvedNodeConfig {
                 Ok(worker_gas) => {
                     self.system_services.decider.worker_gas = worker_gas;
                     log::warn!(
-                        "Override configuration of decider system spell (worker gas) from ENV"
+                        "Override configuration of decider system spell (worker gas) from ENV to {}", worker_gas
                     );
                 }
                 Err(err) => log::warn!(
@@ -294,7 +312,10 @@ impl UnresolvedNodeConfig {
 
         if let Ok(decider_wallet_key) = std::env::var("FLUENCE_ENV_CONNECTOR_WALLET_KEY") {
             self.system_services.decider.wallet_key = Some(decider_wallet_key);
-            log::warn!("Override configuration of decider system spell (wallet key) from ENV");
+            log::warn!(
+                "Override configuration of decider system spell (wallet key) from ENV to {}",
+                decider_wallet_key
+            );
         }
     }
 }
