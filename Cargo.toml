@@ -95,7 +95,7 @@ subnet-resolver = { path = "crates/subnet-resolver" }
 
 # spell
 fluence-spell-dtos = "=0.5.20"
-fluence-spell-distro = "=0.5.20"
+fluence-spell-distro = "=0.5.22"
 
 # marine
 fluence-app-service = { version = "=0.26.4-feat-wasm-backend-interface-update-b3cf050-636-1.0", registry = "fluence" }
