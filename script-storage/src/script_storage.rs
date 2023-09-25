@@ -21,6 +21,7 @@ use connection_pool::{ConnectionPoolApi, ConnectionPoolT};
 use fluence_libp2p::PeerId;
 use particle_protocol::{Contact, Particle};
 
+use fluence_keypair::KeyPair;
 use futures::{future::BoxFuture, FutureExt, StreamExt, TryFutureExt};
 use now_millis::now_ms;
 use std::{
@@ -136,6 +137,7 @@ pub struct ScriptStorageBackend {
     failed_particles: mpsc::UnboundedReceiver<ParticleId>,
     connection_pool: ConnectionPoolApi,
     config: ScriptStorageConfig,
+    root_keypair: KeyPair,
 }
 
 impl ScriptStorageBackend {
@@ -143,6 +145,7 @@ impl ScriptStorageBackend {
         connection_pool: ConnectionPoolApi,
         failed_particles: mpsc::UnboundedReceiver<ParticleId>,
         config: ScriptStorageConfig,
+        root_keypair: KeyPair,
     ) -> (ScriptStorageApi, Self) {
         let (outlet, inlet) = mpsc::unbounded_channel();
         let api = ScriptStorageApi { outlet };
@@ -153,6 +156,7 @@ impl ScriptStorageBackend {
             failed_particles,
             connection_pool,
             config,
+            root_keypair,
         };
         (api, this)
     }
@@ -166,6 +170,7 @@ impl ScriptStorageBackend {
             let pool = self.connection_pool;
             let config = self.config;
             let max_failures = self.config.max_failures;
+            let root_keypair = self.root_keypair;
 
             let mut timer = IntervalStream::new(interval(self.config.timer_resolution));
 
@@ -178,7 +183,7 @@ impl ScriptStorageBackend {
                         remove_failed_scripts(failed, &sent_particles, &scripts, max_failures).await;
                     },
                     _ = timer.next() => {
-                        execute_scripts(&pool, &scripts, &sent_particles, config).await;
+                        execute_scripts(&pool, &scripts, &sent_particles, config, &root_keypair).await;
                         cleanup(&sent_particles).await;
                     }
                 }
@@ -192,6 +197,7 @@ async fn execute_scripts(
     scripts: &Mutex<HashMap<ScriptId, Script>>,
     sent_particles: &Mutex<HashMap<ParticleId, SentParticle>>,
     config: ScriptStorageConfig,
+    root_keypair: &KeyPair,
 ) {
     let now = Instant::now();
     let now_u64 = now_ms() as u64;
@@ -231,7 +237,7 @@ async fn execute_scripts(
         .await;
 
         // Send particle to the current node
-        let particle = Particle {
+        let mut particle = Particle {
             id: particle_id,
             init_peer_id: config.peer_id,
             timestamp: now_u64,
@@ -240,6 +246,10 @@ async fn execute_scripts(
             signature: vec![],
             data: vec![],
         };
+
+        // I don't think we should process errors here,
+        // because script-storage will be deprecated soon
+        particle.sign(root_keypair).expect("sign particle");
         let contact = Contact::new(config.peer_id, vec![]);
         pool.send(contact, particle).await;
     }

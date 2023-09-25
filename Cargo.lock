@@ -6092,6 +6092,7 @@ dependencies = [
  "async-unlock",
  "chrono",
  "connection-pool",
+ "fluence-keypair",
  "fluence-libp2p",
  "futures",
  "log",

@@ -169,7 +169,7 @@ impl<RT: AquaRuntime> Node<RT> {
             libp2p_metrics.clone(),
             connectivity_metrics,
             connection_pool_metrics,
-            key_pair,
+            key_pair.clone(),
             &config,
             node_version,
             connection_limits,
@@ -196,7 +196,12 @@ impl<RT: AquaRuntime> Node<RT> {
             };
 
             let pool: &ConnectionPoolApi = connectivity.as_ref();
-            ScriptStorageBackend::new(pool.clone(), particle_failures_in, script_storage_config)
+            ScriptStorageBackend::new(
+                pool.clone(),
+                particle_failures_in,
+                script_storage_config,
+                key_pair.into(),
+            )
         };
 
         let (services_metrics_backend, services_metrics) =

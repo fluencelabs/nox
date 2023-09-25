@@ -15,6 +15,7 @@
  */
 
 use humantime::FormattedDuration;
+use particle_protocol::ParticleError;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -44,6 +45,11 @@ pub enum AquamarineApiError {
         "AquamarineApiError::AquamarineQueueFull: can't send particle {particle_id:?} to Aquamarine"
     )]
     AquamarineQueueFull { particle_id: Option<String> },
+    #[error("AquamarineApiError::SignatureVerificationFailed: particle_id = {particle_id}, error = {err}")]
+    SignatureVerificationFailed {
+        particle_id: String,
+        err: ParticleError,
+    },
 }
 
 impl AquamarineApiError {
@@ -52,6 +58,11 @@ impl AquamarineApiError {
             AquamarineApiError::ParticleExpired { particle_id } => Some(particle_id),
             AquamarineApiError::OneshotCancelled { particle_id } => Some(particle_id),
             AquamarineApiError::ExecutionTimedOut { particle_id, .. } => Some(particle_id),
+            // Should it be `None`  considering usage of signature as particle id?
+            // It can compromise valid particles into thinking they are invalid.
+            // But still there can be a case when signature was generated wrong
+            // and client will never know about it.
+            AquamarineApiError::SignatureVerificationFailed { .. } => None,
             AquamarineApiError::AquamarineDied { particle_id } => particle_id,
             AquamarineApiError::AquamarineQueueFull { particle_id, .. } => particle_id,
         }

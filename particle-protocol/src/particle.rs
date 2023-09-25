@@ -90,14 +90,12 @@ impl Particle {
     /// return immutable particle fields in bytes for signing
     /// concatenation of:
     /// - id as bytes
-    /// - init_peer_id in base58 as bytes
     /// - timestamp u64 as little-endian bytes
     /// - ttl u32 as little-endian bytes
     /// - script as bytes
     fn as_bytes(&self) -> Vec<u8> {
         let mut bytes = vec![];
         bytes.extend(self.id.as_bytes());
-        bytes.extend(self.init_peer_id.to_base58().as_bytes());
         bytes.extend(self.timestamp.to_le_bytes());
         bytes.extend(self.ttl.to_le_bytes());
         bytes.extend(self.script.as_bytes());

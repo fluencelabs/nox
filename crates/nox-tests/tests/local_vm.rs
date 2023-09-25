@@ -57,7 +57,7 @@ fn make() {
         &mut local_vm_a,
         false,
         Duration::from_secs(20),
-        &keypair_b,
+        &keypair_a,
     );
 
     let args = read_args(particle, client_b, &mut local_vm_b, &keypair_b)
