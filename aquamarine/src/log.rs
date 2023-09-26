@@ -21,7 +21,7 @@ pub fn builtin_log_fn(service: &str, args: &str, elapsed: FormattedDuration, par
                 particle_id
             )
         }
-        "peer" | "script" | "stat" | "sig" | "srv" | "dist" | "kad" => tracing::event!(
+        "peer" | "stat" | "sig" | "srv" | "dist" | "kad" => tracing::event!(
             tracing::Level::DEBUG,
             "Executed host call {} ({}) [{}]",
             args,

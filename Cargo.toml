@@ -40,7 +40,6 @@ members = [
     "particle-builtins",
     "particle-modules",
     "connection-pool",
-    "script-storage",
     "spell-storage",
     "particle-execution",
     "crates/system-services",
@@ -86,7 +85,6 @@ particle-services = { path = "particle-services" }
 particle-builtins = { path = "particle-builtins" }
 particle-modules = { path = "particle-modules" }
 connection-pool = { path = "connection-pool" }
-script-storage = { path = "script-storage" }
 spell-storage = { path = "spell-storage" }
 particle-execution = { path = "particle-execution" }
 system-services = { path = "crates/system-services" }

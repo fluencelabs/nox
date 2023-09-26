@@ -116,16 +116,6 @@ pub struct UnresolvedNodeConfig {
     #[serde(default = "default_particle_processor_parallelism")]
     pub particle_processor_parallelism: Option<usize>,
 
-    #[serde(default = "default_script_storage_timer_resolution")]
-    pub script_storage_timer_resolution: Duration,
-
-    #[serde(default = "default_script_storage_max_failures")]
-    pub script_storage_max_failures: u8,
-
-    #[serde(default = "default_script_storage_particle_ttl")]
-    #[serde(with = "humantime_serde")]
-    pub script_storage_particle_ttl: Duration,
-
     #[serde(default = "default_max_spell_particle_ttl")]
     #[serde(with = "humantime_serde")]
     pub max_spell_particle_ttl: Duration,
@@ -193,9 +183,6 @@ impl UnresolvedNodeConfig {
             kademlia: self.kademlia,
             particle_queue_buffer: self.particle_queue_buffer,
             particle_processor_parallelism: self.particle_processor_parallelism,
-            script_storage_timer_resolution: self.script_storage_timer_resolution,
-            script_storage_max_failures: self.script_storage_max_failures,
-            script_storage_particle_ttl: self.script_storage_particle_ttl,
             max_spell_particle_ttl: self.max_spell_particle_ttl,
             bootstrap_frequency: self.bootstrap_frequency,
             allow_local_addresses: self.allow_local_addresses,
@@ -370,12 +357,6 @@ pub struct NodeConfig {
     pub particle_queue_buffer: usize,
 
     pub particle_processor_parallelism: Option<usize>,
-
-    pub script_storage_timer_resolution: Duration,
-
-    pub script_storage_max_failures: u8,
-
-    pub script_storage_particle_ttl: Duration,
 
     pub max_spell_particle_ttl: Duration,
 

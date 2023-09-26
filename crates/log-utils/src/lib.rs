@@ -19,7 +19,6 @@ use tracing_subscriber::filter::Directive;
 
 fn default_directives() -> Vec<Directive> {
     let namespaces = vec![
-        "script_storage=trace",
         "run-console=trace",
         "sorcerer=trace",
         "key_manager=trace",
