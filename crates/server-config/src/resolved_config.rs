@@ -226,6 +226,7 @@ pub fn load_config_with_args(
 #[cfg(test)]
 mod tests {
     use std::io::Write;
+    use std::time::Duration;
 
     use base64::{engine::general_purpose::STANDARD as base64, Engine};
     use fluence_keypair::KeyPair;
@@ -716,5 +717,20 @@ mod tests {
                 Some(1001)
             );
         });
+    }
+
+    #[test]
+    fn load_upgrade_timeout() {
+        temp_env::with_vars(
+            [("FLUENCE_PROTOCOL_CONFIG__UPGRADE_TIMEOUT", Some("60s"))],
+            || {
+                let args = vec![];
+                let config = load_config_with_args(args, None).expect("Could not load config");
+                assert_eq!(
+                    config.node_config.protocol_config.upgrade_timeout,
+                    Duration::from_secs(60)
+                );
+            },
+        );
     }
 }
