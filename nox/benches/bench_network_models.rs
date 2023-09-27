@@ -37,7 +37,6 @@
 // use particle_closures::{HostClosures, NodeInfo};
 // use nox::{ConnectionPoolCommand, Connectivity, KademliaCommand};
 // use particle_protocol::{Contact, Particle};
-// use script_storage::ScriptStorageApi;
 // use server_config::ServicesConfig;
 // use std::convert::identity;
 //
@@ -309,9 +308,7 @@
 //         node_version: "",
 //         air_version: "",
 //     };
-//     let script_storage_api = ScriptStorageApi {
-//         outlet: mpsc::unbounded().0,
-//     };
+
 //     let services_config = ServicesConfig::new(
 //         local_peer_id,
 //         config_utils::services_dir(&tmp_dir),
@@ -323,7 +320,7 @@
 //     .wrap_err("create service config")
 //     .unwrap();
 //     let host_closures =
-//         HostClosures::new(connectivity, script_storage_api, node_info, services_config);
+//         HostClosures::new(connectivity, node_info, services_config);
 //
 //     let pool_config = VmPoolConfig {
 //         pool_size,
