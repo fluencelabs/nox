@@ -720,7 +720,7 @@ mod tests {
     }
 
     #[test]
-    fn load_upgrade_timeout() {
+    fn load_env_upgrade_timeout() {
         temp_env::with_vars(
             [("FLUENCE_PROTOCOL_CONFIG__UPGRADE_TIMEOUT", Some("60s"))],
             || {
@@ -732,5 +732,28 @@ mod tests {
                 );
             },
         );
+    }
+
+    #[test]
+    fn load_file_upgrade_timeout() {
+        let mut file = NamedTempFile::new().expect("Could not create temp file");
+        write!(
+            file,
+            r#"
+            [protocol_config]
+            upgrade_timeout = "60s"
+            "#
+        )
+        .expect("Could not write in file");
+
+        let path = file.path().display().to_string();
+
+        temp_env::with_var("FLUENCE_CONFIG", Some(path), || {
+            let config = load_config_with_args(vec![], None).expect("Could not load config");
+            assert_eq!(
+                config.node_config.protocol_config.upgrade_timeout,
+                Duration::from_secs(60)
+            );
+        });
     }
 }
