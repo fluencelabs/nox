@@ -3184,9 +3184,9 @@ dependencies = [
 
 [[package]]
 name = "libp2p-core"
-version = "0.40.0"
+version = "0.40.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ef7dd7b09e71aac9271c60031d0e558966cdb3253ba0308ab369bb2de80630d0"
+checksum = "dd44289ab25e4c9230d9246c475a22241e301b23e8f4061d3bdef304a1a99713"
 dependencies = [
  "either",
  "fnv",
@@ -3269,9 +3269,9 @@ dependencies = [
 
 [[package]]
 name = "libp2p-kad"
-version = "0.44.4"
+version = "0.44.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fc125f83d8f75322c79e4ade74677d299b34aa5c9d9b5251c03ec28c683cb765"
+checksum = "41c5c483b1e90e79409711f515c5bea5de9c4d772a245b1ac01a2233fbcb67fe"
 dependencies = [
  "arrayvec",
  "asynchronous-codec",
@@ -3286,6 +3286,7 @@ dependencies = [
  "libp2p-swarm",
  "log",
  "quick-protobuf",
+ "quick-protobuf-codec",
  "rand 0.8.5",
  "sha2 0.10.7",
  "smallvec",
@@ -3420,9 +3421,9 @@ dependencies = [
 
 [[package]]
 name = "libp2p-swarm"
-version = "0.43.3"
+version = "0.43.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "28016944851bd73526d3c146aabf0fa9bbe27c558f080f9e5447da3a1772c01a"
+checksum = "ab94183f8fc2325817835b57946deb44340c99362cd4606c0a5717299b2ba369"
 dependencies = [
  "either",
  "fnv",
@@ -5214,18 +5215,18 @@ checksum = "9b2a4787296e9989611394c33f193f676704af1686e70b8f8033ab5ba9a35a94"
 
 [[package]]
 name = "pin-project"
-version = "1.1.2"
+version = "1.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "030ad2bc4db10a8944cb0d837f158bdfec4d4a4873ab701a95046770d11f8842"
+checksum = "fda4ed1c6c173e3fc7a83629421152e01d7b1f9b7f65fb301e490e8cfc656422"
 dependencies = [
  "pin-project-internal",
 ]
 
 [[package]]
 name = "pin-project-internal"
-version = "1.1.2"
+version = "1.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ec2e072ecce94ec471b13398d5402c188e76ac03cf74dd1a975161b23a3f6d9c"
+checksum = "4359fd9c9171ec6e8c62926d6faaf553a8dc3f64e1507e76da7911b4f6a04405"
 dependencies = [
  "proc-macro2",
  "quote",
