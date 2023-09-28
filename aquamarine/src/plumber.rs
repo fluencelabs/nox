@@ -93,7 +93,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
         }
 
         if let Err(err) = particle.verify() {
-            tracing::info!(target: "signature_failed", particle_id = particle.id, "Particle signature verification failed: {err:?}");
+            tracing::warn!(target: "signature", particle_id = particle.id, "Particle signature verification failed: {err:?}");
             self.events
                 .push_back(Err(AquamarineApiError::SignatureVerificationFailed {
                     particle_id: particle.id,
