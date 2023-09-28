@@ -109,15 +109,7 @@ impl SubscribersState {
         }
     }
 
-    fn subscribe(&mut self, spell_id: SpellId, config: &SpellTriggerConfigs) -> Option<()> {
-        if self.active.contains(&spell_id) {
-            // TODO: not sure it's the most correct way to handle this case, but for now it's fine
-            log::trace!(
-                "spell {spell_id} is already running; re-subscribe to the new configuration"
-            );
-            self.unsubscribe(&spell_id);
-        }
-
+    fn subscribe(&mut self, spell_id: SpellId, config: &SpellTriggerConfigs) {
         let spell_id = Arc::new(spell_id);
         for config in &config.triggers {
             match config {
@@ -137,7 +129,6 @@ impl SubscribersState {
             }
         }
         self.active.insert(spell_id);
-        Some(())
     }
 
     /// Returns true if spell_id was removed from subscribers
@@ -253,7 +244,14 @@ impl SpellEventBus {
                         match &action {
                             Action::Subscribe(spell_id, config) => {
                                 log::trace!("Subscribe {spell_id} to {:?}", config);
-                                state.subscribe(spell_id.clone(), config).unwrap_or(());
+                                if state.active.contains(spell_id) {
+                                    log::warn!(
+                                        "spell {spell_id} is already running; re-subscribe to the new configuration"
+                                    );
+                                    state.unsubscribe(spell_id);
+                                }
+
+                                state.subscribe(spell_id.clone(), config);
                             },
                             Action::Unsubscribe(spell_id) => {
                                 log::trace!("Unsubscribe {spell_id}");
@@ -643,11 +641,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_resubscribing_same_spell() {
-        //log_utils::enable_logs();
         let (bus, api, mut event_receiver) = SpellEventBus::new(None, vec![]);
         let bus = bus.start();
         let _ = api.start_scheduling().await;
-        //let event_stream = UnboundedReceiverStream::new(event_receiver);
         let spell1_id = "spell1".to_string();
         subscribe_oneshot(&api, spell1_id.clone()).await;
         let event1 = event_receiver.recv().await.unwrap();
