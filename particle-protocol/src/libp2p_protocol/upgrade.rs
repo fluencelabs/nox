@@ -36,24 +36,37 @@ use crate::{HandlerMessage, SendStatus, PROTOCOL_NAME};
 #[derive(Clone, Deserialize, Serialize, Debug)]
 pub struct ProtocolConfig {
     /// Timeout for applying the given upgrade on a substream
-    #[serde(with = "humantime_serde")]
+    #[serde(with = "humantime_serde", default = "default_upgrade_timeout")]
     pub upgrade_timeout: Duration,
     /// Keep-alive timeout for idle connections.
-    #[serde(with = "humantime_serde")]
+    #[serde(with = "humantime_serde", default = "default_keep_alive_timeout")]
     pub keep_alive_timeout: Duration,
     /// Timeout for outbound substream upgrades.
-    #[serde(with = "humantime_serde")]
+    #[serde(
+        with = "humantime_serde",
+        default = "default_outbound_substream_timeout"
+    )]
     pub outbound_substream_timeout: Duration,
 }
 
 impl Default for ProtocolConfig {
     fn default() -> Self {
         Self {
-            upgrade_timeout: Duration::from_secs(10),
-            keep_alive_timeout: Duration::from_secs(10),
-            outbound_substream_timeout: Duration::from_secs(10),
+            upgrade_timeout: default_upgrade_timeout(),
+            keep_alive_timeout: default_keep_alive_timeout(),
+            outbound_substream_timeout: default_outbound_substream_timeout(),
         }
     }
+}
+
+fn default_keep_alive_timeout() -> Duration {
+    Duration::from_secs(10)
+}
+fn default_outbound_substream_timeout() -> Duration {
+    Duration::from_secs(10)
+}
+fn default_upgrade_timeout() -> Duration {
+    Duration::from_secs(10)
 }
 
 impl ProtocolConfig {

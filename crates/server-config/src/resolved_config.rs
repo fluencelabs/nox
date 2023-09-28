@@ -226,6 +226,7 @@ pub fn load_config_with_args(
 #[cfg(test)]
 mod tests {
     use std::io::Write;
+    use std::time::Duration;
 
     use base64::{engine::general_purpose::STANDARD as base64, Engine};
     use fluence_keypair::KeyPair;
@@ -712,6 +713,44 @@ mod tests {
             assert_eq!(
                 config.node_config.http_config.map(|x| x.http_port),
                 Some(1001)
+            );
+        });
+    }
+
+    #[test]
+    fn load_env_upgrade_timeout() {
+        temp_env::with_vars(
+            [("FLUENCE_PROTOCOL_CONFIG__UPGRADE_TIMEOUT", Some("60s"))],
+            || {
+                let args = vec![];
+                let config = load_config_with_args(args, None).expect("Could not load config");
+                assert_eq!(
+                    config.node_config.protocol_config.upgrade_timeout,
+                    Duration::from_secs(60)
+                );
+            },
+        );
+    }
+
+    #[test]
+    fn load_file_upgrade_timeout() {
+        let mut file = NamedTempFile::new().expect("Could not create temp file");
+        write!(
+            file,
+            r#"
+            [protocol_config]
+            upgrade_timeout = "60s"
+            "#
+        )
+        .expect("Could not write in file");
+
+        let path = file.path().display().to_string();
+
+        temp_env::with_var("FLUENCE_CONFIG", Some(path), || {
+            let config = load_config_with_args(vec![], None).expect("Could not load config");
+            assert_eq!(
+                config.node_config.protocol_config.upgrade_timeout,
+                Duration::from_secs(60)
             );
         });
     }
