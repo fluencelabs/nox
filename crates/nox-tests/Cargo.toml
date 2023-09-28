@@ -21,6 +21,7 @@ local-vm = { path = "../local-vm" }
 control-macro = { path = "../control-macro" }
 json-utils = { path = "../json-utils" }
 system-services = { workspace = true }
+subnet-resolver = { workspace = true }
 
 log-utils = { workspace = true }
 fluence-spell-dtos = { workspace = true }
@@ -28,7 +29,6 @@ fluence-app-service = { workspace = true }
 particle-protocol = { workspace = true }
 particle-builtins = { workspace = true }
 connection-pool = { workspace = true }
-script-storage = { workspace = true }
 aquamarine = { workspace = true }
 sorcerer = { workspace = true }
 fluence-keypair = { workspace = true }
@@ -56,3 +56,4 @@ base64 = { workspace = true }
 tokio = { workspace = true }
 log = { workspace = true }
 tracing = { workspace = true }
+mockito = "1.1.0"

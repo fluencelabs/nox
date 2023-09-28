@@ -1,6 +1,6 @@
 [package]
 name = "nox"
-version = "0.14.6"
+version = "0.14.9"
 authors = ["Fluence Labs"]
 description = "Node implementing peer functionality in the Fluence p2p network"
 edition = "2021"
@@ -13,7 +13,6 @@ particle-protocol = { workspace = true }
 particle-builtins = { workspace = true }
 particle-execution = { workspace = true }
 connection-pool = { workspace = true }
-script-storage = { workspace = true }
 aquamarine = { workspace = true }
 sorcerer = { workspace = true }
 health = { workspace = true }

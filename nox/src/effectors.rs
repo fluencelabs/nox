@@ -15,7 +15,6 @@
  */
 
 use futures::{stream::iter, StreamExt};
-use tokio::sync::mpsc;
 
 use aquamarine::RoutingEffects;
 
@@ -32,11 +31,7 @@ impl Effectors {
     }
 
     /// Perform effects that Aquamarine instructed us to
-    pub async fn execute(
-        self,
-        effects: RoutingEffects,
-        particle_failures: mpsc::UnboundedSender<String>,
-    ) {
+    pub async fn execute(self, effects: RoutingEffects) {
         if effects.particle.is_expired() {
             tracing::info!(target: "expired", particle_id = effects.particle.id, "Particle is expired");
             return;
@@ -49,8 +44,6 @@ impl Effectors {
         nps.for_each_concurrent(None, move |target| {
             let connectivity = connectivity.clone();
             let particle = particle.clone();
-            let particle_id = particle.id.clone();
-            let particle_failures = particle_failures.clone();
             async move {
                 // resolve contact
                 if let Some(contact) = connectivity.resolve_contact(target, &particle.id).await {
@@ -61,8 +54,6 @@ impl Effectors {
                         return;
                     }
                 }
-                // not exited yet, so either resolve or send failed. Report failure.
-                particle_failures.send(particle_id).ok();
             }
         })
         .await;

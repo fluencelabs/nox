@@ -37,10 +37,7 @@ use futures::stream::iter;
 use hyper::{Body, Request, StatusCode};
 use nox::{Connectivity, Node};
 use particle_protocol::ProtocolConfig;
-use server_config::{
-    default_script_storage_timer_resolution, system_services_config, BootstrapConfig,
-    UnresolvedConfig,
-};
+use server_config::{system_services_config, BootstrapConfig, UnresolvedConfig};
 use test_constants::{EXECUTION_TIMEOUT, KEEP_ALIVE_TIMEOUT, TRANSPORT_TIMEOUT};
 use tokio::sync::oneshot;
 use toy_vms::EasyVM;
@@ -244,11 +241,11 @@ pub struct SwarmConfig {
     pub pool_size: Option<usize>,
     pub builtins_dir: Option<PathBuf>,
     pub spell_base_dir: Option<PathBuf>,
-    pub timer_resolution: Duration,
     pub allowed_binaries: Vec<String>,
     pub enabled_system_services: Vec<String>,
     pub extend_system_services: Vec<system_services::PackageDistro>,
     pub http_port: u16,
+    pub connector_api_endpoint: Option<String>,
 }
 
 impl SwarmConfig {
@@ -267,11 +264,11 @@ impl SwarmConfig {
             pool_size: <_>::default(),
             builtins_dir: None,
             spell_base_dir: None,
-            timer_resolution: default_script_storage_timer_resolution(),
             allowed_binaries: vec!["/usr/bin/ipfs".to_string(), "/usr/bin/curl".to_string()],
             enabled_system_services: vec![],
             extend_system_services: vec![],
             http_port: 0,
+            connector_api_endpoint: None,
         }
     }
 }
@@ -363,7 +360,6 @@ pub fn create_swarm_with_runtime<RT: AquaRuntime>(
     resolved.node_config.aquavm_pool_size = config.pool_size.unwrap_or(1);
     resolved.node_config.particle_execution_timeout = EXECUTION_TIMEOUT;
 
-    resolved.node_config.script_storage_timer_resolution = config.timer_resolution;
     resolved.node_config.allowed_binaries = config.allowed_binaries.clone();
     resolved.system_services.enable = config
         .enabled_system_services
@@ -373,6 +369,10 @@ pub fn create_swarm_with_runtime<RT: AquaRuntime>(
                 .expect(&format!("service {service} doesn't exist"))
         })
         .collect();
+
+    if let Some(endpoint) = config.connector_api_endpoint.clone() {
+        resolved.system_services.decider.network_api_endpoint = endpoint;
+    }
 
     let management_kp = fluence_keypair::KeyPair::generate_ed25519();
     let management_peer_id = libp2p::identity::Keypair::from(management_kp.clone())

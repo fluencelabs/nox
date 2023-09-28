@@ -226,6 +226,7 @@ pub fn load_config_with_args(
 #[cfg(test)]
 mod tests {
     use std::io::Write;
+    use std::time::Duration;
 
     use base64::{engine::general_purpose::STANDARD as base64, Engine};
     use fluence_keypair::KeyPair;
@@ -258,7 +259,6 @@ mod tests {
             root_key_pair.secret_key = "/XKBs1ydmfWGiTbh+e49GYw+14LHtu+v5BMFDIzHpvo="
             builtins_key_pair.format = "ed25519"
             builtins_key_pair.value = "Ek6l5zgX9P74MHRiRzK/FN6ftQIOD3prYdMh87nRXlEEuRX1QrdQI87MBRdphoc0url0cY5ZO58evCoGXty1zw=="
-            script_storage_max_failures = 10
 
             [root_weights]
             12D3KooWB9P1xmV3c7ZPpBemovbwCiRRTKd3Kq2jsVPQN4ZukDfy = 1
@@ -270,7 +270,6 @@ mod tests {
             let config = load_config_with_args(vec![], None).expect("Could not load config");
             let config = config.resolve().unwrap();
             let resolved_secret = encode_secret(&config);
-            assert_eq!(config.node_config.script_storage_max_failures, 10);
             assert_eq!(config.node_config.allow_local_addresses, false);
             assert_eq!(
                 resolved_secret,
@@ -714,6 +713,44 @@ mod tests {
             assert_eq!(
                 config.node_config.http_config.map(|x| x.http_port),
                 Some(1001)
+            );
+        });
+    }
+
+    #[test]
+    fn load_env_upgrade_timeout() {
+        temp_env::with_vars(
+            [("FLUENCE_PROTOCOL_CONFIG__UPGRADE_TIMEOUT", Some("60s"))],
+            || {
+                let args = vec![];
+                let config = load_config_with_args(args, None).expect("Could not load config");
+                assert_eq!(
+                    config.node_config.protocol_config.upgrade_timeout,
+                    Duration::from_secs(60)
+                );
+            },
+        );
+    }
+
+    #[test]
+    fn load_file_upgrade_timeout() {
+        let mut file = NamedTempFile::new().expect("Could not create temp file");
+        write!(
+            file,
+            r#"
+            [protocol_config]
+            upgrade_timeout = "60s"
+            "#
+        )
+        .expect("Could not write in file");
+
+        let path = file.path().display().to_string();
+
+        temp_env::with_var("FLUENCE_CONFIG", Some(path), || {
+            let config = load_config_with_args(vec![], None).expect("Could not load config");
+            assert_eq!(
+                config.node_config.protocol_config.upgrade_timeout,
+                Duration::from_secs(60)
             );
         });
     }
