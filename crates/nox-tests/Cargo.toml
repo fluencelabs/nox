@@ -43,7 +43,7 @@ serde_json = { workspace = true }
 fstrings = { workspace = true }
 serde = { workspace = true }
 multihash = { workspace = true }
-blake3 = "1.4.1"
+blake3 = "1.5.0"
 rand = "0.8.5"
 bs58 = { workspace = true }
 eyre = { workspace = true }
