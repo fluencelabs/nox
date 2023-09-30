@@ -35,5 +35,5 @@ serde_with = "3.2.0"
 config = { version = "0.13.3", default-features = false, features = ["toml"] }
 
 [dev-dependencies]
-temp-env = "0.3.4"
+temp-env = "0.3.6"
 tempfile = "3.8.0"
