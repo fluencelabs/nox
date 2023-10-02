@@ -15,7 +15,6 @@ nox = { workspace = true }
 particle-protocol = { workspace = true }
 aquamarine = { workspace = true }
 connection-pool = { workspace = true }
-script-storage = { workspace = true }
 fs-utils = { workspace = true }
 air-interpreter-fs = { workspace = true }
 toy-vms = { workspace = true }

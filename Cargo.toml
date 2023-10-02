@@ -40,7 +40,6 @@ members = [
     "particle-builtins",
     "particle-modules",
     "connection-pool",
-    "script-storage",
     "spell-storage",
     "particle-execution",
     "crates/system-services",
@@ -86,7 +85,6 @@ particle-services = { path = "particle-services" }
 particle-builtins = { path = "particle-builtins" }
 particle-modules = { path = "particle-modules" }
 connection-pool = { path = "connection-pool" }
-script-storage = { path = "script-storage" }
 spell-storage = { path = "spell-storage" }
 particle-execution = { path = "particle-execution" }
 system-services = { path = "crates/system-services" }
@@ -94,8 +92,8 @@ health = { path = "crates/health" }
 subnet-resolver = { path = "crates/subnet-resolver" }
 
 # spell
-fluence-spell-dtos = "=0.5.20"
-fluence-spell-distro = "=0.5.20"
+fluence-spell-dtos = "=0.5.22"
+fluence-spell-distro = "=0.5.22"
 
 # marine
 fluence-app-service = { version = "=0.26.4-feat-wasm-backend-interface-update-b3cf050-636-1.0", registry = "fluence" }
@@ -108,14 +106,14 @@ air-interpreter-wasm = { version = "0.48.0" }
 
 # libp2p
 libp2p = { version = "0.52.3", features = ["noise", "tcp", "dns", "websocket", "yamux", "tokio", "kad", "ping", "identify", "macros"] }
-libp2p-core = { version = "0.40.0", default-features = false, features = ["secp256k1"] }
+libp2p-core = { version = "0.40.1", default-features = false, features = ["secp256k1"] }
 libp2p-metrics = "0.13.1"
 libp2p-noise = "0.43.1"
 libp2p-mplex = "0.40.0"
-libp2p-swarm = "0.43.3"
+libp2p-swarm = "0.43.5"
 libp2p-identity = "0.2.3"
 libp2p-connection-limits = "0.2.1"
-libp2p-kad = "0.44.4"
+libp2p-kad = "0.44.5"
 multihash = "0.19.1"
 prometheus-client = "0.21.2"
 
@@ -129,7 +127,7 @@ tokio-stream = { version = "0.1.14" }
 tokio-util = { version = "0.7.8" }
 uuid = { version = "1.4.1", features = ["v4"] }
 derivative = "2.2.0"
-serde_json = { version = "1.0.105", features = ["preserve_order"] }
+serde_json = { version = "1.0.107", features = ["preserve_order"] }
 fstrings = "0.2.3"
 maplit = "1.0.2"
 log = "0.4.20"

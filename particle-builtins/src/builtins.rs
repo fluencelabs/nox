@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-use std::borrow::Borrow;
 use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
 use std::ops::Try;
@@ -25,7 +24,6 @@ use std::time::{Duration, Instant};
 
 use derivative::Derivative;
 use fluence_keypair::Signature;
-use humantime_serde::re::humantime::format_duration as pretty;
 use libp2p::{core::Multiaddr, kad::KBucketKey, kad::K_VALUE, PeerId};
 use multihash::Multihash;
 use serde::Deserialize;
@@ -46,7 +44,6 @@ use particle_modules::{
 use particle_protocol::Contact;
 use particle_services::{ParticleAppServices, ServiceType};
 use peer_metrics::ServicesMetrics;
-use script_storage::ScriptStorageApi;
 use server_config::ServicesConfig;
 use uuid_utils::uuid;
 
@@ -80,7 +77,6 @@ impl CustomService {
 #[derivative(Debug)]
 pub struct Builtins<C> {
     pub connectivity: C,
-    pub script_storage: ScriptStorageApi,
 
     pub modules: ModuleRepository,
     pub services: ParticleAppServices,
@@ -100,7 +96,6 @@ where
 {
     pub fn new(
         connectivity: C,
-        script_storage: ScriptStorageApi,
         config: ServicesConfig,
         services_metrics: ServicesMetrics,
         key_manager: KeyManager,
@@ -129,7 +124,6 @@ where
 
         Self {
             connectivity,
-            script_storage,
             modules,
             services,
             particles_vault_dir,
@@ -225,11 +219,6 @@ where
             ("dist", "get_module_interface") => wrap(self.get_module_interface(args)),
             ("dist", "list_blueprints") => wrap(self.get_blueprints()),
             ("dist", "get_blueprint") => wrap(self.get_blueprint(args)),
-
-            ("script", "add") => wrap(self.add_script_from_arg(args, particle)),
-            ("script", "add_from_vault") => wrap(self.add_script_from_vault(args, particle)),
-            ("script", "remove") => wrap(self.remove_script(args, particle).await),
-            ("script", "list") => wrap(self.list_scripts().await),
 
             ("op", "noop") => FunctionOutcome::Empty,
             ("op", "array") => ok(Array(args.function_args)),
@@ -388,92 +377,6 @@ where
             Some(c) => FunctionOutcome::Ok(json!(c)),
             None => FunctionOutcome::Empty,
         }
-    }
-
-    fn add_script_from_arg(&self, args: Args, params: ParticleParams) -> Result<JValue, JError> {
-        let mut args = args.function_args.into_iter();
-        let script: String = Args::next("script", &mut args)?;
-        self.add_script(args, params, script)
-    }
-
-    fn add_script_from_vault(&self, args: Args, params: ParticleParams) -> Result<JValue, JError> {
-        let mut args = args.function_args.into_iter();
-
-        let path: String = Args::next("path", &mut args)?;
-        let script = self.read_script_from_vault(path::Path::new(&path), &params.id)?;
-        self.add_script(args, params, script)
-    }
-
-    fn add_script(
-        &self,
-        mut args: std::vec::IntoIter<JValue>,
-        params: ParticleParams,
-        script: String,
-    ) -> Result<JValue, JError> {
-        let interval = parse_from_str("interval_sec", &mut args)?;
-        let interval = interval.map(Duration::from_secs);
-
-        let delay = parse_from_str("delay_sec", &mut args)?;
-        let delay = delay.map(Duration::from_secs);
-        let delay = get_delay(delay, interval);
-
-        let creator = params.init_peer_id;
-
-        let id = self
-            .script_storage
-            .add_script(script, interval, delay, creator)?;
-
-        Ok(json!(id))
-    }
-
-    fn read_script_from_vault(
-        &self,
-        path: &path::Path,
-        particle_id: &str,
-    ) -> Result<String, JError> {
-        self.services.vault.cat(particle_id, path).map_err(|e| {
-            JError::new(format!(
-                "Error reading script file `{}`: {}",
-                path.display(),
-                e
-            ))
-        })
-    }
-
-    async fn remove_script(&self, args: Args, params: ParticleParams) -> Result<JValue, JError> {
-        let mut args = args.function_args.into_iter();
-
-        let force = self.key_manager.is_management(params.init_peer_id);
-
-        let uuid: String = Args::next("uuid", &mut args)?;
-        let actor = params.init_peer_id;
-
-        let ok = self
-            .script_storage
-            .remove_script(uuid, actor, force)
-            .await?;
-
-        Ok(json!(ok))
-    }
-
-    async fn list_scripts(&self) -> Result<JValue, JError> {
-        let scripts = self.script_storage.list_scripts().await?;
-
-        Ok(JValue::Array(
-            scripts
-                .into_iter()
-                .map(|(id, script)| {
-                    let id: &String = id.borrow();
-                    json!({
-                        "id": id,
-                        "src": script.src,
-                        "failures": script.failures,
-                        "interval": script.interval.map(|i| pretty(i).to_string()),
-                        "owner": script.creator.to_string(),
-                    })
-                })
-                .collect(),
-        ))
     }
 
     async fn timeout(&self, args: Args) -> FunctionOutcome {
@@ -1200,16 +1103,6 @@ where
             }
             .into()
         })
-}
-
-fn get_delay(delay: Option<Duration>, interval: Option<Duration>) -> Duration {
-    use rand::prelude::*;
-    let mut rng = rand::thread_rng();
-    match (delay, interval) {
-        (Some(delay), _) => delay,
-        (None, Some(interval)) => Duration::from_secs(rng.gen_range(0..=interval.as_secs())),
-        (None, None) => Duration::from_secs(0),
-    }
 }
 
 #[cfg(test)]

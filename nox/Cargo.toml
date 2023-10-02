@@ -13,7 +13,6 @@ particle-protocol = { workspace = true }
 particle-builtins = { workspace = true }
 particle-execution = { workspace = true }
 connection-pool = { workspace = true }
-script-storage = { workspace = true }
 aquamarine = { workspace = true }
 sorcerer = { workspace = true }
 health = { workspace = true }
