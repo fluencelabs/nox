@@ -173,6 +173,20 @@ mod tests {
 
         let kp = KeyPair::from_secret_key(kp_bytes, KeyFormat::Ed25519).unwrap();
 
+        // assert peer id
+        assert_eq!(
+            kp.get_peer_id().to_base58(),
+            "12D3KooWANqfCDrV79MZdMnMqTvDdqSAPSxdgFY1L6DCq2DVGB4D"
+        );
+
+        // test simple signature
+        let message = "message".to_string();
+
+        let signature = kp.sign(message.as_bytes()).unwrap();
+        assert!(kp.public().verify(message.as_bytes(), &signature).is_ok());
+        assert_eq!(base64.encode(signature.to_vec()), "sBW7H6/1fwAwF86ldwVm9BDu0YH3w30oFQjTWX0Tiu9yTVZHmxkV2OX4GL5jn0Iz0CrasGcOfozzkZwtJBPMBg==");
+
+        // test particle signature
         let mut p = Particle {
             id: "abc".to_string(),
             init_peer_id: kp.get_peer_id(),
