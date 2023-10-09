@@ -244,6 +244,7 @@ pub struct SwarmConfig {
     pub allowed_binaries: Vec<String>,
     pub enabled_system_services: Vec<String>,
     pub extend_system_services: Vec<system_services::PackageDistro>,
+    pub override_system_services_config: Option<system_services_config::SystemServicesConfig>,
     pub http_port: u16,
     pub connector_api_endpoint: Option<String>,
 }
@@ -267,6 +268,7 @@ impl SwarmConfig {
             allowed_binaries: vec!["/usr/bin/ipfs".to_string(), "/usr/bin/curl".to_string()],
             enabled_system_services: vec![],
             extend_system_services: vec![],
+            override_system_services_config: None,
             http_port: 0,
             connector_api_endpoint: None,
         }
@@ -361,6 +363,11 @@ pub fn create_swarm_with_runtime<RT: AquaRuntime>(
     resolved.node_config.particle_execution_timeout = EXECUTION_TIMEOUT;
 
     resolved.node_config.allowed_binaries = config.allowed_binaries.clone();
+
+    if let Some(config) = config.override_system_services_config.clone() {
+        resolved.system_services = config;
+    }
+    // `enable_system_services` has higher priority then `enable` field of the SystemServicesConfig
     resolved.system_services.enable = config
         .enabled_system_services
         .iter()
