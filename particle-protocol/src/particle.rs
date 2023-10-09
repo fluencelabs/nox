@@ -157,3 +157,34 @@ impl std::fmt::Display for Particle {
         )
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::Particle;
+    use base64::{engine::general_purpose::STANDARD as base64, Engine};
+    use fluence_keypair::{KeyFormat, KeyPair};
+
+    #[test]
+    fn test_signature() {
+        let kp_bytes = base64
+            .decode("7h48PQ/f1rS9TxacmgODxbD42Il9B3KC117jvOPppPE=")
+            .unwrap();
+        assert_eq!(kp_bytes.len(), 32);
+
+        let kp = KeyPair::from_secret_key(kp_bytes, KeyFormat::Ed25519).unwrap();
+
+        let mut p = Particle {
+            id: "abc".to_string(),
+            init_peer_id: kp.get_peer_id(),
+            timestamp: 12345,
+            ttl: 34,
+            script: "(abc)".to_string(),
+            signature: vec![],
+            data: vec![],
+        };
+
+        p.sign(&kp).unwrap();
+        assert!(p.verify().is_ok());
+        assert_eq!(base64.encode(&p.signature), "yXWURARFMrIwJ0VwDFj5bvaYcODyyRWxLLd+v8JxORnIFDItJW5268JL+S009ENsGuFf6sXhCCdQkeO4tdDrCw==")
+    }
+}
