@@ -132,7 +132,8 @@ impl Particle {
         pk.verify(&self.as_bytes(), &sig)
             .map_err(|err| SignatureVerificationFailed {
                 err,
-                particle_id: self.id.clone(),
+                particle: serde_json::to_string::<Particle>(&self).unwrap(),
+                peer_id: self.init_peer_id.to_base58(),
             })
     }
 }
@@ -199,6 +200,6 @@ mod tests {
 
         p.sign(&kp).unwrap();
         assert!(p.verify().is_ok());
-        assert_eq!(base64.encode(&p.signature), "yXWURARFMrIwJ0VwDFj5bvaYcODyyRWxLLd+v8JxORnIFDItJW5268JL+S009ENsGuFf6sXhCCdQkeO4tdDrCw==")
+        assert_eq!(base64.encode(&p.signature), "yXWURARFMrIwJ0VwDFj5bvaYcODyyRWxLLd+v8JxORnIFDItJW5268JL+S009ENsGuFf6sXhCCdQkeO4tdDrCw==");
     }
 }
