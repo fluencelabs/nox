@@ -15,8 +15,9 @@
  */
 
 use humantime::FormattedDuration;
-use particle_protocol::ParticleError;
 use thiserror::Error;
+
+use particle_protocol::ParticleError;
 
 #[derive(Debug, Error)]
 pub enum AquamarineApiError {
