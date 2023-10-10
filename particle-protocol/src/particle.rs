@@ -132,7 +132,7 @@ impl Particle {
         pk.verify(&self.as_bytes(), &sig)
             .map_err(|err| SignatureVerificationFailed {
                 err,
-                particle: serde_json::to_string::<Particle>(&self).unwrap(),
+                particle_id: self.id.clone(),
                 peer_id: self.init_peer_id.to_base58(),
             })
     }

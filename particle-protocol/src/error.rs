@@ -31,13 +31,12 @@ pub enum ParticleError {
         err: SigningError,
         particle_id: String,
     },
-    #[error("Failed to verify particle {particle} by {peer_id} with signature: {err}")]
+    #[error("Failed to verify particle {particle_id} by {peer_id} with signature: {err}")]
     SignatureVerificationFailed {
         #[source]
         err: VerificationError,
-        // particle_id: String,
+        particle_id: String,
         peer_id: String,
-        particle: String,
     },
     #[error("Failed to decode public key from init_peer_id of particle {particle_id}: {err}")]
     DecodingError {
