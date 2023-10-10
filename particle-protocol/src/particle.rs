@@ -164,6 +164,8 @@ mod tests {
     use crate::Particle;
     use base64::{engine::general_purpose::STANDARD as base64, Engine};
     use fluence_keypair::{KeyFormat, KeyPair};
+    use libp2p::PeerId;
+    use std::str::FromStr;
 
     #[test]
     fn test_signature() {
@@ -189,17 +191,18 @@ mod tests {
 
         // test particle signature
         let mut p = Particle {
-            id: "abc".to_string(),
+            id: "2883f959-e9e7-4843-8c37-205d393ca372".to_string(),
             init_peer_id: kp.get_peer_id(),
-            timestamp: 12345,
-            ttl: 34,
-            script: "(abc)".to_string(),
+            timestamp: 1696934545662,
+            ttl: 7000,
+            script: "\n    (xor\n        (seq\n            (call %init_peer_id% (\"load\" \"relay\") [] init_relay)\n            (seq\n                (call init_relay (\"op\" \"identity\") [\"hello world!\"] result)\n                (call %init_peer_id% (\"callback\" \"callback\") [result])\n            )\n        )\n        (seq\n            (call init_relay (\"op\" \"identity\") [])\n            (call %init_peer_id% (\"callback\" \"error\") [%last_error%])\n        )\n    )".to_string(),
             signature: vec![],
             data: vec![],
         };
 
         p.sign(&kp).unwrap();
+        print!("{}", p.script);
         assert!(p.verify().is_ok());
-        assert_eq!(base64.encode(&p.signature), "yXWURARFMrIwJ0VwDFj5bvaYcODyyRWxLLd+v8JxORnIFDItJW5268JL+S009ENsGuFf6sXhCCdQkeO4tdDrCw==");
+        assert_eq!(base64.encode(&p.signature), "gp1iz4EBdrBZIwQWGn3y8DIKtkC37O29oPvz5/+e+qBHY2E75XVc2U/toBEs2+oVuMrJJBuBZ9cOsr+eA+fIBQ==");
     }
 }
