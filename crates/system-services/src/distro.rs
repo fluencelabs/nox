@@ -69,7 +69,7 @@ impl SystemServiceDistros {
     fn versions_from(packages: &HashMap<String, PackageDistro>) -> Versions {
         let mut versions = Self::default_versions();
         for (name, package) in packages {
-            match ServiceKey::from_string(&name) {
+            match ServiceKey::from_string(name) {
                 Some(AquaIpfs) => {
                     versions.aqua_ipfs_version = package.version;
                 }
