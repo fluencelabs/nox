@@ -92,7 +92,7 @@ health = { path = "crates/health" }
 subnet-resolver = { path = "crates/subnet-resolver" }
 
 # spell
-fluence-spell-dtos = "=0.5.22"
+fluence-spell-dtos = "=0.5.24"
 fluence-spell-distro = "=0.5.22"
 
 # marine
