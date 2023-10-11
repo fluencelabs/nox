@@ -6,7 +6,7 @@ edition = "2021"
 [dependencies]
 prometheus-client = { workspace = true }
 log = { workspace = true }
-bytesize = "1.2.0"
+bytesize = "1.3.0"
 fluence-app-service = { workspace = true }
 fluence-libp2p = { workspace = true }
 particle-execution = { workspace = true }
