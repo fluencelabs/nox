@@ -51,7 +51,6 @@ impl Effectors {
                     let sent = connectivity.send(contact, particle).await;
                     if sent {
                         // resolved and sent, exit
-                        return;
                     }
                 }
             }

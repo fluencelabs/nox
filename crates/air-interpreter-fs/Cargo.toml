@@ -10,5 +10,5 @@ air-interpreter-wasm = { workspace = true }
 eyre = { workspace = true }
 serde = { version = "1.0.188", features = ["derive"] }
 serde_json = { workspace = true }
-blake3 = "1.4.1"
+blake3 = "1.5.0"
 faster-hex = "0.8.1"

@@ -303,7 +303,7 @@ pub fn make_particle(
 
     tracing::info!(particle_id = id, "Made a particle");
 
-    Particle {
+    let mut particle = Particle {
         id,
         init_peer_id: peer_id,
         timestamp,
@@ -311,7 +311,11 @@ pub fn make_particle(
         script,
         signature: vec![],
         data: particle_data,
-    }
+    };
+
+    particle.sign(key_pair).expect("sign particle");
+
+    particle
 }
 
 pub fn read_args(
