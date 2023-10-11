@@ -20,9 +20,14 @@
       "schedule": "at any time"
     },
     {
+      "matchPackagePatterns": ["fluence-spell-dtos", "fluence-spell-distro"],
+      "groupName": "fluence-spell"
+    },
+    {
       "matchPackagePatterns": ["^libp2p.*", "prometheus-client", "multihash"],
       "groupName": "libp2p"
     },
+
     {
       "matchPackagePatterns": ["opentelemetry", "opentelemetry-otlp", "tracing-opentelemetry"],
       "groupName": "opentelemetry"
