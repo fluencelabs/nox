@@ -1999,9 +1999,9 @@ dependencies = [
 
 [[package]]
 name = "fluence-spell-distro"
-version = "0.5.22"
+version = "0.5.24"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "842cb3f9c3223403077a196f262094713c3b7f69a1fb0360860b2b7177fedddb"
+checksum = "940140e9a6f4ad012566e0f418c28d4a7e2561d1985356d74abe2d0f8bbfc895"
 dependencies = [
  "built 0.6.1",
  "maplit",
@@ -2009,9 +2009,9 @@ dependencies = [
 
 [[package]]
 name = "fluence-spell-dtos"
-version = "0.5.22"
+version = "0.5.24"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ed3d4e2234115ceb36030d0894acd04efaf648faf6b804fa8d855dc6432ce4b2"
+checksum = "f4c44ba1c717e65ae24f23ac16535617d78935627a205532bfccf7d0e04f4e9a"
 dependencies = [
  "eyre",
  "marine-rs-sdk 0.9.0",
@@ -4615,7 +4615,7 @@ version = "0.1.0"
 
 [[package]]
 name = "nox"
-version = "0.14.9"
+version = "0.15.0"
 dependencies = [
  "air-interpreter-fs",
  "air-interpreter-wasm",
