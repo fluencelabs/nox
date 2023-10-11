@@ -20,7 +20,8 @@ now-millis = { path = "../now-millis" }
 local-vm = { path = "../local-vm" }
 control-macro = { path = "../control-macro" }
 json-utils = { path = "../json-utils" }
-server-config = { workspace = true }
+system-services = { workspace = true }
+subnet-resolver = { workspace = true }
 
 log-utils = { workspace = true }
 fluence-spell-dtos = { workspace = true }
@@ -28,7 +29,6 @@ fluence-app-service = { workspace = true }
 particle-protocol = { workspace = true }
 particle-builtins = { workspace = true }
 connection-pool = { workspace = true }
-script-storage = { workspace = true }
 aquamarine = { workspace = true }
 sorcerer = { workspace = true }
 fluence-keypair = { workspace = true }
@@ -43,7 +43,7 @@ serde_json = { workspace = true }
 fstrings = { workspace = true }
 serde = { workspace = true }
 multihash = { workspace = true }
-blake3 = "1.4.1"
+blake3 = "1.5.0"
 rand = "0.8.5"
 bs58 = { workspace = true }
 eyre = { workspace = true }
@@ -56,3 +56,4 @@ base64 = { workspace = true }
 tokio = { workspace = true }
 log = { workspace = true }
 tracing = { workspace = true }
+mockito = "1.1.0"

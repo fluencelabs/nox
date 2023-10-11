@@ -143,18 +143,6 @@ pub fn default_particle_processor_parallelism() -> Option<usize> {
     Some(num_cpus::get() * 2)
 }
 
-pub fn default_script_storage_timer_resolution() -> Duration {
-    Duration::from_secs(3)
-}
-
-pub fn default_script_storage_max_failures() -> u8 {
-    3
-}
-
-pub fn default_script_storage_particle_ttl() -> Duration {
-    Duration::from_secs(120)
-}
-
 pub fn default_max_spell_particle_ttl() -> Duration {
     Duration::from_secs(120)
 }

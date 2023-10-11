@@ -1,5 +1,49 @@
 # Changelog
 
+## [0.14.9](https://github.com/fluencelabs/nox/compare/rust-peer-v0.14.8...rust-peer-v0.14.9) (2023-09-22)
+
+
+### Features
+
+* **decider:** allow to set ipfs multiaddr from env [fixes NET-544] ([#1802](https://github.com/fluencelabs/nox/issues/1802)) ([a0606bc](https://github.com/fluencelabs/nox/commit/a0606bc069051b592106dec1929508781bce253d))
+
+
+### Bug Fixes
+
+* **deps:** update rust crate avm-server to 0.33.1 ([#1799](https://github.com/fluencelabs/nox/issues/1799)) ([4dfa59d](https://github.com/fluencelabs/nox/commit/4dfa59d761a71b0c2f63466584cd207af5354886))
+
+## [0.14.8](https://github.com/fluencelabs/nox/compare/rust-peer-v0.14.7...rust-peer-v0.14.8) (2023-09-22)
+
+
+### Bug Fixes
+
+* **deps:** update rust crate air-interpreter-wasm to 0.48.0 ([#1800](https://github.com/fluencelabs/nox/issues/1800)) ([31bd096](https://github.com/fluencelabs/nox/commit/31bd09684ca25c18b014d2b576ee6210f0ca3bdc))
+
+## [0.14.7](https://github.com/fluencelabs/nox/compare/rust-peer-v0.14.6...rust-peer-v0.14.7) (2023-09-21)
+
+
+### Features
+
+* **builtins:** implement subnet.resolve [NET-549] ([#1798](https://github.com/fluencelabs/nox/issues/1798)) ([85665e2](https://github.com/fluencelabs/nox/commit/85665e2caa7f1dd668576be5a41125d02c38f577))
+
+
+### Bug Fixes
+
+* **deps:** update rust crate fluence-spell-distro to v0.5.20 ([#1781](https://github.com/fluencelabs/nox/issues/1781)) ([9e380ac](https://github.com/fluencelabs/nox/commit/9e380acc03a3b4e015d052c6969bfdb2055db1d0))
+* **deps:** update rust crate fluence-spell-dtos to v0.5.20 ([#1782](https://github.com/fluencelabs/nox/issues/1782)) ([09c9b49](https://github.com/fluencelabs/nox/commit/09c9b4967dbcbfc9010884ec0c7e29f5bcde8ccb))
+
+## [0.14.6](https://github.com/fluencelabs/nox/compare/rust-peer-v0.14.5...rust-peer-v0.14.6) (2023-09-15)
+
+
+### Features
+
+* **system-services, tests:** composable and overridable system services [NET-530, NET-531] ([#1770](https://github.com/fluencelabs/nox/issues/1770)) ([459ec72](https://github.com/fluencelabs/nox/commit/459ec72a0c9bbcd93ec7a12b4eb097dbda2ee40f))
+
+
+### Bug Fixes
+
+* **deps:** update rust crate air-interpreter-wasm to 0.47.0 ([#1785](https://github.com/fluencelabs/nox/issues/1785)) ([33ac736](https://github.com/fluencelabs/nox/commit/33ac7361a8d749dea5e9b8372ee3930a0929582f))
+
 ## [0.14.5](https://github.com/fluencelabs/nox/compare/rust-peer-v0.14.4...rust-peer-v0.14.5) (2023-09-07)
 
 

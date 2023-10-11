@@ -22,7 +22,7 @@ use aquamarine::{
     AquaRuntime, AquamarineApi, AquamarineApiError, AquamarineBackend, RoutingEffects, VmPoolConfig,
 };
 use config_utils::to_peer_id;
-use connection_pool::{ConnectionPoolApi, ConnectionPoolT};
+use connection_pool::ConnectionPoolT;
 use fluence_libp2p::build_transport;
 use futures::future::OptionFuture;
 use futures::{stream::StreamExt, FutureExt};
@@ -45,12 +45,11 @@ use peer_metrics::{
     ServicesMetricsBackend, SpellMetrics, VmPoolMetrics,
 };
 use prometheus_client::registry::Registry;
-use script_storage::{ScriptStorageApi, ScriptStorageBackend, ScriptStorageConfig};
 use server_config::{NetworkConfig, ResolvedConfig, ServicesConfig};
 use sorcerer::Sorcerer;
 use spell_event_bus::api::{PeerEvent, SpellEventBusApi, TriggerEvent};
 use spell_event_bus::bus::SpellEventBus;
-use system_services::Deployer;
+use system_services::{Deployer, SystemServiceDistros};
 use tokio::sync::{mpsc, oneshot};
 use tokio::task;
 
@@ -73,7 +72,6 @@ pub struct Node<RT: AquaRuntime> {
     pub aquamarine_api: AquamarineApi,
     pub dispatcher: Dispatcher,
     aquavm_pool: AquamarineBackend<RT, Arc<Builtins<Connectivity>>>,
-    script_storage: ScriptStorageBackend,
     system_service_deployer: Deployer,
 
     spell_event_bus_api: SpellEventBusApi,
@@ -102,6 +100,7 @@ impl<RT: AquaRuntime> Node<RT> {
         vm_config: RT::Config,
         node_version: &'static str,
         air_version: &'static str,
+        system_service_distros: SystemServiceDistros,
     ) -> eyre::Result<Box<Self>> {
         let key_pair: Keypair = config.node_config.root_key_pair.clone().into();
         let transport = config.transport_config.transport;
@@ -184,20 +183,6 @@ impl<RT: AquaRuntime> Node<RT> {
             health_registry.as_mut(),
         );
 
-        let (particle_failures_out, particle_failures_in) = mpsc::unbounded_channel();
-
-        let (script_storage_api, script_storage_backend) = {
-            let script_storage_config = ScriptStorageConfig {
-                timer_resolution: config.script_storage_timer_resolution,
-                max_failures: config.script_storage_max_failures,
-                particle_ttl: config.script_storage_particle_ttl,
-                peer_id: key_manager.get_host_peer_id(),
-            };
-
-            let pool: &ConnectionPoolApi = connectivity.as_ref();
-            ScriptStorageBackend::new(pool.clone(), particle_failures_in, script_storage_config)
-        };
-
         let (services_metrics_backend, services_metrics) =
             if let Some(registry) = metrics_registry.as_mut() {
                 ServicesMetrics::with_external_backend(
@@ -220,10 +205,10 @@ impl<RT: AquaRuntime> Node<RT> {
         let builtins = Arc::new(Self::builtins(
             connectivity.clone(),
             services_config,
-            script_storage_api,
             services_metrics,
             key_manager.clone(),
             health_registry.as_mut(),
+            config.system_services.decider.network_api_endpoint.clone(),
         ));
 
         let (effects_out, effects_in) = mpsc::unbounded_channel();
@@ -242,13 +227,11 @@ impl<RT: AquaRuntime> Node<RT> {
         );
         let effectors = Effectors::new(connectivity.clone());
         let dispatcher = {
-            let failures = particle_failures_out;
             let parallelism = config.particle_processor_parallelism;
             Dispatcher::new(
                 key_manager.get_host_peer_id(),
                 aquamarine_api.clone(),
                 effectors,
-                failures,
                 parallelism,
                 metrics_registry.as_mut(),
             )
@@ -309,7 +292,6 @@ impl<RT: AquaRuntime> Node<RT> {
             },
         );
 
-        let system_services_config = config.system_services.clone();
         let system_services_deployer = Deployer::new(
             services,
             modules,
@@ -318,7 +300,7 @@ impl<RT: AquaRuntime> Node<RT> {
             spell_service_api,
             key_manager.get_host_peer_id(),
             builtins_peer_id,
-            system_services_config,
+            system_service_distros,
         );
 
         let versions = Versions::new(
@@ -336,7 +318,6 @@ impl<RT: AquaRuntime> Node<RT> {
             aquamarine_api,
             dispatcher,
             aquavm_pool,
-            script_storage_backend,
             system_services_deployer,
             spell_event_bus_api,
             spell_event_bus,
@@ -381,18 +362,18 @@ impl<RT: AquaRuntime> Node<RT> {
     pub fn builtins(
         connectivity: Connectivity,
         services_config: ServicesConfig,
-        script_storage_api: ScriptStorageApi,
         services_metrics: ServicesMetrics,
         key_manager: KeyManager,
         health_registry: Option<&mut HealthCheckRegistry>,
+        connector_api_endpoint: String,
     ) -> Builtins<Connectivity> {
         Builtins::new(
             connectivity,
-            script_storage_api,
             services_config,
             services_metrics,
             key_manager,
             health_registry,
+            connector_api_endpoint,
         )
     }
 }
@@ -412,7 +393,6 @@ impl<RT: AquaRuntime> Node<RT> {
         aquamarine_api: AquamarineApi,
         dispatcher: Dispatcher,
         aquavm_pool: AquamarineBackend<RT, Arc<Builtins<Connectivity>>>,
-        script_storage: ScriptStorageBackend,
         system_service_deployer: Deployer,
         spell_event_bus_api: SpellEventBusApi,
         spell_event_bus: SpellEventBus,
@@ -437,7 +417,6 @@ impl<RT: AquaRuntime> Node<RT> {
             aquamarine_api,
             dispatcher,
             aquavm_pool,
-            script_storage,
             system_service_deployer,
             spell_event_bus_api,
             spell_event_bus,
@@ -470,7 +449,6 @@ impl<RT: AquaRuntime> Node<RT> {
         let connectivity = self.connectivity;
         let dispatcher = self.dispatcher;
         let aquavm_pool = self.aquavm_pool;
-        let script_storage = self.script_storage;
         let spell_event_bus = self.spell_event_bus;
         let spell_events_receiver = self.spell_events_receiver;
         let sorcerer = self.sorcerer;
@@ -493,7 +471,6 @@ impl<RT: AquaRuntime> Node<RT> {
 
 
             let services_metrics_backend = services_metrics_backend.start();
-            let script_storage = script_storage.start();
             let spell_event_bus = spell_event_bus.start();
             let sorcerer = sorcerer.start(spell_events_receiver);
             let pool = aquavm_pool.start();
@@ -521,7 +498,6 @@ impl<RT: AquaRuntime> Node<RT> {
 
             log::info!("Stopping node");
             services_metrics_backend.abort();
-            script_storage.abort();
             spell_event_bus.abort();
             sorcerer.abort();
             dispatcher.cancel().await;
@@ -584,6 +560,7 @@ mod tests {
     use connected_client::ConnectedClient;
     use fs_utils::to_abs_path;
     use server_config::{default_base_dir, load_config_with_args};
+    use system_services::SystemServiceDistros;
 
     use crate::Node;
 
@@ -607,8 +584,17 @@ mod tests {
             config.dir_config.air_interpreter_path.clone(),
             None,
         );
-        let mut node: Box<Node<AVM<_>>> =
-            Node::new(config, vm_config, "some version", "some version").expect("create node");
+        let system_service_distros =
+            SystemServiceDistros::default_from(config.system_services.clone())
+                .expect("can't create system services");
+        let mut node: Box<Node<AVM<_>>> = Node::new(
+            config,
+            vm_config,
+            "some version",
+            "some version",
+            system_service_distros,
+        )
+        .expect("create node");
 
         let listening_address: Multiaddr = "/ip4/127.0.0.1/tcp/7777".parse().unwrap();
         node.listen(vec![listening_address.clone()]).unwrap();

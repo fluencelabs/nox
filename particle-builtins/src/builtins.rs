@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-use std::borrow::Borrow;
 use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
 use std::ops::Try;
@@ -25,7 +24,6 @@ use std::time::{Duration, Instant};
 
 use derivative::Derivative;
 use fluence_keypair::Signature;
-use humantime_serde::re::humantime::format_duration as pretty;
 use libp2p::{core::Multiaddr, kad::KBucketKey, kad::K_VALUE, PeerId};
 use multihash::Multihash;
 use serde::Deserialize;
@@ -46,7 +44,6 @@ use particle_modules::{
 use particle_protocol::Contact;
 use particle_services::{ParticleAppServices, ServiceType};
 use peer_metrics::ServicesMetrics;
-use script_storage::ScriptStorageApi;
 use server_config::ServicesConfig;
 use uuid_utils::uuid;
 
@@ -80,12 +77,6 @@ impl CustomService {
 #[derivative(Debug)]
 pub struct Builtins<C> {
     pub connectivity: C,
-    pub script_storage: ScriptStorageApi,
-
-    // TODO: move all peer ids and keypairs to key manager
-    pub management_peer_id: PeerId,
-    pub builtins_management_peer_id: PeerId,
-    pub local_peer_id: PeerId,
 
     pub modules: ModuleRepository,
     pub services: ParticleAppServices,
@@ -96,6 +87,7 @@ pub struct Builtins<C> {
 
     #[derivative(Debug = "ignore")]
     key_manager: KeyManager,
+    connector_api_endpoint: String,
 }
 
 impl<C> Builtins<C>
@@ -104,11 +96,11 @@ where
 {
     pub fn new(
         connectivity: C,
-        script_storage: ScriptStorageApi,
         config: ServicesConfig,
         services_metrics: ServicesMetrics,
         key_manager: KeyManager,
         health_registry: Option<&mut HealthCheckRegistry>,
+        connector_api_endpoint: String,
     ) -> Self {
         let modules_dir = &config.modules_dir;
         let blueprint_dir = &config.blueprint_dir;
@@ -122,9 +114,6 @@ where
             config.allowed_binaries.clone(),
         );
         let particles_vault_dir = vault_dir.to_path_buf();
-        let management_peer_id = config.management_peer_id;
-        let builtins_management_peer_id = config.builtins_management_peer_id;
-        let local_peer_id = config.local_peer_id;
         let services = ParticleAppServices::new(
             config,
             modules.clone(),
@@ -135,15 +124,12 @@ where
 
         Self {
             connectivity,
-            script_storage,
-            management_peer_id,
-            builtins_management_peer_id,
-            local_peer_id,
             modules,
             services,
             particles_vault_dir,
             custom_services: <_>::default(),
             key_manager,
+            connector_api_endpoint,
         }
     }
 
@@ -234,11 +220,6 @@ where
             ("dist", "list_blueprints") => wrap(self.get_blueprints()),
             ("dist", "get_blueprint") => wrap(self.get_blueprint(args)),
 
-            ("script", "add") => wrap(self.add_script_from_arg(args, particle)),
-            ("script", "add_from_vault") => wrap(self.add_script_from_vault(args, particle)),
-            ("script", "remove") => wrap(self.remove_script(args, particle).await),
-            ("script", "list") => wrap(self.list_scripts().await),
-
             ("op", "noop") => FunctionOutcome::Empty,
             ("op", "array") => ok(Array(args.function_args)),
             ("op", "array_length") => wrap(self.array_length(args.function_args)),
@@ -297,6 +278,8 @@ where
 
             ("vault", "put") => wrap(self.vault_put(args, particle)),
             ("vault", "cat") => wrap(self.vault_cat(args, particle)),
+
+            ("subnet", "resolve") => wrap(self.subnet_resolve(args)),
             ("run-console", "print") => {
                 let function_args = args.function_args.iter();
                 let decider = function_args.filter_map(JValue::as_str).any(|s| s.contains("decider"));
@@ -394,92 +377,6 @@ where
             Some(c) => FunctionOutcome::Ok(json!(c)),
             None => FunctionOutcome::Empty,
         }
-    }
-
-    fn add_script_from_arg(&self, args: Args, params: ParticleParams) -> Result<JValue, JError> {
-        let mut args = args.function_args.into_iter();
-        let script: String = Args::next("script", &mut args)?;
-        self.add_script(args, params, script)
-    }
-
-    fn add_script_from_vault(&self, args: Args, params: ParticleParams) -> Result<JValue, JError> {
-        let mut args = args.function_args.into_iter();
-
-        let path: String = Args::next("path", &mut args)?;
-        let script = self.read_script_from_vault(path::Path::new(&path), &params.id)?;
-        self.add_script(args, params, script)
-    }
-
-    fn add_script(
-        &self,
-        mut args: std::vec::IntoIter<JValue>,
-        params: ParticleParams,
-        script: String,
-    ) -> Result<JValue, JError> {
-        let interval = parse_from_str("interval_sec", &mut args)?;
-        let interval = interval.map(Duration::from_secs);
-
-        let delay = parse_from_str("delay_sec", &mut args)?;
-        let delay = delay.map(Duration::from_secs);
-        let delay = get_delay(delay, interval);
-
-        let creator = params.init_peer_id;
-
-        let id = self
-            .script_storage
-            .add_script(script, interval, delay, creator)?;
-
-        Ok(json!(id))
-    }
-
-    fn read_script_from_vault(
-        &self,
-        path: &path::Path,
-        particle_id: &str,
-    ) -> Result<String, JError> {
-        self.services.vault.cat(particle_id, path).map_err(|e| {
-            JError::new(format!(
-                "Error reading script file `{}`: {}",
-                path.display(),
-                e
-            ))
-        })
-    }
-
-    async fn remove_script(&self, args: Args, params: ParticleParams) -> Result<JValue, JError> {
-        let mut args = args.function_args.into_iter();
-
-        let force = params.init_peer_id == self.management_peer_id;
-
-        let uuid: String = Args::next("uuid", &mut args)?;
-        let actor = params.init_peer_id;
-
-        let ok = self
-            .script_storage
-            .remove_script(uuid, actor, force)
-            .await?;
-
-        Ok(json!(ok))
-    }
-
-    async fn list_scripts(&self) -> Result<JValue, JError> {
-        let scripts = self.script_storage.list_scripts().await?;
-
-        Ok(JValue::Array(
-            scripts
-                .into_iter()
-                .map(|(id, script)| {
-                    let id: &String = id.borrow();
-                    json!({
-                        "id": id,
-                        "src": script.src,
-                        "failures": script.failures,
-                        "interval": script.interval.map(|i| pretty(i).to_string()),
-                        "owner": script.creator.to_string(),
-                    })
-                })
-                .collect(),
-        ))
     }
 
     async fn timeout(&self, args: Args) -> FunctionOutcome {
@@ -978,12 +875,10 @@ where
 
             let tetraplet = tetraplets.get(0).map(|v| v.as_slice());
             if let Some([t]) = tetraplet {
-                if t.peer_pk != self.local_peer_id.to_base58()
-                    && !self.key_manager.is_worker(PeerId::from_str(&t.peer_pk)?)
-                {
+                if !self.key_manager.is_local(PeerId::from_str(&t.peer_pk)?) {
                     return Err(JError::new(format!(
                         "data is expected to be produced by service 'registry' on peer '{}', was from peer '{}'",
-                        self.local_peer_id, t.peer_pk
+                        self.key_manager.get_host_peer_id(), t.peer_pk
                     )));
                 }
 
@@ -1110,6 +1005,13 @@ where
             .map(JValue::String)
             .map_err(|_| JError::new(format!("Error reading vault file `{path}`")))
     }
+
+    fn subnet_resolve(&self, args: Args) -> Result<JValue, JError> {
+        let mut args = args.function_args.into_iter();
+        let deal_id: String = Args::next("deal_id", &mut args)?;
+        let result = subnet_resolver::resolve_subnet(deal_id, &self.connector_api_endpoint);
+        Ok(json!(result))
+    }
 }
 
 fn make_module_config(args: Args) -> Result<JValue, JError> {
@@ -1201,16 +1103,6 @@ where
             }
             .into()
         })
-}
-
-fn get_delay(delay: Option<Duration>, interval: Option<Duration>) -> Duration {
-    use rand::prelude::*;
-    let mut rng = rand::thread_rng();
-    match (delay, interval) {
-        (Some(delay), _) => delay,
-        (None, Some(interval)) => Duration::from_secs(rng.gen_range(0..=interval.as_secs())),
-        (None, None) => Duration::from_secs(0),
-    }
 }
 
 #[cfg(test)]

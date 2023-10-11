@@ -10,7 +10,6 @@ particle-execution = { workspace = true }
 particle-services = { workspace = true }
 particle-modules = { workspace = true }
 connection-pool = { workspace = true }
-script-storage = { workspace = true }
 
 server-config = { workspace = true }
 kademlia = { workspace = true }
@@ -22,6 +21,7 @@ peer-metrics = { workspace = true }
 uuid-utils = { workspace = true }
 key-manager = { workspace = true }
 service-modules = { workspace = true }
+subnet-resolver = { workspace = true }
 
 libp2p = { workspace = true }
 libp2p-kad = { workspace = true }
@@ -41,7 +41,7 @@ humantime-serde = { workspace = true }
 rand = "0.8.5"
 futures = { workspace = true }
 itertools = { workspace = true }
-bytesize = "1.2.0"
+bytesize = "1.3.0"
 derivative = { workspace = true }
 fluence-app-service = { workspace = true }
 async-trait = { version = "0.1.73" }
