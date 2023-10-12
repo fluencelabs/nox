@@ -980,7 +980,7 @@ version = "0.1.0"
 dependencies = [
  "fluence-libp2p",
  "futures",
- "itertools 0.10.5",
+ "itertools 0.11.0",
  "libp2p",
  "log",
  "parking_lot",
@@ -2578,7 +2578,7 @@ name = "json-utils"
 version = "0.0.2"
 dependencies = [
  "base64 0.21.2",
- "itertools 0.10.5",
+ "itertools 0.11.0",
  "serde",
  "serde_json",
 ]
@@ -2635,7 +2635,7 @@ dependencies = [
  "serde",
  "thiserror",
  "toml 0.7.6",
- "toml_edit",
+ "toml_edit 0.20.2",
 ]
 
 [[package]]
@@ -3845,7 +3845,7 @@ dependencies = [
  "futures",
  "humantime-serde",
  "hyper",
- "itertools 0.10.5",
+ "itertools 0.11.0",
  "kademlia",
  "key-manager",
  "libp2p",
@@ -4152,7 +4152,7 @@ dependencies = [
  "fluence-keypair",
  "futures",
  "humantime-serde",
- "itertools 0.10.5",
+ "itertools 0.11.0",
  "ivalue-utils",
  "kademlia",
  "key-manager",
@@ -4211,7 +4211,7 @@ dependencies = [
  "fluence-app-service",
  "fs-utils",
  "fstrings",
- "itertools 0.10.5",
+ "itertools 0.11.0",
  "json-utils",
  "libipld",
  "log",
@@ -4227,7 +4227,7 @@ dependencies = [
  "tempdir",
  "thiserror",
  "toml 0.7.6",
- "toml_edit",
+ "toml_edit 0.20.2",
 ]
 
 [[package]]
@@ -4282,7 +4282,7 @@ dependencies = [
  "tempdir",
  "thiserror",
  "toml 0.7.6",
- "toml_edit",
+ "toml_edit 0.20.2",
  "uuid",
  "uuid-utils",
 ]
@@ -5471,14 +5471,14 @@ dependencies = [
  "fluence-app-service",
  "fluence-libp2p",
  "fluence-spell-distro",
- "itertools 0.10.5",
+ "itertools 0.11.0",
  "log",
  "parking_lot",
  "particle-modules",
  "particle-services",
  "service-modules",
  "toml 0.7.6",
- "toml_edit",
+ "toml_edit 0.20.2",
 ]
 
 [[package]]
@@ -5887,7 +5887,7 @@ dependencies = [
  "serde",
  "serde_spanned",
  "toml_datetime",
- "toml_edit",
+ "toml_edit 0.19.12",
 ]
 
 [[package]]
@@ -5916,7 +5916,20 @@ dependencies = [
  "serde",
  "serde_spanned",
  "toml_datetime",
- "winnow",
+ "winnow 0.4.8",
+]
+
+[[package]]
+name = "toml_edit"
+version = "0.20.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "396e4d48bbb2b7554c944bde63101b5ae446cff6ec4a24227428f15eb72ef338"
+dependencies = [
+ "indexmap 2.0.0",
+ "serde",
+ "serde_spanned",
+ "toml_datetime",
+ "winnow 0.5.16",
 ]
 
 [[package]]
@@ -6020,7 +6033,7 @@ dependencies = [
  "fluence-keypair",
  "fluence-libp2p",
  "futures",
- "itertools 0.10.5",
+ "itertools 0.11.0",
  "particle-protocol",
  "serde_json",
 ]
@@ -7122,6 +7135,15 @@ name = "winnow"
 version = "0.4.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a9482fe6ceabdf32f3966bfdd350ba69256a97c30253dc616fe0005af24f164e"
+dependencies = [
+ "memchr",
+]
+
+[[package]]
+name = "winnow"
+version = "0.5.16"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "037711d82167854aff2018dfd193aa0fef5370f456732f0d5a0c59b0f1b4b907"
 dependencies = [
  "memchr",
 ]
