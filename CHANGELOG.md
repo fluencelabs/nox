@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.15.0](https://github.com/fluencelabs/nox/compare/rust-peer-v0.14.9...rust-peer-v0.15.0) (2023-10-11)
+
+
+### ⚠ BREAKING CHANGES
+
+* remove scheduled scripts [NET-566] ([#1812](https://github.com/fluencelabs/nox/issues/1812))
+
+### Features
+
+* remove scheduled scripts [NET-566] ([#1812](https://github.com/fluencelabs/nox/issues/1812)) ([cd9995a](https://github.com/fluencelabs/nox/commit/cd9995a6e2ca2336c23f7d4e117adc8215c74215))
+* verify particle signatures [NET-539] ([#1811](https://github.com/fluencelabs/nox/issues/1811)) ([188d833](https://github.com/fluencelabs/nox/commit/188d833af07159921fa04864eaaf54a75eaa2fa1))
+
+
+### Bug Fixes
+
+* **deps:** update rust crate fluence-spell-distro to v0.5.22 ([#1795](https://github.com/fluencelabs/nox/issues/1795)) ([1df86e8](https://github.com/fluencelabs/nox/commit/1df86e8047bb4aab168ab6e5cfb5a978c573dfe0))
+* **deps:** update rust crate fluence-spell-distro to v0.5.24 ([#1825](https://github.com/fluencelabs/nox/issues/1825)) ([abea305](https://github.com/fluencelabs/nox/commit/abea305cd221f0daafb5f4420fff9cc08747c6bf))
+* **deps:** update rust crate fluence-spell-dtos to v0.5.22 ([#1796](https://github.com/fluencelabs/nox/issues/1796)) ([5c4ea1b](https://github.com/fluencelabs/nox/commit/5c4ea1b9adba5997989fc751d39bc0e5cbdcd7af))
+* env configuration loading for protocol config ([#1814](https://github.com/fluencelabs/nox/issues/1814)) ([e8a11fe](https://github.com/fluencelabs/nox/commit/e8a11fee5a4d6364e01ecbba220cfd7dac47fe68))
+* **spell-bus:** resubscribe spell on double subscription ([#1797](https://github.com/fluencelabs/nox/issues/1797)) ([7ee8efa](https://github.com/fluencelabs/nox/commit/7ee8efa4d321a027081c1e9736bc9a5415ae7f86))
+* **tests:** Allow override system services config in tests [NET-576] ([#1824](https://github.com/fluencelabs/nox/issues/1824)) ([2c6b6e3](https://github.com/fluencelabs/nox/commit/2c6b6e3fe321ec2be875427f927329eb8ac4a2b6))
+
 ## [0.14.9](https://github.com/fluencelabs/nox/compare/rust-peer-v0.14.8...rust-peer-v0.14.9) (2023-09-22)
 
 
