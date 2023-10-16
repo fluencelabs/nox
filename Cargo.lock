@@ -118,11 +118,11 @@ dependencies = [
 
 [[package]]
 name = "air-interpreter-wasm"
-version = "0.48.0"
+version = "0.52.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6f0a00ccf17b7126f3cd103cf4fbed66fc0461706cc41a99950dbc4bfa902d07"
+checksum = "e254ceb3a78817792823f9569b28413de68a80574114b7390813e20748b46374"
 dependencies = [
- "built 0.6.1",
+ "built 0.7.1",
 ]
 
 [[package]]
@@ -722,6 +722,12 @@ checksum = "b99c4cdc7b2c2364182331055623bdf45254fcb679fea565c40c3c11c101889a"
 dependencies = [
  "cargo-lock 9.0.0",
 ]
+
+[[package]]
+name = "built"
+version = "0.7.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "38d17f4d6e4dc36d1a02fbedc2753a096848e7c1b0772f7654eab8e2c927dd53"
 
 [[package]]
 name = "bumpalo"
