@@ -3814,25 +3814,6 @@ dependencies = [
 
 [[package]]
 name = "marine-it-parser"
-version = "0.12.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5f6fa959602e33685a3d0c476ac0d7811646d22160fc0e12220e80cacb7f8ed6"
-dependencies = [
- "anyhow",
- "itertools 0.10.5",
- "marine-it-interfaces 0.8.1",
- "marine-module-interface 0.7.1",
- "marine-wasm-backend-traits 0.3.0",
- "nom",
- "semver",
- "serde",
- "thiserror",
- "walrus 0.20.1",
- "wasmer-interface-types-fl",
-]
-
-[[package]]
-name = "marine-it-parser"
 version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "52907d7e7b9487a029dd3d99e647307c8808d7fba327e27113b0807d4868b315"
@@ -5089,7 +5070,7 @@ dependencies = [
  "json-utils",
  "libipld",
  "log",
- "marine-it-parser 0.12.2",
+ "marine-it-parser 0.13.0",
  "marine-utils 0.5.0",
  "parking_lot",
  "particle-args",
