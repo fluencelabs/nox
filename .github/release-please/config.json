@@ -5,8 +5,8 @@
   "bump-patch-for-minor-pre-major": true,
   "packages": {
     ".": {
-      "package-name": "rust-peer",
-      "component": "rust-peer"
+      "package-name": "nox",
+      "component": "nox"
     }
   }
 }
