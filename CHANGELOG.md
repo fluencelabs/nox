@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.15.1](https://github.com/fluencelabs/nox/compare/nox-v0.15.0...nox-v0.15.1) (2023-10-16)
+
+
+### Bug Fixes
+
+* **deps:** update rust crate air-interpreter-wasm to 0.52.0 ([#1827](https://github.com/fluencelabs/nox/issues/1827)) ([608e0d6](https://github.com/fluencelabs/nox/commit/608e0d6ee94ec21c97c99b558fa86b7cc4d22b84))
+* **deps:** update rust crate avm-server to 0.33.2 ([#1838](https://github.com/fluencelabs/nox/issues/1838)) ([96df6bb](https://github.com/fluencelabs/nox/commit/96df6bb29d1d39383bc60617b143ceba2b208439))
+
 ## [0.15.0](https://github.com/fluencelabs/nox/compare/rust-peer-v0.14.9...rust-peer-v0.15.0) (2023-10-11)
 
 
