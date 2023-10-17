@@ -27,11 +27,13 @@
 )]
 
 use base64::{engine::general_purpose::STANDARD as base64, Engine};
-
 use eyre::WrapErr;
+use log::LevelFilter;
 use tokio::signal;
 use tokio::sync::oneshot;
+use tracing_subscriber::filter::Directive;
 use tracing_subscriber::layer::SubscriberExt;
+use tracing_subscriber::reload;
 use tracing_subscriber::util::SubscriberInitExt;
 
 use air_interpreter_fs::write_default_air_interpreter;
@@ -94,8 +96,16 @@ fn main() -> eyre::Result<()> {
         .build()
         .expect("Could not make tokio runtime")
         .block_on(async {
+            let (re_layer, reload_handler) = log_layer(&config.log);
+            // let (re_layer, reload_handler) = reload::Layer::new();
+            let change_loglevel = move |level: Directive| {
+                if let Err(err) = reload_handler.modify(|oh| {}) {
+                    log::error!("log level reload error: {:?}", err);
+                }
+            };
+
             tracing_subscriber::registry()
-                .with(log_layer(&config.log))
+                .with(re_layer)
                 .with(tokio_console_layer(&config.console)?)
                 .with(tracing_layer(&config.tracing)?)
                 .init();
@@ -110,7 +120,7 @@ fn main() -> eyre::Result<()> {
             write_default_air_interpreter(&interpreter_path)?;
             log::info!("AIR interpreter: {:?}", interpreter_path);
 
-            let fluence = start_fluence(config).await?;
+            let fluence = start_fluence(config, change_loglevel).await?;
             log::info!("Fluence has been successfully started.");
             log::info!("Waiting for Ctrl-C to exit...");
 
@@ -123,7 +133,10 @@ fn main() -> eyre::Result<()> {
 }
 
 // NOTE: to stop Fluence just call Stoppable::stop()
-async fn start_fluence(config: ResolvedConfig) -> eyre::Result<impl Stoppable> {
+async fn start_fluence(
+    config: ResolvedConfig,
+    change_loglevel: fn(Directive),
+) -> eyre::Result<impl Stoppable> {
     log::trace!("starting Fluence");
 
     let key_pair = config.root_key_pair.clone();
@@ -150,7 +163,10 @@ async fn start_fluence(config: ResolvedConfig) -> eyre::Result<impl Stoppable> {
     .wrap_err("error create node instance")?;
     node.listen(listen_addrs).wrap_err("error on listen")?;
 
-    let started_node = node.start(peer_id).await.wrap_err("node failed to start")?;
+    let started_node = node
+        .start(peer_id, change_loglevel)
+        .await
+        .wrap_err("node failed to start")?;
 
     struct Fluence {
         node_exit_outlet: oneshot::Sender<()>,

@@ -14,20 +14,12 @@
  * limitations under the License.
  */
 
-use eyre::WrapErr;
 use std::sync::Arc;
 use std::{io, net::SocketAddr};
 
-use aquamarine::{
-    AquaRuntime, AquamarineApi, AquamarineApiError, AquamarineBackend, RoutingEffects, VmPoolConfig,
-};
-use config_utils::to_peer_id;
-use connection_pool::ConnectionPoolT;
-use fluence_libp2p::build_transport;
+use eyre::WrapErr;
 use futures::future::OptionFuture;
 use futures::{stream::StreamExt, FutureExt};
-use health::HealthCheckRegistry;
-use key_manager::KeyManager;
 use libp2p::swarm::SwarmEvent;
 use libp2p::{
     core::{muxing::StreamMuxerBox, transport::Boxed, Multiaddr},
@@ -37,6 +29,19 @@ use libp2p::{
 use libp2p_connection_limits::ConnectionLimits;
 use libp2p_metrics::{Metrics, Recorder};
 use libp2p_swarm::SwarmBuilder;
+use prometheus_client::registry::Registry;
+use tokio::sync::{mpsc, oneshot};
+use tokio::task;
+use tracing_subscriber::filter::Directive;
+
+use aquamarine::{
+    AquaRuntime, AquamarineApi, AquamarineApiError, AquamarineBackend, RoutingEffects, VmPoolConfig,
+};
+use config_utils::to_peer_id;
+use connection_pool::ConnectionPoolT;
+use fluence_libp2p::build_transport;
+use health::HealthCheckRegistry;
+use key_manager::KeyManager;
 use particle_builtins::{Builtins, CustomService, NodeInfo};
 use particle_execution::ParticleFunctionStatic;
 use particle_protocol::Particle;
@@ -44,23 +49,20 @@ use peer_metrics::{
     ConnectionPoolMetrics, ConnectivityMetrics, ParticleExecutorMetrics, ServicesMetrics,
     ServicesMetricsBackend, SpellMetrics, VmPoolMetrics,
 };
-use prometheus_client::registry::Registry;
 use server_config::{NetworkConfig, ResolvedConfig, ServicesConfig};
 use sorcerer::Sorcerer;
 use spell_event_bus::api::{PeerEvent, SpellEventBusApi, TriggerEvent};
 use spell_event_bus::bus::SpellEventBus;
 use system_services::{Deployer, SystemServiceDistros};
-use tokio::sync::{mpsc, oneshot};
-use tokio::task;
 
+use crate::behaviour::FluenceNetworkBehaviourEvent;
 use crate::builtins::make_peer_builtin;
 use crate::dispatcher::Dispatcher;
 use crate::effectors::Effectors;
+use crate::http::start_http_endpoint;
 use crate::{Connectivity, Versions};
 
 use super::behaviour::FluenceNetworkBehaviour;
-use crate::behaviour::FluenceNetworkBehaviourEvent;
-use crate::http::start_http_endpoint;
 
 // TODO: documentation
 pub struct Node<RT: AquaRuntime> {
@@ -439,7 +441,11 @@ impl<RT: AquaRuntime> Node<RT> {
 
     /// Starts node service
     #[allow(clippy::boxed_local)] // Mike said it should be boxed
-    pub async fn start(self: Box<Self>, peer_id: PeerId) -> eyre::Result<StartedNode> {
+    pub async fn start(
+        self: Box<Self>,
+        peer_id: PeerId,
+        change_loglevel: fn(Directive),
+    ) -> eyre::Result<StartedNode> {
         let (exit_outlet, exit_inlet) = oneshot::channel();
         let (http_bind_outlet, http_bind_inlet) = oneshot::channel();
 
@@ -464,7 +470,7 @@ impl<RT: AquaRuntime> Node<RT> {
         task::Builder::new().name(&task_name.clone()).spawn(async move {
             let mut http_server = if let Some(http_listen_addr) = http_listen_addr{
                 log::info!("Starting http endpoint at {}", http_listen_addr);
-                start_http_endpoint(http_listen_addr, metrics_registry, health_registry, peer_id, versions, http_bind_outlet).boxed()
+                start_http_endpoint(http_listen_addr, metrics_registry, health_registry, peer_id, versions, http_bind_outlet, change_loglevel).boxed()
             } else {
                 futures::future::pending().boxed()
             };
@@ -548,11 +554,12 @@ impl<RT: AquaRuntime> Node<RT> {
 
 #[cfg(test)]
 mod tests {
+    use std::path::PathBuf;
+
     use libp2p::core::Multiaddr;
     use libp2p::PeerId;
     use maplit::hashmap;
     use serde_json::json;
-    use std::path::PathBuf;
 
     use air_interpreter_fs::{air_interpreter_path, write_default_air_interpreter};
     use aquamarine::{VmConfig, AVM};

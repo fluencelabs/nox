@@ -1,4 +1,7 @@
-use crate::Versions;
+use std::net::SocketAddr;
+use std::str::FromStr;
+use std::sync::Arc;
+
 use axum::body::Body;
 use axum::http::header::CONTENT_TYPE;
 use axum::response::ErrorResponse;
@@ -9,14 +12,53 @@ use axum::{
     routing::get,
     Json, Router,
 };
-use health::{HealthCheckRegistry, HealthStatus};
 use libp2p::PeerId;
 use prometheus_client::encoding::text::encode;
 use prometheus_client::registry::Registry;
 use serde_json::{json, Value};
-use std::net::SocketAddr;
-use std::sync::Arc;
 use tokio::sync::oneshot;
+use tracing_subscriber::filter::Directive;
+
+use health::{HealthCheckRegistry, HealthStatus};
+
+use crate::Versions;
+
+#[derive(serde::Deserialize, Debug)]
+struct LogLevel {
+    #[allow(dead_code)]
+    pub value: String,
+}
+
+async fn handle_log_level(
+    query: axum::extract::Query<LogLevel>,
+    State(state): State<RouteState>,
+) -> Response {
+    println!("query: {:?}", query);
+    log::info!("query: {:?}", query);
+
+    let directive = Directive::from_str(&query.value);
+    match directive {
+        Ok(directive) => {
+            // log::set_max_level(level);
+            (state.0.change_loglevel)(directive);
+
+            log::trace!("TEST trace");
+            log::debug!("TEST debug");
+            log::info!("TEST info");
+            log::warn!("TEST warn");
+            log::error!("TEST error");
+
+            log::trace!(target: "test", "TEST trace with target");
+            log::debug!(target: "test", "TEST debug with target");
+            log::info!(target: "test", "TEST info with target");
+            log::warn!(target: "test", "TEST warn with target");
+            log::error!(target: "test", "TEST error with target");
+
+            "OK".into_response()
+        }
+        Err(err) => err.to_string().into_response(),
+    }
+}
 
 async fn handler_404() -> impl IntoResponse {
     (StatusCode::NOT_FOUND, "No such endpoint")
@@ -105,6 +147,7 @@ struct Inner {
     health_registry: Option<HealthCheckRegistry>,
     peer_id: PeerId,
     versions: Versions,
+    change_loglevel: fn(Directive),
 }
 #[derive(Debug)]
 pub struct StartedHttp {
@@ -118,20 +161,25 @@ pub async fn start_http_endpoint(
     peer_id: PeerId,
     versions: Versions,
     notify: oneshot::Sender<StartedHttp>,
+    change_loglevel: fn(Directive),
 ) {
     let state = RouteState(Arc::new(Inner {
         metric_registry,
         health_registry,
         peer_id,
         versions,
+        change_loglevel,
     }));
     let app: Router = Router::new()
         .route("/metrics", get(handle_metrics))
         .route("/peer_id", get(handle_peer_id))
         .route("/versions", get(handle_versions))
         .route("/health", get(handle_health))
+        .route("/level", get(handle_log_level))
         .fallback(handler_404)
         .with_state(state);
+
+    println!("listening on {}", listen_addr);
 
     let server = axum::Server::bind(&listen_addr).serve(app.into_make_service());
     notify
@@ -144,10 +192,13 @@ pub async fn start_http_endpoint(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use axum::http::Request;
-    use health::HealthCheck;
     use std::net::SocketAddr;
+
+    use axum::http::Request;
+
+    use health::HealthCheck;
+
+    use super::*;
 
     fn test_versions() -> Versions {
         Versions {
@@ -177,6 +228,7 @@ mod tests {
                 PeerId::random(),
                 test_versions(),
                 notify_sender,
+                |_| {},
             )
             .await;
         });
@@ -208,7 +260,16 @@ mod tests {
 
         let (notify_sender, notify_receiver) = oneshot::channel();
         tokio::spawn(async move {
-            start_http_endpoint(addr, None, None, peer_id, test_versions(), notify_sender).await;
+            start_http_endpoint(
+                addr,
+                None,
+                None,
+                peer_id,
+                test_versions(),
+                notify_sender,
+                |_| {},
+            )
+            .await;
         });
 
         let http_info = notify_receiver.await.unwrap();
@@ -249,6 +310,7 @@ mod tests {
                 peer_id,
                 test_versions(),
                 notify_sender,
+                |_| {},
             )
             .await;
         });
@@ -296,6 +358,7 @@ mod tests {
                 peer_id,
                 test_versions(),
                 notify_sender,
+                |_| {},
             )
             .await;
         });
@@ -351,6 +414,7 @@ mod tests {
                 peer_id,
                 test_versions(),
                 notify_sender,
+                |_| {},
             )
             .await;
         });
@@ -401,6 +465,7 @@ mod tests {
                 peer_id,
                 test_versions(),
                 notify_sender,
+                |_| {},
             )
             .await;
         });

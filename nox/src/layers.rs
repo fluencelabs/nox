@@ -1,16 +1,20 @@
+use std::net::{SocketAddr, ToSocketAddrs};
+
 use console_subscriber::ConsoleLayer;
 use eyre::anyhow;
 use opentelemetry::sdk::Resource;
 use opentelemetry::KeyValue;
 use opentelemetry_otlp::WithExportConfig;
-use server_config::{ConsoleConfig, LogConfig, LogFormat, TracingConfig};
-use std::net::{SocketAddr, ToSocketAddrs};
 use tracing::level_filters::LevelFilter;
 use tracing::Subscriber;
+use tracing_subscriber::filter::Directive;
 use tracing_subscriber::registry::LookupSpan;
-use tracing_subscriber::Layer;
+use tracing_subscriber::reload::Handle;
+use tracing_subscriber::{reload, EnvFilter, Layer};
 
-pub fn log_layer<S>(log_config: &Option<LogConfig>) -> impl Layer<S>
+use server_config::{ConsoleConfig, LogConfig, LogFormat, TracingConfig};
+
+pub fn log_layer<S>(log_config: &Option<LogConfig>) -> (impl Layer<S>, Box<dyn Fn(Vec<Directive>)>)
 where
     S: Subscriber + for<'span> LookupSpan<'span>,
 {
@@ -41,22 +45,51 @@ where
         .map(|c| &c.format)
         .unwrap_or(&LogFormat::Default);
 
-    let layer = match log_format {
-        LogFormat::Logfmt => tracing_logfmt::builder()
-            .with_target(false)
-            .with_span_path(false)
-            .with_span_name(false)
-            .layer()
-            .with_filter(env_filter)
-            .boxed(),
-        LogFormat::Default => tracing_subscriber::fmt::layer()
-            .with_thread_ids(true)
-            .with_thread_names(true)
-            .with_filter(env_filter)
-            .boxed(),
+    let (layer, handle): (_, Box<dyn Fn(Vec<Directive>)>) = match log_format {
+        LogFormat::Logfmt => {
+            let layer = tracing_logfmt::builder()
+                .with_target(false)
+                .with_span_path(false)
+                .with_span_name(false)
+                .layer()
+                .with_filter(env_filter);
+
+            let (reload, handle) = reload::Layer::new(layer);
+
+            (
+                reload.boxed(),
+                Box::new(move |directives: Vec<Directive>| add_directives(&handle, directives)),
+            )
+        }
+        LogFormat::Default => {
+            let layer = tracing_subscriber::fmt::layer()
+                .with_thread_ids(true)
+                .with_thread_names(true)
+                .with_filter(env_filter);
+
+            let (reload, handle) = reload::Layer::new(layer);
+
+            (
+                reload.boxed(),
+                Box::new(move |directives: Vec<Directive>| add_directives(&handle, directives)),
+            )
+        }
     };
 
-    layer
+    (layer, handle)
+}
+
+fn add_directives<W, T, F>(
+    handle: &Handle<tracing_subscriber::filter::Filtered<W, EnvFilter, T>, F>,
+    directives: Vec<Directive>,
+) {
+    if let Err(err) = handle.modify(|layer| {
+        for dir in directives {
+            layer.filter_mut().add_directive(dir);
+        }
+    }) {
+        log::error!("error modifying env filter logger: {:?}", err)
+    }
 }
 
 pub fn tokio_console_layer<S>(
