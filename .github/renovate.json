@@ -20,6 +20,14 @@
       "schedule": "at any time"
     },
     {
+      "matchManagers": ["cargo"],
+      "matchPackagePatterns": [
+        "avm-server",
+        "air-interpreter-wasm"
+      ],
+      "groupName": "avm"
+    },
+    {
       "matchPackagePatterns": ["fluence-spell-dtos", "fluence-spell-distro"],
       "groupName": "fluence-spell"
     },
