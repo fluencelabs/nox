@@ -446,7 +446,7 @@ dependencies = [
  "air-utils",
  "log",
  "maplit",
- "polyplets 0.5.1",
+ "polyplets",
  "serde",
  "serde_json",
  "thiserror",
@@ -467,9 +467,9 @@ dependencies = [
  "fluence-keypair",
  "log",
  "maplit",
- "marine-runtime 0.30.0",
+ "marine-runtime",
  "parking_lot",
- "polyplets 0.5.1",
+ "polyplets",
  "serde",
  "serde_json",
  "thiserror",
@@ -1931,16 +1931,16 @@ dependencies = [
 
 [[package]]
 name = "fluence-app-service"
-version = "0.26.4-feat-wasm-backend-interface-update-b3cf050-636-1.0"
-source = "registry+git://crates.fluence.dev/index"
-checksum = "447d7dafcafef2b92ad35fcd2952495f78dafe2e8b7489b558ef3805b56b982a"
+version = "0.29.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0b0916285affb8d7c59c80a38f97563ea6fe1082f14778d22e5c8bec7f8537ec"
 dependencies = [
  "log",
  "maplit",
- "marine-min-it-version 0.26.4-feat-wasm-backend-interface-update-b3cf050-636-1.0",
- "marine-runtime 0.26.4-feat-wasm-backend-interface-update-b3cf050-636-1.0",
- "marine-wasm-backend-traits 0.26.4-feat-wasm-backend-interface-update-b3cf050-636-1.0",
- "marine-wasmtime-backend 0.26.4-feat-wasm-backend-interface-update-b3cf050-636-1.0",
+ "marine-min-it-version",
+ "marine-runtime",
+ "marine-wasm-backend-traits",
+ "marine-wasmtime-backend",
  "serde",
  "serde_derive",
  "serde_json",
@@ -2757,19 +2757,6 @@ name = "it-json-serde"
 version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "145ec580d7bd2edbe7177841fa6f48bf820c5bbaa0fc51d4ecef48a8f91889e5"
-dependencies = [
- "serde",
- "serde_derive",
- "serde_json",
- "thiserror",
- "wasmer-interface-types-fl",
-]
-
-[[package]]
-name = "it-json-serde"
-version = "0.26.4-feat-wasm-backend-interface-update-b3cf050-636-1.0"
-source = "registry+git://crates.fluence.dev/index"
-checksum = "d06665a8c000f7229f3ecf743d0e9ccc717b5bdbf183c4e1bbecf18ebb23ab28"
 dependencies = [
  "serde",
  "serde_derive",
@@ -3711,44 +3698,15 @@ dependencies = [
  "it-lilo",
  "it-memory-traits",
  "log",
- "marine-it-generator 0.11.0",
- "marine-it-interfaces 0.8.1",
- "marine-it-parser 0.13.0",
- "marine-min-it-version 0.3.0",
- "marine-module-info-parser 0.9.0",
- "marine-module-interface 0.7.1",
- "marine-utils 0.5.0",
- "marine-wasm-backend-traits 0.3.0",
- "marine-wasmtime-backend 0.3.0",
- "multimap",
- "once_cell",
- "paste",
- "semver",
- "serde",
- "thiserror",
- "wasmer-interface-types-fl",
-]
-
-[[package]]
-name = "marine-core"
-version = "0.26.4-feat-wasm-backend-interface-update-b3cf050-636-1.0"
-source = "registry+git://crates.fluence.dev/index"
-checksum = "bf255314a20042e427b975eec854fca52368253b1fe9bf5ef5e2da8544fd9fd9"
-dependencies = [
- "anyhow",
- "bytesize",
- "it-lilo",
- "it-memory-traits",
- "log",
- "marine-it-generator 0.26.4-feat-wasm-backend-interface-update-b3cf050-636-1.0",
- "marine-it-interfaces 0.26.4-feat-wasm-backend-interface-update-b3cf050-636-1.0",
- "marine-it-parser 0.26.4-feat-wasm-backend-interface-update-b3cf050-636-1.0",
- "marine-min-it-version 0.26.4-feat-wasm-backend-interface-update-b3cf050-636-1.0",
- "marine-module-info-parser 0.26.4-feat-wasm-backend-interface-update-b3cf050-636-1.0",
- "marine-module-interface 0.26.4-feat-wasm-backend-interface-update-b3cf050-636-1.0",
- "marine-utils 0.26.4-feat-wasm-backend-interface-update-b3cf050-636-1.0",
- "marine-wasm-backend-traits 0.26.4-feat-wasm-backend-interface-update-b3cf050-636-1.0",
- "marine-wasmtime-backend 0.26.4-feat-wasm-backend-interface-update-b3cf050-636-1.0",
+ "marine-it-generator",
+ "marine-it-interfaces",
+ "marine-it-parser",
+ "marine-min-it-version",
+ "marine-module-info-parser",
+ "marine-module-interface",
+ "marine-utils",
+ "marine-wasm-backend-traits",
+ "marine-wasmtime-backend",
  "multimap",
  "once_cell",
  "paste",
@@ -3765,30 +3723,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7b0cc0ce2ee4ee0986abf71327b84ef3fb26dcb33b866226f9e659d1cce922fd"
 dependencies = [
  "it-lilo",
- "marine-it-parser 0.13.0",
+ "marine-it-parser",
  "marine-macro-impl 0.7.1",
  "once_cell",
  "serde",
  "serde_json",
  "thiserror",
  "walrus 0.20.1",
- "wasmer-interface-types-fl",
-]
-
-[[package]]
-name = "marine-it-generator"
-version = "0.26.4-feat-wasm-backend-interface-update-b3cf050-636-1.0"
-source = "registry+git://crates.fluence.dev/index"
-checksum = "ce3e5c144de6b3957610ffadc4d942280143bb4aa1d35c214c58aba9d2bde164"
-dependencies = [
- "it-lilo",
- "marine-it-parser 0.26.4-feat-wasm-backend-interface-update-b3cf050-636-1.0",
- "marine-macro-impl 0.7.1",
- "once_cell",
- "serde",
- "serde_json",
- "thiserror",
- "walrus 0.19.0",
  "wasmer-interface-types-fl",
 ]
 
@@ -3803,16 +3744,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "marine-it-interfaces"
-version = "0.26.4-feat-wasm-backend-interface-update-b3cf050-636-1.0"
-source = "registry+git://crates.fluence.dev/index"
-checksum = "9cc250ce50cb7c681ead322f327f127891abf623eb72170e42a7e9a4e8dfac88"
-dependencies = [
- "multimap",
- "wasmer-interface-types-fl",
-]
-
-[[package]]
 name = "marine-it-parser"
 version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3820,54 +3751,15 @@ checksum = "52907d7e7b9487a029dd3d99e647307c8808d7fba327e27113b0807d4868b315"
 dependencies = [
  "anyhow",
  "itertools 0.10.5",
- "marine-it-interfaces 0.8.1",
- "marine-module-interface 0.7.1",
- "marine-wasm-backend-traits 0.3.0",
+ "marine-it-interfaces",
+ "marine-module-interface",
+ "marine-wasm-backend-traits",
  "nom",
  "semver",
  "serde",
  "thiserror",
  "walrus 0.20.1",
  "wasmer-interface-types-fl",
-]
-
-[[package]]
-name = "marine-it-parser"
-version = "0.26.4-feat-wasm-backend-interface-update-b3cf050-636-1.0"
-source = "registry+git://crates.fluence.dev/index"
-checksum = "b9fb085eeacb98775fc0226d7b0c7849897556e22d6a80be572cb24586808725"
-dependencies = [
- "anyhow",
- "itertools 0.10.5",
- "marine-it-interfaces 0.26.4-feat-wasm-backend-interface-update-b3cf050-636-1.0",
- "marine-module-interface 0.26.4-feat-wasm-backend-interface-update-b3cf050-636-1.0",
- "marine-wasm-backend-traits 0.26.4-feat-wasm-backend-interface-update-b3cf050-636-1.0",
- "nom",
- "semver",
- "serde",
- "thiserror",
- "walrus 0.19.0",
- "wasmer-interface-types-fl",
-]
-
-[[package]]
-name = "marine-macro"
-version = "0.7.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5e03da22f641984aad5229f780d190502196d1c0bf908d3d17f5d6bcba73e525"
-dependencies = [
- "marine-macro-impl 0.7.1",
- "marine-rs-sdk-main 0.7.1",
-]
-
-[[package]]
-name = "marine-macro"
-version = "0.8.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9c99fa7013660d8e129b2bcd51138015136b91903f88529f1da0510f850c28ea"
-dependencies = [
- "marine-macro-impl 0.8.1",
- "marine-rs-sdk-main 0.8.1",
 ]
 
 [[package]]
@@ -3895,19 +3787,6 @@ name = "marine-macro-impl"
 version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ca474b63cabaf8d7d9b38de87d630023cbc91ddc77e92f9c7bb745462a131b44"
-dependencies = [
- "proc-macro2",
- "quote",
- "serde",
- "serde_json",
- "syn 1.0.109",
-]
-
-[[package]]
-name = "marine-macro-impl"
-version = "0.8.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "43b4761eec59a2914413d1ea14659305e6374bfed69998f33763daa586c44196"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -3953,16 +3832,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "marine-min-it-version"
-version = "0.26.4-feat-wasm-backend-interface-update-b3cf050-636-1.0"
-source = "registry+git://crates.fluence.dev/index"
-checksum = "52a6f3dc4e6ebc04e0c75398fdb650287b22c8b5c598db229c11ecd025182b73"
-dependencies = [
- "once_cell",
- "semver",
-]
-
-[[package]]
 name = "marine-module-info-parser"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3972,27 +3841,11 @@ dependencies = [
  "chrono",
  "derivative",
  "marine-rs-sdk-main 0.10.0",
- "marine-wasm-backend-traits 0.3.0",
+ "marine-wasm-backend-traits",
  "semver",
  "serde",
  "thiserror",
  "walrus 0.20.1",
-]
-
-[[package]]
-name = "marine-module-info-parser"
-version = "0.26.4-feat-wasm-backend-interface-update-b3cf050-636-1.0"
-source = "registry+git://crates.fluence.dev/index"
-checksum = "76c74c95782c347f1c45d646e898cf4caeb32afad810f79b180dfc03cd176035"
-dependencies = [
- "anyhow",
- "chrono",
- "marine-rs-sdk-main 0.7.1",
- "marine-wasm-backend-traits 0.26.4-feat-wasm-backend-interface-update-b3cf050-636-1.0",
- "semver",
- "serde",
- "thiserror",
- "walrus 0.19.0",
 ]
 
 [[package]]
@@ -4003,43 +3856,13 @@ checksum = "49d8f21255b94f1c8b2731a2b49c2ed34f955ed2e11dae3fb6c580a346d10bdd"
 dependencies = [
  "anyhow",
  "itertools 0.10.5",
- "marine-it-interfaces 0.8.1",
+ "marine-it-interfaces",
  "nom",
  "semver",
  "serde",
  "thiserror",
  "walrus 0.19.0",
  "wasmer-interface-types-fl",
-]
-
-[[package]]
-name = "marine-module-interface"
-version = "0.26.4-feat-wasm-backend-interface-update-b3cf050-636-1.0"
-source = "registry+git://crates.fluence.dev/index"
-checksum = "46039c2131ff39ee35f5604e93edff70735aead6926507c614bfe2a32ffadb92"
-dependencies = [
- "anyhow",
- "itertools 0.10.5",
- "marine-it-interfaces 0.26.4-feat-wasm-backend-interface-update-b3cf050-636-1.0",
- "nom",
- "semver",
- "serde",
- "thiserror",
- "walrus 0.19.0",
- "wasmer-interface-types-fl",
-]
-
-[[package]]
-name = "marine-rs-sdk"
-version = "0.7.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1cfeeb7b8cd98e32276fabfe6ab095a6aae793f3f080e7eb1c3d36b1b762397c"
-dependencies = [
- "marine-macro 0.7.1",
- "marine-rs-sdk-main 0.7.1",
- "marine-timestamp-macro 0.7.1",
- "polyplets 0.3.3",
- "serde",
 ]
 
 [[package]]
@@ -4069,26 +3892,6 @@ dependencies = [
 
 [[package]]
 name = "marine-rs-sdk-main"
-version = "0.7.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c43e6eac611bc5b96e80a3f3e2621eeded69fb56389aa83b6ea76ec0f243ef23"
-dependencies = [
- "log",
- "serde",
-]
-
-[[package]]
-name = "marine-rs-sdk-main"
-version = "0.8.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b01678ba2a94fcfeb8232e87281937b07927ab2a54205747b6ab45e3f5ad65fd"
-dependencies = [
- "log",
- "serde",
-]
-
-[[package]]
-name = "marine-rs-sdk-main"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a69e17cc63a434d19ca9c312a29a1e06847758041f8429f333d3a91469f62594"
@@ -4109,51 +3912,22 @@ dependencies = [
 
 [[package]]
 name = "marine-runtime"
-version = "0.26.4-feat-wasm-backend-interface-update-b3cf050-636-1.0"
-source = "registry+git://crates.fluence.dev/index"
-checksum = "38ba14002f9b769c5394bbfe6d20c882c89acee928f19767fa154fbf0ec0f48a"
-dependencies = [
- "bytesize",
- "it-json-serde 0.26.4-feat-wasm-backend-interface-update-b3cf050-636-1.0",
- "it-memory-traits",
- "itertools 0.10.5",
- "log",
- "marine-core 0.26.4-feat-wasm-backend-interface-update-b3cf050-636-1.0",
- "marine-module-interface 0.26.4-feat-wasm-backend-interface-update-b3cf050-636-1.0",
- "marine-rs-sdk 0.7.1",
- "marine-rs-sdk-main 0.7.1",
- "marine-utils 0.26.4-feat-wasm-backend-interface-update-b3cf050-636-1.0",
- "marine-wasm-backend-traits 0.26.4-feat-wasm-backend-interface-update-b3cf050-636-1.0",
- "marine-wasmtime-backend 0.26.4-feat-wasm-backend-interface-update-b3cf050-636-1.0",
- "parking_lot",
- "safe-transmute",
- "serde",
- "serde_derive",
- "serde_json",
- "serde_with 2.3.3",
- "thiserror",
- "toml 0.5.11",
- "wasmer-interface-types-fl",
-]
-
-[[package]]
-name = "marine-runtime"
 version = "0.30.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fe2f5584266fe595f06fa83fd4cc0de4c2cff513906869a4e37f112354ca08b8"
 dependencies = [
  "bytesize",
- "it-json-serde 0.4.1",
+ "it-json-serde",
  "it-memory-traits",
  "itertools 0.10.5",
  "log",
- "marine-core 0.24.0",
- "marine-module-interface 0.7.1",
+ "marine-core",
+ "marine-module-interface",
  "marine-rs-sdk 0.10.0",
  "marine-rs-sdk-main 0.10.0",
- "marine-utils 0.5.0",
- "marine-wasm-backend-traits 0.3.0",
- "marine-wasmtime-backend 0.3.0",
+ "marine-utils",
+ "marine-wasm-backend-traits",
+ "marine-wasmtime-backend",
  "parking_lot",
  "safe-transmute",
  "serde",
@@ -4173,16 +3947,6 @@ checksum = "02b2f62a0f56af2d5467d294133e264e13e24c15cfb21588f7c61c680f241baf"
 dependencies = [
  "bytesize",
  "marine-rs-sdk 0.9.0",
-]
-
-[[package]]
-name = "marine-timestamp-macro"
-version = "0.7.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7ea4557a757e9f4d04a0b6afb047431a246963268a4cab56c62cb5355457cb2f"
-dependencies = [
- "chrono",
- "quote",
 ]
 
 [[package]]
@@ -4212,31 +3976,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7e86cb57ff0e2fdc8e188a52d388287d38e5cc781eddd09a82d20f8ee1f48b80"
 
 [[package]]
-name = "marine-utils"
-version = "0.26.4-feat-wasm-backend-interface-update-b3cf050-636-1.0"
-source = "registry+git://crates.fluence.dev/index"
-checksum = "94ad75f658702ec8aa65c1b25f4a2ddea1727e7ecf4c68890a89b3cd42b44e50"
-
-[[package]]
 name = "marine-wasm-backend-traits"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8094cd7d1bf6c14ded993fd2d6e6999f7e25c07b2f770277ea28ee64fe433ecc"
-dependencies = [
- "anyhow",
- "it-memory-traits",
- "multimap",
- "paste",
- "thiserror",
- "wasmer-interface-types-fl",
- "wasmparser 0.101.1",
-]
-
-[[package]]
-name = "marine-wasm-backend-traits"
-version = "0.26.4-feat-wasm-backend-interface-update-b3cf050-636-1.0"
-source = "registry+git://crates.fluence.dev/index"
-checksum = "87216f62f823a62098b0dd28b6e5eef3acf9e3667227f9d98aafd4db7b4e6f98"
 dependencies = [
  "anyhow",
  "it-memory-traits",
@@ -4256,24 +3999,7 @@ dependencies = [
  "anyhow",
  "it-memory-traits",
  "log",
- "marine-wasm-backend-traits 0.3.0",
- "multimap",
- "paste",
- "wasmer-interface-types-fl",
- "wasmtime",
- "wasmtime-wasi",
-]
-
-[[package]]
-name = "marine-wasmtime-backend"
-version = "0.26.4-feat-wasm-backend-interface-update-b3cf050-636-1.0"
-source = "registry+git://crates.fluence.dev/index"
-checksum = "00ec7394a0e443f9789401d94fb89585da11bb2f1a8a276c54a9404892e45470"
-dependencies = [
- "anyhow",
- "it-memory-traits",
- "log",
- "marine-wasm-backend-traits 0.26.4-feat-wasm-backend-interface-update-b3cf050-636-1.0",
+ "marine-wasm-backend-traits",
  "multimap",
  "paste",
  "wasmer-interface-types-fl",
@@ -5070,8 +4796,8 @@ dependencies = [
  "json-utils",
  "libipld",
  "log",
- "marine-it-parser 0.13.0",
- "marine-utils 0.5.0",
+ "marine-it-parser",
+ "marine-utils",
  "parking_lot",
  "particle-args",
  "particle-execution",
@@ -5284,17 +5010,6 @@ dependencies = [
  "cpufeatures",
  "opaque-debug",
  "universal-hash",
-]
-
-[[package]]
-name = "polyplets"
-version = "0.3.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dad2a1ffbc0d66f92c861bb57fb60f113ea0736d16d4cd7ead1bb514d8d8b3d3"
-dependencies = [
- "marine-macro 0.8.1",
- "marine-rs-sdk-main 0.7.1",
- "serde",
 ]
 
 [[package]]
