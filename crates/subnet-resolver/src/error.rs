@@ -27,4 +27,6 @@ pub enum ResolveSubnetError {
     Empty,
     #[error("'{1}' from getPATs is not a valid PeerId")]
     InvalidPeerId(#[source] ParseError, &'static str),
+    #[error("Invalid deal id '{0}': invalid length")]
+    InvalidDealId(String),
 }

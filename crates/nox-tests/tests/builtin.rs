@@ -2201,7 +2201,7 @@ async fn subnet_resolve() {
         // expect to receive this exact body in POST
         // .match_body(r#"{"jsonrpc":"2.0","id":0,"method":"eth_getLogs","params":[{"fromBlock":"0x52","toBlock":"0x246","address":"0x6328bb918a01603adc91eae689b848a9ecaef26d","topics":["0x55e61a24ecdae954582245e5e611fb06905d6af967334fff4db72793bebc72a9","0x7a82a5feefcaad4a89c689412031e5f87c02b29e3fced583be5f05c7077354b7"]}]}"#)
         // expect exactly 1 POST request
-        .expect(1)
+        .expect(2)
         .with_status(200)
         .with_header("content-type", "application/json")
         .create();
@@ -2230,8 +2230,14 @@ async fn subnet_resolve() {
     client.send_particle(
         r#"
         (seq
-            (call relay ("subnet" "resolve") ["0x6dD1aFfe90415C61AeDf5c0ACcA9Cf5fD5031517"] subnet)
-            (call %init_peer_id% ("op" "return") [subnet])
+            (seq
+                (call relay ("subnet" "resolve") ["6dD1aFfe90415C61AeDf5c0ACcA9Cf5fD5031517"] subnet1)
+                (seq
+                    (call relay ("subnet" "resolve") ["0x6dD1aFfe90415C61AeDf5c0ACcA9Cf5fD5031517"] subnet2)
+                    (call relay ("subnet" "resolve") ["invalid_deal_id"] invalid)
+                )
+            )
+            (call %init_peer_id% ("op" "return") [subnet1 subnet2 invalid])
         )
     "#,
         hashmap! {
@@ -2242,6 +2248,17 @@ async fn subnet_resolve() {
     let mut result = client.receive_args().await.unwrap();
 
     let subnet: SubnetResolveResult = serde_json::from_value(result.remove(0)).unwrap();
+    let subnet_second: SubnetResolveResult = serde_json::from_value(result.remove(0)).unwrap();
+    let invalid: SubnetResolveResult = serde_json::from_value(result.remove(0)).unwrap();
+
+    assert!(!invalid.success, "invalid should be failed");
+    assert_eq!(invalid.error.len(), 1);
+    assert_eq!(
+        invalid.error[0],
+        "invalid deal id 'invalid_deal_id': invalid length"
+    );
+
+    assert_eq!(subnet, subnet_second);
 
     assert!(subnet.success, "{:?}", subnet.error);
     assert_eq!(subnet.error.len(), 0);
