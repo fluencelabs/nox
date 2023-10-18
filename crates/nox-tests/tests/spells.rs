@@ -2079,11 +2079,3 @@ async fn set_alias_by_worker_creator() {
         assert_eq!(*resolved, tetraplets_service.id);
     }
 }
-
-// #[tokio::test]
-// fn test_decider_api_endpoint_override() {
-//     let swarms = make_swarms_with_cfg(1, |mut cfg| {
-//         cfg.enabled_system_services = vec!["decider".to_string()];
-//         cfg
-//     });
-// }
