@@ -2255,7 +2255,7 @@ async fn subnet_resolve() {
     assert_eq!(invalid.error.len(), 1);
     assert_eq!(
         invalid.error[0],
-        "invalid deal id 'invalid_deal_id': invalid length"
+        "Invalid deal id 'invalid_deal_id': invalid length"
     );
 
     assert_eq!(subnet, subnet_second);
