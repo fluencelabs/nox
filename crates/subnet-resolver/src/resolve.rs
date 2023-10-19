@@ -35,13 +35,13 @@ pub fn parse_chain_data(data: &str) -> Result<Vec<Token>, ChainDataError> {
     Ok(ethabi::decode(&[signature], &data)?)
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct Worker {
     pub pat_id: String,
     pub host_id: String,
     pub worker_id: Vec<String>,
 }
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct SubnetResolveResult {
     pub success: bool,
     pub workers: Vec<Worker>,
@@ -92,8 +92,20 @@ fn decode_pats(data: String) -> Result<Vec<Worker>, ResolveSubnetError> {
     Ok(result)
 }
 
+pub fn validate_deal_id(deal_id: String) -> Result<String, ResolveSubnetError> {
+    // 40 hex chars + 2 for "0x" prefix
+    if deal_id.len() == 42 && deal_id.starts_with("0x") {
+        Ok(deal_id)
+    } else if deal_id.len() == 40 {
+        Ok(format!("0x{}", deal_id))
+    } else {
+        Err(ResolveSubnetError::InvalidDealId(deal_id))
+    }
+}
+
 pub fn resolve_subnet(deal_id: String, api_endpoint: &str) -> SubnetResolveResult {
     let res: Result<_, ResolveSubnetError> = try {
+        let deal_id = validate_deal_id(deal_id)?;
         // Description of the `getPATs` function from the `chain.workers` smart contract on chain
         #[allow(deprecated)]
         let input = Function {
