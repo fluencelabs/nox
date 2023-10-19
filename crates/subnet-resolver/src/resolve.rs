@@ -99,7 +99,7 @@ pub fn validate_deal_id(deal_id: String) -> Result<String, ResolveSubnetError> {
         format!("0x{}", deal_id)
     };
     // 40 hex chars + 2 for "0x" prefix
-    if prefixed_deal_id.len() == 40 {
+    if prefixed_deal_id.len() == 40 + 2 {
         Ok(prefixed_deal_id)
     } else {
         Err(ResolveSubnetError::InvalidDealId(deal_id))
