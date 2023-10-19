@@ -93,18 +93,16 @@ fn decode_pats(data: String) -> Result<Vec<Worker>, ResolveSubnetError> {
 }
 
 pub fn validate_deal_id(deal_id: String) -> Result<String, ResolveSubnetError> {
-    let prefixed_deal_id = if deal_id.starts_with("0x") {
-        deal_id.clone()
-    } else {
-        format!("0x{}", deal_id)
-    };
     // 40 hex chars + 2 for "0x" prefix
-    if prefixed_deal_id.len() == 40 + 2 {
-        Ok(prefixed_deal_id)
+    if deal_id.len() == 42 && deal_id.starts_with("0x") {
+        Ok(deal_id)
+    } else if deal_id.len() == 40 {
+        Ok(format!("0x{}", deal_id))
     } else {
         Err(ResolveSubnetError::InvalidDealId(deal_id))
     }
 }
+
 pub fn resolve_subnet(deal_id: String, api_endpoint: &str) -> SubnetResolveResult {
     let res: Result<_, ResolveSubnetError> = try {
         let deal_id = validate_deal_id(deal_id)?;
