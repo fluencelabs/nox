@@ -12,17 +12,11 @@ local instance of nox, run:
 
 ```bash
 docker pull fluencelabs/nox:latest
-docker run -d --name fluence -e RUST_LOG="info" -p 7777:7777 -p 9999:9999 fluencelabs/nox:latest --local --keypair-value=gKdiCSUr1TFGFEgu2t8Ch1XEUsrN5A2UfBLjSZvfci9SPR3NvZpACfcpPGC3eY4zma1pk7UvYv5zb1VjvPHwCjj
+docker run -d --name fluence -e RUST_LOG="info" -p 7777:7777 -p 9999:9999 fluencelabs/nox:latest --local
 ```
 
 This will setup a network of one nox and an IPFS sidecar, not connected to any
-other network. Next, run some [Aqua](https://github.com/fluencelabs/aqua)
-against it:
-
-```bash
-npm i -g @fluencelabs/aqua@unstable
-aqua remote list_modules --addr /ip4/127.0.0.1/tcp/9999/ws/p2p/12D3KooWKEprYXUXqoV5xSBeyqrWLpQLLH4PXfvVkDJtmcqmh5V3
-```
+other network.
 
 For more info about the docker image (image version flavours, environment
 variables, deployment examples) and documentation for nox operators, see the
