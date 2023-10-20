@@ -92,6 +92,10 @@ jobs:
         with:
           dependencies: ${{ inputs.cargo-dependencies }}
 
+      - name: Setup tmate session
+        if: failure()
+        uses: mxschmitt/action-tmate@v3
+
       - name: Run cargo build
         run: cargo build ${{ steps.profile.outputs.flags }} -p nox --target ${{ matrix.arch }}-unknown-linux-gnu
 
