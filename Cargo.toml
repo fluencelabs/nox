@@ -122,7 +122,7 @@ base64 = "0.21.4"
 bs58 = "0.5.0"
 fluence-keypair = "0.10.3"
 parking_lot = "0.12.1"
-tokio = { version = "1.32.0", features = ["full", "tracing"] }
+tokio = { version = "1.33.0", features = ["full", "tracing"] }
 tokio-stream = { version = "0.1.14" }
 tokio-util = { version = "0.7.9" }
 uuid = { version = "1.4.1", features = ["v4"] }
@@ -135,7 +135,7 @@ tracing = { version = "0.1.40", default-features = false, features = ["log"] }
 tracing-subscriber = "0.3.17"
 console-subscriber = "0.2.0"
 futures = "0.3.28"
-thiserror = "1.0.49"
+thiserror = "1.0.50"
 serde = "1.0.189"
 toml = "0.5.10"
 itertools = "0.11.0"
