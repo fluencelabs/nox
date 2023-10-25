@@ -346,12 +346,16 @@ impl<RT: AquaRuntime> Node<RT> {
         Connectivity,
         mpsc::Receiver<Particle>,
     )> {
+        let connection_idle_timeout = network_config.connection_idle_timeout;
+
         let (behaviour, connectivity, particle_stream) =
             FluenceNetworkBehaviour::new(network_config, health_registry);
+
         let mut swarm = SwarmBuilder::with_existing_identity(key_pair)
             .with_tokio()
             .with_other_transport(|_| transport)?
             .with_behaviour(|_| behaviour)?
+            .with_swarm_config(|cfg| cfg.with_idle_connection_timeout(connection_idle_timeout))
             .build();
 
         // Add external addresses to Swarm

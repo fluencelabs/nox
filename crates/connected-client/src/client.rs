@@ -144,12 +144,7 @@ impl Client {
 
         let (stop_outlet, stop_inlet) = oneshot::channel();
 
-        let protocol_config = ProtocolConfig::new(
-            transport_timeout,
-            // keep alive timeout
-            Duration::from_secs(10),
-            transport_timeout,
-        );
+        let protocol_config = ProtocolConfig::new(transport_timeout, transport_timeout);
         let client = Client::new(relay_outlet, client_inlet, stop_outlet, key_pair);
         let mut swarm = client.dial(relay, transport, transport_timeout, protocol_config)?;
         let mut stop_inlet = Some(stop_inlet);

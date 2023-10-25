@@ -766,9 +766,10 @@ mod tests {
     use futures::StreamExt;
     use libp2p::core::Multiaddr;
     use libp2p::multiaddr::Protocol;
-    use libp2p::swarm::SwarmBuilder;
     use libp2p::PeerId;
     use libp2p::Swarm;
+    use libp2p::SwarmBuilder;
+    use libp2p_identity::Keypair;
     use tokio::sync::oneshot;
 
     use fluence_libp2p::random_multiaddr::create_memory_maddr;
@@ -801,10 +802,14 @@ mod tests {
         let (kad, _) = Kademlia::new(config, None, span.clone());
         let timeout = Duration::from_secs(20);
 
-        let kp = kp.into();
-        let mut swarm =
-            SwarmBuilder::with_tokio_executor(build_memory_transport(&kp, timeout), kad, peer_id)
-                .build();
+        let kp: Keypair = kp.into();
+        let mut swarm = SwarmBuilder::with_existing_identity(kp.clone())
+            .with_tokio()
+            .with_other_transport(|_| build_memory_transport(&kp, timeout))
+            .unwrap()
+            .with_behaviour(|_| kad)
+            .unwrap()
+            .build();
 
         let mut maddr = create_memory_maddr();
         maddr.push(Protocol::P2p(peer_id.into()));
