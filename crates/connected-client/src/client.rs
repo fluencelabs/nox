@@ -108,7 +108,7 @@ impl Client {
 
             let kp = self.key_pair.clone().into();
             let transport = build_transport(transport, &kp, transport_timeout);
-            SwarmBuilder::with_existing_identity(kp.clone())
+            SwarmBuilder::with_existing_identity(kp)
                 .with_tokio()
                 .with_other_transport(|_| transport)?
                 .with_behaviour(|_| behaviour)?
