@@ -30,7 +30,7 @@ use futures::FutureExt;
 use futures_timer::Delay;
 use libp2p::core::transport::ListenerId;
 use libp2p::core::{ConnectedPoint, Endpoint};
-use libp2p::kad::KademliaStoreInserts;
+use libp2p::kad::StoreInserts;
 use libp2p::swarm::behaviour::{
     ConnectionClosed, ConnectionEstablished, DialFailure, ExpiredListenAddr, ExternalAddrConfirmed,
     FromSwarm, ListenFailure, ListenerClosed, ListenerError, NewListenAddr, NewListener,
@@ -46,8 +46,8 @@ use libp2p::{
     core::Multiaddr,
     kad::{
         self, store::MemoryStore, BootstrapError, BootstrapOk, BootstrapResult,
-        GetClosestPeersError, GetClosestPeersOk, GetClosestPeersResult, KademliaEvent, QueryId,
-        QueryResult,
+        Event as KademliaEvent, GetClosestPeersError, GetClosestPeersOk, GetClosestPeersResult,
+        QueryId, QueryResult,
     },
     swarm::NetworkBehaviour,
     PeerId,
@@ -116,7 +116,7 @@ impl FailedPeer {
 }
 
 pub struct Kademlia {
-    kademlia: kad::Kademlia<MemoryStore>,
+    kademlia: kad::Behaviour<MemoryStore>,
     commands: mpsc::UnboundedReceiver<Command>,
 
     queries: HashMap<QueryId, PendingQuery>,
@@ -145,8 +145,8 @@ impl Kademlia {
         // `FilterBoth` means it's the Kademlia behaviour handler's responsibility
         // to determine whether or not Provider records and KV records ("both") get stored,
         // where we implement logic to validate/prune incoming records.
-        kad_config.set_record_filtering(KademliaStoreInserts::FilterBoth);
-        let mut kademlia = kad::Kademlia::with_config(config.peer_id, store, kad_config);
+        kad_config.set_record_filtering(StoreInserts::FilterBoth);
+        let mut kademlia = kad::Behaviour::with_config(config.peer_id, store, kad_config);
         kademlia.set_mode(Some(Mode::Server));
 
         let (outlet, commands) = mpsc::unbounded_channel();
@@ -612,7 +612,7 @@ fn has_timed_out(now: Instant, timestamp: Instant, timeout: Duration, wake: &mut
 }
 
 impl NetworkBehaviour for Kademlia {
-    type ConnectionHandler = <kad::Kademlia<MemoryStore> as NetworkBehaviour>::ConnectionHandler;
+    type ConnectionHandler = <kad::Behaviour<MemoryStore> as NetworkBehaviour>::ConnectionHandler;
     type ToSwarm = ();
 
     fn handle_established_inbound_connection(
@@ -766,9 +766,10 @@ mod tests {
     use futures::StreamExt;
     use libp2p::core::Multiaddr;
     use libp2p::multiaddr::Protocol;
-    use libp2p::swarm::SwarmBuilder;
     use libp2p::PeerId;
     use libp2p::Swarm;
+    use libp2p::SwarmBuilder;
+    use libp2p_identity::Keypair;
     use tokio::sync::oneshot;
 
     use fluence_libp2p::random_multiaddr::create_memory_maddr;
@@ -801,10 +802,14 @@ mod tests {
         let (kad, _) = Kademlia::new(config, None, span.clone());
         let timeout = Duration::from_secs(20);
 
-        let kp = kp.into();
-        let mut swarm =
-            SwarmBuilder::with_tokio_executor(build_memory_transport(&kp, timeout), kad, peer_id)
-                .build();
+        let kp: Keypair = kp.into();
+        let mut swarm = SwarmBuilder::with_existing_identity(kp.clone())
+            .with_tokio()
+            .with_other_transport(|_| build_memory_transport(&kp, timeout))
+            .unwrap()
+            .with_behaviour(|_| kad)
+            .unwrap()
+            .build();
 
         let mut maddr = create_memory_maddr();
         maddr.push(Protocol::P2p(peer_id.into()));

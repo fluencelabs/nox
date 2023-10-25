@@ -18,6 +18,7 @@ use libp2p::{core::Multiaddr, identity::Keypair, PeerId};
 use libp2p_connection_limits::ConnectionLimits;
 use libp2p_metrics::Metrics;
 use std::sync::Arc;
+use std::time::Duration;
 
 use config_utils::to_peer_id;
 use particle_protocol::ProtocolConfig;
@@ -39,10 +40,10 @@ pub struct NetworkConfig {
     pub connectivity_metrics: Option<ConnectivityMetrics>,
     pub connection_pool_metrics: Option<ConnectionPoolMetrics>,
     pub connection_limits: ConnectionLimits,
+    pub connection_idle_timeout: Duration,
 }
 
 impl NetworkConfig {
-    #[allow(deprecated)]
     pub fn new(
         libp2p_metrics: Option<Arc<Metrics>>,
         connectivity_metrics: Option<ConnectivityMetrics>,
@@ -66,6 +67,7 @@ impl NetworkConfig {
             connectivity_metrics,
             connection_pool_metrics,
             connection_limits,
+            connection_idle_timeout: config.node_config.transport_config.connection_idle_timeout,
         }
     }
 }
