@@ -21,8 +21,8 @@ use either::Either;
 use fluence_keypair::{KeyPair, Signature};
 use futures::stream::StreamExt;
 use libp2p::core::Multiaddr;
-use libp2p::swarm::{SwarmBuilder, SwarmEvent};
-use libp2p::{PeerId, Swarm};
+use libp2p::swarm::SwarmEvent;
+use libp2p::{PeerId, Swarm, SwarmBuilder};
 use libp2p_swarm::handler::StreamUpgradeError;
 use tokio::sync::mpsc::error::SendError;
 use tokio::sync::{mpsc, oneshot};
@@ -108,7 +108,11 @@ impl Client {
 
             let kp = self.key_pair.clone().into();
             let transport = build_transport(transport, &kp, transport_timeout);
-            SwarmBuilder::with_tokio_executor(transport, behaviour, self.peer_id).build()
+            SwarmBuilder::with_existing_identity(kp)
+                .with_tokio()
+                .with_other_transport(|_| transport)?
+                .with_behaviour(|_| behaviour)?
+                .build()
         };
 
         match Swarm::dial(&mut swarm, node.clone()) {
@@ -140,12 +144,7 @@ impl Client {
 
         let (stop_outlet, stop_inlet) = oneshot::channel();
 
-        let protocol_config = ProtocolConfig::new(
-            transport_timeout,
-            // keep alive timeout
-            Duration::from_secs(10),
-            transport_timeout,
-        );
+        let protocol_config = ProtocolConfig::new(transport_timeout, transport_timeout);
         let client = Client::new(relay_outlet, client_inlet, stop_outlet, key_pair);
         let mut swarm = client.dial(relay, transport, transport_timeout, protocol_config)?;
         let mut stop_inlet = Some(stop_inlet);
