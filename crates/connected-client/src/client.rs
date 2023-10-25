@@ -21,8 +21,8 @@ use either::Either;
 use fluence_keypair::{KeyPair, Signature};
 use futures::stream::StreamExt;
 use libp2p::core::Multiaddr;
-use libp2p::swarm::{SwarmBuilder, SwarmEvent};
-use libp2p::{PeerId, Swarm};
+use libp2p::swarm::SwarmEvent;
+use libp2p::{PeerId, Swarm, SwarmBuilder};
 use libp2p_swarm::handler::StreamUpgradeError;
 use tokio::sync::mpsc::error::SendError;
 use tokio::sync::{mpsc, oneshot};
@@ -108,7 +108,11 @@ impl Client {
 
             let kp = self.key_pair.clone().into();
             let transport = build_transport(transport, &kp, transport_timeout);
-            SwarmBuilder::with_tokio_executor(transport, behaviour, self.peer_id).build()
+            SwarmBuilder::with_existing_identity(kp.clone())
+                .with_tokio()
+                .with_other_transport(|_| transport)?
+                .with_behaviour(|_| behaviour)?
+                .build()
         };
 
         match Swarm::dial(&mut swarm, node.clone()) {

@@ -29,6 +29,7 @@ use futures::{stream::StreamExt, FutureExt};
 use health::HealthCheckRegistry;
 use key_manager::KeyManager;
 use libp2p::swarm::SwarmEvent;
+use libp2p::SwarmBuilder;
 use libp2p::{
     core::{muxing::StreamMuxerBox, transport::Boxed, Multiaddr},
     identity::Keypair,
@@ -36,7 +37,6 @@ use libp2p::{
 };
 use libp2p_connection_limits::ConnectionLimits;
 use libp2p_metrics::{Metrics, Recorder};
-use libp2p_swarm::SwarmBuilder;
 use particle_builtins::{Builtins, CustomService, NodeInfo};
 use particle_execution::ParticleFunctionStatic;
 use particle_protocol::Particle;
@@ -176,12 +176,12 @@ impl<RT: AquaRuntime> Node<RT> {
         let allow_local_addresses = config.allow_local_addresses;
 
         let (swarm, connectivity, particle_stream) = Self::swarm(
-            key_manager.get_host_peer_id(),
+            key_manager.root_keypair.clone().into(),
             network_config,
             transport,
             config.external_addresses(),
             health_registry.as_mut(),
-        );
+        )?;
 
         let (services_metrics_backend, services_metrics) =
             if let Some(registry) = metrics_registry.as_mut() {
@@ -336,27 +336,29 @@ impl<RT: AquaRuntime> Node<RT> {
     }
 
     pub fn swarm(
-        local_peer_id: PeerId,
+        key_pair: Keypair,
         network_config: NetworkConfig,
         transport: Boxed<(PeerId, StreamMuxerBox)>,
         external_addresses: Vec<Multiaddr>,
         health_registry: Option<&mut HealthCheckRegistry>,
-    ) -> (
+    ) -> eyre::Result<(
         Swarm<FluenceNetworkBehaviour>,
         Connectivity,
         mpsc::Receiver<Particle>,
-    ) {
+    )> {
         let (behaviour, connectivity, particle_stream) =
             FluenceNetworkBehaviour::new(network_config, health_registry);
-        let mut swarm =
-            SwarmBuilder::with_tokio_executor(transport, behaviour, local_peer_id).build();
+        let mut swarm = SwarmBuilder::with_existing_identity(key_pair)
+            .with_tokio()
+            .with_other_transport(|_| transport)?
+            .with_behaviour(|_| behaviour)?
+            .build();
 
         // Add external addresses to Swarm
         external_addresses.iter().cloned().for_each(|addr| {
             Swarm::add_external_address(&mut swarm, addr);
         });
-
-        (swarm, connectivity, particle_stream)
+        Ok((swarm, connectivity, particle_stream))
     }
 
     pub fn builtins(

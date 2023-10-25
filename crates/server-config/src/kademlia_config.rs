@@ -16,7 +16,7 @@
 
 use std::time::Duration;
 
-use libp2p::kad::KademliaConfig as LibP2PKadConfig;
+use libp2p::kad::Config as LibP2PKadConfig;
 use serde::{Deserialize, Serialize};
 
 /// see `libp2p_kad::KademliaConfig`

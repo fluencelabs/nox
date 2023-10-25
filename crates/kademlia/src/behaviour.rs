@@ -30,7 +30,7 @@ use futures::FutureExt;
 use futures_timer::Delay;
 use libp2p::core::transport::ListenerId;
 use libp2p::core::{ConnectedPoint, Endpoint};
-use libp2p::kad::KademliaStoreInserts;
+use libp2p::kad::StoreInserts;
 use libp2p::swarm::behaviour::{
     ConnectionClosed, ConnectionEstablished, DialFailure, ExpiredListenAddr, ExternalAddrConfirmed,
     FromSwarm, ListenFailure, ListenerClosed, ListenerError, NewListenAddr, NewListener,
@@ -46,8 +46,8 @@ use libp2p::{
     core::Multiaddr,
     kad::{
         self, store::MemoryStore, BootstrapError, BootstrapOk, BootstrapResult,
-        GetClosestPeersError, GetClosestPeersOk, GetClosestPeersResult, KademliaEvent, QueryId,
-        QueryResult,
+        Event as KademliaEvent, GetClosestPeersError, GetClosestPeersOk, GetClosestPeersResult,
+        QueryId, QueryResult,
     },
     swarm::NetworkBehaviour,
     PeerId,
@@ -116,7 +116,7 @@ impl FailedPeer {
 }
 
 pub struct Kademlia {
-    kademlia: kad::Kademlia<MemoryStore>,
+    kademlia: kad::Behaviour<MemoryStore>,
     commands: mpsc::UnboundedReceiver<Command>,
 
     queries: HashMap<QueryId, PendingQuery>,
@@ -145,8 +145,8 @@ impl Kademlia {
         // `FilterBoth` means it's the Kademlia behaviour handler's responsibility
         // to determine whether or not Provider records and KV records ("both") get stored,
         // where we implement logic to validate/prune incoming records.
-        kad_config.set_record_filtering(KademliaStoreInserts::FilterBoth);
-        let mut kademlia = kad::Kademlia::with_config(config.peer_id, store, kad_config);
+        kad_config.set_record_filtering(StoreInserts::FilterBoth);
+        let mut kademlia = kad::Behaviour::with_config(config.peer_id, store, kad_config);
         kademlia.set_mode(Some(Mode::Server));
 
         let (outlet, commands) = mpsc::unbounded_channel();
@@ -612,7 +612,7 @@ fn has_timed_out(now: Instant, timestamp: Instant, timeout: Duration, wake: &mut
 }
 
 impl NetworkBehaviour for Kademlia {
-    type ConnectionHandler = <kad::Kademlia<MemoryStore> as NetworkBehaviour>::ConnectionHandler;
+    type ConnectionHandler = <kad::Behaviour<MemoryStore> as NetworkBehaviour>::ConnectionHandler;
     type ToSwarm = ();
 
     fn handle_established_inbound_connection(

@@ -23,17 +23,17 @@ use libp2p::core::Multiaddr;
 use libp2p::dns::tokio::Transport as TokioDnsConfig;
 use libp2p::tcp::Transport as TcpTransport;
 use libp2p::tcp::{tokio::Tcp as TokioTcp, Config as GenTcpConfig};
-use libp2p::{core, identity::Keypair, PeerId, SwarmBuilder, Transport as NetworkTransport};
+use libp2p::{core, identity::Keypair, PeerId, Transport as NetworkTransport};
 use serde::{Deserialize, Serialize};
 
-pub fn build_transport<Provider, Phase>(
-    swarm_builder: SwarmBuilder<Provider, Phase>,
+pub fn build_transport(
     transport: Transport,
+    key_pair: &Keypair,
     timeout: Duration,
-) -> SwarmBuilder<Provider, Phase> {
+) -> Boxed<(PeerId, StreamMuxerBox)> {
     match transport {
-        Transport::Network => build_network_transport(swarm_builder, timeout),
-        Transport::Memory => build_memory_transport(swarm_builder, timeout),
+        Transport::Network => build_network_transport(key_pair, timeout),
+        Transport::Memory => build_memory_transport(key_pair, timeout),
     }
 }
 
@@ -41,20 +41,15 @@ pub fn build_transport<Provider, Phase>(
 ///
 /// Transport is based on TCP with SECIO as the encryption layer and MPLEX otr YAMUX as
 /// the multiplexing layer.
-pub fn build_network_transport<Provider, Phase>(
-    swarm_builder: SwarmBuilder<Provider, Phase>,
+pub fn build_network_transport(
+    key_pair: &Keypair,
     socket_timeout: Duration,
-) -> SwarmBuilder<Provider, Phase> {
-
-    swarm_builder.with_tcp();
-
-
+) -> Boxed<(PeerId, StreamMuxerBox)> {
     let tcp = || {
         let tcp = TcpTransport::<TokioTcp>::new(GenTcpConfig::default().nodelay(true));
 
         TokioDnsConfig::system(tcp).expect("Can't build DNS")
     };
-
 
     let transport = {
         let mut websocket = libp2p::websocket::WsConfig::new(tcp());
@@ -62,7 +57,7 @@ pub fn build_network_transport<Provider, Phase>(
         websocket.or_transport(tcp())
     };
 
-    configure_transport(transport, socket_timeout)
+    configure_transport(transport, key_pair, socket_timeout)
 }
 
 pub fn configure_transport<T, C>(
@@ -97,13 +92,13 @@ where
         .boxed()
 }
 
-pub fn build_memory_transport<Provider, Phase>(
-    swarm_builder: SwarmBuilder<Provider, Phase>,
+pub fn build_memory_transport(
+    key_pair: &Keypair,
     transport_timeout: Duration,
-) -> SwarmBuilder<Provider, Phase> {
+) -> Boxed<(PeerId, StreamMuxerBox)> {
     let transport = MemoryTransport::default();
 
-    configure_transport(transport, transport_timeout)
+    configure_transport(transport, key_pair, transport_timeout)
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, Copy)]
