@@ -71,7 +71,7 @@ fn main() -> eyre::Result<()> {
                     .name(&name)
                     .spawn_blocking(move || {
                         println!("blocking thread {} start", i);
-                        std::thread::sleep(Duration::from_secs(30));
+                        std::thread::sleep(Duration::from_secs(10));
                         println!("blocking thread {} exit", i);
                     });
                 if let Err(err) = result {
