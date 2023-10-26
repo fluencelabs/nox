@@ -47,6 +47,10 @@ pub fn default_socket_timeout() -> Duration {
     Duration::from_secs(20)
 }
 
+pub fn default_connection_idle_timeout() -> Duration {
+    Duration::from_secs(10)
+}
+
 pub fn default_max_established_per_peer_limit() -> Option<u32> {
     Some(5)
 }

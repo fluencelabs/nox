@@ -398,6 +398,10 @@ pub struct TransportConfig {
     pub max_established_per_peer: Option<u32>,
 
     pub max_established: Option<u32>,
+
+    #[serde(with = "humantime_serde")]
+    #[serde(default = "default_connection_idle_timeout")]
+    pub connection_idle_timeout: Duration,
 }
 
 #[derive(Clone, Deserialize, Serialize, Derivative, Copy)]

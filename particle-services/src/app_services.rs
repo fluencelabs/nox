@@ -331,7 +331,7 @@ impl ParticleAppServices {
             // TODO: it's highly ineffective, services should be organised by workers
             self.services
                 .write()
-                .drain_filter(|_, srv| srv.worker_id == worker_id)
+                .extract_if(|_, srv| srv.worker_id == worker_id)
                 .map(|(id, srv)| srv.get_info(&id))
                 .collect()
         };

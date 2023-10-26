@@ -31,16 +31,11 @@ use serde::{Deserialize, Serialize};
 use crate::libp2p_protocol::message::ProtocolMessage;
 use crate::{HandlerMessage, SendStatus, PROTOCOL_NAME};
 
-// TODO: embed pings into the protocol?
-// TODO: embed identify into the protocol?
 #[derive(Clone, Deserialize, Serialize, Debug)]
 pub struct ProtocolConfig {
     /// Timeout for applying the given upgrade on a substream
     #[serde(with = "humantime_serde", default = "default_upgrade_timeout")]
     pub upgrade_timeout: Duration,
-    /// Keep-alive timeout for idle connections.
-    #[serde(with = "humantime_serde", default = "default_keep_alive_timeout")]
-    pub keep_alive_timeout: Duration,
     /// Timeout for outbound substream upgrades.
     #[serde(
         with = "humantime_serde",
@@ -53,15 +48,11 @@ impl Default for ProtocolConfig {
     fn default() -> Self {
         Self {
             upgrade_timeout: default_upgrade_timeout(),
-            keep_alive_timeout: default_keep_alive_timeout(),
             outbound_substream_timeout: default_outbound_substream_timeout(),
         }
     }
 }
 
-fn default_keep_alive_timeout() -> Duration {
-    Duration::from_secs(10)
-}
 fn default_outbound_substream_timeout() -> Duration {
     Duration::from_secs(10)
 }
@@ -70,14 +61,9 @@ fn default_upgrade_timeout() -> Duration {
 }
 
 impl ProtocolConfig {
-    pub fn new(
-        upgrade_timeout: Duration,
-        keep_alive_timeout: Duration,
-        outbound_substream_timeout: Duration,
-    ) -> Self {
+    pub fn new(upgrade_timeout: Duration, outbound_substream_timeout: Duration) -> Self {
         Self {
             upgrade_timeout,
-            keep_alive_timeout,
             outbound_substream_timeout,
         }
     }
@@ -91,7 +77,6 @@ impl<OutProto: libp2p::swarm::handler::OutboundUpgradeSend, OutEvent> From<Proto
             libp2p::swarm::handler::SubstreamProtocol::new(item.clone(), ())
                 .with_timeout(item.upgrade_timeout),
             OneShotHandlerConfig {
-                keep_alive_timeout: item.keep_alive_timeout,
                 outbound_substream_timeout: item.outbound_substream_timeout,
                 ..<_>::default()
             },
@@ -1929,11 +1914,11 @@ mod tests {
             68, 85, 120, 76, 68, 69, 51, 77, 105,
         ];
 
-        let mut packet1 = array.clone();
+        let mut packet1 = array;
         let expected = upgrade::read_varint(&mut packet1).await;
         println!("array1: expected len {:?}, len {}", expected, array.len());
 
-        let mut packet2 = array2.clone();
+        let mut packet2 = array2;
         let expected = upgrade::read_varint(&mut packet2).await;
         println!("array2: expected len {:?}, len {}", expected, array2.len());
 
