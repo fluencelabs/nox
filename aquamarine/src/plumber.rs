@@ -286,7 +286,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
             m.alive_actors.set(self.actors.len() as i64);
 
             for stat in &stats {
-                m.service_call(stat.success, stat.kind, stat.run_time)
+                m.service_call(stat.success, stat.kind, stat.call_time)
             }
         });
 

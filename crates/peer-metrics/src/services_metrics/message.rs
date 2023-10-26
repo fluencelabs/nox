@@ -11,6 +11,7 @@ pub enum ServiceCallStats {
     Success {
         memory_delta_bytes: f64,
         call_time_sec: f64,
+        lock_wait_time_sec: f64,
         timestamp: u64,
     },
     Fail {

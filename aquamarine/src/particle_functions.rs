@@ -40,8 +40,10 @@ use crate::log::builtin_log_fn;
 #[derive(Clone, Debug)]
 /// Performance statistics about executed function call
 pub struct SingleCallStat {
-    /// If execution happened, then how much time it took
-    pub run_time: Option<Duration>,
+    /// If execution happened, then how much time it took to execute the call
+    pub call_time: Option<Duration>,
+    /// If execution happened, then how much time call waited to be scheduled on blocking pool
+    pub wait_time: Option<Duration>,
     pub success: bool,
     /// Whether function call was to builtin functions (like op noop) or to services
     pub kind: FunctionKind,
@@ -139,7 +141,8 @@ impl<F: ParticleFunctionStatic> Functions<F> {
                     call_id,
                     result,
                     stat: SingleCallStat {
-                        run_time: None,
+                        call_time: None,
+                        wait_time: None,
                         success: false,
                         kind: FunctionKind::NotHappened,
                     },
@@ -160,14 +163,16 @@ impl<F: ParticleFunctionStatic> Functions<F> {
         let builtins = self.builtins.clone();
         let particle_function = self.particle_function.clone();
         let span = tracing::span!(tracing::Level::INFO, "Function");
+        let schedule_wait_start = Instant::now();
         let result = tokio::task::Builder::new()
             .name(&format!(
                 "Call function {}:{}",
                 args.service_id, args.function_name
             ))
-            .spawn_blocking(|| {
+            .spawn_blocking(move || {
                 Handle::current().block_on(async move {
-                    let start = Instant::now();
+                    // How much time it took to start execution on blocking pool
+                    let schedule_wait_time = schedule_wait_start.elapsed();
                     let outcome = builtins.call(args, params).await;
                     // record whether call was handled by builtin or not. needed for stats.
                     let mut call_kind = FunctionKind::Service;
@@ -187,14 +192,16 @@ impl<F: ParticleFunctionStatic> Functions<F> {
                         // Builtins were called, return their outcome
                         outcome => outcome,
                     };
-                    let elapsed = start.elapsed();
-                    (outcome, call_kind, elapsed)
+                    // How much time it took to execute the call
+                    // TODO: Time for ParticleFunction includes lock time, which is not good. Low priority cuz ParticleFunctions are barely used.
+                    let call_time = schedule_wait_start.elapsed() - schedule_wait_time;
+                    (outcome, call_kind, call_time, schedule_wait_time)
                 })
             })
             .expect("Could not spawn task");
 
         async move {
-            let (result, call_kind, elapsed) =
+            let (result, call_kind, call_time, wait_time) =
                 result.await.expect("Could not 'Call function' join");
 
             let result = match result {
@@ -212,15 +219,16 @@ impl<F: ParticleFunctionStatic> Functions<F> {
                     particle_id = particle_id,
                     "Failed host call {} ({}): {}",
                     log_args,
-                    pretty(elapsed),
+                    pretty(call_time),
                     err
                 )
             } else {
-                builtin_log_fn(&service_id, &log_args, pretty(elapsed), particle_id);
+                builtin_log_fn(&service_id, &log_args, pretty(call_time), particle_id);
             };
 
             let stats = SingleCallStat {
-                run_time: Some(elapsed),
+                call_time: Some(call_time),
+                wait_time: Some(wait_time),
                 success: result.is_ok(),
                 kind: call_kind,
             };
