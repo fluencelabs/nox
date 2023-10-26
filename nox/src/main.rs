@@ -65,21 +65,21 @@ fn main() -> eyre::Result<()> {
         .build()
         .expect("Could not make tokio runtime")
         .block_on(async {
-            // for i in 1..20 {
-            //     let name = format!("blocking_{}", i);
-            //     let result = tokio::task::Builder::new()
-            //         .name(&name)
-            //         .spawn_blocking(move || {
-            //             println!("blocking thread {} start", i);
-            //             std::thread::sleep(Duration::from_secs(10));
-            //             println!("blocking thread {} exit", i);
-            //         });
-            //     if let Err(err) = result {
-            //         println!("error spawning blocking task {}: {} {:?}", i, err, err);
-            //     } else {
-            //         println!("spawned blocking thread {}", i);
-            //     }
-            // }
+            for i in 1..20 {
+                let name = format!("blocking_{}", i);
+                let result = tokio::task::Builder::new()
+                    .name(&name)
+                    .spawn_blocking(move || {
+                        println!("blocking thread {} start", i);
+                        std::thread::sleep(Duration::from_secs(10));
+                        println!("blocking thread {} exit", i);
+                    });
+                if let Err(err) = result {
+                    println!("error spawning blocking task {}: {} {:?}", i, err, err);
+                } else {
+                    println!("spawned blocking thread {}", i);
+                }
+            }
 
             for i in 1..20 {
                 let name = format!("normal_{}", i);
