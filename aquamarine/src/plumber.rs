@@ -281,9 +281,9 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
 
                 let time = stat.interpretation_time.as_secs_f64();
                 m.interpretation_time_sec.observe(time);
-                m.total_actors_mailbox.set(mailbox_size as i64);
-                m.alive_actors.set(self.actors.len() as i64);
             }
+            m.total_actors_mailbox.set(mailbox_size as i64);
+            m.alive_actors.set(self.actors.len() as i64);
 
             for stat in &stats {
                 m.service_call(stat.success, stat.kind, stat.run_time)
