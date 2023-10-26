@@ -83,13 +83,11 @@ fn main() -> eyre::Result<()> {
 
             for i in 1..20 {
                 let name = format!("normal_{}", i);
-                let result = tokio::task::Builder::new()
-                    .name(&name)
-                    .spawn(async move || {
-                        println!("normal thread {} start", i);
-                        sleep(Duration::from_secs(30)).await;
-                        println!("normal thread {} exit", i);
-                    });
+                let result = tokio::task::Builder::new().name(&name).spawn(async move {
+                    println!("normal thread {} start", i);
+                    sleep(Duration::from_secs(30)).await;
+                    println!("normal thread {} exit", i);
+                });
                 if let Err(err) = result {
                     println!("error spawning normal task {}: {} {:?}", i, err, err);
                 } else {
