@@ -16,7 +16,7 @@
 
 #![recursion_limit = "512"]
 #![warn(rust_2018_idioms)]
-#![deny(
+#![allow(
     dead_code,
     nonstandard_style,
     unused_imports,
@@ -27,10 +27,12 @@
 )]
 
 use base64::{engine::general_purpose::STANDARD as base64, Engine};
+use std::time::Duration;
 
 use eyre::WrapErr;
 use tokio::signal;
 use tokio::sync::oneshot;
+use tokio::time::sleep;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 
@@ -55,6 +57,19 @@ trait Stoppable {
 static ALLOC: dhat::Alloc = dhat::Alloc;
 
 fn main() -> eyre::Result<()> {
+    tokio::runtime::Builder::new_multi_thread()
+        .worker_threads(13)
+        .max_blocking_threads(7)
+        .enable_all()
+        .thread_name("tokio")
+        .build()
+        .expect("Could not make tokio runtime")
+        .block_on(async { sleep(Duration::from_secs(99999999999)).await });
+
+    Ok(())
+}
+
+fn main_() -> eyre::Result<()> {
     #[cfg(feature = "dhat-heap")]
     let _profiler = dhat::Profiler::new_heap();
 
