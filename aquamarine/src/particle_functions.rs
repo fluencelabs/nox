@@ -155,7 +155,6 @@ impl<F: ParticleFunctionStatic> Functions<F> {
             json!(&args.function_args)
         );
         let service_id = args.service_id.clone();
-        let start = Instant::now();
 
         let params = self.particle.clone();
         let builtins = self.builtins.clone();
@@ -168,6 +167,7 @@ impl<F: ParticleFunctionStatic> Functions<F> {
             ))
             .spawn_blocking(|| {
                 Handle::current().block_on(async move {
+                    let start = Instant::now();
                     let outcome = builtins.call(args, params).await;
                     // record whether call was handled by builtin or not. needed for stats.
                     let mut call_kind = FunctionKind::Service;
@@ -187,14 +187,15 @@ impl<F: ParticleFunctionStatic> Functions<F> {
                         // Builtins were called, return their outcome
                         outcome => outcome,
                     };
-                    (outcome, call_kind)
+                    let elapsed = start.elapsed();
+                    (outcome, call_kind, elapsed)
                 })
             })
             .expect("Could not spawn task");
 
         async move {
-            let (result, call_kind) = result.await.expect("Could not 'Call function' join");
-            let elapsed = start.elapsed();
+            let (result, call_kind, elapsed) =
+                result.await.expect("Could not 'Call function' join");
 
             let result = match result {
                 FunctionOutcome::NotDefined { args, .. } => Err(JError::new(format!(
