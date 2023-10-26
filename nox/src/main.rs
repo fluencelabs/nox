@@ -27,6 +27,7 @@
 )]
 
 use base64::{engine::general_purpose::STANDARD as base64, Engine};
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 
 use eyre::WrapErr;
@@ -59,9 +60,13 @@ static ALLOC: dhat::Alloc = dhat::Alloc;
 fn main() -> eyre::Result<()> {
     tokio::runtime::Builder::new_multi_thread()
         .worker_threads(3)
-        .max_blocking_threads(1)
+        .max_blocking_threads(3)
         .enable_all()
-        .thread_name("tokio")
+        .thread_name_fn(|| {
+            static ATOMIC_ID: AtomicUsize = AtomicUsize::new(0);
+            let id = ATOMIC_ID.fetch_add(1, Ordering::SeqCst);
+            format!("tokio-{}", id)
+        })
         .build()
         .expect("Could not make tokio runtime")
         .block_on(async {
