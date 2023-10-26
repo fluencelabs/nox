@@ -58,13 +58,24 @@ static ALLOC: dhat::Alloc = dhat::Alloc;
 
 fn main() -> eyre::Result<()> {
     tokio::runtime::Builder::new_multi_thread()
-        .worker_threads(13)
-        .max_blocking_threads(7)
+        .worker_threads(3)
+        .max_blocking_threads(1)
         .enable_all()
         .thread_name("tokio")
         .build()
         .expect("Could not make tokio runtime")
-        .block_on(async { sleep(Duration::from_secs(99999999999)).await });
+        .block_on(async {
+            for i in 1..20 {
+                let name = format!("blocking_{}", i);
+                let result = tokio::task::Builder::new()
+                    .name(&name)
+                    .spawn_blocking(async { loop {} });
+                if let Err(err) = result {
+                    println!("error spawning blocking task {}: {} {:?}", i, err, err);
+                }
+            }
+            loop {}
+        });
 
     Ok(())
 }
