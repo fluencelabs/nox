@@ -64,7 +64,7 @@ fn main() -> eyre::Result<()> {
         .thread_name("tokio")
         .build()
         .expect("Could not make tokio runtime")
-        .block_on(move || async {
+        .block_on(move || {
             for i in 1..20 {
                 let name = format!("blocking_{}", i);
                 let result = tokio::task::Builder::new()
