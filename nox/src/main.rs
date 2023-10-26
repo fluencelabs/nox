@@ -59,7 +59,7 @@ static ALLOC: dhat::Alloc = dhat::Alloc;
 fn main() -> eyre::Result<()> {
     tokio::runtime::Builder::new_multi_thread()
         .worker_threads(3)
-        .max_blocking_threads(0)
+        .max_blocking_threads(1)
         .enable_all()
         .thread_name("tokio")
         .build()
