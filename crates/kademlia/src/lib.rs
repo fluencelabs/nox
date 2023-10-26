@@ -1,5 +1,5 @@
-#![feature(drain_filter)]
 #![feature(stmt_expr_attributes)]
+#![feature(extract_if)]
 /*
  * Copyright 2020 Fluence Labs Limited
  *
