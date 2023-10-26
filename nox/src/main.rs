@@ -64,12 +64,12 @@ fn main() -> eyre::Result<()> {
         .thread_name("tokio")
         .build()
         .expect("Could not make tokio runtime")
-        .block_on(move || {
+        .block_on(async {
             for i in 1..20 {
                 let name = format!("blocking_{}", i);
                 let result = tokio::task::Builder::new()
                     .name(&name)
-                    .spawn_blocking(async { loop {} });
+                    .spawn_blocking(move || loop {});
                 if let Err(err) = result {
                     println!("error spawning blocking task {}: {} {:?}", i, err, err);
                 }
