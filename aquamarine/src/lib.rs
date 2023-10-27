@@ -25,6 +25,7 @@
     unused_unsafe,
     unreachable_patterns
 )]
+
 pub use avm_server::AVM;
 // reexport
 pub use avm_server::AVMConfig;

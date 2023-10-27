@@ -20,7 +20,7 @@ use futures::{AsyncRead, AsyncWrite};
 use libp2p::core::muxing::StreamMuxerBox;
 use libp2p::core::transport::{Boxed, MemoryTransport};
 use libp2p::core::Multiaddr;
-use libp2p::dns::TokioDnsConfig;
+use libp2p::dns::tokio::Transport as TokioDnsConfig;
 use libp2p::tcp::Transport as TcpTransport;
 use libp2p::tcp::{tokio::Tcp as TokioTcp, Config as GenTcpConfig};
 use libp2p::{core, identity::Keypair, PeerId, Transport as NetworkTransport};
