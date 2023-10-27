@@ -4447,6 +4447,7 @@ dependencies = [
  "fluence-keypair",
  "fluence-libp2p",
  "fluence-spell-dtos",
+ "fs-utils",
  "fstrings",
  "futures",
  "humantime-serde",
@@ -6516,6 +6517,7 @@ dependencies = [
  "toml 0.5.11",
  "tracing",
  "trust-graph-distro",
+ "uuid-utils",
 ]
 
 [[package]]

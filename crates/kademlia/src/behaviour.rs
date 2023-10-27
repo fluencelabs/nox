@@ -511,7 +511,7 @@ impl Kademlia {
         // Remove empty keys
         self.pending_peers.retain(|id, peers| {
             // remove expired
-            let expired = peers.drain_filter(|p| {
+            let expired = peers.extract_if(|p| {
                 has_timed_out(now, p.created, config.query_timeout.mul(2), &mut next_wake)
             });
 

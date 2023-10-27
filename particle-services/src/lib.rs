@@ -15,7 +15,8 @@
  */
 
 #![feature(try_blocks, result_option_inspect)]
-#![feature(hash_drain_filter)]
+#![feature(extract_if)]
+#![feature(hash_extract_if)]
 #![warn(rust_2018_idioms)]
 #![deny(
     dead_code,

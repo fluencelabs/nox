@@ -1929,11 +1929,11 @@ mod tests {
             68, 85, 120, 76, 68, 69, 51, 77, 105,
         ];
 
-        let mut packet1 = array.clone();
+        let mut packet1 = array;
         let expected = upgrade::read_varint(&mut packet1).await;
         println!("array1: expected len {:?}, len {}", expected, array.len());
 
-        let mut packet2 = array2.clone();
+        let mut packet2 = array2;
         let expected = upgrade::read_varint(&mut packet2).await;
         println!("array2: expected len {:?}, len {}", expected, array2.len());
 

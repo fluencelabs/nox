@@ -2,22 +2,26 @@ use crate::distro::*;
 use crate::CallService;
 use crate::{DeploymentStatus, PackageDistro, ServiceDistro, ServiceStatus, SpellDistro};
 use eyre::eyre;
-use fluence_spell_dtos::trigger_config::TriggerConfig;
 use libp2p::PeerId;
 use particle_execution::FunctionOutcome;
 use particle_modules::{AddBlueprint, ModuleRepository};
 use particle_services::{ParticleAppServices, ServiceError, ServiceType};
 use serde_json::{json, Value as JValue};
-use sorcerer::{get_spell_info, install_spell, remove_spell};
-use spell_event_bus::api::SpellEventBusApi;
+use sorcerer::{install_spell, remove_spell};
+use spell_event_bus::api::{SpellEventBusApi, SpellId};
 use spell_service_api::{CallParams, SpellServiceApi};
 use spell_storage::SpellStorage;
 use std::collections::HashMap;
 use std::time::Duration;
+use uuid_utils::uuid;
 
 const DEPLOYER_TTL: Duration = Duration::from_millis(60_000);
 
 const DEPLOYER_PARTICLE_ID: &str = "system-services-deployment";
+
+fn get_deployer_particle_id() -> String {
+    format!("{}_{}", DEPLOYER_PARTICLE_ID, uuid())
+}
 
 // Status of the service or spell before deployment
 #[derive(Clone, Debug)]
@@ -115,7 +119,7 @@ impl Deployer {
     async fn deploy_system_spell(&self, spell_distro: SpellDistro) -> eyre::Result<ServiceStatus> {
         let spell_name = spell_distro.name.clone();
         match self.find_same_spell(&spell_distro) {
-            ServiceUpdateStatus::NeedUpdate(spell_id) => {
+            Some(spell_id) => {
                 tracing::debug!(
                     spell_name,
                     spell_id,
@@ -128,7 +132,8 @@ impl Deployer {
                             spell_name,
                             "can't update a spell (will redeploy it): {err}"
                         );
-                        self.clean_old_spell(&spell_name, spell_id).await;
+                        self.remove_old_spell(&spell_name, &spell_id).await?;
+
                         let spell_id = self.deploy_spell_common(spell_distro).await?;
                         tracing::info!(spell_name, spell_id, "redeployed a system spell",);
                         Ok(ServiceStatus::Created(spell_id))
@@ -139,15 +144,8 @@ impl Deployer {
                     }
                 }
             }
-            ServiceUpdateStatus::NoUpdate(spell_id) => {
-                tracing::debug!(
-                    spell_name,
-                    spell_id,
-                    "found existing spell that doesn't need to be updated; will not update",
-                );
-                Ok(ServiceStatus::Existing(spell_id))
-            }
-            ServiceUpdateStatus::NotFound => {
+
+            None => {
                 let spell_id = self.deploy_spell_common(spell_distro).await?;
                 tracing::info!(spell_name, spell_id, "deployed a system spell",);
                 Ok(ServiceStatus::Created(spell_id))
@@ -177,10 +175,10 @@ impl Deployer {
         // update trigger config
         let config = spell_distro.trigger_config.clone();
         self.spells_api.set_trigger_config(params.clone(), config)?;
-        // update spell
+        // update spell script
         let air = spell_distro.air.to_string();
         self.spells_api.set_script(params.clone(), air)?;
-        // Let's save old_counter
+        // update init_data without affecting other keys
         self.spells_api.update_kv(params, json!(spell_distro.kv))?;
 
         // resubscribe spell
@@ -196,41 +194,20 @@ impl Deployer {
         Ok(())
     }
 
-    async fn clean_old_spell(&self, spell_name: &str, spell_id: String) {
-        let result = remove_spell(
-            DEPLOYER_PARTICLE_ID,
+    async fn remove_old_spell(&self, spell_name: &str, spell_id: &str) -> eyre::Result<()> {
+        remove_spell(
+            &get_deployer_particle_id(),
             &self.spell_storage,
             &self.services,
             &self.spell_event_bus_api,
             &spell_id,
             self.root_worker_id,
         )
-        .await;
-        if let Err(err) = result {
-            tracing::error!(
-                spell_name,
-                spell_id,
-                "Failed to remove old spell (trying to stop it): {err}",
-            );
-
-            let empty_config = TriggerConfig::default();
-            // Stop old spell
-            let result: eyre::Result<_> = try {
-                // Stop the spell to avoid re-subscription
-                let params = CallParams::local(spell_id.clone(), self.root_worker_id, DEPLOYER_TTL);
-                self.spells_api.set_trigger_config(params, empty_config)?;
-
-                // Unsubscribe spell from execution
-                self.spell_event_bus_api.unsubscribe(spell_id.clone()).await
-            };
-            if let Err(err) = result {
-                tracing::error!(
-                    spell_name,
-                    spell_id,
-                    "couldn't stop the old spell (will install new spell nevertheless): {err}",
-                );
-            }
-        }
+        .await
+        .map_err(|err| {
+            tracing::error!(spell_name, spell_id, "couldn't remove the old spell: {err}",);
+            eyre!(err)
+        })
     }
 
     async fn deploy_spell_common(&self, spell_distro: SpellDistro) -> eyre::Result<String> {
@@ -240,7 +217,7 @@ impl Deployer {
             &self.spell_event_bus_api,
             &self.spells_api,
             self.root_worker_id,
-            DEPLOYER_PARTICLE_ID.to_string(),
+            get_deployer_particle_id(),
             DEPLOYER_TTL,
             spell_distro.trigger_config,
             spell_distro.air.to_string(),
@@ -257,73 +234,33 @@ impl Deployer {
         Ok(spell_id)
     }
 
-    // Two spells are the same if
-    // - they have the same alias
-    //
-    // Need to redeploy (stop the old one, create a new one) a spell if
-    // - the script is different
-    // - the trigger config is different
-    fn find_same_spell(&self, new_spell: &SpellDistro) -> ServiceUpdateStatus {
+    // Two spells are the same if they have the same alias
+    fn find_same_spell(&self, new_spell: &SpellDistro) -> Option<SpellId> {
         let existing_spell =
             self.services
                 .get_service_info("", self.root_worker_id, new_spell.name.to_string());
-        let spell = match existing_spell {
-            Ok(spell) => spell,
+        match existing_spell {
             Err(ServiceError::NoSuchService(_)) => {
                 log::debug!("no existing spell found for {}", new_spell.name);
-                return ServiceUpdateStatus::NotFound;
+                None
             }
             Err(err) => {
                 log::error!(
                     "can't obtain details on a spell `{}` (will create a new one): {err}",
                     new_spell.name
                 );
-                return ServiceUpdateStatus::NotFound;
+                None
             }
-        };
-        if spell.service_type != ServiceType::Spell {
-            log::warn!(
+            Ok(spell) if spell.service_type != ServiceType::Spell => {
+                log::warn!(
                 "alias `{}` already used for a service [{}]; it will be used for a spell, the service won't be removed",
                 new_spell.name,
                 spell.id
             );
-            return ServiceUpdateStatus::NotFound;
-        }
-
-        // Request a script and a trigger config from the spell
-        let spell_info = get_spell_info(
-            &self.spells_api,
-            self.root_worker_id,
-            DEPLOYER_TTL,
-            spell.id.clone(),
-        );
-        let spell_info = match spell_info {
-            Err(err) => {
-                log::error!(
-                    "can't obtain details on existing spell {} (will try to update nevertheless): {err}",
-                    new_spell.name
-                );
-                return ServiceUpdateStatus::NeedUpdate(spell.id);
+                None
             }
-            Ok(s) => s,
-        };
-
-        if spell_info.script != new_spell.air {
-            log::debug!(
-                "found old {} spell but with a different script; updating the spell",
-                new_spell.name
-            );
-            return ServiceUpdateStatus::NeedUpdate(spell.id);
+            Ok(spell) => Some(spell.id),
         }
-        if spell_info.trigger_config != new_spell.trigger_config {
-            log::debug!(
-                "found old {} spell but with a different trigger config; updating the spell",
-                new_spell.name
-            );
-            return ServiceUpdateStatus::NeedUpdate(spell.id);
-        }
-
-        ServiceUpdateStatus::NoUpdate(spell.id)
     }
 
     fn deploy_service_common(&self, service_distro: ServiceDistro) -> eyre::Result<ServiceStatus> {
@@ -334,7 +271,7 @@ impl Deployer {
             ServiceUpdateStatus::NeedUpdate(service_id) => {
                 tracing::debug!(service_name, service_id, "found existing service that needs to be updated; will remove the old service and deploy a new one");
                 let result = self.services.remove_service(
-                    DEPLOYER_PARTICLE_ID,
+                    &get_deployer_particle_id(),
                     self.root_worker_id,
                     &service_id,
                     self.root_worker_id,

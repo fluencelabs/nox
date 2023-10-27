@@ -15,8 +15,8 @@
  */
 #![feature(extend_one)]
 #![feature(try_blocks)]
-#![feature(drain_filter)]
 #![feature(ip)]
+#![feature(extract_if)]
 #![recursion_limit = "512"]
 #![warn(rust_2018_idioms)]
 #![deny(
