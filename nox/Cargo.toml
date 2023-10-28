@@ -51,7 +51,7 @@ parking_lot = { workspace = true }
 humantime-serde = { workspace = true }
 
 log = { workspace = true }
-tracing-log = { version = "0.1.3" }
+tracing-log = { version = "0.2.0" }
 console-subscriber = { workspace = true, features = ["parking_lot"] }
 axum = { workspace = true, features = ["macros"] }
 itertools = { workspace = true }
