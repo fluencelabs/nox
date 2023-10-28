@@ -297,8 +297,9 @@ async fn non_owner_remove_service() {
     )
     .await;
 
-    client2.send_particle(
-        r#"
+    let args = client2
+        .execute_particle(
+            r#"
         (seq
             (seq
                 (call relay ("srv" "list") [] list_before)
@@ -313,15 +314,16 @@ async fn non_owner_remove_service() {
             )
         )
     "#,
-        hashmap! {
-            "relay" => json!(client.node.to_string()),
-            "service" => json!(tetraplets_service.id),
-        },
-    );
+            hashmap! {
+                "relay" => json!(client.node.to_string()),
+                "service" => json!(tetraplets_service.id),
+            },
+        )
+        .await
+        .unwrap();
 
     use serde_json::Value::{Array, String};
 
-    let args = client2.receive_args().await.unwrap();
     if let [Array(before), Array(after), String(error)] = args.as_slice() {
         assert_eq!(before.len(), 1);
         assert_eq!(after.len(), 1);
