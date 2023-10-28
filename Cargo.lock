@@ -3065,7 +3065,7 @@ dependencies = [
  "multihash 0.19.1",
  "once_cell",
  "particle-protocol",
- "prometheus-client",
+ "prometheus-client 0.22.0",
  "prost 0.12.1",
  "serde_json",
  "server-config",
@@ -3424,7 +3424,7 @@ dependencies = [
  "libp2p-ping",
  "libp2p-swarm",
  "once_cell",
- "prometheus-client",
+ "prometheus-client 0.21.2",
 ]
 
 [[package]]
@@ -3515,9 +3515,9 @@ dependencies = [
 
 [[package]]
 name = "libp2p-swarm"
-version = "0.43.6"
+version = "0.43.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "48ff0e918a45fec0b6f27b30b0547a57c6c214aa8b13be3647b7701bfd8b8797"
+checksum = "580189e0074af847df90e75ef54f3f30059aedda37ea5a1659e8b9fca05c0141"
 dependencies = [
  "either",
  "fnv",
@@ -4488,7 +4488,7 @@ dependencies = [
  "particle-execution",
  "particle-protocol",
  "peer-metrics",
- "prometheus-client",
+ "prometheus-client 0.22.0",
  "rand 0.8.5",
  "serde",
  "serde_json",
@@ -5021,7 +5021,7 @@ dependencies = [
  "log",
  "parking_lot",
  "particle-execution",
- "prometheus-client",
+ "prometheus-client 0.22.0",
  "serde",
  "serde_json",
  "tokio",
@@ -5236,6 +5236,18 @@ name = "prometheus-client"
 version = "0.21.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3c99afa9a01501019ac3a14d71d9f94050346f55ca471ce90c799a15c58f61e2"
+dependencies = [
+ "dtoa",
+ "itoa",
+ "parking_lot",
+ "prometheus-client-derive-encode",
+]
+
+[[package]]
+name = "prometheus-client"
+version = "0.22.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "510c4f1c9d81d556458f94c98f857748130ea9737bbd6053da497503b26ea63c"
 dependencies = [
  "dtoa",
  "itoa",
