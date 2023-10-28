@@ -134,7 +134,7 @@ log = "0.4.20"
 tracing = { version = "0.1.40", default-features = false, features = ["log"] }
 tracing-subscriber = "0.3.17"
 console-subscriber = "0.2.0"
-futures = "0.3.28"
+futures = "0.3.29"
 thiserror = "1.0.50"
 serde = "1.0.189"
 toml = "0.5.10"
