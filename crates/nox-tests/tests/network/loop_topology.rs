@@ -554,8 +554,9 @@ async fn fold_seq_join() {
 
     let array: Vec<_> = (1..10).collect();
 
-    client.send_particle(
-        r#"
+    client
+        .send_particle(
+            r#"
     (seq
         (seq
             (fold array e
@@ -582,12 +583,13 @@ async fn fold_seq_join() {
         )
     )
     "#,
-        hashmap! {
-            "relay" => json!(client.node.to_string()),
-            "array" => json!(array),
-            "array_length" => json!(array.len())
-        },
-    ).await;
+            hashmap! {
+                "relay" => json!(client.node.to_string()),
+                "array" => json!(array),
+                "array_length" => json!(array.len())
+            },
+        )
+        .await;
 
     let arg = client.receive_args().await.expect("receive args").remove(0);
     let can: Vec<u32> = serde_json::from_value(arg).unwrap();
@@ -766,8 +768,9 @@ async fn fold_via() {
         .wrap_err("connect client")
         .unwrap();
 
-    client.send_particle_ext(
-        r#"
+    client
+        .send_particle_ext(
+            r#"
         (xor
          (seq
           (seq
@@ -827,13 +830,14 @@ async fn fold_via() {
          (call %init_peer_id% ("errorHandlingSrv" "error") [%last_error% 3])
         )
         "#,
-        hashmap! {
-            "-relay-" => json!(client.node.to_base58()),
-            "node_id" => json!(client.node.to_base58()),
-            "viaAr" => json!(swarms.iter().map(|s| s.peer_id.to_string()).collect::<Vec<_>>()),
-        },
-        true,
-    ).await;
+            hashmap! {
+                "-relay-" => json!(client.node.to_base58()),
+                "node_id" => json!(client.node.to_base58()),
+                "viaAr" => json!(swarms.iter().map(|s| s.peer_id.to_string()).collect::<Vec<_>>()),
+            },
+            true,
+        )
+        .await;
 
     client.receive().await.unwrap();
 }
@@ -847,8 +851,9 @@ async fn join_empty_stream() {
         .wrap_err("connect client")
         .unwrap();
 
-    client.send_particle(
-        r#"
+    client
+        .send_particle(
+            r#"
         (seq
             (xor
                 (call relay ("op" "noop") [])
@@ -860,11 +865,12 @@ async fn join_empty_stream() {
             )
         )
         "#,
-        hashmap! {
-            "relay" => json!(client.node.to_string()),
-            "nodes" => json!(swarms.iter().map(|s| s.peer_id.to_base58()).collect::<Vec<_>>()),
-        },
-    ).await;
+            hashmap! {
+                "relay" => json!(client.node.to_string()),
+                "nodes" => json!(swarms.iter().map(|s| s.peer_id.to_base58()).collect::<Vec<_>>()),
+            },
+        )
+        .await;
 
     let err = client.receive_args().await.expect_err("receive error");
     assert_eq!(
