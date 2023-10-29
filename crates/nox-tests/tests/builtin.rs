@@ -288,6 +288,7 @@ async fn remove_service_by_alias() {
 
 #[tokio::test]
 async fn non_owner_remove_service() {
+    log_utils::enable_logs();
     let swarms = make_swarms(1).await;
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
