@@ -45,8 +45,9 @@ async fn share_file() {
     let first = create_file_share(&mut client).await;
     let second = create_file_share(&mut client).await;
 
-    client.send_particle(
-        r#"
+    client
+        .send_particle(
+            r#"
         (seq
             (call relay ("srv" "get_interface") [first] interface)
             (xor
@@ -61,13 +62,14 @@ async fn share_file() {
             )
         )
         "#,
-        hashmap! {
-            "relay" => json!(client.node.to_string()),
-            "first" => json!(first.id),
-            "second" => json!(second.id),
-            "input_content" => json!("Hello!")
-        },
-    );
+            hashmap! {
+                "relay" => json!(client.node.to_string()),
+                "first" => json!(first.id),
+                "second" => json!(second.id),
+                "input_content" => json!("Hello!")
+            },
+        )
+        .await;
 
     use serde_json::Value::String;
 
@@ -131,7 +133,7 @@ async fn deploy_from_vault() {
             "module" => json!(base64.encode(&module)),
             "q" => json!("\""),
         },
-    );
+    ).await;
 
     use serde_json::Value::String;
 
@@ -154,8 +156,9 @@ async fn load_blueprint_from_vault() {
 
     // upload module
     let module = load_module("tests/file_share/artifacts", "file_share").expect("load module");
-    client.send_particle(
-        r#"
+    client
+        .send_particle(
+            r#"
         (seq
             (seq
                 (call relay ("dist" "default_module_config") ["file_share"] config)                
@@ -164,11 +167,12 @@ async fn load_blueprint_from_vault() {
             (call %init_peer_id% ("op" "return") [hash])
         )
     "#,
-        hashmap! {
-            "relay" => json!(client.node.to_string()),
-            "module" => json!(base64.encode(module)),
-        },
-    );
+            hashmap! {
+                "relay" => json!(client.node.to_string()),
+                "module" => json!(base64.encode(module)),
+            },
+        )
+        .await;
 
     let args = client.receive_args().await.unwrap();
     let module_hash = args[0].as_str().expect("single string");
@@ -182,8 +186,9 @@ async fn load_blueprint_from_vault() {
     )
     .to_string()
     .unwrap();
-    client.send_particle(
-        r#"
+    client
+        .send_particle(
+            r#"
         (seq
             (seq
                 (call relay (first_service "create_vault_file") [blueprint_string] filename)
@@ -201,12 +206,13 @@ async fn load_blueprint_from_vault() {
             )
         )
         "#,
-        hashmap! {
-            "relay" => json!(client.node.to_string()),
-            "first_service" => json!(file_share.id),
-            "blueprint_string" => json!(blueprint_string),
-        },
-    );
+            hashmap! {
+                "relay" => json!(client.node.to_string()),
+                "first_service" => json!(file_share.id),
+                "blueprint_string" => json!(blueprint_string),
+            },
+        )
+        .await;
 
     use serde_json::Value::String;
 
@@ -229,8 +235,9 @@ async fn put_cat_vault() {
 
     let payload = "test-test-test".to_string();
 
-    client.send_particle(
-        r#"
+    client
+        .send_particle(
+            r#"
         (seq
             (seq
                 (call relay ("vault" "put") [payload] filename)
@@ -239,11 +246,12 @@ async fn put_cat_vault() {
             (call %init_peer_id% ("op" "return") [output_content])
         )
         "#,
-        hashmap! {
-            "relay" => json!(client.node.to_string()),
-            "payload" => json!(payload.clone()),
-        },
-    );
+            hashmap! {
+                "relay" => json!(client.node.to_string()),
+                "payload" => json!(payload.clone()),
+            },
+        )
+        .await;
 
     use serde_json::Value::String;
 
