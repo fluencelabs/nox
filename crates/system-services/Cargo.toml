@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 aqua-ipfs-distro = "=0.5.20"
-decider-distro = "=0.5.1"
+decider-distro = "=0.5.3"
 registry-distro = "=0.8.7"
 trust-graph-distro = "=0.4.7"
 
