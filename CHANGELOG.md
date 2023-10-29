@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.15.2](https://github.com/fluencelabs/nox/compare/nox-v0.15.1...nox-v0.15.2) (2023-10-29)
+
+
+### Bug Fixes
+
+* **builtins:** validate deal_id in subnet.resolve [NET-591] ([#1842](https://github.com/fluencelabs/nox/issues/1842)) ([84bc025](https://github.com/fluencelabs/nox/commit/84bc025b8e36a5e6bef5e0d2fe2ad804241d7526))
+* **deps:** Update avm packages in one PR and bump fluence-app-service ([#1839](https://github.com/fluencelabs/nox/issues/1839)) ([ce5bbfa](https://github.com/fluencelabs/nox/commit/ce5bbfa626e1a8154e2fd6fd7d0829d4fd5c6b0e))
+* **deps:** update fluence-spell to v0.5.25 ([#1854](https://github.com/fluencelabs/nox/issues/1854)) ([ebe781f](https://github.com/fluencelabs/nox/commit/ebe781f82b12938cd699d9cf014a74d1b82914ac))
+* **deps:** update fluence-spell to v0.5.26 ([#1855](https://github.com/fluencelabs/nox/issues/1855)) ([d1dbc88](https://github.com/fluencelabs/nox/commit/d1dbc88543bcf2f29cc8119b6d8c866594ee5cd0))
+* **deps:** update rust crate decider-distro to v0.5.3 ([#1872](https://github.com/fluencelabs/nox/issues/1872)) ([40dcae2](https://github.com/fluencelabs/nox/commit/40dcae2e1304ed71a4c1684edafd1de2050e411e))
+* remove aqua cli from README ([#1843](https://github.com/fluencelabs/nox/issues/1843)) ([8012b3e](https://github.com/fluencelabs/nox/commit/8012b3efddd454e5e27cf32a125efcb11c202d7a))
+
 ## [0.15.1](https://github.com/fluencelabs/nox/compare/nox-v0.15.0...nox-v0.15.1) (2023-10-16)
 
 
