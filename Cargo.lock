@@ -3727,6 +3727,7 @@ dependencies = [
  "particle-execution",
  "particle-protocol",
  "serde_json",
+ "tokio",
  "tracing",
  "uuid-utils",
 ]

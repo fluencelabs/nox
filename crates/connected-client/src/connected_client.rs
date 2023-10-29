@@ -252,7 +252,8 @@ impl ConnectedClient {
             self.peer_id,
             &mut self.local_vm.lock(),
             &self.key_pair,
-        );
+        )
+        .await;
         match result {
             Some(result) => result.map_err(|args| eyre!("AIR caught an error: {:?}", args)),
             None => Err(eyre!("Received a particle, but it didn't return anything")),
@@ -277,7 +278,8 @@ impl ConnectedClient {
                     self.peer_id,
                     &mut self.local_vm.lock(),
                     &self.key_pair,
-                );
+                )
+                .await;
                 if let Some(result) = result {
                     result.map_err(|args| eyre!("AIR caught an error: {:?}", args))
                 } else {
@@ -303,7 +305,8 @@ impl ConnectedClient {
                         self.peer_id,
                         &mut self.local_vm.lock(),
                         &self.key_pair,
-                    );
+                    )
+                    .await;
                     if let Some(result) = result {
                         break result.map_err(|args| eyre!("AIR caught an error: {:?}", args));
                     }
@@ -332,7 +335,8 @@ impl ConnectedClient {
                     self.peer_id,
                     &mut self.local_vm.lock(),
                     &self.key_pair,
-                );
+                )
+                .await;
                 if let Some(args) = args {
                     return f(args);
                 }

@@ -406,6 +406,7 @@ async fn explore_services_fixed_flaky() {
                         &mut client.local_vm.lock(),
                         &client.key_pair,
                     )
+                    .await
                     .expect("read args")
                     .expect("no error");
                     received.push(args);

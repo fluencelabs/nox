@@ -318,7 +318,7 @@ pub fn make_particle(
     particle
 }
 
-pub fn read_args(
+pub async fn read_args(
     particle: Particle,
     peer_id: PeerId,
     local_vm: &mut AVM<DataStoreError>,
@@ -347,7 +347,6 @@ pub fn read_args(
                 key_pair,
             )
             .expect("execute & make particle");
-
         particle_data = data;
         call_results = <_>::default();
 
@@ -363,5 +362,6 @@ pub fn read_args(
                 return returned;
             }
         }
+        tokio::task::yield_now().await;
     }
 }
