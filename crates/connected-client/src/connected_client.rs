@@ -205,7 +205,8 @@ impl ConnectedClient {
             generated,
             self.particle_ttl(),
             &self.key_pair,
-        );
+        )
+        .await;
         let id = particle.id.clone();
         self.send(particle);
         id

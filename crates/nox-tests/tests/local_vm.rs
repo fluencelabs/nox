@@ -58,7 +58,7 @@ async fn make() {
         false,
         Duration::from_secs(20),
         &keypair_a,
-    );
+    ).await;
 
     let args = read_args(particle, client_b, &mut local_vm_b, &keypair_b)
         .await

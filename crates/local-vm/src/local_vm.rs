@@ -247,7 +247,7 @@ pub fn wrap_script(
 }
 
 #[allow(clippy::too_many_arguments)]
-pub fn make_particle(
+pub async fn make_particle(
     peer_id: PeerId,
     service_in: &HashMap<String, JValue>,
     script: String,
@@ -299,6 +299,7 @@ pub fn make_particle(
             let result = host_call(service_in, args);
             call_results.insert(id, result.0);
         }
+        tokio::task::yield_now().await;
     }
 
     tracing::info!(particle_id = id, "Made a particle");
