@@ -404,7 +404,7 @@ async fn explore_services_fixed_flaky() {
         if let Ok(Some(event)) = timeout(Duration::from_secs(1), receive_task).await {
             match event {
                 ClientEvent::Particle { particle, .. } => {
-                    let mut guard = client.local_vm.lock().await;
+                    let mut guard = client.get_local_vm().await.lock().await;
                     let args = read_args(particle, client.peer_id, &mut guard, &client.key_pair)
                         .await
                         .expect("read args")

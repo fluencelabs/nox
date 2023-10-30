@@ -15,7 +15,7 @@
  */
 
 use core::ops::Deref;
-use std::{cell::LazyCell, collections::HashMap, ops::DerefMut, time::Duration};
+use std::{collections::HashMap, ops::DerefMut, time::Duration};
 
 use eyre::Result;
 use eyre::{bail, eyre, WrapErr};
@@ -40,7 +40,7 @@ pub struct ConnectedClient {
     pub timeout: Duration,
     pub short_timeout: Duration,
     pub kad_timeout: Duration,
-    pub local_vm: LazyCell<tokio::sync::Mutex<AVM>, Box<dyn FnOnce() -> tokio::sync::Mutex<AVM>>>,
+    pub local_vm: tokio::sync::OnceCell<tokio::sync::Mutex<AVM>>,
     pub particle_ttl: Duration,
 }
 
@@ -141,17 +141,19 @@ impl ConnectedClient {
         Ok(result)
     }
 
+    pub async fn get_local_vm(&self) -> &tokio::sync::Mutex<AVM> {
+        let peer_id = self.client.peer_id;
+        self.local_vm
+            .get_or_init(|| async { tokio::sync::Mutex::new(make_vm(peer_id)) })
+            .await
+    }
     pub fn new(
         client: Client,
         node: PeerId,
         node_address: Multiaddr,
         particle_ttl: Option<Duration>,
     ) -> Self {
-        let peer_id = client.peer_id;
-        let f: Box<dyn FnOnce() -> tokio::sync::Mutex<AVM>> =
-            Box::new(move || tokio::sync::Mutex::new(make_vm(peer_id)));
-        let local_vm = LazyCell::new(f);
-
+        let local_vm = tokio::sync::OnceCell::const_new();
         Self {
             client,
             node,
@@ -195,7 +197,7 @@ impl ConnectedClient {
             .into_iter()
             .map(|(key, value)| (key.to_string(), value))
             .collect();
-        let mut guard = self.local_vm.lock().await;
+        let mut guard = self.get_local_vm().await.lock().await;
         let particle = make_particle(
             self.peer_id,
             &data,
@@ -249,7 +251,7 @@ impl ConnectedClient {
 
     pub async fn receive_args(&mut self) -> Result<Vec<JValue>> {
         let particle = self.receive().await.wrap_err("receive_args")?;
-        let mut guard = self.local_vm.lock().await;
+        let mut guard = self.get_local_vm().await.lock().await;
         let result = read_args(particle, self.peer_id, &mut guard, &self.key_pair).await;
         match result {
             Some(result) => result.map_err(|args| eyre!("AIR caught an error: {:?}", args)),
@@ -270,7 +272,7 @@ impl ConnectedClient {
         match head {
             Some(index) => {
                 let particle = self.fetched.remove(index);
-                let mut guard = self.local_vm.lock().await;
+                let mut guard = self.get_local_vm().await.lock().await;
                 let result = read_args(particle, self.peer_id, &mut guard, &self.key_pair).await;
                 drop(guard);
                 if let Some(result) = result {
@@ -293,7 +295,7 @@ impl ConnectedClient {
             let particle = self.raw_receive().await.ok();
             if let Some(particle) = particle {
                 if particle.id == particle_id.as_ref() {
-                    let mut guard = self.local_vm.lock().await;
+                    let mut guard = self.get_local_vm().await.lock().await;
                     let result =
                         read_args(particle, self.peer_id, &mut guard, &self.key_pair).await;
                     if let Some(result) = result {
@@ -319,7 +321,7 @@ impl ConnectedClient {
 
             let particle = self.receive().await.ok();
             if let Some(particle) = particle {
-                let mut guard = self.local_vm.lock().await;
+                let mut guard = self.get_local_vm().await.lock().await;
                 let args = read_args(particle, self.peer_id, &mut guard, &self.key_pair).await;
                 if let Some(args) = args {
                     return f(args);
