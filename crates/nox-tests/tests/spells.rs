@@ -2125,19 +2125,21 @@ async fn test_decider_api_endpoint_rewrite() {
         .wrap_err("connect client")
         .unwrap();
 
-    client.send_particle(
-        r#"(seq
+    client
+        .send_particle(
+            r#"(seq
                     (call relay ("decider" "get_string") ["chain"] chain_info_str)
                     (seq
                         (call relay ("json" "parse") [chain_info_str.$.str] chain_info)
                         (call client ("return" "") [chain_info.$.api_endpoint])
                     )
                 )"#,
-        hashmap! {
-            "relay" => json!(client.node.to_string()),
-            "client" => json!(client.peer_id.to_string()),
-        },
-    );
+            hashmap! {
+                "relay" => json!(client.node.to_string()),
+                "client" => json!(client.peer_id.to_string()),
+            },
+        )
+        .await;
 
     if let [JValue::String(endpoint)] = client
         .receive_args()
@@ -2179,19 +2181,21 @@ async fn test_decider_api_endpoint_rewrite() {
         .wrap_err("connect client")
         .unwrap();
 
-    client.send_particle(
-        r#"(seq
+    client
+        .send_particle(
+            r#"(seq
                     (call relay ("decider" "get_string") ["chain"] chain_info_str)
                     (seq
                         (call relay ("json" "parse") [chain_info_str.$.str] chain_info)
                         (call client ("return" "") [chain_info.$.api_endpoint])
                     )
                 )"#,
-        hashmap! {
-            "relay" => json!(client.node.to_string()),
-            "client" => json!(client.peer_id.to_string()),
-        },
-    );
+            hashmap! {
+                "relay" => json!(client.node.to_string()),
+                "client" => json!(client.peer_id.to_string()),
+            },
+        )
+        .await;
 
     if let [JValue::String(endpoint)] = client
         .receive_args()
