@@ -36,7 +36,6 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           cache-directories: ~/.cache/sccache
-          shared-key: nox
           shared-key: nox-tests
           # github allows only 10GB of cache
           # so save cache only on merge to master
