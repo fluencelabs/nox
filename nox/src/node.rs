@@ -16,7 +16,6 @@
 
 use eyre::WrapErr;
 use std::sync::Arc;
-use std::time::Duration;
 use std::{io, net::SocketAddr};
 
 use aquamarine::{
@@ -62,7 +61,7 @@ use crate::{Connectivity, Versions};
 use super::behaviour::FluenceNetworkBehaviour;
 use crate::behaviour::FluenceNetworkBehaviourEvent;
 use crate::http::start_http_endpoint;
-use crate::metrics::{TokioMetrics, TokioMetricsConfig};
+use crate::metrics::TokioCollector;
 
 // TODO: documentation
 pub struct Node<RT: AquaRuntime> {
@@ -149,12 +148,10 @@ impl<RT: AquaRuntime> Node<RT> {
         let plumber_metrics = metrics_registry.as_mut().map(ParticleExecutorMetrics::new);
         let vm_pool_metrics = metrics_registry.as_mut().map(VmPoolMetrics::new);
         let spell_metrics = metrics_registry.as_mut().map(SpellMetrics::new);
-        let tokio_metrics = metrics_registry.as_mut().map(TokioMetrics::new);
-        tokio_metrics.map(|t| {
-            t.start(TokioMetricsConfig {
-                tick_duration: Duration::from_millis(500), //TODO: load from config
-            })
-        });
+
+        if let Some(r) = metrics_registry.as_mut() {
+            r.register_collector(Box::new(TokioCollector::new()))
+        }
 
         #[allow(deprecated)]
         let connection_limits = ConnectionLimits::default()

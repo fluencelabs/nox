@@ -4481,6 +4481,7 @@ dependencies = [
  "log-utils",
  "maplit",
  "multihash 0.19.1",
+ "once_cell",
  "opentelemetry",
  "opentelemetry-otlp",
  "parking_lot",
@@ -4498,7 +4499,6 @@ dependencies = [
  "spell-service-api",
  "system-services",
  "tokio",
- "tokio-metrics",
  "tokio-stream",
  "tracing",
  "tracing-log 0.2.0",
@@ -6814,18 +6814,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.28",
-]
-
-[[package]]
-name = "tokio-metrics"
-version = "0.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eace09241d62c98b7eeb1107d4c5c64ca3bd7da92e8c218c153ab3a78f9be112"
-dependencies = [
- "futures-util",
- "pin-project-lite 0.2.13",
- "tokio",
- "tokio-stream",
 ]
 
 [[package]]

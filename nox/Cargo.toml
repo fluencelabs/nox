@@ -45,7 +45,6 @@ prometheus-client = { workspace = true }
 futures = { workspace = true }
 
 tokio = { workspace = true, features = ["full", "tracing"] }
-tokio-metrics = { workspace = true }
 tokio-stream = { workspace = true }
 parking_lot = { workspace = true }
 
@@ -64,6 +63,7 @@ tracing-logfmt = "0.3.3"
 tracing-opentelemetry = "0.21.0"
 opentelemetry = { version = "0.20.0", features = ["rt-tokio-current-thread"] }
 opentelemetry-otlp = "0.13.0"
+once_cell = { workspace = true }
 
 [dev-dependencies]
 parking_lot = { workspace = true }

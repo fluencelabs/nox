@@ -90,6 +90,7 @@ fn main() -> eyre::Result<()> {
     //TODO: add thread count configuration based on config
     tokio::runtime::Builder::new_multi_thread()
         .enable_all()
+        .enable_metrics_poll_count_histogram()
         .thread_name("tokio")
         .build()
         .expect("Could not make tokio runtime")
