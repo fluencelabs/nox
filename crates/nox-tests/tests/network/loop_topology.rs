@@ -257,7 +257,6 @@ async fn fold_fold_fold_seq_two_par_null_folds_flaky() {
 
 #[tokio::test]
 async fn fold_par_same_node_stream() {
-    log_utils::enable_console();
     let swarms = make_swarms(3).await;
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
