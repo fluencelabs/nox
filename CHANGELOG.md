@@ -1,13 +1,5 @@
 # Changelog
 
-## [0.15.3](https://github.com/fluencelabs/nox/compare/nox-v0.15.2...nox-v0.15.3) (2023-10-30)
-
-
-### Bug Fixes
-
-* **deps:** update avm ([#1857](https://github.com/fluencelabs/nox/issues/1857)) ([cc7c535](https://github.com/fluencelabs/nox/commit/cc7c535f0a422db754e22a809d112b9ddc1b3940))
-* **system-services:** refactor deployer + fix [NET-586] ([#1859](https://github.com/fluencelabs/nox/issues/1859)) ([78b0a46](https://github.com/fluencelabs/nox/commit/78b0a46241cec8dd4767f9f46d4e800b0a3a62a1))
-
 ## [0.15.2](https://github.com/fluencelabs/nox/compare/nox-v0.15.1...nox-v0.15.2) (2023-10-29)
 
 
