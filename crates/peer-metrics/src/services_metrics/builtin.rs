@@ -78,6 +78,7 @@ impl Stats {
             ServiceCallStats::Success {
                 memory_delta_bytes,
                 call_time_sec,
+                lock_wait_time_sec: _,
                 timestamp,
             } => {
                 self.memory_deltas_bytes.update(
