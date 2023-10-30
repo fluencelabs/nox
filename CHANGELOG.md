@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.16.0](https://github.com/fluencelabs/nox/compare/nox-v0.15.2...nox-v0.16.0) (2023-10-30)
+
+
+### ⚠ BREAKING CHANGES
+
+* **deps:** update avm
+
+### Features
+
+* **deps:** update avm ([cc7c535](https://github.com/fluencelabs/nox/commit/cc7c535f0a422db754e22a809d112b9ddc1b3940))
+
+
+### Bug Fixes
+
+* **metrics:** measure call time and wait time separately ([#1858](https://github.com/fluencelabs/nox/issues/1858)) ([73bab7e](https://github.com/fluencelabs/nox/commit/73bab7ebc76d623c3e8304e6e68925a9163a0ecb))
+* **system-services:** refactor deployer + fix [NET-586] ([#1859](https://github.com/fluencelabs/nox/issues/1859)) ([78b0a46](https://github.com/fluencelabs/nox/commit/78b0a46241cec8dd4767f9f46d4e800b0a3a62a1))
+
 ## [0.15.2](https://github.com/fluencelabs/nox/compare/nox-v0.15.1...nox-v0.15.2) (2023-10-29)
 
 
