@@ -22,6 +22,7 @@ control-macro = { path = "../control-macro" }
 json-utils = { path = "../json-utils" }
 system-services = { workspace = true }
 subnet-resolver = { workspace = true }
+fs-utils = { workspace = true }
 
 log-utils = { workspace = true }
 fluence-spell-dtos = { workspace = true }

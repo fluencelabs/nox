@@ -20,12 +20,15 @@ use std::collections::HashMap;
 use std::time::Duration;
 
 use eyre::Context;
+use fluence_keypair::KeyPair;
 use maplit::hashmap;
 use serde_json::{json, Value as JValue};
 
 use connected_client::ConnectedClient;
+use created_swarm::system_services_config::{DeciderConfig, SystemServicesConfig};
 use created_swarm::{make_swarms, make_swarms_with_cfg};
 use fluence_spell_dtos::trigger_config::{ClockConfig, TriggerConfig};
+use fs_utils::make_tmp_dir_peer_id;
 use service_modules::load_module;
 use spell_event_bus::api::{TriggerInfo, TriggerInfoAqua, MAX_PERIOD_SEC};
 use test_utils::{create_service, create_service_worker};
@@ -2077,5 +2080,112 @@ async fn set_alias_by_worker_creator() {
         .as_slice()
     {
         assert_eq!(*resolved, tetraplets_service.id);
+    }
+}
+
+#[tokio::test]
+async fn test_decider_api_endpoint_rewrite() {
+    let expected_endpoint = "test1".to_string();
+    let swarm_keypair = KeyPair::generate_ed25519();
+    let swarm_dir = make_tmp_dir_peer_id(swarm_keypair.get_peer_id().to_string());
+    let swarms = make_swarms_with_cfg(1, |mut cfg| {
+        cfg.keypair = swarm_keypair.clone();
+        cfg.tmp_dir = Some(swarm_dir.clone());
+        cfg.enabled_system_services = vec!["decider".to_string()];
+        cfg.override_system_services_config = Some(SystemServicesConfig {
+            enable: vec![],
+            aqua_ipfs: Default::default(),
+            decider: DeciderConfig {
+                network_api_endpoint: expected_endpoint.clone(),
+                ..Default::default()
+            },
+            registry: Default::default(),
+            connector: Default::default(),
+        });
+        cfg
+    })
+    .await;
+
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
+        .wrap_err("connect client")
+        .unwrap();
+
+    client.send_particle(
+        r#"(seq
+                    (call relay ("decider" "get_string") ["chain"] chain_info_str)
+                    (seq
+                        (call relay ("json" "parse") [chain_info_str.$.str] chain_info)
+                        (call client ("return" "") [chain_info.$.api_endpoint])
+                    )
+                )"#,
+        hashmap! {
+            "relay" => json!(client.node.to_string()),
+            "client" => json!(client.peer_id.to_string()),
+        },
+    );
+
+    if let [JValue::String(endpoint)] = client
+        .receive_args()
+        .await
+        .wrap_err("receive")
+        .unwrap()
+        .as_slice()
+    {
+        assert_eq!(*endpoint, expected_endpoint);
+    }
+
+    // stop swarm
+    swarms
+        .into_iter()
+        .map(|s| s.exit_outlet.send(()))
+        .for_each(drop);
+
+    let another_endpoint = "another_endpoint_test".to_string();
+    let swarms = make_swarms_with_cfg(1, |mut cfg| {
+        cfg.keypair = swarm_keypair.clone();
+        cfg.tmp_dir = Some(swarm_dir.clone());
+        cfg.enabled_system_services = vec!["decider".to_string()];
+        cfg.override_system_services_config = Some(SystemServicesConfig {
+            enable: vec![],
+            aqua_ipfs: Default::default(),
+            decider: DeciderConfig {
+                network_api_endpoint: another_endpoint.clone(),
+                ..Default::default()
+            },
+            registry: Default::default(),
+            connector: Default::default(),
+        });
+        cfg
+    })
+    .await;
+
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
+        .wrap_err("connect client")
+        .unwrap();
+
+    client.send_particle(
+        r#"(seq
+                    (call relay ("decider" "get_string") ["chain"] chain_info_str)
+                    (seq
+                        (call relay ("json" "parse") [chain_info_str.$.str] chain_info)
+                        (call client ("return" "") [chain_info.$.api_endpoint])
+                    )
+                )"#,
+        hashmap! {
+            "relay" => json!(client.node.to_string()),
+            "client" => json!(client.peer_id.to_string()),
+        },
+    );
+
+    if let [JValue::String(endpoint)] = client
+        .receive_args()
+        .await
+        .wrap_err("receive")
+        .unwrap()
+        .as_slice()
+    {
+        assert_eq!(*endpoint, another_endpoint);
     }
 }
