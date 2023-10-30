@@ -38,6 +38,7 @@ mod http;
 mod layers;
 mod node;
 mod tasks;
+mod metrics;
 
 mod behaviour {
     mod identify;
