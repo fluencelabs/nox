@@ -43,7 +43,8 @@ use crate::particle_effects::RoutingEffects;
 use crate::particle_functions::Functions;
 use crate::vm_pool::VmPool;
 
-type ParticleId = String;
+/// particle signature is used as a particle id
+type ParticleId = Vec<u8>;
 
 pub struct Plumber<RT: AquaRuntime, F> {
     events: VecDeque<Result<RoutingEffects, AquamarineApiError>>,
@@ -103,7 +104,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
         }
 
         let builtins = &self.builtins;
-        let key = (particle.id.clone(), worker_id);
+        let key = (particle.signature.clone(), worker_id);
         let entry = self.actors.entry(key);
 
         let actor = match entry {
@@ -225,6 +226,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
             let now = now_ms();
 
             self.actors.retain(|(particle_id, worker_id), actor| {
+                let particle_id = bs58::encode(particle_id).into_string();
                 // if actor hasn't yet expired or is still executing, keep it
                 // TODO: if actor is expired, cancel execution and return VM back to pool
                 //       https://github.com/fluencelabs/fluence/issues/1212
@@ -238,7 +240,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
                 );
                 // cleanup files and dirs after particle processing (vault & prev_data)
                 // TODO: do not pass vm https://github.com/fluencelabs/fluence/issues/1216
-                if let Err(err) = actor.cleanup(particle_id, &worker_id.to_string(), &mut vm) {
+                if let Err(err) = actor.cleanup(&particle_id, &worker_id.to_string(), &mut vm) {
                     tracing::warn!(
                         particle_id = particle_id,
                         "Error cleaning up after particle {:?}",

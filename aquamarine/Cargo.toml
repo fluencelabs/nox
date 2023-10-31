@@ -40,3 +40,4 @@ eyre = { workspace = true }
 bytesize = "1.3.0"
 async-trait = "0.1.74"
 health = { workspace = true }
+bs58 = { workspace = true }
