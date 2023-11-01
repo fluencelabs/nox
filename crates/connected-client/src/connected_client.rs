@@ -238,6 +238,7 @@ impl ConnectedClient {
     }
 
     async fn raw_receive(&mut self) -> Result<Particle> {
+        log::info!("raw_receive");
         let tout = self.timeout();
         let result = timeout(tout, async {
             loop {
@@ -275,9 +276,15 @@ impl ConnectedClient {
 
         match head {
             Some(index) => {
+                log::info!(
+                    "wait_particle_args from cached {} {:?}",
+                    index,
+                    self.fetched
+                );
                 let particle = self.fetched.remove(index);
                 let mut guard = self.get_local_vm().await.lock().await;
                 let result = read_args(particle, self.peer_id, &mut guard, &self.key_pair).await;
+                log::info!("After read_args {:?}", result);
                 drop(guard);
                 if let Some(result) = result {
                     result.map_err(|args| eyre!("AIR caught an error: {:?}", args))
@@ -290,6 +297,7 @@ impl ConnectedClient {
     }
 
     async fn raw_wait_particle_args(&mut self, particle_id: impl AsRef<str>) -> Result<Vec<Value>> {
+        log::info!("raw_wait_particle_args {:?}", particle_id.as_ref());
         let mut max = 100;
         loop {
             max -= 1;
