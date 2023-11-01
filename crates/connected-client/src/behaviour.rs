@@ -137,7 +137,7 @@ impl ClientBehaviour {
                     peer_id,
                     address
                 );
-                self.events.push_back(ToSwarm::Dial {
+                self.events.push_front(ToSwarm::Dial {
                     opts: address.clone().into(),
                 });
             }
