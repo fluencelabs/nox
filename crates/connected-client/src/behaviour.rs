@@ -265,6 +265,7 @@ impl NetworkBehaviour for ClientBehaviour {
         }
 
         if let Some(event) = self.events.pop_front() {
+            tracing::info!("Connected client event {:?}", event);
             return Poll::Ready(event);
         }
 

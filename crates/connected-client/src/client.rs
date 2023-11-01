@@ -126,14 +126,14 @@ impl Client {
         Ok(swarm)
     }
 
-    pub async fn connect(
+    pub fn connect(
         relay: Multiaddr,
         transport_timeout: Duration,
     ) -> Result<(Client, JoinHandle<()>), Box<dyn Error>> {
-        Self::connect_with(relay, Transport::Network, None, transport_timeout).await
+        Self::connect_with(relay, Transport::Network, None, transport_timeout)
     }
 
-    pub async fn connect_with(
+    pub fn connect_with(
         relay: Multiaddr,
         transport: Transport,
         key_pair: Option<KeyPair>,

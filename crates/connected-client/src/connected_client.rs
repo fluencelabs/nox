@@ -117,7 +117,6 @@ impl ConnectedClient {
                 key_pair.map(Into::into),
                 timeout,
             )
-            .await
             .expect("sender connected");
             let result: Result<_, Error> = if let Some(ClientEvent::NewConnection {
                 peer_id, ..
