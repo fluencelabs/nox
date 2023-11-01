@@ -184,7 +184,11 @@ impl Client {
 
     fn send_to_node<R: ParticleApi>(swarm: &mut R, cmd: Command) {
         let Command { node, particle } = cmd;
-        tracing::debug!("Sending particle {} to node {}", particle.id, node);
+        tracing::debug!(
+            particle_id = particle.id,
+            "Sending particle to node {}",
+            node
+        );
         swarm.send(node, particle)
     }
 

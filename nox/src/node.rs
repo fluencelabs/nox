@@ -619,7 +619,7 @@ mod tests {
         let mut client = ConnectedClient::connect_to_with_timeout(
             listening_address,
             Duration::from_secs(10),
-            Some(Duration::from_secs(60000)),
+            Some(Duration::from_secs(2 * 60)),
         )
         .await
         .expect("connect client");

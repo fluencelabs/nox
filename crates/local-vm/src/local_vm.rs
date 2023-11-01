@@ -314,7 +314,12 @@ pub async fn make_particle(
 
     particle.sign(key_pair).expect("sign particle");
 
-    tracing::info!(particle_id = id, "Made a particle");
+    tracing::info!(
+        particle_id = id,
+        "Made a particle with timestamp = {}, TTL = {}",
+        particle.ttl,
+        particle.timestamp
+    );
 
     particle
 }

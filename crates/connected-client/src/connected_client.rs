@@ -167,6 +167,7 @@ impl ConnectedClient {
     }
 
     pub fn send(&self, particle: Particle) {
+        tracing::debug!(particle_id = id, "Add a particle to the client send queue");
         self.client.send(particle, self.node)
     }
 
