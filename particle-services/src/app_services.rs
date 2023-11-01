@@ -443,7 +443,6 @@ impl ParticleAppServices {
         particle: ParticleParams,
         create_vault: bool,
     ) -> FunctionOutcome {
-        let call_time_start = Instant::now();
         let services = self.services.read();
         let aliases = self.aliases.read();
         let worker_id = particle.host_id;
@@ -509,10 +508,12 @@ impl ParticleAppServices {
         };
         let function_name = function_args.function_name;
 
+        let lock_acquire_start = Instant::now();
         let mut service = service.lock();
         let old_memory = service.module_memory_stats();
         let old_mem_usage = ServicesMetricsBuiltin::get_used_memory(&old_memory);
         // TODO: set execution timeout https://github.com/fluencelabs/fluence/issues/1212
+        let call_time_start = Instant::now();
         let result = service
             .call(
                 function_name.clone(),
@@ -539,8 +540,9 @@ impl ParticleAppServices {
                 ServiceError::Engine(e)
             })?;
 
-        let call_time_sec = call_time_start.elapsed().as_secs_f64();
         if let Some(metrics) = self.metrics.as_ref() {
+            let call_time_sec = call_time_start.elapsed().as_secs_f64();
+            let lock_wait_time_sec = lock_acquire_start.elapsed().as_secs_f64();
             let new_memory = service.module_memory_stats();
             let new_memory_usage = ServicesMetricsBuiltin::get_used_memory(&new_memory);
 
@@ -548,6 +550,7 @@ impl ParticleAppServices {
             let stats = ServiceCallStats::Success {
                 memory_delta_bytes: memory_delta_bytes as f64,
                 call_time_sec,
+                lock_wait_time_sec,
                 timestamp,
             };
 

@@ -85,8 +85,9 @@ async fn get_interfaces() {
     )
     .await;
 
-    client.send_particle(
-        r#"
+    client
+        .send_particle(
+            r#"
         (seq
             (seq
                 (call relay ("srv" "list") [] services)
@@ -103,11 +104,12 @@ async fn get_interfaces() {
             )
         )
         "#,
-        hashmap! {
-            "relay" => json!(client.node.to_string()),
-            "client" => json!(client.peer_id.to_string()),
-        },
-    );
+            hashmap! {
+                "relay" => json!(client.node.to_string()),
+                "client" => json!(client.peer_id.to_string()),
+            },
+        )
+        .await;
 
     let args = client
         .receive_args()
@@ -163,7 +165,7 @@ async fn get_modules() {
             "relay" => json!(client.node.to_string()),
             "client" => json!(client.peer_id.to_string()),
         },
-    );
+    ).await;
 
     let value = client
         .receive_args()
@@ -195,8 +197,9 @@ async fn list_blueprints() {
 
     let bytes = b"module";
     let module_hash = Hash::new(bytes).unwrap().to_string();
-    client.send_particle(
-        r#"
+    client
+        .send_particle(
+            r#"
         (seq
             (call relay ("dist" "add_module") [module_bytes module_config] module_hash)
             (seq
@@ -211,15 +214,16 @@ async fn list_blueprints() {
             )
         )
         "#,
-        hashmap! {
-            "module_bytes" => json!(base64.encode(bytes)),
-            "module_config" => json!(module_config("module")),
-            "relay" => json!(client.node.to_string()),
-            "client" => json!(client.peer_id.to_string()),
-            "name" => json!("blueprint"),
-            "dependencies" => json!(vec![module_hash.clone()]) ,
-        },
-    );
+            hashmap! {
+                "module_bytes" => json!(base64.encode(bytes)),
+                "module_config" => json!(module_config("module")),
+                "relay" => json!(client.node.to_string()),
+                "client" => json!(client.peer_id.to_string()),
+                "name" => json!("blueprint"),
+                "dependencies" => json!(vec![module_hash.clone()]) ,
+            },
+        )
+        .await;
 
     let args = client
         .receive_args()
@@ -389,7 +393,7 @@ async fn explore_services_fixed_flaky() {
         "relayId" => json!(client.node.to_string()),
     };
 
-    client.send_particle(script, data);
+    client.send_particle(script, data).await;
 
     let now = Instant::now();
     let tout = Duration::from_secs(10);
@@ -400,14 +404,11 @@ async fn explore_services_fixed_flaky() {
         if let Ok(Some(event)) = timeout(Duration::from_secs(1), receive_task).await {
             match event {
                 ClientEvent::Particle { particle, .. } => {
-                    let args = read_args(
-                        particle,
-                        client.peer_id,
-                        &mut client.local_vm.lock(),
-                        &client.key_pair,
-                    )
-                    .expect("read args")
-                    .expect("no error");
+                    let mut guard = client.get_local_vm().await.lock().await;
+                    let args = read_args(particle, client.peer_id, &mut guard, &client.key_pair)
+                        .await
+                        .expect("read args")
+                        .expect("no error");
                     received.push(args);
                 }
                 ClientEvent::NewConnection { .. } => {}

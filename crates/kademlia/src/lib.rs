@@ -1,5 +1,5 @@
-#![feature(stmt_expr_attributes)]
 #![feature(extract_if)]
+#![feature(stmt_expr_attributes)]
 /*
  * Copyright 2020 Fluence Labs Limited
  *

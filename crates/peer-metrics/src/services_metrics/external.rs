@@ -86,7 +86,8 @@ pub struct ServicesMetricsExternal {
     pub modules_in_services_count: Histogram,
 
     /// Service call time
-    pub call_time_msec: Family<ServiceTypeLabel, Histogram>,
+    pub call_time_sec: Family<ServiceTypeLabel, Histogram>,
+    pub lock_wait_time_sec: Family<ServiceTypeLabel, Histogram>,
     pub call_success_count: Family<ServiceTypeLabel, Counter>,
     pub call_failed_count: Family<ServiceTypeLabel, Counter>,
 
@@ -182,11 +183,18 @@ impl ServicesMetricsExternal {
             "number of modules per services",
         );
 
-        let call_time_msec: Family<_, _> = register(
+        let call_time_sec: Family<_, _> = register(
             sub_registry,
             Family::new_with_constructor(|| Histogram::new(execution_time_buckets())),
             "call_time_msec",
             "how long it took to execute a call",
+        );
+
+        let lock_wait_time_sec: Family<_, _> = register(
+            sub_registry,
+            Family::new_with_constructor(|| Histogram::new(execution_time_buckets())),
+            "lock_wait_time_sec",
+            "how long a service waited for Mutex",
         );
 
         let memory_metrics = ServicesMemoryMetrics {
@@ -217,7 +225,8 @@ impl ServicesMetricsExternal {
             removal_count,
             creation_failure_count,
             modules_in_services_count,
-            call_time_msec,
+            call_time_sec,
+            lock_wait_time_sec,
             call_success_count,
             call_failed_count,
             memory_metrics,

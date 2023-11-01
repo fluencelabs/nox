@@ -78,7 +78,7 @@ impl ServicesMetrics {
                 service_type: ServiceType::Builtin,
             };
             external
-                .call_time_msec
+                .call_time_sec
                 .get_or_create(&label)
                 .observe(call_time);
             if is_ok {
@@ -99,11 +99,17 @@ impl ServicesMetrics {
     ) {
         self.observe_external(|external| {
             let label = ServiceTypeLabel { service_type };
-            if let Success { call_time_sec, .. } = &stats {
-                external
-                    .call_time_msec
-                    .get_or_create(&label)
-                    .observe(*call_time_sec);
+            if let Success {
+                call_time_sec,
+                lock_wait_time_sec,
+                ..
+            } = &stats
+            {
+                let call_time_metric = external.call_time_sec.get_or_create(&label);
+                call_time_metric.observe(*call_time_sec);
+
+                let lock_time_metric = external.lock_wait_time_sec.get_or_create(&label);
+                lock_time_metric.observe(*lock_wait_time_sec);
             }
             external.call_success_count.get_or_create(&label).inc();
             self.observe_service_mem(service_id.clone(), label.service_type, memory);

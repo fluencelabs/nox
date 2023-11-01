@@ -60,18 +60,20 @@ async fn identify() {
         .wrap_err("connect client")
         .unwrap();
 
-    client.send_particle(
-        r#"
+    client
+        .send_particle(
+            r#"
         (seq
             (call relay ("peer" "identify") [] info)
             (call client ("op" "return") [info])
         ) 
         "#,
-        hashmap! {
-            "relay" => json!(client.node.to_string()),
-            "client" => json!(client.peer_id.to_string()),
-        },
-    );
+            hashmap! {
+                "relay" => json!(client.node.to_string()),
+                "client" => json!(client.peer_id.to_string()),
+            },
+        )
+        .await;
 
     let info = client
         .receive_args()
@@ -119,8 +121,9 @@ async fn remove_service() {
     )
     .await;
 
-    client.send_particle(
-        r#"
+    client
+        .send_particle(
+            r#"
         (seq
             (seq
                 (call relay ("srv" "list") [] list_before)
@@ -132,11 +135,12 @@ async fn remove_service() {
             )
         )
     "#,
-        hashmap! {
-            "relay" => json!(client.node.to_string()),
-            "service" => json!(tetraplets_service.id),
-        },
-    );
+            hashmap! {
+                "relay" => json!(client.node.to_string()),
+                "service" => json!(tetraplets_service.id),
+            },
+        )
+        .await;
 
     use serde_json::Value::Array;
 
@@ -165,8 +169,9 @@ async fn remove_service_restart() {
     )
     .await;
 
-    client.send_particle(
-        r#"
+    client
+        .send_particle(
+            r#"
         (seq
             (seq
                 (call relay ("srv" "list") [] list_before)
@@ -178,11 +183,12 @@ async fn remove_service_restart() {
             )
         )
     "#,
-        hashmap! {
-            "relay" => json!(client.node.to_string()),
-            "service" => json!(tetraplets_service.id),
-        },
-    );
+            hashmap! {
+                "relay" => json!(client.node.to_string()),
+                "service" => json!(tetraplets_service.id),
+            },
+        )
+        .await;
 
     use serde_json::Value::Array;
 
@@ -204,18 +210,20 @@ async fn remove_service_restart() {
         .wrap_err("connect client")
         .unwrap();
 
-    client.send_particle(
-        r#"
+    client
+        .send_particle(
+            r#"
         (seq
             (call relay ("srv" "list") [] list_after)
             (call %init_peer_id% ("op" "return") [list_after])
         )
     "#,
-        hashmap! {
-            "relay" => json!(client.node.to_string()),
-            "service" => json!(tetraplets_service.id),
-        },
-    );
+            hashmap! {
+                "relay" => json!(client.node.to_string()),
+                "service" => json!(tetraplets_service.id),
+            },
+        )
+        .await;
 
     if let [Array(after)] = client.receive_args().await.unwrap().as_slice() {
         assert_eq!(after.len(), 0);
@@ -243,8 +251,9 @@ async fn remove_service_by_alias() {
     )
     .await;
 
-    client.send_particle(
-        r#"
+    client
+        .send_particle(
+            r#"
         (seq
             (seq
                 (call relay ("srv" "add_alias") [alias service])
@@ -259,12 +268,13 @@ async fn remove_service_by_alias() {
             )
         )
     "#,
-        hashmap! {
-            "relay" => json!(client.node.to_string()),
-            "service" => json!(tetraplets_service.id),
-            "alias" => json!("some_alias".to_string()),
-        },
-    );
+            hashmap! {
+                "relay" => json!(client.node.to_string()),
+                "service" => json!(tetraplets_service.id),
+                "alias" => json!("some_alias".to_string()),
+            },
+        )
+        .await;
 
     use serde_json::Value::Array;
 
@@ -297,8 +307,9 @@ async fn non_owner_remove_service() {
     )
     .await;
 
-    client2.send_particle(
-        r#"
+    let args = client2
+        .execute_particle(
+            r#"
         (seq
             (seq
                 (call relay ("srv" "list") [] list_before)
@@ -313,15 +324,16 @@ async fn non_owner_remove_service() {
             )
         )
     "#,
-        hashmap! {
-            "relay" => json!(client.node.to_string()),
-            "service" => json!(tetraplets_service.id),
-        },
-    );
+            hashmap! {
+                "relay" => json!(client.node.to_string()),
+                "service" => json!(tetraplets_service.id),
+            },
+        )
+        .await
+        .unwrap();
 
     use serde_json::Value::{Array, String};
 
-    let args = client2.receive_args().await.unwrap();
     if let [Array(before), Array(after), String(error)] = args.as_slice() {
         assert_eq!(before.len(), 1);
         assert_eq!(after.len(), 1);
@@ -352,8 +364,9 @@ async fn resolve_alias() {
     )
     .await;
 
-    client.send_particle(
-        r#"
+    client
+        .send_particle(
+            r#"
         (seq
             (seq
                 (call relay ("srv" "add_alias") [alias service])
@@ -362,12 +375,13 @@ async fn resolve_alias() {
             (call %init_peer_id% ("op" "return") [result])
         )
     "#,
-        hashmap! {
-            "relay" => json!(client.node.to_string()),
-            "service" => json!(tetraplets_service.id),
-            "alias" => json!("some_alias".to_string()),
-        },
-    );
+            hashmap! {
+                "relay" => json!(client.node.to_string()),
+                "service" => json!(tetraplets_service.id),
+                "alias" => json!("some_alias".to_string()),
+            },
+        )
+        .await;
 
     let service_id = client
         .receive_args()
@@ -389,8 +403,9 @@ async fn resolve_alias_not_exists() {
         .wrap_err("connect client")
         .unwrap();
 
-    client.send_particle(
-        r#"
+    client
+        .send_particle(
+            r#"
         (xor
             (seq
                 (call relay ("srv" "resolve_alias") [alias] result)
@@ -399,11 +414,12 @@ async fn resolve_alias_not_exists() {
             (call %init_peer_id% ("op" "return") [%last_error%.$.instruction])
         )
     "#,
-        hashmap! {
-            "relay" => json!(client.node.to_string()),
-            "alias" => json!("some_alias".to_string()),
-        },
-    );
+            hashmap! {
+                "relay" => json!(client.node.to_string()),
+                "alias" => json!("some_alias".to_string()),
+            },
+        )
+        .await;
 
     let error = client
         .receive_args()
@@ -437,8 +453,9 @@ async fn resolve_alias_opt() {
     )
     .await;
 
-    client.send_particle(
-        r#"
+    client
+        .send_particle(
+            r#"
         (seq
             (seq
                 (call relay ("srv" "add_alias") [alias service])
@@ -447,12 +464,13 @@ async fn resolve_alias_opt() {
             (call %init_peer_id% ("op" "return") [result.$.[0]!])
         )
     "#,
-        hashmap! {
-            "relay" => json!(client.node.to_string()),
-            "service" => json!(tetraplets_service.id),
-            "alias" => json!("some_alias".to_string()),
-        },
-    );
+            hashmap! {
+                "relay" => json!(client.node.to_string()),
+                "service" => json!(tetraplets_service.id),
+                "alias" => json!("some_alias".to_string()),
+            },
+        )
+        .await;
 
     let service_id = client
         .receive_args()
@@ -474,8 +492,9 @@ async fn resolve_alias_opt_not_exists() {
         .wrap_err("connect client")
         .unwrap();
 
-    client.send_particle(
-        r#"
+    client
+        .send_particle(
+            r#"
         (xor
             (seq
                 (call relay ("srv" "resolve_alias_opt") [alias] result)
@@ -484,11 +503,12 @@ async fn resolve_alias_opt_not_exists() {
             (call %init_peer_id% ("op" "return") [%last_error%.$.instruction])
         )
     "#,
-        hashmap! {
-            "relay" => json!(client.node.to_string()),
-            "alias" => json!("some_alias".to_string()),
-        },
-    );
+            hashmap! {
+                "relay" => json!(client.node.to_string()),
+                "alias" => json!("some_alias".to_string()),
+            },
+        )
+        .await;
 
     let result = client
         .receive_args()
@@ -520,8 +540,9 @@ async fn resolve_alias_removed() {
     )
     .await;
 
-    client.send_particle(
-        r#"
+    client
+        .send_particle(
+            r#"
         (xor
             (seq
                 (seq
@@ -533,12 +554,13 @@ async fn resolve_alias_removed() {
             (call %init_peer_id% ("op" "return") [%last_error%.$.instruction])
         )
     "#,
-        hashmap! {
-            "relay" => json!(client.node.to_string()),
-            "service" => json!(tetraplets_service.id),
-            "alias" => json!("some_alias".to_string()),
-        },
-    );
+            hashmap! {
+                "relay" => json!(client.node.to_string()),
+                "service" => json!(tetraplets_service.id),
+                "alias" => json!("some_alias".to_string()),
+            },
+        )
+        .await;
 
     let error = client
         .receive_args()
@@ -562,18 +584,20 @@ async fn timestamp_ms() {
         .wrap_err("connect client")
         .unwrap();
 
-    client.send_particle(
-        r#"
+    client
+        .send_particle(
+            r#"
         (seq
             (call relay ("peer" "timestamp_ms") [] result)
             (call client ("op" "return") [result])
         )
         "#,
-        hashmap! {
-            "relay" => json!(client.node.to_string()),
-            "client" => json!(client.peer_id.to_string()),
-        },
-    );
+            hashmap! {
+                "relay" => json!(client.node.to_string()),
+                "client" => json!(client.peer_id.to_string()),
+            },
+        )
+        .await;
 
     let result = client
         .receive_args()
@@ -593,18 +617,20 @@ async fn timestamp_sec() {
         .wrap_err("connect client")
         .unwrap();
 
-    client.send_particle(
-        r#"
+    client
+        .send_particle(
+            r#"
         (seq
             (call relay ("peer" "timestamp_sec") [] result)
             (call client ("op" "return") [result])
         )
         "#,
-        hashmap! {
-            "relay" => json!(client.node.to_string()),
-            "client" => json!(client.peer_id.to_string()),
-        },
-    );
+            hashmap! {
+                "relay" => json!(client.node.to_string()),
+                "client" => json!(client.peer_id.to_string()),
+            },
+        )
+        .await;
 
     let result = client
         .receive_args()
@@ -1384,18 +1410,20 @@ async fn service_mem() {
     )
     .await;
 
-    client.send_particle(
-        r#"
+    client
+        .send_particle(
+            r#"
         (seq
             (call relay ("stat" "service_memory") [service] memory_stat)
             (call %init_peer_id% ("op" "return") [memory_stat])
         )
         "#,
-        hashmap! {
-            "relay" => json!(client.node.to_string()),
-            "service" => json!(tetraplets_service.id),
-        },
-    );
+            hashmap! {
+                "relay" => json!(client.node.to_string()),
+                "service" => json!(tetraplets_service.id),
+            },
+        )
+        .await;
 
     use serde_json::Value::Array;
 
@@ -1422,8 +1450,9 @@ async fn service_stats() {
     )
     .await;
 
-    let particle_id = client.send_particle(
-        r#"
+    let particle_id = client
+        .send_particle(
+            r#"
             (seq
                 (seq
                     (call relay (service "not") [true] result)
@@ -1435,30 +1464,33 @@ async fn service_stats() {
                 (call %init_peer_id% ("op" "return") [])
             )
         "#,
-        hashmap! {
-            "relay" => json!(client.node.to_string()),
-            "service" => json!(tetraplets_service.id),
-            "key" => json!("keeeyyy"),
-            "bigstring" => json!("a".repeat(100_000)),
-        },
-    );
+            hashmap! {
+                "relay" => json!(client.node.to_string()),
+                "service" => json!(tetraplets_service.id),
+                "key" => json!("keeeyyy"),
+                "bigstring" => json!("a".repeat(100_000)),
+            },
+        )
+        .await;
     client
         .wait_particle_args(particle_id)
         .await
         .expect("receive particle");
 
-    client.send_particle(
-        r#"
+    client
+        .send_particle(
+            r#"
         (seq
             (call relay ("stat" "service_stat") [service] stat)
             (call %init_peer_id% ("op" "return") [stat])
         )
         "#,
-        hashmap! {
-            "relay" => json!(client.node.to_string()),
-            "service" => json!(tetraplets_service.id),
-        },
-    );
+            hashmap! {
+                "relay" => json!(client.node.to_string()),
+                "service" => json!(tetraplets_service.id),
+            },
+        )
+        .await;
 
     if let Ok([result]) = client.receive_args().await.as_deref() {
         assert_eq!(result.get("error"), Some(&json!("")));
@@ -1522,18 +1554,20 @@ async fn service_stats_uninitialized() {
     )
     .await;
 
-    client.send_particle(
-        r#"
+    client
+        .send_particle(
+            r#"
         (seq
             (call relay ("stat" "service_stat") [service] stat)
             (call %init_peer_id% ("op" "return") [stat])
         )
         "#,
-        hashmap! {
-            "relay" => json!(client.node.to_string()),
-            "service" => json!(tetraplets_service.id),
-        },
-    );
+            hashmap! {
+                "relay" => json!(client.node.to_string()),
+                "service" => json!(tetraplets_service.id),
+            },
+        )
+        .await;
 
     use serde_json::Value::Object;
 
@@ -1675,7 +1709,7 @@ async fn sign_invalid_tetraplets() {
             "wrong_peer" => json!(wrong_peer),
             "array" => json!(vec![1u8, 2u8, 3u8])
         },
-    );
+    ).await;
 
     use serde_json::Value::String;
 
@@ -1724,7 +1758,7 @@ async fn sig_verify_invalid_signature() {
             "invalid_signature" => json!(vec![1u8, 2u8, 3u8]),
             "invalid_data" => json!(vec![3u8, 2u8, 1u8])
         },
-    );
+    ).await;
 
     use serde_json::Value::Bool;
 
@@ -1910,7 +1944,7 @@ async fn insecure_sign_verify() {
         hashmap! {
             "relay" => json!(client.node.to_string()),
         },
-    );
+    ).await;
 
     use serde_json::Value::Array;
     use serde_json::Value::Bool;
@@ -2043,8 +2077,9 @@ async fn add_alias_list() {
     .await;
 
     let alias = "tetraplets".to_string();
-    client.send_particle(
-        r#"
+    client
+        .send_particle(
+            r#"
         (seq
             (seq
                 (call relay ("srv" "add_alias") [alias service])
@@ -2053,12 +2088,13 @@ async fn add_alias_list() {
             (call %init_peer_id% ("op" "return") [list])
         )
     "#,
-        hashmap! {
-            "relay" => json!(client.node.to_string()),
-            "service" => json!(tetraplets_service.id),
-            "alias" => json!(alias.clone())
-        },
-    );
+            hashmap! {
+                "relay" => json!(client.node.to_string()),
+                "service" => json!(tetraplets_service.id),
+                "alias" => json!(alias.clone())
+            },
+        )
+        .await;
 
     use serde_json::Value::Array;
 
@@ -2101,8 +2137,9 @@ async fn aliases_restart() {
     .await;
 
     let alias = "tetraplets".to_string();
-    client.send_particle(
-        r#"
+    client
+        .send_particle(
+            r#"
         (xor
             (seq
                 (call relay ("srv" "add_alias") [alias service])
@@ -2111,12 +2148,13 @@ async fn aliases_restart() {
             (call %init_peer_id% ("op" "return") [%last_error%.$.instruction])
         )
     "#,
-        hashmap! {
-            "relay" => json!(client.node.to_string()),
-            "service" => json!(tetraplets_service.id),
-            "alias" => json!(alias.clone())
-        },
-    );
+            hashmap! {
+                "relay" => json!(client.node.to_string()),
+                "service" => json!(tetraplets_service.id),
+                "alias" => json!(alias.clone())
+            },
+        )
+        .await;
 
     if let [JValue::String(result)] = client.receive_args().await.unwrap().as_slice() {
         assert_eq!(*result, "ok");
@@ -2138,18 +2176,20 @@ async fn aliases_restart() {
     .wrap_err("connect client")
     .unwrap();
 
-    client.send_particle(
-        r#"
+    client
+        .send_particle(
+            r#"
         (seq
             (call relay ("srv" "list") [] list_after)
             (call %init_peer_id% ("op" "return") [list_after])
         )
     "#,
-        hashmap! {
-            "relay" => json!(client.node.to_string()),
-            "service" => json!(tetraplets_service.id),
-        },
-    );
+            hashmap! {
+                "relay" => json!(client.node.to_string()),
+                "service" => json!(tetraplets_service.id),
+            },
+        )
+        .await;
 
     if let [Array(after)] = client.receive_args().await.unwrap().as_slice() {
         assert_eq!(after.len(), 1);
@@ -2243,7 +2283,7 @@ async fn subnet_resolve() {
         hashmap! {
             "relay" => json!(client.node.to_string()),
         },
-    );
+    ).await;
 
     let mut result = client.receive_args().await.unwrap();
 
