@@ -302,7 +302,6 @@ pub async fn make_particle(
         tokio::task::yield_now().await;
     }
 
-
     let mut particle = Particle {
         id: id.clone(),
         init_peer_id: peer_id,
