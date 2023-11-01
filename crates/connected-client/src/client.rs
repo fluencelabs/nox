@@ -47,17 +47,17 @@ pub struct Client {
     pub key_pair: KeyPair,
     pub peer_id: PeerId,
     /// Channel to send commands to node
-    relay_outlet: mpsc::UnboundedSender<Command>,
+    relay_outlet: mpsc::Sender<Command>,
     /// Stream of messages received from node
-    client_inlet: mpsc::UnboundedReceiver<ClientEvent>,
+    client_inlet: mpsc::Receiver<ClientEvent>,
     stop_outlet: oneshot::Sender<()>,
     pub(crate) fetched: Vec<Particle>,
 }
 
 impl Client {
     fn new(
-        relay_outlet: mpsc::UnboundedSender<Command>,
-        client_inlet: mpsc::UnboundedReceiver<ClientEvent>,
+        relay_outlet: mpsc::Sender<Command>,
+        client_inlet: mpsc::Receiver<ClientEvent>,
         stop_outlet: oneshot::Sender<()>,
         key_pair: Option<KeyPair>,
     ) -> Self {
@@ -74,8 +74,8 @@ impl Client {
         }
     }
 
-    pub fn send(&self, particle: Particle, node: PeerId) {
-        if let Err(err) = self.relay_outlet.send(Command { node, particle }) {
+    pub async fn send(&self, particle: Particle, node: PeerId) {
+        if let Err(err) = self.relay_outlet.send(Command { node, particle }).await {
             let err_msg = format!("{err:?}");
             let msg = err;
             log::warn!("Unable to send msg {:?}: {:?}", msg, err_msg)
@@ -139,8 +139,8 @@ impl Client {
         key_pair: Option<KeyPair>,
         transport_timeout: Duration,
     ) -> Result<(Client, JoinHandle<()>), Box<dyn Error>> {
-        let (client_outlet, client_inlet) = mpsc::unbounded_channel();
-        let (relay_outlet, mut relay_inlet) = mpsc::unbounded_channel();
+        let (client_outlet, client_inlet) = mpsc::channel(128);
+        let (relay_outlet, mut relay_inlet) = mpsc::channel(128);
 
         let (stop_outlet, stop_inlet) = oneshot::channel();
 
@@ -165,7 +165,7 @@ impl Client {
                         // Messages that were received from relay node
                         Some(from_relay) = swarm.next() => {
                             log::info!("Received message from relay {:?}", from_relay);
-                            match Self::receive_from_node(from_relay, &client_outlet) {
+                            match Self::receive_from_node(from_relay, &client_outlet).await {
                                 Err(err) => {
                                     let err_msg = format!("{err:?}");
                                     let msg = err;
@@ -194,13 +194,13 @@ impl Client {
     }
 
     #[allow(clippy::result_large_err)]
-    fn receive_from_node(
+    async fn receive_from_node(
         msg: SwarmEvent<ClientEvent, Either<StreamUpgradeError<std::io::Error>, void::Void>>,
-        client_outlet: &mpsc::UnboundedSender<ClientEvent>,
+        client_outlet: &mpsc::Sender<ClientEvent>,
     ) -> Result<(), SendError<ClientEvent>> {
         if let SwarmEvent::Behaviour(msg) = msg {
             // Message will be available through client.receive_one
-            client_outlet.send(msg)
+            client_outlet.send(msg).await
         } else {
             Ok(())
         }

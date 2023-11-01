@@ -99,7 +99,7 @@ async fn big_identity() {
     particle.data = (0..(1024 * 1024 * 20)).map(|_| u8::MAX).collect();
     particle.timestamp = now_ms() as u64;
     particle.ttl = PARTICLE_TTL;
-    client.send(particle);
+    client.send(particle).await;
 
     client.timeout = Duration::from_secs(60);
     client.receive().await.wrap_err("receive").unwrap();

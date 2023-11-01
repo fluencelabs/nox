@@ -166,12 +166,12 @@ impl ConnectedClient {
         }
     }
 
-    pub fn send(&self, particle: Particle) {
+    pub async fn send(&self, particle: Particle) {
         tracing::debug!(
             particle_id = particle.id,
             "Add a particle to the client send queue"
         );
-        self.client.send(particle, self.node)
+        self.client.send(particle, self.node).await
     }
 
     pub async fn send_particle(
@@ -214,7 +214,7 @@ impl ConnectedClient {
         )
         .await;
         let id = particle.id.clone();
-        self.send(particle);
+        self.send(particle).await;
         id
     }
 
