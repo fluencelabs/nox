@@ -44,7 +44,6 @@ pub struct ClientBehaviour {
     events: VecDeque<SwarmEventType>,
     ping: Ping,
     reconnect: Option<BoxFuture<'static, Vec<Multiaddr>>>,
-    connected: bool,
     waker: Option<Waker>,
 }
 
@@ -58,7 +57,6 @@ impl ClientBehaviour {
             ping,
             reconnect: None,
             waker: None,
-            connected: false
         }
     }
 
@@ -94,7 +92,6 @@ impl ClientBehaviour {
                 send_back_addr
             }
         };
-        self.connected = true;
 
         self.events
             .push_back(ToSwarm::GenerateEvent(ClientEvent::NewConnection {
@@ -132,18 +129,16 @@ impl ClientBehaviour {
             // not disconnected, we don't care
             return;
         }
-        self.connected = false;
 
         match cp {
             ConnectedPoint::Dialer { address, .. } => {
+                let address = address.clone();
                 log::warn!(
                     "Disconnected from {} @ {:?}, reconnecting",
                     peer_id,
                     address
                 );
-                self.events.push_front(ToSwarm::Dial {
-                    opts: address.clone().into(),
-                });
+                self.reconnect = async move { vec![address] }.boxed().into();
             }
             ConnectedPoint::Listener {
                 send_back_addr,
@@ -271,9 +266,6 @@ impl NetworkBehaviour for ClientBehaviour {
             for addr in addresses {
                 self.events.push_front(ToSwarm::Dial { opts: addr.into() });
             }
-        }
-        if !self.connected {
-            return Poll::Pending;
         }
 
         if let Some(event) = self.events.pop_front() {
