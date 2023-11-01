@@ -118,9 +118,9 @@ dependencies = [
 
 [[package]]
 name = "air-interpreter-wasm"
-version = "0.52.0"
+version = "0.54.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e254ceb3a78817792823f9569b28413de68a80574114b7390813e20748b46374"
+checksum = "c53b14a9c33e9bdf50b3493597c70bec0d668b525383096e09d365177c040d1f"
 dependencies = [
  "built 0.7.1",
 ]
@@ -494,9 +494,9 @@ dependencies = [
 
 [[package]]
 name = "avm-server"
-version = "0.33.2"
+version = "0.33.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f466e8ded992d89b2e379dd4cdafa78edd8ede5114aed552790cd35de76d054d"
+checksum = "121fc94ffaa0a8eb116bdb189ea775c315ed47ec0ea51f53fb4b9c15b82d72a5"
 dependencies = [
  "air-interpreter-interface",
  "air-utils",
@@ -4447,7 +4447,7 @@ version = "0.1.0"
 
 [[package]]
 name = "nox"
-version = "0.15.2"
+version = "0.16.0"
 dependencies = [
  "air-interpreter-fs",
  "air-interpreter-wasm",

@@ -70,21 +70,26 @@ jobs:
   distro:
     if: inputs.update-distro == 'true'
     needs: upload
-    uses: fluencelabs/nox-distro/.github/workflows/update_fluence.yml@main
-    secrets:
-      token: ${{ secrets.PERSONAL_TOKEN }}
-    with:
-      version: "${{ inputs.version }}"
-      content: |
-        {
-          "x86_64": {
-            "version": "${{ inputs.version }}",
-            "url": "https://github.com/fluencelabs/nox/releases/download/${{ inputs.tag }}/nox-x86_64",
-            "sha256": "${{ needs.upload.outputs.sha256_x86_64 }}"
-          },
-          "aarch64": {
-            "version": "${{ inputs.version }}",
-            "url": "https://github.com/fluencelabs/nox/releases/download/${{ inputs.tag }}/nox-aarch64",
-            "sha256": "${{ needs.upload.outputs.sha256_aarch64 }}"
-          }
-        }
+    # uses: fluencelabs/nox-distro/.github/workflows/update_fluence.yml@main
+    # secrets:
+    #   token: ${{ secrets.PERSONAL_TOKEN }}
+    # with:
+    #   version: "${{ inputs.version }}"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dump fluence.json
+        run: |
+          cat <<EOH
+            {
+              "x86_64": {
+                "version": "${{ inputs.version }}",
+                "url": "https://github.com/fluencelabs/nox/releases/download/${{ inputs.tag }}/nox-x86_64",
+                "sha256": "${{ needs.upload.outputs.sha256_x86_64 }}"
+              },
+              "aarch64": {
+                "version": "${{ inputs.version }}",
+                "url": "https://github.com/fluencelabs/nox/releases/download/${{ inputs.tag }}/nox-aarch64",
+                "sha256": "${{ needs.upload.outputs.sha256_aarch64 }}"
+              }
+            }
+          EOH
