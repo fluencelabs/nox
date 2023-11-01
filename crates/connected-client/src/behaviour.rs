@@ -260,7 +260,7 @@ impl NetworkBehaviour for ClientBehaviour {
         if let Some(Poll::Ready(addresses)) = self.reconnect.as_mut().map(|r| r.poll_unpin(cx)) {
             self.reconnect = None;
             for addr in addresses {
-                self.events.push_back(ToSwarm::Dial { opts: addr.into() });
+                self.events.push_front(ToSwarm::Dial { opts: addr.into() });
             }
         }
 
