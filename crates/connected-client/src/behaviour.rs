@@ -215,7 +215,7 @@ impl NetworkBehaviour for ClientBehaviour {
             }
             FromSwarm::AddressChange(_) => {}
             FromSwarm::DialFailure(e) => {
-                tracing::info!("DialFailure {:?}", e.remaining_established);
+                tracing::info!("DialFailure {:?}", e);
                 self.on_dial_failure(e.peer_id, e.error);
             }
             FromSwarm::ListenFailure(_) => {}
