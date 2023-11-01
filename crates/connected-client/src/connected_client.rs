@@ -15,7 +15,7 @@
  */
 
 use core::ops::Deref;
-use std::{cell::LazyCell, collections::HashMap, ops::DerefMut, time::Duration};
+use std::{collections::HashMap, ops::DerefMut, time::Duration};
 
 use eyre::Result;
 use eyre::{bail, eyre, WrapErr};
@@ -23,7 +23,6 @@ use fluence_keypair::KeyPair;
 use fluence_libp2p::Transport;
 use libp2p::{core::Multiaddr, PeerId};
 use local_vm::{make_particle, make_vm, read_args, DataStoreError};
-use parking_lot::Mutex;
 use particle_protocol::Particle;
 use serde_json::{Value as JValue, Value};
 use test_constants::{KAD_TIMEOUT, PARTICLE_TTL, SHORT_TIMEOUT, TIMEOUT, TRANSPORT_TIMEOUT};
@@ -41,7 +40,7 @@ pub struct ConnectedClient {
     pub timeout: Duration,
     pub short_timeout: Duration,
     pub kad_timeout: Duration,
-    pub local_vm: LazyCell<Mutex<AVM>, Box<dyn FnOnce() -> Mutex<AVM>>>,
+    pub local_vm: tokio::sync::OnceCell<tokio::sync::Mutex<AVM>>,
     pub particle_ttl: Duration,
 }
 
@@ -142,16 +141,19 @@ impl ConnectedClient {
         Ok(result)
     }
 
+    pub async fn get_local_vm(&self) -> &tokio::sync::Mutex<AVM> {
+        let peer_id = self.client.peer_id;
+        self.local_vm
+            .get_or_init(|| async { tokio::sync::Mutex::new(make_vm(peer_id)) })
+            .await
+    }
     pub fn new(
         client: Client,
         node: PeerId,
         node_address: Multiaddr,
         particle_ttl: Option<Duration>,
     ) -> Self {
-        let peer_id = client.peer_id;
-        let f: Box<dyn FnOnce() -> Mutex<AVM>> = Box::new(move || Mutex::new(make_vm(peer_id)));
-        let local_vm = LazyCell::new(f);
-
+        let local_vm = tokio::sync::OnceCell::const_new();
         Self {
             client,
             node,
@@ -168,12 +170,12 @@ impl ConnectedClient {
         self.client.send(particle, self.node)
     }
 
-    pub fn send_particle(
+    pub async fn send_particle(
         &mut self,
         script: impl Into<String>,
         data: HashMap<&str, JValue>,
     ) -> String {
-        self.send_particle_ext(script, data, false)
+        self.send_particle_ext(script, data, false).await
     }
 
     pub async fn execute_particle(
@@ -181,11 +183,11 @@ impl ConnectedClient {
         script: impl Into<String>,
         data: HashMap<&str, JValue>,
     ) -> Result<Vec<JValue>> {
-        let particle_id = self.send_particle_ext(script, data, false);
+        let particle_id = self.send_particle_ext(script, data, false).await;
         self.wait_particle_args(particle_id.clone()).await
     }
 
-    pub fn send_particle_ext(
+    pub async fn send_particle_ext(
         &mut self,
         script: impl Into<String>,
         data: HashMap<&str, JValue>,
@@ -195,16 +197,18 @@ impl ConnectedClient {
             .into_iter()
             .map(|(key, value)| (key.to_string(), value))
             .collect();
+        let mut guard = self.get_local_vm().await.lock().await;
         let particle = make_particle(
             self.peer_id,
             &data,
             script.into(),
             self.node,
-            &mut self.local_vm.lock(),
+            &mut guard,
             generated,
             self.particle_ttl(),
             &self.key_pair,
-        );
+        )
+        .await;
         let id = particle.id.clone();
         self.send(particle);
         id
@@ -247,12 +251,8 @@ impl ConnectedClient {
 
     pub async fn receive_args(&mut self) -> Result<Vec<JValue>> {
         let particle = self.receive().await.wrap_err("receive_args")?;
-        let result = read_args(
-            particle,
-            self.peer_id,
-            &mut self.local_vm.lock(),
-            &self.key_pair,
-        );
+        let mut guard = self.get_local_vm().await.lock().await;
+        let result = read_args(particle, self.peer_id, &mut guard, &self.key_pair).await;
         match result {
             Some(result) => result.map_err(|args| eyre!("AIR caught an error: {:?}", args)),
             None => Err(eyre!("Received a particle, but it didn't return anything")),
@@ -272,12 +272,9 @@ impl ConnectedClient {
         match head {
             Some(index) => {
                 let particle = self.fetched.remove(index);
-                let result = read_args(
-                    particle,
-                    self.peer_id,
-                    &mut self.local_vm.lock(),
-                    &self.key_pair,
-                );
+                let mut guard = self.get_local_vm().await.lock().await;
+                let result = read_args(particle, self.peer_id, &mut guard, &self.key_pair).await;
+                drop(guard);
                 if let Some(result) = result {
                     result.map_err(|args| eyre!("AIR caught an error: {:?}", args))
                 } else {
@@ -298,12 +295,9 @@ impl ConnectedClient {
             let particle = self.raw_receive().await.ok();
             if let Some(particle) = particle {
                 if particle.id == particle_id.as_ref() {
-                    let result = read_args(
-                        particle,
-                        self.peer_id,
-                        &mut self.local_vm.lock(),
-                        &self.key_pair,
-                    );
+                    let mut guard = self.get_local_vm().await.lock().await;
+                    let result =
+                        read_args(particle, self.peer_id, &mut guard, &self.key_pair).await;
                     if let Some(result) = result {
                         break result.map_err(|args| eyre!("AIR caught an error: {:?}", args));
                     }
@@ -327,12 +321,8 @@ impl ConnectedClient {
 
             let particle = self.receive().await.ok();
             if let Some(particle) = particle {
-                let args = read_args(
-                    particle,
-                    self.peer_id,
-                    &mut self.local_vm.lock(),
-                    &self.key_pair,
-                );
+                let mut guard = self.get_local_vm().await.lock().await;
+                let args = read_args(particle, self.peer_id, &mut guard, &self.key_pair).await;
                 if let Some(args) = args {
                     return f(args);
                 }

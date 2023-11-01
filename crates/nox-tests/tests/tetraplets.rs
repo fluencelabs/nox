@@ -82,7 +82,7 @@ async fn test_tetraplets() {
         "service_id" => json!(tetraplets_service.id),
     };
 
-    client.send_particle(script, data.clone());
+    client.send_particle(script, data.clone()).await;
 
     let args = client.receive_args().await.wrap_err("receive").unwrap();
     let mut args = args.into_iter();

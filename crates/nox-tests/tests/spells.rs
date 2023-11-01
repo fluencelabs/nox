@@ -1389,13 +1389,15 @@ async fn resolve_global_alias() {
     )
     .await;
 
-    client.send_particle(
-        r#"(call relay ("srv" "add_alias") ["alias" service])"#,
-        hashmap! {
-            "relay" => json!(client.node.to_string()),
-            "service" => json!(tetraplets_service.id),
-        },
-    );
+    client
+        .send_particle(
+            r#"(call relay ("srv" "add_alias") ["alias" service])"#,
+            hashmap! {
+                "relay" => json!(client.node.to_string()),
+                "service" => json!(tetraplets_service.id),
+            },
+        )
+        .await;
 
     let script = format!(
         r#"
@@ -1518,8 +1520,9 @@ async fn spell_create_worker_twice() {
         "client" => json!(client.peer_id.to_string()),
         "relay" => json!(client.node.to_string()),
     };
-    client.send_particle(
-        r#"
+    client
+        .send_particle(
+            r#"
         (xor
             (seq
                 (seq
@@ -1533,8 +1536,9 @@ async fn spell_create_worker_twice() {
             )
             (call client ("return" "") [%last_error%.$.message worker_peer_id get_worker_peer_id])
         )"#,
-        data.clone(),
-    );
+            data.clone(),
+        )
+        .await;
 
     let response = client.receive_args().await.wrap_err("receive").unwrap();
     let error_msg = response[0].as_str().unwrap().to_string();
@@ -1669,8 +1673,9 @@ async fn create_remove_worker() {
         "spell_id" => json!(spell_id.clone()),
         "srv_id" => json!(service.id.clone()),
     };
-    client.send_particle(
-        r#"
+    client
+        .send_particle(
+            r#"
         (xor
             (seq
                 (seq
@@ -1697,8 +1702,9 @@ async fn create_remove_worker() {
             (call client ("return" "") [%last_error%.$.message])
         )
     "#,
-        data.clone(),
-    );
+            data.clone(),
+        )
+        .await;
 
     if let [JValue::Array(before), JValue::String(spell_err), JValue::String(srv_err)] = client
         .receive_args()
@@ -1754,8 +1760,9 @@ async fn spell_update_trigger_by_alias() {
     new_config.connections.connect = true;
     new_config.connections.disconnect = true;
 
-    let id = client.send_particle(
-        r#"(seq
+    let id = client
+        .send_particle(
+            r#"(seq
                     (seq
                         (call relay ("op" "noop") [])
                         (call worker ("srv" "add_alias") ["alias" spell_id])
@@ -1765,13 +1772,14 @@ async fn spell_update_trigger_by_alias() {
                         (call %init_peer_id% ("return" "") ["ok"])
                     )
                 )"#,
-        hashmap! {
-            "relay" => json!(client.node.to_string()),
-            "worker" => json!(worker),
-            "spell_id" => json!(spell_id.clone()),
-            "config" => json!(new_config)
-        },
-    );
+            hashmap! {
+                "relay" => json!(client.node.to_string()),
+                "worker" => json!(worker),
+                "spell_id" => json!(spell_id.clone()),
+                "config" => json!(new_config)
+            },
+        )
+        .await;
 
     client.wait_particle_args(id).await.unwrap();
 
@@ -1820,16 +1828,18 @@ async fn test_worker_list() {
     let worker_id1 = create_worker(&mut client, Some("deal_id1".to_string())).await;
     let worker_id2 = create_worker(&mut client, None).await;
 
-    client.send_particle(
-        r#"(seq
+    client
+        .send_particle(
+            r#"(seq
                     (call relay ("worker" "list") [] result)
                     (call client ("return" "") [result])
                 )"#,
-        hashmap! {
-            "relay" => json!(client.node.to_string()),
-            "client" => json!(client.peer_id.to_string())
-        },
-    );
+            hashmap! {
+                "relay" => json!(client.node.to_string()),
+                "client" => json!(client.peer_id.to_string())
+            },
+        )
+        .await;
 
     if let [JValue::Array(workers)] = client
         .receive_args()
@@ -1889,8 +1899,9 @@ async fn test_spell_list() {
     )
     .await;
 
-    client.send_particle(
-        r#"(seq
+    client
+        .send_particle(
+            r#"(seq
                     (seq
                         (call relay ("op" "noop") [])
                         (seq
@@ -1900,13 +1911,14 @@ async fn test_spell_list() {
                     )
                     (call client ("return" "") [worker1_spells worker2_spells])
                 )"#,
-        hashmap! {
-            "relay" => json!(client.node.to_string()),
-            "client" => json!(client.peer_id.to_string()),
-            "worker1" => json!(worker_id1),
-            "worker2" => json!(worker_id2),
-        },
-    );
+            hashmap! {
+                "relay" => json!(client.node.to_string()),
+                "client" => json!(client.peer_id.to_string()),
+                "worker1" => json!(worker_id1),
+                "worker2" => json!(worker_id2),
+            },
+        )
+        .await;
 
     if let [JValue::Array(worker1_spells), JValue::Array(worker2_spells)] = client
         .receive_args()
@@ -2053,8 +2065,9 @@ async fn set_alias_by_worker_creator() {
     )
     .await;
 
-    client.send_particle(
-        r#"(seq
+    client
+        .send_particle(
+            r#"(seq
                     (seq
                         (call relay ("op" "noop") []) 
                         (call worker ("srv" "add_alias") ["alias" service])
@@ -2064,13 +2077,14 @@ async fn set_alias_by_worker_creator() {
                         (call client ("return" "") [resolved.$.[0]!])
                     )
                 )"#,
-        hashmap! {
-            "relay" => json!(client.node.to_string()),
-            "client" => json!(client.peer_id.to_string()),
-            "service" => json!(tetraplets_service.id),
-            "worker" => json!(worker_id),
-        },
-    );
+            hashmap! {
+                "relay" => json!(client.node.to_string()),
+                "client" => json!(client.peer_id.to_string()),
+                "service" => json!(tetraplets_service.id),
+                "worker" => json!(worker_id),
+            },
+        )
+        .await;
 
     if let [JValue::String(resolved)] = client
         .receive_args()
@@ -2111,19 +2125,21 @@ async fn test_decider_api_endpoint_rewrite() {
         .wrap_err("connect client")
         .unwrap();
 
-    client.send_particle(
-        r#"(seq
+    client
+        .send_particle(
+            r#"(seq
                     (call relay ("decider" "get_string") ["chain"] chain_info_str)
                     (seq
                         (call relay ("json" "parse") [chain_info_str.$.str] chain_info)
                         (call client ("return" "") [chain_info.$.api_endpoint])
                     )
                 )"#,
-        hashmap! {
-            "relay" => json!(client.node.to_string()),
-            "client" => json!(client.peer_id.to_string()),
-        },
-    );
+            hashmap! {
+                "relay" => json!(client.node.to_string()),
+                "client" => json!(client.peer_id.to_string()),
+            },
+        )
+        .await;
 
     if let [JValue::String(endpoint)] = client
         .receive_args()
@@ -2165,19 +2181,21 @@ async fn test_decider_api_endpoint_rewrite() {
         .wrap_err("connect client")
         .unwrap();
 
-    client.send_particle(
-        r#"(seq
+    client
+        .send_particle(
+            r#"(seq
                     (call relay ("decider" "get_string") ["chain"] chain_info_str)
                     (seq
                         (call relay ("json" "parse") [chain_info_str.$.str] chain_info)
                         (call client ("return" "") [chain_info.$.api_endpoint])
                     )
                 )"#,
-        hashmap! {
-            "relay" => json!(client.node.to_string()),
-            "client" => json!(client.peer_id.to_string()),
-        },
-    );
+            hashmap! {
+                "relay" => json!(client.node.to_string()),
+                "client" => json!(client.peer_id.to_string()),
+            },
+        )
+        .await;
 
     if let [JValue::String(endpoint)] = client
         .receive_args()

@@ -22,7 +22,6 @@ retries = { backoff = "exponential", count = 3, delay = "5s", jitter = true }
 
 [profile.ci]
 fail-fast = false
-test-threads = 10
 
 [profile.ci.junit]
 path = "junit.xml"

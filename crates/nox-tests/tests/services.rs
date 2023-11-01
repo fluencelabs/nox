@@ -269,7 +269,7 @@ async fn create_service_from_config() {
         "config" => config,
         "module_bytes" => json!(base64.encode(module)),
     };
-    client.send_particle_ext(script, data, true);
+    client.send_particle_ext(script, data, true).await;
     let result = client.receive_args().await.expect("receive");
     if let [JValue::String(service_id)] = &result[..] {
         let result = client
@@ -436,7 +436,7 @@ async fn handle_same_dir_in_preopens_and_mapped_dirs() {
         "config" => config,
         "module_bytes" => json!(base64.encode(module)),
     };
-    client.send_particle_ext(script, data, true);
+    client.send_particle_ext(script, data, true).await;
     let result = client.receive_args().await;
     if result.is_ok() {
         panic!("expected error for module with invalid config")
