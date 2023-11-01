@@ -106,7 +106,7 @@ impl Collector for TokioCollector {
     fn collect<'a>(&'a self) -> Box<dyn Iterator<Item = Result<'a>> + 'a> {
         let workers = self.metrics.num_workers();
 
-        let mut result: Vec<Result<'a>> = Vec::with_capacity(9 + workers * 9); //We preallocate a vector to reduce growing
+        let mut result: Vec<Result<'a>> = Vec::with_capacity(9 + workers * 10); //We preallocate a vector to reduce growing
 
         result.push((
             Cow::Borrowed(&*NUM_WORKERS_DESCRIPTOR),
@@ -303,6 +303,21 @@ impl Collector for TokioCollector {
                 )),
                 MaybeOwned::Owned(Box::new(ConstCounter::new(
                     self.metrics.worker_overflow_count(worker_id),
+                ))),
+            ));
+            result.push((
+                Cow::Owned(Descriptor::new(
+                    "worker_mean_poll_time_msec",
+                    "Returns the mean duration of task polls",
+                    None,
+                    Some(&PREFIX),
+                    vec![(
+                        Cow::Borrowed(WORKER_LABEL),
+                        Cow::Owned(worker_id.to_string()),
+                    )],
+                )),
+                MaybeOwned::Owned(Box::new(ConstCounter::new(
+                    self.metrics.worker_mean_poll_time(worker_id).as_millis() as u64,
                 ))),
             ));
         }
