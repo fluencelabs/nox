@@ -223,8 +223,8 @@ impl NetworkBehaviour for ClientBehaviour {
             FromSwarm::NewListenAddr(_) => {}
             FromSwarm::ExpiredListenAddr(_) => {}
             FromSwarm::ListenerError(_) => {}
-            FromSwarm::ListenerClosed(_) => {
-                tracing::info!("ListenerClosed {:?}", e.remaining_established);
+            FromSwarm::ListenerClosed(e) => {
+                tracing::info!("ListenerClosed {:?}", e);
             }
             FromSwarm::NewExternalAddrCandidate(_) => {}
             FromSwarm::ExternalAddrExpired(_) => {}
