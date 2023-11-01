@@ -90,7 +90,7 @@ fn main() -> eyre::Result<()> {
     //TODO: add thread count configuration based on config
     let mut builder = tokio::runtime::Builder::new_multi_thread();
 
-    builder.enable_all().thread_name("tokio");
+    builder.enable_all();
 
     let enable_histogram = config.node_config.metrics_config.tokio_metrics_enabled
         && config
