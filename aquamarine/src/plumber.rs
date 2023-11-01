@@ -226,7 +226,8 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
             let now = now_ms();
 
             self.actors.retain(|(particle_id, worker_id), actor| {
-                let particle_id = bs58::encode(particle_id).into_string();
+                // we use particle signature in hex as a particle id for particle data store
+                let particle_id = faster_hex::hex_string(particle_id);
                 // if actor hasn't yet expired or is still executing, keep it
                 // TODO: if actor is expired, cancel execution and return VM back to pool
                 //       https://github.com/fluencelabs/fluence/issues/1212

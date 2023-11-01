@@ -80,7 +80,8 @@ impl<RT: AquaRuntime> ParticleExecutor for RT {
                     let particle_params = ParticleParameters {
                         current_peer_id: Cow::Owned(current_peer_id.to_string()),
                         init_peer_id: Cow::Owned(particle.init_peer_id.to_string()),
-                        particle_id: Cow::Borrowed(&particle.id),
+                        // we use signature hex as particle id to prevent compromising of particle data store
+                        particle_id: Cow::Owned(particle.get_signature_hex()),
                         timestamp: particle.timestamp,
                         ttl: particle.ttl,
                     };
