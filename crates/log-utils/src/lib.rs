@@ -64,6 +64,7 @@ fn default_directives() -> Vec<Directive> {
         "particle_reap=info",
         "marine_core::module::marine_module=info",
         "runtime::resource=info",
+        "connected_client::client=debug",
     ];
 
     namespaces

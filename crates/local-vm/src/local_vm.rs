@@ -302,10 +302,9 @@ pub async fn make_particle(
         tokio::task::yield_now().await;
     }
 
-    tracing::info!(particle_id = id, "Made a particle");
 
     let mut particle = Particle {
-        id,
+        id: id.clone(),
         init_peer_id: peer_id,
         timestamp,
         ttl,
@@ -315,6 +314,8 @@ pub async fn make_particle(
     };
 
     particle.sign(key_pair).expect("sign particle");
+
+    tracing::info!(particle_id = id, "Made a particle");
 
     particle
 }
