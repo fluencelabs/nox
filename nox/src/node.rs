@@ -578,7 +578,7 @@ mod tests {
 
     use crate::Node;
 
-    #[tokio::test]
+    #[tokio::test(flavor ="multi_thread", worker_threads = 2)]
     async fn run_node() {
         log_utils::enable_logs();
         let base_dir = default_base_dir();
