@@ -160,10 +160,11 @@ impl Client {
                             if let Some(cmd) = to_relay {
                                 Self::send_to_node(swarm.behaviour_mut(), cmd)
                             }
-                        }
+                        },
 
                         // Messages that were received from relay node
                         Some(from_relay) = swarm.next() => {
+                            log::info!("Received message from relay {:?}", from_relay);
                             match Self::receive_from_node(from_relay, &client_outlet) {
                                 Err(err) => {
                                     let err_msg = format!("{err:?}");
