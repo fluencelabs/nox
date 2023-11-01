@@ -206,13 +206,16 @@ impl NetworkBehaviour for ClientBehaviour {
     fn on_swarm_event(&mut self, event: FromSwarm<'_, Self::ConnectionHandler>) {
         match event {
             FromSwarm::ConnectionEstablished(e) => {
+                tracing::info!("ConnectionEstablished {:?}", e);
                 self.on_connection_established(&e.peer_id, e.endpoint);
             }
             FromSwarm::ConnectionClosed(e) => {
+                tracing::info!("ConnectionClosed {:?}", e.remaining_established);
                 self.on_connection_closed(&e.peer_id, e.endpoint, e.remaining_established);
             }
             FromSwarm::AddressChange(_) => {}
             FromSwarm::DialFailure(e) => {
+                tracing::info!("DialFailure {:?}", e.remaining_established);
                 self.on_dial_failure(e.peer_id, e.error);
             }
             FromSwarm::ListenFailure(_) => {}
@@ -220,7 +223,9 @@ impl NetworkBehaviour for ClientBehaviour {
             FromSwarm::NewListenAddr(_) => {}
             FromSwarm::ExpiredListenAddr(_) => {}
             FromSwarm::ListenerError(_) => {}
-            FromSwarm::ListenerClosed(_) => {}
+            FromSwarm::ListenerClosed(_) => {
+                tracing::info!("ListenerClosed {:?}", e.remaining_established);
+            }
             FromSwarm::NewExternalAddrCandidate(_) => {}
             FromSwarm::ExternalAddrExpired(_) => {}
             FromSwarm::ExternalAddrConfirmed(_) => {}
