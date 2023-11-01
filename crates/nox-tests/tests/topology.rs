@@ -66,7 +66,8 @@ async fn identity() {
             "node_c" => json!(swarms[2].peer_id.to_string()),
             "client_b" => json!(b.peer_id.to_string()),
         },
-    );
+    )
+    .await;
 
     b.receive().await.wrap_err("receive").unwrap();
 }
@@ -79,8 +80,9 @@ async fn init_peer_id() {
         .wrap_err("connect client")
         .unwrap();
 
-    client.send_particle(
-        r#"
+    client
+        .send_particle(
+            r#"
         (seq
             (call relay ("kad" "neighborhood") [client] peers)
             (seq
@@ -89,11 +91,12 @@ async fn init_peer_id() {
             )
         )
         "#,
-        hashmap! {
-            "relay" => json!(client.node.to_string()),
-            "client" => json!(client.peer_id.to_string()),
-        },
-    );
+            hashmap! {
+                "relay" => json!(client.node.to_string()),
+                "client" => json!(client.peer_id.to_string()),
+            },
+        )
+        .await;
 
     client.receive().await.wrap_err("receive").unwrap();
 }
@@ -107,9 +110,10 @@ async fn join() {
         .wrap_err("connect client")
         .unwrap();
 
-    client.send_particle(
-        format!(
-            r#"
+    client
+        .send_particle(
+            format!(
+                r#"
         (seq
             (seq
                 (call relay ("op" "noop") [])
@@ -132,15 +136,16 @@ async fn join() {
             )
         )
         "#,
-            join_stream("results", "%init_peer_id%", "len", "results"),
-        ),
-        hashmap! {
-            "nodes" => json!(swarms.iter().map(|s| s.peer_id.to_base58()).collect::<Vec<_>>()),
-            "client" => json!(client.peer_id.to_string()),
-            "relay" => json!(client.node.to_string()),
-            "len" => json!(swarms.len()),
-        },
-    );
+                join_stream("results", "%init_peer_id%", "len", "results"),
+            ),
+            hashmap! {
+                "nodes" => json!(swarms.iter().map(|s| s.peer_id.to_base58()).collect::<Vec<_>>()),
+                "client" => json!(client.peer_id.to_string()),
+                "relay" => json!(client.node.to_string()),
+                "len" => json!(swarms.len()),
+            },
+        )
+        .await;
 
     let received = client
         .listen_for_n(4, |peer_ids| {
