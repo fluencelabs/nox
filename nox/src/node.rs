@@ -579,6 +579,7 @@ mod tests {
 
     #[tokio::test]
     async fn run_node() {
+        log_utils::enable_logs();
         let base_dir = default_base_dir();
         fs_utils::create_dir(&base_dir).unwrap();
         write_default_air_interpreter(&air_interpreter_path(&base_dir)).unwrap();
