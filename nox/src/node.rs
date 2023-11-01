@@ -494,6 +494,7 @@ impl<RT: AquaRuntime> Node<RT> {
                 let exit_inlet = exit_inlet.as_mut().expect("Could not get exit inlet");
                 tokio::select! {
                     Some(e) = swarm.next() => {
+                        log::info!("swarm event {:?}",e);
                         if let Some(m) = libp2p_metrics.as_ref() { m.record(&e) }
                         if let SwarmEvent::Behaviour(FluenceNetworkBehaviourEvent::Identify(i)) = e {
                             swarm.behaviour_mut().inject_identify_event(i, allow_local_addresses);
