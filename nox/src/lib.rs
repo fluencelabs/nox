@@ -36,9 +36,9 @@ mod effectors;
 mod health;
 mod http;
 mod layers;
+mod metrics;
 mod node;
 mod tasks;
-mod metrics;
 
 mod behaviour {
     mod identify;

@@ -45,7 +45,7 @@ static ACTIVE_TASKS_DESCRIPTOR: Lazy<Descriptor> = Lazy::new(|| {
 static NUM_BLOCKING_THREADS_DESCRIPTOR: Lazy<Descriptor> = Lazy::new(|| {
     Descriptor::new(
         "num_blocking_threads",
-        "Еhe number of additional blocking threads spawned by the runtime.",
+        "Еhe number of additional blocking threads spawned by the runtime",
         None,
         Some(&PREFIX),
         vec![],
@@ -99,72 +99,214 @@ static BLOCKING_QUEUE_DEPTH_DESCRIPTOR: Lazy<Descriptor> = Lazy::new(|| {
     )
 });
 
+const WORKER_LABEL: &str = "worker";
+
+type Result<'a> = (Cow<'a, Descriptor>, MaybeOwned<'a, Box<dyn LocalMetric>>);
 impl Collector for TokioCollector {
-    fn collect<'a>(
-        &'a self,
-    ) -> Box<dyn Iterator<Item = (Cow<'a, Descriptor>, MaybeOwned<'a, Box<dyn LocalMetric>>)> + 'a>
-    {
-        let num_workers: Box<dyn LocalMetric> =
-            Box::new(ConstGauge::new(self.metrics.num_workers() as i64));
+    fn collect<'a>(&'a self) -> Box<dyn Iterator<Item = Result<'a>> + 'a> {
+        let workers = self.metrics.num_workers();
 
-        let active_tasks_count: Box<dyn LocalMetric> =
-            Box::new(ConstGauge::new(self.metrics.active_tasks_count() as i64));
+        let mut result: Vec<Result<'a>> = Vec::with_capacity(9 + workers * 9); //We preallocate a vector to reduce growing
 
-        let num_blocking_threads: Box<dyn LocalMetric> =
-            Box::new(ConstGauge::new(self.metrics.num_blocking_threads() as i64));
-
-        let num_idle_blocking_threads: Box<dyn LocalMetric> = Box::new(ConstGauge::new(
-            self.metrics.num_idle_blocking_threads() as i64,
+        result.push((
+            Cow::Borrowed(&*NUM_WORKERS_DESCRIPTOR),
+            MaybeOwned::Owned(Box::new(ConstGauge::new(workers as i64))),
         ));
 
-        let remote_schedule_count: Box<dyn LocalMetric> =
-            Box::new(ConstCounter::new(self.metrics.remote_schedule_count()));
+        result.push((
+            Cow::Borrowed(&*NUM_BLOCKING_THREADS_DESCRIPTOR),
+            MaybeOwned::Owned(Box::new(ConstGauge::new(
+                self.metrics.num_blocking_threads() as i64,
+            ))),
+        ));
 
-        let budget_forced_yield_count: Box<dyn LocalMetric> =
-            Box::new(ConstCounter::new(self.metrics.budget_forced_yield_count()));
+        result.push((
+            Cow::Borrowed(&*ACTIVE_TASKS_DESCRIPTOR),
+            MaybeOwned::Owned(Box::new(ConstGauge::new(
+                self.metrics.active_tasks_count() as i64
+            ))),
+        ));
+        result.push((
+            Cow::Borrowed(&*NUM_IDLE_BLOCKING_THREADS_DESCRIPTOR),
+            MaybeOwned::Owned(Box::new(ConstGauge::new(
+                self.metrics.num_idle_blocking_threads() as i64,
+            ))),
+        ));
+        result.push((
+            Cow::Borrowed(&*REMOTE_SCHEDULE_DESCRIPTOR),
+            MaybeOwned::Owned(Box::new(ConstCounter::new(
+                self.metrics.remote_schedule_count(),
+            ))),
+        ));
+        result.push((
+            Cow::Borrowed(&*REMOTE_SCHEDULE_DESCRIPTOR),
+            MaybeOwned::Owned(Box::new(ConstCounter::new(
+                self.metrics.remote_schedule_count(),
+            ))),
+        ));
 
-        let injection_queue_depth: Box<dyn LocalMetric> =
-            Box::new(ConstGauge::new(self.metrics.injection_queue_depth() as i64));
+        result.push((
+            Cow::Borrowed(&*BUDGET_FORCED_YIELD_DESCRIPTOR),
+            MaybeOwned::Owned(Box::new(ConstCounter::new(
+                self.metrics.budget_forced_yield_count(),
+            ))),
+        ));
 
-        let blocking_queue_depth: Box<dyn LocalMetric> =
-            Box::new(ConstGauge::new(self.metrics.blocking_queue_depth() as i64));
+        result.push((
+            Cow::Borrowed(&*INJECTION_QUEUE_DEPTH_DESCRIPTOR),
+            MaybeOwned::Owned(Box::new(ConstGauge::new(
+                self.metrics.injection_queue_depth() as i64,
+            ))),
+        ));
+        result.push((
+            Cow::Borrowed(&*BLOCKING_QUEUE_DEPTH_DESCRIPTOR),
+            MaybeOwned::Owned(Box::new(ConstGauge::new(
+                self.metrics.blocking_queue_depth() as i64,
+            ))),
+        ));
 
-        Box::new(
-            [
-                (
-                    Cow::Borrowed(&*NUM_WORKERS_DESCRIPTOR),
-                    MaybeOwned::Owned(num_workers),
-                ),
-                (
-                    Cow::Borrowed(&*NUM_BLOCKING_THREADS_DESCRIPTOR),
-                    MaybeOwned::Owned(num_blocking_threads),
-                ),
-                (
-                    Cow::Borrowed(&*ACTIVE_TASKS_DESCRIPTOR),
-                    MaybeOwned::Owned(active_tasks_count),
-                ),
-                (
-                    Cow::Borrowed(&*NUM_IDLE_BLOCKING_THREADS_DESCRIPTOR),
-                    MaybeOwned::Owned(num_idle_blocking_threads),
-                ),
-                (
-                    Cow::Borrowed(&*REMOTE_SCHEDULE_DESCRIPTOR),
-                    MaybeOwned::Owned(remote_schedule_count),
-                ),
-                (
-                    Cow::Borrowed(&*BUDGET_FORCED_YIELD_DESCRIPTOR),
-                    MaybeOwned::Owned(budget_forced_yield_count),
-                ),
-                (
-                    Cow::Borrowed(&*INJECTION_QUEUE_DEPTH_DESCRIPTOR),
-                    MaybeOwned::Owned(injection_queue_depth),
-                ),
-                (
-                    Cow::Borrowed(&*BLOCKING_QUEUE_DEPTH_DESCRIPTOR),
-                    MaybeOwned::Owned(blocking_queue_depth),
-                ),
-            ]
-            .into_iter(),
-        )
+        for worker_id in 0..workers {
+            result.push((
+                Cow::Owned(Descriptor::new(
+                    "worker_park_count",
+                    "Returns the total number of times the given worker thread has parked",
+                    None,
+                    Some(&PREFIX),
+                    vec![(
+                        Cow::Borrowed(WORKER_LABEL),
+                        Cow::Owned(worker_id.to_string()),
+                    )],
+                )),
+                MaybeOwned::Owned(Box::new(ConstCounter::new(
+                    self.metrics.worker_park_count(worker_id),
+                ))),
+            ));
+            result.push((
+                Cow::Owned(Descriptor::new(
+                    "worker_noop_count",
+                    "Returns the number of times the given worker thread unparked but performed no work before parking again",
+                    None,
+                    Some(&PREFIX),
+                    vec![(
+                        Cow::Borrowed(WORKER_LABEL),
+                        Cow::Owned(worker_id.to_string()),
+                    )],
+                )),
+                MaybeOwned::Owned(Box::new(ConstCounter::new(
+                    self.metrics.worker_noop_count(worker_id),
+                ))),
+            ));
+            result.push((
+                Cow::Owned(Descriptor::new(
+                    "worker_steal_count",
+                    "Returns the number of tasks the given worker thread stole from another worker thread",
+                    None,
+                    Some(&PREFIX),
+                    vec![(
+                        Cow::Borrowed(WORKER_LABEL),
+                        Cow::Owned(worker_id.to_string()),
+                    )],
+                )),
+                MaybeOwned::Owned(Box::new(ConstCounter::new(
+                    self.metrics.worker_steal_count(worker_id),
+                ))),
+            ));
+            result.push((
+                Cow::Owned(Descriptor::new(
+                    "worker_steal_operations",
+                    "Returns the number of times the given worker thread stole tasks from another worker thread",
+                    None,
+                    Some(&PREFIX),
+                    vec![(
+                        Cow::Borrowed(WORKER_LABEL),
+                        Cow::Owned(worker_id.to_string()),
+                    )],
+                )),
+                MaybeOwned::Owned(Box::new(ConstCounter::new(
+                    self.metrics.worker_steal_operations(worker_id),
+                ))),
+            ));
+            result.push((
+                Cow::Owned(Descriptor::new(
+                    "worker_poll_count",
+                    "Returns the number of tasks the given worker thread has polled",
+                    None,
+                    Some(&PREFIX),
+                    vec![(
+                        Cow::Borrowed(WORKER_LABEL),
+                        Cow::Owned(worker_id.to_string()),
+                    )],
+                )),
+                MaybeOwned::Owned(Box::new(ConstCounter::new(
+                    self.metrics.worker_poll_count(worker_id),
+                ))),
+            ));
+            result.push((
+                Cow::Owned(Descriptor::new(
+                    "worker_total_busy_duration_msec",
+                    "Returns the amount of time the given worker thread has been busy",
+                    None,
+                    Some(&PREFIX),
+                    vec![(
+                        Cow::Borrowed(WORKER_LABEL),
+                        Cow::Owned(worker_id.to_string()),
+                    )],
+                )),
+                MaybeOwned::Owned(Box::new(ConstCounter::new(
+                    self.metrics
+                        .worker_total_busy_duration(worker_id)
+                        .as_millis() as u64,
+                ))),
+            ));
+            result.push((
+                Cow::Owned(Descriptor::new(
+                    "worker_local_schedule_count",
+                    "Returns the number of tasks scheduled from **within** the runtime on the given worker's local queue",
+                    None,
+                    Some(&PREFIX),
+                    vec![(
+                        Cow::Borrowed(WORKER_LABEL),
+                        Cow::Owned(worker_id.to_string()),
+                    )],
+                )),
+                MaybeOwned::Owned(Box::new(ConstCounter::new(
+                    self.metrics
+                        .worker_local_schedule_count(worker_id)
+                ))),
+            ));
+            result.push((
+                Cow::Owned(Descriptor::new(
+                    "worker_local_queue_depth",
+                    "Returns the number of tasks currently scheduled in the given worker's local queue",
+                    None,
+                    Some(&PREFIX),
+                    vec![(
+                        Cow::Borrowed(WORKER_LABEL),
+                        Cow::Owned(worker_id.to_string()),
+                    )],
+                )),
+                MaybeOwned::Owned(Box::new(ConstCounter::new(
+                    self.metrics
+                        .worker_local_queue_depth(worker_id) as u64
+                ))),
+            ));
+            result.push((
+                Cow::Owned(Descriptor::new(
+                    "worker_overflow_count",
+                    "Returns the number of times the given worker thread saturated its local queue",
+                    None,
+                    Some(&PREFIX),
+                    vec![(
+                        Cow::Borrowed(WORKER_LABEL),
+                        Cow::Owned(worker_id.to_string()),
+                    )],
+                )),
+                MaybeOwned::Owned(Box::new(ConstCounter::new(
+                    self.metrics.worker_overflow_count(worker_id),
+                ))),
+            ));
+        }
+
+        Box::new(result.into_iter())
     }
 }
