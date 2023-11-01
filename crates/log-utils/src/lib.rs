@@ -41,6 +41,7 @@ fn default_directives() -> Vec<Directive> {
         "libp2p_websocket::framed=info",
         "libp2p_ping=info",
         "libp2p_core::upgrade::apply=info",
+        "libp2p_core::upgrade=info",
         "libp2p_kad::kbucket=info",
         "libp2p_kad=info",
         "libp2p_kad::query=info",
