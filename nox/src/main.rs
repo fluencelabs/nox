@@ -88,10 +88,20 @@ fn main() -> eyre::Result<()> {
     }
 
     //TODO: add thread count configuration based on config
-    tokio::runtime::Builder::new_multi_thread()
-        .enable_all()
-        .enable_metrics_poll_count_histogram()
-        .thread_name("tokio")
+    let mut builder = tokio::runtime::Builder::new_multi_thread();
+
+    builder.enable_all().thread_name("tokio");
+
+    let enable_histogram = config.node_config.metrics_config.tokio_metrics_enabled
+        && config
+            .node_config
+            .metrics_config
+            .tokio_metrics_poll_histogram_enabled;
+    if enable_histogram {
+        builder.enable_metrics_poll_count_histogram();
+    }
+
+    builder
         .build()
         .expect("Could not make tokio runtime")
         .block_on(async {

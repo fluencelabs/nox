@@ -423,6 +423,12 @@ pub struct MetricsConfig {
 
     #[serde(default = "default_max_builtin_metrics_storage_size")]
     pub max_builtin_metrics_storage_size: usize,
+
+    #[serde(default = "default_tokio_metrics_enabled")]
+    pub tokio_metrics_enabled: bool,
+
+    #[serde(default = "default_tokio_metrics_poll_histogram_enabled")]
+    pub tokio_metrics_poll_histogram_enabled: bool,
 }
 
 #[derive(Clone, Deserialize, Serialize, Derivative)]

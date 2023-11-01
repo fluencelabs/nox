@@ -149,8 +149,10 @@ impl<RT: AquaRuntime> Node<RT> {
         let vm_pool_metrics = metrics_registry.as_mut().map(VmPoolMetrics::new);
         let spell_metrics = metrics_registry.as_mut().map(SpellMetrics::new);
 
-        if let Some(r) = metrics_registry.as_mut() {
-            r.register_collector(Box::new(TokioCollector::new()))
+        if config.metrics_config.tokio_metrics_enabled {
+            if let Some(r) = metrics_registry.as_mut() {
+                r.register_collector(Box::new(TokioCollector::new()))
+            }
         }
 
         #[allow(deprecated)]

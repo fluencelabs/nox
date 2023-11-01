@@ -1,10 +1,14 @@
+use itertools::Itertools;
 use once_cell::sync::Lazy;
 use prometheus_client::collector::Collector;
 use prometheus_client::metrics::counter::ConstCounter;
 use prometheus_client::metrics::gauge::ConstGauge;
+use prometheus_client::metrics::histogram::Histogram;
 use prometheus_client::registry::{Descriptor, LocalMetric, Prefix};
 use prometheus_client::MaybeOwned;
 use std::borrow::Cow;
+use std::ops::Range;
+use std::time::Duration;
 use tokio::runtime::RuntimeMetrics;
 
 #[derive(Clone, Debug)]
@@ -101,12 +105,29 @@ static BLOCKING_QUEUE_DEPTH_DESCRIPTOR: Lazy<Descriptor> = Lazy::new(|| {
 
 const WORKER_LABEL: &str = "worker";
 
+struct HistoData {
+    num_buckets: usize,
+    bucket_ranges: Vec<Range<Duration>>,
+}
 type Result<'a> = (Cow<'a, Descriptor>, MaybeOwned<'a, Box<dyn LocalMetric>>);
 impl Collector for TokioCollector {
     fn collect<'a>(&'a self) -> Box<dyn Iterator<Item = Result<'a>> + 'a> {
         let workers = self.metrics.num_workers();
+        let histo_data = if self.metrics.poll_count_histogram_enabled() {
+            let num_buckets = self.metrics.poll_count_histogram_num_buckets();
+            let bucket_ranges: Vec<Range<Duration>> = (0..num_buckets)
+                .map(|index| self.metrics.poll_count_histogram_bucket_range(index))
+                .collect();
+            Some(HistoData {
+                num_buckets,
+                bucket_ranges,
+            })
+        } else {
+            None
+        };
 
-        let mut result: Vec<Result<'a>> = Vec::with_capacity(9 + workers * 10); //We preallocate a vector to reduce growing
+        let mut result: Vec<Result<'a>> =
+            Vec::with_capacity(9 + workers * (10 + histo_data.as_ref().map_or(0, |_| 1))); //We preallocate a vector to reduce growing
 
         result.push((
             Cow::Borrowed(&*NUM_WORKERS_DESCRIPTOR),
@@ -320,6 +341,37 @@ impl Collector for TokioCollector {
                     self.metrics.worker_mean_poll_time(worker_id).as_millis() as u64,
                 ))),
             ));
+            if let Some(data) = histo_data.as_ref() {
+                let histogram = Histogram::new(
+                    data.bucket_ranges
+                        .iter()
+                        .dropping_back(1)
+                        .map(|range| range.end.as_nanos() as f64),
+                );
+                for bucket_id in 0..data.num_buckets {
+                    let count = self
+                        .metrics
+                        .poll_count_histogram_bucket_count(worker_id, bucket_id);
+                    let value = data.bucket_ranges.get(bucket_id).unwrap().start.as_nanos();
+                    for _ in 0..count {
+                        histogram.observe(value as f64)
+                    }
+                }
+
+                result.push((
+                    Cow::Owned(Descriptor::new(
+                        "poll_count_histogram",
+                        "Returns the distribution of task poll times in nanoseconds",
+                        None,
+                        Some(&PREFIX),
+                        vec![(
+                            Cow::Borrowed(WORKER_LABEL),
+                            Cow::Owned(worker_id.to_string()),
+                        )],
+                    )),
+                    MaybeOwned::Owned(Box::new(histogram)),
+                ));
+            }
         }
 
         Box::new(result.into_iter())
