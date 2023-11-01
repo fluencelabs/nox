@@ -138,7 +138,9 @@ impl ClientBehaviour {
                     peer_id,
                     address
                 );
-                self.reconnect = async move { vec![address] }.boxed().into();
+                self.events.push_front(SwarmEventType::Dial {
+                    opts: address.into(),
+                });
             }
             ConnectedPoint::Listener {
                 send_back_addr,
@@ -209,7 +211,11 @@ impl NetworkBehaviour for ClientBehaviour {
                 self.on_connection_established(&e.peer_id, e.endpoint);
             }
             FromSwarm::ConnectionClosed(e) => {
-                tracing::info!("ConnectionClosed {:?}", e.remaining_established);
+                tracing::info!(
+                    "ConnectionClosed {:?} {}",
+                    e.remaining_established,
+                    e.peer_id,
+                );
                 self.on_connection_closed(&e.peer_id, e.endpoint, e.remaining_established);
             }
             FromSwarm::AddressChange(_) => {}
@@ -269,7 +275,7 @@ impl NetworkBehaviour for ClientBehaviour {
         }
 
         if let Some(event) = self.events.pop_front() {
-            tracing::info!("Connected client event {:?}", event);
+            tracing::info!("Connected client self.events.pop_front() {:?}", event);
             return Poll::Ready(event);
         }
 
