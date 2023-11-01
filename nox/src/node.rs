@@ -566,6 +566,7 @@ mod tests {
     use maplit::hashmap;
     use serde_json::json;
     use std::path::PathBuf;
+    use std::time::Duration;
 
     use air_interpreter_fs::{air_interpreter_path, write_default_air_interpreter};
     use aquamarine::{VmConfig, AVM};
@@ -615,9 +616,13 @@ mod tests {
         let peer_id = PeerId::random();
         let started_node = node.start(peer_id).await.expect("start node");
 
-        let mut client = ConnectedClient::connect_to(listening_address)
-            .await
-            .expect("connect client");
+        let mut client = ConnectedClient::connect_to_with_timeout(
+            listening_address,
+            Duration::from_secs(10),
+            Some(Duration::from_secs(60000)),
+        )
+        .await
+        .expect("connect client");
         let data = hashmap! {
             "name" => json!("folex"),
             "client" => json!(client.peer_id.to_string()),
