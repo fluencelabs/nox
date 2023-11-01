@@ -590,6 +590,7 @@ mod tests {
             .expect("Could not load config")
             .resolve()
             .expect("Could not resolve config");
+        config.transport_config.connection_idle_timeout = Duration::from_secs(60);
         config.aquavm_pool_size = 1;
         config.dir_config.spell_base_dir = to_abs_path(PathBuf::from("spell"));
         config.system_services.enable = vec![];
