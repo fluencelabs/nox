@@ -242,7 +242,9 @@ impl ConnectedClient {
         let tout = self.timeout();
         let result = timeout(tout, async {
             loop {
+                log::info!("before receive_one");
                 let result = self.client.receive_one().await;
+                log::info!("After receive_one {:?}", result);
                 if let Some(ClientEvent::Particle { particle, .. }) = result {
                     break particle;
                 }
