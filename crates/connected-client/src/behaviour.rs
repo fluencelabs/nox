@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-use either::Either;
 use std::collections::VecDeque;
 use std::task::{Context, Poll, Waker};
 use std::time::Duration;
@@ -25,8 +24,8 @@ use libp2p::core::Endpoint;
 use libp2p::identity::PublicKey;
 use libp2p::swarm::ToSwarm::GenerateEvent;
 use libp2p::swarm::{
-    ConnectionDenied, ConnectionHandler, ConnectionHandlerSelect, ConnectionId, DialError,
-    FromSwarm, THandler, THandlerInEvent, THandlerOutEvent,
+    ConnectionDenied, ConnectionId, DialError, FromSwarm, THandler, THandlerInEvent,
+    THandlerOutEvent,
 };
 use libp2p::{
     core::{connection::ConnectedPoint, Multiaddr},
@@ -35,43 +34,57 @@ use libp2p::{
     swarm::{NetworkBehaviour, NotifyHandler, OneShotHandler, PollParameters, ToSwarm},
     PeerId,
 };
-use particle_protocol::{HandlerMessage, Particle, ProtocolConfig};
+use particle_protocol::{HandlerMessage, Particle, ProtocolConfig, PROTOCOL_NAME};
 
 use crate::ClientEvent;
 
 pub type SwarmEventType = ToSwarm<ClientEvent, THandlerInEvent<ClientBehaviour>>;
 
+#[derive(NetworkBehaviour)]
+pub struct FluenceClientBehaviour {
+    client: ClientBehaviour,
+    ping: Ping,
+    identify: Identify,
+}
+
+impl FluenceClientBehaviour {
+    pub fn new(protocol_config: ProtocolConfig, public_key: PublicKey) -> Self {
+        let client = ClientBehaviour::new(protocol_config);
+        let identify = Identify::new(IdentifyConfig::new(PROTOCOL_NAME.into(), public_key));
+        let ping = Ping::new(PingConfig::new());
+        Self {
+            client,
+            ping,
+            identify,
+        }
+    }
+
+    pub fn call(&mut self, peer_id: PeerId, call: Particle) {
+        self.client.events.push_back(ToSwarm::NotifyHandler {
+            event: HandlerMessage::OutParticle(call, <_>::default()),
+            handler: NotifyHandler::Any,
+            peer_id,
+        });
+
+        self.client.wake();
+    }
+}
+
 pub struct ClientBehaviour {
     protocol_config: ProtocolConfig,
     events: VecDeque<SwarmEventType>,
-    ping: Ping,
-    identify: Identify,
     reconnect: Option<BoxFuture<'static, Vec<Multiaddr>>>,
     waker: Option<Waker>,
 }
 
 impl ClientBehaviour {
-    pub fn new(protocol_config: ProtocolConfig, public_key: PublicKey) -> Self {
-        let ping = Ping::new(PingConfig::new().with_interval(Duration::from_secs(5)));
-        let identify = Identify::new(IdentifyConfig::new("".to_string(), public_key));
+    pub fn new(protocol_config: ProtocolConfig) -> Self {
         Self {
             protocol_config,
             events: VecDeque::default(),
-            ping,
-            identify,
             reconnect: None,
             waker: None,
         }
-    }
-
-    pub fn call(&mut self, peer_id: PeerId, call: Particle) {
-        self.events.push_back(ToSwarm::NotifyHandler {
-            event: Either::Left(HandlerMessage::OutParticle(call, <_>::default())),
-            handler: NotifyHandler::Any,
-            peer_id,
-        });
-
-        self.wake();
     }
 
     fn wake(&self) {
@@ -162,95 +175,33 @@ impl ClientBehaviour {
 }
 
 impl NetworkBehaviour for ClientBehaviour {
-    type ConnectionHandler = ConnectionHandlerSelect<
-        OneShotHandler<ProtocolConfig, HandlerMessage, HandlerMessage>,
-        ConnectionHandlerSelect<
-            <Ping as NetworkBehaviour>::ConnectionHandler,
-            <Identify as NetworkBehaviour>::ConnectionHandler,
-        >,
-    >;
+    type ConnectionHandler = OneShotHandler<ProtocolConfig, HandlerMessage, HandlerMessage>;
 
     type ToSwarm = ClientEvent;
 
     fn handle_established_inbound_connection(
         &mut self,
-        connection_id: ConnectionId,
-        peer_id: PeerId,
-        local_addr: &Multiaddr,
-        remote_addr: &Multiaddr,
+        _connection_id: ConnectionId,
+        _peer_id: PeerId,
+        _local_addr: &Multiaddr,
+        _remote_addr: &Multiaddr,
     ) -> Result<THandler<Self>, ConnectionDenied> {
-        let ping_handler: THandler<Ping> = self.ping.handle_established_inbound_connection(
-            connection_id,
-            peer_id,
-            local_addr,
-            remote_addr,
-        )?;
-        let identify_handler: THandler<Identify> =
-            self.identify.handle_established_inbound_connection(
-                connection_id,
-                peer_id,
-                local_addr,
-                remote_addr,
-            )?;
         let oneshot_handler: OneShotHandler<ProtocolConfig, HandlerMessage, HandlerMessage> =
             self.protocol_config.clone().into();
 
-        let result = ConnectionHandler::select(
-            oneshot_handler,
-            ConnectionHandler::select(ping_handler, identify_handler),
-        );
-        Ok(result)
-    }
-
-    fn handle_pending_outbound_connection(
-        &mut self,
-        connection_id: ConnectionId,
-        maybe_peer: Option<PeerId>,
-        addresses: &[Multiaddr],
-        effective_role: Endpoint,
-    ) -> Result<Vec<Multiaddr>, ConnectionDenied> {
-        let mut combined_addresses = Vec::new();
-        combined_addresses.extend(self.ping.handle_pending_outbound_connection(
-            connection_id,
-            maybe_peer,
-            addresses,
-            effective_role,
-        )?);
-        combined_addresses.extend(self.identify.handle_pending_outbound_connection(
-            connection_id,
-            maybe_peer,
-            addresses,
-            effective_role,
-        )?);
-        Ok(combined_addresses)
+        Ok(oneshot_handler)
     }
 
     fn handle_established_outbound_connection(
         &mut self,
-        connection_id: ConnectionId,
-        peer: PeerId,
-        addr: &Multiaddr,
-        role_override: Endpoint,
+        _connection_id: ConnectionId,
+        _peer: PeerId,
+        _addr: &Multiaddr,
+        _role_override: Endpoint,
     ) -> Result<THandler<Self>, ConnectionDenied> {
-        let ping_handler = self.ping.handle_established_outbound_connection(
-            connection_id,
-            peer,
-            addr,
-            role_override,
-        )?;
-        let identify_handler = self.identify.handle_established_outbound_connection(
-            connection_id,
-            peer,
-            addr,
-            role_override,
-        )?;
         let oneshot_handler: OneShotHandler<ProtocolConfig, HandlerMessage, HandlerMessage> =
             self.protocol_config.clone().into();
-        let result = ConnectionHandler::select(
-            oneshot_handler,
-            ConnectionHandler::select(ping_handler, identify_handler),
-        );
-        Ok(result)
+        Ok(oneshot_handler)
     }
 
     fn on_swarm_event(&mut self, event: FromSwarm<'_, Self::ConnectionHandler>) {
@@ -277,9 +228,7 @@ impl NetworkBehaviour for ClientBehaviour {
             FromSwarm::NewListenAddr(_) => {}
             FromSwarm::ExpiredListenAddr(_) => {}
             FromSwarm::ListenerError(_) => {}
-            FromSwarm::ListenerClosed(e) => {
-                tracing::info!("ListenerClosed {:?}", e);
-            }
+            FromSwarm::ListenerClosed(_) => {}
             FromSwarm::NewExternalAddrCandidate(_) => {}
             FromSwarm::ExternalAddrExpired(_) => {}
             FromSwarm::ExternalAddrConfirmed(_) => {}
@@ -289,40 +238,28 @@ impl NetworkBehaviour for ClientBehaviour {
     fn on_connection_handler_event(
         &mut self,
         peer_id: PeerId,
-        cid: ConnectionId,
+        _cid: ConnectionId,
         event: THandlerOutEvent<Self>,
     ) {
         use ClientEvent::Particle;
 
         match event {
-            Either::Left(HandlerMessage::InParticle(particle)) => {
+            HandlerMessage::InParticle(particle) => {
                 self.events.push_back(GenerateEvent(Particle {
                     particle,
                     sender: peer_id,
                 }))
             }
-            Either::Right(Either::Left(ping)) => {
-                self.ping.on_connection_handler_event(peer_id, cid, ping)
-            }
-            Either::Right(Either::Right(identify)) => self
-                .identify
-                .on_connection_handler_event(peer_id, cid, identify),
-            Either::Left(_) => {}
+            _ => {}
         }
     }
 
     fn poll(
         &mut self,
         cx: &mut Context<'_>,
-        params: &mut impl PollParameters,
+        _params: &mut impl PollParameters,
     ) -> Poll<SwarmEventType> {
         self.waker = Some(cx.waker().clone());
-
-        let _a = &self.identify;
-
-        if let Poll::Ready(GenerateEvent(e)) = self.ping.poll(cx, params) {
-            return Poll::Ready(ToSwarm::GenerateEvent(ClientEvent::Ping(e)));
-        }
 
         if let Some(Poll::Ready(addresses)) = self.reconnect.as_mut().map(|r| r.poll_unpin(cx)) {
             self.reconnect = None;

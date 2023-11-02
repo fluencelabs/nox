@@ -27,12 +27,14 @@ use libp2p_swarm::handler::StreamUpgradeError;
 use tokio::sync::mpsc::error::SendError;
 use tokio::sync::{mpsc, oneshot};
 use tokio::{select, task, task::JoinHandle};
+use void::Void;
 
 use fluence_libp2p::{build_transport, Transport};
 use particle_protocol::{Particle, ProtocolConfig};
 
 use crate::api::ParticleApi;
-use crate::{behaviour::ClientBehaviour, ClientEvent};
+use crate::behaviour::FluenceClientBehaviourEvent;
+use crate::{behaviour::FluenceClientBehaviour, ClientEvent};
 
 #[derive(Debug)]
 struct Command {
@@ -102,10 +104,10 @@ impl Client {
         transport: Transport,
         transport_timeout: Duration,
         protocol_config: ProtocolConfig,
-    ) -> Result<Swarm<ClientBehaviour>, Box<dyn Error>> {
+    ) -> Result<Swarm<FluenceClientBehaviour>, Box<dyn Error>> {
         let mut swarm = {
             let public_key = self.key_pair.public();
-            let behaviour = ClientBehaviour::new(protocol_config, public_key.into());
+            let behaviour = FluenceClientBehaviour::new(protocol_config, public_key.into());
 
             let kp = self.key_pair.clone().into();
             let transport = build_transport(transport, &kp, transport_timeout);
@@ -197,12 +199,12 @@ impl Client {
     #[allow(clippy::result_large_err)]
     async fn receive_from_node(
         msg: SwarmEvent<
-            ClientEvent,
-            Either<StreamUpgradeError<std::io::Error>, Either<void::Void, std::io::Error>>,
+            FluenceClientBehaviourEvent,
+            Either<Either<StreamUpgradeError<std::io::Error>, Void>, std::io::Error>,
         >,
         client_outlet: &mpsc::Sender<ClientEvent>,
     ) -> Result<(), SendError<ClientEvent>> {
-        if let SwarmEvent::Behaviour(msg) = msg {
+        if let SwarmEvent::Behaviour(FluenceClientBehaviourEvent::Client(msg)) = msg {
             // Message will be available through client.receive_one
             client_outlet.send(msg).await
         } else {
