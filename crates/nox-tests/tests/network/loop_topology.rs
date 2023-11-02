@@ -197,7 +197,7 @@ async fn fold_fold_fold_par_null_join() {
 }
 
 #[tokio::test]
-async fn fold_fold_fold_seq_two_par_null_folds_flaky() {
+async fn fold_fold_fold_seq_two_par_null_folds() {
     let Abuse { input, output } = abuse_fold(
         format!(
             r#"

@@ -1149,7 +1149,7 @@ async fn timeout_wait() {
 }
 
 #[tokio::test]
-async fn debug_stringify_flaky() {
+async fn debug_stringify() {
     async fn stringify(value: impl Into<JValue>) -> String {
         let mut result = exec_script(
             r#"(call relay ("debug" "stringify") [value] result)"#,
