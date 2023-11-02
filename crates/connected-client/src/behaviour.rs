@@ -211,20 +211,13 @@ impl NetworkBehaviour for ClientBehaviour {
     fn on_swarm_event(&mut self, event: FromSwarm<'_, Self::ConnectionHandler>) {
         match event {
             FromSwarm::ConnectionEstablished(e) => {
-                tracing::info!("ConnectionEstablished {:?}", e);
                 self.on_connection_established(&e.peer_id, e.endpoint);
             }
             FromSwarm::ConnectionClosed(e) => {
-                tracing::info!(
-                    "ConnectionClosed {:?} {}",
-                    e.remaining_established,
-                    e.peer_id,
-                );
                 self.on_connection_closed(&e.peer_id, e.endpoint, e.remaining_established);
             }
             FromSwarm::AddressChange(_) => {}
             FromSwarm::DialFailure(e) => {
-                tracing::info!("DialFailure {:?}", e);
                 self.on_dial_failure(e.peer_id, e.error);
             }
             FromSwarm::ListenFailure(_) => {}
@@ -273,7 +266,6 @@ impl NetworkBehaviour for ClientBehaviour {
         }
 
         if let Some(event) = self.events.pop_front() {
-            tracing::info!("Connected client self.events.pop_front() {:?}", event);
             return Poll::Ready(event);
         }
 

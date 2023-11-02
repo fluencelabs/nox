@@ -114,7 +114,6 @@ where
 
     fn upgrade_inbound(self, mut socket: Socket, _: Self::Info) -> Self::Future {
         async move {
-            log::info!("Data arrived");
             let decoded = upgrade::read_length_prefixed(&mut socket, MAX_BUF_SIZE).await?;
             let msg: ProtocolMessage = serde_json::from_slice(&decoded)
                 .wrap_err_with(|| format!("unable to deserialize: '{decoded:?}'"))?;
