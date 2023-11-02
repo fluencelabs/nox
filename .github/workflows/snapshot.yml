@@ -26,26 +26,16 @@ jobs:
     runs-on: builder
     timeout-minutes: 60
 
-    env: ${{ matrix.env }}
+
+    env:
+      RUSTFLAGS: "-D warnings --cfg tokio_unstable"
 
     outputs:
       image: "${{ inputs.image-name }}@${{ steps.docker.outputs.digest }}"
 
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - arch: x86_64
-            env:
-              RUSTFLAGS: "-D warnings --cfg tokio_unstable -C link-arg=-B/usr/local/bin/mold"
-              RUSTC_WRAPPER: "sccache"
-          - arch: aarch64
-            env:
-              RUSTFLAGS: "-D warnings --cfg tokio_unstable -C link-arg=-B/usr/local/bin/mold"
-              RUSTC_WRAPPER: "sccache"
-              CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
-              CC_aarch64_unknown_linux_gnu: aarch64-linux-gnu-gcc
-              CXX_aarch64_unknown_linux_gnu: aarch64-linux-gnu-g++
+    permissions:
+      contents: read
+      id-token: write
 
     steps:
       - name: Checkout repository
@@ -72,11 +62,6 @@ jobs:
       - name: Setup Rust toolchain
         uses: dsherret/rust-toolchain-file@v1
 
-      - name: Setup mold linker
-        uses: rui314/setup-mold@v1
-        with:
-          make-default: false
-
       - name: Setup cache
         uses: Swatinem/rust-cache@v2
         with:
@@ -95,27 +80,6 @@ jobs:
         uses: fluencelabs/github-actions/cargo-set-dependency@main
         with:
           dependencies: ${{ inputs.cargo-dependencies }}
-
-      - name: Generate snapshot version
-        id: version
-        uses: fluencelabs/github-actions/generate-snapshot-id@main
-
-      - name: Install cargo-edit
-        uses: baptiste0928/cargo-install@v2.2.0
-        with:
-          crate: cargo-edit
-
-      - name: Set nox version
-        run: cargo set-version -p nox ${{ steps.version.outputs.version }}
-
-      - name: Run cargo build
-        run: cargo build ${{ steps.profile.outputs.flags }} -p nox --target ${{ matrix.arch }}-unknown-linux-gnu
-
-      - name: Upload nox binary
-        uses: actions/upload-artifact@v3
-        with:
-          name: nox-${{ matrix.arch }}
-          path: target/${{ matrix.arch }}-unknown-linux-gnu/${{ steps.profile.outputs.profile }}/nox
 
       - name: Import secrets
         uses: hashicorp/vault-action@v2.7.4
@@ -136,7 +100,7 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
         with:
-          platforms: linux/amd64,linux/arm64,linux/arm64/v8
+          platforms: linux/amd64,linux/arm64
 
       - name: Login to DockerHub
         uses: docker/login-action@v3
@@ -151,7 +115,7 @@ jobs:
         with:
           context: .
           push: true
-          platforms: linux/amd64,linux/arm64,linux/arm64/v8
+          platforms: linux/amd64,linux/arm64
           tags: |
             ${{ inputs.image-name }}:${{ steps.version.outputs.branch }}
             ${{ inputs.image-name }}:${{ steps.version.outputs.branch }}_${{ github.run_number }}_${{ github.run_attempt }}

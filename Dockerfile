@@ -3,6 +3,12 @@ ARG IPFS_VERSION=0.23.0
 # ipfs
 FROM ipfs/go-ipfs:v${IPFS_VERSION} as prepare-ipfs
 
+# build image
+FROM rust as builder
+COPY ./ /app
+WORKDIR /app
+RUN cargo build -p nox --release
+
 # base image
 FROM ubuntu:jammy
 
@@ -36,7 +42,7 @@ RUN \
 COPY --from=prepare-ipfs /usr/local/bin/ipfs /usr/bin/ipfs
 
 # copy nox binary
-COPY ./target/release/nox /usr/bin/nox
+COPY --from=builder /app/target/release/nox /usr/bin/nox
 # copy default fluence config
 COPY Config.default.toml /.fluence/v1/Config.toml
 # copy entrypoint script
