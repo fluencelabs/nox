@@ -413,6 +413,7 @@ async fn explore_services_fixed_flaky() {
                 }
                 ClientEvent::NewConnection { .. } => {}
                 ClientEvent::Ping { .. } => {}
+                ClientEvent::Identify { .. } => {}
             }
         }
 
