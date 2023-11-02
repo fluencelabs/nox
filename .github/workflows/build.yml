@@ -93,7 +93,9 @@ jobs:
           dependencies: ${{ inputs.cargo-dependencies }}
 
       - name: Run cargo build
-        run: cargo build ${{ steps.profile.outputs.flags }} -p nox --target ${{ matrix.arch }}-unknown-linux-gnu
+        run: |
+          cargo build ${{ steps.profile.outputs.flags }} -p nox --target ${{ matrix.arch }}-unknown-linux-gnu
+          cp target/${{ matrix.arch }}-unknown-linux-gnu/${{ steps.profile.outputs.profile }}/nox target/release/nox
 
       - name: Upload nox binary
         uses: actions/upload-artifact@v3

@@ -41,53 +41,33 @@ jobs:
     with:
       ref: ${{ github.ref }}
 
-  nox-flavours:
-    name: "nox"
-    needs: nox
-    strategy:
-      fail-fast: false
-      matrix:
-        flavour:
-          - ipfs
-          # - rich
-
-    uses: ./.github/workflows/container.yml
-    with:
-      image-name: "docker.fluence.dev/nox"
-      flavour: "${{ matrix.flavour }}"
-
-  nox-snapshot:
-    name: "nox"
-    needs: nox
-    uses: ./.github/workflows/container.yml
-    with:
-      image-name: "docker.fluence.dev/nox"
-      flavour: "minimal"
+  nox:
+    uses: ./.github/workflows/snapshot.yml
 
   js-client:
     needs:
-      - nox-snapshot
+      - nox
     uses: fluencelabs/js-client/.github/workflows/tests.yml@master
     with:
-      nox-image: "${{ needs.nox-snapshot.outputs.nox-image }}"
+      nox-image: "${{ needs.nox.outputs.nox-image }}"
 
   aqua:
     needs:
-      - nox-snapshot
+      - nox
     uses: fluencelabs/aqua/.github/workflows/tests.yml@main
     with:
-      nox-image: "${{ needs.nox-snapshot.outputs.nox-image }}"
+      nox-image: "${{ needs.nox.outputs.nox-image }}"
 
   registry:
     needs:
-      - nox-snapshot
+      - nox
     uses: fluencelabs/registry/.github/workflows/tests.yml@main
     with:
-      nox-image: "${{ needs.nox-snapshot.outputs.nox-image }}"
+      nox-image: "${{ needs.nox.outputs.nox-image }}"
 
-  flox:
+  cli:
     needs:
-      - nox-snapshot
-    uses: fluencelabs/flox/.github/workflows/tests.yml@main
+      - nox
+    uses: fluencelabs/cli/.github/workflows/tests.yml@main
     with:
-      nox-image: "${{ needs.nox-snapshot.outputs.nox-image }}"
+      nox-image: "${{ needs.nox.outputs.nox-image }}"
