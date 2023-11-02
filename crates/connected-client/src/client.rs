@@ -104,7 +104,8 @@ impl Client {
         protocol_config: ProtocolConfig,
     ) -> Result<Swarm<ClientBehaviour>, Box<dyn Error>> {
         let mut swarm = {
-            let behaviour = ClientBehaviour::new(protocol_config);
+            let public_key = self.key_pair.public();
+            let behaviour = ClientBehaviour::new(protocol_config, public_key.into());
 
             let kp = self.key_pair.clone().into();
             let transport = build_transport(transport, &kp, transport_timeout);
@@ -195,7 +196,10 @@ impl Client {
 
     #[allow(clippy::result_large_err)]
     async fn receive_from_node(
-        msg: SwarmEvent<ClientEvent, Either<StreamUpgradeError<std::io::Error>, void::Void>>,
+        msg: SwarmEvent<
+            ClientEvent,
+            Either<StreamUpgradeError<std::io::Error>, Either<void::Void, std::io::Error>>,
+        >,
         client_outlet: &mpsc::Sender<ClientEvent>,
     ) -> Result<(), SendError<ClientEvent>> {
         if let SwarmEvent::Behaviour(msg) = msg {

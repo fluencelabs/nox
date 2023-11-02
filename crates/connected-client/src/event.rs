@@ -29,4 +29,7 @@ pub enum ClientEvent {
         multiaddr: Multiaddr,
     },
     Ping(<libp2p::ping::Behaviour as ::libp2p::swarm::derive_prelude::NetworkBehaviour>::ToSwarm),
+    Identify(
+        <libp2p::identify::Behaviour as ::libp2p::swarm::derive_prelude::NetworkBehaviour>::ToSwarm,
+    ),
 }

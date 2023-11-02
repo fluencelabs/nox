@@ -11,7 +11,7 @@ test-constants = { workspace = true }
 local-vm = { workspace = true }
 
 fluence-keypair = { workspace = true }
-libp2p = { workspace = true }
+libp2p = { workspace = true, features = ["identify"] }
 libp2p-swarm = { workspace = true }
 tokio = { workspace = true }
 futures = { workspace = true }

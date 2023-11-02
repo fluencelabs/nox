@@ -22,6 +22,7 @@ use std::time::Duration;
 use futures::future::BoxFuture;
 use futures::FutureExt;
 use libp2p::core::Endpoint;
+use libp2p::identity::PublicKey;
 use libp2p::swarm::ToSwarm::GenerateEvent;
 use libp2p::swarm::{
     ConnectionDenied, ConnectionHandler, ConnectionHandlerSelect, ConnectionId, DialError,
@@ -29,6 +30,7 @@ use libp2p::swarm::{
 };
 use libp2p::{
     core::{connection::ConnectedPoint, Multiaddr},
+    identify::{Behaviour as Identify, Config as IdentifyConfig},
     ping::{Behaviour as Ping, Config as PingConfig},
     swarm::{NetworkBehaviour, NotifyHandler, OneShotHandler, PollParameters, ToSwarm},
     PeerId,
@@ -43,17 +45,20 @@ pub struct ClientBehaviour {
     protocol_config: ProtocolConfig,
     events: VecDeque<SwarmEventType>,
     ping: Ping,
+    identify: Identify,
     reconnect: Option<BoxFuture<'static, Vec<Multiaddr>>>,
     waker: Option<Waker>,
 }
 
 impl ClientBehaviour {
-    pub fn new(protocol_config: ProtocolConfig) -> Self {
+    pub fn new(protocol_config: ProtocolConfig, public_key: PublicKey) -> Self {
         let ping = Ping::new(PingConfig::new().with_interval(Duration::from_secs(5)));
+        let identify = Identify::new(IdentifyConfig::new("".to_string(), public_key));
         Self {
             protocol_config,
             events: VecDeque::default(),
             ping,
+            identify,
             reconnect: None,
             waker: None,
         }
@@ -159,7 +164,10 @@ impl ClientBehaviour {
 impl NetworkBehaviour for ClientBehaviour {
     type ConnectionHandler = ConnectionHandlerSelect<
         OneShotHandler<ProtocolConfig, HandlerMessage, HandlerMessage>,
-        <Ping as NetworkBehaviour>::ConnectionHandler,
+        ConnectionHandlerSelect<
+            <Ping as NetworkBehaviour>::ConnectionHandler,
+            <Identify as NetworkBehaviour>::ConnectionHandler,
+        >,
     >;
 
     type ToSwarm = ClientEvent;
@@ -177,11 +185,44 @@ impl NetworkBehaviour for ClientBehaviour {
             local_addr,
             remote_addr,
         )?;
+        let identify_handler: THandler<Identify> =
+            self.identify.handle_established_inbound_connection(
+                connection_id,
+                peer_id,
+                local_addr,
+                remote_addr,
+            )?;
         let oneshot_handler: OneShotHandler<ProtocolConfig, HandlerMessage, HandlerMessage> =
             self.protocol_config.clone().into();
 
-        let result = ConnectionHandler::select(oneshot_handler, ping_handler);
+        let result = ConnectionHandler::select(
+            oneshot_handler,
+            ConnectionHandler::select(ping_handler, identify_handler),
+        );
         Ok(result)
+    }
+
+    fn handle_pending_outbound_connection(
+        &mut self,
+        connection_id: ConnectionId,
+        maybe_peer: Option<PeerId>,
+        addresses: &[Multiaddr],
+        effective_role: Endpoint,
+    ) -> Result<Vec<Multiaddr>, ConnectionDenied> {
+        let mut combined_addresses = Vec::new();
+        combined_addresses.extend(self.ping.handle_pending_outbound_connection(
+            connection_id,
+            maybe_peer,
+            addresses,
+            effective_role,
+        )?);
+        combined_addresses.extend(self.identify.handle_pending_outbound_connection(
+            connection_id,
+            maybe_peer,
+            addresses,
+            effective_role,
+        )?);
+        Ok(combined_addresses)
     }
 
     fn handle_established_outbound_connection(
@@ -197,9 +238,18 @@ impl NetworkBehaviour for ClientBehaviour {
             addr,
             role_override,
         )?;
+        let identify_handler = self.identify.handle_established_outbound_connection(
+            connection_id,
+            peer,
+            addr,
+            role_override,
+        )?;
         let oneshot_handler: OneShotHandler<ProtocolConfig, HandlerMessage, HandlerMessage> =
             self.protocol_config.clone().into();
-        let result = ConnectionHandler::select(oneshot_handler, ping_handler);
+        let result = ConnectionHandler::select(
+            oneshot_handler,
+            ConnectionHandler::select(ping_handler, identify_handler),
+        );
         Ok(result)
     }
 
@@ -251,7 +301,12 @@ impl NetworkBehaviour for ClientBehaviour {
                     sender: peer_id,
                 }))
             }
-            Either::Right(ping) => self.ping.on_connection_handler_event(peer_id, cid, ping),
+            Either::Right(Either::Left(ping)) => {
+                self.ping.on_connection_handler_event(peer_id, cid, ping)
+            }
+            Either::Right(Either::Right(identify)) => self
+                .identify
+                .on_connection_handler_event(peer_id, cid, identify),
             Either::Left(_) => {}
         }
     }
@@ -262,6 +317,8 @@ impl NetworkBehaviour for ClientBehaviour {
         params: &mut impl PollParameters,
     ) -> Poll<SwarmEventType> {
         self.waker = Some(cx.waker().clone());
+
+        let _a = &self.identify;
 
         if let Poll::Ready(GenerateEvent(e)) = self.ping.poll(cx, params) {
             return Poll::Ready(ToSwarm::GenerateEvent(ClientEvent::Ping(e)));
