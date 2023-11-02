@@ -37,12 +37,9 @@ jobs:
         contains(github.event.pull_request.labels.*.name, 'e2e') &&
         !github.event.pull_request.head.repo.fork
       )
-    uses: ./.github/workflows/build.yml
+    uses: ./.github/workflows/snapshot.yml
     with:
       ref: ${{ github.ref }}
-
-  nox:
-    uses: ./.github/workflows/snapshot.yml
 
   js-client:
     needs:
