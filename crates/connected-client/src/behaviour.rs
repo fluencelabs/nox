@@ -49,7 +49,7 @@ pub struct ClientBehaviour {
 
 impl ClientBehaviour {
     pub fn new(protocol_config: ProtocolConfig) -> Self {
-        let ping = Ping::new(PingConfig::new());
+        let ping = Ping::new(PingConfig::new().with_interval(Duration::from_secs(5)));
         Self {
             protocol_config,
             events: VecDeque::default(),
