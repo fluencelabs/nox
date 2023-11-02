@@ -1,0 +1,173 @@
+# # directories for nox persistent storage
+# base_dir = "/.fluence"
+# services_base_dir = "/services"
+# avm_base_dir = "/stepper"
+# spell_base_dir = "/spell"
+# keypairs_base_dir = "/keypairs"
+# # Path to AIR interpreter .wasm is set to specific version by default
+# air_interpreter_path = "./aquamarine_${air_interpreter_wasm::VERSION}.wasm"
+
+no_banner = false
+print_config= false
+
+allowed_binaries = [
+  "/usr/bin/curl",
+  "/usr/bin/ipfs",
+]
+
+aquavm_pool_size = 2
+# # Maximum heap size in bytes available for an interpreter instance.
+# # default is not specified and defined by runtime (1600 pages: 65536*1600 ~ 100 Mb, Wasm page size is 64 Kb)
+# aquavm_max_heap_size = "500 Mb"
+# # Maximum heap size in bytes available for a WASM module.
+# # Checks heap size required by module if specified, default is not specified.
+# module_max_heap_size = "10 Mb"
+# # Default heap size in bytes available for a WASM module unless otherwise specified.
+# # default is not specified and defined by runtime
+# module_default_heap_size = "5 Mb"
+
+particle_queue_buffer = 100
+particle_processor_parallelism = 64
+max_spell_particle_ttl = "120s"
+particle_execution_timeout = "20s"
+
+# # peer id that has a admin priviledged access to node
+# management_peer_id = ""
+
+# add IPs from private subnets to external multiaddress list
+allow_local_addresses = true
+
+# if false will connect to bootstrap nodes
+local = false
+bootstrap_nodes = [
+  "/dns4/0-testnet.fluence.dev/tcp/9000",
+  "/dns4/1-testnet.fluence.dev/tcp/9000",
+  "/dns4/2-testnet.fluence.dev/tcp/9000",
+  "/dns4/3-testnet.fluence.dev/tcp/9000",
+  "/dns4/4-testnet.fluence.dev/tcp/9000",
+  "/dns4/5-testnet.fluence.dev/tcp/9000",
+  "/dns4/6-testnet.fluence.dev/tcp/9000",
+  "/dns4/7-testnet.fluence.dev/tcp/9000",
+  "/dns4/8-testnet.fluence.dev/tcp/9000",
+  "/dns4/9-testnet.fluence.dev/tcp/9000",
+  "/dns4/10-testnet.fluence.dev/tcp/9000",
+]
+
+# # external ip address where nox is accessible
+# # will be used to populate external mulltiaddresses list
+# external_address = ""
+# # a list of external multiaddresses where nox is accessible
+# external_multiaddresses = []
+
+# port where metrics and healtcheck endpoints are
+http_port = 18080
+
+[listen_config]
+listen_ip = "0.0.0.0"
+tcp_port = 7777
+websocket_port = 9999
+
+## ed25519, rsa, secp256k1 private keys available for this node. Generation is available only for ed25519 and secp256k1.
+## Either value or path should be defined. Value is base58 bytes.
+## ed25519 format is set by default
+[root_key_pair]
+# format = "ed25519"
+# value = "..."
+# path = "/.fluence/v1/secret_key.ed25519"
+generate_on_absence = true
+
+[builtins_key_pair]
+# format = "ed25519"
+# value = "..."
+# path = "/.fluence/v1/secret_key.ed25519"
+generate_on_absence = true
+
+[services_envs]
+# # env vars to pass to all (?) services
+# foo = "bar"
+
+[system_services]
+enable = [
+  "aqua-ipfs", # https://github.com/fluencelabs/aqua-ipfs
+  "trust-graph", # https://github.com/fluencelabs/trust-graph
+  "registry", # https://github.com/fluencelabs/registy
+  "decider", # https://github.com/fluencelabs/decider
+]
+
+  [[aqua_ipfs]]
+  ipfs_binary_path = "/usr/bin/ipfs"
+  # IPFS multiaddr advertised to clients (e.g., frontend apps) to use in uploading files (ipfs.put), managing pins (ipfs.pin) etc
+  external_api_multiaddr = "/dns4/ipfs.fluence.dev/tcp/5001"
+  # used by the aqua-ipfs builtin to configure IPFS (bad bad bad)
+  local_api_multiaddr = "/dns4/ipfs.fluence.dev/tcp/5001"
+
+  [[decider]]
+  # at which interval decider spell is executed
+  decider_period_sec = 120
+  # at which interval worker installation spell is executed
+  worker_period_sec = 900
+  # IPFS address to get worker definitions etc
+  worker_ipfs_multiaddr = "/dns4/ipfs.fluence.dev/tcp/5001"
+  # blockchain node RPC endpoint
+  network_api_endpoint = "https://endpoints.omniatech.io/v1/matic/mumbai/public"
+  # network id of the blockchain network, must correspond to RPC URI
+  network_id = 80001
+  # matcher contract address
+  matcher_address = "0x93A2897deDcC5478a9581808F5EC25F4FadbC312"
+  # block number from which to start scanning the chain for Deals
+  start_block = "latest"
+  worker_gas = 210000
+  # # private key of the Provider (Signing) Wallet
+  # wallet_key = ""
+
+  [[connector]]
+  curl_binary_path = "/usr/bin/curl"
+
+  [[registry]]
+  registry_period_sec = 3600
+  expired_period_sec = 86400
+  renew_period_sec = 43200
+  replicate_period_sec = 3600
+
+[log]
+# possible values are 'default' and 'logfmt'
+format = "default"
+
+[tracing]
+# possible values are 'disabled' and 'oltp'
+type = "disabled"
+
+[metrics_config]
+metrics_enabled = true
+# how often send memory metrics to prometheus
+metrics_timer_resolution = "60s"
+max_builtin_metrics_storage_size = 5
+
+[health_config]
+health_check_enabled = true
+
+[transport_config]
+# TCP settings
+transport = "Network"
+# Adds a timeout to the setup and protocol upgrade process for all inbound and outbound connections established through the transport
+socket_timeout = "20s"
+# max_pending_incoming = ""
+# max_pending_outgoing = ""
+# max_established_incoming = ""
+# max_established_outgoing = ""
+max_established_per_peer = 5
+# max_established = ""
+# how long to wait before connection is terminated when idle
+connection_idle_timeout = "10s"
+
+[protocol_config]
+upgrade_timeout = "10s"
+keep_alive_timeout = "10s"
+outbound_substream_timeout = "10s"
+
+[kademlia]
+max_packet_size = 1677721600
+query_timeout = "3s"
+replication_factor = 0
+peer_fail_threshold = 3
+ban_cooldown = "60s"

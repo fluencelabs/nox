@@ -1,6 +1,9 @@
 services:
   nox:
-    build: .
+    build:
+      platforms:
+        - linux/amd64
+        - linux/arm64
 
   aurora:
     image: fluencelabs/chain-rpc:latest
