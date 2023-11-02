@@ -103,6 +103,7 @@ impl Client {
         node: Multiaddr,
         transport: Transport,
         transport_timeout: Duration,
+        idle_connection_timeout: Duration,
         protocol_config: ProtocolConfig,
     ) -> Result<Swarm<FluenceClientBehaviour>, Box<dyn Error>> {
         let mut swarm = {
@@ -115,6 +116,7 @@ impl Client {
                 .with_tokio()
                 .with_other_transport(|_| transport)?
                 .with_behaviour(|_| behaviour)?
+                .with_swarm_config(|cfg| cfg.with_idle_connection_timeout(idle_connection_timeout))
                 .build()
         };
 
@@ -132,8 +134,15 @@ impl Client {
     pub fn connect(
         relay: Multiaddr,
         transport_timeout: Duration,
+        idle_connection_timeout: Duration,
     ) -> Result<(Client, JoinHandle<()>), Box<dyn Error>> {
-        Self::connect_with(relay, Transport::Network, None, transport_timeout)
+        Self::connect_with(
+            relay,
+            Transport::Network,
+            None,
+            transport_timeout,
+            idle_connection_timeout,
+        )
     }
 
     pub fn connect_with(
@@ -141,6 +150,7 @@ impl Client {
         transport: Transport,
         key_pair: Option<KeyPair>,
         transport_timeout: Duration,
+        idle_connection_timeout: Duration,
     ) -> Result<(Client, JoinHandle<()>), Box<dyn Error>> {
         let (client_outlet, client_inlet) = mpsc::channel(128);
         let (relay_outlet, mut relay_inlet) = mpsc::channel(128);
@@ -149,7 +159,13 @@ impl Client {
 
         let protocol_config = ProtocolConfig::new(transport_timeout, transport_timeout);
         let client = Client::new(relay_outlet, client_inlet, stop_outlet, key_pair);
-        let mut swarm = client.dial(relay, transport, transport_timeout, protocol_config)?;
+        let mut swarm = client.dial(
+            relay,
+            transport,
+            transport_timeout,
+            idle_connection_timeout,
+            protocol_config,
+        )?;
         let mut stop_inlet = Some(stop_inlet);
 
         let task = task::Builder::new()

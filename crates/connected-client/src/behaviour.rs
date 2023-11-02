@@ -51,7 +51,11 @@ impl FluenceClientBehaviour {
     pub fn new(protocol_config: ProtocolConfig, public_key: PublicKey) -> Self {
         let client = ClientBehaviour::new(protocol_config);
         let identify = Identify::new(IdentifyConfig::new(PROTOCOL_NAME.into(), public_key));
-        let ping = Ping::new(PingConfig::new());
+        let ping = Ping::new(
+            PingConfig::new()
+                .with_interval(Duration::from_secs(1))
+                .with_timeout(Duration::from_secs(60)),
+        );
         Self {
             client,
             ping,
