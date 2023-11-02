@@ -96,6 +96,18 @@ jobs:
         with:
           dependencies: ${{ inputs.cargo-dependencies }}
 
+      - name: Generate snapshot version
+        id: version
+        uses: fluencelabs/github-actions/generate-snapshot-id@main
+
+      - name: Install cargo-edit
+        uses: baptiste0928/cargo-install@v2.2.0
+        with:
+          crate: cargo-edit
+
+      - name: Set nox version
+        run: cargo set-version -p nox ${{ steps.version.outputs.version }}
+
       - name: Run cargo build
         run: cargo build ${{ steps.profile.outputs.flags }} -p nox --target ${{ matrix.arch }}-unknown-linux-gnu
 
