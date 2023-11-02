@@ -49,7 +49,6 @@ pub struct ClientBehaviour {
 
 impl ClientBehaviour {
     pub fn new(protocol_config: ProtocolConfig) -> Self {
-        #[allow(deprecated)]
         let ping = Ping::new(PingConfig::new());
         Self {
             protocol_config,
@@ -264,8 +263,9 @@ impl NetworkBehaviour for ClientBehaviour {
     ) -> Poll<SwarmEventType> {
         self.waker = Some(cx.waker().clone());
 
-        // just polling it to the end
-        while self.ping.poll(cx, params).is_ready() {}
+        if let Poll::Ready(GenerateEvent(e)) = self.ping.poll(cx, params) {
+            return Poll::Ready(ToSwarm::GenerateEvent(ClientEvent::Ping(e)));
+        }
 
         if let Some(Poll::Ready(addresses)) = self.reconnect.as_mut().map(|r| r.poll_unpin(cx)) {
             self.reconnect = None;

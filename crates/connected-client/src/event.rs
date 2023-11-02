@@ -14,22 +14,19 @@
  * limitations under the License.
  */
 
-use fluence_libp2p::peerid_serializer;
 use libp2p::core::Multiaddr;
 use libp2p::PeerId;
 use particle_protocol::Particle;
-use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug)]
 pub enum ClientEvent {
     Particle {
-        #[serde(with = "peerid_serializer")]
         sender: PeerId,
         particle: Particle,
     },
     NewConnection {
-        #[serde(with = "peerid_serializer")]
         peer_id: PeerId,
         multiaddr: Multiaddr,
     },
+    Ping(<libp2p::ping::Behaviour as ::libp2p::swarm::derive_prelude::NetworkBehaviour>::ToSwarm),
 }
