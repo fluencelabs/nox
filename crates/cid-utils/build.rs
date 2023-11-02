@@ -22,7 +22,7 @@ fn main() {
     let out_dir = Path::new(&out_dir);
 
     let in_dir = PathBuf::from(::std::env::var("CARGO_MANIFEST_DIR").unwrap()).join("src");
-    let unixfs_proto_path = in_dir.join("unixfs.proto"); //PathBuf::from(::std::env::var("CARGO_MANIFEST_DIR").unwrap()).join("src/unixfs.proto");
+    let unixfs_proto_path = in_dir.join("unixfs.proto");
 
     // Re-run this build.rs if the protos dir changes (i.e. a new file is added)
     println!("cargo:rerun-if-changed={}", unixfs_proto_path.to_str().expect("valid .proto path"));
