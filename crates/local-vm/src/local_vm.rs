@@ -247,7 +247,7 @@ pub fn wrap_script(
 }
 
 #[allow(clippy::too_many_arguments)]
-pub fn make_particle(
+pub async fn make_particle(
     peer_id: PeerId,
     service_in: &HashMap<String, JValue>,
     script: String,
@@ -299,6 +299,7 @@ pub fn make_particle(
             let result = host_call(service_in, args);
             call_results.insert(id, result.0);
         }
+        tokio::task::yield_now().await;
     }
 
     tracing::info!(particle_id = id, "Made a particle");
@@ -318,7 +319,7 @@ pub fn make_particle(
     particle
 }
 
-pub fn read_args(
+pub async fn read_args(
     particle: Particle,
     peer_id: PeerId,
     local_vm: &mut AVM<DataStoreError>,
@@ -347,7 +348,6 @@ pub fn read_args(
                 key_pair,
             )
             .expect("execute & make particle");
-
         particle_data = data;
         call_results = <_>::default();
 
@@ -363,5 +363,6 @@ pub fn read_args(
                 return returned;
             }
         }
+        tokio::task::yield_now().await;
     }
 }

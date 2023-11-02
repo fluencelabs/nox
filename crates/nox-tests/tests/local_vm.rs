@@ -26,8 +26,8 @@ use serde_json::json;
 
 use local_vm::{make_particle, make_vm, read_args};
 
-#[test]
-fn make() {
+#[tokio::test]
+async fn make() {
     let keypair_a = KeyPair::generate_ed25519();
     let keypair_b = KeyPair::generate_ed25519();
     let client_a = keypair_a.get_peer_id();
@@ -58,9 +58,11 @@ fn make() {
         false,
         Duration::from_secs(20),
         &keypair_a,
-    );
+    )
+    .await;
 
     let args = read_args(particle, client_b, &mut local_vm_b, &keypair_b)
+        .await
         .expect("read args")
         .expect("read args");
     assert_eq!(data["a"], args[0]);

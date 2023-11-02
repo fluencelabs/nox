@@ -69,14 +69,16 @@ async fn abuse_fold(air: &str) -> Abuse {
 
     println!("elems {}", json!(elems));
 
-    client.send_particle(
-        air,
-        hashmap! {
-            "relay" => json!(client.node.to_string()),
-            "client" => json!(client.peer_id.to_string()),
-            "permutations" => json!(elems),
-        },
-    );
+    client
+        .send_particle(
+            air,
+            hashmap! {
+                "relay" => json!(client.node.to_string()),
+                "client" => json!(client.peer_id.to_string()),
+                "permutations" => json!(elems),
+            },
+        )
+        .await;
 
     client.timeout = Duration::from_secs(1);
 
@@ -286,9 +288,10 @@ async fn fold_par_same_node_stream() {
     client.timeout = Duration::from_secs(200);
     client.particle_ttl = Duration::from_secs(400);
 
-    client.send_particle(
-        format!(
-            r#"
+    client
+        .send_particle(
+            format!(
+                r#"
         (seq
             (seq
                 (null)
@@ -332,16 +335,17 @@ async fn fold_par_same_node_stream() {
             )
         )
         "#,
-            join_stream("result", "relay", "flat_length", "joined_result")
+                join_stream("result", "relay", "flat_length", "joined_result")
+            )
+            .as_str(),
+            hashmap! {
+                "relay" => json!(client.node.to_string()),
+                "client" => json!(client.peer_id.to_string()),
+                "permutations" => json!(permutations),
+                "flat_length" => json!(flat.len())
+            },
         )
-        .as_str(),
-        hashmap! {
-            "relay" => json!(client.node.to_string()),
-            "client" => json!(client.peer_id.to_string()),
-            "permutations" => json!(permutations),
-            "flat_length" => json!(flat.len())
-        },
-    );
+        .await;
 
     let mut args = client
         .receive_args()
@@ -383,8 +387,9 @@ async fn fold_fold_seq_join() {
 
     let flat: Vec<_> = array.iter().flatten().copied().collect();
 
-    client.send_particle(
-        r#"
+    client
+        .send_particle(
+            r#"
     (seq
         (seq
             (fold array chars
@@ -430,12 +435,13 @@ async fn fold_fold_seq_join() {
         )
     )
     "#,
-        hashmap! {
-            "relay" => json!(client.node.to_string()),
-            "array" => json!(array),
-            "flat_length" => json!(flat.len())
-        },
-    );
+            hashmap! {
+                "relay" => json!(client.node.to_string()),
+                "array" => json!(array),
+                "flat_length" => json!(flat.len())
+            },
+        )
+        .await;
 
     let mut args = client.receive_args().await.expect("receive args");
     let can = args.remove(0);
@@ -525,7 +531,7 @@ async fn fold_fold_pairs_seq_join() {
             "array" => json!(array),
             "flat_length" => json!(flat.len())
         },
-    );
+    ).await;
 
     let mut args = client.receive_args().await.expect("receive args");
     let can = args.remove(0);
@@ -548,8 +554,9 @@ async fn fold_seq_join() {
 
     let array: Vec<_> = (1..10).collect();
 
-    client.send_particle(
-        r#"
+    client
+        .send_particle(
+            r#"
     (seq
         (seq
             (fold array e
@@ -576,12 +583,13 @@ async fn fold_seq_join() {
         )
     )
     "#,
-        hashmap! {
-            "relay" => json!(client.node.to_string()),
-            "array" => json!(array),
-            "array_length" => json!(array.len())
-        },
-    );
+            hashmap! {
+                "relay" => json!(client.node.to_string()),
+                "array" => json!(array),
+                "array_length" => json!(array.len())
+            },
+        )
+        .await;
 
     let arg = client.receive_args().await.expect("receive args").remove(0);
     let can: Vec<u32> = serde_json::from_value(arg).unwrap();
@@ -728,7 +736,7 @@ async fn fold_null_seq_same_node_stream() {
             "permutations" => json!(permutations),
             "flat_length" => json!(flat.len())
         },
-    );
+    ).await;
 
     let mut args = client
         .receive_args()
@@ -760,8 +768,9 @@ async fn fold_via() {
         .wrap_err("connect client")
         .unwrap();
 
-    client.send_particle_ext(
-        r#"
+    client
+        .send_particle_ext(
+            r#"
         (xor
          (seq
           (seq
@@ -821,13 +830,14 @@ async fn fold_via() {
          (call %init_peer_id% ("errorHandlingSrv" "error") [%last_error% 3])
         )
         "#,
-        hashmap! {
-            "-relay-" => json!(client.node.to_base58()),
-            "node_id" => json!(client.node.to_base58()),
-            "viaAr" => json!(swarms.iter().map(|s| s.peer_id.to_string()).collect::<Vec<_>>()),
-        },
-        true,
-    );
+            hashmap! {
+                "-relay-" => json!(client.node.to_base58()),
+                "node_id" => json!(client.node.to_base58()),
+                "viaAr" => json!(swarms.iter().map(|s| s.peer_id.to_string()).collect::<Vec<_>>()),
+            },
+            true,
+        )
+        .await;
 
     client.receive().await.unwrap();
 }
@@ -841,8 +851,9 @@ async fn join_empty_stream() {
         .wrap_err("connect client")
         .unwrap();
 
-    client.send_particle(
-        r#"
+    client
+        .send_particle(
+            r#"
         (seq
             (xor
                 (call relay ("op" "noop") [])
@@ -854,11 +865,12 @@ async fn join_empty_stream() {
             )
         )
         "#,
-        hashmap! {
-            "relay" => json!(client.node.to_string()),
-            "nodes" => json!(swarms.iter().map(|s| s.peer_id.to_base58()).collect::<Vec<_>>()),
-        },
-    );
+            hashmap! {
+                "relay" => json!(client.node.to_string()),
+                "nodes" => json!(swarms.iter().map(|s| s.peer_id.to_base58()).collect::<Vec<_>>()),
+            },
+        )
+        .await;
 
     let err = client.receive_args().await.expect_err("receive error");
     assert_eq!(
