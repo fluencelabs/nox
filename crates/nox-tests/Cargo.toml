@@ -5,21 +5,21 @@ edition = "2021"
 publish = false
 
 [dev-dependencies]
-uuid-utils = { path = "../uuid-utils" }
-test-utils = { path = "../test-utils" }
-service-modules = { path = "../service-modules" }
-nox = { path = "../../nox" }
-particle-modules = { path = "../../particle-modules" }
-particle-execution = { path = "../../particle-execution" }
-particle-args = { path = "../particle-args" }
-created-swarm = { path = "../created-swarm" }
-connected-client = { path = "../connected-client" }
-test-constants = { path = "../test-constants" }
-toy-vms = { path = "../toy-vms" }
-now-millis = { path = "../now-millis" }
-local-vm = { path = "../local-vm" }
-control-macro = { path = "../control-macro" }
-json-utils = { path = "../json-utils" }
+uuid-utils = { workspace = true }
+test-utils = { workspace = true }
+service-modules = { workspace = true }
+nox = { workspace = true }
+particle-modules = { workspace = true }
+particle-execution = { workspace = true }
+particle-args = { workspace = true }
+created-swarm = { workspace = true }
+connected-client = { workspace = true }
+test-constants = { workspace = true }
+toy-vms = { workspace = true }
+now-millis = { workspace = true }
+local-vm = { workspace = true }
+control-macro = { workspace = true }
+json-utils = { workspace = true }
 system-services = { workspace = true }
 subnet-resolver = { workspace = true }
 fs-utils = { workspace = true }

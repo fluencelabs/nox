@@ -15,6 +15,8 @@
  */
 
 mod hash;
-mod unixfs;
+
 
 pub use hash::Hash;
+
+include!(concat!(env!("OUT_DIR"), "/mod.rs"));

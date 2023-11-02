@@ -1,5 +1,5 @@
 [package]
-name = "server-config"
+name = "fluence-server-config"
 version = "0.2.0"
 authors = ["Fluence Labs"]
 edition = "2021"

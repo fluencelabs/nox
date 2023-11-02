@@ -1,5 +1,5 @@
 [package]
-name = "system-services"
+name = "fluence-system-services"
 version = "0.1.0"
 edition = "2021"
 

@@ -1,5 +1,5 @@
 [package]
-name = "connected-client"
+name = "fluence-connected-client"
 version = "0.1.0"
 authors = ["Fluence Labs"]
 edition = "2021"

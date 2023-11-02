@@ -15,28 +15,23 @@
  */
 
 use pb_rs::{types::FileDescriptor, ConfigBuilder};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 fn main() {
-    let unixfs_proto_path = Path::new("src/unixfs.proto");
-    // Re-run this build.rs if the proto changes
-    println!(
-        "cargo:rerun-if-changed={}",
-        unixfs_proto_path.to_str().expect("valid .proto path")
-    );
+    let out_dir = std::env::var("OUT_DIR").unwrap();
+    let out_dir = Path::new(&out_dir);
 
-    let config_builder = ConfigBuilder::new(
-        &[unixfs_proto_path],
-        None,
-        None,
-        &[unixfs_proto_path.parent().unwrap()],
-    )
-    .expect("create config builder for rs generation");
+    let in_dir = PathBuf::from(::std::env::var("CARGO_MANIFEST_DIR").unwrap()).join("src");
+    let unixfs_proto_path = in_dir.join("unixfs.proto"); //PathBuf::from(::std::env::var("CARGO_MANIFEST_DIR").unwrap()).join("src/unixfs.proto");
 
-    // generate rs from proto
-    FileDescriptor::run(&config_builder.single_module(true).build())
-        .expect("generate rs from proto");
+    // Re-run this build.rs if the protos dir changes (i.e. a new file is added)
+    println!("cargo:rerun-if-changed={}", unixfs_proto_path.to_str().expect("valid .proto path"));
 
-    // pb_rs generates mod.rs, but we don't need it and there is no way to turn it off
-    std::fs::remove_file("src/mod.rs").unwrap();
+    // Delete all old generated files before re-generating new ones
+    if out_dir.exists() {
+        std::fs::remove_dir_all(&out_dir).unwrap();
+    }
+    std::fs::DirBuilder::new().create(&out_dir).unwrap();
+    let config_builder = ConfigBuilder::new(&[unixfs_proto_path], None, Some(&out_dir.to_path_buf()), &[in_dir]).unwrap();
+    FileDescriptor::run(&config_builder.build()).unwrap()
 }

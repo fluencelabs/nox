@@ -1,5 +1,5 @@
 [package]
-name = "cid-utils"
+name = "fluence-cid-utils"
 version = "0.1.0"
 edition = "2021"
 

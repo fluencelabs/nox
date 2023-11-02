@@ -1,5 +1,5 @@
 [package]
-name = "air-interpreter-fs"
+name = "fluence-air-interpreter-fs"
 version = "0.1.0"
 authors = ["Fluence Labs"]
 edition = "2021"

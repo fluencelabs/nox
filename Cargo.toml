@@ -3,7 +3,6 @@ resolver = "2"
 members = [
     "crates/libp2p",
     "crates/control-macro",
-    "crates/waiting-queues",
     "crates/local-vm",
     "crates/uuid-utils",
     "crates/test-utils",
@@ -49,47 +48,46 @@ exclude = [
 ]
 
 [workspace.dependencies]
-fluence-libp2p = { path = "crates/libp2p" }
-control-macro = { path = "crates/control-macro" }
-waiting-queues = { path = "crates/waiting-queues" }
-local-vm = { path = "crates/local-vm" }
-uuid-utils = { path = "crates/uuid-utils" }
-test-utils = { path = "crates/test-utils" }
-fs-utils = { path = "crates/fs-utils" }
-log-utils = { path = "crates/log-utils" }
-config-utils = { path = "crates/config-utils" }
-service-modules = { path = "crates/service-modules" }
-ivalue-utils = { path = "crates/ivalue-utils" }
-particle-args = { path = "crates/particle-args" }
-json-utils = { path = "crates/json-utils" }
-server-config = { path = "crates/server-config" }
-kademlia = { path = "crates/kademlia" }
-async-unlock = { path = "crates/async-unlock" }
-now-millis = { path = "crates/now-millis" }
-toml-utils = { path = "crates/toml-utils" }
-air-interpreter-fs = { path = "crates/air-interpreter-fs" }
-created-swarm = { path = "crates/created-swarm" }
-toy-vms = { path = "crates/toy-vms" }
-connected-client = { path = "crates/connected-client" }
-test-constants = { path = "crates/test-constants" }
-peer-metrics = { path = "crates/peer-metrics" }
-spell-event-bus = { path = "crates/spell-event-bus" }
-spell-service-api = { path = "crates/spell-service-api" }
-key-manager = { path = "crates/key-manager" }
-cid-utils = { path = "crates/cid-utils" }
-sorcerer = { path = "sorcerer" }
-nox = { path = "nox" }
-aquamarine = { path = "aquamarine" }
-particle-protocol = { path = "particle-protocol" }
-particle-services = { path = "particle-services" }
-particle-builtins = { path = "particle-builtins" }
-particle-modules = { path = "particle-modules" }
-connection-pool = { path = "connection-pool" }
-spell-storage = { path = "spell-storage" }
-particle-execution = { path = "particle-execution" }
-system-services = { path = "crates/system-services" }
-health = { path = "crates/health" }
-subnet-resolver = { path = "crates/subnet-resolver" }
+fluence-libp2p     = { path = "crates/libp2p",             version = "0.2.0", publish = false }
+nox                = { path = "nox",                       package = "fluence-nox",                version = "0.16.0", publish = false }
+created-swarm      = { path = "crates/created-swarm",      package = "fluence-created-swarm",      version = "0.1.0", publish = true }
+log-utils          = { path = "crates/log-utils",          package = "fluence-log-utils",          version = "0.1.0", publish = true }
+connected-client   = { path = "crates/connected-client",   package = "fluence-connected-client",   version = "0.1.0", publish = true }
+control-macro      = { path = "crates/control-macro",      package = "fluence-control-macro",      version = "0.1.0", publish = false }
+local-vm           = { path = "crates/local-vm",           package = "fluence-local-vm",           version = "0.1.0", publish = false }
+uuid-utils         = { path = "crates/uuid-utils",         package = "fluence-uuid-utils",         version = "0.1.0", publish = false }
+test-utils         = { path = "crates/test-utils",         package = "fluence-test-utils",         version = "0.3.0", publish = false }
+fs-utils           = { path = "crates/fs-utils",           package = "fluence-fs-utils",           version = "0.1.0", publish = false }
+config-utils       = { path = "crates/config-utils",       package = "fluence-config-utils",       version = "0.2.0", publish = false }
+service-modules    = { path = "crates/service-modules",    package = "fluence-service-modules",    version = "0.1.0", publish = false }
+ivalue-utils       = { path = "crates/ivalue-utils",       package = "fluence-ivalue-utils",       version = "0.1.0", publish = false }
+particle-args      = { path = "crates/particle-args",      package = "fluence-particle-args",      version = "0.1.0", publish = false }
+json-utils         = { path = "crates/json-utils",         package = "fluence-json-utils",         version = "0.0.2", publish = false }
+server-config      = { path = "crates/server-config",      package = "fluence-server-config",      version = "0.2.0", publish = false }
+kademlia           = { path = "crates/kademlia",           package = "fluence-kademlia",           version = "0.1.0", publish = false }
+async-unlock       = { path = "crates/async-unlock",       package = "fluence-async-unlock",       version = "0.1.0", publish = false }
+now-millis         = { path = "crates/now-millis",         package = "fluence-now-millis",         version = "0.1.0", publish = false }
+toml-utils         = { path = "crates/toml-utils",         package = "fluence-toml-utils",         version = "0.0.1", publish = false }
+air-interpreter-fs = { path = "crates/air-interpreter-fs", package = "fluence-air-interpreter-fs", version = "0.1.0", publish = false }
+toy-vms            = { path = "crates/toy-vms",            package = "fluence-toy-vms",            version = "0.1.0", publish = false }
+test-constants     = { path = "crates/test-constants",     package = "fluence-test-constants",     version = "0.1.0", publish = false }
+peer-metrics       = { path = "crates/peer-metrics",       package = "fluence-peer-metrics",       version = "0.1.0", publish = false }
+spell-event-bus    = { path = "crates/spell-event-bus",    package = "fluence-spell-event-bus",    version = "0.1.0", publish = false }
+spell-service-api  = { path = "crates/spell-service-api",  package = "fluence-spell-service-api",  version = "0.1.0", publish = false }
+key-manager        = { path = "crates/key-manager",        package = "fluence-key-manager",        version = "0.1.0", publish = false }
+cid-utils          = { path = "crates/cid-utils",          package = "fluence-cid-utils",          version = "0.1.0", publish = false }
+sorcerer           = { path = "sorcerer",                  package = "fluence-sorcerer",           version = "0.1.0", publish = false }
+aquamarine         = { path = "aquamarine",                package = "fluence-aquamarine",         version = "0.2.0", publish = false }
+particle-protocol  = { path = "particle-protocol",         package = "fluence-particle-protocol",  version = "0.3.0", publish = false }
+particle-services  = { path = "particle-services",         package = "fluence-particle-services",  version = "0.1.0", publish = false }
+particle-builtins  = { path = "particle-builtins",         package = "fluence-particle-builtins",  version = "0.2.0", publish = false }
+particle-modules   = { path = "particle-modules",          package = "fluence-particle-modules",   version = "0.1.0", publish = false }
+connection-pool    = { path = "connection-pool",           package = "fluence-connection-pool",    version = "0.1.0", publish = false }
+spell-storage      = { path = "spell-storage",             package = "fluence-spell-storage",      version = "0.1.0", publish = false }
+particle-execution = { path = "particle-execution",        package = "fluence-particle-execution", version = "0.1.0", publish = false }
+system-services    = { path = "crates/system-services",    package = "fluence-system-services",    version = "0.1.0", publish = false }
+health             = { path = "crates/health",             package = "fluence-health",             version = "0.1.0", publish = false }
+subnet-resolver    = { path = "crates/subnet-resolver",    package = "fluence-subnet-resolver",    version = "0.1.0", publish = false }
 
 # spell
 fluence-spell-dtos = "=0.5.26"

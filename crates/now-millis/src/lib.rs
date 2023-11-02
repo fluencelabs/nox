@@ -5,6 +5,7 @@ pub fn now() -> Duration {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .expect("system time before Unix epoch")
+
 }
 
 /// Returns UNIX timestamp in milliseconds

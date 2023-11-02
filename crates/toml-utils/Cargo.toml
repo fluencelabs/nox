@@ -1,5 +1,5 @@
 [package]
-name = "toml-utils"
+name = "fluence-toml-utils"
 version = "0.0.1"
 authors = ["Fluence Labs"]
 edition = "2021"

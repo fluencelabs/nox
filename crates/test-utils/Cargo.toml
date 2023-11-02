@@ -1,5 +1,5 @@
 [package]
-name = "test-utils"
+name = "fluence-test-utils"
 version = "0.3.0"
 authors = ["Fluence Labs"]
 edition = "2021"

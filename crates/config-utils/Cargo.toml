@@ -1,8 +1,8 @@
 [package]
-name = "config-utils"
+name = "fluence-config-utils"
 version = "0.2.0"
 authors = ["Fluence Labs"]
 edition = "2021"
 
 [dependencies]
-libp2p-identity = { workspace = true, features = ["ed25519"] }
+libp2p-identity = { workspace = true, features = ["ed25519", "peerid"] }

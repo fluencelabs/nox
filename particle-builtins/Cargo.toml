@@ -1,5 +1,5 @@
 [package]
-name = "particle-builtins"
+name = "fluence-particle-builtins"
 version = "0.2.0"
 authors = ["Fluence Labs"]
 edition = "2021"

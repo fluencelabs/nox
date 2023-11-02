@@ -1,5 +1,5 @@
 [package]
-name = "created-swarm"
+name = "fluence-created-swarm"
 version = "0.1.0"
 authors = ["Fluence Labs"]
 edition = "2021"

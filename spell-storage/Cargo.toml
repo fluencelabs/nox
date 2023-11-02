@@ -1,5 +1,5 @@
 [package]
-name = "spell-storage"
+name = "fluence-spell-storage"
 version = "0.1.0"
 authors = ["Fluence Labs"]
 edition = "2021"

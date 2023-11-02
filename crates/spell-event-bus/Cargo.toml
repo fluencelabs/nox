@@ -1,5 +1,5 @@
 [package]
-name = "spell-event-bus"
+name = "fluence-spell-event-bus"
 version = "0.1.0"
 authors = ["Fluence Labs"]
 edition = "2021"

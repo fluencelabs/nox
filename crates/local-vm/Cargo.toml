@@ -1,5 +1,5 @@
 [package]
-name = "local-vm"
+name = "fluence-local-vm"
 version = "0.1.0"
 authors = ["Fluence Labs"]
 edition = "2021"
