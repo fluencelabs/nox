@@ -1,17 +1,11 @@
-networks:
-  fluence:
-    driver: bridge
-    ipam:
-      config:
-        - subnet: 10.50.10.0/24
-
 services:
+  nox:
+    build: .
+
   aurora:
-    image: docker.fluence.dev/deal-aurora:0.2.4
+    image: fluencelabs/chain-rpc:latest
     ports:
       - 8545:8545
-    networks:
-      fluence:
 
   ipfs:
     image: ipfs/go-ipfs
@@ -20,8 +14,3 @@ services:
       - 4001:4001
     environment:
       IPFS_PROFILE: server
-    volumes:
-      - ./ipfs/:/container-init.d/
-    networks:
-      fluence:
-        ipv4_address: 10.50.10.100
