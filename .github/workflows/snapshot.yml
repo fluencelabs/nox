@@ -81,6 +81,10 @@ jobs:
         with:
           dependencies: ${{ inputs.cargo-dependencies }}
 
+      - name: Generate snapshot version
+        id: version
+        uses: fluencelabs/github-actions/generate-snapshot-id@main
+
       - name: Import secrets
         uses: hashicorp/vault-action@v2.7.4
         with:
