@@ -300,9 +300,9 @@ impl Collector for TokioCollector {
                         Cow::Owned(worker_id.to_string()),
                     )],
                 )),
-                MaybeOwned::Owned(Box::new(ConstCounter::new(
+                MaybeOwned::Owned(Box::new(ConstGauge::new(
                     self.metrics
-                        .worker_local_queue_depth(worker_id) as u64
+                        .worker_local_queue_depth(worker_id) as i64
                 ))),
             ));
             result.push((
