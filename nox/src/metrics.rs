@@ -258,7 +258,7 @@ impl Collector for TokioCollector {
             ));
             result.push((
                 Cow::Owned(Descriptor::new(
-                    "worker_total_busy_duration_msec",
+                    "worker_busy_duration_msec",
                     "Returns the amount of time the given worker thread has been busy",
                     None,
                     Some(&PREFIX),
