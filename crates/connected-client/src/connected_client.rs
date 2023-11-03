@@ -257,7 +257,6 @@ impl ConnectedClient {
     }
 
     async fn raw_receive(&mut self) -> Result<Particle> {
-        log::info!("raw_receive");
         let tout = self.timeout();
         let result = timeout(tout, async {
             loop {
