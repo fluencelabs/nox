@@ -106,7 +106,6 @@ static BLOCKING_QUEUE_DEPTH_DESCRIPTOR: Lazy<Descriptor> = Lazy::new(|| {
 const WORKER_LABEL: &str = "worker";
 
 struct HistoData {
-    num_buckets: usize,
     bucket_ranges: Vec<Range<Duration>>,
 }
 type Result<'a> = (Cow<'a, Descriptor>, MaybeOwned<'a, Box<dyn LocalMetric>>);
@@ -118,10 +117,7 @@ impl Collector for TokioCollector {
             let bucket_ranges: Vec<Range<Duration>> = (0..num_buckets)
                 .map(|index| self.metrics.poll_count_histogram_bucket_range(index))
                 .collect();
-            Some(HistoData {
-                num_buckets,
-                bucket_ranges,
-            })
+            Some(HistoData { bucket_ranges })
         } else {
             None
         };
@@ -342,13 +338,13 @@ impl Collector for TokioCollector {
                         .dropping_back(1)
                         .map(|range| range.end.as_nanos() as f64),
                 );
-                for bucket_id in 0..data.num_buckets {
+                for (bucket_index, bucket_range) in data.bucket_ranges.iter().enumerate() {
                     let count = self
                         .metrics
-                        .poll_count_histogram_bucket_count(worker_id, bucket_id);
-                    let value = data.bucket_ranges.get(bucket_id).unwrap().start.as_nanos();
+                        .poll_count_histogram_bucket_count(worker_id, bucket_index);
+                    let value = bucket_range.start.as_nanos();
                     for _ in 0..count {
-                        histogram.observe(value as f64)
+                        histogram.observe((value + 1) as f64)
                     }
                 }
 
