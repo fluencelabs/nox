@@ -29,7 +29,7 @@ static PREFIX: Lazy<Prefix> = Lazy::new(|| Prefix::from("tokio".to_string()));
 
 static NUM_WORKERS_DESCRIPTOR: Lazy<Descriptor> = Lazy::new(|| {
     Descriptor::new(
-        "workers_count",
+        "workers",
         "The number of worker threads used by the runtime",
         None,
         Some(&PREFIX),
@@ -39,7 +39,7 @@ static NUM_WORKERS_DESCRIPTOR: Lazy<Descriptor> = Lazy::new(|| {
 
 static ACTIVE_TASKS_DESCRIPTOR: Lazy<Descriptor> = Lazy::new(|| {
     Descriptor::new(
-        "active_tasks_count",
+        "active_tasks",
         "The number of active tasks in the runtime",
         None,
         Some(&PREFIX),
@@ -67,7 +67,7 @@ static NUM_IDLE_BLOCKING_THREADS_DESCRIPTOR: Lazy<Descriptor> = Lazy::new(|| {
 });
 static REMOTE_SCHEDULE_DESCRIPTOR: Lazy<Descriptor> = Lazy::new(|| {
     Descriptor::new(
-        "remote_schedule_count",
+        "remote_schedule",
         "Returns the number of tasks scheduled from outside of the runtime",
         None,
         Some(&PREFIX),
@@ -127,7 +127,7 @@ impl Collector for TokioCollector {
         };
 
         let mut result: Vec<Result<'a>> =
-            Vec::with_capacity(9 + workers * (10 + histo_data.as_ref().map_or(0, |_| 1))); //We preallocate a vector to reduce growing
+            Vec::with_capacity(8 + workers * (10 + histo_data.as_ref().map_or(0, |_| 1))); //We preallocate a vector to reduce growing
 
         result.push((
             Cow::Borrowed(&*NUM_WORKERS_DESCRIPTOR),
@@ -151,12 +151,6 @@ impl Collector for TokioCollector {
             Cow::Borrowed(&*NUM_IDLE_BLOCKING_THREADS_DESCRIPTOR),
             MaybeOwned::Owned(Box::new(ConstGauge::new(
                 self.metrics.num_idle_blocking_threads() as i64,
-            ))),
-        ));
-        result.push((
-            Cow::Borrowed(&*REMOTE_SCHEDULE_DESCRIPTOR),
-            MaybeOwned::Owned(Box::new(ConstCounter::new(
-                self.metrics.remote_schedule_count(),
             ))),
         ));
         result.push((
@@ -189,7 +183,7 @@ impl Collector for TokioCollector {
         for worker_id in 0..workers {
             result.push((
                 Cow::Owned(Descriptor::new(
-                    "worker_park_count",
+                    "worker_park",
                     "Returns the total number of times the given worker thread has parked",
                     None,
                     Some(&PREFIX),
@@ -204,7 +198,7 @@ impl Collector for TokioCollector {
             ));
             result.push((
                 Cow::Owned(Descriptor::new(
-                    "worker_noop_count",
+                    "worker_noop",
                     "Returns the number of times the given worker thread unparked but performed no work before parking again",
                     None,
                     Some(&PREFIX),
@@ -219,7 +213,7 @@ impl Collector for TokioCollector {
             ));
             result.push((
                 Cow::Owned(Descriptor::new(
-                    "worker_steal_count",
+                    "worker_steal",
                     "Returns the number of tasks the given worker thread stole from another worker thread",
                     None,
                     Some(&PREFIX),
@@ -249,7 +243,7 @@ impl Collector for TokioCollector {
             ));
             result.push((
                 Cow::Owned(Descriptor::new(
-                    "worker_poll_count",
+                    "worker_poll",
                     "Returns the number of tasks the given worker thread has polled",
                     None,
                     Some(&PREFIX),
@@ -281,7 +275,7 @@ impl Collector for TokioCollector {
             ));
             result.push((
                 Cow::Owned(Descriptor::new(
-                    "worker_local_schedule_count",
+                    "worker_local_schedule",
                     "Returns the number of tasks scheduled from **within** the runtime on the given worker's local queue",
                     None,
                     Some(&PREFIX),
@@ -313,7 +307,7 @@ impl Collector for TokioCollector {
             ));
             result.push((
                 Cow::Owned(Descriptor::new(
-                    "worker_overflow_count",
+                    "worker_overflow",
                     "Returns the number of times the given worker thread saturated its local queue",
                     None,
                     Some(&PREFIX),
