@@ -47,6 +47,7 @@ jobs:
     uses: ./.github/workflows/container.yml
     with:
       image-name: "docker.fluence.dev/nox"
+      ref: ${{ github.ref }}
 
   js-client:
     needs:

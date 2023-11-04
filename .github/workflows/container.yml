@@ -27,7 +27,7 @@ on:
 
 jobs:
   publish:
-    name: "Publish ${{ inputs.flavour }}"
+    name: "Publish snapshot"
     runs-on: builder
     timeout-minutes: 60
 
