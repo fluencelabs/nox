@@ -42,7 +42,7 @@ aqua-ipfs:
   local_api_multiaddr = "/dns4/ipfs.fluence.dev/tcp/5001"
 ```
 
-## [trust-graph](https://github.com/fluencelabs/trust-graph)
+### [trust-graph](https://github.com/fluencelabs/trust-graph)
 
 It can be used to create a trusted network, to manage service permissions with
 TLS certificates and other security related things.
@@ -60,7 +60,7 @@ Comprehensive documentation on everything related to Fluence can be found
 
 ## Support
 
-Please, file an [issue](https://github.com/fluencelabs/nox-distro/issues) if you
+Please, file an [issue](https://github.com/fluencelabs/nox/issues) if you
 find a bug. You can also contact us at
 [Discord](https://discord.com/invite/5qSnPZKh7u) or
 [Telegram](https://t.me/fluence_project). We will do our best to resolve the
@@ -70,12 +70,12 @@ issue ASAP.
 
 Any interested person is welcome to contribute to the project. Please, make sure
 you read and follow some basic
-[rules](https://github.com/fluencelabs/nox-distro/tree/master/CONTRIBUTING.md).
+[rules](https://github.com/fluencelabs/nox/tree/master/CONTRIBUTING.md).
 The Contributor License Agreement can be found
-[here](https://github.com/fluencelabs/nox-distro/tree/master/FluenceCLA).
+[here](https://github.com/fluencelabs/nox/tree/master/FluenceCLA).
 
 ## License
 
 All software code is copyright (c) Fluence Labs, Inc. under the
-[Apache-2.0](https://github.com/fluencelabs/nox-distro/tree/master/LICENSE)
+[Apache-2.0](https://github.com/fluencelabs/nox/tree/master/LICENSE)
 license.

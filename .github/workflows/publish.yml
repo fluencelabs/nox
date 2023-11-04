@@ -99,8 +99,8 @@ jobs:
           push: true
           platforms: linux/amd64,linux/arm64
           tags: |
-            ${{ inputs.image }}:unstable
-            ${{ inputs.image }}:${{ inputs.version }}
+            fluencelabs/nox:unstable
+            fluencelabs/nox:${{ inputs.version }}
           labels: |
             org.opencontainers.image.version=${{ inputs.version }}
             org.opencontainers.image.created=${{ env.BUILD_DATE }}
