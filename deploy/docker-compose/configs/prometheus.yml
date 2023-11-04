@@ -1,0 +1,22 @@
+global:
+  scrape_interval: "15s"
+
+scrape_configs:
+  - job_name: "nox"
+    scrape_interval: "15s"
+    static_configs:
+      - targets:
+          - "peer-1:18080"
+        labels:
+          instance: "peer-1"
+          env: "demo"
+      - targets:
+          - "peer-2:18080"
+        labels:
+          instance: "peer-2"
+          env: "demo"
+      - targets:
+          - "peer-3:18080"
+        labels:
+          instance: "peer-3"
+          env: "demo"

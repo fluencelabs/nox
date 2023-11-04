@@ -37,34 +37,41 @@ jobs:
         contains(github.event.pull_request.labels.*.name, 'e2e') &&
         !github.event.pull_request.head.repo.fork
       )
-    uses: ./.github/workflows/snapshot.yml
+    uses: ./.github/workflows/build.yml
     with:
       ref: ${{ github.ref }}
 
+  nox-snapshot:
+    name: "nox"
+    needs: nox
+    uses: ./.github/workflows/container.yml
+    with:
+      image-name: "docker.fluence.dev/nox"
+
   js-client:
     needs:
-      - nox
+      - nox-snapshot
     uses: fluencelabs/js-client/.github/workflows/tests.yml@master
     with:
-      nox-image: "${{ needs.nox.outputs.nox-image }}"
+      nox-image: "${{ needs.nox-snapshot.outputs.nox-image }}"
 
   aqua:
     needs:
-      - nox
+      - nox-snapshot
     uses: fluencelabs/aqua/.github/workflows/tests.yml@main
     with:
-      nox-image: "${{ needs.nox.outputs.nox-image }}"
+      nox-image: "${{ needs.nox-snapshot.outputs.nox-image }}"
 
   registry:
     needs:
-      - nox
+      - nox-snapshot
     uses: fluencelabs/registry/.github/workflows/tests.yml@main
     with:
-      nox-image: "${{ needs.nox.outputs.nox-image }}"
+      nox-image: "${{ needs.nox-snapshot.outputs.nox-image }}"
 
   cli:
     needs:
-      - nox
+      - nox-snapshot
     uses: fluencelabs/cli/.github/workflows/tests.yml@main
     with:
-      nox-image: "${{ needs.nox.outputs.nox-image }}"
+      nox-image: "${{ needs.nox-snapshot.outputs.nox-image }}"

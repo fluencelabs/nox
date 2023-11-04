@@ -1,0 +1,26 @@
+positions:
+  filename: "/data/positions.yml"
+
+clients:
+  - url: "http://loki:3100/loki/api/v1/push"
+
+scrape_configs:
+  - job_name: "nox"
+    docker_sd_configs:
+      - host: unix:///var/run/docker.sock
+        filters:
+          - name: label
+            values: ["scrape=true"]
+    pipeline_stages:
+      - multiline:
+          firstline: '^(?P<time>\S+)\s+(?P<level>\S+)\s+\S+'
+      - regex:
+          expression: '^(?P<time>\S+)\s+(?P<level>\S+)\s+\S+.*'
+      - timestamp:
+          source: time
+          format: "RFC3339Nano"
+    relabel_configs:
+      - source_labels: ["__meta_docker_container_label_name"]
+        target_label: "instance"
+      - replacement: "demo"
+        target_label: env

@@ -3,20 +3,15 @@ ARG IPFS_VERSION=0.23.0
 # ipfs
 FROM ipfs/go-ipfs:v${IPFS_VERSION} as prepare-ipfs
 
-# build image
-FROM rust as builder
-COPY ./ /app
-WORKDIR /app
-RUN cargo build -p nox --release
-
 # base image
 FROM ubuntu:jammy
 
+ARG TARGETARCH
+
 # https://github.com/opencontainers/image-spec/blob/main/annotations.md#pre-defined-annotation-keys
-LABEL org.opencontainers.image.base.name="ghcr.io/linuxserver/baseimage-ubuntu:jammy"
+LABEL org.opencontainers.image.base.name="ubuntu:jammy"
 LABEL org.opencontainers.image.url="https://github.com/fluencelabs/nox"
 LABEL org.opencontainers.image.vendor="fluencelabs"
-LABEL maintainer="fluencelabs"
 LABEL org.opencontainers.image.authors="fluencelabs"
 LABEL org.opencontainers.image.title="Nox"
 LABEL org.opencontainers.image.description="Rust implementation of the Fluence network peer"
@@ -42,7 +37,7 @@ RUN \
 COPY --from=prepare-ipfs /usr/local/bin/ipfs /usr/bin/ipfs
 
 # copy nox binary
-COPY --from=builder /app/target/release/nox /usr/bin/nox
+COPY ./binaries/nox-${TARGETARCH}/nox /usr/bin/nox
 # copy default fluence config
 COPY Config.default.toml /.fluence/v1/Config.toml
 # copy entrypoint script

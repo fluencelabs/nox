@@ -11,22 +11,14 @@ on:
         type: string
         description: "nox version"
         required: true
-      update-distro:
-        type: string
-        description: "whether to update nox-distro"
-        required: true
-    secrets:
-      PERSONAL_TOKEN:
-        description: "A token passed from the caller workflow"
-        required: true
 
 jobs:
   build:
     uses: ./.github/workflows/build.yml
     with:
-      ref: ${{ github.ref }}
+      ref: ${{ inputs.tag }}
 
-  upload:
+  push:
     runs-on: ubuntu-latest
     timeout-minutes: 60
 
@@ -36,15 +28,33 @@ jobs:
       contents: write
       id-token: write
 
-    outputs:
-      sha256_x86_64: ${{ steps.sha.outputs.sha256_x86_64 }}
-      sha256_aarch64: ${{ steps.sha.outputs.sha256_aarch64 }}
-
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          repository: fluencelabs/nox
+          ref: ${{ inputs.tag }}
+
+      - name: Import secrets
+        uses: hashicorp/vault-action@v2.4.3
+        with:
+          url: https://vault.fluence.dev
+          path: jwt/github
+          role: ci
+          method: jwt
+          jwtGithubAudience: "https://github.com/fluencelabs"
+          jwtTtl: 300
+          secrets: |
+            kv/hub.docker.com/fluencebot username | DOCKER_USERNAME ;
+            kv/hub.docker.com/fluencebot password | DOCKER_PASSWORD
+
       - name: Download nox binaries
         uses: actions/download-artifact@v3
         with:
           path: binaries
+
+      - name: Set build date
+        run: echo "BUILD_DATE=$(date '+%Y-%m-%dT%H:%M:%S%:z')" >> $GITHUB_ENV
 
       - name: Calculate SHA256
         id: sha
@@ -67,29 +77,42 @@ jobs:
             ./nox_SHA256_SUMS
           tag_name: ${{ inputs.tag }}
 
-  distro:
-    if: inputs.update-distro == 'true'
-    needs: upload
-    # uses: fluencelabs/nox-distro/.github/workflows/update_fluence.yml@main
-    # secrets:
-    #   token: ${{ secrets.PERSONAL_TOKEN }}
-    # with:
-    #   version: "${{ inputs.version }}"
-    runs-on: ubuntu-latest
-    steps:
-      - name: Dump fluence.json
-        run: |
-          cat <<EOH
-            {
-              "x86_64": {
-                "version": "${{ inputs.version }}",
-                "url": "https://github.com/fluencelabs/nox/releases/download/${{ inputs.tag }}/nox-x86_64",
-                "sha256": "${{ needs.upload.outputs.sha256_x86_64 }}"
-              },
-              "aarch64": {
-                "version": "${{ inputs.version }}",
-                "url": "https://github.com/fluencelabs/nox/releases/download/${{ inputs.tag }}/nox-aarch64",
-                "sha256": "${{ needs.upload.outputs.sha256_aarch64 }}"
-              }
-            }
-          EOH
+      - name: Login to DockerHub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ env.DOCKER_USERNAME }}
+          password: ${{ env.DOCKER_PASSWORD }}
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        with:
+          platforms: linux/amd64,linux/arm64
+
+      - name: Build and push container
+        id: docker
+        uses: docker/build-push-action@v3
+        with:
+          context: .
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: |
+            ${{ inputs.image }}:unstable
+            ${{ inputs.image }}:${{ inputs.version }}
+          labels: |
+            org.opencontainers.image.version=${{ inputs.version }}
+            org.opencontainers.image.created=${{ env.BUILD_DATE }}
+            org.opencontainers.image.revision=${{ github.sha }}
+
+      - name: Update docker hub description
+        uses: peter-evans/dockerhub-description@v3
+        with:
+          username: ${{ env.DOCKER_USERNAME }}
+          password: ${{ env.DOCKER_PASSWORD }}
+          repository: fluencelabs/nox
+          short-description: |
+            Rust implementation of the Fluence network peer.
+            https://github.com/fluencelabs/nox
+          readme-filepath: ./DOCKER.md
