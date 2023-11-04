@@ -60,7 +60,7 @@ jobs:
         id: sha
         run: |
           # Calculate sha256
-          for arch in x86_64 aarch64; do
+          for arch in x86_64 arm64; do
             mv binaries/nox-${arch}/nox nox-${arch}
             du -hs nox-${arch}
             sha256sum nox-${arch} | tee >> nox_SHA256_SUMS
@@ -73,7 +73,7 @@ jobs:
         with:
           files: |
             ./nox-x86_64
-            ./nox-aarch64
+            ./nox-arm64
             ./nox_SHA256_SUMS
           tag_name: ${{ inputs.tag }}
 
