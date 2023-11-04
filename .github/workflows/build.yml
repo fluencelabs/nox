@@ -25,10 +25,12 @@ jobs:
       matrix:
         include:
           - arch: x86_64
+            target: x86_64-unknown-linux-gnu
             env:
               RUSTFLAGS: "-D warnings --cfg tokio_unstable -C link-arg=-B/usr/local/bin/mold"
               RUSTC_WRAPPER: "sccache"
-          - arch: aarch64
+          - arch: arm64
+            target: aarch64-unknown-linux-gnu
             env:
               RUSTFLAGS: "-D warnings --cfg tokio_unstable -C link-arg=-B/usr/local/bin/mold"
               RUSTC_WRAPPER: "sccache"
@@ -86,10 +88,10 @@ jobs:
           dependencies: ${{ inputs.cargo-dependencies }}
 
       - name: Run cargo build
-        run: cargo build ${{ steps.profile.outputs.flags }} -p nox --target ${{ matrix.arch }}-unknown-linux-gnu
+        run: cargo build ${{ steps.profile.outputs.flags }} -p nox --target ${{ matrix.target }}
 
       - name: Upload nox binary
         uses: actions/upload-artifact@v3
         with:
           name: nox-${{ matrix.arch }}
-          path: target/${{ matrix.arch }}-unknown-linux-gnu/${{ steps.profile.outputs.profile }}/nox
+          path: target/${{ matrix.target }}/${{ steps.profile.outputs.profile }}/nox
