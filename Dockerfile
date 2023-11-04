@@ -38,6 +38,7 @@ COPY --from=prepare-ipfs /usr/local/bin/ipfs /usr/bin/ipfs
 
 # copy nox binary
 COPY ./binaries/nox-${TARGETARCH}/nox /usr/bin/nox
+RUN chmod +x /usr/bin/nox
 # copy default fluence config
 COPY Config.default.toml /.fluence/v1/Config.toml
 # copy entrypoint script
