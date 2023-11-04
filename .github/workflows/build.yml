@@ -24,12 +24,14 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - arch: x86_64
+          - arch: amd64
+            cache-hack: x86_64
             target: x86_64-unknown-linux-gnu
             env:
               RUSTFLAGS: "-D warnings --cfg tokio_unstable -C link-arg=-B/usr/local/bin/mold"
               RUSTC_WRAPPER: "sccache"
           - arch: arm64
+            cache-hack: aarch64
             target: aarch64-unknown-linux-gnu
             env:
               RUSTFLAGS: "-D warnings --cfg tokio_unstable -C link-arg=-B/usr/local/bin/mold"
@@ -72,7 +74,7 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           cache-directories: ~/.cache/sccache
-          shared-key: nox-${{ matrix.arch }}
+          shared-key: nox-${{ matrix.cache-hack }}
           # github allows only 10GB of cache
           # so save cache only on merge to master
           # to use less space and speed up CI
