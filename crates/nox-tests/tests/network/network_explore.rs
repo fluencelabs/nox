@@ -337,7 +337,7 @@ async fn explore_services() {
 }
 
 #[tokio::test]
-async fn explore_services_fixed_flaky() {
+async fn explore_services_fixed() {
     let swarms = make_swarms(5).await;
     sleep(KAD_TIMEOUT);
 

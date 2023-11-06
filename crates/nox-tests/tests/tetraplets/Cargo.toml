@@ -6,7 +6,7 @@ edition = "2021"
 
 [dependencies]
 marine-rs-sdk = "0.7.0"
-once_cell = "1.13.0"
+once_cell = { workspace = true }
 
 [[bin]]
 name = "tetraplets"
