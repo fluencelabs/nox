@@ -122,7 +122,6 @@ impl EncodeMetric for TokioWorkerHistogram {
         MetricType::Histogram
     }
 }
-#[derive(Debug, Clone)]
 struct TokioHistogramBuckets(Vec<Range<Duration>>);
 
 type Result<'a> = (Cow<'a, Descriptor>, MaybeOwned<'a, Box<dyn LocalMetric>>);
