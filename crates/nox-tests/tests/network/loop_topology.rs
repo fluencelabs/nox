@@ -454,6 +454,7 @@ async fn fold_fold_seq_join() {
 
 #[tokio::test]
 async fn fold_fold_pairs_seq_join() {
+    log_utils::enable_logs();
     let mut swarms = make_swarms(5).await;
 
     add_print(swarms.iter_mut()).await;
