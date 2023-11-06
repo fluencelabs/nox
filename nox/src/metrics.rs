@@ -1,12 +1,13 @@
-use itertools::Itertools;
 use once_cell::sync::Lazy;
 use prometheus_client::collector::Collector;
+use prometheus_client::encoding::{EncodeMetric, MetricEncoder};
 use prometheus_client::metrics::counter::ConstCounter;
 use prometheus_client::metrics::gauge::ConstGauge;
-use prometheus_client::metrics::histogram::Histogram;
+use prometheus_client::metrics::MetricType;
 use prometheus_client::registry::{Descriptor, LocalMetric, Prefix};
 use prometheus_client::MaybeOwned;
 use std::borrow::Cow;
+use std::fmt::Error;
 use std::ops::Range;
 use std::time::Duration;
 use tokio::runtime::RuntimeMetrics;
@@ -105,25 +106,41 @@ static BLOCKING_QUEUE_DEPTH_DESCRIPTOR: Lazy<Descriptor> = Lazy::new(|| {
 
 const WORKER_LABEL: &str = "worker";
 
-struct HistoData {
-    bucket_ranges: Vec<Range<Duration>>,
+#[derive(Debug)]
+struct TokioWorkerHistogram {
+    sum: f64,
+    count: u64,
+    data: Vec<(f64, u64)>,
 }
+
+impl EncodeMetric for TokioWorkerHistogram {
+    fn encode(&self, mut encoder: MetricEncoder<'_, '_>) -> std::result::Result<(), Error> {
+        encoder.encode_histogram::<()>(self.sum, self.count, &self.data, None)
+    }
+
+    fn metric_type(&self) -> MetricType {
+        MetricType::Histogram
+    }
+}
+#[derive(Debug, Clone)]
+struct TokioHistogramBuckets(Vec<Range<Duration>>);
+
 type Result<'a> = (Cow<'a, Descriptor>, MaybeOwned<'a, Box<dyn LocalMetric>>);
 impl Collector for TokioCollector {
     fn collect<'a>(&'a self) -> Box<dyn Iterator<Item = Result<'a>> + 'a> {
         let workers = self.metrics.num_workers();
-        let histo_data = if self.metrics.poll_count_histogram_enabled() {
+        let histogram_buckets = if self.metrics.poll_count_histogram_enabled() {
             let num_buckets = self.metrics.poll_count_histogram_num_buckets();
             let bucket_ranges: Vec<Range<Duration>> = (0..num_buckets)
                 .map(|index| self.metrics.poll_count_histogram_bucket_range(index))
                 .collect();
-            Some(HistoData { bucket_ranges })
+            Some(TokioHistogramBuckets(bucket_ranges))
         } else {
             None
         };
 
         let mut result: Vec<Result<'a>> =
-            Vec::with_capacity(8 + workers * (10 + histo_data.as_ref().map_or(0, |_| 1))); //We preallocate a vector to reduce growing
+            Vec::with_capacity(8 + workers * (10 + histogram_buckets.as_ref().map_or(0, |_| 1))); //We preallocate a vector to reduce growing
 
         result.push((
             Cow::Borrowed(&*NUM_WORKERS_DESCRIPTOR),
@@ -331,22 +348,27 @@ impl Collector for TokioCollector {
                     self.metrics.worker_mean_poll_time(worker_id).as_millis() as u64,
                 ))),
             ));
-            if let Some(data) = histo_data.as_ref() {
-                let histogram = Histogram::new(
-                    data.bucket_ranges
-                        .iter()
-                        .dropping_back(1)
-                        .map(|range| range.end.as_nanos() as f64),
-                );
-                for (bucket_index, bucket_range) in data.bucket_ranges.iter().enumerate() {
-                    let count = self
+            if let Some(histogram_buckets) = histogram_buckets.as_ref() {
+                let mut data: Vec<(f64, u64)> = Vec::with_capacity(histogram_buckets.0.len());
+                let mut count: u64 = 0;
+
+                for (bucket_id, bucket) in histogram_buckets.0.iter().enumerate() {
+                    let mut key: f64 = bucket.end.as_nanos() as f64;
+                    let value = self
                         .metrics
-                        .poll_count_histogram_bucket_count(worker_id, bucket_index);
-                    let value = bucket_range.start.as_nanos();
-                    for _ in 0..count {
-                        histogram.observe((value + 1) as f64)
+                        .poll_count_histogram_bucket_count(worker_id, bucket_id);
+                    count += value;
+                    if bucket_id == histogram_buckets.0.len() - 1 {
+                        key = f64::MAX
                     }
+                    data.push((key, value))
                 }
+
+                let histogram = TokioWorkerHistogram {
+                    sum: 0f64,
+                    count,
+                    data,
+                };
 
                 result.push((
                     Cow::Owned(Descriptor::new(
