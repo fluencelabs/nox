@@ -61,6 +61,7 @@ use crate::{Connectivity, Versions};
 use super::behaviour::FluenceNetworkBehaviour;
 use crate::behaviour::FluenceNetworkBehaviourEvent;
 use crate::http::start_http_endpoint;
+use crate::metrics::TokioCollector;
 
 // TODO: documentation
 pub struct Node<RT: AquaRuntime> {
@@ -147,6 +148,12 @@ impl<RT: AquaRuntime> Node<RT> {
         let plumber_metrics = metrics_registry.as_mut().map(ParticleExecutorMetrics::new);
         let vm_pool_metrics = metrics_registry.as_mut().map(VmPoolMetrics::new);
         let spell_metrics = metrics_registry.as_mut().map(SpellMetrics::new);
+
+        if config.metrics_config.tokio_metrics_enabled {
+            if let Some(r) = metrics_registry.as_mut() {
+                r.register_collector(Box::new(TokioCollector::new()))
+            }
+        }
 
         #[allow(deprecated)]
         let connection_limits = ConnectionLimits::default()
@@ -559,6 +566,7 @@ mod tests {
     use maplit::hashmap;
     use serde_json::json;
     use std::path::PathBuf;
+    use std::time::Duration;
 
     use air_interpreter_fs::{air_interpreter_path, write_default_air_interpreter};
     use aquamarine::{VmConfig, AVM};
@@ -572,6 +580,7 @@ mod tests {
 
     #[tokio::test]
     async fn run_node() {
+        log_utils::enable_logs();
         let base_dir = default_base_dir();
         fs_utils::create_dir(&base_dir).unwrap();
         write_default_air_interpreter(&air_interpreter_path(&base_dir)).unwrap();
@@ -580,6 +589,7 @@ mod tests {
             .expect("Could not load config")
             .resolve()
             .expect("Could not resolve config");
+        config.transport_config.connection_idle_timeout = Duration::from_secs(60);
         config.aquavm_pool_size = 1;
         config.dir_config.spell_base_dir = to_abs_path(PathBuf::from("spell"));
         config.system_services.enable = vec![];
@@ -607,9 +617,14 @@ mod tests {
         let peer_id = PeerId::random();
         let started_node = node.start(peer_id).await.expect("start node");
 
-        let mut client = ConnectedClient::connect_to(listening_address)
-            .await
-            .expect("connect client");
+        let mut client = ConnectedClient::connect_to_with_timeout(
+            listening_address,
+            Duration::from_secs(10),
+            Duration::from_secs(60),
+            Some(Duration::from_secs(2 * 60)),
+        )
+        .await
+        .expect("connect client");
         let data = hashmap! {
             "name" => json!("folex"),
             "client" => json!(client.peer_id.to_string()),

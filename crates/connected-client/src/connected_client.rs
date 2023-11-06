@@ -25,7 +25,9 @@ use libp2p::{core::Multiaddr, PeerId};
 use local_vm::{make_particle, make_vm, read_args, DataStoreError};
 use particle_protocol::Particle;
 use serde_json::{Value as JValue, Value};
-use test_constants::{KAD_TIMEOUT, PARTICLE_TTL, SHORT_TIMEOUT, TIMEOUT, TRANSPORT_TIMEOUT};
+use test_constants::{
+    IDLE_CONNECTION_TIMEOUT, KAD_TIMEOUT, PARTICLE_TTL, SHORT_TIMEOUT, TIMEOUT, TRANSPORT_TIMEOUT,
+};
 
 use crate::client::Client;
 use crate::event::ClientEvent;
@@ -88,22 +90,39 @@ impl ConnectedClient {
     pub async fn connect_to_with_timeout(
         node_address: Multiaddr,
         timeout: Duration,
+        idle_connection_timeout: Duration,
+
         particle_ttl: Option<Duration>,
     ) -> Result<Self> {
-        Self::connect_with_timeout(node_address, None, timeout, particle_ttl).await
+        Self::connect_with_timeout(
+            node_address,
+            None,
+            timeout,
+            idle_connection_timeout,
+            particle_ttl,
+        )
+        .await
     }
 
     pub async fn connect_with_keypair(
         node_address: Multiaddr,
         key_pair: Option<KeyPair>,
     ) -> Result<Self> {
-        Self::connect_with_timeout(node_address, key_pair, TRANSPORT_TIMEOUT, None).await
+        Self::connect_with_timeout(
+            node_address,
+            key_pair,
+            TRANSPORT_TIMEOUT,
+            IDLE_CONNECTION_TIMEOUT,
+            None,
+        )
+        .await
     }
 
     pub async fn connect_with_timeout(
         node_address: Multiaddr,
         key_pair: Option<KeyPair>,
         timeout: Duration,
+        idle_connection_timeout: Duration,
         particle_ttl: Option<Duration>,
     ) -> Result<Self> {
         use core::result::Result;
@@ -116,8 +135,8 @@ impl ConnectedClient {
                 transport,
                 key_pair.map(Into::into),
                 timeout,
+                idle_connection_timeout,
             )
-            .await
             .expect("sender connected");
             let result: Result<_, Error> = if let Some(ClientEvent::NewConnection {
                 peer_id, ..
@@ -166,8 +185,12 @@ impl ConnectedClient {
         }
     }
 
-    pub fn send(&self, particle: Particle) {
-        self.client.send(particle, self.node)
+    pub async fn send(&self, particle: Particle) {
+        tracing::debug!(
+            particle_id = particle.id,
+            "Add a particle to the client send queue"
+        );
+        self.client.send(particle, self.node).await
     }
 
     pub async fn send_particle(
@@ -210,7 +233,7 @@ impl ConnectedClient {
         )
         .await;
         let id = particle.id.clone();
-        self.send(particle);
+        self.send(particle).await;
         id
     }
 

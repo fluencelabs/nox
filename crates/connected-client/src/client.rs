@@ -27,12 +27,14 @@ use libp2p_swarm::handler::StreamUpgradeError;
 use tokio::sync::mpsc::error::SendError;
 use tokio::sync::{mpsc, oneshot};
 use tokio::{select, task, task::JoinHandle};
+use void::Void;
 
 use fluence_libp2p::{build_transport, Transport};
 use particle_protocol::{Particle, ProtocolConfig};
 
 use crate::api::ParticleApi;
-use crate::{behaviour::ClientBehaviour, ClientEvent};
+use crate::behaviour::FluenceClientBehaviourEvent;
+use crate::{behaviour::FluenceClientBehaviour, ClientEvent};
 
 #[derive(Debug)]
 struct Command {
@@ -47,17 +49,17 @@ pub struct Client {
     pub key_pair: KeyPair,
     pub peer_id: PeerId,
     /// Channel to send commands to node
-    relay_outlet: mpsc::UnboundedSender<Command>,
+    relay_outlet: mpsc::Sender<Command>,
     /// Stream of messages received from node
-    client_inlet: mpsc::UnboundedReceiver<ClientEvent>,
+    client_inlet: mpsc::Receiver<ClientEvent>,
     stop_outlet: oneshot::Sender<()>,
     pub(crate) fetched: Vec<Particle>,
 }
 
 impl Client {
     fn new(
-        relay_outlet: mpsc::UnboundedSender<Command>,
-        client_inlet: mpsc::UnboundedReceiver<ClientEvent>,
+        relay_outlet: mpsc::Sender<Command>,
+        client_inlet: mpsc::Receiver<ClientEvent>,
         stop_outlet: oneshot::Sender<()>,
         key_pair: Option<KeyPair>,
     ) -> Self {
@@ -74,8 +76,8 @@ impl Client {
         }
     }
 
-    pub fn send(&self, particle: Particle, node: PeerId) {
-        if let Err(err) = self.relay_outlet.send(Command { node, particle }) {
+    pub async fn send(&self, particle: Particle, node: PeerId) {
+        if let Err(err) = self.relay_outlet.send(Command { node, particle }).await {
             let err_msg = format!("{err:?}");
             let msg = err;
             log::warn!("Unable to send msg {:?}: {:?}", msg, err_msg)
@@ -101,10 +103,12 @@ impl Client {
         node: Multiaddr,
         transport: Transport,
         transport_timeout: Duration,
+        idle_connection_timeout: Duration,
         protocol_config: ProtocolConfig,
-    ) -> Result<Swarm<ClientBehaviour>, Box<dyn Error>> {
+    ) -> Result<Swarm<FluenceClientBehaviour>, Box<dyn Error>> {
         let mut swarm = {
-            let behaviour = ClientBehaviour::new(protocol_config);
+            let public_key = self.key_pair.public();
+            let behaviour = FluenceClientBehaviour::new(protocol_config, public_key.into());
 
             let kp = self.key_pair.clone().into();
             let transport = build_transport(transport, &kp, transport_timeout);
@@ -112,6 +116,7 @@ impl Client {
                 .with_tokio()
                 .with_other_transport(|_| transport)?
                 .with_behaviour(|_| behaviour)?
+                .with_swarm_config(|cfg| cfg.with_idle_connection_timeout(idle_connection_timeout))
                 .build()
         };
 
@@ -126,27 +131,41 @@ impl Client {
         Ok(swarm)
     }
 
-    pub async fn connect(
+    pub fn connect(
         relay: Multiaddr,
         transport_timeout: Duration,
+        idle_connection_timeout: Duration,
     ) -> Result<(Client, JoinHandle<()>), Box<dyn Error>> {
-        Self::connect_with(relay, Transport::Network, None, transport_timeout).await
+        Self::connect_with(
+            relay,
+            Transport::Network,
+            None,
+            transport_timeout,
+            idle_connection_timeout,
+        )
     }
 
-    pub async fn connect_with(
+    pub fn connect_with(
         relay: Multiaddr,
         transport: Transport,
         key_pair: Option<KeyPair>,
         transport_timeout: Duration,
+        idle_connection_timeout: Duration,
     ) -> Result<(Client, JoinHandle<()>), Box<dyn Error>> {
-        let (client_outlet, client_inlet) = mpsc::unbounded_channel();
-        let (relay_outlet, mut relay_inlet) = mpsc::unbounded_channel();
+        let (client_outlet, client_inlet) = mpsc::channel(128);
+        let (relay_outlet, mut relay_inlet) = mpsc::channel(128);
 
         let (stop_outlet, stop_inlet) = oneshot::channel();
 
         let protocol_config = ProtocolConfig::new(transport_timeout, transport_timeout);
         let client = Client::new(relay_outlet, client_inlet, stop_outlet, key_pair);
-        let mut swarm = client.dial(relay, transport, transport_timeout, protocol_config)?;
+        let mut swarm = client.dial(
+            relay,
+            transport,
+            transport_timeout,
+            idle_connection_timeout,
+            protocol_config,
+        )?;
         let mut stop_inlet = Some(stop_inlet);
 
         let task = task::Builder::new()
@@ -160,11 +179,12 @@ impl Client {
                             if let Some(cmd) = to_relay {
                                 Self::send_to_node(swarm.behaviour_mut(), cmd)
                             }
-                        }
+                        },
 
                         // Messages that were received from relay node
                         Some(from_relay) = swarm.next() => {
-                            match Self::receive_from_node(from_relay, &client_outlet) {
+                            log::debug!("Swarm message received {:?}", from_relay);
+                            match Self::receive_from_node(from_relay, &client_outlet).await {
                                 Err(err) => {
                                     let err_msg = format!("{err:?}");
                                     let msg = err;
@@ -184,17 +204,25 @@ impl Client {
 
     fn send_to_node<R: ParticleApi>(swarm: &mut R, cmd: Command) {
         let Command { node, particle } = cmd;
+        tracing::debug!(
+            particle_id = particle.id,
+            "Sending particle to node {}",
+            node
+        );
         swarm.send(node, particle)
     }
 
     #[allow(clippy::result_large_err)]
-    fn receive_from_node(
-        msg: SwarmEvent<ClientEvent, Either<StreamUpgradeError<std::io::Error>, void::Void>>,
-        client_outlet: &mpsc::UnboundedSender<ClientEvent>,
+    async fn receive_from_node(
+        msg: SwarmEvent<
+            FluenceClientBehaviourEvent,
+            Either<Either<StreamUpgradeError<std::io::Error>, Void>, std::io::Error>,
+        >,
+        client_outlet: &mpsc::Sender<ClientEvent>,
     ) -> Result<(), SendError<ClientEvent>> {
-        if let SwarmEvent::Behaviour(msg) = msg {
+        if let SwarmEvent::Behaviour(FluenceClientBehaviourEvent::Client(msg)) = msg {
             // Message will be available through client.receive_one
-            client_outlet.send(msg)
+            client_outlet.send(msg).await
         } else {
             Ok(())
         }

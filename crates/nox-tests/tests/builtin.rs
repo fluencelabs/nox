@@ -99,7 +99,7 @@ async fn big_identity() {
     particle.data = (0..(1024 * 1024 * 20)).map(|_| u8::MAX).collect();
     particle.timestamp = now_ms() as u64;
     particle.ttl = PARTICLE_TTL;
-    client.send(particle);
+    client.send(particle).await;
 
     client.timeout = Duration::from_secs(60);
     client.receive().await.wrap_err("receive").unwrap();
@@ -1149,7 +1149,7 @@ async fn timeout_wait() {
 }
 
 #[tokio::test]
-async fn debug_stringify_flaky() {
+async fn debug_stringify() {
     async fn stringify(value: impl Into<JValue>) -> String {
         let mut result = exec_script(
             r#"(call relay ("debug" "stringify") [value] result)"#,
