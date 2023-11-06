@@ -44,7 +44,8 @@ use crate::particle_functions::Functions;
 use crate::vm_pool::VmPool;
 
 /// particle signature is used as a particle id
-type ParticleId = Vec<u8>;
+#[derive(PartialEq, Hash, Eq)]
+struct ParticleId(Vec<u8>);
 
 pub struct Plumber<RT: AquaRuntime, F> {
     events: VecDeque<Result<RoutingEffects, AquamarineApiError>>,
@@ -104,7 +105,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
         }
 
         let builtins = &self.builtins;
-        let key = (particle.signature.clone(), worker_id);
+        let key = (ParticleId(particle.signature.clone()), worker_id);
         let entry = self.actors.entry(key);
 
         let actor = match entry {
@@ -225,29 +226,17 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
         if let Some((vm_id, mut vm)) = self.vm_pool.get_vm() {
             let now = now_ms();
 
-            self.actors.retain(|(particle_id, worker_id), actor| {
-                // we use particle signature in hex as a particle id for particle data store
-                let particle_id = faster_hex::hex_string(particle_id);
+            self.actors.retain(|_, actor| {
                 // if actor hasn't yet expired or is still executing, keep it
                 // TODO: if actor is expired, cancel execution and return VM back to pool
                 //       https://github.com/fluencelabs/fluence/issues/1212
                 if !actor.is_expired(now) || actor.is_executing() {
                     return true; // keep actor
                 }
-                tracing::debug!(
-                    target: "particle_reap",
-                    particle_id = particle_id, worker_id = worker_id.to_string(),
-                    "Reaping particle's actor"
-                );
+
                 // cleanup files and dirs after particle processing (vault & prev_data)
                 // TODO: do not pass vm https://github.com/fluencelabs/fluence/issues/1216
-                if let Err(err) = actor.cleanup(&particle_id, &worker_id.to_string(), &mut vm) {
-                    tracing::warn!(
-                        particle_id = particle_id,
-                        "Error cleaning up after particle {:?}",
-                        err
-                    )
-                }
+                actor.cleanup(&mut vm);
                 false // remove actor
             });
 

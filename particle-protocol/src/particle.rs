@@ -64,9 +64,6 @@ impl Default for Particle {
 }
 
 impl Particle {
-    pub fn get_signature_hex(&self) -> String {
-        faster_hex::hex_string(&self.signature)
-    }
     pub fn is_expired(&self) -> bool {
         if let Some(deadline) = self.deadline() {
             return now_ms() > deadline as u128;

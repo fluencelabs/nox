@@ -245,7 +245,6 @@ dependencies = [
  "config-utils",
  "control-macro",
  "eyre",
- "faster-hex",
  "fluence-keypair",
  "fluence-libp2p",
  "fs-utils",
