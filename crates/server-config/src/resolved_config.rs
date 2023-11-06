@@ -34,7 +34,7 @@ pub struct UnresolvedConfig {
     #[serde(flatten)]
     dir_config: UnresolvedDirConfig,
     #[serde(flatten)]
-    node_config: UnresolvedNodeConfig,
+    pub node_config: UnresolvedNodeConfig,
 
     pub log: Option<LogConfig>,
     pub tracing: Option<TracingConfig>,

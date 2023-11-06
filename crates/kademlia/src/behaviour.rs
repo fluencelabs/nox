@@ -731,9 +731,9 @@ impl NetworkBehaviour for Kademlia {
         use Poll::{Pending, Ready};
         use ToSwarm::*;
         #[cfg(test)]
-        let eba = tracing::info_span!(parent: &self.parent_span, "Kademlia");
+        let kademlia_span = tracing::info_span!(parent: &self.parent_span, "Kademlia");
         #[cfg(test)]
-        let _enter = eba.enter();
+        let _enter = kademlia_span.enter();
         loop {
             if self.poll(cx).is_pending() {
                 break;

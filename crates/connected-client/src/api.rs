@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use crate::behaviour::ClientBehaviour;
+use crate::behaviour::FluenceClientBehaviour;
 use libp2p::PeerId;
 use particle_protocol::Particle;
 
@@ -22,7 +22,7 @@ pub trait ParticleApi {
     fn send(&mut self, peer_id: PeerId, particle: Particle);
 }
 
-impl ParticleApi for ClientBehaviour {
+impl ParticleApi for FluenceClientBehaviour {
     fn send(&mut self, peer_id: PeerId, particle: Particle) {
         self.call(peer_id, particle)
     }
