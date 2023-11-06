@@ -1103,6 +1103,7 @@ dependencies = [
  "serde_json",
  "test-constants",
  "tokio",
+ "tracing",
  "void",
 ]
 
@@ -4477,6 +4478,7 @@ dependencies = [
  "log-utils",
  "maplit",
  "multihash 0.19.1",
+ "once_cell",
  "opentelemetry",
  "opentelemetry-otlp",
  "parking_lot",

@@ -197,7 +197,7 @@ async fn fold_fold_fold_par_null_join() {
 }
 
 #[tokio::test]
-async fn fold_fold_fold_seq_two_par_null_folds_flaky() {
+async fn fold_fold_fold_seq_two_par_null_folds() {
     let Abuse { input, output } = abuse_fold(
         format!(
             r#"
@@ -454,6 +454,7 @@ async fn fold_fold_seq_join() {
 
 #[tokio::test]
 async fn fold_fold_pairs_seq_join() {
+    log_utils::enable_logs();
     let mut swarms = make_swarms(5).await;
 
     add_print(swarms.iter_mut()).await;

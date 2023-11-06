@@ -74,7 +74,12 @@ pub fn default_http_port() -> u16 {
 pub fn default_metrics_enabled() -> bool {
     true
 }
-
+pub fn default_tokio_metrics_enabled() -> bool {
+    false
+}
+pub fn default_tokio_metrics_poll_histogram_enabled() -> bool {
+    false
+}
 pub fn default_health_check_enabled() -> bool {
     true
 }
