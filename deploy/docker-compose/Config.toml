@@ -1,0 +1,15 @@
+[system_services]
+enable = [ "aqua-ipfs", "decider" ]
+
+  [[aqua_ipfs]]
+  external_api_multiaddr = "/ip4/127.0.0.1/tcp/5001"
+  local_api_multiaddr = "/dns4/ipfs/tcp/5001"
+
+  [[decider]]
+  decider_period_sec = 10
+  worker_ipfs_multiaddr = "/dns4/ipfs/tcp/5001"
+  network_api_endpoint = "http://chain:8545"
+  network_id = 31_337
+  start_block = "earliest"
+  matcher_address = "0x0f68c702dC151D07038fA40ab3Ed1f9b8BAC2981"
+  wallet_key = "0xfdc4ba94809c7930fe4676b7d845cbf8fa5c1beae8744d959530e5073004cf3f"

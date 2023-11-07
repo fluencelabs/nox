@@ -3,6 +3,7 @@ name: nox-network
 services:
   peer-1:
     image: fluencelabs/nox
+    pull_policy: always
     container_name: "peer-1-12D3KooWBM3SdXWqGaawQDGQ6JprtwswEg3FWGvGhmgmMez1vRbR"
     ports:
       - 7771:7771
@@ -11,14 +12,11 @@ services:
       - 18080
     environment:
       RUST_LOG: "info"
-      FLUENCE_ENV_AQUA_IPFS_EXTERNAL_API_MULTIADDR: /ip4/127.0.0.1/tcp/5001
-      FLUENCE_ENV_AQUA_IPFS_LOCAL_API_MULTIADDR: /dns4/ipfs/tcp/5001
     labels:
       name: peer-1
       scrape: true
       peer_id: 12D3KooWBM3SdXWqGaawQDGQ6JprtwswEg3FWGvGhmgmMez1vRbR
     command:
-      - --aqua-pool-size=2
       - -t=7771
       - -w=9991
       - --allow-private-ips
@@ -31,6 +29,7 @@ services:
 
   peer-2:
     image: fluencelabs/nox
+    pull_policy: always
     container_name: "peer-2-12D3KooWQdpukY3p2DhDfUfDgphAqsGu5ZUrmQ4mcHSGrRag6gQK"
     ports:
       - 7772:7772
@@ -39,14 +38,11 @@ services:
       - 18080
     environment:
       RUST_LOG: "info"
-      FLUENCE_ENV_AQUA_IPFS_EXTERNAL_API_MULTIADDR: /ip4/127.0.0.1/tcp/5001
-      FLUENCE_ENV_AQUA_IPFS_LOCAL_API_MULTIADDR: /dns4/ipfs/tcp/5001
     labels:
       name: peer-2
       scrape: true
       peer_id: 12D3KooWQdpukY3p2DhDfUfDgphAqsGu5ZUrmQ4mcHSGrRag6gQK
     command:
-      - --aqua-pool-size=2
       - -t=7772
       - -w=9992
       - --allow-private-ips
@@ -59,6 +55,7 @@ services:
 
   peer-3:
     image: fluencelabs/nox
+    pull_policy: always
     container_name: "peer-3-12D3KooWRT8V5awYdEZm6aAV9HWweCEbhWd7df4wehqHZXAB7yMZ"
     ports:
       - 7773:7773
@@ -67,14 +64,11 @@ services:
       - 18080
     environment:
       RUST_LOG: "info"
-      FLUENCE_ENV_AQUA_IPFS_EXTERNAL_API_MULTIADDR: /ip4/127.0.0.1/tcp/5001
-      FLUENCE_ENV_AQUA_IPFS_LOCAL_API_MULTIADDR: /dns4/ipfs/tcp/5001
     labels:
       name: peer-3
       scrape: true
       peer_id: 12D3KooWRT8V5awYdEZm6aAV9HWweCEbhWd7df4wehqHZXAB7yMZ
     command:
-      - --aqua-pool-size=2
       - -t=7773
       - -w=9993
       - --allow-private-ips
@@ -85,8 +79,16 @@ services:
       # 12D3KooWRT8V5awYdEZm6aAV9HWweCEbhWd7df4wehqHZXAB7yMZ
       - -k=2n2wBVanBeu2GWtvKBdrYK9DJAocgG3PrTUXMharq6TTfxqTL4sLdXL9BF23n6rsnkAY5pR9vBtx2uWYDQAiZdrX
 
+  chain:
+    image: fluencelabs/chain-rpc
+    pull_policy: always
+    ports:
+      - 8545:8545
+
   ipfs:
     image: ipfs/kubo
+    pull_policy: always
+    ports:
     ports:
       - 5001:5001
     volumes:
