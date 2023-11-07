@@ -13,6 +13,48 @@ docker run --rm --name nox fluencelabs/nox:latest --help
 See deployment instructions and tips at
 [deploy](https://github.com/fluencelabs/nox/tree/master/deploy).
 
+## Configuration
+
+### Nox configuration
+
+Default configuration file is found at
+[Config.default.toml](https://github.com/fluencelabs/nox/tree/master/Config.default.toml).
+
+All options can be overwriten by env variables:
+
+```toml
+no_banner = false
+bootstrap_nodes = [
+  "/dns4/0-node.example.com/tcp/9000",
+  "/dns4/1-node.example.com/tcp/9000",
+]
+
+[system_services]
+  [[aqua_ipfs]]
+  external_api_multiaddr = "/dns4/ipfs.example.com/tcp/5001"
+  local_api_multiaddr = "/dns4/ipfs.service.consul/tcp/5001"
+```
+
+becomes
+
+```shell
+FLUENCE_NO_BANNER=false
+FLUENCE_BOOTSTRAP_NODES="/dns4/0-node.example.com/tcp/9000,/dns4/1-node.example.com/tcp/9000"
+FLUENCE_SYSTEM_SERVICES__AQUA_IPFS__EXTERNAL_API_MULTIADDR="/dns4/ipfs.example.com/tcp/5001"
+FLUENCE_SYSTEM_SERVICES__AQUA_IPFS__LOCAL_API_MULTIADDR="/dns4/ipfs.service.consul/tcp/5001"
+```
+
+### Docker configuration
+
+Some options are only available as env variables:
+
+| var              | default                    | description                                                    |
+| ---------------- | -------------------------- | -------------------------------------------------------------- |
+| FLUENCE_BASE_DIR | `/.fluence`                | Base directory for nox persistent data                         |
+| FLUENCE_CONFIG   | `/.fluence/v1/Config.toml` | Path to nox config file                                        |
+| FLUENCE_UID      | `1000`                     | UID of a nox user who owns persistent data                     |
+| RUST_LOG         | `info`                     | https://docs.rs/env_logger/0.10.0/env_logger/#enabling-logging |
+
 ## Builtin services
 
 Nox distro comes with preconfigured builtin services.
@@ -60,22 +102,20 @@ Comprehensive documentation on everything related to Fluence can be found
 
 ## Support
 
-Please, file an [issue](https://github.com/fluencelabs/nox/issues) if you
-find a bug. You can also contact us at
-[Discord](https://discord.com/invite/5qSnPZKh7u) or
-[Telegram](https://t.me/fluence_project). We will do our best to resolve the
+Please, file an [issue](https://github.com/fluencelabs/nox/issues) if you find a
+bug. You can also contact us at [Discord](https://discord.com/invite/5qSnPZKh7u)
+or [Telegram](https://t.me/fluence_project). We will do our best to resolve the
 issue ASAP.
 
 ## Contributing
 
 Any interested person is welcome to contribute to the project. Please, make sure
 you read and follow some basic
-[rules](https://github.com/fluencelabs/nox/tree/master/CONTRIBUTING.md).
-The Contributor License Agreement can be found
+[rules](https://github.com/fluencelabs/nox/tree/master/CONTRIBUTING.md). The
+Contributor License Agreement can be found
 [here](https://github.com/fluencelabs/nox/tree/master/FluenceCLA).
 
 ## License
 
 All software code is copyright (c) Fluence Labs, Inc. under the
-[Apache-2.0](https://github.com/fluencelabs/nox/tree/master/LICENSE)
-license.
+[Apache-2.0](https://github.com/fluencelabs/nox/tree/master/LICENSE) license.
