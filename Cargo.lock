@@ -4934,6 +4934,7 @@ dependencies = [
  "base64 0.21.5",
  "derivative",
  "eyre",
+ "faster-hex",
  "fluence-keypair",
  "fluence-libp2p",
  "futures",
