@@ -43,7 +43,7 @@ where
 
     let layer = match log_format {
         LogFormat::Logfmt => tracing_logfmt::builder()
-            .with_target(false)
+            .with_target(true)
             .with_span_path(false)
             .with_span_name(false)
             .layer()
