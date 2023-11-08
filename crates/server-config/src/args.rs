@@ -14,7 +14,9 @@
  * limitations under the License.
  */
 
+use crate::system_services_config::ServiceKey;
 use crate::LogFormat;
+use clap::error::ErrorKind;
 use clap::{Args, Parser};
 use config::{ConfigError, Map, Source, Value};
 use serde::ser::SerializeStruct;
@@ -148,6 +150,113 @@ pub enum TracingType {
     Disabled,
     #[serde(rename = "otlp")]
     Otlp,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub enum EnabledSystemServices {
+    All,
+    Some(Vec<String>),
+    None,
+}
+
+// Parse either:
+// - "all" to EnabledSystemServices::All
+// - "none" to EnabledSystemServices::None
+// - "service1,service2" to EnabledSystemServices::Some(vec!["service1", "service2"])
+#[derive(Debug, Clone)]
+struct EnabledSystemServicesValueParser;
+impl clap::builder::TypedValueParser for EnabledSystemServicesValueParser {
+    type Value = EnabledSystemServices;
+    fn parse_ref(
+        &self,
+        _cmd: &clap::Command,
+        _arg: Option<&clap::Arg>,
+        value: &std::ffi::OsStr,
+    ) -> Result<Self::Value, clap::Error> {
+        let value = value
+            .to_str()
+            .ok_or_else(|| clap::Error::new(ErrorKind::InvalidUtf8))?;
+
+        match value {
+            "all" => Ok(EnabledSystemServices::All),
+            "none" => Ok(EnabledSystemServices::None),
+            _ => {
+                let services = value.split(',').map(|s| s.to_string()).collect::<Vec<_>>();
+                Ok(EnabledSystemServices::Some(services))
+            }
+        }
+    }
+}
+
+#[derive(Parser, Debug, Clone)]
+pub(crate) struct SystemServicesArgs {
+    // TODO: how to provide the list of available system services automatically
+    #[arg(
+    long,
+    id = "SERVICES",
+    help = "List of enabled system services. Can be: all, none or comma-separated list of services (serivce1,service2)",
+    help_heading = "System services configuration",
+    value_parser = EnabledSystemServicesValueParser
+    )]
+    enable_system_services: Option<EnabledSystemServices>,
+
+    #[arg(
+        long,
+        id = "WALLET_KEY",
+        help = "The private wallet key for signing transactions for joining deals",
+        help_heading = "System services configuration"
+    )]
+    wallet_key: Option<String>,
+}
+
+impl Serialize for SystemServicesArgs {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut struct_serializer = serializer.serialize_struct("SystemServicesConfig", 5)?;
+
+        if let Some(enable_system_services) = &self.enable_system_services {
+            match enable_system_services {
+                EnabledSystemServices::All => {
+                    let all = ServiceKey::all_values();
+                    struct_serializer.serialize_field("enable", &all)?;
+                }
+                EnabledSystemServices::Some(services) => {
+                    let services: Vec<ServiceKey> = services
+                        .iter()
+                        .map(|service| match ServiceKey::from_string(service) {
+                            Some(service) => Ok(service),
+                            None => Err(serde::ser::Error::custom(format!(
+                                "unknown service: {}",
+                                service
+                            ))),
+                        })
+                        .collect::<Result<_, _>>()?;
+
+                    struct_serializer.serialize_field("enable", &services)?;
+                }
+                EnabledSystemServices::None => {
+                    struct_serializer.serialize_field::<Vec<ServiceKey>>("enable", &vec![])?;
+                }
+            }
+            //struct_serializer.serialize_field("generate_on_absence", generate_on_absence)?;
+        }
+        if let Some(wallet_key) = &self.wallet_key {
+            #[derive(Serialize)]
+            struct DeciderConfig {
+                wallet_key: String,
+            }
+            struct_serializer.serialize_field(
+                "decider",
+                &DeciderConfig {
+                    wallet_key: wallet_key.clone(),
+                },
+            )?;
+        }
+
+        struct_serializer.end()
+    }
 }
 
 #[derive(Parser, Debug, Serialize, Clone)]
@@ -329,6 +438,9 @@ pub(crate) struct DerivedArgs {
         action = clap::ArgAction::SetTrue
     )]
     pub(crate) no_banner: Option<bool>,
+
+    #[command(flatten)]
+    system_services: Option<SystemServicesArgs>,
 
     #[command(flatten)]
     log: Option<LogArgs>,
