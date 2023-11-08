@@ -102,7 +102,7 @@ marine-it-parser = "0.13.0"
 
 # avm
 avm-server = { version = "0.33.3" }
-air-interpreter-wasm = { version = "0.54.0" }
+air-interpreter-wasm = { version = "0.52.0" }
 
 # libp2p
 libp2p = { version = "0.52.4", features = ["noise", "tcp", "dns", "websocket", "yamux", "tokio", "kad", "ping", "identify", "macros"] }
