@@ -240,7 +240,6 @@ impl Serialize for SystemServicesArgs {
                     struct_serializer.serialize_field::<Vec<ServiceKey>>("enable", &vec![])?;
                 }
             }
-            //struct_serializer.serialize_field("generate_on_absence", generate_on_absence)?;
         }
         if let Some(wallet_key) = &self.wallet_key {
             #[derive(Serialize)]
