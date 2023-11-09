@@ -1,15 +1,36 @@
+aquavm_pool_size = 2
+allow_local_addresses = true
 [system_services]
 enable = [ "aqua-ipfs", "decider" ]
 
   [[aqua_ipfs]]
-  external_api_multiaddr = "/ip4/127.0.0.1/tcp/5001"
+  ipfs_binary_path = "/usr/bin/ipfs"
   local_api_multiaddr = "/dns4/ipfs/tcp/5001"
+  external_api_multiaddr = "/dns4/127.0.0.1/tcp/5001"
 
   [[decider]]
   decider_period_sec = 10
+  worker_period_sec = 900
   worker_ipfs_multiaddr = "/dns4/ipfs/tcp/5001"
   network_api_endpoint = "http://chain:8545"
-  network_id = 31_337
-  start_block = "earliest"
+  network_id = 31337
   matcher_address = "0x0f68c702dC151D07038fA40ab3Ed1f9b8BAC2981"
+  start_block = "earliest"
+  worker_gas = 210000
   wallet_key = "0xfdc4ba94809c7930fe4676b7d845cbf8fa5c1beae8744d959530e5073004cf3f"
+
+  [[connector]]
+  curl_binary_path = "/usr/bin/curl"
+
+[log]
+# possible values are 'default' and 'logfmt'
+format = "default"
+
+[metrics_config]
+metrics_enabled = true
+# how often send memory metrics to prometheus
+metrics_timer_resolution = "60s"
+max_builtin_metrics_storage_size = 5
+
+[health_config]
+health_check_enabled = true

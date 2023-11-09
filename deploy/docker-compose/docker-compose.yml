@@ -2,14 +2,16 @@ name: nox-network
 
 services:
   peer-1:
-    image: fluencelabs/nox
-    pull_policy: always
+    # image: fluencelabs/nox
+    image: docker.fluence.dev/nox:FLU-494
     container_name: "peer-1-12D3KooWBM3SdXWqGaawQDGQ6JprtwswEg3FWGvGhmgmMez1vRbR"
     ports:
       - 7771:7771
       - 9991:9991
     expose:
       - 18080
+    volumes:
+      - ./Config.toml:/.fluence/v1/Config.toml
     environment:
       RUST_LOG: "info"
     labels:
@@ -19,7 +21,6 @@ services:
     command:
       - -t=7771
       - -w=9991
-      - --allow-private-ips
       - --external-maddrs
       - /dns4/peer-1/tcp/7771
       - /dns4/peer-1/tcp/9991/ws
@@ -28,14 +29,16 @@ services:
       - -k=hK62afickoeP2uZbmSkAYXxxqP8ozq16VRN7qfTP719EHC5V5tjrtW57BSjUr8GvsEXmJRbtejUWyPZ2rZMyQdq
 
   peer-2:
-    image: fluencelabs/nox
-    pull_policy: always
+    # image: fluencelabs/nox
+    image: docker.fluence.dev/nox:FLU-494
     container_name: "peer-2-12D3KooWQdpukY3p2DhDfUfDgphAqsGu5ZUrmQ4mcHSGrRag6gQK"
     ports:
       - 7772:7772
       - 9992:9992
     expose:
       - 18080
+    volumes:
+      - ./Config.toml:/.fluence/v1/Config.toml
     environment:
       RUST_LOG: "info"
     labels:
@@ -45,7 +48,6 @@ services:
     command:
       - -t=7772
       - -w=9992
-      - --allow-private-ips
       - --external-maddrs
       - /dns4/peer-2/tcp/7772
       - /dns4/peer-2/tcp/9992/ws
@@ -54,14 +56,16 @@ services:
       - -k=2WijTVdhVRzyZamWjqPx4V4iNMrajegNMwNa2PmvPSZV6RRpo5M2fsPWdQr22HVRubuJhhSw8BrWiGt6FPhFAuXy
 
   peer-3:
-    image: fluencelabs/nox
-    pull_policy: always
+    # image: fluencelabs/nox
+    image: docker.fluence.dev/nox:FLU-494
     container_name: "peer-3-12D3KooWRT8V5awYdEZm6aAV9HWweCEbhWd7df4wehqHZXAB7yMZ"
     ports:
       - 7773:7773
       - 9993:9993
     expose:
       - 18080
+    volumes:
+      - ./Config.toml:/.fluence/v1/Config.toml
     environment:
       RUST_LOG: "info"
     labels:
@@ -71,7 +75,6 @@ services:
     command:
       - -t=7773
       - -w=9993
-      - --allow-private-ips
       - --external-maddrs
       - /dns4/peer-3/tcp/7773
       - /dns4/peer-3/tcp/9993/ws
@@ -81,7 +84,6 @@ services:
 
   chain:
     image: fluencelabs/chain-rpc
-    pull_policy: always
     ports:
       - 8545:8545
 
