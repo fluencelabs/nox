@@ -786,7 +786,6 @@ where
 
         let alias: String = Args::next("alias", &mut args)?;
         let service_id: String = Args::next("service_id", &mut args)?;
-        log::warn!("add_alias {:?} {:?}", alias, service_id);
         self.services
             .add_alias(alias, params.host_id, service_id, params.init_peer_id)?;
         Ok(())
