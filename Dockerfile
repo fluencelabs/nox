@@ -24,6 +24,7 @@ RUN \
   apt-get update && \
   apt-get install -y --no-install-recommends \
     gosu \
+    ca-certificates \
   	jq \
   	less \
   	curl wget && \
