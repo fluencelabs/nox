@@ -19,6 +19,9 @@ leak-timeout = "100ms"
 filter = 'test(flaky)'
 retries = { backoff = "exponential", count = 3, delay = "5s", jitter = true }
 
+[[profile.default.overrides]]
+filter = 'test(heavy)'
+threads-required = 3
 
 [profile.ci]
 fail-fast = false
