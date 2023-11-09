@@ -62,9 +62,6 @@ fn decode_pats(data: String) -> Result<Vec<Worker>, ResolveSubnetError> {
         let pat_id = next_opt(&mut tuple, "pat_id", Token::into_fixed_bytes)?;
         let pat_id = hex::encode(pat_id);
 
-        // skip 'index' field
-        //let mut tuple = tuple.skip(1);
-
         let peer_id = next_opt(&mut tuple, "compute_peer_id", Token::into_fixed_bytes)?;
         let peer_id = parse_peer_id(peer_id)
             .map_err(|e| ResolveSubnetError::InvalidPeerId(e, "compute_peer_id"))?;
