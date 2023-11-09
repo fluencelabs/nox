@@ -21,6 +21,7 @@ use crate::error::KeyManagerError::{
     CannotExtractRSASecretKey, CreateKeypairsDir, DeserializePersistedKeypair,
     ReadPersistedKeypair, SerializePersistedKeypair, WriteErrorPersistedKeypair,
 };
+use crate::key_manager::WorkerInfo;
 use crate::KeyManager;
 use crate::KeyManagerError::RemoveErrorPersistedKeypair;
 use fluence_keypair::KeyPair;
@@ -28,6 +29,10 @@ use fluence_libp2p::peerid_serializer;
 use libp2p::PeerId;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
+
+pub const fn default_bool<const V: bool>() -> bool {
+    V
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct PersistedKeypair {
@@ -38,19 +43,18 @@ pub struct PersistedKeypair {
     pub key_format: String,
     #[serde(default)]
     pub deal_id: String,
+    #[serde(default = "default_bool::<true>")]
+    pub active: bool,
 }
 
 impl PersistedKeypair {
-    pub fn new(
-        deal_creator: PeerId,
-        keypair: &KeyPair,
-        deal_id: String,
-    ) -> Result<Self, KeyManagerError> {
+    pub fn new(keypair: &KeyPair, worker_info: WorkerInfo) -> Result<Self, KeyManagerError> {
         Ok(Self {
-            deal_creator,
+            deal_creator: worker_info.creator,
             private_key_bytes: keypair.secret().map_err(|_| CannotExtractRSASecretKey)?,
             key_format: keypair.public().get_key_format().into(),
-            deal_id,
+            deal_id: worker_info.deal_id,
+            active: worker_info.active,
         })
     }
 }

@@ -102,6 +102,18 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
             return;
         }
 
+        if !self.key_manager.is_worker_active(worker_id)
+            && !self.key_manager.is_management(particle.init_peer_id)
+        {
+            tracing::warn!(target: "worker", particle_id = particle.id, worker_id = worker_id.to_string(), "Worker is not active");
+            self.events
+                .push_back(Err(AquamarineApiError::WorkerIsNotActive {
+                    worker_id: worker_id.to_string(),
+                    particle_id: particle.id.clone(),
+                }));
+            return;
+        }
+
         let builtins = &self.builtins;
         let key = (particle.id.clone(), worker_id);
         let entry = self.actors.entry(key);

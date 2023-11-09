@@ -117,6 +117,14 @@ impl SpellStorage {
         self.registered_spells.read().clone()
     }
 
+    pub fn get_registered_spells_by(&self, worker_id: PeerId) -> Vec<SpellId> {
+        self.registered_spells
+            .read()
+            .get(&worker_id)
+            .cloned()
+            .unwrap_or_default()
+    }
+
     pub fn get_blueprint(&self) -> String {
         self.spell_blueprint_id.clone()
     }

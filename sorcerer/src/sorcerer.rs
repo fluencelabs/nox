@@ -26,7 +26,10 @@ use crate::spell_builtins::{
     get_spell_arg, get_spell_id, spell_install, spell_list, spell_remove, spell_update_config,
     store_error, store_response,
 };
-use crate::worker_builins::{create_worker, get_worker_peer_id, remove_worker, worker_list};
+use crate::worker_builins::{
+    activate_deal, create_worker, deactivate_deal, get_worker_peer_id, is_deal_active,
+    remove_worker, worker_list,
+};
 use aquamarine::AquamarineApi;
 use key_manager::KeyManager;
 use particle_args::JError;
@@ -204,6 +207,9 @@ impl Sorcerer {
                     ("get_worker_id", self.make_worker_get_worker_id_closure()),
                     ("remove", self.make_worker_remove_closure()),
                     ("list", self.make_worker_list_closure()),
+                    ("activate", self.make_activate_deal_closure()),
+                    ("deactivate", self.make_deactivate_deal_closure()),
+                    ("is_active", self.make_is_deal_active_closure()),
                 ],
                 None,
             ),
@@ -342,20 +348,19 @@ impl Sorcerer {
     // TODO: will be DEPRECATED soon
     fn make_worker_get_peer_id_closure(&self) -> ServiceFunction {
         let key_manager = self.key_manager.clone();
-        ServiceFunction::Immut(Box::new(move |args, params| {
+        ServiceFunction::Immut(Box::new(move |args, _| {
             let key_manager = key_manager.clone();
-            async move { wrap(get_worker_peer_id(args, params, key_manager)) }.boxed()
+            async move { wrap(get_worker_peer_id(args, key_manager)) }.boxed()
         }))
     }
 
     fn make_worker_get_worker_id_closure(&self) -> ServiceFunction {
         let key_manager = self.key_manager.clone();
-        ServiceFunction::Immut(Box::new(move |args, params| {
+        ServiceFunction::Immut(Box::new(move |args, _| {
             let key_manager = key_manager.clone();
             async move {
                 wrap(crate::worker_builins::get_worker_peer_id_opt(
                     args,
-                    params,
                     key_manager,
                 ))
             }
@@ -386,6 +391,71 @@ impl Sorcerer {
                 wrap_unit(remove_worker(args, params, key_manager, services, storage, api).await)
             }
             .boxed()
+        }))
+    }
+
+    fn make_activate_deal_closure(&self) -> ServiceFunction {
+        let key_manager = self.key_manager.clone();
+        let services = self.services.clone();
+        let spell_event_bus_api = self.spell_event_bus_api.clone();
+        let spells_api = self.spell_service_api.clone();
+        ServiceFunction::Immut(Box::new(move |args, params| {
+            let services = services.clone();
+            let spell_event_bus_api = spell_event_bus_api.clone();
+            let key_manager = key_manager.clone();
+            let spells_api = spells_api.clone();
+
+            async move {
+                wrap_unit(
+                    activate_deal(
+                        args,
+                        params,
+                        key_manager,
+                        services,
+                        spell_event_bus_api,
+                        spells_api,
+                    )
+                    .await,
+                )
+            }
+            .boxed()
+        }))
+    }
+
+    fn make_deactivate_deal_closure(&self) -> ServiceFunction {
+        let key_manager = self.key_manager.clone();
+        let spell_storage = self.spell_storage.clone();
+        let spell_event_bus_api = self.spell_event_bus_api.clone();
+        let spells_api = self.spell_service_api.clone();
+
+        ServiceFunction::Immut(Box::new(move |args, params| {
+            let key_manager = key_manager.clone();
+            let spells_api = spells_api.clone();
+            let spell_storage = spell_storage.clone();
+            let spell_event_bus_api = spell_event_bus_api.clone();
+
+            async move {
+                wrap_unit(
+                    deactivate_deal(
+                        args,
+                        params,
+                        key_manager,
+                        spell_storage,
+                        spell_event_bus_api,
+                        spells_api,
+                    )
+                    .await,
+                )
+            }
+            .boxed()
+        }))
+    }
+
+    fn make_is_deal_active_closure(&self) -> ServiceFunction {
+        let key_manager = self.key_manager.clone();
+        ServiceFunction::Immut(Box::new(move |args, _| {
+            let key_manager = key_manager.clone();
+            async move { wrap(is_deal_active(args, key_manager)) }.boxed()
         }))
     }
 }

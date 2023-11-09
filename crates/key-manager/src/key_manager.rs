@@ -38,6 +38,7 @@ type WorkerId = PeerId;
 pub struct WorkerInfo {
     pub deal_id: String,
     pub creator: PeerId,
+    pub active: bool,
 }
 
 #[derive(Clone)]
@@ -104,6 +105,7 @@ impl KeyManager {
                     WorkerInfo {
                         deal_id: persisted_kp.deal_id,
                         creator: persisted_kp.deal_creator,
+                        active: persisted_kp.active,
                     },
                 );
             };
@@ -151,19 +153,13 @@ impl KeyManager {
             _ => {
                 let kp = self.generate_keypair();
                 let worker_id = kp.get_peer_id();
-                self.store_keypair(deal_id, init_peer_id, kp)?;
+                self.store_keypair(deal_id, init_peer_id, kp, true)?;
                 Ok(worker_id)
             }
         }
     }
 
-    pub fn get_worker_id(
-        &self,
-        deal_id: Option<String>,
-        init_peer_id: PeerId,
-    ) -> Result<PeerId, KeyManagerError> {
-        // if deal_id is not provided, we associate it with init_peer_id
-        let deal_id = deal_id.unwrap_or(Self::generate_deal_id(init_peer_id));
+    pub fn get_worker_id(&self, deal_id: String) -> Result<PeerId, KeyManagerError> {
         self.worker_ids
             .read()
             .get(&deal_id)
@@ -231,22 +227,72 @@ impl KeyManager {
         deal_id: DealId,
         deal_creator: PeerId,
         keypair: KeyPair,
+        active: bool,
     ) -> Result<(), KeyManagerError> {
+        let worker_info = WorkerInfo {
+            deal_id: deal_id.clone(),
+            creator: deal_creator,
+            active,
+        };
         persist_keypair(
             &self.keypairs_dir,
-            PersistedKeypair::new(deal_creator, &keypair, deal_id.clone())?,
+            PersistedKeypair::new(&keypair, worker_info.clone())?,
         )?;
         let worker_id = keypair.get_peer_id();
         self.worker_ids.write().insert(deal_id.clone(), worker_id);
-        self.worker_infos.write().insert(
-            worker_id,
-            WorkerInfo {
-                deal_id,
-                creator: deal_creator,
-            },
-        );
+        self.worker_infos.write().insert(worker_id, worker_info);
         self.worker_keypairs.write().insert(worker_id, keypair);
 
         Ok(())
+    }
+
+    pub fn activate_worker(&self, worker_id: PeerId) -> Result<(), KeyManagerError> {
+        match self.worker_infos.write().get_mut(&worker_id) {
+            Some(worker_info) => {
+                worker_info.active = true;
+
+                persist_keypair(
+                    &self.keypairs_dir,
+                    PersistedKeypair::new(
+                        &self.get_worker_keypair(worker_id)?,
+                        worker_info.clone(),
+                    )?,
+                )?;
+                Ok(())
+            }
+            None => Err(WorkerNotFound(worker_id)),
+        }
+    }
+
+    pub fn deactivate_worker(&self, worker_id: PeerId) -> Result<(), KeyManagerError> {
+        match self.worker_infos.write().get_mut(&worker_id) {
+            Some(worker_info) => {
+                worker_info.active = false;
+
+                persist_keypair(
+                    &self.keypairs_dir,
+                    PersistedKeypair::new(
+                        &self.get_worker_keypair(worker_id)?,
+                        worker_info.clone(),
+                    )?,
+                )?;
+                Ok(())
+            }
+            None => Err(WorkerNotFound(worker_id)),
+        }
+    }
+
+    pub fn is_worker_active(&self, worker_id: PeerId) -> bool {
+        if self.is_host(worker_id) {
+            return true;
+        }
+
+        match self.worker_infos.read().get(&worker_id) {
+            Some(worker_info) => worker_info.active,
+            None => {
+                tracing::warn!(target = "key-manager", "Worker {} not found", worker_id);
+                false
+            }
+        }
     }
 }

@@ -915,11 +915,25 @@ async fn spell_trigger_connection_pool() {
     );
     let mut config = TriggerConfig::default();
     config.connections.connect = true;
-    let (spell_id1, _) = create_spell(&mut client, &script, config, json!({}), None).await;
+    let (spell_id1, _) = create_spell(
+        &mut client,
+        &script,
+        config,
+        json!({}),
+        Some("deal_id1".to_string()),
+    )
+    .await;
 
     let mut config = TriggerConfig::default();
     config.connections.disconnect = true;
-    let (spell_id2, _) = create_spell(&mut client, &script, config, json!({}), None).await;
+    let (spell_id2, _) = create_spell(
+        &mut client,
+        &script,
+        config,
+        json!({}),
+        Some("deal_id2".to_string()),
+    )
+    .await;
 
     // This connect should trigger the spell
     let connect_num = 5;
@@ -2206,4 +2220,22 @@ async fn test_decider_api_endpoint_rewrite() {
     {
         assert_eq!(*endpoint, another_endpoint);
     }
+}
+
+#[tokio::test]
+async fn test_activate_deactivate() {
+    let swarms = make_swarms(1).await;
+    let mut client = ConnectedClient::connect_with_keypair(
+        swarms[0].multiaddr.clone(),
+        Some(swarms[0].management_keypair.clone()),
+    )
+    .await
+    .wrap_err("connect client")
+    .unwrap();
+
+    let deal_id = "deal-id-1".to_string();
+
+    let config = make_clock_config(2, 1, 0);
+    let (spell_id, worker_id) =
+        create_spell(&mut client, "()", config, json!({}), Some(deal_id.clone())).await;
 }
