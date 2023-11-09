@@ -19,7 +19,7 @@ extern crate fstrings;
 use connected_client::ConnectedClient;
 use created_swarm::{
     make_swarms, make_swarms_with_cfg, make_swarms_with_keypair,
-    make_swarms_with_transport_and_mocked_vm,
+    make_swarms_with_transport_and_mocked_vm, CreatedSwarm,
 };
 use eyre::{Report, WrapErr};
 use fluence_keypair::{KeyFormat, KeyPair, Signature};
@@ -1150,14 +1150,15 @@ async fn timeout_wait() {
 
 #[tokio::test]
 async fn debug_stringify() {
-    async fn stringify(value: impl Into<JValue>) -> String {
-        let mut result = exec_script(
+    let swarms = make_swarms(1).await;
+    async fn stringify(value: impl Into<JValue>, swarms: &Vec<CreatedSwarm>) -> String {
+        let mut result = exec_script_with(
             r#"(call relay ("debug" "stringify") [value] result)"#,
             hashmap! {
                 "value" => value.into()
             },
             "result",
-            1,
+            swarms,
         )
         .await
         .unwrap();
@@ -1165,17 +1166,20 @@ async fn debug_stringify() {
         result[0].take().as_str().unwrap().to_string()
     }
 
-    assert_eq!(stringify("hello").await, r#""hello""#);
-    assert_eq!(stringify(101).await, r#"101"#);
-    assert_eq!(stringify(json!({ "a": "b" })).await, r#"{"a":"b"}"#);
-    assert_eq!(stringify(json!(["a"])).await, r#"["a"]"#);
-    assert_eq!(stringify(json!(["a", "b"])).await, r#"["a","b"]"#);
+    assert_eq!(stringify("hello", &swarms).await, r#""hello""#);
+    assert_eq!(stringify(101, &swarms).await, r#"101"#);
+    assert_eq!(
+        stringify(json!({ "a": "b" }), &swarms).await,
+        r#"{"a":"b"}"#
+    );
+    assert_eq!(stringify(json!(["a"]), &swarms).await, r#"["a"]"#);
+    assert_eq!(stringify(json!(["a", "b"]), &swarms).await, r#"["a","b"]"#);
 
-    let result = exec_script(
+    let result = exec_script_with(
         r#"(call relay ("debug" "stringify") [] result)"#,
         <_>::default(),
         "result",
-        1,
+        &swarms,
     )
     .await
     .unwrap();
@@ -1184,11 +1188,11 @@ async fn debug_stringify() {
         r#""<empty argument list>""#
     );
 
-    let result = exec_script(
+    let result = exec_script_with(
         r#"(call relay ("debug" "stringify") ["a" "b"] result)"#,
         <_>::default(),
         "result",
-        1,
+        &swarms,
     )
     .await
     .unwrap();
@@ -2008,24 +2012,36 @@ async fn unary(service: &str, func: &str, x: impl Into<JValue>) -> Result<JValue
     result.map(|mut r| r[0].take())
 }
 
+async fn exec_script_with(
+    script: &str,
+    args: HashMap<&'static str, JValue>,
+    result: &str,
+    swarms: &Vec<CreatedSwarm>,
+) -> Result<Vec<JValue>, Report> {
+    exec_script_as_admin(script, args, result, swarms, false).await
+}
 async fn exec_script(
     script: &str,
     args: HashMap<&'static str, JValue>,
     result: &str,
     node_count: usize,
 ) -> Result<Vec<JValue>, Report> {
-    exec_script_as_admin(script, args, result, node_count, false).await
+    let swarms = make_swarms(node_count).await;
+    let res = exec_script_with(script, args, result, &swarms).await;
+    swarms
+        .into_iter()
+        .map(|s| s.exit_outlet.send(()))
+        .for_each(drop);
+    res
 }
 
 async fn exec_script_as_admin<'a>(
     script: &'a str,
     mut args: HashMap<&'static str, JValue>,
     result: &'a str,
-    node_count: usize,
+    swarms: &Vec<CreatedSwarm>,
     as_admin: bool,
 ) -> Result<Vec<JValue>, Report> {
-    let swarms = make_swarms(node_count).await;
-
     let keypair = if as_admin {
         Some(swarms[0].management_keypair.clone())
     } else {
@@ -2049,11 +2065,6 @@ async fn exec_script_as_admin<'a>(
             args,
         )
         .await;
-
-    swarms
-        .into_iter()
-        .map(|s| s.exit_outlet.send(()))
-        .for_each(drop);
 
     result
 }
