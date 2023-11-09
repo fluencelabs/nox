@@ -24,7 +24,7 @@ enable = [ "aqua-ipfs", "decider" ]
 
 [log]
 # possible values are 'default' and 'logfmt'
-format = "default"
+format = "logfmt"
 
 [metrics_config]
 metrics_enabled = true

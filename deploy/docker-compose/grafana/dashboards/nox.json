@@ -104,7 +104,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "rust_peer_build_info{env=~\"$env\",instance=~\"$instance\"}",
+          "expr": "nox_build_info{env=~\"$env\",instance=~\"$instance\"}",
           "format": "table",
           "instant": true,
           "legendFormat": "__auto",

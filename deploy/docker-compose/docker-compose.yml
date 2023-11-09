@@ -91,7 +91,6 @@ services:
     image: ipfs/kubo
     pull_policy: always
     ports:
-    ports:
       - 5001:5001
     volumes:
       - ./ipfs.sh:/container-init.d/01-ipfs.sh
