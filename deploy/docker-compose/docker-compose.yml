@@ -2,8 +2,7 @@ name: nox-network
 
 services:
   peer-1:
-    # image: fluencelabs/nox
-    image: docker.fluence.dev/nox:FLU-494
+    image: fluencelabs/nox
     container_name: "peer-1-12D3KooWBM3SdXWqGaawQDGQ6JprtwswEg3FWGvGhmgmMez1vRbR"
     ports:
       - 7771:7771
@@ -29,8 +28,7 @@ services:
       - -k=hK62afickoeP2uZbmSkAYXxxqP8ozq16VRN7qfTP719EHC5V5tjrtW57BSjUr8GvsEXmJRbtejUWyPZ2rZMyQdq
 
   peer-2:
-    # image: fluencelabs/nox
-    image: docker.fluence.dev/nox:FLU-494
+    image: fluencelabs/nox
     container_name: "peer-2-12D3KooWQdpukY3p2DhDfUfDgphAqsGu5ZUrmQ4mcHSGrRag6gQK"
     ports:
       - 7772:7772
@@ -56,8 +54,7 @@ services:
       - -k=2WijTVdhVRzyZamWjqPx4V4iNMrajegNMwNa2PmvPSZV6RRpo5M2fsPWdQr22HVRubuJhhSw8BrWiGt6FPhFAuXy
 
   peer-3:
-    # image: fluencelabs/nox
-    image: docker.fluence.dev/nox:FLU-494
+    image: fluencelabs/nox
     container_name: "peer-3-12D3KooWRT8V5awYdEZm6aAV9HWweCEbhWd7df4wehqHZXAB7yMZ"
     ports:
       - 7773:7773
