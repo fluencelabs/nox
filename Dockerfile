@@ -1,8 +1,9 @@
 ARG IPFS_VERSION=0.23.0
-ARG CERAMIC_VERSION=2.3.x
-ARG GETH_VERSION=1.10
-ARG BITCOIN_CLI_VERSION=23.0
+ARG GETH_VERSION=1.13
+ARG BITCOIN_CLI_VERSION=25.1
 
+# etherium cli
+FROM --platform=$TARGETPLATFORM ethereum/client-go:release-${GETH_VERSION} as prepare-geth
 # bitcoin cli
 FROM --platform=$TARGETPLATFORM alpine as prepare-bitcoin
 ARG TARGETPLATFORM
@@ -59,6 +60,8 @@ RUN \
 COPY --from=prepare-ipfs /usr/local/bin/ipfs /usr/bin/ipfs
 # copy bitcoin-cli
 COPY --from=prepare-bitcoin /bitcoin-${BITCOIN_CLI_VERSION}/bin/bitcoin-cli /usr/bin/bitcoin-cli
+# copy geth
+COPY --from=prepare-geth /usr/local/bin/geth /usr/bin/geth
 
 # copy nox binary
 COPY ./binaries/nox-${TARGETARCH}/nox /usr/bin/nox
