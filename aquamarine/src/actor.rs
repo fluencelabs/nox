@@ -99,15 +99,21 @@ where
         self.future.is_some()
     }
 
-    pub fn cleanup(
-        &self,
-        particle_id: &str,
-        current_peer_id: &str,
-        vm: &mut RT,
-    ) -> eyre::Result<()> {
+    pub fn cleanup(&self, vm: &mut RT) {
+        tracing::debug!(
+            target: "particle_reap",
+            particle_id = self.particle.id, worker_id = self.current_peer_id.to_string(),
+            "Reaping particle's actor"
+        );
         // TODO: remove dirs without using vm https://github.com/fluencelabs/fluence/issues/1216
-        vm.cleanup(particle_id, current_peer_id)?;
-        Ok(())
+        // TODO: ??? we don't have this issue anymore
+        if let Err(err) = vm.cleanup(&self.particle.id, &self.current_peer_id.to_string()) {
+            tracing::warn!(
+                particle_id = self.particle.id,
+                "Error cleaning up after particle {:?}",
+                err
+            );
+        }
     }
 
     pub fn mailbox_size(&self) -> usize {
