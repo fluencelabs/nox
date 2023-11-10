@@ -48,7 +48,7 @@ impl ParticleExecutorMetrics {
         let call_time_sec = Histogram::new(execution_time_buckets());
         sub_registry.register(
             "avm_call_time_sec",
-            "Distribution of time it took to run the avm call once",
+            "Distribution of time it took to run the avm call (interpretation + saving the particle on disk) once",
             call_time_sec.clone(),
         );
 
