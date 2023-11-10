@@ -96,7 +96,7 @@ impl<RT: AquaRuntime> ParticleExecutor for RT {
                     let call_time = now.elapsed();
                     let new_data_len = result.as_ref().map(|e| e.data.len()).ok();
                     let mut stats = InterpretationStats {
-                        interpretation_time: Duration::ZERO,  //TODO: here we don't have information for the interpretation time with the error that happened, fix after refactoring AVM::call to AVMRunner::call 
+                        interpretation_time: Duration::ZERO,  // TODO: here we don't have information for the interpretation time with the error that happened, fix after refactoring AVM::call to AVMRunner::call
                         call_time,
                         new_data_len,
                         success: result.is_ok(),
