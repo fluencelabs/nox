@@ -93,28 +93,35 @@ impl<RT: AquaRuntime> ParticleExecutor for RT {
                         &key_pair,
                     );
 
-                    let interpretation_time = now.elapsed();
+                    let call_time = now.elapsed();
                     let new_data_len = result.as_ref().map(|e| e.data.len()).ok();
-                    let stats = InterpretationStats {
-                        interpretation_time,
+                    let mut stats = InterpretationStats {
+                        interpretation_time: Duration::ZERO, //TODO: fix after refactoring AVM::call to AVMRunner::call
+                        call_time,
                         new_data_len,
                         success: result.is_ok(),
                     };
 
-                    if let Err(err) = &result {
-                        tracing::warn!(
+
+                    match &result {
+                        Ok(outcome) => {
+                            stats.interpretation_time = outcome.execution_time;
+                            let len = new_data_len.map(|l| l as i32).unwrap_or(-1);
+                            tracing::trace!(
+                            target: "execution", particle_id = particle.id,
+                            "Particle interpreted in {} [{} bytes => {} bytes]",
+                            pretty(call_time), data_len, len
+                        );
+                        },
+                        Err(err) => {
+                            tracing::warn!(
                             particle_id = particle.id,
                             "Error executing particle: {}",
                             err
                         )
-                    } else {
-                        let len = new_data_len.map(|l| l as i32).unwrap_or(-1);
-                        tracing::trace!(
-                            target: "execution", particle_id = particle.id,
-                            "Particle interpreted in {} [{} bytes => {} bytes]",
-                            pretty(interpretation_time), data_len, len
-                        );
+                        }
                     }
+
                     let effects = Self::into_effects(result, particle.id);
 
                     waker.wake();
@@ -140,6 +147,7 @@ impl<RT: AquaRuntime> ParticleExecutor for RT {
                     }
                     let stats = InterpretationStats {
                         interpretation_time: Duration::ZERO,
+                        call_time: Duration::ZERO,
                         new_data_len: None,
                         success: false,
                     };

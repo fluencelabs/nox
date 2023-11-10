@@ -24,6 +24,7 @@ pub struct FunctionKindLabel {
 #[derive(Clone)]
 pub struct ParticleExecutorMetrics {
     pub interpretation_time_sec: Histogram,
+    pub call_time_sec: Histogram,
     pub interpretation_successes: Counter,
     pub interpretation_failures: Counter,
     pub total_actors_mailbox: Gauge,
@@ -42,6 +43,13 @@ impl ParticleExecutorMetrics {
             "interpretation_time_sec",
             "Distribution of time it took to run the interpreter once",
             interpretation_time_sec.clone(),
+        );
+
+        let call_time_sec = Histogram::new(execution_time_buckets());
+        sub_registry.register(
+            "avm_call_time_sec",
+            "Distribution of time it took to run the avm call once",
+            call_time_sec.clone(),
         );
 
         let interpretation_successes = Counter::default();
@@ -93,6 +101,7 @@ impl ParticleExecutorMetrics {
 
         Self {
             interpretation_time_sec,
+            call_time_sec,
             interpretation_successes,
             interpretation_failures,
             total_actors_mailbox,
