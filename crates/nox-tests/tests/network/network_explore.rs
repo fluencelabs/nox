@@ -24,6 +24,7 @@ use eyre::{ContextCompat, WrapErr};
 use itertools::Itertools;
 use libp2p::core::Multiaddr;
 use local_vm::read_args;
+use log_utils::enable_logs;
 use maplit::hashmap;
 use serde::Deserialize;
 use serde_json::json;
@@ -66,7 +67,6 @@ pub struct ModuleDescriptor {
 #[tokio::test]
 async fn get_interfaces() {
     let swarms = make_swarms(1).await;
-    tokio::time::sleep(KAD_TIMEOUT).await;
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .await
@@ -130,8 +130,7 @@ async fn get_interfaces() {
 
 #[tokio::test]
 async fn get_modules() {
-    let swarms = make_swarms(3).await;
-    tokio::time::sleep(KAD_TIMEOUT).await;
+    let swarms = make_swarms(1).await;
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .await
@@ -187,8 +186,7 @@ async fn get_modules() {
 
 #[tokio::test]
 async fn list_blueprints() {
-    let swarms = make_swarms(3).await;
-    tokio::time::sleep(KAD_TIMEOUT).await;
+    let swarms = make_swarms(1).await;
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .await
@@ -249,8 +247,9 @@ async fn list_blueprints() {
     assert_eq!(hash.as_str().unwrap(), module_hash);
 }
 
-#[tokio::test]
-async fn explore_services() {
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn explore_services_heavy() {
+    enable_logs();
     let swarms = make_swarms(5).await;
 
     tokio::time::sleep(KAD_TIMEOUT).await;
@@ -336,8 +335,9 @@ async fn explore_services() {
     assert_eq!(external_addrs, expected_addrs);
 }
 
-#[tokio::test]
-async fn explore_services_fixed() {
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn explore_services_fixed_heavy() {
+    enable_logs();
     let swarms = make_swarms(5).await;
     sleep(KAD_TIMEOUT);
 
