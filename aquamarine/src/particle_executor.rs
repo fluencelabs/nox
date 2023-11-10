@@ -108,17 +108,17 @@ impl<RT: AquaRuntime> ParticleExecutor for RT {
                             stats.interpretation_time = outcome.execution_time;
                             let len = new_data_len.map(|l| l as i32).unwrap_or(-1);
                             tracing::trace!(
-                            target: "execution", particle_id = particle.id,
-                            "Particle interpreted in {} [{} bytes => {} bytes]",
-                            pretty(call_time), data_len, len
-                        );
+                                target: "execution", particle_id = particle.id,
+                                "Particle interpreted in {} [{} bytes => {} bytes]",
+                                pretty(call_time), data_len, len
+                            );
                         },
                         Err(err) => {
                             tracing::warn!(
-                            particle_id = particle.id,
-                            "Error executing particle: {}",
-                            err
-                        )
+                                particle_id = particle.id,
+                                "Error executing particle: {}",
+                                err
+                            )
                         }
                     }
 
