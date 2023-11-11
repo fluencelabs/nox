@@ -16,7 +16,6 @@
 
 use connected_client::ConnectedClient;
 use created_swarm::make_swarms;
-use test_constants::KAD_TIMEOUT;
 
 use eyre::WrapErr;
 use maplit::hashmap;
@@ -24,8 +23,7 @@ use serde_json::json;
 
 #[tokio::test]
 async fn echo_particle() {
-    let swarms = make_swarms(3).await;
-    tokio::time::sleep(KAD_TIMEOUT).await;
+    let swarms = make_swarms(1).await;
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .await
         .wrap_err("connect client")
