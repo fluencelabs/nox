@@ -102,7 +102,7 @@ marine-it-parser = "0.14.0"
 
 # avm
 # avm-server = { version = "0.33.3" }
-avm-server = { git = "https://github.com/fluencelabs/aquavm.git", branch = "avm-can-do-tracing" }
+avm-server = { git = "https://github.com/fluencelabs/aquavm.git", branch = "chore/avm-can-do-tracing" }
 air-interpreter-wasm = { version = "0.54.0" }
 
 # libp2p
