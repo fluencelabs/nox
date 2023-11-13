@@ -55,8 +55,8 @@ pub use node::Node;
 pub use connection_pool::Command as ConnectionPoolCommand;
 pub use connectivity::Connectivity;
 pub use kademlia::Command as KademliaCommand;
-pub use layers::log_layer;
 pub use layers::env_filter_layer;
+pub use layers::log_layer;
 pub use layers::tokio_console_layer;
 pub use layers::tracing_layer;
 
