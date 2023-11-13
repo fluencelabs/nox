@@ -12,7 +12,7 @@ use tracing::Subscriber;
 use tracing_subscriber::registry::LookupSpan;
 use tracing_subscriber::Layer;
 
-pub fn log_layer<S>(log_config: &Option<LogConfig>) -> impl Layer<S>
+pub fn env_filter_layer<S>() -> impl Layer<S>
 where
     S: Subscriber + for<'span> LookupSpan<'span>,
 {
@@ -38,6 +38,12 @@ where
         .add_directive("tracing=error".parse().unwrap())
         .add_directive("avm_server::runner=error".parse().unwrap());
 
+    env_filter
+}
+pub fn log_layer<S>(log_config: &Option<LogConfig>) -> impl Layer<S>
+where
+    S: Subscriber + for<'span> LookupSpan<'span>,
+{
     let log_format = log_config
         .as_ref()
         .map(|c| &c.format)
@@ -49,12 +55,10 @@ where
             .with_span_path(false)
             .with_span_name(false)
             .layer()
-            .with_filter(env_filter)
             .boxed(),
         LogFormat::Default => tracing_subscriber::fmt::layer()
             .with_thread_ids(true)
             .with_thread_names(true)
-            .with_filter(env_filter)
             .boxed(),
     };
 

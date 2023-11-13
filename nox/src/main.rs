@@ -38,7 +38,7 @@ use air_interpreter_fs::write_default_air_interpreter;
 use aquamarine::{VmConfig, AVM};
 use config_utils::to_peer_id;
 use fs_utils::to_abs_path;
-use nox::{log_layer, tokio_console_layer, tracing_layer, Node};
+use nox::{env_filter_layer, log_layer, tokio_console_layer, tracing_layer, Node};
 use server_config::{load_config, ConfigData, ResolvedConfig};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -106,6 +106,7 @@ fn main() -> eyre::Result<()> {
         .expect("Could not make tokio runtime")
         .block_on(async {
             tracing_subscriber::registry()
+                .with(env_filter_layer())
                 .with(log_layer(&config.log))
                 .with(tokio_console_layer(&config.console)?)
                 .with(tracing_layer(&config.tracing)?)
