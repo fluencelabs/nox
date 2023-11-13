@@ -36,7 +36,7 @@
       "groupName": "libp2p"
     },
     {
-      "matchPackagePatterns": ["opentelemetry", "opentelemetry-otlp", "tracing-opentelemetry"],
+      "matchPackagePatterns": ["opentelemetry", "opentelemetry-otlp", "tracing-opentelemetry", "opentelemetry_sdk"],
       "groupName": "opentelemetry"
     },
     {
