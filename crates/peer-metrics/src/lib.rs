@@ -58,7 +58,7 @@ pub struct ParticleLabel {
 /// from 100 microseconds to 120 seconds
 pub(self) fn execution_time_buckets() -> std::vec::IntoIter<f64> {
     vec![
-        0.0001, 0.001, 0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.0, 4.0, 7.0, 15.0, 30.0, 60.0, 120.0,
+        0.0001, 0.001, 0.002, 0.003, 0.005, 0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.0, 4.0, 7.0, 15.0, 30.0, 60.0, 120.0,
     ]
     .into_iter()
 }
