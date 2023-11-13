@@ -283,8 +283,10 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
                     m.interpretation_failures.inc();
                 }
 
-                let time = stat.interpretation_time.as_secs_f64();
-                m.interpretation_time_sec.observe(time);
+                let interpretation_time = stat.interpretation_time.as_secs_f64();
+                let call_time = stat.call_time.as_secs_f64();
+                m.interpretation_time_sec.observe(interpretation_time);
+                m.call_time_sec.observe(call_time)
             }
             m.total_actors_mailbox.set(mailbox_size as i64);
             m.alive_actors.set(self.actors.len() as i64);
