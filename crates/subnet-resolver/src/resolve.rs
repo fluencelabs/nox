@@ -101,7 +101,7 @@ pub fn validate_deal_id(deal_id: String) -> Result<String, ResolveSubnetError> {
 pub fn resolve_subnet(deal_id: String, api_endpoint: &str) -> SubnetResolveResult {
     let res: Result<_, ResolveSubnetError> = try {
         let deal_id = validate_deal_id(deal_id)?;
-        // Description of the `getPATs` function from the `chain.workers` smart contract on chain
+        // Description of the `getComputeUnits` function from the `chain.workers` smart contract on chain
         #[allow(deprecated)]
         let input = Function {
             name: String::from("getComputeUnits"),
