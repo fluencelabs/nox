@@ -1,8 +1,8 @@
 use console_subscriber::ConsoleLayer;
 use eyre::anyhow;
-use opentelemetry::sdk::Resource;
 use opentelemetry::KeyValue;
 use opentelemetry_otlp::WithExportConfig;
+use opentelemetry_sdk::Resource;
 use server_config::{ConsoleConfig, LogConfig, LogFormat, TracingConfig};
 use std::net::{SocketAddr, ToSocketAddrs};
 use tracing::level_filters::LevelFilter;
@@ -99,8 +99,8 @@ where
                         .tonic()
                         .with_endpoint(endpoint),
                 )
-                .with_trace_config(opentelemetry::sdk::trace::config().with_resource(resource))
-                .install_batch(opentelemetry::runtime::TokioCurrentThread)?;
+                .with_trace_config(opentelemetry_sdk::trace::config().with_resource(resource))
+                .install_batch(opentelemetry_sdk::runtime::TokioCurrentThread)?;
 
             let tracing_layer = tracing_opentelemetry::layer::<S>().with_tracer(tracer);
             Some(tracing_layer)
