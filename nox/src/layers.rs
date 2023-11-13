@@ -5,6 +5,8 @@ use opentelemetry_otlp::WithExportConfig;
 use opentelemetry_sdk::Resource;
 use server_config::{ConsoleConfig, LogConfig, LogFormat, TracingConfig};
 use std::net::{SocketAddr, ToSocketAddrs};
+use opentelemetry::trace::TracerProvider;
+use opentelemetry_sdk::trace::TracerProvider as SdkTracerProvider;
 use tracing::level_filters::LevelFilter;
 use tracing::Subscriber;
 use tracing_subscriber::registry::LookupSpan;
@@ -88,7 +90,6 @@ where
 {
     let tracing_config = tracing_config.as_ref().unwrap_or(&TracingConfig::Disabled);
     let tracing_layer = match tracing_config {
-        TracingConfig::Disabled => None,
         TracingConfig::Otlp { endpoint } => {
             let resource = Resource::new(vec![KeyValue::new("service.name", "rust-peer")]);
 
@@ -101,6 +102,17 @@ where
                 )
                 .with_trace_config(opentelemetry_sdk::trace::config().with_resource(resource))
                 .install_batch(opentelemetry_sdk::runtime::TokioCurrentThread)?;
+
+            let tracing_layer = tracing_opentelemetry::layer::<S>().with_tracer(tracer);
+            Some(tracing_layer)
+        }
+        TracingConfig::Disabled => {
+            let exporter = opentelemetry_stdout::SpanExporter::default();
+            let provider = SdkTracerProvider::builder()
+                .with_simple_exporter(exporter)
+                .build();
+
+            let tracer = provider.tracer("test");
 
             let tracing_layer = tracing_opentelemetry::layer::<S>().with_tracer(tracer);
             Some(tracing_layer)
