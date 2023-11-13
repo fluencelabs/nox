@@ -2224,7 +2224,11 @@ async fn test_decider_api_endpoint_rewrite() {
 
 #[tokio::test]
 async fn test_activate_deactivate() {
-    let swarms = make_swarms(1).await;
+    let swarms = make_swarms_with_cfg(1, |mut cfg| {
+        cfg.enabled_system_services = vec!["decider".to_string()];
+        cfg
+    })
+    .await;
     let mut client = ConnectedClient::connect_with_keypair(
         swarms[0].multiaddr.clone(),
         Some(swarms[0].management_keypair.clone()),
@@ -2235,7 +2239,93 @@ async fn test_activate_deactivate() {
 
     let deal_id = "deal-id-1".to_string();
 
-    let config = make_clock_config(2, 1, 0);
-    let (spell_id, worker_id) =
-        create_spell(&mut client, "()", config, json!({}), Some(deal_id.clone())).await;
+    let config = make_clock_config(120, 1, 0);
+    let (_, worker_id) = create_spell_with_alias(
+        &mut client,
+        r#"(call %init_peer_id% ("op" "noop") [])"#,
+        config.clone(),
+        json!({}),
+        Some(deal_id.clone()),
+        "worker-spell".to_string(),
+    )
+    .await;
+
+    let (_, _) = create_spell_with_alias(
+        &mut client,
+        r#"(call %init_peer_id% ("op" "noop") [])"#,
+        config.clone(),
+        json!({}),
+        Some(deal_id.clone()),
+        "other-spell".to_string(),
+    )
+    .await;
+
+    client
+        .send_particle(
+    r#"(seq
+                (seq
+                    (seq
+                        (call relay ("worker" "is_active") [deal_id] is_active_before)
+                        (seq
+                            (call worker ("worker-spell" "get_trigger_config") [] worker_trigger_config_before)
+                            (call worker ("other-spell" "get_trigger_config") [] spell_trigger_config_before)
+                        )
+                    )
+                    (seq
+                        (seq
+                            (call relay ("worker" "deactivate") [deal_id])
+                            (seq
+                                (call relay ("worker" "is_active") [deal_id] is_active_after)
+                                (seq
+                                    (call worker ("worker-spell" "get_trigger_config") [] worker_trigger_config_after)
+                                    (call worker ("other-spell" "get_trigger_config") [] spell_trigger_config_after)
+                                )
+                            )
+                        )
+                        (seq
+                            (call relay ("worker" "activate") [deal_id])
+                            (seq
+                                (call relay ("worker" "is_active") [deal_id] is_active_after_restart)
+                                (call worker ("worker-spell" "get_trigger_config") [] worker_trigger_config_after_restart)
+                            )
+                        )
+                    ) 
+                )
+                (call client ("return" "") [is_active_before is_active_after worker_trigger_config_before worker_trigger_config_after spell_trigger_config_before spell_trigger_config_after is_active_after_restart worker_trigger_config_after_restart])
+            )"#,
+            hashmap! {
+                "relay" => json!(client.node.to_string()),
+                "client" => json!(client.peer_id.to_string()),
+                "worker" => json!(worker_id),
+                "deal_id" => json!(deal_id),
+            },
+        )
+        .await;
+
+    if let [JValue::Bool(is_active_before), JValue::Bool(is_active_after), JValue::Object(worker_trigger_config_before), JValue::Object(worker_trigger_config_after), JValue::Object(spell_trigger_config_before), JValue::Object(spell_trigger_config_after), JValue::Bool(is_active_after_restart), JValue::Object(worker_trigger_config_after_restart)] =
+        client.receive_args().await.unwrap().as_slice()
+    {
+        assert!(*is_active_before);
+        assert!(!*is_active_after);
+        let worker_trigger_config_before: TriggerConfig =
+            serde_json::from_value(worker_trigger_config_before["config"].clone()).unwrap();
+        let worker_trigger_config_after: TriggerConfig =
+            serde_json::from_value(worker_trigger_config_after["config"].clone()).unwrap();
+        assert_eq!(worker_trigger_config_before, config);
+        assert_eq!(worker_trigger_config_after, TriggerConfig::default());
+
+        let spell_trigger_config_before: TriggerConfig =
+            serde_json::from_value(spell_trigger_config_before["config"].clone()).unwrap();
+        let spell_trigger_config_after: TriggerConfig =
+            serde_json::from_value(spell_trigger_config_after["config"].clone()).unwrap();
+        assert_eq!(spell_trigger_config_before, config);
+        assert_eq!(spell_trigger_config_after, TriggerConfig::default());
+
+        assert!(*is_active_after_restart);
+        let worker_trigger_config_after_restart: TriggerConfig =
+            serde_json::from_value(worker_trigger_config_after_restart["config"].clone()).unwrap();
+        assert_eq!(worker_trigger_config_after_restart, config);
+    } else {
+        panic!("expected result")
+    }
 }

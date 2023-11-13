@@ -158,7 +158,7 @@ pub(crate) async fn deactivate_deal(
         spell_service_api
             .set_trigger_config(
                 CallParams::new(
-                    params.init_peer_id,
+                    worker_id,
                     worker_id,
                     spell_id.clone(),
                     None,
@@ -172,6 +172,8 @@ pub(crate) async fn deactivate_deal(
                 ))
             })?;
     }
+
+    key_manager.deactivate_worker(worker_id)?;
 
     Ok(())
 }
@@ -213,7 +215,7 @@ pub(crate) async fn activate_deal(
 
     spell_service_api.set_trigger_config(
         CallParams::new(
-            params.init_peer_id,
+            worker_id,
             worker_id,
             installation_spell_id.clone(),
             None,
@@ -235,6 +237,7 @@ pub(crate) async fn activate_deal(
         })
         .await?;
 
+    key_manager.activate_worker(worker_id)?;
     Ok(())
 }
 
