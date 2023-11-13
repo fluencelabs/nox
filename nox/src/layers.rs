@@ -1,12 +1,12 @@
 use console_subscriber::ConsoleLayer;
 use eyre::anyhow;
+use opentelemetry::trace::TracerProvider;
 use opentelemetry::KeyValue;
 use opentelemetry_otlp::WithExportConfig;
+use opentelemetry_sdk::trace::TracerProvider as SdkTracerProvider;
 use opentelemetry_sdk::Resource;
 use server_config::{ConsoleConfig, LogConfig, LogFormat, TracingConfig};
 use std::net::{SocketAddr, ToSocketAddrs};
-use opentelemetry::trace::TracerProvider;
-use opentelemetry_sdk::trace::TracerProvider as SdkTracerProvider;
 use tracing::level_filters::LevelFilter;
 use tracing::Subscriber;
 use tracing_subscriber::registry::LookupSpan;
