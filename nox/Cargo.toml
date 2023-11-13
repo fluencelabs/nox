@@ -60,9 +60,10 @@ base64 = { workspace = true }
 tracing = { workspace = true, features = ["async-await", "log"] }
 tracing-subscriber = { workspace = true, features = ["parking_lot", "env-filter"] }
 tracing-logfmt = "0.3.3"
-tracing-opentelemetry = "0.21.0"
-opentelemetry = { version = "0.20.0", features = ["rt-tokio-current-thread"] }
-opentelemetry-otlp = "0.13.0"
+tracing-opentelemetry = "0.22.0"
+opentelemetry = "0.21.0"
+opentelemetry_sdk = { version = "0.21.0", features = ["rt-tokio-current-thread"] }
+opentelemetry-otlp = "0.14.0"
 once_cell = { workspace = true }
 
 [dev-dependencies]
