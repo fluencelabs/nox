@@ -28,6 +28,7 @@
 )]
 
 mod libp2p_protocol {
+    mod codec;
     pub(super) mod message;
     pub(super) mod upgrade;
 }

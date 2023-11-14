@@ -14,21 +14,23 @@
  * limitations under the License.
  */
 
+use asynchronous_codec::{FramedRead, FramedWrite};
 use std::fmt::Debug;
 use std::{io, iter, time::Duration};
 
 pub use eyre::Error;
-use eyre::WrapErr;
-use futures::{future::BoxFuture, AsyncRead, AsyncWrite, AsyncWriteExt, FutureExt};
+use futures::{
+    future::BoxFuture, AsyncRead, AsyncWrite, AsyncWriteExt, FutureExt, SinkExt, StreamExt,
+};
 use libp2p::swarm::OneShotHandlerConfig;
 use libp2p::{
-    core::{upgrade, InboundUpgrade, OutboundUpgrade, UpgradeInfo},
+    core::{InboundUpgrade, OutboundUpgrade, UpgradeInfo},
     swarm::OneShotHandler,
 };
 use log::LevelFilter;
 use serde::{Deserialize, Serialize};
 
-use crate::libp2p_protocol::message::ProtocolMessage;
+use crate::libp2p_protocol::codec::FluenceCodec;
 use crate::{HandlerMessage, SendStatus, PROTOCOL_NAME};
 
 #[derive(Clone, Deserialize, Serialize, Debug)]
@@ -84,10 +86,6 @@ impl<OutProto: libp2p::swarm::handler::OutboundUpgradeSend, OutEvent> From<Proto
     }
 }
 
-// 100 Mb
-#[allow(clippy::identity_op)]
-const MAX_BUF_SIZE: usize = 100 * 1024 * 1024;
-
 macro_rules! impl_upgrade_info {
     ($tname:ident) => {
         impl UpgradeInfo for $tname {
@@ -109,14 +107,15 @@ where
     Socket: AsyncRead + Send + Unpin + 'static,
 {
     type Output = HandlerMessage;
-    type Error = Error;
+    type Error = std::io::Error;
     type Future = BoxFuture<'static, Result<Self::Output, Self::Error>>;
 
-    fn upgrade_inbound(self, mut socket: Socket, _: Self::Info) -> Self::Future {
+    fn upgrade_inbound(self, socket: Socket, _: Self::Info) -> Self::Future {
         async move {
-            let decoded = upgrade::read_length_prefixed(&mut socket, MAX_BUF_SIZE).await?;
-            let msg: ProtocolMessage = serde_json::from_slice(&decoded)
-                .wrap_err_with(|| format!("unable to deserialize: '{decoded:?}'"))?;
+            let msg = FramedRead::new(socket, FluenceCodec::new())
+                .next()
+                .await
+                .ok_or(io::ErrorKind::UnexpectedEof)??;
 
             Ok(msg)
         }
@@ -159,8 +158,9 @@ where
             }
 
             let write = async move || -> Result<_, io::Error> {
-                let bytes = serde_json::to_vec(&msg)?;
-                upgrade::write_length_prefixed(&mut socket, &bytes).await?;
+                FramedWrite::new(&mut socket, FluenceCodec::new())
+                    .send(msg)
+                    .await?;
 
                 // WARNING: It is vitally important to ALWAYS close after all writes
                 //          or some bytes may not be sent and it will lead to `unexpected EOF`

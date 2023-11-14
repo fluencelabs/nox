@@ -448,6 +448,8 @@ dependencies = [
  "futures-util",
  "memchr",
  "pin-project-lite",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -4994,6 +4996,7 @@ dependencies = [
 name = "particle-protocol"
 version = "0.3.0"
 dependencies = [
+ "asynchronous-codec 0.7.0",
  "base64 0.21.5",
  "derivative",
  "eyre",
@@ -5006,6 +5009,7 @@ dependencies = [
  "libp2p",
  "log",
  "now-millis",
+ "once_cell",
  "rand 0.8.5",
  "serde",
  "serde_derive",

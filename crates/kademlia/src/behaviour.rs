@@ -36,7 +36,6 @@ use libp2p::swarm::behaviour::{
     FromSwarm, ListenFailure, ListenerClosed, ListenerError, NewListenAddr, NewListener,
 };
 use libp2p::swarm::derive_prelude::AddressChange;
-use libp2p::swarm::PollParameters;
 use libp2p::swarm::THandlerInEvent;
 use libp2p::swarm::THandlerOutEvent;
 use libp2p::swarm::{ConnectionDenied, ConnectionId, THandler};
@@ -209,7 +208,6 @@ impl Kademlia {
         peer_id: &PeerId,
         cid: &ConnectionId,
         cp: &ConnectedPoint,
-        handler: <Kademlia as NetworkBehaviour>::ConnectionHandler,
         remaining_established: usize,
     ) {
         self.kademlia
@@ -217,7 +215,6 @@ impl Kademlia {
                 peer_id: *peer_id,
                 connection_id: *cid,
                 endpoint: cp,
-                handler,
                 remaining_established,
             }))
     }
@@ -587,6 +584,7 @@ impl Kademlia {
                 self.peer_discovered(peer, vec![address])
             }
             KademliaEvent::InboundRequest { .. } => {}
+            KademliaEvent::ModeChanged { .. } => {}
         }
     }
 }
@@ -659,7 +657,7 @@ impl NetworkBehaviour for Kademlia {
         )
     }
 
-    fn on_swarm_event(&mut self, event: FromSwarm<Self::ConnectionHandler>) {
+    fn on_swarm_event(&mut self, event: FromSwarm<'_>) {
         match event {
             FromSwarm::ConnectionEstablished(e) => {
                 self.on_established(
@@ -674,7 +672,6 @@ impl NetworkBehaviour for Kademlia {
                 &e.peer_id,
                 &e.connection_id,
                 e.endpoint,
-                e.handler,
                 e.remaining_established,
             ),
             FromSwarm::AddressChange(e) => {
@@ -723,11 +720,7 @@ impl NetworkBehaviour for Kademlia {
             .on_connection_handler_event(peer_id, connection_id, event)
     }
 
-    fn poll(
-        &mut self,
-        cx: &mut Context<'_>,
-        params: &mut impl PollParameters,
-    ) -> Poll<ToSwarm<(), THandlerInEvent<Self>>> {
+    fn poll(&mut self, cx: &mut Context<'_>) -> Poll<ToSwarm<(), THandlerInEvent<Self>>> {
         use Poll::{Pending, Ready};
         use ToSwarm::*;
         #[cfg(test)]
@@ -742,7 +735,7 @@ impl NetworkBehaviour for Kademlia {
 
         #[rustfmt::skip]
         loop {
-            match self.kademlia.poll(cx, params) {
+            match self.kademlia.poll(cx) {
                 Pending => return Pending,
                 Ready(GenerateEvent(e)) => self.inject_kad_event(e),
                 Ready(Dial { opts }) => return Ready(Dial { opts }),
