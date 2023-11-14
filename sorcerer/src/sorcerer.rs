@@ -54,6 +54,7 @@ pub struct Sorcerer {
     pub key_manager: KeyManager,
     pub spell_service_api: SpellServiceApi,
     pub spell_metrics: Option<SpellMetrics>,
+    pub worker_period_sec: u32,
 }
 
 impl Sorcerer {
@@ -80,6 +81,7 @@ impl Sorcerer {
             key_manager,
             spell_service_api,
             spell_metrics,
+            worker_period_sec: config.system_services.decider.worker_period_sec,
         };
 
         let mut builtin_functions = sorcerer.make_spell_builtins();
@@ -400,6 +402,7 @@ impl Sorcerer {
         let services = self.services.clone();
         let spell_event_bus_api = self.spell_event_bus_api.clone();
         let spells_api = self.spell_service_api.clone();
+        let worker_period_sec = self.worker_period_sec;
         ServiceFunction::Immut(Box::new(move |args, params| {
             let services = services.clone();
             let spell_event_bus_api = spell_event_bus_api.clone();
@@ -415,6 +418,7 @@ impl Sorcerer {
                         services,
                         spell_event_bus_api,
                         spells_api,
+                        worker_period_sec,
                     )
                     .await,
                 )

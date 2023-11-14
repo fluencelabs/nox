@@ -2224,8 +2224,18 @@ async fn test_decider_api_endpoint_rewrite() {
 
 #[tokio::test]
 async fn test_activate_deactivate() {
+    let worker_period_sec = 120u32;
     let swarms = make_swarms_with_cfg(1, |mut cfg| {
-        cfg.enabled_system_services = vec!["decider".to_string()];
+        cfg.override_system_services_config = Some(SystemServicesConfig {
+            enable: vec![],
+            aqua_ipfs: Default::default(),
+            decider: DeciderConfig {
+                worker_period_sec,
+                ..Default::default()
+            },
+            registry: Default::default(),
+            connector: Default::default(),
+        });
         cfg
     })
     .await;
@@ -2239,7 +2249,7 @@ async fn test_activate_deactivate() {
 
     let deal_id = "deal-id-1".to_string();
 
-    let config = make_clock_config(120, 1, 0);
+    let config = make_clock_config(worker_period_sec, 1, 0);
     let (_, worker_id) = create_spell_with_alias(
         &mut client,
         r#"(call %init_peer_id% ("op" "noop") [])"#,

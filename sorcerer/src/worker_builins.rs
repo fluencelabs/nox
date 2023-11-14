@@ -190,6 +190,7 @@ pub(crate) async fn activate_deal(
     services: ParticleAppServices,
     spell_event_bus_api: SpellEventBusApi,
     spell_service_api: SpellServiceApi,
+    worker_period_sec: u32,
 ) -> Result<(), JError> {
     let mut args = args.function_args.into_iter();
     let deal_id: String = Args::next("deal_id", &mut args)?;
@@ -210,11 +211,10 @@ pub(crate) async fn activate_deal(
     let installation_spell_id =
         services.resolve_alias(&params.id, worker_id, "worker-spell".to_string())?;
 
-    let trigger_config = spell_service_api.get_trigger_config(CallParams::local(
-        "decider".to_string(),
-        key_manager.get_host_peer_id(),
-        Duration::from_millis(params.ttl as u64),
-    ))?;
+    // same as in decider-distro
+    let mut worker_config = TriggerConfig::default();
+    worker_config.clock.start_sec = 1;
+    worker_config.clock.period_sec = worker_period_sec;
 
     spell_service_api.set_trigger_config(
         CallParams::local(
@@ -222,10 +222,10 @@ pub(crate) async fn activate_deal(
             worker_id,
             Duration::from_millis(params.ttl as u64),
         ),
-        trigger_config.clone(),
+        worker_config.clone(),
     )?;
 
-    let trigger_config = from_user_config(&trigger_config)?.ok_or(JError::new(format!(
+    let trigger_config = from_user_config(&worker_config)?.ok_or(JError::new(format!(
         "Deal activation failed due to failure to parse trigger config"
     )))?;
 
