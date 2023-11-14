@@ -17,6 +17,7 @@ jobs:
     uses: ./.github/workflows/tests.yml
     with:
       ref: ${{ github.ref }}
+      test-retries: 0
 
   lints:
     runs-on: builder
