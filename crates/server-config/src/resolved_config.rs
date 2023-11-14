@@ -81,8 +81,13 @@ impl FromStr for LogFormat {
 pub enum TracingConfig {
     #[serde(rename = "disabled")]
     Disabled,
+    #[serde(rename = "stdout")]
+    Stdout,
     #[serde(rename = "otlp")]
-    Otlp { endpoint: String },
+    Otlp {
+        endpoint: String,
+        sample_ratio: Option<f64>,
+    },
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
@@ -607,6 +612,7 @@ mod tests {
             [tracing]
             type = "otlp"
             endpoint = "test"
+            sample_ratio = 0.1
             "#
         )
         .expect("Could not write in file");
@@ -618,7 +624,8 @@ mod tests {
             assert_eq!(
                 config.tracing,
                 Some(TracingConfig::Otlp {
-                    endpoint: "test".to_string()
+                    endpoint: "test".to_string(),
+                    sample_ratio: Some(0.1)
                 })
             );
         });
@@ -644,7 +651,8 @@ mod tests {
                 assert_eq!(
                     config.tracing,
                     Some(TracingConfig::Otlp {
-                        endpoint: "test".to_string()
+                        endpoint: "test".to_string(),
+                        sample_ratio: None
                     })
                 );
             },
@@ -684,7 +692,8 @@ mod tests {
             assert_eq!(
                 config.tracing,
                 Some(TracingConfig::Otlp {
-                    endpoint: "test".to_string()
+                    endpoint: "test".to_string(),
+                    sample_ratio: None
                 })
             );
         });
