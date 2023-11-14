@@ -25,7 +25,6 @@ base64 = { workspace = true }
 tokio = { workspace = true }
 faster-hex = { workspace = true }
 asynchronous-codec = { version = "0.7.0", features = ["json"] }
-once_cell = { workspace = true }
 
 [dev-dependencies]
 rand = "0.8.5"
