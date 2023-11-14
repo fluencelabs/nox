@@ -159,7 +159,13 @@ impl KeyManager {
         }
     }
 
-    pub fn get_worker_id(&self, deal_id: String) -> Result<PeerId, KeyManagerError> {
+    pub fn get_worker_id(
+        &self,
+        deal_id: Option<String>,
+        init_peer_id: PeerId,
+    ) -> Result<PeerId, KeyManagerError> {
+        // if deal_id is not provided, we associate it with init_peer_id
+        let deal_id = deal_id.unwrap_or(Self::generate_deal_id(init_peer_id));
         self.worker_ids
             .read()
             .get(&deal_id)

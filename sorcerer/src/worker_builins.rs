@@ -43,25 +43,32 @@ pub(crate) fn create_worker(
     ))
 }
 
-pub(crate) fn get_worker_peer_id(args: Args, key_manager: KeyManager) -> Result<JValue, JError> {
+pub(crate) fn get_worker_peer_id(
+    args: Args,
+    params: ParticleParams,
+    key_manager: KeyManager,
+) -> Result<JValue, JError> {
     let mut args = args.function_args.into_iter();
-    let deal_id: String = Args::next("deal_id", &mut args)?;
+    let deal_id: Option<String> = Args::next_opt("deal_id", &mut args)?;
 
     Ok(JValue::String(
-        key_manager.get_worker_id(deal_id)?.to_base58(),
+        key_manager
+            .get_worker_id(deal_id, params.init_peer_id)?
+            .to_base58(),
     ))
 }
 
 pub(crate) fn get_worker_peer_id_opt(
     args: Args,
+    params: ParticleParams,
     key_manager: KeyManager,
 ) -> Result<JValue, JError> {
     let mut args = args.function_args.into_iter();
-    let deal_id: String = Args::next("deal_id", &mut args)?;
+    let deal_id: Option<String> = Args::next_opt("deal_id", &mut args)?;
 
     Ok(JValue::Array(
         key_manager
-            .get_worker_id(deal_id)
+            .get_worker_id(deal_id, params.init_peer_id)
             .map(|id| vec![JValue::String(id.to_base58())])
             .unwrap_or_default(),
     ))
@@ -137,7 +144,7 @@ pub(crate) async fn deactivate_deal(
         )));
     }
 
-    let worker_id = key_manager.get_worker_id(deal_id)?;
+    let worker_id = key_manager.get_worker_id(Some(deal_id), params.init_peer_id)?;
 
     if !key_manager.is_worker_active(worker_id) {
         return Err(JError::new("Deal has already been deactivated"));
@@ -196,7 +203,7 @@ pub(crate) async fn activate_deal(
         )));
     }
 
-    let worker_id = key_manager.get_worker_id(deal_id)?;
+    let worker_id = key_manager.get_worker_id(Some(deal_id), params.init_peer_id)?;
 
     if key_manager.is_worker_active(worker_id) {
         return Err(JError::new("Deal has already been activated"));
@@ -241,9 +248,13 @@ pub(crate) async fn activate_deal(
     Ok(())
 }
 
-pub(crate) fn is_deal_active(args: Args, key_manager: KeyManager) -> Result<JValue, JError> {
+pub(crate) fn is_deal_active(
+    args: Args,
+    params: ParticleParams,
+    key_manager: KeyManager,
+) -> Result<JValue, JError> {
     let mut args = args.function_args.into_iter();
     let deal_id: String = Args::next("worker_id", &mut args)?;
-    let worker_id = key_manager.get_worker_id(deal_id)?;
+    let worker_id = key_manager.get_worker_id(Some(deal_id), params.init_peer_id)?;
     Ok(JValue::Bool(key_manager.is_worker_active(worker_id)))
 }

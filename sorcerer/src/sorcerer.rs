@@ -348,19 +348,20 @@ impl Sorcerer {
     // TODO: will be DEPRECATED soon
     fn make_worker_get_peer_id_closure(&self) -> ServiceFunction {
         let key_manager = self.key_manager.clone();
-        ServiceFunction::Immut(Box::new(move |args, _| {
+        ServiceFunction::Immut(Box::new(move |args, params| {
             let key_manager = key_manager.clone();
-            async move { wrap(get_worker_peer_id(args, key_manager)) }.boxed()
+            async move { wrap(get_worker_peer_id(args, params, key_manager)) }.boxed()
         }))
     }
 
     fn make_worker_get_worker_id_closure(&self) -> ServiceFunction {
         let key_manager = self.key_manager.clone();
-        ServiceFunction::Immut(Box::new(move |args, _| {
+        ServiceFunction::Immut(Box::new(move |args, params| {
             let key_manager = key_manager.clone();
             async move {
                 wrap(crate::worker_builins::get_worker_peer_id_opt(
                     args,
+                    params,
                     key_manager,
                 ))
             }
@@ -453,9 +454,9 @@ impl Sorcerer {
 
     fn make_is_deal_active_closure(&self) -> ServiceFunction {
         let key_manager = self.key_manager.clone();
-        ServiceFunction::Immut(Box::new(move |args, _| {
+        ServiceFunction::Immut(Box::new(move |args, params| {
             let key_manager = key_manager.clone();
-            async move { wrap(is_deal_active(args, key_manager)) }.boxed()
+            async move { wrap(is_deal_active(args, params, key_manager)) }.boxed()
         }))
     }
 }
