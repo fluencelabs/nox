@@ -254,7 +254,7 @@ pub(crate) fn is_deal_active(
     key_manager: KeyManager,
 ) -> Result<JValue, JError> {
     let mut args = args.function_args.into_iter();
-    let deal_id: String = Args::next("worker_id", &mut args)?;
+    let deal_id: String = Args::next("deal_id", &mut args)?;
     let worker_id = key_manager.get_worker_id(Some(deal_id), params.init_peer_id)?;
     Ok(JValue::Bool(key_manager.is_worker_active(worker_id)))
 }
