@@ -4,11 +4,11 @@ use libp2p::PeerId;
 use opentelemetry::trace::TracerProvider;
 use opentelemetry::{global, KeyValue};
 use opentelemetry_otlp::WithExportConfig;
+use opentelemetry_sdk::propagation::TraceContextPropagator;
 use opentelemetry_sdk::trace::Sampler;
 use opentelemetry_sdk::Resource;
 use server_config::{ConsoleConfig, LogConfig, LogFormat, TracingConfig};
 use std::net::{SocketAddr, ToSocketAddrs};
-use opentelemetry_sdk::propagation::TraceContextPropagator;
 use tracing::level_filters::LevelFilter;
 use tracing::Subscriber;
 use tracing_subscriber::registry::LookupSpan;
@@ -89,7 +89,7 @@ where
 pub fn tracing_layer<S>(
     tracing_config: &Option<TracingConfig>,
     peer_id: PeerId,
-    version: &str
+    version: &str,
 ) -> eyre::Result<Option<impl Layer<S>>>
 where
     S: Subscriber + for<'span> LookupSpan<'span>,
