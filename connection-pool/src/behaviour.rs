@@ -589,6 +589,7 @@ impl NetworkBehaviour for ConnectionPoolBehaviour {
             FromSwarm::NewExternalAddrCandidate(_) => {}
             FromSwarm::ExternalAddrConfirmed(_) => {}
             FromSwarm::ExternalAddrExpired(_) => {}
+            _ => {}
         }
     }
 

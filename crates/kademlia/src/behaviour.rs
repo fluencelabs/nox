@@ -707,6 +707,7 @@ impl NetworkBehaviour for Kademlia {
             FromSwarm::ExternalAddrConfirmed(e) => {
                 self.on_external_addr_confirmed(e.addr);
             }
+            _ => {}
         }
     }
 
@@ -745,7 +746,8 @@ impl NetworkBehaviour for Kademlia {
                 Ready(ExternalAddrExpired(address)) => return Ready(ExternalAddrExpired(address)),
                 Ready(CloseConnection { peer_id, connection }) => return Ready(CloseConnection { peer_id, connection }),
                 Ready(ListenOn { opts }) => return Ready(ListenOn {opts}),
-                Ready(RemoveListener { id }) => return Ready(RemoveListener {id})
+                Ready(RemoveListener { id }) => return Ready(RemoveListener {id}),
+                Ready(_) => unreachable!()
             }
         }
     }

@@ -151,6 +151,7 @@ impl<RT: AquaRuntime> Node<RT> {
 
         if config.metrics_config.tokio_metrics_enabled {
             if let Some(r) = metrics_registry.as_mut() {
+                let r = r.sub_registry_with_prefix("tokio");
                 r.register_collector(Box::new(TokioCollector::new()))
             }
         }
