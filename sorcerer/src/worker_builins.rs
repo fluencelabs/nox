@@ -135,7 +135,7 @@ pub(crate) async fn deactivate_deal(
     spell_service_api: SpellServiceApi,
 ) -> Result<(), JError> {
     let mut args = args.function_args.into_iter();
-    let deal_id: String = Args::next("worker_id", &mut args)?;
+    let deal_id: String = Args::next("deal_id", &mut args)?;
 
     if !key_manager.is_management(params.init_peer_id) && !key_manager.is_host(params.init_peer_id)
     {
@@ -164,11 +164,9 @@ pub(crate) async fn deactivate_deal(
 
         spell_service_api
             .set_trigger_config(
-                CallParams::new(
-                    worker_id,
-                    worker_id,
+                CallParams::local(
                     spell_id.clone(),
-                    None,
+                    worker_id,
                     Duration::from_millis(params.ttl as u64),
                 ),
                 TriggerConfig::default(),
@@ -194,7 +192,7 @@ pub(crate) async fn activate_deal(
     spell_service_api: SpellServiceApi,
 ) -> Result<(), JError> {
     let mut args = args.function_args.into_iter();
-    let deal_id: String = Args::next("worker_id", &mut args)?;
+    let deal_id: String = Args::next("deal_id", &mut args)?;
 
     if !key_manager.is_management(params.init_peer_id) && !key_manager.is_host(params.init_peer_id)
     {
@@ -212,20 +210,16 @@ pub(crate) async fn activate_deal(
     let installation_spell_id =
         services.resolve_alias(&params.id, worker_id, "worker-spell".to_string())?;
 
-    let trigger_config = spell_service_api.get_trigger_config(CallParams::new(
-        params.init_peer_id,
-        key_manager.get_host_peer_id(),
+    let trigger_config = spell_service_api.get_trigger_config(CallParams::local(
         "decider".to_string(),
-        None,
+        key_manager.get_host_peer_id(),
         Duration::from_millis(params.ttl as u64),
     ))?;
 
     spell_service_api.set_trigger_config(
-        CallParams::new(
-            worker_id,
-            worker_id,
+        CallParams::local(
             installation_spell_id.clone(),
-            None,
+            worker_id,
             Duration::from_millis(params.ttl as u64),
         ),
         trigger_config.clone(),
