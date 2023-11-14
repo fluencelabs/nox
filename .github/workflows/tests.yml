@@ -64,7 +64,7 @@ jobs:
           dependencies: ${{ inputs.cargo-dependencies }}
 
       - name: Run cargo nextest
-        run: cargo nextest run --release --all-features --profile ci -- --retries ${{ inputs.test-retries }}
+        run: cargo nextest run --release --all-features --profile ci --retries ${{ inputs.test-retries }}
 
       - name: Upload test report
         uses: dorny/test-reporter@v1
