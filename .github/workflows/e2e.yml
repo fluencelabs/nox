@@ -88,6 +88,6 @@ jobs:
   flox:
     needs:
       - nox-snapshot
-    uses: fluencelabs/flox/.github/workflows/tests.yml@main
+    uses: fluencelabs/flox/.github/workflows/tests.yml@deal-lifecycle
     with:
       nox-image: "${{ needs.nox-snapshot.outputs.nox-image }}"
