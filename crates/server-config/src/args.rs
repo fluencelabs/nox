@@ -363,6 +363,10 @@ pub(crate) struct DerivedArgs {
         id = "CONFIG_FILE",
         help_heading = "Node configuration",
         help = "TOML configuration file",
+        long_help = "TOML configuration file. If not specified, the default configuration is used. \
+        If specified, the default configuration is merged with the specified one. \
+        The argument can by used multiple times. \
+        The last configuration overrides the previous ones.",
         value_name = "PATH",
         display_order = 15
     )]
