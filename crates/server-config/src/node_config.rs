@@ -35,7 +35,6 @@ pub struct UnresolvedNodeConfig {
     #[serde(default)]
     pub builtins_key_pair: Option<KeypairConfig>,
 
-
     #[serde(flatten)]
     pub transport_config: TransportConfig,
 
