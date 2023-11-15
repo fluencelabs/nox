@@ -11,6 +11,10 @@ on:
         description: "Cargo dependencies map"
         type: string
         default: "null"
+      test-retries:
+        description: "How many times to retry tests"
+        type: string
+        default: "3"
 
 env:
   RUSTFLAGS: "-D warnings --cfg tokio_unstable -C link-arg=-B/usr/local/bin/mold"
@@ -60,7 +64,7 @@ jobs:
           dependencies: ${{ inputs.cargo-dependencies }}
 
       - name: Run cargo nextest
-        run: cargo nextest run --release --all-features --profile ci
+        run: cargo nextest run --release --all-features --profile ci --retries ${{ inputs.test-retries }}
 
       - name: Upload test report
         uses: dorny/test-reporter@v1
