@@ -17,7 +17,6 @@
 use fluence_keypair::{KeyFormat, KeyPair};
 use libp2p::PeerId;
 use std::collections::HashMap;
-use std::ops::Range;
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::Arc;
@@ -28,8 +27,6 @@ use crate::persistence::{
 };
 use crate::KeyManagerError::{WorkerAlreadyExists, WorkerNotFound, WorkerNotFoundByDeal};
 use parking_lot::RwLock;
-
-pub const INSECURE_KEYPAIR_SEED: Range<u8> = 0..32;
 
 type DealId = String;
 type WorkerId = PeerId;
@@ -49,8 +46,6 @@ pub struct KeyManager {
     worker_infos: Arc<RwLock<HashMap<WorkerId, WorkerInfo>>>,
     keypairs_dir: PathBuf,
     host_peer_id: PeerId,
-    // temporary public, will refactor
-    pub insecure_keypair: KeyPair,
     pub root_keypair: KeyPair,
     management_peer_id: PeerId,
     builtins_management_peer_id: PeerId,
@@ -69,11 +64,6 @@ impl KeyManager {
             worker_infos: Arc::new(Default::default()),
             keypairs_dir,
             host_peer_id: root_keypair.get_peer_id(),
-            insecure_keypair: KeyPair::from_secret_key(
-                INSECURE_KEYPAIR_SEED.collect(),
-                KeyFormat::Ed25519,
-            )
-            .expect("error creating insecure keypair"),
             root_keypair,
             management_peer_id,
             builtins_management_peer_id,
