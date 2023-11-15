@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.16.1](https://github.com/fluencelabs/nox/compare/nox-v0.16.0...nox-v0.16.1) (2023-11-15)
+
+
+### Features
+
+* **metrics:** Add tokio runtime metrics ([#1878](https://github.com/fluencelabs/nox/issues/1878)) ([5522bed](https://github.com/fluencelabs/nox/commit/5522bed9164d8e9ee142e0410db45f61ada6323c))
+* **nox:** add new flags for system services [NET-547, NET-548] ([#1888](https://github.com/fluencelabs/nox/issues/1888)) ([b172117](https://github.com/fluencelabs/nox/commit/b172117c869d06abc88485a1e5ddf0e98aadf8e4))
+* remove insecured keypair [NET-633] ([#1906](https://github.com/fluencelabs/nox/issues/1906)) ([32e938c](https://github.com/fluencelabs/nox/commit/32e938c06a35f4267cb44db83635aadf81095404))
+* **subnet:** Update resolver to new contracts [NET-619] ([#1891](https://github.com/fluencelabs/nox/issues/1891)) ([0de0556](https://github.com/fluencelabs/nox/commit/0de0556a6eae02d309449e71e8d3aaa1f15a7da4))
+* **tracing:** add sample rate + filtering ([#1904](https://github.com/fluencelabs/nox/issues/1904)) ([e825dd1](https://github.com/fluencelabs/nox/commit/e825dd1e4df4b28e2f2034fad3b26de22f0c198f))
+* use particle signature as id for actors [NET-540] ([#1877](https://github.com/fluencelabs/nox/issues/1877)) ([da84a39](https://github.com/fluencelabs/nox/commit/da84a39ffd514a6819e4392c4c7b1fc4bf2a9d35))
+
+
+### Bug Fixes
+
+* **deps:** update fluence-spell to v0.5.28 ([#1890](https://github.com/fluencelabs/nox/issues/1890)) ([291cb70](https://github.com/fluencelabs/nox/commit/291cb708902f0f09b25193fea0c86661a76baabf))
+* **logging:** add a target field in the logfmt formatter ([1bcfb1c](https://github.com/fluencelabs/nox/commit/1bcfb1c37b09e98d4d18130cb3b5e9e60611b55c))
+* **logging:** fixed logfmt formatter ([#1885](https://github.com/fluencelabs/nox/issues/1885)) ([1bcfb1c](https://github.com/fluencelabs/nox/commit/1bcfb1c37b09e98d4d18130cb3b5e9e60611b55c))
+* **metrics:** separate a avm call time & interpretation time metrics ([#1893](https://github.com/fluencelabs/nox/issues/1893)) ([e94d1e4](https://github.com/fluencelabs/nox/commit/e94d1e4e7aae9c39a9b87f0e80a8484fcc2592d9))
+
 ## [0.16.0](https://github.com/fluencelabs/nox/compare/nox-v0.15.2...nox-v0.16.0) (2023-10-30)
 
 
