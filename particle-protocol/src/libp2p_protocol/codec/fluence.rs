@@ -25,8 +25,11 @@ impl Decoder for FluenceCodec {
 
     fn decode(&mut self, src: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
         let bytes = self.length.decode(src)?;
-        if let Some(_) = bytes {
-            return self.json.decode(src).map_err(Into::into);
+        if let Some(bytes) = bytes {
+            return self
+                .json
+                .decode(&mut BytesMut::from(&bytes[..]))
+                .map_err(Into::into);
         }
         Ok(None)
     }
@@ -36,8 +39,11 @@ impl Encoder for FluenceCodec {
     type Item<'a> = ProtocolMessage;
     type Error = FluenceCodecError;
 
-    fn encode(&mut self, _item: Self::Item<'_>, _dst: &mut BytesMut) -> Result<(), Self::Error> {
-        todo!()
+    fn encode(&mut self, item: Self::Item<'_>, dst: &mut BytesMut) -> Result<(), Self::Error> {
+        let mut json_buf = BytesMut::new();
+        self.json.encode(item, &mut json_buf)?;
+        self.length.encode(json_buf.freeze(), dst)?;
+        Ok(())
     }
 }
 

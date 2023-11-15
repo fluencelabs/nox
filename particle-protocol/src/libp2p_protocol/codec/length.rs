@@ -1,5 +1,5 @@
-use asynchronous_codec::{Bytes, BytesMut, Decoder};
-use libp2p::bytes::Buf;
+use asynchronous_codec::{Bytes, BytesMut, Decoder, Encoder};
+use libp2p::bytes::{Buf, BufMut};
 use std::fmt::{Display, Formatter};
 use std::io::Error;
 use std::{fmt, io};
@@ -49,5 +49,17 @@ impl Decoder for LengthCodec {
         } else {
             Ok(None)
         }
+    }
+}
+
+impl Encoder for LengthCodec {
+    type Item<'a> = Bytes;
+    type Error = Error;
+
+    fn encode(&mut self, src: Bytes, dst: &mut BytesMut) -> Result<(), Self::Error> {
+        dst.reserve(U64_LENGTH + src.len());
+        dst.put_u64(src.len() as u64);
+        dst.extend_from_slice(&src);
+        Ok(())
     }
 }

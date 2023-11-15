@@ -5009,7 +5009,6 @@ dependencies = [
  "libp2p",
  "log",
  "now-millis",
- "once_cell",
  "rand 0.8.5",
  "serde",
  "serde_derive",
