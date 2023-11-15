@@ -25,15 +25,13 @@ use connected_client::ConnectedClient;
 use created_swarm::make_swarms;
 use fluence_app_service::SecurityTetraplet;
 use service_modules::load_module;
-use test_constants::KAD_TIMEOUT;
 use test_utils::create_service;
 
 use eyre::WrapErr;
 
 #[tokio::test]
 async fn test_tetraplets() {
-    let swarms = make_swarms(3).await;
-    tokio::time::sleep(KAD_TIMEOUT).await;
+    let swarms = make_swarms(1).await;
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .await

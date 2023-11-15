@@ -1149,14 +1149,18 @@ async fn timeout_wait() {
 
 #[tokio::test]
 async fn debug_stringify() {
-    async fn stringify(value: impl Into<JValue>) -> String {
-        let mut result = exec_script(
+    let swarms = make_swarms(1).await;
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
+        .unwrap();
+    async fn stringify(value: impl Into<JValue>, client: &mut ConnectedClient) -> String {
+        let mut result = exec_script_with(
+            client,
             r#"(call relay ("debug" "stringify") [value] result)"#,
             hashmap! {
                 "value" => value.into()
             },
             "result",
-            1,
         )
         .await
         .unwrap();
@@ -1164,17 +1168,23 @@ async fn debug_stringify() {
         result[0].take().as_str().unwrap().to_string()
     }
 
-    assert_eq!(stringify("hello").await, r#""hello""#);
-    assert_eq!(stringify(101).await, r#"101"#);
-    assert_eq!(stringify(json!({ "a": "b" })).await, r#"{"a":"b"}"#);
-    assert_eq!(stringify(json!(["a"])).await, r#"["a"]"#);
-    assert_eq!(stringify(json!(["a", "b"])).await, r#"["a","b"]"#);
+    assert_eq!(stringify("hello", &mut client).await, r#""hello""#);
+    assert_eq!(stringify(101, &mut client).await, r#"101"#);
+    assert_eq!(
+        stringify(json!({ "a": "b" }), &mut client).await,
+        r#"{"a":"b"}"#
+    );
+    assert_eq!(stringify(json!(["a"]), &mut client).await, r#"["a"]"#);
+    assert_eq!(
+        stringify(json!(["a", "b"]), &mut client).await,
+        r#"["a","b"]"#
+    );
 
-    let result = exec_script(
+    let result = exec_script_with(
+        &mut client,
         r#"(call relay ("debug" "stringify") [] result)"#,
         <_>::default(),
         "result",
-        1,
     )
     .await
     .unwrap();
@@ -1183,11 +1193,11 @@ async fn debug_stringify() {
         r#""<empty argument list>""#
     );
 
-    let result = exec_script(
+    let result = exec_script_with(
+        &mut client,
         r#"(call relay ("debug" "stringify") ["a" "b"] result)"#,
         <_>::default(),
         "result",
-        1,
     )
     .await
     .unwrap();
@@ -1220,10 +1230,17 @@ async fn xor_type_error() {
 
 #[tokio::test]
 async fn math_add() {
-    assert_eq!(binary("math", "add", 2, 2).await.unwrap(), json!(4));
+    let swarms = make_swarms(1).await;
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
+        .unwrap();
+    assert_eq!(
+        binary_with("math", "add", 2, 2, &mut client).await.unwrap(),
+        json!(4)
+    );
     assert!(format!(
         "{:?}",
-        binary("math", "add", i64::MAX, i64::MAX)
+        binary_with("math", "add", i64::MAX, i64::MAX, &mut client)
             .await
             .err()
             .unwrap()
@@ -1233,30 +1250,96 @@ async fn math_add() {
 
 #[tokio::test]
 async fn math_sub() {
-    assert_eq!(binary("math", "sub", 2, 2).await.unwrap(), json!(0));
-    assert_eq!(binary("math", "sub", 2, 3).await.unwrap(), json!(-1));
+    let swarms = make_swarms(1).await;
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
+        .unwrap();
+    assert_eq!(
+        binary_with("math", "sub", 2, 2, &mut client).await.unwrap(),
+        json!(0)
+    );
+    assert_eq!(
+        binary_with("math", "sub", 2, 3, &mut client).await.unwrap(),
+        json!(-1)
+    );
 }
 
 #[tokio::test]
 async fn math_mul() {
-    assert_eq!(binary("math", "mul", 2, 2).await.unwrap(), json!(4));
-    assert_eq!(binary("math", "mul", 2, 0).await.unwrap(), json!(0));
-    assert_eq!(binary("math", "mul", 2, -1).await.unwrap(), json!(-2));
+    let swarms = make_swarms(1).await;
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
+        .unwrap();
+    assert_eq!(
+        binary_with("math", "mul", 2, 2, &mut client).await.unwrap(),
+        json!(4)
+    );
+    assert_eq!(
+        binary_with("math", "mul", 2, 0, &mut client).await.unwrap(),
+        json!(0)
+    );
+    assert_eq!(
+        binary_with("math", "mul", 2, -1, &mut client)
+            .await
+            .unwrap(),
+        json!(-2)
+    );
 }
 
 #[tokio::test]
 async fn math_fmul() {
-    assert_eq!(binary("math", "fmul", 10, 0.66).await.unwrap(), json!(6));
-    assert_eq!(binary("math", "fmul", 0.5, 0.5).await.unwrap(), json!(0));
-    assert_eq!(binary("math", "fmul", 100.5, 0.5).await.unwrap(), json!(50));
+    let swarms = make_swarms(1).await;
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
+        .unwrap();
+    assert_eq!(
+        binary_with("math", "fmul", 10, 0.66, &mut client)
+            .await
+            .unwrap(),
+        json!(6)
+    );
+    assert_eq!(
+        binary_with("math", "fmul", 0.5, 0.5, &mut client)
+            .await
+            .unwrap(),
+        json!(0)
+    );
+    assert_eq!(
+        binary_with("math", "fmul", 100.5, 0.5, &mut client)
+            .await
+            .unwrap(),
+        json!(50)
+    );
 }
 
 #[tokio::test]
 async fn math_div() {
-    assert_eq!(binary("math", "div", 2, 2).await.unwrap(), json!(1));
-    assert_eq!(binary("math", "div", 2, 3).await.unwrap(), json!(0));
-    assert_eq!(binary("math", "div", 10, 5).await.unwrap(), json!(2));
-    assert!(format!("{:?}", binary("math", "div", 2, 0).await.err().unwrap()).contains("overflow"));
+    let swarms = make_swarms(1).await;
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
+        .unwrap();
+    assert_eq!(
+        binary_with("math", "div", 2, 2, &mut client).await.unwrap(),
+        json!(1)
+    );
+    assert_eq!(
+        binary_with("math", "div", 2, 3, &mut client).await.unwrap(),
+        json!(0)
+    );
+    assert_eq!(
+        binary_with("math", "div", 10, 5, &mut client)
+            .await
+            .unwrap(),
+        json!(2)
+    );
+    assert!(format!(
+        "{:?}",
+        binary_with("math", "div", 2, 0, &mut client)
+            .await
+            .err()
+            .unwrap()
+    )
+    .contains("overflow"));
 }
 
 #[tokio::test]
@@ -1266,37 +1349,102 @@ async fn math_rem() {
 
 #[tokio::test]
 async fn math_pow() {
-    assert_eq!(binary("math", "pow", 2, 2).await.unwrap(), json!(4));
-    assert_eq!(binary("math", "pow", 2, 0).await.unwrap(), json!(1));
+    let swarms = make_swarms(1).await;
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
+        .unwrap();
+    assert_eq!(
+        binary_with("math", "pow", 2, 2, &mut client).await.unwrap(),
+        json!(4)
+    );
+    assert_eq!(
+        binary_with("math", "pow", 2, 0, &mut client).await.unwrap(),
+        json!(1)
+    );
 }
 
 #[tokio::test]
 async fn math_log() {
-    assert_eq!(binary("math", "log", 2, 2).await.unwrap(), json!(1));
-    assert_eq!(binary("math", "log", 2, 4).await.unwrap(), json!(2));
+    let swarms = make_swarms(1).await;
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
+        .unwrap();
+    assert_eq!(
+        binary_with("math", "log", 2, 2, &mut client).await.unwrap(),
+        json!(1)
+    );
+    assert_eq!(
+        binary_with("math", "log", 2, 4, &mut client).await.unwrap(),
+        json!(2)
+    );
 }
 
 #[tokio::test]
 async fn cmp_gt() {
-    assert_eq!(binary("cmp", "gt", 2, 4).await.unwrap(), json!(false));
-    assert_eq!(binary("cmp", "gte", 2, 4).await.unwrap(), json!(false));
-    assert_eq!(binary("cmp", "gte", 4, 2).await.unwrap(), json!(true));
-    assert_eq!(binary("cmp", "gte", 2, 2).await.unwrap(), json!(true));
+    let swarms = make_swarms(1).await;
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
+        .unwrap();
+    assert_eq!(
+        binary_with("cmp", "gt", 2, 4, &mut client).await.unwrap(),
+        json!(false)
+    );
+    assert_eq!(
+        binary_with("cmp", "gte", 2, 4, &mut client).await.unwrap(),
+        json!(false)
+    );
+    assert_eq!(
+        binary_with("cmp", "gte", 4, 2, &mut client).await.unwrap(),
+        json!(true)
+    );
+    assert_eq!(
+        binary_with("cmp", "gte", 2, 2, &mut client).await.unwrap(),
+        json!(true)
+    );
 }
 
 #[tokio::test]
 async fn cmp_le() {
-    assert_eq!(binary("cmp", "lt", 2, 4).await.unwrap(), json!(true));
-    assert_eq!(binary("cmp", "lte", 2, 4).await.unwrap(), json!(true));
-    assert_eq!(binary("cmp", "lte", 4, 2).await.unwrap(), json!(false));
-    assert_eq!(binary("cmp", "lte", 2, 2).await.unwrap(), json!(true));
+    let swarms = make_swarms(1).await;
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
+        .unwrap();
+    assert_eq!(
+        binary_with("cmp", "lt", 2, 4, &mut client).await.unwrap(),
+        json!(true)
+    );
+    assert_eq!(
+        binary_with("cmp", "lte", 2, 4, &mut client).await.unwrap(),
+        json!(true)
+    );
+    assert_eq!(
+        binary_with("cmp", "lte", 4, 2, &mut client).await.unwrap(),
+        json!(false)
+    );
+    assert_eq!(
+        binary_with("cmp", "lte", 2, 2, &mut client).await.unwrap(),
+        json!(true)
+    );
 }
 
 #[tokio::test]
 async fn cmp_cmp() {
-    assert_eq!(binary("cmp", "cmp", 2, 4).await.unwrap(), json!(-1));
-    assert_eq!(binary("cmp", "cmp", 2, -4).await.unwrap(), json!(1));
-    assert_eq!(binary("cmp", "cmp", 2, 2).await.unwrap(), json!(0));
+    let swarms = make_swarms(1).await;
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
+        .unwrap();
+    assert_eq!(
+        binary_with("cmp", "cmp", 2, 4, &mut client).await.unwrap(),
+        json!(-1)
+    );
+    assert_eq!(
+        binary_with("cmp", "cmp", 2, -4, &mut client).await.unwrap(),
+        json!(1)
+    );
+    assert_eq!(
+        binary_with("cmp", "cmp", 2, 2, &mut client).await.unwrap(),
+        json!(0)
+    );
 }
 
 #[tokio::test]
@@ -1935,6 +2083,29 @@ async fn binary(
     result.map(|mut r| r[0].take())
 }
 
+async fn binary_with(
+    service: &str,
+    func: &str,
+    x: impl Into<JValue>,
+    y: impl Into<JValue>,
+    client: &mut ConnectedClient,
+) -> Result<JValue, Report> {
+    let result = exec_script_with(
+        client,
+        r#"(call relay (service func) [x y] result)"#,
+        hashmap! {
+            "service" => service.into(),
+            "func" => func.into(),
+            "x" => x.into(),
+            "y" => y.into()
+        },
+        "result",
+    )
+    .await;
+
+    result.map(|mut r| r[0].take())
+}
+
 async fn unary(service: &str, func: &str, x: impl Into<JValue>) -> Result<JValue, Report> {
     let result = exec_script(
         r#"(call relay (service func) [x] result)"#,
@@ -1957,28 +2128,26 @@ async fn exec_script(
     result: &str,
     node_count: usize,
 ) -> Result<Vec<JValue>, Report> {
-    exec_script_as_admin(script, args, result, node_count, false).await
-}
-
-async fn exec_script_as_admin<'a>(
-    script: &'a str,
-    mut args: HashMap<&'static str, JValue>,
-    result: &'a str,
-    node_count: usize,
-    as_admin: bool,
-) -> Result<Vec<JValue>, Report> {
     let swarms = make_swarms(node_count).await;
 
-    let keypair = if as_admin {
-        Some(swarms[0].management_keypair.clone())
-    } else {
-        None
-    };
-    let mut client = ConnectedClient::connect_with_keypair(swarms[0].multiaddr.clone(), keypair)
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .await
         .wrap_err("connect client")
         .unwrap();
+    let res = exec_script_with(&mut client, script, args, result).await;
+    swarms
+        .into_iter()
+        .map(|s| s.exit_outlet.send(()))
+        .for_each(drop);
+    res
+}
 
+async fn exec_script_with<'a>(
+    client: &mut ConnectedClient,
+    script: &'a str,
+    mut args: HashMap<&'static str, JValue>,
+    result: &'a str,
+) -> Result<Vec<JValue>, Report> {
     args.insert("relay", json!(client.node.to_string()));
 
     let result = client
@@ -1992,11 +2161,6 @@ async fn exec_script_as_admin<'a>(
             args,
         )
         .await;
-
-    swarms
-        .into_iter()
-        .map(|s| s.exit_outlet.send(()))
-        .for_each(drop);
 
     result
 }

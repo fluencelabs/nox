@@ -1,8 +1,12 @@
 use console_subscriber::ConsoleLayer;
 use eyre::anyhow;
-use opentelemetry::sdk::Resource;
-use opentelemetry::KeyValue;
+use libp2p::PeerId;
+use opentelemetry::trace::TracerProvider;
+use opentelemetry::{global, KeyValue};
 use opentelemetry_otlp::WithExportConfig;
+use opentelemetry_sdk::propagation::TraceContextPropagator;
+use opentelemetry_sdk::trace::Sampler;
+use opentelemetry_sdk::Resource;
 use server_config::{ConsoleConfig, LogConfig, LogFormat, TracingConfig};
 use std::net::{SocketAddr, ToSocketAddrs};
 use tracing::level_filters::LevelFilter;
@@ -10,7 +14,7 @@ use tracing::Subscriber;
 use tracing_subscriber::registry::LookupSpan;
 use tracing_subscriber::Layer;
 
-pub fn log_layer<S>(log_config: &Option<LogConfig>) -> impl Layer<S>
+pub fn env_filter<S>() -> impl Layer<S>
 where
     S: Subscriber + for<'span> LookupSpan<'span>,
 {
@@ -18,7 +22,7 @@ where
         .unwrap_or_default()
         .replace(char::is_whitespace, "");
 
-    let env_filter = tracing_subscriber::EnvFilter::builder()
+    tracing_subscriber::EnvFilter::builder()
         .with_default_directive(LevelFilter::INFO.into())
         .parse_lossy(rust_log)
         .add_directive("cranelift_codegen=off".parse().unwrap())
@@ -34,8 +38,12 @@ where
         .add_directive("soketto=error".parse().unwrap())
         .add_directive("cranelift_codegen=error".parse().unwrap())
         .add_directive("tracing=error".parse().unwrap())
-        .add_directive("avm_server::runner=error".parse().unwrap());
-
+        .add_directive("avm_server::runner=error".parse().unwrap())
+}
+pub fn log_layer<S>(log_config: &Option<LogConfig>) -> impl Layer<S>
+where
+    S: Subscriber + for<'span> LookupSpan<'span>,
+{
     let log_format = log_config
         .as_ref()
         .map(|c| &c.format)
@@ -47,12 +55,10 @@ where
             .with_span_path(false)
             .with_span_name(false)
             .layer()
-            .with_filter(env_filter)
             .boxed(),
         LogFormat::Default => tracing_subscriber::fmt::layer()
             .with_thread_ids(true)
             .with_thread_names(true)
-            .with_filter(env_filter)
             .boxed(),
     };
 
@@ -82,6 +88,8 @@ where
 
 pub fn tracing_layer<S>(
     tracing_config: &Option<TracingConfig>,
+    peer_id: PeerId,
+    version: &str,
 ) -> eyre::Result<Option<impl Layer<S>>>
 where
     S: Subscriber + for<'span> LookupSpan<'span>,
@@ -89,8 +97,36 @@ where
     let tracing_config = tracing_config.as_ref().unwrap_or(&TracingConfig::Disabled);
     let tracing_layer = match tracing_config {
         TracingConfig::Disabled => None,
-        TracingConfig::Otlp { endpoint } => {
-            let resource = Resource::new(vec![KeyValue::new("service.name", "rust-peer")]);
+        TracingConfig::Stdout => {
+            global::set_text_map_propagator(TraceContextPropagator::new());
+            let exporter = opentelemetry_stdout::SpanExporter::default();
+            let provider = opentelemetry_sdk::trace::TracerProvider::builder()
+                .with_simple_exporter(exporter)
+                .build();
+
+            let tracer = provider.tracer("rust-peer");
+
+            let tracing_layer = tracing_opentelemetry::layer::<S>().with_tracer(tracer);
+            Some(tracing_layer)
+        }
+        TracingConfig::Otlp {
+            endpoint,
+            sample_ratio,
+        } => {
+            global::set_text_map_propagator(TraceContextPropagator::new());
+            let resource = Resource::new(vec![
+                KeyValue::new("service.name", "rust-peer"),
+                KeyValue::new("service.version", version.to_string()),
+                KeyValue::new("peer_id", peer_id.to_base58()),
+            ]);
+
+            let mut config = opentelemetry_sdk::trace::config().with_resource(resource);
+
+            if let Some(ratio) = sample_ratio {
+                config = config.with_sampler(Sampler::ParentBased(Box::new(
+                    Sampler::TraceIdRatioBased(*ratio),
+                )));
+            }
 
             let tracer = opentelemetry_otlp::new_pipeline()
                 .tracing()
@@ -99,8 +135,8 @@ where
                         .tonic()
                         .with_endpoint(endpoint),
                 )
-                .with_trace_config(opentelemetry::sdk::trace::config().with_resource(resource))
-                .install_batch(opentelemetry::runtime::TokioCurrentThread)?;
+                .with_trace_config(config)
+                .install_batch(opentelemetry_sdk::runtime::TokioCurrentThread)?;
 
             let tracing_layer = tracing_opentelemetry::layer::<S>().with_tracer(tracer);
             Some(tracing_layer)

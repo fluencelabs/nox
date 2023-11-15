@@ -22,10 +22,12 @@ use serde_json::{json, Value as JValue};
 
 use connected_client::ConnectedClient;
 use created_swarm::make_swarms;
+use log_utils::enable_logs;
 use particle_protocol::Contact;
 
-#[tokio::test]
-async fn neighborhood() {
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn neighborhood_heavy() {
+    enable_logs();
     let swarms = make_swarms(3).await;
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .await
@@ -63,8 +65,9 @@ async fn neighborhood() {
     }
 }
 
-#[tokio::test]
-async fn neighborhood_with_addresses() {
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn neighborhood_with_addresses_heavy() {
+    enable_logs();
     let swarms = make_swarms(3).await;
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .await

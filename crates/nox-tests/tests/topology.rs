@@ -23,6 +23,7 @@ use serde_json::{json, Value};
 
 use connected_client::ConnectedClient;
 use created_swarm::make_swarms;
+use log_utils::enable_logs;
 use network::join::join_stream;
 use test_constants::KAD_TIMEOUT;
 
@@ -30,8 +31,9 @@ pub mod network {
     pub mod join;
 }
 
-#[tokio::test]
-async fn identity() {
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn identity_heavy() {
+    enable_logs();
     let swarms = make_swarms(3).await;
     tokio::time::sleep(KAD_TIMEOUT).await;
 
@@ -72,8 +74,9 @@ async fn identity() {
     b.receive().await.wrap_err("receive").unwrap();
 }
 
-#[tokio::test]
-async fn init_peer_id() {
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn init_peer_id_heavy() {
+    enable_logs();
     let swarms = make_swarms(3).await;
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .await
@@ -101,8 +104,9 @@ async fn init_peer_id() {
     client.receive().await.wrap_err("receive").unwrap();
 }
 
-#[tokio::test]
-async fn join() {
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn join_heavy() {
+    enable_logs();
     let swarms = make_swarms(3).await;
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
