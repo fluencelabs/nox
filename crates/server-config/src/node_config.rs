@@ -424,9 +424,6 @@ pub struct ListenConfig {
     /// For ws connections
     #[serde(default = "default_websocket_port")]
     pub websocket_port: u16,
-
-    #[serde(default)]
-    pub listen_multiaddrs: Vec<Multiaddr>,
 }
 
 #[derive(Clone, Deserialize, Serialize, Debug, Copy, Eq, Hash, Ord, PartialEq, PartialOrd)]
