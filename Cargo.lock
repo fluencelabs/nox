@@ -2053,9 +2053,9 @@ dependencies = [
 
 [[package]]
 name = "fluence-spell-distro"
-version = "0.5.28"
+version = "0.5.31"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9128780f968b1ef9ad0135733d773e4a186b3ba22ff9c7c68e23a03fa5ee2792"
+checksum = "e4d4709993bd10b529960df2cf5cd974f932f3daa65e3f04eca81d599075d62e"
 dependencies = [
  "built 0.6.1",
  "maplit",
@@ -2063,9 +2063,9 @@ dependencies = [
 
 [[package]]
 name = "fluence-spell-dtos"
-version = "0.5.28"
+version = "0.5.31"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "798bb6a5357a007d91e91da183cfaa1a3df7daea28729b9dd268ba5747fa341e"
+checksum = "3390956b285ef82a40b21593b9f58775cce3853f56d74840387ab7204ad924c0"
 dependencies = [
  "eyre",
  "marine-rs-sdk",
