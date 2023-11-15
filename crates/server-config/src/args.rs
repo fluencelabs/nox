@@ -359,14 +359,14 @@ pub(crate) struct DerivedArgs {
 
     #[arg(
         short('c'),
-        long,
+        long("config"),
         id = "CONFIG_FILE",
         help_heading = "Node configuration",
         help = "TOML configuration file",
         value_name = "PATH",
         display_order = 15
     )]
-    pub(crate) config: Option<PathBuf>,
+    pub(crate) configs: Option<Vec<PathBuf>>,
     #[arg(
         short('d'),
         long,

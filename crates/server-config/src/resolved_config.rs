@@ -195,16 +195,25 @@ pub fn load_config_with_args(
     let matches = raw_cli_config.get_matches_from(raw_args);
     let cli_config = args::DerivedArgs::from_arg_matches(&matches)?;
 
-    let file_source = cli_config
-        .config
-        .clone()
-        .or_else(|| std::env::var_os("FLUENCE_CONFIG").map(PathBuf::from))
-        .map(|path| File::from(path).format(FileFormat::Toml))
-        .unwrap_or(
-            File::with_name("Config.toml")
-                .required(false)
-                .format(FileFormat::Toml),
-        );
+    let mut config_paths: Vec<PathBuf> = std::env::var_os("FLUENCE_CONFIG")
+        .map(|str| str.into_string().ok())
+        .flatten()
+        .map(|str| str.trim().split(",").map(PathBuf::from).collect())
+        .unwrap_or_default();
+
+    config_paths.extend(cli_config.configs.clone().unwrap_or_default());
+
+    let mut file_sources: Vec<_> = Vec::with_capacity(config_paths.len() + 1);
+
+    file_sources.push(
+        File::with_name("Config.toml")
+            .required(false)
+            .format(FileFormat::Toml),
+    );
+
+    for path in config_paths {
+        file_sources.push(File::from(path.clone()).format(FileFormat::Toml));
+    }
 
     let env_source = Environment::with_prefix("FLUENCE")
         .try_parsing(true)
@@ -217,11 +226,13 @@ pub fn load_config_with_args(
         .with_list_parse_key("listen_config.listen_multiaddrs")
         .with_list_parse_key("system_services.enable");
 
-    let config = Config::builder()
-        .add_source(file_source)
-        .add_source(env_source)
-        .add_source(cli_config)
-        .build()?;
+    let mut config_builder = Config::builder();
+    for source in file_sources {
+        config_builder = config_builder.add_source(source)
+    }
+
+    config_builder = config_builder.add_source(env_source).add_source(cli_config);
+    let config = config_builder.build()?;
 
     let config: UnresolvedConfig = config.try_deserialize()?;
 
