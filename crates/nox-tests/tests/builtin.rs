@@ -2419,8 +2419,8 @@ async fn subnet_resolve() {
         pats,
         vec![
             (
-                "0x2b7083358039745e731fb9809204d9304b48797406593e180b4e5a762a473214",
-                "12D3KooWN4XNKgu76nwB7iKUXmE4FKCA5Ycak6SbSqLTaWo2nFsQ"
+                "0x53aadfa1d6cd4c8a18f7eb26bd0b83ca10b664845cd72e2dd871f78b2006f5a7",
+                "12D3KooWN4XNKgu76nwB7iKUXmE4FKCA5Ycak6SbSqLTaWo2nFsQ",
                 vec!["12D3KooWAWdwEujemZN1LQ87bPKSeAvDA1yMGistnL4yF8awuUqV".to_string()],
             ),
             // TODO: add more nodes in subnet later
