@@ -774,4 +774,89 @@ mod tests {
             );
         });
     }
+
+    #[test]
+    fn load_multiple_configs() {
+        let mut file = NamedTempFile::new().expect("Could not create temp file");
+        write!(
+            file,
+            r#"
+            [protocol_config]
+            upgrade_timeout = "60s"
+            "#
+        )
+        .expect("Could not write in file");
+
+        let path = file.path().display().to_string();
+
+        let mut file2 = NamedTempFile::new().expect("Could not create temp file");
+        write!(
+            file2,
+            r#"
+            allowed_binaries = [
+                 "/usr/bin/curl",
+                 "/usr/bin/ipfs",
+                 "/usr/bin/glaze",
+                 "/usr/bin/bitcoin-cli"
+            ]
+            websocket_port = 1234
+            "#
+        )
+        .expect("Could not write in file");
+
+        let path2 = file2.path().display().to_string();
+
+        let mut file3 = NamedTempFile::new().expect("Could not create temp file");
+        write!(
+            file3,
+            r#"
+            websocket_port = 666
+            "#
+        )
+        .expect("Could not write in file");
+
+        let path3 = file3.path().display().to_string();
+
+        let mut file4 = NamedTempFile::new().expect("Could not create temp file");
+        write!(
+            file4,
+            r#"
+           aquavm_pool_size = 160
+            "#
+        )
+        .expect("Could not write in file");
+
+        let path4 = file4.path().display().to_string();
+
+        let args = vec![
+            OsString::from("nox"),
+            OsString::from("--config"),
+            OsString::from(path3.to_string()),
+            OsString::from("--config"),
+            OsString::from(path4.to_string()),
+        ];
+
+        temp_env::with_var(
+            "FLUENCE_CONFIG",
+            Some(format!("{},{}", path, path2)),
+            || {
+                let config = load_config_with_args(args, None).expect("Could not load config");
+                assert_eq!(
+                    config.node_config.protocol_config.upgrade_timeout,
+                    Duration::from_secs(60)
+                );
+                assert_eq!(
+                    config.node_config.allowed_binaries,
+                    vec![
+                        "/usr/bin/curl",
+                        "/usr/bin/ipfs",
+                        "/usr/bin/glaze",
+                        "/usr/bin/bitcoin-cli"
+                    ]
+                );
+                assert_eq!(config.node_config.listen_config.websocket_port, 666);
+                assert_eq!(config.node_config.aquavm_pool_size, 16);
+            },
+        );
+    }
 }
