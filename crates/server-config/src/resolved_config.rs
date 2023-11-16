@@ -867,7 +867,7 @@ mod tests {
                     ]
                 );
                 assert_eq!(config.node_config.listen_config.websocket_port, 666);
-                assert_eq!(config.node_config.aquavm_pool_size, 16);
+                assert_eq!(config.node_config.aquavm_pool_size, 160);
             },
         );
     }
