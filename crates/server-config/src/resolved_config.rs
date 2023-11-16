@@ -26,6 +26,7 @@ use libp2p::core::{multiaddr::Protocol, Multiaddr};
 use serde::{Deserialize, Serialize};
 
 use crate::args;
+use crate::args::DerivedArgs;
 use crate::dir_config::{ResolvedDirConfig, UnresolvedDirConfig};
 use crate::node_config::{NodeConfig, UnresolvedNodeConfig};
 
@@ -171,6 +172,23 @@ pub struct ConfigData {
     pub description: String,
 }
 
+/// Hierarchically loads the configuration using args and envs.
+/// The source order is:
+///  - Load and parse config.toml nearest binary (not required file)
+///  - Load and parse files provided by FLUENCE_CONFIG env var
+///  - Load and parse files provided by --config arg
+///  - Load config values from env vars
+///  - Load config values from args
+/// On each stage the values override the previous ones.
+///
+/// # Arguments
+///
+/// - `data`: Optional `ConfigData` to customize the configuration.
+///
+/// # Returns
+///
+/// Returns a Result containing the unresolved configuration or an Eyre error.
+///
 pub fn load_config(data: Option<ConfigData>) -> eyre::Result<UnresolvedConfig> {
     let raw_args = std::env::args_os().collect::<Vec<_>>();
     load_config_with_args(raw_args, data)
@@ -180,21 +198,7 @@ pub fn load_config_with_args(
     raw_args: Vec<OsString>,
     data: Option<ConfigData>,
 ) -> eyre::Result<UnresolvedConfig> {
-    let command = Command::new("Fluence peer");
-    let command = if let Some(data) = data {
-        command
-            .version(&data.version)
-            .author(&data.authors)
-            .about(data.description)
-            .override_usage(format!("{} [FLAGS] [OPTIONS]", data.binary_name))
-    } else {
-        command
-    };
-
-    let raw_cli_config = args::DerivedArgs::augment_args(command);
-    let matches = raw_cli_config.get_matches_from(raw_args);
-
-    let arg_source = args::DerivedArgs::from_arg_matches(&matches)?;
+    let arg_source = process_args(raw_args, data)?;
 
     let arg_config_sources: Vec<File<FileSourceFile, FileFormat>> = arg_source
         .configs
@@ -249,6 +253,24 @@ pub fn load_config_with_args(
     let config: UnresolvedConfig = config.try_deserialize()?;
 
     Ok(config)
+}
+
+fn process_args(raw_args: Vec<OsString>, data: Option<ConfigData>) -> eyre::Result<DerivedArgs> {
+    let command = Command::new("Fluence peer");
+    let command = if let Some(data) = data {
+        command
+            .version(&data.version)
+            .author(&data.authors)
+            .about(data.description)
+            .override_usage(format!("{} [FLAGS] [OPTIONS]", data.binary_name))
+    } else {
+        command
+    };
+
+    let raw_cli_config = args::DerivedArgs::augment_args(command);
+    let matches = raw_cli_config.get_matches_from(raw_args);
+    let arg_source = args::DerivedArgs::from_arg_matches(&matches)?;
+    Ok(arg_source)
 }
 
 #[cfg(test)]
