@@ -178,7 +178,7 @@ pub struct ConfigData {
 ///  - Load and parse files provided by FLUENCE_CONFIG env var
 ///  - Load and parse files provided by --config arg
 ///  - Load config values from env vars
-///  - Load config values from args
+///  - Load config values from args (throw error on conflicts with env vars)
 /// On each stage the values override the previous ones.
 ///
 /// # Arguments
