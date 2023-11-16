@@ -174,7 +174,7 @@ pub struct ConfigData {
 
 /// Hierarchically loads the configuration using args and envs.
 /// The source order is:
-///  - Load and parse config.toml nearest binary (not required file)
+///  - Load and parse config.toml from cwd (not required file)
 ///  - Load and parse files provided by FLUENCE_CONFIG env var
 ///  - Load and parse files provided by --config arg
 ///  - Load config values from env vars
