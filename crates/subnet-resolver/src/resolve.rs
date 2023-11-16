@@ -19,8 +19,6 @@ pub fn parse_chain_data(data: &str) -> Result<Vec<Token>, ChainDataError> {
     let signature: ParamType = Array(Box::new(Tuple(vec![
         // bytes32 id
         FixedBytes(32),
-        // uint256 index
-        Uint(256),
         // bytes32 peerId
         FixedBytes(32),
         // bytes32 workerId
@@ -64,9 +62,6 @@ fn decode_pats(data: String) -> Result<Vec<Worker>, ResolveSubnetError> {
         let pat_id = next_opt(&mut tuple, "pat_id", Token::into_fixed_bytes)?;
         let pat_id = hex::encode(pat_id);
 
-        // skip 'index' field
-        let mut tuple = tuple.skip(1);
-
         let peer_id = next_opt(&mut tuple, "compute_peer_id", Token::into_fixed_bytes)?;
         let peer_id = parse_peer_id(peer_id)
             .map_err(|e| ResolveSubnetError::InvalidPeerId(e, "compute_peer_id"))?;
@@ -106,10 +101,10 @@ pub fn validate_deal_id(deal_id: String) -> Result<String, ResolveSubnetError> {
 pub fn resolve_subnet(deal_id: String, api_endpoint: &str) -> SubnetResolveResult {
     let res: Result<_, ResolveSubnetError> = try {
         let deal_id = validate_deal_id(deal_id)?;
-        // Description of the `getPATs` function from the `chain.workers` smart contract on chain
+        // Description of the `getComputeUnits` function from the `chain.workers` smart contract on chain
         #[allow(deprecated)]
         let input = Function {
-            name: String::from("getPATs"),
+            name: String::from("getComputeUnits"),
             inputs: vec![],
             outputs: vec![],
             constant: None,

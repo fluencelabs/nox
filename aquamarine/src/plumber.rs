@@ -43,7 +43,9 @@ use crate::particle_effects::RoutingEffects;
 use crate::particle_functions::Functions;
 use crate::vm_pool::VmPool;
 
-type ParticleId = String;
+/// particle signature is used as a particle id
+#[derive(PartialEq, Hash, Eq)]
+struct ParticleId(Vec<u8>);
 
 pub struct Plumber<RT: AquaRuntime, F> {
     events: VecDeque<Result<RoutingEffects, AquamarineApiError>>,
@@ -103,7 +105,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
         }
 
         let builtins = &self.builtins;
-        let key = (particle.id.clone(), worker_id);
+        let key = (ParticleId(particle.signature.clone()), worker_id);
         let entry = self.actors.entry(key);
 
         let actor = match entry {
@@ -224,27 +226,17 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
         if let Some((vm_id, mut vm)) = self.vm_pool.get_vm() {
             let now = now_ms();
 
-            self.actors.retain(|(particle_id, worker_id), actor| {
+            self.actors.retain(|_, actor| {
                 // if actor hasn't yet expired or is still executing, keep it
                 // TODO: if actor is expired, cancel execution and return VM back to pool
                 //       https://github.com/fluencelabs/fluence/issues/1212
                 if !actor.is_expired(now) || actor.is_executing() {
                     return true; // keep actor
                 }
-                tracing::debug!(
-                    target: "particle_reap",
-                    particle_id = particle_id, worker_id = worker_id.to_string(),
-                    "Reaping particle's actor"
-                );
+
                 // cleanup files and dirs after particle processing (vault & prev_data)
                 // TODO: do not pass vm https://github.com/fluencelabs/fluence/issues/1216
-                if let Err(err) = actor.cleanup(particle_id, &worker_id.to_string(), &mut vm) {
-                    tracing::warn!(
-                        particle_id = particle_id,
-                        "Error cleaning up after particle {:?}",
-                        err
-                    )
-                }
+                actor.cleanup(&mut vm);
                 false // remove actor
             });
 
@@ -279,8 +271,10 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
                     m.interpretation_failures.inc();
                 }
 
-                let time = stat.interpretation_time.as_secs_f64();
-                m.interpretation_time_sec.observe(time);
+                let interpretation_time = stat.interpretation_time.as_secs_f64();
+                let call_time = stat.call_time.as_secs_f64();
+                m.interpretation_time_sec.observe(interpretation_time);
+                m.call_time_sec.observe(call_time)
             }
             m.total_actors_mailbox.set(mailbox_size as i64);
             m.alive_actors.set(self.actors.len() as i64);

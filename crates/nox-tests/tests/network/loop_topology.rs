@@ -23,6 +23,7 @@ use serde_json::Value as JValue;
 
 use connected_client::ConnectedClient;
 use created_swarm::{add_print, make_swarms, CreatedSwarm};
+use log_utils::enable_logs;
 
 use super::join_stream;
 
@@ -255,8 +256,9 @@ async fn fold_fold_fold_seq_two_par_null_folds() {
     assert_eq!(json!(flat), json!(output));
 }
 
-#[tokio::test]
-async fn fold_par_same_node_stream() {
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn fold_par_same_node_stream_heavy() {
+    enable_logs();
     let swarms = make_swarms(3).await;
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
@@ -452,8 +454,8 @@ async fn fold_fold_seq_join() {
     assert_eq!(stream, array);
 }
 
-#[tokio::test]
-async fn fold_fold_pairs_seq_join() {
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn fold_fold_pairs_seq_join_heavy() {
     log_utils::enable_logs();
     let mut swarms = make_swarms(5).await;
 
@@ -597,9 +599,10 @@ async fn fold_seq_join() {
     assert_eq!(can, array);
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 #[ignore = "client function isn't called when fold ends with null"]
-async fn fold_null_seq_same_node_stream() {
+async fn fold_null_seq_same_node_stream_heavy() {
+    enable_logs();
     let mut swarms = make_swarms(3).await;
 
     add_print(swarms.iter_mut()).await;
@@ -760,8 +763,9 @@ async fn fold_null_seq_same_node_stream() {
     assert_eq!(flat, res);
 }
 
-#[tokio::test]
-async fn fold_via() {
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn fold_via_heavy() {
+    enable_logs();
     let swarms = make_swarms(4).await;
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
