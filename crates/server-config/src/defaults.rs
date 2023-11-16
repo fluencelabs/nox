@@ -54,11 +54,6 @@ pub fn default_connection_idle_timeout() -> Duration {
 pub fn default_max_established_per_peer_limit() -> Option<u32> {
     Some(5)
 }
-
-pub fn default_auto_particle_ttl() -> Duration {
-    Duration::from_secs(200)
-}
-
 pub fn default_bootstrap_nodes() -> Vec<Multiaddr> {
     vec![]
 }
@@ -162,10 +157,6 @@ pub fn default_bootstrap_frequency() -> usize {
 
 pub fn default_execution_timeout() -> Duration {
     Duration::from_secs(20)
-}
-
-pub fn default_autodeploy_retry_attempts() -> u16 {
-    5
 }
 
 pub fn default_processing_timeout() -> Duration {

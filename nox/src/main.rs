@@ -106,10 +106,6 @@ fn main() -> eyre::Result<()> {
         .build()
         .expect("Could not make tokio runtime")
         .block_on(async {
-            if let Some(true) = config.print_config {
-                log::info!("Loaded config: {:#?}", config);
-            }
-
             let resolver_config = config.clone().resolve()?;
 
             let key_pair = resolver_config.node_config.root_key_pair.clone();
@@ -122,6 +118,10 @@ fn main() -> eyre::Result<()> {
                 .with(tokio_console_layer(&config.console)?)
                 .with(tracing_layer(&config.tracing, peer_id, VERSION)?)
                 .init();
+
+            if let Some(true) = config.print_config {
+                log::info!("Loaded config: {:#?}", config);
+            }
 
             log::info!("node public key = {}", base64_key_pair);
             log::info!("node server peer id = {}", peer_id);

@@ -35,20 +35,6 @@ pub struct UnresolvedNodeConfig {
     #[serde(default)]
     pub builtins_key_pair: Option<KeypairConfig>,
 
-    /// Particle ttl for autodeploy
-    #[serde(default = "default_auto_particle_ttl")]
-    #[serde(with = "humantime_serde")]
-    pub autodeploy_particle_ttl: Duration,
-
-    /// Configure the number of ping attempts to check the readiness of the vm pool.
-    /// Total wait time is the autodeploy_particle_ttl times the number of attempts.
-    #[serde(default = "default_autodeploy_retry_attempts")]
-    pub autodeploy_retry_attempts: u16,
-
-    /// Affects builtins autodeploy. If set to true, then all builtins should be recreated and their state is cleaned up.
-    #[serde(default)]
-    pub force_builtins_redeploy: bool,
-
     #[serde(flatten)]
     pub transport_config: TransportConfig,
 
@@ -188,10 +174,6 @@ impl UnresolvedNodeConfig {
             allow_local_addresses: self.allow_local_addresses,
             particle_execution_timeout: self.particle_execution_timeout,
             management_peer_id: self.management_peer_id,
-
-            autodeploy_particle_ttl: self.autodeploy_particle_ttl,
-            autodeploy_retry_attempts: self.autodeploy_retry_attempts,
-            force_builtins_redeploy: self.force_builtins_redeploy,
             transport_config: self.transport_config,
             listen_config: self.listen_config,
             allowed_binaries,
@@ -304,16 +286,6 @@ pub struct NodeConfig {
 
     #[derivative(Debug = "ignore")]
     pub builtins_key_pair: KeyPair,
-
-    /// Particle ttl for autodeploy
-    pub autodeploy_particle_ttl: Duration,
-
-    /// Configure the number of ping attempts to check the readiness of the vm pool.
-    /// Total wait time is the autodeploy_particle_ttl times the number of attempts.
-    pub autodeploy_retry_attempts: u16,
-
-    /// Affects builtins autodeploy. If set to true, then all builtins should be recreated and their state is cleaned up.
-    pub force_builtins_redeploy: bool,
 
     pub transport_config: TransportConfig,
 
@@ -452,9 +424,6 @@ pub struct ListenConfig {
     /// For ws connections
     #[serde(default = "default_websocket_port")]
     pub websocket_port: u16,
-
-    #[serde(default)]
-    pub listen_multiaddrs: Vec<Multiaddr>,
 }
 
 #[derive(Clone, Deserialize, Serialize, Debug, Copy, Eq, Hash, Ord, PartialEq, PartialOrd)]
