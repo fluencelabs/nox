@@ -91,4 +91,3 @@ jobs:
     uses: fluencelabs/flox/.github/workflows/tests.yml@main
     with:
       nox-image: "${{ needs.nox-snapshot.outputs.nox-image }}"
-      ref: deal-lifecycle
