@@ -240,13 +240,10 @@ pub fn load_config_with_args(
         config_builder = config_builder.add_source(source)
     }
 
-    config_builder = config_builder.add_source(env_source);
-
     for source in arg_config_sources {
         config_builder = config_builder.add_source(source)
     }
-
-    config_builder = config_builder.add_source(arg_source);
+    config_builder = config_builder.add_source(env_source).add_source(arg_source);
     let config = config_builder.build()?;
 
     let config: UnresolvedConfig = config.try_deserialize()?;
