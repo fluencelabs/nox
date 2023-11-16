@@ -224,9 +224,9 @@ checksum = "a4668cab20f66d8d020e1fbc0ebe47217433c1b6c8f2040faf858554e394ace6"
 
 [[package]]
 name = "aqua-ipfs-distro"
-version = "0.5.20"
+version = "0.5.24"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "63178298024f3d55029d308292ae71d292b5934f9860431074b84f9eace5fa0c"
+checksum = "8673eeaa6e5d8b8a95289a6c87e56c660398d06a93217cad4ab05f116b5ff93d"
 dependencies = [
  "built 0.5.2",
  "maplit",
@@ -1546,9 +1546,9 @@ dependencies = [
 
 [[package]]
 name = "decider-distro"
-version = "0.5.4"
+version = "0.5.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c64dbe9a4b69b8d21d46d5ec1da18788a61358f3996b5f87219feb7c67e7a915"
+checksum = "37dd3dc1469b9b64ba95a8c58b9069e2b3e4b4bb5302b1f420cd2381f27ce40f"
 dependencies = [
  "built 0.7.1",
  "fluence-spell-dtos",
