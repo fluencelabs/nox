@@ -368,7 +368,10 @@ pub(crate) struct DerivedArgs {
         The argument can by used multiple times. \
         The last configuration overrides the previous ones.",
         value_name = "PATH",
-        display_order = 15
+        num_args(1..),
+        value_delimiter(','),
+        display_order = 15,
+
     )]
     pub(crate) configs: Option<Vec<PathBuf>>,
     #[arg(
