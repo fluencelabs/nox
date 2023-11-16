@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.16.2](https://github.com/fluencelabs/nox/compare/nox-v0.16.1...nox-v0.16.2) (2023-11-16)
+
+
+### Features
+
+* update decider and aqua-ipfs distros ([#1910](https://github.com/fluencelabs/nox/issues/1910)) ([2238b4a](https://github.com/fluencelabs/nox/commit/2238b4a1b781ca36b56914a48c30b57cf27aece9))
+
+
+### Bug Fixes
+
+* **deps:** update fluence-spell to v0.5.31 ([#1905](https://github.com/fluencelabs/nox/issues/1905)) ([9cedae3](https://github.com/fluencelabs/nox/commit/9cedae3219e4b8fd691f1f82fa40ac887a8188f5))
+
 ## [0.16.1](https://github.com/fluencelabs/nox/compare/nox-v0.16.0...nox-v0.16.1) (2023-11-15)
 
 
