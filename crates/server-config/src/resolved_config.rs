@@ -21,11 +21,12 @@ use std::path::PathBuf;
 use std::str::FromStr;
 
 use clap::{Args, Command, FromArgMatches};
-use config::{Config, Environment, File, FileFormat};
+use config::{Config, Environment, File, FileFormat, FileSourceFile};
 use libp2p::core::{multiaddr::Protocol, Multiaddr};
 use serde::{Deserialize, Serialize};
 
 use crate::args;
+use crate::args::DerivedArgs;
 use crate::dir_config::{ResolvedDirConfig, UnresolvedDirConfig};
 use crate::node_config::{NodeConfig, UnresolvedNodeConfig};
 
@@ -171,6 +172,23 @@ pub struct ConfigData {
     pub description: String,
 }
 
+/// Hierarchically loads the configuration using args and envs.
+/// The source order is:
+///  - Load and parse Config.toml from cwd, if exists
+///  - Load and parse files provided by FLUENCE_CONFIG env var
+///  - Load and parse files provided by --config arg
+///  - Load config values from env vars
+///  - Load config values from args (throw error on conflicts with env vars)
+/// On each stage the values override the previous ones.
+///
+/// # Arguments
+///
+/// - `data`: Optional `ConfigData` to customize the configuration.
+///
+/// # Returns
+///
+/// Returns a Result containing the unresolved configuration or an Eyre error.
+///
 pub fn load_config(data: Option<ConfigData>) -> eyre::Result<UnresolvedConfig> {
     let raw_args = std::env::args_os().collect::<Vec<_>>();
     load_config_with_args(raw_args, data)
@@ -180,6 +198,64 @@ pub fn load_config_with_args(
     raw_args: Vec<OsString>,
     data: Option<ConfigData>,
 ) -> eyre::Result<UnresolvedConfig> {
+    let arg_source = process_args(raw_args, data)?;
+
+    let arg_config_sources: Vec<File<FileSourceFile, FileFormat>> = arg_source
+        .configs
+        .iter()
+        .flat_map(|paths| {
+            paths
+                .iter()
+                .map(|path| File::from(path.clone()).format(FileFormat::Toml))
+                .collect::<Vec<File<FileSourceFile, FileFormat>>>()
+        })
+        .collect();
+
+    let env_source = Environment::with_prefix("FLUENCE")
+        .try_parsing(true)
+        .prefix_separator("_")
+        .separator("__")
+        .list_separator(",")
+        .with_list_parse_key("allowed_binaries")
+        .with_list_parse_key("external_multiaddresses")
+        .with_list_parse_key("bootstrap_nodes")
+        .with_list_parse_key("listen_config.listen_multiaddrs")
+        .with_list_parse_key("system_services.enable");
+
+    let env_config_sources: Vec<File<FileSourceFile, FileFormat>> =
+        std::env::var_os("FLUENCE_CONFIG")
+            .and_then(|str| str.into_string().ok())
+            .map(|str| {
+                str.trim()
+                    .split(",")
+                    .map(PathBuf::from)
+                    .map(|path| File::from(path.clone()).format(FileFormat::Toml))
+                    .collect()
+            })
+            .unwrap_or_default();
+
+    let mut config_builder = Config::builder().add_source(
+        File::with_name("Config.toml")
+            .required(false)
+            .format(FileFormat::Toml),
+    );
+
+    for source in env_config_sources {
+        config_builder = config_builder.add_source(source)
+    }
+
+    for source in arg_config_sources {
+        config_builder = config_builder.add_source(source)
+    }
+    config_builder = config_builder.add_source(env_source).add_source(arg_source);
+    let config = config_builder.build()?;
+
+    let config: UnresolvedConfig = config.try_deserialize()?;
+
+    Ok(config)
+}
+
+fn process_args(raw_args: Vec<OsString>, data: Option<ConfigData>) -> eyre::Result<DerivedArgs> {
     let command = Command::new("Fluence peer");
     let command = if let Some(data) = data {
         command
@@ -193,39 +269,8 @@ pub fn load_config_with_args(
 
     let raw_cli_config = args::DerivedArgs::augment_args(command);
     let matches = raw_cli_config.get_matches_from(raw_args);
-    let cli_config = args::DerivedArgs::from_arg_matches(&matches)?;
-
-    let file_source = cli_config
-        .config
-        .clone()
-        .or_else(|| std::env::var_os("FLUENCE_CONFIG").map(PathBuf::from))
-        .map(|path| File::from(path).format(FileFormat::Toml))
-        .unwrap_or(
-            File::with_name("Config.toml")
-                .required(false)
-                .format(FileFormat::Toml),
-        );
-
-    let env_source = Environment::with_prefix("FLUENCE")
-        .try_parsing(true)
-        .prefix_separator("_")
-        .separator("__")
-        .list_separator(",")
-        .with_list_parse_key("allowed_binaries")
-        .with_list_parse_key("external_multiaddresses")
-        .with_list_parse_key("bootstrap_nodes")
-        .with_list_parse_key("listen_config.listen_multiaddrs")
-        .with_list_parse_key("system_services.enable");
-
-    let config = Config::builder()
-        .add_source(file_source)
-        .add_source(env_source)
-        .add_source(cli_config)
-        .build()?;
-
-    let config: UnresolvedConfig = config.try_deserialize()?;
-
-    Ok(config)
+    let arg_source = args::DerivedArgs::from_arg_matches(&matches)?;
+    Ok(arg_source)
 }
 
 #[cfg(test)]
@@ -762,5 +807,90 @@ mod tests {
                 Duration::from_secs(60)
             );
         });
+    }
+
+    #[test]
+    fn load_multiple_configs() {
+        let mut file = NamedTempFile::new().expect("Could not create temp file");
+        write!(
+            file,
+            r#"
+            [protocol_config]
+            upgrade_timeout = "60s"
+            "#
+        )
+        .expect("Could not write in file");
+
+        let path = file.path().display().to_string();
+
+        let mut file2 = NamedTempFile::new().expect("Could not create temp file");
+        write!(
+            file2,
+            r#"
+            allowed_binaries = [
+                 "/usr/bin/curl",
+                 "/usr/bin/ipfs",
+                 "/usr/bin/glaze",
+                 "/usr/bin/bitcoin-cli"
+            ]
+            websocket_port = 1234
+            "#
+        )
+        .expect("Could not write in file");
+
+        let path2 = file2.path().display().to_string();
+
+        let mut file3 = NamedTempFile::new().expect("Could not create temp file");
+        write!(
+            file3,
+            r#"
+            websocket_port = 666
+            "#
+        )
+        .expect("Could not write in file");
+
+        let path3 = file3.path().display().to_string();
+
+        let mut file4 = NamedTempFile::new().expect("Could not create temp file");
+        write!(
+            file4,
+            r#"
+           aquavm_pool_size = 160
+            "#
+        )
+        .expect("Could not write in file");
+
+        let path4 = file4.path().display().to_string();
+
+        let args = vec![
+            OsString::from("nox"),
+            OsString::from("--config"),
+            OsString::from(path3.to_string()),
+            OsString::from("--config"),
+            OsString::from(path4.to_string()),
+        ];
+
+        temp_env::with_var(
+            "FLUENCE_CONFIG",
+            Some(format!("{},{}", path, path2)),
+            || {
+                let config = load_config_with_args(args, None).expect("Could not load config");
+                assert_eq!(
+                    config.node_config.protocol_config.upgrade_timeout,
+                    Duration::from_secs(60)
+                );
+                assert_eq!(
+                    config.node_config.allowed_binaries,
+                    vec![
+                        "/usr/bin/curl",
+                        "/usr/bin/ipfs",
+                        "/usr/bin/glaze",
+                        "/usr/bin/bitcoin-cli"
+                    ]
+                );
+                assert_eq!(config.node_config.listen_config.websocket_port, 666);
+                assert_eq!(config.node_config.aquavm_pool_size, 160);
+            },
+        );
     }
 }
