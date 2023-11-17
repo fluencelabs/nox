@@ -30,42 +30,48 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # nox:
-  #   if: >
-  #     github.event_name == 'push' ||
-  #     (
-  #       contains(github.event.pull_request.labels.*.name, 'e2e') &&
-  #       !github.event.pull_request.head.repo.fork
-  #     )
-  #   uses: ./.github/workflows/build.yml
-  #   with:
-  #     ref: ${{ github.ref }}
+  nox:
+    if: >
+      github.event_name == 'push' ||
+      (
+        contains(github.event.pull_request.labels.*.name, 'e2e') &&
+        !github.event.pull_request.head.repo.fork
+      )
+    uses: ./.github/workflows/build.yml
+    with:
+      ref: ${{ github.ref }}
 
-  # nox-flavours:
-  #   name: "nox"
-  #   needs: nox
-  #   strategy:
-  #     fail-fast: false
-  #     matrix:
-  #       flavour:
-  #         - ipfs
-  #         # - rich
+  nox-flavours:
+    name: "nox"
+    needs: nox
+    strategy:
+      fail-fast: false
+      matrix:
+        flavour:
+          - ipfs
+          # - rich
 
-  #   uses: ./.github/workflows/container.yml
-  #   with:
-  #     image-name: "docker.fluence.dev/nox"
-  #     flavour: "${{ matrix.flavour }}"
+    uses: ./.github/workflows/container.yml
+    with:
+      image-name: "docker.fluence.dev/nox"
+      flavour: "${{ matrix.flavour }}"
 
-  # nox-snapshot:
-  #   name: "nox"
-  #   needs: nox
-  #   uses: ./.github/workflows/container.yml
-  #   with:
-  #     image-name: "docker.fluence.dev/nox"
-  #     flavour: "minimal"
+  nox-snapshot:
+    name: "nox"
+    needs: nox
+    uses: ./.github/workflows/container.yml
+    with:
+      image-name: "docker.fluence.dev/nox"
+      flavour: "minimal"
 
   decider:
-    uses: fluencelabs/decider/.github/workflows/tests.yml@FLU-510
+    if: >
+      github.event_name == 'push' ||
+      (
+        contains(github.event.pull_request.labels.*.name, 'e2e') &&
+        !github.event.pull_request.head.repo.fork
+      )
+    uses: fluencelabs/decider/.github/workflows/tests.yml@main
     with:
       test-cargo-dependencies: |
         [
@@ -91,30 +97,30 @@ jobs:
           }
         ]
 
-  # js-client:
-  #   needs:
-  #     - nox-snapshot
-  #   uses: fluencelabs/js-client/.github/workflows/tests.yml@master
-  #   with:
-  #     nox-image: "${{ needs.nox-snapshot.outputs.nox-image }}"
+  js-client:
+    needs:
+      - nox-snapshot
+    uses: fluencelabs/js-client/.github/workflows/tests.yml@master
+    with:
+      nox-image: "${{ needs.nox-snapshot.outputs.nox-image }}"
 
-  # aqua:
-  #   needs:
-  #     - nox-snapshot
-  #   uses: fluencelabs/aqua/.github/workflows/tests.yml@main
-  #   with:
-  #     nox-image: "${{ needs.nox-snapshot.outputs.nox-image }}"
+  aqua:
+    needs:
+      - nox-snapshot
+    uses: fluencelabs/aqua/.github/workflows/tests.yml@main
+    with:
+      nox-image: "${{ needs.nox-snapshot.outputs.nox-image }}"
 
-  # registry:
-  #   needs:
-  #     - nox-snapshot
-  #   uses: fluencelabs/registry/.github/workflows/tests.yml@main
-  #   with:
-  #     nox-image: "${{ needs.nox-snapshot.outputs.nox-image }}"
+  registry:
+    needs:
+      - nox-snapshot
+    uses: fluencelabs/registry/.github/workflows/tests.yml@main
+    with:
+      nox-image: "${{ needs.nox-snapshot.outputs.nox-image }}"
 
-  # flox:
-  #   needs:
-  #     - nox-snapshot
-  #   uses: fluencelabs/flox/.github/workflows/tests.yml@main
-  #   with:
-  #     nox-image: "${{ needs.nox-snapshot.outputs.nox-image }}"
+  flox:
+    needs:
+      - nox-snapshot
+    uses: fluencelabs/flox/.github/workflows/tests.yml@main
+    with:
+      nox-image: "${{ needs.nox-snapshot.outputs.nox-image }}"
