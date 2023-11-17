@@ -67,29 +67,25 @@ jobs:
   decider:
     uses: fluencelabs/decider/.github/workflows/tests.yml@FLU-510
     with:
-      cargo-dependencies: |
+      test-cargo-dependencies: |
         [
           {
             "package": "created-swarm",
-            "manifest": "src/tests/decider-distro-tests-rs/Cargo.toml",
             "git": "https://github.com/fluencelabs/nox.git",
             "branch": "${{ github.ref }}"
           },
           {
             "package": "connected-client",
-            "manifest": "src/tests/decider-distro-tests-rs/Cargo.toml",
             "git": "https://github.com/fluencelabs/nox.git",
             "branch": "${{ github.ref }}"
           },
           {
             "package": "log-utils",
-            "manifest": "src/tests/decider-distro-tests-rs/Cargo.toml",
             "git": "https://github.com/fluencelabs/nox.git",
             "branch": "${{ github.ref }}"
           },
           {
             "package": "system-services",
-            "manifest": "src/tests/decider-distro-tests-rs/Cargo.toml",
             "git": "https://github.com/fluencelabs/nox.git",
             "branch": "${{ github.ref }}"
           }
