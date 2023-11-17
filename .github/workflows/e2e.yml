@@ -72,22 +72,22 @@ jobs:
           {
             "package": "created-swarm",
             "git": "https://github.com/fluencelabs/nox.git",
-            "branch": "${{ github.base_ref }}"
+            "branch": "${{ github.head_ref }}"
           },
           {
             "package": "connected-client",
             "git": "https://github.com/fluencelabs/nox.git",
-            "branch": "${{ github.base_ref }}"
+            "branch": "${{ github.head_ref }}"
           },
           {
             "package": "log-utils",
             "git": "https://github.com/fluencelabs/nox.git",
-            "branch": "${{ github.base_ref }}"
+            "branch": "${{ github.head_ref }}"
           },
           {
             "package": "system-services",
             "git": "https://github.com/fluencelabs/nox.git",
-            "branch": "${{ github.base_ref }}"
+            "branch": "${{ github.head_ref }}"
           }
         ]
 
