@@ -1113,7 +1113,7 @@ version = "0.1.0"
 dependencies = [
  "fluence-libp2p",
  "futures",
- "itertools 0.11.0",
+ "itertools 0.12.0",
  "libp2p",
  "log",
  "parking_lot",
@@ -2922,6 +2922,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "itertools"
+version = "0.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "25db6b064527c5d482d0423354fcd07a89a2dfe07b67892e62411946db7f07b0"
+dependencies = [
+ "either",
+]
+
+[[package]]
 name = "itoa"
 version = "1.0.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2978,7 +2987,7 @@ name = "json-utils"
 version = "0.0.2"
 dependencies = [
  "base64 0.21.5",
- "itertools 0.11.0",
+ "itertools 0.12.0",
  "serde",
  "serde_json",
 ]
@@ -4493,7 +4502,7 @@ dependencies = [
  "health",
  "humantime-serde",
  "hyper",
- "itertools 0.11.0",
+ "itertools 0.12.0",
  "kademlia",
  "key-manager",
  "libp2p",
@@ -4553,7 +4562,7 @@ dependencies = [
  "fstrings",
  "futures",
  "humantime-serde",
- "itertools 0.11.0",
+ "itertools 0.12.0",
  "json-utils",
  "key-manager",
  "libp2p",
@@ -4882,7 +4891,7 @@ dependencies = [
  "futures",
  "health",
  "humantime-serde",
- "itertools 0.11.0",
+ "itertools 0.12.0",
  "ivalue-utils",
  "kademlia",
  "key-manager",
@@ -4941,7 +4950,7 @@ dependencies = [
  "fluence-app-service",
  "fs-utils",
  "fstrings",
- "itertools 0.11.0",
+ "itertools 0.12.0",
  "json-utils",
  "libipld",
  "log",
@@ -6457,7 +6466,7 @@ dependencies = [
  "fluence-app-service",
  "fluence-libp2p",
  "fluence-spell-distro",
- "itertools 0.11.0",
+ "itertools 0.12.0",
  "log",
  "parking_lot",
  "particle-modules",
@@ -7047,7 +7056,7 @@ dependencies = [
  "fluence-keypair",
  "fluence-libp2p",
  "futures",
- "itertools 0.11.0",
+ "itertools 0.12.0",
  "particle-protocol",
  "serde_json",
 ]
