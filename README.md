@@ -18,7 +18,7 @@ This will setup a network of one nox not connected to any other network.
 
 For more info about the docker image (image version flavours, environment
 variables, deployment examples) and documentation for nox operators, see the
-[README](https://github.com/fluencelabs/nox/blob/master/DOCKER.md).
+[README](https://github.com/fluencelabs/nox/blob/master/docker/README.md).
 
 ## Documentation
 
