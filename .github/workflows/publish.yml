@@ -51,13 +51,14 @@ jobs:
       - name: Download nox binaries
         uses: actions/download-artifact@v3
         with:
-          path: binaries
+          path: docker/binaries
 
       - name: Set build date
         run: echo "BUILD_DATE=$(date '+%Y-%m-%dT%H:%M:%S%:z')" >> $GITHUB_ENV
 
       - name: Calculate SHA256
         id: sha
+        working-directory: docker
         run: |
           # Calculate sha256
           for arch in amd64 arm64; do
@@ -72,9 +73,9 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            ./nox-amd64
-            ./nox-arm64
-            ./nox_SHA256_SUMS
+            ./docker/nox-amd64
+            ./docker/nox-arm64
+            ./docker/nox_SHA256_SUMS
           tag_name: ${{ inputs.tag }}
 
       - name: Login to DockerHub

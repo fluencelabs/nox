@@ -68,7 +68,7 @@ jobs:
       - name: Download nox binary
         uses: actions/download-artifact@v3
         with:
-          path: binaries
+          path: docker/binaries
 
       - name: Generate snapshot version
         id: version
