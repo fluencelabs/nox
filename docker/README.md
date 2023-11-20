@@ -87,7 +87,7 @@ aqua-ipfs:
   [[aqua_ipfs]]
   # IPFS multiaddr advertised to clients (e.g., frontend apps) to use in uploading files (ipfs.put), managing pins (ipfs.pin) etc
   external_api_multiaddr = "/dns4/ipfs.fluence.dev/tcp/5001"
-  # used by the aqua-ipfs builtin to configure IPFS (bad bad bad)
+  # used by the aqua-ipfs builtin to configure IPFS
   local_api_multiaddr = "/dns4/ipfs.fluence.dev/tcp/5001"
 ```
 
@@ -98,8 +98,7 @@ TLS certificates and other security related things.
 
 ### [decider and connector](https://github.com/fluencelabs/decider)
 
-Used to pull contracts and deploy from blockchain. TODO documentation on
-configuration variables
+Used to pull contracts and deploy from blockchain.
 
 ## Documentation
 
