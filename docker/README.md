@@ -25,7 +25,7 @@ TODO
 ### Nox configuration
 
 Default configuration file is found at
-[Config.default.toml](https://github.com/fluencelabs/nox/tree/master/Config.default.toml).
+[Config.default.toml](https://github.com/fluencelabs/nox/tree/master/docker/Config.default.toml).
 
 All options can be overwriten by env variables:
 
