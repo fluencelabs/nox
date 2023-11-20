@@ -52,6 +52,7 @@ use spell_event_bus::bus::SpellEventBus;
 use system_services::{Deployer, SystemServiceDistros};
 use tokio::sync::{mpsc, oneshot};
 use tokio::task;
+use tracing::Instrument;
 
 use crate::builtins::make_peer_builtin;
 use crate::dispatcher::Dispatcher;
@@ -474,10 +475,12 @@ impl<RT: AquaRuntime> Node<RT> {
         let libp2p_metrics = self.libp2p_metrics;
         let allow_local_addresses = self.allow_local_addresses;
         let versions = self.versions;
+        let parent_span = tracing::Span::current();
 
         task::Builder::new().name(&task_name.clone()).spawn(async move {
+
             let mut http_server = if let Some(http_listen_addr) = http_listen_addr{
-                log::info!("Starting http endpoint at {}", http_listen_addr);
+                tracing::info!("Starting http endpoint at {}", http_listen_addr);
                 start_http_endpoint(http_listen_addr, metrics_registry, health_registry, peer_id, versions, http_bind_outlet).boxed()
             } else {
                 futures::future::pending().boxed()
@@ -517,7 +520,7 @@ impl<RT: AquaRuntime> Node<RT> {
             dispatcher.cancel().await;
             connectivity.cancel().await;
             pool.abort();
-        }).expect("Could not spawn task");
+        }.instrument(parent_span)).expect("Could not spawn task");
 
         // Note: need to be after the start of the node to be able to subscribe spells
         let deployer = self.system_service_deployer;

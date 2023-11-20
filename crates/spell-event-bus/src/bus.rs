@@ -13,6 +13,7 @@ use thiserror::Error;
 use tokio::select;
 use tokio::sync::mpsc;
 use tokio::task;
+use tracing::Instrument;
 
 struct PeerEventSubscribers {
     subscribers: HashMap<PeerEventType, Vec<Arc<SpellId>>>,
@@ -196,9 +197,10 @@ impl SpellEventBus {
     }
 
     pub fn start(self) -> task::JoinHandle<()> {
+        let parent_span = tracing::Span::current();
         task::Builder::new()
             .name("spell-bus")
-            .spawn(self.run())
+            .spawn(self.run().instrument(parent_span))
             .expect("Could not spawn task")
     }
 
