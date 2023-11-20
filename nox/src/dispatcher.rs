@@ -67,18 +67,17 @@ impl Dispatcher {
         log::info!("starting dispatcher");
         let particle_stream = ReceiverStream::new(particle_stream);
         let effects_stream = UnboundedReceiverStream::new(effects_stream);
-        let parent_span = tracing::Span::current();
         let particles = tokio::task::Builder::new()
             .name("particles")
             .spawn(
                 self.clone()
                     .process_particles(particle_stream)
-                    .instrument(parent_span.clone()),
+                    .in_current_span(),
             )
             .expect("Could not spawn task");
         let effects = tokio::task::Builder::new()
             .name("effects")
-            .spawn(self.process_effects(effects_stream).instrument(parent_span))
+            .spawn(self.process_effects(effects_stream).in_current_span())
             .expect("Could not spawn task");
 
         Tasks::new("Dispatcher", vec![particles, effects])

@@ -50,18 +50,13 @@ pub struct Connectivity {
 
 impl Connectivity {
     pub fn start(self) -> Tasks {
-        let parent_span = tracing::Span::current();
         let reconnect_bootstraps = tokio::task::Builder::new()
             .name("reconnect_bootstraps")
-            .spawn(
-                self.clone()
-                    .reconnect_bootstraps()
-                    .instrument(parent_span.clone()),
-            )
+            .spawn(self.clone().reconnect_bootstraps().in_current_span())
             .expect("Could not spawn task");
         let run_bootstrap = tokio::task::Builder::new()
             .name("run_bootstrap")
-            .spawn(self.kademlia_bootstrap().instrument(parent_span))
+            .spawn(self.kademlia_bootstrap().in_current_span())
             .expect("Could not spawn task");
 
         Tasks::new("Connectivity", vec![run_bootstrap, reconnect_bootstraps])
@@ -210,8 +205,6 @@ impl Connectivity {
 
     /// Dial bootstraps, and then re-dial on each disconnection
     pub async fn reconnect_bootstraps(self) {
-        let parent_span = tracing::Span::current();
-
         let pool = self.connection_pool;
         let kademlia = self.kademlia;
         let bootstrap_nodes = self.bootstrap_nodes;
@@ -274,6 +267,7 @@ impl Connectivity {
             .instrument(parent_span)
         };
 
+        let parent_span = tracing::Span::current();
         let bootstraps = iter(bootstrap_nodes.clone().into_iter().collect::<Vec<_>>());
         bootstraps
             .chain(disconnections)

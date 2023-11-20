@@ -197,10 +197,9 @@ impl SpellEventBus {
     }
 
     pub fn start(self) -> task::JoinHandle<()> {
-        let parent_span = tracing::Span::current();
         task::Builder::new()
             .name("spell-bus")
-            .spawn(self.run().instrument(parent_span))
+            .spawn(self.run().in_current_span())
             .expect("Could not spawn task")
     }
 

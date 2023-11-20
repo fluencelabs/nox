@@ -124,7 +124,6 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> AquamarineBackend<RT, F> {
     }
 
     pub fn start(mut self) -> JoinHandle<()> {
-        let parent_span = tracing::Span::current();
         let mut stream = futures::stream::poll_fn(move |cx| self.poll(cx).map(|_| Some(()))).fuse();
         let result = tokio::task::Builder::new()
             .name("AVM")
@@ -134,7 +133,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> AquamarineBackend<RT, F> {
                         stream.next().await;
                     }
                 }
-                .instrument(parent_span),
+                .in_current_span(),
             )
             .expect("Could not spawn task");
         result

@@ -475,7 +475,6 @@ impl<RT: AquaRuntime> Node<RT> {
         let libp2p_metrics = self.libp2p_metrics;
         let allow_local_addresses = self.allow_local_addresses;
         let versions = self.versions;
-        let parent_span = tracing::Span::current();
 
         task::Builder::new().name(&task_name.clone()).spawn(async move {
 
@@ -520,7 +519,7 @@ impl<RT: AquaRuntime> Node<RT> {
             dispatcher.cancel().await;
             connectivity.cancel().await;
             pool.abort();
-        }.instrument(parent_span)).expect("Could not spawn task");
+        }.in_current_span()).expect("Could not spawn task");
 
         // Note: need to be after the start of the node to be able to subscribe spells
         let deployer = self.system_service_deployer;
