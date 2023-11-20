@@ -64,6 +64,39 @@ jobs:
       image-name: "docker.fluence.dev/nox"
       flavour: "minimal"
 
+  decider:
+    if: >
+      github.event_name == 'push' ||
+      (
+        contains(github.event.pull_request.labels.*.name, 'e2e') &&
+        !github.event.pull_request.head.repo.fork
+      )
+    uses: fluencelabs/decider/.github/workflows/tests.yml@main
+    with:
+      test-cargo-dependencies: |
+        [
+          {
+            "package": "created-swarm",
+            "git": "https://github.com/fluencelabs/nox.git",
+            "branch": "${{ github.head_ref }}"
+          },
+          {
+            "package": "connected-client",
+            "git": "https://github.com/fluencelabs/nox.git",
+            "branch": "${{ github.head_ref }}"
+          },
+          {
+            "package": "log-utils",
+            "git": "https://github.com/fluencelabs/nox.git",
+            "branch": "${{ github.head_ref }}"
+          },
+          {
+            "package": "system-services",
+            "git": "https://github.com/fluencelabs/nox.git",
+            "branch": "${{ github.head_ref }}"
+          }
+        ]
+
   js-client:
     needs:
       - nox-snapshot
