@@ -16,8 +16,7 @@ docker run -d --name fluence -e RUST_LOG="info" -p 7777:7777 -p 9999:9999 fluenc
 
 This will setup a network of one nox not connected to any other network.
 
-For more info about the docker image (image version flavours, environment
-variables, deployment examples) and documentation for nox operators, see the
+For more info about the docker image see the
 [README](https://github.com/fluencelabs/nox/blob/master/docker/README.md).
 
 ## Documentation
