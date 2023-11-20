@@ -1,74 +1,128 @@
-ARG IPFS_VERSION=0.23.0
-ARG GETH_VERSION=1.13
-ARG BITCOIN_CLI_VERSION=25.1
+## Nox
 
-# etherium cli
-FROM --platform=$TARGETPLATFORM ethereum/client-go:release-${GETH_VERSION} as prepare-geth
-# bitcoin cli
-FROM --platform=$TARGETPLATFORM alpine as prepare-bitcoin
-ARG TARGETPLATFORM
-ARG BITCOIN_CLI_VERSION
+[Nox](https://github.com/fluencelabs/nox) is the reference implementation of the
+[Fluence](https://fluence.network) peer. It is used as a Relay for all Clients
+and as a Host for all Workers.
 
-# Download checksums
-ADD https://bitcoincore.org/bin/bitcoin-core-${BITCOIN_CLI_VERSION}/SHA256SUMS ./
-# Download bitcoin archive
-RUN case "$TARGETPLATFORM" in \
-  'linux/amd64') ARCHIVE="bitcoin-${BITCOIN_CLI_VERSION}-x86_64-linux-gnu.tar.gz" ;; \
-  'linux/arm64') ARCHIVE="bitcoin-${BITCOIN_CLI_VERSION}-aarch64-linux-gnu.tar.gz" ;; \
-  esac \
-  && wget "https://bitcoincore.org/bin/bitcoin-core-${BITCOIN_CLI_VERSION}/$ARCHIVE" \
-  && grep " $ARCHIVE\$" SHA256SUMS | sha256sum -c - \
-  && tar -xzf "$ARCHIVE" \
-  && rm "$ARCHIVE"
+## Usage
 
-# ipfs
-FROM ipfs/go-ipfs:v${IPFS_VERSION} as prepare-ipfs
+```bash
+docker run -d --name nox -e RUST_LOG="info" -p 7777:7777 -p 9999:9999 fluencelabs/nox
+```
 
-# base image
-FROM ubuntu:jammy
+To get a list of commands that can be passed to nox run:
 
-ARG TARGETARCH
-ARG BITCOIN_CLI_VERSION
+```bash
+docker run --rm --name nox fluencelabs/nox --help
+```
 
-# https://github.com/opencontainers/image-spec/blob/main/annotations.md#pre-defined-annotation-keys
-LABEL org.opencontainers.image.base.name="ubuntu:jammy"
-LABEL org.opencontainers.image.url="https://github.com/fluencelabs/nox"
-LABEL org.opencontainers.image.vendor="fluencelabs"
-LABEL org.opencontainers.image.authors="fluencelabs"
-LABEL org.opencontainers.image.title="Nox"
-LABEL org.opencontainers.image.description="Rust implementation of the Fluence network peer"
+### Deployment instructions
 
-ENV RUST_LOG="info"
-ENV RUST_BACKTRACE="1"
+TODO
 
-# install necessary packages
-RUN \
-  apt-get update && \
-  apt-get install -y --no-install-recommends \
-    gosu \
-    ca-certificates \
-  	jq \
-  	less \
-  	curl wget && \
-  apt-get clean && \
-  rm -rf \
-  	/tmp/* \
-  	/var/lib/apt/lists/* \
-  	/var/tmp/*
+## Configuration
 
-# copy IPFS binary
-COPY --from=prepare-ipfs /usr/local/bin/ipfs /usr/bin/ipfs
-# copy bitcoin-cli
-COPY --from=prepare-bitcoin /bitcoin-${BITCOIN_CLI_VERSION}/bin/bitcoin-cli /usr/bin/bitcoin-cli
-# copy geth
-COPY --from=prepare-geth /usr/local/bin/geth /usr/bin/geth
+### Nox configuration
 
-# copy nox binary
-COPY ./binaries/nox-${TARGETARCH}/nox /usr/bin/nox
-RUN chmod +x /usr/bin/nox
-# copy default fluence config
-COPY Config.default.toml /.fluence/v1/Config.toml
-# copy entrypoint script
-COPY entrypoint.sh /entrypoint.sh
+Default configuration file is found at
+[Config.default.toml](https://github.com/fluencelabs/nox/tree/master/Config.default.toml).
 
-ENTRYPOINT ["/entrypoint.sh"]
+All options can be overwriten by env variables:
+
+```toml
+no_banner = false
+bootstrap_nodes = [
+  "/dns4/0-node.example.com/tcp/9000",
+  "/dns4/1-node.example.com/tcp/9000",
+]
+
+[system_services]
+  [[aqua_ipfs]]
+  external_api_multiaddr = "/dns4/ipfs.example.com/tcp/5001"
+  local_api_multiaddr = "/dns4/ipfs.service.consul/tcp/5001"
+```
+
+becomes
+
+```shell
+FLUENCE_NO_BANNER=false
+FLUENCE_BOOTSTRAP_NODES="/dns4/0-node.example.com/tcp/9000,/dns4/1-node.example.com/tcp/9000"
+FLUENCE_SYSTEM_SERVICES__AQUA_IPFS__EXTERNAL_API_MULTIADDR="/dns4/ipfs.example.com/tcp/5001"
+FLUENCE_SYSTEM_SERVICES__AQUA_IPFS__LOCAL_API_MULTIADDR="/dns4/ipfs.service.consul/tcp/5001"
+```
+
+### Docker configuration
+
+Some options are only available as env variables:
+
+| var              | default                    | description                                                    |
+| ---------------- | -------------------------- | -------------------------------------------------------------- |
+| FLUENCE_BASE_DIR | `/.fluence`                | Base directory for nox persistent data                         |
+| FLUENCE_CONFIG   | `/.fluence/v1/Config.toml` | Path to nox config file                                        |
+| FLUENCE_UID      | `1000`                     | UID of a nox user who owns persistent data                     |
+| RUST_LOG         | `info`                     | https://docs.rs/env_logger/0.10.0/env_logger/#enabling-logging |
+
+## Builtin services
+
+Nox distro comes with preconfigured builtin services.
+
+### [registry](https://github.com/fluencelabs/registry)
+
+Registry implements service discovery.
+
+### [aqua-ipfs](https://github.com/fluencelabs/aqua-ipfs)
+
+This is a native IPFS integration with
+[Aqua](https://fluence.dev/docs/aqua-book/introduction) language. It is used to
+orchestrate IPFS file transfer with Aqua scripts.
+
+By default connects to an IPFS daemon hosted by
+[Fluence Labs](https://fluence.network).
+
+In case you want to use a separately running IPFS daemon, you need to configure
+aqua-ipfs:
+
+```toml
+[system_services]
+  [[aqua_ipfs]]
+  # IPFS multiaddr advertised to clients (e.g., frontend apps) to use in uploading files (ipfs.put), managing pins (ipfs.pin) etc
+  external_api_multiaddr = "/dns4/ipfs.fluence.dev/tcp/5001"
+  # used by the aqua-ipfs builtin to configure IPFS (bad bad bad)
+  local_api_multiaddr = "/dns4/ipfs.fluence.dev/tcp/5001"
+```
+
+### [trust-graph](https://github.com/fluencelabs/trust-graph)
+
+It can be used to create a trusted network, to manage service permissions with
+TLS certificates and other security related things.
+
+### [decider and connector](https://github.com/fluencelabs/decider)
+
+Used to pull contracts and deploy from blockchain. TODO documentation on
+configuration variables
+
+## Documentation
+
+Comprehensive documentation on everything related to Fluence can be found
+[here](https://fluence.dev/). Check also our
+[YouTube channel](https://www.youtube.com/@fluencelabs).
+
+## Support
+
+Please, file an [issue](https://github.com/fluencelabs/nox/issues) if you find a
+bug. You can also contact us at [Discord](https://discord.com/invite/5qSnPZKh7u)
+or [Telegram](https://t.me/fluence_project). We will do our best to resolve the
+issue ASAP.
+
+## Contributing
+
+Any interested person is welcome to contribute to the project. Please, make sure
+you read and follow some basic
+[rules](https://github.com/fluencelabs/nox/tree/master/CONTRIBUTING.md). The
+Contributor License Agreement can be found
+[here](https://github.com/fluencelabs/nox/tree/master/FluenceCLA).
+
+## License
+
+All software code is copyright (c) Fluence Labs, Inc. under the
+[Apache-2.0](https://github.com/fluencelabs/nox/tree/master/LICENSE) license.

@@ -115,4 +115,4 @@ jobs:
           short-description: |
             Rust implementation of the Fluence network peer.
             https://github.com/fluencelabs/nox
-          readme-filepath: ./DOCKER.md
+          readme-filepath: ./docker/README.md
