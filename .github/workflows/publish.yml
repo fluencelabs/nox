@@ -19,6 +19,7 @@ jobs:
       ref: ${{ inputs.tag }}
 
   push:
+    name: "Build and push container image"
     runs-on: ubuntu-latest
     timeout-minutes: 60
 
@@ -62,7 +63,7 @@ jobs:
         run: |
           # Calculate sha256
           for arch in amd64 arm64; do
-            mv binaries/nox-${arch}/nox nox-${arch}
+            cp binaries/nox-${arch}/nox nox-${arch}
             du -hs nox-${arch}
             sha256sum nox-${arch} | tee >> nox_SHA256_SUMS
             sha=($(sha256sum nox-${arch}))
