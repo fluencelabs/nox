@@ -132,7 +132,14 @@ mod tests {
 
     #[test]
     fn deserialization_test() {
-        let raw_str = "9QN7ImFjdGlvbiI6IlBhcnRpY2xlIiwiaWQiOiJkMjA1ZDE0OC00Y2YxLTRlNzYtOGY2ZS1mY2U5ODEwZjVlNmMiLCJpbml0X3BlZXJfaWQiOiIxMkQzS29vV0xMRjdnUUtiNzd4WEhWWm4zS1hhMTR4cDNSQmlBa2JuSzJVQlJwRGFSOEtiIiwidGltZXN0YW1wIjoxNzAwNTc0OTU5MDU5LCJ0dGwiOjAsInNjcmlwdCI6IihjYWxsICVpbml0X3BlZXJfaWQlIChcImdldERhdGFTcnZcIiBcIi1yZWxheS1cIikgW10gLXJlbGF5LSkiLCJzaWduYXR1cmUiOlsxMTEsMTgyLDkyLDEsNzgsNDQsMjI1LDc1LDExNCwxMTMsMTA5LDIyNCw2MCwyNDUsMTksMTgyLDE1MiwyNiwxNDEsMTA5LDE4NSw1MCwxOTEsMjM5LDE4OCwxMjIsNTAsMTkxLDEwMywyMSw1MywxMjAsMjE2LDMxLDIxMywyMiwyNDAsMTk0LDc4LDIxMSwyNDAsMTkyLDE2MiwyMjAsMjAsMTcwLDEyMSwyNSwyMDAsNjMsMjQ1LDE1MSwxNywyNTMsMTU2LDI0MiwxNDEsMTI5LDIxNywyMDUsMTgxLDE1NiwyMzEsMTBdLCJkYXRhIjoiIn0=";
+        let raw_str = "9QN7ImFjdGlvbiI6IlBhcnRpY2xlIiwiaWQiOiJkMjA1ZDE0OC00Y2YxLTRlNzYtOGY2ZS1\
+        mY2U5ODEwZjVlNmMiLCJpbml0X3BlZXJfaWQiOiIxMkQzS29vV0xMRjdnUUtiNzd4WEhWWm4zS1hhMTR4cDNSQmlBa2J\
+        uSzJVQlJwRGFSOEtiIiwidGltZXN0YW1wIjoxNzAwNTc0OTU5MDU5LCJ0dGwiOjAsInNjcmlwdCI6IihjYWxsICVpbml\
+        0X3BlZXJfaWQlIChcImdldERhdGFTcnZcIiBcIi1yZWxheS1cIikgW10gLXJlbGF5LSkiLCJzaWduYXR1cmUiOlsxMTE\
+        sMTgyLDkyLDEsNzgsNDQsMjI1LDc1LDExNCwxMTMsMTA5LDIyNCw2MCwyNDUsMTksMTgyLDE1MiwyNiwxNDEsMTA5LDE\
+        4NSw1MCwxOTEsMjM5LDE4OCwxMjIsNTAsMTkxLDEwMywyMSw1MywxMjAsMjE2LDMxLDIxMywyMiwyNDAsMTk0LDc4LDI\
+        xMSwyNDAsMTkyLDE2MiwyMjAsMjAsMTcwLDEyMSwyNSwyMDAsNjMsMjQ1LDE1MSwxNywyNTMsMTU2LDI0MiwxNDEsMTI\
+        5LDIxNywyMDUsMTgxLDE1NiwyMzEsMTBdLCJkYXRhIjoiIn0=";
         let hex_data = base64.decode(raw_str).expect("Base64");
         let mut bytes = BytesMut::from(&hex_data[..]);
 
@@ -140,9 +147,8 @@ mod tests {
 
         let result = codec.decode(&mut bytes).expect("Decoding");
 
-        let peer_id =
-            PeerId::from_str("12D3KooWLLF7gQKb77xXHVZn3KXa14xp3RBiAkbnK2UBRpDaR8Kb".as_ref())
-                .expect("Peer id");
+        let peer_id = PeerId::from_str("12D3KooWLLF7gQKb77xXHVZn3KXa14xp3RBiAkbnK2UBRpDaR8Kb")
+            .expect("Peer id");
         let expected = ProtocolMessage::Particle(Particle {
             id: "d205d148-4cf1-4e76-8f6e-fce9810f5e6c".to_string(),
             init_peer_id: peer_id,
