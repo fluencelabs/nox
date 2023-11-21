@@ -113,7 +113,7 @@ mod tests {
     use libp2p::PeerId;
 
     #[test]
-    fn isomorphic_serde_test() {
+    fn isomorphic_codec_test() {
         let mut codec = FluenceCodec::new();
         let initial_message = ProtocolMessage::Particle(Particle {
             id: "id".to_string(),
@@ -122,7 +122,7 @@ mod tests {
             ttl: 1000,
             script: "script".to_string(),
             signature: vec![0, 0, 128],
-            data: vec![0, 0, 128],
+            data: vec![0, 0, 255],
         });
         let mut bytes = BytesMut::new();
         codec
