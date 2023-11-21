@@ -52,6 +52,24 @@ pub enum KeyManagerError {
         #[source]
         err: std::io::Error,
     },
+    #[error("Error serializing persisted worker: {err}")]
+    SerializePersistedWorker {
+        #[source]
+        err: toml::ser::Error,
+    },
+    #[error("Error writing persisted worker to {path:?}: {err}")]
+    WriteErrorPersistedWorker {
+        path: PathBuf,
+        #[source]
+        err: std::io::Error,
+    },
+    #[error("Error removing persisted worker {path:?} for worker {worker_id}: {err}")]
+    RemoveErrorPersistedWorker {
+        path: PathBuf,
+        worker_id: PeerId,
+        #[source]
+        err: std::io::Error,
+    },
     #[error("Error creating directory for persisted keypairs {path:?}: {err}")]
     CreateKeypairsDir {
         path: PathBuf,

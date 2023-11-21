@@ -200,7 +200,7 @@ impl Deployer {
             &self.spell_storage,
             &self.services,
             &self.spell_event_bus_api,
-            &spell_id,
+            spell_id,
             self.root_worker_id,
         )
         .await

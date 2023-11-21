@@ -29,7 +29,7 @@ use spell_event_bus::api::{from_user_config, SpellEventBusApi};
 use spell_service_api::{CallParams, SpellServiceApi};
 use spell_storage::SpellStorage;
 
-pub(crate) fn create_worker(
+pub(crate) async fn create_worker(
     args: Args,
     params: ParticleParams,
     key_manager: KeyManager,
@@ -38,7 +38,8 @@ pub(crate) fn create_worker(
     let deal_id: String = Args::next("deal_id", &mut args)?;
     Ok(JValue::String(
         key_manager
-            .create_worker(deal_id, params.init_peer_id)?
+            .create_worker(deal_id, params.init_peer_id)
+            .await?
             .to_base58(),
     ))
 }
@@ -72,7 +73,7 @@ pub(crate) async fn remove_worker(
         return Err(JError::new(format!("Worker {worker_id} can be removed only by worker creator {worker_creator} or worker itself")));
     }
 
-    key_manager.remove_worker(worker_id)?;
+    key_manager.remove_worker(worker_id).await?;
 
     let spells: Vec<_> = spell_storage.get_registered_spells_by(worker_id);
 

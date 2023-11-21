@@ -342,7 +342,7 @@ impl Sorcerer {
         let key_manager = self.key_manager.clone();
         ServiceFunction::Immut(Box::new(move |args, params| {
             let key_manager = key_manager.clone();
-            async move { wrap(create_worker(args, params, key_manager)) }.boxed()
+            async move { wrap(create_worker(args, params, key_manager).await) }.boxed()
         }))
     }
 
