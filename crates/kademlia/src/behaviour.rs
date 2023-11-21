@@ -705,6 +705,7 @@ mod tests {
         Swarm::dial(&mut a, c_addr.clone()).unwrap();
         Swarm::dial(&mut a, d_addr.clone()).unwrap();
         Swarm::dial(&mut a, e_addr.clone()).unwrap();
+
         a.behaviour_mut()
             .kademlia
             .add_address(Swarm::local_peer_id(&b), b_addr.clone());

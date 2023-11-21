@@ -104,3 +104,33 @@ impl From<FluenceCodecError> for std::io::Error {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::libp2p_protocol::codec::FluenceCodec;
+    use crate::{Particle, ProtocolMessage};
+    use asynchronous_codec::{BytesMut, Decoder, Encoder};
+    use libp2p::PeerId;
+
+    #[test]
+    fn isomorphic_serde_test() {
+        let mut codec = FluenceCodec::new();
+        let initial_message = ProtocolMessage::Particle(Particle {
+            id: "id".to_string(),
+            init_peer_id: PeerId::random(),
+            timestamp: 1000,
+            ttl: 1000,
+            script: "script".to_string(),
+            signature: vec![0, 0, 128],
+            data: vec![0, 0, 128],
+        });
+        let mut bytes = BytesMut::new();
+        codec
+            .encode(initial_message.clone(), &mut bytes)
+            .expect("Encoding");
+
+        let result_message = codec.decode(&mut bytes).expect("Decoding");
+
+        assert_eq!(result_message, Some(initial_message))
+    }
+}
