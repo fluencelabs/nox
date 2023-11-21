@@ -53,12 +53,12 @@ pub struct PersistedWorker {
     pub active: bool,
 }
 
-impl Into<WorkerInfo> for PersistedWorker {
-    fn into(self) -> WorkerInfo {
+impl From<PersistedWorker> for WorkerInfo {
+    fn from(val: PersistedWorker) -> Self {
         WorkerInfo {
-            deal_id: self.deal_id,
-            creator: self.deal_creator,
-            active: RwLock::new(self.active),
+            deal_id: val.deal_id,
+            creator: val.deal_creator,
+            active: RwLock::new(val.active),
         }
     }
 }
@@ -132,9 +132,9 @@ pub fn load_persisted_keypairs_and_workers(
     let mut workers = vec![];
     for file in files.iter() {
         let res: eyre::Result<()> = try {
-            if is_keypair(&file) {
+            if is_keypair(file) {
                 // Load persisted keypair
-                let bytes = std::fs::read(&file).map_err(|err| ReadPersistedKeypair {
+                let bytes = std::fs::read(file).map_err(|err| ReadPersistedKeypair {
                     err,
                     path: file.to_path_buf(),
                 })?;
@@ -150,8 +150,8 @@ pub fn load_persisted_keypairs_and_workers(
                     keypair.private_key_bytes,
                     KeyFormat::from_str(&keypair.key_format)?,
                 )?);
-            } else if is_worker(&file) {
-                let bytes = std::fs::read(&file).map_err(|err| ReadPersistedKeypair {
+            } else if is_worker(file) {
+                let bytes = std::fs::read(file).map_err(|err| ReadPersistedKeypair {
                     err,
                     path: file.to_path_buf(),
                 })?;

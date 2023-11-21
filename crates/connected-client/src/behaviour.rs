@@ -240,14 +240,11 @@ impl NetworkBehaviour for ClientBehaviour {
     ) {
         use ClientEvent::Particle;
 
-        match event {
-            HandlerMessage::InParticle(particle) => {
-                self.events.push_back(GenerateEvent(Particle {
-                    particle,
-                    sender: peer_id,
-                }))
-            }
-            _ => {}
+        if let HandlerMessage::InParticle(particle) = event {
+            self.events.push_back(GenerateEvent(Particle {
+                particle,
+                sender: peer_id,
+            }))
         }
     }
 

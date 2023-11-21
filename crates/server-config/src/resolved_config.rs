@@ -227,7 +227,7 @@ pub fn load_config_with_args(
             .and_then(|str| str.into_string().ok())
             .map(|str| {
                 str.trim()
-                    .split(",")
+                    .split(',')
                     .map(PathBuf::from)
                     .map(|path| File::from(path.clone()).format(FileFormat::Toml))
                     .collect()

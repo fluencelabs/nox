@@ -187,7 +187,7 @@ impl KeyManager {
                 .read()
                 .get(&worker_id)
                 .ok_or(WorkerNotFound(worker_id))
-                .map(|i| i.creator.clone())
+                .map(|i| i.creator)
         }
     }
 
