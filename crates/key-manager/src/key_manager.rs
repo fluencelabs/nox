@@ -22,8 +22,8 @@ use std::sync::Arc;
 
 use crate::error::KeyManagerError;
 use crate::persistence::{
-    load_persisted_keypairs_and_workers, persist_keypair, persist_worker, remove_keypair,
-    remove_worker, PersistedWorker,
+    load_persisted_keypairs_and_workers, persist_keypair, persist_worker, persist_worker_sync,
+    remove_keypair, remove_worker, PersistedWorker,
 };
 use crate::KeyManagerError::{WorkerAlreadyExists, WorkerNotFound, WorkerNotFoundByDeal};
 use parking_lot::RwLock;
@@ -236,7 +236,7 @@ impl KeyManager {
             .spawn_blocking(move || {
                 let mut active = worker_info.active.write();
                 *active = true;
-                persist_worker(
+                persist_worker_sync(
                     keypairs_dir,
                     worker_id,
                     PersistedWorker {
@@ -249,9 +249,7 @@ impl KeyManager {
             })
             .expect("Could not spawn 'Worker Activation' task");
 
-        task.await
-            .map_err(|_| KeyManagerError::InternalError)?
-            .await
+        task.await.map_err(|_| KeyManagerError::InternalError)?
     }
 
     pub async fn deactivate_worker(&self, worker_id: PeerId) -> Result<(), KeyManagerError> {
@@ -263,7 +261,7 @@ impl KeyManager {
             .spawn_blocking(move || {
                 let mut active = worker_info.active.write();
                 *active = false;
-                persist_worker(
+                persist_worker_sync(
                     keypairs_dir,
                     worker_id,
                     PersistedWorker {
@@ -276,9 +274,7 @@ impl KeyManager {
             })
             .expect("Could not spawn 'Worker Deactivation' task");
 
-        task.await
-            .map_err(|_| KeyManagerError::InternalError)?
-            .await
+        task.await.map_err(|_| KeyManagerError::InternalError)?
     }
 
     pub fn is_worker_active(&self, worker_id: PeerId) -> bool {

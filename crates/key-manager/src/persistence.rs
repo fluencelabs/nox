@@ -202,6 +202,16 @@ pub async fn persist_worker(
         .map_err(|err| WriteErrorPersistedWorker { path, err })
 }
 
+pub fn persist_worker_sync(
+    keypairs_dir: PathBuf,
+    worker_id: PeerId,
+    worker: PersistedWorker,
+) -> Result<(), KeyManagerError> {
+    let path = keypairs_dir.join(worker_file_name(worker_id));
+    let bytes = toml::to_vec(&worker).map_err(|err| SerializePersistedWorker { err })?;
+    std::fs::write(&path, bytes).map_err(|err| WriteErrorPersistedWorker { path, err })
+}
+
 pub async fn remove_worker(keypairs_dir: &Path, worker_id: PeerId) -> Result<(), KeyManagerError> {
     let path = keypairs_dir.join(worker_file_name(worker_id));
     tokio::fs::remove_file(path.clone())
