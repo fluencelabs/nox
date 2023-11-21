@@ -38,7 +38,7 @@ type WorkerPeerId = String;
 
 async fn create_worker(client: &mut ConnectedClient, deal_id: Option<String>) -> WorkerPeerId {
     let data = hashmap! {
-        "deal_id" => deal_id.map(JValue::String).unwrap_or(JValue::Null),
+        "deal_id" => deal_id.map(JValue::String).unwrap_or(JValue::String("default_deal".to_string())),
         "relay" => json!(client.node.to_string()),
         "client" => json!(client.peer_id.to_string()),
     };
@@ -48,7 +48,10 @@ async fn create_worker(client: &mut ConnectedClient, deal_id: Option<String>) ->
             (seq
                 (xor
                     (call relay ("worker" "create") [deal_id] worker_peer_id)
-                    (call relay ("worker" "get_peer_id") [deal_id] worker_peer_id)
+                    (seq
+                        (call relay ("worker" "get_worker_id") [deal_id] get_worker_peer_id)
+                        (ap get_worker_peer_id.$.[0] worker_peer_id)
+                    )
                 )
                 (call client ("return" "") [worker_peer_id])
             )"#,
@@ -1541,14 +1544,14 @@ async fn spell_create_worker_twice() {
             (seq
                 (seq
                     (call relay ("worker" "create") ["deal_id"] worker_peer_id)
-                    (call relay ("worker" "get_peer_id") ["deal_id"] get_worker_peer_id)
+                    (call relay ("worker" "get_worker_id") ["deal_id"] get_worker_peer_id)
                 )
                 (seq
                     (call relay ("worker" "create") ["deal_id"] failed_create)
                     (call client ("return" "") ["test failed"])
                 )
             )
-            (call client ("return" "") [%last_error%.$.message worker_peer_id get_worker_peer_id])
+            (call client ("return" "") [%last_error%.$.message worker_peer_id get_worker_peer_id.$.[0]])
         )"#,
             data.clone(),
         )

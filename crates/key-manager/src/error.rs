@@ -45,9 +45,10 @@ pub enum KeyManagerError {
         #[source]
         err: std::io::Error,
     },
-    #[error("Error removing persisted keypair {path:?}: {err}")]
+    #[error("Error removing persisted keypair {path:?} for worker {worker_id}: {err}")]
     RemoveErrorPersistedKeypair {
         path: PathBuf,
+        worker_id: PeerId,
         #[source]
         err: std::io::Error,
     },
@@ -65,4 +66,6 @@ pub enum KeyManagerError {
     WorkerNotFoundByDeal(String),
     #[error("Worker {0} not found")]
     WorkerNotFound(PeerId),
+    #[error("Internal error")]
+    InternalError,
 }
