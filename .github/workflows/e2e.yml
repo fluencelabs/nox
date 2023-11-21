@@ -41,28 +41,13 @@ jobs:
     with:
       ref: ${{ github.ref }}
 
-  nox-flavours:
-    name: "nox"
-    needs: nox
-    strategy:
-      fail-fast: false
-      matrix:
-        flavour:
-          - ipfs
-          # - rich
-
-    uses: ./.github/workflows/container.yml
-    with:
-      image-name: "docker.fluence.dev/nox"
-      flavour: "${{ matrix.flavour }}"
-
   nox-snapshot:
     name: "nox"
     needs: nox
     uses: ./.github/workflows/container.yml
     with:
       image-name: "docker.fluence.dev/nox"
-      flavour: "minimal"
+      ref: ${{ github.ref }}
 
   decider:
     if: >
@@ -118,9 +103,9 @@ jobs:
     with:
       nox-image: "${{ needs.nox-snapshot.outputs.nox-image }}"
 
-  flox:
+  cli:
     needs:
       - nox-snapshot
-    uses: fluencelabs/flox/.github/workflows/tests.yml@main
+    uses: fluencelabs/cli/.github/workflows/tests.yml@main
     with:
       nox-image: "${{ needs.nox-snapshot.outputs.nox-image }}"
