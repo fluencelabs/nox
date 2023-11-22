@@ -24,7 +24,7 @@ use libp2p::swarm::{
 };
 use libp2p::{
     core::{ConnectedPoint, Multiaddr},
-    swarm::{NetworkBehaviour, NotifyHandler, OneShotHandler, PollParameters},
+    swarm::{NetworkBehaviour, NotifyHandler, OneShotHandler},
     PeerId,
 };
 use std::pin::Pin;
@@ -558,7 +558,7 @@ impl NetworkBehaviour for ConnectionPoolBehaviour {
         Ok(self.protocol_config.clone().into())
     }
 
-    fn on_swarm_event(&mut self, event: FromSwarm<'_, Self::ConnectionHandler>) {
+    fn on_swarm_event(&mut self, event: FromSwarm<'_>) {
         match event {
             FromSwarm::ConnectionEstablished(event) => {
                 for addr in event.failed_addresses {
@@ -589,6 +589,7 @@ impl NetworkBehaviour for ConnectionPoolBehaviour {
             FromSwarm::NewExternalAddrCandidate(_) => {}
             FromSwarm::ExternalAddrConfirmed(_) => {}
             FromSwarm::ExternalAddrExpired(_) => {}
+            _ => {}
         }
     }
 
@@ -599,7 +600,7 @@ impl NetworkBehaviour for ConnectionPoolBehaviour {
         event: THandlerOutEvent<Self>,
     ) {
         match event {
-            HandlerMessage::InParticle(particle) => {
+            Ok(HandlerMessage::InParticle(particle)) => {
                 tracing::info!(target: "network", particle_id = particle.id,"{}: received particle from {}; queue {}", self.peer_id, from, self.queue.len());
                 self.meter(|m| {
                     m.incoming_particle(
@@ -611,17 +612,14 @@ impl NetworkBehaviour for ConnectionPoolBehaviour {
                 self.queue.push_back(particle);
                 self.wake();
             }
-            HandlerMessage::InboundUpgradeError(err) => log::warn!("UpgradeError: {:?}", err),
-            HandlerMessage::Upgrade => {}
-            HandlerMessage::OutParticle(..) => unreachable!("can't receive OutParticle"),
+            Ok(HandlerMessage::InboundUpgradeError(err)) => log::warn!("UpgradeError: {:?}", err),
+            Ok(HandlerMessage::Upgrade) => {}
+            Ok(HandlerMessage::OutParticle(..)) => unreachable!("can't receive OutParticle"),
+            Err(err) => log::warn!("Handler error: {:?}", err),
         }
     }
 
-    fn poll(
-        &mut self,
-        cx: &mut Context<'_>,
-        _params: &mut impl PollParameters,
-    ) -> Poll<SwarmEventType> {
+    fn poll(&mut self, cx: &mut Context<'_>) -> Poll<SwarmEventType> {
         self.waker = Some(cx.waker().clone());
 
         loop {
