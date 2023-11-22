@@ -167,7 +167,7 @@ impl<RT: AquaRuntime> VmPool<RT> {
                 // Remove completed future
                 creating_vms.remove(fut_index);
                 if creating_vms.is_empty() {
-                    log::info!("All {} AquaVMs created.", self.pool_size)
+                    tracing::info!("All {}ч AquaVMs created.", self.pool_size)
                 }
 
                 // Put created vm to self.vms

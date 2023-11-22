@@ -28,6 +28,7 @@ use libp2p::Multiaddr;
 use particle_protocol::{Contact, Particle, SendStatus};
 use peer_metrics::{ConnectivityMetrics, Resolution};
 use tokio::time::sleep;
+use tracing::{Instrument, Span};
 
 use crate::tasks::Tasks;
 
@@ -51,11 +52,11 @@ impl Connectivity {
     pub fn start(self) -> Tasks {
         let reconnect_bootstraps = tokio::task::Builder::new()
             .name("reconnect_bootstraps")
-            .spawn(self.clone().reconnect_bootstraps())
+            .spawn(self.clone().reconnect_bootstraps().in_current_span())
             .expect("Could not spawn task");
         let run_bootstrap = tokio::task::Builder::new()
             .name("run_bootstrap")
-            .spawn(self.kademlia_bootstrap())
+            .spawn(self.kademlia_bootstrap().in_current_span())
             .expect("Could not spawn task");
 
         Tasks::new("Connectivity", vec![run_bootstrap, reconnect_bootstraps])
@@ -239,31 +240,40 @@ impl Connectivity {
         // TODO: exponential backoff + random?
         let delta = Duration::from_secs(5);
 
-        let reconnect = move |kademlia: KademliaApi, pool: ConnectionPoolApi, addr: Multiaddr| async move {
-            let mut delay = Duration::from_secs(0);
-            loop {
-                log::info!("Will reconnect bootstrap {}", addr);
-                if let Some(contact) = pool.dial(addr.clone()).await {
-                    log::info!("Connected bootstrap {}", contact);
-                    let ok = kademlia.add_contact(contact);
-                    debug_assert!(ok, "kademlia.add_contact");
-                    metrics.map(|m| m.bootstrap_connected.inc());
-                    if let Some(h) = health {
-                        h.bootstrap_nodes.on_bootstrap_connected(addr)
+        let reconnect = move |kademlia: KademliaApi,
+                              pool: ConnectionPoolApi,
+                              addr: Multiaddr,
+                              parent_span: Span| {
+            (async move {
+                let mut delay = Duration::from_secs(0);
+                loop {
+                    tracing::info!("Will reconnect bootstrap {}", addr);
+                    if let Some(contact) = pool.dial(addr.clone()).await {
+                        tracing::info!("Connected bootstrap {}", contact);
+                        let ok = kademlia.add_contact(contact);
+                        debug_assert!(ok, "kademlia.add_contact");
+                        metrics.map(|m| m.bootstrap_connected.inc());
+                        if let Some(h) = health {
+                            h.bootstrap_nodes.on_bootstrap_connected(addr)
+                        }
+                        break;
                     }
-                    break;
-                }
 
-                delay = min(delay + delta, max);
-                log::warn!("can't connect bootstrap {} (pause {})", addr, pretty(delay));
-                sleep(delay).await;
-            }
+                    delay = min(delay + delta, max);
+                    log::warn!("can't connect bootstrap {} (pause {})", addr, pretty(delay));
+                    sleep(delay).await;
+                }
+            })
+            .instrument(parent_span)
         };
 
+        let parent_span = tracing::Span::current();
         let bootstraps = iter(bootstrap_nodes.clone().into_iter().collect::<Vec<_>>());
         bootstraps
             .chain(disconnections)
-            .for_each_concurrent(None, |addr| reconnect(kademlia.clone(), pool.clone(), addr))
+            .for_each_concurrent(None, |addr| {
+                reconnect(kademlia.clone(), pool.clone(), addr, parent_span.clone())
+            })
             .await;
     }
 }

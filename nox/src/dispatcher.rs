@@ -22,6 +22,7 @@ use peer_metrics::DispatcherMetrics;
 use prometheus_client::registry::Registry;
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::{ReceiverStream, UnboundedReceiverStream};
+use tracing::Instrument;
 
 use crate::effectors::Effectors;
 use crate::tasks::Tasks;
@@ -68,11 +69,15 @@ impl Dispatcher {
         let effects_stream = UnboundedReceiverStream::new(effects_stream);
         let particles = tokio::task::Builder::new()
             .name("particles")
-            .spawn(self.clone().process_particles(particle_stream))
+            .spawn(
+                self.clone()
+                    .process_particles(particle_stream)
+                    .in_current_span(),
+            )
             .expect("Could not spawn task");
         let effects = tokio::task::Builder::new()
             .name("effects")
-            .spawn(self.process_effects(effects_stream))
+            .spawn(self.process_effects(effects_stream).in_current_span())
             .expect("Could not spawn task");
 
         Tasks::new("Dispatcher", vec![particles, effects])

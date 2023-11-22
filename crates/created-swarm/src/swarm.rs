@@ -34,13 +34,13 @@ use fluence_libp2p::Transport;
 use fs_utils::{create_dir, make_tmp_dir_peer_id, to_abs_path};
 use futures::future::join_all;
 use futures::stream::iter;
-use hyper::{Body, Request, StatusCode};
 use nox::{Connectivity, Node};
 use particle_protocol::ProtocolConfig;
 use server_config::{system_services_config, BootstrapConfig, UnresolvedConfig};
 use test_constants::{EXECUTION_TIMEOUT, TRANSPORT_TIMEOUT};
 use tokio::sync::oneshot;
 use toy_vms::EasyVM;
+use tracing::{Instrument, Span};
 
 const HEALTH_CHECK_POLLING_INTERVAL: Duration = Duration::from_millis(100);
 
@@ -67,12 +67,10 @@ pub struct CreatedSwarm {
     http_listen_addr: SocketAddr,
 }
 
-#[tracing::instrument]
 pub async fn make_swarms(n: usize) -> Vec<CreatedSwarm> {
     make_swarms_with_cfg(n, identity).await
 }
 
-#[tracing::instrument(skip(update_cfg))]
 pub async fn make_swarms_with_cfg<F>(n: usize, mut update_cfg: F) -> Vec<CreatedSwarm>
 where
     F: FnMut(SwarmConfig) -> SwarmConfig,
@@ -145,7 +143,7 @@ pub async fn make_swarms_with<RT: AquaRuntime, F, M, B>(
     wait_connected: bool,
 ) -> Vec<CreatedSwarm>
 where
-    F: FnMut(Vec<Multiaddr>, Multiaddr) -> (PeerId, Box<Node<RT>>, KeyPair, SwarmConfig),
+    F: FnMut(Vec<Multiaddr>, Multiaddr) -> (PeerId, Box<Node<RT>>, KeyPair, SwarmConfig, Span),
     M: FnMut() -> Multiaddr,
     B: FnMut(Vec<Multiaddr>) -> Vec<Multiaddr>,
 {
@@ -159,18 +157,22 @@ where
                 .cloned()
                 .collect::<Vec<_>>();
             let bootstraps = bootstraps(addrs);
-            let (id, node, m_kp, config) = create_node(bootstraps, addr.clone());
-            ((id, m_kp, config), node)
+            let (id, node, m_kp, config, span) = create_node(bootstraps, addr.clone());
+            ((id, m_kp, config), node, span)
         })
         .collect::<Vec<_>>();
 
     // start all nodes
     let infos = join_all(nodes.into_iter().map(
-        move |((peer_id, management_keypair, config), node)| {
+        move |((peer_id, management_keypair, config), node, span)| {
             let connectivity = node.connectivity.clone();
             let aquamarine_api = node.aquamarine_api.clone();
             async move {
-                let started_node = node.start(peer_id).await.expect("node start");
+                let started_node = node
+                    .start(peer_id)
+                    .instrument(span)
+                    .await
+                    .expect("node start");
                 let http_listen_addr = started_node
                     .http_listen_addr
                     .expect("could not take http listen addr");
@@ -202,21 +204,17 @@ where
 }
 
 async fn wait_connected_on_addrs(addrs: Vec<SocketAddr>) {
-    let http_client = &hyper::Client::new();
+    let http_client = &reqwest::Client::new();
 
     let healthcheck = iter(addrs).for_each_concurrent(None, |addr| async move {
         loop {
             let response = http_client
-                .request(
-                    Request::builder()
-                        .uri(format!("http://{}/health", addr))
-                        .body(Body::empty())
-                        .unwrap(),
-                )
+                .get(format!("http://{}/health", addr))
+                .send()
                 .await
                 .unwrap();
 
-            if response.status() == StatusCode::OK {
+            if response.status() == reqwest::StatusCode::OK {
                 break;
             }
 
@@ -298,11 +296,10 @@ pub fn aqua_vm_config(
     VmConfig::new(peer_id, avm_base_dir, air_interpreter, None)
 }
 
-#[tracing::instrument(skip(vm_config))]
 pub fn create_swarm_with_runtime<RT: AquaRuntime>(
     mut config: SwarmConfig,
     vm_config: impl Fn(BaseVmConfig) -> RT::Config,
-) -> (PeerId, Box<Node<RT>>, KeyPair, SwarmConfig) {
+) -> (PeerId, Box<Node<RT>>, KeyPair, SwarmConfig, Span) {
     use serde_json::json;
 
     let format = match &config.keypair {
@@ -314,6 +311,9 @@ pub fn create_swarm_with_runtime<RT: AquaRuntime>(
     let peer_id = libp2p::identity::Keypair::from(config.keypair.clone())
         .public()
         .to_peer_id();
+    let spawn = tracing::info_span!("Node", peer_id = peer_id.to_base58());
+
+    let _enter = spawn.enter();
 
     if config.tmp_dir.is_none() {
         config.tmp_dir = Some(make_tmp_dir_peer_id(peer_id.to_string()));
@@ -415,10 +415,10 @@ pub fn create_swarm_with_runtime<RT: AquaRuntime>(
         node,
         management_kp,
         config,
+        spawn.clone(),
     )
 }
 
-#[tracing::instrument]
-pub fn create_swarm(config: SwarmConfig) -> (PeerId, Box<Node<AVM>>, KeyPair, SwarmConfig) {
+pub fn create_swarm(config: SwarmConfig) -> (PeerId, Box<Node<AVM>>, KeyPair, SwarmConfig, Span) {
     create_swarm_with_runtime(config, aqua_vm_config)
 }
