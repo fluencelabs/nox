@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-use std::error::Error;
 use std::ops::Mul;
 use std::sync::Arc;
 use std::task::{Context, Poll};
@@ -28,20 +27,13 @@ use std::{
 
 use futures::FutureExt;
 use futures_timer::Delay;
-use libp2p::core::transport::ListenerId;
-use libp2p::core::{ConnectedPoint, Endpoint};
+use libp2p::core::Endpoint;
 use libp2p::kad::StoreInserts;
-use libp2p::swarm::behaviour::{
-    ConnectionClosed, ConnectionEstablished, DialFailure, ExpiredListenAddr, ExternalAddrConfirmed,
-    FromSwarm, ListenFailure, ListenerClosed, ListenerError, NewListenAddr, NewListener,
-};
-use libp2p::swarm::derive_prelude::AddressChange;
-use libp2p::swarm::PollParameters;
+use libp2p::swarm::behaviour::FromSwarm;
 use libp2p::swarm::THandlerInEvent;
 use libp2p::swarm::THandlerOutEvent;
+use libp2p::swarm::ToSwarm;
 use libp2p::swarm::{ConnectionDenied, ConnectionId, THandler};
-use libp2p::swarm::{DialError, ToSwarm};
-use libp2p::swarm::{ExternalAddrExpired, ListenError, NewExternalAddrCandidate};
 use libp2p::{
     core::Multiaddr,
     kad::{
@@ -184,148 +176,6 @@ impl Kademlia {
             self.kademlia.add_address(&peer, addr.clone());
         }
         self.wake();
-    }
-
-    fn on_established(
-        &mut self,
-        peer_id: &PeerId,
-        connection_id: &ConnectionId,
-        endpoint: &ConnectedPoint,
-        failed_addresses: &Vec<Multiaddr>,
-        other_established: usize,
-    ) {
-        self.kademlia
-            .on_swarm_event(FromSwarm::ConnectionEstablished(ConnectionEstablished {
-                peer_id: *peer_id,
-                connection_id: *connection_id,
-                endpoint,
-                failed_addresses: failed_addresses.as_slice(),
-                other_established,
-            }))
-    }
-
-    fn on_connection_closed(
-        &mut self,
-        peer_id: &PeerId,
-        cid: &ConnectionId,
-        cp: &ConnectedPoint,
-        handler: <Kademlia as NetworkBehaviour>::ConnectionHandler,
-        remaining_established: usize,
-    ) {
-        self.kademlia
-            .on_swarm_event(FromSwarm::ConnectionClosed(ConnectionClosed {
-                peer_id: *peer_id,
-                connection_id: *cid,
-                endpoint: cp,
-                handler,
-                remaining_established,
-            }))
-    }
-
-    fn on_external_addr_confirmed(&mut self, addr: &Multiaddr) {
-        self.kademlia
-            .on_swarm_event(FromSwarm::ExternalAddrConfirmed(ExternalAddrConfirmed {
-                addr,
-            }))
-    }
-
-    fn on_expired_external_addr(&mut self, addr: &Multiaddr) {
-        self.kademlia
-            .on_swarm_event(FromSwarm::ExternalAddrExpired(ExternalAddrExpired { addr }))
-    }
-
-    fn on_new_external_addr(&mut self, addr: &Multiaddr) {
-        self.kademlia
-            .on_swarm_event(FromSwarm::NewExternalAddrCandidate(
-                NewExternalAddrCandidate { addr },
-            ))
-    }
-
-    fn on_listener_closed(
-        &mut self,
-        id: ListenerId,
-        reason: std::result::Result<(), &std::io::Error>,
-    ) {
-        self.kademlia
-            .on_swarm_event(FromSwarm::ListenerClosed(ListenerClosed {
-                listener_id: id,
-                reason,
-            }))
-    }
-
-    fn on_dial_failure(
-        &mut self,
-        peer_id: Option<PeerId>,
-        connection_id: ConnectionId,
-        error: &DialError,
-    ) {
-        self.kademlia
-            .on_swarm_event(FromSwarm::DialFailure(DialFailure {
-                peer_id,
-                error,
-                connection_id,
-            }))
-    }
-
-    fn on_listen_failure(
-        &mut self,
-        local_addr: &Multiaddr,
-        send_back_addr: &Multiaddr,
-        error: &ListenError,
-        connection_id: ConnectionId,
-    ) {
-        self.kademlia
-            .on_swarm_event(FromSwarm::ListenFailure(ListenFailure {
-                local_addr,
-                send_back_addr,
-                error,
-                connection_id,
-            }))
-    }
-
-    fn on_new_listener(&mut self, id: ListenerId) {
-        self.kademlia
-            .on_swarm_event(FromSwarm::NewListener(NewListener { listener_id: id }))
-    }
-
-    fn on_address_change(
-        &mut self,
-        peer_id: &PeerId,
-        ci: &ConnectionId,
-        old: &ConnectedPoint,
-        new: &ConnectedPoint,
-    ) {
-        self.kademlia
-            .on_swarm_event(FromSwarm::AddressChange(AddressChange {
-                peer_id: *peer_id,
-                connection_id: *ci,
-                old,
-                new,
-            }))
-    }
-
-    fn on_new_listen_addr(&mut self, id: ListenerId, addr: &Multiaddr) {
-        self.kademlia
-            .on_swarm_event(FromSwarm::NewListenAddr(NewListenAddr {
-                listener_id: id,
-                addr,
-            }))
-    }
-
-    fn on_listener_error(&mut self, id: ListenerId, err: &(dyn Error + 'static)) {
-        self.kademlia
-            .on_swarm_event(FromSwarm::ListenerError(ListenerError {
-                listener_id: id,
-                err,
-            }))
-    }
-
-    fn on_expired_listen_addr(&mut self, id: ListenerId, addr: &Multiaddr) {
-        self.kademlia
-            .on_swarm_event(FromSwarm::ExpiredListenAddr(ExpiredListenAddr {
-                listener_id: id,
-                addr,
-            }))
     }
 }
 
@@ -587,6 +437,7 @@ impl Kademlia {
                 self.peer_discovered(peer, vec![address])
             }
             KademliaEvent::InboundRequest { .. } => {}
+            KademliaEvent::ModeChanged { .. } => {}
         }
     }
 }
@@ -614,6 +465,16 @@ fn has_timed_out(now: Instant, timestamp: Instant, timeout: Duration, wake: &mut
 impl NetworkBehaviour for Kademlia {
     type ConnectionHandler = <kad::Behaviour<MemoryStore> as NetworkBehaviour>::ConnectionHandler;
     type ToSwarm = ();
+
+    fn handle_pending_inbound_connection(
+        &mut self,
+        _connection_id: ConnectionId,
+        _local_addr: &Multiaddr,
+        _remote_addr: &Multiaddr,
+    ) -> std::result::Result<(), ConnectionDenied> {
+        self.kademlia
+            .handle_pending_inbound_connection(_connection_id, _local_addr, _remote_addr)
+    }
 
     fn handle_established_inbound_connection(
         &mut self,
@@ -659,56 +520,61 @@ impl NetworkBehaviour for Kademlia {
         )
     }
 
-    fn on_swarm_event(&mut self, event: FromSwarm<Self::ConnectionHandler>) {
+    fn on_swarm_event(&mut self, event: FromSwarm<'_>) {
+        #[cfg(test)]
+        let kademlia_span = tracing::info_span!(parent: &self.parent_span, "Kademlia");
+        #[cfg(test)]
+        let _enter = kademlia_span.enter();
+        log::info!("Behaviour event {:?}", event);
         match event {
             FromSwarm::ConnectionEstablished(e) => {
-                self.on_established(
-                    &e.peer_id,
-                    &e.connection_id,
-                    e.endpoint,
-                    &e.failed_addresses.to_vec(),
-                    e.other_established,
-                );
+                self.kademlia
+                    .on_swarm_event(FromSwarm::ConnectionEstablished(e));
             }
-            FromSwarm::ConnectionClosed(e) => self.on_connection_closed(
-                &e.peer_id,
-                &e.connection_id,
-                e.endpoint,
-                e.handler,
-                e.remaining_established,
-            ),
+            FromSwarm::ConnectionClosed(e) => {
+                self.kademlia.on_swarm_event(FromSwarm::ConnectionClosed(e));
+            }
             FromSwarm::AddressChange(e) => {
-                self.on_address_change(&e.peer_id, &e.connection_id, e.old, e.new);
+                self.kademlia.on_swarm_event(FromSwarm::AddressChange(e));
             }
             FromSwarm::DialFailure(e) => {
-                self.on_dial_failure(e.peer_id, e.connection_id, e.error);
+                self.kademlia.on_swarm_event(FromSwarm::DialFailure(e));
             }
             FromSwarm::ListenFailure(e) => {
-                self.on_listen_failure(e.local_addr, e.send_back_addr, e.error, e.connection_id);
+                self.kademlia.on_swarm_event(FromSwarm::ListenFailure(e));
             }
             FromSwarm::NewListener(e) => {
-                self.on_new_listener(e.listener_id);
+                self.kademlia.on_swarm_event(FromSwarm::NewListener(e));
             }
             FromSwarm::NewListenAddr(e) => {
-                self.on_new_listen_addr(e.listener_id, e.addr);
+                self.kademlia.on_swarm_event(FromSwarm::NewListenAddr(e));
             }
             FromSwarm::ExpiredListenAddr(e) => {
-                self.on_expired_listen_addr(e.listener_id, e.addr);
+                self.kademlia
+                    .on_swarm_event(FromSwarm::ExpiredListenAddr(e));
             }
             FromSwarm::ListenerError(e) => {
-                self.on_listener_error(e.listener_id, e.err);
+                self.kademlia.on_swarm_event(FromSwarm::ListenerError(e));
             }
             FromSwarm::ListenerClosed(e) => {
-                self.on_listener_closed(e.listener_id, e.reason);
+                self.kademlia.on_swarm_event(FromSwarm::ListenerClosed(e));
             }
             FromSwarm::NewExternalAddrCandidate(e) => {
-                self.on_new_external_addr(e.addr);
+                self.kademlia
+                    .on_swarm_event(FromSwarm::NewExternalAddrCandidate(e));
             }
             FromSwarm::ExternalAddrExpired(e) => {
-                self.on_expired_external_addr(e.addr);
+                self.kademlia
+                    .on_swarm_event(FromSwarm::ExternalAddrExpired(e));
             }
             FromSwarm::ExternalAddrConfirmed(e) => {
-                self.on_external_addr_confirmed(e.addr);
+                self.kademlia
+                    .on_swarm_event(FromSwarm::ExternalAddrConfirmed(e));
+            }
+            e => {
+                tracing::warn!("Unexpected event {:?}", e);
+                #[cfg(test)]
+                panic!("Unexpected event")
             }
         }
     }
@@ -723,11 +589,7 @@ impl NetworkBehaviour for Kademlia {
             .on_connection_handler_event(peer_id, connection_id, event)
     }
 
-    fn poll(
-        &mut self,
-        cx: &mut Context<'_>,
-        params: &mut impl PollParameters,
-    ) -> Poll<ToSwarm<(), THandlerInEvent<Self>>> {
+    fn poll(&mut self, cx: &mut Context<'_>) -> Poll<ToSwarm<(), THandlerInEvent<Self>>> {
         use Poll::{Pending, Ready};
         use ToSwarm::*;
         #[cfg(test)]
@@ -742,7 +604,7 @@ impl NetworkBehaviour for Kademlia {
 
         #[rustfmt::skip]
         loop {
-            match self.kademlia.poll(cx, params) {
+            match self.kademlia.poll(cx) {
                 Pending => return Pending,
                 Ready(GenerateEvent(e)) => self.inject_kad_event(e),
                 Ready(Dial { opts }) => return Ready(Dial { opts }),
@@ -752,7 +614,12 @@ impl NetworkBehaviour for Kademlia {
                 Ready(ExternalAddrExpired(address)) => return Ready(ExternalAddrExpired(address)),
                 Ready(CloseConnection { peer_id, connection }) => return Ready(CloseConnection { peer_id, connection }),
                 Ready(ListenOn { opts }) => return Ready(ListenOn {opts}),
-                Ready(RemoveListener { id }) => return Ready(RemoveListener {id})
+                Ready(RemoveListener { id }) => return Ready(RemoveListener {id}),
+                Ready(e) => {
+                    tracing::warn!("Unexpected event {:?}", e);
+                    #[cfg(test)]
+                    panic!("Unexpected event")
+                }
             }
         }
     }
@@ -774,6 +641,7 @@ mod tests {
 
     use fluence_libp2p::random_multiaddr::create_memory_maddr;
     use fluence_libp2p::{build_memory_transport, RandomPeerId};
+    use log_utils::enable_logs;
 
     use crate::{KademliaConfig, KademliaError};
 
@@ -791,12 +659,16 @@ mod tests {
         }
     }
 
-    fn make_node() -> (Swarm<Kademlia>, Multiaddr) {
+    fn make_node(human_readable_id: String) -> (Swarm<Kademlia>, Multiaddr) {
         use fluence_keypair::KeyPair;
 
         let kp = KeyPair::generate_ed25519();
         let peer_id = kp.get_peer_id();
-        let span = tracing::info_span!("Node", peer_id = peer_id.to_base58());
+        let span = tracing::info_span!(
+            "Node",
+            peer_id = peer_id.to_base58(),
+            id = human_readable_id
+        );
         let _guard = span.enter();
         let config = kad_config(peer_id);
         let (kad, _) = Kademlia::new(config, None, span.clone());
@@ -809,6 +681,7 @@ mod tests {
             .unwrap()
             .with_behaviour(|_| kad)
             .unwrap()
+            .with_swarm_config(|cfg| cfg.with_idle_connection_timeout(Duration::from_secs(1)))
             .build();
 
         let mut maddr = create_memory_maddr();
@@ -820,21 +693,23 @@ mod tests {
         (swarm, maddr)
     }
 
-    #[tokio::test]
-    async fn discovery() {
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn discovery_heavy() {
+        enable_logs();
         use tokio::time::timeout;
 
-        let (mut a, a_addr) = make_node();
-        let (mut b, b_addr) = make_node();
-        let (c, c_addr) = make_node();
-        let (d, d_addr) = make_node();
-        let (e, e_addr) = make_node();
+        let (mut a, a_addr) = make_node("a".to_string());
+        let (mut b, b_addr) = make_node("b".to_string());
+        let (c, c_addr) = make_node("c".to_string());
+        let (d, d_addr) = make_node("d".to_string());
+        let (e, e_addr) = make_node("e".to_string());
 
         // a knows everybody
         Swarm::dial(&mut a, b_addr.clone()).unwrap();
         Swarm::dial(&mut a, c_addr.clone()).unwrap();
         Swarm::dial(&mut a, d_addr.clone()).unwrap();
         Swarm::dial(&mut a, e_addr.clone()).unwrap();
+
         a.behaviour_mut()
             .kademlia
             .add_address(Swarm::local_peer_id(&b), b_addr.clone());
@@ -887,7 +762,7 @@ mod tests {
 
     #[test]
     fn dont_repeat_discovery() {
-        let (mut node, _) = make_node();
+        let (mut node, _) = make_node("a".to_string());
         let peer = RandomPeerId::random();
 
         node.behaviour_mut()
@@ -902,7 +777,7 @@ mod tests {
     async fn ban() {
         use tokio::time::timeout;
 
-        let (mut node, _) = make_node();
+        let (mut node, _) = make_node("a".to_string());
         let peer = RandomPeerId::random();
 
         node.behaviour_mut()

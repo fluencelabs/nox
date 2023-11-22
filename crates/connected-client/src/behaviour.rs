@@ -31,7 +31,7 @@ use libp2p::{
     core::{connection::ConnectedPoint, Multiaddr},
     identify::{Behaviour as Identify, Config as IdentifyConfig},
     ping::{Behaviour as Ping, Config as PingConfig},
-    swarm::{NetworkBehaviour, NotifyHandler, OneShotHandler, PollParameters, ToSwarm},
+    swarm::{NetworkBehaviour, NotifyHandler, OneShotHandler, ToSwarm},
     PeerId,
 };
 use particle_protocol::{HandlerMessage, Particle, ProtocolConfig, PROTOCOL_NAME};
@@ -208,7 +208,7 @@ impl NetworkBehaviour for ClientBehaviour {
         Ok(oneshot_handler)
     }
 
-    fn on_swarm_event(&mut self, event: FromSwarm<'_, Self::ConnectionHandler>) {
+    fn on_swarm_event(&mut self, event: FromSwarm<'_>) {
         match event {
             FromSwarm::ConnectionEstablished(e) => {
                 self.on_connection_established(&e.peer_id, e.endpoint);
@@ -229,6 +229,7 @@ impl NetworkBehaviour for ClientBehaviour {
             FromSwarm::NewExternalAddrCandidate(_) => {}
             FromSwarm::ExternalAddrExpired(_) => {}
             FromSwarm::ExternalAddrConfirmed(_) => {}
+            _ => {}
         }
     }
 
@@ -241,7 +242,7 @@ impl NetworkBehaviour for ClientBehaviour {
         use ClientEvent::Particle;
 
         match event {
-            HandlerMessage::InParticle(particle) => {
+            Ok(HandlerMessage::InParticle(particle)) => {
                 self.events.push_back(GenerateEvent(Particle {
                     particle,
                     sender: peer_id,
@@ -251,11 +252,7 @@ impl NetworkBehaviour for ClientBehaviour {
         }
     }
 
-    fn poll(
-        &mut self,
-        cx: &mut Context<'_>,
-        _params: &mut impl PollParameters,
-    ) -> Poll<SwarmEventType> {
+    fn poll(&mut self, cx: &mut Context<'_>) -> Poll<SwarmEventType> {
         self.waker = Some(cx.waker().clone());
 
         if let Some(Poll::Ready(addresses)) = self.reconnect.as_mut().map(|r| r.poll_unpin(cx)) {

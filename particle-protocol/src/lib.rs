@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 #![feature(async_closure)]
 #![recursion_limit = "512"]
 #![warn(rust_2018_idioms)]
@@ -28,6 +27,7 @@
 )]
 
 mod libp2p_protocol {
+    mod codec;
     pub(super) mod message;
     pub(super) mod upgrade;
 }
