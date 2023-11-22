@@ -20,7 +20,7 @@ prometheus-client = { workspace = true }
 multihash = { workspace = true }
 once_cell = { workspace = true }
 
-prost = "0.12.1"
+prost = "0.12.3"
 smallvec = "1.11.2"
 serde_json = { workspace = true }
 log = { workspace = true }
