@@ -342,7 +342,11 @@ impl Sorcerer {
         let key_manager = self.key_manager.clone();
         ServiceFunction::Immut(Box::new(move |args, params| {
             let key_manager = key_manager.clone();
-            async move { wrap(create_worker(args, params, key_manager).await) }.boxed()
+            async move {
+                tokio::task::spawn_blocking(move || wrap(create_worker(args, params, key_manager)))
+                    .await?
+            }
+            .boxed()
         }))
     }
 
@@ -443,7 +447,10 @@ impl Sorcerer {
         let key_manager = self.key_manager.clone();
         ServiceFunction::Immut(Box::new(move |args, _| {
             let key_manager = key_manager.clone();
-            async move { wrap(is_deal_active(args, key_manager)) }.boxed()
+            async move {
+                tokio::task::spawn_blocking(move || wrap(is_deal_active(args, key_manager))).await?
+            }
+            .boxed()
         }))
     }
 }
