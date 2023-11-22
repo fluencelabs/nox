@@ -973,6 +973,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "cid"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "472ac98592f38dfd48f188d5713a328422ed22fa39eb52b8bca495370134762a"
+dependencies = [
+ "core2",
+ "multibase",
+ "multihash 0.19.1",
+ "unsigned-varint 0.8.0",
+]
+
+[[package]]
 name = "cid-utils"
 version = "0.1.0"
 dependencies = [
@@ -3233,7 +3245,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5acd707e8d8b092e967b2af978ed84709eaded82b75effe6cb6f6cc797ef8158"
 dependencies = [
  "anyhow",
- "cid",
+ "cid 0.10.1",
  "core2",
  "multibase",
  "multihash 0.18.1",
@@ -4992,7 +5004,7 @@ version = "0.1.0"
 dependencies = [
  "base64 0.21.5",
  "bytesize",
- "cid",
+ "cid 0.11.0",
  "eyre",
  "fluence-app-service",
  "fs-utils",
