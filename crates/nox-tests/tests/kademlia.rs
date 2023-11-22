@@ -92,6 +92,7 @@ async fn neighborhood_with_addresses_heavy() {
     let neighborhood = response.into_iter().next().expect("empty response");
     let neighborhood: Vec<Contact> =
         serde_json::from_value(neighborhood).expect("deserialize neighborhood");
+    tracing::info!("neighborhood {:?}", neighborhood);
     assert_eq!(neighborhood.len(), 2);
 
     let first = neighborhood

@@ -359,14 +359,21 @@ pub(crate) struct DerivedArgs {
 
     #[arg(
         short('c'),
-        long,
+        long("config"),
         id = "CONFIG_FILE",
         help_heading = "Node configuration",
         help = "TOML configuration file",
+        long_help = "TOML configuration file. If not specified, the default configuration is used. \
+        If specified, the default configuration is merged with the specified one. \
+        The argument can by used multiple times. \
+        The last configuration overrides the previous ones.",
         value_name = "PATH",
-        display_order = 15
+        num_args(1..),
+        value_delimiter(','),
+        display_order = 15,
+
     )]
-    pub(crate) config: Option<PathBuf>,
+    pub(crate) configs: Option<Vec<PathBuf>>,
     #[arg(
         short('d'),
         long,

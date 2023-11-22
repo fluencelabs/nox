@@ -52,6 +52,7 @@ use spell_event_bus::bus::SpellEventBus;
 use system_services::{Deployer, SystemServiceDistros};
 use tokio::sync::{mpsc, oneshot};
 use tokio::task;
+use tracing::Instrument;
 
 use crate::builtins::make_peer_builtin;
 use crate::dispatcher::Dispatcher;
@@ -151,6 +152,7 @@ impl<RT: AquaRuntime> Node<RT> {
 
         if config.metrics_config.tokio_metrics_enabled {
             if let Some(r) = metrics_registry.as_mut() {
+                let r = r.sub_registry_with_prefix("tokio");
                 r.register_collector(Box::new(TokioCollector::new()))
             }
         }
@@ -475,8 +477,9 @@ impl<RT: AquaRuntime> Node<RT> {
         let versions = self.versions;
 
         task::Builder::new().name(&task_name.clone()).spawn(async move {
+
             let mut http_server = if let Some(http_listen_addr) = http_listen_addr{
-                log::info!("Starting http endpoint at {}", http_listen_addr);
+                tracing::info!("Starting http endpoint at {}", http_listen_addr);
                 start_http_endpoint(http_listen_addr, metrics_registry, health_registry, peer_id, versions, http_bind_outlet).boxed()
             } else {
                 futures::future::pending().boxed()
@@ -516,7 +519,7 @@ impl<RT: AquaRuntime> Node<RT> {
             dispatcher.cancel().await;
             connectivity.cancel().await;
             pool.abort();
-        }).expect("Could not spawn task");
+        }.in_current_span()).expect("Could not spawn task");
 
         // Note: need to be after the start of the node to be able to subscribe spells
         let deployer = self.system_service_deployer;

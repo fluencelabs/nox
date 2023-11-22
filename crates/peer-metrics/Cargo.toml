@@ -11,7 +11,7 @@ fluence-app-service = { workspace = true }
 fluence-libp2p = { workspace = true }
 particle-execution = { workspace = true }
 
-tokio = { workspace = true }
+tokio = { workspace = true, features = ["macros", "tracing"] }
 tokio-stream = { workspace = true }
 futures = { workspace = true }
 serde = { version = "1.0.192", features = ["derive"] }

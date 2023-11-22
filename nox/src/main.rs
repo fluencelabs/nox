@@ -29,6 +29,7 @@
 use base64::{engine::general_purpose::STANDARD as base64, Engine};
 
 use eyre::WrapErr;
+use libp2p::PeerId;
 use tokio::signal;
 use tokio::sync::oneshot;
 use tracing_subscriber::layer::SubscriberExt;
@@ -38,7 +39,7 @@ use air_interpreter_fs::write_default_air_interpreter;
 use aquamarine::{VmConfig, AVM};
 use config_utils::to_peer_id;
 use fs_utils::to_abs_path;
-use nox::{log_layer, tokio_console_layer, tracing_layer, Node};
+use nox::{env_filter, log_layer, tokio_console_layer, tracing_layer, Node};
 use server_config::{load_config, ConfigData, ResolvedConfig};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -105,23 +106,32 @@ fn main() -> eyre::Result<()> {
         .build()
         .expect("Could not make tokio runtime")
         .block_on(async {
+            let resolver_config = config.clone().resolve()?;
+
+            let key_pair = resolver_config.node_config.root_key_pair.clone();
+            let base64_key_pair = base64.encode(key_pair.public().to_vec());
+            let peer_id = to_peer_id(&key_pair.into());
+
             tracing_subscriber::registry()
+                .with(env_filter())
                 .with(log_layer(&config.log))
                 .with(tokio_console_layer(&config.console)?)
-                .with(tracing_layer(&config.tracing)?)
+                .with(tracing_layer(&config.tracing, peer_id, VERSION)?)
                 .init();
 
             if let Some(true) = config.print_config {
                 log::info!("Loaded config: {:#?}", config);
             }
 
-            let config = config.resolve()?;
+            log::info!("node public key = {}", base64_key_pair);
+            log::info!("node server peer id = {}", peer_id);
 
-            let interpreter_path = to_abs_path(config.dir_config.air_interpreter_path.clone());
+            let interpreter_path =
+                to_abs_path(resolver_config.dir_config.air_interpreter_path.clone());
             write_default_air_interpreter(&interpreter_path)?;
             log::info!("AIR interpreter: {:?}", interpreter_path);
 
-            let fluence = start_fluence(config).await?;
+            let fluence = start_fluence(resolver_config, peer_id).await?;
             log::info!("Fluence has been successfully started.");
             log::info!("Waiting for Ctrl-C to exit...");
 
@@ -134,14 +144,8 @@ fn main() -> eyre::Result<()> {
 }
 
 // NOTE: to stop Fluence just call Stoppable::stop()
-async fn start_fluence(config: ResolvedConfig) -> eyre::Result<impl Stoppable> {
+async fn start_fluence(config: ResolvedConfig, peer_id: PeerId) -> eyre::Result<impl Stoppable> {
     log::trace!("starting Fluence");
-
-    let key_pair = config.root_key_pair.clone();
-    let base64_key_pair = base64.encode(key_pair.public().to_vec());
-    let peer_id = to_peer_id(&key_pair.into());
-    log::info!("node public key = {}", base64_key_pair);
-    log::info!("node server peer id = {}", peer_id);
 
     let listen_addrs = config.listen_multiaddrs();
     let vm_config = vm_config(&config);

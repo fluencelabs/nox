@@ -264,10 +264,6 @@ where
             ("sig", "verify") => wrap(self.verify(args, particle)),
             ("sig", "get_peer_id") => wrap(self.get_peer_id(particle)),
 
-            ("insecure_sig", "sign") => wrap(self.insecure_sign(args)),
-            ("insecure_sig", "verify") => wrap(self.insecure_verify(args)),
-            ("insecure_sig", "get_peer_id") => wrap(self.insecure_get_peer_id()),
-
             ("json", "obj") => wrap(json::obj(args)),
             ("json", "put") => wrap(json::put(args)),
             ("json", "puts") => wrap(json::puts(args)),
@@ -937,53 +933,6 @@ where
     fn get_peer_id(&self, params: ParticleParams) -> Result<JValue, JError> {
         Ok(JValue::String(params.host_id.to_base58()))
     }
-
-    fn insecure_sign(&self, args: Args) -> Result<JValue, JError> {
-        let mut args = args.function_args.into_iter();
-        let result: Result<JValue, JError> = try {
-            let data: Vec<u8> = Args::next("data", &mut args)?;
-            json!(self.key_manager.insecure_keypair.sign(&data)?.to_vec())
-        };
-
-        match result {
-            Ok(sig) => Ok(json!({
-                "success": true,
-                "error": [],
-                "signature": vec![sig]
-            })),
-
-            Err(error) => Ok(json!({
-                "success": false,
-                "error": vec![JValue::from(error)],
-                "signature": []
-            })),
-        }
-    }
-
-    fn insecure_verify(&self, args: Args) -> Result<JValue, JError> {
-        let mut args = args.function_args.into_iter();
-        let signature: Vec<u8> = Args::next("signature", &mut args)?;
-        let data: Vec<u8> = Args::next("data", &mut args)?;
-        let signature = Signature::from_bytes(
-            self.key_manager.insecure_keypair.public().get_key_format(),
-            signature,
-        );
-
-        Ok(JValue::Bool(
-            self.key_manager
-                .insecure_keypair
-                .public()
-                .verify(&data, &signature)
-                .is_ok(),
-        ))
-    }
-
-    fn insecure_get_peer_id(&self) -> Result<JValue, JError> {
-        Ok(JValue::String(
-            self.key_manager.insecure_keypair.get_peer_id().to_base58(),
-        ))
-    }
-
     fn vault_put(&self, args: Args, params: ParticleParams) -> Result<JValue, JError> {
         let mut args = args.function_args.into_iter();
         let data: String = Args::next("data", &mut args)?;
