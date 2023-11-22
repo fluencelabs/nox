@@ -589,7 +589,11 @@ impl NetworkBehaviour for ConnectionPoolBehaviour {
             FromSwarm::NewExternalAddrCandidate(_) => {}
             FromSwarm::ExternalAddrConfirmed(_) => {}
             FromSwarm::ExternalAddrExpired(_) => {}
-            _ => {}
+            e => {
+                tracing::warn!("Unexpected event {:?}", e);
+                #[cfg(test)]
+                panic!("Unexpected event")
+            }
         }
     }
 
@@ -602,6 +606,10 @@ impl NetworkBehaviour for ConnectionPoolBehaviour {
         match event {
             Ok(HandlerMessage::InParticle(particle)) => {
                 tracing::info!(target: "network", particle_id = particle.id,"{}: received particle from {}; queue {}", self.peer_id, from, self.queue.len());
+                let parent_span =
+                    tracing::info_span!("Particle", particle_id = particle.id);
+                let span = tracing::info_span!(parent: &parent_span, "Inbound particle", particle_id = particle.id);
+                let _span_guard = span.entered();
                 self.meter(|m| {
                     m.incoming_particle(
                         &particle.id,
