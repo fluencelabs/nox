@@ -84,6 +84,4 @@ pub enum KeyManagerError {
     WorkerNotFoundByDeal(String),
     #[error("Worker {0} not found")]
     WorkerNotFound(PeerId),
-    #[error("Internal error")]
-    InternalError,
 }
