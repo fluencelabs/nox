@@ -573,6 +573,8 @@ impl NetworkBehaviour for Kademlia {
             }
             e => {
                 tracing::warn!("Unexpected event {:?}", e);
+                #[cfg(test)]
+                panic!("Unexpected event")
             }
         }
     }
@@ -615,6 +617,8 @@ impl NetworkBehaviour for Kademlia {
                 Ready(RemoveListener { id }) => return Ready(RemoveListener {id}),
                 Ready(e) => {
                     tracing::warn!("Unexpected event {:?}", e);
+                    #[cfg(test)]
+                    panic!("Unexpected event")
                 }
             }
         }
