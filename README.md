@@ -5,22 +5,19 @@ peer. It is used as a Relay for all Clients and as a Host for all Workers.
 
 ## Installation and Usage
 
-nox is distributed in
-[nox-distro repo](https://github.com/fluencelabs/nox-distro) as a
-[docker image](https://github.com/fluencelabs/nox-distro/releases). To start a
-local instance of nox, run:
+nox is distributed as a
+[docker image](https://hub.docker.com/r/fluencelabs/nox). To start a local
+instance of nox, run:
 
 ```bash
 docker pull fluencelabs/nox:latest
 docker run -d --name fluence -e RUST_LOG="info" -p 7777:7777 -p 9999:9999 fluencelabs/nox:latest --local
 ```
 
-This will setup a network of one nox and an IPFS sidecar, not connected to any
-other network.
+This will setup a network of one nox not connected to any other network.
 
-For more info about the docker image (image version flavours, environment
-variables, deployment examples) and documentation for nox operators, see the
-[nox-distro](https://github.com/fluencelabs/nox-distro) repository.
+For more info about the docker image see the
+[README](https://github.com/fluencelabs/nox/blob/master/docker/README.md).
 
 ## Documentation
 

@@ -21,6 +21,7 @@ use std::time::Duration;
 use futures::StreamExt;
 use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
+use tracing::Instrument;
 
 use fluence_libp2p::PeerId;
 use health::HealthCheckRegistry;
@@ -126,11 +127,14 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> AquamarineBackend<RT, F> {
         let mut stream = futures::stream::poll_fn(move |cx| self.poll(cx).map(|_| Some(()))).fuse();
         let result = tokio::task::Builder::new()
             .name("AVM")
-            .spawn(async move {
-                loop {
-                    stream.next().await;
+            .spawn(
+                async move {
+                    loop {
+                        stream.next().await;
+                    }
                 }
-            })
+                .in_current_span(),
+            )
             .expect("Could not spawn task");
         result
     }

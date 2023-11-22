@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.16.3](https://github.com/fluencelabs/nox/compare/nox-v0.16.2...nox-v0.16.3) (2023-11-21)
+
+
+### Features
+
+* **config:** add multiple file config sources ([#1907](https://github.com/fluencelabs/nox/issues/1907)) ([8bba3ea](https://github.com/fluencelabs/nox/commit/8bba3eab395053ef7dedab464f31ca5ced9e03d2))
+
 ## [0.16.2](https://github.com/fluencelabs/nox/compare/nox-v0.16.1...nox-v0.16.2) (2023-11-16)
 
 

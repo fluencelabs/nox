@@ -17,17 +17,14 @@
 use std::{error::Error, time::Duration};
 
 use derivative::Derivative;
-use either::Either;
 use fluence_keypair::{KeyPair, Signature};
 use futures::stream::StreamExt;
 use libp2p::core::Multiaddr;
 use libp2p::swarm::SwarmEvent;
 use libp2p::{PeerId, Swarm, SwarmBuilder};
-use libp2p_swarm::handler::StreamUpgradeError;
 use tokio::sync::mpsc::error::SendError;
 use tokio::sync::{mpsc, oneshot};
 use tokio::{select, task, task::JoinHandle};
-use void::Void;
 
 use fluence_libp2p::{build_transport, Transport};
 use particle_protocol::{Particle, ProtocolConfig};
@@ -214,10 +211,7 @@ impl Client {
 
     #[allow(clippy::result_large_err)]
     async fn receive_from_node(
-        msg: SwarmEvent<
-            FluenceClientBehaviourEvent,
-            Either<Either<StreamUpgradeError<std::io::Error>, Void>, std::io::Error>,
-        >,
+        msg: SwarmEvent<FluenceClientBehaviourEvent>,
         client_outlet: &mpsc::Sender<ClientEvent>,
     ) -> Result<(), SendError<ClientEvent>> {
         if let SwarmEvent::Behaviour(FluenceClientBehaviourEvent::Client(msg)) = msg {
