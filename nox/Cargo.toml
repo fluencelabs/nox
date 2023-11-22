@@ -79,7 +79,8 @@ rand = "0.8.5"
 bs58 = { workspace = true }
 connected-client = { path = "../crates/connected-client" }
 log-utils = { workspace = true }
-hyper = { workspace = true }
+reqwest = { workspace = true }
+
 
 [[bench]]
 name = "network_api_bench"
