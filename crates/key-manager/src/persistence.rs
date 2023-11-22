@@ -23,8 +23,8 @@ use crate::error::KeyManagerError::{
 };
 use crate::key_manager::WorkerInfo;
 use crate::KeyManagerError::{
-    RemoveErrorPersistedKeypair, RemoveErrorPersistedWorker, SerializePersistedWorker,
-    WriteErrorPersistedWorker,
+    PersistedKeypairDecodingError, PersistedKeypairInvalidKeyformat, RemoveErrorPersistedKeypair,
+    RemoveErrorPersistedWorker, SerializePersistedWorker, WriteErrorPersistedWorker,
 };
 use fluence_keypair::{KeyFormat, KeyPair};
 use fluence_libp2p::peerid_serializer;
@@ -109,6 +109,44 @@ pub fn persist_keypair(
     std::fs::write(&path, bytes).map_err(|err| WriteErrorPersistedKeypair { path, err })
 }
 
+fn load_persisted_keypair(file: &Path) -> Result<KeyPair, KeyManagerError> {
+    let bytes = std::fs::read(file).map_err(|err| ReadPersistedKeypair {
+        err,
+        path: file.to_path_buf(),
+    })?;
+    let keypair: PersistedKeypair =
+        toml::from_slice(bytes.as_slice()).map_err(|err| DeserializePersistedKeypair {
+            err,
+            path: file.to_path_buf(),
+        })?;
+
+    KeyPair::from_secret_key(
+        keypair.private_key_bytes,
+        KeyFormat::from_str(&keypair.key_format).map_err(|err| {
+            PersistedKeypairInvalidKeyformat {
+                err,
+                path: file.to_path_buf(),
+            }
+        })?,
+    )
+    .map_err(|err| PersistedKeypairDecodingError {
+        err,
+        path: file.to_path_buf(),
+    })
+}
+
+fn load_persisted_worker(file: &Path) -> Result<PersistedWorker, KeyManagerError> {
+    let bytes = std::fs::read(file).map_err(|err| ReadPersistedKeypair {
+        err,
+        path: file.to_path_buf(),
+    })?;
+
+    toml::from_slice(bytes.as_slice()).map_err(|err| DeserializePersistedKeypair {
+        err,
+        path: file.to_path_buf(),
+    })
+}
+
 /// Load info about persisted keypairs from disk
 pub fn load_persisted_keypairs_and_workers(
     keypairs_dir: &Path,
@@ -136,36 +174,9 @@ pub fn load_persisted_keypairs_and_workers(
     for file in files.iter() {
         let res: eyre::Result<()> = try {
             if is_keypair(file) {
-                // Load persisted keypair
-                let bytes = std::fs::read(file).map_err(|err| ReadPersistedKeypair {
-                    err,
-                    path: file.to_path_buf(),
-                })?;
-                let keypair: PersistedKeypair =
-                    toml::from_slice(bytes.as_slice()).map_err(|err| {
-                        DeserializePersistedKeypair {
-                            err,
-                            path: file.to_path_buf(),
-                        }
-                    })?;
-
-                keypairs.push(KeyPair::from_secret_key(
-                    keypair.private_key_bytes,
-                    KeyFormat::from_str(&keypair.key_format)?,
-                )?);
+                keypairs.push(load_persisted_keypair(file)?);
             } else if is_worker(file) {
-                let bytes = std::fs::read(file).map_err(|err| ReadPersistedKeypair {
-                    err,
-                    path: file.to_path_buf(),
-                })?;
-                let worker: PersistedWorker =
-                    toml::from_slice(bytes.as_slice()).map_err(|err| {
-                        DeserializePersistedKeypair {
-                            err,
-                            path: file.to_path_buf(),
-                        }
-                    })?;
-                workers.push(worker)
+                workers.push(load_persisted_worker(file)?);
             }
         };
 

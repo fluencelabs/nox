@@ -42,7 +42,7 @@ pub struct KeyManager {
     /// worker_id -> worker_keypair
     worker_keypairs: Arc<RwLock<HashMap<WorkerId, KeyPair>>>,
     worker_ids: Arc<RwLock<HashMap<DealId, WorkerId>>>,
-    worker_infos: Arc<RwLock<HashMap<WorkerId, Arc<WorkerInfo>>>>,
+    worker_infos: Arc<RwLock<HashMap<WorkerId, WorkerInfo>>>,
     keypairs_dir: PathBuf,
     host_peer_id: PeerId,
     pub root_keypair: KeyPair,
@@ -86,7 +86,7 @@ impl KeyManager {
         for w in workers {
             let worker_id = w.worker_id;
             let deal_id = w.deal_id.clone();
-            worker_infos.insert(worker_id, Arc::new(w.into()));
+            worker_infos.insert(worker_id, w.into());
             worker_ids.insert(deal_id, worker_id);
         }
     }
@@ -209,12 +209,12 @@ impl KeyManager {
         worker_id: PeerId,
         deal_id: String,
         creator: PeerId,
-    ) -> Result<Arc<WorkerInfo>, KeyManagerError> {
-        let worker_info = Arc::new(WorkerInfo {
+    ) -> Result<WorkerInfo, KeyManagerError> {
+        let worker_info = WorkerInfo {
             deal_id: deal_id.clone(),
             creator,
             active: RwLock::new(true),
-        });
+        };
 
         persist_worker(
             &self.keypairs_dir,
@@ -229,12 +229,12 @@ impl KeyManager {
         Ok(worker_info)
     }
 
-    pub fn activate_worker(&self, worker_id: PeerId) -> Result<(), KeyManagerError> {
+    fn set_worker_status(&self, worker_id: PeerId, status: bool) -> Result<(), KeyManagerError> {
         let guard = self.worker_infos.read();
         let worker_info = guard.get(&worker_id).ok_or(WorkerNotFound(worker_id))?;
 
         let mut active = worker_info.active.write();
-        *active = true;
+        *active = status;
         persist_worker(
             &self.keypairs_dir,
             worker_id,
@@ -246,23 +246,12 @@ impl KeyManager {
             },
         )
     }
+    pub fn activate_worker(&self, worker_id: PeerId) -> Result<(), KeyManagerError> {
+        self.set_worker_status(worker_id, true)
+    }
 
     pub fn deactivate_worker(&self, worker_id: PeerId) -> Result<(), KeyManagerError> {
-        let guard = self.worker_infos.read();
-        let worker_info = guard.get(&worker_id).ok_or(WorkerNotFound(worker_id))?;
-
-        let mut active = worker_info.active.write();
-        *active = false;
-        persist_worker(
-            &self.keypairs_dir,
-            worker_id,
-            PersistedWorker {
-                worker_id,
-                creator: worker_info.creator,
-                deal_id: worker_info.deal_id.clone(),
-                active: *active,
-            },
-        )
+        self.set_worker_status(worker_id, false)
     }
 
     pub fn is_worker_active(&self, worker_id: PeerId) -> bool {

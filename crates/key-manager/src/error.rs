@@ -34,6 +34,18 @@ pub enum KeyManagerError {
         #[source]
         err: toml::de::Error,
     },
+    #[error("Failed to decode keypair {path}: {err}")]
+    PersistedKeypairDecodingError {
+        path: PathBuf,
+        #[source]
+        err: fluence_keypair::error::DecodingError,
+    },
+    #[error("Invalid key format {path}: {err}")]
+    PersistedKeypairInvalidKeyformat {
+        path: PathBuf,
+        #[source]
+        err: fluence_keypair::error::Error,
+    },
     #[error("Error serializing persisted keypair: {err}")]
     SerializePersistedKeypair {
         #[source]
