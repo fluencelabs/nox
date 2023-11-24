@@ -22,6 +22,7 @@ use avm_server::{CallResults, ParticleParameters};
 use fluence_keypair::KeyPair;
 use futures::{future::BoxFuture, FutureExt};
 use humantime::format_duration as pretty;
+use tracing::{instrument, Instrument};
 
 use fluence_libp2p::PeerId;
 use particle_protocol::Particle;
@@ -59,6 +60,7 @@ impl<RT: AquaRuntime> ParticleExecutor for RT {
     type Future = Fut<Option<Self>>;
     type Particle = (Particle, CallResults);
 
+    #[instrument(level = tracing::Level::INFO, skip_all)]
     fn execute(
         mut self,
         p: Self::Particle,
@@ -69,11 +71,12 @@ impl<RT: AquaRuntime> ParticleExecutor for RT {
         let (particle, calls) = p;
         let particle_id = particle.id.clone();
         let data_len = particle.data.len();
-        let span = tracing::info_span!("Execute");
+        let blockng_span = tracing::info_span!("Particle executor: blocking AVM call");
+        let async_span = tracing::info_span!("Particle executor: async task");
         let task = tokio::task::Builder::new()
             .name(&format!("Particle {}", particle.id))
             .spawn_blocking(move || {
-                span.in_scope(move || {
+                blockng_span.in_scope(move || {
                     let now = Instant::now();
                     tracing::trace!(target: "execution", particle_id = particle.id, "Executing particle");
 
@@ -162,6 +165,7 @@ impl<RT: AquaRuntime> ParticleExecutor for RT {
                 }
             }
         }
+        .instrument(async_span)
         .boxed()
     }
 }

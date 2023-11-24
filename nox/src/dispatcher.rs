@@ -17,12 +17,12 @@
 use aquamarine::{AquamarineApi, AquamarineApiError, RoutingEffects};
 use fluence_libp2p::PeerId;
 use futures::{FutureExt, StreamExt};
-use particle_protocol::Particle;
+use particle_protocol::ExtendedParticle;
 use peer_metrics::DispatcherMetrics;
 use prometheus_client::registry::Registry;
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::{ReceiverStream, UnboundedReceiverStream};
-use tracing::Instrument;
+use tracing::{Instrument, instrument};
 
 use crate::effectors::Effectors;
 use crate::tasks::Tasks;
@@ -61,7 +61,7 @@ impl Dispatcher {
 impl Dispatcher {
     pub fn start(
         self,
-        particle_stream: mpsc::Receiver<Particle>,
+        particle_stream: mpsc::Receiver<ExtendedParticle>,
         effects_stream: mpsc::UnboundedReceiver<Effects>,
     ) -> Tasks {
         log::info!("starting dispatcher");
@@ -85,21 +85,24 @@ impl Dispatcher {
 
     pub async fn process_particles<Src>(self, particle_stream: Src)
     where
-        Src: futures::Stream<Item = Particle> + Unpin + Send + Sync + 'static,
+        Src: futures::Stream<Item = ExtendedParticle> + Unpin + Send + Sync + 'static,
     {
         let parallelism = self.particle_parallelism;
         let aquamarine = self.aquamarine;
         let metrics = self.metrics;
         particle_stream
             .for_each_concurrent(parallelism, move |particle| {
+                let current_span = tracing::info_span!(parent: particle.span.as_ref(), "Dispatcher: process particle");
+                let async_span = tracing::info_span!(parent: particle.span.as_ref(), "Dispatcher: async Aquamarine.execute");
+                let _ = current_span.enter();
                 let aquamarine = aquamarine.clone();
                 let metrics = metrics.clone();
 
-                if particle.is_expired() {
+                if particle.particle.is_expired() {
                     if let Some(m) = metrics {
-                        m.particle_expired(&particle.id);
+                        m.particle_expired(&particle.particle.id);
                     }
-                    tracing::info!(target: "expired", particle_id = particle.id, "Particle is expired");
+                    tracing::info!(target: "expired", particle_id = particle.particle.id, "Particle is expired");
                     return async {}.boxed();
                 }
 
@@ -110,6 +113,7 @@ impl Dispatcher {
                         .map(|_| ())
                         .await
                 }
+                    .instrument(async_span)
                 .boxed()
             })
             .await;
@@ -117,6 +121,7 @@ impl Dispatcher {
         log::error!("Particle stream has ended");
     }
 
+    #[instrument(level = tracing::Level::INFO, skip_all)]
     async fn process_effects<Src>(self, effects_stream: Src)
     where
         Src: futures::Stream<Item = Effects> + Unpin + Send + Sync + 'static,
@@ -130,8 +135,9 @@ impl Dispatcher {
                 async move {
                     match effects {
                         Ok(effects) => {
+                            let span = tracing::info_span!(parent: effects.particle.span.as_ref(), "Dispatcher: execute effectors");
                             // perform effects as instructed by aquamarine
-                            effectors.execute(effects).await;
+                            effectors.execute(effects).instrument(span).await;
                         }
                         Err(err) => {
                             // particles are sent in fire and forget fashion, so

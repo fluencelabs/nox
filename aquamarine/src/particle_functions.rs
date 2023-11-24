@@ -27,7 +27,7 @@ use humantime::format_duration as pretty;
 use serde_json::json;
 use serde_json::Value as JValue;
 use tokio::runtime::Handle;
-use tracing::Instrument;
+use tracing::{Instrument, instrument};
 
 use particle_args::{Args, JError};
 use particle_execution::{
@@ -93,6 +93,7 @@ impl<F: ParticleFunctionStatic> Functions<F> {
     }
 
     /// Add a bunch of call requests to execution
+    #[instrument(level = tracing::Level::INFO, skip_all)]
     pub fn execute(&mut self, particle_id: String, requests: CallRequests, waker: Waker) {
         let futs: Vec<_> = requests
             .into_iter()

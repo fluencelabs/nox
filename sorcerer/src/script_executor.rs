@@ -13,12 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::sync::Arc;
 use fluence_libp2p::PeerId;
+use tracing::{instrument, Instrument, Span};
 
 use crate::error::SorcererError::{ParticleSigningFailed, ScopeKeypairMissing};
 use now_millis::now_ms;
 use particle_args::JError;
-use particle_protocol::Particle;
+use particle_protocol::{ExtendedParticle, Particle};
 use spell_event_bus::api::{TriggerEvent, TriggerInfoAqua};
 use spell_service_api::CallParams;
 
@@ -97,6 +99,7 @@ impl Sorcerer {
             .map_err(|e| JError::new(e.to_string()))
     }
 
+    #[instrument(level = tracing::Level::INFO, skip_all)]
     pub async fn execute_script(&self, event: TriggerEvent) {
         let error: Result<(), JError> = try {
             let worker_id = self.services.get_service_owner(
@@ -110,7 +113,21 @@ impl Sorcerer {
             if let Some(m) = &self.spell_metrics {
                 m.observe_spell_cast();
             }
-            self.aquamarine.clone().execute(particle, None).await?;
+
+            let particle_span = Span::current();
+            let async_span = particle_span.clone();
+
+            self.aquamarine
+                .clone()
+                .execute(
+                    ExtendedParticle {
+                        particle,
+                        span: Arc::new(particle_span),
+                    },
+                    None,
+                )
+                .instrument(async_span)
+                .await?;
         };
 
         if let Err(err) = error {

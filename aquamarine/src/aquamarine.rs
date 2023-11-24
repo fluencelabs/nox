@@ -21,13 +21,13 @@ use std::time::Duration;
 use futures::StreamExt;
 use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
-use tracing::Instrument;
+use tracing::{Instrument, instrument};
 
 use fluence_libp2p::PeerId;
 use health::HealthCheckRegistry;
 use key_manager::KeyManager;
 use particle_execution::{ParticleFunctionStatic, ServiceFunction};
-use particle_protocol::Particle;
+use particle_protocol::{ExtendedParticle};
 use peer_metrics::{ParticleExecutorMetrics, VmPoolMetrics};
 
 use crate::aqua_runtime::AquaRuntime;
@@ -88,6 +88,8 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> AquamarineBackend<RT, F> {
             match self.inlet.poll_recv(cx) {
                 Poll::Ready(Some(Ingest { particle, function })) => {
                     wake = true;
+                    let span = tracing::info_span!(parent: particle.span.as_ref(), "Aquamarine: Poll Ingest");
+                    let _guard =span.entered();
                     // set new particle to be executed
                     // every particle that comes from the connection pool first executed on the host peer id
                     self.plumber.ingest(particle, function, self.host_peer_id);
@@ -156,12 +158,13 @@ impl AquamarineApi {
     }
 
     /// Send particle to the interpreters pool
+    #[instrument(level = tracing::Level::INFO, skip_all)]
     pub fn execute(
         self,
-        particle: Particle,
+        particle: ExtendedParticle,
         function: Option<ServiceFunction>,
     ) -> impl Future<Output = Result<(), AquamarineApiError>> {
-        let particle_id = particle.id.clone();
+        let particle_id = particle.particle.id.clone();
         self.send_command(Ingest { particle, function }, Some(particle_id))
     }
 
@@ -203,6 +206,6 @@ impl AquamarineApi {
                 log::error!("Aquamarine outlet died!");
                 AquamarineDied { particle_id }
             })
-        }
+        }.in_current_span()
     }
 }

@@ -15,12 +15,14 @@
  */
 
 use std::convert::TryInto;
+use std::sync::Arc;
 use std::time::Duration;
 
 use derivative::Derivative;
 use fluence_keypair::{KeyPair, PublicKey, Signature};
 use libp2p::PeerId;
 use serde::{Deserialize, Serialize};
+use tracing::Span;
 
 use crate::error::ParticleError;
 use crate::error::ParticleError::{
@@ -29,6 +31,12 @@ use crate::error::ParticleError::{
 use fluence_libp2p::{peerid_serializer, RandomPeerId};
 use json_utils::base64_serde;
 use now_millis::now_ms;
+#[derive(Clone, Debug)]
+pub struct ExtendedParticle {
+    pub particle: Particle,
+    pub span: Arc<Span>,
+}
+
 
 #[derive(Clone, Serialize, Deserialize, PartialEq, Derivative)]
 #[derivative(Debug)]

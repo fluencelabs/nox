@@ -43,6 +43,7 @@ use server_config::ResolvedConfig;
 use spell_event_bus::api::{from_user_config, SpellEventBusApi, TriggerEvent};
 use spell_service_api::{CallParams, SpellServiceApi};
 use spell_storage::SpellStorage;
+use tracing::Instrument;
 
 #[derive(Clone)]
 pub struct Sorcerer {
@@ -142,11 +143,17 @@ impl Sorcerer {
                 let spell_events_stream = UnboundedReceiverStream::new(spell_events_receiver);
                 spell_events_stream
                     .for_each_concurrent(None, move |spell_event| {
+                        let span = tracing::info_span!(
+                            "Sorcerer: spell processing",
+                            spell_id = spell_event.spell_id.to_string()
+                        );
+                        let _ = span.enter();
                         let sorcerer = self.clone();
                         // Note that the event that triggered the spell is in `spell_event.event`
                         async move {
                             sorcerer.execute_script(spell_event).await;
                         }
+                        .instrument(span)
                     })
                     .await;
             })

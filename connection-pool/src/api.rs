@@ -20,9 +20,10 @@ use futures::{future::BoxFuture, stream::BoxStream, FutureExt, StreamExt};
 use libp2p::{core::Multiaddr, PeerId};
 use tokio::sync::{mpsc, oneshot};
 use tokio_stream::wrappers::UnboundedReceiverStream;
+use tracing::instrument;
 
-use particle_protocol::Particle;
 use particle_protocol::{Contact, SendStatus};
+use particle_protocol::{ExtendedParticle};
 
 use crate::connection_pool::LifecycleEvent;
 use crate::ConnectionPoolT;
@@ -36,7 +37,7 @@ pub enum Command {
     },
     Send {
         to: Contact,
-        particle: Particle,
+        particle: ExtendedParticle,
         out: oneshot::Sender<SendStatus>,
     },
     Dial {
@@ -111,7 +112,8 @@ impl ConnectionPoolT for ConnectionPoolApi {
         self.execute(|out| Command::GetContact { peer_id, out })
     }
 
-    fn send(&self, to: Contact, particle: Particle) -> BoxFuture<'static, SendStatus> {
+    #[instrument(level = tracing::Level::INFO, skip_all)]
+    fn send(&self, to: Contact, particle: ExtendedParticle) -> BoxFuture<'static, SendStatus> {
         let fut = self.execute(|out| Command::Send { to, particle, out });
         // timeout on send is required because libp2p can silently drop outbound events
         let timeout = self.send_timeout;

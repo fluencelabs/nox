@@ -43,5 +43,6 @@ pub use libp2p_protocol::message::SendStatus;
 pub use libp2p_protocol::message::{HandlerMessage, ProtocolMessage};
 pub use libp2p_protocol::upgrade::ProtocolConfig;
 pub use particle::Particle;
+pub use particle::ExtendedParticle;
 
 pub const PROTOCOL_NAME: &str = "/fluence/particle/2.0.0";

@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+use fluence_libp2p::remote_multiaddr;
 use futures::{Sink, StreamExt};
 use libp2p::core::Endpoint;
 use libp2p::swarm::dial_opts::DialOpts;
@@ -27,20 +28,19 @@ use libp2p::{
     swarm::{NetworkBehaviour, NotifyHandler, OneShotHandler},
     PeerId,
 };
+use particle_protocol::{
+    CompletionChannel, Contact, ExtendedParticle, HandlerMessage, ProtocolConfig, SendStatus,
+};
+use peer_metrics::ConnectionPoolMetrics;
 use std::pin::Pin;
 use std::{
     collections::{hash_map::Entry, HashMap, HashSet, VecDeque},
     task::{Context, Poll, Waker},
 };
+use std::sync::Arc;
 use tokio::sync::{mpsc, oneshot};
 use tokio_stream::wrappers::UnboundedReceiverStream;
 use tokio_util::sync::PollSender;
-
-use fluence_libp2p::remote_multiaddr;
-use particle_protocol::{
-    CompletionChannel, Contact, HandlerMessage, Particle, ProtocolConfig, SendStatus,
-};
-use peer_metrics::ConnectionPoolMetrics;
 
 use crate::connection_pool::LifecycleEvent;
 use crate::{Command, ConnectionPoolApi};
@@ -103,10 +103,10 @@ pub struct ConnectionPoolBehaviour {
 
     commands: UnboundedReceiverStream<Command>,
 
-    outlet: PollSender<Particle>,
+    outlet: PollSender<ExtendedParticle>,
     subscribers: Vec<mpsc::UnboundedSender<LifecycleEvent>>,
 
-    queue: VecDeque<Particle>,
+    queue: VecDeque<ExtendedParticle>,
     contacts: HashMap<PeerId, Peer>,
     dialing: HashMap<Multiaddr, Vec<oneshot::Sender<Option<Contact>>>>,
 
@@ -211,23 +211,36 @@ impl ConnectionPoolBehaviour {
 
     /// Sends a particle to a connected contact. Returns whether sending succeeded or not
     /// Result is sent to channel inside `upgrade_outbound` in ProtocolHandler
-    pub fn send(&mut self, to: Contact, particle: Particle, outlet: oneshot::Sender<SendStatus>) {
+    pub fn send(
+        &mut self,
+        to: Contact,
+        particle: ExtendedParticle,
+        outlet: oneshot::Sender<SendStatus>,
+    ) {
+        tracing::info!("Current arc count {}", Arc::strong_count(&particle.span));
+        let span = tracing::info_span!(parent: particle.span.as_ref(), "Connection pool behaviour: send");
+        tracing::info!("Current arc count {}", Arc::strong_count(&particle.span));
+        let _guard = span.enter();
         if to.peer_id == self.peer_id {
             // If particle is sent to the current node, process it locally
             self.queue.push_back(particle);
             outlet.send(SendStatus::Ok).ok();
             self.wake();
         } else if self.contacts.contains_key(&to.peer_id) {
-            tracing::debug!(target: "network",particle_id = particle.id , "{}: Sending particle to {}", self.peer_id, to.peer_id);
+            tracing::debug!(target: "network",particle_id = particle.particle.id , "{}: Sending particle to {}", self.peer_id, to.peer_id);
+
             // Send particle to remote peer
             self.push_event(ToSwarm::NotifyHandler {
                 peer_id: to.peer_id,
                 handler: NotifyHandler::Any,
-                event: HandlerMessage::OutParticle(particle, CompletionChannel::Oneshot(outlet)),
+                event: HandlerMessage::OutParticle(
+                    particle.particle,
+                    CompletionChannel::Oneshot(outlet),
+                ),
             });
         } else {
             tracing::warn!(
-                particle_id = particle.id,
+                particle_id = particle.particle.id,
                 "Won't send particle to contact {}: not connected",
                 to.peer_id
             );
@@ -264,7 +277,7 @@ impl ConnectionPoolBehaviour {
         protocol_config: ProtocolConfig,
         peer_id: PeerId,
         metrics: Option<ConnectionPoolMetrics>,
-    ) -> (Self, mpsc::Receiver<Particle>, ConnectionPoolApi) {
+    ) -> (Self, mpsc::Receiver<ExtendedParticle>, ConnectionPoolApi) {
         let (outlet, inlet) = mpsc::channel(buffer);
         let outlet = PollSender::new(outlet);
         let (command_outlet, command_inlet) = mpsc::unbounded_channel();
@@ -606,10 +619,9 @@ impl NetworkBehaviour for ConnectionPoolBehaviour {
         match event {
             Ok(HandlerMessage::InParticle(particle)) => {
                 tracing::info!(target: "network", particle_id = particle.id,"{}: received particle from {}; queue {}", self.peer_id, from, self.queue.len());
-                let parent_span =
-                    tracing::info_span!("Particle", particle_id = particle.id);
-                let span = tracing::info_span!(parent: &parent_span, "Inbound particle", particle_id = particle.id);
-                let _span_guard = span.entered();
+                let root_span = tracing::info_span!("Particle", particle_id = particle.id);
+                let _ = root_span.enter();
+
                 self.meter(|m| {
                     m.incoming_particle(
                         &particle.id,
@@ -617,7 +629,10 @@ impl NetworkBehaviour for ConnectionPoolBehaviour {
                         particle.data.len() as f64,
                     )
                 });
-                self.queue.push_back(particle);
+                self.queue.push_back(ExtendedParticle {
+                    particle,
+                    span: Arc::new(root_span),
+                });
                 self.wake();
             }
             Ok(HandlerMessage::InboundUpgradeError(err)) => log::warn!("UpgradeError: {:?}", err),
@@ -637,7 +652,9 @@ impl NetworkBehaviour for ConnectionPoolBehaviour {
                 Poll::Ready(Ok(_)) => {
                     // channel is ready to consume more particles, so send them
                     if let Some(particle) = self.queue.pop_front() {
-                        let particle_id = particle.id.clone();
+                        let particle_id = particle.particle.id.clone();
+                        let _span = tracing::info_span!(parent: particle.span.as_ref(), "Connection pool: send to outlet").entered();
+
                         if let Err(err) = outlet.start_send(particle) {
                             tracing::error!(
                                 particle_id = particle_id,

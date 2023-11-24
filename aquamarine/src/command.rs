@@ -15,12 +15,12 @@
  */
 
 use particle_execution::ServiceFunction;
-use particle_protocol::Particle;
+use particle_protocol::{ExtendedParticle};
 use std::collections::HashMap;
 
 pub enum Command {
     Ingest {
-        particle: Particle,
+        particle: ExtendedParticle,
         function: Option<ServiceFunction>,
     },
     AddService {
