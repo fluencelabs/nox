@@ -5850,11 +5850,11 @@ checksum = "c08c74e62047bb2de4ff487b251e4a92e24f48745648451635cec7d591162d9f"
 
 [[package]]
 name = "registry-distro"
-version = "0.8.7"
+version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a956d9bd2f29fcfedd615c94c7febddb19f31e9a93790dada3da84348a6ad58b"
+checksum = "e7325784028ec0cd8a1adb65f56ca6dd8ed1c7c38c6900b9dcfebf31ed5e6db4"
 dependencies = [
- "built 0.5.2",
+ "built 0.7.1",
  "maplit",
  "serde_json",
 ]
