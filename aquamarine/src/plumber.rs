@@ -104,6 +104,13 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
             return;
         }
 
+        if !self.key_manager.is_worker_active(worker_id)
+            && !self.key_manager.is_management(particle.init_peer_id)
+        {
+            tracing::trace!(target: "worker_inactive", particle_id = particle.id, worker_id = worker_id.to_string(), "Worker is not active");
+            return;
+        }
+
         let builtins = &self.builtins;
         let key = (ParticleId(particle.signature.clone()), worker_id);
         let entry = self.actors.entry(key);
@@ -432,6 +439,7 @@ mod tests {
         let builtin_mock = Arc::new(MockF);
         let key_manager = KeyManager::new(
             "keypair".into(),
+            "workers".into(),
             KeyPair::generate_ed25519(),
             RandomPeerId::random(),
             RandomPeerId::random(),

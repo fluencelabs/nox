@@ -51,6 +51,11 @@ pub enum AquamarineApiError {
         particle_id: String,
         err: ParticleError,
     },
+    #[error("AquamarineApiError::WorkerIsNotActive: worker_id = {worker_id}, particle_id = {particle_id}")]
+    WorkerIsNotActive {
+        worker_id: String,
+        particle_id: String,
+    },
 }
 
 impl AquamarineApiError {
@@ -59,6 +64,7 @@ impl AquamarineApiError {
             AquamarineApiError::ParticleExpired { particle_id } => Some(particle_id),
             AquamarineApiError::OneshotCancelled { particle_id } => Some(particle_id),
             AquamarineApiError::ExecutionTimedOut { particle_id, .. } => Some(particle_id),
+            AquamarineApiError::WorkerIsNotActive { particle_id, .. } => Some(particle_id),
             // Should it be `None`  considering usage of signature as particle id?
             // It can compromise valid particles into thinking they are invalid.
             // But still there can be a case when signature was generated wrong

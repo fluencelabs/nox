@@ -804,7 +804,7 @@ where
             .services
             .resolve_alias(&params.id, params.host_id, alias)
             .map(|id| vec![JValue::String(id)])
-            .unwrap_or(vec![]);
+            .unwrap_or_default();
 
         Ok(Array(service_id_opt))
     }
