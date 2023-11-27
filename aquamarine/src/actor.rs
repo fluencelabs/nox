@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-use std::sync::Arc;
 use std::{
     collections::VecDeque,
     task::{Context, Poll, Waker},
@@ -43,17 +42,7 @@ struct Reusables<RT> {
 pub struct Actor<RT, F> {
     /// Particle of that actor is expired after that deadline
     deadline: Deadline,
-    future: Option<
-        BoxFuture<
-            'static,
-            (
-                Reusables<RT>,
-                ParticleEffects,
-                InterpretationStats,
-                Option<Arc<Span>>,
-            ),
-        >,
-    >,
+    future: Option<BoxFuture<'static, (Reusables<RT>, ParticleEffects, InterpretationStats, Span)>>,
     mailbox: VecDeque<ExtendedParticle>,
     waker: Option<Waker>,
     functions: Functions<F>,
@@ -156,23 +145,16 @@ where
         self.functions.poll(cx);
 
         // Poll AquaVM future
-        if let Some(Ready((reusables, effects, stats, future_span))) =
+        if let Some(Ready((reusables, effects, stats, span))) =
             self.future.as_mut().map(|f| f.poll_unpin(cx))
         {
+            let local_span = tracing::info_span!(parent: &span, "Poll AVM future");
+            let _span_guard = local_span.enter();
             self.future.take();
-
-            tracing::info!("Opa {}", future_span.is_some());
-
-            let span = future_span.as_ref().map(|parent_span|{
-                tracing::info_span!(parent: parent_span.as_ref(), "Actor: after future ready", deal_id = self.deal_id)
-            }).unwrap_or_else(Span::none);
-            let parent_span = future_span.unwrap_or_else(|| Arc::new(Span::none()));
-            let _span_guard = span.enter();
 
             let waker = cx.waker().clone();
             // Schedule execution of functions
-            self.functions
-                .execute(self.particle.id.clone(), effects.call_requests, waker);
+            self.functions.execute(self.particle.id.clone(), effects.call_requests, waker, &span);
 
             let effects = RoutingEffects {
                 particle: ExtendedParticle {
@@ -180,7 +162,7 @@ where
                         data: effects.new_data,
                         ..self.particle.clone()
                     },
-                    span: parent_span,
+                    span,
                 },
                 next_peers: effects.next_peers,
             };
@@ -209,7 +191,7 @@ where
         }
 
         // Gather CallResults
-        let (calls, stats) = self.functions.drain();
+        let (calls, stats, spans) = self.functions.drain();
 
         // Take the next particle
         let ext_particle = self.mailbox.pop_front();
@@ -234,29 +216,32 @@ where
         let peer_id = self.current_peer_id;
         // TODO: get rid of this clone by recovering key_pair after `vm.execute` (not trivial to implement)
         let key_pair = self.key_pair.clone();
-        // TODO: add timeout for execution https://github.com/fluencelabs/fluence/issues/1212
         let async_span = ext_particle
             .as_ref()
-            .map(|p| tracing::info_span!(parent: p.span.as_ref(), "Actor future async"))
-            .unwrap_or_else(Span::none);
+            .map(|p| tracing::info_span!(parent: &p.span, "Actor async AVM process particle with call results"))
+            .unwrap_or_else(|| tracing::info_span!("Actor async AVM process call results"));
+
+        for span in spans {
+            async_span.follows_from(span);
+        }
+
+        // TODO: add timeout for execution https://github.com/fluencelabs/fluence/issues/1212
         self.future = Some(
             async move {
+                let span = async_span.clone();
+                let _guard = span.enter();
                 let res = vm
                     .execute((particle, calls), waker, peer_id, key_pair)
+                    .in_current_span()
                     .await;
 
                 let reusables = Reusables {
                     vm_id,
                     vm: res.runtime,
                 };
-                (
-                    reusables,
-                    res.effects,
-                    res.stats,
-                    ext_particle.map(|p| p.span),
-                )
+                (reusables, res.effects, res.stats, async_span)
             }
-            .instrument(async_span)
+            //.instrument(async_span)
             .boxed(),
         );
         self.wake();

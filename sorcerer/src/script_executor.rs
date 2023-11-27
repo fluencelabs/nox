@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::sync::Arc;
 use fluence_libp2p::PeerId;
 use tracing::{instrument, Instrument, Span};
 
@@ -122,7 +121,7 @@ impl Sorcerer {
                 .execute(
                     ExtendedParticle {
                         particle,
-                        span: Arc::new(particle_span),
+                        span: particle_span,
                     },
                     None,
                 )

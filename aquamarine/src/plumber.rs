@@ -294,7 +294,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
 
         for effect in local_effects {
             for local_peer in effect.next_peers {
-                let span = tracing::info_span!(parent: effect.particle.span.as_ref(), "Plumber: routing effect ingest");
+                let span = tracing::info_span!(parent: &effect.particle.span, "Plumber: routing effect ingest");
                 let _guard = span.enter();
                 self.ingest(effect.particle.clone(), None, local_peer);
             }

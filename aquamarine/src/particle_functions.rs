@@ -27,7 +27,7 @@ use humantime::format_duration as pretty;
 use serde_json::json;
 use serde_json::Value as JValue;
 use tokio::runtime::Handle;
-use tracing::{Instrument, instrument};
+use tracing::{instrument, Instrument, Span};
 
 use particle_args::{Args, JError};
 use particle_execution::{
@@ -55,6 +55,7 @@ pub struct SingleCallResult {
     call_id: u32,
     result: CallServiceResult,
     stat: SingleCallStat,
+    span: Span,
 }
 
 pub struct Functions<F> {
@@ -63,6 +64,7 @@ pub struct Functions<F> {
     function_calls: FuturesUnordered<BoxFuture<'static, SingleCallResult>>,
     call_results: CallResults,
     call_stats: Vec<SingleCallStat>,
+    call_spans: Vec<Span>,
     particle_function: Option<Arc<tokio::sync::Mutex<ServiceFunction>>>,
 }
 
@@ -74,6 +76,7 @@ impl<F: ParticleFunctionStatic> Functions<F> {
             function_calls: <_>::default(),
             call_results: <_>::default(),
             call_stats: <_>::default(),
+            call_spans: <_>::default(),
             particle_function: None,
         }
     }
@@ -83,6 +86,7 @@ impl<F: ParticleFunctionStatic> Functions<F> {
         while let Poll::Ready(Some(r)) = self.function_calls.poll_next_unpin(cx) {
             let overwritten = self.call_results.insert(r.call_id, r.result);
             self.call_stats.push(r.stat);
+            self.call_spans.push(r.span);
 
             debug_assert!(
                 overwritten.is_none(),
@@ -94,20 +98,27 @@ impl<F: ParticleFunctionStatic> Functions<F> {
 
     /// Add a bunch of call requests to execution
     #[instrument(level = tracing::Level::INFO, skip_all)]
-    pub fn execute(&mut self, particle_id: String, requests: CallRequests, waker: Waker) {
+    pub fn execute(
+        &mut self,
+        particle_id: String,
+        requests: CallRequests,
+        waker: Waker,
+        span: &Span,
+    ) {
         let futs: Vec<_> = requests
             .into_iter()
-            .map(|(id, call)| self.call(particle_id.clone(), id, call, waker.clone()))
+            .map(|(id, call)| self.call(particle_id.clone(), id, call, waker.clone(), span))
             .collect();
         self.function_calls.extend(futs);
     }
 
     /// Retrieve all existing call results
-    pub fn drain(&mut self) -> (CallResults, Vec<SingleCallStat>) {
+    pub fn drain(&mut self) -> (CallResults, Vec<SingleCallStat>, Vec<Span>) {
         let call_results = std::mem::take(&mut self.call_results);
         let stats = std::mem::take(&mut self.call_stats);
+        let call_spans = std::mem::take(&mut self.call_spans);
 
-        (call_results, stats)
+        (call_results, stats, call_spans)
     }
 
     pub fn set_function(&mut self, function: ServiceFunction) {
@@ -127,28 +138,35 @@ impl<F: ParticleFunctionStatic> Functions<F> {
         call_id: u32,
         call: CallRequestParams,
         waker: Waker,
+        span: &Span,
     ) -> BoxFuture<'static, SingleCallResult> {
+        let arg_span = span.clone();
         // Deserialize params
         let args = match Args::try_from(call) {
             Ok(args) => args,
             Err(err) => {
-                let result = CallServiceResult {
-                    ret_code: 1,
-                    result: json!(format!(
-                        "Failed to deserialize CallRequestParams to Args: {err}"
-                    )),
-                };
-                let result = SingleCallResult {
-                    call_id,
-                    result,
-                    stat: SingleCallStat {
-                        call_time: None,
-                        wait_time: None,
-                        success: false,
-                        kind: FunctionKind::NotHappened,
-                    },
-                };
-                return async move { result }.boxed();
+                return async move {
+                    let result = CallServiceResult {
+                        ret_code: 1,
+                        result: json!(format!(
+                            "Failed to deserialize CallRequestParams to Args: {err}"
+                        )),
+                    };
+                    let result = SingleCallResult {
+                        call_id,
+                        result,
+                        stat: SingleCallStat {
+                            call_time: None,
+                            wait_time: None,
+                            success: false,
+                            kind: FunctionKind::NotHappened,
+                        },
+                        span: arg_span,
+                    };
+                    result
+                }
+                .in_current_span()
+                .boxed();
             }
         };
 
@@ -163,7 +181,7 @@ impl<F: ParticleFunctionStatic> Functions<F> {
         let params = self.particle.clone();
         let builtins = self.builtins.clone();
         let particle_function = self.particle_function.clone();
-        let span = tracing::span!(tracing::Level::INFO, "Function");
+        let async_span = tracing::info_span!(parent: arg_span, "Particle functions async call");
         let schedule_wait_start = Instant::now();
         let result = tokio::task::Builder::new()
             .name(&format!(
@@ -201,6 +219,7 @@ impl<F: ParticleFunctionStatic> Functions<F> {
             })
             .expect("Could not spawn task");
 
+        let span = span.clone();
         async move {
             let (result, call_kind, call_time, wait_time) =
                 result.await.expect("Could not 'Call function' join");
@@ -251,9 +270,10 @@ impl<F: ParticleFunctionStatic> Functions<F> {
                 call_id,
                 result,
                 stat: stats,
+                span,
             }
         }
-        .instrument(span)
+        .instrument(async_span)
         .boxed()
     }
 }
