@@ -349,7 +349,7 @@ mod tests {
 
     use particle_args::Args;
     use particle_execution::{FunctionOutcome, ParticleFunction, ParticleParams, ServiceFunction};
-    use particle_protocol::Particle;
+    use particle_protocol::{ExtendedParticle, Particle};
 
     use crate::deadline::Deadline;
     use crate::plumber::mock_time::set_mock_time;
@@ -358,6 +358,7 @@ mod tests {
     use crate::AquamarineApiError::ParticleExpired;
     use crate::{AquaRuntime, ParticleEffects, Plumber};
     use async_trait::async_trait;
+    use tracing::Span;
 
     struct MockF;
 
@@ -476,7 +477,14 @@ mod tests {
         let deadline = Deadline::from(&particle);
         assert!(!deadline.is_expired(now_ms()));
 
-        plumber.ingest(particle, None, RandomPeerId::random());
+        plumber.ingest(
+            ExtendedParticle {
+                particle,
+                span: Arc::new(Span::none()),
+            },
+            None,
+            RandomPeerId::random(),
+        );
 
         assert_eq!(plumber.actors.len(), 1);
         let mut cx = context();
@@ -509,7 +517,14 @@ mod tests {
         let deadline = Deadline::from(&particle);
         assert!(deadline.is_expired(now_ms()));
 
-        plumber.ingest(particle.clone(), None, RandomPeerId::random());
+        plumber.ingest(
+            ExtendedParticle {
+                particle: particle.clone(),
+                span: Arc::new(Span::none()),
+            },
+            None,
+            RandomPeerId::random(),
+        );
 
         assert_eq!(plumber.actors.len(), 0);
 
