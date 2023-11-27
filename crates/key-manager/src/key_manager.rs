@@ -22,8 +22,8 @@ use std::sync::Arc;
 
 use crate::error::KeyManagerError;
 use crate::persistence::{
-    load_persisted_keypairs_and_workers, persist_keypair, persist_worker, remove_keypair,
-    remove_worker, PersistedWorker,
+    load_persisted_keypairs, load_persisted_workers, persist_keypair, persist_worker,
+    remove_keypair, remove_worker, PersistedWorker,
 };
 use crate::KeyManagerError::{WorkerAlreadyExists, WorkerNotFound, WorkerNotFoundByDeal};
 use parking_lot::RwLock;
@@ -41,9 +41,12 @@ pub struct WorkerInfo {
 pub struct KeyManager {
     /// worker_id -> worker_keypair
     worker_keypairs: Arc<RwLock<HashMap<WorkerId, KeyPair>>>,
+    /// deal_id -> worker_id
     worker_ids: Arc<RwLock<HashMap<DealId, WorkerId>>>,
+    /// worker_id -> worker_info
     worker_infos: Arc<RwLock<HashMap<WorkerId, WorkerInfo>>>,
     keypairs_dir: PathBuf,
+    workers_dir: PathBuf,
     host_peer_id: PeerId,
     pub root_keypair: KeyPair,
     management_peer_id: PeerId,
@@ -53,6 +56,7 @@ pub struct KeyManager {
 impl KeyManager {
     pub fn new(
         keypairs_dir: PathBuf,
+        workers_dir: PathBuf,
         root_keypair: KeyPair,
         management_peer_id: PeerId,
         builtins_management_peer_id: PeerId,
@@ -62,26 +66,31 @@ impl KeyManager {
             worker_ids: Arc::new(Default::default()),
             worker_infos: Arc::new(Default::default()),
             keypairs_dir,
+            workers_dir,
             host_peer_id: root_keypair.get_peer_id(),
             root_keypair,
             management_peer_id,
             builtins_management_peer_id,
         };
 
-        this.load_persisted_keypairs_and_workers();
+        this.load_persisted_keypairs();
+        this.load_persisted_workers();
         this
     }
 
-    fn load_persisted_keypairs_and_workers(&self) {
-        let (keypairs, workers) = load_persisted_keypairs_and_workers(&self.keypairs_dir);
-        let mut worker_ids = self.worker_ids.write();
+    fn load_persisted_keypairs(&self) {
         let mut worker_keypairs = self.worker_keypairs.write();
-        let mut worker_infos = self.worker_infos.write();
+        let keypairs = load_persisted_keypairs(&self.keypairs_dir);
 
         for keypair in keypairs {
             let worker_id = keypair.get_peer_id();
             worker_keypairs.insert(worker_id, keypair);
         }
+    }
+    fn load_persisted_workers(&self) {
+        let workers = load_persisted_workers(&self.workers_dir);
+        let mut worker_ids = self.worker_ids.write();
+        let mut worker_infos = self.worker_infos.write();
 
         for w in workers {
             let worker_id = w.worker_id;
@@ -131,12 +140,26 @@ impl KeyManager {
                 let keypair = KeyPair::generate_ed25519();
                 let worker_id = keypair.get_peer_id();
                 persist_keypair(&self.keypairs_dir, worker_id, (&keypair).try_into()?)?;
-                worker_keypairs.insert(worker_id, keypair);
 
-                worker_ids.insert(deal_id.clone(), worker_id);
+                match self.store_worker(worker_id, deal_id.clone(), init_peer_id) {
+                    Ok(worker_info) => {
+                        worker_keypairs.insert(worker_id, keypair);
+                        worker_ids.insert(deal_id, worker_id);
+                        worker_infos.insert(worker_id, worker_info);
+                    }
+                    Err(err) => {
+                        tracing::warn!(
+                            target = "key-manager",
+                            "Failed to store worker info for {}: {}",
+                            worker_id,
+                            err
+                        );
 
-                let worker_info = self.store_worker(worker_id, deal_id, init_peer_id)?;
-                worker_infos.insert(worker_id, worker_info);
+                        remove_keypair(&self.keypairs_dir, worker_id)?;
+                        return Err(err);
+                    }
+                }
+
                 Ok(worker_id)
             }
         }
@@ -168,7 +191,7 @@ impl KeyManager {
         let mut worker_infos = self.worker_infos.write();
         let mut worker_keypairs = self.worker_keypairs.write();
         remove_keypair(&self.keypairs_dir, worker_id)?;
-        remove_worker(&self.keypairs_dir, worker_id)?;
+        remove_worker(&self.workers_dir, worker_id)?;
         let removed_worker_id = worker_ids.remove(&deal_id);
         let removed_worker_info = worker_infos.remove(&worker_id);
         let removed_worker_kp = worker_keypairs.remove(&worker_id);
@@ -217,7 +240,7 @@ impl KeyManager {
         };
 
         persist_worker(
-            &self.keypairs_dir,
+            &self.workers_dir,
             worker_id,
             PersistedWorker {
                 worker_id,
@@ -236,7 +259,7 @@ impl KeyManager {
         let mut active = worker_info.active.write();
         *active = status;
         persist_worker(
-            &self.keypairs_dir,
+            &self.workers_dir,
             worker_id,
             PersistedWorker {
                 worker_id,

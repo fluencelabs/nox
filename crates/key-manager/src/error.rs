@@ -88,6 +88,12 @@ pub enum KeyManagerError {
         #[source]
         err: std::io::Error,
     },
+    #[error("Error creating directory for persisted workers {path:?}: {err}")]
+    CreateWorkersDir {
+        path: PathBuf,
+        #[source]
+        err: std::io::Error,
+    },
     #[error("Keypair for peer_id {0} not found")]
     KeypairNotFound(PeerId),
     #[error("Worker for {deal_id} already exists")]

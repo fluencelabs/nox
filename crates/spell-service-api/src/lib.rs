@@ -300,9 +300,11 @@ mod tests {
         let startup_kp = Keypair::generate_ed25519();
         let vault_dir = base_dir.join("..").join("vault");
         let keypairs_dir = base_dir.join("..").join("keypairs");
+        let workers_dir = base_dir.join("..").join("workers");
 
         let key_manager = KeyManager::new(
             keypairs_dir,
+            workers_dir,
             startup_kp.clone().into(),
             management_pid,
             to_peer_id(&startup_kp),

@@ -40,7 +40,11 @@ pub struct UnresolvedDirConfig {
     /// Path to spell service files (wasms, configs)
     pub spell_base_dir: Option<PathBuf>,
 
+    /// Path to persisted worker keypairs
     pub keypairs_base_dir: Option<PathBuf>,
+
+    /// Path to persisted workers
+    pub workers_base_dir: Option<PathBuf>,
 }
 
 impl UnresolvedDirConfig {
@@ -54,6 +58,7 @@ impl UnresolvedDirConfig {
             .unwrap_or(air_interpreter_path(&base));
         let spell_base_dir = self.spell_base_dir.unwrap_or(base.join("spell"));
         let keypairs_base_dir = self.keypairs_base_dir.unwrap_or(base.join("keypairs"));
+        let workers_base_dir = self.workers_base_dir.unwrap_or(base.join("workers"));
 
         create_dirs(&[
             &base,
@@ -61,6 +66,7 @@ impl UnresolvedDirConfig {
             &avm_base_dir,
             &spell_base_dir,
             &keypairs_base_dir,
+            &workers_base_dir,
         ])
         .context("creating configured directories")?;
 
@@ -69,6 +75,7 @@ impl UnresolvedDirConfig {
         let avm_base_dir = canonicalize(avm_base_dir)?;
         let spell_base_dir = canonicalize(spell_base_dir)?;
         let keypairs_base_dir = canonicalize(keypairs_base_dir)?;
+        let workers_base_dir = canonicalize(workers_base_dir)?;
 
         Ok(ResolvedDirConfig {
             base_dir: base,
@@ -77,6 +84,7 @@ impl UnresolvedDirConfig {
             air_interpreter_path,
             spell_base_dir,
             keypairs_base_dir,
+            workers_base_dir,
         })
     }
 }
@@ -91,4 +99,5 @@ pub struct ResolvedDirConfig {
     pub air_interpreter_path: PathBuf,
     pub spell_base_dir: PathBuf,
     pub keypairs_base_dir: PathBuf,
+    pub workers_base_dir: PathBuf,
 }

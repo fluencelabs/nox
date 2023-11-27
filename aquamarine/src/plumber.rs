@@ -107,7 +107,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
         if !self.key_manager.is_worker_active(worker_id)
             && !self.key_manager.is_management(particle.init_peer_id)
         {
-            tracing::warn!(target: "worker", particle_id = particle.id, worker_id = worker_id.to_string(), "Worker is not active");
+            tracing::trace!(target: "worker_inactive", particle_id = particle.id, worker_id = worker_id.to_string(), "Worker is not active");
             self.events
                 .push_back(Err(AquamarineApiError::WorkerIsNotActive {
                     worker_id: worker_id.to_string(),
@@ -444,6 +444,7 @@ mod tests {
         let builtin_mock = Arc::new(MockF);
         let key_manager = KeyManager::new(
             "keypair".into(),
+            "workers".into(),
             KeyPair::generate_ed25519(),
             RandomPeerId::random(),
             RandomPeerId::random(),
