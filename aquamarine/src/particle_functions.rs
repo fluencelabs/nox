@@ -55,7 +55,7 @@ pub struct SingleCallResult {
     call_id: u32,
     result: CallServiceResult,
     stat: SingleCallStat,
-    span: Span,
+    span: Arc<Span>,
 }
 
 pub struct Functions<F> {
@@ -64,7 +64,7 @@ pub struct Functions<F> {
     function_calls: FuturesUnordered<BoxFuture<'static, SingleCallResult>>,
     call_results: CallResults,
     call_stats: Vec<SingleCallStat>,
-    call_spans: Vec<Span>,
+    call_spans: Vec<Arc<Span>>,
     particle_function: Option<Arc<tokio::sync::Mutex<ServiceFunction>>>,
 }
 
@@ -98,16 +98,16 @@ impl<F: ParticleFunctionStatic> Functions<F> {
 
     /// Add a bunch of call requests to execution
     #[instrument(level = tracing::Level::INFO, skip_all)]
-    pub fn execute(&mut self, particle_id: String, requests: CallRequests, waker: Waker) {
+    pub fn execute(&mut self, particle_id: String, requests: CallRequests, waker: Waker, span: Arc<Span>) {
         let futs: Vec<_> = requests
             .into_iter()
-            .map(|(id, call)| self.call(particle_id.clone(), id, call, waker.clone()))
+            .map(|(id, call)| self.call(particle_id.clone(), id, call, waker.clone(), span.clone()))
             .collect();
         self.function_calls.extend(futs);
     }
 
     /// Retrieve all existing call results
-    pub fn drain(&mut self) -> (CallResults, Vec<SingleCallStat>, Vec<Span>) {
+    pub fn drain(&mut self) -> (CallResults, Vec<SingleCallStat>, Vec<Arc<Span>>) {
         let call_results = std::mem::take(&mut self.call_results);
         let stats = std::mem::take(&mut self.call_stats);
         let call_spans = std::mem::take(&mut self.call_spans);
@@ -133,17 +133,15 @@ impl<F: ParticleFunctionStatic> Functions<F> {
         call_id: u32,
         call: CallRequestParams,
         waker: Waker,
+        span: Arc<Span>,
     ) -> BoxFuture<'static, SingleCallResult> {
-        let span = Span::current();
-        let local_span = tracing::info_span!(parent: span, "Particle functions: call");
+        let local_span = tracing::info_span!(parent: span.as_ref(), "Particle functions: call");
         let _guard = local_span.enter();
         // Deserialize params
         let args = match Args::try_from(call) {
             Ok(args) => args,
             Err(err) => {
                 return async move {
-                    let span = Span::current();
-
                     let result = CallServiceResult {
                         ret_code: 1,
                         result: json!(format!(
@@ -216,8 +214,6 @@ impl<F: ParticleFunctionStatic> Functions<F> {
             .expect("Could not spawn task");
 
         async move {
-            let span = Span::current();
-
             let (result, call_kind, call_time, wait_time) =
                 result.await.expect("Could not 'Call function' join");
 

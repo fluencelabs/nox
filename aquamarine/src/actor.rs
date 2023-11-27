@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+use std::ops::Deref;
+use std::sync::Arc;
 use std::{
     collections::VecDeque,
     task::{Context, Poll, Waker},
@@ -42,7 +44,17 @@ struct Reusables<RT> {
 pub struct Actor<RT, F> {
     /// Particle of that actor is expired after that deadline
     deadline: Deadline,
-    future: Option<BoxFuture<'static, (Reusables<RT>, ParticleEffects, InterpretationStats, Span)>>,
+    future: Option<
+        BoxFuture<
+            'static,
+            (
+                Reusables<RT>,
+                ParticleEffects,
+                InterpretationStats,
+                Arc<Span>,
+            ),
+        >,
+    >,
     mailbox: VecDeque<ExtendedParticle>,
     waker: Option<Waker>,
     functions: Functions<F>,
@@ -148,14 +160,18 @@ where
         if let Some(Ready((reusables, effects, stats, span))) =
             self.future.as_mut().map(|f| f.poll_unpin(cx))
         {
-            let local_span = tracing::info_span!(parent: &span, "Poll AVM future");
+            let local_span = tracing::info_span!(parent: span.as_ref(), "Poll AVM future");
             let _span_guard = local_span.enter();
             self.future.take();
 
             let waker = cx.waker().clone();
             // Schedule execution of functions
-            self.functions
-                .execute(self.particle.id.clone(), effects.call_requests, waker);
+            self.functions.execute(
+                self.particle.id.clone(),
+                effects.call_requests,
+                waker,
+                span.clone(),
+            );
 
             let effects = RoutingEffects {
                 particle: ExtendedParticle {
@@ -218,37 +234,34 @@ where
         // TODO: get rid of this clone by recovering key_pair after `vm.execute` (not trivial to implement)
         let key_pair = self.key_pair.clone();
 
-        let async_span = ext_particle
-            .as_ref()
-            .map(|p| tracing::info_span!(parent: &p.span, "Actor: async AVM process particle with call results", particle_id = particle.id))
-            .unwrap_or_else(|| tracing::info_span!("Actor: async AVM process call results", particle_id = particle.id));
-
-        let _guard = async_span.enter();
-
+        let async_span = if let Some(ext_particle) = ext_particle.as_ref() {
+            tracing::info_span!(parent: ext_particle.span.as_ref(),"Actor: async AVM process particle & call results",particle_id = particle.id)
+        } else {
+            tracing::info_span!(
+                "Actor: async AVM process particle & call results",
+                particle_id = particle.id
+            )
+        };
         for span in spans {
-            let local_span = span.clone();
-            let _guard = local_span.enter(); //we explicitly call enter to prevent panic
-            async_span.follows_from(span);
+            async_span.follows_from(span.as_ref());
         }
-
+        let async_span = Arc::new(async_span);
+        let moved_async_span = async_span.clone();
         // TODO: add timeout for execution https://github.com/fluencelabs/fluence/issues/1212
         self.future = Some(
             async move {
-                let span = Span::current();
-
-                let local_span = tracing::info_span!(parent: &span, "Actor: vm execute");
-                let _guard = local_span.enter();
                 let res = vm
                     .execute((particle, calls), waker, peer_id, key_pair)
+                    .in_current_span()
                     .await;
 
                 let reusables = Reusables {
                     vm_id,
                     vm: res.runtime,
                 };
-                (reusables, res.effects, res.stats, span)
+                (reusables, res.effects, res.stats, moved_async_span)
             }
-            .in_current_span()
+            .instrument(async_span.clone().deref().clone())
             .boxed(),
         );
         self.wake();

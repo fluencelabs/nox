@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 use fluence_libp2p::PeerId;
+use std::sync::Arc;
 use tracing::{instrument, Instrument, Span};
 
 use crate::error::SorcererError::{ParticleSigningFailed, ScopeKeypairMissing};
@@ -113,9 +114,9 @@ impl Sorcerer {
                 m.observe_spell_cast();
             }
 
-            let particle_span = Span::current();
+            let particle_span = Arc::new(Span::current());
 
-            let async_span = particle_span.clone();
+            let async_span = tracing::info_span!(parent: particle_span.as_ref(), "Script executor: aquamarine async execute");
 
             self.aquamarine
                 .clone()

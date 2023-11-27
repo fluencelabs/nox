@@ -15,6 +15,7 @@
  */
 
 use std::convert::TryInto;
+use std::sync::Arc;
 use std::time::Duration;
 
 use derivative::Derivative;
@@ -33,7 +34,7 @@ use now_millis::now_ms;
 #[derive(Clone, Debug)]
 pub struct ExtendedParticle {
     pub particle: Particle,
-    pub span: Span,
+    pub span: Arc<Span>,
 }
 
 #[derive(Clone, Serialize, Deserialize, PartialEq, Derivative)]

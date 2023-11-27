@@ -37,6 +37,7 @@ use std::{
     collections::{hash_map::Entry, HashMap, HashSet, VecDeque},
     task::{Context, Poll, Waker},
 };
+use std::sync::Arc;
 use tokio::sync::{mpsc, oneshot};
 use tokio_stream::wrappers::UnboundedReceiverStream;
 use tokio_util::sync::PollSender;
@@ -216,7 +217,7 @@ impl ConnectionPoolBehaviour {
         particle: ExtendedParticle,
         outlet: oneshot::Sender<SendStatus>,
     ) {
-        let span = tracing::info_span!(parent: &particle.span, "Connection pool behaviour: send");
+        let span = tracing::info_span!(parent: particle.span.as_ref(), "Connection pool behaviour: send");
         let _guard = span.enter();
         if to.peer_id == self.peer_id {
             // If particle is sent to the current node, process it locally
@@ -617,8 +618,6 @@ impl NetworkBehaviour for ConnectionPoolBehaviour {
             Ok(HandlerMessage::InParticle(particle)) => {
                 tracing::info!(target: "network", particle_id = particle.id,"{}: received particle from {}; queue {}", self.peer_id, from, self.queue.len());
                 let root_span = tracing::info_span!("Particle", particle_id = particle.id);
-                let local_span = root_span.clone();
-                let _guard = local_span.enter();
 
                 self.meter(|m| {
                     m.incoming_particle(
@@ -629,7 +628,7 @@ impl NetworkBehaviour for ConnectionPoolBehaviour {
                 });
                 self.queue.push_back(ExtendedParticle {
                     particle,
-                    span: root_span,
+                    span: Arc::new(root_span),
                 });
                 self.wake();
             }
@@ -651,7 +650,7 @@ impl NetworkBehaviour for ConnectionPoolBehaviour {
                     // channel is ready to consume more particles, so send them
                     if let Some(particle) = self.queue.pop_front() {
                         let particle_id = particle.particle.id.clone();
-                        let _span = tracing::info_span!(parent: &particle.span, "Connection pool: send to outlet").entered();
+                        let _span = tracing::info_span!(parent: particle.span.as_ref(), "Connection pool: send to outlet").entered();
 
                         if let Err(err) = outlet.start_send(particle) {
                             tracing::error!(
