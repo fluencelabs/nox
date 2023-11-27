@@ -617,7 +617,8 @@ impl NetworkBehaviour for ConnectionPoolBehaviour {
             Ok(HandlerMessage::InParticle(particle)) => {
                 tracing::info!(target: "network", particle_id = particle.id,"{}: received particle from {}; queue {}", self.peer_id, from, self.queue.len());
                 let root_span = tracing::info_span!("Particle", particle_id = particle.id);
-                let _ = root_span.enter();
+                let local_span = root_span.clone();
+                let _guard = local_span.enter();
 
                 self.meter(|m| {
                     m.incoming_particle(

@@ -39,7 +39,7 @@ use libp2p_connection_limits::ConnectionLimits;
 use libp2p_metrics::{Metrics, Recorder};
 use particle_builtins::{Builtins, CustomService, NodeInfo};
 use particle_execution::ParticleFunctionStatic;
-use particle_protocol::{ExtendedParticle};
+use particle_protocol::ExtendedParticle;
 use peer_metrics::{
     ConnectionPoolMetrics, ConnectivityMetrics, ParticleExecutorMetrics, ServicesMetrics,
     ServicesMetricsBackend, SpellMetrics, VmPoolMetrics,

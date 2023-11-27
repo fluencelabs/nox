@@ -114,6 +114,7 @@ impl Sorcerer {
             }
 
             let particle_span = Span::current();
+
             let async_span = particle_span.clone();
 
             self.aquamarine

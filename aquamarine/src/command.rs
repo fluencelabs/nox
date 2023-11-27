@@ -15,7 +15,7 @@
  */
 
 use particle_execution::ServiceFunction;
-use particle_protocol::{ExtendedParticle};
+use particle_protocol::ExtendedParticle;
 use std::collections::HashMap;
 
 pub enum Command {

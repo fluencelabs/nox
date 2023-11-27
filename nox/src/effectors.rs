@@ -48,7 +48,10 @@ impl Effectors {
             let particle = particle.clone();
             async move {
                 // resolve contact
-                if let Some(contact) = connectivity.resolve_contact(target, &particle.particle.id).await {
+                if let Some(contact) = connectivity
+                    .resolve_contact(target, &particle.particle.id)
+                    .await
+                {
                     // forward particle
                     let sent = connectivity.send(contact, particle).await;
                     if sent {

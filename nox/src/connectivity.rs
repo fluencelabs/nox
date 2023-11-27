@@ -28,7 +28,7 @@ use libp2p::Multiaddr;
 use particle_protocol::{Contact, ExtendedParticle, SendStatus};
 use peer_metrics::{ConnectivityMetrics, Resolution};
 use tokio::time::sleep;
-use tracing::{Instrument, instrument, Span};
+use tracing::{instrument, Instrument, Span};
 
 use crate::tasks::Tasks;
 
@@ -127,7 +127,11 @@ impl Connectivity {
 
     #[instrument(level = tracing::Level::INFO, skip_all)]
     pub async fn send(&self, contact: Contact, particle: ExtendedParticle) -> bool {
-        tracing::debug!(particle_id = particle.particle.id, "Sending particle to {}", contact);
+        tracing::debug!(
+            particle_id = particle.particle.id,
+            "Sending particle to {}",
+            contact
+        );
         let metrics = self.metrics.as_ref();
         let id = particle.particle.id.clone();
         let sent = self.connection_pool.send(contact.clone(), particle).await;

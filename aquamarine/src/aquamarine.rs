@@ -21,13 +21,13 @@ use std::time::Duration;
 use futures::StreamExt;
 use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
-use tracing::{Instrument, instrument};
+use tracing::{instrument, Instrument};
 
 use fluence_libp2p::PeerId;
 use health::HealthCheckRegistry;
 use key_manager::KeyManager;
 use particle_execution::{ParticleFunctionStatic, ServiceFunction};
-use particle_protocol::{ExtendedParticle};
+use particle_protocol::ExtendedParticle;
 use peer_metrics::{ParticleExecutorMetrics, VmPoolMetrics};
 
 use crate::aqua_runtime::AquaRuntime;
@@ -88,8 +88,9 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> AquamarineBackend<RT, F> {
             match self.inlet.poll_recv(cx) {
                 Poll::Ready(Some(Ingest { particle, function })) => {
                     wake = true;
-                    let span = tracing::info_span!(parent: &particle.span, "Aquamarine: Poll Ingest");
-                    let _guard =span.entered();
+                    let span =
+                        tracing::info_span!(parent: &particle.span, "Aquamarine: Poll Ingest");
+                    let _guard = span.entered();
                     // set new particle to be executed
                     // every particle that comes from the connection pool first executed on the host peer id
                     self.plumber.ingest(particle, function, self.host_peer_id);
@@ -206,6 +207,7 @@ impl AquamarineApi {
                 log::error!("Aquamarine outlet died!");
                 AquamarineDied { particle_id }
             })
-        }.in_current_span()
+        }
+        .in_current_span()
     }
 }

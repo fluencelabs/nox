@@ -15,7 +15,7 @@
  */
 
 use avm_server::CallRequests;
-use particle_protocol::{ExtendedParticle};
+use particle_protocol::ExtendedParticle;
 use std::time::Duration;
 
 use libp2p::PeerId;

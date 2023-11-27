@@ -98,16 +98,10 @@ impl<F: ParticleFunctionStatic> Functions<F> {
 
     /// Add a bunch of call requests to execution
     #[instrument(level = tracing::Level::INFO, skip_all)]
-    pub fn execute(
-        &mut self,
-        particle_id: String,
-        requests: CallRequests,
-        waker: Waker,
-        span: &Span,
-    ) {
+    pub fn execute(&mut self, particle_id: String, requests: CallRequests, waker: Waker) {
         let futs: Vec<_> = requests
             .into_iter()
-            .map(|(id, call)| self.call(particle_id.clone(), id, call, waker.clone(), span))
+            .map(|(id, call)| self.call(particle_id.clone(), id, call, waker.clone()))
             .collect();
         self.function_calls.extend(futs);
     }
@@ -132,27 +126,31 @@ impl<F: ParticleFunctionStatic> Functions<F> {
     //       I see the main obstacle to cooperation in streaming results to `self.call_results`.
     //       Streaming can be done through an MPSC channel, but it seems like an overkill. Though
     //       maybe it's a good option.
+    #[instrument(level = tracing::Level::INFO, skip_all)]
     fn call(
         &self,
         particle_id: String,
         call_id: u32,
         call: CallRequestParams,
         waker: Waker,
-        span: &Span,
     ) -> BoxFuture<'static, SingleCallResult> {
-        let arg_span = span.clone();
+        let span = Span::current();
+        let local_span = tracing::info_span!(parent: span, "Particle functions: call");
+        let _guard = local_span.enter();
         // Deserialize params
         let args = match Args::try_from(call) {
             Ok(args) => args,
             Err(err) => {
                 return async move {
+                    let span = Span::current();
+
                     let result = CallServiceResult {
                         ret_code: 1,
                         result: json!(format!(
                             "Failed to deserialize CallRequestParams to Args: {err}"
                         )),
                     };
-                    let result = SingleCallResult {
+                    SingleCallResult {
                         call_id,
                         result,
                         stat: SingleCallStat {
@@ -161,9 +159,8 @@ impl<F: ParticleFunctionStatic> Functions<F> {
                             success: false,
                             kind: FunctionKind::NotHappened,
                         },
-                        span: arg_span,
-                    };
-                    result
+                        span,
+                    }
                 }
                 .in_current_span()
                 .boxed();
@@ -181,7 +178,6 @@ impl<F: ParticleFunctionStatic> Functions<F> {
         let params = self.particle.clone();
         let builtins = self.builtins.clone();
         let particle_function = self.particle_function.clone();
-        let async_span = tracing::info_span!(parent: arg_span, "Particle functions async call");
         let schedule_wait_start = Instant::now();
         let result = tokio::task::Builder::new()
             .name(&format!(
@@ -219,8 +215,9 @@ impl<F: ParticleFunctionStatic> Functions<F> {
             })
             .expect("Could not spawn task");
 
-        let span = span.clone();
         async move {
+            let span = Span::current();
+
             let (result, call_kind, call_time, wait_time) =
                 result.await.expect("Could not 'Call function' join");
 
@@ -273,7 +270,7 @@ impl<F: ParticleFunctionStatic> Functions<F> {
                 span,
             }
         }
-        .instrument(async_span)
+        .in_current_span()
         .boxed()
     }
 }

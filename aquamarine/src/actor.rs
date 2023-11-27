@@ -154,7 +154,8 @@ where
 
             let waker = cx.waker().clone();
             // Schedule execution of functions
-            self.functions.execute(self.particle.id.clone(), effects.call_requests, waker, &span);
+            self.functions
+                .execute(self.particle.id.clone(), effects.call_requests, waker);
 
             let effects = RoutingEffects {
                 particle: ExtendedParticle {
@@ -216,32 +217,38 @@ where
         let peer_id = self.current_peer_id;
         // TODO: get rid of this clone by recovering key_pair after `vm.execute` (not trivial to implement)
         let key_pair = self.key_pair.clone();
+
         let async_span = ext_particle
             .as_ref()
-            .map(|p| tracing::info_span!(parent: &p.span, "Actor async AVM process particle with call results"))
-            .unwrap_or_else(|| tracing::info_span!("Actor async AVM process call results"));
+            .map(|p| tracing::info_span!(parent: &p.span, "Actor: async AVM process particle with call results", particle_id = particle.id))
+            .unwrap_or_else(|| tracing::info_span!("Actor: async AVM process call results", particle_id = particle.id));
+
+        let _guard = async_span.enter();
 
         for span in spans {
+            let local_span = span.clone();
+            let _guard = local_span.enter(); //we explicitly call enter to prevent panic
             async_span.follows_from(span);
         }
 
         // TODO: add timeout for execution https://github.com/fluencelabs/fluence/issues/1212
         self.future = Some(
             async move {
-                let span = async_span.clone();
-                let _guard = span.enter();
+                let span = Span::current();
+
+                let local_span = tracing::info_span!(parent: &span, "Actor: vm execute");
+                let _guard = local_span.enter();
                 let res = vm
                     .execute((particle, calls), waker, peer_id, key_pair)
-                    .in_current_span()
                     .await;
 
                 let reusables = Reusables {
                     vm_id,
                     vm: res.runtime,
                 };
-                (reusables, res.effects, res.stats, async_span)
+                (reusables, res.effects, res.stats, span)
             }
-            //.instrument(async_span)
+            .in_current_span()
             .boxed(),
         );
         self.wake();

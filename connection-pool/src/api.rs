@@ -22,8 +22,8 @@ use tokio::sync::{mpsc, oneshot};
 use tokio_stream::wrappers::UnboundedReceiverStream;
 use tracing::instrument;
 
+use particle_protocol::ExtendedParticle;
 use particle_protocol::{Contact, SendStatus};
-use particle_protocol::{ExtendedParticle};
 
 use crate::connection_pool::LifecycleEvent;
 use crate::ConnectionPoolT;

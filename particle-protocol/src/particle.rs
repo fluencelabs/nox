@@ -36,7 +36,6 @@ pub struct ExtendedParticle {
     pub span: Span,
 }
 
-
 #[derive(Clone, Serialize, Deserialize, PartialEq, Derivative)]
 #[derivative(Debug)]
 pub struct Particle {

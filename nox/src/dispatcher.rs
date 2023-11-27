@@ -22,7 +22,7 @@ use peer_metrics::DispatcherMetrics;
 use prometheus_client::registry::Registry;
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::{ReceiverStream, UnboundedReceiverStream};
-use tracing::{Instrument, instrument};
+use tracing::{instrument, Instrument};
 
 use crate::effectors::Effectors;
 use crate::tasks::Tasks;
