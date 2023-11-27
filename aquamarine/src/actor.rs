@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-use std::ops::Deref;
 use std::sync::Arc;
 use std::{
     collections::VecDeque,
@@ -238,15 +237,18 @@ where
             tracing::info_span!(parent: ext_particle.span.as_ref(),"Actor: async AVM process particle & call results",particle_id = particle.id)
         } else {
             tracing::info_span!(
-                "Actor: async AVM process particle & call results",
+                "Actor: async AVM process call results",
                 particle_id = particle.id
             )
         };
         for span in spans {
             async_span.follows_from(span.as_ref());
         }
-        let async_span = Arc::new(async_span);
-        let moved_async_span = async_span.clone();
+        let linking_span = ext_particle
+            .as_ref()
+            .map(|p| p.span.clone())
+            .unwrap_or_else(|| Arc::new(async_span.clone()));
+
         // TODO: add timeout for execution https://github.com/fluencelabs/fluence/issues/1212
         self.future = Some(
             async move {
@@ -259,9 +261,9 @@ where
                     vm_id,
                     vm: res.runtime,
                 };
-                (reusables, res.effects, res.stats, moved_async_span)
+                (reusables, res.effects, res.stats, linking_span)
             }
-            .instrument(async_span.clone().deref().clone())
+            .instrument(async_span)
             .boxed(),
         );
         self.wake();
