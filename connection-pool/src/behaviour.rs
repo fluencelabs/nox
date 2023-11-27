@@ -219,7 +219,6 @@ impl ConnectionPoolBehaviour {
     ) {
         tracing::info!("Current arc count {}", Arc::strong_count(&particle.span));
         let span = tracing::info_span!(parent: particle.span.as_ref(), "Connection pool behaviour: send");
-        tracing::info!("Current arc count {}", Arc::strong_count(&particle.span));
         let _guard = span.enter();
         if to.peer_id == self.peer_id {
             // If particle is sent to the current node, process it locally

@@ -14,16 +14,16 @@
  * limitations under the License.
  */
 
+use std::sync::Arc;
 use std::{
     collections::VecDeque,
     task::{Context, Poll, Waker},
 };
-use std::sync::Arc;
 
 use fluence_keypair::KeyPair;
 use futures::future::BoxFuture;
 use futures::FutureExt;
-use tracing::{instrument, Instrument};
+use tracing::{instrument, Instrument, Span};
 
 use fluence_libp2p::PeerId;
 use particle_execution::{ParticleFunctionStatic, ServiceFunction};
@@ -50,14 +50,14 @@ pub struct Actor<RT, F> {
                 Reusables<RT>,
                 ParticleEffects,
                 InterpretationStats,
-                ExtendedParticle
+                Option<Arc<Span>>,
             ),
         >,
     >,
     mailbox: VecDeque<ExtendedParticle>,
     waker: Option<Waker>,
     functions: Functions<F>,
-        /// Particle that's memoized on the actor creation.
+    /// Particle that's memoized on the actor creation.
     /// Used to execute CallRequests when mailbox is empty.
     /// Particle's data is empty.
     particle: Particle,
@@ -65,7 +65,7 @@ pub struct Actor<RT, F> {
     /// It's either `host_peer_id` or local worker peer id
     current_peer_id: PeerId,
     key_pair: KeyPair,
-    _deal_id: Option<String>, //TODO: fix
+    deal_id: Option<String>,
 }
 
 impl<RT, F> Actor<RT, F>
@@ -86,7 +86,7 @@ where
             future: None,
             mailbox: <_>::default(),
             waker: None,
-                  // Clone particle without data
+            // Clone particle without data
             particle: Particle {
                 id: particle.particle.id.clone(),
                 init_peer_id: particle.particle.init_peer_id,
@@ -98,7 +98,7 @@ where
             },
             current_peer_id,
             key_pair,
-            _deal_id: deal_id,
+            deal_id,
         }
     }
 
@@ -113,7 +113,9 @@ where
     pub fn cleanup(&self, vm: &mut RT) {
         tracing::debug!(
             target: "particle_reap",
-            particle_id = self.particle.id, worker_id = self.current_peer_id.to_string(),
+            particle_id = self.particle.id,
+            worker_id = self.current_peer_id.to_string(),
+            deal_id = self.deal_id,
             "Reaping particle's actor"
         );
         // TODO: remove dirs without using vm https://github.com/fluencelabs/fluence/issues/1216
@@ -121,6 +123,7 @@ where
         if let Err(err) = vm.cleanup(&self.particle.id, &self.current_peer_id.to_string()) {
             tracing::warn!(
                 particle_id = self.particle.id,
+                deal_id = self.deal_id,
                 "Error cleaning up after particle {:?}",
                 err
             );
@@ -153,27 +156,31 @@ where
         self.functions.poll(cx);
 
         // Poll AquaVM future
-        if let Some(Ready((reusables, effects, stats, particle))) =
+        if let Some(Ready((reusables, effects, stats, future_span))) =
             self.future.as_mut().map(|f| f.poll_unpin(cx))
         {
-            let _span =
-                tracing::info_span!(parent: particle.span.as_ref(), "Actor: after future ready")
-                    .entered();
-
             self.future.take();
+
+            tracing::info!("Opa {}", future_span.is_some());
+
+            let span = future_span.as_ref().map(|parent_span|{
+                tracing::info_span!(parent: parent_span.as_ref(), "Actor: after future ready", deal_id = self.deal_id)
+            }).unwrap_or_else(Span::none);
+            let parent_span = future_span.unwrap_or_else(|| Arc::new(Span::none()));
+            let _span_guard = span.enter();
 
             let waker = cx.waker().clone();
             // Schedule execution of functions
             self.functions
-                .execute(particle.particle.id.clone(), effects.call_requests, waker);
+                .execute(self.particle.id.clone(), effects.call_requests, waker);
 
             let effects = RoutingEffects {
                 particle: ExtendedParticle {
                     particle: Particle {
                         data: effects.new_data,
-                        ..particle.particle.clone()
+                        ..self.particle.clone()
                     },
-                    span: particle.span.clone(),
+                    span: parent_span,
                 },
                 next_peers: effects.next_peers,
             };
@@ -213,14 +220,14 @@ where
             return ActorPoll::Vm(vm_id, vm);
         }
 
-        let particle = ext_particle.map(|p|p.particle).unwrap_or_else(|| {
-            // If mailbox is empty, then take self.particle.
-            // Its data is empty, so `vm` will process `calls` on the old (saved on disk) data
-            self.particle.clone()
-        });
-        let span = ext_particle.map(|p|p.span).unwrap_or_else(||{
-            Arc::new(tracing::info_span!("Unknown span"))
-        });
+        let particle = ext_particle
+            .as_ref()
+            .map(|p| p.particle.clone())
+            .unwrap_or_else(|| {
+                // If mailbox is empty, then take self.particle.
+                // Its data is empty, so `vm` will process `calls` on the old (saved on disk) data
+                self.particle.clone()
+            });
 
         let waker = cx.waker().clone();
         // Take ownership of vm to process particle
@@ -228,6 +235,10 @@ where
         // TODO: get rid of this clone by recovering key_pair after `vm.execute` (not trivial to implement)
         let key_pair = self.key_pair.clone();
         // TODO: add timeout for execution https://github.com/fluencelabs/fluence/issues/1212
+        let async_span = ext_particle
+            .as_ref()
+            .map(|p| tracing::info_span!(parent: p.span.as_ref(), "Actor future async"))
+            .unwrap_or_else(Span::none);
         self.future = Some(
             async move {
                 let res = vm
@@ -238,9 +249,14 @@ where
                     vm_id,
                     vm: res.runtime,
                 };
-                (reusables, res.effects, res.stats)
+                (
+                    reusables,
+                    res.effects,
+                    res.stats,
+                    ext_particle.map(|p| p.span),
+                )
             }
-            .instrument(*span.clone())
+            .instrument(async_span)
             .boxed(),
         );
         self.wake();
