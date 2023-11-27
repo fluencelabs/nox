@@ -40,20 +40,21 @@ struct Reusables<RT> {
     vm: Option<RT>,
 }
 
+type ExecutionTask<RT> = Option<
+    BoxFuture<
+        'static,
+        (
+            Reusables<RT>,
+            ParticleEffects,
+            InterpretationStats,
+            Arc<Span>,
+        ),
+    >,
+>;
 pub struct Actor<RT, F> {
     /// Particle of that actor is expired after that deadline
     deadline: Deadline,
-    future: Option<
-        BoxFuture<
-            'static,
-            (
-                Reusables<RT>,
-                ParticleEffects,
-                InterpretationStats,
-                Arc<Span>,
-            ),
-        >,
-    >,
+    future: ExecutionTask<RT>,
     mailbox: VecDeque<ExtendedParticle>,
     waker: Option<Waker>,
     functions: Functions<F>,
