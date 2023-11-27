@@ -15,6 +15,7 @@
  */
 
 use std::collections::HashMap;
+use std::sync::Arc;
 use std::time::Duration;
 
 use futures::{FutureExt, StreamExt};
@@ -143,17 +144,19 @@ impl Sorcerer {
                 let spell_events_stream = UnboundedReceiverStream::new(spell_events_receiver);
                 spell_events_stream
                     .for_each_concurrent(None, move |spell_event| {
-                        let span = tracing::info_span!(
+                        let root_span = tracing::info_span!(
                             "Sorcerer: spell processing",
                             spell_id = spell_event.spell_id.to_string()
                         );
-                        let _ = span.enter();
+                        let root_span = Arc::new(root_span);
+                        let async_span = tracing::info_span!(parent: root_span.as_ref(), "Sorcerer: async execute script");
+
                         let sorcerer = self.clone();
                         // Note that the event that triggered the spell is in `spell_event.event`
                         async move {
-                            sorcerer.execute_script(spell_event).await;
+                            sorcerer.execute_script(spell_event,root_span).await;
                         }
-                        .instrument(span)
+                        .instrument(async_span)
                     })
                     .await;
             })

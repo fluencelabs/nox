@@ -100,7 +100,7 @@ impl Sorcerer {
     }
 
     #[instrument(level = tracing::Level::INFO, skip_all)]
-    pub async fn execute_script(&self, event: TriggerEvent) {
+    pub async fn execute_script(&self, event: TriggerEvent, span: Arc<Span>) {
         let error: Result<(), JError> = try {
             let worker_id = self.services.get_service_owner(
                 "",
@@ -114,19 +114,11 @@ impl Sorcerer {
                 m.observe_spell_cast();
             }
 
-            let particle_span = Arc::new(Span::current());
-
-            let async_span = tracing::info_span!(parent: particle_span.as_ref(), "Script executor: aquamarine async execute");
+            let async_span = tracing::info_span!(parent: span.as_ref(), "Script executor: aquamarine async execute");
 
             self.aquamarine
                 .clone()
-                .execute(
-                    ExtendedParticle {
-                        particle,
-                        span: particle_span,
-                    },
-                    None,
-                )
+                .execute(ExtendedParticle { particle, span }, None)
                 .instrument(async_span)
                 .await?;
         };
