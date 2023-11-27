@@ -33,11 +33,11 @@ use particle_protocol::{
 };
 use peer_metrics::ConnectionPoolMetrics;
 use std::pin::Pin;
+use std::sync::Arc;
 use std::{
     collections::{hash_map::Entry, HashMap, HashSet, VecDeque},
     task::{Context, Poll, Waker},
 };
-use std::sync::Arc;
 use tokio::sync::{mpsc, oneshot};
 use tokio_stream::wrappers::UnboundedReceiverStream;
 use tokio_util::sync::PollSender;
@@ -217,7 +217,8 @@ impl ConnectionPoolBehaviour {
         particle: ExtendedParticle,
         outlet: oneshot::Sender<SendStatus>,
     ) {
-        let span = tracing::info_span!(parent: particle.span.as_ref(), "Connection pool behaviour: send");
+        let span =
+            tracing::info_span!(parent: particle.span.as_ref(), "Connection pool behaviour: send");
         let _guard = span.enter();
         if to.peer_id == self.peer_id {
             // If particle is sent to the current node, process it locally

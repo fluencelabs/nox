@@ -98,7 +98,13 @@ impl<F: ParticleFunctionStatic> Functions<F> {
 
     /// Add a bunch of call requests to execution
     #[instrument(level = tracing::Level::INFO, skip_all)]
-    pub fn execute(&mut self, particle_id: String, requests: CallRequests, waker: Waker, span: Arc<Span>) {
+    pub fn execute(
+        &mut self,
+        particle_id: String,
+        requests: CallRequests,
+        waker: Waker,
+        span: Arc<Span>,
+    ) {
         let futs: Vec<_> = requests
             .into_iter()
             .map(|(id, call)| self.call(particle_id.clone(), id, call, waker.clone(), span.clone()))
