@@ -234,25 +234,18 @@ where
         // TODO: get rid of this clone by recovering key_pair after `vm.execute` (not trivial to implement)
         let key_pair = self.key_pair.clone();
 
-        let async_span = if let Some(ext_particle) = ext_particle.as_ref() {
-            tracing::info_span!(parent: ext_particle.span.as_ref(),
-                "Actor: async AVM process particle & call results",
-                particle_id = particle.id,
-                deal_id = self.deal_id)
-        } else {
-            tracing::info_span!(
-                "Actor: async AVM process call results",
-                particle_id = particle.id,
-                deal_id = self.deal_id
-            )
-        };
+        let async_span = tracing::info_span!(
+            "Actor: async AVM process particle & call results",
+            particle_id = particle.id,
+            deal_id = self.deal_id
+        );
+        if let Some(ext_particle) = ext_particle.as_ref() {
+            async_span.follows_from(ext_particle.span.as_ref());
+        }
         for span in spans {
             async_span.follows_from(span.as_ref());
         }
-        let linking_span = ext_particle
-            .as_ref()
-            .map(|p| p.span.clone())
-            .unwrap_or_else(|| Arc::new(async_span.clone()));
+        let linking_span = Arc::new(async_span.clone());
 
         // TODO: add timeout for execution https://github.com/fluencelabs/fluence/issues/1212
         self.future = Some(
