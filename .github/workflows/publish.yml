@@ -37,7 +37,7 @@ jobs:
           ref: ${{ inputs.tag }}
 
       - name: Import secrets
-        uses: hashicorp/vault-action@v2.4.3
+        uses: hashicorp/vault-action@v2.7.4
         with:
           url: https://vault.fluence.dev
           path: jwt/github
