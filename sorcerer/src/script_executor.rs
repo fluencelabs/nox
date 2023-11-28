@@ -54,6 +54,7 @@ impl Sorcerer {
             .map_err(|e| JError::new(e.to_string()))
     }
 
+    #[instrument(level = tracing::Level::INFO, skip_all)]
     pub(crate) fn make_spell_particle(
         &self,
         spell_id: String,
@@ -114,7 +115,7 @@ impl Sorcerer {
                 m.observe_spell_cast();
             }
 
-            let async_span = tracing::info_span!(parent: span.as_ref(), "Script executor: aquamarine async execute");
+            let async_span = tracing::info_span!(parent: span.as_ref(), "Script executor: aquamarine async execute", spell_id = event.spell_id.to_string());
 
             self.aquamarine
                 .clone()
@@ -125,10 +126,10 @@ impl Sorcerer {
 
         if let Err(err) = error {
             log::warn!(
-                "Failed to execute spell script id: {}, event: {:?}, error: {:?}",
-                event.spell_id,
+                "Failed to execute spell script id: {spell_id}, event: {:?}, error: {:?}",
                 event.info,
-                err
+                err,
+                spell_id = event.spell_id.to_string(),
             );
         }
     }

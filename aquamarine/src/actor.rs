@@ -160,7 +160,7 @@ where
         if let Some(Ready((reusables, effects, stats, span))) =
             self.future.as_mut().map(|f| f.poll_unpin(cx))
         {
-            let local_span = tracing::info_span!(parent: span.as_ref(), "Poll AVM future");
+            let local_span = tracing::info_span!(parent: span.as_ref(), "Poll AVM future", particle_id= self.particle.id,  deal_id = self.deal_id);
             let _span_guard = local_span.enter();
             self.future.take();
 
@@ -235,11 +235,15 @@ where
         let key_pair = self.key_pair.clone();
 
         let async_span = if let Some(ext_particle) = ext_particle.as_ref() {
-            tracing::info_span!(parent: ext_particle.span.as_ref(),"Actor: async AVM process particle & call results",particle_id = particle.id)
+            tracing::info_span!(parent: ext_particle.span.as_ref(),
+                "Actor: async AVM process particle & call results",
+                particle_id = particle.id,
+                deal_id = self.deal_id)
         } else {
             tracing::info_span!(
                 "Actor: async AVM process call results",
-                particle_id = particle.id
+                particle_id = particle.id,
+                deal_id = self.deal_id
             )
         };
         for span in spans {

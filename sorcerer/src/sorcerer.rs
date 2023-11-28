@@ -149,12 +149,17 @@ impl Sorcerer {
                             spell_id = spell_event.spell_id.to_string()
                         );
                         let root_span = Arc::new(root_span);
-                        let async_span = tracing::info_span!(parent: root_span.as_ref(), "Sorcerer: async execute script");
+                        let async_span = tracing::info_span!(parent: root_span.as_ref(),
+                            "Sorcerer: async execute script",  
+                            spell_id = spell_event.spell_id.to_string());
 
                         let sorcerer = self.clone();
                         // Note that the event that triggered the spell is in `spell_event.event`
                         async move {
-                            sorcerer.execute_script(spell_event,root_span).await;
+                            sorcerer
+                                .execute_script(spell_event, root_span)
+                                .in_current_span()
+                                .await;
                         }
                         .instrument(async_span)
                     })
