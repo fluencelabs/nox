@@ -145,7 +145,6 @@ pub async fn start_http_endpoint(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use axum::http::Request;
     use health::HealthCheck;
     use std::net::SocketAddr;
 
@@ -183,19 +182,15 @@ mod tests {
 
         let http_info = notify_receiver.await.unwrap();
 
-        let client = hyper::Client::new();
+        let client = reqwest::Client::new();
 
         let response = client
-            .request(
-                Request::builder()
-                    .uri(format!("http://{}/versions", http_info.listen_addr))
-                    .body(Body::empty())
-                    .unwrap(),
-            )
+            .get(format!("http://{}/versions", http_info.listen_addr))
+            .send()
             .await
             .unwrap();
         let status = response.status();
-        let body = hyper::body::to_bytes(response.into_body()).await.unwrap();
+        let body = response.bytes().await.unwrap();
         assert_eq!(status, StatusCode::OK);
         assert_eq!(&body[..], br#"{"node":"node_test_version","avm":"avm_test_version","spell":"spell_test_version","aqua_ipfs":"aqua_ipfs_test_version","trust_graph":"trust_graph_test_version","registry":"registry_test_version","decider":"decider_test_version"}"#);
     }
@@ -213,19 +208,15 @@ mod tests {
 
         let http_info = notify_receiver.await.unwrap();
 
-        let client = hyper::Client::new();
+        let client = reqwest::Client::new();
 
         let response = client
-            .request(
-                Request::builder()
-                    .uri(format!("http://{}/peer_id", http_info.listen_addr))
-                    .body(Body::empty())
-                    .unwrap(),
-            )
+            .get(format!("http://{}/peer_id", http_info.listen_addr))
+            .send()
             .await
             .unwrap();
         let status = response.status();
-        let body = hyper::body::to_bytes(response.into_body()).await.unwrap();
+        let body = response.bytes().await.unwrap();
         assert_eq!(status, StatusCode::OK);
         assert_eq!(
             &body[..],
@@ -255,19 +246,15 @@ mod tests {
 
         let http_info = notify_receiver.await.unwrap();
 
-        let client = hyper::Client::new();
+        let client = reqwest::Client::new();
 
         let response = client
-            .request(
-                Request::builder()
-                    .uri(format!("http://{}/health", http_info.listen_addr))
-                    .body(Body::empty())
-                    .unwrap(),
-            )
+            .get(format!("http://{}/health", http_info.listen_addr))
+            .send()
             .await
             .unwrap();
         let status = response.status();
-        let body = hyper::body::to_bytes(response.into_body()).await.unwrap();
+        let body = response.bytes().await.unwrap();
         assert_eq!(status, StatusCode::OK);
         assert_eq!(&body[..], (r#"[]"#).as_bytes());
     }
@@ -302,19 +289,15 @@ mod tests {
 
         let http_info = notify_receiver.await.unwrap();
 
-        let client = hyper::Client::new();
+        let client = reqwest::Client::new();
 
         let response = client
-            .request(
-                Request::builder()
-                    .uri(format!("http://{}/health", http_info.listen_addr))
-                    .body(Body::empty())
-                    .unwrap(),
-            )
+            .get(format!("http://{}/health", http_info.listen_addr))
+            .send()
             .await
             .unwrap();
         let status = response.status();
-        let body = hyper::body::to_bytes(response.into_body()).await.unwrap();
+        let body = response.bytes().await.unwrap();
         assert_eq!(status, StatusCode::OK);
         assert_eq!(&body[..], (r#"[{"test_check":"Ok"}]"#).as_bytes());
     }
@@ -357,19 +340,15 @@ mod tests {
 
         let http_info = notify_receiver.await.unwrap();
 
-        let client = hyper::Client::new();
+        let client = reqwest::Client::new();
 
         let response = client
-            .request(
-                Request::builder()
-                    .uri(format!("http://{}/health", http_info.listen_addr))
-                    .body(Body::empty())
-                    .unwrap(),
-            )
+            .get(format!("http://{}/health", http_info.listen_addr))
+            .send()
             .await
             .unwrap();
         let status = response.status();
-        let body = hyper::body::to_bytes(response.into_body()).await.unwrap();
+        let body = response.bytes().await.unwrap();
         assert_eq!(status, StatusCode::TOO_MANY_REQUESTS);
         assert_eq!(
             &body[..],
@@ -407,19 +386,15 @@ mod tests {
 
         let http_info = notify_receiver.await.unwrap();
 
-        let client = hyper::Client::new();
+        let client = reqwest::Client::new();
 
         let response = client
-            .request(
-                Request::builder()
-                    .uri(format!("http://{}/health", http_info.listen_addr))
-                    .body(Body::empty())
-                    .unwrap(),
-            )
+            .get(format!("http://{}/health", http_info.listen_addr))
+            .send()
             .await
             .unwrap();
         let status = response.status();
-        let body = hyper::body::to_bytes(response.into_body()).await.unwrap();
+        let body = response.bytes().await.unwrap();
         assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE);
         assert_eq!(&body[..], (r#"[{"test_check":"Fail"}]"#).as_bytes());
     }

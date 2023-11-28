@@ -207,10 +207,7 @@ pub(crate) fn spell_list(
 ) -> Result<JValue, JError> {
     Ok(Array(
         spell_storage
-            .get_registered_spells()
-            .get(&params.host_id)
-            .cloned()
-            .unwrap_or_default()
+            .get_registered_spells_by(params.host_id)
             .into_iter()
             .map(JValue::String)
             .collect(),

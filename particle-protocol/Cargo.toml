@@ -15,7 +15,7 @@ futures = { workspace = true }
 eyre = { workspace = true }
 thiserror = { workspace = true }
 serde = { workspace = true }
-serde_derive = "1.0.192"
+serde_derive = "1.0.193"
 humantime-serde = { workspace = true }
 log = { workspace = true }
 derivative = { workspace = true }

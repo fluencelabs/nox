@@ -34,6 +34,18 @@ pub enum KeyManagerError {
         #[source]
         err: toml::de::Error,
     },
+    #[error("Failed to decode keypair {path}: {err}")]
+    PersistedKeypairDecodingError {
+        path: PathBuf,
+        #[source]
+        err: fluence_keypair::error::DecodingError,
+    },
+    #[error("Invalid key format {path}: {err}")]
+    PersistedKeypairInvalidKeyformat {
+        path: PathBuf,
+        #[source]
+        err: fluence_keypair::error::Error,
+    },
     #[error("Error serializing persisted keypair: {err}")]
     SerializePersistedKeypair {
         #[source]
@@ -45,14 +57,39 @@ pub enum KeyManagerError {
         #[source]
         err: std::io::Error,
     },
-    #[error("Error removing persisted keypair {path:?}: {err}")]
+    #[error("Error removing persisted keypair {path:?} for worker {worker_id}: {err}")]
     RemoveErrorPersistedKeypair {
         path: PathBuf,
+        worker_id: PeerId,
+        #[source]
+        err: std::io::Error,
+    },
+    #[error("Error serializing persisted worker: {err}")]
+    SerializePersistedWorker {
+        #[source]
+        err: toml::ser::Error,
+    },
+    #[error("Error writing persisted worker to {path:?}: {err}")]
+    WriteErrorPersistedWorker {
+        path: PathBuf,
+        #[source]
+        err: std::io::Error,
+    },
+    #[error("Error removing persisted worker {path:?} for worker {worker_id}: {err}")]
+    RemoveErrorPersistedWorker {
+        path: PathBuf,
+        worker_id: PeerId,
         #[source]
         err: std::io::Error,
     },
     #[error("Error creating directory for persisted keypairs {path:?}: {err}")]
     CreateKeypairsDir {
+        path: PathBuf,
+        #[source]
+        err: std::io::Error,
+    },
+    #[error("Error creating directory for persisted workers {path:?}: {err}")]
+    CreateWorkersDir {
         path: PathBuf,
         #[source]
         err: std::io::Error,

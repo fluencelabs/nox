@@ -113,6 +113,7 @@ impl<RT: AquaRuntime> Node<RT> {
 
         let key_manager = KeyManager::new(
             config.dir_config.keypairs_base_dir.clone(),
+            config.dir_config.workers_base_dir.clone(),
             key_pair.clone().try_into()?,
             config.management_peer_id,
             builtins_peer_id,

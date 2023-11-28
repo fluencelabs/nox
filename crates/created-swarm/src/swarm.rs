@@ -34,7 +34,6 @@ use fluence_libp2p::Transport;
 use fs_utils::{create_dir, make_tmp_dir_peer_id, to_abs_path};
 use futures::future::join_all;
 use futures::stream::iter;
-use hyper::{Body, Request, StatusCode};
 use nox::{Connectivity, Node};
 use particle_protocol::ProtocolConfig;
 use server_config::{system_services_config, BootstrapConfig, UnresolvedConfig};
@@ -205,21 +204,17 @@ where
 }
 
 async fn wait_connected_on_addrs(addrs: Vec<SocketAddr>) {
-    let http_client = &hyper::Client::new();
+    let http_client = &reqwest::Client::new();
 
     let healthcheck = iter(addrs).for_each_concurrent(None, |addr| async move {
         loop {
             let response = http_client
-                .request(
-                    Request::builder()
-                        .uri(format!("http://{}/health", addr))
-                        .body(Body::empty())
-                        .unwrap(),
-                )
+                .get(format!("http://{}/health", addr))
+                .send()
                 .await
                 .unwrap();
 
-            if response.status() == StatusCode::OK {
+            if response.status() == reqwest::StatusCode::OK {
                 break;
             }
 

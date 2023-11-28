@@ -4,6 +4,7 @@
 # avm_base_dir = "/stepper"
 # spell_base_dir = "/spell"
 # keypairs_base_dir = "/keypairs"
+# workers_base_dir = "/workers"
 # # Path to AIR interpreter .wasm is set to specific version by default
 # air_interpreter_path = "./aquamarine_${air_interpreter_wasm::VERSION}.wasm"
 

@@ -138,12 +138,12 @@ impl UnresolvedNodeConfig {
 
         let root_key_pair = self
             .root_key_pair
-            .unwrap_or(KeypairConfig::default())
+            .unwrap_or_default()
             .get_keypair(default_keypair_path())?;
 
         let builtins_key_pair = self
             .builtins_key_pair
-            .unwrap_or(KeypairConfig::default())
+            .unwrap_or_default()
             .get_keypair(default_builtins_keypair_path())?;
 
         let mut allowed_binaries = self.allowed_binaries;

@@ -8,7 +8,7 @@ edition = "2021"
 [dependencies]
 aqua-ipfs-distro = "=0.5.24"
 decider-distro = "=0.5.5"
-registry-distro = "=0.8.7"
+registry-distro = "=0.9.0"
 trust-graph-distro = "=0.4.7"
 
 maplit = { workspace = true }
