@@ -304,8 +304,11 @@ async fn spell_return_test() {
                 (call %init_peer_id% ("callbackSrv" "response") [obj])
                 (seq
                     (seq
-                        (call %init_peer_id% (spell_id "get_string") ["key"] value_raw)
-                        (call %init_peer_id% ("json" "parse") [value_raw.$.str] value)
+                        (seq
+                            (call %init_peer_id% (spell_id "get_string") ["key"] value_raw)
+                            (call %init_peer_id% ("json" "parse") [value_raw.$.str] value)
+                        )
+                        (call %init_peer_id% ("callbackSrv" "response") [])
                     )    
                     (call "{}" ("return" "") [value])
                 )

@@ -362,13 +362,18 @@ pub(crate) fn store_response(
     spell_service_api: SpellServiceApi,
 ) -> Result<(), JError> {
     let spell_id = parse_spell_id_from(&params)?;
-    let response: JValue = Args::next("spell_id", &mut args.function_args.into_iter())?;
-    let call_params = CallParams::from(spell_id.clone(), params);
-    spell_service_api
-        .update_kv(call_params, response.clone())
-        .map_err(|err| {
-            JError::new(format!(
-                "Failed to store response {response} for spell {spell_id}: {err}"
-            ))
-        })
+    let response: Option<JValue> = Args::next_opt("response", &mut args.function_args.into_iter())?;
+
+    if let Some(response) = response {
+        let call_params = CallParams::from(spell_id.clone(), params);
+        spell_service_api
+            .update_kv(call_params, response.clone())
+            .map_err(|err| {
+                JError::new(format!(
+                    "Failed to store response {response} for spell {spell_id}: {err}"
+                ))
+            })
+    } else {
+        Ok(())
+    }
 }
