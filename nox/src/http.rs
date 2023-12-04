@@ -118,7 +118,7 @@ pub async fn start_http_endpoint(
     peer_id: PeerId,
     versions: Versions,
     notify: oneshot::Sender<StartedHttp>,
-) {
+) -> eyre::Result<()> {
     let state = RouteState(Arc::new(Inner {
         metric_registry,
         health_registry,
@@ -133,19 +133,23 @@ pub async fn start_http_endpoint(
         .fallback(handler_404)
         .with_state(state);
 
-    let server = axum::Server::bind(&listen_addr).serve(app.into_make_service());
+    let listener = tokio::net::TcpListener::bind(listen_addr).await?;
+    let local_addr = listener.local_addr()?;
+    let server = axum::serve(listener, app.into_make_service());
     notify
         .send(StartedHttp {
-            listen_addr: server.local_addr(),
+            listen_addr: local_addr,
         })
         .expect("Could not send http info");
-    server.await.expect("Could not make http endpoint")
+    server.await?;
+    Ok(())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use health::HealthCheck;
+    use reqwest::StatusCode;
     use std::net::SocketAddr;
 
     fn test_versions() -> Versions {
@@ -177,7 +181,8 @@ mod tests {
                 test_versions(),
                 notify_sender,
             )
-            .await;
+            .await
+            .unwrap();
         });
 
         let http_info = notify_receiver.await.unwrap();
@@ -203,7 +208,9 @@ mod tests {
 
         let (notify_sender, notify_receiver) = oneshot::channel();
         tokio::spawn(async move {
-            start_http_endpoint(addr, None, None, peer_id, test_versions(), notify_sender).await;
+            start_http_endpoint(addr, None, None, peer_id, test_versions(), notify_sender)
+                .await
+                .unwrap();
         });
 
         let http_info = notify_receiver.await.unwrap();
@@ -241,7 +248,8 @@ mod tests {
                 test_versions(),
                 notify_sender,
             )
-            .await;
+            .await
+            .unwrap();
         });
 
         let http_info = notify_receiver.await.unwrap();
@@ -284,7 +292,8 @@ mod tests {
                 test_versions(),
                 notify_sender,
             )
-            .await;
+            .await
+            .unwrap();
         });
 
         let http_info = notify_receiver.await.unwrap();
@@ -335,7 +344,8 @@ mod tests {
                 test_versions(),
                 notify_sender,
             )
-            .await;
+            .await
+            .unwrap();
         });
 
         let http_info = notify_receiver.await.unwrap();
@@ -381,7 +391,8 @@ mod tests {
                 test_versions(),
                 notify_sender,
             )
-            .await;
+            .await
+            .unwrap();
         });
 
         let http_info = notify_receiver.await.unwrap();
