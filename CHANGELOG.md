@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.16.4](https://github.com/fluencelabs/nox/compare/nox-v0.16.3...nox-v0.16.4) (2023-12-01)
+
+
+### Features
+
+* **workers:** add activate/deactivate [NET-587] ([#1889](https://github.com/fluencelabs/nox/issues/1889)) ([0883ab8](https://github.com/fluencelabs/nox/commit/0883ab8912ca19cb28dc9b6b388c48d5e6aa7306))
+
+
+### Bug Fixes
+
+* **deps:** update fluence-spell to v0.5.32 ([#1937](https://github.com/fluencelabs/nox/issues/1937)) ([5460b36](https://github.com/fluencelabs/nox/commit/5460b3697cc951297210a81373761ae4550bb31a))
+
 ## [0.16.3](https://github.com/fluencelabs/nox/compare/nox-v0.16.2...nox-v0.16.3) (2023-11-21)
 
 
