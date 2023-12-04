@@ -481,7 +481,10 @@ impl<RT: AquaRuntime> Node<RT> {
 
             let mut http_server = if let Some(http_listen_addr) = http_listen_addr{
                 tracing::info!("Starting http endpoint at {}", http_listen_addr);
-                start_http_endpoint(http_listen_addr, metrics_registry, health_registry, peer_id, versions, http_bind_outlet).boxed()
+                async move {
+                    start_http_endpoint(http_listen_addr, metrics_registry, health_registry, peer_id, versions, http_bind_outlet)
+                        .await.expect("Could not start http server");
+                }.boxed()
             } else {
                 futures::future::pending().boxed()
             };
