@@ -75,27 +75,22 @@ where
     F: ParticleFunctionStatic,
 {
     pub fn new(
-        particle: &ExtendedParticle,
+        particle: &Particle,
         functions: Functions<F>,
         current_peer_id: PeerId,
         key_pair: KeyPair,
         deal_id: Option<String>,
     ) -> Self {
         Self {
-            deadline: Deadline::from(&particle.particle),
+            deadline: Deadline::from(&particle),
             functions,
             future: None,
             mailbox: <_>::default(),
             waker: None,
             // Clone particle without data
             particle: Particle {
-                id: particle.particle.id.clone(),
-                init_peer_id: particle.particle.init_peer_id,
-                timestamp: particle.particle.timestamp,
-                ttl: particle.particle.ttl,
-                script: particle.particle.script.clone(),
-                signature: particle.particle.signature.clone(),
                 data: vec![],
+                ..particle.clone()
             },
             current_peer_id,
             key_pair,
