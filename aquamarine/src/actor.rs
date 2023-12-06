@@ -82,7 +82,7 @@ where
         deal_id: Option<String>,
     ) -> Self {
         Self {
-            deadline: Deadline::from(&particle),
+            deadline: Deadline::from(particle),
             functions,
             future: None,
             mailbox: <_>::default(),
@@ -152,11 +152,11 @@ where
         self.functions.poll(cx);
 
         // Poll AquaVM future
-        if let Some(Ready((reusables, effects, stats, span))) =
+        if let Some(Ready((reusables, effects, stats, parent_span))) =
             self.future.as_mut().map(|f| f.poll_unpin(cx))
         {
-            let local_span = tracing::info_span!(parent: span.as_ref(), "Poll AVM future", particle_id= self.particle.id,  deal_id = self.deal_id);
-            let _span_guard = local_span.enter();
+            let span = tracing::info_span!(parent: parent_span.as_ref(), "Actor: execute call requests", particle_id= self.particle.id,  deal_id = self.deal_id);
+            let _span_guard = span.enter();
             self.future.take();
 
             let waker = cx.waker().clone();
@@ -165,7 +165,7 @@ where
                 self.particle.id.clone(),
                 effects.call_requests,
                 waker,
-                span.clone(),
+                parent_span.clone(),
             );
 
             let effects = RoutingEffects {
@@ -174,7 +174,7 @@ where
                         data: effects.new_data,
                         ..self.particle.clone()
                     },
-                    span,
+                    span: parent_span,
                 },
                 next_peers: effects.next_peers,
             };
