@@ -184,7 +184,6 @@ pub fn make_vm(peer_id: PeerId) -> AVM<DataStoreError> {
         anomaly_dir,
     ));
     let config = AVMConfig {
-        data_store,
         air_wasm_path: interpreter,
         logging_mask: i32::MAX,
         max_heap_size: None,
