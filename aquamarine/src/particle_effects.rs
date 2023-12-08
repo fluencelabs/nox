@@ -45,7 +45,6 @@ impl ParticleEffects {
 /// Performance stats about particle's interpretation
 pub struct InterpretationStats {
     pub interpretation_time: Duration,
-    pub call_time: Duration,
     pub new_data_len: Option<usize>,
     pub success: bool,
 }

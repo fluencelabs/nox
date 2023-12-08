@@ -18,15 +18,12 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use avm_server::avm_runner::RawAVMOutcome;
-use avm_server::{AnomalyData, DataStore};
+use avm_server::AnomalyData;
 use thiserror::Error;
 
 use fs_utils::{create_dir, remove_file};
 use now_millis::now_ms;
 use particle_execution::{ParticleVault, VaultError};
-use DataStoreError::{CleanupData, CreateDataStore, StoreData};
-
-use crate::DataStoreError::{SerializeAnomaly, WriteAnomaly};
 
 type Result<T> = std::result::Result<T, DataStoreError>;
 
@@ -71,40 +68,48 @@ impl ParticleDataStore {
 const EXECUTION_TIME_THRESHOLD: Duration = Duration::from_millis(500);
 const MEMORY_DELTA_BYTES_THRESHOLD: usize = 10 * bytesize::MB as usize;
 
-impl DataStore for ParticleDataStore {
-    type Error = DataStoreError;
-
-    fn initialize(&mut self) -> Result<()> {
-        create_dir(&self.particle_data_store).map_err(CreateDataStore)?;
+impl ParticleDataStore {
+    pub async fn initialize(&mut self) -> Result<()> {
+        create_dir(&self.particle_data_store).map_err(DataStoreError::CreateDataStore)?;
 
         self.vault.initialize()?;
 
         Ok(())
     }
 
-    fn store_data(&mut self, data: &[u8], particle_id: &str, current_peer_id: &str) -> Result<()> {
+    pub async fn store_data(
+        &self,
+        data: &[u8],
+        particle_id: &str,
+        current_peer_id: &str,
+    ) -> Result<()> {
         tracing::trace!(target: "particle_reap", particle_id = particle_id, "Storing data for particle");
         let data_path = self.data_file(particle_id, current_peer_id);
-        std::fs::write(&data_path, data).map_err(|err| StoreData(err, data_path))?;
+        tokio::fs::write(&data_path, data)
+            .await
+            .map_err(|err| DataStoreError::StoreData(err, data_path))?;
 
         Ok(())
     }
 
-    fn read_data(&mut self, particle_id: &str, current_peer_id: &str) -> Result<Vec<u8>> {
+    pub async fn read_data(&self, particle_id: &str, current_peer_id: &str) -> Result<Vec<u8>> {
         let data_path = self.data_file(particle_id, current_peer_id);
-        let data = std::fs::read(data_path).unwrap_or_default();
+        let data = tokio::fs::read(&data_path)
+            .await
+            .map_err(|err| DataStoreError::ReadData(err, data_path))?;
         Ok(data)
     }
 
-    fn cleanup_data(&mut self, particle_id: &str, current_peer_id: &str) -> Result<()> {
+    pub async fn cleanup_data(&mut self, particle_id: &str, current_peer_id: &str) -> Result<()> {
         tracing::debug!(target: "particle_reap", particle_id = particle_id, "Cleaning up particle data for particle");
-        remove_file(&self.data_file(particle_id, current_peer_id)).map_err(CleanupData)?;
+        remove_file(&self.data_file(particle_id, current_peer_id))
+            .map_err(DataStoreError::CleanupData)?;
         self.vault.cleanup(particle_id)?;
 
         Ok(())
     }
 
-    fn detect_anomaly(
+    pub fn detect_anomaly(
         &self,
         execution_time: Duration,
         memory_delta: usize,
@@ -115,18 +120,18 @@ impl DataStore for ParticleDataStore {
             || outcome.ret_code != 0
     }
 
-    fn collect_anomaly_data(
+    pub async fn collect_anomaly_data(
         &mut self,
         particle_id: &str,
         current_peer_id: &str,
         anomaly_data: AnomalyData<'_>,
-    ) -> std::result::Result<(), Self::Error> {
+    ) -> std::result::Result<(), DataStoreError> {
         let path = self.anomaly_dir(particle_id, current_peer_id);
         create_dir(&path).map_err(DataStoreError::CreateAnomalyDir)?;
 
         let file = path.join("data");
-        let data = serde_json::to_vec(&anomaly_data).map_err(SerializeAnomaly)?;
-        std::fs::write(&file, data).map_err(|err| WriteAnomaly(err, file))?;
+        let data = serde_json::to_vec(&anomaly_data).map_err(DataStoreError::SerializeAnomaly)?;
+        std::fs::write(&file, data).map_err(|err| DataStoreError::ReadData(err, file))?;
 
         Ok(())
     }
@@ -148,6 +153,8 @@ pub enum DataStoreError {
     WriteAnomaly(#[source] std::io::Error, PathBuf),
     #[error("error serializing anomaly data")]
     SerializeAnomaly(#[source] serde_json::error::Error),
+    #[error("error reading data from {1:?}")]
+    ReadData(#[source] std::io::Error, PathBuf),
 }
 
 fn store_key_from_components(particle_id: &str, current_peer_id: &str) -> String {

@@ -15,6 +15,7 @@
  */
 
 use std::collections::hash_map::Entry;
+use std::sync::Arc;
 use std::{
     collections::{HashMap, VecDeque},
     task::{Context, Poll},
@@ -42,6 +43,7 @@ use crate::error::AquamarineApiError;
 use crate::particle_effects::RoutingEffects;
 use crate::particle_functions::Functions;
 use crate::vm_pool::VmPool;
+use crate::ParticleDataStore;
 
 /// particle signature is used as a particle id
 #[derive(PartialEq, Hash, Eq)]
@@ -51,6 +53,7 @@ pub struct Plumber<RT: AquaRuntime, F> {
     events: VecDeque<Result<RoutingEffects, AquamarineApiError>>,
     actors: HashMap<(ParticleId, PeerId), Actor<RT, F>>,
     vm_pool: VmPool<RT>,
+    data_store: Arc<ParticleDataStore>,
     builtins: F,
     waker: Option<Waker>,
     metrics: Option<ParticleExecutorMetrics>,
@@ -60,12 +63,14 @@ pub struct Plumber<RT: AquaRuntime, F> {
 impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
     pub fn new(
         vm_pool: VmPool<RT>,
+        data_store: Arc<ParticleDataStore>,
         builtins: F,
         metrics: Option<ParticleExecutorMetrics>,
         key_manager: KeyManager,
     ) -> Self {
         Self {
             vm_pool,
+            data_store,
             builtins,
             events: <_>::default(),
             actors: <_>::default(),
@@ -122,9 +127,10 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
                 let functions = Functions::new(params, builtins.clone());
                 let key_pair = self.key_manager.get_worker_keypair(worker_id);
                 let deal_id = self.key_manager.get_deal_id(worker_id).ok();
+                let data_store = self.data_store.clone();
                 key_pair.map(|kp| {
                     let span = tracing::info_span!("Actor", deal_id = deal_id);
-                    let actor = Actor::new(&particle, functions, worker_id, kp, span);
+                    let actor = Actor::new(&particle, functions, worker_id, kp, span, data_store);
                     entry.insert(actor)
                 })
             }
@@ -197,21 +203,21 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
             if let Poll::Ready(result) = actor.poll_completed(cx) {
                 interpretation_stats.push(result.stats);
                 let (local_peers, remote_peers): (Vec<_>, Vec<_>) = result
-                    .effects
+                    .outcome
                     .next_peers
                     .into_iter()
                     .partition(|p| key_manager.is_local(*p));
 
                 if !remote_peers.is_empty() {
                     remote_effects.push(RoutingEffects {
-                        particle: result.effects.particle.clone(),
+                        particle: result.outcome.particle.clone(),
                         next_peers: remote_peers,
                     })
                 }
 
                 if !local_peers.is_empty() {
                     local_effects.push(RoutingEffects {
-                        particle: result.effects.particle,
+                        particle: result.outcome.particle,
                         next_peers: local_peers,
                     });
                 }
@@ -230,25 +236,20 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
         }
 
         // Remove expired actors
-        if let Some((vm_id, mut vm)) = self.vm_pool.get_vm() {
-            let now = now_ms();
+        let now = now_ms();
+        self.actors.retain(|_, actor| {
+            // if actor hasn't yet expired or is still executing, keep it
+            // TODO: if actor is expired, cancel execution and return VM back to pool
+            //       https://github.com/fluencelabs/fluence/issues/1212
+            if !actor.is_expired(now) || actor.is_executing() {
+                return true; // keep actor
+            }
 
-            self.actors.retain(|_, actor| {
-                // if actor hasn't yet expired or is still executing, keep it
-                // TODO: if actor is expired, cancel execution and return VM back to pool
-                //       https://github.com/fluencelabs/fluence/issues/1212
-                if !actor.is_expired(now) || actor.is_executing() {
-                    return true; // keep actor
-                }
-
-                // cleanup files and dirs after particle processing (vault & prev_data)
-                // TODO: do not pass vm https://github.com/fluencelabs/fluence/issues/1216
-                actor.cleanup(&mut vm);
-                false // remove actor
-            });
-
-            self.vm_pool.put_vm(vm_id, vm);
-        }
+            // cleanup files and dirs after particle processing (vault & prev_data)
+            // TODO: do not pass vm https://github.com/fluencelabs/fluence/issues/1216
+            actor.cleanup();
+            false // remove actor
+        });
 
         // Execute next messages
         let mut stats = vec![];
@@ -279,9 +280,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
                 }
 
                 let interpretation_time = stat.interpretation_time.as_secs_f64();
-                let call_time = stat.call_time.as_secs_f64();
                 m.interpretation_time_sec.observe(interpretation_time);
-                m.call_time_sec.observe(call_time)
             }
             m.total_actors_mailbox.set(mailbox_size as i64);
             m.alive_actors.set(self.actors.len() as i64);

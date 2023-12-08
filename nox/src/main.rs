@@ -26,6 +26,7 @@
     unreachable_patterns
 )]
 
+use avm_server::avm_runner::AVMRunner;
 use base64::{engine::general_purpose::STANDARD as base64, Engine};
 
 use eyre::WrapErr;
@@ -36,7 +37,7 @@ use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 
 use air_interpreter_fs::write_default_air_interpreter;
-use aquamarine::{VmConfig, AVM};
+use aquamarine::{DatastoreConfig, VmConfig};
 use config_utils::to_peer_id;
 use fs_utils::to_abs_path;
 use nox::{env_filter, log_layer, tokio_console_layer, tracing_layer, Node};
@@ -149,19 +150,22 @@ async fn start_fluence(config: ResolvedConfig, peer_id: PeerId) -> eyre::Result<
 
     let listen_addrs = config.listen_multiaddrs();
     let vm_config = vm_config(&config);
+    let datastore_config = DatastoreConfig::new(config.dir_config.avm_base_dir.clone());
 
     let system_services_config = config.system_services.clone();
     let system_service_distros =
         system_services::SystemServiceDistros::default_from(system_services_config)
             .wrap_err("Failed to get default system service distros")?;
 
-    let mut node: Box<Node<AVM<_>>> = Node::new(
+    let mut node: Box<Node<AVMRunner>> = Node::new(
         config,
         vm_config,
+        datastore_config,
         VERSION,
         air_interpreter_wasm::VERSION,
         system_service_distros,
     )
+    .await
     .wrap_err("error create node instance")?;
     node.listen(listen_addrs).wrap_err("error on listen")?;
 
@@ -187,7 +191,6 @@ async fn start_fluence(config: ResolvedConfig, peer_id: PeerId) -> eyre::Result<
 fn vm_config(config: &ResolvedConfig) -> VmConfig {
     VmConfig::new(
         to_peer_id(&config.root_key_pair.clone().into()),
-        config.dir_config.avm_base_dir.clone(),
         config.dir_config.air_interpreter_path.clone(),
         config
             .node_config

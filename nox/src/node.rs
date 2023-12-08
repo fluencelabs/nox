@@ -19,7 +19,8 @@ use std::sync::Arc;
 use std::{io, net::SocketAddr};
 
 use aquamarine::{
-    AquaRuntime, AquamarineApi, AquamarineApiError, AquamarineBackend, RoutingEffects, VmPoolConfig,
+    AquaRuntime, AquamarineApi, AquamarineApiError, AquamarineBackend, DatastoreConfig,
+    RoutingEffects, VmPoolConfig,
 };
 use config_utils::to_peer_id;
 use connection_pool::ConnectionPoolT;
@@ -97,9 +98,10 @@ pub struct Node<RT: AquaRuntime> {
 }
 
 impl<RT: AquaRuntime> Node<RT> {
-    pub fn new(
+    pub async fn new(
         config: ResolvedConfig,
         vm_config: RT::Config,
+        datastore_config: DatastoreConfig,
         node_version: &'static str,
         air_version: &'static str,
         system_service_distros: SystemServiceDistros,
@@ -228,13 +230,15 @@ impl<RT: AquaRuntime> Node<RT> {
         let (aquavm_pool, aquamarine_api) = AquamarineBackend::new(
             pool_config,
             vm_config,
+            datastore_config,
             Arc::clone(&builtins),
             effects_out,
             plumber_metrics,
             vm_pool_metrics,
             health_registry.as_mut(),
             key_manager.clone(),
-        );
+        )
+        .await?;
         let effectors = Effectors::new(connectivity.clone());
         let dispatcher = {
             let parallelism = config.particle_processor_parallelism;

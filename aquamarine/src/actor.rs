@@ -14,9 +14,12 @@
  * limitations under the License.
  */
 
+use avm_server::CallResults;
+use std::sync::Arc;
+use std::task::Context;
 use std::{
     collections::VecDeque,
-    task::{Context, Poll, Waker},
+    task::{Poll, Waker},
 };
 
 use fluence_keypair::KeyPair;
@@ -32,7 +35,7 @@ use crate::deadline::Deadline;
 use crate::particle_effects::RoutingEffects;
 use crate::particle_executor::{FutResult, ParticleExecutor};
 use crate::particle_functions::{Functions, SingleCallStat};
-use crate::{AquaRuntime, InterpretationStats, ParticleEffects};
+use crate::{AquaRuntime, InterpretationStats, ParticleDataStore, ParticleEffects};
 
 struct Reusables<RT> {
     vm_id: usize,
@@ -42,7 +45,9 @@ struct Reusables<RT> {
 pub struct Actor<RT, F> {
     /// Particle of that actor is expired after that deadline
     deadline: Deadline,
-    future: Option<BoxFuture<'static, (Reusables<RT>, ParticleEffects, InterpretationStats)>>,
+    future: Option<
+        BoxFuture<'static, eyre::Result<(Reusables<RT>, ParticleEffects, InterpretationStats)>>,
+    >,
     mailbox: VecDeque<Particle>,
     waker: Option<Waker>,
     functions: Functions<F>,
@@ -55,6 +60,7 @@ pub struct Actor<RT, F> {
     current_peer_id: PeerId,
     key_pair: KeyPair,
     span: Span,
+    data_store: Arc<ParticleDataStore>,
 }
 
 impl<RT, F> Actor<RT, F>
@@ -68,6 +74,7 @@ where
         current_peer_id: PeerId,
         key_pair: KeyPair,
         span: Span,
+        data_store: Arc<ParticleDataStore>,
     ) -> Self {
         Self {
             deadline: Deadline::from(particle),
@@ -88,6 +95,7 @@ where
             current_peer_id,
             key_pair,
             span,
+            data_store,
         }
     }
 
@@ -99,7 +107,7 @@ where
         self.future.is_some()
     }
 
-    pub fn cleanup(&self, vm: &mut RT) {
+    pub fn cleanup(&self) {
         tracing::debug!(
             target: "particle_reap",
             particle_id = self.particle.id, worker_id = self.current_peer_id.to_string(),
@@ -107,13 +115,15 @@ where
         );
         // TODO: remove dirs without using vm https://github.com/fluencelabs/fluence/issues/1216
         // TODO: ??? we don't have this issue anymore
-        if let Err(err) = vm.cleanup(&self.particle.id, &self.current_peer_id.to_string()) {
+        /*  if let Err(err) = vm.cleanup(&self.particle.id, &self.current_peer_id.to_string()) {
             tracing::warn!(
                 particle_id = self.particle.id,
                 "Error cleaning up after particle {:?}",
                 err
             );
-        }
+        }*/
+
+        //TODO: fix
     }
 
     pub fn mailbox_size(&self) -> usize {
@@ -141,30 +151,41 @@ where
         self.functions.poll(cx);
 
         // Poll AquaVM future
-        if let Some(Ready((reusables, effects, stats))) =
-            self.future.as_mut().map(|f| f.poll_unpin(cx))
-        {
-            let _entered = self.span.enter();
+        if let Some(Ready(res)) = self.future.as_mut().map(|f| f.poll_unpin(cx)) {
+            match res {
+                Ok((reusables, effects, stats)) => {
+                    let _entered = self.span.enter();
 
-            self.future.take();
+                    self.future.take();
 
-            let waker = cx.waker().clone();
-            // Schedule execution of functions
-            self.functions
-                .execute(self.particle.id.clone(), effects.call_requests, waker);
+                    let waker = cx.waker().clone();
+                    // Schedule execution of functions
+                    self.functions
+                        .execute(self.particle.id.clone(), effects.call_requests, waker);
 
-            let effects = RoutingEffects {
-                particle: Particle {
-                    data: effects.new_data,
-                    ..self.particle.clone()
-                },
-                next_peers: effects.next_peers,
-            };
-            return Ready(FutResult {
-                runtime: (reusables.vm_id, reusables.vm),
-                effects,
-                stats,
-            });
+                    let effects = RoutingEffects {
+                        particle: Particle {
+                            data: effects.new_data,
+                            ..self.particle.clone()
+                        },
+                        next_peers: effects.next_peers,
+                    };
+                    return Ready(FutResult {
+                        runtime: (reusables.vm_id, reusables.vm),
+                        outcome: effects,
+                        stats,
+                    });
+                }
+                Err(err) => {
+                    self.future.take();
+                    tracing::error!(
+                        particle_id = self.particle.id,
+                        "Could not process particle: {}",
+                        err
+                    );
+                    return Poll::Pending;
+                }
+            }
         }
 
         Poll::Pending
@@ -202,29 +223,77 @@ where
             self.particle.clone()
         });
         let waker = cx.waker().clone();
-        // Take ownership of vm to process particle
-        let peer_id = self.current_peer_id;
-        // TODO: get rid of this clone by recovering key_pair after `vm.execute` (not trivial to implement)
+        let data_store = self.data_store.clone();
         let key_pair = self.key_pair.clone();
-        // TODO: add timeout for execution https://github.com/fluencelabs/fluence/issues/1212
+        let peer_id = self.current_peer_id.clone();
         self.future = Some(
-            async move {
-                let res = vm
-                    .execute((particle, calls), waker, peer_id, key_pair)
-                    .await;
-
-                let reusables = Reusables {
-                    vm_id,
-                    vm: res.runtime,
-                };
-                (reusables, res.effects, res.stats)
-            }
+            Actor::<RT, F>::process(
+                vm_id, vm, waker, data_store, key_pair, peer_id, particle, calls,
+            )
             .instrument(self.span.clone())
             .boxed(),
         );
         self.wake();
 
         ActorPoll::Executing(stats)
+    }
+
+    async fn process(
+        vm_id: usize,
+        vm: RT,
+        waker: Waker,
+        data_store: Arc<ParticleDataStore>,
+        key_pair: KeyPair,
+        peer_id: PeerId,
+        particle: Particle,
+        calls: CallResults,
+    ) -> eyre::Result<(Reusables<RT>, ParticleEffects, InterpretationStats)> {
+        let particle_id = particle.id.clone();
+
+        let prev_data = data_store
+            .read_data(&particle.id.as_str(), peer_id.to_base58().as_str())
+            .await?;
+
+        let prev_data_len = prev_data.len();
+
+        let res = vm.execute((particle, calls), prev_data, peer_id, key_pair);
+
+        let interpretation_time = res.stats.interpretation_time;
+
+        match &res.outcome {
+            Ok(outcome) => {
+                let len = outcome.data.len();
+                tracing::trace!(
+                    target: "execution", particle_id = particle_id,
+                    "Particle interpreted in {} [{} bytes => {} bytes]",
+                    humantime::format_duration(interpretation_time), prev_data_len, len
+                );
+                data_store
+                    .store_data(
+                        &outcome.data,
+                        particle_id.as_str(),
+                        peer_id.to_base58().as_str(),
+                    )
+                    .await?;
+            }
+            Err(err) => {
+                tracing::warn!(
+                    particle_id = particle_id,
+                    "Error executing particle: {}",
+                    err
+                )
+            }
+        }
+
+        let effects = RT::into_effects(res.outcome, particle_id);
+        waker.wake();
+
+        let reusables = Reusables {
+            vm_id,
+            vm: res.runtime,
+        };
+
+        Ok((reusables, effects, res.stats))
     }
 
     fn wake(&self) {

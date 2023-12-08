@@ -66,6 +66,7 @@ opentelemetry_sdk = { version = "0.21.1", features = ["rt-tokio-current-thread"]
 opentelemetry-otlp = "0.14.0"
 opentelemetry-stdout = { version = "0.2.0", features = ["trace"] }
 once_cell = { workspace = true }
+config = "0.13.4"
 
 [dev-dependencies]
 parking_lot = { workspace = true }

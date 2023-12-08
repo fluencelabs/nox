@@ -31,7 +31,7 @@ pub use avm_server::AVM;
 pub use avm_server::AVMConfig;
 
 pub use aqua_runtime::AquaRuntime;
-pub use config::{VmConfig, VmPoolConfig};
+pub use config::{DatastoreConfig, VmConfig, VmPoolConfig};
 pub use error::AquamarineApiError;
 pub use particle_data_store::{DataStoreError, ParticleDataStore};
 pub use particle_effects::{InterpretationStats, ParticleEffects, RoutingEffects};

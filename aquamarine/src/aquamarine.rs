@@ -15,6 +15,7 @@
  */
 use std::collections::HashMap;
 use std::future::Future;
+use std::sync::Arc;
 use std::task::Poll;
 use std::time::Duration;
 
@@ -36,7 +37,7 @@ use crate::command::Command::{AddService, Ingest, RemoveService};
 use crate::error::AquamarineApiError;
 use crate::particle_effects::RoutingEffects;
 use crate::vm_pool::VmPool;
-use crate::{Plumber, VmPoolConfig};
+use crate::{DatastoreConfig, ParticleDataStore, Plumber, VmPoolConfig};
 
 pub type EffectsChannel = mpsc::UnboundedSender<Result<RoutingEffects, AquamarineApiError>>;
 
@@ -49,19 +50,28 @@ pub struct AquamarineBackend<RT: AquaRuntime, F> {
 
 impl<RT: AquaRuntime, F: ParticleFunctionStatic> AquamarineBackend<RT, F> {
     #[allow(clippy::too_many_arguments)]
-    pub fn new(
+    pub async fn new(
         config: VmPoolConfig,
         runtime_config: RT::Config,
+        datastore_config: DatastoreConfig,
         builtins: F,
         out: EffectsChannel,
         plumber_metrics: Option<ParticleExecutorMetrics>,
         vm_pool_metrics: Option<VmPoolMetrics>,
         health_registry: Option<&mut HealthCheckRegistry>,
         key_manager: KeyManager,
-    ) -> (Self, AquamarineApi) {
+    ) -> eyre::Result<(Self, AquamarineApi)> {
         // TODO: make `100` configurable
         let (outlet, inlet) = mpsc::channel(100);
         let sender = AquamarineApi::new(outlet, config.execution_timeout);
+
+        let mut data_store = ParticleDataStore::new(
+            datastore_config.particles_dir,
+            datastore_config.particles_vault_dir,
+            datastore_config.particles_anomaly_dir,
+        );
+        data_store.initialize().await?;
+        let data_store: Arc<ParticleDataStore> = Arc::new(data_store);
         let vm_pool = VmPool::new(
             config.pool_size,
             runtime_config,
@@ -69,7 +79,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> AquamarineBackend<RT, F> {
             health_registry,
         );
         let host_peer_id = key_manager.get_host_peer_id();
-        let plumber = Plumber::new(vm_pool, builtins, plumber_metrics, key_manager);
+        let plumber = Plumber::new(vm_pool, data_store, builtins, plumber_metrics, key_manager);
         let this = Self {
             inlet,
             plumber,
@@ -77,7 +87,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> AquamarineBackend<RT, F> {
             host_peer_id,
         };
 
-        (this, sender)
+        Ok((this, sender))
     }
 
     pub fn poll(&mut self, cx: &mut std::task::Context<'_>) -> Poll<()> {
