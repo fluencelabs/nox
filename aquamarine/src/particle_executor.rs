@@ -84,10 +84,10 @@ impl<RT: AquaRuntime> ParticleExecutor for RT {
             &key_pair,
         );
 
-        let call_time = now.elapsed();
+        let interpretation_time = now.elapsed();
         let new_data_len = avm_outcome.as_ref().map(|e| e.data.len()).ok();
         let stats = InterpretationStats {
-            interpretation_time: call_time,
+            interpretation_time,
             new_data_len,
             success: avm_outcome.is_ok(),
         };
