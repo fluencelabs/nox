@@ -278,7 +278,7 @@ pub async fn make_particle(
         data_store
             .store_data(&data, id.as_str(), peer_id.to_base58().as_str())
             .await
-            .expect("Could not store data");
+            .expect("local vm could not store particle.data data");
 
         particle_data = data;
         call_results = <_>::default();
@@ -353,7 +353,7 @@ pub async fn read_args(
         data_store
             .store_data(&data, particle.id.as_str(), peer_id.to_base58().as_str())
             .await
-            .expect("Could not store data");
+            .expect("local vm could not store particle.data data");
 
         particle_data = data;
         call_results = <_>::default();
