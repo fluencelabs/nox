@@ -17,18 +17,18 @@
 use std::borrow::Cow;
 use std::convert::TryFrom;
 use std::ops::Try;
-use std::path::PathBuf;
 use std::{collections::HashMap, time::Duration};
+use std::fs::File;
 
-use avm_server::{AVMConfig, AVMOutcome, CallResults, CallServiceResult, ParticleParameters, AVM};
+use avm_server::avm_runner::AVMRunner;
+use avm_server::{AVMOutcome, CallResults, CallServiceResult, ParticleParameters, AVM};
 use fstrings::f;
 use libp2p::PeerId;
 use serde_json::{json, Value as JValue};
 
 use air_interpreter_fs::{air_interpreter_path, write_default_air_interpreter};
-use aquamarine::{DataStoreError, ParticleDataStore};
+use aquamarine::{DataStoreError};
 use fluence_keypair::KeyPair;
-use fs_utils::make_tmp_dir;
 use now_millis::now_ms;
 use particle_args::{Args, JError};
 use particle_execution::FunctionOutcome;
@@ -170,26 +170,14 @@ pub fn host_call(data: &HashMap<String, JValue>, args: Args) -> (CallServiceResu
     (outcome, result.returned)
 }
 
-pub fn make_vm(peer_id: PeerId) -> AVM<DataStoreError> {
-    let tmp = make_tmp_dir();
-    let interpreter = air_interpreter_path(&tmp);
+pub fn make_vm(peer_id: PeerId) -> AVMRunner {
+    let tmp_dir = tempfile::tempdir().expect("Could not create tmp dit");
+    let tmp_dir_path = tmp_dir.path().join(peer_id.to_base58());
+    File::create(&tmp_dir_path).expect("Could not create tmp dir");
+    let interpreter = air_interpreter_path(tmp_dir_path.as_path());
     write_default_air_interpreter(&interpreter).expect("write air interpreter");
 
-    let particle_data_store: PathBuf = format!("/tmp/{peer_id}").into();
-    let vault_dir = particle_data_store.join("vault");
-    let anomaly_dir = particle_data_store.join("anomalies");
-    let data_store = Box::new(ParticleDataStore::new(
-        particle_data_store,
-        vault_dir,
-        anomaly_dir,
-    ));
-    let config = AVMConfig {
-        air_wasm_path: interpreter,
-        logging_mask: i32::MAX,
-        max_heap_size: None,
-    };
-
-    AVM::new(config)
+    AVMRunner::new(interpreter, None, i32::MAX)
         .map_err(|err| {
             log::error!("\n\n\nFailed to create local AVM: {:#?}\n\n\n", err);
 
@@ -326,7 +314,7 @@ pub async fn make_particle(
 pub async fn read_args(
     particle: Particle,
     peer_id: PeerId,
-    local_vm: &mut AVM<DataStoreError>,
+    local_vm: &mut AVMRunner,
     key_pair: &KeyPair,
 ) -> Option<Result<Vec<JValue>, Vec<JValue>>> {
     let mut call_results: CallResults = <_>::default();

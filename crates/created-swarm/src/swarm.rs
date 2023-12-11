@@ -296,7 +296,7 @@ pub fn aqua_vm_config(
     VmConfig::new(peer_id, air_interpreter, None)
 }
 
-pub fn create_swarm_with_runtime<RT: AquaRuntime>(
+pub fn crates/connected-client/src/connected_client.rs:166:14       create_swarm_with_runtime<RT: AquaRuntime>(
     mut config: SwarmConfig,
     vm_config: impl Fn(BaseVmConfig) -> RT::Config,
 ) -> (PeerId, Box<Node<RT>>, KeyPair, SwarmConfig, Span) {

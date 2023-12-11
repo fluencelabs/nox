@@ -22,7 +22,7 @@ use eyre::{bail, eyre, WrapErr};
 use fluence_keypair::KeyPair;
 use fluence_libp2p::Transport;
 use libp2p::{core::Multiaddr, PeerId};
-use local_vm::{make_particle, make_vm, read_args, DataStoreError};
+use local_vm::{make_particle, make_vm, read_args};
 use particle_protocol::Particle;
 use serde_json::{Value as JValue, Value};
 use test_constants::{
@@ -33,7 +33,7 @@ use crate::client::Client;
 use crate::event::ClientEvent;
 
 #[allow(clippy::upper_case_acronyms)]
-type AVM = local_vm::AVM<DataStoreError>;
+type AVM = local_vm::AVMRunner;
 
 pub struct ConnectedClient {
     pub client: Client,

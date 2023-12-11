@@ -333,12 +333,10 @@ mod tests {
     use std::task::Waker;
     use std::{sync::Arc, task::Context};
 
-    use avm_server::{AVMMemoryStats, AVMOutcome, CallResults, ParticleParameters};
+    use avm_server::{AVMMemoryStats, CallResults, ParticleParameters};
     use fluence_keypair::KeyPair;
     use fluence_libp2p::RandomPeerId;
-    use futures::future::BoxFuture;
     use futures::task::noop_waker_ref;
-    use futures::FutureExt;
     use key_manager::KeyManager;
 
     use particle_args::Args;
@@ -350,8 +348,9 @@ mod tests {
     use crate::plumber::{now_ms, real_time};
     use crate::vm_pool::VmPool;
     use crate::AquamarineApiError::ParticleExpired;
-    use crate::{AquaRuntime, ParticleEffects, Plumber};
+    use crate::{AquaRuntime, ParticleDataStore, ParticleEffects, Plumber};
     use async_trait::async_trait;
+    use avm_server::avm_runner::RawAVMOutcome;
 
     struct MockF;
 
@@ -381,15 +380,12 @@ mod tests {
         type Config = ();
         type Error = Infallible;
 
-        fn create_runtime(
-            _config: Self::Config,
-            _waker: Waker,
-        ) -> BoxFuture<'static, Result<Self, Self::Error>> {
-            async { Ok(VMMock) }.boxed()
+        fn create_runtime(_config: Self::Config, _waker: Waker) -> Result<Self, Self::Error> {
+            Ok(VMMock)
         }
 
         fn into_effects(
-            _outcome: Result<AVMOutcome, Self::Error>,
+            _outcome: Result<RawAVMOutcome, Self::Error>,
             _particle_id: String,
         ) -> ParticleEffects {
             ParticleEffects {
@@ -401,27 +397,20 @@ mod tests {
 
         fn call(
             &mut self,
-            _aqua: String,
-            _data: Vec<u8>,
-            _particle: ParticleParameters<'_>,
+            _air: impl Into<String>,
+            _prev_data: impl Into<Vec<u8>>,
+            _data: impl Into<Vec<u8>>,
+            _particle_params: ParticleParameters<'_>,
             _call_results: CallResults,
             _key_pair: &KeyPair,
-        ) -> Result<AVMOutcome, Self::Error> {
-            Ok(AVMOutcome {
+        ) -> Result<RawAVMOutcome, Self::Error> {
+            Ok(RawAVMOutcome {
+                ret_code: 0,
+                error_message: "".to_string(),
                 data: vec![],
                 call_requests: Default::default(),
                 next_peer_pks: vec![],
-                memory_delta: 0,
-                execution_time: Default::default(),
             })
-        }
-
-        fn cleanup(
-            &mut self,
-            _particle_id: &str,
-            _current_peer_id: &str,
-        ) -> Result<(), Self::Error> {
-            Ok(())
         }
 
         fn memory_stats(&self) -> AVMMemoryStats {
@@ -443,7 +432,16 @@ mod tests {
             RandomPeerId::random(),
             RandomPeerId::random(),
         );
-        Plumber::new(vm_pool, builtin_mock, None, key_manager)
+        let tmp_dir = tempfile::tempdir().expect("Could not create temp dir");
+        let tmp_path = tmp_dir.path();
+        let data_store = ParticleDataStore::new(
+            tmp_path.join("particles"),
+            tmp_path.join("vault"),
+            tmp_path.join("anomaly"),
+        );
+        let data_store = Arc::new(data_store);
+
+        Plumber::new(vm_pool, data_store, builtin_mock, None, key_manager)
     }
 
     fn particle(ts: u64, ttl: u32) -> Particle {
