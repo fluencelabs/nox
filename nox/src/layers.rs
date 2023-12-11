@@ -49,7 +49,7 @@ where
         .map(|c| &c.format)
         .unwrap_or(&LogFormat::Default);
 
-    let layer = match log_format {
+    match log_format {
         LogFormat::Logfmt => tracing_logfmt::builder()
             .with_target(true)
             .with_span_path(false)
@@ -60,9 +60,7 @@ where
             .with_thread_ids(true)
             .with_thread_names(true)
             .boxed(),
-    };
-
-    layer
+    }
 }
 
 pub fn tokio_console_layer<S>(

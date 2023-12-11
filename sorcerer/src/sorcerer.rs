@@ -58,6 +58,7 @@ pub struct Sorcerer {
 }
 
 impl Sorcerer {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         services: ParticleAppServices,
         modules: ModuleRepository,

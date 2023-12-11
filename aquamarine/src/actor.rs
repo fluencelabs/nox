@@ -211,7 +211,7 @@ where
         let waker = cx.waker().clone();
         let data_store = self.data_store.clone();
         let key_pair = self.key_pair.clone();
-        let peer_id = self.current_peer_id.clone();
+        let peer_id = self.current_peer_id;
         self.future = Some(
             Actor::<RT, F>::process(
                 vm_id, vm, waker, data_store, key_pair, peer_id, particle, calls,
@@ -224,6 +224,7 @@ where
         ActorPoll::Executing(stats)
     }
 
+    #[allow(clippy::too_many_arguments)]
     async fn process(
         vm_id: usize,
         vm: RT,

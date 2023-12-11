@@ -174,7 +174,7 @@ pub fn make_vm(tmp_dir_path: &Path) -> AVMRunner {
     let interpreter = air_interpreter_path(tmp_dir_path);
     write_default_air_interpreter(&interpreter).expect("write air interpreter");
 
-    let runner = AVMRunner::new(interpreter, None, i32::MAX)
+    AVMRunner::new(interpreter, None, i32::MAX)
         .map_err(|err| {
             log::error!("\n\n\nFailed to create local AVM: {:#?}\n\n\n", err);
 
@@ -182,8 +182,7 @@ pub fn make_vm(tmp_dir_path: &Path) -> AVMRunner {
 
             err
         })
-        .expect("vm should be created");
-    runner
+        .expect("vm should be created")
 }
 
 pub fn wrap_script(

@@ -165,8 +165,7 @@ where
                 .cloned()
                 .collect::<Vec<_>>();
             let bootstraps = bootstraps(addrs);
-            let result = create_node(bootstraps, addr.clone());
-            result
+            create_node(bootstraps, addr.clone())
         })
         .collect::<Vec<_>>();
 

@@ -130,7 +130,7 @@ impl<RT: AquaRuntime> VmPool<RT> {
         });
     }
 
-    pub fn recreate_avm(&mut self, id: usize, cx: &mut Context<'_>) {
+    pub fn recreate_avm(&mut self, id: usize, cx: &Context<'_>) {
         if self.creating_runtimes.is_none() {
             log::error!(
                 "Attempt to recreate an AVM before initialization (self.creating_runtimes is None), ignoring"
@@ -144,7 +144,7 @@ impl<RT: AquaRuntime> VmPool<RT> {
         }
     }
 
-    fn create_avm(&self, cx: &mut Context<'_>) -> RuntimeF<RT> {
+    fn create_avm(&self, cx: &Context<'_>) -> RuntimeF<RT> {
         let config = self.runtime_config.clone();
         let waker = cx.waker().clone();
 
