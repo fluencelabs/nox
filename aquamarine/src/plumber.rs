@@ -471,7 +471,7 @@ mod tests {
         );
         let tmp_dir = tempfile::tempdir().expect("Could not create temp dir");
         let tmp_path = tmp_dir.path();
-        let mut data_store = ParticleDataStore::new(
+        let data_store = ParticleDataStore::new(
             tmp_path.join("particles"),
             tmp_path.join("vault"),
             tmp_path.join("anomaly"),

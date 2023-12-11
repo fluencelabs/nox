@@ -37,7 +37,7 @@ async fn make() {
     let client_b = keypair_b.get_peer_id();
     let tmp_dir = tempfile::tempdir().expect("Could not create tmp dir");
     let tmp_dir_path = tmp_dir.path();
-    let mut data_store = ParticleDataStore::new(
+    let data_store = ParticleDataStore::new(
         tmp_dir_path.join("particle"),
         tmp_dir_path.join("vault"),
         tmp_dir_path.join("anomaly"),

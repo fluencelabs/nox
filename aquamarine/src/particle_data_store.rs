@@ -69,7 +69,7 @@ const EXECUTION_TIME_THRESHOLD: Duration = Duration::from_millis(500);
 const MEMORY_DELTA_BYTES_THRESHOLD: usize = 10 * bytesize::MB as usize;
 
 impl ParticleDataStore {
-    pub async fn initialize(&mut self) -> Result<()> {
+    pub async fn initialize(&self) -> Result<()> {
         create_dir(&self.particle_data_store).map_err(DataStoreError::CreateDataStore)?;
 
         self.vault.initialize()?;

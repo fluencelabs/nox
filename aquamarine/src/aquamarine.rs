@@ -65,7 +65,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> AquamarineBackend<RT, F> {
         let (outlet, inlet) = mpsc::channel(100);
         let sender = AquamarineApi::new(outlet, config.execution_timeout);
 
-        let mut data_store = ParticleDataStore::new(
+        let data_store = ParticleDataStore::new(
             datastore_config.particles_dir,
             datastore_config.particles_vault_dir,
             datastore_config.particles_anomaly_dir,
