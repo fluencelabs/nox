@@ -20,6 +20,7 @@ use std::time::Duration;
 
 use avm_server::avm_runner::RawAVMOutcome;
 use avm_server::AnomalyData;
+use fluence_libp2p::PeerId;
 use thiserror::Error;
 
 use fs_utils::create_dir;
@@ -99,7 +100,28 @@ impl ParticleDataStore {
         Ok(data)
     }
 
-    pub async fn cleanup_data(&self, particle_id: &str, current_peer_id: &str) -> Result<()> {
+    pub async fn batch_cleanup_data(&self, data: Vec<(String, PeerId)>) {
+        for (particle_id, peer_id) in data {
+            tracing::debug!(
+                target: "particle_reap",
+                particle_id = particle_id, worker_id = peer_id.to_string(),
+                "Reaping particle's actor"
+            );
+
+            if let Err(err) = self
+                .cleanup_data(particle_id.as_str(), peer_id.to_string().as_str())
+                .await
+            {
+                tracing::warn!(
+                    particle_id = particle_id,
+                    "Error cleaning up after particle {:?}",
+                    err
+                );
+            }
+        }
+    }
+
+    async fn cleanup_data(&self, particle_id: &str, current_peer_id: &str) -> Result<()> {
         tracing::debug!(target: "particle_reap", particle_id = particle_id, "Cleaning up particle data for particle");
         let path = self.data_file(particle_id, current_peer_id);
         match tokio::fs::remove_file(&path).await {

@@ -61,7 +61,7 @@ pub struct Plumber<RT: AquaRuntime, F> {
     waker: Option<Waker>,
     metrics: Option<ParticleExecutorMetrics>,
     key_manager: KeyManager,
-    cleanup_task: Option<BoxFuture<'static, ()>>,
+    cleanup_future: Option<BoxFuture<'static, ()>>,
 }
 
 impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
@@ -81,7 +81,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
             waker: <_>::default(),
             metrics,
             key_manager,
-            cleanup_task: None,
+            cleanup_future: None,
         }
     }
 
@@ -240,12 +240,13 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
             mailbox_size += actor.mailbox_size();
         }
 
-        if let Some(Ready(())) = self.cleanup_task.as_mut().map(|f| f.poll_unpin(cx)) {
-            self.cleanup_task.take();
+        if let Some(Ready(())) = self.cleanup_future.as_mut().map(|f| f.poll_unpin(cx)) {
+            // we remove clean up future if it is ready
+            self.cleanup_future.take();
         }
 
-        //do not schedule task if another in progress
-        if self.cleanup_task.is_none() {
+        // do not schedule task if another in progress
+        if self.cleanup_future.is_none() {
             // Remove expired actors
             let mut cleanup_keys: Vec<(String, PeerId)> = vec![];
             let now = now_ms();
@@ -262,29 +263,8 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
 
             if !cleanup_keys.is_empty() {
                 let data_store = self.data_store.clone();
-                self.cleanup_task = Some(
-                    async move {
-                        for (particle_id, peer_id) in cleanup_keys {
-                            tracing::debug!(
-                                target: "particle_reap",
-                                particle_id = particle_id, worker_id = peer_id.to_string(),
-                                "Reaping particle's actor"
-                            );
-
-                            if let Err(err) = data_store
-                                .cleanup_data(particle_id.as_str(), peer_id.to_string().as_str())
-                                .await
-                            {
-                                tracing::warn!(
-                                    particle_id = particle_id,
-                                    "Error cleaning up after particle {:?}",
-                                    err
-                                );
-                            }
-                        }
-                    }
-                    .boxed(),
-                )
+                self.cleanup_future =
+                    Some(async move { data_store.batch_cleanup_data(cleanup_keys).await }.boxed())
             }
         }
 
