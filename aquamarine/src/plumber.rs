@@ -436,7 +436,7 @@ mod tests {
             &mut self,
             _air: impl Into<String>,
             _prev_data: impl Into<Vec<u8>>,
-            _data: impl Into<Vec<u8>>,
+            _current_data: impl Into<Vec<u8>>,
             _particle_params: ParticleParameters<'_>,
             _call_results: CallResults,
             _key_pair: &KeyPair,

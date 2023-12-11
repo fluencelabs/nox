@@ -58,7 +58,7 @@ impl AquaRuntime for EasyVM {
         &mut self,
         air: impl Into<String>,
         _prev_data: impl Into<Vec<u8>>,
-        data: impl Into<Vec<u8>>,
+        current_data: impl Into<Vec<u8>>,
         particle_params: ParticleParameters<'_>,
         _call_results: CallResults,
         _key_pair: &KeyPair,
@@ -71,7 +71,7 @@ impl AquaRuntime for EasyVM {
         // that allows to avoid using real AVM, but still
         // describe complex topologies
         let air = air.into();
-        let data = data.into();
+        let data = current_data.into();
         let (next_peer, data) = if air.starts_with('!') {
             // data contains peer ids separated by comma
             let next_peers = String::from_utf8_lossy(&data);
