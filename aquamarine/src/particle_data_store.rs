@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
@@ -21,7 +22,7 @@ use avm_server::avm_runner::RawAVMOutcome;
 use avm_server::AnomalyData;
 use thiserror::Error;
 
-use fs_utils::{create_dir, remove_file};
+use fs_utils::create_dir;
 use now_millis::now_ms;
 use particle_execution::{ParticleVault, VaultError};
 
@@ -100,9 +101,15 @@ impl ParticleDataStore {
 
     pub async fn cleanup_data(&self, particle_id: &str, current_peer_id: &str) -> Result<()> {
         tracing::debug!(target: "particle_reap", particle_id = particle_id, "Cleaning up particle data for particle");
-        remove_file(&self.data_file(particle_id, current_peer_id))
-            .map_err(DataStoreError::CleanupData)?;
-        self.vault.cleanup(particle_id)?;
+        let path = self.data_file(particle_id, current_peer_id);
+        match tokio::fs::remove_file(&path).await {
+            Ok(_) => Ok(()),
+            // ignore NotFound
+            Err(err) if err.kind() == ErrorKind::NotFound => Ok(()),
+            Err(err) => Err(DataStoreError::CleanupData(err)),
+        }?;
+
+        self.vault.cleanup(particle_id).await?;
 
         Ok(())
     }

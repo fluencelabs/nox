@@ -15,12 +15,13 @@
  */
 
 use fluence_app_service::{MarineWASIConfig, ModuleDescriptor};
+use std::io::ErrorKind;
 use std::path;
 use std::path::{Path, PathBuf};
 
 use thiserror::Error;
 
-use fs_utils::{create_dir, remove_dir};
+use fs_utils::create_dir;
 
 use crate::VaultError::WrongVault;
 use VaultError::{CleanupVault, CreateVault, InitializeVault};
@@ -81,8 +82,14 @@ impl ParticleVault {
         Ok(contents)
     }
 
-    pub fn cleanup(&self, particle_id: &str) -> Result<(), VaultError> {
-        remove_dir(&self.particle_vault(particle_id)).map_err(CleanupVault)?;
+    pub async fn cleanup(&self, particle_id: &str) -> Result<(), VaultError> {
+        let path = self.particle_vault(particle_id);
+        match tokio::fs::remove_file(&path).await {
+            Ok(_) => Ok(()),
+            // ignore NotFound
+            Err(err) if err.kind() == ErrorKind::NotFound => Ok(()),
+            Err(err) => Err(CleanupVault(err)),
+        }?;
 
         Ok(())
     }

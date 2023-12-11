@@ -16,6 +16,6 @@ thiserror = { workspace = true }
 futures = { workspace = true }
 serde_json = { workspace = true }
 
-tokio = { workspace = true }
+tokio = { workspace = true, features = ["fs"] }
 parking_lot = { workspace = true }
-async-trait = { version = "0.1.74"}
+async-trait = { version = "0.1.74" }
