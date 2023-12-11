@@ -19,8 +19,11 @@
 extern crate fstrings;
 
 use fluence_keypair::KeyPair;
+use std::fs::create_dir;
+use std::sync::Arc;
 use std::time::Duration;
 
+use aquamarine::ParticleDataStore;
 use maplit::hashmap;
 use serde_json::json;
 
@@ -32,9 +35,26 @@ async fn make() {
     let keypair_b = KeyPair::generate_ed25519();
     let client_a = keypair_a.get_peer_id();
     let client_b = keypair_b.get_peer_id();
+    let tmp_dir = tempfile::tempdir().expect("Could not create tmp dir");
+    let tmp_dir_path = tmp_dir.path();
+    let mut data_store = ParticleDataStore::new(
+        tmp_dir_path.join("particle"),
+        tmp_dir_path.join("vault"),
+        tmp_dir_path.join("anomaly"),
+    );
+    data_store
+        .initialize()
+        .await
+        .expect("Could not initialize datastore");
+    let data_store = Arc::new(data_store);
 
-    let mut local_vm_a = make_vm(client_a);
-    let mut local_vm_b = make_vm(client_b);
+    let local_vm_path_a = tmp_dir_path.join("vm_a");
+    let local_vm_path_b = tmp_dir_path.join("vm_b");
+    create_dir(&local_vm_path_a).expect("Could not create tmp dir");
+    create_dir(&local_vm_path_b).expect("Could not create tmp dir");
+
+    let mut local_vm_a = make_vm(local_vm_path_a.as_path());
+    let mut local_vm_b = make_vm(local_vm_path_b.as_path());
 
     let script = r#"(call client_b ("return" "") [a b c])"#.to_string();
     let data = hashmap! {
@@ -55,13 +75,14 @@ async fn make() {
         script,
         None,
         &mut local_vm_a,
+        data_store.clone(),
         false,
         Duration::from_secs(20),
         &keypair_a,
     )
     .await;
 
-    let args = read_args(particle, client_b, &mut local_vm_b, &keypair_b)
+    let args = read_args(particle, client_b, &mut local_vm_b, data_store, &keypair_b)
         .await
         .expect("read args")
         .expect("read args");

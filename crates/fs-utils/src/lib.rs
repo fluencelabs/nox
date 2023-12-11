@@ -40,30 +40,6 @@ pub fn to_abs_path(path: PathBuf) -> PathBuf {
     }
 }
 
-pub fn make_tmp_dir() -> PathBuf {
-    use rand::distributions::Alphanumeric;
-    use rand::distributions::DistString;
-
-    let mut tmp = std::env::temp_dir();
-    tmp.push("fluence_test/");
-    let dir: String = Alphanumeric.sample_string(&mut rand::thread_rng(), 16);
-    tmp.push(dir);
-
-    create_dir(&tmp).expect("create tmp dir");
-
-    tmp
-}
-
-pub fn make_tmp_dir_peer_id(peer_id: String) -> PathBuf {
-    let mut tmp = std::env::temp_dir();
-    tmp.push("fluence_test/");
-    tmp.push(peer_id);
-
-    create_dir(&tmp).expect("create tmp dir");
-
-    tmp
-}
-
 pub fn create_dirs<Item>(dirs: &[Item]) -> Result<(), std::io::Error>
 where
     Item: AsRef<Path> + Debug,

@@ -16,6 +16,7 @@
 
 use std::convert::identity;
 use std::net::SocketAddr;
+use std::sync::Arc;
 use std::{path::PathBuf, time::Duration};
 
 use derivative::Derivative;
@@ -26,17 +27,18 @@ use libp2p::{core::Multiaddr, PeerId};
 use serde::Deserialize;
 
 use air_interpreter_fs::{air_interpreter_path, write_default_air_interpreter};
-use aquamarine::{AquaRuntime, VmConfig};
-use aquamarine::{AquamarineApi, DataStoreError};
+use aquamarine::{AVMRunner, AquamarineApi};
+use aquamarine::{AquaRuntime, DatastoreConfig, VmConfig};
 use base64::{engine::general_purpose::STANDARD as base64, Engine};
 use fluence_libp2p::random_multiaddr::{create_memory_maddr, create_tcp_maddr};
 use fluence_libp2p::Transport;
-use fs_utils::{create_dir, make_tmp_dir_peer_id, to_abs_path};
-use futures::future::join_all;
+use fs_utils::to_abs_path;
+use futures::future::{join_all, BoxFuture};
 use futures::stream::iter;
 use nox::{Connectivity, Node};
 use particle_protocol::ProtocolConfig;
 use server_config::{system_services_config, BootstrapConfig, UnresolvedConfig};
+use tempfile::TempDir;
 use test_constants::{EXECUTION_TIMEOUT, TRANSPORT_TIMEOUT};
 use tokio::sync::oneshot;
 use toy_vms::EasyVM;
@@ -45,7 +47,7 @@ use tracing::{Instrument, Span};
 const HEALTH_CHECK_POLLING_INTERVAL: Duration = Duration::from_millis(100);
 
 #[allow(clippy::upper_case_acronyms)]
-type AVM = aquamarine::AVM<DataStoreError>;
+type AVM = aquamarine::AVMRunner;
 
 #[derive(Derivative)]
 #[derivative(Debug)]
@@ -53,7 +55,7 @@ pub struct CreatedSwarm {
     pub peer_id: PeerId,
     pub multiaddr: Multiaddr,
     // tmp dir, must be cleaned
-    pub tmp_dir: PathBuf,
+    pub tmp_dir: Arc<TempDir>,
     // management_peer_id
     #[derivative(Debug = "ignore")]
     pub management_keypair: KeyPair,
@@ -77,7 +79,7 @@ where
 {
     make_swarms_with(
         n,
-        |bs, maddr| create_swarm(update_cfg(SwarmConfig::new(bs, maddr))),
+        |bs, maddr| create_swarm(update_cfg(SwarmConfig::new(bs, maddr))).boxed(),
         create_memory_maddr,
         identity,
         true,
@@ -91,7 +93,7 @@ pub async fn make_swarms_with_transport_and_mocked_vm(
 ) -> Vec<CreatedSwarm> {
     make_swarms_with::<EasyVM, _, _, _>(
         n,
-        |bs, maddr| create_swarm_with_runtime(SwarmConfig::new(bs, maddr), |_| None),
+        |bs, maddr| create_swarm_with_runtime(SwarmConfig::new(bs, maddr), |_| None).boxed(),
         || match transport {
             Transport::Memory => create_memory_maddr(),
             Transport::Network => create_tcp_maddr(),
@@ -114,7 +116,10 @@ where
 {
     make_swarms_with::<EasyVM, _, _, _>(
         n,
-        |bs, maddr| create_swarm_with_runtime(update_cfg(SwarmConfig::new(bs, maddr)), |_| delay),
+        |bs, maddr| {
+            create_swarm_with_runtime(update_cfg(SwarmConfig::new(bs, maddr)), move |_| delay)
+                .boxed()
+        },
         create_memory_maddr,
         bootstraps,
         true,
@@ -143,7 +148,10 @@ pub async fn make_swarms_with<RT: AquaRuntime, F, M, B>(
     wait_connected: bool,
 ) -> Vec<CreatedSwarm>
 where
-    F: FnMut(Vec<Multiaddr>, Multiaddr) -> (PeerId, Box<Node<RT>>, KeyPair, SwarmConfig, Span),
+    F: FnMut(
+        Vec<Multiaddr>,
+        Multiaddr,
+    ) -> BoxFuture<'static, (PeerId, Box<Node<RT>>, KeyPair, SwarmConfig, Span)>,
     M: FnMut() -> Multiaddr,
     B: FnMut(Vec<Multiaddr>) -> Vec<Multiaddr>,
 {
@@ -157,39 +165,38 @@ where
                 .cloned()
                 .collect::<Vec<_>>();
             let bootstraps = bootstraps(addrs);
-            let (id, node, m_kp, config, span) = create_node(bootstraps, addr.clone());
-            ((id, m_kp, config), node, span)
+            let result = create_node(bootstraps, addr.clone());
+            result
         })
         .collect::<Vec<_>>();
 
     // start all nodes
-    let infos = join_all(nodes.into_iter().map(
-        move |((peer_id, management_keypair, config), node, span)| {
+    let infos = join_all(nodes.into_iter().map(move |tasks| {
+        async move {
+            let (peer_id, node, management_keypair, config, span) = tasks.await;
             let connectivity = node.connectivity.clone();
             let aquamarine_api = node.aquamarine_api.clone();
-            async move {
-                let started_node = node
-                    .start(peer_id)
-                    .instrument(span)
-                    .await
-                    .expect("node start");
-                let http_listen_addr = started_node
-                    .http_listen_addr
-                    .expect("could not take http listen addr");
-                CreatedSwarm {
-                    peer_id,
-                    multiaddr: config.listen_on,
-                    tmp_dir: config.tmp_dir.unwrap(),
-                    management_keypair,
-                    exit_outlet: started_node.exit_outlet,
-                    connectivity,
-                    aquamarine_api,
-                    http_listen_addr,
-                }
+            let started_node = node
+                .start(peer_id)
+                .instrument(span)
+                .await
+                .expect("node start");
+            let http_listen_addr = started_node
+                .http_listen_addr
+                .expect("could not take http listen addr");
+            CreatedSwarm {
+                peer_id,
+                multiaddr: config.listen_on,
+                tmp_dir: config.tmp_dir,
+                management_keypair,
+                exit_outlet: started_node.exit_outlet,
+                connectivity,
+                aquamarine_api,
+                http_listen_addr,
             }
-            .boxed()
-        },
-    ))
+        }
+        .boxed()
+    }))
     .await;
 
     if wait_connected {
@@ -235,7 +242,7 @@ pub struct SwarmConfig {
     pub bootstraps: Vec<Multiaddr>,
     pub listen_on: Multiaddr,
     pub transport: Transport,
-    pub tmp_dir: Option<PathBuf>,
+    pub tmp_dir: Arc<TempDir>,
     pub pool_size: Option<usize>,
     pub builtins_dir: Option<PathBuf>,
     pub spell_base_dir: Option<PathBuf>,
@@ -253,13 +260,15 @@ impl SwarmConfig {
             Some(Protocol::Memory(_)) => Transport::Memory,
             _ => Transport::Network,
         };
+        let tmp_dir = tempfile::tempdir().expect("Could not create temp dir");
+        let tmp_dir = Arc::new(tmp_dir);
         Self {
             keypair: fluence_keypair::KeyPair::generate_ed25519(),
             builtins_keypair: fluence_keypair::KeyPair::generate_ed25519(),
             bootstraps,
             listen_on,
             transport,
-            tmp_dir: None,
+            tmp_dir,
             pool_size: <_>::default(),
             builtins_dir: None,
             spell_base_dir: None,
@@ -296,8 +305,8 @@ pub fn aqua_vm_config(
     VmConfig::new(peer_id, air_interpreter, None)
 }
 
-pub fn crates/connected-client/src/connected_client.rs:166:14       create_swarm_with_runtime<RT: AquaRuntime>(
-    mut config: SwarmConfig,
+pub async fn create_swarm_with_runtime<RT: AquaRuntime>(
+    config: SwarmConfig,
     vm_config: impl Fn(BaseVmConfig) -> RT::Config,
 ) -> (PeerId, Box<Node<RT>>, KeyPair, SwarmConfig, Span) {
     use serde_json::json;
@@ -313,13 +322,8 @@ pub fn crates/connected-client/src/connected_client.rs:166:14       create_swarm
         .to_peer_id();
     let spawn = tracing::info_span!("Node", peer_id = peer_id.to_base58());
 
+    let tmp_dir = config.tmp_dir.path().to_path_buf();
     let _enter = spawn.enter();
-
-    if config.tmp_dir.is_none() {
-        config.tmp_dir = Some(make_tmp_dir_peer_id(peer_id.to_string()));
-    }
-    let tmp_dir = config.tmp_dir.as_ref().unwrap();
-    create_dir(tmp_dir).expect("create tmp dir");
 
     let node_config = json!({
         "base_dir": tmp_dir.to_string_lossy(),
@@ -394,6 +398,8 @@ pub fn crates/connected-client/src/connected_client.rs:166:14       create_swarm
         manager: management_peer_id,
     });
 
+    let datastore_config = DatastoreConfig::new(tmp_dir.clone());
+
     let system_services_config = resolved.system_services.clone();
     let system_service_distros =
         system_services::SystemServiceDistros::default_from(system_services_config)
@@ -403,10 +409,12 @@ pub fn crates/connected-client/src/connected_client.rs:166:14       create_swarm
     let mut node = Node::new(
         resolved,
         vm_config,
+        datastore_config,
         "some version",
         "some version",
         system_service_distros,
     )
+    .await
     .expect("create node");
     node.listen(vec![config.listen_on.clone()]).expect("listen");
 
@@ -419,6 +427,8 @@ pub fn crates/connected-client/src/connected_client.rs:166:14       create_swarm
     )
 }
 
-pub fn create_swarm(config: SwarmConfig) -> (PeerId, Box<Node<AVM>>, KeyPair, SwarmConfig, Span) {
-    create_swarm_with_runtime(config, aqua_vm_config)
+pub async fn create_swarm(
+    config: SwarmConfig,
+) -> (PeerId, Box<Node<AVMRunner>>, KeyPair, SwarmConfig, Span) {
+    create_swarm_with_runtime(config, aqua_vm_config).await
 }

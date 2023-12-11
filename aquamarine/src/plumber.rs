@@ -421,7 +421,7 @@ mod tests {
         }
     }
 
-    fn plumber() -> Plumber<VMMock, Arc<MockF>> {
+    async fn plumber() -> Plumber<VMMock, Arc<MockF>> {
         // Pool is of size 1 so it's easier to control tests
         let vm_pool = VmPool::new(1, (), None, None);
         let builtin_mock = Arc::new(MockF);
@@ -434,11 +434,15 @@ mod tests {
         );
         let tmp_dir = tempfile::tempdir().expect("Could not create temp dir");
         let tmp_path = tmp_dir.path();
-        let data_store = ParticleDataStore::new(
+        let mut data_store = ParticleDataStore::new(
             tmp_path.join("particles"),
             tmp_path.join("vault"),
             tmp_path.join("anomaly"),
         );
+        data_store
+            .initialize()
+            .await
+            .expect("Could not initialize datastore");
         let data_store = Arc::new(data_store);
 
         Plumber::new(vm_pool, data_store, builtin_mock, None, key_manager)
@@ -458,11 +462,11 @@ mod tests {
 
     /// Checks that expired actor will be removed
     #[ignore]
-    #[test]
-    fn remove_expired() {
+    #[tokio::test]
+    async fn remove_expired() {
         set_mock_time(real_time::now_ms());
 
-        let mut plumber = plumber();
+        let mut plumber = plumber().await;
 
         let particle = particle(now_ms(), 1);
         let deadline = Deadline::from(&particle);
@@ -491,12 +495,12 @@ mod tests {
     }
 
     /// Checks that expired particle won't create an actor
-    #[test]
-    fn ignore_expired() {
+    #[tokio::test]
+    async fn ignore_expired() {
         set_mock_time(real_time::now_ms());
         // set_mock_time(1000);
 
-        let mut plumber = plumber();
+        let mut plumber = plumber().await;
         let particle = particle(now_ms() - 100, 99);
         let deadline = Deadline::from(&particle);
         assert!(deadline.is_expired(now_ms()));

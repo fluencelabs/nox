@@ -26,9 +26,7 @@
     unreachable_patterns
 )]
 
-pub use avm_server::AVM;
-// reexport
-pub use avm_server::AVMConfig;
+pub use avm_server::avm_runner::AVMRunner;
 
 pub use aqua_runtime::AquaRuntime;
 pub use config::{DatastoreConfig, VmConfig, VmPoolConfig};

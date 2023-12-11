@@ -572,6 +572,7 @@ impl<RT: AquaRuntime> Node<RT> {
 
 #[cfg(test)]
 mod tests {
+    use avm_server::avm_runner::AVMRunner;
     use libp2p::core::Multiaddr;
     use libp2p::PeerId;
     use maplit::hashmap;
@@ -580,7 +581,7 @@ mod tests {
     use std::time::Duration;
 
     use air_interpreter_fs::{air_interpreter_path, write_default_air_interpreter};
-    use aquamarine::{VmConfig, AVM};
+    use aquamarine::{DatastoreConfig, VmConfig};
     use config_utils::to_peer_id;
     use connected_client::ConnectedClient;
     use fs_utils::to_abs_path;
@@ -607,20 +608,23 @@ mod tests {
         config.http_config = None;
         let vm_config = VmConfig::new(
             to_peer_id(&config.root_key_pair.clone().into()),
-            config.dir_config.avm_base_dir.clone(),
             config.dir_config.air_interpreter_path.clone(),
             None,
         );
+        let datastore_config = DatastoreConfig::new(config.dir_config.avm_base_dir.clone());
+
         let system_service_distros =
             SystemServiceDistros::default_from(config.system_services.clone())
                 .expect("can't create system services");
-        let mut node: Box<Node<AVM<_>>> = Node::new(
+        let mut node: Box<Node<AVMRunner>> = Node::new(
             config,
             vm_config,
+            datastore_config,
             "some version",
             "some version",
             system_service_distros,
         )
+        .await
         .expect("create node");
 
         let listening_address: Multiaddr = "/ip4/127.0.0.1/tcp/7777".parse().unwrap();

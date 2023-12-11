@@ -58,3 +58,6 @@ tokio = { workspace = true }
 log = { workspace = true }
 tracing = { workspace = true }
 mockito = "1.2.0"
+
+[dependencies]
+tempfile = { workspace = true }

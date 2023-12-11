@@ -251,7 +251,7 @@ where
         let particle_id = particle.id.clone();
 
         let prev_data = data_store
-            .read_data(&particle.id.as_str(), peer_id.to_base58().as_str())
+            .read_data(particle.id.as_str(), peer_id.to_base58().as_str())
             .await?;
 
         let prev_data_len = prev_data.len();

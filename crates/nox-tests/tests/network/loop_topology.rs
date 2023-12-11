@@ -548,6 +548,7 @@ async fn fold_fold_pairs_seq_join_heavy() {
 
 #[tokio::test]
 async fn fold_seq_join() {
+    enable_logs();
     let swarm = make_swarms(1).await.remove(0);
 
     let mut client = ConnectedClient::connect_to(swarm.multiaddr)

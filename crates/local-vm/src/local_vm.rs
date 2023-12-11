@@ -14,20 +14,20 @@
  * limitations under the License.
  */
 
-use std::borrow::Cow;
 use std::convert::TryFrom;
 use std::ops::Try;
+use std::path::Path;
+use std::sync::Arc;
 use std::{collections::HashMap, time::Duration};
-use std::fs::File;
 
-use avm_server::avm_runner::AVMRunner;
-use avm_server::{AVMOutcome, CallResults, CallServiceResult, ParticleParameters, AVM};
+use avm_server::avm_runner::{AVMRunner, RawAVMOutcome};
+use avm_server::{CallResults, CallServiceResult};
 use fstrings::f;
 use libp2p::PeerId;
 use serde_json::{json, Value as JValue};
 
 use air_interpreter_fs::{air_interpreter_path, write_default_air_interpreter};
-use aquamarine::{DataStoreError};
+use aquamarine::ParticleDataStore;
 use fluence_keypair::KeyPair;
 use now_millis::now_ms;
 use particle_args::{Args, JError};
@@ -170,14 +170,11 @@ pub fn host_call(data: &HashMap<String, JValue>, args: Args) -> (CallServiceResu
     (outcome, result.returned)
 }
 
-pub fn make_vm(peer_id: PeerId) -> AVMRunner {
-    let tmp_dir = tempfile::tempdir().expect("Could not create tmp dit");
-    let tmp_dir_path = tmp_dir.path().join(peer_id.to_base58());
-    File::create(&tmp_dir_path).expect("Could not create tmp dir");
-    let interpreter = air_interpreter_path(tmp_dir_path.as_path());
+pub fn make_vm(tmp_dir_path: &Path) -> AVMRunner {
+    let interpreter = air_interpreter_path(tmp_dir_path);
     write_default_air_interpreter(&interpreter).expect("write air interpreter");
 
-    AVMRunner::new(interpreter, None, i32::MAX)
+    let runner = AVMRunner::new(interpreter, None, i32::MAX)
         .map_err(|err| {
             log::error!("\n\n\nFailed to create local AVM: {:#?}\n\n\n", err);
 
@@ -185,7 +182,8 @@ pub fn make_vm(peer_id: PeerId) -> AVMRunner {
 
             err
         })
-        .expect("vm should be created")
+        .expect("vm should be created");
+    runner
 }
 
 pub fn wrap_script(
@@ -239,7 +237,8 @@ pub async fn make_particle(
     service_in: &HashMap<String, JValue>,
     script: String,
     relay: impl Into<Option<PeerId>>,
-    local_vm: &mut AVM<DataStoreError>,
+    local_vm: &mut AVMRunner,
+    data_store: Arc<ParticleDataStore>,
     generated: bool,
     particle_ttl: Duration,
     key_pair: &KeyPair,
@@ -253,27 +252,29 @@ pub async fn make_particle(
     let mut call_results: CallResults = <_>::default();
     let mut particle_data = vec![];
     loop {
-        let particle = ParticleParameters {
-            init_peer_id: Cow::Owned(peer_id.to_string()),
-            particle_id: Cow::Owned(id.clone()),
-            timestamp,
-            ttl,
-            current_peer_id: Cow::Owned(peer_id.to_string()),
-        };
-
-        let AVMOutcome {
+        let RawAVMOutcome {
             data,
             call_requests,
             ..
         } = local_vm
             .call(
-                script.clone(),
+                &script,
+                vec![],
                 particle_data,
-                particle,
+                peer_id.to_string(),
+                timestamp,
+                ttl,
+                peer_id.to_string(),
                 call_results,
                 key_pair,
+                id.clone(),
             )
             .expect("execute & make particle");
+
+        data_store
+            .store_data(&data, id.as_str(), peer_id.to_base58().as_str())
+            .await
+            .expect("Could not store data");
 
         particle_data = data;
         call_results = <_>::default();
@@ -315,31 +316,40 @@ pub async fn read_args(
     particle: Particle,
     peer_id: PeerId,
     local_vm: &mut AVMRunner,
+    data_store: Arc<ParticleDataStore>,
     key_pair: &KeyPair,
 ) -> Option<Result<Vec<JValue>, Vec<JValue>>> {
     let mut call_results: CallResults = <_>::default();
     let mut particle_data = particle.data;
     loop {
-        let params = ParticleParameters {
-            particle_id: Cow::Owned(particle.id.clone()),
-            init_peer_id: Cow::Owned(particle.init_peer_id.to_string()),
-            timestamp: particle.timestamp,
-            ttl: particle.ttl,
-            current_peer_id: Cow::Owned(peer_id.to_string()),
-        };
-        let AVMOutcome {
+        let prev_data = data_store
+            .read_data(particle.id.as_str(), peer_id.to_base58().as_str())
+            .await
+            .expect("Could not load prev data");
+
+        let RawAVMOutcome {
             data,
             call_requests,
             ..
         } = local_vm
             .call(
                 &particle.script,
+                prev_data,
                 particle_data,
-                params,
+                particle.init_peer_id.to_string(),
+                particle.timestamp,
+                particle.ttl,
+                peer_id.to_string(),
                 call_results,
                 key_pair,
+                particle.id.clone(),
             )
             .expect("execute & make particle");
+        data_store
+            .store_data(&data, particle.id.as_str(), peer_id.to_base58().as_str())
+            .await
+            .expect("Could not store data");
+
         particle_data = data;
         call_results = <_>::default();
 

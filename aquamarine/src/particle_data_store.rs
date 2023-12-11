@@ -94,9 +94,7 @@ impl ParticleDataStore {
 
     pub async fn read_data(&self, particle_id: &str, current_peer_id: &str) -> Result<Vec<u8>> {
         let data_path = self.data_file(particle_id, current_peer_id);
-        let data = tokio::fs::read(&data_path)
-            .await
-            .map_err(|err| DataStoreError::ReadData(err, data_path))?;
+        let data = tokio::fs::read(&data_path).await.unwrap_or_default();
         Ok(data)
     }
 
