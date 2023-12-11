@@ -26,7 +26,6 @@ use crate::invoke::{parse_outcome, ExecutionError};
 use crate::particle_effects::ParticleEffects;
 
 pub trait AquaRuntime: Sized + Send + 'static {
-    //TODO: remove debug
     type Config: Clone + Send + 'static;
     type Error: Error + Send + Sync + 'static;
 

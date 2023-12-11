@@ -42,6 +42,7 @@ struct Reusables<RT> {
     vm: Option<RT>,
 }
 
+type AVMCallResult<RT> = FutResult<(usize, Option<RT>), RoutingEffects, InterpretationStats>;
 type AVMTask<RT> =
     BoxFuture<'static, eyre::Result<(Reusables<RT>, ParticleEffects, InterpretationStats)>>;
 pub struct Actor<RT, F> {
@@ -130,15 +131,21 @@ where
         &mut self,
         cx: &mut Context<'_>,
     ) -> Poll<FutResult<(usize, Option<RT>), RoutingEffects, InterpretationStats>> {
-        use Poll::Ready;
-
         self.waker = Some(cx.waker().clone());
 
         self.functions.poll(cx);
 
         // Poll AquaVM future
-        if let Some(Ready(res)) = self.future.as_mut().map(|f| f.poll_unpin(cx)) {
-            match res {
+        if let Some(value) = self.process_avm_call_result(cx) {
+            return value;
+        }
+
+        Poll::Pending
+    }
+
+    fn process_avm_call_result(&mut self, cx: &mut Context<'_>) -> Option<Poll<AVMCallResult<RT>>> {
+        if let Some(Poll::Ready(res)) = self.future.as_mut().map(|f| f.poll_unpin(cx)) {
+            return match res {
                 Ok((reusables, effects, stats)) => {
                     let _entered = self.span.enter();
 
@@ -156,11 +163,11 @@ where
                         },
                         next_peers: effects.next_peers,
                     };
-                    return Ready(FutResult {
+                    Some(Poll::Ready(FutResult {
                         runtime: (reusables.vm_id, reusables.vm),
                         outcome: effects,
                         stats,
-                    });
+                    }))
                 }
                 Err(err) => {
                     self.future.take();
@@ -169,12 +176,11 @@ where
                         "Could not process particle: {}",
                         err
                     );
-                    return Poll::Pending;
+                    Some(Poll::Pending)
                 }
-            }
+            };
         }
-
-        Poll::Pending
+        None
     }
 
     /// Provide actor with new `vm` to execute particles, if there are any.
