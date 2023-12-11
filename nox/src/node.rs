@@ -74,7 +74,7 @@ pub struct Node<RT: AquaRuntime> {
     pub connectivity: Connectivity,
     pub aquamarine_api: AquamarineApi,
     pub dispatcher: Dispatcher,
-    aquavm_pool: AquamarineBackend<RT, Arc<Builtins<Connectivity>>>,
+    aquamarine_backend: AquamarineBackend<RT, Arc<Builtins<Connectivity>>>,
     system_service_deployer: Deployer,
 
     spell_event_bus_api: SpellEventBusApi,
@@ -412,7 +412,7 @@ impl<RT: AquaRuntime> Node<RT> {
         connectivity: Connectivity,
         aquamarine_api: AquamarineApi,
         dispatcher: Dispatcher,
-        aquavm_pool: AquamarineBackend<RT, Arc<Builtins<Connectivity>>>,
+        aquamarine_backend: AquamarineBackend<RT, Arc<Builtins<Connectivity>>>,
         system_service_deployer: Deployer,
         spell_event_bus_api: SpellEventBusApi,
         spell_event_bus: SpellEventBus,
@@ -436,7 +436,7 @@ impl<RT: AquaRuntime> Node<RT> {
             connectivity,
             aquamarine_api,
             dispatcher,
-            aquavm_pool,
+            aquamarine_backend,
             system_service_deployer,
             spell_event_bus_api,
             spell_event_bus,
@@ -468,7 +468,7 @@ impl<RT: AquaRuntime> Node<RT> {
         let mut swarm = self.swarm;
         let connectivity = self.connectivity;
         let dispatcher = self.dispatcher;
-        let aquavm_pool = self.aquavm_pool;
+        let aquamarine_backend = self.aquamarine_backend;
         let spell_event_bus = self.spell_event_bus;
         let spell_events_receiver = self.spell_events_receiver;
         let sorcerer = self.sorcerer;
@@ -497,7 +497,7 @@ impl<RT: AquaRuntime> Node<RT> {
             let services_metrics_backend = services_metrics_backend.start();
             let spell_event_bus = spell_event_bus.start();
             let sorcerer = sorcerer.start(spell_events_receiver);
-            let pool = aquavm_pool.start();
+            let pool = aquamarine_backend.start();
             let mut connectivity = connectivity.start();
             let mut dispatcher = dispatcher.start(particle_stream, effects_stream);
             let mut exit_inlet = Some(exit_inlet);
