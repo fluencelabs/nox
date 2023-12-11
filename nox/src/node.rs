@@ -227,7 +227,7 @@ impl<RT: AquaRuntime> Node<RT> {
 
         let pool_config =
             VmPoolConfig::new(config.aquavm_pool_size, config.particle_execution_timeout);
-        let (aquavm_pool, aquamarine_api) = AquamarineBackend::new(
+        let (aquamarine_backend, aquamarine_api) = AquamarineBackend::new(
             pool_config,
             vm_config,
             datastore_config,
@@ -237,8 +237,7 @@ impl<RT: AquaRuntime> Node<RT> {
             vm_pool_metrics,
             health_registry.as_mut(),
             key_manager.clone(),
-        )
-        .await?;
+        )?;
         let effectors = Effectors::new(connectivity.clone());
         let dispatcher = {
             let parallelism = config.particle_processor_parallelism;
@@ -331,7 +330,7 @@ impl<RT: AquaRuntime> Node<RT> {
             connectivity,
             aquamarine_api,
             dispatcher,
-            aquavm_pool,
+            aquamarine_backend,
             system_services_deployer,
             spell_event_bus_api,
             spell_event_bus,

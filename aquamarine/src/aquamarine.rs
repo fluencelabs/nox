@@ -46,11 +46,12 @@ pub struct AquamarineBackend<RT: AquaRuntime, F> {
     plumber: Plumber<RT, F>,
     out: EffectsChannel,
     host_peer_id: PeerId,
+    data_store: Arc<ParticleDataStore>,
 }
 
 impl<RT: AquaRuntime, F: ParticleFunctionStatic> AquamarineBackend<RT, F> {
     #[allow(clippy::too_many_arguments)]
-    pub async fn new(
+    pub fn new(
         config: VmPoolConfig,
         runtime_config: RT::Config,
         datastore_config: DatastoreConfig,
@@ -70,7 +71,6 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> AquamarineBackend<RT, F> {
             datastore_config.particles_vault_dir,
             datastore_config.particles_anomaly_dir,
         );
-        data_store.initialize().await?;
         let data_store: Arc<ParticleDataStore> = Arc::new(data_store);
         let vm_pool = VmPool::new(
             config.pool_size,
@@ -79,12 +79,19 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> AquamarineBackend<RT, F> {
             health_registry,
         );
         let host_peer_id = key_manager.get_host_peer_id();
-        let plumber = Plumber::new(vm_pool, data_store, builtins, plumber_metrics, key_manager);
+        let plumber = Plumber::new(
+            vm_pool,
+            data_store.clone(),
+            builtins,
+            plumber_metrics,
+            key_manager,
+        );
         let this = Self {
             inlet,
             plumber,
             out,
             host_peer_id,
+            data_store,
         };
 
         Ok((this, sender))
@@ -134,11 +141,16 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> AquamarineBackend<RT, F> {
     }
 
     pub fn start(mut self) -> JoinHandle<()> {
+        let data_store = self.data_store.clone();
         let mut stream = futures::stream::poll_fn(move |cx| self.poll(cx).map(|_| Some(()))).fuse();
         let result = tokio::task::Builder::new()
             .name("AVM")
             .spawn(
                 async move {
+                    data_store
+                        .initialize()
+                        .await
+                        .expect("Could not initialize data store");
                     loop {
                         stream.next().await;
                     }
