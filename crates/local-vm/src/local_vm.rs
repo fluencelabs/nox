@@ -252,6 +252,11 @@ pub async fn make_particle(
     let mut call_results: CallResults = <_>::default();
     let mut particle_data = vec![];
     loop {
+        let prev_data = data_store
+            .read_data(id.as_str(), peer_id.to_base58().as_str())
+            .await
+            .expect("Could not load prev data");
+
         let RawAVMOutcome {
             data,
             call_requests,
@@ -259,7 +264,7 @@ pub async fn make_particle(
         } = local_vm
             .call(
                 &script,
-                vec![],
+                prev_data,
                 particle_data,
                 peer_id.to_string(),
                 timestamp,
@@ -345,6 +350,7 @@ pub async fn read_args(
                 particle.id.clone(),
             )
             .expect("execute & make particle");
+
         data_store
             .store_data(&data, particle.id.as_str(), peer_id.to_base58().as_str())
             .await
