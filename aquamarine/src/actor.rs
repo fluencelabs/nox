@@ -42,12 +42,12 @@ struct Reusables<RT> {
     vm: Option<RT>,
 }
 
+type AVMTask<RT> =
+    BoxFuture<'static, eyre::Result<(Reusables<RT>, ParticleEffects, InterpretationStats)>>;
 pub struct Actor<RT, F> {
     /// Particle of that actor is expired after that deadline
     deadline: Deadline,
-    future: Option<
-        BoxFuture<'static, eyre::Result<(Reusables<RT>, ParticleEffects, InterpretationStats)>>,
-    >,
+    future: Option<AVMTask<RT>>,
     mailbox: VecDeque<Particle>,
     waker: Option<Waker>,
     functions: Functions<F>,
