@@ -14,8 +14,11 @@
  * limitations under the License.
  */
 
+use futures::future::BoxFuture;
+use futures::FutureExt;
 use std::collections::hash_map::Entry;
 use std::sync::Arc;
+use std::task::Poll::Ready;
 use std::{
     collections::{HashMap, VecDeque},
     task::{Context, Poll},
@@ -58,6 +61,7 @@ pub struct Plumber<RT: AquaRuntime, F> {
     waker: Option<Waker>,
     metrics: Option<ParticleExecutorMetrics>,
     key_manager: KeyManager,
+    cleanup_task: Option<BoxFuture<'static, ()>>,
 }
 
 impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
@@ -77,6 +81,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
             waker: <_>::default(),
             metrics,
             key_manager,
+            cleanup_task: None,
         }
     }
 
@@ -235,21 +240,53 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
             mailbox_size += actor.mailbox_size();
         }
 
-        // Remove expired actors
-        let now = now_ms();
-        self.actors.retain(|_, actor| {
-            // if actor hasn't yet expired or is still executing, keep it
-            // TODO: if actor is expired, cancel execution and return VM back to pool
-            //       https://github.com/fluencelabs/fluence/issues/1212
-            if !actor.is_expired(now) || actor.is_executing() {
-                return true; // keep actor
-            }
+        if let Some(Ready(())) = self.cleanup_task.as_mut().map(|f| f.poll_unpin(cx)) {
+            self.cleanup_task.take();
+        }
 
-            // cleanup files and dirs after particle processing (vault & prev_data)
-            // TODO: do not pass vm https://github.com/fluencelabs/fluence/issues/1216
-            actor.cleanup();
-            false // remove actor
-        });
+        //do not schedule task if another in progress
+        if self.cleanup_task.is_none() {
+            // Remove expired actors
+            let mut cleanup_keys: Vec<(String, PeerId)> = vec![];
+            let now = now_ms();
+            self.actors.retain(|_, actor| {
+                // if actor hasn't yet expired or is still executing, keep it
+                // TODO: if actor is expired, cancel execution and return VM back to pool
+                //       https://github.com/fluencelabs/fluence/issues/1212
+                if !actor.is_expired(now) || actor.is_executing() {
+                    return true; // keep actor
+                }
+                cleanup_keys.push(actor.cleanup_key());
+                false // remove actor
+            });
+
+            if !cleanup_keys.is_empty() {
+                let data_store = self.data_store.clone();
+                self.cleanup_task = Some(
+                    async move {
+                        for (particle_id, peer_id) in cleanup_keys {
+                            tracing::debug!(
+                                target: "particle_reap",
+                                particle_id = particle_id, worker_id = peer_id.to_string(),
+                                "Reaping particle's actor"
+                            );
+
+                            if let Err(err) = data_store
+                                .cleanup_data(particle_id.as_str(), peer_id.to_string().as_str())
+                                .await
+                            {
+                                tracing::warn!(
+                                    particle_id = particle_id,
+                                    "Error cleaning up after particle {:?}",
+                                    err
+                                );
+                            }
+                        }
+                    }
+                    .boxed(),
+                )
+            }
+        }
 
         // Execute next messages
         let mut stats = vec![];

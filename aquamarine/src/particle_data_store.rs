@@ -98,7 +98,7 @@ impl ParticleDataStore {
         Ok(data)
     }
 
-    pub async fn cleanup_data(&mut self, particle_id: &str, current_peer_id: &str) -> Result<()> {
+    pub async fn cleanup_data(&self, particle_id: &str, current_peer_id: &str) -> Result<()> {
         tracing::debug!(target: "particle_reap", particle_id = particle_id, "Cleaning up particle data for particle");
         remove_file(&self.data_file(particle_id, current_peer_id))
             .map_err(DataStoreError::CleanupData)?;
