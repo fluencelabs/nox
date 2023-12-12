@@ -68,7 +68,7 @@ use crate::metrics::TokioCollector;
 // TODO: documentation
 pub struct Node<RT: AquaRuntime> {
     particle_stream: mpsc::Receiver<Particle>,
-    effects_stream: mpsc::UnboundedReceiver<Result<RoutingEffects, AquamarineApiError>>,
+    effects_stream: mpsc::Receiver<Result<RoutingEffects, AquamarineApiError>>,
     pub swarm: Swarm<FluenceNetworkBehaviour>,
 
     pub connectivity: Connectivity,
@@ -223,7 +223,7 @@ impl<RT: AquaRuntime> Node<RT> {
             config.system_services.decider.network_api_endpoint.clone(),
         ));
 
-        let (effects_out, effects_in) = mpsc::unbounded_channel();
+        let (effects_out, effects_in) = mpsc::channel(config.node_config.effects_queue_buffer);
 
         let pool_config =
             VmPoolConfig::new(config.aquavm_pool_size, config.particle_execution_timeout);
@@ -406,7 +406,7 @@ impl<RT: AquaRuntime> Node<RT> {
     #[allow(clippy::too_many_arguments)]
     pub fn with(
         particle_stream: mpsc::Receiver<Particle>,
-        effects_stream: mpsc::UnboundedReceiver<Result<RoutingEffects, AquamarineApiError>>,
+        effects_stream: mpsc::Receiver<Result<RoutingEffects, AquamarineApiError>>,
         swarm: Swarm<FluenceNetworkBehaviour>,
         connectivity: Connectivity,
         aquamarine_api: AquamarineApi,

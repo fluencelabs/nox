@@ -39,7 +39,7 @@ use crate::particle_effects::RoutingEffects;
 use crate::vm_pool::VmPool;
 use crate::{DatastoreConfig, ParticleDataStore, Plumber, VmPoolConfig};
 
-pub type EffectsChannel = mpsc::UnboundedSender<Result<RoutingEffects, AquamarineApiError>>;
+pub type EffectsChannel = mpsc::Sender<Result<RoutingEffects, AquamarineApiError>>;
 
 pub struct AquamarineBackend<RT: AquaRuntime, F> {
     inlet: mpsc::Receiver<Command>,
@@ -127,7 +127,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> AquamarineBackend<RT, F> {
         while let Poll::Ready(effects) = self.plumber.poll(cx) {
             wake = true;
             // send results back
-            let sent = self.out.send(effects);
+            let sent = self.out.try_send(effects);
             if let Err(err) = sent {
                 log::error!("Aquamarine effects outlet has died: {}", err);
             }

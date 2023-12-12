@@ -290,8 +290,8 @@ async fn fold_par_same_node_stream_heavy() {
     client.timeout = Duration::from_secs(200);
     client.particle_ttl = Duration::from_secs(400);
 
-    client
-        .send_particle(
+    let mut args = client
+        .execute_particle(
             format!(
                 r#"
         (seq
@@ -347,13 +347,9 @@ async fn fold_par_same_node_stream_heavy() {
                 "flat_length" => json!(flat.len())
             },
         )
-        .await;
-
-    let mut args = client
-        .receive_args()
         .await
-        .wrap_err("receive args")
         .unwrap();
+
     type Inner = Vec<Vec<(String, u32)>>;
     type Res = Vec<u32>;
 
