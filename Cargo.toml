@@ -101,7 +101,7 @@ marine-utils = "0.5.0"
 marine-it-parser = "0.14.0"
 
 # avm
-avm-server = { git = "https://github.com/fluencelabs/aquavm.git", branch = "feat/public-avm-error-type", version = "0.33.3" }
+avm-server = { git = "https://github.com/fluencelabs/aquavm.git", branch = "master", version = "0.33.3" }
 air-interpreter-wasm = { version = "0.54.0" }
 
 # libp2p
