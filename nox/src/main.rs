@@ -26,7 +26,6 @@
     unreachable_patterns
 )]
 
-use avm_server::avm_runner::AVMRunner;
 use base64::{engine::general_purpose::STANDARD as base64, Engine};
 
 use eyre::WrapErr;
@@ -38,6 +37,7 @@ use tracing_subscriber::util::SubscriberInitExt;
 
 use air_interpreter_fs::write_default_air_interpreter;
 use aquamarine::{DatastoreConfig, VmConfig};
+use avm_server::avm_runner::AVMRunner;
 use config_utils::to_peer_id;
 use fs_utils::to_abs_path;
 use nox::{env_filter, log_layer, tokio_console_layer, tracing_layer, Node};
