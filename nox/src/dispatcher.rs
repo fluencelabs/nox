@@ -21,7 +21,7 @@ use particle_protocol::Particle;
 use peer_metrics::DispatcherMetrics;
 use prometheus_client::registry::Registry;
 use tokio::sync::mpsc;
-use tokio_stream::wrappers::{ReceiverStream};
+use tokio_stream::wrappers::ReceiverStream;
 use tracing::Instrument;
 
 use crate::effectors::Effectors;

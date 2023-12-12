@@ -496,7 +496,7 @@ impl<RT: AquaRuntime> Node<RT> {
             let services_metrics_backend = services_metrics_backend.start();
             let spell_event_bus = spell_event_bus.start();
             let sorcerer = sorcerer.start(spell_events_receiver);
-            let pool = aquamarine_backend.start();
+            let aquamarine_backend = aquamarine_backend.start();
             let mut connectivity = connectivity.start();
             let mut dispatcher = dispatcher.start(particle_stream, effects_stream);
             let mut exit_inlet = Some(exit_inlet);
@@ -525,7 +525,7 @@ impl<RT: AquaRuntime> Node<RT> {
             sorcerer.abort();
             dispatcher.cancel().await;
             connectivity.cancel().await;
-            pool.abort();
+            aquamarine_backend.abort();
         }.in_current_span()).expect("Could not spawn task");
 
         // Note: need to be after the start of the node to be able to subscribe spells

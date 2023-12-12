@@ -19,6 +19,7 @@ use std::borrow::Cow;
 use std::sync::Arc;
 use std::time::Instant;
 
+use avm_server::avm_runner::RawAVMOutcome;
 use avm_server::{CallResults, ParticleParameters};
 use fluence_keypair::KeyPair;
 
@@ -53,6 +54,14 @@ pub struct FutResult<RT, Eff, Stats> {
     pub stats: Stats,
 }
 
+struct AVMCallResult<'a, RT: AquaRuntime> {
+    particle: Particle,
+    call_results: CallResults,
+    particle_params: ParticleParameters<'a>,
+    avm_outcome: Result<RawAVMOutcome, RT::Error>,
+    stats: InterpretationStats,
+    vm: RT,
+}
 #[async_trait]
 impl<RT: AquaRuntime> ParticleExecutor for RT {
     type Output = AVMRes<RT>;
@@ -75,28 +84,26 @@ impl<RT: AquaRuntime> ParticleExecutor for RT {
         if let Ok(prev_data) = prev_data {
             tracing::trace!(target: "execution", particle_id = particle_id, "Executing particle");
             let prev_data_len = prev_data.len();
-            let moved_prev_data = prev_data.clone();
-            let moved_call_results = call_results.clone();
-            let moved_particle_id = particle_id.clone();
+
             let avm_result = tokio::task::spawn_blocking(move || {
+                let particle_id = particle.id.clone();
                 let now = Instant::now();
                 let memory_size_before = self.memory_stats().memory_size;
                 let particle_params = ParticleParameters {
                     current_peer_id: Cow::Owned(current_peer_id.to_string()),
                     init_peer_id: Cow::Owned(particle.init_peer_id.to_string()),
                     // we use signature hex as particle id to prevent compromising of particle data store
-                    particle_id: Cow::Owned(moved_particle_id),
+                    particle_id: Cow::Owned(particle_id),
                     timestamp: particle.timestamp,
                     ttl: particle.ttl,
                 };
-                let air = particle.script.clone();
-                let current_data = particle.data.clone();
+                let current_data = &particle.data[..];
                 let avm_outcome = self.call(
-                    air,
+                    &particle.script,
+                    prev_data,
                     current_data,
-                    moved_prev_data,
                     particle_params.clone(),
-                    moved_call_results,
+                    call_results.clone(),
                     &key_pair,
                 );
                 let memory_size_after = self.memory_stats().memory_size;
@@ -110,18 +117,25 @@ impl<RT: AquaRuntime> ParticleExecutor for RT {
                     new_data_len,
                     success: avm_outcome.is_ok(),
                 };
-                (avm_outcome, stats, particle, particle_params, self)
+                AVMCallResult {
+                    avm_outcome,
+                    stats,
+                    particle,
+                    call_results,
+                    particle_params,
+                    vm: self,
+                }
             });
 
             let avm_result = avm_result.await;
             match avm_result {
                 Ok(avm_result) => {
-                    let (avm_outcome, stats, particle, particle_params, vm) = avm_result;
-                    let particle_id = particle.id;
-                    match &avm_outcome {
+                    let avm_result = avm_result;
+                    let particle_id = avm_result.particle.id;
+                    let stats = avm_result.stats;
+                    match &avm_result.avm_outcome {
                         Ok(outcome) => {
                             let len = outcome.data.len();
-
                             tracing::trace!(
                                 target: "execution", particle_id = particle_id,
                                 "Particle interpreted in {} [{} bytes => {} bytes]",
@@ -135,11 +149,10 @@ impl<RT: AquaRuntime> ParticleExecutor for RT {
                             ) {
                                 let anomaly_result = data_store
                                     .save_anomaly_data(
-                                        particle.script.as_str(),
-                                        &prev_data,
-                                        &particle.data,
-                                        &call_results,
-                                        &particle_params,
+                                        avm_result.particle.script.as_str(),
+                                        &avm_result.particle.data,
+                                        &avm_result.call_results,
+                                        &avm_result.particle_params,
                                         outcome,
                                         stats.interpretation_time,
                                         stats.memory_delta,
@@ -168,7 +181,7 @@ impl<RT: AquaRuntime> ParticleExecutor for RT {
                                     err
                                 );
                                 return FutResult {
-                                    runtime: Some(vm),
+                                    runtime: Some(avm_result.vm),
                                     effects: ParticleEffects::empty(),
                                     stats: InterpretationStats::failed(),
                                 };
@@ -183,10 +196,10 @@ impl<RT: AquaRuntime> ParticleExecutor for RT {
                         }
                     }
 
-                    let effects = Self::into_effects(avm_outcome, particle_id);
+                    let effects = Self::into_effects(avm_result.avm_outcome, particle_id);
 
                     FutResult {
-                        runtime: Some(vm),
+                        runtime: Some(avm_result.vm),
                         effects,
                         stats,
                     }

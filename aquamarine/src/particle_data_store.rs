@@ -154,7 +154,6 @@ impl ParticleDataStore {
     pub async fn save_anomaly_data(
         &self,
         air_script: &str,
-        prev_data: &[u8],
         current_data: &[u8],
         call_results: &CallResults,
         particle_parameters: &ParticleParameters<'_>,
@@ -162,6 +161,13 @@ impl ParticleDataStore {
         execution_time: Duration,
         memory_delta: usize,
     ) -> std::result::Result<(), DataStoreError> {
+        let prev_data = self
+            .read_data(
+                &particle_parameters.particle_id,
+                &particle_parameters.current_peer_id,
+            )
+            .await?;
+
         let ser_particle = serde_json::to_vec(particle_parameters).map_err(SerializeAnomaly)?;
         let ser_call_results = serde_json::to_vec(call_results).map_err(SerializeAnomaly)?;
         let ser_avm_outcome = serde_json::to_vec(outcome).map_err(SerializeAnomaly)?;
@@ -169,7 +175,7 @@ impl ParticleDataStore {
         let anomaly_data = AnomalyData {
             air_script: Cow::Borrowed(air_script),
             particle: Cow::Owned(ser_particle),
-            prev_data: Cow::Borrowed(prev_data),
+            prev_data: Cow::Owned(prev_data),
             current_data: Cow::Borrowed(current_data),
             call_results: Cow::Owned(ser_call_results),
             avm_outcome: Cow::Owned(ser_avm_outcome),

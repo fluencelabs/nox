@@ -144,7 +144,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> AquamarineBackend<RT, F> {
         let data_store = self.data_store.clone();
         let mut stream = futures::stream::poll_fn(move |cx| self.poll(cx).map(|_| Some(()))).fuse();
         let result = tokio::task::Builder::new()
-            .name("AVM")
+            .name("Aquamarine")
             .spawn(
                 async move {
                     data_store
@@ -152,12 +152,14 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> AquamarineBackend<RT, F> {
                         .await
                         .expect("Could not initialize data store");
                     loop {
+                        tracing::info!("waiting next");
                         stream.next().await;
                     }
                 }
                 .in_current_span(),
             )
             .expect("Could not spawn task");
+
         result
     }
 }
