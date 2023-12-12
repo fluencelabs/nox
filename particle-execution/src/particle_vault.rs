@@ -42,8 +42,10 @@ impl ParticleVault {
         self.vault_dir.join(key)
     }
 
-    pub fn initialize(&self) -> Result<(), VaultError> {
-        create_dir(&self.vault_dir).map_err(InitializeVault)?;
+    pub async fn initialize(&self) -> Result<(), VaultError> {
+        tokio::fs::create_dir_all(&self.vault_dir)
+            .await
+            .map_err(InitializeVault)?;
 
         Ok(())
     }

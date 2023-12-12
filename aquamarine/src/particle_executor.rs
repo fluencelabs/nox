@@ -148,7 +148,7 @@ impl<RT: AquaRuntime> ParticleExecutor for RT {
                                 if let Err(err) = anomaly_result {
                                     tracing::warn!(
                                         particle_id = particle_id,
-                                        "Could not save anomaly result {}",
+                                        "Could not save anomaly result: {}",
                                         err
                                     )
                                 }
@@ -164,7 +164,7 @@ impl<RT: AquaRuntime> ParticleExecutor for RT {
                             if let Err(err) = store_result {
                                 tracing::warn!(
                                     particle_id = particle_id,
-                                    "Could not save particle result {}",
+                                    "Could not save particle result: {}",
                                     err
                                 );
                                 return FutResult {

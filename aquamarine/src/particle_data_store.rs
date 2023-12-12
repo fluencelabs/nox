@@ -25,7 +25,6 @@ use fluence_libp2p::PeerId;
 use thiserror::Error;
 
 use crate::DataStoreError::SerializeAnomaly;
-use fs_utils::create_dir;
 use now_millis::now_ms;
 use particle_execution::{ParticleVault, VaultError};
 
@@ -74,9 +73,11 @@ const MEMORY_DELTA_BYTES_THRESHOLD: usize = 10 * bytesize::MB as usize;
 
 impl ParticleDataStore {
     pub async fn initialize(&self) -> Result<()> {
-        create_dir(&self.particle_data_store).map_err(DataStoreError::CreateDataStore)?;
+        tokio::fs::create_dir_all(&self.particle_data_store)
+            .await
+            .map_err(DataStoreError::CreateDataStore)?;
 
-        self.vault.initialize()?;
+        self.vault.initialize().await?;
 
         Ok(())
     }
@@ -191,7 +192,7 @@ impl ParticleDataStore {
         anomaly_data: AnomalyData<'_>,
     ) -> std::result::Result<(), DataStoreError> {
         let path = self.anomaly_dir(particle_id, current_peer_id);
-        tokio::fs::create_dir(&path)
+        tokio::fs::create_dir_all(&path)
             .await
             .map_err(DataStoreError::CreateAnomalyDir)?;
 
