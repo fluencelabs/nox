@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-use avm_server::CallResults;
 use std::sync::Arc;
 use std::task::Context;
 use std::{
@@ -43,8 +42,7 @@ struct Reusables<RT> {
 }
 
 type AVMCallResult<RT> = FutResult<(usize, Option<RT>), RoutingEffects, InterpretationStats>;
-type AVMTask<RT> =
-    BoxFuture<'static, eyre::Result<(Reusables<RT>, ParticleEffects, InterpretationStats)>>;
+type AVMTask<RT> = BoxFuture<'static, (Reusables<RT>, ParticleEffects, InterpretationStats)>;
 pub struct Actor<RT, F> {
     /// Particle of that actor is expired after that deadline
     deadline: Deadline,
@@ -136,49 +134,37 @@ where
         self.functions.poll(cx);
 
         // Poll AquaVM future
-        if let Some(value) = self.process_avm_call_result(cx) {
+        if let Some(value) = self.poll_avm_future(cx) {
             return value;
         }
 
         Poll::Pending
     }
 
-    fn process_avm_call_result(&mut self, cx: &mut Context<'_>) -> Option<Poll<AVMCallResult<RT>>> {
+    fn poll_avm_future(&mut self, cx: &mut Context<'_>) -> Option<Poll<AVMCallResult<RT>>> {
         if let Some(Poll::Ready(res)) = self.future.as_mut().map(|f| f.poll_unpin(cx)) {
-            return match res {
-                Ok((reusables, effects, stats)) => {
-                    let _entered = self.span.enter();
+            let (reusables, effects, stats) = res;
+            let _entered = self.span.enter();
 
-                    self.future.take();
+            self.future.take();
 
-                    let waker = cx.waker().clone();
-                    // Schedule execution of functions
-                    self.functions
-                        .execute(self.particle.id.clone(), effects.call_requests, waker);
+            let waker = cx.waker().clone();
+            // Schedule execution of functions
+            self.functions
+                .execute(self.particle.id.clone(), effects.call_requests, waker);
 
-                    let effects = RoutingEffects {
-                        particle: Particle {
-                            data: effects.new_data,
-                            ..self.particle.clone()
-                        },
-                        next_peers: effects.next_peers,
-                    };
-                    Some(Poll::Ready(FutResult {
-                        runtime: (reusables.vm_id, reusables.vm),
-                        outcome: effects,
-                        stats,
-                    }))
-                }
-                Err(err) => {
-                    self.future.take();
-                    tracing::error!(
-                        particle_id = self.particle.id,
-                        "Could not process particle: {}",
-                        err
-                    );
-                    Some(Poll::Pending)
-                }
+            let effects = RoutingEffects {
+                particle: Particle {
+                    data: effects.new_data,
+                    ..self.particle.clone()
+                },
+                next_peers: effects.next_peers,
             };
+            return Some(Poll::Ready(FutResult {
+                runtime: (reusables.vm_id, reusables.vm),
+                effects,
+                stats,
+            }));
         }
         None
     }
@@ -219,9 +205,20 @@ where
         let key_pair = self.key_pair.clone();
         let peer_id = self.current_peer_id;
         self.future = Some(
-            Actor::<RT, F>::process(
-                vm_id, vm, waker, data_store, key_pair, peer_id, particle, calls,
-            )
+            async move {
+                let res = vm
+                    .execute(data_store, (particle.clone(), calls), peer_id, key_pair)
+                    .await;
+
+                waker.wake();
+
+                let reusables = Reusables {
+                    vm_id,
+                    vm: res.runtime,
+                };
+
+                (reusables, res.effects, res.stats)
+            }
             .instrument(self.span.clone())
             .boxed(),
         );
@@ -229,66 +226,6 @@ where
 
         ActorPoll::Executing(stats)
     }
-
-    #[allow(clippy::too_many_arguments)]
-    async fn process(
-        vm_id: usize,
-        vm: RT,
-        waker: Waker,
-        data_store: Arc<ParticleDataStore>,
-        key_pair: KeyPair,
-        peer_id: PeerId,
-        particle: Particle,
-        calls: CallResults,
-    ) -> eyre::Result<(Reusables<RT>, ParticleEffects, InterpretationStats)> {
-        let particle_id = particle.id.clone();
-
-        let prev_data = data_store
-            .read_data(particle.id.as_str(), peer_id.to_base58().as_str())
-            .await?;
-
-        let prev_data_len = prev_data.len();
-
-        let res = vm.execute((particle, calls), prev_data, peer_id, key_pair);
-
-        let interpretation_time = res.stats.interpretation_time;
-
-        match &res.outcome {
-            Ok(outcome) => {
-                let len = outcome.data.len();
-                tracing::trace!(
-                    target: "execution", particle_id = particle_id,
-                    "Particle interpreted in {} [{} bytes => {} bytes]",
-                    humantime::format_duration(interpretation_time), prev_data_len, len
-                );
-                data_store
-                    .store_data(
-                        &outcome.data,
-                        particle_id.as_str(),
-                        peer_id.to_base58().as_str(),
-                    )
-                    .await?;
-            }
-            Err(err) => {
-                tracing::warn!(
-                    particle_id = particle_id,
-                    "Error executing particle: {}",
-                    err
-                )
-            }
-        }
-
-        let effects = RT::into_effects(res.outcome, particle_id);
-        waker.wake();
-
-        let reusables = Reusables {
-            vm_id,
-            vm: res.runtime,
-        };
-
-        Ok((reusables, effects, res.stats))
-    }
-
     fn wake(&self) {
         if let Some(waker) = &self.waker {
             waker.wake_by_ref();

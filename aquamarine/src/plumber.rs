@@ -208,21 +208,21 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
             if let Poll::Ready(result) = actor.poll_completed(cx) {
                 interpretation_stats.push(result.stats);
                 let (local_peers, remote_peers): (Vec<_>, Vec<_>) = result
-                    .outcome
+                    .effects
                     .next_peers
                     .into_iter()
                     .partition(|p| key_manager.is_local(*p));
 
                 if !remote_peers.is_empty() {
                     remote_effects.push(RoutingEffects {
-                        particle: result.outcome.particle.clone(),
+                        particle: result.effects.particle.clone(),
                         next_peers: remote_peers,
                     })
                 }
 
                 if !local_peers.is_empty() {
                     local_effects.push(RoutingEffects {
-                        particle: result.outcome.particle,
+                        particle: result.effects.particle,
                         next_peers: local_peers,
                     });
                 }

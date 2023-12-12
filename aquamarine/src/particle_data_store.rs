@@ -14,15 +14,17 @@
  * limitations under the License.
  */
 
+use std::borrow::Cow;
 use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use avm_server::avm_runner::RawAVMOutcome;
-use avm_server::AnomalyData;
+use avm_server::{AnomalyData, CallResults, ParticleParameters};
 use fluence_libp2p::PeerId;
 use thiserror::Error;
 
+use crate::DataStoreError::SerializeAnomaly;
 use fs_utils::create_dir;
 use now_millis::now_ms;
 use particle_execution::{ParticleVault, VaultError};
@@ -147,18 +149,57 @@ impl ParticleDataStore {
             || outcome.ret_code != 0
     }
 
-    pub async fn collect_anomaly_data(
-        &mut self,
+    #[allow(clippy::too_many_arguments)]
+    pub async fn save_anomaly_data(
+        &self,
+        air_script: &str,
+        prev_data: &[u8],
+        current_data: &[u8],
+        call_results: &CallResults,
+        particle_parameters: &ParticleParameters<'_>,
+        outcome: &RawAVMOutcome,
+        execution_time: Duration,
+        memory_delta: usize,
+    ) -> std::result::Result<(), DataStoreError> {
+        let ser_particle = serde_json::to_vec(particle_parameters).map_err(SerializeAnomaly)?;
+        let ser_call_results = serde_json::to_vec(call_results).map_err(SerializeAnomaly)?;
+        let ser_avm_outcome = serde_json::to_vec(outcome).map_err(SerializeAnomaly)?;
+
+        let anomaly_data = AnomalyData {
+            air_script: Cow::Borrowed(air_script),
+            particle: Cow::Owned(ser_particle),
+            prev_data: Cow::Borrowed(prev_data),
+            current_data: Cow::Borrowed(current_data),
+            call_results: Cow::Owned(ser_call_results),
+            avm_outcome: Cow::Owned(ser_avm_outcome),
+            execution_time,
+            memory_delta,
+        };
+        self.collect_anomaly_data(
+            &particle_parameters.particle_id,
+            &particle_parameters.current_peer_id,
+            anomaly_data,
+        )
+        .await?;
+        Ok(())
+    }
+
+    async fn collect_anomaly_data(
+        &self,
         particle_id: &str,
         current_peer_id: &str,
         anomaly_data: AnomalyData<'_>,
     ) -> std::result::Result<(), DataStoreError> {
         let path = self.anomaly_dir(particle_id, current_peer_id);
-        create_dir(&path).map_err(DataStoreError::CreateAnomalyDir)?;
+        tokio::fs::create_dir(&path)
+            .await
+            .map_err(DataStoreError::CreateAnomalyDir)?;
 
         let file = path.join("data");
         let data = serde_json::to_vec(&anomaly_data).map_err(DataStoreError::SerializeAnomaly)?;
-        std::fs::write(&file, data).map_err(|err| DataStoreError::ReadData(err, file))?;
+        tokio::fs::write(&file, data)
+            .await
+            .map_err(|err| DataStoreError::ReadData(err, file))?;
 
         Ok(())
     }

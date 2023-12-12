@@ -45,8 +45,20 @@ impl ParticleEffects {
 /// Performance stats about particle's interpretation
 pub struct InterpretationStats {
     pub interpretation_time: Duration,
+    pub memory_delta: usize,
     pub new_data_len: Option<usize>,
     pub success: bool,
+}
+
+impl InterpretationStats {
+    pub fn failed() -> Self {
+        Self {
+            interpretation_time: Duration::default(),
+            memory_delta: 0,
+            new_data_len: None,
+            success: false,
+        }
+    }
 }
 
 /// Routing part of the [[ParticleEffects].
