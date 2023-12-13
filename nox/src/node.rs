@@ -19,7 +19,8 @@ use std::sync::Arc;
 use std::{io, net::SocketAddr};
 
 use aquamarine::{
-    AquaRuntime, AquamarineApi, AquamarineApiError, AquamarineBackend, RoutingEffects, VmPoolConfig,
+    AquaRuntime, AquamarineApi, AquamarineApiError, AquamarineBackend, DataStoreConfig,
+    RoutingEffects, VmPoolConfig,
 };
 use config_utils::to_peer_id;
 use connection_pool::ConnectionPoolT;
@@ -67,13 +68,13 @@ use crate::metrics::TokioCollector;
 // TODO: documentation
 pub struct Node<RT: AquaRuntime> {
     particle_stream: mpsc::Receiver<Particle>,
-    effects_stream: mpsc::UnboundedReceiver<Result<RoutingEffects, AquamarineApiError>>,
+    effects_stream: mpsc::Receiver<Result<RoutingEffects, AquamarineApiError>>,
     pub swarm: Swarm<FluenceNetworkBehaviour>,
 
     pub connectivity: Connectivity,
     pub aquamarine_api: AquamarineApi,
     pub dispatcher: Dispatcher,
-    aquavm_pool: AquamarineBackend<RT, Arc<Builtins<Connectivity>>>,
+    aquamarine_backend: AquamarineBackend<RT, Arc<Builtins<Connectivity>>>,
     system_service_deployer: Deployer,
 
     spell_event_bus_api: SpellEventBusApi,
@@ -97,9 +98,10 @@ pub struct Node<RT: AquaRuntime> {
 }
 
 impl<RT: AquaRuntime> Node<RT> {
-    pub fn new(
+    pub async fn new(
         config: ResolvedConfig,
         vm_config: RT::Config,
+        data_store_config: DataStoreConfig,
         node_version: &'static str,
         air_version: &'static str,
         system_service_distros: SystemServiceDistros,
@@ -221,20 +223,21 @@ impl<RT: AquaRuntime> Node<RT> {
             config.system_services.decider.network_api_endpoint.clone(),
         ));
 
-        let (effects_out, effects_in) = mpsc::unbounded_channel();
+        let (effects_out, effects_in) = mpsc::channel(config.node_config.effects_queue_buffer);
 
         let pool_config =
             VmPoolConfig::new(config.aquavm_pool_size, config.particle_execution_timeout);
-        let (aquavm_pool, aquamarine_api) = AquamarineBackend::new(
+        let (aquamarine_backend, aquamarine_api) = AquamarineBackend::new(
             pool_config,
             vm_config,
+            data_store_config,
             Arc::clone(&builtins),
             effects_out,
             plumber_metrics,
             vm_pool_metrics,
             health_registry.as_mut(),
             key_manager.clone(),
-        );
+        )?;
         let effectors = Effectors::new(connectivity.clone());
         let dispatcher = {
             let parallelism = config.particle_processor_parallelism;
@@ -327,7 +330,7 @@ impl<RT: AquaRuntime> Node<RT> {
             connectivity,
             aquamarine_api,
             dispatcher,
-            aquavm_pool,
+            aquamarine_backend,
             system_services_deployer,
             spell_event_bus_api,
             spell_event_bus,
@@ -403,12 +406,12 @@ impl<RT: AquaRuntime> Node<RT> {
     #[allow(clippy::too_many_arguments)]
     pub fn with(
         particle_stream: mpsc::Receiver<Particle>,
-        effects_stream: mpsc::UnboundedReceiver<Result<RoutingEffects, AquamarineApiError>>,
+        effects_stream: mpsc::Receiver<Result<RoutingEffects, AquamarineApiError>>,
         swarm: Swarm<FluenceNetworkBehaviour>,
         connectivity: Connectivity,
         aquamarine_api: AquamarineApi,
         dispatcher: Dispatcher,
-        aquavm_pool: AquamarineBackend<RT, Arc<Builtins<Connectivity>>>,
+        aquamarine_backend: AquamarineBackend<RT, Arc<Builtins<Connectivity>>>,
         system_service_deployer: Deployer,
         spell_event_bus_api: SpellEventBusApi,
         spell_event_bus: SpellEventBus,
@@ -432,7 +435,7 @@ impl<RT: AquaRuntime> Node<RT> {
             connectivity,
             aquamarine_api,
             dispatcher,
-            aquavm_pool,
+            aquamarine_backend,
             system_service_deployer,
             spell_event_bus_api,
             spell_event_bus,
@@ -464,7 +467,7 @@ impl<RT: AquaRuntime> Node<RT> {
         let mut swarm = self.swarm;
         let connectivity = self.connectivity;
         let dispatcher = self.dispatcher;
-        let aquavm_pool = self.aquavm_pool;
+        let aquamarine_backend = self.aquamarine_backend;
         let spell_event_bus = self.spell_event_bus;
         let spell_events_receiver = self.spell_events_receiver;
         let sorcerer = self.sorcerer;
@@ -493,7 +496,7 @@ impl<RT: AquaRuntime> Node<RT> {
             let services_metrics_backend = services_metrics_backend.start();
             let spell_event_bus = spell_event_bus.start();
             let sorcerer = sorcerer.start(spell_events_receiver);
-            let pool = aquavm_pool.start();
+            let aquamarine_backend = aquamarine_backend.start();
             let mut connectivity = connectivity.start();
             let mut dispatcher = dispatcher.start(particle_stream, effects_stream);
             let mut exit_inlet = Some(exit_inlet);
@@ -522,7 +525,7 @@ impl<RT: AquaRuntime> Node<RT> {
             sorcerer.abort();
             dispatcher.cancel().await;
             connectivity.cancel().await;
-            pool.abort();
+            aquamarine_backend.abort();
         }.in_current_span()).expect("Could not spawn task");
 
         // Note: need to be after the start of the node to be able to subscribe spells
@@ -568,6 +571,7 @@ impl<RT: AquaRuntime> Node<RT> {
 
 #[cfg(test)]
 mod tests {
+    use avm_server::avm_runner::AVMRunner;
     use libp2p::core::Multiaddr;
     use libp2p::PeerId;
     use maplit::hashmap;
@@ -576,7 +580,7 @@ mod tests {
     use std::time::Duration;
 
     use air_interpreter_fs::{air_interpreter_path, write_default_air_interpreter};
-    use aquamarine::{VmConfig, AVM};
+    use aquamarine::{DataStoreConfig, VmConfig};
     use config_utils::to_peer_id;
     use connected_client::ConnectedClient;
     use fs_utils::to_abs_path;
@@ -603,20 +607,23 @@ mod tests {
         config.http_config = None;
         let vm_config = VmConfig::new(
             to_peer_id(&config.root_key_pair.clone().into()),
-            config.dir_config.avm_base_dir.clone(),
             config.dir_config.air_interpreter_path.clone(),
             None,
         );
+        let data_store_config = DataStoreConfig::new(config.dir_config.avm_base_dir.clone());
+
         let system_service_distros =
             SystemServiceDistros::default_from(config.system_services.clone())
                 .expect("can't create system services");
-        let mut node: Box<Node<AVM<_>>> = Node::new(
+        let mut node: Box<Node<AVMRunner>> = Node::new(
             config,
             vm_config,
+            data_store_config,
             "some version",
             "some version",
             system_service_distros,
         )
+        .await
         .expect("create node");
 
         let listening_address: Multiaddr = "/ip4/127.0.0.1/tcp/7777".parse().unwrap();

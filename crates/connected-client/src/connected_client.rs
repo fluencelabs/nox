@@ -15,6 +15,7 @@
  */
 
 use core::ops::Deref;
+use std::sync::Arc;
 use std::{collections::HashMap, ops::DerefMut, time::Duration};
 
 use eyre::Result;
@@ -22,9 +23,10 @@ use eyre::{bail, eyre, WrapErr};
 use fluence_keypair::KeyPair;
 use fluence_libp2p::Transport;
 use libp2p::{core::Multiaddr, PeerId};
-use local_vm::{make_particle, make_vm, read_args, DataStoreError};
+use local_vm::{make_particle, make_vm, read_args, ParticleDataStore};
 use particle_protocol::Particle;
 use serde_json::{Value as JValue, Value};
+use tempfile::TempDir;
 use test_constants::{
     IDLE_CONNECTION_TIMEOUT, KAD_TIMEOUT, PARTICLE_TTL, SHORT_TIMEOUT, TIMEOUT, TRANSPORT_TIMEOUT,
 };
@@ -33,7 +35,7 @@ use crate::client::Client;
 use crate::event::ClientEvent;
 
 #[allow(clippy::upper_case_acronyms)]
-type AVM = local_vm::AVM<DataStoreError>;
+type AVM = local_vm::AVMRunner;
 
 pub struct ConnectedClient {
     pub client: Client,
@@ -43,7 +45,9 @@ pub struct ConnectedClient {
     pub short_timeout: Duration,
     pub kad_timeout: Duration,
     pub local_vm: tokio::sync::OnceCell<tokio::sync::Mutex<AVM>>,
+    pub data_store: Arc<ParticleDataStore>,
     pub particle_ttl: Duration,
+    pub tmp_dir: TempDir,
 }
 
 impl ConnectedClient {
@@ -142,12 +146,7 @@ impl ConnectedClient {
                 peer_id, ..
             }) = client.receive_one().await
             {
-                Ok(ConnectedClient::new(
-                    client,
-                    peer_id,
-                    node_address,
-                    particle_ttl,
-                ))
+                Ok(ConnectedClient::new(client, peer_id, node_address, particle_ttl).await)
             } else {
                 Err(ErrorKind::ConnectionAborted.into())
             };
@@ -161,18 +160,41 @@ impl ConnectedClient {
     }
 
     pub async fn get_local_vm(&self) -> &tokio::sync::Mutex<AVM> {
-        let peer_id = self.client.peer_id;
         self.local_vm
-            .get_or_init(|| async { tokio::sync::Mutex::new(make_vm(peer_id)) })
+            .get_or_init(|| async {
+                let dir = self.tmp_dir.path();
+                tokio::sync::Mutex::new(make_vm(dir))
+            })
             .await
     }
-    pub fn new(
+    pub fn get_data_store(&self) -> Arc<ParticleDataStore> {
+        self.data_store.clone()
+    }
+
+    pub async fn new(
         client: Client,
         node: PeerId,
         node_address: Multiaddr,
         particle_ttl: Option<Duration>,
     ) -> Self {
         let local_vm = tokio::sync::OnceCell::const_new();
+        let tmp_dir = tempfile::tempdir().expect("Could not get temp dir");
+
+        let tmp_dir_path = tmp_dir.path();
+
+        let data_store = ParticleDataStore::new(
+            tmp_dir_path.join("particle"),
+            tmp_dir_path.join("vault"),
+            tmp_dir_path.join("anomaly"),
+        );
+
+        data_store
+            .initialize()
+            .await
+            .expect("Could not initialize datastore");
+
+        let data_store = Arc::new(data_store);
+
         Self {
             client,
             node,
@@ -181,7 +203,9 @@ impl ConnectedClient {
             short_timeout: SHORT_TIMEOUT,
             kad_timeout: KAD_TIMEOUT,
             local_vm,
+            data_store,
             particle_ttl: particle_ttl.unwrap_or(Duration::from_millis(PARTICLE_TTL as u64)),
+            tmp_dir,
         }
     }
 
@@ -227,6 +251,7 @@ impl ConnectedClient {
             script.into(),
             self.node,
             &mut guard,
+            self.data_store.clone(),
             generated,
             self.particle_ttl(),
             &self.key_pair,
@@ -275,7 +300,14 @@ impl ConnectedClient {
     pub async fn receive_args(&mut self) -> Result<Vec<JValue>> {
         let particle = self.receive().await.wrap_err("receive_args")?;
         let mut guard = self.get_local_vm().await.lock().await;
-        let result = read_args(particle, self.peer_id, &mut guard, &self.key_pair).await;
+        let result = read_args(
+            particle,
+            self.peer_id,
+            &mut guard,
+            self.data_store.clone(),
+            &self.key_pair,
+        )
+        .await;
         match result {
             Some(result) => result.map_err(|args| eyre!("AIR caught an error: {:?}", args)),
             None => Err(eyre!("Received a particle, but it didn't return anything")),
@@ -296,7 +328,14 @@ impl ConnectedClient {
             Some(index) => {
                 let particle = self.fetched.remove(index);
                 let mut guard = self.get_local_vm().await.lock().await;
-                let result = read_args(particle, self.peer_id, &mut guard, &self.key_pair).await;
+                let result = read_args(
+                    particle,
+                    self.peer_id,
+                    &mut guard,
+                    self.data_store.clone(),
+                    &self.key_pair,
+                )
+                .await;
                 drop(guard);
                 if let Some(result) = result {
                     result.map_err(|args| eyre!("AIR caught an error: {:?}", args))
@@ -319,8 +358,14 @@ impl ConnectedClient {
             if let Some(particle) = particle {
                 if particle.id == particle_id.as_ref() {
                     let mut guard = self.get_local_vm().await.lock().await;
-                    let result =
-                        read_args(particle, self.peer_id, &mut guard, &self.key_pair).await;
+                    let result = read_args(
+                        particle,
+                        self.peer_id,
+                        &mut guard,
+                        self.data_store.clone(),
+                        &self.key_pair,
+                    )
+                    .await;
                     if let Some(result) = result {
                         break result.map_err(|args| eyre!("AIR caught an error: {:?}", args));
                     }
@@ -345,7 +390,14 @@ impl ConnectedClient {
             let particle = self.receive().await.ok();
             if let Some(particle) = particle {
                 let mut guard = self.get_local_vm().await.lock().await;
-                let args = read_args(particle, self.peer_id, &mut guard, &self.key_pair).await;
+                let args = read_args(
+                    particle,
+                    self.peer_id,
+                    &mut guard,
+                    self.data_store.clone(),
+                    &self.key_pair,
+                )
+                .await;
                 if let Some(args) = args {
                     return f(args);
                 }

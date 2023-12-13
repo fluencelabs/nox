@@ -19,6 +19,7 @@ fs-utils = { workspace = true }
 air-interpreter-fs = { workspace = true }
 toy-vms = { workspace = true }
 system-services = { workspace = true }
+tempfile = { workspace = true }
 
 fluence-keypair = { workspace = true }
 log = { workspace = true }

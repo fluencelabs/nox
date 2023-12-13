@@ -24,7 +24,6 @@ pub struct FunctionKindLabel {
 #[derive(Clone)]
 pub struct ParticleExecutorMetrics {
     pub interpretation_time_sec: Histogram,
-    pub call_time_sec: Histogram,
     pub interpretation_successes: Counter,
     pub interpretation_failures: Counter,
     pub total_actors_mailbox: Gauge,
@@ -101,7 +100,6 @@ impl ParticleExecutorMetrics {
 
         Self {
             interpretation_time_sec,
-            call_time_sec,
             interpretation_successes,
             interpretation_failures,
             total_actors_mailbox,

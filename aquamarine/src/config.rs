@@ -15,7 +15,6 @@
  */
 
 use fs_utils::to_abs_path;
-
 use libp2p::PeerId;
 use std::path::PathBuf;
 use std::time::Duration;
@@ -33,14 +32,6 @@ pub struct VmConfig {
     pub current_peer_id: PeerId,
     /// Path to AIR interpreter .wasm file (aquamarine.wasm)
     pub air_interpreter: PathBuf,
-    /// Dir for the interpreter to persist particle data
-    /// to merge it between particles of the same particle_id
-    pub particles_dir: PathBuf,
-    /// Dir to store directories shared between services
-    /// in the span of a single particle execution
-    pub particles_vault_dir: PathBuf,
-    /// Dir to store particles data of AquaVM performance anomalies
-    pub particles_anomaly_dir: PathBuf,
     /// Maximum heap size in bytes available for the interpreter.
     pub max_heap_size: Option<u64>,
 }
@@ -57,18 +48,36 @@ impl VmPoolConfig {
 impl VmConfig {
     pub fn new(
         current_peer_id: PeerId,
-        base_dir: PathBuf,
         air_interpreter: PathBuf,
         max_heap_size: Option<u64>,
     ) -> Self {
-        let base_dir = to_abs_path(base_dir);
         Self {
             current_peer_id,
+            air_interpreter,
+            max_heap_size,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct DataStoreConfig {
+    /// Dir for the interpreter to persist particle data
+    /// to merge it between particles of the same particle_id
+    pub particles_dir: PathBuf,
+    /// Dir to store directories shared between services
+    /// in the span of a single particle execution
+    pub particles_vault_dir: PathBuf,
+    /// Dir to store particles data of AquaVM performance anomalies
+    pub particles_anomaly_dir: PathBuf,
+}
+
+impl DataStoreConfig {
+    pub fn new(base_dir: PathBuf) -> Self {
+        let base_dir = to_abs_path(base_dir);
+        Self {
             particles_dir: config_utils::particles_dir(&base_dir),
             particles_vault_dir: config_utils::particles_vault_dir(&base_dir),
             particles_anomaly_dir: config_utils::particles_anomaly_dir(&base_dir),
-            air_interpreter,
-            max_heap_size,
         }
     }
 }

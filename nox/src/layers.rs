@@ -49,7 +49,7 @@ where
         .map(|c| &c.format)
         .unwrap_or(&LogFormat::Default);
 
-    let layer = match log_format {
+    match log_format {
         LogFormat::Logfmt => tracing_logfmt::builder()
             .with_target(true)
             .with_span_path(false)
@@ -60,9 +60,7 @@ where
             .with_thread_ids(true)
             .with_thread_names(true)
             .boxed(),
-    };
-
-    layer
+    }
 }
 
 pub fn tokio_console_layer<S>(
@@ -113,7 +111,6 @@ where
             endpoint,
             sample_ratio,
         } => {
-            global::set_text_map_propagator(TraceContextPropagator::new());
             let resource = Resource::new(vec![
                 KeyValue::new("service.name", "rust-peer"),
                 KeyValue::new("service.version", version.to_string()),
@@ -139,6 +136,12 @@ where
                 .install_batch(opentelemetry_sdk::runtime::TokioCurrentThread)?;
 
             let tracing_layer = tracing_opentelemetry::layer::<S>().with_tracer(tracer);
+
+            global::set_text_map_propagator(TraceContextPropagator::new());
+            global::set_error_handler(move |err| {
+                tracing::warn!("OpenTelemetry trace error occurred. {}", err)
+            })?;
+
             Some(tracing_layer)
         }
     };

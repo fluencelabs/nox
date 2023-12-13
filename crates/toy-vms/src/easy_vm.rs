@@ -17,8 +17,8 @@
 use std::str::FromStr;
 use std::{convert::Infallible, task::Waker, time::Duration};
 
-use avm_server::{AVMMemoryStats, AVMOutcome, CallResults, ParticleParameters};
-use futures::{future::BoxFuture, FutureExt};
+use avm_server::avm_runner::RawAVMOutcome;
+use avm_server::{AVMMemoryStats, CallResults, ParticleParameters};
 use itertools::Itertools;
 
 use aquamarine::{AquaRuntime, ParticleEffects};
@@ -33,15 +33,12 @@ impl AquaRuntime for EasyVM {
     type Config = Option<Duration>;
     type Error = Infallible;
 
-    fn create_runtime(
-        delay: Option<Duration>,
-        _: Waker,
-    ) -> BoxFuture<'static, Result<Self, Self::Error>> {
-        futures::future::ok(EasyVM { delay }).boxed()
+    fn create_runtime(delay: Option<Duration>, _: Waker) -> Result<Self, Self::Error> {
+        Ok(EasyVM { delay })
     }
 
     fn into_effects(
-        outcome: Result<AVMOutcome, Self::Error>,
+        outcome: Result<RawAVMOutcome, Self::Error>,
         _particle_id: String,
     ) -> ParticleEffects {
         let outcome = outcome.unwrap();
@@ -59,12 +56,13 @@ impl AquaRuntime for EasyVM {
 
     fn call(
         &mut self,
-        aqua: String,
-        data: Vec<u8>,
-        particle: ParticleParameters<'_>,
+        air: impl Into<String>,
+        _prev_data: impl Into<Vec<u8>>,
+        current_data: impl Into<Vec<u8>>,
+        particle_params: ParticleParameters<'_>,
         _call_results: CallResults,
         _key_pair: &KeyPair,
-    ) -> Result<AVMOutcome, Self::Error> {
+    ) -> Result<RawAVMOutcome, Self::Error> {
         if let Some(delay) = self.delay {
             std::thread::sleep(delay);
         }
@@ -72,7 +70,9 @@ impl AquaRuntime for EasyVM {
         // if the script starts with '!', then emulate routing logic
         // that allows to avoid using real AVM, but still
         // describe complex topologies
-        let (next_peer, data) = if aqua.starts_with('!') {
+        let air = air.into();
+        let data = current_data.into();
+        let (next_peer, data) = if air.starts_with('!') {
             // data contains peer ids separated by comma
             let next_peers = String::from_utf8_lossy(&data);
             let mut next_peers = next_peers.split(',');
@@ -81,23 +81,18 @@ impl AquaRuntime for EasyVM {
 
             (next_peer, next_peers.join(",").into_bytes())
         } else {
-            (particle.init_peer_id.to_string(), data)
+            (particle_params.init_peer_id.to_string(), data)
         };
 
         println!("next peer = {next_peer}");
 
-        Ok(AVMOutcome {
+        Ok(RawAVMOutcome {
+            ret_code: 0,
+            error_message: "".to_string(),
             data,
             call_requests: Default::default(),
             next_peer_pks: vec![next_peer],
-            memory_delta: 0,
-            execution_time: Default::default(),
         })
-    }
-
-    fn cleanup(&mut self, _particle_id: &str, _current_peer_id: &str) -> Result<(), Self::Error> {
-        // Nothing to cleanup in EasyVM
-        Ok(())
     }
 
     fn memory_stats(&self) -> AVMMemoryStats {

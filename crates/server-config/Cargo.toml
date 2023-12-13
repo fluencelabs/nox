@@ -35,4 +35,4 @@ config = { version = "0.13.4", default-features = false, features = ["toml"] }
 
 [dev-dependencies]
 temp-env = "0.3.6"
-tempfile = "3.8.1"
+tempfile = { workspace = true }
