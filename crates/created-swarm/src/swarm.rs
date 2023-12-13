@@ -299,8 +299,6 @@ pub fn aqua_vm_config(
     let air_interpreter = air_interpreter_path(&tmp_dir);
     write_default_air_interpreter(&air_interpreter).expect("write air interpreter");
 
-    //let avm_base_dir = tmp_dir.join("interpreter");
-
     VmConfig::new(peer_id, air_interpreter, None)
 }
 

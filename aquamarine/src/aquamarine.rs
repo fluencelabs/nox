@@ -152,7 +152,6 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> AquamarineBackend<RT, F> {
                         .await
                         .expect("Could not initialize data store");
                     loop {
-                        tracing::info!("waiting next");
                         stream.next().await;
                     }
                 }

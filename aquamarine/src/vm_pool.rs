@@ -53,7 +53,6 @@ pub struct VmPool<RT: AquaRuntime> {
     health: Option<VMPoolHealth>,
 }
 
-//TODO:check
 impl<RT: AquaRuntime> VmPool<RT> {
     /// Creates `VmPool` and starts background tasks creating `config.pool_size` number of VMs
     pub fn new(
