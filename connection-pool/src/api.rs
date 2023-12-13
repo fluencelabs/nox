@@ -112,7 +112,6 @@ impl ConnectionPoolT for ConnectionPoolApi {
         self.execute(|out| Command::GetContact { peer_id, out })
     }
 
-    #[instrument(level = tracing::Level::INFO, skip_all)]
     fn send(&self, to: Contact, particle: ExtendedParticle) -> BoxFuture<'static, SendStatus> {
         let fut = self.execute(|out| Command::Send { to, particle, out });
         // timeout on send is required because libp2p can silently drop outbound events
