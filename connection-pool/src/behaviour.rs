@@ -217,7 +217,7 @@ impl ConnectionPoolBehaviour {
         outlet: oneshot::Sender<SendStatus>,
     ) {
         let span =
-            tracing::info_span!(parent: particle.span.as_ref(), "Connection pool behaviour: send");
+            tracing::info_span!(parent: particle.span.as_ref(), "ConnectionPool::Behaviour::send");
         let _guard = span.enter();
         if to.peer_id == self.peer_id {
             // If particle is sent to the current node, process it locally
@@ -653,7 +653,7 @@ impl NetworkBehaviour for ConnectionPoolBehaviour {
                     // channel is ready to consume more particles, so send them
                     if let Some(particle) = self.queue.pop_front() {
                         let particle_id = particle.particle.id.clone();
-                        let _span = tracing::info_span!(parent: particle.span.as_ref(), "Connection pool: send to outlet").entered();
+                        let _span = tracing::info_span!(parent: particle.span.as_ref(), "ConnectionPool::outlet_send").entered();
 
                         if let Err(err) = outlet.start_send(particle) {
                             tracing::error!(

@@ -92,9 +92,9 @@ impl Dispatcher {
         let metrics = self.metrics;
         particle_stream
             .for_each_concurrent(parallelism, move |particle| {
-                let current_span = tracing::info_span!(parent: particle.span.as_ref(), "Dispatcher: process particle");
-                let async_span = tracing::info_span!(parent: particle.span.as_ref(), "Dispatcher: async Aquamarine.execute");
+                let current_span = tracing::info_span!(parent: particle.span.as_ref(), "Dispatcher::process_particles::for_each");
                 let _ = current_span.enter();
+                let async_span = tracing::info_span!("Dispatcher::process_particles::async");
                 let aquamarine = aquamarine.clone();
                 let metrics = metrics.clone();
 
@@ -136,9 +136,9 @@ impl Dispatcher {
                 async move {
                     match effects {
                         Ok(effects) => {
-                            let span = tracing::info_span!(parent: effects.particle.span.as_ref(), "Dispatcher: execute effectors");
+                            let async_span = tracing::info_span!(parent: effects.particle.span.as_ref(), "Dispatcher::effectors::execute");
                             // perform effects as instructed by aquamarine
-                            effectors.execute(effects).instrument(span).await;
+                            effectors.execute(effects).instrument(async_span).await;
                         }
                         Err(err) => {
                             // particles are sent in fire and forget fashion, so

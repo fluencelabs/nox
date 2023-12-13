@@ -146,12 +146,12 @@ impl Sorcerer {
                 spell_events_stream
                     .for_each_concurrent(None, move |spell_event| {
                         let root_span = tracing::info_span!(
-                            "Sorcerer: spell processing",
+                            "Sorcerer::task::for_each",
                             spell_id = spell_event.spell_id.to_string()
                         );
                         let root_span = Arc::new(root_span);
                         let async_span = tracing::info_span!(parent: root_span.as_ref(),
-                            "Sorcerer: async execute script",  
+                            "Sorcerer::task::execute_script",
                             spell_id = spell_event.spell_id.to_string());
 
                         let sorcerer = self.clone();

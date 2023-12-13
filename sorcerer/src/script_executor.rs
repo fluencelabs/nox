@@ -115,12 +115,9 @@ impl Sorcerer {
                 m.observe_spell_cast();
             }
 
-            let async_span = tracing::info_span!(parent: span.as_ref(), "Script executor: aquamarine async execute", spell_id = event.spell_id.to_string());
-
             self.aquamarine
                 .clone()
                 .execute(ExtendedParticle::linked(particle, span), None)
-                .instrument(async_span)
                 .await?;
         };
 
