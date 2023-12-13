@@ -31,6 +31,7 @@ use crate::error::ParticleError::{
 use fluence_libp2p::{peerid_serializer, RandomPeerId};
 use json_utils::base64_serde;
 use now_millis::now_ms;
+
 #[derive(Clone, Debug)]
 pub struct ExtendedParticle {
     pub particle: Particle,
