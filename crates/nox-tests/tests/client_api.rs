@@ -95,13 +95,10 @@ async fn call_custom_service() {
         data: vec![],
     };
 
-    let exec_f = swarms[1].aquamarine_api.clone().execute(
-        ExtendedParticle {
-            particle,
-            span: Arc::new(Span::none()),
-        },
-        None,
-    );
+    let exec_f = swarms[1]
+        .aquamarine_api
+        .clone()
+        .execute(ExtendedParticle::new(particle, Span::none()), None);
 
     let result = timeout(Duration::from_secs(30), async move {
         add_first_f.await.expect("add_first_f");

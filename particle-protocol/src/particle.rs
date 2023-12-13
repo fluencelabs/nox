@@ -37,6 +37,22 @@ pub struct ExtendedParticle {
     pub span: Arc<Span>,
 }
 
+impl ExtendedParticle {
+    pub fn new(particle: Particle, span: Span) -> Self {
+        Self {
+            particle,
+            span: Arc::new(span),
+        }
+    }
+
+    pub fn linked(particle: Particle, span: Arc<Span>) -> Self {
+        Self {
+            particle,
+            span: span.clone(),
+        }
+    }
+}
+
 #[derive(Clone, Serialize, Deserialize, PartialEq, Derivative)]
 #[derivative(Debug)]
 pub struct Particle {

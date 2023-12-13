@@ -148,6 +148,9 @@ where
         if let Some(Poll::Ready(res)) = self.future.as_mut().map(|f| f.poll_unpin(cx)) {
             let (reusables, effects, stats, parent_span) = res;
 
+            let span = tracing::info_span!(parent: parent_span.as_ref(), "Actor: execute call requests", particle_id= self.particle.id,  deal_id = self.deal_id);
+            let _span_guard = span.enter();
+
             self.future.take();
 
             let waker = cx.waker().clone();
@@ -160,13 +163,13 @@ where
             );
 
             let effects = RoutingEffects {
-                particle: ExtendedParticle {
-                    particle: Particle {
+                particle: ExtendedParticle::linked(
+                    Particle {
                         data: effects.new_data,
                         ..self.particle.clone()
                     },
-                    span: parent_span,
-                },
+                    parent_span,
+                ),
                 next_peers: effects.next_peers,
             };
             return Some(Poll::Ready(FutResult {
@@ -193,7 +196,7 @@ where
         }
 
         // Gather CallResults
-        let (calls, stats, spans) = self.functions.drain();
+        let (calls, stats, call_spans) = self.functions.drain();
 
         // Take the next particle
         let ext_particle = self.mailbox.pop_front();
@@ -218,18 +221,8 @@ where
         let key_pair = self.key_pair.clone();
         let peer_id = self.current_peer_id;
 
-        let async_span = tracing::info_span!(
-            "Actor: async AVM process particle & call results",
-            particle_id = particle.id,
-            deal_id = self.deal_id
-        );
-        if let Some(ext_particle) = ext_particle.as_ref() {
-            async_span.follows_from(ext_particle.span.as_ref());
-        }
-        for span in spans {
-            async_span.follows_from(span.as_ref());
-        }
-        let linking_span = Arc::new(async_span.clone());
+        let (async_span, linking_span) =
+            self.create_spans(call_spans, ext_particle, particle.id.as_str());
 
         self.future = Some(
             async move {
@@ -253,6 +246,27 @@ where
         self.wake();
 
         ActorPoll::Executing(stats)
+    }
+
+    fn create_spans(
+        &self,
+        call_spans: Vec<Arc<Span>>,
+        ext_particle: Option<ExtendedParticle>,
+        particle_id: &str,
+    ) -> (Span, Arc<Span>) {
+        let async_span = tracing::info_span!(
+            "Actor: async AVM process particle & call results",
+            particle_id = particle_id,
+            deal_id = self.deal_id
+        );
+        if let Some(ext_particle) = ext_particle.as_ref() {
+            async_span.follows_from(ext_particle.span.as_ref());
+        }
+        for span in call_spans {
+            async_span.follows_from(span.as_ref());
+        }
+        let linking_span = Arc::new(async_span.clone());
+        (async_span, linking_span)
     }
     fn wake(&self) {
         if let Some(waker) = &self.waker {

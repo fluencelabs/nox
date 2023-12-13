@@ -119,7 +119,7 @@ impl Sorcerer {
 
             self.aquamarine
                 .clone()
-                .execute(ExtendedParticle { particle, span }, None)
+                .execute(ExtendedParticle::linked(particle, span), None)
                 .instrument(async_span)
                 .await?;
         };

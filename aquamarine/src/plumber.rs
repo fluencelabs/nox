@@ -503,10 +503,7 @@ mod tests {
         assert!(!deadline.is_expired(now_ms()));
 
         plumber.ingest(
-            ExtendedParticle {
-                particle,
-                span: Arc::new(Span::none()),
-            },
+            ExtendedParticle::new(particle, Span::none()),
             None,
             RandomPeerId::random(),
         );
@@ -543,10 +540,7 @@ mod tests {
         assert!(deadline.is_expired(now_ms()));
 
         plumber.ingest(
-            ExtendedParticle {
-                particle: particle.clone(),
-                span: Arc::new(Span::none()),
-            },
+            ExtendedParticle::new(particle.clone(), Span::none()),
             None,
             RandomPeerId::random(),
         );

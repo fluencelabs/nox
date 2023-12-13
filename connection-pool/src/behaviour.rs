@@ -33,7 +33,6 @@ use particle_protocol::{
 };
 use peer_metrics::ConnectionPoolMetrics;
 use std::pin::Pin;
-use std::sync::Arc;
 use std::{
     collections::{hash_map::Entry, HashMap, HashSet, VecDeque},
     task::{Context, Poll, Waker},
@@ -627,10 +626,8 @@ impl NetworkBehaviour for ConnectionPoolBehaviour {
                         particle.data.len() as f64,
                     )
                 });
-                self.queue.push_back(ExtendedParticle {
-                    particle,
-                    span: Arc::new(root_span),
-                });
+                self.queue
+                    .push_back(ExtendedParticle::new(particle, root_span));
                 self.wake();
             }
             Ok(HandlerMessage::InboundUpgradeError(err)) => log::warn!("UpgradeError: {:?}", err),
