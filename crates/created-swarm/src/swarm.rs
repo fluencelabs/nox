@@ -186,7 +186,7 @@ where
             CreatedSwarm {
                 peer_id,
                 multiaddr: config.listen_on,
-                tmp_dir: config.tmp_dir,
+                tmp_dir: config.tmp_dir.clone(),
                 management_keypair,
                 exit_outlet: started_node.exit_outlet,
                 connectivity,
