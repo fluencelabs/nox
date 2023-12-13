@@ -14,16 +14,16 @@
  * limitations under the License.
  */
 
-use fluence_keypair::KeyPair;
-use futures::future::BoxFuture;
-use futures::FutureExt;
 use std::sync::Arc;
 use std::{
     collections::VecDeque,
     task::{Context, Poll, Waker},
 };
+use futures::future::BoxFuture;
+use futures::FutureExt;
 use tracing::{instrument, Instrument, Span};
 
+use fluence_keypair::KeyPair;
 use fluence_libp2p::PeerId;
 use particle_execution::{ParticleFunctionStatic, ServiceFunction};
 use particle_protocol::{ExtendedParticle, Particle};
