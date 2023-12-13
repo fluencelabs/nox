@@ -21,7 +21,7 @@ use particle_protocol::ExtendedParticle;
 use peer_metrics::DispatcherMetrics;
 use prometheus_client::registry::Registry;
 use tokio::sync::mpsc;
-use tokio_stream::wrappers::{ReceiverStream, UnboundedReceiverStream};
+use tokio_stream::wrappers::ReceiverStream;
 use tracing::{instrument, Instrument};
 
 use crate::effectors::Effectors;
@@ -62,11 +62,11 @@ impl Dispatcher {
     pub fn start(
         self,
         particle_stream: mpsc::Receiver<ExtendedParticle>,
-        effects_stream: mpsc::UnboundedReceiver<Effects>,
+        effects_stream: mpsc::Receiver<Effects>,
     ) -> Tasks {
         log::info!("starting dispatcher");
         let particle_stream = ReceiverStream::new(particle_stream);
-        let effects_stream = UnboundedReceiverStream::new(effects_stream);
+        let effects_stream = ReceiverStream::new(effects_stream);
         let particles = tokio::task::Builder::new()
             .name("particles")
             .spawn(

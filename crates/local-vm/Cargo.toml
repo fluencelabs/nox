@@ -15,7 +15,7 @@ fs-utils = { workspace = true }
 aquamarine = { workspace = true }
 air-interpreter-fs = { workspace = true }
 fluence-keypair = { workspace = true }
-
+tempfile = { workspace = true }
 
 air-interpreter-wasm = { workspace = true }
 avm-server = { workspace = true }

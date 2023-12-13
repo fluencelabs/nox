@@ -17,6 +17,7 @@
 
 use std::assert_matches::assert_matches;
 use std::collections::HashMap;
+use std::sync::Arc;
 use std::time::Duration;
 
 use eyre::Context;
@@ -28,7 +29,6 @@ use connected_client::ConnectedClient;
 use created_swarm::system_services_config::{DeciderConfig, SystemServicesConfig};
 use created_swarm::{make_swarms, make_swarms_with_cfg};
 use fluence_spell_dtos::trigger_config::{ClockConfig, TriggerConfig};
-use fs_utils::make_tmp_dir_peer_id;
 use service_modules::load_module;
 use spell_event_bus::api::{TriggerInfo, TriggerInfoAqua, MAX_PERIOD_SEC};
 use test_utils::{create_service, create_service_worker};
@@ -2118,10 +2118,11 @@ async fn set_alias_by_worker_creator() {
 async fn test_decider_api_endpoint_rewrite() {
     let expected_endpoint = "test1".to_string();
     let swarm_keypair = KeyPair::generate_ed25519();
-    let swarm_dir = make_tmp_dir_peer_id(swarm_keypair.get_peer_id().to_string());
     let swarms = make_swarms_with_cfg(1, |mut cfg| {
+        let tmp_dir = tempfile::tempdir().expect("Could not create temp dir");
+        let tmp_dir = Arc::new(tmp_dir);
         cfg.keypair = swarm_keypair.clone();
-        cfg.tmp_dir = Some(swarm_dir.clone());
+        cfg.tmp_dir = tmp_dir;
         cfg.enabled_system_services = vec!["decider".to_string()];
         cfg.override_system_services_config = Some(SystemServicesConfig {
             enable: vec![],
@@ -2176,8 +2177,10 @@ async fn test_decider_api_endpoint_rewrite() {
 
     let another_endpoint = "another_endpoint_test".to_string();
     let swarms = make_swarms_with_cfg(1, |mut cfg| {
+        let tmp_dir = tempfile::tempdir().expect("Could not create temp dir");
+        let tmp_dir = Arc::new(tmp_dir);
         cfg.keypair = swarm_keypair.clone();
-        cfg.tmp_dir = Some(swarm_dir.clone());
+        cfg.tmp_dir = tmp_dir;
         cfg.enabled_system_services = vec!["decider".to_string()];
         cfg.override_system_services_config = Some(SystemServicesConfig {
             enable: vec![],

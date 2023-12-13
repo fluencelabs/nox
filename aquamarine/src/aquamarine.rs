@@ -15,6 +15,7 @@
  */
 use std::collections::HashMap;
 use std::future::Future;
+use std::sync::Arc;
 use std::task::Poll;
 use std::time::Duration;
 
@@ -36,15 +37,16 @@ use crate::command::Command::{AddService, Ingest, RemoveService};
 use crate::error::AquamarineApiError;
 use crate::particle_effects::RoutingEffects;
 use crate::vm_pool::VmPool;
-use crate::{Plumber, VmPoolConfig};
+use crate::{DataStoreConfig, ParticleDataStore, Plumber, VmPoolConfig};
 
-pub type EffectsChannel = mpsc::UnboundedSender<Result<RoutingEffects, AquamarineApiError>>;
+pub type EffectsChannel = mpsc::Sender<Result<RoutingEffects, AquamarineApiError>>;
 
 pub struct AquamarineBackend<RT: AquaRuntime, F> {
     inlet: mpsc::Receiver<Command>,
     plumber: Plumber<RT, F>,
     out: EffectsChannel,
     host_peer_id: PeerId,
+    data_store: Arc<ParticleDataStore>,
 }
 
 impl<RT: AquaRuntime, F: ParticleFunctionStatic> AquamarineBackend<RT, F> {
@@ -52,16 +54,24 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> AquamarineBackend<RT, F> {
     pub fn new(
         config: VmPoolConfig,
         runtime_config: RT::Config,
+        data_store_config: DataStoreConfig,
         builtins: F,
         out: EffectsChannel,
         plumber_metrics: Option<ParticleExecutorMetrics>,
         vm_pool_metrics: Option<VmPoolMetrics>,
         health_registry: Option<&mut HealthCheckRegistry>,
         key_manager: KeyManager,
-    ) -> (Self, AquamarineApi) {
+    ) -> eyre::Result<(Self, AquamarineApi)> {
         // TODO: make `100` configurable
         let (outlet, inlet) = mpsc::channel(100);
         let sender = AquamarineApi::new(outlet, config.execution_timeout);
+
+        let data_store = ParticleDataStore::new(
+            data_store_config.particles_dir,
+            data_store_config.particles_vault_dir,
+            data_store_config.particles_anomaly_dir,
+        );
+        let data_store: Arc<ParticleDataStore> = Arc::new(data_store);
         let vm_pool = VmPool::new(
             config.pool_size,
             runtime_config,
@@ -69,15 +79,22 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> AquamarineBackend<RT, F> {
             health_registry,
         );
         let host_peer_id = key_manager.get_host_peer_id();
-        let plumber = Plumber::new(vm_pool, builtins, plumber_metrics, key_manager);
+        let plumber = Plumber::new(
+            vm_pool,
+            data_store.clone(),
+            builtins,
+            plumber_metrics,
+            key_manager,
+        );
         let this = Self {
             inlet,
             plumber,
             out,
             host_peer_id,
+            data_store,
         };
 
-        (this, sender)
+        Ok((this, sender))
     }
 
     pub fn poll(&mut self, cx: &mut std::task::Context<'_>) -> Poll<()> {
@@ -112,7 +129,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> AquamarineBackend<RT, F> {
         while let Poll::Ready(effects) = self.plumber.poll(cx) {
             wake = true;
             // send results back
-            let sent = self.out.send(effects);
+            let sent = self.out.try_send(effects);
             if let Err(err) = sent {
                 log::error!("Aquamarine effects outlet has died: {}", err);
             }
@@ -126,11 +143,16 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> AquamarineBackend<RT, F> {
     }
 
     pub fn start(mut self) -> JoinHandle<()> {
+        let data_store = self.data_store.clone();
         let mut stream = futures::stream::poll_fn(move |cx| self.poll(cx).map(|_| Some(()))).fuse();
         let result = tokio::task::Builder::new()
-            .name("AVM")
+            .name("Aquamarine")
             .spawn(
                 async move {
+                    data_store
+                        .initialize()
+                        .await
+                        .expect("Could not initialize data store");
                     loop {
                         stream.next().await;
                     }
@@ -138,6 +160,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> AquamarineBackend<RT, F> {
                 .in_current_span(),
             )
             .expect("Could not spawn task");
+
         result
     }
 }

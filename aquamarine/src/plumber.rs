@@ -14,7 +14,11 @@
  * limitations under the License.
  */
 
+use futures::future::BoxFuture;
+use futures::FutureExt;
 use std::collections::hash_map::Entry;
+use std::sync::Arc;
+use std::task::Poll::Ready;
 use std::{
     collections::{HashMap, VecDeque},
     task::{Context, Poll},
@@ -43,6 +47,7 @@ use crate::error::AquamarineApiError;
 use crate::particle_effects::RoutingEffects;
 use crate::particle_functions::Functions;
 use crate::vm_pool::VmPool;
+use crate::ParticleDataStore;
 
 /// particle signature is used as a particle id
 #[derive(PartialEq, Hash, Eq)]
@@ -52,27 +57,32 @@ pub struct Plumber<RT: AquaRuntime, F> {
     events: VecDeque<Result<RoutingEffects, AquamarineApiError>>,
     actors: HashMap<(ParticleId, PeerId), Actor<RT, F>>,
     vm_pool: VmPool<RT>,
+    data_store: Arc<ParticleDataStore>,
     builtins: F,
     waker: Option<Waker>,
     metrics: Option<ParticleExecutorMetrics>,
     key_manager: KeyManager,
+    cleanup_future: Option<BoxFuture<'static, ()>>,
 }
 
 impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
     pub fn new(
         vm_pool: VmPool<RT>,
+        data_store: Arc<ParticleDataStore>,
         builtins: F,
         metrics: Option<ParticleExecutorMetrics>,
         key_manager: KeyManager,
     ) -> Self {
         Self {
             vm_pool,
+            data_store,
             builtins,
             events: <_>::default(),
             actors: <_>::default(),
             waker: <_>::default(),
             metrics,
             key_manager,
+            cleanup_future: None,
         }
     }
 
@@ -126,8 +136,16 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
                 let functions = Functions::new(params, builtins.clone());
                 let key_pair = self.key_manager.get_worker_keypair(worker_id);
                 let deal_id = self.key_manager.get_deal_id(worker_id).ok();
+                let data_store = self.data_store.clone();
                 key_pair.map(|kp| {
-                    let actor = Actor::new(&particle.particle, functions, worker_id, kp, deal_id);
+                    let actor = Actor::new(
+                        &particle.particle,
+                        functions,
+                        worker_id,
+                        kp,
+                        data_store,
+                        deal_id,
+                    );
                     entry.insert(actor)
                 })
             }
@@ -232,10 +250,16 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
             mailbox_size += actor.mailbox_size();
         }
 
-        // Remove expired actors
-        if let Some((vm_id, mut vm)) = self.vm_pool.get_vm() {
-            let now = now_ms();
+        if let Some(Ready(())) = self.cleanup_future.as_mut().map(|f| f.poll_unpin(cx)) {
+            // we remove clean up future if it is ready
+            self.cleanup_future.take();
+        }
 
+        // do not schedule task if another in progress
+        if self.cleanup_future.is_none() {
+            // Remove expired actors
+            let mut cleanup_keys: Vec<(String, PeerId)> = vec![];
+            let now = now_ms();
             self.actors.retain(|_, actor| {
                 // if actor hasn't yet expired or is still executing, keep it
                 // TODO: if actor is expired, cancel execution and return VM back to pool
@@ -243,14 +267,15 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
                 if !actor.is_expired(now) || actor.is_executing() {
                     return true; // keep actor
                 }
-
-                // cleanup files and dirs after particle processing (vault & prev_data)
-                // TODO: do not pass vm https://github.com/fluencelabs/fluence/issues/1216
-                actor.cleanup(&mut vm);
+                cleanup_keys.push(actor.cleanup_key());
                 false // remove actor
             });
 
-            self.vm_pool.put_vm(vm_id, vm);
+            if !cleanup_keys.is_empty() {
+                let data_store = self.data_store.clone();
+                self.cleanup_future =
+                    Some(async move { data_store.batch_cleanup_data(cleanup_keys).await }.boxed())
+            }
         }
 
         // Execute next messages
@@ -282,9 +307,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
                 }
 
                 let interpretation_time = stat.interpretation_time.as_secs_f64();
-                let call_time = stat.call_time.as_secs_f64();
                 m.interpretation_time_sec.observe(interpretation_time);
-                m.call_time_sec.observe(call_time)
             }
             m.total_actors_mailbox.set(mailbox_size as i64);
             m.alive_actors.set(self.actors.len() as i64);
@@ -339,12 +362,10 @@ mod tests {
     use std::task::Waker;
     use std::{sync::Arc, task::Context};
 
-    use avm_server::{AVMMemoryStats, AVMOutcome, CallResults, ParticleParameters};
+    use avm_server::{AVMMemoryStats, CallResults, ParticleParameters};
     use fluence_keypair::KeyPair;
     use fluence_libp2p::RandomPeerId;
-    use futures::future::BoxFuture;
     use futures::task::noop_waker_ref;
-    use futures::FutureExt;
     use key_manager::KeyManager;
 
     use particle_args::Args;
@@ -356,8 +377,9 @@ mod tests {
     use crate::plumber::{now_ms, real_time};
     use crate::vm_pool::VmPool;
     use crate::AquamarineApiError::ParticleExpired;
-    use crate::{AquaRuntime, ParticleEffects, Plumber};
+    use crate::{AquaRuntime, ParticleDataStore, ParticleEffects, Plumber};
     use async_trait::async_trait;
+    use avm_server::avm_runner::RawAVMOutcome;
     use tracing::Span;
 
     struct MockF;
@@ -388,15 +410,12 @@ mod tests {
         type Config = ();
         type Error = Infallible;
 
-        fn create_runtime(
-            _config: Self::Config,
-            _waker: Waker,
-        ) -> BoxFuture<'static, Result<Self, Self::Error>> {
-            async { Ok(VMMock) }.boxed()
+        fn create_runtime(_config: Self::Config, _waker: Waker) -> Result<Self, Self::Error> {
+            Ok(VMMock)
         }
 
         fn into_effects(
-            _outcome: Result<AVMOutcome, Self::Error>,
+            _outcome: Result<RawAVMOutcome, Self::Error>,
             _particle_id: String,
         ) -> ParticleEffects {
             ParticleEffects {
@@ -408,27 +427,20 @@ mod tests {
 
         fn call(
             &mut self,
-            _aqua: String,
-            _data: Vec<u8>,
-            _particle: ParticleParameters<'_>,
+            _air: impl Into<String>,
+            _prev_data: impl Into<Vec<u8>>,
+            _current_data: impl Into<Vec<u8>>,
+            _particle_params: ParticleParameters<'_>,
             _call_results: CallResults,
             _key_pair: &KeyPair,
-        ) -> Result<AVMOutcome, Self::Error> {
-            Ok(AVMOutcome {
+        ) -> Result<RawAVMOutcome, Self::Error> {
+            Ok(RawAVMOutcome {
+                ret_code: 0,
+                error_message: "".to_string(),
                 data: vec![],
                 call_requests: Default::default(),
                 next_peer_pks: vec![],
-                memory_delta: 0,
-                execution_time: Default::default(),
             })
-        }
-
-        fn cleanup(
-            &mut self,
-            _particle_id: &str,
-            _current_peer_id: &str,
-        ) -> Result<(), Self::Error> {
-            Ok(())
         }
 
         fn memory_stats(&self) -> AVMMemoryStats {
@@ -439,7 +451,7 @@ mod tests {
         }
     }
 
-    fn plumber() -> Plumber<VMMock, Arc<MockF>> {
+    async fn plumber() -> Plumber<VMMock, Arc<MockF>> {
         // Pool is of size 1 so it's easier to control tests
         let vm_pool = VmPool::new(1, (), None, None);
         let builtin_mock = Arc::new(MockF);
@@ -450,7 +462,20 @@ mod tests {
             RandomPeerId::random(),
             RandomPeerId::random(),
         );
-        Plumber::new(vm_pool, builtin_mock, None, key_manager)
+        let tmp_dir = tempfile::tempdir().expect("Could not create temp dir");
+        let tmp_path = tmp_dir.path();
+        let data_store = ParticleDataStore::new(
+            tmp_path.join("particles"),
+            tmp_path.join("vault"),
+            tmp_path.join("anomaly"),
+        );
+        data_store
+            .initialize()
+            .await
+            .expect("Could not initialize datastore");
+        let data_store = Arc::new(data_store);
+
+        Plumber::new(vm_pool, data_store, builtin_mock, None, key_manager)
     }
 
     fn particle(ts: u64, ttl: u32) -> Particle {
@@ -467,11 +492,11 @@ mod tests {
 
     /// Checks that expired actor will be removed
     #[ignore]
-    #[test]
-    fn remove_expired() {
+    #[tokio::test]
+    async fn remove_expired() {
         set_mock_time(real_time::now_ms());
 
-        let mut plumber = plumber();
+        let mut plumber = plumber().await;
 
         let particle = particle(now_ms(), 1);
         let deadline = Deadline::from(&particle);
@@ -507,12 +532,12 @@ mod tests {
     }
 
     /// Checks that expired particle won't create an actor
-    #[test]
-    fn ignore_expired() {
+    #[tokio::test]
+    async fn ignore_expired() {
         set_mock_time(real_time::now_ms());
         // set_mock_time(1000);
 
-        let mut plumber = plumber();
+        let mut plumber = plumber().await;
         let particle = particle(now_ms() - 100, 99);
         let deadline = Deadline::from(&particle);
         assert!(deadline.is_expired(now_ms()));

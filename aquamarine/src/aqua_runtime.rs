@@ -16,104 +16,54 @@
 
 use std::{error::Error, task::Waker};
 
-use avm_server::{
-    AVMConfig, AVMError, AVMMemoryStats, AVMOutcome, CallResults, ParticleParameters, AVM,
-};
+use avm_server::avm_runner::{AVMRunner, RawAVMOutcome};
+use avm_server::{AVMMemoryStats, CallResults, ParticleParameters, RunnerError};
 use fluence_keypair::KeyPair;
-use futures::{future::BoxFuture, FutureExt};
 use log::LevelFilter;
 
 use crate::config::VmConfig;
 use crate::invoke::{parse_outcome, ExecutionError};
-use crate::particle_data_store::{DataStoreError, ParticleDataStore};
 use crate::particle_effects::ParticleEffects;
 
 pub trait AquaRuntime: Sized + Send + 'static {
     type Config: Clone + Send + 'static;
     type Error: Error + Send + Sync + 'static;
 
-    fn create_runtime(
-        config: Self::Config,
-        waker: Waker,
-    ) -> BoxFuture<'static, Result<Self, Self::Error>>;
+    fn create_runtime(config: Self::Config, waker: Waker) -> Result<Self, Self::Error>;
 
     // TODO: move into_effects inside call
     fn into_effects(
-        outcome: Result<AVMOutcome, Self::Error>,
+        outcome: Result<RawAVMOutcome, Self::Error>,
         particle_id: String,
     ) -> ParticleEffects;
 
     fn call(
         &mut self,
-        aqua: String,
-        data: Vec<u8>,
-        particle: ParticleParameters<'_>,
+        air: impl Into<String>,
+        prev_data: impl Into<Vec<u8>>,
+        current_data: impl Into<Vec<u8>>,
+        particle_params: ParticleParameters<'_>,
         call_results: CallResults,
         key_pair: &KeyPair,
-    ) -> Result<AVMOutcome, Self::Error>;
-
-    fn cleanup(&mut self, particle_id: &str, current_peer_id: &str) -> Result<(), Self::Error>;
+    ) -> Result<RawAVMOutcome, Self::Error>;
 
     /// Return current size of memory. Use only for diagnostics purposes.
     fn memory_stats(&self) -> AVMMemoryStats;
 }
 
-#[derive(Debug, thiserror::Error)]
-pub enum CreateAVMError {
-    #[error(transparent)]
-    AVWError(AVMError<DataStoreError>),
-    #[error("Could not create AVM")]
-    Fatal,
-}
-
-impl AquaRuntime for AVM<DataStoreError> {
+impl AquaRuntime for AVMRunner {
     type Config = VmConfig;
-    type Error = CreateAVMError;
+    type Error = RunnerError;
 
     /// Creates `AVM` in background (on blocking threadpool)
-    fn create_runtime(
-        config: Self::Config,
-        waker: Waker,
-    ) -> BoxFuture<'static, Result<Self, Self::Error>> {
-        let task = tokio::task::Builder::new()
-            .name("Create AVM")
-            .spawn_blocking(move || {
-                let data_store = Box::new(ParticleDataStore::new(
-                    config.particles_dir,
-                    config.particles_vault_dir,
-                    config.particles_anomaly_dir,
-                ));
-                let config = AVMConfig {
-                    data_store,
-                    air_wasm_path: config.air_interpreter,
-                    logging_mask: i32::MAX,
-                    max_heap_size: config.max_heap_size,
-                };
-                let vm = AVM::new(config)?;
-                waker.wake();
-                Ok(vm)
-            })
-            .expect("Could not spawn 'Create AVM' task");
-
-        async {
-            let result = task.await;
-            match result {
-                Ok(res) => res.map_err(CreateAVMError::AVWError),
-                Err(e) => {
-                    if e.is_cancelled() {
-                        log::warn!("AVM creation task was cancelled");
-                    } else {
-                        log::error!("AVM creation task panic");
-                    }
-                    Err(CreateAVMError::Fatal)
-                }
-            }
-        }
-        .boxed()
+    fn create_runtime(config: Self::Config, waker: Waker) -> Result<Self, Self::Error> {
+        let vm = AVMRunner::new(config.air_interpreter, config.max_heap_size, i32::MAX)?;
+        waker.wake();
+        Ok(vm)
     }
 
     fn into_effects(
-        outcome: Result<AVMOutcome, Self::Error>,
+        outcome: Result<RawAVMOutcome, Self::Error>,
         particle_id: String,
     ) -> ParticleEffects {
         match parse_outcome(outcome) {
@@ -157,19 +107,26 @@ impl AquaRuntime for AVM<DataStoreError> {
     #[inline]
     fn call(
         &mut self,
-        aqua: String,
-        data: Vec<u8>,
-        particle: ParticleParameters<'_>,
+        air: impl Into<String>,
+        prev_data: impl Into<Vec<u8>>,
+        current_data: impl Into<Vec<u8>>,
+        particle_params: ParticleParameters<'_>,
         call_results: CallResults,
         key_pair: &KeyPair,
-    ) -> Result<AVMOutcome, Self::Error> {
-        AVM::call(self, aqua, data, particle, call_results, key_pair)
-            .map_err(CreateAVMError::AVWError)
-    }
-
-    #[inline]
-    fn cleanup(&mut self, particle_id: &str, current_peer_id: &str) -> Result<(), Self::Error> {
-        AVM::cleanup_data(self, particle_id, current_peer_id).map_err(CreateAVMError::AVWError)
+    ) -> Result<RawAVMOutcome, Self::Error> {
+        AVMRunner::call(
+            self,
+            air,
+            prev_data,
+            current_data,
+            particle_params.init_peer_id,
+            particle_params.timestamp,
+            particle_params.ttl,
+            particle_params.current_peer_id,
+            call_results,
+            key_pair,
+            particle_params.particle_id.to_string(),
+        )
     }
 
     fn memory_stats(&self) -> AVMMemoryStats {

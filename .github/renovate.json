@@ -11,6 +11,7 @@
     {
       "matchManagers": ["cargo"],
       "matchPackagePatterns": [
+        ".*-distro",
         "fluence-.*",
         "avm-server",
         "air-interpreter-wasm"
