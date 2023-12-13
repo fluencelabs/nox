@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-use fluence_libp2p::remote_multiaddr;
 use futures::{Sink, StreamExt};
 use libp2p::core::Endpoint;
 use libp2p::swarm::dial_opts::DialOpts;
@@ -28,10 +27,6 @@ use libp2p::{
     swarm::{NetworkBehaviour, NotifyHandler, OneShotHandler},
     PeerId,
 };
-use particle_protocol::{
-    CompletionChannel, Contact, ExtendedParticle, HandlerMessage, ProtocolConfig, SendStatus,
-};
-use peer_metrics::ConnectionPoolMetrics;
 use std::pin::Pin;
 use std::{
     collections::{hash_map::Entry, HashMap, HashSet, VecDeque},
@@ -43,6 +38,11 @@ use tokio_util::sync::PollSender;
 
 use crate::connection_pool::LifecycleEvent;
 use crate::{Command, ConnectionPoolApi};
+use fluence_libp2p::remote_multiaddr;
+use particle_protocol::{
+    CompletionChannel, Contact, ExtendedParticle, HandlerMessage, ProtocolConfig, SendStatus,
+};
+use peer_metrics::ConnectionPoolMetrics;
 
 // type SwarmEventType = generate_swarm_event_type!(ConnectionPoolBehaviour);
 
