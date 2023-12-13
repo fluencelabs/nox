@@ -13,18 +13,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use fluence_libp2p::PeerId;
 use std::sync::Arc;
 use tracing::{instrument, Span};
 
 use crate::error::SorcererError::{ParticleSigningFailed, ScopeKeypairMissing};
+use crate::Sorcerer;
+use fluence_libp2p::PeerId;
 use now_millis::now_ms;
 use particle_args::JError;
 use particle_protocol::{ExtendedParticle, Particle};
 use spell_event_bus::api::{TriggerEvent, TriggerInfoAqua};
 use spell_service_api::CallParams;
-
-use crate::Sorcerer;
 
 impl Sorcerer {
     fn get_spell_counter(&self, spell_id: String, worker_id: PeerId) -> Result<u32, JError> {

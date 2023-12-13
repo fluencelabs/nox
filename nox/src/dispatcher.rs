@@ -14,15 +14,16 @@
  * limitations under the License.
  */
 
-use aquamarine::{AquamarineApi, AquamarineApiError, RoutingEffects};
-use fluence_libp2p::PeerId;
 use futures::{FutureExt, StreamExt};
-use particle_protocol::ExtendedParticle;
-use peer_metrics::DispatcherMetrics;
 use prometheus_client::registry::Registry;
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
 use tracing::{instrument, Instrument};
+
+use aquamarine::{AquamarineApi, AquamarineApiError, RoutingEffects};
+use fluence_libp2p::PeerId;
+use particle_protocol::ExtendedParticle;
+use peer_metrics::DispatcherMetrics;
 
 use crate::effectors::Effectors;
 use crate::tasks::Tasks;

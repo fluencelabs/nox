@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
+use futures::future::BoxFuture;
+use futures::FutureExt;
 use std::sync::Arc;
 use std::{
     collections::VecDeque,
     task::{Context, Poll, Waker},
 };
-use futures::future::BoxFuture;
-use futures::FutureExt;
 use tracing::{instrument, Instrument, Span};
 
 use fluence_keypair::KeyPair;
