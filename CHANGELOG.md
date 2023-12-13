@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.16.5](https://github.com/fluencelabs/nox/compare/nox-v0.16.4...nox-v0.16.5) (2023-12-08)
+
+
+### Bug Fixes
+
+* **deps:** bump decider-distro to 0.5.6 ([0e7d24f](https://github.com/fluencelabs/nox/commit/0e7d24ff465707707083213e42ea14f59511fe00))
+
 ## [0.16.4](https://github.com/fluencelabs/nox/compare/nox-v0.16.3...nox-v0.16.4) (2023-12-01)
 
 
