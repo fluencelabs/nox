@@ -130,7 +130,6 @@ impl<RT: AquaRuntime> ParticleExecutor for RT {
             let avm_result = avm_result.await;
             match avm_result {
                 Ok(avm_result) => {
-                    let avm_result = avm_result;
                     let particle_id = avm_result.particle.id;
                     let stats = avm_result.stats;
                     match &avm_result.avm_outcome {
