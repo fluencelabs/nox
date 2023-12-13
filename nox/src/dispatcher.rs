@@ -99,10 +99,11 @@ impl Dispatcher {
                 let metrics = metrics.clone();
 
                 if particle.particle.is_expired() {
+                    let particle_id = particle.particle.id;
                     if let Some(m) = metrics {
-                        m.particle_expired(&particle.particle.id);
+                        m.particle_expired(particle_id.as_str());
                     }
-                    tracing::info!(target: "expired", particle_id = particle.particle.id, "Particle is expired");
+                    tracing::info!(target: "expired", particle_id = particle_id, "Particle is expired");
                     return async {}.boxed();
                 }
 

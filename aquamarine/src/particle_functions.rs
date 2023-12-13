@@ -141,8 +141,7 @@ impl<F: ParticleFunctionStatic> Functions<F> {
         waker: Waker,
         span: Arc<Span>,
     ) -> BoxFuture<'static, SingleCallResult> {
-        let local_span = tracing::info_span!(parent: span.as_ref(), "Particle functions: call");
-        let _guard = local_span.enter();
+        let async_span = tracing::info_span!(parent: span.as_ref(), "ParticleFunctions: call");
         // Deserialize params
         let args = match Args::try_from(call) {
             Ok(args) => args,
@@ -166,7 +165,7 @@ impl<F: ParticleFunctionStatic> Functions<F> {
                         span,
                     }
                 }
-                .in_current_span()
+                .instrument(async_span)
                 .boxed();
             }
         };

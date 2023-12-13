@@ -37,6 +37,12 @@ pub struct ExtendedParticle {
     pub span: Arc<Span>,
 }
 
+impl AsRef<Particle> for ExtendedParticle {
+    fn as_ref(&self) -> &Particle {
+        &self.particle
+    }
+}
+
 impl ExtendedParticle {
     pub fn new(particle: Particle, span: Span) -> Self {
         Self {

@@ -148,7 +148,7 @@ where
         if let Some(Poll::Ready(res)) = self.future.as_mut().map(|f| f.poll_unpin(cx)) {
             let (reusables, effects, stats, parent_span) = res;
 
-            let span = tracing::info_span!(parent: parent_span.as_ref(), "Actor: execute call requests", particle_id= self.particle.id,  deal_id = self.deal_id);
+            let span = tracing::info_span!(parent: parent_span.as_ref(), "Actor::execute call requests", particle_id= self.particle.id,  deal_id = self.deal_id);
             let _span_guard = span.enter();
 
             self.future.take();

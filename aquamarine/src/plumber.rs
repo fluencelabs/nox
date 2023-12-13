@@ -96,7 +96,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
     ) {
         self.wake();
 
-        let deadline = Deadline::from(&particle.particle);
+        let deadline = Deadline::from(particle.as_ref());
         if deadline.is_expired(now_ms()) {
             tracing::info!(target: "expired", particle_id = particle.particle.id, "Particle is expired");
             self.events
@@ -132,14 +132,14 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
         let actor = match entry {
             Entry::Occupied(actor) => Ok(actor.into_mut()),
             Entry::Vacant(entry) => {
-                let params = ParticleParams::clone_from(&particle.particle, worker_id);
+                let params = ParticleParams::clone_from(particle.as_ref(), worker_id);
                 let functions = Functions::new(params, builtins.clone());
                 let key_pair = self.key_manager.get_worker_keypair(worker_id);
                 let deal_id = self.key_manager.get_deal_id(worker_id).ok();
                 let data_store = self.data_store.clone();
                 key_pair.map(|kp| {
                     let actor = Actor::new(
-                        &particle.particle,
+                        particle.as_ref(),
                         functions,
                         worker_id,
                         kp,
