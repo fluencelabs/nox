@@ -91,15 +91,16 @@ impl Dispatcher {
         let aquamarine = self.aquamarine;
         let metrics = self.metrics;
         particle_stream
-            .for_each_concurrent(parallelism, move |particle| {
-                let current_span = tracing::info_span!(parent: particle.span.as_ref(), "Dispatcher::process_particles::for_each");
+            .for_each_concurrent(parallelism, move |ext_particle| {
+                let current_span = tracing::info_span!(parent: ext_particle.span.as_ref(), "Dispatcher::process_particles::for_each");
                 let _ = current_span.enter();
                 let async_span = tracing::info_span!("Dispatcher::process_particles::async");
                 let aquamarine = aquamarine.clone();
                 let metrics = metrics.clone();
+                let particle = ext_particle.as_ref();
 
-                if particle.particle.is_expired() {
-                    let particle_id = particle.particle.id;
+                if particle.is_expired() {
+                    let particle_id = particle.id;
                     if let Some(m) = metrics {
                         m.particle_expired(particle_id.as_str());
                     }
@@ -109,7 +110,7 @@ impl Dispatcher {
 
                 async move {
                     aquamarine
-                        .execute(particle, None)
+                        .execute(ext_particle, None)
                         // do not log errors: Aquamarine will log them fine
                         .map(|_| ())
                         .await
