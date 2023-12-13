@@ -653,7 +653,6 @@ impl NetworkBehaviour for ConnectionPoolBehaviour {
                     // channel is ready to consume more particles, so send them
                     if let Some(particle) = self.queue.pop_front() {
                         let particle_id = particle.particle.id.clone();
-                        let _span = tracing::info_span!(parent: particle.span.as_ref(), "ConnectionPool::outlet_send").entered();
 
                         if let Err(err) = outlet.start_send(particle) {
                             tracing::error!(
