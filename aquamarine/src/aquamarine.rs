@@ -105,7 +105,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> AquamarineBackend<RT, F> {
             match self.inlet.poll_recv(cx) {
                 Poll::Ready(Some(Ingest { particle, function })) => {
                     wake = true;
-                    let span = tracing::info_span!(parent: particle.span.as_ref(), "Aquamarine:poll::ingest");
+                    let span = tracing::info_span!(parent: particle.span.as_ref(), "Aquamarine::poll::ingest");
                     let _guard = span.entered();
                     // set new particle to be executed
                     // every particle that comes from the connection pool first executed on the host peer id

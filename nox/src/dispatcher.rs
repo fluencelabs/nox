@@ -22,7 +22,7 @@ use tracing::{instrument, Instrument};
 
 use aquamarine::{AquamarineApi, AquamarineApiError, RoutingEffects};
 use fluence_libp2p::PeerId;
-use particle_protocol::ExtendedParticle;
+use particle_protocol::{ExtendedParticle, Particle};
 use peer_metrics::DispatcherMetrics;
 
 use crate::effectors::Effectors;
@@ -98,12 +98,12 @@ impl Dispatcher {
                 let async_span = tracing::info_span!("Dispatcher::process_particles::async");
                 let aquamarine = aquamarine.clone();
                 let metrics = metrics.clone();
-                let particle = ext_particle.as_ref();
+                let particle: &Particle = ext_particle.as_ref();
 
                 if particle.is_expired() {
-                    let particle_id = particle.id;
+                    let particle_id = &particle.id.as_str();
                     if let Some(m) = metrics {
-                        m.particle_expired(particle_id.as_str());
+                        m.particle_expired(particle_id);
                     }
                     tracing::info!(target: "expired", particle_id = particle_id, "Particle is expired");
                     return async {}.boxed();

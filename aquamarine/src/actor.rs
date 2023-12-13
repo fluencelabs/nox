@@ -147,7 +147,12 @@ where
     fn poll_avm_future(&mut self, cx: &mut Context<'_>) -> Option<Poll<AVMCallResult<RT>>> {
         if let Some(Poll::Ready(res)) = self.future.as_mut().map(|f| f.poll_unpin(cx)) {
             let (reusables, effects, stats, parent_span) = res;
-            let span = tracing::info_span!(parent: parent_span.as_ref(), "Actor::poll_avm_future::future_ready", particle_id= self.particle.id,  deal_id = self.deal_id);
+            let span = tracing::info_span!(
+                parent: parent_span.as_ref(),
+                "Actor::poll_avm_future::future_ready",
+                particle_id= self.particle.id,
+                deal_id = self.deal_id
+            );
             let _span_guard = span.enter();
 
             self.future.take();
