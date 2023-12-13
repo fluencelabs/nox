@@ -22,6 +22,7 @@ use std::time::Instant;
 use avm_server::avm_runner::RawAVMOutcome;
 use avm_server::{CallResults, ParticleParameters};
 use fluence_keypair::KeyPair;
+use tokio::task::JoinError;
 
 use fluence_libp2p::PeerId;
 use particle_protocol::Particle;
@@ -77,149 +78,23 @@ impl<RT: AquaRuntime> ParticleExecutor for RT {
     ) -> Self::Output {
         let (particle, call_results) = p;
         let particle_id = particle.id.clone();
+        tracing::trace!(target: "execution", particle_id = particle_id, "Executing particle");
 
         let prev_data = data_store
             .read_data(particle_id.as_str(), current_peer_id.to_base58().as_str())
             .await;
 
         if let Ok(prev_data) = prev_data {
-            tracing::trace!(target: "execution", particle_id = particle_id, "Executing particle");
-            let prev_data_len = prev_data.len();
-
-            let avm_result = tokio::task::spawn_blocking(move || {
-                let particle_id = particle.id.clone();
-                let now = Instant::now();
-                let memory_size_before = self.memory_stats().memory_size;
-                let particle_params = ParticleParameters {
-                    current_peer_id: Cow::Owned(current_peer_id.to_string()),
-                    init_peer_id: Cow::Owned(particle.init_peer_id.to_string()),
-                    particle_id: Cow::Owned(particle_id),
-                    timestamp: particle.timestamp,
-                    ttl: particle.ttl,
-                };
-                let current_data = &particle.data[..];
-                let avm_outcome = self.call(
-                    &particle.script,
-                    prev_data,
-                    current_data,
-                    particle_params.clone(),
-                    call_results.clone(),
-                    &key_pair,
-                );
-                let memory_size_after = self.memory_stats().memory_size;
-
-                let interpretation_time = now.elapsed();
-                let new_data_len = avm_outcome.as_ref().map(|e| e.data.len()).ok();
-                let memory_delta = memory_size_after - memory_size_before;
-                let stats = InterpretationStats {
-                    memory_delta,
-                    interpretation_time,
-                    new_data_len,
-                    success: avm_outcome.is_ok(),
-                };
-                AVMCallResult {
-                    avm_outcome,
-                    stats,
-                    particle,
-                    call_results,
-                    particle_params,
-                    vm: self,
-                }
-            });
-
-            let avm_result = avm_result.await;
-            match avm_result {
-                Ok(avm_result) => {
-                    let particle_id = avm_result.particle.id;
-                    let stats = avm_result.stats;
-                    match &avm_result.avm_outcome {
-                        Ok(outcome) => {
-                            let len = outcome.data.len();
-                            tracing::trace!(
-                                target: "execution", particle_id = particle_id,
-                                "Particle interpreted in {} [{} bytes => {} bytes]",
-                                humantime::format_duration(stats.interpretation_time), prev_data_len, len
-                            );
-
-                            if data_store.detect_anomaly(
-                                stats.interpretation_time,
-                                stats.memory_delta,
-                                outcome,
-                            ) {
-                                let anomaly_result = data_store
-                                    .save_anomaly_data(
-                                        avm_result.particle.script.as_str(),
-                                        &avm_result.particle.data,
-                                        &avm_result.call_results,
-                                        &avm_result.particle_params,
-                                        outcome,
-                                        stats.interpretation_time,
-                                        stats.memory_delta,
-                                    )
-                                    .await;
-                                if let Err(err) = anomaly_result {
-                                    tracing::warn!(
-                                        particle_id = particle_id,
-                                        "Could not save anomaly result: {}",
-                                        err
-                                    )
-                                }
-                            }
-
-                            let store_result = data_store
-                                .store_data(
-                                    &outcome.data,
-                                    particle_id.as_str(),
-                                    current_peer_id.to_base58().as_str(),
-                                )
-                                .await;
-                            if let Err(err) = store_result {
-                                tracing::warn!(
-                                    particle_id = particle_id,
-                                    "Could not save particle result: {}",
-                                    err
-                                );
-                                return FutResult {
-                                    runtime: Some(avm_result.vm),
-                                    effects: ParticleEffects::empty(),
-                                    stats: InterpretationStats::failed(),
-                                };
-                            }
-                        }
-                        Err(err) => {
-                            tracing::warn!(
-                                particle_id = particle_id,
-                                "Error executing particle: {}",
-                                err
-                            )
-                        }
-                    }
-
-                    let effects = Self::into_effects(avm_result.avm_outcome, particle_id);
-
-                    FutResult {
-                        runtime: Some(avm_result.vm),
-                        effects,
-                        stats,
-                    }
-                }
-                Err(err) => {
-                    if err.is_cancelled() {
-                        tracing::warn!(particle_id, "Particle task was cancelled");
-                    } else {
-                        tracing::error!(particle_id, "Particle task panic");
-                    }
-                    let stats = InterpretationStats::failed();
-                    let effects = ParticleEffects::empty();
-                    FutResult {
-                        // We loose an AVM instance here
-                        // But it will be recreated via VmPool
-                        runtime: None,
-                        effects,
-                        stats,
-                    }
-                }
-            }
+            execute_with_prev_data(
+                self,
+                data_store,
+                current_peer_id,
+                key_pair,
+                particle,
+                call_results,
+                prev_data,
+            )
+            .await
         } else {
             FutResult {
                 runtime: Some(self),
@@ -228,4 +103,178 @@ impl<RT: AquaRuntime> ParticleExecutor for RT {
             }
         }
     }
+}
+
+async fn execute_with_prev_data<RT: AquaRuntime>(
+    vm: RT,
+    data_store: Arc<ParticleDataStore>,
+    current_peer_id: PeerId,
+    key_pair: KeyPair,
+    particle: Particle,
+    call_results: CallResults,
+    prev_data: Vec<u8>,
+) -> AVMRes<RT> {
+    let particle_id = particle.id.clone();
+    let prev_data_len = prev_data.len();
+
+    let avm_result = avm_call(
+        vm,
+        current_peer_id,
+        key_pair,
+        particle,
+        call_results,
+        prev_data,
+    )
+    .await;
+
+    match avm_result {
+        Ok(avm_result) => {
+            process_avm_result(data_store, current_peer_id, prev_data_len, avm_result).await
+        }
+        Err(err) => {
+            if err.is_cancelled() {
+                tracing::warn!(particle_id, "Particle task was cancelled");
+            } else {
+                tracing::error!(particle_id, "Particle task panic");
+            }
+            let stats = InterpretationStats::failed();
+            let effects = ParticleEffects::empty();
+            FutResult {
+                // We loose an AVM instance here
+                // But it will be recreated via VmPool
+                runtime: None,
+                effects,
+                stats,
+            }
+        }
+    }
+}
+
+async fn process_avm_result<RT>(
+    data_store: Arc<ParticleDataStore>,
+    current_peer_id: PeerId,
+    prev_data_len: usize,
+    avm_result: AVMCallResult<'_, RT>,
+) -> AVMRes<RT>
+where
+    RT: AquaRuntime,
+{
+    let particle_id = avm_result.particle.id;
+    let stats = avm_result.stats;
+    match &avm_result.avm_outcome {
+        Ok(outcome) => {
+            let len = outcome.data.len();
+            tracing::trace!(
+                target: "execution", particle_id = particle_id,
+                "Particle interpreted in {} [{} bytes => {} bytes]",
+                humantime::format_duration(stats.interpretation_time), prev_data_len, len
+            );
+
+            if data_store.detect_anomaly(stats.interpretation_time, stats.memory_delta, outcome) {
+                let anomaly_result = data_store
+                    .save_anomaly_data(
+                        avm_result.particle.script.as_str(),
+                        &avm_result.particle.data,
+                        &avm_result.call_results,
+                        &avm_result.particle_params,
+                        outcome,
+                        stats.interpretation_time,
+                        stats.memory_delta,
+                    )
+                    .await;
+                if let Err(err) = anomaly_result {
+                    tracing::warn!(
+                        particle_id = particle_id,
+                        "Could not save anomaly result: {}",
+                        err
+                    )
+                }
+            }
+
+            let store_result = data_store
+                .store_data(
+                    &outcome.data,
+                    particle_id.as_str(),
+                    current_peer_id.to_base58().as_str(),
+                )
+                .await;
+            if let Err(err) = store_result {
+                tracing::warn!(
+                    particle_id = particle_id,
+                    "Could not save particle result: {}",
+                    err
+                );
+                return FutResult {
+                    runtime: Some(avm_result.vm),
+                    effects: ParticleEffects::empty(),
+                    stats: InterpretationStats::failed(),
+                };
+            }
+        }
+        Err(err) => {
+            tracing::warn!(
+                particle_id = particle_id,
+                "Error executing particle: {}",
+                err
+            )
+        }
+    }
+    let effects = RT::into_effects(avm_result.avm_outcome, particle_id);
+
+    FutResult {
+        runtime: Some(avm_result.vm),
+        effects,
+        stats,
+    }
+}
+
+async fn avm_call<'a, RT: AquaRuntime>(
+    mut vm: RT,
+    current_peer_id: PeerId,
+    key_pair: KeyPair,
+    particle: Particle,
+    call_results: CallResults,
+    prev_data: Vec<u8>,
+) -> Result<AVMCallResult<'a, RT>, JoinError> {
+    tokio::task::spawn_blocking(move || {
+        let particle_id = particle.id.clone();
+        let now = Instant::now();
+        let memory_size_before = vm.memory_stats().memory_size;
+        let particle_params = ParticleParameters {
+            current_peer_id: Cow::Owned(current_peer_id.to_string()),
+            init_peer_id: Cow::Owned(particle.init_peer_id.to_string()),
+            particle_id: Cow::Owned(particle_id),
+            timestamp: particle.timestamp,
+            ttl: particle.ttl,
+        };
+        let current_data = &particle.data[..];
+        let avm_outcome = vm.call(
+            &particle.script,
+            prev_data,
+            current_data,
+            particle_params.clone(),
+            call_results.clone(),
+            &key_pair,
+        );
+        let memory_size_after = vm.memory_stats().memory_size;
+
+        let interpretation_time = now.elapsed();
+        let new_data_len = avm_outcome.as_ref().map(|e| e.data.len()).ok();
+        let memory_delta = memory_size_after - memory_size_before;
+        let stats = InterpretationStats {
+            memory_delta,
+            interpretation_time,
+            new_data_len,
+            success: avm_outcome.is_ok(),
+        };
+        AVMCallResult {
+            avm_outcome,
+            stats,
+            particle,
+            call_results,
+            particle_params,
+            vm,
+        }
+    })
+    .await
 }
