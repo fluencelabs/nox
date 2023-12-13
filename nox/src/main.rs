@@ -36,7 +36,7 @@ use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 
 use air_interpreter_fs::write_default_air_interpreter;
-use aquamarine::{DatastoreConfig, VmConfig};
+use aquamarine::{DataStoreConfig, VmConfig};
 use avm_server::avm_runner::AVMRunner;
 use config_utils::to_peer_id;
 use fs_utils::to_abs_path;
@@ -150,7 +150,7 @@ async fn start_fluence(config: ResolvedConfig, peer_id: PeerId) -> eyre::Result<
 
     let listen_addrs = config.listen_multiaddrs();
     let vm_config = vm_config(&config);
-    let datastore_config = DatastoreConfig::new(config.dir_config.avm_base_dir.clone());
+    let data_store_config = DataStoreConfig::new(config.dir_config.avm_base_dir.clone());
 
     let system_services_config = config.system_services.clone();
     let system_service_distros =
@@ -160,7 +160,7 @@ async fn start_fluence(config: ResolvedConfig, peer_id: PeerId) -> eyre::Result<
     let mut node: Box<Node<AVMRunner>> = Node::new(
         config,
         vm_config,
-        datastore_config,
+        data_store_config,
         VERSION,
         air_interpreter_wasm::VERSION,
         system_service_distros,

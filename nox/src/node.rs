@@ -19,7 +19,7 @@ use std::sync::Arc;
 use std::{io, net::SocketAddr};
 
 use aquamarine::{
-    AquaRuntime, AquamarineApi, AquamarineApiError, AquamarineBackend, DatastoreConfig,
+    AquaRuntime, AquamarineApi, AquamarineApiError, AquamarineBackend, DataStoreConfig,
     RoutingEffects, VmPoolConfig,
 };
 use config_utils::to_peer_id;
@@ -101,7 +101,7 @@ impl<RT: AquaRuntime> Node<RT> {
     pub async fn new(
         config: ResolvedConfig,
         vm_config: RT::Config,
-        datastore_config: DatastoreConfig,
+        data_store_config: DataStoreConfig,
         node_version: &'static str,
         air_version: &'static str,
         system_service_distros: SystemServiceDistros,
@@ -230,7 +230,7 @@ impl<RT: AquaRuntime> Node<RT> {
         let (aquamarine_backend, aquamarine_api) = AquamarineBackend::new(
             pool_config,
             vm_config,
-            datastore_config,
+            data_store_config,
             Arc::clone(&builtins),
             effects_out,
             plumber_metrics,
@@ -580,7 +580,7 @@ mod tests {
     use std::time::Duration;
 
     use air_interpreter_fs::{air_interpreter_path, write_default_air_interpreter};
-    use aquamarine::{DatastoreConfig, VmConfig};
+    use aquamarine::{DataStoreConfig, VmConfig};
     use config_utils::to_peer_id;
     use connected_client::ConnectedClient;
     use fs_utils::to_abs_path;
@@ -610,7 +610,7 @@ mod tests {
             config.dir_config.air_interpreter_path.clone(),
             None,
         );
-        let datastore_config = DatastoreConfig::new(config.dir_config.avm_base_dir.clone());
+        let data_store_config = DataStoreConfig::new(config.dir_config.avm_base_dir.clone());
 
         let system_service_distros =
             SystemServiceDistros::default_from(config.system_services.clone())
@@ -618,7 +618,7 @@ mod tests {
         let mut node: Box<Node<AVMRunner>> = Node::new(
             config,
             vm_config,
-            datastore_config,
+            data_store_config,
             "some version",
             "some version",
             system_service_distros,

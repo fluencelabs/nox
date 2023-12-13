@@ -28,7 +28,7 @@ use serde::Deserialize;
 
 use air_interpreter_fs::{air_interpreter_path, write_default_air_interpreter};
 use aquamarine::{AVMRunner, AquamarineApi};
-use aquamarine::{AquaRuntime, DatastoreConfig, VmConfig};
+use aquamarine::{AquaRuntime, DataStoreConfig, VmConfig};
 use base64::{engine::general_purpose::STANDARD as base64, Engine};
 use fluence_libp2p::random_multiaddr::{create_memory_maddr, create_tcp_maddr};
 use fluence_libp2p::Transport;
@@ -395,7 +395,7 @@ pub async fn create_swarm_with_runtime<RT: AquaRuntime>(
         manager: management_peer_id,
     });
 
-    let datastore_config = DatastoreConfig::new(tmp_dir.clone());
+    let datas_tore_config = DataStoreConfig::new(tmp_dir.clone());
 
     let system_services_config = resolved.system_services.clone();
     let system_service_distros =
@@ -406,7 +406,7 @@ pub async fn create_swarm_with_runtime<RT: AquaRuntime>(
     let mut node = Node::new(
         resolved,
         vm_config,
-        datastore_config,
+        datas_tore_config,
         "some version",
         "some version",
         system_service_distros,

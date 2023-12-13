@@ -60,7 +60,7 @@ impl VmConfig {
 }
 
 #[derive(Debug, Clone)]
-pub struct DatastoreConfig {
+pub struct DataStoreConfig {
     /// Dir for the interpreter to persist particle data
     /// to merge it between particles of the same particle_id
     pub particles_dir: PathBuf,
@@ -71,7 +71,7 @@ pub struct DatastoreConfig {
     pub particles_anomaly_dir: PathBuf,
 }
 
-impl DatastoreConfig {
+impl DataStoreConfig {
     pub fn new(base_dir: PathBuf) -> Self {
         let base_dir = to_abs_path(base_dir);
         Self {

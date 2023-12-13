@@ -37,7 +37,7 @@ use crate::command::Command::{AddService, Ingest, RemoveService};
 use crate::error::AquamarineApiError;
 use crate::particle_effects::RoutingEffects;
 use crate::vm_pool::VmPool;
-use crate::{DatastoreConfig, ParticleDataStore, Plumber, VmPoolConfig};
+use crate::{DataStoreConfig, ParticleDataStore, Plumber, VmPoolConfig};
 
 pub type EffectsChannel = mpsc::Sender<Result<RoutingEffects, AquamarineApiError>>;
 
@@ -54,7 +54,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> AquamarineBackend<RT, F> {
     pub fn new(
         config: VmPoolConfig,
         runtime_config: RT::Config,
-        datastore_config: DatastoreConfig,
+        data_store_config: DataStoreConfig,
         builtins: F,
         out: EffectsChannel,
         plumber_metrics: Option<ParticleExecutorMetrics>,
@@ -67,9 +67,9 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> AquamarineBackend<RT, F> {
         let sender = AquamarineApi::new(outlet, config.execution_timeout);
 
         let data_store = ParticleDataStore::new(
-            datastore_config.particles_dir,
-            datastore_config.particles_vault_dir,
-            datastore_config.particles_anomaly_dir,
+            data_store_config.particles_dir,
+            data_store_config.particles_vault_dir,
+            data_store_config.particles_anomaly_dir,
         );
         let data_store: Arc<ParticleDataStore> = Arc::new(data_store);
         let vm_pool = VmPool::new(
