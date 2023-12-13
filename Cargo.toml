@@ -105,15 +105,15 @@ avm-server = "0.33.4"
 air-interpreter-wasm = "0.55.0"
 
 # libp2p
-libp2p = { version = "0.53.1", features = ["noise", "tcp", "dns", "websocket", "yamux", "tokio", "kad", "ping", "identify", "macros"] }
-libp2p-core = { version = "0.41.1", default-features = false, features = ["secp256k1"] }
+libp2p = { version = "0.53.2", features = ["noise", "tcp", "dns", "websocket", "yamux", "tokio", "kad", "ping", "identify", "macros"] }
+libp2p-core = { version = "0.41.2", default-features = false, features = ["secp256k1"] }
 libp2p-metrics = "0.14.1"
 libp2p-noise = "0.44.0"
 libp2p-mplex = "0.41.0"
-libp2p-swarm = "0.44.0"
+libp2p-swarm = "0.44.1"
 libp2p-identity = "0.2.8"
-libp2p-connection-limits = "0.3.0"
-libp2p-kad = "0.45.1"
+libp2p-connection-limits = "0.3.1"
+libp2p-kad = "0.45.3"
 multihash = "0.19.1"
 prometheus-client = "0.22.0"
 
@@ -122,7 +122,7 @@ base64 = "0.21.5"
 bs58 = "0.5.0"
 fluence-keypair = "0.10.3"
 parking_lot = "0.12.1"
-tokio = "1.34.0"
+tokio = "1.35.0"
 tokio-stream = "0.1.14"
 tokio-util = "0.7.10"
 uuid = { version = "1.6.1", features = ["v4"] }
@@ -142,7 +142,7 @@ itertools = "0.12.0"
 humantime-serde = "1.1.1"
 cid = "0.11.0"
 libipld = "0.16.0"
-axum = "0.7.1"
+axum = "0.7.2"
 reqwest = "0.11.22"
 faster-hex = "0.9.0"
 once_cell = "1.18.0"
