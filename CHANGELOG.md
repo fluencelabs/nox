@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.16.6](https://github.com/fluencelabs/nox/compare/nox-v0.16.5...nox-v0.16.6) (2023-12-13)
+
+
+### Features
+
+* **avm:** Use AVMRunner instead of AVM ([#1952](https://github.com/fluencelabs/nox/issues/1952)) ([fe3d563](https://github.com/fluencelabs/nox/commit/fe3d5632080856d19bdefecbd88441673be5cf6a))
+
+
+### Bug Fixes
+
+* **deps:** update rust crate air-interpreter-wasm to 0.55.0 ([#1953](https://github.com/fluencelabs/nox/issues/1953)) ([1dfc777](https://github.com/fluencelabs/nox/commit/1dfc7771c8373b4efc100864687b0556a871daeb))
+
 ## [0.16.5](https://github.com/fluencelabs/nox/compare/nox-v0.16.4...nox-v0.16.5) (2023-12-08)
 
 
