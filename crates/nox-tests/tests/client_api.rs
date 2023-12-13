@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-use std::sync::Arc;
 use std::time::Duration;
 
 use futures::channel::oneshot::channel;
