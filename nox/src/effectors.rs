@@ -18,6 +18,7 @@ use futures::{stream::iter, StreamExt};
 use tracing::instrument;
 
 use aquamarine::RoutingEffects;
+use particle_protocol::Particle;
 
 use crate::connectivity::Connectivity;
 
@@ -34,8 +35,9 @@ impl Effectors {
     /// Perform effects that Aquamarine instructed us to
     #[instrument(level = tracing::Level::INFO, skip_all)]
     pub async fn execute(self, effects: RoutingEffects) {
-        if effects.particle.as_ref().is_expired() {
-            tracing::info!(target: "expired", particle_id = effects.particle.particle.id, "Particle is expired");
+        let particle: &Particle = effects.particle.as_ref();
+        if particle.is_expired() {
+            tracing::info!(target: "expired", particle_id = particle.id, "Particle is expired");
             return;
         }
 
@@ -49,7 +51,7 @@ impl Effectors {
             async move {
                 // resolve contact
                 if let Some(contact) = connectivity
-                    .resolve_contact(target, &particle.as_ref().id)
+                    .resolve_contact(target, &particle.as_ref())
                     .await
                 {
                     // forward particle

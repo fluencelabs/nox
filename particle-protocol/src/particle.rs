@@ -44,6 +44,12 @@ impl AsRef<Particle> for ExtendedParticle {
     }
 }
 
+impl AsRef<str> for ExtendedParticle {
+    fn as_ref(&self) -> &str {
+        &self.particle.id
+    }
+}
+
 impl ExtendedParticle {
     pub fn new(particle: Particle, span: Span) -> Self {
         Self {

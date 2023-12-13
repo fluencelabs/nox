@@ -20,7 +20,6 @@ use futures::{future::BoxFuture, stream::BoxStream, FutureExt, StreamExt};
 use libp2p::{core::Multiaddr, PeerId};
 use tokio::sync::{mpsc, oneshot};
 use tokio_stream::wrappers::UnboundedReceiverStream;
-use tracing::instrument;
 
 use particle_protocol::ExtendedParticle;
 use particle_protocol::{Contact, SendStatus};

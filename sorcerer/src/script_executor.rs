@@ -15,7 +15,7 @@
  */
 use fluence_libp2p::PeerId;
 use std::sync::Arc;
-use tracing::{instrument, Instrument, Span};
+use tracing::{instrument, Span};
 
 use crate::error::SorcererError::{ParticleSigningFailed, ScopeKeypairMissing};
 use now_millis::now_ms;
