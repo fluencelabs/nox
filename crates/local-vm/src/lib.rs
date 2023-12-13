@@ -32,4 +32,5 @@ mod local_vm;
 
 pub use crate::local_vm::*;
 pub use aquamarine::DataStoreError;
-pub use avm_server::AVM;
+pub use aquamarine::ParticleDataStore;
+pub use avm_server::avm_runner::AVMRunner;

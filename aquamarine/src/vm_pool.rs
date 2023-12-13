@@ -14,17 +14,26 @@
  * limitations under the License.
  */
 
+use std::error::Error;
+use std::fmt::Debug;
 use std::task::{Context, Poll};
 
 use futures::{future::BoxFuture, FutureExt};
 use health::HealthCheckRegistry;
+use tokio::task::JoinError;
 
 use peer_metrics::VmPoolMetrics;
 
 use crate::aqua_runtime::AquaRuntime;
 use crate::health::VMPoolHealth;
 
-type RuntimeF<RT> = BoxFuture<'static, Result<RT, <RT as AquaRuntime>::Error>>;
+type RuntimeF<RT> = BoxFuture<'static, Result<RT, CreateAVMError>>;
+
+#[derive(Debug)]
+enum CreateAVMError {
+    AVMError(Box<dyn Error + Send + Sync + 'static>),
+    JoinError(JoinError),
+}
 
 /// Pool that owns and manages aquamarine stepper VMs
 /// VMs are created asynchronously after `VmPool` creation
@@ -120,7 +129,7 @@ impl<RT: AquaRuntime> VmPool<RT> {
         });
     }
 
-    pub fn recreate_avm(&mut self, id: usize, cx: &mut Context<'_>) {
+    pub fn recreate_avm(&mut self, id: usize, cx: &Context<'_>) {
         if self.creating_runtimes.is_none() {
             log::error!(
                 "Attempt to recreate an AVM before initialization (self.creating_runtimes is None), ignoring"
@@ -134,11 +143,19 @@ impl<RT: AquaRuntime> VmPool<RT> {
         }
     }
 
-    fn create_avm(&self, cx: &mut Context<'_>) -> RuntimeF<RT> {
+    fn create_avm(&self, cx: &Context<'_>) -> RuntimeF<RT> {
         let config = self.runtime_config.clone();
         let waker = cx.waker().clone();
 
-        RT::create_runtime(config, waker)
+        async {
+            let task_result =
+                tokio::task::spawn_blocking(|| RT::create_runtime(config, waker)).await; //TODO: move waker outside create runtime
+            match task_result {
+                Ok(joined_res) => joined_res.map_err(|e| CreateAVMError::AVMError(Box::new(e))),
+                Err(e) => Err(CreateAVMError::JoinError(e)),
+            }
+        }
+        .boxed()
     }
 
     /// Moves created VMs from `creating_vms` to `vms`
@@ -167,7 +184,7 @@ impl<RT: AquaRuntime> VmPool<RT> {
                 // Remove completed future
                 creating_vms.remove(fut_index);
                 if creating_vms.is_empty() {
-                    tracing::info!("All {}ч AquaVMs created.", self.pool_size)
+                    tracing::info!("All {} AquaVMs created.", self.pool_size)
                 }
 
                 // Put created vm to self.vms
@@ -178,7 +195,9 @@ impl<RT: AquaRuntime> VmPool<RT> {
                             h.increment_count()
                         }
                     }
-                    Err(err) => log::error!("Failed to create vm: {:?}", err), // TODO: don't panic
+                    Err(err) => {
+                        tracing::error!("Failed to create vm: {:?}", err)
+                    } // TODO: don't panic
                 }
 
                 wake = true;

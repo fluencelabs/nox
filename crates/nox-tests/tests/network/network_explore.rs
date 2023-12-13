@@ -405,10 +405,16 @@ async fn explore_services_fixed_heavy() {
             match event {
                 ClientEvent::Particle { particle, .. } => {
                     let mut guard = client.get_local_vm().await.lock().await;
-                    let args = read_args(particle, client.peer_id, &mut guard, &client.key_pair)
-                        .await
-                        .expect("read args")
-                        .expect("no error");
+                    let args = read_args(
+                        particle,
+                        client.peer_id,
+                        &mut guard,
+                        client.get_data_store(),
+                        &client.key_pair,
+                    )
+                    .await
+                    .expect("read args")
+                    .expect("no error");
                     received.push(args);
                 }
                 ClientEvent::NewConnection { .. } => {}

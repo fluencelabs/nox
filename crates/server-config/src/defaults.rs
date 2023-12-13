@@ -140,7 +140,11 @@ pub fn default_aquavm_pool_size() -> usize {
 }
 
 pub fn default_particle_queue_buffer_size() -> usize {
-    100
+    128
+}
+
+pub fn default_effects_queue_buffer_size() -> usize {
+    128
 }
 
 pub fn default_particle_processor_parallelism() -> Option<usize> {

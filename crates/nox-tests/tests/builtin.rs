@@ -2227,6 +2227,7 @@ async fn add_alias_list() {
 async fn aliases_restart() {
     let kp = KeyPair::generate_ed25519();
     let swarms = make_swarms_with_keypair(1, kp.clone(), None).await;
+    let tmp_dir = swarms[0].tmp_dir.clone();
 
     let mut client = ConnectedClient::connect_with_keypair(
         swarms[0].multiaddr.clone(),
@@ -2274,7 +2275,13 @@ async fn aliases_restart() {
         .into_iter()
         .map(|s| s.exit_outlet.send(()))
         .for_each(drop);
-    let swarms = make_swarms_with_keypair(1, kp, None).await;
+
+    let swarms = make_swarms_with_cfg(1, |mut cfg| {
+        cfg.keypair = kp.clone();
+        cfg.tmp_dir = tmp_dir.clone();
+        cfg
+    })
+    .await;
     let mut client = ConnectedClient::connect_with_keypair(
         swarms[0].multiaddr.clone(),
         Some(swarms[0].management_keypair.clone()),

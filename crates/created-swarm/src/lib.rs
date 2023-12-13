@@ -15,6 +15,7 @@
  */
 
 #![feature(try_blocks)]
+#![feature(async_closure)]
 #![warn(rust_2018_idioms)]
 #![deny(
     dead_code,
