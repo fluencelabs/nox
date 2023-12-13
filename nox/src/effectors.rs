@@ -34,7 +34,7 @@ impl Effectors {
     /// Perform effects that Aquamarine instructed us to
     #[instrument(level = tracing::Level::INFO, skip_all)]
     pub async fn execute(self, effects: RoutingEffects) {
-        if effects.particle.particle.is_expired() {
+        if effects.particle.as_ref().is_expired() {
             tracing::info!(target: "expired", particle_id = effects.particle.particle.id, "Particle is expired");
             return;
         }
