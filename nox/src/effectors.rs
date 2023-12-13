@@ -49,7 +49,7 @@ impl Effectors {
             async move {
                 // resolve contact
                 if let Some(contact) = connectivity
-                    .resolve_contact(target, &particle.particle.id)
+                    .resolve_contact(target, &particle.as_ref().id)
                     .await
                 {
                     // forward particle
