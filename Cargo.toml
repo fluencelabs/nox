@@ -117,7 +117,7 @@ libp2p-kad = "0.45.3"
 multihash = "0.19.1"
 prometheus-client = "0.22.0"
 
-eyre = "0.6.9"
+eyre = "0.6.11"
 base64 = "0.21.5"
 bs58 = "0.5.0"
 fluence-keypair = "0.10.3"
