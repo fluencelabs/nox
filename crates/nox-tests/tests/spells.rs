@@ -304,14 +304,20 @@ async fn spell_return_test() {
                 (call %init_peer_id% ("callbackSrv" "response") [obj])
                 (seq
                     (seq
-                        (call %init_peer_id% (spell_id "get_string") ["key"] value_raw)
-                        (call %init_peer_id% ("json" "parse") [value_raw.$.str] value)
+                        (seq
+                            (call %init_peer_id% (spell_id "get_string") ["key"] value_raw)
+                            (call %init_peer_id% ("json" "parse") [value_raw.$.str] value)
+                        )
+                        (xor
+                            (call %init_peer_id% ("callbackSrv" "response") [])
+                            (call "{}" ("return" "") ["callbackSrv response failed"])
+                        )
                     )    
                     (call "{}" ("return" "") [value])
                 )
             )
         )"#,
-        client.peer_id
+        client.peer_id, client.peer_id,
     );
 
     let config = make_clock_config(1, 1, 0);
