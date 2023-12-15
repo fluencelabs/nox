@@ -194,7 +194,7 @@ fn vm_config(config: &ResolvedConfig) -> VmConfig {
         config.dir_config.air_interpreter_path.clone(),
         config
             .node_config
-            .aquavm_max_heap_size
+            .aquavm_heap_size_limit
             .map(|byte_size| byte_size.as_u64()),
     )
 }

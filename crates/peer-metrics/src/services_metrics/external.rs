@@ -7,7 +7,6 @@ use prometheus_client::metrics::histogram::{linear_buckets, Histogram};
 use prometheus_client::registry::Registry;
 use std::fmt::Write;
 
-use fluence_app_service::ModuleDescriptor;
 use prometheus_client::encoding::{EncodeLabelSet, EncodeLabelValue, LabelValueEncoder};
 use prometheus_client::metrics::family::Family;
 
@@ -55,14 +54,8 @@ pub struct ServicesMemoryMetrics {
 
 impl ServicesMemoryMetrics {
     /// Collect the service and the service's modules  max available memory.
-    pub fn observe_service_max_mem(&self, default_max: u64, modules_config: &[ModuleDescriptor]) {
-        let mut max_service_size = 0;
-        for module_config in modules_config {
-            let module_max = module_config.config.max_heap_size.unwrap_or(default_max);
-            self.mem_max_per_module_bytes.observe(module_max as f64);
-            max_service_size += module_max;
-        }
-        self.mem_max_bytes.observe(max_service_size as f64);
+    pub fn observe_service_max_mem(&self, default_max: u64) {
+        self.mem_max_bytes.observe(default_max as f64);
     }
 }
 
@@ -234,9 +227,8 @@ impl ServicesMetricsExternal {
     }
 
     /// Collect the service and the service's modules  max available memory.
-    pub fn observe_service_max_mem(&self, default_max: u64, modules_config: &[ModuleDescriptor]) {
-        self.memory_metrics
-            .observe_service_max_mem(default_max, modules_config);
+    pub fn observe_service_max_mem(&self, default_max: u64) {
+        self.memory_metrics.observe_service_max_mem(default_max);
     }
 
     /// Collect all metrics that are relevant on service removal.

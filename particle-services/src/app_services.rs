@@ -816,17 +816,18 @@ impl ParticleAppServices {
         let lock = service.service.lock();
         let stats = lock.module_memory_stats();
         let stats = stats
-            .0
+            .modules
             .into_iter()
             .map(|stat| {
                 json!({
                     "name": stat.name,
                     "memory_size_bytes": stat.memory_size,
-                    "max_memory_size_bytes": stat.max_memory_size
                 })
             })
             .collect();
 
+        // TODO: report service memory limit
+        // TODO: report allocation rejects (cleared after each call, optional value but always Some on wasmtime)
         Ok(stats)
     }
 
@@ -969,14 +970,20 @@ impl ParticleAppServices {
             .iter_mut()
             .for_each(|module| self.vault.inject_vault(module));
 
-        if let Some(metrics) = self.metrics.as_ref() {
-            metrics.observe_service_config(self.config.max_heap_size.as_u64(), &modules_config);
-        }
+        // TODO: I guess this part is obsolete. Need to record the service memory limit instead.
+        //if let Some(metrics) = self.metrics.as_ref() {
+        //     metrics.observe_service_config(self.config.default_service_memory_limit.as_u64());
+        //}
 
         let app_config = AppServiceConfig {
             service_working_dir: self.config.workdir.join(&service_id),
             service_base_dir: self.config.workdir.clone(),
             marine_config: MarineConfig {
+                // TODO: add an option to set individual per-service limit
+                total_memory_limit: self
+                    .config
+                    .default_service_memory_limit
+                    .map(|bytes| bytes.as_u64()),
                 modules_dir: Some(self.config.modules_dir.clone()),
                 modules_config,
                 default_modules_config: None,
@@ -1060,7 +1067,7 @@ mod tests {
         let vault_dir = base_dir.join("..").join("vault");
         let keypairs_dir = base_dir.join("..").join("keypairs");
         let workers_dir = base_dir.join("..").join("workers");
-        let max_heap_size = server_config::default_module_max_heap_size();
+        let service_memory_limit = server_config::default_service_memory_limit();
         let key_manager = KeyManager::new(
             keypairs_dir,
             workers_dir,
@@ -1076,8 +1083,7 @@ mod tests {
             HashMap::new(),
             management_pid,
             to_peer_id(&startup_kp),
-            max_heap_size,
-            None,
+            Some(service_memory_limit),
             Default::default(),
         )
         .unwrap();
@@ -1086,8 +1092,6 @@ mod tests {
             &config.modules_dir,
             &config.blueprint_dir,
             &config.particles_vault_dir,
-            max_heap_size,
-            None,
             Default::default(),
         );
 
@@ -1175,8 +1179,6 @@ mod tests {
             file_name: None,
             load_from: None,
             config: TomlMarineModuleConfig {
-                mem_pages_count: None,
-                max_heap_size: None,
                 logger_enabled: None,
                 wasi: None,
                 mounted_binaries: None,
@@ -1218,8 +1220,6 @@ mod tests {
             file_name: None,
             load_from: None,
             config: TomlMarineModuleConfig {
-                mem_pages_count: None,
-                max_heap_size: None,
                 logger_enabled: None,
                 wasi: None,
                 mounted_binaries: None,

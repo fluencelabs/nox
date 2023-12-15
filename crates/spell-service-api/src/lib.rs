@@ -309,7 +309,7 @@ mod tests {
             management_pid,
             to_peer_id(&startup_kp),
         );
-        let max_heap_size = server_config::default_module_max_heap_size();
+        let service_memory_limit = server_config::default_service_memory_limit();
         let config = ServicesConfig::new(
             local_pid,
             base_dir,
@@ -317,8 +317,7 @@ mod tests {
             HashMap::new(),
             management_pid,
             to_peer_id(&startup_kp),
-            max_heap_size,
-            None,
+            Some(service_memory_limit),
             Default::default(),
         )
         .unwrap();
@@ -327,8 +326,6 @@ mod tests {
             &config.modules_dir,
             &config.blueprint_dir,
             &config.particles_vault_dir,
-            max_heap_size,
-            None,
             Default::default(),
         );
 
