@@ -21,11 +21,12 @@ use futures::future::BoxFuture;
 use futures::FutureExt;
 use maplit::hashmap;
 use serde_json::json;
+use tracing::Span;
 
 use created_swarm::make_swarms;
 use now_millis::now_ms;
 use particle_execution::FunctionOutcome;
-use particle_protocol::Particle;
+use particle_protocol::{ExtendedParticle, Particle};
 use test_constants::PARTICLE_TTL;
 use test_utils::timeout;
 use uuid_utils::uuid;
@@ -93,7 +94,10 @@ async fn call_custom_service() {
         data: vec![],
     };
 
-    let exec_f = swarms[1].aquamarine_api.clone().execute(particle, None);
+    let exec_f = swarms[1]
+        .aquamarine_api
+        .clone()
+        .execute(ExtendedParticle::new(particle, Span::none()), None);
 
     let result = timeout(Duration::from_secs(30), async move {
         add_first_f.await.expect("add_first_f");

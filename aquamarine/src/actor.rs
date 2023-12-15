@@ -14,21 +14,19 @@
  * limitations under the License.
  */
 
-use std::sync::Arc;
-use std::task::Context;
-use std::{
-    collections::VecDeque,
-    task::{Poll, Waker},
-};
-
-use fluence_keypair::KeyPair;
 use futures::future::BoxFuture;
 use futures::FutureExt;
-use tracing::{Instrument, Span};
+use std::sync::Arc;
+use std::{
+    collections::VecDeque,
+    task::{Context, Poll, Waker},
+};
+use tracing::{instrument, Instrument, Span};
 
+use fluence_keypair::KeyPair;
 use fluence_libp2p::PeerId;
 use particle_execution::{ParticleFunctionStatic, ServiceFunction};
-use particle_protocol::Particle;
+use particle_protocol::{ExtendedParticle, Particle};
 
 use crate::deadline::Deadline;
 use crate::particle_effects::RoutingEffects;
@@ -42,12 +40,20 @@ struct Reusables<RT> {
 }
 
 type AVMCallResult<RT> = FutResult<(usize, Option<RT>), RoutingEffects, InterpretationStats>;
-type AVMTask<RT> = BoxFuture<'static, (Reusables<RT>, ParticleEffects, InterpretationStats)>;
+type AVMTask<RT> = BoxFuture<
+    'static,
+    (
+        Reusables<RT>,
+        ParticleEffects,
+        InterpretationStats,
+        Arc<Span>,
+    ),
+>;
 pub struct Actor<RT, F> {
     /// Particle of that actor is expired after that deadline
     deadline: Deadline,
     future: Option<AVMTask<RT>>,
-    mailbox: VecDeque<Particle>,
+    mailbox: VecDeque<ExtendedParticle>,
     waker: Option<Waker>,
     functions: Functions<F>,
     /// Particle that's memoized on the actor creation.
@@ -58,8 +64,8 @@ pub struct Actor<RT, F> {
     /// It's either `host_peer_id` or local worker peer id
     current_peer_id: PeerId,
     key_pair: KeyPair,
-    span: Span,
     data_store: Arc<ParticleDataStore>,
+    deal_id: Option<String>,
 }
 
 impl<RT, F> Actor<RT, F>
@@ -72,9 +78,10 @@ where
         functions: Functions<F>,
         current_peer_id: PeerId,
         key_pair: KeyPair,
-        span: Span,
         data_store: Arc<ParticleDataStore>,
+        deal_id: Option<String>,
     ) -> Self {
+        let particle = particle;
         Self {
             deadline: Deadline::from(particle),
             functions,
@@ -83,18 +90,13 @@ where
             waker: None,
             // Clone particle without data
             particle: Particle {
-                id: particle.id.clone(),
-                init_peer_id: particle.init_peer_id,
-                timestamp: particle.timestamp,
-                ttl: particle.ttl,
-                script: particle.script.clone(),
-                signature: particle.signature.clone(),
                 data: vec![],
+                ..particle.clone()
             },
             current_peer_id,
             key_pair,
-            span,
             data_store,
+            deal_id,
         }
     }
 
@@ -119,7 +121,8 @@ where
         self.functions.set_function(function)
     }
 
-    pub fn ingest(&mut self, particle: Particle) {
+    #[instrument(level = tracing::Level::INFO, skip_all)]
+    pub fn ingest(&mut self, particle: ExtendedParticle) {
         self.mailbox.push_back(particle);
         self.wake();
     }
@@ -143,21 +146,34 @@ where
 
     fn poll_avm_future(&mut self, cx: &mut Context<'_>) -> Option<Poll<AVMCallResult<RT>>> {
         if let Some(Poll::Ready(res)) = self.future.as_mut().map(|f| f.poll_unpin(cx)) {
-            let (reusables, effects, stats) = res;
-            let _entered = self.span.enter();
+            let (reusables, effects, stats, parent_span) = res;
+            let span = tracing::info_span!(
+                parent: parent_span.as_ref(),
+                "Actor::poll_avm_future::future_ready",
+                particle_id= self.particle.id,
+                deal_id = self.deal_id
+            );
+            let _span_guard = span.enter();
 
             self.future.take();
 
             let waker = cx.waker().clone();
             // Schedule execution of functions
-            self.functions
-                .execute(self.particle.id.clone(), effects.call_requests, waker);
+            self.functions.execute(
+                self.particle.id.clone(),
+                effects.call_requests,
+                waker,
+                parent_span.clone(),
+            );
 
             let effects = RoutingEffects {
-                particle: Particle {
-                    data: effects.new_data,
-                    ..self.particle.clone()
-                },
+                particle: ExtendedParticle::linked(
+                    Particle {
+                        data: effects.new_data,
+                        ..self.particle.clone()
+                    },
+                    parent_span,
+                ),
                 next_peers: effects.next_peers,
             };
             return Some(Poll::Ready(FutResult {
@@ -184,30 +200,39 @@ where
         }
 
         // Gather CallResults
-        let (calls, stats) = self.functions.drain();
+        let (calls, stats, call_spans) = self.functions.drain();
 
         // Take the next particle
-        let particle = self.mailbox.pop_front();
+        let ext_particle = self.mailbox.pop_front();
 
-        if particle.is_none() && calls.is_empty() {
+        if ext_particle.is_none() && calls.is_empty() {
             debug_assert!(stats.is_empty(), "stats must be empty if calls are empty");
             // Nothing to execute, return vm
             return ActorPoll::Vm(vm_id, vm);
         }
 
-        let particle = particle.unwrap_or_else(|| {
-            // If mailbox is empty, then take self.particle.
-            // Its data is empty, so `vm` will process `calls` on the old (saved on disk) data
-            self.particle.clone()
-        });
+        let particle = ext_particle
+            .as_ref()
+            .map(|p| p.particle.clone())
+            .unwrap_or_else(|| {
+                // If mailbox is empty, then take self.particle.
+                // Its data is empty, so `vm` will process `calls` on the old (saved on disk) data
+                self.particle.clone()
+            });
+
         let waker = cx.waker().clone();
         let data_store = self.data_store.clone();
         let key_pair = self.key_pair.clone();
         let peer_id = self.current_peer_id;
+
+        let (async_span, linking_span) =
+            self.create_spans(call_spans, ext_particle, particle.id.as_str());
+
         self.future = Some(
             async move {
                 let res = vm
                     .execute(data_store, (particle.clone(), calls), peer_id, key_pair)
+                    .in_current_span()
                     .await;
 
                 waker.wake();
@@ -217,14 +242,35 @@ where
                     vm: res.runtime,
                 };
 
-                (reusables, res.effects, res.stats)
+                (reusables, res.effects, res.stats, linking_span)
             }
-            .instrument(self.span.clone())
+            .instrument(async_span)
             .boxed(),
         );
         self.wake();
 
         ActorPoll::Executing(stats)
+    }
+
+    fn create_spans(
+        &self,
+        call_spans: Vec<Arc<Span>>,
+        ext_particle: Option<ExtendedParticle>,
+        particle_id: &str,
+    ) -> (Span, Arc<Span>) {
+        let async_span = tracing::info_span!(
+            "Actor: async AVM process particle & call results",
+            particle_id = particle_id,
+            deal_id = self.deal_id
+        );
+        if let Some(ext_particle) = ext_particle.as_ref() {
+            async_span.follows_from(ext_particle.span.as_ref());
+        }
+        for span in call_spans {
+            async_span.follows_from(span.as_ref());
+        }
+        let linking_span = Arc::new(async_span.clone());
+        (async_span, linking_span)
     }
     fn wake(&self) {
         if let Some(waker) = &self.waker {

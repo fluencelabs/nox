@@ -15,7 +15,7 @@
  */
 
 use avm_server::CallRequests;
-use particle_protocol::Particle;
+use particle_protocol::ExtendedParticle;
 use std::time::Duration;
 
 use libp2p::PeerId;
@@ -65,6 +65,6 @@ impl InterpretationStats {
 /// Instruct to send particle to either virtual or remote peers.
 #[derive(Clone, Debug)]
 pub struct RoutingEffects {
-    pub particle: Particle,
+    pub particle: ExtendedParticle,
     pub next_peers: Vec<PeerId>,
 }

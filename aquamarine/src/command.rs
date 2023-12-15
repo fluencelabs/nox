@@ -14,13 +14,14 @@
  * limitations under the License.
  */
 
-use particle_execution::ServiceFunction;
-use particle_protocol::Particle;
 use std::collections::HashMap;
+
+use particle_execution::ServiceFunction;
+use particle_protocol::ExtendedParticle;
 
 pub enum Command {
     Ingest {
-        particle: Particle,
+        particle: ExtendedParticle,
         function: Option<ServiceFunction>,
     },
     AddService {
