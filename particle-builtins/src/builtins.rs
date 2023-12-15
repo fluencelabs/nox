@@ -968,7 +968,7 @@ fn make_module_config(args: Args) -> Result<JValue, JError> {
 
     let name = Args::next("name", &mut args)?;
     // TODO: maybe args require getting them?
-    let _mem_pages_count: Option<String> = Args::next_opt("mem_pages_count", &mut args)?;
+    let _mem_pages_count: Option<u32> = Args::next_opt("mem_pages_count", &mut args)?;
     let _max_heap_size: Option<String> = Args::next_opt("max_heap_size", &mut args)?;
     // let max_heap_size = match max_heap_size {
     //     Some(s) => Some(bytesize::ByteSize::from_str(&s).map_err(|err| {
