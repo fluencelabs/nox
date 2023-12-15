@@ -213,9 +213,9 @@ checksum = "a4668cab20f66d8d020e1fbc0ebe47217433c1b6c8f2040faf858554e394ace6"
 
 [[package]]
 name = "aqua-ipfs-distro"
-version = "0.5.24"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8673eeaa6e5d8b8a95289a6c87e56c660398d06a93217cad4ab05f116b5ff93d"
+version = "0.5.25-feat-update-marine-5720aec-100-1.0"
+source = "registry+git://crates.fluence.dev/index"
+checksum = "2fdd722ce0c2f1b7df710828ba2b86603117d38a31f7d187f3b95e04c2fe43ae"
 dependencies = [
  "built 0.5.2",
  "maplit",
@@ -1657,12 +1657,12 @@ dependencies = [
 
 [[package]]
 name = "decider-distro"
-version = "0.5.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2222e93a91a282fb033c64f39b0e8a118f15afbc63bed1f0acb76f2b76bd80ef"
+version = "0.5.7-feat-update-marine-d5fed88-154-1.0"
+source = "registry+git://crates.fluence.dev/index"
+checksum = "5039428cea86d481fb2e6dd54afbaeefcd8559c19bc5d5c215465d1e836ad3a7"
 dependencies = [
  "built 0.7.1",
- "fluence-spell-dtos",
+ "fluence-spell-dtos 0.5.32",
  "maplit",
  "serde_json",
 ]
@@ -2157,9 +2157,9 @@ dependencies = [
 
 [[package]]
 name = "fluence-spell-distro"
-version = "0.5.32"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a38bb3c7c024ba98047785c1e304e8cdb6abf6b7656b082b0ad8fc8d4fab052f"
+version = "0.5.33-feat-update-config-7870711-764-1.0"
+source = "registry+git://crates.fluence.dev/index"
+checksum = "6384118883baa0f28165f0c29f228cbaecaf425a366c65f0a102c0ff4855a512"
 dependencies = [
  "built 0.6.1",
  "maplit",
@@ -2170,6 +2170,19 @@ name = "fluence-spell-dtos"
 version = "0.5.32"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ac50ce0a57f54422f4fe79d8f228ea15efc1536b46dabbb10fc0137e56d16a85"
+dependencies = [
+ "eyre",
+ "marine-rs-sdk",
+ "marine-sqlite-connector",
+ "serde",
+ "thiserror",
+]
+
+[[package]]
+name = "fluence-spell-dtos"
+version = "0.5.33-feat-update-config-7870711-764-1.0"
+source = "registry+git://crates.fluence.dev/index"
+checksum = "fa5a30c329f505355fef890cc1dbee9c623768f661e47854f1c3810d3536ab5a"
 dependencies = [
  "eyre",
  "marine-rs-sdk",
@@ -4805,7 +4818,7 @@ dependencies = [
  "fluence-app-service",
  "fluence-keypair",
  "fluence-libp2p",
- "fluence-spell-dtos",
+ "fluence-spell-dtos 0.5.33-feat-update-config-7870711-764-1.0",
  "fs-utils",
  "fstrings",
  "futures",
@@ -6031,9 +6044,9 @@ checksum = "c08c74e62047bb2de4ff487b251e4a92e24f48745648451635cec7d591162d9f"
 
 [[package]]
 name = "registry-distro"
-version = "0.9.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e7325784028ec0cd8a1adb65f56ca6dd8ed1c7c38c6900b9dcfebf31ed5e6db4"
+version = "0.9.2-feat-update-marine-f1d04bf-475-1.0"
+source = "registry+git://crates.fluence.dev/index"
+checksum = "3982a5393d9ac7bdb08eee0e45c41fcac4fe2c1ac15fde6bc609f096c99c04b5"
 dependencies = [
  "built 0.7.1",
  "maplit",
@@ -6718,7 +6731,7 @@ dependencies = [
  "eyre",
  "fluence-keypair",
  "fluence-libp2p",
- "fluence-spell-dtos",
+ "fluence-spell-dtos 0.5.33-feat-update-config-7870711-764-1.0",
  "fstrings",
  "futures",
  "kademlia",
@@ -6755,7 +6768,7 @@ dependencies = [
  "derivative",
  "eyre",
  "fluence-libp2p",
- "fluence-spell-dtos",
+ "fluence-spell-dtos 0.5.33-feat-update-config-7870711-764-1.0",
  "fstrings",
  "futures",
  "libp2p",
@@ -6785,7 +6798,7 @@ dependencies = [
  "config-utils",
  "fluence-app-service",
  "fluence-libp2p",
- "fluence-spell-dtos",
+ "fluence-spell-dtos 0.5.33-feat-update-config-7870711-764-1.0",
  "key-manager",
  "libp2p-identity",
  "maplit",
@@ -6986,7 +6999,7 @@ dependencies = [
  "decider-distro",
  "eyre",
  "fluence-app-service",
- "fluence-spell-dtos",
+ "fluence-spell-dtos 0.5.33-feat-update-config-7870711-764-1.0",
  "libp2p",
  "log",
  "maplit",
@@ -7516,8 +7529,8 @@ dependencies = [
 [[package]]
 name = "trust-graph-distro"
 version = "0.4.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "da4ab6f5421a91eb20205c2a7ec93c428b278c45b45a3860f412f0890c9439d5"
+source = "registry+git://crates.fluence.dev/index"
+checksum = "c5bd41c205bcf299f407c8f254dbc908e14ea1c4bfd7d512aa86b23bc985081f"
 dependencies = [
  "built 0.6.1",
  "lazy_static",

@@ -92,8 +92,8 @@ health = { path = "crates/health" }
 subnet-resolver = { path = "crates/subnet-resolver" }
 
 # spell
-fluence-spell-dtos = "=0.5.32"
-fluence-spell-distro = "=0.5.32"
+fluence-spell-dtos = { version = "=0.5.33-feat-update-config-7870711-764-1.0", registry = "fluence" }
+fluence-spell-distro = { version = "=0.5.33-feat-update-config-7870711-764-1.0", registry = "fluence" }
 
 # marine
 fluence-app-service = { version = "0.31.0" }
