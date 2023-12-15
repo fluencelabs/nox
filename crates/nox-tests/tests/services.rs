@@ -33,6 +33,7 @@ async fn test_system_service_override() {
     // It's unnecessary to allow not static links or even vectors since real life we need only this
     let module = include_bytes!("./tetraplets/artifacts/tetraplets.wasm");
     let config = json!({
+      "total_memory_limit": "Infinity",
       "module": [
         {
           "name": "tetraplets",
