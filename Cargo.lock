@@ -4203,15 +4203,15 @@ dependencies = [
 
 [[package]]
 name = "marine-it-parser"
-version = "0.14.0"
+version = "0.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6c9bda472e259f5994eaf7cb94fe1fa99add703de35986c1fe17889f60f16cbe"
+checksum = "ec9325e7cf7c4e01087be83ae5abb26fe76445b0df517a201fbe6ca298b8661b"
 dependencies = [
  "anyhow",
  "itertools 0.10.5",
  "marine-it-interfaces 0.9.0",
  "marine-module-interface 0.8.0",
- "marine-wasm-backend-traits 0.4.0",
+ "marine-wasm-backend-traits 0.5.0",
  "nom",
  "semver",
  "serde",
@@ -4412,9 +4412,9 @@ dependencies = [
 
 [[package]]
 name = "marine-wasm-backend-traits"
-version = "0.4.0"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8a7523253125d02600f8f8cfe2689620ff3b21dae08bc6708404f9bd7cafabcc"
+checksum = "470aaec9c93cec6a4cfd6ce78e338c92e688da14d3203863c517a96027aec417"
 dependencies = [
  "anyhow",
  "it-memory-traits",
@@ -5302,7 +5302,7 @@ dependencies = [
  "json-utils",
  "libipld",
  "log",
- "marine-it-parser 0.14.0",
+ "marine-it-parser 0.15.0",
  "marine-utils",
  "parking_lot",
  "particle-args",
