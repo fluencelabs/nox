@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 ethabi = "18.0.0"
-jsonrpsee = { version = "0.20.3", features = ["http-client", "macros"] }
+jsonrpsee = { version = "0.21.0", features = ["http-client", "macros"] }
 
 libp2p-identity = { workspace = true, features = ["peerid"] }
 serde_json = { workspace = true }
