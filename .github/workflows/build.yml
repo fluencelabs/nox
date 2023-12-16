@@ -91,7 +91,7 @@ jobs:
         run: cargo build ${{ steps.profile.outputs.flags }} -p nox --target ${{ matrix.target }}
 
       - name: Upload nox binary
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: nox-${{ matrix.arch }}
           path: target/${{ matrix.target }}/${{ steps.profile.outputs.profile }}/nox
