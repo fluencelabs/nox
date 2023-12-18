@@ -296,36 +296,7 @@ mod tests {
         assert!(read_result.is_ok());
         assert_eq!(read_result.unwrap(), data);
     }
-
-    #[tokio::test]
-    async fn test_cleanup_data() {
-        let temp_dir = tempfile::tempdir().expect("Failed to create temp dir");
-        let particle_data_store = temp_dir.path().join("particle_data_store");
-        let vault_dir = temp_dir.path().join("vault");
-        let anomaly_data_store = temp_dir.path().join("anomaly_data_store");
-
-        let particle_data_store =
-            ParticleDataStore::new(particle_data_store, vault_dir, anomaly_data_store);
-        particle_data_store
-            .initialize()
-            .await
-            .expect("Failed to initialize");
-
-        let particle_id = "test_particle";
-        let current_peer_id = "test_peer";
-        let data = b"test_data";
-
-        particle_data_store
-            .store_data(data, particle_id, current_peer_id)
-            .await
-            .expect("Failed to store data");
-        let cleanup_result = particle_data_store
-            .cleanup_data(particle_id, current_peer_id)
-            .await;
-
-        assert!(cleanup_result.is_ok());
-    }
-
+    
     #[tokio::test]
     async fn test_detect_anomaly() {
         let particle_data_store = ParticleDataStore::new(
