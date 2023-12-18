@@ -25,10 +25,8 @@ use fluence_libp2p::PeerId;
 use thiserror::Error;
 use tracing::instrument;
 
-use crate::DataStoreError::SerializeAnomaly;
 use now_millis::now_ms;
 use particle_execution::{ParticleVault, VaultError};
-use thiserror::Error;
 
 type Result<T> = std::result::Result<T, DataStoreError>;
 
