@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.16.8](https://github.com/fluencelabs/nox/compare/nox-v0.16.7...nox-v0.16.8) (2023-12-18)
+
+
+### Bug Fixes
+
+* **datastore:** remove particles ([#1965](https://github.com/fluencelabs/nox/issues/1965)) ([17e5e2e](https://github.com/fluencelabs/nox/commit/17e5e2eaf95bd2362326f5a3b32923cd3008575e))
+
 ## [0.16.7](https://github.com/fluencelabs/nox/compare/nox-v0.16.6...nox-v0.16.7) (2023-12-15)
 
 
