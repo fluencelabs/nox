@@ -127,7 +127,7 @@ impl ParticleDataStore {
     async fn cleanup_data(&self, particle_id: &str, current_peer_id: &str) -> Result<()> {
         tracing::debug!(target: "particle_reap", particle_id = particle_id, "Cleaning up particle data for particle");
         let path = self.data_file(particle_id, current_peer_id);
-        match tokio::fs::remove_dir_all(&path).await {
+        match tokio::fs::remove_file(&path).await {
             Ok(_) => Ok(()),
             // ignore NotFound
             Err(err) if err.kind() == ErrorKind::NotFound => Ok(()),
