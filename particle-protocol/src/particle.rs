@@ -15,20 +15,56 @@
  */
 
 use std::convert::TryInto;
+use std::sync::Arc;
 use std::time::Duration;
 
 use derivative::Derivative;
-use fluence_keypair::{KeyPair, PublicKey, Signature};
 use libp2p::PeerId;
 use serde::{Deserialize, Serialize};
+use tracing::Span;
 
 use crate::error::ParticleError;
 use crate::error::ParticleError::{
     DecodingError, InvalidKeypair, SignatureVerificationFailed, SigningFailed,
 };
+use fluence_keypair::{KeyPair, PublicKey, Signature};
 use fluence_libp2p::{peerid_serializer, RandomPeerId};
 use json_utils::base64_serde;
 use now_millis::now_ms;
+
+#[derive(Clone, Debug)]
+pub struct ExtendedParticle {
+    pub particle: Particle,
+    pub span: Arc<Span>,
+}
+
+impl AsRef<Particle> for ExtendedParticle {
+    fn as_ref(&self) -> &Particle {
+        &self.particle
+    }
+}
+
+impl AsRef<str> for ExtendedParticle {
+    fn as_ref(&self) -> &str {
+        &self.particle.id
+    }
+}
+
+impl ExtendedParticle {
+    pub fn new(particle: Particle, span: Span) -> Self {
+        Self {
+            particle,
+            span: Arc::new(span),
+        }
+    }
+
+    pub fn linked(particle: Particle, span: Arc<Span>) -> Self {
+        Self {
+            particle,
+            span: span.clone(),
+        }
+    }
+}
 
 #[derive(Clone, Serialize, Deserialize, PartialEq, Derivative)]
 #[derivative(Debug)]

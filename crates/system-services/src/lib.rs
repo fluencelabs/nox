@@ -55,7 +55,7 @@ pub struct PackageDistro {
     pub init: Option<Arc<InitService>>,
 }
 
-impl std::fmt::Debug for PackageDistro {
+impl fmt::Debug for PackageDistro {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("PackageDistro")
             .field("name", &self.name)

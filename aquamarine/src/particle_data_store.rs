@@ -23,6 +23,7 @@ use avm_server::avm_runner::RawAVMOutcome;
 use avm_server::{AnomalyData, CallResults, ParticleParameters};
 use fluence_libp2p::PeerId;
 use thiserror::Error;
+use tracing::instrument;
 
 use crate::DataStoreError::SerializeAnomaly;
 use now_millis::now_ms;
@@ -82,6 +83,7 @@ impl ParticleDataStore {
         Ok(())
     }
 
+    #[instrument(level = tracing::Level::INFO, skip_all)]
     pub async fn store_data(
         &self,
         data: &[u8],
@@ -97,6 +99,7 @@ impl ParticleDataStore {
         Ok(())
     }
 
+    #[instrument(level = tracing::Level::INFO)]
     pub async fn read_data(&self, particle_id: &str, current_peer_id: &str) -> Result<Vec<u8>> {
         let data_path = self.data_file(particle_id, current_peer_id);
         let data = tokio::fs::read(&data_path).await.unwrap_or_default();
@@ -151,6 +154,7 @@ impl ParticleDataStore {
     }
 
     #[allow(clippy::too_many_arguments)]
+    #[instrument(level = tracing::Level::INFO, skip_all)]
     pub async fn save_anomaly_data(
         &self,
         air_script: &str,

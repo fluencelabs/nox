@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.16.7](https://github.com/fluencelabs/nox/compare/nox-v0.16.6...nox-v0.16.7) (2023-12-15)
+
+
+### Features
+
+* **tracing:** Add tracing for understand particle processing ([#1935](https://github.com/fluencelabs/nox/issues/1935)) ([c800495](https://github.com/fluencelabs/nox/commit/c800495f23d59a343239f1d3ce57beee6e8b51ac))
+
+
+### Bug Fixes
+
+* **datastore:** remove directories ([#1956](https://github.com/fluencelabs/nox/issues/1956)) ([3fa5321](https://github.com/fluencelabs/nox/commit/3fa53213b1e5e83256f4700685ed8ea179f478fe))
+* **spells:** allow empty args for callbackSrv [NET-651] ([#1942](https://github.com/fluencelabs/nox/issues/1942)) ([19e00be](https://github.com/fluencelabs/nox/commit/19e00bed75a6d5db5072157a1ddcd159aa8e42bf))
+
 ## [0.16.6](https://github.com/fluencelabs/nox/compare/nox-v0.16.5...nox-v0.16.6) (2023-12-13)
 
 
