@@ -296,7 +296,7 @@ mod tests {
         assert!(read_result.is_ok());
         assert_eq!(read_result.unwrap(), data);
     }
-    
+
     #[tokio::test]
     async fn test_detect_anomaly() {
         let particle_data_store = ParticleDataStore::new(
@@ -364,6 +364,9 @@ mod tests {
 
         let data_file_path = particle_data_store.data_file(particle_id, current_peer_id);
         let vault_path = temp_dir_path.join("vault").join(particle_id);
+        tokio::fs::create_dir_all(&vault_path)
+            .await
+            .expect("Failed to create vault dir");
         assert!(data_file_path.exists());
         assert!(vault_path.exists());
 
