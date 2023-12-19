@@ -22,6 +22,8 @@ use std::time::Duration;
 use avm_server::avm_runner::RawAVMOutcome;
 use avm_server::{AnomalyData, CallResults, ParticleParameters};
 use fluence_libp2p::PeerId;
+use futures::stream::FuturesUnordered;
+use futures::StreamExt;
 use thiserror::Error;
 use tracing::instrument;
 
@@ -105,25 +107,30 @@ impl ParticleDataStore {
         Ok(data)
     }
 
-    pub async fn batch_cleanup_data(&self, data: Vec<(String, PeerId)>) {
-        for (particle_id, peer_id) in data {
-            tracing::debug!(
-                target: "particle_reap",
-                particle_id = particle_id, worker_id = peer_id.to_string(),
-                "Reaping particle's actor"
-            );
-
-            if let Err(err) = self
-                .cleanup_data(particle_id.as_str(), peer_id.to_string().as_str())
-                .await
-            {
-                tracing::warn!(
-                    particle_id = particle_id,
-                    "Error cleaning up after particle {:?}",
-                    err
+    pub async fn batch_cleanup_data(&self, cleanup_keys: Vec<(String, PeerId)>) {
+        let futures: FuturesUnordered<_> = cleanup_keys
+            .into_iter()
+            .map(|(particle_id, peer_id)| async move {
+                let peer_id = peer_id.to_string();
+                tracing::debug!(
+                    target: "particle_reap",
+                    particle_id = particle_id, worker_id = peer_id,
+                    "Reaping particle's actor"
                 );
-            }
-        }
+
+                if let Err(err) = self
+                    .cleanup_data(particle_id.as_str(), peer_id.as_str())
+                    .await
+                {
+                    tracing::warn!(
+                        particle_id = particle_id,
+                        "Error cleaning up after particle {:?}",
+                        err
+                    );
+                }
+            })
+            .collect();
+        let _results: Vec<_> = futures.collect().await;
     }
 
     async fn cleanup_data(&self, particle_id: &str, current_peer_id: &str) -> Result<()> {

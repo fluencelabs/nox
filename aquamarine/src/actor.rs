@@ -81,7 +81,6 @@ where
         data_store: Arc<ParticleDataStore>,
         deal_id: Option<String>,
     ) -> Self {
-        let particle = particle;
         Self {
             deadline: Deadline::from(particle),
             functions,
