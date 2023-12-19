@@ -120,6 +120,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
             && !self
                 .key_manager
                 .is_management(particle.particle.init_peer_id)
+            && !self.key_manager.is_host(particle.particle.init_peer_id)
         {
             tracing::trace!(target: "worker_inactive", particle_id = particle.particle.id, worker_id = worker_id.to_string(), "Worker is not active");
             return;
