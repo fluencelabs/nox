@@ -107,8 +107,8 @@ impl ParticleDataStore {
         Ok(data)
     }
 
-    pub async fn batch_cleanup_data(&self, data: Vec<(String, PeerId)>) {
-        let futures: FuturesUnordered<_> = data
+    pub async fn batch_cleanup_data(&self, cleanup_keys: Vec<(String, PeerId)>) {
+        let futures: FuturesUnordered<_> = cleanup_keys
             .into_iter()
             .map(|(particle_id, peer_id)| async move {
                 let peer_id = peer_id.to_string();
