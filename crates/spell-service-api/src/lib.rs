@@ -462,7 +462,7 @@ mod tests {
         let result = api.call::<StringValue>(params, function);
         assert!(result.is_ok(), "must be able to add get_string");
         let trigger_event_read: Result<serde_json::Value, _> =
-            serde_json::from_str(&result.unwrap().str);
+            serde_json::from_str(&result.unwrap().value);
         assert!(
             trigger_event_read.is_ok(),
             "read trigger event must be parsable"
