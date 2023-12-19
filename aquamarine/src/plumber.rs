@@ -52,7 +52,7 @@ use crate::ParticleDataStore;
 #[derive(PartialEq, Hash, Eq)]
 struct ActorKey {
     signature: Vec<u8>,
-    peer_id: PeerId,
+    worker_id: PeerId,
 }
 
 const MAX_CLEANUP_KEYS_SIZE: usize = 1024;
@@ -132,7 +132,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
         let builtins = &self.builtins;
         let key = ActorKey {
             signature: particle.particle.signature.clone(),
-            peer_id: worker_id,
+            worker_id: worker_id,
         };
         let entry = self.actors.entry(key);
 
