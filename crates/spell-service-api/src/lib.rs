@@ -108,7 +108,7 @@ impl SpellServiceApi {
 
     pub fn set_script(&self, params: CallParams, script: String) -> Result<(), CallError> {
         let function = Function {
-            name: "set_script_source_to_file",
+            name: "set_script",
             args: vec![json!(script)],
         };
         let _ = self.call::<UnitValue>(params, function)?;
@@ -117,7 +117,7 @@ impl SpellServiceApi {
 
     pub fn get_script(&self, params: CallParams) -> Result<String, CallError> {
         let function = Function {
-            name: "get_script_source_from_file",
+            name: "get_script",
             args: vec![],
         };
         let script_value = self.call::<ScriptValue>(params, function)?;

@@ -185,7 +185,7 @@ async fn spell_simple_test() {
     let response = client.receive_args().await.wrap_err("receive").unwrap();
     let result = response[0].as_str().unwrap().to_string();
     assert!(response[1]["success"].as_bool().unwrap());
-    let counter = response[1]["num"].as_u64().unwrap();
+    let counter = response[1]["value"].as_u64().unwrap();
 
     assert_eq!(result, script);
     assert_ne!(counter, 0);
@@ -401,7 +401,7 @@ async fn spell_run_oneshot() {
         .unwrap();
 
     if response[0]["success"].as_bool().unwrap() {
-        let counter = response[0]["num"].as_u64().unwrap();
+        let counter = response[0]["value"].as_u64().unwrap();
         assert_eq!(counter, 1);
     }
 }
@@ -446,8 +446,13 @@ async fn spell_install_ok_empty_config() {
         .await
         .unwrap();
 
-    if response[0]["success"].as_bool().unwrap() {
-        let counter = response[0]["num"].as_u64().unwrap();
+    if response[0]["success"]
+        .as_bool()
+        .expect(&format!("{:?}", response))
+    {
+        let counter = response[0]["value"]
+            .as_u64()
+            .expect(&format!("{:?}", response));
         assert_eq!(counter, 0);
     }
     // 2. Connect and disconnect a client to the same node. The spell should not be executed
@@ -476,7 +481,7 @@ async fn spell_install_ok_empty_config() {
         .await
         .unwrap();
     if response[0]["success"].as_bool().unwrap() {
-        let counter = response[0]["num"].as_u64().unwrap();
+        let counter = response[0]["value"].as_u64().unwrap();
         assert_eq!(counter, 0);
     }
 
@@ -665,7 +670,8 @@ async fn spell_store_trigger_config() {
         .unwrap();
 
     if response[0]["success"].as_bool().unwrap() {
-        let result_config = serde_json::from_value(response[0]["config"].clone()).unwrap();
+        let result_config = serde_json::from_value(response[0]["config"].clone())
+            .expect(&format!("{:?}", response));
         assert_eq!(config, result_config);
     }
 }
@@ -1153,10 +1159,10 @@ async fn spell_set_u32() {
     assert_eq!(absent["absent"], json!(true));
 
     assert_eq!(one["absent"], json!(false));
-    assert_eq!(one["num"], json!(1));
+    assert_eq!(one["value"], json!(1));
 
     assert_eq!(two["absent"], json!(false));
-    assert_eq!(two["num"], json!(2));
+    assert_eq!(two["value"], json!(2));
 }
 
 #[tokio::test]
