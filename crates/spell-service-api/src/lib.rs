@@ -121,7 +121,7 @@ impl SpellServiceApi {
             args: vec![],
         };
         let script_value = self.call::<ScriptValue>(params, function)?;
-        Ok(script_value.source_code)
+        Ok(script_value.value)
     }
     pub fn set_trigger_config(
         &self,
@@ -161,7 +161,7 @@ impl SpellServiceApi {
             args: vec![json!(key)],
         };
         let result = self.call::<StringValue>(params, function)?;
-        Ok((!result.absent).then_some(result.str))
+        Ok((!result.absent).then_some(result.value))
     }
 
     pub fn set_string(
@@ -185,7 +185,7 @@ impl SpellServiceApi {
             args: vec![json!("counter")],
         };
         let result = self.call::<U32Value>(params, function)?;
-        Ok((!result.absent).then_some(result.num))
+        Ok((!result.absent).then_some(result.value))
     }
 
     /// Update the counter (how many times the spell was run)
