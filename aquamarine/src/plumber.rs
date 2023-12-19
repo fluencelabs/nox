@@ -120,11 +120,14 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
             return;
         }
 
-        if !self.key_manager.is_worker_active(worker_id)
-            && !self
-                .key_manager
-                .is_management(particle.particle.init_peer_id)
-        {
+        let is_active = self.key_manager.is_worker_active(worker_id);
+        let is_manager = self
+            .key_manager
+            .is_management(particle.particle.init_peer_id);
+        let is_host = self.key_manager.is_host(particle.particle.init_peer_id);
+
+        // Only a manager or the host itself is allowed to access deactivated workers
+        if !is_active && !is_manager && !is_host {
             tracing::trace!(target: "worker_inactive", particle_id = particle.particle.id, worker_id = worker_id.to_string(), "Worker is not active");
             return;
         }
