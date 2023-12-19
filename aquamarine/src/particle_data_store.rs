@@ -22,7 +22,8 @@ use std::time::Duration;
 use avm_server::avm_runner::RawAVMOutcome;
 use avm_server::{AnomalyData, CallResults, ParticleParameters};
 use fluence_libp2p::PeerId;
-use futures::{future, FutureExt};
+use futures::stream::FuturesUnordered;
+use futures::StreamExt;
 use thiserror::Error;
 use tracing::instrument;
 
@@ -107,8 +108,9 @@ impl ParticleDataStore {
     }
 
     pub async fn batch_cleanup_data(&self, data: Vec<(String, PeerId)>) {
-        future::join_all(data.into_iter().map(|(particle_id, peer_id)| {
-            async move {
+        let futures: FuturesUnordered<_> = data
+            .into_iter()
+            .map(|(particle_id, peer_id)| async move {
                 let peer_id = peer_id.to_string();
                 tracing::debug!(
                     target: "particle_reap",
@@ -126,10 +128,9 @@ impl ParticleDataStore {
                         err
                     );
                 }
-            }
-            .boxed()
-        }))
-        .await;
+            })
+            .collect();
+        let _results: Vec<_> = futures.collect().await;
     }
 
     async fn cleanup_data(&self, particle_id: &str, current_peer_id: &str) -> Result<()> {
