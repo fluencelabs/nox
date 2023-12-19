@@ -132,7 +132,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
         let builtins = &self.builtins;
         let key = ActorKey {
             signature: particle.particle.signature.clone(),
-            worker_id: worker_id,
+            worker_id,
         };
         let entry = self.actors.entry(key);
 
