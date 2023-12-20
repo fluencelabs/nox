@@ -180,7 +180,6 @@ impl Client {
 
                         // Messages that were received from relay node
                         Some(from_relay) = swarm.next() => {
-                            log::debug!("Swarm message received {:?}", from_relay);
                             match Self::receive_from_node(from_relay, &client_outlet).await {
                                 Err(err) => {
                                     let err_msg = format!("{err:?}");

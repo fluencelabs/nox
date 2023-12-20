@@ -108,7 +108,7 @@ impl SpellServiceApi {
 
     pub fn set_script(&self, params: CallParams, script: String) -> Result<(), CallError> {
         let function = Function {
-            name: "set_script_source_to_file",
+            name: "set_script",
             args: vec![json!(script)],
         };
         let _ = self.call::<UnitValue>(params, function)?;
@@ -117,11 +117,11 @@ impl SpellServiceApi {
 
     pub fn get_script(&self, params: CallParams) -> Result<String, CallError> {
         let function = Function {
-            name: "get_script_source_from_file",
+            name: "get_script",
             args: vec![],
         };
         let script_value = self.call::<ScriptValue>(params, function)?;
-        Ok(script_value.source_code)
+        Ok(script_value.value)
     }
     pub fn set_trigger_config(
         &self,
@@ -161,7 +161,7 @@ impl SpellServiceApi {
             args: vec![json!(key)],
         };
         let result = self.call::<StringValue>(params, function)?;
-        Ok((!result.absent).then_some(result.str))
+        Ok((!result.absent).then_some(result.value))
     }
 
     pub fn set_string(
@@ -185,7 +185,7 @@ impl SpellServiceApi {
             args: vec![json!("counter")],
         };
         let result = self.call::<U32Value>(params, function)?;
-        Ok((!result.absent).then_some(result.num))
+        Ok((!result.absent).then_some(result.value))
     }
 
     /// Update the counter (how many times the spell was run)
@@ -462,7 +462,7 @@ mod tests {
         let result = api.call::<StringValue>(params, function);
         assert!(result.is_ok(), "must be able to add get_string");
         let trigger_event_read: Result<serde_json::Value, _> =
-            serde_json::from_str(&result.unwrap().str);
+            serde_json::from_str(&result.unwrap().value);
         assert!(
             trigger_event_read.is_ok(),
             "read trigger event must be parsable"
