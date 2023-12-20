@@ -30,6 +30,7 @@ spell-event-bus = { workspace = true }
 key-manager = { workspace = true }
 system-services = { workspace = true }
 spell-service-api = { workspace = true }
+chain-listener = { workspace = true }
 
 fluence-keypair = { workspace = true }
 
@@ -75,8 +76,8 @@ serde_json = { workspace = true }
 fstrings = { workspace = true }
 serde = { workspace = true }
 multihash = { workspace = true }
-blake3 = "1.5.0"
-rand = "0.8.5"
+blake3 = { workspace = true }
+rand = { workspace = true }
 bs58 = { workspace = true }
 connected-client = { path = "../crates/connected-client" }
 log-utils = { workspace = true }

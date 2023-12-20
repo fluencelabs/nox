@@ -129,6 +129,9 @@ pub struct UnresolvedNodeConfig {
 
     #[serde(default)]
     pub system_services: SystemServicesConfig,
+
+    #[serde(flatten)]
+    pub chain_listener_config: Option<ChainListenerConfig>,
 }
 
 impl UnresolvedNodeConfig {
@@ -184,6 +187,7 @@ impl UnresolvedNodeConfig {
             allowed_binaries,
             system_services: self.system_services,
             http_config: self.http_config,
+            chain_listener_config: self.chain_listener_config,
         };
 
         Ok(result)
@@ -352,6 +356,8 @@ pub struct NodeConfig {
     pub system_services: SystemServicesConfig,
 
     pub http_config: Option<HttpConfig>,
+
+    pub chain_listener_config: Option<ChainListenerConfig>,
 }
 
 #[derive(Clone, Deserialize, Serialize, Derivative, Copy)]
@@ -504,4 +510,11 @@ impl KeypairConfig {
             Value { value } => decode_key(value, self.format),
         }
     }
+}
+
+#[derive(Clone, Deserialize, Serialize, Derivative)]
+#[derivative(Debug)]
+pub struct ChainListenerConfig {
+    pub ws_endpoint: String,
+    pub cc_contract_address: String,
 }

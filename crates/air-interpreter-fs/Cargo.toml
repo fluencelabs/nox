@@ -6,9 +6,4 @@ edition = "2021"
 
 [dependencies]
 air-interpreter-wasm = { workspace = true }
-
 eyre = { workspace = true }
-serde = { version = "1.0.193", features = ["derive"] }
-serde_json = { workspace = true }
-blake3 = "1.5.0"
-faster-hex = { workspace = true }
