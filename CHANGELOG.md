@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.16.9](https://github.com/fluencelabs/nox/compare/nox-v0.16.8...nox-v0.16.9) (2023-12-20)
+
+
+### Features
+
+* **plumber:** allow root to access deactivated workers [fixes NET-695] ([#1968](https://github.com/fluencelabs/nox/issues/1968)) ([2d13c8a](https://github.com/fluencelabs/nox/commit/2d13c8aa1a74b102143ae2b7aa2d82eaa805fad7))
+
+
+### Bug Fixes
+
+* **cleanup:** cleanup par + max batch size ([#1967](https://github.com/fluencelabs/nox/issues/1967)) ([1063eae](https://github.com/fluencelabs/nox/commit/1063eae0211bb4803db29c75a104bdd5bce0121a))
+* **deps:** update fluence-spell to v0.6.0 ([#1958](https://github.com/fluencelabs/nox/issues/1958)) ([5bc6495](https://github.com/fluencelabs/nox/commit/5bc64951c1914d7d6eaf523742aa4eda3c43a5c5))
+
 ## [0.16.8](https://github.com/fluencelabs/nox/compare/nox-v0.16.7...nox-v0.16.8) (2023-12-18)
 
 
