@@ -25,7 +25,7 @@ use tokio::sync::mpsc;
 use connection_pool::ConnectionPoolBehaviour;
 use health::HealthCheckRegistry;
 use kademlia::{Kademlia, KademliaConfig};
-use particle_protocol::{Particle, PROTOCOL_NAME};
+use particle_protocol::{ExtendedParticle, PROTOCOL_NAME};
 use server_config::NetworkConfig;
 
 use crate::connectivity::Connectivity;
@@ -45,7 +45,7 @@ impl FluenceNetworkBehaviour {
     pub fn new(
         cfg: NetworkConfig,
         health_registry: Option<&mut HealthCheckRegistry>,
-    ) -> (Self, Connectivity, mpsc::Receiver<Particle>) {
+    ) -> (Self, Connectivity, mpsc::Receiver<ExtendedParticle>) {
         let local_public_key = cfg.key_pair.public();
         let identify = Identify::new(
             IdentifyConfig::new(PROTOCOL_NAME.into(), local_public_key)

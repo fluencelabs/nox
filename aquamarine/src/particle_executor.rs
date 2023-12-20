@@ -23,6 +23,7 @@ use avm_server::avm_runner::RawAVMOutcome;
 use avm_server::{CallResults, ParticleParameters};
 use fluence_keypair::KeyPair;
 use tokio::task::JoinError;
+use tracing::instrument;
 
 use fluence_libp2p::PeerId;
 use particle_protocol::Particle;
@@ -69,6 +70,7 @@ impl<RT: AquaRuntime> ParticleExecutor for RT {
     type Output = AVMRes<RT>;
     type Particle = (Particle, CallResults);
 
+    #[instrument(level = tracing::Level::INFO, skip_all)]
     async fn execute(
         mut self,
         data_store: Arc<ParticleDataStore>,
@@ -105,6 +107,7 @@ impl<RT: AquaRuntime> ParticleExecutor for RT {
     }
 }
 
+#[instrument(level = tracing::Level::INFO, skip_all)]
 async fn execute_with_prev_data<RT: AquaRuntime>(
     vm: RT,
     data_store: Arc<ParticleDataStore>,
@@ -150,6 +153,7 @@ async fn execute_with_prev_data<RT: AquaRuntime>(
     }
 }
 
+#[instrument(level = tracing::Level::INFO, skip_all)]
 async fn process_avm_result<RT>(
     data_store: Arc<ParticleDataStore>,
     current_peer_id: PeerId,
@@ -228,6 +232,7 @@ where
     }
 }
 
+#[instrument(level = tracing::Level::INFO, skip_all)]
 async fn avm_call<'a, RT: AquaRuntime>(
     mut vm: RT,
     current_peer_id: PeerId,

@@ -13,16 +13,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use fluence_libp2p::PeerId;
+use std::sync::Arc;
+use tracing::{instrument, Span};
 
 use crate::error::SorcererError::{ParticleSigningFailed, ScopeKeypairMissing};
+use crate::Sorcerer;
+use fluence_libp2p::PeerId;
 use now_millis::now_ms;
 use particle_args::JError;
-use particle_protocol::Particle;
+use particle_protocol::{ExtendedParticle, Particle};
 use spell_event_bus::api::{TriggerEvent, TriggerInfoAqua};
 use spell_service_api::CallParams;
-
-use crate::Sorcerer;
 
 impl Sorcerer {
     fn get_spell_counter(&self, spell_id: String, worker_id: PeerId) -> Result<u32, JError> {
@@ -52,6 +53,7 @@ impl Sorcerer {
             .map_err(|e| JError::new(e.to_string()))
     }
 
+    #[instrument(level = tracing::Level::INFO, skip_all)]
     pub(crate) fn make_spell_particle(
         &self,
         spell_id: String,
@@ -97,7 +99,8 @@ impl Sorcerer {
             .map_err(|e| JError::new(e.to_string()))
     }
 
-    pub async fn execute_script(&self, event: TriggerEvent) {
+    #[instrument(level = tracing::Level::INFO, skip_all)]
+    pub async fn execute_script(&self, event: TriggerEvent, span: Arc<Span>) {
         let error: Result<(), JError> = try {
             let worker_id = self.services.get_service_owner(
                 "",
@@ -110,15 +113,19 @@ impl Sorcerer {
             if let Some(m) = &self.spell_metrics {
                 m.observe_spell_cast();
             }
-            self.aquamarine.clone().execute(particle, None).await?;
+
+            self.aquamarine
+                .clone()
+                .execute(ExtendedParticle::linked(particle, span), None)
+                .await?;
         };
 
         if let Err(err) = error {
             log::warn!(
-                "Failed to execute spell script id: {}, event: {:?}, error: {:?}",
-                event.spell_id,
+                "Failed to execute spell script id: {spell_id}, event: {:?}, error: {:?}",
                 event.info,
-                err
+                err,
+                spell_id = event.spell_id.to_string(),
             );
         }
     }

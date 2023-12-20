@@ -22,9 +22,11 @@ use std::time::Duration;
 use avm_server::avm_runner::RawAVMOutcome;
 use avm_server::{AnomalyData, CallResults, ParticleParameters};
 use fluence_libp2p::PeerId;
+use futures::stream::FuturesUnordered;
+use futures::StreamExt;
 use thiserror::Error;
+use tracing::instrument;
 
-use crate::DataStoreError::SerializeAnomaly;
 use now_millis::now_ms;
 use particle_execution::{ParticleVault, VaultError};
 
@@ -82,6 +84,7 @@ impl ParticleDataStore {
         Ok(())
     }
 
+    #[instrument(level = tracing::Level::INFO, skip_all)]
     pub async fn store_data(
         &self,
         data: &[u8],
@@ -97,31 +100,37 @@ impl ParticleDataStore {
         Ok(())
     }
 
+    #[instrument(level = tracing::Level::INFO)]
     pub async fn read_data(&self, particle_id: &str, current_peer_id: &str) -> Result<Vec<u8>> {
         let data_path = self.data_file(particle_id, current_peer_id);
         let data = tokio::fs::read(&data_path).await.unwrap_or_default();
         Ok(data)
     }
 
-    pub async fn batch_cleanup_data(&self, data: Vec<(String, PeerId)>) {
-        for (particle_id, peer_id) in data {
-            tracing::debug!(
-                target: "particle_reap",
-                particle_id = particle_id, worker_id = peer_id.to_string(),
-                "Reaping particle's actor"
-            );
-
-            if let Err(err) = self
-                .cleanup_data(particle_id.as_str(), peer_id.to_string().as_str())
-                .await
-            {
-                tracing::warn!(
-                    particle_id = particle_id,
-                    "Error cleaning up after particle {:?}",
-                    err
+    pub async fn batch_cleanup_data(&self, cleanup_keys: Vec<(String, PeerId)>) {
+        let futures: FuturesUnordered<_> = cleanup_keys
+            .into_iter()
+            .map(|(particle_id, peer_id)| async move {
+                let peer_id = peer_id.to_string();
+                tracing::debug!(
+                    target: "particle_reap",
+                    particle_id = particle_id, worker_id = peer_id,
+                    "Reaping particle's actor"
                 );
-            }
-        }
+
+                if let Err(err) = self
+                    .cleanup_data(particle_id.as_str(), peer_id.as_str())
+                    .await
+                {
+                    tracing::warn!(
+                        particle_id = particle_id,
+                        "Error cleaning up after particle {:?}",
+                        err
+                    );
+                }
+            })
+            .collect();
+        let _results: Vec<_> = futures.collect().await;
     }
 
     async fn cleanup_data(&self, particle_id: &str, current_peer_id: &str) -> Result<()> {
@@ -151,6 +160,7 @@ impl ParticleDataStore {
     }
 
     #[allow(clippy::too_many_arguments)]
+    #[instrument(level = tracing::Level::INFO, skip_all)]
     pub async fn save_anomaly_data(
         &self,
         air_script: &str,
@@ -168,9 +178,12 @@ impl ParticleDataStore {
             )
             .await?;
 
-        let ser_particle = serde_json::to_vec(particle_parameters).map_err(SerializeAnomaly)?;
-        let ser_call_results = serde_json::to_vec(call_results).map_err(SerializeAnomaly)?;
-        let ser_avm_outcome = serde_json::to_vec(outcome).map_err(SerializeAnomaly)?;
+        let ser_particle =
+            serde_json::to_vec(particle_parameters).map_err(DataStoreError::SerializeAnomaly)?;
+        let ser_call_results =
+            serde_json::to_vec(call_results).map_err(DataStoreError::SerializeAnomaly)?;
+        let ser_avm_outcome =
+            serde_json::to_vec(outcome).map_err(DataStoreError::SerializeAnomaly)?;
 
         let anomaly_data = AnomalyData {
             air_script: Cow::Borrowed(air_script),
@@ -206,7 +219,7 @@ impl ParticleDataStore {
         let data = serde_json::to_vec(&anomaly_data).map_err(DataStoreError::SerializeAnomaly)?;
         tokio::fs::write(&file, data)
             .await
-            .map_err(|err| DataStoreError::ReadData(err, file))?;
+            .map_err(|err| DataStoreError::WriteAnomaly(err, file))?;
 
         Ok(())
     }
@@ -234,4 +247,142 @@ pub enum DataStoreError {
 
 fn store_key_from_components(particle_id: &str, current_peer_id: &str) -> String {
     format!("particle_{particle_id}-peer_{current_peer_id}")
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::ParticleDataStore;
+    use avm_server::avm_runner::RawAVMOutcome;
+    use avm_server::CallRequests;
+    use std::path::PathBuf;
+    use std::time::Duration;
+
+    #[tokio::test]
+    async fn test_initialize() {
+        let temp_dir = tempfile::tempdir().expect("Failed to create temp dir");
+        let particle_data_store = temp_dir.path().join("particle_data_store");
+        let vault_dir = temp_dir.path().join("vault");
+        let anomaly_data_store = temp_dir.path().join("anomaly_data_store");
+        let particle_data_store_clone = particle_data_store.clone();
+
+        let particle_data_store =
+            ParticleDataStore::new(particle_data_store, vault_dir, anomaly_data_store);
+
+        let result = particle_data_store.initialize().await;
+
+        assert!(result.is_ok());
+        assert!(particle_data_store_clone.exists());
+    }
+
+    #[tokio::test]
+    async fn test_store_and_read_data() {
+        let temp_dir = tempfile::tempdir().expect("Failed to create temp dir");
+        let particle_data_store = temp_dir.path().join("particle_data_store");
+        let vault_dir = temp_dir.path().join("vault");
+        let anomaly_data_store = temp_dir.path().join("anomaly_data_store");
+
+        let particle_data_store =
+            ParticleDataStore::new(particle_data_store, vault_dir, anomaly_data_store);
+        particle_data_store
+            .initialize()
+            .await
+            .expect("Failed to initialize");
+
+        let particle_id = "test_particle";
+        let current_peer_id = "test_peer";
+        let data = b"test_data";
+
+        particle_data_store
+            .store_data(data, particle_id, current_peer_id)
+            .await
+            .expect("Failed to store data");
+        let read_result = particle_data_store
+            .read_data(particle_id, current_peer_id)
+            .await;
+
+        assert!(read_result.is_ok());
+        assert_eq!(read_result.unwrap(), data);
+    }
+
+    #[tokio::test]
+    async fn test_detect_anomaly() {
+        let particle_data_store = ParticleDataStore::new(
+            PathBuf::from("dummy"),
+            PathBuf::from("dummy"),
+            PathBuf::from("dummy"),
+        );
+
+        let execution_time_below_threshold = Duration::from_millis(400);
+        let execution_time_above_threshold = Duration::from_millis(600);
+        let memory_delta_below_threshold = 5 * bytesize::MB as usize;
+        let memory_delta_above_threshold = 15 * bytesize::MB as usize;
+        let outcome_success = RawAVMOutcome {
+            ret_code: 0,
+            error_message: "".to_string(),
+            data: vec![],
+            call_requests: CallRequests::new(),
+            next_peer_pks: vec![],
+        };
+        let outcome_failure = RawAVMOutcome {
+            ret_code: 1,
+            error_message: "".to_string(),
+            data: vec![],
+            call_requests: CallRequests::new(),
+            next_peer_pks: vec![],
+        };
+
+        let anomaly_below_threshold = particle_data_store.detect_anomaly(
+            execution_time_below_threshold,
+            memory_delta_below_threshold,
+            &outcome_success,
+        );
+        let anomaly_above_threshold = particle_data_store.detect_anomaly(
+            execution_time_above_threshold,
+            memory_delta_above_threshold,
+            &outcome_failure,
+        );
+
+        assert!(!anomaly_below_threshold);
+        assert!(anomaly_above_threshold);
+    }
+
+    #[tokio::test]
+    async fn test_cleanup_data() {
+        let temp_dir = tempfile::tempdir().expect("Failed to create temp dir");
+        let temp_dir_path = temp_dir.path();
+        let particle_data_store = ParticleDataStore::new(
+            temp_dir_path.join("particle_data_store"),
+            temp_dir_path.join("vault"),
+            temp_dir_path.join("anomaly_data_store"),
+        );
+        particle_data_store
+            .initialize()
+            .await
+            .expect("Failed to initialize");
+
+        let particle_id = "test_particle";
+        let current_peer_id = "test_peer";
+        let data = b"test_data";
+
+        particle_data_store
+            .store_data(data, particle_id, current_peer_id)
+            .await
+            .expect("Failed to store data");
+
+        let data_file_path = particle_data_store.data_file(particle_id, current_peer_id);
+        let vault_path = temp_dir_path.join("vault").join(particle_id);
+        tokio::fs::create_dir_all(&vault_path)
+            .await
+            .expect("Failed to create vault dir");
+        assert!(data_file_path.exists());
+        assert!(vault_path.exists());
+
+        let cleanup_result = particle_data_store
+            .cleanup_data(particle_id, current_peer_id)
+            .await;
+
+        assert!(cleanup_result.is_ok());
+        assert!(!data_file_path.exists());
+        assert!(!vault_path.exists())
+    }
 }

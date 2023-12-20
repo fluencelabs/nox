@@ -86,7 +86,7 @@ impl ParticleVault {
 
     pub async fn cleanup(&self, particle_id: &str) -> Result<(), VaultError> {
         let path = self.particle_vault(particle_id);
-        match tokio::fs::remove_file(&path).await {
+        match tokio::fs::remove_dir_all(&path).await {
             Ok(_) => Ok(()),
             // ignore NotFound
             Err(err) if err.kind() == ErrorKind::NotFound => Ok(()),
