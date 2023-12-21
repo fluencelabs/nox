@@ -103,6 +103,6 @@ jobs:
   cli:
     needs:
       - nox-snapshot
-    uses: fluencelabs/cli/.github/workflows/tests.yml@main
+    uses: fluencelabs/cli/.github/workflows/tests.yml@renovate/spell
     with:
       nox-image: "${{ needs.nox-snapshot.outputs.nox-image }}"
