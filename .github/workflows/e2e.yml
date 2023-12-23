@@ -49,13 +49,6 @@ jobs:
       image-name: "docker.fluence.dev/nox"
       ref: ${{ github.ref }}
 
-  cli:
-    needs:
-      - nox-snapshot
-    uses: fluencelabs/cli/.github/workflows/tests.yml@main
-    with:
-      nox-image: "${{ needs.nox-snapshot.outputs.nox-image }}"
-
   decider:
     if: >
       contains(github.event.pull_request.labels.*.name, 'e2e') &&
@@ -85,6 +78,13 @@ jobs:
             "branch": "${{ github.head_ref }}"
           }
         ]
+
+  cli:
+    needs:
+      - nox-snapshot
+    uses: fluencelabs/cli/.github/workflows/tests.yml@main
+    with:
+      nox-image: "${{ needs.nox-snapshot.outputs.nox-image }}"
 
   js-client:
     needs:
