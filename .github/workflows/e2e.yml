@@ -79,6 +79,13 @@ jobs:
           }
         ]
 
+  cli:
+    needs:
+      - nox-snapshot
+    uses: fluencelabs/cli/.github/workflows/tests.yml@main
+    with:
+      nox-image: "${{ needs.nox-snapshot.outputs.nox-image }}"
+
   js-client:
     needs:
       - nox-snapshot
@@ -100,9 +107,3 @@ jobs:
     with:
       nox-image: "${{ needs.nox-snapshot.outputs.nox-image }}"
 
-  cli:
-    needs:
-      - nox-snapshot
-    uses: fluencelabs/cli/.github/workflows/tests.yml@main
-    with:
-      nox-image: "${{ needs.nox-snapshot.outputs.nox-image }}"
