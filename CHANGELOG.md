@@ -1,5 +1,38 @@
 # Changelog
 
+## [0.16.9](https://github.com/fluencelabs/nox/compare/nox-v0.16.8...nox-v0.16.9) (2023-12-20)
+
+
+### Features
+
+* **plumber:** allow root to access deactivated workers [fixes NET-695] ([#1968](https://github.com/fluencelabs/nox/issues/1968)) ([2d13c8a](https://github.com/fluencelabs/nox/commit/2d13c8aa1a74b102143ae2b7aa2d82eaa805fad7))
+
+
+### Bug Fixes
+
+* **cleanup:** cleanup par + max batch size ([#1967](https://github.com/fluencelabs/nox/issues/1967)) ([1063eae](https://github.com/fluencelabs/nox/commit/1063eae0211bb4803db29c75a104bdd5bce0121a))
+* **deps:** update fluence-spell to v0.6.0 ([#1958](https://github.com/fluencelabs/nox/issues/1958)) ([5bc6495](https://github.com/fluencelabs/nox/commit/5bc64951c1914d7d6eaf523742aa4eda3c43a5c5))
+
+## [0.16.8](https://github.com/fluencelabs/nox/compare/nox-v0.16.7...nox-v0.16.8) (2023-12-18)
+
+
+### Bug Fixes
+
+* **datastore:** remove particles ([#1965](https://github.com/fluencelabs/nox/issues/1965)) ([17e5e2e](https://github.com/fluencelabs/nox/commit/17e5e2eaf95bd2362326f5a3b32923cd3008575e))
+
+## [0.16.7](https://github.com/fluencelabs/nox/compare/nox-v0.16.6...nox-v0.16.7) (2023-12-15)
+
+
+### Features
+
+* **tracing:** Add tracing for understand particle processing ([#1935](https://github.com/fluencelabs/nox/issues/1935)) ([c800495](https://github.com/fluencelabs/nox/commit/c800495f23d59a343239f1d3ce57beee6e8b51ac))
+
+
+### Bug Fixes
+
+* **datastore:** remove directories ([#1956](https://github.com/fluencelabs/nox/issues/1956)) ([3fa5321](https://github.com/fluencelabs/nox/commit/3fa53213b1e5e83256f4700685ed8ea179f478fe))
+* **spells:** allow empty args for callbackSrv [NET-651] ([#1942](https://github.com/fluencelabs/nox/issues/1942)) ([19e00be](https://github.com/fluencelabs/nox/commit/19e00bed75a6d5db5072157a1ddcd159aa8e42bf))
+
 ## [0.16.6](https://github.com/fluencelabs/nox/compare/nox-v0.16.5...nox-v0.16.6) (2023-12-13)
 
 

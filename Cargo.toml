@@ -92,13 +92,13 @@ health = { path = "crates/health" }
 subnet-resolver = { path = "crates/subnet-resolver" }
 
 # spell
-fluence-spell-dtos = { version = "=0.5.33-feat-update-config-7870711-764-1.0", registry = "fluence" }
-fluence-spell-distro = { version = "=0.5.33-feat-update-config-7870711-764-1.0", registry = "fluence" }
+fluence-spell-dtos = "=0.6.0"
+fluence-spell-distro = "=0.6.0"
 
 # marine
 fluence-app-service = { version = "0.31.0" }
 marine-utils = "0.5.0"
-marine-it-parser = "0.14.0"
+marine-it-parser = "0.15.0"
 
 # avm
 avm-server = { version = "0.33.4", git = "https://github.com/fluencelabs/aquavm", branch = "feat/update-marine" }
@@ -135,7 +135,7 @@ tracing = { version = "0.1.40", default-features = false, features = ["log"] }
 tracing-subscriber = "0.3.18"
 console-subscriber = "0.2.0"
 futures = "0.3.29"
-thiserror = "1.0.50"
+thiserror = "1.0.51"
 serde = "1.0.193"
 toml = "0.5.10"
 itertools = "0.12.0"

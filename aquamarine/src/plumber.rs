@@ -26,6 +26,7 @@ use std::{
 
 use futures::task::Waker;
 use tokio::task;
+use tracing::instrument;
 
 use fluence_libp2p::PeerId;
 use key_manager::KeyManager;
@@ -33,7 +34,7 @@ use key_manager::KeyManager;
 #[cfg(test)]
 use mock_time::now_ms;
 use particle_execution::{ParticleFunctionStatic, ParticleParams, ServiceFunction};
-use particle_protocol::Particle;
+use particle_protocol::ExtendedParticle;
 use peer_metrics::ParticleExecutorMetrics;
 /// Get current time from OS
 #[cfg(not(test))]
@@ -48,13 +49,17 @@ use crate::particle_functions::Functions;
 use crate::vm_pool::VmPool;
 use crate::ParticleDataStore;
 
-/// particle signature is used as a particle id
 #[derive(PartialEq, Hash, Eq)]
-struct ParticleId(Vec<u8>);
+struct ActorKey {
+    signature: Vec<u8>,
+    worker_id: PeerId,
+}
+
+const MAX_CLEANUP_KEYS_SIZE: usize = 1024;
 
 pub struct Plumber<RT: AquaRuntime, F> {
     events: VecDeque<Result<RoutingEffects, AquamarineApiError>>,
-    actors: HashMap<(ParticleId, PeerId), Actor<RT, F>>,
+    actors: HashMap<ActorKey, Actor<RT, F>>,
     vm_pool: VmPool<RT>,
     data_store: Arc<ParticleDataStore>,
     builtins: F,
@@ -86,56 +91,71 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
     }
 
     /// Receives and ingests incoming particle: creates a new actor or forwards to the existing mailbox
+    #[instrument(level = tracing::Level::INFO, skip_all)]
     pub fn ingest(
         &mut self,
-        particle: Particle,
+        particle: ExtendedParticle,
         function: Option<ServiceFunction>,
         worker_id: PeerId,
     ) {
         self.wake();
 
-        let deadline = Deadline::from(&particle);
+        let deadline = Deadline::from(particle.as_ref());
         if deadline.is_expired(now_ms()) {
-            tracing::info!(target: "expired", particle_id = particle.id, "Particle is expired");
+            tracing::info!(target: "expired", particle_id = particle.particle.id, "Particle is expired");
             self.events
                 .push_back(Err(AquamarineApiError::ParticleExpired {
-                    particle_id: particle.id,
+                    particle_id: particle.particle.id,
                 }));
             return;
         }
 
-        if let Err(err) = particle.verify() {
-            tracing::warn!(target: "signature", particle_id = particle.id, "Particle signature verification failed: {err:?}");
+        if let Err(err) = particle.particle.verify() {
+            tracing::warn!(target: "signature", particle_id = particle.particle.id, "Particle signature verification failed: {err:?}");
             self.events
                 .push_back(Err(AquamarineApiError::SignatureVerificationFailed {
-                    particle_id: particle.id,
+                    particle_id: particle.particle.id,
                     err,
                 }));
             return;
         }
 
-        if !self.key_manager.is_worker_active(worker_id)
-            && !self.key_manager.is_management(particle.init_peer_id)
-        {
-            tracing::trace!(target: "worker_inactive", particle_id = particle.id, worker_id = worker_id.to_string(), "Worker is not active");
+        let is_active = self.key_manager.is_worker_active(worker_id);
+        let is_manager = self
+            .key_manager
+            .is_management(particle.particle.init_peer_id);
+        let is_host = self.key_manager.is_host(particle.particle.init_peer_id);
+
+        // Only a manager or the host itself is allowed to access deactivated workers
+        if !is_active && !is_manager && !is_host {
+            tracing::trace!(target: "worker_inactive", particle_id = particle.particle.id, worker_id = worker_id.to_string(), "Worker is not active");
             return;
         }
 
         let builtins = &self.builtins;
-        let key = (ParticleId(particle.signature.clone()), worker_id);
+        let key = ActorKey {
+            signature: particle.particle.signature.clone(),
+            worker_id,
+        };
         let entry = self.actors.entry(key);
 
         let actor = match entry {
             Entry::Occupied(actor) => Ok(actor.into_mut()),
             Entry::Vacant(entry) => {
-                let params = ParticleParams::clone_from(&particle, worker_id);
+                let params = ParticleParams::clone_from(particle.as_ref(), worker_id);
                 let functions = Functions::new(params, builtins.clone());
                 let key_pair = self.key_manager.get_worker_keypair(worker_id);
                 let deal_id = self.key_manager.get_deal_id(worker_id).ok();
                 let data_store = self.data_store.clone();
                 key_pair.map(|kp| {
-                    let span = tracing::info_span!("Actor", deal_id = deal_id);
-                    let actor = Actor::new(&particle, functions, worker_id, kp, span, data_store);
+                    let actor = Actor::new(
+                        particle.as_ref(),
+                        functions,
+                        worker_id,
+                        kp,
+                        data_store,
+                        deal_id,
+                    );
                     entry.insert(actor)
                 })
             }
@@ -153,7 +173,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
             Err(err) => log::warn!(
                 "No such worker {}, rejected particle {}: {:?}",
                 worker_id,
-                particle.id,
+                particle.particle.id,
                 err
             ),
         }
@@ -248,12 +268,16 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
         // do not schedule task if another in progress
         if self.cleanup_future.is_none() {
             // Remove expired actors
-            let mut cleanup_keys: Vec<(String, PeerId)> = vec![];
+            let mut cleanup_keys: Vec<(String, PeerId)> = Vec::with_capacity(MAX_CLEANUP_KEYS_SIZE);
             let now = now_ms();
             self.actors.retain(|_, actor| {
+                // TODO: this code isn't optimal we continue iterate over actors if cleanup keys is full
+                // should be simpler to optimize it after fixing NET-632
+                // also delete fn actor.cleanup_key()
+                if cleanup_keys.len() >= MAX_CLEANUP_KEYS_SIZE {
+                    return true;
+                }
                 // if actor hasn't yet expired or is still executing, keep it
-                // TODO: if actor is expired, cancel execution and return VM back to pool
-                //       https://github.com/fluencelabs/fluence/issues/1212
                 if !actor.is_expired(now) || actor.is_executing() {
                     return true; // keep actor
                 }
@@ -309,6 +333,8 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
 
         for effect in local_effects {
             for local_peer in effect.next_peers {
+                let span = tracing::info_span!(parent: effect.particle.span.as_ref(), "Plumber: routing effect ingest");
+                let _guard = span.enter();
                 self.ingest(effect.particle.clone(), None, local_peer);
             }
         }
@@ -358,7 +384,7 @@ mod tests {
 
     use particle_args::Args;
     use particle_execution::{FunctionOutcome, ParticleFunction, ParticleParams, ServiceFunction};
-    use particle_protocol::Particle;
+    use particle_protocol::{ExtendedParticle, Particle};
 
     use crate::deadline::Deadline;
     use crate::plumber::mock_time::set_mock_time;
@@ -368,6 +394,7 @@ mod tests {
     use crate::{AquaRuntime, ParticleDataStore, ParticleEffects, Plumber};
     use async_trait::async_trait;
     use avm_server::avm_runner::RawAVMOutcome;
+    use tracing::Span;
 
     struct MockF;
 
@@ -490,7 +517,11 @@ mod tests {
         let deadline = Deadline::from(&particle);
         assert!(!deadline.is_expired(now_ms()));
 
-        plumber.ingest(particle, None, RandomPeerId::random());
+        plumber.ingest(
+            ExtendedParticle::new(particle, Span::none()),
+            None,
+            RandomPeerId::random(),
+        );
 
         assert_eq!(plumber.actors.len(), 1);
         let mut cx = context();
@@ -523,7 +554,11 @@ mod tests {
         let deadline = Deadline::from(&particle);
         assert!(deadline.is_expired(now_ms()));
 
-        plumber.ingest(particle.clone(), None, RandomPeerId::random());
+        plumber.ingest(
+            ExtendedParticle::new(particle.clone(), Span::none()),
+            None,
+            RandomPeerId::random(),
+        );
 
         assert_eq!(plumber.actors.len(), 0);
 
