@@ -30,7 +30,7 @@ use serde_json::{json, Value as JValue};
 
 use fluence_libp2p::{peerid_serializer, PeerId};
 use health::HealthCheckRegistry;
-use key_manager::KeyStorage;
+use key_manager::{KeyStorage, ScopeHelper, WorkerRegistry};
 use now_millis::now_ms;
 use particle_args::{Args, JError};
 use particle_execution::{FunctionOutcome, ParticleParams, ParticleVault};
@@ -175,7 +175,11 @@ pub struct ParticleAppServices {
     modules: ModuleRepository,
     aliases: Arc<RwLock<Aliases>>,
     #[derivative(Debug = "ignore")]
-    key_manager: Arc<KeyStorage>,
+    key_storage: Arc<KeyStorage>,
+    #[derivative(Debug = "ignore")]
+    worker_registry: Arc<WorkerRegistry>,
+    #[derivative(Debug = "ignore")]
+    scope_helper: ScopeHelper,
     pub metrics: Option<ServicesMetrics>,
     health: Option<PersistedServiceHealth>,
 }
@@ -260,6 +264,8 @@ impl ParticleAppServices {
         metrics: Option<ServicesMetrics>,
         health_registry: Option<&mut HealthCheckRegistry>,
         key_storage: Arc<KeyStorage>,
+        worker_registry: Arc<WorkerRegistry>,
+        scope_helper: ScopeHelper,
     ) -> Self {
         let vault = ParticleVault::new(config.particles_vault_dir.clone());
 
@@ -274,7 +280,9 @@ impl ParticleAppServices {
             services: <_>::default(),
             modules,
             aliases: <_>::default(),
-            key_manager: key_storage,
+            key_storage,
+            worker_registry,
+            scope_helper,
             metrics,
             health,
         };
@@ -401,7 +409,7 @@ impl ParticleAppServices {
             //      all services.
             if service.worker_id != init_peer_id
                 && service.owner_id != init_peer_id
-                && !self.key_manager.is_management(init_peer_id)
+                && !self.scope_helper.is_management(init_peer_id)
             {
                 return Err(Forbidden {
                     user: init_peer_id,
@@ -629,18 +637,18 @@ impl ParticleAppServices {
         service.persist(&self.config.services_dir)
     }
 
-    pub fn add_alias(
+    pub async fn add_alias(
         &self,
         alias: String,
         worker_id: PeerId,
         service_id: String,
         init_peer_id: PeerId,
     ) -> Result<(), ServiceError> {
-        let is_management = self.key_manager.is_management(init_peer_id);
-        let is_root_scope = self.key_manager.is_host(worker_id);
+        let is_management = self.scope_helper.is_management(init_peer_id);
+        let is_root_scope = self.scope_helper.is_host(worker_id);
         let is_worker = init_peer_id == worker_id;
         let worker_creator = self
-            .key_manager
+            .worker_registry
             .get_worker_creator(worker_id)
             .map_err(|e| InternalError(format!("{e:?}")))?; // worker creator is always set
         let is_worker_creator = init_peer_id == worker_creator;
@@ -1061,13 +1069,8 @@ mod tests {
         let keypairs_dir = base_dir.join("..").join("keypairs");
         let workers_dir = base_dir.join("..").join("workers");
         let max_heap_size = server_config::default_module_max_heap_size();
-        let key_manager = KeyStorage::new(
-            keypairs_dir,
-            workers_dir,
-            root_keypair.clone().into(),
-            management_pid,
-            to_peer_id(&startup_kp),
-        );
+        let key_manager =
+            KeyStorage::from_path(keypairs_dir.as_path(), root_keypair.clone().into());
 
         let config = ServicesConfig::new(
             PeerId::from(root_keypair.public()),

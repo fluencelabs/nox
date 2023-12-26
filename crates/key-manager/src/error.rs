@@ -28,6 +28,12 @@ pub enum KeyManagerError {
         #[source]
         err: std::io::Error,
     },
+    #[error("Error reading list of directory from {path:?}: {err}")]
+    DirectoryListError {
+        path: PathBuf,
+        #[source]
+        err: std::io::Error,
+    },
     #[error("Error deserializing persisted keypair from {path:?}: {err}")]
     DeserializePersistedKeypair {
         path: PathBuf,

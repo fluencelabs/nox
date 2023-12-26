@@ -60,7 +60,7 @@ impl Sorcerer {
         worker_id: PeerId,
     ) -> Result<Particle, JError> {
         let spell_keypair = self
-            .key_manager
+            .worker_registry
             .get_worker_keypair(worker_id)
             .map_err(|err| ScopeKeypairMissing {
                 err,
@@ -105,7 +105,7 @@ impl Sorcerer {
             let worker_id = self.services.get_service_owner(
                 "",
                 event.spell_id.clone(),
-                self.key_manager.get_host_peer_id(),
+                self.scope_helper.get_host_peer_id(),
             )?;
             let particle = self.make_spell_particle(event.spell_id.clone(), worker_id)?;
 

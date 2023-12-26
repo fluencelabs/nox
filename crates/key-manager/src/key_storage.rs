@@ -40,11 +40,11 @@ impl KeyStorage {
         }
     }
 
-    pub fn from_path(
+    pub async fn from_path(
         key_pairs_dir: &Path,
         root_key_pair: KeyPair,
     ) -> Result<Self, KeyManagerError> {
-        let key_pairs = load_persisted_key_pairs(key_pairs_dir)?;
+        let key_pairs = load_persisted_key_pairs(key_pairs_dir).await?;
 
         let mut worker_key_pairs = HashMap::with_capacity(key_pairs.len());
         for keypair in key_pairs {
@@ -65,15 +65,15 @@ impl KeyStorage {
     pub async fn create_key_pair(&self) -> Result<KeyPair, KeyManagerError> {
         let keypair = KeyPair::generate_ed25519();
         let worker_id = keypair.get_peer_id();
-        let mut guard = self.worker_key_pairs.write();
         persist_keypair(&self.key_pairs_dir, worker_id, (&keypair).try_into()?).await?;
+        let mut guard = self.worker_key_pairs.write();
         guard.insert(worker_id, keypair.clone());
         Ok(keypair)
     }
 
     pub async fn remove_key_pair(&self, worker_id: WorkerId) -> Result<(), KeyManagerError> {
-        let mut guard = self.worker_key_pairs.write();
         remove_keypair(&self.key_pairs_dir, worker_id).await?;
+        let mut guard = self.worker_key_pairs.write();
         guard.remove(&worker_id);
         Ok(())
     }

@@ -20,6 +20,7 @@ use std::ops::Try;
 use std::path;
 use std::path::Path;
 use std::str::FromStr;
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use derivative::Derivative;
@@ -34,7 +35,7 @@ use JValue::Array;
 use connection_pool::{ConnectionPoolApi, ConnectionPoolT};
 use health::HealthCheckRegistry;
 use kademlia::{KademliaApi, KademliaApiT};
-use key_manager::KeyStorage;
+use key_manager::{KeyStorage, ScopeHelper, WorkerRegistry};
 use now_millis::{now_ms, now_sec};
 use particle_args::{from_base58, Args, ArgsError, JError};
 use particle_execution::{FunctionOutcome, ParticleParams, ServiceFunction};
@@ -86,7 +87,9 @@ pub struct Builtins<C> {
     particles_vault_dir: path::PathBuf,
 
     #[derivative(Debug = "ignore")]
-    key_manager: KeyStorage,
+    worker_registry: Arc<WorkerRegistry>,
+    #[derivative(Debug = "ignore")]
+    scope_helper: ScopeHelper,
     connector_api_endpoint: String,
 }
 
@@ -98,7 +101,9 @@ where
         connectivity: C,
         config: ServicesConfig,
         services_metrics: ServicesMetrics,
-        key_manager: KeyStorage,
+        key_manager: Arc<KeyStorage>,
+        worker_registry: Arc<WorkerRegistry>,
+        scope_helper: ScopeHelper,
         health_registry: Option<&mut HealthCheckRegistry>,
         connector_api_endpoint: String,
     ) -> Self {
@@ -120,6 +125,8 @@ where
             Some(services_metrics),
             health_registry,
             key_manager.clone(),
+            worker_registry.clone(),
+            scope_helper.clone(),
         );
 
         Self {
@@ -128,7 +135,8 @@ where
             services,
             particles_vault_dir,
             custom_services: <_>::default(),
-            key_manager,
+            worker_registry,
+            scope_helper,
             connector_api_endpoint,
         }
     }
@@ -203,7 +211,7 @@ where
             ("srv", "get_interface") => wrap(self.get_interface(args, particle)),
             ("srv", "resolve_alias") => wrap(self.resolve_alias(args, particle)),
             ("srv", "resolve_alias_opt") => wrap(self.resolve_alias_opt(args, particle)),
-            ("srv", "add_alias") => wrap_unit(self.add_alias(args, particle)),
+            ("srv", "add_alias") => wrap_unit(self.add_alias(args, particle).await),
             ("srv", "remove") => wrap_unit(self.remove_service(args, particle)),
             ("srv", "info") => wrap(self.get_service_info(args, particle)),
 
@@ -777,13 +785,14 @@ where
             .get_interface(&params.id, service_id, params.host_id)?)
     }
 
-    fn add_alias(&self, args: Args, params: ParticleParams) -> Result<(), JError> {
+    async fn add_alias(&self, args: Args, params: ParticleParams) -> Result<(), JError> {
         let mut args = args.function_args.into_iter();
 
         let alias: String = Args::next("alias", &mut args)?;
         let service_id: String = Args::next("service_id", &mut args)?;
         self.services
-            .add_alias(alias, params.host_id, service_id, params.init_peer_id)?;
+            .add_alias(alias, params.host_id, service_id, params.init_peer_id)
+            .await?;
         Ok(())
     }
 
@@ -871,10 +880,10 @@ where
 
             let tetraplet = tetraplets.get(0).map(|v| v.as_slice());
             if let Some([t]) = tetraplet {
-                if !self.key_manager.is_local(PeerId::from_str(&t.peer_pk)?) {
+                if !self.scope_helper.is_local(PeerId::from_str(&t.peer_pk)?) {
                     return Err(JError::new(format!(
                         "data is expected to be produced by service 'registry' on peer '{}', was from peer '{}'",
-                        self.key_manager.get_host_peer_id(), t.peer_pk
+                        self.scope_helper.get_host_peer_id(), t.peer_pk
                     )));
                 }
 
@@ -898,7 +907,7 @@ where
                 return Err(JError::new(format!("expected tetraplet for a scalar argument, got tetraplet for an array: {tetraplet:?}, tetraplets")));
             }
 
-            let keypair = self.key_manager.get_worker_keypair(params.host_id)?;
+            let keypair = self.worker_registry.get_worker_keypair(params.host_id)?;
             json!(keypair.sign(&data)?.to_vec())
         };
 
@@ -922,7 +931,7 @@ where
         let signature: Vec<u8> = Args::next("signature", &mut args)?;
         let data: Vec<u8> = Args::next("data", &mut args)?;
         let pk = self
-            .key_manager
+            .worker_registry
             .get_worker_keypair(params.host_id)?
             .public();
         let signature = Signature::from_bytes(pk.get_key_format(), signature);
