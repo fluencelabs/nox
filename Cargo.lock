@@ -2151,9 +2151,9 @@ dependencies = [
 
 [[package]]
 name = "fluence-spell-distro"
-version = "0.6.0"
+version = "0.6.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3c4432e1ce493689cf93e4a112ad3970a5b2fd982a89efc0ee33a9f089663b78"
+checksum = "5a8b6daf82ba775e588f3fcfe2baca1d3e94368dd100c80254149db790878e6c"
 dependencies = [
  "built 0.7.1",
  "maplit",
@@ -2161,9 +2161,9 @@ dependencies = [
 
 [[package]]
 name = "fluence-spell-dtos"
-version = "0.6.0"
+version = "0.6.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6bf9c61ee22595ff957be32faa0444758e9b61009eab25cd9596503ba78a1ec0"
+checksum = "0a6cf44de9c82149d5a3a8a633b3a0742840a22a541d827ecfd567ce98f10775"
 dependencies = [
  "eyre",
  "marine-rs-sdk",
@@ -4371,9 +4371,9 @@ dependencies = [
 
 [[package]]
 name = "marine-sqlite-connector"
-version = "0.9.2"
+version = "0.9.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "41e6a51c5a4480dfee082aff7253656ee10aa669631fa9922967f41a70049550"
+checksum = "c12d7fb48bd7ee88276a26b2e14f25e9bc884884f375116544689994d5d280ad"
 dependencies = [
  "bytesize",
  "marine-rs-sdk",
