@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 #aqua-ipfs-distro = "=0.5.26"
-aqua-ipfs-distro = { version = "=0.5.26", path = "../../../aqua-ipfs/service/distro" }
+aqua-ipfs-distro = { version = "=0.5.28-fix-forgotten-config-d282892-231-1.0", registry = "fluence" }
 decider-distro = "=0.5.9"
 registry-distro = "=0.9.2"
 trust-graph-distro = "=0.4.8"
