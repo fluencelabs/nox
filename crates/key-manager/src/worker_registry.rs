@@ -23,24 +23,24 @@ pub struct WorkerRegistry {
 
     workers_dir: PathBuf,
 
-    key_manager: KeyStorage,
+    key_storage: KeyStorage,
     security: Security,
 }
 
 impl WorkerRegistry {
-    pub fn new(key_manager: KeyStorage, security: Security) -> Self {
+    pub fn new(key_storage: KeyStorage, security: Security) -> Self {
         Self {
             worker_ids: Arc::new(Default::default()),
             worker_infos: Arc::new(Default::default()),
             workers_dir: Default::default(),
-            key_manager,
+            key_storage,
             security,
         }
     }
 
     pub async fn from_path(
         workers_dir: &Path,
-        key_manager: KeyStorage,
+        key_storage: KeyStorage,
         security: Security,
     ) -> eyre::Result<Self> {
         let workers = load_persisted_workers(workers_dir).await?;
@@ -57,7 +57,7 @@ impl WorkerRegistry {
             worker_ids: Arc::new(RwLock::new(worker_ids)),
             worker_infos: Arc::new(RwLock::new(worker_infos)),
             workers_dir: workers_dir.to_path_buf(),
-            key_manager,
+            key_storage,
             security,
         })
     }
@@ -79,7 +79,7 @@ impl WorkerRegistry {
                 }
 
                 let key_pair = self
-                    .key_manager
+                    .key_storage
                     .create_key_pair()
                     .await
                     .map_err(|err| WorkerRegistryError::CreateWorkerKeyPair { err })?;
@@ -100,7 +100,7 @@ impl WorkerRegistry {
                             worker_id,
                             err
                         );
-                        self.key_manager
+                        self.key_storage
                             .remove_key_pair(worker_id)
                             .await
                             .map_err(|err| WorkerRegistryError::RemoveWorkerKeyPair { err })?;
@@ -116,9 +116,9 @@ impl WorkerRegistry {
 
     pub fn get_worker_keypair(&self, worker_id: PeerId) -> Result<KeyPair, KeyManagerError> {
         if self.security.is_host(worker_id) {
-            Ok(self.key_manager.root_key_pair.clone())
+            Ok(self.key_storage.root_key_pair.clone())
         } else {
-            self.key_manager
+            self.key_storage
                 .get_key_pair(worker_id)
                 .ok_or(KeyManagerError::KeypairNotFound(worker_id))
         }
@@ -139,7 +139,7 @@ impl WorkerRegistry {
         let deal_id = self.get_deal_id(worker_id)?;
         let mut worker_ids = self.worker_ids.write();
         let mut worker_infos = self.worker_infos.write();
-        self.key_manager
+        self.key_storage
             .remove_key_pair(worker_id)
             .await
             .map_err(|err| WorkerRegistryError::RemoveWorkerKeyPair { err })?;
