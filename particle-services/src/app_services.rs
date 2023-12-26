@@ -30,7 +30,7 @@ use serde_json::{json, Value as JValue};
 
 use fluence_libp2p::{peerid_serializer, PeerId};
 use health::HealthCheckRegistry;
-use key_manager::{KeyStorage, ScopeHelper, WorkerRegistry};
+use key_manager::{ScopeHelper, WorkerRegistry};
 use now_millis::now_ms;
 use particle_args::{Args, JError};
 use particle_execution::{FunctionOutcome, ParticleParams, ParticleVault};
@@ -175,8 +175,6 @@ pub struct ParticleAppServices {
     modules: ModuleRepository,
     aliases: Arc<RwLock<Aliases>>,
     #[derivative(Debug = "ignore")]
-    key_storage: Arc<KeyStorage>,
-    #[derivative(Debug = "ignore")]
     worker_registry: Arc<WorkerRegistry>,
     #[derivative(Debug = "ignore")]
     scope_helper: ScopeHelper,
@@ -263,7 +261,6 @@ impl ParticleAppServices {
         modules: ModuleRepository,
         metrics: Option<ServicesMetrics>,
         health_registry: Option<&mut HealthCheckRegistry>,
-        key_storage: Arc<KeyStorage>,
         worker_registry: Arc<WorkerRegistry>,
         scope_helper: ScopeHelper,
     ) -> Self {
@@ -280,7 +277,6 @@ impl ParticleAppServices {
             services: <_>::default(),
             modules,
             aliases: <_>::default(),
-            key_storage,
             worker_registry,
             scope_helper,
             metrics,

@@ -10,6 +10,20 @@ pub struct ScopeHelper {
     key_storage: Arc<KeyStorage>,
 }
 impl ScopeHelper {
+    pub fn new(
+        host_peer_id: PeerId,
+        management_peer_id: PeerId,
+        builtins_management_peer_id: PeerId,
+        key_storage: Arc<KeyStorage>,
+    ) -> Self {
+        Self {
+            host_peer_id,
+            management_peer_id,
+            builtins_management_peer_id,
+            key_storage,
+        }
+    }
+
     pub fn is_local(&self, peer_id: PeerId) -> bool {
         self.is_host(peer_id) || self.is_worker(peer_id)
     }

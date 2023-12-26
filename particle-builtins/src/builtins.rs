@@ -35,7 +35,7 @@ use JValue::Array;
 use connection_pool::{ConnectionPoolApi, ConnectionPoolT};
 use health::HealthCheckRegistry;
 use kademlia::{KademliaApi, KademliaApiT};
-use key_manager::{KeyStorage, ScopeHelper, WorkerRegistry};
+use key_manager::{ScopeHelper, WorkerRegistry};
 use now_millis::{now_ms, now_sec};
 use particle_args::{from_base58, Args, ArgsError, JError};
 use particle_execution::{FunctionOutcome, ParticleParams, ServiceFunction};
@@ -101,7 +101,6 @@ where
         connectivity: C,
         config: ServicesConfig,
         services_metrics: ServicesMetrics,
-        key_manager: Arc<KeyStorage>,
         worker_registry: Arc<WorkerRegistry>,
         scope_helper: ScopeHelper,
         health_registry: Option<&mut HealthCheckRegistry>,
@@ -124,7 +123,6 @@ where
             modules.clone(),
             Some(services_metrics),
             health_registry,
-            key_manager.clone(),
             worker_registry.clone(),
             scope_helper.clone(),
         );
