@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.16.11](https://github.com/fluencelabs/nox/compare/nox-v0.16.10...nox-v0.16.11) (2023-12-26)
+
+
+### Bug Fixes
+
+* **deps:** update fluence-spell to v0.6.3 ([#1988](https://github.com/fluencelabs/nox/issues/1988)) ([5a1f865](https://github.com/fluencelabs/nox/commit/5a1f865ab8603b01f7f4febcd22dd599210c3e2b))
+
 ## [0.16.10](https://github.com/fluencelabs/nox/compare/nox-v0.16.9...nox-v0.16.10) (2023-12-26)
 
 
