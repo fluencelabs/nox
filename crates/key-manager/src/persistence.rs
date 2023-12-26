@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-use fs_utils::{create_dir, list_files};
-
 use crate::error::KeyManagerError::{
     CannotExtractRSASecretKey, CreateKeypairsDir, DeserializePersistedKeypair,
     ReadPersistedKeypair, SerializePersistedKeypair, WriteErrorPersistedKeypair,
@@ -110,11 +108,13 @@ pub async fn persist_keypair(
         .map_err(|err| WriteErrorPersistedKeypair { path, err })
 }
 
-fn load_persisted_keypair(file: &Path) -> Result<KeyPair, KeyManagerError> {
-    let bytes = std::fs::read(file).map_err(|err| ReadPersistedKeypair {
-        err,
-        path: file.to_path_buf(),
-    })?;
+async fn load_persisted_keypair(file: &Path) -> Result<KeyPair, KeyManagerError> {
+    let bytes = tokio::fs::read(file)
+        .await
+        .map_err(|err| ReadPersistedKeypair {
+            err,
+            path: file.to_path_buf(),
+        })?;
     let keypair: PersistedKeypair =
         toml::from_slice(bytes.as_slice()).map_err(|err| DeserializePersistedKeypair {
             err,
@@ -156,26 +156,42 @@ pub(crate) async fn load_persisted_worker(
 }
 
 /// Load info about persisted keypairs from disk
-pub(crate) fn load_persisted_key_pairs(
+pub(crate) async fn load_persisted_key_pairs(
     key_pairs_dir: &Path,
 ) -> Result<Vec<KeyPair>, KeyManagerError> {
-    let files = match list_files(key_pairs_dir) {
-        Some(files) => files.collect(),
-        None => {
-            // Attempt to create directory
-            create_dir(key_pairs_dir).map_err(|err| CreateKeypairsDir {
-                path: key_pairs_dir.to_path_buf(),
-                err,
-            })?;
-            vec![]
-        }
-    };
+    let list_files = tokio::fs::read_dir(key_pairs_dir).await.ok();
+
+    let files =
+        match list_files {
+            Some(mut entries) => {
+                let mut paths = vec![];
+                while let Some(entry) = entries.next_entry().await.map_err(|err| {
+                    KeyManagerError::DirectoryListError {
+                        path: key_pairs_dir.to_path_buf(),
+                        err,
+                    }
+                })? {
+                    paths.push(entry.path())
+                }
+                paths
+            }
+            None => {
+                // Attempt to create directory
+                tokio::fs::create_dir_all(key_pairs_dir)
+                    .await
+                    .map_err(|err| CreateKeypairsDir {
+                        path: key_pairs_dir.to_path_buf(),
+                        err,
+                    })?;
+                vec![]
+            }
+        };
 
     let mut keypairs = vec![];
     for file in files.iter() {
         let res: eyre::Result<()> = try {
             if is_keypair(file) {
-                keypairs.push(load_persisted_keypair(file)?);
+                keypairs.push(load_persisted_keypair(file).await?);
             }
         };
 

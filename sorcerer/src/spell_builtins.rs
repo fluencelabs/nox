@@ -14,10 +14,11 @@
  * limitations under the License.
  */
 use serde_json::{json, Value as JValue, Value, Value::Array};
+use std::sync::Arc;
 
 use crate::utils::parse_spell_id_from;
 use fluence_spell_dtos::trigger_config::TriggerConfig;
-use key_manager::KeyStorage;
+use key_manager::{ScopeHelper, WorkerRegistry};
 use libp2p::PeerId;
 use particle_args::{Args, JError};
 use particle_execution::ParticleParams;
@@ -140,7 +141,8 @@ pub(crate) async fn spell_install(
     services: ParticleAppServices,
     spell_event_bus_api: SpellEventBusApi,
     spell_service_api: SpellServiceApi,
-    key_manager: KeyStorage,
+    worker_registry: Arc<WorkerRegistry>,
+    scope_helper: ScopeHelper,
 ) -> Result<JValue, JError> {
     let mut args = sargs.function_args.clone().into_iter();
     let script: String = Args::next("script", &mut args)?;
@@ -150,13 +152,13 @@ pub(crate) async fn spell_install(
 
     let init_peer_id = params.init_peer_id;
 
-    let is_management = key_manager.is_management(init_peer_id);
-    if key_manager.is_host(params.host_id) && !is_management {
+    let is_management = scope_helper.is_management(init_peer_id);
+    if scope_helper.is_host(params.host_id) && !is_management {
         return Err(JError::new("Failed to install spell in the root scope, only management peer id can install top-level spells"));
     }
 
     let worker_id = params.host_id;
-    let worker_creator = key_manager.get_worker_creator(params.host_id)?;
+    let worker_creator = worker_registry.get_worker_creator(params.host_id)?;
 
     let is_worker = init_peer_id == worker_id;
     let is_worker_creator = init_peer_id == worker_creator;
@@ -179,7 +181,10 @@ pub(crate) async fn spell_install(
     .await?;
 
     if let Some(alias) = alias {
-        if let Err(e) = services.add_alias(alias.clone(), worker_id, spell_id.clone(), worker_id) {
+        if let Err(e) = services
+            .add_alias(alias.clone(), worker_id, spell_id.clone(), worker_id)
+            .await
+        {
             // Remove the spell if we failed to add an alias
             remove_spell(
                 &params.id,
@@ -220,18 +225,19 @@ pub(crate) async fn spell_remove(
     spell_storage: SpellStorage,
     services: ParticleAppServices,
     spell_event_bus_api: SpellEventBusApi,
-    key_manager: KeyStorage,
+    worker_registry: Arc<WorkerRegistry>,
+    scope_helper: ScopeHelper,
 ) -> Result<(), JError> {
     let mut args = args.function_args.into_iter();
     let spell_id: String = Args::next("spell_id", &mut args)?;
 
     let worker_id = params.host_id;
     let init_peer_id = params.init_peer_id;
-    let worker_creator = key_manager.get_worker_creator(worker_id)?;
+    let worker_creator = worker_registry.get_worker_creator(worker_id)?;
 
     let is_worker_creator = init_peer_id == worker_creator;
     let is_worker = init_peer_id == worker_id;
-    let is_management = key_manager.is_management(init_peer_id);
+    let is_management = scope_helper.is_management(init_peer_id);
 
     if !is_worker_creator && !is_worker && !is_management {
         return Err(JError::new(format!(
@@ -258,18 +264,19 @@ pub(crate) async fn spell_update_config(
     services: ParticleAppServices,
     spell_event_bus_api: SpellEventBusApi,
     spell_service_api: SpellServiceApi,
-    key_manager: KeyStorage,
+    worker_registry: Arc<WorkerRegistry>,
+    scope_helper: ScopeHelper,
 ) -> Result<(), JError> {
     let mut args = args.function_args.into_iter();
     let spell_id_or_alias: String = Args::next("spell_id", &mut args)?;
 
     let worker_id = params.host_id;
     let init_peer_id = params.init_peer_id;
-    let worker_creator = key_manager.get_worker_creator(worker_id)?;
+    let worker_creator = worker_registry.get_worker_creator(worker_id)?;
 
     let is_worker_creator = init_peer_id == worker_creator;
     let is_worker = init_peer_id == worker_id;
-    let is_management = key_manager.is_management(init_peer_id);
+    let is_management = scope_helper.is_management(init_peer_id);
 
     if !is_worker_creator && !is_worker && !is_management {
         return Err(JError::new(format!(

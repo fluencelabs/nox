@@ -29,7 +29,7 @@ use tokio::task;
 use tracing::instrument;
 
 use fluence_libp2p::PeerId;
-use key_manager::KeyStorage;
+use key_manager::{ScopeHelper, WorkerRegistry};
 /// For tests, mocked time is used
 #[cfg(test)]
 use mock_time::now_ms;
@@ -65,7 +65,8 @@ pub struct Plumber<RT: AquaRuntime, F> {
     builtins: F,
     waker: Option<Waker>,
     metrics: Option<ParticleExecutorMetrics>,
-    key_manager: KeyStorage,
+    worker_registry: Arc<WorkerRegistry>,
+    scope_helper: ScopeHelper,
     cleanup_future: Option<BoxFuture<'static, ()>>,
 }
 
@@ -75,7 +76,8 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
         data_store: Arc<ParticleDataStore>,
         builtins: F,
         metrics: Option<ParticleExecutorMetrics>,
-        key_manager: KeyStorage,
+        worker_registry: Arc<WorkerRegistry>,
+        scope_helper: ScopeHelper,
     ) -> Self {
         Self {
             vm_pool,
@@ -85,7 +87,8 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
             actors: <_>::default(),
             waker: <_>::default(),
             metrics,
-            key_manager,
+            worker_registry,
+            scope_helper,
             cleanup_future: None,
         }
     }
@@ -120,11 +123,11 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
             return;
         }
 
-        let is_active = self.key_manager.is_worker_active(worker_id);
+        let is_active = self.worker_registry.is_worker_active(worker_id);
         let is_manager = self
-            .key_manager
+            .scope_helper
             .is_management(particle.particle.init_peer_id);
-        let is_host = self.key_manager.is_host(particle.particle.init_peer_id);
+        let is_host = self.scope_helper.is_host(particle.particle.init_peer_id);
 
         // Only a manager or the host itself is allowed to access deactivated workers
         if !is_active && !is_manager && !is_host {
@@ -144,8 +147,8 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
             Entry::Vacant(entry) => {
                 let params = ParticleParams::clone_from(particle.as_ref(), worker_id);
                 let functions = Functions::new(params, builtins.clone());
-                let key_pair = self.key_manager.get_worker_keypair(worker_id);
-                let deal_id = self.key_manager.get_deal_id(worker_id).ok();
+                let key_pair = self.worker_registry.get_worker_keypair(worker_id);
+                let deal_id = self.worker_registry.get_deal_id(worker_id).ok();
                 let data_store = self.data_store.clone();
                 key_pair.map(|kp| {
                     let actor = Actor::new(
@@ -223,7 +226,6 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
         let mut local_effects: Vec<RoutingEffects> = vec![];
         let mut interpretation_stats = vec![];
         let mut mailbox_size = 0;
-        let key_manager = self.key_manager.clone();
         for actor in self.actors.values_mut() {
             if let Poll::Ready(result) = actor.poll_completed(cx) {
                 interpretation_stats.push(result.stats);
@@ -231,7 +233,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
                     .effects
                     .next_peers
                     .into_iter()
-                    .partition(|p| key_manager.is_local(*p));
+                    .partition(|p| self.scope_helper.is_local(*p));
 
                 if !remote_peers.is_empty() {
                     remote_effects.push(RoutingEffects {

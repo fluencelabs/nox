@@ -1,15 +1,15 @@
 use crate::KeyStorage;
-use fluence_keypair::KeyPair;
 use fluence_libp2p::PeerId;
+use std::sync::Arc;
 
-pub struct Security {
+#[derive(Clone)]
+pub struct ScopeHelper {
     host_peer_id: PeerId,
-    root_key_pair: KeyPair,
     management_peer_id: PeerId,
     builtins_management_peer_id: PeerId,
-    key_storage: KeyStorage,
+    key_storage: Arc<KeyStorage>,
 }
-impl Security {
+impl ScopeHelper {
     pub fn is_local(&self, peer_id: PeerId) -> bool {
         self.is_host(peer_id) || self.is_worker(peer_id)
     }
