@@ -375,9 +375,9 @@ mod real_time {
 mod tests {
     use std::collections::HashMap;
     use std::convert::Infallible;
+    use std::path::PathBuf;
     use std::task::Waker;
     use std::{sync::Arc, task::Context};
-    use std::path::PathBuf;
 
     use avm_server::{AVMMemoryStats, CallResults, ParticleParameters};
     use fluence_keypair::KeyPair;
@@ -509,7 +509,14 @@ mod tests {
             .expect("Could not initialize datastore");
         let data_store = Arc::new(data_store);
 
-        Plumber::new(vm_pool, data_store, builtin_mock, None, worker_registry.clone(), scope_helper.clone())
+        Plumber::new(
+            vm_pool,
+            data_store,
+            builtin_mock,
+            None,
+            worker_registry.clone(),
+            scope_helper.clone(),
+        )
     }
 
     fn particle(ts: u64, ttl: u32) -> Particle {
