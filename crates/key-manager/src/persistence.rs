@@ -16,16 +16,15 @@
 
 use fs_utils::{create_dir, list_files};
 
-use crate::error::KeyManagerError;
 use crate::error::KeyManagerError::{
     CannotExtractRSASecretKey, CreateKeypairsDir, DeserializePersistedKeypair,
     ReadPersistedKeypair, SerializePersistedKeypair, WriteErrorPersistedKeypair,
 };
-use crate::key_manager::WorkerInfo;
+use crate::error::{KeyManagerError, WorkerRegistryError};
+use crate::worker_registry::WorkerInfo;
 use crate::KeyManagerError::{
-    CreateWorkersDir, PersistedKeypairDecodingError, PersistedKeypairInvalidKeyformat,
-    RemoveErrorPersistedKeypair, RemoveErrorPersistedWorker, SerializePersistedWorker,
-    WriteErrorPersistedWorker,
+    PersistedKeypairDecodingError, PersistedKeypairInvalidKeyformat, RemoveErrorPersistedKeypair,
+    RemoveErrorPersistedWorker, SerializePersistedWorker, WriteErrorPersistedWorker,
 };
 use fluence_keypair::{KeyFormat, KeyPair};
 use fluence_libp2p::peerid_serializer;
@@ -92,7 +91,7 @@ fn is_keypair(path: &Path) -> bool {
         .map_or(false, |n| n.ends_with("_keypair.toml"))
 }
 
-fn is_worker(path: &Path) -> bool {
+pub(crate) fn is_worker(path: &Path) -> bool {
     path.file_name()
         .and_then(|n| n.to_str())
         .map_or(false, |n| n.ends_with("_info.toml"))
@@ -136,33 +135,35 @@ fn load_persisted_keypair(file: &Path) -> Result<KeyPair, KeyManagerError> {
     })
 }
 
-fn load_persisted_worker(file: &Path) -> Result<PersistedWorker, KeyManagerError> {
-    let bytes = std::fs::read(file).map_err(|err| ReadPersistedKeypair {
-        err,
-        path: file.to_path_buf(),
-    })?;
+pub(crate) async fn load_persisted_worker(
+    file: &Path,
+) -> Result<PersistedWorker, WorkerRegistryError> {
+    let bytes =
+        tokio::fs::read(file)
+            .await
+            .map_err(|err| WorkerRegistryError::ReadPersistedWorker {
+                err,
+                path: file.to_path_buf(),
+            })?;
 
-    toml::from_slice(bytes.as_slice()).map_err(|err| DeserializePersistedKeypair {
-        err,
-        path: file.to_path_buf(),
+    toml::from_slice(bytes.as_slice()).map_err(|err| {
+        WorkerRegistryError::DeserializePersistedWorker {
+            err,
+            path: file.to_path_buf(),
+        }
     })
 }
 
 /// Load info about persisted keypairs from disk
-pub fn load_persisted_keypairs(keypairs_dir: &Path) -> Vec<KeyPair> {
-    let files = match list_files(keypairs_dir) {
+pub(crate) fn load_persisted_key_pairs(key_pairs_dir: &Path) -> eyre::Result<Vec<KeyPair>> {
+    let files = match list_files(key_pairs_dir) {
         Some(files) => files.collect(),
         None => {
             // Attempt to create directory
-            if let Err(err) = create_dir(keypairs_dir) {
-                log::warn!(
-                    "{}",
-                    CreateKeypairsDir {
-                        path: keypairs_dir.to_path_buf(),
-                        err,
-                    }
-                );
-            }
+            create_dir(key_pairs_dir).map_err(|err| CreateKeypairsDir {
+                path: key_pairs_dir.to_path_buf(),
+                err,
+            })?;
             vec![]
         }
     };
@@ -180,42 +181,7 @@ pub fn load_persisted_keypairs(keypairs_dir: &Path) -> Vec<KeyPair> {
         }
     }
 
-    keypairs
-}
-
-/// Load info about persisted workers from disk
-pub fn load_persisted_workers(workers_dir: &Path) -> Vec<PersistedWorker> {
-    let files = match list_files(workers_dir) {
-        Some(files) => files.collect(),
-        None => {
-            // Attempt to create directory
-            if let Err(err) = create_dir(workers_dir) {
-                log::warn!(
-                    "{}",
-                    CreateWorkersDir {
-                        path: workers_dir.to_path_buf(),
-                        err,
-                    }
-                );
-            }
-            vec![]
-        }
-    };
-
-    let mut workers = vec![];
-    for file in files.iter() {
-        let res: eyre::Result<()> = try {
-            if is_worker(file) {
-                workers.push(load_persisted_worker(file)?);
-            }
-        };
-
-        if let Err(err) = res {
-            log::warn!("{err}")
-        }
-    }
-
-    workers
+    Ok(keypairs)
 }
 
 pub fn remove_keypair(keypairs_dir: &Path, worker_id: PeerId) -> Result<(), KeyManagerError> {

@@ -21,7 +21,7 @@ use std::str::FromStr;
 use std::time::Duration;
 
 use crate::spell_builtins::remove_spell;
-use key_manager::KeyManager;
+use key_manager::KeyStorage;
 use particle_args::{Args, JError};
 use particle_execution::ParticleParams;
 use particle_services::ParticleAppServices;
@@ -32,7 +32,7 @@ use spell_storage::SpellStorage;
 pub(crate) fn create_worker(
     args: Args,
     params: ParticleParams,
-    key_manager: KeyManager,
+    key_manager: KeyStorage,
 ) -> Result<JValue, JError> {
     let mut args = args.function_args.into_iter();
     let deal_id: String = Args::next("deal_id", &mut args)?;
@@ -43,7 +43,7 @@ pub(crate) fn create_worker(
     ))
 }
 
-pub(crate) fn get_worker_peer_id(args: Args, key_manager: KeyManager) -> Result<JValue, JError> {
+pub(crate) fn get_worker_peer_id(args: Args, key_manager: KeyStorage) -> Result<JValue, JError> {
     let mut args = args.function_args.into_iter();
     let deal_id: String = Args::next("deal_id", &mut args)?;
 
@@ -58,7 +58,7 @@ pub(crate) fn get_worker_peer_id(args: Args, key_manager: KeyManager) -> Result<
 pub(crate) async fn remove_worker(
     args: Args,
     params: ParticleParams,
-    key_manager: KeyManager,
+    key_manager: KeyStorage,
     services: ParticleAppServices,
     spell_storage: SpellStorage,
     spell_event_bus_api: SpellEventBusApi,
@@ -97,7 +97,7 @@ pub(crate) async fn remove_worker(
     Ok(())
 }
 
-pub(crate) fn worker_list(key_manager: KeyManager) -> Result<JValue, JError> {
+pub(crate) fn worker_list(key_manager: KeyStorage) -> Result<JValue, JError> {
     Ok(JValue::Array(
         key_manager
             .list_workers()
@@ -110,7 +110,7 @@ pub(crate) fn worker_list(key_manager: KeyManager) -> Result<JValue, JError> {
 pub(crate) async fn deactivate_deal(
     args: Args,
     params: ParticleParams,
-    key_manager: KeyManager,
+    key_manager: KeyStorage,
     spell_storage: SpellStorage,
     spell_event_bus_api: SpellEventBusApi,
     spell_service_api: SpellServiceApi,
@@ -167,7 +167,7 @@ pub(crate) async fn deactivate_deal(
 pub(crate) async fn activate_deal(
     args: Args,
     params: ParticleParams,
-    key_manager: KeyManager,
+    key_manager: KeyStorage,
     services: ParticleAppServices,
     spell_event_bus_api: SpellEventBusApi,
     spell_service_api: SpellServiceApi,
@@ -223,7 +223,7 @@ pub(crate) async fn activate_deal(
     Ok(())
 }
 
-pub(crate) fn is_deal_active(args: Args, key_manager: KeyManager) -> Result<JValue, JError> {
+pub(crate) fn is_deal_active(args: Args, key_manager: KeyStorage) -> Result<JValue, JError> {
     let mut args = args.function_args.into_iter();
     let deal_id: String = Args::next("deal_id", &mut args)?;
     let worker_id = key_manager.get_worker_id(deal_id)?;

@@ -29,7 +29,7 @@ use tokio::task;
 use tracing::instrument;
 
 use fluence_libp2p::PeerId;
-use key_manager::KeyManager;
+use key_manager::KeyStorage;
 /// For tests, mocked time is used
 #[cfg(test)]
 use mock_time::now_ms;
@@ -65,7 +65,7 @@ pub struct Plumber<RT: AquaRuntime, F> {
     builtins: F,
     waker: Option<Waker>,
     metrics: Option<ParticleExecutorMetrics>,
-    key_manager: KeyManager,
+    key_manager: KeyStorage,
     cleanup_future: Option<BoxFuture<'static, ()>>,
 }
 
@@ -75,7 +75,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
         data_store: Arc<ParticleDataStore>,
         builtins: F,
         metrics: Option<ParticleExecutorMetrics>,
-        key_manager: KeyManager,
+        key_manager: KeyStorage,
     ) -> Self {
         Self {
             vm_pool,
@@ -380,7 +380,7 @@ mod tests {
     use fluence_keypair::KeyPair;
     use fluence_libp2p::RandomPeerId;
     use futures::task::noop_waker_ref;
-    use key_manager::KeyManager;
+    use key_manager::KeyStorage;
 
     use particle_args::Args;
     use particle_execution::{FunctionOutcome, ParticleFunction, ParticleParams, ServiceFunction};
@@ -469,7 +469,7 @@ mod tests {
         // Pool is of size 1 so it's easier to control tests
         let vm_pool = VmPool::new(1, (), None, None);
         let builtin_mock = Arc::new(MockF);
-        let key_manager = KeyManager::new(
+        let key_manager = KeyStorage::new(
             "keypair".into(),
             "workers".into(),
             KeyPair::generate_ed25519(),

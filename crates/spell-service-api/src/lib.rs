@@ -277,7 +277,7 @@ mod tests {
 
     use fluence_spell_dtos::trigger_config::TriggerConfig;
     use fluence_spell_dtos::value::*;
-    use key_manager::KeyManager;
+    use key_manager::KeyStorage;
     use maplit::hashmap;
     use serde_json::json;
     use std::time::Duration;
@@ -302,7 +302,7 @@ mod tests {
         let keypairs_dir = base_dir.join("..").join("keypairs");
         let workers_dir = base_dir.join("..").join("workers");
 
-        let key_manager = KeyManager::new(
+        let key_manager = KeyStorage::new(
             keypairs_dir,
             workers_dir,
             startup_kp.clone().into(),

@@ -88,18 +88,36 @@ pub enum KeyManagerError {
         #[source]
         err: std::io::Error,
     },
+
+    #[error("Keypair for peer_id {0} not found")]
+    KeypairNotFound(PeerId),
+}
+
+#[derive(Debug, Error)]
+pub enum WorkerRegistryError {
     #[error("Error creating directory for persisted workers {path:?}: {err}")]
     CreateWorkersDir {
         path: PathBuf,
         #[source]
         err: std::io::Error,
     },
-    #[error("Keypair for peer_id {0} not found")]
-    KeypairNotFound(PeerId),
+    #[error("Error reading persisted worker from {path:?}: {err}")]
+    ReadPersistedWorker {
+        path: PathBuf,
+        #[source]
+        err: std::io::Error,
+    },
+    #[error("Error deserializing persisted worker from {path:?}: {err}")]
+    DeserializePersistedWorker {
+        path: PathBuf,
+        #[source]
+        err: toml::de::Error,
+    },
     #[error("Worker for {deal_id} already exists")]
     WorkerAlreadyExists { deal_id: String },
     #[error("Worker for deal_id {0} not found")]
     WorkerNotFoundByDeal(String),
     #[error("Worker {0} not found")]
     WorkerNotFound(PeerId),
+
 }
