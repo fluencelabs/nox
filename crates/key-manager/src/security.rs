@@ -4,7 +4,7 @@ use fluence_libp2p::PeerId;
 
 pub struct Security {
     host_peer_id: PeerId,
-    pub root_key_pair: KeyPair,
+    root_key_pair: KeyPair,
     management_peer_id: PeerId,
     builtins_management_peer_id: PeerId,
     key_storage: KeyStorage,
@@ -19,7 +19,7 @@ impl Security {
     }
 
     pub fn is_worker(&self, peer_id: PeerId) -> bool {
-        self.key_storage.get_keypair(peer_id).is_some()
+        self.key_storage.get_key_pair(peer_id).is_some()
     }
 
     pub fn is_management(&self, peer_id: PeerId) -> bool {

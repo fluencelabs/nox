@@ -1,6 +1,5 @@
 #![feature(try_blocks)]
 
-
 pub type DealId = String;
 
 pub type WorkerId = PeerId;
@@ -8,8 +7,8 @@ pub type WorkerId = PeerId;
 mod error;
 mod key_manager;
 mod persistence;
-mod worker_registry;
 mod security;
+mod worker_registry;
 
 pub use error::KeyManagerError;
 use fluence_libp2p::PeerId;
