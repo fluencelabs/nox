@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.16.10](https://github.com/fluencelabs/nox/compare/nox-v0.16.9...nox-v0.16.10) (2023-12-26)
+
+
+### Features
+
+* **metrics:** add libp2p bandwidth metrics ([#1973](https://github.com/fluencelabs/nox/issues/1973)) ([090dff3](https://github.com/fluencelabs/nox/commit/090dff3450cf4336b25aae297332069548f14618))
+
+
+### Bug Fixes
+
+* **deps:** update fluence-spell to v0.6.2 ([#1986](https://github.com/fluencelabs/nox/issues/1986)) ([47ecbe0](https://github.com/fluencelabs/nox/commit/47ecbe0969c007eaab75abc60885427e67ad2f90))
+* **deps:** update rust crate aqua-ipfs-distro to v0.5.27 ([#1987](https://github.com/fluencelabs/nox/issues/1987)) ([67f7240](https://github.com/fluencelabs/nox/commit/67f7240ba94dd746e94efdf4e21bd6ff19524139))
+* **deps:** update rust crate decider-distro to v0.5.9 ([#1975](https://github.com/fluencelabs/nox/issues/1975)) ([d5d47e3](https://github.com/fluencelabs/nox/commit/d5d47e37f7a62a97e5bc74a6cedd61dd39fe22a9))
+
 ## [0.16.9](https://github.com/fluencelabs/nox/compare/nox-v0.16.8...nox-v0.16.9) (2023-12-20)
 
 
