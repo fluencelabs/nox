@@ -16,7 +16,6 @@
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
 
 use libp2p::PeerId;
 use parking_lot::RwLock;
@@ -25,10 +24,9 @@ use crate::persistence::{load_persisted_key_pairs, persist_keypair, remove_keypa
 use crate::{KeyManagerError, WorkerId};
 use fluence_keypair::KeyPair;
 
-#[derive(Clone)]
 pub struct KeyStorage {
     /// worker_id -> worker_keypair
-    worker_key_pairs: Arc<RwLock<HashMap<WorkerId, KeyPair>>>,
+    worker_key_pairs: RwLock<HashMap<WorkerId, KeyPair>>,
     key_pairs_dir: PathBuf,
     pub root_key_pair: KeyPair,
 }
@@ -36,7 +34,7 @@ pub struct KeyStorage {
 impl KeyStorage {
     pub fn new(root_key_pair: KeyPair) -> Self {
         Self {
-            worker_key_pairs: Arc::new(Default::default()),
+            worker_key_pairs: Default::default(),
             key_pairs_dir: Default::default(),
             root_key_pair,
         }
@@ -54,7 +52,7 @@ impl KeyStorage {
             worker_key_pairs.insert(worker_id, keypair);
         }
         Ok(Self {
-            worker_key_pairs: Arc::new(RwLock::new(worker_key_pairs)),
+            worker_key_pairs: RwLock::new(worker_key_pairs),
             key_pairs_dir: key_pairs_dir.to_path_buf(),
             root_key_pair,
         })
