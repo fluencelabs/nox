@@ -28,7 +28,7 @@ use fluence_libp2p::build_transport;
 use futures::future::OptionFuture;
 use futures::{stream::StreamExt, FutureExt};
 use health::HealthCheckRegistry;
-use key_manager::KeyManager;
+use key_manager::KeyStorage;
 use libp2p::swarm::SwarmEvent;
 use libp2p::SwarmBuilder;
 use libp2p::{
@@ -91,7 +91,7 @@ pub struct Node<RT: AquaRuntime> {
 
     pub builtins_management_peer_id: PeerId,
 
-    pub key_manager: KeyManager,
+    pub key_manager: KeyStorage,
 
     allow_local_addresses: bool,
     versions: Versions,
@@ -113,7 +113,7 @@ impl<RT: AquaRuntime> Node<RT> {
 
         let builtins_peer_id = to_peer_id(&config.builtins_key_pair.clone().into());
 
-        let key_manager = KeyManager::new(
+        let key_manager = KeyStorage::new(
             config.dir_config.keypairs_base_dir.clone(),
             config.dir_config.workers_base_dir.clone(),
             key_pair.clone().try_into()?,
@@ -188,7 +188,7 @@ impl<RT: AquaRuntime> Node<RT> {
         let allow_local_addresses = config.allow_local_addresses;
 
         let (swarm, connectivity, particle_stream) = Self::swarm(
-            key_manager.root_keypair.clone().into(),
+            key_manager.root_key_pair.clone().into(),
             network_config,
             transport,
             config.external_addresses(),
@@ -392,7 +392,7 @@ impl<RT: AquaRuntime> Node<RT> {
         connectivity: Connectivity,
         services_config: ServicesConfig,
         services_metrics: ServicesMetrics,
-        key_manager: KeyManager,
+        key_manager: KeyStorage,
         health_registry: Option<&mut HealthCheckRegistry>,
         connector_api_endpoint: String,
     ) -> Builtins<Connectivity> {
@@ -433,7 +433,7 @@ impl<RT: AquaRuntime> Node<RT> {
         services_metrics_backend: ServicesMetricsBackend,
         http_listen_addr: Option<SocketAddr>,
         builtins_management_peer_id: PeerId,
-        key_manager: KeyManager,
+        key_manager: KeyStorage,
         allow_local_addresses: bool,
         versions: Versions,
     ) -> Box<Self> {

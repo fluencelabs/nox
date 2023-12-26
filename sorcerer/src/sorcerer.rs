@@ -32,7 +32,7 @@ use crate::worker_builins::{
     remove_worker, worker_list,
 };
 use aquamarine::AquamarineApi;
-use key_manager::KeyManager;
+use key_manager::KeyStorage;
 use particle_args::JError;
 use particle_builtins::{wrap, wrap_unit, CustomService};
 use particle_execution::ServiceFunction;
@@ -53,7 +53,7 @@ pub struct Sorcerer {
     pub spell_storage: SpellStorage,
     pub spell_event_bus_api: SpellEventBusApi,
     pub spell_script_particle_ttl: Duration,
-    pub key_manager: KeyManager,
+    pub key_manager: KeyStorage,
     pub spell_service_api: SpellServiceApi,
     pub spell_metrics: Option<SpellMetrics>,
     pub worker_period_sec: u32,
@@ -67,7 +67,7 @@ impl Sorcerer {
         aquamarine: AquamarineApi,
         config: ResolvedConfig,
         spell_event_bus_api: SpellEventBusApi,
-        key_manager: KeyManager,
+        key_manager: KeyStorage,
         spell_service_api: SpellServiceApi,
         spell_metrics: Option<SpellMetrics>,
     ) -> (Self, HashMap<String, CustomService>, String) {

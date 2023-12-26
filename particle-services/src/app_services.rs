@@ -30,7 +30,7 @@ use serde_json::{json, Value as JValue};
 
 use fluence_libp2p::{peerid_serializer, PeerId};
 use health::HealthCheckRegistry;
-use key_manager::KeyManager;
+use key_manager::KeyStorage;
 use now_millis::now_ms;
 use particle_args::{Args, JError};
 use particle_execution::{FunctionOutcome, ParticleParams, ParticleVault};
@@ -175,7 +175,7 @@ pub struct ParticleAppServices {
     modules: ModuleRepository,
     aliases: Arc<RwLock<Aliases>>,
     #[derivative(Debug = "ignore")]
-    key_manager: KeyManager,
+    key_manager: KeyStorage,
     pub metrics: Option<ServicesMetrics>,
     health: Option<PersistedServiceHealth>,
 }
@@ -259,7 +259,7 @@ impl ParticleAppServices {
         modules: ModuleRepository,
         metrics: Option<ServicesMetrics>,
         health_registry: Option<&mut HealthCheckRegistry>,
-        key_manager: KeyManager,
+        key_manager: KeyStorage,
     ) -> Self {
         let vault = ParticleVault::new(config.particles_vault_dir.clone());
 
@@ -1035,7 +1035,7 @@ mod tests {
 
     use config_utils::{modules_dir, to_peer_id};
     use fluence_libp2p::RandomPeerId;
-    use key_manager::KeyManager;
+    use key_manager::KeyStorage;
     use particle_modules::{AddBlueprint, ModuleRepository};
     use server_config::ServicesConfig;
     use service_modules::load_module;
@@ -1061,7 +1061,7 @@ mod tests {
         let keypairs_dir = base_dir.join("..").join("keypairs");
         let workers_dir = base_dir.join("..").join("workers");
         let max_heap_size = server_config::default_module_max_heap_size();
-        let key_manager = KeyManager::new(
+        let key_manager = KeyStorage::new(
             keypairs_dir,
             workers_dir,
             root_keypair.clone().into(),

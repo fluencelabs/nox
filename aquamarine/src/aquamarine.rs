@@ -26,7 +26,7 @@ use tracing::{instrument, Instrument};
 
 use fluence_libp2p::PeerId;
 use health::HealthCheckRegistry;
-use key_manager::KeyManager;
+use key_manager::KeyStorage;
 use particle_execution::{ParticleFunctionStatic, ServiceFunction};
 use particle_protocol::ExtendedParticle;
 use peer_metrics::{ParticleExecutorMetrics, VmPoolMetrics};
@@ -60,7 +60,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> AquamarineBackend<RT, F> {
         plumber_metrics: Option<ParticleExecutorMetrics>,
         vm_pool_metrics: Option<VmPoolMetrics>,
         health_registry: Option<&mut HealthCheckRegistry>,
-        key_manager: KeyManager,
+        key_manager: KeyStorage,
     ) -> eyre::Result<(Self, AquamarineApi)> {
         // TODO: make `100` configurable
         let (outlet, inlet) = mpsc::channel(100);
