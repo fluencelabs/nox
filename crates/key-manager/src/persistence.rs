@@ -80,7 +80,7 @@ pub fn keypair_file_name(worker_id: PeerId) -> String {
     format!("{}_keypair.toml", worker_id.to_base58())
 }
 
-pub fn worker_file_name(worker_id: PeerId) -> String {
+pub(crate) fn worker_file_name(worker_id: PeerId) -> String {
     format!("{}_info.toml", worker_id.to_base58())
 }
 
