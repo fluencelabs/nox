@@ -24,7 +24,6 @@ use crate::error::{KeyManagerError, WorkerRegistryError};
 use crate::worker_registry::WorkerInfo;
 use crate::KeyManagerError::{
     PersistedKeypairDecodingError, PersistedKeypairInvalidKeyformat, RemoveErrorPersistedKeypair,
-    RemoveErrorPersistedWorker, SerializePersistedWorker, WriteErrorPersistedWorker,
 };
 use fluence_keypair::{KeyFormat, KeyPair};
 use fluence_libp2p::peerid_serializer;
@@ -98,7 +97,7 @@ pub(crate) fn is_worker(path: &Path) -> bool {
 }
 
 /// Persist keypair info to disk, so it is recreated after restart
-pub fn persist_keypair(
+pub async fn persist_keypair(
     keypairs_dir: &Path,
     worker_id: PeerId,
     persisted_keypair: PersistedKeypair,
@@ -106,7 +105,9 @@ pub fn persist_keypair(
     let path = keypairs_dir.join(keypair_file_name(worker_id));
     let bytes =
         toml::to_vec(&persisted_keypair).map_err(|err| SerializePersistedKeypair { err })?;
-    std::fs::write(&path, bytes).map_err(|err| WriteErrorPersistedKeypair { path, err })
+    tokio::fs::write(&path, bytes)
+        .await
+        .map_err(|err| WriteErrorPersistedKeypair { path, err })
 }
 
 fn load_persisted_keypair(file: &Path) -> Result<KeyPair, KeyManagerError> {
@@ -155,7 +156,9 @@ pub(crate) async fn load_persisted_worker(
 }
 
 /// Load info about persisted keypairs from disk
-pub(crate) fn load_persisted_key_pairs(key_pairs_dir: &Path) -> eyre::Result<Vec<KeyPair>> {
+pub(crate) fn load_persisted_key_pairs(
+    key_pairs_dir: &Path,
+) -> Result<Vec<KeyPair>, KeyManagerError> {
     let files = match list_files(key_pairs_dir) {
         Some(files) => files.collect(),
         None => {
@@ -184,30 +187,41 @@ pub(crate) fn load_persisted_key_pairs(key_pairs_dir: &Path) -> eyre::Result<Vec
     Ok(keypairs)
 }
 
-pub fn remove_keypair(keypairs_dir: &Path, worker_id: PeerId) -> Result<(), KeyManagerError> {
+pub async fn remove_keypair(keypairs_dir: &Path, worker_id: PeerId) -> Result<(), KeyManagerError> {
     let path = keypairs_dir.join(keypair_file_name(worker_id));
-    std::fs::remove_file(path.clone()).map_err(|err| RemoveErrorPersistedKeypair {
-        path,
-        worker_id,
-        err,
-    })
+    tokio::fs::remove_file(path.clone())
+        .await
+        .map_err(|err| RemoveErrorPersistedKeypair {
+            path,
+            worker_id,
+            err,
+        })?;
+    Ok(())
 }
 
-pub fn persist_worker(
+pub(crate) async fn persist_worker(
     workers_dir: &Path,
     worker_id: PeerId,
     worker: PersistedWorker,
-) -> Result<(), KeyManagerError> {
+) -> Result<(), WorkerRegistryError> {
     let path = workers_dir.join(worker_file_name(worker_id));
-    let bytes = toml::to_vec(&worker).map_err(|err| SerializePersistedWorker { err })?;
-    std::fs::write(&path, bytes).map_err(|err| WriteErrorPersistedWorker { path, err })
+    let bytes = toml::to_vec(&worker)
+        .map_err(|err| WorkerRegistryError::SerializePersistedWorker { err })?;
+    tokio::fs::write(&path, bytes)
+        .await
+        .map_err(|err| WorkerRegistryError::WriteErrorPersistedWorker { path, err })
 }
 
-pub fn remove_worker(workers_dir: &Path, worker_id: PeerId) -> Result<(), KeyManagerError> {
+pub async fn remove_worker(
+    workers_dir: &Path,
+    worker_id: PeerId,
+) -> Result<(), WorkerRegistryError> {
     let path = workers_dir.join(worker_file_name(worker_id));
-    std::fs::remove_file(path.clone()).map_err(|err| RemoveErrorPersistedWorker {
-        path,
-        worker_id,
-        err,
+    tokio::fs::remove_file(path.clone()).await.map_err(|err| {
+        WorkerRegistryError::RemoveErrorPersistedWorker {
+            path,
+            worker_id,
+            err,
+        }
     })
 }

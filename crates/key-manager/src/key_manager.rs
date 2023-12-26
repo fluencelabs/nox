@@ -15,30 +15,37 @@
  */
 
 use std::collections::HashMap;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use libp2p::PeerId;
 use parking_lot::RwLock;
 
-use crate::persistence::load_persisted_key_pairs;
-use crate::WorkerId;
+use crate::persistence::{load_persisted_key_pairs, persist_keypair, remove_keypair};
+use crate::{KeyManagerError, WorkerId};
 use fluence_keypair::KeyPair;
 
 #[derive(Clone)]
 pub struct KeyStorage {
     /// worker_id -> worker_keypair
     worker_key_pairs: Arc<RwLock<HashMap<WorkerId, KeyPair>>>,
+    key_pairs_dir: PathBuf,
+    pub root_key_pair: KeyPair,
 }
 
 impl KeyStorage {
-    pub fn new() -> Self {
+    pub fn new(root_key_pair: KeyPair) -> Self {
         Self {
             worker_key_pairs: Arc::new(Default::default()),
+            key_pairs_dir: Default::default(),
+            root_key_pair,
         }
     }
 
-    pub fn from_path(key_pairs_dir: &Path) -> eyre::Result<Self> {
+    pub fn from_path(
+        key_pairs_dir: &Path,
+        root_key_pair: KeyPair,
+    ) -> Result<Self, KeyManagerError> {
         let key_pairs = load_persisted_key_pairs(key_pairs_dir)?;
 
         let mut worker_key_pairs = HashMap::with_capacity(key_pairs.len());
@@ -48,10 +55,28 @@ impl KeyStorage {
         }
         Ok(Self {
             worker_key_pairs: Arc::new(RwLock::new(worker_key_pairs)),
+            key_pairs_dir: key_pairs_dir.to_path_buf(),
+            root_key_pair,
         })
     }
 
-    pub fn get_keypair(&self, worker_id: PeerId) -> Option<KeyPair> {
+    pub fn get_key_pair(&self, worker_id: PeerId) -> Option<KeyPair> {
         self.worker_key_pairs.read().get(&worker_id).cloned()
+    }
+
+    pub async fn create_key_pair(&self) -> Result<KeyPair, KeyManagerError> {
+        let keypair = KeyPair::generate_ed25519();
+        let worker_id = keypair.get_peer_id();
+        let mut guard = self.worker_key_pairs.write();
+        persist_keypair(&self.key_pairs_dir, worker_id, (&keypair).try_into()?).await?;
+        guard.insert(worker_id, keypair.clone());
+        Ok(keypair)
+    }
+
+    pub async fn remove_key_pair(&self, worker_id: WorkerId) -> Result<(), KeyManagerError> {
+        let mut guard = self.worker_key_pairs.write();
+        remove_keypair(&self.key_pairs_dir, worker_id).await?;
+        guard.remove(&worker_id);
+        Ok(())
     }
 }
