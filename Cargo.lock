@@ -5352,6 +5352,7 @@ dependencies = [
  "derivative",
  "eyre",
  "fluence-app-service",
+ "fluence-keypair",
  "fluence-libp2p",
  "fs-utils",
  "health",
@@ -5373,6 +5374,7 @@ dependencies = [
  "service-modules",
  "tempdir",
  "thiserror",
+ "tokio",
  "toml 0.5.11",
  "uuid",
  "uuid-utils",
@@ -6862,6 +6864,7 @@ version = "0.1.0"
 dependencies = [
  "config-utils",
  "fluence-app-service",
+ "fluence-keypair",
  "fluence-libp2p",
  "fluence-spell-dtos",
  "key-manager",
@@ -6876,6 +6879,7 @@ dependencies = [
  "spell-storage",
  "tempdir",
  "thiserror",
+ "tokio",
 ]
 
 [[package]]

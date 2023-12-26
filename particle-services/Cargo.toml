@@ -39,3 +39,5 @@ tempdir = "0.3.7"
 libp2p-identity = { workspace = true }
 base64 = { workspace = true }
 config-utils = { workspace = true }
+fluence-keypair = { workspace = true }
+tokio = { workspace = true, features = ["macros"] }

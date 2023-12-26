@@ -1031,15 +1031,17 @@ mod tests {
     use std::collections::HashMap;
     use std::fs::remove_file;
     use std::path::PathBuf;
+    use std::sync::Arc;
 
     use base64::{engine::general_purpose::STANDARD as base64, Engine};
     use fluence_app_service::{TomlMarineModuleConfig, TomlMarineNamedModuleConfig};
+    use fluence_keypair::KeyPair;
     use libp2p_identity::{Keypair, PeerId};
     use tempdir::TempDir;
 
     use config_utils::{modules_dir, to_peer_id};
     use fluence_libp2p::RandomPeerId;
-    use key_manager::KeyStorage;
+    use key_manager::{KeyStorage, ScopeHelper, WorkerRegistry};
     use particle_modules::{AddBlueprint, ModuleRepository};
     use server_config::ServicesConfig;
     use service_modules::load_module;
@@ -1055,7 +1057,7 @@ mod tests {
         PeerId::from(keypair.public())
     }
 
-    fn create_pas(
+    async fn create_pas(
         root_keypair: Keypair,
         management_pid: PeerId,
         base_dir: PathBuf,
@@ -1065,8 +1067,28 @@ mod tests {
         let keypairs_dir = base_dir.join("..").join("keypairs");
         let workers_dir = base_dir.join("..").join("workers");
         let max_heap_size = server_config::default_module_max_heap_size();
-        let key_manager =
-            KeyStorage::from_path(keypairs_dir.as_path(), root_keypair.clone().into());
+        let key_storage =
+            KeyStorage::from_path(keypairs_dir.as_path(), root_keypair.clone().into())
+                .await
+                .expect("Could not load key storage");
+
+        let key_storage = Arc::new(key_storage);
+
+        let root_key_pair: KeyPair = root_keypair.clone().into();
+
+        let scope_helper = ScopeHelper::new(
+            root_key_pair.get_peer_id(),
+            management_pid,
+            to_peer_id(&startup_kp),
+            key_storage.clone(),
+        );
+
+        let worker_registry =
+            WorkerRegistry::from_path(workers_dir.as_path(), key_storage, scope_helper.clone())
+                .await
+                .expect("Could not load worker registry");
+
+        let worker_registry = Arc::new(worker_registry);
 
         let config = ServicesConfig::new(
             PeerId::from(root_keypair.public()),
@@ -1090,10 +1112,10 @@ mod tests {
             Default::default(),
         );
 
-        ParticleAppServices::new(config, repo, None, None, key_manager)
+        ParticleAppServices::new(config, repo, None, None, worker_registry, scope_helper)
     }
 
-    fn call_add_alias_raw(
+    async fn call_add_alias_raw(
         as_manager: bool,
         alias: String,
         service_id: String,
@@ -1102,7 +1124,7 @@ mod tests {
         let root_keypair = Keypair::generate_ed25519();
         let local_pid = PeerId::from(root_keypair.public());
         let management_pid = create_pid();
-        let pas = create_pas(root_keypair, management_pid, base_dir.into_path());
+        let pas = create_pas(root_keypair, management_pid, base_dir.into_path()).await;
 
         let client_pid;
         if as_manager {
@@ -1112,10 +1134,11 @@ mod tests {
         }
 
         pas.add_alias(alias, local_pid, service_id, client_pid)
+            .await
     }
 
-    fn call_add_alias(alias: String, service_id: String) -> Result<(), ServiceError> {
-        call_add_alias_raw(true, alias, service_id)
+    async fn call_add_alias(alias: String, service_id: String) -> Result<(), ServiceError> {
+        call_add_alias_raw(true, alias, service_id).await
     }
 
     fn create_service(
@@ -1134,9 +1157,9 @@ mod tests {
             .map_err(|e| e.to_string())
     }
 
-    #[test]
-    fn test_add_alias_forbidden() {
-        let resp = call_add_alias_raw(false, "1".to_string(), "2".to_string());
+    #[tokio::test]
+    async fn test_add_alias_forbidden() {
+        let resp = call_add_alias_raw(false, "1".to_string(), "2".to_string()).await;
         assert!(resp.is_err());
         assert!(matches!(
             resp.err().unwrap(),
@@ -1144,9 +1167,9 @@ mod tests {
         ))
     }
 
-    #[test]
-    fn test_add_alias_no_service() {
-        let resp = call_add_alias("1".to_string(), "2".to_string());
+    #[tokio::test]
+    async fn test_add_alias_no_service() {
+        let resp = call_add_alias("1".to_string(), "2".to_string()).await;
         assert!(resp.is_err());
         assert!(matches!(
             resp.err().unwrap(),
@@ -1154,13 +1177,13 @@ mod tests {
         ));
     }
 
-    #[test]
-    fn test_get_interface_cache() {
+    #[tokio::test]
+    async fn test_get_interface_cache() {
         let root_keypair = Keypair::generate_ed25519();
         let local_pid = PeerId::from(root_keypair.public());
         let management_pid = create_pid();
         let base_dir = TempDir::new("test").unwrap();
-        let pas = create_pas(root_keypair, management_pid, base_dir.path().into());
+        let pas = create_pas(root_keypair, management_pid, base_dir.path().into()).await;
 
         let module = load_module(
             "../crates/nox-tests/tests/tetraplets/artifacts",
@@ -1230,25 +1253,27 @@ mod tests {
             .unwrap()
     }
 
-    #[test]
-    fn test_add_alias() {
+    #[tokio::test]
+    async fn test_add_alias() {
         let base_dir = TempDir::new("test4").unwrap();
         let root_keypair = Keypair::generate_ed25519();
         let local_pid = PeerId::from(root_keypair.public());
         let management_pid = create_pid();
-        let pas = create_pas(root_keypair, management_pid, base_dir.into_path());
+        let pas = create_pas(root_keypair, management_pid, base_dir.into_path()).await;
 
         let module_name = "tetra".to_string();
         let m_hash = upload_tetra_service(&pas, module_name.clone());
         let service_id1 = create_service(&pas, module_name, &m_hash, local_pid).unwrap();
 
         let alias = "alias";
-        let result = pas.add_alias(
-            alias.to_string(),
-            local_pid,
-            service_id1.clone(),
-            management_pid,
-        );
+        let result = pas
+            .add_alias(
+                alias.to_string(),
+                local_pid,
+                service_id1.clone(),
+                management_pid,
+            )
+            .await;
         // result of the add_alias call must be ok
         assert!(result.is_ok(), "{}", result.unwrap_err());
 
@@ -1271,13 +1296,13 @@ mod tests {
         assert_eq!(persisted_service_1.aliases, vec![alias.to_string()]);
     }
 
-    #[test]
-    fn test_add_alias_repeated() {
+    #[tokio::test]
+    async fn test_add_alias_repeated() {
         let base_dir = TempDir::new("test4").unwrap();
         let root_keypair = Keypair::generate_ed25519();
         let local_pid = PeerId::from(root_keypair.public());
         let management_pid = create_pid();
-        let pas = create_pas(root_keypair, management_pid, base_dir.into_path());
+        let pas = create_pas(root_keypair, management_pid, base_dir.into_path()).await;
 
         let module_name = "tetra".to_string();
         let m_hash = upload_tetra_service(&pas, module_name.clone());
@@ -1293,6 +1318,7 @@ mod tests {
             service_id1.clone(),
             management_pid,
         )
+        .await
         .unwrap();
         // give the alias to another service
         pas.add_alias(
@@ -1301,6 +1327,7 @@ mod tests {
             service_id2.clone(),
             management_pid,
         )
+        .await
         .unwrap();
 
         let services = pas.services.read();
@@ -1330,13 +1357,13 @@ mod tests {
         assert_eq!(persisted_service_2.aliases, vec![alias.to_string()]);
     }
 
-    #[test]
-    fn test_add_alias_twice() {
+    #[tokio::test]
+    async fn test_add_alias_twice() {
         let base_dir = TempDir::new("test4").unwrap();
         let root_keypair = Keypair::generate_ed25519();
         let local_pid = PeerId::from(root_keypair.public());
         let management_pid = create_pid();
-        let pas = create_pas(root_keypair, management_pid, base_dir.into_path());
+        let pas = create_pas(root_keypair, management_pid, base_dir.into_path()).await;
 
         let module_name = "tetra".to_string();
         let m_hash = upload_tetra_service(&pas, module_name.clone());
@@ -1351,6 +1378,7 @@ mod tests {
             service_id.clone(),
             management_pid,
         )
+        .await
         .unwrap();
         // give the alias to service again
         pas.add_alias(
@@ -1359,6 +1387,7 @@ mod tests {
             service_id.clone(),
             management_pid,
         )
+        .await
         .unwrap();
 
         let services = pas.services.read();
@@ -1381,13 +1410,13 @@ mod tests {
         assert_eq!(persisted_service.aliases, vec![alias.to_string()]);
     }
 
-    #[test]
-    fn test_persisted_service() {
+    #[tokio::test]
+    async fn test_persisted_service() {
         let base_dir = TempDir::new("test4").unwrap();
         let root_keypair = Keypair::generate_ed25519();
         let local_pid = PeerId::from(root_keypair.public());
         let management_pid = create_pid();
-        let pas = create_pas(root_keypair, management_pid, base_dir.into_path());
+        let pas = create_pas(root_keypair, management_pid, base_dir.into_path()).await;
 
         let module_name = "tetra".to_string();
         let alias = "alias".to_string();
@@ -1400,6 +1429,7 @@ mod tests {
             service_id1.clone(),
             management_pid,
         )
+        .await
         .unwrap();
         let services = pas.services.read();
         let service_1 = services.get(&service_id1).unwrap();

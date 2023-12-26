@@ -377,12 +377,13 @@ mod tests {
     use std::convert::Infallible;
     use std::task::Waker;
     use std::{sync::Arc, task::Context};
+    use std::path::PathBuf;
 
     use avm_server::{AVMMemoryStats, CallResults, ParticleParameters};
     use fluence_keypair::KeyPair;
     use fluence_libp2p::RandomPeerId;
     use futures::task::noop_waker_ref;
-    use key_manager::KeyStorage;
+    use key_manager::{KeyStorage, ScopeHelper, WorkerRegistry};
 
     use particle_args::Args;
     use particle_execution::{FunctionOutcome, ParticleFunction, ParticleParams, ServiceFunction};
@@ -471,13 +472,30 @@ mod tests {
         // Pool is of size 1 so it's easier to control tests
         let vm_pool = VmPool::new(1, (), None, None);
         let builtin_mock = Arc::new(MockF);
-        let key_manager = KeyStorage::new(
-            "keypair".into(),
-            "workers".into(),
-            KeyPair::generate_ed25519(),
+
+        let root_key_pair: KeyPair = KeyPair::generate_ed25519().into();
+        let key_pair_path: PathBuf = "keypair".into();
+        let workers_path: PathBuf = "workers".into();
+        let key_storage = KeyStorage::from_path(key_pair_path.as_path(), root_key_pair.clone())
+            .await
+            .expect("Could not load key storage");
+
+        let key_storage = Arc::new(key_storage);
+
+        let scope_helper = ScopeHelper::new(
+            root_key_pair.get_peer_id(),
             RandomPeerId::random(),
             RandomPeerId::random(),
+            key_storage.clone(),
         );
+
+        let worker_registry =
+            WorkerRegistry::from_path(workers_path.as_path(), key_storage, scope_helper.clone())
+                .await
+                .expect("Could not load worker registry");
+
+        let worker_registry = Arc::new(worker_registry);
+
         let tmp_dir = tempfile::tempdir().expect("Could not create temp dir");
         let tmp_path = tmp_dir.path();
         let data_store = ParticleDataStore::new(
@@ -491,7 +509,7 @@ mod tests {
             .expect("Could not initialize datastore");
         let data_store = Arc::new(data_store);
 
-        Plumber::new(vm_pool, data_store, builtin_mock, None, key_manager)
+        Plumber::new(vm_pool, data_store, builtin_mock, None, worker_registry.clone(), scope_helper.clone())
     }
 
     fn particle(ts: u64, ttl: u32) -> Particle {
