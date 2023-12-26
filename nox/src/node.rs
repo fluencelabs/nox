@@ -15,6 +15,7 @@
  */
 
 use eyre::WrapErr;
+use fluence_keypair::KeyPair;
 use std::sync::Arc;
 use std::{io, net::SocketAddr};
 
@@ -28,7 +29,7 @@ use fluence_libp2p::build_transport;
 use futures::future::OptionFuture;
 use futures::{stream::StreamExt, FutureExt};
 use health::HealthCheckRegistry;
-use key_manager::KeyStorage;
+use key_manager::{KeyStorage, ScopeHelper, WorkerRegistry};
 use libp2p::swarm::SwarmEvent;
 use libp2p::SwarmBuilder;
 use libp2p::{
@@ -91,7 +92,7 @@ pub struct Node<RT: AquaRuntime> {
 
     pub builtins_management_peer_id: PeerId,
 
-    pub key_manager: KeyStorage,
+    pub scope_helper: ScopeHelper,
 
     allow_local_addresses: bool,
     versions: Versions,
@@ -113,16 +114,34 @@ impl<RT: AquaRuntime> Node<RT> {
 
         let builtins_peer_id = to_peer_id(&config.builtins_key_pair.clone().into());
 
-        let key_manager = KeyStorage::new(
-            config.dir_config.keypairs_base_dir.clone(),
-            config.dir_config.workers_base_dir.clone(),
-            key_pair.clone().try_into()?,
+        let root_key_pair: KeyPair = key_pair.clone().try_into()?;
+
+        let key_storage = KeyStorage::from_path(
+            config.dir_config.keypairs_base_dir.as_path(),
+            root_key_pair.clone(),
+        )
+        .await?;
+
+        let key_storage = Arc::new(key_storage);
+
+        let scope_helper = ScopeHelper::new(
+            root_key_pair.get_peer_id(),
             config.management_peer_id,
             builtins_peer_id,
+            key_storage.clone(),
         );
 
+        let worker_registry = WorkerRegistry::from_path(
+            config.dir_config.workers_base_dir.as_path(),
+            key_storage.clone(),
+            scope_helper.clone(),
+        )
+        .await?;
+
+        let worker_registry = Arc::new(worker_registry);
+
         let services_config = ServicesConfig::new(
-            key_manager.get_host_peer_id(),
+            scope_helper.get_host_peer_id(),
             config.dir_config.services_base_dir.clone(),
             config_utils::particles_vault_dir(&config.dir_config.avm_base_dir),
             config.services_envs.clone(),
@@ -188,7 +207,7 @@ impl<RT: AquaRuntime> Node<RT> {
         let allow_local_addresses = config.allow_local_addresses;
 
         let (swarm, connectivity, particle_stream) = Self::swarm(
-            key_manager.root_key_pair.clone().into(),
+            root_key_pair.clone().into(),
             network_config,
             transport,
             config.external_addresses(),
@@ -219,7 +238,8 @@ impl<RT: AquaRuntime> Node<RT> {
             connectivity.clone(),
             services_config,
             services_metrics,
-            key_manager.clone(),
+            worker_registry.clone(),
+            scope_helper.clone(),
             health_registry.as_mut(),
             config.system_services.decider.network_api_endpoint.clone(),
         ));
@@ -237,13 +257,14 @@ impl<RT: AquaRuntime> Node<RT> {
             plumber_metrics,
             vm_pool_metrics,
             health_registry.as_mut(),
-            key_manager.clone(),
+            worker_registry.clone(),
+            scope_helper.clone(),
         )?;
         let effectors = Effectors::new(connectivity.clone());
         let dispatcher = {
             let parallelism = config.particle_processor_parallelism;
             Dispatcher::new(
-                key_manager.get_host_peer_id(),
+                scope_helper.get_host_peer_id(),
                 aquamarine_api.clone(),
                 effectors,
                 parallelism,
@@ -264,7 +285,8 @@ impl<RT: AquaRuntime> Node<RT> {
             aquamarine_api.clone(),
             config.clone(),
             spell_event_bus_api.clone(),
-            key_manager.clone(),
+            worker_registry.clone(),
+            scope_helper.clone(),
             spell_service_api.clone(),
             spell_metrics,
         );
@@ -312,7 +334,7 @@ impl<RT: AquaRuntime> Node<RT> {
             sorcerer.spell_storage.clone(),
             spell_event_bus_api.clone(),
             spell_service_api,
-            key_manager.get_host_peer_id(),
+            scope_helper.get_host_peer_id(),
             builtins_peer_id,
             system_service_distros,
         );
@@ -343,7 +365,7 @@ impl<RT: AquaRuntime> Node<RT> {
             services_metrics_backend,
             config.http_listen_addr(),
             builtins_peer_id,
-            key_manager,
+            scope_helper,
             allow_local_addresses,
             versions,
         ))
@@ -392,7 +414,8 @@ impl<RT: AquaRuntime> Node<RT> {
         connectivity: Connectivity,
         services_config: ServicesConfig,
         services_metrics: ServicesMetrics,
-        key_manager: KeyStorage,
+        worker_registry: Arc<WorkerRegistry>,
+        scope_helper: ScopeHelper,
         health_registry: Option<&mut HealthCheckRegistry>,
         connector_api_endpoint: String,
     ) -> Builtins<Connectivity> {
@@ -400,7 +423,8 @@ impl<RT: AquaRuntime> Node<RT> {
             connectivity,
             services_config,
             services_metrics,
-            key_manager,
+            worker_registry,
+            scope_helper,
             health_registry,
             connector_api_endpoint,
         )
@@ -433,7 +457,7 @@ impl<RT: AquaRuntime> Node<RT> {
         services_metrics_backend: ServicesMetricsBackend,
         http_listen_addr: Option<SocketAddr>,
         builtins_management_peer_id: PeerId,
-        key_manager: KeyStorage,
+        scope_helper: ScopeHelper,
         allow_local_addresses: bool,
         versions: Versions,
     ) -> Box<Self> {
@@ -458,7 +482,7 @@ impl<RT: AquaRuntime> Node<RT> {
             services_metrics_backend,
             http_listen_addr,
             builtins_management_peer_id,
-            key_manager,
+            scope_helper,
             allow_local_addresses,
             versions,
         };

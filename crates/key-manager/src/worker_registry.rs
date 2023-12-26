@@ -7,6 +7,7 @@ use fluence_libp2p::PeerId;
 use parking_lot::RwLock;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 pub struct WorkerInfo {
     pub deal_id: String,
@@ -19,14 +20,14 @@ pub struct WorkerRegistry {
     worker_ids: RwLock<HashMap<DealId, WorkerId>>,
     /// worker_id -> worker_info
     worker_infos: RwLock<HashMap<WorkerId, WorkerInfo>>,
-
     workers_dir: PathBuf,
-    key_storage: KeyStorage,
+
+    key_storage: Arc<KeyStorage>,
     scope_helper: ScopeHelper,
 }
 
 impl WorkerRegistry {
-    pub fn new(key_storage: KeyStorage, scope_helper: ScopeHelper) -> Self {
+    pub fn new(key_storage: Arc<KeyStorage>, scope_helper: ScopeHelper) -> Self {
         Self {
             worker_ids: Default::default(),
             worker_infos: Default::default(),
@@ -38,7 +39,7 @@ impl WorkerRegistry {
 
     pub async fn from_path(
         workers_dir: &Path,
-        key_storage: KeyStorage,
+        key_storage: Arc<KeyStorage>,
         scope_helper: ScopeHelper,
     ) -> eyre::Result<Self> {
         let workers = load_persisted_workers(workers_dir).await?;

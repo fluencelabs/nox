@@ -97,7 +97,7 @@ impl Deployer {
         let mut services = HashMap::new();
         for service_distro in package.services {
             let name = service_distro.name.clone();
-            let result = self.deploy_service_common(service_distro)?;
+            let result = self.deploy_service_common(service_distro).await?;
             services.insert(name, result);
         }
 
@@ -225,12 +225,14 @@ impl Deployer {
         )
         .await
         .map_err(|e| eyre!(e))?;
-        self.services.add_alias(
-            spell_distro.name.to_string(),
-            self.root_worker_id,
-            spell_id.clone(),
-            self.management_id,
-        )?;
+        self.services
+            .add_alias(
+                spell_distro.name.to_string(),
+                self.root_worker_id,
+                spell_id.clone(),
+                self.management_id,
+            )
+            .await?;
         Ok(spell_id)
     }
 
@@ -263,7 +265,10 @@ impl Deployer {
         }
     }
 
-    fn deploy_service_common(&self, service_distro: ServiceDistro) -> eyre::Result<ServiceStatus> {
+    async fn deploy_service_common(
+        &self,
+        service_distro: ServiceDistro,
+    ) -> eyre::Result<ServiceStatus> {
         let service_name = service_distro.name.clone();
         let blueprint_id = self.add_modules(service_distro)?;
 
@@ -301,12 +306,14 @@ impl Deployer {
             self.root_worker_id,
             self.root_worker_id,
         )?;
-        self.services.add_alias(
-            service_name.to_string(),
-            self.root_worker_id,
-            service_id.clone(),
-            self.management_id,
-        )?;
+        self.services
+            .add_alias(
+                service_name.to_string(),
+                self.root_worker_id,
+                service_id.clone(),
+                self.management_id,
+            )
+            .await?;
         tracing::info!(service_name, service_id, "deployed a new service");
         Ok(ServiceStatus::Created(service_id))
     }
