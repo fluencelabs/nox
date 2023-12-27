@@ -29,6 +29,7 @@ use connected_client::ConnectedClient;
 use created_swarm::system_services_config::{DeciderConfig, SystemServicesConfig};
 use created_swarm::{make_swarms, make_swarms_with_cfg};
 use fluence_spell_dtos::trigger_config::{ClockConfig, TriggerConfig};
+use log_utils::enable_logs;
 use service_modules::load_module;
 use spell_event_bus::api::{TriggerInfo, TriggerInfoAqua, MAX_PERIOD_SEC};
 use test_utils::{create_service, create_service_worker};
@@ -170,10 +171,10 @@ async fn spell_simple_test() {
             (call %init_peer_id% ("getDataSrv" "spell_id") [] spell_id)
             (seq
                 (seq
-                    (call %init_peer_id% (spell_id "get_script_source_from_file") [] script)
+                    (call %init_peer_id% (spell_id "get_script") [] script)
                     (call %init_peer_id% (spell_id "get_u32") ["counter"] counter)
                 )
-                (call "{}" ("return" "") [script.$.source_code counter])
+                (call "{}" ("return" "") [script.$.value counter])
             )
         )"#,
         client.peer_id
@@ -185,7 +186,7 @@ async fn spell_simple_test() {
     let response = client.receive_args().await.wrap_err("receive").unwrap();
     let result = response[0].as_str().unwrap().to_string();
     assert!(response[1]["success"].as_bool().unwrap());
-    let counter = response[1]["num"].as_u64().unwrap();
+    let counter = response[1]["value"].as_u64().unwrap();
 
     assert_eq!(result, script);
     assert_ne!(counter, 0);
@@ -306,7 +307,7 @@ async fn spell_return_test() {
                     (seq
                         (seq
                             (call %init_peer_id% (spell_id "get_string") ["key"] value_raw)
-                            (call %init_peer_id% ("json" "parse") [value_raw.$.str] value)
+                            (call %init_peer_id% ("json" "parse") [value_raw.$.value] value)
                         )
                         (xor
                             (call %init_peer_id% ("callbackSrv" "response") [])
@@ -401,7 +402,7 @@ async fn spell_run_oneshot() {
         .unwrap();
 
     if response[0]["success"].as_bool().unwrap() {
-        let counter = response[0]["num"].as_u64().unwrap();
+        let counter = response[0]["value"].as_u64().unwrap();
         assert_eq!(counter, 1);
     }
 }
@@ -446,8 +447,13 @@ async fn spell_install_ok_empty_config() {
         .await
         .unwrap();
 
-    if response[0]["success"].as_bool().unwrap() {
-        let counter = response[0]["num"].as_u64().unwrap();
+    if response[0]["success"]
+        .as_bool()
+        .expect(&format!("{:?}", response))
+    {
+        let counter = response[0]["value"]
+            .as_u64()
+            .expect(&format!("{:?}", response));
         assert_eq!(counter, 0);
     }
     // 2. Connect and disconnect a client to the same node. The spell should not be executed
@@ -476,7 +482,7 @@ async fn spell_install_ok_empty_config() {
         .await
         .unwrap();
     if response[0]["success"].as_bool().unwrap() {
-        let counter = response[0]["num"].as_u64().unwrap();
+        let counter = response[0]["value"].as_u64().unwrap();
         assert_eq!(counter, 0);
     }
 
@@ -665,7 +671,8 @@ async fn spell_store_trigger_config() {
         .unwrap();
 
     if response[0]["success"].as_bool().unwrap() {
-        let result_config = serde_json::from_value(response[0]["config"].clone()).unwrap();
+        let result_config = serde_json::from_value(response[0]["config"].clone())
+            .expect(&format!("{:?}", response));
         assert_eq!(config, result_config);
     }
 }
@@ -865,6 +872,8 @@ async fn spell_remove_service_as_spell() {
 
 #[tokio::test]
 async fn spell_call_by_alias() {
+    enable_logs();
+
     let swarms = make_swarms(1).await;
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
@@ -882,13 +891,13 @@ async fn spell_call_by_alias() {
                     (call %init_peer_id% ("alias" "get_u32") ["counter"] counter)
                 )
 
-                (call "{}" ("return" "") [counter.$.num])
+                (call "{}" ("return" "") [counter.$.value])
             )
         )"#,
         client.peer_id
     );
 
-    let config = make_clock_config(2, 1, 0);
+    let config = make_clock_config(100, 1, 0);
     create_spell(&mut client, &script, config, json!({}), None).await;
 
     if let [JValue::Number(counter)] = client
@@ -1153,10 +1162,10 @@ async fn spell_set_u32() {
     assert_eq!(absent["absent"], json!(true));
 
     assert_eq!(one["absent"], json!(false));
-    assert_eq!(one["num"], json!(1));
+    assert_eq!(one["value"], json!(1));
 
     assert_eq!(two["absent"], json!(false));
-    assert_eq!(two["num"], json!(2));
+    assert_eq!(two["value"], json!(2));
 }
 
 #[tokio::test]
@@ -1998,7 +2007,7 @@ async fn spell_call_by_default_alias() {
                     )
                 )
             )
-            (call "{}" ("return" "") [counter1.$.num spell_id1 error1 counter2.$.num spell_id2 error2])
+            (call "{}" ("return" "") [counter1.$.value spell_id1 error1 counter2.$.value spell_id2 error2])
         )"#,
         client.peer_id
     );
@@ -2154,7 +2163,7 @@ async fn test_decider_api_endpoint_rewrite() {
             r#"(seq
                     (call relay ("decider" "get_string") ["chain"] chain_info_str)
                     (seq
-                        (call relay ("json" "parse") [chain_info_str.$.str] chain_info)
+                        (call relay ("json" "parse") [chain_info_str.$.value] chain_info)
                         (call client ("return" "") [chain_info.$.api_endpoint])
                     )
                 )"#,
@@ -2212,7 +2221,7 @@ async fn test_decider_api_endpoint_rewrite() {
             r#"(seq
                     (call relay ("decider" "get_string") ["chain"] chain_info_str)
                     (seq
-                        (call relay ("json" "parse") [chain_info_str.$.str] chain_info)
+                        (call relay ("json" "parse") [chain_info_str.$.value] chain_info)
                         (call client ("return" "") [chain_info.$.api_endpoint])
                     )
                 )"#,

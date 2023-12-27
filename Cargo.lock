@@ -220,9 +220,9 @@ checksum = "a4668cab20f66d8d020e1fbc0ebe47217433c1b6c8f2040faf858554e394ace6"
 
 [[package]]
 name = "aqua-ipfs-distro"
-version = "0.5.24"
+version = "0.5.27"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8673eeaa6e5d8b8a95289a6c87e56c660398d06a93217cad4ab05f116b5ff93d"
+checksum = "0d578499830da5dac209e76e42ac233cd02249d8f9886ac8459b9dae8cccc1cc"
 dependencies = [
  "built 0.5.2",
  "maplit",
@@ -1667,9 +1667,9 @@ dependencies = [
 
 [[package]]
 name = "decider-distro"
-version = "0.5.6"
+version = "0.5.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2222e93a91a282fb033c64f39b0e8a118f15afbc63bed1f0acb76f2b76bd80ef"
+checksum = "d747530b3c3c4cc47c0095626c0c74242c1754985f0f3705a6ec243927f6836b"
 dependencies = [
  "built 0.7.1",
  "fluence-spell-dtos",
@@ -2175,19 +2175,19 @@ dependencies = [
 
 [[package]]
 name = "fluence-spell-distro"
-version = "0.5.32"
+version = "0.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a38bb3c7c024ba98047785c1e304e8cdb6abf6b7656b082b0ad8fc8d4fab052f"
+checksum = "57f34514fab80ebdd0c68bc18a9827c299b8a316d12790a1f0525936b363ad9d"
 dependencies = [
- "built 0.6.1",
+ "built 0.7.1",
  "maplit",
 ]
 
 [[package]]
 name = "fluence-spell-dtos"
-version = "0.5.32"
+version = "0.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ac50ce0a57f54422f4fe79d8f228ea15efc1536b46dabbb10fc0137e56d16a85"
+checksum = "42b154670a65be0deaf5d461ec94b76009024694ee7752d80dd54d3189901279"
 dependencies = [
  "eyre",
  "marine-rs-sdk",
@@ -4469,9 +4469,9 @@ dependencies = [
 
 [[package]]
 name = "marine-sqlite-connector"
-version = "0.9.1"
+version = "0.9.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "92552a0cc893d708ac324f45e687dae9ac9e1333b06ecc7e2c3d81abaf6b2d7d"
+checksum = "c12d7fb48bd7ee88276a26b2e14f25e9bc884884f375116544689994d5d280ad"
 dependencies = [
  "bytesize",
  "marine-rs-sdk",
@@ -4873,7 +4873,7 @@ version = "0.1.0"
 
 [[package]]
 name = "nox"
-version = "0.16.8"
+version = "0.16.11"
 dependencies = [
  "air-interpreter-fs",
  "air-interpreter-wasm",

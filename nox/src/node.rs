@@ -196,6 +196,7 @@ impl<RT: AquaRuntime> Node<RT> {
             transport,
             config.external_addresses(),
             health_registry.as_mut(),
+            metrics_registry.as_mut(),
         )?;
 
         let (services_metrics_backend, services_metrics) =
@@ -367,6 +368,7 @@ impl<RT: AquaRuntime> Node<RT> {
         transport: Boxed<(PeerId, StreamMuxerBox)>,
         external_addresses: Vec<Multiaddr>,
         health_registry: Option<&mut HealthCheckRegistry>,
+        metrics_registry: Option<&mut Registry>,
     ) -> eyre::Result<(
         Swarm<FluenceNetworkBehaviour>,
         Connectivity,
@@ -377,13 +379,21 @@ impl<RT: AquaRuntime> Node<RT> {
         let (behaviour, connectivity, particle_stream) =
             FluenceNetworkBehaviour::new(network_config, health_registry);
 
-        let mut swarm = SwarmBuilder::with_existing_identity(key_pair)
-            .with_tokio()
-            .with_other_transport(|_| transport)?
-            .with_behaviour(|_| behaviour)?
-            .with_swarm_config(|cfg| cfg.with_idle_connection_timeout(connection_idle_timeout))
-            .build();
-
+        let mut swarm = match metrics_registry {
+            None => SwarmBuilder::with_existing_identity(key_pair)
+                .with_tokio()
+                .with_other_transport(|_| transport)?
+                .with_behaviour(|_| behaviour)?
+                .with_swarm_config(|cfg| cfg.with_idle_connection_timeout(connection_idle_timeout))
+                .build(),
+            Some(registry) => SwarmBuilder::with_existing_identity(key_pair)
+                .with_tokio()
+                .with_other_transport(|_| transport)?
+                .with_bandwidth_metrics(registry)
+                .with_behaviour(|_| behaviour)?
+                .with_swarm_config(|cfg| cfg.with_idle_connection_timeout(connection_idle_timeout))
+                .build(),
+        };
         // Add external addresses to Swarm
         external_addresses.iter().cloned().for_each(|addr| {
             Swarm::add_external_address(&mut swarm, addr);

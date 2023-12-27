@@ -1,6 +1,6 @@
 [package]
 name = "nox"
-version = "0.16.8"
+version = "0.16.11"
 authors = ["Fluence Labs"]
 description = "Node implementing peer functionality in the Fluence p2p network"
 edition = "2021"
@@ -37,7 +37,7 @@ fluence-keypair = { workspace = true }
 avm-server = { workspace = true }
 air-interpreter-wasm = { workspace = true }
 
-libp2p = { workspace = true }
+libp2p = { workspace = true, features = ["metrics"] }
 libp2p-metrics = { workspace = true }
 libp2p-swarm = { workspace = true }
 libp2p-connection-limits = { workspace = true }
