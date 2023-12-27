@@ -66,7 +66,7 @@ fn default_directives() -> Vec<Directive> {
         "marine_core::module::marine_module=info",
         "runtime::resource=info",
         "connected_client=debug",
-        "listene=debug",
+        "listener=debug",
     ];
 
     namespaces

@@ -547,7 +547,7 @@ impl<RT: AquaRuntime> Node<RT> {
             }
 
             log::info!("Stopping node");
-            chain_listener.map(|c| c.abort());
+            if let Some(c) = chain_listener { c.abort() }
             services_metrics_backend.abort();
             spell_event_bus.abort();
             sorcerer.abort();

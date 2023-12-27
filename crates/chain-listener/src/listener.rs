@@ -32,10 +32,10 @@ impl ChainListener {
                 let client = WsClientBuilder::default()
                     .build(&self.config.ws_endpoint)
                     .await
-                    .expect(&format!("Could not connect to chain {}", self.config.ws_endpoint));
+                    .unwrap_or_else(|_| panic!("Could not connect to chain {}", self.config.ws_endpoint));
 
                 let mut _heads = self.subscribe_new_heads(&client).await.expect("Could not subscribe to new heads");
-                let mut cc_events = self.subscribe_cc_events(&client).await.expect("Could not subscribe to cc events");
+                let mut cc_events = self.subscribe_cc_activated(&client).await.expect("Could not subscribe to cc events");
 
                 loop {
                     tokio::select! {
@@ -76,7 +76,7 @@ impl ChainListener {
         Ok(subs)
     }
 
-    pub async fn subscribe_cc_events(&self, client: &Client) -> eyre::Result<Subscription<Log>> {
+    pub async fn subscribe_cc_activated(&self, client: &Client) -> eyre::Result<Subscription<Log>> {
         let topics = vec![CCActivatedData::topic(), peer_id_to_hex(self.host_id)];
         let params = rpc_params![
             "logs",
