@@ -279,10 +279,10 @@ mod tests {
     use fluence_keypair::KeyPair;
     use fluence_spell_dtos::trigger_config::TriggerConfig;
     use fluence_spell_dtos::value::*;
-    use key_manager::{KeyStorage, Scopes, Workers};
     use maplit::hashmap;
     use serde_json::json;
     use std::time::Duration;
+    use workers::{KeyStorage, Scopes, Workers};
 
     use crate::{CallParams, SpellServiceApi};
 

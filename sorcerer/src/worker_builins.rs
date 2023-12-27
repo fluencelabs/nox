@@ -22,13 +22,13 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use crate::spell_builtins::remove_spell;
-use key_manager::{Scopes, Workers};
 use particle_args::{Args, JError};
 use particle_execution::ParticleParams;
 use particle_services::ParticleAppServices;
 use spell_event_bus::api::{from_user_config, SpellEventBusApi};
 use spell_service_api::{CallParams, SpellServiceApi};
 use spell_storage::SpellStorage;
+use workers::{Scopes, Workers};
 
 pub(crate) async fn create_worker(
     args: Args,
@@ -232,10 +232,7 @@ pub(crate) async fn activate_deal(
     Ok(())
 }
 
-pub(crate) fn is_deal_active(
-    args: Args,
-    worker_registry: Arc<Workers>,
-) -> Result<JValue, JError> {
+pub(crate) fn is_deal_active(args: Args, worker_registry: Arc<Workers>) -> Result<JValue, JError> {
     let mut args = args.function_args.into_iter();
     let deal_id: String = Args::next("deal_id", &mut args)?;
     let worker_id = worker_registry.get_worker_id(deal_id)?;

@@ -35,7 +35,6 @@ use JValue::Array;
 use connection_pool::{ConnectionPoolApi, ConnectionPoolT};
 use health::HealthCheckRegistry;
 use kademlia::{KademliaApi, KademliaApiT};
-use key_manager::{Scopes, Workers};
 use now_millis::{now_ms, now_sec};
 use particle_args::{from_base58, Args, ArgsError, JError};
 use particle_execution::{FunctionOutcome, ParticleParams, ServiceFunction};
@@ -47,6 +46,7 @@ use particle_services::{ParticleAppServices, ServiceType};
 use peer_metrics::ServicesMetrics;
 use server_config::ServicesConfig;
 use uuid_utils::uuid;
+use workers::{Scopes, Workers};
 
 use crate::debug::fmt_custom_services;
 use crate::error::HostClosureCallError;

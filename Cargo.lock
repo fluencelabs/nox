@@ -252,7 +252,6 @@ dependencies = [
  "futures",
  "health",
  "humantime 2.1.0",
- "key-manager",
  "libp2p",
  "log",
  "now-millis",
@@ -269,6 +268,7 @@ dependencies = [
  "tokio",
  "tokio-stream",
  "tracing",
+ "workers",
 ]
 
 [[package]]
@@ -3378,24 +3378,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "key-manager"
-version = "0.1.0"
-dependencies = [
- "eyre",
- "fluence-keypair",
- "fluence-libp2p",
- "fs-utils",
- "libp2p",
- "log",
- "parking_lot",
- "serde",
- "thiserror",
- "tokio",
- "toml 0.5.11",
- "tracing",
-]
-
-[[package]]
 name = "lazy_static"
 version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4801,7 +4783,6 @@ dependencies = [
  "humantime-serde",
  "itertools 0.12.0",
  "kademlia",
- "key-manager",
  "libp2p",
  "libp2p-connection-limits",
  "libp2p-metrics",
@@ -4838,6 +4819,7 @@ dependencies = [
  "tracing-logfmt",
  "tracing-opentelemetry",
  "tracing-subscriber",
+ "workers",
 ]
 
 [[package]]
@@ -4863,7 +4845,6 @@ dependencies = [
  "humantime-serde",
  "itertools 0.12.0",
  "json-utils",
- "key-manager",
  "libp2p",
  "libp2p-kad",
  "local-vm",
@@ -4895,6 +4876,7 @@ dependencies = [
  "toy-vms",
  "tracing",
  "uuid-utils",
+ "workers",
 ]
 
 [[package]]
@@ -5242,7 +5224,6 @@ dependencies = [
  "itertools 0.12.0",
  "ivalue-utils",
  "kademlia",
- "key-manager",
  "libp2p",
  "libp2p-kad",
  "log",
@@ -5267,6 +5248,7 @@ dependencies = [
  "tokio",
  "toml-utils",
  "uuid-utils",
+ "workers",
 ]
 
 [[package]]
@@ -5358,7 +5340,6 @@ dependencies = [
  "health",
  "humantime-serde",
  "json-utils",
- "key-manager",
  "libp2p-identity",
  "log",
  "now-millis",
@@ -5378,6 +5359,7 @@ dependencies = [
  "toml 0.5.11",
  "uuid",
  "uuid-utils",
+ "workers",
 ]
 
 [[package]]
@@ -6802,7 +6784,6 @@ dependencies = [
  "fstrings",
  "futures",
  "kademlia",
- "key-manager",
  "libp2p",
  "log",
  "now-millis",
@@ -6825,6 +6806,7 @@ dependencies = [
  "tokio-stream",
  "tracing",
  "uuid-utils",
+ "workers",
 ]
 
 [[package]]
@@ -6867,7 +6849,6 @@ dependencies = [
  "fluence-keypair",
  "fluence-libp2p",
  "fluence-spell-dtos",
- "key-manager",
  "libp2p-identity",
  "maplit",
  "particle-execution",
@@ -6880,6 +6861,7 @@ dependencies = [
  "tempdir",
  "thiserror",
  "tokio",
+ "workers",
 ]
 
 [[package]]
@@ -8697,6 +8679,24 @@ dependencies = [
  "log",
  "thiserror",
  "wast 35.0.2",
+]
+
+[[package]]
+name = "workers"
+version = "0.1.0"
+dependencies = [
+ "eyre",
+ "fluence-keypair",
+ "fluence-libp2p",
+ "fs-utils",
+ "libp2p",
+ "log",
+ "parking_lot",
+ "serde",
+ "thiserror",
+ "tokio",
+ "toml 0.5.11",
+ "tracing",
 ]
 
 [[package]]

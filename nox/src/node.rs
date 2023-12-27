@@ -29,7 +29,6 @@ use fluence_libp2p::build_transport;
 use futures::future::OptionFuture;
 use futures::{stream::StreamExt, FutureExt};
 use health::HealthCheckRegistry;
-use key_manager::{KeyStorage, Scopes, Workers};
 use libp2p::swarm::SwarmEvent;
 use libp2p::SwarmBuilder;
 use libp2p::{
@@ -55,6 +54,7 @@ use system_services::{Deployer, SystemServiceDistros};
 use tokio::sync::{mpsc, oneshot};
 use tokio::task;
 use tracing::Instrument;
+use workers::{KeyStorage, Scopes, Workers};
 
 use crate::builtins::make_peer_builtin;
 use crate::dispatcher::Dispatcher;

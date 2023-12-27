@@ -13,9 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use key_manager::KeyManagerError;
 use particle_protocol::ParticleError;
 use thiserror::Error;
+use workers::KeyManagerError;
 
 #[derive(Debug, Error)]
 pub enum SorcererError {

@@ -29,7 +29,6 @@ use tokio::task;
 use tracing::instrument;
 
 use fluence_libp2p::PeerId;
-use key_manager::{Scopes, Workers};
 /// For tests, mocked time is used
 #[cfg(test)]
 use mock_time::now_ms;
@@ -39,6 +38,7 @@ use peer_metrics::ParticleExecutorMetrics;
 /// Get current time from OS
 #[cfg(not(test))]
 use real_time::now_ms;
+use workers::{Scopes, Workers};
 
 use crate::actor::{Actor, ActorPoll};
 use crate::aqua_runtime::AquaRuntime;
@@ -383,7 +383,7 @@ mod tests {
     use fluence_keypair::KeyPair;
     use fluence_libp2p::RandomPeerId;
     use futures::task::noop_waker_ref;
-    use key_manager::{KeyStorage, Scopes, Workers};
+    use workers::{KeyStorage, Scopes, Workers};
 
     use particle_args::Args;
     use particle_execution::{FunctionOutcome, ParticleFunction, ParticleParams, ServiceFunction};

@@ -18,7 +18,6 @@ use std::sync::Arc;
 
 use crate::utils::parse_spell_id_from;
 use fluence_spell_dtos::trigger_config::TriggerConfig;
-use key_manager::{Scopes, Workers};
 use libp2p::PeerId;
 use particle_args::{Args, JError};
 use particle_execution::ParticleParams;
@@ -28,6 +27,7 @@ use spell_event_bus::{api, api::SpellEventBusApi};
 use spell_service_api::{CallParams, SpellServiceApi};
 use spell_storage::SpellStorage;
 use std::time::Duration;
+use workers::{Scopes, Workers};
 
 pub async fn remove_spell(
     particle_id: &str,

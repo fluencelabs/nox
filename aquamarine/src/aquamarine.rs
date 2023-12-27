@@ -26,10 +26,10 @@ use tracing::{instrument, Instrument};
 
 use fluence_libp2p::PeerId;
 use health::HealthCheckRegistry;
-use key_manager::{Scopes, Workers};
 use particle_execution::{ParticleFunctionStatic, ServiceFunction};
 use particle_protocol::ExtendedParticle;
 use peer_metrics::{ParticleExecutorMetrics, VmPoolMetrics};
+use workers::{Scopes, Workers};
 
 use crate::aqua_runtime::AquaRuntime;
 use crate::command::Command;

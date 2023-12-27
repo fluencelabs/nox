@@ -30,7 +30,6 @@ use serde_json::{json, Value as JValue};
 
 use fluence_libp2p::{peerid_serializer, PeerId};
 use health::HealthCheckRegistry;
-use key_manager::{Scopes, Workers};
 use now_millis::now_ms;
 use particle_args::{Args, JError};
 use particle_execution::{FunctionOutcome, ParticleParams, ParticleVault};
@@ -41,6 +40,7 @@ use peer_metrics::{
 };
 use server_config::ServicesConfig;
 use uuid_utils::uuid;
+use workers::{Scopes, Workers};
 
 use crate::error::ServiceError;
 use crate::error::ServiceError::{AliasAsServiceId, Forbidden, NoSuchAlias};
@@ -1041,11 +1041,11 @@ mod tests {
 
     use config_utils::{modules_dir, to_peer_id};
     use fluence_libp2p::RandomPeerId;
-    use key_manager::{KeyStorage, Scopes, Workers};
     use particle_modules::{AddBlueprint, ModuleRepository};
     use server_config::ServicesConfig;
     use service_modules::load_module;
     use service_modules::Hash;
+    use workers::{KeyStorage, Scopes, Workers};
 
     use crate::app_services::ServiceType;
     use crate::persistence::load_persisted_services;

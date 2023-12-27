@@ -32,7 +32,6 @@ use crate::worker_builins::{
     remove_worker, worker_list,
 };
 use aquamarine::AquamarineApi;
-use key_manager::{Scopes, Workers};
 use particle_args::JError;
 use particle_builtins::{wrap, wrap_unit, CustomService};
 use particle_execution::ServiceFunction;
@@ -45,6 +44,7 @@ use spell_event_bus::api::{from_user_config, SpellEventBusApi, TriggerEvent};
 use spell_service_api::{CallParams, SpellServiceApi};
 use spell_storage::SpellStorage;
 use tracing::Instrument;
+use workers::{Scopes, Workers};
 
 #[derive(Clone)]
 pub struct Sorcerer {
