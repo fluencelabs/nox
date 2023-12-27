@@ -1,6 +1,6 @@
 use crate::error::WorkerRegistryError;
 use crate::persistence::{persist_worker, remove_worker, PersistedWorker};
-use crate::scope::ScopeHelper;
+use crate::scope::Scopes;
 use crate::{DealId, KeyManagerError, KeyStorage, WorkerId};
 use fluence_keypair::KeyPair;
 use fluence_libp2p::PeerId;
@@ -15,7 +15,7 @@ pub struct WorkerInfo {
     pub active: RwLock<bool>,
 }
 
-pub struct WorkerRegistry {
+pub struct Workers {
     /// deal_id -> worker_id
     worker_ids: RwLock<HashMap<DealId, WorkerId>>,
     /// worker_id -> worker_info
@@ -23,11 +23,11 @@ pub struct WorkerRegistry {
     workers_dir: PathBuf,
 
     key_storage: Arc<KeyStorage>,
-    scope_helper: ScopeHelper,
+    scope_helper: Scopes,
 }
 
-impl WorkerRegistry {
-    pub fn new(key_storage: Arc<KeyStorage>, scope_helper: ScopeHelper) -> Self {
+impl Workers {
+    pub fn new(key_storage: Arc<KeyStorage>, scope_helper: Scopes) -> Self {
         Self {
             worker_ids: Default::default(),
             worker_infos: Default::default(),
@@ -40,7 +40,7 @@ impl WorkerRegistry {
     pub async fn from_path(
         workers_dir: &Path,
         key_storage: Arc<KeyStorage>,
-        scope_helper: ScopeHelper,
+        scope_helper: Scopes,
     ) -> eyre::Result<Self> {
         let workers = load_persisted_workers(workers_dir).await?;
         let mut worker_ids = HashMap::with_capacity(workers.len());

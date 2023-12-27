@@ -13,5 +13,5 @@ mod worker_registry;
 pub use error::KeyManagerError;
 use fluence_libp2p::PeerId;
 pub use key_storage::KeyStorage;
-pub use scope::ScopeHelper;
-pub use worker_registry::WorkerRegistry;
+pub use scope::Scopes;
+pub use worker_registry::Workers;

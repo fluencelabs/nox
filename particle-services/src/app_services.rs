@@ -30,7 +30,7 @@ use serde_json::{json, Value as JValue};
 
 use fluence_libp2p::{peerid_serializer, PeerId};
 use health::HealthCheckRegistry;
-use key_manager::{ScopeHelper, WorkerRegistry};
+use key_manager::{Scopes, Workers};
 use now_millis::now_ms;
 use particle_args::{Args, JError};
 use particle_execution::{FunctionOutcome, ParticleParams, ParticleVault};
@@ -175,9 +175,9 @@ pub struct ParticleAppServices {
     modules: ModuleRepository,
     aliases: Arc<RwLock<Aliases>>,
     #[derivative(Debug = "ignore")]
-    worker_registry: Arc<WorkerRegistry>,
+    worker_registry: Arc<Workers>,
     #[derivative(Debug = "ignore")]
-    scope_helper: ScopeHelper,
+    scope_helper: Scopes,
     pub metrics: Option<ServicesMetrics>,
     health: Option<PersistedServiceHealth>,
 }
@@ -261,8 +261,8 @@ impl ParticleAppServices {
         modules: ModuleRepository,
         metrics: Option<ServicesMetrics>,
         health_registry: Option<&mut HealthCheckRegistry>,
-        worker_registry: Arc<WorkerRegistry>,
-        scope_helper: ScopeHelper,
+        worker_registry: Arc<Workers>,
+        scope_helper: Scopes,
     ) -> Self {
         let vault = ParticleVault::new(config.particles_vault_dir.clone());
 
@@ -1041,7 +1041,7 @@ mod tests {
 
     use config_utils::{modules_dir, to_peer_id};
     use fluence_libp2p::RandomPeerId;
-    use key_manager::{KeyStorage, ScopeHelper, WorkerRegistry};
+    use key_manager::{KeyStorage, Scopes, Workers};
     use particle_modules::{AddBlueprint, ModuleRepository};
     use server_config::ServicesConfig;
     use service_modules::load_module;
@@ -1076,7 +1076,7 @@ mod tests {
 
         let root_key_pair: KeyPair = root_keypair.clone().into();
 
-        let scope_helper = ScopeHelper::new(
+        let scope_helper = Scopes::new(
             root_key_pair.get_peer_id(),
             management_pid,
             to_peer_id(&startup_kp),
@@ -1084,7 +1084,7 @@ mod tests {
         );
 
         let worker_registry =
-            WorkerRegistry::from_path(workers_dir.as_path(), key_storage, scope_helper.clone())
+            Workers::from_path(workers_dir.as_path(), key_storage, scope_helper.clone())
                 .await
                 .expect("Could not load worker registry");
 

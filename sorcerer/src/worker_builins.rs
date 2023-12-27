@@ -22,7 +22,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use crate::spell_builtins::remove_spell;
-use key_manager::{ScopeHelper, WorkerRegistry};
+use key_manager::{Scopes, Workers};
 use particle_args::{Args, JError};
 use particle_execution::ParticleParams;
 use particle_services::ParticleAppServices;
@@ -33,7 +33,7 @@ use spell_storage::SpellStorage;
 pub(crate) async fn create_worker(
     args: Args,
     params: ParticleParams,
-    worker_registry: Arc<WorkerRegistry>,
+    worker_registry: Arc<Workers>,
 ) -> Result<JValue, JError> {
     let mut args = args.function_args.into_iter();
     let deal_id: String = Args::next("deal_id", &mut args)?;
@@ -47,7 +47,7 @@ pub(crate) async fn create_worker(
 
 pub(crate) fn get_worker_peer_id(
     args: Args,
-    worker_registry: Arc<WorkerRegistry>,
+    worker_registry: Arc<Workers>,
 ) -> Result<JValue, JError> {
     let mut args = args.function_args.into_iter();
     let deal_id: String = Args::next("deal_id", &mut args)?;
@@ -63,7 +63,7 @@ pub(crate) fn get_worker_peer_id(
 pub(crate) async fn remove_worker(
     args: Args,
     params: ParticleParams,
-    worker_registry: Arc<WorkerRegistry>,
+    worker_registry: Arc<Workers>,
     services: ParticleAppServices,
     spell_storage: SpellStorage,
     spell_event_bus_api: SpellEventBusApi,
@@ -102,7 +102,7 @@ pub(crate) async fn remove_worker(
     Ok(())
 }
 
-pub(crate) fn worker_list(worker_registry: Arc<WorkerRegistry>) -> Result<JValue, JError> {
+pub(crate) fn worker_list(worker_registry: Arc<Workers>) -> Result<JValue, JError> {
     Ok(JValue::Array(
         worker_registry
             .list_workers()
@@ -115,8 +115,8 @@ pub(crate) fn worker_list(worker_registry: Arc<WorkerRegistry>) -> Result<JValue
 pub(crate) async fn deactivate_deal(
     args: Args,
     params: ParticleParams,
-    worker_registry: Arc<WorkerRegistry>,
-    scope_helper: ScopeHelper,
+    worker_registry: Arc<Workers>,
+    scope_helper: Scopes,
     spell_storage: SpellStorage,
     spell_event_bus_api: SpellEventBusApi,
     spell_service_api: SpellServiceApi,
@@ -174,8 +174,8 @@ pub(crate) async fn deactivate_deal(
 pub(crate) async fn activate_deal(
     args: Args,
     params: ParticleParams,
-    worker_registry: Arc<WorkerRegistry>,
-    scope_helper: ScopeHelper,
+    worker_registry: Arc<Workers>,
+    scope_helper: Scopes,
     services: ParticleAppServices,
     spell_event_bus_api: SpellEventBusApi,
     spell_service_api: SpellServiceApi,
@@ -234,7 +234,7 @@ pub(crate) async fn activate_deal(
 
 pub(crate) fn is_deal_active(
     args: Args,
-    worker_registry: Arc<WorkerRegistry>,
+    worker_registry: Arc<Workers>,
 ) -> Result<JValue, JError> {
     let mut args = args.function_args.into_iter();
     let deal_id: String = Args::next("deal_id", &mut args)?;

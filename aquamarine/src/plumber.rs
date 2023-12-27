@@ -29,7 +29,7 @@ use tokio::task;
 use tracing::instrument;
 
 use fluence_libp2p::PeerId;
-use key_manager::{ScopeHelper, WorkerRegistry};
+use key_manager::{Scopes, Workers};
 /// For tests, mocked time is used
 #[cfg(test)]
 use mock_time::now_ms;
@@ -65,8 +65,8 @@ pub struct Plumber<RT: AquaRuntime, F> {
     builtins: F,
     waker: Option<Waker>,
     metrics: Option<ParticleExecutorMetrics>,
-    worker_registry: Arc<WorkerRegistry>,
-    scope_helper: ScopeHelper,
+    worker_registry: Arc<Workers>,
+    scope_helper: Scopes,
     cleanup_future: Option<BoxFuture<'static, ()>>,
 }
 
@@ -76,8 +76,8 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
         data_store: Arc<ParticleDataStore>,
         builtins: F,
         metrics: Option<ParticleExecutorMetrics>,
-        worker_registry: Arc<WorkerRegistry>,
-        scope_helper: ScopeHelper,
+        worker_registry: Arc<Workers>,
+        scope_helper: Scopes,
     ) -> Self {
         Self {
             vm_pool,
@@ -383,7 +383,7 @@ mod tests {
     use fluence_keypair::KeyPair;
     use fluence_libp2p::RandomPeerId;
     use futures::task::noop_waker_ref;
-    use key_manager::{KeyStorage, ScopeHelper, WorkerRegistry};
+    use key_manager::{KeyStorage, Scopes, Workers};
 
     use particle_args::Args;
     use particle_execution::{FunctionOutcome, ParticleFunction, ParticleParams, ServiceFunction};
@@ -482,7 +482,7 @@ mod tests {
 
         let key_storage = Arc::new(key_storage);
 
-        let scope_helper = ScopeHelper::new(
+        let scope_helper = Scopes::new(
             root_key_pair.get_peer_id(),
             RandomPeerId::random(),
             RandomPeerId::random(),
@@ -490,7 +490,7 @@ mod tests {
         );
 
         let worker_registry =
-            WorkerRegistry::from_path(workers_path.as_path(), key_storage, scope_helper.clone())
+            Workers::from_path(workers_path.as_path(), key_storage, scope_helper.clone())
                 .await
                 .expect("Could not load worker registry");
 

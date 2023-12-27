@@ -279,7 +279,7 @@ mod tests {
     use fluence_keypair::KeyPair;
     use fluence_spell_dtos::trigger_config::TriggerConfig;
     use fluence_spell_dtos::value::*;
-    use key_manager::{KeyStorage, ScopeHelper, WorkerRegistry};
+    use key_manager::{KeyStorage, Scopes, Workers};
     use maplit::hashmap;
     use serde_json::json;
     use std::time::Duration;
@@ -312,7 +312,7 @@ mod tests {
 
         let key_storage = Arc::new(key_storage);
 
-        let scope_helper = ScopeHelper::new(
+        let scope_helper = Scopes::new(
             root_key_pair.get_peer_id(),
             management_pid,
             to_peer_id(&startup_kp),
@@ -320,7 +320,7 @@ mod tests {
         );
 
         let worker_registry =
-            WorkerRegistry::from_path(workers_dir.as_path(), key_storage, scope_helper.clone())
+            Workers::from_path(workers_dir.as_path(), key_storage, scope_helper.clone())
                 .await
                 .expect("Could not load worker registry");
 

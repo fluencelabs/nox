@@ -29,7 +29,7 @@ use fluence_libp2p::build_transport;
 use futures::future::OptionFuture;
 use futures::{stream::StreamExt, FutureExt};
 use health::HealthCheckRegistry;
-use key_manager::{KeyStorage, ScopeHelper, WorkerRegistry};
+use key_manager::{KeyStorage, Scopes, Workers};
 use libp2p::swarm::SwarmEvent;
 use libp2p::SwarmBuilder;
 use libp2p::{
@@ -92,7 +92,7 @@ pub struct Node<RT: AquaRuntime> {
 
     pub builtins_management_peer_id: PeerId,
 
-    pub scope_helper: ScopeHelper,
+    pub scope_helper: Scopes,
 
     allow_local_addresses: bool,
     versions: Versions,
@@ -124,14 +124,14 @@ impl<RT: AquaRuntime> Node<RT> {
 
         let key_storage = Arc::new(key_storage);
 
-        let scope_helper = ScopeHelper::new(
+        let scope_helper = Scopes::new(
             root_key_pair.get_peer_id(),
             config.management_peer_id,
             builtins_peer_id,
             key_storage.clone(),
         );
 
-        let worker_registry = WorkerRegistry::from_path(
+        let worker_registry = Workers::from_path(
             config.dir_config.workers_base_dir.as_path(),
             key_storage.clone(),
             scope_helper.clone(),
@@ -414,8 +414,8 @@ impl<RT: AquaRuntime> Node<RT> {
         connectivity: Connectivity,
         services_config: ServicesConfig,
         services_metrics: ServicesMetrics,
-        worker_registry: Arc<WorkerRegistry>,
-        scope_helper: ScopeHelper,
+        worker_registry: Arc<Workers>,
+        scope_helper: Scopes,
         health_registry: Option<&mut HealthCheckRegistry>,
         connector_api_endpoint: String,
     ) -> Builtins<Connectivity> {
@@ -457,7 +457,7 @@ impl<RT: AquaRuntime> Node<RT> {
         services_metrics_backend: ServicesMetricsBackend,
         http_listen_addr: Option<SocketAddr>,
         builtins_management_peer_id: PeerId,
-        scope_helper: ScopeHelper,
+        scope_helper: Scopes,
         allow_local_addresses: bool,
         versions: Versions,
     ) -> Box<Self> {

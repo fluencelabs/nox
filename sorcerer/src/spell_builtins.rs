@@ -18,7 +18,7 @@ use std::sync::Arc;
 
 use crate::utils::parse_spell_id_from;
 use fluence_spell_dtos::trigger_config::TriggerConfig;
-use key_manager::{ScopeHelper, WorkerRegistry};
+use key_manager::{Scopes, Workers};
 use libp2p::PeerId;
 use particle_args::{Args, JError};
 use particle_execution::ParticleParams;
@@ -141,8 +141,8 @@ pub(crate) async fn spell_install(
     services: ParticleAppServices,
     spell_event_bus_api: SpellEventBusApi,
     spell_service_api: SpellServiceApi,
-    worker_registry: Arc<WorkerRegistry>,
-    scope_helper: ScopeHelper,
+    worker_registry: Arc<Workers>,
+    scope_helper: Scopes,
 ) -> Result<JValue, JError> {
     let mut args = sargs.function_args.clone().into_iter();
     let script: String = Args::next("script", &mut args)?;
@@ -225,8 +225,8 @@ pub(crate) async fn spell_remove(
     spell_storage: SpellStorage,
     services: ParticleAppServices,
     spell_event_bus_api: SpellEventBusApi,
-    worker_registry: Arc<WorkerRegistry>,
-    scope_helper: ScopeHelper,
+    worker_registry: Arc<Workers>,
+    scope_helper: Scopes,
 ) -> Result<(), JError> {
     let mut args = args.function_args.into_iter();
     let spell_id: String = Args::next("spell_id", &mut args)?;
@@ -264,8 +264,8 @@ pub(crate) async fn spell_update_config(
     services: ParticleAppServices,
     spell_event_bus_api: SpellEventBusApi,
     spell_service_api: SpellServiceApi,
-    worker_registry: Arc<WorkerRegistry>,
-    scope_helper: ScopeHelper,
+    worker_registry: Arc<Workers>,
+    scope_helper: Scopes,
 ) -> Result<(), JError> {
     let mut args = args.function_args.into_iter();
     let spell_id_or_alias: String = Args::next("spell_id", &mut args)?;

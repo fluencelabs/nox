@@ -35,7 +35,7 @@ use JValue::Array;
 use connection_pool::{ConnectionPoolApi, ConnectionPoolT};
 use health::HealthCheckRegistry;
 use kademlia::{KademliaApi, KademliaApiT};
-use key_manager::{ScopeHelper, WorkerRegistry};
+use key_manager::{Scopes, Workers};
 use now_millis::{now_ms, now_sec};
 use particle_args::{from_base58, Args, ArgsError, JError};
 use particle_execution::{FunctionOutcome, ParticleParams, ServiceFunction};
@@ -87,9 +87,9 @@ pub struct Builtins<C> {
     particles_vault_dir: path::PathBuf,
 
     #[derivative(Debug = "ignore")]
-    worker_registry: Arc<WorkerRegistry>,
+    worker_registry: Arc<Workers>,
     #[derivative(Debug = "ignore")]
-    scope_helper: ScopeHelper,
+    scope_helper: Scopes,
     connector_api_endpoint: String,
 }
 
@@ -101,8 +101,8 @@ where
         connectivity: C,
         config: ServicesConfig,
         services_metrics: ServicesMetrics,
-        worker_registry: Arc<WorkerRegistry>,
-        scope_helper: ScopeHelper,
+        worker_registry: Arc<Workers>,
+        scope_helper: Scopes,
         health_registry: Option<&mut HealthCheckRegistry>,
         connector_api_endpoint: String,
     ) -> Self {
