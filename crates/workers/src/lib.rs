@@ -8,10 +8,10 @@ mod error;
 mod key_storage;
 mod persistence;
 mod scope;
-mod worker_registry;
+mod workers;
 
 pub use error::KeyManagerError;
 use fluence_libp2p::PeerId;
 pub use key_storage::KeyStorage;
 pub use scope::Scopes;
-pub use worker_registry::Workers;
+pub use workers::Workers;

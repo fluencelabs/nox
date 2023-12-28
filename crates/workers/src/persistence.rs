@@ -19,7 +19,7 @@ use crate::error::KeyManagerError::{
     ReadPersistedKeypair, SerializePersistedKeypair, WriteErrorPersistedKeypair,
 };
 use crate::error::{KeyManagerError, WorkerRegistryError};
-use crate::worker_registry::WorkerInfo;
+use crate::workers::WorkerInfo;
 use crate::KeyManagerError::{
     PersistedKeypairDecodingError, PersistedKeypairInvalidKeyformat, RemoveErrorPersistedKeypair,
 };
