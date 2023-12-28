@@ -192,6 +192,26 @@ mod tests {
                 .map(|k| k.to_vec()),
             Some(key_pair_1.to_vec())
         );
+        let key_pair_2 = key_storage_1
+            .create_key_pair()
+            .await
+            .expect("Failed to create key pair 2");
+        assert_eq!(
+            key_storage_1
+                .get_key_pair(key_pair_2.get_peer_id())
+                .map(|k| k.to_vec()),
+            Some(key_pair_2.to_vec())
+        );
+        key_storage_1
+            .remove_key_pair(key_pair_2.get_peer_id())
+            .await
+            .expect("Failed to remove key pair 1");
+        assert_eq!(
+            key_storage_1
+                .get_key_pair(key_pair_2.get_peer_id())
+                .map(|k| k.to_vec()),
+            None
+        );
         drop(key_storage_1);
 
         let key_storage_2 = KeyStorage::from_path(&key_pairs_dir, root_key_pair.clone())
@@ -203,6 +223,12 @@ mod tests {
                 .get_key_pair(key_pair_1.get_peer_id())
                 .map(|k| k.to_vec()),
             Some(key_pair_1.to_vec())
+        );
+        assert_eq!(
+            key_storage_2
+                .get_key_pair(key_pair_2.get_peer_id())
+                .map(|k| k.to_vec()),
+            None
         );
     }
 }
