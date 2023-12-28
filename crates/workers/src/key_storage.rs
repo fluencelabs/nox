@@ -78,3 +78,131 @@ impl KeyStorage {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::KeyStorage;
+    use tempfile::tempdir;
+
+    #[tokio::test]
+    async fn test_key_storage_creation() {
+        // Create a temporary directory for key storage
+        let temp_dir = tempdir().expect("Failed to create temporary directory");
+        let key_pairs_dir = temp_dir.path().to_path_buf();
+
+        let root_key_pair = fluence_keypair::KeyPair::generate_ed25519();
+
+        // Create a KeyStorage instance from a path
+        let loaded_key_storage = KeyStorage::from_path(&key_pairs_dir, root_key_pair.clone())
+            .await
+            .expect("Failed to create KeyStorage from path");
+
+        // Check that the loaded key storage has the correct initial state
+        assert_eq!(loaded_key_storage.worker_key_pairs.read().len(), 0);
+        assert_eq!(loaded_key_storage.key_pairs_dir, key_pairs_dir);
+        assert_eq!(
+            loaded_key_storage.root_key_pair.to_vec(),
+            root_key_pair.to_vec()
+        );
+    }
+
+    #[tokio::test]
+    async fn test_key_pair_creation_and_removal() {
+        // Create a temporary directory for key storage
+        let temp_dir = tempdir().expect("Failed to create temporary directory");
+        let key_pairs_dir = temp_dir.path().to_path_buf();
+
+        let root_key_pair = fluence_keypair::KeyPair::generate_ed25519();
+
+        // Create a KeyStorage instance from a path
+        let key_storage = KeyStorage::from_path(&key_pairs_dir, root_key_pair.clone())
+            .await
+            .expect("Failed to create KeyStorage from path");
+
+        // Create a key pair and check that it is added to the storage
+        let key_pair_1 = key_storage
+            .create_key_pair()
+            .await
+            .expect("Failed to create key pair 1");
+        assert_eq!(
+            key_storage
+                .get_key_pair(key_pair_1.get_peer_id())
+                .map(|k| k.to_vec()),
+            Some(key_pair_1.to_vec())
+        );
+
+        // Create another key pair and check that it is added to the storage
+        let key_pair_2 = key_storage
+            .create_key_pair()
+            .await
+            .expect("Failed to create key pair 2");
+        assert_eq!(
+            key_storage
+                .get_key_pair(key_pair_2.get_peer_id())
+                .map(|k| k.to_vec()),
+            Some(key_pair_2.to_vec())
+        );
+
+        // Remove the first key pair and check that it is removed from the storage
+        key_storage
+            .remove_key_pair(key_pair_1.get_peer_id())
+            .await
+            .expect("Failed to remove key pair 1");
+        assert_eq!(
+            key_storage
+                .get_key_pair(key_pair_1.get_peer_id())
+                .map(|k| k.to_vec()),
+            None
+        );
+
+        // Remove the second key pair and check that it is removed from the storage
+        key_storage
+            .remove_key_pair(key_pair_2.get_peer_id())
+            .await
+            .expect("Failed to remove key pair 2");
+        assert_eq!(
+            key_storage
+                .get_key_pair(key_pair_2.get_peer_id())
+                .map(|k| k.to_vec()),
+            None
+        );
+    }
+
+    #[tokio::test]
+    async fn test_persistence() {
+        // Create a temporary directory for key storage
+        let temp_dir = tempdir().expect("Failed to create temporary directory");
+        let key_pairs_dir = temp_dir.path().to_path_buf();
+
+        let root_key_pair = fluence_keypair::KeyPair::generate_ed25519();
+
+        // Create a KeyStorage instance from a path
+        let key_storage_1 = KeyStorage::from_path(&key_pairs_dir, root_key_pair.clone())
+            .await
+            .expect("Failed to create KeyStorage from path");
+
+        // Create a key pair and check that it is added to the storage
+        let key_pair_1 = key_storage_1
+            .create_key_pair()
+            .await
+            .expect("Failed to create key pair 1");
+        assert_eq!(
+            key_storage_1
+                .get_key_pair(key_pair_1.get_peer_id())
+                .map(|k| k.to_vec()),
+            Some(key_pair_1.to_vec())
+        );
+        drop(key_storage_1);
+
+        let key_storage_2 = KeyStorage::from_path(&key_pairs_dir, root_key_pair.clone())
+            .await
+            .expect("Failed to create KeyStorage from path");
+
+        assert_eq!(
+            key_storage_2
+                .get_key_pair(key_pair_1.get_peer_id())
+                .map(|k| k.to_vec()),
+            Some(key_pair_1.to_vec())
+        );
+    }
+}

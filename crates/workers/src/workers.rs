@@ -257,7 +257,8 @@ impl Workers {
                 tracing::warn!(
                     target = "worker-registry",
                     worker_id = worker_id.to_string(),
-                    "Worker {worker_id} not found");
+                    "Worker {worker_id} not found"
+                );
                 false
             }
         }
