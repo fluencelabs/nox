@@ -160,45 +160,41 @@ pub(crate) async fn load_persisted_key_pairs(
     key_pairs_dir: &Path,
 ) -> Result<Vec<KeyPair>, KeyManagerError> {
     let list_files = tokio::fs::read_dir(key_pairs_dir).await.ok();
-
-    let files =
-        match list_files {
-            Some(mut entries) => {
-                let mut paths = vec![];
-                while let Some(entry) = entries.next_entry().await.map_err(|err| {
-                    KeyManagerError::DirectoryListError {
-                        path: key_pairs_dir.to_path_buf(),
-                        err,
-                    }
-                })? {
-                    paths.push(entry.path())
-                }
-                paths
-            }
-            None => {
-                // Attempt to create directory
-                tokio::fs::create_dir_all(key_pairs_dir)
-                    .await
-                    .map_err(|err| CreateKeypairsDir {
-                        path: key_pairs_dir.to_path_buf(),
-                        err,
-                    })?;
-                vec![]
-            }
-        };
-
     let mut keypairs = vec![];
-    for file in files.iter() {
-        let res: eyre::Result<()> = try {
-            if is_keypair(file) {
-                keypairs.push(load_persisted_keypair(file).await?);
-            }
-        };
 
-        if let Err(err) = res {
-            log::warn!("{err}")
+    match list_files {
+        Some(mut entries) => {
+            while let Some(entry) =
+                entries
+                    .next_entry()
+                    .await
+                    .map_err(|err| KeyManagerError::DirectoryListError {
+                        path: key_pairs_dir.to_path_buf(),
+                        err,
+                    })?
+            {
+                let res: eyre::Result<()> = try {
+                    let file = entry.path();
+                    if is_keypair(file.as_path()) {
+                        keypairs.push(load_persisted_keypair(file.as_path()).await?);
+                    }
+                };
+
+                if let Err(err) = res {
+                    log::warn!("{err}")
+                }
+            }
         }
-    }
+        None => {
+            // Attempt to create directory
+            tokio::fs::create_dir_all(key_pairs_dir)
+                .await
+                .map_err(|err| CreateKeypairsDir {
+                    path: key_pairs_dir.to_path_buf(),
+                    err,
+                })?;
+        }
+    };
 
     Ok(keypairs)
 }

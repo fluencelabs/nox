@@ -265,13 +265,23 @@ impl Workers {
 async fn load_persisted_workers(workers_dir: &Path) -> eyre::Result<Vec<PersistedWorker>> {
     let list_files = tokio::fs::read_dir(workers_dir).await.ok();
 
-    let files = match list_files {
+    let mut workers = vec![];
+
+    match list_files {
         Some(mut entries) => {
-            let mut paths = vec![];
             while let Some(entry) = entries.next_entry().await? {
-                paths.push(entry.path())
+                let path = entry.path();
+                let res: eyre::Result<()> = try {
+                    if crate::persistence::is_worker(path.as_path()) {
+                        workers
+                            .push(crate::persistence::load_persisted_worker(path.as_path()).await?);
+                    }
+                };
+
+                if let Err(err) = res {
+                    log::warn!("{err}")
+                }
             }
-            paths
         }
         None => {
             // Attempt to create directory
@@ -281,22 +291,8 @@ async fn load_persisted_workers(workers_dir: &Path) -> eyre::Result<Vec<Persiste
                     path: workers_dir.to_path_buf(),
                     err,
                 })?;
-            vec![]
         }
     };
-
-    let mut workers = vec![];
-    for file in files.iter() {
-        let res: eyre::Result<()> = try {
-            if crate::persistence::is_worker(file) {
-                workers.push(crate::persistence::load_persisted_worker(file).await?);
-            }
-        };
-
-        if let Err(err) = res {
-            log::warn!("{err}")
-        }
-    }
 
     Ok(workers)
 }
