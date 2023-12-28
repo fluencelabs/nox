@@ -224,11 +224,11 @@ checksum = "a4668cab20f66d8d020e1fbc0ebe47217433c1b6c8f2040faf858554e394ace6"
 
 [[package]]
 name = "aqua-ipfs-distro"
-version = "0.5.27"
+version = "0.5.28"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0d578499830da5dac209e76e42ac233cd02249d8f9886ac8459b9dae8cccc1cc"
+checksum = "2acb7726b3147481fe42701baccb0447365def28083c86a188f43ead5f09842b"
 dependencies = [
- "built 0.5.2",
+ "built 0.7.1",
  "maplit",
 ]
 
@@ -814,20 +814,11 @@ dependencies = [
 
 [[package]]
 name = "built"
-version = "0.5.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5b9c056b9ed43aee5e064b683aa1ec783e19c6acec7559e3ae931b7490472fbe"
-dependencies = [
- "cargo-lock 8.0.3",
-]
-
-[[package]]
-name = "built"
 version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b99c4cdc7b2c2364182331055623bdf45254fcb679fea565c40c3c11c101889a"
 dependencies = [
- "cargo-lock 9.0.0",
+ "cargo-lock",
 ]
 
 [[package]]
@@ -930,18 +921,6 @@ dependencies = [
  "once_cell",
  "rustix 0.37.27",
  "winx 0.35.1",
-]
-
-[[package]]
-name = "cargo-lock"
-version = "8.0.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "031718ddb8f78aa5def78a09e90defe30151d1f6c672f937af4dd916429ed996"
-dependencies = [
- "semver",
- "serde",
- "toml 0.5.11",
- "url",
 ]
 
 [[package]]
