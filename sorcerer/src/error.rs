@@ -15,7 +15,7 @@
  */
 use particle_protocol::ParticleError;
 use thiserror::Error;
-use workers::{WorkersError};
+use workers::WorkersError;
 
 #[derive(Debug, Error)]
 pub enum SorcererError {
