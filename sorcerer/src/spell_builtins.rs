@@ -141,8 +141,8 @@ pub(crate) async fn spell_install(
     services: ParticleAppServices,
     spell_event_bus_api: SpellEventBusApi,
     spell_service_api: SpellServiceApi,
-    worker_registry: Arc<Workers>,
-    scope_helper: Scopes,
+    workers: Arc<Workers>,
+    scopes: Scopes,
 ) -> Result<JValue, JError> {
     let mut args = sargs.function_args.clone().into_iter();
     let script: String = Args::next("script", &mut args)?;
@@ -152,13 +152,13 @@ pub(crate) async fn spell_install(
 
     let init_peer_id = params.init_peer_id;
 
-    let is_management = scope_helper.is_management(init_peer_id);
-    if scope_helper.is_host(params.host_id) && !is_management {
+    let is_management = scopes.is_management(init_peer_id);
+    if scopes.is_host(params.host_id) && !is_management {
         return Err(JError::new("Failed to install spell in the root scope, only management peer id can install top-level spells"));
     }
 
     let worker_id = params.host_id;
-    let worker_creator = worker_registry.get_worker_creator(params.host_id)?;
+    let worker_creator = workers.get_worker_creator(params.host_id)?;
 
     let is_worker = init_peer_id == worker_id;
     let is_worker_creator = init_peer_id == worker_creator;
@@ -225,19 +225,19 @@ pub(crate) async fn spell_remove(
     spell_storage: SpellStorage,
     services: ParticleAppServices,
     spell_event_bus_api: SpellEventBusApi,
-    worker_registry: Arc<Workers>,
-    scope_helper: Scopes,
+    workers: Arc<Workers>,
+    scopes: Scopes,
 ) -> Result<(), JError> {
     let mut args = args.function_args.into_iter();
     let spell_id: String = Args::next("spell_id", &mut args)?;
 
     let worker_id = params.host_id;
     let init_peer_id = params.init_peer_id;
-    let worker_creator = worker_registry.get_worker_creator(worker_id)?;
+    let worker_creator = workers.get_worker_creator(worker_id)?;
 
     let is_worker_creator = init_peer_id == worker_creator;
     let is_worker = init_peer_id == worker_id;
-    let is_management = scope_helper.is_management(init_peer_id);
+    let is_management = scopes.is_management(init_peer_id);
 
     if !is_worker_creator && !is_worker && !is_management {
         return Err(JError::new(format!(
@@ -264,19 +264,19 @@ pub(crate) async fn spell_update_config(
     services: ParticleAppServices,
     spell_event_bus_api: SpellEventBusApi,
     spell_service_api: SpellServiceApi,
-    worker_registry: Arc<Workers>,
-    scope_helper: Scopes,
+    workers: Arc<Workers>,
+    scopes: Scopes,
 ) -> Result<(), JError> {
     let mut args = args.function_args.into_iter();
     let spell_id_or_alias: String = Args::next("spell_id", &mut args)?;
 
     let worker_id = params.host_id;
     let init_peer_id = params.init_peer_id;
-    let worker_creator = worker_registry.get_worker_creator(worker_id)?;
+    let worker_creator = workers.get_worker_creator(worker_id)?;
 
     let is_worker_creator = init_peer_id == worker_creator;
     let is_worker = init_peer_id == worker_id;
-    let is_management = scope_helper.is_management(init_peer_id);
+    let is_management = scopes.is_management(init_peer_id);
 
     if !is_worker_creator && !is_worker && !is_management {
         return Err(JError::new(format!(

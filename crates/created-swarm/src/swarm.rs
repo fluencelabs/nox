@@ -416,7 +416,7 @@ pub async fn create_swarm_with_runtime<RT: AquaRuntime>(
     node.listen(vec![config.listen_on.clone()]).expect("listen");
 
     (
-        node.scope_helper.get_host_peer_id(),
+        node.scopes.get_host_peer_id(),
         node,
         management_kp,
         config,

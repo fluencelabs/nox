@@ -65,8 +65,8 @@ pub struct Plumber<RT: AquaRuntime, F> {
     builtins: F,
     waker: Option<Waker>,
     metrics: Option<ParticleExecutorMetrics>,
-    worker_registry: Arc<Workers>,
-    scope_helper: Scopes,
+    workers: Arc<Workers>,
+    scopes: Scopes,
     cleanup_future: Option<BoxFuture<'static, ()>>,
 }
 
@@ -76,8 +76,8 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
         data_store: Arc<ParticleDataStore>,
         builtins: F,
         metrics: Option<ParticleExecutorMetrics>,
-        worker_registry: Arc<Workers>,
-        scope_helper: Scopes,
+        workers: Arc<Workers>,
+        scopes: Scopes,
     ) -> Self {
         Self {
             vm_pool,
@@ -87,8 +87,8 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
             actors: <_>::default(),
             waker: <_>::default(),
             metrics,
-            worker_registry,
-            scope_helper,
+            workers,
+            scopes,
             cleanup_future: None,
         }
     }
@@ -123,11 +123,9 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
             return;
         }
 
-        let is_active = self.worker_registry.is_worker_active(worker_id);
-        let is_manager = self
-            .scope_helper
-            .is_management(particle.particle.init_peer_id);
-        let is_host = self.scope_helper.is_host(particle.particle.init_peer_id);
+        let is_active = self.workers.is_worker_active(worker_id);
+        let is_manager = self.scopes.is_management(particle.particle.init_peer_id);
+        let is_host = self.scopes.is_host(particle.particle.init_peer_id);
 
         // Only a manager or the host itself is allowed to access deactivated workers
         if !is_active && !is_manager && !is_host {
@@ -147,8 +145,8 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
             Entry::Vacant(entry) => {
                 let params = ParticleParams::clone_from(particle.as_ref(), worker_id);
                 let functions = Functions::new(params, builtins.clone());
-                let key_pair = self.worker_registry.get_worker_keypair(worker_id);
-                let deal_id = self.worker_registry.get_deal_id(worker_id).ok();
+                let key_pair = self.workers.get_worker_keypair(worker_id);
+                let deal_id = self.workers.get_deal_id(worker_id).ok();
                 let data_store = self.data_store.clone();
                 key_pair.map(|kp| {
                     let actor = Actor::new(
@@ -233,7 +231,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
                     .effects
                     .next_peers
                     .into_iter()
-                    .partition(|p| self.scope_helper.is_local(*p));
+                    .partition(|p| self.scopes.is_local(*p));
 
                 if !remote_peers.is_empty() {
                     remote_effects.push(RoutingEffects {
@@ -482,19 +480,18 @@ mod tests {
 
         let key_storage = Arc::new(key_storage);
 
-        let scope_helper = Scopes::new(
+        let scopes = Scopes::new(
             root_key_pair.get_peer_id(),
             RandomPeerId::random(),
             RandomPeerId::random(),
             key_storage.clone(),
         );
 
-        let worker_registry =
-            Workers::from_path(workers_path.as_path(), key_storage, scope_helper.clone())
-                .await
-                .expect("Could not load worker registry");
+        let workers = Workers::from_path(workers_path.as_path(), key_storage, scopes.clone())
+            .await
+            .expect("Could not load worker registry");
 
-        let worker_registry = Arc::new(worker_registry);
+        let workers = Arc::new(workers);
 
         let tmp_dir = tempfile::tempdir().expect("Could not create temp dir");
         let tmp_path = tmp_dir.path();
@@ -514,8 +511,8 @@ mod tests {
             data_store,
             builtin_mock,
             None,
-            worker_registry.clone(),
-            scope_helper.clone(),
+            workers.clone(),
+            scopes.clone(),
         )
     }
 

@@ -87,9 +87,9 @@ pub struct Builtins<C> {
     particles_vault_dir: path::PathBuf,
 
     #[derivative(Debug = "ignore")]
-    worker_registry: Arc<Workers>,
+    workers: Arc<Workers>,
     #[derivative(Debug = "ignore")]
-    scope_helper: Scopes,
+    scopes: Scopes,
     connector_api_endpoint: String,
 }
 
@@ -101,8 +101,8 @@ where
         connectivity: C,
         config: ServicesConfig,
         services_metrics: ServicesMetrics,
-        worker_registry: Arc<Workers>,
-        scope_helper: Scopes,
+        workers: Arc<Workers>,
+        scopes: Scopes,
         health_registry: Option<&mut HealthCheckRegistry>,
         connector_api_endpoint: String,
     ) -> Self {
@@ -123,8 +123,8 @@ where
             modules.clone(),
             Some(services_metrics),
             health_registry,
-            worker_registry.clone(),
-            scope_helper.clone(),
+            workers.clone(),
+            scopes.clone(),
         );
 
         Self {
@@ -133,8 +133,8 @@ where
             services,
             particles_vault_dir,
             custom_services: <_>::default(),
-            worker_registry,
-            scope_helper,
+            workers,
+            scopes,
             connector_api_endpoint,
         }
     }
@@ -878,10 +878,10 @@ where
 
             let tetraplet = tetraplets.get(0).map(|v| v.as_slice());
             if let Some([t]) = tetraplet {
-                if !self.scope_helper.is_local(PeerId::from_str(&t.peer_pk)?) {
+                if !self.scopes.is_local(PeerId::from_str(&t.peer_pk)?) {
                     return Err(JError::new(format!(
                         "data is expected to be produced by service 'registry' on peer '{}', was from peer '{}'",
-                        self.scope_helper.get_host_peer_id(), t.peer_pk
+                        self.scopes.get_host_peer_id(), t.peer_pk
                     )));
                 }
 
@@ -905,7 +905,7 @@ where
                 return Err(JError::new(format!("expected tetraplet for a scalar argument, got tetraplet for an array: {tetraplet:?}, tetraplets")));
             }
 
-            let keypair = self.worker_registry.get_worker_keypair(params.host_id)?;
+            let keypair = self.workers.get_worker_keypair(params.host_id)?;
             json!(keypair.sign(&data)?.to_vec())
         };
 
@@ -928,10 +928,7 @@ where
         let mut args = args.function_args.into_iter();
         let signature: Vec<u8> = Args::next("signature", &mut args)?;
         let data: Vec<u8> = Args::next("data", &mut args)?;
-        let pk = self
-            .worker_registry
-            .get_worker_keypair(params.host_id)?
-            .public();
+        let pk = self.workers.get_worker_keypair(params.host_id)?.public();
         let signature = Signature::from_bytes(pk.get_key_format(), signature);
 
         Ok(JValue::Bool(pk.verify(&data, &signature).is_ok()))

@@ -23,24 +23,24 @@ pub struct Workers {
     workers_dir: PathBuf,
 
     key_storage: Arc<KeyStorage>,
-    scope_helper: Scopes,
+    scopes: Scopes,
 }
 
 impl Workers {
-    pub fn new(key_storage: Arc<KeyStorage>, scope_helper: Scopes) -> Self {
+    pub fn new(key_storage: Arc<KeyStorage>, scopes: Scopes) -> Self {
         Self {
             worker_ids: Default::default(),
             worker_infos: Default::default(),
             workers_dir: Default::default(),
             key_storage,
-            scope_helper,
+            scopes,
         }
     }
 
     pub async fn from_path(
         workers_dir: &Path,
         key_storage: Arc<KeyStorage>,
-        scope_helper: Scopes,
+        scopes: Scopes,
     ) -> eyre::Result<Self> {
         let workers = load_persisted_workers(workers_dir).await?;
         let mut worker_ids = HashMap::with_capacity(workers.len());
@@ -57,7 +57,7 @@ impl Workers {
             worker_infos: RwLock::new(worker_infos),
             workers_dir: workers_dir.to_path_buf(),
             key_storage,
-            scope_helper,
+            scopes,
         })
     }
 
@@ -118,7 +118,7 @@ impl Workers {
     }
 
     pub fn get_worker_keypair(&self, worker_id: PeerId) -> Result<KeyPair, KeyManagerError> {
-        if self.scope_helper.is_host(worker_id) {
+        if self.scopes.is_host(worker_id) {
             Ok(self.key_storage.root_key_pair.clone())
         } else {
             self.key_storage
@@ -166,7 +166,7 @@ impl Workers {
     }
 
     pub fn get_worker_creator(&self, worker_id: PeerId) -> Result<PeerId, WorkerRegistryError> {
-        if self.scope_helper.is_host(worker_id) {
+        if self.scopes.is_host(worker_id) {
             Ok(worker_id)
         } else {
             self.worker_infos
@@ -244,7 +244,7 @@ impl Workers {
 
     pub fn is_worker_active(&self, worker_id: PeerId) -> bool {
         // host is always active
-        if self.scope_helper.is_host(worker_id) {
+        if self.scopes.is_host(worker_id) {
             return true;
         }
 

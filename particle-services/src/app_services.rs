@@ -175,9 +175,9 @@ pub struct ParticleAppServices {
     modules: ModuleRepository,
     aliases: Arc<RwLock<Aliases>>,
     #[derivative(Debug = "ignore")]
-    worker_registry: Arc<Workers>,
+    workers: Arc<Workers>,
     #[derivative(Debug = "ignore")]
-    scope_helper: Scopes,
+    scopes: Scopes,
     pub metrics: Option<ServicesMetrics>,
     health: Option<PersistedServiceHealth>,
 }
@@ -261,8 +261,8 @@ impl ParticleAppServices {
         modules: ModuleRepository,
         metrics: Option<ServicesMetrics>,
         health_registry: Option<&mut HealthCheckRegistry>,
-        worker_registry: Arc<Workers>,
-        scope_helper: Scopes,
+        workers: Arc<Workers>,
+        scopes: Scopes,
     ) -> Self {
         let vault = ParticleVault::new(config.particles_vault_dir.clone());
 
@@ -277,8 +277,8 @@ impl ParticleAppServices {
             services: <_>::default(),
             modules,
             aliases: <_>::default(),
-            worker_registry,
-            scope_helper,
+            workers,
+            scopes,
             metrics,
             health,
         };
@@ -405,7 +405,7 @@ impl ParticleAppServices {
             //      all services.
             if service.worker_id != init_peer_id
                 && service.owner_id != init_peer_id
-                && !self.scope_helper.is_management(init_peer_id)
+                && !self.scopes.is_management(init_peer_id)
             {
                 return Err(Forbidden {
                     user: init_peer_id,
@@ -640,11 +640,11 @@ impl ParticleAppServices {
         service_id: String,
         init_peer_id: PeerId,
     ) -> Result<(), ServiceError> {
-        let is_management = self.scope_helper.is_management(init_peer_id);
-        let is_root_scope = self.scope_helper.is_host(worker_id);
+        let is_management = self.scopes.is_management(init_peer_id);
+        let is_root_scope = self.scopes.is_host(worker_id);
         let is_worker = init_peer_id == worker_id;
         let worker_creator = self
-            .worker_registry
+            .workers
             .get_worker_creator(worker_id)
             .map_err(|e| InternalError(format!("{e:?}")))?; // worker creator is always set
         let is_worker_creator = init_peer_id == worker_creator;
@@ -1076,19 +1076,18 @@ mod tests {
 
         let root_key_pair: KeyPair = root_keypair.clone().into();
 
-        let scope_helper = Scopes::new(
+        let scopes = Scopes::new(
             root_key_pair.get_peer_id(),
             management_pid,
             to_peer_id(&startup_kp),
             key_storage.clone(),
         );
 
-        let worker_registry =
-            Workers::from_path(workers_dir.as_path(), key_storage, scope_helper.clone())
-                .await
-                .expect("Could not load worker registry");
+        let workers = Workers::from_path(workers_dir.as_path(), key_storage, scopes.clone())
+            .await
+            .expect("Could not load worker registry");
 
-        let worker_registry = Arc::new(worker_registry);
+        let workers = Arc::new(workers);
 
         let config = ServicesConfig::new(
             PeerId::from(root_keypair.public()),
@@ -1112,7 +1111,7 @@ mod tests {
             Default::default(),
         );
 
-        ParticleAppServices::new(config, repo, None, None, worker_registry, scope_helper)
+        ParticleAppServices::new(config, repo, None, None, workers, scopes)
     }
 
     async fn call_add_alias_raw(

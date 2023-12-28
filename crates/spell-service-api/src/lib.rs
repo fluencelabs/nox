@@ -312,19 +312,18 @@ mod tests {
 
         let key_storage = Arc::new(key_storage);
 
-        let scope_helper = Scopes::new(
+        let scopes = Scopes::new(
             root_key_pair.get_peer_id(),
             management_pid,
             to_peer_id(&startup_kp),
             key_storage.clone(),
         );
 
-        let worker_registry =
-            Workers::from_path(workers_dir.as_path(), key_storage, scope_helper.clone())
-                .await
-                .expect("Could not load worker registry");
+        let workers = Workers::from_path(workers_dir.as_path(), key_storage, scopes.clone())
+            .await
+            .expect("Could not load worker registry");
 
-        let worker_registry = Arc::new(worker_registry);
+        let workers = Arc::new(workers);
 
         let max_heap_size = server_config::default_module_max_heap_size();
         let config = ServicesConfig::new(
@@ -354,8 +353,8 @@ mod tests {
             repo.clone(),
             None,
             None,
-            worker_registry.clone(),
-            scope_helper.clone(),
+            workers.clone(),
+            scopes.clone(),
         );
         (pas, repo)
     }

@@ -33,27 +33,24 @@ use workers::{Scopes, Workers};
 pub(crate) async fn create_worker(
     args: Args,
     params: ParticleParams,
-    worker_registry: Arc<Workers>,
+    workers: Arc<Workers>,
 ) -> Result<JValue, JError> {
     let mut args = args.function_args.into_iter();
     let deal_id: String = Args::next("deal_id", &mut args)?;
     Ok(JValue::String(
-        worker_registry
+        workers
             .create_worker(deal_id, params.init_peer_id)
             .await?
             .to_base58(),
     ))
 }
 
-pub(crate) fn get_worker_peer_id(
-    args: Args,
-    worker_registry: Arc<Workers>,
-) -> Result<JValue, JError> {
+pub(crate) fn get_worker_peer_id(args: Args, workers: Arc<Workers>) -> Result<JValue, JError> {
     let mut args = args.function_args.into_iter();
     let deal_id: String = Args::next("deal_id", &mut args)?;
 
     Ok(JValue::Array(
-        worker_registry
+        workers
             .get_worker_id(deal_id)
             .map(|id| vec![JValue::String(id.to_base58())])
             .unwrap_or_default(),
@@ -63,7 +60,7 @@ pub(crate) fn get_worker_peer_id(
 pub(crate) async fn remove_worker(
     args: Args,
     params: ParticleParams,
-    worker_registry: Arc<Workers>,
+    workers: Arc<Workers>,
     services: ParticleAppServices,
     spell_storage: SpellStorage,
     spell_event_bus_api: SpellEventBusApi,
@@ -71,13 +68,13 @@ pub(crate) async fn remove_worker(
     let mut args = args.function_args.into_iter();
     let worker_id: String = Args::next("worker_id", &mut args)?;
     let worker_id = PeerId::from_str(&worker_id)?;
-    let worker_creator = worker_registry.get_worker_creator(worker_id)?;
+    let worker_creator = workers.get_worker_creator(worker_id)?;
 
     if params.init_peer_id != worker_creator && params.init_peer_id != worker_id {
         return Err(JError::new(format!("Worker {worker_id} can be removed only by worker creator {worker_creator} or worker itself")));
     }
 
-    worker_registry.remove_worker(worker_id).await?;
+    workers.remove_worker(worker_id).await?;
 
     let spells: Vec<_> = spell_storage.get_registered_spells_by(worker_id);
 
@@ -102,9 +99,9 @@ pub(crate) async fn remove_worker(
     Ok(())
 }
 
-pub(crate) fn worker_list(worker_registry: Arc<Workers>) -> Result<JValue, JError> {
+pub(crate) fn worker_list(workers: Arc<Workers>) -> Result<JValue, JError> {
     Ok(JValue::Array(
-        worker_registry
+        workers
             .list_workers()
             .into_iter()
             .map(|p| JValue::String(p.to_base58()))
@@ -115,8 +112,8 @@ pub(crate) fn worker_list(worker_registry: Arc<Workers>) -> Result<JValue, JErro
 pub(crate) async fn deactivate_deal(
     args: Args,
     params: ParticleParams,
-    worker_registry: Arc<Workers>,
-    scope_helper: Scopes,
+    workers: Arc<Workers>,
+    scopes: Scopes,
     spell_storage: SpellStorage,
     spell_event_bus_api: SpellEventBusApi,
     spell_service_api: SpellServiceApi,
@@ -124,17 +121,15 @@ pub(crate) async fn deactivate_deal(
     let mut args = args.function_args.into_iter();
     let deal_id: String = Args::next("deal_id", &mut args)?;
 
-    if !scope_helper.is_management(params.init_peer_id)
-        && !scope_helper.is_host(params.init_peer_id)
-    {
+    if !scopes.is_management(params.init_peer_id) && !scopes.is_host(params.init_peer_id) {
         return Err(JError::new(format!(
             "Only management or host peer can deactivate deal"
         )));
     }
 
-    let worker_id = worker_registry.get_worker_id(deal_id)?;
+    let worker_id = workers.get_worker_id(deal_id)?;
 
-    if !worker_registry.is_worker_active(worker_id) {
+    if !workers.is_worker_active(worker_id) {
         return Err(JError::new("Deal has already been deactivated"));
     }
 
@@ -166,7 +161,7 @@ pub(crate) async fn deactivate_deal(
             })?;
     }
 
-    worker_registry.deactivate_worker(worker_id).await?;
+    workers.deactivate_worker(worker_id).await?;
 
     Ok(())
 }
@@ -174,8 +169,8 @@ pub(crate) async fn deactivate_deal(
 pub(crate) async fn activate_deal(
     args: Args,
     params: ParticleParams,
-    worker_registry: Arc<Workers>,
-    scope_helper: Scopes,
+    workers: Arc<Workers>,
+    scopes: Scopes,
     services: ParticleAppServices,
     spell_event_bus_api: SpellEventBusApi,
     spell_service_api: SpellServiceApi,
@@ -184,17 +179,15 @@ pub(crate) async fn activate_deal(
     let mut args = args.function_args.into_iter();
     let deal_id: String = Args::next("deal_id", &mut args)?;
 
-    if !scope_helper.is_management(params.init_peer_id)
-        && !scope_helper.is_host(params.init_peer_id)
-    {
+    if !scopes.is_management(params.init_peer_id) && !scopes.is_host(params.init_peer_id) {
         return Err(JError::new(format!(
             "Only management or host peer can activate deal"
         )));
     }
 
-    let worker_id = worker_registry.get_worker_id(deal_id)?;
+    let worker_id = workers.get_worker_id(deal_id)?;
 
-    if worker_registry.is_worker_active(worker_id) {
+    if workers.is_worker_active(worker_id) {
         return Err(JError::new("Deal has already been activated"));
     }
 
@@ -228,13 +221,13 @@ pub(crate) async fn activate_deal(
         })
         .await?;
 
-    worker_registry.activate_worker(worker_id).await?;
+    workers.activate_worker(worker_id).await?;
     Ok(())
 }
 
-pub(crate) fn is_deal_active(args: Args, worker_registry: Arc<Workers>) -> Result<JValue, JError> {
+pub(crate) fn is_deal_active(args: Args, workers: Arc<Workers>) -> Result<JValue, JError> {
     let mut args = args.function_args.into_iter();
     let deal_id: String = Args::next("deal_id", &mut args)?;
-    let worker_id = worker_registry.get_worker_id(deal_id)?;
-    Ok(JValue::Bool(worker_registry.is_worker_active(worker_id)))
+    let worker_id = workers.get_worker_id(deal_id)?;
+    Ok(JValue::Bool(workers.is_worker_active(worker_id)))
 }
