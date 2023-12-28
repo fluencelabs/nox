@@ -99,8 +99,8 @@ impl Workers {
                     Err(err) => {
                         tracing::warn!(
                             target = "worker-registry",
-                            "Failed to store worker info for {}: {}",
-                            worker_id,
+                            worker_id = worker_id.to_string(),
+                            "Failed to store worker info for {worker_id}: {}",
                             err
                         );
                         self.key_storage
@@ -254,7 +254,10 @@ impl Workers {
         match worker_info {
             Some(worker_info) => *worker_info.active.read(),
             None => {
-                tracing::warn!(target = "worker-registry", "Worker {} not found", worker_id);
+                tracing::warn!(
+                    target = "worker-registry",
+                    worker_id = worker_id.to_string(),
+                    "Worker {worker_id} not found");
                 false
             }
         }
