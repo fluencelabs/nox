@@ -135,4 +135,6 @@ pub enum WorkerRegistryError {
         #[source]
         err: std::io::Error,
     },
+    #[error("Keypair for peer_id {0} not found")]
+    KeypairNotFound(PeerId),
 }
