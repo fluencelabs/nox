@@ -18,7 +18,7 @@ use crate::error::KeyManagerError::{
     CannotExtractRSASecretKey, CreateKeypairsDir, DeserializePersistedKeypair,
     ReadPersistedKeypair, SerializePersistedKeypair, WriteErrorPersistedKeypair,
 };
-use crate::error::{KeyManagerError, WorkerRegistryError};
+use crate::error::{KeyManagerError, WorkersError};
 use crate::workers::WorkerInfo;
 use crate::KeyManagerError::{
     PersistedKeypairDecodingError, PersistedKeypairInvalidKeyformat, RemoveErrorPersistedKeypair,
@@ -141,22 +141,17 @@ async fn load_persisted_keypair(file: &Path) -> Result<KeyPair, KeyManagerError>
     })
 }
 
-pub(crate) async fn load_persisted_worker(
-    file: &Path,
-) -> Result<PersistedWorker, WorkerRegistryError> {
-    let bytes =
-        tokio::fs::read(file)
-            .await
-            .map_err(|err| WorkerRegistryError::ReadPersistedWorker {
-                err,
-                path: file.to_path_buf(),
-            })?;
-
-    toml::from_slice(bytes.as_slice()).map_err(|err| {
-        WorkerRegistryError::DeserializePersistedWorker {
+pub(crate) async fn load_persisted_worker(file: &Path) -> Result<PersistedWorker, WorkersError> {
+    let bytes = tokio::fs::read(file)
+        .await
+        .map_err(|err| WorkersError::ReadPersistedWorker {
             err,
             path: file.to_path_buf(),
-        }
+        })?;
+
+    toml::from_slice(bytes.as_slice()).map_err(|err| WorkersError::DeserializePersistedWorker {
+        err,
+        path: file.to_path_buf(),
     })
 }
 
@@ -239,22 +234,22 @@ pub(crate) async fn persist_worker(
     workers_dir: &Path,
     worker_id: PeerId,
     worker: PersistedWorker,
-) -> Result<(), WorkerRegistryError> {
+) -> Result<(), WorkersError> {
     let path = workers_dir.join(worker_file_name(worker_id));
-    let bytes = toml::to_vec(&worker)
-        .map_err(|err| WorkerRegistryError::SerializePersistedWorker { err })?;
+    let bytes =
+        toml::to_vec(&worker).map_err(|err| WorkersError::SerializePersistedWorker { err })?;
     tokio::fs::write(&path, bytes)
         .await
-        .map_err(|err| WorkerRegistryError::WriteErrorPersistedWorker { path, err })
+        .map_err(|err| WorkersError::WriteErrorPersistedWorker { path, err })
 }
 
 pub(crate) async fn remove_worker(
     workers_dir: &Path,
     worker_id: PeerId,
-) -> Result<(), WorkerRegistryError> {
+) -> Result<(), WorkersError> {
     let path = workers_dir.join(worker_file_name(worker_id));
     tokio::fs::remove_file(path.clone()).await.map_err(|err| {
-        WorkerRegistryError::RemoveErrorPersistedWorker {
+        WorkersError::RemoveErrorPersistedWorker {
             path,
             worker_id,
             err,
@@ -291,7 +286,7 @@ pub(crate) async fn load_persisted_workers(
             // Attempt to create directory
             tokio::fs::create_dir_all(workers_dir)
                 .await
-                .map_err(|err| WorkerRegistryError::CreateWorkersDir {
+                .map_err(|err| WorkersError::CreateWorkersDir {
                     path: workers_dir.to_path_buf(),
                     err,
                 })?;

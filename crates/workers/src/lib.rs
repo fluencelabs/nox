@@ -11,6 +11,7 @@ mod scope;
 mod workers;
 
 pub use error::KeyManagerError;
+pub use error::WorkersError;
 use fluence_libp2p::PeerId;
 pub use key_storage::KeyStorage;
 pub use scope::Scopes;

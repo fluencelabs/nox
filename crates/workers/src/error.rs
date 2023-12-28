@@ -82,7 +82,7 @@ pub enum KeyManagerError {
 }
 
 #[derive(Debug, Error)]
-pub enum WorkerRegistryError {
+pub enum WorkersError {
     #[error("Error creating directory for persisted workers {path:?}: {err}")]
     CreateWorkersDir {
         path: PathBuf,

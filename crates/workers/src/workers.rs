@@ -1,4 +1,4 @@
-use crate::error::WorkerRegistryError;
+use crate::error::WorkersError;
 use crate::persistence::{load_persisted_workers, persist_worker, remove_worker, PersistedWorker};
 use crate::scope::Scopes;
 use crate::{DealId, KeyStorage, WorkerId};
@@ -65,19 +65,19 @@ impl Workers {
         &self,
         deal_id: String,
         init_peer_id: PeerId,
-    ) -> Result<PeerId, WorkerRegistryError> {
+    ) -> Result<PeerId, WorkersError> {
         let worker_id = {
             let guard = self.worker_ids.read();
             guard.get(&deal_id).cloned()
         };
         match worker_id {
-            Some(_) => Err(WorkerRegistryError::WorkerAlreadyExists { deal_id }),
+            Some(_) => Err(WorkersError::WorkerAlreadyExists { deal_id }),
             _ => {
                 let key_pair = self
                     .key_storage
                     .create_key_pair()
                     .await
-                    .map_err(|err| WorkerRegistryError::CreateWorkerKeyPair { err })?;
+                    .map_err(|err| WorkersError::CreateWorkerKeyPair { err })?;
 
                 let worker_id = key_pair.get_peer_id();
 
@@ -90,7 +90,7 @@ impl Workers {
                         let mut worker_infos = self.worker_infos.write();
 
                         if worker_ids.contains_key(&deal_id) {
-                            return Err(WorkerRegistryError::WorkerAlreadyExists { deal_id });
+                            return Err(WorkersError::WorkerAlreadyExists { deal_id });
                         }
 
                         worker_ids.insert(deal_id, worker_id);
@@ -106,7 +106,7 @@ impl Workers {
                         self.key_storage
                             .remove_key_pair(worker_id)
                             .await
-                            .map_err(|err| WorkerRegistryError::RemoveWorkerKeyPair { err })?;
+                            .map_err(|err| WorkersError::RemoveWorkerKeyPair { err })?;
 
                         return Err(err);
                     }
@@ -117,13 +117,13 @@ impl Workers {
         }
     }
 
-    pub fn get_worker_keypair(&self, worker_id: PeerId) -> Result<KeyPair, WorkerRegistryError> {
+    pub fn get_worker_keypair(&self, worker_id: PeerId) -> Result<KeyPair, WorkersError> {
         if self.scopes.is_host(worker_id) {
             Ok(self.key_storage.root_key_pair.clone())
         } else {
             self.key_storage
                 .get_key_pair(worker_id)
-                .ok_or(WorkerRegistryError::KeypairNotFound(worker_id))
+                .ok_or(WorkersError::KeypairNotFound(worker_id))
         }
     }
 
@@ -131,20 +131,20 @@ impl Workers {
         self.worker_infos.read().keys().cloned().collect()
     }
 
-    pub fn get_deal_id(&self, worker_id: PeerId) -> Result<DealId, WorkerRegistryError> {
+    pub fn get_deal_id(&self, worker_id: PeerId) -> Result<DealId, WorkersError> {
         self.worker_infos
             .read()
             .get(&worker_id)
-            .ok_or(WorkerRegistryError::WorkerNotFound(worker_id))
+            .ok_or(WorkersError::WorkerNotFound(worker_id))
             .map(|info| info.deal_id.clone())
     }
-    pub async fn remove_worker(&self, worker_id: PeerId) -> Result<(), WorkerRegistryError> {
+    pub async fn remove_worker(&self, worker_id: PeerId) -> Result<(), WorkersError> {
         let deal_id = self.get_deal_id(worker_id)?;
         remove_worker(&self.workers_dir, worker_id).await?;
         self.key_storage
             .remove_key_pair(worker_id)
             .await
-            .map_err(|err| WorkerRegistryError::RemoveWorkerKeyPair { err })?;
+            .map_err(|err| WorkersError::RemoveWorkerKeyPair { err })?;
 
         let mut worker_ids = self.worker_ids.write();
         let mut worker_infos = self.worker_infos.write();
@@ -157,15 +157,15 @@ impl Workers {
         Ok(())
     }
 
-    pub fn get_worker_id(&self, deal_id: String) -> Result<PeerId, WorkerRegistryError> {
+    pub fn get_worker_id(&self, deal_id: String) -> Result<PeerId, WorkersError> {
         self.worker_ids
             .read()
             .get(&deal_id)
             .cloned()
-            .ok_or(WorkerRegistryError::WorkerNotFoundByDeal(deal_id))
+            .ok_or(WorkersError::WorkerNotFoundByDeal(deal_id))
     }
 
-    pub fn get_worker_creator(&self, worker_id: PeerId) -> Result<PeerId, WorkerRegistryError> {
+    pub fn get_worker_creator(&self, worker_id: PeerId) -> Result<PeerId, WorkersError> {
         if self.scopes.is_host(worker_id) {
             Ok(worker_id)
         } else {
@@ -173,7 +173,7 @@ impl Workers {
                 .read()
                 .get(&worker_id)
                 .map(|i| i.creator)
-                .ok_or(WorkerRegistryError::WorkerNotFound(worker_id))
+                .ok_or(WorkersError::WorkerNotFound(worker_id))
         }
     }
 
@@ -182,7 +182,7 @@ impl Workers {
         worker_id: PeerId,
         deal_id: String,
         creator: PeerId,
-    ) -> Result<WorkerInfo, WorkerRegistryError> {
+    ) -> Result<WorkerInfo, WorkersError> {
         let worker_info = WorkerInfo {
             deal_id: deal_id.clone(),
             creator,
@@ -203,16 +203,12 @@ impl Workers {
         Ok(worker_info)
     }
 
-    async fn set_worker_status(
-        &self,
-        worker_id: PeerId,
-        status: bool,
-    ) -> Result<(), WorkerRegistryError> {
+    async fn set_worker_status(&self, worker_id: PeerId, status: bool) -> Result<(), WorkersError> {
         let (creator, deal_id) = {
             let guard = self.worker_infos.read();
             let worker_info = guard
                 .get(&worker_id)
-                .ok_or(WorkerRegistryError::WorkerNotFound(worker_id))?;
+                .ok_or(WorkersError::WorkerNotFound(worker_id))?;
             let mut active = worker_info.active.write();
             *active = status;
 
@@ -232,12 +228,12 @@ impl Workers {
         .await?;
         Ok(())
     }
-    pub async fn activate_worker(&self, worker_id: PeerId) -> Result<(), WorkerRegistryError> {
+    pub async fn activate_worker(&self, worker_id: PeerId) -> Result<(), WorkersError> {
         self.set_worker_status(worker_id, true).await?;
         Ok(())
     }
 
-    pub async fn deactivate_worker(&self, worker_id: PeerId) -> Result<(), WorkerRegistryError> {
+    pub async fn deactivate_worker(&self, worker_id: PeerId) -> Result<(), WorkersError> {
         self.set_worker_status(worker_id, false).await?;
         Ok(())
     }
