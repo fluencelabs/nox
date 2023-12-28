@@ -8695,6 +8695,7 @@ dependencies = [
  "serde",
  "thiserror",
  "tokio",
+ "tokio-stream",
  "toml 0.5.11",
  "tracing",
 ]

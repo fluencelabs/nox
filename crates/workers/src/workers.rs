@@ -1,5 +1,5 @@
 use crate::error::WorkerRegistryError;
-use crate::persistence::{persist_worker, remove_worker, PersistedWorker};
+use crate::persistence::{load_persisted_workers, persist_worker, remove_worker, PersistedWorker};
 use crate::scope::Scopes;
 use crate::{DealId, KeyManagerError, KeyStorage, WorkerId};
 use fluence_keypair::KeyPair;
@@ -259,40 +259,4 @@ impl Workers {
             }
         }
     }
-}
-
-/// Load info about persisted workers from disk
-async fn load_persisted_workers(workers_dir: &Path) -> eyre::Result<Vec<PersistedWorker>> {
-    let list_files = tokio::fs::read_dir(workers_dir).await.ok();
-
-    let mut workers = vec![];
-
-    match list_files {
-        Some(mut entries) => {
-            while let Some(entry) = entries.next_entry().await? {
-                let path = entry.path();
-                let res: eyre::Result<()> = try {
-                    if crate::persistence::is_worker(path.as_path()) {
-                        workers
-                            .push(crate::persistence::load_persisted_worker(path.as_path()).await?);
-                    }
-                };
-
-                if let Err(err) = res {
-                    log::warn!("{err}")
-                }
-            }
-        }
-        None => {
-            // Attempt to create directory
-            tokio::fs::create_dir_all(workers_dir)
-                .await
-                .map_err(|err| WorkerRegistryError::CreateWorkersDir {
-                    path: workers_dir.to_path_buf(),
-                    err,
-                })?;
-        }
-    };
-
-    Ok(workers)
 }

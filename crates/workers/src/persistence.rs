@@ -25,11 +25,16 @@ use crate::KeyManagerError::{
 };
 use fluence_keypair::{KeyFormat, KeyPair};
 use fluence_libp2p::peerid_serializer;
+use libp2p::futures::StreamExt;
 use libp2p::PeerId;
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
+use std::future::Future;
 use std::path::Path;
 use std::str::FromStr;
+use std::thread::available_parallelism;
+use tokio::fs::DirEntry;
+use tokio_stream::wrappers::ReadDirStream;
 
 pub const fn default_bool<const V: bool>() -> bool {
     V
@@ -95,7 +100,7 @@ pub(crate) fn is_worker(path: &Path) -> bool {
 }
 
 /// Persist keypair info to disk, so it is recreated after restart
-pub async fn persist_keypair(
+pub(crate) async fn persist_keypair(
     keypairs_dir: &Path,
     worker_id: PeerId,
     persisted_keypair: PersistedKeypair,
@@ -155,35 +160,50 @@ pub(crate) async fn load_persisted_worker(
     })
 }
 
+fn process_key_pair_dir_entry(
+    entry: DirEntry,
+) -> Option<impl Future<Output = Option<KeyPair>> + Sized> {
+    let path = entry.path();
+    if is_keypair(path.as_path()) {
+        let task = async move {
+            let res: eyre::Result<KeyPair> = try { load_persisted_keypair(path.as_path()).await? };
+            if let Err(err) = &res {
+                log::warn!("{err}")
+            }
+            res.ok()
+        };
+
+        Some(task)
+    } else {
+        None
+    }
+}
+
 /// Load info about persisted keypairs from disk
 pub(crate) async fn load_persisted_key_pairs(
     key_pairs_dir: &Path,
 ) -> Result<Vec<KeyPair>, KeyManagerError> {
+    let parallelism = available_parallelism().map(|x| x.get()).unwrap_or(2);
     let list_files = tokio::fs::read_dir(key_pairs_dir).await.ok();
-    let mut keypairs = vec![];
 
-    match list_files {
-        Some(mut entries) => {
-            while let Some(entry) =
-                entries
-                    .next_entry()
-                    .await
-                    .map_err(|err| KeyManagerError::DirectoryListError {
-                        path: key_pairs_dir.to_path_buf(),
-                        err,
-                    })?
-            {
-                let res: eyre::Result<()> = try {
-                    let file = entry.path();
-                    if is_keypair(file.as_path()) {
-                        keypairs.push(load_persisted_keypair(file.as_path()).await?);
+    let keypairs = match list_files {
+        Some(entries) => {
+            let keypairs: Vec<KeyPair> = ReadDirStream::new(entries)
+                .filter_map(|res| async {
+                    match res {
+                        Ok(entry) => process_key_pair_dir_entry(entry),
+                        Err(err) => {
+                            log::warn!("Could not read dir entry: {err}");
+                            None
+                        }
                     }
-                };
+                })
+                .buffer_unordered(parallelism)
+                .filter_map(|e| async { e })
+                .collect()
+                .await;
 
-                if let Err(err) = res {
-                    log::warn!("{err}")
-                }
-            }
+            keypairs
         }
         None => {
             // Attempt to create directory
@@ -193,13 +213,17 @@ pub(crate) async fn load_persisted_key_pairs(
                     path: key_pairs_dir.to_path_buf(),
                     err,
                 })?;
+            vec![]
         }
     };
 
     Ok(keypairs)
 }
 
-pub async fn remove_keypair(keypairs_dir: &Path, worker_id: PeerId) -> Result<(), KeyManagerError> {
+pub(crate) async fn remove_keypair(
+    keypairs_dir: &Path,
+    worker_id: PeerId,
+) -> Result<(), KeyManagerError> {
     let path = keypairs_dir.join(keypair_file_name(worker_id));
     tokio::fs::remove_file(path.clone())
         .await
@@ -224,7 +248,7 @@ pub(crate) async fn persist_worker(
         .map_err(|err| WorkerRegistryError::WriteErrorPersistedWorker { path, err })
 }
 
-pub async fn remove_worker(
+pub(crate) async fn remove_worker(
     workers_dir: &Path,
     worker_id: PeerId,
 ) -> Result<(), WorkerRegistryError> {
@@ -236,4 +260,64 @@ pub async fn remove_worker(
             err,
         }
     })
+}
+
+/// Load info about persisted workers from disk
+pub(crate) async fn load_persisted_workers(
+    workers_dir: &Path,
+) -> eyre::Result<Vec<PersistedWorker>> {
+    let parallelism = available_parallelism().map(|x| x.get()).unwrap_or(2);
+    let list_files = tokio::fs::read_dir(workers_dir).await.ok();
+    let workers = match list_files {
+        Some(entries) => {
+            let workers: Vec<PersistedWorker> = ReadDirStream::new(entries)
+                .filter_map(|res| async {
+                    match res {
+                        Ok(entry) => process_worker_dir_entry(entry),
+                        Err(err) => {
+                            log::warn!("Could not read dir entry: {err}");
+                            None
+                        }
+                    }
+                })
+                .buffer_unordered(parallelism)
+                .filter_map(|e| async { e })
+                .collect()
+                .await;
+
+            workers
+        }
+        None => {
+            // Attempt to create directory
+            tokio::fs::create_dir_all(workers_dir)
+                .await
+                .map_err(|err| WorkerRegistryError::CreateWorkersDir {
+                    path: workers_dir.to_path_buf(),
+                    err,
+                })?;
+            vec![]
+        }
+    };
+
+    Ok(workers)
+}
+
+fn process_worker_dir_entry(
+    entry: DirEntry,
+) -> Option<impl Future<Output = Option<PersistedWorker>> + Sized> {
+    let path = entry.path();
+    if crate::persistence::is_worker(path.as_path()) {
+        let task = async move {
+            let res: eyre::Result<PersistedWorker> =
+                try { crate::persistence::load_persisted_worker(path.as_path()).await? };
+            if let Err(err) = &res {
+                log::warn!("{err}")
+            }
+            res.ok()
+        };
+
+        Some(task)
+    } else {
+        None
+    }
 }
