@@ -18,7 +18,6 @@ use std::net::IpAddr;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-use fluence_keypair::KeyPair;
 use libp2p::core::Multiaddr;
 use libp2p::identity::ed25519::Keypair;
 use libp2p::identity::PublicKey;
@@ -26,7 +25,7 @@ use libp2p::PeerId;
 
 use fluence_libp2p::Transport;
 
-use crate::node_config::{KeypairConfig, PathOrValue};
+use crate::node_config::PathOrValue;
 use crate::system_services_config::ServiceKey;
 
 const CONFIG_VERSION: usize = 1;
@@ -95,44 +94,16 @@ pub fn avm_base_dir(base_dir: &Path) -> PathBuf {
     base_dir.join("stepper")
 }
 
-pub fn default_keypair_path() -> PathOrValue {
+pub fn default_keypair_path(base_dir: &Path) -> PathOrValue {
     PathOrValue::Path {
-        path: default_base_dir().join("secret_key.ed25519"),
+        path: base_dir.join("secret_key.ed25519"),
     }
 }
 
-pub fn default_builtins_keypair_path() -> PathOrValue {
+pub fn default_builtins_keypair_path(base_dir: &Path) -> PathOrValue {
     PathOrValue::Path {
-        path: default_base_dir().join("builtins_secret_key.ed25519"),
+        path: base_dir.join("builtins_secret_key.ed25519"),
     }
-}
-
-pub fn default_root_keypair() -> KeyPair {
-    let config = KeypairConfig {
-        format: default_key_format(),
-        keypair: None,
-        secret_key: None,
-        generate_on_absence: true,
-    };
-
-    config
-        // TODO: respect base_dir https://github.com/fluencelabs/fluence/issues/1210
-        .get_keypair(default_keypair_path())
-        .expect("generate default root keypair")
-}
-
-pub fn default_builtins_keypair() -> KeyPair {
-    let config = KeypairConfig {
-        format: default_key_format(),
-        keypair: None,
-        secret_key: None,
-        generate_on_absence: true,
-    };
-
-    config
-        // TODO: respect base_dir https://github.com/fluencelabs/fluence/issues/1210
-        .get_keypair(default_builtins_keypair_path())
-        .expect("generate default builtins keypair")
 }
 
 pub fn default_aquavm_pool_size() -> usize {
