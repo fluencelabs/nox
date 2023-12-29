@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.16.13](https://github.com/fluencelabs/nox/compare/nox-v0.16.12...nox-v0.16.13) (2023-12-29)
+
+
+### Bug Fixes
+
+* **config:** respect base_dir in keypair generation ([#1998](https://github.com/fluencelabs/nox/issues/1998)) ([e2b99bf](https://github.com/fluencelabs/nox/commit/e2b99bff5917197f6b02d5a415a60bdd7b14a98b))
+* **deps:** update rust crate decider-distro to v0.5.12 ([#2000](https://github.com/fluencelabs/nox/issues/2000)) ([c35e6e3](https://github.com/fluencelabs/nox/commit/c35e6e39aeaf153aeff413ea8be67e03efbd1252))
+* **deps:** update rust crate fluence-keypair to 0.10.4 ([#1990](https://github.com/fluencelabs/nox/issues/1990)) ([ed5f5d0](https://github.com/fluencelabs/nox/commit/ed5f5d0dafc175a9a81bd33bbe8b891e6a0be62e))
+* **deps:** update rust crate registry-distro to v0.9.2 ([#1970](https://github.com/fluencelabs/nox/issues/1970)) ([fb072a0](https://github.com/fluencelabs/nox/commit/fb072a0198f0d9c961739952723ffe37fc976ec2))
+* **deps:** update rust crate trust-graph-distro to v0.4.9 ([#1999](https://github.com/fluencelabs/nox/issues/1999)) ([7b9b376](https://github.com/fluencelabs/nox/commit/7b9b37685426e0e766fa46dadbdb3f6c3bdaacd0))
+
 ## [0.16.12](https://github.com/fluencelabs/nox/compare/nox-v0.16.11...nox-v0.16.12) (2023-12-28)
 
 
