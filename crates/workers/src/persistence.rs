@@ -308,7 +308,8 @@ fn process_worker_dir_entry(
     let path = entry.path();
     if is_worker(path.as_path()) {
         let task = async move {
-            let res: eyre::Result<PersistedWorker> = try { load_persisted_worker(path.as_path()).await? };
+            let res: eyre::Result<PersistedWorker> =
+                try { load_persisted_worker(path.as_path()).await? };
             if let Err(err) = &res {
                 log::warn!("Failed to load worker: {err}")
             }

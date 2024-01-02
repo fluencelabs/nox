@@ -139,6 +139,7 @@ impl Workers {
             .ok_or(WorkersError::WorkerNotFound(worker_id))
             .map(|info| info.deal_id.clone())
     }
+
     pub async fn remove_worker(&self, worker_id: PeerId) -> Result<(), WorkersError> {
         let deal_id = self.get_deal_id(worker_id)?;
         remove_worker(&self.workers_dir, worker_id).await?;
