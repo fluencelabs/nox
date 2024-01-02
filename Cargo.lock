@@ -8563,6 +8563,7 @@ dependencies = [
 name = "workers"
 version = "0.1.0"
 dependencies = [
+ "derivative",
  "eyre",
  "fluence-keypair",
  "fluence-libp2p",
