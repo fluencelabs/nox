@@ -14,15 +14,16 @@
  * limitations under the License.
  */
 
-use crate::error::KeyManagerError::{
+use crate::error::KeyStorageError::{
     CannotExtractRSASecretKey, CreateKeypairsDir, DeserializePersistedKeypair,
     ReadPersistedKeypair, SerializePersistedKeypair, WriteErrorPersistedKeypair,
 };
-use crate::error::{KeyManagerError, WorkersError};
+use crate::error::{KeyStorageError, WorkersError};
 use crate::workers::WorkerInfo;
-use crate::KeyManagerError::{
+use crate::KeyStorageError::{
     PersistedKeypairDecodingError, PersistedKeypairInvalidKeyformat, RemoveErrorPersistedKeypair,
 };
+use crate::DEFAULT_PARALLELISM;
 use fluence_keypair::{KeyFormat, KeyPair};
 use fluence_libp2p::peerid_serializer;
 use libp2p::futures::StreamExt;
@@ -69,7 +70,7 @@ impl From<PersistedWorker> for WorkerInfo {
 }
 
 impl TryFrom<&KeyPair> for PersistedKeypair {
-    type Error = KeyManagerError;
+    type Error = KeyStorageError;
 
     fn try_from(keypair: &KeyPair) -> Result<Self, Self::Error> {
         Ok(Self {
@@ -104,7 +105,7 @@ pub(crate) async fn persist_keypair(
     keypairs_dir: &Path,
     worker_id: PeerId,
     persisted_keypair: PersistedKeypair,
-) -> Result<(), KeyManagerError> {
+) -> Result<(), KeyStorageError> {
     let path = keypairs_dir.join(keypair_file_name(worker_id));
     let bytes =
         toml::to_vec(&persisted_keypair).map_err(|err| SerializePersistedKeypair { err })?;
@@ -113,7 +114,7 @@ pub(crate) async fn persist_keypair(
         .map_err(|err| WriteErrorPersistedKeypair { path, err })
 }
 
-async fn load_persisted_keypair(file: &Path) -> Result<KeyPair, KeyManagerError> {
+async fn load_persisted_keypair(file: &Path) -> Result<KeyPair, KeyStorageError> {
     let bytes = tokio::fs::read(file)
         .await
         .map_err(|err| ReadPersistedKeypair {
@@ -163,7 +164,7 @@ fn process_key_pair_dir_entry(
         let task = async move {
             let res: eyre::Result<KeyPair> = try { load_persisted_keypair(path.as_path()).await? };
             if let Err(err) = &res {
-                log::warn!("{err}")
+                log::warn!("Failed to load key pair: {err}")
             }
             res.ok()
         };
@@ -174,11 +175,13 @@ fn process_key_pair_dir_entry(
     }
 }
 
-/// Load info about persisted keypairs from disk
+/// Load info about persisted key pairs from disk
 pub(crate) async fn load_persisted_key_pairs(
     key_pairs_dir: &Path,
-) -> Result<Vec<KeyPair>, KeyManagerError> {
-    let parallelism = available_parallelism().map(|x| x.get()).unwrap_or(2);
+) -> Result<Vec<KeyPair>, KeyStorageError> {
+    let parallelism = available_parallelism()
+        .map(|x| x.get())
+        .unwrap_or(DEFAULT_PARALLELISM);
     let list_files = tokio::fs::read_dir(key_pairs_dir).await.ok();
 
     let keypairs = match list_files {
@@ -218,7 +221,7 @@ pub(crate) async fn load_persisted_key_pairs(
 pub(crate) async fn remove_keypair(
     keypairs_dir: &Path,
     worker_id: PeerId,
-) -> Result<(), KeyManagerError> {
+) -> Result<(), KeyStorageError> {
     let path = keypairs_dir.join(keypair_file_name(worker_id));
     tokio::fs::remove_file(path.clone())
         .await
@@ -261,7 +264,9 @@ pub(crate) async fn remove_worker(
 pub(crate) async fn load_persisted_workers(
     workers_dir: &Path,
 ) -> eyre::Result<Vec<PersistedWorker>> {
-    let parallelism = available_parallelism().map(|x| x.get()).unwrap_or(2);
+    let parallelism = available_parallelism()
+        .map(|x| x.get())
+        .unwrap_or(DEFAULT_PARALLELISM);
     let list_files = tokio::fs::read_dir(workers_dir).await.ok();
     let workers = match list_files {
         Some(entries) => {
@@ -306,7 +311,7 @@ fn process_worker_dir_entry(
             let res: eyre::Result<PersistedWorker> =
                 try { crate::persistence::load_persisted_worker(path.as_path()).await? };
             if let Err(err) = &res {
-                log::warn!("{err}")
+                log::warn!("Failed to load worker: {err}")
             }
             res.ok()
         };

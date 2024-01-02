@@ -21,7 +21,7 @@ use libp2p::PeerId;
 use parking_lot::RwLock;
 
 use crate::persistence::{load_persisted_key_pairs, persist_keypair, remove_keypair};
-use crate::{KeyManagerError, WorkerId};
+use crate::{KeyStorageError, WorkerId};
 use fluence_keypair::KeyPair;
 
 pub struct KeyStorage {
@@ -43,7 +43,7 @@ impl KeyStorage {
     pub async fn from_path(
         key_pairs_dir: &Path,
         root_key_pair: KeyPair,
-    ) -> Result<Self, KeyManagerError> {
+    ) -> Result<Self, KeyStorageError> {
         let key_pairs = load_persisted_key_pairs(key_pairs_dir).await?;
 
         let mut worker_key_pairs = HashMap::with_capacity(key_pairs.len());
@@ -62,7 +62,7 @@ impl KeyStorage {
         self.worker_key_pairs.read().get(&worker_id).cloned()
     }
 
-    pub async fn create_key_pair(&self) -> Result<KeyPair, KeyManagerError> {
+    pub async fn create_key_pair(&self) -> Result<KeyPair, KeyStorageError> {
         let keypair = KeyPair::generate_ed25519();
         let worker_id = keypair.get_peer_id();
         persist_keypair(&self.key_pairs_dir, worker_id, (&keypair).try_into()?).await?;
@@ -71,7 +71,7 @@ impl KeyStorage {
         Ok(keypair)
     }
 
-    pub async fn remove_key_pair(&self, worker_id: WorkerId) -> Result<(), KeyManagerError> {
+    pub async fn remove_key_pair(&self, worker_id: WorkerId) -> Result<(), KeyStorageError> {
         remove_keypair(&self.key_pairs_dir, worker_id).await?;
         let mut guard = self.worker_key_pairs.write();
         guard.remove(&worker_id);

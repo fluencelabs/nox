@@ -19,7 +19,7 @@ use std::path::PathBuf;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
-pub enum KeyManagerError {
+pub enum KeyStorageError {
     #[error("Failed to persist keypair: RSA is not supported")]
     CannotExtractRSASecretKey,
     #[error("Error reading persisted keypair from {path:?}: {err}")]
@@ -92,12 +92,12 @@ pub enum WorkersError {
     #[error("Error creating key pair for worker: {err}")]
     CreateWorkerKeyPair {
         #[source]
-        err: KeyManagerError,
+        err: KeyStorageError,
     },
     #[error("Error removing key pair for worker: {err}")]
     RemoveWorkerKeyPair {
         #[source]
-        err: KeyManagerError,
+        err: KeyStorageError,
     },
     #[error("Error reading persisted worker from {path:?}: {err}")]
     ReadPersistedWorker {
