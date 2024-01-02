@@ -61,7 +61,7 @@ impl Sorcerer {
     ) -> Result<Particle, JError> {
         let spell_keypair =
             self.workers
-                .get_worker_keypair(worker_id)
+                .get_keypair(worker_id)
                 .map_err(|err| ScopeKeypairMissing {
                     err,
                     spell_id: spell_id.clone(),

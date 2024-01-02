@@ -145,7 +145,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
             Entry::Vacant(entry) => {
                 let params = ParticleParams::clone_from(particle.as_ref(), worker_id);
                 let functions = Functions::new(params, builtins.clone());
-                let key_pair = self.workers.get_worker_keypair(worker_id);
+                let key_pair = self.workers.get_keypair(worker_id);
                 let deal_id = self.workers.get_deal_id(worker_id).ok();
                 let data_store = self.data_store.clone();
                 key_pair.map(|kp| {

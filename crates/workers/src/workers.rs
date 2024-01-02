@@ -118,7 +118,7 @@ impl Workers {
         }
     }
 
-    pub fn get_worker_keypair(&self, worker_id: PeerId) -> Result<KeyPair, WorkersError> {
+    pub fn get_keypair(&self, worker_id: PeerId) -> Result<KeyPair, WorkersError> {
         if self.scope.is_host(worker_id) {
             Ok(self.key_storage.root_key_pair.clone())
         } else {
@@ -343,7 +343,7 @@ mod tests {
         assert_eq!(key_pair_1.clone().unwrap().get_peer_id(), worker_id);
 
         let key_pair_2 = workers
-            .get_worker_keypair(worker_id)
+            .get_keypair(worker_id)
             .expect("Failed to get deal id");
 
         assert_eq!(key_pair_1.unwrap().to_vec(), key_pair_2.to_vec());

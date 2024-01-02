@@ -905,7 +905,7 @@ where
                 return Err(JError::new(format!("expected tetraplet for a scalar argument, got tetraplet for an array: {tetraplet:?}, tetraplets")));
             }
 
-            let keypair = self.workers.get_worker_keypair(params.host_id)?;
+            let keypair = self.workers.get_keypair(params.host_id)?;
             json!(keypair.sign(&data)?.to_vec())
         };
 
@@ -928,7 +928,7 @@ where
         let mut args = args.function_args.into_iter();
         let signature: Vec<u8> = Args::next("signature", &mut args)?;
         let data: Vec<u8> = Args::next("data", &mut args)?;
-        let pk = self.workers.get_worker_keypair(params.host_id)?.public();
+        let pk = self.workers.get_keypair(params.host_id)?.public();
         let signature = Signature::from_bytes(pk.get_key_format(), signature);
 
         Ok(JValue::Bool(pk.verify(&data, &signature).is_ok()))
