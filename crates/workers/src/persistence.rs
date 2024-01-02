@@ -197,6 +197,7 @@ pub(crate) async fn load_persisted_key_pairs(
                     }
                 })
                 .buffer_unordered(parallelism)
+                //collect only loaded key pairs and unwrap Option
                 .filter_map(|e| async { e })
                 .collect()
                 .await;
@@ -281,6 +282,7 @@ pub(crate) async fn load_persisted_workers(
                     }
                 })
                 .buffer_unordered(parallelism)
+                //collect only loaded workers and unwrap Option
                 .filter_map(|e| async { e })
                 .collect()
                 .await;
