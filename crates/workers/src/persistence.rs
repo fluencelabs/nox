@@ -223,7 +223,7 @@ pub(crate) async fn remove_keypair(
     worker_id: PeerId,
 ) -> Result<(), KeyStorageError> {
     let path = keypairs_dir.join(keypair_file_name(worker_id));
-    tokio::fs::remove_file(path.clone())
+    tokio::fs::remove_file(path.as_path())
         .await
         .map_err(|err| RemoveErrorPersistedKeypair {
             path,
@@ -251,7 +251,7 @@ pub(crate) async fn remove_worker(
     worker_id: PeerId,
 ) -> Result<(), WorkersError> {
     let path = workers_dir.join(worker_file_name(worker_id));
-    tokio::fs::remove_file(path.clone()).await.map_err(|err| {
+    tokio::fs::remove_file(path.as_path()).await.map_err(|err| {
         WorkersError::RemoveErrorPersistedWorker {
             path,
             worker_id,
