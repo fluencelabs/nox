@@ -14,21 +14,12 @@
  * limitations under the License.
  */
 
-use eyre::WrapErr;
-use fluence_keypair::KeyPair;
 use std::sync::Arc;
 use std::{io, net::SocketAddr};
 
-use aquamarine::{
-    AquaRuntime, AquamarineApi, AquamarineApiError, AquamarineBackend, DataStoreConfig,
-    RoutingEffects, VmPoolConfig,
-};
-use config_utils::to_peer_id;
-use connection_pool::ConnectionPoolT;
-use fluence_libp2p::build_transport;
+use eyre::WrapErr;
 use futures::future::OptionFuture;
 use futures::{stream::StreamExt, FutureExt};
-use health::HealthCheckRegistry;
 use libp2p::swarm::SwarmEvent;
 use libp2p::SwarmBuilder;
 use libp2p::{
@@ -38,6 +29,20 @@ use libp2p::{
 };
 use libp2p_connection_limits::ConnectionLimits;
 use libp2p_metrics::{Metrics, Recorder};
+use prometheus_client::registry::Registry;
+use tokio::sync::{mpsc, oneshot};
+use tokio::task;
+use tracing::Instrument;
+
+use aquamarine::{
+    AquaRuntime, AquamarineApi, AquamarineApiError, AquamarineBackend, DataStoreConfig,
+    RoutingEffects, VmPoolConfig,
+};
+use config_utils::to_peer_id;
+use connection_pool::ConnectionPoolT;
+use fluence_keypair::KeyPair;
+use fluence_libp2p::build_transport;
+use health::HealthCheckRegistry;
 use particle_builtins::{Builtins, CustomService, NodeInfo};
 use particle_execution::ParticleFunctionStatic;
 use particle_protocol::ExtendedParticle;
@@ -45,26 +50,21 @@ use peer_metrics::{
     ConnectionPoolMetrics, ConnectivityMetrics, ParticleExecutorMetrics, ServicesMetrics,
     ServicesMetricsBackend, SpellMetrics, VmPoolMetrics,
 };
-use prometheus_client::registry::Registry;
 use server_config::{NetworkConfig, ResolvedConfig, ServicesConfig};
 use sorcerer::Sorcerer;
 use spell_event_bus::api::{PeerEvent, SpellEventBusApi, TriggerEvent};
 use spell_event_bus::bus::SpellEventBus;
 use system_services::{Deployer, SystemServiceDistros};
-use tokio::sync::{mpsc, oneshot};
-use tokio::task;
-use tracing::Instrument;
 use workers::{KeyStorage, Scope, Workers};
-
-use crate::builtins::make_peer_builtin;
-use crate::dispatcher::Dispatcher;
-use crate::effectors::Effectors;
-use crate::{Connectivity, Versions};
 
 use super::behaviour::FluenceNetworkBehaviour;
 use crate::behaviour::FluenceNetworkBehaviourEvent;
+use crate::builtins::make_peer_builtin;
+use crate::dispatcher::Dispatcher;
+use crate::effectors::Effectors;
 use crate::http::start_http_endpoint;
 use crate::metrics::TokioCollector;
+use crate::{Connectivity, Versions};
 
 // TODO: documentation
 pub struct Node<RT: AquaRuntime> {
