@@ -181,10 +181,7 @@ pub(crate) async fn spell_install(
     .await?;
 
     if let Some(alias) = alias {
-        if let Err(e) = services
-            .add_alias(alias.clone(), worker_id, spell_id.clone(), worker_id)
-            .await
-        {
+        if let Err(e) = services.add_alias(alias.clone(), worker_id, spell_id.clone(), worker_id) {
             // Remove the spell if we failed to add an alias
             remove_spell(
                 &params.id,

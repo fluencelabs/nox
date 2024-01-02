@@ -225,14 +225,12 @@ impl Deployer {
         )
         .await
         .map_err(|e| eyre!(e))?;
-        self.services
-            .add_alias(
-                spell_distro.name.to_string(),
-                self.root_worker_id,
-                spell_id.clone(),
-                self.management_id,
-            )
-            .await?;
+        self.services.add_alias(
+            spell_distro.name.to_string(),
+            self.root_worker_id,
+            spell_id.clone(),
+            self.management_id,
+        )?;
         Ok(spell_id)
     }
 
@@ -306,14 +304,12 @@ impl Deployer {
             self.root_worker_id,
             self.root_worker_id,
         )?;
-        self.services
-            .add_alias(
-                service_name.to_string(),
-                self.root_worker_id,
-                service_id.clone(),
-                self.management_id,
-            )
-            .await?;
+        self.services.add_alias(
+            service_name.to_string(),
+            self.root_worker_id,
+            service_id.clone(),
+            self.management_id,
+        )?;
         tracing::info!(service_name, service_id, "deployed a new service");
         Ok(ServiceStatus::Created(service_id))
     }
