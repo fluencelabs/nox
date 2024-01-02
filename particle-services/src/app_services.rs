@@ -1264,13 +1264,12 @@ mod tests {
         let service_id1 = create_service(&pas, module_name, &m_hash, local_pid).unwrap();
 
         let alias = "alias";
-        let result = pas
-            .add_alias(
-                alias.to_string(),
-                local_pid,
-                service_id1.clone(),
-                management_pid,
-            );
+        let result = pas.add_alias(
+            alias.to_string(),
+            local_pid,
+            service_id1.clone(),
+            management_pid,
+        );
         // result of the add_alias call must be ok
         assert!(result.is_ok(), "{}", result.unwrap_err());
 
