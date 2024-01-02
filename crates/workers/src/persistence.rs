@@ -191,7 +191,7 @@ pub(crate) async fn load_persisted_key_pairs(
                     match res {
                         Ok(entry) => process_key_pair_dir_entry(entry),
                         Err(err) => {
-                            log::warn!("Could not read dir entry: {err}");
+                            log::warn!("Could not read key pairs directory: {err}");
                             None
                         }
                     }
@@ -275,7 +275,7 @@ pub(crate) async fn load_persisted_workers(
                     match res {
                         Ok(entry) => process_worker_dir_entry(entry),
                         Err(err) => {
-                            log::warn!("Could not read dir entry: {err}");
+                            log::warn!("Could not read workers directory: {err}");
                             None
                         }
                     }
