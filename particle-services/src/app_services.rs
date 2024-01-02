@@ -633,7 +633,7 @@ impl ParticleAppServices {
         service.persist(&self.config.services_dir)
     }
 
-    pub async fn add_alias(
+    pub fn add_alias(
         &self,
         alias: String,
         worker_id: PeerId,
