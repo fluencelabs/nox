@@ -191,13 +191,13 @@ impl Workers {
             PersistedWorker {
                 worker_id,
                 creator,
-                deal_id,
+                deal_id: deal_id.clone(),
                 active: true,
             },
         )
         .await?;
         let worker_info = WorkerInfo {
-            deal_id: deal_id.clone(),
+            deal_id,
             creator,
             active: RwLock::new(true),
         };
