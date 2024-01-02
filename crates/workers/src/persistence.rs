@@ -305,10 +305,10 @@ pub(crate) async fn load_persisted_workers(
 fn process_worker_dir_entry(
     entry: DirEntry,
 ) -> Option<impl Future<Output = Option<PersistedWorker>> + Sized> {
-    let path = entry.path().as_path();
-    if is_worker(path) {
+    let path = entry.path();
+    if is_worker(path.as_path()) {
         let task = async move {
-            let res: eyre::Result<PersistedWorker> = try { load_persisted_worker(path).await? };
+            let res: eyre::Result<PersistedWorker> = try { load_persisted_worker(path.as_path()).await? };
             if let Err(err) = &res {
                 log::warn!("Failed to load worker: {err}")
             }

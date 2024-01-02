@@ -3,13 +3,13 @@ use fluence_libp2p::PeerId;
 use std::sync::Arc;
 
 #[derive(Clone)]
-pub struct Scopes {
+pub struct Scope {
     host_peer_id: PeerId,
     management_peer_id: PeerId,
     builtins_management_peer_id: PeerId,
     key_storage: Arc<KeyStorage>,
 }
-impl Scopes {
+impl Scope {
     pub fn new(
         host_peer_id: PeerId,
         management_peer_id: PeerId,

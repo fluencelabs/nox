@@ -282,7 +282,7 @@ mod tests {
     use maplit::hashmap;
     use serde_json::json;
     use std::time::Duration;
-    use workers::{KeyStorage, Scopes, Workers};
+    use workers::{KeyStorage, Scope, Workers};
 
     use crate::{CallParams, SpellServiceApi};
 
@@ -312,14 +312,14 @@ mod tests {
 
         let key_storage = Arc::new(key_storage);
 
-        let scopes = Scopes::new(
+        let scope = Scope::new(
             root_key_pair.get_peer_id(),
             management_pid,
             to_peer_id(&startup_kp),
             key_storage.clone(),
         );
 
-        let workers = Workers::from_path(workers_dir.as_path(), key_storage, scopes.clone())
+        let workers = Workers::from_path(workers_dir.as_path(), key_storage, scope.clone())
             .await
             .expect("Could not load worker registry");
 
@@ -354,7 +354,7 @@ mod tests {
             None,
             None,
             workers.clone(),
-            scopes.clone(),
+            scope.clone(),
         );
         (pas, repo)
     }

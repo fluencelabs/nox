@@ -38,7 +38,7 @@ use peer_metrics::ParticleExecutorMetrics;
 /// Get current time from OS
 #[cfg(not(test))]
 use real_time::now_ms;
-use workers::{Scopes, Workers};
+use workers::{Scope, Workers};
 
 use crate::actor::{Actor, ActorPoll};
 use crate::aqua_runtime::AquaRuntime;
@@ -66,7 +66,7 @@ pub struct Plumber<RT: AquaRuntime, F> {
     waker: Option<Waker>,
     metrics: Option<ParticleExecutorMetrics>,
     workers: Arc<Workers>,
-    scopes: Scopes,
+    scope: Scope,
     cleanup_future: Option<BoxFuture<'static, ()>>,
 }
 
@@ -77,7 +77,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
         builtins: F,
         metrics: Option<ParticleExecutorMetrics>,
         workers: Arc<Workers>,
-        scopes: Scopes,
+        scope: Scope,
     ) -> Self {
         Self {
             vm_pool,
@@ -88,7 +88,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
             waker: <_>::default(),
             metrics,
             workers,
-            scopes,
+            scope,
             cleanup_future: None,
         }
     }
@@ -124,8 +124,8 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
         }
 
         let is_active = self.workers.is_worker_active(worker_id);
-        let is_manager = self.scopes.is_management(particle.particle.init_peer_id);
-        let is_host = self.scopes.is_host(particle.particle.init_peer_id);
+        let is_manager = self.scope.is_management(particle.particle.init_peer_id);
+        let is_host = self.scope.is_host(particle.particle.init_peer_id);
 
         // Only a manager or the host itself is allowed to access deactivated workers
         if !is_active && !is_manager && !is_host {
@@ -231,7 +231,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
                     .effects
                     .next_peers
                     .into_iter()
-                    .partition(|p| self.scopes.is_local(*p));
+                    .partition(|p| self.scope.is_local(*p));
 
                 if !remote_peers.is_empty() {
                     remote_effects.push(RoutingEffects {
@@ -381,7 +381,7 @@ mod tests {
     use fluence_keypair::KeyPair;
     use fluence_libp2p::RandomPeerId;
     use futures::task::noop_waker_ref;
-    use workers::{KeyStorage, Scopes, Workers};
+    use workers::{KeyStorage, Scope, Workers};
 
     use particle_args::Args;
     use particle_execution::{FunctionOutcome, ParticleFunction, ParticleParams, ServiceFunction};
@@ -480,14 +480,14 @@ mod tests {
 
         let key_storage = Arc::new(key_storage);
 
-        let scopes = Scopes::new(
+        let scope = Scope::new(
             root_key_pair.get_peer_id(),
             RandomPeerId::random(),
             RandomPeerId::random(),
             key_storage.clone(),
         );
 
-        let workers = Workers::from_path(workers_path.as_path(), key_storage, scopes.clone())
+        let workers = Workers::from_path(workers_path.as_path(), key_storage, scope.clone())
             .await
             .expect("Could not load worker registry");
 
@@ -512,7 +512,7 @@ mod tests {
             builtin_mock,
             None,
             workers.clone(),
-            scopes.clone(),
+            scope.clone(),
         )
     }
 

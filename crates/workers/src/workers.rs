@@ -1,6 +1,6 @@
 use crate::error::WorkersError;
 use crate::persistence::{load_persisted_workers, persist_worker, remove_worker, PersistedWorker};
-use crate::scope::Scopes;
+use crate::scope::Scope;
 use crate::{DealId, KeyStorage, WorkerId};
 use fluence_keypair::KeyPair;
 use fluence_libp2p::PeerId;
@@ -23,24 +23,24 @@ pub struct Workers {
     workers_dir: PathBuf,
 
     key_storage: Arc<KeyStorage>,
-    scopes: Scopes,
+    scope: Scope,
 }
 
 impl Workers {
-    pub fn new(key_storage: Arc<KeyStorage>, scopes: Scopes) -> Self {
+    pub fn new(key_storage: Arc<KeyStorage>, scope: Scope) -> Self {
         Self {
             worker_ids: Default::default(),
             worker_infos: Default::default(),
             workers_dir: Default::default(),
             key_storage,
-            scopes,
+            scope,
         }
     }
 
     pub async fn from_path(
         workers_dir: &Path,
         key_storage: Arc<KeyStorage>,
-        scopes: Scopes,
+        scope: Scope,
     ) -> eyre::Result<Self> {
         let workers = load_persisted_workers(workers_dir).await?;
         let mut worker_ids = HashMap::with_capacity(workers.len());
@@ -57,7 +57,7 @@ impl Workers {
             worker_infos: RwLock::new(worker_infos),
             workers_dir: workers_dir.to_path_buf(),
             key_storage,
-            scopes,
+            scope,
         })
     }
 
@@ -118,7 +118,7 @@ impl Workers {
     }
 
     pub fn get_worker_keypair(&self, worker_id: PeerId) -> Result<KeyPair, WorkersError> {
-        if self.scopes.is_host(worker_id) {
+        if self.scope.is_host(worker_id) {
             Ok(self.key_storage.root_key_pair.clone())
         } else {
             self.key_storage
@@ -166,7 +166,7 @@ impl Workers {
     }
 
     pub fn get_worker_creator(&self, worker_id: PeerId) -> Result<PeerId, WorkersError> {
-        if self.scopes.is_host(worker_id) {
+        if self.scope.is_host(worker_id) {
             Ok(worker_id)
         } else {
             self.worker_infos
@@ -240,7 +240,7 @@ impl Workers {
 
     pub fn is_worker_active(&self, worker_id: PeerId) -> bool {
         // host is always active
-        if self.scopes.is_host(worker_id) {
+        if self.scope.is_host(worker_id) {
             return true;
         }
 
@@ -263,7 +263,7 @@ impl Workers {
 
 #[cfg(test)]
 mod tests {
-    use crate::{KeyStorage, Scopes, Workers};
+    use crate::{KeyStorage, Scope, Workers};
     use libp2p::PeerId;
     use std::sync::Arc;
     use tempfile::tempdir;
@@ -282,15 +282,15 @@ mod tests {
                 .await
                 .expect("Failed to create KeyStorage from path"),
         );
-        let scopes = Scopes::new(
+        let scope = Scope::new(
             PeerId::random(),
             PeerId::random(),
             PeerId::random(),
             key_storage.clone(),
-        ); // Customize with appropriate scopes
+        ); // Customize with appropriate scope
 
         // Create a new Workers instance
-        let workers = Workers::from_path(&workers_dir, key_storage.clone(), scopes.clone())
+        let workers = Workers::from_path(&workers_dir, key_storage.clone(), scope.clone())
             .await
             .expect("Failed to create Workers from path");
 
@@ -315,15 +315,15 @@ mod tests {
                 .expect("Failed to create KeyStorage from path"),
         );
         let host_peer_id = PeerId::random();
-        let scopes = Scopes::new(
+        let scope = Scope::new(
             host_peer_id,
             PeerId::random(),
             PeerId::random(),
             key_storage.clone(),
-        ); // Customize with appropriate scopes
+        ); // Customize with appropriate scope
 
         // Create a new Workers instance
-        let workers = Workers::from_path(&workers_dir, key_storage.clone(), scopes.clone())
+        let workers = Workers::from_path(&workers_dir, key_storage.clone(), scope.clone())
             .await
             .expect("Failed to create Workers from path");
 
@@ -380,15 +380,15 @@ mod tests {
                 .await
                 .expect("Failed to create KeyStorage from path"),
         );
-        let scopes = Scopes::new(
+        let scope = Scope::new(
             PeerId::random(),
             PeerId::random(),
             PeerId::random(),
             key_storage.clone(),
-        ); // Customize with appropriate scopes
+        ); // Customize with appropriate scope
 
         // Create a new Workers instance
-        let workers = Workers::from_path(&workers_dir, key_storage.clone(), scopes.clone())
+        let workers = Workers::from_path(&workers_dir, key_storage.clone(), scope.clone())
             .await
             .expect("Failed to create Workers from path");
 
@@ -427,15 +427,15 @@ mod tests {
                 .await
                 .expect("Failed to create KeyStorage from path"),
         );
-        let scopes = Scopes::new(
+        let scope = Scope::new(
             PeerId::random(),
             PeerId::random(),
             PeerId::random(),
             key_storage.clone(),
-        ); // Customize with appropriate scopes
+        ); // Customize with appropriate scope
 
         // Create a new Workers instance
-        let workers = Workers::from_path(&workers_dir, key_storage.clone(), scopes.clone())
+        let workers = Workers::from_path(&workers_dir, key_storage.clone(), scope.clone())
             .await
             .expect("Failed to create Workers from path");
 
@@ -485,15 +485,15 @@ mod tests {
                 .await
                 .expect("Failed to create KeyStorage from path"),
         );
-        let scopes = Scopes::new(
+        let scope = Scope::new(
             PeerId::random(),
             PeerId::random(),
             PeerId::random(),
             key_storage.clone(),
-        ); // Customize with appropriate scopes
+        ); // Customize with appropriate scope
 
         // Create a new Workers instance
-        let workers = Workers::from_path(&workers_dir, key_storage.clone(), scopes.clone())
+        let workers = Workers::from_path(&workers_dir, key_storage.clone(), scope.clone())
             .await
             .expect("Failed to create Workers from path");
 
@@ -536,7 +536,7 @@ mod tests {
         let status = workers.is_worker_active(worker_id_1);
         assert!(!status);
         drop(key_storage);
-        drop(scopes);
+        drop(scope);
         drop(workers);
 
         // Create a new KeyStorage instance
@@ -545,15 +545,15 @@ mod tests {
                 .await
                 .expect("Failed to create KeyStorage from path"),
         );
-        let scopes = Scopes::new(
+        let scope = Scope::new(
             PeerId::random(),
             PeerId::random(),
             PeerId::random(),
             key_storage.clone(),
-        ); // Customize with appropriate scopes
+        ); // Customize with appropriate scope
 
         // Create a new Workers instance
-        let workers = Workers::from_path(&workers_dir, key_storage.clone(), scopes.clone())
+        let workers = Workers::from_path(&workers_dir, key_storage.clone(), scope.clone())
             .await
             .expect("Failed to create Workers from path");
 

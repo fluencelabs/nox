@@ -29,7 +29,7 @@ use health::HealthCheckRegistry;
 use particle_execution::{ParticleFunctionStatic, ServiceFunction};
 use particle_protocol::ExtendedParticle;
 use peer_metrics::{ParticleExecutorMetrics, VmPoolMetrics};
-use workers::{Scopes, Workers};
+use workers::{Scope, Workers};
 
 use crate::aqua_runtime::AquaRuntime;
 use crate::command::Command;
@@ -61,7 +61,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> AquamarineBackend<RT, F> {
         vm_pool_metrics: Option<VmPoolMetrics>,
         health_registry: Option<&mut HealthCheckRegistry>,
         workers: Arc<Workers>,
-        scopes: Scopes,
+        scope: Scope,
     ) -> eyre::Result<(Self, AquamarineApi)> {
         // TODO: make `100` configurable
         let (outlet, inlet) = mpsc::channel(100);
@@ -79,14 +79,14 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> AquamarineBackend<RT, F> {
             vm_pool_metrics,
             health_registry,
         );
-        let host_peer_id = scopes.get_host_peer_id();
+        let host_peer_id = scope.get_host_peer_id();
         let plumber = Plumber::new(
             vm_pool,
             data_store.clone(),
             builtins,
             plumber_metrics,
             workers,
-            scopes,
+            scope,
         );
         let this = Self {
             inlet,

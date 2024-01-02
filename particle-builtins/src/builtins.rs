@@ -46,7 +46,7 @@ use particle_services::{ParticleAppServices, ServiceType};
 use peer_metrics::ServicesMetrics;
 use server_config::ServicesConfig;
 use uuid_utils::uuid;
-use workers::{Scopes, Workers};
+use workers::{Scope, Workers};
 
 use crate::debug::fmt_custom_services;
 use crate::error::HostClosureCallError;
@@ -89,7 +89,7 @@ pub struct Builtins<C> {
     #[derivative(Debug = "ignore")]
     workers: Arc<Workers>,
     #[derivative(Debug = "ignore")]
-    scopes: Scopes,
+    scope: Scope,
     connector_api_endpoint: String,
 }
 
@@ -102,7 +102,7 @@ where
         config: ServicesConfig,
         services_metrics: ServicesMetrics,
         workers: Arc<Workers>,
-        scopes: Scopes,
+        scope: Scope,
         health_registry: Option<&mut HealthCheckRegistry>,
         connector_api_endpoint: String,
     ) -> Self {
@@ -124,7 +124,7 @@ where
             Some(services_metrics),
             health_registry,
             workers.clone(),
-            scopes.clone(),
+            scope.clone(),
         );
 
         Self {
@@ -134,7 +134,7 @@ where
             particles_vault_dir,
             custom_services: <_>::default(),
             workers,
-            scopes,
+            scope,
             connector_api_endpoint,
         }
     }
@@ -878,10 +878,10 @@ where
 
             let tetraplet = tetraplets.get(0).map(|v| v.as_slice());
             if let Some([t]) = tetraplet {
-                if !self.scopes.is_local(PeerId::from_str(&t.peer_pk)?) {
+                if !self.scope.is_local(PeerId::from_str(&t.peer_pk)?) {
                     return Err(JError::new(format!(
                         "data is expected to be produced by service 'registry' on peer '{}', was from peer '{}'",
-                        self.scopes.get_host_peer_id(), t.peer_pk
+                        self.scope.get_host_peer_id(), t.peer_pk
                     )));
                 }
 

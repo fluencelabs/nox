@@ -105,7 +105,7 @@ impl Sorcerer {
             let worker_id = self.services.get_service_owner(
                 "",
                 event.spell_id.clone(),
-                self.scopes.get_host_peer_id(),
+                self.scope.get_host_peer_id(),
             )?;
             let particle = self.make_spell_particle(event.spell_id.clone(), worker_id)?;
 

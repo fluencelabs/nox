@@ -40,7 +40,7 @@ use peer_metrics::{
 };
 use server_config::ServicesConfig;
 use uuid_utils::uuid;
-use workers::{Scopes, Workers};
+use workers::{Scope, Workers};
 
 use crate::error::ServiceError;
 use crate::error::ServiceError::{AliasAsServiceId, Forbidden, NoSuchAlias};
@@ -177,7 +177,7 @@ pub struct ParticleAppServices {
     #[derivative(Debug = "ignore")]
     workers: Arc<Workers>,
     #[derivative(Debug = "ignore")]
-    scopes: Scopes,
+    scope: Scope,
     pub metrics: Option<ServicesMetrics>,
     health: Option<PersistedServiceHealth>,
 }
@@ -262,7 +262,7 @@ impl ParticleAppServices {
         metrics: Option<ServicesMetrics>,
         health_registry: Option<&mut HealthCheckRegistry>,
         workers: Arc<Workers>,
-        scopes: Scopes,
+        scope: Scope,
     ) -> Self {
         let vault = ParticleVault::new(config.particles_vault_dir.clone());
 
@@ -278,7 +278,7 @@ impl ParticleAppServices {
             modules,
             aliases: <_>::default(),
             workers,
-            scopes,
+            scope,
             metrics,
             health,
         };
@@ -405,7 +405,7 @@ impl ParticleAppServices {
             //      all services.
             if service.worker_id != init_peer_id
                 && service.owner_id != init_peer_id
-                && !self.scopes.is_management(init_peer_id)
+                && !self.scope.is_management(init_peer_id)
             {
                 return Err(Forbidden {
                     user: init_peer_id,
@@ -640,8 +640,8 @@ impl ParticleAppServices {
         service_id: String,
         init_peer_id: PeerId,
     ) -> Result<(), ServiceError> {
-        let is_management = self.scopes.is_management(init_peer_id);
-        let is_root_scope = self.scopes.is_host(worker_id);
+        let is_management = self.scope.is_management(init_peer_id);
+        let is_root_scope = self.scope.is_host(worker_id);
         let is_worker = init_peer_id == worker_id;
         let worker_creator = self
             .workers
@@ -1045,7 +1045,7 @@ mod tests {
     use server_config::ServicesConfig;
     use service_modules::load_module;
     use service_modules::Hash;
-    use workers::{KeyStorage, Scopes, Workers};
+    use workers::{KeyStorage, Scope, Workers};
 
     use crate::app_services::ServiceType;
     use crate::persistence::load_persisted_services;
@@ -1076,14 +1076,14 @@ mod tests {
 
         let root_key_pair: KeyPair = root_keypair.clone().into();
 
-        let scopes = Scopes::new(
+        let scope = Scope::new(
             root_key_pair.get_peer_id(),
             management_pid,
             to_peer_id(&startup_kp),
             key_storage.clone(),
         );
 
-        let workers = Workers::from_path(workers_dir.as_path(), key_storage, scopes.clone())
+        let workers = Workers::from_path(workers_dir.as_path(), key_storage, scope.clone())
             .await
             .expect("Could not load worker registry");
 
@@ -1111,7 +1111,7 @@ mod tests {
             Default::default(),
         );
 
-        ParticleAppServices::new(config, repo, None, None, workers, scopes)
+        ParticleAppServices::new(config, repo, None, None, workers, scope)
     }
 
     async fn call_add_alias_raw(

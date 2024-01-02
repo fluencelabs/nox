@@ -54,7 +54,7 @@ use system_services::{Deployer, SystemServiceDistros};
 use tokio::sync::{mpsc, oneshot};
 use tokio::task;
 use tracing::Instrument;
-use workers::{KeyStorage, Scopes, Workers};
+use workers::{KeyStorage, Scope, Workers};
 
 use crate::builtins::make_peer_builtin;
 use crate::dispatcher::Dispatcher;
@@ -92,7 +92,7 @@ pub struct Node<RT: AquaRuntime> {
 
     pub builtins_management_peer_id: PeerId,
 
-    pub scopes: Scopes,
+    pub scope: Scope,
 
     allow_local_addresses: bool,
     versions: Versions,
@@ -124,7 +124,7 @@ impl<RT: AquaRuntime> Node<RT> {
 
         let key_storage = Arc::new(key_storage);
 
-        let scopes = Scopes::new(
+        let scope = Scope::new(
             root_key_pair.get_peer_id(),
             config.management_peer_id,
             builtins_peer_id,
@@ -134,14 +134,14 @@ impl<RT: AquaRuntime> Node<RT> {
         let workers = Workers::from_path(
             config.dir_config.workers_base_dir.as_path(),
             key_storage.clone(),
-            scopes.clone(),
+            scope.clone(),
         )
         .await?;
 
         let workers = Arc::new(workers);
 
         let services_config = ServicesConfig::new(
-            scopes.get_host_peer_id(),
+            scope.get_host_peer_id(),
             config.dir_config.services_base_dir.clone(),
             config_utils::particles_vault_dir(&config.dir_config.avm_base_dir),
             config.services_envs.clone(),
@@ -239,7 +239,7 @@ impl<RT: AquaRuntime> Node<RT> {
             services_config,
             services_metrics,
             workers.clone(),
-            scopes.clone(),
+            scope.clone(),
             health_registry.as_mut(),
             config.system_services.decider.network_api_endpoint.clone(),
         ));
@@ -258,13 +258,13 @@ impl<RT: AquaRuntime> Node<RT> {
             vm_pool_metrics,
             health_registry.as_mut(),
             workers.clone(),
-            scopes.clone(),
+            scope.clone(),
         )?;
         let effectors = Effectors::new(connectivity.clone());
         let dispatcher = {
             let parallelism = config.particle_processor_parallelism;
             Dispatcher::new(
-                scopes.get_host_peer_id(),
+                scope.get_host_peer_id(),
                 aquamarine_api.clone(),
                 effectors,
                 parallelism,
@@ -286,7 +286,7 @@ impl<RT: AquaRuntime> Node<RT> {
             config.clone(),
             spell_event_bus_api.clone(),
             workers.clone(),
-            scopes.clone(),
+            scope.clone(),
             spell_service_api.clone(),
             spell_metrics,
         );
@@ -334,7 +334,7 @@ impl<RT: AquaRuntime> Node<RT> {
             sorcerer.spell_storage.clone(),
             spell_event_bus_api.clone(),
             spell_service_api,
-            scopes.get_host_peer_id(),
+            scope.get_host_peer_id(),
             builtins_peer_id,
             system_service_distros,
         );
@@ -365,7 +365,7 @@ impl<RT: AquaRuntime> Node<RT> {
             services_metrics_backend,
             config.http_listen_addr(),
             builtins_peer_id,
-            scopes,
+            scope,
             allow_local_addresses,
             versions,
         ))
@@ -415,7 +415,7 @@ impl<RT: AquaRuntime> Node<RT> {
         services_config: ServicesConfig,
         services_metrics: ServicesMetrics,
         workers: Arc<Workers>,
-        scopes: Scopes,
+        scope: Scope,
         health_registry: Option<&mut HealthCheckRegistry>,
         connector_api_endpoint: String,
     ) -> Builtins<Connectivity> {
@@ -424,7 +424,7 @@ impl<RT: AquaRuntime> Node<RT> {
             services_config,
             services_metrics,
             workers,
-            scopes,
+            scope,
             health_registry,
             connector_api_endpoint,
         )
@@ -457,7 +457,7 @@ impl<RT: AquaRuntime> Node<RT> {
         services_metrics_backend: ServicesMetricsBackend,
         http_listen_addr: Option<SocketAddr>,
         builtins_management_peer_id: PeerId,
-        scopes: Scopes,
+        scope: Scope,
         allow_local_addresses: bool,
         versions: Versions,
     ) -> Box<Self> {
@@ -482,7 +482,7 @@ impl<RT: AquaRuntime> Node<RT> {
             services_metrics_backend,
             http_listen_addr,
             builtins_management_peer_id,
-            scopes,
+            scope,
             allow_local_addresses,
             versions,
         };
