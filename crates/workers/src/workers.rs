@@ -81,10 +81,11 @@ impl Workers {
 
                 let worker_id = key_pair.get_peer_id();
 
-                match self
+                let worker_info = self
                     .store_worker(worker_id, deal_id.clone(), init_peer_id)
-                    .await
-                {
+                    .await;
+
+                match worker_info {
                     Ok(worker_info) => {
                         let mut worker_ids = self.worker_ids.write();
                         let mut worker_infos = self.worker_infos.write();
