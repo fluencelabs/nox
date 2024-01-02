@@ -185,12 +185,6 @@ impl Workers {
         deal_id: String,
         creator: PeerId,
     ) -> Result<WorkerInfo, WorkersError> {
-        let worker_info = WorkerInfo {
-            deal_id: deal_id.clone(),
-            creator,
-            active: RwLock::new(true),
-        };
-
         persist_worker(
             &self.workers_dir,
             worker_id,
@@ -202,6 +196,11 @@ impl Workers {
             },
         )
         .await?;
+        let worker_info = WorkerInfo {
+            deal_id: deal_id.clone(),
+            creator,
+            active: RwLock::new(true),
+        };
         Ok(worker_info)
     }
 
