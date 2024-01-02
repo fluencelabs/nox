@@ -209,7 +209,7 @@ where
             ("srv", "get_interface") => wrap(self.get_interface(args, particle)),
             ("srv", "resolve_alias") => wrap(self.resolve_alias(args, particle)),
             ("srv", "resolve_alias_opt") => wrap(self.resolve_alias_opt(args, particle)),
-            ("srv", "add_alias") => wrap_unit(self.add_alias(args, particle).await),
+            ("srv", "add_alias") => wrap_unit(self.add_alias(args, particle)),
             ("srv", "remove") => wrap_unit(self.remove_service(args, particle)),
             ("srv", "info") => wrap(self.get_service_info(args, particle)),
 
@@ -783,14 +783,13 @@ where
             .get_interface(&params.id, service_id, params.host_id)?)
     }
 
-    async fn add_alias(&self, args: Args, params: ParticleParams) -> Result<(), JError> {
+    fn add_alias(&self, args: Args, params: ParticleParams) -> Result<(), JError> {
         let mut args = args.function_args.into_iter();
 
         let alias: String = Args::next("alias", &mut args)?;
         let service_id: String = Args::next("service_id", &mut args)?;
         self.services
-            .add_alias(alias, params.host_id, service_id, params.init_peer_id)
-            .await?;
+            .add_alias(alias, params.host_id, service_id, params.init_peer_id)?;
         Ok(())
     }
 
