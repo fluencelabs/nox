@@ -9,24 +9,32 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
+/// Information about a worker.
 pub struct WorkerInfo {
+    /// The unique identifier for the deal associated with the worker.
     pub deal_id: String,
+    /// The ID of the peer that created the worker.
     pub creator: PeerId,
+    /// A read-write lock indicating whether the worker is active.
     pub active: RwLock<bool>,
 }
 
+/// Manages a collection of workers.
 pub struct Workers {
-    /// deal_id -> worker_id
+    /// Manages a collection of workers.
     worker_ids: RwLock<HashMap<DealId, WorkerId>>,
-    /// worker_id -> worker_info
+    /// Mapping of worker IDs to worker information.
     worker_infos: RwLock<HashMap<WorkerId, WorkerInfo>>,
+    /// Directory path where worker data is persisted.
     workers_dir: PathBuf,
-
+    /// Key storage for managing worker key pairs.
     key_storage: Arc<KeyStorage>,
+    /// Scope information used to determine the host and manage key pairs.
     scope: Scope,
 }
 
 impl Workers {
+    /// Creates a new `Workers` instance with the provided `KeyStorage` and `Scope`.
     pub fn new(key_storage: Arc<KeyStorage>, scope: Scope) -> Self {
         Self {
             worker_ids: Default::default(),
@@ -37,6 +45,20 @@ impl Workers {
         }
     }
 
+    /// Creates a `Workers` instance by loading persisted worker data from the specified directory.
+    ///
+    /// # Arguments
+    ///
+    /// * `workers_dir` - The path to the directory containing persisted worker data.
+    /// * `key_storage` - An `Arc<KeyStorage>` instance for managing worker key pairs.
+    /// * `scope` - A `Scope` instance used to determine the host and manage key pairs.
+    ///
+    /// # Returns
+    ///
+    /// Returns `Result<Self, eyre::Error>` where:
+    /// - `Ok(workers)` if the `Workers` instance is successfully created.
+    /// - `Err(eyre::Error)` if an error occurs during the creation process.
+    ///
     pub async fn from_path(
         workers_dir: &Path,
         key_storage: Arc<KeyStorage>,
@@ -61,6 +83,19 @@ impl Workers {
         })
     }
 
+    /// Creates a new worker with the given `deal_id` and initial peer ID.
+    ///
+    /// # Arguments
+    ///
+    /// * `deal_id` - A `String` representing the unique identifier for the deal associated with the worker.
+    /// * `init_peer_id` - The initial `PeerId` of the worker.
+    ///
+    /// # Returns
+    ///
+    /// Returns `Result<PeerId, WorkersError>` where:
+    /// - `Ok(worker_id)` if the worker is successfully created, returning the ID of the created worker.
+    /// - `Err(WorkersError)` if an error occurs, such as the worker already existing or key pair creation failure.
+    ///
     pub async fn create_worker(
         &self,
         deal_id: String,
@@ -118,6 +153,18 @@ impl Workers {
         }
     }
 
+    /// Retrieves the key pair associated with the specified worker ID.
+    ///
+    /// # Arguments
+    ///
+    /// * `worker_id` - The `PeerId` of the worker for which the key pair is requested.
+    ///
+    /// # Returns
+    ///
+    /// Returns `Result<KeyPair, WorkersError>` where:
+    /// - `Ok(key_pair)` if the key pair is successfully retrieved.
+    /// - `Err(WorkersError)` if an error occurs, such as the key pair not found.
+    ///
     pub fn get_keypair(&self, worker_id: PeerId) -> Result<KeyPair, WorkersError> {
         if self.scope.is_host(worker_id) {
             Ok(self.key_storage.root_key_pair.clone())
@@ -128,10 +175,28 @@ impl Workers {
         }
     }
 
+    /// Retrieves a list of all worker IDs.
+    ///
+    /// # Returns
+    ///
+    /// Returns a `Vec<WorkerId>` representing a list of all worker IDs currently registered.
+    ///
     pub fn list_workers(&self) -> Vec<WorkerId> {
         self.worker_infos.read().keys().cloned().collect()
     }
 
+    /// Retrieves the deal ID associated with the specified worker ID.
+    ///
+    /// # Arguments
+    ///
+    /// * `worker_id` - The `PeerId` of the worker for which the deal ID is requested.
+    ///
+    /// # Returns
+    ///
+    /// Returns `Result<DealId, WorkersError>` where:
+    /// - `Ok(deal_id)` if the deal ID is successfully retrieved.
+    /// - `Err(WorkersError)` if an error occurs, such as the worker not found.
+    ///
     pub fn get_deal_id(&self, worker_id: PeerId) -> Result<DealId, WorkersError> {
         self.worker_infos
             .read()
@@ -140,6 +205,18 @@ impl Workers {
             .map(|info| info.deal_id.clone())
     }
 
+    /// Removes a worker with the specified `worker_id`.
+    ///
+    /// # Arguments
+    ///
+    /// * `worker_id` - The `PeerId` of the worker to be removed.
+    ///
+    /// # Returns
+    ///
+    /// Returns `Result<(), WorkersError>` where:
+    /// - `Ok(())` if the worker is successfully removed.
+    /// - `Err(WorkersError)` if an error occurs, such as the worker not found or key pair removal failure.
+    ///
     pub async fn remove_worker(&self, worker_id: PeerId) -> Result<(), WorkersError> {
         let deal_id = self.get_deal_id(worker_id)?;
         remove_worker(&self.workers_dir, worker_id).await?;
@@ -159,6 +236,18 @@ impl Workers {
         Ok(())
     }
 
+    /// Retrieves the worker ID associated with the specified `deal_id`.
+    ///
+    /// # Arguments
+    ///
+    /// * `deal_id` - The unique identifier (`String`) of the deal associated with the worker.
+    ///
+    /// # Returns
+    ///
+    /// Returns `Result<PeerId, WorkersError>` where:
+    /// - `Ok(worker_id)` if the worker ID is successfully retrieved.
+    /// - `Err(WorkersError)` if an error occurs, such as the worker not found.
+    ///
     pub fn get_worker_id(&self, deal_id: String) -> Result<PeerId, WorkersError> {
         self.worker_ids
             .read()
@@ -167,6 +256,21 @@ impl Workers {
             .ok_or(WorkersError::WorkerNotFoundByDeal(deal_id))
     }
 
+    /// Retrieves the creator `PeerId` associated with the specified worker `PeerId`.
+    ///
+    /// If the provided `worker_id` belongs to the host, the host's `PeerId` is returned.
+    /// Otherwise, the creator's `PeerId` associated with the worker is retrieved.
+    ///
+    /// # Arguments
+    ///
+    /// * `worker_id` - The `PeerId` of the worker for which the creator `PeerId` is requested.
+    ///
+    /// # Returns
+    ///
+    /// Returns `Result<PeerId, WorkersError>` where:
+    /// - `Ok(creator_peer_id)` if the creator `PeerId` is successfully retrieved.
+    /// - `Err(WorkersError)` if an error occurs, such as the worker not found.
+    ///
     pub fn get_worker_creator(&self, worker_id: PeerId) -> Result<PeerId, WorkersError> {
         if self.scope.is_host(worker_id) {
             Ok(worker_id)
@@ -179,6 +283,25 @@ impl Workers {
         }
     }
 
+    /// Persists worker information and updates internal data structures.
+    ///
+    /// This method stores information about the worker identified by `worker_id` and associates
+    /// it with the provided `deal_id` and `creator` PeerId. The worker's active status is set to `true`.
+    /// The information is persisted to the workers' storage directory, and the internal
+    /// `worker_ids` and `worker_infos` data structures are updated accordingly.
+    ///
+    /// # Arguments
+    ///
+    /// * `worker_id` - The `PeerId` of the worker to be stored.
+    /// * `deal_id` - The unique identifier (`String`) associated with the deal.
+    /// * `creator` - The `PeerId` of the creator of the worker.
+    ///
+    /// # Returns
+    ///
+    /// Returns `Result<WorkerInfo, WorkersError>` where:
+    /// - `Ok(worker_info)` if the worker information is successfully stored.
+    /// - `Err(WorkersError)` if an error occurs during the storage process.
+    ///
     async fn store_worker(
         &self,
         worker_id: PeerId,
@@ -229,16 +352,62 @@ impl Workers {
         .await?;
         Ok(())
     }
+
+    /// Activates the worker with the specified `worker_id`.
+    ///
+    /// The activation process sets the worker's status to `true`, indicating that the worker
+    /// is active. The updated status is persisted, and internal data structures are updated.
+    ///
+    /// # Arguments
+    ///
+    /// * `worker_id` - The `PeerId` of the worker to be activated.
+    ///
+    /// # Returns
+    ///
+    /// Returns `Result<(), WorkersError>` where:
+    /// - `Ok(())` if the activation is successful.
+    /// - `Err(WorkersError)` if an error occurs during the activation process.
+    ///
     pub async fn activate_worker(&self, worker_id: PeerId) -> Result<(), WorkersError> {
         self.set_worker_status(worker_id, true).await?;
         Ok(())
     }
 
+    /// Deactivates the worker with the specified `worker_id`.
+    ///
+    /// The deactivation process sets the worker's status to `false`, indicating that the worker
+    /// is not active. The updated status is persisted, and internal data structures are updated.
+    ///
+    /// # Arguments
+    ///
+    /// * `worker_id` - The `PeerId` of the worker to be deactivated.
+    ///
+    /// # Returns
+    ///
+    /// Returns `Result<(), WorkersError>` where:
+    /// - `Ok(())` if the deactivation is successful.
+    /// - `Err(WorkersError)` if an error occurs during the deactivation process.
+    ///
     pub async fn deactivate_worker(&self, worker_id: PeerId) -> Result<(), WorkersError> {
         self.set_worker_status(worker_id, false).await?;
         Ok(())
     }
 
+    /// Checks the activation status of the worker with the specified `worker_id`.
+    ///
+    /// The activation status indicates whether the worker is currently active or not. If the
+    /// worker is the host, it is always considered active. Otherwise, the method checks the
+    /// internal data structures to determine the worker's status.
+    ///
+    /// # Arguments
+    ///
+    /// * `worker_id` - The `PeerId` of the worker to check for activation status.
+    ///
+    /// # Returns
+    ///
+    /// Returns `true` if the worker is active, and `false` otherwise. If the worker with the
+    /// specified `worker_id` is not found, a warning is logged, and `false` is returned.
+    ///
     pub fn is_worker_active(&self, worker_id: PeerId) -> bool {
         // host is always active
         if self.scope.is_host(worker_id) {
