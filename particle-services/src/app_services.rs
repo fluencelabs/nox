@@ -1133,7 +1133,6 @@ mod tests {
         }
 
         pas.add_alias(alias, local_pid, service_id, client_pid)
-            .await
     }
 
     async fn call_add_alias(alias: String, service_id: String) -> Result<(), ServiceError> {
@@ -1271,8 +1270,7 @@ mod tests {
                 local_pid,
                 service_id1.clone(),
                 management_pid,
-            )
-            .await;
+            );
         // result of the add_alias call must be ok
         assert!(result.is_ok(), "{}", result.unwrap_err());
 
@@ -1317,7 +1315,6 @@ mod tests {
             service_id1.clone(),
             management_pid,
         )
-        .await
         .unwrap();
         // give the alias to another service
         pas.add_alias(
@@ -1326,7 +1323,6 @@ mod tests {
             service_id2.clone(),
             management_pid,
         )
-        .await
         .unwrap();
 
         let services = pas.services.read();
@@ -1377,7 +1373,6 @@ mod tests {
             service_id.clone(),
             management_pid,
         )
-        .await
         .unwrap();
         // give the alias to service again
         pas.add_alias(
@@ -1386,7 +1381,6 @@ mod tests {
             service_id.clone(),
             management_pid,
         )
-        .await
         .unwrap();
 
         let services = pas.services.read();
@@ -1428,7 +1422,6 @@ mod tests {
             service_id1.clone(),
             management_pid,
         )
-        .await
         .unwrap();
         let services = pas.services.read();
         let service_1 = services.get(&service_id1).unwrap();
