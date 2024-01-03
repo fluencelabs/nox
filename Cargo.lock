@@ -1633,9 +1633,9 @@ dependencies = [
 
 [[package]]
 name = "decider-distro"
-version = "0.5.11"
+version = "0.5.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4c49daae4cc899314717016fbc4a8b9d3467dfaaa75dc2133cdc05d6d3e0257a"
+checksum = "32eeafcec3f7a865db532a76e26d2567c888d9b0bd1129965ec7fc6444d4f616"
 dependencies = [
  "built 0.7.1",
  "fluence-spell-dtos",
@@ -4804,7 +4804,7 @@ version = "0.1.0"
 
 [[package]]
 name = "nox"
-version = "0.16.12"
+version = "0.16.13"
 dependencies = [
  "air-interpreter-fs",
  "air-interpreter-wasm",
@@ -7666,9 +7666,9 @@ dependencies = [
 
 [[package]]
 name = "trust-graph-distro"
-version = "0.4.8"
+version = "0.4.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e30db708eed6fd29b4cc3e3f72b2979e65d758145d8b6538bbd9f55f9e8fb018"
+checksum = "9f6d9068de04aaa5785a097cde5f380da985a48450600c3bcbf624f42c2527ba"
 dependencies = [
  "built 0.6.1",
  "lazy_static",
