@@ -12,5 +12,5 @@ path = "src/main.rs"
 
 [dependencies]
 marine-rs-sdk = "0.7.1"
-rand = "0.8.4"
+rand = { workspace = true }
 base64 = "0.21.0"

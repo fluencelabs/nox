@@ -27,6 +27,6 @@ tracing = { workspace = true }
 tempfile = { workspace = true }
 
 [dev-dependencies]
-rand = "0.8.5"
+rand = { workspace = true }
 log = { version = "0.4.20", features = ["serde"] }
 

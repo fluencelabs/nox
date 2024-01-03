@@ -38,7 +38,7 @@ bs58 = { workspace = true }
 parking_lot = { workspace = true }
 thiserror = { workspace = true }
 humantime-serde = { workspace = true }
-rand = "0.8.5"
+rand = { workspace = true }
 futures = { workspace = true }
 itertools = { workspace = true }
 bytesize = "1.3.0"
