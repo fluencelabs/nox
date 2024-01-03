@@ -90,7 +90,7 @@ impl ChainListener {
     }
 
     pub async fn save_cc_event(&self, event: CCActivated) -> eyre::Result<()> {
-        let file_name = format!("{}.json", hex::encode(&event.info.commitment_id));
+        let file_name = format!("{}.json", hex::encode(&event.info.commitment_id.0));
         let file_path = self.cc_events_dir.join(file_name);
         tokio::fs::write(file_path, serde_json::to_string(&event)?).await?;
         Ok(())

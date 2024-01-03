@@ -17,13 +17,19 @@ use serde::{Deserialize, Serialize};
 ///    bytes32[] unitIds,
 ///);
 /// ```
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct CommitmentId(pub Vec<u8>);
+#[derive(Debug, Serialize, Deserialize)]
+pub struct UnitId(pub Vec<u8>);
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct CCActivatedData {
     #[serde(with = "peerid_serializer")]
     pub peer_id: PeerId,
-    pub commitment_id: Vec<u8>,
+    pub commitment_id: CommitmentId,
     pub end_epoch: U256,
-    pub unit_ids: Vec<Vec<u8>>,
+    pub unit_ids: Vec<UnitId>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -55,16 +61,21 @@ impl ChainData for CCActivatedData {
         let peer_id = next_opt(data_tokens, "peer_id", Token::into_fixed_bytes)?;
         let peer_id = parse_peer_id(peer_id)?;
 
-        let commitment_id = next_opt(data_tokens, "commitment_id", Token::into_fixed_bytes)?;
+        let commitment_id = CommitmentId(next_opt(
+            data_tokens,
+            "commitment_id",
+            Token::into_fixed_bytes,
+        )?);
 
         let end_epoch = next_opt(data_tokens, "end_epoch", U256::from_token)?;
 
-        let unit_ids = next_opt(data_tokens, "unit_ids", |t| {
+        let unit_ids: Vec<Vec<u8>> = next_opt(data_tokens, "unit_ids", |t| {
             t.into_array()?
                 .into_iter()
                 .map(Token::into_fixed_bytes)
                 .collect()
         })?;
+        let unit_ids = unit_ids.into_iter().map(UnitId).collect();
 
         Ok(CCActivatedData {
             peer_id,
@@ -119,7 +130,7 @@ mod test {
         );
 
         assert_eq!(
-            hex::encode(result.commitment_id),
+            hex::encode(result.commitment_id.0),
             "d6996a1d0950671fa4ae2642e9bfdb7e4c7832a35c640cdb47ecb8b8002b77b5"
         );
         assert_eq!(

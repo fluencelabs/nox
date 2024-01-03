@@ -12,7 +12,7 @@ use crate::log::LogParseError::{MissingToken, MissingTopic};
 pub struct Log {
     // Log arguments
     pub data: String,
-    // The block number that contains this log
+    // The block number in hex (with 0x prefix) that contains this log
     pub block_number: String,
     // true when the log was removed, due to a chain reorganization. false if its a valid log.
     #[serde(default)]
