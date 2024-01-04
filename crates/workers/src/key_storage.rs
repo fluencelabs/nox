@@ -15,7 +15,7 @@
  */
 
 use std::collections::HashMap;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use libp2p::PeerId;
 use parking_lot::RwLock;
@@ -33,10 +33,10 @@ pub struct KeyStorage {
 
 impl KeyStorage {
     pub async fn from_path(
-        key_pairs_dir: &Path,
+        key_pairs_dir: PathBuf,
         root_key_pair: KeyPair,
     ) -> Result<Self, KeyStorageError> {
-        let key_pairs = load_persisted_key_pairs(key_pairs_dir).await?;
+        let key_pairs = load_persisted_key_pairs(key_pairs_dir.as_path()).await?;
 
         let mut worker_key_pairs = HashMap::with_capacity(key_pairs.len());
         for keypair in key_pairs {
@@ -45,7 +45,7 @@ impl KeyStorage {
         }
         Ok(Self {
             worker_key_pairs: RwLock::new(worker_key_pairs),
-            key_pairs_dir: key_pairs_dir.to_path_buf(),
+            key_pairs_dir,
             root_key_pair,
         })
     }
@@ -85,9 +85,10 @@ mod tests {
         let root_key_pair = fluence_keypair::KeyPair::generate_ed25519();
 
         // Create a KeyStorage instance from a path
-        let loaded_key_storage = KeyStorage::from_path(&key_pairs_dir, root_key_pair.clone())
-            .await
-            .expect("Failed to create KeyStorage from path");
+        let loaded_key_storage =
+            KeyStorage::from_path(key_pairs_dir.clone(), root_key_pair.clone())
+                .await
+                .expect("Failed to create KeyStorage from path");
 
         // Check that the loaded key storage has the correct initial state
         assert_eq!(loaded_key_storage.worker_key_pairs.read().len(), 0);
@@ -107,7 +108,7 @@ mod tests {
         let root_key_pair = fluence_keypair::KeyPair::generate_ed25519();
 
         // Create a KeyStorage instance from a path
-        let key_storage = KeyStorage::from_path(&key_pairs_dir, root_key_pair.clone())
+        let key_storage = KeyStorage::from_path(key_pairs_dir.clone(), root_key_pair.clone())
             .await
             .expect("Failed to create KeyStorage from path");
 
@@ -169,7 +170,7 @@ mod tests {
         let root_key_pair = fluence_keypair::KeyPair::generate_ed25519();
 
         // Create a KeyStorage instance from a path
-        let key_storage_1 = KeyStorage::from_path(&key_pairs_dir, root_key_pair.clone())
+        let key_storage_1 = KeyStorage::from_path(key_pairs_dir.clone(), root_key_pair.clone())
             .await
             .expect("Failed to create KeyStorage from path");
 
@@ -206,7 +207,7 @@ mod tests {
         );
         drop(key_storage_1);
 
-        let key_storage_2 = KeyStorage::from_path(&key_pairs_dir, root_key_pair.clone())
+        let key_storage_2 = KeyStorage::from_path(key_pairs_dir.clone(), root_key_pair.clone())
             .await
             .expect("Failed to create KeyStorage from path");
 

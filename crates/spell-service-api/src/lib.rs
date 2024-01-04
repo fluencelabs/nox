@@ -305,7 +305,7 @@ mod tests {
 
         let root_key_pair: KeyPair = root_key_pair.clone().into();
 
-        let key_storage = KeyStorage::from_path(keypairs_dir.as_path(), root_key_pair.clone())
+        let key_storage = KeyStorage::from_path(keypairs_dir.clone(), root_key_pair.clone())
             .await
             .expect("Could not load key storage");
 
@@ -318,7 +318,7 @@ mod tests {
             key_storage.clone(),
         );
 
-        let workers = Workers::from_path(workers_dir.as_path(), key_storage, scope.clone())
+        let workers = Workers::from_path(workers_dir.clone(), key_storage, scope.clone())
             .await
             .expect("Could not load worker registry");
 

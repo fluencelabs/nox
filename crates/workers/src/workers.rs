@@ -6,7 +6,7 @@ use fluence_keypair::KeyPair;
 use fluence_libp2p::PeerId;
 use parking_lot::RwLock;
 use std::collections::HashMap;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::Arc;
 
 /// Information about a worker.
@@ -49,11 +49,11 @@ impl Workers {
     /// - `Err(eyre::Error)` if an error occurs during the creation process.
     ///
     pub async fn from_path(
-        workers_dir: &Path,
+        workers_dir: PathBuf,
         key_storage: Arc<KeyStorage>,
         scope: Scope,
     ) -> eyre::Result<Self> {
-        let workers = load_persisted_workers(workers_dir).await?;
+        let workers = load_persisted_workers(workers_dir.as_path()).await?;
         let mut worker_ids = HashMap::with_capacity(workers.len());
         let mut worker_infos = HashMap::with_capacity(workers.len());
 
@@ -66,7 +66,7 @@ impl Workers {
         Ok(Self {
             worker_ids: RwLock::new(worker_ids),
             worker_infos: RwLock::new(worker_infos),
-            workers_dir: workers_dir.to_path_buf(),
+            workers_dir,
             key_storage,
             scope,
         })
@@ -437,7 +437,7 @@ mod tests {
 
         // Create a new KeyStorage instance
         let key_storage = Arc::new(
-            KeyStorage::from_path(&key_pairs_dir, root_key_pair.clone())
+            KeyStorage::from_path(key_pairs_dir.clone(), root_key_pair.clone())
                 .await
                 .expect("Failed to create KeyStorage from path"),
         );
@@ -449,7 +449,7 @@ mod tests {
         ); // Customize with appropriate scope
 
         // Create a new Workers instance
-        let workers = Workers::from_path(&workers_dir, key_storage.clone(), scope.clone())
+        let workers = Workers::from_path(workers_dir.clone(), key_storage.clone(), scope.clone())
             .await
             .expect("Failed to create Workers from path");
 
@@ -469,7 +469,7 @@ mod tests {
 
         // Create a new KeyStorage instance
         let key_storage = Arc::new(
-            KeyStorage::from_path(&key_pairs_dir, root_key_pair.clone())
+            KeyStorage::from_path(key_pairs_dir.clone(), root_key_pair.clone())
                 .await
                 .expect("Failed to create KeyStorage from path"),
         );
@@ -482,7 +482,7 @@ mod tests {
         ); // Customize with appropriate scope
 
         // Create a new Workers instance
-        let workers = Workers::from_path(&workers_dir, key_storage.clone(), scope.clone())
+        let workers = Workers::from_path(workers_dir.clone(), key_storage.clone(), scope.clone())
             .await
             .expect("Failed to create Workers from path");
 
@@ -535,7 +535,7 @@ mod tests {
 
         // Create a new KeyStorage instance
         let key_storage = Arc::new(
-            KeyStorage::from_path(&key_pairs_dir, root_key_pair.clone())
+            KeyStorage::from_path(key_pairs_dir.clone(), root_key_pair.clone())
                 .await
                 .expect("Failed to create KeyStorage from path"),
         );
@@ -547,7 +547,7 @@ mod tests {
         ); // Customize with appropriate scope
 
         // Create a new Workers instance
-        let workers = Workers::from_path(&workers_dir, key_storage.clone(), scope.clone())
+        let workers = Workers::from_path(workers_dir.clone(), key_storage.clone(), scope.clone())
             .await
             .expect("Failed to create Workers from path");
 
@@ -582,7 +582,7 @@ mod tests {
 
         // Create a new KeyStorage instance
         let key_storage = Arc::new(
-            KeyStorage::from_path(&key_pairs_dir, root_key_pair.clone())
+            KeyStorage::from_path(key_pairs_dir.clone(), root_key_pair.clone())
                 .await
                 .expect("Failed to create KeyStorage from path"),
         );
@@ -594,7 +594,7 @@ mod tests {
         ); // Customize with appropriate scope
 
         // Create a new Workers instance
-        let workers = Workers::from_path(&workers_dir, key_storage.clone(), scope.clone())
+        let workers = Workers::from_path(workers_dir.clone(), key_storage.clone(), scope.clone())
             .await
             .expect("Failed to create Workers from path");
 
@@ -640,7 +640,7 @@ mod tests {
 
         // Create a new KeyStorage instance
         let key_storage = Arc::new(
-            KeyStorage::from_path(&key_pairs_dir, root_key_pair.clone())
+            KeyStorage::from_path(key_pairs_dir.clone(), root_key_pair.clone())
                 .await
                 .expect("Failed to create KeyStorage from path"),
         );
@@ -652,7 +652,7 @@ mod tests {
         ); // Customize with appropriate scope
 
         // Create a new Workers instance
-        let workers = Workers::from_path(&workers_dir, key_storage.clone(), scope.clone())
+        let workers = Workers::from_path(workers_dir.clone(), key_storage.clone(), scope.clone())
             .await
             .expect("Failed to create Workers from path");
 
@@ -700,7 +700,7 @@ mod tests {
 
         // Create a new KeyStorage instance
         let key_storage = Arc::new(
-            KeyStorage::from_path(&key_pairs_dir, root_key_pair.clone())
+            KeyStorage::from_path(key_pairs_dir.clone(), root_key_pair.clone())
                 .await
                 .expect("Failed to create KeyStorage from path"),
         );
@@ -712,7 +712,7 @@ mod tests {
         ); // Customize with appropriate scope
 
         // Create a new Workers instance
-        let workers = Workers::from_path(&workers_dir, key_storage.clone(), scope.clone())
+        let workers = Workers::from_path(workers_dir.clone(), key_storage.clone(), scope.clone())
             .await
             .expect("Failed to create Workers from path");
 

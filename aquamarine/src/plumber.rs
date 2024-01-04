@@ -474,7 +474,7 @@ mod tests {
         let root_key_pair: KeyPair = KeyPair::generate_ed25519().into();
         let key_pair_path: PathBuf = "keypair".into();
         let workers_path: PathBuf = "workers".into();
-        let key_storage = KeyStorage::from_path(key_pair_path.as_path(), root_key_pair.clone())
+        let key_storage = KeyStorage::from_path(key_pair_path.clone(), root_key_pair.clone())
             .await
             .expect("Could not load key storage");
 
@@ -487,7 +487,7 @@ mod tests {
             key_storage.clone(),
         );
 
-        let workers = Workers::from_path(workers_path.as_path(), key_storage, scope.clone())
+        let workers = Workers::from_path(workers_path.clone(), key_storage, scope.clone())
             .await
             .expect("Could not load worker registry");
 

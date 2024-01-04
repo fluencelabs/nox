@@ -1066,10 +1066,9 @@ mod tests {
         let keypairs_dir = base_dir.join("..").join("keypairs");
         let workers_dir = base_dir.join("..").join("workers");
         let max_heap_size = server_config::default_module_max_heap_size();
-        let key_storage =
-            KeyStorage::from_path(keypairs_dir.as_path(), root_keypair.clone().into())
-                .await
-                .expect("Could not load key storage");
+        let key_storage = KeyStorage::from_path(keypairs_dir.clone(), root_keypair.clone().into())
+            .await
+            .expect("Could not load key storage");
 
         let key_storage = Arc::new(key_storage);
 
@@ -1082,7 +1081,7 @@ mod tests {
             key_storage.clone(),
         );
 
-        let workers = Workers::from_path(workers_dir.as_path(), key_storage, scope.clone())
+        let workers = Workers::from_path(workers_dir.clone(), key_storage, scope.clone())
             .await
             .expect("Could not load worker registry");
 

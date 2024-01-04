@@ -120,7 +120,7 @@ impl<RT: AquaRuntime> Node<RT> {
         let root_key_pair: KeyPair = key_pair.clone().try_into()?;
 
         let key_storage = KeyStorage::from_path(
-            config.dir_config.keypairs_base_dir.as_path(),
+            config.dir_config.keypairs_base_dir.clone(),
             root_key_pair.clone(),
         )
         .await?;
@@ -135,7 +135,7 @@ impl<RT: AquaRuntime> Node<RT> {
         );
 
         let workers = Workers::from_path(
-            config.dir_config.workers_base_dir.as_path(),
+            config.dir_config.workers_base_dir.clone(),
             key_storage.clone(),
             scope.clone(),
         )
