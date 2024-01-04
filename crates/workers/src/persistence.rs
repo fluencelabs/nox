@@ -175,7 +175,7 @@ fn process_key_pair_dir_entry(
     }
 }
 
-/// Load info about persisted key pairs from disk
+/// Load info about persisted key pairs from disk in parallel
 pub(crate) async fn load_persisted_key_pairs(
     key_pairs_dir: &Path,
 ) -> Result<Vec<KeyPair>, KeyStorageError> {
@@ -261,7 +261,7 @@ pub(crate) async fn remove_worker(
     })
 }
 
-/// Load info about persisted workers from disk
+/// Load info about persisted workers from disk in parallel
 pub(crate) async fn load_persisted_workers(
     workers_dir: &Path,
 ) -> eyre::Result<Vec<PersistedWorker>> {
