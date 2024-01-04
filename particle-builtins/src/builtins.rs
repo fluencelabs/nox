@@ -46,7 +46,7 @@ use particle_services::{ParticleAppServices, ServiceType};
 use peer_metrics::ServicesMetrics;
 use server_config::ServicesConfig;
 use uuid_utils::uuid;
-use workers::{Scope, Workers};
+use workers::{PeerScope, Workers};
 
 use crate::debug::fmt_custom_services;
 use crate::error::HostClosureCallError;
@@ -89,7 +89,7 @@ pub struct Builtins<C> {
     #[derivative(Debug = "ignore")]
     workers: Arc<Workers>,
     #[derivative(Debug = "ignore")]
-    scope: Scope,
+    scope: PeerScope,
     connector_api_endpoint: String,
 }
 
@@ -102,7 +102,7 @@ where
         config: ServicesConfig,
         services_metrics: ServicesMetrics,
         workers: Arc<Workers>,
-        scope: Scope,
+        scope: PeerScope,
         health_registry: Option<&mut HealthCheckRegistry>,
         connector_api_endpoint: String,
     ) -> Self {

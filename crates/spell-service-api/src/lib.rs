@@ -281,7 +281,7 @@ mod tests {
     use maplit::hashmap;
     use serde_json::json;
     use std::time::Duration;
-    use workers::{KeyStorage, Scope, Workers};
+    use workers::{KeyStorage, PeerScope, Workers};
 
     use crate::{CallParams, SpellServiceApi};
 
@@ -311,7 +311,7 @@ mod tests {
 
         let key_storage = Arc::new(key_storage);
 
-        let scope = Scope::new(
+        let scope = PeerScope::new(
             root_key_pair.get_peer_id(),
             management_pid,
             root_key_pair.get_peer_id(),

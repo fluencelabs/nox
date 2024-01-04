@@ -6,14 +6,14 @@ use std::sync::Arc;
 /// Represents information about various peer IDs.
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
-pub struct Scope {
+pub struct PeerScope {
     host_peer_id: PeerId,
     management_peer_id: PeerId,
     builtins_management_peer_id: PeerId,
     #[derivative(Debug = "ignore")]
     key_storage: Arc<KeyStorage>,
 }
-impl Scope {
+impl PeerScope {
     pub fn new(
         host_peer_id: PeerId,
         management_peer_id: PeerId,

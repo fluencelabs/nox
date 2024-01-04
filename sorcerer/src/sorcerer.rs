@@ -44,7 +44,7 @@ use spell_event_bus::api::{from_user_config, SpellEventBusApi, TriggerEvent};
 use spell_service_api::{CallParams, SpellServiceApi};
 use spell_storage::SpellStorage;
 use tracing::Instrument;
-use workers::{Scope, Workers};
+use workers::{PeerScope, Workers};
 
 #[derive(Clone)]
 pub struct Sorcerer {
@@ -54,7 +54,7 @@ pub struct Sorcerer {
     pub spell_event_bus_api: SpellEventBusApi,
     pub spell_script_particle_ttl: Duration,
     pub workers: Arc<Workers>,
-    pub scope: Scope,
+    pub scope: PeerScope,
     pub spell_service_api: SpellServiceApi,
     pub spell_metrics: Option<SpellMetrics>,
     pub worker_period_sec: u32,
@@ -69,7 +69,7 @@ impl Sorcerer {
         config: ResolvedConfig,
         spell_event_bus_api: SpellEventBusApi,
         workers: Arc<Workers>,
-        scope: Scope,
+        scope: PeerScope,
         spell_service_api: SpellServiceApi,
         spell_metrics: Option<SpellMetrics>,
     ) -> (Self, HashMap<String, CustomService>, String) {

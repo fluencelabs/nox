@@ -1,6 +1,6 @@
 use crate::error::WorkersError;
 use crate::persistence::{load_persisted_workers, persist_worker, remove_worker, PersistedWorker};
-use crate::scope::Scope;
+use crate::scope::PeerScope;
 use crate::{DealId, KeyStorage, WorkerId};
 use fluence_keypair::KeyPair;
 use fluence_libp2p::PeerId;
@@ -33,7 +33,7 @@ pub struct Workers {
     /// Key storage for managing worker key pairs.
     key_storage: Arc<KeyStorage>,
     /// Scope information used to determine the host and manage key pairs.
-    scope: Scope,
+    scope: PeerScope,
     /// Mapping of worker IDs to worker runtime.
     runtimes: RwLock<HashMap<WorkerId, Runtime>>,
 }
@@ -72,7 +72,7 @@ impl Workers {
     pub async fn from_path(
         workers_dir: PathBuf,
         key_storage: Arc<KeyStorage>,
-        scope: Scope,
+        scope: PeerScope,
     ) -> eyre::Result<Self> {
         let workers = load_persisted_workers(workers_dir.as_path()).await?;
         let mut worker_ids = HashMap::with_capacity(workers.len());
@@ -492,7 +492,7 @@ impl Workers {
 
 #[cfg(test)]
 mod tests {
-    use crate::{CreateWorkerParams, KeyStorage, Scope, Workers};
+    use crate::{CreateWorkerParams, KeyStorage, PeerScope, Workers};
     use libp2p::PeerId;
     use std::sync::Arc;
     use tempfile::tempdir;
@@ -511,7 +511,7 @@ mod tests {
                 .await
                 .expect("Failed to create KeyStorage from path"),
         );
-        let scope = Scope::new(
+        let scope = PeerScope::new(
             PeerId::random(),
             PeerId::random(),
             PeerId::random(),
@@ -544,7 +544,7 @@ mod tests {
                 .expect("Failed to create KeyStorage from path"),
         );
         let host_peer_id = PeerId::random();
-        let scope = Scope::new(
+        let scope = PeerScope::new(
             host_peer_id,
             PeerId::random(),
             PeerId::random(),
@@ -615,7 +615,7 @@ mod tests {
                 .await
                 .expect("Failed to create KeyStorage from path"),
         );
-        let scope = Scope::new(
+        let scope = PeerScope::new(
             PeerId::random(),
             PeerId::random(),
             PeerId::random(),
@@ -672,7 +672,7 @@ mod tests {
                 .await
                 .expect("Failed to create KeyStorage from path"),
         );
-        let scope = Scope::new(
+        let scope = PeerScope::new(
             PeerId::random(),
             PeerId::random(),
             PeerId::random(),
@@ -740,7 +740,7 @@ mod tests {
                 .await
                 .expect("Failed to create KeyStorage from path"),
         );
-        let scope = Scope::new(
+        let scope = PeerScope::new(
             PeerId::random(),
             PeerId::random(),
             PeerId::random(),
@@ -809,7 +809,7 @@ mod tests {
                 .await
                 .expect("Failed to create KeyStorage from path"),
         );
-        let scope = Scope::new(
+        let scope = PeerScope::new(
             PeerId::random(),
             PeerId::random(),
             PeerId::random(),

@@ -39,7 +39,7 @@ use peer_metrics::ParticleExecutorMetrics;
 /// Get current time from OS
 #[cfg(not(test))]
 use real_time::now_ms;
-use workers::{Scope, Workers};
+use workers::{PeerScope, Workers};
 
 use crate::actor::{Actor, ActorPoll};
 use crate::aqua_runtime::AquaRuntime;
@@ -67,7 +67,7 @@ pub struct Plumber<RT: AquaRuntime, F> {
     waker: Option<Waker>,
     metrics: Option<ParticleExecutorMetrics>,
     workers: Arc<Workers>,
-    scope: Scope,
+    scope: PeerScope,
     cleanup_future: Option<BoxFuture<'static, ()>>,
 }
 
@@ -78,7 +78,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
         builtins: F,
         metrics: Option<ParticleExecutorMetrics>,
         workers: Arc<Workers>,
-        scope: Scope,
+        scope: PeerScope,
     ) -> Self {
         Self {
             vm_pool,
@@ -387,7 +387,7 @@ mod tests {
     use fluence_keypair::KeyPair;
     use fluence_libp2p::RandomPeerId;
     use futures::task::noop_waker_ref;
-    use workers::{KeyStorage, Scope, Workers};
+    use workers::{KeyStorage, PeerScope, Workers};
 
     use particle_args::Args;
     use particle_execution::{FunctionOutcome, ParticleFunction, ParticleParams, ServiceFunction};
@@ -486,7 +486,7 @@ mod tests {
 
         let key_storage = Arc::new(key_storage);
 
-        let scope = Scope::new(
+        let scope = PeerScope::new(
             root_key_pair.get_peer_id(),
             RandomPeerId::random(),
             RandomPeerId::random(),
