@@ -34,17 +34,6 @@ pub struct Workers {
 }
 
 impl Workers {
-    /// Creates a new `Workers` instance with the provided `KeyStorage` and `Scope`.
-    pub fn new(key_storage: Arc<KeyStorage>, scope: Scope) -> Self {
-        Self {
-            worker_ids: Default::default(),
-            worker_infos: Default::default(),
-            workers_dir: Default::default(),
-            key_storage,
-            scope,
-        }
-    }
-
     /// Creates a `Workers` instance by loading persisted worker data from the specified directory.
     ///
     /// # Arguments

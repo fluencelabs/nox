@@ -32,14 +32,6 @@ pub struct KeyStorage {
 }
 
 impl KeyStorage {
-    pub fn new(root_key_pair: KeyPair) -> Self {
-        Self {
-            worker_key_pairs: Default::default(),
-            key_pairs_dir: Default::default(),
-            root_key_pair,
-        }
-    }
-
     pub async fn from_path(
         key_pairs_dir: &Path,
         root_key_pair: KeyPair,
