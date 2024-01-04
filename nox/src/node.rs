@@ -38,6 +38,7 @@ use aquamarine::{
     AquaRuntime, AquamarineApi, AquamarineApiError, AquamarineBackend, DataStoreConfig,
     RoutingEffects, VmPoolConfig,
 };
+use chain_listener::ChainListener;
 use config_utils::to_peer_id;
 use connection_pool::ConnectionPoolT;
 use fluence_keypair::KeyPair;
@@ -96,6 +97,8 @@ pub struct Node<RT: AquaRuntime> {
 
     allow_local_addresses: bool,
     versions: Versions,
+
+    pub chain_listener: Option<ChainListener>,
 }
 
 impl<RT: AquaRuntime> Node<RT> {
@@ -346,6 +349,15 @@ impl<RT: AquaRuntime> Node<RT> {
             system_services_deployer.versions(),
         );
 
+        let chain_listener = if let Some(chain_config) = config.chain_listener_config.clone() {
+            let cc_events_dir = config.dir_config.cc_events_dir.clone();
+            let host_id = scope.get_host_peer_id();
+            let chain_listener = ChainListener::new(chain_config, cc_events_dir, host_id);
+            Some(chain_listener)
+        } else {
+            None
+        };
+
         Ok(Self::with(
             particle_stream,
             effects_in,
@@ -368,6 +380,7 @@ impl<RT: AquaRuntime> Node<RT> {
             scope,
             allow_local_addresses,
             versions,
+            chain_listener,
         ))
     }
 
@@ -460,6 +473,7 @@ impl<RT: AquaRuntime> Node<RT> {
         scope: Scope,
         allow_local_addresses: bool,
         versions: Versions,
+        chain_listener: Option<ChainListener>,
     ) -> Box<Self> {
         let node_service = Self {
             particle_stream,
@@ -485,6 +499,7 @@ impl<RT: AquaRuntime> Node<RT> {
             scope,
             allow_local_addresses,
             versions,
+            chain_listener,
         };
 
         Box::new(node_service)
@@ -513,6 +528,7 @@ impl<RT: AquaRuntime> Node<RT> {
         let libp2p_metrics = self.libp2p_metrics;
         let allow_local_addresses = self.allow_local_addresses;
         let versions = self.versions;
+        let chain_listener = self.chain_listener;
 
         task::Builder::new().name(&task_name.clone()).spawn(async move {
 
@@ -530,6 +546,7 @@ impl<RT: AquaRuntime> Node<RT> {
             let services_metrics_backend = services_metrics_backend.start();
             let spell_event_bus = spell_event_bus.start();
             let sorcerer = sorcerer.start(spell_events_receiver);
+            let chain_listener = chain_listener.map(|c| c.start());
             let aquamarine_backend = aquamarine_backend.start();
             let mut connectivity = connectivity.start();
             let mut dispatcher = dispatcher.start(particle_stream, effects_stream);
@@ -554,6 +571,7 @@ impl<RT: AquaRuntime> Node<RT> {
             }
 
             log::info!("Stopping node");
+            if let Some(c) = chain_listener { c.abort() }
             services_metrics_backend.abort();
             spell_event_bus.abort();
             sorcerer.abort();

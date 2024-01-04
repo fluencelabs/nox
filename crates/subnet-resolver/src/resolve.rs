@@ -1,11 +1,13 @@
-use crate::error::{ChainDataError, ResolveSubnetError};
-use crate::utils::{decode_hex, next_opt, parse_peer_id};
+use crate::error::ResolveSubnetError;
+
 use ethabi::ParamType::{Address, Array, FixedBytes, Tuple, Uint};
 use ethabi::{Function, ParamType, StateMutability, Token};
 use jsonrpsee::core::client::ClientT;
 use jsonrpsee::http_client::HttpClientBuilder;
 use jsonrpsee::rpc_params;
 
+use chain_data::{next_opt, parse_peer_id, ChainDataError};
+use hex_utils::decode_hex;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use tokio::runtime::Handle;
