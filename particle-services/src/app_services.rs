@@ -1039,7 +1039,7 @@ mod tests {
     use libp2p_identity::{Keypair, PeerId};
     use tempdir::TempDir;
 
-    use config_utils::{modules_dir, to_peer_id};
+    use config_utils::modules_dir;
     use fluence_libp2p::RandomPeerId;
     use particle_modules::{AddBlueprint, ModuleRepository};
     use server_config::ServicesConfig;
@@ -1062,7 +1062,6 @@ mod tests {
         management_pid: PeerId,
         base_dir: PathBuf,
     ) -> ParticleAppServices {
-        let startup_kp = Keypair::generate_ed25519();
         let vault_dir = base_dir.join("..").join("vault");
         let keypairs_dir = base_dir.join("..").join("keypairs");
         let workers_dir = base_dir.join("..").join("workers");
@@ -1079,7 +1078,7 @@ mod tests {
         let scope = Scope::new(
             root_key_pair.get_peer_id(),
             management_pid,
-            to_peer_id(&startup_kp),
+            root_key_pair.get_peer_id(),
             key_storage.clone(),
         );
 
@@ -1095,7 +1094,7 @@ mod tests {
             vault_dir,
             HashMap::new(),
             management_pid,
-            to_peer_id(&startup_kp),
+            root_key_pair.get_peer_id(),
             max_heap_size,
             None,
             Default::default(),

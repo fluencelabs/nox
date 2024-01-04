@@ -3,6 +3,7 @@ use derivative::Derivative;
 use fluence_libp2p::PeerId;
 use std::sync::Arc;
 
+/// Represents information about various peer IDs.
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub struct Scope {
