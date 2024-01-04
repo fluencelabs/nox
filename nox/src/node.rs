@@ -14,22 +14,12 @@
  * limitations under the License.
  */
 
-use eyre::WrapErr;
 use std::sync::Arc;
 use std::{io, net::SocketAddr};
 
-use aquamarine::{
-    AquaRuntime, AquamarineApi, AquamarineApiError, AquamarineBackend, DataStoreConfig,
-    RoutingEffects, VmPoolConfig,
-};
-use chain_listener::ChainListener;
-use config_utils::to_peer_id;
-use connection_pool::ConnectionPoolT;
-use fluence_libp2p::build_transport;
+use eyre::WrapErr;
 use futures::future::OptionFuture;
 use futures::{stream::StreamExt, FutureExt};
-use health::HealthCheckRegistry;
-use key_manager::KeyManager;
 use libp2p::swarm::SwarmEvent;
 use libp2p::SwarmBuilder;
 use libp2p::{
@@ -39,6 +29,21 @@ use libp2p::{
 };
 use libp2p_connection_limits::ConnectionLimits;
 use libp2p_metrics::{Metrics, Recorder};
+use prometheus_client::registry::Registry;
+use tokio::sync::{mpsc, oneshot};
+use tokio::task;
+use tracing::Instrument;
+
+use aquamarine::{
+    AquaRuntime, AquamarineApi, AquamarineApiError, AquamarineBackend, DataStoreConfig,
+    RoutingEffects, VmPoolConfig,
+};
+use chain_listener::ChainListener;
+use config_utils::to_peer_id;
+use connection_pool::ConnectionPoolT;
+use fluence_keypair::KeyPair;
+use fluence_libp2p::build_transport;
+use health::HealthCheckRegistry;
 use particle_builtins::{Builtins, CustomService, NodeInfo};
 use particle_execution::ParticleFunctionStatic;
 use particle_protocol::ExtendedParticle;
@@ -46,25 +51,21 @@ use peer_metrics::{
     ConnectionPoolMetrics, ConnectivityMetrics, ParticleExecutorMetrics, ServicesMetrics,
     ServicesMetricsBackend, SpellMetrics, VmPoolMetrics,
 };
-use prometheus_client::registry::Registry;
 use server_config::{NetworkConfig, ResolvedConfig, ServicesConfig};
 use sorcerer::Sorcerer;
 use spell_event_bus::api::{PeerEvent, SpellEventBusApi, TriggerEvent};
 use spell_event_bus::bus::SpellEventBus;
 use system_services::{Deployer, SystemServiceDistros};
-use tokio::sync::{mpsc, oneshot};
-use tokio::task;
-use tracing::Instrument;
-
-use crate::builtins::make_peer_builtin;
-use crate::dispatcher::Dispatcher;
-use crate::effectors::Effectors;
-use crate::{Connectivity, Versions};
+use workers::{KeyStorage, Scope, Workers};
 
 use super::behaviour::FluenceNetworkBehaviour;
 use crate::behaviour::FluenceNetworkBehaviourEvent;
+use crate::builtins::make_peer_builtin;
+use crate::dispatcher::Dispatcher;
+use crate::effectors::Effectors;
 use crate::http::start_http_endpoint;
 use crate::metrics::TokioCollector;
+use crate::{Connectivity, Versions};
 
 // TODO: documentation
 pub struct Node<RT: AquaRuntime> {
@@ -92,7 +93,7 @@ pub struct Node<RT: AquaRuntime> {
 
     pub builtins_management_peer_id: PeerId,
 
-    pub key_manager: KeyManager,
+    pub scope: Scope,
 
     allow_local_addresses: bool,
     versions: Versions,
@@ -116,16 +117,34 @@ impl<RT: AquaRuntime> Node<RT> {
 
         let builtins_peer_id = to_peer_id(&config.builtins_key_pair.clone().into());
 
-        let key_manager = KeyManager::new(
+        let root_key_pair: KeyPair = key_pair.clone().try_into()?;
+
+        let key_storage = KeyStorage::from_path(
             config.dir_config.keypairs_base_dir.clone(),
-            config.dir_config.workers_base_dir.clone(),
-            key_pair.clone().try_into()?,
+            root_key_pair.clone(),
+        )
+        .await?;
+
+        let key_storage = Arc::new(key_storage);
+
+        let scope = Scope::new(
+            root_key_pair.get_peer_id(),
             config.management_peer_id,
             builtins_peer_id,
+            key_storage.clone(),
         );
 
+        let workers = Workers::from_path(
+            config.dir_config.workers_base_dir.clone(),
+            key_storage.clone(),
+            scope.clone(),
+        )
+        .await?;
+
+        let workers = Arc::new(workers);
+
         let services_config = ServicesConfig::new(
-            key_manager.get_host_peer_id(),
+            scope.get_host_peer_id(),
             config.dir_config.services_base_dir.clone(),
             config_utils::particles_vault_dir(&config.dir_config.avm_base_dir),
             config.services_envs.clone(),
@@ -191,7 +210,7 @@ impl<RT: AquaRuntime> Node<RT> {
         let allow_local_addresses = config.allow_local_addresses;
 
         let (swarm, connectivity, particle_stream) = Self::swarm(
-            key_manager.root_keypair.clone().into(),
+            root_key_pair.clone().into(),
             network_config,
             transport,
             config.external_addresses(),
@@ -222,7 +241,8 @@ impl<RT: AquaRuntime> Node<RT> {
             connectivity.clone(),
             services_config,
             services_metrics,
-            key_manager.clone(),
+            workers.clone(),
+            scope.clone(),
             health_registry.as_mut(),
             config.system_services.decider.network_api_endpoint.clone(),
         ));
@@ -240,13 +260,14 @@ impl<RT: AquaRuntime> Node<RT> {
             plumber_metrics,
             vm_pool_metrics,
             health_registry.as_mut(),
-            key_manager.clone(),
+            workers.clone(),
+            scope.clone(),
         )?;
         let effectors = Effectors::new(connectivity.clone());
         let dispatcher = {
             let parallelism = config.particle_processor_parallelism;
             Dispatcher::new(
-                key_manager.get_host_peer_id(),
+                scope.get_host_peer_id(),
                 aquamarine_api.clone(),
                 effectors,
                 parallelism,
@@ -267,7 +288,8 @@ impl<RT: AquaRuntime> Node<RT> {
             aquamarine_api.clone(),
             config.clone(),
             spell_event_bus_api.clone(),
-            key_manager.clone(),
+            workers.clone(),
+            scope.clone(),
             spell_service_api.clone(),
             spell_metrics,
         );
@@ -315,7 +337,7 @@ impl<RT: AquaRuntime> Node<RT> {
             sorcerer.spell_storage.clone(),
             spell_event_bus_api.clone(),
             spell_service_api,
-            key_manager.get_host_peer_id(),
+            scope.get_host_peer_id(),
             builtins_peer_id,
             system_service_distros,
         );
@@ -329,7 +351,7 @@ impl<RT: AquaRuntime> Node<RT> {
 
         let chain_listener = if let Some(chain_config) = config.chain_listener_config.clone() {
             let cc_events_dir = config.dir_config.cc_events_dir.clone();
-            let host_id = key_manager.get_host_peer_id();
+            let host_id = scope.get_host_peer_id();
             let chain_listener = ChainListener::new(chain_config, cc_events_dir, host_id);
             Some(chain_listener)
         } else {
@@ -355,7 +377,7 @@ impl<RT: AquaRuntime> Node<RT> {
             services_metrics_backend,
             config.http_listen_addr(),
             builtins_peer_id,
-            key_manager,
+            scope,
             allow_local_addresses,
             versions,
             chain_listener,
@@ -405,7 +427,8 @@ impl<RT: AquaRuntime> Node<RT> {
         connectivity: Connectivity,
         services_config: ServicesConfig,
         services_metrics: ServicesMetrics,
-        key_manager: KeyManager,
+        workers: Arc<Workers>,
+        scope: Scope,
         health_registry: Option<&mut HealthCheckRegistry>,
         connector_api_endpoint: String,
     ) -> Builtins<Connectivity> {
@@ -413,7 +436,8 @@ impl<RT: AquaRuntime> Node<RT> {
             connectivity,
             services_config,
             services_metrics,
-            key_manager,
+            workers,
+            scope,
             health_registry,
             connector_api_endpoint,
         )
@@ -446,7 +470,7 @@ impl<RT: AquaRuntime> Node<RT> {
         services_metrics_backend: ServicesMetricsBackend,
         http_listen_addr: Option<SocketAddr>,
         builtins_management_peer_id: PeerId,
-        key_manager: KeyManager,
+        scope: Scope,
         allow_local_addresses: bool,
         versions: Versions,
         chain_listener: Option<ChainListener>,
@@ -472,7 +496,7 @@ impl<RT: AquaRuntime> Node<RT> {
             services_metrics_backend,
             http_listen_addr,
             builtins_management_peer_id,
-            key_manager,
+            scope,
             allow_local_addresses,
             versions,
             chain_listener,

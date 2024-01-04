@@ -17,7 +17,7 @@ control-macro = { workspace = true }
 fs-utils = { workspace = true }
 peer-metrics = { workspace = true }
 particle-execution = { workspace = true }
-key-manager = { workspace = true }
+workers = { workspace = true }
 
 avm-server = { workspace = true }
 libp2p = { workspace = true }

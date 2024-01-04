@@ -59,13 +59,13 @@ impl Sorcerer {
         spell_id: String,
         worker_id: PeerId,
     ) -> Result<Particle, JError> {
-        let spell_keypair = self
-            .key_manager
-            .get_worker_keypair(worker_id)
-            .map_err(|err| ScopeKeypairMissing {
-                err,
-                spell_id: spell_id.clone(),
-            })?;
+        let spell_keypair =
+            self.workers
+                .get_keypair(worker_id)
+                .map_err(|err| ScopeKeypairMissing {
+                    err,
+                    spell_id: spell_id.clone(),
+                })?;
 
         let spell_counter = self.get_spell_counter(spell_id.clone(), worker_id)?;
         self.set_spell_next_counter(spell_id.clone(), spell_counter + 1, worker_id)?;
@@ -105,7 +105,7 @@ impl Sorcerer {
             let worker_id = self.services.get_service_owner(
                 "",
                 event.spell_id.clone(),
-                self.key_manager.get_host_peer_id(),
+                self.scope.get_host_peer_id(),
             )?;
             let particle = self.make_spell_particle(event.spell_id.clone(), worker_id)?;
 

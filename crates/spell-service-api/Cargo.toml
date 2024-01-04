@@ -8,7 +8,7 @@ edition = "2021"
 [dependencies]
 particle-services = { workspace = true }
 particle-execution = { workspace = true }
-key-manager = { workspace = true }
+workers = { workspace = true }
 
 fluence-libp2p = { workspace = true }
 fluence-spell-dtos = { workspace = true }
@@ -22,8 +22,10 @@ fluence-app-service = { workspace = true }
 libp2p-identity = { workspace = true }
 tempdir = "0.3.7"
 config-utils = { workspace = true }
+fluence-keypair = { workspace = true }
 
 particle-modules = { workspace = true }
 server-config = { workspace = true }
 spell-storage = { workspace = true }
 maplit = { workspace = true }
+tokio = { workspace = true, features = ["macros"] }

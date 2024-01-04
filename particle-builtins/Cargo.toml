@@ -19,7 +19,7 @@ now-millis = { workspace = true }
 toml-utils = { workspace = true }
 peer-metrics = { workspace = true }
 uuid-utils = { workspace = true }
-key-manager = { workspace = true }
+workers = { workspace = true }
 service-modules = { workspace = true }
 subnet-resolver = { workspace = true }
 

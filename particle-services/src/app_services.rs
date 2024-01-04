@@ -30,7 +30,6 @@ use serde_json::{json, Value as JValue};
 
 use fluence_libp2p::{peerid_serializer, PeerId};
 use health::HealthCheckRegistry;
-use key_manager::KeyManager;
 use now_millis::now_ms;
 use particle_args::{Args, JError};
 use particle_execution::{FunctionOutcome, ParticleParams, ParticleVault};
@@ -41,6 +40,7 @@ use peer_metrics::{
 };
 use server_config::ServicesConfig;
 use uuid_utils::uuid;
+use workers::{Scope, Workers};
 
 use crate::error::ServiceError;
 use crate::error::ServiceError::{AliasAsServiceId, Forbidden, NoSuchAlias};
@@ -175,7 +175,9 @@ pub struct ParticleAppServices {
     modules: ModuleRepository,
     aliases: Arc<RwLock<Aliases>>,
     #[derivative(Debug = "ignore")]
-    key_manager: KeyManager,
+    workers: Arc<Workers>,
+    #[derivative(Debug = "ignore")]
+    scope: Scope,
     pub metrics: Option<ServicesMetrics>,
     health: Option<PersistedServiceHealth>,
 }
@@ -259,7 +261,8 @@ impl ParticleAppServices {
         modules: ModuleRepository,
         metrics: Option<ServicesMetrics>,
         health_registry: Option<&mut HealthCheckRegistry>,
-        key_manager: KeyManager,
+        workers: Arc<Workers>,
+        scope: Scope,
     ) -> Self {
         let vault = ParticleVault::new(config.particles_vault_dir.clone());
 
@@ -274,7 +277,8 @@ impl ParticleAppServices {
             services: <_>::default(),
             modules,
             aliases: <_>::default(),
-            key_manager,
+            workers,
+            scope,
             metrics,
             health,
         };
@@ -401,7 +405,7 @@ impl ParticleAppServices {
             //      all services.
             if service.worker_id != init_peer_id
                 && service.owner_id != init_peer_id
-                && !self.key_manager.is_management(init_peer_id)
+                && !self.scope.is_management(init_peer_id)
             {
                 return Err(Forbidden {
                     user: init_peer_id,
@@ -636,11 +640,11 @@ impl ParticleAppServices {
         service_id: String,
         init_peer_id: PeerId,
     ) -> Result<(), ServiceError> {
-        let is_management = self.key_manager.is_management(init_peer_id);
-        let is_root_scope = self.key_manager.is_host(worker_id);
+        let is_management = self.scope.is_management(init_peer_id);
+        let is_root_scope = self.scope.is_host(worker_id);
         let is_worker = init_peer_id == worker_id;
         let worker_creator = self
-            .key_manager
+            .workers
             .get_worker_creator(worker_id)
             .map_err(|e| InternalError(format!("{e:?}")))?; // worker creator is always set
         let is_worker_creator = init_peer_id == worker_creator;
@@ -1027,19 +1031,21 @@ mod tests {
     use std::collections::HashMap;
     use std::fs::remove_file;
     use std::path::PathBuf;
+    use std::sync::Arc;
 
     use base64::{engine::general_purpose::STANDARD as base64, Engine};
     use fluence_app_service::{TomlMarineModuleConfig, TomlMarineNamedModuleConfig};
+    use fluence_keypair::KeyPair;
     use libp2p_identity::{Keypair, PeerId};
     use tempdir::TempDir;
 
-    use config_utils::{modules_dir, to_peer_id};
+    use config_utils::modules_dir;
     use fluence_libp2p::RandomPeerId;
-    use key_manager::KeyManager;
     use particle_modules::{AddBlueprint, ModuleRepository};
     use server_config::ServicesConfig;
     use service_modules::load_module;
     use service_modules::Hash;
+    use workers::{KeyStorage, Scope, Workers};
 
     use crate::app_services::ServiceType;
     use crate::persistence::load_persisted_services;
@@ -1051,23 +1057,35 @@ mod tests {
         PeerId::from(keypair.public())
     }
 
-    fn create_pas(
+    async fn create_pas(
         root_keypair: Keypair,
         management_pid: PeerId,
         base_dir: PathBuf,
     ) -> ParticleAppServices {
-        let startup_kp = Keypair::generate_ed25519();
         let vault_dir = base_dir.join("..").join("vault");
         let keypairs_dir = base_dir.join("..").join("keypairs");
         let workers_dir = base_dir.join("..").join("workers");
         let max_heap_size = server_config::default_module_max_heap_size();
-        let key_manager = KeyManager::new(
-            keypairs_dir,
-            workers_dir,
-            root_keypair.clone().into(),
+        let key_storage = KeyStorage::from_path(keypairs_dir.clone(), root_keypair.clone().into())
+            .await
+            .expect("Could not load key storage");
+
+        let key_storage = Arc::new(key_storage);
+
+        let root_key_pair: KeyPair = root_keypair.clone().into();
+
+        let scope = Scope::new(
+            root_key_pair.get_peer_id(),
             management_pid,
-            to_peer_id(&startup_kp),
+            root_key_pair.get_peer_id(),
+            key_storage.clone(),
         );
+
+        let workers = Workers::from_path(workers_dir.clone(), key_storage, scope.clone())
+            .await
+            .expect("Could not load worker registry");
+
+        let workers = Arc::new(workers);
 
         let config = ServicesConfig::new(
             PeerId::from(root_keypair.public()),
@@ -1075,7 +1093,7 @@ mod tests {
             vault_dir,
             HashMap::new(),
             management_pid,
-            to_peer_id(&startup_kp),
+            root_key_pair.get_peer_id(),
             max_heap_size,
             None,
             Default::default(),
@@ -1091,10 +1109,10 @@ mod tests {
             Default::default(),
         );
 
-        ParticleAppServices::new(config, repo, None, None, key_manager)
+        ParticleAppServices::new(config, repo, None, None, workers, scope)
     }
 
-    fn call_add_alias_raw(
+    async fn call_add_alias_raw(
         as_manager: bool,
         alias: String,
         service_id: String,
@@ -1103,7 +1121,7 @@ mod tests {
         let root_keypair = Keypair::generate_ed25519();
         let local_pid = PeerId::from(root_keypair.public());
         let management_pid = create_pid();
-        let pas = create_pas(root_keypair, management_pid, base_dir.into_path());
+        let pas = create_pas(root_keypair, management_pid, base_dir.into_path()).await;
 
         let client_pid;
         if as_manager {
@@ -1115,8 +1133,8 @@ mod tests {
         pas.add_alias(alias, local_pid, service_id, client_pid)
     }
 
-    fn call_add_alias(alias: String, service_id: String) -> Result<(), ServiceError> {
-        call_add_alias_raw(true, alias, service_id)
+    async fn call_add_alias(alias: String, service_id: String) -> Result<(), ServiceError> {
+        call_add_alias_raw(true, alias, service_id).await
     }
 
     fn create_service(
@@ -1135,9 +1153,9 @@ mod tests {
             .map_err(|e| e.to_string())
     }
 
-    #[test]
-    fn test_add_alias_forbidden() {
-        let resp = call_add_alias_raw(false, "1".to_string(), "2".to_string());
+    #[tokio::test]
+    async fn test_add_alias_forbidden() {
+        let resp = call_add_alias_raw(false, "1".to_string(), "2".to_string()).await;
         assert!(resp.is_err());
         assert!(matches!(
             resp.err().unwrap(),
@@ -1145,9 +1163,9 @@ mod tests {
         ))
     }
 
-    #[test]
-    fn test_add_alias_no_service() {
-        let resp = call_add_alias("1".to_string(), "2".to_string());
+    #[tokio::test]
+    async fn test_add_alias_no_service() {
+        let resp = call_add_alias("1".to_string(), "2".to_string()).await;
         assert!(resp.is_err());
         assert!(matches!(
             resp.err().unwrap(),
@@ -1155,13 +1173,13 @@ mod tests {
         ));
     }
 
-    #[test]
-    fn test_get_interface_cache() {
+    #[tokio::test]
+    async fn test_get_interface_cache() {
         let root_keypair = Keypair::generate_ed25519();
         let local_pid = PeerId::from(root_keypair.public());
         let management_pid = create_pid();
         let base_dir = TempDir::new("test").unwrap();
-        let pas = create_pas(root_keypair, management_pid, base_dir.path().into());
+        let pas = create_pas(root_keypair, management_pid, base_dir.path().into()).await;
 
         let module = load_module(
             "../crates/nox-tests/tests/tetraplets/artifacts",
@@ -1231,13 +1249,13 @@ mod tests {
             .unwrap()
     }
 
-    #[test]
-    fn test_add_alias() {
+    #[tokio::test]
+    async fn test_add_alias() {
         let base_dir = TempDir::new("test4").unwrap();
         let root_keypair = Keypair::generate_ed25519();
         let local_pid = PeerId::from(root_keypair.public());
         let management_pid = create_pid();
-        let pas = create_pas(root_keypair, management_pid, base_dir.into_path());
+        let pas = create_pas(root_keypair, management_pid, base_dir.into_path()).await;
 
         let module_name = "tetra".to_string();
         let m_hash = upload_tetra_service(&pas, module_name.clone());
@@ -1272,13 +1290,13 @@ mod tests {
         assert_eq!(persisted_service_1.aliases, vec![alias.to_string()]);
     }
 
-    #[test]
-    fn test_add_alias_repeated() {
+    #[tokio::test]
+    async fn test_add_alias_repeated() {
         let base_dir = TempDir::new("test4").unwrap();
         let root_keypair = Keypair::generate_ed25519();
         let local_pid = PeerId::from(root_keypair.public());
         let management_pid = create_pid();
-        let pas = create_pas(root_keypair, management_pid, base_dir.into_path());
+        let pas = create_pas(root_keypair, management_pid, base_dir.into_path()).await;
 
         let module_name = "tetra".to_string();
         let m_hash = upload_tetra_service(&pas, module_name.clone());
@@ -1331,13 +1349,13 @@ mod tests {
         assert_eq!(persisted_service_2.aliases, vec![alias.to_string()]);
     }
 
-    #[test]
-    fn test_add_alias_twice() {
+    #[tokio::test]
+    async fn test_add_alias_twice() {
         let base_dir = TempDir::new("test4").unwrap();
         let root_keypair = Keypair::generate_ed25519();
         let local_pid = PeerId::from(root_keypair.public());
         let management_pid = create_pid();
-        let pas = create_pas(root_keypair, management_pid, base_dir.into_path());
+        let pas = create_pas(root_keypair, management_pid, base_dir.into_path()).await;
 
         let module_name = "tetra".to_string();
         let m_hash = upload_tetra_service(&pas, module_name.clone());
@@ -1382,13 +1400,13 @@ mod tests {
         assert_eq!(persisted_service.aliases, vec![alias.to_string()]);
     }
 
-    #[test]
-    fn test_persisted_service() {
+    #[tokio::test]
+    async fn test_persisted_service() {
         let base_dir = TempDir::new("test4").unwrap();
         let root_keypair = Keypair::generate_ed25519();
         let local_pid = PeerId::from(root_keypair.public());
         let management_pid = create_pid();
-        let pas = create_pas(root_keypair, management_pid, base_dir.into_path());
+        let pas = create_pas(root_keypair, management_pid, base_dir.into_path()).await;
 
         let module_name = "tetra".to_string();
         let alias = "alias".to_string();

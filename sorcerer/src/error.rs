@@ -13,9 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use key_manager::KeyManagerError;
 use particle_protocol::ParticleError;
 use thiserror::Error;
+use workers::WorkersError;
 
 #[derive(Debug, Error)]
 pub enum SorcererError {
@@ -28,7 +28,7 @@ pub enum SorcererError {
     #[error("Keypair for spell {spell_id} is missing: {err}")]
     ScopeKeypairMissing {
         #[source]
-        err: KeyManagerError,
+        err: WorkersError,
         spell_id: String,
     },
 }

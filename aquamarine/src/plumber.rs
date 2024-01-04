@@ -29,7 +29,6 @@ use tokio::task;
 use tracing::instrument;
 
 use fluence_libp2p::PeerId;
-use key_manager::KeyManager;
 /// For tests, mocked time is used
 #[cfg(test)]
 use mock_time::now_ms;
@@ -39,6 +38,7 @@ use peer_metrics::ParticleExecutorMetrics;
 /// Get current time from OS
 #[cfg(not(test))]
 use real_time::now_ms;
+use workers::{Scope, Workers};
 
 use crate::actor::{Actor, ActorPoll};
 use crate::aqua_runtime::AquaRuntime;
@@ -65,7 +65,8 @@ pub struct Plumber<RT: AquaRuntime, F> {
     builtins: F,
     waker: Option<Waker>,
     metrics: Option<ParticleExecutorMetrics>,
-    key_manager: KeyManager,
+    workers: Arc<Workers>,
+    scope: Scope,
     cleanup_future: Option<BoxFuture<'static, ()>>,
 }
 
@@ -75,7 +76,8 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
         data_store: Arc<ParticleDataStore>,
         builtins: F,
         metrics: Option<ParticleExecutorMetrics>,
-        key_manager: KeyManager,
+        workers: Arc<Workers>,
+        scope: Scope,
     ) -> Self {
         Self {
             vm_pool,
@@ -85,7 +87,8 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
             actors: <_>::default(),
             waker: <_>::default(),
             metrics,
-            key_manager,
+            workers,
+            scope,
             cleanup_future: None,
         }
     }
@@ -120,11 +123,9 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
             return;
         }
 
-        let is_active = self.key_manager.is_worker_active(worker_id);
-        let is_manager = self
-            .key_manager
-            .is_management(particle.particle.init_peer_id);
-        let is_host = self.key_manager.is_host(particle.particle.init_peer_id);
+        let is_active = self.workers.is_worker_active(worker_id);
+        let is_manager = self.scope.is_management(particle.particle.init_peer_id);
+        let is_host = self.scope.is_host(particle.particle.init_peer_id);
 
         // Only a manager or the host itself is allowed to access deactivated workers
         if !is_active && !is_manager && !is_host {
@@ -144,8 +145,8 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
             Entry::Vacant(entry) => {
                 let params = ParticleParams::clone_from(particle.as_ref(), worker_id);
                 let functions = Functions::new(params, builtins.clone());
-                let key_pair = self.key_manager.get_worker_keypair(worker_id);
-                let deal_id = self.key_manager.get_deal_id(worker_id).ok();
+                let key_pair = self.workers.get_keypair(worker_id);
+                let deal_id = self.workers.get_deal_id(worker_id).ok();
                 let data_store = self.data_store.clone();
                 key_pair.map(|kp| {
                     let actor = Actor::new(
@@ -223,7 +224,6 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
         let mut local_effects: Vec<RoutingEffects> = vec![];
         let mut interpretation_stats = vec![];
         let mut mailbox_size = 0;
-        let key_manager = self.key_manager.clone();
         for actor in self.actors.values_mut() {
             if let Poll::Ready(result) = actor.poll_completed(cx) {
                 interpretation_stats.push(result.stats);
@@ -231,7 +231,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
                     .effects
                     .next_peers
                     .into_iter()
-                    .partition(|p| key_manager.is_local(*p));
+                    .partition(|p| self.scope.is_local(*p));
 
                 if !remote_peers.is_empty() {
                     remote_effects.push(RoutingEffects {
@@ -373,6 +373,7 @@ mod real_time {
 mod tests {
     use std::collections::HashMap;
     use std::convert::Infallible;
+    use std::path::PathBuf;
     use std::task::Waker;
     use std::{sync::Arc, task::Context};
 
@@ -380,7 +381,7 @@ mod tests {
     use fluence_keypair::KeyPair;
     use fluence_libp2p::RandomPeerId;
     use futures::task::noop_waker_ref;
-    use key_manager::KeyManager;
+    use workers::{KeyStorage, Scope, Workers};
 
     use particle_args::Args;
     use particle_execution::{FunctionOutcome, ParticleFunction, ParticleParams, ServiceFunction};
@@ -469,13 +470,29 @@ mod tests {
         // Pool is of size 1 so it's easier to control tests
         let vm_pool = VmPool::new(1, (), None, None);
         let builtin_mock = Arc::new(MockF);
-        let key_manager = KeyManager::new(
-            "keypair".into(),
-            "workers".into(),
-            KeyPair::generate_ed25519(),
+
+        let root_key_pair: KeyPair = KeyPair::generate_ed25519().into();
+        let key_pair_path: PathBuf = "keypair".into();
+        let workers_path: PathBuf = "workers".into();
+        let key_storage = KeyStorage::from_path(key_pair_path.clone(), root_key_pair.clone())
+            .await
+            .expect("Could not load key storage");
+
+        let key_storage = Arc::new(key_storage);
+
+        let scope = Scope::new(
+            root_key_pair.get_peer_id(),
             RandomPeerId::random(),
             RandomPeerId::random(),
+            key_storage.clone(),
         );
+
+        let workers = Workers::from_path(workers_path.clone(), key_storage, scope.clone())
+            .await
+            .expect("Could not load worker registry");
+
+        let workers = Arc::new(workers);
+
         let tmp_dir = tempfile::tempdir().expect("Could not create temp dir");
         let tmp_path = tmp_dir.path();
         let data_store = ParticleDataStore::new(
@@ -489,7 +506,14 @@ mod tests {
             .expect("Could not initialize datastore");
         let data_store = Arc::new(data_store);
 
-        Plumber::new(vm_pool, data_store, builtin_mock, None, key_manager)
+        Plumber::new(
+            vm_pool,
+            data_store,
+            builtin_mock,
+            None,
+            workers.clone(),
+            scope.clone(),
+        )
     }
 
     fn particle(ts: u64, ttl: u32) -> Particle {
