@@ -25,6 +25,7 @@ use std::{
 };
 
 use futures::task::Waker;
+use tokio::runtime::Handle;
 use tokio::task;
 use tracing::instrument;
 
@@ -149,12 +150,17 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
                 let deal_id = self.workers.get_deal_id(worker_id).ok();
                 let data_store = self.data_store.clone();
                 key_pair.map(|kp| {
+                    let handle = self
+                        .workers
+                        .get_handle(worker_id)
+                        .unwrap_or(Handle::current());
                     let actor = Actor::new(
                         particle.as_ref(),
                         functions,
                         worker_id,
                         kp,
                         data_store,
+                        handle,
                         deal_id,
                     );
                     entry.insert(actor)

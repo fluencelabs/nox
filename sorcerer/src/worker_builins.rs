@@ -28,7 +28,7 @@ use particle_services::ParticleAppServices;
 use spell_event_bus::api::{from_user_config, SpellEventBusApi};
 use spell_service_api::{CallParams, SpellServiceApi};
 use spell_storage::SpellStorage;
-use workers::{Scope, Workers};
+use workers::{CreateWorkerParams, Scope, Workers};
 
 pub(crate) async fn create_worker(
     args: Args,
@@ -37,9 +37,14 @@ pub(crate) async fn create_worker(
 ) -> Result<JValue, JError> {
     let mut args = args.function_args.into_iter();
     let deal_id: String = Args::next("deal_id", &mut args)?;
+    let cu_count: usize = Args::next_opt("cu_count", &mut args)?.unwrap_or(1);
     Ok(JValue::String(
         workers
-            .create_worker(deal_id, params.init_peer_id)
+            .create_worker(CreateWorkerParams::new(
+                deal_id,
+                params.init_peer_id,
+                cu_count,
+            ))
             .await?
             .to_base58(),
     ))

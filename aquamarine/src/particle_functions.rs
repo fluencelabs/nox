@@ -100,6 +100,7 @@ impl<F: ParticleFunctionStatic> Functions<F> {
     #[instrument(level = tracing::Level::INFO, skip_all)]
     pub fn execute(
         &mut self,
+        handle: Handle,
         particle_id: String,
         requests: CallRequests,
         waker: Waker,
@@ -107,7 +108,16 @@ impl<F: ParticleFunctionStatic> Functions<F> {
     ) {
         let futs: Vec<_> = requests
             .into_iter()
-            .map(|(id, call)| self.call(particle_id.clone(), id, call, waker.clone(), span.clone()))
+            .map(|(id, call)| {
+                self.call(
+                    handle.clone(),
+                    particle_id.clone(),
+                    id,
+                    call,
+                    waker.clone(),
+                    span.clone(),
+                )
+            })
             .collect();
         self.function_calls.extend(futs);
     }
@@ -135,6 +145,7 @@ impl<F: ParticleFunctionStatic> Functions<F> {
     #[instrument(level = tracing::Level::INFO, skip_all)]
     fn call(
         &self,
+        handle: Handle,
         particle_id: String,
         call_id: u32,
         call: CallRequestParams,
@@ -188,35 +199,38 @@ impl<F: ParticleFunctionStatic> Functions<F> {
                 "Call function {}:{}",
                 args.service_id, args.function_name
             ))
-            .spawn_blocking(move || {
-                Handle::current().block_on(async move {
-                    // How much time it took to start execution on blocking pool
-                    let schedule_wait_time = schedule_wait_start.elapsed();
-                    let outcome = builtins.call(args, params).await;
-                    // record whether call was handled by builtin or not. needed for stats.
-                    let mut call_kind = FunctionKind::Service;
-                    let outcome = match outcome {
-                        // If particle_function isn't set, just return what we have
-                        outcome if particle_function.is_none() => outcome,
-                        // If builtins weren't defined over these args, try particle_function
-                        FunctionOutcome::NotDefined { args, params } => {
-                            let func = particle_function.unwrap();
-                            // TODO: Actors would allow to get rid of Mutex
-                            //       i.e., wrap each callback with a queue & channel
-                            let func = func.lock().await;
-                            let outcome = func.call(args, params).await;
-                            call_kind = FunctionKind::ParticleFunction;
-                            outcome
-                        }
-                        // Builtins were called, return their outcome
-                        outcome => outcome,
-                    };
-                    // How much time it took to execute the call
-                    // TODO: Time for ParticleFunction includes lock time, which is not good. Low priority cuz ParticleFunctions are barely used.
-                    let call_time = schedule_wait_start.elapsed() - schedule_wait_time;
-                    (outcome, call_kind, call_time, schedule_wait_time)
-                })
-            })
+            .spawn_blocking_on(
+                move || {
+                    Handle::current().block_on(async move {
+                        // How much time it took to start execution on blocking pool
+                        let schedule_wait_time = schedule_wait_start.elapsed();
+                        let outcome = builtins.call(args, params).await;
+                        // record whether call was handled by builtin or not. needed for stats.
+                        let mut call_kind = FunctionKind::Service;
+                        let outcome = match outcome {
+                            // If particle_function isn't set, just return what we have
+                            outcome if particle_function.is_none() => outcome,
+                            // If builtins weren't defined over these args, try particle_function
+                            FunctionOutcome::NotDefined { args, params } => {
+                                let func = particle_function.unwrap();
+                                // TODO: Actors would allow to get rid of Mutex
+                                //       i.e., wrap each callback with a queue & channel
+                                let func = func.lock().await;
+                                let outcome = func.call(args, params).await;
+                                call_kind = FunctionKind::ParticleFunction;
+                                outcome
+                            }
+                            // Builtins were called, return their outcome
+                            outcome => outcome,
+                        };
+                        // How much time it took to execute the call
+                        // TODO: Time for ParticleFunction includes lock time, which is not good. Low priority cuz ParticleFunctions are barely used.
+                        let call_time = schedule_wait_start.elapsed() - schedule_wait_time;
+                        (outcome, call_kind, call_time, schedule_wait_time)
+                    })
+                },
+                &handle,
+            )
             .expect("Could not spawn task");
 
         async move {

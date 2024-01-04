@@ -241,7 +241,7 @@ async fn avm_call<'a, RT: AquaRuntime>(
     call_results: CallResults,
     prev_data: Vec<u8>,
 ) -> Result<AVMCallResult<'a, RT>, JoinError> {
-    tokio::task::spawn_blocking(move || {
+    tokio::task::spawn(async move {
         let particle_id = particle.id.clone();
         let now = Instant::now();
         let memory_size_before = vm.memory_stats().memory_size;
