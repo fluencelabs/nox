@@ -7652,9 +7652,9 @@ dependencies = [
 
 [[package]]
 name = "trust-graph-distro"
-version = "0.4.9"
+version = "0.4.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9f6d9068de04aaa5785a097cde5f380da985a48450600c3bcbf624f42c2527ba"
+checksum = "576903cd0bde70e73e8b64848720e0d7deccadd833eac1b8199bbc322b2f0546"
 dependencies = [
  "built 0.6.1",
  "lazy_static",
