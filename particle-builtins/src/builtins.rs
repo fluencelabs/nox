@@ -970,17 +970,10 @@ fn make_module_config(args: Args) -> Result<JValue, JError> {
     let mut args = args.function_args.into_iter();
 
     let name = Args::next("name", &mut args)?;
-    // TODO: maybe args require getting them?
+    // These are not used anymore, keep them for backward compatibility, because args are positional
     let _mem_pages_count: Option<u32> = Args::next_opt("mem_pages_count", &mut args)?;
     let _max_heap_size: Option<String> = Args::next_opt("max_heap_size", &mut args)?;
-    // let max_heap_size = match max_heap_size {
-    //     Some(s) => Some(bytesize::ByteSize::from_str(&s).map_err(|err| {
-    //         JError::new(format!(
-    //             "error parsing max_heap_size from String to ByteSize: {err}"
-    //         ))
-    //     })?),
-    //     None => None,
-    // };
+
     let logger_enabled = Args::next_opt("logger_enabled", &mut args)?;
     let preopened_files = Args::next_opt("preopened_files", &mut args)?;
     let envs = Args::next_opt("envs", &mut args)?.map(table);
@@ -1112,7 +1105,7 @@ mod prop_tests {
             let args = vec![
                 json!(name),              // required: name
                 json!(mem_pages),         // mem_pages_count = optional: None
-                json!(heap),      // optional: max_heap_size
+                json!(heap),              // optional: max_heap_size
                 json!(logger_enabled),    // optional: logger_enabled
                 json!(preopened_files),   // optional: preopened_files
                 json!(envs),              // optional: envs
@@ -1127,10 +1120,9 @@ mod prop_tests {
                 tetraplets: vec![],
             };
 
-            let _config = make_module_config(args).expect("parse config via make_module_config");
-            //let prop_heap = heap.get(0).map(|h| bytesize::ByteSize::from_str(h).unwrap().to_string());
-            //let config_heap = config.get("max_heap_size").map(|h| bytesize::ByteSize::from_str(h.as_str().unwrap()).unwrap().to_string());
-            //prop_assert_eq!(prop_heap, config_heap);
+            let config = make_module_config(args).expect("parse config via make_module_config");
+            let config_name = config.get("name").and_then(|n| n.as_str()).expect("'name' field in the config");
+            prop_assert_eq!(config_name, name);
         }
     }
 }

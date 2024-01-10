@@ -974,11 +974,6 @@ impl ParticleAppServices {
             .iter_mut()
             .for_each(|module| self.vault.inject_vault(module));
 
-        // TODO: I guess this part is obsolete. Need to record the service memory limit instead.
-        //if let Some(metrics) = self.metrics.as_ref() {
-        //     metrics.observe_service_config(self.config.default_service_memory_limit.as_u64());
-        //}
-
         let app_config = AppServiceConfig {
             service_working_dir: self.config.workdir.join(&service_id),
             service_base_dir: self.config.workdir.clone(),
