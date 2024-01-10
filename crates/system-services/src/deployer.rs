@@ -97,7 +97,7 @@ impl Deployer {
         let mut services = HashMap::new();
         for service_distro in package.services {
             let name = service_distro.name.clone();
-            let result = self.deploy_service_common(service_distro)?;
+            let result = self.deploy_service_common(service_distro).await?;
             services.insert(name, result);
         }
 
@@ -263,7 +263,10 @@ impl Deployer {
         }
     }
 
-    fn deploy_service_common(&self, service_distro: ServiceDistro) -> eyre::Result<ServiceStatus> {
+    async fn deploy_service_common(
+        &self,
+        service_distro: ServiceDistro,
+    ) -> eyre::Result<ServiceStatus> {
         let service_name = service_distro.name.clone();
         let blueprint_id = self.add_modules(service_distro)?;
 

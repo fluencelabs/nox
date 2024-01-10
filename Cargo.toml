@@ -28,7 +28,7 @@ members = [
     "crates/peer-metrics",
     "crates/spell-event-bus",
     "crates/spell-service-api",
-    "crates/key-manager",
+    "crates/workers",
     "crates/health",
     "sorcerer",
     "crates/nox-tests",
@@ -43,6 +43,9 @@ members = [
     "spell-storage",
     "particle-execution",
     "crates/system-services",
+    "crates/chain-listener",
+    "crates/hex-utils",
+    "crates/chain-data"
 ]
 exclude = [
     "nox/tests/tetraplets",
@@ -75,7 +78,7 @@ test-constants = { path = "crates/test-constants" }
 peer-metrics = { path = "crates/peer-metrics" }
 spell-event-bus = { path = "crates/spell-event-bus" }
 spell-service-api = { path = "crates/spell-service-api" }
-key-manager = { path = "crates/key-manager" }
+workers = { path = "crates/workers" }
 cid-utils = { path = "crates/cid-utils" }
 sorcerer = { path = "sorcerer" }
 nox = { path = "nox" }
@@ -90,10 +93,13 @@ particle-execution = { path = "particle-execution" }
 system-services = { path = "crates/system-services" }
 health = { path = "crates/health" }
 subnet-resolver = { path = "crates/subnet-resolver" }
+hex-utils = { path = "crates/hex-utils"}
+chain-data = { path = "crates/chain-data"}
+chain-listener = { path = "crates/chain-listener"}
 
 # spell
-fluence-spell-dtos = "=0.6.0"
-fluence-spell-distro = "=0.6.0"
+fluence-spell-dtos = "=0.6.4"
+fluence-spell-distro = "=0.6.4"
 
 # marine
 fluence-app-service = { version = "0.31.0" }
@@ -120,7 +126,7 @@ prometheus-client = "0.22.0"
 eyre = "0.6.11"
 base64 = "0.21.5"
 bs58 = "0.5.0"
-fluence-keypair = "0.10.3"
+fluence-keypair = "0.10.4"
 parking_lot = "0.12.1"
 tokio = "1.35.0"
 tokio-stream = "0.1.14"
@@ -135,18 +141,22 @@ tracing = { version = "0.1.40", default-features = false, features = ["log"] }
 tracing-subscriber = "0.3.18"
 console-subscriber = "0.2.0"
 futures = "0.3.29"
-thiserror = "1.0.51"
+thiserror = "1.0.56"
 serde = "1.0.193"
 toml = "0.5.10"
 itertools = "0.12.0"
 humantime-serde = "1.1.1"
 cid = "0.11.0"
 libipld = "0.16.0"
-axum = "0.7.2"
+axum = "0.7.3"
 reqwest = "0.11.22"
-faster-hex = "0.9.0"
 once_cell = "1.19.0"
 tempfile = "3.8.1"
+hex = "0.4.3"
+ethabi = "18.0.0"
+jsonrpsee = "0.21.0"
+blake3 = "1.5.0"
+rand = "0.8.4"
 
 # Enable a small amount of optimization in debug mode
 [profile.dev]

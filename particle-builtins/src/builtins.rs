@@ -20,6 +20,7 @@ use std::ops::Try;
 use std::path;
 use std::path::Path;
 use std::str::FromStr;
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use derivative::Derivative;
@@ -34,7 +35,6 @@ use JValue::Array;
 use connection_pool::{ConnectionPoolApi, ConnectionPoolT};
 use health::HealthCheckRegistry;
 use kademlia::{KademliaApi, KademliaApiT};
-use key_manager::KeyManager;
 use now_millis::{now_ms, now_sec};
 use particle_args::{from_base58, Args, ArgsError, JError};
 use particle_execution::{FunctionOutcome, ParticleParams, ServiceFunction};
@@ -46,6 +46,7 @@ use particle_services::{ParticleAppServices, ServiceType};
 use peer_metrics::ServicesMetrics;
 use server_config::ServicesConfig;
 use uuid_utils::uuid;
+use workers::{Scope, Workers};
 
 use crate::debug::fmt_custom_services;
 use crate::error::HostClosureCallError;
@@ -86,7 +87,9 @@ pub struct Builtins<C> {
     particles_vault_dir: path::PathBuf,
 
     #[derivative(Debug = "ignore")]
-    key_manager: KeyManager,
+    workers: Arc<Workers>,
+    #[derivative(Debug = "ignore")]
+    scope: Scope,
     connector_api_endpoint: String,
 }
 
@@ -98,7 +101,8 @@ where
         connectivity: C,
         config: ServicesConfig,
         services_metrics: ServicesMetrics,
-        key_manager: KeyManager,
+        workers: Arc<Workers>,
+        scope: Scope,
         health_registry: Option<&mut HealthCheckRegistry>,
         connector_api_endpoint: String,
     ) -> Self {
@@ -117,7 +121,8 @@ where
             modules.clone(),
             Some(services_metrics),
             health_registry,
-            key_manager.clone(),
+            workers.clone(),
+            scope.clone(),
         );
 
         Self {
@@ -126,7 +131,8 @@ where
             services,
             particles_vault_dir,
             custom_services: <_>::default(),
-            key_manager,
+            workers,
+            scope,
             connector_api_endpoint,
         }
     }
@@ -869,10 +875,10 @@ where
 
             let tetraplet = tetraplets.get(0).map(|v| v.as_slice());
             if let Some([t]) = tetraplet {
-                if !self.key_manager.is_local(PeerId::from_str(&t.peer_pk)?) {
+                if !self.scope.is_local(PeerId::from_str(&t.peer_pk)?) {
                     return Err(JError::new(format!(
                         "data is expected to be produced by service 'registry' on peer '{}', was from peer '{}'",
-                        self.key_manager.get_host_peer_id(), t.peer_pk
+                        self.scope.get_host_peer_id(), t.peer_pk
                     )));
                 }
 
@@ -896,7 +902,7 @@ where
                 return Err(JError::new(format!("expected tetraplet for a scalar argument, got tetraplet for an array: {tetraplet:?}, tetraplets")));
             }
 
-            let keypair = self.key_manager.get_worker_keypair(params.host_id)?;
+            let keypair = self.workers.get_keypair(params.host_id)?;
             json!(keypair.sign(&data)?.to_vec())
         };
 
@@ -919,10 +925,7 @@ where
         let mut args = args.function_args.into_iter();
         let signature: Vec<u8> = Args::next("signature", &mut args)?;
         let data: Vec<u8> = Args::next("data", &mut args)?;
-        let pk = self
-            .key_manager
-            .get_worker_keypair(params.host_id)?
-            .public();
+        let pk = self.workers.get_keypair(params.host_id)?.public();
         let signature = Signature::from_bytes(pk.get_key_format(), signature);
 
         Ok(JValue::Bool(pk.verify(&data, &signature).is_ok()))

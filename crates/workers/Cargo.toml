@@ -1,5 +1,5 @@
 [package]
-name = "key-manager"
+name = "workers"
 version = "0.1.0"
 edition = "2021"
 
@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 fs-utils = { workspace = true }
-fluence-libp2p = { workspace = true}
+fluence-libp2p = { workspace = true }
 fluence-keypair = { workspace = true }
 
 parking_lot = { workspace = true }
@@ -18,4 +18,10 @@ toml = { workspace = true }
 log = { workspace = true }
 libp2p = { workspace = true }
 tracing = { workspace = true }
-tokio = { workspace = true }
+tokio = { workspace = true, features = ["fs", "sync"] }
+tokio-stream = { workspace = true, features = ["fs"] }
+derivative = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
+tokio = { workspace = true, features = ["macros"] }

@@ -37,7 +37,9 @@ use futures::future::{join_all, BoxFuture};
 use futures::stream::iter;
 use nox::{Connectivity, Node};
 use particle_protocol::ProtocolConfig;
-use server_config::{system_services_config, BootstrapConfig, UnresolvedConfig};
+use server_config::{
+    system_services_config, BootstrapConfig, ChainListenerConfig, UnresolvedConfig,
+};
 use tempfile::TempDir;
 use test_constants::{EXECUTION_TIMEOUT, TRANSPORT_TIMEOUT};
 use tokio::sync::oneshot;
@@ -251,6 +253,8 @@ pub struct SwarmConfig {
     pub override_system_services_config: Option<system_services_config::SystemServicesConfig>,
     pub http_port: u16,
     pub connector_api_endpoint: Option<String>,
+    pub chain_listener: Option<ChainListenerConfig>,
+    pub cc_events_dir: Option<PathBuf>,
 }
 
 impl SwarmConfig {
@@ -277,6 +281,8 @@ impl SwarmConfig {
             override_system_services_config: None,
             http_port: 0,
             connector_api_endpoint: None,
+            chain_listener: None,
+            cc_events_dir: None,
         }
     }
 }
@@ -339,7 +345,8 @@ pub async fn create_swarm_with_runtime<RT: AquaRuntime>(
         "external_multiaddresses": [config.listen_on],
         "spell_base_dir": Some(config.spell_base_dir.clone().unwrap_or(to_abs_path(PathBuf::from("spell")))),
         "http_port": config.http_port,
-        "listen_ip": "127.0.0.1"
+        "listen_ip": "127.0.0.1",
+        "cc_events_dir": config.cc_events_dir,
     });
 
     let node_config: UnresolvedConfig =
@@ -387,6 +394,7 @@ pub async fn create_swarm_with_runtime<RT: AquaRuntime>(
         .public()
         .to_peer_id();
     resolved.node_config.management_peer_id = management_peer_id;
+    resolved.chain_listener_config = config.chain_listener.clone();
 
     let vm_config = vm_config(BaseVmConfig {
         peer_id,
@@ -395,7 +403,7 @@ pub async fn create_swarm_with_runtime<RT: AquaRuntime>(
         manager: management_peer_id,
     });
 
-    let datas_tore_config = DataStoreConfig::new(tmp_dir.clone());
+    let data_store_config = DataStoreConfig::new(tmp_dir.clone());
 
     let system_services_config = resolved.system_services.clone();
     let system_service_distros =
@@ -406,7 +414,7 @@ pub async fn create_swarm_with_runtime<RT: AquaRuntime>(
     let mut node = Node::new(
         resolved,
         vm_config,
-        datas_tore_config,
+        data_store_config,
         "some version",
         "some version",
         system_service_distros,
@@ -416,7 +424,7 @@ pub async fn create_swarm_with_runtime<RT: AquaRuntime>(
     node.listen(vec![config.listen_on.clone()]).expect("listen");
 
     (
-        node.key_manager.get_host_peer_id(),
+        node.scope.get_host_peer_id(),
         node,
         management_kp,
         config,

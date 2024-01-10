@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::net::IpAddr;
 use std::ops::Deref;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use base64::{engine::general_purpose::STANDARD as base64, Engine};
@@ -124,10 +124,13 @@ pub struct UnresolvedNodeConfig {
 
     #[serde(default)]
     pub system_services: SystemServicesConfig,
+
+    #[serde(flatten)]
+    pub chain_listener_config: Option<ChainListenerConfig>,
 }
 
 impl UnresolvedNodeConfig {
-    pub fn resolve(mut self) -> eyre::Result<NodeConfig> {
+    pub fn resolve(mut self, base_dir: &Path) -> eyre::Result<NodeConfig> {
         self.load_system_services_envs();
 
         let bootstrap_nodes = match self.local {
@@ -138,12 +141,12 @@ impl UnresolvedNodeConfig {
         let root_key_pair = self
             .root_key_pair
             .unwrap_or_default()
-            .get_keypair(default_keypair_path())?;
+            .get_keypair(default_keypair_path(base_dir))?;
 
         let builtins_key_pair = self
             .builtins_key_pair
             .unwrap_or_default()
-            .get_keypair(default_builtins_keypair_path())?;
+            .get_keypair(default_builtins_keypair_path(base_dir))?;
 
         let mut allowed_binaries = self.allowed_binaries;
         allowed_binaries.push(self.system_services.aqua_ipfs.ipfs_binary_path.clone());
@@ -178,6 +181,7 @@ impl UnresolvedNodeConfig {
             allowed_binaries,
             system_services: self.system_services,
             http_config: self.http_config,
+            chain_listener_config: self.chain_listener_config,
         };
 
         Ok(result)
@@ -343,6 +347,8 @@ pub struct NodeConfig {
     pub system_services: SystemServicesConfig,
 
     pub http_config: Option<HttpConfig>,
+
+    pub chain_listener_config: Option<ChainListenerConfig>,
 }
 
 #[derive(Clone, Deserialize, Serialize, Derivative, Copy)]
@@ -495,4 +501,11 @@ impl KeypairConfig {
             Value { value } => decode_key(value, self.format),
         }
     }
+}
+
+#[derive(Clone, Deserialize, Serialize, Derivative)]
+#[derivative(Debug)]
+pub struct ChainListenerConfig {
+    pub ws_endpoint: String,
+    pub cc_contract_address: String,
 }

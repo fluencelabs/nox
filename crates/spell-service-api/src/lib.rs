@@ -264,6 +264,7 @@ impl SpellServiceApi {
 mod tests {
     use std::collections::HashMap;
     use std::path::{Path, PathBuf};
+    use std::sync::Arc;
 
     use particle_services::{ParticleAppServices, ServiceType};
 
@@ -271,16 +272,16 @@ mod tests {
     use libp2p_identity::Keypair;
     use tempdir::TempDir;
 
-    use config_utils::to_peer_id;
     use particle_modules::ModuleRepository;
     use server_config::ServicesConfig;
 
+    use fluence_keypair::KeyPair;
     use fluence_spell_dtos::trigger_config::TriggerConfig;
     use fluence_spell_dtos::value::*;
-    use key_manager::KeyManager;
     use maplit::hashmap;
     use serde_json::json;
     use std::time::Duration;
+    use workers::{KeyStorage, Scope, Workers};
 
     use crate::{CallParams, SpellServiceApi};
 
@@ -292,23 +293,37 @@ mod tests {
         PeerId::from(keypair.public())
     }
 
-    fn create_pas(
+    async fn create_pas(
         local_pid: PeerId,
         management_pid: PeerId,
         base_dir: PathBuf,
     ) -> (ParticleAppServices, ModuleRepository) {
-        let startup_kp = Keypair::generate_ed25519();
+        let root_key_pair = Keypair::generate_ed25519();
         let vault_dir = base_dir.join("..").join("vault");
         let keypairs_dir = base_dir.join("..").join("keypairs");
         let workers_dir = base_dir.join("..").join("workers");
 
-        let key_manager = KeyManager::new(
-            keypairs_dir,
-            workers_dir,
-            startup_kp.clone().into(),
+        let root_key_pair: KeyPair = root_key_pair.clone().into();
+
+        let key_storage = KeyStorage::from_path(keypairs_dir.clone(), root_key_pair.clone())
+            .await
+            .expect("Could not load key storage");
+
+        let key_storage = Arc::new(key_storage);
+
+        let scope = Scope::new(
+            root_key_pair.get_peer_id(),
             management_pid,
-            to_peer_id(&startup_kp),
+            root_key_pair.get_peer_id(),
+            key_storage.clone(),
         );
+
+        let workers = Workers::from_path(workers_dir.clone(), key_storage, scope.clone())
+            .await
+            .expect("Could not load worker registry");
+
+        let workers = Arc::new(workers);
+
         let service_memory_limit = server_config::default_service_memory_limit();
         let config = ServicesConfig::new(
             local_pid,
@@ -316,7 +331,7 @@ mod tests {
             vault_dir,
             HashMap::new(),
             management_pid,
-            to_peer_id(&startup_kp),
+            root_key_pair.get_peer_id(),
             Some(service_memory_limit),
             Default::default(),
         )
@@ -329,7 +344,14 @@ mod tests {
             Default::default(),
         );
 
-        let pas = ParticleAppServices::new(config, repo.clone(), None, None, key_manager);
+        let pas = ParticleAppServices::new(
+            config,
+            repo.clone(),
+            None,
+            None,
+            workers.clone(),
+            scope.clone(),
+        );
         (pas, repo)
     }
 
@@ -342,11 +364,11 @@ mod tests {
             .map_err(|e| e.to_string())
     }
 
-    fn setup() -> (SpellServiceApi, CallParams) {
+    async fn setup() -> (SpellServiceApi, CallParams) {
         let base_dir = TempDir::new("test3").unwrap();
         let local_pid = create_pid();
         let management_pid = create_pid();
-        let (pas, repo) = create_pas(local_pid, management_pid, base_dir.into_path());
+        let (pas, repo) = create_pas(local_pid, management_pid, base_dir.into_path()).await;
 
         let api = SpellServiceApi::new(pas.clone());
         let (storage, _) = spell_storage::SpellStorage::create(Path::new(""), &pas, &repo).unwrap();
@@ -356,9 +378,9 @@ mod tests {
         (api, params)
     }
 
-    #[test]
-    fn test_counter() {
-        let (api, params) = setup();
+    #[tokio::test]
+    async fn test_counter() {
+        let (api, params) = setup().await;
         let result1 = api.get_counter(params.clone());
         assert!(
             result1.is_ok(),
@@ -387,9 +409,9 @@ mod tests {
         );
     }
 
-    #[test]
-    fn test_script() {
-        let (api, params) = setup();
+    #[tokio::test]
+    async fn test_script() {
+        let (api, params) = setup().await;
         let script_original = "(noop)".to_string();
         let result1 = api.set_script(params.clone(), script_original.clone());
         assert!(result1.is_ok(), "must be able to update script");
@@ -398,9 +420,9 @@ mod tests {
         assert_eq!(script.unwrap(), script_original, "scripts must be equal");
     }
 
-    #[test]
-    fn test_trigger_config() {
-        let (api, params) = setup();
+    #[tokio::test]
+    async fn test_trigger_config() {
+        let (api, params) = setup().await;
         let trigger_config_original = TriggerConfig::default();
         let result1 = api.set_trigger_config(params.clone(), trigger_config_original.clone());
         assert!(result1.is_ok(), "must be able to set trigger config");
@@ -413,9 +435,9 @@ mod tests {
         );
     }
 
-    #[test]
-    fn test_kv() {
-        let (api, params) = setup();
+    #[tokio::test]
+    async fn test_kv() {
+        let (api, params) = setup().await;
         let init_data = hashmap! {
             "a1" => json!(1),
             "b1" => json!("test"),
@@ -440,9 +462,9 @@ mod tests {
         );
     }
 
-    #[test]
-    fn test_trigger_event() {
-        let (api, params) = setup();
+    #[tokio::test]
+    async fn test_trigger_event() {
+        let (api, params) = setup().await;
         let trigger_event = json!({
             "peer": json!([]),
             "timer": vec![json!({

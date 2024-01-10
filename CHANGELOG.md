@@ -1,5 +1,47 @@
 # Changelog
 
+## [0.16.13](https://github.com/fluencelabs/nox/compare/nox-v0.16.12...nox-v0.16.13) (2023-12-29)
+
+
+### Bug Fixes
+
+* **config:** respect base_dir in keypair generation ([#1998](https://github.com/fluencelabs/nox/issues/1998)) ([e2b99bf](https://github.com/fluencelabs/nox/commit/e2b99bff5917197f6b02d5a415a60bdd7b14a98b))
+* **deps:** update rust crate decider-distro to v0.5.12 ([#2000](https://github.com/fluencelabs/nox/issues/2000)) ([c35e6e3](https://github.com/fluencelabs/nox/commit/c35e6e39aeaf153aeff413ea8be67e03efbd1252))
+* **deps:** update rust crate fluence-keypair to 0.10.4 ([#1990](https://github.com/fluencelabs/nox/issues/1990)) ([ed5f5d0](https://github.com/fluencelabs/nox/commit/ed5f5d0dafc175a9a81bd33bbe8b891e6a0be62e))
+* **deps:** update rust crate registry-distro to v0.9.2 ([#1970](https://github.com/fluencelabs/nox/issues/1970)) ([fb072a0](https://github.com/fluencelabs/nox/commit/fb072a0198f0d9c961739952723ffe37fc976ec2))
+* **deps:** update rust crate trust-graph-distro to v0.4.9 ([#1999](https://github.com/fluencelabs/nox/issues/1999)) ([7b9b376](https://github.com/fluencelabs/nox/commit/7b9b37685426e0e766fa46dadbdb3f6c3bdaacd0))
+
+## [0.16.12](https://github.com/fluencelabs/nox/compare/nox-v0.16.11...nox-v0.16.12) (2023-12-28)
+
+
+### Bug Fixes
+
+* **deps:** update fluence-spell to v0.6.4 ([#1991](https://github.com/fluencelabs/nox/issues/1991)) ([8c9bfb9](https://github.com/fluencelabs/nox/commit/8c9bfb93d6e9c77be8982040178323a4862b7ba2))
+* **deps:** update rust crate aqua-ipfs-distro to v0.5.28 ([#1992](https://github.com/fluencelabs/nox/issues/1992)) ([eb89451](https://github.com/fluencelabs/nox/commit/eb8945183846d8a8346c0583da815995baa52b63))
+* **deps:** update rust crate decider-distro to v0.5.11 ([#1993](https://github.com/fluencelabs/nox/issues/1993)) ([bb0fa32](https://github.com/fluencelabs/nox/commit/bb0fa329e522566e84decc44e9758e9a54942887))
+* **deps:** update rust crate trust-graph-distro to v0.4.8 ([#1994](https://github.com/fluencelabs/nox/issues/1994)) ([94cf9fa](https://github.com/fluencelabs/nox/commit/94cf9fac24f246458b987a2ba53088fddad29631))
+
+## [0.16.11](https://github.com/fluencelabs/nox/compare/nox-v0.16.10...nox-v0.16.11) (2023-12-26)
+
+
+### Bug Fixes
+
+* **deps:** update fluence-spell to v0.6.3 ([#1988](https://github.com/fluencelabs/nox/issues/1988)) ([5a1f865](https://github.com/fluencelabs/nox/commit/5a1f865ab8603b01f7f4febcd22dd599210c3e2b))
+
+## [0.16.10](https://github.com/fluencelabs/nox/compare/nox-v0.16.9...nox-v0.16.10) (2023-12-26)
+
+
+### Features
+
+* **metrics:** add libp2p bandwidth metrics ([#1973](https://github.com/fluencelabs/nox/issues/1973)) ([090dff3](https://github.com/fluencelabs/nox/commit/090dff3450cf4336b25aae297332069548f14618))
+
+
+### Bug Fixes
+
+* **deps:** update fluence-spell to v0.6.2 ([#1986](https://github.com/fluencelabs/nox/issues/1986)) ([47ecbe0](https://github.com/fluencelabs/nox/commit/47ecbe0969c007eaab75abc60885427e67ad2f90))
+* **deps:** update rust crate aqua-ipfs-distro to v0.5.27 ([#1987](https://github.com/fluencelabs/nox/issues/1987)) ([67f7240](https://github.com/fluencelabs/nox/commit/67f7240ba94dd746e94efdf4e21bd6ff19524139))
+* **deps:** update rust crate decider-distro to v0.5.9 ([#1975](https://github.com/fluencelabs/nox/issues/1975)) ([d5d47e3](https://github.com/fluencelabs/nox/commit/d5d47e37f7a62a97e5bc74a6cedd61dd39fe22a9))
+
 ## [0.16.9](https://github.com/fluencelabs/nox/compare/nox-v0.16.8...nox-v0.16.9) (2023-12-20)
 
 
