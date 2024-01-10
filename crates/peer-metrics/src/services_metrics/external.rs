@@ -40,8 +40,6 @@ pub struct ServiceTypeLabel {
 
 #[derive(Clone)]
 pub struct ServicesMemoryMetrics {
-    /// Maximum memory set in module config
-    pub mem_max_bytes: Histogram,
     /// Actual memory used by a module
     pub mem_max_per_module_bytes: Histogram,
     /// Actual memory used by a service
@@ -50,13 +48,6 @@ pub struct ServicesMemoryMetrics {
     pub mem_used_per_module_bytes: Family<ServiceTypeLabel, Histogram>,
     /// Total memory used
     pub mem_used_total_bytes: Family<ServiceTypeLabel, Gauge>,
-}
-
-impl ServicesMemoryMetrics {
-    /// Collect the service and the service's modules  max available memory.
-    pub fn observe_service_max_mem(&self, default_max: u64) {
-        self.mem_max_bytes.observe(default_max as f64);
-    }
 }
 
 #[derive(Clone)]
@@ -127,13 +118,6 @@ impl ServicesMetricsExternal {
             "number of srv remove calls",
         );
 
-        let mem_max_bytes = register(
-            sub_registry,
-            Histogram::new(mem_buckets_8gib()),
-            "mem_max_bytes",
-            "maximum memory set in module config per service",
-        );
-
         let mem_max_per_module_bytes = register(
             sub_registry,
             Histogram::new(mem_buckets_4gib()),
@@ -191,7 +175,6 @@ impl ServicesMetricsExternal {
         );
 
         let memory_metrics = ServicesMemoryMetrics {
-            mem_max_bytes,
             mem_max_per_module_bytes,
             mem_used_bytes,
             mem_used_per_module_bytes,
@@ -224,11 +207,6 @@ impl ServicesMetricsExternal {
             call_failed_count,
             memory_metrics,
         }
-    }
-
-    /// Collect the service and the service's modules  max available memory.
-    pub fn observe_service_max_mem(&self, default_max: u64) {
-        self.memory_metrics.observe_service_max_mem(default_max);
     }
 
     /// Collect all metrics that are relevant on service removal.
