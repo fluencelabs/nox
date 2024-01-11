@@ -100,7 +100,7 @@ impl Workers {
         })
     }
 
-    fn build_runtime(worker_id: PeerId, cu_count: usize) -> eyre::Result<Runtime> {
+    fn build_runtime(worker_id: PeerId, cu_count: usize) -> Result<Runtime, WorkersError> {
         // Creating a multi-threaded Tokio runtime with a total of cu_count * 2 threads.
         // We assume cu_count threads per logical processor, aligning with the common practice.
         let runtime = tokio::runtime::Builder::new_multi_thread()
