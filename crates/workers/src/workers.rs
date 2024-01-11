@@ -86,16 +86,7 @@ impl Workers {
             worker_infos.insert(worker_id, w.into());
             worker_ids.insert(deal_id, worker_id);
 
-            // Creating a multi-threaded Tokio runtime with a total of cu_count * 2 threads.
-            // We assume cu_count threads per logical processor, aligning with the common practice.
-            let runtime = tokio::runtime::Builder::new_multi_thread()
-                .thread_name(format!("worker-pool-{}", worker_id))
-                // Configuring worker threads for executing service calls and particles
-                .worker_threads(cu_count)
-                // Configuring blocking threads for handling I/O
-                .max_blocking_threads(cu_count)
-                .build()
-                .map_err(|err| WorkersError::CreateRuntime { worker_id, err })?;
+            let runtime = Self::build_runtime(worker_id, cu_count)?;
 
             runtimes.insert(worker_id, runtime);
         }
@@ -107,6 +98,20 @@ impl Workers {
             scope,
             runtimes: RwLock::new(runtimes),
         })
+    }
+
+    fn build_runtime(worker_id: PeerId, cu_count: usize) -> eyre::Result<Runtime> {
+        // Creating a multi-threaded Tokio runtime with a total of cu_count * 2 threads.
+        // We assume cu_count threads per logical processor, aligning with the common practice.
+        let runtime = tokio::runtime::Builder::new_multi_thread()
+            .thread_name(format!("worker-pool-{}", worker_id))
+            // Configuring worker threads for executing service calls and particles
+            .worker_threads(cu_count)
+            // Configuring blocking threads for handling I/O
+            .max_blocking_threads(cu_count)
+            .build()
+            .map_err(|err| WorkersError::CreateRuntime { worker_id, err })?;
+        Ok(runtime)
     }
 
     /// Creates a new worker with the given `deal_id` and initial peer ID.
@@ -153,11 +158,7 @@ impl Workers {
                             return Err(WorkersError::WorkerAlreadyExists { deal_id });
                         }
 
-                        let runtime = tokio::runtime::Builder::new_multi_thread()
-                            .worker_threads(params.cu_count)
-                            .max_blocking_threads(params.cu_count)
-                            .build()
-                            .map_err(|err| WorkersError::CreateRuntime { worker_id, err })?;
+                        let runtime = Self::build_runtime(worker_id, cu_count)?;
 
                         let mut worker_infos = self.worker_infos.write();
                         let mut runtimes = self.runtimes.write();
