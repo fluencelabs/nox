@@ -145,9 +145,6 @@ impl Workers {
                 match worker_info {
                     Ok(worker_info) => {
                         let mut worker_ids = self.worker_ids.write();
-                        let mut worker_infos = self.worker_infos.write();
-                        let mut runtimes = self.runtimes.write();
-
                         if worker_ids.contains_key(&deal_id) {
                             return Err(WorkersError::WorkerAlreadyExists { deal_id });
                         }
@@ -157,6 +154,9 @@ impl Workers {
                             .max_blocking_threads(params.cu_count)
                             .build()
                             .map_err(|err| WorkersError::CreateRuntime { worker_id, err })?;
+
+                        let mut worker_infos = self.worker_infos.write();
+                        let mut runtimes = self.runtimes.write();
 
                         worker_ids.insert(deal_id, worker_id);
                         worker_infos.insert(worker_id, worker_info);
