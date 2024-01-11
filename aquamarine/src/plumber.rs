@@ -69,6 +69,7 @@ pub struct Plumber<RT: AquaRuntime, F> {
     workers: Arc<Workers>,
     scope: PeerScope,
     cleanup_future: Option<BoxFuture<'static, ()>>,
+    root_runtime_handle: Handle,
 }
 
 impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
@@ -91,6 +92,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
             workers,
             scope,
             cleanup_future: None,
+            root_runtime_handle: Handle::current(),
         }
     }
 
@@ -153,7 +155,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
                     let handle = self
                         .workers
                         .get_handle(worker_id)
-                        .unwrap_or(Handle::current());
+                        .unwrap_or(self.root_runtime_handle.clone());
                     let actor = Actor::new(
                         particle.as_ref(),
                         functions,
