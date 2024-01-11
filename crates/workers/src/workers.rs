@@ -591,7 +591,7 @@ mod tests {
             .get_worker_id("deal_id_1".to_string())
             .expect("Failed to get worker id");
         assert_eq!(worker_id_1, worker_id);
-        //tokio doesn't allow to drop runtimes in async context, so shifting workers drop to the blocking thread
+        // tokio doesn't allow to drop runtimes in async context, so shifting workers drop to the blocking thread
         tokio::task::spawn_blocking(|| drop(workers)).await.unwrap();
     }
 
@@ -648,7 +648,7 @@ mod tests {
             res.err().unwrap().to_string(),
             "Worker for deal_id_1 already exists"
         );
-        //tokio doesn't allow to drop runtimes in async context, so shifting workers drop to the blocking thread
+        // tokio doesn't allow to drop runtimes in async context, so shifting workers drop to the blocking thread
         tokio::task::spawn_blocking(|| drop(workers)).await.unwrap();
     }
 
@@ -716,7 +716,7 @@ mod tests {
         let key_2 = key_storage.get_key_pair(worker_id_2);
         assert!(key_1.is_some());
         assert!(key_2.is_none());
-        //tokio doesn't allow to drop runtimes in async context, so shifting workers drop to the blocking thread
+        // tokio doesn't allow to drop runtimes in async context, so shifting workers drop to the blocking thread
         tokio::task::spawn_blocking(|| drop(workers)).await.unwrap();
     }
 
@@ -794,7 +794,7 @@ mod tests {
         assert!(!status);
         drop(key_storage);
         drop(scope);
-        //tokio doesn't allow to drop runtimes in async context, so shifting workers drop to the blocking thread
+        // tokio doesn't allow to drop runtimes in async context, so shifting workers drop to the blocking thread
         tokio::task::spawn_blocking(|| drop(workers)).await.unwrap();
 
         // Create a new KeyStorage instance
@@ -825,7 +825,7 @@ mod tests {
         assert!(key_2.is_none());
         let status = workers.is_worker_active(worker_id_1);
         assert!(!status);
-        //tokio doesn't allow to drop runtimes in async context, so shifting workers drop to the blocking thread
+        // tokio doesn't allow to drop runtimes in async context, so shifting workers drop to the blocking thread
         tokio::task::spawn_blocking(|| drop(workers)).await.unwrap();
     }
 }
