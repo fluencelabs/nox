@@ -66,7 +66,7 @@ pub struct Actor<RT, F> {
     current_peer_id: PeerId,
     key_pair: KeyPair,
     data_store: Arc<ParticleDataStore>,
-    handle: Handle,
+    runtime_handle: Handle,
     deal_id: Option<String>,
 }
 
@@ -81,7 +81,7 @@ where
         current_peer_id: PeerId,
         key_pair: KeyPair,
         data_store: Arc<ParticleDataStore>,
-        handle: Handle,
+        runtime_handle: Handle,
         deal_id: Option<String>,
     ) -> Self {
         Self {
@@ -98,7 +98,7 @@ where
             current_peer_id,
             key_pair,
             data_store,
-            handle,
+            runtime_handle,
             deal_id,
         }
     }
@@ -163,7 +163,7 @@ where
             let waker = cx.waker().clone();
             // Schedule execution of functions
             self.functions.execute(
-                self.handle.clone(),
+                self.runtime_handle.clone(),
                 self.particle.id.clone(),
                 effects.call_requests,
                 waker,
@@ -226,7 +226,7 @@ where
 
         let waker = cx.waker().clone();
         let data_store = self.data_store.clone();
-        let handle = self.handle.clone();
+        let handle = self.runtime_handle.clone();
         let key_pair = self.key_pair.clone();
         let peer_id = self.current_peer_id;
 
@@ -252,7 +252,7 @@ where
                         (reusables, res.effects, res.stats, linking_span)
                     })
                     .await
-                    .expect("Failed to shift execution to handle")
+                    .expect(" Failed to shift execution to handle")
             }
             .instrument(async_span)
             .boxed(),

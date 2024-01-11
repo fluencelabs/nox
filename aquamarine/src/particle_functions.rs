@@ -100,7 +100,7 @@ impl<F: ParticleFunctionStatic> Functions<F> {
     #[instrument(level = tracing::Level::INFO, skip_all)]
     pub fn execute(
         &mut self,
-        handle: Handle,
+        runtime_handle: Handle,
         particle_id: String,
         requests: CallRequests,
         waker: Waker,
@@ -110,7 +110,7 @@ impl<F: ParticleFunctionStatic> Functions<F> {
             .into_iter()
             .map(|(id, call)| {
                 self.call(
-                    handle.clone(),
+                    runtime_handle.clone(),
                     particle_id.clone(),
                     id,
                     call,
@@ -145,7 +145,7 @@ impl<F: ParticleFunctionStatic> Functions<F> {
     #[instrument(level = tracing::Level::INFO, skip_all)]
     fn call(
         &self,
-        handle: Handle,
+        runtime_handle: Handle,
         particle_id: String,
         call_id: u32,
         call: CallRequestParams,
@@ -229,7 +229,7 @@ impl<F: ParticleFunctionStatic> Functions<F> {
                         (outcome, call_kind, call_time, schedule_wait_time)
                     })
                 },
-                &handle,
+                &runtime_handle,
             )
             .expect("Could not spawn task");
 

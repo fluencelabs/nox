@@ -92,7 +92,7 @@ impl Workers {
                     .worker_threads(cu_count)
                     .max_blocking_threads(cu_count)
                     .build()
-                    .map_err(|err| WorkersError::CreateRuntime { err })
+                    .map_err(|err| WorkersError::CreateRuntime { worker_id, err })
                     .unwrap();
                 runtime
             })
@@ -162,7 +162,7 @@ impl Workers {
                             .worker_threads(params.cu_count)
                             .max_blocking_threads(params.cu_count)
                             .build()
-                            .map_err(|err| WorkersError::CreateRuntime { err })?;
+                            .map_err(|err| WorkersError::CreateRuntime { worker_id, err })?;
 
                         worker_ids.insert(deal_id, worker_id);
                         worker_infos.insert(worker_id, worker_info);

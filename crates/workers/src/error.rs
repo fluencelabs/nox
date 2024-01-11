@@ -137,8 +137,9 @@ pub enum WorkersError {
     },
     #[error("Keypair for peer_id {0} not found")]
     KeypairNotFound(PeerId),
-    #[error("Failed to create runtime: {err}")]
+    #[error("Failed to create runtime for worker {worker_id}: {err}")]
     CreateRuntime {
+        worker_id: PeerId,
         #[source]
         err: std::io::Error,
     },
