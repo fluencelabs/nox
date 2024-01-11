@@ -86,9 +86,13 @@ impl Workers {
             worker_infos.insert(worker_id, w.into());
             worker_ids.insert(deal_id, worker_id);
 
+            // Creating a multi-threaded Tokio runtime with a total of cu_count * 2 threads.
+            // We assume cu_count threads per logical processor, aligning with the common practice.
             let runtime = tokio::runtime::Builder::new_multi_thread()
                 .thread_name(format!("worker-pool-{}", worker_id))
+                // Configuring worker threads for executing service calls and particles
                 .worker_threads(cu_count)
+                // Configuring blocking threads for handling I/O
                 .max_blocking_threads(cu_count)
                 .build()
                 .map_err(|err| WorkersError::CreateRuntime { worker_id, err })?;
