@@ -86,18 +86,12 @@ impl Workers {
             worker_infos.insert(worker_id, w.into());
             worker_ids.insert(deal_id, worker_id);
 
-            let runtime = tokio::task::spawn_blocking(move || {
-                let runtime = tokio::runtime::Builder::new_multi_thread()
-                    .thread_name(format!("worker-pool-{}", worker_id))
-                    .worker_threads(cu_count)
-                    .max_blocking_threads(cu_count)
-                    .build()
-                    .map_err(|err| WorkersError::CreateRuntime { worker_id, err })
-                    .unwrap();
-                runtime
-            })
-            .await
-            .unwrap();
+            let runtime = tokio::runtime::Builder::new_multi_thread()
+                .thread_name(format!("worker-pool-{}", worker_id))
+                .worker_threads(cu_count)
+                .max_blocking_threads(cu_count)
+                .build()
+                .map_err(|err| WorkersError::CreateRuntime { worker_id, err })?;
 
             runtimes.insert(worker_id, runtime);
         }
