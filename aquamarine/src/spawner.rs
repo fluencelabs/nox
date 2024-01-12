@@ -1,11 +1,12 @@
+use std::future::Future;
+
 use enum_dispatch::enum_dispatch;
 use libp2p::PeerId;
-use std::future::Future;
 use tokio::runtime::Handle;
 use tokio::task::JoinHandle;
 
 #[enum_dispatch]
-pub trait SpawnFunctions {
+pub(crate) trait SpawnFunctions {
     fn spawn_function_call<F>(&self, function_identity: String, fut: F) -> JoinHandle<F::Output>
     where
         F: Future + Send + 'static,
@@ -18,18 +19,18 @@ pub trait SpawnFunctions {
 
 #[derive(Clone)]
 #[enum_dispatch(SpawnFunctions)]
-pub enum Spawner {
+pub(crate) enum Spawner {
     Root(RootSpawner),
     Worker(WorkerSpawner),
 }
 
 #[derive(Clone)]
-pub struct RootSpawner {
+pub(crate) struct RootSpawner {
     runtime_handle: Handle,
 }
 
 impl RootSpawner {
-    pub fn new(runtime_handle: Handle) -> Self {
+    pub(crate) fn new(runtime_handle: Handle) -> Self {
         Self { runtime_handle }
     }
 }
@@ -62,13 +63,13 @@ impl SpawnFunctions for RootSpawner {
 }
 
 #[derive(Clone)]
-pub struct WorkerSpawner {
+pub(crate) struct WorkerSpawner {
     worker_id: PeerId,
     runtime_handle: Handle,
 }
 
 impl WorkerSpawner {
-    pub fn new(runtime_handle: Handle, worker_id: PeerId) -> Self {
+    pub(crate) fn new(runtime_handle: Handle, worker_id: PeerId) -> Self {
         Self {
             runtime_handle,
             worker_id,
@@ -86,11 +87,7 @@ impl SpawnFunctions for WorkerSpawner {
         F: Future + Send + 'static,
         F::Output: Send + 'static,
     {
-        let task_name = format!(
-            "Call function {}:{}",
-            self.worker_id.to_string(),
-            &function_identity
-        );
+        let task_name = format!("Call function {}:{}", self.worker_id, &function_identity);
 
         let builder = tokio::task::Builder::new().name(task_name.as_str());
 

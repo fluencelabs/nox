@@ -162,15 +162,13 @@ where
             let spawner = self.spawner.clone();
             let waker = cx.waker().clone();
             // Schedule execution of functions
-            {
-                self.functions.execute(
-                    spawner,
-                    self.particle.id.clone(),
-                    effects.call_requests,
-                    waker,
-                    parent_span.clone(),
-                );
-            }
+            self.functions.execute(
+                spawner,
+                self.particle.id.clone(),
+                effects.call_requests,
+                waker,
+                parent_span.clone(),
+            );
 
             let effects = RoutingEffects {
                 particle: ExtendedParticle::linked(
