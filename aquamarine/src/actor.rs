@@ -23,17 +23,16 @@ use std::{
 };
 use tracing::{instrument, Instrument, Span};
 
-use fluence_keypair::KeyPair;
-use fluence_libp2p::PeerId;
-use particle_execution::{ParticleFunctionStatic, ServiceFunction};
-use particle_protocol::{ExtendedParticle, Particle};
-use tokio::runtime::Handle;
-
 use crate::deadline::Deadline;
 use crate::particle_effects::RoutingEffects;
 use crate::particle_executor::{FutResult, ParticleExecutor};
 use crate::particle_functions::{Functions, SingleCallStat};
+use crate::spawner::Spawner;
 use crate::{AquaRuntime, InterpretationStats, ParticleDataStore, ParticleEffects};
+use fluence_keypair::KeyPair;
+use fluence_libp2p::PeerId;
+use particle_execution::{ParticleFunctionStatic, ServiceFunction};
+use particle_protocol::{ExtendedParticle, Particle};
 
 struct Reusables<RT> {
     vm_id: usize,
@@ -66,7 +65,7 @@ pub struct Actor<RT, F> {
     current_peer_id: PeerId,
     key_pair: KeyPair,
     data_store: Arc<ParticleDataStore>,
-    runtime_handle: Handle,
+    spawner: Spawner,
     deal_id: Option<String>,
 }
 
@@ -81,8 +80,8 @@ where
         current_peer_id: PeerId,
         key_pair: KeyPair,
         data_store: Arc<ParticleDataStore>,
-        runtime_handle: Handle,
         deal_id: Option<String>,
+        spawner: Spawner,
     ) -> Self {
         Self {
             deadline: Deadline::from(particle),
@@ -98,7 +97,7 @@ where
             current_peer_id,
             key_pair,
             data_store,
-            runtime_handle,
+            spawner,
             deal_id,
         }
     }
@@ -160,15 +159,18 @@ where
 
             self.future.take();
 
+            let spawner = self.spawner.clone();
             let waker = cx.waker().clone();
             // Schedule execution of functions
-            self.functions.execute(
-                self.runtime_handle.clone(),
-                self.particle.id.clone(),
-                effects.call_requests,
-                waker,
-                parent_span.clone(),
-            );
+            {
+                self.functions.execute(
+                    spawner,
+                    self.particle.id.clone(),
+                    effects.call_requests,
+                    waker,
+                    parent_span.clone(),
+                );
+            }
 
             let effects = RoutingEffects {
                 particle: ExtendedParticle::linked(
@@ -226,33 +228,34 @@ where
 
         let waker = cx.waker().clone();
         let data_store = self.data_store.clone();
-        let handle = self.runtime_handle.clone();
         let key_pair = self.key_pair.clone();
         let peer_id = self.current_peer_id;
 
         let (async_span, linking_span) =
             self.create_spans(call_spans, ext_particle, particle.id.as_str());
 
+        let spawner = self.spawner.clone();
         self.future = Some(
             async move {
-                handle
-                    .spawn(async move {
-                        let res = vm
-                            .execute(data_store, (particle.clone(), calls), peer_id, key_pair)
-                            .in_current_span()
-                            .await;
+                let res = vm
+                    .execute(
+                        spawner,
+                        data_store,
+                        (particle.clone(), calls),
+                        peer_id,
+                        key_pair,
+                    )
+                    .in_current_span()
+                    .await;
 
-                        waker.wake();
+                waker.wake();
 
-                        let reusables = Reusables {
-                            vm_id,
-                            vm: res.runtime,
-                        };
+                let reusables = Reusables {
+                    vm_id,
+                    vm: res.runtime,
+                };
 
-                        (reusables, res.effects, res.stats, linking_span)
-                    })
-                    .await
-                    .expect(" Failed to shift execution to handle")
+                (reusables, res.effects, res.stats, linking_span)
             }
             .instrument(async_span)
             .boxed(),

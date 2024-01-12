@@ -47,6 +47,7 @@ use crate::deadline::Deadline;
 use crate::error::AquamarineApiError;
 use crate::particle_effects::RoutingEffects;
 use crate::particle_functions::Functions;
+use crate::spawner::{RootSpawner, Spawner, WorkerSpawner};
 use crate::vm_pool::VmPool;
 use crate::ParticleDataStore;
 
@@ -152,18 +153,23 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
                 let deal_id = self.workers.get_deal_id(worker_id).ok();
                 let data_store = self.data_store.clone();
                 key_pair.map(|kp| {
-                    let handle = self
+                    let spawner = self
                         .workers
                         .get_handle(worker_id)
-                        .unwrap_or(self.root_runtime_handle.clone());
+                        .map(|runtime_handle| {
+                            Spawner::Worker(WorkerSpawner::new(runtime_handle, worker_id))
+                        })
+                        .unwrap_or(Spawner::Root(RootSpawner::new(
+                            self.root_runtime_handle.clone(),
+                        )));
                     let actor = Actor::new(
                         particle.as_ref(),
                         functions,
                         worker_id,
                         kp,
                         data_store,
-                        handle,
                         deal_id,
+                        spawner,
                     );
                     entry.insert(actor)
                 })

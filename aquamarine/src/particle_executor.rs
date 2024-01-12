@@ -29,6 +29,8 @@ use fluence_libp2p::PeerId;
 use particle_protocol::Particle;
 
 use crate::aqua_runtime::AquaRuntime;
+use crate::spawner::SpawnFunctions;
+use crate::spawner::Spawner;
 use crate::{InterpretationStats, ParticleDataStore, ParticleEffects};
 
 pub(super) type AVMRes<RT> = FutResult<Option<RT>, ParticleEffects, InterpretationStats>;
@@ -39,6 +41,7 @@ pub trait ParticleExecutor {
     type Particle;
     async fn execute(
         mut self,
+        spawner: Spawner,
         data_store: Arc<ParticleDataStore>,
         p: Self::Particle,
         current_peer_id: PeerId,
@@ -73,6 +76,7 @@ impl<RT: AquaRuntime> ParticleExecutor for RT {
     #[instrument(level = tracing::Level::INFO, skip_all)]
     async fn execute(
         mut self,
+        spawner: Spawner,
         data_store: Arc<ParticleDataStore>,
         p: Self::Particle,
         current_peer_id: PeerId,
@@ -89,6 +93,7 @@ impl<RT: AquaRuntime> ParticleExecutor for RT {
         if let Ok(prev_data) = prev_data {
             execute_with_prev_data(
                 self,
+                spawner,
                 data_store,
                 current_peer_id,
                 key_pair,
@@ -110,6 +115,7 @@ impl<RT: AquaRuntime> ParticleExecutor for RT {
 #[instrument(level = tracing::Level::INFO, skip_all)]
 async fn execute_with_prev_data<RT: AquaRuntime>(
     vm: RT,
+    spawner: Spawner,
     data_store: Arc<ParticleDataStore>,
     current_peer_id: PeerId,
     key_pair: KeyPair,
@@ -121,6 +127,7 @@ async fn execute_with_prev_data<RT: AquaRuntime>(
     let prev_data_len = prev_data.len();
 
     let avm_result = avm_call(
+        spawner.clone(),
         vm,
         current_peer_id,
         key_pair,
@@ -234,6 +241,7 @@ where
 
 #[instrument(level = tracing::Level::INFO, skip_all)]
 async fn avm_call<'a, RT: AquaRuntime>(
+    spawner: Spawner,
     mut vm: RT,
     current_peer_id: PeerId,
     key_pair: KeyPair,
@@ -241,45 +249,46 @@ async fn avm_call<'a, RT: AquaRuntime>(
     call_results: CallResults,
     prev_data: Vec<u8>,
 ) -> Result<AVMCallResult<'a, RT>, JoinError> {
-    tokio::task::spawn(async move {
-        let particle_id = particle.id.clone();
-        let now = Instant::now();
-        let memory_size_before = vm.memory_stats().memory_size;
-        let particle_params = ParticleParameters {
-            current_peer_id: Cow::Owned(current_peer_id.to_string()),
-            init_peer_id: Cow::Owned(particle.init_peer_id.to_string()),
-            particle_id: Cow::Owned(particle_id),
-            timestamp: particle.timestamp,
-            ttl: particle.ttl,
-        };
-        let current_data = &particle.data[..];
-        let avm_outcome = vm.call(
-            &particle.script,
-            prev_data,
-            current_data,
-            particle_params.clone(),
-            call_results.clone(),
-            &key_pair,
-        );
-        let memory_size_after = vm.memory_stats().memory_size;
+    spawner
+        .spawn_avm_call(move || {
+            let particle_id = particle.id.clone();
+            let now = Instant::now();
+            let memory_size_before = vm.memory_stats().memory_size;
+            let particle_params = ParticleParameters {
+                current_peer_id: Cow::Owned(current_peer_id.to_string()),
+                init_peer_id: Cow::Owned(particle.init_peer_id.to_string()),
+                particle_id: Cow::Owned(particle_id),
+                timestamp: particle.timestamp,
+                ttl: particle.ttl,
+            };
+            let current_data = &particle.data[..];
+            let avm_outcome = vm.call(
+                &particle.script,
+                prev_data,
+                current_data,
+                particle_params.clone(),
+                call_results.clone(),
+                &key_pair,
+            );
+            let memory_size_after = vm.memory_stats().memory_size;
 
-        let interpretation_time = now.elapsed();
-        let new_data_len = avm_outcome.as_ref().map(|e| e.data.len()).ok();
-        let memory_delta = memory_size_after - memory_size_before;
-        let stats = InterpretationStats {
-            memory_delta,
-            interpretation_time,
-            new_data_len,
-            success: avm_outcome.is_ok(),
-        };
-        AVMCallResult {
-            avm_outcome,
-            stats,
-            particle,
-            call_results,
-            particle_params,
-            vm,
-        }
-    })
-    .await
+            let interpretation_time = now.elapsed();
+            let new_data_len = avm_outcome.as_ref().map(|e| e.data.len()).ok();
+            let memory_delta = memory_size_after - memory_size_before;
+            let stats = InterpretationStats {
+                memory_delta,
+                interpretation_time,
+                new_data_len,
+                success: avm_outcome.is_ok(),
+            };
+            AVMCallResult {
+                avm_outcome,
+                stats,
+                particle,
+                call_results,
+                particle_params,
+                vm,
+            }
+        })
+        .await
 }

@@ -52,4 +52,5 @@ mod particle_effects;
 mod particle_executor;
 mod particle_functions;
 mod plumber;
+mod spawner;
 mod vm_pool;
