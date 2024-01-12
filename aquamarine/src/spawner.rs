@@ -19,13 +19,13 @@ pub(crate) trait SpawnFunctions {
 
 #[derive(Clone)]
 #[enum_dispatch(SpawnFunctions)]
-pub(crate) enum Spawner {
+pub enum Spawner {
     Root(RootSpawner),
     Worker(WorkerSpawner),
 }
 
 #[derive(Clone)]
-pub(crate) struct RootSpawner {
+pub struct RootSpawner {
     runtime_handle: Handle,
 }
 
@@ -63,7 +63,7 @@ impl SpawnFunctions for RootSpawner {
 }
 
 #[derive(Clone)]
-pub(crate) struct WorkerSpawner {
+pub struct WorkerSpawner {
     worker_id: PeerId,
     runtime_handle: Handle,
 }
