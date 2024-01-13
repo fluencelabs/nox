@@ -4185,9 +4185,9 @@ dependencies = [
 
 [[package]]
 name = "marine-it-interfaces"
-version = "0.9.0"
+version = "0.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "942f05f37d694802550d9dfed55a1d56fe53f15ef3a3219b9345e9a235c042cd"
+checksum = "1c610d90a031911c17b2babc32c9fad7261bae6ab0bf118051cd665b5d9bcfbe"
 dependencies = [
  "multimap",
  "wasmer-interface-types-fl 0.27.0",
@@ -4214,15 +4214,15 @@ dependencies = [
 
 [[package]]
 name = "marine-it-parser"
-version = "0.15.0"
+version = "0.15.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ec9325e7cf7c4e01087be83ae5abb26fe76445b0df517a201fbe6ca298b8661b"
+checksum = "921afa7f139791b24c4cb91c918d1ef7411ef40c3b801309ec43f6b2c89b107b"
 dependencies = [
  "anyhow",
  "itertools 0.10.5",
- "marine-it-interfaces 0.9.0",
- "marine-module-interface 0.8.0",
- "marine-wasm-backend-traits 0.5.0",
+ "marine-it-interfaces 0.9.1",
+ "marine-module-interface 0.8.1",
+ "marine-wasm-backend-traits 0.5.1",
  "nom",
  "semver",
  "serde",
@@ -4313,13 +4313,13 @@ dependencies = [
 
 [[package]]
 name = "marine-module-interface"
-version = "0.8.0"
+version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8ace780e273bfa9c2124e53da578af10059e053ba9c22400e1e86a99c00576c4"
+checksum = "d92d2243bf0d3aea6401d9e57a1ee17677b624337981322e0153cc2d54744080"
 dependencies = [
  "anyhow",
  "itertools 0.10.5",
- "marine-it-interfaces 0.9.0",
+ "marine-it-interfaces 0.9.1",
  "nom",
  "semver",
  "serde",
@@ -4423,9 +4423,9 @@ dependencies = [
 
 [[package]]
 name = "marine-wasm-backend-traits"
-version = "0.5.0"
+version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "470aaec9c93cec6a4cfd6ce78e338c92e688da14d3203863c517a96027aec417"
+checksum = "220bc47cfabb8b4ab97bf2bd7bbab9738857b69beeda0a1ac5776c600b64bb46"
 dependencies = [
  "anyhow",
  "it-memory-traits",
@@ -5316,7 +5316,7 @@ dependencies = [
  "json-utils",
  "libipld",
  "log",
- "marine-it-parser 0.15.0",
+ "marine-it-parser 0.15.1",
  "marine-utils",
  "parking_lot",
  "particle-args",
