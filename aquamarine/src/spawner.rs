@@ -54,7 +54,7 @@ pub(crate) trait SpawnFunctions {
         F: FnOnce() -> R + Send + 'static,
         R: Send + 'static;
 
-    /// Spawns a task for asynchronous I/O operations.
+    /// Shift execution to the specific pool
     ///
     /// # Parameters
     ///
@@ -66,8 +66,8 @@ pub(crate) trait SpawnFunctions {
     ///
     /// # Type Parameters
     ///
-    /// - `F`: The type of the future representing the asynchronous I/O task.
-    fn spawn_io<F>(&self, fut: F) -> TokioContext<F>
+    /// - `F`: The type of the future representing the asynchronous task.
+    fn wrap<F>(&self, fut: F) -> TokioContext<F>
     where
         F: Future + Send + 'static,
         F::Output: Send + 'static;
@@ -130,7 +130,7 @@ impl SpawnFunctions for RootSpawner {
         self.runtime_handle.spawn_blocking(fut)
     }
 
-    fn spawn_io<F>(&self, fut: F) -> TokioContext<F>
+    fn wrap<F>(&self, fut: F) -> TokioContext<F>
     where
         F: Future + Send + 'static,
         F::Output: Send + 'static,
@@ -186,7 +186,7 @@ impl SpawnFunctions for WorkerSpawner {
         self.runtime_handle.spawn(async { fut() })
     }
 
-    fn spawn_io<F>(&self, fut: F) -> TokioContext<F>
+    fn wrap<F>(&self, fut: F) -> TokioContext<F>
     where
         F: Future + Send + 'static,
         F::Output: Send + 'static,

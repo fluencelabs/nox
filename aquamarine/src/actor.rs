@@ -27,7 +27,7 @@ use crate::deadline::Deadline;
 use crate::particle_effects::RoutingEffects;
 use crate::particle_executor::{FutResult, ParticleExecutor};
 use crate::particle_functions::{Functions, SingleCallStat};
-use crate::spawner::Spawner;
+use crate::spawner::{SpawnFunctions, Spawner};
 use crate::{AquaRuntime, InterpretationStats, ParticleDataStore, ParticleEffects};
 use fluence_keypair::KeyPair;
 use fluence_libp2p::PeerId;
@@ -234,29 +234,30 @@ where
 
         let spawner = self.spawner.clone();
         self.future = Some(
-            async move {
-                let res = vm
-                    .execute(
-                        spawner,
-                        data_store,
-                        (particle.clone(), calls),
-                        peer_id,
-                        key_pair,
-                    )
-                    .in_current_span()
-                    .await;
+            self.spawner
+                .wrap(async move {
+                    let res = vm
+                        .execute(
+                            spawner,
+                            data_store,
+                            (particle.clone(), calls),
+                            peer_id,
+                            key_pair,
+                        )
+                        .in_current_span()
+                        .await;
 
-                waker.wake();
+                    waker.wake();
 
-                let reusables = Reusables {
-                    vm_id,
-                    vm: res.runtime,
-                };
+                    let reusables = Reusables {
+                        vm_id,
+                        vm: res.runtime,
+                    };
 
-                (reusables, res.effects, res.stats, linking_span)
-            }
-            .instrument(async_span)
-            .boxed(),
+                    (reusables, res.effects, res.stats, linking_span)
+                })
+                .instrument(async_span)
+                .boxed(),
         );
         self.wake();
 

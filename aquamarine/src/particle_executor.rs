@@ -86,14 +86,9 @@ impl<RT: AquaRuntime> ParticleExecutor for RT {
         let particle_id = particle.id.clone();
         tracing::trace!(target: "execution", particle_id = particle_id, "Executing particle");
 
-        let io_data_store = data_store.clone();
-        let prev_data = spawner
-            .spawn_io(async move {
-                io_data_store
-                    .clone()
-                    .read_data(particle_id.as_str(), current_peer_id.to_base58().as_str())
-                    .await
-            })
+        let prev_data = data_store
+            .clone()
+            .read_data(particle_id.as_str(), current_peer_id.to_base58().as_str())
             .await;
 
         if let Ok(prev_data) = prev_data {
@@ -133,7 +128,7 @@ async fn execute_with_prev_data<RT: AquaRuntime>(
     let prev_data_len = prev_data.len();
 
     let avm_result = avm_call(
-        spawner.clone(),
+        spawner,
         vm,
         current_peer_id,
         key_pair,
