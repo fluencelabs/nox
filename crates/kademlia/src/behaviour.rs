@@ -525,7 +525,7 @@ impl NetworkBehaviour for Kademlia {
         let kademlia_span = tracing::info_span!(parent: &self.parent_span, "Kademlia");
         #[cfg(test)]
         let _enter = kademlia_span.enter();
-        log::info!("Behaviour event {:?}", event);
+        log::trace!("Behaviour event {:?}", event);
         match event {
             FromSwarm::ConnectionEstablished(e) => {
                 self.kademlia

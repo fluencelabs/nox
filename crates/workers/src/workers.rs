@@ -1,6 +1,6 @@
 use crate::error::WorkersError;
 use crate::persistence::{load_persisted_workers, persist_worker, remove_worker, PersistedWorker};
-use crate::scope::Scope;
+use crate::scope::PeerScope;
 use crate::{DealId, KeyStorage, WorkerId};
 use fluence_keypair::KeyPair;
 use fluence_libp2p::PeerId;
@@ -8,6 +8,7 @@ use parking_lot::RwLock;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
+use tokio::runtime::{Handle, Runtime};
 
 /// Information about a worker.
 pub struct WorkerInfo {
@@ -17,6 +18,8 @@ pub struct WorkerInfo {
     pub creator: PeerId,
     /// A read-write lock indicating whether the worker is active.
     pub active: RwLock<bool>,
+    /// A count of compute units available for this worker.
+    pub cu_count: usize,
 }
 
 /// Manages a collection of workers.
@@ -30,7 +33,25 @@ pub struct Workers {
     /// Key storage for managing worker key pairs.
     key_storage: Arc<KeyStorage>,
     /// Scope information used to determine the host and manage key pairs.
-    scope: Scope,
+    scope: PeerScope,
+    /// Mapping of worker IDs to worker runtime.
+    runtimes: RwLock<HashMap<WorkerId, Runtime>>,
+}
+
+pub struct WorkerParams {
+    deal_id: String,
+    init_peer_id: PeerId,
+    cu_count: usize,
+}
+
+impl WorkerParams {
+    pub fn new(deal_id: String, init_peer_id: PeerId, cu_count: usize) -> Self {
+        Self {
+            deal_id,
+            init_peer_id,
+            cu_count,
+        }
+    }
 }
 
 impl Workers {
@@ -51,17 +72,23 @@ impl Workers {
     pub async fn from_path(
         workers_dir: PathBuf,
         key_storage: Arc<KeyStorage>,
-        scope: Scope,
+        scope: PeerScope,
     ) -> eyre::Result<Self> {
         let workers = load_persisted_workers(workers_dir.as_path()).await?;
         let mut worker_ids = HashMap::with_capacity(workers.len());
         let mut worker_infos = HashMap::with_capacity(workers.len());
+        let mut runtimes = HashMap::with_capacity(workers.len());
 
         for w in workers {
             let worker_id = w.worker_id;
             let deal_id = w.deal_id.clone();
+            let cu_count = w.cu_count;
             worker_infos.insert(worker_id, w.into());
             worker_ids.insert(deal_id, worker_id);
+
+            let runtime = Self::build_runtime(worker_id, cu_count)?;
+
+            runtimes.insert(worker_id, runtime);
         }
         Ok(Self {
             worker_ids: RwLock::new(worker_ids),
@@ -69,7 +96,22 @@ impl Workers {
             workers_dir,
             key_storage,
             scope,
+            runtimes: RwLock::new(runtimes),
         })
+    }
+
+    fn build_runtime(worker_id: PeerId, cu_count: usize) -> Result<Runtime, WorkersError> {
+        // Creating a multi-threaded Tokio runtime with a total of cu_count * 2 threads.
+        // We assume cu_count threads per logical processor, aligning with the common practice.
+        let runtime = tokio::runtime::Builder::new_multi_thread()
+            .thread_name(format!("worker-pool-{}", worker_id))
+            // Configuring worker threads for executing service calls and particles
+            .worker_threads(cu_count)
+            // Configuring blocking threads for handling I/O
+            .max_blocking_threads(cu_count)
+            .build()
+            .map_err(|err| WorkersError::CreateRuntime { worker_id, err })?;
+        Ok(runtime)
     }
 
     /// Creates a new worker with the given `deal_id` and initial peer ID.
@@ -85,11 +127,11 @@ impl Workers {
     /// - `Ok(worker_id)` if the worker is successfully created, returning the ID of the created worker.
     /// - `Err(WorkersError)` if an error occurs, such as the worker already existing or key pair creation failure.
     ///
-    pub async fn create_worker(
-        &self,
-        deal_id: String,
-        init_peer_id: PeerId,
-    ) -> Result<PeerId, WorkersError> {
+    pub async fn create_worker(&self, params: WorkerParams) -> Result<PeerId, WorkersError> {
+        let deal_id = params.deal_id;
+        let init_peer_id = params.init_peer_id;
+        let cu_count = params.cu_count;
+
         let worker_id = {
             let guard = self.worker_ids.read();
             guard.get(&deal_id).cloned()
@@ -106,20 +148,24 @@ impl Workers {
                 let worker_id = key_pair.get_peer_id();
 
                 let worker_info = self
-                    .store_worker(worker_id, deal_id.clone(), init_peer_id)
+                    .store_worker(worker_id, deal_id.clone(), init_peer_id, cu_count)
                     .await;
 
                 match worker_info {
                     Ok(worker_info) => {
                         let mut worker_ids = self.worker_ids.write();
-                        let mut worker_infos = self.worker_infos.write();
-
                         if worker_ids.contains_key(&deal_id) {
                             return Err(WorkersError::WorkerAlreadyExists { deal_id });
                         }
 
+                        let runtime = Self::build_runtime(worker_id, cu_count)?;
+
+                        let mut worker_infos = self.worker_infos.write();
+                        let mut runtimes = self.runtimes.write();
+
                         worker_ids.insert(deal_id, worker_id);
                         worker_infos.insert(worker_id, worker_info);
+                        runtimes.insert(worker_id, runtime);
                     }
                     Err(err) => {
                         tracing::warn!(
@@ -216,11 +262,18 @@ impl Workers {
 
         let mut worker_ids = self.worker_ids.write();
         let mut worker_infos = self.worker_infos.write();
+        let mut runtimes = self.runtimes.write();
         let removed_worker_id = worker_ids.remove(&deal_id);
         let removed_worker_info = worker_infos.remove(&worker_id);
+        let removed_runtime = runtimes.remove(&worker_id);
 
         debug_assert!(removed_worker_id.is_some(), "worker_id does not exist");
         debug_assert!(removed_worker_info.is_some(), "worker info does not exist");
+        debug_assert!(removed_runtime.is_some(), "worker info does not exist");
+
+        if let Some(runtime) = removed_runtime {
+            runtime.shutdown_background();
+        }
 
         Ok(())
     }
@@ -272,6 +325,14 @@ impl Workers {
         }
     }
 
+    pub fn get_handle(&self, worker_id: PeerId) -> Result<Handle, WorkersError> {
+        self.runtimes
+            .read()
+            .get(&worker_id)
+            .map(|x| x.handle().clone())
+            .ok_or(WorkersError::WorkerNotFound(worker_id))
+    }
+
     /// Persists worker information and updates internal data structures.
     ///
     /// This method stores information about the worker identified by `worker_id` and associates
@@ -296,6 +357,7 @@ impl Workers {
         worker_id: PeerId,
         deal_id: String,
         creator: PeerId,
+        cu_count: usize,
     ) -> Result<WorkerInfo, WorkersError> {
         persist_worker(
             &self.workers_dir,
@@ -305,6 +367,7 @@ impl Workers {
                 creator,
                 deal_id: deal_id.clone(),
                 active: true,
+                cu_count,
             },
         )
         .await?;
@@ -312,12 +375,13 @@ impl Workers {
             deal_id,
             creator,
             active: RwLock::new(true),
+            cu_count,
         };
         Ok(worker_info)
     }
 
     async fn set_worker_status(&self, worker_id: PeerId, status: bool) -> Result<(), WorkersError> {
-        let (creator, deal_id) = {
+        let (creator, deal_id, cu_count) = {
             let guard = self.worker_infos.read();
             let worker_info = guard
                 .get(&worker_id)
@@ -325,7 +389,11 @@ impl Workers {
             let mut active = worker_info.active.write();
             *active = status;
 
-            (worker_info.creator, worker_info.deal_id.clone())
+            (
+                worker_info.creator,
+                worker_info.deal_id.clone(),
+                worker_info.cu_count,
+            )
         };
 
         persist_worker(
@@ -336,6 +404,7 @@ impl Workers {
                 creator,
                 deal_id,
                 active: status,
+                cu_count,
             },
         )
         .await?;
@@ -422,7 +491,7 @@ impl Workers {
 
 #[cfg(test)]
 mod tests {
-    use crate::{KeyStorage, Scope, Workers};
+    use crate::{KeyStorage, PeerScope, WorkerParams, Workers};
     use libp2p::PeerId;
     use std::sync::Arc;
     use tempfile::tempdir;
@@ -441,7 +510,7 @@ mod tests {
                 .await
                 .expect("Failed to create KeyStorage from path"),
         );
-        let scope = Scope::new(
+        let scope = PeerScope::new(
             PeerId::random(),
             PeerId::random(),
             PeerId::random(),
@@ -474,7 +543,7 @@ mod tests {
                 .expect("Failed to create KeyStorage from path"),
         );
         let host_peer_id = PeerId::random();
-        let scope = Scope::new(
+        let scope = PeerScope::new(
             host_peer_id,
             PeerId::random(),
             PeerId::random(),
@@ -488,7 +557,11 @@ mod tests {
 
         let creator_peer_id = PeerId::random();
         let worker_id = workers
-            .create_worker("deal_id_1".to_string(), creator_peer_id)
+            .create_worker(WorkerParams::new(
+                "deal_id_1".to_string(),
+                creator_peer_id,
+                1,
+            ))
             .await
             .expect("Failed to create worker");
 
@@ -523,6 +596,8 @@ mod tests {
             .get_worker_id("deal_id_1".to_string())
             .expect("Failed to get worker id");
         assert_eq!(worker_id_1, worker_id);
+        // tokio doesn't allow to drop runtimes in async context, so shifting workers drop to the blocking thread
+        tokio::task::spawn_blocking(|| drop(workers)).await.unwrap();
     }
 
     #[tokio::test]
@@ -539,7 +614,7 @@ mod tests {
                 .await
                 .expect("Failed to create KeyStorage from path"),
         );
-        let scope = Scope::new(
+        let scope = PeerScope::new(
             PeerId::random(),
             PeerId::random(),
             PeerId::random(),
@@ -552,7 +627,11 @@ mod tests {
             .expect("Failed to create Workers from path");
 
         let worker_id = workers
-            .create_worker("deal_id_1".to_string(), PeerId::random())
+            .create_worker(WorkerParams::new(
+                "deal_id_1".to_string(),
+                PeerId::random(),
+                1,
+            ))
             .await
             .expect("Failed to create worker");
 
@@ -562,14 +641,20 @@ mod tests {
         assert_eq!(deal_id, "deal_id_1".to_string());
 
         let res = workers
-            .create_worker("deal_id_1".to_string(), PeerId::random())
+            .create_worker(WorkerParams::new(
+                "deal_id_1".to_string(),
+                PeerId::random(),
+                1,
+            ))
             .await;
 
         assert!(res.is_err());
         assert_eq!(
             res.err().unwrap().to_string(),
             "Worker for deal_id_1 already exists"
-        )
+        );
+        // tokio doesn't allow to drop runtimes in async context, so shifting workers drop to the blocking thread
+        tokio::task::spawn_blocking(|| drop(workers)).await.unwrap();
     }
 
     #[tokio::test]
@@ -586,7 +671,7 @@ mod tests {
                 .await
                 .expect("Failed to create KeyStorage from path"),
         );
-        let scope = Scope::new(
+        let scope = PeerScope::new(
             PeerId::random(),
             PeerId::random(),
             PeerId::random(),
@@ -599,12 +684,20 @@ mod tests {
             .expect("Failed to create Workers from path");
 
         let worker_id_1 = workers
-            .create_worker("deal_id_1".to_string(), PeerId::random())
+            .create_worker(WorkerParams::new(
+                "deal_id_1".to_string(),
+                PeerId::random(),
+                1,
+            ))
             .await
             .expect("Failed to create worker");
 
         let worker_id_2 = workers
-            .create_worker("deal_id_2".to_string(), PeerId::random())
+            .create_worker(WorkerParams::new(
+                "deal_id_2".to_string(),
+                PeerId::random(),
+                1,
+            ))
             .await
             .expect("Failed to create worker");
 
@@ -628,6 +721,8 @@ mod tests {
         let key_2 = key_storage.get_key_pair(worker_id_2);
         assert!(key_1.is_some());
         assert!(key_2.is_none());
+        // tokio doesn't allow to drop runtimes in async context, so shifting workers drop to the blocking thread
+        tokio::task::spawn_blocking(|| drop(workers)).await.unwrap();
     }
 
     #[tokio::test]
@@ -644,7 +739,7 @@ mod tests {
                 .await
                 .expect("Failed to create KeyStorage from path"),
         );
-        let scope = Scope::new(
+        let scope = PeerScope::new(
             PeerId::random(),
             PeerId::random(),
             PeerId::random(),
@@ -657,12 +752,20 @@ mod tests {
             .expect("Failed to create Workers from path");
 
         let worker_id_1 = workers
-            .create_worker("deal_id_1".to_string(), PeerId::random())
+            .create_worker(WorkerParams::new(
+                "deal_id_1".to_string(),
+                PeerId::random(),
+                1,
+            ))
             .await
             .expect("Failed to create worker");
 
         let worker_id_2 = workers
-            .create_worker("deal_id_2".to_string(), PeerId::random())
+            .create_worker(WorkerParams::new(
+                "deal_id_2".to_string(),
+                PeerId::random(),
+                1,
+            ))
             .await
             .expect("Failed to create worker");
 
@@ -696,7 +799,8 @@ mod tests {
         assert!(!status);
         drop(key_storage);
         drop(scope);
-        drop(workers);
+        // tokio doesn't allow to drop runtimes in async context, so shifting workers drop to the blocking thread
+        tokio::task::spawn_blocking(|| drop(workers)).await.unwrap();
 
         // Create a new KeyStorage instance
         let key_storage = Arc::new(
@@ -704,7 +808,7 @@ mod tests {
                 .await
                 .expect("Failed to create KeyStorage from path"),
         );
-        let scope = Scope::new(
+        let scope = PeerScope::new(
             PeerId::random(),
             PeerId::random(),
             PeerId::random(),
@@ -726,5 +830,7 @@ mod tests {
         assert!(key_2.is_none());
         let status = workers.is_worker_active(worker_id_1);
         assert!(!status);
+        // tokio doesn't allow to drop runtimes in async context, so shifting workers drop to the blocking thread
+        tokio::task::spawn_blocking(|| drop(workers)).await.unwrap();
     }
 }

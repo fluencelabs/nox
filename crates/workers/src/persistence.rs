@@ -57,6 +57,7 @@ pub struct PersistedWorker {
     pub deal_id: String,
     #[serde(default = "default_bool::<true>")]
     pub active: bool,
+    pub cu_count: usize,
 }
 
 impl From<PersistedWorker> for WorkerInfo {
@@ -65,6 +66,7 @@ impl From<PersistedWorker> for WorkerInfo {
             deal_id: val.deal_id,
             creator: val.creator,
             active: RwLock::new(val.active),
+            cu_count: val.cu_count,
         }
     }
 }
