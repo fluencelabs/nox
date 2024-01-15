@@ -15,7 +15,7 @@ pub use error::WorkersError;
 use fluence_libp2p::PeerId;
 pub use key_storage::KeyStorage;
 pub use scope::PeerScope;
-pub use workers::CreateWorkerParams;
+pub use workers::WorkerParams;
 pub use workers::Workers;
 
 const DEFAULT_PARALLELISM: usize = 2;

@@ -18,7 +18,7 @@ pub struct WorkerInfo {
     pub creator: PeerId,
     /// A read-write lock indicating whether the worker is active.
     pub active: RwLock<bool>,
-
+    /// A count of compute units available for this worker.
     pub cu_count: usize,
 }
 
@@ -38,13 +38,13 @@ pub struct Workers {
     runtimes: RwLock<HashMap<WorkerId, Runtime>>,
 }
 
-pub struct CreateWorkerParams {
+pub struct WorkerParams {
     deal_id: String,
     init_peer_id: PeerId,
     cu_count: usize,
 }
 
-impl CreateWorkerParams {
+impl WorkerParams {
     pub fn new(deal_id: String, init_peer_id: PeerId, cu_count: usize) -> Self {
         Self {
             deal_id,
@@ -127,7 +127,7 @@ impl Workers {
     /// - `Ok(worker_id)` if the worker is successfully created, returning the ID of the created worker.
     /// - `Err(WorkersError)` if an error occurs, such as the worker already existing or key pair creation failure.
     ///
-    pub async fn create_worker(&self, params: CreateWorkerParams) -> Result<PeerId, WorkersError> {
+    pub async fn create_worker(&self, params: WorkerParams) -> Result<PeerId, WorkersError> {
         let deal_id = params.deal_id;
         let init_peer_id = params.init_peer_id;
         let cu_count = params.cu_count;
@@ -491,7 +491,7 @@ impl Workers {
 
 #[cfg(test)]
 mod tests {
-    use crate::{CreateWorkerParams, KeyStorage, PeerScope, Workers};
+    use crate::{KeyStorage, PeerScope, WorkerParams, Workers};
     use libp2p::PeerId;
     use std::sync::Arc;
     use tempfile::tempdir;
@@ -557,7 +557,7 @@ mod tests {
 
         let creator_peer_id = PeerId::random();
         let worker_id = workers
-            .create_worker(CreateWorkerParams::new(
+            .create_worker(WorkerParams::new(
                 "deal_id_1".to_string(),
                 creator_peer_id,
                 1,
@@ -627,7 +627,7 @@ mod tests {
             .expect("Failed to create Workers from path");
 
         let worker_id = workers
-            .create_worker(CreateWorkerParams::new(
+            .create_worker(WorkerParams::new(
                 "deal_id_1".to_string(),
                 PeerId::random(),
                 1,
@@ -641,7 +641,7 @@ mod tests {
         assert_eq!(deal_id, "deal_id_1".to_string());
 
         let res = workers
-            .create_worker(CreateWorkerParams::new(
+            .create_worker(WorkerParams::new(
                 "deal_id_1".to_string(),
                 PeerId::random(),
                 1,
@@ -684,7 +684,7 @@ mod tests {
             .expect("Failed to create Workers from path");
 
         let worker_id_1 = workers
-            .create_worker(CreateWorkerParams::new(
+            .create_worker(WorkerParams::new(
                 "deal_id_1".to_string(),
                 PeerId::random(),
                 1,
@@ -693,7 +693,7 @@ mod tests {
             .expect("Failed to create worker");
 
         let worker_id_2 = workers
-            .create_worker(CreateWorkerParams::new(
+            .create_worker(WorkerParams::new(
                 "deal_id_2".to_string(),
                 PeerId::random(),
                 1,
@@ -752,7 +752,7 @@ mod tests {
             .expect("Failed to create Workers from path");
 
         let worker_id_1 = workers
-            .create_worker(CreateWorkerParams::new(
+            .create_worker(WorkerParams::new(
                 "deal_id_1".to_string(),
                 PeerId::random(),
                 1,
@@ -761,7 +761,7 @@ mod tests {
             .expect("Failed to create worker");
 
         let worker_id_2 = workers
-            .create_worker(CreateWorkerParams::new(
+            .create_worker(WorkerParams::new(
                 "deal_id_2".to_string(),
                 PeerId::random(),
                 1,
