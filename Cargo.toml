@@ -124,7 +124,7 @@ multihash = "0.19.1"
 prometheus-client = "0.22.0"
 
 eyre = "0.6.11"
-base64 = "0.21.5"
+base64 = "0.21.7"
 bs58 = "0.5.0"
 fluence-keypair = "0.10.4"
 parking_lot = "0.12.1"
