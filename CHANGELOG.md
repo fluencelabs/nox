@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.16.14](https://github.com/fluencelabs/nox/compare/nox-v0.16.13...nox-v0.16.14) (2024-01-12)
+
+
+### Features
+
+* introduce chain-listener [fixes NET-694 NET-673 NET-674 NET-677 NET-685] ([#1972](https://github.com/fluencelabs/nox/issues/1972)) ([3ff44b5](https://github.com/fluencelabs/nox/commit/3ff44b52d9709c370ade267bd8d4f30c1f376735))
+* **worker:** Refactoring key manager [fixes NET-702] ([#1985](https://github.com/fluencelabs/nox/issues/1985)) ([345f9b8](https://github.com/fluencelabs/nox/commit/345f9b89617dfe1a2eb399de27dc5ba36e5c8d1d))
+
+
+### Bug Fixes
+
+* **deps:** update rust crate decider-distro to v0.5.13 ([#2016](https://github.com/fluencelabs/nox/issues/2016)) ([0ea3a85](https://github.com/fluencelabs/nox/commit/0ea3a85cd0c1801a99467040aeddc6ab3fed56bb))
+* **deps:** update rust crate registry-distro to v0.9.4 ([#2010](https://github.com/fluencelabs/nox/issues/2010)) ([3f8c176](https://github.com/fluencelabs/nox/commit/3f8c176121bea8b547933163f84f145f1f5f9389))
+* **deps:** update rust crate trust-graph-distro to v0.4.10 ([#2008](https://github.com/fluencelabs/nox/issues/2008)) ([70798eb](https://github.com/fluencelabs/nox/commit/70798ebaf488aa236fda0d48594c94f50dd1cb81))
+
 ## [0.16.13](https://github.com/fluencelabs/nox/compare/nox-v0.16.12...nox-v0.16.13) (2023-12-29)
 
 

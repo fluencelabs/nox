@@ -40,7 +40,7 @@ use peer_metrics::{
 };
 use server_config::ServicesConfig;
 use uuid_utils::uuid;
-use workers::{Scope, Workers};
+use workers::{PeerScope, Workers};
 
 use crate::error::ServiceError;
 use crate::error::ServiceError::{AliasAsServiceId, Forbidden, NoSuchAlias};
@@ -177,7 +177,7 @@ pub struct ParticleAppServices {
     #[derivative(Debug = "ignore")]
     workers: Arc<Workers>,
     #[derivative(Debug = "ignore")]
-    scope: Scope,
+    scope: PeerScope,
     pub metrics: Option<ServicesMetrics>,
     health: Option<PersistedServiceHealth>,
 }
@@ -262,7 +262,7 @@ impl ParticleAppServices {
         metrics: Option<ServicesMetrics>,
         health_registry: Option<&mut HealthCheckRegistry>,
         workers: Arc<Workers>,
-        scope: Scope,
+        scope: PeerScope,
     ) -> Self {
         let vault = ParticleVault::new(config.particles_vault_dir.clone());
 
@@ -1047,7 +1047,7 @@ mod tests {
     use server_config::ServicesConfig;
     use service_modules::load_module;
     use service_modules::Hash;
-    use workers::{KeyStorage, Scope, Workers};
+    use workers::{KeyStorage, PeerScope, Workers};
 
     use crate::app_services::ServiceType;
     use crate::persistence::load_persisted_services;
@@ -1076,7 +1076,7 @@ mod tests {
 
         let root_key_pair: KeyPair = root_keypair.clone().into();
 
-        let scope = Scope::new(
+        let scope = PeerScope::new(
             root_key_pair.get_peer_id(),
             management_pid,
             root_key_pair.get_peer_id(),

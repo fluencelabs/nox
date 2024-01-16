@@ -26,7 +26,6 @@ use futures::{FutureExt, StreamExt};
 use humantime::format_duration as pretty;
 use serde_json::json;
 use serde_json::Value as JValue;
-use tokio::runtime::Handle;
 use tracing::{instrument, Instrument, Span};
 
 use particle_args::{Args, JError};
@@ -36,6 +35,7 @@ use particle_execution::{
 use peer_metrics::FunctionKind;
 
 use crate::log::builtin_log_fn;
+use crate::spawner::{SpawnFunctions, Spawner};
 
 #[derive(Clone, Debug)]
 /// Performance statistics about executed function call
@@ -100,6 +100,7 @@ impl<F: ParticleFunctionStatic> Functions<F> {
     #[instrument(level = tracing::Level::INFO, skip_all)]
     pub fn execute(
         &mut self,
+        spawner: Spawner,
         particle_id: String,
         requests: CallRequests,
         waker: Waker,
@@ -107,7 +108,16 @@ impl<F: ParticleFunctionStatic> Functions<F> {
     ) {
         let futs: Vec<_> = requests
             .into_iter()
-            .map(|(id, call)| self.call(particle_id.clone(), id, call, waker.clone(), span.clone()))
+            .map(|(id, call)| {
+                self.call(
+                    spawner.clone(),
+                    particle_id.clone(),
+                    id,
+                    call,
+                    waker.clone(),
+                    span.clone(),
+                )
+            })
             .collect();
         self.function_calls.extend(futs);
     }
@@ -135,6 +145,7 @@ impl<F: ParticleFunctionStatic> Functions<F> {
     #[instrument(level = tracing::Level::INFO, skip_all)]
     fn call(
         &self,
+        spawner: Spawner,
         particle_id: String,
         call_id: u32,
         call: CallRequestParams,
@@ -183,45 +194,43 @@ impl<F: ParticleFunctionStatic> Functions<F> {
         let builtins = self.builtins.clone();
         let particle_function = self.particle_function.clone();
         let schedule_wait_start = Instant::now();
-        let result = tokio::task::Builder::new()
-            .name(&format!(
-                "Call function {}:{}",
-                args.service_id, args.function_name
-            ))
-            .spawn_blocking(move || {
-                Handle::current().block_on(async move {
-                    // How much time it took to start execution on blocking pool
-                    let schedule_wait_time = schedule_wait_start.elapsed();
-                    let outcome = builtins.call(args, params).await;
-                    // record whether call was handled by builtin or not. needed for stats.
-                    let mut call_kind = FunctionKind::Service;
-                    let outcome = match outcome {
-                        // If particle_function isn't set, just return what we have
-                        outcome if particle_function.is_none() => outcome,
-                        // If builtins weren't defined over these args, try particle_function
-                        FunctionOutcome::NotDefined { args, params } => {
-                            let func = particle_function.unwrap();
-                            // TODO: Actors would allow to get rid of Mutex
-                            //       i.e., wrap each callback with a queue & channel
-                            let func = func.lock().await;
-                            let outcome = func.call(args, params).await;
-                            call_kind = FunctionKind::ParticleFunction;
-                            outcome
-                        }
-                        // Builtins were called, return their outcome
-                        outcome => outcome,
-                    };
-                    // How much time it took to execute the call
-                    // TODO: Time for ParticleFunction includes lock time, which is not good. Low priority cuz ParticleFunctions are barely used.
-                    let call_time = schedule_wait_start.elapsed() - schedule_wait_time;
-                    (outcome, call_kind, call_time, schedule_wait_time)
-                })
-            })
-            .expect("Could not spawn task");
+
+        let function_identity = format!("{}:{}", &args.service_id, &args.function_name);
+
+        let fut = async move {
+            // How much time it took to start execution on blocking pool
+            let schedule_wait_time = schedule_wait_start.elapsed();
+            let outcome = builtins.call(args, params).await;
+            // record whether call was handled by builtin or not. needed for stats.
+            let mut call_kind = FunctionKind::Service;
+            let outcome = match outcome {
+                // If particle_function isn't set, just return what we have
+                outcome if particle_function.is_none() => outcome,
+                // If builtins weren't defined over these args, try particle_function
+                FunctionOutcome::NotDefined { args, params } => {
+                    let func = particle_function.unwrap();
+                    // TODO: Actors would allow to get rid of Mutex
+                    //       i.e., wrap each callback with a queue & channel
+                    let func = func.lock().await;
+                    let outcome = func.call(args, params).await;
+                    call_kind = FunctionKind::ParticleFunction;
+                    outcome
+                }
+                // Builtins were called, return their outcome
+                outcome => outcome,
+            };
+            // How much time it took to execute the call
+            // TODO: Time for ParticleFunction includes lock time, which is not good. Low priority cuz ParticleFunctions are barely used.
+            let call_time = schedule_wait_start.elapsed() - schedule_wait_time;
+            (outcome, call_kind, call_time, schedule_wait_time)
+        };
+
+        let spawned_future = spawner.spawn_function_call(function_identity, fut);
 
         async move {
-            let (result, call_kind, call_time, wait_time) =
-                result.await.expect("Could not 'Call function' join");
+            let (result, call_kind, call_time, wait_time) = spawned_future
+                .await
+                .expect("Could not 'Call function' join");
 
             let result = match result {
                 FunctionOutcome::NotDefined { args, .. } => Err(JError::new(format!(

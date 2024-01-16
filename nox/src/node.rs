@@ -56,7 +56,7 @@ use sorcerer::Sorcerer;
 use spell_event_bus::api::{PeerEvent, SpellEventBusApi, TriggerEvent};
 use spell_event_bus::bus::SpellEventBus;
 use system_services::{Deployer, SystemServiceDistros};
-use workers::{KeyStorage, Scope, Workers};
+use workers::{KeyStorage, PeerScope, Workers};
 
 use super::behaviour::FluenceNetworkBehaviour;
 use crate::behaviour::FluenceNetworkBehaviourEvent;
@@ -93,7 +93,7 @@ pub struct Node<RT: AquaRuntime> {
 
     pub builtins_management_peer_id: PeerId,
 
-    pub scope: Scope,
+    pub scope: PeerScope,
 
     allow_local_addresses: bool,
     versions: Versions,
@@ -127,7 +127,7 @@ impl<RT: AquaRuntime> Node<RT> {
 
         let key_storage = Arc::new(key_storage);
 
-        let scope = Scope::new(
+        let scope = PeerScope::new(
             root_key_pair.get_peer_id(),
             config.management_peer_id,
             builtins_peer_id,
@@ -427,7 +427,7 @@ impl<RT: AquaRuntime> Node<RT> {
         services_config: ServicesConfig,
         services_metrics: ServicesMetrics,
         workers: Arc<Workers>,
-        scope: Scope,
+        scope: PeerScope,
         health_registry: Option<&mut HealthCheckRegistry>,
         connector_api_endpoint: String,
     ) -> Builtins<Connectivity> {
@@ -469,7 +469,7 @@ impl<RT: AquaRuntime> Node<RT> {
         services_metrics_backend: ServicesMetricsBackend,
         http_listen_addr: Option<SocketAddr>,
         builtins_management_peer_id: PeerId,
-        scope: Scope,
+        scope: PeerScope,
         allow_local_addresses: bool,
         versions: Versions,
         chain_listener: Option<ChainListener>,

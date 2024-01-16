@@ -25,6 +25,7 @@ use std::{
 };
 
 use futures::task::Waker;
+use tokio::runtime::Handle;
 use tokio::task;
 use tracing::instrument;
 
@@ -38,7 +39,7 @@ use peer_metrics::ParticleExecutorMetrics;
 /// Get current time from OS
 #[cfg(not(test))]
 use real_time::now_ms;
-use workers::{Scope, Workers};
+use workers::{PeerScope, Workers};
 
 use crate::actor::{Actor, ActorPoll};
 use crate::aqua_runtime::AquaRuntime;
@@ -46,6 +47,7 @@ use crate::deadline::Deadline;
 use crate::error::AquamarineApiError;
 use crate::particle_effects::RoutingEffects;
 use crate::particle_functions::Functions;
+use crate::spawner::{RootSpawner, Spawner, WorkerSpawner};
 use crate::vm_pool::VmPool;
 use crate::ParticleDataStore;
 
@@ -66,8 +68,9 @@ pub struct Plumber<RT: AquaRuntime, F> {
     waker: Option<Waker>,
     metrics: Option<ParticleExecutorMetrics>,
     workers: Arc<Workers>,
-    scope: Scope,
+    scope: PeerScope,
     cleanup_future: Option<BoxFuture<'static, ()>>,
+    root_runtime_handle: Handle,
 }
 
 impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
@@ -77,7 +80,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
         builtins: F,
         metrics: Option<ParticleExecutorMetrics>,
         workers: Arc<Workers>,
-        scope: Scope,
+        scope: PeerScope,
     ) -> Self {
         Self {
             vm_pool,
@@ -90,6 +93,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
             workers,
             scope,
             cleanup_future: None,
+            root_runtime_handle: Handle::current(),
         }
     }
 
@@ -149,6 +153,15 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
                 let deal_id = self.workers.get_deal_id(worker_id).ok();
                 let data_store = self.data_store.clone();
                 key_pair.map(|kp| {
+                    let spawner = self
+                        .workers
+                        .get_handle(worker_id)
+                        .map(|runtime_handle| {
+                            Spawner::Worker(WorkerSpawner::new(runtime_handle, worker_id))
+                        })
+                        .unwrap_or(Spawner::Root(RootSpawner::new(
+                            self.root_runtime_handle.clone(),
+                        )));
                     let actor = Actor::new(
                         particle.as_ref(),
                         functions,
@@ -156,6 +169,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
                         kp,
                         data_store,
                         deal_id,
+                        spawner,
                     );
                     entry.insert(actor)
                 })
@@ -381,7 +395,7 @@ mod tests {
     use fluence_keypair::KeyPair;
     use fluence_libp2p::RandomPeerId;
     use futures::task::noop_waker_ref;
-    use workers::{KeyStorage, Scope, Workers};
+    use workers::{KeyStorage, PeerScope, Workers};
 
     use particle_args::Args;
     use particle_execution::{FunctionOutcome, ParticleFunction, ParticleParams, ServiceFunction};
@@ -481,7 +495,7 @@ mod tests {
 
         let key_storage = Arc::new(key_storage);
 
-        let scope = Scope::new(
+        let scope = PeerScope::new(
             root_key_pair.get_peer_id(),
             RandomPeerId::random(),
             RandomPeerId::random(),
