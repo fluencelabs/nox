@@ -107,8 +107,8 @@ marine-utils = "0.5.0"
 marine-it-parser = "0.15.0"
 
 # avm
-avm-server = { version = "0.34.2", git = "https://github.com/fluencelabs/aquavm", branch = "feat/update-marine" }
-air-interpreter-wasm = "0.55.0"
+avm-server = { version = "=0.58.1-feat-update-marine-4dd5abe-4164-1.0", registry = "fluence" }
+air-interpreter-wasm = { version = "= 0.58.1-feat-update-marine-4dd5abe-4164-1.0", registry = "fluence" }
 
 # libp2p
 libp2p = { version = "0.53.2", features = ["noise", "tcp", "dns", "websocket", "yamux", "tokio", "kad", "ping", "identify", "macros"] }
