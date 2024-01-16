@@ -98,13 +98,13 @@ chain-data = { path = "crates/chain-data"}
 chain-listener = { path = "crates/chain-listener"}
 
 # spell
-fluence-spell-dtos = "=0.6.4"
-fluence-spell-distro = "=0.6.4"
+fluence-spell-dtos = "=0.6.8"
+fluence-spell-distro = "=0.6.8"
 
 # marine
 fluence-app-service = { version = "0.31.1" }
 marine-utils = "0.5.0"
-marine-it-parser = "0.15.0"
+marine-it-parser = "0.15.1"
 
 # avm
 avm-server = { version = "=0.58.1-feat-update-marine-4dd5abe-4164-1.0", registry = "fluence" }
@@ -124,7 +124,7 @@ multihash = "0.19.1"
 prometheus-client = "0.22.0"
 
 eyre = "0.6.11"
-base64 = "0.21.5"
+base64 = "0.21.7"
 bs58 = "0.5.0"
 fluence-keypair = "0.10.4"
 parking_lot = "0.12.1"
@@ -156,7 +156,7 @@ hex = "0.4.3"
 ethabi = "18.0.0"
 jsonrpsee = "0.21.0"
 blake3 = "1.5.0"
-rand = "0.8.4"
+rand = "0.8.5"
 
 # Enable a small amount of optimization in debug mode
 [profile.dev]
