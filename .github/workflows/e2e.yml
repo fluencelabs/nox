@@ -55,6 +55,7 @@ jobs:
       !github.event.pull_request.head.repo.fork
     uses: fluencelabs/decider/.github/workflows/tests.yml@chore/update-cargo-lock
     with:
+      ref: @chore/update-cargo-lock
       test-cargo-dependencies: |
         [
           {
