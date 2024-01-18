@@ -225,12 +225,14 @@ impl Deployer {
         )
         .await
         .map_err(|e| eyre!(e))?;
-        self.services.add_alias(
-            spell_distro.name.to_string(),
-            self.root_worker_id,
-            spell_id.clone(),
-            self.management_id,
-        )?;
+        self.services
+            .add_alias(
+                spell_distro.name.to_string(),
+                self.root_worker_id,
+                spell_id.clone(),
+                self.management_id,
+            )
+            .await?;
         Ok(spell_id)
     }
 
@@ -298,18 +300,23 @@ impl Deployer {
             ServiceUpdateStatus::NotFound => {}
         }
 
-        let service_id = self.services.create_service(
-            ServiceType::Service,
-            blueprint_id,
-            self.root_worker_id,
-            self.root_worker_id,
-        )?;
-        self.services.add_alias(
-            service_name.to_string(),
-            self.root_worker_id,
-            service_id.clone(),
-            self.management_id,
-        )?;
+        let service_id = self
+            .services
+            .create_service(
+                ServiceType::Service,
+                blueprint_id,
+                self.root_worker_id,
+                self.root_worker_id,
+            )
+            .await?;
+        self.services
+            .add_alias(
+                service_name.to_string(),
+                self.root_worker_id,
+                service_id.clone(),
+                self.management_id,
+            )
+            .await?;
         tracing::info!(service_name, service_id, "deployed a new service");
         Ok(ServiceStatus::Created(service_id))
     }

@@ -97,7 +97,7 @@ impl<C> Builtins<C>
 where
     C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoolApi>,
 {
-    pub fn new(
+    pub async fn new(
         connectivity: C,
         config: ServicesConfig,
         services_metrics: ServicesMetrics,
@@ -123,7 +123,8 @@ where
             health_registry,
             workers.clone(),
             scope.clone(),
-        );
+        )
+        .await;
 
         Self {
             connectivity,
@@ -203,11 +204,11 @@ where
             ("kad", "merge") => wrap(self.kad_merge(args.function_args)),
 
             ("srv", "list") => ok(self.list_services(particle)),
-            ("srv", "create") => wrap(self.create_service(args, particle)),
+            ("srv", "create") => wrap(self.create_service(args, particle).await),
             ("srv", "get_interface") => wrap(self.get_interface(args, particle)),
             ("srv", "resolve_alias") => wrap(self.resolve_alias(args, particle)),
             ("srv", "resolve_alias_opt") => wrap(self.resolve_alias_opt(args, particle)),
-            ("srv", "add_alias") => wrap_unit(self.add_alias(args, particle)),
+            ("srv", "add_alias") => wrap_unit(self.add_alias(args, particle).await),
             ("srv", "remove") => wrap_unit(self.remove_service(args, particle)),
             ("srv", "info") => wrap(self.get_service_info(args, particle)),
 
@@ -738,16 +739,19 @@ where
         Ok(json!(blueprint))
     }
 
-    fn create_service(&self, args: Args, params: ParticleParams) -> Result<JValue, JError> {
+    async fn create_service(&self, args: Args, params: ParticleParams) -> Result<JValue, JError> {
         let mut args = args.function_args.into_iter();
         let blueprint_id: String = Args::next("blueprint_id", &mut args)?;
 
-        let service_id = self.services.create_service(
-            ServiceType::Service,
-            blueprint_id,
-            params.init_peer_id,
-            params.host_id,
-        )?;
+        let service_id = self
+            .services
+            .create_service(
+                ServiceType::Service,
+                blueprint_id,
+                params.init_peer_id,
+                params.host_id,
+            )
+            .await?;
 
         Ok(JValue::String(service_id))
     }
@@ -781,13 +785,14 @@ where
             .get_interface(&params.id, service_id, params.host_id)?)
     }
 
-    fn add_alias(&self, args: Args, params: ParticleParams) -> Result<(), JError> {
+    async fn add_alias(&self, args: Args, params: ParticleParams) -> Result<(), JError> {
         let mut args = args.function_args.into_iter();
 
         let alias: String = Args::next("alias", &mut args)?;
         let service_id: String = Args::next("service_id", &mut args)?;
         self.services
-            .add_alias(alias, params.host_id, service_id, params.init_peer_id)?;
+            .add_alias(alias, params.host_id, service_id, params.init_peer_id)
+            .await?;
         Ok(())
     }
 

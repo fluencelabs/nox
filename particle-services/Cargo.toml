@@ -33,6 +33,7 @@ derivative = { workspace = true }
 eyre = { workspace = true }
 humantime-serde = { workspace = true }
 health = { workspace = true }
+tokio = { workspace = true, features = ["fs"] }
 
 [dev-dependencies]
 tempdir = "0.3.7"

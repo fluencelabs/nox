@@ -54,24 +54,23 @@ impl PersistedService {
             service_id: service.service_id.clone(),
             service_type: Some(service.service_type.clone()),
             blueprint_id: service.blueprint_id.clone(),
-            aliases: service.aliases.clone(),
+            aliases: service.aliases.lock().clone(),
             owner_id: service.owner_id,
             worker_id: Some(service.worker_id),
         }
     }
-}
 
-/// Persist service info to disk, so it is recreated after restart
-pub fn persist_service(
-    services_dir: &Path,
-    persisted_service: PersistedService,
-) -> Result<(), ServiceError> {
-    let path = services_dir.join(service_file_name(&persisted_service.service_id));
-    let bytes = toml::to_vec(&persisted_service).map_err(|err| SerializePersistedService {
-        err,
-        config: Box::new(persisted_service.clone()),
-    })?;
-    std::fs::write(&path, bytes).map_err(|err| WritePersistedService { path, err })
+    /// Persist service info to disk, so it is recreated after restart
+    pub async fn persist(&self, services_dir: &Path) -> Result<(), ServiceError> {
+        let path = services_dir.join(service_file_name(&self.service_id));
+        let bytes = toml::to_vec(self).map_err(|err| SerializePersistedService {
+            err,
+            config: Box::new(self.clone()),
+        })?;
+        tokio::fs::write(&path, bytes)
+            .await
+            .map_err(|err| WritePersistedService { path, err })
+    }
 }
 
 /// Load info about persisted services from disk, and create `AppService` for each of them

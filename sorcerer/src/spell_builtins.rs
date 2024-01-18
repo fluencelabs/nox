@@ -66,12 +66,14 @@ pub async fn install_spell(
 ) -> Result<String, JError> {
     let config = api::from_user_config(&user_config)?;
 
-    let spell_id = services.create_service(
-        ServiceType::Spell,
-        spell_storage.get_blueprint(),
-        worker_id,
-        worker_id,
-    )?;
+    let spell_id = services
+        .create_service(
+            ServiceType::Spell,
+            spell_storage.get_blueprint(),
+            worker_id,
+            worker_id,
+        )
+        .await?;
     spell_storage.register_spell(worker_id, spell_id.clone());
 
     let params = CallParams::local(spell_id.clone(), worker_id, ttl);
@@ -181,7 +183,10 @@ pub(crate) async fn spell_install(
     .await?;
 
     if let Some(alias) = alias {
-        if let Err(e) = services.add_alias(alias.clone(), worker_id, spell_id.clone(), worker_id) {
+        if let Err(e) = services
+            .add_alias(alias.clone(), worker_id, spell_id.clone(), worker_id)
+            .await
+        {
             // Remove the spell if we failed to add an alias
             remove_spell(
                 &params.id,

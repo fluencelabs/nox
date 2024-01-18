@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 use std::ops::Deref;
-use std::path::Path;
 use std::time::{Duration, Instant};
 use std::{collections::HashMap, sync::Arc};
 
@@ -45,9 +44,7 @@ use workers::{PeerScope, Workers};
 use crate::error::ServiceError;
 use crate::error::ServiceError::{AliasAsServiceId, Forbidden, NoSuchAlias};
 use crate::health::PersistedServiceHealth;
-use crate::persistence::{
-    load_persisted_services, persist_service, remove_persisted_service, PersistedService,
-};
+use crate::persistence::{load_persisted_services, remove_persisted_service, PersistedService};
 use crate::ServiceError::{
     ForbiddenAlias, ForbiddenAliasRoot, ForbiddenAliasWorker, InternalError, NoSuchService,
 };
@@ -91,7 +88,7 @@ pub struct Service {
     pub blueprint_id: String,
     pub service_type: ServiceType,
     pub owner_id: PeerId,
-    pub aliases: Vec<ServiceAlias>,
+    pub aliases: Mutex<Vec<ServiceAlias>>,
     pub worker_id: PeerId,
 }
 
@@ -111,23 +108,20 @@ impl Service {
             blueprint_id,
             service_type,
             owner_id,
-            aliases,
+            aliases: Mutex::new(aliases),
             worker_id,
         }
     }
 
-    pub fn persist(&self, services_dir: &Path) -> Result<(), ServiceError> {
-        persist_service(services_dir, PersistedService::from_service(self))
-    }
-
-    pub fn remove_alias(&mut self, alias: &str) {
-        if let Some(pos) = self.aliases.iter().position(|x| *x == alias) {
-            self.aliases.remove(pos);
+    pub fn remove_alias(&self, alias: &str) {
+        let mut aliases = self.aliases.lock();
+        if let Some(pos) = aliases.iter().position(|x| *x == alias) {
+            aliases.remove(pos);
         }
     }
 
-    pub fn add_alias(&mut self, alias: String) {
-        self.aliases.push(alias);
+    pub fn add_alias(&self, alias: String) {
+        self.aliases.lock().push(alias);
     }
 
     pub fn get_info(&self, id: &str) -> ServiceInfo {
@@ -136,7 +130,7 @@ impl Service {
             blueprint_id: self.blueprint_id.clone(),
             service_type: self.service_type.clone(),
             owner_id: self.owner_id,
-            aliases: self.aliases.clone(),
+            aliases: self.aliases.lock().clone(),
             worker_id: self.worker_id,
         }
     }
@@ -235,13 +229,13 @@ pub fn get_service<'l>(
     by_alias.ok_or(NoSuchService(id_or_alias))
 }
 
-fn get_service_mut<'l>(
-    services: &'l mut Services,
+fn get_service_by_service_id<'l>(
+    services: &'l Services,
     worker_id: PeerId,
     service_id: &str,
-) -> Result<&'l mut Service, ServiceError> {
+) -> Result<&'l Service, ServiceError> {
     let service = services
-        .get_mut(service_id)
+        .get(service_id)
         .ok_or(NoSuchService(service_id.to_string()))?;
 
     if service.worker_id != worker_id {
@@ -256,7 +250,7 @@ fn get_service_mut<'l>(
 }
 
 impl ParticleAppServices {
-    pub fn new(
+    pub async fn new(
         config: ServicesConfig,
         modules: ModuleRepository,
         metrics: Option<ServicesMetrics>,
@@ -283,12 +277,12 @@ impl ParticleAppServices {
             health,
         };
 
-        this.create_persisted_services();
+        this.create_persisted_services().await; //TODO: do not use effects in ctor
 
         this
     }
 
-    pub fn create_service(
+    pub async fn create_service(
         &self,
         service_type: ServiceType,
         blueprint_id: String,
@@ -303,7 +297,8 @@ impl ParticleAppServices {
             worker_id,
             service_id.clone(),
             vec![],
-        )?;
+        )
+        .await?;
         Ok(service_id)
     }
 
@@ -428,7 +423,8 @@ impl ParticleAppServices {
         let service_type = self.get_service_type(&service, &service.worker_id);
 
         if let Some(aliases) = self.aliases.write().get_mut(&service.worker_id) {
-            for alias in service.aliases.iter() {
+            let service_aliases = service.aliases.lock();
+            for alias in service_aliases.iter() {
                 aliases.remove(alias);
             }
         }
@@ -601,16 +597,19 @@ impl ParticleAppServices {
         self.call_service(args, particle, false)
     }
 
-    fn add_alias_inner(
+    async fn add_alias_inner(
         &self,
         alias: String,
         worker_id: PeerId,
         service_id: ServiceId,
     ) -> Result<(), ServiceError> {
-        let mut services = self.services.write();
-        let service = get_service_mut(&mut services, worker_id, &service_id)?;
-        service.add_alias(alias);
-        service.persist(&self.config.services_dir)
+        let service = {
+            let services = self.services.read();
+            let service = get_service_by_service_id(&services, worker_id, &service_id)?;
+            service.add_alias(alias);
+            PersistedService::from_service(service)
+        };
+        service.persist(&self.config.services_dir).await
     }
 
     fn get_service_id(&self, worker_id: PeerId, alias: &str) -> Option<ServiceId> {
@@ -621,19 +620,23 @@ impl ParticleAppServices {
             .cloned()
     }
 
-    fn remove_alias(
+    async fn remove_alias(
         &self,
         alias: String,
         worker_id: PeerId,
         service_id: &str,
     ) -> Result<(), ServiceError> {
-        let mut services = self.services.write();
-        let service = get_service_mut(&mut services, worker_id, service_id)?;
-        service.remove_alias(&alias);
-        service.persist(&self.config.services_dir)
+        let service = {
+            let services = self.services.write();
+            let service = get_service_by_service_id(&services, worker_id, service_id)?;
+            service.remove_alias(&alias);
+            PersistedService::from_service(service)
+        };
+        service.persist(&self.config.services_dir).await?;
+        Ok(())
     }
 
-    pub fn add_alias(
+    pub async fn add_alias(
         &self,
         alias: String,
         worker_id: PeerId,
@@ -670,10 +673,11 @@ impl ParticleAppServices {
 
         let prev_srv_id = self.get_service_id(worker_id, &alias);
         if let Some(srv_id) = prev_srv_id {
-            self.remove_alias(alias.clone(), worker_id, &srv_id)?;
+            self.remove_alias(alias.clone(), worker_id, &srv_id).await?;
         }
 
-        self.add_alias_inner(alias.clone(), worker_id, service_id.clone())?;
+        self.add_alias_inner(alias.clone(), worker_id, service_id.clone())
+            .await?;
         self.aliases
             .write()
             .entry(worker_id)
@@ -835,7 +839,7 @@ impl ParticleAppServices {
         Ok(stats)
     }
 
-    fn create_persisted_services(&mut self) {
+    async fn create_persisted_services(&mut self) {
         let services =
             load_persisted_services(&self.config.services_dir, self.config.local_peer_id);
         let loaded_service_count = services.len();
@@ -873,14 +877,16 @@ impl ParticleAppServices {
                     ServiceType::Service
                 }
             });
-            let result = self.create_service_inner(
-                service_type,
-                s.blueprint_id,
-                s.owner_id,
-                worker_id,
-                s.service_id.clone(),
-                s.aliases.clone(),
-            );
+            let result = self
+                .create_service_inner(
+                    service_type,
+                    s.blueprint_id,
+                    s.owner_id,
+                    worker_id,
+                    s.service_id.clone(),
+                    s.aliases.clone(),
+                )
+                .await;
             let replaced = match result {
                 Ok(replaced) => replaced,
                 Err(err) => {
@@ -923,7 +929,7 @@ impl ParticleAppServices {
         }
     }
 
-    fn create_service_inner(
+    async fn create_service_inner(
         &self,
         service_type: ServiceType,
         blueprint_id: String,
@@ -953,7 +959,8 @@ impl ParticleAppServices {
             worker_id,
         );
         // Save created service to disk, so it is recreated on restart
-        service.persist(&self.config.services_dir)?;
+        let persisted_service = PersistedService::from_service(&service);
+        persisted_service.persist(&self.config.services_dir).await?;
         let service_type = self.get_service_type(&service, &worker_id);
         let replaced = self.services.write().insert(service_id.clone(), service);
         if let Some(m) = self.metrics.as_ref() {
@@ -1001,9 +1008,10 @@ impl ParticleAppServices {
 
     fn get_service_type(&self, service: &Service, worker_id: &PeerId) -> MetricServiceType {
         let allowed_alias = if self.config.local_peer_id.eq(worker_id) {
-            service.aliases.first().cloned()
+            service.aliases.lock().first().cloned()
         } else if service
             .aliases
+            .lock()
             .first()
             .map(|alias| alias == "worker-spell")
             .unwrap_or(false)
