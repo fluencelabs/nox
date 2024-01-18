@@ -26,6 +26,8 @@ use humantime_serde::re::humantime::format_duration as pretty;
 use parking_lot::{Mutex, RwLock};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value as JValue};
+use tokio::runtime::Handle;
+use tokio_util::context::TokioContext;
 
 use fluence_libp2p::{peerid_serializer, PeerId};
 use health::HealthCheckRegistry;
@@ -46,7 +48,8 @@ use crate::error::ServiceError::{AliasAsServiceId, Forbidden, NoSuchAlias};
 use crate::health::PersistedServiceHealth;
 use crate::persistence::{load_persisted_services, remove_persisted_service, PersistedService};
 use crate::ServiceError::{
-    ForbiddenAlias, ForbiddenAliasRoot, ForbiddenAliasWorker, InternalError, NoSuchService,
+    ForbiddenAlias, ForbiddenAliasRoot, ForbiddenAliasWorker, InternalError, NoSuchService
+    ,
 };
 
 type ServiceId = String;
@@ -173,6 +176,7 @@ pub struct ParticleAppServices {
     scope: PeerScope,
     pub metrics: Option<ServicesMetrics>,
     health: Option<PersistedServiceHealth>,
+    root_runtime_handle: Handle,
 }
 
 /// firstly, try to find by alias in worker scope, secondly, in root scope
@@ -258,6 +262,7 @@ impl ParticleAppServices {
         scope: PeerScope,
     ) -> Self {
         let vault = ParticleVault::new(config.particles_vault_dir.clone());
+        let root_runtime_handle = Handle::current();
 
         let health = health_registry.map(|registry| {
             let persisted_services = PersistedServiceHealth::new();
@@ -274,6 +279,7 @@ impl ParticleAppServices {
             scope,
             metrics,
             health,
+            root_runtime_handle,
         }
     }
 
@@ -285,15 +291,26 @@ impl ParticleAppServices {
         worker_id: PeerId,
     ) -> Result<String, ServiceError> {
         let service_id = uuid::Uuid::new_v4().to_string();
-        self.create_service_inner(
-            service_type,
-            blueprint_id,
-            owner_id,
-            worker_id,
-            service_id.clone(),
-            vec![],
-        )
-        .await?;
+
+        let runtime_handle = self
+            .workers
+            .get_handle(worker_id)
+            .unwrap_or(self.root_runtime_handle.clone());
+
+        let fut = async {
+            self.create_service_inner(
+                service_type,
+                blueprint_id,
+                owner_id,
+                worker_id,
+                service_id.clone(),
+                vec![],
+            )
+            .await
+        };
+
+        TokioContext::new(fut, runtime_handle).await?;
+
         Ok(service_id)
     }
 
@@ -1131,13 +1148,14 @@ mod tests {
         }
 
         pas.add_alias(alias, local_pid, service_id, client_pid)
+            .await
     }
 
     async fn call_add_alias(alias: String, service_id: String) -> Result<(), ServiceError> {
         call_add_alias_raw(true, alias, service_id).await
     }
 
-    fn create_service(
+    async fn create_service(
         pas: &ParticleAppServices,
         module_name: String,
         module: &str,
@@ -1150,6 +1168,7 @@ mod tests {
             .unwrap();
 
         pas.create_service(ServiceType::Service, bp, RandomPeerId::random(), worker_id)
+            .await
             .map_err(|e| e.to_string())
     }
 
@@ -1203,9 +1222,15 @@ mod tests {
             .modules
             .add_module_base64(base64.encode(module), config)
             .unwrap();
-        let service_id1 = create_service(&pas, module_name.clone(), &m_hash, local_pid).unwrap();
-        let service_id2 = create_service(&pas, module_name.clone(), &m_hash, local_pid).unwrap();
-        let service_id3 = create_service(&pas, module_name, &m_hash, local_pid).unwrap();
+        let service_id1 = create_service(&pas, module_name.clone(), &m_hash, local_pid)
+            .await
+            .unwrap();
+        let service_id2 = create_service(&pas, module_name.clone(), &m_hash, local_pid)
+            .await
+            .unwrap();
+        let service_id3 = create_service(&pas, module_name, &m_hash, local_pid)
+            .await
+            .unwrap();
 
         let inter1 = pas.get_interface("", service_id1, local_pid).unwrap();
 
@@ -1255,15 +1280,19 @@ mod tests {
 
         let module_name = "tetra".to_string();
         let m_hash = upload_tetra_service(&pas, module_name.clone());
-        let service_id1 = create_service(&pas, module_name, &m_hash, local_pid).unwrap();
+        let service_id1 = create_service(&pas, module_name, &m_hash, local_pid)
+            .await
+            .unwrap();
 
         let alias = "alias";
-        let result = pas.add_alias(
-            alias.to_string(),
-            local_pid,
-            service_id1.clone(),
-            management_pid,
-        );
+        let result = pas
+            .add_alias(
+                alias.to_string(),
+                local_pid,
+                service_id1.clone(),
+                management_pid,
+            )
+            .await;
         // result of the add_alias call must be ok
         assert!(result.is_ok(), "{}", result.unwrap_err());
 
@@ -1297,8 +1326,12 @@ mod tests {
         let module_name = "tetra".to_string();
         let m_hash = upload_tetra_service(&pas, module_name.clone());
 
-        let service_id1 = create_service(&pas, module_name.clone(), &m_hash, local_pid).unwrap();
-        let service_id2 = create_service(&pas, module_name, &m_hash, local_pid).unwrap();
+        let service_id1 = create_service(&pas, module_name.clone(), &m_hash, local_pid)
+            .await
+            .unwrap();
+        let service_id2 = create_service(&pas, module_name, &m_hash, local_pid)
+            .await
+            .unwrap();
 
         let alias = "alias";
         // add an alias to a service
@@ -1308,6 +1341,7 @@ mod tests {
             service_id1.clone(),
             management_pid,
         )
+        .await
         .unwrap();
         // give the alias to another service
         pas.add_alias(
@@ -1316,6 +1350,7 @@ mod tests {
             service_id2.clone(),
             management_pid,
         )
+        .await
         .unwrap();
 
         let services = pas.services.read();
@@ -1356,7 +1391,9 @@ mod tests {
         let module_name = "tetra".to_string();
         let m_hash = upload_tetra_service(&pas, module_name.clone());
 
-        let service_id = create_service(&pas, module_name.clone(), &m_hash, local_pid).unwrap();
+        let service_id = create_service(&pas, module_name.clone(), &m_hash, local_pid)
+            .await
+            .unwrap();
 
         let alias = "alias";
         // add an alias to a service
@@ -1366,6 +1403,7 @@ mod tests {
             service_id.clone(),
             management_pid,
         )
+        .await
         .unwrap();
         // give the alias to service again
         pas.add_alias(
@@ -1374,6 +1412,7 @@ mod tests {
             service_id.clone(),
             management_pid,
         )
+        .await
         .unwrap();
 
         let services = pas.services.read();
@@ -1408,13 +1447,16 @@ mod tests {
         let alias = "alias".to_string();
         let m_hash = upload_tetra_service(&pas, module_name.clone());
 
-        let service_id1 = create_service(&pas, module_name, &m_hash, local_pid).unwrap();
+        let service_id1 = create_service(&pas, module_name, &m_hash, local_pid)
+            .await
+            .unwrap();
         pas.add_alias(
             alias.clone(),
             local_pid,
             service_id1.clone(),
             management_pid,
         )
+        .await
         .unwrap();
         let services = pas.services.read();
         let service_1 = services.get(&service_id1).unwrap();

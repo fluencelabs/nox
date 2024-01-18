@@ -355,12 +355,13 @@ mod tests {
         (pas, repo)
     }
 
-    fn create_spell(
+    async fn create_spell(
         pas: &ParticleAppServices,
         blueprint_id: String,
         worker_id: PeerId,
     ) -> Result<String, String> {
         pas.create_service(ServiceType::Spell, blueprint_id, worker_id, worker_id)
+            .await
             .map_err(|e| e.to_string())
     }
 
@@ -373,7 +374,7 @@ mod tests {
         let api = SpellServiceApi::new(pas.clone());
         let (storage, _) = spell_storage::SpellStorage::create(Path::new(""), &pas, &repo).unwrap();
         let spell_service_blueprint_id = storage.get_blueprint();
-        let spell_id = create_spell(&pas, spell_service_blueprint_id, local_pid).unwrap();
+        let spell_id = create_spell(&pas, spell_service_blueprint_id, local_pid).await.unwrap();
         let params = CallParams::local(spell_id, local_pid, TTL);
         (api, params)
     }

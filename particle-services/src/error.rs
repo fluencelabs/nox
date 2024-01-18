@@ -109,7 +109,7 @@ pub enum ServiceError {
         err: std::io::Error,
     },
     #[error("Internal error, smth bad happened: {0}")]
-    InternalError(String),
+    InternalError(String)
 }
 
 impl From<AppServiceError> for ServiceError {

@@ -325,12 +325,11 @@ impl Workers {
         }
     }
 
-    pub fn get_handle(&self, worker_id: PeerId) -> Result<Handle, WorkersError> {
+    pub fn get_handle(&self, worker_id: PeerId) -> Option<Handle> {
         self.runtimes
             .read()
             .get(&worker_id)
             .map(|x| x.handle().clone())
-            .ok_or(WorkersError::WorkerNotFound(worker_id))
     }
 
     /// Persists worker information and updates internal data structures.
