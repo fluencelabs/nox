@@ -54,7 +54,7 @@ impl PersistedService {
             service_id: service.service_id.clone(),
             service_type: Some(service.service_type.clone()),
             blueprint_id: service.blueprint_id.clone(),
-            aliases: service.aliases.lock().clone(),
+            aliases: service.aliases.clone(),
             owner_id: service.owner_id,
             worker_id: Some(service.worker_id),
         }

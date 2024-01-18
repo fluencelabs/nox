@@ -88,7 +88,7 @@ pub struct Service {
     pub blueprint_id: String,
     pub service_type: ServiceType,
     pub owner_id: PeerId,
-    pub aliases: Mutex<Vec<ServiceAlias>>,
+    pub aliases: Vec<ServiceAlias>,
     pub worker_id: PeerId,
 }
 
@@ -108,20 +108,19 @@ impl Service {
             blueprint_id,
             service_type,
             owner_id,
-            aliases: Mutex::new(aliases),
+            aliases,
             worker_id,
         }
     }
 
-    pub fn remove_alias(&self, alias: &str) {
-        let mut aliases = self.aliases.lock();
-        if let Some(pos) = aliases.iter().position(|x| *x == alias) {
-            aliases.remove(pos);
+    pub fn remove_alias(&mut self, alias: &str) {
+        if let Some(pos) = self.aliases.iter().position(|x| *x == alias) {
+            self.aliases.remove(pos);
         }
     }
 
-    pub fn add_alias(&self, alias: String) {
-        self.aliases.lock().push(alias);
+    pub fn add_alias(&mut self, alias: String) {
+        self.aliases.push(alias);
     }
 
     pub fn get_info(&self, id: &str) -> ServiceInfo {
@@ -130,7 +129,7 @@ impl Service {
             blueprint_id: self.blueprint_id.clone(),
             service_type: self.service_type.clone(),
             owner_id: self.owner_id,
-            aliases: self.aliases.lock().clone(),
+            aliases: self.aliases.clone(),
             worker_id: self.worker_id,
         }
     }
@@ -229,13 +228,13 @@ pub fn get_service<'l>(
     by_alias.ok_or(NoSuchService(id_or_alias))
 }
 
-fn get_service_by_service_id<'l>(
-    services: &'l Services,
+fn get_service_mut<'l>(
+    services: &'l mut Services,
     worker_id: PeerId,
     service_id: &str,
-) -> Result<&'l Service, ServiceError> {
+) -> Result<&'l mut Service, ServiceError> {
     let service = services
-        .get(service_id)
+        .get_mut(service_id)
         .ok_or(NoSuchService(service_id.to_string()))?;
 
     if service.worker_id != worker_id {
@@ -423,8 +422,7 @@ impl ParticleAppServices {
         let service_type = self.get_service_type(&service, &service.worker_id);
 
         if let Some(aliases) = self.aliases.write().get_mut(&service.worker_id) {
-            let service_aliases = service.aliases.lock();
-            for alias in service_aliases.iter() {
+            for alias in service.aliases.iter() {
                 aliases.remove(alias);
             }
         }
@@ -604,8 +602,8 @@ impl ParticleAppServices {
         service_id: ServiceId,
     ) -> Result<(), ServiceError> {
         let service = {
-            let services = self.services.read();
-            let service = get_service_by_service_id(&services, worker_id, &service_id)?;
+            let mut services = self.services.write();
+            let service = get_service_mut(&mut services, worker_id, &service_id)?;
             service.add_alias(alias);
             PersistedService::from_service(service)
         };
@@ -627,8 +625,8 @@ impl ParticleAppServices {
         service_id: &str,
     ) -> Result<(), ServiceError> {
         let service = {
-            let services = self.services.write();
-            let service = get_service_by_service_id(&services, worker_id, service_id)?;
+            let mut services = self.services.write();
+            let service = get_service_mut(&mut services, worker_id, service_id)?;
             service.remove_alias(&alias);
             PersistedService::from_service(service)
         };
@@ -1008,10 +1006,9 @@ impl ParticleAppServices {
 
     fn get_service_type(&self, service: &Service, worker_id: &PeerId) -> MetricServiceType {
         let allowed_alias = if self.config.local_peer_id.eq(worker_id) {
-            service.aliases.lock().first().cloned()
+            service.aliases.first().cloned()
         } else if service
             .aliases
-            .lock()
             .first()
             .map(|alias| alias == "worker-spell")
             .unwrap_or(false)
