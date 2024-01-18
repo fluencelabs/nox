@@ -97,7 +97,7 @@ impl<C> Builtins<C>
 where
     C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoolApi>,
 {
-    pub async fn new(
+    pub fn new(
         connectivity: C,
         config: ServicesConfig,
         services_metrics: ServicesMetrics,
@@ -123,8 +123,7 @@ where
             health_registry,
             workers.clone(),
             scope.clone(),
-        )
-        .await;
+        );
 
         Self {
             connectivity,

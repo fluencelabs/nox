@@ -236,18 +236,19 @@ impl<RT: AquaRuntime> Node<RT> {
             .map(|s| s.to_string_lossy().to_string())
             .collect::<_>();
 
-        let builtins = Arc::new(
-            Self::builtins(
-                connectivity.clone(),
-                services_config,
-                services_metrics,
-                workers.clone(),
-                scope.clone(),
-                health_registry.as_mut(),
-                config.system_services.decider.network_api_endpoint.clone(),
-            )
-            .await,
+        let mut builtins = Self::builtins(
+            connectivity.clone(),
+            services_config,
+            services_metrics,
+            workers.clone(),
+            scope.clone(),
+            health_registry.as_mut(),
+            config.system_services.decider.network_api_endpoint.clone(),
         );
+
+        builtins.services.create_persisted_services().await;
+
+        let builtins = Arc::new(builtins);
 
         let (effects_out, effects_in) = mpsc::channel(config.node_config.effects_queue_buffer);
 
@@ -425,7 +426,7 @@ impl<RT: AquaRuntime> Node<RT> {
         Ok((swarm, connectivity, particle_stream))
     }
 
-    pub async fn builtins(
+    pub fn builtins(
         connectivity: Connectivity,
         services_config: ServicesConfig,
         services_metrics: ServicesMetrics,
@@ -443,7 +444,6 @@ impl<RT: AquaRuntime> Node<RT> {
             health_registry,
             connector_api_endpoint,
         )
-        .await
     }
 }
 

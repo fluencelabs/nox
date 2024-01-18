@@ -249,7 +249,7 @@ fn get_service_mut<'l>(
 }
 
 impl ParticleAppServices {
-    pub async fn new(
+    pub fn new(
         config: ServicesConfig,
         modules: ModuleRepository,
         metrics: Option<ServicesMetrics>,
@@ -264,7 +264,7 @@ impl ParticleAppServices {
             registry.register("persisted_services", persisted_services.clone());
             persisted_services
         });
-        let mut this = Self {
+        Self {
             config,
             vault,
             services: <_>::default(),
@@ -274,11 +274,7 @@ impl ParticleAppServices {
             scope,
             metrics,
             health,
-        };
-
-        this.create_persisted_services().await; //TODO: do not use effects in ctor
-
-        this
+        }
     }
 
     pub async fn create_service(
@@ -837,7 +833,7 @@ impl ParticleAppServices {
         Ok(stats)
     }
 
-    async fn create_persisted_services(&mut self) {
+    pub async fn create_persisted_services(&mut self) {
         let services =
             load_persisted_services(&self.config.services_dir, self.config.local_peer_id);
         let loaded_service_count = services.len();
