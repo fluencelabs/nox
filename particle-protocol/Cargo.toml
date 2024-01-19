@@ -21,7 +21,7 @@ log = { workspace = true }
 derivative = { workspace = true }
 base64 = { workspace = true }
 tokio = { workspace = true, features = ["sync"] }
-asynchronous-codec = { version = "0.7.0", features = ["json"] }
+asynchronous-codec = { version = "0.7.0", features = ["cbor"] }
 unsigned-varint = { version = "0.8.0", features = ["codec", "asynchronous_codec"] }
 tracing = { workspace = true }
 

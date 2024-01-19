@@ -1,5 +1,5 @@
 use crate::ProtocolMessage;
-use asynchronous_codec::{BytesMut, Decoder, Encoder, JsonCodec, JsonCodecError};
+use asynchronous_codec::{BytesMut, Decoder, Encoder, CborCodec, CborCodecError};
 use std::io;
 use unsigned_varint::codec::UviBytes;
 
@@ -7,15 +7,15 @@ const MAX_BUF_SIZE: usize = 100 * 1024 * 1024;
 
 pub struct FluenceCodec {
     length: UviBytes<BytesMut>,
-    json: JsonCodec<ProtocolMessage, ProtocolMessage>,
+    cbor: CborCodec<ProtocolMessage, ProtocolMessage>,
 }
 
 impl FluenceCodec {
     pub fn new() -> Self {
         let mut length: UviBytes<BytesMut> = UviBytes::default();
         length.set_max_len(MAX_BUF_SIZE);
-        let json = JsonCodec::new();
-        Self { length, json }
+        let cbor = CborCodec::new();
+        Self { length, cbor }
     }
 }
 
@@ -27,7 +27,7 @@ impl Decoder for FluenceCodec {
         let bytes = self.length.decode(src)?;
         if let Some(bytes) = bytes {
             return self
-                .json
+                .cbor
                 .decode(&mut BytesMut::from(&bytes[..]))
                 .map_err(Into::into);
         }
@@ -40,9 +40,9 @@ impl Encoder for FluenceCodec {
     type Error = FluenceCodecError;
 
     fn encode(&mut self, item: Self::Item<'_>, dst: &mut BytesMut) -> Result<(), Self::Error> {
-        let mut json_buf = BytesMut::new();
-        self.json.encode(item, &mut json_buf)?;
-        self.length.encode(json_buf, dst)?;
+        let mut cbor_buf = BytesMut::new();
+        self.cbor.encode(item, &mut cbor_buf)?;
+        self.length.encode(cbor_buf, dst)?;
         Ok(())
     }
 }
@@ -53,8 +53,8 @@ pub enum FluenceCodecError {
     Io(std::io::Error),
     /// Length error
     Length(std::io::Error),
-    /// JSON error
-    Json(JsonCodecError),
+    /// CBOR error
+    Cbor(CborCodecError),
 }
 
 impl From<std::io::Error> for FluenceCodecError {
@@ -63,9 +63,9 @@ impl From<std::io::Error> for FluenceCodecError {
     }
 }
 
-impl From<JsonCodecError> for FluenceCodecError {
-    fn from(e: JsonCodecError) -> FluenceCodecError {
-        FluenceCodecError::Json(e)
+impl From<CborCodecError> for FluenceCodecError {
+    fn from(e: CborCodecError) -> FluenceCodecError {
+        FluenceCodecError::Cbor(e)
     }
 }
 
@@ -74,7 +74,7 @@ impl std::error::Error for FluenceCodecError {
         match self {
             FluenceCodecError::Io(ref e) => Some(e),
             FluenceCodecError::Length(ref e) => Some(e),
-            FluenceCodecError::Json(ref e) => Some(e),
+            FluenceCodecError::Cbor(ref e) => Some(e),
         }
     }
 }
@@ -84,7 +84,7 @@ impl std::fmt::Display for FluenceCodecError {
         match self {
             FluenceCodecError::Io(e) => write!(f, "I/O error: {}", e),
             FluenceCodecError::Length(e) => write!(f, "I/O error: {}", e),
-            FluenceCodecError::Json(e) => write!(f, "JSON error: {}", e),
+            FluenceCodecError::Cbor(e) => write!(f, "CBOR error: {}", e),
         }
     }
 }
@@ -94,7 +94,7 @@ impl From<FluenceCodecError> for std::io::Error {
         match value {
             FluenceCodecError::Io(e) => e,
             FluenceCodecError::Length(e) => io::Error::new(io::ErrorKind::InvalidInput, e),
-            FluenceCodecError::Json(e) => io::Error::new(io::ErrorKind::InvalidInput, e),
+            FluenceCodecError::Cbor(e) => io::Error::new(io::ErrorKind::InvalidInput, e),
         }
     }
 }
