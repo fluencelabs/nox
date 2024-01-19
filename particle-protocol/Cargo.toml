@@ -21,9 +21,10 @@ log = { workspace = true }
 derivative = { workspace = true }
 base64 = { workspace = true }
 tokio = { workspace = true, features = ["sync"] }
-asynchronous-codec = { version = "0.7.0", features = ["cbor"] }
+asynchronous-codec = { version = "0.7.0" }
 unsigned-varint = { version = "0.8.0", features = ["codec", "asynchronous_codec"] }
 tracing = { workspace = true }
+air-interpreter-sede = { version = "0.1.0", features = ["msgpack"] }
 
 [dev-dependencies]
 rand = { workspace = true }

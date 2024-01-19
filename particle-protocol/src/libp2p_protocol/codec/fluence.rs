@@ -1,21 +1,31 @@
 use crate::ProtocolMessage;
-use asynchronous_codec::{BytesMut, Decoder, Encoder, CborCodec, CborCodecError};
+use air_interpreter_sede::{
+    define_simple_representation, FromSerialized, MsgPackMultiformat, ToWriter,
+};
+use asynchronous_codec::{BytesMut, Decoder, Encoder};
 use std::io;
 use unsigned_varint::codec::UviBytes;
 
 const MAX_BUF_SIZE: usize = 100 * 1024 * 1024;
 
+type ProtocolMessageFormat = MsgPackMultiformat;
+
+define_simple_representation!(
+    ProtocolMessageRepresentation,
+    ProtocolMessage,
+    ProtocolMessageFormat,
+    Vec<u8>
+);
+
 pub struct FluenceCodec {
     length: UviBytes<BytesMut>,
-    cbor: CborCodec<ProtocolMessage, ProtocolMessage>,
 }
 
 impl FluenceCodec {
     pub fn new() -> Self {
         let mut length: UviBytes<BytesMut> = UviBytes::default();
         length.set_max_len(MAX_BUF_SIZE);
-        let cbor = CborCodec::new();
-        Self { length, cbor }
+        Self { length }
     }
 }
 
@@ -26,10 +36,10 @@ impl Decoder for FluenceCodec {
     fn decode(&mut self, src: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
         let bytes = self.length.decode(src)?;
         if let Some(bytes) = bytes {
-            return self
-                .cbor
-                .decode(&mut BytesMut::from(&bytes[..]))
-                .map_err(Into::into);
+            return ProtocolMessageRepresentation
+                .deserialize(&bytes)
+                .map(Some)
+                .map_err(FluenceCodecError::Deserialize);
         }
         Ok(None)
     }
@@ -40,9 +50,11 @@ impl Encoder for FluenceCodec {
     type Error = FluenceCodecError;
 
     fn encode(&mut self, item: Self::Item<'_>, dst: &mut BytesMut) -> Result<(), Self::Error> {
-        let mut cbor_buf = BytesMut::new();
-        self.cbor.encode(item, &mut cbor_buf)?;
-        self.length.encode(cbor_buf, dst)?;
+        let mut msg_buf = vec![];
+        ProtocolMessageRepresentation
+            .to_writer(&item, &mut msg_buf)
+            .map_err(FluenceCodecError::Serialize)?;
+        self.length.encode(msg_buf[..].into(), dst)?;
         Ok(())
     }
 }
@@ -54,7 +66,8 @@ pub enum FluenceCodecError {
     /// Length error
     Length(std::io::Error),
     /// CBOR error
-    Cbor(CborCodecError),
+    Serialize(<ProtocolMessageFormat as air_interpreter_sede::Format<ProtocolMessage>>::SerializationError),
+    Deserialize(<ProtocolMessageFormat as air_interpreter_sede::Format<ProtocolMessage>>::DeserializationError),
 }
 
 impl From<std::io::Error> for FluenceCodecError {
@@ -63,18 +76,13 @@ impl From<std::io::Error> for FluenceCodecError {
     }
 }
 
-impl From<CborCodecError> for FluenceCodecError {
-    fn from(e: CborCodecError) -> FluenceCodecError {
-        FluenceCodecError::Cbor(e)
-    }
-}
-
 impl std::error::Error for FluenceCodecError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
             FluenceCodecError::Io(ref e) => Some(e),
             FluenceCodecError::Length(ref e) => Some(e),
-            FluenceCodecError::Cbor(ref e) => Some(e),
+            FluenceCodecError::Serialize(ref e) => Some(e),
+            FluenceCodecError::Deserialize(ref e) => Some(e),
         }
     }
 }
@@ -84,7 +92,8 @@ impl std::fmt::Display for FluenceCodecError {
         match self {
             FluenceCodecError::Io(e) => write!(f, "I/O error: {}", e),
             FluenceCodecError::Length(e) => write!(f, "I/O error: {}", e),
-            FluenceCodecError::Cbor(e) => write!(f, "CBOR error: {}", e),
+            FluenceCodecError::Serialize(e) => write!(f, "Serialization error: {}", e),
+            FluenceCodecError::Deserialize(e) => write!(f, "Deserialization error: {}", e),
         }
     }
 }
@@ -94,7 +103,8 @@ impl From<FluenceCodecError> for std::io::Error {
         match value {
             FluenceCodecError::Io(e) => e,
             FluenceCodecError::Length(e) => io::Error::new(io::ErrorKind::InvalidInput, e),
-            FluenceCodecError::Cbor(e) => io::Error::new(io::ErrorKind::InvalidInput, e),
+            FluenceCodecError::Serialize(e) => io::Error::new(io::ErrorKind::InvalidInput, e),
+            FluenceCodecError::Deserialize(e) => io::Error::new(io::ErrorKind::InvalidInput, e),
         }
     }
 }
