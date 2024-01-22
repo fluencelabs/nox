@@ -94,48 +94,30 @@ dependencies = [
 
 [[package]]
 name = "air-interpreter-interface"
-version = "0.58.1-feat-update-marine-4dd5abe-4164-1.0"
+version = "0.55.1-feat-intermediate-marine-update-f3e4695-4194-1.0"
 source = "registry+git://crates.fluence.dev/index"
-checksum = "f2dc2b08c4bf8182022f7b28169af3d9e70205157ba9d7209a91786556b984b8"
+checksum = "bbb47414f3952bd025ee016f211d2cb63180cb1f8d90d7bd692af230cae2e6b2"
 dependencies = [
- "air-interpreter-sede",
  "fluence-it-types",
- "marine-call-parameters",
  "marine-rs-sdk",
  "serde",
- "serde_bytes",
  "serde_json",
-]
-
-[[package]]
-name = "air-interpreter-sede"
-version = "0.58.1-feat-update-marine-4dd5abe-4164-1.0"
-source = "registry+git://crates.fluence.dev/index"
-checksum = "1680e1d97eeca864898023c47fbe102b6d6086964a1c359fe99c125302dcd99d"
-dependencies = [
- "marine-rs-sdk",
- "rmp-serde",
- "serde",
- "serde_bytes",
- "serde_json",
- "thiserror",
- "unsigned-varint 0.8.0",
 ]
 
 [[package]]
 name = "air-interpreter-wasm"
-version = "0.58.1-feat-update-marine-4dd5abe-4164-1.0"
+version = "0.55.1-feat-intermediate-marine-update-f3e4695-4194-1.0"
 source = "registry+git://crates.fluence.dev/index"
-checksum = "1ef66047717d9bfa3c531c4d2f9e90f2dca050dcbc7c435285ed379f23e72a41"
+checksum = "db3b84d35cb81accb2659c81cda80b6db92f4e7aff9fb9498b10e49d75e63042"
 dependencies = [
  "built 0.7.1",
 ]
 
 [[package]]
 name = "air-utils"
-version = "0.58.1-feat-update-marine-4dd5abe-4164-1.0"
+version = "0.55.1-feat-intermediate-marine-update-f3e4695-4194-1.0"
 source = "registry+git://crates.fluence.dev/index"
-checksum = "cc0f860bc28a231bddd641fcf17cec555903963a426f74fdb51d4a783a7546dd"
+checksum = "068559e2b39a3445a31af02157ee541aa7ac5b5ea8c68b4851a844e8c843d239"
 
 [[package]]
 name = "allocator-api2"
@@ -498,9 +480,9 @@ checksum = "d468802bab17cbc0cc575e9b053f41e72aa36bfa6b7f55e3529ffa43161b97fa"
 
 [[package]]
 name = "avm-data-store"
-version = "0.58.1-feat-update-marine-4dd5abe-4164-1.0"
+version = "0.55.1-feat-intermediate-marine-update-f3e4695-4194-1.0"
 source = "registry+git://crates.fluence.dev/index"
-checksum = "687862629cd3575382d112e3ff3db948b10379b19755fb5d677652179e8e75ee"
+checksum = "e22ba2f00e41a48edef1e385ba76a429c492c2e110367e9d21bee715aadde357"
 dependencies = [
  "avm-interface",
  "serde",
@@ -509,12 +491,11 @@ dependencies = [
 
 [[package]]
 name = "avm-interface"
-version = "0.58.1-feat-update-marine-4dd5abe-4164-1.0"
+version = "0.55.1-feat-intermediate-marine-update-f3e4695-4194-1.0"
 source = "registry+git://crates.fluence.dev/index"
-checksum = "b61843c1a4d1d9f8273e08e58833baac403aa8c718bf244b7697f1b513af224e"
+checksum = "764125814719c204be86d790572217898307fa2d018246a57542954ffd93903b"
 dependencies = [
  "air-interpreter-interface",
- "air-interpreter-sede",
  "air-utils",
  "log",
  "maplit",
@@ -527,12 +508,11 @@ dependencies = [
 
 [[package]]
 name = "avm-server"
-version = "0.58.1-feat-update-marine-4dd5abe-4164-1.0"
+version = "0.55.1-feat-intermediate-marine-update-f3e4695-4194-1.0"
 source = "registry+git://crates.fluence.dev/index"
-checksum = "d66db86b4671c1b8a9125c79b1c54336e69f000943b30c4c4beed8efdfdc8765"
+checksum = "61bd130d26db24849b17cb61d44adb02f432a954e2c559430fda5a354322420c"
 dependencies = [
  "air-interpreter-interface",
- "air-interpreter-sede",
  "air-utils",
  "avm-data-store",
  "avm-interface",
@@ -5525,9 +5505,9 @@ dependencies = [
 
 [[package]]
 name = "polyplets"
-version = "0.58.1-feat-update-marine-4dd5abe-4164-1.0"
+version = "0.55.1-feat-intermediate-marine-update-f3e4695-4194-1.0"
 source = "registry+git://crates.fluence.dev/index"
-checksum = "f49267a1274712e6d93471d9711fb3308256e7ca297569b843e822899ef69a42"
+checksum = "5f6a27c132889d4f7048b9bd018148f0c65b9647962770fcce13f3dccf4e61e7"
 dependencies = [
  "marine-call-parameters",
  "serde",
@@ -6128,28 +6108,6 @@ checksum = "bb919243f34364b6bd2fc10ef797edbfa75f33c252e7998527479c6d6b47e1ec"
 dependencies = [
  "bytes",
  "rustc-hex",
-]
-
-[[package]]
-name = "rmp"
-version = "0.8.12"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7f9860a6cc38ed1da53456442089b4dfa35e7cedaa326df63017af88385e6b20"
-dependencies = [
- "byteorder",
- "num-traits",
- "paste",
-]
-
-[[package]]
-name = "rmp-serde"
-version = "1.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bffea85eea980d8a74453e5d02a8d93028f3c34725de143085a844ebe953258a"
-dependencies = [
- "byteorder",
- "rmp",
- "serde",
 ]
 
 [[package]]

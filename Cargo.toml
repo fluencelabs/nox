@@ -107,8 +107,8 @@ marine-utils = "0.5.0"
 marine-it-parser = "0.15.1"
 
 # avm
-avm-server = { version = "=0.58.1-feat-update-marine-4dd5abe-4164-1.0", registry = "fluence" }
-air-interpreter-wasm = { version = "= 0.58.1-feat-update-marine-4dd5abe-4164-1.0", registry = "fluence" }
+avm-server = { version = "=0.55.1-feat-intermediate-marine-update-f3e4695-4194-1.0", registry = "fluence" }
+air-interpreter-wasm = { version = "=0.55.1-feat-intermediate-marine-update-f3e4695-4194-1.0", registry = "fluence" }
 
 # libp2p
 libp2p = { version = "0.53.2", features = ["noise", "tcp", "dns", "websocket", "yamux", "tokio", "kad", "ping", "identify", "macros"] }
