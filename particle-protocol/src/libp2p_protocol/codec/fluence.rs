@@ -142,14 +142,12 @@ mod tests {
 
     #[test]
     fn deserialization_test() {
-        let raw_str = "9QN7ImFjdGlvbiI6IlBhcnRpY2xlIiwiaWQiOiJkMjA1ZDE0OC00Y2YxLTRlNzYtOGY2ZS1\
-        mY2U5ODEwZjVlNmMiLCJpbml0X3BlZXJfaWQiOiIxMkQzS29vV0xMRjdnUUtiNzd4WEhWWm4zS1hhMTR4cDNSQmlBa2J\
-        uSzJVQlJwRGFSOEtiIiwidGltZXN0YW1wIjoxNzAwNTc0OTU5MDU5LCJ0dGwiOjAsInNjcmlwdCI6IihjYWxsICVpbml\
-        0X3BlZXJfaWQlIChcImdldERhdGFTcnZcIiBcIi1yZWxheS1cIikgW10gLXJlbGF5LSkiLCJzaWduYXR1cmUiOlsxMTE\
-        sMTgyLDkyLDEsNzgsNDQsMjI1LDc1LDExNCwxMTMsMTA5LDIyNCw2MCwyNDUsMTksMTgyLDE1MiwyNiwxNDEsMTA5LDE\
-        4NSw1MCwxOTEsMjM5LDE4OCwxMjIsNTAsMTkxLDEwMywyMSw1MywxMjAsMjE2LDMxLDIxMywyMiwyNDAsMTk0LDc4LDI\
-        xMSwyNDAsMTkyLDE2MiwyMjAsMjAsMTcwLDEyMSwyNSwyMDAsNjMsMjQ1LDE1MSwxNywyNTMsMTU2LDI0MiwxNDEsMTI\
-        5LDIxNywyMDUsMTgxLDE1NiwyMzEsMTBdLCJkYXRhIjoiIn0=";
+        let raw_str = "zwKBBIimYWN0aW9uqFBhcnRpY2xlpGRhdGGQomlk2SRkMjA1ZDE0OC00Y2YxLTRlNzYtOGY2ZS1mY\
+        2U5ODEwZjVlNmOsaW5pdF9wZWVyX2lk2TQxMkQzS29vV0xMRjdnUUtiNzd4WEhWWm4zS1hhMTR4cDNSQmlBa2JuSzJVQ\
+        lJwRGFSOEtipnNjcmlwdNk5KGNhbGwgJWluaXRfcGVlcl9pZCUgKCJnZXREYXRhU3J2IiAiLXJlbGF5LSIpIFtdIC1yZ\
+        WxheS0pqXNpZ25hdHVyZdwAQG/MtlwBTizM4UtycW3M4DzM9RPMtsyYGsyNbcy5Msy/zO/MvHoyzL9nFTV4zNgfzNUWz\
+        PDMwk7M08zwzMDMoszcFMyqeRnMyD/M9cyXEcz9zJzM8syNzIHM2czNzLXMnMznCql0aW1lc3RhbXDPAAABi/IqldOjd\
+        HRsAA==";
         let hex_data = base64.decode(raw_str).expect("Base64");
         let mut bytes = BytesMut::from(&hex_data[..]);
 
