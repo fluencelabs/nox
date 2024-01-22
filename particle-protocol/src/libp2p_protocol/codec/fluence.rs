@@ -1,6 +1,7 @@
 use crate::ProtocolMessage;
 use air_interpreter_sede::{
-    define_simple_representation, FromSerialized, MsgPackMultiformat, ToWriter,
+    define_simple_representation, Format as SedeFormat, FromSerialized as _, MsgPackMultiformat,
+    ToSerialized as _,
 };
 use asynchronous_codec::{BytesMut, Decoder, Encoder};
 use std::io;
@@ -50,9 +51,8 @@ impl Encoder for FluenceCodec {
     type Error = FluenceCodecError;
 
     fn encode(&mut self, item: Self::Item<'_>, dst: &mut BytesMut) -> Result<(), Self::Error> {
-        let mut msg_buf = vec![];
-        ProtocolMessageRepresentation
-            .to_writer(&item, &mut msg_buf)
+        let msg_buf = ProtocolMessageRepresentation
+            .serialize(&item)
             .map_err(FluenceCodecError::Serialize)?;
         self.length.encode(msg_buf[..].into(), dst)?;
         Ok(())
@@ -65,9 +65,8 @@ pub enum FluenceCodecError {
     Io(std::io::Error),
     /// Length error
     Length(std::io::Error),
-    /// CBOR error
-    Serialize(<ProtocolMessageFormat as air_interpreter_sede::Format<ProtocolMessage>>::SerializationError),
-    Deserialize(<ProtocolMessageFormat as air_interpreter_sede::Format<ProtocolMessage>>::DeserializationError),
+    Serialize(<ProtocolMessageFormat as SedeFormat<ProtocolMessage>>::SerializationError),
+    Deserialize(<ProtocolMessageFormat as SedeFormat<ProtocolMessage>>::DeserializationError),
 }
 
 impl From<std::io::Error> for FluenceCodecError {
