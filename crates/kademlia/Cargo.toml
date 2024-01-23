@@ -21,7 +21,7 @@ multihash = { workspace = true }
 once_cell = { workspace = true }
 
 prost = "0.12.3"
-smallvec = "1.11.2"
+smallvec = "1.13.1"
 serde_json = { workspace = true }
 log = { workspace = true }
 bs58 = { workspace = true }
