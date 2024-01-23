@@ -53,9 +53,8 @@ jobs:
     if: >
       contains(github.event.pull_request.labels.*.name, 'e2e') &&
       !github.event.pull_request.head.repo.fork
-    uses: fluencelabs/decider/.github/workflows/tests.yml@chore/update-cargo-lock
+    uses: fluencelabs/decider/.github/workflows/tests.yml@master
     with:
-      ref: chore/update-cargo-lock
       test-cargo-dependencies: |
         [
           {
