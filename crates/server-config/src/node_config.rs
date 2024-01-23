@@ -84,15 +84,10 @@ pub struct UnresolvedNodeConfig {
     #[serde(default)]
     pub aquavm_max_heap_size: Option<bytesize::ByteSize>,
 
-    /// Maximum heap size in bytes available for a WASM module.
-    #[serde_as(as = "DisplayFromStr")]
-    #[serde(default = "default_module_max_heap_size")]
-    pub module_max_heap_size: bytesize::ByteSize,
-
-    /// Default heap size in bytes available for a WASM module unless otherwise specified.
+    /// Default heap size in bytes available for a WASM service unless otherwise specified.
     #[serde_as(as = "Option<DisplayFromStr>")]
     #[serde(default)]
-    pub module_default_heap_size: Option<bytesize::ByteSize>,
+    pub default_service_memory_limit: Option<bytesize::ByteSize>,
 
     #[serde(default)]
     pub kademlia: KademliaConfig,
@@ -170,9 +165,8 @@ impl UnresolvedNodeConfig {
             services_envs: self.services_envs,
             protocol_config: self.protocol_config,
             aquavm_pool_size: self.aquavm_pool_size,
-            aquavm_max_heap_size: self.aquavm_max_heap_size,
-            module_max_heap_size: self.module_max_heap_size,
-            module_default_heap_size: self.module_default_heap_size,
+            aquavm_heap_size_limit: self.aquavm_max_heap_size,
+            default_service_memory_limit: self.default_service_memory_limit,
             kademlia: self.kademlia,
             particle_queue_buffer: self.particle_queue_buffer,
             effects_queue_buffer: self.effects_queue_buffer,
@@ -325,13 +319,10 @@ pub struct NodeConfig {
     pub aquavm_pool_size: usize,
 
     /// Maximum heap size in bytes available for an interpreter instance.
-    pub aquavm_max_heap_size: Option<bytesize::ByteSize>,
+    pub aquavm_heap_size_limit: Option<bytesize::ByteSize>,
 
-    /// Maximum heap size in bytes available for a WASM module.
-    pub module_max_heap_size: bytesize::ByteSize,
-
-    /// Default heap size in bytes available for a WASM module unless otherwise specified.
-    pub module_default_heap_size: Option<bytesize::ByteSize>,
+    /// Default heap size in bytes available for a WASM service unless otherwise specified.
+    pub default_service_memory_limit: Option<bytesize::ByteSize>,
 
     pub kademlia: KademliaConfig,
 

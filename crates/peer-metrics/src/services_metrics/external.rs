@@ -7,7 +7,6 @@ use prometheus_client::metrics::histogram::{linear_buckets, Histogram};
 use prometheus_client::registry::Registry;
 use std::fmt::Write;
 
-use fluence_app_service::ModuleDescriptor;
 use prometheus_client::encoding::{EncodeLabelSet, EncodeLabelValue, LabelValueEncoder};
 use prometheus_client::metrics::family::Family;
 
@@ -41,8 +40,6 @@ pub struct ServiceTypeLabel {
 
 #[derive(Clone)]
 pub struct ServicesMemoryMetrics {
-    /// Maximum memory set in module config
-    pub mem_max_bytes: Histogram,
     /// Actual memory used by a module
     pub mem_max_per_module_bytes: Histogram,
     /// Actual memory used by a service
@@ -51,19 +48,6 @@ pub struct ServicesMemoryMetrics {
     pub mem_used_per_module_bytes: Family<ServiceTypeLabel, Histogram>,
     /// Total memory used
     pub mem_used_total_bytes: Family<ServiceTypeLabel, Gauge>,
-}
-
-impl ServicesMemoryMetrics {
-    /// Collect the service and the service's modules  max available memory.
-    pub fn observe_service_max_mem(&self, default_max: u64, modules_config: &[ModuleDescriptor]) {
-        let mut max_service_size = 0;
-        for module_config in modules_config {
-            let module_max = module_config.config.max_heap_size.unwrap_or(default_max);
-            self.mem_max_per_module_bytes.observe(module_max as f64);
-            max_service_size += module_max;
-        }
-        self.mem_max_bytes.observe(max_service_size as f64);
-    }
 }
 
 #[derive(Clone)]
@@ -134,13 +118,6 @@ impl ServicesMetricsExternal {
             "number of srv remove calls",
         );
 
-        let mem_max_bytes = register(
-            sub_registry,
-            Histogram::new(mem_buckets_8gib()),
-            "mem_max_bytes",
-            "maximum memory set in module config per service",
-        );
-
         let mem_max_per_module_bytes = register(
             sub_registry,
             Histogram::new(mem_buckets_4gib()),
@@ -198,7 +175,6 @@ impl ServicesMetricsExternal {
         );
 
         let memory_metrics = ServicesMemoryMetrics {
-            mem_max_bytes,
             mem_max_per_module_bytes,
             mem_used_bytes,
             mem_used_per_module_bytes,
@@ -231,12 +207,6 @@ impl ServicesMetricsExternal {
             call_failed_count,
             memory_metrics,
         }
-    }
-
-    /// Collect the service and the service's modules  max available memory.
-    pub fn observe_service_max_mem(&self, default_max: u64, modules_config: &[ModuleDescriptor]) {
-        self.memory_metrics
-            .observe_service_max_mem(default_max, modules_config);
     }
 
     /// Collect all metrics that are relevant on service removal.
