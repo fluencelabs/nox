@@ -4416,9 +4416,9 @@ dependencies = [
 
 [[package]]
 name = "marine-utils"
-version = "0.5.0"
+version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7e86cb57ff0e2fdc8e188a52d388287d38e5cc781eddd09a82d20f8ee1f48b80"
+checksum = "fce56bfabfd0af5326ff81c32c8d2261aa03b10e00ea6c165de4ebf8a3f998e4"
 
 [[package]]
 name = "marine-wasm-backend-traits"
