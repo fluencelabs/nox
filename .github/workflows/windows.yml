@@ -1,0 +1,20 @@
+name: "windows"
+
+on:
+  pull_request:
+
+concurrency:
+  group: "${{ github.workflow }}-${{ github.ref }}"
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: win-amd64-m-2xlarge
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          repository: fluencelabs/nox
+
+      - run: ls -alh
