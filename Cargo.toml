@@ -102,13 +102,13 @@ fluence-spell-dtos = "=0.6.9"
 fluence-spell-distro = "=0.6.9"
 
 # marine
-fluence-app-service = { version = "0.31.1" }
+fluence-app-service = "0.31.1"
 marine-utils = "0.5.1"
 marine-it-parser = "0.15.1"
 
 # avm
-avm-server = { version = "=0.55.1-feat-intermediate-marine-update-f3e4695-4194-1.0", registry = "fluence" }
-air-interpreter-wasm = { version = "=0.55.1-feat-intermediate-marine-update-f3e4695-4194-1.0", registry = "fluence" }
+avm-server = "=0.35.0"
+air-interpreter-wasm = "=0.59.0"
 
 # libp2p
 libp2p = { version = "0.53.2", features = ["noise", "tcp", "dns", "websocket", "yamux", "tokio", "kad", "ping", "identify", "macros"] }
