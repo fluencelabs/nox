@@ -9,7 +9,7 @@ concurrency:
 
 jobs:
   test:
-    runs-on: win-amd64-m-2xlarge
+    runs-on: windows-amd64-m-2xlarge
 
     steps:
       - name: Checkout repository
