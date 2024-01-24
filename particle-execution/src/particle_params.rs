@@ -16,6 +16,7 @@
 
 use fluence_libp2p::PeerId;
 use particle_protocol::Particle;
+use types::PeerScope;
 
 /// Lightweight, static version of the [[Particle]] structure
 /// It exists to avoid cloning [[Particle::data]] when possible
@@ -23,7 +24,7 @@ use particle_protocol::Particle;
 pub struct ParticleParams {
     pub id: String,
     pub init_peer_id: PeerId,
-    pub host_id: PeerId,
+    pub peer_scope: PeerScope,
     /// Unix timestamp in milliseconds
     pub timestamp: u64,
     /// TTL in milliseconds
@@ -33,7 +34,7 @@ pub struct ParticleParams {
 }
 
 impl ParticleParams {
-    pub fn clone_from(particle: &Particle, host_id: PeerId) -> Self {
+    pub fn clone_from(particle: &Particle, peer_scope: PeerScope) -> Self {
         let Particle {
             id,
             init_peer_id,
@@ -47,7 +48,7 @@ impl ParticleParams {
         Self {
             id: id.clone(),
             init_peer_id: *init_peer_id,
-            host_id,
+            peer_scope,
             timestamp: *timestamp,
             ttl: *ttl,
             script: script.clone(),

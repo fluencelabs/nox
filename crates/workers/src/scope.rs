@@ -2,18 +2,19 @@ use crate::KeyStorage;
 use derivative::Derivative;
 use fluence_libp2p::PeerId;
 use std::sync::Arc;
+use types::{PeerScope, WorkerId};
 
 /// Represents information about various peer IDs.
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
-pub struct PeerScope {
+pub struct PeerScopes {
     host_peer_id: PeerId,
     management_peer_id: PeerId,
     builtins_management_peer_id: PeerId,
     #[derivative(Debug = "ignore")]
     key_storage: Arc<KeyStorage>,
 }
-impl PeerScope {
+impl PeerScopes {
     pub fn new(
         host_peer_id: PeerId,
         management_peer_id: PeerId,
@@ -28,16 +29,27 @@ impl PeerScope {
         }
     }
 
-    pub fn is_local(&self, peer_id: PeerId) -> bool {
-        self.is_host(peer_id) || self.is_worker(peer_id)
+    pub fn scope(&self, peer_id: PeerId) -> Option<PeerScope> {
+        //TODO: maybe a result ?
+        if self.host_peer_id == peer_id {
+            Some(PeerScope::Host)
+        } else {
+            let worker_id: WorkerId = peer_id.into();
+            if self
+                .key_storage
+                .get_worker_key_pair(peer_id.into())
+                .is_some()
+            {
+                Some(PeerScope::WorkerId(worker_id))
+            } else {
+                None
+            }
+        }
     }
 
     pub fn is_host(&self, peer_id: PeerId) -> bool {
+        //TODO: probably isn't needed in the future
         self.host_peer_id == peer_id
-    }
-
-    pub fn is_worker(&self, peer_id: PeerId) -> bool {
-        self.key_storage.get_key_pair(peer_id).is_some()
     }
 
     pub fn is_management(&self, peer_id: PeerId) -> bool {

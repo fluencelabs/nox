@@ -2233,7 +2233,12 @@ name = "fs-utils"
 version = "0.1.0"
 dependencies = [
  "eyre",
+ "futures-util",
  "rand 0.8.5",
+ "thiserror",
+ "tokio",
+ "tokio-stream",
+ "tracing",
 ]
 
 [[package]]
@@ -5247,6 +5252,7 @@ dependencies = [
  "serde_json",
  "thiserror",
  "tokio",
+ "types",
 ]
 
 [[package]]
@@ -5320,7 +5326,6 @@ dependencies = [
  "humantime-serde",
  "json-utils",
  "libp2p-identity",
- "log",
  "now-millis",
  "parking_lot",
  "particle-args",
@@ -5335,8 +5340,11 @@ dependencies = [
  "tempdir",
  "thiserror",
  "tokio",
+ "tokio-stream",
  "tokio-util",
  "toml 0.5.11",
+ "tracing",
+ "types",
  "uuid",
  "uuid-utils",
  "workers",
@@ -7639,6 +7647,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "42ff0bf0c66b8238c6f3b578df37d0b7848e55df8577b3f74f92a69acceeb825"
 
 [[package]]
+name = "types"
+version = "0.1.0"
+dependencies = [
+ "libp2p-identity",
+ "serde",
+]
+
+[[package]]
 name = "ucd-trie"
 version = "0.1.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8821,9 +8837,9 @@ dependencies = [
  "tempfile",
  "thiserror",
  "tokio",
- "tokio-stream",
  "toml 0.5.11",
  "tracing",
+ "types",
 ]
 
 [[package]]

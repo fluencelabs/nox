@@ -16,13 +16,14 @@
 
 use std::collections::HashMap;
 use std::path::PathBuf;
+use std::str::FromStr;
 
-use libp2p::PeerId;
 use parking_lot::RwLock;
 
 use crate::persistence::{load_persisted_key_pairs, persist_keypair, remove_keypair};
-use crate::{KeyStorageError, WorkerId};
-use fluence_keypair::KeyPair;
+use crate::KeyStorageError;
+use fluence_keypair::{KeyFormat, KeyPair};
+use types::{PeerScope, WorkerId};
 
 pub struct KeyStorage {
     /// worker_id -> worker_keypair
@@ -32,15 +33,16 @@ pub struct KeyStorage {
 }
 
 impl KeyStorage {
-    pub async fn from_path(
-        key_pairs_dir: PathBuf,
-        root_key_pair: KeyPair,
-    ) -> Result<Self, KeyStorageError> {
+    pub async fn from_path(key_pairs_dir: PathBuf, root_key_pair: KeyPair) -> eyre::Result<Self> {
         let key_pairs = load_persisted_key_pairs(key_pairs_dir.as_path()).await?;
 
         let mut worker_key_pairs = HashMap::with_capacity(key_pairs.len());
-        for keypair in key_pairs {
-            let worker_id = keypair.get_peer_id();
+        for (keypair, path) in key_pairs {
+            let format = KeyFormat::from_str(&keypair.key_format)
+                .map_err(|err| KeyStorageError::PersistedKeypairInvalidKeyFormat { err, path })?;
+            let keypair: KeyPair = KeyPair::from_secret_key(keypair.private_key_bytes, format)?;
+
+            let worker_id: WorkerId = keypair.get_peer_id().into();
             worker_key_pairs.insert(worker_id, keypair);
         }
         Ok(Self {
@@ -50,13 +52,19 @@ impl KeyStorage {
         })
     }
 
-    pub fn get_key_pair(&self, worker_id: PeerId) -> Option<KeyPair> {
+    pub fn get_keypair(&self, peer_scope: PeerScope) -> Option<KeyPair> {
+        match peer_scope {
+            PeerScope::WorkerId(worker_id) => self.get_worker_key_pair(worker_id),
+            PeerScope::Host => Some(self.root_key_pair.clone()),
+        }
+    }
+    pub fn get_worker_key_pair(&self, worker_id: WorkerId) -> Option<KeyPair> {
         self.worker_key_pairs.read().get(&worker_id).cloned()
     }
 
     pub async fn create_key_pair(&self) -> Result<KeyPair, KeyStorageError> {
         let keypair = KeyPair::generate_ed25519();
-        let worker_id = keypair.get_peer_id();
+        let worker_id: WorkerId = keypair.get_peer_id().into();
         persist_keypair(&self.key_pairs_dir, worker_id, (&keypair).try_into()?).await?;
         let mut guard = self.worker_key_pairs.write();
         guard.insert(worker_id, keypair.clone());
@@ -119,7 +127,7 @@ mod tests {
             .expect("Failed to create key pair 1");
         assert_eq!(
             key_storage
-                .get_key_pair(key_pair_1.get_peer_id())
+                .get_worker_key_pair(key_pair_1.get_peer_id().into())
                 .map(|k| k.to_vec()),
             Some(key_pair_1.to_vec())
         );
@@ -131,31 +139,31 @@ mod tests {
             .expect("Failed to create key pair 2");
         assert_eq!(
             key_storage
-                .get_key_pair(key_pair_2.get_peer_id())
+                .get_worker_key_pair(key_pair_2.get_peer_id().into())
                 .map(|k| k.to_vec()),
             Some(key_pair_2.to_vec())
         );
 
         // Remove the first key pair and check that it is removed from the storage
         key_storage
-            .remove_key_pair(key_pair_1.get_peer_id())
+            .remove_key_pair(key_pair_1.get_peer_id().into())
             .await
             .expect("Failed to remove key pair 1");
         assert_eq!(
             key_storage
-                .get_key_pair(key_pair_1.get_peer_id())
+                .get_worker_key_pair(key_pair_1.get_peer_id().into())
                 .map(|k| k.to_vec()),
             None
         );
 
         // Remove the second key pair and check that it is removed from the storage
         key_storage
-            .remove_key_pair(key_pair_2.get_peer_id())
+            .remove_key_pair(key_pair_2.get_peer_id().into())
             .await
             .expect("Failed to remove key pair 2");
         assert_eq!(
             key_storage
-                .get_key_pair(key_pair_2.get_peer_id())
+                .get_worker_key_pair(key_pair_2.get_peer_id().into())
                 .map(|k| k.to_vec()),
             None
         );
@@ -181,7 +189,7 @@ mod tests {
             .expect("Failed to create key pair 1");
         assert_eq!(
             key_storage_1
-                .get_key_pair(key_pair_1.get_peer_id())
+                .get_worker_key_pair(key_pair_1.get_peer_id().into())
                 .map(|k| k.to_vec()),
             Some(key_pair_1.to_vec())
         );
@@ -191,17 +199,17 @@ mod tests {
             .expect("Failed to create key pair 2");
         assert_eq!(
             key_storage_1
-                .get_key_pair(key_pair_2.get_peer_id())
+                .get_worker_key_pair(key_pair_2.get_peer_id().into())
                 .map(|k| k.to_vec()),
             Some(key_pair_2.to_vec())
         );
         key_storage_1
-            .remove_key_pair(key_pair_2.get_peer_id())
+            .remove_key_pair(key_pair_2.get_peer_id().into())
             .await
             .expect("Failed to remove key pair 1");
         assert_eq!(
             key_storage_1
-                .get_key_pair(key_pair_2.get_peer_id())
+                .get_worker_key_pair(key_pair_2.get_peer_id().into())
                 .map(|k| k.to_vec()),
             None
         );
@@ -213,13 +221,13 @@ mod tests {
 
         assert_eq!(
             key_storage_2
-                .get_key_pair(key_pair_1.get_peer_id())
+                .get_worker_key_pair(key_pair_1.get_peer_id().into())
                 .map(|k| k.to_vec()),
             Some(key_pair_1.to_vec())
         );
         assert_eq!(
             key_storage_2
-                .get_key_pair(key_pair_2.get_peer_id())
+                .get_worker_key_pair(key_pair_2.get_peer_id().into())
                 .map(|k| k.to_vec()),
             None
         );

@@ -27,7 +27,7 @@ use spell_event_bus::{api, api::SpellEventBusApi};
 use spell_service_api::{CallParams, SpellServiceApi};
 use spell_storage::SpellStorage;
 use std::time::Duration;
-use workers::{PeerScope, Workers};
+use workers::{PeerScopes, Workers};
 
 pub async fn remove_spell(
     particle_id: &str,
@@ -144,7 +144,7 @@ pub(crate) async fn spell_install(
     spell_event_bus_api: SpellEventBusApi,
     spell_service_api: SpellServiceApi,
     workers: Arc<Workers>,
-    scope: PeerScope,
+    scopes: PeerScopes,
 ) -> Result<JValue, JError> {
     let mut args = sargs.function_args.clone().into_iter();
     let script: String = Args::next("script", &mut args)?;
@@ -154,12 +154,11 @@ pub(crate) async fn spell_install(
 
     let init_peer_id = params.init_peer_id;
 
-    let is_management = scope.is_management(init_peer_id);
-    if scope.is_host(params.host_id) && !is_management {
+    let is_management = scopes.is_management(init_peer_id);
+    if scopes.is_host(params.host_id) && !is_management {
         return Err(JError::new("Failed to install spell in the root scope, only management peer id can install top-level spells"));
     }
 
-    let worker_id = params.host_id;
     let worker_creator = workers.get_worker_creator(params.host_id)?;
 
     let is_worker = init_peer_id == worker_id;
@@ -228,7 +227,7 @@ pub(crate) async fn spell_remove(
     services: ParticleAppServices,
     spell_event_bus_api: SpellEventBusApi,
     workers: Arc<Workers>,
-    scope: PeerScope,
+    scope: PeerScopes,
 ) -> Result<(), JError> {
     let mut args = args.function_args.into_iter();
     let spell_id: String = Args::next("spell_id", &mut args)?;
@@ -267,7 +266,7 @@ pub(crate) async fn spell_update_config(
     spell_event_bus_api: SpellEventBusApi,
     spell_service_api: SpellServiceApi,
     workers: Arc<Workers>,
-    scope: PeerScope,
+    scope: PeerScopes,
 ) -> Result<(), JError> {
     let mut args = args.function_args.into_iter();
     let spell_id_or_alias: String = Args::next("spell_id", &mut args)?;

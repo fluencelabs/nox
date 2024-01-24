@@ -19,8 +19,8 @@ log = { workspace = true }
 libp2p = { workspace = true }
 tracing = { workspace = true }
 tokio = { workspace = true, features = ["fs", "sync"] }
-tokio-stream = { workspace = true, features = ["fs"] }
 derivative = { workspace = true }
+types = { workspace = true }
 
 [dev-dependencies]
 tempfile = { workspace = true }

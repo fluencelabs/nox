@@ -281,7 +281,7 @@ mod tests {
     use maplit::hashmap;
     use serde_json::json;
     use std::time::Duration;
-    use workers::{KeyStorage, PeerScope, Workers};
+    use workers::{KeyStorage, PeerScopes, Workers};
 
     use crate::{CallParams, SpellServiceApi};
 
@@ -311,7 +311,7 @@ mod tests {
 
         let key_storage = Arc::new(key_storage);
 
-        let scope = PeerScope::new(
+        let scope = PeerScopes::new(
             root_key_pair.get_peer_id(),
             management_pid,
             root_key_pair.get_peer_id(),
@@ -374,7 +374,9 @@ mod tests {
         let api = SpellServiceApi::new(pas.clone());
         let (storage, _) = spell_storage::SpellStorage::create(Path::new(""), &pas, &repo).unwrap();
         let spell_service_blueprint_id = storage.get_blueprint();
-        let spell_id = create_spell(&pas, spell_service_blueprint_id, local_pid).await.unwrap();
+        let spell_id = create_spell(&pas, spell_service_blueprint_id, local_pid)
+            .await
+            .unwrap();
         let params = CallParams::local(spell_id, local_pid, TTL);
         (api, params)
     }

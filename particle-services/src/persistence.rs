@@ -14,20 +14,17 @@
  * limitations under the License.
  */
 
+use std::path::{Path, PathBuf};
+
+use serde::{Deserialize, Serialize};
+
 use crate::app_services::Service;
 use crate::error::ServiceError;
-use crate::error::ServiceError::{
-    CreateServicesDir, DeserializePersistedService, ReadPersistedService,
-};
-
-use fluence_libp2p::{peerid_serializer, peerid_serializer_opt, PeerId, RandomPeerId};
-use fs_utils::{create_dir, list_files};
-use service_modules::{is_service, service_file_name};
-
 use crate::ServiceError::{SerializePersistedService, WritePersistedService};
 use crate::ServiceType;
-use serde::{Deserialize, Serialize};
-use std::path::Path;
+use fluence_libp2p::{peerid_serializer, PeerId};
+use service_modules::{is_service, service_file_name};
+use types::PeerScope;
 
 // TODO: all fields could be references, but I don't know how to achieve that
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -39,13 +36,9 @@ pub struct PersistedService {
     // Old versions of PersistedService may omit `aliases` field, tolerate that
     pub aliases: Vec<String>,
     // Old versions of PersistedService may omit `owner` field, tolerate that via RandomPeerId::random
-    #[serde(default = "RandomPeerId::random")]
     #[serde(with = "peerid_serializer")]
     pub owner_id: PeerId,
-    // Old versions of PersistedService may omit `worker_id` field, tolerate that via set manually to root peer id
-    #[serde(default)]
-    #[serde(with = "peerid_serializer_opt")]
-    pub worker_id: Option<PeerId>,
+    pub peer_scope: PeerScope,
 }
 
 impl PersistedService {
@@ -54,9 +47,9 @@ impl PersistedService {
             service_id: service.service_id.clone(),
             service_type: Some(service.service_type.clone()),
             blueprint_id: service.blueprint_id.clone(),
-            aliases: service.aliases.clone(),
+            aliases: service.aliases.read().clone(),
             owner_id: service.owner_id,
-            worker_id: Some(service.worker_id),
+            peer_scope: service.peer_scope,
         }
     }
 
@@ -74,52 +67,20 @@ impl PersistedService {
 }
 
 /// Load info about persisted services from disk, and create `AppService` for each of them
-pub fn load_persisted_services(
+pub async fn load_persisted_services(
     services_dir: &Path,
-    root_peer_id: PeerId,
-) -> Vec<Result<PersistedService, ServiceError>> {
-    // Load all persisted service file names
-    let files = match list_files(services_dir) {
-        Some(files) => files,
-        None => {
-            // Attempt to create directory and exit
-            if let Err(err) = create_dir(services_dir) {
-                return vec![Err(CreateServicesDir {
-                    path: services_dir.to_path_buf(),
-                    err,
-                })];
-            }
+) -> eyre::Result<Vec<(PersistedService, PathBuf)>> {
+    let services = fs_utils::load_persisted_data(services_dir, is_service, |bytes| {
+        toml::from_slice(bytes).map_err(|e| e.into())
+    })
+    .await?;
 
-            return vec![];
-        }
-    };
-
-    files
-        .filter(|p| is_service(p))
-        .map(|file| {
-            // Load service's persisted info
-            let bytes = std::fs::read(&file).map_err(|err| ReadPersistedService {
-                err,
-                path: file.to_path_buf(),
-            })?;
-            let mut service: PersistedService =
-                toml::from_slice(bytes.as_slice()).map_err(|err| DeserializePersistedService {
-                    err,
-                    path: file.to_path_buf(),
-                })?;
-
-            if service.worker_id.is_none() {
-                service.worker_id = Some(root_peer_id)
-            }
-
-            Ok(service)
-        })
-        .collect()
+    Ok(services)
 }
 
-pub fn remove_persisted_service(
+pub async fn remove_persisted_service(
     services_dir: &Path,
     service_id: String,
 ) -> Result<(), std::io::Error> {
-    std::fs::remove_file(services_dir.join(service_file_name(&service_id)))
+    tokio::fs::remove_file(services_dir.join(service_file_name(&service_id))).await
 }

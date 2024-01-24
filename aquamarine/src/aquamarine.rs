@@ -29,7 +29,7 @@ use health::HealthCheckRegistry;
 use particle_execution::{ParticleFunctionStatic, ServiceFunction};
 use particle_protocol::ExtendedParticle;
 use peer_metrics::{ParticleExecutorMetrics, VmPoolMetrics};
-use workers::{PeerScope, Workers};
+use workers::{PeerScopes, Workers};
 
 use crate::aqua_runtime::AquaRuntime;
 use crate::command::Command;
@@ -61,7 +61,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> AquamarineBackend<RT, F> {
         vm_pool_metrics: Option<VmPoolMetrics>,
         health_registry: Option<&mut HealthCheckRegistry>,
         workers: Arc<Workers>,
-        scope: PeerScope,
+        scope: PeerScopes,
     ) -> eyre::Result<(Self, AquamarineApi)> {
         // TODO: make `100` configurable
         let (outlet, inlet) = mpsc::channel(100);

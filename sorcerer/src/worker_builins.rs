@@ -28,7 +28,7 @@ use particle_services::ParticleAppServices;
 use spell_event_bus::api::{from_user_config, SpellEventBusApi};
 use spell_service_api::{CallParams, SpellServiceApi};
 use spell_storage::SpellStorage;
-use workers::{PeerScope, WorkerParams, Workers};
+use workers::{PeerScopes, WorkerParams, Workers};
 
 pub(crate) async fn create_worker(
     args: Args,
@@ -114,7 +114,7 @@ pub(crate) async fn deactivate_deal(
     args: Args,
     params: ParticleParams,
     workers: Arc<Workers>,
-    scope: PeerScope,
+    scope: PeerScopes,
     spell_storage: SpellStorage,
     spell_event_bus_api: SpellEventBusApi,
     spell_service_api: SpellServiceApi,
@@ -171,7 +171,7 @@ pub(crate) async fn activate_deal(
     args: Args,
     params: ParticleParams,
     workers: Arc<Workers>,
-    scope: PeerScope,
+    scope: PeerScopes,
     services: ParticleAppServices,
     spell_event_bus_api: SpellEventBusApi,
     spell_service_api: SpellServiceApi,

@@ -2,8 +2,6 @@
 
 pub type DealId = String;
 
-pub type WorkerId = PeerId;
-
 mod error;
 mod key_storage;
 mod persistence;
@@ -12,10 +10,8 @@ mod workers;
 
 pub use error::KeyStorageError;
 pub use error::WorkersError;
-use fluence_libp2p::PeerId;
 pub use key_storage::KeyStorage;
-pub use scope::PeerScope;
+pub use scope::PeerScopes;
+pub use types::WorkerId;
 pub use workers::WorkerParams;
 pub use workers::Workers;
-
-const DEFAULT_PARALLELISM: usize = 2;

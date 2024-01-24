@@ -46,7 +46,7 @@ use particle_services::{ParticleAppServices, ServiceType};
 use peer_metrics::ServicesMetrics;
 use server_config::ServicesConfig;
 use uuid_utils::uuid;
-use workers::{PeerScope, Workers};
+use workers::{PeerScopes, Workers};
 
 use crate::debug::fmt_custom_services;
 use crate::error::HostClosureCallError;
@@ -89,7 +89,7 @@ pub struct Builtins<C> {
     #[derivative(Debug = "ignore")]
     workers: Arc<Workers>,
     #[derivative(Debug = "ignore")]
-    scope: PeerScope,
+    scopes: PeerScopes,
     connector_api_endpoint: String,
 }
 
@@ -102,7 +102,7 @@ where
         config: ServicesConfig,
         services_metrics: ServicesMetrics,
         workers: Arc<Workers>,
-        scope: PeerScope,
+        scope: PeerScopes,
         health_registry: Option<&mut HealthCheckRegistry>,
         connector_api_endpoint: String,
     ) -> Self {
@@ -132,7 +132,7 @@ where
             particles_vault_dir,
             custom_services: <_>::default(),
             workers,
-            scope,
+            scopes: scope,
             connector_api_endpoint,
         }
     }
@@ -800,7 +800,7 @@ where
         let alias: String = Args::next("alias", &mut args)?;
         let service_id = self
             .services
-            .resolve_alias(&params.id, params.host_id, alias)?;
+            .resolve_alias(params.peer_scope, alias, &params.id)?;
 
         Ok(JValue::String(service_id))
     }
@@ -810,7 +810,7 @@ where
         let alias: String = Args::next("alias", &mut args)?;
         let service_id_opt = self
             .services
-            .resolve_alias(&params.id, params.host_id, alias)
+            .resolve_alias(params.peer_scope, alias, &params.id)
             .map(|id| vec![JValue::String(id)])
             .unwrap_or_default();
 
@@ -879,10 +879,10 @@ where
 
             let tetraplet = tetraplets.get(0).map(|v| v.as_slice());
             if let Some([t]) = tetraplet {
-                if !self.scope.is_local(PeerId::from_str(&t.peer_pk)?) {
+                if self.scopes.scope(PeerId::from_str(&t.peer_pk)?).is_none() {
                     return Err(JError::new(format!(
                         "data is expected to be produced by service 'registry' on peer '{}', was from peer '{}'",
-                        self.scope.get_host_peer_id(), t.peer_pk
+                        self.scopes.get_host_peer_id(), t.peer_pk
                     )));
                 }
 
