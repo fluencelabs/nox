@@ -1315,7 +1315,6 @@ mod tests {
     #[tokio::test]
     async fn test_get_interface_cache() {
         let root_keypair = Keypair::generate_ed25519();
-        let local_pid = PeerId::from(root_keypair.public());
         let management_pid = create_pid();
         let base_dir = TempDir::new("test").unwrap();
         let pas = create_pas(root_keypair, management_pid, base_dir.path().into()).await;
@@ -1394,7 +1393,6 @@ mod tests {
     async fn test_add_alias() {
         let base_dir = TempDir::new("test4").unwrap();
         let root_keypair = Keypair::generate_ed25519();
-        let local_pid = PeerId::from(root_keypair.public());
         let management_pid = create_pid();
         let pas = create_pas(root_keypair, management_pid, base_dir.into_path()).await;
 
@@ -1416,17 +1414,16 @@ mod tests {
         // result of the add_alias call must be ok
         assert!(result.is_ok(), "{}", result.unwrap_err());
 
-        let (service_1, _) = pas.get_service(PeerScope::Host, service_id1, "").unwrap();
+        let (service_1, _) = pas.get_service(PeerScope::Host, service_id1.clone(), "").unwrap();
         let service_1_aliases: Vec<ServiceAlias> = service_1.aliases.read().clone();
         // the service's alias list must contain the alias
         assert_eq!(service_1_aliases, vec![alias.to_string()]);
 
-        let persisted_service_1 = load_persisted_services(&pas.config.services_dir)
+        let (persisted_service_1, _) = load_persisted_services(&pas.config.services_dir)
             .await
             .unwrap()
             .into_iter()
-            .map(|(s, _)| s)
-            .find(|s| s.service_id == service_id1)
+            .find(|(s, _)| s.service_id == service_id1)
             .unwrap();
 
         // the persisted service's alias list must contain the alias
@@ -1437,7 +1434,6 @@ mod tests {
     async fn test_add_alias_repeated() {
         let base_dir = TempDir::new("test4").unwrap();
         let root_keypair = Keypair::generate_ed25519();
-        let local_pid = PeerId::from(root_keypair.public());
         let management_pid = create_pid();
         let pas = create_pas(root_keypair, management_pid, base_dir.into_path()).await;
 
@@ -1471,26 +1467,27 @@ mod tests {
         .await
         .unwrap();
 
-        let services = pas.services.read();
-        let service_1 = services.get(&service_id1).unwrap();
-        let service_2 = services.get(&service_id2).unwrap();
+        let (service_1, _) = pas.get_service(PeerScope::Host, service_id1.clone(), "").unwrap();
+        let (service_2, _) = pas.get_service(PeerScope::Host, service_id2.clone(), "").unwrap();
+        let service_aliases_1 = service_1.aliases.read().clone();
+        let service_aliases_2 = service_2.aliases.read().clone();
         // the first service's alias list must not contain the alias
-        assert_eq!(service_1.aliases, Vec::<String>::new());
+        assert_eq!(service_aliases_1, Vec::<String>::new());
         // the second service's alias list must contain the alias
-        assert_eq!(service_2.aliases, vec![alias.to_string()]);
+        assert_eq!(service_aliases_2, vec![alias.to_string()]);
 
-        let persisted_services: Vec<_> =
-            load_persisted_services(&pas.config.services_dir, local_pid)
-                .into_iter()
-                .collect::<Result<_, _>>()
-                .unwrap();
-        let persisted_service_1 = persisted_services
+        let persisted_services: Vec<_> = load_persisted_services(&pas.config.services_dir)
+            .await
+            .unwrap()
+            .into_iter()
+            .collect();
+        let (persisted_service_1, _) = persisted_services
             .iter()
-            .find(|s| s.service_id == service_id1)
+            .find(|(service, _)| service.service_id == service_id1)
             .unwrap();
-        let persisted_service_2 = persisted_services
+        let (persisted_service_2, _) = persisted_services
             .iter()
-            .find(|s| s.service_id == service_id2)
+            .find(|(service, _)| service.service_id == service_id2)
             .unwrap();
         // the first persisted service's alias list must not contain the alias
         assert_eq!(persisted_service_1.aliases, Vec::<String>::new());
@@ -1502,7 +1499,6 @@ mod tests {
     async fn test_add_alias_twice() {
         let base_dir = TempDir::new("test4").unwrap();
         let root_keypair = Keypair::generate_ed25519();
-        let local_pid = PeerId::from(root_keypair.public());
         let management_pid = create_pid();
         let pas = create_pas(root_keypair, management_pid, base_dir.into_path()).await;
 
@@ -1533,20 +1529,19 @@ mod tests {
         .await
         .unwrap();
 
-        let services = pas.services.read();
-        let service = services.get(&service_id).unwrap();
-
+        let (service, _) = pas.get_service(PeerScope::Host, service_id.clone(), "").unwrap();
+        let service_aliases = service.aliases.read().clone();
         // the service's alias list must contain only 1 alias
-        assert_eq!(service.aliases, vec![alias.to_string()]);
+        assert_eq!(service_aliases, vec![alias.to_string()]);
 
         let persisted_services: Vec<_> = load_persisted_services(&pas.config.services_dir)
             .await
+            .unwrap()
             .into_iter()
-            .collect::<Result<_, _>>()
-            .unwrap();
-        let persisted_service = persisted_services
+            .collect();
+        let (persisted_service, _) = persisted_services
             .iter()
-            .find(|s| s.service_id == service_id)
+            .find(|(s, _)| s.service_id == service_id)
             .unwrap();
 
         // the persisted service's alias list must contain only one alias
@@ -1557,7 +1552,6 @@ mod tests {
     async fn test_persisted_service() {
         let base_dir = TempDir::new("test4").unwrap();
         let root_keypair = Keypair::generate_ed25519();
-        let local_pid = PeerId::from(root_keypair.public());
         let management_pid = create_pid();
         let pas = create_pas(root_keypair, management_pid, base_dir.into_path()).await;
 
@@ -1565,30 +1559,30 @@ mod tests {
         let alias = "alias".to_string();
         let m_hash = upload_tetra_service(&pas, module_name.clone());
 
-        let service_id1 = create_service(&pas, module_name, &m_hash, local_pid)
+        let service_id1 = create_service(&pas, module_name, &m_hash, PeerScope::Host)
             .await
             .unwrap();
         pas.add_alias(
             alias.clone(),
-            local_pid,
+            PeerScope::Host,
             service_id1.clone(),
             management_pid,
         )
         .await
         .unwrap();
-        let services = pas.services.read();
-        let service_1 = services.get(&service_id1).unwrap();
-        assert_eq!(service_1.aliases.len(), 1);
-        assert_eq!(service_1.aliases[0], alias);
+        let (service_1, _) = pas.get_service(PeerScope::Host, service_id1.clone(), "").unwrap();
+        let service_aliases_1 = service_1.aliases.read().clone();
+        assert_eq!(service_aliases_1.len(), 1);
+        assert_eq!(service_aliases_1[0], alias);
 
-        let persisted_services: Vec<_> =
-            load_persisted_services(&pas.config.services_dir, local_pid)
-                .into_iter()
-                .collect::<Result<_, _>>()
-                .unwrap();
-        let persisted_service_1 = persisted_services.first().unwrap();
-        assert_eq!(service_1.aliases, persisted_service_1.aliases);
-        assert_eq!(service_1.aliases, persisted_service_1.aliases);
+        let persisted_services: Vec<_> = load_persisted_services(&pas.config.services_dir)
+            .await
+            .unwrap()
+            .into_iter()
+            .collect();
+        let (persisted_service_1, _) = persisted_services.first().unwrap();
+        assert_eq!(service_aliases_1, persisted_service_1.aliases);
+        assert_eq!(service_aliases_1, persisted_service_1.aliases);
         assert_eq!(service_1.blueprint_id, persisted_service_1.blueprint_id);
         assert_eq!(service_id1, persisted_service_1.service_id);
         assert_eq!(service_1.owner_id, persisted_service_1.owner_id);

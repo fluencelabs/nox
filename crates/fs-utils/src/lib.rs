@@ -184,7 +184,7 @@ pub async fn load_persisted_data<T>(
     filter: fn(&Path) -> bool,
     de: fn(&[u8]) -> Result<T, std::io::Error>,
 ) -> Result<Vec<(T, PathBuf)>, LoadDataError> {
-    let parallelism = available_parallelism()
+   let parallelism = available_parallelism()
         .map(|x| x.get())
         .unwrap_or(DEFAULT_PARALLELISM);
     let list_files = tokio::fs::read_dir(data_dir).await.ok();
@@ -259,4 +259,27 @@ async fn parse_persisted_data<T>(
         err,
         path: file.to_path_buf(),
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::load_persisted_data;
+    use std::path::{Path, PathBuf};
+    use tokio::time::Instant;
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn test() {
+        let start = Instant::now();
+        let path = PathBuf::from("/Users/gurinderu");
+        let path = path.as_path();
+        let filter = |_path: &Path| true;
+        let de = |bytes: &[u8]| {
+            println!("id = {:?}", std::thread::current().id());
+            Ok(bytes.len())
+        };
+        let a = load_persisted_data(path, filter, de).await.unwrap();
+        let total = start.elapsed();
+        println!("total = {:?}, a = {:?}", total, a);
+        assert!(false);
+    }
 }
