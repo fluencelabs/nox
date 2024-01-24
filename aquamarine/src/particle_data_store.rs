@@ -152,7 +152,7 @@ impl ParticleDataStore {
         Ok(())
     }
 
-    pub fn detect_mem_limits_anomaly(
+    fn detect_mem_limits_anomaly(
         &self,
         memory_delta: usize,
         outcome: &RawAVMOutcome,
@@ -244,7 +244,7 @@ impl ParticleDataStore {
     }
 }
 
-pub fn get_jvalue_size(value: &JValue) -> usize {
+fn get_jvalue_size(value: &JValue) -> usize {
     match value {
         JValue::Null => 0,
         JValue::Bool(_) => 1,
@@ -255,7 +255,7 @@ pub fn get_jvalue_size(value: &JValue) -> usize {
     }
 }
 
-pub fn call_result_size_limit_check(service_result: &CallServiceResult) -> bool {
+fn call_result_size_limit_check(service_result: &CallServiceResult) -> bool {
     get_jvalue_size(&service_result.result) > CALL_SERVICE_RESULT_SIZE_THRESHOLD
 }
 
