@@ -213,7 +213,7 @@ pub(crate) fn spell_list(
 ) -> Result<JValue, JError> {
     Ok(Array(
         spell_storage
-            .get_registered_spells_by(params.host_id)
+            .get_registered_spells_by(params.peer_scope)
             .into_iter()
             .map(JValue::String)
             .collect(),

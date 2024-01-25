@@ -47,7 +47,7 @@ impl<'de> Deserialize<'de> for WorkerId {
         D: Deserializer<'de>,
     {
         let peer_id: PeerId = peer_id_serde::deserialize(deserializer)?;
-        Ok(peer_id.into())
+        Ok(WorkerId(peer_id))
     }
 }
 

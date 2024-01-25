@@ -44,7 +44,7 @@ use spell_event_bus::api::{from_user_config, SpellEventBusApi, TriggerEvent};
 use spell_service_api::{CallParams, SpellServiceApi};
 use spell_storage::SpellStorage;
 use tracing::Instrument;
-use workers::{PeerScopes, Workers};
+use workers::{KeyStorage, PeerScopes, Workers};
 
 #[derive(Clone)]
 pub struct Sorcerer {
@@ -54,7 +54,8 @@ pub struct Sorcerer {
     pub spell_event_bus_api: SpellEventBusApi,
     pub spell_script_particle_ttl: Duration,
     pub workers: Arc<Workers>,
-    pub scope: PeerScopes,
+    pub key_storage: Arc<KeyStorage>,
+    pub scopes: PeerScopes,
     pub spell_service_api: SpellServiceApi,
     pub spell_metrics: Option<SpellMetrics>,
     pub worker_period_sec: u32,
@@ -84,7 +85,7 @@ impl Sorcerer {
             spell_event_bus_api,
             spell_script_particle_ttl: config.max_spell_particle_ttl,
             workers,
-            scope,
+            scopes: scope,
             spell_service_api,
             spell_metrics,
             worker_period_sec: config.system_services.decider.worker_period_sec,
@@ -108,7 +109,7 @@ impl Sorcerer {
                 let spell_owner = self.services.get_service_owner(
                     "",
                     spell_id.clone(),
-                    self.scope.get_host_peer_id(),
+                    self.scopes.get_host_peer_id(),
                 )?;
                 let params = CallParams::local(
                     spell_id.clone(),
@@ -242,7 +243,7 @@ impl Sorcerer {
         let spell_event_bus = self.spell_event_bus_api.clone();
         let workers = self.workers.clone();
         let spell_service_api = self.spell_service_api.clone();
-        let scope = self.scope.clone();
+        let scope = self.scopes.clone();
         ServiceFunction::Immut(Box::new(move |args, params| {
             let storage = storage.clone();
             let services = services.clone();
@@ -274,7 +275,7 @@ impl Sorcerer {
         let storage = self.spell_storage.clone();
         let spell_event_bus_api = self.spell_event_bus_api.clone();
         let workers = self.workers.clone();
-        let scope = self.scope.clone();
+        let scope = self.scopes.clone();
 
         ServiceFunction::Immut(Box::new(move |args, params| {
             let storage = storage.clone();
@@ -301,7 +302,7 @@ impl Sorcerer {
         let spell_event_bus_api = self.spell_event_bus_api.clone();
         let services = self.services.clone();
         let workers = self.workers.clone();
-        let scope = self.scope.clone();
+        let scope = self.scopes.clone();
         let spell_service_api = self.spell_service_api.clone();
         ServiceFunction::Immut(Box::new(move |args, params| {
             let spell_event_bus_api = spell_event_bus_api.clone();
@@ -334,7 +335,7 @@ impl Sorcerer {
     }
 
     fn make_get_relay_closure(&self) -> ServiceFunction {
-        let relay_peer_id = self.scope.get_host_peer_id().to_base58();
+        let relay_peer_id = self.scopes.get_host_peer_id().to_base58();
         ServiceFunction::Immut(Box::new(move |_, _| {
             let relay = relay_peer_id.clone();
             async move { wrap(Ok(Value::String(relay))) }.boxed()
@@ -414,7 +415,7 @@ impl Sorcerer {
 
     fn make_activate_deal_closure(&self) -> ServiceFunction {
         let workers = self.workers.clone();
-        let scope = self.scope.clone();
+        let scope = self.scopes.clone();
         let services = self.services.clone();
         let spell_event_bus_api = self.spell_event_bus_api.clone();
         let spells_api = self.spell_service_api.clone();
@@ -446,7 +447,7 @@ impl Sorcerer {
 
     fn make_deactivate_deal_closure(&self) -> ServiceFunction {
         let workers = self.workers.clone();
-        let scope = self.scope.clone();
+        let scope = self.scopes.clone();
         let spell_storage = self.spell_storage.clone();
         let spell_event_bus_api = self.spell_event_bus_api.clone();
         let spells_api = self.spell_service_api.clone();

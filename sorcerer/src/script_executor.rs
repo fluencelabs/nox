@@ -57,13 +57,13 @@ impl Sorcerer {
     #[instrument(level = tracing::Level::INFO, skip_all)]
     pub(crate) fn make_spell_particle(
         &self,
+        peer_scope: PeerScope,
         spell_id: String,
-        worker_id: PeerId,
     ) -> Result<Particle, JError> {
         let spell_keypair =
-            self.workers
-                .get_keypair(worker_id)
-                .map_err(|err| ScopeKeypairMissing {
+            self.key_storage
+                .get_keypair(peer_scope)
+                .ok_or(|err| ScopeKeypairMissing {
                     err,
                     spell_id: spell_id.clone(),
                 })?;
@@ -103,12 +103,17 @@ impl Sorcerer {
     #[instrument(level = tracing::Level::INFO, skip_all)]
     pub async fn execute_script(&self, event: TriggerEvent, span: Arc<Span>) {
         let error: Result<(), JError> = try {
-            let worker_id =
+            let owner_peer_id =
                 self.services
                     .get_service_owner(PeerScope::Host, event.spell_id.clone(), "")?;
-            let particle = self.make_spell_particle(event.spell_id.clone(), worker_id)?;
+            let peer_scope = self
+                .scopes
+                .scope(owner_peer_id)
+                .expect("Should be local peer_id");
 
-            self.store_trigger(event.clone(), worker_id)?;
+            let particle = self.make_spell_particle(peer_scope, event.spell_id.clone())?;
+
+            self.store_trigger(event.clone(), owner_peer_id)?;
             if let Some(m) = &self.spell_metrics {
                 m.observe_spell_cast();
             }

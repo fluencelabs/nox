@@ -132,19 +132,16 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
             return;
         }
 
-        match peer_scope {
-            PeerScope::WorkerId(worker_id) => {
-                let is_active = self.workers.is_worker_active(worker_id);
-                let is_manager = self.scopes.is_management(particle.particle.init_peer_id);
-                let is_host = self.scopes.is_host(particle.particle.init_peer_id);
+        if let PeerScope::WorkerId(worker_id) = peer_scope {
+            let is_active = self.workers.is_worker_active(worker_id);
+            let is_manager = self.scopes.is_management(particle.particle.init_peer_id);
+            let is_host = self.scopes.is_host(particle.particle.init_peer_id);
 
-                // Only a manager or the host itself is allowed to access deactivated workers
-                if !is_active && !is_manager && !is_host {
-                    tracing::trace!(target: "worker_inactive", particle_id = particle.particle.id, worker_id = worker_id.to_string(), "Worker is not active");
-                    return;
-                }
+            // Only a manager or the host itself is allowed to access deactivated workers
+            if !is_active && !is_manager && !is_host {
+                tracing::trace!(target: "worker_inactive", particle_id = particle.particle.id, worker_id = worker_id.to_string(), "Worker is not active");
+                return;
             }
-            PeerScope::Host => {}
         };
 
         let key = ActorKey {
