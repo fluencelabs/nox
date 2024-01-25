@@ -726,8 +726,8 @@ impl ParticleAppServices {
 
     pub async fn add_alias(
         &self,
-        alias: String,
         peer_scope: PeerScope,
+        alias: String,
         service_id: String,
         init_peer_id: PeerId,
     ) -> Result<(), ServiceError> {
@@ -1414,7 +1414,9 @@ mod tests {
         // result of the add_alias call must be ok
         assert!(result.is_ok(), "{}", result.unwrap_err());
 
-        let (service_1, _) = pas.get_service(PeerScope::Host, service_id1.clone(), "").unwrap();
+        let (service_1, _) = pas
+            .get_service(PeerScope::Host, service_id1.clone(), "")
+            .unwrap();
         let service_1_aliases: Vec<ServiceAlias> = service_1.aliases.read().clone();
         // the service's alias list must contain the alias
         assert_eq!(service_1_aliases, vec![alias.to_string()]);
@@ -1467,8 +1469,12 @@ mod tests {
         .await
         .unwrap();
 
-        let (service_1, _) = pas.get_service(PeerScope::Host, service_id1.clone(), "").unwrap();
-        let (service_2, _) = pas.get_service(PeerScope::Host, service_id2.clone(), "").unwrap();
+        let (service_1, _) = pas
+            .get_service(PeerScope::Host, service_id1.clone(), "")
+            .unwrap();
+        let (service_2, _) = pas
+            .get_service(PeerScope::Host, service_id2.clone(), "")
+            .unwrap();
         let service_aliases_1 = service_1.aliases.read().clone();
         let service_aliases_2 = service_2.aliases.read().clone();
         // the first service's alias list must not contain the alias
@@ -1529,7 +1535,9 @@ mod tests {
         .await
         .unwrap();
 
-        let (service, _) = pas.get_service(PeerScope::Host, service_id.clone(), "").unwrap();
+        let (service, _) = pas
+            .get_service(PeerScope::Host, service_id.clone(), "")
+            .unwrap();
         let service_aliases = service.aliases.read().clone();
         // the service's alias list must contain only 1 alias
         assert_eq!(service_aliases, vec![alias.to_string()]);
@@ -1570,7 +1578,9 @@ mod tests {
         )
         .await
         .unwrap();
-        let (service_1, _) = pas.get_service(PeerScope::Host, service_id1.clone(), "").unwrap();
+        let (service_1, _) = pas
+            .get_service(PeerScope::Host, service_id1.clone(), "")
+            .unwrap();
         let service_aliases_1 = service_1.aliases.read().clone();
         assert_eq!(service_aliases_1.len(), 1);
         assert_eq!(service_aliases_1[0], alias);

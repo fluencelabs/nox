@@ -2,7 +2,7 @@ use fluence_libp2p::PeerId;
 use fluence_spell_dtos::trigger_config::{TriggerConfig, TriggerConfigValue};
 use fluence_spell_dtos::value::{ScriptValue, SpellValueT, StringValue, U32Value, UnitValue};
 use particle_execution::{FunctionOutcome, ParticleParams};
-use particle_services::ParticleAppServices;
+use particle_services::{ParticleAppServices, PeerScope};
 use serde::de::DeserializeOwned;
 use serde_json::{json, Value};
 use std::time::Duration;
@@ -50,7 +50,7 @@ pub struct CallParams {
     // Who initiated the call
     init_peer_id: PeerId,
     // Worker ID where the spell is installed
-    worker_id: PeerId,
+    peer_scope: PeerScope,
     // Spell ID
     spell_id: String,
     //
@@ -62,14 +62,14 @@ pub struct CallParams {
 impl CallParams {
     pub fn new(
         init_peer_id: PeerId,
-        worker_id: PeerId,
+        peer_scope: PeerScope,
         spell_id: String,
         particle_id: Option<String>,
         ttl: Duration,
     ) -> Self {
         Self {
             init_peer_id,
-            worker_id,
+            peer_scope,
             spell_id,
             particle_id,
             ttl,
@@ -78,17 +78,17 @@ impl CallParams {
     pub fn from(spell_id: String, params: ParticleParams) -> Self {
         Self {
             init_peer_id: params.init_peer_id,
-            worker_id: params.host_id,
+            peer_scope: params.peer_scope,
             spell_id,
             particle_id: Some(params.id),
             ttl: Duration::from_millis(params.ttl as u64),
         }
     }
 
-    pub fn local(spell_id: String, worker_id: PeerId, ttl: Duration) -> Self {
+    pub fn local(spell_id: String, host_peer_id: PeerId, ttl: Duration) -> Self {
         Self {
-            init_peer_id: worker_id,
-            worker_id,
+            init_peer_id: host_peer_id,
+            peer_scope: PeerScope::Host,
             spell_id,
             particle_id: None,
             ttl,
@@ -220,7 +220,7 @@ impl SpellServiceApi {
         use CallError::*;
         let spell_id = params.spell_id;
         let result = self.services.call_function(
-            params.worker_id,
+            params.peer_scope,
             &spell_id,
             function.name,
             function.args,

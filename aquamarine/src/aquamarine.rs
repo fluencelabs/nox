@@ -24,28 +24,27 @@ use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
 use tracing::{instrument, Instrument};
 
-use fluence_libp2p::PeerId;
 use health::HealthCheckRegistry;
 use particle_execution::{ParticleFunctionStatic, ServiceFunction};
 use particle_protocol::ExtendedParticle;
+use particle_services::PeerScope;
 use peer_metrics::{ParticleExecutorMetrics, VmPoolMetrics};
-use workers::{PeerScopes, Workers};
+use workers::{KeyStorage, PeerScopes, Workers};
 
 use crate::aqua_runtime::AquaRuntime;
 use crate::command::Command;
 use crate::command::Command::{AddService, Ingest, RemoveService};
 use crate::error::AquamarineApiError;
-use crate::particle_effects::RoutingEffects;
+use crate::particle_effects::RemoteRoutingEffects;
 use crate::vm_pool::VmPool;
 use crate::{DataStoreConfig, ParticleDataStore, Plumber, VmPoolConfig};
 
-pub type EffectsChannel = mpsc::Sender<Result<RoutingEffects, AquamarineApiError>>;
+pub type EffectsChannel = mpsc::Sender<Result<RemoteRoutingEffects, AquamarineApiError>>;
 
 pub struct AquamarineBackend<RT: AquaRuntime, F> {
     inlet: mpsc::Receiver<Command>,
     plumber: Plumber<RT, F>,
     out: EffectsChannel,
-    host_peer_id: PeerId,
     data_store: Arc<ParticleDataStore>,
 }
 
@@ -61,6 +60,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> AquamarineBackend<RT, F> {
         vm_pool_metrics: Option<VmPoolMetrics>,
         health_registry: Option<&mut HealthCheckRegistry>,
         workers: Arc<Workers>,
+        key_storage: Arc<KeyStorage>,
         scope: PeerScopes,
     ) -> eyre::Result<(Self, AquamarineApi)> {
         // TODO: make `100` configurable
@@ -79,20 +79,19 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> AquamarineBackend<RT, F> {
             vm_pool_metrics,
             health_registry,
         );
-        let host_peer_id = scope.get_host_peer_id();
         let plumber = Plumber::new(
             vm_pool,
             data_store.clone(),
             builtins,
             plumber_metrics,
             workers,
+            key_storage,
             scope,
         );
         let this = Self {
             inlet,
             plumber,
             out,
-            host_peer_id,
             data_store,
         };
 
@@ -111,7 +110,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> AquamarineBackend<RT, F> {
                     let _guard = span.entered();
                     // set new particle to be executed
                     // every particle that comes from the connection pool first executed on the host peer id
-                    self.plumber.ingest(particle, function, self.host_peer_id);
+                    self.plumber.ingest(particle, function, PeerScope::Host);
                 }
                 Poll::Ready(Some(AddService {
                     service,

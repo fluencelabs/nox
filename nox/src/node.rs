@@ -36,7 +36,7 @@ use tracing::Instrument;
 
 use aquamarine::{
     AquaRuntime, AquamarineApi, AquamarineApiError, AquamarineBackend, DataStoreConfig,
-    RoutingEffects, VmPoolConfig,
+    RawRoutingEffects, VmPoolConfig,
 };
 use chain_listener::ChainListener;
 use config_utils::to_peer_id;
@@ -70,7 +70,7 @@ use crate::{Connectivity, Versions};
 // TODO: documentation
 pub struct Node<RT: AquaRuntime> {
     particle_stream: mpsc::Receiver<ExtendedParticle>,
-    effects_stream: mpsc::Receiver<Result<RoutingEffects, AquamarineApiError>>,
+    effects_stream: mpsc::Receiver<Result<RawRoutingEffects, AquamarineApiError>>,
     pub swarm: Swarm<FluenceNetworkBehaviour>,
 
     pub connectivity: Connectivity,
@@ -456,7 +456,7 @@ impl<RT: AquaRuntime> Node<RT> {
     #[allow(clippy::too_many_arguments)]
     pub fn with(
         particle_stream: mpsc::Receiver<ExtendedParticle>,
-        effects_stream: mpsc::Receiver<Result<RoutingEffects, AquamarineApiError>>,
+        effects_stream: mpsc::Receiver<Result<RawRoutingEffects, AquamarineApiError>>,
         swarm: Swarm<FluenceNetworkBehaviour>,
         connectivity: Connectivity,
         aquamarine_api: AquamarineApi,

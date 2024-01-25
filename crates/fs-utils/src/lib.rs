@@ -184,7 +184,7 @@ pub async fn load_persisted_data<T>(
     filter: fn(&Path) -> bool,
     de: fn(&[u8]) -> Result<T, std::io::Error>,
 ) -> Result<Vec<(T, PathBuf)>, LoadDataError> {
-   let parallelism = available_parallelism()
+    let parallelism = available_parallelism()
         .map(|x| x.get())
         .unwrap_or(DEFAULT_PARALLELISM);
     let list_files = tokio::fs::read_dir(data_dir).await.ok();

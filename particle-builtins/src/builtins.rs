@@ -42,11 +42,11 @@ use particle_modules::{
     AddBlueprint, ModuleConfig, ModuleRepository, NamedModuleConfig, WASIConfig,
 };
 use particle_protocol::Contact;
-use particle_services::{ParticleAppServices, ServiceType};
+use particle_services::{ParticleAppServices, PeerScope, ServiceType};
 use peer_metrics::ServicesMetrics;
 use server_config::ServicesConfig;
 use uuid_utils::uuid;
-use workers::{PeerScopes, Workers};
+use workers::{KeyStorage, PeerScopes, Workers};
 
 use crate::debug::fmt_custom_services;
 use crate::error::HostClosureCallError;
@@ -87,7 +87,7 @@ pub struct Builtins<C> {
     particles_vault_dir: path::PathBuf,
 
     #[derivative(Debug = "ignore")]
-    workers: Arc<Workers>,
+    key_storage: Arc<KeyStorage>,
     #[derivative(Debug = "ignore")]
     scopes: PeerScopes,
     connector_api_endpoint: String,
@@ -101,6 +101,7 @@ where
         connectivity: C,
         config: ServicesConfig,
         services_metrics: ServicesMetrics,
+        key_storage: Arc<KeyStorage>,
         workers: Arc<Workers>,
         scope: PeerScopes,
         health_registry: Option<&mut HealthCheckRegistry>,
@@ -131,7 +132,7 @@ where
             services,
             particles_vault_dir,
             custom_services: <_>::default(),
-            workers,
+            key_storage,
             scopes: scope,
             connector_api_endpoint,
         }
@@ -208,7 +209,7 @@ where
             ("srv", "resolve_alias") => wrap(self.resolve_alias(args, particle)),
             ("srv", "resolve_alias_opt") => wrap(self.resolve_alias_opt(args, particle)),
             ("srv", "add_alias") => wrap_unit(self.add_alias(args, particle).await),
-            ("srv", "remove") => wrap_unit(self.remove_service(args, particle)),
+            ("srv", "remove") => wrap_unit(self.remove_service(args, particle).await),
             ("srv", "info") => wrap(self.get_service_info(args, particle)),
 
             ("dist", "add_module_from_vault") => wrap(self.add_module_from_vault(args, particle)),
@@ -748,28 +749,30 @@ where
                 ServiceType::Service,
                 blueprint_id,
                 params.init_peer_id,
-                params.host_id,
+                params.peer_scope,
             )
             .await?;
 
         Ok(JValue::String(service_id))
     }
 
-    fn remove_service(&self, args: Args, params: ParticleParams) -> Result<(), JError> {
+    async fn remove_service(&self, args: Args, params: ParticleParams) -> Result<(), JError> {
         let mut args = args.function_args.into_iter();
         let service_id_or_alias: String = Args::next("service_id_or_alias", &mut args)?;
-        self.services.remove_service(
-            &params.id,
-            params.host_id,
-            &service_id_or_alias,
-            params.init_peer_id,
-            false,
-        )?;
+        self.services
+            .remove_service(
+                params.peer_scope,
+                &params.id,
+                &service_id_or_alias,
+                params.init_peer_id,
+                false,
+            )
+            .await?;
         Ok(())
     }
 
     fn list_services(&self, params: ParticleParams) -> JValue {
-        Array(self.services.list_services(params.host_id))
+        Array(self.services.list_services(params.peer_scope))
     }
 
     fn call_service(&self, function_args: Args, particle: ParticleParams) -> FunctionOutcome {
@@ -781,7 +784,7 @@ where
         let service_id: String = Args::next("service_id", &mut args)?;
         Ok(self
             .services
-            .get_interface(&params.id, service_id, params.host_id)?)
+            .get_interface(params.peer_scope, service_id, &params.id)?)
     }
 
     async fn add_alias(&self, args: Args, params: ParticleParams) -> Result<(), JError> {
@@ -790,7 +793,7 @@ where
         let alias: String = Args::next("alias", &mut args)?;
         let service_id: String = Args::next("service_id", &mut args)?;
         self.services
-            .add_alias(alias, params.host_id, service_id, params.init_peer_id)
+            .add_alias(params.peer_scope, alias, service_id, params.init_peer_id)
             .await?;
         Ok(())
     }
@@ -822,7 +825,7 @@ where
         let service_id_or_alias: String = Args::next("service_id_or_alias", &mut args)?;
         let info =
             self.services
-                .get_service_info(&params.id, params.host_id, service_id_or_alias)?;
+                .get_service_info(params.peer_scope, service_id_or_alias, &params.id)?;
 
         Ok(json!(info))
     }
@@ -840,7 +843,7 @@ where
         let service_id_or_alias: String = Args::next("service_id", &mut args)?;
 
         self.services
-            .get_service_mem_stats(&params.id, params.host_id, service_id_or_alias)
+            .get_service_mem_stats(params.peer_scope, service_id_or_alias, &params.id)
             .map(Array)
     }
 
@@ -850,7 +853,7 @@ where
         // Resolve aliases; also checks that the requested service exists.
         let service_id =
             self.services
-                .to_service_id(&params.id, params.host_id, service_id_or_alias)?;
+                .to_service_id(params.peer_scope, service_id_or_alias, &params.id)?;
         let metrics = self
             .services
             .metrics
@@ -906,7 +909,7 @@ where
                 return Err(JError::new(format!("expected tetraplet for a scalar argument, got tetraplet for an array: {tetraplet:?}, tetraplets")));
             }
 
-            let keypair = self.workers.get_keypair(params.host_id)?;
+            let keypair = self.key_storage.get_keypair(params.peer_scope).unwrap(); //TODO: fix unwrap
             json!(keypair.sign(&data)?.to_vec())
         };
 
@@ -929,14 +932,23 @@ where
         let mut args = args.function_args.into_iter();
         let signature: Vec<u8> = Args::next("signature", &mut args)?;
         let data: Vec<u8> = Args::next("data", &mut args)?;
-        let pk = self.workers.get_keypair(params.host_id)?.public();
+        let pk = self
+            .key_storage
+            .get_keypair(params.peer_scope)
+            .unwrap()
+            .public(); //TODO: fix unwrap
         let signature = Signature::from_bytes(pk.get_key_format(), signature);
 
         Ok(JValue::Bool(pk.verify(&data, &signature).is_ok()))
     }
 
     fn get_peer_id(&self, params: ParticleParams) -> Result<JValue, JError> {
-        Ok(JValue::String(params.host_id.to_base58()))
+        let peer_id = match params.peer_scope {
+            PeerScope::WorkerId(worker_id) => worker_id.to_string(),
+            PeerScope::Host => self.scopes.get_host_peer_id().to_string(),
+        };
+
+        Ok(JValue::String(peer_id))
     }
     fn vault_put(&self, args: Args, params: ParticleParams) -> Result<JValue, JError> {
         let mut args = args.function_args.into_iter();
