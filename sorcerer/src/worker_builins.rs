@@ -42,7 +42,7 @@ pub(crate) async fn create_worker(
         workers
             .create_worker(WorkerParams::new(deal_id, params.init_peer_id, cu_count))
             .await?
-            .to_base58(),
+            .to_string(),
     ))
 }
 

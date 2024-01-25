@@ -22,6 +22,7 @@ use fluence_libp2p::PeerId;
 use now_millis::now_ms;
 use particle_args::JError;
 use particle_protocol::{ExtendedParticle, Particle};
+use particle_services::PeerScope;
 use spell_event_bus::api::{TriggerEvent, TriggerInfoAqua};
 use spell_service_api::CallParams;
 
@@ -102,11 +103,9 @@ impl Sorcerer {
     #[instrument(level = tracing::Level::INFO, skip_all)]
     pub async fn execute_script(&self, event: TriggerEvent, span: Arc<Span>) {
         let error: Result<(), JError> = try {
-            let worker_id = self.services.get_service_owner(
-                "",
-                event.spell_id.clone(),
-                self.scope.get_host_peer_id(),
-            )?;
+            let worker_id =
+                self.services
+                    .get_service_owner(PeerScope::Host, event.spell_id.clone(), "")?;
             let particle = self.make_spell_particle(event.spell_id.clone(), worker_id)?;
 
             self.store_trigger(event.clone(), worker_id)?;
