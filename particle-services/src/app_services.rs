@@ -260,10 +260,10 @@ impl ParticleAppServices {
 
     pub async fn create_service(
         &self,
+        peer_scope: PeerScope,
         service_type: ServiceType,
         blueprint_id: String,
         owner_id: PeerId,
-        peer_scope: PeerScope,
     ) -> Result<String, ServiceError> {
         let service_id = uuid::Uuid::new_v4().to_string();
 
@@ -1267,7 +1267,7 @@ mod tests {
             client_pid = create_pid();
         }
 
-        pas.add_alias(alias, PeerScope::Host, service_id, client_pid)
+        pas.add_alias(PeerScope::Host, alias, service_id, client_pid)
             .await
     }
 
@@ -1287,7 +1287,7 @@ mod tests {
             .add_blueprint(AddBlueprint::new(module_name, vec![dep]))
             .unwrap();
 
-        pas.create_service(ServiceType::Service, bp, RandomPeerId::random(), peer_scope)
+        pas.create_service(peer_scope, ServiceType::Service, bp, RandomPeerId::random())
             .await
             .map_err(|e| e.to_string())
     }
@@ -1405,8 +1405,8 @@ mod tests {
         let alias = "alias";
         let result = pas
             .add_alias(
-                alias.to_string(),
                 PeerScope::Host,
+                alias.to_string(),
                 service_id1.clone(),
                 management_pid,
             )
@@ -1452,8 +1452,8 @@ mod tests {
         let alias = "alias";
         // add an alias to a service
         pas.add_alias(
-            alias.to_string(),
             PeerScope::Host,
+            alias.to_string(),
             service_id1.clone(),
             management_pid,
         )
@@ -1461,8 +1461,8 @@ mod tests {
         .unwrap();
         // give the alias to another service
         pas.add_alias(
-            alias.to_string(),
             PeerScope::Host,
+            alias.to_string(),
             service_id2.clone(),
             management_pid,
         )
@@ -1518,8 +1518,8 @@ mod tests {
         let alias = "alias";
         // add an alias to a service
         pas.add_alias(
-            alias.to_string(),
             PeerScope::Host,
+            alias.to_string(),
             service_id.clone(),
             management_pid,
         )
@@ -1527,8 +1527,8 @@ mod tests {
         .unwrap();
         // give the alias to service again
         pas.add_alias(
-            alias.to_string(),
             PeerScope::Host,
+            alias.to_string(),
             service_id.clone(),
             management_pid,
         )
@@ -1571,8 +1571,8 @@ mod tests {
             .await
             .unwrap();
         pas.add_alias(
-            alias.clone(),
             PeerScope::Host,
+            alias.clone(),
             service_id1.clone(),
             management_pid,
         )

@@ -24,11 +24,11 @@ use std::time::Duration;
 use crate::spell_builtins::remove_spell;
 use particle_args::{Args, JError};
 use particle_execution::ParticleParams;
-use particle_services::ParticleAppServices;
+use particle_services::{ParticleAppServices, PeerScope};
 use spell_event_bus::api::{from_user_config, SpellEventBusApi};
 use spell_service_api::{CallParams, SpellServiceApi};
 use spell_storage::SpellStorage;
-use workers::{PeerScopes, WorkerParams, Workers};
+use workers::{PeerScopes, WorkerId, WorkerParams, Workers};
 
 pub(crate) async fn create_worker(
     args: Args,
@@ -53,7 +53,7 @@ pub(crate) fn get_worker_peer_id(args: Args, workers: Arc<Workers>) -> Result<JV
     Ok(JValue::Array(
         workers
             .get_worker_id(deal_id)
-            .map(|id| vec![JValue::String(id.to_base58())])
+            .map(|id| vec![JValue::String(id.to_string())])
             .unwrap_or_default(),
     ))
 }
@@ -68,16 +68,17 @@ pub(crate) async fn remove_worker(
 ) -> Result<(), JError> {
     let mut args = args.function_args.into_iter();
     let worker_id: String = Args::next("worker_id", &mut args)?;
-    let worker_id = PeerId::from_str(&worker_id)?;
+    let worker_peer_id = PeerId::from_str(&worker_id)?;
+    let worker_id: WorkerId = worker_peer_id.into();
     let worker_creator = workers.get_worker_creator(worker_id)?;
 
-    if params.init_peer_id != worker_creator && params.init_peer_id != worker_id {
+    if params.init_peer_id != worker_creator && params.init_peer_id != worker_peer_id {
         return Err(JError::new(format!("Worker {worker_id} can be removed only by worker creator {worker_creator} or worker itself")));
     }
 
     workers.remove_worker(worker_id).await?;
 
-    let spells: Vec<_> = spell_storage.get_registered_spells_by(worker_id);
+    let spells: Vec<_> = spell_storage.get_registered_spells_by(PeerScope::WorkerId(worker_id));
 
     for s in spells {
         remove_spell(
@@ -86,7 +87,8 @@ pub(crate) async fn remove_worker(
             &services,
             &spell_event_bus_api,
             &s,
-            worker_id,
+            params.peer_scope,
+            params.init_peer_id,
         )
         .map_err(|e| {
             JError::new(format!(
@@ -96,7 +98,7 @@ pub(crate) async fn remove_worker(
         .await?;
     }
 
-    services.remove_services(worker_id)?;
+    services.remove_services(params.peer_scope).await?;
     Ok(())
 }
 
@@ -105,7 +107,7 @@ pub(crate) fn worker_list(workers: Arc<Workers>) -> Result<JValue, JError> {
         workers
             .list_workers()
             .into_iter()
-            .map(|p| JValue::String(p.to_base58()))
+            .map(|p| JValue::String(p.to_string()))
             .collect(),
     ))
 }
@@ -114,7 +116,7 @@ pub(crate) async fn deactivate_deal(
     args: Args,
     params: ParticleParams,
     workers: Arc<Workers>,
-    scope: PeerScopes,
+    scopes: PeerScopes,
     spell_storage: SpellStorage,
     spell_event_bus_api: SpellEventBusApi,
     spell_service_api: SpellServiceApi,
@@ -122,7 +124,7 @@ pub(crate) async fn deactivate_deal(
     let mut args = args.function_args.into_iter();
     let deal_id: String = Args::next("deal_id", &mut args)?;
 
-    if !scope.is_management(params.init_peer_id) && !scope.is_host(params.init_peer_id) {
+    if !scopes.is_management(params.init_peer_id) && !scopes.is_host(params.init_peer_id) {
         return Err(JError::new(format!(
             "Only management or host peer can deactivate deal"
         )));
@@ -134,8 +136,9 @@ pub(crate) async fn deactivate_deal(
         return Err(JError::new("Deal has already been deactivated"));
     }
 
-    let spells = spell_storage.get_registered_spells_by(worker_id);
+    let spells = spell_storage.get_registered_spells_by(PeerScope::WorkerId(worker_id));
 
+    let host_peer_id = scopes.get_host_peer_id();
     for spell_id in spells.into_iter() {
         spell_event_bus_api
             .unsubscribe(spell_id.clone())
@@ -150,7 +153,8 @@ pub(crate) async fn deactivate_deal(
             .set_trigger_config(
                 CallParams::local(
                     spell_id.clone(),
-                    worker_id,
+                    PeerScope::WorkerId(worker_id),
+                    host_peer_id,
                     Duration::from_millis(params.ttl as u64),
                 ),
                 TriggerConfig::default(),
@@ -171,7 +175,7 @@ pub(crate) async fn activate_deal(
     args: Args,
     params: ParticleParams,
     workers: Arc<Workers>,
-    scope: PeerScopes,
+    scopes: PeerScopes,
     services: ParticleAppServices,
     spell_event_bus_api: SpellEventBusApi,
     spell_service_api: SpellServiceApi,
@@ -180,20 +184,24 @@ pub(crate) async fn activate_deal(
     let mut args = args.function_args.into_iter();
     let deal_id: String = Args::next("deal_id", &mut args)?;
 
-    if !scope.is_management(params.init_peer_id) && !scope.is_host(params.init_peer_id) {
+    if !scopes.is_management(params.init_peer_id) && !scopes.is_host(params.init_peer_id) {
         return Err(JError::new(format!(
             "Only management or host peer can activate deal"
         )));
     }
 
     let worker_id = workers.get_worker_id(deal_id)?;
+    let host_peer_id = scopes.get_host_peer_id();
 
     if workers.is_worker_active(worker_id) {
         return Err(JError::new("Deal has already been activated"));
     }
 
-    let installation_spell_id =
-        services.resolve_alias(&params.id, worker_id, "worker-spell".to_string())?;
+    let installation_spell_id = services.resolve_alias(
+        PeerScope::WorkerId(worker_id),
+        "worker-spell".to_string(),
+        &params.id,
+    )?;
 
     // same as in decider-distro
     let mut worker_config = TriggerConfig::default();
@@ -203,7 +211,8 @@ pub(crate) async fn activate_deal(
     spell_service_api.set_trigger_config(
         CallParams::local(
             installation_spell_id.clone(),
-            worker_id,
+            PeerScope::WorkerId(worker_id),
+            host_peer_id,
             Duration::from_millis(params.ttl as u64),
         ),
         worker_config.clone(),

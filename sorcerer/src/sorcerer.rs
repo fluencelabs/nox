@@ -36,7 +36,7 @@ use particle_args::JError;
 use particle_builtins::{wrap, wrap_unit, CustomService};
 use particle_execution::ServiceFunction;
 use particle_modules::ModuleRepository;
-use particle_services::ParticleAppServices;
+use particle_services::{ParticleAppServices, PeerScope};
 use peer_metrics::SpellMetrics;
 use serde_json::Value;
 use server_config::ResolvedConfig;
@@ -70,6 +70,7 @@ impl Sorcerer {
         config: ResolvedConfig,
         spell_event_bus_api: SpellEventBusApi,
         workers: Arc<Workers>,
+        key_storage: Arc<KeyStorage>,
         scope: PeerScopes,
         spell_service_api: SpellServiceApi,
         spell_metrics: Option<SpellMetrics>,
@@ -85,6 +86,7 @@ impl Sorcerer {
             spell_event_bus_api,
             spell_script_particle_ttl: config.max_spell_particle_ttl,
             workers,
+            key_storage,
             scopes: scope,
             spell_service_api,
             spell_metrics,
@@ -106,13 +108,16 @@ impl Sorcerer {
         {
             log::info!("Rescheduling spell {}", spell_id);
             let result: Result<(), JError> = try {
-                let spell_owner = self.services.get_service_owner(
-                    "",
-                    spell_id.clone(),
-                    self.scopes.get_host_peer_id(),
-                )?;
+                let spell_owner =
+                    self.services
+                        .get_service_owner(PeerScope::Host, spell_id.clone(), "")?;
+                let peer_scope = self
+                    .scopes
+                    .scope(spell_owner)
+                    .expect("Should be local peer_id");
                 let params = CallParams::local(
                     spell_id.clone(),
+                    peer_scope,
                     spell_owner,
                     self.spell_script_particle_ttl,
                 );
@@ -275,16 +280,18 @@ impl Sorcerer {
         let storage = self.spell_storage.clone();
         let spell_event_bus_api = self.spell_event_bus_api.clone();
         let workers = self.workers.clone();
-        let scope = self.scopes.clone();
+        let scopes = self.scopes.clone();
 
         ServiceFunction::Immut(Box::new(move |args, params| {
             let storage = storage.clone();
             let services = services.clone();
             let api = spell_event_bus_api.clone();
             let workers = workers.clone();
-            let scope = scope.clone();
+            let scopes = scopes.clone();
             async move {
-                wrap_unit(spell_remove(args, params, storage, services, api, workers, scope).await)
+                let result =
+                    spell_remove(args, params, storage, services, api, workers, scopes).await;
+                wrap_unit(result)
             }
             .boxed()
         }))
@@ -309,7 +316,7 @@ impl Sorcerer {
             let services = services.clone();
             let spell_service_api = spell_service_api.clone();
             let workers = workers.clone();
-            let scope = scope.clone();
+            let scopes = scope.clone();
             async move {
                 wrap_unit(
                     spell_update_config(
@@ -319,7 +326,7 @@ impl Sorcerer {
                         spell_event_bus_api,
                         spell_service_api,
                         workers,
-                        scope,
+                        scopes,
                     )
                     .await,
                 )
@@ -399,6 +406,7 @@ impl Sorcerer {
         let storage = self.spell_storage.clone();
         let spell_event_bus_api = self.spell_event_bus_api.clone();
         let workers = self.workers.clone();
+        let scopes = self.scopes.clone();
 
         ServiceFunction::Immut(Box::new(move |args, params| {
             let storage = storage.clone();

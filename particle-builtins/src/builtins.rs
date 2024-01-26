@@ -746,10 +746,10 @@ where
         let service_id = self
             .services
             .create_service(
+                params.peer_scope,
                 ServiceType::Service,
                 blueprint_id,
                 params.init_peer_id,
-                params.peer_scope,
             )
             .await?;
 

@@ -21,7 +21,7 @@ use fluence_spell_dtos::trigger_config::TriggerConfig;
 use libp2p::PeerId;
 use particle_args::{Args, JError};
 use particle_execution::ParticleParams;
-use particle_services::{ParticleAppServices, ServiceType};
+use particle_services::{ParticleAppServices, PeerScope, ServiceType};
 use spell_event_bus::api::EventBusError;
 use spell_event_bus::{api, api::SpellEventBusApi};
 use spell_service_api::{CallParams, SpellServiceApi};
@@ -35,7 +35,8 @@ pub async fn remove_spell(
     services: &ParticleAppServices,
     spell_event_bus_api: &SpellEventBusApi,
     spell_id: &str,
-    worker_id: PeerId,
+    peer_scope: PeerScope,
+    init_peer_id: PeerId,
 ) -> Result<(), JError> {
     if let Err(err) = spell_event_bus_api.unsubscribe(spell_id.to_string()).await {
         log::warn!(
@@ -46,8 +47,10 @@ pub async fn remove_spell(
         )));
     }
 
-    spell_storage.unregister_spell(worker_id, spell_id);
-    services.remove_service(particle_id, worker_id, spell_id, worker_id, true)?;
+    spell_storage.unregister_spell(peer_scope, spell_id);
+    services
+        .remove_service(peer_scope, particle_id, spell_id, init_peer_id, true)
+        .await?;
     Ok(())
 }
 
@@ -57,26 +60,29 @@ pub async fn install_spell(
     spell_storage: &SpellStorage,
     spell_event_bus_api: &SpellEventBusApi,
     spell_service_api: &SpellServiceApi,
-    worker_id: PeerId,
+    peer_scope: PeerScope,
     particle_id: String,
     ttl: Duration,
     user_config: TriggerConfig,
     script: String,
     init_data: Value,
+    owner_id: PeerId,
+    host_peer_id: PeerId,
+    init_peer_id: PeerId,
 ) -> Result<String, JError> {
     let config = api::from_user_config(&user_config)?;
 
     let spell_id = services
         .create_service(
+            peer_scope,
             ServiceType::Spell,
             spell_storage.get_blueprint(),
-            worker_id,
-            worker_id,
+            owner_id,
         )
         .await?;
-    spell_storage.register_spell(worker_id, spell_id.clone());
+    spell_storage.register_spell(peer_scope, spell_id.clone());
 
-    let params = CallParams::local(spell_id.clone(), worker_id, ttl);
+    let params = CallParams::local(spell_id.clone(), peer_scope, host_peer_id, ttl);
     // Save the script to the spell
     spell_service_api.set_script(params.clone(), script)?;
     // Save init_data to the spell's KV
@@ -92,8 +98,10 @@ pub async fn install_spell(
         {
             log::warn!("can't subscribe a spell {} to triggers {:?} via spell-event-bus-api: {}. Removing created spell service...", spell_id, config, err);
 
-            spell_storage.unregister_spell(worker_id, &spell_id);
-            services.remove_service(&particle_id, worker_id, &spell_id, worker_id, true)?;
+            spell_storage.unregister_spell(peer_scope, &spell_id);
+            services
+                .remove_service(peer_scope, &particle_id, &spell_id, init_peer_id, true)
+                .await?;
 
             return Err(JError::new(format!(
                 "can't install a spell due to an internal error while subscribing to the triggers: {err}"
@@ -118,11 +126,12 @@ pub struct SpellInfo {
 
 pub fn get_spell_info(
     spell_service_api: &SpellServiceApi,
-    worker_id: PeerId,
+    peer_scope: PeerScope,
     ttl: Duration,
     spell_id: String,
+    host_peer_id: PeerId,
 ) -> Result<SpellInfo, JError> {
-    let params = CallParams::local(spell_id.clone(), worker_id, ttl);
+    let params = CallParams::local(spell_id.clone(), peer_scope, host_peer_id, ttl);
     let trigger_config = spell_service_api
         .get_trigger_config(params.clone())
         .map_err(|e| JError::new(f!("Failed to get trigger_config for spell {spell_id}: {e}")))?;
@@ -155,35 +164,50 @@ pub(crate) async fn spell_install(
     let init_peer_id = params.init_peer_id;
 
     let is_management = scopes.is_management(init_peer_id);
-    if scopes.is_host(params.host_id) && !is_management {
-        return Err(JError::new("Failed to install spell in the root scope, only management peer id can install top-level spells"));
-    }
 
-    let worker_creator = workers.get_worker_creator(params.host_id)?;
-
-    let is_worker = init_peer_id == worker_id;
-    let is_worker_creator = init_peer_id == worker_creator;
-    if !is_management && !is_worker && !is_worker_creator {
-        return Err(JError::new(format!("Failed to install spell on {worker_id}, spell can be installed by worker creator {worker_creator}, worker itself {worker_id} or peer manager; init_peer_id={init_peer_id}")));
-    }
+    let owner_id = match params.peer_scope {
+        PeerScope::WorkerId(worker_id) => {
+            let is_worker = init_peer_id == worker_id.into();
+            let worker_creator = workers.get_worker_creator(worker_id)?;
+            let is_worker_creator = init_peer_id == worker_creator;
+            if !is_management && !is_worker && !is_worker_creator {
+                return Err(JError::new(format!("Failed to install spell on {worker_id:?}, spell can be installed by worker creator {worker_creator}, worker itself {worker_id} or peer manager; init_peer_id={init_peer_id}")));
+            }
+            worker_id.into()
+        }
+        PeerScope::Host => {
+            if !is_management {
+                return Err(JError::new("Failed to install spell in the root scope, only management peer id can install top-level spells"));
+            }
+            scopes.get_host_peer_id()
+        }
+    };
 
     let spell_id = install_spell(
         &services,
         &spell_storage,
         &spell_event_bus_api,
         &spell_service_api,
-        worker_id,
+        params.peer_scope,
         params.id.clone(),
         Duration::from_millis(params.ttl as u64),
         trigger_config,
         script,
         init_data,
+        owner_id,
+        scopes.get_host_peer_id(),
+        params.init_peer_id,
     )
     .await?;
 
     if let Some(alias) = alias {
         if let Err(e) = services
-            .add_alias(alias.clone(), worker_id, spell_id.clone(), worker_id)
+            .add_alias(
+                params.peer_scope,
+                alias.clone(),
+                spell_id.clone(),
+                init_peer_id,
+            )
             .await
         {
             // Remove the spell if we failed to add an alias
@@ -193,7 +217,8 @@ pub(crate) async fn spell_install(
                 &services,
                 &spell_event_bus_api,
                 &spell_id,
-                worker_id,
+                params.peer_scope,
+                init_peer_id,
             )
             .await?;
 
@@ -227,26 +252,39 @@ pub(crate) async fn spell_remove(
     services: ParticleAppServices,
     spell_event_bus_api: SpellEventBusApi,
     workers: Arc<Workers>,
-    scope: PeerScopes,
+    scopes: PeerScopes,
 ) -> Result<(), JError> {
     let mut args = args.function_args.into_iter();
     let spell_id: String = Args::next("spell_id", &mut args)?;
 
-    let worker_id = params.host_id;
+    let peer_scope = params.peer_scope;
     let init_peer_id = params.init_peer_id;
-    let worker_creator = workers.get_worker_creator(worker_id)?;
 
-    let is_worker_creator = init_peer_id == worker_creator;
-    let is_worker = init_peer_id == worker_id;
-    let is_management = scope.is_management(init_peer_id);
-
-    if !is_worker_creator && !is_worker && !is_management {
-        return Err(JError::new(format!(
-            "Failed to remove spell {spell_id}, spell can be removed by worker creator {worker_creator}, worker itself {worker_id} or peer manager"
-        )));
+    match peer_scope {
+        PeerScope::WorkerId(worker_id) => {
+            let worker_creator = workers.get_worker_creator(worker_id)?;
+            let is_worker_creator = init_peer_id == worker_creator;
+            let is_worker = init_peer_id == worker_id.into();
+            let is_management = scopes.is_management(init_peer_id);
+            if !is_worker_creator && !is_worker && !is_management {
+                return Err(JError::new(format!(
+                    "Failed to remove spell {spell_id}, spell can be removed by worker creator {worker_creator}, worker itself {worker_id} or peer manager"
+                )));
+            }
+        }
+        PeerScope::Host => {
+            let host_peer_id = scopes.get_host_peer_id();
+            let is_host = init_peer_id == host_peer_id;
+            let is_management = scopes.is_management(init_peer_id);
+            if !is_host && !is_management {
+                return Err(JError::new(format!(
+                    "Failed to remove spell {spell_id}, worker itself {host_peer_id} or peer manager"
+                )));
+            }
+        }
     }
 
-    let spell_id = services.to_service_id(&params.id, params.host_id, spell_id)?;
+    let spell_id = services.to_service_id(params.peer_scope, spell_id, &params.id)?;
 
     remove_spell(
         &params.id,
@@ -254,7 +292,8 @@ pub(crate) async fn spell_remove(
         &services,
         &spell_event_bus_api,
         &spell_id,
-        worker_id,
+        peer_scope,
+        params.init_peer_id,
     )
     .await
 }
@@ -266,33 +305,47 @@ pub(crate) async fn spell_update_config(
     spell_event_bus_api: SpellEventBusApi,
     spell_service_api: SpellServiceApi,
     workers: Arc<Workers>,
-    scope: PeerScopes,
+    scopes: PeerScopes,
 ) -> Result<(), JError> {
     let mut args = args.function_args.into_iter();
     let spell_id_or_alias: String = Args::next("spell_id", &mut args)?;
 
-    let worker_id = params.host_id;
+    let peer_scope = params.peer_scope;
     let init_peer_id = params.init_peer_id;
-    let worker_creator = workers.get_worker_creator(worker_id)?;
 
-    let is_worker_creator = init_peer_id == worker_creator;
-    let is_worker = init_peer_id == worker_id;
-    let is_management = scope.is_management(init_peer_id);
-
-    if !is_worker_creator && !is_worker && !is_management {
-        return Err(JError::new(format!(
-            "Failed to update spell config {spell_id_or_alias}, spell config can be updated by worker creator {worker_creator}, worker itself {worker_id} or peer manager; init_peer_id={init_peer_id}"
-        )));
+    match peer_scope {
+        PeerScope::WorkerId(worker_id) => {
+            let worker_creator = workers.get_worker_creator(worker_id)?;
+            let is_worker_creator = init_peer_id == worker_creator;
+            let is_worker = init_peer_id == worker_id.into();
+            let is_management = scopes.is_management(init_peer_id);
+            if !is_worker_creator && !is_worker && !is_management {
+                return Err(JError::new(format!(
+                    "Failed to update spell config {spell_id_or_alias}, spell config can be updated by worker creator {worker_creator}, worker itself {worker_id} or peer manager; init_peer_id={init_peer_id}"
+                )));
+            }
+        }
+        PeerScope::Host => {
+            let host_peer_id = scopes.get_host_peer_id();
+            let is_host = init_peer_id == host_peer_id;
+            let is_management = scopes.is_management(init_peer_id);
+            if !is_host && !is_management {
+                return Err(JError::new(format!(
+                    "Failed to update spell config {spell_id_or_alias}, spell config can be updated by worker itself {host_peer_id} or peer manager; init_peer_id={init_peer_id}"
+                )));
+            }
+        }
     }
 
-    let spell_id = services.to_service_id(&params.id, worker_id, spell_id_or_alias.clone())?;
+    let spell_id = services.to_service_id(peer_scope, spell_id_or_alias.clone(), &params.id)?;
 
     let user_config: TriggerConfig = Args::next("config", &mut args)?;
     let config = api::from_user_config(&user_config)?;
 
     let params = CallParams::local(
         spell_id.clone(),
-        worker_id,
+        peer_scope,
+        params.init_peer_id,
         Duration::from_millis(params.ttl as u64),
     );
     spell_service_api.set_trigger_config(params, user_config)?;

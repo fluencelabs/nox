@@ -85,10 +85,19 @@ impl CallParams {
         }
     }
 
-    pub fn local(spell_id: String, host_peer_id: PeerId, ttl: Duration) -> Self {
+    pub fn local(
+        spell_id: String,
+        peer_scope: PeerScope,
+        host_peer_id: PeerId,
+        ttl: Duration,
+    ) -> Self {
+        let init_peer_id: PeerId = match peer_scope {
+            PeerScope::WorkerId(worker_id) => worker_id.into(),
+            PeerScope::Host => host_peer_id,
+        };
         Self {
-            init_peer_id: host_peer_id,
-            peer_scope: PeerScope::Host,
+            init_peer_id,
+            peer_scope,
             spell_id,
             particle_id: None,
             ttl,

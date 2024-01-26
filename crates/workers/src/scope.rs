@@ -48,7 +48,6 @@ impl PeerScopes {
     }
 
     pub fn is_host(&self, peer_id: PeerId) -> bool {
-        //TODO: probably isn't needed in the future
         self.host_peer_id == peer_id
     }
 

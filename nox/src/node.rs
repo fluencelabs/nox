@@ -292,6 +292,7 @@ impl<RT: AquaRuntime> Node<RT> {
             config.clone(),
             spell_event_bus_api.clone(),
             workers.clone(),
+            key_storage.clone(),
             scope.clone(),
             spell_service_api.clone(),
             spell_metrics,
