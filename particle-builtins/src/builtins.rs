@@ -827,7 +827,19 @@ where
             self.services
                 .get_service_info(params.peer_scope, service_id_or_alias, &params.id)?;
 
-        Ok(json!(info))
+        let worker_id = match info.peer_scope {
+            PeerScope::WorkerId(worker_id) => worker_id.to_string(),
+            PeerScope::Host => self.scopes.get_host_peer_id().to_string(),
+        };
+
+        Ok(json!({
+            "id": info.id,
+            "blueprint_id": info.blueprint_id,
+            "service_type": info.service_type,
+            "owner_id": info.owner_id.to_string(),
+            "aliases": info.aliases,
+            "worker_id": worker_id,
+        }))
     }
 
     fn kademlia(&self) -> &KademliaApi {
