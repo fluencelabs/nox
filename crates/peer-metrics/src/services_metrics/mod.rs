@@ -12,7 +12,6 @@ use crate::services_metrics::external::ServiceTypeLabel;
 pub use crate::services_metrics::external::ServicesMetricsExternal;
 pub use crate::services_metrics::message::{ServiceCallStats, ServiceMemoryStat};
 use crate::ServiceCallStats::Success;
-use fluence_app_service::ModuleDescriptor;
 use prometheus_client::registry::Registry;
 use tokio::sync::mpsc;
 use tokio::sync::mpsc::unbounded_channel;
@@ -174,12 +173,6 @@ impl ServicesMetrics {
     pub fn observe_removed(&self, service_type: ServiceType, removal_time: f64) {
         self.observe_external(|external| {
             external.observe_removed(service_type, removal_time);
-        });
-    }
-
-    pub fn observe_service_config(&self, max_heap_size: u64, modules_config: &[ModuleDescriptor]) {
-        self.observe_external(|external| {
-            external.observe_service_max_mem(max_heap_size, modules_config);
         });
     }
 

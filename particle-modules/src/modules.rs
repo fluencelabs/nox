@@ -22,7 +22,6 @@ use std::{
 };
 
 use base64::{engine::general_purpose::STANDARD as base64, Engine};
-use bytesize::ByteSize;
 use eyre::WrapErr;
 use fluence_app_service::{ModuleDescriptor, TomlMarineNamedModuleConfig};
 use fstrings::f;
@@ -41,8 +40,8 @@ use service_modules::{
 use crate::error::ModuleError::{
     BlueprintNotFound, BlueprintNotFoundInVault, ConfigNotFoundInVault, EmptyDependenciesList,
     ForbiddenMountedBinary, IncorrectVaultBlueprint, IncorrectVaultModuleConfig,
-    InvalidBlueprintPath, InvalidModuleConfigPath, InvalidModulePath, MaxHeapSizeOverflow,
-    ModuleNotFoundInVault, ReadModuleInterfaceError, VaultDoesNotExist,
+    InvalidBlueprintPath, InvalidModuleConfigPath, InvalidModulePath, ModuleNotFoundInVault,
+    ReadModuleInterfaceError, VaultDoesNotExist,
 };
 use crate::error::Result;
 use crate::files::{self, load_config_by_path, load_module_descriptor};
@@ -55,8 +54,6 @@ pub struct ModuleRepository {
     particles_vault_dir: PathBuf,
     module_interface_cache: Arc<RwLock<HashMap<Hash, JValue>>>,
     blueprints: Arc<RwLock<HashMap<String, Blueprint>>>,
-    max_heap_size: ByteSize,
-    default_heap_size: Option<ByteSize>,
     allowed_binaries: HashSet<PathBuf>,
 }
 
@@ -65,8 +62,6 @@ impl ModuleRepository {
         modules_dir: &Path,
         blueprints_dir: &Path,
         particles_vault_dir: &Path,
-        max_heap_size: ByteSize,
-        default_heap_size: Option<ByteSize>,
         allowed_binaries: HashSet<PathBuf>,
     ) -> Self {
         let blueprints = Self::load_blueprints(blueprints_dir);
@@ -78,34 +73,8 @@ impl ModuleRepository {
             module_interface_cache: <_>::default(),
             blueprints: blueprints_cache,
             particles_vault_dir: particles_vault_dir.to_path_buf(),
-            max_heap_size,
-            default_heap_size,
             allowed_binaries,
         }
-    }
-
-    // set default if max_heap_size and mem_pages_count are not specified
-    fn check_module_heap_size(&self, config: &mut TomlMarineNamedModuleConfig) -> Result<()> {
-        let heap_size = match (config.config.max_heap_size, config.config.mem_pages_count) {
-            (Some(heap_size), _) => Some(heap_size),
-            (None, Some(pages_count)) => {
-                Some(ByteSize::b(marine_utils::wasm_pages_to_bytes(pages_count)))
-            }
-            (None, None) => self.default_heap_size,
-        };
-
-        config.config.max_heap_size = heap_size;
-
-        if let Some(heap_size) = heap_size {
-            if heap_size > self.max_heap_size {
-                return Err(MaxHeapSizeOverflow {
-                    max_heap_size_wanted: heap_size.as_u64(),
-                    max_heap_size_allowed: self.max_heap_size.as_u64(),
-                });
-            }
-        }
-
-        Ok(())
     }
 
     fn check_module_mounted_binaries(&self, config: &TomlMarineNamedModuleConfig) -> Result<()> {
@@ -128,8 +97,7 @@ impl ModuleRepository {
         // TODO: remove unwrap
         let hash = Hash::new(&module).unwrap();
 
-        let mut config = files::add_module(&self.modules_dir, &hash, &module, config)?;
-        self.check_module_heap_size(&mut config)?;
+        let config = files::add_module(&self.modules_dir, &hash, &module, config)?;
         self.check_module_mounted_binaries(&config)?;
 
         Ok(hash)
@@ -421,17 +389,13 @@ fn get_interface_by_hash(
 
 #[cfg(test)]
 mod tests {
-    use std::str::FromStr;
-
     use base64::{engine::general_purpose::STANDARD as base64, Engine};
-    use bytesize::ByteSize;
     use fluence_app_service::{TomlMarineModuleConfig, TomlMarineNamedModuleConfig};
     use tempdir::TempDir;
 
     use service_modules::load_module;
     use service_modules::Hash;
 
-    use crate::error::ModuleError::MaxHeapSizeOverflow;
     use crate::{AddBlueprint, ModuleRepository};
 
     #[test]
@@ -439,13 +403,10 @@ mod tests {
         let module_dir = TempDir::new("test").unwrap();
         let bp_dir = TempDir::new("test").unwrap();
         let vault_dir = TempDir::new("test").unwrap();
-        let max_heap_size = server_config::default_module_max_heap_size();
         let repo = ModuleRepository::new(
             module_dir.path(),
             bp_dir.path(),
             vault_dir.path(),
-            max_heap_size,
-            None,
             Default::default(),
         );
 
@@ -482,13 +443,10 @@ mod tests {
         let module_dir = TempDir::new("test").unwrap();
         let bp_dir = TempDir::new("test2").unwrap();
         let vault_dir = TempDir::new("test3").unwrap();
-        let max_heap_size = server_config::default_module_max_heap_size();
         let repo = ModuleRepository::new(
             module_dir.path(),
             bp_dir.path(),
             vault_dir.path(),
-            max_heap_size,
-            None,
             Default::default(),
         );
 
@@ -503,8 +461,6 @@ mod tests {
             file_name: None,
             load_from: None,
             config: TomlMarineModuleConfig {
-                mem_pages_count: None,
-                max_heap_size: None,
                 logger_enabled: None,
                 wasi: None,
                 mounted_binaries: None,
@@ -518,55 +474,5 @@ mod tests {
 
         let result = repo.get_interface(&m_hash);
         assert!(result.is_ok())
-    }
-
-    #[test]
-    fn test_add_module_max_heap_size_overflow() {
-        let module_dir = TempDir::new("test").unwrap();
-        let bp_dir = TempDir::new("test2").unwrap();
-        let vault_dir = TempDir::new("test3").unwrap();
-        let max_heap_size = ByteSize::from_str("10 Mb").unwrap();
-        let repo = ModuleRepository::new(
-            module_dir.path(),
-            bp_dir.path(),
-            vault_dir.path(),
-            max_heap_size,
-            None,
-            Default::default(),
-        );
-
-        let module = load_module(
-            "../crates/nox-tests/tests/tetraplets/artifacts",
-            "tetraplets",
-        )
-        .expect("load module");
-
-        let config: TomlMarineNamedModuleConfig = TomlMarineNamedModuleConfig {
-            name: "tetra".to_string(),
-            file_name: None,
-            load_from: None,
-            config: TomlMarineModuleConfig {
-                mem_pages_count: None,
-                max_heap_size: Some(ByteSize::b(max_heap_size.as_u64() + 10)),
-                logger_enabled: None,
-                wasi: None,
-                mounted_binaries: None,
-                logging_mask: None,
-            },
-        };
-
-        let result = repo.add_module_base64(base64.encode(module), config);
-
-        assert!(result.is_err());
-        assert_eq!(
-            format!("{:?}", result.unwrap_err()),
-            format!(
-                "{:?}",
-                MaxHeapSizeOverflow {
-                    max_heap_size_wanted: max_heap_size.as_u64() + 10,
-                    max_heap_size_allowed: max_heap_size.as_u64()
-                }
-            )
-        );
     }
 }

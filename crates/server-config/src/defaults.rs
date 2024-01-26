@@ -156,7 +156,7 @@ pub fn default_key_format() -> String {
     "ed25519".to_string()
 }
 
-pub fn default_module_max_heap_size() -> bytesize::ByteSize {
+pub fn default_service_memory_limit() -> bytesize::ByteSize {
     bytesize::ByteSize::b(bytesize::gib(4_u64) - 1)
 }
 
