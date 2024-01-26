@@ -92,18 +92,16 @@ pub(crate) async fn remove_worker(
                     peer_scope,
                     worker_id.into(),
                 )
-                    .map_err(|e| {
-                        JError::new(format!(
-                            "Worker removing failed due to spell removing failure: {e}"
-                        ))
-                    })
-                    .await?;
+                .map_err(|e| {
+                    JError::new(format!(
+                        "Worker removing failed due to spell removing failure: {e}"
+                    ))
+                })
+                .await?;
             }
             services.remove_services(peer_scope).await?;
         }
-        PeerScope::Host => {
-            return Err(JError::new(format!("Worker {worker_id} can be removed")))
-        }
+        PeerScope::Host => return Err(JError::new(format!("Worker {worker_id} can be removed"))),
     };
 
     Ok(())

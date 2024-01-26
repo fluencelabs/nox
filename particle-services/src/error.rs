@@ -30,8 +30,8 @@ use types::{PeerScope, WorkerId};
 
 #[derive(Debug, Error)]
 pub enum ServiceError {
-    #[error("Service with id '{0}' not found")]
-    NoSuchService(String),
+    #[error("Service with id '{0}' not found on {1:?}")]
+    NoSuchService(String, PeerScope),
     #[error("Service with id '{service}' not found (function {function})")]
     NoSuchServiceWithFunction { service: String, function: String },
     #[error("Service with id '{service_id}' is deployed on another worker {peer_scope:?})")]

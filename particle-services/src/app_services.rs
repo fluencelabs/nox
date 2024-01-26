@@ -214,7 +214,7 @@ fn get_service(
 ) -> Result<Arc<Service>, ServiceError> {
     let service = services
         .get(&service_id)
-        .ok_or(NoSuchService(service_id.to_string()))?;
+        .ok_or(NoSuchService(service_id.to_string(), peer_scope))?;
 
     if service.peer_scope != peer_scope {
         // service is deployed on another worker_id
@@ -684,7 +684,7 @@ impl ParticleAppServices {
             &id_or_alias,
             particle_id,
         )
-        .ok_or(NoSuchService(id_or_alias.clone()))?;
+        .ok_or(NoSuchService(id_or_alias.clone(), peer_scope))?;
 
         let service = get_service(&services_id_mapping, peer_scope, resolved_id.clone())?;
 
@@ -758,7 +758,7 @@ impl ParticleAppServices {
         }
 
         if !self.service_exists(&peer_scope, &service_id) {
-            return Err(NoSuchService(service_id));
+            return Err(NoSuchService(service_id, peer_scope));
         }
 
         let prev_srv_id = self.get_service_id(peer_scope, &alias);

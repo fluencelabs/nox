@@ -819,7 +819,12 @@ where
             self.services
                 .resolve_alias(params.peer_scope, alias.clone(), &params.id)?;
 
-        log::info!("Resolved alias {} to service {:?} {}", alias, params.peer_scope, service_id);
+        log::info!(
+            "Resolved alias {} to service {:?} {}",
+            alias,
+            params.peer_scope,
+            service_id
+        );
 
         Ok(JValue::String(service_id))
     }

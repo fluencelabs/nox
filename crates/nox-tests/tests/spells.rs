@@ -365,6 +365,7 @@ async fn spell_install_alias() {
 // Check that oneshot spells are actually executed and executed only once
 #[tokio::test]
 async fn spell_run_oneshot() {
+    enable_logs();
     let swarms = make_swarms(1).await;
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .await
@@ -1457,6 +1458,7 @@ async fn resolve_global_alias() {
 
 #[tokio::test]
 async fn worker_sig_test() {
+    enable_logs();
     let swarms = make_swarms_with_cfg(1, |mut cfg| {
         cfg.enabled_system_services = vec!["registry".to_string()];
         cfg

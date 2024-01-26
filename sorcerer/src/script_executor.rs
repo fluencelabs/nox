@@ -131,13 +131,10 @@ impl Sorcerer {
     #[instrument(level = tracing::Level::INFO, skip_all)]
     pub async fn execute_script(&self, event: TriggerEvent, span: Arc<Span>) {
         let error: Result<(), JError> = try {
-            let owner_peer_id =
-                self.services
-                    .get_service_owner(PeerScope::Host, event.spell_id.clone(), "")?;
             let peer_scope = self
-                .scopes
-                .scope(owner_peer_id)
-                .expect("Should be local peer_id");
+                .spell_storage
+                .get_scope(event.spell_id.clone())
+                .expect("Scope not found");
 
             let particle = self.make_spell_particle(peer_scope, event.spell_id.clone())?;
 

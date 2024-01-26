@@ -251,7 +251,7 @@ impl Deployer {
             self.services
                 .get_service_info(PeerScope::Host, new_spell.name.to_string(), "");
         match existing_spell {
-            Err(ServiceError::NoSuchService(_)) => {
+            Err(ServiceError::NoSuchService(_, _)) => {
                 log::debug!("no existing spell found for {}", new_spell.name);
                 None
             }

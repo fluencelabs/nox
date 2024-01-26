@@ -121,12 +121,15 @@ mod tests {
             .await
             .expect("Could not persist service");
 
-        let result = load_persisted_services(tmp_dir.path())
+        let result: Vec<PersistedService> = load_persisted_services(tmp_dir.path())
             .await
-            .expect("Could not load persisted services");
+            .expect("Could not load persisted services")
+            .into_iter()
+            .map(|(s, _)| s)
+            .collect();
 
         assert_eq!(result.len(), 2);
-        assert_eq!(result[0].0, service_1);
-        assert_eq!(result[1].0, service_2);
+        assert!(result.contains(&service_1));
+        assert!(result.contains(&service_2));
     }
 }
