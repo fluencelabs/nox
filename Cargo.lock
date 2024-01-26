@@ -99,7 +99,7 @@ source = "registry+git://crates.fluence.dev/index"
 checksum = "bbb47414f3952bd025ee016f211d2cb63180cb1f8d90d7bd692af230cae2e6b2"
 dependencies = [
  "fluence-it-types",
- "marine-rs-sdk",
+ "marine-rs-sdk 0.10.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde",
  "serde_json",
 ]
@@ -520,7 +520,7 @@ dependencies = [
  "fluence-keypair",
  "log",
  "maplit",
- "marine-runtime",
+ "marine-runtime 0.32.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "parking_lot",
  "polyplets",
  "serde",
@@ -2073,15 +2073,14 @@ dependencies = [
 [[package]]
 name = "fluence-app-service"
 version = "0.31.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b01d8308282e3ab2e46e722d3004fbf9ac4f345a9de4e2a2d1afdc74fda64a8b"
+source = "git+https://github.com/fluencelabs/marine/?branch=feat/worker-id-in-call-params#06d51ae8dca4cc7d04822b077d9845b4f9d9c21d"
 dependencies = [
  "log",
  "maplit",
- "marine-min-it-version",
- "marine-runtime",
- "marine-wasm-backend-traits",
- "marine-wasmtime-backend",
+ "marine-min-it-version 0.3.2 (git+https://github.com/fluencelabs/marine/?branch=feat/worker-id-in-call-params)",
+ "marine-runtime 0.32.1 (git+https://github.com/fluencelabs/marine/?branch=feat/worker-id-in-call-params)",
+ "marine-wasm-backend-traits 0.5.1 (git+https://github.com/fluencelabs/marine/?branch=feat/worker-id-in-call-params)",
+ "marine-wasmtime-backend 0.5.1 (git+https://github.com/fluencelabs/marine/?branch=feat/worker-id-in-call-params)",
  "serde",
  "serde_derive",
  "serde_json",
@@ -2161,7 +2160,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "51d9c4266040ccc21521b759d29923bdd9a0a32f31e44a79ddf7bf3cdc1c287e"
 dependencies = [
  "eyre",
- "marine-rs-sdk",
+ "marine-rs-sdk 0.10.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "marine-sqlite-connector",
  "serde",
  "thiserror",
@@ -3104,6 +3103,18 @@ name = "it-json-serde"
 version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a74b6ed688d9de56b4e4cb5aca2bd7a883909f1be8d8d6ba40e3a2d25b9feba5"
+dependencies = [
+ "serde",
+ "serde_derive",
+ "serde_json",
+ "thiserror",
+ "wasmer-interface-types-fl",
+]
+
+[[package]]
+name = "it-json-serde"
+version = "0.5.1"
+source = "git+https://github.com/fluencelabs/marine/?branch=feat/worker-id-in-call-params#06d51ae8dca4cc7d04822b077d9845b4f9d9c21d"
 dependencies = [
  "serde",
  "serde_derive",
@@ -4129,8 +4140,18 @@ version = "0.10.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ef9a7c6ed5fa9052474c1cd76d3b3e67dbc4c455c76263c2c043214e12cce6bd"
 dependencies = [
- "marine-macro",
- "marine-rs-sdk-main",
+ "marine-macro 0.10.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "marine-rs-sdk-main 0.10.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde",
+]
+
+[[package]]
+name = "marine-call-parameters"
+version = "0.10.3"
+source = "git+https://github.com/fluencelabs/marine-rs-sdk?branch=feat/worker-id-in-call-params#f879c6d18ef878bc799b8afbd0ed1f1896fd1ac2"
+dependencies = [
+ "marine-macro 0.10.3 (git+https://github.com/fluencelabs/marine-rs-sdk?branch=feat/worker-id-in-call-params)",
+ "marine-rs-sdk-main 0.10.3 (git+https://github.com/fluencelabs/marine-rs-sdk?branch=feat/worker-id-in-call-params)",
  "serde",
 ]
 
@@ -4145,15 +4166,43 @@ dependencies = [
  "it-lilo",
  "it-memory-traits",
  "log",
- "marine-it-generator",
- "marine-it-interfaces",
- "marine-it-parser",
- "marine-min-it-version",
- "marine-module-info-parser",
- "marine-module-interface",
- "marine-utils",
- "marine-wasm-backend-traits",
- "marine-wasmtime-backend",
+ "marine-it-generator 0.13.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "marine-it-interfaces 0.9.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "marine-it-parser 0.15.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "marine-min-it-version 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "marine-module-info-parser 0.11.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "marine-module-interface 0.8.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "marine-utils 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "marine-wasm-backend-traits 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "marine-wasmtime-backend 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "multimap",
+ "once_cell",
+ "paste",
+ "semver",
+ "serde",
+ "thiserror",
+ "wasmer-interface-types-fl",
+]
+
+[[package]]
+name = "marine-core"
+version = "0.26.1"
+source = "git+https://github.com/fluencelabs/marine/?branch=feat/worker-id-in-call-params#06d51ae8dca4cc7d04822b077d9845b4f9d9c21d"
+dependencies = [
+ "anyhow",
+ "bytesize",
+ "it-lilo",
+ "it-memory-traits",
+ "log",
+ "marine-it-generator 0.13.1 (git+https://github.com/fluencelabs/marine/?branch=feat/worker-id-in-call-params)",
+ "marine-it-interfaces 0.9.1 (git+https://github.com/fluencelabs/marine/?branch=feat/worker-id-in-call-params)",
+ "marine-it-parser 0.15.1 (git+https://github.com/fluencelabs/marine/?branch=feat/worker-id-in-call-params)",
+ "marine-min-it-version 0.3.2 (git+https://github.com/fluencelabs/marine/?branch=feat/worker-id-in-call-params)",
+ "marine-module-info-parser 0.11.1 (git+https://github.com/fluencelabs/marine/?branch=feat/worker-id-in-call-params)",
+ "marine-module-interface 0.8.1 (git+https://github.com/fluencelabs/marine/?branch=feat/worker-id-in-call-params)",
+ "marine-utils 0.5.1 (git+https://github.com/fluencelabs/marine/?branch=feat/worker-id-in-call-params)",
+ "marine-wasm-backend-traits 0.5.1 (git+https://github.com/fluencelabs/marine/?branch=feat/worker-id-in-call-params)",
+ "marine-wasmtime-backend 0.5.1 (git+https://github.com/fluencelabs/marine/?branch=feat/worker-id-in-call-params)",
  "multimap",
  "once_cell",
  "paste",
@@ -4170,7 +4219,23 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7d03328e174951faf739e7e12be3d9ffb044cfc308508dc89260d63a1a43a0df"
 dependencies = [
  "it-lilo",
- "marine-it-parser",
+ "marine-it-parser 0.15.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "marine-macro-impl 0.7.1",
+ "once_cell",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "walrus",
+ "wasmer-interface-types-fl",
+]
+
+[[package]]
+name = "marine-it-generator"
+version = "0.13.1"
+source = "git+https://github.com/fluencelabs/marine/?branch=feat/worker-id-in-call-params#06d51ae8dca4cc7d04822b077d9845b4f9d9c21d"
+dependencies = [
+ "it-lilo",
+ "marine-it-parser 0.15.1 (git+https://github.com/fluencelabs/marine/?branch=feat/worker-id-in-call-params)",
  "marine-macro-impl 0.7.1",
  "once_cell",
  "serde",
@@ -4191,6 +4256,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "marine-it-interfaces"
+version = "0.9.1"
+source = "git+https://github.com/fluencelabs/marine/?branch=feat/worker-id-in-call-params#06d51ae8dca4cc7d04822b077d9845b4f9d9c21d"
+dependencies = [
+ "multimap",
+ "wasmer-interface-types-fl",
+]
+
+[[package]]
 name = "marine-it-parser"
 version = "0.15.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4198,9 +4272,27 @@ checksum = "921afa7f139791b24c4cb91c918d1ef7411ef40c3b801309ec43f6b2c89b107b"
 dependencies = [
  "anyhow",
  "itertools 0.10.5",
- "marine-it-interfaces",
- "marine-module-interface",
- "marine-wasm-backend-traits",
+ "marine-it-interfaces 0.9.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "marine-module-interface 0.8.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "marine-wasm-backend-traits 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "nom",
+ "semver",
+ "serde",
+ "thiserror",
+ "walrus",
+ "wasmer-interface-types-fl",
+]
+
+[[package]]
+name = "marine-it-parser"
+version = "0.15.1"
+source = "git+https://github.com/fluencelabs/marine/?branch=feat/worker-id-in-call-params#06d51ae8dca4cc7d04822b077d9845b4f9d9c21d"
+dependencies = [
+ "anyhow",
+ "itertools 0.10.5",
+ "marine-it-interfaces 0.9.1 (git+https://github.com/fluencelabs/marine/?branch=feat/worker-id-in-call-params)",
+ "marine-module-interface 0.8.1 (git+https://github.com/fluencelabs/marine/?branch=feat/worker-id-in-call-params)",
+ "marine-wasm-backend-traits 0.5.1 (git+https://github.com/fluencelabs/marine/?branch=feat/worker-id-in-call-params)",
  "nom",
  "semver",
  "serde",
@@ -4215,8 +4307,17 @@ version = "0.10.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "acdaa50f8239afa104ef8a99d4219288f68169e29c913485bbd094a35fe79113"
 dependencies = [
- "marine-macro-impl 0.10.3",
- "marine-rs-sdk-main",
+ "marine-macro-impl 0.10.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "marine-rs-sdk-main 0.10.3 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "marine-macro"
+version = "0.10.3"
+source = "git+https://github.com/fluencelabs/marine-rs-sdk?branch=feat/worker-id-in-call-params#f879c6d18ef878bc799b8afbd0ed1f1896fd1ac2"
+dependencies = [
+ "marine-macro-impl 0.10.3 (git+https://github.com/fluencelabs/marine-rs-sdk?branch=feat/worker-id-in-call-params)",
+ "marine-rs-sdk-main 0.10.3 (git+https://github.com/fluencelabs/marine-rs-sdk?branch=feat/worker-id-in-call-params)",
 ]
 
 [[package]]
@@ -4246,10 +4347,31 @@ dependencies = [
 ]
 
 [[package]]
+name = "marine-macro-impl"
+version = "0.10.3"
+source = "git+https://github.com/fluencelabs/marine-rs-sdk?branch=feat/worker-id-in-call-params#f879c6d18ef878bc799b8afbd0ed1f1896fd1ac2"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "serde",
+ "serde_json",
+ "syn 1.0.109",
+]
+
+[[package]]
 name = "marine-min-it-version"
 version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "147e6e4c9d3dc9afbb06b2e3bc069b63c749733f698d0c364c320a72b133f1d5"
+dependencies = [
+ "once_cell",
+ "semver",
+]
+
+[[package]]
+name = "marine-min-it-version"
+version = "0.3.2"
+source = "git+https://github.com/fluencelabs/marine/?branch=feat/worker-id-in-call-params#06d51ae8dca4cc7d04822b077d9845b4f9d9c21d"
 dependencies = [
  "once_cell",
  "semver",
@@ -4264,8 +4386,24 @@ dependencies = [
  "anyhow",
  "chrono",
  "derivative",
- "marine-rs-sdk-main",
- "marine-wasm-backend-traits",
+ "marine-rs-sdk-main 0.10.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "marine-wasm-backend-traits 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "semver",
+ "serde",
+ "thiserror",
+ "walrus",
+]
+
+[[package]]
+name = "marine-module-info-parser"
+version = "0.11.1"
+source = "git+https://github.com/fluencelabs/marine/?branch=feat/worker-id-in-call-params#06d51ae8dca4cc7d04822b077d9845b4f9d9c21d"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "derivative",
+ "marine-rs-sdk-main 0.10.3 (git+https://github.com/fluencelabs/marine-rs-sdk?branch=feat/worker-id-in-call-params)",
+ "marine-wasm-backend-traits 0.5.1 (git+https://github.com/fluencelabs/marine/?branch=feat/worker-id-in-call-params)",
  "semver",
  "serde",
  "thiserror",
@@ -4280,7 +4418,23 @@ checksum = "d92d2243bf0d3aea6401d9e57a1ee17677b624337981322e0153cc2d54744080"
 dependencies = [
  "anyhow",
  "itertools 0.10.5",
- "marine-it-interfaces",
+ "marine-it-interfaces 0.9.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "nom",
+ "semver",
+ "serde",
+ "thiserror",
+ "walrus",
+ "wasmer-interface-types-fl",
+]
+
+[[package]]
+name = "marine-module-interface"
+version = "0.8.1"
+source = "git+https://github.com/fluencelabs/marine/?branch=feat/worker-id-in-call-params#06d51ae8dca4cc7d04822b077d9845b4f9d9c21d"
+dependencies = [
+ "anyhow",
+ "itertools 0.10.5",
+ "marine-it-interfaces 0.9.1 (git+https://github.com/fluencelabs/marine/?branch=feat/worker-id-in-call-params)",
  "nom",
  "semver",
  "serde",
@@ -4295,10 +4449,22 @@ version = "0.10.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "034cab8adf708e87db08f093e0c7b8ea49359cc875ed2a778c1bf245b5d9d9f8"
 dependencies = [
- "marine-call-parameters",
- "marine-macro",
- "marine-rs-sdk-main",
- "marine-timestamp-macro",
+ "marine-call-parameters 0.10.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "marine-macro 0.10.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "marine-rs-sdk-main 0.10.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "marine-timestamp-macro 0.10.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde",
+]
+
+[[package]]
+name = "marine-rs-sdk"
+version = "0.10.3"
+source = "git+https://github.com/fluencelabs/marine-rs-sdk?branch=feat/worker-id-in-call-params#f879c6d18ef878bc799b8afbd0ed1f1896fd1ac2"
+dependencies = [
+ "marine-call-parameters 0.10.3 (git+https://github.com/fluencelabs/marine-rs-sdk?branch=feat/worker-id-in-call-params)",
+ "marine-macro 0.10.3 (git+https://github.com/fluencelabs/marine-rs-sdk?branch=feat/worker-id-in-call-params)",
+ "marine-rs-sdk-main 0.10.3 (git+https://github.com/fluencelabs/marine-rs-sdk?branch=feat/worker-id-in-call-params)",
+ "marine-timestamp-macro 0.10.3 (git+https://github.com/fluencelabs/marine-rs-sdk?branch=feat/worker-id-in-call-params)",
  "serde",
 ]
 
@@ -4313,23 +4479,60 @@ dependencies = [
 ]
 
 [[package]]
+name = "marine-rs-sdk-main"
+version = "0.10.3"
+source = "git+https://github.com/fluencelabs/marine-rs-sdk?branch=feat/worker-id-in-call-params#f879c6d18ef878bc799b8afbd0ed1f1896fd1ac2"
+dependencies = [
+ "log",
+ "serde",
+]
+
+[[package]]
 name = "marine-runtime"
 version = "0.32.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4c9a539b0b1586839f133f768db670f0b3f6cd5ffd977dc247cbf8acf8a3dc1a"
 dependencies = [
  "bytesize",
- "it-json-serde",
+ "it-json-serde 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "it-memory-traits",
  "itertools 0.10.5",
  "log",
- "marine-core",
- "marine-module-interface",
- "marine-rs-sdk",
- "marine-rs-sdk-main",
- "marine-utils",
- "marine-wasm-backend-traits",
- "marine-wasmtime-backend",
+ "marine-core 0.26.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "marine-module-interface 0.8.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "marine-rs-sdk 0.10.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "marine-rs-sdk-main 0.10.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "marine-utils 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "marine-wasm-backend-traits 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "marine-wasmtime-backend 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "parking_lot",
+ "safe-transmute",
+ "serde",
+ "serde_derive",
+ "serde_json",
+ "serde_with 2.3.3",
+ "thiserror",
+ "toml 0.5.11",
+ "wasmer-interface-types-fl",
+]
+
+[[package]]
+name = "marine-runtime"
+version = "0.32.1"
+source = "git+https://github.com/fluencelabs/marine/?branch=feat/worker-id-in-call-params#06d51ae8dca4cc7d04822b077d9845b4f9d9c21d"
+dependencies = [
+ "bytesize",
+ "it-json-serde 0.5.1 (git+https://github.com/fluencelabs/marine/?branch=feat/worker-id-in-call-params)",
+ "it-memory-traits",
+ "itertools 0.10.5",
+ "log",
+ "marine-core 0.26.1 (git+https://github.com/fluencelabs/marine/?branch=feat/worker-id-in-call-params)",
+ "marine-module-interface 0.8.1 (git+https://github.com/fluencelabs/marine/?branch=feat/worker-id-in-call-params)",
+ "marine-rs-sdk 0.10.3 (git+https://github.com/fluencelabs/marine-rs-sdk?branch=feat/worker-id-in-call-params)",
+ "marine-rs-sdk-main 0.10.3 (git+https://github.com/fluencelabs/marine-rs-sdk?branch=feat/worker-id-in-call-params)",
+ "marine-utils 0.5.1 (git+https://github.com/fluencelabs/marine/?branch=feat/worker-id-in-call-params)",
+ "marine-wasm-backend-traits 0.5.1 (git+https://github.com/fluencelabs/marine/?branch=feat/worker-id-in-call-params)",
+ "marine-wasmtime-backend 0.5.1 (git+https://github.com/fluencelabs/marine/?branch=feat/worker-id-in-call-params)",
  "parking_lot",
  "safe-transmute",
  "serde",
@@ -4348,7 +4551,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c12d7fb48bd7ee88276a26b2e14f25e9bc884884f375116544689994d5d280ad"
 dependencies = [
  "bytesize",
- "marine-rs-sdk",
+ "marine-rs-sdk 0.10.3 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -4362,16 +4565,44 @@ dependencies = [
 ]
 
 [[package]]
+name = "marine-timestamp-macro"
+version = "0.10.3"
+source = "git+https://github.com/fluencelabs/marine-rs-sdk?branch=feat/worker-id-in-call-params#f879c6d18ef878bc799b8afbd0ed1f1896fd1ac2"
+dependencies = [
+ "chrono",
+ "quote",
+]
+
+[[package]]
 name = "marine-utils"
 version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fce56bfabfd0af5326ff81c32c8d2261aa03b10e00ea6c165de4ebf8a3f998e4"
 
 [[package]]
+name = "marine-utils"
+version = "0.5.1"
+source = "git+https://github.com/fluencelabs/marine/?branch=feat/worker-id-in-call-params#06d51ae8dca4cc7d04822b077d9845b4f9d9c21d"
+
+[[package]]
 name = "marine-wasm-backend-traits"
 version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "220bc47cfabb8b4ab97bf2bd7bbab9738857b69beeda0a1ac5776c600b64bb46"
+dependencies = [
+ "anyhow",
+ "it-memory-traits",
+ "multimap",
+ "paste",
+ "thiserror",
+ "wasmer-interface-types-fl",
+ "wasmparser 0.101.1",
+]
+
+[[package]]
+name = "marine-wasm-backend-traits"
+version = "0.5.1"
+source = "git+https://github.com/fluencelabs/marine/?branch=feat/worker-id-in-call-params#06d51ae8dca4cc7d04822b077d9845b4f9d9c21d"
 dependencies = [
  "anyhow",
  "it-memory-traits",
@@ -4391,7 +4622,23 @@ dependencies = [
  "anyhow",
  "it-memory-traits",
  "log",
- "marine-wasm-backend-traits",
+ "marine-wasm-backend-traits 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "multimap",
+ "paste",
+ "wasmer-interface-types-fl",
+ "wasmtime",
+ "wasmtime-wasi",
+]
+
+[[package]]
+name = "marine-wasmtime-backend"
+version = "0.5.1"
+source = "git+https://github.com/fluencelabs/marine/?branch=feat/worker-id-in-call-params#06d51ae8dca4cc7d04822b077d9845b4f9d9c21d"
+dependencies = [
+ "anyhow",
+ "it-memory-traits",
+ "log",
+ "marine-wasm-backend-traits 0.5.1 (git+https://github.com/fluencelabs/marine/?branch=feat/worker-id-in-call-params)",
  "multimap",
  "paste",
  "wasmer-interface-types-fl",
@@ -5244,8 +5491,8 @@ dependencies = [
  "json-utils",
  "libipld",
  "log",
- "marine-it-parser",
- "marine-utils",
+ "marine-it-parser 0.15.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "marine-utils 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "parking_lot",
  "particle-args",
  "particle-execution",
@@ -5509,7 +5756,7 @@ version = "0.55.1-feat-intermediate-marine-update-f3e4695-4194-1.0"
 source = "registry+git://crates.fluence.dev/index"
 checksum = "5f6a27c132889d4f7048b9bd018148f0c65b9647962770fcce13f3dccf4e61e7"
 dependencies = [
- "marine-call-parameters",
+ "marine-call-parameters 0.10.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde",
 ]
 

@@ -78,7 +78,15 @@ pub async fn install_spell(
     // Save the script to the spell
     spell_service_api.set_script(params.clone(), script)?;
     // Save init_data to the spell's KV
-    spell_service_api.update_kv(params.clone(), init_data)?;
+    let self_particle_id = format!("spell_{spell_id}_0");
+    let init_kv_params = CallParams::new(
+        worker_id,
+        worker_id,
+        spell_id.clone(),
+        Some(self_particle_id),
+        ttl,
+    );
+    spell_service_api.update_kv(init_kv_params.clone(), init_data)?;
     // Save trigger config
     spell_service_api.set_trigger_config(params, user_config)?;
 

@@ -490,7 +490,8 @@ impl ParticleAppServices {
         }
 
         let params = CallParameters {
-            host_id: worker_id.to_string(),
+            host_id: self.scope.get_host_peer_id().to_string(),
+            worker_id: worker_id.to_string(),
             particle_id: particle.id,
             init_peer_id: particle.init_peer_id.to_string(),
             tetraplets: function_args
