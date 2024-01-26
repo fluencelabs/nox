@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.17.0](https://github.com/fluencelabs/nox/compare/nox-v0.16.15...nox-v0.17.0) (2024-01-26)
+
+
+### ⚠ BREAKING CHANGES
+
+* **deps:** avm server 0.35 aquavm 0.59 ([#2040](https://github.com/fluencelabs/nox/issues/2040))
+
+### Bug Fixes
+
+* **deps:** avm server 0.35 aquavm 0.59 ([#2040](https://github.com/fluencelabs/nox/issues/2040)) ([bb7227e](https://github.com/fluencelabs/nox/commit/bb7227ebea2915f19f40f8a628b1b5826bbee446))
+
 ## [0.16.15](https://github.com/fluencelabs/nox/compare/nox-v0.16.14...nox-v0.16.15) (2024-01-23)
 
 
