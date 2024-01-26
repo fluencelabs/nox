@@ -33,7 +33,7 @@ pub use config::{DataStoreConfig, VmConfig, VmPoolConfig};
 pub use error::AquamarineApiError;
 pub use particle_data_store::{DataStoreError, ParticleDataStore};
 pub use particle_effects::{
-    InterpretationStats, ParticleEffects, RawRoutingEffects, RemoteRoutingEffects,
+    InterpretationStats, ParticleEffects, RemoteRoutingEffects,
 };
 pub use plumber::Plumber;
 
