@@ -40,6 +40,7 @@ use service_modules::load_module;
 use std::collections::HashMap;
 use std::str::FromStr;
 use std::time::Duration;
+use log_utils::enable_logs;
 use subnet_resolver::SubnetResolveResult;
 use test_constants::PARTICLE_TTL;
 use test_utils::create_service;
@@ -522,6 +523,7 @@ async fn resolve_alias_opt_not_exists() {
 
 #[tokio::test]
 async fn resolve_alias_removed() {
+    enable_logs();
     let swarms = make_swarms(1).await;
 
     let mut client = ConnectedClient::connect_with_keypair(

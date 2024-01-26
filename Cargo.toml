@@ -166,9 +166,9 @@ futures-util = "0.3.30"
 opt-level = 1
 
 # Enable high optimizations for dependencies, but not for our code:
-[profile.dev.package."*"]
-opt-level = 3
-codegen-units = 256
+# [profile.dev.package."*"]
+# opt-level = 3
+# codegen-units = 256
 
 [profile.dev.package.clap]
 debug-assertions = false

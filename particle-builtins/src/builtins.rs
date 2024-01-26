@@ -768,6 +768,7 @@ where
                 false,
             )
             .await?;
+
         Ok(())
     }
 
@@ -793,17 +794,32 @@ where
         let alias: String = Args::next("alias", &mut args)?;
         let service_id: String = Args::next("service_id", &mut args)?;
         self.services
-            .add_alias(params.peer_scope, alias, service_id, params.init_peer_id)
+            .add_alias(
+                params.peer_scope,
+                alias.clone(),
+                service_id.clone(),
+                params.init_peer_id,
+            )
             .await?;
+
+        log::info!(
+            "Added alias {} for service {:?} {}",
+            alias,
+            params.peer_scope,
+            service_id
+        );
+
         Ok(())
     }
 
     fn resolve_alias(&self, args: Args, params: ParticleParams) -> Result<JValue, JError> {
         let mut args = args.function_args.into_iter();
         let alias: String = Args::next("alias", &mut args)?;
-        let service_id = self
-            .services
-            .resolve_alias(params.peer_scope, alias, &params.id)?;
+        let service_id =
+            self.services
+                .resolve_alias(params.peer_scope, alias.clone(), &params.id)?;
+
+        log::info!("Resolved alias {} to service {:?} {}", alias, params.peer_scope, service_id);
 
         Ok(JValue::String(service_id))
     }

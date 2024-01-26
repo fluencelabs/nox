@@ -449,18 +449,22 @@ impl ParticleAppServices {
 
                 let mut aliases = services.aliases.write();
                 let mut services = services.services.write();
-
-                aliases.remove(service_id.as_str());
                 let service = services.remove(service_id.as_str()).unwrap();
+                let service_aliases = service.aliases.read();
+                for alias in service_aliases.iter() {
+                    aliases.remove(alias.as_str());
+                }
                 self.get_service_type(&service, &service.peer_scope)
             }
             PeerScope::Host => {
                 let services = &self.root_services;
                 let mut aliases = services.aliases.write();
                 let mut services = services.services.write();
-
-                aliases.remove(service_id.as_str());
                 let service = services.remove(service_id.as_str()).unwrap();
+                let service_aliases = service.aliases.read();
+                for alias in service_aliases.iter() {
+                    aliases.remove(alias.as_str());
+                }
                 self.get_service_type(&service, &service.peer_scope)
             }
         };
