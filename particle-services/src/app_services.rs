@@ -666,12 +666,7 @@ impl ParticleAppServices {
         let services_id_mapping = services.services.read();
 
         // retrieve service by service id
-        let service = get_service(
-            &services_id_mapping,
-            peer_scope,
-            id_or_alias.clone(),
-        )
-        .ok();
+        let service = get_service(&services_id_mapping, peer_scope, id_or_alias.clone()).ok();
 
         if let Some(service) = service {
             return Ok((service, id_or_alias));

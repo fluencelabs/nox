@@ -27,7 +27,7 @@ use service_modules::{is_service, service_file_name};
 use types::PeerScope;
 
 // TODO: all fields could be references, but I don't know how to achieve that
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct PersistedService {
     pub service_id: String,
     pub service_type: Option<ServiceType>,
@@ -83,4 +83,50 @@ pub async fn remove_persisted_service(
     service_id: String,
 ) -> Result<(), std::io::Error> {
     tokio::fs::remove_file(services_dir.join(service_file_name(&service_id))).await
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::persistence::{load_persisted_services, PersistedService};
+    use fluence_libp2p::RandomPeerId;
+    use types::PeerScope;
+
+    #[tokio::test]
+    async fn test_persistence() {
+        let tmp_dir = tempfile::tempdir().expect("Could not get temp dir");
+        let owner_id = RandomPeerId::random();
+        let service_1 = PersistedService {
+            service_id: "service_id_1".to_string(),
+            service_type: None,
+            blueprint_id: "blueprint_id_1".to_string(),
+            aliases: vec!["alias_1".to_string()],
+            owner_id,
+            peer_scope: PeerScope::WorkerId(owner_id.into()),
+        };
+        service_1
+            .persist(tmp_dir.path())
+            .await
+            .expect("Could not persist service");
+
+        let service_2 = PersistedService {
+            service_id: "service_id_2".to_string(),
+            service_type: None,
+            blueprint_id: "blueprint_id_2".to_string(),
+            aliases: vec!["alias_2".to_string()],
+            owner_id,
+            peer_scope: PeerScope::Host,
+        };
+        service_2
+            .persist(tmp_dir.path())
+            .await
+            .expect("Could not persist service");
+
+        let result = load_persisted_services(tmp_dir.path())
+            .await
+            .expect("Could not load persisted services");
+
+        assert_eq!(result.len(), 2);
+        assert_eq!(result[0].0, service_1);
+        assert_eq!(result[1].0, service_2);
+    }
 }

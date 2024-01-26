@@ -5338,6 +5338,7 @@ dependencies = [
  "server-config",
  "service-modules",
  "tempdir",
+ "tempfile",
  "thiserror",
  "tokio",
  "tokio-stream",

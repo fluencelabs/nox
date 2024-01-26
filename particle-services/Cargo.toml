@@ -45,3 +45,4 @@ base64 = { workspace = true }
 config-utils = { workspace = true }
 fluence-keypair = { workspace = true }
 tokio = { workspace = true, features = ["macros"] }
+tempfile = { workspace = true }

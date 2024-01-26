@@ -1057,7 +1057,7 @@ async fn spell_connection_pool_trigger_test() {
                 )
                 (call "{}" ("return" "") [trigger])
             )
-            (call %init_peer_id% ("run-console" "print") ["herror" %last_error%])
+            (call %init_peer_id% ("run-console" "print") ["error" %last_error%])
         )
     "#,
         client.peer_id
