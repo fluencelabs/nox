@@ -37,7 +37,7 @@ impl Serialize for WorkerId {
     where
         S: Serializer,
     {
-        Ok(peer_id_serde::serialize(&self.0, serializer)?)
+        peer_id_serde::serialize(&self.0, serializer)
     }
 }
 

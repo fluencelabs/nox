@@ -297,7 +297,7 @@ impl ParticleAppServices {
             PeerScope::WorkerId(worker_id) => self
                 .worker_services
                 .read()
-                .get(&worker_id)
+                .get(worker_id)
                 .and_then(|services| {
                     let services = services.services.read();
                     services.get(service_id).map(|_| ())
@@ -650,14 +650,10 @@ impl ParticleAppServices {
     }
 
     fn get_services(&self, peer_scope: PeerScope) -> Services {
-        let services = match peer_scope {
-            PeerScope::WorkerId(worker_id) => {
-                let services = self.get_or_create_worker_services(worker_id);
-                services
-            }
+        match peer_scope {
+            PeerScope::WorkerId(worker_id) => self.get_or_create_worker_services(worker_id),
             PeerScope::Host => self.root_services.clone(),
-        };
-        services
+        }
     }
 
     pub fn get_service(
@@ -672,7 +668,7 @@ impl ParticleAppServices {
         // retrieve service by service id
         let service = get_service(
             &services_id_mapping,
-            peer_scope.clone(),
+            peer_scope,
             id_or_alias.clone(),
         )
         .ok();
@@ -861,7 +857,7 @@ impl ParticleAppServices {
                 let services = services.services.read();
                 services
                     .iter()
-                    .map(|(id, service)| service.get_info(&id))
+                    .map(|(id, service)| service.get_info(id))
                     .collect::<Vec<ServiceInfo>>()
             })
             .collect();
