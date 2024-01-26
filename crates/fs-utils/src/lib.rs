@@ -260,26 +260,3 @@ async fn parse_persisted_data<T>(
         path: file.to_path_buf(),
     })
 }
-
-#[cfg(test)]
-mod tests {
-    use crate::load_persisted_data;
-    use std::path::{Path, PathBuf};
-    use tokio::time::Instant;
-
-    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
-    async fn test() {
-        let start = Instant::now();
-        let path = PathBuf::from("/Users/gurinderu");
-        let path = path.as_path();
-        let filter = |_path: &Path| true;
-        let de = |bytes: &[u8]| {
-            println!("id = {:?}", std::thread::current().id());
-            Ok(bytes.len())
-        };
-        let a = load_persisted_data(path, filter, de).await.unwrap();
-        let total = start.elapsed();
-        println!("total = {:?}, a = {:?}", total, a);
-        assert!(false);
-    }
-}

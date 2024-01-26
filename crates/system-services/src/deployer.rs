@@ -5,7 +5,7 @@ use eyre::eyre;
 use libp2p::PeerId;
 use particle_execution::FunctionOutcome;
 use particle_modules::{AddBlueprint, ModuleRepository};
-use particle_services::{ParticleAppServices, ServiceError, ServiceType};
+use particle_services::{ParticleAppServices, PeerScope, ServiceError, ServiceType};
 use serde_json::{json, Value as JValue};
 use sorcerer::{install_spell, remove_spell};
 use spell_event_bus::api::{SpellEventBusApi, SpellId};
@@ -44,7 +44,7 @@ pub struct Deployer {
     spell_event_bus_api: SpellEventBusApi,
     spells_api: SpellServiceApi,
     // These fields are used for deploying services and spells from the node name
-    root_worker_id: PeerId,
+    host_peer_id: PeerId,
     management_id: PeerId,
 
     system_service_distros: SystemServiceDistros,
@@ -68,7 +68,7 @@ impl Deployer {
             spell_storage,
             spell_event_bus_api,
             spells_api: spell_service_api,
-            root_worker_id,
+            host_peer_id: root_worker_id,
             management_id,
 
             system_service_distros,
@@ -82,9 +82,9 @@ impl Deployer {
         // TODO: Can we do this without cloning?
 
         let services = self.services.clone();
-        let root_worker_id = self.root_worker_id;
+        let root_worker_id = self.host_peer_id;
         let call: CallService = Box::new(move |srv, fnc, args| {
-            call_service(&services, root_worker_id, &srv, &fnc, args)
+            call_service(&services, PeerScope::Host, root_worker_id, &srv, &fnc, args)
         });
 
         for distro in self.system_service_distros.distros.values() {
@@ -171,7 +171,12 @@ impl Deployer {
         }
 
         let trigger_config = spell_event_bus::api::from_user_config(&spell_distro.trigger_config)?;
-        let params = CallParams::local(spell_id.to_string(), self.root_worker_id, DEPLOYER_TTL);
+        let params = CallParams::local(
+            spell_id.to_string(),
+            PeerScope::Host,
+            self.host_peer_id,
+            DEPLOYER_TTL,
+        );
         // update trigger config
         let config = spell_distro.trigger_config.clone();
         self.spells_api.set_trigger_config(params.clone(), config)?;
@@ -201,7 +206,8 @@ impl Deployer {
             &self.services,
             &self.spell_event_bus_api,
             spell_id,
-            self.root_worker_id,
+            PeerScope::Host,
+            self.host_peer_id,
         )
         .await
         .map_err(|err| {
@@ -216,19 +222,22 @@ impl Deployer {
             &self.spell_storage,
             &self.spell_event_bus_api,
             &self.spells_api,
-            self.root_worker_id,
+            PeerScope::Host,
             get_deployer_particle_id(),
             DEPLOYER_TTL,
             spell_distro.trigger_config,
             spell_distro.air.to_string(),
             json!(spell_distro.kv),
+            self.host_peer_id,
+            self.host_peer_id,
+            self.host_peer_id,
         )
         .await
         .map_err(|e| eyre!(e))?;
         self.services
             .add_alias(
+                PeerScope::Host,
                 spell_distro.name.to_string(),
-                self.root_worker_id,
                 spell_id.clone(),
                 self.management_id,
             )
@@ -240,7 +249,7 @@ impl Deployer {
     fn find_same_spell(&self, new_spell: &SpellDistro) -> Option<SpellId> {
         let existing_spell =
             self.services
-                .get_service_info("", self.root_worker_id, new_spell.name.to_string());
+                .get_service_info(PeerScope::Host, new_spell.name.to_string(), "");
         match existing_spell {
             Err(ServiceError::NoSuchService(_)) => {
                 log::debug!("no existing spell found for {}", new_spell.name);
@@ -275,13 +284,16 @@ impl Deployer {
         match self.find_same_service(service_name.to_string(), &blueprint_id) {
             ServiceUpdateStatus::NeedUpdate(service_id) => {
                 tracing::debug!(service_name, service_id, "found existing service that needs to be updated; will remove the old service and deploy a new one");
-                let result = self.services.remove_service(
-                    &get_deployer_particle_id(),
-                    self.root_worker_id,
-                    &service_id,
-                    self.root_worker_id,
-                    false,
-                );
+                let result = self
+                    .services
+                    .remove_service(
+                        PeerScope::Host,
+                        &get_deployer_particle_id(),
+                        &service_id,
+                        self.host_peer_id,
+                        false,
+                    )
+                    .await;
                 if let Err(err) = result {
                     tracing::error!(
                         service_name, service_id,
@@ -303,16 +315,16 @@ impl Deployer {
         let service_id = self
             .services
             .create_service(
+                PeerScope::Host,
                 ServiceType::Service,
                 blueprint_id,
-                self.root_worker_id,
-                self.root_worker_id,
+                self.host_peer_id,
             )
             .await?;
         self.services
             .add_alias(
+                PeerScope::Host,
                 service_name.to_string(),
-                self.root_worker_id,
                 service_id.clone(),
                 self.management_id,
             )
@@ -326,7 +338,7 @@ impl Deployer {
         // In this case, we don't create a new one.
         let existing_service =
             self.services
-                .get_service_info("", self.root_worker_id, service_name.to_string());
+                .get_service_info(PeerScope::Host, service_name.to_string(), "");
         if let Ok(service) = existing_service {
             if service.service_type == ServiceType::Spell {
                 log::warn!(
@@ -380,18 +392,19 @@ impl Deployer {
 
 fn call_service(
     services: &ParticleAppServices,
-    root_worker_id: PeerId,
+    peer_scope: PeerScope,
+    init_peer_id: PeerId,
     service_id: &str,
     function_name: &str,
     args: Vec<JValue>,
 ) -> eyre::Result<()> {
     let result = services.call_function(
-        root_worker_id,
+        peer_scope,
         service_id,
         function_name,
         args,
         None,
-        root_worker_id,
+        init_peer_id,
         DEPLOYER_TTL,
     );
     // similar to process_func_outcome in sorcerer/src/utils.rs, but that func is

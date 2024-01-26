@@ -449,6 +449,7 @@ mod tests {
     use crate::{AquaRuntime, ParticleDataStore, ParticleEffects, Plumber};
     use async_trait::async_trait;
     use avm_server::avm_runner::RawAVMOutcome;
+    use particle_services::PeerScope;
     use tracing::Span;
 
     struct MockF;
@@ -542,7 +543,7 @@ mod tests {
             key_storage.clone(),
         );
 
-        let workers = Workers::from_path(workers_path.clone(), key_storage, scope.clone())
+        let workers = Workers::from_path(workers_path.clone(), key_storage.clone())
             .await
             .expect("Could not load worker registry");
 
@@ -599,7 +600,7 @@ mod tests {
         plumber.ingest(
             ExtendedParticle::new(particle, Span::none()),
             None,
-            RandomPeerId::random(),
+            PeerScope::Host,
         );
 
         assert_eq!(plumber.actors.len(), 1);
@@ -636,7 +637,7 @@ mod tests {
         plumber.ingest(
             ExtendedParticle::new(particle.clone(), Span::none()),
             None,
-            RandomPeerId::random(),
+            PeerScope::Host,
         );
 
         assert_eq!(plumber.actors.len(), 0);

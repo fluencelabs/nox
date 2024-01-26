@@ -275,7 +275,7 @@ mod tests {
     use std::path::{Path, PathBuf};
     use std::sync::Arc;
 
-    use particle_services::{ParticleAppServices, ServiceType};
+    use particle_services::{ParticleAppServices, PeerScope, ServiceType};
 
     use fluence_libp2p::PeerId;
     use libp2p_identity::Keypair;
@@ -327,7 +327,7 @@ mod tests {
             key_storage.clone(),
         );
 
-        let workers = Workers::from_path(workers_dir.clone(), key_storage, scope.clone())
+        let workers = Workers::from_path(workers_dir.clone(), key_storage)
             .await
             .expect("Could not load worker registry");
 
@@ -367,9 +367,9 @@ mod tests {
     async fn create_spell(
         pas: &ParticleAppServices,
         blueprint_id: String,
-        worker_id: PeerId,
+        owner_id: PeerId,
     ) -> Result<String, String> {
-        pas.create_service(ServiceType::Spell, blueprint_id, worker_id, worker_id)
+        pas.create_service(PeerScope::Host, ServiceType::Spell, blueprint_id, owner_id)
             .await
             .map_err(|e| e.to_string())
     }
@@ -386,7 +386,7 @@ mod tests {
         let spell_id = create_spell(&pas, spell_service_blueprint_id, local_pid)
             .await
             .unwrap();
-        let params = CallParams::local(spell_id, local_pid, TTL);
+        let params = CallParams::local(spell_id, PeerScope::Host, local_pid, TTL);
         (api, params)
     }
 

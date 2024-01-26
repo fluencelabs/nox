@@ -61,7 +61,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> AquamarineBackend<RT, F> {
         health_registry: Option<&mut HealthCheckRegistry>,
         workers: Arc<Workers>,
         key_storage: Arc<KeyStorage>,
-        scope: PeerScopes,
+        scopes: PeerScopes,
     ) -> eyre::Result<(Self, AquamarineApi)> {
         // TODO: make `100` configurable
         let (outlet, inlet) = mpsc::channel(100);
@@ -86,7 +86,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> AquamarineBackend<RT, F> {
             plumber_metrics,
             workers,
             key_storage,
-            scope,
+            scopes,
         );
         let this = Self {
             inlet,
