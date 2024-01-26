@@ -406,14 +406,17 @@ impl Sorcerer {
         let storage = self.spell_storage.clone();
         let spell_event_bus_api = self.spell_event_bus_api.clone();
         let workers = self.workers.clone();
+        let scopes = self.scopes.clone();
 
         ServiceFunction::Immut(Box::new(move |args, params| {
             let storage = storage.clone();
             let services = services.clone();
             let api = spell_event_bus_api.clone();
             let workers = workers.clone();
+            let scopes = scopes.clone();
             async move {
-                let res = remove_worker(args, params, workers, services, storage, api).await;
+                let res =
+                    remove_worker(args, params, workers, services, storage, api, scopes).await;
                 wrap_unit(res)
             }
             .boxed()

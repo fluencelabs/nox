@@ -28,7 +28,7 @@ use particle_services::{ParticleAppServices, PeerScope};
 use spell_event_bus::api::{from_user_config, SpellEventBusApi};
 use spell_service_api::{CallParams, SpellServiceApi};
 use spell_storage::SpellStorage;
-use workers::{PeerScopes, WorkerId, WorkerParams, Workers};
+use workers::{PeerScopes, WorkerParams, Workers};
 
 pub(crate) async fn create_worker(
     args: Args,
@@ -65,40 +65,47 @@ pub(crate) async fn remove_worker(
     services: ParticleAppServices,
     spell_storage: SpellStorage,
     spell_event_bus_api: SpellEventBusApi,
+    scopes: PeerScopes,
 ) -> Result<(), JError> {
     let mut args = args.function_args.into_iter();
     let worker_id: String = Args::next("worker_id", &mut args)?;
     let worker_peer_id = PeerId::from_str(&worker_id)?;
-    let worker_id: WorkerId = worker_peer_id.into();
-    let worker_creator = workers.get_worker_creator(worker_id)?;
+    let peer_scope = scopes
+        .scope(worker_peer_id)
+        .ok_or(JError::new(format!("Worker {worker_id} not found")))?;
 
-    if params.init_peer_id != worker_creator && params.init_peer_id != worker_peer_id {
-        return Err(JError::new(format!("Worker {worker_id} can be removed only by worker creator {worker_creator} or worker itself")));
-    }
+    match peer_scope {
+        PeerScope::WorkerId(worker_id) => {
+            let worker_creator = workers.get_worker_creator(worker_id)?;
+            if params.init_peer_id != worker_creator && params.init_peer_id != worker_peer_id {
+                return Err(JError::new(format!("Worker {worker_id} can be removed only by worker creator {worker_creator} or worker itself")));
+            }
+            workers.remove_worker(worker_id).await?;
+            let spells: Vec<_> = spell_storage.get_registered_spells_by(peer_scope);
+            for s in spells {
+                remove_spell(
+                    &params.id,
+                    &spell_storage,
+                    &services,
+                    &spell_event_bus_api,
+                    &s,
+                    peer_scope,
+                    worker_id.into(),
+                )
+                    .map_err(|e| {
+                        JError::new(format!(
+                            "Worker removing failed due to spell removing failure: {e}"
+                        ))
+                    })
+                    .await?;
+            }
+            services.remove_services(peer_scope).await?;
+        }
+        PeerScope::Host => {
+            return Err(JError::new(format!("Worker {worker_id} can be removed")))
+        }
+    };
 
-    workers.remove_worker(worker_id).await?;
-
-    let spells: Vec<_> = spell_storage.get_registered_spells_by(PeerScope::WorkerId(worker_id));
-
-    for s in spells {
-        remove_spell(
-            &params.id,
-            &spell_storage,
-            &services,
-            &spell_event_bus_api,
-            &s,
-            params.peer_scope,
-            params.init_peer_id,
-        )
-        .map_err(|e| {
-            JError::new(format!(
-                "Worker removing failed due to spell removing failure: {e}"
-            ))
-        })
-        .await?;
-    }
-
-    services.remove_services(params.peer_scope).await?;
     Ok(())
 }
 

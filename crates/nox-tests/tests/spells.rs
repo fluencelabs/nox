@@ -194,6 +194,7 @@ async fn spell_simple_test() {
 
 #[tokio::test]
 async fn spell_error_handling_test() {
+    enable_logs();
     let swarms = make_swarms(1).await;
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .await
@@ -1681,6 +1682,7 @@ async fn spell_create_worker_same_deal_id_different_peer() {
 
 #[tokio::test]
 async fn create_remove_worker() {
+    enable_logs();
     let swarms = make_swarms(1).await;
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .await
@@ -1705,8 +1707,8 @@ async fn create_remove_worker() {
         "spell_id" => json!(spell_id.clone()),
         "srv_id" => json!(service.id.clone()),
     };
-    client
-        .send_particle(
+    let response = client
+        .execute_particle(
             r#"
         (xor
             (seq
@@ -1736,14 +1738,11 @@ async fn create_remove_worker() {
     "#,
             data.clone(),
         )
-        .await;
-
-    if let [JValue::Array(before), JValue::String(spell_err), JValue::String(srv_err)] = client
-        .receive_args()
         .await
-        .wrap_err("receive")
-        .unwrap()
-        .as_slice()
+        .unwrap();
+
+    if let [JValue::Array(before), JValue::String(spell_err), JValue::String(srv_err)] =
+        response.as_slice()
     {
         assert_eq!(before.len(), 2);
 
@@ -1756,6 +1755,7 @@ async fn create_remove_worker() {
         assert!(spell_err.contains(&format!("Service with id '{spell_id}' not found")));
         assert!(srv_err.contains(&format!("Service with id '{}' not found", service.id)));
     } else {
+        log::info!("zalupa {:?}", response);
         panic!("expected array and two strings")
     }
 }

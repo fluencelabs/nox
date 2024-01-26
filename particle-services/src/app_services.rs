@@ -23,7 +23,7 @@ use fluence_app_service::{
     SecurityTetraplet, ServiceInterface,
 };
 use humantime_serde::re::humantime::format_duration as pretty;
-use parking_lot::{Mutex, RwLock};
+use parking_lot::{Mutex, RwLock, RwLockUpgradableReadGuard};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value as JValue};
 use tokio::runtime::Handle;
@@ -1018,7 +1018,7 @@ impl ParticleAppServices {
         service_type: ServiceType,
         blueprint_id: String,
         owner_id: PeerId,
-        entity_id: PeerScope,
+        peer_scope: PeerScope,
         service_id: String,
         aliases: Vec<String>,
     ) -> Result<Option<Arc<Service>>, ServiceError> {
@@ -1040,14 +1040,14 @@ impl ParticleAppServices {
             service_type,
             owner_id,
             aliases,
-            entity_id,
+            peer_scope,
         );
         let service = Arc::new(service);
         // Save created service to disk, so it is recreated on restart
         let persisted_service = PersistedService::from_service(&service);
         persisted_service.persist(&self.config.services_dir).await?;
-        let service_type = self.get_service_type(&service, &entity_id);
-        let replaced = match entity_id {
+        let service_type = self.get_service_type(&service, &peer_scope);
+        let replaced = match peer_scope {
             PeerScope::WorkerId(worker_id) => {
                 let services = self.get_or_create_worker_services(worker_id);
                 let replaced = services
@@ -1074,11 +1074,11 @@ impl ParticleAppServices {
     }
 
     fn get_or_create_worker_services(&self, worker_id: WorkerId) -> Services {
-        let workers_services = self.worker_services.read();
+        let workers_services = self.worker_services.upgradable_read();
         let worker_services = workers_services.get(&worker_id);
         match worker_services {
             None => {
-                let mut workers_services = self.worker_services.write();
+                let mut workers_services = RwLockUpgradableReadGuard::upgrade(workers_services);
                 //we double check it, because it can be created in another thread
                 let services = workers_services.get(&worker_id);
                 match services {
