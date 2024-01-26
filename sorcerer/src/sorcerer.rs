@@ -406,7 +406,6 @@ impl Sorcerer {
         let storage = self.spell_storage.clone();
         let spell_event_bus_api = self.spell_event_bus_api.clone();
         let workers = self.workers.clone();
-        let scopes = self.scopes.clone();
 
         ServiceFunction::Immut(Box::new(move |args, params| {
             let storage = storage.clone();
