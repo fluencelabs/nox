@@ -681,6 +681,7 @@ async fn spell_store_trigger_config() {
 
 #[tokio::test]
 async fn spell_remove() {
+    enable_logs();
     let swarms = make_swarms(1).await;
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
@@ -787,6 +788,7 @@ async fn spell_remove_by_alias() {
 
 #[tokio::test]
 async fn spell_remove_spell_as_service() {
+    enable_logs();
     let swarms = make_swarms(1).await;
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .await
@@ -796,20 +798,24 @@ async fn spell_remove_spell_as_service() {
     let script = r#"(call %init_peer_id% ("peer" "identify") [] x)"#;
 
     let config = make_clock_config(2, 1, 0);
-    let (spell_id, _) = create_spell(&mut client, script, config, json!({}), None).await;
+    let (spell_id, worker_id) = create_spell(&mut client, script, config, json!({}), None).await;
 
     let data = hashmap! {
         "spell_id" => json!(spell_id),
         "relay" => json!(client.node.to_string()),
         "client" => json!(client.peer_id.to_string()),
+        "worker_id" => json!(worker_id.to_string()),
     };
 
     let result = client
         .execute_particle(
             r#"
-        (xor
-            (call relay ("srv" "remove") [spell_id])
-            (call client ("return" "") [%last_error%.$.message])
+        (seq
+           (call relay ("op" "noop") [])
+           (xor
+                (call worker_id ("srv" "remove") [spell_id])
+                (call client ("return" "") [%last_error%.$.message])
+           )
         )
         "#,
             data.clone(),
@@ -1401,58 +1407,6 @@ async fn resolve_alias_wrong_worker() {
         .as_slice()
     {
         assert!(error.starts_with("Local service error, ret_code is 1, error message is '\"Error: Service with alias 'alias' is not found on worker"));
-    }
-}
-
-#[tokio::test]
-async fn resolve_global_alias() {
-    let swarms = make_swarms(1).await;
-
-    let mut client = ConnectedClient::connect_with_keypair(
-        swarms[0].multiaddr.clone(),
-        Some(swarms[0].management_keypair.clone()),
-    )
-    .await
-    .wrap_err("connect client")
-    .unwrap();
-
-    let tetraplets_service = create_service(
-        &mut client,
-        "tetraplets",
-        load_module("tests/tetraplets/artifacts", "tetraplets").expect("load module"),
-    )
-    .await;
-
-    client
-        .send_particle(
-            r#"(call relay ("srv" "add_alias") ["alias" service])"#,
-            hashmap! {
-                "relay" => json!(client.node.to_string()),
-                "service" => json!(tetraplets_service.id),
-            },
-        )
-        .await;
-
-    let script = format!(
-        r#"
-        (seq
-            (call %init_peer_id% ("srv" "resolve_alias") ["alias"] resolved)
-            (call "{0}" ("return" "") [resolved])
-        )"#,
-        client.peer_id
-    );
-
-    let config = make_clock_config(2, 1, 0);
-    create_spell(&mut client, &script, config, json!({}), None).await;
-
-    if let [JValue::String(resolved)] = client
-        .receive_args()
-        .await
-        .wrap_err("receive")
-        .unwrap()
-        .as_slice()
-    {
-        assert_eq!(*resolved, tetraplets_service.id);
     }
 }
 

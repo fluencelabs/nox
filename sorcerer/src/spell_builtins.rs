@@ -260,7 +260,7 @@ pub(crate) async fn spell_remove(
     let peer_scope = params.peer_scope;
     let init_peer_id = params.init_peer_id;
 
-    match peer_scope {
+    let owner_peer_id: PeerId = match peer_scope {
         PeerScope::WorkerId(worker_id) => {
             let worker_creator = workers.get_worker_creator(worker_id)?;
             let is_worker_creator = init_peer_id == worker_creator;
@@ -271,6 +271,7 @@ pub(crate) async fn spell_remove(
                     "Failed to remove spell {spell_id}, spell can be removed by worker creator {worker_creator}, worker itself {worker_id} or peer manager"
                 )));
             }
+            worker_id.into()
         }
         PeerScope::Host => {
             let host_peer_id = scopes.get_host_peer_id();
@@ -281,8 +282,9 @@ pub(crate) async fn spell_remove(
                     "Failed to remove spell {spell_id}, worker itself {host_peer_id} or peer manager"
                 )));
             }
+            host_peer_id
         }
-    }
+    };
 
     let spell_id = services.to_service_id(params.peer_scope, spell_id, &params.id)?;
 
@@ -293,7 +295,7 @@ pub(crate) async fn spell_remove(
         &spell_event_bus_api,
         &spell_id,
         peer_scope,
-        params.init_peer_id,
+        owner_peer_id,
     )
     .await
 }
