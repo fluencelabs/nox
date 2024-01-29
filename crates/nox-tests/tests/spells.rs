@@ -1429,7 +1429,7 @@ async fn worker_sig_test() {
         (seq
             (seq
                 (seq
-                    (call %init_peer_id% ("registry" "get_record_metadata_bytes") ["key_id" "" 0 "" "" [] [] []] data)
+                    (call "{0}" ("registry" "get_record_metadata_bytes") ["key_id" "" 0 "" "" [] [] []] data)
                     (call %init_peer_id% ("sig" "get_peer_id") [] peer_id)
                 )
                 (seq
@@ -1437,10 +1437,10 @@ async fn worker_sig_test() {
                     (call %init_peer_id% ("sig" "verify") [sig_result.$.signature.[0]! data] result)
                 )
             )
-            (call "{0}" ("op" "return") [sig_result result peer_id])
+            (call "{1}" ("op" "return") [sig_result result peer_id])
         )
        "#,
-        client.peer_id
+        client.node, client.peer_id
     );
 
     let config = make_clock_config(2, 1, 0);
