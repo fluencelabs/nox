@@ -173,7 +173,7 @@ where
 
     // start all nodes
     let infos = join_all(nodes.into_iter().map(move |tasks| {
-        async move {
+        async {
             let (peer_id, node, management_keypair, config, span) = tasks.await;
             let connectivity = node.connectivity.clone();
             let aquamarine_api = node.aquamarine_api.clone();

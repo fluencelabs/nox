@@ -18,7 +18,6 @@ use asynchronous_codec::{FramedRead, FramedWrite};
 use std::fmt::Debug;
 use std::{io, iter, time::Duration};
 
-pub use eyre::Error;
 use futures::{
     future::BoxFuture, AsyncRead, AsyncWrite, AsyncWriteExt, FutureExt, SinkExt, StreamExt,
 };

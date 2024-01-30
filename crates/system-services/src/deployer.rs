@@ -2,6 +2,7 @@ use crate::distro::*;
 use crate::CallService;
 use crate::{DeploymentStatus, PackageDistro, ServiceDistro, ServiceStatus, SpellDistro};
 use eyre::eyre;
+use futures::{FutureExt, StreamExt, TryStreamExt};
 use libp2p::PeerId;
 use particle_execution::FunctionOutcome;
 use particle_modules::{AddBlueprint, ModuleRepository};
@@ -12,6 +13,7 @@ use spell_event_bus::api::{SpellEventBusApi, SpellId};
 use spell_service_api::{CallParams, SpellServiceApi};
 use spell_storage::SpellStorage;
 use std::collections::HashMap;
+use std::thread::available_parallelism;
 use std::time::Duration;
 use uuid_utils::uuid;
 
@@ -87,9 +89,15 @@ impl Deployer {
             call_service(&services, PeerScope::Host, root_worker_id, &srv, &fnc, args)
         });
 
-        for distro in self.system_service_distros.distros.values() {
-            self.deploy_package(&call, distro.clone()).await?;
-        }
+        let parallelism = available_parallelism().map(|x| x.get()).unwrap_or(2);
+
+        futures::stream::iter(self.system_service_distros.distros.values())
+            .map(|distro| async { self.deploy_package(&call, distro.clone()).await }.boxed())
+            .boxed()
+            .buffer_unordered(parallelism)
+            .try_collect::<Vec<_>>()
+            .await?;
+
         Ok(())
     }
 
