@@ -185,26 +185,14 @@ pub struct ParticleAppServices {
     health: Option<PersistedServiceHealth>,
 }
 
-fn resolve_alias(
-    root_services: &Services,
-    workers_services: Arc<RwLock<HashMap<WorkerId, Services>>>,
-    peer_scope: PeerScope,
-    alias: &String,
-    particle_id: &str,
-) -> Option<ServiceId> {
+fn resolve_alias(services: &Services, alias: &String, particle_id: &str) -> Option<ServiceId> {
     if alias == "spell" || alias == "self" {
         if let Some(spell_id) = ParticleParams::get_spell_id(particle_id) {
             return Some(spell_id);
         }
     }
 
-    match peer_scope {
-        PeerScope::WorkerId(worker_id) => workers_services
-            .read()
-            .get(&worker_id)
-            .and_then(|service| service.aliases.read().get(alias).cloned()),
-        PeerScope::Host => root_services.aliases.read().get(alias).cloned(),
-    }
+    services.aliases.read().get(alias).cloned()
 }
 
 fn get_service(
@@ -676,15 +664,10 @@ impl ParticleAppServices {
             return Ok((service, id_or_alias));
         }
 
+        let services = self.get_services(peer_scope);
         // retrieve service by alias
-        let resolved_id = resolve_alias(
-            &self.root_services,
-            self.worker_services.clone(),
-            peer_scope,
-            &id_or_alias,
-            particle_id,
-        )
-        .ok_or(NoSuchService(id_or_alias.clone(), peer_scope))?;
+        let resolved_id = resolve_alias(&services, &id_or_alias, particle_id)
+            .ok_or(NoSuchService(id_or_alias.clone(), peer_scope))?;
 
         let service = get_service(&services_id_mapping, peer_scope, resolved_id.clone())?;
 
@@ -779,14 +762,8 @@ impl ParticleAppServices {
         alias: String,
         particle_id: &str,
     ) -> Result<String, ServiceError> {
-        resolve_alias(
-            &self.root_services,
-            self.worker_services.clone(),
-            peer_scope,
-            &alias,
-            particle_id,
-        )
-        .ok_or_else(|| NoSuchAlias(alias, peer_scope))
+        let services = self.get_services(peer_scope);
+        resolve_alias(&services, &alias, particle_id).ok_or_else(|| NoSuchAlias(alias, peer_scope))
     }
 
     pub fn to_service_id(
