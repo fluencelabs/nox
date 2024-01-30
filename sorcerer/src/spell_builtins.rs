@@ -347,7 +347,7 @@ pub(crate) async fn spell_update_config(
     let params = CallParams::local(
         spell_id.clone(),
         peer_scope,
-        params.init_peer_id,
+        scopes.get_host_peer_id(),
         Duration::from_millis(params.ttl as u64),
     );
     spell_service_api.set_trigger_config(params, user_config)?;
