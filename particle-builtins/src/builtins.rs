@@ -802,7 +802,7 @@ where
             )
             .await?;
 
-        log::info!(
+        log::debug!(
             "Added alias {} for service {:?} {}",
             alias,
             params.peer_scope,
@@ -968,7 +968,10 @@ where
         let pk = self
             .key_storage
             .get_keypair(params.peer_scope)
-            .unwrap()
+            .ok_or(JError::new(format!(
+                "Not found key pair for scope {:?}",
+                params.peer_scope
+            )))?
             .public(); //TODO: fix unwrap
         let signature = Signature::from_bytes(pk.get_key_format(), signature);
 
