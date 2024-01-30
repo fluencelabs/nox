@@ -100,7 +100,7 @@ impl Service {
         service_type: ServiceType,
         owner_id: PeerId,
         aliases: Vec<ServiceAlias>,
-        entity_id: PeerScope,
+        peer_scope: PeerScope,
     ) -> Self {
         Self {
             service,
@@ -109,7 +109,7 @@ impl Service {
             service_type,
             owner_id,
             aliases: RwLock::new(aliases),
-            peer_scope: entity_id,
+            peer_scope,
         }
     }
 
