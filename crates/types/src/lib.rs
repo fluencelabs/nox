@@ -1,4 +1,4 @@
-mod peer_id;
+pub mod peer_id;
 
 use libp2p_identity::PeerId;
 use serde::{Deserialize, Serialize};
@@ -14,8 +14,8 @@ pub enum PeerScope {
 #[derive(Clone, Copy, Eq, Hash, Ord, PartialEq, PartialOrd, Debug, Serialize, Deserialize)]
 pub struct WorkerId(
     #[serde(
-        serialize_with = "peer_id::peer_id_serde::serialize",
-        deserialize_with = "peer_id::peer_id_serde::deserialize"
+        serialize_with = "peer_id::serde::serialize",
+        deserialize_with = "peer_id::serde::deserialize"
     )]
     PeerId,
 );

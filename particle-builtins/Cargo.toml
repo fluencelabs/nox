@@ -22,6 +22,7 @@ uuid-utils = { workspace = true }
 workers = { workspace = true }
 service-modules = { workspace = true }
 subnet-resolver = { workspace = true }
+types = { workspace = true }
 
 libp2p = { workspace = true }
 libp2p-kad = { workspace = true }

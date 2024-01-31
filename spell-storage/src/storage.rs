@@ -113,7 +113,7 @@ impl SpellStorage {
         let mut scope_mapping: HashMap<SpellId, PeerScope> = HashMap::new();
 
         let spell_services = services
-            .list_services_with_info()
+            .list_services_all()
             .into_iter()
             .filter(|s| s.service_type.is_spell());
 

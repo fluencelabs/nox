@@ -29,7 +29,7 @@ use serde_json::{json, Value as JValue};
 use tokio::runtime::Handle;
 use tokio_util::context::TokioContext;
 
-use fluence_libp2p::{peerid_serializer, PeerId};
+use fluence_libp2p::PeerId;
 use health::HealthCheckRegistry;
 use now_millis::now_ms;
 use particle_args::{Args, JError};
@@ -68,12 +68,11 @@ impl ServiceType {
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug)]
 pub struct ServiceInfo {
     pub id: String,
     pub blueprint_id: String,
     pub service_type: ServiceType,
-    #[serde(with = "peerid_serializer")]
     pub owner_id: PeerId,
     pub aliases: Vec<ServiceAlias>,
     pub peer_scope: PeerScope,
@@ -816,7 +815,7 @@ impl ParticleAppServices {
         Ok(self.modules.get_facade_interface(&service.blueprint_id)?)
     }
 
-    pub fn list_services_with_info(&self) -> Vec<ServiceInfo> {
+    pub fn list_services_all(&self) -> Vec<ServiceInfo> {
         let root_info: Vec<ServiceInfo> = self
             .root_services
             .services
@@ -841,7 +840,7 @@ impl ParticleAppServices {
         result
     }
 
-    pub fn list_services(&self, peer_scope: PeerScope) -> Vec<JValue> {
+    pub fn list_services(&self, peer_scope: PeerScope) -> Vec<ServiceInfo> {
         match peer_scope {
             PeerScope::WorkerId(worker_id) => self
                 .worker_services
@@ -852,7 +851,7 @@ impl ParticleAppServices {
                         .services
                         .read()
                         .iter()
-                        .map(|(id, srv)| json!(srv.get_info(id)))
+                        .map(|(id, srv)| srv.get_info(id))
                         .collect()
                 })
                 .unwrap_or_default(),
@@ -861,7 +860,7 @@ impl ParticleAppServices {
                 .services
                 .read()
                 .iter()
-                .map(|(id, srv)| json!(srv.get_info(id)))
+                .map(|(id, srv)| srv.get_info(id))
                 .collect(),
         }
     }

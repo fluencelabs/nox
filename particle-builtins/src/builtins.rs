@@ -27,7 +27,7 @@ use derivative::Derivative;
 use fluence_keypair::Signature;
 use libp2p::{core::Multiaddr, kad::KBucketKey, kad::K_VALUE, PeerId};
 use multihash::Multihash;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Value as JValue};
 use tokio::sync::RwLock;
 use JValue::Array;
@@ -42,9 +42,10 @@ use particle_modules::{
     AddBlueprint, ModuleConfig, ModuleRepository, NamedModuleConfig, WASIConfig,
 };
 use particle_protocol::Contact;
-use particle_services::{ParticleAppServices, PeerScope, ServiceType};
+use particle_services::{ParticleAppServices, PeerScope, ServiceInfo, ServiceType};
 use peer_metrics::ServicesMetrics;
 use server_config::ServicesConfig;
+use types::peer_id;
 use uuid_utils::uuid;
 use workers::{KeyStorage, PeerScopes, Workers};
 
@@ -773,7 +774,13 @@ where
     }
 
     fn list_services(&self, params: ParticleParams) -> JValue {
-        Array(self.services.list_services(params.peer_scope))
+        Array(
+            self.services
+                .list_services(params.peer_scope)
+                .iter()
+                .map(|info| json!(Service::from(info, self.scopes.clone())))
+                .collect(),
+        )
     }
 
     fn call_service(&self, function_args: Args, particle: ParticleParams) -> FunctionOutcome {
@@ -848,19 +855,7 @@ where
             self.services
                 .get_service_info(params.peer_scope, service_id_or_alias, &params.id)?;
 
-        let worker_id = match info.peer_scope {
-            PeerScope::WorkerId(worker_id) => worker_id.to_string(),
-            PeerScope::Host => self.scopes.get_host_peer_id().to_string(),
-        };
-
-        Ok(json!({
-            "id": info.id,
-            "blueprint_id": info.blueprint_id,
-            "service_type": info.service_type,
-            "owner_id": info.owner_id.to_string(),
-            "aliases": info.aliases,
-            "worker_id": worker_id,
-        }))
+        Ok(json!(Service::from(&info, self.scopes.clone())))
     }
 
     fn kademlia(&self) -> &KademliaApi {
@@ -1097,6 +1092,36 @@ where
             }
             .into()
         })
+}
+
+#[derive(Debug, Serialize)]
+struct Service {
+    pub id: String,
+    pub blueprint_id: String,
+    pub service_type: ServiceType,
+    #[serde(serialize_with = "peer_id::serde::serialize")]
+    pub owner_id: PeerId,
+    pub aliases: Vec<String>,
+    #[serde(serialize_with = "peer_id::serde::serialize")]
+    pub worker_id: PeerId,
+}
+
+impl Service {
+    fn from(service_info: &ServiceInfo, peer_scopes: PeerScopes) -> Self {
+        let worker_id: PeerId = match service_info.peer_scope {
+            PeerScope::WorkerId(worker_id) => worker_id.into(),
+            PeerScope::Host => peer_scopes.get_host_peer_id(),
+        };
+
+        Service {
+            id: service_info.id.clone(),
+            blueprint_id: service_info.blueprint_id.clone(),
+            service_type: service_info.service_type.clone(),
+            owner_id: service_info.owner_id,
+            aliases: service_info.aliases.clone(),
+            worker_id,
+        }
+    }
 }
 
 #[cfg(test)]

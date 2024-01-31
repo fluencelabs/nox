@@ -5232,6 +5232,7 @@ dependencies = [
  "thiserror",
  "tokio",
  "toml-utils",
+ "types",
  "uuid-utils",
  "workers",
 ]

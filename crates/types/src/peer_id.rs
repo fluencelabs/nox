@@ -1,4 +1,4 @@
-pub(crate) mod peer_id_serde {
+pub mod serde {
     use libp2p_identity::PeerId;
     use serde::{Deserialize, Deserializer, Serialize, Serializer};
     use std::str::FromStr;
