@@ -12,6 +12,6 @@ pub use error::KeyStorageError;
 pub use error::WorkersError;
 pub use key_storage::KeyStorage;
 pub use scope::PeerScopes;
-pub use types::WorkerId;
+pub use types::peer_scope::WorkerId;
 pub use workers::WorkerParams;
 pub use workers::Workers;

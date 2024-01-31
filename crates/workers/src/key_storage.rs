@@ -23,7 +23,7 @@ use parking_lot::RwLock;
 use crate::persistence::{load_persisted_key_pairs, persist_keypair, remove_keypair};
 use crate::KeyStorageError;
 use fluence_keypair::{KeyFormat, KeyPair};
-use types::{PeerScope, WorkerId};
+use types::peer_scope::{PeerScope, WorkerId};
 
 pub struct KeyStorage {
     /// worker_id -> worker_keypair

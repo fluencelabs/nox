@@ -38,6 +38,8 @@ use std::thread::available_parallelism;
 use thiserror::Error;
 use tokio::fs::DirEntry;
 use tokio_stream::wrappers::ReadDirStream;
+use types::DEFAULT_PARALLELISM;
+
 
 pub fn to_abs_path(path: PathBuf) -> PathBuf {
     match std::env::current_dir().ok() {
@@ -177,7 +179,6 @@ pub enum LoadDataError {
         err: std::io::Error,
     },
 }
-const DEFAULT_PARALLELISM: usize = 2;
 /// Load some data from disk in parallel
 pub async fn load_persisted_data<T>(
     data_dir: &Path,

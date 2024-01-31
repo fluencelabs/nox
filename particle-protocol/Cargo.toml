@@ -24,6 +24,7 @@ tokio = { workspace = true, features = ["sync"] }
 asynchronous-codec = { version = "0.7.0", features = ["json"] }
 unsigned-varint = { version = "0.8.0", features = ["codec", "asynchronous_codec"] }
 tracing = { workspace = true }
+types = { workspace = true }
 
 [dev-dependencies]
 rand = { workspace = true }

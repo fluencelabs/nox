@@ -26,7 +26,7 @@ use json_utils::err_as_value;
 use particle_args::ArgsError;
 use particle_execution::VaultError;
 use particle_modules::ModuleError;
-use types::{PeerScope, WorkerId};
+use types::peer_scope::{PeerScope, WorkerId};
 
 #[derive(Debug, Error)]
 pub enum ServiceError {
@@ -55,13 +55,6 @@ pub enum ServiceError {
     AliasAsServiceId(String),
     #[error("Cannot add alias '{0}' because it is reserved")]
     ForbiddenAlias(String),
-    #[error(
-        "Alias cannot be added for service {service_id} deployed on another worker {peer_scope:?}"
-    )]
-    AliasWrongPeerScope {
-        service_id: String,
-        peer_scope: PeerScope,
-    },
     #[error(transparent)]
     Engine(AppServiceError),
     #[error(transparent)]

@@ -14,9 +14,10 @@ use serde_with::serde_as;
 use serde_with::DisplayFromStr;
 
 use fluence_libp2p::PeerId;
-use fluence_libp2p::{peerid_serializer, Transport};
+use fluence_libp2p::Transport;
 use fs_utils::to_abs_path;
 use particle_protocol::ProtocolConfig;
+use types::peer_id;
 
 use crate::keys::{decode_key, decode_secret_key, load_key};
 use crate::system_services_config::{ServiceKey, SystemServicesConfig};
@@ -115,7 +116,10 @@ pub struct UnresolvedNodeConfig {
     #[serde(with = "humantime_serde")]
     pub particle_execution_timeout: Duration,
 
-    #[serde(with = "peerid_serializer")]
+    #[serde(
+        serialize_with = "peer_id::serde::serialize",
+        deserialize_with = "peer_id::serde::deserialize"
+    )]
     #[serde(default = "default_management_peer_id")]
     pub management_peer_id: PeerId,
 
@@ -432,7 +436,13 @@ pub struct ListenConfig {
 
 #[derive(Clone, Deserialize, Serialize, Debug, Copy, Eq, Hash, Ord, PartialEq, PartialOrd)]
 #[repr(transparent)]
-pub struct PeerIdSerializable(#[serde(with = "peerid_serializer")] PeerId);
+pub struct PeerIdSerializable(
+    #[serde(
+        serialize_with = "peer_id::serde::serialize",
+        deserialize_with = "peer_id::serde::deserialize"
+    )]
+    PeerId,
+);
 
 impl Deref for PeerIdSerializable {
     type Target = PeerId;

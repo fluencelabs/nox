@@ -21,12 +21,12 @@ use crate::error::{KeyStorageError, WorkersError};
 use crate::workers::WorkerInfo;
 use crate::KeyStorageError::RemoveErrorPersistedKeypair;
 use fluence_keypair::KeyPair;
-use fluence_libp2p::peerid_serializer;
 use libp2p::PeerId;
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
-use types::WorkerId;
+use types::peer_scope::WorkerId;
+use types::peer_id;
 
 pub const fn default_bool<const V: bool>() -> bool {
     V
@@ -41,7 +41,7 @@ pub struct PersistedKeypair {
 #[derive(Serialize, Deserialize)]
 pub struct PersistedWorker {
     pub worker_id: WorkerId,
-    #[serde(with = "peerid_serializer")]
+    #[serde(serialize_with = "peer_id::serde::serialize", deserialize_with = "peer_id::serde::deserialize")]
     pub creator: PeerId,
     #[serde(default)]
     pub deal_id: String,

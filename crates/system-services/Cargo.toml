@@ -19,9 +19,11 @@ libp2p = { workspace = true }
 log = { workspace = true }
 serde_json = { workspace = true }
 serde = { workspace = true }
+
 fluence-spell-dtos = { workspace = true }
 tracing = { workspace = true }
 futures = { workspace = true }
+types = { workspace = true }
 
 sorcerer = { workspace = true }
 spell-storage = { workspace = true }

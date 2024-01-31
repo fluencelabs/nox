@@ -1711,7 +1711,6 @@ async fn create_remove_worker() {
         assert!(spell_err.contains(&format!("Service with id '{spell_id}' not found")));
         assert!(srv_err.contains(&format!("Service with id '{}' not found", service.id)));
     } else {
-        log::info!("zalupa {:?}", response);
         panic!("expected array and two strings")
     }
 }

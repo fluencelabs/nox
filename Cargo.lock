@@ -1041,6 +1041,7 @@ dependencies = [
  "thiserror",
  "tokio",
  "tracing",
+ "types",
 ]
 
 [[package]]
@@ -2239,6 +2240,7 @@ dependencies = [
  "tokio",
  "tokio-stream",
  "tracing",
+ "types",
 ]
 
 [[package]]
@@ -5308,6 +5310,7 @@ dependencies = [
  "thiserror",
  "tokio",
  "tracing",
+ "types",
  "unsigned-varint 0.8.0",
 ]
 
@@ -6611,6 +6614,7 @@ dependencies = [
  "temp-env",
  "tempfile",
  "toml 0.7.8",
+ "types",
 ]
 
 [[package]]
@@ -6856,6 +6860,7 @@ dependencies = [
  "tokio",
  "tokio-stream",
  "tracing",
+ "types",
  "uuid-utils",
 ]
 
@@ -7094,6 +7099,7 @@ dependencies = [
  "toml 0.5.11",
  "tracing",
  "trust-graph-distro",
+ "types",
  "uuid-utils",
 ]
 
@@ -7656,6 +7662,7 @@ version = "0.1.0"
 dependencies = [
  "libp2p-identity",
  "serde",
+ "serde_json",
 ]
 
 [[package]]

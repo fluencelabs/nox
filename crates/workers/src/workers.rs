@@ -7,7 +7,7 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::runtime::{Handle, Runtime};
-use types::WorkerId;
+use types::peer_scope::WorkerId;
 
 /// Information about a worker.
 pub struct WorkerInfo {
@@ -462,7 +462,7 @@ mod tests {
     use libp2p::PeerId;
     use std::sync::Arc;
     use tempfile::tempdir;
-    use types::PeerScope;
+    use types::peer_scope::PeerScope;
 
     #[tokio::test]
     async fn test_workers_creation() {

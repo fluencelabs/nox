@@ -17,7 +17,7 @@
 use libp2p::PeerId;
 use std::path::PathBuf;
 use thiserror::Error;
-use types::WorkerId;
+use types::peer_scope::WorkerId;
 
 #[derive(Debug, Error)]
 pub enum KeyStorageError {

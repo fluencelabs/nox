@@ -19,11 +19,14 @@ use std::fmt::{Display, Formatter};
 use libp2p::{core::Multiaddr, PeerId};
 use serde::{Deserialize, Serialize};
 
-use fluence_libp2p::peerid_serializer;
+use types::peer_id;
 
 #[derive(Debug, Clone, Deserialize, Serialize, Eq, PartialEq)]
 pub struct Contact {
-    #[serde(with = "peerid_serializer")]
+    #[serde(
+        serialize_with = "peer_id::serde::serialize",
+        deserialize_with = "peer_id::serde::deserialize"
+    )]
     pub peer_id: PeerId,
     pub addresses: Vec<Multiaddr>,
 }

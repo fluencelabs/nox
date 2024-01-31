@@ -1,9 +1,10 @@
 use connection_pool::LifecycleEvent;
-use fluence_libp2p::{peerid_serializer, PeerId};
+use fluence_libp2p::{PeerId};
 use serde::{Deserialize, Serialize};
 use std::pin::Pin;
 use thiserror::Error;
 use tokio::sync::{mpsc, oneshot};
+use types::peer_id;
 
 pub use crate::config::*;
 
@@ -31,7 +32,7 @@ pub struct TimerEvent {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 /// Event is triggered by connection pool event
 pub struct PeerEvent {
-    #[serde(with = "peerid_serializer")]
+    #[serde(serialize_with = "peer_id::serde::serialize", deserialize_with = "peer_id::serde::deserialize")]
     pub peer_id: PeerId,
     pub connected: bool,
 }

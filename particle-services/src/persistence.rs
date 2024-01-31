@@ -22,9 +22,10 @@ use crate::app_services::Service;
 use crate::error::ServiceError;
 use crate::ServiceError::{SerializePersistedService, WritePersistedService};
 use crate::ServiceType;
-use fluence_libp2p::{peerid_serializer, PeerId};
+use fluence_libp2p::{PeerId};
 use service_modules::{is_service, service_file_name};
-use types::PeerScope;
+use types::peer_scope::PeerScope;
+use types::peer_id;
 
 // TODO: all fields could be references, but I don't know how to achieve that
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
@@ -36,7 +37,7 @@ pub struct PersistedService {
     // Old versions of PersistedService may omit `aliases` field, tolerate that
     pub aliases: Vec<String>,
     // Old versions of PersistedService may omit `owner` field, tolerate that via RandomPeerId::random
-    #[serde(with = "peerid_serializer")]
+    #[serde(serialize_with = "peer_id::serde::serialize", deserialize_with = "peer_id::serde::deserialize")]
     pub owner_id: PeerId,
     pub peer_scope: PeerScope,
 }
@@ -89,7 +90,7 @@ pub async fn remove_persisted_service(
 mod tests {
     use crate::persistence::{load_persisted_services, PersistedService};
     use fluence_libp2p::RandomPeerId;
-    use types::PeerScope;
+    use types::peer_scope::PeerScope;
 
     #[tokio::test]
     async fn test_persistence() {

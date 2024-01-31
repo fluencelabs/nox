@@ -16,7 +16,7 @@
 
 use fluence_libp2p::PeerId;
 use particle_protocol::Particle;
-use types::PeerScope;
+use types::peer_scope::PeerScope;
 
 /// Lightweight, static version of the [[Particle]] structure
 /// It exists to avoid cloning [[Particle::data]] when possible

@@ -40,7 +40,7 @@ use peer_metrics::{
     ServicesMetricsBuiltin,
 };
 use server_config::ServicesConfig;
-use types::PeerScope;
+use types::peer_scope::PeerScope;
 use uuid_utils::uuid;
 use workers::{PeerScopes, WorkerId, Workers};
 
@@ -203,15 +203,7 @@ fn get_service(
         .get(&service_id)
         .ok_or(NoSuchService(service_id.to_string(), peer_scope))?;
 
-    if service.peer_scope != peer_scope {
-        // service is deployed on another worker_id
-        Err(ServiceError::AliasWrongPeerScope {
-            service_id: service_id.to_string(),
-            peer_scope: service.peer_scope,
-        })
-    } else {
-        Ok(service.clone())
-    }
+    Ok(service.clone())
 }
 
 impl ParticleAppServices {
@@ -1156,7 +1148,7 @@ mod tests {
     use server_config::ServicesConfig;
     use service_modules::load_module;
     use service_modules::Hash;
-    use types::PeerScope;
+    use types::peer_scope::PeerScope;
     use workers::{KeyStorage, PeerScopes, Workers};
 
     use crate::app_services::{ServiceAlias, ServiceType};

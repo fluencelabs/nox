@@ -967,7 +967,7 @@ where
                 "Not found key pair for scope {:?}",
                 params.peer_scope
             )))?
-            .public(); //TODO: fix unwrap
+            .public();
         let signature = Signature::from_bytes(pk.get_key_format(), signature);
 
         Ok(JValue::Bool(pk.verify(&data, &signature).is_ok()))

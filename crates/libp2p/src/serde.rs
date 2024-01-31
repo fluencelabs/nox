@@ -16,29 +16,6 @@
 
 // This module is intended to provide a way to serialize/deserialize PeerId and Multihash.
 
-pub mod peerid_serializer {
-    use libp2p::PeerId;
-    use serde::{Deserialize, Deserializer, Serialize, Serializer};
-    use std::str::FromStr;
-
-    pub fn serialize<S>(value: &PeerId, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        value.to_base58().serialize(serializer)
-    }
-
-    pub fn deserialize<'de, D>(deserializer: D) -> Result<PeerId, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let str = String::deserialize(deserializer)?;
-        PeerId::from_str(&str).map_err(|e| {
-            serde::de::Error::custom(format!("peer id deserialization failed for {e:?}"))
-        })
-    }
-}
-
 pub mod peerid_serializer_opt {
     use libp2p::PeerId;
     use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -73,42 +50,6 @@ mod tests {
     use libp2p::PeerId;
     use serde::{Deserialize, Serialize};
     use std::str::FromStr;
-
-    #[test]
-    fn peerid() {
-        use crate::peerid_serializer;
-
-        #[derive(Eq, PartialEq, Clone, Debug, Serialize, Deserialize)]
-        struct Test {
-            #[serde(with = "peerid_serializer")]
-            peer_id_1: PeerId,
-            #[serde(with = "peerid_serializer")]
-            peer_id_2: PeerId,
-        }
-
-        let peer_id_1 = RandomPeerId::random();
-        let peer_id_2 = PeerId::from_str("QmY28NSCefB532XbERtnKHadexGuNzAfYnh5fJk6qhLsSi").unwrap();
-
-        let test = Test {
-            peer_id_1,
-            peer_id_2,
-        };
-
-        let serialized_test = serde_json::to_value(test.clone());
-        assert!(
-            serialized_test.is_ok(),
-            "failed to serialize test struct: {}",
-            serialized_test.err().unwrap()
-        );
-
-        let deserialized_test = serde_json::from_value::<Test>(serialized_test.unwrap());
-        assert!(
-            deserialized_test.is_ok(),
-            "failed to deserialize test struct: {}",
-            deserialized_test.err().unwrap()
-        );
-        assert_eq!(deserialized_test.unwrap(), test);
-    }
 
     #[test]
     fn multihash() {

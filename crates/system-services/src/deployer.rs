@@ -16,6 +16,7 @@ use std::collections::HashMap;
 use std::thread::available_parallelism;
 use std::time::Duration;
 use uuid_utils::uuid;
+use types::DEFAULT_PARALLELISM;
 
 const DEPLOYER_TTL: Duration = Duration::from_millis(60_000);
 
@@ -89,7 +90,7 @@ impl Deployer {
             call_service(&services, PeerScope::Host, root_worker_id, &srv, &fnc, args)
         });
 
-        let parallelism = available_parallelism().map(|x| x.get()).unwrap_or(2);
+        let parallelism = available_parallelism().map(|x| x.get()).unwrap_or(DEFAULT_PARALLELISM);
 
         futures::stream::iter(self.system_service_distros.distros.values())
             .map(|distro| async { self.deploy_package(&call, distro.clone()).await }.boxed())

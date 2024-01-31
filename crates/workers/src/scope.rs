@@ -2,7 +2,7 @@ use crate::KeyStorage;
 use derivative::Derivative;
 use fluence_libp2p::PeerId;
 use std::sync::Arc;
-use types::{PeerScope, WorkerId};
+use types::peer_scope::{PeerScope, WorkerId};
 
 /// Represents information about various peer IDs.
 #[derive(Clone, Derivative)]

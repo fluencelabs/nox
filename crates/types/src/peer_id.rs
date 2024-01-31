@@ -20,3 +20,47 @@ pub mod serde {
         })
     }
 }
+
+#[cfg(test)]
+mod tests{
+    use std::str::FromStr;
+    use libp2p_identity::{Keypair, PeerId};
+    use serde::{Deserialize, Serialize};
+    use crate::peer_id;
+
+    #[test]
+    fn peerid() {
+
+        #[derive(Eq, PartialEq, Clone, Debug, Serialize, Deserialize)]
+        struct Test {
+            #[serde(serialize_with = "peer_id::serde::serialize", deserialize_with = "peer_id::serde::deserialize")]
+            peer_id_1: PeerId,
+            #[serde(serialize_with = "peer_id::serde::serialize", deserialize_with = "peer_id::serde::deserialize")]
+            peer_id_2: PeerId,
+        }
+
+        let peer_id_1 = Keypair::generate_ed25519().public().to_peer_id();
+        let peer_id_2 = PeerId::from_str("QmY28NSCefB532XbERtnKHadexGuNzAfYnh5fJk6qhLsSi").unwrap();
+
+        let test = Test {
+            peer_id_1,
+            peer_id_2,
+        };
+
+        let serialized_test = serde_json::to_value(test.clone());
+        assert!(
+            serialized_test.is_ok(),
+            "failed to serialize test struct: {}",
+            serialized_test.err().unwrap()
+        );
+
+        let deserialized_test = serde_json::from_value::<Test>(serialized_test.unwrap());
+        assert!(
+            deserialized_test.is_ok(),
+            "failed to deserialize test struct: {}",
+            deserialized_test.err().unwrap()
+        );
+        assert_eq!(deserialized_test.unwrap(), test);
+    }
+
+}
