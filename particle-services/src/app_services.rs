@@ -616,11 +616,11 @@ impl ParticleAppServices {
     ) -> Result<(), ServiceError> {
         let service = {
             let services = self.get_services(peer_scope);
+            let mut aliases_service_id_mapping = services.aliases.write();
             let services_id_mapping = services.services.write();
 
             let service = get_service(&services_id_mapping, peer_scope, service_id.clone())?;
             service.add_alias(alias.clone());
-            let mut aliases_service_id_mapping = services.aliases.write();
             aliases_service_id_mapping.insert(alias, service_id);
             PersistedService::from_service(service.as_ref())
         };
