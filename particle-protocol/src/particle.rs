@@ -29,7 +29,6 @@ use crate::error::ParticleError::{
 };
 use fluence_keypair::{KeyPair, PublicKey, Signature};
 use fluence_libp2p::RandomPeerId;
-use json_utils::base64_serde;
 use now_millis::now_ms;
 use types::peer_id;
 
@@ -81,9 +80,10 @@ pub struct Particle {
     // TTL in milliseconds
     pub ttl: u32,
     pub script: String,
+    #[serde(with = "serde_bytes")]
     pub signature: Vec<u8>,
     /// base64-encoded
-    #[serde(with = "base64_serde")]
+    #[serde(with = "serde_bytes")]
     #[derivative(Debug(format_with = "fmt_data"))]
     pub data: Vec<u8>,
 }
