@@ -826,7 +826,7 @@ where
             self.services
                 .resolve_alias(params.peer_scope, alias.clone(), &params.id)?;
 
-        log::info!(
+        log::debug!(
             "Resolved alias {} to service {:?} {}",
             alias,
             params.peer_scope,
