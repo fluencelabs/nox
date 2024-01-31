@@ -22,20 +22,25 @@ pub mod serde {
 }
 
 #[cfg(test)]
-mod tests{
-    use std::str::FromStr;
+mod tests {
+    use crate::peer_id;
     use libp2p_identity::{Keypair, PeerId};
     use serde::{Deserialize, Serialize};
-    use crate::peer_id;
+    use std::str::FromStr;
 
     #[test]
     fn peerid() {
-
         #[derive(Eq, PartialEq, Clone, Debug, Serialize, Deserialize)]
         struct Test {
-            #[serde(serialize_with = "peer_id::serde::serialize", deserialize_with = "peer_id::serde::deserialize")]
+            #[serde(
+                serialize_with = "peer_id::serde::serialize",
+                deserialize_with = "peer_id::serde::deserialize"
+            )]
             peer_id_1: PeerId,
-            #[serde(serialize_with = "peer_id::serde::serialize", deserialize_with = "peer_id::serde::deserialize")]
+            #[serde(
+                serialize_with = "peer_id::serde::serialize",
+                deserialize_with = "peer_id::serde::deserialize"
+            )]
             peer_id_2: PeerId,
         }
 
@@ -62,5 +67,4 @@ mod tests{
         );
         assert_eq!(deserialized_test.unwrap(), test);
     }
-
 }

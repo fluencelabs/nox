@@ -25,7 +25,10 @@ pub struct UnitId(pub Vec<u8>);
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct CCActivatedData {
-    #[serde(serialize_with = "peer_id::serde::serialize", deserialize_with = "peer_id::serde::deserialize")]
+    #[serde(
+        serialize_with = "peer_id::serde::serialize",
+        deserialize_with = "peer_id::serde::deserialize"
+    )]
     pub peer_id: PeerId,
     pub commitment_id: CommitmentId,
     pub end_epoch: U256,

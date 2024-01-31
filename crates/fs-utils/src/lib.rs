@@ -40,7 +40,6 @@ use tokio::fs::DirEntry;
 use tokio_stream::wrappers::ReadDirStream;
 use types::DEFAULT_PARALLELISM;
 
-
 pub fn to_abs_path(path: PathBuf) -> PathBuf {
     match std::env::current_dir().ok() {
         Some(c) => c.join(path),

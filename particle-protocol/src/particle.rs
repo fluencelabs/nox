@@ -28,7 +28,7 @@ use crate::error::ParticleError::{
     DecodingError, InvalidKeypair, SignatureVerificationFailed, SigningFailed,
 };
 use fluence_keypair::{KeyPair, PublicKey, Signature};
-use fluence_libp2p::{RandomPeerId};
+use fluence_libp2p::RandomPeerId;
 use json_utils::base64_serde;
 use now_millis::now_ms;
 use types::peer_id;
@@ -71,7 +71,10 @@ impl ExtendedParticle {
 #[derivative(Debug)]
 pub struct Particle {
     pub id: String,
-    #[serde(serialize_with = "peer_id::serde::serialize", deserialize_with = "peer_id::serde::deserialize")]
+    #[serde(
+        serialize_with = "peer_id::serde::serialize",
+        deserialize_with = "peer_id::serde::deserialize"
+    )]
     pub init_peer_id: PeerId,
     // Unix timestamp in milliseconds
     pub timestamp: u64,

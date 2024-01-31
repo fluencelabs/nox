@@ -25,8 +25,8 @@ use libp2p::PeerId;
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
-use types::peer_scope::WorkerId;
 use types::peer_id;
+use types::peer_scope::WorkerId;
 
 pub const fn default_bool<const V: bool>() -> bool {
     V
@@ -41,7 +41,10 @@ pub struct PersistedKeypair {
 #[derive(Serialize, Deserialize)]
 pub struct PersistedWorker {
     pub worker_id: WorkerId,
-    #[serde(serialize_with = "peer_id::serde::serialize", deserialize_with = "peer_id::serde::deserialize")]
+    #[serde(
+        serialize_with = "peer_id::serde::serialize",
+        deserialize_with = "peer_id::serde::deserialize"
+    )]
     pub creator: PeerId,
     #[serde(default)]
     pub deal_id: String,

@@ -1,5 +1,5 @@
 use connection_pool::LifecycleEvent;
-use fluence_libp2p::{PeerId};
+use fluence_libp2p::PeerId;
 use serde::{Deserialize, Serialize};
 use std::pin::Pin;
 use thiserror::Error;
@@ -32,7 +32,10 @@ pub struct TimerEvent {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 /// Event is triggered by connection pool event
 pub struct PeerEvent {
-    #[serde(serialize_with = "peer_id::serde::serialize", deserialize_with = "peer_id::serde::deserialize")]
+    #[serde(
+        serialize_with = "peer_id::serde::serialize",
+        deserialize_with = "peer_id::serde::deserialize"
+    )]
     pub peer_id: PeerId,
     pub connected: bool,
 }

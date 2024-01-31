@@ -1,7 +1,7 @@
+use crate::peer_id;
 use libp2p_identity::PeerId;
 use serde::{Deserialize, Serialize};
 use std::fmt;
-use crate::peer_id;
 
 #[derive(Clone, Copy, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize, Deserialize, Debug)]
 #[serde(tag = "scope_type", content = "scope_value")]
