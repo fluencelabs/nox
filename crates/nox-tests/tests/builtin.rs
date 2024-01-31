@@ -1806,6 +1806,7 @@ async fn sign_verify() {
 
 #[tokio::test]
 async fn sign_invalid_tetraplets() {
+    enable_logs();
     let swarms = make_swarms_with_cfg(2, |mut cfg| {
         cfg.enabled_system_services = vec!["registry".to_string()];
         cfg
