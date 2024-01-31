@@ -182,7 +182,13 @@ where
                 humantime::format_duration(stats.interpretation_time), prev_data_len, len
             );
 
-            if data_store.detect_anomaly(stats.interpretation_time, stats.memory_delta, outcome) {
+            if data_store.detect_anomaly(
+                stats.interpretation_time,
+                stats.memory_delta,
+                outcome,
+                &avm_result.call_results,
+                avm_result.particle.script.as_str(),
+            ) {
                 let anomaly_result = data_store
                     .save_anomaly_data(
                         avm_result.particle.script.as_str(),

@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.18.0](https://github.com/fluencelabs/nox/compare/nox-v0.17.0...nox-v0.18.0) (2024-01-31)
+
+
+### ⚠ BREAKING CHANGES
+
+* **particle-data:** use MsgPack for particle data serialization [Fixes VM-407] ([#2034](https://github.com/fluencelabs/nox/issues/2034))
+
+### Features
+
+* **anomaly:** new anomaly criteria [fixes vm-426] ([#2037](https://github.com/fluencelabs/nox/issues/2037)) ([d59b885](https://github.com/fluencelabs/nox/commit/d59b88560610d0641bdd7bd75e438dce238dd772))
+* **particle-data:** use MsgPack for particle data serialization [Fixes VM-407] ([#2034](https://github.com/fluencelabs/nox/issues/2034)) ([4d76e8f](https://github.com/fluencelabs/nox/commit/4d76e8f3bedb18e3406b7d223c56eb74541a7f97))
+
+## [0.17.0](https://github.com/fluencelabs/nox/compare/nox-v0.16.15...nox-v0.17.0) (2024-01-26)
+
+
+### ⚠ BREAKING CHANGES
+
+* **deps:** avm server 0.35 aquavm 0.59 ([#2040](https://github.com/fluencelabs/nox/issues/2040))
+
+### Bug Fixes
+
+* **deps:** avm server 0.35 aquavm 0.59 ([#2040](https://github.com/fluencelabs/nox/issues/2040)) ([bb7227e](https://github.com/fluencelabs/nox/commit/bb7227ebea2915f19f40f8a628b1b5826bbee446))
+
 ## [0.16.15](https://github.com/fluencelabs/nox/compare/nox-v0.16.14...nox-v0.16.15) (2024-01-23)
 
 
