@@ -85,6 +85,15 @@ jobs:
     uses: fluencelabs/cli/.github/workflows/tests.yml@main
     with:
       nox-image: "${{ needs.nox-snapshot.outputs.nox-image }}"
+      js-client-snapshots: |
+        {
+          "aqua-to-js": "0.3.7-feat-VM-407-msgpack-particle-a9a365e-2481-1",
+          "interfaces": "0.11.0-feat-VM-407-msgpack-particle-a9a365e-2481-1",
+          "js-client": "0.7.0-feat-VM-407-msgpack-particle-a9a365e-2481-1",
+          "js-client-isomorphic": "0.5.0-feat-VM-407-msgpack-particle-a9a365e-2481-1",
+          "marine-worker": "0.5.1-feat-VM-407-msgpack-particle-a9a365e-2481-1",
+          "npm-aqua-compiler": "0.0.2-feat-VM-407-msgpack-particle-a9a365e-2481-1"
+        }
 
   js-client:
     needs:
@@ -99,6 +108,15 @@ jobs:
     uses: fluencelabs/aqua/.github/workflows/tests.yml@main
     with:
       nox-image: "${{ needs.nox-snapshot.outputs.nox-image }}"
+      js-client-snapshots: |
+        {
+          "aqua-to-js": "0.3.7-feat-VM-407-msgpack-particle-a9a365e-2481-1",
+          "interfaces": "0.11.0-feat-VM-407-msgpack-particle-a9a365e-2481-1",
+          "js-client": "0.7.0-feat-VM-407-msgpack-particle-a9a365e-2481-1",
+          "js-client-isomorphic": "0.5.0-feat-VM-407-msgpack-particle-a9a365e-2481-1",
+          "marine-worker": "0.5.1-feat-VM-407-msgpack-particle-a9a365e-2481-1",
+          "npm-aqua-compiler": "0.0.2-feat-VM-407-msgpack-particle-a9a365e-2481-1"
+        }
 
   registry:
     needs:
