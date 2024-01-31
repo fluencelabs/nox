@@ -910,7 +910,7 @@ where
 
             let tetraplet = tetraplets.get(0).map(|v| v.as_slice());
             if let Some([t]) = tetraplet {
-                if self.scopes.scope(PeerId::from_str(&t.peer_pk)?).is_none() {
+                if self.scopes.scope(PeerId::from_str(&t.peer_pk)?).is_ok() {
                     return Err(JError::new(format!(
                         "data is expected to be produced by service 'registry' on peer '{}', was from peer '{}'",
                         self.scopes.get_host_peer_id(), t.peer_pk

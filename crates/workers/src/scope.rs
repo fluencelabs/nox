@@ -2,6 +2,7 @@ use crate::KeyStorage;
 use derivative::Derivative;
 use fluence_libp2p::PeerId;
 use std::sync::Arc;
+use thiserror::Error;
 use types::peer_scope::{PeerScope, WorkerId};
 
 /// Represents information about various peer IDs.
@@ -14,6 +15,13 @@ pub struct PeerScopes {
     #[derivative(Debug = "ignore")]
     key_storage: Arc<KeyStorage>,
 }
+
+#[derive(Debug, Error)]
+#[error("Scope for peer id {peer_id} not found")]
+pub struct ScopeNotFound {
+    peer_id: PeerId,
+}
+
 impl PeerScopes {
     pub fn new(
         host_peer_id: PeerId,
@@ -29,10 +37,9 @@ impl PeerScopes {
         }
     }
 
-    pub fn scope(&self, peer_id: PeerId) -> Option<PeerScope> {
-        //TODO: maybe a result ?
+    pub fn scope(&self, peer_id: PeerId) -> Result<PeerScope, ScopeNotFound> {
         if self.host_peer_id == peer_id {
-            Some(PeerScope::Host)
+            Ok(PeerScope::Host)
         } else {
             let worker_id: WorkerId = peer_id.into();
             if self
@@ -40,9 +47,9 @@ impl PeerScopes {
                 .get_worker_key_pair(peer_id.into())
                 .is_some()
             {
-                Some(PeerScope::WorkerId(worker_id))
+                Ok(PeerScope::WorkerId(worker_id))
             } else {
-                None
+                Err(ScopeNotFound { peer_id })
             }
         }
     }

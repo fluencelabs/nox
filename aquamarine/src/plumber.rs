@@ -278,10 +278,10 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
                 for next_peer in result.effects.next_peers {
                     let scope = self.scopes.scope(next_peer);
                     match scope {
-                        None => {
+                        Err(_) => {
                             remote_peers.push(next_peer);
                         }
-                        Some(scope) => {
+                        Ok(scope) => {
                             local_peers.push(scope);
                         }
                     }

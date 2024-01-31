@@ -72,7 +72,7 @@ pub(crate) async fn remove_worker(
     let worker_peer_id = PeerId::from_str(&worker_id)?;
     let peer_scope = scopes
         .scope(worker_peer_id)
-        .ok_or(JError::new(format!("Worker {worker_id} not found")))?;
+        .map_err(|_| JError::new(format!("Worker {worker_id} not found")))?;
 
     match peer_scope {
         PeerScope::WorkerId(worker_id) => {
