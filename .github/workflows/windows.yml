@@ -9,12 +9,21 @@ concurrency:
 
 jobs:
   test:
-    runs-on: windows-amd64-m-2xlarge
 
+    strategy:
+      fail-fast: false
+      matrix:
+        - windows-amd64-m-2xlarge
+        - windows-2022
+
+    runs-on: ${{ matrix }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           repository: fluencelabs/nox
+
+      - run: ls -alh
+        shell: bash
 
       - run: ls -alh
