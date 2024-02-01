@@ -635,7 +635,6 @@ impl NetworkBehaviour for ConnectionPoolBehaviour {
                     .push_back(ExtendedParticle::new(particle, root_span));
                 self.wake();
             }
-            Ok(HandlerMessage::InboundUpgradeError(err)) => log::warn!("UpgradeError: {:?}", err),
             Ok(HandlerMessage::Upgrade) => {}
             Ok(HandlerMessage::OutParticle(..)) => unreachable!("can't receive OutParticle"),
             Err(err) => log::warn!("Handler error: {:?}", err),

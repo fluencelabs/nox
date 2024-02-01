@@ -1,21 +1,32 @@
 use crate::ProtocolMessage;
-use asynchronous_codec::{BytesMut, Decoder, Encoder, JsonCodec, JsonCodecError};
+use air_interpreter_sede::{
+    define_simple_representation, Format as SedeFormat, FromSerialized as _, MsgPackMultiformat,
+    ToSerialized as _,
+};
+use asynchronous_codec::{BytesMut, Decoder, Encoder};
 use std::io;
 use unsigned_varint::codec::UviBytes;
 
 const MAX_BUF_SIZE: usize = 100 * 1024 * 1024;
 
+type ProtocolMessageFormat = MsgPackMultiformat;
+
+define_simple_representation!(
+    ProtocolMessageRepresentation,
+    ProtocolMessage,
+    ProtocolMessageFormat,
+    Vec<u8>
+);
+
 pub struct FluenceCodec {
     length: UviBytes<BytesMut>,
-    json: JsonCodec<ProtocolMessage, ProtocolMessage>,
 }
 
 impl FluenceCodec {
     pub fn new() -> Self {
         let mut length: UviBytes<BytesMut> = UviBytes::default();
         length.set_max_len(MAX_BUF_SIZE);
-        let json = JsonCodec::new();
-        Self { length, json }
+        Self { length }
     }
 }
 
@@ -26,10 +37,10 @@ impl Decoder for FluenceCodec {
     fn decode(&mut self, src: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
         let bytes = self.length.decode(src)?;
         if let Some(bytes) = bytes {
-            return self
-                .json
-                .decode(&mut BytesMut::from(&bytes[..]))
-                .map_err(Into::into);
+            return ProtocolMessageRepresentation
+                .deserialize(&bytes)
+                .map(Some)
+                .map_err(FluenceCodecError::Deserialize);
         }
         Ok(None)
     }
@@ -40,9 +51,10 @@ impl Encoder for FluenceCodec {
     type Error = FluenceCodecError;
 
     fn encode(&mut self, item: Self::Item<'_>, dst: &mut BytesMut) -> Result<(), Self::Error> {
-        let mut json_buf = BytesMut::new();
-        self.json.encode(item, &mut json_buf)?;
-        self.length.encode(json_buf, dst)?;
+        let msg_buf = ProtocolMessageRepresentation
+            .serialize(&item)
+            .map_err(FluenceCodecError::Serialize)?;
+        self.length.encode(msg_buf[..].into(), dst)?;
         Ok(())
     }
 }
@@ -53,8 +65,8 @@ pub enum FluenceCodecError {
     Io(std::io::Error),
     /// Length error
     Length(std::io::Error),
-    /// JSON error
-    Json(JsonCodecError),
+    Serialize(<ProtocolMessageFormat as SedeFormat<ProtocolMessage>>::SerializationError),
+    Deserialize(<ProtocolMessageFormat as SedeFormat<ProtocolMessage>>::DeserializationError),
 }
 
 impl From<std::io::Error> for FluenceCodecError {
@@ -63,18 +75,13 @@ impl From<std::io::Error> for FluenceCodecError {
     }
 }
 
-impl From<JsonCodecError> for FluenceCodecError {
-    fn from(e: JsonCodecError) -> FluenceCodecError {
-        FluenceCodecError::Json(e)
-    }
-}
-
 impl std::error::Error for FluenceCodecError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
             FluenceCodecError::Io(ref e) => Some(e),
             FluenceCodecError::Length(ref e) => Some(e),
-            FluenceCodecError::Json(ref e) => Some(e),
+            FluenceCodecError::Serialize(ref e) => Some(e),
+            FluenceCodecError::Deserialize(ref e) => Some(e),
         }
     }
 }
@@ -84,7 +91,8 @@ impl std::fmt::Display for FluenceCodecError {
         match self {
             FluenceCodecError::Io(e) => write!(f, "I/O error: {}", e),
             FluenceCodecError::Length(e) => write!(f, "I/O error: {}", e),
-            FluenceCodecError::Json(e) => write!(f, "JSON error: {}", e),
+            FluenceCodecError::Serialize(e) => write!(f, "Serialization error: {}", e),
+            FluenceCodecError::Deserialize(e) => write!(f, "Deserialization error: {}", e),
         }
     }
 }
@@ -94,7 +102,8 @@ impl From<FluenceCodecError> for std::io::Error {
         match value {
             FluenceCodecError::Io(e) => e,
             FluenceCodecError::Length(e) => io::Error::new(io::ErrorKind::InvalidInput, e),
-            FluenceCodecError::Json(e) => io::Error::new(io::ErrorKind::InvalidInput, e),
+            FluenceCodecError::Serialize(e) => io::Error::new(io::ErrorKind::InvalidInput, e),
+            FluenceCodecError::Deserialize(e) => io::Error::new(io::ErrorKind::InvalidInput, e),
         }
     }
 }
@@ -132,14 +141,12 @@ mod tests {
 
     #[test]
     fn deserialization_test() {
-        let raw_str = "9QN7ImFjdGlvbiI6IlBhcnRpY2xlIiwiaWQiOiJkMjA1ZDE0OC00Y2YxLTRlNzYtOGY2ZS1\
-        mY2U5ODEwZjVlNmMiLCJpbml0X3BlZXJfaWQiOiIxMkQzS29vV0xMRjdnUUtiNzd4WEhWWm4zS1hhMTR4cDNSQmlBa2J\
-        uSzJVQlJwRGFSOEtiIiwidGltZXN0YW1wIjoxNzAwNTc0OTU5MDU5LCJ0dGwiOjAsInNjcmlwdCI6IihjYWxsICVpbml\
-        0X3BlZXJfaWQlIChcImdldERhdGFTcnZcIiBcIi1yZWxheS1cIikgW10gLXJlbGF5LSkiLCJzaWduYXR1cmUiOlsxMTE\
-        sMTgyLDkyLDEsNzgsNDQsMjI1LDc1LDExNCwxMTMsMTA5LDIyNCw2MCwyNDUsMTksMTgyLDE1MiwyNiwxNDEsMTA5LDE\
-        4NSw1MCwxOTEsMjM5LDE4OCwxMjIsNTAsMTkxLDEwMywyMSw1MywxMjAsMjE2LDMxLDIxMywyMiwyNDAsMTk0LDc4LDI\
-        xMSwyNDAsMTkyLDE2MiwyMjAsMjAsMTcwLDEyMSwyNSwyMDAsNjMsMjQ1LDE1MSwxNywyNTMsMTU2LDI0MiwxNDEsMTI\
-        5LDIxNywyMDUsMTgxLDE1NiwyMzEsMTBdLCJkYXRhIjoiIn0=";
+        let raw_str = "zwKBBIimYWN0aW9uqFBhcnRpY2xlpGRhdGGQomlk2SRkMjA1ZDE0OC00Y2YxLTRlNzYtOGY2ZS1mY\
+        2U5ODEwZjVlNmOsaW5pdF9wZWVyX2lk2TQxMkQzS29vV0xMRjdnUUtiNzd4WEhWWm4zS1hhMTR4cDNSQmlBa2JuSzJVQ\
+        lJwRGFSOEtipnNjcmlwdNk5KGNhbGwgJWluaXRfcGVlcl9pZCUgKCJnZXREYXRhU3J2IiAiLXJlbGF5LSIpIFtdIC1yZ\
+        WxheS0pqXNpZ25hdHVyZdwAQG/MtlwBTizM4UtycW3M4DzM9RPMtsyYGsyNbcy5Msy/zO/MvHoyzL9nFTV4zNgfzNUWz\
+        PDMwk7M08zwzMDMoszcFMyqeRnMyD/M9cyXEcz9zJzM8syNzIHM2czNzLXMnMznCql0aW1lc3RhbXDPAAABi/IqldOjd\
+        HRsAA==";
         let hex_data = base64.decode(raw_str).expect("Base64");
         let mut bytes = BytesMut::from(&hex_data[..]);
 
