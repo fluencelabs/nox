@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-use hex;
 use std::borrow::Cow;
 use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
@@ -308,7 +307,7 @@ fn store_key_from_components(particle_id: &str, current_peer_id: &str, signature
 }
 
 fn format_signature(signature: &[u8]) -> String {
-    hex::encode(&signature)
+    hex::encode(signature)
 }
 
 #[cfg(test)]
