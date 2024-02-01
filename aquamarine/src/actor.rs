@@ -110,9 +110,10 @@ where
         self.future.is_some()
     }
 
-    pub fn cleanup_key(&self) -> (String, PeerId) {
+    pub fn cleanup_key(&self) -> (String, PeerId, Vec<u8>) {
         let particle_id = self.particle.id.clone();
-        (particle_id, self.current_peer_id)
+        let signature = self.particle.signature.clone();
+        (particle_id, self.current_peer_id, signature)
     }
 
     pub fn mailbox_size(&self) -> usize {
