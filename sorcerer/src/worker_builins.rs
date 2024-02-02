@@ -130,9 +130,9 @@ pub(crate) async fn deactivate_deal(
     let deal_id: String = Args::next("deal_id", &mut args)?;
 
     if !scopes.is_management(params.init_peer_id) && !scopes.is_host(params.init_peer_id) {
-        return Err(JError::new(format!(
-            "Only management or host peer can deactivate deal"
-        )));
+        return Err(JError::new(
+            "Only management or host peer can deactivate deal",
+        ));
     }
 
     let worker_id = workers.get_worker_id(deal_id)?;
@@ -190,9 +190,9 @@ pub(crate) async fn activate_deal(
     let deal_id: String = Args::next("deal_id", &mut args)?;
 
     if !scopes.is_management(params.init_peer_id) && !scopes.is_host(params.init_peer_id) {
-        return Err(JError::new(format!(
-            "Only management or host peer can activate deal"
-        )));
+        return Err(JError::new(
+            "Only management or host peer can activate deal",
+        ));
     }
 
     let worker_id = workers.get_worker_id(deal_id)?;
@@ -223,9 +223,9 @@ pub(crate) async fn activate_deal(
         worker_config.clone(),
     )?;
 
-    let trigger_config = from_user_config(&worker_config)?.ok_or(JError::new(format!(
-        "Deal activation failed due to failure to parse trigger config"
-    )))?;
+    let trigger_config = from_user_config(&worker_config)?.ok_or(JError::new(
+        "Deal activation failed due to failure to parse trigger config",
+    ))?;
 
     spell_event_bus_api
         .subscribe(installation_spell_id, trigger_config)

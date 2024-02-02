@@ -381,7 +381,7 @@ pub async fn create_swarm_with_runtime<RT: AquaRuntime>(
         .iter()
         .map(|service| {
             system_services_config::ServiceKey::from_string(service)
-                .expect(&format!("service {service} doesn't exist"))
+                .unwrap_or_else(|| panic!("service {service} doesn't exist"))
         })
         .collect();
 

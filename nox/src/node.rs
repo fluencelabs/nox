@@ -117,7 +117,7 @@ impl<RT: AquaRuntime> Node<RT> {
 
         let builtins_peer_id = to_peer_id(&config.builtins_key_pair.clone().into());
 
-        let root_key_pair: KeyPair = key_pair.clone().try_into()?;
+        let root_key_pair: KeyPair = key_pair.clone().into();
 
         let key_storage = KeyStorage::from_path(
             config.dir_config.keypairs_base_dir.clone(),

@@ -65,4 +65,11 @@ impl PeerScopes {
     pub fn get_host_peer_id(&self) -> PeerId {
         self.host_peer_id
     }
+
+    pub fn to_peer_id(&self, peer_scope: PeerScope) -> PeerId {
+        match peer_scope {
+            PeerScope::WorkerId(worker_id) => worker_id.into(),
+            PeerScope::Host => self.get_host_peer_id(),
+        }
+    }
 }
