@@ -16,7 +16,7 @@ marine-it-parser = { workspace = true }
 fluence-app-service = { workspace = true }
 marine-utils = { workspace = true }
 
-serde = { version = "1.0.195", features = ["derive"] }
+serde = { version = "1.0.196", features = ["derive"] }
 serde_json = { workspace = true }
 toml = "0.5.10"
 log = { workspace = true }
