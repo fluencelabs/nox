@@ -28,11 +28,11 @@ use spell_service_api::CallParams;
 
 impl Sorcerer {
     fn get_spell_counter(&self, peer_scope: PeerScope, spell_id: String) -> Result<u32, JError> {
-        let host_peer_id = self.scopes.get_host_peer_id();
+        let init_peer_id = self.scopes.to_peer_id(peer_scope);
         let params = CallParams::local(
-            spell_id,
             peer_scope,
-            host_peer_id,
+            spell_id,
+            init_peer_id,
             self.spell_script_particle_ttl,
         );
         let counter = self.spell_service_api.get_counter(params)?;
@@ -47,11 +47,11 @@ impl Sorcerer {
         spell_id: String,
         next_counter: u32,
     ) -> Result<(), JError> {
-        let host_peer_id = self.scopes.get_host_peer_id();
+        let init_peer_id = self.scopes.to_peer_id(peer_scope);
         let params = CallParams::local(
-            spell_id,
             peer_scope,
-            host_peer_id,
+            spell_id,
+            init_peer_id,
             self.spell_script_particle_ttl,
         );
         self.spell_service_api
@@ -60,11 +60,11 @@ impl Sorcerer {
     }
 
     fn get_spell_script(&self, peer_scope: PeerScope, spell_id: String) -> Result<String, JError> {
-        let host_peer_id = self.scopes.get_host_peer_id();
+        let init_peer_id = self.scopes.to_peer_id(peer_scope);
         let params = CallParams::local(
-            spell_id,
             peer_scope,
-            host_peer_id,
+            spell_id,
+            init_peer_id,
             self.spell_script_particle_ttl,
         );
         self.spell_service_api
@@ -115,12 +115,12 @@ impl Sorcerer {
         event: TriggerEvent,
         peer_scope: PeerScope,
     ) -> Result<(), JError> {
-        let host_peer_id = self.scopes.get_host_peer_id();
+        let init_peer_id = self.scopes.to_peer_id(peer_scope);
         let serialized_event = serde_json::to_string(&TriggerInfoAqua::from(event.info))?;
         let params = CallParams::local(
-            event.spell_id,
             peer_scope,
-            host_peer_id,
+            event.spell_id,
+            init_peer_id,
             self.spell_script_particle_ttl,
         );
         self.spell_service_api

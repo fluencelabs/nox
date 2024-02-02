@@ -86,15 +86,11 @@ impl CallParams {
     }
 
     pub fn local(
-        spell_id: String,
         peer_scope: PeerScope,
-        host_peer_id: PeerId,
+        spell_id: String,
+        init_peer_id: PeerId,
         ttl: Duration,
     ) -> Self {
-        let init_peer_id: PeerId = match peer_scope {
-            PeerScope::WorkerId(worker_id) => worker_id.into(),
-            PeerScope::Host => host_peer_id,
-        };
         Self {
             init_peer_id,
             peer_scope,
@@ -386,7 +382,7 @@ mod tests {
         let spell_id = create_spell(&pas, spell_service_blueprint_id, local_pid)
             .await
             .unwrap();
-        let params = CallParams::local(spell_id, PeerScope::Host, local_pid, TTL);
+        let params = CallParams::local(PeerScope::Host, spell_id, local_pid, TTL);
         (api, params)
     }
 

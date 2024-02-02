@@ -39,9 +39,8 @@ use thiserror::Error;
 use tokio::fs::DirEntry;
 use tokio_stream::wrappers::ReadDirStream;
 
-
 // default bound on the number of computations it can perform simultaneously
-pub const DEFAULT_PARALLELISM: usize = 2;
+const DEFAULT_PARALLELISM: usize = 2;
 
 pub fn to_abs_path(path: PathBuf) -> PathBuf {
     match std::env::current_dir().ok() {

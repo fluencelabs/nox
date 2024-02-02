@@ -18,7 +18,7 @@ use std::time::Duration;
 use uuid_utils::uuid;
 
 // default bound on the number of computations it can perform simultaneously
-pub const DEFAULT_PARALLELISM: usize = 2;
+const DEFAULT_PARALLELISM: usize = 2;
 
 const DEPLOYER_TTL: Duration = Duration::from_millis(60_000);
 
@@ -185,8 +185,8 @@ impl Deployer {
 
         let trigger_config = spell_event_bus::api::from_user_config(&spell_distro.trigger_config)?;
         let params = CallParams::local(
-            spell_id.to_string(),
             PeerScope::Host,
+            spell_id.to_string(),
             self.host_peer_id,
             DEPLOYER_TTL,
         );
@@ -241,8 +241,6 @@ impl Deployer {
             spell_distro.trigger_config,
             spell_distro.air.to_string(),
             json!(spell_distro.kv),
-            self.host_peer_id,
-            self.host_peer_id,
             self.host_peer_id,
         )
         .await

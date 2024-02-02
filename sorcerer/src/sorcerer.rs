@@ -116,8 +116,8 @@ impl Sorcerer {
                     .scope(spell_owner)
                     .expect("Should be local peer_id");
                 let params = CallParams::local(
-                    spell_id.clone(),
                     peer_scope,
+                    spell_id.clone(),
                     spell_owner,
                     self.spell_script_particle_ttl,
                 );

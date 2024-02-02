@@ -143,7 +143,6 @@ pub(crate) async fn deactivate_deal(
 
     let spells = spell_storage.get_registered_spells_by(PeerScope::WorkerId(worker_id));
 
-    let host_peer_id = scopes.get_host_peer_id();
     for spell_id in spells.into_iter() {
         spell_event_bus_api
             .unsubscribe(spell_id.clone())
@@ -157,9 +156,9 @@ pub(crate) async fn deactivate_deal(
         spell_service_api
             .set_trigger_config(
                 CallParams::local(
-                    spell_id.clone(),
                     PeerScope::WorkerId(worker_id),
-                    host_peer_id,
+                    spell_id.clone(),
+                    worker_id.into(),
                     Duration::from_millis(params.ttl as u64),
                 ),
                 TriggerConfig::default(),
@@ -196,7 +195,6 @@ pub(crate) async fn activate_deal(
     }
 
     let worker_id = workers.get_worker_id(deal_id)?;
-    let host_peer_id = scopes.get_host_peer_id();
 
     if workers.is_worker_active(worker_id) {
         return Err(JError::new("Deal has already been activated"));
@@ -215,9 +213,9 @@ pub(crate) async fn activate_deal(
 
     spell_service_api.set_trigger_config(
         CallParams::local(
-            installation_spell_id.clone(),
             PeerScope::WorkerId(worker_id),
-            host_peer_id,
+            installation_spell_id.clone(),
+            worker_id.into(),
             Duration::from_millis(params.ttl as u64),
         ),
         worker_config.clone(),

@@ -67,8 +67,6 @@ pub async fn install_spell(
     script: String,
     init_data: Value,
     owner_id: PeerId,
-    host_peer_id: PeerId,
-    init_peer_id: PeerId,
 ) -> Result<String, JError> {
     let config = api::from_user_config(&user_config)?;
 
@@ -82,7 +80,7 @@ pub async fn install_spell(
         .await?;
     spell_storage.register_spell(peer_scope, spell_id.clone());
 
-    let params = CallParams::local(spell_id.clone(), peer_scope, host_peer_id, ttl);
+    let params = CallParams::local(peer_scope, spell_id.clone(), owner_id, ttl);
     // Save the script to the spell
     spell_service_api.set_script(params.clone(), script)?;
     // Save init_data to the spell's KV
@@ -100,7 +98,7 @@ pub async fn install_spell(
 
             spell_storage.unregister_spell(peer_scope, &spell_id);
             services
-                .remove_service(peer_scope, &particle_id, &spell_id, init_peer_id, true)
+                .remove_service(peer_scope, &particle_id, &spell_id, owner_id, true)
                 .await?;
 
             return Err(JError::new(format!(
@@ -129,9 +127,9 @@ pub fn get_spell_info(
     peer_scope: PeerScope,
     ttl: Duration,
     spell_id: String,
-    host_peer_id: PeerId,
+    init_peer_id: PeerId,
 ) -> Result<SpellInfo, JError> {
-    let params = CallParams::local(spell_id.clone(), peer_scope, host_peer_id, ttl);
+    let params = CallParams::local(peer_scope, spell_id.clone(), init_peer_id, ttl);
     let trigger_config = spell_service_api
         .get_trigger_config(params.clone())
         .map_err(|e| JError::new(f!("Failed to get trigger_config for spell {spell_id}: {e}")))?;
@@ -195,8 +193,6 @@ pub(crate) async fn spell_install(
         script,
         init_data,
         owner_id,
-        scopes.get_host_peer_id(),
-        params.init_peer_id,
     )
     .await?;
 
@@ -343,11 +339,11 @@ pub(crate) async fn spell_update_config(
 
     let user_config: TriggerConfig = Args::next("config", &mut args)?;
     let config = api::from_user_config(&user_config)?;
-
+    let init_peer_id = scopes.to_peer_id(peer_scope);
     let params = CallParams::local(
-        spell_id.clone(),
         peer_scope,
-        scopes.get_host_peer_id(),
+        spell_id.clone(),
+        init_peer_id,
         Duration::from_millis(params.ttl as u64),
     );
     spell_service_api.set_trigger_config(params, user_config)?;
