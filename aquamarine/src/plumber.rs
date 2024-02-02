@@ -322,7 +322,8 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
         // do not schedule task if another in progress
         if self.cleanup_future.is_none() {
             // Remove expired actors
-            let mut cleanup_keys: Vec<(String, PeerId)> = Vec::with_capacity(MAX_CLEANUP_KEYS_SIZE);
+            let mut cleanup_keys: Vec<(String, PeerId, Vec<u8>)> =
+                Vec::with_capacity(MAX_CLEANUP_KEYS_SIZE);
             let now = now_ms();
             self.actors.retain(|_, actor| {
                 // TODO: this code isn't optimal we continue iterate over actors if cleanup keys is full

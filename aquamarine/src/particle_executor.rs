@@ -88,7 +88,11 @@ impl<RT: AquaRuntime> ParticleExecutor for RT {
 
         let prev_data = data_store
             .clone()
-            .read_data(particle_id.as_str(), current_peer_id.to_base58().as_str())
+            .read_data(
+                particle_id.as_str(),
+                current_peer_id.to_base58().as_str(),
+                &particle.signature,
+            )
             .await;
 
         if let Ok(prev_data) = prev_data {
@@ -195,6 +199,7 @@ where
                         &avm_result.particle.data,
                         &avm_result.call_results,
                         &avm_result.particle_params,
+                        &avm_result.particle.signature,
                         outcome,
                         stats.interpretation_time,
                         stats.memory_delta,
@@ -214,6 +219,7 @@ where
                     &outcome.data,
                     particle_id.as_str(),
                     current_peer_id.to_base58().as_str(),
+                    &avm_result.particle.signature,
                 )
                 .await;
             if let Err(err) = store_result {

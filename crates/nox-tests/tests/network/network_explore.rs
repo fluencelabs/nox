@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 use std::str::FromStr;
-use std::thread::sleep;
 use std::time::{Duration, Instant};
 
 use base64::{engine::general_purpose::STANDARD as base64, Engine};
@@ -339,7 +338,6 @@ async fn explore_services_heavy() {
 async fn explore_services_fixed_heavy() {
     enable_logs();
     let swarms = make_swarms(5).await;
-    sleep(KAD_TIMEOUT);
 
     // language=Clojure
     let script = r#"
@@ -396,7 +394,7 @@ async fn explore_services_fixed_heavy() {
     client.send_particle(script, data).await;
 
     let now = Instant::now();
-    let tout = Duration::from_secs(10);
+    let tout = Duration::from_secs(20);
     let mut received = Vec::new();
 
     loop {

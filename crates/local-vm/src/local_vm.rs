@@ -248,11 +248,27 @@ pub async fn make_particle(
     let timestamp = now_ms() as u64;
     let ttl = particle_ttl.as_millis() as u32;
 
+    let mut particle = Particle {
+        id: id.clone(),
+        init_peer_id: peer_id,
+        timestamp,
+        ttl,
+        script: script.clone(),
+        signature: vec![],
+        data: vec![],
+    };
+    // We can sign at this point since the `data` which is evaluated below isn't part of the signature
+    particle.sign(key_pair).expect("sign particle");
+
     let mut call_results: CallResults = <_>::default();
     let mut particle_data = vec![];
     loop {
         let prev_data = data_store
-            .read_data(id.as_str(), peer_id.to_base58().as_str())
+            .read_data(
+                id.as_str(),
+                peer_id.to_base58().as_str(),
+                &particle.signature,
+            )
             .await
             .expect("Could not load prev data");
 
@@ -276,7 +292,12 @@ pub async fn make_particle(
             .expect("execute & make particle");
 
         data_store
-            .store_data(&data, id.as_str(), peer_id.to_base58().as_str())
+            .store_data(
+                &data,
+                id.as_str(),
+                peer_id.to_base58().as_str(),
+                &particle.signature,
+            )
             .await
             .expect("local vm could not store particle.data data");
 
@@ -294,17 +315,7 @@ pub async fn make_particle(
         tokio::task::yield_now().await;
     }
 
-    let mut particle = Particle {
-        id: id.clone(),
-        init_peer_id: peer_id,
-        timestamp,
-        ttl,
-        script,
-        signature: vec![],
-        data: particle_data,
-    };
-
-    particle.sign(key_pair).expect("sign particle");
+    particle.data = particle_data;
 
     tracing::info!(
         particle_id = id,
@@ -327,7 +338,11 @@ pub async fn read_args(
     let mut particle_data = particle.data;
     loop {
         let prev_data = data_store
-            .read_data(particle.id.as_str(), peer_id.to_base58().as_str())
+            .read_data(
+                particle.id.as_str(),
+                peer_id.to_base58().as_str(),
+                &particle.signature,
+            )
             .await
             .expect("Could not load prev data");
 
@@ -351,7 +366,12 @@ pub async fn read_args(
             .expect("execute & make particle");
 
         data_store
-            .store_data(&data, particle.id.as_str(), peer_id.to_base58().as_str())
+            .store_data(
+                &data,
+                particle.id.as_str(),
+                peer_id.to_base58().as_str(),
+                &particle.signature,
+            )
             .await
             .expect("local vm could not store particle.data data");
 

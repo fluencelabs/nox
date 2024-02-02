@@ -17,11 +17,12 @@
 use std::convert::identity;
 use std::net::SocketAddr;
 use std::sync::Arc;
+use std::thread::available_parallelism;
 use std::{path::PathBuf, time::Duration};
 
 use derivative::Derivative;
 use fluence_keypair::KeyPair;
-use futures::{FutureExt, StreamExt};
+use futures::{stream, FutureExt, StreamExt};
 use libp2p::core::multiaddr::Protocol;
 use libp2p::{core::Multiaddr, PeerId};
 use serde::Deserialize;
@@ -33,7 +34,7 @@ use base64::{engine::general_purpose::STANDARD as base64, Engine};
 use fluence_libp2p::random_multiaddr::{create_memory_maddr, create_tcp_maddr};
 use fluence_libp2p::Transport;
 use fs_utils::to_abs_path;
-use futures::future::{join_all, BoxFuture};
+use futures::future::BoxFuture;
 use futures::stream::iter;
 use nox::{Connectivity, Node};
 use particle_protocol::ProtocolConfig;
@@ -48,6 +49,8 @@ use tracing::{Instrument, Span};
 
 const HEALTH_CHECK_POLLING_INTERVAL: Duration = Duration::from_millis(100);
 
+// default bound on the number of computations it can perform simultaneously
+const DEFAULT_PARALLELISM: usize = 2;
 #[allow(clippy::upper_case_acronyms)]
 type AVM = aquamarine::AVMRunner;
 
@@ -77,11 +80,11 @@ pub async fn make_swarms(n: usize) -> Vec<CreatedSwarm> {
 
 pub async fn make_swarms_with_cfg<F>(n: usize, mut update_cfg: F) -> Vec<CreatedSwarm>
 where
-    F: FnMut(SwarmConfig) -> SwarmConfig,
+    F: (FnMut(SwarmConfig) -> SwarmConfig) + 'static + Send,
 {
     make_swarms_with(
         n,
-        |bs, maddr| create_swarm(update_cfg(SwarmConfig::new(bs, maddr))).boxed(),
+        move |bs, maddr| create_swarm(update_cfg(SwarmConfig::new(bs, maddr))).boxed(),
         create_memory_maddr,
         identity,
         true,
@@ -96,7 +99,7 @@ pub async fn make_swarms_with_transport_and_mocked_vm(
     make_swarms_with::<EasyVM, _, _, _>(
         n,
         |bs, maddr| create_swarm_with_runtime(SwarmConfig::new(bs, maddr), |_| None).boxed(),
-        || match transport {
+        move || match transport {
             Transport::Memory => create_memory_maddr(),
             Transport::Network => create_tcp_maddr(),
         },
@@ -113,12 +116,12 @@ pub async fn make_swarms_with_mocked_vm<F, B>(
     bootstraps: B,
 ) -> Vec<CreatedSwarm>
 where
-    F: FnMut(SwarmConfig) -> SwarmConfig,
-    B: FnMut(Vec<Multiaddr>) -> Vec<Multiaddr>,
+    F: (FnMut(SwarmConfig) -> SwarmConfig) + 'static + Send,
+    B: (FnMut(Vec<Multiaddr>) -> Vec<Multiaddr>) + 'static + Send,
 {
     make_swarms_with::<EasyVM, _, _, _>(
         n,
-        |bs, maddr| {
+        move |bs, maddr| {
             create_swarm_with_runtime(update_cfg(SwarmConfig::new(bs, maddr)), move |_| delay)
                 .boxed()
         },
@@ -134,7 +137,7 @@ pub async fn make_swarms_with_keypair(
     keypair: KeyPair,
     spell_base_dir: Option<String>,
 ) -> Vec<CreatedSwarm> {
-    make_swarms_with_cfg(n, |mut cfg| {
+    make_swarms_with_cfg(n, move |mut cfg| {
         cfg.keypair = keypair.clone();
         cfg.spell_base_dir = spell_base_dir.clone().map(PathBuf::from);
         cfg
@@ -150,65 +153,65 @@ pub async fn make_swarms_with<RT: AquaRuntime, F, M, B>(
     wait_connected: bool,
 ) -> Vec<CreatedSwarm>
 where
-    F: FnMut(
-        Vec<Multiaddr>,
-        Multiaddr,
-    ) -> BoxFuture<'static, (PeerId, Box<Node<RT>>, KeyPair, SwarmConfig, Span)>,
-    M: FnMut() -> Multiaddr,
-    B: FnMut(Vec<Multiaddr>) -> Vec<Multiaddr>,
+    F: (FnMut(
+            Vec<Multiaddr>,
+            Multiaddr,
+        ) -> BoxFuture<'static, (PeerId, Box<Node<RT>>, KeyPair, SwarmConfig, Span)>)
+        + 'static
+        + Send,
+    M: (FnMut() -> Multiaddr) + 'static + Send,
+    B: (FnMut(Vec<Multiaddr>) -> Vec<Multiaddr>) + 'static + Send,
 {
     let addrs = (0..n).map(|_| create_maddr()).collect::<Vec<_>>();
-    let nodes = addrs
-        .iter()
+
+    let parallelism = available_parallelism()
+        .map(|x| x.get())
+        .unwrap_or(DEFAULT_PARALLELISM);
+
+    let nodes: Vec<CreatedSwarm> = stream::iter(addrs.clone())
         .map(|addr| {
-            let addrs = addrs
-                .iter()
-                .filter(|&a| a != addr)
-                .cloned()
-                .collect::<Vec<_>>();
+            let addrs: Vec<Multiaddr> = addrs.clone().into_iter().filter(|a| a != &addr).collect();
             let bootstraps = bootstraps(addrs);
-            create_node(bootstraps, addr.clone())
+            let create_node_future = create_node(bootstraps, addr.clone());
+            async move {
+                let (peer_id, node, management_keypair, config, span) = create_node_future.await;
+                let connectivity = node.connectivity.clone();
+                let aquamarine_api = node.aquamarine_api.clone();
+                let started_node = node
+                    .start(peer_id)
+                    .instrument(span)
+                    .await
+                    .expect("node start");
+                let http_listen_addr = started_node
+                    .http_listen_addr
+                    .expect("could not take http listen addr");
+                CreatedSwarm {
+                    peer_id: peer_id.clone(),
+                    multiaddr: config.listen_on,
+                    tmp_dir: config.tmp_dir.clone(),
+                    management_keypair,
+                    exit_outlet: started_node.exit_outlet,
+                    connectivity,
+                    aquamarine_api,
+                    http_listen_addr,
+                }
+            }
+            .boxed()
         })
-        .collect::<Vec<_>>();
+        .buffer_unordered(parallelism)
+        .collect()
+        .await;
 
     // start all nodes
-    let infos = join_all(nodes.into_iter().map(move |tasks| {
-        async {
-            let (peer_id, node, management_keypair, config, span) = tasks.await;
-            let connectivity = node.connectivity.clone();
-            let aquamarine_api = node.aquamarine_api.clone();
-            let started_node = node
-                .start(peer_id)
-                .instrument(span)
-                .await
-                .expect("node start");
-            let http_listen_addr = started_node
-                .http_listen_addr
-                .expect("could not take http listen addr");
-            CreatedSwarm {
-                peer_id,
-                multiaddr: config.listen_on,
-                tmp_dir: config.tmp_dir.clone(),
-                management_keypair,
-                exit_outlet: started_node.exit_outlet,
-                connectivity,
-                aquamarine_api,
-                http_listen_addr,
-            }
-        }
-        .boxed()
-    }))
-    .await;
-
     if wait_connected {
-        let addrs = infos
+        let addrs = nodes
             .iter()
             .map(|info| info.http_listen_addr)
             .collect::<Vec<_>>();
         wait_connected_on_addrs(addrs).await;
     }
 
-    infos
+    nodes
 }
 
 async fn wait_connected_on_addrs(addrs: Vec<SocketAddr>) {
@@ -225,6 +228,7 @@ async fn wait_connected_on_addrs(addrs: Vec<SocketAddr>) {
             if response.status() == reqwest::StatusCode::OK {
                 break;
             }
+
 
             tokio::time::sleep(HEALTH_CHECK_POLLING_INTERVAL).await
         }
@@ -323,12 +327,15 @@ pub async fn create_swarm_with_runtime<RT: AquaRuntime>(
     let peer_id = libp2p::identity::Keypair::from(config.keypair.clone())
         .public()
         .to_peer_id();
-    let spawn = tracing::info_span!("Node", peer_id = peer_id.to_base58());
+    let parent_span = tracing::info_span!("Node", peer_id = peer_id.to_base58());
+    let config_apply_span = tracing::info_span!(parent: &parent_span, "config");
+    let node_listen_span = tracing::info_span!(parent: &parent_span, "config");
+    let node_creation_span = tracing::info_span!(parent: &parent_span, "config");
 
-    let tmp_dir = config.tmp_dir.path().to_path_buf();
-    let _enter = spawn.enter();
+    let (node, management_kp) = config_apply_span.in_scope(||{
+        let tmp_dir = config.tmp_dir.path().to_path_buf();
 
-    let node_config = json!({
+        let node_config = json!({
         "base_dir": tmp_dir.to_string_lossy(),
         "root_key_pair": {
             "format": format,
@@ -349,87 +356,93 @@ pub async fn create_swarm_with_runtime<RT: AquaRuntime>(
         "cc_events_dir": config.cc_events_dir,
     });
 
-    let node_config: UnresolvedConfig =
-        UnresolvedConfig::deserialize(node_config).expect("created_swarm: deserialize config");
+        let node_config: UnresolvedConfig =
+            UnresolvedConfig::deserialize(node_config).expect("created_swarm: deserialize config");
 
-    let mut resolved = node_config.resolve().expect("failed to resolve config");
+        let mut resolved = node_config.resolve().expect("failed to resolve config");
 
-    resolved.node_config.transport_config.transport = Transport::Memory;
-    resolved.node_config.transport_config.socket_timeout = TRANSPORT_TIMEOUT;
-    resolved.node_config.protocol_config =
-        ProtocolConfig::new(TRANSPORT_TIMEOUT, TRANSPORT_TIMEOUT);
+        resolved.node_config.transport_config.transport = Transport::Memory;
+        resolved.node_config.transport_config.socket_timeout = TRANSPORT_TIMEOUT;
+        resolved.node_config.protocol_config =
+            ProtocolConfig::new(TRANSPORT_TIMEOUT, TRANSPORT_TIMEOUT);
 
-    resolved.node_config.bootstrap_nodes = config.bootstraps.clone();
-    resolved.node_config.bootstrap_config = BootstrapConfig::zero();
-    resolved.node_config.bootstrap_frequency = 1;
+        resolved.node_config.bootstrap_nodes = config.bootstraps.clone();
+        resolved.node_config.bootstrap_config = BootstrapConfig::zero();
+        resolved.node_config.bootstrap_frequency = 1;
 
-    resolved.metrics_config.metrics_enabled = false;
+        resolved.metrics_config.metrics_enabled = false;
 
-    resolved.node_config.allow_local_addresses = true;
+        resolved.node_config.allow_local_addresses = true;
 
-    resolved.node_config.aquavm_pool_size = config.pool_size.unwrap_or(1);
-    resolved.node_config.particle_execution_timeout = EXECUTION_TIMEOUT;
+        resolved.node_config.aquavm_pool_size = config.pool_size.unwrap_or(1);
+        resolved.node_config.particle_execution_timeout = EXECUTION_TIMEOUT;
 
-    resolved.node_config.allowed_binaries = config.allowed_binaries.clone();
+        resolved.node_config.allowed_binaries = config.allowed_binaries.clone();
 
-    if let Some(config) = config.override_system_services_config.clone() {
-        resolved.system_services = config;
-    }
-    // `enable_system_services` has higher priority then `enable` field of the SystemServicesConfig
-    resolved.system_services.enable = config
-        .enabled_system_services
-        .iter()
-        .map(|service| {
-            system_services_config::ServiceKey::from_string(service)
-                .unwrap_or_else(|| panic!("service {service} doesn't exist"))
-        })
-        .collect();
+        if let Some(config) = config.override_system_services_config.clone() {
+            resolved.system_services = config;
+        }
+        // `enable_system_services` has higher priority then `enable` field of the SystemServicesConfig
+        resolved.system_services.enable = config
+            .enabled_system_services
+            .iter()
+            .map(|service| {
+                system_services_config::ServiceKey::from_string(service)
+                    .unwrap_or_else(|| panic!("service {service} doesn't exist"))
+            })
+            .collect();
 
-    if let Some(endpoint) = config.connector_api_endpoint.clone() {
-        resolved.system_services.decider.network_api_endpoint = endpoint;
-    }
+        if let Some(endpoint) = config.connector_api_endpoint.clone() {
+            resolved.system_services.decider.network_api_endpoint = endpoint;
+        }
 
-    let management_kp = fluence_keypair::KeyPair::generate_ed25519();
-    let management_peer_id = libp2p::identity::Keypair::from(management_kp.clone())
-        .public()
-        .to_peer_id();
-    resolved.node_config.management_peer_id = management_peer_id;
-    resolved.chain_listener_config = config.chain_listener.clone();
+        let management_kp = fluence_keypair::KeyPair::generate_ed25519();
+        let management_peer_id = libp2p::identity::Keypair::from(management_kp.clone())
+            .public()
+            .to_peer_id();
+        resolved.node_config.management_peer_id = management_peer_id;
+        resolved.chain_listener_config = config.chain_listener.clone();
 
-    let vm_config = vm_config(BaseVmConfig {
-        peer_id,
-        tmp_dir: tmp_dir.clone(),
-        listen_on: config.listen_on.clone(),
-        manager: management_peer_id,
+        let vm_config = vm_config(BaseVmConfig {
+            peer_id,
+            tmp_dir: tmp_dir.clone(),
+            listen_on: config.listen_on.clone(),
+            manager: management_peer_id,
+        });
+
+        let data_store_config = DataStoreConfig::new(tmp_dir.clone());
+
+        let system_services_config = resolved.system_services.clone();
+        let system_service_distros =
+            system_services::SystemServiceDistros::default_from(system_services_config)
+                .expect("Failed to get default system service distros")
+                .extend(config.extend_system_services.clone());
+        let node = Node::new(
+            resolved,
+            vm_config,
+            data_store_config,
+            "some version",
+            "some version",
+            system_service_distros,
+        );
+            (node, management_kp)
     });
 
-    let data_store_config = DataStoreConfig::new(tmp_dir.clone());
+    let mut node = node
+        .instrument(node_creation_span)
+        .await
+        .expect("create node");
 
-    let system_services_config = resolved.system_services.clone();
-    let system_service_distros =
-        system_services::SystemServiceDistros::default_from(system_services_config)
-            .expect("Failed to get default system service distros")
-            .extend(config.extend_system_services.clone());
-
-    let mut node = Node::new(
-        resolved,
-        vm_config,
-        data_store_config,
-        "some version",
-        "some version",
-        system_service_distros,
-    )
-    .await
-    .expect("create node");
-    node.listen(vec![config.listen_on.clone()]).expect("listen");
-
-    (
-        node.scope.get_host_peer_id(),
-        node,
-        management_kp,
-        config,
-        spawn.clone(),
-    )
+    node_listen_span.in_scope(|| {
+        node.listen(vec![config.listen_on.clone()]).expect("listen");
+        (
+            node.scope.get_host_peer_id(),
+            node,
+            management_kp,
+            config,
+            parent_span.clone(),
+        )
+    })
 }
 
 pub async fn create_swarm(
