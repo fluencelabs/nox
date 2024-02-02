@@ -15,8 +15,10 @@ use spell_storage::SpellStorage;
 use std::collections::HashMap;
 use std::thread::available_parallelism;
 use std::time::Duration;
-use types::DEFAULT_PARALLELISM;
 use uuid_utils::uuid;
+
+// default bound on the number of computations it can perform simultaneously
+pub const DEFAULT_PARALLELISM: usize = 2;
 
 const DEPLOYER_TTL: Duration = Duration::from_millis(60_000);
 

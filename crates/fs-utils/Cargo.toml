@@ -12,4 +12,3 @@ tokio-stream = { workspace = true, features = ["fs"] }
 tracing = { workspace = true }
 thiserror = { workspace = true }
 futures-util = { workspace = true }
-types = { workspace = true }
