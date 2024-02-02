@@ -4,9 +4,9 @@ use chain_data::{
 };
 use ethabi::param_type::ParamType;
 use ethabi::Token;
-use fluence_libp2p::peerid_serializer;
 use libp2p_identity::PeerId;
 use serde::{Deserialize, Serialize};
+use types::peer_id;
 
 /// Corresponding Solidity type:
 /// ```solidity
@@ -25,7 +25,10 @@ pub struct UnitId(pub Vec<u8>);
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct CCActivatedData {
-    #[serde(with = "peerid_serializer")]
+    #[serde(
+        serialize_with = "peer_id::serde::serialize",
+        deserialize_with = "peer_id::serde::deserialize"
+    )]
     pub peer_id: PeerId,
     pub commitment_id: CommitmentId,
     pub end_epoch: U256,

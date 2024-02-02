@@ -45,7 +45,8 @@ members = [
     "crates/system-services",
     "crates/chain-listener",
     "crates/hex-utils",
-    "crates/chain-data"
+    "crates/chain-data",
+    "crates/types"
 ]
 exclude = [
     "nox/tests/tetraplets",
@@ -96,6 +97,7 @@ subnet-resolver = { path = "crates/subnet-resolver" }
 hex-utils = { path = "crates/hex-utils"}
 chain-data = { path = "crates/chain-data"}
 chain-listener = { path = "crates/chain-listener"}
+types = { path = "crates/types"}
 
 # spell
 fluence-spell-dtos = "=0.6.10"
@@ -157,10 +159,11 @@ ethabi = "18.0.0"
 jsonrpsee = "0.21.0"
 blake3 = "1.5.0"
 rand = "0.8.5"
+futures-util = "0.3.30"
 
 # Enable a small amount of optimization in debug mode
 [profile.dev]
-opt-level = 1
+opt-level = 0
 
 # Enable high optimizations for dependencies, but not for our code:
 [profile.dev.package."*"]

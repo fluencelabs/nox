@@ -17,6 +17,7 @@
 use libp2p::PeerId;
 use std::path::PathBuf;
 use thiserror::Error;
+use types::peer_scope::WorkerId;
 
 #[derive(Debug, Error)]
 pub enum KeyStorageError {
@@ -47,7 +48,7 @@ pub enum KeyStorageError {
         err: fluence_keypair::error::DecodingError,
     },
     #[error("Invalid key format {path}: {err}")]
-    PersistedKeypairInvalidKeyformat {
+    PersistedKeypairInvalidKeyFormat {
         path: PathBuf,
         #[source]
         err: fluence_keypair::error::Error,
@@ -66,7 +67,7 @@ pub enum KeyStorageError {
     #[error("Error removing persisted keypair {path:?} for worker {worker_id}: {err}")]
     RemoveErrorPersistedKeypair {
         path: PathBuf,
-        worker_id: PeerId,
+        worker_id: WorkerId,
         #[source]
         err: std::io::Error,
     },
@@ -116,7 +117,7 @@ pub enum WorkersError {
     #[error("Worker for deal_id {0} not found")]
     WorkerNotFoundByDeal(String),
     #[error("Worker {0} not found")]
-    WorkerNotFound(PeerId),
+    WorkerNotFound(WorkerId),
     #[error("Error serializing persisted worker: {err}")]
     SerializePersistedWorker {
         #[source]
@@ -131,7 +132,7 @@ pub enum WorkersError {
     #[error("Error removing persisted worker {path:?} for worker {worker_id}: {err}")]
     RemoveErrorPersistedWorker {
         path: PathBuf,
-        worker_id: PeerId,
+        worker_id: WorkerId,
         #[source]
         err: std::io::Error,
     },
@@ -139,7 +140,7 @@ pub enum WorkersError {
     KeypairNotFound(PeerId),
     #[error("Failed to create runtime for worker {worker_id}: {err}")]
     CreateRuntime {
-        worker_id: PeerId,
+        worker_id: WorkerId,
         #[source]
         err: std::io::Error,
     },

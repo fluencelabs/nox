@@ -24,7 +24,7 @@ use std::{
 use tracing::{instrument, Instrument, Span};
 
 use crate::deadline::Deadline;
-use crate::particle_effects::RoutingEffects;
+use crate::particle_effects::RawRoutingEffects;
 use crate::particle_executor::{FutResult, ParticleExecutor};
 use crate::particle_functions::{Functions, SingleCallStat};
 use crate::spawner::{SpawnFunctions, Spawner};
@@ -39,7 +39,7 @@ struct Reusables<RT> {
     vm: Option<RT>,
 }
 
-type AVMCallResult<RT> = FutResult<(usize, Option<RT>), RoutingEffects, InterpretationStats>;
+type AVMCallResult<RT> = FutResult<(usize, Option<RT>), RawRoutingEffects, InterpretationStats>;
 type AVMTask<RT> = BoxFuture<
     'static,
     (
@@ -134,7 +134,7 @@ where
     pub fn poll_completed(
         &mut self,
         cx: &mut Context<'_>,
-    ) -> Poll<FutResult<(usize, Option<RT>), RoutingEffects, InterpretationStats>> {
+    ) -> Poll<FutResult<(usize, Option<RT>), RawRoutingEffects, InterpretationStats>> {
         self.waker = Some(cx.waker().clone());
 
         self.functions.poll(cx);
@@ -171,7 +171,7 @@ where
                 parent_span.clone(),
             );
 
-            let effects = RoutingEffects {
+            let effects = RawRoutingEffects {
                 particle: ExtendedParticle::linked(
                     Particle {
                         data: effects.new_data,

@@ -1,0 +1,12 @@
+[package]
+name = "types"
+version = "0.1.0"
+edition = "2021"
+
+
+[dependencies]
+libp2p-identity = { workspace = true, features = ["peerid"] }
+serde = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }

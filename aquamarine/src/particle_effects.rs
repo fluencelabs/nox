@@ -19,6 +19,7 @@ use particle_protocol::ExtendedParticle;
 use std::time::Duration;
 
 use libp2p::PeerId;
+use particle_services::PeerScope;
 
 #[derive(Clone, Debug)]
 /// Effects produced by particle execution. Currently the only effect is that of sending particles.
@@ -64,7 +65,19 @@ impl InterpretationStats {
 /// Routing part of the [[ParticleEffects].
 /// Instruct to send particle to either virtual or remote peers.
 #[derive(Clone, Debug)]
-pub struct RoutingEffects {
+pub struct RawRoutingEffects {
     pub particle: ExtendedParticle,
     pub next_peers: Vec<PeerId>,
+}
+
+#[derive(Clone, Debug)]
+pub struct RemoteRoutingEffects {
+    pub particle: ExtendedParticle,
+    pub next_peers: Vec<PeerId>,
+}
+
+#[derive(Clone, Debug)]
+pub struct LocalRoutingEffects {
+    pub particle: ExtendedParticle,
+    pub next_peers: Vec<PeerScope>,
 }

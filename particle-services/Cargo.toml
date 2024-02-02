@@ -7,6 +7,7 @@ edition = "2021"
 [dependencies]
 particle-modules = { workspace = true }
 particle-protocol = { workspace = true }
+types = { workspace = true }
 
 fs-utils = { workspace = true }
 service-modules = { workspace = true }
@@ -25,7 +26,7 @@ fluence-app-service = { workspace = true }
 parking_lot = { workspace = true }
 serde_json = { workspace = true }
 serde = { workspace = true }
-log = { workspace = true }
+tracing = { workspace = true }
 uuid = { workspace = true }
 toml = "0.5.10"
 thiserror = { workspace = true }
@@ -33,6 +34,9 @@ derivative = { workspace = true }
 eyre = { workspace = true }
 humantime-serde = { workspace = true }
 health = { workspace = true }
+tokio = { workspace = true, features = ["fs"] }
+tokio-util = { workspace = true, features = ["rt"] }
+tokio-stream = { workspace = true, features = ["fs"] }
 
 [dev-dependencies]
 tempdir = "0.3.7"
@@ -41,3 +45,4 @@ base64 = { workspace = true }
 config-utils = { workspace = true }
 fluence-keypair = { workspace = true }
 tokio = { workspace = true, features = ["macros"] }
+tempfile = { workspace = true }

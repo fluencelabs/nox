@@ -30,6 +30,7 @@ use json_utils::into_array;
 use libp2p::core::Multiaddr;
 use libp2p::kad::KBucketKey;
 use libp2p::PeerId;
+use log_utils::enable_logs;
 use maplit::hashmap;
 use multihash::Multihash;
 use now_millis::now_ms;
@@ -522,6 +523,7 @@ async fn resolve_alias_opt_not_exists() {
 
 #[tokio::test]
 async fn resolve_alias_removed() {
+    enable_logs();
     let swarms = make_swarms(1).await;
 
     let mut client = ConnectedClient::connect_with_keypair(
@@ -1804,6 +1806,7 @@ async fn sign_verify() {
 
 #[tokio::test]
 async fn sign_invalid_tetraplets() {
+    enable_logs();
     let swarms = make_swarms_with_cfg(2, |mut cfg| {
         cfg.enabled_system_services = vec!["registry".to_string()];
         cfg

@@ -1040,6 +1040,7 @@ dependencies = [
  "thiserror",
  "tokio",
  "tracing",
+ "types",
 ]
 
 [[package]]
@@ -2232,7 +2233,12 @@ name = "fs-utils"
 version = "0.1.0"
 dependencies = [
  "eyre",
+ "futures-util",
  "rand 0.8.5",
+ "thiserror",
+ "tokio",
+ "tokio-stream",
+ "tracing",
 ]
 
 [[package]]
@@ -5226,6 +5232,7 @@ dependencies = [
  "thiserror",
  "tokio",
  "toml-utils",
+ "types",
  "uuid-utils",
  "workers",
 ]
@@ -5246,6 +5253,7 @@ dependencies = [
  "serde_json",
  "thiserror",
  "tokio",
+ "types",
 ]
 
 [[package]]
@@ -5302,6 +5310,7 @@ dependencies = [
  "thiserror",
  "tokio",
  "tracing",
+ "types",
  "unsigned-varint 0.8.0",
 ]
 
@@ -5321,7 +5330,6 @@ dependencies = [
  "humantime-serde",
  "json-utils",
  "libp2p-identity",
- "log",
  "now-millis",
  "parking_lot",
  "particle-args",
@@ -5334,9 +5342,14 @@ dependencies = [
  "server-config",
  "service-modules",
  "tempdir",
+ "tempfile",
  "thiserror",
  "tokio",
+ "tokio-stream",
+ "tokio-util",
  "toml 0.5.11",
+ "tracing",
+ "types",
  "uuid",
  "uuid-utils",
  "workers",
@@ -6601,6 +6614,7 @@ dependencies = [
  "temp-env",
  "tempfile",
  "toml 0.7.8",
+ "types",
 ]
 
 [[package]]
@@ -6846,6 +6860,7 @@ dependencies = [
  "tokio",
  "tokio-stream",
  "tracing",
+ "types",
  "uuid-utils",
 ]
 
@@ -7062,10 +7077,12 @@ dependencies = [
  "eyre",
  "fluence-app-service",
  "fluence-spell-dtos",
+ "futures",
  "libp2p",
  "log",
  "maplit",
  "now-millis",
+ "num_cpus",
  "particle-args",
  "particle-execution",
  "particle-modules",
@@ -7082,6 +7099,7 @@ dependencies = [
  "toml 0.5.11",
  "tracing",
  "trust-graph-distro",
+ "types",
  "uuid-utils",
 ]
 
@@ -7637,6 +7655,15 @@ name = "typenum"
 version = "1.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "42ff0bf0c66b8238c6f3b578df37d0b7848e55df8577b3f74f92a69acceeb825"
+
+[[package]]
+name = "types"
+version = "0.1.0"
+dependencies = [
+ "libp2p-identity",
+ "serde",
+ "serde_json",
+]
 
 [[package]]
 name = "ucd-trie"
@@ -8821,9 +8848,9 @@ dependencies = [
  "tempfile",
  "thiserror",
  "tokio",
- "tokio-stream",
  "toml 0.5.11",
  "tracing",
+ "types",
 ]
 
 [[package]]
