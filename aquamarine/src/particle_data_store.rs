@@ -307,7 +307,7 @@ fn store_key_from_components(particle_id: &str, current_peer_id: &str, signature
 }
 
 fn format_signature(signature: &[u8]) -> String {
-    hex::encode(signature)
+    bs58::encode(signature).into_string()
 }
 
 #[cfg(test)]
