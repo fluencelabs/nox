@@ -1686,9 +1686,9 @@ dependencies = [
 
 [[package]]
 name = "decider-distro"
-version = "0.5.14"
+version = "0.5.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b8a34cb0e574e7f48887423f4c31d573901229ff12c6694ed933aa87abf5c402"
+checksum = "f26fa7efb219509561a70012502cac6a711195dd9d613df7b5be723d210c310d"
 dependencies = [
  "built 0.7.1",
  "fluence-spell-dtos",
@@ -4748,7 +4748,7 @@ version = "0.1.0"
 
 [[package]]
 name = "nox"
-version = "0.18.0"
+version = "0.18.1"
 dependencies = [
  "air-interpreter-fs",
  "air-interpreter-wasm",
