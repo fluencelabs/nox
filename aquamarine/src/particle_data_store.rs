@@ -53,14 +53,19 @@ impl ParticleDataStore {
         }
     }
 
-    pub fn data_file(&self, particle_id: &str, current_peer_id: &str) -> PathBuf {
-        let key = store_key_from_components(particle_id, current_peer_id);
+    pub fn data_file(&self, particle_id: &str, current_peer_id: &str, signature: &[u8]) -> PathBuf {
+        let key = store_key_from_components(particle_id, current_peer_id, signature);
         self.particle_data_store.join(key)
     }
 
     /// Returns $ANOMALY_DATA_STORE/$particle_id/$timestamp
-    pub fn anomaly_dir(&self, particle_id: &str, current_peer_id: &str) -> PathBuf {
-        let key = store_key_from_components(particle_id, current_peer_id);
+    pub fn anomaly_dir(
+        &self,
+        particle_id: &str,
+        current_peer_id: &str,
+        signature: &[u8],
+    ) -> PathBuf {
+        let key = store_key_from_components(particle_id, current_peer_id, signature);
         [
             self.anomaly_data_store.as_path(),
             Path::new(&key),
@@ -94,9 +99,10 @@ impl ParticleDataStore {
         data: &[u8],
         particle_id: &str,
         current_peer_id: &str,
+        signature: &[u8],
     ) -> Result<()> {
         tracing::trace!(target: "particle_reap", particle_id = particle_id, "Storing data for particle");
-        let data_path = self.data_file(particle_id, current_peer_id);
+        let data_path = self.data_file(particle_id, current_peer_id, signature);
         tokio::fs::write(&data_path, data)
             .await
             .map_err(|err| DataStoreError::StoreData(err, data_path))?;
@@ -105,16 +111,21 @@ impl ParticleDataStore {
     }
 
     #[instrument(level = tracing::Level::INFO)]
-    pub async fn read_data(&self, particle_id: &str, current_peer_id: &str) -> Result<Vec<u8>> {
-        let data_path = self.data_file(particle_id, current_peer_id);
+    pub async fn read_data(
+        &self,
+        particle_id: &str,
+        current_peer_id: &str,
+        signature: &[u8],
+    ) -> Result<Vec<u8>> {
+        let data_path = self.data_file(particle_id, current_peer_id, signature);
         let data = tokio::fs::read(&data_path).await.unwrap_or_default();
         Ok(data)
     }
 
-    pub async fn batch_cleanup_data(&self, cleanup_keys: Vec<(String, PeerId)>) {
+    pub async fn batch_cleanup_data(&self, cleanup_keys: Vec<(String, PeerId, Vec<u8>)>) {
         let futures: FuturesUnordered<_> = cleanup_keys
             .into_iter()
-            .map(|(particle_id, peer_id)| async move {
+            .map(|(particle_id, peer_id, signature)| async move {
                 let peer_id = peer_id.to_string();
                 tracing::debug!(
                     target: "particle_reap",
@@ -123,7 +134,7 @@ impl ParticleDataStore {
                 );
 
                 if let Err(err) = self
-                    .cleanup_data(particle_id.as_str(), peer_id.as_str())
+                    .cleanup_data(particle_id.as_str(), peer_id.as_str(), &signature)
                     .await
                 {
                     tracing::warn!(
@@ -137,9 +148,14 @@ impl ParticleDataStore {
         let _results: Vec<_> = futures.collect().await;
     }
 
-    async fn cleanup_data(&self, particle_id: &str, current_peer_id: &str) -> Result<()> {
+    async fn cleanup_data(
+        &self,
+        particle_id: &str,
+        current_peer_id: &str,
+        signature: &[u8],
+    ) -> Result<()> {
         tracing::debug!(target: "particle_reap", particle_id = particle_id, "Cleaning up particle data for particle");
-        let path = self.data_file(particle_id, current_peer_id);
+        let path = self.data_file(particle_id, current_peer_id, signature);
         match tokio::fs::remove_file(&path).await {
             Ok(_) => Ok(()),
             // ignore NotFound
@@ -186,6 +202,7 @@ impl ParticleDataStore {
         current_data: &[u8],
         call_results: &CallResults,
         particle_parameters: &ParticleParameters<'_>,
+        particle_signature: &[u8],
         outcome: &RawAVMOutcome,
         execution_time: Duration,
         memory_delta: usize,
@@ -194,6 +211,7 @@ impl ParticleDataStore {
             .read_data(
                 &particle_parameters.particle_id,
                 &particle_parameters.current_peer_id,
+                particle_signature,
             )
             .await?;
 
@@ -217,6 +235,7 @@ impl ParticleDataStore {
         self.collect_anomaly_data(
             &particle_parameters.particle_id,
             &particle_parameters.current_peer_id,
+            particle_signature,
             anomaly_data,
         )
         .await?;
@@ -227,9 +246,10 @@ impl ParticleDataStore {
         &self,
         particle_id: &str,
         current_peer_id: &str,
+        signature: &[u8],
         anomaly_data: AnomalyData<'_>,
     ) -> std::result::Result<(), DataStoreError> {
-        let path = self.anomaly_dir(particle_id, current_peer_id);
+        let path = self.anomaly_dir(particle_id, current_peer_id, signature);
         tokio::fs::create_dir_all(&path)
             .await
             .map_err(DataStoreError::CreateAnomalyDir)?;
@@ -279,8 +299,15 @@ pub enum DataStoreError {
     ReadData(#[source] std::io::Error, PathBuf),
 }
 
-fn store_key_from_components(particle_id: &str, current_peer_id: &str) -> String {
-    format!("particle_{particle_id}-peer_{current_peer_id}")
+fn store_key_from_components(particle_id: &str, current_peer_id: &str, signature: &[u8]) -> String {
+    format!(
+        "particle_{particle_id}-peer_{current_peer_id}-sig_{}",
+        format_signature(signature)
+    )
+}
+
+fn format_signature(signature: &[u8]) -> String {
+    bs58::encode(signature).into_string()
 }
 
 #[cfg(test)]
@@ -327,14 +354,15 @@ mod tests {
 
         let particle_id = "test_particle";
         let current_peer_id = "test_peer";
+        let signature: &[u8] = &[0];
         let data = b"test_data";
 
         particle_data_store
-            .store_data(data, particle_id, current_peer_id)
+            .store_data(data, particle_id, current_peer_id, signature)
             .await
             .expect("Failed to store data");
         let read_result = particle_data_store
-            .read_data(particle_id, current_peer_id)
+            .read_data(particle_id, current_peer_id, signature)
             .await;
 
         assert!(read_result.is_ok());
@@ -474,14 +502,15 @@ mod tests {
 
         let particle_id = "test_particle";
         let current_peer_id = "test_peer";
+        let signature: &[u8] = &[];
         let data = b"test_data";
 
         particle_data_store
-            .store_data(data, particle_id, current_peer_id)
+            .store_data(data, particle_id, current_peer_id, signature)
             .await
             .expect("Failed to store data");
 
-        let data_file_path = particle_data_store.data_file(particle_id, current_peer_id);
+        let data_file_path = particle_data_store.data_file(particle_id, current_peer_id, signature);
         let vault_path = temp_dir_path.join("vault").join(particle_id);
         tokio::fs::create_dir_all(&vault_path)
             .await
@@ -490,7 +519,7 @@ mod tests {
         assert!(vault_path.exists());
 
         let cleanup_result = particle_data_store
-            .cleanup_data(particle_id, current_peer_id)
+            .cleanup_data(particle_id, current_peer_id, signature)
             .await;
 
         assert!(cleanup_result.is_ok());

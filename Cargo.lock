@@ -245,6 +245,7 @@ dependencies = [
  "async-trait",
  "avm-server",
  "base64 0.21.7",
+ "bs58",
  "bytesize",
  "chrono",
  "config",
