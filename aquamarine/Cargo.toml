@@ -34,6 +34,7 @@ serde_json = { workspace = true }
 parking_lot = { workspace = true }
 chrono = "0.4.33"
 base64 = { workspace = true }
+bs58 = { workspace = true }
 thiserror = { workspace = true }
 humantime = "2.1.0"
 anyhow = "1.0.79"
