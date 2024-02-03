@@ -79,7 +79,7 @@ jobs:
           save-if: ${{ github.event_name == 'push' }}
 
       - name: Setup sccache
-        uses: mozilla-actions/sccache-action@v0.0.3
+        uses: mozilla-actions/sccache-action@v0.0.4
 
       - name: Set dependencies
         if: inputs.cargo-dependencies != 'null'
