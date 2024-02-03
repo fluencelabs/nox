@@ -123,7 +123,7 @@ libp2p-identity = "0.2.8"
 libp2p-connection-limits = "0.3.1"
 libp2p-kad = "0.45.3"
 multihash = "0.19.1"
-prometheus-client = "0.22.0"
+prometheus-client = "0.22.1"
 
 eyre = "0.6.11"
 base64 = "0.21.7"
