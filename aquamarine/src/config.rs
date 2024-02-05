@@ -34,6 +34,12 @@ pub struct VmConfig {
     pub air_interpreter: PathBuf,
     /// Maximum heap size in bytes available for the interpreter.
     pub max_heap_size: Option<u64>,
+    /// Maximum AIR script size in bytes.
+    pub air_size_limit: Option<u64>,
+    /// Maximum particle size in bytes.
+    pub particle_size_limit: Option<u64>,
+    /// Maximum call result size in bytes.
+    pub call_result_size_limit: Option<u64>,
 }
 
 impl VmPoolConfig {
@@ -50,11 +56,17 @@ impl VmConfig {
         current_peer_id: PeerId,
         air_interpreter: PathBuf,
         max_heap_size: Option<u64>,
+        air_size_limit: Option<u64>,
+        particle_size_limit: Option<u64>,
+        call_result_size_limit: Option<u64>,
     ) -> Self {
         Self {
             current_peer_id,
             air_interpreter,
             max_heap_size,
+            air_size_limit,
+            particle_size_limit,
+            call_result_size_limit,
         }
     }
 }

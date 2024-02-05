@@ -195,5 +195,17 @@ fn vm_config(config: &ResolvedConfig) -> VmConfig {
             .node_config
             .aquavm_heap_size_limit
             .map(|byte_size| byte_size.as_u64()),
+        config
+            .node_config
+            .air_size_limit
+            .map(|byte_size| byte_size.as_u64()),
+        config
+            .node_config
+            .particle_size_limit
+            .map(|byte_size| byte_size.as_u64()),
+        config
+            .node_config
+            .call_result_size_limit
+            .map(|byte_size| byte_size.as_u64()),
     )
 }

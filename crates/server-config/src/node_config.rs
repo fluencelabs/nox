@@ -90,6 +90,21 @@ pub struct UnresolvedNodeConfig {
     #[serde(default)]
     pub default_service_memory_limit: Option<bytesize::ByteSize>,
 
+    /// Maximum AIR size in bytes that is used by the AquaVM limit check.
+    #[serde_as(as = "Option<DisplayFromStr>")]
+    #[serde(default)]
+    pub air_size_limit: Option<bytesize::ByteSize>,
+
+    /// Maximum particle size in bytes that is used by the AquaVM limit check.
+    #[serde_as(as = "Option<DisplayFromStr>")]
+    #[serde(default)]
+    pub particle_size_limit: Option<bytesize::ByteSize>,
+
+    /// Maximum service call result size in bytes that is used by the AquaVM limit check.
+    #[serde_as(as = "Option<DisplayFromStr>")]
+    #[serde(default)]
+    pub call_result_size_limit: Option<bytesize::ByteSize>,
+
     #[serde(default)]
     pub kademlia: KademliaConfig,
 
@@ -171,6 +186,9 @@ impl UnresolvedNodeConfig {
             aquavm_pool_size: self.aquavm_pool_size,
             aquavm_heap_size_limit: self.aquavm_max_heap_size,
             default_service_memory_limit: self.default_service_memory_limit,
+            air_size_limit: self.air_size_limit,
+            particle_size_limit: self.particle_size_limit,
+            call_result_size_limit: self.call_result_size_limit,
             kademlia: self.kademlia,
             particle_queue_buffer: self.particle_queue_buffer,
             effects_queue_buffer: self.effects_queue_buffer,
@@ -327,6 +345,15 @@ pub struct NodeConfig {
 
     /// Default heap size in bytes available for a WASM service unless otherwise specified.
     pub default_service_memory_limit: Option<bytesize::ByteSize>,
+
+    /// Maximum AIR size in bytes that is used by the AquaVM limit check.
+    pub air_size_limit: Option<bytesize::ByteSize>,
+
+    /// Maximum particle size in bytes that is used by the AquaVM limit check.
+    pub particle_size_limit: Option<bytesize::ByteSize>,
+
+    /// Maximum service call result size in bytes that is used by the AquaVM limit check.
+    pub call_result_size_limit: Option<bytesize::ByteSize>,
 
     pub kademlia: KademliaConfig,
 

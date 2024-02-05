@@ -57,7 +57,14 @@ impl AquaRuntime for AVMRunner {
 
     /// Creates `AVM` in background (on blocking threadpool)
     fn create_runtime(config: Self::Config, waker: Waker) -> Result<Self, Self::Error> {
-        let vm = AVMRunner::new(config.air_interpreter, config.max_heap_size, i32::MAX)?;
+        let vm: AVMRunner = AVMRunner::new(
+            config.air_interpreter,
+            config.max_heap_size,
+            config.air_size_limit,
+            config.particle_size_limit,
+            config.call_result_size_limit,
+            i32::MAX,
+        )?;
         waker.wake();
         Ok(vm)
     }

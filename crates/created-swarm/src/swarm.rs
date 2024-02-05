@@ -308,7 +308,7 @@ pub fn aqua_vm_config(
     let air_interpreter = air_interpreter_path(&tmp_dir);
     write_default_air_interpreter(&air_interpreter).expect("write air interpreter");
 
-    VmConfig::new(peer_id, air_interpreter, None)
+    VmConfig::new(peer_id, air_interpreter, None, None, None, None)
 }
 
 pub async fn create_swarm_with_runtime<RT: AquaRuntime>(
