@@ -526,13 +526,14 @@ mod tests {
             _call_results: CallResults,
             _key_pair: &KeyPair,
         ) -> Result<RawAVMOutcome, Self::Error> {
+            let soft_limits_triggering = <_>::default();
             Ok(RawAVMOutcome {
                 ret_code: 0,
                 error_message: "".to_string(),
                 data: vec![],
                 call_requests: Default::default(),
                 next_peer_pks: vec![],
-                soft_limits_triggering: Default::default(),
+                soft_limits_triggering,
             })
         }
 
