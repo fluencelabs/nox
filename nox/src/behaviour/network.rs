@@ -29,7 +29,7 @@ use particle_protocol::{ExtendedParticle, PROTOCOL_NAME};
 use server_config::NetworkConfig;
 
 use crate::connectivity::Connectivity;
-use crate::health::{BootstrapNodesHealth, ConnectivityHealth};
+use crate::health::{BootstrapNodesHealth, ConnectivityHealth, KademliaBootstrapHealth};
 
 /// Coordinates protocols, so they can cooperate
 #[derive(NetworkBehaviour)]
@@ -80,9 +80,14 @@ impl FluenceNetworkBehaviour {
 
         let health = health_registry.map(|registry| {
             let bootstrap_nodes = BootstrapNodesHealth::new(bootstrap_nodes);
+            let kademlia_bootstrap = KademliaBootstrapHealth::default();
             registry.register("bootstrap_nodes", bootstrap_nodes.clone());
+            registry.register("kademlia_bootstrap", kademlia_bootstrap.clone());
 
-            ConnectivityHealth { bootstrap_nodes }
+            ConnectivityHealth {
+                bootstrap_nodes,
+                kademlia_bootstrap,
+            }
         });
 
         let connectivity = Connectivity {

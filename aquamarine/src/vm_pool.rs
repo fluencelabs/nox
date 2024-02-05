@@ -162,6 +162,7 @@ impl<RT: AquaRuntime> VmPool<RT> {
     pub fn poll(&mut self, cx: &mut Context<'_>) {
         let creating_vms = match &mut self.creating_runtimes {
             None => {
+                tracing::debug!("Starting creation {} AVMs", self.pool_size);
                 self.creating_runtimes = Some(
                     (0..self.pool_size)
                         .map(|id| (id, self.create_avm(cx)))

@@ -2279,7 +2279,7 @@ async fn aliases_restart() {
         .map(|s| s.exit_outlet.send(()))
         .for_each(drop);
 
-    let swarms = make_swarms_with_cfg(1, |mut cfg| {
+    let swarms = make_swarms_with_cfg(1, move |mut cfg| {
         cfg.keypair = kp.clone();
         cfg.tmp_dir = tmp_dir.clone();
         cfg
@@ -2370,7 +2370,7 @@ async fn subnet_resolve() {
         .with_body("invalid mock was hit. Check that request body matches 'match_body' clause'")
         .create();
 
-    let swarms = make_swarms_with_cfg(1, |mut cfg| {
+    let swarms = make_swarms_with_cfg(1, move |mut cfg| {
         cfg.connector_api_endpoint = Some(url.clone());
         cfg
     })

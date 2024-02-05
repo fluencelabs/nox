@@ -2088,17 +2088,19 @@ async fn set_alias_by_worker_creator() {
 async fn test_decider_api_endpoint_rewrite() {
     let expected_endpoint = "test1".to_string();
     let swarm_keypair = KeyPair::generate_ed25519();
-    let swarms = make_swarms_with_cfg(1, |mut cfg| {
+    let inner_keypair = swarm_keypair.clone();
+    let inner_endpoint = expected_endpoint.clone();
+    let swarms = make_swarms_with_cfg(1, move |mut cfg| {
         let tmp_dir = tempfile::tempdir().expect("Could not create temp dir");
         let tmp_dir = Arc::new(tmp_dir);
-        cfg.keypair = swarm_keypair.clone();
+        cfg.keypair = inner_keypair.clone();
         cfg.tmp_dir = tmp_dir;
         cfg.enabled_system_services = vec!["decider".to_string()];
         cfg.override_system_services_config = Some(SystemServicesConfig {
             enable: vec![],
             aqua_ipfs: Default::default(),
             decider: DeciderConfig {
-                network_api_endpoint: expected_endpoint.clone(),
+                network_api_endpoint: inner_endpoint.clone(),
                 ..Default::default()
             },
             registry: Default::default(),
@@ -2146,17 +2148,19 @@ async fn test_decider_api_endpoint_rewrite() {
         .for_each(drop);
 
     let another_endpoint = "another_endpoint_test".to_string();
-    let swarms = make_swarms_with_cfg(1, |mut cfg| {
+    let inner_keypair = swarm_keypair.clone();
+    let inner_endpoint = another_endpoint.clone();
+    let swarms = make_swarms_with_cfg(1, move |mut cfg| {
         let tmp_dir = tempfile::tempdir().expect("Could not create temp dir");
         let tmp_dir = Arc::new(tmp_dir);
-        cfg.keypair = swarm_keypair.clone();
+        cfg.keypair = inner_keypair.clone();
         cfg.tmp_dir = tmp_dir;
         cfg.enabled_system_services = vec!["decider".to_string()];
         cfg.override_system_services_config = Some(SystemServicesConfig {
             enable: vec![],
             aqua_ipfs: Default::default(),
             decider: DeciderConfig {
-                network_api_endpoint: another_endpoint.clone(),
+                network_api_endpoint: inner_endpoint.clone(),
                 ..Default::default()
             },
             registry: Default::default(),
@@ -2201,7 +2205,7 @@ async fn test_decider_api_endpoint_rewrite() {
 #[tokio::test]
 async fn test_activate_deactivate() {
     let worker_period_sec = 120u32;
-    let swarms = make_swarms_with_cfg(1, |mut cfg| {
+    let swarms = make_swarms_with_cfg(1, move |mut cfg| {
         cfg.override_system_services_config = Some(SystemServicesConfig {
             enable: vec![],
             aqua_ipfs: Default::default(),
