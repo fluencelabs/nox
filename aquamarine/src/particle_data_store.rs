@@ -20,7 +20,7 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use avm_server::avm_runner::RawAVMOutcome;
-use avm_server::{AnomalyData, CallResults, CallServiceResult, ParticleParameters};
+use avm_server::{AnomalyData, CallResults, ParticleParameters};
 use fluence_libp2p::PeerId;
 use futures::stream::FuturesUnordered;
 use futures::StreamExt;
@@ -29,7 +29,6 @@ use tracing::instrument;
 
 use now_millis::now_ms;
 use particle_execution::{ParticleVault, VaultError};
-use serde_json::Value as JValue;
 
 type Result<T> = std::result::Result<T, DataStoreError>;
 
@@ -78,9 +77,6 @@ impl ParticleDataStore {
 
 const EXECUTION_TIME_THRESHOLD: Duration = Duration::from_millis(500);
 const MEMORY_DELTA_BYTES_THRESHOLD: usize = 10 * bytesize::MB as usize;
-const AIR_SCRIPT_SIZE_THRESHOLD: usize = 8 * bytesize::MB as usize;
-const PARTICLE_DATA_SIZE_THRESHOLD: usize = 64 * bytesize::MB as usize;
-const CALL_SERVICE_RESULT_SIZE_THRESHOLD: usize = 8 * bytesize::MB as usize;
 
 impl ParticleDataStore {
     pub async fn initialize(&self) -> Result<()> {
@@ -168,17 +164,9 @@ impl ParticleDataStore {
         Ok(())
     }
 
-    fn detect_mem_limits_anomaly(
-        &self,
-        memory_delta: usize,
-        outcome: &RawAVMOutcome,
-        call_results: &CallResults,
-        air_script: &str,
-    ) -> bool {
+    fn detect_mem_limits_anomaly(&self, memory_delta: usize, outcome: &RawAVMOutcome) -> bool {
         memory_delta > MEMORY_DELTA_BYTES_THRESHOLD
-            || outcome.data.len() > PARTICLE_DATA_SIZE_THRESHOLD
-            || air_script.len() > AIR_SCRIPT_SIZE_THRESHOLD
-            || call_results.values().any(call_result_size_limit_check)
+            || outcome.soft_limits_triggering.are_limits_exceeded()
     }
 
     pub fn detect_anomaly(
@@ -186,12 +174,10 @@ impl ParticleDataStore {
         execution_time: Duration,
         memory_delta: usize,
         outcome: &RawAVMOutcome,
-        call_results: &CallResults,
-        air_script: &str,
     ) -> bool {
         execution_time > EXECUTION_TIME_THRESHOLD
             || outcome.ret_code != 0
-            || self.detect_mem_limits_anomaly(memory_delta, outcome, call_results, air_script)
+            || self.detect_mem_limits_anomaly(memory_delta, outcome)
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -264,21 +250,6 @@ impl ParticleDataStore {
     }
 }
 
-fn get_jvalue_size(value: &JValue) -> usize {
-    match value {
-        JValue::Null => 0,
-        JValue::Bool(_) => 1,
-        JValue::Number(_) => 8,
-        JValue::String(s) => s.len(),
-        JValue::Array(arr) => arr.iter().map(get_jvalue_size).sum(),
-        JValue::Object(obj) => obj.iter().map(|(k, v)| k.len() + get_jvalue_size(v)).sum(),
-    }
-}
-
-fn call_result_size_limit_check(service_result: &CallServiceResult) -> bool {
-    get_jvalue_size(&service_result.result) > CALL_SERVICE_RESULT_SIZE_THRESHOLD
-}
-
 #[derive(Debug, Error)]
 pub enum DataStoreError {
     #[error("error creating particle_data_store")]
@@ -312,12 +283,9 @@ fn format_signature(signature: &[u8]) -> String {
 
 #[cfg(test)]
 mod tests {
-    use crate::particle_data_store::{
-        AIR_SCRIPT_SIZE_THRESHOLD, CALL_SERVICE_RESULT_SIZE_THRESHOLD, PARTICLE_DATA_SIZE_THRESHOLD,
-    };
     use crate::ParticleDataStore;
     use avm_server::avm_runner::RawAVMOutcome;
-    use avm_server::{CallRequests, CallResults, CallServiceResult};
+    use avm_server::{CallRequests, SoftLimitsTriggering};
     use std::path::PathBuf;
     use std::time::Duration;
 
@@ -371,9 +339,6 @@ mod tests {
 
     #[tokio::test]
     async fn test_detect_anomaly() {
-        use AIR_SCRIPT_SIZE_THRESHOLD;
-        use PARTICLE_DATA_SIZE_THRESHOLD;
-
         let particle_data_store = ParticleDataStore::new(
             PathBuf::from("dummy"),
             PathBuf::from("dummy"),
@@ -384,13 +349,14 @@ mod tests {
         let execution_time_above_threshold = Duration::from_millis(600);
         let memory_delta_below_threshold = 5 * bytesize::MB as usize;
         let memory_delta_above_threshold = 15 * bytesize::MB as usize;
+        let soft_limits_triggering = <_>::default();
         let outcome_success = RawAVMOutcome {
             ret_code: 0,
             error_message: "".to_string(),
             data: vec![],
             call_requests: CallRequests::new(),
             next_peer_pks: vec![],
-            soft_limits_triggering: Default::default(),
+            soft_limits_triggering,
         };
         let outcome_failure = RawAVMOutcome {
             ret_code: 1,
@@ -398,15 +364,13 @@ mod tests {
             data: vec![],
             call_requests: CallRequests::new(),
             next_peer_pks: vec![],
-            soft_limits_triggering: Default::default(),
+            soft_limits_triggering,
         };
 
         let anomaly_below_threshold = particle_data_store.detect_anomaly(
             execution_time_below_threshold,
             memory_delta_below_threshold,
             &outcome_success,
-            &CallResults::new(),
-            "(null)",
         );
 
         assert!(!anomaly_below_threshold);
@@ -415,8 +379,6 @@ mod tests {
             execution_time_above_threshold,
             memory_delta_above_threshold,
             &outcome_failure,
-            &CallResults::new(),
-            "(null)",
         );
 
         assert!(anomaly_above_threshold);
@@ -425,19 +387,23 @@ mod tests {
             execution_time_below_threshold,
             memory_delta_below_threshold,
             &outcome_success,
-            &CallResults::new(),
-            "(null)",
         );
 
         assert!(!anomaly_below_air_size_limit);
 
-        let air = "a".repeat(AIR_SCRIPT_SIZE_THRESHOLD + 1);
+        let soft_limits_triggering = SoftLimitsTriggering::new(true, false, false);
+        let outcome = RawAVMOutcome {
+            ret_code: 0,
+            error_message: "".to_string(),
+            data: vec![],
+            call_requests: CallRequests::new(),
+            next_peer_pks: vec![],
+            soft_limits_triggering,
+        };
         let anomaly_above_air_size_limit = particle_data_store.detect_anomaly(
             execution_time_below_threshold,
             memory_delta_below_threshold,
-            &outcome_success,
-            &CallResults::new(),
-            &air,
+            &outcome,
         );
 
         assert!(anomaly_above_air_size_limit);
@@ -446,42 +412,40 @@ mod tests {
             execution_time_below_threshold,
             memory_delta_below_threshold,
             &outcome_success,
-            &CallResults::new(),
-            "(null)",
         );
 
         assert!(!anomaly_below_particle_size_limit);
 
+        let soft_limits_triggering = SoftLimitsTriggering::new(false, true, false);
         let outcome = RawAVMOutcome {
             ret_code: 0,
             error_message: "".to_string(),
-            data: vec![0; PARTICLE_DATA_SIZE_THRESHOLD + 1],
+            data: vec![],
             call_requests: CallRequests::new(),
             next_peer_pks: vec![],
-            soft_limits_triggering: Default::default(),
+            soft_limits_triggering,
         };
         let anomaly_above_particle_size_limit = particle_data_store.detect_anomaly(
             execution_time_below_threshold,
             memory_delta_below_threshold,
             &outcome,
-            &CallResults::new(),
-            "(null)",
         );
 
         assert!(anomaly_above_particle_size_limit);
 
-        let call_result = CallServiceResult {
+        let soft_limits_triggering = SoftLimitsTriggering::new(false, false, true);
+        let outcome = RawAVMOutcome {
             ret_code: 0,
-            result: serde_json::json!({ "data": vec![0; CALL_SERVICE_RESULT_SIZE_THRESHOLD + 1] }),
+            error_message: "".to_string(),
+            data: vec![],
+            call_requests: CallRequests::new(),
+            next_peer_pks: vec![],
+            soft_limits_triggering,
         };
-        let mut call_results = CallResults::new();
-        call_results.insert(42, call_result);
         let anomaly_below_call_result_size_limit = particle_data_store.detect_anomaly(
             execution_time_below_threshold,
             memory_delta_below_threshold,
-            &outcome_success,
-            &call_results,
-            "(null)",
+            &outcome,
         );
 
         assert!(anomaly_below_call_result_size_limit);

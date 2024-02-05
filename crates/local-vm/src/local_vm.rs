@@ -65,7 +65,7 @@ impl Instruction {
             Seq(l, r) => {
                 let l = l.into_air();
                 let r = r.into_air();
-                f!("(seq 
+                f!("(seq
 {l}
 {r}
 )")
@@ -174,7 +174,7 @@ pub fn make_vm(tmp_dir_path: &Path) -> AVMRunner {
     let interpreter = air_interpreter_path(tmp_dir_path);
     write_default_air_interpreter(&interpreter).expect("write air interpreter");
 
-    AVMRunner::new(interpreter, None, AVMRuntimeLimits::default(), i32::MAX)
+    AVMRunner::new(interpreter, None, <_>::default(), i32::MAX)
         .map_err(|err| {
             log::error!("\n\n\nFailed to create local AVM: {:#?}\n\n\n", err);
 
