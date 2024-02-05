@@ -673,6 +673,10 @@ mod tests {
             to_peer_id(&config.root_key_pair.clone().into()),
             config.dir_config.air_interpreter_path.clone(),
             None,
+            None,
+            None,
+            None,
+            false,
         );
         let data_store_config = DataStoreConfig::new(config.dir_config.avm_base_dir.clone());
 
