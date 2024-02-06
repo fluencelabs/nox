@@ -1246,7 +1246,7 @@ version = "0.1.0"
 dependencies = [
  "fluence-libp2p",
  "futures",
- "itertools 0.12.0",
+ "itertools 0.12.1",
  "libp2p",
  "log",
  "parking_lot",
@@ -2003,9 +2003,9 @@ dependencies = [
 
 [[package]]
 name = "eyre"
-version = "0.6.11"
+version = "0.6.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b6267a1fa6f59179ea4afc8e50fd8612a3cc60bc858f786ff877a4a8cb042799"
+checksum = "7cd915d99f24784cdc19fd37ef22b97e3ff0ae756c7e492e9fbfe897d61e2aec"
 dependencies = [
  "indenter",
  "once_cell",
@@ -3186,9 +3186,9 @@ dependencies = [
 
 [[package]]
 name = "itertools"
-version = "0.12.0"
+version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "25db6b064527c5d482d0423354fcd07a89a2dfe07b67892e62411946db7f07b0"
+checksum = "ba291022dbbd398a455acf126c1e341954079855bc60dfdda641363bd6922569"
 dependencies = [
  "either",
 ]
@@ -3250,7 +3250,7 @@ name = "json-utils"
 version = "0.0.2"
 dependencies = [
  "base64 0.21.7",
- "itertools 0.12.0",
+ "itertools 0.12.1",
  "serde",
  "serde_json",
 ]
@@ -4773,7 +4773,7 @@ dependencies = [
  "futures",
  "health",
  "humantime-serde",
- "itertools 0.12.0",
+ "itertools 0.12.1",
  "kademlia",
  "libp2p",
  "libp2p-connection-limits",
@@ -4835,7 +4835,7 @@ dependencies = [
  "fstrings",
  "futures",
  "humantime-serde",
- "itertools 0.12.0",
+ "itertools 0.12.1",
  "json-utils",
  "jsonrpsee",
  "libp2p",
@@ -5206,7 +5206,7 @@ dependencies = [
  "futures",
  "health",
  "humantime-serde",
- "itertools 0.12.0",
+ "itertools 0.12.1",
  "ivalue-utils",
  "kademlia",
  "libp2p",
@@ -5267,7 +5267,7 @@ dependencies = [
  "fluence-app-service",
  "fs-utils",
  "fstrings",
- "itertools 0.12.0",
+ "itertools 0.12.1",
  "json-utils",
  "libipld",
  "log",
@@ -5645,9 +5645,9 @@ dependencies = [
 
 [[package]]
 name = "prometheus-client"
-version = "0.22.0"
+version = "0.22.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "510c4f1c9d81d556458f94c98f857748130ea9737bbd6053da497503b26ea63c"
+checksum = "6f87c10af16e0af74010d2a123d202e8363c04db5acfa91d8747f64a8524da3a"
 dependencies = [
  "dtoa",
  "itoa",
@@ -6897,7 +6897,7 @@ dependencies = [
  "fluence-app-service",
  "fluence-libp2p",
  "fluence-spell-distro",
- "itertools 0.12.0",
+ "itertools 0.12.1",
  "log",
  "parking_lot",
  "particle-modules",
@@ -7278,9 +7278,9 @@ checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
 
 [[package]]
 name = "tokio"
-version = "1.35.0"
+version = "1.36.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "841d45b238a16291a4e1584e61820b8ae57d696cc5015c459c229ccc6990cc1c"
+checksum = "61285f6515fa018fb2d1e46eb21223fff441ee8db5d0f1435e8ab4f5cdb80931"
 dependencies = [
  "backtrace",
  "bytes",
@@ -7533,7 +7533,7 @@ dependencies = [
  "fluence-keypair",
  "fluence-libp2p",
  "futures",
- "itertools 0.12.0",
+ "itertools 0.12.1",
  "particle-protocol",
  "serde_json",
 ]
