@@ -2092,9 +2092,9 @@ dependencies = [
 
 [[package]]
 name = "fluence-app-service"
-version = "0.31.1"
+version = "0.31.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b01d8308282e3ab2e46e722d3004fbf9ac4f345a9de4e2a2d1afdc74fda64a8b"
+checksum = "9961a3e12adf2b764f78bd8bcde58953f2d05676445140ed1384d1baa7a00fcf"
 dependencies = [
  "log",
  "maplit",
@@ -4161,9 +4161,9 @@ dependencies = [
 
 [[package]]
 name = "marine-core"
-version = "0.26.1"
+version = "0.26.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6e0e21dd5918c69eefcc06acea338bf444f9137fca6e193b52bfd8e0f069ab4d"
+checksum = "15e71533c912f6eb886089c859816b898686003a2c9bcf4f6cdb64136777c6fa"
 dependencies = [
  "anyhow",
  "bytesize",
@@ -4282,9 +4282,9 @@ dependencies = [
 
 [[package]]
 name = "marine-module-info-parser"
-version = "0.11.1"
+version = "0.11.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d578b9c5b1a95e9f76301a347d0fbaef5e5e22a0c370e43fc575253e69fa23e6"
+checksum = "6a00f11dbeec2e7578ba13cbb0ec0d9700ed920f679f60008fa6490f88d7fac0"
 dependencies = [
  "anyhow",
  "chrono",
@@ -4339,9 +4339,9 @@ dependencies = [
 
 [[package]]
 name = "marine-runtime"
-version = "0.32.1"
+version = "0.32.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4c9a539b0b1586839f133f768db670f0b3f6cd5ffd977dc247cbf8acf8a3dc1a"
+checksum = "d5a1604ab429b19dddfccaf0174ad2b7ba5c1d038e0831527c24b2dd770c1617"
 dependencies = [
  "bytesize",
  "it-json-serde",
