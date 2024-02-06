@@ -28,7 +28,7 @@ use particle_protocol::Particle;
 use serde_json::{Value as JValue, Value};
 use tempfile::TempDir;
 use test_constants::{
-    IDLE_CONNECTION_TIMEOUT, KAD_TIMEOUT, PARTICLE_TTL, SHORT_TIMEOUT, TIMEOUT, TRANSPORT_TIMEOUT,
+    IDLE_CONNECTION_TIMEOUT, PARTICLE_TTL, SHORT_TIMEOUT, TIMEOUT, TRANSPORT_TIMEOUT,
 };
 
 use crate::client::Client;
@@ -43,7 +43,6 @@ pub struct ConnectedClient {
     pub node_address: Multiaddr,
     pub timeout: Duration,
     pub short_timeout: Duration,
-    pub kad_timeout: Duration,
     pub local_vm: tokio::sync::OnceCell<tokio::sync::Mutex<AVM>>,
     pub data_store: Arc<ParticleDataStore>,
     pub particle_ttl: Duration,
@@ -57,10 +56,6 @@ impl ConnectedClient {
 
     pub fn short_timeout(&self) -> Duration {
         self.short_timeout
-    }
-
-    pub fn kad_timeout(&self) -> Duration {
-        self.kad_timeout
     }
 
     pub fn particle_ttl(&self) -> Duration {
@@ -201,7 +196,6 @@ impl ConnectedClient {
             node_address,
             timeout: TIMEOUT,
             short_timeout: SHORT_TIMEOUT,
-            kad_timeout: KAD_TIMEOUT,
             local_vm,
             data_store,
             particle_ttl: particle_ttl.unwrap_or(Duration::from_millis(PARTICLE_TTL as u64)),
