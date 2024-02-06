@@ -138,7 +138,7 @@ jobs:
           echo "found any?:" "${{ steps.status.outputs.found }}"
 
       - name: Import secrets
-        uses: hashicorp/vault-action@v2.7.4
+        uses: hashicorp/vault-action@v2.8.0
         with:
           url: https://vault.fluence.dev
           path: jwt/github
