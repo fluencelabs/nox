@@ -14,7 +14,7 @@ peer-metrics = { workspace = true }
 fluence-keypair = { workspace = true }
 types = { workspace = true }
 log = "0.4.20"
-toml = "0.7.3"
+toml = "0.8.10"
 
 libp2p = { workspace = true }
 libp2p-metrics = { workspace = true }
