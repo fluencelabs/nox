@@ -83,13 +83,14 @@ async fn test_chain_listener_cc() {
     let (addr, server) = run_server().await.unwrap();
     let url = format!("ws://{}", addr);
     let events_dir = TempDir::new().unwrap();
-    let _swarm = make_swarms_with_cfg(1, |mut cfg| {
+    let cc_events_dir = events_dir.path().to_path_buf();
+    let _swarm = make_swarms_with_cfg(1, move |mut cfg| {
         cfg.chain_listener = Some(ChainListenerConfig {
             ws_endpoint: url.clone(),
             cc_contract_address: "".to_string(),
         });
 
-        cfg.cc_events_dir = Some(events_dir.path().to_path_buf());
+        cfg.cc_events_dir = Some(cc_events_dir.clone());
         cfg
     })
     .await;

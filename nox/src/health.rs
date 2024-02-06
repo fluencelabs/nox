@@ -2,11 +2,13 @@ use health::HealthCheck;
 use libp2p::Multiaddr;
 use parking_lot::RwLock;
 use std::collections::HashMap;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
 #[derive(Clone)]
 pub struct ConnectivityHealth {
     pub bootstrap_nodes: BootstrapNodesHealth,
+    pub kademlia_bootstrap: KademliaBootstrapHealth,
 }
 
 #[derive(Clone)]
@@ -47,6 +49,40 @@ impl HealthCheck for BootstrapNodesHealth {
             }
         }
         Ok(())
+    }
+}
+
+#[derive(Clone)]
+pub struct KademliaBootstrapHealth {
+    status: Arc<AtomicBool>,
+}
+
+impl KademliaBootstrapHealth {
+    pub fn on_boostrap_finished(&self) {
+        self.status.store(true, Ordering::Release)
+    }
+
+    pub fn on_boostrap_failed(&self) {
+        self.status.store(false, Ordering::Release)
+    }
+}
+
+impl Default for KademliaBootstrapHealth {
+    fn default() -> Self {
+        Self {
+            status: Arc::new(AtomicBool::default()),
+        }
+    }
+}
+
+impl HealthCheck for KademliaBootstrapHealth {
+    fn status(&self) -> eyre::Result<()> {
+        let status = self.status.load(Ordering::Acquire);
+        if status {
+            Ok(())
+        } else {
+            Err(eyre::eyre!("Kademlia bootstrap not finished"))
+        }
     }
 }
 
@@ -111,5 +147,50 @@ mod tests {
 
         let status = bootstrap_health.status();
         assert!(status.is_ok());
+    }
+
+    #[test]
+    fn new_health_instance_should_have_default_status_false() {
+        let health = KademliaBootstrapHealth::default();
+        assert_eq!(health.status.load(Ordering::Acquire), false);
+    }
+
+    #[test]
+    fn on_bootstrap_finished_should_set_status_to_true() {
+        let health = KademliaBootstrapHealth::default();
+        health.on_boostrap_finished();
+        assert_eq!(health.status.load(Ordering::Acquire), true);
+    }
+
+    #[test]
+    fn on_bootstrap_failed_should_set_status_to_false() {
+        let health = KademliaBootstrapHealth::default();
+        health.on_boostrap_failed();
+        assert_eq!(health.status.load(Ordering::Acquire), false);
+    }
+
+    #[test]
+    fn status_should_return_ok_if_bootstrap_finished() {
+        let health = KademliaBootstrapHealth::default();
+        health.on_boostrap_finished();
+        assert!(health.status().is_ok());
+    }
+
+    #[test]
+    fn status_should_return_error_if_bootstrap_failed() {
+        let health = KademliaBootstrapHealth::default();
+        health.on_boostrap_failed();
+        assert!(health.status().is_err());
+    }
+
+    #[test]
+    fn status_error_should_contain_expected_message() {
+        let health = KademliaBootstrapHealth::default();
+        health.on_boostrap_failed();
+        let result = health.status();
+        assert_eq!(
+            result.err().unwrap().to_string(),
+            "Kademlia bootstrap not finished"
+        );
     }
 }
