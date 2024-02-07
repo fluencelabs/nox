@@ -1,17 +1,29 @@
 use crate::core_range::CoreRange;
 use crate::core_set;
 use crate::core_set::CoreSet;
-use core_affinity::CoreId;
 use fxhash::{FxBuildHasher, FxHasher};
 use parking_lot::Mutex;
-use std::collections::{BTreeSet, HashMap};
+use range_set_blaze::RangeSetBlaze;
+use std::collections::HashMap;
 use std::hash::{BuildHasherDefault, Hash};
+use std::ops::Deref;
 use thiserror::Error;
 
 type Map<K, V> = HashMap<K, V, BuildHasherDefault<FxHasher>>;
+
+#[derive(Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Clone)]
+pub struct CoreId(usize);
+impl Deref for CoreId {
+    type Target = usize;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
 pub struct CoreManager {
     available_cores: CoreSet,
-    core_type_state: Map<CoreType, BTreeSet<CoreId>>,
+    core_type_state: Map<CoreType, CoreSet>,
     core_id_state: Map<CoreId, CoreType>,
     mutex: Mutex<()>,
 }
@@ -56,16 +68,9 @@ pub enum FreeError {
 
 impl CoreManager {
     pub fn new(cpus_range: Option<CoreRange>) -> Result<Self, Error> {
-        let cpus_range = cpus_range
-            .or(core_affinity::get_core_ids().and_then(|cpus| {
-                let a: &[usize] = &cpus.iter().map(|cpu| cpu.id).collect::<Vec<usize>>();
-                CoreRange::try_from(a).ok()
-            }))
-            .ok_or(Error::FailedGetCoreIds)?;
-
         let available_cores: CoreSet = cpus_range
-            .try_into()
-            .map_err(|err| Error::WrongCpuRange { err })?;
+            .map(|range| range.try_into().map_err(|err| Error::WrongCpuRange { err }))
+            .unwrap_or(Ok(CoreSet::default()))?;
 
         let core_type_state = HashMap::with_capacity_and_hasher(
             available_cores.0.len() as usize,
@@ -118,11 +123,12 @@ impl CoreManager {
                     .core_type_state
                     .get_mut(&core_type)
                     .expect("Non empty state");
-                set.remove(&core_id);
-                if set.is_empty() {
+                if set.0.len() == 1 {
                     self.core_type_state.remove(&core_type);
+                } else {
+                    set.0.remove(core_id.0);
                 }
-                self.available_cores.0.insert(core_id.id);
+                self.available_cores.0.insert(core_id.0);
                 Ok(())
             }
         }
@@ -143,11 +149,12 @@ impl CoreManager {
                 CoreType::WorkerType(dsc),
             ),
             Some(state) => {
-                let core_id = state.pop_first().expect("Non empty state");
+                let core_id = state.0.pop_first().expect("Non empty state");
+                let core_id = CoreId(core_id);
                 save_state(
                     &mut self.core_id_state,
                     &mut self.core_type_state,
-                    core_id,
+                    core_id.clone(),
                     CoreType::WorkerType(dsc),
                 );
                 Ok(core_id)
@@ -159,15 +166,15 @@ impl CoreManager {
 fn assign(
     available_cores: &mut CoreSet,
     core_id_state: &mut Map<CoreId, CoreType>,
-    core_type_state: &mut Map<CoreType, BTreeSet<CoreId>>,
+    core_type_state: &mut Map<CoreType, CoreSet>,
     core_type: CoreType,
 ) -> Result<CoreId, AssignError> {
     let core_id = available_cores.0.pop_first();
     match core_id {
         None => Err(AssignError::NotFoundAvailableCores),
         Some(core_id) => {
-            let core_id = CoreId { id: core_id };
-            save_state(core_id_state, core_type_state, core_id, core_type);
+            let core_id = CoreId(core_id);
+            save_state(core_id_state, core_type_state, core_id.clone(), core_type);
             Ok(core_id)
         }
     }
@@ -175,15 +182,15 @@ fn assign(
 
 fn save_state(
     core_id_state: &mut Map<CoreId, CoreType>,
-    core_type_state: &mut Map<CoreType, BTreeSet<CoreId>>,
+    core_type_state: &mut Map<CoreType, CoreSet>,
     core_id: CoreId,
     core_type: CoreType,
 ) {
     let mut current_ids = core_type_state
         .get(&core_type)
         .cloned()
-        .unwrap_or(BTreeSet::new());
-    current_ids.insert(core_id);
+        .unwrap_or(CoreSet(RangeSetBlaze::default()));
+    current_ids.insert(core_id.0);
     core_id_state.insert(core_id, core_type.clone());
     core_type_state.insert(core_type, current_ids);
 }

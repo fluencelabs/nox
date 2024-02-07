@@ -6,7 +6,6 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-core_affinity = "0.8.1"
 fxhash = "0.2.1"
 num_cpus = { version = "1.16.0", features = [] }
 range-set-blaze = "0.1.14"
