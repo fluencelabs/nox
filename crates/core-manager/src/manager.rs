@@ -61,8 +61,14 @@ impl CoreManager {
             }))
             .ok_or(Error::FailedGetCoreIds)?;
 
-        let core_type_state = HashMap::with_hasher(FxBuildHasher::default());
-        let core_id_state = HashMap::with_hasher(FxBuildHasher::default());
+        let core_type_state = HashMap::with_capacity_and_hasher(
+            available_cores.0.len() as usize,
+            FxBuildHasher::default(),
+        );
+        let core_id_state = HashMap::with_capacity_and_hasher(
+            available_cores.0.len() as usize,
+            FxBuildHasher::default(),
+        );
         Ok(Self {
             available_cores,
             core_type_state,
