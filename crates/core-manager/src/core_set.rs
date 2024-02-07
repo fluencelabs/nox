@@ -2,8 +2,14 @@ use crate::core_range::CoreRange;
 use range_set_blaze::RangeSetBlaze;
 use thiserror::Error;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct CoreSet(pub(crate) RangeSetBlaze<usize>);
+
+impl CoreSet {
+    pub fn insert(&mut self, value: usize) -> bool {
+        self.0.insert(value)
+    }
+}
 
 impl TryFrom<CoreRange> for CoreSet {
     type Error = Error;
@@ -29,6 +35,13 @@ pub enum Error {
         available_cores: usize,
         range: CoreRange,
     },
+}
+
+impl Default for CoreSet {
+    fn default() -> Self {
+        let cpu_count = num_cpus::get();
+        CoreSet(RangeSetBlaze::from_iter(0..cpu_count))
+    }
 }
 
 #[cfg(test)]
