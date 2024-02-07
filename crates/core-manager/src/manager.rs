@@ -132,7 +132,9 @@ impl CoreManager {
         dsc: WorkerUnitType,
     ) -> Result<CoreId, AssignError> {
         let _guard = self.mutex.lock();
-        let state = self.core_type_state.get_mut(&CoreType::WorkerType(src));
+        let state = self
+            .core_type_state
+            .get_mut(&CoreType::WorkerType(src.clone()));
         match state {
             None => assign(
                 &mut self.available_cores,
@@ -143,6 +145,9 @@ impl CoreManager {
             Some(state) => {
                 let core_id = state.0.pop_first().expect("Non empty state");
                 let core_id = CoreId(core_id);
+                if state.0.is_empty() {
+                    self.core_type_state.remove(&CoreType::WorkerType(src));
+                }
                 save_state(
                     &mut self.core_id_state,
                     &mut self.core_type_state,
