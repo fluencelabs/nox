@@ -213,4 +213,10 @@ mod tests {
         let core_range_2: CoreRange = "0,1,2".parse().unwrap();
         assert_eq!(core_range_1, core_range_2);
     }
+
+    #[test]
+    fn fmt() {
+        let core_range_1: CoreRange = "0-2".parse().unwrap();
+        assert_eq!(format!("{:?}", core_range_1), "0..=2");
+    }
 }

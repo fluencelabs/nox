@@ -187,7 +187,7 @@ fn save_state(
         .get(&core_type)
         .cloned()
         .unwrap_or(CoreSet(RangeSetBlaze::default()));
-    current_ids.insert(core_id.0);
+    current_ids.0.insert(core_id.0);
     core_id_state.insert(core_id, core_type.clone());
     core_type_state.insert(core_type, current_ids);
 }

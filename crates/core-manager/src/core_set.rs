@@ -5,12 +5,6 @@ use thiserror::Error;
 #[derive(Debug, Clone)]
 pub struct CoreSet(pub(crate) RangeSetBlaze<usize>);
 
-impl CoreSet {
-    pub fn insert(&mut self, value: usize) -> bool {
-        self.0.insert(value)
-    }
-}
-
 impl TryFrom<CoreRange> for CoreSet {
     type Error = Error;
 
@@ -48,6 +42,7 @@ impl Default for CoreSet {
 mod tests {
     use crate::core_range::CoreRange;
     use crate::core_set::{CoreSet, Error};
+    use std::usize;
 
     #[test]
     fn simple_set_test() {
@@ -84,5 +79,13 @@ mod tests {
                 "Range is too big. Available cores: 8, requested range: 0..=9"
             );
         }
+    }
+
+    #[test]
+    fn default_set_is_non_empty() {
+        let available_cores = num_cpus::get();
+        let core_set = CoreSet::default();
+        let core_set: Vec<usize> = core_set.0.iter().collect();
+        assert_eq!(core_set, Vec::from_iter(0..available_cores));
     }
 }
