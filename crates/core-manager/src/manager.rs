@@ -6,20 +6,12 @@ use parking_lot::Mutex;
 use range_set_blaze::RangeSetBlaze;
 use std::collections::HashMap;
 use std::hash::{BuildHasherDefault, Hash};
-use std::ops::Deref;
 use thiserror::Error;
 
 type Map<K, V> = HashMap<K, V, BuildHasherDefault<FxHasher>>;
 
 #[derive(Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Clone)]
 pub struct CoreId(usize);
-impl Deref for CoreId {
-    type Target = usize;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
 
 pub struct CoreManager {
     available_cores: CoreSet,
