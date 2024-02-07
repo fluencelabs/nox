@@ -7,7 +7,7 @@ use thiserror::Error;
 pub struct CoreSet(pub(crate) RangeSetBlaze<usize>);
 impl CoreSet {
     pub fn to_vec(&self) -> Vec<CoreId> {
-        self.0.iter().map(|v| CoreId { id: v }).collect()
+        self.0.iter().map(|id| CoreId { id }).collect()
     }
 }
 
@@ -32,17 +32,8 @@ impl TryFrom<&[usize]> for CoreSet {
     type Error = Error;
 
     fn try_from(values: &[usize]) -> Result<Self, Self::Error> {
-        if values.is_empty() {
-            return Err(Error::EmptyRange);
-        }
-        let range = RangeSetBlaze::from_iter(values.iter());
-        let available_cores = num_cpus::get();
-        let range_max = range.last().unwrap(); //last always exists, can't be empty
-        if range_max > available_cores {
-            return Err(Error::RangeIsTooBig { available_cores });
-        }
-
-        Ok(CoreSet(range))
+        let set = RangeSetBlaze::from_iter(values.iter());
+        CoreSet::try_from(set)
     }
 }
 
