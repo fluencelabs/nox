@@ -46,8 +46,8 @@ members = [
     "crates/chain-listener",
     "crates/hex-utils",
     "crates/chain-data",
-    "crates/types"
-]
+    "crates/types",
+    "crates/core-manager"]
 exclude = [
     "nox/tests/tetraplets",
 ]
@@ -94,10 +94,10 @@ particle-execution = { path = "particle-execution" }
 system-services = { path = "crates/system-services" }
 health = { path = "crates/health" }
 subnet-resolver = { path = "crates/subnet-resolver" }
-hex-utils = { path = "crates/hex-utils"}
-chain-data = { path = "crates/chain-data"}
-chain-listener = { path = "crates/chain-listener"}
-types = { path = "crates/types"}
+hex-utils = { path = "crates/hex-utils" }
+chain-data = { path = "crates/chain-data" }
+chain-listener = { path = "crates/chain-listener" }
+types = { path = "crates/types" }
 
 # spell
 fluence-spell-dtos = "=0.6.10"
