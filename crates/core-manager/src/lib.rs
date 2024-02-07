@@ -1,3 +1,4 @@
+mod core_range;
 mod core_set;
 mod manager;
 

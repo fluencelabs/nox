@@ -1,3 +1,5 @@
+use crate::core_range::CoreRange;
+use crate::core_set;
 use crate::core_set::CoreSet;
 use core_affinity::CoreId;
 use fxhash::{FxBuildHasher, FxHasher};
@@ -33,10 +35,10 @@ pub enum WorkerUnitType {
 pub enum Error {
     #[error("Failed to fetch core ids")]
     FailedGetCoreIds,
-    #[error("Too much util core. Available cores: {available_cores}, requested {requested}")]
-    TooMuchUtilCores {
-        available_cores: usize,
-        requested: usize,
+    #[error("Wrong cpu range {err}")]
+    WrongCpuRange {
+        #[source]
+        err: core_set::Error,
     },
 }
 
@@ -53,13 +55,17 @@ pub enum FreeError {
 }
 
 impl CoreManager {
-    pub fn new(cpus_range: Option<CoreSet>) -> Result<Self, Error> {
-        let available_cores = cpus_range
+    pub fn new(cpus_range: Option<CoreRange>) -> Result<Self, Error> {
+        let cpus_range = cpus_range
             .or(core_affinity::get_core_ids().and_then(|cpus| {
                 let a: &[usize] = &cpus.iter().map(|cpu| cpu.id).collect::<Vec<usize>>();
-                CoreSet::try_from(a).ok()
+                CoreRange::try_from(a).ok()
             }))
             .ok_or(Error::FailedGetCoreIds)?;
+
+        let available_cores: CoreSet = cpus_range
+            .try_into()
+            .map_err(|err| Error::WrongCpuRange { err })?;
 
         let core_type_state = HashMap::with_capacity_and_hasher(
             available_cores.0.len() as usize,
