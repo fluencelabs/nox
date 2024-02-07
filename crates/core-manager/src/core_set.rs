@@ -24,8 +24,6 @@ impl TryFrom<CoreRange> for CoreSet {
 
 #[derive(Debug, Error, PartialEq)]
 pub enum Error {
-    #[error("Range can't be an empty")]
-    EmptyRange,
     #[error("Range is too big. Available cores: {available_cores}, requested range: {range:?}")]
     RangeIsTooBig {
         available_cores: usize,
@@ -37,6 +35,21 @@ pub enum Error {
 mod tests {
     use crate::core_range::CoreRange;
     use crate::core_set::{CoreSet, Error};
+
+    #[test]
+    fn simple_set_test() {
+        let available_cores = num_cpus::get();
+        let str = format!("0-{}", available_cores - 1);
+        let range = str.parse::<CoreRange>().unwrap();
+        let core_set = CoreSet::try_from(range.clone());
+        assert!(core_set.is_ok());
+        if let Ok(core_set) = core_set {
+            assert_eq!(
+                format!("{:?}", core_set),
+                format!("CoreSet(0..={})", available_cores - 1)
+            )
+        }
+    }
 
     #[test]
     fn big_cpu_count() {
@@ -52,6 +65,10 @@ mod tests {
                     available_cores,
                     range
                 }
+            );
+            assert_eq!(
+                err.to_string(),
+                "Range is too big. Available cores: 8, requested range: 0..=9"
             );
         }
     }
