@@ -86,8 +86,8 @@ pub async fn install_spell(
     // Save init_data to the spell's KV
     let self_particle_id = format!("spell_{spell_id}_0");
     let init_kv_params = CallParams::new(
-        worker_id,
-        worker_id,
+        owner_id,
+        peer_scope,
         spell_id.clone(),
         Some(self_particle_id),
         ttl,
