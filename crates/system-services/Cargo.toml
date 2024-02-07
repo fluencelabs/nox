@@ -7,20 +7,23 @@ edition = "2021"
 
 [dependencies]
 aqua-ipfs-distro = "=0.5.30"
-decider-distro = "=0.5.14"
+decider-distro = "=0.5.16"
 registry-distro = "=0.9.4"
 trust-graph-distro = "=0.4.11"
 
 maplit = { workspace = true }
 toml = { workspace = true }
 fluence-app-service = { workspace = true }
-eyre = {workspace = true}
+eyre = { workspace = true }
 libp2p = { workspace = true }
 log = { workspace = true }
 serde_json = { workspace = true }
 serde = { workspace = true }
+
 fluence-spell-dtos = { workspace = true }
 tracing = { workspace = true }
+futures = { workspace = true }
+types = { workspace = true }
 
 sorcerer = { workspace = true }
 spell-storage = { workspace = true }
@@ -34,3 +37,4 @@ now-millis = { workspace = true }
 server-config = { workspace = true }
 service-modules = { workspace = true }
 uuid-utils = { workspace = true }
+num_cpus = "1.16.0"

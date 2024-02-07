@@ -25,7 +25,6 @@ use connected_client::ConnectedClient;
 use created_swarm::make_swarms;
 use log_utils::enable_logs;
 use network::join::join_stream;
-use test_constants::KAD_TIMEOUT;
 
 pub mod network {
     pub mod join;
@@ -35,7 +34,6 @@ pub mod network {
 async fn identity_heavy() {
     enable_logs();
     let swarms = make_swarms(3).await;
-    tokio::time::sleep(KAD_TIMEOUT).await;
 
     let mut a = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .await

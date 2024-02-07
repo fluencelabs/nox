@@ -45,7 +45,8 @@ members = [
     "crates/system-services",
     "crates/chain-listener",
     "crates/hex-utils",
-    "crates/chain-data"
+    "crates/chain-data",
+    "crates/types"
 ]
 exclude = [
     "nox/tests/tetraplets",
@@ -96,10 +97,11 @@ subnet-resolver = { path = "crates/subnet-resolver" }
 hex-utils = { path = "crates/hex-utils"}
 chain-data = { path = "crates/chain-data"}
 chain-listener = { path = "crates/chain-listener"}
+types = { path = "crates/types"}
 
 # spell
-fluence-spell-dtos = "=0.6.9"
-fluence-spell-distro = "=0.6.9"
+fluence-spell-dtos = "=0.6.10"
+fluence-spell-distro = "=0.6.10"
 
 # marine
 #fluence-app-service = { version = "0.31.1" }
@@ -108,8 +110,8 @@ marine-utils = "0.5.1"
 marine-it-parser = "0.15.1"
 
 # avm
-avm-server = { version = "=0.55.1-feat-intermediate-marine-update-f3e4695-4194-1.0", registry = "fluence" }
-air-interpreter-wasm = { version = "=0.55.1-feat-intermediate-marine-update-f3e4695-4194-1.0", registry = "fluence" }
+avm-server = "=0.35.0"
+air-interpreter-wasm = "=0.59.0"
 
 # libp2p
 libp2p = { version = "0.53.2", features = ["noise", "tcp", "dns", "websocket", "yamux", "tokio", "kad", "ping", "identify", "macros"] }
@@ -122,19 +124,19 @@ libp2p-identity = "0.2.8"
 libp2p-connection-limits = "0.3.1"
 libp2p-kad = "0.45.3"
 multihash = "0.19.1"
-prometheus-client = "0.22.0"
+prometheus-client = "0.22.1"
 
-eyre = "0.6.11"
+eyre = "0.6.12"
 base64 = "0.21.7"
 bs58 = "0.5.0"
 fluence-keypair = "0.10.4"
 parking_lot = "0.12.1"
-tokio = "1.35.0"
+tokio = "1.36.0"
 tokio-stream = "0.1.14"
 tokio-util = "0.7.10"
 uuid = { version = "1.7.0", features = ["v4"] }
 derivative = "2.2.0"
-serde_json = { version = "1.0.111", features = ["preserve_order"] }
+serde_json = { version = "1.0.113", features = ["preserve_order"] }
 fstrings = "0.2.3"
 maplit = "1.0.2"
 log = "0.4.20"
@@ -143,14 +145,14 @@ tracing-subscriber = "0.3.18"
 console-subscriber = "0.2.0"
 futures = "0.3.30"
 thiserror = "1.0.56"
-serde = "1.0.195"
+serde = "1.0.196"
 toml = "0.5.10"
-itertools = "0.12.0"
+itertools = "0.12.1"
 humantime-serde = "1.1.1"
 cid = "0.11.0"
 libipld = "0.16.0"
 axum = "0.7.4"
-reqwest = "0.11.22"
+reqwest = "0.11.24"
 once_cell = "1.19.0"
 tempfile = "3.9.0"
 hex = "0.4.3"
@@ -158,10 +160,11 @@ ethabi = "18.0.0"
 jsonrpsee = "0.21.0"
 blake3 = "1.5.0"
 rand = "0.8.5"
+futures-util = "0.3.30"
 
 # Enable a small amount of optimization in debug mode
 [profile.dev]
-opt-level = 1
+opt-level = 0
 
 # Enable high optimizations for dependencies, but not for our code:
 [profile.dev.package."*"]

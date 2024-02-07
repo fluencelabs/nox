@@ -20,7 +20,7 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use avm_server::avm_runner::RawAVMOutcome;
-use avm_server::{AnomalyData, CallResults, ParticleParameters};
+use avm_server::{AnomalyData, CallResults, CallServiceResult, ParticleParameters};
 use fluence_libp2p::PeerId;
 use futures::stream::FuturesUnordered;
 use futures::StreamExt;
@@ -29,6 +29,7 @@ use tracing::instrument;
 
 use now_millis::now_ms;
 use particle_execution::{ParticleVault, VaultError};
+use serde_json::Value as JValue;
 
 type Result<T> = std::result::Result<T, DataStoreError>;
 
@@ -52,14 +53,19 @@ impl ParticleDataStore {
         }
     }
 
-    pub fn data_file(&self, particle_id: &str, current_peer_id: &str) -> PathBuf {
-        let key = store_key_from_components(particle_id, current_peer_id);
+    pub fn data_file(&self, particle_id: &str, current_peer_id: &str, signature: &[u8]) -> PathBuf {
+        let key = store_key_from_components(particle_id, current_peer_id, signature);
         self.particle_data_store.join(key)
     }
 
     /// Returns $ANOMALY_DATA_STORE/$particle_id/$timestamp
-    pub fn anomaly_dir(&self, particle_id: &str, current_peer_id: &str) -> PathBuf {
-        let key = store_key_from_components(particle_id, current_peer_id);
+    pub fn anomaly_dir(
+        &self,
+        particle_id: &str,
+        current_peer_id: &str,
+        signature: &[u8],
+    ) -> PathBuf {
+        let key = store_key_from_components(particle_id, current_peer_id, signature);
         [
             self.anomaly_data_store.as_path(),
             Path::new(&key),
@@ -72,6 +78,9 @@ impl ParticleDataStore {
 
 const EXECUTION_TIME_THRESHOLD: Duration = Duration::from_millis(500);
 const MEMORY_DELTA_BYTES_THRESHOLD: usize = 10 * bytesize::MB as usize;
+const AIR_SCRIPT_SIZE_THRESHOLD: usize = 8 * bytesize::MB as usize;
+const PARTICLE_DATA_SIZE_THRESHOLD: usize = 64 * bytesize::MB as usize;
+const CALL_SERVICE_RESULT_SIZE_THRESHOLD: usize = 8 * bytesize::MB as usize;
 
 impl ParticleDataStore {
     pub async fn initialize(&self) -> Result<()> {
@@ -90,9 +99,10 @@ impl ParticleDataStore {
         data: &[u8],
         particle_id: &str,
         current_peer_id: &str,
+        signature: &[u8],
     ) -> Result<()> {
         tracing::trace!(target: "particle_reap", particle_id = particle_id, "Storing data for particle");
-        let data_path = self.data_file(particle_id, current_peer_id);
+        let data_path = self.data_file(particle_id, current_peer_id, signature);
         tokio::fs::write(&data_path, data)
             .await
             .map_err(|err| DataStoreError::StoreData(err, data_path))?;
@@ -101,16 +111,21 @@ impl ParticleDataStore {
     }
 
     #[instrument(level = tracing::Level::INFO)]
-    pub async fn read_data(&self, particle_id: &str, current_peer_id: &str) -> Result<Vec<u8>> {
-        let data_path = self.data_file(particle_id, current_peer_id);
+    pub async fn read_data(
+        &self,
+        particle_id: &str,
+        current_peer_id: &str,
+        signature: &[u8],
+    ) -> Result<Vec<u8>> {
+        let data_path = self.data_file(particle_id, current_peer_id, signature);
         let data = tokio::fs::read(&data_path).await.unwrap_or_default();
         Ok(data)
     }
 
-    pub async fn batch_cleanup_data(&self, cleanup_keys: Vec<(String, PeerId)>) {
+    pub async fn batch_cleanup_data(&self, cleanup_keys: Vec<(String, PeerId, Vec<u8>)>) {
         let futures: FuturesUnordered<_> = cleanup_keys
             .into_iter()
-            .map(|(particle_id, peer_id)| async move {
+            .map(|(particle_id, peer_id, signature)| async move {
                 let peer_id = peer_id.to_string();
                 tracing::debug!(
                     target: "particle_reap",
@@ -119,7 +134,7 @@ impl ParticleDataStore {
                 );
 
                 if let Err(err) = self
-                    .cleanup_data(particle_id.as_str(), peer_id.as_str())
+                    .cleanup_data(particle_id.as_str(), peer_id.as_str(), &signature)
                     .await
                 {
                     tracing::warn!(
@@ -133,9 +148,14 @@ impl ParticleDataStore {
         let _results: Vec<_> = futures.collect().await;
     }
 
-    async fn cleanup_data(&self, particle_id: &str, current_peer_id: &str) -> Result<()> {
+    async fn cleanup_data(
+        &self,
+        particle_id: &str,
+        current_peer_id: &str,
+        signature: &[u8],
+    ) -> Result<()> {
         tracing::debug!(target: "particle_reap", particle_id = particle_id, "Cleaning up particle data for particle");
-        let path = self.data_file(particle_id, current_peer_id);
+        let path = self.data_file(particle_id, current_peer_id, signature);
         match tokio::fs::remove_file(&path).await {
             Ok(_) => Ok(()),
             // ignore NotFound
@@ -148,15 +168,30 @@ impl ParticleDataStore {
         Ok(())
     }
 
+    fn detect_mem_limits_anomaly(
+        &self,
+        memory_delta: usize,
+        outcome: &RawAVMOutcome,
+        call_results: &CallResults,
+        air_script: &str,
+    ) -> bool {
+        memory_delta > MEMORY_DELTA_BYTES_THRESHOLD
+            || outcome.data.len() > PARTICLE_DATA_SIZE_THRESHOLD
+            || air_script.len() > AIR_SCRIPT_SIZE_THRESHOLD
+            || call_results.values().any(call_result_size_limit_check)
+    }
+
     pub fn detect_anomaly(
         &self,
         execution_time: Duration,
         memory_delta: usize,
         outcome: &RawAVMOutcome,
+        call_results: &CallResults,
+        air_script: &str,
     ) -> bool {
         execution_time > EXECUTION_TIME_THRESHOLD
-            || memory_delta > MEMORY_DELTA_BYTES_THRESHOLD
             || outcome.ret_code != 0
+            || self.detect_mem_limits_anomaly(memory_delta, outcome, call_results, air_script)
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -167,6 +202,7 @@ impl ParticleDataStore {
         current_data: &[u8],
         call_results: &CallResults,
         particle_parameters: &ParticleParameters<'_>,
+        particle_signature: &[u8],
         outcome: &RawAVMOutcome,
         execution_time: Duration,
         memory_delta: usize,
@@ -175,6 +211,7 @@ impl ParticleDataStore {
             .read_data(
                 &particle_parameters.particle_id,
                 &particle_parameters.current_peer_id,
+                particle_signature,
             )
             .await?;
 
@@ -198,6 +235,7 @@ impl ParticleDataStore {
         self.collect_anomaly_data(
             &particle_parameters.particle_id,
             &particle_parameters.current_peer_id,
+            particle_signature,
             anomaly_data,
         )
         .await?;
@@ -208,9 +246,10 @@ impl ParticleDataStore {
         &self,
         particle_id: &str,
         current_peer_id: &str,
+        signature: &[u8],
         anomaly_data: AnomalyData<'_>,
     ) -> std::result::Result<(), DataStoreError> {
-        let path = self.anomaly_dir(particle_id, current_peer_id);
+        let path = self.anomaly_dir(particle_id, current_peer_id, signature);
         tokio::fs::create_dir_all(&path)
             .await
             .map_err(DataStoreError::CreateAnomalyDir)?;
@@ -223,6 +262,21 @@ impl ParticleDataStore {
 
         Ok(())
     }
+}
+
+fn get_jvalue_size(value: &JValue) -> usize {
+    match value {
+        JValue::Null => 0,
+        JValue::Bool(_) => 1,
+        JValue::Number(_) => 8,
+        JValue::String(s) => s.len(),
+        JValue::Array(arr) => arr.iter().map(get_jvalue_size).sum(),
+        JValue::Object(obj) => obj.iter().map(|(k, v)| k.len() + get_jvalue_size(v)).sum(),
+    }
+}
+
+fn call_result_size_limit_check(service_result: &CallServiceResult) -> bool {
+    get_jvalue_size(&service_result.result) > CALL_SERVICE_RESULT_SIZE_THRESHOLD
 }
 
 #[derive(Debug, Error)]
@@ -245,15 +299,25 @@ pub enum DataStoreError {
     ReadData(#[source] std::io::Error, PathBuf),
 }
 
-fn store_key_from_components(particle_id: &str, current_peer_id: &str) -> String {
-    format!("particle_{particle_id}-peer_{current_peer_id}")
+fn store_key_from_components(particle_id: &str, current_peer_id: &str, signature: &[u8]) -> String {
+    format!(
+        "particle_{particle_id}-peer_{current_peer_id}-sig_{}",
+        format_signature(signature)
+    )
+}
+
+fn format_signature(signature: &[u8]) -> String {
+    bs58::encode(signature).into_string()
 }
 
 #[cfg(test)]
 mod tests {
+    use crate::particle_data_store::{
+        AIR_SCRIPT_SIZE_THRESHOLD, CALL_SERVICE_RESULT_SIZE_THRESHOLD, PARTICLE_DATA_SIZE_THRESHOLD,
+    };
     use crate::ParticleDataStore;
     use avm_server::avm_runner::RawAVMOutcome;
-    use avm_server::CallRequests;
+    use avm_server::{CallRequests, CallResults, CallServiceResult};
     use std::path::PathBuf;
     use std::time::Duration;
 
@@ -290,14 +354,15 @@ mod tests {
 
         let particle_id = "test_particle";
         let current_peer_id = "test_peer";
+        let signature: &[u8] = &[0];
         let data = b"test_data";
 
         particle_data_store
-            .store_data(data, particle_id, current_peer_id)
+            .store_data(data, particle_id, current_peer_id, signature)
             .await
             .expect("Failed to store data");
         let read_result = particle_data_store
-            .read_data(particle_id, current_peer_id)
+            .read_data(particle_id, current_peer_id, signature)
             .await;
 
         assert!(read_result.is_ok());
@@ -306,6 +371,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_detect_anomaly() {
+        use AIR_SCRIPT_SIZE_THRESHOLD;
+        use PARTICLE_DATA_SIZE_THRESHOLD;
+
         let particle_data_store = ParticleDataStore::new(
             PathBuf::from("dummy"),
             PathBuf::from("dummy"),
@@ -335,15 +403,87 @@ mod tests {
             execution_time_below_threshold,
             memory_delta_below_threshold,
             &outcome_success,
+            &CallResults::new(),
+            "(null)",
         );
+
+        assert!(!anomaly_below_threshold);
+
         let anomaly_above_threshold = particle_data_store.detect_anomaly(
             execution_time_above_threshold,
             memory_delta_above_threshold,
             &outcome_failure,
+            &CallResults::new(),
+            "(null)",
         );
 
-        assert!(!anomaly_below_threshold);
         assert!(anomaly_above_threshold);
+
+        let anomaly_below_air_size_limit = particle_data_store.detect_anomaly(
+            execution_time_below_threshold,
+            memory_delta_below_threshold,
+            &outcome_success,
+            &CallResults::new(),
+            "(null)",
+        );
+
+        assert!(!anomaly_below_air_size_limit);
+
+        let air = "a".repeat(AIR_SCRIPT_SIZE_THRESHOLD + 1);
+        let anomaly_above_air_size_limit = particle_data_store.detect_anomaly(
+            execution_time_below_threshold,
+            memory_delta_below_threshold,
+            &outcome_success,
+            &CallResults::new(),
+            &air,
+        );
+
+        assert!(anomaly_above_air_size_limit);
+
+        let anomaly_below_particle_size_limit = particle_data_store.detect_anomaly(
+            execution_time_below_threshold,
+            memory_delta_below_threshold,
+            &outcome_success,
+            &CallResults::new(),
+            "(null)",
+        );
+
+        assert!(!anomaly_below_particle_size_limit);
+
+        let outcome = RawAVMOutcome {
+            ret_code: 0,
+            error_message: "".to_string(),
+            data: vec![0; PARTICLE_DATA_SIZE_THRESHOLD + 1],
+            call_requests: CallRequests::new(),
+            next_peer_pks: vec![],
+        };
+        let anomaly_above_particle_size_limit = particle_data_store.detect_anomaly(
+            execution_time_below_threshold,
+            memory_delta_below_threshold,
+            &outcome,
+            &CallResults::new(),
+            "(null)",
+        );
+
+        assert!(anomaly_above_particle_size_limit);
+
+        let call_result = CallServiceResult {
+            ret_code: 0,
+            result: serde_json::json!({ "data": vec![0; CALL_SERVICE_RESULT_SIZE_THRESHOLD + 1] }),
+        };
+        let mut call_results = CallResults::new();
+        call_results.insert(42, call_result);
+        let anomaly_below_call_result_size_limit = particle_data_store.detect_anomaly(
+            execution_time_below_threshold,
+            memory_delta_below_threshold,
+            &outcome_success,
+            &call_results,
+            "(null)",
+        );
+
+        assert!(anomaly_below_call_result_size_limit);
+
+        // let anomaly_call_result_size =
     }
 
     #[tokio::test]
@@ -362,14 +502,15 @@ mod tests {
 
         let particle_id = "test_particle";
         let current_peer_id = "test_peer";
+        let signature: &[u8] = &[];
         let data = b"test_data";
 
         particle_data_store
-            .store_data(data, particle_id, current_peer_id)
+            .store_data(data, particle_id, current_peer_id, signature)
             .await
             .expect("Failed to store data");
 
-        let data_file_path = particle_data_store.data_file(particle_id, current_peer_id);
+        let data_file_path = particle_data_store.data_file(particle_id, current_peer_id, signature);
         let vault_path = temp_dir_path.join("vault").join(particle_id);
         tokio::fs::create_dir_all(&vault_path)
             .await
@@ -378,7 +519,7 @@ mod tests {
         assert!(vault_path.exists());
 
         let cleanup_result = particle_data_store
-            .cleanup_data(particle_id, current_peer_id)
+            .cleanup_data(particle_id, current_peer_id, signature)
             .await;
 
         assert!(cleanup_result.is_ok());

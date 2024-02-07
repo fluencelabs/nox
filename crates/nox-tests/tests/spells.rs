@@ -194,6 +194,7 @@ async fn spell_simple_test() {
 
 #[tokio::test]
 async fn spell_error_handling_test() {
+    enable_logs();
     let swarms = make_swarms(1).await;
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .await
@@ -364,6 +365,7 @@ async fn spell_install_alias() {
 // Check that oneshot spells are actually executed and executed only once
 #[tokio::test]
 async fn spell_run_oneshot() {
+    enable_logs();
     let swarms = make_swarms(1).await;
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .await
@@ -679,6 +681,7 @@ async fn spell_store_trigger_config() {
 
 #[tokio::test]
 async fn spell_remove() {
+    enable_logs();
     let swarms = make_swarms(1).await;
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
@@ -785,6 +788,7 @@ async fn spell_remove_by_alias() {
 
 #[tokio::test]
 async fn spell_remove_spell_as_service() {
+    enable_logs();
     let swarms = make_swarms(1).await;
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .await
@@ -794,20 +798,24 @@ async fn spell_remove_spell_as_service() {
     let script = r#"(call %init_peer_id% ("peer" "identify") [] x)"#;
 
     let config = make_clock_config(2, 1, 0);
-    let (spell_id, _) = create_spell(&mut client, script, config, json!({}), None).await;
+    let (spell_id, worker_id) = create_spell(&mut client, script, config, json!({}), None).await;
 
     let data = hashmap! {
         "spell_id" => json!(spell_id),
         "relay" => json!(client.node.to_string()),
         "client" => json!(client.peer_id.to_string()),
+        "worker_id" => json!(worker_id.to_string()),
     };
 
     let result = client
         .execute_particle(
             r#"
-        (xor
-            (call relay ("srv" "remove") [spell_id])
-            (call client ("return" "") [%last_error%.$.message])
+        (seq
+           (call relay ("op" "noop") [])
+           (xor
+                (call worker_id ("srv" "remove") [spell_id])
+                (call client ("return" "") [%last_error%.$.message])
+           )
         )
         "#,
             data.clone(),
@@ -1057,7 +1065,7 @@ async fn spell_connection_pool_trigger_test() {
                 )
                 (call "{}" ("return" "") [trigger])
             )
-            (call %init_peer_id% ("run-console" "print") ["herror" %last_error%])
+            (call %init_peer_id% ("run-console" "print") ["error" %last_error%])
         )
     "#,
         client.peer_id
@@ -1403,59 +1411,8 @@ async fn resolve_alias_wrong_worker() {
 }
 
 #[tokio::test]
-async fn resolve_global_alias() {
-    let swarms = make_swarms(1).await;
-
-    let mut client = ConnectedClient::connect_with_keypair(
-        swarms[0].multiaddr.clone(),
-        Some(swarms[0].management_keypair.clone()),
-    )
-    .await
-    .wrap_err("connect client")
-    .unwrap();
-
-    let tetraplets_service = create_service(
-        &mut client,
-        "tetraplets",
-        load_module("tests/tetraplets/artifacts", "tetraplets").expect("load module"),
-    )
-    .await;
-
-    client
-        .send_particle(
-            r#"(call relay ("srv" "add_alias") ["alias" service])"#,
-            hashmap! {
-                "relay" => json!(client.node.to_string()),
-                "service" => json!(tetraplets_service.id),
-            },
-        )
-        .await;
-
-    let script = format!(
-        r#"
-        (seq
-            (call %init_peer_id% ("srv" "resolve_alias") ["alias"] resolved)
-            (call "{0}" ("return" "") [resolved])
-        )"#,
-        client.peer_id
-    );
-
-    let config = make_clock_config(2, 1, 0);
-    create_spell(&mut client, &script, config, json!({}), None).await;
-
-    if let [JValue::String(resolved)] = client
-        .receive_args()
-        .await
-        .wrap_err("receive")
-        .unwrap()
-        .as_slice()
-    {
-        assert_eq!(*resolved, tetraplets_service.id);
-    }
-}
-
-#[tokio::test]
 async fn worker_sig_test() {
+    enable_logs();
     let swarms = make_swarms_with_cfg(1, |mut cfg| {
         cfg.enabled_system_services = vec!["registry".to_string()];
         cfg
@@ -1472,7 +1429,7 @@ async fn worker_sig_test() {
         (seq
             (seq
                 (seq
-                    (call %init_peer_id% ("registry" "get_record_metadata_bytes") ["key_id" "" 0 "" "" [] [] []] data)
+                    (call "{0}" ("registry" "get_record_metadata_bytes") ["key_id" "" 0 "" "" [] [] []] data)
                     (call %init_peer_id% ("sig" "get_peer_id") [] peer_id)
                 )
                 (seq
@@ -1480,10 +1437,10 @@ async fn worker_sig_test() {
                     (call %init_peer_id% ("sig" "verify") [sig_result.$.signature.[0]! data] result)
                 )
             )
-            (call "{0}" ("op" "return") [sig_result result peer_id])
+            (call "{1}" ("op" "return") [sig_result result peer_id])
         )
        "#,
-        client.peer_id
+        client.node, client.peer_id
     );
 
     let config = make_clock_config(2, 1, 0);
@@ -1681,6 +1638,7 @@ async fn spell_create_worker_same_deal_id_different_peer() {
 
 #[tokio::test]
 async fn create_remove_worker() {
+    enable_logs();
     let swarms = make_swarms(1).await;
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .await
@@ -1705,8 +1663,8 @@ async fn create_remove_worker() {
         "spell_id" => json!(spell_id.clone()),
         "srv_id" => json!(service.id.clone()),
     };
-    client
-        .send_particle(
+    let response = client
+        .execute_particle(
             r#"
         (xor
             (seq
@@ -1736,14 +1694,11 @@ async fn create_remove_worker() {
     "#,
             data.clone(),
         )
-        .await;
-
-    if let [JValue::Array(before), JValue::String(spell_err), JValue::String(srv_err)] = client
-        .receive_args()
         .await
-        .wrap_err("receive")
-        .unwrap()
-        .as_slice()
+        .unwrap();
+
+    if let [JValue::Array(before), JValue::String(spell_err), JValue::String(srv_err)] =
+        response.as_slice()
     {
         assert_eq!(before.len(), 2);
 
@@ -2133,17 +2088,19 @@ async fn set_alias_by_worker_creator() {
 async fn test_decider_api_endpoint_rewrite() {
     let expected_endpoint = "test1".to_string();
     let swarm_keypair = KeyPair::generate_ed25519();
-    let swarms = make_swarms_with_cfg(1, |mut cfg| {
+    let inner_keypair = swarm_keypair.clone();
+    let inner_endpoint = expected_endpoint.clone();
+    let swarms = make_swarms_with_cfg(1, move |mut cfg| {
         let tmp_dir = tempfile::tempdir().expect("Could not create temp dir");
         let tmp_dir = Arc::new(tmp_dir);
-        cfg.keypair = swarm_keypair.clone();
+        cfg.keypair = inner_keypair.clone();
         cfg.tmp_dir = tmp_dir;
         cfg.enabled_system_services = vec!["decider".to_string()];
         cfg.override_system_services_config = Some(SystemServicesConfig {
             enable: vec![],
             aqua_ipfs: Default::default(),
             decider: DeciderConfig {
-                network_api_endpoint: expected_endpoint.clone(),
+                network_api_endpoint: inner_endpoint.clone(),
                 ..Default::default()
             },
             registry: Default::default(),
@@ -2191,17 +2148,19 @@ async fn test_decider_api_endpoint_rewrite() {
         .for_each(drop);
 
     let another_endpoint = "another_endpoint_test".to_string();
-    let swarms = make_swarms_with_cfg(1, |mut cfg| {
+    let inner_keypair = swarm_keypair.clone();
+    let inner_endpoint = another_endpoint.clone();
+    let swarms = make_swarms_with_cfg(1, move |mut cfg| {
         let tmp_dir = tempfile::tempdir().expect("Could not create temp dir");
         let tmp_dir = Arc::new(tmp_dir);
-        cfg.keypair = swarm_keypair.clone();
+        cfg.keypair = inner_keypair.clone();
         cfg.tmp_dir = tmp_dir;
         cfg.enabled_system_services = vec!["decider".to_string()];
         cfg.override_system_services_config = Some(SystemServicesConfig {
             enable: vec![],
             aqua_ipfs: Default::default(),
             decider: DeciderConfig {
-                network_api_endpoint: another_endpoint.clone(),
+                network_api_endpoint: inner_endpoint.clone(),
                 ..Default::default()
             },
             registry: Default::default(),
@@ -2246,7 +2205,7 @@ async fn test_decider_api_endpoint_rewrite() {
 #[tokio::test]
 async fn test_activate_deactivate() {
     let worker_period_sec = 120u32;
-    let swarms = make_swarms_with_cfg(1, |mut cfg| {
+    let swarms = make_swarms_with_cfg(1, move |mut cfg| {
         cfg.override_system_services_config = Some(SystemServicesConfig {
             enable: vec![],
             aqua_ipfs: Default::default(),

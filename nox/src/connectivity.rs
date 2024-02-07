@@ -175,38 +175,52 @@ impl Connectivity {
         let pool = self.connection_pool;
         let bootstrap_nodes = self.bootstrap_nodes;
         let frequency = self.bootstrap_frequency;
+        let health = self.health.as_ref();
 
-        // Count connected (and reconnected) bootstrap nodes
-        let connections = {
-            use tokio_stream::StreamExt as stream;
-            let events = pool.lifecycle_events();
-            stream::filter_map(events, move |e| {
-                log::trace!(target: "network", "Connection pool event: {:?}", e);
-                if let LifecycleEvent::Connected(c) = e {
-                    let mut addresses = c.addresses.iter();
-                    addresses.find(|addr| bootstrap_nodes.contains(addr))?;
-                    return Some(c);
-                }
-                None
-            })
-        }
-        .enumerate();
+        if !bootstrap_nodes.is_empty() {
+            // Count connected (and reconnected) bootstrap nodes
+            let connections = {
+                use tokio_stream::StreamExt as stream;
+                let events = pool.lifecycle_events();
+                stream::filter_map(events, move |e| {
+                    log::trace!(target: "network", "Connection pool event: {:?}", e);
+                    if let LifecycleEvent::Connected(c) = e {
+                        let mut addresses = c.addresses.iter();
+                        addresses.find(|addr| bootstrap_nodes.contains(addr))?;
+                        return Some(c);
+                    }
+                    None
+                })
+            }
+            .enumerate();
 
-        connections
-            .for_each(move |(n, contact)| {
-                let kademlia = kademlia.clone();
-                async move {
-                    if n % frequency == 0 {
-                        kademlia.add_contact(contact);
-                        if let Err(err) = kademlia.bootstrap().await {
-                            log::warn!("Kademlia bootstrap failed: {}", err)
-                        } else {
-                            log::info!("Kademlia bootstrap finished");
+            connections
+                .for_each(move |(n, contact)| {
+                    let kademlia = kademlia.clone();
+                    async move {
+                        if n % frequency == 0 {
+                            kademlia.add_contact(contact);
+                            if let Err(err) = kademlia.bootstrap().await {
+                                log::warn!("Kademlia bootstrap failed: {}", err);
+                                if let Some(h) = health {
+                                    h.kademlia_bootstrap.on_boostrap_failed()
+                                }
+                            } else {
+                                log::info!("Kademlia bootstrap finished");
+                                if let Some(h) = health {
+                                    h.kademlia_bootstrap.on_boostrap_finished()
+                                }
+                            }
                         }
                     }
-                }
-            })
-            .await;
+                })
+                .await;
+        } else {
+            // there is no bootstrap nodes, that means bootstrap process is finished
+            if let Some(h) = health {
+                h.kademlia_bootstrap.on_boostrap_finished();
+            }
+        }
     }
 
     /// Dial bootstraps, and then re-dial on each disconnection

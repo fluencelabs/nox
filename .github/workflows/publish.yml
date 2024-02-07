@@ -37,7 +37,7 @@ jobs:
           ref: ${{ inputs.tag }}
 
       - name: Import secrets
-        uses: hashicorp/vault-action@v2.7.4
+        uses: hashicorp/vault-action@v2.8.0
         with:
           url: https://vault.fluence.dev
           path: jwt/github
@@ -109,7 +109,7 @@ jobs:
             org.opencontainers.image.revision=${{ github.sha }}
 
       - name: Update docker hub description
-        uses: peter-evans/dockerhub-description@v3
+        uses: peter-evans/dockerhub-description@v4
         with:
           username: ${{ env.DOCKER_USERNAME }}
           password: ${{ env.DOCKER_PASSWORD }}

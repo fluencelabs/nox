@@ -2,7 +2,7 @@ use fluence_libp2p::PeerId;
 use fluence_spell_dtos::trigger_config::{TriggerConfig, TriggerConfigValue};
 use fluence_spell_dtos::value::{ScriptValue, SpellValueT, StringValue, U32Value, UnitValue};
 use particle_execution::{FunctionOutcome, ParticleParams};
-use particle_services::ParticleAppServices;
+use particle_services::{ParticleAppServices, PeerScope};
 use serde::de::DeserializeOwned;
 use serde_json::{json, Value};
 use std::time::Duration;
@@ -50,7 +50,7 @@ pub struct CallParams {
     // Who initiated the call
     init_peer_id: PeerId,
     // Worker ID where the spell is installed
-    worker_id: PeerId,
+    peer_scope: PeerScope,
     // Spell ID
     spell_id: String,
     //
@@ -62,14 +62,14 @@ pub struct CallParams {
 impl CallParams {
     pub fn new(
         init_peer_id: PeerId,
-        worker_id: PeerId,
+        peer_scope: PeerScope,
         spell_id: String,
         particle_id: Option<String>,
         ttl: Duration,
     ) -> Self {
         Self {
             init_peer_id,
-            worker_id,
+            peer_scope,
             spell_id,
             particle_id,
             ttl,
@@ -78,17 +78,22 @@ impl CallParams {
     pub fn from(spell_id: String, params: ParticleParams) -> Self {
         Self {
             init_peer_id: params.init_peer_id,
-            worker_id: params.host_id,
+            peer_scope: params.peer_scope,
             spell_id,
             particle_id: Some(params.id),
             ttl: Duration::from_millis(params.ttl as u64),
         }
     }
 
-    pub fn local(spell_id: String, worker_id: PeerId, ttl: Duration) -> Self {
+    pub fn local(
+        peer_scope: PeerScope,
+        spell_id: String,
+        init_peer_id: PeerId,
+        ttl: Duration,
+    ) -> Self {
         Self {
-            init_peer_id: worker_id,
-            worker_id,
+            init_peer_id,
+            peer_scope,
             spell_id,
             particle_id: None,
             ttl,
@@ -220,7 +225,7 @@ impl SpellServiceApi {
         use CallError::*;
         let spell_id = params.spell_id;
         let result = self.services.call_function(
-            params.worker_id,
+            params.peer_scope,
             &spell_id,
             function.name,
             function.args,
@@ -266,7 +271,7 @@ mod tests {
     use std::path::{Path, PathBuf};
     use std::sync::Arc;
 
-    use particle_services::{ParticleAppServices, ServiceType};
+    use particle_services::{ParticleAppServices, PeerScope, ServiceType};
 
     use fluence_libp2p::PeerId;
     use libp2p_identity::Keypair;
@@ -281,7 +286,7 @@ mod tests {
     use maplit::hashmap;
     use serde_json::json;
     use std::time::Duration;
-    use workers::{KeyStorage, PeerScope, Workers};
+    use workers::{KeyStorage, PeerScopes, Workers};
 
     use crate::{CallParams, SpellServiceApi};
 
@@ -311,14 +316,14 @@ mod tests {
 
         let key_storage = Arc::new(key_storage);
 
-        let scope = PeerScope::new(
+        let scope = PeerScopes::new(
             root_key_pair.get_peer_id(),
             management_pid,
             root_key_pair.get_peer_id(),
             key_storage.clone(),
         );
 
-        let workers = Workers::from_path(workers_dir.clone(), key_storage, scope.clone())
+        let workers = Workers::from_path(workers_dir.clone(), key_storage)
             .await
             .expect("Could not load worker registry");
 
@@ -355,12 +360,13 @@ mod tests {
         (pas, repo)
     }
 
-    fn create_spell(
+    async fn create_spell(
         pas: &ParticleAppServices,
         blueprint_id: String,
-        worker_id: PeerId,
+        owner_id: PeerId,
     ) -> Result<String, String> {
-        pas.create_service(ServiceType::Spell, blueprint_id, worker_id, worker_id)
+        pas.create_service(PeerScope::Host, ServiceType::Spell, blueprint_id, owner_id)
+            .await
             .map_err(|e| e.to_string())
     }
 
@@ -373,8 +379,10 @@ mod tests {
         let api = SpellServiceApi::new(pas.clone());
         let (storage, _) = spell_storage::SpellStorage::create(Path::new(""), &pas, &repo).unwrap();
         let spell_service_blueprint_id = storage.get_blueprint();
-        let spell_id = create_spell(&pas, spell_service_blueprint_id, local_pid).unwrap();
-        let params = CallParams::local(spell_id, local_pid, TTL);
+        let spell_id = create_spell(&pas, spell_service_blueprint_id, local_pid)
+            .await
+            .unwrap();
+        let params = CallParams::local(PeerScope::Host, spell_id, local_pid, TTL);
         (api, params)
     }
 

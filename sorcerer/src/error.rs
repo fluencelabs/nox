@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 use particle_protocol::ParticleError;
+use particle_services::PeerScope;
 use thiserror::Error;
-use workers::WorkersError;
 
 #[derive(Debug, Error)]
 pub enum SorcererError {
@@ -25,10 +25,9 @@ pub enum SorcererError {
         err: ParticleError,
         spell_id: String,
     },
-    #[error("Keypair for spell {spell_id} is missing: {err}")]
+    #[error("Keypair for spell {spell_id}:{peer_scope:?} is missing")]
     ScopeKeypairMissing {
-        #[source]
-        err: WorkersError,
         spell_id: String,
+        peer_scope: PeerScope,
     },
 }

@@ -1,10 +1,10 @@
 use std::future::Future;
 
 use enum_dispatch::enum_dispatch;
-use libp2p::PeerId;
 use tokio::runtime::Handle;
 use tokio::task::JoinHandle;
 use tokio_util::context::TokioContext;
+use workers::WorkerId;
 
 /// The `SpawnFunctions` trait defines methods for spawning asynchronous tasks with different configurations.
 ///
@@ -145,13 +145,13 @@ impl SpawnFunctions for RootSpawner {
 /// on the worker runtime with specific configurations.
 #[derive(Clone)]
 pub struct WorkerSpawner {
-    worker_id: PeerId,
+    worker_id: WorkerId,
     runtime_handle: Handle,
 }
 
 impl WorkerSpawner {
     /// Creates a new `WorkerSpawner` instance with the given runtime handle and worker ID.
-    pub(crate) fn new(runtime_handle: Handle, worker_id: PeerId) -> Self {
+    pub(crate) fn new(runtime_handle: Handle, worker_id: WorkerId) -> Self {
         Self {
             runtime_handle,
             worker_id,

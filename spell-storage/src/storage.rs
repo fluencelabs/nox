@@ -6,15 +6,12 @@ use derivative::Derivative;
 use eyre::eyre;
 use eyre::WrapErr;
 use fluence_app_service::TomlMarineConfig;
-use fluence_libp2p::PeerId;
-use itertools::Itertools;
 use parking_lot::RwLock;
 
 use particle_modules::{load_module_by_path, AddBlueprint, ModuleRepository};
-use particle_services::ParticleAppServices;
+use particle_services::{ParticleAppServices, PeerScope};
 use service_modules::module_file_name;
 
-type WorkerId = PeerId;
 type SpellId = String;
 
 #[derive(Derivative)]
@@ -23,7 +20,8 @@ pub struct SpellStorage {
     // The blueprint for the latest spell service. It's used to create new spells
     spell_blueprint_id: String,
     // All currently existing spells
-    registered_spells: Arc<RwLock<HashMap<WorkerId, Vec<SpellId>>>>,
+    registered_spells: Arc<RwLock<HashMap<PeerScope, Vec<SpellId>>>>,
+    scope_mapping: Arc<RwLock<HashMap<SpellId, PeerScope>>>,
 }
 
 impl SpellStorage {
@@ -39,12 +37,13 @@ impl SpellStorage {
         } else {
             Self::load_spell_service_from_crate(modules)?
         };
-        let registered_spells = Self::restore_spells(services);
+        let (registered_spells, scope_mapping) = Self::restore_spells(services);
 
         Ok((
             Self {
                 spell_blueprint_id,
                 registered_spells: Arc::new(RwLock::new(registered_spells)),
+                scope_mapping: Arc::new(RwLock::new(scope_mapping)),
             },
             spell_version,
         ))
@@ -104,23 +103,45 @@ impl SpellStorage {
         ))
     }
 
-    fn restore_spells(services: &ParticleAppServices) -> HashMap<WorkerId, Vec<SpellId>> {
-        services
-            .list_services_with_info()
+    fn restore_spells(
+        services: &ParticleAppServices,
+    ) -> (
+        HashMap<PeerScope, Vec<SpellId>>,
+        HashMap<SpellId, PeerScope>,
+    ) {
+        let mut registered_spell: HashMap<PeerScope, Vec<SpellId>> = HashMap::new();
+        let mut scope_mapping: HashMap<SpellId, PeerScope> = HashMap::new();
+
+        let spell_services = services
+            .list_services_all()
             .into_iter()
-            .filter(|s| s.service_type.is_spell())
-            .map(|s| (s.worker_id, s.id))
-            .into_group_map()
+            .filter(|s| s.service_type.is_spell());
+
+        for service in spell_services {
+            let peer_scope = service.peer_scope;
+            let spell_id = service.id;
+            registered_spell
+                .entry(peer_scope)
+                .or_default()
+                .push(spell_id.clone());
+            scope_mapping.insert(spell_id, peer_scope);
+        }
+
+        (registered_spell, scope_mapping)
     }
 
-    pub fn get_registered_spells(&self) -> HashMap<WorkerId, Vec<SpellId>> {
+    pub fn get_registered_spells(&self) -> HashMap<PeerScope, Vec<SpellId>> {
         self.registered_spells.read().clone()
     }
 
-    pub fn get_registered_spells_by(&self, worker_id: PeerId) -> Vec<SpellId> {
+    pub fn get_scope(&self, spell_id: SpellId) -> Option<PeerScope> {
+        self.scope_mapping.read().get(&spell_id).cloned()
+    }
+
+    pub fn get_registered_spells_by(&self, peer_scope: PeerScope) -> Vec<SpellId> {
         self.registered_spells
             .read()
-            .get(&worker_id)
+            .get(&peer_scope)
             .cloned()
             .unwrap_or_default()
     }
@@ -129,13 +150,15 @@ impl SpellStorage {
         self.spell_blueprint_id.clone()
     }
 
-    pub fn register_spell(&self, worker_id: WorkerId, spell_id: String) {
+    pub fn register_spell(&self, peer_scope: PeerScope, spell_id: String) {
         let mut spells = self.registered_spells.write();
-        spells.entry(worker_id).or_default().push(spell_id);
+        let mut scope_mapping = self.scope_mapping.write();
+        spells.entry(peer_scope).or_default().push(spell_id.clone());
+        scope_mapping.insert(spell_id, peer_scope);
     }
 
-    pub fn unregister_spell(&self, worker_id: WorkerId, spell_id: &str) {
-        if let Some(spells) = self.registered_spells.write().get_mut(&worker_id) {
+    pub fn unregister_spell(&self, peer_scope: PeerScope, spell_id: &str) {
+        if let Some(spells) = self.registered_spells.write().get_mut(&peer_scope) {
             spells.retain(|sp_id| sp_id.ne(spell_id));
         }
     }

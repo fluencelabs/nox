@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+use eyre::eyre;
 use futures::future::BoxFuture;
 use futures::FutureExt;
 use std::collections::hash_map::Entry;
@@ -35,17 +36,18 @@ use fluence_libp2p::PeerId;
 use mock_time::now_ms;
 use particle_execution::{ParticleFunctionStatic, ParticleParams, ServiceFunction};
 use particle_protocol::ExtendedParticle;
+use particle_services::PeerScope;
 use peer_metrics::ParticleExecutorMetrics;
 /// Get current time from OS
 #[cfg(not(test))]
 use real_time::now_ms;
-use workers::{PeerScope, Workers};
+use workers::{KeyStorage, PeerScopes, Workers};
 
 use crate::actor::{Actor, ActorPoll};
 use crate::aqua_runtime::AquaRuntime;
 use crate::deadline::Deadline;
 use crate::error::AquamarineApiError;
-use crate::particle_effects::RoutingEffects;
+use crate::particle_effects::{LocalRoutingEffects, RemoteRoutingEffects};
 use crate::particle_functions::Functions;
 use crate::spawner::{RootSpawner, Spawner, WorkerSpawner};
 use crate::vm_pool::VmPool;
@@ -54,13 +56,13 @@ use crate::ParticleDataStore;
 #[derive(PartialEq, Hash, Eq)]
 struct ActorKey {
     signature: Vec<u8>,
-    worker_id: PeerId,
+    peer_scope: PeerScope,
 }
 
 const MAX_CLEANUP_KEYS_SIZE: usize = 1024;
 
 pub struct Plumber<RT: AquaRuntime, F> {
-    events: VecDeque<Result<RoutingEffects, AquamarineApiError>>,
+    events: VecDeque<Result<RemoteRoutingEffects, AquamarineApiError>>,
     actors: HashMap<ActorKey, Actor<RT, F>>,
     vm_pool: VmPool<RT>,
     data_store: Arc<ParticleDataStore>,
@@ -68,7 +70,8 @@ pub struct Plumber<RT: AquaRuntime, F> {
     waker: Option<Waker>,
     metrics: Option<ParticleExecutorMetrics>,
     workers: Arc<Workers>,
-    scope: PeerScope,
+    key_storage: Arc<KeyStorage>,
+    scopes: PeerScopes,
     cleanup_future: Option<BoxFuture<'static, ()>>,
     root_runtime_handle: Handle,
 }
@@ -80,7 +83,8 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
         builtins: F,
         metrics: Option<ParticleExecutorMetrics>,
         workers: Arc<Workers>,
-        scope: PeerScope,
+        key_storage: Arc<KeyStorage>,
+        scope: PeerScopes,
     ) -> Self {
         Self {
             vm_pool,
@@ -91,7 +95,8 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
             waker: <_>::default(),
             metrics,
             workers,
-            scope,
+            key_storage,
+            scopes: scope,
             cleanup_future: None,
             root_runtime_handle: Handle::current(),
         }
@@ -103,7 +108,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
         &mut self,
         particle: ExtendedParticle,
         function: Option<ServiceFunction>,
-        worker_id: PeerId,
+        peer_scope: PeerScope,
     ) {
         self.wake();
 
@@ -127,54 +132,24 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
             return;
         }
 
-        let is_active = self.workers.is_worker_active(worker_id);
-        let is_manager = self.scope.is_management(particle.particle.init_peer_id);
-        let is_host = self.scope.is_host(particle.particle.init_peer_id);
+        if let PeerScope::WorkerId(worker_id) = peer_scope {
+            let is_active = self.workers.is_worker_active(worker_id);
+            let is_manager = self.scopes.is_management(particle.particle.init_peer_id);
+            let is_host = self.scopes.is_host(particle.particle.init_peer_id);
 
-        // Only a manager or the host itself is allowed to access deactivated workers
-        if !is_active && !is_manager && !is_host {
-            tracing::trace!(target: "worker_inactive", particle_id = particle.particle.id, worker_id = worker_id.to_string(), "Worker is not active");
-            return;
-        }
-
-        let builtins = &self.builtins;
-        let key = ActorKey {
-            signature: particle.particle.signature.clone(),
-            worker_id,
-        };
-        let entry = self.actors.entry(key);
-
-        let actor = match entry {
-            Entry::Occupied(actor) => Ok(actor.into_mut()),
-            Entry::Vacant(entry) => {
-                let params = ParticleParams::clone_from(particle.as_ref(), worker_id);
-                let functions = Functions::new(params, builtins.clone());
-                let key_pair = self.workers.get_keypair(worker_id);
-                let deal_id = self.workers.get_deal_id(worker_id).ok();
-                let data_store = self.data_store.clone();
-                key_pair.map(|kp| {
-                    let spawner = self
-                        .workers
-                        .get_handle(worker_id)
-                        .map(|runtime_handle| {
-                            Spawner::Worker(WorkerSpawner::new(runtime_handle, worker_id))
-                        })
-                        .unwrap_or(Spawner::Root(RootSpawner::new(
-                            self.root_runtime_handle.clone(),
-                        )));
-                    let actor = Actor::new(
-                        particle.as_ref(),
-                        functions,
-                        worker_id,
-                        kp,
-                        data_store,
-                        deal_id,
-                        spawner,
-                    );
-                    entry.insert(actor)
-                })
+            // Only a manager or the host itself is allowed to access deactivated workers
+            if !is_active && !is_manager && !is_host {
+                tracing::trace!(target: "worker_inactive", particle_id = particle.particle.id, worker_id = worker_id.to_string(), "Worker is not active");
+                return;
             }
         };
+
+        let key = ActorKey {
+            signature: particle.particle.signature.clone(),
+            peer_scope,
+        };
+
+        let actor = self.get_or_create_actor(peer_scope, key, &particle);
 
         debug_assert!(actor.is_ok(), "no such worker: {:#?}", actor.err());
 
@@ -185,12 +160,68 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
                     actor.set_function(function);
                 }
             }
-            Err(err) => log::warn!(
-                "No such worker {}, rejected particle {}: {:?}",
-                worker_id,
-                particle.particle.id,
-                err
+            Err(err) => tracing::warn!(
+                "No such worker {:?}, rejected particle {particle_id}: {:?}",
+                peer_scope,
+                err,
+                particle_id = particle.particle.id,
             ),
+        }
+    }
+
+    fn get_or_create_actor(
+        &mut self,
+        peer_scope: PeerScope,
+        key: ActorKey,
+        particle: &ExtendedParticle,
+    ) -> eyre::Result<&mut Actor<RT, F>> {
+        let entry = self.actors.entry(key);
+        let builtins = &self.builtins;
+        match entry {
+            Entry::Occupied(actor) => Ok(actor.into_mut()),
+            Entry::Vacant(entry) => {
+                let params = ParticleParams::clone_from(particle.as_ref(), peer_scope);
+                let functions = Functions::new(params, builtins.clone());
+                let key_pair = self
+                    .key_storage
+                    .get_keypair(peer_scope)
+                    .ok_or(eyre!("Not found key pair for {:?}", peer_scope))?;
+                let (deal_id, spawner, current_peer_id) = match peer_scope {
+                    PeerScope::WorkerId(worker_id) => {
+                        let deal_id = self
+                            .workers
+                            .get_deal_id(worker_id)
+                            .map_err(|err| eyre!("Not found deal for {:?} : {}", worker_id, err))?;
+                        let runtime_handle = self
+                            .workers
+                            .get_handle(worker_id)
+                            .ok_or(eyre!("Not found runtime handle for {:?}", worker_id))?;
+                        let spawner =
+                            Spawner::Worker(WorkerSpawner::new(runtime_handle, worker_id));
+                        let current_peer_id: PeerId = worker_id.into();
+                        (Some(deal_id), spawner, current_peer_id)
+                    }
+                    PeerScope::Host => {
+                        let spawner =
+                            Spawner::Root(RootSpawner::new(self.root_runtime_handle.clone()));
+                        let current_peer_id = self.scopes.get_host_peer_id();
+                        (None, spawner, current_peer_id)
+                    }
+                };
+
+                let data_store = self.data_store.clone();
+                let actor = Actor::new(
+                    particle.as_ref(),
+                    functions,
+                    current_peer_id,
+                    key_pair,
+                    data_store,
+                    deal_id,
+                    spawner,
+                );
+                let res = entry.insert(actor);
+                Ok(res)
+            }
         }
     }
 
@@ -224,7 +255,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
     pub fn poll(
         &mut self,
         cx: &mut Context<'_>,
-    ) -> Poll<Result<RoutingEffects, AquamarineApiError>> {
+    ) -> Poll<Result<RemoteRoutingEffects, AquamarineApiError>> {
         self.waker = Some(cx.waker().clone());
 
         self.vm_pool.poll(cx);
@@ -234,29 +265,38 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
         }
 
         // Gather effects and put VMs back
-        let mut remote_effects = vec![];
-        let mut local_effects: Vec<RoutingEffects> = vec![];
+        let mut remote_effects: Vec<RemoteRoutingEffects> = vec![];
+        let mut local_effects: Vec<LocalRoutingEffects> = vec![];
         let mut interpretation_stats = vec![];
         let mut mailbox_size = 0;
         for actor in self.actors.values_mut() {
             if let Poll::Ready(result) = actor.poll_completed(cx) {
                 interpretation_stats.push(result.stats);
-                let (local_peers, remote_peers): (Vec<_>, Vec<_>) = result
-                    .effects
-                    .next_peers
-                    .into_iter()
-                    .partition(|p| self.scope.is_local(*p));
+
+                let mut remote_peers = vec![];
+                let mut local_peers = vec![];
+                for next_peer in result.effects.next_peers {
+                    let scope = self.scopes.scope(next_peer);
+                    match scope {
+                        Err(_) => {
+                            remote_peers.push(next_peer);
+                        }
+                        Ok(scope) => {
+                            local_peers.push(scope);
+                        }
+                    }
+                }
 
                 if !remote_peers.is_empty() {
-                    remote_effects.push(RoutingEffects {
+                    remote_effects.push(RemoteRoutingEffects {
                         particle: result.effects.particle.clone(),
                         next_peers: remote_peers,
-                    })
+                    });
                 }
 
                 if !local_peers.is_empty() {
-                    local_effects.push(RoutingEffects {
-                        particle: result.effects.particle,
+                    local_effects.push(LocalRoutingEffects {
+                        particle: result.effects.particle.clone(),
                         next_peers: local_peers,
                     });
                 }
@@ -282,7 +322,8 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
         // do not schedule task if another in progress
         if self.cleanup_future.is_none() {
             // Remove expired actors
-            let mut cleanup_keys: Vec<(String, PeerId)> = Vec::with_capacity(MAX_CLEANUP_KEYS_SIZE);
+            let mut cleanup_keys: Vec<(String, PeerId, Vec<u8>)> =
+                Vec::with_capacity(MAX_CLEANUP_KEYS_SIZE);
             let now = now_ms();
             self.actors.retain(|_, actor| {
                 // TODO: this code isn't optimal we continue iterate over actors if cleanup keys is full
@@ -395,7 +436,7 @@ mod tests {
     use fluence_keypair::KeyPair;
     use fluence_libp2p::RandomPeerId;
     use futures::task::noop_waker_ref;
-    use workers::{KeyStorage, PeerScope, Workers};
+    use workers::{KeyStorage, PeerScopes, Workers};
 
     use particle_args::Args;
     use particle_execution::{FunctionOutcome, ParticleFunction, ParticleParams, ServiceFunction};
@@ -409,6 +450,7 @@ mod tests {
     use crate::{AquaRuntime, ParticleDataStore, ParticleEffects, Plumber};
     use async_trait::async_trait;
     use avm_server::avm_runner::RawAVMOutcome;
+    use particle_services::PeerScope;
     use tracing::Span;
 
     struct MockF;
@@ -495,14 +537,14 @@ mod tests {
 
         let key_storage = Arc::new(key_storage);
 
-        let scope = PeerScope::new(
+        let scope = PeerScopes::new(
             root_key_pair.get_peer_id(),
             RandomPeerId::random(),
             RandomPeerId::random(),
             key_storage.clone(),
         );
 
-        let workers = Workers::from_path(workers_path.clone(), key_storage, scope.clone())
+        let workers = Workers::from_path(workers_path.clone(), key_storage.clone())
             .await
             .expect("Could not load worker registry");
 
@@ -527,6 +569,7 @@ mod tests {
             builtin_mock,
             None,
             workers.clone(),
+            key_storage.clone(),
             scope.clone(),
         )
     }
@@ -558,7 +601,7 @@ mod tests {
         plumber.ingest(
             ExtendedParticle::new(particle, Span::none()),
             None,
-            RandomPeerId::random(),
+            PeerScope::Host,
         );
 
         assert_eq!(plumber.actors.len(), 1);
@@ -595,7 +638,7 @@ mod tests {
         plumber.ingest(
             ExtendedParticle::new(particle.clone(), Span::none()),
             None,
-            RandomPeerId::random(),
+            PeerScope::Host,
         );
 
         assert_eq!(plumber.actors.len(), 0);

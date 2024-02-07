@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 particle-protocol = { workspace = true }
+types = { workspace = true }
 
 particle-args = { workspace = true }
 fluence-libp2p = { workspace = true }

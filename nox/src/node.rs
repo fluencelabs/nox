@@ -36,7 +36,7 @@ use tracing::Instrument;
 
 use aquamarine::{
     AquaRuntime, AquamarineApi, AquamarineApiError, AquamarineBackend, DataStoreConfig,
-    RoutingEffects, VmPoolConfig,
+    RemoteRoutingEffects, VmPoolConfig,
 };
 use chain_listener::ChainListener;
 use config_utils::to_peer_id;
@@ -56,7 +56,7 @@ use sorcerer::Sorcerer;
 use spell_event_bus::api::{PeerEvent, SpellEventBusApi, TriggerEvent};
 use spell_event_bus::bus::SpellEventBus;
 use system_services::{Deployer, SystemServiceDistros};
-use workers::{KeyStorage, PeerScope, Workers};
+use workers::{KeyStorage, PeerScopes, Workers};
 
 use super::behaviour::FluenceNetworkBehaviour;
 use crate::behaviour::FluenceNetworkBehaviourEvent;
@@ -70,7 +70,7 @@ use crate::{Connectivity, Versions};
 // TODO: documentation
 pub struct Node<RT: AquaRuntime> {
     particle_stream: mpsc::Receiver<ExtendedParticle>,
-    effects_stream: mpsc::Receiver<Result<RoutingEffects, AquamarineApiError>>,
+    effects_stream: mpsc::Receiver<Result<RemoteRoutingEffects, AquamarineApiError>>,
     pub swarm: Swarm<FluenceNetworkBehaviour>,
 
     pub connectivity: Connectivity,
@@ -93,7 +93,7 @@ pub struct Node<RT: AquaRuntime> {
 
     pub builtins_management_peer_id: PeerId,
 
-    pub scope: PeerScope,
+    pub scope: PeerScopes,
 
     allow_local_addresses: bool,
     versions: Versions,
@@ -117,7 +117,7 @@ impl<RT: AquaRuntime> Node<RT> {
 
         let builtins_peer_id = to_peer_id(&config.builtins_key_pair.clone().into());
 
-        let root_key_pair: KeyPair = key_pair.clone().try_into()?;
+        let root_key_pair: KeyPair = key_pair.clone().into();
 
         let key_storage = KeyStorage::from_path(
             config.dir_config.keypairs_base_dir.clone(),
@@ -127,7 +127,7 @@ impl<RT: AquaRuntime> Node<RT> {
 
         let key_storage = Arc::new(key_storage);
 
-        let scope = PeerScope::new(
+        let scopes = PeerScopes::new(
             root_key_pair.get_peer_id(),
             config.management_peer_id,
             builtins_peer_id,
@@ -137,14 +137,13 @@ impl<RT: AquaRuntime> Node<RT> {
         let workers = Workers::from_path(
             config.dir_config.workers_base_dir.clone(),
             key_storage.clone(),
-            scope.clone(),
         )
         .await?;
 
         let workers = Arc::new(workers);
 
         let services_config = ServicesConfig::new(
-            scope.get_host_peer_id(),
+            scopes.get_host_peer_id(),
             config.dir_config.services_base_dir.clone(),
             config_utils::particles_vault_dir(&config.dir_config.avm_base_dir),
             config.services_envs.clone(),
@@ -236,15 +235,20 @@ impl<RT: AquaRuntime> Node<RT> {
             .map(|s| s.to_string_lossy().to_string())
             .collect::<_>();
 
-        let builtins = Arc::new(Self::builtins(
+        let mut builtins = Self::builtins(
             connectivity.clone(),
             services_config,
             services_metrics,
+            key_storage.clone(),
             workers.clone(),
-            scope.clone(),
+            scopes.clone(),
             health_registry.as_mut(),
             config.system_services.decider.network_api_endpoint.clone(),
-        ));
+        );
+
+        builtins.services.create_persisted_services().await?;
+
+        let builtins = Arc::new(builtins);
 
         let (effects_out, effects_in) = mpsc::channel(config.node_config.effects_queue_buffer);
 
@@ -260,13 +264,14 @@ impl<RT: AquaRuntime> Node<RT> {
             vm_pool_metrics,
             health_registry.as_mut(),
             workers.clone(),
-            scope.clone(),
+            key_storage.clone(),
+            scopes.clone(),
         )?;
         let effectors = Effectors::new(connectivity.clone());
         let dispatcher = {
             let parallelism = config.particle_processor_parallelism;
             Dispatcher::new(
-                scope.get_host_peer_id(),
+                scopes.get_host_peer_id(),
                 aquamarine_api.clone(),
                 effectors,
                 parallelism,
@@ -288,7 +293,8 @@ impl<RT: AquaRuntime> Node<RT> {
             config.clone(),
             spell_event_bus_api.clone(),
             workers.clone(),
-            scope.clone(),
+            key_storage.clone(),
+            scopes.clone(),
             spell_service_api.clone(),
             spell_metrics,
         );
@@ -336,7 +342,7 @@ impl<RT: AquaRuntime> Node<RT> {
             sorcerer.spell_storage.clone(),
             spell_event_bus_api.clone(),
             spell_service_api,
-            scope.get_host_peer_id(),
+            scopes.get_host_peer_id(),
             builtins_peer_id,
             system_service_distros,
         );
@@ -350,7 +356,7 @@ impl<RT: AquaRuntime> Node<RT> {
 
         let chain_listener = if let Some(chain_config) = config.chain_listener_config.clone() {
             let cc_events_dir = config.dir_config.cc_events_dir.clone();
-            let host_id = scope.get_host_peer_id();
+            let host_id = scopes.get_host_peer_id();
             let chain_listener = ChainListener::new(chain_config, cc_events_dir, host_id);
             Some(chain_listener)
         } else {
@@ -376,7 +382,7 @@ impl<RT: AquaRuntime> Node<RT> {
             services_metrics_backend,
             config.http_listen_addr(),
             builtins_peer_id,
-            scope,
+            scopes,
             allow_local_addresses,
             versions,
             chain_listener,
@@ -426,8 +432,9 @@ impl<RT: AquaRuntime> Node<RT> {
         connectivity: Connectivity,
         services_config: ServicesConfig,
         services_metrics: ServicesMetrics,
+        key_storage: Arc<KeyStorage>,
         workers: Arc<Workers>,
-        scope: PeerScope,
+        scopes: PeerScopes,
         health_registry: Option<&mut HealthCheckRegistry>,
         connector_api_endpoint: String,
     ) -> Builtins<Connectivity> {
@@ -435,8 +442,9 @@ impl<RT: AquaRuntime> Node<RT> {
             connectivity,
             services_config,
             services_metrics,
+            key_storage,
             workers,
-            scope,
+            scopes,
             health_registry,
             connector_api_endpoint,
         )
@@ -452,7 +460,7 @@ impl<RT: AquaRuntime> Node<RT> {
     #[allow(clippy::too_many_arguments)]
     pub fn with(
         particle_stream: mpsc::Receiver<ExtendedParticle>,
-        effects_stream: mpsc::Receiver<Result<RoutingEffects, AquamarineApiError>>,
+        effects_stream: mpsc::Receiver<Result<RemoteRoutingEffects, AquamarineApiError>>,
         swarm: Swarm<FluenceNetworkBehaviour>,
         connectivity: Connectivity,
         aquamarine_api: AquamarineApi,
@@ -469,7 +477,7 @@ impl<RT: AquaRuntime> Node<RT> {
         services_metrics_backend: ServicesMetricsBackend,
         http_listen_addr: Option<SocketAddr>,
         builtins_management_peer_id: PeerId,
-        scope: PeerScope,
+        scope: PeerScopes,
         allow_local_addresses: bool,
         versions: Versions,
         chain_listener: Option<ChainListener>,
