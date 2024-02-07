@@ -74,7 +74,7 @@ impl FromStr for CoreRange {
 pub enum ParseError {
     #[error("Range can't be an empty")]
     EmptyRange,
-    #[error("Failed to parse str: {raw_str}")]
+    #[error("Failed to parse: {raw_str}")]
     WrongRangeFormat { raw_str: String },
 }
 
@@ -111,6 +111,7 @@ mod tests {
                     raw_str: "aaaa".to_string()
                 }
             );
+            assert_eq!(err.to_string(), "Failed to parse: aaaa")
         }
     }
     #[test]
@@ -124,6 +125,7 @@ mod tests {
                     raw_str: "1-a".to_string()
                 }
             );
+            assert_eq!(err.to_string(), "Failed to parse: 1-a")
         }
     }
     #[test]
@@ -137,6 +139,7 @@ mod tests {
                     raw_str: "a-1".to_string()
                 }
             );
+            assert_eq!(err.to_string(), "Failed to parse: a-1")
         }
     }
 
@@ -151,6 +154,7 @@ mod tests {
                     raw_str: "a-1-2".to_string()
                 }
             );
+            assert_eq!(err.to_string(), "Failed to parse: a-1-2")
         }
     }
 
@@ -161,5 +165,45 @@ mod tests {
         if let Err(err) = result {
             assert_eq!(err, ParseError::EmptyRange);
         }
+    }
+
+    #[test]
+    fn slice_convert() {
+        let core_range = CoreRange::try_from(&vec![1, 2, 3, 10][..]).unwrap();
+
+        assert!(!core_range.0.contains(0));
+        assert!(core_range.0.contains(1));
+        assert!(core_range.0.contains(2));
+        assert!(core_range.0.contains(3));
+        assert!(core_range.0.contains(10));
+        assert!(!core_range.0.contains(11));
+    }
+
+    #[test]
+    fn empty_slice_convert() {
+        let result = CoreRange::try_from(&vec![][..]);
+
+        assert!(result.is_err());
+        if let Err(err) = result {
+            assert_eq!(err, ParseError::EmptyRange);
+            assert_eq!(err.to_string(), "Range can't be an empty")
+        }
+    }
+
+    #[test]
+    fn last() {
+        let core_range: CoreRange = "0-2".parse().unwrap();
+        assert!(core_range.0.contains(0));
+        assert!(core_range.0.contains(1));
+        assert!(core_range.0.contains(2));
+        assert!(!core_range.0.contains(3));
+        assert_eq!(core_range.last(), 2);
+    }
+
+    #[test]
+    fn compare_ranges() {
+        let core_range_1: CoreRange = "0-2".parse().unwrap();
+        let core_range_2: CoreRange = "0,1,2".parse().unwrap();
+        assert_eq!(core_range_1, core_range_2);
     }
 }

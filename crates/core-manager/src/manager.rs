@@ -206,13 +206,13 @@ mod tests {
         println!("{:?}", manager.available_cores);
         println!("{:?}", manager.core_id_state);
         println!("{:?}", manager.core_type_state);
-        let core = manager
+        let _core = manager
             .assign_worker_core(WorkerUnitType::Worker(UnitId("1".to_string())))
             .unwrap();
         println!("{:?}", manager.available_cores);
         println!("{:?}", manager.core_id_state);
         println!("{:?}", manager.core_type_state);
-        let core = manager
+        let _core = manager
             .assign_worker_core(WorkerUnitType::CC(UnitId("1".to_string())))
             .unwrap();
         println!("{:?}", manager.available_cores);

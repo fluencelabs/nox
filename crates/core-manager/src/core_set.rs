@@ -1,15 +1,9 @@
 use crate::core_range::CoreRange;
-use core_affinity::CoreId;
 use range_set_blaze::RangeSetBlaze;
 use thiserror::Error;
 
 #[derive(Debug)]
 pub struct CoreSet(pub(crate) RangeSetBlaze<usize>);
-impl CoreSet {
-    pub fn to_vec(&self) -> Vec<CoreId> {
-        self.0.iter().map(|id| CoreId { id }).collect()
-    }
-}
 
 impl TryFrom<CoreRange> for CoreSet {
     type Error = Error;
