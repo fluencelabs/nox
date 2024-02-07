@@ -1,13 +1,20 @@
 use range_set_blaze::RangeSetBlaze;
+use std::fmt::{Debug, Formatter};
 use std::str::FromStr;
 use thiserror::Error;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Clone, PartialEq)]
 pub struct CoreRange(pub(crate) RangeSetBlaze<usize>);
 
 impl CoreRange {
     pub fn last(&self) -> usize {
         self.0.last().expect("Non empty list")
+    }
+}
+
+impl Debug for CoreRange {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.0.to_string().as_str())
     }
 }
 
