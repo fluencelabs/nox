@@ -4,14 +4,14 @@ use std::str::FromStr;
 use thiserror::Error;
 
 #[derive(Debug)]
-pub struct CpuRange(RangeSetBlaze<usize>);
-impl CpuRange {
-    pub fn contains(&self, value: CoreId) -> bool {
-        self.0.contains(value.id)
+pub struct CoreSet(pub(crate) RangeSetBlaze<usize>);
+impl CoreSet {
+    pub fn to_vec(&self) -> Vec<CoreId> {
+        self.0.iter().map(|v| CoreId { id: v }).collect()
     }
 }
 
-impl TryFrom<RangeSetBlaze<usize>> for CpuRange {
+impl TryFrom<RangeSetBlaze<usize>> for CoreSet {
     type Error = Error;
 
     fn try_from(range: RangeSetBlaze<usize>) -> Result<Self, Self::Error> {
@@ -24,7 +24,25 @@ impl TryFrom<RangeSetBlaze<usize>> for CpuRange {
             return Err(Error::RangeIsTooBig { available_cores });
         }
 
-        Ok(CpuRange(range))
+        Ok(CoreSet(range))
+    }
+}
+
+impl TryFrom<&[usize]> for CoreSet {
+    type Error = Error;
+
+    fn try_from(values: &[usize]) -> Result<Self, Self::Error> {
+        if values.is_empty() {
+            return Err(Error::EmptyRange);
+        }
+        let range = RangeSetBlaze::from_iter(values.iter());
+        let available_cores = num_cpus::get();
+        let range_max = range.last().unwrap(); //last always exists, can't be empty
+        if range_max > available_cores {
+            return Err(Error::RangeIsTooBig { available_cores });
+        }
+
+        Ok(CoreSet(range))
     }
 }
 
@@ -48,7 +66,7 @@ pub enum ParseError {
     #[error("Failed to parse str: {raw_str}")]
     WrongRangeFormat { raw_str: String },
 }
-impl FromStr for CpuRange {
+impl FromStr for CoreSet {
     type Err = ParseError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -92,23 +110,22 @@ impl FromStr for CpuRange {
             }
         }
 
-        CpuRange::try_from(result).map_err(|err| ParseError::CpuRangeError { err })
+        CoreSet::try_from(result).map_err(|err| ParseError::CpuRangeError { err })
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::cpu_range::{CpuRange, Error, ParseError};
-    use core_affinity::CoreId;
+    use crate::core_set::{CoreSet, Error, ParseError};
     use range_set_blaze::RangeSetBlaze;
 
     #[test]
     fn range_parsing_test() {
         let total_cpus = num_cpus::get();
         let raw_str = format!("0-{}", total_cpus - 1);
-        let cpu_range: CpuRange = raw_str.parse().unwrap();
+        let cpu_range: CoreSet = raw_str.parse().unwrap();
         for value in 0..total_cpus {
-            assert!(cpu_range.contains(CoreId { id: value }));
+            assert!(cpu_range.0.contains(value));
         }
     }
 
@@ -116,16 +133,16 @@ mod tests {
     fn values_parsing_test() {
         let total_cpus = num_cpus::get();
         let raw_str = format!("0,{}", total_cpus - 1);
-        let cpu_range: CpuRange = raw_str.parse().unwrap();
-        assert!(cpu_range.contains(CoreId { id: 0 }));
+        let cpu_range: CoreSet = raw_str.parse().unwrap();
+        assert!(cpu_range.0.contains(0));
         if total_cpus > 1 {
-            assert!(cpu_range.contains(CoreId { id: total_cpus - 1 }));
+            assert!(cpu_range.0.contains(total_cpus - 1));
         }
     }
 
     #[test]
     fn wrong_parsing_test() {
-        let result = "aaaa".parse::<CpuRange>();
+        let result = "aaaa".parse::<CoreSet>();
         assert!(result.is_err());
         if let Err(err) = result {
             assert_eq!(
@@ -138,7 +155,7 @@ mod tests {
     }
     #[test]
     fn wrong_parsing_test_2() {
-        let result = "1-a".parse::<CpuRange>();
+        let result = "1-a".parse::<CoreSet>();
         assert!(result.is_err());
         if let Err(err) = result {
             assert_eq!(
@@ -151,7 +168,7 @@ mod tests {
     }
     #[test]
     fn wrong_parsing_test_3() {
-        let result = "a-1".parse::<CpuRange>();
+        let result = "a-1".parse::<CoreSet>();
         assert!(result.is_err());
         if let Err(err) = result {
             assert_eq!(
@@ -165,7 +182,7 @@ mod tests {
 
     #[test]
     fn wrong_parsing_test_4() {
-        let result = "a-1-2,3".parse::<CpuRange>();
+        let result = "a-1-2,3".parse::<CoreSet>();
         assert!(result.is_err());
         if let Err(err) = result {
             assert_eq!(
@@ -179,7 +196,7 @@ mod tests {
 
     #[test]
     fn empty_parsing_test_3() {
-        let result = "".parse::<CpuRange>();
+        let result = "".parse::<CoreSet>();
         assert!(result.is_err());
         if let Err(err) = result {
             assert_eq!(err, ParseError::EmptyRange);
@@ -190,7 +207,7 @@ mod tests {
     fn big_cpu_count() {
         let available_cores = num_cpus::get();
         let str = format!("0-{}", available_cores + 1);
-        let result = str.parse::<CpuRange>();
+        let result = str.parse::<CoreSet>();
         assert!(result.is_err());
         if let Err(err) = result {
             assert_eq!(
@@ -205,7 +222,7 @@ mod tests {
     #[test]
     fn empty_range_check() {
         let range: RangeSetBlaze<usize> = RangeSetBlaze::new();
-        let cpu_range = CpuRange::try_from(range);
+        let cpu_range = CoreSet::try_from(range);
         assert!(cpu_range.is_err());
         if let Err(err) = cpu_range {
             assert_eq!(err, Error::EmptyRange)
