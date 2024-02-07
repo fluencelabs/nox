@@ -1334,9 +1334,9 @@ name = "core-manager"
 version = "0.1.0"
 dependencies = [
  "core_affinity",
- "dashmap",
  "fxhash",
  "num_cpus",
+ "parking_lot",
  "range-set-blaze",
  "thiserror",
 ]
@@ -1671,19 +1671,6 @@ dependencies = [
  "darling_core",
  "quote",
  "syn 2.0.46",
-]
-
-[[package]]
-name = "dashmap"
-version = "5.5.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "978747c1d849a7d2ee5e8adc0159961c48fb7e5db2f06af6723b80123bb53856"
-dependencies = [
- "cfg-if",
- "hashbrown 0.14.2",
- "lock_api",
- "once_cell",
- "parking_lot_core",
 ]
 
 [[package]]

@@ -1,4 +1,4 @@
 mod manager;
-mod cpu_range;
+mod core_set;
 
 pub use manager::CoreManager;
