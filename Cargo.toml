@@ -160,6 +160,7 @@ jsonrpsee = "0.21.0"
 blake3 = "1.5.0"
 rand = "0.8.5"
 futures-util = "0.3.30"
+num_cpus = "1.16.0"
 
 # Enable a small amount of optimization in debug mode
 [profile.dev]
