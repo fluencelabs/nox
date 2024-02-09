@@ -74,10 +74,12 @@ mod tests {
                     range
                 }
             );
-            assert_eq!(
-                err.to_string(),
-                "Range is too big. Available cores: 8, requested range: 0..=9"
+            let expected_str = format!(
+                "Range is too big. Available cores: {}, requested range: 0..={}",
+                available_cores,
+                available_cores + 1
             );
+            assert_eq!(err.to_string(), expected_str);
         }
     }
 
