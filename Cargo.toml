@@ -109,8 +109,8 @@ marine-utils = "0.5.1"
 marine-it-parser = "0.15.1"
 
 # avm
-avm-server = "=0.35.0"
-air-interpreter-wasm = "=0.59.0"
+avm-server = { path = "../fluence-aquavm/avm/server/" }
+air-interpreter-wasm = { path = "../fluence-aquavm/crates/interpreter-wasm/" }
 
 # libp2p
 libp2p = { version = "0.53.2", features = ["noise", "tcp", "dns", "websocket", "yamux", "tokio", "kad", "ping", "identify", "macros"] }

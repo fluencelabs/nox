@@ -95,10 +95,8 @@ dependencies = [
 [[package]]
 name = "air-interpreter-interface"
 version = "0.17.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "02ccae8d17f5d648695234c019dfa73a949b69fa6847386fba0d30dd33c6d6ed"
 dependencies = [
- "air-interpreter-sede",
+ "air-interpreter-sede 0.1.0",
  "fluence-it-types",
  "marine-call-parameters",
  "marine-rs-sdk",
@@ -110,8 +108,6 @@ dependencies = [
 [[package]]
 name = "air-interpreter-sede"
 version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "433b1ca3538f5f6a6083646b2aa61cd57a08c1558091f6be47b2299fc7b28261"
 dependencies = [
  "marine-rs-sdk",
  "rmp-serde",
@@ -123,10 +119,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "air-interpreter-sede"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "433b1ca3538f5f6a6083646b2aa61cd57a08c1558091f6be47b2299fc7b28261"
+dependencies = [
+ "rmp-serde",
+ "serde",
+ "serde_bytes",
+ "serde_json",
+ "thiserror",
+ "unsigned-varint 0.8.0",
+]
+
+[[package]]
 name = "air-interpreter-wasm"
 version = "0.59.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "32f09a2d137e6046d9de4ea35cbefc46c5953bbf25ca2c42dc3a84413bcc4839"
 dependencies = [
  "built 0.7.1",
 ]
@@ -134,8 +142,6 @@ dependencies = [
 [[package]]
 name = "air-utils"
 version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fef8356baa3febe122b4afc7b36d26ca2784a0f0b41e2fe105a8d07f10c811eb"
 
 [[package]]
 name = "allocator-api2"
@@ -498,8 +504,6 @@ checksum = "d468802bab17cbc0cc575e9b053f41e72aa36bfa6b7f55e3529ffa43161b97fa"
 [[package]]
 name = "avm-data-store"
 version = "0.7.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "82bb24e02a4cd5bb4cfd2d1d9b770d8b4b3f268f9c46145ebfb7e416d2711eac"
 dependencies = [
  "avm-interface",
  "serde",
@@ -509,11 +513,9 @@ dependencies = [
 [[package]]
 name = "avm-interface"
 version = "0.31.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dc64939c7a0033202cdae3a304b691632c32bbe77e0bbcd40b89de34780aadba"
 dependencies = [
  "air-interpreter-interface",
- "air-interpreter-sede",
+ "air-interpreter-sede 0.1.0",
  "air-utils",
  "log",
  "maplit",
@@ -527,11 +529,9 @@ dependencies = [
 [[package]]
 name = "avm-server"
 version = "0.35.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a2affa42945c837549b9492a6083e0034ce011127f343f216bae06a19e9fe9a1"
 dependencies = [
  "air-interpreter-interface",
- "air-interpreter-sede",
+ "air-interpreter-sede 0.1.0",
  "air-utils",
  "avm-data-store",
  "avm-interface",
@@ -5289,7 +5289,7 @@ dependencies = [
 name = "particle-protocol"
 version = "0.3.0"
 dependencies = [
- "air-interpreter-sede",
+ "air-interpreter-sede 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "asynchronous-codec 0.7.0",
  "base64 0.21.7",
  "derivative",
@@ -5540,8 +5540,6 @@ dependencies = [
 [[package]]
 name = "polyplets"
 version = "0.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1f8466c971da3b10ad888465c1bc477f94a3fed6e69374fb3f5f1deb300e5dda"
 dependencies = [
  "marine-call-parameters",
  "serde",

@@ -40,6 +40,8 @@ pub struct VmConfig {
     pub particle_size_limit: Option<u64>,
     /// Maximum call result size in bytes.
     pub call_result_size_limit: Option<u64>,
+    /// A knob to enable/disable hard limits behavior in AquaVM.
+    pub hard_limit_enabled: bool,
 }
 
 impl VmPoolConfig {
@@ -59,6 +61,7 @@ impl VmConfig {
         air_size_limit: Option<u64>,
         particle_size_limit: Option<u64>,
         call_result_size_limit: Option<u64>,
+        hard_limit_enabled: bool,
     ) -> Self {
         Self {
             current_peer_id,
@@ -67,6 +70,7 @@ impl VmConfig {
             air_size_limit,
             particle_size_limit,
             call_result_size_limit,
+            hard_limit_enabled,
         }
     }
 }

@@ -105,6 +105,10 @@ pub struct UnresolvedNodeConfig {
     #[serde(default)]
     pub call_result_size_limit: Option<bytesize::ByteSize>,
 
+    /// Hard limit AquaVM behavior control knob.
+    #[serde(default)]
+    pub hard_limit_enabled: bool,
+
     #[serde(default)]
     pub kademlia: KademliaConfig,
 
@@ -189,6 +193,7 @@ impl UnresolvedNodeConfig {
             air_size_limit: self.air_size_limit,
             particle_size_limit: self.particle_size_limit,
             call_result_size_limit: self.call_result_size_limit,
+            hard_limit_enabled: self.hard_limit_enabled,
             kademlia: self.kademlia,
             particle_queue_buffer: self.particle_queue_buffer,
             effects_queue_buffer: self.effects_queue_buffer,
@@ -354,6 +359,9 @@ pub struct NodeConfig {
 
     /// Maximum service call result size in bytes that is used by the AquaVM limit check.
     pub call_result_size_limit: Option<bytesize::ByteSize>,
+
+    /// This enables/disables hard limit behavior in AquaVM.
+    pub hard_limit_enabled: bool,
 
     pub kademlia: KademliaConfig,
 

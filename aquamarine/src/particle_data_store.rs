@@ -384,12 +384,14 @@ mod tests {
         let execution_time_above_threshold = Duration::from_millis(600);
         let memory_delta_below_threshold = 5 * bytesize::MB as usize;
         let memory_delta_above_threshold = 15 * bytesize::MB as usize;
+        let soft_limits_triggering = <_>::default();
         let outcome_success = RawAVMOutcome {
             ret_code: 0,
             error_message: "".to_string(),
             data: vec![],
             call_requests: CallRequests::new(),
             next_peer_pks: vec![],
+            soft_limits_triggering,
         };
         let outcome_failure = RawAVMOutcome {
             ret_code: 1,
@@ -397,6 +399,7 @@ mod tests {
             data: vec![],
             call_requests: CallRequests::new(),
             next_peer_pks: vec![],
+            soft_limits_triggering,
         };
 
         let anomaly_below_threshold = particle_data_store.detect_anomaly(
@@ -456,6 +459,7 @@ mod tests {
             data: vec![0; PARTICLE_DATA_SIZE_THRESHOLD + 1],
             call_requests: CallRequests::new(),
             next_peer_pks: vec![],
+            soft_limits_triggering,
         };
         let anomaly_above_particle_size_limit = particle_data_store.detect_anomaly(
             execution_time_below_threshold,

@@ -207,5 +207,6 @@ fn vm_config(config: &ResolvedConfig) -> VmConfig {
             .node_config
             .call_result_size_limit
             .map(|byte_size| byte_size.as_u64()),
+        config.node_config.hard_limit_enabled,
     )
 }

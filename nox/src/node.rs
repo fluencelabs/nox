@@ -671,6 +671,7 @@ mod tests {
             None,
             None,
             None,
+            false,
         );
         let data_store_config = DataStoreConfig::new(config.dir_config.avm_base_dir.clone());
 
