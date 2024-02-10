@@ -21,7 +21,7 @@ log = { workspace = true }
 derivative = { workspace = true }
 eyre = { workspace = true }
 parking_lot = { workspace = true }
-either = "1.9.0"
+either = "1.10.0"
 void = "1.0.2"
 tracing = { workspace = true }
 tempfile = { workspace = true }
