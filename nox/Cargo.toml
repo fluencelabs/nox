@@ -16,7 +16,7 @@ connection-pool = { workspace = true }
 aquamarine = { workspace = true }
 sorcerer = { workspace = true }
 health = { workspace = true }
-dhat = { version = "0.3.2", optional = true }
+dhat = { version = "0.3.3", optional = true }
 
 serde_json = { workspace = true }
 fluence-libp2p = { workspace = true }
