@@ -5242,6 +5242,7 @@ name = "particle-execution"
 version = "0.1.0"
 dependencies = [
  "async-trait",
+ "bs58",
  "fluence-app-service",
  "fluence-libp2p",
  "fs-utils",

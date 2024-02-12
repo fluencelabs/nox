@@ -23,6 +23,7 @@ use thiserror::Error;
 
 use fs_utils::create_dir;
 
+use crate::ParticleParams;
 use crate::VaultError::WrongVault;
 use VaultError::{CleanupVault, CreateVault, InitializeVault};
 
@@ -30,7 +31,7 @@ pub const VIRTUAL_PARTICLE_VAULT_PREFIX: &str = "/tmp/vault";
 
 #[derive(Debug, Clone)]
 pub struct ParticleVault {
-    pub vault_dir: PathBuf,
+    vault_dir: PathBuf,
 }
 
 impl ParticleVault {
@@ -38,8 +39,18 @@ impl ParticleVault {
         Self { vault_dir }
     }
 
-    pub fn particle_vault(&self, key: &str) -> PathBuf {
-        self.vault_dir.join(key)
+    pub fn particle_vault(&self, particle_id: &str, signature: &[u8]) -> PathBuf {
+        self.vault_dir
+            .join(Self::format_particle_vault(particle_id, signature))
+    }
+
+    pub fn virtual_particle_vault(&self, particle_id: &str, signature: &[u8]) -> PathBuf {
+        Path::new(VIRTUAL_PARTICLE_VAULT_PREFIX)
+            .join(Self::format_particle_vault(particle_id, signature))
+    }
+
+    fn format_particle_vault(particle_id: &str, signature: &[u8]) -> String {
+        format!("{}-{}", particle_id, bs58::encode(signature).into_string())
     }
 
     pub async fn initialize(&self) -> Result<(), VaultError> {
@@ -50,33 +61,45 @@ impl ParticleVault {
         Ok(())
     }
 
-    pub fn create(&self, particle_id: &str) -> Result<(), VaultError> {
-        let path = self.particle_vault(particle_id);
+    pub fn create(&self, particle: &ParticleParams) -> Result<(), VaultError> {
+        let path = self.particle_vault(&particle.id, &particle.signature);
         create_dir(path).map_err(CreateVault)?;
 
         Ok(())
     }
 
+    pub fn exists(&self, particle: &ParticleParams) -> bool {
+        self.particle_vault(&particle.id, &particle.signature)
+            .exists()
+    }
+
     pub fn put(
         &self,
-        particle_id: &str,
-        path: &Path,
+        particle: &ParticleParams,
+        filename: String,
         payload: &str,
     ) -> Result<PathBuf, VaultError> {
-        let vault_dir = self.particle_vault(particle_id);
-        let real_path = vault_dir.join(path);
+        let vault_dir = self.particle_vault(&particle.id, &particle.signature);
+        // Note that we can't use `to_real_path` here since the target file cannot exist yet,
+        // but `to_real_path` do path normalization which requires existence of the file to resolve
+        // symlinks.
+        let real_path = vault_dir.join(&filename);
         if let Some(parent_path) = real_path.parent() {
             create_dir(parent_path).map_err(CreateVault)?;
         }
 
         std::fs::write(real_path.clone(), payload.as_bytes())
-            .map_err(|e| VaultError::WriteVault(e, path.to_path_buf()))?;
+            .map_err(|e| VaultError::WriteVault(e, filename))?;
 
-        self.to_virtual_path(&real_path, particle_id)
+        self.to_virtual_path(&real_path, &particle.id, &particle.signature)
     }
 
-    pub fn cat(&self, particle_id: &str, virtual_path: &Path) -> Result<String, VaultError> {
-        let real_path = self.to_real_path(virtual_path, particle_id)?;
+    pub fn cat(
+        &self,
+        particle: &ParticleParams,
+        virtual_path: &Path,
+    ) -> Result<String, VaultError> {
+        let real_path = self.to_real_path(virtual_path, &particle.id, &particle.signature)?;
 
         let contents = std::fs::read_to_string(real_path)
             .map_err(|e| VaultError::ReadVault(e, virtual_path.to_path_buf()))?;
@@ -84,8 +107,17 @@ impl ParticleVault {
         Ok(contents)
     }
 
-    pub async fn cleanup(&self, particle_id: &str) -> Result<(), VaultError> {
-        let path = self.particle_vault(particle_id);
+    pub fn cat_slice(
+        &self,
+        particle: &ParticleParams,
+        virtual_path: &Path,
+    ) -> Result<Vec<u8>, VaultError> {
+        let real_path = self.to_real_path(virtual_path, &particle.id, &particle.signature)?;
+        std::fs::read(real_path).map_err(|e| VaultError::ReadVault(e, virtual_path.to_path_buf()))
+    }
+
+    pub async fn cleanup(&self, particle_id: &str, signature: &[u8]) -> Result<(), VaultError> {
+        let path = self.particle_vault(particle_id, signature);
         match tokio::fs::remove_dir_all(&path).await {
             Ok(_) => Ok(()),
             // ignore NotFound
@@ -97,10 +129,15 @@ impl ParticleVault {
     }
 
     /// Converts real path in `vault_dir` to virtual path with `VIRTUAL_PARTICLE_VAULT_PREFIX`.
-    /// Virtual path looks like `/tmp/vault/<particle_id>/<path>`.
-    fn to_virtual_path(&self, path: &Path, particle_id: &str) -> Result<PathBuf, VaultError> {
-        let virtual_prefix = path::Path::new(VIRTUAL_PARTICLE_VAULT_PREFIX).join(particle_id);
-        let real_prefix = self.vault_dir.join(particle_id);
+    /// Virtual path looks like `/tmp/vault/<particle_id>-<base58 signature>/<path>`.
+    fn to_virtual_path(
+        &self,
+        path: &Path,
+        particle_id: &str,
+        signature: &[u8],
+    ) -> Result<PathBuf, VaultError> {
+        let virtual_prefix = self.virtual_particle_vault(particle_id, signature);
+        let real_prefix = self.particle_vault(particle_id, signature);
         let rest = path
             .strip_prefix(&real_prefix)
             .map_err(|e| WrongVault(Some(e), path.to_path_buf(), real_prefix))?;
@@ -109,13 +146,25 @@ impl ParticleVault {
     }
 
     /// Converts virtual path with `VIRTUAL_PARTICLE_VAULT_PREFIX` to real path in `vault_dir`.
-    fn to_real_path(&self, path: &Path, particle_id: &str) -> Result<PathBuf, VaultError> {
-        let virtual_prefix = path::Path::new(VIRTUAL_PARTICLE_VAULT_PREFIX).join(particle_id);
-        let real_prefix = self.vault_dir.join(particle_id);
-
-        let rest = path
-            .strip_prefix(&virtual_prefix)
-            .map_err(|e| WrongVault(Some(e), path.to_path_buf(), virtual_prefix.clone()))?;
+    /// Support full paths to the file in the vault starting this the prefix as well as relative paths
+    /// inside the vault.
+    /// For example, `some/file.txt` is valid and will be resolved to `REAL_PARTICLE_VAULT_PREFIX/some/file.txt`.
+    fn to_real_path(
+        &self,
+        path: &Path,
+        particle_id: &str,
+        signature: &[u8],
+    ) -> Result<PathBuf, VaultError> {
+        let rest = if path.has_root() {
+            // If path starts with the `/` then we consider it a full path containing the virtual vault prefix
+            let virtual_prefix = self.virtual_particle_vault(particle_id, signature);
+            path.strip_prefix(&virtual_prefix)
+                .map_err(|e| WrongVault(Some(e), path.to_path_buf(), virtual_prefix.clone()))?
+        } else {
+            // Otherwise we consider it a relative path inside the vault
+            path
+        };
+        let real_prefix = self.particle_vault(particle_id, signature);
         let real_path = real_prefix.join(rest);
         let resolved_path = real_path
             .canonicalize()
@@ -129,7 +178,7 @@ impl ParticleVault {
     }
 
     /// Map `vault_dir` to `/tmp/vault` inside the service.
-    /// Particle File Vaults will be available as `/tmp/vault/$particle_id`
+    /// Particle File Vaults will be available as `/tmp/vault/$particle_id-$base58signature`
     pub fn inject_vault(&self, module: &mut ModuleDescriptor) {
         let wasi = &mut module.config.wasi;
         if wasi.is_none() {
@@ -148,11 +197,11 @@ impl ParticleVault {
 
 #[derive(Debug, Error)]
 pub enum VaultError {
-    #[error("error creating vault_dir")]
+    #[error("Error creating vault_dir")]
     InitializeVault(#[source] std::io::Error),
-    #[error("error creating particle vault")]
+    #[error("Error creating particle vault")]
     CreateVault(#[source] std::io::Error),
-    #[error("error cleaning up particle vault")]
+    #[error("Error cleaning up particle vault")]
     CleanupVault(#[source] std::io::Error),
     #[error("Incorrect vault path `{1}`: doesn't belong to vault (`{2}`)")]
     WrongVault(#[source] Option<path::StripPrefixError>, PathBuf, PathBuf),
@@ -160,6 +209,6 @@ pub enum VaultError {
     NotFound(#[source] std::io::Error, PathBuf),
     #[error("Read vault failed for `{1}`: {0}")]
     ReadVault(#[source] std::io::Error, PathBuf),
-    #[error("Write vault failed for `{1}`: {0}")]
-    WriteVault(#[source] std::io::Error, PathBuf),
+    #[error("Write vault failed for filename `{1}`: {0}")]
+    WriteVault(#[source] std::io::Error, String),
 }

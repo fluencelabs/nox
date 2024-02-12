@@ -16,6 +16,7 @@ fluence-app-service = { workspace = true }
 thiserror = { workspace = true }
 futures = { workspace = true }
 serde_json = { workspace = true }
+bs58 = { workspace = true }
 
 tokio = { workspace = true, features = ["fs"] }
 parking_lot = { workspace = true }
