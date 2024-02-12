@@ -19,6 +19,7 @@ use fs_utils::to_abs_path;
 use particle_protocol::ProtocolConfig;
 use types::peer_id;
 
+use crate::avm_config::AVMConfig;
 use crate::keys::{decode_key, decode_secret_key, load_key};
 use crate::system_services_config::{ServiceKey, SystemServicesConfig};
 use crate::{BootstrapConfig, KademliaConfig};
@@ -76,6 +77,10 @@ pub struct UnresolvedNodeConfig {
     #[serde(default)]
     pub protocol_config: ProtocolConfig,
 
+    /// These are the AquaVM limits that are used by the AquaVM limit check.
+    #[derivative(Debug = "ignore")]
+    pub avm_config: Option<AVMConfig>,
+
     /// Number of stepper VMs to create. By default, `num_cpus::get() * 2` is used
     #[serde(default = "default_aquavm_pool_size")]
     pub aquavm_pool_size: usize,
@@ -89,25 +94,6 @@ pub struct UnresolvedNodeConfig {
     #[serde_as(as = "Option<DisplayFromStr>")]
     #[serde(default)]
     pub default_service_memory_limit: Option<bytesize::ByteSize>,
-
-    /// Maximum AIR size in bytes that is used by the AquaVM limit check.
-    #[serde_as(as = "Option<DisplayFromStr>")]
-    #[serde(default)]
-    pub air_size_limit: Option<bytesize::ByteSize>,
-
-    /// Maximum particle size in bytes that is used by the AquaVM limit check.
-    #[serde_as(as = "Option<DisplayFromStr>")]
-    #[serde(default)]
-    pub particle_size_limit: Option<bytesize::ByteSize>,
-
-    /// Maximum service call result size in bytes that is used by the AquaVM limit check.
-    #[serde_as(as = "Option<DisplayFromStr>")]
-    #[serde(default)]
-    pub call_result_size_limit: Option<bytesize::ByteSize>,
-
-    /// Hard limit AquaVM behavior control knob.
-    #[serde(default)]
-    pub hard_limit_enabled: bool,
 
     #[serde(default)]
     pub kademlia: KademliaConfig,
@@ -188,12 +174,8 @@ impl UnresolvedNodeConfig {
             services_envs: self.services_envs,
             protocol_config: self.protocol_config,
             aquavm_pool_size: self.aquavm_pool_size,
-            aquavm_heap_size_limit: self.aquavm_max_heap_size,
             default_service_memory_limit: self.default_service_memory_limit,
-            air_size_limit: self.air_size_limit,
-            particle_size_limit: self.particle_size_limit,
-            call_result_size_limit: self.call_result_size_limit,
-            hard_limit_enabled: self.hard_limit_enabled,
+            avm_config: self.avm_config.unwrap_or_default(),
             kademlia: self.kademlia,
             particle_queue_buffer: self.particle_queue_buffer,
             effects_queue_buffer: self.effects_queue_buffer,
@@ -345,23 +327,11 @@ pub struct NodeConfig {
     /// Number of stepper VMs to create. By default, `num_cpus::get() * 2` is used
     pub aquavm_pool_size: usize,
 
-    /// Maximum heap size in bytes available for an interpreter instance.
-    pub aquavm_heap_size_limit: Option<bytesize::ByteSize>,
-
     /// Default heap size in bytes available for a WASM service unless otherwise specified.
     pub default_service_memory_limit: Option<bytesize::ByteSize>,
 
-    /// Maximum AIR size in bytes that is used by the AquaVM limit check.
-    pub air_size_limit: Option<bytesize::ByteSize>,
-
-    /// Maximum particle size in bytes that is used by the AquaVM limit check.
-    pub particle_size_limit: Option<bytesize::ByteSize>,
-
-    /// Maximum service call result size in bytes that is used by the AquaVM limit check.
-    pub call_result_size_limit: Option<bytesize::ByteSize>,
-
-    /// This enables/disables hard limit behavior in AquaVM.
-    pub hard_limit_enabled: bool,
+    /// These are the AquaVM limits that are used by the AquaVM limit check.
+    pub avm_config: AVMConfig,
 
     pub kademlia: KademliaConfig,
 

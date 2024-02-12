@@ -18,16 +18,29 @@ allowed_binaries = [
   "/usr/bin/geth",
 ]
 
-aquavm_pool_size = 2
+# [avm_config]
 # # Maximum heap size in bytes available for an interpreter instance.
 # # default is not specified and defined by runtime (1600 pages: 65536*1600 ~ 100 Mb, Wasm page size is 64 Kb)
-# aquavm_max_heap_size = "500 Mb"
+# aquavm_heap_size_limit = "500 Mb"
+# # The group of the following parameters are used to control the limits of AquaVM runtime.
+# # AIR scrip size limit.
+# air_size_limit = "8 Mb"
+# # Particle size limit.
+# particle_size_limit = "64 Mb"
+# # Service result limit.
+# call_result_size_limit = "32 Mb"
+# # Hard limits control knob.
+# hard_limit_enabled = false
+
+aquavm_pool_size = 2
+
 # # Maximum heap size in bytes available for a WASM module.
 # # Checks heap size required by module if specified, default is not specified.
 # module_max_heap_size = "10 Mb"
 # # Default heap size in bytes available for a WASM module unless otherwise specified.
 # # default is not specified and defined by runtime
 # module_default_heap_size = "5 Mb"
+
 
 particle_queue_buffer = 100
 particle_processor_parallelism = 64
