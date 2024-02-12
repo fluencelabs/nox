@@ -345,7 +345,6 @@ mod tests {
         let repo = ModuleRepository::new(
             &config.modules_dir,
             &config.blueprint_dir,
-            &config.particles_vault_dir,
             Default::default(),
         );
 
