@@ -33,7 +33,6 @@ allowed_binaries = [
 # hard_limit_enabled = false
 
 aquavm_pool_size = 2
-
 # # Maximum heap size in bytes available for a WASM module.
 # # Checks heap size required by module if specified, default is not specified.
 # module_max_heap_size = "10 Mb"
