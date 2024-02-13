@@ -517,5 +517,9 @@ impl KeypairConfig {
 #[derivative(Debug)]
 pub struct ChainListenerConfig {
     pub ws_endpoint: String,
+    pub http_endpoint: String,
+    // TODO get all addresses from Core contract
     pub cc_contract_address: String,
+    pub core_contract_address: String,
+    pub market_contract_address: String,
 }

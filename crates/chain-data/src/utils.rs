@@ -9,9 +9,16 @@ pub fn parse_peer_id(bytes: Vec<u8>) -> Result<PeerId, ParseError> {
     PeerId::from_bytes(&peer_id)
 }
 
-pub fn peer_id_to_hex(peer_id: PeerId) -> String {
+pub fn peer_id_to_bytes(peer_id: PeerId) -> Vec<u8> {
     let peer_id = peer_id.to_bytes();
-    format!("0x{:0>64}", hex::encode(&peer_id[PEER_ID_PREFIX.len()..]))
+    peer_id[PEER_ID_PREFIX.len()..].to_vec()
+}
+pub fn peer_id_to_hex(peer_id: PeerId) -> String {
+    format!("0x{:0>64}", hex::encode(peer_id_to_bytes(peer_id)))
+}
+
+pub fn peer_id_from_hex(hex: &str) -> Result<PeerId, ParseError> {
+    parse_peer_id(hex::decode(&hex[2..]).unwrap())
 }
 
 #[cfg(test)]

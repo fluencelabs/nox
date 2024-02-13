@@ -87,7 +87,10 @@ async fn test_chain_listener_cc() {
     let _swarm = make_swarms_with_cfg(1, move |mut cfg| {
         cfg.chain_listener = Some(ChainListenerConfig {
             ws_endpoint: url.clone(),
+            http_endpoint: "".to_string(),
             cc_contract_address: "".to_string(),
+            core_contract_address: "".to_string(),
+            market_contract_address: "".to_string(),
         });
 
         cfg.cc_events_dir = Some(cc_events_dir.clone());

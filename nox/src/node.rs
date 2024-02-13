@@ -357,7 +357,7 @@ impl<RT: AquaRuntime> Node<RT> {
         let chain_listener = if let Some(chain_config) = config.chain_listener_config.clone() {
             let cc_events_dir = config.dir_config.cc_events_dir.clone();
             let host_id = scopes.get_host_peer_id();
-            let chain_listener = ChainListener::new(chain_config, cc_events_dir, host_id);
+            let chain_listener = ChainListener::new(chain_config, cc_events_dir, host_id).await?;
             Some(chain_listener)
         } else {
             None

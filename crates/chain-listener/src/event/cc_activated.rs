@@ -2,58 +2,59 @@ use chain_data::EventField::{Indexed, NotIndexed};
 use chain_data::{
     next_opt, parse_peer_id, ChainData, ChainDataError, ChainEvent, EventField, U256,
 };
+use chain_types::{CommitmentId, UnitId};
 use ethabi::param_type::ParamType;
 use ethabi::Token;
 use libp2p_identity::PeerId;
 use serde::{Deserialize, Serialize};
 use types::peer_id;
 
-/// Corresponding Solidity type:
-/// ```solidity
-///event CapacityCommitmentActivated(
-///    bytes32 indexed peerId,
-///    bytes32 indexed commitmentId,
-///    uint256 endEpoch,
-///    bytes32[] unitIds,
-///);
-/// ```
-
+/// @dev Emitted when a commitment is activated. Commitment can be activated only if delegator deposited collateral.
+/// @param peerId Peer id which linked to the commitment
+/// @param commitmentId Commitment id which activated
+/// @param startEpoch The start epoch of the commitment
+/// @param endEpoch The end epoch of the commitment
+/// @param unitIds Compute unit ids which linked to the commitment
+/// event CommitmentActivated(
+///     bytes32 indexed peerId,
+///     bytes32 indexed commitmentId,
+///     uint256 startEpoch,
+///     uint256 endEpoch,
+///     bytes32[] unitIds
+/// );
 #[derive(Debug, Serialize, Deserialize)]
-pub struct CommitmentId(pub Vec<u8>);
-#[derive(Debug, Serialize, Deserialize)]
-pub struct UnitId(pub Vec<u8>);
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct CCActivatedData {
+pub struct CommitmentActivatedData {
     #[serde(
         serialize_with = "peer_id::serde::serialize",
         deserialize_with = "peer_id::serde::deserialize"
     )]
     pub peer_id: PeerId,
     pub commitment_id: CommitmentId,
+    pub start_epoch: U256,
     pub end_epoch: U256,
     pub unit_ids: Vec<UnitId>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct CCActivated {
+pub struct CommitmentActivated {
     pub block_number: String,
-    pub info: CCActivatedData,
+    pub info: CommitmentActivatedData,
 }
 
-impl CCActivated {
-    pub const EVENT_NAME: &'static str = "CapacityCommitmentActivated";
+impl CommitmentActivated {
+    pub const EVENT_NAME: &'static str = "CommitmentActivated";
 }
 
-impl ChainData for CCActivatedData {
+impl ChainData for CommitmentActivatedData {
     fn event_name() -> &'static str {
-        CCActivated::EVENT_NAME
+        CommitmentActivated::EVENT_NAME
     }
 
     fn signature() -> Vec<EventField> {
         vec![
             Indexed(ParamType::FixedBytes(32)), // peerId
             Indexed(ParamType::FixedBytes(32)), // commitmentId
+            NotIndexed(ParamType::Uint(256)),   // startEpoch
             NotIndexed(ParamType::Uint(256)),   // endEpoch
             NotIndexed(ParamType::Array(Box::new(ParamType::FixedBytes(32)))), // unitIds
         ]
@@ -70,6 +71,7 @@ impl ChainData for CCActivatedData {
             Token::into_fixed_bytes,
         )?);
 
+        let start_epoch = next_opt(data_tokens, "start_epoch", U256::from_token)?;
         let end_epoch = next_opt(data_tokens, "end_epoch", U256::from_token)?;
 
         let unit_ids: Vec<Vec<u8>> = next_opt(data_tokens, "unit_ids", |t| {
@@ -80,17 +82,18 @@ impl ChainData for CCActivatedData {
         })?;
         let unit_ids = unit_ids.into_iter().map(UnitId).collect();
 
-        Ok(CCActivatedData {
+        Ok(CommitmentActivatedData {
             peer_id,
             commitment_id,
+            start_epoch,
             end_epoch,
             unit_ids,
         })
     }
 }
 
-impl ChainEvent<CCActivatedData> for CCActivated {
-    fn new(block_number: String, info: CCActivatedData) -> Self {
+impl ChainEvent<CommitmentActivatedData> for CommitmentActivated {
+    fn new(block_number: String, info: CommitmentActivatedData) -> Self {
         Self { block_number, info }
     }
 }
@@ -98,49 +101,57 @@ impl ChainEvent<CCActivatedData> for CCActivated {
 #[cfg(test)]
 mod test {
 
-    use super::{CCActivated, CCActivatedData};
+    use super::{CommitmentActivated, CommitmentActivatedData};
     use chain_data::{parse_log, ChainData, Log};
     use hex;
 
     #[tokio::test]
     async fn test_cc_activated_topic() {
         assert_eq!(
-            CCActivatedData::topic(),
-            "0xcd92fc03744bba25ad966bdc1127f8996e70c551d1ee4a88ce7fb0e596069649"
+            CommitmentActivatedData::topic(),
+            "0x0b0a4688a90d1b24732d05ddf4925af69f02cd7d9a921b1cdcd4a7c2b6d57d68"
         );
     }
 
     #[tokio::test]
     async fn test_chain_parsing_ok() {
-        let data = "0x00000000000000000000000000000000000000000000000000000000009896800000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000000a4c5951c05568dac529f66b98217d93627dd10f3070a928b427ad82cdadc72cc94c5951c05568dac529f66b98217d93627dd10f3070a928b427ad82cdadc72cc94c5951c05568dac529f66b98217d93627dd10f3070a928b427ad82cdadc72cc94c5951c05568dac529f66b98217d93627dd10f3070a928b427ad82cdadc72cc94c5951c05568dac529f66b98217d93627dd10f3070a928b427ad82cdadc72cc94c5951c05568dac529f66b98217d93627dd10f3070a928b427ad82cdadc72cc94c5951c05568dac529f66b98217d93627dd10f3070a928b427ad82cdadc72cc94c5951c05568dac529f66b98217d93627dd10f3070a928b427ad82cdadc72cc94c5951c05568dac529f66b98217d93627dd10f3070a928b427ad82cdadc72cc94c5951c05568dac529f66b98217d93627dd10f3070a928b427ad82cdadc72cc9".to_string();
+        let data = "0x000000000000000000000000000000000000000000000000000000000000007b00000000000000000000000000000000000000000000000000000000000001c800000000000000000000000000000000000000000000000000000000000000600000000000000000000000000000000000000000000000000000000000000001c04d94f1e85788b245471c87490f42149b09503fe3af46733e4b5adf94583105".to_string();
         let log = Log {
             data,
             block_number: "0x0".to_string(),
             removed: false,
             topics: vec![
-                CCActivatedData::topic(),
-                "0x246cd65bc58db104674f76c9b1340eb16881d9ef90e33d4b1086ebd334f4002d".to_string(),
-                "0xd6996a1d0950671fa4ae2642e9bfdb7e4c7832a35c640cdb47ecb8b8002b77b5".to_string(),
+                CommitmentActivatedData::topic(),
+                "0xc586dcbfc973643dc5f885bf1a38e054d2675b03fe283a5b7337d70dda9f7171".to_string(),
+                "0x27e42c090aa007a4f2545547425aaa8ea3566e1f18560803ac48f8e98cb3b0c9".to_string(),
             ],
         };
-        let result = parse_log::<CCActivatedData, CCActivated>(log);
+        let result = parse_log::<CommitmentActivatedData, CommitmentActivated>(log);
 
         assert!(result.is_ok(), "can't parse data: {:?}", result);
         let result = result.unwrap().info;
         assert_eq!(
             result.peer_id.to_string(),
-            "12D3KooWCGZ6t8by5ag5YMQW4k3HoPLaKdN5rB9DhAmDUeG8dj1N"
+            "12D3KooWP7RkvkBhbe7ATd451zxTifzF6Gm1uzCDadqQueET7EMe" // it's also the second topic
         );
 
         assert_eq!(
             hex::encode(result.commitment_id.0),
-            "d6996a1d0950671fa4ae2642e9bfdb7e4c7832a35c640cdb47ecb8b8002b77b5"
+            "27e42c090aa007a4f2545547425aaa8ea3566e1f18560803ac48f8e98cb3b0c9" // it's the third topic
+        );
+        assert_eq!(
+            result.start_epoch.to_eth(),
+            ethabi::ethereum_types::U256::from(123)
         );
         assert_eq!(
             result.end_epoch.to_eth(),
-            ethabi::ethereum_types::U256::exp10(7)
+            ethabi::ethereum_types::U256::from(456)
         );
 
-        assert_eq!(result.unit_ids.len(), 10);
+        assert_eq!(result.unit_ids.len(), 1);
+        assert_eq!(
+            hex::encode(&result.unit_ids[0].0),
+            "c04d94f1e85788b245471c87490f42149b09503fe3af46733e4b5adf94583105"
+        )
     }
 }

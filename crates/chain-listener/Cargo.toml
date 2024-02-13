@@ -9,6 +9,8 @@ edition = "2021"
 ethabi = { workspace = true }
 thiserror = { workspace = true }
 chain-data = { workspace = true }
+chain-types = { workspace = true }
+chain-connector = { workspace = true }
 
 jsonrpsee = { workspace = true, features = ["ws-client", "macros", "server"] }
 serde = { workspace = true }
