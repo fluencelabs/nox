@@ -38,6 +38,7 @@ use air_interpreter_fs::write_default_air_interpreter;
 use aquamarine::{DataStoreConfig, VmConfig};
 use avm_server::avm_runner::AVMRunner;
 use config_utils::to_peer_id;
+use core_manager::CoreManager;
 use fs_utils::to_abs_path;
 use nox::{env_filter, log_layer, tokio_console_layer, tracing_layer, Node};
 use server_config::{load_config, ConfigData, ResolvedConfig};
@@ -88,8 +89,19 @@ fn main() -> eyre::Result<()> {
         }
     }
 
+    let _core_manager = CoreManager::new(config.node_config.cpus_range.clone())?;
+
     //TODO: add thread count configuration based on config
     let mut builder = tokio::runtime::Builder::new_multi_thread();
+    builder.worker_threads(2);
+    builder.on_thread_start(|| {
+        let handle = std::thread::current();
+        println!("start thread {:?}", handle.name());
+    });
+    builder.on_thread_stop(|| {
+        let handle = std::thread::current();
+        println!("stop thread {:?}", handle.name());
+    });
 
     builder.enable_all();
 

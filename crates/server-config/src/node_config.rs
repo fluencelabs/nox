@@ -5,6 +5,7 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use base64::{engine::general_purpose::STANDARD as base64, Engine};
+use core_manager::CoreRange;
 use derivative::Derivative;
 use eyre::eyre;
 use fluence_keypair::KeyPair;
@@ -29,6 +30,8 @@ use super::defaults::*;
 #[derive(Clone, Deserialize, Serialize, Derivative)]
 #[derivative(Debug)]
 pub struct UnresolvedNodeConfig {
+    pub cpus_range: Option<CoreRange>,
+
     #[derivative(Debug = "ignore")]
     pub root_key_pair: Option<KeypairConfig>,
 

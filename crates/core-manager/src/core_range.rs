@@ -1,5 +1,6 @@
 use range_set_blaze::RangeSetBlaze;
-use std::fmt::{Debug, Formatter};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use std::fmt::{Debug, Display, Formatter};
 use std::str::FromStr;
 use thiserror::Error;
 
@@ -68,12 +69,51 @@ impl FromStr for CoreRange {
                 _ => {
                     return Err(ParseError::WrongRangeFormat {
                         raw_str: trimmed.to_string(),
-                    })
+                    });
                 }
             }
         }
 
         Ok(CoreRange(result))
+    }
+}
+
+impl Display for CoreRange {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        for (index, range) in self.0.ranges().enumerate() {
+            if index != 0 {
+                write!(f, ",")?;
+            };
+            let start = range.start();
+            let end = range.end();
+            if start == end {
+                write!(f, "{}", start)?;
+            } else {
+                write!(f, "{}-{}", start, end)?;
+            }
+        }
+        Ok(())
+    }
+}
+
+impl Serialize for CoreRange {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(self.to_string().as_str())
+    }
+}
+
+impl<'de> Deserialize<'de> for CoreRange {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let raw_str = String::deserialize(deserializer)?;
+        CoreRange::from_str(raw_str.as_str()).map_err(|e| {
+            serde::de::Error::custom(format!("failed to deserialize core range {raw_str} {e:?}"))
+        })
     }
 }
 
@@ -121,6 +161,7 @@ mod tests {
             assert_eq!(err.to_string(), "Failed to parse: aaaa")
         }
     }
+
     #[test]
     fn wrong_parsing_test_2() {
         let result = "1-a".parse::<CoreRange>();
@@ -135,6 +176,7 @@ mod tests {
             assert_eq!(err.to_string(), "Failed to parse: 1-a")
         }
     }
+
     #[test]
     fn wrong_parsing_test_3() {
         let result = "a-1".parse::<CoreRange>();
@@ -216,7 +258,7 @@ mod tests {
 
     #[test]
     fn fmt() {
-        let core_range_1: CoreRange = "0-2".parse().unwrap();
-        assert_eq!(format!("{:?}", core_range_1), "0..=2");
+        let core_range_1: CoreRange = "0-2,5,7-9".parse().unwrap();
+        assert_eq!(format!("{}", core_range_1), "0-2,5,7-9");
     }
 }

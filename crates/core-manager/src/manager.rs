@@ -1,33 +1,35 @@
+use std::hash::{BuildHasherDefault, Hash};
+
+use fxhash::{FxBuildHasher, FxHasher};
+use hwloc2::{ObjectType, Topology, TypeDepthError};
+use parking_lot::Mutex;
+use thiserror::Error;
+
 use crate::core_range::CoreRange;
 use crate::core_set;
 use crate::core_set::CoreSet;
-use fxhash::{FxBuildHasher, FxHasher};
-use parking_lot::Mutex;
-use range_set_blaze::RangeSetBlaze;
-use std::collections::HashMap;
-use std::hash::{BuildHasherDefault, Hash};
-use thiserror::Error;
 
-type Map<K, V> = HashMap<K, V, BuildHasherDefault<FxHasher>>;
+extern crate hwloc2;
 
-#[derive(Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Clone)]
-pub struct CoreId(usize);
+type MultiMap<K, V> = multimap::MultiMap<K, V, BuildHasherDefault<FxHasher>>;
+type BiMap<K, V> =
+    bimap::BiHashMap<K, V, BuildHasherDefault<FxHasher>, BuildHasherDefault<FxHasher>>;
+
+#[derive(PartialEq, Eq, Hash, Clone, Debug, PartialOrd, Ord)]
+pub struct PhysicalCoreId(usize);
+
+#[derive(PartialEq, Eq, Hash, Clone, Debug, PartialOrd, Ord)]
+pub struct LogicalCoreId(usize);
 
 pub struct CoreManager {
-    available_cores: CoreSet,
-    core_type_state: Map<CoreType, CoreSet>,
-    core_id_state: Map<CoreId, CoreType>,
+    available_cores: Vec<PhysicalCoreId>,
+    cores_mapping: MultiMap<PhysicalCoreId, LogicalCoreId>,
+    cores_state: BiMap<PhysicalCoreId, WorkerUnitType>,
     mutex: Mutex<()>,
 }
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct UnitId(String);
-
-#[derive(Debug, PartialEq, Eq, Hash, Clone)]
-pub enum CoreType {
-    WorkerType(WorkerUnitType),
-    Util,
-}
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub enum WorkerUnitType {
@@ -44,6 +46,10 @@ pub enum Error {
         #[source]
         err: core_set::Error,
     },
+    #[error("Failed to create topology")]
+    FailedCreateTopology,
+    #[error("Failed to collect cores data {err:?}")]
+    FailedCollectCoresData { err: TypeDepthError },
 }
 
 #[derive(Debug, Error)]
@@ -52,47 +58,63 @@ pub enum AssignError {
     NotFoundAvailableCores,
 }
 
-#[derive(Debug, Error)]
-pub enum FreeError {
-    #[error("Core {core_id:?} is already free")]
-    NotFound { core_id: CoreId },
+#[derive(Debug, Eq, PartialEq)]
+pub struct Assignment {
+    physical_core_id: PhysicalCoreId,
+    logical_core_ids: Vec<LogicalCoreId>,
 }
 
 impl CoreManager {
     pub fn new(cpus_range: Option<CoreRange>) -> Result<Self, Error> {
-        let available_cores: CoreSet = cpus_range
+        let core_range: CoreSet = cpus_range
             .map(|range| range.try_into().map_err(|err| Error::WrongCpuRange { err }))
             .unwrap_or(Ok(CoreSet::default()))?;
 
-        let core_type_state = HashMap::with_capacity_and_hasher(
-            available_cores.0.len() as usize,
+        let topology = Topology::new().ok_or(Error::FailedCreateTopology)?;
+
+        let cores = topology
+            .objects_with_type(&ObjectType::Core)
+            .map_err(|err| Error::FailedCollectCoresData { err })?;
+
+        let mut cores_mapping: MultiMap<PhysicalCoreId, LogicalCoreId> =
+            MultiMap::with_capacity_and_hasher(
+                core_range.0.len() as usize,
+                FxBuildHasher::default(),
+            );
+
+        for physical_core in cores {
+            let logical_cores = physical_core.children();
+            for logical_core in logical_cores {
+                let logical_core_id = logical_core.os_index() as usize;
+                if core_range.0.contains(logical_core_id) {
+                    cores_mapping.insert(
+                        PhysicalCoreId(physical_core.os_index() as usize),
+                        LogicalCoreId(logical_core_id),
+                    )
+                }
+            }
+        }
+        let mut available_cores: Vec<PhysicalCoreId> = cores_mapping.keys().cloned().collect();
+        available_cores.sort();
+
+        let cores_state = BiMap::with_capacity_and_hashers(
+            core_range.0.len() as usize,
+            FxBuildHasher::default(),
             FxBuildHasher::default(),
         );
-        let core_id_state = HashMap::with_capacity_and_hasher(
-            available_cores.0.len() as usize,
-            FxBuildHasher::default(),
-        );
+
         Ok(Self {
+            cores_mapping,
             available_cores,
-            core_type_state,
-            core_id_state,
+            cores_state,
             mutex: Mutex::new(()),
         })
     }
 
-    pub fn assign_util_core(&mut self) -> Result<CoreId, AssignError> {
-        let _guard = self.mutex.lock();
-        assign(
-            &mut self.available_cores,
-            &mut self.core_id_state,
-            &mut self.core_type_state,
-            CoreType::Util,
-        )
-    }
     pub fn assign_worker_core(
         &mut self,
         worker_type: WorkerUnitType,
-    ) -> Result<CoreId, AssignError> {
+    ) -> Result<Assignment, AssignError> {
         match worker_type {
             WorkerUnitType::CC(unit_id) => self.switch_or_assign(
                 WorkerUnitType::Worker(unit_id.clone()),
@@ -105,91 +127,40 @@ impl CoreManager {
         }
     }
 
-    pub fn free(&mut self, core_id: CoreId) -> Result<(), FreeError> {
-        let _guard = self.mutex.lock();
-        let core_type = self.core_id_state.remove(&core_id);
-        match core_type {
-            None => Err(FreeError::NotFound { core_id }),
-            Some(core_type) => {
-                let set = self
-                    .core_type_state
-                    .get_mut(&core_type)
-                    .expect("Non empty state");
-                if set.0.len() == 1 {
-                    self.core_type_state.remove(&core_type);
-                } else {
-                    set.0.remove(core_id.0);
-                }
-                self.available_cores.0.insert(core_id.0);
-                Ok(())
-            }
-        }
-    }
-
     fn switch_or_assign(
         &mut self,
         src: WorkerUnitType,
         dsc: WorkerUnitType,
-    ) -> Result<CoreId, AssignError> {
+    ) -> Result<Assignment, AssignError> {
         let _guard = self.mutex.lock();
-        let state = self
-            .core_type_state
-            .get_mut(&CoreType::WorkerType(src.clone()));
-        match state {
-            None => assign(
-                &mut self.available_cores,
-                &mut self.core_id_state,
-                &mut self.core_type_state,
-                CoreType::WorkerType(dsc),
-            ),
-            Some(state) => {
-                let core_id = state.0.pop_first().expect("Non empty state");
-                let core_id = CoreId(core_id);
-                if state.0.is_empty() {
-                    self.core_type_state.remove(&CoreType::WorkerType(src));
+        let state = self.cores_state.get_by_right(&src).cloned();
+        let physical_core_id = match state {
+            None => {
+                let core_id = self.available_cores.pop();
+                match core_id {
+                    None => return Err(AssignError::NotFoundAvailableCores),
+                    Some(core_id) => {
+                        self.cores_state.insert(core_id.clone(), dsc);
+                        core_id
+                    }
                 }
-                save_state(
-                    &mut self.core_id_state,
-                    &mut self.core_type_state,
-                    core_id.clone(),
-                    CoreType::WorkerType(dsc),
-                );
-                Ok(core_id)
             }
-        }
-    }
-}
+            Some(core_id) => {
+                self.cores_state.insert(core_id.clone(), dsc);
+                core_id
+            }
+        };
+        let logical_core_ids = self
+            .cores_mapping
+            .get_vec(&physical_core_id)
+            .cloned()
+            .expect("Can't be empty");
 
-fn assign(
-    available_cores: &mut CoreSet,
-    core_id_state: &mut Map<CoreId, CoreType>,
-    core_type_state: &mut Map<CoreType, CoreSet>,
-    core_type: CoreType,
-) -> Result<CoreId, AssignError> {
-    let core_id = available_cores.0.pop_first();
-    match core_id {
-        None => Err(AssignError::NotFoundAvailableCores),
-        Some(core_id) => {
-            let core_id = CoreId(core_id);
-            save_state(core_id_state, core_type_state, core_id.clone(), core_type);
-            Ok(core_id)
-        }
+        Ok(Assignment {
+            physical_core_id,
+            logical_core_ids,
+        })
     }
-}
-
-fn save_state(
-    core_id_state: &mut Map<CoreId, CoreType>,
-    core_type_state: &mut Map<CoreType, CoreSet>,
-    core_id: CoreId,
-    core_type: CoreType,
-) {
-    let mut current_ids = core_type_state
-        .get(&core_type)
-        .cloned()
-        .unwrap_or(CoreSet(RangeSetBlaze::default()));
-    current_ids.0.insert(core_id.0);
-    core_id_state.insert(core_id, core_type.clone());
-    core_type_state.insert(core_type, current_ids);
 }
 
 #[cfg(test)]
@@ -198,29 +169,19 @@ mod tests {
     use crate::CoreManager;
 
     #[test]
-    fn test() {
+    fn test_assignment_and_switching() {
         let mut manager = CoreManager::new(None).unwrap();
-        let core = manager.assign_util_core().unwrap();
-        println!("{:?}", core);
-        let core = manager.assign_util_core().unwrap();
-        println!("{:?}", core);
-        let core = manager.assign_util_core().unwrap();
-        println!("{:?}", core);
-        manager.free(core).unwrap();
-        println!("{:?}", manager.available_cores);
-        println!("{:?}", manager.core_id_state);
-        println!("{:?}", manager.core_type_state);
-        let _core = manager
-            .assign_worker_core(WorkerUnitType::Worker(UnitId("1".to_string())))
+        let unit_id = UnitId("1".to_string());
+        let assignment_1 = manager
+            .assign_worker_core(WorkerUnitType::CC(unit_id.clone()))
             .unwrap();
-        println!("{:?}", manager.available_cores);
-        println!("{:?}", manager.core_id_state);
-        println!("{:?}", manager.core_type_state);
-        let _core = manager
-            .assign_worker_core(WorkerUnitType::CC(UnitId("1".to_string())))
+        let assignment_2 = manager
+            .assign_worker_core(WorkerUnitType::Worker(unit_id.clone()))
             .unwrap();
-        println!("{:?}", manager.available_cores);
-        println!("{:?}", manager.core_id_state);
-        println!("{:?}", manager.core_type_state);
+        let assignment_3 = manager
+            .assign_worker_core(WorkerUnitType::CC(unit_id))
+            .unwrap();
+        assert_eq!(assignment_1, assignment_2);
+        assert_eq!(assignment_1, assignment_3);
     }
 }
