@@ -21,11 +21,6 @@ impl FunctionTrait for SubmitProofFunction {
                     internal_type: None,
                 },
                 ethabi::Param {
-                    name: "globalUnitNonce".to_string(),
-                    kind: ethabi::ParamType::FixedBytes(32),
-                    internal_type: None,
-                },
-                ethabi::Param {
                     name: "localUnitNonce".to_string(),
                     kind: ethabi::ParamType::FixedBytes(32),
                     internal_type: None,
@@ -45,7 +40,6 @@ impl FunctionTrait for SubmitProofFunction {
 
     fn signature() -> Vec<ethabi::ParamType> {
         vec![
-            ethabi::ParamType::FixedBytes(32),
             ethabi::ParamType::FixedBytes(32),
             ethabi::ParamType::FixedBytes(32),
             ethabi::ParamType::FixedBytes(32),

@@ -61,3 +61,4 @@ tracing = { workspace = true }
 mockito = { workspace = true }
 tempfile = { workspace = true }
 jsonrpsee = { workspace = true, features = ["server"] }
+clarity = { workspace = true }

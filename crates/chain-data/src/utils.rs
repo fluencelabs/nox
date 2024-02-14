@@ -1,3 +1,4 @@
+use hex_utils::decode_hex;
 use libp2p_identity::{ParseError, PeerId};
 
 /// Static prefix of the PeerId. Protobuf encoding + multihash::identity + length and so on.
@@ -17,8 +18,8 @@ pub fn peer_id_to_hex(peer_id: PeerId) -> String {
     format!("0x{:0>64}", hex::encode(peer_id_to_bytes(peer_id)))
 }
 
-pub fn peer_id_from_hex(hex: &str) -> Result<PeerId, ParseError> {
-    parse_peer_id(hex::decode(&hex[2..]).unwrap())
+pub fn peer_id_from_hex(hex: &str) -> eyre::Result<PeerId> {
+    Ok(parse_peer_id(decode_hex(hex)?)?)
 }
 
 #[cfg(test)]

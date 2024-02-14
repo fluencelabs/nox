@@ -10,12 +10,14 @@ use jsonrpsee::rpc_params;
 use jsonrpsee::ws_client::WsClientBuilder;
 use libp2p_identity::PeerId;
 use serde_json::json;
-use server_config::ChainListenerConfig;
+use server_config::ChainConfig;
 use std::path::PathBuf;
+use std::sync::Arc;
 use tokio::task::{JoinHandle, JoinSet};
 
 pub struct ChainListener {
-    config: ChainListenerConfig,
+    chain_connector: Arc<ChainConnector>,
+    config: ChainConfig,
     cc_events_dir: PathBuf,
     host_id: PeerId,
     difficulty: Vec<u8>,
@@ -29,20 +31,16 @@ pub struct ChainListener {
 
 impl ChainListener {
     pub async fn new(
-        config: ChainListenerConfig,
+        config: ChainConfig,
         cc_events_dir: PathBuf,
         host_id: PeerId,
+        chain_connector: Arc<ChainConnector>,
     ) -> eyre::Result<Self> {
-        let init_params = ChainConnector::batch_init_request(&config).await?;
-        let current_commitment = ChainConnector::get_current_commitment_id(
-            &config.http_endpoint,
-            &config.market_contract_address,
-            host_id,
-        )
-        .await?;
-        let compute_units =
-            ChainConnector::get_compute_units(&config.http_endpoint, "", host_id).await?;
+        let init_params = chain_connector.batch_init_request().await?;
+        let current_commitment = chain_connector.get_current_commitment_id().await?;
+        let compute_units = chain_connector.get_compute_units().await?;
         Ok(Self {
+            chain_connector,
             config,
             cc_events_dir,
             host_id,
@@ -62,7 +60,7 @@ impl ChainListener {
             .spawn(async move {
                 let setup: eyre::Result<()> = try {
                     if let Some(commitment_id) = self.current_commitment.clone() {
-                        let commitment = ChainConnector::get_commitment(&self.config.http_endpoint, &self.config.cc_contract_address, commitment_id).await?;
+                        let commitment = self.chain_connector.get_commitment(commitment_id).await?;
                         if commitment.status == CommitmentStatus::Active {
                             if commitment.start_epoch > self.current_epoch {
                                 // TODO: acquire compute units

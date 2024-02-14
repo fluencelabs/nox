@@ -5,6 +5,7 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use base64::{engine::general_purpose::STANDARD as base64, Engine};
+use clarity::PrivateKey;
 use derivative::Derivative;
 use eyre::eyre;
 use fluence_keypair::KeyPair;
@@ -130,7 +131,7 @@ pub struct UnresolvedNodeConfig {
     pub system_services: SystemServicesConfig,
 
     #[serde(flatten)]
-    pub chain_listener_config: Option<ChainListenerConfig>,
+    pub chain_listener_config: Option<ChainConfig>,
 }
 
 impl UnresolvedNodeConfig {
@@ -185,7 +186,7 @@ impl UnresolvedNodeConfig {
             allowed_binaries,
             system_services: self.system_services,
             http_config: self.http_config,
-            chain_listener_config: self.chain_listener_config,
+            chain_config: self.chain_listener_config,
         };
 
         Ok(result)
@@ -352,7 +353,7 @@ pub struct NodeConfig {
 
     pub http_config: Option<HttpConfig>,
 
-    pub chain_listener_config: Option<ChainListenerConfig>,
+    pub chain_config: Option<ChainConfig>,
 }
 
 #[derive(Clone, Deserialize, Serialize, Derivative, Copy)]
@@ -515,11 +516,13 @@ impl KeypairConfig {
 
 #[derive(Clone, Deserialize, Serialize, Derivative)]
 #[derivative(Debug)]
-pub struct ChainListenerConfig {
+pub struct ChainConfig {
     pub ws_endpoint: String,
     pub http_endpoint: String,
     // TODO get all addresses from Core contract
-    pub cc_contract_address: String,
     pub core_contract_address: String,
+    pub cc_contract_address: String,
     pub market_contract_address: String,
+    pub network_id: u64,
+    pub wallet_key: PrivateKey,
 }

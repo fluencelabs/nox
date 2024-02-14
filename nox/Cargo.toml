@@ -31,6 +31,7 @@ workers = { workspace = true }
 system-services = { workspace = true }
 spell-service-api = { workspace = true }
 chain-listener = { workspace = true }
+chain-connector = { workspace = true }
 
 fluence-keypair = { workspace = true }
 

@@ -8,7 +8,6 @@ pub struct UnitId(pub Vec<u8>);
 
 pub struct Proof {
     pub unit_id: UnitId,
-    pub global_unit_nonce: Vec<u8>,
     pub local_unit_nonce: Vec<u8>,
     pub target_hash: Vec<u8>,
 }

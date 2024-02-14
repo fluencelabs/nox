@@ -38,9 +38,7 @@ use futures::future::BoxFuture;
 use futures::stream::iter;
 use nox::{Connectivity, Node};
 use particle_protocol::ProtocolConfig;
-use server_config::{
-    system_services_config, BootstrapConfig, ChainListenerConfig, UnresolvedConfig,
-};
+use server_config::{system_services_config, BootstrapConfig, ChainConfig, UnresolvedConfig};
 use tempfile::TempDir;
 use test_constants::{EXECUTION_TIMEOUT, TRANSPORT_TIMEOUT};
 use tokio::sync::oneshot;
@@ -256,7 +254,7 @@ pub struct SwarmConfig {
     pub override_system_services_config: Option<system_services_config::SystemServicesConfig>,
     pub http_port: u16,
     pub connector_api_endpoint: Option<String>,
-    pub chain_listener: Option<ChainListenerConfig>,
+    pub chain_listener: Option<ChainConfig>,
     pub cc_events_dir: Option<PathBuf>,
 }
 
@@ -400,7 +398,7 @@ pub async fn create_swarm_with_runtime<RT: AquaRuntime>(
             .public()
             .to_peer_id();
         resolved.node_config.management_peer_id = management_peer_id;
-        resolved.chain_listener_config = config.chain_listener.clone();
+        resolved.chain_config = config.chain_listener.clone();
 
         let vm_config = vm_config(BaseVmConfig {
             peer_id,
