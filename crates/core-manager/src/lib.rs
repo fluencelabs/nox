@@ -1,5 +1,4 @@
 mod core_range;
-mod core_set;
 mod manager;
 
 pub use core_affinity::CoreId;

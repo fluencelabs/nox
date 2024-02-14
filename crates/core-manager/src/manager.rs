@@ -3,11 +3,10 @@ use std::hash::{BuildHasherDefault, Hash};
 use fxhash::{FxBuildHasher, FxHasher};
 use hwloc2::{ObjectType, Topology, TypeDepthError};
 use parking_lot::Mutex;
+use range_set_blaze::RangeSetBlaze;
 use thiserror::Error;
 
 use crate::core_range::CoreRange;
-use crate::core_set;
-use crate::core_set::CoreSet;
 
 extern crate hwloc2;
 
@@ -40,16 +39,11 @@ pub enum WorkerUnitType {
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("Failed to fetch core ids")]
-    FailedGetCoreIds,
-    #[error("Wrong cpu range {err}")]
-    WrongCpuRange {
-        #[source]
-        err: core_set::Error,
-    },
+    GetCoreIds,
     #[error("Failed to create topology")]
-    FailedCreateTopology,
+    CreateTopology,
     #[error("Failed to collect cores data {err:?}")]
-    FailedCollectCoresData { err: TypeDepthError },
+    CollectCoresData { err: TypeDepthError },
 }
 
 #[derive(Debug, Error)]
@@ -66,27 +60,24 @@ pub struct Assignment {
 
 impl CoreManager {
     pub fn new(cpus_range: Option<CoreRange>) -> Result<Self, Error> {
-        let core_range: CoreSet = cpus_range
-            .map(|range| range.try_into().map_err(|err| Error::WrongCpuRange { err }))
-            .unwrap_or(Ok(CoreSet::default()))?;
+        let core_range = cpus_range
+            .map(|range| range.0)
+            .unwrap_or(RangeSetBlaze::from_iter(0..num_cpus::get()));
 
-        let topology = Topology::new().ok_or(Error::FailedCreateTopology)?;
+        let topology = Topology::new().ok_or(Error::CreateTopology)?;
 
         let cores = topology
             .objects_with_type(&ObjectType::Core)
-            .map_err(|err| Error::FailedCollectCoresData { err })?;
+            .map_err(|err| Error::CollectCoresData { err })?;
 
         let mut cores_mapping: MultiMap<PhysicalCoreId, LogicalCoreId> =
-            MultiMap::with_capacity_and_hasher(
-                core_range.0.len() as usize,
-                FxBuildHasher::default(),
-            );
+            MultiMap::with_capacity_and_hasher(core_range.len() as usize, FxBuildHasher::default());
 
         for physical_core in cores {
             let logical_cores = physical_core.children();
             for logical_core in logical_cores {
                 let logical_core_id = logical_core.os_index() as usize;
-                if core_range.0.contains(logical_core_id) {
+                if core_range.contains(logical_core_id) {
                     cores_mapping.insert(
                         PhysicalCoreId(physical_core.os_index() as usize),
                         LogicalCoreId(logical_core_id),
@@ -98,7 +89,7 @@ impl CoreManager {
         available_cores.sort();
 
         let cores_state = BiMap::with_capacity_and_hashers(
-            core_range.0.len() as usize,
+            core_range.len() as usize,
             FxBuildHasher::default(),
             FxBuildHasher::default(),
         );
