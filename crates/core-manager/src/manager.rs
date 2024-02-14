@@ -38,8 +38,6 @@ pub enum WorkerUnitType {
 
 #[derive(Debug, Error)]
 pub enum Error {
-    #[error("Failed to fetch core ids")]
-    GetCoreIds,
     #[error("Failed to create topology")]
     CreateTopology,
     #[error("Failed to collect cores data {err:?}")]
