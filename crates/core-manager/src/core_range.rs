@@ -7,12 +7,6 @@ use thiserror::Error;
 #[derive(Clone, PartialEq)]
 pub struct CoreRange(pub(crate) RangeSetBlaze<usize>);
 
-impl CoreRange {
-    pub fn last(&self) -> usize {
-        self.0.last().expect("Non empty list")
-    }
-}
-
 impl Debug for CoreRange {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.write_str(self.0.to_string().as_str())
@@ -246,7 +240,6 @@ mod tests {
         assert!(core_range.0.contains(1));
         assert!(core_range.0.contains(2));
         assert!(!core_range.0.contains(3));
-        assert_eq!(core_range.last(), 2);
     }
 
     #[test]
