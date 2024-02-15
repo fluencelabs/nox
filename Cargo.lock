@@ -1340,6 +1340,7 @@ name = "core-manager"
 version = "0.1.0"
 dependencies = [
  "bimap",
+ "enum_dispatch",
  "fxhash",
  "hwloc2",
  "multimap 0.10.0",
@@ -1514,6 +1515,7 @@ dependencies = [
  "base64 0.21.7",
  "config-utils",
  "connection-pool",
+ "core-manager",
  "derivative",
  "fluence-keypair",
  "fluence-libp2p",

@@ -639,12 +639,14 @@ mod tests {
     use maplit::hashmap;
     use serde_json::json;
     use std::path::PathBuf;
+    use std::sync::Arc;
     use std::time::Duration;
 
     use air_interpreter_fs::{air_interpreter_path, write_default_air_interpreter};
     use aquamarine::{DataStoreConfig, VmConfig};
     use config_utils::to_peer_id;
     use connected_client::ConnectedClient;
+    use core_manager::manager::{CoreManager, DummyCoreManager};
     use fs_utils::to_abs_path;
     use server_config::{default_base_dir, load_config_with_args};
     use system_services::SystemServiceDistros;
@@ -677,8 +679,12 @@ mod tests {
         let system_service_distros =
             SystemServiceDistros::default_from(config.system_services.clone())
                 .expect("can't create system services");
+
+        let core_manager = Arc::new(CoreManager::Dummy(DummyCoreManager::core_manager()));
+
         let mut node: Box<Node<AVMRunner>> = Node::new(
             config,
+            core_manager,
             vm_config,
             data_store_config,
             "some version",

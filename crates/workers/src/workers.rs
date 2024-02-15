@@ -1,16 +1,18 @@
-use crate::error::WorkersError;
-use crate::persistence::{load_persisted_workers, persist_worker, remove_worker, PersistedWorker};
-use crate::{DealId, KeyStorage};
-use core_affinity::{set_mask_for_current, CoreId};
-use core_manager::manager::{AssignRequest, CoreManager, UnitId, WorkerType};
-use fluence_libp2p::PeerId;
-use parking_lot::RwLock;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
+
+use core_affinity::{set_mask_for_current, CoreId};
+use core_manager::manager::{AssignRequest, CoreManager, CoreManagerFunctions, UnitId, WorkerType};
+use fluence_libp2p::PeerId;
+use parking_lot::RwLock;
 use tokio::runtime::{Handle, Runtime};
 use types::peer_scope::WorkerId;
+
+use crate::error::WorkersError;
+use crate::persistence::{load_persisted_workers, persist_worker, remove_worker, PersistedWorker};
+use crate::{DealId, KeyStorage};
 
 /// Information about a worker.
 pub struct WorkerInfo {
@@ -388,7 +390,7 @@ impl Workers {
             deal_id,
             creator,
             active: RwLock::new(true),
-            cu_ids: cu_ids,
+            cu_ids,
         };
         Ok(worker_info)
     }
@@ -504,6 +506,7 @@ impl Workers {
 #[cfg(test)]
 mod tests {
     use crate::{KeyStorage, WorkerParams, Workers};
+    use core_manager::manager::{CoreManager, DummyCoreManager, UnitId};
     use libp2p::PeerId;
     use std::sync::Arc;
     use tempfile::tempdir;
@@ -516,6 +519,7 @@ mod tests {
         let key_pairs_dir = temp_dir.path().join("key_pairs").to_path_buf();
         let workers_dir = temp_dir.path().join("workers").to_path_buf();
         let root_key_pair = fluence_keypair::KeyPair::generate_ed25519();
+        let core_manager = Arc::new(CoreManager::Dummy(DummyCoreManager::core_manager()));
 
         // Create a new KeyStorage instance
         let key_storage = Arc::new(
@@ -525,7 +529,7 @@ mod tests {
         );
 
         // Create a new Workers instance
-        let workers = Workers::from_path(workers_dir.clone(), key_storage.clone())
+        let workers = Workers::from_path(workers_dir.clone(), key_storage.clone(), core_manager)
             .await
             .expect("Failed to create Workers from path");
 
@@ -542,6 +546,7 @@ mod tests {
         let key_pairs_dir = temp_dir.path().join("key_pairs").to_path_buf();
         let workers_dir = temp_dir.path().join("workers").to_path_buf();
         let root_key_pair = fluence_keypair::KeyPair::generate_ed25519();
+        let core_manager = Arc::new(CoreManager::Dummy(DummyCoreManager::core_manager()));
 
         // Create a new KeyStorage instance
         let key_storage = Arc::new(
@@ -551,16 +556,18 @@ mod tests {
         );
 
         // Create a new Workers instance
-        let workers = Workers::from_path(workers_dir.clone(), key_storage.clone())
+        let workers = Workers::from_path(workers_dir.clone(), key_storage.clone(), core_manager)
             .await
             .expect("Failed to create Workers from path");
+
+        let cu_ids: Vec<UnitId> = vec!["1".to_string().into()];
 
         let creator_peer_id = PeerId::random();
         let worker_id = workers
             .create_worker(WorkerParams::new(
                 "deal_id_1".to_string(),
                 creator_peer_id,
-                1,
+                cu_ids,
             ))
             .await
             .expect("Failed to create worker");
@@ -602,6 +609,7 @@ mod tests {
         let key_pairs_dir = temp_dir.path().join("key_pairs").to_path_buf();
         let workers_dir = temp_dir.path().join("workers").to_path_buf();
         let root_key_pair = fluence_keypair::KeyPair::generate_ed25519();
+        let core_manager = Arc::new(CoreManager::Dummy(DummyCoreManager::core_manager()));
 
         // Create a new KeyStorage instance
         let key_storage = Arc::new(
@@ -611,15 +619,17 @@ mod tests {
         );
 
         // Create a new Workers instance
-        let workers = Workers::from_path(workers_dir.clone(), key_storage.clone())
+        let workers = Workers::from_path(workers_dir.clone(), key_storage.clone(), core_manager)
             .await
             .expect("Failed to create Workers from path");
+
+        let cu_ids: Vec<UnitId> = vec!["1".to_string().into()];
 
         let worker_id = workers
             .create_worker(WorkerParams::new(
                 "deal_id_1".to_string(),
                 PeerId::random(),
-                1,
+                cu_ids.clone(),
             ))
             .await
             .expect("Failed to create worker");
@@ -633,7 +643,7 @@ mod tests {
             .create_worker(WorkerParams::new(
                 "deal_id_1".to_string(),
                 PeerId::random(),
-                1,
+                cu_ids,
             ))
             .await;
 
@@ -653,6 +663,7 @@ mod tests {
         let key_pairs_dir = temp_dir.path().join("key_pairs").to_path_buf();
         let workers_dir = temp_dir.path().join("workers").to_path_buf();
         let root_key_pair = fluence_keypair::KeyPair::generate_ed25519();
+        let core_manager = Arc::new(CoreManager::Dummy(DummyCoreManager::core_manager()));
 
         // Create a new KeyStorage instance
         let key_storage = Arc::new(
@@ -661,15 +672,17 @@ mod tests {
                 .expect("Failed to create KeyStorage from path"),
         );
         // Create a new Workers instance
-        let workers = Workers::from_path(workers_dir.clone(), key_storage.clone())
+        let workers = Workers::from_path(workers_dir.clone(), key_storage.clone(), core_manager)
             .await
             .expect("Failed to create Workers from path");
+
+        let cu_ids: Vec<UnitId> = vec!["1".to_string().into()];
 
         let worker_id_1 = workers
             .create_worker(WorkerParams::new(
                 "deal_id_1".to_string(),
                 PeerId::random(),
-                1,
+                cu_ids.clone(),
             ))
             .await
             .expect("Failed to create worker");
@@ -678,7 +691,7 @@ mod tests {
             .create_worker(WorkerParams::new(
                 "deal_id_2".to_string(),
                 PeerId::random(),
-                1,
+                cu_ids,
             ))
             .await
             .expect("Failed to create worker");
@@ -714,6 +727,7 @@ mod tests {
         let key_pairs_dir = temp_dir.path().join("key_pairs").to_path_buf();
         let workers_dir = temp_dir.path().join("workers").to_path_buf();
         let root_key_pair = fluence_keypair::KeyPair::generate_ed25519();
+        let core_manager = Arc::new(CoreManager::Dummy(DummyCoreManager::core_manager()));
 
         // Create a new KeyStorage instance
         let key_storage = Arc::new(
@@ -723,15 +737,20 @@ mod tests {
         );
 
         // Create a new Workers instance
-        let workers = Workers::from_path(workers_dir.clone(), key_storage.clone())
-            .await
-            .expect("Failed to create Workers from path");
+        let workers = Workers::from_path(
+            workers_dir.clone(),
+            key_storage.clone(),
+            core_manager.clone(),
+        )
+        .await
+        .expect("Failed to create Workers from path");
+        let cu_ids: Vec<UnitId> = vec!["1".to_string().into()];
 
         let worker_id_1 = workers
             .create_worker(WorkerParams::new(
                 "deal_id_1".to_string(),
                 PeerId::random(),
-                1,
+                cu_ids.clone(),
             ))
             .await
             .expect("Failed to create worker");
@@ -740,7 +759,7 @@ mod tests {
             .create_worker(WorkerParams::new(
                 "deal_id_2".to_string(),
                 PeerId::random(),
-                1,
+                cu_ids,
             ))
             .await
             .expect("Failed to create worker");
@@ -785,7 +804,7 @@ mod tests {
         );
 
         // Create a new Workers instance
-        let workers = Workers::from_path(workers_dir.clone(), key_storage.clone())
+        let workers = Workers::from_path(workers_dir.clone(), key_storage.clone(), core_manager)
             .await
             .expect("Failed to create Workers from path");
 

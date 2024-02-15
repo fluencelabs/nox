@@ -1,3 +1,4 @@
+use enum_dispatch::enum_dispatch;
 use std::collections::HashMap;
 use std::hash::{BuildHasherDefault, Hash};
 
@@ -23,7 +24,20 @@ pub struct PhysicalCoreId(usize);
 #[derive(PartialEq, Eq, Hash, Clone, Debug, PartialOrd, Ord)]
 pub struct LogicalCoreId(pub usize);
 
-pub struct CoreManager {
+#[enum_dispatch]
+pub trait CoreManagerFunctions {
+    fn assign_worker_core(&self, assign_request: AssignRequest) -> Result<Assignment, AssignError>;
+    fn system_cpu_assignment(&self) -> Assignment;
+    fn free(&mut self, unit_ids: Vec<UnitId>);
+}
+
+#[enum_dispatch(CoreManagerFunctions)]
+pub enum CoreManager {
+    Default(DefaultCoreManager),
+    Dummy(DummyCoreManager),
+}
+
+pub struct DefaultCoreManager {
     inner: RwLock<InnerState>,
 }
 
@@ -43,6 +57,12 @@ struct InnerState {
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Serialize, Deserialize)]
 pub struct UnitId(String);
+
+impl From<String> for UnitId {
+    fn from(value: String) -> Self {
+        UnitId(value)
+    }
+}
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub enum WorkerType {
@@ -88,7 +108,7 @@ pub struct Assignment {
     pub logical_core_ids: Vec<LogicalCoreId>,
 }
 
-impl CoreManager {
+impl DefaultCoreManager {
     pub fn new(system_cpu_count: usize, cpus_range: Option<CoreRange>) -> Result<Self, Error> {
         let core_range = cpus_range
             .map(|range| range.0)
@@ -153,11 +173,10 @@ impl CoreManager {
         });
         Ok(Self { inner })
     }
+}
 
-    pub fn assign_worker_core(
-        &self,
-        assign_request: AssignRequest,
-    ) -> Result<Assignment, AssignError> {
+impl CoreManagerFunctions for DefaultCoreManager {
+    fn assign_worker_core(&self, assign_request: AssignRequest) -> Result<Assignment, AssignError> {
         let mut lock = self.inner.write();
         let mut physical_core_ids = Vec::with_capacity(assign_request.unit_ids.len());
         let mut logical_core_ids = vec![];
@@ -193,7 +212,7 @@ impl CoreManager {
         })
     }
 
-    pub fn system_cpu_assignment(&self) -> Assignment {
+    fn system_cpu_assignment(&self) -> Assignment {
         let lock = self.inner.read();
         let mut logical_core_ids = vec![];
         for core in &lock.system_cores {
@@ -206,7 +225,7 @@ impl CoreManager {
         }
     }
 
-    pub fn free(&mut self, unit_ids: Vec<UnitId>) {
+    fn free(&mut self, unit_ids: Vec<UnitId>) {
         let mut lock = self.inner.write();
         for unit_id in unit_ids {
             if let Some(core_id) = lock.unit_id_mapping.get_by_right(&unit_id).cloned() {
@@ -218,13 +237,44 @@ impl CoreManager {
     }
 }
 
+#[derive(Default)]
+pub struct DummyCoreManager {}
+
+impl DummyCoreManager {
+    fn all_cores(&self) -> Assignment {
+        let physical_core_ids = (0..num_cpus::get_physical()).map(PhysicalCoreId).collect();
+        let logical_core_ids = (0..num_cpus::get()).map(LogicalCoreId).collect();
+        Assignment {
+            physical_core_ids,
+            logical_core_ids,
+        }
+    }
+}
+
+impl CoreManagerFunctions for DummyCoreManager {
+    fn assign_worker_core(
+        &self,
+        _assign_request: AssignRequest,
+    ) -> Result<Assignment, AssignError> {
+        Ok(self.all_cores())
+    }
+
+    fn system_cpu_assignment(&self) -> Assignment {
+        self.all_cores()
+    }
+
+    fn free(&mut self, _unit_ids: Vec<UnitId>) {}
+}
+
 #[cfg(test)]
 mod tests {
-    use crate::manager::{AssignRequest, CoreManager, UnitId, WorkerType};
+    use crate::manager::{
+        AssignRequest, CoreManagerFunctions, DefaultCoreManager, UnitId, WorkerType,
+    };
 
     #[test]
     fn test_assignment_and_switching() {
-        let mut manager = CoreManager::new(2, None).unwrap();
+        let manager = DefaultCoreManager::new(2, None).unwrap();
         let unit_ids = vec![UnitId("1".to_string()), UnitId("2".to_string())];
         let assignment_1 = manager
             .assign_worker_core(AssignRequest {

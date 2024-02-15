@@ -40,7 +40,7 @@ use aquamarine::{DataStoreConfig, VmConfig};
 use avm_server::avm_runner::AVMRunner;
 use config_utils::to_peer_id;
 use core_affinity::{set_mask_for_current, CoreId};
-use core_manager::manager::CoreManager;
+use core_manager::manager::{CoreManager, CoreManagerFunctions, DefaultCoreManager};
 use fs_utils::to_abs_path;
 use nox::{env_filter, log_layer, tokio_console_layer, tracing_layer, Node};
 use server_config::{load_config, ConfigData, ResolvedConfig};
@@ -91,11 +91,11 @@ fn main() -> eyre::Result<()> {
         }
     }
 
-    let core_manager = CoreManager::new(
+    let core_manager = DefaultCoreManager::new(
         config.node_config.system_cpu_count,
         config.node_config.cpus_range.clone(),
     )?;
-    let core_manager = Arc::new(core_manager);
+    let core_manager = Arc::new(CoreManager::Default(core_manager));
     let system_cpu_cores_assignment = core_manager.system_cpu_assignment();
 
     let system_cpu_cores: Vec<CoreId> = system_cpu_cores_assignment
