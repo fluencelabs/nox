@@ -98,8 +98,8 @@ chain-data = { path = "crates/chain-data"}
 chain-listener = { path = "crates/chain-listener"}
 
 # spell
-fluence-spell-dtos = "=0.6.9"
-fluence-spell-distro = "=0.6.9"
+fluence-spell-dtos = "=0.6.10"
+fluence-spell-distro = "=0.6.10"
 
 # marine
 fluence-app-service = { version = "0.29.0" }
