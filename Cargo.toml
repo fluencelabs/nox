@@ -162,6 +162,7 @@ blake3 = "1.5.0"
 rand = "0.8.5"
 futures-util = "0.3.30"
 num_cpus = "1.16.0"
+core_affinity = { git = "https://github.com/fluencelabs/core_affinity_rs/", branch = "master" }
 
 # Enable a small amount of optimization in debug mode
 [profile.dev]

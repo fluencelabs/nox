@@ -8,6 +8,7 @@ mod persistence;
 mod scope;
 mod workers;
 
+pub use core_manager::manager::UnitId;
 pub use error::KeyStorageError;
 pub use error::WorkersError;
 pub use key_storage::KeyStorage;

@@ -29,6 +29,7 @@
 use base64::{engine::general_purpose::STANDARD as base64, Engine};
 use eyre::WrapErr;
 use libp2p::PeerId;
+use std::sync::Arc;
 use tokio::signal;
 use tokio::sync::oneshot;
 use tracing_subscriber::layer::SubscriberExt;
@@ -39,7 +40,7 @@ use aquamarine::{DataStoreConfig, VmConfig};
 use avm_server::avm_runner::AVMRunner;
 use config_utils::to_peer_id;
 use core_affinity::{set_mask_for_current, CoreId};
-use core_manager::CoreManager;
+use core_manager::manager::CoreManager;
 use fs_utils::to_abs_path;
 use nox::{env_filter, log_layer, tokio_console_layer, tracing_layer, Node};
 use server_config::{load_config, ConfigData, ResolvedConfig};
@@ -94,6 +95,7 @@ fn main() -> eyre::Result<()> {
         config.node_config.system_cpu_count,
         config.node_config.cpus_range.clone(),
     )?;
+    let core_manager = Arc::new(core_manager);
     let system_cpu_cores_assignment = core_manager.system_cpu_assignment();
 
     let system_cpu_cores: Vec<CoreId> = system_cpu_cores_assignment
@@ -149,7 +151,7 @@ fn main() -> eyre::Result<()> {
             write_default_air_interpreter(&interpreter_path)?;
             log::info!("AIR interpreter: {:?}", interpreter_path);
 
-            let fluence = start_fluence(resolver_config, peer_id).await?;
+            let fluence = start_fluence(resolver_config, core_manager, peer_id).await?;
             log::info!("Fluence has been successfully started.");
             log::info!("Waiting for Ctrl-C to exit...");
 
@@ -162,7 +164,11 @@ fn main() -> eyre::Result<()> {
 }
 
 // NOTE: to stop Fluence just call Stoppable::stop()
-async fn start_fluence(config: ResolvedConfig, peer_id: PeerId) -> eyre::Result<impl Stoppable> {
+async fn start_fluence(
+    config: ResolvedConfig,
+    core_manager: Arc<CoreManager>,
+    peer_id: PeerId,
+) -> eyre::Result<impl Stoppable> {
     log::trace!("starting Fluence");
 
     let listen_addrs = config.listen_multiaddrs();
@@ -176,6 +182,7 @@ async fn start_fluence(config: ResolvedConfig, peer_id: PeerId) -> eyre::Result<
 
     let mut node: Box<Node<AVMRunner>> = Node::new(
         config,
+        core_manager,
         vm_config,
         data_store_config,
         VERSION,

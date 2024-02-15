@@ -5,6 +5,7 @@ use fxhash::{FxBuildHasher, FxHasher};
 use hwloc2::{ObjectType, Topology, TypeDepthError};
 use parking_lot::RwLock;
 use range_set_blaze::RangeSetBlaze;
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::core_range::CoreRange;
@@ -23,6 +24,10 @@ pub struct PhysicalCoreId(usize);
 pub struct LogicalCoreId(pub usize);
 
 pub struct CoreManager {
+    inner: RwLock<InnerState>,
+}
+
+struct InnerState {
     // mapping between physical and logical cores
     cores_mapping: MultiMap<PhysicalCoreId, LogicalCoreId>,
     //
@@ -34,11 +39,9 @@ pub struct CoreManager {
     unit_id_mapping: BiMap<PhysicalCoreId, UnitId>,
 
     type_mapping: Map<UnitId, WorkerType>,
-
-    lock: RwLock<()>,
 }
 
-#[derive(Debug, PartialEq, Eq, Hash, Clone)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Serialize, Deserialize)]
 pub struct UnitId(String);
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
@@ -50,6 +53,15 @@ pub enum WorkerType {
 pub struct AssignRequest {
     unit_ids: Vec<UnitId>,
     worker_type: WorkerType,
+}
+
+impl AssignRequest {
+    pub fn new(unit_ids: Vec<UnitId>, worker_type: WorkerType) -> Self {
+        Self {
+            unit_ids,
+            worker_type,
+        }
+    }
 }
 
 #[derive(Debug, Error)]
@@ -132,44 +144,44 @@ impl CoreManager {
         let type_mapping =
             Map::with_capacity_and_hasher(available_core_count, FxBuildHasher::default());
 
-        Ok(Self {
+        let inner = RwLock::new(InnerState {
             cores_mapping,
             system_cores,
             available_cores,
             unit_id_mapping,
             type_mapping,
-            lock: RwLock::new(()),
-        })
+        });
+        Ok(Self { inner })
     }
 
     pub fn assign_worker_core(
-        &mut self,
+        &self,
         assign_request: AssignRequest,
     ) -> Result<Assignment, AssignError> {
-        let _guard = self.lock.write();
+        let mut lock = self.inner.write();
         let mut physical_core_ids = Vec::with_capacity(assign_request.unit_ids.len());
         let mut logical_core_ids = vec![];
         let worker_unit_type = assign_request.worker_type;
         for unit_id in assign_request.unit_ids {
-            let core_id = self.unit_id_mapping.get_by_right(&unit_id).cloned();
+            let core_id = lock.unit_id_mapping.get_by_right(&unit_id).cloned();
             let core_id = match core_id {
                 None => {
-                    let core_id = self
+                    let core_id = lock
                         .available_cores
                         .pop()
                         .ok_or(AssignError::NotFoundAvailableCores)?;
-                    self.unit_id_mapping
+                    lock.unit_id_mapping
                         .insert(core_id.clone(), unit_id.clone());
-                    self.type_mapping.insert(unit_id, worker_unit_type.clone());
+                    lock.type_mapping.insert(unit_id, worker_unit_type.clone());
                     core_id
                 }
                 Some(core_id) => {
-                    self.type_mapping.insert(unit_id, worker_unit_type.clone());
+                    lock.type_mapping.insert(unit_id, worker_unit_type.clone());
                     core_id
                 }
             };
             physical_core_ids.push(core_id.clone());
-            let local_physical_core_ids = self
+            let local_physical_core_ids = lock
                 .cores_mapping
                 .get_vec(&core_id)
                 .expect("Can't be empty");
@@ -182,25 +194,25 @@ impl CoreManager {
     }
 
     pub fn system_cpu_assignment(&self) -> Assignment {
-        let _guard = self.lock.read();
+        let lock = self.inner.read();
         let mut logical_core_ids = vec![];
-        for core in &self.system_cores {
-            let core_ids = self.cores_mapping.get_vec(core).cloned().unwrap();
+        for core in &lock.system_cores {
+            let core_ids = lock.cores_mapping.get_vec(core).cloned().unwrap();
             logical_core_ids.extend_from_slice(core_ids.as_slice());
         }
         Assignment {
-            physical_core_ids: self.system_cores.clone(),
+            physical_core_ids: lock.system_cores.clone(),
             logical_core_ids,
         }
     }
 
     pub fn free(&mut self, unit_ids: Vec<UnitId>) {
-        let _guard = self.lock.write();
+        let mut lock = self.inner.write();
         for unit_id in unit_ids {
-            if let Some(core_id) = self.unit_id_mapping.get_by_right(&unit_id).cloned() {
-                self.available_cores.push(core_id.clone());
-                self.unit_id_mapping.remove_by_left(&core_id);
-                self.type_mapping.remove(&unit_id);
+            if let Some(core_id) = lock.unit_id_mapping.get_by_right(&unit_id).cloned() {
+                lock.available_cores.push(core_id.clone());
+                lock.unit_id_mapping.remove_by_left(&core_id);
+                lock.type_mapping.remove(&unit_id);
             }
         }
     }
@@ -208,8 +220,7 @@ impl CoreManager {
 
 #[cfg(test)]
 mod tests {
-    use crate::manager::{AssignRequest, UnitId, WorkerType};
-    use crate::CoreManager;
+    use crate::manager::{AssignRequest, CoreManager, UnitId, WorkerType};
 
     #[test]
     fn test_assignment_and_switching() {

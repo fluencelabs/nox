@@ -1,10 +1,13 @@
 use crate::error::WorkersError;
 use crate::persistence::{load_persisted_workers, persist_worker, remove_worker, PersistedWorker};
 use crate::{DealId, KeyStorage};
+use core_affinity::{set_mask_for_current, CoreId};
+use core_manager::manager::{AssignRequest, CoreManager, UnitId, WorkerType};
 use fluence_libp2p::PeerId;
 use parking_lot::RwLock;
 use std::collections::HashMap;
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
 use tokio::runtime::{Handle, Runtime};
 use types::peer_scope::WorkerId;
@@ -18,7 +21,7 @@ pub struct WorkerInfo {
     /// A read-write lock indicating whether the worker is active.
     pub active: RwLock<bool>,
     /// A count of compute units available for this worker.
-    pub cu_count: usize,
+    pub cu_ids: Vec<UnitId>,
 }
 
 /// Manages a collection of workers.
@@ -33,20 +36,24 @@ pub struct Workers {
     key_storage: Arc<KeyStorage>,
     /// Mapping of worker IDs to worker runtime.
     runtimes: RwLock<HashMap<WorkerId, Runtime>>,
+    /// Core manager for core assignment
+    core_manager: Arc<CoreManager>,
+    //Current worker counter
+    worker_counter: Arc<AtomicU32>,
 }
 
 pub struct WorkerParams {
     deal_id: String,
     init_peer_id: PeerId,
-    cu_count: usize,
+    cu_ids: Vec<UnitId>,
 }
 
 impl WorkerParams {
-    pub fn new(deal_id: String, init_peer_id: PeerId, cu_count: usize) -> Self {
+    pub fn new(deal_id: String, init_peer_id: PeerId, cu_ids: Vec<UnitId>) -> Self {
         Self {
             deal_id,
             init_peer_id,
-            cu_count,
+            cu_ids,
         }
     }
 }
@@ -69,20 +76,28 @@ impl Workers {
     pub async fn from_path(
         workers_dir: PathBuf,
         key_storage: Arc<KeyStorage>,
+        core_manager: Arc<CoreManager>,
     ) -> eyre::Result<Self> {
         let workers = load_persisted_workers(workers_dir.as_path()).await?;
         let mut worker_ids = HashMap::with_capacity(workers.len());
         let mut worker_infos = HashMap::with_capacity(workers.len());
         let mut runtimes = HashMap::with_capacity(workers.len());
 
+        let worker_counter = Arc::new(AtomicU32::new(0));
+
         for (w, _) in workers {
             let worker_id = w.worker_id;
             let deal_id = w.deal_id.clone();
-            let cu_count = w.cu_count;
+            let cu_ids = w.cu_ids.clone();
             worker_infos.insert(worker_id, w.into());
             worker_ids.insert(deal_id, worker_id);
 
-            let runtime = Self::build_runtime(worker_id, cu_count)?;
+            let runtime = Self::build_runtime(
+                core_manager.clone(),
+                worker_counter.clone(),
+                worker_id,
+                cu_ids,
+            )?;
 
             runtimes.insert(worker_id, runtime);
         }
@@ -92,20 +107,45 @@ impl Workers {
             workers_dir,
             key_storage,
             runtimes: RwLock::new(runtimes),
+            worker_counter,
+            core_manager,
         })
     }
 
-    fn build_runtime(worker_id: WorkerId, cu_count: usize) -> Result<Runtime, WorkersError> {
+    fn build_runtime(
+        core_manager: Arc<CoreManager>,
+        worker_counter: Arc<AtomicU32>,
+        worker_id: WorkerId,
+        cu_ids: Vec<UnitId>,
+    ) -> Result<Runtime, WorkersError> {
         // Creating a multi-threaded Tokio runtime with a total of cu_count * 2 threads.
         // We assume cu_count threads per logical processor, aligning with the common practice.
+        let assignment = core_manager
+            .assign_worker_core(AssignRequest::new(cu_ids, WorkerType::Worker))
+            .map_err(|err| WorkersError::FailedToAssignCores { worker_id, err })?;
+
+        let threads_count = assignment.logical_core_ids.len();
+
+        let cores: Vec<CoreId> = assignment
+            .logical_core_ids
+            .iter()
+            .map(|core_id| CoreId { id: core_id.0 })
+            .collect();
+
+        let id = worker_counter.fetch_add(1, Ordering::Acquire);
+
         let runtime = tokio::runtime::Builder::new_multi_thread()
-            .thread_name(format!("worker-pool-{}", worker_id))
+            .thread_name(format!("worker-pool-{}", id))
             // Configuring worker threads for executing service calls and particles
-            .worker_threads(cu_count)
+            .worker_threads(threads_count)
             // Configuring blocking threads for handling I/O
-            .max_blocking_threads(cu_count)
+            .max_blocking_threads(threads_count)
+            .on_thread_start(move || {
+                set_mask_for_current(&cores);
+            })
             .build()
             .map_err(|err| WorkersError::CreateRuntime { worker_id, err })?;
+        tracing::info!(target: "worker", "Runtime with id {} created for worker id {}", id, worker_id);
         Ok(runtime)
     }
 
@@ -125,7 +165,7 @@ impl Workers {
     pub async fn create_worker(&self, params: WorkerParams) -> Result<WorkerId, WorkersError> {
         let deal_id = params.deal_id;
         let init_peer_id = params.init_peer_id;
-        let cu_count = params.cu_count;
+        let cu_ids = params.cu_ids;
 
         let worker_id = {
             let guard = self.worker_ids.read();
@@ -143,7 +183,7 @@ impl Workers {
                 let worker_id: WorkerId = key_pair.get_peer_id().into();
 
                 let worker_info = self
-                    .store_worker(worker_id, deal_id.clone(), init_peer_id, cu_count)
+                    .store_worker(worker_id, deal_id.clone(), init_peer_id, cu_ids.clone())
                     .await;
 
                 match worker_info {
@@ -153,7 +193,12 @@ impl Workers {
                             return Err(WorkersError::WorkerAlreadyExists { deal_id });
                         }
 
-                        let runtime = Self::build_runtime(worker_id, cu_count)?;
+                        let runtime = Self::build_runtime(
+                            self.core_manager.clone(),
+                            self.worker_counter.clone(),
+                            worker_id,
+                            cu_ids,
+                        )?;
 
                         let mut worker_infos = self.worker_infos.write();
                         let mut runtimes = self.runtimes.write();
@@ -325,7 +370,7 @@ impl Workers {
         worker_id: WorkerId,
         deal_id: String,
         creator: PeerId,
-        cu_count: usize,
+        cu_ids: Vec<UnitId>,
     ) -> Result<WorkerInfo, WorkersError> {
         persist_worker(
             &self.workers_dir,
@@ -335,7 +380,7 @@ impl Workers {
                 creator,
                 deal_id: deal_id.clone(),
                 active: true,
-                cu_count,
+                cu_ids: cu_ids.clone(),
             },
         )
         .await?;
@@ -343,7 +388,7 @@ impl Workers {
             deal_id,
             creator,
             active: RwLock::new(true),
-            cu_count,
+            cu_ids: cu_ids,
         };
         Ok(worker_info)
     }
@@ -353,7 +398,7 @@ impl Workers {
         worker_id: WorkerId,
         status: bool,
     ) -> Result<(), WorkersError> {
-        let (creator, deal_id, cu_count) = {
+        let (creator, deal_id, cu_ids) = {
             let guard = self.worker_infos.read();
             let worker_info = guard
                 .get(&worker_id)
@@ -364,7 +409,7 @@ impl Workers {
             (
                 worker_info.creator,
                 worker_info.deal_id.clone(),
-                worker_info.cu_count,
+                worker_info.cu_ids.clone(),
             )
         };
 
@@ -376,7 +421,7 @@ impl Workers {
                 creator,
                 deal_id,
                 active: status,
-                cu_count,
+                cu_ids,
             },
         )
         .await?;

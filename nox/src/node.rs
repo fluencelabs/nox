@@ -41,6 +41,7 @@ use aquamarine::{
 use chain_listener::ChainListener;
 use config_utils::to_peer_id;
 use connection_pool::ConnectionPoolT;
+use core_manager::manager::CoreManager;
 use fluence_keypair::KeyPair;
 use fluence_libp2p::build_transport;
 use health::HealthCheckRegistry;
@@ -104,6 +105,7 @@ pub struct Node<RT: AquaRuntime> {
 impl<RT: AquaRuntime> Node<RT> {
     pub async fn new(
         config: ResolvedConfig,
+        core_manager: Arc<CoreManager>,
         vm_config: RT::Config,
         data_store_config: DataStoreConfig,
         node_version: &'static str,
@@ -137,6 +139,7 @@ impl<RT: AquaRuntime> Node<RT> {
         let workers = Workers::from_path(
             config.dir_config.workers_base_dir.clone(),
             key_storage.clone(),
+            core_manager.clone(),
         )
         .await?;
 

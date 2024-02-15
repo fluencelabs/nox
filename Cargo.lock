@@ -8977,6 +8977,8 @@ dependencies = [
 name = "workers"
 version = "0.1.0"
 dependencies = [
+ "core-manager",
+ "core_affinity",
  "derivative",
  "eyre",
  "fluence-keypair",
