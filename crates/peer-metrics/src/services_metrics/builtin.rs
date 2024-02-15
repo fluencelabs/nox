@@ -156,6 +156,9 @@ impl ServicesMetricsBuiltin {
     }
 
     pub fn get_used_memory(stats: &MemoryStats) -> u64 {
-        stats.0.iter().fold(0, |acc, x| acc + x.memory_size as u64)
+        stats
+            .modules
+            .iter()
+            .fold(0, |acc, x| acc + x.memory_size as u64)
     }
 }

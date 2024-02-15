@@ -20,7 +20,7 @@ use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
 use tracing::{instrument, Instrument};
 
-use aquamarine::{AquamarineApi, AquamarineApiError, RoutingEffects};
+use aquamarine::{AquamarineApi, AquamarineApiError, RemoteRoutingEffects};
 use fluence_libp2p::PeerId;
 use particle_protocol::{ExtendedParticle, Particle};
 use peer_metrics::DispatcherMetrics;
@@ -28,7 +28,7 @@ use peer_metrics::DispatcherMetrics;
 use crate::effectors::Effectors;
 use crate::tasks::Tasks;
 
-type Effects = Result<RoutingEffects, AquamarineApiError>;
+type Effects = Result<RemoteRoutingEffects, AquamarineApiError>;
 
 #[derive(Clone)]
 pub struct Dispatcher {

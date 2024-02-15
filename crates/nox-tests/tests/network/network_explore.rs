@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 use std::str::FromStr;
-use std::thread::sleep;
 use std::time::{Duration, Instant};
 
 use base64::{engine::general_purpose::STANDARD as base64, Engine};
@@ -30,7 +29,6 @@ use serde::Deserialize;
 use serde_json::json;
 use serde_json::Value as JValue;
 use service_modules::{load_module, module_config, Hash};
-use test_constants::KAD_TIMEOUT;
 use test_utils::{create_service, timeout};
 
 use crate::network::join_stream;
@@ -252,8 +250,6 @@ async fn explore_services_heavy() {
     enable_logs();
     let swarms = make_swarms(5).await;
 
-    tokio::time::sleep(KAD_TIMEOUT).await;
-
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .await
         .wrap_err("connect client")
@@ -339,7 +335,6 @@ async fn explore_services_heavy() {
 async fn explore_services_fixed_heavy() {
     enable_logs();
     let swarms = make_swarms(5).await;
-    sleep(KAD_TIMEOUT);
 
     // language=Clojure
     let script = r#"

@@ -38,3 +38,6 @@ mod app_services;
 mod error;
 mod health;
 mod persistence;
+
+pub use app_services::ServiceInfo;
+pub use types::peer_scope::PeerScope;

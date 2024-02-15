@@ -1,0 +1,4 @@
+{
+  "name": "sqlite3",
+  "max_heap_size": "64 MiB"
+}

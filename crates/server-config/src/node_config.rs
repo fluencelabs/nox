@@ -14,9 +14,10 @@ use serde_with::serde_as;
 use serde_with::DisplayFromStr;
 
 use fluence_libp2p::PeerId;
-use fluence_libp2p::{peerid_serializer, Transport};
+use fluence_libp2p::Transport;
 use fs_utils::to_abs_path;
 use particle_protocol::ProtocolConfig;
+use types::peer_id;
 
 use crate::keys::{decode_key, decode_secret_key, load_key};
 use crate::system_services_config::{ServiceKey, SystemServicesConfig};
@@ -84,15 +85,10 @@ pub struct UnresolvedNodeConfig {
     #[serde(default)]
     pub aquavm_max_heap_size: Option<bytesize::ByteSize>,
 
-    /// Maximum heap size in bytes available for a WASM module.
-    #[serde_as(as = "DisplayFromStr")]
-    #[serde(default = "default_module_max_heap_size")]
-    pub module_max_heap_size: bytesize::ByteSize,
-
-    /// Default heap size in bytes available for a WASM module unless otherwise specified.
+    /// Default heap size in bytes available for a WASM service unless otherwise specified.
     #[serde_as(as = "Option<DisplayFromStr>")]
     #[serde(default)]
-    pub module_default_heap_size: Option<bytesize::ByteSize>,
+    pub default_service_memory_limit: Option<bytesize::ByteSize>,
 
     #[serde(default)]
     pub kademlia: KademliaConfig,
@@ -120,7 +116,10 @@ pub struct UnresolvedNodeConfig {
     #[serde(with = "humantime_serde")]
     pub particle_execution_timeout: Duration,
 
-    #[serde(with = "peerid_serializer")]
+    #[serde(
+        serialize_with = "peer_id::serde::serialize",
+        deserialize_with = "peer_id::serde::deserialize"
+    )]
     #[serde(default = "default_management_peer_id")]
     pub management_peer_id: PeerId,
 
@@ -170,9 +169,8 @@ impl UnresolvedNodeConfig {
             services_envs: self.services_envs,
             protocol_config: self.protocol_config,
             aquavm_pool_size: self.aquavm_pool_size,
-            aquavm_max_heap_size: self.aquavm_max_heap_size,
-            module_max_heap_size: self.module_max_heap_size,
-            module_default_heap_size: self.module_default_heap_size,
+            aquavm_heap_size_limit: self.aquavm_max_heap_size,
+            default_service_memory_limit: self.default_service_memory_limit,
             kademlia: self.kademlia,
             particle_queue_buffer: self.particle_queue_buffer,
             effects_queue_buffer: self.effects_queue_buffer,
@@ -325,13 +323,10 @@ pub struct NodeConfig {
     pub aquavm_pool_size: usize,
 
     /// Maximum heap size in bytes available for an interpreter instance.
-    pub aquavm_max_heap_size: Option<bytesize::ByteSize>,
+    pub aquavm_heap_size_limit: Option<bytesize::ByteSize>,
 
-    /// Maximum heap size in bytes available for a WASM module.
-    pub module_max_heap_size: bytesize::ByteSize,
-
-    /// Default heap size in bytes available for a WASM module unless otherwise specified.
-    pub module_default_heap_size: Option<bytesize::ByteSize>,
+    /// Default heap size in bytes available for a WASM service unless otherwise specified.
+    pub default_service_memory_limit: Option<bytesize::ByteSize>,
 
     pub kademlia: KademliaConfig,
 
@@ -441,7 +436,13 @@ pub struct ListenConfig {
 
 #[derive(Clone, Deserialize, Serialize, Debug, Copy, Eq, Hash, Ord, PartialEq, PartialOrd)]
 #[repr(transparent)]
-pub struct PeerIdSerializable(#[serde(with = "peerid_serializer")] PeerId);
+pub struct PeerIdSerializable(
+    #[serde(
+        serialize_with = "peer_id::serde::serialize",
+        deserialize_with = "peer_id::serde::deserialize"
+    )]
+    PeerId,
+);
 
 impl Deref for PeerIdSerializable {
     type Target = PeerId;

@@ -30,6 +30,7 @@ use json_utils::into_array;
 use libp2p::core::Multiaddr;
 use libp2p::kad::KBucketKey;
 use libp2p::PeerId;
+use log_utils::enable_logs;
 use maplit::hashmap;
 use multihash::Multihash;
 use now_millis::now_ms;
@@ -522,6 +523,7 @@ async fn resolve_alias_opt_not_exists() {
 
 #[tokio::test]
 async fn resolve_alias_removed() {
+    enable_logs();
     let swarms = make_swarms(1).await;
 
     let mut client = ConnectedClient::connect_with_keypair(
@@ -1804,6 +1806,7 @@ async fn sign_verify() {
 
 #[tokio::test]
 async fn sign_invalid_tetraplets() {
+    enable_logs();
     let swarms = make_swarms_with_cfg(2, |mut cfg| {
         cfg.enabled_system_services = vec!["registry".to_string()];
         cfg
@@ -2276,7 +2279,7 @@ async fn aliases_restart() {
         .map(|s| s.exit_outlet.send(()))
         .for_each(drop);
 
-    let swarms = make_swarms_with_cfg(1, |mut cfg| {
+    let swarms = make_swarms_with_cfg(1, move |mut cfg| {
         cfg.keypair = kp.clone();
         cfg.tmp_dir = tmp_dir.clone();
         cfg
@@ -2368,7 +2371,7 @@ async fn subnet_resolve() {
         .with_body("invalid mock was hit. Check that request body matches 'match_body' clause'")
         .create();
 
-    let swarms = make_swarms_with_cfg(1, |mut cfg| {
+    let swarms = make_swarms_with_cfg(1, move |mut cfg| {
         cfg.connector_api_endpoint = Some(url.clone());
         cfg
     })

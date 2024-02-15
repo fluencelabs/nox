@@ -27,11 +27,20 @@
 )]
 
 use eyre::{eyre, Context};
+use futures_util::StreamExt;
 use std::fmt::Debug;
 use std::fs;
 use std::fs::Permissions;
+use std::future::Future;
 use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
+use std::thread::available_parallelism;
+use thiserror::Error;
+use tokio::fs::DirEntry;
+use tokio_stream::wrappers::ReadDirStream;
+
+// default bound on the number of computations it can perform simultaneously
+const DEFAULT_PARALLELISM: usize = 2;
 
 pub fn to_abs_path(path: PathBuf) -> PathBuf {
     match std::env::current_dir().ok() {
@@ -148,4 +157,108 @@ pub fn canonicalize(path: impl AsRef<Path>) -> eyre::Result<PathBuf> {
 pub fn list_files(dir: &Path) -> Option<impl Iterator<Item = PathBuf>> {
     let dir = std::fs::read_dir(dir).ok()?;
     Some(dir.filter_map(|p| p.ok()?.path().into()))
+}
+
+#[derive(Debug, Error)]
+pub enum LoadDataError {
+    #[error("Error creating directory for data {path:?}: {err}")]
+    CreateDir {
+        path: PathBuf,
+        #[source]
+        err: std::io::Error,
+    },
+    #[error("Error reading persisted data from {path:?}: {err}")]
+    ReadPersistedData {
+        path: PathBuf,
+        #[source]
+        err: std::io::Error,
+    },
+    #[error("Error deserializing data from {path:?}: {err}")]
+    DeserializeData {
+        path: PathBuf,
+        #[source]
+        err: std::io::Error,
+    },
+}
+/// Load some data from disk in parallel
+pub async fn load_persisted_data<T>(
+    data_dir: &Path,
+    filter: fn(&Path) -> bool,
+    de: fn(&[u8]) -> Result<T, std::io::Error>,
+) -> Result<Vec<(T, PathBuf)>, LoadDataError> {
+    let parallelism = available_parallelism()
+        .map(|x| x.get())
+        .unwrap_or(DEFAULT_PARALLELISM);
+    let list_files = tokio::fs::read_dir(data_dir).await.ok();
+    let entries = match list_files {
+        Some(entries) => {
+            let entries: Vec<(T, PathBuf)> = ReadDirStream::new(entries)
+                .filter_map(|res| async move {
+                    match res {
+                        Ok(entry) => process_dir_entry(entry, filter, de),
+                        Err(err) => {
+                            tracing::warn!("Could not read data directory: {err}");
+                            None
+                        }
+                    }
+                })
+                .buffer_unordered(parallelism)
+                //collect only loaded data and unwrap Option
+                .filter_map(|e| async { e })
+                .collect()
+                .await;
+
+            entries
+        }
+        None => {
+            // Attempt to create directory
+            tokio::fs::create_dir_all(data_dir)
+                .await
+                .map_err(|err| LoadDataError::CreateDir {
+                    path: data_dir.to_path_buf(),
+                    err,
+                })?;
+            vec![]
+        }
+    };
+
+    Ok(entries)
+}
+
+fn process_dir_entry<T>(
+    entry: DirEntry,
+    filter: fn(&Path) -> bool,
+    de: fn(&[u8]) -> Result<T, std::io::Error>,
+) -> Option<impl Future<Output = Option<(T, PathBuf)>> + Sized> {
+    let path = entry.path();
+    if filter(path.as_path()) {
+        let task = async move {
+            let res = parse_persisted_data(path.as_path(), de).await;
+            if let Err(err) = &res {
+                tracing::warn!("Failed to load data: {err}")
+            }
+            res.ok().map(|data| (data, path))
+        };
+
+        Some(task)
+    } else {
+        None
+    }
+}
+
+async fn parse_persisted_data<T>(
+    file: &Path,
+    de: fn(&[u8]) -> Result<T, std::io::Error>,
+) -> Result<T, LoadDataError> {
+    let bytes = tokio::fs::read(file)
+        .await
+        .map_err(|err| LoadDataError::ReadPersistedData {
+            err,
+            path: file.to_path_buf(),
+        })?;
+
+    de(bytes.as_slice()).map_err(|err| LoadDataError::DeserializeData {
+        err,
+        path: file.to_path_buf(),
+    })
 }

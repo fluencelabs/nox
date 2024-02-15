@@ -1,5 +1,52 @@
 # Changelog
 
+## [0.18.1](https://github.com/fluencelabs/nox/compare/nox-v0.18.0...nox-v0.18.1) (2024-01-31)
+
+
+### Bug Fixes
+
+* **deps:** update fluence-spell to v0.6.10 ([#2049](https://github.com/fluencelabs/nox/issues/2049)) ([5dc200e](https://github.com/fluencelabs/nox/commit/5dc200e59fa16c7abd3c3cc9c9063eca76cb51cc))
+
+## [0.18.0](https://github.com/fluencelabs/nox/compare/nox-v0.17.0...nox-v0.18.0) (2024-01-31)
+
+
+### ⚠ BREAKING CHANGES
+
+* **particle-data:** use MsgPack for particle data serialization [Fixes VM-407] ([#2034](https://github.com/fluencelabs/nox/issues/2034))
+
+### Features
+
+* **anomaly:** new anomaly criteria [fixes vm-426] ([#2037](https://github.com/fluencelabs/nox/issues/2037)) ([d59b885](https://github.com/fluencelabs/nox/commit/d59b88560610d0641bdd7bd75e438dce238dd772))
+* **particle-data:** use MsgPack for particle data serialization [Fixes VM-407] ([#2034](https://github.com/fluencelabs/nox/issues/2034)) ([4d76e8f](https://github.com/fluencelabs/nox/commit/4d76e8f3bedb18e3406b7d223c56eb74541a7f97))
+
+## [0.17.0](https://github.com/fluencelabs/nox/compare/nox-v0.16.15...nox-v0.17.0) (2024-01-26)
+
+
+### ⚠ BREAKING CHANGES
+
+* **deps:** avm server 0.35 aquavm 0.59 ([#2040](https://github.com/fluencelabs/nox/issues/2040))
+
+### Bug Fixes
+
+* **deps:** avm server 0.35 aquavm 0.59 ([#2040](https://github.com/fluencelabs/nox/issues/2040)) ([bb7227e](https://github.com/fluencelabs/nox/commit/bb7227ebea2915f19f40f8a628b1b5826bbee446))
+
+## [0.16.15](https://github.com/fluencelabs/nox/compare/nox-v0.16.14...nox-v0.16.15) (2024-01-23)
+
+
+### Features
+
+* **services,avm:** use marine and avm-server with memory limits ([#1957](https://github.com/fluencelabs/nox/issues/1957)) ([66edf0f](https://github.com/fluencelabs/nox/commit/66edf0f005976db6e1fe73f98b00c8f7b4d8d6c7))
+* **workers:** Create a ThreadPool for each worker [fixes NET-688] ([#2012](https://github.com/fluencelabs/nox/issues/2012)) ([fa5a17a](https://github.com/fluencelabs/nox/commit/fa5a17a0ce68a7270625f8487517df130bb387ba))
+
+
+### Bug Fixes
+
+* **deps:** update fluence-spell to v0.6.8 ([#2013](https://github.com/fluencelabs/nox/issues/2013)) ([5ea8615](https://github.com/fluencelabs/nox/commit/5ea86158720742cbc3949b45f2e2e19cb0fd4959))
+* **deps:** update fluence-spell to v0.6.9 ([#2024](https://github.com/fluencelabs/nox/issues/2024)) ([725b6b4](https://github.com/fluencelabs/nox/commit/725b6b4648c6ef4f02f5958ca97429dffd128c39))
+* **deps:** update rust crate aqua-ipfs-distro to v0.5.30 ([#2011](https://github.com/fluencelabs/nox/issues/2011)) ([15e33c4](https://github.com/fluencelabs/nox/commit/15e33c4b75df468598541d0da1487c5155938ed8))
+* **deps:** update rust crate decider-distro to v0.5.14 ([#2035](https://github.com/fluencelabs/nox/issues/2035)) ([9a6823f](https://github.com/fluencelabs/nox/commit/9a6823f6267b67cff63be2df71a73a6e15a70922))
+* **deps:** update rust crate trust-graph-distro to v0.4.11 ([#2025](https://github.com/fluencelabs/nox/issues/2025)) ([e2bbef7](https://github.com/fluencelabs/nox/commit/e2bbef7c4c445a9d82444e67669e791230e6dd20))
+
 ## [0.16.14](https://github.com/fluencelabs/nox/compare/nox-v0.16.13...nox-v0.16.14) (2024-01-12)
 
 

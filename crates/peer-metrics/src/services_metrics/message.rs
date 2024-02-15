@@ -46,7 +46,7 @@ impl ServiceMemoryStat {
     pub fn new(stats: &MemoryStats) -> ServiceMemoryStat {
         let mut modules_stats = HashMap::new();
         let mut used_mem: MemorySize = 0;
-        for stat in &stats.0 {
+        for stat in &stats.modules {
             modules_stats.insert(stat.name.to_string(), stat.memory_size as MemorySize);
             used_mem += stat.memory_size as MemorySize;
         }

@@ -98,7 +98,8 @@ impl AquaRuntime for EasyVM {
     fn memory_stats(&self) -> AVMMemoryStats {
         AVMMemoryStats {
             memory_size: 0,
-            max_memory_size: None,
+            total_memory_limit: None,
+            allocation_rejects: None,
         }
     }
 }
