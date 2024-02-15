@@ -32,6 +32,9 @@ use super::defaults::*;
 pub struct UnresolvedNodeConfig {
     pub cpus_range: Option<CoreRange>,
 
+    #[serde(default = "default_system_cpu_count")]
+    pub system_cpu_count: usize,
+
     #[derivative(Debug = "ignore")]
     pub root_key_pair: Option<KeypairConfig>,
 

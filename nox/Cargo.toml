@@ -18,6 +18,7 @@ sorcerer = { workspace = true }
 health = { workspace = true }
 core-manager = { workspace = true }
 dhat = { version = "0.3.2", optional = true }
+core_affinity = { git = "https://github.com/fluencelabs/core_affinity_rs/", branch = "master" }
 
 serde_json = { workspace = true }
 fluence-libp2p = { workspace = true }

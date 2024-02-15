@@ -1340,7 +1340,6 @@ name = "core-manager"
 version = "0.1.0"
 dependencies = [
  "bimap",
- "core_affinity",
  "fxhash",
  "hwloc2",
  "multimap 0.10.0",
@@ -1363,8 +1362,7 @@ dependencies = [
 [[package]]
 name = "core_affinity"
 version = "0.8.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "622892f5635ce1fc38c8f16dfc938553ed64af482edb5e150bf4caedbfcb2304"
+source = "git+https://github.com/fluencelabs/core_affinity_rs/?branch=master#54d84297a1c2aad16b749b396f84db9bf7dceb0e"
 dependencies = [
  "libc",
  "num_cpus",
@@ -4859,6 +4857,7 @@ dependencies = [
  "connection-pool",
  "console-subscriber",
  "core-manager",
+ "core_affinity",
  "dhat",
  "eyre",
  "fluence-keypair",

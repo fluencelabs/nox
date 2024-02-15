@@ -38,6 +38,7 @@ use air_interpreter_fs::write_default_air_interpreter;
 use aquamarine::{DataStoreConfig, VmConfig};
 use avm_server::avm_runner::AVMRunner;
 use config_utils::to_peer_id;
+use core_affinity::{set_mask_for_current, CoreId};
 use core_manager::CoreManager;
 use fs_utils::to_abs_path;
 use nox::{env_filter, log_layer, tokio_console_layer, tracing_layer, Node};
@@ -89,18 +90,23 @@ fn main() -> eyre::Result<()> {
         }
     }
 
-    let _core_manager = CoreManager::new(config.node_config.cpus_range.clone())?;
+    let core_manager = CoreManager::new(
+        config.node_config.system_cpu_count,
+        config.node_config.cpus_range.clone(),
+    )?;
+    let system_cpu_cores_assignment = core_manager.system_cpu_assignment();
+
+    let system_cpu_cores: Vec<CoreId> = system_cpu_cores_assignment
+        .logical_core_ids
+        .iter()
+        .map(|core_id| CoreId { id: core_id.0 })
+        .collect();
 
     //TODO: add thread count configuration based on config
     let mut builder = tokio::runtime::Builder::new_multi_thread();
-    builder.worker_threads(2);
-    builder.on_thread_start(|| {
-        let handle = std::thread::current();
-        println!("start thread {:?}", handle.name());
-    });
-    builder.on_thread_stop(|| {
-        let handle = std::thread::current();
-        println!("stop thread {:?}", handle.name());
+    builder.worker_threads(config.node_config.system_cpu_count);
+    builder.on_thread_start(move || {
+        set_mask_for_current(&system_cpu_cores);
     });
 
     builder.enable_all();
