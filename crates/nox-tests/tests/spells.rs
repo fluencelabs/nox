@@ -172,7 +172,7 @@ async fn spell_simple_test() {
             (seq
                 (seq
                     (call %init_peer_id% (spell_id "get_script") [] script)
-                    (call %init_peer_id% (spell_id "get_u32") ["counter"] counter)
+                    (call %init_peer_id% (spell_id "get_u32") ["hw_counter"] counter)
                 )
                 (call "{}" ("return" "") [script.$.value counter])
             )
@@ -394,7 +394,7 @@ async fn spell_run_oneshot() {
         (seq
             (seq
                 (call relay ("op" "noop") [])
-                (call worker (spell_id "get_u32") ["counter"] counter)
+                (call worker (spell_id "get_u32") ["hw_counter"] counter)
             )
             (call client ("return" "") [counter])
         )"#,
@@ -436,7 +436,7 @@ async fn spell_install_ok_empty_config() {
         (seq
             (seq
                 (call relay ("op" "noop") [])
-                (call worker (spell_id "get_u32") ["counter"] counter)
+                (call worker (spell_id "get_u32") ["hw_counter"] counter)
             )
             (call %init_peer_id% ("return" "") [counter])
         )"#,
@@ -471,7 +471,7 @@ async fn spell_install_ok_empty_config() {
         (seq
             (seq
                 (call relay ("op" "noop") [])
-                (call worker (spell_id "get_u32") ["counter"] counter)
+                (call worker (spell_id "get_u32") ["hw_counter"] counter)
             )
             (call %init_peer_id% ("return" "") [counter])
         )"#,
@@ -896,7 +896,7 @@ async fn spell_call_by_alias() {
             (seq
                 (seq
                     (call %init_peer_id% ("srv" "add_alias") ["alias" spell_id])
-                    (call %init_peer_id% ("alias" "get_u32") ["counter"] counter)
+                    (call %init_peer_id% ("alias" "get_u32") ["hw_counter"] counter)
                 )
 
                 (call "{}" ("return" "") [counter.$.value])
@@ -932,7 +932,7 @@ async fn spell_trigger_connection_pool() {
         (seq
             (seq
                 (call %init_peer_id% ("getDataSrv" "spell_id") [] spell_id)
-                (call %init_peer_id% (spell_id "get_u32") ["counter"] counter)
+                (call %init_peer_id% (spell_id "get_u32") ["hw_counter"] counter)
             )
             (call "{}" ("return" "") [spell_id])
         )
@@ -1018,7 +1018,7 @@ async fn spell_timer_trigger_mailbox_test() {
         (seq
             (seq
                 (call %init_peer_id% ("getDataSrv" "spell_id") [] spell_id)
-                (call %init_peer_id% ("getDataSrv" "trigger") [] trigger)
+                (call %init_peer_id% ("getDataSrv" "hw_trigger") [] trigger)
             )
             (call "{}" ("return" "") [trigger])
         )
@@ -1059,7 +1059,7 @@ async fn spell_connection_pool_trigger_test() {
                 (seq
                     (call %init_peer_id% ("getDataSrv" "spell_id") [] spell_id)
                     (seq
-                        (call %init_peer_id% ("getDataSrv" "trigger") [] trigger)
+                        (call %init_peer_id% ("getDataSrv" "hw_trigger") [] trigger)
                         (call %init_peer_id% ("run-console" "print") ["getDataSrv, trigger:" trigger])
                     )
                 )
@@ -1213,7 +1213,7 @@ async fn spell_update_config() {
         r#"(seq
             (seq
                 (call %init_peer_id% ("getDataSrv" "spell_id") [] spell_id)
-                (call %init_peer_id% ("getDataSrv" "trigger") [] trigger)
+                (call %init_peer_id% ("getDataSrv" "hw_trigger") [] trigger)
              )
             (call "{}" ("return" "") [trigger])
         )"#,
@@ -1303,7 +1303,7 @@ async fn spell_update_config_stopped_spell() {
         r#"(seq
             (seq
                 (call %init_peer_id% ("getDataSrv" "spell_id") [] spell_id)
-                (call %init_peer_id% ("getDataSrv" "trigger") [] trigger)
+                (call %init_peer_id% ("getDataSrv" "hw_trigger") [] trigger)
              )
             (call "{}" ("return" "") [trigger])
         )"#,
@@ -1731,7 +1731,7 @@ async fn spell_update_trigger_by_alias() {
         (seq
             (seq
                 (call %init_peer_id% ("getDataSrv" "spell_id") [] spell_id)
-                (call %init_peer_id% (spell_id "get_u32") ["counter"] counter)
+                (call %init_peer_id% (spell_id "get_u32") ["hw_counter"] counter)
             )
             (call "{}" ("return" "") [spell_id])
         )
@@ -1942,7 +1942,7 @@ async fn spell_call_by_default_alias() {
         (seq
             (seq
                 (seq
-                    (call %init_peer_id% ("spell" "get_u32") ["counter"] counter1)
+                    (call %init_peer_id% ("spell" "get_u32") ["hw_counter"] counter1)
                     (seq
                         (call %init_peer_id% ("srv" "resolve_alias") ["spell"] spell_id1)
                         (xor
@@ -1952,7 +1952,7 @@ async fn spell_call_by_default_alias() {
                     )
                 )
                 (seq
-                    (call %init_peer_id% ("self" "get_u32") ["counter"] counter2)
+                    (call %init_peer_id% ("self" "get_u32") ["hw_counter"] counter2)
                     (seq
                         (call %init_peer_id% ("srv" "resolve_alias") ["self"] spell_id2)
                         (xor
