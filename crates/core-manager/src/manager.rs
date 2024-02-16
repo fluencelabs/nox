@@ -462,7 +462,10 @@ mod tests {
 
     #[test]
     fn test_assignment_and_switching() {
-        let manager = PersistentCoreManager::new(2, None).unwrap();
+        let temp_dir = tempfile::tempdir().expect("Failed to create temp dir");
+
+        let (manager, _task) =
+            PersistentCoreManager::new(temp_dir.path().join("test.toml"), 2, None).unwrap();
         let unit_ids = vec!["1".into(), "2".into()];
         let assignment_1 = manager
             .assign_worker_core(AssignRequest {

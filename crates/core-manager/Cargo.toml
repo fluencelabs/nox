@@ -11,7 +11,7 @@ range-set-blaze = "0.1.14"
 hwloc2 = "2.2.0"
 multimap = { version = "0.10.0", features = ["serde"] }
 bimap = { version = "0.6.3", features = ["serde"] }
-tokio = { workspace = true, features = ["fs", "rt", "sync", "macros"] }
+tokio = { workspace = true, features = ["fs", "rt", "sync", "macros", "tracing"] }
 async-trait.workspace = true
 enum_dispatch.workspace = true
 num_cpus.workspace = true
@@ -22,3 +22,6 @@ types.workspace = true
 tracing.workspace = true
 serde_with.workspace = true
 toml = { version = "0.8.10" }
+
+[dev-dependencies]
+tempfile = { workspace = true }

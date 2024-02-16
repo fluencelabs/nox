@@ -507,7 +507,8 @@ impl Workers {
 #[cfg(test)]
 mod tests {
     use crate::{KeyStorage, WorkerParams, Workers};
-    use core_manager::manager::{CoreManager, DummyCoreManager, UnitId};
+    use core_manager::manager::{CoreManager, DummyCoreManager};
+    use core_manager::UnitId;
     use libp2p::PeerId;
     use std::sync::Arc;
     use tempfile::tempdir;
