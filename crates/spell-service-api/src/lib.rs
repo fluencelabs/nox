@@ -187,7 +187,7 @@ impl SpellServiceApi {
     pub fn get_counter(&self, params: CallParams) -> Result<Option<u32>, CallError> {
         let function = Function {
             name: "get_u32",
-            args: vec![json!("counter")],
+            args: vec![json!("h_counter")],
         };
         let result = self.call::<U32Value>(params, function)?;
         Ok((!result.absent).then_some(result.value))
@@ -198,7 +198,7 @@ impl SpellServiceApi {
     pub fn set_counter(&self, params: CallParams, counter: u32) -> Result<(), CallError> {
         let function = Function {
             name: "set_u32",
-            args: vec![json!("counter"), json!(counter)],
+            args: vec![json!("h_counter"), json!(counter)],
         };
         let _ = self.call::<UnitValue>(params, function)?;
 
@@ -206,7 +206,7 @@ impl SpellServiceApi {
     }
 
     pub fn set_trigger_event(&self, params: CallParams, event: String) -> Result<(), CallError> {
-        self.set_string(params, "trigger".to_string(), event)
+        self.set_string(params, "h_trigger".to_string(), event)
     }
 
     pub fn store_error(&self, params: CallParams, args: Vec<Value>) -> Result<(), CallError> {
@@ -484,7 +484,7 @@ mod tests {
 
         let function = super::Function {
             name: "get_string",
-            args: vec![json!("trigger")],
+            args: vec![json!("h_trigger")],
         };
         let result = api.call::<StringValue>(params, function);
         assert!(result.is_ok(), "must be able to add get_string");
