@@ -49,7 +49,9 @@ RUN \
     ca-certificates \
   	jq \
   	less \
-  	curl wget && \
+  	curl \
+    wget \
+    hwloc && \
   apt-get clean && \
   rm -rf \
   	/tmp/* \
