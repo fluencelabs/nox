@@ -51,7 +51,7 @@ RUN \
   	less \
   	curl \
     wget \
-    hwloc && \
+    libhwloc-dev && \
   apt-get clean && \
   rm -rf \
   	/tmp/* \
