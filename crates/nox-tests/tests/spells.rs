@@ -1119,56 +1119,48 @@ async fn spell_connection_pool_trigger_test() {
 
 #[tokio::test]
 async fn spell_set_u32() {
+    enable_logs();
     let swarms = make_swarms(1).await;
-    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
-        .await
-        .wrap_err("connect client")
-        .unwrap();
+    let mut client = ConnectedClient::connect_with_keypair(
+        swarms[0].multiaddr.clone(),
+        Some(swarms[0].management_keypair.clone()),
+    )
+    .await
+    .wrap_err("connect client")
+    .unwrap();
 
-    let script = format!(r#"(call "{}" ("return" "") ["called"])"#, client.peer_id);
-    let mut config = TriggerConfig::default();
-    config.connections.connect = true;
-
-    let (spell_id, worker_id) =
-        create_spell(&mut client, &script, config.clone(), json!({}), None).await;
-
-    let data = hashmap! {
-        "spell_id" => json!(spell_id),
-        "worker" => json!(worker_id),
-        "relay" => json!(client.node.to_string()),
-        "client" => json!(client.peer_id.to_string()),
-        "config" => json!(config),
-    };
-    let mut result = client
-        .execute_particle(
-            r#"(seq
+    let script = format!(r#"( seq
+        (seq
+            (call %init_peer_id% ("getDataSrv" "spell_id") [] spell_id)
             (seq
+                (call %init_peer_id% (spell_id "get_u32") ["test"] absent)
                 (seq
-                    (call relay ("op" "noop") [])
-                    (call worker (spell_id "get_u32") ["test"] absent)
-                )
-                (seq
-                    (call worker (spell_id "set_u32") ["test" 1])
+                    (call %init_peer_id% (spell_id "set_u32") ["test" 1])
                     (seq
-                        (call worker (spell_id "get_u32") ["test"] one)
+                        (call %init_peer_id% (spell_id "get_u32") ["test"] one)
                         (seq
-                            (call worker (spell_id "set_u32") ["test" 2])
-                            (call worker (spell_id "get_u32") ["test"] two)
+                            (call %init_peer_id% (spell_id "set_u32") ["test" 2])
+                            (call %init_peer_id% (spell_id "get_u32") ["test"] two)
                         )
                     )
                 )
             )
-            (call %init_peer_id% ("return" "") [absent one two])
-           )"#,
-            data,
         )
-        .await
-        .unwrap();
+        (call "{}" ("return" "") [absent one two])
+    )"#, client.peer_id);
+    // oneshot spell
+    let mut config = TriggerConfig::default();
+    config.clock.start_sec = 1;
+    config.clock.period_sec = 0;
+
+    let (_spell_id, _worker_id) =
+        create_spell(&mut client, &script, config.clone(), json!({}), None).await;
+    let mut result = client.receive_args().await.wrap_err("receive").unwrap();
+
     assert_eq!(result.len(), 3);
     let (absent, one, two) = (result.remove(0), result.remove(0), result.remove(0));
 
     assert_eq!(absent["absent"], json!(true));
-
     assert_eq!(one["absent"], json!(false));
     assert_eq!(one["value"], json!(1));
 
