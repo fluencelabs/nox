@@ -4287,7 +4287,7 @@ dependencies = [
  "marine-utils",
  "marine-wasm-backend-traits",
  "marine-wasmtime-backend",
- "multimap",
+ "multimap 0.8.3",
  "once_cell",
  "paste",
  "semver",
