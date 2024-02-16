@@ -91,15 +91,15 @@ impl PersistentCoreManager {
         let mut cores_mapping: MultiMap<PhysicalCoreId, LogicalCoreId> =
             MultiMap::with_capacity_and_hasher(available_core_count, FxBuildHasher::default());
 
-        let mut available_cores: Vec<PhysicalCoreId> = Vec::with_capacity(available_core_count);
+        let mut available_cores: BTreeSet<PhysicalCoreId> = BTreeSet::new();
 
         for physical_core in cores {
             let physical_core_id = physical_core.os_index() as usize;
             if core_range.contains(physical_core_id) {
                 let logical_cores = physical_core.children();
+                available_cores.insert(PhysicalCoreId(physical_core_id));
                 for logical_core in logical_cores {
                     let logical_core_id = logical_core.os_index() as usize;
-                    available_cores.push(PhysicalCoreId(physical_core_id));
                     cores_mapping.insert(
                         PhysicalCoreId(physical_core_id),
                         LogicalCoreId(logical_core_id),
@@ -108,8 +108,10 @@ impl PersistentCoreManager {
             }
         }
 
-        let system_cores: BTreeSet<PhysicalCoreId> =
-            available_cores.drain(..system_cpu_count).collect();
+        let mut system_cores: BTreeSet<PhysicalCoreId> = BTreeSet::new();
+        for _ in 0..system_cpu_count {
+            system_cores.insert(available_cores.pop_first().expect("Can't be empty"));
+        }
 
         let unit_id_mapping = BiMap::with_capacity_and_hashers(
             available_core_count,
@@ -249,7 +251,7 @@ struct InnerState {
     // allocated system cores
     system_cores: BTreeSet<PhysicalCoreId>,
     // free physical cores
-    available_cores: Vec<PhysicalCoreId>,
+    available_cores: BTreeSet<PhysicalCoreId>,
     // mapping between physical core id and unit id
     unit_id_mapping: BiMap<PhysicalCoreId, UnitId>,
     // mapping between unit id and workload type
@@ -355,7 +357,7 @@ impl CoreManagerFunctions for PersistentCoreManager {
                 None => {
                     let core_id = lock
                         .available_cores
-                        .pop()
+                        .pop_last()
                         .ok_or(AssignError::NotFoundAvailableCores)?;
                     lock.unit_id_mapping
                         .insert(core_id.clone(), unit_id.clone());
@@ -390,7 +392,7 @@ impl CoreManagerFunctions for PersistentCoreManager {
         let mut lock = self.inner.write();
         for unit_id in unit_ids {
             if let Some(core_id) = lock.unit_id_mapping.get_by_right(&unit_id).cloned() {
-                lock.available_cores.push(core_id.clone());
+                lock.available_cores.insert(core_id.clone());
                 lock.unit_id_mapping.remove_by_left(&core_id);
                 lock.type_mapping.remove(&unit_id);
             }
