@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 use std::fs::File;
 use std::hash::{BuildHasherDefault, Hash};
 use std::io::Write;
@@ -108,7 +108,8 @@ impl PersistentCoreManager {
             }
         }
 
-        let system_cores: Vec<PhysicalCoreId> = available_cores.drain(..system_cpu_count).collect();
+        let system_cores: BTreeSet<PhysicalCoreId> =
+            available_cores.drain(..system_cpu_count).collect();
 
         let unit_id_mapping = BiMap::with_capacity_and_hashers(
             available_core_count,
@@ -246,7 +247,7 @@ struct InnerState {
     // mapping between physical and logical cores
     cores_mapping: MultiMap<PhysicalCoreId, LogicalCoreId>,
     // allocated system cores
-    system_cores: Vec<PhysicalCoreId>,
+    system_cores: BTreeSet<PhysicalCoreId>,
     // free physical cores
     available_cores: Vec<PhysicalCoreId>,
     // mapping between physical core id and unit id
@@ -338,15 +339,15 @@ pub enum AssignError {
 
 #[derive(Debug, Eq, PartialEq)]
 pub struct Assignment {
-    pub physical_core_ids: Vec<PhysicalCoreId>,
-    pub logical_core_ids: Vec<LogicalCoreId>,
+    pub physical_core_ids: BTreeSet<PhysicalCoreId>,
+    pub logical_core_ids: BTreeSet<LogicalCoreId>,
 }
 
 impl CoreManagerFunctions for PersistentCoreManager {
     fn assign_worker_core(&self, assign_request: AssignRequest) -> Result<Assignment, AssignError> {
         let mut lock = self.inner.write();
-        let mut physical_core_ids = Vec::with_capacity(assign_request.unit_ids.len());
-        let mut logical_core_ids = vec![];
+        let mut physical_core_ids = BTreeSet::new();
+        let mut logical_core_ids = BTreeSet::new();
         let worker_unit_type = assign_request.worker_type;
         for unit_id in assign_request.unit_ids {
             let core_id = lock.unit_id_mapping.get_by_right(&unit_id).cloned();
@@ -366,12 +367,15 @@ impl CoreManagerFunctions for PersistentCoreManager {
                     core_id
                 }
             };
-            physical_core_ids.push(core_id.clone());
+            physical_core_ids.insert(core_id.clone());
             let local_physical_core_ids = lock
                 .cores_mapping
                 .get_vec(&core_id)
                 .expect("Can't be empty");
-            logical_core_ids.extend_from_slice(local_physical_core_ids);
+            for local_physical_core_id in local_physical_core_ids {
+                let local_physical_core_id = local_physical_core_id.clone();
+                logical_core_ids.insert(local_physical_core_id);
+            }
         }
 
         let _ = self.sender.try_send(());
@@ -395,10 +399,12 @@ impl CoreManagerFunctions for PersistentCoreManager {
 
     fn system_cpu_assignment(&self) -> Assignment {
         let lock = self.inner.read();
-        let mut logical_core_ids = vec![];
+        let mut logical_core_ids = BTreeSet::new();
         for core in &lock.system_cores {
             let core_ids = lock.cores_mapping.get_vec(core).cloned().unwrap();
-            logical_core_ids.extend_from_slice(core_ids.as_slice());
+            for core_id in core_ids {
+                logical_core_ids.insert(core_id);
+            }
         }
         Assignment {
             physical_core_ids: lock.system_cores.clone(),
