@@ -14,7 +14,6 @@ service-modules = { workspace = true }
 
 marine-it-parser = { workspace = true }
 fluence-app-service = { workspace = true }
-marine-utils = { workspace = true }
 
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
