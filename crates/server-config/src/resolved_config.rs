@@ -33,7 +33,7 @@ use crate::node_config::{NodeConfig, UnresolvedNodeConfig};
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct UnresolvedConfig {
     #[serde(flatten)]
-    dir_config: UnresolvedDirConfig,
+    pub dir_config: UnresolvedDirConfig,
     #[serde(flatten)]
     pub node_config: UnresolvedNodeConfig,
 
