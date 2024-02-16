@@ -519,7 +519,7 @@ mod tests {
         let key_pairs_dir = temp_dir.path().join("key_pairs").to_path_buf();
         let workers_dir = temp_dir.path().join("workers").to_path_buf();
         let root_key_pair = fluence_keypair::KeyPair::generate_ed25519();
-        let core_manager = Arc::new(CoreManager::Dummy(DummyCoreManager::core_manager()));
+        let core_manager = Arc::new(DummyCoreManager::default().into());
 
         // Create a new KeyStorage instance
         let key_storage = Arc::new(
@@ -546,8 +546,7 @@ mod tests {
         let key_pairs_dir = temp_dir.path().join("key_pairs").to_path_buf();
         let workers_dir = temp_dir.path().join("workers").to_path_buf();
         let root_key_pair = fluence_keypair::KeyPair::generate_ed25519();
-        let core_manager = Arc::new(CoreManager::Dummy(DummyCoreManager::core_manager()));
-
+        let core_manager = Arc::new(DummyCoreManager::default().into());
         // Create a new KeyStorage instance
         let key_storage = Arc::new(
             KeyStorage::from_path(key_pairs_dir.clone(), root_key_pair.clone())
@@ -609,8 +608,7 @@ mod tests {
         let key_pairs_dir = temp_dir.path().join("key_pairs").to_path_buf();
         let workers_dir = temp_dir.path().join("workers").to_path_buf();
         let root_key_pair = fluence_keypair::KeyPair::generate_ed25519();
-        let core_manager = Arc::new(CoreManager::Dummy(DummyCoreManager::core_manager()));
-
+        let core_manager = Arc::new(DummyCoreManager::default().into());
         // Create a new KeyStorage instance
         let key_storage = Arc::new(
             KeyStorage::from_path(key_pairs_dir.clone(), root_key_pair.clone())
@@ -663,8 +661,7 @@ mod tests {
         let key_pairs_dir = temp_dir.path().join("key_pairs").to_path_buf();
         let workers_dir = temp_dir.path().join("workers").to_path_buf();
         let root_key_pair = fluence_keypair::KeyPair::generate_ed25519();
-        let core_manager = Arc::new(CoreManager::Dummy(DummyCoreManager::core_manager()));
-
+        let core_manager = Arc::new(DummyCoreManager::default().into());
         // Create a new KeyStorage instance
         let key_storage = Arc::new(
             KeyStorage::from_path(key_pairs_dir.clone(), root_key_pair.clone())
@@ -727,8 +724,7 @@ mod tests {
         let key_pairs_dir = temp_dir.path().join("key_pairs").to_path_buf();
         let workers_dir = temp_dir.path().join("workers").to_path_buf();
         let root_key_pair = fluence_keypair::KeyPair::generate_ed25519();
-        let core_manager = Arc::new(CoreManager::Dummy(DummyCoreManager::core_manager()));
-
+        let core_manager: Arc<CoreManager> = Arc::new(DummyCoreManager::default().into());
         // Create a new KeyStorage instance
         let key_storage = Arc::new(
             KeyStorage::from_path(key_pairs_dir.clone(), root_key_pair.clone())

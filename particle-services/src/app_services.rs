@@ -1075,7 +1075,7 @@ mod tests {
     use service_modules::load_module;
     use service_modules::Hash;
     use types::peer_scope::PeerScope;
-    use workers::{CoreManager, DummyCoreManager, KeyStorage, PeerScopes, Workers};
+    use workers::{DummyCoreManager, KeyStorage, PeerScopes, Workers};
 
     use crate::app_services::{ServiceAlias, ServiceType};
     use crate::persistence::load_persisted_services;

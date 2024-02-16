@@ -436,7 +436,7 @@ mod tests {
     use fluence_keypair::KeyPair;
     use fluence_libp2p::RandomPeerId;
     use futures::task::noop_waker_ref;
-    use workers::{CoreManager, DummyCoreManager, KeyStorage, PeerScopes, Workers};
+    use workers::{DummyCoreManager, KeyStorage, PeerScopes, Workers};
 
     use particle_args::Args;
     use particle_execution::{FunctionOutcome, ParticleFunction, ParticleParams, ServiceFunction};
@@ -537,7 +537,7 @@ mod tests {
 
         let key_storage = Arc::new(key_storage);
 
-        let core_manager = Arc::new(CoreManager::Dummy(DummyCoreManager::core_manager()));
+        let core_manager = Arc::new(DummyCoreManager::default().into());
 
         let scope = PeerScopes::new(
             root_key_pair.get_peer_id(),

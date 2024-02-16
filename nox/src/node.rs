@@ -646,7 +646,7 @@ mod tests {
     use aquamarine::{DataStoreConfig, VmConfig};
     use config_utils::to_peer_id;
     use connected_client::ConnectedClient;
-    use core_manager::manager::{CoreManager, DummyCoreManager};
+    use core_manager::manager::DummyCoreManager;
     use fs_utils::to_abs_path;
     use server_config::{default_base_dir, load_config_with_args};
     use system_services::SystemServiceDistros;
@@ -680,7 +680,7 @@ mod tests {
             SystemServiceDistros::default_from(config.system_services.clone())
                 .expect("can't create system services");
 
-        let core_manager = Arc::new(CoreManager::Dummy(DummyCoreManager::core_manager()));
+        let core_manager = Arc::new(DummyCoreManager::default().into());
 
         let mut node: Box<Node<AVMRunner>> = Node::new(
             config,

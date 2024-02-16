@@ -286,7 +286,7 @@ mod tests {
     use maplit::hashmap;
     use serde_json::json;
     use std::time::Duration;
-    use workers::{CoreManager, DummyCoreManager, KeyStorage, PeerScopes, Workers};
+    use workers::{DummyCoreManager, KeyStorage, PeerScopes, Workers};
 
     use crate::{CallParams, SpellServiceApi};
 
@@ -316,7 +316,7 @@ mod tests {
 
         let key_storage = Arc::new(key_storage);
 
-        let core_manager = Arc::new(CoreManager::Dummy(DummyCoreManager::core_manager()));
+        let core_manager = Arc::new(DummyCoreManager::default().into());
 
         let scope = PeerScopes::new(
             root_key_pair.get_peer_id(),
