@@ -20,7 +20,7 @@ use crate::error::KeyStorageError::{
 use crate::error::{KeyStorageError, WorkersError};
 use crate::workers::WorkerInfo;
 use crate::KeyStorageError::RemoveErrorPersistedKeypair;
-use core_manager::manager::UnitId;
+use core_manager::UnitId;
 use fluence_keypair::KeyPair;
 use libp2p::PeerId;
 use parking_lot::RwLock;

@@ -40,7 +40,7 @@ use aquamarine::{DataStoreConfig, VmConfig};
 use avm_server::avm_runner::AVMRunner;
 use config_utils::to_peer_id;
 use core_affinity::{set_mask_for_current, CoreId};
-use core_manager::manager::{CoreManager, CoreManagerFunctions, DefaultCoreManager};
+use core_manager::manager::{CoreManager, CoreManagerFunctions, PersistentCoreManager};
 use fs_utils::to_abs_path;
 use nox::{env_filter, log_layer, tokio_console_layer, tracing_layer, Node};
 use server_config::{load_config, ConfigData, ResolvedConfig};
@@ -91,11 +91,14 @@ fn main() -> eyre::Result<()> {
         }
     }
 
-    let core_manager = DefaultCoreManager::new(
+    let (core_manager, core_manager_task) = PersistentCoreManager::from_path(
+        config.dir_config.base_dir.clone(),
         config.node_config.system_cpu_count,
         config.node_config.cpus_range.clone(),
     )?;
-    let core_manager = Arc::new(CoreManager::Default(core_manager));
+
+    let core_manager: Arc<CoreManager> = Arc::new(core_manager.into());
+
     let system_cpu_cores_assignment = core_manager.system_cpu_assignment();
 
     let system_cpu_cores: Vec<CoreId> = system_cpu_cores_assignment
@@ -104,9 +107,8 @@ fn main() -> eyre::Result<()> {
         .map(|core_id| CoreId { id: core_id.0 })
         .collect();
 
-    //TODO: add thread count configuration based on config
     let mut builder = tokio::runtime::Builder::new_multi_thread();
-    builder.worker_threads(config.node_config.system_cpu_count);
+    builder.worker_threads(system_cpu_cores_assignment.logical_core_ids.len());
     builder.on_thread_start(move || {
         set_mask_for_current(&system_cpu_cores);
     });
@@ -127,6 +129,8 @@ fn main() -> eyre::Result<()> {
         .expect("Could not make tokio runtime")
         .block_on(async {
             let resolver_config = config.clone().resolve()?;
+
+            core_manager_task.run(core_manager.clone()).await;
 
             let key_pair = resolver_config.node_config.root_key_pair.clone();
             let base64_key_pair = base64.encode(key_pair.public().to_vec());

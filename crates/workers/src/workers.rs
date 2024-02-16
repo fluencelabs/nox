@@ -4,7 +4,8 @@ use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
 
 use core_affinity::{set_mask_for_current, CoreId};
-use core_manager::manager::{AssignRequest, CoreManager, CoreManagerFunctions, UnitId, WorkerType};
+use core_manager::manager::{AssignRequest, CoreManager, CoreManagerFunctions, WorkerType};
+use core_manager::UnitId;
 use fluence_libp2p::PeerId;
 use parking_lot::RwLock;
 use tokio::runtime::{Handle, Runtime};

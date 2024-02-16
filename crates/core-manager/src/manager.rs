@@ -1,13 +1,23 @@
-use enum_dispatch::enum_dispatch;
 use std::collections::HashMap;
+use std::fs::File;
 use std::hash::{BuildHasherDefault, Hash};
+use std::io::Write;
+use std::ops::Deref;
+use std::path::PathBuf;
+use std::str::Utf8Error;
+use std::sync::Arc;
 
+use async_trait::async_trait;
+use enum_dispatch::enum_dispatch;
 use fxhash::{FxBuildHasher, FxHasher};
 use hwloc2::{ObjectType, Topology, TypeDepthError};
 use parking_lot::RwLock;
 use range_set_blaze::RangeSetBlaze;
 use serde::{Deserialize, Serialize};
+use serde_with::{serde_as, DisplayFromStr};
 use thiserror::Error;
+use tokio::sync::mpsc::Receiver;
+use types::unit_id::UnitId;
 
 use crate::core_range::CoreRange;
 
@@ -18,107 +28,46 @@ type MultiMap<K, V> = multimap::MultiMap<K, V, BuildHasherDefault<FxHasher>>;
 type BiMap<K, V> =
     bimap::BiHashMap<K, V, BuildHasherDefault<FxHasher>, BuildHasherDefault<FxHasher>>;
 
-#[derive(PartialEq, Eq, Hash, Clone, Debug, PartialOrd, Ord)]
-pub struct PhysicalCoreId(usize);
+const FILE_NAME: &str = "cores_state.toml";
 
-#[derive(PartialEq, Eq, Hash, Clone, Debug, PartialOrd, Ord)]
-pub struct LogicalCoreId(pub usize);
+#[serde_as]
+#[derive(PartialEq, Eq, Hash, Clone, Debug, PartialOrd, Ord, Serialize, Deserialize)]
+pub struct PhysicalCoreId(#[serde_as(as = "DisplayFromStr")] usize);
+
+#[serde_as]
+#[derive(PartialEq, Eq, Hash, Clone, Debug, PartialOrd, Ord, Serialize, Deserialize)]
+pub struct LogicalCoreId(#[serde_as(as = "DisplayFromStr")] pub usize);
 
 #[enum_dispatch]
 pub trait CoreManagerFunctions {
     fn assign_worker_core(&self, assign_request: AssignRequest) -> Result<Assignment, AssignError>;
+
+    fn free(&self, unit_ids: Vec<UnitId>);
+
     fn system_cpu_assignment(&self) -> Assignment;
-    fn free(&mut self, unit_ids: Vec<UnitId>);
+
+    fn persist(&self) -> Result<(), PersistError>;
 }
 
 #[enum_dispatch(CoreManagerFunctions)]
 pub enum CoreManager {
-    Default(DefaultCoreManager),
+    Persistent(PersistentCoreManager),
     Dummy(DummyCoreManager),
 }
 
-pub struct DefaultCoreManager {
+pub struct PersistentCoreManager {
+    file_path: PathBuf,
     inner: RwLock<InnerState>,
+    sender: tokio::sync::mpsc::Sender<()>,
 }
 
-struct InnerState {
-    // mapping between physical and logical cores
-    cores_mapping: MultiMap<PhysicalCoreId, LogicalCoreId>,
-    //
-    system_cores: Vec<PhysicalCoreId>,
-
-    // free physical cores
-    available_cores: Vec<PhysicalCoreId>,
-    // mapping between physical core id and unit id
-    unit_id_mapping: BiMap<PhysicalCoreId, UnitId>,
-
-    type_mapping: Map<UnitId, WorkerType>,
-}
-
-#[derive(Debug, PartialEq, Eq, Hash, Clone, Serialize, Deserialize)]
-pub struct UnitId(String);
-
-impl From<String> for UnitId {
-    fn from(value: String) -> Self {
-        UnitId(value)
-    }
-}
-
-impl From<&str> for UnitId {
-    fn from(value: &str) -> Self {
-        UnitId(value.to_string())
-    }
-}
-
-#[derive(Debug, PartialEq, Eq, Hash, Clone)]
-pub enum WorkerType {
-    CC,
-    Worker,
-}
-
-pub struct AssignRequest {
-    unit_ids: Vec<UnitId>,
-    worker_type: WorkerType,
-}
-
-impl AssignRequest {
-    pub fn new(unit_ids: Vec<UnitId>, worker_type: WorkerType) -> Self {
-        Self {
-            unit_ids,
-            worker_type,
-        }
-    }
-}
-
-#[derive(Debug, Error)]
-pub enum Error {
-    #[error("System core count should be > 0")]
-    IllegalSystemCoreCount,
-    #[error("Too much system cores needed. Required: {required}, available: {required}")]
-    NotEnoughCores { available: usize, required: usize },
-    #[error("Failed to create topology")]
-    CreateTopology,
-    #[error("Failed to collect cores data {err:?}")]
-    CollectCoresData { err: TypeDepthError },
-}
-
-#[derive(Debug, Error)]
-pub enum AssignError {
-    #[error("Not found free cores")]
-    NotFoundAvailableCores,
-}
-
-#[derive(Debug, Eq, PartialEq)]
-pub struct Assignment {
-    pub physical_core_ids: Vec<PhysicalCoreId>,
-    pub logical_core_ids: Vec<LogicalCoreId>,
-}
-
-impl DefaultCoreManager {
-    pub fn new(system_cpu_count: usize, cpus_range: Option<CoreRange>) -> Result<Self, Error> {
-        let core_range = cpus_range
-            .map(|range| range.0)
-            .unwrap_or(RangeSetBlaze::from_iter(0..num_cpus::get_physical()));
+impl PersistentCoreManager {
+    pub fn new(
+        file_name: PathBuf,
+        system_cpu_count: usize,
+        cpus_range: Option<CoreRange>,
+    ) -> Result<(Self, PersistenceTask), Error> {
+        let core_range = Self::get_range(cpus_range);
 
         let available_core_count = core_range.len() as usize;
 
@@ -170,18 +119,230 @@ impl DefaultCoreManager {
         let type_mapping =
             Map::with_capacity_and_hasher(available_core_count, FxBuildHasher::default());
 
-        let inner = RwLock::new(InnerState {
+        let inner_state = InnerState {
             cores_mapping,
             system_cores,
             available_cores,
             unit_id_mapping,
             type_mapping,
-        });
-        Ok(Self { inner })
+        };
+
+        let result = Self::make_instance_with_task(file_name, inner_state);
+
+        Ok(result)
+    }
+
+    fn make_instance_with_task(
+        file_name: PathBuf,
+        inner_state: InnerState,
+    ) -> (Self, PersistenceTask) {
+        let (sender, receiver) = tokio::sync::mpsc::channel(1);
+
+        (
+            Self {
+                file_path: file_name,
+                sender,
+                inner: RwLock::new(inner_state),
+            },
+            PersistenceTask { receiver },
+        )
+    }
+
+    pub fn from_path(
+        base_dir: PathBuf,
+        system_cpu_count: usize,
+        cpus_range: Option<CoreRange>,
+    ) -> Result<(Self, PersistenceTask), LoadingError> {
+        let state_file = base_dir.join(FILE_NAME);
+        let exists = state_file.exists();
+        if exists {
+            let bytes = std::fs::read(&state_file).map_err(|err| LoadingError::IoError { err })?;
+            let toml = std::str::from_utf8(bytes.as_slice())
+                .map_err(|err| LoadingError::DecodeError { err })?;
+            let persistent_state: InnerState =
+                toml::from_str(toml).map_err(|err| LoadingError::DeserializationError { err })?;
+
+            let config_range = Self::get_range(cpus_range.clone());
+            let mut loaded_range = RangeSetBlaze::new();
+            for core_id in persistent_state.cores_mapping.keys() {
+                loaded_range.insert(core_id.0);
+            }
+
+            if config_range == loaded_range
+                && persistent_state.system_cores.len() == system_cpu_count
+            {
+                Ok(Self::make_instance_with_task(state_file, persistent_state))
+            } else {
+                tracing::warn!(target: "core-manager", "The initial config has been changed. Ignoring the previous state");
+                let (core_manager, task) =
+                    Self::new(state_file.clone(), system_cpu_count, cpus_range)
+                        .map_err(|err| LoadingError::CreateCoreManager { err })?;
+                core_manager
+                    .persist()
+                    .map_err(|err| LoadingError::PersistError { err })?;
+                Ok((core_manager, task))
+            }
+        } else {
+            tracing::debug!(target: "core-manager", "The previous state was not found. Skipping...");
+            let (core_manager, task) = Self::new(state_file.clone(), system_cpu_count, cpus_range)
+                .map_err(|err| LoadingError::CreateCoreManager { err })?;
+            core_manager
+                .persist()
+                .map_err(|err| LoadingError::PersistError { err })?;
+            Ok((core_manager, task))
+        }
+    }
+
+    fn get_range(cpus_range: Option<CoreRange>) -> RangeSetBlaze<usize> {
+        cpus_range
+            .map(|range| range.0)
+            .unwrap_or(RangeSetBlaze::from_iter(0..num_cpus::get_physical()))
     }
 }
 
-impl CoreManagerFunctions for DefaultCoreManager {
+pub struct PersistenceTask {
+    receiver: Receiver<()>,
+}
+
+impl PersistenceTask {
+    async fn process_events(core_manager: Arc<CoreManager>, mut receiver: Receiver<()>) {
+        let core_manager = core_manager.clone();
+        let _ = receiver.recv().await;
+        tokio::task::spawn_blocking(move || {
+            let result = core_manager.persist();
+            match result {
+                Ok(_) => {
+                    tracing::debug!(target: "core-manager", "Core state was persisted");
+                }
+                Err(err) => {
+                    tracing::warn!(target: "core-manager", "Failed to save core state {err}");
+                }
+            }
+        })
+        .await
+        .expect("Could not join persist task")
+    }
+
+    async fn task(self, core_manager: Arc<CoreManager>) {
+        let persist_task = Self::process_events(core_manager, self.receiver);
+        tokio::pin!(persist_task);
+        loop {
+            tokio::select! {
+            _ = &mut persist_task => {
+                }
+            }
+        }
+    }
+    pub async fn run(self, core_manager: Arc<CoreManager>) {
+        tokio::task::Builder::new()
+            .name("core-manager-persist")
+            .spawn(self.task(core_manager))
+            .expect("Could not spawn persist task");
+    }
+}
+
+#[derive(Serialize, Deserialize)]
+struct InnerState {
+    // mapping between physical and logical cores
+    cores_mapping: MultiMap<PhysicalCoreId, LogicalCoreId>,
+    // allocated system cores
+    system_cores: Vec<PhysicalCoreId>,
+    // free physical cores
+    available_cores: Vec<PhysicalCoreId>,
+    // mapping between physical core id and unit id
+    unit_id_mapping: BiMap<PhysicalCoreId, UnitId>,
+    // mapping between unit id and workload type
+    type_mapping: Map<UnitId, WorkerType>,
+}
+
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Serialize, Deserialize)]
+pub enum WorkerType {
+    CC,
+    Worker,
+}
+
+pub struct AssignRequest {
+    unit_ids: Vec<UnitId>,
+    worker_type: WorkerType,
+}
+
+impl AssignRequest {
+    pub fn new(unit_ids: Vec<UnitId>, worker_type: WorkerType) -> Self {
+        Self {
+            unit_ids,
+            worker_type,
+        }
+    }
+}
+
+#[derive(Debug, Error)]
+pub enum Error {
+    #[error("System core count should be > 0")]
+    IllegalSystemCoreCount,
+    #[error("Too much system cores needed. Required: {required}, available: {required}")]
+    NotEnoughCores { available: usize, required: usize },
+    #[error("Failed to create topology")]
+    CreateTopology,
+    #[error("Failed to collect cores data {err:?}")]
+    CollectCoresData { err: TypeDepthError },
+}
+
+#[derive(Debug, Error)]
+pub enum LoadingError {
+    #[error(transparent)]
+    CreateCoreManager {
+        #[from]
+        err: Error,
+    },
+    #[error(transparent)]
+    IoError {
+        #[from]
+        err: std::io::Error,
+    },
+    #[error(transparent)]
+    DecodeError {
+        #[from]
+        err: Utf8Error,
+    },
+    #[error(transparent)]
+    DeserializationError {
+        #[from]
+        err: toml::de::Error,
+    },
+    #[error(transparent)]
+    PersistError {
+        #[from]
+        err: PersistError,
+    },
+}
+
+#[derive(Debug, Error)]
+pub enum PersistError {
+    #[error(transparent)]
+    IoError {
+        #[from]
+        err: std::io::Error,
+    },
+    #[error(transparent)]
+    SerializationError {
+        #[from]
+        err: toml::ser::Error,
+    },
+}
+
+#[derive(Debug, Error)]
+pub enum AssignError {
+    #[error("Not found free cores")]
+    NotFoundAvailableCores,
+}
+
+#[derive(Debug, Eq, PartialEq)]
+pub struct Assignment {
+    pub physical_core_ids: Vec<PhysicalCoreId>,
+    pub logical_core_ids: Vec<LogicalCoreId>,
+}
+
+impl CoreManagerFunctions for PersistentCoreManager {
     fn assign_worker_core(&self, assign_request: AssignRequest) -> Result<Assignment, AssignError> {
         let mut lock = self.inner.write();
         let mut physical_core_ids = Vec::with_capacity(assign_request.unit_ids.len());
@@ -212,10 +373,24 @@ impl CoreManagerFunctions for DefaultCoreManager {
                 .expect("Can't be empty");
             logical_core_ids.extend_from_slice(local_physical_core_ids);
         }
+
+        let _ = self.sender.try_send(());
+
         Ok(Assignment {
             physical_core_ids,
             logical_core_ids,
         })
+    }
+
+    fn free(&self, unit_ids: Vec<UnitId>) {
+        let mut lock = self.inner.write();
+        for unit_id in unit_ids {
+            if let Some(core_id) = lock.unit_id_mapping.get_by_right(&unit_id).cloned() {
+                lock.available_cores.push(core_id.clone());
+                lock.unit_id_mapping.remove_by_left(&core_id);
+                lock.type_mapping.remove(&unit_id);
+            }
+        }
     }
 
     fn system_cpu_assignment(&self) -> Assignment {
@@ -231,15 +406,20 @@ impl CoreManagerFunctions for DefaultCoreManager {
         }
     }
 
-    fn free(&mut self, unit_ids: Vec<UnitId>) {
-        let mut lock = self.inner.write();
-        for unit_id in unit_ids {
-            if let Some(core_id) = lock.unit_id_mapping.get_by_right(&unit_id).cloned() {
-                lock.available_cores.push(core_id.clone());
-                lock.unit_id_mapping.remove_by_left(&core_id);
-                lock.type_mapping.remove(&unit_id);
-            }
-        }
+    fn persist(&self) -> Result<(), PersistError> {
+        let lock = self.inner.read();
+        let inner_state = lock.deref();
+        let toml = toml::to_string_pretty(&inner_state)
+            .map_err(|err| PersistError::SerializationError { err })?;
+        let exists = self.file_path.exists();
+        let mut file = if exists {
+            File::open(self.file_path.clone()).map_err(|err| PersistError::IoError { err })?
+        } else {
+            File::create(self.file_path.clone()).map_err(|err| PersistError::IoError { err })?
+        };
+        file.write(toml.as_bytes())
+            .map_err(|err| PersistError::IoError { err })?;
+        Ok(())
     }
 }
 
@@ -257,6 +437,7 @@ impl DummyCoreManager {
     }
 }
 
+#[async_trait]
 impl CoreManagerFunctions for DummyCoreManager {
     fn assign_worker_core(
         &self,
@@ -265,23 +446,24 @@ impl CoreManagerFunctions for DummyCoreManager {
         Ok(self.all_cores())
     }
 
+    fn free(&self, _unit_ids: Vec<UnitId>) {}
+
     fn system_cpu_assignment(&self) -> Assignment {
         self.all_cores()
     }
-
-    fn free(&mut self, _unit_ids: Vec<UnitId>) {}
+    fn persist(&self) -> Result<(), PersistError> {
+        Ok(())
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::manager::{
-        AssignRequest, CoreManagerFunctions, DefaultCoreManager, UnitId, WorkerType,
-    };
+    use crate::manager::{AssignRequest, CoreManagerFunctions, PersistentCoreManager, WorkerType};
 
     #[test]
     fn test_assignment_and_switching() {
-        let manager = DefaultCoreManager::new(2, None).unwrap();
-        let unit_ids = vec![UnitId("1".to_string()), UnitId("2".to_string())];
+        let manager = PersistentCoreManager::new(2, None).unwrap();
+        let unit_ids = vec!["1".into(), "2".into()];
         let assignment_1 = manager
             .assign_worker_core(AssignRequest {
                 unit_ids: unit_ids.clone(),
