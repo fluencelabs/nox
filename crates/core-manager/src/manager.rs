@@ -64,6 +64,12 @@ impl From<String> for UnitId {
     }
 }
 
+impl From<&str> for UnitId {
+    fn from(value: &str) -> Self {
+        UnitId(value.to_string())
+    }
+}
+
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub enum WorkerType {
     CC,
