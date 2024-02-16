@@ -484,7 +484,7 @@ mod tests {
 
         let function = super::Function {
             name: "get_string",
-            args: vec![json!("h_trigger")],
+            args: vec![json!("hw_trigger")],
         };
         let result = api.call::<StringValue>(params, function);
         assert!(result.is_ok(), "must be able to add get_string");
