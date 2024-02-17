@@ -66,11 +66,9 @@ impl PersistentCoreManager {
     pub fn new(
         file_name: PathBuf,
         system_cpu_count: usize,
-        cpus_range: Option<CoreRange>,
+        core_range: CoreRange,
     ) -> Result<(Self, PersistenceTask), Error> {
-        let core_range = Self::get_range(cpus_range);
-
-        let available_core_count = core_range.len() as usize;
+        let available_core_count = core_range.0.len() as usize;
 
         if system_cpu_count == 0 {
             return Err(Error::IllegalSystemCoreCount);
@@ -96,7 +94,7 @@ impl PersistentCoreManager {
 
         for physical_core in cores {
             let physical_core_id = physical_core.os_index() as usize;
-            if core_range.contains(physical_core_id) {
+            if core_range.0.contains(physical_core_id) {
                 let logical_cores = physical_core.children();
                 available_cores.insert(PhysicalCoreId(physical_core_id));
                 for logical_core in logical_cores {
@@ -155,7 +153,7 @@ impl PersistentCoreManager {
     pub fn from_path(
         file_name: PathBuf,
         system_cpu_count: usize,
-        cpus_range: Option<CoreRange>,
+        core_range: CoreRange,
     ) -> Result<(Self, PersistenceTask), LoadingError> {
         let exists = file_name.exists();
         if exists {
@@ -165,7 +163,7 @@ impl PersistentCoreManager {
             let persistent_state: CoreManagerState =
                 toml::from_str(toml).map_err(|err| LoadingError::DeserializationError { err })?;
 
-            let config_range = Self::get_range(cpus_range.clone());
+            let config_range = core_range.clone().0;
             let mut loaded_range = RangeSetBlaze::new();
             for core_id in persistent_state.cores_mapping.keys() {
                 loaded_range.insert(core_id.0);
@@ -178,7 +176,7 @@ impl PersistentCoreManager {
             } else {
                 tracing::warn!(target: "core-manager", "The initial config has been changed. Ignoring the previous state");
                 let (core_manager, task) =
-                    Self::new(file_name.clone(), system_cpu_count, cpus_range)
+                    Self::new(file_name.clone(), system_cpu_count, core_range)
                         .map_err(|err| LoadingError::CreateCoreManager { err })?;
                 core_manager
                     .persist()
@@ -187,19 +185,13 @@ impl PersistentCoreManager {
             }
         } else {
             tracing::debug!(target: "core-manager", "The previous state was not found. Skipping...");
-            let (core_manager, task) = Self::new(file_name.clone(), system_cpu_count, cpus_range)
+            let (core_manager, task) = Self::new(file_name.clone(), system_cpu_count, core_range)
                 .map_err(|err| LoadingError::CreateCoreManager { err })?;
             core_manager
                 .persist()
                 .map_err(|err| LoadingError::PersistError { err })?;
             Ok((core_manager, task))
         }
-    }
-
-    fn get_range(cpus_range: Option<CoreRange>) -> RangeSetBlaze<usize> {
-        cpus_range
-            .map(|range| range.0)
-            .unwrap_or(RangeSetBlaze::from_iter(0..num_cpus::get_physical()))
     }
 }
 

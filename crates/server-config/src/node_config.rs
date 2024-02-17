@@ -162,7 +162,11 @@ impl UnresolvedNodeConfig {
         allowed_binaries.push(self.system_services.aqua_ipfs.ipfs_binary_path.clone());
         allowed_binaries.push(self.system_services.connector.curl_binary_path.clone());
 
+        let cpus_range = self.cpus_range.unwrap_or_default();
+
         let result = NodeConfig {
+            system_cpu_count: self.system_cpu_count,
+            cpus_range,
             bootstrap_nodes,
             root_key_pair,
             builtins_key_pair,
@@ -294,6 +298,10 @@ impl UnresolvedNodeConfig {
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub struct NodeConfig {
+    pub cpus_range: CoreRange,
+
+    pub system_cpu_count: usize,
+
     #[derivative(Debug = "ignore")]
     pub root_key_pair: KeyPair,
 

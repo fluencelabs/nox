@@ -66,6 +66,10 @@ impl UnresolvedDirConfig {
         let keypairs_base_dir = self.keypairs_base_dir.unwrap_or(base.join("keypairs"));
         let workers_base_dir = self.workers_base_dir.unwrap_or(base.join("workers"));
         let cc_events_dir = self.cc_events_dir.unwrap_or(base.join("cc_events"));
+        let core_state_path = self
+            .core_state_path
+            .clone()
+            .unwrap_or(base.join("cores_state.toml"));
 
         create_dirs(&[
             &base,
@@ -95,17 +99,8 @@ impl UnresolvedDirConfig {
             keypairs_base_dir,
             workers_base_dir,
             cc_events_dir,
+            core_state_path,
         })
-    }
-
-    pub fn resolve_core_state_path(&self) -> eyre::Result<PathBuf> {
-        let base = to_abs_path(self.base_dir.clone());
-        let base = canonicalize(base)?;
-        let core_state_path = self
-            .core_state_path
-            .clone()
-            .unwrap_or(PathBuf::from("cores_state.toml"));
-        Ok(base.join(core_state_path))
     }
 }
 
@@ -121,4 +116,5 @@ pub struct ResolvedDirConfig {
     pub keypairs_base_dir: PathBuf,
     pub workers_base_dir: PathBuf,
     pub cc_events_dir: PathBuf,
+    pub core_state_path: PathBuf,
 }

@@ -91,10 +91,12 @@ fn main() -> eyre::Result<()> {
         }
     }
 
+    let resolved_config = config.clone().resolve()?;
+
     let (core_manager, core_manager_task) = PersistentCoreManager::from_path(
-        config.dir_config.resolve_core_state_path()?,
-        config.node_config.system_cpu_count,
-        config.node_config.cpus_range.clone(),
+        resolved_config.dir_config.core_state_path.clone(),
+        resolved_config.node_config.system_cpu_count,
+        resolved_config.node_config.cpus_range.clone(),
     )?;
 
     let core_manager: Arc<CoreManager> = Arc::new(core_manager.into());
@@ -128,7 +130,6 @@ fn main() -> eyre::Result<()> {
         .build()
         .expect("Could not make tokio runtime")
         .block_on(async {
-            let resolved_config = config.clone().resolve()?;
             core_manager_task.run(core_manager.clone()).await;
 
             let key_pair = resolved_config.node_config.root_key_pair.clone();

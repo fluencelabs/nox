@@ -13,6 +13,12 @@ impl Debug for CoreRange {
     }
 }
 
+impl Default for CoreRange {
+    fn default() -> Self {
+        CoreRange(RangeSetBlaze::from_iter(0..num_cpus::get_physical()))
+    }
+}
+
 impl TryFrom<&[usize]> for CoreRange {
     type Error = ParseError;
 
