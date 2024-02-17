@@ -385,6 +385,8 @@ impl CoreManagerFunctions for PersistentCoreManager {
             }
         }
 
+        // We are trying to notify a persistence task that the state has been changed.
+        // We don't care if the channel is full, it means the current state will be stored with the previous event
         let _ = self.sender.try_send(());
 
         Ok(Assignment {
