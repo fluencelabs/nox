@@ -41,7 +41,7 @@ pub struct Workers {
     runtimes: RwLock<HashMap<WorkerId, Runtime>>,
     /// Core manager for core assignment
     core_manager: Arc<CoreManager>,
-    //Current worker counter
+    /// Number of created tokio runtimes
     worker_counter: Arc<AtomicU32>,
 }
 
