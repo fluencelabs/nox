@@ -3,7 +3,8 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
 
-use core_manager::manager::{AcquireRequest, CoreManager, CoreManagerFunctions, WorkType};
+use core_manager::manager::{CoreManager, CoreManagerFunctions};
+use core_manager::types::{AcquireRequest, WorkType};
 use core_manager::UnitId;
 use fluence_libp2p::PeerId;
 use parking_lot::RwLock;

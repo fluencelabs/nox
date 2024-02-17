@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use core_manager::manager::AssignError;
+use core_manager::errors::AssignError;
 use libp2p::PeerId;
 use std::path::PathBuf;
 use thiserror::Error;

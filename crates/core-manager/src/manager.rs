@@ -1,26 +1,25 @@
 use std::collections::{BTreeSet, HashMap};
 use std::fs::File;
-use std::hash::{BuildHasherDefault, Hash};
+use std::hash::BuildHasherDefault;
 use std::io::Write;
 use std::ops::Deref;
 use std::path::PathBuf;
-use std::str::Utf8Error;
 use std::sync::Arc;
 
 use async_trait::async_trait;
 use core_affinity::{set_mask_for_current, CoreId};
 use enum_dispatch::enum_dispatch;
 use fxhash::{FxBuildHasher, FxHasher};
-use hwloc2::{ObjectType, Topology, TypeDepthError};
+use hwloc2::{ObjectType, Topology};
 use parking_lot::RwLock;
 use range_set_blaze::RangeSetBlaze;
 use serde::{Deserialize, Serialize};
-use serde_with::{serde_as, DisplayFromStr};
-use thiserror::Error;
 use tokio::sync::mpsc::Receiver;
 use types::unit_id::UnitId;
 
 use crate::core_range::CoreRange;
+use crate::errors::{AssignError, CreateError, LoadingError, PersistError};
+use crate::types::{AcquireRequest, LogicalCoreId, PhysicalCoreId, WorkType};
 
 extern crate hwloc2;
 
@@ -28,14 +27,6 @@ type Map<K, V> = HashMap<K, V, BuildHasherDefault<FxHasher>>;
 type MultiMap<K, V> = multimap::MultiMap<K, V, BuildHasherDefault<FxHasher>>;
 type BiMap<K, V> =
     bimap::BiHashMap<K, V, BuildHasherDefault<FxHasher>, BuildHasherDefault<FxHasher>>;
-
-#[serde_as]
-#[derive(PartialEq, Eq, Hash, Clone, Debug, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct PhysicalCoreId(#[serde_as(as = "DisplayFromStr")] usize);
-
-#[serde_as]
-#[derive(PartialEq, Eq, Hash, Clone, Debug, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct LogicalCoreId(#[serde_as(as = "DisplayFromStr")] pub usize);
 
 #[enum_dispatch]
 pub trait CoreManagerFunctions {
@@ -68,25 +59,25 @@ impl PersistentCoreManager {
         file_name: PathBuf,
         system_cpu_count: usize,
         core_range: CoreRange,
-    ) -> Result<(Self, PersistenceTask), Error> {
+    ) -> Result<(Self, PersistenceTask), CreateError> {
         let available_core_count = core_range.0.len() as usize;
 
         if system_cpu_count == 0 {
-            return Err(Error::IllegalSystemCoreCount);
+            return Err(CreateError::IllegalSystemCoreCount);
         }
 
         if system_cpu_count > available_core_count {
-            return Err(Error::NotEnoughCores {
+            return Err(CreateError::NotEnoughCores {
                 available: available_core_count,
                 required: system_cpu_count,
             });
         }
 
-        let topology = Topology::new().ok_or(Error::CreateTopology)?;
+        let topology = Topology::new().ok_or(CreateError::CreateTopology)?;
 
         let cores = topology
             .objects_with_type(&ObjectType::Core)
-            .map_err(|err| Error::CollectCoresData { err })?;
+            .map_err(|err| CreateError::CollectCoresData { err })?;
 
         let mut cores_mapping: MultiMap<PhysicalCoreId, LogicalCoreId> =
             MultiMap::with_capacity_and_hasher(available_core_count, FxBuildHasher::default());
@@ -97,12 +88,13 @@ impl PersistentCoreManager {
             let physical_core_id = physical_core.os_index() as usize;
             if core_range.0.contains(physical_core_id) {
                 let logical_cores = physical_core.children();
-                available_cores.insert(PhysicalCoreId(physical_core_id));
+                let physical_core_id = PhysicalCoreId::new(physical_core_id);
+                available_cores.insert(physical_core_id.clone());
                 for logical_core in logical_cores {
                     let logical_core_id = logical_core.os_index() as usize;
                     cores_mapping.insert(
-                        PhysicalCoreId(physical_core_id),
-                        LogicalCoreId(logical_core_id),
+                        physical_core_id.clone(),
+                        LogicalCoreId::new(logical_core_id),
                     )
                 }
             }
@@ -219,7 +211,7 @@ impl PersistenceTask {
         .expect("Could not join persist task")
     }
 
-    async fn task(self, core_manager: Arc<CoreManager>) {
+    async fn persistence_task(self, core_manager: Arc<CoreManager>) {
         let persist_task = Self::process_events(core_manager, self.receiver);
         tokio::pin!(persist_task);
         loop {
@@ -232,7 +224,7 @@ impl PersistenceTask {
     pub async fn run(self, core_manager: Arc<CoreManager>) {
         tokio::task::Builder::new()
             .name("core-manager-persist")
-            .spawn(self.task(core_manager))
+            .spawn(self.persistence_task(core_manager))
             .expect("Could not spawn persist task");
     }
 }
@@ -249,87 +241,6 @@ struct CoreManagerState {
     unit_id_mapping: BiMap<PhysicalCoreId, UnitId>,
     // mapping between unit id and workload type
     work_type_mapping: Map<UnitId, WorkType>,
-}
-
-#[derive(Debug, PartialEq, Eq, Hash, Clone, Serialize, Deserialize)]
-pub enum WorkType {
-    CapacityCommitment,
-    Deal,
-}
-
-pub struct AcquireRequest {
-    unit_ids: Vec<UnitId>,
-    worker_type: WorkType,
-}
-
-impl AcquireRequest {
-    pub fn new(unit_ids: Vec<UnitId>, worker_type: WorkType) -> Self {
-        Self {
-            unit_ids,
-            worker_type,
-        }
-    }
-}
-
-#[derive(Debug, Error)]
-pub enum Error {
-    #[error("System core count should be > 0")]
-    IllegalSystemCoreCount,
-    #[error("Too much system cores needed. Required: {required}, available: {required}")]
-    NotEnoughCores { available: usize, required: usize },
-    #[error("Failed to create topology")]
-    CreateTopology,
-    #[error("Failed to collect cores data {err:?}")]
-    CollectCoresData { err: TypeDepthError },
-}
-
-#[derive(Debug, Error)]
-pub enum LoadingError {
-    #[error(transparent)]
-    CreateCoreManager {
-        #[from]
-        err: Error,
-    },
-    #[error(transparent)]
-    IoError {
-        #[from]
-        err: std::io::Error,
-    },
-    #[error(transparent)]
-    DecodeError {
-        #[from]
-        err: Utf8Error,
-    },
-    #[error(transparent)]
-    DeserializationError {
-        #[from]
-        err: toml::de::Error,
-    },
-    #[error(transparent)]
-    PersistError {
-        #[from]
-        err: PersistError,
-    },
-}
-
-#[derive(Debug, Error)]
-pub enum PersistError {
-    #[error(transparent)]
-    IoError {
-        #[from]
-        err: std::io::Error,
-    },
-    #[error(transparent)]
-    SerializationError {
-        #[from]
-        err: toml::ser::Error,
-    },
-}
-
-#[derive(Debug, Error)]
-pub enum AssignError {
-    #[error("Not found free cores")]
-    NotFoundAvailableCores,
 }
 
 #[derive(Debug, Eq, PartialEq)]
@@ -447,8 +358,10 @@ pub struct DummyCoreManager {}
 
 impl DummyCoreManager {
     fn all_cores(&self) -> Assignment {
-        let physical_core_ids = (0..num_cpus::get_physical()).map(PhysicalCoreId).collect();
-        let logical_core_ids = (0..num_cpus::get()).map(LogicalCoreId).collect();
+        let physical_core_ids = (0..num_cpus::get_physical())
+            .map(PhysicalCoreId::new)
+            .collect();
+        let logical_core_ids = (0..num_cpus::get()).map(LogicalCoreId::new).collect();
         Assignment {
             physical_core_ids,
             logical_core_ids,
