@@ -212,8 +212,7 @@ impl PersistenceTask {
         tokio::pin!(persist_task);
         loop {
             tokio::select! {
-            _ = &mut persist_task => {
-                }
+            _ = &mut persist_task => {}
             }
         }
     }
