@@ -274,7 +274,7 @@ impl CoreManagerFunctions for PersistentCoreManager {
                 .get_vec(&physical_core_id)
                 .expect("Can't be empty");
             for physical_core_id in physical_core_ids {
-                result_logical_core_ids.insert(physical_core_id);
+                result_logical_core_ids.insert(physical_core_id.clone());
             }
         }
 
@@ -291,9 +291,8 @@ impl CoreManagerFunctions for PersistentCoreManager {
     fn release(&self, unit_ids: Vec<UnitId>) {
         let mut lock = self.state.write();
         for unit_id in unit_ids {
-            if let Some(core_id) = lock.unit_id_mapping.get_by_right(&unit_id).cloned() {
-                lock.available_cores.insert(core_id.clone());
-                lock.unit_id_mapping.remove_by_left(&core_id);
+            if let Some((physical_core_id, _)) = lock.unit_id_mapping.remove_by_right(&unit_id) {
+                lock.available_cores.insert(physical_core_id);
                 lock.work_type_mapping.remove(&unit_id);
             }
         }

@@ -100,7 +100,7 @@ fn main() -> eyre::Result<()> {
 
     let core_manager: Arc<CoreManager> = Arc::new(core_manager.into());
 
-    let system_cpu_cores_assignment = core_manager.system_cpu_assignment();
+    let system_cpu_cores_assignment = core_manager.get_system_cpu_assignment();
 
     let mut builder = tokio::runtime::Builder::new_multi_thread();
     // worker thread count should be equal assigned logical CPU count
