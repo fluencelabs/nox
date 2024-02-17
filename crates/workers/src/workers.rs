@@ -4,7 +4,7 @@ use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
 
 use core_affinity::{set_mask_for_current, CoreId};
-use core_manager::manager::{AcquireRequest, CoreManager, CoreManagerFunctions, WorkerType};
+use core_manager::manager::{AcquireRequest, CoreManager, CoreManagerFunctions, WorkType};
 use core_manager::UnitId;
 use fluence_libp2p::PeerId;
 use parking_lot::RwLock;
@@ -124,7 +124,7 @@ impl Workers {
         // Creating a multi-threaded Tokio runtime with a total of cu_count * 2 threads.
         // We assume cu_count threads per logical processor, aligning with the common practice.
         let assignment = core_manager
-            .acquire_worker_core(AcquireRequest::new(cu_ids, WorkerType::Worker))
+            .acquire_worker_core(AcquireRequest::new(cu_ids, WorkType::Deal))
             .map_err(|err| WorkersError::FailedToAssignCores { worker_id, err })?;
 
         let threads_count = assignment.logical_core_ids.len();

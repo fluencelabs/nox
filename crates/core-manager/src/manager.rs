@@ -58,7 +58,7 @@ pub enum CoreManager {
 
 pub struct PersistentCoreManager {
     file_path: PathBuf,
-    inner: RwLock<InnerState>,
+    state: RwLock<CoreManagerState>,
     sender: tokio::sync::mpsc::Sender<()>,
 }
 
@@ -123,12 +123,12 @@ impl PersistentCoreManager {
         let type_mapping =
             Map::with_capacity_and_hasher(available_core_count, FxBuildHasher::default());
 
-        let inner_state = InnerState {
+        let inner_state = CoreManagerState {
             cores_mapping,
             system_cores,
             available_cores,
             unit_id_mapping,
-            type_mapping,
+            work_type_mapping: type_mapping,
         };
 
         let result = Self::make_instance_with_task(file_name, inner_state);
@@ -138,7 +138,7 @@ impl PersistentCoreManager {
 
     fn make_instance_with_task(
         file_name: PathBuf,
-        inner_state: InnerState,
+        state: CoreManagerState,
     ) -> (Self, PersistenceTask) {
         let (sender, receiver) = tokio::sync::mpsc::channel(1);
 
@@ -146,7 +146,7 @@ impl PersistentCoreManager {
             Self {
                 file_path: file_name,
                 sender,
-                inner: RwLock::new(inner_state),
+                state: RwLock::new(state),
             },
             PersistenceTask { receiver },
         )
@@ -162,7 +162,7 @@ impl PersistentCoreManager {
             let bytes = std::fs::read(&file_name).map_err(|err| LoadingError::IoError { err })?;
             let toml = std::str::from_utf8(bytes.as_slice())
                 .map_err(|err| LoadingError::DecodeError { err })?;
-            let persistent_state: InnerState =
+            let persistent_state: CoreManagerState =
                 toml::from_str(toml).map_err(|err| LoadingError::DeserializationError { err })?;
 
             let config_range = Self::get_range(cpus_range.clone());
@@ -245,7 +245,7 @@ impl PersistenceTask {
 }
 
 #[derive(Serialize, Deserialize)]
-struct InnerState {
+struct CoreManagerState {
     // mapping between physical and logical cores
     cores_mapping: MultiMap<PhysicalCoreId, LogicalCoreId>,
     // allocated system cores
@@ -255,22 +255,22 @@ struct InnerState {
     // mapping between physical core id and unit id
     unit_id_mapping: BiMap<PhysicalCoreId, UnitId>,
     // mapping between unit id and workload type
-    type_mapping: Map<UnitId, WorkerType>,
+    work_type_mapping: Map<UnitId, WorkType>,
 }
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Serialize, Deserialize)]
-pub enum WorkerType {
-    CC,
-    Worker,
+pub enum WorkType {
+    CapacityCommitment,
+    Deal,
 }
 
 pub struct AcquireRequest {
     unit_ids: Vec<UnitId>,
-    worker_type: WorkerType,
+    worker_type: WorkType,
 }
 
 impl AcquireRequest {
-    pub fn new(unit_ids: Vec<UnitId>, worker_type: WorkerType) -> Self {
+    pub fn new(unit_ids: Vec<UnitId>, worker_type: WorkType) -> Self {
         Self {
             unit_ids,
             worker_type,
@@ -350,7 +350,7 @@ impl CoreManagerFunctions for PersistentCoreManager {
         &self,
         assign_request: AcquireRequest,
     ) -> Result<Assignment, AssignError> {
-        let mut lock = self.inner.write();
+        let mut lock = self.state.write();
         let mut physical_core_ids = BTreeSet::new();
         let mut logical_core_ids = BTreeSet::new();
         let worker_unit_type = assign_request.worker_type;
@@ -364,11 +364,11 @@ impl CoreManagerFunctions for PersistentCoreManager {
                         .ok_or(AssignError::NotFoundAvailableCores)?;
                     lock.unit_id_mapping
                         .insert(core_id.clone(), unit_id.clone());
-                    lock.type_mapping.insert(unit_id, worker_unit_type.clone());
+                    lock.work_type_mapping.insert(unit_id, worker_unit_type.clone());
                     core_id
                 }
                 Some(core_id) => {
-                    lock.type_mapping.insert(unit_id, worker_unit_type.clone());
+                    lock.work_type_mapping.insert(unit_id, worker_unit_type.clone());
                     core_id
                 }
             };
@@ -392,18 +392,18 @@ impl CoreManagerFunctions for PersistentCoreManager {
     }
 
     fn release(&self, unit_ids: Vec<UnitId>) {
-        let mut lock = self.inner.write();
+        let mut lock = self.state.write();
         for unit_id in unit_ids {
             if let Some(core_id) = lock.unit_id_mapping.get_by_right(&unit_id).cloned() {
                 lock.available_cores.insert(core_id.clone());
                 lock.unit_id_mapping.remove_by_left(&core_id);
-                lock.type_mapping.remove(&unit_id);
+                lock.work_type_mapping.remove(&unit_id);
             }
         }
     }
 
     fn system_cpu_assignment(&self) -> Assignment {
-        let lock = self.inner.read();
+        let lock = self.state.read();
         let mut logical_core_ids = BTreeSet::new();
         for core in &lock.system_cores {
             let core_ids = lock.cores_mapping.get_vec(core).cloned().unwrap();
@@ -418,7 +418,7 @@ impl CoreManagerFunctions for PersistentCoreManager {
     }
 
     fn persist(&self) -> Result<(), PersistError> {
-        let lock = self.inner.read();
+        let lock = self.state.read();
         let inner_state = lock.deref();
         let toml = toml::to_string_pretty(&inner_state)
             .map_err(|err| PersistError::SerializationError { err })?;
@@ -469,7 +469,7 @@ impl CoreManagerFunctions for DummyCoreManager {
 
 #[cfg(test)]
 mod tests {
-    use crate::manager::{AcquireRequest, CoreManagerFunctions, PersistentCoreManager, WorkerType};
+    use crate::manager::{AcquireRequest, CoreManagerFunctions, PersistentCoreManager, WorkType};
 
     fn cores_exists() -> bool {
         num_cpus::get_physical() >= 4
@@ -486,19 +486,19 @@ mod tests {
             let assignment_1 = manager
                 .acquire_worker_core(AcquireRequest {
                     unit_ids: unit_ids.clone(),
-                    worker_type: WorkerType::CC,
+                    worker_type: WorkType::CapacityCommitment,
                 })
                 .unwrap();
             let assignment_2 = manager
                 .acquire_worker_core(AcquireRequest {
                     unit_ids: unit_ids.clone(),
-                    worker_type: WorkerType::Worker,
+                    worker_type: WorkType::Deal,
                 })
                 .unwrap();
             let assignment_3 = manager
                 .acquire_worker_core(AcquireRequest {
                     unit_ids: unit_ids.clone(),
-                    worker_type: WorkerType::CC,
+                    worker_type: WorkType::CapacityCommitment,
                 })
                 .unwrap();
             assert_eq!(assignment_1, assignment_2);
@@ -517,11 +517,11 @@ mod tests {
                 None,
             )
             .unwrap();
-            let before_lock = manager.inner.read();
+            let before_lock = manager.state.read();
 
             let before_available_core = before_lock.available_cores.clone();
             let before_unit_id_mapping = before_lock.unit_id_mapping.clone();
-            let before_type_mapping = before_lock.type_mapping.clone();
+            let before_type_mapping = before_lock.work_type_mapping.clone();
             drop(before_lock);
 
             assert_eq!(
@@ -535,16 +535,16 @@ mod tests {
             let assignment = manager
                 .acquire_worker_core(AcquireRequest {
                     unit_ids: unit_ids.clone(),
-                    worker_type: WorkerType::CC,
+                    worker_type: WorkType::CapacityCommitment,
                 })
                 .unwrap();
             assert_eq!(assignment.physical_core_ids.len(), 2);
 
-            let after_assignment = manager.inner.read();
+            let after_assignment = manager.state.read();
 
             let after_assignment_available_core = after_assignment.available_cores.clone();
             let after_assignment_unit_id_mapping = after_assignment.unit_id_mapping.clone();
-            let after_assignment_type_mapping = after_assignment.type_mapping.clone();
+            let after_assignment_type_mapping = after_assignment.work_type_mapping.clone();
             drop(after_assignment);
 
             assert_eq!(
@@ -556,11 +556,11 @@ mod tests {
 
             manager.release(unit_ids);
 
-            let after_release_lock = manager.inner.read();
+            let after_release_lock = manager.state.read();
 
             let after_release_available_core = after_release_lock.available_cores.clone();
             let after_release_unit_id_mapping = after_release_lock.unit_id_mapping.clone();
-            let after_release_type_mapping = after_release_lock.type_mapping.clone();
+            let after_release_type_mapping = after_release_lock.work_type_mapping.clone();
             drop(after_release_lock);
 
             assert_eq!(after_release_available_core, before_available_core);
