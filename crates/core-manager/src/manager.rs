@@ -54,7 +54,54 @@ pub struct PersistentCoreManager {
 }
 
 impl PersistentCoreManager {
-    pub fn new(
+
+    /// Loads the state from `file_name` if exists. If not creates a new empty state
+    pub fn from_path(
+        file_path: PathBuf,
+        system_cpu_count: usize,
+        core_range: CoreRange,
+    ) -> Result<(Self, PersistenceTask), LoadingError> {
+        let exists = file_path.exists();
+        if exists {
+            let bytes = std::fs::read(&file_path).map_err(|err| LoadingError::IoError { err })?;
+            let raw_str = std::str::from_utf8(bytes.as_slice())
+                .map_err(|err| LoadingError::DecodeError { err })?;
+            let persistent_state: CoreManagerState = toml::from_str(raw_str)
+                .map_err(|err| LoadingError::DeserializationError { err })?;
+
+            let config_range = core_range.clone().0;
+            let mut loaded_range = RangeSetBlaze::new();
+            for core_id in persistent_state.cores_mapping.keys() {
+                loaded_range.insert(core_id.0);
+            }
+
+            if config_range == loaded_range
+                && persistent_state.system_cores.len() == system_cpu_count
+            {
+                Ok(Self::make_instance_with_task(file_path, persistent_state))
+            } else {
+                tracing::warn!(target: "core-manager", "The initial config has been changed. Ignoring the previous state");
+                let (core_manager, task) =
+                    Self::new(file_path.clone(), system_cpu_count, core_range)
+                        .map_err(|err| LoadingError::CreateCoreManager { err })?;
+                core_manager
+                    .persist()
+                    .map_err(|err| LoadingError::PersistError { err })?;
+                Ok((core_manager, task))
+            }
+        } else {
+            tracing::debug!(target: "core-manager", "The previous state was not found. Creating a new one.");
+            let (core_manager, task) = Self::new(file_path.clone(), system_cpu_count, core_range)
+                .map_err(|err| LoadingError::CreateCoreManager { err })?;
+            core_manager
+                .persist()
+                .map_err(|err| LoadingError::PersistError { err })?;
+            Ok((core_manager, task))
+        }
+    }
+
+    /// Creates an empty core manager with only system cores assigned
+    fn new(
         file_name: PathBuf,
         system_cpu_count: usize,
         core_range: CoreRange,
@@ -141,50 +188,6 @@ impl PersistentCoreManager {
             },
             PersistenceTask { receiver },
         )
-    }
-
-    pub fn from_path(
-        file_name: PathBuf,
-        system_cpu_count: usize,
-        core_range: CoreRange,
-    ) -> Result<(Self, PersistenceTask), LoadingError> {
-        let exists = file_name.exists();
-        if exists {
-            let bytes = std::fs::read(&file_name).map_err(|err| LoadingError::IoError { err })?;
-            let raw_str = std::str::from_utf8(bytes.as_slice())
-                .map_err(|err| LoadingError::DecodeError { err })?;
-            let persistent_state: CoreManagerState = toml::from_str(raw_str)
-                .map_err(|err| LoadingError::DeserializationError { err })?;
-
-            let config_range = core_range.clone().0;
-            let mut loaded_range = RangeSetBlaze::new();
-            for core_id in persistent_state.cores_mapping.keys() {
-                loaded_range.insert(core_id.0);
-            }
-
-            if config_range == loaded_range
-                && persistent_state.system_cores.len() == system_cpu_count
-            {
-                Ok(Self::make_instance_with_task(file_name, persistent_state))
-            } else {
-                tracing::warn!(target: "core-manager", "The initial config has been changed. Ignoring the previous state");
-                let (core_manager, task) =
-                    Self::new(file_name.clone(), system_cpu_count, core_range)
-                        .map_err(|err| LoadingError::CreateCoreManager { err })?;
-                core_manager
-                    .persist()
-                    .map_err(|err| LoadingError::PersistError { err })?;
-                Ok((core_manager, task))
-            }
-        } else {
-            tracing::debug!(target: "core-manager", "The previous state was not found. Creating a new one.");
-            let (core_manager, task) = Self::new(file_name.clone(), system_cpu_count, core_range)
-                .map_err(|err| LoadingError::CreateCoreManager { err })?;
-            core_manager
-                .persist()
-                .map_err(|err| LoadingError::PersistError { err })?;
-            Ok((core_manager, task))
-        }
     }
 }
 
@@ -385,7 +388,7 @@ mod tests {
         if cores_exists() {
             let temp_dir = tempfile::tempdir().expect("Failed to create temp dir");
 
-            let (manager, _task) = PersistentCoreManager::new(
+            let (manager, _task) = PersistentCoreManager::from_path(
                 temp_dir.path().join("test.toml"),
                 2,
                 CoreRange::default(),
@@ -420,7 +423,7 @@ mod tests {
         if cores_exists() {
             let temp_dir = tempfile::tempdir().expect("Failed to create temp dir");
             let system_cpu_count = 2;
-            let (manager, _task) = PersistentCoreManager::new(
+            let (manager, _task) = PersistentCoreManager::from_path(
                 temp_dir.path().join("test.toml"),
                 system_cpu_count,
                 CoreRange::default(),
