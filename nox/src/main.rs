@@ -34,6 +34,7 @@ use tokio::signal;
 use tokio::sync::oneshot;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
+use core_affinity::{set_mask_for_current, CoreId};
 
 use air_interpreter_fs::write_default_air_interpreter;
 use aquamarine::{DataStoreConfig, VmConfig};
