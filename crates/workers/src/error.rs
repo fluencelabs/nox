@@ -145,7 +145,7 @@ pub enum WorkersError {
         #[source]
         err: std::io::Error,
     },
-    #[error("Failed to allocate cores {worker_id}: {err}")]
+    #[error("Failed to allocate cores for {worker_id}: {err}")]
     FailedToAssignCores {
         worker_id: WorkerId,
         #[source]
