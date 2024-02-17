@@ -1,5 +1,7 @@
+use core_affinity::{set_mask_for_current, CoreId};
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, DisplayFromStr};
+use std::collections::BTreeSet;
 use types::unit_id::UnitId;
 
 #[serde_as]
@@ -39,5 +41,22 @@ impl AcquireRequest {
             unit_ids,
             worker_type,
         }
+    }
+}
+
+#[derive(Debug, Eq, PartialEq)]
+pub struct Assignment {
+    pub physical_core_ids: BTreeSet<PhysicalCoreId>,
+    pub logical_core_ids: BTreeSet<LogicalCoreId>,
+}
+
+impl Assignment {
+    pub fn pin_current_thread(&self) {
+        let cores: Vec<CoreId> = self
+            .logical_core_ids
+            .iter()
+            .map(|core_id| CoreId { id: core_id.0 })
+            .collect();
+        set_mask_for_current(&cores);
     }
 }

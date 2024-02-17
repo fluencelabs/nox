@@ -7,7 +7,6 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use core_affinity::{set_mask_for_current, CoreId};
 use enum_dispatch::enum_dispatch;
 use fxhash::{FxBuildHasher, FxHasher};
 use hwloc2::{ObjectType, Topology};
@@ -19,7 +18,7 @@ use types::unit_id::UnitId;
 
 use crate::core_range::CoreRange;
 use crate::errors::{AssignError, CreateError, LoadingError, PersistError};
-use crate::types::{AcquireRequest, LogicalCoreId, PhysicalCoreId, WorkType};
+use crate::types::{AcquireRequest, Assignment, LogicalCoreId, PhysicalCoreId, WorkType};
 
 extern crate hwloc2;
 
@@ -241,23 +240,6 @@ struct CoreManagerState {
     unit_id_mapping: BiMap<PhysicalCoreId, UnitId>,
     // mapping between unit id and workload type
     work_type_mapping: Map<UnitId, WorkType>,
-}
-
-#[derive(Debug, Eq, PartialEq)]
-pub struct Assignment {
-    pub physical_core_ids: BTreeSet<PhysicalCoreId>,
-    pub logical_core_ids: BTreeSet<LogicalCoreId>,
-}
-
-impl Assignment {
-    pub fn pin_current_thread(&self) {
-        let cores: Vec<CoreId> = self
-            .logical_core_ids
-            .iter()
-            .map(|core_id| CoreId { id: core_id.0 })
-            .collect();
-        set_mask_for_current(&cores);
-    }
 }
 
 impl CoreManagerFunctions for PersistentCoreManager {
