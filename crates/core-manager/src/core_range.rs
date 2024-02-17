@@ -51,6 +51,7 @@ impl FromStr for CoreRange {
                         .map_err(|_| ParseError::WrongRangeFormat {
                             raw_str: trimmed.to_string(),
                         })?;
+                    // insert the inclusive range
                     result.ranges_insert(l..=r);
                 }
                 [value] => {

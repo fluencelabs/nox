@@ -364,11 +364,13 @@ impl CoreManagerFunctions for PersistentCoreManager {
                         .ok_or(AssignError::NotFoundAvailableCores)?;
                     lock.unit_id_mapping
                         .insert(core_id.clone(), unit_id.clone());
-                    lock.work_type_mapping.insert(unit_id, worker_unit_type.clone());
+                    lock.work_type_mapping
+                        .insert(unit_id, worker_unit_type.clone());
                     core_id
                 }
                 Some(core_id) => {
-                    lock.work_type_mapping.insert(unit_id, worker_unit_type.clone());
+                    lock.work_type_mapping
+                        .insert(unit_id, worker_unit_type.clone());
                     core_id
                 }
             };
