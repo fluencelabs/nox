@@ -129,7 +129,7 @@ impl PersistentCoreManager {
         file_name: PathBuf,
         state: CoreManagerState,
     ) -> (Self, PersistenceTask) {
-        // This channel is used to notify a persistence task about changes.
+        // This channel is used to notify a persistent task about changes.
         // It has a size of 1 because we need only the fact that this change happen
         let (sender, receiver) = tokio::sync::mpsc::channel(1);
 
