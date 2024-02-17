@@ -5,7 +5,7 @@ use std::collections::BTreeSet;
 use types::unit_id::UnitId;
 
 #[serde_as]
-#[derive(PartialEq, Eq, Hash, Clone, Debug, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(PartialEq, Eq, Hash, Clone, Copy, Debug, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct PhysicalCoreId(#[serde_as(as = "DisplayFromStr")] pub(crate) usize);
 
 impl PhysicalCoreId {
@@ -15,7 +15,7 @@ impl PhysicalCoreId {
 }
 
 #[serde_as]
-#[derive(PartialEq, Eq, Hash, Clone, Debug, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(PartialEq, Eq, Hash, Clone, Copy, Debug, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct LogicalCoreId(#[serde_as(as = "DisplayFromStr")] pub(crate) usize);
 
 impl LogicalCoreId {

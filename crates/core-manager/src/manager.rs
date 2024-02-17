@@ -88,13 +88,10 @@ impl PersistentCoreManager {
             if core_range.0.contains(physical_core_id) {
                 let logical_cores = physical_core.children();
                 let physical_core_id = PhysicalCoreId::new(physical_core_id);
-                available_cores.insert(physical_core_id.clone());
+                available_cores.insert(physical_core_id);
                 for logical_core in logical_cores {
                     let logical_core_id = logical_core.os_index() as usize;
-                    cores_mapping.insert(
-                        physical_core_id.clone(),
-                        LogicalCoreId::new(logical_core_id),
-                    )
+                    cores_mapping.insert(physical_core_id, LogicalCoreId::new(logical_core_id))
                 }
             }
         }
@@ -248,19 +245,18 @@ impl CoreManagerFunctions for PersistentCoreManager {
         assign_request: AcquireRequest,
     ) -> Result<Assignment, AssignError> {
         let mut lock = self.state.write();
-        let mut physical_core_ids = BTreeSet::new();
-        let mut logical_core_ids = BTreeSet::new();
+        let mut result_physical_core_ids = BTreeSet::new();
+        let mut result_logical_core_ids = BTreeSet::new();
         let worker_unit_type = assign_request.worker_type;
         for unit_id in assign_request.unit_ids {
-            let core_id = lock.unit_id_mapping.get_by_right(&unit_id).cloned();
-            let core_id = match core_id {
+            let physical_core_id = lock.unit_id_mapping.get_by_right(&unit_id).cloned();
+            let physical_core_id = match physical_core_id {
                 None => {
                     let core_id = lock
                         .available_cores
                         .pop_last()
                         .ok_or(AssignError::NotFoundAvailableCores)?;
-                    lock.unit_id_mapping
-                        .insert(core_id.clone(), unit_id.clone());
+                    lock.unit_id_mapping.insert(core_id, unit_id.clone());
                     lock.work_type_mapping
                         .insert(unit_id, worker_unit_type.clone());
                     core_id
@@ -271,14 +267,14 @@ impl CoreManagerFunctions for PersistentCoreManager {
                     core_id
                 }
             };
-            physical_core_ids.insert(core_id.clone());
-            let local_physical_core_ids = lock
+            result_physical_core_ids.insert(physical_core_id);
+            let physical_core_ids = lock
                 .cores_mapping
-                .get_vec(&core_id)
+                .get_vec(&physical_core_id)
                 .expect("Can't be empty");
-            for local_physical_core_id in local_physical_core_ids {
-                let local_physical_core_id = local_physical_core_id.clone();
-                logical_core_ids.insert(local_physical_core_id);
+            for physical_core_id in physical_core_ids {
+                let physical_core_id = physical_core_id.clone();
+                result_logical_core_ids.insert(physical_core_id);
             }
         }
 
@@ -287,8 +283,8 @@ impl CoreManagerFunctions for PersistentCoreManager {
         let _ = self.sender.try_send(());
 
         Ok(Assignment {
-            physical_core_ids,
-            logical_core_ids,
+            physical_core_ids: result_physical_core_ids,
+            logical_core_ids: result_logical_core_ids,
         })
     }
 
