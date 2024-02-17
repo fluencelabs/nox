@@ -36,7 +36,7 @@ pub trait CoreManagerFunctions {
 
     fn release(&self, unit_ids: Vec<UnitId>);
 
-    fn system_cpu_assignment(&self) -> Assignment;
+    fn get_system_cpu_assignment(&self) -> Assignment;
 
     fn persist(&self) -> Result<(), PersistError>;
 }
@@ -72,8 +72,10 @@ impl PersistentCoreManager {
             });
         }
 
+        // to observe CPU topology
         let topology = Topology::new().ok_or(CreateError::CreateTopology)?;
 
+        // retrieve info about physical cores
         let cores = topology
             .objects_with_type(&ObjectType::Core)
             .map_err(|err| CreateError::CollectCoresData { err })?;
@@ -147,10 +149,10 @@ impl PersistentCoreManager {
         let exists = file_name.exists();
         if exists {
             let bytes = std::fs::read(&file_name).map_err(|err| LoadingError::IoError { err })?;
-            let toml = std::str::from_utf8(bytes.as_slice())
+            let raw_str = std::str::from_utf8(bytes.as_slice())
                 .map_err(|err| LoadingError::DecodeError { err })?;
-            let persistent_state: CoreManagerState =
-                toml::from_str(toml).map_err(|err| LoadingError::DeserializationError { err })?;
+            let persistent_state: CoreManagerState = toml::from_str(raw_str)
+                .map_err(|err| LoadingError::DeserializationError { err })?;
 
             let config_range = core_range.clone().0;
             let mut loaded_range = RangeSetBlaze::new();
@@ -204,7 +206,7 @@ impl PersistenceTask {
             }
         })
         .await
-        .expect("Could not join persist task")
+        .expect("Could not spawn persist task")
     }
 
     async fn persistence_task(self, core_manager: Arc<CoreManager>) {
@@ -298,7 +300,7 @@ impl CoreManagerFunctions for PersistentCoreManager {
         }
     }
 
-    fn system_cpu_assignment(&self) -> Assignment {
+    fn get_system_cpu_assignment(&self) -> Assignment {
         let lock = self.state.read();
         let mut logical_core_ids = BTreeSet::new();
         for core in &lock.system_cores {
@@ -358,7 +360,7 @@ impl CoreManagerFunctions for DummyCoreManager {
 
     fn release(&self, _unit_ids: Vec<UnitId>) {}
 
-    fn system_cpu_assignment(&self) -> Assignment {
+    fn get_system_cpu_assignment(&self) -> Assignment {
         self.all_cores()
     }
     fn persist(&self) -> Result<(), PersistError> {
