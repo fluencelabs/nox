@@ -102,6 +102,16 @@ impl UnresolvedDirConfig {
             core_state_path,
         })
     }
+
+    pub fn resolve_core_state_path(&self) -> eyre::Result<PathBuf> {
+        let base = to_abs_path(self.base_dir.clone());
+        let base = canonicalize(base)?;
+        let core_state_path = self
+            .core_state_path
+            .clone()
+            .unwrap_or(PathBuf::from("cores_state.toml"));
+        Ok(base.join(core_state_path))
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
