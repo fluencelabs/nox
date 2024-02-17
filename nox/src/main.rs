@@ -27,7 +27,6 @@
 )]
 
 use base64::{engine::general_purpose::STANDARD as base64, Engine};
-use core_affinity::{set_mask_for_current, CoreId};
 use eyre::WrapErr;
 use libp2p::PeerId;
 use std::sync::Arc;
@@ -103,17 +102,9 @@ fn main() -> eyre::Result<()> {
 
     let system_cpu_cores_assignment = core_manager.system_cpu_assignment();
 
-    let system_cpu_cores: Vec<CoreId> = system_cpu_cores_assignment
-        .logical_core_ids
-        .iter()
-        .map(|core_id| CoreId { id: core_id.0 })
-        .collect();
-
     let mut builder = tokio::runtime::Builder::new_multi_thread();
     builder.worker_threads(system_cpu_cores_assignment.logical_core_ids.len());
-    builder.on_thread_start(move || {
-        set_mask_for_current(&system_cpu_cores);
-    });
+    builder.on_thread_start(move || system_cpu_cores_assignment.pin_current_thread());
 
     builder.enable_all();
 

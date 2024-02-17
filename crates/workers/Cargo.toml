@@ -10,7 +10,7 @@ fs-utils = { workspace = true }
 fluence-libp2p = { workspace = true }
 fluence-keypair = { workspace = true }
 core-manager = { workspace = true }
-core_affinity = { workspace = true }
+
 
 parking_lot = { workspace = true }
 eyre = { workspace = true }

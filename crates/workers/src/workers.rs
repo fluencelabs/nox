@@ -3,7 +3,6 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
 
-use core_affinity::{set_mask_for_current, CoreId};
 use core_manager::manager::{AcquireRequest, CoreManager, CoreManagerFunctions, WorkType};
 use core_manager::UnitId;
 use fluence_libp2p::PeerId;
@@ -129,12 +128,6 @@ impl Workers {
 
         let threads_count = assignment.logical_core_ids.len();
 
-        let cores: Vec<CoreId> = assignment
-            .logical_core_ids
-            .iter()
-            .map(|core_id| CoreId { id: core_id.0 })
-            .collect();
-
         let id = worker_counter.fetch_add(1, Ordering::Acquire);
 
         let runtime = tokio::runtime::Builder::new_multi_thread()
@@ -144,7 +137,7 @@ impl Workers {
             // Configuring blocking threads for handling I/O
             .max_blocking_threads(threads_count)
             .on_thread_start(move || {
-                set_mask_for_current(&cores);
+                assignment.pin_current_thread();
             })
             .build()
             .map_err(|err| WorkersError::CreateRuntime { worker_id, err })?;

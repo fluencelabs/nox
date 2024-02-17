@@ -8,6 +8,7 @@ use std::str::Utf8Error;
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use core_affinity::{set_mask_for_current, CoreId};
 use enum_dispatch::enum_dispatch;
 use fxhash::{FxBuildHasher, FxHasher};
 use hwloc2::{ObjectType, Topology, TypeDepthError};
@@ -337,6 +338,17 @@ pub struct Assignment {
     pub logical_core_ids: BTreeSet<LogicalCoreId>,
 }
 
+impl Assignment {
+    pub fn pin_current_thread(&self) {
+        let cores: Vec<CoreId> = self
+            .logical_core_ids
+            .iter()
+            .map(|core_id| CoreId { id: core_id.0 })
+            .collect();
+        set_mask_for_current(&cores);
+    }
+}
+
 impl CoreManagerFunctions for PersistentCoreManager {
     fn acquire_worker_core(
         &self,
@@ -466,6 +478,7 @@ impl CoreManagerFunctions for DummyCoreManager {
 #[cfg(test)]
 mod tests {
     use crate::manager::{AcquireRequest, CoreManagerFunctions, PersistentCoreManager, WorkType};
+    use crate::CoreRange;
 
     fn cores_exists() -> bool {
         num_cpus::get_physical() >= 4
@@ -476,8 +489,12 @@ mod tests {
         if cores_exists() {
             let temp_dir = tempfile::tempdir().expect("Failed to create temp dir");
 
-            let (manager, _task) =
-                PersistentCoreManager::new(temp_dir.path().join("test.toml"), 2, None).unwrap();
+            let (manager, _task) = PersistentCoreManager::new(
+                temp_dir.path().join("test.toml"),
+                2,
+                CoreRange::default(),
+            )
+            .unwrap();
             let unit_ids = vec!["1".into(), "2".into()];
             let assignment_1 = manager
                 .acquire_worker_core(AcquireRequest {
@@ -510,7 +527,7 @@ mod tests {
             let (manager, _task) = PersistentCoreManager::new(
                 temp_dir.path().join("test.toml"),
                 system_cpu_count,
-                None,
+                CoreRange::default(),
             )
             .unwrap();
             let before_lock = manager.state.read();
