@@ -276,6 +276,7 @@ impl CoreManagerFunctions for PersistentCoreManager {
             let physical_core_ids = lock
                 .cores_mapping
                 .get_vec(&physical_core_id)
+                .cloned()
                 .expect("Can't be empty");
             for physical_core_id in physical_core_ids {
                 result_logical_core_ids.insert(physical_core_id);
