@@ -318,6 +318,7 @@ impl CoreManagerFunctions for PersistentCoreManager {
         let inner_state = lock.deref();
         let toml = toml::to_string_pretty(&inner_state)
             .map_err(|err| PersistError::SerializationError { err })?;
+        drop(lock);
         let exists = self.file_path.exists();
         let mut file = if exists {
             File::open(self.file_path.clone()).map_err(|err| PersistError::IoError { err })?
