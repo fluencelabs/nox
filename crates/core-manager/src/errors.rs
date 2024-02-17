@@ -58,7 +58,7 @@ pub enum PersistError {
 }
 
 #[derive(Debug, Error)]
-pub enum AssignError {
-    #[error("Not found free cores")]
+pub enum AcquireError {
+    #[error("Couldn't assign core: no free cores left")]
     NotFoundAvailableCores,
 }

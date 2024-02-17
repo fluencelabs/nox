@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use core_manager::errors::AssignError;
+use core_manager::errors::AcquireError;
 use libp2p::PeerId;
 use std::path::PathBuf;
 use thiserror::Error;
@@ -149,6 +149,6 @@ pub enum WorkersError {
     FailedToAssignCores {
         worker_id: WorkerId,
         #[source]
-        err: AssignError,
+        err: AcquireError,
     },
 }

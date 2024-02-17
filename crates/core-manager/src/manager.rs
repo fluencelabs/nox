@@ -17,7 +17,7 @@ use tokio::sync::mpsc::Receiver;
 use types::unit_id::UnitId;
 
 use crate::core_range::CoreRange;
-use crate::errors::{AssignError, CreateError, LoadingError, PersistError};
+use crate::errors::{AcquireError, CreateError, LoadingError, PersistError};
 use crate::types::{AcquireRequest, Assignment, LogicalCoreId, PhysicalCoreId, WorkType};
 
 extern crate hwloc2;
@@ -32,7 +32,7 @@ pub trait CoreManagerFunctions {
     fn acquire_worker_core(
         &self,
         assign_request: AcquireRequest,
-    ) -> Result<Assignment, AssignError>;
+    ) -> Result<Assignment, AcquireError>;
 
     fn release(&self, unit_ids: Vec<UnitId>);
 
@@ -242,7 +242,7 @@ impl CoreManagerFunctions for PersistentCoreManager {
     fn acquire_worker_core(
         &self,
         assign_request: AcquireRequest,
-    ) -> Result<Assignment, AssignError> {
+    ) -> Result<Assignment, AcquireError> {
         let mut lock = self.state.write();
         let mut result_physical_core_ids = BTreeSet::new();
         let mut result_logical_core_ids = BTreeSet::new();
@@ -254,7 +254,7 @@ impl CoreManagerFunctions for PersistentCoreManager {
                     let core_id = lock
                         .available_cores
                         .pop_last()
-                        .ok_or(AssignError::NotFoundAvailableCores)?;
+                        .ok_or(AcquireError::NotFoundAvailableCores)?;
                     lock.unit_id_mapping.insert(core_id, unit_id.clone());
                     lock.work_type_mapping
                         .insert(unit_id, worker_unit_type.clone());
@@ -351,7 +351,7 @@ impl CoreManagerFunctions for DummyCoreManager {
     fn acquire_worker_core(
         &self,
         _assign_request: AcquireRequest,
-    ) -> Result<Assignment, AssignError> {
+    ) -> Result<Assignment, AcquireError> {
         Ok(self.all_cores())
     }
 
