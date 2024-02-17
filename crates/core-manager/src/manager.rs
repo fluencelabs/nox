@@ -195,6 +195,8 @@ pub struct PersistenceTask {
 impl PersistenceTask {
     async fn process_events(core_manager: Arc<CoreManager>, mut receiver: Receiver<()>) {
         let core_manager = core_manager.clone();
+        // We are not interested in the content of the event
+        // We are waiting for the event to initiate the persistence process
         let _ = receiver.recv().await;
         tokio::task::spawn_blocking(move || {
             let result = core_manager.persist();
