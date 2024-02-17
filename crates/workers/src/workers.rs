@@ -42,7 +42,7 @@ pub struct Workers {
     /// Core manager for core assignment
     core_manager: Arc<CoreManager>,
     /// Number of created tokio runtimes
-    worker_counter: Arc<AtomicU32>,
+    runtime_counter: Arc<AtomicU32>,
 }
 
 pub struct WorkerParams {
@@ -110,7 +110,7 @@ impl Workers {
             workers_dir,
             key_storage,
             runtimes: RwLock::new(runtimes),
-            worker_counter,
+            runtime_counter: worker_counter,
             core_manager,
         })
     }
@@ -192,7 +192,7 @@ impl Workers {
 
                         let runtime = Self::build_runtime(
                             self.core_manager.clone(),
-                            self.worker_counter.clone(),
+                            self.runtime_counter.clone(),
                             worker_id,
                             cu_ids,
                         )?;
