@@ -379,7 +379,7 @@ impl CoreManagerFunctions for PersistentCoreManager {
                 .expect("Unexpected state. Should not be empty never");
 
             for physical_core_id in physical_core_ids {
-                result_logical_core_ids.insert(physical_core_id);
+                result_logical_core_ids.insert(physical_core_id.clone());
             }
         }
 
