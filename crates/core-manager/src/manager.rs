@@ -76,7 +76,6 @@ type BiMap<K, V> =
 ///
 /// сore_manager.release(unit_ids);
 /// ```
-
 #[enum_dispatch]
 pub trait CoreManagerFunctions {
     fn acquire_worker_core(
@@ -196,7 +195,11 @@ impl PersistentCoreManager {
 
         let mut system_cores: BTreeSet<PhysicalCoreId> = BTreeSet::new();
         for _ in 0..system_cpu_count {
-            system_cores.insert(available_cores.pop_first().expect("Can't be empty"));
+            system_cores.insert(
+                available_cores
+                    .pop_first()
+                    .expect("Unexpected state. Should not be empty never"),
+            );
         }
 
         let unit_id_mapping = BiMap::with_capacity_and_hashers(
@@ -325,11 +328,13 @@ impl CoreManagerFunctions for PersistentCoreManager {
                 }
             };
             result_physical_core_ids.insert(physical_core_id);
+
             let physical_core_ids = lock
                 .cores_mapping
                 .get_vec(&physical_core_id)
                 .cloned()
-                .expect("Can't be empty");
+                .expect("Unexpected state. Should not be empty never");
+
             for physical_core_id in physical_core_ids {
                 result_logical_core_ids.insert(physical_core_id);
             }
@@ -359,7 +364,11 @@ impl CoreManagerFunctions for PersistentCoreManager {
         let lock = self.state.read();
         let mut logical_core_ids = BTreeSet::new();
         for core in &lock.system_cores {
-            let core_ids = lock.cores_mapping.get_vec(core).cloned().unwrap();
+            let core_ids = lock
+                .cores_mapping
+                .get_vec(core)
+                .cloned()
+                .expect("Unexpected state. Should not be empty never");
             for core_id in core_ids {
                 logical_core_ids.insert(core_id);
             }

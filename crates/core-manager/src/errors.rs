@@ -61,4 +61,6 @@ pub enum PersistError {
 pub enum AcquireError {
     #[error("Couldn't assign core: no free cores left")]
     NotFoundAvailableCores,
+    #[error("Unexpected state")]
+    UnexpectedState,
 }
