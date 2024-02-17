@@ -92,7 +92,7 @@ fn main() -> eyre::Result<()> {
     }
 
     let (core_manager, core_manager_task) = PersistentCoreManager::from_path(
-        config.dir_config.base_dir.clone(),
+        config.dir_config.resolve_core_state_path()?,
         config.node_config.system_cpu_count,
         config.node_config.cpus_range.clone(),
     )?;
@@ -128,11 +128,10 @@ fn main() -> eyre::Result<()> {
         .build()
         .expect("Could not make tokio runtime")
         .block_on(async {
-            let resolver_config = config.clone().resolve()?;
-
+            let resolved_config = config.clone().resolve()?;
             core_manager_task.run(core_manager.clone()).await;
 
-            let key_pair = resolver_config.node_config.root_key_pair.clone();
+            let key_pair = resolved_config.node_config.root_key_pair.clone();
             let base64_key_pair = base64.encode(key_pair.public().to_vec());
             let peer_id = to_peer_id(&key_pair.into());
 
@@ -151,11 +150,11 @@ fn main() -> eyre::Result<()> {
             log::info!("node server peer id = {}", peer_id);
 
             let interpreter_path =
-                to_abs_path(resolver_config.dir_config.air_interpreter_path.clone());
+                to_abs_path(resolved_config.dir_config.air_interpreter_path.clone());
             write_default_air_interpreter(&interpreter_path)?;
             log::info!("AIR interpreter: {:?}", interpreter_path);
 
-            let fluence = start_fluence(resolver_config, core_manager, peer_id).await?;
+            let fluence = start_fluence(resolved_config, core_manager, peer_id).await?;
             log::info!("Fluence has been successfully started.");
             log::info!("Waiting for Ctrl-C to exit...");
 

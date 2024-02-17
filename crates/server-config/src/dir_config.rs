@@ -48,6 +48,9 @@ pub struct UnresolvedDirConfig {
 
     /// Path to stored cc events
     pub cc_events_dir: Option<PathBuf>,
+
+    /// Path to stored core_state
+    pub core_state_path: Option<PathBuf>,
 }
 
 impl UnresolvedDirConfig {
@@ -93,6 +96,16 @@ impl UnresolvedDirConfig {
             workers_base_dir,
             cc_events_dir,
         })
+    }
+
+    pub fn resolve_core_state_path(&self) -> eyre::Result<PathBuf> {
+        let base = to_abs_path(self.base_dir.clone());
+        let base = canonicalize(base)?;
+        let core_state_path = self
+            .core_state_path
+            .clone()
+            .unwrap_or(PathBuf::from("cores_state.toml"));
+        Ok(base.join(core_state_path))
     }
 }
 

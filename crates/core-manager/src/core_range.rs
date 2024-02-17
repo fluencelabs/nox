@@ -27,6 +27,7 @@ impl TryFrom<&[usize]> for CoreRange {
 impl FromStr for CoreRange {
     type Err = ParseError;
 
+    /// Parse CoreRange from string like "1,2-30,31"
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let mut result: RangeSetBlaze<usize> = RangeSetBlaze::new();
         let trimmed = s.trim();
@@ -36,8 +37,9 @@ impl FromStr for CoreRange {
 
         for part in trimmed.split(',') {
             let trimmed = part.trim();
-            let split: Vec<&str> = trimmed.split('-').collect();
-            match split[..] {
+            // either a single number or a dash range
+            let range: Vec<&str> = trimmed.split('-').collect();
+            match range[..] {
                 [l, r] => {
                     let l = l
                         .parse::<usize>()

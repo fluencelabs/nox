@@ -28,8 +28,6 @@ type MultiMap<K, V> = multimap::MultiMap<K, V, BuildHasherDefault<FxHasher>>;
 type BiMap<K, V> =
     bimap::BiHashMap<K, V, BuildHasherDefault<FxHasher>, BuildHasherDefault<FxHasher>>;
 
-const FILE_NAME: &str = "cores_state.toml";
-
 #[serde_as]
 #[derive(PartialEq, Eq, Hash, Clone, Debug, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct PhysicalCoreId(#[serde_as(as = "DisplayFromStr")] usize);
@@ -40,9 +38,12 @@ pub struct LogicalCoreId(#[serde_as(as = "DisplayFromStr")] pub usize);
 
 #[enum_dispatch]
 pub trait CoreManagerFunctions {
-    fn assign_worker_core(&self, assign_request: AssignRequest) -> Result<Assignment, AssignError>;
+    fn acquire_worker_core(
+        &self,
+        assign_request: AcquireRequest,
+    ) -> Result<Assignment, AssignError>;
 
-    fn free(&self, unit_ids: Vec<UnitId>);
+    fn release(&self, unit_ids: Vec<UnitId>);
 
     fn system_cpu_assignment(&self) -> Assignment;
 
@@ -152,14 +153,13 @@ impl PersistentCoreManager {
     }
 
     pub fn from_path(
-        base_dir: PathBuf,
+        file_name: PathBuf,
         system_cpu_count: usize,
         cpus_range: Option<CoreRange>,
     ) -> Result<(Self, PersistenceTask), LoadingError> {
-        let state_file = base_dir.join(FILE_NAME);
-        let exists = state_file.exists();
+        let exists = file_name.exists();
         if exists {
-            let bytes = std::fs::read(&state_file).map_err(|err| LoadingError::IoError { err })?;
+            let bytes = std::fs::read(&file_name).map_err(|err| LoadingError::IoError { err })?;
             let toml = std::str::from_utf8(bytes.as_slice())
                 .map_err(|err| LoadingError::DecodeError { err })?;
             let persistent_state: InnerState =
@@ -174,11 +174,11 @@ impl PersistentCoreManager {
             if config_range == loaded_range
                 && persistent_state.system_cores.len() == system_cpu_count
             {
-                Ok(Self::make_instance_with_task(state_file, persistent_state))
+                Ok(Self::make_instance_with_task(file_name, persistent_state))
             } else {
                 tracing::warn!(target: "core-manager", "The initial config has been changed. Ignoring the previous state");
                 let (core_manager, task) =
-                    Self::new(state_file.clone(), system_cpu_count, cpus_range)
+                    Self::new(file_name.clone(), system_cpu_count, cpus_range)
                         .map_err(|err| LoadingError::CreateCoreManager { err })?;
                 core_manager
                     .persist()
@@ -187,7 +187,7 @@ impl PersistentCoreManager {
             }
         } else {
             tracing::debug!(target: "core-manager", "The previous state was not found. Skipping...");
-            let (core_manager, task) = Self::new(state_file.clone(), system_cpu_count, cpus_range)
+            let (core_manager, task) = Self::new(file_name.clone(), system_cpu_count, cpus_range)
                 .map_err(|err| LoadingError::CreateCoreManager { err })?;
             core_manager
                 .persist()
@@ -264,12 +264,12 @@ pub enum WorkerType {
     Worker,
 }
 
-pub struct AssignRequest {
+pub struct AcquireRequest {
     unit_ids: Vec<UnitId>,
     worker_type: WorkerType,
 }
 
-impl AssignRequest {
+impl AcquireRequest {
     pub fn new(unit_ids: Vec<UnitId>, worker_type: WorkerType) -> Self {
         Self {
             unit_ids,
@@ -346,7 +346,10 @@ pub struct Assignment {
 }
 
 impl CoreManagerFunctions for PersistentCoreManager {
-    fn assign_worker_core(&self, assign_request: AssignRequest) -> Result<Assignment, AssignError> {
+    fn acquire_worker_core(
+        &self,
+        assign_request: AcquireRequest,
+    ) -> Result<Assignment, AssignError> {
         let mut lock = self.inner.write();
         let mut physical_core_ids = BTreeSet::new();
         let mut logical_core_ids = BTreeSet::new();
@@ -388,7 +391,7 @@ impl CoreManagerFunctions for PersistentCoreManager {
         })
     }
 
-    fn free(&self, unit_ids: Vec<UnitId>) {
+    fn release(&self, unit_ids: Vec<UnitId>) {
         let mut lock = self.inner.write();
         for unit_id in unit_ids {
             if let Some(core_id) = lock.unit_id_mapping.get_by_right(&unit_id).cloned() {
@@ -447,14 +450,14 @@ impl DummyCoreManager {
 
 #[async_trait]
 impl CoreManagerFunctions for DummyCoreManager {
-    fn assign_worker_core(
+    fn acquire_worker_core(
         &self,
-        _assign_request: AssignRequest,
+        _assign_request: AcquireRequest,
     ) -> Result<Assignment, AssignError> {
         Ok(self.all_cores())
     }
 
-    fn free(&self, _unit_ids: Vec<UnitId>) {}
+    fn release(&self, _unit_ids: Vec<UnitId>) {}
 
     fn system_cpu_assignment(&self) -> Assignment {
         self.all_cores()
@@ -466,34 +469,103 @@ impl CoreManagerFunctions for DummyCoreManager {
 
 #[cfg(test)]
 mod tests {
-    use crate::manager::{AssignRequest, CoreManagerFunctions, PersistentCoreManager, WorkerType};
+    use crate::manager::{AcquireRequest, CoreManagerFunctions, PersistentCoreManager, WorkerType};
+
+    fn cores_exists() -> bool {
+        num_cpus::get_physical() >= 4
+    }
 
     #[test]
-    fn test_assignment_and_switching() {
-        let temp_dir = tempfile::tempdir().expect("Failed to create temp dir");
+    fn test_acquire_and_switch() {
+        if cores_exists() {
+            let temp_dir = tempfile::tempdir().expect("Failed to create temp dir");
 
-        let (manager, _task) =
-            PersistentCoreManager::new(temp_dir.path().join("test.toml"), 2, None).unwrap();
-        let unit_ids = vec!["1".into(), "2".into()];
-        let assignment_1 = manager
-            .assign_worker_core(AssignRequest {
-                unit_ids: unit_ids.clone(),
-                worker_type: WorkerType::CC,
-            })
+            let (manager, _task) =
+                PersistentCoreManager::new(temp_dir.path().join("test.toml"), 2, None).unwrap();
+            let unit_ids = vec!["1".into(), "2".into()];
+            let assignment_1 = manager
+                .acquire_worker_core(AcquireRequest {
+                    unit_ids: unit_ids.clone(),
+                    worker_type: WorkerType::CC,
+                })
+                .unwrap();
+            let assignment_2 = manager
+                .acquire_worker_core(AcquireRequest {
+                    unit_ids: unit_ids.clone(),
+                    worker_type: WorkerType::Worker,
+                })
+                .unwrap();
+            let assignment_3 = manager
+                .acquire_worker_core(AcquireRequest {
+                    unit_ids: unit_ids.clone(),
+                    worker_type: WorkerType::CC,
+                })
+                .unwrap();
+            assert_eq!(assignment_1, assignment_2);
+            assert_eq!(assignment_1, assignment_3);
+        }
+    }
+
+    #[test]
+    fn test_acquire_and_release() {
+        if cores_exists() {
+            let temp_dir = tempfile::tempdir().expect("Failed to create temp dir");
+            let system_cpu_count = 2;
+            let (manager, _task) = PersistentCoreManager::new(
+                temp_dir.path().join("test.toml"),
+                system_cpu_count,
+                None,
+            )
             .unwrap();
-        let assignment_2 = manager
-            .assign_worker_core(AssignRequest {
-                unit_ids: unit_ids.clone(),
-                worker_type: WorkerType::Worker,
-            })
-            .unwrap();
-        let assignment_3 = manager
-            .assign_worker_core(AssignRequest {
-                unit_ids: unit_ids.clone(),
-                worker_type: WorkerType::CC,
-            })
-            .unwrap();
-        assert_eq!(assignment_1, assignment_2);
-        assert_eq!(assignment_1, assignment_3);
+            let before_lock = manager.inner.read();
+
+            let before_available_core = before_lock.available_cores.clone();
+            let before_unit_id_mapping = before_lock.unit_id_mapping.clone();
+            let before_type_mapping = before_lock.type_mapping.clone();
+            drop(before_lock);
+
+            assert_eq!(
+                before_available_core.len(),
+                num_cpus::get_physical() - system_cpu_count
+            );
+            assert_eq!(before_unit_id_mapping.len(), 0);
+            assert_eq!(before_type_mapping.len(), 0);
+
+            let unit_ids = vec!["1".into(), "2".into()];
+            let assignment = manager
+                .acquire_worker_core(AcquireRequest {
+                    unit_ids: unit_ids.clone(),
+                    worker_type: WorkerType::CC,
+                })
+                .unwrap();
+            assert_eq!(assignment.physical_core_ids.len(), 2);
+
+            let after_assignment = manager.inner.read();
+
+            let after_assignment_available_core = after_assignment.available_cores.clone();
+            let after_assignment_unit_id_mapping = after_assignment.unit_id_mapping.clone();
+            let after_assignment_type_mapping = after_assignment.type_mapping.clone();
+            drop(after_assignment);
+
+            assert_eq!(
+                after_assignment_available_core.len(),
+                before_available_core.len() - 2
+            );
+            assert_eq!(after_assignment_unit_id_mapping.len(), 2);
+            assert_eq!(after_assignment_type_mapping.len(), 2);
+
+            manager.release(unit_ids);
+
+            let after_release_lock = manager.inner.read();
+
+            let after_release_available_core = after_release_lock.available_cores.clone();
+            let after_release_unit_id_mapping = after_release_lock.unit_id_mapping.clone();
+            let after_release_type_mapping = after_release_lock.type_mapping.clone();
+            drop(after_release_lock);
+
+            assert_eq!(after_release_available_core, before_available_core);
+            assert_eq!(after_release_unit_id_mapping, before_unit_id_mapping);
+            assert_eq!(after_release_type_mapping, before_type_mapping);
+        }
     }
 }
