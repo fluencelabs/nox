@@ -143,7 +143,7 @@ tracing = { version = "0.1.40", default-features = false, features = ["log"] }
 tracing-subscriber = "0.3.18"
 console-subscriber = "0.2.0"
 futures = "0.3.30"
-thiserror = "1.0.56"
+thiserror = "1.0.57"
 serde = "1.0.196"
 toml = "0.5.10"
 itertools = "0.12.1"
