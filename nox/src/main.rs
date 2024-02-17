@@ -27,6 +27,7 @@
 )]
 
 use base64::{engine::general_purpose::STANDARD as base64, Engine};
+use core_affinity::{set_mask_for_current, CoreId};
 use eyre::WrapErr;
 use libp2p::PeerId;
 use std::sync::Arc;
@@ -34,7 +35,6 @@ use tokio::signal;
 use tokio::sync::oneshot;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
-use core_affinity::{set_mask_for_current, CoreId};
 
 use air_interpreter_fs::write_default_air_interpreter;
 use aquamarine::{DataStoreConfig, VmConfig};
