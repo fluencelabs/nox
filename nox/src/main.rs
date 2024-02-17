@@ -103,6 +103,7 @@ fn main() -> eyre::Result<()> {
     let system_cpu_cores_assignment = core_manager.system_cpu_assignment();
 
     let mut builder = tokio::runtime::Builder::new_multi_thread();
+    // worker threads count should be equal assigned logical cpu count
     builder.worker_threads(system_cpu_cores_assignment.logical_core_ids.len());
     builder.on_thread_start(move || system_cpu_cores_assignment.pin_current_thread());
 
