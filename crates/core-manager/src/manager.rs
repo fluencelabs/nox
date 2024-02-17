@@ -177,7 +177,7 @@ impl PersistentCoreManager {
                 Ok((core_manager, task))
             }
         } else {
-            tracing::debug!(target: "core-manager", "The previous state was not found. Skipping...");
+            tracing::debug!(target: "core-manager", "The previous state was not found. Creating a new one.");
             let (core_manager, task) = Self::new(file_name.clone(), system_cpu_count, core_range)
                 .map_err(|err| LoadingError::CreateCoreManager { err })?;
             core_manager
