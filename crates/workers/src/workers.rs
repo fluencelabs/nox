@@ -131,6 +131,8 @@ impl Workers {
 
         let id = worker_counter.fetch_add(1, Ordering::Acquire);
 
+        tracing::info!(target: "worker", "Creating runtime with id {} for worker id {}. Pinned to cores: {:?}", id, worker_id, assignment.logical_core_ids);
+
         let runtime = tokio::runtime::Builder::new_multi_thread()
             .thread_name(format!("worker-pool-{}", id))
             // Configuring worker threads for executing service calls and particles
@@ -142,7 +144,6 @@ impl Workers {
             })
             .build()
             .map_err(|err| WorkersError::CreateRuntime { worker_id, err })?;
-        tracing::info!(target: "worker", "Runtime with id {} created for worker id {}", id, worker_id);
         Ok(runtime)
     }
 
