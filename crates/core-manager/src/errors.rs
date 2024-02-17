@@ -21,17 +21,17 @@ pub enum LoadingError {
         #[from]
         err: CreateError,
     },
-    #[error(transparent)]
+    #[error("Failed to read core state: {err}")]
     IoError {
         #[from]
         err: std::io::Error,
     },
-    #[error(transparent)]
+    #[error("Failed to decode core state: {err}")]
     DecodeError {
         #[from]
         err: Utf8Error,
     },
-    #[error(transparent)]
+    #[error("Failed to deserialize core state: {err}")]
     DeserializationError {
         #[from]
         err: toml::de::Error,
