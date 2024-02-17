@@ -34,12 +34,12 @@ use tokio::signal;
 use tokio::sync::oneshot;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
+use core_affinity::{set_mask_for_current, CoreId};
 
 use air_interpreter_fs::write_default_air_interpreter;
 use aquamarine::{DataStoreConfig, VmConfig};
 use avm_server::avm_runner::AVMRunner;
 use config_utils::to_peer_id;
-use core_affinity::{set_mask_for_current, CoreId};
 use core_manager::manager::{CoreManager, CoreManagerFunctions, PersistentCoreManager};
 use fs_utils::to_abs_path;
 use nox::{env_filter, log_layer, tokio_console_layer, tracing_layer, Node};
