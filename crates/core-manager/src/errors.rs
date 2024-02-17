@@ -45,12 +45,12 @@ pub enum LoadingError {
 
 #[derive(Debug, Error)]
 pub enum PersistError {
-    #[error(transparent)]
+    #[error("Failed to persist core state: {err}")]
     IoError {
         #[from]
         err: std::io::Error,
     },
-    #[error(transparent)]
+    #[error("Failed to serialize core state: {err}")]
     SerializationError {
         #[from]
         err: toml::ser::Error,
