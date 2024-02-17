@@ -10,7 +10,7 @@ pub enum CreateError {
     NotEnoughCores { available: usize, required: usize },
     #[error("Failed to create CPU topology")]
     CreateTopology,
-    #[error("Failed to collect cores data {err:?}")]
+    #[error("Failed to collect cores data from OS {err:?}")]
     CollectCoresData { err: TypeDepthError },
 }
 
