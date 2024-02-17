@@ -27,6 +27,56 @@ type MultiMap<K, V> = multimap::MultiMap<K, V, BuildHasherDefault<FxHasher>>;
 type BiMap<K, V> =
     bimap::BiHashMap<K, V, BuildHasherDefault<FxHasher>, BuildHasherDefault<FxHasher>>;
 
+/// The `CoreManagerFunctions` trait defines operations for managing CPU cores.
+///
+/// Implement this trait to enable core acquisition, release, retrieval of system CPU assignments,
+/// and persistence of the core manager's state.
+///
+/// # Trait Functions:
+///
+/// - `acquire_worker_core(assign_request: AcquireRequest) -> Result<Assignment, AcquireError>`:
+///   Acquires CPU cores for a set of unit IDs and a specified worker type.
+///
+/// - `release(unit_ids: Vec<UnitId>)`:
+///   Releases previously acquired CPU cores associated with a set of unit IDs.
+///
+/// - `get_system_cpu_assignment() -> Assignment`:
+///   Retrieves the system's CPU assignment, including physical and logical core IDs.
+///
+/// - `persist() -> Result<(), PersistError>`:
+///   Persists the current state of the core manager to an external storage location.
+///
+/// # Implementing Types:
+///
+/// - [`PersistentCoreManager`](struct.PersistentCoreManager.html):
+///   Manages CPU cores persistently by saving and loading state to/from a file path.
+///
+/// - [`DummyCoreManager`](struct.DummyCoreManager.html):
+///   Provides a dummy implementation for non-persistent core management scenarios.
+///
+/// - [`CoreManager`](enum.CoreManager.html):
+///   Enumerates persistent and dummy core managers, allowing flexible core management choices.
+///
+/// # Example Usage:
+///
+/// ```rust
+/// use core_manager::{CoreManager, AcquireRequest, WorkType};
+///
+/// let (core_manager, persistence_task) = PersistentCoreManager::from_path("core_state.toml".into(), 2, CoreRange::default()).expect("Failed to create manager");
+/// let unit_ids = vec!["1".into(), "2".into()];
+///
+/// // Acquire and release cores
+/// let assignment = core_manager.acquire_worker_core(AcquireRequest { unit_ids, worker_type: WorkType::CapacityCommitment }).unwrap();
+///
+/// // Retrieve system CPU assignment
+/// let system_assignment = core_manager.get_system_cpu_assignment();
+///
+/// // Run persistence task in the background
+/// tokio::spawn(persistence_task.run(core_manager.clone()));
+///
+/// сore_manager.release(unit_ids);
+/// ```
+
 #[enum_dispatch]
 pub trait CoreManagerFunctions {
     fn acquire_worker_core(
@@ -54,7 +104,6 @@ pub struct PersistentCoreManager {
 }
 
 impl PersistentCoreManager {
-
     /// Loads the state from `file_name` if exists. If not creates a new empty state
     pub fn from_path(
         file_path: PathBuf,
