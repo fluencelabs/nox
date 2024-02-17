@@ -5,3 +5,5 @@ self-hosted-runner:
     - linux-arm64-m-xlarge
     - linux-amd64-m-2xlarge
     - linux-arm64-m-2xlarge
+    - linux-amd64-c-2xlarge
+    - linux-arm64-c-2xlarge
