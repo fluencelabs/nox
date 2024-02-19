@@ -20,7 +20,7 @@ use crate::error::KeyStorageError::{
 use crate::error::{KeyStorageError, WorkersError};
 use crate::workers::WorkerInfo;
 use crate::KeyStorageError::RemoveErrorPersistedKeypair;
-use core_manager::UnitId;
+use core_manager::CUID;
 use fluence_keypair::KeyPair;
 use libp2p::PeerId;
 use parking_lot::RwLock;
@@ -51,7 +51,7 @@ pub struct PersistedWorker {
     pub deal_id: String,
     #[serde(default = "default_bool::<true>")]
     pub active: bool,
-    pub cu_ids: Vec<UnitId>,
+    pub cu_ids: Vec<CUID>,
 }
 
 impl From<PersistedWorker> for WorkerInfo {

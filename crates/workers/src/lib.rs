@@ -11,7 +11,7 @@ mod workers;
 pub use core_manager::manager::CoreManager;
 pub use core_manager::manager::DummyCoreManager;
 pub use core_manager::manager::PersistentCoreManager;
-pub use core_manager::UnitId;
+pub use core_manager::CUID;
 pub use error::KeyStorageError;
 pub use error::WorkersError;
 pub use key_storage::KeyStorage;

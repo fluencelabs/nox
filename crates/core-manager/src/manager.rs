@@ -7,6 +7,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use ccp_shared::types::CUID;
 use cpu_utils::{CPUTopology, LogicalCoreId, PhysicalCoreId};
 use enum_dispatch::enum_dispatch;
 use fxhash::{FxBuildHasher, FxHasher};
@@ -14,7 +15,6 @@ use parking_lot::RwLock;
 use range_set_blaze::RangeSetBlaze;
 use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc::Receiver;
-use types::unit_id::UnitId;
 
 use crate::core_range::CoreRange;
 use crate::errors::{AcquireError, CreateError, LoadingError, PersistError};
@@ -81,7 +81,7 @@ pub trait CoreManagerFunctions {
         assign_request: AcquireRequest,
     ) -> Result<Assignment, AcquireError>;
 
-    fn release(&self, unit_ids: Vec<UnitId>);
+    fn release(&self, unit_ids: Vec<CUID>);
 
     fn get_system_cpu_assignment(&self) -> Assignment;
 
@@ -121,7 +121,9 @@ impl PersistentCoreManager {
                 loaded_range.insert(<PhysicalCoreId as Into<u32>>::into(physical_core_id) as usize);
             }
 
-            if config_range == loaded_range && persistent_state.system_cores.len() == system_cpu_count {
+            if config_range == loaded_range
+                && persistent_state.system_cores.len() == system_cpu_count
+            {
                 let state: CoreManagerState = persistent_state.into();
                 Ok(Self::make_instance_with_task(file_path, state))
             } else {
@@ -292,9 +294,9 @@ struct CoreManagerState {
     // free physical cores
     available_cores: BTreeSet<PhysicalCoreId>,
     // mapping between physical core id and unit id
-    unit_id_mapping: BiMap<PhysicalCoreId, UnitId>,
+    unit_id_mapping: BiMap<PhysicalCoreId, CUID>,
     // mapping between unit id and workload type
-    work_type_mapping: Map<UnitId, WorkType>,
+    work_type_mapping: Map<CUID, WorkType>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -302,8 +304,8 @@ struct PersistentCoreManagerState {
     cores_mapping: Vec<(PhysicalCoreId, LogicalCoreId)>,
     system_cores: Vec<PhysicalCoreId>,
     available_cores: Vec<PhysicalCoreId>,
-    unit_id_mapping: Vec<(PhysicalCoreId, UnitId)>,
-    work_type_mapping: Vec<(UnitId, WorkType)>,
+    unit_id_mapping: Vec<(PhysicalCoreId, CUID)>,
+    work_type_mapping: Vec<(CUID, WorkType)>,
 }
 
 impl From<&CoreManagerState> for PersistentCoreManagerState {
@@ -389,7 +391,7 @@ impl CoreManagerFunctions for PersistentCoreManager {
         })
     }
 
-    fn release(&self, unit_ids: Vec<UnitId>) {
+    fn release(&self, unit_ids: Vec<CUID>) {
         let mut lock = self.state.write();
         for unit_id in unit_ids {
             if let Some((physical_core_id, _)) = lock.unit_id_mapping.remove_by_right(&unit_id) {
@@ -464,7 +466,7 @@ impl CoreManagerFunctions for DummyCoreManager {
         Ok(self.all_cores())
     }
 
-    fn release(&self, _unit_ids: Vec<UnitId>) {}
+    fn release(&self, _unit_ids: Vec<CUID>) {}
 
     fn get_system_cpu_assignment(&self) -> Assignment {
         self.all_cores()
@@ -478,6 +480,8 @@ impl CoreManagerFunctions for DummyCoreManager {
 mod tests {
     use crate::manager::{AcquireRequest, CoreManagerFunctions, PersistentCoreManager, WorkType};
     use crate::CoreRange;
+    use ccp_shared::types::CUID;
+    use hex::FromHex;
 
     fn cores_exists() -> bool {
         num_cpus::get_physical() >= 4
@@ -494,7 +498,9 @@ mod tests {
                 CoreRange::default(),
             )
             .unwrap();
-            let unit_ids = vec!["1".into(), "2".into()];
+            let init_id_1 = <CUID>::from_hex("01").unwrap();
+            let init_id_2 = <CUID>::from_hex("012").unwrap();
+            let unit_ids = vec![init_id_1, init_id_2];
             let assignment_1 = manager
                 .acquire_worker_core(AcquireRequest {
                     unit_ids: unit_ids.clone(),
@@ -543,7 +549,9 @@ mod tests {
             assert_eq!(before_unit_id_mapping.len(), 0);
             assert_eq!(before_type_mapping.len(), 0);
 
-            let unit_ids = vec!["1".into(), "2".into()];
+            let init_id_1 = <CUID>::from_hex("01").unwrap();
+            let init_id_2 = <CUID>::from_hex("012").unwrap();
+            let unit_ids = vec![init_id_1, init_id_2];
             let assignment = manager
                 .acquire_worker_core(AcquireRequest {
                     unit_ids: unit_ids.clone(),

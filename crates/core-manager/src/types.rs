@@ -1,8 +1,8 @@
+use ccp_shared::types::CUID;
 use cpu_utils::pinning::pin_current_thread_to_cpuset;
 use cpu_utils::{LogicalCoreId, PhysicalCoreId};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
-use types::unit_id::UnitId;
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Serialize, Deserialize)]
 pub enum WorkType {
@@ -11,12 +11,12 @@ pub enum WorkType {
 }
 
 pub struct AcquireRequest {
-    pub(crate) unit_ids: Vec<UnitId>,
+    pub(crate) unit_ids: Vec<CUID>,
     pub(crate) worker_type: WorkType,
 }
 
 impl AcquireRequest {
-    pub fn new(unit_ids: Vec<UnitId>, worker_type: WorkType) -> Self {
+    pub fn new(unit_ids: Vec<CUID>, worker_type: WorkType) -> Self {
         Self {
             unit_ids,
             worker_type,

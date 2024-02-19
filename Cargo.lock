@@ -985,6 +985,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "ccp-shared"
+version = "0.1.0"
+source = "git+https://github.com/fluencelabs/capacity-commitment-prover/?branch=main#86b55795bfb1bdea85cd312606eaadd0b2a4cfcd"
+dependencies = [
+ "cpu-utils",
+ "hex",
+ "randomx-rust-wrapper",
+ "serde",
+]
+
+[[package]]
 name = "cfg-if"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1172,6 +1183,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "702fc72eb24e5a1e48ce58027a675bc24edd52096d5397d4aea7c6dd9eca0bd1"
 
 [[package]]
+name = "cmake"
+version = "0.1.50"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a31c789563b815f77f4250caee12365734369f942439b7defd71e18a48197130"
+dependencies = [
+ "cc",
+]
+
+[[package]]
 name = "colorchoice"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1344,9 +1364,11 @@ version = "0.1.0"
 dependencies = [
  "async-trait",
  "bimap",
+ "ccp-shared",
  "cpu-utils",
  "enum_dispatch",
  "fxhash",
+ "hex",
  "multimap 0.10.0",
  "newtype_derive",
  "num_cpus",
@@ -1393,7 +1415,7 @@ dependencies = [
 [[package]]
 name = "cpu-utils"
 version = "0.1.0"
-source = "git+https://github.com/fluencelabs/capacity-commitment-prover/?branch=main#17479d142e6c7344ff3f0e60cd9e6628c3fd5961"
+source = "git+https://github.com/fluencelabs/capacity-commitment-prover/?branch=main#86b55795bfb1bdea85cd312606eaadd0b2a4cfcd"
 dependencies = [
  "core_affinity",
  "hwlocality",
@@ -5122,6 +5144,7 @@ dependencies = [
  "fs-utils",
  "fstrings",
  "futures",
+ "hex",
  "humantime-serde",
  "itertools 0.12.1",
  "json-utils",
@@ -6223,6 +6246,20 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d25bf25ec5ae4a3f1b92f929810509a2f53d7dca2f50b794ff57e3face536c8f"
 dependencies = [
  "rand_core 0.6.4",
+]
+
+[[package]]
+name = "randomx-rust-wrapper"
+version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3cf0b5600b179645ca4f5b3d12c4872064ceb0eaeff5dd36e8a843aa7ff7e901"
+dependencies = [
+ "bitflags 2.4.1",
+ "cmake",
+ "hex",
+ "libc",
+ "serde",
+ "thiserror",
 ]
 
 [[package]]
@@ -9213,6 +9250,7 @@ dependencies = [
  "fluence-keypair",
  "fluence-libp2p",
  "fs-utils",
+ "hex",
  "libp2p",
  "log",
  "parking_lot",

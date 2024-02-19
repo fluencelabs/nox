@@ -29,22 +29,24 @@ use connected_client::ConnectedClient;
 use created_swarm::system_services_config::{DeciderConfig, SystemServicesConfig};
 use created_swarm::{make_swarms, make_swarms_with_cfg};
 use fluence_spell_dtos::trigger_config::{ClockConfig, TriggerConfig};
+use hex::FromHex;
 use log_utils::enable_logs;
 use service_modules::load_module;
 use spell_event_bus::api::{TriggerInfo, TriggerInfoAqua, MAX_PERIOD_SEC};
 use test_utils::{create_service, create_service_worker};
-use workers::UnitId;
+use workers::CUID;
 
 type SpellId = String;
 type WorkerPeerId = String;
 
 async fn create_worker(client: &mut ConnectedClient, deal_id: Option<String>) -> WorkerPeerId {
-    let cu_ids: Vec<UnitId> = vec!["fake_unit_id".into()];
+    let init_id_1 = <CUID>::from_hex("01").unwrap();
+    let unit_ids = vec![init_id_1];
     let data = hashmap! {
         "deal_id" => deal_id.map(JValue::String).unwrap_or(JValue::String("default_deal".to_string())),
         "relay" => json!(client.node.to_string()),
         "client" => json!(client.peer_id.to_string()),
-        "cu_ids" => json!(cu_ids)
+        "cu_ids" => json!(unit_ids)
     };
 
     let response = client
@@ -1508,11 +1510,12 @@ async fn spell_create_worker_twice() {
         .await
         .wrap_err("connect client")
         .unwrap();
-    let cu_ids: Vec<UnitId> = vec!["fake_unit_id".into()];
+    let init_id_1 = <CUID>::from_hex("01").unwrap();
+    let unit_ids = vec![init_id_1];
     let data = hashmap! {
         "client" => json!(client.peer_id.to_string()),
         "relay" => json!(client.node.to_string()),
-        "cu_ids" => json!(cu_ids)
+        "cu_ids" => json!(unit_ids)
     };
     client
         .send_particle(
@@ -1598,11 +1601,12 @@ async fn spell_create_worker_same_deal_id_different_peer() {
         .await
         .wrap_err("connect client")
         .unwrap();
-    let cu_ids: Vec<UnitId> = vec!["fake_unit_id".into()];
+    let init_id_1 = <CUID>::from_hex("01").unwrap();
+    let unit_ids = vec![init_id_1];
     let data = hashmap! {
         "client" => json!(client1.peer_id.to_string()),
         "relay" => json!(client1.node.to_string()),
-        "cu_ids" => json!(cu_ids)
+        "cu_ids" => json!(unit_ids)
     };
     let response = client1
         .execute_particle(
@@ -1622,7 +1626,7 @@ async fn spell_create_worker_same_deal_id_different_peer() {
     let data = hashmap! {
         "client" => json!(client2.peer_id.to_string()),
         "relay" => json!(client2.node.to_string()),
-           "cu_ids" => json!(cu_ids)
+           "cu_ids" => json!(unit_ids)
     };
     let response = client2
         .execute_particle(
@@ -2006,11 +2010,12 @@ async fn get_worker_peer_id_opt() {
         .wrap_err("connect client")
         .unwrap();
 
-    let cu_ids: Vec<UnitId> = vec!["fake_unit_id".into()];
+    let init_id_1 = <CUID>::from_hex("01").unwrap();
+    let unit_ids = vec![init_id_1];
     let data = hashmap! {
         "relay" => json!(client.node.to_string()),
         "client" => json!(client.peer_id.to_string()),
-        "cu_ids"=>json!(cu_ids)
+        "cu_ids"=>json!(unit_ids)
     };
     let response = client
         .execute_particle(

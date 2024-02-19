@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use core_manager::manager::{CoreManager, CoreManagerFunctions};
 use core_manager::types::{AcquireRequest, WorkType};
-use core_manager::UnitId;
+use core_manager::CUID;
 use fluence_libp2p::PeerId;
 use parking_lot::RwLock;
 use tokio::runtime::{Handle, Runtime};
@@ -24,7 +24,7 @@ pub struct WorkerInfo {
     /// A read-write lock indicating whether the worker is active.
     pub active: RwLock<bool>,
     /// A count of compute units available for this worker.
-    pub cu_ids: Vec<UnitId>,
+    pub cu_ids: Vec<CUID>,
 }
 
 /// Manages a collection of workers.
@@ -48,11 +48,11 @@ pub struct Workers {
 pub struct WorkerParams {
     deal_id: String,
     init_peer_id: PeerId,
-    cu_ids: Vec<UnitId>,
+    cu_ids: Vec<CUID>,
 }
 
 impl WorkerParams {
-    pub fn new(deal_id: String, init_peer_id: PeerId, cu_ids: Vec<UnitId>) -> Self {
+    pub fn new(deal_id: String, init_peer_id: PeerId, cu_ids: Vec<CUID>) -> Self {
         Self {
             deal_id,
             init_peer_id,
@@ -119,7 +119,7 @@ impl Workers {
         core_manager: Arc<CoreManager>,
         worker_counter: Arc<AtomicU32>,
         worker_id: WorkerId,
-        cu_ids: Vec<UnitId>,
+        cu_ids: Vec<CUID>,
     ) -> Result<Runtime, WorkersError> {
         // Creating a multi-threaded Tokio runtime with a total of cu_count * 2 threads.
         // We assume cu_count threads per logical processor, aligning with the common practice.
@@ -368,7 +368,7 @@ impl Workers {
         worker_id: WorkerId,
         deal_id: String,
         creator: PeerId,
-        cu_ids: Vec<UnitId>,
+        cu_ids: Vec<CUID>,
     ) -> Result<WorkerInfo, WorkersError> {
         persist_worker(
             &self.workers_dir,
@@ -501,9 +501,9 @@ impl Workers {
 
 #[cfg(test)]
 mod tests {
-    use crate::{KeyStorage, WorkerParams, Workers};
+    use crate::{KeyStorage, WorkerParams, Workers, CUID};
     use core_manager::manager::{CoreManager, DummyCoreManager};
-    use core_manager::UnitId;
+    use hex::FromHex;
     use libp2p::PeerId;
     use std::sync::Arc;
     use tempfile::tempdir;
@@ -556,14 +556,15 @@ mod tests {
             .await
             .expect("Failed to create Workers from path");
 
-        let cu_ids: Vec<UnitId> = vec!["1".to_string().into()];
+        let init_id_1 = <CUID>::from_hex("01").unwrap();
+        let unit_ids = vec![init_id_1];
 
         let creator_peer_id = PeerId::random();
         let worker_id = workers
             .create_worker(WorkerParams::new(
                 "deal_id_1".to_string(),
                 creator_peer_id,
-                cu_ids,
+                unit_ids,
             ))
             .await
             .expect("Failed to create worker");
@@ -618,13 +619,14 @@ mod tests {
             .await
             .expect("Failed to create Workers from path");
 
-        let cu_ids: Vec<UnitId> = vec!["1".to_string().into()];
+        let init_id_1 = <CUID>::from_hex("01").unwrap();
+        let unit_ids = vec![init_id_1];
 
         let worker_id = workers
             .create_worker(WorkerParams::new(
                 "deal_id_1".to_string(),
                 PeerId::random(),
-                cu_ids.clone(),
+                unit_ids.clone(),
             ))
             .await
             .expect("Failed to create worker");
@@ -638,7 +640,7 @@ mod tests {
             .create_worker(WorkerParams::new(
                 "deal_id_1".to_string(),
                 PeerId::random(),
-                cu_ids,
+                unit_ids,
             ))
             .await;
 
@@ -670,13 +672,14 @@ mod tests {
             .await
             .expect("Failed to create Workers from path");
 
-        let cu_ids: Vec<UnitId> = vec!["1".to_string().into()];
+        let init_id_1 = <CUID>::from_hex("01").unwrap();
+        let unit_ids = vec![init_id_1];
 
         let worker_id_1 = workers
             .create_worker(WorkerParams::new(
                 "deal_id_1".to_string(),
                 PeerId::random(),
-                cu_ids.clone(),
+                unit_ids.clone(),
             ))
             .await
             .expect("Failed to create worker");
@@ -685,7 +688,7 @@ mod tests {
             .create_worker(WorkerParams::new(
                 "deal_id_2".to_string(),
                 PeerId::random(),
-                cu_ids,
+                unit_ids,
             ))
             .await
             .expect("Failed to create worker");
@@ -737,13 +740,14 @@ mod tests {
         )
         .await
         .expect("Failed to create Workers from path");
-        let cu_ids: Vec<UnitId> = vec!["1".to_string().into()];
+        let init_id_1 = <CUID>::from_hex("01").unwrap();
+        let unit_ids = vec![init_id_1];
 
         let worker_id_1 = workers
             .create_worker(WorkerParams::new(
                 "deal_id_1".to_string(),
                 PeerId::random(),
-                cu_ids.clone(),
+                unit_ids.clone(),
             ))
             .await
             .expect("Failed to create worker");
@@ -752,7 +756,7 @@ mod tests {
             .create_worker(WorkerParams::new(
                 "deal_id_2".to_string(),
                 PeerId::random(),
-                cu_ids,
+                unit_ids,
             ))
             .await
             .expect("Failed to create worker");
