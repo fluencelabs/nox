@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 aqua-ipfs-distro = "=0.5.30"
-decider-distro = "=0.5.17"
+decider-distro = "=0.6.0"
 registry-distro = "=0.9.4"
 trust-graph-distro = "=0.4.11"
 
@@ -37,4 +37,4 @@ now-millis = { workspace = true }
 server-config = { workspace = true }
 service-modules = { workspace = true }
 uuid-utils = { workspace = true }
-num_cpus = "1.16.0"
+num_cpus = { workspace = true }

@@ -46,8 +46,8 @@ members = [
     "crates/chain-listener",
     "crates/hex-utils",
     "crates/chain-data",
-    "crates/types"
-]
+    "crates/types",
+    "crates/core-manager"]
 exclude = [
     "nox/tests/tetraplets",
 ]
@@ -94,10 +94,11 @@ particle-execution = { path = "particle-execution" }
 system-services = { path = "crates/system-services" }
 health = { path = "crates/health" }
 subnet-resolver = { path = "crates/subnet-resolver" }
-hex-utils = { path = "crates/hex-utils"}
-chain-data = { path = "crates/chain-data"}
-chain-listener = { path = "crates/chain-listener"}
-types = { path = "crates/types"}
+hex-utils = { path = "crates/hex-utils" }
+chain-data = { path = "crates/chain-data" }
+chain-listener = { path = "crates/chain-listener" }
+types = { path = "crates/types" }
+core-manager = { path = "crates/core-manager" }
 
 # spell
 fluence-spell-dtos = "=0.7.0"
@@ -131,6 +132,7 @@ bs58 = "0.5.0"
 fluence-keypair = "0.10.4"
 parking_lot = "0.12.1"
 tokio = "1.36.0"
+async-trait = "0.1.77"
 tokio-stream = "0.1.14"
 tokio-util = "0.7.10"
 uuid = { version = "1.7.0", features = ["v4"] }
@@ -160,6 +162,9 @@ jsonrpsee = "0.21.0"
 blake3 = "1.5.0"
 rand = "0.8.5"
 futures-util = "0.3.30"
+num_cpus = "1.16.0"
+enum_dispatch = "0.3.12"
+serde_with = "3.6.0"
 
 # Enable a small amount of optimization in debug mode
 [profile.dev]
