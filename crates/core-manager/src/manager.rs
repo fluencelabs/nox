@@ -180,7 +180,7 @@ impl PersistentCoreManager {
         for physical_core_id in physical_cores {
             if core_range
                 .0
-                .contains(<PhysicalCoreId as Into<u32>>::into(physical_core_id) as usize as usize)
+                .contains(<PhysicalCoreId as Into<u32>>::into(physical_core_id) as usize)
             {
                 let logical_cores = topology
                     .logical_cores_for_physical(physical_core_id)
