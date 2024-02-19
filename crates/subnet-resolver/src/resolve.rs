@@ -77,7 +77,6 @@ fn decode_pats(data: String) -> Result<Vec<Worker>, ResolveSubnetError> {
         let peer_id = parse_peer_id(peer_id)
             .map_err(|e| ResolveSubnetError::InvalidPeerId(e, "compute_peer_id"))?;
 
-
         let pat = Worker {
             pat_id: format!("0x{}", pat_id),
             host_id: peer_id.to_string(),
