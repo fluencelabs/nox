@@ -556,7 +556,9 @@ mod tests {
             .await
             .expect("Failed to create Workers from path");
 
-        let init_id_1 = <CUID>::from_hex("54ae1b506c260367a054f80800a545f23e32c6bc4a8908c9a794cb8dad23e5ea").unwrap();
+        let init_id_1 =
+            <CUID>::from_hex("54ae1b506c260367a054f80800a545f23e32c6bc4a8908c9a794cb8dad23e5ea")
+                .unwrap();
         let unit_ids = vec![init_id_1];
 
         let creator_peer_id = PeerId::random();
@@ -619,7 +621,9 @@ mod tests {
             .await
             .expect("Failed to create Workers from path");
 
-        let init_id_1 = <CUID>::from_hex("54ae1b506c260367a054f80800a545f23e32c6bc4a8908c9a794cb8dad23e5ea").unwrap();
+        let init_id_1 =
+            <CUID>::from_hex("54ae1b506c260367a054f80800a545f23e32c6bc4a8908c9a794cb8dad23e5ea")
+                .unwrap();
         let unit_ids = vec![init_id_1];
 
         let worker_id = workers
@@ -672,7 +676,9 @@ mod tests {
             .await
             .expect("Failed to create Workers from path");
 
-        let init_id_1 = <CUID>::from_hex("54ae1b506c260367a054f80800a545f23e32c6bc4a8908c9a794cb8dad23e5ea").unwrap();
+        let init_id_1 =
+            <CUID>::from_hex("54ae1b506c260367a054f80800a545f23e32c6bc4a8908c9a794cb8dad23e5ea")
+                .unwrap();
         let unit_ids = vec![init_id_1];
 
         let worker_id_1 = workers
@@ -740,7 +746,9 @@ mod tests {
         )
         .await
         .expect("Failed to create Workers from path");
-        let init_id_1 = <CUID>::from_hex("54ae1b506c260367a054f80800a545f23e32c6bc4a8908c9a794cb8dad23e5ea").unwrap();
+        let init_id_1 =
+            <CUID>::from_hex("54ae1b506c260367a054f80800a545f23e32c6bc4a8908c9a794cb8dad23e5ea")
+                .unwrap();
         let unit_ids = vec![init_id_1];
 
         let worker_id_1 = workers
