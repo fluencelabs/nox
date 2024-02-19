@@ -317,12 +317,12 @@ impl From<&CoreManagerState> for PersistentCoreManagerState {
             unit_id_mapping: value
                 .unit_id_mapping
                 .iter()
-                .map(|(k, v)| (*k, v.clone()))
+                .map(|(k, v)| (*k, *v))
                 .collect(),
             work_type_mapping: value
                 .work_type_mapping
                 .iter()
-                .map(|(k, v)| (k.clone(), v.clone()))
+                .map(|(k, v)| (*k, v.clone()))
                 .collect(),
         }
     }
@@ -357,7 +357,7 @@ impl CoreManagerFunctions for PersistentCoreManager {
                         .available_cores
                         .pop_last()
                         .ok_or(AcquireError::NotFoundAvailableCores)?;
-                    lock.unit_id_mapping.insert(core_id, unit_id.clone());
+                    lock.unit_id_mapping.insert(core_id, unit_id);
                     lock.work_type_mapping
                         .insert(unit_id, worker_unit_type.clone());
                     core_id
