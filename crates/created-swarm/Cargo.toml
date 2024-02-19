@@ -37,3 +37,7 @@ base64 = { workspace = true }
 serde = { workspace = true }
 maplit = { workspace = true }
 reqwest = { workspace = true }
+
+# for re-export for outside tests
+fluence-spell-dtos = { workspace = true }
+fluence-app-service = { workspace = true }

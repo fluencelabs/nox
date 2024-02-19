@@ -434,10 +434,11 @@ impl ParticleAppServices {
             self.vault.create(&particle.id)?;
         }
 
-        let call_parameters_host_id = self.scopes.to_peer_id(peer_scope);
+        let call_parameters_worker_id = self.scopes.to_peer_id(peer_scope);
 
         let params = CallParameters {
-            host_id: call_parameters_host_id.to_string(),
+            host_id: self.scopes.get_host_peer_id().to_string(),
+            worker_id: call_parameters_worker_id.to_string(),
             particle_id: particle.id,
             init_peer_id: particle.init_peer_id.to_string(),
             tetraplets: function_args
