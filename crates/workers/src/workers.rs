@@ -1,13 +1,19 @@
+use std::collections::HashMap;
+use std::path::PathBuf;
+use std::sync::atomic::{AtomicU32, Ordering};
+use std::sync::Arc;
+
+use core_manager::manager::{CoreManager, CoreManagerFunctions};
+use core_manager::types::{AcquireRequest, WorkType};
+use core_manager::CUID;
+use fluence_libp2p::PeerId;
+use parking_lot::RwLock;
+use tokio::runtime::{Handle, Runtime};
+use types::peer_scope::WorkerId;
+
 use crate::error::WorkersError;
 use crate::persistence::{load_persisted_workers, persist_worker, remove_worker, PersistedWorker};
 use crate::{DealId, KeyStorage};
-use fluence_libp2p::PeerId;
-use parking_lot::RwLock;
-use std::collections::HashMap;
-use std::path::PathBuf;
-use std::sync::Arc;
-use tokio::runtime::{Handle, Runtime};
-use types::peer_scope::WorkerId;
 
 /// Information about a worker.
 pub struct WorkerInfo {
@@ -18,7 +24,7 @@ pub struct WorkerInfo {
     /// A read-write lock indicating whether the worker is active.
     pub active: RwLock<bool>,
     /// A count of compute units available for this worker.
-    pub cu_count: usize,
+    pub cu_ids: Vec<CUID>,
 }
 
 /// Manages a collection of workers.
@@ -33,20 +39,24 @@ pub struct Workers {
     key_storage: Arc<KeyStorage>,
     /// Mapping of worker IDs to worker runtime.
     runtimes: RwLock<HashMap<WorkerId, Runtime>>,
+    /// Core manager for core assignment
+    core_manager: Arc<CoreManager>,
+    /// Number of created tokio runtimes
+    runtime_counter: Arc<AtomicU32>,
 }
 
 pub struct WorkerParams {
     deal_id: String,
     init_peer_id: PeerId,
-    cu_count: usize,
+    cu_ids: Vec<CUID>,
 }
 
 impl WorkerParams {
-    pub fn new(deal_id: String, init_peer_id: PeerId, cu_count: usize) -> Self {
+    pub fn new(deal_id: String, init_peer_id: PeerId, cu_ids: Vec<CUID>) -> Self {
         Self {
             deal_id,
             init_peer_id,
-            cu_count,
+            cu_ids,
         }
     }
 }
@@ -69,20 +79,28 @@ impl Workers {
     pub async fn from_path(
         workers_dir: PathBuf,
         key_storage: Arc<KeyStorage>,
+        core_manager: Arc<CoreManager>,
     ) -> eyre::Result<Self> {
         let workers = load_persisted_workers(workers_dir.as_path()).await?;
         let mut worker_ids = HashMap::with_capacity(workers.len());
         let mut worker_infos = HashMap::with_capacity(workers.len());
         let mut runtimes = HashMap::with_capacity(workers.len());
 
+        let worker_counter = Arc::new(AtomicU32::new(0));
+
         for (w, _) in workers {
             let worker_id = w.worker_id;
             let deal_id = w.deal_id.clone();
-            let cu_count = w.cu_count;
+            let cu_ids = w.cu_ids.clone();
             worker_infos.insert(worker_id, w.into());
             worker_ids.insert(deal_id, worker_id);
 
-            let runtime = Self::build_runtime(worker_id, cu_count)?;
+            let runtime = Self::build_runtime(
+                core_manager.clone(),
+                worker_counter.clone(),
+                worker_id,
+                cu_ids,
+            )?;
 
             runtimes.insert(worker_id, runtime);
         }
@@ -92,18 +110,38 @@ impl Workers {
             workers_dir,
             key_storage,
             runtimes: RwLock::new(runtimes),
+            runtime_counter: worker_counter,
+            core_manager,
         })
     }
 
-    fn build_runtime(worker_id: WorkerId, cu_count: usize) -> Result<Runtime, WorkersError> {
+    fn build_runtime(
+        core_manager: Arc<CoreManager>,
+        worker_counter: Arc<AtomicU32>,
+        worker_id: WorkerId,
+        cu_ids: Vec<CUID>,
+    ) -> Result<Runtime, WorkersError> {
         // Creating a multi-threaded Tokio runtime with a total of cu_count * 2 threads.
         // We assume cu_count threads per logical processor, aligning with the common practice.
+        let assignment = core_manager
+            .acquire_worker_core(AcquireRequest::new(cu_ids, WorkType::Deal))
+            .map_err(|err| WorkersError::FailedToAssignCores { worker_id, err })?;
+
+        let threads_count = assignment.logical_core_ids.len();
+
+        let id = worker_counter.fetch_add(1, Ordering::Acquire);
+
+        tracing::info!(target: "worker", "Creating runtime with id {} for worker id {}. Pinned to cores: {:?}", id, worker_id, assignment.logical_core_ids);
+
         let runtime = tokio::runtime::Builder::new_multi_thread()
-            .thread_name(format!("worker-pool-{}", worker_id))
+            .thread_name(format!("worker-pool-{}", id))
             // Configuring worker threads for executing service calls and particles
-            .worker_threads(cu_count)
+            .worker_threads(threads_count)
             // Configuring blocking threads for handling I/O
-            .max_blocking_threads(cu_count)
+            .max_blocking_threads(threads_count)
+            .on_thread_start(move || {
+                assignment.pin_current_thread();
+            })
             .build()
             .map_err(|err| WorkersError::CreateRuntime { worker_id, err })?;
         Ok(runtime)
@@ -125,7 +163,7 @@ impl Workers {
     pub async fn create_worker(&self, params: WorkerParams) -> Result<WorkerId, WorkersError> {
         let deal_id = params.deal_id;
         let init_peer_id = params.init_peer_id;
-        let cu_count = params.cu_count;
+        let cu_ids = params.cu_ids;
 
         let worker_id = {
             let guard = self.worker_ids.read();
@@ -143,7 +181,7 @@ impl Workers {
                 let worker_id: WorkerId = key_pair.get_peer_id().into();
 
                 let worker_info = self
-                    .store_worker(worker_id, deal_id.clone(), init_peer_id, cu_count)
+                    .store_worker(worker_id, deal_id.clone(), init_peer_id, cu_ids.clone())
                     .await;
 
                 match worker_info {
@@ -153,7 +191,12 @@ impl Workers {
                             return Err(WorkersError::WorkerAlreadyExists { deal_id });
                         }
 
-                        let runtime = Self::build_runtime(worker_id, cu_count)?;
+                        let runtime = Self::build_runtime(
+                            self.core_manager.clone(),
+                            self.runtime_counter.clone(),
+                            worker_id,
+                            cu_ids,
+                        )?;
 
                         let mut worker_infos = self.worker_infos.write();
                         let mut runtimes = self.runtimes.write();
@@ -325,7 +368,7 @@ impl Workers {
         worker_id: WorkerId,
         deal_id: String,
         creator: PeerId,
-        cu_count: usize,
+        cu_ids: Vec<CUID>,
     ) -> Result<WorkerInfo, WorkersError> {
         persist_worker(
             &self.workers_dir,
@@ -335,7 +378,7 @@ impl Workers {
                 creator,
                 deal_id: deal_id.clone(),
                 active: true,
-                cu_count,
+                cu_ids: cu_ids.clone(),
             },
         )
         .await?;
@@ -343,7 +386,7 @@ impl Workers {
             deal_id,
             creator,
             active: RwLock::new(true),
-            cu_count,
+            cu_ids,
         };
         Ok(worker_info)
     }
@@ -353,7 +396,7 @@ impl Workers {
         worker_id: WorkerId,
         status: bool,
     ) -> Result<(), WorkersError> {
-        let (creator, deal_id, cu_count) = {
+        let (creator, deal_id, cu_ids) = {
             let guard = self.worker_infos.read();
             let worker_info = guard
                 .get(&worker_id)
@@ -364,7 +407,7 @@ impl Workers {
             (
                 worker_info.creator,
                 worker_info.deal_id.clone(),
-                worker_info.cu_count,
+                worker_info.cu_ids.clone(),
             )
         };
 
@@ -376,7 +419,7 @@ impl Workers {
                 creator,
                 deal_id,
                 active: status,
-                cu_count,
+                cu_ids,
             },
         )
         .await?;
@@ -458,7 +501,9 @@ impl Workers {
 
 #[cfg(test)]
 mod tests {
-    use crate::{KeyStorage, WorkerParams, Workers};
+    use crate::{KeyStorage, WorkerParams, Workers, CUID};
+    use core_manager::manager::{CoreManager, DummyCoreManager};
+    use hex::FromHex;
     use libp2p::PeerId;
     use std::sync::Arc;
     use tempfile::tempdir;
@@ -471,6 +516,7 @@ mod tests {
         let key_pairs_dir = temp_dir.path().join("key_pairs").to_path_buf();
         let workers_dir = temp_dir.path().join("workers").to_path_buf();
         let root_key_pair = fluence_keypair::KeyPair::generate_ed25519();
+        let core_manager = Arc::new(DummyCoreManager::default().into());
 
         // Create a new KeyStorage instance
         let key_storage = Arc::new(
@@ -480,7 +526,7 @@ mod tests {
         );
 
         // Create a new Workers instance
-        let workers = Workers::from_path(workers_dir.clone(), key_storage.clone())
+        let workers = Workers::from_path(workers_dir.clone(), key_storage.clone(), core_manager)
             .await
             .expect("Failed to create Workers from path");
 
@@ -497,7 +543,7 @@ mod tests {
         let key_pairs_dir = temp_dir.path().join("key_pairs").to_path_buf();
         let workers_dir = temp_dir.path().join("workers").to_path_buf();
         let root_key_pair = fluence_keypair::KeyPair::generate_ed25519();
-
+        let core_manager = Arc::new(DummyCoreManager::default().into());
         // Create a new KeyStorage instance
         let key_storage = Arc::new(
             KeyStorage::from_path(key_pairs_dir.clone(), root_key_pair.clone())
@@ -506,16 +552,21 @@ mod tests {
         );
 
         // Create a new Workers instance
-        let workers = Workers::from_path(workers_dir.clone(), key_storage.clone())
+        let workers = Workers::from_path(workers_dir.clone(), key_storage.clone(), core_manager)
             .await
             .expect("Failed to create Workers from path");
+
+        let init_id_1 =
+            <CUID>::from_hex("54ae1b506c260367a054f80800a545f23e32c6bc4a8908c9a794cb8dad23e5ea")
+                .unwrap();
+        let unit_ids = vec![init_id_1];
 
         let creator_peer_id = PeerId::random();
         let worker_id = workers
             .create_worker(WorkerParams::new(
                 "deal_id_1".to_string(),
                 creator_peer_id,
-                1,
+                unit_ids,
             ))
             .await
             .expect("Failed to create worker");
@@ -557,7 +608,7 @@ mod tests {
         let key_pairs_dir = temp_dir.path().join("key_pairs").to_path_buf();
         let workers_dir = temp_dir.path().join("workers").to_path_buf();
         let root_key_pair = fluence_keypair::KeyPair::generate_ed25519();
-
+        let core_manager = Arc::new(DummyCoreManager::default().into());
         // Create a new KeyStorage instance
         let key_storage = Arc::new(
             KeyStorage::from_path(key_pairs_dir.clone(), root_key_pair.clone())
@@ -566,15 +617,20 @@ mod tests {
         );
 
         // Create a new Workers instance
-        let workers = Workers::from_path(workers_dir.clone(), key_storage.clone())
+        let workers = Workers::from_path(workers_dir.clone(), key_storage.clone(), core_manager)
             .await
             .expect("Failed to create Workers from path");
+
+        let init_id_1 =
+            <CUID>::from_hex("54ae1b506c260367a054f80800a545f23e32c6bc4a8908c9a794cb8dad23e5ea")
+                .unwrap();
+        let unit_ids = vec![init_id_1];
 
         let worker_id = workers
             .create_worker(WorkerParams::new(
                 "deal_id_1".to_string(),
                 PeerId::random(),
-                1,
+                unit_ids.clone(),
             ))
             .await
             .expect("Failed to create worker");
@@ -588,7 +644,7 @@ mod tests {
             .create_worker(WorkerParams::new(
                 "deal_id_1".to_string(),
                 PeerId::random(),
-                1,
+                unit_ids,
             ))
             .await;
 
@@ -608,7 +664,7 @@ mod tests {
         let key_pairs_dir = temp_dir.path().join("key_pairs").to_path_buf();
         let workers_dir = temp_dir.path().join("workers").to_path_buf();
         let root_key_pair = fluence_keypair::KeyPair::generate_ed25519();
-
+        let core_manager = Arc::new(DummyCoreManager::default().into());
         // Create a new KeyStorage instance
         let key_storage = Arc::new(
             KeyStorage::from_path(key_pairs_dir.clone(), root_key_pair.clone())
@@ -616,15 +672,20 @@ mod tests {
                 .expect("Failed to create KeyStorage from path"),
         );
         // Create a new Workers instance
-        let workers = Workers::from_path(workers_dir.clone(), key_storage.clone())
+        let workers = Workers::from_path(workers_dir.clone(), key_storage.clone(), core_manager)
             .await
             .expect("Failed to create Workers from path");
+
+        let init_id_1 =
+            <CUID>::from_hex("54ae1b506c260367a054f80800a545f23e32c6bc4a8908c9a794cb8dad23e5ea")
+                .unwrap();
+        let unit_ids = vec![init_id_1];
 
         let worker_id_1 = workers
             .create_worker(WorkerParams::new(
                 "deal_id_1".to_string(),
                 PeerId::random(),
-                1,
+                unit_ids.clone(),
             ))
             .await
             .expect("Failed to create worker");
@@ -633,7 +694,7 @@ mod tests {
             .create_worker(WorkerParams::new(
                 "deal_id_2".to_string(),
                 PeerId::random(),
-                1,
+                unit_ids,
             ))
             .await
             .expect("Failed to create worker");
@@ -669,7 +730,7 @@ mod tests {
         let key_pairs_dir = temp_dir.path().join("key_pairs").to_path_buf();
         let workers_dir = temp_dir.path().join("workers").to_path_buf();
         let root_key_pair = fluence_keypair::KeyPair::generate_ed25519();
-
+        let core_manager: Arc<CoreManager> = Arc::new(DummyCoreManager::default().into());
         // Create a new KeyStorage instance
         let key_storage = Arc::new(
             KeyStorage::from_path(key_pairs_dir.clone(), root_key_pair.clone())
@@ -678,15 +739,23 @@ mod tests {
         );
 
         // Create a new Workers instance
-        let workers = Workers::from_path(workers_dir.clone(), key_storage.clone())
-            .await
-            .expect("Failed to create Workers from path");
+        let workers = Workers::from_path(
+            workers_dir.clone(),
+            key_storage.clone(),
+            core_manager.clone(),
+        )
+        .await
+        .expect("Failed to create Workers from path");
+        let init_id_1 =
+            <CUID>::from_hex("54ae1b506c260367a054f80800a545f23e32c6bc4a8908c9a794cb8dad23e5ea")
+                .unwrap();
+        let unit_ids = vec![init_id_1];
 
         let worker_id_1 = workers
             .create_worker(WorkerParams::new(
                 "deal_id_1".to_string(),
                 PeerId::random(),
-                1,
+                unit_ids.clone(),
             ))
             .await
             .expect("Failed to create worker");
@@ -695,7 +764,7 @@ mod tests {
             .create_worker(WorkerParams::new(
                 "deal_id_2".to_string(),
                 PeerId::random(),
-                1,
+                unit_ids,
             ))
             .await
             .expect("Failed to create worker");
@@ -740,7 +809,7 @@ mod tests {
         );
 
         // Create a new Workers instance
-        let workers = Workers::from_path(workers_dir.clone(), key_storage.clone())
+        let workers = Workers::from_path(workers_dir.clone(), key_storage.clone(), core_manager)
             .await
             .expect("Failed to create Workers from path");
 

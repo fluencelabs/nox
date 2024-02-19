@@ -434,10 +434,11 @@ impl ParticleAppServices {
             self.vault.create(&particle.id)?;
         }
 
-        let call_parameters_host_id = self.scopes.to_peer_id(peer_scope);
+        let call_parameters_worker_id = self.scopes.to_peer_id(peer_scope);
 
         let params = CallParameters {
-            host_id: call_parameters_host_id.to_string(),
+            host_id: self.scopes.get_host_peer_id().to_string(),
+            worker_id: call_parameters_worker_id.to_string(),
             particle_id: particle.id,
             init_peer_id: particle.init_peer_id.to_string(),
             tetraplets: function_args
@@ -1075,7 +1076,7 @@ mod tests {
     use service_modules::load_module;
     use service_modules::Hash;
     use types::peer_scope::PeerScope;
-    use workers::{KeyStorage, PeerScopes, Workers};
+    use workers::{DummyCoreManager, KeyStorage, PeerScopes, Workers};
 
     use crate::app_services::{ServiceAlias, ServiceType};
     use crate::persistence::load_persisted_services;
@@ -1104,6 +1105,8 @@ mod tests {
 
         let root_key_pair: KeyPair = root_keypair.clone().into();
 
+        let core_manager = Arc::new(DummyCoreManager::default().into());
+
         let scope = PeerScopes::new(
             root_key_pair.get_peer_id(),
             management_pid,
@@ -1111,7 +1114,7 @@ mod tests {
             key_storage.clone(),
         );
 
-        let workers = Workers::from_path(workers_dir.clone(), key_storage)
+        let workers = Workers::from_path(workers_dir.clone(), key_storage, core_manager)
             .await
             .expect("Could not load worker registry");
 
