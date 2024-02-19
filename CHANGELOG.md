@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.20.0](https://github.com/fluencelabs/nox/compare/nox-v0.19.0...nox-v0.20.0) (2024-02-19)
+
+
+### ⚠ BREAKING CHANGES
+
+* **cores:** core manager [fixes NET-739  NET-755 NET-740] ([#2069](https://github.com/fluencelabs/nox/issues/2069))
+
+### Features
+
+* **app-services:** Support worker-id in CallParameters [NET-717] ([#2039](https://github.com/fluencelabs/nox/issues/2039)) ([3b1c10f](https://github.com/fluencelabs/nox/commit/3b1c10f3996c684c4f3143dfa2eca87adf5a9642))
+* **cores:** core manager [fixes NET-739  NET-755 NET-740] ([#2069](https://github.com/fluencelabs/nox/issues/2069)) ([7366f84](https://github.com/fluencelabs/nox/commit/7366f840bb6774670adc1aa09a9eb596dc337362))
+
+
+### Bug Fixes
+
+* **deps:** update rust crate decider-distro to v0.5.17 ([#2081](https://github.com/fluencelabs/nox/issues/2081)) ([046417e](https://github.com/fluencelabs/nox/commit/046417ed835e2e71e4fb3beb20b205cc454b5925))
+* **subnet-resolve:** update subnet resolve to the new ComputeUnit structure ([#2027](https://github.com/fluencelabs/nox/issues/2027)) ([7d561b7](https://github.com/fluencelabs/nox/commit/7d561b77d2e23bf1b6c5c0bd016cbdd66e8eb337))
+
 ## [0.19.0](https://github.com/fluencelabs/nox/compare/nox-v0.18.1...nox-v0.19.0) (2024-02-15)
 
 
