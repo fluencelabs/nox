@@ -1,28 +1,8 @@
-use core_affinity::{set_mask_for_current, CoreId};
+use cpu_utils::pinning::pin_current_thread_to_cpuset;
+use cpu_utils::{LogicalCoreId, PhysicalCoreId};
 use serde::{Deserialize, Serialize};
-use serde_with::{serde_as, DisplayFromStr};
 use std::collections::BTreeSet;
 use types::unit_id::UnitId;
-
-#[serde_as]
-#[derive(PartialEq, Eq, Hash, Clone, Copy, Debug, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct PhysicalCoreId(#[serde_as(as = "DisplayFromStr")] pub(crate) usize);
-
-impl PhysicalCoreId {
-    pub fn new(value: usize) -> Self {
-        Self(value)
-    }
-}
-
-#[serde_as]
-#[derive(PartialEq, Eq, Hash, Clone, Copy, Debug, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct LogicalCoreId(#[serde_as(as = "DisplayFromStr")] pub(crate) usize);
-
-impl LogicalCoreId {
-    pub fn new(value: usize) -> Self {
-        Self(value)
-    }
-}
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Serialize, Deserialize)]
 pub enum WorkType {
@@ -52,11 +32,6 @@ pub struct Assignment {
 
 impl Assignment {
     pub fn pin_current_thread(&self) {
-        let cores: Vec<CoreId> = self
-            .logical_core_ids
-            .iter()
-            .map(|core_id| CoreId { id: core_id.0 })
-            .collect();
-        set_mask_for_current(&cores);
+        pin_current_thread_to_cpuset(self.logical_core_ids.iter().cloned());
     }
 }

@@ -8,10 +8,11 @@ edition = "2021"
 [dependencies]
 fxhash = "0.2.1"
 range-set-blaze = "0.1.14"
-hwloc2 = "2.2.0"
+cpu-utils = { git = "https://github.com/fluencelabs/capacity-commitment-prover/", branch = "main" }
 multimap = { version = "0.10.0", features = ["serde"] }
 bimap = { version = "0.6.3", features = ["serde"] }
 toml = { version = "0.8.10" }
+newtype_derive = "0.1.6"
 
 tokio = { workspace = true, features = ["fs", "rt", "sync", "macros", "tracing"] }
 async-trait.workspace = true
@@ -23,7 +24,6 @@ serde = { workspace = true, features = ["derive"] }
 types.workspace = true
 tracing.workspace = true
 serde_with.workspace = true
-core_affinity = { workspace = true }
 
 [dev-dependencies]
 tempfile = { workspace = true }

@@ -7,9 +7,9 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use cpu_utils::{CPUTopology, LogicalCoreId, PhysicalCoreId};
 use enum_dispatch::enum_dispatch;
 use fxhash::{FxBuildHasher, FxHasher};
-use hwloc2::{ObjectType, Topology};
 use parking_lot::RwLock;
 use range_set_blaze::RangeSetBlaze;
 use serde::{Deserialize, Serialize};
@@ -18,9 +18,7 @@ use types::unit_id::UnitId;
 
 use crate::core_range::CoreRange;
 use crate::errors::{AcquireError, CreateError, LoadingError, PersistError};
-use crate::types::{AcquireRequest, Assignment, LogicalCoreId, PhysicalCoreId, WorkType};
-
-extern crate hwloc2;
+use crate::types::{AcquireRequest, Assignment, WorkType};
 
 type Map<K, V> = HashMap<K, V, BuildHasherDefault<FxHasher>>;
 type MultiMap<K, V> = multimap::MultiMap<K, V, BuildHasherDefault<FxHasher>>;
@@ -114,19 +112,18 @@ impl PersistentCoreManager {
             let bytes = std::fs::read(&file_path).map_err(|err| LoadingError::IoError { err })?;
             let raw_str = std::str::from_utf8(bytes.as_slice())
                 .map_err(|err| LoadingError::DecodeError { err })?;
-            let persistent_state: CoreManagerState = toml::from_str(raw_str)
+            let persistent_state: PersistentCoreManagerState = toml::from_str(raw_str)
                 .map_err(|err| LoadingError::DeserializationError { err })?;
 
             let config_range = core_range.clone().0;
             let mut loaded_range = RangeSetBlaze::new();
-            for core_id in persistent_state.cores_mapping.keys() {
-                loaded_range.insert(core_id.0);
+            for (physical_core_id, _) in persistent_state.cores_mapping.clone() {
+                loaded_range.insert(<PhysicalCoreId as Into<u32>>::into(physical_core_id) as usize);
             }
 
-            if config_range == loaded_range
-                && persistent_state.system_cores.len() == system_cpu_count
-            {
-                Ok(Self::make_instance_with_task(file_path, persistent_state))
+            if config_range == loaded_range && persistent_state.system_cores.len() == system_cpu_count {
+                let state: CoreManagerState = persistent_state.into();
+                Ok(Self::make_instance_with_task(file_path, state))
             } else {
                 tracing::warn!(target: "core-manager", "The initial config has been changed. Ignoring the previous state");
                 let (core_manager, task) =
@@ -168,11 +165,11 @@ impl PersistentCoreManager {
         }
 
         // to observe CPU topology
-        let topology = Topology::new().ok_or(CreateError::CreateTopology)?;
+        let topology = CPUTopology::new().map_err(|err| CreateError::CreateTopology { err })?;
 
         // retrieve info about physical cores
-        let cores = topology
-            .objects_with_type(&ObjectType::Core)
+        let physical_cores = topology
+            .physical_cores()
             .map_err(|err| CreateError::CollectCoresData { err })?;
 
         let mut cores_mapping: MultiMap<PhysicalCoreId, LogicalCoreId> =
@@ -180,15 +177,17 @@ impl PersistentCoreManager {
 
         let mut available_cores: BTreeSet<PhysicalCoreId> = BTreeSet::new();
 
-        for physical_core in cores {
-            let physical_core_id = physical_core.os_index() as usize;
-            if core_range.0.contains(physical_core_id) {
-                let logical_cores = physical_core.children();
-                let physical_core_id = PhysicalCoreId::new(physical_core_id);
+        for physical_core_id in physical_cores {
+            if core_range
+                .0
+                .contains(<PhysicalCoreId as Into<u32>>::into(physical_core_id) as usize as usize)
+            {
+                let logical_cores = topology
+                    .logical_cores_for_physical(physical_core_id)
+                    .map_err(|err| CreateError::CollectCoresData { err })?;
                 available_cores.insert(physical_core_id);
-                for logical_core in logical_cores {
-                    let logical_core_id = logical_core.os_index() as usize;
-                    cores_mapping.insert(physical_core_id, LogicalCoreId::new(logical_core_id))
+                for logical_core_id in logical_cores {
+                    cores_mapping.insert(physical_core_id, logical_core_id)
                 }
             }
         }
@@ -285,7 +284,6 @@ impl PersistenceTask {
     }
 }
 
-#[derive(Serialize, Deserialize)]
 struct CoreManagerState {
     // mapping between physical and logical cores
     cores_mapping: MultiMap<PhysicalCoreId, LogicalCoreId>,
@@ -297,6 +295,47 @@ struct CoreManagerState {
     unit_id_mapping: BiMap<PhysicalCoreId, UnitId>,
     // mapping between unit id and workload type
     work_type_mapping: Map<UnitId, WorkType>,
+}
+
+#[derive(Serialize, Deserialize)]
+struct PersistentCoreManagerState {
+    cores_mapping: Vec<(PhysicalCoreId, LogicalCoreId)>,
+    system_cores: Vec<PhysicalCoreId>,
+    available_cores: Vec<PhysicalCoreId>,
+    unit_id_mapping: Vec<(PhysicalCoreId, UnitId)>,
+    work_type_mapping: Vec<(UnitId, WorkType)>,
+}
+
+impl From<&CoreManagerState> for PersistentCoreManagerState {
+    fn from(value: &CoreManagerState) -> Self {
+        Self {
+            cores_mapping: value.cores_mapping.iter().map(|(k, v)| (*k, *v)).collect(),
+            system_cores: value.system_cores.iter().cloned().collect(),
+            available_cores: value.available_cores.iter().cloned().collect(),
+            unit_id_mapping: value
+                .unit_id_mapping
+                .iter()
+                .map(|(k, v)| (*k, v.clone()))
+                .collect(),
+            work_type_mapping: value
+                .work_type_mapping
+                .iter()
+                .map(|(k, v)| (k.clone(), v.clone()))
+                .collect(),
+        }
+    }
+}
+
+impl From<PersistentCoreManagerState> for CoreManagerState {
+    fn from(value: PersistentCoreManagerState) -> Self {
+        Self {
+            cores_mapping: value.cores_mapping.into_iter().collect(),
+            system_cores: value.system_cores.into_iter().collect(),
+            available_cores: value.available_cores.into_iter().collect(),
+            unit_id_mapping: value.unit_id_mapping.into_iter().collect(),
+            work_type_mapping: value.work_type_mapping.into_iter().collect(),
+        }
+    }
 }
 
 impl CoreManagerFunctions for PersistentCoreManager {
@@ -382,9 +421,10 @@ impl CoreManagerFunctions for PersistentCoreManager {
     fn persist(&self) -> Result<(), PersistError> {
         let lock = self.state.read();
         let inner_state = lock.deref();
-        let toml = toml::to_string_pretty(&inner_state)
-            .map_err(|err| PersistError::SerializationError { err })?;
+        let persistent_state: PersistentCoreManagerState = inner_state.into();
         drop(lock);
+        let toml = toml::to_string_pretty(&persistent_state)
+            .map_err(|err| PersistError::SerializationError { err })?;
         let exists = self.file_path.exists();
         let mut file = if exists {
             File::open(self.file_path.clone()).map_err(|err| PersistError::IoError { err })?
@@ -403,9 +443,11 @@ pub struct DummyCoreManager {}
 impl DummyCoreManager {
     fn all_cores(&self) -> Assignment {
         let physical_core_ids = (0..num_cpus::get_physical())
-            .map(PhysicalCoreId::new)
+            .map(|v| PhysicalCoreId::from(v as u32))
             .collect();
-        let logical_core_ids = (0..num_cpus::get()).map(LogicalCoreId::new).collect();
+        let logical_core_ids = (0..num_cpus::get())
+            .map(|v| LogicalCoreId::from(v as u32))
+            .collect();
         Assignment {
             physical_core_ids,
             logical_core_ids,

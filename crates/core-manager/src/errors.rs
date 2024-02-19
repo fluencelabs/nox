@@ -1,4 +1,4 @@
-use hwloc2::TypeDepthError;
+use cpu_utils::CPUTopologyError;
 use std::str::Utf8Error;
 use thiserror::Error;
 
@@ -8,10 +8,10 @@ pub enum CreateError {
     IllegalSystemCoreCount,
     #[error("Too much system cores needed. Required: {required}, available: {required}")]
     NotEnoughCores { available: usize, required: usize },
-    #[error("Failed to create CPU topology")]
-    CreateTopology,
+    #[error("Failed to create CPU topology {err}")]
+    CreateTopology { err: CPUTopologyError },
     #[error("Failed to collect cores data from OS {err:?}")]
-    CollectCoresData { err: TypeDepthError },
+    CollectCoresData { err: CPUTopologyError },
 }
 
 #[derive(Debug, Error)]
