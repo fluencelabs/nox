@@ -498,8 +498,8 @@ mod tests {
                 CoreRange::default(),
             )
             .unwrap();
-            let init_id_1 = <CUID>::from_hex("01").unwrap();
-            let init_id_2 = <CUID>::from_hex("012").unwrap();
+            let init_id_1 = <CUID>::from_hex("54ae1b506c260367a054f80800a545f23e32c6bc4a8908c9a794cb8dad23e5ea").unwrap();
+            let init_id_2 = <CUID>::from_hex("1cce3d08f784b11d636f2fb55adf291d43c2e9cbe7ae7eeb2d0301a96be0a3a0").unwrap();
             let unit_ids = vec![init_id_1, init_id_2];
             let assignment_1 = manager
                 .acquire_worker_core(AcquireRequest {
@@ -549,8 +549,8 @@ mod tests {
             assert_eq!(before_unit_id_mapping.len(), 0);
             assert_eq!(before_type_mapping.len(), 0);
 
-            let init_id_1 = <CUID>::from_hex("01").unwrap();
-            let init_id_2 = <CUID>::from_hex("012").unwrap();
+            let init_id_1 = <CUID>::from_hex("54ae1b506c260367a054f80800a545f23e32c6bc4a8908c9a794cb8dad23e5ea").unwrap();
+            let init_id_2 = <CUID>::from_hex("1cce3d08f784b11d636f2fb55adf291d43c2e9cbe7ae7eeb2d0301a96be0a3a0").unwrap();
             let unit_ids = vec![init_id_1, init_id_2];
             let assignment = manager
                 .acquire_worker_core(AcquireRequest {

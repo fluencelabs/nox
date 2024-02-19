@@ -40,7 +40,7 @@ type SpellId = String;
 type WorkerPeerId = String;
 
 async fn create_worker(client: &mut ConnectedClient, deal_id: Option<String>) -> WorkerPeerId {
-    let init_id_1 = <CUID>::from_hex("01").unwrap();
+    let init_id_1 = <CUID>::from_hex("54ae1b506c260367a054f80800a545f23e32c6bc4a8908c9a794cb8dad23e5ea").unwrap();
     let unit_ids = vec![init_id_1];
     let data = hashmap! {
         "deal_id" => deal_id.map(JValue::String).unwrap_or(JValue::String("default_deal".to_string())),
@@ -1510,7 +1510,7 @@ async fn spell_create_worker_twice() {
         .await
         .wrap_err("connect client")
         .unwrap();
-    let init_id_1 = <CUID>::from_hex("01").unwrap();
+    let init_id_1 = <CUID>::from_hex("54ae1b506c260367a054f80800a545f23e32c6bc4a8908c9a794cb8dad23e5ea").unwrap();
     let unit_ids = vec![init_id_1];
     let data = hashmap! {
         "client" => json!(client.peer_id.to_string()),
@@ -1601,7 +1601,7 @@ async fn spell_create_worker_same_deal_id_different_peer() {
         .await
         .wrap_err("connect client")
         .unwrap();
-    let init_id_1 = <CUID>::from_hex("01").unwrap();
+    let init_id_1 = <CUID>::from_hex("54ae1b506c260367a054f80800a545f23e32c6bc4a8908c9a794cb8dad23e5ea").unwrap();
     let unit_ids = vec![init_id_1];
     let data = hashmap! {
         "client" => json!(client1.peer_id.to_string()),
@@ -2010,7 +2010,7 @@ async fn get_worker_peer_id_opt() {
         .wrap_err("connect client")
         .unwrap();
 
-    let init_id_1 = <CUID>::from_hex("01").unwrap();
+    let init_id_1 = <CUID>::from_hex("54ae1b506c260367a054f80800a545f23e32c6bc4a8908c9a794cb8dad23e5ea").unwrap();
     let unit_ids = vec![init_id_1];
     let data = hashmap! {
         "relay" => json!(client.node.to_string()),
