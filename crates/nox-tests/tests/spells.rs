@@ -1129,7 +1129,8 @@ async fn spell_set_u32() {
     .wrap_err("connect client")
     .unwrap();
 
-    let script = format!(r#"( seq
+    let script = format!(
+        r#"( seq
         (seq
             (call %init_peer_id% ("getDataSrv" "spell_id") [] spell_id)
             (seq
@@ -1147,7 +1148,9 @@ async fn spell_set_u32() {
             )
         )
         (call "{}" ("return" "") [absent one two])
-    )"#, client.peer_id);
+    )"#,
+        client.peer_id
+    );
     // oneshot spell
     let mut config = TriggerConfig::default();
     config.clock.start_sec = 1;
