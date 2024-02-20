@@ -540,4 +540,6 @@ pub struct ChainConfig {
     pub market_contract_address: String,
     pub network_id: u64,
     pub wallet_key: PrivateKey,
+    /// How often to poll proofs
+    pub timer_resolution: Duration,
 }

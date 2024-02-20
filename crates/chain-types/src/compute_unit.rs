@@ -1,4 +1,4 @@
-use crate::UnitId;
+use ccp_shared::types::CUID;
 use chain_data::{next_opt, parse_chain_data};
 use ethabi::ethereum_types::U256;
 use ethabi::Token;
@@ -8,14 +8,22 @@ use ethabi::Token;
 ///     address deal;
 ///     uint256 startEpoch;
 /// }
+#[derive(Debug, PartialEq, Eq, Hash)]
 pub struct ComputeUnit {
-    pub id: UnitId,
+    pub id: CUID,
     /// if deal is zero-address, it means the unit is not assigned to any deal
     pub deal: Option<String>,
     pub start_epoch: U256,
 }
 
 impl ComputeUnit {
+    pub fn new(id: CUID, start_epoch: U256) -> Self {
+        Self {
+            id,
+            deal: None,
+            start_epoch,
+        }
+    }
     pub fn signature() -> Vec<ethabi::ParamType> {
         vec![
             ethabi::ParamType::FixedBytes(32),
@@ -52,7 +60,7 @@ impl ComputeUnit {
 
         let start_epoch = next_opt(data_tokens, "start_epoch", Token::into_uint)?;
         Ok(ComputeUnit {
-            id: UnitId(id),
+            id: CUID::new(id.as_slice().try_into()?),
             deal,
             start_epoch,
         })
@@ -61,15 +69,20 @@ impl ComputeUnit {
 
 #[cfg(test)]
 mod tests {
+    use ccp_shared::types::CUID;
+    use hex::FromHex;
+
     #[tokio::test]
     async fn decode_compute_unit() {
         let data = "aa3046a12a1aac6e840625e6329d70b427328fec36dc8d273e5e6454b85633d50000000000000000000000005e3d0fde6f793b3115a9e7f5ebc195bbeed35d6c00000000000000000000000000000000000000000000000000000000000003e8";
         let compute_unit = super::ComputeUnit::from(data);
         assert!(compute_unit.is_ok());
         let compute_unit = compute_unit.unwrap();
+
         assert_eq!(
-            hex::encode(compute_unit.id.0),
-            "aa3046a12a1aac6e840625e6329d70b427328fec36dc8d273e5e6454b85633d5"
+            compute_unit.id,
+            <CUID>::from_hex("aa3046a12a1aac6e840625e6329d70b427328fec36dc8d273e5e6454b85633d5")
+                .unwrap()
         );
         assert!(compute_unit.deal.is_some());
         assert_eq!(
@@ -86,8 +99,9 @@ mod tests {
         assert!(compute_unit.is_ok());
         let compute_unit = compute_unit.unwrap();
         assert_eq!(
-            hex::encode(compute_unit.id.0),
-            "aa3046a12a1aac6e840625e6329d70b427328fec36dc8d273e5e6454b85633d5"
+            compute_unit.id,
+            <CUID>::from_hex("aa3046a12a1aac6e840625e6329d70b427328fec36dc8d273e5e6454b85633d5")
+                .unwrap()
         );
         assert!(compute_unit.deal.is_none());
         assert_eq!(compute_unit.start_epoch, 1000.into());

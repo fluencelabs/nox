@@ -1,6 +1,8 @@
+use chain_data::ChainDataError::InvalidTokenSize;
 use chain_data::EventField::{Indexed, NotIndexed};
 use chain_data::{next_opt, parse_peer_id, ChainData, ChainDataError, ChainEvent, EventField};
-use chain_types::{CommitmentId, UnitId};
+use chain_types::CommitmentId;
+use core_manager::CUID;
 use ethabi::ethereum_types::U256;
 use ethabi::param_type::ParamType;
 use ethabi::Token;
@@ -31,7 +33,7 @@ pub struct CommitmentActivatedData {
     pub commitment_id: CommitmentId,
     pub start_epoch: U256,
     pub end_epoch: U256,
-    pub unit_ids: Vec<UnitId>,
+    pub unit_ids: Vec<CUID>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -73,13 +75,17 @@ impl ChainData for CommitmentActivatedData {
         let start_epoch = next_opt(data_tokens, "start_epoch", Token::into_uint)?;
         let end_epoch = next_opt(data_tokens, "end_epoch", Token::into_uint)?;
 
-        let unit_ids: Vec<Vec<u8>> = next_opt(data_tokens, "unit_ids", |t| {
+        let units: Vec<Vec<u8>> = next_opt(data_tokens, "unit_ids", |t| {
             t.into_array()?
                 .into_iter()
                 .map(Token::into_fixed_bytes)
                 .collect()
         })?;
-        let unit_ids = unit_ids.into_iter().map(UnitId).collect();
+
+        let mut unit_ids = vec![];
+        for cu in units {
+            unit_ids.push(CUID::new(cu.try_into().map_err(|_| InvalidTokenSize)?));
+        }
 
         Ok(CommitmentActivatedData {
             peer_id,
@@ -102,7 +108,9 @@ mod test {
 
     use super::{CommitmentActivated, CommitmentActivatedData};
     use chain_data::{parse_log, ChainData, Log};
+    use core_manager::CUID;
     use hex;
+    use hex::FromHex;
 
     #[tokio::test]
     async fn test_cc_activated_topic() {
@@ -143,8 +151,9 @@ mod test {
 
         assert_eq!(result.unit_ids.len(), 1);
         assert_eq!(
-            hex::encode(&result.unit_ids[0].0),
-            "c04d94f1e85788b245471c87490f42149b09503fe3af46733e4b5adf94583105"
+            result.unit_ids[0],
+            <CUID>::from_hex("c04d94f1e85788b245471c87490f42149b09503fe3af46733e4b5adf94583105")
+                .unwrap()
         )
     }
 }

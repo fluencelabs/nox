@@ -30,4 +30,8 @@ tempfile = { workspace = true }
 fs-utils = { workspace = true }
 log-utils = { workspace = true }
 futures = { workspace = true }
-ccp-rpc-client = { git = "ssh://git@github.com/fluencelabs/capacity-commitment-prover.git", branch = "main" }
+core-manager = { workspace = true }
+ccp-rpc-client = { git = "https://github.com/fluencelabs/capacity-commitment-prover.git", branch = "main" }
+cpu-utils = { workspace = true }
+ccp-shared = { workspace = true }
+tokio-stream = { workspace = true }

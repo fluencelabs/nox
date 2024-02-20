@@ -3,10 +3,10 @@ use crate::{
     CurrentEpochFunction, DifficultyFunction, EpochDurationFunction, GetComputePeerFunction,
     GetComputeUnitsFunction, GetGlobalNonceFunction, InitTimestampFunction,
 };
+use ccp_shared::proof::CCProof;
+use ccp_shared::types::{Difficulty, GlobalNonce};
 use chain_data::{next_opt, parse_chain_data, peer_id_to_bytes, FunctionTrait};
-use chain_types::{
-    Commitment, CommitmentId, CommitmentStatus, ComputePeer, ComputeUnit, GlobalNonce, Proof,
-};
+use chain_types::{Commitment, CommitmentId, CommitmentStatus, ComputePeer, ComputeUnit};
 use clarity::Transaction;
 use ethabi::ethereum_types::U256;
 use ethabi::{ParamType, Token};
@@ -37,9 +37,9 @@ pub struct ChainConnector {
 }
 
 pub struct CCInitParams {
-    pub difficulty: Vec<u8>,
+    pub difficulty: Difficulty,
     pub init_timestamp: U256,
-    pub global_nonce: Vec<u8>,
+    pub global_nonce: GlobalNonce,
     pub current_epoch: U256,
     pub epoch_duration: U256,
 }
@@ -226,14 +226,19 @@ impl ChainConnector {
             )
             .await?;
 
-        Ok(GlobalNonce(GetGlobalNonceFunction::decode_bytes(&resp)?))
+        let bytes = GetGlobalNonceFunction::decode_bytes(&resp)?;
+        Ok(GlobalNonce::new(
+            bytes
+                .try_into()
+                .map_err(|_| eyre!("Failed to decode Global nonce"))?,
+        ))
     }
 
-    pub async fn submit_proof(&self, proof: Proof) -> eyre::Result<String> {
+    pub async fn submit_proof(&self, proof: CCProof) -> eyre::Result<String> {
         let data = SubmitProofFunction::data_bytes(&[
-            Token::FixedBytes(proof.unit_id.0),
-            Token::FixedBytes(proof.local_unit_nonce),
-            Token::FixedBytes(proof.target_hash),
+            Token::FixedBytes(proof.cu_id.as_ref().to_vec()),
+            Token::FixedBytes(proof.local_nonce.as_ref().to_vec()),
+            Token::FixedBytes(proof.result_hash.as_ref().to_vec()),
         ])?;
 
         self.send_tx(data, &self.config.cc_contract_address).await
@@ -301,9 +306,17 @@ impl ChainConnector {
         )?;
 
         Ok(CCInitParams {
-            difficulty,
+            difficulty: Difficulty::new(
+                difficulty
+                    .try_into()
+                    .map_err(|_| eyre!("Failed to convert difficulty"))?,
+            ),
             init_timestamp,
-            global_nonce,
+            global_nonce: GlobalNonce::new(
+                global_nonce
+                    .try_into()
+                    .map_err(|_| eyre!("Failed to convert global_nonce"))?,
+            ),
             current_epoch,
             epoch_duration,
         })
@@ -345,9 +358,11 @@ impl ChainConnector {
 #[cfg(test)]
 mod tests {
     use crate::ChainConnector;
+    use ccp_shared::types::{Difficulty, GlobalNonce};
     use chain_data::peer_id_from_hex;
     use chain_types::CommitmentId;
     use clarity::PrivateKey;
+    use hex::FromHex;
     use std::str::FromStr;
     use std::sync::Arc;
 
@@ -366,6 +381,7 @@ mod tests {
                 )
                 .unwrap(),
                 ccp_endpoint: "".to_string(),
+                timer_resolution: Default::default(),
             },
             peer_id_from_hex("0x6497db93b32e4cdd979ada46a23249f444da1efb186cd74b9666bd03f710028b")
                 .unwrap(),
@@ -558,13 +574,19 @@ mod tests {
 
         mock.assert();
         assert_eq!(
-            hex::encode(&init_params.difficulty),
-            "76889c92f61b9c5df216e048df56eb8f4eb02f172ab0d5b04edb9190ab9c9eec"
+            init_params.difficulty,
+            <Difficulty>::from_hex(
+                "76889c92f61b9c5df216e048df56eb8f4eb02f172ab0d5b04edb9190ab9c9eec"
+            )
+            .unwrap()
         );
         assert_eq!(init_params.init_timestamp, 1707760129.into());
         assert_eq!(
-            hex::encode(init_params.global_nonce),
-            "0000000000000000000000000000000000000000000000000000000000000005"
+            init_params.global_nonce,
+            <GlobalNonce>::from_hex(
+                "0000000000000000000000000000000000000000000000000000000000000005"
+            )
+            .unwrap()
         );
         assert_eq!(
             init_params.current_epoch,

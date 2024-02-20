@@ -1,6 +1,8 @@
+use chain_data::ChainDataError::InvalidTokenSize;
 use chain_data::EventField::Indexed;
 use chain_data::{next_opt, ChainData, ChainDataError, ChainEvent, EventField};
-use chain_types::{CommitmentId, UnitId};
+use chain_types::CommitmentId;
+use core_manager::CUID;
 use ethabi::param_type::ParamType;
 use ethabi::Token;
 use serde::{Deserialize, Serialize};
@@ -16,7 +18,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Serialize, Deserialize)]
 pub struct UnitDeactivatedData {
     pub commitment_id: CommitmentId,
-    pub unit_id: UnitId,
+    pub unit_id: CUID,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -49,11 +51,11 @@ impl ChainData for UnitDeactivatedData {
             Token::into_fixed_bytes,
         )?);
 
-        let unit_id = UnitId(next_opt(data_tokens, "unit_id", Token::into_fixed_bytes)?);
+        let unit_id = next_opt(data_tokens, "unit_id", Token::into_fixed_bytes)?;
 
         Ok(UnitDeactivatedData {
             commitment_id,
-            unit_id,
+            unit_id: CUID::new(unit_id.try_into().map_err(|_| InvalidTokenSize)?),
         })
     }
 }
@@ -70,7 +72,9 @@ mod test {
     use crate::event::unit_deactivated::UnitDeactivated;
     use crate::event::UnitDeactivatedData;
     use chain_data::{parse_log, ChainData, Log};
+    use core_manager::CUID;
     use hex;
+    use hex::FromHex;
 
     #[tokio::test]
     async fn test_unit_activated_topic() {
@@ -102,8 +106,9 @@ mod test {
             "91cfcc4a139573b08646960be31b278152ef3480710ab15d9b39262be37038a1" // it's the second topic
         );
         assert_eq!(
-            hex::encode(result.unit_id.0),
-            "f3660ca1eaf461cbbb5e1d06ade6ba4a9a503c0d680ba825e09cddd3f9b45fc6" // it's also the third topic
+            result.unit_id,
+            <CUID>::from_hex("f3660ca1eaf461cbbb5e1d06ade6ba4a9a503c0d680ba825e09cddd3f9b45fc6")
+                .unwrap() // it's also the third topic
         );
     }
 }

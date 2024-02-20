@@ -22,6 +22,7 @@ clarity = { workspace = true }
 tokio = { workspace = true, features = ["rt", "macros"] }
 hex-utils = { workspace = true }
 futures = { workspace = true }
+ccp-shared = { workspace = true }
 
 [dev-dependencies]
 mockito = { workspace = true }

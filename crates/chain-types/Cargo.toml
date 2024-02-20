@@ -11,6 +11,7 @@ ethabi = { workspace = true }
 eyre = { workspace = true }
 chain-data = { workspace = true }
 hex = { workspace = true }
+ccp-shared = { workspace = true }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["rt", "macros"] }

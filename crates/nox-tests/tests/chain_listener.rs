@@ -99,6 +99,7 @@ async fn test_chain_listener_cc() {
             )
             .unwrap(),
             ccp_endpoint: "".to_string(),
+            timer_resolution: Default::default(),
         });
 
         cfg.cc_events_dir = Some(cc_events_dir.clone());
