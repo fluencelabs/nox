@@ -180,7 +180,7 @@ async fn spell_simple_test() {
             (seq
                 (seq
                     (call %init_peer_id% (spell_id "get_script") [] script)
-                    (call %init_peer_id% (spell_id "get_u32") ["counter"] counter)
+                    (call %init_peer_id% (spell_id "get_u32") ["hw_counter"] counter)
                 )
                 (call "{}" ("return" "") [script.$.value counter])
             )
@@ -402,7 +402,7 @@ async fn spell_run_oneshot() {
         (seq
             (seq
                 (call relay ("op" "noop") [])
-                (call worker (spell_id "get_u32") ["counter"] counter)
+                (call worker (spell_id "get_u32") ["hw_counter"] counter)
             )
             (call client ("return" "") [counter])
         )"#,
@@ -444,7 +444,7 @@ async fn spell_install_ok_empty_config() {
         (seq
             (seq
                 (call relay ("op" "noop") [])
-                (call worker (spell_id "get_u32") ["counter"] counter)
+                (call worker (spell_id "get_u32") ["hw_counter"] counter)
             )
             (call %init_peer_id% ("return" "") [counter])
         )"#,
@@ -479,7 +479,7 @@ async fn spell_install_ok_empty_config() {
         (seq
             (seq
                 (call relay ("op" "noop") [])
-                (call worker (spell_id "get_u32") ["counter"] counter)
+                (call worker (spell_id "get_u32") ["hw_counter"] counter)
             )
             (call %init_peer_id% ("return" "") [counter])
         )"#,
@@ -904,7 +904,7 @@ async fn spell_call_by_alias() {
             (seq
                 (seq
                     (call %init_peer_id% ("srv" "add_alias") ["alias" spell_id])
-                    (call %init_peer_id% ("alias" "get_u32") ["counter"] counter)
+                    (call %init_peer_id% ("alias" "get_u32") ["hw_counter"] counter)
                 )
 
                 (call "{}" ("return" "") [counter.$.value])
@@ -940,7 +940,7 @@ async fn spell_trigger_connection_pool() {
         (seq
             (seq
                 (call %init_peer_id% ("getDataSrv" "spell_id") [] spell_id)
-                (call %init_peer_id% (spell_id "get_u32") ["counter"] counter)
+                (call %init_peer_id% (spell_id "get_u32") ["hw_counter"] counter)
             )
             (call "{}" ("return" "") [spell_id])
         )
@@ -1026,7 +1026,7 @@ async fn spell_timer_trigger_mailbox_test() {
         (seq
             (seq
                 (call %init_peer_id% ("getDataSrv" "spell_id") [] spell_id)
-                (call %init_peer_id% ("getDataSrv" "trigger") [] trigger)
+                (call %init_peer_id% ("getDataSrv" "hw_trigger") [] trigger)
             )
             (call "{}" ("return" "") [trigger])
         )
@@ -1067,7 +1067,7 @@ async fn spell_connection_pool_trigger_test() {
                 (seq
                     (call %init_peer_id% ("getDataSrv" "spell_id") [] spell_id)
                     (seq
-                        (call %init_peer_id% ("getDataSrv" "trigger") [] trigger)
+                        (call %init_peer_id% ("getDataSrv" "hw_trigger") [] trigger)
                         (call %init_peer_id% ("run-console" "print") ["getDataSrv, trigger:" trigger])
                     )
                 )
@@ -1127,56 +1127,51 @@ async fn spell_connection_pool_trigger_test() {
 
 #[tokio::test]
 async fn spell_set_u32() {
+    enable_logs();
     let swarms = make_swarms(1).await;
-    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
-        .await
-        .wrap_err("connect client")
-        .unwrap();
+    let mut client = ConnectedClient::connect_with_keypair(
+        swarms[0].multiaddr.clone(),
+        Some(swarms[0].management_keypair.clone()),
+    )
+    .await
+    .wrap_err("connect client")
+    .unwrap();
 
-    let script = format!(r#"(call "{}" ("return" "") ["called"])"#, client.peer_id);
-    let mut config = TriggerConfig::default();
-    config.connections.connect = true;
-
-    let (spell_id, worker_id) =
-        create_spell(&mut client, &script, config.clone(), json!({}), None).await;
-
-    let data = hashmap! {
-        "spell_id" => json!(spell_id),
-        "worker" => json!(worker_id),
-        "relay" => json!(client.node.to_string()),
-        "client" => json!(client.peer_id.to_string()),
-        "config" => json!(config),
-    };
-    let mut result = client
-        .execute_particle(
-            r#"(seq
+    let script = format!(
+        r#"( seq
+        (seq
+            (call %init_peer_id% ("getDataSrv" "spell_id") [] spell_id)
             (seq
+                (call %init_peer_id% (spell_id "get_u32") ["test"] absent)
                 (seq
-                    (call relay ("op" "noop") [])
-                    (call worker (spell_id "get_u32") ["test"] absent)
-                )
-                (seq
-                    (call worker (spell_id "set_u32") ["test" 1])
+                    (call %init_peer_id% (spell_id "set_u32") ["test" 1])
                     (seq
-                        (call worker (spell_id "get_u32") ["test"] one)
+                        (call %init_peer_id% (spell_id "get_u32") ["test"] one)
                         (seq
-                            (call worker (spell_id "set_u32") ["test" 2])
-                            (call worker (spell_id "get_u32") ["test"] two)
+                            (call %init_peer_id% (spell_id "set_u32") ["test" 2])
+                            (call %init_peer_id% (spell_id "get_u32") ["test"] two)
                         )
                     )
                 )
             )
-            (call %init_peer_id% ("return" "") [absent one two])
-           )"#,
-            data,
         )
-        .await
-        .unwrap();
+        (call "{}" ("return" "") [absent one two])
+    )"#,
+        client.peer_id
+    );
+    // oneshot spell
+    let mut config = TriggerConfig::default();
+    config.clock.start_sec = 1;
+    config.clock.period_sec = 0;
+
+    let (_spell_id, _worker_id) =
+        create_spell(&mut client, &script, config.clone(), json!({}), None).await;
+    let mut result = client.receive_args().await.wrap_err("receive").unwrap();
+
     assert_eq!(result.len(), 3);
     let (absent, one, two) = (result.remove(0), result.remove(0), result.remove(0));
 
     assert_eq!(absent["absent"], json!(true));
-
     assert_eq!(one["absent"], json!(false));
     assert_eq!(one["value"], json!(1));
 
@@ -1221,7 +1216,7 @@ async fn spell_update_config() {
         r#"(seq
             (seq
                 (call %init_peer_id% ("getDataSrv" "spell_id") [] spell_id)
-                (call %init_peer_id% ("getDataSrv" "trigger") [] trigger)
+                (call %init_peer_id% ("getDataSrv" "hw_trigger") [] trigger)
              )
             (call "{}" ("return" "") [trigger])
         )"#,
@@ -1311,7 +1306,7 @@ async fn spell_update_config_stopped_spell() {
         r#"(seq
             (seq
                 (call %init_peer_id% ("getDataSrv" "spell_id") [] spell_id)
-                (call %init_peer_id% ("getDataSrv" "trigger") [] trigger)
+                (call %init_peer_id% ("getDataSrv" "hw_trigger") [] trigger)
              )
             (call "{}" ("return" "") [trigger])
         )"#,
@@ -1748,7 +1743,7 @@ async fn spell_update_trigger_by_alias() {
         (seq
             (seq
                 (call %init_peer_id% ("getDataSrv" "spell_id") [] spell_id)
-                (call %init_peer_id% (spell_id "get_u32") ["counter"] counter)
+                (call %init_peer_id% (spell_id "get_u32") ["hw_counter"] counter)
             )
             (call "{}" ("return" "") [spell_id])
         )
@@ -1959,7 +1954,7 @@ async fn spell_call_by_default_alias() {
         (seq
             (seq
                 (seq
-                    (call %init_peer_id% ("spell" "get_u32") ["counter"] counter1)
+                    (call %init_peer_id% ("spell" "get_u32") ["hw_counter"] counter1)
                     (seq
                         (call %init_peer_id% ("srv" "resolve_alias") ["spell"] spell_id1)
                         (xor
@@ -1969,7 +1964,7 @@ async fn spell_call_by_default_alias() {
                     )
                 )
                 (seq
-                    (call %init_peer_id% ("self" "get_u32") ["counter"] counter2)
+                    (call %init_peer_id% ("self" "get_u32") ["hw_counter"] counter2)
                     (seq
                         (call %init_peer_id% ("srv" "resolve_alias") ["self"] spell_id2)
                         (xor
