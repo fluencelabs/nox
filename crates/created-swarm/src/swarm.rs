@@ -39,7 +39,9 @@ use futures::future::BoxFuture;
 use futures::stream::iter;
 use nox::{Connectivity, Node};
 use particle_protocol::ProtocolConfig;
-use server_config::{system_services_config, BootstrapConfig, ChainListenerConfig, UnresolvedConfig, persistent_dir};
+use server_config::{
+    persistent_dir, system_services_config, BootstrapConfig, ChainListenerConfig, UnresolvedConfig,
+};
 use tempfile::TempDir;
 use test_constants::{EXECUTION_TIMEOUT, TRANSPORT_TIMEOUT};
 use tokio::sync::oneshot;
@@ -50,6 +52,7 @@ const HEALTH_CHECK_POLLING_INTERVAL: Duration = Duration::from_millis(100);
 
 // default bound on the number of computations it can perform simultaneously
 const DEFAULT_PARALLELISM: usize = 2;
+
 #[allow(clippy::upper_case_acronyms)]
 type AVM = aquamarine::AVMRunner;
 
@@ -305,7 +308,7 @@ pub fn aqua_vm_config(
     } = vm_config;
 
     let persistent_dir = persistent_dir(&tmp_dir);
-    let air_interpreter = air_interpreter_path(&persistent_dir );
+    let air_interpreter = air_interpreter_path(&persistent_dir);
     write_default_air_interpreter(&air_interpreter).expect("write air interpreter");
 
     VmConfig::new(peer_id, air_interpreter, None)
@@ -331,7 +334,7 @@ pub async fn create_swarm_with_runtime<RT: AquaRuntime>(
     let node_listen_span = tracing::info_span!(parent: &parent_span, "config");
     let node_creation_span = tracing::info_span!(parent: &parent_span, "config");
 
-    let (node, management_kp) = config_apply_span.in_scope(||{
+    let (node, management_kp) = config_apply_span.in_scope(|| {
         let tmp_dir = config.tmp_dir.path().to_path_buf();
 
         let node_config = json!({
@@ -426,7 +429,7 @@ pub async fn create_swarm_with_runtime<RT: AquaRuntime>(
             "some version",
             system_service_distros,
         );
-            (node, management_kp)
+        (node, management_kp)
     });
 
     let mut node = node
