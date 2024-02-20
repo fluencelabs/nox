@@ -431,7 +431,7 @@ impl ParticleAppServices {
 
         // TODO: move particle vault creation to aquamarine::particle_functions
         if create_vault {
-            self.vault.create(&particle.id)?;
+            self.vault.create(&particle)?;
         }
 
         let call_parameters_worker_id = self.scopes.to_peer_id(peer_scope);
@@ -1135,7 +1135,6 @@ mod tests {
         let repo = ModuleRepository::new(
             &config.modules_dir,
             &config.blueprint_dir,
-            &config.particles_vault_dir,
             Default::default(),
         );
 
