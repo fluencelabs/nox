@@ -648,7 +648,7 @@ mod tests {
     use connected_client::ConnectedClient;
     use core_manager::manager::DummyCoreManager;
     use fs_utils::to_abs_path;
-    use server_config::{default_base_dir, load_config_with_args};
+    use server_config::{default_base_dir, load_config_with_args, persistent_dir};
     use system_services::SystemServiceDistros;
 
     use crate::Node;
@@ -657,8 +657,10 @@ mod tests {
     async fn run_node() {
         log_utils::enable_logs();
         let base_dir = default_base_dir();
+        let persistent_dir = persistent_dir(&base_dir);
         fs_utils::create_dir(&base_dir).unwrap();
-        write_default_air_interpreter(&air_interpreter_path(&base_dir)).unwrap();
+        fs_utils::create_dir(&persistent_dir).unwrap();
+        write_default_air_interpreter(&air_interpreter_path(&persistent_dir)).unwrap();
 
         let mut config = load_config_with_args(vec![], None)
             .expect("Could not load config")
