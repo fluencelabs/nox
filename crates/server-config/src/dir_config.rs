@@ -13,11 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::defaults::{avm_base_dir, default_base_dir, services_base_dir};
+use crate::defaults::{avm_base_dir, default_base_dir, services_dir};
 
 use air_interpreter_fs::air_interpreter_path;
 use fs_utils::{canonicalize, create_dirs, to_abs_path};
 
+use crate::{ephemeral_dir, persistent_dir};
 use eyre::WrapErr;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -28,8 +29,17 @@ pub struct UnresolvedDirConfig {
     #[serde(default = "default_base_dir")]
     pub base_dir: PathBuf,
 
-    /// Base directory for resources needed by application services
-    pub services_base_dir: Option<PathBuf>,
+    /// Base directory for persistent resources
+    pub persistent_base_dir: Option<PathBuf>,
+
+    /// Base directory for ephemeral resources
+    pub ephemeral_base_dir: Option<PathBuf>,
+
+    /// Base directory for persistent resources needed by application services
+    pub services_persistent_dir: Option<PathBuf>,
+
+    /// Base directory for ephemeral resources needed by application services
+    pub services_ephemeral_dir: Option<PathBuf>,
 
     /// Base directory for resources needed by application services
     pub avm_base_dir: Option<PathBuf>,
@@ -57,14 +67,34 @@ impl UnresolvedDirConfig {
     pub fn resolve(self) -> eyre::Result<ResolvedDirConfig> {
         let base = to_abs_path(self.base_dir);
 
-        let services_base_dir = self.services_base_dir.unwrap_or(services_base_dir(&base));
-        let avm_base_dir = self.avm_base_dir.unwrap_or(avm_base_dir(&base));
+        let ephemeral_base_dir = self.ephemeral_base_dir.unwrap_or(ephemeral_dir(&base));
+        let persistent_base_dir = self.persistent_base_dir.unwrap_or(persistent_dir(&base));
+
+        // ephemeral dirs
+        let services_ephemeral_dir = self
+            .services_ephemeral_dir
+            .unwrap_or(services_dir(&ephemeral_base_dir));
+        let avm_base_dir = self
+            .avm_base_dir
+            .unwrap_or(avm_base_dir(&ephemeral_base_dir));
+
+        // persistent dirs
+        let services_persistent_dir = self
+            .services_persistent_dir
+            .unwrap_or(services_dir(&persistent_base_dir));
         let air_interpreter_path = self
             .air_interpreter_path
-            .unwrap_or(air_interpreter_path(&base));
-        let spell_base_dir = self.spell_base_dir.unwrap_or(base.join("spell"));
-        let keypairs_base_dir = self.keypairs_base_dir.unwrap_or(base.join("keypairs"));
-        let workers_base_dir = self.workers_base_dir.unwrap_or(base.join("workers"));
+            .unwrap_or(air_interpreter_path(&persistent_base_dir));
+        let spell_base_dir = self
+            .spell_base_dir
+            .unwrap_or(persistent_base_dir.join("spell"));
+        let keypairs_base_dir = self
+            .keypairs_base_dir
+            .unwrap_or(persistent_base_dir.join("keypairs"));
+        let workers_base_dir = self
+            .workers_base_dir
+            .unwrap_or(persistent_base_dir.join("workers"));
+
         let cc_events_dir = self.cc_events_dir.unwrap_or(base.join("cc_events"));
         let core_state_path = self
             .core_state_path
@@ -73,27 +103,39 @@ impl UnresolvedDirConfig {
 
         create_dirs(&[
             &base,
-            &services_base_dir,
+            // ephemeral dirs
+            &ephemeral_base_dir,
+            &services_ephemeral_dir,
             &avm_base_dir,
+            // persistent dirs
+            &persistent_base_dir,
+            &services_persistent_dir,
             &spell_base_dir,
             &keypairs_base_dir,
             &workers_base_dir,
+            // other
             &cc_events_dir,
         ])
         .context("creating configured directories")?;
 
         let base = canonicalize(base)?;
-        let services_base_dir = canonicalize(services_base_dir)?;
+        // ephemeral dirs
         let avm_base_dir = canonicalize(avm_base_dir)?;
+        let services_ephemeral_dir = canonicalize(services_ephemeral_dir)?;
+
+        // persistent dirs
+        let services_persistent_dir = canonicalize(services_persistent_dir)?;
         let spell_base_dir = canonicalize(spell_base_dir)?;
         let keypairs_base_dir = canonicalize(keypairs_base_dir)?;
         let workers_base_dir = canonicalize(workers_base_dir)?;
+
         let cc_events_dir = canonicalize(cc_events_dir)?;
 
         Ok(ResolvedDirConfig {
             base_dir: base,
-            services_base_dir,
             avm_base_dir,
+            services_ephemeral_dir,
+            services_persistent_dir,
             air_interpreter_path,
             spell_base_dir,
             keypairs_base_dir,
@@ -107,9 +149,10 @@ impl UnresolvedDirConfig {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ResolvedDirConfig {
     pub base_dir: PathBuf,
-    pub services_base_dir: PathBuf,
     /// Directory where particle's prev_data is stored
     pub avm_base_dir: PathBuf,
+    pub services_ephemeral_dir: PathBuf,
+    pub services_persistent_dir: PathBuf,
     /// Directory where interpreter's WASM module is stored
     pub air_interpreter_path: PathBuf,
     pub spell_base_dir: PathBuf,

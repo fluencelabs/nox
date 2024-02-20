@@ -27,7 +27,6 @@
 )]
 
 use base64::{engine::general_purpose::STANDARD as base64, Engine};
-use core_affinity::{set_mask_for_current, CoreId};
 use eyre::WrapErr;
 use libp2p::PeerId;
 use std::sync::Arc;
