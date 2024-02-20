@@ -20,4 +20,4 @@ bs58 = { workspace = true }
 
 tokio = { workspace = true, features = ["fs"] }
 parking_lot = { workspace = true }
-async-trait = { version = "0.1.77" }
+async-trait = { workspace = true }

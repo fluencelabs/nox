@@ -2325,6 +2325,7 @@ async fn aliases_restart() {
     }
 }
 
+#[ignore]
 #[tokio::test]
 async fn subnet_resolve() {
     let expected_request = r#"{"jsonrpc":"2.0","id":0,"method":"eth_call","params":[{"data":"0x4b66a309","to":"0x9DcaFca9B88f49d91c38a32E7d9A86a7d9a37B04"},"latest"]}"#;

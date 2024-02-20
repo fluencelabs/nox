@@ -31,6 +31,7 @@ use air_interpreter_fs::{air_interpreter_path, write_default_air_interpreter};
 use aquamarine::{AVMRunner, AquamarineApi};
 use aquamarine::{AquaRuntime, DataStoreConfig, VmConfig};
 use base64::{engine::general_purpose::STANDARD as base64, Engine};
+use core_manager::manager::DummyCoreManager;
 use fluence_libp2p::random_multiaddr::{create_memory_maddr, create_tcp_maddr};
 use fluence_libp2p::Transport;
 use fs_utils::to_abs_path;
@@ -416,8 +417,10 @@ pub async fn create_swarm_with_runtime<RT: AquaRuntime>(
             system_services::SystemServiceDistros::default_from(system_services_config)
                 .expect("Failed to get default system service distros")
                 .extend(config.extend_system_services.clone());
+        let core_manager = Arc::new(DummyCoreManager::default().into());
         let node = Node::new(
             resolved,
+            core_manager,
             vm_config,
             data_store_config,
             "some version",
