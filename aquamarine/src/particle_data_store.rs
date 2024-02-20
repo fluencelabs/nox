@@ -163,7 +163,7 @@ impl ParticleDataStore {
             Err(err) => Err(DataStoreError::CleanupData(err)),
         }?;
 
-        self.vault.cleanup(particle_id, signature).await?;
+        self.vault.cleanup(particle_id).await?;
 
         Ok(())
     }
