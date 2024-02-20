@@ -15,7 +15,7 @@ libp2p = { workspace = true, features = ["identify"] }
 libp2p-swarm = { workspace = true }
 tokio = { workspace = true }
 futures = { workspace = true }
-serde = { version = "1.0.196", features = ["derive"] }
+serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 log = { workspace = true }
 derivative = { workspace = true }

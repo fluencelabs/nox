@@ -1,5 +1,42 @@
 # Changelog
 
+## [0.20.0](https://github.com/fluencelabs/nox/compare/nox-v0.19.0...nox-v0.20.0) (2024-02-19)
+
+
+### ⚠ BREAKING CHANGES
+
+* **cores:** core manager [fixes NET-739  NET-755 NET-740] ([#2069](https://github.com/fluencelabs/nox/issues/2069))
+
+### Features
+
+* **app-services:** Support worker-id in CallParameters [NET-717] ([#2039](https://github.com/fluencelabs/nox/issues/2039)) ([3b1c10f](https://github.com/fluencelabs/nox/commit/3b1c10f3996c684c4f3143dfa2eca87adf5a9642))
+* **cores:** core manager [fixes NET-739  NET-755 NET-740] ([#2069](https://github.com/fluencelabs/nox/issues/2069)) ([7366f84](https://github.com/fluencelabs/nox/commit/7366f840bb6774670adc1aa09a9eb596dc337362))
+
+
+### Bug Fixes
+
+* **deps:** update rust crate decider-distro to v0.5.17 ([#2081](https://github.com/fluencelabs/nox/issues/2081)) ([046417e](https://github.com/fluencelabs/nox/commit/046417ed835e2e71e4fb3beb20b205cc454b5925))
+* **subnet-resolve:** update subnet resolve to the new ComputeUnit structure ([#2027](https://github.com/fluencelabs/nox/issues/2027)) ([7d561b7](https://github.com/fluencelabs/nox/commit/7d561b77d2e23bf1b6c5c0bd016cbdd66e8eb337))
+
+## [0.19.0](https://github.com/fluencelabs/nox/compare/nox-v0.18.1...nox-v0.19.0) (2024-02-15)
+
+
+### ⚠ BREAKING CHANGES
+
+* **worker_pool:** Shift service creation to the worker pool [Fixes NET-716] ([#2026](https://github.com/fluencelabs/nox/issues/2026))
+
+### Features
+
+* **created-swarm:** Re-export some dependencies in created-swarm for consistency in tests ([#2079](https://github.com/fluencelabs/nox/issues/2079)) ([8f0c04e](https://github.com/fluencelabs/nox/commit/8f0c04e10baa2e7597a433778e7ee471bbfab750))
+* **health:** add kademlia bootstrap healthcheck + fix test span logging ([#2056](https://github.com/fluencelabs/nox/issues/2056)) ([c082231](https://github.com/fluencelabs/nox/commit/c0822317fc532e3f1ce9f0b25a625208c503b829))
+* **worker_pool:** Shift service creation to the worker pool [Fixes NET-716] ([#2026](https://github.com/fluencelabs/nox/issues/2026)) ([d3e4855](https://github.com/fluencelabs/nox/commit/d3e4855671f747ea9815420ebf38d83262fd687d))
+
+
+### Bug Fixes
+
+* **deps:** update rust crate decider-distro to v0.5.16 ([#2053](https://github.com/fluencelabs/nox/issues/2053)) ([247f577](https://github.com/fluencelabs/nox/commit/247f5773d58262aeb0d6fe7e4f27dfa4371a7098))
+* **particle-data-store:** use signature in particle data store path name [NET-632] ([#2052](https://github.com/fluencelabs/nox/issues/2052)) ([3065a95](https://github.com/fluencelabs/nox/commit/3065a950246d8a10116095aac64b06d4814e4bd4))
+
 ## [0.18.1](https://github.com/fluencelabs/nox/compare/nox-v0.18.0...nox-v0.18.1) (2024-01-31)
 
 

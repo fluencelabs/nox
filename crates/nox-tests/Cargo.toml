@@ -12,8 +12,8 @@ nox = { workspace = true }
 particle-modules = { workspace = true }
 particle-execution = { workspace = true }
 particle-args = { workspace = true }
-created-swarm ={ workspace = true }
-connected-client ={ workspace = true }
+created-swarm = { workspace = true }
+connected-client = { workspace = true }
 test-constants = { workspace = true }
 toy-vms = { workspace = true }
 now-millis = { workspace = true }
@@ -61,4 +61,5 @@ tracing = { workspace = true }
 mockito = { workspace = true }
 tempfile = { workspace = true }
 jsonrpsee = { workspace = true, features = ["server"] }
+hex = { workspace = true }
 clarity = { workspace = true }

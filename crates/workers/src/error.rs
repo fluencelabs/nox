@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+use core_manager::errors::AcquireError;
 use libp2p::PeerId;
 use std::path::PathBuf;
 use thiserror::Error;
@@ -143,5 +144,11 @@ pub enum WorkersError {
         worker_id: WorkerId,
         #[source]
         err: std::io::Error,
+    },
+    #[error("Failed to allocate cores for {worker_id}: {err}")]
+    FailedToAssignCores {
+        worker_id: WorkerId,
+        #[source]
+        err: AcquireError,
     },
 }
