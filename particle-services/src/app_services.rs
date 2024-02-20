@@ -933,7 +933,7 @@ impl ParticleAppServices {
     ) -> Result<Option<Arc<Service>>, ServiceError> {
         let creation_start_time = Instant::now();
         let service = self
-            .create_app_service(blueprint_id.clone(), service_id.clone())
+            .create_app_service(&peer_scope, blueprint_id.clone(), service_id.clone())
             .inspect_err(|_| {
                 if let Some(metrics) = self.metrics.as_ref() {
                     metrics.observe_created_failed();
@@ -993,13 +993,14 @@ impl ParticleAppServices {
 
     fn create_app_service(
         &self,
+        peer_scope: &PeerScope,
         blueprint_id: String,
         service_id: String,
     ) -> Result<AppService, ServiceError> {
         let mut modules_config = self.modules.resolve_blueprint(&blueprint_id)?;
         modules_config
             .iter_mut()
-            .for_each(|module| self.vault.inject_vault(module));
+            .for_each(|module| self.vault.inject_vault(peer_scope, module));
 
         let app_config = AppServiceConfig {
             service_working_dir: self.config.workdir.join(&service_id),

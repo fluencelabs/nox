@@ -22,12 +22,15 @@ use std::path::{Path, PathBuf};
 use thiserror::Error;
 
 use fs_utils::create_dir;
+use types::peer_scope::PeerScope;
 
 use crate::ParticleParams;
 use crate::VaultError::WrongVault;
 use VaultError::{CleanupVault, CreateVault, InitializeVault};
 
-pub const VIRTUAL_PARTICLE_VAULT_PREFIX: &str = "/tmp/vault";
+// TODO: how to make read-only for workers?
+pub const VIRTUAL_PARTICLE_HOST_VAULT_PREFIX: &str = "/tmp/vault";
+pub const VIRTUAL_PARTICLE_WORKER_VAULT_PREFIX: &str = "/tmp/worker_vault";
 
 #[derive(Debug, Clone)]
 pub struct ParticleVault {
@@ -46,7 +49,7 @@ impl ParticleVault {
 
     /// Returns Particle File Vault path on Marine's filesystem (ie how it would look like inside service)
     pub fn virtual_particle_vault(&self, particle_id: &str) -> PathBuf {
-        Path::new(VIRTUAL_PARTICLE_VAULT_PREFIX).join(particle_id)
+        Path::new(VIRTUAL_PARTICLE_HOST_VAULT_PREFIX).join(particle_id)
     }
 
     pub async fn initialize(&self) -> Result<(), VaultError> {
@@ -55,6 +58,13 @@ impl ParticleVault {
             .map_err(InitializeVault)?;
 
         Ok(())
+    }
+
+    pub async fn initialize_scoped(&self, peer_scope: &PeerScope) -> Result<(), VaultError> {
+        match peer_scope {
+            PeerScope::Host => self.initialize().await,
+            PeerScope::WorkerId(_worker_id) => {}
+        }
     }
 
     pub fn create(&self, particle: &ParticleParams) -> Result<(), VaultError> {
@@ -164,7 +174,7 @@ impl ParticleVault {
 
     /// Map `vault_dir` to `/tmp/vault` inside the service.
     /// Particle File Vaults will be available as `/tmp/vault/$particle_id`
-    pub fn inject_vault(&self, module: &mut ModuleDescriptor) {
+    pub fn inject_vault(&self, peer_scope: &PeerScope, module: &mut ModuleDescriptor) {
         let wasi = &mut module.config.wasi;
         if wasi.is_none() {
             *wasi = Some(MarineWASIConfig::default());
@@ -172,11 +182,20 @@ impl ParticleVault {
         // SAFETY: set wasi to Some in the code above
         let wasi = wasi.as_mut().unwrap();
 
+        // TODO: host path
         let vault_dir = self.vault_dir.to_path_buf();
 
         wasi.preopened_files.insert(vault_dir.clone());
         wasi.mapped_dirs
-            .insert(VIRTUAL_PARTICLE_VAULT_PREFIX.into(), vault_dir);
+            .insert(VIRTUAL_PARTICLE_HOST_VAULT_PREFIX.into(), vault_dir);
+        if let PeerScope::WorkerId(_worker_id) = peer_scope {
+            // TODO: worker path
+            let worker_vault_dir = self.vault_dir.to_path_buf();
+            wasi.mapped_dirs.insert(
+                VIRTUAL_PARTICLE_WORKER_VAULT_PREFIX.into(),
+                worker_vault_dir,
+            );
+        }
     }
 }
 

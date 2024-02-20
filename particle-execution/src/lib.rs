@@ -7,7 +7,7 @@ pub use particle_function::{
     ParticleFunctionStatic, ServiceFunction, ServiceFunctionImmut, ServiceFunctionMut,
 };
 pub use particle_params::ParticleParams;
-pub use particle_vault::{ParticleVault, VaultError, VIRTUAL_PARTICLE_VAULT_PREFIX};
+pub use particle_vault::{ParticleVault, VaultError, VIRTUAL_PARTICLE_HOST_VAULT_PREFIX};
 
 mod function_outcome;
 mod particle_function;
