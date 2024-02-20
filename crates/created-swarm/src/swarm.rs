@@ -39,9 +39,7 @@ use futures::future::BoxFuture;
 use futures::stream::iter;
 use nox::{Connectivity, Node};
 use particle_protocol::ProtocolConfig;
-use server_config::{
-    system_services_config, BootstrapConfig, ChainListenerConfig, UnresolvedConfig,
-};
+use server_config::{system_services_config, BootstrapConfig, ChainListenerConfig, UnresolvedConfig, persistent_dir};
 use tempfile::TempDir;
 use test_constants::{EXECUTION_TIMEOUT, TRANSPORT_TIMEOUT};
 use tokio::sync::oneshot;
@@ -306,7 +304,8 @@ pub fn aqua_vm_config(
         peer_id, tmp_dir, ..
     } = vm_config;
 
-    let air_interpreter = air_interpreter_path(&tmp_dir);
+    let persistent_dir = persistent_dir(&tmp_dir);
+    let air_interpreter = air_interpreter_path(&persistent_dir );
     write_default_air_interpreter(&air_interpreter).expect("write air interpreter");
 
     VmConfig::new(peer_id, air_interpreter, None)
