@@ -39,10 +39,12 @@ impl ParticleVault {
         Self { vault_dir }
     }
 
+    /// Returns Particle File Vault path on Nox's filesystem
     pub fn particle_vault(&self, particle_id: &str) -> PathBuf {
         self.vault_dir.join(particle_id)
     }
 
+    /// Returns Particle File Vault path on Marine's filesystem (ie how it would look like inside service)
     pub fn virtual_particle_vault(&self, particle_id: &str) -> PathBuf {
         Path::new(VIRTUAL_PARTICLE_VAULT_PREFIX).join(particle_id)
     }
@@ -122,7 +124,7 @@ impl ParticleVault {
     }
 
     /// Converts real path in `vault_dir` to virtual path with `VIRTUAL_PARTICLE_VAULT_PREFIX`.
-    /// Virtual path looks like `/tmp/vault/<particle_id>-<base58 signature>/<path>`.
+    /// Virtual path looks like `/tmp/vault/<particle_id>/<path>`.
     fn to_virtual_path(&self, path: &Path, particle_id: &str) -> Result<PathBuf, VaultError> {
         let virtual_prefix = self.virtual_particle_vault(particle_id);
         let real_prefix = self.particle_vault(particle_id);
@@ -161,7 +163,7 @@ impl ParticleVault {
     }
 
     /// Map `vault_dir` to `/tmp/vault` inside the service.
-    /// Particle File Vaults will be available as `/tmp/vault/$particle_id-$base58signature`
+    /// Particle File Vaults will be available as `/tmp/vault/$particle_id`
     pub fn inject_vault(&self, module: &mut ModuleDescriptor) {
         let wasi = &mut module.config.wasi;
         if wasi.is_none() {
