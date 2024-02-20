@@ -53,8 +53,18 @@ pub fn default_connection_idle_timeout() -> Duration {
 pub fn default_max_established_per_peer_limit() -> Option<u32> {
     Some(5)
 }
+
 pub fn default_bootstrap_nodes() -> Vec<Multiaddr> {
     vec![]
+}
+
+pub fn default_system_cpu_count() -> usize {
+    let total = num_cpus::get_physical();
+    match total {
+        x if x > 32 => 4,
+        x if x > 2 => 2,
+        _ => 1,
+    }
 }
 
 pub fn default_websocket_port() -> u16 {
@@ -68,12 +78,15 @@ pub fn default_http_port() -> u16 {
 pub fn default_metrics_enabled() -> bool {
     true
 }
+
 pub fn default_tokio_metrics_enabled() -> bool {
     false
 }
+
 pub fn default_tokio_metrics_poll_histogram_enabled() -> bool {
     false
 }
+
 pub fn default_health_check_enabled() -> bool {
     true
 }

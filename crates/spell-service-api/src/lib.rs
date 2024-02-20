@@ -286,7 +286,7 @@ mod tests {
     use maplit::hashmap;
     use serde_json::json;
     use std::time::Duration;
-    use workers::{KeyStorage, PeerScopes, Workers};
+    use workers::{DummyCoreManager, KeyStorage, PeerScopes, Workers};
 
     use crate::{CallParams, SpellServiceApi};
 
@@ -315,6 +315,8 @@ mod tests {
 
         let key_storage = Arc::new(key_storage);
 
+        let core_manager = Arc::new(DummyCoreManager::default().into());
+
         let scope = PeerScopes::new(
             root_key_pair.get_peer_id(),
             management_pid,
@@ -322,7 +324,7 @@ mod tests {
             key_storage.clone(),
         );
 
-        let workers = Workers::from_path(workers_dir.clone(), key_storage)
+        let workers = Workers::from_path(workers_dir.clone(), key_storage, core_manager)
             .await
             .expect("Could not load worker registry");
 
