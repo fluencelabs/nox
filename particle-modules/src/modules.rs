@@ -29,29 +29,24 @@ use marine_it_parser::module_interface;
 use parking_lot::RwLock;
 use serde_json::{json, Value as JValue};
 
-use fs_utils::file_name;
 use particle_args::JError;
-use particle_execution::ParticleParams;
+use particle_execution::{ParticleParams, ParticleVault};
 use service_modules::{
     extract_module_file_name, is_blueprint, module_config_name_hash, module_file_name_hash,
     AddBlueprint, Blueprint, Hash,
 };
 
 use crate::error::ModuleError::{
-    BlueprintNotFound, BlueprintNotFoundInVault, ConfigNotFoundInVault, EmptyDependenciesList,
-    ForbiddenMountedBinary, IncorrectVaultBlueprint, IncorrectVaultModuleConfig,
-    InvalidBlueprintPath, InvalidModuleConfigPath, InvalidModulePath, ModuleNotFoundInVault,
-    ReadModuleInterfaceError, VaultDoesNotExist,
+    BlueprintNotFound, EmptyDependenciesList, ForbiddenMountedBinary, ReadModuleInterfaceError,
 };
 use crate::error::Result;
 use crate::files::{self, load_config_by_path, load_module_descriptor};
-use crate::ModuleError::SerializeBlueprintJson;
+use crate::ModuleError::{IncorrectVaultModuleConfig, SerializeBlueprintJson};
 
 #[derive(Debug, Clone)]
 pub struct ModuleRepository {
     modules_dir: PathBuf,
     blueprints_dir: PathBuf,
-    particles_vault_dir: PathBuf,
     module_interface_cache: Arc<RwLock<HashMap<Hash, JValue>>>,
     blueprints: Arc<RwLock<HashMap<String, Blueprint>>>,
     allowed_binaries: HashSet<PathBuf>,
@@ -61,7 +56,6 @@ impl ModuleRepository {
     pub fn new(
         modules_dir: &Path,
         blueprints_dir: &Path,
-        particles_vault_dir: &Path,
         allowed_binaries: HashSet<PathBuf>,
     ) -> Self {
         let blueprints = Self::load_blueprints(blueprints_dir);
@@ -72,7 +66,6 @@ impl ModuleRepository {
             blueprints_dir: blueprints_dir.to_path_buf(),
             module_interface_cache: <_>::default(),
             blueprints: blueprints_cache,
-            particles_vault_dir: particles_vault_dir.to_path_buf(),
             allowed_binaries,
         }
     }
@@ -103,58 +96,14 @@ impl ModuleRepository {
         Ok(hash)
     }
 
-    fn check_vault_exists(&self, particle_id: &str) -> Result<PathBuf> {
-        let vault_path = self.particles_vault_dir.join(particle_id);
-        if !vault_path.exists() {
-            return Err(VaultDoesNotExist { vault_path });
-        }
-        Ok(vault_path)
-    }
-
     pub fn load_module_config_from_vault(
-        &self,
+        vault: &ParticleVault,
         config_path: String,
         particle: ParticleParams,
     ) -> Result<TomlMarineNamedModuleConfig> {
-        let vault_path = self.check_vault_exists(&particle.id)?;
-        // load & deserialize module config from vault
-        let config_fname =
-            file_name(&config_path).map_err(|err| InvalidModuleConfigPath { err, config_path })?;
-        let config_path = vault_path.join(config_fname);
-        let config = std::fs::read(&config_path).map_err(|err| {
-            let config_path = config_path.clone();
-            ConfigNotFoundInVault { config_path, err }
-        })?;
-
+        let config = vault.cat_slice(&particle, Path::new(&config_path))?;
         serde_json::from_slice(&config)
             .map_err(|err| IncorrectVaultModuleConfig { config_path, err })
-    }
-
-    pub fn load_blueprint_from_vault(
-        &self,
-        blueprint_path: String,
-        particle: ParticleParams,
-    ) -> Result<AddBlueprint> {
-        let vault_path = self.check_vault_exists(&particle.id)?;
-
-        // load & deserialize module config from vault
-        let blueprint_fname = file_name(&blueprint_path).map_err(|err| InvalidBlueprintPath {
-            err,
-            blueprint_path,
-        })?;
-        let blueprint_path = vault_path.join(blueprint_fname);
-        let data = std::fs::read(&blueprint_path).map_err(|err| {
-            let blueprint_path = blueprint_path.clone();
-            BlueprintNotFoundInVault {
-                blueprint_path,
-                err,
-            }
-        })?;
-
-        AddBlueprint::decode(&data).map_err(|err| IncorrectVaultBlueprint {
-            blueprint_path,
-            err,
-        })
     }
 
     /// Adds a module to the filesystem, overwriting existing module.
@@ -171,19 +120,12 @@ impl ModuleRepository {
 
     pub fn add_module_from_vault(
         &self,
+        vault: &ParticleVault,
         module_path: String,
         config: TomlMarineNamedModuleConfig,
         particle: ParticleParams,
     ) -> Result<String> {
-        let vault_path = self.check_vault_exists(&particle.id)?;
-
-        // load module
-        let module_fname =
-            file_name(&module_path).map_err(|err| InvalidModulePath { err, module_path })?;
-        let module_path = vault_path.join(module_fname);
-        let module = std::fs::read(&module_path)
-            .map_err(|err| ModuleNotFoundInVault { module_path, err })?;
-
+        let module = vault.cat_slice(&particle, Path::new(&module_path))?;
         // copy module & config to module_dir
         let hash = self.add_module(module, config)?;
 
@@ -402,13 +344,7 @@ mod tests {
     fn test_add_blueprint() {
         let module_dir = TempDir::new("test").unwrap();
         let bp_dir = TempDir::new("test").unwrap();
-        let vault_dir = TempDir::new("test").unwrap();
-        let repo = ModuleRepository::new(
-            module_dir.path(),
-            bp_dir.path(),
-            vault_dir.path(),
-            Default::default(),
-        );
+        let repo = ModuleRepository::new(module_dir.path(), bp_dir.path(), Default::default());
 
         let dep1 = Hash::new(&[1, 2, 3]).unwrap();
         let dep2 = Hash::new(&[3, 2, 1]).unwrap();
@@ -442,13 +378,7 @@ mod tests {
     fn test_add_module_get_interface() {
         let module_dir = TempDir::new("test").unwrap();
         let bp_dir = TempDir::new("test2").unwrap();
-        let vault_dir = TempDir::new("test3").unwrap();
-        let repo = ModuleRepository::new(
-            module_dir.path(),
-            bp_dir.path(),
-            vault_dir.path(),
-            Default::default(),
-        );
+        let repo = ModuleRepository::new(module_dir.path(), bp_dir.path(), Default::default());
 
         let module = load_module(
             "../crates/nox-tests/tests/tetraplets/artifacts",

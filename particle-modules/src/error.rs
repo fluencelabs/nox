@@ -24,6 +24,7 @@ use serde_json::Value as JValue;
 use thiserror::Error;
 
 use json_utils::err_as_value;
+use particle_execution::VaultError;
 use service_modules::Blueprint;
 
 pub(super) type Result<T> = std::result::Result<T, ModuleError>;
@@ -131,45 +132,12 @@ pub enum ModuleError {
         #[source]
         err: eyre::Report,
     },
-    #[error("Vault directory for this particle doesn't exist. You must call a service first.")]
-    VaultDoesNotExist { vault_path: PathBuf },
-    #[error("Module not found in vault at {module_path:?}")]
-    ModuleNotFoundInVault {
-        module_path: PathBuf,
-        #[source]
-        err: std::io::Error,
-    },
-    #[error("Config not found in vault at {config_path:?}")]
-    ConfigNotFoundInVault {
-        config_path: PathBuf,
-        #[source]
-        err: std::io::Error,
-    },
     #[error("Error parsing module config from vault {config_path:?}: {err}")]
     IncorrectVaultModuleConfig {
-        config_path: PathBuf,
+        config_path: String,
         #[source]
         err: serde_json::Error,
     },
-    #[error("Invalid blueprint path {blueprint_path:?}: {err}")]
-    InvalidBlueprintPath {
-        blueprint_path: String,
-        #[source]
-        err: eyre::Report,
-    },
-    #[error("Blueprint not found in vault at {blueprint_path:?}")]
-    BlueprintNotFoundInVault {
-        blueprint_path: PathBuf,
-        #[source]
-        err: std::io::Error,
-    },
-    #[error("Error parsing blueprint from vault {blueprint_path:?}: {err}")]
-    IncorrectVaultBlueprint {
-        blueprint_path: PathBuf,
-        #[source]
-        err: eyre::Report,
-    },
-
     #[error(
     "Config error: max_heap_size = '{max_heap_size_wanted}' can't be bigger than {max_heap_size_allowed}'"
     )]
@@ -179,6 +147,8 @@ pub enum ModuleError {
     },
     #[error("Config error: requested mounted binary {forbidden_path} is forbidden on this host")]
     ForbiddenMountedBinary { forbidden_path: String },
+    #[error(transparent)]
+    Vault(#[from] VaultError),
 }
 
 impl From<ModuleError> for JValue {
