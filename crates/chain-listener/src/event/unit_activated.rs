@@ -1,6 +1,7 @@
 use chain_data::EventField::{Indexed, NotIndexed};
-use chain_data::{next_opt, ChainData, ChainDataError, ChainEvent, EventField, U256};
-use chain_types::{CommitmentId, UnitId};
+use chain_data::{next_opt, ChainData, ChainDataError, ChainEvent, EventField};
+use chain_types::{CommitmentId, ComputeUnit, UnitId};
+use ethabi::ethereum_types::U256;
 use ethabi::param_type::ParamType;
 use ethabi::Token;
 use serde::{Deserialize, Serialize};
@@ -54,7 +55,7 @@ impl ChainData for UnitActivatedData {
 
         let unit_id = UnitId(next_opt(data_tokens, "unit_id", Token::into_fixed_bytes)?);
 
-        let start_epoch = next_opt(data_tokens, "start_epoch", U256::from_token)?;
+        let start_epoch = next_opt(data_tokens, "start_epoch", Token::into_uint)?;
 
         Ok(UnitActivatedData {
             commitment_id,
@@ -70,6 +71,15 @@ impl ChainEvent<UnitActivatedData> for UnitActivated {
     }
 }
 
+impl From<UnitActivatedData> for ComputeUnit {
+    fn from(data: UnitActivatedData) -> Self {
+        ComputeUnit {
+            id: data.unit_id,
+            deal: None,
+            start_epoch: data.start_epoch,
+        }
+    }
+}
 #[cfg(test)]
 mod test {
 
@@ -112,9 +122,6 @@ mod test {
             "d33bc101f018e42351fbe2adc8682770d164e27e2e4c6454e0faaf5b8b63b90e" // it's also the third topic
         );
 
-        assert_eq!(
-            result.start_epoch.to_eth(),
-            ethabi::ethereum_types::U256::from(123)
-        );
+        assert_eq!(result.start_epoch, 123.into());
     }
 }

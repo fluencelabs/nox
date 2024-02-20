@@ -1,3 +1,4 @@
+use crate::UnitId;
 use chain_data::{next_opt, parse_chain_data};
 use ethabi::ethereum_types::U256;
 use ethabi::Token;
@@ -8,7 +9,7 @@ use ethabi::Token;
 ///     uint256 startEpoch;
 /// }
 pub struct ComputeUnit {
-    pub id: Vec<u8>,
+    pub id: UnitId,
     /// if deal is zero-address, it means the unit is not assigned to any deal
     pub deal: Option<String>,
     pub start_epoch: U256,
@@ -51,7 +52,7 @@ impl ComputeUnit {
 
         let start_epoch = next_opt(data_tokens, "start_epoch", Token::into_uint)?;
         Ok(ComputeUnit {
-            id,
+            id: UnitId(id),
             deal,
             start_epoch,
         })
@@ -67,7 +68,7 @@ mod tests {
         assert!(compute_unit.is_ok());
         let compute_unit = compute_unit.unwrap();
         assert_eq!(
-            hex::encode(compute_unit.id),
+            hex::encode(compute_unit.id.0),
             "aa3046a12a1aac6e840625e6329d70b427328fec36dc8d273e5e6454b85633d5"
         );
         assert!(compute_unit.deal.is_some());
@@ -85,7 +86,7 @@ mod tests {
         assert!(compute_unit.is_ok());
         let compute_unit = compute_unit.unwrap();
         assert_eq!(
-            hex::encode(compute_unit.id),
+            hex::encode(compute_unit.id.0),
             "aa3046a12a1aac6e840625e6329d70b427328fec36dc8d273e5e6454b85633d5"
         );
         assert!(compute_unit.deal.is_none());

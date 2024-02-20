@@ -15,7 +15,7 @@ use fluence_libp2p::PeerId;
 use futures::FutureExt;
 use hex_utils::decode_hex;
 use jsonrpsee::core::client::{BatchResponse, ClientT};
-use jsonrpsee::core::params::BatchRequestBuilder;
+use jsonrpsee::core::params::{ArrayParams, BatchRequestBuilder};
 use jsonrpsee::http_client::HttpClientBuilder;
 use jsonrpsee::rpc_params;
 use particle_args::{Args, JError};
@@ -36,7 +36,7 @@ pub struct ChainConnector {
     host_id: PeerId,
 }
 
-pub struct ChainListenerInitParams {
+pub struct CCInitParams {
     pub difficulty: Vec<u8>,
     pub init_timestamp: U256,
     pub global_nonce: Vec<u8>,
@@ -262,28 +262,45 @@ impl ChainConnector {
         Ok(compute_units)
     }
 
-    pub async fn batch_init_request(&self) -> eyre::Result<ChainListenerInitParams> {
+    pub async fn get_cc_init_params(&self) -> eyre::Result<CCInitParams> {
         let mut batch = BatchRequestBuilder::new();
 
-        append_difficulty_req(&mut batch, &self.config.cc_contract_address)?;
-        append_init_timestamp_req(&mut batch, &self.config.core_contract_address)?;
-        append_global_nonce_req(&mut batch, &self.config.cc_contract_address)?;
-        append_current_epoch_req(&mut batch, &self.config.core_contract_address)?;
-        append_epoch_duration_req(&mut batch, &self.config.core_contract_address)?;
+        batch.insert("eth_call", self.difficulty_params()?)?;
+        batch.insert("eth_call", self.init_timestamp_params()?)?;
+        batch.insert("eth_call", self.global_nonce_params()?)?;
+        batch.insert("eth_call", self.current_epoch_params()?)?;
+        batch.insert("eth_call", self.epoch_duration_params()?)?;
 
         let resp: BatchResponse<String> = self.client.batch_request(batch).await?;
         let mut results = resp
             .into_ok()
             .map_err(|err| eyre!("Some request failed in a batch {err:?}"))?;
 
-        // TODO remove unwraps
-        let difficulty = DifficultyFunction::decode_bytes(&results.next().unwrap())?;
-        let init_timestamp = InitTimestampFunction::decode_uint(&results.next().unwrap())?;
-        let global_nonce = GetGlobalNonceFunction::decode_bytes(&results.next().unwrap())?;
-        let current_epoch = CurrentEpochFunction::decode_uint(&results.next().unwrap())?;
-        let epoch_duration = EpochDurationFunction::decode_uint(&results.next().unwrap())?;
+        let difficulty = DifficultyFunction::decode_bytes(
+            &results.next().ok_or(eyre!("No response for difficulty"))?,
+        )?;
+        let init_timestamp = InitTimestampFunction::decode_uint(
+            &results
+                .next()
+                .ok_or(eyre!("No response for init_timestamp"))?,
+        )?;
+        let global_nonce = GetGlobalNonceFunction::decode_bytes(
+            &results
+                .next()
+                .ok_or(eyre!("No response for global_nonce"))?,
+        )?;
+        let current_epoch = CurrentEpochFunction::decode_uint(
+            &results
+                .next()
+                .ok_or(eyre!("No response for current_epoch"))?,
+        )?;
+        let epoch_duration = EpochDurationFunction::decode_uint(
+            &results
+                .next()
+                .ok_or(eyre!("No response for epoch_duration"))?,
+        )?;
 
-        Ok(ChainListenerInitParams {
+        Ok(CCInitParams {
             difficulty,
             init_timestamp,
             global_nonce,
@@ -291,66 +308,38 @@ impl ChainConnector {
             epoch_duration,
         })
     }
-}
 
-fn append_difficulty_req(
-    batch: &mut BatchRequestBuilder,
-    cc_contract_address: &str,
-) -> eyre::Result<()> {
-    let data = DifficultyFunction::data(&[])?;
-    batch.insert(
-        "eth_call",
-        rpc_params![json!({"data": data, "to": cc_contract_address})],
-    )?;
-    Ok(())
-}
+    fn difficulty_params(&self) -> eyre::Result<ArrayParams> {
+        let data = DifficultyFunction::data(&[])?;
+        Ok(rpc_params![
+            json!({"data": data, "to": self.config.cc_contract_address})
+        ])
+    }
 
-fn append_init_timestamp_req(
-    batch: &mut BatchRequestBuilder,
-    core_contract_address: &str,
-) -> eyre::Result<()> {
-    let data = InitTimestampFunction::data(&[])?;
-    batch.insert(
-        "eth_call",
-        rpc_params![json!({"data": data, "to": core_contract_address})],
-    )?;
-    Ok(())
-}
-
-fn append_global_nonce_req(
-    batch: &mut BatchRequestBuilder,
-    cc_contract_address: &str,
-) -> eyre::Result<()> {
-    let data = GetGlobalNonceFunction::data(&[])?;
-    batch.insert(
-        "eth_call",
-        rpc_params![json!({"data": data, "to": cc_contract_address})],
-    )?;
-    Ok(())
-}
-
-fn append_current_epoch_req(
-    batch: &mut BatchRequestBuilder,
-    core_contract_address: &str,
-) -> eyre::Result<()> {
-    let data = CurrentEpochFunction::data(&[])?;
-    batch.insert(
-        "eth_call",
-        rpc_params![json!({"data": data, "to": core_contract_address})],
-    )?;
-    Ok(())
-}
-
-fn append_epoch_duration_req(
-    batch: &mut BatchRequestBuilder,
-    core_contract_address: &str,
-) -> eyre::Result<()> {
-    let data = EpochDurationFunction::data(&[])?;
-    batch.insert(
-        "eth_call",
-        rpc_params![json!({"data": data, "to": core_contract_address})],
-    )?;
-    Ok(())
+    fn init_timestamp_params(&self) -> eyre::Result<ArrayParams> {
+        let data = InitTimestampFunction::data(&[])?;
+        Ok(rpc_params![
+            json!({"data": data, "to": self.config.core_contract_address})
+        ])
+    }
+    fn global_nonce_params(&self) -> eyre::Result<ArrayParams> {
+        let data = GetGlobalNonceFunction::data(&[])?;
+        Ok(rpc_params![
+            json!({"data": data, "to": self.config.cc_contract_address})
+        ])
+    }
+    fn current_epoch_params(&self) -> eyre::Result<ArrayParams> {
+        let data = CurrentEpochFunction::data(&[])?;
+        Ok(rpc_params![
+            json!({"data": data, "to": self.config.core_contract_address})
+        ])
+    }
+    fn epoch_duration_params(&self) -> eyre::Result<ArrayParams> {
+        let data = EpochDurationFunction::data(&[])?;
+        Ok(rpc_params![
+            json!({"data": data, "to": self.config.core_contract_address})
+        ])
+    }
 }
 
 #[cfg(test)]
@@ -376,6 +365,7 @@ mod tests {
                     "0xfdc4ba94809c7930fe4676b7d845cbf8fa5c1beae8744d959530e5073004cf3f",
                 )
                 .unwrap(),
+                ccp_endpoint: "".to_string(),
             },
             peer_id_from_hex("0x6497db93b32e4cdd979ada46a23249f444da1efb186cd74b9666bd03f710028b")
                 .unwrap(),
@@ -564,7 +554,7 @@ mod tests {
             .with_body(expected_response)
             .create();
 
-        let init_params = get_connector(&url).batch_init_request().await.unwrap();
+        let init_params = get_connector(&url).get_cc_init_params().await.unwrap();
 
         mock.assert();
         assert_eq!(

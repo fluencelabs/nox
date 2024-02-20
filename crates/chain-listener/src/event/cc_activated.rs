@@ -1,8 +1,7 @@
 use chain_data::EventField::{Indexed, NotIndexed};
-use chain_data::{
-    next_opt, parse_peer_id, ChainData, ChainDataError, ChainEvent, EventField, U256,
-};
+use chain_data::{next_opt, parse_peer_id, ChainData, ChainDataError, ChainEvent, EventField};
 use chain_types::{CommitmentId, UnitId};
+use ethabi::ethereum_types::U256;
 use ethabi::param_type::ParamType;
 use ethabi::Token;
 use libp2p_identity::PeerId;
@@ -71,8 +70,8 @@ impl ChainData for CommitmentActivatedData {
             Token::into_fixed_bytes,
         )?);
 
-        let start_epoch = next_opt(data_tokens, "start_epoch", U256::from_token)?;
-        let end_epoch = next_opt(data_tokens, "end_epoch", U256::from_token)?;
+        let start_epoch = next_opt(data_tokens, "start_epoch", Token::into_uint)?;
+        let end_epoch = next_opt(data_tokens, "end_epoch", Token::into_uint)?;
 
         let unit_ids: Vec<Vec<u8>> = next_opt(data_tokens, "unit_ids", |t| {
             t.into_array()?
@@ -139,14 +138,8 @@ mod test {
             hex::encode(result.commitment_id.0),
             "27e42c090aa007a4f2545547425aaa8ea3566e1f18560803ac48f8e98cb3b0c9" // it's the third topic
         );
-        assert_eq!(
-            result.start_epoch.to_eth(),
-            ethabi::ethereum_types::U256::from(123)
-        );
-        assert_eq!(
-            result.end_epoch.to_eth(),
-            ethabi::ethereum_types::U256::from(456)
-        );
+        assert_eq!(result.start_epoch, 123.into());
+        assert_eq!(result.end_epoch, 456.into());
 
         assert_eq!(result.unit_ids.len(), 1);
         assert_eq!(

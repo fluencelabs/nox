@@ -519,6 +519,7 @@ impl KeypairConfig {
 pub struct ChainConfig {
     pub ws_endpoint: String,
     pub http_endpoint: String,
+    pub ccp_endpoint: String,
     // TODO get all addresses from Core contract
     pub core_contract_address: String,
     pub cc_contract_address: String,

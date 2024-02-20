@@ -98,6 +98,7 @@ async fn test_chain_listener_cc() {
                 "0xfdc4ba94809c7930fe4676b7d845cbf8fa5c1beae8744d959530e5073004cf3f",
             )
             .unwrap(),
+            ccp_endpoint: "".to_string(),
         });
 
         cfg.cc_events_dir = Some(cc_events_dir.clone());
