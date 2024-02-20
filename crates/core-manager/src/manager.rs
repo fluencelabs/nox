@@ -270,8 +270,7 @@ impl PersistenceTask {
     }
 
     async fn persistence_task(self, core_manager: Arc<CoreManager>) {
-        let persist_task = Self::process_events(core_manager, self.receiver);
-        tokio::pin!(persist_task);
+        let mut persist_task = Box::pin(Self::process_events(core_manager, self.receiver));
         loop {
             tokio::select! {
             _ = &mut persist_task => {}
