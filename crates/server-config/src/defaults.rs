@@ -99,7 +99,14 @@ pub fn default_base_dir() -> PathBuf {
     format!(".fluence/v{CONFIG_VERSION}").into()
 }
 
-pub fn services_base_dir(base_dir: &Path) -> PathBuf {
+pub fn persistent_dir(base_dir: &Path) -> PathBuf {
+    base_dir.join("persistent")
+}
+pub fn ephemeral_dir(base_dir: &Path) -> PathBuf {
+    base_dir.join("ephemeral")
+}
+
+pub fn services_dir(base_dir: &Path) -> PathBuf {
     base_dir.join("services")
 }
 
