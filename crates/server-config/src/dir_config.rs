@@ -95,11 +95,13 @@ impl UnresolvedDirConfig {
             .workers_base_dir
             .unwrap_or(persistent_base_dir.join("workers"));
 
-        let cc_events_dir = self.cc_events_dir.unwrap_or(base.join("cc_events"));
+        let cc_events_dir = self
+            .cc_events_dir
+            .unwrap_or(persistent_base_dir.join("cc_events"));
         let core_state_path = self
             .core_state_path
             .clone()
-            .unwrap_or(base.join("cores_state.toml"));
+            .unwrap_or(persistent_base_dir.join("cores_state.toml"));
 
         create_dirs(&[
             &base,
