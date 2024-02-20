@@ -12,7 +12,7 @@ cpu-utils = { git = "https://github.com/fluencelabs/capacity-commitment-prover/"
 ccp-shared = { git = "https://github.com/fluencelabs/capacity-commitment-prover/", branch = "main" }
 multimap = { version = "0.10.0", features = ["serde"] }
 bimap = { version = "0.6.3", features = ["serde"] }
-toml = { version = "0.8.10" }
+toml = { workspace = true }
 newtype_derive = "0.1.6"
 
 tokio = { workspace = true, features = ["fs", "rt", "sync", "macros", "tracing"] }
