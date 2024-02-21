@@ -109,7 +109,7 @@ impl ParticleVault {
         std::fs::write(real_path.clone(), payload.as_bytes())
             .map_err(|e| VaultError::WriteVault(e, filename))?;
 
-        self.to_virtual_path(current_peer_id, &particle, &real_path)
+        self.to_virtual_path(current_peer_id, particle, &real_path)
     }
 
     pub fn cat(
