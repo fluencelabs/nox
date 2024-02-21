@@ -1768,9 +1768,9 @@ dependencies = [
 
 [[package]]
 name = "decider-distro"
-version = "0.6.2"
+version = "0.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fba411ca7fa0dbf64a76539e7f0abd05bd3b39b4594492c91991b20164b03cef"
+checksum = "a9f58717314ff81925496e5bd5e1deff0bbe1303e8d310c673bfe17ba6bce17a"
 dependencies = [
  "built 0.7.1",
  "fluence-spell-dtos",
