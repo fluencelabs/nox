@@ -77,8 +77,10 @@ fn store_file(contents: impl AsRef<[u8]>) -> (String, String) {
 }
 
 fn vault_dir() -> PathBuf {
-    let particle_id = get_call_parameters().particle_id;
-    let vault = Path::new("/tmp").join("vault").join(particle_id);
+    let particle_id = get_call_parameters().particle.id;
+    let token = get_call_parameters().particle.token;
+    let path = format!("{}-{}", particle_id, token);
+    let vault = Path::new("/tmp").join("vault").join(path);
 
     vault
 }
