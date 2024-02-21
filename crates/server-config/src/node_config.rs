@@ -140,7 +140,7 @@ pub struct UnresolvedNodeConfig {
 }
 
 impl UnresolvedNodeConfig {
-    pub fn resolve(mut self, base_dir: &Path) -> eyre::Result<NodeConfig> {
+    pub fn resolve(mut self, persistent_base_dir: &Path) -> eyre::Result<NodeConfig> {
         self.load_system_services_envs();
 
         let bootstrap_nodes = match self.local {
@@ -151,12 +151,12 @@ impl UnresolvedNodeConfig {
         let root_key_pair = self
             .root_key_pair
             .unwrap_or_default()
-            .get_keypair(default_keypair_path(base_dir))?;
+            .get_keypair(default_keypair_path(persistent_base_dir))?;
 
         let builtins_key_pair = self
             .builtins_key_pair
             .unwrap_or_default()
-            .get_keypair(default_builtins_keypair_path(base_dir))?;
+            .get_keypair(default_builtins_keypair_path(persistent_base_dir))?;
 
         let mut allowed_binaries = self.allowed_binaries;
         allowed_binaries.push(self.system_services.aqua_ipfs.ipfs_binary_path.clone());

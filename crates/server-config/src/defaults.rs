@@ -120,9 +120,9 @@ pub fn default_keypair_path(base_dir: &Path) -> PathOrValue {
     }
 }
 
-pub fn default_builtins_keypair_path(base_dir: &Path) -> PathOrValue {
+pub fn default_builtins_keypair_path(persistent_base_dir: &Path) -> PathOrValue {
     PathOrValue::Path {
-        path: base_dir.join("builtins_secret_key.ed25519"),
+        path: persistent_base_dir.join("builtins_secret_key.ed25519"),
     }
 }
 

@@ -120,7 +120,7 @@ impl UnresolvedDirConfig {
         ])
         .context("creating configured directories")?;
 
-        let base = canonicalize(base)?;
+        let base_dir = canonicalize(base)?;
         // ephemeral dirs
         let avm_base_dir = canonicalize(avm_base_dir)?;
         let services_ephemeral_dir = canonicalize(services_ephemeral_dir)?;
@@ -134,7 +134,9 @@ impl UnresolvedDirConfig {
         let cc_events_dir = canonicalize(cc_events_dir)?;
 
         Ok(ResolvedDirConfig {
-            base_dir: base,
+            base_dir,
+            ephemeral_base_dir,
+            persistent_base_dir,
             avm_base_dir,
             services_ephemeral_dir,
             services_persistent_dir,
@@ -151,6 +153,8 @@ impl UnresolvedDirConfig {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ResolvedDirConfig {
     pub base_dir: PathBuf,
+    pub ephemeral_base_dir: PathBuf,
+    pub persistent_base_dir: PathBuf,
     /// Directory where particle's prev_data is stored
     pub avm_base_dir: PathBuf,
     pub services_ephemeral_dir: PathBuf,
