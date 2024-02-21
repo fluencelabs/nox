@@ -383,18 +383,14 @@ mod tests {
         let (connector, _) = ChainConnector::new(
             server_config::ChainConfig {
                 http_endpoint: url.to_string(),
-                ws_endpoint: "".to_string(),
                 cc_contract_address: "0x3Aa5ebB10DC797CAC828524e59A333d0A371443c".to_string(),
                 core_contract_address: "0x0B306BF915C4d645ff596e518fAf3F9669b97016".to_string(),
                 market_contract_address: "0x68B1D87F95878fE05B998F19b66F4baba5De1aed".to_string(),
-
                 network_id: 1,
                 wallet_key: PrivateKey::from_str(
                     "0xfdc4ba94809c7930fe4676b7d845cbf8fa5c1beae8744d959530e5073004cf3f",
                 )
                 .unwrap(),
-                ccp_endpoint: "".to_string(),
-                timer_resolution: Default::default(),
             },
             peer_id_from_hex("0x6497db93b32e4cdd979ada46a23249f444da1efb186cd74b9666bd03f710028b")
                 .unwrap(),

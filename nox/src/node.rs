@@ -323,7 +323,7 @@ impl<RT: AquaRuntime> Node<RT> {
         let services = builtins.services.clone();
         let modules = builtins.modules.clone();
 
-        let chain_connector = if let Some(chain_config) = config.chain_config.clone() {
+        let connector = if let Some(chain_config) = config.chain_config.clone() {
             let host_id = scopes.get_host_peer_id();
             let (chain_connector, chain_builtins) =
                 ChainConnector::new(chain_config.clone(), host_id)?;
@@ -368,13 +368,16 @@ impl<RT: AquaRuntime> Node<RT> {
             system_services_deployer.versions(),
         );
 
-        let chain_listener = if let (Some(chain_config), Some(connector)) =
-            (config.chain_config.clone(), chain_connector)
-        {
+        let chain_listener = if let (Some(connector), Some(chain_config), Some(listener_config)) = (
+            connector,
+            config.chain_config.clone(),
+            config.chain_listener_config.clone(),
+        ) {
             let cc_events_dir = config.dir_config.cc_events_dir.clone();
             let host_id = scopes.get_host_peer_id();
             let chain_listener = ChainListener::new(
                 chain_config,
+                listener_config,
                 cc_events_dir,
                 host_id,
                 connector,

@@ -22,10 +22,11 @@ use jsonrpsee::rpc_params;
 use jsonrpsee::ws_client::WsClientBuilder;
 use libp2p_identity::PeerId;
 use serde_json::{json, Value};
-use server_config::ChainConfig;
+use server_config::{ChainConfig, ChainListenerConfig};
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::time::Duration;
 use tokio::task::JoinHandle;
 use tokio::time::interval;
 use tokio_stream::wrappers::IntervalStream;
@@ -36,6 +37,7 @@ pub struct ChainListener {
     ws_client: WsClient,
     ccp_client: CCPRpcHttpClient,
     config: ChainConfig,
+    timer_resolution: Duration,
     _cc_events_dir: PathBuf,
     host_id: PeerId,
     difficulty: Difficulty,
@@ -60,7 +62,8 @@ async fn poll_subscription(
 
 impl ChainListener {
     pub async fn new(
-        config: ChainConfig,
+        chain_config: ChainConfig,
+        listener_config: ChainListenerConfig,
         cc_events_dir: PathBuf,
         host_id: PeerId,
         chain_connector: Arc<ChainConnector>,
@@ -68,7 +71,7 @@ impl ChainListener {
     ) -> eyre::Result<Self> {
         let init_params = chain_connector.get_cc_init_params().await?;
         let ws_client = WsClientBuilder::default()
-            .build(&config.ws_endpoint)
+            .build(&listener_config.ws_endpoint)
             .await?;
 
         // We will use the first physical core for utility tasks
@@ -79,12 +82,13 @@ impl ChainListener {
             .cloned()
             .ok_or(eyre::eyre!("No utility core id"))?;
 
-        let ccp_client = CCPRpcHttpClient::new(config.ccp_endpoint.clone(), utility_core).await?;
+        let ccp_client =
+            CCPRpcHttpClient::new(listener_config.ccp_endpoint.clone(), utility_core).await?;
         Ok(Self {
             chain_connector,
             ws_client,
             ccp_client,
-            config,
+            config: chain_config,
             host_id,
             difficulty: init_params.difficulty,
             init_timestamp: init_params.init_timestamp,
@@ -96,6 +100,7 @@ impl ChainListener {
             pending_compute_units: HashSet::new(),
             core_manager,
             _cc_events_dir: cc_events_dir,
+            timer_resolution: listener_config.timer_resolution,
         })
     }
 
@@ -117,7 +122,7 @@ impl ChainListener {
                 let mut unit_activated: Option<Subscription<Log>>= None;
                 let mut unit_deactivated: Option<Subscription<Log>> = None;
 
-                let mut timer = IntervalStream::new(interval(self.config.timer_resolution));
+                let mut timer = IntervalStream::new(interval(self.timer_resolution));
 
                 loop {
                     tokio::select! {
