@@ -111,7 +111,7 @@ pub fn services_dir(base_dir: &Path) -> PathBuf {
 }
 
 pub fn avm_base_dir(base_dir: &Path) -> PathBuf {
-    base_dir.join("stepper")
+    base_dir.join("avm")
 }
 
 pub fn default_keypair_path(base_dir: &Path) -> PathOrValue {

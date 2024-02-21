@@ -82,7 +82,7 @@ pub struct UnresolvedNodeConfig {
     #[serde(default)]
     pub protocol_config: ProtocolConfig,
 
-    /// Number of stepper VMs to create. By default, `num_cpus::get() * 2` is used
+    /// Number of AVMs to create. By default, `num_cpus::get() * 2` is used
     #[serde(default = "default_aquavm_pool_size")]
     pub aquavm_pool_size: usize,
 
@@ -333,7 +333,7 @@ pub struct NodeConfig {
 
     pub protocol_config: ProtocolConfig,
 
-    /// Number of stepper VMs to create. By default, `num_cpus::get() * 2` is used
+    /// Number of AVMs to create. By default, `num_cpus::get() * 2` is used
     pub aquavm_pool_size: usize,
 
     /// Maximum heap size in bytes available for an interpreter instance.
