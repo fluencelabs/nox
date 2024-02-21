@@ -16,7 +16,7 @@ use eyre::eyre;
 use fluence_libp2p::PeerId;
 use futures::FutureExt;
 use hex_utils::decode_hex;
-use jsonrpsee::core::client::{BatchResponse, ClientT, Error as RPCError, Error};
+use jsonrpsee::core::client::{BatchResponse, ClientT};
 use jsonrpsee::core::params::{ArrayParams, BatchRequestBuilder};
 use jsonrpsee::http_client::HttpClientBuilder;
 use jsonrpsee::rpc_params;
@@ -99,13 +99,12 @@ impl ChainConnector {
     async fn get_gas_price(&self) -> Result<u128, ConnectorError> {
         let resp: String = self.client.request("eth_gasPrice", rpc_params![]).await?;
 
-        let mut tokens = parse_chain_data(&resp, &[ParamType::Uint(128)])?.into_iter();
-        let price = next_opt(&mut tokens, "gas_price", Token::into_uint)?.as_u128();
+        let price = u128::from_str_radix(&resp[2..], 16)
+            .map_err(|_| ConnectorError::InvalidGasPrice(resp))?;
 
         // increase price by GAS_MULTIPLIER so transaction are included faster
         let increase = (price as f64 * GAS_MULTIPLIER) as u128;
         let price = price.checked_add(increase).unwrap_or(price);
-
         Ok(price)
     }
 
@@ -116,13 +115,13 @@ impl ChainConnector {
             .request("eth_getTransactionCount", rpc_params![address, "pending"])
             .await?;
 
-        let mut tokens = parse_chain_data(&resp, &[ParamType::Uint(128)])?.into_iter();
-        let nonce = next_opt(&mut tokens, "nonce", Token::into_uint)?.as_u128();
+        let nonce =
+            u128::from_str_radix(&resp[2..], 16).map_err(|_| ConnectorError::InvalidNonce(resp))?;
         Ok(nonce)
     }
 
     async fn estimate_gas_limit(&self, data: &[u8], to: &str) -> Result<u128, ConnectorError> {
-        let response: String = process_response(
+        let resp: String = process_response(
             self.client
                 .request(
                     "eth_estimateGas",
@@ -134,8 +133,9 @@ impl ChainConnector {
                 )
                 .await,
         )?;
-        let mut tokens = parse_chain_data(&response, &[ParamType::Uint(128)])?.into_iter();
-        Ok(next_opt(&mut tokens, "gas_limit", Token::into_uint)?.as_u128())
+        let limit = u128::from_str_radix(&resp[2..], 16)
+            .map_err(|_| ConnectorError::InvalidGasLimit(resp))?;
+        Ok(limit)
     }
 
     pub async fn send_tx(&self, data: Vec<u8>, to: &str) -> Result<String, ConnectorError> {
@@ -237,7 +237,7 @@ impl ChainConnector {
                 .await,
         )?;
 
-        let bytes = GetGlobalNonceFunction::decode_bytes(&resp)?;
+        let bytes = GetGlobalNonceFunction::decode_fixed_bytes(&resp)?;
         Ok(GlobalNonce::new(
             bytes.try_into().map_err(|_| InvalidTokenSize)?,
         ))
@@ -291,7 +291,7 @@ impl ChainConnector {
             .into_ok()
             .map_err(|err| eyre!("Some request failed in a batch {err:?}"))?;
 
-        let difficulty = DifficultyFunction::decode_bytes(
+        let difficulty = DifficultyFunction::decode_fixed_bytes(
             &results.next().ok_or(eyre!("No response for difficulty"))?,
         )?;
         let init_timestamp = InitTimestampFunction::decode_uint(
@@ -299,7 +299,7 @@ impl ChainConnector {
                 .next()
                 .ok_or(eyre!("No response for init_timestamp"))?,
         )?;
-        let global_nonce = GetGlobalNonceFunction::decode_bytes(
+        let global_nonce = GetGlobalNonceFunction::decode_fixed_bytes(
             &results
                 .next()
                 .ok_or(eyre!("No response for global_nonce"))?,
@@ -367,12 +367,16 @@ impl ChainConnector {
 
 #[cfg(test)]
 mod tests {
-    use crate::ChainConnector;
-    use ccp_shared::types::{Difficulty, GlobalNonce};
+    use crate::{ChainConnector, ConnectorError};
+    use ccp_shared::proof::{CCProof, CCProofId, ProofIdx};
+    use ccp_shared::types::{Difficulty, GlobalNonce, LocalNonce, ResultHash, CUID};
     use chain_data::peer_id_from_hex;
-    use chain_types::CommitmentId;
+    use chain_types::{CommitmentId, COMMITMENT_IS_NOT_ACTIVE};
     use clarity::PrivateKey;
     use hex::FromHex;
+    use mockito::Matcher;
+    use serde_json::json;
+    use std::assert_matches::assert_matches;
     use std::str::FromStr;
     use std::sync::Arc;
 
@@ -385,7 +389,7 @@ mod tests {
                 core_contract_address: "0x0B306BF915C4d645ff596e518fAf3F9669b97016".to_string(),
                 market_contract_address: "0x68B1D87F95878fE05B998F19b66F4baba5De1aed".to_string(),
 
-                network_id: 0,
+                network_id: 1,
                 wallet_key: PrivateKey::from_str(
                     "0xfdc4ba94809c7930fe4676b7d845cbf8fa5c1beae8744d959530e5073004cf3f",
                 )
@@ -528,6 +532,9 @@ mod tests {
             .expect(1)
             .with_status(200)
             .with_header("content-type", "application/json")
+            .match_body(Matcher::PartialJson(json!({
+                "method": "eth_call",
+            })))
             .with_body(expected_response)
             .create();
         let commitment_id = CommitmentId(hex::decode(&commitment_id[2..]).unwrap());
@@ -605,6 +612,82 @@ mod tests {
         assert_eq!(
             init_params.epoch_duration,
             0x000000000000000000000000000000000000000000000000000000000000000f.into()
+        );
+    }
+
+    #[tokio::test]
+    async fn submit_proof_not_active() {
+        let nonce = r#"{"jsonrpc":"2.0","id":0,"result":"0x20"}"#;
+        let gas_price = r#"{"jsonrpc":"2.0","id":1,"result":"0x3b9aca07"}"#;
+        let estimate_gas = r#"
+        {
+            "jsonrpc": "2.0",
+            "id": 2,
+            "error": {
+                "code": -32000,
+                "message": "execution reverted: revert: Capacity commitment is not active",
+                "data": "0x08c379a000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000021436170616369747920636f6d6d69746d656e74206973206e6f742061637469766500000000000000000000000000000000000000000000000000000000000000"
+            }
+        }
+        "#;
+        let mut server = mockito::Server::new();
+        let url = server.url();
+        server
+            .mock("POST", "/")
+            // expect exactly 4 POST request
+            .expect(1)
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .match_body(Matcher::PartialJson(json!({
+                "method": "eth_getTransactionCount",
+            })))
+            .with_body(nonce)
+            .create();
+        server
+            .mock("POST", "/")
+            // expect exactly 4 POST request
+            .expect(1)
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .match_body(Matcher::PartialJson(json!({
+                "method": "eth_gasPrice",
+            })))
+            .with_body(gas_price)
+            .create();
+        server
+            .mock("POST", "/")
+            // expect exactly 4 POST request
+            .expect(1)
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .match_body(Matcher::PartialJson(json!({
+                "method": "eth_estimateGas",
+            })))
+            .with_body(estimate_gas)
+            .create();
+
+        let proof = CCProof::new(
+            CCProofId::new(
+                GlobalNonce::new([0u8; 32].into()),
+                Difficulty::new([0u8; 32].into()),
+                ProofIdx::zero(),
+            ),
+            LocalNonce::new([0u8; 32].into()),
+            CUID::new([0u8; 32].into()),
+            ResultHash::from_slice([0u8; 32].into()),
+        );
+        let result = get_connector(&url).submit_proof(proof).await;
+
+        assert!(result.is_err());
+
+        println!("{:?}", result);
+        assert_matches!(
+            result.unwrap_err(),
+            ConnectorError::RpcCallError {
+                code: _,
+                message: _,
+                data,
+            } if data.contains(COMMITMENT_IS_NOT_ACTIVE)
         );
     }
 }

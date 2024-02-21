@@ -7,7 +7,9 @@ use ccp_shared::proof::{CCProof, CCProofId, ProofIdx};
 use ccp_shared::types::{Difficulty, GlobalNonce, LocalNonce, ResultHash};
 use chain_connector::{ChainConnector, ConnectorError};
 use chain_data::{next_opt, parse_chain_data, parse_log, peer_id_to_hex, ChainData, Log};
-use chain_types::{CommitmentId, CommitmentStatus, ComputeUnit};
+use chain_types::{
+    CommitmentId, CommitmentStatus, ComputeUnit, COMMITMENT_IS_NOT_ACTIVE, TOO_MANY_PROOFS,
+};
 use core_manager::manager::{CoreManager, CoreManagerFunctions};
 use core_manager::types::{AcquireRequest, WorkType};
 use core_manager::CUID;
@@ -446,16 +448,16 @@ impl ChainListener {
         match self.chain_connector.submit_proof(proof).await {
             Ok(_) => Ok(()),
             Err(err) => {
-                // we stop unit until the next epoch if "TooManyProofs" error received
                 match err {
                     ConnectorError::RpcCallError { ref data, .. } => {
-                        if data.contains("TooManyProofs") {
+                        if data.contains(TOO_MANY_PROOFS) {
+                            // we stop unit until the next epoch if "TooManyProofs" error received
                             self.active_compute_units.remove(&proof.cu_id);
                             self.pending_compute_units
                                 .insert(ComputeUnit::new(proof.cu_id, self.current_epoch + 1));
                             self.update_commitment().await?;
                             Ok(())
-                        } else if data.contains("Commitment is not active") {
+                        } else if data.contains(COMMITMENT_IS_NOT_ACTIVE) {
                             self.stop_commitment().await?;
                             Ok(())
                         } else {

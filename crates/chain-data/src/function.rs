@@ -22,9 +22,9 @@ pub trait FunctionTrait {
         next_opt(&mut tokens, "uint", Token::into_uint)
     }
 
-    fn decode_bytes(data: &str) -> Result<Vec<u8>, ChainDataError> {
+    fn decode_fixed_bytes(data: &str) -> Result<Vec<u8>, ChainDataError> {
         let mut tokens = crate::parse_chain_data(data, &Self::signature())?.into_iter();
-        next_opt(&mut tokens, "bytes", Token::into_bytes)
+        next_opt(&mut tokens, "bytes", Token::into_fixed_bytes)
     }
 
     fn decode_tuple(data: &str) -> Result<Vec<Token>, ChainDataError> {

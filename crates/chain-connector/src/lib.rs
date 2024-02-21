@@ -1,3 +1,5 @@
+#![feature(assert_matches)]
+
 mod connector;
 mod error;
 mod function;
