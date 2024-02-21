@@ -5644,6 +5644,7 @@ version = "0.1.0"
 dependencies = [
  "async-trait",
  "bs58",
+ "eyre",
  "fluence-app-service",
  "fluence-libp2p",
  "fs-utils",
