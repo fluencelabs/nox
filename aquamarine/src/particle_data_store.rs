@@ -317,6 +317,7 @@ mod tests {
     use crate::ParticleDataStore;
     use avm_server::avm_runner::RawAVMOutcome;
     use avm_server::{CallRequests, CallResults, CallServiceResult};
+    use fluence_libp2p::PeerId;
     use std::path::PathBuf;
     use std::time::Duration;
 
@@ -500,17 +501,21 @@ mod tests {
             .expect("Failed to initialize");
 
         let particle_id = "test_particle";
-        let current_peer_id = "test_peer";
+        let current_peer_id = PeerId::random();
+        let current_peer_id_str = current_peer_id.to_base58();
         let signature: &[u8] = &[];
         let data = b"test_data";
 
         particle_data_store
-            .store_data(data, particle_id, current_peer_id, signature)
+            .store_data(data, particle_id, &current_peer_id_str, signature)
             .await
             .expect("Failed to store data");
 
-        let data_file_path = particle_data_store.data_file(particle_id, current_peer_id, signature);
-        let vault_path = temp_dir_path.join("vault").join(particle_id);
+        let data_file_path =
+            particle_data_store.data_file(particle_id, &current_peer_id_str, signature);
+        let vault_path = particle_data_store
+            .vault
+            .real_particle_vault(current_peer_id, particle_id);
         tokio::fs::create_dir_all(&vault_path)
             .await
             .expect("Failed to create vault dir");
