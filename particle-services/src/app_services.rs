@@ -431,7 +431,8 @@ impl ParticleAppServices {
 
         // TODO: move particle vault creation to aquamarine::particle_functions
         if create_vault {
-            self.vault.create(&particle)?;
+            self.vault
+                .create(self.scopes.to_peer_id(particle.peer_scope), &particle.id)?;
         }
 
         let call_parameters_worker_id = self.scopes.to_peer_id(peer_scope);
@@ -933,7 +934,11 @@ impl ParticleAppServices {
     ) -> Result<Option<Arc<Service>>, ServiceError> {
         let creation_start_time = Instant::now();
         let service = self
-            .create_app_service(&peer_scope, blueprint_id.clone(), service_id.clone())
+            .create_app_service(
+                self.scopes.to_peer_id(peer_scope),
+                blueprint_id.clone(),
+                service_id.clone(),
+            )
             .inspect_err(|_| {
                 if let Some(metrics) = self.metrics.as_ref() {
                     metrics.observe_created_failed();
@@ -993,14 +998,14 @@ impl ParticleAppServices {
 
     fn create_app_service(
         &self,
-        peer_scope: &PeerScope,
+        current_peer_id: PeerId,
         blueprint_id: String,
         service_id: String,
     ) -> Result<AppService, ServiceError> {
         let mut modules_config = self.modules.resolve_blueprint(&blueprint_id)?;
         modules_config
             .iter_mut()
-            .for_each(|module| self.vault.inject_vault(peer_scope, module));
+            .for_each(|module| self.vault.inject_vault(current_peer_id, module));
 
         let app_config = AppServiceConfig {
             service_working_dir: self.config.workdir.join(&service_id),

@@ -126,15 +126,14 @@ impl ParticleDataStore {
         let futures: FuturesUnordered<_> = cleanup_keys
             .into_iter()
             .map(|(particle_id, peer_id, signature)| async move {
-                let peer_id = peer_id.to_string();
                 tracing::debug!(
                     target: "particle_reap",
-                    particle_id = particle_id, worker_id = peer_id,
+                    particle_id = particle_id, worker_id = peer_id.to_base58(),
                     "Reaping particle's actor"
                 );
 
                 if let Err(err) = self
-                    .cleanup_data(particle_id.as_str(), peer_id.as_str(), &signature)
+                    .cleanup_data(particle_id.as_str(), peer_id, &signature)
                     .await
                 {
                     tracing::warn!(
@@ -151,11 +150,11 @@ impl ParticleDataStore {
     async fn cleanup_data(
         &self,
         particle_id: &str,
-        current_peer_id: &str,
+        current_peer_id: PeerId,
         signature: &[u8],
     ) -> Result<()> {
         tracing::debug!(target: "particle_reap", particle_id = particle_id, "Cleaning up particle data for particle");
-        let path = self.data_file(particle_id, current_peer_id, signature);
+        let path = self.data_file(particle_id, &current_peer_id.to_base58(), signature);
         match tokio::fs::remove_file(&path).await {
             Ok(_) => Ok(()),
             // ignore NotFound
@@ -163,7 +162,7 @@ impl ParticleDataStore {
             Err(err) => Err(DataStoreError::CleanupData(err)),
         }?;
 
-        self.vault.cleanup(particle_id).await?;
+        self.vault.cleanup(current_peer_id, particle_id).await?;
 
         Ok(())
     }

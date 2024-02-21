@@ -621,6 +621,7 @@ where
 
         let module_hash = self.modules.add_module_from_vault(
             &self.services.vault,
+            self.scopes.to_peer_id(params.peer_scope),
             module_path,
             config,
             params,
@@ -649,6 +650,7 @@ where
 
         let config = ModuleRepository::load_module_config_from_vault(
             &self.services.vault,
+            self.scopes.to_peer_id(params.peer_scope),
             config_path,
             params,
         )?;
@@ -694,10 +696,11 @@ where
         let mut args = args.function_args.into_iter();
         let blueprint_path: String = Args::next("blueprint_path", &mut args)?;
 
-        let data = self
-            .services
-            .vault
-            .cat_slice(&params, Path::new(&blueprint_path))?;
+        let current_peer_id = self.scopes.to_peer_id(params.peer_scope);
+        let data =
+            self.services
+                .vault
+                .cat_slice(current_peer_id, &params, Path::new(&blueprint_path))?;
         let blueprint = AddBlueprint::decode(&data).map_err(|err| {
             JError::new(format!(
                 "Error parsing blueprint from vault {blueprint_path:?}: {err}"
@@ -986,7 +989,11 @@ where
         let mut args = args.function_args.into_iter();
         let data: String = Args::next("data", &mut args)?;
         let name = uuid();
-        let virtual_path = self.services.vault.put(&params, name, &data)?;
+        let current_peer_id = self.scopes.to_peer_id(params.peer_scope);
+        let virtual_path = self
+            .services
+            .vault
+            .put(current_peer_id, &params, name, &data)?;
 
         Ok(JValue::String(virtual_path.display().to_string()))
     }
@@ -994,9 +1001,10 @@ where
     fn vault_cat(&self, args: Args, params: ParticleParams) -> Result<JValue, JError> {
         let mut args = args.function_args.into_iter();
         let path: String = Args::next("path", &mut args)?;
+        let current_peer_id = self.scopes.to_peer_id(params.peer_scope);
         self.services
             .vault
-            .cat(&params, Path::new(&path))
+            .cat(current_peer_id, &params, Path::new(&path))
             .map(JValue::String)
             .map_err(|_| JError::new(format!("Error reading vault file `{path}`")))
     }
