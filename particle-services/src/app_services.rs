@@ -1301,7 +1301,7 @@ mod tests {
         let inter1 = pas.get_interface(PeerScope::Host, service_id1, "").unwrap();
 
         // delete module and check that interfaces will be returned anyway
-        let dir = modules_dir(base_dir.path());
+        let dir = modules_dir(&base_dir.path().to_path_buf().join("persistent"));
         let module_file = dir.join(format!("{m_hash}.wasm"));
         tokio::fs::remove_file(module_file.clone()).await.unwrap();
 
