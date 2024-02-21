@@ -134,7 +134,12 @@ impl ParticleDataStore {
                     );
 
                     if let Err(err) = self
-                        .cleanup_data(particle_id.as_str(), peer_id, &signature, particle_token)
+                        .cleanup_data(
+                            particle_id.as_str(),
+                            peer_id,
+                            &signature,
+                            particle_token.as_str(),
+                        )
                         .await
                     {
                         tracing::warn!(
@@ -154,7 +159,7 @@ impl ParticleDataStore {
         particle_id: &str,
         current_peer_id: PeerId,
         signature: &[u8],
-        particle_token: String,
+        particle_token: &str,
     ) -> Result<()> {
         tracing::debug!(target: "particle_reap", particle_id = particle_id, "Cleaning up particle data for particle");
         let path = self.data_file(particle_id, &current_peer_id.to_base58(), signature);
@@ -166,7 +171,7 @@ impl ParticleDataStore {
         }?;
 
         self.vault
-            .cleanup(current_peer_id, particle_id, &particle_token)
+            .cleanup(current_peer_id, particle_id, particle_token)
             .await?;
 
         Ok(())
@@ -506,6 +511,7 @@ mod tests {
             .expect("Failed to initialize");
 
         let particle_id = "test_particle";
+        let particle_token = "test_token";
         let current_peer_id = PeerId::random();
         let current_peer_id_str = current_peer_id.to_base58();
         let signature: &[u8] = &[];
@@ -518,9 +524,11 @@ mod tests {
 
         let data_file_path =
             particle_data_store.data_file(particle_id, &current_peer_id_str, signature);
-        let vault_path = particle_data_store
-            .vault
-            .real_particle_vault(current_peer_id, particle_id);
+        let vault_path = particle_data_store.vault.real_particle_vault(
+            current_peer_id,
+            particle_id,
+            particle_token,
+        );
         tokio::fs::create_dir_all(&vault_path)
             .await
             .expect("Failed to create vault dir");
@@ -528,7 +536,7 @@ mod tests {
         assert!(vault_path.exists());
 
         let cleanup_result = particle_data_store
-            .cleanup_data(particle_id, current_peer_id, signature)
+            .cleanup_data(particle_id, current_peer_id, signature, particle_token)
             .await;
 
         assert!(cleanup_result.is_ok());
