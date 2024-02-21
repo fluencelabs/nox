@@ -31,7 +31,7 @@ fs-utils = { workspace = true }
 log-utils = { workspace = true }
 futures = { workspace = true }
 core-manager = { workspace = true }
-ccp-rpc-client = { git = "https://github.com/fluencelabs/capacity-commitment-prover.git", branch = "main" }
+ccp-rpc-client = { workspace = true }
 cpu-utils = { workspace = true }
 ccp-shared = { workspace = true }
 tokio-stream = { workspace = true }

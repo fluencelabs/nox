@@ -996,7 +996,7 @@ dependencies = [
 [[package]]
 name = "ccp-rpc-client"
 version = "0.1.0"
-source = "git+https://github.com/fluencelabs/capacity-commitment-prover/?branch=main#80f79ea9aa6e99058c3c0e5e9a6cb1d4b621b7bc"
+source = "git+https://github.com/fluencelabs/capacity-commitment-prover/?branch=misc/new-randomx-crate#fcc65e66cddb92cb0ffbff4b62453fb305271da0"
 dependencies = [
  "ccp-shared",
  "hex",
@@ -1007,12 +1007,12 @@ dependencies = [
 [[package]]
 name = "ccp-shared"
 version = "0.1.0"
-source = "git+https://github.com/fluencelabs/capacity-commitment-prover/?branch=main#80f79ea9aa6e99058c3c0e5e9a6cb1d4b621b7bc"
+source = "git+https://github.com/fluencelabs/capacity-commitment-prover/?branch=misc/new-randomx-crate#fcc65e66cddb92cb0ffbff4b62453fb305271da0"
 dependencies = [
  "cpu-utils",
  "hex",
  "rand 0.8.5",
- "randomx-rust-wrapper",
+ "randomx-rust-wrapper-types",
  "serde",
 ]
 
@@ -1265,15 +1265,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "cmake"
-version = "0.1.50"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a31c789563b815f77f4250caee12365734369f942439b7defd71e18a48197130"
-dependencies = [
- "cc",
-]
-
-[[package]]
 name = "colorchoice"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1499,7 +1490,7 @@ dependencies = [
 [[package]]
 name = "cpu-utils"
 version = "0.1.0"
-source = "git+https://github.com/fluencelabs/capacity-commitment-prover/?branch=main#80f79ea9aa6e99058c3c0e5e9a6cb1d4b621b7bc"
+source = "git+https://github.com/fluencelabs/capacity-commitment-prover/?branch=misc/new-randomx-crate#fcc65e66cddb92cb0ffbff4b62453fb305271da0"
 dependencies = [
  "core_affinity",
  "hwlocality",
@@ -6482,17 +6473,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "randomx-rust-wrapper"
-version = "0.4.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3cf0b5600b179645ca4f5b3d12c4872064ceb0eaeff5dd36e8a843aa7ff7e901"
+name = "randomx-rust-wrapper-types"
+version = "0.1.0"
+source = "git+https://github.com/fluencelabs/randomx-rust-wrapper?branch=feat/decouple#9600d3911b95a9a8082d714d13ce12dba8a14af1"
 dependencies = [
- "bitflags 2.4.1",
- "cmake",
  "hex",
- "libc",
  "serde",
- "thiserror",
 ]
 
 [[package]]
