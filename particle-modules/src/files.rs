@@ -31,7 +31,7 @@ pub fn load_blueprint(bp_dir: &Path, blueprint_id: &str) -> Result<Blueprint> {
     let blueprint =
         std::fs::read(&bp_path).map_err(|err| NoSuchBlueprint { path: bp_path, err })?;
     let blueprint: Blueprint =
-        toml::from_slice(blueprint.as_slice()).map_err(|err| IncorrectBlueprint { err })?;
+        toml::de::from_slice(blueprint.as_slice()).map_err(|err| IncorrectBlueprint { err })?;
 
     Ok(blueprint)
 }
@@ -62,7 +62,7 @@ pub fn load_config_by_path(path: &Path) -> Result<TomlMarineNamedModuleConfig> {
         err,
     })?;
     let config: TomlMarineNamedModuleConfig =
-        toml::from_slice(config.as_slice()).map_err(|err| IncorrectModuleConfig { err })?;
+        toml::de::from_slice(config.as_slice()).map_err(|err| IncorrectModuleConfig { err })?;
 
     Ok(config)
 }
@@ -108,7 +108,7 @@ pub fn add_blueprint(blueprint_dir: &Path, blueprint: &Blueprint) -> Result<()> 
     let path = blueprint_dir.join(blueprint_file_name(blueprint));
 
     // Save blueprint to disk
-    let bytes = toml::to_vec(&blueprint).map_err(|err| SerializeBlueprint {
+    let bytes = toml::ser::to_vec(&blueprint).map_err(|err| SerializeBlueprint {
         err,
         blueprint: blueprint.clone(),
     })?;

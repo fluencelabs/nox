@@ -15,7 +15,7 @@ fluence-keypair = { workspace = true }
 types = { workspace = true }
 core-manager = { workspace = true }
 log = "0.4.20"
-toml = { workspace = true }
+toml = "0.7.3" # otherwise deserialisation of Cargo.toml doesn't work
 
 libp2p = { workspace = true }
 libp2p-metrics = { workspace = true }

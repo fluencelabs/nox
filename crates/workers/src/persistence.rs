@@ -104,7 +104,7 @@ pub(crate) async fn persist_keypair(
 ) -> Result<(), KeyStorageError> {
     let path = keypairs_dir.join(keypair_file_name(worker_id));
     let bytes =
-        toml::to_vec(&persisted_keypair).map_err(|err| SerializePersistedKeypair { err })?;
+        toml::ser::to_vec(&persisted_keypair).map_err(|err| SerializePersistedKeypair { err })?;
     tokio::fs::write(&path, bytes)
         .await
         .map_err(|err| WriteErrorPersistedKeypair { path, err })
