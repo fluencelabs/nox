@@ -180,7 +180,24 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
         match entry {
             Entry::Occupied(actor) => Ok(actor.into_mut()),
             Entry::Vacant(entry) => {
-                let params = ParticleParams::clone_from(particle.as_ref(), peer_scope);
+                // TODO: move to a better place
+                let particle_token = self
+                    .key_storage
+                    .root_key_pair
+                    .sign(&particle.particle.signature);
+                let particle_token = bs58::encode(
+                    particle_token
+                        .map_err(|err| {
+                            eyre!(
+                        "Could not produce particle token by signing the particle signature: {}",
+                        err
+                    )
+                        })?
+                        .to_vec(),
+                )
+                .into_string();
+                let params =
+                    ParticleParams::clone_from(particle.as_ref(), peer_scope, particle_token);
                 let functions = Functions::new(params, builtins.clone());
                 let key_pair = self
                     .key_storage
