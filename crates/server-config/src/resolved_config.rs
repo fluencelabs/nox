@@ -21,7 +21,7 @@ use std::path::PathBuf;
 use std::str::FromStr;
 
 use clap::{Args, Command, FromArgMatches};
-use config::{Config, Environment, File, FileFormat, FileSourceFile, Source};
+use config::{Config, Environment, File, FileFormat, FileSourceFile};
 use libp2p::core::{multiaddr::Protocol, Multiaddr};
 use serde::{Deserialize, Serialize};
 
@@ -237,16 +237,6 @@ pub fn load_config_with_args(
             })
             .unwrap_or_default();
 
-    if let Ok(config_toml) = std::fs::read_to_string("Config.toml") {
-        println!("Config.toml:");
-        println!("{}", config_toml);
-    }
-
-    if let Ok(config_toml) = std::fs::read_to_string("/.fluence/v1/Config.toml") {
-        println!("/.fluence/v1/Config.toml:");
-        println!("{}", config_toml);
-    }
-
     let mut config_builder = Config::builder().add_source(
         File::with_name("Config.toml")
             .required(false)
@@ -254,14 +244,10 @@ pub fn load_config_with_args(
     );
 
     for source in env_config_sources {
-        println!("source {source:#?}");
-        println!("{:#?}", source.collect());
         config_builder = config_builder.add_source(source)
     }
 
     for source in arg_config_sources {
-        println!("source {source:#?}");
-        println!("{:#?}", source.collect());
         config_builder = config_builder.add_source(source)
     }
     config_builder = config_builder.add_source(env_source).add_source(arg_source);

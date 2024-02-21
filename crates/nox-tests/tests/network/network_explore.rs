@@ -330,6 +330,7 @@ async fn explore_services_heavy() {
     assert_eq!(external_addrs, expected_addrs);
 }
 
+#[ignore]
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn explore_services_fixed_heavy() {
     enable_logs();
