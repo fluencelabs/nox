@@ -24,7 +24,6 @@ use libp2p_identity::PeerId;
 use serde_json::{json, Value};
 use server_config::ChainConfig;
 use std::collections::{HashMap, HashSet};
-use std::error::Error;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::task::JoinHandle;
@@ -37,7 +36,7 @@ pub struct ChainListener {
     ws_client: WsClient,
     ccp_client: CCPRpcHttpClient,
     config: ChainConfig,
-    cc_events_dir: PathBuf,
+    _cc_events_dir: PathBuf,
     host_id: PeerId,
     difficulty: Difficulty,
     init_timestamp: U256,
@@ -86,7 +85,6 @@ impl ChainListener {
             ws_client,
             ccp_client,
             config,
-            cc_events_dir,
             host_id,
             difficulty: init_params.difficulty,
             init_timestamp: init_params.init_timestamp,
@@ -97,6 +95,7 @@ impl ChainListener {
             active_compute_units: HashSet::new(),
             pending_compute_units: HashSet::new(),
             core_manager,
+            _cc_events_dir: cc_events_dir,
         })
     }
 
@@ -281,8 +280,7 @@ impl ChainListener {
             .ok_or(eyre::eyre!("newHeads: no timestamp"))?
             .to_string();
 
-        let mut tokens =
-            parse_chain_data(&timestamp, &vec![ethabi::ParamType::Uint(256)])?.into_iter();
+        let mut tokens = parse_chain_data(&timestamp, &[ethabi::ParamType::Uint(256)])?.into_iter();
         let block_timestamp = next_opt(&mut tokens, "timestamp", Token::into_uint)?;
 
         // `epoch_number = 1 + (block_timestamp - init_timestamp) / epoch_duration`
@@ -371,7 +369,7 @@ impl ChainListener {
     async fn update_commitment(&self) -> eyre::Result<()> {
         let cores = self.acquire_capacity_cores()?;
         self.ccp_client
-            .on_active_commitment(self.global_nonce.clone(), self.difficulty.clone(), cores)
+            .on_active_commitment(self.global_nonce, self.difficulty, cores)
             .await?;
         Ok(())
     }
@@ -425,20 +423,11 @@ impl ChainListener {
         let result_hash = ResultHash::from_slice(*self.difficulty.as_ref());
 
         // proof_id is used only by CCP and is not sent to chain
-        let proof_id = CCProofId::new(
-            self.global_nonce.clone(),
-            self.difficulty.clone(),
-            ProofIdx::zero(),
-        );
+        let proof_id = CCProofId::new(self.global_nonce, self.difficulty, ProofIdx::zero());
         for unit in self.active_compute_units.clone().into_iter() {
             let local_nonce = LocalNonce::random();
-            self.submit_proof(CCProof::new(
-                proof_id.clone(),
-                local_nonce,
-                unit.clone(),
-                result_hash,
-            ))
-            .await?;
+            self.submit_proof(CCProof::new(proof_id, local_nonce, unit, result_hash))
+                .await?;
         }
 
         Ok(())

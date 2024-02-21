@@ -1,9 +1,7 @@
 use crate::commitment_status::CommitmentStatus;
-use chain_data::LogParseError::MissingParsedToken;
 use chain_data::{next_opt, parse_chain_data, ChainDataError};
 use ethabi::ethereum_types::U256;
 use ethabi::{ParamType, Token};
-use eyre::eyre;
 
 ///    struct CommitmentView {
 ///         CCStatus status;

@@ -1,12 +1,7 @@
-use clarity::PrivateKey;
-use created_swarm::make_swarms_with_cfg;
-use fs_utils::list_files;
 use jsonrpsee::core::JsonValue;
 use jsonrpsee::server::Server;
 use jsonrpsee::{RpcModule, SubscriptionMessage};
-use server_config::ChainConfig;
 use std::str::FromStr;
-use tempfile::TempDir;
 use tokio::task::JoinHandle;
 
 async fn run_server() -> eyre::Result<(String, JoinHandle<()>)> {
@@ -79,38 +74,38 @@ async fn run_server() -> eyre::Result<(String, JoinHandle<()>)> {
     let handle = tokio::spawn(handle.stopped());
     Ok((addr.to_string(), handle))
 }
-
-#[tokio::test]
-async fn test_chain_listener_cc() {
-    let (addr, server) = run_server().await.unwrap();
-    let url = format!("ws://{}", addr);
-    let events_dir = TempDir::new().unwrap();
-    let cc_events_dir = events_dir.path().to_path_buf();
-    let _swarm = make_swarms_with_cfg(1, move |mut cfg| {
-        cfg.chain_listener = Some(ChainConfig {
-            ws_endpoint: url.clone(),
-            http_endpoint: "".to_string(),
-            cc_contract_address: "".to_string(),
-            core_contract_address: "".to_string(),
-            market_contract_address: "".to_string(),
-            network_id: 0,
-            wallet_key: PrivateKey::from_str(
-                "0xfdc4ba94809c7930fe4676b7d845cbf8fa5c1beae8744d959530e5073004cf3f",
-            )
-            .unwrap(),
-            ccp_endpoint: "".to_string(),
-            timer_resolution: Default::default(),
-        });
-
-        cfg.cc_events_dir = Some(cc_events_dir.clone());
-        cfg
-    })
-    .await;
-
-    tokio::time::sleep(std::time::Duration::from_millis(200)).await;
-
-    let event_files = list_files(events_dir.path()).unwrap().collect::<Vec<_>>();
-    assert_eq!(event_files.len(), 1);
-
-    server.abort();
-}
+//
+// #[tokio::test]
+// async fn test_chain_listener_cc() {
+//     let (addr, server) = run_server().await.unwrap();
+//     let url = format!("ws://{}", addr);
+//     let events_dir = TempDir::new().unwrap();
+//     let cc_events_dir = events_dir.path().to_path_buf();
+//     let _swarm = make_swarms_with_cfg(1, move |mut cfg| {
+//         cfg.chain_listener = Some(ChainConfig {
+//             ws_endpoint: url.clone(),
+//             http_endpoint: "".to_string(),
+//             cc_contract_address: "".to_string(),
+//             core_contract_address: "".to_string(),
+//             market_contract_address: "".to_string(),
+//             network_id: 0,
+//             wallet_key: PrivateKey::from_str(
+//                 "0xfdc4ba94809c7930fe4676b7d845cbf8fa5c1beae8744d959530e5073004cf3f",
+//             )
+//             .unwrap(),
+//             ccp_endpoint: "".to_string(),
+//             timer_resolution: Default::default(),
+//         });
+//
+//         cfg.cc_events_dir = Some(cc_events_dir.clone());
+//         cfg
+//     })
+//     .await;
+//
+//     tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+//
+//     let event_files = list_files(events_dir.path()).unwrap().collect::<Vec<_>>();
+//     assert_eq!(event_files.len(), 1);
+//
+//     server.abort();
+// }

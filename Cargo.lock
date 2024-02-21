@@ -829,6 +829,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "bnum"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "29ed1ec45f6ef6e8d1125cc2c2fec8f8fe7d4fa5b262f15885fdccb9e26f0f15"
+dependencies = [
+ "num-traits",
+]
+
+[[package]]
 name = "bs58"
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -985,12 +994,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "ccp-rpc-client"
+version = "0.1.0"
+source = "git+https://github.com/fluencelabs/capacity-commitment-prover/?branch=main#80f79ea9aa6e99058c3c0e5e9a6cb1d4b621b7bc"
+dependencies = [
+ "ccp-shared",
+ "hex",
+ "jsonrpsee",
+ "serde",
+]
+
+[[package]]
 name = "ccp-shared"
 version = "0.1.0"
-source = "git+https://github.com/fluencelabs/capacity-commitment-prover/?branch=main#86b55795bfb1bdea85cd312606eaadd0b2a4cfcd"
+source = "git+https://github.com/fluencelabs/capacity-commitment-prover/?branch=main#80f79ea9aa6e99058c3c0e5e9a6cb1d4b621b7bc"
 dependencies = [
  "cpu-utils",
  "hex",
+ "rand 0.8.5",
  "randomx-rust-wrapper",
  "serde",
 ]
@@ -1026,10 +1047,36 @@ dependencies = [
 ]
 
 [[package]]
+name = "chain-connector"
+version = "0.1.0"
+dependencies = [
+ "ccp-shared",
+ "chain-data",
+ "chain-types",
+ "clarity",
+ "ethabi",
+ "eyre",
+ "fluence-libp2p",
+ "futures",
+ "hex",
+ "hex-utils",
+ "jsonrpsee",
+ "mockito",
+ "particle-args",
+ "particle-builtins",
+ "particle-execution",
+ "serde_json",
+ "server-config",
+ "thiserror",
+ "tokio",
+]
+
+[[package]]
 name = "chain-data"
 version = "0.1.0"
 dependencies = [
  "ethabi",
+ "eyre",
  "hex",
  "hex-utils",
  "libp2p-identity",
@@ -1042,11 +1089,18 @@ dependencies = [
 name = "chain-listener"
 version = "0.1.0"
 dependencies = [
+ "ccp-rpc-client",
+ "ccp-shared",
+ "chain-connector",
  "chain-data",
+ "chain-types",
+ "core-manager",
+ "cpu-utils",
  "ethabi",
  "eyre",
  "fluence-libp2p",
  "fs-utils",
+ "futures",
  "hex",
  "hex-utils",
  "jsonrpsee",
@@ -1059,8 +1113,22 @@ dependencies = [
  "tempfile",
  "thiserror",
  "tokio",
+ "tokio-stream",
  "tracing",
  "types",
+]
+
+[[package]]
+name = "chain-types"
+version = "0.1.0"
+dependencies = [
+ "ccp-shared",
+ "chain-data",
+ "ethabi",
+ "eyre",
+ "hex",
+ "serde",
+ "tokio",
 ]
 
 [[package]]
@@ -1181,6 +1249,20 @@ name = "clap_lex"
 version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "702fc72eb24e5a1e48ce58027a675bc24edd52096d5397d4aea7c6dd9eca0bd1"
+
+[[package]]
+name = "clarity"
+version = "1.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "273c656822c0367587c0fc6ae5a0bf6e19a10d700cd49168a084975b7f84dcfe"
+dependencies = [
+ "num-traits",
+ "num256",
+ "secp256k1",
+ "serde",
+ "serde_derive",
+ "sha3",
+]
 
 [[package]]
 name = "cmake"
@@ -1417,7 +1499,7 @@ dependencies = [
 [[package]]
 name = "cpu-utils"
 version = "0.1.0"
-source = "git+https://github.com/fluencelabs/capacity-commitment-prover/?branch=main#86b55795bfb1bdea85cd312606eaadd0b2a4cfcd"
+source = "git+https://github.com/fluencelabs/capacity-commitment-prover/?branch=main#80f79ea9aa6e99058c3c0e5e9a6cb1d4b621b7bc"
 dependencies = [
  "core_affinity",
  "hwlocality",
@@ -2476,6 +2558,10 @@ name = "futures-timer"
 version = "3.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e64b03909df88034c26dc1547e8970b91f98bdb65165d6a4e9110d94263dbb2c"
+dependencies = [
+ "gloo-timers",
+ "send_wrapper",
+]
 
 [[package]]
 name = "futures-util"
@@ -2581,6 +2667,52 @@ name = "glob"
 version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d2fabcfbdc87f4758337ca535fb41a6d701b65693ce38287d856d1674551ec9b"
+
+[[package]]
+name = "gloo-net"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "43aaa242d1239a8822c15c645f02166398da4f8b5c4bae795c1f5b44e9eee173"
+dependencies = [
+ "futures-channel",
+ "futures-core",
+ "futures-sink",
+ "gloo-utils",
+ "http 0.2.11",
+ "js-sys",
+ "pin-project",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
+]
+
+[[package]]
+name = "gloo-timers"
+version = "0.2.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9b995a66bb87bebce9a0f4a95aed01daca4872c050bfcb21653361c03bc35e5c"
+dependencies = [
+ "futures-channel",
+ "futures-core",
+ "js-sys",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "gloo-utils"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0b5555354113b18c547c1d3a98fbf7fb32a9ff4f6fa112ce823a21641a0ba3aa"
+dependencies = [
+ "js-sys",
+ "serde",
+ "serde_json",
+ "wasm-bindgen",
+ "web-sys",
+]
 
 [[package]]
 name = "h2"
@@ -3399,11 +3531,13 @@ version = "0.21.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9579d0ca9fb30da026bac2f0f7d9576ec93489aeb7cd4971dd5b4617d82c79b2"
 dependencies = [
+ "jsonrpsee-client-transport",
  "jsonrpsee-core",
  "jsonrpsee-http-client",
  "jsonrpsee-proc-macros",
  "jsonrpsee-server",
  "jsonrpsee-types",
+ "jsonrpsee-wasm-client",
  "jsonrpsee-ws-client",
  "tokio",
  "tracing",
@@ -3415,7 +3549,9 @@ version = "0.21.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3f9f9ed46590a8d5681975f126e22531698211b926129a40a2db47cbca429220"
 dependencies = [
+ "futures-channel",
  "futures-util",
+ "gloo-net",
  "http 0.2.11",
  "jsonrpsee-core",
  "pin-project",
@@ -3428,6 +3564,7 @@ dependencies = [
  "tokio-util",
  "tracing",
  "url",
+ "webpki-roots 0.26.1",
 ]
 
 [[package]]
@@ -3454,6 +3591,7 @@ dependencies = [
  "tokio",
  "tokio-stream",
  "tracing",
+ "wasm-bindgen-futures",
 ]
 
 [[package]]
@@ -3524,6 +3662,17 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror",
+]
+
+[[package]]
+name = "jsonrpsee-wasm-client"
+version = "0.21.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "30f36d27503d0efc0355c1630b74ecfb367050847bf7241a0ed75fab6dfa96c0"
+dependencies = [
+ "jsonrpsee-client-transport",
+ "jsonrpsee-core",
+ "jsonrpsee-types",
 ]
 
 [[package]]
@@ -4096,7 +4245,7 @@ dependencies = [
  "soketto",
  "tracing",
  "url",
- "webpki-roots",
+ "webpki-roots 0.25.2",
 ]
 
 [[package]]
@@ -5137,6 +5286,7 @@ dependencies = [
  "base64 0.21.7",
  "blake3",
  "bs58",
+ "chain-connector",
  "chain-listener",
  "config",
  "config-utils",
@@ -5202,6 +5352,7 @@ dependencies = [
  "base64 0.21.7",
  "blake3",
  "bs58",
+ "clarity",
  "connected-client",
  "connection-pool",
  "control-macro",
@@ -5293,6 +5444,17 @@ checksum = "39e3200413f237f41ab11ad6d161bc7239c84dcb631773ccd7de3dfe4b5c267c"
 dependencies = [
  "autocfg",
  "libm",
+]
+
+[[package]]
+name = "num256"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "27dd9df2c73f8724f4f6930882c127f042656bc84e6000fe9f6026bb43fe1a57"
+dependencies = [
+ "bnum",
+ "num-traits",
+ "serde",
 ]
 
 [[package]]
@@ -6860,6 +7022,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "secp256k1"
+version = "0.28.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d24b59d129cdadea20aea4fb2352fa053712e5d713eee47d700cd4b2bc002f10"
+dependencies = [
+ "secp256k1-sys",
+]
+
+[[package]]
+name = "secp256k1-sys"
+version = "0.9.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e5d1746aae42c19d583c3c1a8c646bfad910498e2051c551a7f2e3c0c9fbb7eb"
+dependencies = [
+ "cc",
+]
+
+[[package]]
 name = "security-framework"
 version = "2.9.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6896,6 +7076,12 @@ checksum = "836fa6a3e1e547f9a2c4040802ec865b5d85f4014efe00555d7090a3dcaa1090"
 dependencies = [
  "serde",
 ]
+
+[[package]]
+name = "send_wrapper"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f638d531eccd6e23b980caf34876660d38e265409d8e99b397ab71eb3612fad0"
 
 [[package]]
 name = "serde"
@@ -7036,6 +7222,7 @@ dependencies = [
  "bs58",
  "bytesize",
  "clap 4.4.18",
+ "clarity",
  "config",
  "config-utils",
  "core-manager",
@@ -7868,7 +8055,7 @@ dependencies = [
  "serde",
  "serde_spanned",
  "toml_datetime",
- "winnow 0.5.19",
+ "winnow",
 ]
 
 [[package]]
@@ -7879,20 +8066,7 @@ checksum = "396e4d48bbb2b7554c944bde63101b5ae446cff6ec4a24227428f15eb72ef338"
 dependencies = [
  "indexmap 2.2.1",
  "toml_datetime",
- "winnow 0.5.19",
-]
-
-[[package]]
-name = "toml_edit"
-version = "0.22.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2c1b5fd4128cc8d3e0cb74d4ed9a9cc7c7284becd4df68f5f940e1ad123606f6"
-dependencies = [
- "indexmap 2.2.1",
- "serde",
- "serde_spanned",
- "toml_datetime",
- "winnow 0.6.1",
+ "winnow",
 ]
 
 [[package]]
@@ -8986,6 +9160,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "14247bb57be4f377dfb94c72830b8ce8fc6beac03cf4bf7b9732eadd414123fc"
 
 [[package]]
+name = "webpki-roots"
+version = "0.26.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b3de34ae270483955a94f4b21bdaaeb83d508bb84a01435f393818edb0012009"
+dependencies = [
+ "rustls-pki-types",
+]
+
+[[package]]
 name = "widestring"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -9236,15 +9419,6 @@ name = "winnow"
 version = "0.5.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "829846f3e3db426d4cee4510841b71a8e58aa2a76b1132579487ae430ccd9c7b"
-dependencies = [
- "memchr",
-]
-
-[[package]]
-name = "winnow"
-version = "0.6.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d90f4e0f530c4c69f62b80d839e9ef3855edc9cba471a160c4d692deed62b401"
 dependencies = [
  "memchr",
 ]

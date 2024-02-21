@@ -5,17 +5,16 @@ use crate::{
     GetComputeUnitsFunction, GetGlobalNonceFunction, InitTimestampFunction,
 };
 use ccp_shared::proof::CCProof;
-use ccp_shared::types::{Difficulty, GlobalNonce, GlobalNonceInner};
+use ccp_shared::types::{Difficulty, GlobalNonce};
 use chain_data::ChainDataError::InvalidTokenSize;
 use chain_data::{next_opt, parse_chain_data, peer_id_to_bytes, FunctionTrait};
 use chain_types::{Commitment, CommitmentId, CommitmentStatus, ComputePeer, ComputeUnit};
 use clarity::Transaction;
 use ethabi::ethereum_types::U256;
-use ethabi::{ParamType, Token};
+use ethabi::Token;
 use eyre::eyre;
 use fluence_libp2p::PeerId;
 use futures::FutureExt;
-use hex_utils::decode_hex;
 use jsonrpsee::core::client::{BatchResponse, ClientT};
 use jsonrpsee::core::params::{ArrayParams, BatchRequestBuilder};
 use jsonrpsee::http_client::HttpClientBuilder;
@@ -87,10 +86,10 @@ impl ChainConnector {
         }
 
         let mut args = args.function_args.into_iter();
-        let data: String = Args::next("data", &mut args)?;
+        let data: Vec<u8> = Args::next("data", &mut args)?;
         let to: String = Args::next("to", &mut args)?;
         let tx_hash = self
-            .send_tx(decode_hex(&data)?, &to)
+            .send_tx(data, &to)
             .await
             .map_err(|err| JError::new(format!("Failed to send tx: {err}")))?;
         Ok(json!(tx_hash))

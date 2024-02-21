@@ -97,7 +97,7 @@ impl From<TriggerInfo> for TriggerInfoAqua {
 
 impl From<TriggerInfoAqua> for TriggerInfo {
     fn from(i: TriggerInfoAqua) -> Self {
-        match (i.timer.get(0), i.peer.get(0)) {
+        match (i.timer.first(), i.peer.first()) {
             (Some(t), None) => Self::Timer(t.clone()),
             (None, Some(p)) => Self::Peer(p.clone()),
             _ => unreachable!("TriggerInfoAqua should always have either timer or peer event"),

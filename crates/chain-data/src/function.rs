@@ -28,6 +28,6 @@ pub trait FunctionTrait {
     }
 
     fn decode_tuple(data: &str) -> Result<Vec<Token>, ChainDataError> {
-        Ok(crate::parse_chain_data(data, &Self::signature())?)
+        crate::parse_chain_data(data, &Self::signature())
     }
 }

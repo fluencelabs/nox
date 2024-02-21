@@ -1,5 +1,4 @@
 use chain_data::{next_opt, parse_chain_data, ChainDataError};
-use eyre::eyre;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CommitmentStatus {
@@ -32,8 +31,7 @@ impl CommitmentStatus {
     pub fn from_token(token: ethabi::Token) -> Option<Self> {
         token
             .into_uint()
-            .map(|u| Self::from_num(u.as_u64() as u8))
-            .flatten()
+            .and_then(|u| Self::from_num(u.as_u64() as u8))
     }
 
     pub fn from(data: &str) -> Result<Self, ChainDataError> {
