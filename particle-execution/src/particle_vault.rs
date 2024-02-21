@@ -45,13 +45,29 @@ impl ParticleVault {
     }
 
     /// Returns Particle File Vault path on Nox's filesystem
-    pub fn real_particle_vault(&self, peer_id: PeerId, particle_id: &str) -> PathBuf {
-        self.real_worker_particle_vault(peer_id).join(particle_id)
+    pub fn real_particle_vault(
+        &self,
+        peer_id: PeerId,
+        particle_id: &str,
+        particle_token: &str,
+    ) -> PathBuf {
+        self.real_worker_particle_vault(peer_id)
+            .join(Self::format_particle_directory_name(
+                particle_id,
+                particle_token,
+            ))
     }
 
     /// Returns Particle File Vault path on Marine's filesystem (ie how it would look like inside service)
-    pub fn virtual_particle_vault(&self, particle_id: &str) -> PathBuf {
-        Path::new(VIRTUAL_PARTICLE_VAULT_PREFIX).join(particle_id)
+    pub fn virtual_particle_vault(&self, particle_id: &str, particle_token: &str) -> PathBuf {
+        Path::new(VIRTUAL_PARTICLE_VAULT_PREFIX).join(Self::format_particle_directory_name(
+            particle_id,
+            particle_token,
+        ))
+    }
+
+    fn format_particle_directory_name(id: &str, token: &str) -> String {
+        format!("{}-{}", id, token)
     }
 
     pub async fn initialize(&self) -> Result<(), VaultError> {
@@ -62,8 +78,13 @@ impl ParticleVault {
         Ok(())
     }
 
-    pub fn create(&self, current_peer_id: PeerId, particle_id: &str) -> Result<(), VaultError> {
-        let path = self.real_particle_vault(current_peer_id, particle_id);
+    pub fn create(
+        &self,
+        current_peer_id: PeerId,
+        particle_id: &str,
+        particle_token: &str,
+    ) -> Result<(), VaultError> {
+        let path = self.real_particle_vault(current_peer_id, particle_id, particle_token);
         create_dir(path).map_err(CreateVault)?;
 
         Ok(())
@@ -76,7 +97,7 @@ impl ParticleVault {
         filename: String,
         payload: &str,
     ) -> Result<PathBuf, VaultError> {
-        let vault_dir = self.real_particle_vault(current_peer_id, &particle.id);
+        let vault_dir = self.real_particle_vault(current_peer_id, &particle.id, &particle.token);
         // Note that we can't use `to_real_path` here since the target file cannot exist yet,
         // but `to_real_path` do path normalization which requires existence of the file to resolve
         // symlinks.
@@ -115,8 +136,13 @@ impl ParticleVault {
         std::fs::read(real_path).map_err(|e| VaultError::ReadVault(e, virtual_path.to_path_buf()))
     }
 
-    pub async fn cleanup(&self, peer_id: PeerId, particle_id: &str) -> Result<(), VaultError> {
-        let path = self.real_particle_vault(peer_id, particle_id);
+    pub async fn cleanup(
+        &self,
+        peer_id: PeerId,
+        particle_id: &str,
+        particle_token: &str,
+    ) -> Result<(), VaultError> {
+        let path = self.real_particle_vault(peer_id, particle_id, particle_token);
         match tokio::fs::remove_dir_all(&path).await {
             Ok(_) => Ok(()),
             // ignore NotFound
@@ -135,8 +161,8 @@ impl ParticleVault {
         particle: &ParticleParams,
         path: &Path,
     ) -> Result<PathBuf, VaultError> {
-        let virtual_prefix = self.virtual_particle_vault(&particle.id);
-        let real_prefix = self.real_particle_vault(current_peer_id, &particle.id);
+        let virtual_prefix = self.virtual_particle_vault(&particle.id, &particle.token);
+        let real_prefix = self.real_particle_vault(current_peer_id, &particle.id, &particle.token);
         let rest = path
             .strip_prefix(&real_prefix)
             .map_err(|e| WrongVault(Some(e), path.to_path_buf(), real_prefix))?;
@@ -156,7 +182,7 @@ impl ParticleVault {
     ) -> Result<PathBuf, VaultError> {
         let rest = if virtual_path.has_root() {
             // If path starts with the `/` then we consider it a full path containing the virtual vault prefix
-            let virtual_prefix = self.virtual_particle_vault(&particle.id);
+            let virtual_prefix = self.virtual_particle_vault(&particle.id, &particle.token);
             virtual_path.strip_prefix(&virtual_prefix).map_err(|e| {
                 WrongVault(Some(e), virtual_path.to_path_buf(), virtual_prefix.clone())
             })?
@@ -164,7 +190,7 @@ impl ParticleVault {
             // Otherwise we consider it a relative path inside the vault
             virtual_path
         };
-        let real_prefix = self.real_particle_vault(current_peer_id, &particle.id);
+        let real_prefix = self.real_particle_vault(current_peer_id, &particle.id, &particle.token);
         let real_path = real_prefix.join(rest);
         let resolved_path = real_path
             .canonicalize()

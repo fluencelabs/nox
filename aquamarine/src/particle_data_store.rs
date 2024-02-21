@@ -122,27 +122,29 @@ impl ParticleDataStore {
         Ok(data)
     }
 
-    pub async fn batch_cleanup_data(&self, cleanup_keys: Vec<(String, PeerId, Vec<u8>)>) {
+    pub async fn batch_cleanup_data(&self, cleanup_keys: Vec<(String, PeerId, Vec<u8>, String)>) {
         let futures: FuturesUnordered<_> = cleanup_keys
             .into_iter()
-            .map(|(particle_id, peer_id, signature)| async move {
-                tracing::debug!(
-                    target: "particle_reap",
-                    particle_id = particle_id, worker_id = peer_id.to_base58(),
-                    "Reaping particle's actor"
-                );
-
-                if let Err(err) = self
-                    .cleanup_data(particle_id.as_str(), peer_id, &signature)
-                    .await
-                {
-                    tracing::warn!(
-                        particle_id = particle_id,
-                        "Error cleaning up after particle {:?}",
-                        err
+            .map(
+                |(particle_id, peer_id, signature, particle_token)| async move {
+                    tracing::debug!(
+                        target: "particle_reap",
+                        particle_id = particle_id, worker_id = peer_id.to_base58(),
+                        "Reaping particle's actor"
                     );
-                }
-            })
+
+                    if let Err(err) = self
+                        .cleanup_data(particle_id.as_str(), peer_id, &signature, particle_token)
+                        .await
+                    {
+                        tracing::warn!(
+                            particle_id = particle_id,
+                            "Error cleaning up after particle {:?}",
+                            err
+                        );
+                    }
+                },
+            )
             .collect();
         let _results: Vec<_> = futures.collect().await;
     }
@@ -152,6 +154,7 @@ impl ParticleDataStore {
         particle_id: &str,
         current_peer_id: PeerId,
         signature: &[u8],
+        particle_token: String,
     ) -> Result<()> {
         tracing::debug!(target: "particle_reap", particle_id = particle_id, "Cleaning up particle data for particle");
         let path = self.data_file(particle_id, &current_peer_id.to_base58(), signature);
@@ -162,7 +165,9 @@ impl ParticleDataStore {
             Err(err) => Err(DataStoreError::CleanupData(err)),
         }?;
 
-        self.vault.cleanup(current_peer_id, particle_id).await?;
+        self.vault
+            .cleanup(current_peer_id, particle_id, &particle_token)
+            .await?;
 
         Ok(())
     }

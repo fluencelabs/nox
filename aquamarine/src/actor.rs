@@ -63,6 +63,8 @@ pub struct Actor<RT, F> {
     /// Particles and call results will be processed in the security scope of this peer id
     /// It's either `host_peer_id` or local worker peer id
     current_peer_id: PeerId,
+    /// TODO: for the fucking clean-up, I don't think we need it here!
+    particle_token: String,
     key_pair: KeyPair,
     data_store: Arc<ParticleDataStore>,
     spawner: Spawner,
@@ -74,10 +76,13 @@ where
     RT: AquaRuntime,
     F: ParticleFunctionStatic,
 {
+    // TODO: temporary (I hope), need to do smth clever with particle_token
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         particle: &Particle,
         functions: Functions<F>,
         current_peer_id: PeerId,
+        particle_token: String,
         key_pair: KeyPair,
         data_store: Arc<ParticleDataStore>,
         deal_id: Option<String>,
@@ -95,6 +100,7 @@ where
                 ..particle.clone()
             },
             current_peer_id,
+            particle_token,
             key_pair,
             data_store,
             spawner,
@@ -110,10 +116,11 @@ where
         self.future.is_some()
     }
 
-    pub fn cleanup_key(&self) -> (String, PeerId, Vec<u8>) {
+    pub fn cleanup_key(&self) -> (String, PeerId, Vec<u8>, String) {
         let particle_id = self.particle.id.clone();
         let signature = self.particle.signature.clone();
-        (particle_id, self.current_peer_id, signature)
+        let token = self.particle_token.clone();
+        (particle_id, self.current_peer_id, signature, token)
     }
 
     pub fn mailbox_size(&self) -> usize {

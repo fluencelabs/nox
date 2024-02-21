@@ -431,8 +431,11 @@ impl ParticleAppServices {
 
         // TODO: move particle vault creation to aquamarine::particle_functions
         if create_vault {
-            self.vault
-                .create(self.scopes.to_peer_id(particle.peer_scope), &particle.id)?;
+            self.vault.create(
+                self.scopes.to_peer_id(particle.peer_scope),
+                &particle.id,
+                &particle.token,
+            )?;
         }
 
         let call_parameters_worker_id = self.scopes.to_peer_id(peer_scope);
