@@ -1053,7 +1053,7 @@ impl ParticleAppServices {
         });
 
         let app_config = AppServiceConfig {
-            service_working_dir: self.config.ephemeral_work_dir.join(&service_id),
+            service_working_dir: self.config.persistent_work_dir.join(&service_id),
             service_base_dir: self.config.ephemeral_work_dir.clone(),
             marine_config: MarineConfig {
                 // TODO: add an option to set individual per-service limit
