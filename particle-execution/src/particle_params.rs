@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+use fluence_app_service::ParticleParameters;
 use fluence_libp2p::PeerId;
 use particle_protocol::Particle;
 use types::peer_scope::PeerScope;
@@ -31,10 +32,12 @@ pub struct ParticleParams {
     pub ttl: u32,
     pub script: String,
     pub signature: Vec<u8>,
+    // Particle token, `signature` signed with the peer's private key
+    pub token: String,
 }
 
 impl ParticleParams {
-    pub fn clone_from(particle: &Particle, peer_scope: PeerScope) -> Self {
+    pub fn clone_from(particle: &Particle, peer_scope: PeerScope, token: String) -> Self {
         let Particle {
             id,
             init_peer_id,
@@ -53,6 +56,7 @@ impl ParticleParams {
             ttl: *ttl,
             script: script.clone(),
             signature: signature.clone(),
+            token,
         }
     }
 
@@ -65,6 +69,18 @@ impl ParticleParams {
             particle_id.split('_').nth(1).map(|s| s.to_string())
         } else {
             None
+        }
+    }
+
+    pub fn to_particle_parameters(self) -> ParticleParameters {
+        ParticleParameters {
+            id: self.id,
+            init_peer_id: self.init_peer_id.to_string(),
+            timestamp: self.timestamp,
+            ttl: self.ttl,
+            script: self.script,
+            signature: self.signature,
+            token: self.token,
         }
     }
 }

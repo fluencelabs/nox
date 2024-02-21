@@ -1,4 +1,3 @@
-#![feature(once_cell)]
 /*
  * Copyright 2021 Fluence Labs Limited
  *
