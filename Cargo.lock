@@ -6988,7 +6988,7 @@ dependencies = [
  "serde_with 3.6.1",
  "temp-env",
  "tempfile",
- "toml 0.5.11",
+ "toml 0.7.8",
  "types",
 ]
 
