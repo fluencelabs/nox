@@ -242,6 +242,11 @@ pub fn load_config_with_args(
         println!("{}", config_toml);
     }
 
+    if let Ok(config_toml) = std::fs::read_to_string("/.fluence/v1/Config.toml") {
+        println!("/.fluence/v1/Config.toml:");
+        println!("{}", config_toml);
+    }
+
     let mut config_builder = Config::builder().add_source(
         File::with_name("Config.toml")
             .required(false)
