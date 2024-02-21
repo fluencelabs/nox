@@ -637,32 +637,20 @@ mod tests {
             .expect(1)
             .with_status(200)
             .with_header("content-type", "application/json")
-            .match_body(Matcher::PartialJson(json!({
-                "method": "eth_getTransactionCount",
-            })))
-            .with_body(nonce)
-            .create();
-        server
-            .mock("POST", "/")
-            // expect exactly 4 POST request
-            .expect(1)
-            .with_status(200)
-            .with_header("content-type", "application/json")
-            .match_body(Matcher::PartialJson(json!({
-                "method": "eth_gasPrice",
-            })))
-            .with_body(gas_price)
-            .create();
-        server
-            .mock("POST", "/")
-            // expect exactly 4 POST request
-            .expect(1)
-            .with_status(200)
-            .with_header("content-type", "application/json")
-            .match_body(Matcher::PartialJson(json!({
-                "method": "eth_estimateGas",
-            })))
-            .with_body(estimate_gas)
+            .with_body_from_request(move |req| {
+                let body = req.body().expect("mock: get request body");
+                let body: serde_json::Value =
+                    serde_json::from_slice(body).expect("mock: parse request body");
+                let method = body.get("method").expect("get method");
+                let method = method.as_str().expect("as str").trim_matches(|c| c == '\"');
+
+                match method {
+                    "eth_getTransactionCount" => nonce.into(),
+                    "eth_gasPrice" => gas_price.into(),
+                    "eth_estimateGas" => estimate_gas.into(),
+                    method => format!("'{}' not supported", method).into(),
+                }
+            })
             .create();
 
         let proof = CCProof::new(
@@ -679,7 +667,6 @@ mod tests {
 
         assert!(result.is_err());
 
-        println!("{:?}", result);
         assert_matches!(
             result.unwrap_err(),
             ConnectorError::RpcCallError {
@@ -688,5 +675,61 @@ mod tests {
                 data,
             } if data.contains(COMMITMENT_IS_NOT_ACTIVE)
         );
+    }
+
+    #[tokio::test]
+    async fn submit_proof() {
+        let nonce = r#"{"jsonrpc":"2.0","id":0,"result":"0x20"}"#;
+        let gas_price = r#"{"jsonrpc":"2.0","id":1,"result":"0x3b9aca07"}"#;
+        let estimate_gas = r#"
+        {
+            "jsonrpc": "2.0",
+            "id": 2,
+            "result": "0x5208"
+        }
+        "#;
+        let send_tx_response = r#"
+        {
+            "jsonrpc": "2.0",
+            "id": 3,
+            "result": "0x55bfec4a4400ca0b09e075e2b517041cd78b10021c51726cb73bcba52213fa05"
+        }
+        "#;
+        let mut server = mockito::Server::new();
+        let url = server.url();
+        server
+            .mock("POST", "/")
+            // expect exactly 4 POST request
+            .expect(1)
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body_from_request(move |req| {
+                let body = req.body().expect("mock: get request body");
+                let body: serde_json::Value =
+                    serde_json::from_slice(body).expect("mock: parse request body");
+                let method = body.get("method").expect("get method");
+                let method = method.as_str().expect("as str").trim_matches(|c| c == '\"');
+
+                match method {
+                    "eth_getTransactionCount" => nonce.into(),
+                    "eth_sendRawTransaction" => send_tx_response.into(),
+                    "eth_gasPrice" => gas_price.into(),
+                    "eth_estimateGas" => estimate_gas.into(),
+                    method => format!("'{}' not supported", method).into(),
+                }
+            })
+            .create();
+
+        let proof = CCProof::new(
+            CCProofId::new(
+                GlobalNonce::new([0u8; 32].into()),
+                Difficulty::new([0u8; 32].into()),
+                ProofIdx::zero(),
+            ),
+            LocalNonce::new([0u8; 32].into()),
+            CUID::new([0u8; 32].into()),
+            ResultHash::from_slice([0u8; 32].into()),
+        );
+        let result = get_connector(&url).submit_proof(proof).await.unwrap();
     }
 }
