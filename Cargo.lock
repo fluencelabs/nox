@@ -1067,6 +1067,7 @@ dependencies = [
  "particle-execution",
  "serde_json",
  "server-config",
+ "thiserror",
  "tokio",
 ]
 

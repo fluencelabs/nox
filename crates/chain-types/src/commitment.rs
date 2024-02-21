@@ -1,6 +1,6 @@
 use crate::commitment_status::CommitmentStatus;
 use chain_data::LogParseError::MissingParsedToken;
-use chain_data::{next_opt, parse_chain_data};
+use chain_data::{next_opt, parse_chain_data, ChainDataError};
 use ethabi::ethereum_types::U256;
 use ethabi::{ParamType, Token};
 use eyre::eyre;
@@ -41,12 +41,12 @@ impl Commitment {
         ]
     }
 
-    pub fn from(data: &str) -> eyre::Result<Self> {
+    pub fn from(data: &str) -> Result<Self, ChainDataError> {
         let mut tokens = parse_chain_data(data, &Self::signature())?.into_iter();
-        let status = CommitmentStatus::from_token(
-            tokens
-                .next()
-                .ok_or(eyre!(MissingParsedToken("commitment_status")))?,
+        let status = next_opt(
+            &mut tokens,
+            "commitment_status",
+            CommitmentStatus::from_token,
         )?;
         let mut tokens = tokens.skip(3);
         let start_epoch = next_opt(&mut tokens, "start_epoch", Token::into_uint)?;

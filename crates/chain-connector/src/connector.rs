@@ -1,10 +1,12 @@
+use crate::error::{process_response, ConnectorError};
 use crate::function::{GetCommitmentFunction, GetStatusFunction, SubmitProofFunction};
 use crate::{
     CurrentEpochFunction, DifficultyFunction, EpochDurationFunction, GetComputePeerFunction,
     GetComputeUnitsFunction, GetGlobalNonceFunction, InitTimestampFunction,
 };
 use ccp_shared::proof::CCProof;
-use ccp_shared::types::{Difficulty, GlobalNonce};
+use ccp_shared::types::{Difficulty, GlobalNonce, GlobalNonceInner};
+use chain_data::ChainDataError::InvalidTokenSize;
 use chain_data::{next_opt, parse_chain_data, peer_id_to_bytes, FunctionTrait};
 use chain_types::{Commitment, CommitmentId, CommitmentStatus, ComputePeer, ComputeUnit};
 use clarity::Transaction;
@@ -14,7 +16,7 @@ use eyre::eyre;
 use fluence_libp2p::PeerId;
 use futures::FutureExt;
 use hex_utils::decode_hex;
-use jsonrpsee::core::client::{BatchResponse, ClientT};
+use jsonrpsee::core::client::{BatchResponse, ClientT, Error as RPCError, Error};
 use jsonrpsee::core::params::{ArrayParams, BatchRequestBuilder};
 use jsonrpsee::http_client::HttpClientBuilder;
 use jsonrpsee::rpc_params;
@@ -94,7 +96,7 @@ impl ChainConnector {
         Ok(json!(tx_hash))
     }
 
-    async fn get_gas_price(&self) -> eyre::Result<u128> {
+    async fn get_gas_price(&self) -> Result<u128, ConnectorError> {
         let resp: String = self.client.request("eth_gasPrice", rpc_params![]).await?;
 
         let mut tokens = parse_chain_data(&resp, &[ParamType::Uint(128)])?.into_iter();
@@ -107,7 +109,7 @@ impl ChainConnector {
         Ok(price)
     }
 
-    async fn get_tx_nonce(&self) -> eyre::Result<u128> {
+    async fn get_tx_nonce(&self) -> Result<u128, ConnectorError> {
         let address = self.config.wallet_key.to_address().to_string();
         let resp: String = self
             .client
@@ -119,23 +121,24 @@ impl ChainConnector {
         Ok(nonce)
     }
 
-    async fn estimate_gas_limit(&self, data: &[u8], to: &str) -> eyre::Result<u128> {
-        let response: String = self
-            .client
-            .request(
-                "eth_estimateGas",
-                rpc_params![json!({
-                    "from": self.config.wallet_key.to_address().to_string(),
-                    "to": to,
-                    "data": format!("0x{}", hex::encode(data)),
-                })],
-            )
-            .await?;
+    async fn estimate_gas_limit(&self, data: &[u8], to: &str) -> Result<u128, ConnectorError> {
+        let response: String = process_response(
+            self.client
+                .request(
+                    "eth_estimateGas",
+                    rpc_params![json!({
+                        "from": self.config.wallet_key.to_address().to_string(),
+                        "to": to,
+                        "data": format!("0x{}", hex::encode(data)),
+                    })],
+                )
+                .await,
+        )?;
         let mut tokens = parse_chain_data(&response, &[ParamType::Uint(128)])?.into_iter();
         Ok(next_opt(&mut tokens, "gas_limit", Token::into_uint)?.as_u128())
     }
 
-    pub async fn send_tx(&self, data: Vec<u8>, to: &str) -> eyre::Result<String> {
+    pub async fn send_tx(&self, data: Vec<u8>, to: &str) -> Result<String, ConnectorError> {
         // We use this lock no ensure that we don't send two transactions with the same nonce
         let _lock = self.tx_nonce_mutex.lock().await;
         let nonce = self.get_tx_nonce().await?;
@@ -157,84 +160,90 @@ impl ChainConnector {
             .to_bytes();
         let tx = hex::encode(tx);
 
-        let resp: String = self
-            .client
-            .request("eth_sendRawTransaction", rpc_params![format!("0x{}", tx)])
-            .await?;
+        let resp: String = process_response(
+            self.client
+                .request("eth_sendRawTransaction", rpc_params![format!("0x{}", tx)])
+                .await,
+        )?;
         Ok(resp)
     }
 
-    pub async fn get_current_commitment_id(&self) -> eyre::Result<Option<CommitmentId>> {
+    pub async fn get_current_commitment_id(&self) -> Result<Option<CommitmentId>, ConnectorError> {
         let peer_id = Token::FixedBytes(peer_id_to_bytes(self.host_id));
         let data = GetComputePeerFunction::data(&[peer_id])?;
-        let resp: String = self
-            .client
-            .request(
-                "eth_call",
-                rpc_params![json!({
-                    "data": data,
-                    "to": self.config.market_contract_address,
-                })],
-            )
-            .await?;
+        let resp: String = process_response(
+            self.client
+                .request(
+                    "eth_call",
+                    rpc_params![json!({
+                        "data": data,
+                        "to": self.config.market_contract_address,
+                    })],
+                )
+                .await,
+        )?;
         Ok(ComputePeer::from(&resp)?.commitment_id)
     }
 
     pub async fn get_commitment_status(
         &self,
         commitment_id: CommitmentId,
-    ) -> eyre::Result<CommitmentStatus> {
+    ) -> Result<CommitmentStatus, ConnectorError> {
         let data = GetStatusFunction::data(&[Token::FixedBytes(commitment_id.0)])?;
-        let resp: String = self
-            .client
-            .request(
-                "eth_call",
-                rpc_params![json!({
-                    "data": data,
-                    "to": self.config.cc_contract_address,
-                })],
-            )
-            .await?;
-        CommitmentStatus::from(&resp)
+        let resp: String = process_response(
+            self.client
+                .request(
+                    "eth_call",
+                    rpc_params![json!({
+                        "data": data,
+                        "to": self.config.cc_contract_address,
+                    })],
+                )
+                .await,
+        )?;
+        Ok(CommitmentStatus::from(&resp)?)
     }
 
-    pub async fn get_commitment(&self, commitment_id: CommitmentId) -> eyre::Result<Commitment> {
+    pub async fn get_commitment(
+        &self,
+        commitment_id: CommitmentId,
+    ) -> Result<Commitment, ConnectorError> {
         let data = GetCommitmentFunction::data(&[Token::FixedBytes(commitment_id.0)])?;
-        let resp: String = self
-            .client
-            .request(
-                "eth_call",
-                rpc_params![json!({
-                    "data": data,
-                    "to": self.config.cc_contract_address,
-                })],
-            )
-            .await?;
-        Commitment::from(&resp)
+        let resp: String = process_response(
+            self.client
+                .request(
+                    "eth_call",
+                    rpc_params![json!({
+                        "data": data,
+                        "to": self.config.cc_contract_address,
+                    })],
+                )
+                .await,
+        )?;
+        Ok(Commitment::from(&resp)?)
     }
 
-    pub async fn get_global_nonce(&self) -> eyre::Result<GlobalNonce> {
+    pub async fn get_global_nonce(&self) -> Result<GlobalNonce, ConnectorError> {
         let data = GetGlobalNonceFunction::data(&[])?;
-        let resp: String = self
-            .client
-            .request(
-                "eth_call",
-                rpc_params![json!({
-                    "data": data,
-                    "to": self.config.cc_contract_address
-                })],
-            )
-            .await?;
+        let resp: String = process_response(
+            self.client
+                .request(
+                    "eth_call",
+                    rpc_params![json!({
+                        "data": data,
+                        "to": self.config.cc_contract_address
+                    })],
+                )
+                .await,
+        )?;
 
         let bytes = GetGlobalNonceFunction::decode_bytes(&resp)?;
         Ok(GlobalNonce::new(
-            bytes
-                .try_into()
-                .map_err(|_| eyre!("Failed to decode Global nonce"))?,
+            bytes.try_into().map_err(|_| InvalidTokenSize)?,
         ))
     }
 
-    pub async fn submit_proof(&self, proof: CCProof) -> eyre::Result<String> {
+    pub async fn submit_proof(&self, proof: CCProof) -> Result<String, ConnectorError> {
         let data = SubmitProofFunction::data_bytes(&[
             Token::FixedBytes(proof.cu_id.as_ref().to_vec()),
             Token::FixedBytes(proof.local_nonce.as_ref().to_vec()),
@@ -247,16 +256,17 @@ impl ChainConnector {
     pub async fn get_compute_units(&self) -> eyre::Result<Vec<ComputeUnit>> {
         let data =
             GetComputeUnitsFunction::data(&[Token::FixedBytes(peer_id_to_bytes(self.host_id))])?;
-        let resp: String = self
-            .client
-            .request(
-                "eth_call",
-                rpc_params![json!({
-                    "data": data,
-                    "to": self.config.market_contract_address,
-                })],
-            )
-            .await?;
+        let resp: String = process_response(
+            self.client
+                .request(
+                    "eth_call",
+                    rpc_params![json!({
+                        "data": data,
+                        "to": self.config.market_contract_address,
+                    })],
+                )
+                .await,
+        )?;
         let mut tokens =
             parse_chain_data(&resp, &GetComputeUnitsFunction::signature())?.into_iter();
         let units = next_opt(&mut tokens, "units", Token::into_array)?.into_iter();

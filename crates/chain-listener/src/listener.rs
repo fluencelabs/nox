@@ -5,7 +5,7 @@ use crate::event::{
 use ccp_rpc_client::{CCPRpcHttpClient, OrHex};
 use ccp_shared::proof::{CCProof, CCProofId, ProofIdx};
 use ccp_shared::types::{Difficulty, GlobalNonce, LocalNonce, ResultHash};
-use chain_connector::ChainConnector;
+use chain_connector::{ChainConnector, ConnectorError};
 use chain_data::{next_opt, parse_chain_data, parse_log, peer_id_to_hex, ChainData, Log};
 use chain_types::{CommitmentId, CommitmentStatus, ComputeUnit};
 use core_manager::manager::{CoreManager, CoreManagerFunctions};
@@ -22,6 +22,7 @@ use libp2p_identity::PeerId;
 use serde_json::{json, Value};
 use server_config::ChainConfig;
 use std::collections::{HashMap, HashSet};
+use std::error::Error;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::task::JoinHandle;
@@ -358,6 +359,8 @@ impl ChainListener {
     ) -> eyre::Result<()> {
         let unit_event = parse_log::<UnitDeactivatedData, UnitDeactivated>(event?)?;
         self.active_compute_units.remove(&unit_event.info.unit_id);
+        self.pending_compute_units
+            .retain(|cu| cu.id == unit_event.info.unit_id);
         self.update_commitment().await?;
         self.acquire_deal_core(unit_event.info.unit_id)?;
         Ok(())
@@ -415,8 +418,8 @@ impl ChainListener {
     }
 
     /// Submit Mocked Proofs for all active compute units.
-    /// Mocked Proof has result_hash == difficulty and random  local_nonce
-    async fn submit_mocked_proofs(&self) -> eyre::Result<()> {
+    /// Mocked Proof has result_hash == difficulty and random local_nonce
+    async fn submit_mocked_proofs(&mut self) -> eyre::Result<()> {
         let result_hash = ResultHash::from_slice(*self.difficulty.as_ref());
 
         // proof_id is used only by CCP and is not sent to chain
@@ -425,18 +428,47 @@ impl ChainListener {
             self.difficulty.clone(),
             ProofIdx::zero(),
         );
-        for unit in self.active_compute_units.iter() {
+        for unit in self.active_compute_units.clone().into_iter() {
             let local_nonce = LocalNonce::random();
-            self.chain_connector
-                .submit_proof(CCProof::new(
-                    proof_id.clone(),
-                    local_nonce,
-                    unit.clone(),
-                    result_hash,
-                ))
-                .await?;
+            self.submit_proof(CCProof::new(
+                proof_id.clone(),
+                local_nonce,
+                unit.clone(),
+                result_hash,
+            ))
+            .await?;
         }
 
         Ok(())
+    }
+
+    async fn submit_proof(&mut self, proof: CCProof) -> eyre::Result<()> {
+        match self.chain_connector.submit_proof(proof).await {
+            Ok(_) => Ok(()),
+            Err(err) => {
+                // we stop unit until the next epoch if "TooManyProofs" error received
+                match err {
+                    ConnectorError::RpcCallError { ref data, .. } => {
+                        if data.contains("TooManyProofs") {
+                            self.active_compute_units.remove(&proof.cu_id);
+                            self.pending_compute_units
+                                .insert(ComputeUnit::new(proof.cu_id, self.current_epoch + 1));
+                            self.update_commitment().await?;
+                            Ok(())
+                        } else if data.contains("Commitment is not active") {
+                            self.stop_commitment().await?;
+                            Ok(())
+                        } else {
+                            log::error!("Failed to submit proof: {err}");
+                            Err(err.into())
+                        }
+                    }
+                    _ => {
+                        log::error!("Failed to submit proof: {err}");
+                        Err(err.into())
+                    }
+                }
+            }
+        }
     }
 }

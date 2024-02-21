@@ -1,37 +1,33 @@
+use crate::{next_opt, ChainDataError};
 use ethabi::ethereum_types::U256;
+use ethabi::Token;
 
 pub trait FunctionTrait {
     fn function() -> ethabi::Function;
     fn signature() -> Vec<ethabi::ParamType>;
 
-    fn data(inputs: &[ethabi::Token]) -> eyre::Result<String> {
+    fn data(inputs: &[Token]) -> Result<String, ChainDataError> {
         let function = Self::function();
         let data = function.encode_input(inputs)?;
         Ok(format!("0x{}", hex::encode(data)))
     }
 
-    fn data_bytes(inputs: &[ethabi::Token]) -> eyre::Result<Vec<u8>> {
+    fn data_bytes(inputs: &[Token]) -> Result<Vec<u8>, ChainDataError> {
         let function = Self::function();
         Ok(function.encode_input(inputs)?)
     }
 
-    fn decode_uint(data: &str) -> eyre::Result<U256> {
-        let mut tokens = crate::parse_chain_data(data, &Self::signature())?;
-        let token = tokens.pop().ok_or(eyre::eyre!("No token found"))?;
-        Ok(token
-            .into_uint()
-            .ok_or(eyre::eyre!("Token is not a uint"))?)
+    fn decode_uint(data: &str) -> Result<U256, ChainDataError> {
+        let mut tokens = crate::parse_chain_data(data, &Self::signature())?.into_iter();
+        next_opt(&mut tokens, "uint", Token::into_uint)
     }
 
-    fn decode_bytes(data: &str) -> eyre::Result<Vec<u8>> {
-        let mut tokens = crate::parse_chain_data(data, &Self::signature())?;
-        let token = tokens.pop().ok_or(eyre::eyre!("No token found"))?;
-        Ok(token
-            .into_fixed_bytes()
-            .ok_or(eyre::eyre!("Token is not bytes32"))?)
+    fn decode_bytes(data: &str) -> Result<Vec<u8>, ChainDataError> {
+        let mut tokens = crate::parse_chain_data(data, &Self::signature())?.into_iter();
+        next_opt(&mut tokens, "bytes", Token::into_bytes)
     }
 
-    fn decode_tuple(data: &str) -> eyre::Result<Vec<ethabi::Token>> {
+    fn decode_tuple(data: &str) -> Result<Vec<Token>, ChainDataError> {
         Ok(crate::parse_chain_data(data, &Self::signature())?)
     }
 }

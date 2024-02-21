@@ -1,4 +1,4 @@
-use chain_data::parse_chain_data;
+use chain_data::{next_opt, parse_chain_data, ChainDataError};
 use eyre::eyre;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -29,18 +29,16 @@ impl CommitmentStatus {
         }
     }
 
-    pub fn from_token(token: ethabi::Token) -> eyre::Result<Self> {
-        let num = token
+    pub fn from_token(token: ethabi::Token) -> Option<Self> {
+        token
             .into_uint()
-            .ok_or(eyre!("Token is not a uint"))?
-            .as_u64() as u8;
-        Self::from_num(num).ok_or(eyre!("Unknown commitment status"))
+            .map(|u| Self::from_num(u.as_u64() as u8))
+            .flatten()
     }
 
-    pub fn from(data: &str) -> eyre::Result<Self> {
-        let tokens = parse_chain_data(data, &Self::signature())?;
-        let token = tokens.get(0).ok_or(eyre!("No token found"))?;
-        Self::from_token(token.clone())
+    pub fn from(data: &str) -> Result<Self, ChainDataError> {
+        let mut tokens = parse_chain_data(data, &Self::signature())?.into_iter();
+        next_opt(&mut tokens, "commitment_status", Self::from_token)
     }
 }
 

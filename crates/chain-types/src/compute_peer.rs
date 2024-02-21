@@ -1,5 +1,5 @@
 use crate::types::CommitmentId;
-use chain_data::{next_opt, parse_chain_data};
+use chain_data::{next_opt, parse_chain_data, ChainDataError};
 use ethabi::ethereum_types::U256;
 use ethabi::Token;
 
@@ -25,7 +25,7 @@ impl ComputePeer {
             ethabi::ParamType::Address,
         ]
     }
-    pub fn from(data: &str) -> eyre::Result<Self> {
+    pub fn from(data: &str) -> Result<Self, ChainDataError> {
         let mut tokens = parse_chain_data(data, &Self::signature())?.into_iter();
         let offer_id = next_opt(&mut tokens, "offer_id", Token::into_fixed_bytes)?;
         let commitment_id = next_opt(&mut tokens, "commitment_id", Token::into_fixed_bytes)?;
