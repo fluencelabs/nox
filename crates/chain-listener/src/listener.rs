@@ -2,11 +2,11 @@ use crate::event::cc_activated::CommitmentActivated;
 use crate::event::{
     CommitmentActivatedData, UnitActivated, UnitActivatedData, UnitDeactivated, UnitDeactivatedData,
 };
-use ccp_rpc_client::{CCPRpcHttpClient, OrHex};
+use ccp_rpc_client::OrHex;
 use ccp_shared::proof::{CCProof, CCProofId, ProofIdx};
 use ccp_shared::types::{Difficulty, GlobalNonce, LocalNonce, ResultHash};
 use chain_connector::{ChainConnector, ConnectorError};
-use chain_data::{next_opt, parse_chain_data, parse_log, peer_id_to_hex, ChainData, Log};
+use chain_data::{parse_log, peer_id_to_hex, ChainData, Log};
 use chain_types::{
     CommitmentId, CommitmentStatus, ComputeUnit, COMMITMENT_IS_NOT_ACTIVE, TOO_MANY_PROOFS,
 };
@@ -15,7 +15,6 @@ use core_manager::types::{AcquireRequest, WorkType};
 use core_manager::CUID;
 use cpu_utils::PhysicalCoreId;
 use ethabi::ethereum_types::U256;
-use ethabi::Token;
 use jsonrpsee::core::client::{Client as WsClient, Subscription, SubscriptionClientT};
 use jsonrpsee::core::{client, JsonValue};
 use jsonrpsee::rpc_params;
@@ -33,22 +32,27 @@ use tokio_stream::wrappers::IntervalStream;
 use tokio_stream::StreamExt;
 
 pub struct ChainListener {
+    config: ChainConfig,
+
     chain_connector: Arc<ChainConnector>,
     ws_client: WsClient,
-    ccp_client: CCPRpcHttpClient,
-    config: ChainConfig,
+    // ccp_client: CCPRpcHttpClient,
+    core_manager: Arc<CoreManager>,
+
     timer_resolution: Duration,
     _cc_events_dir: PathBuf,
     host_id: PeerId,
+
     difficulty: Difficulty,
     init_timestamp: U256,
     global_nonce: GlobalNonce,
     current_epoch: U256,
     epoch_duration: U256,
+
     current_commitment: Option<CommitmentId>,
+
     active_compute_units: HashSet<CUID>,
     pending_compute_units: HashSet<ComputeUnit>,
-    core_manager: Arc<CoreManager>,
 }
 
 async fn poll_subscription(
@@ -75,19 +79,19 @@ impl ChainListener {
             .await?;
 
         // We will use the first physical core for utility tasks
-        let utility_core = core_manager
+        let _utility_core = core_manager
             .get_system_cpu_assignment()
             .physical_core_ids
             .first()
             .cloned()
             .ok_or(eyre::eyre!("No utility core id"))?;
 
-        let ccp_client =
-            CCPRpcHttpClient::new(listener_config.ccp_endpoint.clone(), utility_core).await?;
+        // let ccp_client =
+        //     CCPRpcHttpClient::new(listener_config.ccp_endpoint.clone(), utility_core).await?;
         Ok(Self {
             chain_connector,
             ws_client,
-            ccp_client,
+            // ccp_client,
             config: chain_config,
             host_id,
             difficulty: init_params.difficulty,
@@ -102,6 +106,26 @@ impl ChainListener {
             _cc_events_dir: cc_events_dir,
             timer_resolution: listener_config.timer_resolution,
         })
+    }
+
+    async fn startup(&mut self) -> eyre::Result<()> {
+        let (active, pending) = self.get_compute_units().await?;
+        self.current_commitment = self.chain_connector.get_current_commitment_id().await?;
+
+        if let Some(status) = self.get_commitment_status().await? {
+            match status {
+                CommitmentStatus::Active => {
+                    self.active_compute_units.extend(active);
+                    self.pending_compute_units.extend(pending);
+                    self.on_active_commitment().await?;
+                }
+                _ => {
+                    self.stop_commitment().await?;
+                }
+            }
+        }
+
+        Ok(())
     }
 
     pub fn start(mut self) -> JoinHandle<()> {
@@ -154,6 +178,7 @@ impl ChainListener {
                             if let Err(err) = self.submit_mocked_proofs().await {
                                 log::error!("Failed to submit mocked proofs: {err}");
                             }
+                            // TODO: poll proofs from CCP
                             // self.poll_proofs().await?;
                         }
                     }
@@ -176,44 +201,18 @@ impl ChainListener {
         }
     }
 
-    /// Returns active, pending and deals compute units
-    async fn get_compute_units(&self) -> eyre::Result<(Vec<CUID>, Vec<ComputeUnit>, Vec<CUID>)> {
-        let mut units = self.chain_connector.get_compute_units().await?;
-        let in_deals = units
-            .extract_if(|unit| unit.deal.is_some())
-            .map(|cu| cu.id)
-            .collect();
+    /// Returns active and pending  compute units
+    async fn get_compute_units(&self) -> eyre::Result<(Vec<CUID>, Vec<ComputeUnit>)> {
+        let units = self.chain_connector.get_compute_units().await?;
+
         let (active, pending): (Vec<ComputeUnit>, Vec<ComputeUnit>) = units
             .into_iter()
+            .filter(|cu| cu.deal.is_none())
             .partition(|unit| unit.start_epoch <= self.current_epoch);
 
         let active = active.into_iter().map(|unit| unit.id).collect();
 
-        Ok((active, pending, in_deals))
-    }
-    async fn startup(&mut self) -> eyre::Result<()> {
-        let (active, pending, in_deals) = self.get_compute_units().await?;
-        self.core_manager.release(in_deals);
-        self.current_commitment = self.chain_connector.get_current_commitment_id().await?;
-
-        if let Some(status) = self.get_commitment_status().await? {
-            match status {
-                CommitmentStatus::Active => {
-                    self.active_compute_units.extend(active);
-                    self.pending_compute_units.extend(pending);
-                    self.update_commitment().await?;
-                }
-                CommitmentStatus::WaitDelegation => {}
-                CommitmentStatus::WaitStart => {}
-                CommitmentStatus::Inactive
-                | CommitmentStatus::Failed
-                | CommitmentStatus::Removed => {
-                    self.ccp_client.on_no_active_commitment().await?;
-                }
-            }
-        }
-
-        Ok(())
+        Ok((active, pending))
     }
 
     async fn subscribe_new_heads(&self) -> eyre::Result<Subscription<JsonValue>> {
@@ -278,15 +277,7 @@ impl ChainListener {
         &mut self,
         header: Result<Value, client::Error>,
     ) -> eyre::Result<()> {
-        let timestamp = header?
-            .as_object()
-            .and_then(|o| o.get("timestamp"))
-            .and_then(|v| v.as_str())
-            .ok_or(eyre::eyre!("newHeads: no timestamp"))?
-            .to_string();
-
-        let mut tokens = parse_chain_data(&timestamp, &[ethabi::ParamType::Uint(256)])?.into_iter();
-        let block_timestamp = next_opt(&mut tokens, "timestamp", Token::into_uint)?;
+        let block_timestamp = Self::parse_timestamp(header?)?;
 
         // `epoch_number = 1 + (block_timestamp - init_timestamp) / epoch_duration`
         let epoch_number =
@@ -330,9 +321,11 @@ impl ChainListener {
             .subscribe_unit_deactivated(&cc_event.info.commitment_id)
             .await?;
 
-        if cc_event.info.start_epoch >= self.current_epoch {
+        let is_cc_active = cc_event.info.start_epoch <= self.current_epoch;
+
+        if is_cc_active {
             self.active_compute_units = unit_ids.into_iter().collect();
-            self.update_commitment().await?;
+            self.on_active_commitment().await?;
         } else {
             self.pending_compute_units = unit_ids
                 .into_iter()
@@ -349,7 +342,7 @@ impl ChainListener {
         let unit_event = parse_log::<UnitActivatedData, UnitActivated>(event?)?;
         if self.current_epoch >= unit_event.info.start_epoch {
             self.active_compute_units.insert(unit_event.info.unit_id);
-            self.update_commitment().await?;
+            self.on_active_commitment().await?;
         } else {
             // Will be activated on the next epoch
             self.pending_compute_units.insert(unit_event.info.into());
@@ -366,16 +359,16 @@ impl ChainListener {
         self.active_compute_units.remove(&unit_event.info.unit_id);
         self.pending_compute_units
             .retain(|cu| cu.id == unit_event.info.unit_id);
-        self.update_commitment().await?;
+        self.on_active_commitment().await?;
         self.acquire_deal_core(unit_event.info.unit_id)?;
         Ok(())
     }
 
-    async fn update_commitment(&self) -> eyre::Result<()> {
-        let cores = self.acquire_capacity_cores()?;
-        self.ccp_client
-            .on_active_commitment(self.global_nonce, self.difficulty, cores)
-            .await?;
+    async fn on_active_commitment(&self) -> eyre::Result<()> {
+        let _cores = self.acquire_capacity_cores()?;
+        // self.ccp_client
+        //     .on_active_commitment(self.global_nonce, self.difficulty, cores)
+        //     .await?;
         Ok(())
     }
 
@@ -407,7 +400,7 @@ impl ChainListener {
         self.active_compute_units.clear();
         self.pending_compute_units.clear();
         self.current_commitment = None;
-        self.ccp_client.on_no_active_commitment().await?;
+        // self.ccp_client.on_no_active_commitment().await?;
         Ok(())
     }
 
@@ -418,7 +411,7 @@ impl ChainListener {
             .map(|cu| cu.id);
 
         self.active_compute_units.extend(to_activate);
-        self.update_commitment().await?;
+        self.on_active_commitment().await?;
         Ok(())
     }
 
@@ -449,7 +442,7 @@ impl ChainListener {
                             self.active_compute_units.remove(&proof.cu_id);
                             self.pending_compute_units
                                 .insert(ComputeUnit::new(proof.cu_id, self.current_epoch + 1));
-                            self.update_commitment().await?;
+                            self.on_active_commitment().await?;
                             Ok(())
                         } else if data.contains(COMMITMENT_IS_NOT_ACTIVE) {
                             self.stop_commitment().await?;
@@ -466,5 +459,16 @@ impl ChainListener {
                 }
             }
         }
+    }
+
+    fn parse_timestamp(header: Value) -> eyre::Result<U256> {
+        let timestamp = header
+            .as_object()
+            .and_then(|o| o.get("timestamp"))
+            .and_then(Value::as_str)
+            .ok_or(eyre::eyre!("newHeads: timestamp field not found"))?
+            .to_string();
+
+        Ok(U256::from_str_radix(&timestamp, 16)?)
     }
 }

@@ -727,5 +727,10 @@ mod tests {
             ResultHash::from_slice([0u8; 32].into()),
         );
         let result = get_connector(&url).submit_proof(proof).await.unwrap();
+
+        assert_eq!(
+            result,
+            "0x55bfec4a4400ca0b09e075e2b517041cd78b10021c51726cb73bcba52213fa05"
+        );
     }
 }
