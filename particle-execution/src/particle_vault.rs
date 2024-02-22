@@ -80,7 +80,7 @@ impl ParticleVault {
 
     pub fn initialize_worker(&self, worker_id: PeerId) -> Result<(), VaultError> {
         let path = self.real_worker_particle_vault(worker_id);
-        create_dir_write_only(&path).map_err(InitializeVault)
+        create_dir_write_only(path).map_err(InitializeVault)
     }
 
     pub fn create(

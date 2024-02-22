@@ -1005,6 +1005,7 @@ impl ParticleAppServices {
         blueprint_id: String,
         service_id: String,
     ) -> Result<AppService, ServiceError> {
+        // TODO: Better to create once, when the worker is created but I don't have mental capacity to do it rn
         self.vault.initialize_worker(current_peer_id)?;
         let mut modules_config = self.modules.resolve_blueprint(&blueprint_id)?;
         modules_config
