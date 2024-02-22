@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.20.2](https://github.com/fluencelabs/nox/compare/nox-v0.20.1...nox-v0.20.2) (2024-02-21)
+
+
+### Features
+
+* support new CallParameters and generate particle token [NET-767] ([179d697](https://github.com/fluencelabs/nox/commit/179d6974f916b8c1b059f1277c062e3272e45714))
+
+
+### Bug Fixes
+
+* **core-manager:** process core persistence in a stream ([#2100](https://github.com/fluencelabs/nox/issues/2100)) ([7f333bd](https://github.com/fluencelabs/nox/commit/7f333bd9bc1d6d343fd3ff1cda4d9b08e11205f3))
+* **deps:** decider 0.6.4, with debug logs for tx ([#2101](https://github.com/fluencelabs/nox/issues/2101)) ([23e556b](https://github.com/fluencelabs/nox/commit/23e556b5d79d50460ff375d3824a843c0c512e8f))
+
 ## [0.20.1](https://github.com/fluencelabs/nox/compare/nox-v0.20.0...nox-v0.20.1) (2024-02-21)
 
 
