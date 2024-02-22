@@ -30,9 +30,10 @@ use eyre::{eyre, Context};
 use futures_util::StreamExt;
 use std::fmt::Debug;
 use std::fs;
-use std::fs::Permissions;
+use std::fs::{DirBuilder, Permissions};
 use std::future::Future;
 use std::io::ErrorKind;
+use std::os::unix::fs::DirBuilderExt;
 use std::path::{Path, PathBuf};
 use std::thread::available_parallelism;
 use thiserror::Error;
@@ -74,6 +75,14 @@ pub fn set_write_only(path: &Path) -> Result<(), std::io::Error> {
 
 pub fn create_dir<P: AsRef<Path> + Debug>(dir: P) -> Result<(), std::io::Error> {
     std::fs::create_dir_all(&dir)
+        .map_err(|err| std::io::Error::new(err.kind(), format!("{err:?}: {dir:?}")))
+}
+
+pub fn create_dir_write_only<P: AsRef<Path> + Debug>(dir: P) -> Result<(), std::io::Error> {
+    DirBuilder::new()
+        .recursive(true)
+        .mode(0o733)
+        .create(&dir)
         .map_err(|err| std::io::Error::new(err.kind(), format!("{err:?}: {dir:?}")))
 }
 

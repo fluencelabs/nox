@@ -22,7 +22,7 @@ use std::path::{Path, PathBuf};
 use fluence_libp2p::PeerId;
 use thiserror::Error;
 
-use fs_utils::create_dir;
+use fs_utils::create_dir_write_only;
 
 use crate::ParticleParams;
 use crate::VaultError::WrongVault;
@@ -85,8 +85,7 @@ impl ParticleVault {
         particle_token: &str,
     ) -> Result<(), VaultError> {
         let path = self.real_particle_vault(current_peer_id, particle_id, particle_token);
-        create_dir(path).map_err(CreateVault)?;
-
+        create_dir_write_only(&path).map_err(CreateVault)?;
         Ok(())
     }
 
@@ -103,7 +102,7 @@ impl ParticleVault {
         // symlinks.
         let real_path = vault_dir.join(&filename);
         if let Some(parent_path) = real_path.parent() {
-            create_dir(parent_path).map_err(CreateVault)?;
+            create_dir_write_only(parent_path).map_err(CreateVault)?;
         }
 
         std::fs::write(real_path.clone(), payload.as_bytes())
