@@ -1,5 +1,5 @@
 use std::collections::{BTreeSet, HashMap};
-use std::fs::{File, OpenOptions};
+use std::fs::File;
 use std::hash::BuildHasherDefault;
 use std::io::Write;
 use std::ops::Deref;
@@ -25,7 +25,7 @@ use crate::types::{AcquireRequest, Assignment, WorkType};
 type Map<K, V> = HashMap<K, V, BuildHasherDefault<FxHasher>>;
 type MultiMap<K, V> = multimap::MultiMap<K, V, BuildHasherDefault<FxHasher>>;
 type BiMap<K, V> =
-bimap::BiHashMap<K, V, BuildHasherDefault<FxHasher>, BuildHasherDefault<FxHasher>>;
+    bimap::BiHashMap<K, V, BuildHasherDefault<FxHasher>, BuildHasherDefault<FxHasher>>;
 
 /// The `CoreManagerFunctions` trait defines operations for managing CPU cores.
 ///
@@ -252,8 +252,8 @@ pub struct PersistenceTask {
 
 impl PersistenceTask {
     async fn process_events<Src>(stream: Src, core_manager: Arc<CoreManager>)
-        where
-            Src: futures::Stream<Item=()> + Unpin + Send + Sync + 'static,
+    where
+        Src: futures::Stream<Item = ()> + Unpin + Send + Sync + 'static,
     {
         let core_manager = core_manager.clone();
         // We are not interested in the content of the event
@@ -429,7 +429,8 @@ impl CoreManagerFunctions for PersistentCoreManager {
         drop(lock);
         let toml = toml::to_string_pretty(&persistent_state)
             .map_err(|err| PersistError::SerializationError { err })?;
-        let mut file = File::create(self.file_path.clone()).map_err(|err| PersistError::IoError { err })?;
+        let mut file =
+            File::create(self.file_path.clone()).map_err(|err| PersistError::IoError { err })?;
         file.write(toml.as_bytes())
             .map_err(|err| PersistError::IoError { err })?;
         Ok(())
@@ -494,15 +495,15 @@ mod tests {
                 2,
                 CoreRange::default(),
             )
-                .unwrap();
+            .unwrap();
             let init_id_1 = <CUID>::from_hex(
                 "54ae1b506c260367a054f80800a545f23e32c6bc4a8908c9a794cb8dad23e5ea",
             )
-                .unwrap();
+            .unwrap();
             let init_id_2 = <CUID>::from_hex(
                 "1cce3d08f784b11d636f2fb55adf291d43c2e9cbe7ae7eeb2d0301a96be0a3a0",
             )
-                .unwrap();
+            .unwrap();
             let unit_ids = vec![init_id_1, init_id_2];
             let assignment_1 = manager
                 .acquire_worker_core(AcquireRequest {
@@ -537,7 +538,7 @@ mod tests {
                 system_cpu_count,
                 CoreRange::default(),
             )
-                .unwrap();
+            .unwrap();
             let before_lock = manager.state.read();
 
             let before_available_core = before_lock.available_cores.clone();
@@ -555,11 +556,11 @@ mod tests {
             let init_id_1 = <CUID>::from_hex(
                 "54ae1b506c260367a054f80800a545f23e32c6bc4a8908c9a794cb8dad23e5ea",
             )
-                .unwrap();
+            .unwrap();
             let init_id_2 = <CUID>::from_hex(
                 "1cce3d08f784b11d636f2fb55adf291d43c2e9cbe7ae7eeb2d0301a96be0a3a0",
             )
-                .unwrap();
+            .unwrap();
             let unit_ids = vec![init_id_1, init_id_2];
             let assignment = manager
                 .acquire_worker_core(AcquireRequest {
