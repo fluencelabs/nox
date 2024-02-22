@@ -101,8 +101,8 @@ types = { path = "crates/types" }
 core-manager = { path = "crates/core-manager" }
 
 # spell
-fluence-spell-dtos = { version = "=0.7.3-feature-net-759-e429943-1048-1.0", registry = "fluence" }
-fluence-spell-distro = { version = "=0.7.3-feature-net-759-e429943-1048-1.0", registry = "fluence" }
+fluence-spell-dtos = { version = "=0.7.2"}
+fluence-spell-distro = { version = "=0.7.2" }
 
 # marine
 fluence-app-service = { git = "https://github.com/fluencelabs/marine", branch = "feat/absolute_wasi_paths" }

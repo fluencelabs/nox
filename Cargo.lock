@@ -1568,7 +1568,7 @@ dependencies = [
  "fluence-app-service",
  "fluence-keypair",
  "fluence-libp2p",
- "fluence-spell-dtos 0.7.3-feature-net-759-e429943-1048-1.0",
+ "fluence-spell-dtos",
  "fs-utils",
  "futures",
  "libp2p",
@@ -1775,7 +1775,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cd525ce56be3ee02d1c91bb4cbb09e0e10797f3f3f584187c89c8cdcd0ec65ff"
 dependencies = [
  "built 0.7.1",
- "fluence-spell-dtos 0.7.2",
+ "fluence-spell-dtos",
  "maplit",
  "serde_json",
 ]
@@ -2259,9 +2259,9 @@ dependencies = [
 
 [[package]]
 name = "fluence-spell-distro"
-version = "0.7.3-feature-net-759-e429943-1048-1.0"
-source = "registry+git://crates.fluence.dev/index"
-checksum = "29caa396b041039443e174bbd6ffa8520a8f56a80225df91c8977b944698e034"
+version = "0.7.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fcab0c673763b0dc4da616cab46c43c90d8f1bf184f62c6420773e7fb59673bb"
 dependencies = [
  "built 0.7.1",
  "maplit",
@@ -2275,20 +2275,7 @@ checksum = "717b91cd76394c8dbb7a9564750beb77234af456e5f129082c25cb535ac6ea2e"
 dependencies = [
  "eyre",
  "marine-rs-sdk 0.12.0",
- "marine-sqlite-connector 0.10.0",
- "serde",
- "thiserror",
-]
-
-[[package]]
-name = "fluence-spell-dtos"
-version = "0.7.3-feature-net-759-e429943-1048-1.0"
-source = "registry+git://crates.fluence.dev/index"
-checksum = "11e8973abc8e27d9a80c2dea1823ecba27baae9274099e70e8877a59a66a906c"
-dependencies = [
- "eyre",
- "marine-rs-sdk 0.14.0",
- "marine-sqlite-connector 0.11.0",
+ "marine-sqlite-connector",
  "serde",
  "thiserror",
 ]
@@ -4829,16 +4816,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "marine-sqlite-connector"
-version = "0.11.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1c4d82c7e8c07f59aa526271b810c97ec7f79d14a77725025618a79b0b1d9051"
-dependencies = [
- "bytesize",
- "marine-rs-sdk 0.14.0",
-]
-
-[[package]]
 name = "marine-timestamp-macro"
 version = "0.10.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5372,7 +5349,7 @@ dependencies = [
  "fluence-app-service",
  "fluence-keypair",
  "fluence-libp2p",
- "fluence-spell-dtos 0.7.3-feature-net-759-e429943-1048-1.0",
+ "fluence-spell-dtos",
  "fs-utils",
  "fstrings",
  "futures",
@@ -7411,7 +7388,7 @@ dependencies = [
  "eyre",
  "fluence-keypair",
  "fluence-libp2p",
- "fluence-spell-dtos 0.7.3-feature-net-759-e429943-1048-1.0",
+ "fluence-spell-dtos",
  "fstrings",
  "futures",
  "kademlia",
@@ -7448,7 +7425,7 @@ dependencies = [
  "derivative",
  "eyre",
  "fluence-libp2p",
- "fluence-spell-dtos 0.7.3-feature-net-759-e429943-1048-1.0",
+ "fluence-spell-dtos",
  "fstrings",
  "futures",
  "libp2p",
@@ -7480,7 +7457,7 @@ dependencies = [
  "fluence-app-service",
  "fluence-keypair",
  "fluence-libp2p",
- "fluence-spell-dtos 0.7.3-feature-net-759-e429943-1048-1.0",
+ "fluence-spell-dtos",
  "libp2p-identity",
  "maplit",
  "particle-execution",
@@ -7684,7 +7661,7 @@ dependencies = [
  "decider-distro",
  "eyre",
  "fluence-app-service",
- "fluence-spell-dtos 0.7.3-feature-net-759-e429943-1048-1.0",
+ "fluence-spell-dtos",
  "futures",
  "libp2p",
  "log",
