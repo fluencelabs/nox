@@ -95,7 +95,7 @@ async fn test_tetraplets() {
     let tetraplet = &ap_literal_tetraplets[0][0];
     assert_eq!(tetraplet.function_name, "");
     assert_eq!(tetraplet.peer_pk, client.peer_id.to_base58());
-    assert_eq!(tetraplet.json_path, "");
+    assert_eq!(tetraplet.lambda, "");
     assert_eq!(tetraplet.service_id, "");
 
     let first_tetraplets = args.next().unwrap();
@@ -108,7 +108,7 @@ async fn test_tetraplets() {
     let tetraplet = &first_tetraplets[0][0];
     assert_eq!(tetraplet.function_name, "identity");
     assert_eq!(tetraplet.peer_pk, client.node.to_base58());
-    assert_eq!(tetraplet.json_path, "");
+    assert_eq!(tetraplet.lambda, "");
     assert_eq!(tetraplet.service_id, "op");
 
     let ap_first_tetraplets = args.next().unwrap();
@@ -127,6 +127,6 @@ async fn test_tetraplets() {
     let tetraplet = &second_tetraplets[0][0];
     assert_eq!(tetraplet.function_name, "get_tetraplets");
     assert_eq!(tetraplet.peer_pk, client.node.to_base58());
-    assert_eq!(tetraplet.json_path, ".$.[0].[0].peer_pk");
+    assert_eq!(tetraplet.lambda, ".$.[0].[0].peer_pk");
     assert_eq!(tetraplet.service_id, tetraplets_service.id.as_str());
 }

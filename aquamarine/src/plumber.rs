@@ -15,6 +15,7 @@
  */
 
 use eyre::eyre;
+use fluence_keypair::KeyPair;
 use futures::future::BoxFuture;
 use futures::FutureExt;
 use std::collections::hash_map::Entry;
@@ -180,7 +181,13 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
         match entry {
             Entry::Occupied(actor) => Ok(actor.into_mut()),
             Entry::Vacant(entry) => {
-                let params = ParticleParams::clone_from(particle.as_ref(), peer_scope);
+                // TODO: move to a better place
+                let particle_token = get_particle_token(
+                    &self.key_storage.root_key_pair,
+                    &particle.particle.signature,
+                )?;
+                let params =
+                    ParticleParams::clone_from(particle.as_ref(), peer_scope, particle_token);
                 let functions = Functions::new(params, builtins.clone());
                 let key_pair = self
                     .key_storage
@@ -414,6 +421,16 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
     fn meter<U, FF: Fn(&ParticleExecutorMetrics) -> U>(&self, f: FF) {
         self.metrics.as_ref().map(f);
     }
+}
+
+fn get_particle_token(key_pair: &KeyPair, signature: &Vec<u8>) -> eyre::Result<String> {
+    let particle_token = key_pair.sign(signature.as_slice()).map_err(|err| {
+        eyre!(
+            "Could not produce particle token by signing the particle signature: {}",
+            err
+        )
+    })?;
+    Ok(bs58::encode(particle_token.to_vec()).into_string())
 }
 
 /// Implements `now` by taking number of non-leap seconds from `Utc::now()`
