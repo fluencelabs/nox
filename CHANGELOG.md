@@ -1,5 +1,47 @@
 # Changelog
 
+## [0.20.2](https://github.com/fluencelabs/nox/compare/nox-v0.20.1...nox-v0.20.2) (2024-02-21)
+
+
+### Features
+
+* support new CallParameters and generate particle token [NET-767] ([179d697](https://github.com/fluencelabs/nox/commit/179d6974f916b8c1b059f1277c062e3272e45714))
+
+
+### Bug Fixes
+
+* **core-manager:** process core persistence in a stream ([#2100](https://github.com/fluencelabs/nox/issues/2100)) ([7f333bd](https://github.com/fluencelabs/nox/commit/7f333bd9bc1d6d343fd3ff1cda4d9b08e11205f3))
+* **deps:** decider 0.6.4, with debug logs for tx ([#2101](https://github.com/fluencelabs/nox/issues/2101)) ([23e556b](https://github.com/fluencelabs/nox/commit/23e556b5d79d50460ff375d3824a843c0c512e8f))
+
+## [0.20.1](https://github.com/fluencelabs/nox/compare/nox-v0.20.0...nox-v0.20.1) (2024-02-21)
+
+
+### Bug Fixes
+
+* **deps:** decider distro 0.6.1 ([#2096](https://github.com/fluencelabs/nox/issues/2096)) ([b07e524](https://github.com/fluencelabs/nox/commit/b07e524f84ab7c34c673a90757cb85fefb9f5074))
+* **deps:** update rust crate decider-distro to v0.6.3 ([#2089](https://github.com/fluencelabs/nox/issues/2089)) ([61aa65c](https://github.com/fluencelabs/nox/commit/61aa65cf5e3a786d663a988b531870829f2f0fa6))
+* **deps:** use toml 0.5.10 ([#2095](https://github.com/fluencelabs/nox/issues/2095)) ([df662c5](https://github.com/fluencelabs/nox/commit/df662c5f7162a583e3b649cc8c280340968aa230))
+* **deps:** use toml 0.7 in server-config ([#2097](https://github.com/fluencelabs/nox/issues/2097)) ([a4221cb](https://github.com/fluencelabs/nox/commit/a4221cb70b6f4cf88b9df8eb7c1427e24c42ffc5))
+* **particle-vault:** refactor particle vault usage ([#2077](https://github.com/fluencelabs/nox/issues/2077)) ([26f998d](https://github.com/fluencelabs/nox/commit/26f998d2b72732ed7eab8338f15daecd2f7339a6))
+
+## [0.20.0](https://github.com/fluencelabs/nox/compare/nox-v0.19.0...nox-v0.20.0) (2024-02-19)
+
+
+### ⚠ BREAKING CHANGES
+
+* **cores:** core manager [fixes NET-739  NET-755 NET-740] ([#2069](https://github.com/fluencelabs/nox/issues/2069))
+
+### Features
+
+* **app-services:** Support worker-id in CallParameters [NET-717] ([#2039](https://github.com/fluencelabs/nox/issues/2039)) ([3b1c10f](https://github.com/fluencelabs/nox/commit/3b1c10f3996c684c4f3143dfa2eca87adf5a9642))
+* **cores:** core manager [fixes NET-739  NET-755 NET-740] ([#2069](https://github.com/fluencelabs/nox/issues/2069)) ([7366f84](https://github.com/fluencelabs/nox/commit/7366f840bb6774670adc1aa09a9eb596dc337362))
+
+
+### Bug Fixes
+
+* **deps:** update rust crate decider-distro to v0.5.17 ([#2081](https://github.com/fluencelabs/nox/issues/2081)) ([046417e](https://github.com/fluencelabs/nox/commit/046417ed835e2e71e4fb3beb20b205cc454b5925))
+* **subnet-resolve:** update subnet resolve to the new ComputeUnit structure ([#2027](https://github.com/fluencelabs/nox/issues/2027)) ([7d561b7](https://github.com/fluencelabs/nox/commit/7d561b77d2e23bf1b6c5c0bd016cbdd66e8eb337))
+
 ## [0.19.0](https://github.com/fluencelabs/nox/compare/nox-v0.18.1...nox-v0.19.0) (2024-02-15)
 
 

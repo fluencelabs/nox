@@ -20,6 +20,7 @@ use crate::error::KeyStorageError::{
 use crate::error::{KeyStorageError, WorkersError};
 use crate::workers::WorkerInfo;
 use crate::KeyStorageError::RemoveErrorPersistedKeypair;
+use core_manager::CUID;
 use fluence_keypair::KeyPair;
 use libp2p::PeerId;
 use parking_lot::RwLock;
@@ -50,7 +51,7 @@ pub struct PersistedWorker {
     pub deal_id: String,
     #[serde(default = "default_bool::<true>")]
     pub active: bool,
-    pub cu_count: usize,
+    pub cu_ids: Vec<CUID>,
 }
 
 impl From<PersistedWorker> for WorkerInfo {
@@ -59,7 +60,7 @@ impl From<PersistedWorker> for WorkerInfo {
             deal_id: val.deal_id,
             creator: val.creator,
             active: RwLock::new(val.active),
-            cu_count: val.cu_count,
+            cu_ids: val.cu_ids,
         }
     }
 }
@@ -103,7 +104,7 @@ pub(crate) async fn persist_keypair(
 ) -> Result<(), KeyStorageError> {
     let path = keypairs_dir.join(keypair_file_name(worker_id));
     let bytes =
-        toml::to_vec(&persisted_keypair).map_err(|err| SerializePersistedKeypair { err })?;
+        toml::ser::to_vec(&persisted_keypair).map_err(|err| SerializePersistedKeypair { err })?;
     tokio::fs::write(&path, bytes)
         .await
         .map_err(|err| WriteErrorPersistedKeypair { path, err })

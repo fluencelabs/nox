@@ -41,6 +41,7 @@ use aquamarine::{
 use chain_listener::ChainListener;
 use config_utils::to_peer_id;
 use connection_pool::ConnectionPoolT;
+use core_manager::manager::CoreManager;
 use fluence_keypair::KeyPair;
 use fluence_libp2p::build_transport;
 use health::HealthCheckRegistry;
@@ -104,6 +105,7 @@ pub struct Node<RT: AquaRuntime> {
 impl<RT: AquaRuntime> Node<RT> {
     pub async fn new(
         config: ResolvedConfig,
+        core_manager: Arc<CoreManager>,
         vm_config: RT::Config,
         data_store_config: DataStoreConfig,
         node_version: &'static str,
@@ -137,6 +139,7 @@ impl<RT: AquaRuntime> Node<RT> {
         let workers = Workers::from_path(
             config.dir_config.workers_base_dir.clone(),
             key_storage.clone(),
+            core_manager.clone(),
         )
         .await?;
 
@@ -636,12 +639,14 @@ mod tests {
     use maplit::hashmap;
     use serde_json::json;
     use std::path::PathBuf;
+    use std::sync::Arc;
     use std::time::Duration;
 
     use air_interpreter_fs::{air_interpreter_path, write_default_air_interpreter};
     use aquamarine::{DataStoreConfig, VmConfig};
     use config_utils::to_peer_id;
     use connected_client::ConnectedClient;
+    use core_manager::manager::DummyCoreManager;
     use fs_utils::to_abs_path;
     use server_config::{default_base_dir, load_config_with_args};
     use system_services::SystemServiceDistros;
@@ -678,8 +683,12 @@ mod tests {
         let system_service_distros =
             SystemServiceDistros::default_from(config.system_services.clone())
                 .expect("can't create system services");
+
+        let core_manager = Arc::new(DummyCoreManager::default().into());
+
         let mut node: Box<Node<AVMRunner>> = Node::new(
             config,
+            core_manager,
             vm_config,
             data_store_config,
             "some version",

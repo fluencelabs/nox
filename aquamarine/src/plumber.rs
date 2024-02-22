@@ -15,6 +15,7 @@
  */
 
 use eyre::eyre;
+use fluence_keypair::KeyPair;
 use futures::future::BoxFuture;
 use futures::FutureExt;
 use std::collections::hash_map::Entry;
@@ -180,7 +181,13 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
         match entry {
             Entry::Occupied(actor) => Ok(actor.into_mut()),
             Entry::Vacant(entry) => {
-                let params = ParticleParams::clone_from(particle.as_ref(), peer_scope);
+                // TODO: move to a better place
+                let particle_token = get_particle_token(
+                    &self.key_storage.root_key_pair,
+                    &particle.particle.signature,
+                )?;
+                let params =
+                    ParticleParams::clone_from(particle.as_ref(), peer_scope, particle_token);
                 let functions = Functions::new(params, builtins.clone());
                 let key_pair = self
                     .key_storage
@@ -416,6 +423,16 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
     }
 }
 
+fn get_particle_token(key_pair: &KeyPair, signature: &Vec<u8>) -> eyre::Result<String> {
+    let particle_token = key_pair.sign(signature.as_slice()).map_err(|err| {
+        eyre!(
+            "Could not produce particle token by signing the particle signature: {}",
+            err
+        )
+    })?;
+    Ok(bs58::encode(particle_token.to_vec()).into_string())
+}
+
 /// Implements `now` by taking number of non-leap seconds from `Utc::now()`
 mod real_time {
     #[allow(dead_code)]
@@ -436,7 +453,7 @@ mod tests {
     use fluence_keypair::KeyPair;
     use fluence_libp2p::RandomPeerId;
     use futures::task::noop_waker_ref;
-    use workers::{KeyStorage, PeerScopes, Workers};
+    use workers::{DummyCoreManager, KeyStorage, PeerScopes, Workers};
 
     use particle_args::Args;
     use particle_execution::{FunctionOutcome, ParticleFunction, ParticleParams, ServiceFunction};
@@ -539,6 +556,8 @@ mod tests {
 
         let key_storage = Arc::new(key_storage);
 
+        let core_manager = Arc::new(DummyCoreManager::default().into());
+
         let scope = PeerScopes::new(
             root_key_pair.get_peer_id(),
             RandomPeerId::random(),
@@ -546,7 +565,7 @@ mod tests {
             key_storage.clone(),
         );
 
-        let workers = Workers::from_path(workers_path.clone(), key_storage.clone())
+        let workers = Workers::from_path(workers_path.clone(), key_storage.clone(), core_manager)
             .await
             .expect("Could not load worker registry");
 

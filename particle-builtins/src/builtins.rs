@@ -17,7 +17,6 @@
 use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
 use std::ops::Try;
-use std::path;
 use std::path::Path;
 use std::str::FromStr;
 use std::sync::Arc;
@@ -85,8 +84,6 @@ pub struct Builtins<C> {
     #[derivative(Debug(format_with = "fmt_custom_services"))]
     pub custom_services: RwLock<HashMap<String, CustomService>>,
 
-    particles_vault_dir: path::PathBuf,
-
     #[derivative(Debug = "ignore")]
     key_storage: Arc<KeyStorage>,
     #[derivative(Debug = "ignore")]
@@ -110,14 +107,8 @@ where
     ) -> Self {
         let modules_dir = &config.modules_dir;
         let blueprint_dir = &config.blueprint_dir;
-        let vault_dir = &config.particles_vault_dir;
-        let modules = ModuleRepository::new(
-            modules_dir,
-            blueprint_dir,
-            vault_dir,
-            config.allowed_binaries.clone(),
-        );
-        let particles_vault_dir = vault_dir.to_path_buf();
+        let modules =
+            ModuleRepository::new(modules_dir, blueprint_dir, config.allowed_binaries.clone());
         let services = ParticleAppServices::new(
             config,
             modules.clone(),
@@ -131,7 +122,6 @@ where
             connectivity,
             modules,
             services,
-            particles_vault_dir,
             custom_services: <_>::default(),
             key_storage,
             scopes: scope,
@@ -629,9 +619,12 @@ where
         let module_path: String = Args::next("module_path", &mut args)?;
         let config = Args::next("config", &mut args)?;
 
-        let module_hash = self
-            .modules
-            .add_module_from_vault(module_path, config, params)?;
+        let module_hash = self.modules.add_module_from_vault(
+            &self.services.vault,
+            module_path,
+            config,
+            params,
+        )?;
 
         Ok(json!(module_hash))
     }
@@ -654,9 +647,11 @@ where
         let mut args = args.function_args.into_iter();
         let config_path: String = Args::next("config_path", &mut args)?;
 
-        let config = self
-            .modules
-            .load_module_config_from_vault(config_path, params)?;
+        let config = ModuleRepository::load_module_config_from_vault(
+            &self.services.vault,
+            config_path,
+            params,
+        )?;
         let config = serde_json::to_value(config)
             .map_err(|err| JError::new(format!("Error serializing config to JSON: {err}")))?;
 
@@ -697,11 +692,17 @@ where
         params: ParticleParams,
     ) -> Result<JValue, JError> {
         let mut args = args.function_args.into_iter();
-        let blueprint_path = Args::next("blueprint_path", &mut args)?;
+        let blueprint_path: String = Args::next("blueprint_path", &mut args)?;
 
-        let blueprint = self
-            .modules
-            .load_blueprint_from_vault(blueprint_path, params)?;
+        let data = self
+            .services
+            .vault
+            .cat_slice(&params, Path::new(&blueprint_path))?;
+        let blueprint = AddBlueprint::decode(&data).map_err(|err| {
+            JError::new(format!(
+                "Error parsing blueprint from vault {blueprint_path:?}: {err}"
+            ))
+        })?;
 
         let blueprint = blueprint
             .to_string()
@@ -985,10 +986,7 @@ where
         let mut args = args.function_args.into_iter();
         let data: String = Args::next("data", &mut args)?;
         let name = uuid();
-        let virtual_path = self
-            .services
-            .vault
-            .put(&params.id, Path::new(&name), &data)?;
+        let virtual_path = self.services.vault.put(&params, name, &data)?;
 
         Ok(JValue::String(virtual_path.display().to_string()))
     }
@@ -998,7 +996,7 @@ where
         let path: String = Args::next("path", &mut args)?;
         self.services
             .vault
-            .cat(&params.id, Path::new(&path))
+            .cat(&params, Path::new(&path))
             .map(JValue::String)
             .map_err(|_| JError::new(format!("Error reading vault file `{path}`")))
     }

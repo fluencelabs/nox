@@ -9,6 +9,8 @@ edition = "2021"
 fs-utils = { workspace = true }
 fluence-libp2p = { workspace = true }
 fluence-keypair = { workspace = true }
+core-manager = { workspace = true }
+
 
 parking_lot = { workspace = true }
 eyre = { workspace = true }
@@ -25,3 +27,4 @@ types = { workspace = true }
 [dev-dependencies]
 tempfile = { workspace = true }
 tokio = { workspace = true, features = ["macros"] }
+hex = { workspace = true }

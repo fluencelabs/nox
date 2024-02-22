@@ -5,11 +5,9 @@ authors = ["Fluence Labs"]
 edition = "2021"
 
 [dependencies]
-marine-rs-sdk = "0.7.0"
-once_cell = { workspace = true }
+marine-rs-sdk = "0.13.0"
+once_cell = "1.19.0"
 
 [[bin]]
 name = "tetraplets"
 path = "src/main.rs"
-
-[workspace]

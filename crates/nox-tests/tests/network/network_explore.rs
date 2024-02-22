@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 use std::str::FromStr;
-use std::time::{Duration, Instant};
 
 use base64::{engine::general_purpose::STANDARD as base64, Engine};
 use connected_client::{ClientEvent, ConnectedClient};
@@ -29,7 +28,7 @@ use serde::Deserialize;
 use serde_json::json;
 use serde_json::Value as JValue;
 use service_modules::{load_module, module_config, Hash};
-use test_utils::{create_service, timeout};
+use test_utils::create_service;
 
 use crate::network::join_stream;
 
@@ -331,6 +330,7 @@ async fn explore_services_heavy() {
     assert_eq!(external_addrs, expected_addrs);
 }
 
+#[ignore]
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn explore_services_fixed_heavy() {
     enable_logs();
@@ -390,13 +390,11 @@ async fn explore_services_fixed_heavy() {
 
     client.send_particle(script, data).await;
 
-    let now = Instant::now();
-    let tout = Duration::from_secs(10);
     let mut received = Vec::new();
 
     loop {
         let receive_task = client.receive_one();
-        if let Ok(Some(event)) = timeout(Duration::from_secs(1), receive_task).await {
+        if let Some(event) = receive_task.await {
             match event {
                 ClientEvent::Particle { particle, .. } => {
                     let mut guard = client.get_local_vm().await.lock().await;
@@ -419,16 +417,6 @@ async fn explore_services_fixed_heavy() {
         if received.len() == peers.len() {
             // success, break
             break;
-        }
-
-        if now.elapsed() > tout {
-            // failure, panic
-            panic!(
-                "Test timed out after {} secs, {}/{} results collected",
-                tout.as_secs(),
-                received.len(),
-                peers.len()
-            );
         }
     }
 

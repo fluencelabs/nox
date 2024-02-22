@@ -29,6 +29,7 @@
 use base64::{engine::general_purpose::STANDARD as base64, Engine};
 use eyre::WrapErr;
 use libp2p::PeerId;
+use std::sync::Arc;
 use tokio::signal;
 use tokio::sync::oneshot;
 use tracing_subscriber::layer::SubscriberExt;
@@ -38,6 +39,7 @@ use air_interpreter_fs::write_default_air_interpreter;
 use aquamarine::{DataStoreConfig, VmConfig};
 use avm_server::avm_runner::AVMRunner;
 use config_utils::to_peer_id;
+use core_manager::manager::{CoreManager, CoreManagerFunctions, PersistentCoreManager};
 use fs_utils::to_abs_path;
 use nox::{env_filter, log_layer, tokio_console_layer, tracing_layer, Node};
 use server_config::{load_config, ConfigData, ResolvedConfig};
@@ -88,8 +90,24 @@ fn main() -> eyre::Result<()> {
         }
     }
 
-    //TODO: add thread count configuration based on config
+    let resolved_config = config.clone().resolve()?;
+
+    let (core_manager, core_manager_task) = PersistentCoreManager::from_path(
+        resolved_config.dir_config.core_state_path.clone(),
+        resolved_config.node_config.system_cpu_count,
+        resolved_config.node_config.cpus_range.clone(),
+    )?;
+
+    let core_manager: Arc<CoreManager> = Arc::new(core_manager.into());
+
+    let system_cpu_cores_assignment = core_manager.get_system_cpu_assignment();
+
     let mut builder = tokio::runtime::Builder::new_multi_thread();
+    // worker thread count should be equal assigned logical CPU count
+    // because it is the optimal count of worker threads in Tokio runtime
+    // also we pin these threads to the assigned cores to prevent influence threads on each other
+    builder.worker_threads(system_cpu_cores_assignment.logical_core_ids.len());
+    builder.on_thread_start(move || system_cpu_cores_assignment.pin_current_thread());
 
     builder.enable_all();
 
@@ -106,9 +124,9 @@ fn main() -> eyre::Result<()> {
         .build()
         .expect("Could not make tokio runtime")
         .block_on(async {
-            let resolver_config = config.clone().resolve()?;
+            core_manager_task.run(core_manager.clone()).await;
 
-            let key_pair = resolver_config.node_config.root_key_pair.clone();
+            let key_pair = resolved_config.node_config.root_key_pair.clone();
             let base64_key_pair = base64.encode(key_pair.public().to_vec());
             let peer_id = to_peer_id(&key_pair.into());
 
@@ -127,11 +145,11 @@ fn main() -> eyre::Result<()> {
             log::info!("node server peer id = {}", peer_id);
 
             let interpreter_path =
-                to_abs_path(resolver_config.dir_config.air_interpreter_path.clone());
+                to_abs_path(resolved_config.dir_config.air_interpreter_path.clone());
             write_default_air_interpreter(&interpreter_path)?;
             log::info!("AIR interpreter: {:?}", interpreter_path);
 
-            let fluence = start_fluence(resolver_config, peer_id).await?;
+            let fluence = start_fluence(resolved_config, core_manager, peer_id).await?;
             log::info!("Fluence has been successfully started.");
             log::info!("Waiting for Ctrl-C to exit...");
 
@@ -144,7 +162,11 @@ fn main() -> eyre::Result<()> {
 }
 
 // NOTE: to stop Fluence just call Stoppable::stop()
-async fn start_fluence(config: ResolvedConfig, peer_id: PeerId) -> eyre::Result<impl Stoppable> {
+async fn start_fluence(
+    config: ResolvedConfig,
+    core_manager: Arc<CoreManager>,
+    peer_id: PeerId,
+) -> eyre::Result<impl Stoppable> {
     log::trace!("starting Fluence");
 
     let listen_addrs = config.listen_multiaddrs();
@@ -158,6 +180,7 @@ async fn start_fluence(config: ResolvedConfig, peer_id: PeerId) -> eyre::Result<
 
     let mut node: Box<Node<AVMRunner>> = Node::new(
         config,
+        core_manager,
         vm_config,
         data_store_config,
         VERSION,

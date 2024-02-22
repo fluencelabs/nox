@@ -431,16 +431,17 @@ impl ParticleAppServices {
 
         // TODO: move particle vault creation to aquamarine::particle_functions
         if create_vault {
-            self.vault.create(&particle.id)?;
+            self.vault.create(&particle)?;
         }
 
         let call_parameters_worker_id = self.scopes.to_peer_id(peer_scope);
 
         let params = CallParameters {
+            particle: particle.to_particle_parameters(),
+            service_id: service_id.clone(),
+            service_creator_peer_id: service.owner_id.to_string(),
             host_id: self.scopes.get_host_peer_id().to_string(),
             worker_id: call_parameters_worker_id.to_string(),
-            particle_id: particle.id,
-            init_peer_id: particle.init_peer_id.to_string(),
             tetraplets: function_args
                 .tetraplets
                 .into_iter()
@@ -450,13 +451,11 @@ impl ParticleAppServices {
                             peer_pk: st.peer_pk,
                             service_id: st.service_id,
                             function_name: st.function_name,
-                            json_path: st.json_path,
+                            lambda: st.json_path,
                         })
                         .collect()
                 })
                 .collect(),
-            service_id: service_id.clone(),
-            service_creator_peer_id: service.owner_id.to_string(),
         };
         let function_name = function_args.function_name;
 
@@ -518,6 +517,7 @@ impl ParticleAppServices {
         FunctionOutcome::Ok(result)
     }
 
+    // TODO: is it safe?
     #[allow(clippy::too_many_arguments)]
     pub fn call_function(
         &self,
@@ -544,6 +544,8 @@ impl ParticleAppServices {
             ttl: particle_ttl.as_millis() as u32,
             script: "".to_string(),
             signature: vec![],
+            // TODO: Is it safe?
+            token: "host_call".to_string(),
         };
 
         self.call_service(args, particle, false)
@@ -1076,7 +1078,7 @@ mod tests {
     use service_modules::load_module;
     use service_modules::Hash;
     use types::peer_scope::PeerScope;
-    use workers::{KeyStorage, PeerScopes, Workers};
+    use workers::{DummyCoreManager, KeyStorage, PeerScopes, Workers};
 
     use crate::app_services::{ServiceAlias, ServiceType};
     use crate::persistence::load_persisted_services;
@@ -1105,6 +1107,8 @@ mod tests {
 
         let root_key_pair: KeyPair = root_keypair.clone().into();
 
+        let core_manager = Arc::new(DummyCoreManager::default().into());
+
         let scope = PeerScopes::new(
             root_key_pair.get_peer_id(),
             management_pid,
@@ -1112,7 +1116,7 @@ mod tests {
             key_storage.clone(),
         );
 
-        let workers = Workers::from_path(workers_dir.clone(), key_storage)
+        let workers = Workers::from_path(workers_dir.clone(), key_storage, core_manager)
             .await
             .expect("Could not load worker registry");
 
@@ -1133,7 +1137,6 @@ mod tests {
         let repo = ModuleRepository::new(
             &config.modules_dir,
             &config.blueprint_dir,
-            &config.particles_vault_dir,
             Default::default(),
         );
 
