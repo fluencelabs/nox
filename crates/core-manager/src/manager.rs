@@ -1,5 +1,5 @@
 use std::collections::{BTreeSet, HashMap};
-use std::fs::File;
+use std::fs::{File, OpenOptions};
 use std::hash::BuildHasherDefault;
 use std::io::Write;
 use std::ops::Deref;
@@ -431,9 +431,16 @@ impl CoreManagerFunctions for PersistentCoreManager {
             .map_err(|err| PersistError::SerializationError { err })?;
         let exists = self.file_path.exists();
         let mut file = if exists {
-            File::open(self.file_path.clone()).map_err(|err| PersistError::IoError { err })?
+            OpenOptions::new()
+                .write(true)
+                .open(self.file_path.clone())
+                .map_err(|err| PersistError::IoError { err })?
         } else {
-            File::create(self.file_path.clone()).map_err(|err| PersistError::IoError { err })?
+            OpenOptions::new()
+                .write(true)
+                .create(true)
+                .open(self.file_path.clone())
+                .map_err(|err| PersistError::IoError { err })?
         };
         file.write(toml.as_bytes())
             .map_err(|err| PersistError::IoError { err })?;
