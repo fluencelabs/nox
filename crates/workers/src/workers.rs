@@ -506,6 +506,26 @@ impl Workers {
             }
         }
     }
+
+    pub fn shutdown(&self) {
+        let mut runtimes = self.runtimes.write();
+        let mut deleted_runtimes = Vec::with_capacity(runtimes.len());
+        let worker_ids: Vec<WorkerId> = runtimes.keys().cloned().collect();
+        for worker_id in worker_ids {
+            if let Some(runtime) = runtimes.remove(&worker_id) {
+                deleted_runtimes.push(runtime);
+            }
+        }
+
+        tokio::task::Builder::new()
+            .name("workers-shutdown")
+            .spawn_blocking(move || {
+                for runtime in deleted_runtimes {
+                    runtime.shutdown_background();
+                }
+            })
+            .expect("Could not spawn a task");
+    }
 }
 
 #[cfg(test)]
