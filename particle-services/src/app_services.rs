@@ -1008,7 +1008,6 @@ impl ParticleAppServices {
         let wasi = module.config.wasi.as_mut().ok_or(eyre!(
             "Could not inject persistent dirs into empty WASI config"
         ))?;
-        wasi.preopened_files.insert(persistent_dir.clone());
         wasi.mapped_dirs
             .insert("/storage".into(), persistent_dir.clone());
         wasi.mapped_dirs.insert(
@@ -1026,7 +1025,6 @@ impl ParticleAppServices {
         let wasi = module.config.wasi.as_mut().ok_or(eyre!(
             "Could not inject ephemeral dirs into empty WASI config"
         ))?;
-        wasi.preopened_files.insert(ephemeral_dir.clone());
         wasi.mapped_dirs
             .insert("/tmp".into(), ephemeral_dir.clone());
         wasi.mapped_dirs.insert(
@@ -1054,8 +1052,7 @@ impl ParticleAppServices {
 
         let app_config = AppServiceConfig {
             service_working_dir: self.config.persistent_work_dir.join(&service_id),
-            service_base_dir: self.config.ephemeral_work_dir.clone(),
-            marine_config: MarineConfig {
+                marine_config: MarineConfig {
                 // TODO: add an option to set individual per-service limit
                 total_memory_limit: self
                     .config
