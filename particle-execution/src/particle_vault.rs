@@ -85,7 +85,7 @@ impl ParticleVault {
         particle_token: &str,
     ) -> Result<(), VaultError> {
         let path = self.real_particle_vault(current_peer_id, particle_id, particle_token);
-        create_dir_write_only(&path).map_err(CreateVault)?;
+        create_dir_write_only(path).map_err(CreateVault)?;
         Ok(())
     }
 
