@@ -5770,7 +5770,7 @@ dependencies = [
  "json-utils",
  "libipld",
  "log",
- "marine-it-parser 0.15.1",
+ "marine-it-parser 0.16.0",
  "parking_lot",
  "particle-args",
  "particle-execution",
