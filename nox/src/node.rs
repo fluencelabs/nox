@@ -147,8 +147,8 @@ impl<RT: AquaRuntime> Node<RT> {
 
         let services_config = ServicesConfig::new(
             scopes.get_host_peer_id(),
-            config.dir_config.persistent_base_dir.clone(),
-            config.dir_config.ephemeral_base_dir.clone(),
+            config.dir_config.services_persistent_dir.clone(),
+            config.dir_config.services_ephemeral_dir.clone(),
             config_utils::particles_vault_dir(&config.dir_config.avm_base_dir),
             config.services_envs.clone(),
             config.management_peer_id,
