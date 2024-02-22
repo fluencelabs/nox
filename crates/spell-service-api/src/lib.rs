@@ -187,7 +187,7 @@ impl SpellServiceApi {
     pub fn get_counter(&self, params: CallParams) -> Result<Option<u32>, CallError> {
         let function = Function {
             name: "get_u32",
-            args: vec![json!("counter")],
+            args: vec![json!("hw_counter")],
         };
         let result = self.call::<U32Value>(params, function)?;
         Ok((!result.absent).then_some(result.value))
@@ -198,7 +198,7 @@ impl SpellServiceApi {
     pub fn set_counter(&self, params: CallParams, counter: u32) -> Result<(), CallError> {
         let function = Function {
             name: "set_u32",
-            args: vec![json!("counter"), json!(counter)],
+            args: vec![json!("hw_counter"), json!(counter)],
         };
         let _ = self.call::<UnitValue>(params, function)?;
 
@@ -206,7 +206,7 @@ impl SpellServiceApi {
     }
 
     pub fn set_trigger_event(&self, params: CallParams, event: String) -> Result<(), CallError> {
-        self.set_string(params, "trigger".to_string(), event)
+        self.set_string(params, "hw_trigger".to_string(), event)
     }
 
     pub fn store_error(&self, params: CallParams, args: Vec<Value>) -> Result<(), CallError> {
@@ -299,10 +299,9 @@ mod tests {
     }
 
     async fn create_pas(
-        local_pid: PeerId,
         management_pid: PeerId,
         base_dir: PathBuf,
-    ) -> (ParticleAppServices, ModuleRepository) {
+    ) -> (ParticleAppServices, ModuleRepository, PeerId) {
         let root_key_pair = Keypair::generate_ed25519();
         let vault_dir = base_dir.join("..").join("vault");
         let keypairs_dir = base_dir.join("..").join("keypairs");
@@ -333,7 +332,7 @@ mod tests {
 
         let service_memory_limit = server_config::default_service_memory_limit();
         let config = ServicesConfig::new(
-            local_pid,
+            root_key_pair.get_peer_id(),
             base_dir,
             vault_dir,
             HashMap::new(),
@@ -358,7 +357,7 @@ mod tests {
             workers.clone(),
             scope.clone(),
         );
-        (pas, repo)
+        (pas, repo, root_key_pair.get_peer_id())
     }
 
     async fn create_spell(
@@ -373,9 +372,8 @@ mod tests {
 
     async fn setup() -> (SpellServiceApi, CallParams) {
         let base_dir = TempDir::new("test3").unwrap();
-        let local_pid = create_pid();
         let management_pid = create_pid();
-        let (pas, repo) = create_pas(local_pid, management_pid, base_dir.into_path()).await;
+        let (pas, repo, local_pid) = create_pas(management_pid, base_dir.into_path()).await;
 
         let api = SpellServiceApi::new(pas.clone());
         let (storage, _) = spell_storage::SpellStorage::create(Path::new(""), &pas, &repo).unwrap();
@@ -404,7 +402,8 @@ mod tests {
         let result2 = api.set_counter(params.clone(), new_counter);
         assert!(
             result2.is_ok(),
-            "must be able to set a counter of an empty spell"
+            "must be able to set a counter of an empty spell: {:?}",
+            result2.unwrap_err()
         );
         let result3 = api.get_counter(params);
         assert!(
@@ -446,13 +445,30 @@ mod tests {
 
     #[tokio::test]
     async fn test_kv() {
-        let (api, params) = setup().await;
+        let (api, host_params) = setup().await;
         let init_data = hashmap! {
             "a1" => json!(1),
             "b1" => json!("test"),
         };
+        let result1 = api.update_kv(host_params.clone(), json!(init_data));
+        assert!(
+            !result1.is_ok(),
+            "must NOT be able to update kv without h/hw key prefixes calling from host"
+        );
+
+        let params = CallParams::new(
+            host_params.init_peer_id,
+            PeerScope::Host,
+            host_params.spell_id.clone(),
+            Some(format!("spell_{}_0", host_params.spell_id)),
+            host_params.ttl,
+        );
+
         let result1 = api.update_kv(params.clone(), json!(init_data));
-        assert!(result1.is_ok(), "must be able to update kv");
+        assert!(
+            result1.is_ok(),
+            "must be able to update kv calling as a spell"
+        );
 
         let result = api.get_string(params.clone(), "a1".to_string());
         assert!(result.is_ok(), "must be able to add get_string");
@@ -485,7 +501,7 @@ mod tests {
 
         let function = super::Function {
             name: "get_string",
-            args: vec![json!("trigger")],
+            args: vec![json!("hw_trigger")],
         };
         let result = api.call::<StringValue>(params, function);
         assert!(result.is_ok(), "must be able to add get_string");
