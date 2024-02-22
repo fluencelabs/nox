@@ -22,7 +22,7 @@ use std::path::{Path, PathBuf};
 use fluence_libp2p::PeerId;
 use thiserror::Error;
 
-use fs_utils::create_dir_write_only;
+use fs_utils::{create_dir, create_dir_write_only};
 
 use crate::ParticleParams;
 use crate::VaultError::WrongVault;
@@ -78,6 +78,11 @@ impl ParticleVault {
         Ok(())
     }
 
+    pub fn initialize_worker(&self, worker_id: PeerId) -> Result<(), VaultError> {
+        let path = self.real_worker_particle_vault(worker_id);
+        create_dir_write_only(&path).map_err(InitializeVault)
+    }
+
     pub fn create(
         &self,
         current_peer_id: PeerId,
@@ -85,7 +90,7 @@ impl ParticleVault {
         particle_token: &str,
     ) -> Result<(), VaultError> {
         let path = self.real_particle_vault(current_peer_id, particle_id, particle_token);
-        create_dir_write_only(path).map_err(CreateVault)?;
+        create_dir(path).map_err(CreateVault)?;
         Ok(())
     }
 

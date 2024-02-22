@@ -1005,6 +1005,7 @@ impl ParticleAppServices {
         blueprint_id: String,
         service_id: String,
     ) -> Result<AppService, ServiceError> {
+        self.vault.initialize_worker(current_peer_id)?;
         let mut modules_config = self.modules.resolve_blueprint(&blueprint_id)?;
         modules_config
             .iter_mut()
