@@ -105,7 +105,7 @@ fluence-spell-dtos = { version = "=0.7.3-feature-net-759-e429943-1048-1.0", regi
 fluence-spell-distro = { version = "=0.7.3-feature-net-759-e429943-1048-1.0", registry = "fluence" }
 
 # marine
-fluence-app-service = { version = "0.33.0" }
+fluence-app-service = { git = "https://github.com/fluencelabs/marine", branch = "feat/absolute_wasi_paths" }
 marine-utils = "0.5.1"
 marine-it-parser = "0.15.1"
 
