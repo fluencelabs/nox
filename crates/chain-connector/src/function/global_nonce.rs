@@ -1,11 +1,11 @@
-use chain_data::FunctionTrait;
+use chain_data::ChainFunction;
 use ethabi::{Function, ParamType, StateMutability};
 
 /// function getGlobalNonce() external view returns (bytes32);
 
 pub struct GetGlobalNonceFunction;
 
-impl FunctionTrait for GetGlobalNonceFunction {
+impl ChainFunction for GetGlobalNonceFunction {
     fn function() -> Function {
         #[allow(deprecated)]
         Function {

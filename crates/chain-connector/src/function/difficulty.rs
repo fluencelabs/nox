@@ -1,9 +1,9 @@
-use chain_data::FunctionTrait;
+use chain_data::ChainFunction;
 use ethabi::{Function, ParamType, StateMutability};
 
 /// function difficulty() external view returns (bytes32);
 pub struct DifficultyFunction;
-impl FunctionTrait for DifficultyFunction {
+impl ChainFunction for DifficultyFunction {
     fn function() -> Function {
         #[allow(deprecated)]
         Function {

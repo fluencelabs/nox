@@ -2,10 +2,10 @@ use crate::event::cc_activated::CommitmentActivated;
 use crate::event::{
     CommitmentActivatedData, UnitActivated, UnitActivatedData, UnitDeactivated, UnitDeactivatedData,
 };
-use ccp_rpc_client::OrHex;
+use ccp_rpc_client::{CCPRpcHttpClient, OrHex};
 use ccp_shared::proof::{CCProof, CCProofId, ProofIdx};
 use ccp_shared::types::{Difficulty, GlobalNonce, LocalNonce, ResultHash};
-use chain_connector::{ChainConnector, ConnectorError};
+use chain_connector::{CCInitParams, ChainConnector, ConnectorError};
 use chain_data::{parse_log, peer_id_to_hex, ChainData, Log};
 use chain_types::{
     CommitmentId, CommitmentStatus, ComputeUnit, COMMITMENT_IS_NOT_ACTIVE, TOO_MANY_PROOFS,
@@ -36,7 +36,7 @@ pub struct ChainListener {
 
     chain_connector: Arc<ChainConnector>,
     ws_client: WsClient,
-    // ccp_client: CCPRpcHttpClient,
+    ccp_client: Option<CCPRpcHttpClient>,
     core_manager: Arc<CoreManager>,
 
     timer_resolution: Duration,
@@ -48,6 +48,8 @@ pub struct ChainListener {
     global_nonce: GlobalNonce,
     current_epoch: U256,
     epoch_duration: U256,
+
+    proof_counter: HashMap<CUID, u64>,
 
     current_commitment: Option<CommitmentId>,
 
@@ -72,23 +74,20 @@ impl ChainListener {
         host_id: PeerId,
         chain_connector: Arc<ChainConnector>,
         core_manager: Arc<CoreManager>,
-    ) -> eyre::Result<Self> {
-        let init_params = chain_connector.get_cc_init_params().await?;
-        let ws_client = WsClientBuilder::default()
-            .build(&listener_config.ws_endpoint)
-            .await?;
-
-        // We will use the first physical core for utility tasks
-        let _utility_core = core_manager
-            .get_system_cpu_assignment()
-            .physical_core_ids
-            .first()
-            .cloned()
-            .ok_or(eyre::eyre!("No utility core id"))?;
+        init_params: CCInitParams,
+        ws_client: WsClient,
+    ) -> Self {
+        // // We will use the first physical core for utility tasks
+        // let _utility_core = core_manager
+        //     .get_system_cpu_assignment()
+        //     .physical_core_ids
+        //     .first()
+        //     .cloned()
+        //     .ok_or(eyre::eyre!("No utility core id"))?;
 
         // let ccp_client =
         //     CCPRpcHttpClient::new(listener_config.ccp_endpoint.clone(), utility_core).await?;
-        Ok(Self {
+        Self {
             chain_connector,
             ws_client,
             // ccp_client,
@@ -99,25 +98,27 @@ impl ChainListener {
             global_nonce: init_params.global_nonce,
             current_epoch: init_params.current_epoch,
             epoch_duration: init_params.epoch_duration,
+            proof_counter: Default::default(),
             current_commitment: None,
             active_compute_units: HashSet::new(),
             pending_compute_units: HashSet::new(),
             core_manager,
             _cc_events_dir: cc_events_dir,
-            timer_resolution: listener_config.timer_resolution,
-        })
+            timer_resolution: listener_config.proof_poll_period,
+        }
     }
 
-    async fn startup(&mut self) -> eyre::Result<()> {
+    async fn refresh_compute_units(&mut self) -> eyre::Result<()> {
         let (active, pending) = self.get_compute_units().await?;
         self.current_commitment = self.chain_connector.get_current_commitment_id().await?;
 
         if let Some(status) = self.get_commitment_status().await? {
+            // log status
             match status {
                 CommitmentStatus::Active => {
                     self.active_compute_units.extend(active);
                     self.pending_compute_units.extend(pending);
-                    self.on_active_commitment().await?;
+                    self.refresh_commitment().await?;
                 }
                 _ => {
                     self.stop_commitment().await?;
@@ -133,10 +134,10 @@ impl ChainListener {
             .name("ChainListener")
             .spawn(async move {
                 let setup: eyre::Result<()> = try {
-                    self.startup().await?;
+                    self.refresh_compute_units().await?;
                 };
                 if let Err(err) = setup {
-                    log::error!("ChainListener startup error: {err}");
+                    log::error!("ChainListener: compute units refresh error: {err}");
                     panic!("ChainListener startup error: {err}");
                 }
 
@@ -205,6 +206,7 @@ impl ChainListener {
     async fn get_compute_units(&self) -> eyre::Result<(Vec<CUID>, Vec<ComputeUnit>)> {
         let units = self.chain_connector.get_compute_units().await?;
 
+        // print info about all units
         let (active, pending): (Vec<ComputeUnit>, Vec<ComputeUnit>) = units
             .into_iter()
             .filter(|cu| cu.deal.is_none())
@@ -281,7 +283,7 @@ impl ChainListener {
 
         // `epoch_number = 1 + (block_timestamp - init_timestamp) / epoch_duration`
         let epoch_number =
-            (block_timestamp - self.init_timestamp) / self.epoch_duration + U256::from(1);
+            U256::from(1) + (block_timestamp - self.init_timestamp) / self.epoch_duration;
         let epoch_changed = epoch_number > self.current_epoch;
 
         if epoch_changed {
@@ -299,8 +301,8 @@ impl ChainListener {
                     | CommitmentStatus::Removed => {
                         self.stop_commitment().await?;
                     }
-                    CommitmentStatus::WaitDelegation => {}
-                    CommitmentStatus::WaitStart => {}
+                    CommitmentStatus::WaitDelegation => {} // log commitment is not active}
+                    CommitmentStatus::WaitStart => {}      // log commitment wait start}
                 }
             }
         }
@@ -312,8 +314,11 @@ impl ChainListener {
         &mut self,
         event: Result<Log, client::Error>,
     ) -> eyre::Result<(Subscription<Log>, Subscription<Log>)> {
+        // add logs about activation
+
         let cc_event = parse_log::<CommitmentActivatedData, CommitmentActivated>(event?)?;
         let unit_ids = cc_event.info.unit_ids;
+
         let unit_activated = self
             .subscribe_unit_activated(&cc_event.info.commitment_id)
             .await?;
@@ -325,13 +330,15 @@ impl ChainListener {
 
         if is_cc_active {
             self.active_compute_units = unit_ids.into_iter().collect();
-            self.on_active_commitment().await?;
+            self.refresh_commitment().await?;
         } else {
             self.pending_compute_units = unit_ids
                 .into_iter()
                 .map(|id| ComputeUnit::new(id, cc_event.info.start_epoch))
                 .collect();
+            self.stop_commitment().await?;
         }
+
         Ok((unit_activated, unit_deactivated))
     }
 
@@ -342,9 +349,9 @@ impl ChainListener {
         let unit_event = parse_log::<UnitActivatedData, UnitActivated>(event?)?;
         if self.current_epoch >= unit_event.info.start_epoch {
             self.active_compute_units.insert(unit_event.info.unit_id);
-            self.on_active_commitment().await?;
+            self.refresh_commitment().await?;
         } else {
-            // Will be activated on the next epoch
+            // Will be activated on the `start_epoch`
             self.pending_compute_units.insert(unit_event.info.into());
         }
         Ok(())
@@ -356,23 +363,25 @@ impl ChainListener {
         event: Result<Log, client::Error>,
     ) -> eyre::Result<()> {
         let unit_event = parse_log::<UnitDeactivatedData, UnitDeactivated>(event?)?;
+        // add logs
         self.active_compute_units.remove(&unit_event.info.unit_id);
         self.pending_compute_units
             .retain(|cu| cu.id == unit_event.info.unit_id);
-        self.on_active_commitment().await?;
+        self.refresh_commitment().await?;
         self.acquire_deal_core(unit_event.info.unit_id)?;
         Ok(())
     }
 
-    async fn on_active_commitment(&self) -> eyre::Result<()> {
-        let _cores = self.acquire_capacity_cores()?;
+    /// Send GlobalNonce, Difficulty and Core<>CUID mapping (full commitment info) to CCP
+    async fn refresh_commitment(&self) -> eyre::Result<()> {
+        let _cores = self.acquire_active_units()?;
         // self.ccp_client
         //     .on_active_commitment(self.global_nonce, self.difficulty, cores)
         //     .await?;
         Ok(())
     }
 
-    fn acquire_capacity_cores(&self) -> eyre::Result<HashMap<PhysicalCoreId, OrHex<CUID>>> {
+    fn acquire_active_units(&self) -> eyre::Result<HashMap<PhysicalCoreId, OrHex<CUID>>> {
         let cores = self.core_manager.acquire_worker_core(AcquireRequest::new(
             self.active_compute_units.clone().into_iter().collect(),
             WorkType::CapacityCommitment,
@@ -397,6 +406,7 @@ impl ChainListener {
     }
 
     async fn stop_commitment(&mut self) -> eyre::Result<()> {
+        // log stop commitment
         self.active_compute_units.clear();
         self.pending_compute_units.clear();
         self.current_commitment = None;
@@ -411,7 +421,7 @@ impl ChainListener {
             .map(|cu| cu.id);
 
         self.active_compute_units.extend(to_activate);
-        self.on_active_commitment().await?;
+        self.refresh_commitment().await?;
         Ok(())
     }
 
@@ -437,14 +447,18 @@ impl ChainListener {
             Err(err) => {
                 match err {
                     ConnectorError::RpcCallError { ref data, .. } => {
+                        // TODO: track proofs count per epoch and stop at maxProofsPerEpoch
                         if data.contains(TOO_MANY_PROOFS) {
                             // we stop unit until the next epoch if "TooManyProofs" error received
+                            // TODO: acquire core for other units to help with proofs calculation
                             self.active_compute_units.remove(&proof.cu_id);
                             self.pending_compute_units
                                 .insert(ComputeUnit::new(proof.cu_id, self.current_epoch + 1));
-                            self.on_active_commitment().await?;
+                            self.refresh_commitment().await?;
+                            // log about stopping
                             Ok(())
                         } else if data.contains(COMMITMENT_IS_NOT_ACTIVE) {
+                            // log about commitment is not active
                             self.stop_commitment().await?;
                             Ok(())
                         } else {

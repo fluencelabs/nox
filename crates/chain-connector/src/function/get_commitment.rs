@@ -1,4 +1,4 @@
-use chain_data::FunctionTrait;
+use chain_data::ChainFunction;
 use chain_types::Commitment;
 
 /// @dev Returns the commitment info
@@ -7,7 +7,7 @@ use chain_types::Commitment;
 /// function getCommitment(bytes32 commitmentId) external view returns (CommitmentView memory);
 pub struct GetCommitmentFunction;
 
-impl FunctionTrait for GetCommitmentFunction {
+impl ChainFunction for GetCommitmentFunction {
     fn function() -> ethabi::Function {
         #[allow(deprecated)]
         ethabi::Function {

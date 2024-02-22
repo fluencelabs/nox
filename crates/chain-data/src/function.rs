@@ -2,7 +2,7 @@ use crate::{next_opt, ChainDataError};
 use ethabi::ethereum_types::U256;
 use ethabi::Token;
 
-pub trait FunctionTrait {
+pub trait ChainFunction {
     fn function() -> ethabi::Function;
     fn signature() -> Vec<ethabi::ParamType>;
 

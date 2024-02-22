@@ -46,6 +46,7 @@ use core_manager::manager::CoreManager;
 use fluence_keypair::KeyPair;
 use fluence_libp2p::build_transport;
 use health::HealthCheckRegistry;
+use jsonrpsee::ws_client::WsClientBuilder;
 use particle_builtins::{Builtins, CustomService, NodeInfo};
 use particle_execution::ParticleFunctionStatic;
 use particle_protocol::ExtendedParticle;
@@ -330,6 +331,7 @@ impl<RT: AquaRuntime> Node<RT> {
             custom_service_functions.extend(chain_builtins.into_iter());
             Some(chain_connector)
         } else {
+            // TODO: log warning, exit with error if decider in on
             None
         };
 
@@ -375,6 +377,11 @@ impl<RT: AquaRuntime> Node<RT> {
         ) {
             let cc_events_dir = config.dir_config.cc_events_dir.clone();
             let host_id = scopes.get_host_peer_id();
+            // print init params
+            let init_params = connector.get_cc_init_params().await?;
+            let ws_client = WsClientBuilder::default()
+                .build(&listener_config.ws_endpoint)
+                .await?; // todo write error msg
             let chain_listener = ChainListener::new(
                 chain_config,
                 listener_config,
@@ -382,6 +389,8 @@ impl<RT: AquaRuntime> Node<RT> {
                 host_id,
                 connector,
                 core_manager.clone(),
+                init_params,
+                ws_client,
             )
             .await?;
             Some(chain_listener)

@@ -1,4 +1,4 @@
-use chain_data::FunctionTrait;
+use chain_data::ChainFunction;
 use chain_types::ComputeUnit;
 use ethabi::ParamType;
 
@@ -6,7 +6,7 @@ use ethabi::ParamType;
 /// function getComputeUnits(bytes32 peerId) external view returns (ComputeUnitView[] memory);
 pub struct GetComputeUnitsFunction;
 
-impl FunctionTrait for GetComputeUnitsFunction {
+impl ChainFunction for GetComputeUnitsFunction {
     fn function() -> ethabi::Function {
         #[allow(deprecated)]
         ethabi::Function {
@@ -31,7 +31,7 @@ impl FunctionTrait for GetComputeUnitsFunction {
 #[cfg(test)]
 mod tests {
     use crate::GetComputeUnitsFunction;
-    use chain_data::FunctionTrait;
+    use chain_data::ChainFunction;
 
     #[tokio::test]
     async fn test_data() {

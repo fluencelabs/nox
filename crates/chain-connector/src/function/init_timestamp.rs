@@ -1,4 +1,4 @@
-use chain_data::FunctionTrait;
+use chain_data::ChainFunction;
 use ethabi::{Function, ParamType, StateMutability};
 
 /// @dev Returns epoch init timestamp
@@ -8,7 +8,7 @@ use ethabi::{Function, ParamType, StateMutability};
 
 pub struct InitTimestampFunction;
 
-impl FunctionTrait for InitTimestampFunction {
+impl ChainFunction for InitTimestampFunction {
     fn function() -> Function {
         #[allow(deprecated)]
         Function {

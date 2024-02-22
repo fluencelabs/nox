@@ -1,4 +1,4 @@
-use chain_data::FunctionTrait;
+use chain_data::ChainFunction;
 
 /// @dev Submits a proof for the commitment
 /// @param unitId Compute unit id which provied the proof
@@ -9,7 +9,7 @@ use chain_data::FunctionTrait;
 
 pub struct SubmitProofFunction;
 
-impl FunctionTrait for SubmitProofFunction {
+impl ChainFunction for SubmitProofFunction {
     fn function() -> ethabi::Function {
         #[allow(deprecated)]
         let function = ethabi::Function {

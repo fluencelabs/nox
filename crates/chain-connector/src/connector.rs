@@ -7,7 +7,7 @@ use crate::{
 use ccp_shared::proof::CCProof;
 use ccp_shared::types::{Difficulty, GlobalNonce};
 use chain_data::ChainDataError::InvalidTokenSize;
-use chain_data::{next_opt, parse_chain_data, peer_id_to_bytes, FunctionTrait};
+use chain_data::{next_opt, parse_chain_data, peer_id_to_bytes, ChainFunction};
 use chain_types::{Commitment, CommitmentId, CommitmentStatus, ComputePeer, ComputeUnit};
 use clarity::Transaction;
 use ethabi::ethereum_types::U256;
@@ -109,10 +109,11 @@ impl ChainConnector {
 
     async fn get_tx_nonce(&self) -> Result<u128, ConnectorError> {
         let address = self.config.wallet_key.to_address().to_string();
-        let resp: String = self
-            .client
-            .request("eth_getTransactionCount", rpc_params![address, "pending"])
-            .await?;
+        let resp: String = process_response(
+            self.client
+                .request("eth_getTransactionCount", rpc_params![address, "pending"])
+                .await,
+        )?;
 
         let nonce =
             u128::from_str_radix(&resp[2..], 16).map_err(|_| ConnectorError::InvalidNonce(resp))?;
@@ -138,11 +139,13 @@ impl ChainConnector {
     }
 
     pub async fn send_tx(&self, data: Vec<u8>, to: &str) -> Result<String, ConnectorError> {
+        let gas_price = self.get_gas_price().await?;
+        let gas_limit = self.estimate_gas_limit(&data, to).await?;
+
         // We use this lock no ensure that we don't send two transactions with the same nonce
         let _lock = self.tx_nonce_mutex.lock().await;
         let nonce = self.get_tx_nonce().await?;
-        let gas_price = self.get_gas_price().await?;
-        let gas_limit = self.estimate_gas_limit(&data, to).await?;
+
         // Create a new transaction
         let tx = Transaction::Legacy {
             nonce: nonce.into(),
@@ -612,12 +615,11 @@ mod tests {
 
     #[tokio::test]
     async fn submit_proof_not_active() {
-        let nonce = r#"{"jsonrpc":"2.0","id":0,"result":"0x20"}"#;
-        let gas_price = r#"{"jsonrpc":"2.0","id":1,"result":"0x3b9aca07"}"#;
+        let gas_price = r#"{"jsonrpc":"2.0","id":0,"result":"0x3b9aca07"}"#;
         let estimate_gas = r#"
         {
             "jsonrpc": "2.0",
-            "id": 2,
+            "id": 1,
             "error": {
                 "code": -32000,
                 "message": "execution reverted: revert: Capacity commitment is not active",
@@ -625,6 +627,7 @@ mod tests {
             }
         }
         "#;
+
         let mut server = mockito::Server::new();
         let url = server.url();
         server
@@ -641,7 +644,6 @@ mod tests {
                 let method = method.as_str().expect("as str").trim_matches(|c| c == '\"');
 
                 match method {
-                    "eth_getTransactionCount" => nonce.into(),
                     "eth_gasPrice" => gas_price.into(),
                     "eth_estimateGas" => estimate_gas.into(),
                     method => format!("'{}' not supported", method).into(),
@@ -675,15 +677,15 @@ mod tests {
 
     #[tokio::test]
     async fn submit_proof() {
-        let nonce = r#"{"jsonrpc":"2.0","id":0,"result":"0x20"}"#;
-        let gas_price = r#"{"jsonrpc":"2.0","id":1,"result":"0x3b9aca07"}"#;
+        let gas_price = r#"{"jsonrpc":"2.0","id":0,"result":"0x3b9aca07"}"#;
         let estimate_gas = r#"
         {
             "jsonrpc": "2.0",
-            "id": 2,
+            "id": 1,
             "result": "0x5208"
         }
         "#;
+        let nonce = r#"{"jsonrpc":"2.0","id":2,"result":"0x20"}"#;
         let send_tx_response = r#"
         {
             "jsonrpc": "2.0",

@@ -1,4 +1,4 @@
-use chain_data::FunctionTrait;
+use chain_data::ChainFunction;
 use chain_types::ComputePeer;
 use ethabi::{Function, Param, ParamType, StateMutability};
 
@@ -12,7 +12,7 @@ use ethabi::{Function, Param, ParamType, StateMutability};
 /// function getComputePeer(bytes32 peerId) external view returns (ComputePeer memory);
 pub struct GetComputePeerFunction;
 
-impl FunctionTrait for GetComputePeerFunction {
+impl ChainFunction for GetComputePeerFunction {
     fn function() -> Function {
         #[allow(deprecated)]
         Function {
@@ -36,7 +36,7 @@ impl FunctionTrait for GetComputePeerFunction {
 #[cfg(test)]
 mod tests {
     use crate::GetComputePeerFunction;
-    use chain_data::FunctionTrait;
+    use chain_data::ChainFunction;
 
     #[tokio::test]
     async fn test_data() {

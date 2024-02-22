@@ -5295,6 +5295,7 @@ dependencies = [
  "health",
  "humantime-serde",
  "itertools 0.12.1",
+ "jsonrpsee",
  "kademlia",
  "libp2p",
  "libp2p-connection-limits",

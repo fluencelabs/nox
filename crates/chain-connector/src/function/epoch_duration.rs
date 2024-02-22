@@ -1,4 +1,4 @@
-use chain_data::FunctionTrait;
+use chain_data::ChainFunction;
 use ethabi::{Function, ParamType, StateMutability};
 
 /// @dev Returns epoch duration
@@ -6,7 +6,7 @@ use ethabi::{Function, ParamType, StateMutability};
 /// function epochDuration() external view returns (uint256);
 pub struct EpochDurationFunction;
 
-impl FunctionTrait for EpochDurationFunction {
+impl ChainFunction for EpochDurationFunction {
     fn function() -> Function {
         #[allow(deprecated)]
         Function {

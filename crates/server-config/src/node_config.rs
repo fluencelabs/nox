@@ -136,10 +136,8 @@ pub struct UnresolvedNodeConfig {
     #[serde(default)]
     pub system_services: SystemServicesConfig,
 
-    #[serde(flatten)]
     pub chain_config: Option<ChainConfig>,
 
-    #[serde(flatten)]
     pub chain_listener_config: Option<ChainListenerConfig>,
 }
 
@@ -550,7 +548,7 @@ pub struct ChainConfig {
 #[derivative(Debug)]
 pub struct ChainListenerConfig {
     pub ws_endpoint: String,
-    pub ccp_endpoint: String,
+    pub ccp_endpoint: Option<String>,
     /// How often to poll proofs
-    pub timer_resolution: Duration,
+    pub proof_poll_period: Duration,
 }

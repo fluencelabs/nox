@@ -1,4 +1,4 @@
-use chain_data::FunctionTrait;
+use chain_data::ChainFunction;
 
 /// @dev Returns the commitment status
 /// @param commitmentId Commitment id
@@ -6,7 +6,7 @@ use chain_data::FunctionTrait;
 /// function getStatus(bytes32 commitmentId) external view returns (CCStatus);
 pub struct GetStatusFunction;
 
-impl FunctionTrait for GetStatusFunction {
+impl ChainFunction for GetStatusFunction {
     fn function() -> ethabi::Function {
         #[allow(deprecated)]
         let function = ethabi::Function {
