@@ -100,6 +100,8 @@ pub struct Node<RT: AquaRuntime> {
     versions: Versions,
 
     pub chain_listener: Option<ChainListener>,
+
+    workers: Arc<Workers>,
 }
 
 impl<RT: AquaRuntime> Node<RT> {
@@ -390,6 +392,7 @@ impl<RT: AquaRuntime> Node<RT> {
             allow_local_addresses,
             versions,
             chain_listener,
+            workers.clone(),
         ))
     }
 
@@ -485,6 +488,7 @@ impl<RT: AquaRuntime> Node<RT> {
         allow_local_addresses: bool,
         versions: Versions,
         chain_listener: Option<ChainListener>,
+        workers: Arc<Workers>,
     ) -> Box<Self> {
         let node_service = Self {
             particle_stream,
@@ -511,6 +515,7 @@ impl<RT: AquaRuntime> Node<RT> {
             allow_local_addresses,
             versions,
             chain_listener,
+            workers,
         };
 
         Box::new(node_service)
@@ -539,6 +544,7 @@ impl<RT: AquaRuntime> Node<RT> {
         let libp2p_metrics = self.libp2p_metrics;
         let allow_local_addresses = self.allow_local_addresses;
         let versions = self.versions;
+        let workers = self.workers.clone();
         let chain_listener = self.chain_listener;
 
         task::Builder::new().name(&task_name.clone()).spawn(async move {
@@ -589,6 +595,7 @@ impl<RT: AquaRuntime> Node<RT> {
             dispatcher.cancel().await;
             connectivity.cancel().await;
             aquamarine_backend.abort();
+            workers.shutdown();
         }.in_current_span()).expect("Could not spawn task");
 
         // Note: need to be after the start of the node to be able to subscribe spells
