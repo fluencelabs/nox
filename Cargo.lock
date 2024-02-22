@@ -1568,7 +1568,7 @@ dependencies = [
  "fluence-app-service",
  "fluence-keypair",
  "fluence-libp2p",
- "fluence-spell-dtos",
+ "fluence-spell-dtos 0.7.3-feature-net-759-e429943-1048-1.0",
  "fs-utils",
  "futures",
  "libp2p",
@@ -1775,7 +1775,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cd525ce56be3ee02d1c91bb4cbb09e0e10797f3f3f584187c89c8cdcd0ec65ff"
 dependencies = [
  "built 0.7.1",
- "fluence-spell-dtos",
+ "fluence-spell-dtos 0.7.2",
  "maplit",
  "serde_json",
 ]
@@ -2260,9 +2260,9 @@ dependencies = [
 
 [[package]]
 name = "fluence-spell-distro"
-version = "0.7.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fcab0c673763b0dc4da616cab46c43c90d8f1bf184f62c6420773e7fb59673bb"
+version = "0.7.3-feature-net-759-e429943-1048-1.0"
+source = "registry+git://crates.fluence.dev/index"
+checksum = "29caa396b041039443e174bbd6ffa8520a8f56a80225df91c8977b944698e034"
 dependencies = [
  "built 0.7.1",
  "maplit",
@@ -2276,7 +2276,20 @@ checksum = "717b91cd76394c8dbb7a9564750beb77234af456e5f129082c25cb535ac6ea2e"
 dependencies = [
  "eyre",
  "marine-rs-sdk 0.12.0",
- "marine-sqlite-connector",
+ "marine-sqlite-connector 0.10.0",
+ "serde",
+ "thiserror",
+]
+
+[[package]]
+name = "fluence-spell-dtos"
+version = "0.7.3-feature-net-759-e429943-1048-1.0"
+source = "registry+git://crates.fluence.dev/index"
+checksum = "11e8973abc8e27d9a80c2dea1823ecba27baae9274099e70e8877a59a66a906c"
+dependencies = [
+ "eyre",
+ "marine-rs-sdk 0.14.0",
+ "marine-sqlite-connector 0.11.0",
  "serde",
  "thiserror",
 ]
@@ -4309,6 +4322,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "marine-call-parameters"
+version = "0.14.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "05495180730abae04abe209386ce367309a82110edb65fcdb1f3080f819bc1a0"
+dependencies = [
+ "marine-macro 0.14.0",
+ "marine-rs-sdk-main 0.14.0",
+ "serde",
+]
+
+[[package]]
 name = "marine-core"
 version = "0.26.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4460,6 +4484,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "marine-macro"
+version = "0.14.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f502185316f584a9373cceb6ff24a11d260dfd39505c817056bc127cd1a96a08"
+dependencies = [
+ "marine-macro-impl 0.14.0",
+ "marine-rs-sdk-main 0.14.0",
+]
+
+[[package]]
 name = "marine-macro-impl"
 version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4503,6 +4537,19 @@ name = "marine-macro-impl"
 version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e09acb3ada67e69a301b6d7b52a915a36176c5eedb312647de7d5b6cf17f51e4"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "serde",
+ "serde_json",
+ "syn 1.0.109",
+]
+
+[[package]]
+name = "marine-macro-impl"
+version = "0.14.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e50fbc0e70ee4cde7802f0748acfb197d7770c7feffb980ce8c29bddd007519e"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -4612,6 +4659,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "marine-rs-sdk"
+version = "0.14.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f93d2bd852fea1fea8097c195044430347eda98fd6a3752119b549192d5ac4ba"
+dependencies = [
+ "marine-call-parameters 0.14.0",
+ "marine-macro 0.14.0",
+ "marine-rs-sdk-main 0.14.0",
+ "marine-timestamp-macro 0.14.0",
+ "serde",
+]
+
+[[package]]
 name = "marine-rs-sdk-main"
 version = "0.10.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4636,6 +4696,16 @@ name = "marine-rs-sdk-main"
 version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "58b487a1a1b288ba06c832942eadb43384cd99c9754c1454e1e061dd9866be92"
+dependencies = [
+ "log",
+ "serde",
+]
+
+[[package]]
+name = "marine-rs-sdk-main"
+version = "0.14.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0b79c165fc21438b069babeec5ae36ba0eade5e08fb1d92dabbe6b41014ce841"
 dependencies = [
  "log",
  "serde",
@@ -4712,6 +4782,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "marine-sqlite-connector"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1c4d82c7e8c07f59aa526271b810c97ec7f79d14a77725025618a79b0b1d9051"
+dependencies = [
+ "bytesize",
+ "marine-rs-sdk 0.14.0",
+]
+
+[[package]]
 name = "marine-timestamp-macro"
 version = "0.10.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4736,6 +4816,16 @@ name = "marine-timestamp-macro"
 version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1a5086357724dc2a65e7abe39c85d58b9971198f8678ebc642a69aae1bbc7ae0"
+dependencies = [
+ "chrono",
+ "quote",
+]
+
+[[package]]
+name = "marine-timestamp-macro"
+version = "0.14.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d03f267ac0a29f543ef12a1a519ff8d98e74ac66e1c580f2930d41ce2c50507d"
 dependencies = [
  "chrono",
  "quote",
@@ -5210,7 +5300,7 @@ dependencies = [
  "fluence-app-service",
  "fluence-keypair",
  "fluence-libp2p",
- "fluence-spell-dtos",
+ "fluence-spell-dtos 0.7.3-feature-net-759-e429943-1048-1.0",
  "fs-utils",
  "fstrings",
  "futures",
@@ -7249,7 +7339,7 @@ dependencies = [
  "eyre",
  "fluence-keypair",
  "fluence-libp2p",
- "fluence-spell-dtos",
+ "fluence-spell-dtos 0.7.3-feature-net-759-e429943-1048-1.0",
  "fstrings",
  "futures",
  "kademlia",
@@ -7286,7 +7376,7 @@ dependencies = [
  "derivative",
  "eyre",
  "fluence-libp2p",
- "fluence-spell-dtos",
+ "fluence-spell-dtos 0.7.3-feature-net-759-e429943-1048-1.0",
  "fstrings",
  "futures",
  "libp2p",
@@ -7318,7 +7408,7 @@ dependencies = [
  "fluence-app-service",
  "fluence-keypair",
  "fluence-libp2p",
- "fluence-spell-dtos",
+ "fluence-spell-dtos 0.7.3-feature-net-759-e429943-1048-1.0",
  "libp2p-identity",
  "maplit",
  "particle-execution",
@@ -7522,7 +7612,7 @@ dependencies = [
  "decider-distro",
  "eyre",
  "fluence-app-service",
- "fluence-spell-dtos",
+ "fluence-spell-dtos 0.7.3-feature-net-759-e429943-1048-1.0",
  "futures",
  "libp2p",
  "log",
