@@ -19,7 +19,6 @@ use std::time::{Duration, Instant};
 use std::{collections::HashMap, sync::Arc};
 
 use derivative::Derivative;
-use eyre::eyre;
 use fluence_app_service::{
     AppService, AppServiceConfig, AppServiceError, CallParameters, MarineConfig, MarineError,
     MarineWASIConfig, ModuleDescriptor, SecurityTetraplet, ServiceInterface,
