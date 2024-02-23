@@ -1,4 +1,5 @@
-use cpu_utils::CPUTopologyError;
+use ccp_shared::types::CUID;
+use cpu_utils::{CPUTopologyError, PhysicalCoreId};
 use std::str::Utf8Error;
 use thiserror::Error;
 
@@ -59,8 +60,10 @@ pub enum PersistError {
 
 #[derive(Debug, Error)]
 pub enum AcquireError {
-    #[error("Couldn't assign core: no free cores left")]
-    NotFoundAvailableCores,
-    #[error("Unexpected state")]
-    UnexpectedState,
+    #[error(
+        "Couldn't assign core: no free cores left. Current assignment: {current_assignment:?}"
+    )]
+    NotFoundAvailableCores {
+        current_assignment: Vec<(PhysicalCoreId, CUID)>,
+    },
 }

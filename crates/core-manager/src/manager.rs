@@ -355,10 +355,11 @@ impl CoreManagerFunctions for PersistentCoreManager {
             let physical_core_id = lock.unit_id_mapping.get_by_right(&unit_id).cloned();
             let physical_core_id = match physical_core_id {
                 None => {
-                    let core_id = lock
-                        .available_cores
-                        .pop_last()
-                        .ok_or(AcquireError::NotFoundAvailableCores)?;
+                    let core_id = lock.available_cores.pop_last().ok_or({
+                        let current_assignment: Vec<(PhysicalCoreId, CUID)> =
+                            lock.unit_id_mapping.iter().map(|(k, v)| (*k, *v)).collect();
+                        AcquireError::NotFoundAvailableCores { current_assignment }
+                    })?;
                     lock.unit_id_mapping.insert(core_id, unit_id);
                     lock.work_type_mapping
                         .insert(unit_id, worker_unit_type.clone());
