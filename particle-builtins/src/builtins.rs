@@ -1018,9 +1018,10 @@ fn make_module_config(args: Args) -> Result<JValue, JError> {
     // These are not used anymore, keep them for backward compatibility, because args are positional
     let _mem_pages_count: Option<u32> = Args::next_opt("mem_pages_count", &mut args)?;
     let _max_heap_size: Option<String> = Args::next_opt("max_heap_size", &mut args)?;
-    let _preopened_files: Option<Vec<String>> = Args::next_opt("preopened_files", &mut args)?;
 
     let logger_enabled = Args::next_opt("logger_enabled", &mut args)?;
+    // These are not used anymore, keep them for backward compatibility, because args are positional
+    let _preopened_files: Option<Vec<String>> = Args::next_opt("preopened_files", &mut args)?;
     let envs = Args::next_opt("envs", &mut args)?.map(table);
     let mapped_dirs = Args::next_opt("mapped_dirs", &mut args)?.map(table);
     let mounted_binaries = Args::next_opt("mounted_binaries", &mut args)?.map(table);
