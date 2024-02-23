@@ -11,6 +11,7 @@ particle-args = { workspace = true }
 json-utils = { workspace = true }
 fs-utils = { workspace = true }
 service-modules = { workspace = true }
+fluence-libp2p = { workspace = true }
 
 marine-module-info-parser = { workspace = true }
 marine-it-parser = { workspace = true }

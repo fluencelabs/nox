@@ -433,7 +433,11 @@ impl ParticleAppServices {
 
         // TODO: move particle vault creation to aquamarine::particle_functions
         if create_vault {
-            self.vault.create(&particle)?;
+            self.vault.create(
+                self.scopes.to_peer_id(particle.peer_scope),
+                &particle.id,
+                &particle.token,
+            )?;
         }
 
         let call_parameters_worker_id = self.scopes.to_peer_id(peer_scope);
@@ -935,7 +939,11 @@ impl ParticleAppServices {
     ) -> Result<Option<Arc<Service>>, ServiceError> {
         let creation_start_time = Instant::now();
         let service = self
-            .create_app_service(blueprint_id.clone(), service_id.clone())
+            .create_app_service(
+                self.scopes.to_peer_id(peer_scope),
+                blueprint_id.clone(),
+                service_id.clone(),
+            )
             .await
             .inspect_err(|_| {
                 if let Some(metrics) = self.metrics.as_ref() {
@@ -1048,6 +1056,7 @@ impl ParticleAppServices {
 
     async fn create_app_service(
         &self,
+        current_peer_id: PeerId,
         blueprint_id: String,
         service_id: String,
     ) -> Result<AppService, ServiceError> {
@@ -1070,10 +1079,13 @@ impl ParticleAppServices {
 
         let mut modules_config = self.modules.resolve_blueprint(&blueprint_id)?;
 
+        // Create Particle File Vault for Worker
+        self.vault.initialize_worker(current_peer_id)?;
+
         for module in modules_config.iter_mut() {
             self.inject_default_wasi(module);
             // SAFETY: set wasi to Some in the code before calling inject_vault
-            self.vault.inject_vault(module).unwrap();
+            self.vault.inject_vault(current_peer_id, module).unwrap();
             self.inject_persistent_dirs(module, persistent_dir.as_path())
                 .await?;
             self.inject_ephemeral_dirs(module, ephemeral_dir.as_path())

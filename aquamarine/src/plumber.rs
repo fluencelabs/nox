@@ -186,8 +186,11 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
                     &self.key_storage.root_key_pair,
                     &particle.particle.signature,
                 )?;
-                let params =
-                    ParticleParams::clone_from(particle.as_ref(), peer_scope, particle_token);
+                let params = ParticleParams::clone_from(
+                    particle.as_ref(),
+                    peer_scope,
+                    particle_token.clone(),
+                );
                 let functions = Functions::new(params, builtins.clone());
                 let key_pair = self
                     .key_storage
@@ -221,6 +224,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
                     particle.as_ref(),
                     functions,
                     current_peer_id,
+                    particle_token,
                     key_pair,
                     data_store,
                     deal_id,
@@ -329,7 +333,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
         // do not schedule task if another in progress
         if self.cleanup_future.is_none() {
             // Remove expired actors
-            let mut cleanup_keys: Vec<(String, PeerId, Vec<u8>)> =
+            let mut cleanup_keys: Vec<(String, PeerId, Vec<u8>, String)> =
                 Vec::with_capacity(MAX_CLEANUP_KEYS_SIZE);
             let now = now_ms();
             self.actors.retain(|_, actor| {

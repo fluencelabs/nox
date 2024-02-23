@@ -122,28 +122,34 @@ impl ParticleDataStore {
         Ok(data)
     }
 
-    pub async fn batch_cleanup_data(&self, cleanup_keys: Vec<(String, PeerId, Vec<u8>)>) {
+    pub async fn batch_cleanup_data(&self, cleanup_keys: Vec<(String, PeerId, Vec<u8>, String)>) {
         let futures: FuturesUnordered<_> = cleanup_keys
             .into_iter()
-            .map(|(particle_id, peer_id, signature)| async move {
-                let peer_id = peer_id.to_string();
-                tracing::debug!(
-                    target: "particle_reap",
-                    particle_id = particle_id, worker_id = peer_id,
-                    "Reaping particle's actor"
-                );
-
-                if let Err(err) = self
-                    .cleanup_data(particle_id.as_str(), peer_id.as_str(), &signature)
-                    .await
-                {
-                    tracing::warn!(
-                        particle_id = particle_id,
-                        "Error cleaning up after particle {:?}",
-                        err
+            .map(
+                |(particle_id, peer_id, signature, particle_token)| async move {
+                    tracing::debug!(
+                        target: "particle_reap",
+                        particle_id = particle_id, worker_id = peer_id.to_base58(),
+                        "Reaping particle's actor"
                     );
-                }
-            })
+
+                    if let Err(err) = self
+                        .cleanup_data(
+                            particle_id.as_str(),
+                            peer_id,
+                            &signature,
+                            particle_token.as_str(),
+                        )
+                        .await
+                    {
+                        tracing::warn!(
+                            particle_id = particle_id,
+                            "Error cleaning up after particle {:?}",
+                            err
+                        );
+                    }
+                },
+            )
             .collect();
         let _results: Vec<_> = futures.collect().await;
     }
@@ -151,11 +157,12 @@ impl ParticleDataStore {
     async fn cleanup_data(
         &self,
         particle_id: &str,
-        current_peer_id: &str,
+        current_peer_id: PeerId,
         signature: &[u8],
+        particle_token: &str,
     ) -> Result<()> {
         tracing::debug!(target: "particle_reap", particle_id = particle_id, "Cleaning up particle data for particle");
-        let path = self.data_file(particle_id, current_peer_id, signature);
+        let path = self.data_file(particle_id, &current_peer_id.to_base58(), signature);
         match tokio::fs::remove_file(&path).await {
             Ok(_) => Ok(()),
             // ignore NotFound
@@ -163,7 +170,9 @@ impl ParticleDataStore {
             Err(err) => Err(DataStoreError::CleanupData(err)),
         }?;
 
-        self.vault.cleanup(particle_id).await?;
+        self.vault
+            .cleanup(current_peer_id, particle_id, particle_token)
+            .await?;
 
         Ok(())
     }
@@ -318,6 +327,7 @@ mod tests {
     use crate::ParticleDataStore;
     use avm_server::avm_runner::RawAVMOutcome;
     use avm_server::{CallRequests, CallResults, CallServiceResult};
+    use fluence_libp2p::PeerId;
     use std::path::PathBuf;
     use std::time::Duration;
 
@@ -501,17 +511,24 @@ mod tests {
             .expect("Failed to initialize");
 
         let particle_id = "test_particle";
-        let current_peer_id = "test_peer";
+        let particle_token = "test_token";
+        let current_peer_id = PeerId::random();
+        let current_peer_id_str = current_peer_id.to_base58();
         let signature: &[u8] = &[];
         let data = b"test_data";
 
         particle_data_store
-            .store_data(data, particle_id, current_peer_id, signature)
+            .store_data(data, particle_id, &current_peer_id_str, signature)
             .await
             .expect("Failed to store data");
 
-        let data_file_path = particle_data_store.data_file(particle_id, current_peer_id, signature);
-        let vault_path = temp_dir_path.join("vault").join(particle_id);
+        let data_file_path =
+            particle_data_store.data_file(particle_id, &current_peer_id_str, signature);
+        let vault_path = particle_data_store.vault.real_particle_vault(
+            current_peer_id,
+            particle_id,
+            particle_token,
+        );
         tokio::fs::create_dir_all(&vault_path)
             .await
             .expect("Failed to create vault dir");
@@ -519,7 +536,7 @@ mod tests {
         assert!(vault_path.exists());
 
         let cleanup_result = particle_data_store
-            .cleanup_data(particle_id, current_peer_id, signature)
+            .cleanup_data(particle_id, current_peer_id, signature, particle_token)
             .await;
 
         assert!(cleanup_result.is_ok());

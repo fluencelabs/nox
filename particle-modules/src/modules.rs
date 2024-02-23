@@ -27,6 +27,7 @@ use marine_module_info_parser::effects::WasmEffect;
 use parking_lot::RwLock;
 use serde_json::{json, Value as JValue};
 
+use fluence_libp2p::PeerId;
 use particle_args::JError;
 use particle_execution::{ParticleParams, ParticleVault};
 use service_modules::{
@@ -119,10 +120,12 @@ impl ModuleRepository {
 
     pub fn load_module_config_from_vault(
         vault: &ParticleVault,
+        // TODO: refactor this out of this crate
+        current_peer_id: PeerId,
         config_path: String,
         particle: ParticleParams,
     ) -> Result<TomlMarineNamedModuleConfig> {
-        let config = vault.cat_slice(&particle, Path::new(&config_path))?;
+        let config = vault.cat_slice(current_peer_id, &particle, Path::new(&config_path))?;
         serde_json::from_slice(&config)
             .map_err(|err| IncorrectVaultModuleConfig { config_path, err })
     }
@@ -142,11 +145,13 @@ impl ModuleRepository {
     pub fn add_module_from_vault(
         &self,
         vault: &ParticleVault,
+        // TODO: refactor this out of this crate
+        current_peer_id: PeerId,
         name: String,
         module_path: String,
         particle: ParticleParams,
     ) -> Result<String> {
-        let module = vault.cat_slice(&particle, Path::new(&module_path))?;
+        let module = vault.cat_slice(current_peer_id, &particle, Path::new(&module_path))?;
         // copy module & config to module_dir
         let hash = self.add_module(name, module)?;
 
