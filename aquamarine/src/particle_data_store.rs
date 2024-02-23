@@ -390,6 +390,7 @@ mod tests {
             data: vec![],
             call_requests: CallRequests::new(),
             next_peer_pks: vec![],
+            soft_limits_triggering: Default::default(),
         };
         let outcome_failure = RawAVMOutcome {
             ret_code: 1,
@@ -397,6 +398,7 @@ mod tests {
             data: vec![],
             call_requests: CallRequests::new(),
             next_peer_pks: vec![],
+            soft_limits_triggering: Default::default(),
         };
 
         let anomaly_below_threshold = particle_data_store.detect_anomaly(
@@ -456,6 +458,7 @@ mod tests {
             data: vec![0; PARTICLE_DATA_SIZE_THRESHOLD + 1],
             call_requests: CallRequests::new(),
             next_peer_pks: vec![],
+            soft_limits_triggering: Default::default(),
         };
         let anomaly_above_particle_size_limit = particle_data_store.detect_anomaly(
             execution_time_below_threshold,
