@@ -31,8 +31,10 @@ pub struct ServicesConfig {
     /// Opaque environment variables to be passed on each service creation
     /// TODO: isolate envs of different modules (i.e., module A shouldn't access envs of module B)
     pub envs: HashMap<String, String>,
-    /// Working dir for services
-    pub workdir: PathBuf,
+    /// Persistent working dir for services
+    pub persistent_work_dir: PathBuf,
+    /// Ephemeral working dir for services
+    pub ephemeral_work_dir: PathBuf,
     /// Dir to store .wasm modules and their configs
     pub modules_dir: PathBuf,
     /// Dir to persist info about running services
@@ -54,7 +56,8 @@ impl ServicesConfig {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         local_peer_id: PeerId,
-        base_dir: PathBuf,
+        persistent_dir: PathBuf,
+        ephemeral_dir: PathBuf,
         particles_vault_dir: PathBuf,
         envs: HashMap<String, String>,
         management_peer_id: PeerId,
@@ -62,7 +65,8 @@ impl ServicesConfig {
         default_service_memory_limit: Option<ByteSize>,
         allowed_effectors: HashMap<Hash, HashMap<String, String>>,
     ) -> Result<Self, std::io::Error> {
-        let base_dir = to_abs_path(base_dir);
+        let persistent_dir = to_abs_path(persistent_dir);
+        let ephemeral_dir = to_abs_path(ephemeral_dir);
 
         let allowed_effectors = allowed_effectors
             .into_iter()
@@ -85,10 +89,11 @@ impl ServicesConfig {
 
         let this = Self {
             local_peer_id,
-            blueprint_dir: config_utils::blueprint_dir(&base_dir),
-            workdir: config_utils::workdir(&base_dir),
-            modules_dir: config_utils::modules_dir(&base_dir),
-            services_dir: config_utils::services_dir(&base_dir),
+            blueprint_dir: config_utils::blueprint_dir(&persistent_dir),
+            persistent_work_dir: config_utils::workdir(&persistent_dir),
+            ephemeral_work_dir: config_utils::workdir(&ephemeral_dir),
+            modules_dir: config_utils::modules_dir(&persistent_dir),
+            services_dir: config_utils::services_dir(&persistent_dir),
             particles_vault_dir,
             envs,
             management_peer_id,
@@ -99,7 +104,8 @@ impl ServicesConfig {
 
         create_dirs(&[
             &this.blueprint_dir,
-            &this.workdir,
+            &this.persistent_work_dir,
+            &this.ephemeral_work_dir,
             &this.modules_dir,
             &this.services_dir,
             &this.particles_vault_dir,

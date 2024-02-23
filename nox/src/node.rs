@@ -100,6 +100,8 @@ pub struct Node<RT: AquaRuntime> {
     versions: Versions,
 
     pub chain_listener: Option<ChainListener>,
+
+    workers: Arc<Workers>,
 }
 
 impl<RT: AquaRuntime> Node<RT> {
@@ -147,7 +149,8 @@ impl<RT: AquaRuntime> Node<RT> {
 
         let services_config = ServicesConfig::new(
             scopes.get_host_peer_id(),
-            config.dir_config.services_base_dir.clone(),
+            config.dir_config.services_persistent_dir.clone(),
+            config.dir_config.services_ephemeral_dir.clone(),
             config_utils::particles_vault_dir(&config.dir_config.avm_base_dir),
             config.services_envs.clone(),
             config.management_peer_id,
@@ -384,6 +387,7 @@ impl<RT: AquaRuntime> Node<RT> {
             allow_local_addresses,
             versions,
             chain_listener,
+            workers.clone(),
         ))
     }
 
@@ -479,6 +483,7 @@ impl<RT: AquaRuntime> Node<RT> {
         allow_local_addresses: bool,
         versions: Versions,
         chain_listener: Option<ChainListener>,
+        workers: Arc<Workers>,
     ) -> Box<Self> {
         let node_service = Self {
             particle_stream,
@@ -505,6 +510,7 @@ impl<RT: AquaRuntime> Node<RT> {
             allow_local_addresses,
             versions,
             chain_listener,
+            workers,
         };
 
         Box::new(node_service)
@@ -533,6 +539,7 @@ impl<RT: AquaRuntime> Node<RT> {
         let libp2p_metrics = self.libp2p_metrics;
         let allow_local_addresses = self.allow_local_addresses;
         let versions = self.versions;
+        let workers = self.workers.clone();
         let chain_listener = self.chain_listener;
 
         task::Builder::new().name(&task_name.clone()).spawn(async move {
@@ -582,6 +589,7 @@ impl<RT: AquaRuntime> Node<RT> {
             dispatcher.cancel().await;
             connectivity.cancel().await;
             aquamarine_backend.abort();
+            workers.shutdown();
         }.in_current_span()).expect("Could not spawn task");
 
         // Note: need to be after the start of the node to be able to subscribe spells
@@ -642,7 +650,7 @@ mod tests {
     use connected_client::ConnectedClient;
     use core_manager::manager::DummyCoreManager;
     use fs_utils::to_abs_path;
-    use server_config::{default_base_dir, load_config_with_args};
+    use server_config::{default_base_dir, load_config_with_args, persistent_dir};
     use system_services::SystemServiceDistros;
 
     use crate::Node;
@@ -651,8 +659,10 @@ mod tests {
     async fn run_node() {
         log_utils::enable_logs();
         let base_dir = default_base_dir();
+        let persistent_dir = persistent_dir(&base_dir);
         fs_utils::create_dir(&base_dir).unwrap();
-        write_default_air_interpreter(&air_interpreter_path(&base_dir)).unwrap();
+        fs_utils::create_dir(&persistent_dir).unwrap();
+        write_default_air_interpreter(&air_interpreter_path(&persistent_dir)).unwrap();
 
         let mut config = load_config_with_args(vec![], None)
             .expect("Could not load config")

@@ -302,10 +302,12 @@ mod tests {
         management_pid: PeerId,
         base_dir: PathBuf,
     ) -> (ParticleAppServices, ModuleRepository, PeerId) {
+        let persistent_dir = base_dir.join("persistent");
+        let ephemeral_dir = base_dir.join("ephemeral");
         let root_key_pair = Keypair::generate_ed25519();
-        let vault_dir = base_dir.join("..").join("vault");
-        let keypairs_dir = base_dir.join("..").join("keypairs");
-        let workers_dir = base_dir.join("..").join("workers");
+        let vault_dir = ephemeral_dir.join("..").join("vault");
+        let keypairs_dir = persistent_dir.join("..").join("keypairs");
+        let workers_dir = persistent_dir.join("..").join("workers");
 
         let root_key_pair: KeyPair = root_key_pair.clone().into();
 
@@ -333,7 +335,8 @@ mod tests {
         let service_memory_limit = server_config::default_service_memory_limit();
         let config = ServicesConfig::new(
             root_key_pair.get_peer_id(),
-            base_dir,
+            persistent_dir,
+            ephemeral_dir,
             vault_dir,
             HashMap::new(),
             management_pid,

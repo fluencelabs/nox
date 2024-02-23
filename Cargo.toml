@@ -101,13 +101,13 @@ types = { path = "crates/types" }
 core-manager = { path = "crates/core-manager" }
 
 # spell
-fluence-spell-dtos = "=0.7.3"
-fluence-spell-distro = "=0.7.3"
+fluence-spell-dtos = "=0.7.4"
+fluence-spell-distro = "=0.7.4"
 
 # marine
-fluence-app-service = { version = "0.33.0" }
+fluence-app-service = "0.35.0"
 marine-utils = "0.5.1"
-marine-it-parser = "0.15.1"
+marine-it-parser = "0.16.0"
 marine-module-info-parser = "0.15.0"
 
 # avm

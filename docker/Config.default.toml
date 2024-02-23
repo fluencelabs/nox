@@ -1,7 +1,7 @@
 # # directories for nox persistent storage
 # base_dir = "/.fluence"
 # services_base_dir = "/services"
-# avm_base_dir = "/stepper"
+# avm_base_dir = "/avm"
 # spell_base_dir = "/spell"
 # keypairs_base_dir = "/keypairs"
 # workers_base_dir = "/workers"
