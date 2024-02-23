@@ -21,3 +21,4 @@ bs58 = { workspace = true }
 tokio = { workspace = true, features = ["fs"] }
 parking_lot = { workspace = true }
 async-trait = { workspace = true }
+eyre = { workspace = true }

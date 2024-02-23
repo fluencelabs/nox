@@ -283,12 +283,21 @@ impl Workers {
         let removed_worker_info = worker_infos.remove(&worker_id);
         let removed_runtime = runtimes.remove(&worker_id);
 
+        drop(worker_ids);
+        drop(worker_infos);
+        drop(runtimes);
+
         debug_assert!(removed_worker_id.is_some(), "worker_id does not exist");
         debug_assert!(removed_worker_info.is_some(), "worker info does not exist");
         debug_assert!(removed_runtime.is_some(), "worker info does not exist");
 
         if let Some(runtime) = removed_runtime {
-            runtime.shutdown_background();
+            // we can't shutdown the runtime in the async context, shift it to the blocking pool
+            // also we don't wait the result
+            tokio::task::Builder::new()
+                .name(&format!("runtime-shutdown-{}", worker_id))
+                .spawn_blocking(move || runtime.shutdown_background())
+                .expect("Could not spawn task");
         }
 
         Ok(())
@@ -496,6 +505,26 @@ impl Workers {
                 false
             }
         }
+    }
+
+    pub fn shutdown(&self) {
+        let mut runtimes = self.runtimes.write();
+        let mut deleted_runtimes = Vec::with_capacity(runtimes.len());
+        let worker_ids: Vec<WorkerId> = runtimes.keys().cloned().collect();
+        for worker_id in worker_ids {
+            if let Some(runtime) = runtimes.remove(&worker_id) {
+                deleted_runtimes.push(runtime);
+            }
+        }
+
+        tokio::task::Builder::new()
+            .name("workers-shutdown")
+            .spawn_blocking(move || {
+                for runtime in deleted_runtimes {
+                    runtime.shutdown_background();
+                }
+            })
+            .expect("Could not spawn a task");
     }
 }
 

@@ -40,7 +40,8 @@ use futures::stream::iter;
 use nox::{Connectivity, Node};
 use particle_protocol::ProtocolConfig;
 use server_config::{
-    system_services_config, BootstrapConfig, ChainListenerConfig, UnresolvedConfig,
+    persistent_dir, system_services_config, BootstrapConfig, ChainListenerConfig, ResolvedConfig,
+    UnresolvedConfig,
 };
 use tempfile::TempDir;
 use test_constants::{EXECUTION_TIMEOUT, TRANSPORT_TIMEOUT};
@@ -52,12 +53,14 @@ const HEALTH_CHECK_POLLING_INTERVAL: Duration = Duration::from_millis(100);
 
 // default bound on the number of computations it can perform simultaneously
 const DEFAULT_PARALLELISM: usize = 2;
+
 #[allow(clippy::upper_case_acronyms)]
 type AVM = aquamarine::AVMRunner;
 
 #[derive(Derivative)]
 #[derivative(Debug)]
 pub struct CreatedSwarm {
+    pub config: ResolvedConfig,
     pub peer_id: PeerId,
     pub multiaddr: Multiaddr,
     // tmp dir, must be cleaned
@@ -157,7 +160,17 @@ where
     F: (FnMut(
             Vec<Multiaddr>,
             Multiaddr,
-        ) -> BoxFuture<'static, (PeerId, Box<Node<RT>>, KeyPair, SwarmConfig, Span)>)
+        ) -> BoxFuture<
+            'static,
+            (
+                PeerId,
+                Box<Node<RT>>,
+                KeyPair,
+                SwarmConfig,
+                ResolvedConfig,
+                Span,
+            ),
+        >)
         + 'static
         + Send,
     M: (FnMut() -> Multiaddr) + 'static + Send,
@@ -175,7 +188,8 @@ where
             let bootstraps = bootstraps(addrs);
             let create_node_future = create_node(bootstraps, addr.clone());
             async move {
-                let (peer_id, node, management_keypair, config, span) = create_node_future.await;
+                let (peer_id, node, management_keypair, input_config, resolved_config, span) =
+                    create_node_future.await;
                 let connectivity = node.connectivity.clone();
                 let aquamarine_api = node.aquamarine_api.clone();
                 let started_node = node
@@ -187,9 +201,10 @@ where
                     .http_listen_addr
                     .expect("could not take http listen addr");
                 CreatedSwarm {
+                    config: resolved_config,
                     peer_id,
-                    multiaddr: config.listen_on,
-                    tmp_dir: config.tmp_dir.clone(),
+                    multiaddr: input_config.listen_on,
+                    tmp_dir: input_config.tmp_dir.clone(),
                     management_keypair,
                     exit_outlet: started_node.exit_outlet,
                     connectivity,
@@ -306,7 +321,8 @@ pub fn aqua_vm_config(
         peer_id, tmp_dir, ..
     } = vm_config;
 
-    let air_interpreter = air_interpreter_path(&tmp_dir);
+    let persistent_dir = persistent_dir(&tmp_dir);
+    let air_interpreter = air_interpreter_path(&persistent_dir);
     write_default_air_interpreter(&air_interpreter).expect("write air interpreter");
 
     VmConfig::new(peer_id, air_interpreter, None)
@@ -315,7 +331,14 @@ pub fn aqua_vm_config(
 pub async fn create_swarm_with_runtime<RT: AquaRuntime>(
     config: SwarmConfig,
     vm_config: impl Fn(BaseVmConfig) -> RT::Config,
-) -> (PeerId, Box<Node<RT>>, KeyPair, SwarmConfig, Span) {
+) -> (
+    PeerId,
+    Box<Node<RT>>,
+    KeyPair,
+    SwarmConfig,
+    ResolvedConfig,
+    Span,
+) {
     use serde_json::json;
 
     let format = match &config.keypair {
@@ -332,7 +355,7 @@ pub async fn create_swarm_with_runtime<RT: AquaRuntime>(
     let node_listen_span = tracing::info_span!(parent: &parent_span, "config");
     let node_creation_span = tracing::info_span!(parent: &parent_span, "config");
 
-    let (node, management_kp) = config_apply_span.in_scope(||{
+    let (node, management_kp, resolved_config) = config_apply_span.in_scope(|| {
         let tmp_dir = config.tmp_dir.path().to_path_buf();
 
         let node_config = json!({
@@ -419,7 +442,7 @@ pub async fn create_swarm_with_runtime<RT: AquaRuntime>(
                 .extend(config.extend_system_services.clone());
         let core_manager = Arc::new(DummyCoreManager::default().into());
         let node = Node::new(
-            resolved,
+            resolved.clone(),
             core_manager,
             vm_config,
             data_store_config,
@@ -427,7 +450,7 @@ pub async fn create_swarm_with_runtime<RT: AquaRuntime>(
             "some version",
             system_service_distros,
         );
-            (node, management_kp)
+        (node, management_kp, resolved)
     });
 
     let mut node = node
@@ -442,6 +465,7 @@ pub async fn create_swarm_with_runtime<RT: AquaRuntime>(
             node,
             management_kp,
             config,
+            resolved_config,
             parent_span.clone(),
         )
     })
@@ -449,6 +473,13 @@ pub async fn create_swarm_with_runtime<RT: AquaRuntime>(
 
 pub async fn create_swarm(
     config: SwarmConfig,
-) -> (PeerId, Box<Node<AVMRunner>>, KeyPair, SwarmConfig, Span) {
+) -> (
+    PeerId,
+    Box<Node<AVMRunner>>,
+    KeyPair,
+    SwarmConfig,
+    ResolvedConfig,
+    Span,
+) {
     create_swarm_with_runtime(config, aqua_vm_config).await
 }
