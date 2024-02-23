@@ -19,9 +19,7 @@ use std::{collections::HashMap, path::Path, path::PathBuf, sync::Arc};
 
 use base64::{engine::general_purpose::STANDARD as base64, Engine};
 use eyre::WrapErr;
-use fluence_app_service::{
-    ModuleDescriptor, TomlMarineModuleConfig, TomlMarineNamedModuleConfig, TomlWASIConfig,
-};
+use fluence_app_service::{ModuleDescriptor, TomlMarineModuleConfig, TomlMarineNamedModuleConfig};
 use fstrings::f;
 use marine_it_parser::module_interface;
 use marine_module_info_parser::effects;
@@ -136,7 +134,7 @@ impl ModuleRepository {
         config: TomlMarineNamedModuleConfig,
     ) -> Result<String> {
         let module = base64.decode(module)?;
-        let hash = self.add_module(module, config)?;
+        let hash = self.add_module(config.name, module)?;
 
         Ok(hash.to_string())
     }
@@ -144,13 +142,13 @@ impl ModuleRepository {
     pub fn add_module_from_vault(
         &self,
         vault: &ParticleVault,
+        name: String,
         module_path: String,
-        config: TomlMarineNamedModuleConfig,
         particle: ParticleParams,
     ) -> Result<String> {
         let module = vault.cat_slice(&particle, Path::new(&module_path))?;
         // copy module & config to module_dir
-        let hash = self.add_module(module, config)?;
+        let hash = self.add_module(name, module)?;
 
         Ok(hash.to_string())
     }
@@ -347,9 +345,6 @@ impl ModuleRepository {
         logger_enabled: bool,
         effector_settings: Option<&HashMap<String, PathBuf>>,
     ) -> TomlMarineNamedModuleConfig {
-        let mapped_dirs = maplit::hashmap! {
-            "tmp".to_string() => toml::Value::String(".".to_string()),
-        };
         let mounted_binaries = effector_settings.map(|effector_settings| {
             effector_settings
                 .iter()
@@ -363,14 +358,7 @@ impl ModuleRepository {
             load_from: None,
             config: TomlMarineModuleConfig {
                 logger_enabled: Some(logger_enabled),
-                wasi: Some(TomlWASIConfig {
-                    envs: None,
-                    // TODO: do we need preopened files for every module?
-                    preopened_files: Some(vec![Path::new("tmp").to_path_buf()]),
-                    // TODO: which dirs to map?
-                    // Note that vault dirs are mapped on service creation
-                    mapped_dirs: Some(mapped_dirs.into_iter().collect::<_>()),
-                }),
+                wasi: None,
                 mounted_binaries,
                 logging_mask: None,
             },
@@ -522,7 +510,7 @@ mod tests {
         let repo = ModuleRepository::new(module_dir.path(), bp_dir.path(), allowed_effectors);
 
         let module = load_module(effector_path, &config.name).expect("load module");
-        let result = repo.add_module(module, config);
+        let result = repo.add_module(config.name, module);
         println!("{:?}", result);
     }
 
@@ -549,7 +537,7 @@ mod tests {
                 logging_mask: None,
             },
         };
-        let m_hash = repo.add_module(module, config).unwrap();
+        let m_hash = repo.add_module(config.name, module).unwrap();
         println!("{:?}", m_hash);
     }
 }
