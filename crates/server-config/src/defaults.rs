@@ -99,12 +99,19 @@ pub fn default_base_dir() -> PathBuf {
     format!(".fluence/v{CONFIG_VERSION}").into()
 }
 
-pub fn services_base_dir(base_dir: &Path) -> PathBuf {
+pub fn persistent_dir(base_dir: &Path) -> PathBuf {
+    base_dir.join("persistent")
+}
+pub fn ephemeral_dir(base_dir: &Path) -> PathBuf {
+    base_dir.join("ephemeral")
+}
+
+pub fn services_dir(base_dir: &Path) -> PathBuf {
     base_dir.join("services")
 }
 
 pub fn avm_base_dir(base_dir: &Path) -> PathBuf {
-    base_dir.join("stepper")
+    base_dir.join("avm")
 }
 
 pub fn default_keypair_path(base_dir: &Path) -> PathOrValue {
@@ -113,9 +120,9 @@ pub fn default_keypair_path(base_dir: &Path) -> PathOrValue {
     }
 }
 
-pub fn default_builtins_keypair_path(base_dir: &Path) -> PathOrValue {
+pub fn default_builtins_keypair_path(persistent_base_dir: &Path) -> PathOrValue {
     PathOrValue::Path {
-        path: base_dir.join("builtins_secret_key.ed25519"),
+        path: persistent_base_dir.join("builtins_secret_key.ed25519"),
     }
 }
 

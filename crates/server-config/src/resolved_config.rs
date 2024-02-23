@@ -46,8 +46,8 @@ pub struct UnresolvedConfig {
 
 impl UnresolvedConfig {
     pub fn resolve(self) -> eyre::Result<ResolvedConfig> {
-        let node_config = self.node_config.resolve(&self.dir_config.base_dir)?;
         let dir_config = self.dir_config.resolve()?;
+        let node_config = self.node_config.resolve(&dir_config.persistent_base_dir)?;
 
         Ok(ResolvedConfig {
             dir_config,

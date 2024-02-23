@@ -14,13 +14,15 @@
  * limitations under the License.
  */
 use std::ops::Deref;
+use std::path::PathBuf;
 use std::time::{Duration, Instant};
 use std::{collections::HashMap, sync::Arc};
 
 use derivative::Derivative;
+use eyre::eyre;
 use fluence_app_service::{
     AppService, AppServiceConfig, AppServiceError, CallParameters, MarineConfig, MarineError,
-    SecurityTetraplet, ServiceInterface,
+    MarineWASIConfig, ModuleDescriptor, SecurityTetraplet, ServiceInterface,
 };
 use humantime_serde::re::humantime::format_duration as pretty;
 use parking_lot::{Mutex, RwLock, RwLockUpgradableReadGuard};
@@ -451,7 +453,7 @@ impl ParticleAppServices {
                             peer_pk: st.peer_pk,
                             service_id: st.service_id,
                             function_name: st.function_name,
-                            lambda: st.json_path,
+                            lens: st.json_path,
                         })
                         .collect()
                 })
@@ -991,20 +993,66 @@ impl ParticleAppServices {
         }
     }
 
+    fn inject_default_wasi(&self, module: &mut ModuleDescriptor) {
+        let wasi = &mut module.config.wasi;
+        if wasi.is_none() {
+            *wasi = Some(MarineWASIConfig::default());
+        }
+    }
+
+    fn inject_persistent_dirs(
+        &self,
+        module: &mut ModuleDescriptor,
+        persistent_dir: PathBuf,
+    ) -> eyre::Result<()> {
+        let wasi = module.config.wasi.as_mut().ok_or(eyre!(
+            "Could not inject persistent dirs into empty WASI config"
+        ))?;
+        wasi.mapped_dirs
+            .insert("/storage".into(), persistent_dir.clone());
+        wasi.mapped_dirs.insert(
+            "/storage/module".into(),
+            persistent_dir.join(&module.import_name).clone(),
+        );
+        Ok(())
+    }
+
+    fn inject_ephemeral_dirs(
+        &self,
+        module: &mut ModuleDescriptor,
+        ephemeral_dir: PathBuf,
+    ) -> eyre::Result<()> {
+        let wasi = module.config.wasi.as_mut().ok_or(eyre!(
+            "Could not inject ephemeral dirs into empty WASI config"
+        ))?;
+        wasi.mapped_dirs
+            .insert("/tmp".into(), ephemeral_dir.clone());
+        wasi.mapped_dirs.insert(
+            "/tmp/module".into(),
+            ephemeral_dir.join(&module.import_name).clone(),
+        );
+        Ok(())
+    }
+
     fn create_app_service(
         &self,
         blueprint_id: String,
         service_id: String,
     ) -> Result<AppService, ServiceError> {
         let mut modules_config = self.modules.resolve_blueprint(&blueprint_id)?;
-        modules_config
-            .iter_mut()
-            .for_each(|module| self.vault.inject_vault(module));
+        modules_config.iter_mut().for_each(|module| {
+            self.inject_default_wasi(module);
+            // SAFETY: set wasi to Some in the code before calling inject_vault
+            self.vault.inject_vault(module).unwrap();
+            self.inject_persistent_dirs(module, self.config.persistent_work_dir.join(&service_id))
+                .unwrap();
+            self.inject_ephemeral_dirs(module, self.config.ephemeral_work_dir.join(&service_id))
+                .unwrap();
+        });
 
         let app_config = AppServiceConfig {
-            service_working_dir: self.config.workdir.join(&service_id),
-            service_base_dir: self.config.workdir.clone(),
-            marine_config: MarineConfig {
+            service_working_dir: self.config.persistent_work_dir.join(&service_id),
+                marine_config: MarineConfig {
                 // TODO: add an option to set individual per-service limit
                 total_memory_limit: self
                     .config
@@ -1095,9 +1143,11 @@ mod tests {
         management_pid: PeerId,
         base_dir: PathBuf,
     ) -> ParticleAppServices {
-        let vault_dir = base_dir.join("..").join("vault");
-        let keypairs_dir = base_dir.join("..").join("keypairs");
-        let workers_dir = base_dir.join("..").join("workers");
+        let persistent_dir = base_dir.join("persistent");
+        let ephemeral_dir = base_dir.join("ephemeral");
+        let vault_dir = ephemeral_dir.join("..").join("vault");
+        let keypairs_dir = persistent_dir.join("..").join("keypairs");
+        let workers_dir = persistent_dir.join("..").join("workers");
         let service_memory_limit = server_config::default_service_memory_limit();
         let key_storage = KeyStorage::from_path(keypairs_dir.clone(), root_keypair.clone().into())
             .await
@@ -1124,7 +1174,8 @@ mod tests {
 
         let config = ServicesConfig::new(
             PeerId::from(root_keypair.public()),
-            base_dir,
+            persistent_dir,
+            ephemeral_dir,
             vault_dir,
             HashMap::new(),
             management_pid,
@@ -1247,7 +1298,7 @@ mod tests {
         let inter1 = pas.get_interface(PeerScope::Host, service_id1, "").unwrap();
 
         // delete module and check that interfaces will be returned anyway
-        let dir = modules_dir(base_dir.path());
+        let dir = modules_dir(&base_dir.path().to_path_buf().join("persistent"));
         let module_file = dir.join(format!("{m_hash}.wasm"));
         tokio::fs::remove_file(module_file.clone()).await.unwrap();
 
