@@ -25,8 +25,8 @@ pub enum ConnectorError {
     DecodeHex(#[from] hex::FromHexError),
     #[error("data is not a valid string: '{0}'")]
     DecodeData(#[from] FromUtf8Error),
-    #[error("Invalid gas price: {0}")]
-    InvalidGasPrice(String),
+    #[error("Failed to parse baseFeePerGas: {0}")]
+    InvalidBaseFeePerGas(String),
     #[error("Invalid transaction nonce: {0}")]
     InvalidNonce(String),
     #[error("Invalid gas limit: {0}")]

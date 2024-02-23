@@ -1,5 +1,6 @@
 use crate::error::{process_response, ConnectorError};
 use crate::function::{GetCommitmentFunction, GetStatusFunction, SubmitProofFunction};
+use crate::ConnectorError::InvalidBaseFeePerGas;
 use crate::{
     CurrentEpochFunction, DifficultyFunction, EpochDurationFunction, GetComputePeerFunction,
     GetComputeUnitsFunction, GetGlobalNonceFunction, InitTimestampFunction,
@@ -9,7 +10,7 @@ use ccp_shared::types::{Difficulty, GlobalNonce};
 use chain_data::ChainDataError::InvalidTokenSize;
 use chain_data::{next_opt, parse_chain_data, peer_id_to_bytes, ChainFunction};
 use chain_types::{Commitment, CommitmentId, CommitmentStatus, ComputePeer, ComputeUnit};
-use clarity::Transaction;
+use clarity::{Transaction, Uint256};
 use ethabi::ethereum_types::U256;
 use ethabi::Token;
 use eyre::eyre;
@@ -22,8 +23,8 @@ use jsonrpsee::rpc_params;
 use particle_args::{Args, JError};
 use particle_builtins::{wrap, CustomService};
 use particle_execution::{ParticleParams, ServiceFunction};
-use serde_json::json;
 use serde_json::Value as JValue;
+use serde_json::{json, Value};
 use server_config::ChainConfig;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -95,19 +96,27 @@ impl ChainConnector {
         Ok(json!(tx_hash))
     }
 
-    async fn get_gas_price(&self) -> Result<u128, ConnectorError> {
-        let resp: String = self.client.request("eth_gasPrice", rpc_params![]).await?;
+    async fn get_base_fee_per_gas(&self) -> Result<U256, ConnectorError> {
+        let block: Value = process_response(
+            self.client
+                .request("eth_getBlockByNumber", rpc_params!["pending", false])
+                .await,
+        )?;
 
-        let price = u128::from_str_radix(&resp[2..], 16)
-            .map_err(|_| ConnectorError::InvalidGasPrice(resp))?;
+        let fee = block
+            .as_object()
+            .and_then(|o| o.get("baseFeePerGas"))
+            .and_then(Value::as_str)
+            .ok_or(InvalidBaseFeePerGas(block.to_string()))?
+            .to_string();
 
-        // increase price by GAS_MULTIPLIER so transaction are included faster
-        let increase = (price as f64 * GAS_MULTIPLIER) as u128;
-        let price = price.checked_add(increase).unwrap_or(price);
-        Ok(price)
+        let base_fee_per_gas =
+            U256::from_str_radix(&fee, 16).map_err(|_| InvalidBaseFeePerGas(fee))?;
+
+        Ok(base_fee_per_gas)
     }
 
-    async fn get_tx_nonce(&self) -> Result<u128, ConnectorError> {
+    async fn get_tx_nonce(&self) -> Result<U256, ConnectorError> {
         let address = self.config.wallet_key.to_address().to_string();
         let resp: String = process_response(
             self.client
@@ -116,11 +125,22 @@ impl ChainConnector {
         )?;
 
         let nonce =
-            u128::from_str_radix(&resp[2..], 16).map_err(|_| ConnectorError::InvalidNonce(resp))?;
+            U256::from_str_radix(&resp, 16).map_err(|_| ConnectorError::InvalidNonce(resp))?;
         Ok(nonce)
     }
 
-    async fn estimate_gas_limit(&self, data: &[u8], to: &str) -> Result<u128, ConnectorError> {
+    async fn max_priority_fee_per_gas(&self) -> Result<U256, ConnectorError> {
+        let resp: String = process_response(
+            self.client
+                .request("eth_maxPriorityFeePerGas", rpc_params![])
+                .await,
+        )?;
+        let max_priority_fee_per_gas =
+            U256::from_str_radix(&resp, 16).map_err(|_| ConnectorError::InvalidGasLimit(resp))?;
+        Ok(max_priority_fee_per_gas)
+    }
+
+    async fn estimate_gas_limit(&self, data: &[u8], to: &str) -> Result<U256, ConnectorError> {
         let resp: String = process_response(
             self.client
                 .request(
@@ -133,28 +153,35 @@ impl ChainConnector {
                 )
                 .await,
         )?;
-        let limit = u128::from_str_radix(&resp[2..], 16)
-            .map_err(|_| ConnectorError::InvalidGasLimit(resp))?;
+        let limit =
+            U256::from_str_radix(&resp, 16).map_err(|_| ConnectorError::InvalidGasLimit(resp))?;
         Ok(limit)
     }
 
     pub async fn send_tx(&self, data: Vec<u8>, to: &str) -> Result<String, ConnectorError> {
-        let gas_price = self.get_gas_price().await?;
+        let base_fee_per_gas = self.get_base_fee_per_gas().await?;
         let gas_limit = self.estimate_gas_limit(&data, to).await?;
+        let max_priority_fee_per_gas = self.max_priority_fee_per_gas().await?;
+
+        // (base fee + priority fee) x units of gas used.
+        let max_fee_per_gas = (base_fee_per_gas + max_priority_fee_per_gas) * gas_limit;
 
         // We use this lock no ensure that we don't send two transactions with the same nonce
         let _lock = self.tx_nonce_mutex.lock().await;
         let nonce = self.get_tx_nonce().await?;
 
         // Create a new transaction
-        let tx = Transaction::Legacy {
-            nonce: nonce.into(),
-            gas_price: gas_price.into(),
-            gas_limit: gas_limit.into(),
+        let tx = Transaction::Eip1559 {
+            chain_id: self.config.network_id.into(),
+            nonce: nonce.as_u128().into(),
+            max_priority_fee_per_gas: max_priority_fee_per_gas.as_u128().into(),
+            gas_limit: gas_limit.as_u128().into(),
             to: to.parse()?,
             value: 0u32.into(),
             data,
             signature: None, // Not signed. Yet.
+            max_fee_per_gas: max_fee_per_gas.as_u128().into(),
+            access_list: vec![],
         };
 
         let tx = tx
@@ -615,7 +642,7 @@ mod tests {
 
     #[tokio::test]
     async fn submit_proof_not_active() {
-        let gas_price = r#"{"jsonrpc":"2.0","id":0,"result":"0x3b9aca07"}"#;
+        let get_block_by_number = r#"{"jsonrpc":"2.0","id":0,"result":{"hash":"0xcbe8d90665392babc8098738ec78009193c99d3cc872a6657e306cfe8824bef9","parentHash":"0x15e767118a3e2d7545fee290b545faccd4a9eff849ac1057ce82cab7100c0c52","sha3Uncles":"0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347","miner":"0x0000000000000000000000000000000000000000","stateRoot":"0x0000000000000000000000000000000000000000000000000000000000000000","transactionsRoot":"0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421","receiptsRoot":"0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421","logsBloom":"0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000","difficulty":"0x0","number":"0xa2","gasLimit":"0x1c9c380","gasUsed":"0x0","timestamp":"0x65d88f76","extraData":"0x","mixHash":"0x0000000000000000000000000000000000000000000000000000000000000000","nonce":"0x0000000000000000","baseFeePerGas":"0x7","totalDifficulty":"0x0","uncles":[],"transactions":[],"size":"0x220"}}"#;
         let estimate_gas = r#"
         {
             "jsonrpc": "2.0",
@@ -644,7 +671,7 @@ mod tests {
                 let method = method.as_str().expect("as str").trim_matches(|c| c == '\"');
 
                 match method {
-                    "eth_gasPrice" => gas_price.into(),
+                    "eth_getBlockByNumber" => get_block_by_number.into(),
                     "eth_estimateGas" => estimate_gas.into(),
                     method => format!("'{}' not supported", method).into(),
                 }
@@ -677,19 +704,14 @@ mod tests {
 
     #[tokio::test]
     async fn submit_proof() {
-        let gas_price = r#"{"jsonrpc":"2.0","id":0,"result":"0x3b9aca07"}"#;
-        let estimate_gas = r#"
-        {
-            "jsonrpc": "2.0",
-            "id": 1,
-            "result": "0x5208"
-        }
-        "#;
-        let nonce = r#"{"jsonrpc":"2.0","id":2,"result":"0x20"}"#;
+        let get_block_by_number = r#"{"jsonrpc":"2.0","id":0,"result":{"hash":"0xcbe8d90665392babc8098738ec78009193c99d3cc872a6657e306cfe8824bef9","parentHash":"0x15e767118a3e2d7545fee290b545faccd4a9eff849ac1057ce82cab7100c0c52","sha3Uncles":"0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347","miner":"0x0000000000000000000000000000000000000000","stateRoot":"0x0000000000000000000000000000000000000000000000000000000000000000","transactionsRoot":"0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421","receiptsRoot":"0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421","logsBloom":"0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000","difficulty":"0x0","number":"0xa2","gasLimit":"0x1c9c380","gasUsed":"0x0","timestamp":"0x65d88f76","extraData":"0x","mixHash":"0x0000000000000000000000000000000000000000000000000000000000000000","nonce":"0x0000000000000000","baseFeePerGas":"0x7","totalDifficulty":"0x0","uncles":[],"transactions":[],"size":"0x220"}}"#;
+        let estimate_gas = r#"{"jsonrpc":"2.0","id": 1,"result": "0x5208"}"#;
+        let max_priority_fee = r#"{"jsonrpc":"2.0","id": 2,"result": "0x5208"}"#;
+        let nonce = r#"{"jsonrpc":"2.0","id":3,"result":"0x20"}"#;
         let send_tx_response = r#"
         {
             "jsonrpc": "2.0",
-            "id": 3,
+            "id": 4,
             "result": "0x55bfec4a4400ca0b09e075e2b517041cd78b10021c51726cb73bcba52213fa05"
         }
         "#;
@@ -709,10 +731,11 @@ mod tests {
                 let method = method.as_str().expect("as str").trim_matches(|c| c == '\"');
 
                 match method {
+                    "eth_getBlockByNumber" => get_block_by_number.into(),
+                    "eth_estimateGas" => estimate_gas.into(),
+                    "eth_maxPriorityFeePerGas" => max_priority_fee.into(),
                     "eth_getTransactionCount" => nonce.into(),
                     "eth_sendRawTransaction" => send_tx_response.into(),
-                    "eth_gasPrice" => gas_price.into(),
-                    "eth_estimateGas" => estimate_gas.into(),
                     method => format!("'{}' not supported", method).into(),
                 }
             })

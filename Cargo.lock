@@ -994,9 +994,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "ccp-randomx-types"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b3769b7222a8e4cf35252235fe7d7be66328b5440687275ee592dbdb04b7efd7"
+dependencies = [
+ "hex",
+ "serde",
+]
+
+[[package]]
 name = "ccp-rpc-client"
 version = "0.1.0"
-source = "git+https://github.com/fluencelabs/capacity-commitment-prover/?branch=misc/new-randomx-crate#fcc65e66cddb92cb0ffbff4b62453fb305271da0"
+source = "git+https://github.com/fluencelabs/capacity-commitment-prover/?branch=main#8020a93ba37b5cdb5f153d20a1e919a2f41a68d8"
 dependencies = [
  "ccp-shared",
  "hex",
@@ -1007,12 +1017,12 @@ dependencies = [
 [[package]]
 name = "ccp-shared"
 version = "0.1.0"
-source = "git+https://github.com/fluencelabs/capacity-commitment-prover/?branch=misc/new-randomx-crate#fcc65e66cddb92cb0ffbff4b62453fb305271da0"
+source = "git+https://github.com/fluencelabs/capacity-commitment-prover/?branch=main#8020a93ba37b5cdb5f153d20a1e919a2f41a68d8"
 dependencies = [
+ "ccp-randomx-types",
  "cpu-utils",
  "hex",
  "rand 0.8.5",
- "randomx-rust-wrapper-types",
  "serde",
 ]
 
@@ -1490,7 +1500,7 @@ dependencies = [
 [[package]]
 name = "cpu-utils"
 version = "0.1.0"
-source = "git+https://github.com/fluencelabs/capacity-commitment-prover/?branch=misc/new-randomx-crate#fcc65e66cddb92cb0ffbff4b62453fb305271da0"
+source = "git+https://github.com/fluencelabs/capacity-commitment-prover/?branch=main#8020a93ba37b5cdb5f153d20a1e919a2f41a68d8"
 dependencies = [
  "core_affinity",
  "hwlocality",
@@ -6471,15 +6481,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d25bf25ec5ae4a3f1b92f929810509a2f53d7dca2f50b794ff57e3face536c8f"
 dependencies = [
  "rand_core 0.6.4",
-]
-
-[[package]]
-name = "randomx-rust-wrapper-types"
-version = "0.1.0"
-source = "git+https://github.com/fluencelabs/randomx-rust-wrapper?branch=feat/decouple#9600d3911b95a9a8082d714d13ce12dba8a14af1"
-dependencies = [
- "hex",
- "serde",
 ]
 
 [[package]]

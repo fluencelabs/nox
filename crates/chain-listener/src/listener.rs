@@ -36,7 +36,7 @@ pub struct ChainListener {
 
     chain_connector: Arc<ChainConnector>,
     ws_client: WsClient,
-    ccp_client: Option<CCPRpcHttpClient>,
+    // ccp_client: Option<CCPRpcHttpClient>,
     core_manager: Arc<CoreManager>,
 
     timer_resolution: Duration,

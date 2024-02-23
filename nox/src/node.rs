@@ -392,7 +392,7 @@ impl<RT: AquaRuntime> Node<RT> {
                 init_params,
                 ws_client,
             )
-            .await?;
+            .await;
             Some(chain_listener)
         } else {
             None
