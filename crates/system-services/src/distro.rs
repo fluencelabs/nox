@@ -259,8 +259,11 @@ pub fn default_decider_distro(
         worker_period_sec: decider_config.worker_period_sec,
         worker_ipfs_multiaddr: decider_config.worker_ipfs_multiaddr.clone(),
         chain_api_endpoint: decider_config.network_api_endpoint.clone(),
+        chain_network_id: decider_config.network_id,
         chain_contract_block_hex: decider_config.start_block.clone(),
-        chain_market_addr: decider_config.matcher_address.clone(),
+        chain_matcher_addr: decider_config.matcher_address.clone(),
+        chain_workers_gas: decider_config.worker_gas,
+        chain_wallet_key: wallet_key,
     };
     let decider_spell_distro = decider_distro::decider_spell(decider_settings);
     let mut decider_trigger_config = TriggerConfig::default();
