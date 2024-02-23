@@ -2,7 +2,7 @@ use crate::event::cc_activated::CommitmentActivated;
 use crate::event::{
     CommitmentActivatedData, UnitActivated, UnitActivatedData, UnitDeactivated, UnitDeactivatedData,
 };
-use ccp_rpc_client::{CCPRpcHttpClient, OrHex};
+use ccp_rpc_client::OrHex;
 use ccp_shared::proof::{CCProof, CCProofId, ProofIdx};
 use ccp_shared::types::{Difficulty, GlobalNonce, LocalNonce, ResultHash};
 use chain_connector::{CCInitParams, ChainConnector, ConnectorError};
@@ -18,7 +18,6 @@ use ethabi::ethereum_types::U256;
 use jsonrpsee::core::client::{Client as WsClient, Subscription, SubscriptionClientT};
 use jsonrpsee::core::{client, JsonValue};
 use jsonrpsee::rpc_params;
-use jsonrpsee::ws_client::WsClientBuilder;
 use libp2p_identity::PeerId;
 use serde_json::{json, Value};
 use server_config::{ChainConfig, ChainListenerConfig};
@@ -49,8 +48,7 @@ pub struct ChainListener {
     current_epoch: U256,
     epoch_duration: U256,
 
-    proof_counter: HashMap<CUID, u64>,
-
+    // proof_counter: HashMap<CUID, u64>,
     current_commitment: Option<CommitmentId>,
 
     active_compute_units: HashSet<CUID>,
@@ -98,7 +96,6 @@ impl ChainListener {
             global_nonce: init_params.global_nonce,
             current_epoch: init_params.current_epoch,
             epoch_duration: init_params.epoch_duration,
-            proof_counter: Default::default(),
             current_commitment: None,
             active_compute_units: HashSet::new(),
             pending_compute_units: HashSet::new(),
