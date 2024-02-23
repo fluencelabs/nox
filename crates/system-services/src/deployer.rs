@@ -184,10 +184,11 @@ impl Deployer {
         }
 
         let trigger_config = spell_event_bus::api::from_user_config(&spell_distro.trigger_config)?;
-        let params = CallParams::local(
+        let params = CallParams::new(
+            self.host_peer_id,
             PeerScope::Host,
             spell_id.to_string(),
-            self.host_peer_id,
+            Some(format!("spell_{spell_id}_0")),
             DEPLOYER_TTL,
         );
         // update trigger config

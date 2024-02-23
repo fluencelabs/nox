@@ -6,7 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-aqua-ipfs-distro = "=0.5.30"
+aqua-ipfs-distro = "=0.6.0"
 decider-distro = "=0.6.8"
 registry-distro = "=0.9.4"
 trust-graph-distro = "=0.4.11"

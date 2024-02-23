@@ -38,6 +38,40 @@ server:
 	particle_reap=debug" \
 	cargo run --release -p nox
 
+spell:
+	WASM_LOG="trace" \
+	RUST_LOG="info,\
+	aquamarine::aqua_runtime=off,\
+	ipfs_effector=debug,\
+	ipfs_pure=debug,\
+	run-console=debug,\
+	system_services=debug,\
+	spell_even_bus=trace,\
+	marine_core::module::marine_module=info,\
+	aquamarine::log=debug,\
+	aquamarine=warn,\
+	tokio_threadpool=info,\
+	tokio_reactor=info,\
+	mio=info,\
+	tokio_io=info,\
+	soketto=info,\
+	yamux=info,\
+	multistream_select=info,\
+	libp2p_secio=info,\
+	libp2p_websocket::framed=info,\
+	libp2p_ping=info,\
+	libp2p_core::upgrade::apply=info,\
+	libp2p_kad::kbucket=info,\
+	cranelift_codegen=info,\
+	wasmer_wasi=info,\
+	cranelift_codegen=info,\
+	wasmer_wasi=info,\
+	wasmtime_cranelift=off,\
+	wasmtime_jit=off,\
+	particle_protocol=off,\
+	particle_reap=debug" \
+	cargo run --release -p nox
+
 local-env:
 	docker compose -f docker-compose.yml up -d
 
