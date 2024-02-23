@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 use std::ops::Deref;
-use std::path::PathBuf;
+use std::path::Path;
 use std::time::{Duration, Instant};
 use std::{collections::HashMap, sync::Arc};
 
@@ -936,6 +936,7 @@ impl ParticleAppServices {
         let creation_start_time = Instant::now();
         let service = self
             .create_app_service(blueprint_id.clone(), service_id.clone())
+            .await
             .inspect_err(|_| {
                 if let Some(metrics) = self.metrics.as_ref() {
                     metrics.observe_created_failed();
@@ -1003,16 +1004,16 @@ impl ParticleAppServices {
     fn inject_persistent_dirs(
         &self,
         module: &mut ModuleDescriptor,
-        persistent_dir: PathBuf,
+        persistent_dir: &Path,
     ) -> eyre::Result<()> {
         let wasi = module.config.wasi.as_mut().ok_or(eyre!(
             "Could not inject persistent dirs into empty WASI config"
         ))?;
         wasi.mapped_dirs
-            .insert("/storage".into(), persistent_dir.clone());
+            .insert("/storage".into(), persistent_dir.to_path_buf());
         wasi.mapped_dirs.insert(
             "/storage/module".into(),
-            persistent_dir.join(&module.import_name).clone(),
+            persistent_dir.join(&module.import_name),
         );
         Ok(())
     }
@@ -1020,39 +1021,50 @@ impl ParticleAppServices {
     fn inject_ephemeral_dirs(
         &self,
         module: &mut ModuleDescriptor,
-        ephemeral_dir: PathBuf,
+        ephemeral_dir: &Path,
     ) -> eyre::Result<()> {
         let wasi = module.config.wasi.as_mut().ok_or(eyre!(
             "Could not inject ephemeral dirs into empty WASI config"
         ))?;
         wasi.mapped_dirs
-            .insert("/tmp".into(), ephemeral_dir.clone());
+            .insert("/tmp".into(), ephemeral_dir.to_path_buf());
         wasi.mapped_dirs.insert(
             "/tmp/module".into(),
-            ephemeral_dir.join(&module.import_name).clone(),
+            ephemeral_dir.join(&module.import_name),
         );
         Ok(())
     }
 
-    fn create_app_service(
+    async fn create_app_service(
         &self,
         blueprint_id: String,
         service_id: String,
     ) -> Result<AppService, ServiceError> {
+        let persistent_dir = self.config.persistent_work_dir.join(&service_id);
+        let ephemeral_dir = self.config.ephemeral_work_dir.join(&service_id);
+        
+        // TODO: introduce separate errors
+        tokio::fs::create_dir(&persistent_dir)
+            .await
+            .map_err(|err| InternalError(err.to_string()))?;
+        tokio::fs::create_dir(&ephemeral_dir)
+            .await
+            .map_err(|err| InternalError(err.to_string()))?;
+
         let mut modules_config = self.modules.resolve_blueprint(&blueprint_id)?;
         modules_config.iter_mut().for_each(|module| {
             self.inject_default_wasi(module);
             // SAFETY: set wasi to Some in the code before calling inject_vault
             self.vault.inject_vault(module).unwrap();
-            self.inject_persistent_dirs(module, self.config.persistent_work_dir.join(&service_id))
+            self.inject_persistent_dirs(module, persistent_dir.as_path())
                 .unwrap();
-            self.inject_ephemeral_dirs(module, self.config.ephemeral_work_dir.join(&service_id))
+            self.inject_ephemeral_dirs(module, ephemeral_dir.as_path())
                 .unwrap();
         });
 
         let app_config = AppServiceConfig {
-            service_working_dir: self.config.persistent_work_dir.join(&service_id),
-                marine_config: MarineConfig {
+            service_working_dir: persistent_dir,
+            marine_config: MarineConfig {
                 // TODO: add an option to set individual per-service limit
                 total_memory_limit: self
                     .config
