@@ -89,10 +89,6 @@ pub struct UnresolvedNodeConfig {
     #[derivative(Debug = "ignore")]
     pub avm_config: Option<AVMConfig>,
 
-    /// These are the AquaVM limits that are used by the AquaVM limit check.
-    #[derivative(Debug = "ignore")]
-    pub avm_config: Option<AVMConfig>,
-
     /// Number of AVMs to create. By default, `num_cpus::get() * 2` is used
     #[serde(default = "default_aquavm_pool_size")]
     pub aquavm_pool_size: usize,

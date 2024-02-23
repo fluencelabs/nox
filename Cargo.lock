@@ -4484,20 +4484,20 @@ dependencies = [
 
 [[package]]
 name = "marine-core"
-version = "0.28.0"
+version = "0.29.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9b9a08bd99ea96356abdac57700a58496dc4034d1f48000fb54e532fc5021c8d"
+checksum = "81f40fac4650a022a2ce8d7b6df5614062fc32cb25fb44e61027997e90a3aff6"
 dependencies = [
  "anyhow",
  "bytesize",
  "it-lilo",
  "it-memory-traits",
  "log",
- "marine-it-generator 0.15.0",
+ "marine-it-generator 0.16.0",
  "marine-it-interfaces",
  "marine-it-parser 0.15.1",
  "marine-min-it-version",
- "marine-module-info-parser 0.13.0",
+ "marine-module-info-parser 0.14.0",
  "marine-module-interface",
  "marine-utils",
  "marine-wasm-backend-traits 0.5.1",
@@ -4542,13 +4542,13 @@ dependencies = [
 
 [[package]]
 name = "marine-it-generator"
-version = "0.15.0"
+version = "0.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "64902f7fee0488f2b1e27e8f595772f1a7a386d07f74e55a07def1ad967a64fd"
+checksum = "23bdd0119dc71f98e2f0a4bef305e43b9a4d9b9adbead12bc05b0fac1d5a247c"
 dependencies = [
  "it-lilo",
  "marine-it-parser 0.15.1",
- "marine-macro-impl 0.7.1",
+ "marine-macro-impl 0.14.0",
  "once_cell",
  "serde",
  "serde_json",
@@ -4663,19 +4663,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "marine-macro"
-version = "0.14.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f502185316f584a9373cceb6ff24a11d260dfd39505c817056bc127cd1a96a08"
-dependencies = [
- "proc-macro2",
- "quote",
- "serde",
- "serde_json",
- "syn 1.0.109",
-]
-
-[[package]]
 name = "marine-macro-impl"
 version = "0.10.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4739,14 +4726,14 @@ dependencies = [
 
 [[package]]
 name = "marine-module-info-parser"
-version = "0.13.0"
+version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e39ef4b727e6e895b0b53682dc35463e00004aa0089d49797b4f289227ea3b5d"
+checksum = "9b312830884d07fc495a43e867d9641163897f0b0b047842cf1172cc61f57075"
 dependencies = [
  "anyhow",
  "chrono",
  "derivative",
- "marine-rs-sdk-main 0.10.3",
+ "marine-rs-sdk-main 0.14.0",
  "marine-wasm-backend-traits 0.5.1",
  "semver 1.0.20",
  "serde",
@@ -4856,9 +4843,9 @@ dependencies = [
 
 [[package]]
 name = "marine-runtime"
-version = "0.34.0"
+version = "0.35.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e26c68703d0dc853790adf27813734a696dc75182a93c2a7b3d24a86eed56254"
+checksum = "6c599c7c13e976170a1211e31fe2fb4557e0479cbdba331b19a5a9e87f145f52"
 dependencies = [
  "bytesize",
  "it-json-serde",
@@ -4867,10 +4854,11 @@ dependencies = [
  "log",
  "marine-call-parameters 0.10.3",
  "marine-call-parameters 0.12.0",
- "marine-core 0.28.0",
+ "marine-call-parameters 0.13.0",
+ "marine-core 0.29.0",
  "marine-module-interface",
- "marine-rs-sdk 0.13.0",
- "marine-rs-sdk-main 0.13.0",
+ "marine-rs-sdk 0.14.0",
+ "marine-rs-sdk-main 0.14.0",
  "marine-utils",
  "marine-wasm-backend-traits 0.5.1",
  "marine-wasmtime-backend 0.5.1",
