@@ -41,13 +41,11 @@ async fn test_add_module_mounted_binaries() {
         "logger_enabled": true,
         "wasi": {
             "envs": json!({}),
+            "preopened_files": vec!["/tmp"],
             "mapped_dirs": json!({}),
         },
         "mounted_binaries": json!({"cmd": "/usr/bin/curl"})
     });
-
-    let a = config.to_string();
-    println!("{}", a);
     
     let script = r#"
     (xor
