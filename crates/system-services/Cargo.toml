@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 aqua-ipfs-distro = "=0.5.30"
-decider-distro = { git = "https://github.com/fluencelabs/decider.git", branch = "send_tx_builtin" }
+decider-distro = "=0.6.6"
 registry-distro = "=0.9.4"
 trust-graph-distro = "=0.4.11"
 
