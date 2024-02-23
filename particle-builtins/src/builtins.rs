@@ -108,7 +108,7 @@ where
         let modules_dir = &config.modules_dir;
         let blueprint_dir = &config.blueprint_dir;
         let modules =
-            ModuleRepository::new(modules_dir, blueprint_dir, config.allowed_binaries.clone());
+            ModuleRepository::new(modules_dir, blueprint_dir, config.allowed_effectors.clone());
         let services = ParticleAppServices::new(
             config,
             modules.clone(),
@@ -283,7 +283,7 @@ where
                     log::debug!(target: "run-console", "{}", json!(args.function_args));
                 }
                 wrap_unit(Ok(()))
-            },
+            }
 
             _ => FunctionOutcome::NotDefined { args, params: particle },
         }
