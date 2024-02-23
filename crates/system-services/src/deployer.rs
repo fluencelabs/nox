@@ -384,7 +384,7 @@ impl Deployer {
                 )))?;
             let hash = self
                 .modules_repo
-                .add_module(module.to_vec(), config)
+                .add_system_module(module.to_vec(), config)
                 .map_err(|e| {
                     eyre!(
                         "error while adding module {name} of service `{}`: {:?}",

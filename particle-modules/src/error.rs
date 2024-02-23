@@ -26,7 +26,7 @@ use thiserror::Error;
 
 use json_utils::err_as_value;
 use particle_execution::VaultError;
-use service_modules::Blueprint;
+use service_modules::{Blueprint, Hash};
 
 pub(super) type Result<T> = std::result::Result<T, ModuleError>;
 
@@ -148,6 +148,17 @@ pub enum ModuleError {
     },
     #[error("Config error: requested mounted binary {forbidden_path} is forbidden on this host")]
     ForbiddenMountedBinary { forbidden_path: String },
+    #[error("Config error: requested module effector {module_name} with CID {forbidden_cid} is forbidden on this host")]
+    ForbiddenEffector {
+        module_name: String,
+        forbidden_cid: Hash,
+    },
+    #[error("Module {module_name} with CID {module_cid} requested a binary `{binary_name}` which isn't in the configured list of binaries for the effector")]
+    InvalidEffectorMountedBinary {
+        module_name: String,
+        module_cid: Hash,
+        binary_name: String,
+    },
     #[error(transparent)]
     Vault(#[from] VaultError),
     #[error(transparent)]

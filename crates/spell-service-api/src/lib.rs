@@ -347,6 +347,7 @@ mod tests {
             &config.modules_dir,
             &config.blueprint_dir,
             Default::default(),
+            Default::default(),
         );
 
         let pas = ParticleAppServices::new(

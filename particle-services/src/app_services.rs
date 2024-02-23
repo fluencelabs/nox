@@ -1138,6 +1138,7 @@ mod tests {
             &config.modules_dir,
             &config.blueprint_dir,
             Default::default(),
+            Default::default(),
         );
 
         ParticleAppServices::new(config, repo, None, None, workers, scope)

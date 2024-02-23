@@ -7079,6 +7079,7 @@ dependencies = [
  "base64 0.21.7",
  "bs58",
  "bytesize",
+ "cid-utils",
  "clap 4.4.18",
  "config",
  "config-utils",

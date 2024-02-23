@@ -153,7 +153,7 @@ impl<RT: AquaRuntime> Node<RT> {
             config.management_peer_id,
             builtins_peer_id,
             config.node_config.default_service_memory_limit,
-            config.node_config.allowed_binaries.clone(),
+            config.node_config.allowed_effectors.clone(),
         )
         .expect("create services config");
 
@@ -232,12 +232,6 @@ impl<RT: AquaRuntime> Node<RT> {
                 )
             };
 
-        let allowed_binaries = services_config
-            .allowed_binaries
-            .iter()
-            .map(|s| s.to_string_lossy().to_string())
-            .collect::<_>();
-
         let mut builtins = Self::builtins(
             connectivity.clone(),
             services_config,
@@ -307,7 +301,8 @@ impl<RT: AquaRuntime> Node<RT> {
             node_version: env!("CARGO_PKG_VERSION"),
             air_version: air_interpreter_wasm::VERSION,
             spell_version: spell_version.clone(),
-            allowed_binaries,
+            // TODO: remove
+            allowed_binaries: vec![],
         };
         if let Some(m) = metrics_registry.as_mut() {
             peer_metrics::add_info_metrics(
@@ -541,8 +536,7 @@ impl<RT: AquaRuntime> Node<RT> {
         let chain_listener = self.chain_listener;
 
         task::Builder::new().name(&task_name.clone()).spawn(async move {
-
-            let mut http_server = if let Some(http_listen_addr) = http_listen_addr{
+            let mut http_server = if let Some(http_listen_addr) = http_listen_addr {
                 tracing::info!("Starting http endpoint at {}", http_listen_addr);
                 async move {
                     start_http_endpoint(http_listen_addr, metrics_registry, health_registry, peer_id, versions, http_bind_outlet)

@@ -7,6 +7,7 @@ edition = "2021"
 [dependencies]
 config-utils = { workspace = true }
 fs-utils = { workspace = true }
+cid-utils = { workspace = true }
 particle-protocol = { workspace = true }
 fluence-libp2p = { workspace = true, features = ["tokio"] }
 air-interpreter-fs = { workspace = true }

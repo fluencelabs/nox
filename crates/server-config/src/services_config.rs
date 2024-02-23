@@ -17,8 +17,9 @@
 use fs_utils::{create_dirs, set_write_only, to_abs_path};
 
 use bytesize::ByteSize;
+use cid_utils::Hash;
 use libp2p::PeerId;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone)]
@@ -45,8 +46,8 @@ pub struct ServicesConfig {
     pub builtins_management_peer_id: PeerId,
     /// Default heap size in bytes available for the module unless otherwise specified.
     pub default_service_memory_limit: Option<ByteSize>,
-    /// List of allowed binaries paths
-    pub allowed_binaries: HashSet<PathBuf>,
+    /// List of allowed effector modules by CID
+    pub allowed_effectors: HashMap<Hash, HashMap<String, PathBuf>>,
 }
 
 impl ServicesConfig {
@@ -59,20 +60,26 @@ impl ServicesConfig {
         management_peer_id: PeerId,
         builtins_management_peer_id: PeerId,
         default_service_memory_limit: Option<ByteSize>,
-        allowed_binaries: Vec<String>,
+        allowed_effectors: HashMap<Hash, HashMap<String, String>>,
     ) -> Result<Self, std::io::Error> {
         let base_dir = to_abs_path(base_dir);
 
-        let allowed_binaries = allowed_binaries
+        let allowed_effectors = allowed_effectors
             .into_iter()
-            .map(|path_str| {
-                let path = Path::new(&path_str);
-                match path.try_exists() {
-                    Err(err) => log::warn!("cannot check binary `{path_str}`: {err}"),
-                    Ok(false) => log::warn!("binary `{path_str}` does not exist"),
-                    _ => {}
-                };
-                path.to_path_buf()
+            .map(|(cid, effector)| {
+                let effector = effector
+                    .into_iter()
+                    .map(|(name, path_str)| {
+                        let path = Path::new(&path_str);
+                        match path.try_exists() {
+                            Err(err) => log::warn!("cannot check effector `{path_str}`: {err}"),
+                            Ok(false) => log::warn!("effector `{path_str}` does not exist"),
+                            _ => {}
+                        };
+                        (name, path.to_path_buf())
+                    })
+                    .collect::<_>();
+                (cid, effector)
             })
             .collect::<_>();
 
@@ -87,7 +94,7 @@ impl ServicesConfig {
             management_peer_id,
             builtins_management_peer_id,
             default_service_memory_limit,
-            allowed_binaries,
+            allowed_effectors,
         };
 
         create_dirs(&[

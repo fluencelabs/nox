@@ -5,6 +5,7 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use base64::{engine::general_purpose::STANDARD as base64, Engine};
+use cid_utils::Hash;
 use core_manager::CoreRange;
 use derivative::Derivative;
 use eyre::eyre;
@@ -129,8 +130,12 @@ pub struct UnresolvedNodeConfig {
     #[serde(default = "default_management_peer_id")]
     pub management_peer_id: PeerId,
 
+    // TODO: leave for now to migrate
     #[serde(default = "default_allowed_binaries")]
     pub allowed_binaries: Vec<String>,
+
+    #[serde(default)]
+    pub allowed_effectors: HashMap<Hash, HashMap<String, String>>,
 
     #[serde(default)]
     pub system_services: SystemServicesConfig,
@@ -193,6 +198,7 @@ impl UnresolvedNodeConfig {
             transport_config: self.transport_config,
             listen_config: self.listen_config,
             allowed_binaries,
+            allowed_effectors: self.allowed_effectors,
             system_services: self.system_services,
             http_config: self.http_config,
             chain_listener_config: self.chain_listener_config,
@@ -361,6 +367,8 @@ pub struct NodeConfig {
     pub management_peer_id: PeerId,
 
     pub allowed_binaries: Vec<String>,
+
+    pub allowed_effectors: HashMap<Hash, HashMap<String, String>>,
 
     pub system_services: SystemServicesConfig,
 

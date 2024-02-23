@@ -29,6 +29,7 @@ bytesize = "1.3.0"
 cid = { workspace = true }
 libipld = { workspace = true }
 itertools = { workspace = true }
+maplit = { workspace = true }
 
 [dev-dependencies]
 tempdir = "0.3.7"
