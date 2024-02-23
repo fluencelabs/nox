@@ -63,7 +63,7 @@ pub struct Actor<RT, F> {
     /// Particles and call results will be processed in the security scope of this peer id
     /// It's either `host_peer_id` or local worker peer id
     current_peer_id: PeerId,
-    /// TODO: for the fucking clean-up, I don't think we need it here!
+    /// TODO: for the clean-up, I don't think we need it here!
     particle_token: String,
     key_pair: KeyPair,
     data_store: Arc<ParticleDataStore>,
