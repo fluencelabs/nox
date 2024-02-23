@@ -21,7 +21,7 @@ use std::sync::Arc;
 use std::{collections::HashMap, time::Duration};
 
 use avm_server::avm_runner::{AVMRunner, RawAVMOutcome};
-use avm_server::{CallResults, CallServiceResult};
+use avm_server::{AVMRuntimeLimits, CallResults, CallServiceResult};
 use fstrings::f;
 use libp2p::PeerId;
 use serde_json::{json, Value as JValue};
@@ -174,7 +174,7 @@ pub fn make_vm(tmp_dir_path: &Path) -> AVMRunner {
     let interpreter = air_interpreter_path(tmp_dir_path);
     write_default_air_interpreter(&interpreter).expect("write air interpreter");
 
-    AVMRunner::new(interpreter, None, i32::MAX)
+    AVMRunner::new(interpreter, None, AVMRuntimeLimits::default(), i32::MAX)
         .map_err(|err| {
             log::error!("\n\n\nFailed to create local AVM: {:#?}\n\n\n", err);
 

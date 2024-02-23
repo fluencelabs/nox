@@ -952,9 +952,9 @@ where
                     )));
                 }
 
-                if !t.json_path.is_empty() {
+                if !t.lens.is_empty() {
                     return Err(JError::new(
-                        "json_path for data tetraplet is expected to be empty",
+                        "lens for data tetraplet is expected to be empty",
                     ));
                 }
             } else {

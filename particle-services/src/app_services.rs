@@ -457,7 +457,7 @@ impl ParticleAppServices {
                             peer_pk: st.peer_pk,
                             service_id: st.service_id,
                             function_name: st.function_name,
-                            lens: st.json_path,
+                            lens: st.lens,
                         })
                         .collect()
                 })
