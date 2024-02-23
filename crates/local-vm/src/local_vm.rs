@@ -21,7 +21,7 @@ use std::sync::Arc;
 use std::{collections::HashMap, time::Duration};
 
 use avm_server::avm_runner::{AVMRunner, RawAVMOutcome};
-use avm_server::{AVMRuntimeLimits, CallResults, CallServiceResult};
+use avm_server::{CallResults, CallServiceResult};
 use fstrings::f;
 use libp2p::PeerId;
 use serde_json::{json, Value as JValue};

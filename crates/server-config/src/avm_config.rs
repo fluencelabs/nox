@@ -4,7 +4,7 @@ use serde_with::serde_as;
 use serde_with::DisplayFromStr;
 
 #[serde_as]
-#[derive(Clone, Deserialize, Serialize, Derivative)]
+#[derive(Clone, Default, Deserialize, Serialize, Derivative)]
 #[derivative(Debug)]
 pub struct AVMConfig {
     /// Maximum heap size in bytes available for an interpreter instance.
@@ -30,16 +30,4 @@ pub struct AVMConfig {
     /// Hard limit AquaVM behavior control knob.
     #[serde(default)]
     pub hard_limit_enabled: bool,
-}
-
-impl Default for AVMConfig {
-    fn default() -> Self {
-        Self {
-            aquavm_heap_size_limit: None,
-            air_size_limit: None,
-            particle_size_limit: None,
-            call_result_size_limit: None,
-            hard_limit_enabled: false,
-        }
-    }
 }
