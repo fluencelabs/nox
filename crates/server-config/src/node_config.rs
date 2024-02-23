@@ -5,6 +5,7 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use base64::{engine::general_purpose::STANDARD as base64, Engine};
+use clarity::PrivateKey;
 use core_manager::CoreRange;
 use derivative::Derivative;
 use eyre::eyre;
@@ -135,7 +136,8 @@ pub struct UnresolvedNodeConfig {
     #[serde(default)]
     pub system_services: SystemServicesConfig,
 
-    #[serde(flatten)]
+    pub chain_config: Option<ChainConfig>,
+
     pub chain_listener_config: Option<ChainListenerConfig>,
 }
 
@@ -195,6 +197,7 @@ impl UnresolvedNodeConfig {
             allowed_binaries,
             system_services: self.system_services,
             http_config: self.http_config,
+            chain_config: self.chain_config,
             chain_listener_config: self.chain_listener_config,
         };
 
@@ -366,6 +369,8 @@ pub struct NodeConfig {
 
     pub http_config: Option<HttpConfig>,
 
+    pub chain_config: Option<ChainConfig>,
+
     pub chain_listener_config: Option<ChainListenerConfig>,
 }
 
@@ -529,7 +534,21 @@ impl KeypairConfig {
 
 #[derive(Clone, Deserialize, Serialize, Derivative)]
 #[derivative(Debug)]
+pub struct ChainConfig {
+    pub http_endpoint: String,
+    // TODO get all addresses from Core contract
+    pub core_contract_address: String,
+    pub cc_contract_address: String,
+    pub market_contract_address: String,
+    pub network_id: u64,
+    pub wallet_key: PrivateKey,
+}
+
+#[derive(Clone, Deserialize, Serialize, Derivative)]
+#[derivative(Debug)]
 pub struct ChainListenerConfig {
     pub ws_endpoint: String,
-    pub cc_contract_address: String,
+    pub ccp_endpoint: Option<String>,
+    /// How often to poll proofs
+    pub proof_poll_period: Duration,
 }

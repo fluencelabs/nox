@@ -38,6 +38,7 @@ use aquamarine::{
     AquaRuntime, AquamarineApi, AquamarineApiError, AquamarineBackend, DataStoreConfig,
     RemoteRoutingEffects, VmPoolConfig,
 };
+use chain_connector::ChainConnector;
 use chain_listener::ChainListener;
 use config_utils::to_peer_id;
 use connection_pool::ConnectionPoolT;
@@ -45,6 +46,7 @@ use core_manager::manager::CoreManager;
 use fluence_keypair::KeyPair;
 use fluence_libp2p::build_transport;
 use health::HealthCheckRegistry;
+use jsonrpsee::ws_client::WsClientBuilder;
 use particle_builtins::{Builtins, CustomService, NodeInfo};
 use particle_execution::ParticleFunctionStatic;
 use particle_protocol::ExtendedParticle;
@@ -325,6 +327,17 @@ impl<RT: AquaRuntime> Node<RT> {
         let services = builtins.services.clone();
         let modules = builtins.modules.clone();
 
+        let connector = if let Some(chain_config) = config.chain_config.clone() {
+            let host_id = scopes.get_host_peer_id();
+            let (chain_connector, chain_builtins) =
+                ChainConnector::new(chain_config.clone(), host_id)?;
+            custom_service_functions.extend(chain_builtins.into_iter());
+            Some(chain_connector)
+        } else {
+            // TODO: log warning, exit with error if decider in on
+            None
+        };
+
         custom_service_functions.into_iter().for_each(
             move |(
                 service_id,
@@ -360,10 +373,29 @@ impl<RT: AquaRuntime> Node<RT> {
             system_services_deployer.versions(),
         );
 
-        let chain_listener = if let Some(chain_config) = config.chain_listener_config.clone() {
+        let chain_listener = if let (Some(connector), Some(chain_config), Some(listener_config)) = (
+            connector,
+            config.chain_config.clone(),
+            config.chain_listener_config.clone(),
+        ) {
             let cc_events_dir = config.dir_config.cc_events_dir.clone();
             let host_id = scopes.get_host_peer_id();
-            let chain_listener = ChainListener::new(chain_config, cc_events_dir, host_id);
+            // print init params
+            let init_params = connector.get_cc_init_params().await?;
+            let ws_client = WsClientBuilder::default()
+                .build(&listener_config.ws_endpoint)
+                .await?; // todo write error msg
+            let chain_listener = ChainListener::new(
+                chain_config,
+                listener_config,
+                cc_events_dir,
+                host_id,
+                connector,
+                core_manager.clone(),
+                init_params,
+                ws_client,
+            )
+            .await;
             Some(chain_listener)
         } else {
             None

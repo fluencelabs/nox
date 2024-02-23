@@ -40,7 +40,7 @@ use futures::stream::iter;
 use nox::{Connectivity, Node};
 use particle_protocol::ProtocolConfig;
 use server_config::{
-    persistent_dir, system_services_config, BootstrapConfig, ChainListenerConfig, ResolvedConfig,
+    persistent_dir, system_services_config, BootstrapConfig, ChainConfig, ResolvedConfig,
     UnresolvedConfig,
 };
 use tempfile::TempDir;
@@ -272,7 +272,7 @@ pub struct SwarmConfig {
     pub override_system_services_config: Option<system_services_config::SystemServicesConfig>,
     pub http_port: u16,
     pub connector_api_endpoint: Option<String>,
-    pub chain_listener: Option<ChainListenerConfig>,
+    pub chain_config: Option<ChainConfig>,
     pub cc_events_dir: Option<PathBuf>,
 }
 
@@ -300,7 +300,7 @@ impl SwarmConfig {
             override_system_services_config: None,
             http_port: 0,
             connector_api_endpoint: None,
-            chain_listener: None,
+            chain_config: None,
             cc_events_dir: None,
         }
     }
@@ -405,6 +405,7 @@ pub async fn create_swarm_with_runtime<RT: AquaRuntime>(
         if let Some(config) = config.override_system_services_config.clone() {
             resolved.system_services = config;
         }
+
         // `enable_system_services` has higher priority then `enable` field of the SystemServicesConfig
         resolved.system_services.enable = config
             .enabled_system_services
@@ -424,7 +425,7 @@ pub async fn create_swarm_with_runtime<RT: AquaRuntime>(
             .public()
             .to_peer_id();
         resolved.node_config.management_peer_id = management_peer_id;
-        resolved.chain_listener_config = config.chain_listener.clone();
+        resolved.chain_config = config.chain_config.clone();
 
         let vm_config = vm_config(BaseVmConfig {
             peer_id,

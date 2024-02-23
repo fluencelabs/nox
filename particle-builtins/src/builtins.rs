@@ -912,7 +912,7 @@ where
         let result: Result<JValue, JError> = try {
             let data: Vec<u8> = Args::next("data", &mut args)?;
 
-            let tetraplet = tetraplets.get(0).map(|v| v.as_slice());
+            let tetraplet = tetraplets.first().map(|v| v.as_slice());
             if let Some([t]) = tetraplet {
                 if self.scopes.scope(PeerId::from_str(&t.peer_pk)?).is_err() {
                     return Err(JError::new(format!(

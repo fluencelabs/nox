@@ -8,8 +8,8 @@ edition = "2021"
 [dependencies]
 fxhash = "0.2.1"
 range-set-blaze = "0.1.14"
-cpu-utils = { git = "https://github.com/fluencelabs/capacity-commitment-prover/", branch = "main" }
-ccp-shared = { git = "https://github.com/fluencelabs/capacity-commitment-prover/", branch = "main" }
+cpu-utils = { workspace = true }
+ccp-shared = { workspace = true }
 multimap = { version = "0.10.0", features = ["serde"] }
 bimap = { version = "0.6.3", features = ["serde"] }
 toml = { workspace = true }

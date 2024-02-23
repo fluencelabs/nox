@@ -1,0 +1,29 @@
+[package]
+name = "chain-connector"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+particle-builtins = { workspace = true }
+particle-execution = { workspace = true }
+particle-args = { workspace = true }
+chain-data = { workspace = true }
+chain-types = { workspace = true }
+ethabi = { workspace = true }
+jsonrpsee = { workspace = true, features = ["macros", "server", "client"] }
+eyre = { workspace = true }
+fluence-libp2p = { workspace = true }
+serde_json = { workspace = true }
+hex = { workspace = true }
+server-config = { workspace = true }
+clarity = { workspace = true }
+tokio = { workspace = true, features = ["rt", "macros"] }
+hex-utils = { workspace = true }
+futures = { workspace = true }
+ccp-shared = { workspace = true }
+thiserror =  { workspace = true }
+
+[dev-dependencies]
+mockito = { workspace = true }

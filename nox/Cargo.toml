@@ -32,6 +32,7 @@ workers = { workspace = true }
 system-services = { workspace = true }
 spell-service-api = { workspace = true }
 chain-listener = { workspace = true }
+chain-connector = { workspace = true }
 
 fluence-keypair = { workspace = true }
 
@@ -70,6 +71,7 @@ opentelemetry-stdout = { version = "0.2.0", features = ["trace"] }
 once_cell = { workspace = true }
 config = "0.13.4"
 tonic = "0.9.2"
+jsonrpsee = { workspace = true, features = ["ws-client", "macros"] }
 
 [dev-dependencies]
 parking_lot = { workspace = true }

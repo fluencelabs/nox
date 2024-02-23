@@ -58,7 +58,8 @@ base64 = { workspace = true }
 tokio = { workspace = true }
 log = { workspace = true }
 tracing = { workspace = true }
-mockito = "1.2.0"
+mockito = { workspace = true }
 tempfile = { workspace = true }
 jsonrpsee = { workspace = true, features = ["server"] }
 hex = { workspace = true }
+clarity = { workspace = true }

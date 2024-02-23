@@ -13,3 +13,4 @@ hex-utils = { workspace = true }
 hex = { workspace = true }
 log = { workspace = true }
 thiserror = { workspace = true }
+eyre = { workspace = true }
