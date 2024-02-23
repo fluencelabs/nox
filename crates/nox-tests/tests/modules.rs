@@ -46,6 +46,9 @@ async fn test_add_module_mounted_binaries() {
         "mounted_binaries": json!({"cmd": "/usr/bin/curl"})
     });
 
+    let a = config.to_string();
+    println!("{}", a);
+    
     let script = r#"
     (xor
        (seq
