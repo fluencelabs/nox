@@ -1079,6 +1079,7 @@ impl ParticleAppServices {
 
         let mut modules_config = self.modules.resolve_blueprint(&blueprint_id)?;
 
+        // Create Particle File Vault for Worker
         self.vault.initialize_worker(current_peer_id)?;
 
         for module in modules_config.iter_mut() {
