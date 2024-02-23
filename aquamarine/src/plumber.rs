@@ -532,6 +532,7 @@ mod tests {
                 data: vec![],
                 call_requests: Default::default(),
                 next_peer_pks: vec![],
+                soft_limits_triggering: Default::default(),
             })
         }
 
