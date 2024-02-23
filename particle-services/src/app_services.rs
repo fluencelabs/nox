@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 use std::ops::Deref;
-use std::path::PathBuf;
+use std::path::Path;
 use std::time::{Duration, Instant};
 use std::{collections::HashMap, sync::Arc};
 
@@ -51,7 +51,8 @@ use crate::error::ServiceError::{AliasAsServiceId, Forbidden, NoSuchAlias};
 use crate::health::PersistedServiceHealth;
 use crate::persistence::{load_persisted_services, remove_persisted_service, PersistedService};
 use crate::ServiceError::{
-    ForbiddenAlias, ForbiddenAliasRoot, ForbiddenAliasWorker, InternalError, NoSuchService,
+    FailedToCreateDirectory, ForbiddenAlias, ForbiddenAliasRoot, ForbiddenAliasWorker,
+    InternalError, NoSuchService,
 };
 
 type ServiceId = String;
@@ -936,6 +937,7 @@ impl ParticleAppServices {
         let creation_start_time = Instant::now();
         let service = self
             .create_app_service(blueprint_id.clone(), service_id.clone())
+            .await
             .inspect_err(|_| {
                 if let Some(metrics) = self.metrics.as_ref() {
                     metrics.observe_created_failed();
@@ -1000,59 +1002,88 @@ impl ParticleAppServices {
         }
     }
 
-    fn inject_persistent_dirs(
+    async fn inject_persistent_dirs(
         &self,
         module: &mut ModuleDescriptor,
-        persistent_dir: PathBuf,
-    ) -> eyre::Result<()> {
-        let wasi = module.config.wasi.as_mut().ok_or(eyre!(
-            "Could not inject persistent dirs into empty WASI config"
+        persistent_dir: &Path,
+    ) -> Result<(), ServiceError> {
+        let module_dir = persistent_dir.join(&module.import_name);
+        tokio::fs::create_dir_all(&module_dir)
+            .await
+            .map_err(|err| FailedToCreateDirectory {
+                path: module_dir.clone(),
+                err,
+            })?;
+
+        let wasi = module.config.wasi.as_mut().ok_or(InternalError(
+            "Could not inject persistent dirs into empty WASI config".to_string(),
         ))?;
         wasi.mapped_dirs
-            .insert("/storage".into(), persistent_dir.clone());
-        wasi.mapped_dirs.insert(
-            "/storage/module".into(),
-            persistent_dir.join(&module.import_name).clone(),
-        );
+            .insert("/storage".into(), persistent_dir.to_path_buf());
+        wasi.mapped_dirs
+            .insert("/storage/module".into(), module_dir);
         Ok(())
     }
 
-    fn inject_ephemeral_dirs(
+    async fn inject_ephemeral_dirs(
         &self,
         module: &mut ModuleDescriptor,
-        ephemeral_dir: PathBuf,
-    ) -> eyre::Result<()> {
-        let wasi = module.config.wasi.as_mut().ok_or(eyre!(
-            "Could not inject ephemeral dirs into empty WASI config"
+        ephemeral_dir: &Path,
+    ) -> Result<(), ServiceError> {
+        let module_dir = ephemeral_dir.join(&module.import_name);
+        tokio::fs::create_dir_all(&module_dir)
+            .await
+            .map_err(|err| FailedToCreateDirectory {
+                path: module_dir.clone(),
+                err,
+            })?;
+
+        let wasi = module.config.wasi.as_mut().ok_or(InternalError(
+            "Could not inject ephemeral dirs into empty WASI config".to_string(),
         ))?;
         wasi.mapped_dirs
-            .insert("/tmp".into(), ephemeral_dir.clone());
-        wasi.mapped_dirs.insert(
-            "/tmp/module".into(),
-            ephemeral_dir.join(&module.import_name).clone(),
-        );
+            .insert("/tmp".into(), ephemeral_dir.to_path_buf());
+        wasi.mapped_dirs.insert("/tmp/module".into(), module_dir);
         Ok(())
     }
 
-    fn create_app_service(
+    async fn create_app_service(
         &self,
         blueprint_id: String,
         service_id: String,
     ) -> Result<AppService, ServiceError> {
+        let persistent_dir = self.config.persistent_work_dir.join(&service_id);
+        let ephemeral_dir = self.config.ephemeral_work_dir.join(&service_id);
+
+        // TODO: introduce separate errors
+        tokio::fs::create_dir_all(&persistent_dir)
+            .await
+            .map_err(|err| FailedToCreateDirectory {
+                path: persistent_dir.clone(),
+                err,
+            })?;
+        tokio::fs::create_dir_all(&ephemeral_dir)
+            .await
+            .map_err(|err| FailedToCreateDirectory {
+                path: ephemeral_dir.clone(),
+                err,
+            })?;
+
         let mut modules_config = self.modules.resolve_blueprint(&blueprint_id)?;
-        modules_config.iter_mut().for_each(|module| {
+
+        for module in modules_config.iter_mut() {
             self.inject_default_wasi(module);
             // SAFETY: set wasi to Some in the code before calling inject_vault
             self.vault.inject_vault(module).unwrap();
-            self.inject_persistent_dirs(module, self.config.persistent_work_dir.join(&service_id))
-                .unwrap();
-            self.inject_ephemeral_dirs(module, self.config.ephemeral_work_dir.join(&service_id))
-                .unwrap();
-        });
+            self.inject_persistent_dirs(module, persistent_dir.as_path())
+                .await?;
+            self.inject_ephemeral_dirs(module, ephemeral_dir.as_path())
+                .await?;
+        }
 
         let app_config = AppServiceConfig {
-            service_working_dir: self.config.persistent_work_dir.join(&service_id),
-                marine_config: MarineConfig {
+            service_working_dir: persistent_dir,
+            marine_config: MarineConfig {
                 // TODO: add an option to set individual per-service limit
                 total_memory_limit: self
                     .config
@@ -1145,9 +1176,9 @@ mod tests {
     ) -> ParticleAppServices {
         let persistent_dir = base_dir.join("persistent");
         let ephemeral_dir = base_dir.join("ephemeral");
-        let vault_dir = ephemeral_dir.join("..").join("vault");
-        let keypairs_dir = persistent_dir.join("..").join("keypairs");
-        let workers_dir = persistent_dir.join("..").join("workers");
+        let vault_dir = ephemeral_dir.join("vault");
+        let keypairs_dir = persistent_dir.join("keypairs");
+        let workers_dir = persistent_dir.join("workers");
         let service_memory_limit = server_config::default_service_memory_limit();
         let key_storage = KeyStorage::from_path(keypairs_dir.clone(), root_keypair.clone().into())
             .await

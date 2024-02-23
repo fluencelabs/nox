@@ -40,7 +40,7 @@ use futures::stream::iter;
 use nox::{Connectivity, Node};
 use particle_protocol::ProtocolConfig;
 use server_config::{
-    persistent_dir, system_services_config, BootstrapConfig, ChainConfig, ResolvedConfig,
+    persistent_dir, system_services_config, BootstrapConfig,ChainConfig ChainListenerConfig, ResolvedConfig,
     UnresolvedConfig,
 };
 use tempfile::TempDir;
