@@ -1006,15 +1006,17 @@ impl ParticleAppServices {
         module: &mut ModuleDescriptor,
         persistent_dir: &Path,
     ) -> eyre::Result<()> {
+        let module_dir = persistent_dir.join(&module.import_name);
+        //todo: add error & make async
+        std::fs::create_dir_all(&module_dir)?;
+
         let wasi = module.config.wasi.as_mut().ok_or(eyre!(
             "Could not inject persistent dirs into empty WASI config"
         ))?;
         wasi.mapped_dirs
             .insert("/storage".into(), persistent_dir.to_path_buf());
-        wasi.mapped_dirs.insert(
-            "/storage/module".into(),
-            persistent_dir.join(&module.import_name),
-        );
+        wasi.mapped_dirs
+            .insert("/storage/module".into(), module_dir);
         Ok(())
     }
 
@@ -1023,6 +1025,10 @@ impl ParticleAppServices {
         module: &mut ModuleDescriptor,
         ephemeral_dir: &Path,
     ) -> eyre::Result<()> {
+        let module_dir = ephemeral_dir.join(&module.import_name);
+        //todo: add error & make async
+        std::fs::create_dir_all(&module_dir)?;
+        
         let wasi = module.config.wasi.as_mut().ok_or(eyre!(
             "Could not inject ephemeral dirs into empty WASI config"
         ))?;
@@ -1030,7 +1036,7 @@ impl ParticleAppServices {
             .insert("/tmp".into(), ephemeral_dir.to_path_buf());
         wasi.mapped_dirs.insert(
             "/tmp/module".into(),
-            ephemeral_dir.join(&module.import_name),
+            module_dir,
         );
         Ok(())
     }
@@ -1042,12 +1048,12 @@ impl ParticleAppServices {
     ) -> Result<AppService, ServiceError> {
         let persistent_dir = self.config.persistent_work_dir.join(&service_id);
         let ephemeral_dir = self.config.ephemeral_work_dir.join(&service_id);
-        
+
         // TODO: introduce separate errors
-        tokio::fs::create_dir(&persistent_dir)
+        tokio::fs::create_dir_all(&persistent_dir)
             .await
             .map_err(|err| InternalError(err.to_string()))?;
-        tokio::fs::create_dir(&ephemeral_dir)
+        tokio::fs::create_dir_all(&ephemeral_dir)
             .await
             .map_err(|err| InternalError(err.to_string()))?;
 
