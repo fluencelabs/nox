@@ -26,6 +26,8 @@ use eyre::WrapErr;
 use fluence_app_service::{ModuleDescriptor, TomlMarineNamedModuleConfig};
 use fstrings::f;
 use marine_it_parser::module_interface;
+use marine_module_info_parser::effects;
+use marine_module_info_parser::effects::WasmEffect;
 use parking_lot::RwLock;
 use serde_json::{json, Value as JValue};
 
@@ -87,6 +89,9 @@ impl ModuleRepository {
     }
 
     pub fn add_module(&self, module: Vec<u8>, config: TomlMarineNamedModuleConfig) -> Result<Hash> {
+        let result = effects::extract_from_bytes(&module);
+        println!("{:?}", result);
+
         // TODO: remove unwrap
         let hash = Hash::new(&module).unwrap();
 
@@ -301,6 +306,28 @@ impl ModuleRepository {
 
         Ok(module_descriptors)
     }
+
+    fn check_effectors(&self, module: &[u8]) -> Result<()> {
+        let mounted = Self::get_mounted_binaries(module)?;
+
+        Ok(())
+    }
+
+    fn get_mounted_binaries(module: &[u8]) -> Result<Vec<String>> {
+        let effects = effects::extract_from_bytes(module)?;
+        //effects.into_iter().map(|e| e.mounted_binaries).collect()
+        let mounted = effects
+            .into_iter()
+            .filter_map(|e| {
+                if let WasmEffect::MountedBinary(bin) = e {
+                    Some(bin)
+                } else {
+                    None
+                }
+            })
+            .collect::<_>();
+        Ok(mounted)
+    }
 }
 
 fn get_interface_by_hash(
@@ -333,7 +360,11 @@ fn get_interface_by_hash(
 mod tests {
     use base64::{engine::general_purpose::STANDARD as base64, Engine};
     use fluence_app_service::{TomlMarineModuleConfig, TomlMarineNamedModuleConfig};
+    use std::collections::HashSet;
+    use std::path::PathBuf;
     use tempdir::TempDir;
+    use toml::map::Map;
+    use toml::Value::String;
 
     use service_modules::load_module;
     use service_modules::Hash;
@@ -404,5 +435,60 @@ mod tests {
 
         let result = repo.get_interface(&m_hash);
         assert!(result.is_ok())
+    }
+
+    #[test]
+    fn test_add_module_effector() {
+        let _effector_wasm_cid = "bafkreiepzclggkt57vu7yrhxylfhaafmuogtqly7wel7ozl5k2ehkd44oe";
+        let effector_path = "../crates/nox-tests/tests/effector/artifacts";
+        let mut mounted = Map::new();
+        mounted.insert("ls".to_string(), String("/bin/ls".to_string()));
+        let config: TomlMarineNamedModuleConfig = TomlMarineNamedModuleConfig {
+            name: "effector".to_string(),
+            file_name: None,
+            load_from: None,
+            config: TomlMarineModuleConfig {
+                logger_enabled: None,
+                wasi: None,
+                mounted_binaries: Some(mounted),
+                logging_mask: None,
+            },
+        };
+
+        let module_dir = TempDir::new("test").unwrap();
+        let bp_dir = TempDir::new("test2").unwrap();
+        let allowed_binaries = HashSet::from([PathBuf::from("/bin/ls")]);
+        let repo = ModuleRepository::new(module_dir.path(), bp_dir.path(), allowed_binaries);
+
+        let module = load_module(effector_path, &config.name).expect("load module");
+        let result = repo.add_module(module, config);
+        println!("{:?}", result);
+    }
+
+    #[test]
+    fn test_add_module_pure() {
+        let module_dir = TempDir::new("test").unwrap();
+        let bp_dir = TempDir::new("test2").unwrap();
+        let repo = ModuleRepository::new(module_dir.path(), bp_dir.path(), Default::default());
+
+        let module = load_module(
+            "../crates/nox-tests/tests/tetraplets/artifacts",
+            "tetraplets",
+        )
+        .expect("load module");
+
+        let config: TomlMarineNamedModuleConfig = TomlMarineNamedModuleConfig {
+            name: "tetra".to_string(),
+            file_name: None,
+            load_from: None,
+            config: TomlMarineModuleConfig {
+                logger_enabled: None,
+                wasi: None,
+                mounted_binaries: None,
+                logging_mask: None,
+            },
+        };
+        let m_hash = repo.add_module(module, config).unwrap();
+        println!("{:?}", m_hash);
     }
 }

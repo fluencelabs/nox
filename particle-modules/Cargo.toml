@@ -12,6 +12,7 @@ json-utils = { workspace = true }
 fs-utils = { workspace = true }
 service-modules = { workspace = true }
 
+marine-module-info-parser = { workspace = true }
 marine-it-parser = { workspace = true }
 fluence-app-service = { workspace = true }
 
@@ -32,3 +33,4 @@ itertools = { workspace = true }
 [dev-dependencies]
 tempdir = "0.3.7"
 server-config = { workspace = true }
+maplit = { workspace = true }

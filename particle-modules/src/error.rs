@@ -20,6 +20,7 @@ use std::path::PathBuf;
 use base64::DecodeError;
 use fluence_app_service::{MarineError, TomlMarineNamedModuleConfig};
 use marine_it_parser::ITParserError;
+use marine_module_info_parser::ModuleInfoError;
 use serde_json::Value as JValue;
 use thiserror::Error;
 
@@ -149,6 +150,8 @@ pub enum ModuleError {
     ForbiddenMountedBinary { forbidden_path: String },
     #[error(transparent)]
     Vault(#[from] VaultError),
+    #[error(transparent)]
+    ModuleInfo(#[from] ModuleInfoError),
 }
 
 impl From<ModuleError> for JValue {

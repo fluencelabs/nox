@@ -657,7 +657,6 @@ where
 
         Ok(config)
     }
-
     fn default_module_config(&self, args: Args) -> Result<JValue, JError> {
         let mut args = args.function_args.into_iter();
         let module_name: String = Args::next("module_name", &mut args)?;
