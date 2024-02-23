@@ -14,7 +14,8 @@
  * limitations under the License.
  */
 
-use fluence_app_service::{MarineWASIConfig, ModuleDescriptor};
+use eyre::eyre;
+use fluence_app_service::ModuleDescriptor;
 use std::io::ErrorKind;
 use std::path;
 use std::path::{Path, PathBuf};
@@ -209,19 +210,23 @@ impl ParticleVault {
 
     /// Map `vault_dir/$current-peer-id` to `/tmp/vault` inside the service.
     /// Particle File Vaults will be available as `/tmp/vault/$particle_id`
-    pub fn inject_vault(&self, current_peer_id: PeerId, module: &mut ModuleDescriptor) {
-        let wasi = &mut module.config.wasi;
-        if wasi.is_none() {
-            *wasi = Some(MarineWASIConfig::default());
-        }
-        // SAFETY: set wasi to Some in the code above
-        let wasi = wasi.as_mut().unwrap();
+    pub fn inject_vault(
+        &self,
+        current_peer_id: PeerId,
+        module: &mut ModuleDescriptor,
+    ) -> eyre::Result<()> {
+        let wasi = module
+            .config
+            .wasi
+            .as_mut()
+            .ok_or(eyre!("Could not inject vault into empty WASI config"))?;
 
         let vault_dir = self.real_worker_particle_vault(current_peer_id);
 
-        wasi.preopened_files.insert(vault_dir.clone());
         wasi.mapped_dirs
             .insert(VIRTUAL_PARTICLE_VAULT_PREFIX.into(), vault_dir);
+
+        Ok(())
     }
 }
 
