@@ -32,6 +32,7 @@ pub fn module_config(import_name: &str) -> JValue {
         "name": import_name,
         "mem_pages_count": 100,
         "logger_enabled": true,
+        "preopened_files": vec!["/tmp"],
         "wasi": {
             "envs": json!({}),
             "mapped_dirs": json!({}),

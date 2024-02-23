@@ -1175,9 +1175,9 @@ mod tests {
     ) -> ParticleAppServices {
         let persistent_dir = base_dir.join("persistent");
         let ephemeral_dir = base_dir.join("ephemeral");
-        let vault_dir = ephemeral_dir.join("..").join("vault");
-        let keypairs_dir = persistent_dir.join("..").join("keypairs");
-        let workers_dir = persistent_dir.join("..").join("workers");
+        let vault_dir = ephemeral_dir.join("vault");
+        let keypairs_dir = persistent_dir.join("keypairs");
+        let workers_dir = persistent_dir.join("workers");
         let service_memory_limit = server_config::default_service_memory_limit();
         let key_storage = KeyStorage::from_path(keypairs_dir.clone(), root_keypair.clone().into())
             .await
