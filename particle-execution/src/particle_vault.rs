@@ -174,7 +174,6 @@ impl ParticleVault {
 
         let vault_dir = self.vault_dir.to_path_buf();
 
-        wasi.preopened_files.insert(vault_dir.clone());
         wasi.mapped_dirs
             .insert(VIRTUAL_PARTICLE_VAULT_PREFIX.into(), vault_dir);
     }

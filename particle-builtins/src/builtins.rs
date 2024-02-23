@@ -1020,7 +1020,6 @@ fn make_module_config(args: Args) -> Result<JValue, JError> {
     let _max_heap_size: Option<String> = Args::next_opt("max_heap_size", &mut args)?;
 
     let logger_enabled = Args::next_opt("logger_enabled", &mut args)?;
-    let preopened_files = Args::next_opt("preopened_files", &mut args)?;
     let envs = Args::next_opt("envs", &mut args)?.map(table);
     let mapped_dirs = Args::next_opt("mapped_dirs", &mut args)?.map(table);
     let mounted_binaries = Args::next_opt("mounted_binaries", &mut args)?.map(table);
@@ -1032,11 +1031,7 @@ fn make_module_config(args: Args) -> Result<JValue, JError> {
         file_name: None,
         config: ModuleConfig {
             logger_enabled,
-            wasi: Some(WASIConfig {
-                preopened_files,
-                envs,
-                mapped_dirs,
-            }),
+            wasi: Some(WASIConfig { envs, mapped_dirs }),
             mounted_binaries,
             logging_mask,
         },

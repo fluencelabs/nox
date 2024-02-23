@@ -451,7 +451,7 @@ impl ParticleAppServices {
                             peer_pk: st.peer_pk,
                             service_id: st.service_id,
                             function_name: st.function_name,
-                            lambda: st.json_path,
+                            lens: st.json_path,
                         })
                         .collect()
                 })
@@ -1003,7 +1003,6 @@ impl ParticleAppServices {
 
         let app_config = AppServiceConfig {
             service_working_dir: self.config.workdir.join(&service_id),
-            service_base_dir: self.config.workdir.clone(),
             marine_config: MarineConfig {
                 // TODO: add an option to set individual per-service limit
                 total_memory_limit: self
