@@ -107,7 +107,7 @@ core-manager = { path = "crates/core-manager" }
 
 # spell
 fluence-spell-dtos = "=0.7.3"
-fluence-spell-distro = "=0.7.2"
+fluence-spell-distro = "=0.7.3"
 
 # marine
 fluence-app-service = { version = "0.33.0" }
