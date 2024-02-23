@@ -106,6 +106,12 @@ pub enum ServiceError {
     InternalError(String),
     #[error("Worker {worker_id} not found")]
     WorkerNotFound { worker_id: WorkerId },
+    #[error("Failed to create directory {path}: {err}")]
+    FailedToCreateDirectory {
+        path: PathBuf,
+        #[source]
+        err: std::io::Error,
+    },
 }
 
 impl From<AppServiceError> for ServiceError {

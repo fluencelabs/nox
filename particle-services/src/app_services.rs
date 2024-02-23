@@ -19,7 +19,6 @@ use std::time::{Duration, Instant};
 use std::{collections::HashMap, sync::Arc};
 
 use derivative::Derivative;
-use eyre::eyre;
 use fluence_app_service::{
     AppService, AppServiceConfig, AppServiceError, CallParameters, MarineConfig, MarineError,
     MarineWASIConfig, ModuleDescriptor, SecurityTetraplet, ServiceInterface,
@@ -51,7 +50,8 @@ use crate::error::ServiceError::{AliasAsServiceId, Forbidden, NoSuchAlias};
 use crate::health::PersistedServiceHealth;
 use crate::persistence::{load_persisted_services, remove_persisted_service, PersistedService};
 use crate::ServiceError::{
-    ForbiddenAlias, ForbiddenAliasRoot, ForbiddenAliasWorker, InternalError, NoSuchService,
+    FailedToCreateDirectory, ForbiddenAlias, ForbiddenAliasRoot, ForbiddenAliasWorker,
+    InternalError, NoSuchService,
 };
 
 type ServiceId = String;
@@ -1001,17 +1001,21 @@ impl ParticleAppServices {
         }
     }
 
-    fn inject_persistent_dirs(
+    async fn inject_persistent_dirs(
         &self,
         module: &mut ModuleDescriptor,
         persistent_dir: &Path,
-    ) -> eyre::Result<()> {
+    ) -> Result<(), ServiceError> {
         let module_dir = persistent_dir.join(&module.import_name);
-        //todo: add error & make async
-        std::fs::create_dir_all(&module_dir)?;
+        tokio::fs::create_dir_all(&module_dir)
+            .await
+            .map_err(|err| FailedToCreateDirectory {
+                path: module_dir.clone(),
+                err,
+            })?;
 
-        let wasi = module.config.wasi.as_mut().ok_or(eyre!(
-            "Could not inject persistent dirs into empty WASI config"
+        let wasi = module.config.wasi.as_mut().ok_or(InternalError(
+            "Could not inject persistent dirs into empty WASI config".to_string(),
         ))?;
         wasi.mapped_dirs
             .insert("/storage".into(), persistent_dir.to_path_buf());
@@ -1020,24 +1024,25 @@ impl ParticleAppServices {
         Ok(())
     }
 
-    fn inject_ephemeral_dirs(
+    async fn inject_ephemeral_dirs(
         &self,
         module: &mut ModuleDescriptor,
         ephemeral_dir: &Path,
-    ) -> eyre::Result<()> {
+    ) -> Result<(), ServiceError> {
         let module_dir = ephemeral_dir.join(&module.import_name);
-        //todo: add error & make async
-        std::fs::create_dir_all(&module_dir)?;
-        
-        let wasi = module.config.wasi.as_mut().ok_or(eyre!(
-            "Could not inject ephemeral dirs into empty WASI config"
+        tokio::fs::create_dir_all(&module_dir)
+            .await
+            .map_err(|err| FailedToCreateDirectory {
+                path: module_dir.clone(),
+                err,
+            })?;
+
+        let wasi = module.config.wasi.as_mut().ok_or(InternalError(
+            "Could not inject ephemeral dirs into empty WASI config".to_string(),
         ))?;
         wasi.mapped_dirs
             .insert("/tmp".into(), ephemeral_dir.to_path_buf());
-        wasi.mapped_dirs.insert(
-            "/tmp/module".into(),
-            module_dir,
-        );
+        wasi.mapped_dirs.insert("/tmp/module".into(), module_dir);
         Ok(())
     }
 
@@ -1052,21 +1057,28 @@ impl ParticleAppServices {
         // TODO: introduce separate errors
         tokio::fs::create_dir_all(&persistent_dir)
             .await
-            .map_err(|err| InternalError(err.to_string()))?;
+            .map_err(|err| FailedToCreateDirectory {
+                path: persistent_dir.clone(),
+                err,
+            })?;
         tokio::fs::create_dir_all(&ephemeral_dir)
             .await
-            .map_err(|err| InternalError(err.to_string()))?;
+            .map_err(|err| FailedToCreateDirectory {
+                path: ephemeral_dir.clone(),
+                err,
+            })?;
 
         let mut modules_config = self.modules.resolve_blueprint(&blueprint_id)?;
-        modules_config.iter_mut().for_each(|module| {
+
+        for module in modules_config.iter_mut() {
             self.inject_default_wasi(module);
             // SAFETY: set wasi to Some in the code before calling inject_vault
             self.vault.inject_vault(module).unwrap();
             self.inject_persistent_dirs(module, persistent_dir.as_path())
-                .unwrap();
+                .await?;
             self.inject_ephemeral_dirs(module, ephemeral_dir.as_path())
-                .unwrap();
-        });
+                .await?;
+        }
 
         let app_config = AppServiceConfig {
             service_working_dir: persistent_dir,

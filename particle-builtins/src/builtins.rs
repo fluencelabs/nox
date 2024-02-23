@@ -1033,10 +1033,7 @@ fn make_module_config(args: Args) -> Result<JValue, JError> {
         file_name: None,
         config: ModuleConfig {
             logger_enabled,
-            wasi: Some(WASIConfig {
-                envs,
-                mapped_dirs,
-            }),
+            wasi: Some(WASIConfig { envs, mapped_dirs }),
             mounted_binaries,
             logging_mask,
         },
