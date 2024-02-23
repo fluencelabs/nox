@@ -10,7 +10,7 @@ use ccp_shared::types::{Difficulty, GlobalNonce};
 use chain_data::ChainDataError::InvalidTokenSize;
 use chain_data::{next_opt, parse_chain_data, peer_id_to_bytes, ChainFunction};
 use chain_types::{Commitment, CommitmentId, CommitmentStatus, ComputePeer, ComputeUnit};
-use clarity::{Transaction, Uint256};
+use clarity::Transaction;
 use ethabi::ethereum_types::U256;
 use ethabi::Token;
 use eyre::eyre;
@@ -30,7 +30,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
-const GAS_MULTIPLIER: f64 = 0.0;
+const BASE_FEE_MULTIPLIER: f64 = 0.125;
 pub struct ChainConnector {
     client: Arc<jsonrpsee::http_client::HttpClient>,
     config: ChainConfig,
@@ -163,8 +163,12 @@ impl ChainConnector {
         let gas_limit = self.estimate_gas_limit(&data, to).await?;
         let max_priority_fee_per_gas = self.max_priority_fee_per_gas().await?;
 
-        // (base fee + priority fee) x units of gas used.
-        let max_fee_per_gas = (base_fee_per_gas + max_priority_fee_per_gas) * gas_limit;
+        let increase = (base_fee_per_gas.as_u64() as f64 * BASE_FEE_MULTIPLIER) as u128;
+        let base_fee = base_fee_per_gas
+            .checked_add(increase.into())
+            .ok_or(InvalidBaseFeePerGas("AAAA".to_string()))?;
+        // (base fee + priority fee).
+        let max_fee_per_gas = base_fee + max_priority_fee_per_gas;
 
         // We use this lock no ensure that we don't send two transactions with the same nonce
         let _lock = self.tx_nonce_mutex.lock().await;
@@ -413,12 +417,12 @@ mod tests {
         let (connector, _) = ChainConnector::new(
             server_config::ChainConfig {
                 http_endpoint: url.to_string(),
-                cc_contract_address: "0x3Aa5ebB10DC797CAC828524e59A333d0A371443c".to_string(),
+                cc_contract_address: "0x8dc7d48492b9fD2519b65A54816be03758742c60".to_string(),
                 core_contract_address: "0x0B306BF915C4d645ff596e518fAf3F9669b97016".to_string(),
                 market_contract_address: "0x68B1D87F95878fE05B998F19b66F4baba5De1aed".to_string(),
-                network_id: 1,
+                network_id: 3525067388221321,
                 wallet_key: PrivateKey::from_str(
-                    "0xfdc4ba94809c7930fe4676b7d845cbf8fa5c1beae8744d959530e5073004cf3f",
+                    "0x97a2456e78c4894c62eef6031972d1ca296ed40bf311ab54c231f13db59fc428",
                 )
                 .unwrap(),
             },
@@ -709,12 +713,12 @@ mod tests {
         let max_priority_fee = r#"{"jsonrpc":"2.0","id": 2,"result": "0x5208"}"#;
         let nonce = r#"{"jsonrpc":"2.0","id":3,"result":"0x20"}"#;
         let send_tx_response = r#"
-        {
-            "jsonrpc": "2.0",
-            "id": 4,
-            "result": "0x55bfec4a4400ca0b09e075e2b517041cd78b10021c51726cb73bcba52213fa05"
-        }
-        "#;
+            {
+                "jsonrpc": "2.0",
+                "id": 4,
+                "result": "0x55bfec4a4400ca0b09e075e2b517041cd78b10021c51726cb73bcba52213fa05"
+            }
+            "#;
         let mut server = mockito::Server::new();
         let url = server.url();
         server
