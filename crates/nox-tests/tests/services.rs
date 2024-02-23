@@ -150,6 +150,11 @@ async fn create_service_from_config() {
       "modules": [
         {
           "name": "pure_base64",
+          "preopened_files": [
+            [
+              "tmp"
+            ]
+          ],
           "mem_pages_count": [
             123
           ],
@@ -163,7 +168,9 @@ async fn create_service_from_config() {
           "logging_mask": [
             4
           ],
-          "envs": {},
+          "envs": [
+            []
+          ],
           "mounted_binaries": [
             [
               [
@@ -328,7 +335,9 @@ async fn handle_same_dir_in_preopens_and_mapped_dirs() {
           "logging_mask": [
             4
           ],
-          "envs": {},
+          "envs": [
+            []
+          ],
           "mounted_binaries": [
             [
               [
