@@ -34,7 +34,6 @@ pub fn module_config(import_name: &str) -> JValue {
         "logger_enabled": true,
         "wasi": {
             "envs": json!({}),
-            "preopened_files": vec!["/tmp"],
             "mapped_dirs": json!({}),
         }
     })

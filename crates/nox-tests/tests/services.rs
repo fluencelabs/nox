@@ -150,11 +150,6 @@ async fn create_service_from_config() {
       "modules": [
         {
           "name": "pure_base64",
-          "preopened_files": [
-            [
-              "tmp"
-            ]
-          ],
           "mem_pages_count": [
             123
           ],
