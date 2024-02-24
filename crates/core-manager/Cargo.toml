@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 fxhash = "0.2.1"
-range-set-blaze = "0.1.14"
+range-set-blaze = "0.1.15"
 cpu-utils = { workspace = true }
 ccp-shared = { workspace = true }
 multimap = { version = "0.10.0", features = ["serde"] }
