@@ -44,10 +44,13 @@ members = [
     "particle-execution",
     "crates/system-services",
     "crates/chain-listener",
+    "crates/chain-connector",
     "crates/hex-utils",
     "crates/chain-data",
+    "crates/chain-types",
     "crates/types",
-    "crates/core-manager"]
+    "crates/core-manager"
+]
 exclude = [
     "nox/tests/tetraplets",
 ]
@@ -97,6 +100,8 @@ subnet-resolver = { path = "crates/subnet-resolver" }
 hex-utils = { path = "crates/hex-utils" }
 chain-data = { path = "crates/chain-data" }
 chain-listener = { path = "crates/chain-listener" }
+chain-connector = { path = "crates/chain-connector" }
+chain-types = { path = "crates/chain-types" }
 types = { path = "crates/types" }
 core-manager = { path = "crates/core-manager" }
 
@@ -166,6 +171,12 @@ futures-util = "0.3.30"
 num_cpus = "1.16.0"
 enum_dispatch = "0.3.12"
 serde_with = "3.6.0"
+mockito = "1.2.0"
+clarity = "1.3.0"
+cpu-utils = { git = "https://github.com/fluencelabs/capacity-commitment-prover/", branch = "main" }
+ccp-shared = { git = "https://github.com/fluencelabs/capacity-commitment-prover/", branch = "main" }
+ccp-rpc-client = { git = "https://github.com/fluencelabs/capacity-commitment-prover.git", branch = "main" }
+
 
 [profile.dev]
 opt-level = 0

@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.21.0](https://github.com/fluencelabs/nox/compare/nox-v0.20.2...nox-v0.21.0) (2024-02-23)
+
+
+### ⚠ BREAKING CHANGES
+
+* **particle-vault:** introduce new particle vault path format ([#2098](https://github.com/fluencelabs/nox/issues/2098))
+
+### Features
+
+* add connector.send_tx; introduce listener ([#2078](https://github.com/fluencelabs/nox/issues/2078)) ([81f00ea](https://github.com/fluencelabs/nox/commit/81f00eacb7c2337f9f7b6a8f4313b8da88a26339))
+* **config:** Introduce ephemeral and persistent storage [fixes NET-759 NET-760] ([#2091](https://github.com/fluencelabs/nox/issues/2091)) ([79e7850](https://github.com/fluencelabs/nox/commit/79e7850be08429afdfb284af91c9e42b95ab6336))
+* **particle-vault:** introduce new particle vault path format ([#2098](https://github.com/fluencelabs/nox/issues/2098)) ([3d68c85](https://github.com/fluencelabs/nox/commit/3d68c857ac804f798b74649d2468df72df3a06f0))
+* **spell:** update to new kv restrictions ([#2094](https://github.com/fluencelabs/nox/issues/2094)) ([7bc9e5a](https://github.com/fluencelabs/nox/commit/7bc9e5acb3390a8f8dec96e7628e9f042044cc1c))
+
+
+### Bug Fixes
+
+* **core-manager:** add logging info ([#2109](https://github.com/fluencelabs/nox/issues/2109)) ([06f253b](https://github.com/fluencelabs/nox/commit/06f253b7e44cf655701ca2def4cb9d2ea08eba2b))
+* **deps:** update fluence-spell to v0.7.3 ([#2088](https://github.com/fluencelabs/nox/issues/2088)) ([77c6e86](https://github.com/fluencelabs/nox/commit/77c6e86ad2e2cba2b2274bf9a4929811ebbcc068))
+* **deps:** update rust crate decider-distro to v0.6.6 ([#2104](https://github.com/fluencelabs/nox/issues/2104)) ([938f751](https://github.com/fluencelabs/nox/commit/938f75150e7f9d53cd267ff0f35ee37303584cdd))
+
 ## [0.20.2](https://github.com/fluencelabs/nox/compare/nox-v0.20.1...nox-v0.20.2) (2024-02-21)
 
 

@@ -13,4 +13,6 @@ pub enum ChainDataError {
     DecodeHex(#[source] hex::FromHexError),
     #[error(transparent)]
     EthError(#[from] ethabi::Error),
+    #[error("Invalid token size")]
+    InvalidTokenSize,
 }

@@ -1,0 +1,17 @@
+[package]
+name = "chain-types"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+serde = { workspace = true }
+ethabi = { workspace = true }
+eyre = { workspace = true }
+chain-data = { workspace = true }
+hex = { workspace = true }
+ccp-shared = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt", "macros"] }
