@@ -146,8 +146,6 @@ pub enum ModuleError {
         max_heap_size_wanted: u64,
         max_heap_size_allowed: u64,
     },
-    #[error("Config error: requested mounted binary {forbidden_path} is forbidden on this host")]
-    ForbiddenMountedBinary { forbidden_path: String },
     #[error("Config error: requested module effector {module_name} with CID {forbidden_cid} is forbidden on this host")]
     ForbiddenEffector {
         module_name: String,
@@ -163,6 +161,8 @@ pub enum ModuleError {
     Vault(#[from] VaultError),
     #[error(transparent)]
     ModuleInfo(#[from] ModuleInfoError),
+    #[error(transparent)]
+    WrongModuleHash(#[from] eyre::ErrReport),
 }
 
 impl From<ModuleError> for JValue {

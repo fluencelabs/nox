@@ -74,7 +74,7 @@ impl ModuleRepository {
 
     pub fn add_module(&self, name: String, module: Vec<u8>) -> Result<Hash> {
         // TODO: remove unwrap
-        let hash = Hash::new(&module).unwrap();
+        let hash = Hash::new(&module)?;
         let (logger_enabled, mounted) = Self::get_module_effects(&module)?;
         let mut effector_settings = None;
         if !mounted.is_empty() {
@@ -113,7 +113,7 @@ impl ModuleRepository {
         module: Vec<u8>,
         config: TomlMarineNamedModuleConfig,
     ) -> Result<Hash> {
-        let hash = Hash::new(&module).unwrap();
+        let hash = Hash::new(&module)?;
         let _config = files::add_module(&self.modules_dir, &hash, &module, config)?;
         Ok(hash)
     }
@@ -402,15 +402,15 @@ mod tests {
     use base64::{engine::general_purpose::STANDARD as base64, Engine};
     use fluence_app_service::{TomlMarineModuleConfig, TomlMarineNamedModuleConfig};
     use maplit::hashmap;
+    use std::assert_matches::assert_matches;
     use std::default::Default;
     use std::path::PathBuf;
     use tempdir::TempDir;
-    use toml::map::Map;
-    use toml::Value;
 
     use service_modules::load_module;
     use service_modules::Hash;
 
+    use crate::ModuleError::ForbiddenEffector;
     use crate::{AddBlueprint, ModuleRepository};
 
     #[test]
@@ -480,29 +480,12 @@ mod tests {
     }
 
     #[test]
-    fn test_add_module_effector() {
-        let _effector_wasm_cid =
-            Hash::from_string("bafkreiepzclggkt57vu7yrhxylfhaafmuogtqly7wel7ozl5k2ehkd44oe")
-                .unwrap();
+    fn test_add_module_effector_forbidden() {
         let some_wasm_cid =
             Hash::from_string("bafkreibjsugno2xsa2ee46xge5t6z4vuwpepyphedbykrfgmm7i6jg6ihe")
                 .unwrap();
 
         let effector_path = "../crates/nox-tests/tests/effector/artifacts";
-        let mut mounted = Map::new();
-        mounted.insert("ls".to_string(), Value::String("/bin/ls".to_string()));
-        let config: TomlMarineNamedModuleConfig = TomlMarineNamedModuleConfig {
-            name: "effector".to_string(),
-            file_name: None,
-            load_from: None,
-            config: TomlMarineModuleConfig {
-                logger_enabled: None,
-                wasi: None,
-                mounted_binaries: Some(mounted),
-                logging_mask: None,
-            },
-        };
-
         let allowed_effectors = hashmap! {
             some_wasm_cid => hashmap! {
                 "ls".to_string() => PathBuf::from("/bin/ls"),
@@ -514,9 +497,32 @@ mod tests {
         let bp_dir = TempDir::new("test2").unwrap();
         let repo = ModuleRepository::new(module_dir.path(), bp_dir.path(), allowed_effectors);
 
-        let module = load_module(effector_path, &config.name).expect("load module");
-        let result = repo.add_module(config.name, module);
-        println!("{:?}", result);
+        let module = load_module(effector_path, "effector").expect("load module");
+        let result = repo.add_module("effector".to_string(), module);
+        assert_matches!(result, Err(ForbiddenEffector { .. }));
+    }
+
+    #[test]
+    fn test_add_module_effector_allowed() {
+        let effector_wasm_cid =
+            Hash::from_string("bafkreiepzclggkt57vu7yrhxylfhaafmuogtqly7wel7ozl5k2ehkd44oe")
+                .unwrap();
+
+        let effector_path = "../crates/nox-tests/tests/effector/artifacts";
+        let allowed_effectors = hashmap! {
+            effector_wasm_cid => hashmap! {
+                "ls".to_string() => PathBuf::from("/bin/ls"),
+                "cat".to_string() => PathBuf::from("/bin/cat"),
+            }
+        };
+
+        let module_dir = TempDir::new("test").unwrap();
+        let bp_dir = TempDir::new("test2").unwrap();
+        let repo = ModuleRepository::new(module_dir.path(), bp_dir.path(), allowed_effectors);
+
+        let module = load_module(effector_path, "effector").expect("load module");
+        let result = repo.add_module("effector".to_string(), module);
+        assert!(result.is_ok());
     }
 
     #[test]
@@ -531,18 +537,7 @@ mod tests {
         )
         .expect("load module");
 
-        let config: TomlMarineNamedModuleConfig = TomlMarineNamedModuleConfig {
-            name: "tetra".to_string(),
-            file_name: None,
-            load_from: None,
-            config: TomlMarineModuleConfig {
-                logger_enabled: None,
-                wasi: None,
-                mounted_binaries: None,
-                logging_mask: None,
-            },
-        };
-        let m_hash = repo.add_module(config.name, module).unwrap();
-        println!("{:?}", m_hash);
+        let result = repo.add_module("pure".to_string(), module);
+        assert!(result.is_ok());
     }
 }

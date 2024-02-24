@@ -1644,6 +1644,7 @@ dependencies = [
  "air-interpreter-fs",
  "aquamarine",
  "base64 0.21.7",
+ "cid-utils",
  "config-utils",
  "connection-pool",
  "core-manager",
