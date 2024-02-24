@@ -410,7 +410,7 @@ mod tests {
     use service_modules::load_module;
     use service_modules::Hash;
 
-    use crate::ModuleError::ForbiddenEffector;
+    use crate::ModuleError::{ForbiddenEffector, InvalidEffectorMountedBinary};
     use crate::{AddBlueprint, ModuleRepository};
 
     #[test]
@@ -480,6 +480,28 @@ mod tests {
     }
 
     #[test]
+    fn test_add_module_effector_allowed() {
+        let effector_wasm_cid =
+            Hash::from_string("bafkreiepzclggkt57vu7yrhxylfhaafmuogtqly7wel7ozl5k2ehkd44oe")
+                .unwrap();
+
+        let effector_path = "../crates/nox-tests/tests/effector/artifacts";
+        let allowed_effectors = hashmap! {
+            effector_wasm_cid => hashmap! {
+                "ls".to_string() => PathBuf::from("/bin/ls"),
+            }
+        };
+
+        let module_dir = TempDir::new("test").unwrap();
+        let bp_dir = TempDir::new("test2").unwrap();
+        let repo = ModuleRepository::new(module_dir.path(), bp_dir.path(), allowed_effectors);
+
+        let module = load_module(effector_path, "effector").expect("load module");
+        let result = repo.add_module("effector".to_string(), module);
+        assert_matches!(result, Ok(_));
+    }
+
+    #[test]
     fn test_add_module_effector_forbidden() {
         let some_wasm_cid =
             Hash::from_string("bafkreibjsugno2xsa2ee46xge5t6z4vuwpepyphedbykrfgmm7i6jg6ihe")
@@ -503,7 +525,7 @@ mod tests {
     }
 
     #[test]
-    fn test_add_module_effector_allowed() {
+    fn test_add_module_effector_invalid() {
         let effector_wasm_cid =
             Hash::from_string("bafkreiepzclggkt57vu7yrhxylfhaafmuogtqly7wel7ozl5k2ehkd44oe")
                 .unwrap();
@@ -522,7 +544,14 @@ mod tests {
 
         let module = load_module(effector_path, "effector").expect("load module");
         let result = repo.add_module("effector".to_string(), module);
-        assert!(result.is_ok());
+        let _cat = "cat".to_string();
+        assert_matches!(
+            result,
+            Err(InvalidEffectorMountedBinary {
+                binary_name: _cat,
+                ..
+            })
+        );
     }
 
     #[test]
@@ -538,6 +567,6 @@ mod tests {
         .expect("load module");
 
         let result = repo.add_module("pure".to_string(), module);
-        assert!(result.is_ok());
+        assert_matches!(result, Ok(_));
     }
 }

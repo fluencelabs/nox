@@ -301,13 +301,20 @@ impl<RT: AquaRuntime> Node<RT> {
             spell_metrics,
         );
 
+        let allowed_binaries = config
+            .allowed_effectors
+            .values()
+            .flat_map(|v| v.values().cloned().collect::<Vec<String>>())
+            .collect::<std::collections::HashSet<_>>()
+            .into_iter()
+            .collect::<_>();
         let node_info = NodeInfo {
             external_addresses: config.external_addresses(),
             node_version: env!("CARGO_PKG_VERSION"),
             air_version: air_interpreter_wasm::VERSION,
             spell_version: spell_version.clone(),
             // TODO: remove
-            allowed_binaries: vec![],
+            allowed_binaries,
         };
         if let Some(m) = metrics_registry.as_mut() {
             peer_metrics::add_info_metrics(
