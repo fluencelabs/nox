@@ -88,7 +88,7 @@ impl ModuleRepository {
                     {
                         return Err(InvalidEffectorMountedBinary {
                             module_name: name,
-                            module_cid: hash,
+                            module_cid: hash.to_string(),
                             binary_name: binary_name.clone(),
                         });
                     }

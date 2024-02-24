@@ -156,7 +156,7 @@ pub enum ModuleError {
     #[error("Module {module_name} with CID {module_cid} requested a binary `{binary_name}` which isn't in the configured list of binaries for the effector")]
     InvalidEffectorMountedBinary {
         module_name: String,
-        module_cid: Hash,
+        module_cid: String,
         binary_name: String,
     },
     #[error(transparent)]
