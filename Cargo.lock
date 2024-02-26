@@ -7303,6 +7303,7 @@ dependencies = [
  "libp2p-connection-limits",
  "libp2p-metrics",
  "log",
+ "maplit",
  "num_cpus",
  "particle-protocol",
  "peer-metrics",

@@ -135,6 +135,7 @@ pub struct UnresolvedNodeConfig {
     #[serde(default = "default_allowed_binaries")]
     pub allowed_binaries: Vec<String>,
 
+    #[serde(default = "default_effectors_config")]
     pub effectors: EffectorsConfig,
 
     #[serde(default)]
@@ -585,4 +586,20 @@ pub struct EffectorConfig {
     #[derivative(Debug(format_with = "std::fmt::Display::fmt"))]
     wasm_cid: Hash,
     allowed_binaries: HashMap<String, String>,
+}
+
+fn default_effectors_config() -> EffectorsConfig {
+    let config = default_effectors()
+        .into_iter()
+        .map(|(module_name, config)| {
+            (
+                module_name,
+                EffectorConfig {
+                    wasm_cid: Hash::from_string(&config.0).unwrap(),
+                    allowed_binaries: config.1,
+                },
+            )
+        })
+        .collect::<_>();
+    EffectorsConfig(config)
 }
