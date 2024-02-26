@@ -34,7 +34,7 @@ use crate::unixfs::Data as UnixFsMetadata;
 /// It should be used everywhere in the Fluence stack to produce the same CIDs.
 const CHUNK_SIZE: usize = 262144;
 
-#[derive(Clone, PartialEq, Eq, Hash)]
+#[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub struct Hash(pub Cid);
 
 impl Hash {
@@ -109,12 +109,5 @@ impl Serialize for Hash {
 impl Display for Hash {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         self.0.to_string().fmt(f)
-    }
-}
-
-// TODO: nice CID printing for --print-config, do smth clever later
-impl std::fmt::Debug for Hash {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        Display::fmt(self, f)
     }
 }
