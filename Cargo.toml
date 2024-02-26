@@ -106,8 +106,8 @@ types = { path = "crates/types" }
 core-manager = { path = "crates/core-manager" }
 
 # spell
-fluence-spell-dtos = "=0.7.5"
-fluence-spell-distro = "=0.7.5"
+fluence-spell-dtos = "=0.7.6"
+fluence-spell-distro = "=0.7.6"
 
 # marine
 fluence-app-service = "0.35.0"
