@@ -90,7 +90,7 @@ jobs:
   js-client:
     needs:
       - nox-snapshot
-    uses: fluencelabs/js-client/.github/workflows/tests.yml@master
+    uses: fluencelabs/js-client/.github/workflows/tests.yml@main
     with:
       ref: js-client-v0.8.4
       nox-image: "${{ needs.nox-snapshot.outputs.nox-image }}"
