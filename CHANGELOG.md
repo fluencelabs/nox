@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.21.1](https://github.com/fluencelabs/nox/compare/nox-v0.21.0...nox-v0.21.1) (2024-02-24)
+
+
+### Bug Fixes
+
+* **deps:** update decider 0.6.9 ([#2120](https://github.com/fluencelabs/nox/issues/2120)) ([e8ca595](https://github.com/fluencelabs/nox/commit/e8ca5958b2a7dfcc625443227ef0856c199ab3cd))
+
 ## [0.21.0](https://github.com/fluencelabs/nox/compare/nox-v0.20.2...nox-v0.21.0) (2024-02-23)
 
 
