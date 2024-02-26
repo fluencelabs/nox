@@ -211,7 +211,7 @@ impl UnresolvedNodeConfig {
             transport_config: self.transport_config,
             listen_config: self.listen_config,
             allowed_binaries,
-            allowed_effectors: allowed_effectors,
+            allowed_effectors,
             system_services: self.system_services,
             http_config: self.http_config,
             chain_config: self.chain_config,
