@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+use std::collections::HashMap;
 use std::net::IpAddr;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
@@ -22,6 +23,7 @@ use libp2p::core::Multiaddr;
 use libp2p::identity::ed25519::Keypair;
 use libp2p::identity::PublicKey;
 use libp2p::PeerId;
+use maplit::hashmap;
 
 use fluence_libp2p::Transport;
 
@@ -102,6 +104,7 @@ pub fn default_base_dir() -> PathBuf {
 pub fn persistent_dir(base_dir: &Path) -> PathBuf {
     base_dir.join("persistent")
 }
+
 pub fn ephemeral_dir(base_dir: &Path) -> PathBuf {
     base_dir.join("ephemeral")
 }
@@ -256,4 +259,12 @@ pub fn default_curl_binary_path() -> String {
 pub fn default_decider_network_id() -> u64 {
     // 80001 = polygon mumbai
     80001
+}
+
+pub fn default_effectors() -> HashMap<String, (String, HashMap<String, String>)> {
+    hashmap! {
+        "curl".to_string() => ("bafkreids22lgia5bqs63uigw4mqwhsoxvtnkpfqxqy5uwyyerrldsr32ce".to_string(), hashmap! {
+            "curl".to_string() => "/usr/bin/curl".to_string()
+        })
+    }
 }

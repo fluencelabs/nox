@@ -5,6 +5,7 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use base64::{engine::general_purpose::STANDARD as base64, Engine};
+use cid_utils::Hash;
 use clarity::PrivateKey;
 use core_manager::CoreRange;
 use derivative::Derivative;
@@ -130,8 +131,12 @@ pub struct UnresolvedNodeConfig {
     #[serde(default = "default_management_peer_id")]
     pub management_peer_id: PeerId,
 
+    // TODO: leave for now to migrate
     #[serde(default = "default_allowed_binaries")]
     pub allowed_binaries: Vec<String>,
+
+    #[serde(default = "default_effectors_config")]
+    pub effectors: EffectorsConfig,
 
     #[serde(default)]
     pub system_services: SystemServicesConfig,
@@ -164,6 +169,17 @@ impl UnresolvedNodeConfig {
         allowed_binaries.push(self.system_services.aqua_ipfs.ipfs_binary_path.clone());
         allowed_binaries.push(self.system_services.connector.curl_binary_path.clone());
 
+        let allowed_effectors = self
+            .effectors
+            .0
+            .into_values()
+            .map(|effector_config| {
+                let wasm_cid = effector_config.wasm_cid;
+                let allowed_binaries = effector_config.allowed_binaries;
+                (wasm_cid, allowed_binaries)
+            })
+            .collect::<_>();
+
         let cpus_range = self.cpus_range.unwrap_or_default();
 
         let result = NodeConfig {
@@ -195,6 +211,7 @@ impl UnresolvedNodeConfig {
             transport_config: self.transport_config,
             listen_config: self.listen_config,
             allowed_binaries,
+            allowed_effectors,
             system_services: self.system_services,
             http_config: self.http_config,
             chain_config: self.chain_config,
@@ -364,6 +381,8 @@ pub struct NodeConfig {
     pub management_peer_id: PeerId,
 
     pub allowed_binaries: Vec<String>,
+
+    pub allowed_effectors: HashMap<Hash, HashMap<String, String>>,
 
     pub system_services: SystemServicesConfig,
 
@@ -551,4 +570,36 @@ pub struct ChainListenerConfig {
     pub ccp_endpoint: Option<String>,
     /// How often to poll proofs
     pub proof_poll_period: Duration,
+}
+
+/// Name of the effector module
+/// Current is used only for users and is ignored by Nox
+type EffectorModuleName = String;
+
+#[derive(Clone, Deserialize, Serialize, Derivative)]
+#[derivative(Debug)]
+pub struct EffectorsConfig(HashMap<EffectorModuleName, EffectorConfig>);
+
+#[derive(Clone, Deserialize, Serialize, Derivative)]
+#[derivative(Debug)]
+pub struct EffectorConfig {
+    #[derivative(Debug(format_with = "std::fmt::Display::fmt"))]
+    wasm_cid: Hash,
+    allowed_binaries: HashMap<String, String>,
+}
+
+fn default_effectors_config() -> EffectorsConfig {
+    let config = default_effectors()
+        .into_iter()
+        .map(|(module_name, config)| {
+            (
+                module_name,
+                EffectorConfig {
+                    wasm_cid: Hash::from_string(&config.0).unwrap(),
+                    allowed_binaries: config.1,
+                },
+            )
+        })
+        .collect::<_>();
+    EffectorsConfig(config)
 }

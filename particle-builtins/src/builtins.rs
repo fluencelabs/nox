@@ -23,11 +23,12 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use derivative::Derivative;
+use fluence_app_service::TomlMarineNamedModuleConfig;
 use fluence_keypair::Signature;
 use libp2p::{core::Multiaddr, kad::KBucketKey, kad::K_VALUE, PeerId};
 use multihash::Multihash;
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value as JValue};
+use serde_json::{json, Value as JValue, Value};
 use tokio::sync::RwLock;
 use JValue::Array;
 
@@ -108,7 +109,7 @@ where
         let modules_dir = &config.modules_dir;
         let blueprint_dir = &config.blueprint_dir;
         let modules =
-            ModuleRepository::new(modules_dir, blueprint_dir, config.allowed_binaries.clone());
+            ModuleRepository::new(modules_dir, blueprint_dir, config.allowed_effectors.clone());
         let services = ParticleAppServices::new(
             config,
             modules.clone(),
@@ -205,6 +206,7 @@ where
 
             ("dist", "add_module_from_vault") => wrap(self.add_module_from_vault(args, particle)),
             ("dist", "add_module") => wrap(self.add_module(args)),
+            ("dist", "add_module_bytes_from_vault") => wrap(self.add_module_bytes_from_vault(args, particle)),
             ("dist", "add_blueprint") => wrap(self.add_blueprint(args)),
             ("dist", "make_module_config") => wrap(make_module_config(args)),
             ("dist", "load_module_config") => wrap(self.load_module_config_from_vault(args, particle)),
@@ -283,7 +285,7 @@ where
                     log::debug!(target: "run-console", "{}", json!(args.function_args));
                 }
                 wrap_unit(Ok(()))
-            },
+            }
 
             _ => FunctionOutcome::NotDefined { args, params: particle },
         }
@@ -617,13 +619,32 @@ where
     fn add_module_from_vault(&self, args: Args, params: ParticleParams) -> Result<JValue, JError> {
         let mut args = args.function_args.into_iter();
         let module_path: String = Args::next("module_path", &mut args)?;
-        let config = Args::next("config", &mut args)?;
+        let config: TomlMarineNamedModuleConfig = Args::next("config", &mut args)?;
 
         let module_hash = self.modules.add_module_from_vault(
             &self.services.vault,
             self.scopes.to_peer_id(params.peer_scope),
+            config.name,
             module_path,
-            config,
+            params,
+        )?;
+
+        Ok(json!(module_hash))
+    }
+
+    fn add_module_bytes_from_vault(
+        &self,
+        args: Args,
+        params: ParticleParams,
+    ) -> Result<Value, JError> {
+        let mut args = args.function_args.into_iter();
+        let module_name: String = Args::next("module_name", &mut args)?;
+        let module_path: String = Args::next("module_path", &mut args)?;
+        let module_hash = self.modules.add_module_from_vault(
+            &self.services.vault,
+            self.scopes.to_peer_id(params.peer_scope),
+            module_name,
+            module_path,
             params,
         )?;
 
@@ -659,7 +680,6 @@ where
 
         Ok(config)
     }
-
     fn default_module_config(&self, args: Args) -> Result<JValue, JError> {
         let mut args = args.function_args.into_iter();
         let module_name: String = Args::next("module_name", &mut args)?;

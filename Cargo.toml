@@ -106,13 +106,14 @@ types = { path = "crates/types" }
 core-manager = { path = "crates/core-manager" }
 
 # spell
-fluence-spell-dtos = "=0.7.4"
-fluence-spell-distro = "=0.7.4"
+fluence-spell-dtos = "=0.7.5"
+fluence-spell-distro = "=0.7.5"
 
 # marine
 fluence-app-service = "0.35.0"
 marine-utils = "0.5.1"
 marine-it-parser = "0.16.0"
+marine-module-info-parser = "0.15.0"
 
 # avm
 avm-server = "=0.35.0"
@@ -177,7 +178,6 @@ ccp-shared = { git = "https://github.com/fluencelabs/capacity-commitment-prover/
 ccp-rpc-client = { git = "https://github.com/fluencelabs/capacity-commitment-prover.git", branch = "main" }
 
 
-# Enable a small amount of optimization in debug mode
 [profile.dev]
 opt-level = 0
 

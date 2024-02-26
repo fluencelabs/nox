@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+use std::collections::HashMap;
 use std::convert::identity;
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -31,6 +32,7 @@ use air_interpreter_fs::{air_interpreter_path, write_default_air_interpreter};
 use aquamarine::{AVMRunner, AquamarineApi};
 use aquamarine::{AquaRuntime, DataStoreConfig, VmConfig};
 use base64::{engine::general_purpose::STANDARD as base64, Engine};
+use cid_utils::Hash;
 use core_manager::manager::DummyCoreManager;
 use fluence_libp2p::random_multiaddr::{create_memory_maddr, create_tcp_maddr};
 use fluence_libp2p::Transport;
@@ -267,6 +269,7 @@ pub struct SwarmConfig {
     pub builtins_dir: Option<PathBuf>,
     pub spell_base_dir: Option<PathBuf>,
     pub allowed_binaries: Vec<String>,
+    pub allowed_effectors: HashMap<String, HashMap<String, String>>,
     pub enabled_system_services: Vec<String>,
     pub extend_system_services: Vec<system_services::PackageDistro>,
     pub override_system_services_config: Option<system_services_config::SystemServicesConfig>,
@@ -295,6 +298,7 @@ impl SwarmConfig {
             builtins_dir: None,
             spell_base_dir: None,
             allowed_binaries: vec!["/usr/bin/ipfs".to_string(), "/usr/bin/curl".to_string()],
+            allowed_effectors: HashMap::new(),
             enabled_system_services: vec![],
             extend_system_services: vec![],
             override_system_services_config: None,
@@ -401,6 +405,11 @@ pub async fn create_swarm_with_runtime<RT: AquaRuntime>(
         resolved.node_config.particle_execution_timeout = EXECUTION_TIMEOUT;
 
         resolved.node_config.allowed_binaries = config.allowed_binaries.clone();
+
+        let allowed_effectors = config.allowed_effectors.iter().map(|(cid, binaries)| {
+            (Hash::from_string(cid).unwrap(), binaries.clone())
+        }).collect::<_>();
+        resolved.node_config.allowed_effectors = allowed_effectors;
 
         if let Some(config) = config.override_system_services_config.clone() {
             resolved.system_services = config;
