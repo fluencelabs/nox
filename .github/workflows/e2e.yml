@@ -98,7 +98,7 @@ jobs:
   aqua:
     needs:
       - nox-snapshot
-    uses: fluencelabs/aqua/.github/workflows/tests.yml@main
+    uses: fluencelabs/aqua/.github/workflows/tests.yml@renovate/fluencelabs-js-client-0.x
     with:
       nox-image: "${{ needs.nox-snapshot.outputs.nox-image }}"
       js-client-snapshots: "0.9.0"
