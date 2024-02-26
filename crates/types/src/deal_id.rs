@@ -36,13 +36,13 @@ impl Serialize for DealId {
 
 impl PartialEq<&str> for DealId {
     fn eq(&self, other: &&str) -> bool {
-        self.0 == DealId::normalize(*other)
+        self.0 == DealId::normalize(other)
     }
 }
 
 impl PartialEq<&str> for &DealId {
     fn eq(&self, other: &&str) -> bool {
-        self.0 == DealId::normalize(*other)
+        self.0 == DealId::normalize(other)
     }
 }
 
