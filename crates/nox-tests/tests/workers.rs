@@ -2,7 +2,6 @@ use connected_client::ConnectedClient;
 use created_swarm::make_swarms;
 use eyre::Context;
 use hex::FromHex;
-use log_utils::enable_logs;
 use maplit::hashmap;
 use serde_json::json;
 use workers::CUID;
