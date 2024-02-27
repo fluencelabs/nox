@@ -82,9 +82,11 @@ jobs:
   cli:
     needs:
       - nox-snapshot
+      - js-client
     uses: fluencelabs/cli/.github/workflows/tests.yml@main
     with:
       ref: up-spell-and-fixes
+      js-client-snapshots: "${{ needs.js-client.outputs.js-client-snapshots }}"
       nox-image: "${{ needs.nox-snapshot.outputs.nox-image }}"
 
   js-client:
@@ -100,7 +102,7 @@ jobs:
       - js-client
     uses: fluencelabs/aqua/.github/workflows/tests.yml@main
     with:
-      js-client-snapshots: "0.9.0"
+      js-client-snapshots: "${{ needs.js-client.outputs.js-client-snapshots }}"
       nox-image: "${{ needs.nox-snapshot.outputs.nox-image }}"
 
   registry:
