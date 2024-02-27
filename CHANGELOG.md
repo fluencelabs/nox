@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.21.2](https://github.com/fluencelabs/nox/compare/nox-v0.21.1...nox-v0.21.2) (2024-02-27)
+
+
+### Features
+
+* introduce DealId type ([#2124](https://github.com/fluencelabs/nox/issues/2124)) ([ed0984d](https://github.com/fluencelabs/nox/commit/ed0984d62ffec7dfb0c6c5010900e4bad363010f))
+* restrict effectors ([#2110](https://github.com/fluencelabs/nox/issues/2110)) ([a4485ab](https://github.com/fluencelabs/nox/commit/a4485ab3a36f091941b5d4cc06b952fdac6c702e))
+
 ## [0.21.1](https://github.com/fluencelabs/nox/compare/nox-v0.21.0...nox-v0.21.1) (2024-02-24)
 
 
