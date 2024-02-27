@@ -40,7 +40,11 @@ pub(crate) async fn create_worker(
     let cu_ids: Vec<CUID> = Args::next("cu_ids", &mut args)?;
     Ok(JValue::String(
         workers
-            .create_worker(WorkerParams::new(deal_id, params.init_peer_id, cu_ids))
+            .create_worker(WorkerParams::new(
+                deal_id.into(),
+                params.init_peer_id,
+                cu_ids,
+            ))
             .await?
             .to_string(),
     ))
@@ -52,7 +56,7 @@ pub(crate) fn get_worker_peer_id(args: Args, workers: Arc<Workers>) -> Result<JV
 
     Ok(JValue::Array(
         workers
-            .get_worker_id(deal_id)
+            .get_worker_id(deal_id.into())
             .map(|id| vec![JValue::String(id.to_string())])
             .unwrap_or_default(),
     ))
@@ -135,7 +139,7 @@ pub(crate) async fn deactivate_deal(
         ));
     }
 
-    let worker_id = workers.get_worker_id(deal_id)?;
+    let worker_id = workers.get_worker_id(deal_id.into())?;
 
     if !workers.is_worker_active(worker_id) {
         return Err(JError::new("Deal has already been deactivated"));
@@ -194,7 +198,7 @@ pub(crate) async fn activate_deal(
         ));
     }
 
-    let worker_id = workers.get_worker_id(deal_id)?;
+    let worker_id = workers.get_worker_id(deal_id.into())?;
 
     if workers.is_worker_active(worker_id) {
         return Err(JError::new("Deal has already been activated"));
@@ -241,6 +245,6 @@ pub(crate) async fn activate_deal(
 pub(crate) fn is_deal_active(args: Args, workers: Arc<Workers>) -> Result<JValue, JError> {
     let mut args = args.function_args.into_iter();
     let deal_id: String = Args::next("deal_id", &mut args)?;
-    let worker_id = workers.get_worker_id(deal_id)?;
+    let worker_id = workers.get_worker_id(deal_id.into())?;
     Ok(JValue::Bool(workers.is_worker_active(worker_id)))
 }

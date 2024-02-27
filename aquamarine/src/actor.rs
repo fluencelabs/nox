@@ -33,6 +33,7 @@ use fluence_keypair::KeyPair;
 use fluence_libp2p::PeerId;
 use particle_execution::{ParticleFunctionStatic, ServiceFunction};
 use particle_protocol::{ExtendedParticle, Particle};
+use types::DealId;
 
 struct Reusables<RT> {
     vm_id: usize,
@@ -68,7 +69,7 @@ pub struct Actor<RT, F> {
     key_pair: KeyPair,
     data_store: Arc<ParticleDataStore>,
     spawner: Spawner,
-    deal_id: Option<String>,
+    deal_id: Option<DealId>,
 }
 
 impl<RT, F> Actor<RT, F>
@@ -85,7 +86,7 @@ where
         particle_token: String,
         key_pair: KeyPair,
         data_store: Arc<ParticleDataStore>,
-        deal_id: Option<String>,
+        deal_id: Option<DealId>,
         spawner: Spawner,
     ) -> Self {
         Self {
@@ -161,7 +162,7 @@ where
                 parent: parent_span.as_ref(),
                 "Actor::poll_avm_future::future_ready",
                 particle_id= self.particle.id,
-                deal_id = self.deal_id
+                deal_id = self.deal_id.as_ref().map(String::from)
             );
             let _span_guard = span.enter();
 
@@ -281,7 +282,7 @@ where
         let async_span = tracing::info_span!(
             "Actor: async AVM process particle & call results",
             particle_id = particle_id,
-            deal_id = self.deal_id
+            deal_id = self.deal_id.as_ref().map(String::from)
         );
         if let Some(ext_particle) = ext_particle.as_ref() {
             async_span.follows_from(ext_particle.span.as_ref());
