@@ -186,6 +186,49 @@ where
         }
     }
 
+    fn is_worker_spell(
+        services: &ParticleAppServices,
+        worker_id: PeerScope,
+        particle: &ParticleParams,
+    ) -> bool {
+        let result: Option<_> = try {
+            let spell_id = ParticleParams::get_spell_id(&particle.id)?;
+            let (worker_service, _) = services
+                .get_service(worker_id, "worker-spell".to_string(), &particle.id)
+                .ok()?;
+            worker_service.service_type == ServiceType::Spell
+                && worker_service.service_id == spell_id
+        };
+        result.unwrap_or(false)
+    }
+
+    async fn builtins_call_host_worker_spell(
+        &self,
+        args: Args,
+        particle: ParticleParams,
+    ) -> FunctionOutcome {
+        let is_host_or_worker_spell = match self.scopes.scope(particle.init_peer_id) {
+            Ok(PeerScope::Host) => true,
+            Ok(scope @ PeerScope::WorkerId(_)) => {
+                Self::is_worker_spell(&self.services, scope, &particle)
+            }
+            Err(_) => false,
+        };
+        if is_host_or_worker_spell {
+            FunctionOutcome::NotDefined {
+                args,
+                params: particle,
+            }
+        } else {
+            FunctionOutcome::NotDefined {
+                args,
+                params: particle,
+            }
+        }
+    }
+
+    async fn builtins_protected() {}
+
     // TODO: get rid of all blocking methods (std::fs and such)
     pub async fn builtins_call(&self, args: Args, particle: ParticleParams) -> FunctionOutcome {
         use Result as R;
