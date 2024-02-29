@@ -41,3 +41,4 @@ mod persistence;
 
 pub use app_services::ServiceInfo;
 pub use types::peer_scope::PeerScope;
+pub use workers::AquaRuntime;

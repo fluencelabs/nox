@@ -49,8 +49,8 @@ members = [
     "crates/chain-data",
     "crates/chain-types",
     "crates/types",
-    "crates/core-manager"
-]
+    "crates/core-manager",
+    "crates/aqua-runtime"]
 exclude = [
     "nox/tests/tetraplets",
 ]
@@ -104,6 +104,7 @@ chain-connector = { path = "crates/chain-connector" }
 chain-types = { path = "crates/chain-types" }
 types = { path = "crates/types" }
 core-manager = { path = "crates/core-manager" }
+aqua-runtime = { path = "crates/aqua-runtime" }
 
 # spell
 fluence-spell-dtos = "=0.7.5"

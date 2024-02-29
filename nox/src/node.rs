@@ -103,7 +103,7 @@ pub struct Node<RT: AquaRuntime> {
 
     pub chain_listener: Option<ChainListener>,
 
-    workers: Arc<Workers>,
+    workers: Arc<Workers<RT>>,
 }
 
 impl<RT: AquaRuntime> Node<RT> {
@@ -141,6 +141,7 @@ impl<RT: AquaRuntime> Node<RT> {
         );
 
         let workers = Workers::from_path(
+            vm_config.clone(),
             config.dir_config.workers_base_dir.clone(),
             key_storage.clone(),
             core_manager.clone(),
@@ -476,7 +477,7 @@ impl<RT: AquaRuntime> Node<RT> {
         services_config: ServicesConfig,
         services_metrics: ServicesMetrics,
         key_storage: Arc<KeyStorage>,
-        workers: Arc<Workers>,
+        workers: Arc<Workers<RT>>,
         scopes: PeerScopes,
         health_registry: Option<&mut HealthCheckRegistry>,
         connector_api_endpoint: String,
@@ -524,7 +525,7 @@ impl<RT: AquaRuntime> Node<RT> {
         allow_local_addresses: bool,
         versions: Versions,
         chain_listener: Option<ChainListener>,
-        workers: Arc<Workers>,
+        workers: Arc<Workers<RT>>,
     ) -> Box<Self> {
         let node_service = Self {
             particle_stream,

@@ -19,6 +19,7 @@ use std::borrow::Cow;
 use std::sync::Arc;
 use std::time::Instant;
 
+use aqua_runtime::AquaRuntime;
 use avm_server::avm_runner::RawAVMOutcome;
 use avm_server::{CallResults, ParticleParameters};
 use fluence_keypair::KeyPair;
@@ -28,7 +29,6 @@ use tracing::instrument;
 use fluence_libp2p::PeerId;
 use particle_protocol::Particle;
 
-use crate::aqua_runtime::AquaRuntime;
 use crate::spawner::SpawnFunctions;
 use crate::spawner::Spawner;
 use crate::{InterpretationStats, ParticleDataStore, ParticleEffects};

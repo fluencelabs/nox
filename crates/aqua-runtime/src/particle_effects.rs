@@ -15,11 +15,11 @@
  */
 
 use avm_server::CallRequests;
+use libp2p_identity::PeerId;
 use particle_protocol::ExtendedParticle;
 use std::time::Duration;
 
-use libp2p::PeerId;
-use particle_services::PeerScope;
+use types::peer_scope::PeerScope;
 
 #[derive(Clone, Debug)]
 /// Effects produced by particle execution. Currently the only effect is that of sending particles.

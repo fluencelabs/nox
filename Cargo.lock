@@ -249,10 +249,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "aqua-runtime"
+version = "0.1.0"
+dependencies = [
+ "avm-server",
+ "eyre",
+ "fluence-keypair",
+ "futures-core",
+ "futures-util",
+ "health",
+ "libp2p-identity",
+ "particle-protocol",
+ "peer-metrics",
+ "tokio",
+ "tracing",
+ "types",
+]
+
+[[package]]
 name = "aquamarine"
 version = "0.2.0"
 dependencies = [
  "anyhow",
+ "aqua-runtime",
  "async-trait",
  "avm-server",
  "base64 0.21.7",
@@ -5994,6 +6013,7 @@ dependencies = [
  "tokio-stream",
  "tokio-util",
  "toml 0.5.11",
+ "toy-vms",
  "tracing",
  "types",
  "uuid",
@@ -6041,6 +6061,7 @@ dependencies = [
  "serde_json",
  "tokio",
  "tokio-stream",
+ "types",
 ]
 
 [[package]]
@@ -9558,6 +9579,8 @@ dependencies = [
 name = "workers"
 version = "0.1.0"
 dependencies = [
+ "aqua-runtime",
+ "async-trait",
  "core-manager",
  "derivative",
  "eyre",

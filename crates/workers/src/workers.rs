@@ -1,13 +1,15 @@
+use async_trait::async_trait;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
 
+use aqua_runtime::{AquaRuntime, VmPool};
 use core_manager::manager::{CoreManager, CoreManagerFunctions};
 use core_manager::types::{AcquireRequest, WorkType};
 use core_manager::CUID;
 use fluence_libp2p::PeerId;
-use parking_lot::RwLock;
+use parking_lot::{Mutex, RwLock};
 use tokio::runtime::{Handle, Runtime, UnhandledPanic};
 use types::peer_scope::WorkerId;
 use types::DealId;
@@ -28,24 +30,6 @@ pub struct WorkerInfo {
     pub cu_ids: Vec<CUID>,
 }
 
-/// Manages a collection of workers.
-pub struct Workers {
-    /// Manages a collection of workers.
-    worker_ids: RwLock<HashMap<DealId, WorkerId>>,
-    /// Mapping of worker IDs to worker information.
-    worker_infos: RwLock<HashMap<WorkerId, WorkerInfo>>,
-    /// Directory path where worker data is persisted.
-    workers_dir: PathBuf,
-    /// Key storage for managing worker key pairs.
-    key_storage: Arc<KeyStorage>,
-    /// Mapping of worker IDs to worker runtime.
-    runtimes: RwLock<HashMap<WorkerId, Runtime>>,
-    /// Core manager for core assignment
-    core_manager: Arc<CoreManager>,
-    /// Number of created tokio runtimes
-    runtime_counter: Arc<AtomicU32>,
-}
-
 pub struct WorkerParams {
     deal_id: DealId,
     init_peer_id: PeerId,
@@ -62,7 +46,28 @@ impl WorkerParams {
     }
 }
 
-impl Workers {
+/// Manages a collection of workers.
+pub struct Workers<RT: AquaRuntime> {
+    config: RT::Config,
+    /// Manages a collection of workers.
+    worker_ids: RwLock<HashMap<DealId, WorkerId>>,
+    /// Mapping of worker IDs to worker information.
+    worker_infos: RwLock<HashMap<WorkerId, WorkerInfo>>,
+    /// Directory path where worker data is persisted.
+    workers_dir: PathBuf,
+    /// Key storage for managing worker key pairs.
+    key_storage: Arc<KeyStorage>,
+    /// Mapping of worker IDs to worker runtime.
+    runtimes: RwLock<HashMap<WorkerId, Runtime>>,
+    /// Core manager for core assignment
+    core_manager: Arc<CoreManager>,
+    /// Number of created tokio runtimes
+    runtime_counter: Arc<AtomicU32>,
+
+    vm_pools: RwLock<HashMap<WorkerId, Arc<Mutex<VmPool<RT>>>>>,
+}
+
+impl<RT: AquaRuntime> Workers<RT> {
     /// Creates a `Workers` instance by loading persisted worker data from the specified directory.
     ///
     /// # Arguments
@@ -78,6 +83,7 @@ impl Workers {
     /// - `Err(eyre::Error)` if an error occurs during the creation process.
     ///
     pub async fn from_path(
+        config: RT::Config,
         workers_dir: PathBuf,
         key_storage: Arc<KeyStorage>,
         core_manager: Arc<CoreManager>,
@@ -86,6 +92,7 @@ impl Workers {
         let mut worker_ids = HashMap::with_capacity(workers.len());
         let mut worker_infos = HashMap::with_capacity(workers.len());
         let mut runtimes = HashMap::with_capacity(workers.len());
+        let mut vm_pools = HashMap::with_capacity(workers.len());
 
         let worker_counter = Arc::new(AtomicU32::new(0));
 
@@ -96,7 +103,7 @@ impl Workers {
             worker_infos.insert(worker_id, w.into());
             worker_ids.insert(deal_id, worker_id);
 
-            let runtime = Self::build_runtime(
+            let (runtime, thread_count) = Self::build_runtime(
                 core_manager.clone(),
                 worker_counter.clone(),
                 worker_id,
@@ -104,8 +111,12 @@ impl Workers {
             )?;
 
             runtimes.insert(worker_id, runtime);
+
+            let vm_pool = VmPool::new(thread_count, config.clone(), None, None);
+            vm_pools.insert(worker_id, Arc::new(Mutex::new(vm_pool)));
         }
         Ok(Self {
+            config,
             worker_ids: RwLock::new(worker_ids),
             worker_infos: RwLock::new(worker_infos),
             workers_dir,
@@ -113,131 +124,8 @@ impl Workers {
             runtimes: RwLock::new(runtimes),
             runtime_counter: worker_counter,
             core_manager,
+            vm_pools: RwLock::new(vm_pools),
         })
-    }
-
-    fn build_runtime(
-        core_manager: Arc<CoreManager>,
-        worker_counter: Arc<AtomicU32>,
-        worker_id: WorkerId,
-        cu_ids: Vec<CUID>,
-    ) -> Result<Runtime, WorkersError> {
-        // Creating a multi-threaded Tokio runtime with a total of cu_count * 2 threads.
-        // We assume cu_count threads per logical processor, aligning with the common practice.
-        let assignment = core_manager
-            .acquire_worker_core(AcquireRequest::new(cu_ids, WorkType::Deal))
-            .map_err(|err| WorkersError::FailedToAssignCores { worker_id, err })?;
-
-        let threads_count = assignment.logical_core_ids.len();
-
-        let id = worker_counter.fetch_add(1, Ordering::Acquire);
-
-        tracing::info!(target: "worker", "Creating runtime with id {} for worker id {}. Pinned to cores: {:?}", id, worker_id, assignment.logical_core_ids);
-
-        let runtime = tokio::runtime::Builder::new_multi_thread()
-            .thread_name(format!("worker-pool-{}", id))
-            // Configuring worker threads for executing service calls and particles
-            .worker_threads(threads_count)
-            // Configuring blocking threads for handling I/O
-            .max_blocking_threads(threads_count)
-            .enable_time()
-            .enable_io()
-            .on_thread_start(move || {
-                assignment.pin_current_thread();
-            })
-            .unhandled_panic(UnhandledPanic::Ignore) // TODO: try to log panics after fix https://github.com/tokio-rs/tokio/issues/4516
-            .build()
-            .map_err(|err| WorkersError::CreateRuntime { worker_id, err })?;
-        Ok(runtime)
-    }
-
-    /// Creates a new worker with the given `deal_id` and initial peer ID.
-    ///
-    /// # Arguments
-    ///
-    /// * `deal_id` - A `String` representing the unique identifier for the deal associated with the worker.
-    /// * `init_peer_id` - The initial `PeerId` of the worker.
-    ///
-    /// # Returns
-    ///
-    /// Returns `Result<PeerId, WorkersError>` where:
-    /// - `Ok(worker_id)` if the worker is successfully created, returning the ID of the created worker.
-    /// - `Err(WorkersError)` if an error occurs, such as the worker already existing or key pair creation failure.
-    ///
-    pub async fn create_worker(&self, params: WorkerParams) -> Result<WorkerId, WorkersError> {
-        let deal_id = params.deal_id;
-        let init_peer_id = params.init_peer_id;
-        let cu_ids = params.cu_ids;
-
-        let worker_id = {
-            let guard = self.worker_ids.read();
-            guard.get(&deal_id).cloned()
-        };
-        match worker_id {
-            Some(_) => Err(WorkersError::WorkerAlreadyExists { deal_id }),
-            _ => {
-                let key_pair = self
-                    .key_storage
-                    .create_key_pair()
-                    .await
-                    .map_err(|err| WorkersError::CreateWorkerKeyPair { err })?;
-
-                let worker_id: WorkerId = key_pair.get_peer_id().into();
-
-                let worker_info = self
-                    .store_worker(worker_id, deal_id.clone(), init_peer_id, cu_ids.clone())
-                    .await;
-
-                match worker_info {
-                    Ok(worker_info) => {
-                        let mut worker_ids = self.worker_ids.write();
-                        if worker_ids.contains_key(&deal_id) {
-                            return Err(WorkersError::WorkerAlreadyExists { deal_id });
-                        }
-
-                        let runtime = Self::build_runtime(
-                            self.core_manager.clone(),
-                            self.runtime_counter.clone(),
-                            worker_id,
-                            cu_ids,
-                        )?;
-
-                        let mut worker_infos = self.worker_infos.write();
-                        let mut runtimes = self.runtimes.write();
-
-                        worker_ids.insert(deal_id, worker_id);
-                        worker_infos.insert(worker_id, worker_info);
-                        runtimes.insert(worker_id, runtime);
-                    }
-                    Err(err) => {
-                        tracing::warn!(
-                            target = "worker-registry",
-                            worker_id = worker_id.to_string(),
-                            "Failed to store worker info for {worker_id}: {}",
-                            err
-                        );
-                        self.key_storage
-                            .remove_key_pair(worker_id)
-                            .await
-                            .map_err(|err| WorkersError::RemoveWorkerKeyPair { err })?;
-
-                        return Err(err);
-                    }
-                }
-
-                Ok(worker_id)
-            }
-        }
-    }
-
-    /// Retrieves a list of all worker IDs.
-    ///
-    /// # Returns
-    ///
-    /// Returns a `Vec<WorkerId>` representing a list of all worker IDs currently registered.
-    ///
-    pub fn list_workers(&self) -> Vec<WorkerId> {
-        self.worker_infos.read().keys().cloned().collect()
     }
 
     /// Retrieves the deal ID associated with the specified worker ID.
@@ -260,101 +148,28 @@ impl Workers {
             .map(|info| info.deal_id.clone())
     }
 
-    /// Removes a worker with the specified `worker_id`.
-    ///
-    /// # Arguments
-    ///
-    /// * `worker_id` - The `PeerId` of the worker to be removed.
-    ///
-    /// # Returns
-    ///
-    /// Returns `Result<(), WorkersError>` where:
-    /// - `Ok(())` if the worker is successfully removed.
-    /// - `Err(WorkersError)` if an error occurs, such as the worker not found or key pair removal failure.
-    ///
-    pub async fn remove_worker(&self, worker_id: WorkerId) -> Result<(), WorkersError> {
-        let deal_id = self.get_deal_id(worker_id)?;
-        remove_worker(&self.workers_dir, worker_id).await?;
-        self.key_storage
-            .remove_key_pair(worker_id)
-            .await
-            .map_err(|err| WorkersError::RemoveWorkerKeyPair { err })?;
+    pub fn get_pool(&self, worker_id: WorkerId) -> Option<Arc<Mutex<VmPool<RT>>>> {
+        self.vm_pools.read().get(&worker_id).cloned()
+    }
 
-        let mut worker_ids = self.worker_ids.write();
-        let mut worker_infos = self.worker_infos.write();
+    pub fn shutdown(&self) {
         let mut runtimes = self.runtimes.write();
-        let removed_worker_id = worker_ids.remove(&deal_id);
-        let removed_worker_info = worker_infos.remove(&worker_id);
-        let removed_runtime = runtimes.remove(&worker_id);
-
-        drop(worker_ids);
-        drop(worker_infos);
-        drop(runtimes);
-
-        debug_assert!(removed_worker_id.is_some(), "worker_id does not exist");
-        debug_assert!(removed_worker_info.is_some(), "worker info does not exist");
-        debug_assert!(removed_runtime.is_some(), "worker info does not exist");
-
-        if let Some(runtime) = removed_runtime {
-            // we can't shutdown the runtime in the async context, shift it to the blocking pool
-            // also we don't wait the result
-            tokio::task::Builder::new()
-                .name(&format!("runtime-shutdown-{}", worker_id))
-                .spawn_blocking(move || runtime.shutdown_background())
-                .expect("Could not spawn task");
+        let mut deleted_runtimes = Vec::with_capacity(runtimes.len());
+        let worker_ids: Vec<WorkerId> = runtimes.keys().cloned().collect();
+        for worker_id in worker_ids {
+            if let Some(runtime) = runtimes.remove(&worker_id) {
+                deleted_runtimes.push(runtime);
+            }
         }
 
-        Ok(())
-    }
-
-    /// Retrieves the worker ID associated with the specified `deal_id`.
-    ///
-    /// # Arguments
-    ///
-    /// * `deal_id` - The unique identifier (`String`) of the deal associated with the worker.
-    ///
-    /// # Returns
-    ///
-    /// Returns `Result<PeerId, WorkersError>` where:
-    /// - `Ok(worker_id)` if the worker ID is successfully retrieved.
-    /// - `Err(WorkersError)` if an error occurs, such as the worker not found.
-    ///
-    pub fn get_worker_id(&self, deal_id: DealId) -> Result<WorkerId, WorkersError> {
-        self.worker_ids
-            .read()
-            .get(&deal_id)
-            .cloned()
-            .ok_or(WorkersError::WorkerNotFoundByDeal(deal_id))
-    }
-
-    /// Retrieves the creator `PeerId` associated with the specified worker `PeerId`.
-    ///
-    /// If the provided `worker_id` belongs to the host, the host's `PeerId` is returned.
-    /// Otherwise, the creator's `PeerId` associated with the worker is retrieved.
-    ///
-    /// # Arguments
-    ///
-    /// * `worker_id` - The `PeerId` of the worker for which the creator `PeerId` is requested.
-    ///
-    /// # Returns
-    ///
-    /// Returns `Result<PeerId, WorkersError>` where:
-    /// - `Ok(creator_peer_id)` if the creator `PeerId` is successfully retrieved.
-    /// - `Err(WorkersError)` if an error occurs, such as the worker not found.
-    ///
-    pub fn get_worker_creator(&self, worker_id: WorkerId) -> Result<PeerId, WorkersError> {
-        self.worker_infos
-            .read()
-            .get(&worker_id)
-            .map(|i| i.creator)
-            .ok_or(WorkersError::WorkerNotFound(worker_id))
-    }
-
-    pub fn get_handle(&self, worker_id: WorkerId) -> Option<Handle> {
-        self.runtimes
-            .read()
-            .get(&worker_id)
-            .map(|x| x.handle().clone())
+        tokio::task::Builder::new()
+            .name("workers-shutdown")
+            .spawn_blocking(move || {
+                for runtime in deleted_runtimes {
+                    runtime.shutdown_background();
+                }
+            })
+            .expect("Could not spawn a task");
     }
 
     /// Persists worker information and updates internal data structures.
@@ -439,6 +254,226 @@ impl Workers {
         Ok(())
     }
 
+    fn build_runtime(
+        core_manager: Arc<CoreManager>,
+        worker_counter: Arc<AtomicU32>,
+        worker_id: WorkerId,
+        cu_ids: Vec<CUID>,
+    ) -> Result<(Runtime, usize), WorkersError> {
+        // Creating a multi-threaded Tokio runtime with a total of cu_count * 2 threads.
+        // We assume cu_count threads per logical processor, aligning with the common practice.
+        let assignment = core_manager
+            .acquire_worker_core(AcquireRequest::new(cu_ids, WorkType::Deal))
+            .map_err(|err| WorkersError::FailedToAssignCores { worker_id, err })?;
+
+        let threads_count = assignment.logical_core_ids.len();
+
+        let id = worker_counter.fetch_add(1, Ordering::Acquire);
+
+        tracing::info!(target: "worker", "Creating runtime with id {} for worker id {}. Pinned to cores: {:?}", id, worker_id, assignment.logical_core_ids);
+
+        let runtime = tokio::runtime::Builder::new_multi_thread()
+            .thread_name(format!("worker-pool-{}", id))
+            // Configuring worker threads for executing service calls and particles
+            .worker_threads(threads_count)
+            // Configuring blocking threads for handling I/O
+            .max_blocking_threads(threads_count)
+            .enable_time()
+            .enable_io()
+            .on_thread_start(move || {
+                assignment.pin_current_thread();
+            })
+            .unhandled_panic(UnhandledPanic::Ignore) // TODO: try to log panics after fix https://github.com/tokio-rs/tokio/issues/4516
+            .build()
+            .map_err(|err| WorkersError::CreateRuntime { worker_id, err })?;
+        Ok((runtime, threads_count))
+    }
+}
+
+#[async_trait]
+pub trait WorkersOperations: Send + Sync {
+    async fn create_worker(&self, params: WorkerParams) -> Result<WorkerId, WorkersError>;
+    async fn remove_worker(&self, worker_id: WorkerId) -> Result<(), WorkersError>;
+
+    async fn activate_worker(&self, worker_id: WorkerId) -> Result<(), WorkersError>;
+
+    async fn deactivate_worker(&self, worker_id: WorkerId) -> Result<(), WorkersError>;
+
+    fn get_handle(&self, worker_id: WorkerId) -> Option<Handle>;
+
+    fn get_worker_creator(&self, worker_id: WorkerId) -> Result<PeerId, WorkersError>;
+
+    fn get_worker_id(&self, deal_id: DealId) -> Result<WorkerId, WorkersError>;
+
+    fn is_worker_active(&self, worker_id: WorkerId) -> bool;
+
+    fn list_workers(&self) -> Vec<WorkerId>;
+}
+#[async_trait]
+impl<RT: AquaRuntime> WorkersOperations for Workers<RT> {
+    /// Creates a new worker with the given `deal_id` and initial peer ID.
+    ///
+    /// # Arguments
+    ///
+    /// * `deal_id` - A `String` representing the unique identifier for the deal associated with the worker.
+    /// * `init_peer_id` - The initial `PeerId` of the worker.
+    ///
+    /// # Returns
+    ///
+    /// Returns `Result<PeerId, WorkersError>` where:
+    /// - `Ok(worker_id)` if the worker is successfully created, returning the ID of the created worker.
+    /// - `Err(WorkersError)` if an error occurs, such as the worker already existing or key pair creation failure.
+    ///
+    async fn create_worker(&self, params: WorkerParams) -> Result<WorkerId, WorkersError> {
+        let deal_id = params.deal_id;
+        let init_peer_id = params.init_peer_id;
+        let cu_ids = params.cu_ids;
+
+        let worker_id = {
+            let guard = self.worker_ids.read();
+            guard.get(&deal_id).cloned()
+        };
+        match worker_id {
+            Some(_) => Err(WorkersError::WorkerAlreadyExists { deal_id }),
+            _ => {
+                let key_pair = self
+                    .key_storage
+                    .create_key_pair()
+                    .await
+                    .map_err(|err| WorkersError::CreateWorkerKeyPair { err })?;
+
+                let worker_id: WorkerId = key_pair.get_peer_id().into();
+
+                let worker_info = self
+                    .store_worker(worker_id, deal_id.clone(), init_peer_id, cu_ids.clone())
+                    .await;
+
+                match worker_info {
+                    Ok(worker_info) => {
+                        let mut worker_ids = self.worker_ids.write();
+                        if worker_ids.contains_key(&deal_id) {
+                            return Err(WorkersError::WorkerAlreadyExists { deal_id });
+                        }
+
+                        let (runtime, thread_count) = Self::build_runtime(
+                            self.core_manager.clone(),
+                            self.runtime_counter.clone(),
+                            worker_id,
+                            cu_ids,
+                        )?;
+
+                        let vm_pool = VmPool::new(thread_count, self.config.clone(), None, None);
+
+                        let mut worker_infos = self.worker_infos.write();
+                        let mut runtimes = self.runtimes.write();
+                        let mut vm_pools = self.vm_pools.write();
+
+                        worker_ids.insert(deal_id, worker_id);
+                        worker_infos.insert(worker_id, worker_info);
+                        runtimes.insert(worker_id, runtime);
+                        vm_pools.insert(worker_id, Arc::new(Mutex::new(vm_pool)));
+                    }
+                    Err(err) => {
+                        tracing::warn!(
+                            target = "worker-registry",
+                            worker_id = worker_id.to_string(),
+                            "Failed to store worker info for {worker_id}: {}",
+                            err
+                        );
+                        self.key_storage
+                            .remove_key_pair(worker_id)
+                            .await
+                            .map_err(|err| WorkersError::RemoveWorkerKeyPair { err })?;
+
+                        return Err(err);
+                    }
+                }
+
+                Ok(worker_id)
+            }
+        }
+    }
+
+    fn get_handle(&self, worker_id: WorkerId) -> Option<Handle> {
+        self.runtimes
+            .read()
+            .get(&worker_id)
+            .map(|x| x.handle().clone())
+    }
+
+    /// Retrieves the creator `PeerId` associated with the specified worker `PeerId`.
+    ///
+    /// If the provided `worker_id` belongs to the host, the host's `PeerId` is returned.
+    /// Otherwise, the creator's `PeerId` associated with the worker is retrieved.
+    ///
+    /// # Arguments
+    ///
+    /// * `worker_id` - The `PeerId` of the worker for which the creator `PeerId` is requested.
+    ///
+    /// # Returns
+    ///
+    /// Returns `Result<PeerId, WorkersError>` where:
+    /// - `Ok(creator_peer_id)` if the creator `PeerId` is successfully retrieved.
+    /// - `Err(WorkersError)` if an error occurs, such as the worker not found.
+    ///
+    fn get_worker_creator(&self, worker_id: WorkerId) -> Result<PeerId, WorkersError> {
+        self.worker_infos
+            .read()
+            .get(&worker_id)
+            .map(|i| i.creator)
+            .ok_or(WorkersError::WorkerNotFound(worker_id))
+    }
+
+    /// Removes a worker with the specified `worker_id`.
+    ///
+    /// # Arguments
+    ///
+    /// * `worker_id` - The `PeerId` of the worker to be removed.
+    ///
+    /// # Returns
+    ///
+    /// Returns `Result<(), WorkersError>` where:
+    /// - `Ok(())` if the worker is successfully removed.
+    /// - `Err(WorkersError)` if an error occurs, such as the worker not found or key pair removal failure.
+    ///
+    async fn remove_worker(&self, worker_id: WorkerId) -> Result<(), WorkersError> {
+        let deal_id = self.get_deal_id(worker_id)?;
+        remove_worker(&self.workers_dir, worker_id).await?;
+        self.key_storage
+            .remove_key_pair(worker_id)
+            .await
+            .map_err(|err| WorkersError::RemoveWorkerKeyPair { err })?;
+
+        let mut worker_ids = self.worker_ids.write();
+        let mut worker_infos = self.worker_infos.write();
+        let mut runtimes = self.runtimes.write();
+        let mut vm_pools = self.vm_pools.write();
+        let removed_worker_id = worker_ids.remove(&deal_id);
+        let removed_worker_info = worker_infos.remove(&worker_id);
+        let removed_runtime = runtimes.remove(&worker_id);
+        let removed_pool = vm_pools.remove(&worker_id);
+
+        drop(worker_ids);
+        drop(worker_infos);
+        drop(runtimes);
+
+        debug_assert!(removed_worker_id.is_some(), "worker_id does not exist");
+        debug_assert!(removed_worker_info.is_some(), "worker info does not exist");
+        debug_assert!(removed_runtime.is_some(), "worker runtime does not exist");
+        debug_assert!(removed_pool.is_some(), "worker vm pool does not exist");
+
+        if let Some(runtime) = removed_runtime {
+            // we can't shutdown the runtime in the async context, shift it to the blocking pool
+            // also we don't wait the result
+            tokio::task::Builder::new()
+                .name(&format!("runtime-shutdown-{}", worker_id))
+                .spawn_blocking(move || runtime.shutdown_background())
+                .expect("Could not spawn task");
+        }
+
+        Ok(())
+    }
+
     /// Activates the worker with the specified `worker_id`.
     ///
     /// The activation process sets the worker's status to `true`, indicating that the worker
@@ -454,7 +489,7 @@ impl Workers {
     /// - `Ok(())` if the activation is successful.
     /// - `Err(WorkersError)` if an error occurs during the activation process.
     ///
-    pub async fn activate_worker(&self, worker_id: WorkerId) -> Result<(), WorkersError> {
+    async fn activate_worker(&self, worker_id: WorkerId) -> Result<(), WorkersError> {
         self.set_worker_status(worker_id, true).await?;
         Ok(())
     }
@@ -474,9 +509,29 @@ impl Workers {
     /// - `Ok(())` if the deactivation is successful.
     /// - `Err(WorkersError)` if an error occurs during the deactivation process.
     ///
-    pub async fn deactivate_worker(&self, worker_id: WorkerId) -> Result<(), WorkersError> {
+    async fn deactivate_worker(&self, worker_id: WorkerId) -> Result<(), WorkersError> {
         self.set_worker_status(worker_id, false).await?;
         Ok(())
+    }
+
+    /// Retrieves the worker ID associated with the specified `deal_id`.
+    ///
+    /// # Arguments
+    ///
+    /// * `deal_id` - The unique identifier (`String`) of the deal associated with the worker.
+    ///
+    /// # Returns
+    ///
+    /// Returns `Result<PeerId, WorkersError>` where:
+    /// - `Ok(worker_id)` if the worker ID is successfully retrieved.
+    /// - `Err(WorkersError)` if an error occurs, such as the worker not found.
+    ///
+    fn get_worker_id(&self, deal_id: DealId) -> Result<WorkerId, WorkersError> {
+        self.worker_ids
+            .read()
+            .get(&deal_id)
+            .cloned()
+            .ok_or(WorkersError::WorkerNotFoundByDeal(deal_id))
     }
 
     /// Checks the activation status of the worker with the specified `worker_id`.
@@ -494,7 +549,7 @@ impl Workers {
     /// Returns `true` if the worker is active, and `false` otherwise. If the worker with the
     /// specified `worker_id` is not found, a warning is logged, and `false` is returned.
     ///
-    pub fn is_worker_active(&self, worker_id: WorkerId) -> bool {
+    fn is_worker_active(&self, worker_id: WorkerId) -> bool {
         let guard = self.worker_infos.read();
         let worker_info = guard.get(&worker_id);
 
@@ -511,30 +566,21 @@ impl Workers {
         }
     }
 
-    pub fn shutdown(&self) {
-        let mut runtimes = self.runtimes.write();
-        let mut deleted_runtimes = Vec::with_capacity(runtimes.len());
-        let worker_ids: Vec<WorkerId> = runtimes.keys().cloned().collect();
-        for worker_id in worker_ids {
-            if let Some(runtime) = runtimes.remove(&worker_id) {
-                deleted_runtimes.push(runtime);
-            }
-        }
-
-        tokio::task::Builder::new()
-            .name("workers-shutdown")
-            .spawn_blocking(move || {
-                for runtime in deleted_runtimes {
-                    runtime.shutdown_background();
-                }
-            })
-            .expect("Could not spawn a task");
+    /// Retrieves a list of all worker IDs.
+    ///
+    /// # Returns
+    ///
+    /// Returns a `Vec<WorkerId>` representing a list of all worker IDs currently registered.
+    ///
+    fn list_workers(&self) -> Vec<WorkerId> {
+        self.worker_infos.read().keys().cloned().collect()
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::{KeyStorage, WorkerParams, Workers, CUID};
+    use crate::{KeyStorage, WorkerParams, Workers, WorkersOperations, CUID};
+    use aqua_runtime::{AVMRunner, VmConfig};
     use core_manager::manager::{CoreManager, DummyCoreManager};
     use hex::FromHex;
     use libp2p::PeerId;
@@ -558,10 +604,21 @@ mod tests {
                 .expect("Failed to create KeyStorage from path"),
         );
 
+        let config = VmConfig::new(
+            PeerId::random(),
+            temp_dir.path().to_path_buf(),
+            None,
+        );
+
         // Create a new Workers instance
-        let workers = Workers::from_path(workers_dir.clone(), key_storage.clone(), core_manager)
-            .await
-            .expect("Failed to create Workers from path");
+        let workers: Workers<AVMRunner> = Workers::from_path(
+            config,
+            workers_dir.clone(),
+            key_storage.clone(),
+            core_manager,
+        )
+        .await
+        .expect("Failed to create Workers from path");
 
         // Check that the workers instance has the correct initial state
         assert_eq!(workers.worker_ids.read().len(), 0);
@@ -584,10 +641,20 @@ mod tests {
                 .expect("Failed to create KeyStorage from path"),
         );
 
+        let config = VmConfig::new(
+            PeerId::random(),
+            temp_dir.path().to_path_buf(),
+            None,
+        );
         // Create a new Workers instance
-        let workers = Workers::from_path(workers_dir.clone(), key_storage.clone(), core_manager)
-            .await
-            .expect("Failed to create Workers from path");
+        let workers: Workers<AVMRunner> = Workers::from_path(
+            config,
+            workers_dir.clone(),
+            key_storage.clone(),
+            core_manager,
+        )
+        .await
+        .expect("Failed to create Workers from path");
 
         let init_id_1 =
             <CUID>::from_hex("54ae1b506c260367a054f80800a545f23e32c6bc4a8908c9a794cb8dad23e5ea")
@@ -649,10 +716,21 @@ mod tests {
                 .expect("Failed to create KeyStorage from path"),
         );
 
+        let config = VmConfig::new(
+            PeerId::random(),
+            temp_dir.path().to_path_buf(),
+            None,
+        );
+
         // Create a new Workers instance
-        let workers = Workers::from_path(workers_dir.clone(), key_storage.clone(), core_manager)
-            .await
-            .expect("Failed to create Workers from path");
+        let workers: Workers<AVMRunner> = Workers::from_path(
+            config,
+            workers_dir.clone(),
+            key_storage.clone(),
+            core_manager,
+        )
+        .await
+        .expect("Failed to create Workers from path");
 
         let init_id_1 =
             <CUID>::from_hex("54ae1b506c260367a054f80800a545f23e32c6bc4a8908c9a794cb8dad23e5ea")
@@ -704,10 +782,22 @@ mod tests {
                 .await
                 .expect("Failed to create KeyStorage from path"),
         );
+
+        let config = VmConfig::new(
+            PeerId::random(),
+            temp_dir.path().to_path_buf(),
+            None,
+        );
+
         // Create a new Workers instance
-        let workers = Workers::from_path(workers_dir.clone(), key_storage.clone(), core_manager)
-            .await
-            .expect("Failed to create Workers from path");
+        let workers: Workers<AVMRunner> = Workers::from_path(
+            config,
+            workers_dir.clone(),
+            key_storage.clone(),
+            core_manager,
+        )
+        .await
+        .expect("Failed to create Workers from path");
 
         let init_id_1 =
             <CUID>::from_hex("54ae1b506c260367a054f80800a545f23e32c6bc4a8908c9a794cb8dad23e5ea")
@@ -771,8 +861,15 @@ mod tests {
                 .expect("Failed to create KeyStorage from path"),
         );
 
+        let config = VmConfig::new(
+            PeerId::random(),
+            temp_dir.path().to_path_buf(),
+            None,
+        );
+
         // Create a new Workers instance
-        let workers = Workers::from_path(
+        let workers: Workers<AVMRunner> = Workers::from_path(
+            config.clone(),
             workers_dir.clone(),
             key_storage.clone(),
             core_manager.clone(),
@@ -842,9 +939,14 @@ mod tests {
         );
 
         // Create a new Workers instance
-        let workers = Workers::from_path(workers_dir.clone(), key_storage.clone(), core_manager)
-            .await
-            .expect("Failed to create Workers from path");
+        let workers: Workers<AVMRunner> = Workers::from_path(
+            config,
+            workers_dir.clone(),
+            key_storage.clone(),
+            core_manager,
+        )
+        .await
+        .expect("Failed to create Workers from path");
 
         let list = workers.list_workers();
         let expected_list = vec![worker_id_1];

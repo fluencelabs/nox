@@ -28,29 +28,26 @@
 
 pub use avm_server::avm_runner::AVMRunner;
 
-pub use aqua_runtime::AquaRuntime;
-pub use config::{DataStoreConfig, VmConfig, VmPoolConfig};
+pub use aqua_runtime::{AquaRuntime, InterpretationStats, ParticleEffects, VmConfig, VmPoolConfig};
+pub use config::DataStoreConfig;
 pub use error::AquamarineApiError;
 pub use particle_data_store::{DataStoreError, ParticleDataStore};
-pub use particle_effects::{InterpretationStats, ParticleEffects, RemoteRoutingEffects};
+
 pub use plumber::Plumber;
 
 pub use crate::aquamarine::{AquamarineApi, AquamarineBackend};
 
 mod actor;
-mod aqua_runtime;
 mod aquamarine;
 mod command;
 mod config;
 mod deadline;
 mod error;
-mod health;
-mod invoke;
 mod log;
 mod particle_data_store;
-mod particle_effects;
 mod particle_executor;
 mod particle_functions;
 mod plumber;
 mod spawner;
-mod vm_pool;
+
+pub use aqua_runtime::RemoteRoutingEffects;

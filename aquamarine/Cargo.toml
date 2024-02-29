@@ -19,6 +19,7 @@ peer-metrics = { workspace = true }
 particle-execution = { workspace = true }
 workers = { workspace = true }
 types = { workspace = true }
+aqua-runtime = { workspace = true }
 
 avm-server = { workspace = true }
 libp2p = { workspace = true }

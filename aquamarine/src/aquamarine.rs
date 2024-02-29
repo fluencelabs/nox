@@ -19,6 +19,7 @@ use std::sync::Arc;
 use std::task::Poll;
 use std::time::Duration;
 
+use aqua_runtime::{AquaRuntime, RemoteRoutingEffects, VmPool};
 use futures::StreamExt;
 use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
@@ -31,12 +32,9 @@ use particle_services::PeerScope;
 use peer_metrics::{ParticleExecutorMetrics, VmPoolMetrics};
 use workers::{KeyStorage, PeerScopes, Workers};
 
-use crate::aqua_runtime::AquaRuntime;
 use crate::command::Command;
 use crate::command::Command::{AddService, Ingest, RemoveService};
 use crate::error::AquamarineApiError;
-use crate::particle_effects::RemoteRoutingEffects;
-use crate::vm_pool::VmPool;
 use crate::{DataStoreConfig, ParticleDataStore, Plumber, VmPoolConfig};
 
 pub type EffectsChannel = mpsc::Sender<Result<RemoteRoutingEffects, AquamarineApiError>>;
@@ -59,7 +57,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> AquamarineBackend<RT, F> {
         plumber_metrics: Option<ParticleExecutorMetrics>,
         vm_pool_metrics: Option<VmPoolMetrics>,
         health_registry: Option<&mut HealthCheckRegistry>,
-        workers: Arc<Workers>,
+        workers: Arc<Workers<RT>>,
         key_storage: Arc<KeyStorage>,
         scopes: PeerScopes,
     ) -> eyre::Result<(Self, AquamarineApi)> {

@@ -24,11 +24,11 @@ use std::{
 use tracing::{instrument, Instrument, Span};
 
 use crate::deadline::Deadline;
-use crate::particle_effects::RawRoutingEffects;
 use crate::particle_executor::{FutResult, ParticleExecutor};
 use crate::particle_functions::{Functions, SingleCallStat};
 use crate::spawner::{SpawnFunctions, Spawner};
-use crate::{AquaRuntime, InterpretationStats, ParticleDataStore, ParticleEffects};
+use crate::ParticleDataStore;
+use aqua_runtime::{AquaRuntime, InterpretationStats, ParticleEffects, RawRoutingEffects};
 use fluence_keypair::KeyPair;
 use fluence_libp2p::PeerId;
 use particle_execution::{ParticleFunctionStatic, ServiceFunction};

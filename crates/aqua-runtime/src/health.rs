@@ -39,6 +39,7 @@ impl HealthCheck for VMPoolHealth {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::health::VMPoolHealth;
     use std::thread;
 
     #[test]

@@ -15,7 +15,6 @@
  */
 
 use fs_utils::to_abs_path;
-use libp2p::PeerId;
 use std::path::PathBuf;
 use std::time::Duration;
 

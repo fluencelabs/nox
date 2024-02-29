@@ -14,19 +14,21 @@
  * limitations under the License.
  */
 
+use std::str::FromStr;
 use std::{error::Error, task::Waker};
 
 use avm_server::avm_runner::{AVMRunner, RawAVMOutcome};
-use avm_server::{AVMMemoryStats, AVMRuntimeLimits, CallResults, ParticleParameters, RunnerError};
+use avm_server::{AVMMemoryStats, CallResults,AVMRuntimeLimits, ParticleParameters, RunnerError};
 use fluence_keypair::KeyPair;
-use log::LevelFilter;
+use libp2p_identity::PeerId;
+use tracing::Level;
 
 use crate::config::VmConfig;
-use crate::invoke::{parse_outcome, ExecutionError};
+use crate::error::{ExecutionError, FieldError};
 use crate::particle_effects::ParticleEffects;
 
 pub trait AquaRuntime: Sized + Send + 'static {
-    type Config: Clone + Send + 'static;
+    type Config: Clone + Send + Sync + 'static;
     type Error: Error + Send + Sync + 'static;
 
     fn create_runtime(config: Self::Config, waker: Waker) -> Result<Self, Self::Error>;
@@ -98,10 +100,12 @@ impl AquaRuntime for AVMRunner {
                     particle_id,
                     "Executed particle, next_peer_pks is empty, no call requests. Nothing to do.",
                 );
-                if log::max_level() >= LevelFilter::Debug {
+
+                if tracing::enabled!(target: "execution", Level::DEBUG) {
                     let data = String::from_utf8_lossy(data.as_slice());
                     tracing::debug!(particle_id, "particle next_peer_pks = [], data: {}", data);
                 }
+
                 ParticleEffects::empty()
             }
             Err(ExecutionError::AquamarineError(err)) => {
@@ -143,4 +147,30 @@ impl AquaRuntime for AVMRunner {
     fn memory_stats(&self) -> AVMMemoryStats {
         self.memory_stats()
     }
+}
+
+pub fn parse_outcome(
+    outcome: Result<RawAVMOutcome, RunnerError>,
+) -> Result<(Vec<u8>, Vec<PeerId>, CallRequests), ExecutionError> {
+    let outcome = outcome.map_err(ExecutionError::AquamarineError)?;
+
+    let peer_ids = outcome
+        .next_peer_pks
+        .into_iter()
+        .map(|id| {
+            parse_peer_id(id.as_str()).map_err(|error| ExecutionError::InvalidResultField {
+                field: "next_peer_pks[..]",
+                error,
+            })
+        })
+        .collect::<Result<_, ExecutionError>>()?;
+
+    Ok((outcome.data, peer_ids, outcome.call_requests))
+}
+
+fn parse_peer_id(s: &str) -> Result<PeerId, FieldError> {
+    PeerId::from_str(s).map_err(|err| FieldError::InvalidPeerId {
+        peer_id: s.to_string(),
+        err: err.to_string(),
+    })
 }

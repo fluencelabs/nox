@@ -14,18 +14,18 @@
  * limitations under the License.
  */
 
+use futures_core::future::BoxFuture;
+use futures_util::FutureExt;
 use std::error::Error;
 use std::fmt::Debug;
 use std::task::{Context, Poll};
 
-use futures::{future::BoxFuture, FutureExt};
-use health::HealthCheckRegistry;
 use tokio::task::JoinError;
 
-use peer_metrics::VmPoolMetrics;
-
-use crate::aqua_runtime::AquaRuntime;
 use crate::health::VMPoolHealth;
+use crate::AquaRuntime;
+use health::HealthCheckRegistry;
+use peer_metrics::VmPoolMetrics;
 
 type RuntimeF<RT> = BoxFuture<'static, Result<RT, CreateAVMError>>;
 
@@ -131,7 +131,7 @@ impl<RT: AquaRuntime> VmPool<RT> {
 
     pub fn recreate_avm(&mut self, id: usize, cx: &Context<'_>) {
         if self.creating_runtimes.is_none() {
-            log::error!(
+            tracing::error!(
                 "Attempt to recreate an AVM before initialization (self.creating_runtimes is None), ignoring"
             );
             return;

@@ -43,7 +43,7 @@ use peer_metrics::{
 use server_config::ServicesConfig;
 use types::peer_scope::PeerScope;
 use uuid_utils::uuid;
-use workers::{PeerScopes, WorkerId, Workers};
+use workers::{PeerScopes, WorkerId, WorkersOperations};
 
 use crate::error::ServiceError;
 use crate::error::ServiceError::{AliasAsServiceId, Forbidden, NoSuchAlias};
@@ -179,7 +179,7 @@ pub struct ParticleAppServices {
     worker_services: Arc<RwLock<HashMap<WorkerId, Services>>>,
     modules: ModuleRepository,
     #[derivative(Debug = "ignore")]
-    workers: Arc<Workers>,
+    workers: Arc<dyn WorkersOperations>,
     #[derivative(Debug = "ignore")]
     scopes: PeerScopes,
     pub metrics: Option<ServicesMetrics>,
@@ -214,7 +214,7 @@ impl ParticleAppServices {
         modules: ModuleRepository,
         metrics: Option<ServicesMetrics>,
         health_registry: Option<&mut HealthCheckRegistry>,
-        workers: Arc<Workers>,
+        workers: Arc<dyn WorkersOperations>,
         scope: PeerScopes,
     ) -> Self {
         let vault = ParticleVault::new(config.particles_vault_dir.clone());
@@ -1168,7 +1168,7 @@ mod tests {
     use service_modules::load_module;
     use service_modules::Hash;
     use types::peer_scope::PeerScope;
-    use workers::{DummyCoreManager, KeyStorage, PeerScopes, Workers};
+    use workers::{AVMRunner, DummyCoreManager, KeyStorage, PeerScopes, VmConfig, Workers};
 
     use crate::app_services::{ServiceAlias, ServiceType};
     use crate::persistence::load_persisted_services;
@@ -1208,9 +1208,12 @@ mod tests {
             key_storage.clone(),
         );
 
-        let workers = Workers::from_path(workers_dir.clone(), key_storage, core_manager)
-            .await
-            .expect("Could not load worker registry");
+        let config = VmConfig::new(PeerId::random(), base_dir, None);
+
+        let workers: Workers<AVMRunner> =
+            Workers::from_path(config, workers_dir.clone(), key_storage, core_manager)
+                .await
+                .expect("Could not load worker registry");
 
         let workers = Arc::new(workers);
 
