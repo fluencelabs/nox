@@ -74,32 +74,28 @@ impl ServicesConfig {
         let persistent_dir = to_abs_path(persistent_dir);
         let ephemeral_dir = to_abs_path(ephemeral_dir);
 
-        let allowed_effectors = if is_dev_mode {
-            HashMap::new()
-        } else {
-            allowed_effectors
-                .into_iter()
-                .map(|(cid, effector)| {
-                    let effector = effector
-                        .into_iter()
-                        .map(|(name, path_str)| {
-                            let path = Path::new(&path_str);
-                            match path.try_exists() {
-                                Err(err) => log::warn!(
-                                    "cannot check binary `{path_str}` for effector `{cid}`: {err}"
-                                ),
-                                Ok(false) => log::warn!(
-                                    "binary `{path_str}` for effector `{cid}` does not exist"
-                                ),
-                                _ => {}
-                            };
-                            (name, path.to_path_buf())
-                        })
-                        .collect::<_>();
-                    (cid, effector)
-                })
-                .collect::<_>()
-        };
+        let allowed_effectors = allowed_effectors
+            .into_iter()
+            .map(|(cid, effector)| {
+                let effector = effector
+                    .into_iter()
+                    .map(|(name, path_str)| {
+                        let path = Path::new(&path_str);
+                        match path.try_exists() {
+                            Err(err) => log::warn!(
+                                "cannot check binary `{path_str}` for effector `{cid}`: {err}"
+                            ),
+                            Ok(false) => log::warn!(
+                                "binary `{path_str}` for effector `{cid}` does not exist"
+                            ),
+                            _ => {}
+                        };
+                        (name, path.to_path_buf())
+                    })
+                    .collect::<_>();
+                (cid, effector)
+            })
+            .collect::<_>();
 
         let mounted_binaries_mapping = if !is_dev_mode {
             HashMap::new()
