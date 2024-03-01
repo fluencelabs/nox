@@ -1657,7 +1657,7 @@ async fn create_remove_worker() {
         .wrap_err("connect client")
         .unwrap();
 
-    let script = r#"(call %init_peer_id% ("getDataSr" "spell_id") [] spell_id)"#;
+    let script = r#"(call %init_peer_id% ("getDataSrv" "spell_id") [] spell_id)"#;
     let config = make_clock_config(0, 1, 0);
 
     let (spell_id, worker_id) = create_spell(&mut client, script, config, json!({}), None).await;
