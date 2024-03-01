@@ -393,6 +393,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn process_actors(
         actors: &mut HashMap<ActorKey, Actor<RT, F>>,
         vm_pool: &mut VmPool<RT>,
