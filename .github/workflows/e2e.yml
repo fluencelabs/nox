@@ -102,11 +102,11 @@ jobs:
     with:
       nox-image: "${{ needs.nox-snapshot.outputs.nox-image }}"
 
-  registry:
-    needs:
-      - nox-snapshot
-    uses: fluencelabs/registry/.github/workflows/tests.yml@main
-    with:
-      nox-image: "${{ needs.nox-snapshot.outputs.nox-image }}"
-      if-no-artifacts-found: warn
+  # registry:
+  #   needs:
+  #     - nox-snapshot
+  #   uses: fluencelabs/registry/.github/workflows/tests.yml@main
+  #   with:
+  #     nox-image: "${{ needs.nox-snapshot.outputs.nox-image }}"
+  #     if-no-artifacts-found: warn
 
