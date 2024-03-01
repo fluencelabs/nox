@@ -144,6 +144,9 @@ pub struct UnresolvedNodeConfig {
     pub chain_config: Option<ChainConfig>,
 
     pub chain_listener_config: Option<ChainListenerConfig>,
+
+    #[serde(default = "default_dev_mode_config")]
+    pub dev_mode: DevModeConfig,
 }
 
 impl UnresolvedNodeConfig {
@@ -164,10 +167,6 @@ impl UnresolvedNodeConfig {
             .builtins_key_pair
             .unwrap_or_default()
             .get_keypair(default_builtins_keypair_path(persistent_base_dir))?;
-
-        let mut allowed_binaries = self.allowed_binaries;
-        allowed_binaries.push(self.system_services.aqua_ipfs.ipfs_binary_path.clone());
-        allowed_binaries.push(self.system_services.connector.curl_binary_path.clone());
 
         let allowed_effectors = self
             .effectors
@@ -210,8 +209,8 @@ impl UnresolvedNodeConfig {
             management_peer_id: self.management_peer_id,
             transport_config: self.transport_config,
             listen_config: self.listen_config,
-            allowed_binaries,
             allowed_effectors,
+            dev_mode_config: self.dev_mode,
             system_services: self.system_services,
             http_config: self.http_config,
             chain_config: self.chain_config,
@@ -380,9 +379,9 @@ pub struct NodeConfig {
 
     pub management_peer_id: PeerId,
 
-    pub allowed_binaries: Vec<String>,
-
     pub allowed_effectors: HashMap<Hash, HashMap<String, String>>,
+
+    pub dev_mode_config: DevModeConfig,
 
     pub system_services: SystemServicesConfig,
 
@@ -602,4 +601,21 @@ fn default_effectors_config() -> EffectorsConfig {
         })
         .collect::<_>();
     EffectorsConfig(config)
+}
+
+#[derive(Clone, Deserialize, Serialize, Derivative)]
+#[derivative(Debug)]
+pub struct DevModeConfig {
+    #[serde(default)]
+    pub enable: bool,
+    /// Mounted binaries mapping: binary name (used in the effector modules) to binary path
+    #[serde(default = "default_binaries_mapping")]
+    pub binaries: HashMap<String, String>,
+}
+
+fn default_dev_mode_config() -> DevModeConfig {
+    DevModeConfig {
+        enable: false,
+        binaries: default_binaries_mapping(),
+    }
 }

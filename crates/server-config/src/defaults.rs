@@ -264,7 +264,14 @@ pub fn default_decider_network_id() -> u64 {
 pub fn default_effectors() -> HashMap<String, (String, HashMap<String, String>)> {
     hashmap! {
         "curl".to_string() => ("bafkreids22lgia5bqs63uigw4mqwhsoxvtnkpfqxqy5uwyyerrldsr32ce".to_string(), hashmap! {
-            "curl".to_string() => "/usr/bin/curl".to_string()
+            "curl".to_string() => default_curl_binary_path(),
         })
+    }
+}
+
+pub fn default_binaries_mapping() -> HashMap<String, String> {
+    hashmap! {
+        "curl".to_string() => default_curl_binary_path(),
+        "ipfs".to_string() => default_ipfs_binary_path(),
     }
 }

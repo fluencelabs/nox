@@ -159,6 +159,8 @@ impl<RT: AquaRuntime> Node<RT> {
             builtins_peer_id,
             config.node_config.default_service_memory_limit,
             config.node_config.allowed_effectors.clone(),
+            config.node_config.dev_mode_config.binaries.clone(),
+            config.node_config.dev_mode_config.enable,
         )
         .expect("create services config");
 
