@@ -163,6 +163,7 @@ impl<RT: AquaRuntime> Workers<RT> {
             .map(|info| info.deal_id.clone())
     }
 
+    // SAFETY: can be use only in the 1 threaded plumber
     pub fn get_pool(&self, worker_id: WorkerId) -> Option<Rc<RefCell<VmPool<RT>>>> {
         self.vm_pools.read().get(&worker_id).cloned().map(|x| x.0)
     }
