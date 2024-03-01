@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.21.3](https://github.com/fluencelabs/nox/compare/nox-v0.21.2...nox-v0.21.3) (2024-03-01)
+
+
+### Features
+
+* introduce the dev mode in which alow all effectors  ([#2127](https://github.com/fluencelabs/nox/issues/2127)) ([0eee6bf](https://github.com/fluencelabs/nox/commit/0eee6bf536cb5dc49c81421dc235dafcf17820c6))
+
 ## [0.21.2](https://github.com/fluencelabs/nox/compare/nox-v0.21.1...nox-v0.21.2) (2024-02-27)
 
 
