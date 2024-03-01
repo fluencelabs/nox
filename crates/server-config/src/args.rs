@@ -299,15 +299,15 @@ pub(crate) struct DerivedArgs {
     )]
     external_address: Option<String>,
     #[arg(
-    short('z'),
-    long("external-maddrs"),
-    id = "EXTERNAL_MULTIADDRS",
-    help = "external multiaddresses to advertize",
-    value_name = "MULTIADDR",
-    help_heading = "Networking",
-    display_order = 5,
-    action = clap::ArgAction::Append,
-    num_args = 1..
+        short('z'),
+        long("external-maddrs"),
+        id = "EXTERNAL_MULTIADDRS",
+        help = "external multiaddresses to advertize",
+        value_name = "MULTIADDR",
+        help_heading = "Networking",
+        display_order = 5,
+        action = clap::ArgAction::Append,
+        num_args = 1..
     )]
     external_multiaddresses: Option<Vec<String>>,
     #[arg(
@@ -320,7 +320,7 @@ pub(crate) struct DerivedArgs {
         action = clap::ArgAction::SetTrue
     )]
     allow_local_addresses: Option<bool>,
-        #[arg(
+    #[arg(
         short('b'),
         long("bootstraps"),
         id = "BOOTSTRAP_NODE",
