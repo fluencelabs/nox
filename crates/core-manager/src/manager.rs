@@ -13,6 +13,7 @@ use enum_dispatch::enum_dispatch;
 use futures::StreamExt;
 use fxhash::{FxBuildHasher, FxHasher};
 use parking_lot::RwLock;
+use rand::prelude::IteratorRandom;
 use range_set_blaze::RangeSetBlaze;
 use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc::Receiver;
@@ -462,7 +463,19 @@ impl CoreManagerFunctions for DummyCoreManager {
         &self,
         _assign_request: AcquireRequest,
     ) -> Result<Assignment, AcquireError> {
-        Ok(self.all_cores())
+        let all_cores = self.all_cores();
+        let index = all_cores
+            .logical_core_ids
+            .iter()
+            .choose(&mut rand::thread_rng())
+            .unwrap();
+        let mut logical_core_ids = BTreeSet::new();
+        logical_core_ids.insert(index.clone());
+
+        Ok(Assignment {
+            physical_core_ids: BTreeSet::new(),
+            logical_core_ids,
+        })
     }
 
     fn release(&self, _unit_ids: Vec<CUID>) {}

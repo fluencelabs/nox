@@ -1470,6 +1470,7 @@ dependencies = [
  "newtype_derive",
  "num_cpus",
  "parking_lot",
+ "rand 0.8.5",
  "range-set-blaze",
  "serde",
  "serde_with 3.6.1",
