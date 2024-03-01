@@ -566,7 +566,6 @@ mod tests {
             effectors: hashmap! {
                 effector_wasm_cid => hashmap! {
                     "ls".to_string() => PathBuf::from("/bin/ls"),
-                    "cat".to_string() => PathBuf::from("/bin/cat"),
                 }
             },
         };
@@ -577,11 +576,11 @@ mod tests {
 
         let module = load_module(effector_path, "effector").expect("load module");
         let result = repo.add_module("effector".to_string(), module);
-        let _cat = "cat".to_string();
+        let _ls = "ls".to_string();
         assert_matches!(
             result,
             Err(InvalidEffectorMountedBinary {
-                binary_name: _cat,
+                binary_name: _ls,
                 ..
             })
         );
