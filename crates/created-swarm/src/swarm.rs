@@ -404,8 +404,6 @@ pub async fn create_swarm_with_runtime<RT: AquaRuntime>(
         resolved.node_config.aquavm_pool_size = config.pool_size.unwrap_or(1);
         resolved.node_config.particle_execution_timeout = EXECUTION_TIMEOUT;
 
-        resolved.node_config.allowed_binaries = config.allowed_binaries.clone();
-
         let allowed_effectors = config.allowed_effectors.iter().map(|(cid, binaries)| {
             (Hash::from_string(cid).unwrap(), binaries.clone())
         }).collect::<_>();

@@ -438,7 +438,7 @@ mod tests {
     use service_modules::Hash;
 
     use crate::ModuleError::{ForbiddenEffector, InvalidEffectorMountedBinary};
-    use crate::{AddBlueprint, ModuleRepository};
+    use crate::{AddBlueprint, EffectorsMode, ModuleRepository};
 
     #[test]
     fn test_add_blueprint() {
@@ -513,10 +513,12 @@ mod tests {
                 .unwrap();
 
         let effector_path = "../crates/nox-tests/tests/effector/artifacts";
-        let allowed_effectors = hashmap! {
-            effector_wasm_cid => hashmap! {
-                "ls".to_string() => PathBuf::from("/bin/ls"),
-            }
+        let allowed_effectors = EffectorsMode::RestrictedEffectors {
+            effectors: hashmap! {
+                effector_wasm_cid => hashmap! {
+                    "ls".to_string() => PathBuf::from("/bin/ls"),
+                }
+            },
         };
 
         let module_dir = TempDir::new("test").unwrap();
@@ -535,11 +537,13 @@ mod tests {
                 .unwrap();
 
         let effector_path = "../crates/nox-tests/tests/effector/artifacts";
-        let allowed_effectors = hashmap! {
-            some_wasm_cid => hashmap! {
-                "ls".to_string() => PathBuf::from("/bin/ls"),
-                "cat".to_string() => PathBuf::from("/bin/cat"),
-            }
+        let allowed_effectors = EffectorsMode::RestrictedEffectors {
+            effectors: hashmap! {
+                some_wasm_cid => hashmap! {
+                    "ls".to_string() => PathBuf::from("/bin/ls"),
+                    "cat".to_string() => PathBuf::from("/bin/cat"),
+                }
+            },
         };
 
         let module_dir = TempDir::new("test").unwrap();
@@ -558,11 +562,13 @@ mod tests {
                 .unwrap();
 
         let effector_path = "../crates/nox-tests/tests/effector/artifacts";
-        let allowed_effectors = hashmap! {
-            effector_wasm_cid => hashmap! {
-                "ls".to_string() => PathBuf::from("/bin/ls"),
-                "cat".to_string() => PathBuf::from("/bin/cat"),
-            }
+        let allowed_effectors = EffectorsMode::RestrictedEffectors {
+            effectors: hashmap! {
+                effector_wasm_cid => hashmap! {
+                    "ls".to_string() => PathBuf::from("/bin/ls"),
+                    "cat".to_string() => PathBuf::from("/bin/cat"),
+                }
+            },
         };
 
         let module_dir = TempDir::new("test").unwrap();
