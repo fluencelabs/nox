@@ -28,7 +28,7 @@ use crate::error::{ExecutionError, FieldError};
 use crate::particle_effects::ParticleEffects;
 
 pub trait AquaRuntime: Sized + Send + 'static {
-    type Config: Clone + Send + Sync + 'static;
+    type Config: Clone + Send + 'static;
     type Error: Error + Send + Sync + 'static;
 
     fn create_runtime(config: Self::Config, waker: Waker) -> Result<Self, Self::Error>;
