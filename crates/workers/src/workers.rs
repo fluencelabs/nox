@@ -1,6 +1,8 @@
 use async_trait::async_trait;
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::path::PathBuf;
+use std::rc::Rc;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
 
@@ -64,8 +66,21 @@ pub struct Workers<RT: AquaRuntime> {
     /// Number of created tokio runtimes
     runtime_counter: Arc<AtomicU32>,
 
-    vm_pools: RwLock<HashMap<WorkerId, Arc<Mutex<VmPool<RT>>>>>,
+    vm_pools: RwLock<HashMap<WorkerId, PoolWrapper<RT>>>,
 }
+
+pub struct PoolWrapper<RT: AquaRuntime>(Rc<RefCell<VmPool<RT>>>);
+
+impl<RT: AquaRuntime> Clone for PoolWrapper<RT> {
+    fn clone(&self) -> Self {
+        PoolWrapper(self.0.clone())
+    }
+}
+
+// SAFETY: we know that pool can be used only in plumber, but we add Send + Sync to make compiler happy
+// Sure it can't be used in multi threaded & async code
+unsafe impl<RT: AquaRuntime> Send for PoolWrapper<RT> {}
+unsafe impl<RT: AquaRuntime> Sync for PoolWrapper<RT> {}
 
 impl<RT: AquaRuntime> Workers<RT> {
     /// Creates a `Workers` instance by loading persisted worker data from the specified directory.
@@ -113,7 +128,7 @@ impl<RT: AquaRuntime> Workers<RT> {
             runtimes.insert(worker_id, runtime);
 
             let vm_pool = VmPool::new(thread_count, config.clone(), None, None);
-            vm_pools.insert(worker_id, Arc::new(Mutex::new(vm_pool)));
+            vm_pools.insert(worker_id, PoolWrapper(Rc::new(RefCell::new(vm_pool))));
         }
         Ok(Self {
             config,
@@ -148,8 +163,8 @@ impl<RT: AquaRuntime> Workers<RT> {
             .map(|info| info.deal_id.clone())
     }
 
-    pub fn get_pool(&self, worker_id: WorkerId) -> Option<Arc<Mutex<VmPool<RT>>>> {
-        self.vm_pools.read().get(&worker_id).cloned()
+    pub fn get_pool(&self, worker_id: WorkerId) -> Option<Rc<RefCell<VmPool<RT>>>> {
+        self.vm_pools.read().get(&worker_id).cloned().map(|x| x.0)
     }
 
     pub fn shutdown(&self) {
@@ -309,6 +324,7 @@ pub trait WorkersOperations: Send + Sync {
 
     fn list_workers(&self) -> Vec<WorkerId>;
 }
+
 #[async_trait]
 impl<RT: AquaRuntime> WorkersOperations for Workers<RT> {
     /// Creates a new worker with the given `deal_id` and initial peer ID.
@@ -371,7 +387,7 @@ impl<RT: AquaRuntime> WorkersOperations for Workers<RT> {
                         worker_ids.insert(deal_id, worker_id);
                         worker_infos.insert(worker_id, worker_info);
                         runtimes.insert(worker_id, runtime);
-                        vm_pools.insert(worker_id, Arc::new(Mutex::new(vm_pool)));
+                        vm_pools.insert(worker_id, PoolWrapper(Rc::new(RefCell::new(vm_pool))));
                     }
                     Err(err) => {
                         tracing::warn!(

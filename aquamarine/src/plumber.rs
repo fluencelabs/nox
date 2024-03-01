@@ -342,7 +342,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
         self.host_vm_pool.poll(cx);
         for worker_id in self.workers.list_workers() {
             if let Some(vm_pool) = self.workers.get_pool(worker_id) {
-                let mut vm_pool = vm_pool.lock();
+                let mut vm_pool = vm_pool.borrow_mut();
                 vm_pool.poll(cx);
             }
         }
@@ -376,7 +376,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
     ) {
         for (worker_id, actors) in self.worker_actors.iter_mut() {
             if let Some(pool) = self.workers.get_pool(*worker_id) {
-                let mut pool = pool.lock();
+                let mut pool = pool.borrow_mut();
                 let peer_id: PeerId = (*worker_id).into();
                 let host_label = WorkerLabel::new(WorkerType::Worker, peer_id.to_string());
                 Self::process_actors(
@@ -558,7 +558,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
 
         for (worker_id, actors) in self.worker_actors.iter_mut() {
             if let Some(pool) = self.workers.get_pool(*worker_id) {
-                let mut pool = pool.lock();
+                let mut pool = pool.borrow_mut();
                 for actor in actors.values_mut() {
                     if let Some((vm_id, vm)) = pool.get_vm() {
                         match actor.poll_next(vm_id, vm, cx) {
