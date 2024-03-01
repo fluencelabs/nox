@@ -425,23 +425,23 @@ pub(crate) struct DerivedArgs {
     )]
     aquavm_pool_size: Option<usize>,
     #[arg(
-    long,
-    value_parser = clap::value_parser ! (bool),
-    id = "PRINT_CONFIG",
-    help = "Print applied config",
-    help_heading = "Node configuration",
-    display_order = 22,
-    action = clap::ArgAction::SetTrue
+        long,
+        value_parser = clap::value_parser ! (bool),
+        id = "PRINT_CONFIG",
+        help = "Print applied config",
+        help_heading = "Node configuration",
+        display_order = 22,
+        action = clap::ArgAction::SetTrue
     )]
     pub(crate) print_config: Option<bool>,
     #[arg(
-    long,
-    value_parser = clap::value_parser ! (bool),
-    id = "NO_BANNER",
-    help = "Disable banner",
-    help_heading = "Node configuration",
-    display_order = 23,
-    action = clap::ArgAction::SetTrue
+        long,
+        value_parser = clap::value_parser ! (bool),
+        id = "NO_BANNER",
+        help = "Disable banner",
+        help_heading = "Node configuration",
+        display_order = 23,
+        action = clap::ArgAction::SetTrue
     )]
     pub(crate) no_banner: Option<bool>,
 
