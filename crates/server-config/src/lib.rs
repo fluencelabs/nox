@@ -32,6 +32,7 @@ pub mod args;
 mod bootstrap_config;
 mod defaults;
 mod dir_config;
+mod effectors_config;
 mod kademlia_config;
 mod keys;
 mod network_config;

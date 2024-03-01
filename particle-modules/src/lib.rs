@@ -36,6 +36,7 @@ mod modules;
 
 pub use error::ModuleError;
 pub use files::{load_blueprint, load_module_by_path, load_module_descriptor};
+pub use modules::EffectorsMode;
 pub use modules::ModuleRepository;
 
 // reexport
