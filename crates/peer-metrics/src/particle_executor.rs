@@ -89,14 +89,13 @@ impl ParticleExecutorMetrics {
         );
 
         let total_actors_mailbox: Family<WorkerLabel, Gauge> =
-            Family::new_with_constructor(|| Gauge::default());
+            Family::new_with_constructor(Gauge::default);
         sub_registry.register(
             "total_actors_mailbox",
             "Cumulative sum of all actors' mailboxes",
             total_actors_mailbox.clone(),
         );
-        let alive_actors: Family<WorkerLabel, Gauge> =
-            Family::new_with_constructor(|| Gauge::default());
+        let alive_actors: Family<WorkerLabel, Gauge> = Family::new_with_constructor(Gauge::default);
         sub_registry.register(
             "alive_actors",
             "Number of currently alive actors (1 particle id = 1 actor)",

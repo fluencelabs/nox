@@ -1251,12 +1251,11 @@ mod tests {
         let management_pid = create_pid();
         let pas = create_pas(root_keypair, management_pid, base_dir.into_path()).await;
 
-        let client_pid;
-        if as_manager {
-            client_pid = management_pid;
+        let client_pid = if as_manager {
+            management_pid
         } else {
-            client_pid = create_pid();
-        }
+            create_pid()
+        };
 
         pas.add_alias(PeerScope::Host, alias, service_id, client_pid)
             .await
@@ -1352,7 +1351,7 @@ mod tests {
         let inter2 = pas.get_interface(PeerScope::Host, service_id2, "").unwrap();
         let inter3 = pas.get_interface(PeerScope::Host, service_id3, "").unwrap();
 
-        assert_eq!(module_file.exists(), false);
+        assert!(!module_file.exists());
         assert_eq!(inter1, inter2);
         assert_eq!(inter3, inter2);
     }

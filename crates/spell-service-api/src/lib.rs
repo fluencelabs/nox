@@ -326,11 +326,7 @@ mod tests {
             key_storage.clone(),
         );
 
-        let config = VmConfig::new(
-            PeerId::random(),
-            base_dir.to_path_buf(),
-            None,
-        );
+        let config = VmConfig::new(PeerId::random(), base_dir.to_path_buf(), None);
 
         let workers: Workers<AVMRunner> =
             Workers::from_path(config, workers_dir.clone(), key_storage, core_manager)
@@ -464,7 +460,7 @@ mod tests {
         };
         let result1 = api.update_kv(host_params.clone(), json!(init_data));
         assert!(
-            !result1.is_ok(),
+            result1.is_err(),
             "must NOT be able to update kv without h/hw key prefixes calling from host"
         );
 

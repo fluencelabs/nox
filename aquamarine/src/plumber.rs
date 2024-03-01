@@ -556,7 +556,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
         let mut stats = vec![];
 
         for (worker_id, actors) in self.worker_actors.iter_mut() {
-            if let Some(pool) = self.workers.get_pool(worker_id.clone()) {
+            if let Some(pool) = self.workers.get_pool(*worker_id) {
                 let mut pool = pool.lock();
                 for actor in actors.values_mut() {
                     if let Some((vm_id, vm)) = pool.get_vm() {
@@ -708,7 +708,7 @@ mod tests {
         let vm_pool = VmPool::new(1, (), None, None);
         let builtin_mock = Arc::new(MockF);
 
-        let root_key_pair: KeyPair = KeyPair::generate_ed25519().into();
+        let root_key_pair: KeyPair = KeyPair::generate_ed25519();
         let key_pair_path: PathBuf = "keypair".into();
         let workers_path: PathBuf = "workers".into();
         let key_storage = KeyStorage::from_path(key_pair_path.clone(), root_key_pair.clone())

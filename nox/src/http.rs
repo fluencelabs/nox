@@ -169,7 +169,7 @@ mod tests {
     #[tokio::test]
     async fn test_version_route() {
         // Create a test server
-        let addr = format!("127.0.0.1:0").parse::<SocketAddr>().unwrap();
+        let addr = "127.0.0.1:0".to_string().parse::<SocketAddr>().unwrap();
 
         let (notify_sender, notify_receiver) = oneshot::channel();
         tokio::spawn(async move {
@@ -203,7 +203,7 @@ mod tests {
     #[tokio::test]
     async fn test_peer_id_route() {
         // Create a test server
-        let addr = format!("127.0.0.1:0").parse::<SocketAddr>().unwrap();
+        let addr = "127.0.0.1:0".to_string().parse::<SocketAddr>().unwrap();
         let peer_id = PeerId::random();
 
         let (notify_sender, notify_receiver) = oneshot::channel();
@@ -234,7 +234,7 @@ mod tests {
     #[tokio::test]
     async fn test_health_route_empty_registry() {
         // Create a test server
-        let addr = format!("127.0.0.1:0").parse::<SocketAddr>().unwrap();
+        let addr = "127.0.0.1:0".to_string().parse::<SocketAddr>().unwrap();
         let peer_id = PeerId::random();
 
         let (notify_sender, notify_receiver) = oneshot::channel();
@@ -270,7 +270,7 @@ mod tests {
     #[tokio::test]
     async fn test_health_route_success_checks() {
         // Create a test server
-        let addr = format!("127.0.0.1:0").parse::<SocketAddr>().unwrap();
+        let addr = "127.0.0.1:0".to_string().parse::<SocketAddr>().unwrap();
         let peer_id = PeerId::random();
 
         let (notify_sender, notify_receiver) = oneshot::channel();
@@ -314,7 +314,7 @@ mod tests {
     #[tokio::test]
     async fn test_health_route_warn_checks() {
         // Create a test server
-        let addr = format!("127.0.0.1:0").parse::<SocketAddr>().unwrap();
+        let addr = "127.0.0.1:0".to_string().parse::<SocketAddr>().unwrap();
         let peer_id = PeerId::random();
 
         let (notify_sender, notify_receiver) = oneshot::channel();
@@ -369,7 +369,7 @@ mod tests {
     #[tokio::test]
     async fn test_health_route_fail_checks() {
         // Create a test server
-        let addr = format!("127.0.0.1:0").parse::<SocketAddr>().unwrap();
+        let addr = "127.0.0.1:0".to_string().parse::<SocketAddr>().unwrap();
         let peer_id = PeerId::random();
 
         let (notify_sender, notify_receiver) = oneshot::channel();

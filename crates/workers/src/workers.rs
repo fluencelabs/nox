@@ -604,11 +604,7 @@ mod tests {
                 .expect("Failed to create KeyStorage from path"),
         );
 
-        let config = VmConfig::new(
-            PeerId::random(),
-            temp_dir.path().to_path_buf(),
-            None,
-        );
+        let config = VmConfig::new(PeerId::random(), temp_dir.path().to_path_buf(), None);
 
         // Create a new Workers instance
         let workers: Workers<AVMRunner> = Workers::from_path(
@@ -641,11 +637,7 @@ mod tests {
                 .expect("Failed to create KeyStorage from path"),
         );
 
-        let config = VmConfig::new(
-            PeerId::random(),
-            temp_dir.path().to_path_buf(),
-            None,
-        );
+        let config = VmConfig::new(PeerId::random(), temp_dir.path().to_path_buf(), None);
         // Create a new Workers instance
         let workers: Workers<AVMRunner> = Workers::from_path(
             config,
@@ -689,7 +681,7 @@ mod tests {
         assert_eq!(list_workers, vec![worker_id]);
 
         let creator = workers
-            .get_worker_creator(worker_id.into())
+            .get_worker_creator(worker_id)
             .expect("Failed to get worker creator");
         assert_eq!(creator, creator_peer_id);
 
@@ -716,11 +708,7 @@ mod tests {
                 .expect("Failed to create KeyStorage from path"),
         );
 
-        let config = VmConfig::new(
-            PeerId::random(),
-            temp_dir.path().to_path_buf(),
-            None,
-        );
+        let config = VmConfig::new(PeerId::random(), temp_dir.path().to_path_buf(), None);
 
         // Create a new Workers instance
         let workers: Workers<AVMRunner> = Workers::from_path(
@@ -783,11 +771,7 @@ mod tests {
                 .expect("Failed to create KeyStorage from path"),
         );
 
-        let config = VmConfig::new(
-            PeerId::random(),
-            temp_dir.path().to_path_buf(),
-            None,
-        );
+        let config = VmConfig::new(PeerId::random(), temp_dir.path().to_path_buf(), None);
 
         // Create a new Workers instance
         let workers: Workers<AVMRunner> = Workers::from_path(
@@ -861,11 +845,7 @@ mod tests {
                 .expect("Failed to create KeyStorage from path"),
         );
 
-        let config = VmConfig::new(
-            PeerId::random(),
-            temp_dir.path().to_path_buf(),
-            None,
-        );
+        let config = VmConfig::new(PeerId::random(), temp_dir.path().to_path_buf(), None);
 
         // Create a new Workers instance
         let workers: Workers<AVMRunner> = Workers::from_path(
@@ -919,13 +899,13 @@ mod tests {
         let key_2 = key_storage.get_worker_key_pair(worker_id_2);
         assert!(key_1.is_some());
         assert!(key_2.is_none());
-        let status = workers.is_worker_active(worker_id_1.into());
+        let status = workers.is_worker_active(worker_id_1);
         assert!(status);
         workers
             .deactivate_worker(worker_id_1)
             .await
             .expect("Failed to activate worker");
-        let status = workers.is_worker_active(worker_id_1.into());
+        let status = workers.is_worker_active(worker_id_1);
         assert!(!status);
         drop(key_storage);
         // tokio doesn't allow to drop runtimes in async context, so shifting workers drop to the blocking thread
@@ -956,7 +936,7 @@ mod tests {
         let key_2 = key_storage.get_worker_key_pair(worker_id_2);
         assert!(key_1.is_some());
         assert!(key_2.is_none());
-        let status = workers.is_worker_active(worker_id_1.into());
+        let status = workers.is_worker_active(worker_id_1);
         assert!(!status);
         // tokio doesn't allow to drop runtimes in async context, so shifting workers drop to the blocking thread
         tokio::task::spawn_blocking(|| drop(workers)).await.unwrap();

@@ -2153,7 +2153,7 @@ async fn exec_script_with<'a>(
 ) -> Result<Vec<JValue>, Report> {
     args.insert("relay", json!(client.node.to_string()));
 
-    let result = client
+    client
         .execute_particle(
             f!(r#"
         (seq
@@ -2163,9 +2163,7 @@ async fn exec_script_with<'a>(
         "#),
             args,
         )
-        .await;
-
-    result
+        .await
 }
 
 #[tokio::test]
