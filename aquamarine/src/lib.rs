@@ -26,17 +26,6 @@
     unreachable_patterns
 )]
 
-pub use avm_server::avm_runner::AVMRunner;
-
-pub use aqua_runtime::{AquaRuntime, InterpretationStats, ParticleEffects, VmConfig, VmPoolConfig};
-pub use config::DataStoreConfig;
-pub use error::AquamarineApiError;
-pub use particle_data_store::{DataStoreError, ParticleDataStore};
-
-pub use plumber::Plumber;
-
-pub use crate::aquamarine::{AquamarineApi, AquamarineBackend};
-
 mod actor;
 mod aquamarine;
 mod command;
@@ -50,4 +39,18 @@ mod particle_functions;
 mod plumber;
 mod spawner;
 
-pub use aqua_runtime::RemoteRoutingEffects;
+mod aqua_runtime;
+
+mod particle_effects;
+
+mod vm_pool;
+mod health;
+
+pub use crate::aqua_runtime::AquaRuntime;
+pub use crate::aquamarine::{AquamarineApi, AquamarineBackend};
+pub use crate::config::{VmConfig, VmPoolConfig, DataStoreConfig};
+pub use crate::particle_effects::{InterpretationStats, ParticleEffects, RemoteRoutingEffects};
+pub use avm_server::avm_runner::AVMRunner;
+pub use error::AquamarineApiError;
+pub use particle_data_store::{DataStoreError, ParticleDataStore};
+pub use plumber::Plumber;

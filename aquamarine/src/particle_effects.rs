@@ -14,11 +14,12 @@
  * limitations under the License.
  */
 
-use avm_server::CallRequests;
-use libp2p_identity::PeerId;
-use particle_protocol::ExtendedParticle;
 use std::time::Duration;
 
+use libp2p::PeerId;
+
+use avm_server::CallRequests;
+use particle_protocol::ExtendedParticle;
 use types::peer_scope::PeerScope;
 
 #[derive(Clone, Debug)]

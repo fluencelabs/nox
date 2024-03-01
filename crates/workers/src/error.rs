@@ -17,9 +17,11 @@
 use core_manager::errors::AcquireError;
 use libp2p::PeerId;
 use std::path::PathBuf;
+use crossbeam_channel::SendError;
 use thiserror::Error;
 use types::peer_scope::WorkerId;
 use types::DealId;
+use crate::workers::Event;
 
 #[derive(Debug, Error)]
 pub enum KeyStorageError {
@@ -85,7 +87,7 @@ pub enum KeyStorageError {
 }
 
 #[derive(Debug, Error)]
-pub enum WorkersError {
+pub enum    WorkersError {
     #[error("Error creating directory for persisted workers {path:?}: {err}")]
     CreateWorkersDir {
         path: PathBuf,
@@ -151,5 +153,11 @@ pub enum WorkersError {
         worker_id: WorkerId,
         #[source]
         err: AcquireError,
+    },
+    #[error("Failed to notify subsystem {worker_id}: {err}")]
+    FailedToNotifySubsystem {
+        worker_id: WorkerId,
+        #[source]
+        err: SendError<Event>,
     },
 }

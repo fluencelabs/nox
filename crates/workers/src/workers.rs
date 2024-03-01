@@ -1,12 +1,14 @@
-use async_trait::async_trait;
-use std::cell::RefCell;
 use std::collections::HashMap;
+use std::ops::Deref;
 use std::path::PathBuf;
-use std::rc::Rc;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
 
-use aqua_runtime::{AquaRuntime, VmPool};
+use crossbeam_channel::{Receiver, Sender};
+use parking_lot::lock_api::RwLockUpgradableReadGuard;
+use parking_lot::RwLock;
+use tokio::runtime::{Handle, Runtime};
+
 use core_manager::manager::{CoreManager, CoreManagerFunctions};
 use core_manager::types::{AcquireRequest, WorkType};
 use core_manager::CUID;
@@ -49,8 +51,7 @@ impl WorkerParams {
 }
 
 /// Manages a collection of workers.
-pub struct Workers<RT: AquaRuntime> {
-    config: RT::Config,
+pub struct Workers {
     /// Manages a collection of workers.
     worker_ids: RwLock<HashMap<DealId, WorkerId>>,
     /// Mapping of worker IDs to worker information.
@@ -66,23 +67,20 @@ pub struct Workers<RT: AquaRuntime> {
     /// Number of created tokio runtimes
     runtime_counter: Arc<AtomicU32>,
 
-    vm_pools: RwLock<HashMap<WorkerId, PoolWrapper<RT>>>,
+    sender: Sender<Event>,
 }
 
-pub struct PoolWrapper<RT: AquaRuntime>(Rc<RefCell<VmPool<RT>>>);
-
-impl<RT: AquaRuntime> Clone for PoolWrapper<RT> {
-    fn clone(&self) -> Self {
-        PoolWrapper(self.0.clone())
-    }
+pub enum Event {
+    WorkerCreated {
+        worker_id: WorkerId,
+        thread_count: usize,
+    },
+    WorkerRemoved {
+        worker_id: WorkerId,
+    },
 }
 
-// SAFETY: we know that pool can be used only in plumber, but we add Send + Sync to make compiler happy
-// Sure it can't be used in multi threaded & async code
-unsafe impl<RT: AquaRuntime> Send for PoolWrapper<RT> {}
-unsafe impl<RT: AquaRuntime> Sync for PoolWrapper<RT> {}
-
-impl<RT: AquaRuntime> Workers<RT> {
+impl Workers {
     /// Creates a `Workers` instance by loading persisted worker data from the specified directory.
     ///
     /// # Arguments
@@ -98,18 +96,18 @@ impl<RT: AquaRuntime> Workers<RT> {
     /// - `Err(eyre::Error)` if an error occurs during the creation process.
     ///
     pub async fn from_path(
-        config: RT::Config,
         workers_dir: PathBuf,
         key_storage: Arc<KeyStorage>,
         core_manager: Arc<CoreManager>,
-    ) -> eyre::Result<Self> {
+        channel_size: usize,
+    ) -> eyre::Result<(Self, Receiver<Event>)> {
         let workers = load_persisted_workers(workers_dir.as_path()).await?;
         let mut worker_ids = HashMap::with_capacity(workers.len());
         let mut worker_infos = HashMap::with_capacity(workers.len());
         let mut runtimes = HashMap::with_capacity(workers.len());
-        let mut vm_pools = HashMap::with_capacity(workers.len());
 
         let worker_counter = Arc::new(AtomicU32::new(0));
+        let (sender, receiver) = crossbeam_channel::bounded::<Event>(channel_size);
 
         for (w, _) in workers {
             let worker_id = w.worker_id;
@@ -126,21 +124,24 @@ impl<RT: AquaRuntime> Workers<RT> {
             )?;
 
             runtimes.insert(worker_id, runtime);
-
-            let vm_pool = VmPool::new(thread_count, config.clone(), None, None);
-            vm_pools.insert(worker_id, PoolWrapper(Rc::new(RefCell::new(vm_pool))));
+            sender.send(Event::WorkerCreated {
+                worker_id,
+                thread_count,
+            })?
         }
-        Ok(Self {
-            config,
-            worker_ids: RwLock::new(worker_ids),
-            worker_infos: RwLock::new(worker_infos),
-            workers_dir,
-            key_storage,
-            runtimes: RwLock::new(runtimes),
-            runtime_counter: worker_counter,
-            core_manager,
-            vm_pools: RwLock::new(vm_pools),
-        })
+        Ok((
+            Self {
+                worker_ids: RwLock::new(worker_ids),
+                worker_infos: RwLock::new(worker_infos),
+                workers_dir,
+                key_storage,
+                runtimes: RwLock::new(runtimes),
+                runtime_counter: worker_counter,
+                core_manager,
+                sender,
+            },
+            receiver,
+        ))
     }
 
     /// Retrieves the deal ID associated with the specified worker ID.
@@ -163,10 +164,6 @@ impl<RT: AquaRuntime> Workers<RT> {
             .map(|info| info.deal_id.clone())
     }
 
-    // SAFETY: can be use only in the 1 threaded plumber
-    pub fn get_pool(&self, worker_id: WorkerId) -> Option<Rc<RefCell<VmPool<RT>>>> {
-        self.vm_pools.read().get(&worker_id).cloned().map(|x| x.0)
-    }
 
     pub fn shutdown(&self) {
         let mut runtimes = self.runtimes.write();
@@ -341,7 +338,7 @@ impl<RT: AquaRuntime> WorkersOperations for Workers<RT> {
     /// - `Ok(worker_id)` if the worker is successfully created, returning the ID of the created worker.
     /// - `Err(WorkersError)` if an error occurs, such as the worker already existing or key pair creation failure.
     ///
-    async fn create_worker(&self, params: WorkerParams) -> Result<WorkerId, WorkersError> {
+    pub async fn create_worker(&self, params: WorkerParams) -> Result<WorkerId, WorkersError> {
         let deal_id = params.deal_id;
         let init_peer_id = params.init_peer_id;
         let cu_ids = params.cu_ids;
@@ -367,7 +364,8 @@ impl<RT: AquaRuntime> WorkersOperations for Workers<RT> {
 
                 match worker_info {
                     Ok(worker_info) => {
-                        let mut worker_ids = self.worker_ids.write();
+                        let lock = self.worker_ids.upgradable_read();
+                        let worker_ids = lock.deref();
                         if worker_ids.contains_key(&deal_id) {
                             return Err(WorkersError::WorkerAlreadyExists { deal_id });
                         }
@@ -379,16 +377,22 @@ impl<RT: AquaRuntime> WorkersOperations for Workers<RT> {
                             cu_ids,
                         )?;
 
-                        let vm_pool = VmPool::new(thread_count, self.config.clone(), None, None);
-
+                        let mut worker_ids = RwLockUpgradableReadGuard::upgrade(lock);
                         let mut worker_infos = self.worker_infos.write();
                         let mut runtimes = self.runtimes.write();
-                        let mut vm_pools = self.vm_pools.write();
 
                         worker_ids.insert(deal_id, worker_id);
                         worker_infos.insert(worker_id, worker_info);
                         runtimes.insert(worker_id, runtime);
-                        vm_pools.insert(worker_id, PoolWrapper(Rc::new(RefCell::new(vm_pool))));
+                        self.sender
+                            .send(Event::WorkerCreated {
+                                worker_id,
+                                thread_count,
+                            })
+                            .map_err(|err| WorkersError::FailedToNotifySubsystem {
+                                worker_id,
+                                err,
+                            })?; // TODO: cleanup on fail
                     }
                     Err(err) => {
                         tracing::warn!(
@@ -411,7 +415,98 @@ impl<RT: AquaRuntime> WorkersOperations for Workers<RT> {
         }
     }
 
-    fn get_handle(&self, worker_id: WorkerId) -> Option<Handle> {
+    /// Removes a worker with the specified `worker_id`.
+    ///
+    /// # Arguments
+    ///
+    /// * `worker_id` - The `PeerId` of the worker to be removed.
+    ///
+    /// # Returns
+    ///
+    /// Returns `Result<(), WorkersError>` where:
+    /// - `Ok(())` if the worker is successfully removed.
+    /// - `Err(WorkersError)` if an error occurs, such as the worker not found or key pair removal failure.
+    ///
+    pub async fn remove_worker(&self, worker_id: WorkerId) -> Result<(), WorkersError> {
+        let deal_id = self.get_deal_id(worker_id)?;
+        remove_worker(&self.workers_dir, worker_id).await?;
+        self.key_storage
+            .remove_key_pair(worker_id)
+            .await
+            .map_err(|err| WorkersError::RemoveWorkerKeyPair { err })?;
+
+        let mut worker_ids = self.worker_ids.write();
+        let mut worker_infos = self.worker_infos.write();
+        let mut runtimes = self.runtimes.write();
+        let removed_worker_id = worker_ids.remove(&deal_id);
+        let removed_worker_info = worker_infos.remove(&worker_id);
+        let removed_runtime = runtimes.remove(&worker_id);
+
+        drop(worker_ids);
+        drop(worker_infos);
+        drop(runtimes);
+
+        debug_assert!(removed_worker_id.is_some(), "worker_id does not exist");
+        debug_assert!(removed_worker_info.is_some(), "worker info does not exist");
+        debug_assert!(removed_runtime.is_some(), "worker runtime does not exist");
+
+        if let Some(runtime) = removed_runtime {
+            // we can't shutdown the runtime in the async context, shift it to the blocking pool
+            // also we don't wait the result
+            tokio::task::Builder::new()
+                .name(&format!("runtime-shutdown-{}", worker_id))
+                .spawn_blocking(move || runtime.shutdown_background())
+                .expect("Could not spawn task");
+        }
+
+        self.sender
+            .send(Event::WorkerRemoved { worker_id })
+            .map_err(|err| WorkersError::FailedToNotifySubsystem { worker_id, err })?;
+
+        Ok(())
+    }
+
+    /// Activates the worker with the specified `worker_id`.
+    ///
+    /// The activation process sets the worker's status to `true`, indicating that the worker
+    /// is active. The updated status is persisted, and internal data structures are updated.
+    ///
+    /// # Arguments
+    ///
+    /// * `worker_id` - The `PeerId` of the worker to be activated.
+    ///
+    /// # Returns
+    ///
+    /// Returns `Result<(), WorkersError>` where:
+    /// - `Ok(())` if the activation is successful.
+    /// - `Err(WorkersError)` if an error occurs during the activation process.
+    ///
+    pub async fn activate_worker(&self, worker_id: WorkerId) -> Result<(), WorkersError> {
+        self.set_worker_status(worker_id, true).await?;
+        Ok(())
+    }
+
+    /// Deactivates the worker with the specified `worker_id`.
+    ///
+    /// The deactivation process sets the worker's status to `false`, indicating that the worker
+    /// is not active. The updated status is persisted, and internal data structures are updated.
+    ///
+    /// # Arguments
+    ///
+    /// * `worker_id` - The `PeerId` of the worker to be deactivated.
+    ///
+    /// # Returns
+    ///
+    /// Returns `Result<(), WorkersError>` where:
+    /// - `Ok(())` if the deactivation is successful.
+    /// - `Err(WorkersError)` if an error occurs during the deactivation process.
+    ///
+    pub async fn deactivate_worker(&self, worker_id: WorkerId) -> Result<(), WorkersError> {
+        self.set_worker_status(worker_id, false).await?;
+        Ok(())
+    }
+
+    pub fn get_handle(&self, worker_id: WorkerId) -> Option<Handle> {
         self.runtimes
             .read()
             .get(&worker_id)
@@ -433,102 +528,12 @@ impl<RT: AquaRuntime> WorkersOperations for Workers<RT> {
     /// - `Ok(creator_peer_id)` if the creator `PeerId` is successfully retrieved.
     /// - `Err(WorkersError)` if an error occurs, such as the worker not found.
     ///
-    fn get_worker_creator(&self, worker_id: WorkerId) -> Result<PeerId, WorkersError> {
+    pub fn get_worker_creator(&self, worker_id: WorkerId) -> Result<PeerId, WorkersError> {
         self.worker_infos
             .read()
             .get(&worker_id)
             .map(|i| i.creator)
             .ok_or(WorkersError::WorkerNotFound(worker_id))
-    }
-
-    /// Removes a worker with the specified `worker_id`.
-    ///
-    /// # Arguments
-    ///
-    /// * `worker_id` - The `PeerId` of the worker to be removed.
-    ///
-    /// # Returns
-    ///
-    /// Returns `Result<(), WorkersError>` where:
-    /// - `Ok(())` if the worker is successfully removed.
-    /// - `Err(WorkersError)` if an error occurs, such as the worker not found or key pair removal failure.
-    ///
-    async fn remove_worker(&self, worker_id: WorkerId) -> Result<(), WorkersError> {
-        let deal_id = self.get_deal_id(worker_id)?;
-        remove_worker(&self.workers_dir, worker_id).await?;
-        self.key_storage
-            .remove_key_pair(worker_id)
-            .await
-            .map_err(|err| WorkersError::RemoveWorkerKeyPair { err })?;
-
-        let mut worker_ids = self.worker_ids.write();
-        let mut worker_infos = self.worker_infos.write();
-        let mut runtimes = self.runtimes.write();
-        let mut vm_pools = self.vm_pools.write();
-        let removed_worker_id = worker_ids.remove(&deal_id);
-        let removed_worker_info = worker_infos.remove(&worker_id);
-        let removed_runtime = runtimes.remove(&worker_id);
-        let removed_pool = vm_pools.remove(&worker_id);
-
-        drop(worker_ids);
-        drop(worker_infos);
-        drop(runtimes);
-
-        debug_assert!(removed_worker_id.is_some(), "worker_id does not exist");
-        debug_assert!(removed_worker_info.is_some(), "worker info does not exist");
-        debug_assert!(removed_runtime.is_some(), "worker runtime does not exist");
-        debug_assert!(removed_pool.is_some(), "worker vm pool does not exist");
-
-        if let Some(runtime) = removed_runtime {
-            // we can't shutdown the runtime in the async context, shift it to the blocking pool
-            // also we don't wait the result
-            tokio::task::Builder::new()
-                .name(&format!("runtime-shutdown-{}", worker_id))
-                .spawn_blocking(move || runtime.shutdown_background())
-                .expect("Could not spawn task");
-        }
-
-        Ok(())
-    }
-
-    /// Activates the worker with the specified `worker_id`.
-    ///
-    /// The activation process sets the worker's status to `true`, indicating that the worker
-    /// is active. The updated status is persisted, and internal data structures are updated.
-    ///
-    /// # Arguments
-    ///
-    /// * `worker_id` - The `PeerId` of the worker to be activated.
-    ///
-    /// # Returns
-    ///
-    /// Returns `Result<(), WorkersError>` where:
-    /// - `Ok(())` if the activation is successful.
-    /// - `Err(WorkersError)` if an error occurs during the activation process.
-    ///
-    async fn activate_worker(&self, worker_id: WorkerId) -> Result<(), WorkersError> {
-        self.set_worker_status(worker_id, true).await?;
-        Ok(())
-    }
-
-    /// Deactivates the worker with the specified `worker_id`.
-    ///
-    /// The deactivation process sets the worker's status to `false`, indicating that the worker
-    /// is not active. The updated status is persisted, and internal data structures are updated.
-    ///
-    /// # Arguments
-    ///
-    /// * `worker_id` - The `PeerId` of the worker to be deactivated.
-    ///
-    /// # Returns
-    ///
-    /// Returns `Result<(), WorkersError>` where:
-    /// - `Ok(())` if the deactivation is successful.
-    /// - `Err(WorkersError)` if an error occurs during the deactivation process.
-    ///
-    async fn deactivate_worker(&self, worker_id: WorkerId) -> Result<(), WorkersError> {
-        self.set_worker_status(worker_id, false).await?;
-        Ok(())
     }
 
     /// Retrieves the worker ID associated with the specified `deal_id`.
@@ -543,7 +548,7 @@ impl<RT: AquaRuntime> WorkersOperations for Workers<RT> {
     /// - `Ok(worker_id)` if the worker ID is successfully retrieved.
     /// - `Err(WorkersError)` if an error occurs, such as the worker not found.
     ///
-    fn get_worker_id(&self, deal_id: DealId) -> Result<WorkerId, WorkersError> {
+    pub fn get_worker_id(&self, deal_id: DealId) -> Result<WorkerId, WorkersError> {
         self.worker_ids
             .read()
             .get(&deal_id)
@@ -566,7 +571,7 @@ impl<RT: AquaRuntime> WorkersOperations for Workers<RT> {
     /// Returns `true` if the worker is active, and `false` otherwise. If the worker with the
     /// specified `worker_id` is not found, a warning is logged, and `false` is returned.
     ///
-    fn is_worker_active(&self, worker_id: WorkerId) -> bool {
+    pub fn is_worker_active(&self, worker_id: WorkerId) -> bool {
         let guard = self.worker_infos.read();
         let worker_info = guard.get(&worker_id);
 
@@ -589,15 +594,148 @@ impl<RT: AquaRuntime> WorkersOperations for Workers<RT> {
     ///
     /// Returns a `Vec<WorkerId>` representing a list of all worker IDs currently registered.
     ///
-    fn list_workers(&self) -> Vec<WorkerId> {
+    pub fn list_workers(&self) -> Vec<WorkerId> {
         self.worker_infos.read().keys().cloned().collect()
+    }
+
+    pub fn shutdown(&self) {
+        let mut runtimes = self.runtimes.write();
+        let mut deleted_runtimes = Vec::with_capacity(runtimes.len());
+        let worker_ids: Vec<WorkerId> = runtimes.keys().cloned().collect();
+        for worker_id in worker_ids {
+            if let Some(runtime) = runtimes.remove(&worker_id) {
+                deleted_runtimes.push(runtime);
+            }
+        }
+
+        tokio::task::Builder::new()
+            .name("workers-shutdown")
+            .spawn_blocking(move || {
+                for runtime in deleted_runtimes {
+                    runtime.shutdown_background();
+                }
+            })
+            .expect("Could not spawn a task");
+    }
+
+    /// Persists worker information and updates internal data structures.
+    ///
+    /// This method stores information about the worker identified by `worker_id` and associates
+    /// it with the provided `deal_id` and `creator` PeerId. The worker's active status is set to `true`.
+    /// The information is persisted to the workers' storage directory, and the internal
+    /// `worker_ids` and `worker_infos` data structures are updated accordingly.
+    ///
+    /// # Arguments
+    ///
+    /// * `worker_id` - The `PeerId` of the worker to be stored.
+    /// * `deal_id` - The unique identifier (`String`) associated with the deal.
+    /// * `creator` - The `PeerId` of the creator of the worker.
+    ///
+    /// # Returns
+    ///
+    /// Returns `Result<WorkerInfo, WorkersError>` where:
+    /// - `Ok(worker_info)` if the worker information is successfully stored.
+    /// - `Err(WorkersError)` if an error occurs during the storage process.
+    ///
+    async fn store_worker(
+        &self,
+        worker_id: WorkerId,
+        deal_id: DealId,
+        creator: PeerId,
+        cu_ids: Vec<CUID>,
+    ) -> Result<WorkerInfo, WorkersError> {
+        persist_worker(
+            &self.workers_dir,
+            worker_id,
+            PersistedWorker {
+                worker_id,
+                creator,
+                deal_id: deal_id.clone().into(),
+                active: true,
+                cu_ids: cu_ids.clone(),
+            },
+        )
+        .await?;
+        let worker_info = WorkerInfo {
+            deal_id,
+            creator,
+            active: RwLock::new(true),
+            cu_ids,
+        };
+        Ok(worker_info)
+    }
+
+    async fn set_worker_status(
+        &self,
+        worker_id: WorkerId,
+        status: bool,
+    ) -> Result<(), WorkersError> {
+        let (creator, deal_id, cu_ids) = {
+            let guard = self.worker_infos.read();
+            let worker_info = guard
+                .get(&worker_id)
+                .ok_or(WorkersError::WorkerNotFound(worker_id))?;
+            let mut active = worker_info.active.write();
+            *active = status;
+
+            (
+                worker_info.creator,
+                worker_info.deal_id.clone(),
+                worker_info.cu_ids.clone(),
+            )
+        };
+
+        persist_worker(
+            &self.workers_dir,
+            worker_id,
+            PersistedWorker {
+                worker_id,
+                creator,
+                deal_id: deal_id.into(),
+                active: status,
+                cu_ids,
+            },
+        )
+        .await?;
+        Ok(())
+    }
+
+    fn build_runtime(
+        core_manager: Arc<CoreManager>,
+        worker_counter: Arc<AtomicU32>,
+        worker_id: WorkerId,
+        cu_ids: Vec<CUID>,
+    ) -> Result<(Runtime, usize), WorkersError> {
+        // Creating a multi-threaded Tokio runtime with a total of cu_count * 2 threads.
+        // We assume cu_count threads per logical processor, aligning with the common practice.
+        let assignment = core_manager
+            .acquire_worker_core(AcquireRequest::new(cu_ids, WorkType::Deal))
+            .map_err(|err| WorkersError::FailedToAssignCores { worker_id, err })?;
+
+        let threads_count = assignment.logical_core_ids.len();
+
+        let id = worker_counter.fetch_add(1, Ordering::Acquire);
+
+        tracing::info!(target: "worker", "Creating runtime with id {} for worker id {}. Pinned to cores: {:?}", id, worker_id, assignment.logical_core_ids);
+
+        let runtime = tokio::runtime::Builder::new_multi_thread()
+            .thread_name(format!("worker-pool-{}", id))
+            // Configuring worker threads for executing service calls and particles
+            .worker_threads(threads_count)
+            // Configuring blocking threads for handling I/O
+            .max_blocking_threads(threads_count)
+            .on_thread_start(move || {
+                assignment.pin_current_thread();
+            })
+            .build()
+            .map_err(|err| WorkersError::CreateRuntime { worker_id, err })?;
+        Ok((runtime, threads_count))
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::{KeyStorage, WorkerParams, Workers, WorkersOperations, CUID};
-    use aqua_runtime::{AVMRunner, VmConfig};
+    use crate::{KeyStorage, WorkerParams, Workers, CUID};
     use core_manager::manager::{CoreManager, DummyCoreManager};
     use hex::FromHex;
     use libp2p::PeerId;
@@ -621,17 +759,11 @@ mod tests {
                 .expect("Failed to create KeyStorage from path"),
         );
 
-        let config = VmConfig::new(PeerId::random(), temp_dir.path().to_path_buf(), None);
-
         // Create a new Workers instance
-        let workers: Workers<AVMRunner> = Workers::from_path(
-            config,
-            workers_dir.clone(),
-            key_storage.clone(),
-            core_manager,
-        )
-        .await
-        .expect("Failed to create Workers from path");
+        let (workers, _receiver) =
+            Workers::from_path(workers_dir.clone(), key_storage.clone(), core_manager, 128)
+                .await
+                .expect("Failed to create Workers from path");
 
         // Check that the workers instance has the correct initial state
         assert_eq!(workers.worker_ids.read().len(), 0);
@@ -654,16 +786,11 @@ mod tests {
                 .expect("Failed to create KeyStorage from path"),
         );
 
-        let config = VmConfig::new(PeerId::random(), temp_dir.path().to_path_buf(), None);
         // Create a new Workers instance
-        let workers: Workers<AVMRunner> = Workers::from_path(
-            config,
-            workers_dir.clone(),
-            key_storage.clone(),
-            core_manager,
-        )
-        .await
-        .expect("Failed to create Workers from path");
+        let (workers, _receiver) =
+            Workers::from_path(workers_dir.clone(), key_storage.clone(), core_manager, 128)
+                .await
+                .expect("Failed to create Workers from path");
 
         let init_id_1 =
             <CUID>::from_hex("54ae1b506c260367a054f80800a545f23e32c6bc4a8908c9a794cb8dad23e5ea")
@@ -725,17 +852,11 @@ mod tests {
                 .expect("Failed to create KeyStorage from path"),
         );
 
-        let config = VmConfig::new(PeerId::random(), temp_dir.path().to_path_buf(), None);
-
         // Create a new Workers instance
-        let workers: Workers<AVMRunner> = Workers::from_path(
-            config,
-            workers_dir.clone(),
-            key_storage.clone(),
-            core_manager,
-        )
-        .await
-        .expect("Failed to create Workers from path");
+        let (workers, _receiver) =
+            Workers::from_path(workers_dir.clone(), key_storage.clone(), core_manager, 128)
+                .await
+                .expect("Failed to create Workers from path");
 
         let init_id_1 =
             <CUID>::from_hex("54ae1b506c260367a054f80800a545f23e32c6bc4a8908c9a794cb8dad23e5ea")
@@ -788,17 +909,11 @@ mod tests {
                 .expect("Failed to create KeyStorage from path"),
         );
 
-        let config = VmConfig::new(PeerId::random(), temp_dir.path().to_path_buf(), None);
-
         // Create a new Workers instance
-        let workers: Workers<AVMRunner> = Workers::from_path(
-            config,
-            workers_dir.clone(),
-            key_storage.clone(),
-            core_manager,
-        )
-        .await
-        .expect("Failed to create Workers from path");
+        let (workers, _receiver) =
+            Workers::from_path(workers_dir.clone(), key_storage.clone(), core_manager, 128)
+                .await
+                .expect("Failed to create Workers from path");
 
         let init_id_1 =
             <CUID>::from_hex("54ae1b506c260367a054f80800a545f23e32c6bc4a8908c9a794cb8dad23e5ea")
@@ -862,14 +977,12 @@ mod tests {
                 .expect("Failed to create KeyStorage from path"),
         );
 
-        let config = VmConfig::new(PeerId::random(), temp_dir.path().to_path_buf(), None);
-
         // Create a new Workers instance
-        let workers: Workers<AVMRunner> = Workers::from_path(
-            config.clone(),
+        let (workers, _receiver) = Workers::from_path(
             workers_dir.clone(),
             key_storage.clone(),
             core_manager.clone(),
+            128,
         )
         .await
         .expect("Failed to create Workers from path");
@@ -936,14 +1049,10 @@ mod tests {
         );
 
         // Create a new Workers instance
-        let workers: Workers<AVMRunner> = Workers::from_path(
-            config,
-            workers_dir.clone(),
-            key_storage.clone(),
-            core_manager,
-        )
-        .await
-        .expect("Failed to create Workers from path");
+        let (workers, _receiver) =
+            Workers::from_path(workers_dir.clone(), key_storage.clone(), core_manager, 128)
+                .await
+                .expect("Failed to create Workers from path");
 
         let list = workers.list_workers();
         let expected_list = vec![worker_id_1];

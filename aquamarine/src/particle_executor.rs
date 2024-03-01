@@ -19,7 +19,6 @@ use std::borrow::Cow;
 use std::sync::Arc;
 use std::time::Instant;
 
-use aqua_runtime::AquaRuntime;
 use avm_server::avm_runner::RawAVMOutcome;
 use avm_server::{CallResults, ParticleParameters};
 use fluence_keypair::KeyPair;
@@ -31,7 +30,7 @@ use particle_protocol::Particle;
 
 use crate::spawner::SpawnFunctions;
 use crate::spawner::Spawner;
-use crate::{InterpretationStats, ParticleDataStore, ParticleEffects};
+use crate::{AquaRuntime, InterpretationStats, ParticleDataStore, ParticleEffects};
 
 pub(super) type AVMRes<RT> = FutResult<Option<RT>, ParticleEffects, InterpretationStats>;
 

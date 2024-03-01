@@ -27,13 +27,13 @@ use crate::deadline::Deadline;
 use crate::particle_executor::{FutResult, ParticleExecutor};
 use crate::particle_functions::{Functions, SingleCallStat};
 use crate::spawner::{SpawnFunctions, Spawner};
-use crate::ParticleDataStore;
-use aqua_runtime::{AquaRuntime, InterpretationStats, ParticleEffects, RawRoutingEffects};
+use crate::{AquaRuntime, InterpretationStats, ParticleDataStore, ParticleEffects};
 use fluence_keypair::KeyPair;
 use fluence_libp2p::PeerId;
 use particle_execution::{ParticleFunctionStatic, ServiceFunction};
 use particle_protocol::{ExtendedParticle, Particle};
 use types::DealId;
+use crate::particle_effects::RawRoutingEffects;
 
 struct Reusables<RT> {
     vm_id: usize,

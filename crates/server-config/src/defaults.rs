@@ -142,6 +142,10 @@ pub fn default_effects_queue_buffer_size() -> usize {
     128
 }
 
+pub fn default_workers_queue_buffer_size() -> usize {
+    128
+}
+
 pub fn default_particle_processor_parallelism() -> Option<usize> {
     Some(num_cpus::get() * 2)
 }

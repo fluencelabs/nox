@@ -19,7 +19,6 @@ use std::sync::Arc;
 use std::task::Poll;
 use std::time::Duration;
 
-use aqua_runtime::{AquaRuntime, RemoteRoutingEffects, VmPool};
 use futures::StreamExt;
 use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
@@ -30,12 +29,13 @@ use particle_execution::{ParticleFunctionStatic, ServiceFunction};
 use particle_protocol::ExtendedParticle;
 use particle_services::PeerScope;
 use peer_metrics::{ParticleExecutorMetrics, VmPoolMetrics};
-use workers::{KeyStorage, PeerScopes, Workers};
+use workers::{Event, KeyStorage, PeerScopes, Receiver, Workers};
 
 use crate::command::Command;
 use crate::command::Command::{AddService, Ingest, RemoveService};
 use crate::error::AquamarineApiError;
-use crate::{DataStoreConfig, ParticleDataStore, Plumber, VmPoolConfig};
+use crate::{AquaRuntime, DataStoreConfig, ParticleDataStore, Plumber, RemoteRoutingEffects, VmPoolConfig};
+use crate::vm_pool::VmPool;
 
 pub type EffectsChannel = mpsc::Sender<Result<RemoteRoutingEffects, AquamarineApiError>>;
 
@@ -57,9 +57,10 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> AquamarineBackend<RT, F> {
         plumber_metrics: Option<ParticleExecutorMetrics>,
         vm_pool_metrics: Option<VmPoolMetrics>,
         health_registry: Option<&mut HealthCheckRegistry>,
-        workers: Arc<Workers<RT>>,
+        workers: Arc<Workers>,
         key_storage: Arc<KeyStorage>,
         scopes: PeerScopes,
+        worker_events: Receiver<Event>
     ) -> eyre::Result<(Self, AquamarineApi)> {
         // TODO: make `100` configurable
         let (outlet, inlet) = mpsc::channel(100);
@@ -73,11 +74,12 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> AquamarineBackend<RT, F> {
         let data_store: Arc<ParticleDataStore> = Arc::new(data_store);
         let vm_pool = VmPool::new(
             config.pool_size,
-            runtime_config,
+            runtime_config.clone(),
             vm_pool_metrics,
             health_registry,
         );
         let plumber = Plumber::new(
+            runtime_config,
             vm_pool,
             data_store.clone(),
             builtins,
@@ -85,6 +87,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> AquamarineBackend<RT, F> {
             workers,
             key_storage,
             scopes,
+            worker_events
         );
         let this = Self {
             inlet,

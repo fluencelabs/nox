@@ -27,7 +27,7 @@ use spell_event_bus::{api, api::SpellEventBusApi};
 use spell_service_api::{CallParams, SpellServiceApi};
 use spell_storage::SpellStorage;
 use std::time::Duration;
-use workers::{PeerScopes, WorkersOperations};
+use workers::{PeerScopes, Workers};
 
 pub async fn remove_spell(
     particle_id: &str,
@@ -158,7 +158,7 @@ pub(crate) async fn spell_install(
     services: ParticleAppServices,
     spell_event_bus_api: SpellEventBusApi,
     spell_service_api: SpellServiceApi,
-    workers: Arc<dyn WorkersOperations>,
+    workers: Arc<Workers>,
     scopes: PeerScopes,
 ) -> Result<JValue, JError> {
     let mut args = sargs.function_args.clone().into_iter();
@@ -255,7 +255,7 @@ pub(crate) async fn spell_remove(
     spell_storage: SpellStorage,
     services: ParticleAppServices,
     spell_event_bus_api: SpellEventBusApi,
-    workers: Arc<dyn WorkersOperations>,
+    workers: Arc<Workers>,
     scopes: PeerScopes,
 ) -> Result<(), JError> {
     let mut args = args.function_args.into_iter();
@@ -310,7 +310,7 @@ pub(crate) async fn spell_update_config(
     services: ParticleAppServices,
     spell_event_bus_api: SpellEventBusApi,
     spell_service_api: SpellServiceApi,
-    workers: Arc<dyn WorkersOperations>,
+    workers: Arc<Workers>,
     scopes: PeerScopes,
 ) -> Result<(), JError> {
     let mut args = args.function_args.into_iter();

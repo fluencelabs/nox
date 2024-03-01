@@ -15,6 +15,9 @@
  */
 
 use humantime::FormattedDuration;
+use std::error::Error;
+use std::fmt::{Display, Formatter};
+use avm_server::RunnerError;
 use thiserror::Error;
 
 use particle_protocol::ParticleError;
@@ -22,19 +25,25 @@ use particle_protocol::ParticleError;
 #[derive(Debug, Error)]
 pub enum AquamarineApiError {
     #[error("AquamarineApiError::ParticleExpired: particle_id = {particle_id}")]
-    ParticleExpired { particle_id: String },
+    ParticleExpired {
+        particle_id: String,
+    },
     #[error(
         r#"AquamarineApiError::OneshotCancelled: particle_id = {particle_id}.
         Aquamarine dropped particle processing before sending effects back.
         This is unexpected and shouldn't happen"#
     )]
-    OneshotCancelled { particle_id: String },
+    OneshotCancelled {
+        particle_id: String,
+    },
     #[error(
         r#"AquamarineApiError::AquamarineDied: particle_id = {particle_id:?}.
         Aquamarine couldn't be reached from the NetworkApi.
         This is unexpected and shouldn't happen."#
     )]
-    AquamarineDied { particle_id: Option<String> },
+    AquamarineDied {
+        particle_id: Option<String>,
+    },
     #[error(
         "AquamarineApiError::ExecutionTimedOut: particle_id = {particle_id}, timeout = {timeout}"
     )]
@@ -43,9 +52,11 @@ pub enum AquamarineApiError {
         timeout: FormattedDuration,
     },
     #[error(
-        "AquamarineApiError::AquamarineQueueFull: can't send particle {particle_id:?} to Aquamarine"
+    "AquamarineApiError::AquamarineQueueFull: can't send particle {particle_id:?} to Aquamarine"
     )]
-    AquamarineQueueFull { particle_id: Option<String> },
+    AquamarineQueueFull {
+        particle_id: Option<String>,
+    },
     #[error("AquamarineApiError::SignatureVerificationFailed: particle_id = {particle_id}, error = {err}")]
     SignatureVerificationFailed {
         particle_id: String,
@@ -74,4 +85,52 @@ impl AquamarineApiError {
             AquamarineApiError::AquamarineQueueFull { particle_id, .. } => particle_id,
         }
     }
+}
+
+
+impl std::error::Error for ExecutionError {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        match &self {
+            ExecutionError::InvalidResultField { error, .. } => Some(error),
+            ExecutionError::AquamarineError(err) => Some(err),
+        }
+    }
+}
+
+impl Display for ExecutionError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ExecutionError::InvalidResultField { field, error } => {
+                write!(f, "Execution error: invalid result field {field}: {error}")
+            }
+            ExecutionError::AquamarineError(err) => {
+                write!(f, "Execution error: aquamarine error: {err}")
+            }
+        }
+    }
+}
+
+#[derive(Debug)]
+pub enum FieldError {
+    InvalidPeerId { peer_id: String, err: String },
+}
+
+impl std::error::Error for FieldError {}
+impl Display for FieldError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            FieldError::InvalidPeerId { peer_id, err } => {
+                write!(f, "invalid PeerId '{peer_id}': {err}")
+            }
+        }
+    }
+}
+
+#[derive(Debug)]
+pub enum ExecutionError {
+    InvalidResultField {
+        field: &'static str,
+        error: FieldError,
+    },
+    AquamarineError(RunnerError),
 }

@@ -14,18 +14,20 @@
  * limitations under the License.
  */
 
-use futures_core::future::BoxFuture;
-use futures_util::FutureExt;
+
 use std::error::Error;
 use std::fmt::Debug;
 use std::task::{Context, Poll};
 
+use futures::future::BoxFuture;
+use futures::FutureExt;
 use tokio::task::JoinError;
 
-use crate::health::VMPoolHealth;
-use crate::AquaRuntime;
 use health::HealthCheckRegistry;
 use peer_metrics::VmPoolMetrics;
+
+use crate::AquaRuntime;
+use crate::health::VMPoolHealth;
 
 type RuntimeF<RT> = BoxFuture<'static, Result<RT, CreateAVMError>>;
 

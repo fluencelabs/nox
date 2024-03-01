@@ -47,7 +47,7 @@ use peer_metrics::ServicesMetrics;
 use server_config::ServicesConfig;
 use types::peer_id;
 use uuid_utils::uuid;
-use workers::{KeyStorage, PeerScopes, WorkersOperations};
+use workers::{KeyStorage, PeerScopes, Workers};
 
 use crate::debug::fmt_custom_services;
 use crate::error::HostClosureCallError;
@@ -101,7 +101,7 @@ where
         config: ServicesConfig,
         services_metrics: ServicesMetrics,
         key_storage: Arc<KeyStorage>,
-        workers: Arc<dyn WorkersOperations>,
+        workers: Arc<Workers>,
         scope: PeerScopes,
         health_registry: Option<&mut HealthCheckRegistry>,
         connector_api_endpoint: String,

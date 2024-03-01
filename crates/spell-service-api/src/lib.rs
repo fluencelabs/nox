@@ -286,7 +286,7 @@ mod tests {
     use maplit::hashmap;
     use serde_json::json;
     use std::time::Duration;
-    use workers::{AVMRunner, DummyCoreManager, KeyStorage, PeerScopes, VmConfig, Workers};
+    use workers::{DummyCoreManager, KeyStorage, PeerScopes, Workers};
 
     use crate::{CallParams, SpellServiceApi};
 
@@ -326,10 +326,9 @@ mod tests {
             key_storage.clone(),
         );
 
-        let config = VmConfig::new(PeerId::random(), base_dir.to_path_buf(), None);
 
-        let workers: Workers<AVMRunner> =
-            Workers::from_path(config, workers_dir.clone(), key_storage, core_manager)
+        let (workers, _worker_events) =
+            Workers::from_path(workers_dir.clone(), key_storage, core_manager, 128)
                 .await
                 .expect("Could not load worker registry");
 

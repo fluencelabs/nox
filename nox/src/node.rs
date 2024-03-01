@@ -103,7 +103,7 @@ pub struct Node<RT: AquaRuntime> {
 
     pub chain_listener: Option<ChainListener>,
 
-    workers: Arc<Workers<RT>>,
+    workers: Arc<Workers>,
 }
 
 impl<RT: AquaRuntime> Node<RT> {
@@ -140,11 +140,11 @@ impl<RT: AquaRuntime> Node<RT> {
             key_storage.clone(),
         );
 
-        let workers = Workers::from_path(
-            vm_config.clone(),
+        let (workers, worker_events) = Workers::from_path(
             config.dir_config.workers_base_dir.clone(),
             key_storage.clone(),
             core_manager.clone(),
+            config.node_config.workers_queue_buffer
         )
         .await?;
 
@@ -271,6 +271,7 @@ impl<RT: AquaRuntime> Node<RT> {
             workers.clone(),
             key_storage.clone(),
             scopes.clone(),
+            worker_events,
         )?;
         let effectors = Effectors::new(connectivity.clone());
         let dispatcher = {
@@ -477,7 +478,7 @@ impl<RT: AquaRuntime> Node<RT> {
         services_config: ServicesConfig,
         services_metrics: ServicesMetrics,
         key_storage: Arc<KeyStorage>,
-        workers: Arc<Workers<RT>>,
+        workers: Arc<Workers>,
         scopes: PeerScopes,
         health_registry: Option<&mut HealthCheckRegistry>,
         connector_api_endpoint: String,
@@ -525,7 +526,7 @@ impl<RT: AquaRuntime> Node<RT> {
         allow_local_addresses: bool,
         versions: Versions,
         chain_listener: Option<ChainListener>,
-        workers: Arc<Workers<RT>>,
+        workers: Arc<Workers>,
     ) -> Box<Self> {
         let node_service = Self {
             particle_stream,

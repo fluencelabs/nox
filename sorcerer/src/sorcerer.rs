@@ -44,7 +44,7 @@ use spell_event_bus::api::{from_user_config, SpellEventBusApi, TriggerEvent};
 use spell_service_api::{CallParams, SpellServiceApi};
 use spell_storage::SpellStorage;
 use tracing::Instrument;
-use workers::{KeyStorage, PeerScopes, WorkersOperations};
+use workers::{KeyStorage, PeerScopes, Workers};
 
 #[derive(Clone)]
 pub struct Sorcerer {
@@ -53,7 +53,7 @@ pub struct Sorcerer {
     pub spell_storage: SpellStorage,
     pub spell_event_bus_api: SpellEventBusApi,
     pub spell_script_particle_ttl: Duration,
-    pub workers: Arc<dyn WorkersOperations>,
+    pub workers: Arc<Workers>,
     pub key_storage: Arc<KeyStorage>,
     pub scopes: PeerScopes,
     pub spell_service_api: SpellServiceApi,
@@ -69,7 +69,7 @@ impl Sorcerer {
         aquamarine: AquamarineApi,
         config: ResolvedConfig,
         spell_event_bus_api: SpellEventBusApi,
-        workers: Arc<dyn WorkersOperations>,
+        workers: Arc<Workers>,
         key_storage: Arc<KeyStorage>,
         scope: PeerScopes,
         spell_service_api: SpellServiceApi,

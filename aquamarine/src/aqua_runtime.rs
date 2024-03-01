@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
-use std::str::FromStr;
 use std::{error::Error, task::Waker};
+use std::str::FromStr;
 
 use avm_server::avm_runner::{AVMRunner, RawAVMOutcome};
 use avm_server::{AVMMemoryStats, CallResults,AVMRuntimeLimits, ParticleParameters, RunnerError};
 use fluence_keypair::KeyPair;
-use libp2p_identity::PeerId;
+use libp2p::PeerId;
 use tracing::Level;
 
 use crate::config::VmConfig;

@@ -249,29 +249,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "aqua-runtime"
-version = "0.1.0"
-dependencies = [
- "avm-server",
- "eyre",
- "fluence-keypair",
- "futures-core",
- "futures-util",
- "health",
- "libp2p-identity",
- "particle-protocol",
- "peer-metrics",
- "tokio",
- "tracing",
- "types",
-]
-
-[[package]]
 name = "aquamarine"
 version = "0.2.0"
 dependencies = [
  "anyhow",
- "aqua-runtime",
  "async-trait",
  "avm-server",
  "base64 0.21.7",
@@ -281,6 +262,7 @@ dependencies = [
  "config",
  "config-utils",
  "control-macro",
+ "crossbeam-channel",
  "enum_dispatch",
  "eyre",
  "fluence-keypair",
@@ -1708,11 +1690,10 @@ dependencies = [
 
 [[package]]
 name = "crossbeam-channel"
-version = "0.5.8"
+version = "0.5.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a33c2bf77f2df06183c3aa30d1e96c0695a313d4f9c453cc3762a6db39f99200"
+checksum = "ab3db02a9c5b5121e1e42fbdb1aeb65f5e02624cc58c43f2884c6ccac0b82f95"
 dependencies = [
- "cfg-if",
  "crossbeam-utils",
 ]
 
@@ -1742,12 +1723,9 @@ dependencies = [
 
 [[package]]
 name = "crossbeam-utils"
-version = "0.8.16"
+version = "0.8.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5a22b2d63d4d1dc0b7f1b6b2747dd0088008a9be28b6ddf0b1e7d335e3037294"
-dependencies = [
- "cfg-if",
-]
+checksum = "248e3bacc7dc6baa3b21e405ee045c3047101a49145e7e9eca583ab4c2ca5345"
 
 [[package]]
 name = "crunchy"
@@ -9579,9 +9557,9 @@ dependencies = [
 name = "workers"
 version = "0.1.0"
 dependencies = [
- "aqua-runtime",
  "async-trait",
  "core-manager",
+ "crossbeam-channel",
  "derivative",
  "eyre",
  "fluence-keypair",

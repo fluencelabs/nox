@@ -42,15 +42,16 @@ use peer_metrics::{ParticleExecutorMetrics, WorkerLabel, WorkerType};
 /// Get current time from OS
 #[cfg(not(test))]
 use real_time::now_ms;
-use workers::{KeyStorage, PeerScopes, Workers, WorkersOperations};
+use workers::{Event, KeyStorage, PeerScopes, Receiver, Workers};
 
 use crate::actor::{Actor, ActorPoll};
 use crate::deadline::Deadline;
 use crate::error::AquamarineApiError;
+use crate::particle_effects::LocalRoutingEffects;
 use crate::particle_functions::{Functions, SingleCallStat};
 use crate::spawner::{RootSpawner, Spawner, WorkerSpawner};
-use crate::ParticleDataStore;
-use aqua_runtime::{AquaRuntime, LocalRoutingEffects, RemoteRoutingEffects, VmPool};
+use crate::vm_pool::VmPool;
+use crate::{AquaRuntime, ParticleDataStore, RemoteRoutingEffects};
 use types::peer_scope::WorkerId;
 
 #[derive(PartialEq, Hash, Eq)]
@@ -61,11 +62,13 @@ struct ActorKey {
 const MAX_CLEANUP_KEYS_SIZE: usize = 1024;
 
 pub struct Plumber<RT: AquaRuntime, F> {
+    config: RT::Config,
     events: VecDeque<Result<RemoteRoutingEffects, AquamarineApiError>>,
     host_actors: HashMap<ActorKey, Actor<RT, F>>,
     host_vm_pool: VmPool<RT>,
     worker_actors: HashMap<WorkerId, HashMap<ActorKey, Actor<RT, F>>>,
-    workers: Arc<Workers<RT>>,
+    worker_vm_pools: HashMap<WorkerId, VmPool<RT>>,
+    workers: Arc<Workers>,
     data_store: Arc<ParticleDataStore>,
     builtins: F,
     waker: Option<Waker>,
@@ -74,25 +77,30 @@ pub struct Plumber<RT: AquaRuntime, F> {
     scopes: PeerScopes,
     cleanup_future: Option<BoxFuture<'static, ()>>,
     root_runtime_handle: Handle,
+    worker_events: Receiver<Event>,
 }
 
 impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
     pub fn new(
-        vm_pool: VmPool<RT>,
+        config: RT::Config,
+        host_vm_pool: VmPool<RT>,
         data_store: Arc<ParticleDataStore>,
         builtins: F,
         metrics: Option<ParticleExecutorMetrics>,
-        workers: Arc<Workers<RT>>,
+        workers: Arc<Workers>,
         key_storage: Arc<KeyStorage>,
         scope: PeerScopes,
+        worker_events: Receiver<Event>,
     ) -> Self {
         Self {
-            host_vm_pool: vm_pool,
+            config,
+            host_vm_pool,
             data_store,
             builtins,
             events: <_>::default(),
             host_actors: <_>::default(),
             worker_actors: <_>::default(),
+            worker_vm_pools: <_>::default(),
             waker: <_>::default(),
             metrics,
             workers,
@@ -100,6 +108,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
             scopes: scope,
             cleanup_future: None,
             root_runtime_handle: Handle::current(),
+            worker_events,
         }
     }
 
@@ -292,6 +301,8 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
     ) -> Poll<Result<RemoteRoutingEffects, AquamarineApiError>> {
         self.waker = Some(cx.waker().clone());
 
+        self.process_worker_events();
+
         self.poll_pools(cx);
 
         if let Some(event) = self.events.pop_front() {
@@ -338,11 +349,33 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
         Poll::Pending
     }
 
+    fn process_worker_events(&mut self) {
+        loop {
+            let res = self.worker_events.try_recv();
+            match res {
+                Ok(event) => match event {
+                    Event::WorkerCreated {
+                        worker_id,
+                        thread_count,
+                    } => {
+                        let vm_pool = VmPool::new(thread_count, self.config.clone(), None, None); // TODO: add metrics
+                        self.worker_vm_pools.insert(worker_id, vm_pool);
+                    }
+                    Event::WorkerRemoved { worker_id } => {
+                        self.worker_vm_pools.remove(&worker_id);
+                    }
+                },
+                Err(_) => {
+                    break;
+                }
+            }
+        }
+    }
+
     fn poll_pools(&mut self, cx: &mut Context<'_>) {
         self.host_vm_pool.poll(cx);
         for worker_id in self.workers.list_workers() {
-            if let Some(vm_pool) = self.workers.get_pool(worker_id) {
-                let mut vm_pool = vm_pool.borrow_mut();
+            if let Some(vm_pool) = self.worker_vm_pools.get_mut(&worker_id) {
                 vm_pool.poll(cx);
             }
         }
@@ -375,13 +408,12 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
         local_effects: &mut Vec<LocalRoutingEffects>,
     ) {
         for (worker_id, actors) in self.worker_actors.iter_mut() {
-            if let Some(pool) = self.workers.get_pool(*worker_id) {
-                let mut pool = pool.borrow_mut();
+            if let Some(pool) = self.worker_vm_pools.get_mut(worker_id) {
                 let peer_id: PeerId = (*worker_id).into();
                 let host_label = WorkerLabel::new(WorkerType::Worker, peer_id.to_string());
                 Self::process_actors(
                     actors,
-                    &mut pool,
+                    pool,
                     &self.scopes,
                     self.metrics.as_ref(),
                     cx,
@@ -513,10 +545,10 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
         if cleanup_keys.len() >= MAX_CLEANUP_KEYS_SIZE {
             return;
         }
-        self.worker_actors.retain(|_, actors| {
+        self.worker_actors.retain(|worker_id, actors| {
             Self::cleanup_actors(actors, cleanup_keys, now_ms);
 
-            !actors.is_empty()
+            actors.is_empty() && !self.worker_vm_pools.contains_key(worker_id)
         });
     }
 
@@ -557,8 +589,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
         let mut stats = vec![];
 
         for (worker_id, actors) in self.worker_actors.iter_mut() {
-            if let Some(pool) = self.workers.get_pool(*worker_id) {
-                let mut pool = pool.borrow_mut();
+            if let Some(pool) = self.worker_vm_pools.get_mut(worker_id) {
                 for actor in actors.values_mut() {
                     if let Some((vm_id, vm)) = pool.get_vm() {
                         match actor.poll_next(vm_id, vm, cx) {
@@ -624,9 +655,9 @@ mod tests {
     use crate::deadline::Deadline;
     use crate::plumber::mock_time::set_mock_time;
     use crate::plumber::{now_ms, real_time};
+    use crate::vm_pool::VmPool;
     use crate::AquamarineApiError::ParticleExpired;
     use crate::{AquaRuntime, ParticleDataStore, ParticleEffects, Plumber};
-    use aqua_runtime::VmPool;
     use async_trait::async_trait;
     use avm_server::avm_runner::RawAVMOutcome;
     use particle_services::PeerScope;
@@ -727,10 +758,14 @@ mod tests {
             key_storage.clone(),
         );
 
-        let workers: Workers<VMMock> =
-            Workers::from_path((), workers_path.clone(), key_storage.clone(), core_manager)
-                .await
-                .expect("Could not load worker registry");
+        let (workers, _receiver) = Workers::from_path(
+            workers_path.clone(),
+            key_storage.clone(),
+            core_manager,
+            128,
+        )
+        .await
+        .expect("Could not load worker registry");
 
         let workers = Arc::new(workers);
 
@@ -747,7 +782,10 @@ mod tests {
             .expect("Could not initialize datastore");
         let data_store = Arc::new(data_store);
 
+        let (_sender, receiver) = crossbeam_channel::bounded(1024);
+
         Plumber::new(
+            (),
             vm_pool,
             data_store,
             builtin_mock,
@@ -755,6 +793,7 @@ mod tests {
             workers.clone(),
             key_storage.clone(),
             scope.clone(),
+            receiver,
         )
     }
 
