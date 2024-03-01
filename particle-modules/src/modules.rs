@@ -102,7 +102,7 @@ impl ModuleRepository {
                     module_name: module_name.to_string(),
                     forbidden_cid: module_hash.to_string(),
                 })?,
-            EffectorsMode::AllEffectors { binaries } => &binaries,
+            EffectorsMode::AllEffectors { binaries } => binaries,
         };
         for mounted_binary_name in &mounted_binaries {
             if !binaries
