@@ -2,7 +2,7 @@ name: rustdoc
 on:
   push:
     branches:
-      - master
+      - fix_rustdoc
   workflow_dispatch:
 
 env:
@@ -13,7 +13,7 @@ env:
 
 jobs:
   rustdoc:
-    runs-on: ubuntu-latest
+    runs-on: builder
 
     steps:
       - name: Checkout repository
