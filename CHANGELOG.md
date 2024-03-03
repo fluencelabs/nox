@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.21.4](https://github.com/fluencelabs/nox/compare/nox-v0.21.3...nox-v0.21.4) (2024-03-03)
+
+
+### Features
+
+* bump fluence-app-service ([#2130](https://github.com/fluencelabs/nox/issues/2130)) ([98161b1](https://github.com/fluencelabs/nox/commit/98161b1d22ae4d62383c946c5ae415f5e9c5b9ed))
+
 ## [0.21.3](https://github.com/fluencelabs/nox/compare/nox-v0.21.2...nox-v0.21.3) (2024-03-01)
 
 
