@@ -82,26 +82,23 @@ jobs:
   cli:
     needs:
       - nox-snapshot
-      - js-client
     uses: fluencelabs/cli/.github/workflows/tests.yml@main
     with:
-      js-client-snapshots: "${{ needs.js-client.outputs.js-client-snapshots }}"
       nox-image: "${{ needs.nox-snapshot.outputs.nox-image }}"
 
   js-client:
     needs:
       - nox-snapshot
-    uses: fluencelabs/js-client/.github/workflows/tests.yml@main
+    uses: fluencelabs/js-client/.github/workflows/tests.yml@master
     with:
+      ref: js-client-v0.9.0
       nox-image: "${{ needs.nox-snapshot.outputs.nox-image }}"
 
   aqua:
     needs:
       - nox-snapshot
-      - js-client
     uses: fluencelabs/aqua/.github/workflows/tests.yml@main
     with:
-      js-client-snapshots: "${{ needs.js-client.outputs.js-client-snapshots }}"
       nox-image: "${{ needs.nox-snapshot.outputs.nox-image }}"
 
   registry:
