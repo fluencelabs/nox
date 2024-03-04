@@ -14,9 +14,7 @@
  * limitations under the License.
  */
 
-use crate::workers::Event;
 use core_manager::errors::AcquireError;
-use crossbeam_channel::SendError;
 use libp2p::PeerId;
 use std::path::PathBuf;
 use thiserror::Error;
