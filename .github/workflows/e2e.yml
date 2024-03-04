@@ -84,6 +84,7 @@ jobs:
       - nox-snapshot
     uses: fluencelabs/cli/.github/workflows/tests.yml@main
     with:
+      ref: up-spell-and-fixes
       nox-image: "${{ needs.nox-snapshot.outputs.nox-image }}"
 
   js-client:
