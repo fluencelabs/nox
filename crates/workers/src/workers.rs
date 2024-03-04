@@ -382,16 +382,25 @@ impl<RT: AquaRuntime> WorkersOperations for Workers<RT> {
                         let mut worker_infos = self.worker_infos.write();
                         let mut runtimes = self.runtimes.write();
 
-                        worker_ids.insert(deal_id, worker_id);
+                        worker_ids.insert(deal_id.clone(), worker_id);
                         worker_infos.insert(worker_id, worker_info);
                         runtimes.insert(worker_id, runtime);
-                        self.sender
+                        let result = self
+                            .sender
                             .send(Event::WorkerCreated {
                                 worker_id,
                                 thread_count,
                             })
-                            .map_err(|err| WorkersError::FailedToNotifySubsystem { worker_id })?;
-                        // TODO: cleanup on fail
+                            .map_err(|_err| WorkersError::FailedToNotifySubsystem { worker_id });
+                        match result {
+                            Ok(_) => Ok(()),
+                            Err(err) => {
+                                worker_ids.remove(&deal_id);
+                                worker_infos.remove(&worker_id);
+                                runtimes.remove(&worker_id);
+                                Err(err)
+                            }
+                        }?
                     }
                     Err(err) => {
                         tracing::warn!(
@@ -460,7 +469,7 @@ impl<RT: AquaRuntime> WorkersOperations for Workers<RT> {
 
         self.sender
             .send(Event::WorkerRemoved { worker_id })
-            .map_err(|err| WorkersError::FailedToNotifySubsystem { worker_id })?;
+            .map_err(|_err| WorkersError::FailedToNotifySubsystem { worker_id })?;
 
         Ok(())
     }
