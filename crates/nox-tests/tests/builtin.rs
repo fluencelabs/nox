@@ -1820,7 +1820,7 @@ async fn sign_invalid_tetraplets() {
 
     let relay = client.node.to_string();
     let wrong_peer = swarms[1].peer_id.to_base58();
-    client.send_particle(
+    let result = client.execute_particle(
         r#"
             (seq
                 (seq
@@ -1864,7 +1864,7 @@ async fn sign_invalid_tetraplets() {
     use serde_json::Value::String;
 
     if let [String(host_error), String(srv_error), String(func_error)] =
-        client.receive_args().await.unwrap().as_slice()
+        result.unwrap().as_slice()
     {
         assert!(host_error.contains(&format!("data is expected to be produced by service 'registry' on peer '{relay}', was from peer '{wrong_peer}'")));
         assert!(srv_error.contains("data is expected to result from a call to 'registry.get_record_bytes' or 'registry.get_record_metadata_bytes', was from 'op.identity'"));
