@@ -84,6 +84,7 @@ jobs:
       - nox-snapshot
     uses: fluencelabs/cli/.github/workflows/tests.yml@main
     with:
+      refs: renovate/fluencelabs-js-client-0.x
       nox-image: "${{ needs.nox-snapshot.outputs.nox-image }}"
 
   js-client:
