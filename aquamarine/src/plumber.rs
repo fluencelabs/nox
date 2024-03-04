@@ -522,7 +522,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
         self.worker_actors.retain(|worker_id, actors| {
             Self::cleanup_actors(actors, cleanup_keys, now_ms);
 
-            !actors.is_empty() || self.worker_vm_pools.contains_key(worker_id);
+            !actors.is_empty() || self.worker_vm_pools.contains_key(worker_id)
         });
     }
 
