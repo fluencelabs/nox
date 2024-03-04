@@ -116,7 +116,7 @@ async fn test_add_module_effectors_forbidden() {
 
     let response = client.execute_particle(script, data).await.unwrap();
     if let Some(result) = response[0].as_str() {
-        let expected = "Local service error, ret_code is 1, error message is '\"Error: Config error: requested module effector tetraplets with CID bafkreiepzclggkt57vu7yrhxylfhaafmuogtqly7wel7ozl5k2ehkd44oe is forbidden on this host\\nForbiddenEffector { module_name: \\\"tetraplets\\\", forbidden_cid: Hash(Cid(bafkreiepzclggkt57vu7yrhxylfhaafmuogtqly7wel7ozl5k2ehkd44oe)) }\"'";
+        let expected = "Local service error, ret_code is 1, error message is '\"Error: Config error: requested module effector tetraplets with CID bafkreiepzclggkt57vu7yrhxylfhaafmuogtqly7wel7ozl5k2ehkd44oe is forbidden on this host\\nForbiddenEffector { module_name: \\\"tetraplets\\\", forbidden_cid: \\\"bafkreiepzclggkt57vu7yrhxylfhaafmuogtqly7wel7ozl5k2ehkd44oe\\\" }\"'";
         assert_eq!(expected, result);
     } else {
         panic!("can't receive response from node");

@@ -2282,14 +2282,14 @@ dependencies = [
 
 [[package]]
 name = "fluence-app-service"
-version = "0.35.0"
+version = "0.35.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "53f1b1edfa366551382890ecf2b18d8b9675b3a105bf2d90c444446cc081115d"
+checksum = "527d278ac6fb1313a13b8c58149c3f977e79b93bf4280ce08e2cd4cac55cee27"
 dependencies = [
  "log",
  "maplit",
  "marine-min-it-version",
- "marine-runtime 0.36.0",
+ "marine-runtime 0.36.1",
  "marine-wasm-backend-traits 0.6.0",
  "marine-wasmtime-backend 0.6.0",
  "serde",
@@ -4875,9 +4875,9 @@ dependencies = [
 
 [[package]]
 name = "marine-runtime"
-version = "0.36.0"
+version = "0.36.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "00e428f8066ed3cbd6def39a818ffe949d7ab15559666927b25401068ce2655d"
+checksum = "4b524b572fa9c8c1b7a14c30d8e27a339404eeab70531bc9a9e739f1db4bc6af"
 dependencies = [
  "bytesize",
  "it-json-serde",
@@ -5353,7 +5353,7 @@ version = "0.1.0"
 
 [[package]]
 name = "nox"
-version = "0.21.2"
+version = "0.21.4"
 dependencies = [
  "air-interpreter-fs",
  "air-interpreter-wasm",
