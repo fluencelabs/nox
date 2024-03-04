@@ -14,14 +14,14 @@
  * limitations under the License.
  */
 
+use crate::workers::Event;
 use core_manager::errors::AcquireError;
+use crossbeam_channel::SendError;
 use libp2p::PeerId;
 use std::path::PathBuf;
-use crossbeam_channel::SendError;
 use thiserror::Error;
 use types::peer_scope::WorkerId;
 use types::DealId;
-use crate::workers::Event;
 
 #[derive(Debug, Error)]
 pub enum KeyStorageError {
@@ -87,7 +87,7 @@ pub enum KeyStorageError {
 }
 
 #[derive(Debug, Error)]
-pub enum    WorkersError {
+pub enum WorkersError {
     #[error("Error creating directory for persisted workers {path:?}: {err}")]
     CreateWorkersDir {
         path: PathBuf,

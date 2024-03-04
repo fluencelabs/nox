@@ -144,7 +144,7 @@ impl<RT: AquaRuntime> Node<RT> {
             config.dir_config.workers_base_dir.clone(),
             key_storage.clone(),
             core_manager.clone(),
-            config.node_config.workers_queue_buffer
+            config.node_config.workers_queue_buffer,
         )
         .await?;
 

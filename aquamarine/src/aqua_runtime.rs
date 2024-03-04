@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-use std::{error::Error, task::Waker};
 use std::str::FromStr;
+use std::{error::Error, task::Waker};
 
 use avm_server::avm_runner::{AVMRunner, RawAVMOutcome};
 use avm_server::{AVMMemoryStats, CallResults,AVMRuntimeLimits, ParticleParameters, RunnerError};

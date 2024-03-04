@@ -326,7 +326,6 @@ mod tests {
             key_storage.clone(),
         );
 
-
         let (workers, _worker_events) =
             Workers::from_path(workers_dir.clone(), key_storage, core_manager, 128)
                 .await

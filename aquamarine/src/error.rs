@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
+use avm_server::RunnerError;
 use humantime::FormattedDuration;
 use std::error::Error;
 use std::fmt::{Display, Formatter};
-use avm_server::RunnerError;
 use thiserror::Error;
 
 use particle_protocol::ParticleError;
@@ -25,25 +25,19 @@ use particle_protocol::ParticleError;
 #[derive(Debug, Error)]
 pub enum AquamarineApiError {
     #[error("AquamarineApiError::ParticleExpired: particle_id = {particle_id}")]
-    ParticleExpired {
-        particle_id: String,
-    },
+    ParticleExpired { particle_id: String },
     #[error(
         r#"AquamarineApiError::OneshotCancelled: particle_id = {particle_id}.
         Aquamarine dropped particle processing before sending effects back.
         This is unexpected and shouldn't happen"#
     )]
-    OneshotCancelled {
-        particle_id: String,
-    },
+    OneshotCancelled { particle_id: String },
     #[error(
         r#"AquamarineApiError::AquamarineDied: particle_id = {particle_id:?}.
         Aquamarine couldn't be reached from the NetworkApi.
         This is unexpected and shouldn't happen."#
     )]
-    AquamarineDied {
-        particle_id: Option<String>,
-    },
+    AquamarineDied { particle_id: Option<String> },
     #[error(
         "AquamarineApiError::ExecutionTimedOut: particle_id = {particle_id}, timeout = {timeout}"
     )]
@@ -54,9 +48,7 @@ pub enum AquamarineApiError {
     #[error(
     "AquamarineApiError::AquamarineQueueFull: can't send particle {particle_id:?} to Aquamarine"
     )]
-    AquamarineQueueFull {
-        particle_id: Option<String>,
-    },
+    AquamarineQueueFull { particle_id: Option<String> },
     #[error("AquamarineApiError::SignatureVerificationFailed: particle_id = {particle_id}, error = {err}")]
     SignatureVerificationFailed {
         particle_id: String,
@@ -86,7 +78,6 @@ impl AquamarineApiError {
         }
     }
 }
-
 
 impl std::error::Error for ExecutionError {
     fn source(&self) -> Option<&(dyn Error + 'static)> {

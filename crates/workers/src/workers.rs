@@ -70,6 +70,7 @@ pub struct Workers {
     sender: Sender<Event>,
 }
 
+#[derive(Debug)]
 pub enum Event {
     WorkerCreated {
         worker_id: WorkerId,

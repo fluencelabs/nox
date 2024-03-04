@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-
 use std::error::Error;
 use std::fmt::Debug;
 use std::task::{Context, Poll};
@@ -26,8 +25,8 @@ use tokio::task::JoinError;
 use health::HealthCheckRegistry;
 use peer_metrics::VmPoolMetrics;
 
-use crate::AquaRuntime;
 use crate::health::VMPoolHealth;
+use crate::AquaRuntime;
 
 type RuntimeF<RT> = BoxFuture<'static, Result<RT, CreateAVMError>>;
 
@@ -70,7 +69,7 @@ impl<RT: AquaRuntime> VmPool<RT> {
         });
 
         let mut this = Self {
-            runtimes: Vec::with_capacity(pool_size),
+            runtimes: (0..pool_size).map(|_| None).collect(),
             creating_runtimes: None,
             runtime_config,
             pool_size,
@@ -78,7 +77,6 @@ impl<RT: AquaRuntime> VmPool<RT> {
             health,
         };
 
-        this.runtimes.resize_with(pool_size, || None);
         this.meter(|m| m.set_pool_size(pool_size));
 
         this

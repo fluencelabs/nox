@@ -34,13 +34,16 @@ use workers::{Event, KeyStorage, PeerScopes, Receiver, Workers};
 use crate::command::Command;
 use crate::command::Command::{AddService, Ingest, RemoveService};
 use crate::error::AquamarineApiError;
-use crate::{AquaRuntime, DataStoreConfig, ParticleDataStore, Plumber, RemoteRoutingEffects, VmPoolConfig};
 use crate::vm_pool::VmPool;
+use crate::{
+    AquaRuntime, DataStoreConfig, ParticleDataStore, Plumber, RemoteRoutingEffects, VmPoolConfig,
+};
 
 pub type EffectsChannel = mpsc::Sender<Result<RemoteRoutingEffects, AquamarineApiError>>;
 
 pub struct AquamarineBackend<RT: AquaRuntime, F> {
     inlet: mpsc::Receiver<Command>,
+    worker_events: Receiver<Event>,
     plumber: Plumber<RT, F>,
     out: EffectsChannel,
     data_store: Arc<ParticleDataStore>,
@@ -60,7 +63,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> AquamarineBackend<RT, F> {
         workers: Arc<Workers>,
         key_storage: Arc<KeyStorage>,
         scopes: PeerScopes,
-        worker_events: Receiver<Event>
+        worker_events: Receiver<Event>,
     ) -> eyre::Result<(Self, AquamarineApi)> {
         // TODO: make `100` configurable
         let (outlet, inlet) = mpsc::channel(100);
@@ -87,10 +90,10 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> AquamarineBackend<RT, F> {
             workers,
             key_storage,
             scopes,
-            worker_events
         );
         let this = Self {
             inlet,
+            worker_events,
             plumber,
             out,
             data_store,
@@ -100,7 +103,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> AquamarineBackend<RT, F> {
     }
 
     pub fn poll(&mut self, cx: &mut std::task::Context<'_>) -> Poll<()> {
-        let mut wake = false;
+        let mut wake = self.process_worker_events();
 
         // check if there are new particles
         loop {
@@ -142,6 +145,31 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> AquamarineBackend<RT, F> {
         } else {
             Poll::Pending
         }
+    }
+
+    fn process_worker_events(&mut self) -> bool {
+        let mut wake = false;
+        loop {
+            let res = self.worker_events.try_recv();
+            match res {
+                Ok(event) => match event {
+                    Event::WorkerCreated {
+                        worker_id,
+                        thread_count,
+                    } => {
+                        wake = true;
+                        self.plumber.on_worker_created(worker_id, thread_count);
+                    }
+                    Event::WorkerRemoved { worker_id } => {
+                        self.plumber.on_worker_removed(worker_id);
+                    }
+                },
+                Err(_) => {
+                    break;
+                }
+            }
+        }
+        wake
     }
 
     pub fn start(mut self) -> JoinHandle<()> {

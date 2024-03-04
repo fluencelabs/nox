@@ -42,7 +42,7 @@ use peer_metrics::{ParticleExecutorMetrics, WorkerLabel, WorkerType};
 /// Get current time from OS
 #[cfg(not(test))]
 use real_time::now_ms;
-use workers::{Event, KeyStorage, PeerScopes, Receiver, Workers};
+use workers::{KeyStorage, PeerScopes, Workers};
 
 use crate::actor::{Actor, ActorPoll};
 use crate::deadline::Deadline;
@@ -77,7 +77,6 @@ pub struct Plumber<RT: AquaRuntime, F> {
     scopes: PeerScopes,
     cleanup_future: Option<BoxFuture<'static, ()>>,
     root_runtime_handle: Handle,
-    worker_events: Receiver<Event>,
 }
 
 impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
@@ -90,7 +89,6 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
         workers: Arc<Workers>,
         key_storage: Arc<KeyStorage>,
         scope: PeerScopes,
-        worker_events: Receiver<Event>,
     ) -> Self {
         Self {
             config,
@@ -108,7 +106,6 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
             scopes: scope,
             cleanup_future: None,
             root_runtime_handle: Handle::current(),
-            worker_events,
         }
     }
 
@@ -120,8 +117,6 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
         function: Option<ServiceFunction>,
         peer_scope: PeerScope,
     ) {
-        self.wake();
-
         let deadline = Deadline::from(particle.as_ref());
         if deadline.is_expired(now_ms()) {
             tracing::info!(target: "expired", particle_id = particle.particle.id, "Particle is expired");
@@ -176,6 +171,17 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
                 particle_id = particle.particle.id,
             ),
         }
+        self.wake();
+    }
+
+    pub fn on_worker_created(&mut self, worker_id: WorkerId, thread_count: usize) {
+        let vm_pool = VmPool::new(thread_count, self.config.clone(), None, None); // TODO: add metrics
+        self.worker_vm_pools.insert(worker_id, vm_pool);
+        self.wake();
+    }
+
+    pub fn on_worker_removed(&mut self, worker_id: WorkerId) {
+        self.worker_vm_pools.remove(&worker_id);
     }
 
     fn get_or_create_actor(
@@ -301,8 +307,6 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
     ) -> Poll<Result<RemoteRoutingEffects, AquamarineApiError>> {
         self.waker = Some(cx.waker().clone());
 
-        self.process_worker_events();
-
         self.poll_pools(cx);
 
         if let Some(event) = self.events.pop_front() {
@@ -341,43 +345,13 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
         // Turn effects into events, and buffer them
         self.events.extend(remote_effects.into_iter().map(Ok));
 
-        // Return a new event if there is some
-        if let Some(event) = self.events.pop_front() {
-            return Poll::Ready(event);
-        }
-
         Poll::Pending
-    }
-
-    fn process_worker_events(&mut self) {
-        loop {
-            let res = self.worker_events.try_recv();
-            match res {
-                Ok(event) => match event {
-                    Event::WorkerCreated {
-                        worker_id,
-                        thread_count,
-                    } => {
-                        let vm_pool = VmPool::new(thread_count, self.config.clone(), None, None); // TODO: add metrics
-                        self.worker_vm_pools.insert(worker_id, vm_pool);
-                    }
-                    Event::WorkerRemoved { worker_id } => {
-                        self.worker_vm_pools.remove(&worker_id);
-                    }
-                },
-                Err(_) => {
-                    break;
-                }
-            }
-        }
     }
 
     fn poll_pools(&mut self, cx: &mut Context<'_>) {
         self.host_vm_pool.poll(cx);
-        for worker_id in self.workers.list_workers() {
-            if let Some(vm_pool) = self.worker_vm_pools.get_mut(&worker_id) {
-                vm_pool.poll(cx);
-            }
+        for (_, vm_pool) in self.worker_vm_pools.iter_mut() {
+            vm_pool.poll(cx);
         }
     }
 
@@ -758,14 +732,10 @@ mod tests {
             key_storage.clone(),
         );
 
-        let (workers, _receiver) = Workers::from_path(
-            workers_path.clone(),
-            key_storage.clone(),
-            core_manager,
-            128,
-        )
-        .await
-        .expect("Could not load worker registry");
+        let (workers, _receiver) =
+            Workers::from_path(workers_path.clone(), key_storage.clone(), core_manager, 128)
+                .await
+                .expect("Could not load worker registry");
 
         let workers = Arc::new(workers);
 
@@ -782,8 +752,6 @@ mod tests {
             .expect("Could not initialize datastore");
         let data_store = Arc::new(data_store);
 
-        let (_sender, receiver) = crossbeam_channel::bounded(1024);
-
         Plumber::new(
             (),
             vm_pool,
@@ -793,7 +761,6 @@ mod tests {
             workers.clone(),
             key_storage.clone(),
             scope.clone(),
-            receiver,
         )
     }
 

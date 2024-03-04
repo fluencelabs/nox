@@ -43,12 +43,12 @@ mod aqua_runtime;
 
 mod particle_effects;
 
-mod vm_pool;
 mod health;
+mod vm_pool;
 
 pub use crate::aqua_runtime::AquaRuntime;
 pub use crate::aquamarine::{AquamarineApi, AquamarineBackend};
-pub use crate::config::{VmConfig, VmPoolConfig, DataStoreConfig};
+pub use crate::config::{DataStoreConfig, VmConfig, VmPoolConfig};
 pub use crate::particle_effects::{InterpretationStats, ParticleEffects, RemoteRoutingEffects};
 pub use avm_server::avm_runner::AVMRunner;
 pub use error::AquamarineApiError;

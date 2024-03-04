@@ -24,6 +24,7 @@ use std::{
 use tracing::{instrument, Instrument, Span};
 
 use crate::deadline::Deadline;
+use crate::particle_effects::RawRoutingEffects;
 use crate::particle_executor::{FutResult, ParticleExecutor};
 use crate::particle_functions::{Functions, SingleCallStat};
 use crate::spawner::{SpawnFunctions, Spawner};
@@ -33,7 +34,6 @@ use fluence_libp2p::PeerId;
 use particle_execution::{ParticleFunctionStatic, ServiceFunction};
 use particle_protocol::{ExtendedParticle, Particle};
 use types::DealId;
-use crate::particle_effects::RawRoutingEffects;
 
 struct Reusables<RT> {
     vm_id: usize,

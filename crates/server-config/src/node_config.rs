@@ -105,8 +105,8 @@ pub struct UnresolvedNodeConfig {
     pub particle_queue_buffer: usize,
 
     #[serde(default = "default_effects_queue_buffer_size")]
-    pub effects_queue_buffer: usize,   
-    
+    pub effects_queue_buffer: usize,
+
     #[serde(default = "default_workers_queue_buffer_size")]
     pub workers_queue_buffer: usize,
 
@@ -370,7 +370,7 @@ pub struct NodeConfig {
     pub particle_queue_buffer: usize,
 
     pub effects_queue_buffer: usize,
-    
+
     pub workers_queue_buffer: usize,
 
     pub particle_processor_parallelism: Option<usize>,

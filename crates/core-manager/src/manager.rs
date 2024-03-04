@@ -461,16 +461,16 @@ impl DummyCoreManager {
 impl CoreManagerFunctions for DummyCoreManager {
     fn acquire_worker_core(
         &self,
-        _assign_request: AcquireRequest,
+        assign_request: AcquireRequest,
     ) -> Result<Assignment, AcquireError> {
         let all_cores = self.all_cores();
-        let index = all_cores
-            .logical_core_ids
-            .iter()
-            .choose(&mut rand::thread_rng())
-            .unwrap();
-        let mut logical_core_ids = BTreeSet::new();
-        logical_core_ids.insert(index.clone());
+
+        let logical_core_ids: BTreeSet<LogicalCoreId> = BTreeSet::from_iter(
+            all_cores
+                .logical_core_ids
+                .into_iter()
+                .choose_multiple(&mut rand::thread_rng(), assign_request.unit_ids.len()),
+        );
 
         Ok(Assignment {
             physical_core_ids: BTreeSet::new(),
