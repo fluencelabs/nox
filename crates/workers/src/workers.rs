@@ -390,10 +390,8 @@ impl<RT: AquaRuntime> WorkersOperations for Workers<RT> {
                                 worker_id,
                                 thread_count,
                             })
-                            .map_err(|err| WorkersError::FailedToNotifySubsystem {
-                                worker_id,
-                                err,
-                            })?; // TODO: cleanup on fail
+                            .map_err(|err| WorkersError::FailedToNotifySubsystem { worker_id })?;
+                        // TODO: cleanup on fail
                     }
                     Err(err) => {
                         tracing::warn!(
@@ -462,7 +460,7 @@ impl<RT: AquaRuntime> WorkersOperations for Workers<RT> {
 
         self.sender
             .send(Event::WorkerRemoved { worker_id })
-            .map_err(|err| WorkersError::FailedToNotifySubsystem { worker_id, err })?;
+            .map_err(|err| WorkersError::FailedToNotifySubsystem { worker_id })?;
 
         Ok(())
     }
