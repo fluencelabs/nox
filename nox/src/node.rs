@@ -14,24 +14,24 @@
  * limitations under the License.
  */
 
-use std::{io, net::SocketAddr};
 use std::process::exit;
 use std::sync::Arc;
+use std::{io, net::SocketAddr};
 
 use ccp_rpc_client::CCPRpcHttpClient;
 use eyre::WrapErr;
 use fluence_keypair::KeyPair;
-use futures::{FutureExt, stream::StreamExt};
 use futures::future::OptionFuture;
+use futures::{stream::StreamExt, FutureExt};
 use hex::ToHex;
 use jsonrpsee::ws_client::WsClientBuilder;
+use libp2p::swarm::SwarmEvent;
+use libp2p::SwarmBuilder;
 use libp2p::{
-    core::{Multiaddr, muxing::StreamMuxerBox, transport::Boxed},
+    core::{muxing::StreamMuxerBox, transport::Boxed, Multiaddr},
     identity::Keypair,
     PeerId, Swarm, TransportError,
 };
-use libp2p::swarm::SwarmEvent;
-use libp2p::SwarmBuilder;
 use libp2p_connection_limits::ConnectionLimits;
 use libp2p_metrics::{Metrics, Recorder};
 use prometheus_client::registry::Registry;
@@ -40,7 +40,7 @@ use tokio::task;
 use tracing::Instrument;
 
 use aquamarine::{
-    AquamarineApi, AquamarineApiError, AquamarineBackend, AquaRuntime, DataStoreConfig,
+    AquaRuntime, AquamarineApi, AquamarineApiError, AquamarineBackend, DataStoreConfig,
     RemoteRoutingEffects, VmPoolConfig,
 };
 use chain_connector::ChainConnector;
@@ -57,21 +57,21 @@ use peer_metrics::{
     ConnectionPoolMetrics, ConnectivityMetrics, ParticleExecutorMetrics, ServicesMetrics,
     ServicesMetricsBackend, SpellMetrics, VmPoolMetrics,
 };
-use server_config::{NetworkConfig, ResolvedConfig, ServicesConfig};
 use server_config::system_services_config::ServiceKey;
+use server_config::{NetworkConfig, ResolvedConfig, ServicesConfig};
 use sorcerer::Sorcerer;
 use spell_event_bus::api::{PeerEvent, SpellEventBusApi, TriggerEvent};
 use spell_event_bus::bus::SpellEventBus;
 use system_services::{Deployer, SystemServiceDistros};
 use workers::{KeyStorage, PeerScopes, Workers};
 
-use crate::{Connectivity, Versions};
 use crate::behaviour::FluenceNetworkBehaviourEvent;
 use crate::builtins::make_peer_builtin;
 use crate::dispatcher::Dispatcher;
 use crate::effectors::Effectors;
 use crate::http::start_http_endpoint;
 use crate::metrics::TokioCollector;
+use crate::{Connectivity, Versions};
 
 use super::behaviour::FluenceNetworkBehaviour;
 
@@ -130,10 +130,12 @@ async fn setup_listener(
                 .cloned()
                 .ok_or(eyre::eyre!("No utility core id"))?;
 
-            let ccp_client = CCPRpcHttpClient::new(ccp_endpoint.clone(), utility_core).await.map_err(|err| {
-                log::error!("Error connecting to CCP {ccp_endpoint}, error: {err}");
-                err
-            })?;
+            let ccp_client = CCPRpcHttpClient::new(ccp_endpoint.clone(), utility_core)
+                .await
+                .map_err(|err| {
+                    log::error!("Error connecting to CCP {ccp_endpoint}, error: {err}");
+                    err
+                })?;
             Some(ccp_client)
         } else {
             None
@@ -159,7 +161,10 @@ async fn setup_listener(
                 );
                 err
             })?;
-        log::info!("Successfully connected to websocket endpoint: {}", listener_config.ws_endpoint);
+        log::info!(
+            "Successfully connected to websocket endpoint: {}",
+            listener_config.ws_endpoint
+        );
 
         let chain_listener = ChainListener::new(
             chain_config,
@@ -201,7 +206,7 @@ impl<RT: AquaRuntime> Node<RT> {
             config.dir_config.keypairs_base_dir.clone(),
             root_key_pair.clone(),
         )
-            .await?;
+        .await?;
 
         let key_storage = Arc::new(key_storage);
 
@@ -217,7 +222,7 @@ impl<RT: AquaRuntime> Node<RT> {
             key_storage.clone(),
             core_manager.clone(),
         )
-            .await?;
+        .await?;
 
         let workers = Arc::new(workers);
 
@@ -234,7 +239,7 @@ impl<RT: AquaRuntime> Node<RT> {
             config.node_config.dev_mode_config.binaries.clone(),
             config.node_config.dev_mode_config.enable,
         )
-            .expect("create services config");
+        .expect("create services config");
 
         let mut metrics_registry = if config.metrics_config.metrics_enabled {
             Some(Registry::default())
@@ -263,7 +268,7 @@ impl<RT: AquaRuntime> Node<RT> {
         }
 
         #[allow(deprecated)]
-            let connection_limits = ConnectionLimits::default()
+        let connection_limits = ConnectionLimits::default()
             .with_max_pending_incoming(config.node_config.transport_config.max_pending_incoming)
             .with_max_pending_outgoing(config.node_config.transport_config.max_pending_outgoing)
             .with_max_established_incoming(
@@ -407,14 +412,19 @@ impl<RT: AquaRuntime> Node<RT> {
             let host_id = scopes.get_host_peer_id();
             let (chain_connector, chain_builtins) =
                 ChainConnector::new(chain_config.clone(), host_id).map_err(|err| {
-                    log::error!("Error connecting to http endpoint {}, error: {err}", chain_config.http_endpoint);
+                    log::error!(
+                        "Error connecting to http endpoint {}, error: {err}",
+                        chain_config.http_endpoint
+                    );
                     err
                 })?;
             custom_service_functions.extend(chain_builtins.into_iter());
             Some(chain_connector)
         } else {
             if config.system_services.enable.contains(&ServiceKey::Decider) {
-                log::error!("Decider cannot be used without chain connector. Please, specify chain config");
+                log::error!(
+                    "Decider cannot be used without chain connector. Please, specify chain config"
+                );
                 exit(1);
             }
 
@@ -423,12 +433,12 @@ impl<RT: AquaRuntime> Node<RT> {
 
         custom_service_functions.into_iter().for_each(
             move |(
-                      service_id,
-                      CustomService {
-                          functions,
-                          fallback,
-                      },
-                  )| {
+                service_id,
+                CustomService {
+                    functions,
+                    fallback,
+                },
+            )| {
                 let builtin = builtins.clone();
                 let task = async move { builtin.extend(service_id, functions, fallback).await };
                 task::Builder::new()
@@ -703,7 +713,7 @@ impl<RT: AquaRuntime> Node<RT> {
             let addr = http_bind_inlet.await.expect("http bind sender is dropped");
             addr.listen_addr
         }))
-            .await;
+        .await;
 
         Ok(StartedNode {
             exit_outlet,
@@ -794,8 +804,8 @@ mod tests {
             "some version",
             system_service_distros,
         )
-            .await
-            .expect("create node");
+        .await
+        .expect("create node");
 
         let listening_address: Multiaddr = "/ip4/127.0.0.1/tcp/7777".parse().unwrap();
         node.listen(vec![listening_address.clone()]).unwrap();
@@ -808,8 +818,8 @@ mod tests {
             Duration::from_secs(60),
             Some(Duration::from_secs(2 * 60)),
         )
-            .awaitмщ
-            .expect("connect client");
+        .awaitмщ
+        .expect("connect client");
         let data = hashmap! {
             "name" => json!("folex"),
             "client" => json!(client.peer_id.to_string()),

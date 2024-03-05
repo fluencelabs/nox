@@ -9,30 +9,30 @@ use ccp_shared::types::{Difficulty, GlobalNonce, LocalNonce, ResultHash};
 use cpu_utils::PhysicalCoreId;
 use ethabi::ethereum_types::U256;
 use hex::ToHex;
-use jsonrpsee::core::{client, JsonValue};
 use jsonrpsee::core::client::{Client as WsClient, Subscription, SubscriptionClientT};
+use jsonrpsee::core::{client, JsonValue};
 use jsonrpsee::rpc_params;
 use libp2p_identity::PeerId;
 use serde_json::{json, Value};
 use tokio::task::JoinHandle;
 use tokio::time::interval;
-use tokio_stream::StreamExt;
 use tokio_stream::wrappers::IntervalStream;
+use tokio_stream::StreamExt;
 
 use chain_connector::{CCInitParams, ChainConnector, ConnectorError};
-use chain_data::{ChainData, Log, parse_log, peer_id_to_hex};
+use chain_data::{parse_log, peer_id_to_hex, ChainData, Log};
 use chain_types::{
-    COMMITMENT_IS_NOT_ACTIVE, CommitmentId, CommitmentStatus, ComputeUnit, TOO_MANY_PROOFS,
+    CommitmentId, CommitmentStatus, ComputeUnit, COMMITMENT_IS_NOT_ACTIVE, TOO_MANY_PROOFS,
 };
-use core_manager::CUID;
 use core_manager::manager::{CoreManager, CoreManagerFunctions};
 use core_manager::types::{AcquireRequest, WorkType};
+use core_manager::CUID;
 use server_config::{ChainConfig, ChainListenerConfig};
 
+use crate::event::cc_activated::CommitmentActivated;
 use crate::event::{
     CommitmentActivatedData, UnitActivated, UnitActivatedData, UnitDeactivated, UnitDeactivatedData,
 };
-use crate::event::cc_activated::CommitmentActivated;
 use crate::persistence::{load_persisted_proof_id, persist_proof_id};
 
 const PROOF_POLL_LIMIT: usize = 50;
@@ -229,12 +229,38 @@ impl ChainListener {
 
         let active: Vec<_> = active.into_iter().map(|unit| unit.id).collect();
 
-        log::info!("Compute units mapping: active {}, pending {}, in deal {}", active.len(), pending.len(), in_deal.len());
+        log::info!(
+            "Compute units mapping: active {}, pending {}, in deal {}",
+            active.len(),
+            pending.len(),
+            in_deal.len()
+        );
 
         // TODO: log compute units pretty
-        log::info!("Active compute units: [{}]", active.iter().map(|c| c.encode_hex::<String>()).collect::<Vec<_>>().join(", "));
-        log::info!("Pending compute units: [{}]", pending.iter().map(|c| c.id.encode_hex::<String>()).collect::<Vec<_>>().join(", "));
-        log::info!("In deal compute units: [{}]", in_deal.iter().map(|c| c.id.encode_hex::<String>()).collect::<Vec<_>>().join(", "));
+        log::info!(
+            "Active compute units: [{}]",
+            active
+                .iter()
+                .map(|c| c.encode_hex::<String>())
+                .collect::<Vec<_>>()
+                .join(", ")
+        );
+        log::info!(
+            "Pending compute units: [{}]",
+            pending
+                .iter()
+                .map(|c| c.id.encode_hex::<String>())
+                .collect::<Vec<_>>()
+                .join(", ")
+        );
+        log::info!(
+            "In deal compute units: [{}]",
+            in_deal
+                .iter()
+                .map(|c| c.id.encode_hex::<String>())
+                .collect::<Vec<_>>()
+                .join(", ")
+        );
 
         Ok((active, pending))
     }
@@ -314,7 +340,10 @@ impl ChainListener {
 
             // nonce changes every epoch
             self.global_nonce = self.chain_connector.get_global_nonce().await?;
-            log::info!("New global nonce: {}", self.global_nonce.encode_hex::<String>());
+            log::info!(
+                "New global nonce: {}",
+                self.global_nonce.encode_hex::<String>()
+            );
 
             if let Some(status) = self.get_commitment_status().await? {
                 log::info!("Current commitment status: {status}");
@@ -343,7 +372,16 @@ impl ChainListener {
     ) -> eyre::Result<(Subscription<Log>, Subscription<Log>)> {
         let cc_event = parse_log::<CommitmentActivatedData, CommitmentActivated>(event?)?;
         let unit_ids = cc_event.info.unit_ids;
-        log::info!("Received CommitmentActivated event for commitment: {}, startEpoch: {}, unitIds: [{}]", cc_event.info.commitment_id, cc_event.info.start_epoch, unit_ids.iter().map(|u| u.encode_hex::<String>()).collect::<Vec<_>>().join(", "));
+        log::info!(
+            "Received CommitmentActivated event for commitment: {}, startEpoch: {}, unitIds: [{}]",
+            cc_event.info.commitment_id,
+            cc_event.info.start_epoch,
+            unit_ids
+                .iter()
+                .map(|u| u.encode_hex::<String>())
+                .collect::<Vec<_>>()
+                .join(", ")
+        );
 
         let unit_activated = self
             .subscribe_unit_activated(&cc_event.info.commitment_id)
@@ -373,7 +411,11 @@ impl ChainListener {
         event: Result<Log, client::Error>,
     ) -> eyre::Result<()> {
         let unit_event = parse_log::<UnitActivatedData, UnitActivated>(event?)?;
-        log::info!("Received UnitActivated event for unit: {}, startEpoch: {}", unit_event.info.unit_id.encode_hex::<String>(), unit_event.info.start_epoch);
+        log::info!(
+            "Received UnitActivated event for unit: {}, startEpoch: {}",
+            unit_event.info.unit_id.encode_hex::<String>(),
+            unit_event.info.start_epoch
+        );
 
         if self.current_epoch >= unit_event.info.start_epoch {
             self.active_compute_units.insert(unit_event.info.unit_id);
@@ -392,7 +434,10 @@ impl ChainListener {
     ) -> eyre::Result<()> {
         let unit_event = parse_log::<UnitDeactivatedData, UnitDeactivated>(event?)?;
 
-        log::info!("Received UnitDeactivated event for unit: {}", unit_event.info.unit_id.encode_hex::<String>());
+        log::info!(
+            "Received UnitDeactivated event for unit: {}",
+            unit_event.info.unit_id.encode_hex::<String>()
+        );
         self.active_compute_units.remove(&unit_event.info.unit_id);
         self.pending_compute_units
             .retain(|cu| cu.id == unit_event.info.unit_id);
@@ -403,7 +448,14 @@ impl ChainListener {
 
     /// Send GlobalNonce, Difficulty and Core<>CUID mapping (full commitment info) to CCP
     async fn refresh_commitment(&self) -> eyre::Result<()> {
-        log::info!("Refreshing commitment, active compute units: {}", self.active_compute_units.iter().map(|u| u.encode_hex::<String>()).collect::<Vec<_>>().join(", "));
+        log::info!(
+            "Refreshing commitment, active compute units: {}",
+            self.active_compute_units
+                .iter()
+                .map(|u| u.encode_hex::<String>())
+                .collect::<Vec<_>>()
+                .join(", ")
+        );
         log::info!("Global nonce: {}", self.global_nonce.encode_hex::<String>());
         log::info!("Difficulty: {}", self.difficulty.encode_hex::<String>());
         if let Some(ref ccp_client) = self.ccp_client {
@@ -420,13 +472,16 @@ impl ChainListener {
     }
 
     fn acquire_active_units(&self) -> eyre::Result<HashMap<PhysicalCoreId, OrHex<CUID>>> {
-        let cores = self.core_manager.acquire_worker_core(AcquireRequest::new(
-            self.active_compute_units.clone().into_iter().collect(),
-            WorkType::CapacityCommitment,
-        )).map_err(|err| {
-            log::error!("Failed to acquire cores for active units: {err}");
-            eyre::eyre!("Failed to acquire cores for active units: {err}")
-        })?;
+        let cores = self
+            .core_manager
+            .acquire_worker_core(AcquireRequest::new(
+                self.active_compute_units.clone().into_iter().collect(),
+                WorkType::CapacityCommitment,
+            ))
+            .map_err(|err| {
+                log::error!("Failed to acquire cores for active units: {err}");
+                eyre::eyre!("Failed to acquire cores for active units: {err}")
+            })?;
 
         Ok(cores
             .physical_core_ids
@@ -461,9 +516,17 @@ impl ChainListener {
         let to_activate: Vec<_> = self
             .pending_compute_units
             .extract_if(|unit| unit.start_epoch <= self.current_epoch)
-            .map(|cu| cu.id).collect();
+            .map(|cu| cu.id)
+            .collect();
 
-        log::info!("Activating pending compute units: [{}]", to_activate.iter().map(|u| u.encode_hex::<String>()).collect::<Vec<_>>().join(", "));
+        log::info!(
+            "Activating pending compute units: [{}]",
+            to_activate
+                .iter()
+                .map(|u| u.encode_hex::<String>())
+                .collect::<Vec<_>>()
+                .join(", ")
+        );
 
         self.active_compute_units.extend(to_activate);
         self.refresh_commitment().await?;

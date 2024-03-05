@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use chain_data::{ChainDataError, next_opt, parse_chain_data};
+use chain_data::{next_opt, parse_chain_data, ChainDataError};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CommitmentStatus {
@@ -45,17 +45,17 @@ impl CommitmentStatus {
 impl Display for CommitmentStatus {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let str = match self {
-            CommitmentStatus::Active => { "Active" }
-            CommitmentStatus::WaitDelegation => { "WaitDelegation" }
-            CommitmentStatus::WaitStart => { "WaitStart" }
-            CommitmentStatus::Inactive => { "Inactive" }
-            CommitmentStatus::Failed => { "Failed" }
-            CommitmentStatus::Removed => { "Removed" }
-        }.to_string();
+            CommitmentStatus::Active => "Active",
+            CommitmentStatus::WaitDelegation => "WaitDelegation",
+            CommitmentStatus::WaitStart => "WaitStart",
+            CommitmentStatus::Inactive => "Inactive",
+            CommitmentStatus::Failed => "Failed",
+            CommitmentStatus::Removed => "Removed",
+        }
+        .to_string();
         write!(f, "{}", str)
     }
 }
-
 
 #[cfg(test)]
 mod tests {
