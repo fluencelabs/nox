@@ -634,22 +634,19 @@ mod tests {
           }
         ]"#;
         let mut server = mockito::Server::new();
-        // let url = server.url();
-        // let mock = server
-        //     .mock("POST", "/")
-        //     // expect exactly 1 POST request
-        //     .expect(1)
-        //     .with_status(200)
-        //     .with_header("content-type", "application/json")
-        //     .with_body(expected_response)
-        //     .create();
+        let url = server.url();
+        let mock = server
+            .mock("POST", "/")
+            // expect exactly 1 POST request
+            .expect(1)
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(expected_response)
+            .create();
 
-        let init_params = get_connector("https://ipc-stage.fluence.dev/")
-            .get_cc_init_params()
-            .await
-            .unwrap();
+        let init_params = get_connector(&url).get_cc_init_params().await.unwrap();
 
-        // mock.assert();
+        mock.assert();
         assert_eq!(
             init_params.difficulty,
             <Difficulty>::from_hex(
