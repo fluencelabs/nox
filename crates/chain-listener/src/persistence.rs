@@ -16,6 +16,7 @@
 use std::fs;
 use std::path::Path;
 use std::str::FromStr;
+use eyre::Context;
 
 use ccp_shared::proof::ProofIdx;
 
@@ -25,14 +26,16 @@ pub(crate) fn proof_id_filename() -> String {
 
 pub(crate) fn persist_proof_id(proof_id_dir: &Path, proof_id: ProofIdx) -> eyre::Result<()> {
     let path = proof_id_dir.join(proof_id_filename());
-    Ok(fs::write(path, proof_id.to_string())?)
+    Ok(fs::write(&path, proof_id.to_string()).context(format!("error writing proof id to {}", path.display()))?)
 }
 
 /// Load info about persisted workers from disk in parallel
 pub(crate) fn load_persisted_proof_id(proof_id_dir: &Path) -> eyre::Result<ProofIdx> {
     let path = proof_id_dir.join(proof_id_filename());
     if path.exists() {
-        Ok(ProofIdx::from_str(&fs::read_to_string(path)?)?)
+        let proof_id = fs::read_to_string(&path).context(format!("error reading proof id from {}", path.display()))?;
+        let proof_id = ProofIdx::from_str(&proof_id).context(format!("error parsing proof id from {proof_id}"))?;
+        Ok(proof_id)
     } else {
         log::warn!("No proof id found in {:?}, set id to 0", proof_id_dir);
         Ok(ProofIdx::zero())
