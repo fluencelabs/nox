@@ -12,26 +12,26 @@ use jsonrpsee::core::client::{BatchResponse, ClientT};
 use jsonrpsee::core::params::{ArrayParams, BatchRequestBuilder};
 use jsonrpsee::http_client::HttpClientBuilder;
 use jsonrpsee::rpc_params;
-use serde_json::{json, Value};
 use serde_json::Value as JValue;
+use serde_json::{json, Value};
 use tokio::sync::Mutex;
 
-use chain_data::{ChainFunction, next_opt, parse_chain_data, peer_id_to_bytes};
 use chain_data::ChainDataError::InvalidTokenSize;
+use chain_data::{next_opt, parse_chain_data, peer_id_to_bytes, ChainFunction};
 use chain_types::{Commitment, CommitmentId, CommitmentStatus, ComputePeer, ComputeUnit};
 use fluence_libp2p::PeerId;
 use particle_args::{Args, JError};
-use particle_builtins::{CustomService, wrap};
+use particle_builtins::{wrap, CustomService};
 use particle_execution::{ParticleParams, ServiceFunction};
 use server_config::ChainConfig;
 
+use crate::error::{process_response, ConnectorError};
+use crate::function::{GetCommitmentFunction, GetStatusFunction, SubmitProofFunction};
+use crate::ConnectorError::InvalidBaseFeePerGas;
 use crate::{
     CurrentEpochFunction, DifficultyFunction, EpochDurationFunction, GetComputePeerFunction,
     GetComputeUnitsFunction, GetGlobalNonceFunction, InitTimestampFunction,
 };
-use crate::ConnectorError::InvalidBaseFeePerGas;
-use crate::error::{ConnectorError, process_response};
-use crate::function::{GetCommitmentFunction, GetStatusFunction, SubmitProofFunction};
 
 const BASE_FEE_MULTIPLIER: f64 = 0.125;
 
@@ -212,10 +212,13 @@ impl ChainConnector {
             self.client
                 .request(
                     "eth_call",
-                    rpc_params![json!({
-                        "data": data,
-                        "to": self.config.market_contract_address,
-                    }), "latest"],
+                    rpc_params![
+                        json!({
+                            "data": data,
+                            "to": self.config.market_contract_address,
+                        }),
+                        "latest"
+                    ],
                 )
                 .await,
         )?;
@@ -231,10 +234,13 @@ impl ChainConnector {
             self.client
                 .request(
                     "eth_call",
-                    rpc_params![json!({
-                        "data": data,
-                        "to": self.config.cc_contract_address,
-                    }), "latest"],
+                    rpc_params![
+                        json!({
+                            "data": data,
+                            "to": self.config.cc_contract_address,
+                        }),
+                        "latest"
+                    ],
                 )
                 .await,
         )?;
@@ -250,10 +256,13 @@ impl ChainConnector {
             self.client
                 .request(
                     "eth_call",
-                    rpc_params![json!({
-                        "data": data,
-                        "to": self.config.cc_contract_address,
-                    }), "latest"],
+                    rpc_params![
+                        json!({
+                            "data": data,
+                            "to": self.config.cc_contract_address,
+                        }),
+                        "latest"
+                    ],
                 )
                 .await,
         )?;
@@ -266,10 +275,13 @@ impl ChainConnector {
             self.client
                 .request(
                     "eth_call",
-                    rpc_params![json!({
-                        "data": data,
-                        "to": self.config.cc_contract_address
-                    }), "latest"],
+                    rpc_params![
+                        json!({
+                            "data": data,
+                            "to": self.config.cc_contract_address
+                        }),
+                        "latest"
+                    ],
                 )
                 .await,
         )?;
@@ -297,10 +309,13 @@ impl ChainConnector {
             self.client
                 .request(
                     "eth_call",
-                    rpc_params![json!({
-                        "data": data,
-                        "to": self.config.market_contract_address,
-                    }), "latest"],
+                    rpc_params![
+                        json!({
+                            "data": data,
+                            "to": self.config.market_contract_address,
+                        }),
+                        "latest"
+                    ],
                 )
                 .await,
         )?;
@@ -372,32 +387,37 @@ impl ChainConnector {
     fn difficulty_params(&self) -> eyre::Result<ArrayParams> {
         let data = DifficultyFunction::data(&[])?;
         Ok(rpc_params![
-            json!({"data": data, "to": self.config.cc_contract_address}), "latest"
+            json!({"data": data, "to": self.config.cc_contract_address}),
+            "latest"
         ])
     }
 
     fn init_timestamp_params(&self) -> eyre::Result<ArrayParams> {
         let data = InitTimestampFunction::data(&[])?;
         Ok(rpc_params![
-            json!({"data": data, "to": self.config.core_contract_address}), "latest"
+            json!({"data": data, "to": self.config.core_contract_address}),
+            "latest"
         ])
     }
     fn global_nonce_params(&self) -> eyre::Result<ArrayParams> {
         let data = GetGlobalNonceFunction::data(&[])?;
         Ok(rpc_params![
-            json!({"data": data, "to": self.config.cc_contract_address}), "latest"
+            json!({"data": data, "to": self.config.cc_contract_address}),
+            "latest"
         ])
     }
     fn current_epoch_params(&self) -> eyre::Result<ArrayParams> {
         let data = CurrentEpochFunction::data(&[])?;
         Ok(rpc_params![
-            json!({"data": data, "to": self.config.core_contract_address}), "latest"
+            json!({"data": data, "to": self.config.core_contract_address}),
+            "latest"
         ])
     }
     fn epoch_duration_params(&self) -> eyre::Result<ArrayParams> {
         let data = EpochDurationFunction::data(&[])?;
         Ok(rpc_params![
-            json!({"data": data, "to": self.config.core_contract_address}), "latest"
+            json!({"data": data, "to": self.config.core_contract_address}),
+            "latest"
         ])
     }
 }
@@ -409,14 +429,14 @@ mod tests {
     use std::sync::Arc;
 
     use ccp_shared::proof::{CCProof, CCProofId, ProofIdx};
-    use ccp_shared::types::{CUID, Difficulty, GlobalNonce, LocalNonce, ResultHash};
+    use ccp_shared::types::{Difficulty, GlobalNonce, LocalNonce, ResultHash, CUID};
     use clarity::PrivateKey;
     use hex::FromHex;
     use mockito::Matcher;
     use serde_json::json;
 
     use chain_data::peer_id_from_hex;
-    use chain_types::{COMMITMENT_IS_NOT_ACTIVE, CommitmentId};
+    use chain_types::{CommitmentId, COMMITMENT_IS_NOT_ACTIVE};
 
     use crate::{ChainConnector, ConnectorError};
 
@@ -431,12 +451,12 @@ mod tests {
                 wallet_key: PrivateKey::from_str(
                     "0x97a2456e78c4894c62eef6031972d1ca296ed40bf311ab54c231f13db59fc428",
                 )
-                    .unwrap(),
+                .unwrap(),
             },
             peer_id_from_hex("0x6497db93b32e4cdd979ada46a23249f444da1efb186cd74b9666bd03f710028b")
                 .unwrap(),
         )
-            .unwrap();
+        .unwrap();
 
         connector
     }
@@ -624,7 +644,10 @@ mod tests {
         //     .with_body(expected_response)
         //     .create();
 
-        let init_params = get_connector("https://ipc-stage.fluence.dev/").get_cc_init_params().await.unwrap();
+        let init_params = get_connector("https://ipc-stage.fluence.dev/")
+            .get_cc_init_params()
+            .await
+            .unwrap();
 
         // mock.assert();
         assert_eq!(
@@ -632,7 +655,7 @@ mod tests {
             <Difficulty>::from_hex(
                 "76889c92f61b9c5df216e048df56eb8f4eb02f172ab0d5b04edb9190ab9c9eec"
             )
-                .unwrap()
+            .unwrap()
         );
         assert_eq!(init_params.init_timestamp, 1707760129.into());
         assert_eq!(
@@ -640,7 +663,7 @@ mod tests {
             <GlobalNonce>::from_hex(
                 "0000000000000000000000000000000000000000000000000000000000000005"
             )
-                .unwrap()
+            .unwrap()
         );
         assert_eq!(
             init_params.current_epoch,
