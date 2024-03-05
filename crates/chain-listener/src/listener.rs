@@ -1,45 +1,52 @@
-use crate::event::cc_activated::CommitmentActivated;
-use crate::event::{
-    CommitmentActivatedData, UnitActivated, UnitActivatedData, UnitDeactivated, UnitDeactivatedData,
-};
-use ccp_rpc_client::OrHex;
-use ccp_shared::proof::{CCProof, CCProofId, ProofIdx};
-use ccp_shared::types::{Difficulty, GlobalNonce, LocalNonce, ResultHash};
-use chain_connector::{CCInitParams, ChainConnector, ConnectorError};
-use chain_data::{parse_log, peer_id_to_hex, ChainData, Log};
-use chain_types::{
-    CommitmentId, CommitmentStatus, ComputeUnit, COMMITMENT_IS_NOT_ACTIVE, TOO_MANY_PROOFS,
-};
-use core_manager::manager::{CoreManager, CoreManagerFunctions};
-use core_manager::types::{AcquireRequest, WorkType};
-use core_manager::CUID;
-use cpu_utils::PhysicalCoreId;
-use ethabi::ethereum_types::U256;
-use jsonrpsee::core::client::{Client as WsClient, Subscription, SubscriptionClientT};
-use jsonrpsee::core::{client, JsonValue};
-use jsonrpsee::rpc_params;
-use libp2p_identity::PeerId;
-use serde_json::{json, Value};
-use server_config::{ChainConfig, ChainListenerConfig};
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
+
+use ccp_rpc_client::{CCPRpcHttpClient, OrHex};
+use ccp_shared::proof::{CCProof, CCProofId, ProofIdx};
+use ccp_shared::types::{Difficulty, GlobalNonce, LocalNonce, ResultHash};
+use cpu_utils::PhysicalCoreId;
+use ethabi::ethereum_types::U256;
+use hex::ToHex;
+use jsonrpsee::core::{client, JsonValue};
+use jsonrpsee::core::client::{Client as WsClient, Subscription, SubscriptionClientT};
+use jsonrpsee::rpc_params;
+use libp2p_identity::PeerId;
+use serde_json::{json, Value};
 use tokio::task::JoinHandle;
 use tokio::time::interval;
-use tokio_stream::wrappers::IntervalStream;
 use tokio_stream::StreamExt;
+use tokio_stream::wrappers::IntervalStream;
+
+use chain_connector::{CCInitParams, ChainConnector, ConnectorError};
+use chain_data::{ChainData, Log, parse_log, peer_id_to_hex};
+use chain_types::{
+    COMMITMENT_IS_NOT_ACTIVE, CommitmentId, CommitmentStatus, ComputeUnit, TOO_MANY_PROOFS,
+};
+use core_manager::CUID;
+use core_manager::manager::{CoreManager, CoreManagerFunctions};
+use core_manager::types::{AcquireRequest, WorkType};
+use server_config::{ChainConfig, ChainListenerConfig};
+
+use crate::event::{
+    CommitmentActivatedData, UnitActivated, UnitActivatedData, UnitDeactivated, UnitDeactivatedData,
+};
+use crate::event::cc_activated::CommitmentActivated;
+use crate::persistence::{load_persisted_proof_id, persist_proof_id};
+
+const PROOF_POLL_LIMIT: usize = 50;
 
 pub struct ChainListener {
     config: ChainConfig,
 
     chain_connector: Arc<ChainConnector>,
     ws_client: WsClient,
-    // ccp_client: Option<CCPRpcHttpClient>,
+    ccp_client: Option<CCPRpcHttpClient>,
     core_manager: Arc<CoreManager>,
 
     timer_resolution: Duration,
-    _cc_events_dir: PathBuf,
+    proof_id_dir: PathBuf,
     host_id: PeerId,
 
     difficulty: Difficulty,
@@ -53,6 +60,8 @@ pub struct ChainListener {
 
     active_compute_units: HashSet<CUID>,
     pending_compute_units: HashSet<ComputeUnit>,
+
+    last_submitted_proof_id: ProofIdx,
 }
 
 async fn poll_subscription(
@@ -65,7 +74,7 @@ async fn poll_subscription(
 }
 
 impl ChainListener {
-    pub async fn new(
+    pub fn new(
         chain_config: ChainConfig,
         listener_config: ChainListenerConfig,
         cc_events_dir: PathBuf,
@@ -74,21 +83,15 @@ impl ChainListener {
         core_manager: Arc<CoreManager>,
         init_params: CCInitParams,
         ws_client: WsClient,
+        ccp_client: Option<CCPRpcHttpClient>,
     ) -> Self {
-        // // We will use the first physical core for utility tasks
-        // let _utility_core = core_manager
-        //     .get_system_cpu_assignment()
-        //     .physical_core_ids
-        //     .first()
-        //     .cloned()
-        //     .ok_or(eyre::eyre!("No utility core id"))?;
+        if ccp_client.is_none() {
+            log::warn!("CCP client is not set, will submit mocked proofs");
+        }
 
-        // let ccp_client =
-        //     CCPRpcHttpClient::new(listener_config.ccp_endpoint.clone(), utility_core).await?;
         Self {
             chain_connector,
             ws_client,
-            // ccp_client,
             config: chain_config,
             host_id,
             difficulty: init_params.difficulty,
@@ -100,8 +103,10 @@ impl ChainListener {
             active_compute_units: HashSet::new(),
             pending_compute_units: HashSet::new(),
             core_manager,
-            _cc_events_dir: cc_events_dir,
+            proof_id_dir: cc_events_dir,
             timer_resolution: listener_config.proof_poll_period,
+            ccp_client,
+            last_submitted_proof_id: ProofIdx::zero(),
         }
     }
 
@@ -109,8 +114,15 @@ impl ChainListener {
         let (active, pending) = self.get_compute_units().await?;
         self.current_commitment = self.chain_connector.get_current_commitment_id().await?;
 
+        if let Some(ref c) = self.current_commitment {
+            log::info!("Current commitment id: {}", c);
+        } else {
+            log::info!("Compute peer has no commitment");
+        }
+
         if let Some(status) = self.get_commitment_status().await? {
-            // log status
+            log::info!("Current commitment status: {status}");
+
             match status {
                 CommitmentStatus::Active => {
                     self.active_compute_units.extend(active);
@@ -131,6 +143,8 @@ impl ChainListener {
             .name("ChainListener")
             .spawn(async move {
                 let setup: eyre::Result<()> = try {
+                    self.last_submitted_proof_id = load_persisted_proof_id(self.proof_id_dir.as_path())?;
+                    log::info!("Last submitted proof id: {}", self.last_submitted_proof_id);
                     self.refresh_compute_units().await?;
                 };
                 if let Err(err) = setup {
@@ -141,7 +155,7 @@ impl ChainListener {
                 let mut heads = self.subscribe_new_heads().await.expect("Could not subscribe to new heads");
                 let mut cc_events = self.subscribe_cc_activated().await.expect("Could not subscribe to cc events");
 
-                let mut unit_activated: Option<Subscription<Log>>= None;
+                let mut unit_activated: Option<Subscription<Log>> = None;
                 let mut unit_deactivated: Option<Subscription<Log>> = None;
 
                 let mut timer = IntervalStream::new(interval(self.timer_resolution));
@@ -173,11 +187,15 @@ impl ChainListener {
                             }
                         },
                         _ = timer.next() => {
-                            if let Err(err) = self.submit_mocked_proofs().await {
-                                log::error!("Failed to submit mocked proofs: {err}");
-                            }
-                            // TODO: poll proofs from CCP
-                            // self.poll_proofs().await?;
+                            if self.ccp_client.is_some() {
+                                if let Err(err) = self.poll_proofs().await {
+                                    log::error!("Failed to poll/submit proofs: {err}");
+                                }
+                            } else{
+                                if let Err(err) = self.submit_mocked_proofs().await {
+                                    log::error!("Failed to submit mocked proofs: {err}");
+                                }
+                             }
                         }
                     }
                 }
@@ -201,15 +219,22 @@ impl ChainListener {
 
     /// Returns active and pending  compute units
     async fn get_compute_units(&self) -> eyre::Result<(Vec<CUID>, Vec<ComputeUnit>)> {
-        let units = self.chain_connector.get_compute_units().await?;
+        let mut units = self.chain_connector.get_compute_units().await?;
 
-        // print info about all units
+        let in_deal: Vec<_> = units.extract_if(|cu| cu.deal.is_some()).collect();
+
         let (active, pending): (Vec<ComputeUnit>, Vec<ComputeUnit>) = units
             .into_iter()
-            .filter(|cu| cu.deal.is_none())
             .partition(|unit| unit.start_epoch <= self.current_epoch);
 
-        let active = active.into_iter().map(|unit| unit.id).collect();
+        let active: Vec<_> = active.into_iter().map(|unit| unit.id).collect();
+
+        log::info!("Compute units mapping: active {}, pending {}, in deal {}", active.len(), pending.len(), in_deal.len());
+
+        // TODO: log compute units pretty
+        log::info!("Active compute units: [{}]", active.iter().map(|c| c.encode_hex::<String>()).collect::<Vec<_>>().join(", "));
+        log::info!("Pending compute units: [{}]", pending.iter().map(|c| c.id.encode_hex::<String>()).collect::<Vec<_>>().join(", "));
+        log::info!("In deal compute units: [{}]", in_deal.iter().map(|c| c.id.encode_hex::<String>()).collect::<Vec<_>>().join(", "));
 
         Ok((active, pending))
     }
@@ -285,10 +310,15 @@ impl ChainListener {
 
         if epoch_changed {
             self.current_epoch = epoch_number;
+            log::info!("Epoch changed, new epoch number: {epoch_number}");
+
             // nonce changes every epoch
             self.global_nonce = self.chain_connector.get_global_nonce().await?;
+            log::info!("New global nonce: {}", self.global_nonce.encode_hex::<String>());
 
             if let Some(status) = self.get_commitment_status().await? {
+                log::info!("Current commitment status: {status}");
+
                 match status {
                     CommitmentStatus::Active => {
                         self.activate_pending_units().await?;
@@ -298,8 +328,8 @@ impl ChainListener {
                     | CommitmentStatus::Removed => {
                         self.stop_commitment().await?;
                     }
-                    CommitmentStatus::WaitDelegation => {} // log commitment is not active}
-                    CommitmentStatus::WaitStart => {}      // log commitment wait start}
+                    CommitmentStatus::WaitDelegation => {} // log commitment is not active
+                    CommitmentStatus::WaitStart => {}      // log commitment wait start
                 }
             }
         }
@@ -311,10 +341,9 @@ impl ChainListener {
         &mut self,
         event: Result<Log, client::Error>,
     ) -> eyre::Result<(Subscription<Log>, Subscription<Log>)> {
-        // add logs about activation
-
         let cc_event = parse_log::<CommitmentActivatedData, CommitmentActivated>(event?)?;
         let unit_ids = cc_event.info.unit_ids;
+        log::info!("Received CommitmentActivated event for commitment: {}, startEpoch: {}, unitIds: [{}]", cc_event.info.commitment_id, cc_event.info.start_epoch, unit_ids.iter().map(|u| u.encode_hex::<String>()).collect::<Vec<_>>().join(", "));
 
         let unit_activated = self
             .subscribe_unit_activated(&cc_event.info.commitment_id)
@@ -344,6 +373,8 @@ impl ChainListener {
         event: Result<Log, client::Error>,
     ) -> eyre::Result<()> {
         let unit_event = parse_log::<UnitActivatedData, UnitActivated>(event?)?;
+        log::info!("Received UnitActivated event for unit: {}, startEpoch: {}", unit_event.info.unit_id.encode_hex::<String>(), unit_event.info.start_epoch);
+
         if self.current_epoch >= unit_event.info.start_epoch {
             self.active_compute_units.insert(unit_event.info.unit_id);
             self.refresh_commitment().await?;
@@ -360,7 +391,8 @@ impl ChainListener {
         event: Result<Log, client::Error>,
     ) -> eyre::Result<()> {
         let unit_event = parse_log::<UnitDeactivatedData, UnitDeactivated>(event?)?;
-        // add logs
+
+        log::info!("Received UnitDeactivated event for unit: {}", unit_event.info.unit_id.encode_hex::<String>());
         self.active_compute_units.remove(&unit_event.info.unit_id);
         self.pending_compute_units
             .retain(|cu| cu.id == unit_event.info.unit_id);
@@ -371,10 +403,19 @@ impl ChainListener {
 
     /// Send GlobalNonce, Difficulty and Core<>CUID mapping (full commitment info) to CCP
     async fn refresh_commitment(&self) -> eyre::Result<()> {
-        let _cores = self.acquire_active_units()?;
-        // self.ccp_client
-        //     .on_active_commitment(self.global_nonce, self.difficulty, cores)
-        //     .await?;
+        log::info!("Refreshing commitment, active compute units: {}", self.active_compute_units.iter().map(|u| u.encode_hex::<String>()).collect::<Vec<_>>().join(", "));
+        log::info!("Global nonce: {}", self.global_nonce.encode_hex::<String>());
+        log::info!("Difficulty: {}", self.difficulty.encode_hex::<String>());
+        if let Some(ref ccp_client) = self.ccp_client {
+            let cores = self.acquire_active_units()?;
+            ccp_client
+                .on_active_commitment(
+                    OrHex::from(self.global_nonce),
+                    OrHex::from(self.difficulty),
+                    cores,
+                )
+                .await?;
+        }
         Ok(())
     }
 
@@ -382,7 +423,10 @@ impl ChainListener {
         let cores = self.core_manager.acquire_worker_core(AcquireRequest::new(
             self.active_compute_units.clone().into_iter().collect(),
             WorkType::CapacityCommitment,
-        ))?;
+        )).map_err(|err| {
+            log::error!("Failed to acquire cores for active units: {err}");
+            eyre::eyre!("Failed to acquire cores for active units: {err}")
+        })?;
 
         Ok(cores
             .physical_core_ids
@@ -403,19 +447,23 @@ impl ChainListener {
     }
 
     async fn stop_commitment(&mut self) -> eyre::Result<()> {
-        // log stop commitment
+        log::info!("Stopping current commitment");
         self.active_compute_units.clear();
         self.pending_compute_units.clear();
         self.current_commitment = None;
-        // self.ccp_client.on_no_active_commitment().await?;
+        if let Some(ref ccp_client) = self.ccp_client {
+            ccp_client.on_no_active_commitment().await?;
+        }
         Ok(())
     }
 
     async fn activate_pending_units(&mut self) -> eyre::Result<()> {
-        let to_activate = self
+        let to_activate: Vec<_> = self
             .pending_compute_units
             .extract_if(|unit| unit.start_epoch <= self.current_epoch)
-            .map(|cu| cu.id);
+            .map(|cu| cu.id).collect();
+
+        log::info!("Activating pending compute units: [{}]", to_activate.iter().map(|u| u.encode_hex::<String>()).collect::<Vec<_>>().join(", "));
 
         self.active_compute_units.extend(to_activate);
         self.refresh_commitment().await?;
@@ -438,6 +486,34 @@ impl ChainListener {
         Ok(())
     }
 
+    async fn poll_proofs(&mut self) -> eyre::Result<()> {
+        if let Some(ref ccp_client) = self.ccp_client {
+            log::info!("Polling proofs after: {}", self.last_submitted_proof_id);
+
+            let proofs = ccp_client
+                .get_proofs_after(self.last_submitted_proof_id, PROOF_POLL_LIMIT)
+                .await?;
+
+            // TODO: send only in batches
+
+            // Filter proofs related to current epoch only
+            let proofs: Vec<_> = proofs
+                .into_iter()
+                .filter(|p| p.id.global_nonce == self.global_nonce)
+                .collect();
+
+            log::info!("Found {} proofs from polling", proofs.len());
+            for proof in proofs.into_iter() {
+                let id = proof.id.idx.clone();
+                log::info!("Submitting proof: {id}");
+                self.submit_proof(proof).await?;
+                log::info!("Proof submitted: {id}");
+                persist_proof_id(self.proof_id_dir.as_path(), id)?;
+            }
+        }
+        Ok(())
+    }
+
     async fn submit_proof(&mut self, proof: CCProof) -> eyre::Result<()> {
         match self.chain_connector.submit_proof(proof).await {
             Ok(_) => Ok(()),
@@ -446,16 +522,23 @@ impl ChainListener {
                     ConnectorError::RpcCallError { ref data, .. } => {
                         // TODO: track proofs count per epoch and stop at maxProofsPerEpoch
                         if data.contains(TOO_MANY_PROOFS) {
-                            // we stop unit until the next epoch if "TooManyProofs" error received
+                            log::info!("Too many proofs found for compute unit {}, stopping until next epoch", proof.cu_id.encode_hex::<String>());
+
                             // TODO: acquire core for other units to help with proofs calculation
+
                             self.active_compute_units.remove(&proof.cu_id);
                             self.pending_compute_units
                                 .insert(ComputeUnit::new(proof.cu_id, self.current_epoch + 1));
                             self.refresh_commitment().await?;
-                            // log about stopping
+
                             Ok(())
                         } else if data.contains(COMMITMENT_IS_NOT_ACTIVE) {
-                            // log about commitment is not active
+                            log::info!("Submit proof returned commitment is not active error");
+                            let status = self.get_commitment_status().await?;
+                            if let Some(status) = status {
+                                log::info!("Current commitment status: {status}");
+                            }
+
                             self.stop_commitment().await?;
                             Ok(())
                         } else {

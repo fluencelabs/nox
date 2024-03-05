@@ -995,19 +995,9 @@ dependencies = [
 ]
 
 [[package]]
-name = "ccp-randomx-types"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b3769b7222a8e4cf35252235fe7d7be66328b5440687275ee592dbdb04b7efd7"
-dependencies = [
- "hex",
- "serde",
-]
-
-[[package]]
 name = "ccp-rpc-client"
 version = "0.1.0"
-source = "git+https://github.com/fluencelabs/capacity-commitment-prover/?branch=main#5de05462da4444f7fd3633fecaecd82c854a1618"
+source = "git+https://github.com/fluencelabs/capacity-commitment-prover/?branch=main#74da41560e96d34c24c127a867506859e42db5c6"
 dependencies = [
  "ccp-shared",
  "hex",
@@ -1018,11 +1008,10 @@ dependencies = [
 [[package]]
 name = "ccp-shared"
 version = "0.1.0"
-source = "git+https://github.com/fluencelabs/capacity-commitment-prover/?branch=main#5de05462da4444f7fd3633fecaecd82c854a1618"
+source = "git+https://github.com/fluencelabs/capacity-commitment-prover/?branch=main#74da41560e96d34c24c127a867506859e42db5c6"
 dependencies = [
- "ccp-randomx-types",
- "cpu-utils",
  "hex",
+ "newtype_derive",
  "rand 0.8.5",
  "serde",
 ]
@@ -1501,11 +1490,11 @@ dependencies = [
 [[package]]
 name = "cpu-utils"
 version = "0.1.0"
-source = "git+https://github.com/fluencelabs/capacity-commitment-prover/?branch=main#5de05462da4444f7fd3633fecaecd82c854a1618"
+source = "git+https://github.com/fluencelabs/capacity-commitment-prover/?branch=main#74da41560e96d34c24c127a867506859e42db5c6"
 dependencies = [
+ "ccp-shared",
  "core_affinity",
  "hwlocality",
- "newtype_derive",
  "nonempty",
  "serde",
  "thiserror",
@@ -5362,6 +5351,7 @@ dependencies = [
  "base64 0.21.7",
  "blake3",
  "bs58",
+ "ccp-rpc-client",
  "chain-connector",
  "chain-listener",
  "config",
@@ -5378,6 +5368,7 @@ dependencies = [
  "fstrings",
  "futures",
  "health",
+ "hex",
  "humantime-serde",
  "itertools 0.12.1",
  "jsonrpsee",
