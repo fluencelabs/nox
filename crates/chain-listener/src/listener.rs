@@ -411,6 +411,7 @@ impl ChainListener {
             .subscribe_unit_deactivated(&cc_event.info.commitment_id)
             .await?;
 
+        self.current_commitment = Some(cc_event.info.commitment_id);
         let is_cc_active = cc_event.info.start_epoch <= self.current_epoch;
 
         if is_cc_active {
