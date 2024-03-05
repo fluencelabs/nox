@@ -487,10 +487,11 @@ impl ChainListener {
                     OrHex::from(self.difficulty),
                     cores,
                 )
-                .await.map_err(|err| {
-                log::error!("Failed to send commitment to CCP: {err}");
-                eyre::eyre!("Failed to send commitment to CCP: {err}")
-            })?;
+                .await
+                .map_err(|err| {
+                    log::error!("Failed to send commitment to CCP: {err}");
+                    eyre::eyre!("Failed to send commitment to CCP: {err}")
+                })?;
         }
         Ok(())
     }
