@@ -9,30 +9,30 @@ use ccp_shared::types::{Difficulty, GlobalNonce, LocalNonce, ResultHash};
 use cpu_utils::PhysicalCoreId;
 use ethabi::ethereum_types::U256;
 use hex::ToHex;
-use jsonrpsee::core::{client, JsonValue};
 use jsonrpsee::core::client::{Client as WsClient, Subscription, SubscriptionClientT};
+use jsonrpsee::core::{client, JsonValue};
 use jsonrpsee::rpc_params;
 use libp2p_identity::PeerId;
 use serde_json::{json, Value};
 use tokio::task::JoinHandle;
 use tokio::time::interval;
-use tokio_stream::StreamExt;
 use tokio_stream::wrappers::IntervalStream;
+use tokio_stream::StreamExt;
 
 use chain_connector::{CCInitParams, ChainConnector, ConnectorError};
-use chain_data::{ChainData, Log, parse_log, peer_id_to_hex};
+use chain_data::{parse_log, peer_id_to_hex, ChainData, Log};
 use chain_types::{
-    COMMITMENT_IS_NOT_ACTIVE, CommitmentId, CommitmentStatus, ComputeUnit, TOO_MANY_PROOFS,
+    CommitmentId, CommitmentStatus, ComputeUnit, COMMITMENT_IS_NOT_ACTIVE, TOO_MANY_PROOFS,
 };
-use core_manager::CUID;
 use core_manager::manager::{CoreManager, CoreManagerFunctions};
 use core_manager::types::{AcquireRequest, WorkType};
+use core_manager::CUID;
 use server_config::{ChainConfig, ChainListenerConfig};
 
+use crate::event::cc_activated::CommitmentActivated;
 use crate::event::{
     CommitmentActivatedData, UnitActivated, UnitActivatedData, UnitDeactivated, UnitDeactivatedData,
 };
-use crate::event::cc_activated::CommitmentActivated;
 use crate::persistence::{load_persisted_proof_id, persist_proof_id};
 
 const PROOF_POLL_LIMIT: usize = 50;

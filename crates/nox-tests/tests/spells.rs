@@ -28,11 +28,11 @@ use maplit::hashmap;
 use serde_json::{json, Value as JValue};
 
 use connected_client::ConnectedClient;
-use created_swarm::{make_swarms, make_swarms_with_cfg};
 use created_swarm::system_services_config::{DeciderConfig, SystemServicesConfig};
+use created_swarm::{make_swarms, make_swarms_with_cfg};
 use log_utils::enable_logs;
 use service_modules::load_module;
-use spell_event_bus::api::{MAX_PERIOD_SEC, TriggerInfo, TriggerInfoAqua};
+use spell_event_bus::api::{TriggerInfo, TriggerInfoAqua, MAX_PERIOD_SEC};
 use test_utils::{create_service, create_service_worker};
 use workers::CUID;
 
