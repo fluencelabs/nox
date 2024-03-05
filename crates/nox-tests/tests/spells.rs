@@ -287,7 +287,7 @@ async fn spell_args_test() {
         json!({ "key": expected_value }),
         None,
     )
-        .await;
+    .await;
 
     let response = client.receive_args().await.wrap_err("receive").unwrap();
     assert_eq!(response[0], expected_value);
@@ -845,16 +845,16 @@ async fn spell_remove_service_as_spell() {
         swarms[0].multiaddr.clone(),
         Some(swarms[0].management_keypair.clone()),
     )
-        .await
-        .wrap_err("connect client")
-        .unwrap();
+    .await
+    .wrap_err("connect client")
+    .unwrap();
 
     let service = create_service(
         &mut client,
         "file_share",
         load_module("tests/file_share/artifacts", "file_share").expect("load module"),
     )
-        .await;
+    .await;
 
     let data = hashmap! {
         "service_id" => json!(service.id),
@@ -954,7 +954,7 @@ async fn spell_trigger_connection_pool() {
         json!({}),
         Some("deal_id1".to_string()),
     )
-        .await;
+    .await;
 
     let mut config = TriggerConfig::default();
     config.connections.disconnect = true;
@@ -965,7 +965,7 @@ async fn spell_trigger_connection_pool() {
         json!({}),
         Some("deal_id2".to_string()),
     )
-        .await;
+    .await;
 
     // This connect should trigger the spell
     let connect_num = 5;
@@ -1131,9 +1131,9 @@ async fn spell_set_u32() {
         swarms[0].multiaddr.clone(),
         Some(swarms[0].management_keypair.clone()),
     )
-        .await
-        .wrap_err("connect client")
-        .unwrap();
+    .await
+    .wrap_err("connect client")
+    .unwrap();
 
     let script = format!(
         r#"( seq
@@ -1418,7 +1418,7 @@ async fn worker_sig_test() {
         cfg.enabled_system_services = vec!["registry".to_string()];
         cfg
     })
-        .await;
+    .await;
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .await
@@ -1551,9 +1551,9 @@ async fn spell_install_root_scope() {
         swarms[0].multiaddr.clone(),
         Some(swarms[0].management_keypair.clone()),
     )
-        .await
-        .wrap_err("connect client")
-        .unwrap();
+    .await
+    .wrap_err("connect client")
+    .unwrap();
 
     let script = r#"(call %init_peer_id% ("getDataSrv" "spell_id") [] spell_id)"#;
 
@@ -1665,7 +1665,7 @@ async fn create_remove_worker() {
         load_module("tests/file_share/artifacts", "file_share").expect("load module"),
         worker_id.clone(),
     )
-        .await;
+    .await;
     let data = hashmap! {
         "client" => json!(client.peer_id.to_string()),
         "relay" => json!(client.node.to_string()),
@@ -1732,9 +1732,9 @@ async fn spell_update_trigger_by_alias() {
         swarms[0].multiaddr.clone(),
         Some(swarms[0].management_keypair.clone()),
     )
-        .await
-        .wrap_err("connect client")
-        .unwrap();
+    .await
+    .wrap_err("connect client")
+    .unwrap();
 
     let script = format!(
         r#"
@@ -1876,7 +1876,7 @@ async fn test_spell_list() {
         json!({}),
         Some("deal_id_1".to_string()),
     )
-        .await;
+    .await;
 
     let (spell_id2, worker_id1) = create_spell(
         &mut client,
@@ -1885,7 +1885,7 @@ async fn test_spell_list() {
         json!({}),
         Some("deal_id_1".to_string()),
     )
-        .await;
+    .await;
 
     let (spell_id3, worker_id2) = create_spell(
         &mut client,
@@ -1894,7 +1894,7 @@ async fn test_spell_list() {
         json!({}),
         Some("deal_id_2".to_string()),
     )
-        .await;
+    .await;
 
     client
         .send_particle(
@@ -2065,7 +2065,7 @@ async fn set_alias_by_worker_creator() {
         load_module("tests/tetraplets/artifacts", "tetraplets").expect("load module"),
         worker_id.clone(),
     )
-        .await;
+    .await;
 
     client
         .send_particle(
@@ -2234,14 +2234,14 @@ async fn test_activate_deactivate() {
         });
         cfg
     })
-        .await;
+    .await;
     let mut client = ConnectedClient::connect_with_keypair(
         swarms[0].multiaddr.clone(),
         Some(swarms[0].management_keypair.clone()),
     )
-        .await
-        .wrap_err("connect client")
-        .unwrap();
+    .await
+    .wrap_err("connect client")
+    .unwrap();
 
     let deal_id = "deal-id-1".to_string();
 
@@ -2254,7 +2254,7 @@ async fn test_activate_deactivate() {
         Some(deal_id.clone()),
         "worker-spell".to_string(),
     )
-        .await;
+    .await;
 
     let (_, _) = create_spell_with_alias(
         &mut client,
@@ -2264,7 +2264,7 @@ async fn test_activate_deactivate() {
         Some(deal_id.clone()),
         "other-spell".to_string(),
     )
-        .await;
+    .await;
 
     client
         .send_particle(
