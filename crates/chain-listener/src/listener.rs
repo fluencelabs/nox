@@ -580,7 +580,10 @@ impl ChainListener {
 
     async fn submit_proof(&mut self, proof: CCProof) -> eyre::Result<()> {
         match self.chain_connector.submit_proof(proof).await {
-            Ok(_) => Ok(()),
+            Ok(tx_id) => {
+                log::info!("Submitted proof {}: {tx_id}", proof.id.idx);
+                Ok(())
+            }
             Err(err) => {
                 match err {
                     ConnectorError::RpcCallError { ref data, .. } => {
@@ -607,13 +610,16 @@ impl ChainListener {
                             Ok(())
                         } else {
                             // TODO: catch more contract asserts like "Proof is not valid" and "Proof is bigger than difficulty"
-                            log::error!("Failed to submit proof: {err}");
+                            log::error!("Failed to submit proof {err}");
+                            log::error!("Proof {:?} ", proof);
                             // In case of contract errors we just skip these proofs and continue
                             Ok(())
                         }
                     }
                     _ => {
                         log::error!("Failed to submit proof: {err}");
+                        log::error!("Proof {:?} ", proof);
+
                         Err(err.into())
                     }
                 }
