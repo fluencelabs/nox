@@ -63,11 +63,11 @@ base64 = { workspace = true }
 tracing = { workspace = true, features = ["async-await", "log"] }
 tracing-subscriber = { workspace = true, features = ["parking_lot", "env-filter"] }
 tracing-logfmt = "0.3.3"
-tracing-opentelemetry = "0.22.0"
-opentelemetry = "0.21.0"
-opentelemetry_sdk = { version = "0.21.2", features = ["rt-tokio-current-thread"] }
-opentelemetry-otlp = "0.14.0"
-opentelemetry-stdout = { version = "0.2.0", features = ["trace"] }
+tracing-opentelemetry = "0.23.0"
+opentelemetry = "0.22.0"
+opentelemetry_sdk = { version = "0.22.1", features = ["rt-tokio-current-thread"] }
+opentelemetry-otlp = "0.15.0"
+opentelemetry-stdout = { version = "0.3.0", features = ["trace"] }
 once_cell = { workspace = true }
 config = "0.13.4"
 tonic = "0.9.2"
