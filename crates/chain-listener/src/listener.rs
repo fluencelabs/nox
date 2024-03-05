@@ -487,7 +487,10 @@ impl ChainListener {
                     OrHex::from(self.difficulty),
                     cores,
                 )
-                .await?;
+                .await.map_err(|err| {
+                log::error!("Failed to send commitment to CCP: {err}");
+                eyre::eyre!("Failed to send commitment to CCP: {err}")
+            })?;
         }
         Ok(())
     }
@@ -528,7 +531,10 @@ impl ChainListener {
         self.pending_compute_units.clear();
         self.current_commitment = None;
         if let Some(ref ccp_client) = self.ccp_client {
-            ccp_client.on_no_active_commitment().await?;
+            ccp_client.on_no_active_commitment().await.map_err(|err| {
+                log::error!("Failed to send no active commitment to CCP: {err}");
+                eyre::eyre!("Failed to send no active commitment to CCP: {err}")
+            })?;
         }
         Ok(())
     }
