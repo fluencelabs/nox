@@ -302,7 +302,7 @@ impl ChainConnector {
         self.send_tx(data, &self.config.cc_contract_address).await
     }
 
-    pub async fn get_compute_units(&self) -> eyre::Result<Vec<ComputeUnit>> {
+    pub async fn get_compute_units(&self) -> Result<Vec<ComputeUnit>, ConnectorError> {
         let data =
             GetComputeUnitsFunction::data(&[Token::FixedBytes(peer_id_to_bytes(self.host_id))])?;
         let resp: String = process_response(

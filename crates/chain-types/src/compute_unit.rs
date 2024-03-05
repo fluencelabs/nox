@@ -1,5 +1,6 @@
 use ccp_shared::types::CUID;
-use chain_data::{next_opt, parse_chain_data};
+use chain_data::ChainDataError::InvalidParsedToken;
+use chain_data::{next_opt, parse_chain_data, ChainDataError};
 use ethabi::ethereum_types::U256;
 use ethabi::Token;
 
@@ -32,12 +33,12 @@ impl ComputeUnit {
         ]
     }
 
-    pub fn from(data: &str) -> eyre::Result<Self> {
+    pub fn from(data: &str) -> Result<Self, ChainDataError> {
         let mut tokens = parse_chain_data(data, &Self::signature())?.into_iter();
         Self::from_tokens(&mut tokens)
     }
 
-    pub fn from_token(token: Token) -> eyre::Result<Self> {
+    pub fn from_token(token: Token) -> Result<Self, ChainDataError> {
         let mut tokens = next_opt(
             &mut std::iter::once(token),
             "compute_unit",
@@ -47,7 +48,9 @@ impl ComputeUnit {
         Self::from_tokens(&mut tokens)
     }
 
-    pub fn from_tokens(data_tokens: &mut impl Iterator<Item = Token>) -> eyre::Result<Self> {
+    pub fn from_tokens(
+        data_tokens: &mut impl Iterator<Item = Token>,
+    ) -> Result<Self, ChainDataError> {
         let id = next_opt(data_tokens, "id", Token::into_fixed_bytes)?;
         let deal = next_opt(data_tokens, "deal", Token::into_address)?;
 
@@ -60,7 +63,11 @@ impl ComputeUnit {
 
         let start_epoch = next_opt(data_tokens, "start_epoch", Token::into_uint)?;
         Ok(ComputeUnit {
-            id: CUID::new(id.as_slice().try_into()?),
+            id: CUID::new(
+                id.as_slice()
+                    .try_into()
+                    .map_err(|_| InvalidParsedToken("id"))?,
+            ),
             deal,
             start_epoch,
         })

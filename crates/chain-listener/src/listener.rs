@@ -22,7 +22,8 @@ use tokio_stream::StreamExt;
 use chain_connector::{CCInitParams, ChainConnector, ConnectorError};
 use chain_data::{parse_log, peer_id_to_hex, ChainData, Log};
 use chain_types::{
-    CommitmentId, CommitmentStatus, ComputeUnit, COMMITMENT_IS_NOT_ACTIVE, TOO_MANY_PROOFS,
+    CommitmentId, CommitmentStatus, ComputeUnit, COMMITMENT_IS_NOT_ACTIVE, PEER_NOT_EXISTS,
+    TOO_MANY_PROOFS,
 };
 use core_manager::manager::{CoreManager, CoreManagerFunctions};
 use core_manager::types::{AcquireRequest, WorkType};
@@ -110,9 +111,29 @@ impl ChainListener {
         }
     }
 
+    async fn get_current_commitment_id(&self) -> eyre::Result<Option<CommitmentId>> {
+        match self.chain_connector.get_current_commitment_id().await {
+            Ok(id) => Ok(id),
+            Err(err) => match err {
+                ConnectorError::RpcCallError { ref data, .. } => {
+                    if data.contains(PEER_NOT_EXISTS) {
+                        log::info!("Peer doesn't exist on chain. Waiting for market offer");
+                        Ok(None)
+                    } else {
+                        log::error!("Failed to get current commitment id: {err}");
+                        Err(err.into())
+                    }
+                }
+                _ => {
+                    log::error!("Failed to get current commitment id: {err}");
+                    Err(err.into())
+                }
+            },
+        }
+    }
     async fn refresh_compute_units(&mut self) -> eyre::Result<()> {
         let (active, pending) = self.get_compute_units().await?;
-        self.current_commitment = self.chain_connector.get_current_commitment_id().await?;
+        self.current_commitment = self.get_current_commitment_id().await?;
 
         if let Some(ref c) = self.current_commitment {
             log::info!("Current commitment id: {}", c);
