@@ -564,6 +564,10 @@ impl ChainListener {
     /// Submit Mocked Proofs for all active compute units.
     /// Mocked Proof has result_hash == difficulty and random local_nonce
     async fn submit_mocked_proofs(&mut self) -> eyre::Result<()> {
+        if self.current_commitment.is_none() {
+            return Ok(());
+        }
+
         let result_hash = ResultHash::from_slice(*self.difficulty.as_ref());
 
         // proof_id is used only by CCP and is not sent to chain
@@ -578,6 +582,10 @@ impl ChainListener {
     }
 
     async fn poll_proofs(&mut self) -> eyre::Result<()> {
+        if self.current_commitment.is_none() {
+            return Ok(());
+        }
+
         if let Some(ref ccp_client) = self.ccp_client {
             log::info!("Polling proofs after: {}", self.last_submitted_proof_id);
 
