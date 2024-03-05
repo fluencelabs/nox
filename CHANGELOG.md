@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.22.0](https://github.com/fluencelabs/nox/compare/nox-v0.21.4...nox-v0.22.0) (2024-03-05)
+
+
+### ⚠ BREAKING CHANGES
+
+* **aquavm:** aquavm mem limits from config [fixes VM-425] ([#2111](https://github.com/fluencelabs/nox/issues/2111))
+
+### Features
+
+* **aquavm:** aquavm mem limits from config [fixes VM-425] ([#2111](https://github.com/fluencelabs/nox/issues/2111)) ([a732f5c](https://github.com/fluencelabs/nox/commit/a732f5ca16e2cd5a721a220ce8f73b784dd0ab21))
+
 ## [0.21.4](https://github.com/fluencelabs/nox/compare/nox-v0.21.3...nox-v0.21.4) (2024-03-03)
 
 
