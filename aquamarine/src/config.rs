@@ -20,6 +20,23 @@ use std::path::PathBuf;
 use std::time::Duration;
 
 #[derive(Debug, Clone)]
+pub struct VmConfig {
+    pub current_peer_id: PeerId,
+    /// Path to AIR interpreter .wasm file (aquamarine.wasm)
+    pub air_interpreter: PathBuf,
+    /// Maximum heap size in bytes available for the interpreter.
+    pub max_heap_size: Option<u64>,
+    /// Maximum AIR script size in bytes.
+    pub air_size_limit: Option<u64>,
+    /// Maximum particle size in bytes.
+    pub particle_size_limit: Option<u64>,
+    /// Maximum call result size in bytes.
+    pub call_result_size_limit: Option<u64>,
+    /// A knob to enable/disable hard limits behavior in AquaVM.
+    pub hard_limit_enabled: bool,
+}
+
+#[derive(Debug, Clone)]
 pub struct VmPoolConfig {
     /// Number of VMs to create
     pub pool_size: usize,
@@ -27,13 +44,26 @@ pub struct VmPoolConfig {
     pub execution_timeout: Duration,
 }
 
-#[derive(Debug, Clone)]
-pub struct VmConfig {
-    pub current_peer_id: PeerId,
-    /// Path to AIR interpreter .wasm file (aquamarine.wasm)
-    pub air_interpreter: PathBuf,
-    /// Maximum heap size in bytes available for the interpreter.
-    pub max_heap_size: Option<u64>,
+impl VmConfig {
+    pub fn new(
+        current_peer_id: PeerId,
+        air_interpreter: PathBuf,
+        max_heap_size: Option<u64>,
+        air_size_limit: Option<u64>,
+        particle_size_limit: Option<u64>,
+        call_result_size_limit: Option<u64>,
+        hard_limit_enabled: bool,
+    ) -> Self {
+        Self {
+            current_peer_id,
+            air_interpreter,
+            max_heap_size,
+            air_size_limit,
+            particle_size_limit,
+            call_result_size_limit,
+            hard_limit_enabled,
+        }
+    }
 }
 
 impl VmPoolConfig {
@@ -41,20 +71,6 @@ impl VmPoolConfig {
         Self {
             pool_size,
             execution_timeout,
-        }
-    }
-}
-
-impl VmConfig {
-    pub fn new(
-        current_peer_id: PeerId,
-        air_interpreter: PathBuf,
-        max_heap_size: Option<u64>,
-    ) -> Self {
-        Self {
-            current_peer_id,
-            air_interpreter,
-            max_heap_size,
         }
     }
 }

@@ -18,7 +18,9 @@ use std::str::FromStr;
 use std::{error::Error, task::Waker};
 
 use avm_server::avm_runner::{AVMRunner, RawAVMOutcome};
-use avm_server::{AVMMemoryStats, CallResults,AVMRuntimeLimits, ParticleParameters, RunnerError};
+use avm_server::{
+    AVMMemoryStats, AVMRuntimeLimits, CallRequests, CallResults, ParticleParameters, RunnerError,
+};
 use fluence_keypair::KeyPair;
 use libp2p::PeerId;
 use tracing::Level;
