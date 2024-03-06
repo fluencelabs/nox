@@ -8,7 +8,6 @@ use ccp_shared::proof::{CCProof, CCProofId, ProofIdx};
 use ccp_shared::types::{Difficulty, GlobalNonce, LocalNonce, ResultHash};
 use cpu_utils::PhysicalCoreId;
 use ethabi::ethereum_types::U256;
-use hex::ToHex;
 use jsonrpsee::core::client::{Client as WsClient, Subscription, SubscriptionClientT};
 use jsonrpsee::core::{client, JsonValue};
 use jsonrpsee::rpc_params;
@@ -292,28 +291,26 @@ impl ChainListener {
 
         // TODO: log compute units pretty
         tracing::info!(target: "chain-listener",
-            "Active compute units: [{}]",
+            "Active compute units: {:?}",
             active
                 .iter()
                 .map(CUID::to_string)
                 .collect::<Vec<_>>()
-                .join(", ")
+
         );
         tracing::info!(target: "chain-listener",
-            "Pending compute units: [{}]",
+            "Pending compute units: {:?}",
             pending
                 .iter()
                 .map(|cu| cu.id.to_string())
                 .collect::<Vec<_>>()
-                .join(", ")
         );
         tracing::info!(target: "chain-listener",
-            "In deal compute units: [{}]",
+            "In deal compute units: {:?}",
             in_deal
                 .iter()
                 .map(|cu| cu.id.to_string())
                 .collect::<Vec<_>>()
-                .join(", ")
         );
 
         Ok((active, pending))
