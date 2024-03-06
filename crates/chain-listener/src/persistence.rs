@@ -16,31 +16,38 @@
 use eyre::Context;
 use std::fs;
 use std::path::Path;
-use std::str::FromStr;
 
 use ccp_shared::proof::ProofIdx;
+use ethabi::ethereum_types::U256;
+use serde::{Deserialize, Serialize};
 
-pub(crate) fn proof_id_filename() -> String {
-    "proof_id.txt".to_string()
+#[derive(Serialize, Deserialize)]
+pub struct PersistedProofId {
+    pub proof_id: ProofIdx,
+    pub epoch: U256,
 }
 
-pub(crate) fn persist_proof_id(proof_id_dir: &Path, proof_id: ProofIdx) -> eyre::Result<()> {
+pub(crate) fn proof_id_filename() -> String {
+    "proof_id.toml".to_string()
+}
+
+pub(crate) fn persist_proof_id(proof_id_dir: &Path, proof_id: ProofIdx, current_epoch: U256) -> eyre::Result<()> {
     let path = proof_id_dir.join(proof_id_filename());
-    Ok(fs::write(&path, proof_id.to_string())
+    let bytes =
+        toml::ser::to_vec(&PersistedProofId { proof_id, epoch: current_epoch }).map_err(|err| eyre::eyre!("Proof id serialization failed {err}"))?;
+    Ok(fs::write(&path, bytes)
         .context(format!("error writing proof id to {}", path.display()))?)
 }
 
-/// Load info about persisted workers from disk in parallel
-pub(crate) fn load_persisted_proof_id(proof_id_dir: &Path) -> eyre::Result<ProofIdx> {
+pub(crate)  fn load_persisted_proof_id(proof_id_dir: &Path) -> eyre::Result<Option<PersistedProofId>> {
     let path = proof_id_dir.join(proof_id_filename());
     if path.exists() {
-        let proof_id = fs::read_to_string(&path)
+        let bytes = fs::read(&path)
             .context(format!("error reading proof id from {}", path.display()))?;
-        let proof_id = ProofIdx::from_str(&proof_id)
-            .context(format!("error parsing proof id from {proof_id}"))?;
-        Ok(proof_id)
+        let persisted_proof = toml::from_slice(&bytes)
+            .context(format!("error deserializing proof id from {}", path.display()))?;
+        Ok(Some(persisted_proof))
     } else {
-        log::warn!("No proof id found in {:?}, set id to 0", proof_id_dir);
-        Ok(ProofIdx::zero())
+        Ok(None)
     }
 }

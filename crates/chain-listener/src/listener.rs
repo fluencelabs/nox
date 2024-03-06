@@ -34,7 +34,7 @@ use crate::event::cc_activated::CommitmentActivated;
 use crate::event::{
     CommitmentActivatedData, UnitActivated, UnitActivatedData, UnitDeactivated, UnitDeactivatedData,
 };
-use crate::persistence::{load_persisted_proof_id, persist_proof_id};
+use crate::persistence;
 
 const PROOF_POLL_LIMIT: usize = 50;
 
@@ -47,7 +47,6 @@ pub struct ChainListener {
     core_manager: Arc<CoreManager>,
 
     timer_resolution: Duration,
-    proof_id_dir: PathBuf,
     host_id: PeerId,
 
     difficulty: Difficulty,
@@ -62,7 +61,9 @@ pub struct ChainListener {
     active_compute_units: HashSet<CUID>,
     pending_compute_units: HashSet<ComputeUnit>,
 
+    /// Resets every epoch
     last_submitted_proof_id: ProofIdx,
+    persisted_proof_id_dir: PathBuf,
 }
 
 async fn poll_subscription(
@@ -78,16 +79,16 @@ impl ChainListener {
     pub fn new(
         chain_config: ChainConfig,
         listener_config: ChainListenerConfig,
-        cc_events_dir: PathBuf,
         host_id: PeerId,
         chain_connector: Arc<ChainConnector>,
         core_manager: Arc<CoreManager>,
         init_params: CCInitParams,
         ws_client: WsClient,
         ccp_client: Option<CCPRpcHttpClient>,
+        persisted_proof_id_dir: PathBuf,
     ) -> Self {
         if ccp_client.is_none() {
-            log::warn!("CCP client is not set, will submit mocked proofs");
+            tracing::warn!(target: "chain-listener", "CCP client is not set, will submit mocked proofs");
         }
 
         Self {
@@ -104,10 +105,10 @@ impl ChainListener {
             active_compute_units: HashSet::new(),
             pending_compute_units: HashSet::new(),
             core_manager,
-            proof_id_dir: cc_events_dir,
             timer_resolution: listener_config.proof_poll_period,
             ccp_client,
             last_submitted_proof_id: ProofIdx::zero(),
+            persisted_proof_id_dir,
         }
     }
 
@@ -117,15 +118,15 @@ impl ChainListener {
             Err(err) => match err {
                 ConnectorError::RpcCallError { ref data, .. } => {
                     if data.contains(PEER_NOT_EXISTS) {
-                        log::info!("Peer doesn't exist on chain. Waiting for market offer");
+                        tracing::info!("Peer doesn't exist on chain. Waiting for market offer");
                         Ok(None)
                     } else {
-                        log::error!("Failed to get current commitment id: {err}");
+                        tracing::error!(target: "chain-listener", "Failed to get current commitment id: {err}");
                         Err(err.into())
                     }
                 }
                 _ => {
-                    log::error!("Failed to get current commitment id: {err}");
+                    tracing::error!(target: "chain-listener", "Failed to get current commitment id: {err}");
                     Err(err.into())
                 }
             },
@@ -136,13 +137,13 @@ impl ChainListener {
         self.current_commitment = self.get_current_commitment_id().await?;
 
         if let Some(ref c) = self.current_commitment {
-            log::info!("Current commitment id: {}", c);
+            tracing::info!(target: "chain-listener", "Current commitment id: {}", c);
         } else {
-            log::info!("Compute peer has no commitment");
+            tracing::info!(target: "chain-listener", "Compute peer has no commitment");
         }
 
         if let Some(status) = self.get_commitment_status().await? {
-            log::info!("Current commitment status: {status}");
+            tracing::info!(target: "chain-listener", "Current commitment status: {status}");
 
             match status {
                 CommitmentStatus::Active => {
@@ -159,17 +160,48 @@ impl ChainListener {
         Ok(())
     }
 
+    pub fn reset_proof_id(&mut self) -> eyre::Result<()> {
+        self.set_proof_id(ProofIdx::zero())
+    }
+
+    pub fn set_proof_id(&mut self, proof_id: ProofIdx) -> eyre::Result<()> {
+        self.last_submitted_proof_id = proof_id;
+        persistence::persist_proof_id(
+            &self.persisted_proof_id_dir,
+            self.last_submitted_proof_id,
+            self.current_epoch,
+        )?;
+        tracing::info!(target: "chain-listener", "Persisted proof id {proof_id} on epoch {}", self.current_epoch);
+        Ok(())
+    }
+
+    pub fn load_proof_id(&mut self) -> eyre::Result<()> {
+        let persisted_proof_id =
+            persistence::load_persisted_proof_id(&self.persisted_proof_id_dir)?;
+
+        if let Some(persisted_proof_id) = persisted_proof_id {
+            tracing::info!(target: "chain-listener", "Loaded persisted proof id {} saved on epoch {}", persisted_proof_id.proof_id, persisted_proof_id.epoch);
+            if persisted_proof_id.epoch != self.current_epoch {
+                tracing::info!(target: "chain-listener","Persisted proof id epoch is different from current epoch {}, resetting proof id", self.current_epoch);
+                self.reset_proof_id()?;
+            }
+        } else {
+            tracing::info!(target: "chain-listener","No persisted proof id found, starting from zero");
+            self.reset_proof_id()?;
+        }
+
+        Ok(())
+    }
     pub fn start(mut self) -> JoinHandle<()> {
         let result = tokio::task::Builder::new()
             .name("ChainListener")
             .spawn(async move {
                 let setup: eyre::Result<()> = try {
-                    self.last_submitted_proof_id = load_persisted_proof_id(self.proof_id_dir.as_path())?;
-                    log::info!("Last submitted proof id: {}", self.last_submitted_proof_id);
+                    self.load_proof_id()?;
                     self.refresh_compute_units().await?;
                 };
                 if let Err(err) = setup {
-                    log::error!("ChainListener: compute units refresh error: {err}");
+                    tracing::error!(target: "chain-listener", "ChainListener: compute units refresh error: {err}");
                     panic!("ChainListener startup error: {err}");
                 }
 
@@ -185,12 +217,12 @@ impl ChainListener {
                     tokio::select! {
                         Some(header) = heads.next() => {
                             if let Err(err) = self.process_new_header(header).await {
-                               log::error!("newHeads event processing error: {err}");
+                               tracing::error!(target: "chain-listener", "newHeads event processing error: {err}");
                             }
                         },
                         Some(cc) = cc_events.next() => {
                             match self.process_commitment_activated(cc).await {
-                                Err(err) => log::error!("CommitmentActivated event processing error: {err}"),
+                                Err(err) => tracing::error!(target: "chain-listener", "CommitmentActivated event processing error: {err}"),
                                 Ok((activated, deactivated)) => {
                                     unit_activated = Some(activated);
                                     unit_deactivated = Some(deactivated);
@@ -199,22 +231,22 @@ impl ChainListener {
                         },
                         Some(event) = poll_subscription(&mut unit_activated) => {
                            if let Err(err) = self.process_unit_activated(event).await {
-                               log::error!("UnitActivated event processing error: {err}");
+                               tracing::error!(target: "chain-listener", "UnitActivated event processing error: {err}");
                            }
                         },
                          Some(event) = poll_subscription(&mut unit_deactivated) => {
                             if let Err(err) = self.process_unit_deactivated(event).await {
-                                 log::error!("UnitDeactivated event processing error: {err}");
+                                 tracing::error!(target: "chain-listener", "UnitDeactivated event processing error: {err}");
                             }
                         },
                         _ = timer.next() => {
                             if self.ccp_client.is_some() {
                                 if let Err(err) = self.poll_proofs().await {
-                                    log::error!("Failed to poll/submit proofs: {err}");
+                                    tracing::error!(target: "chain-listener", "Failed to poll/submit proofs: {err}");
                                 }
                             } else{
                                 if let Err(err) = self.submit_mocked_proofs().await {
-                                    log::error!("Failed to submit mocked proofs: {err}");
+                                    tracing::error!(target: "chain-listener", "Failed to submit mocked proofs: {err}");
                                 }
                              }
                         }
@@ -250,7 +282,7 @@ impl ChainListener {
 
         let active: Vec<_> = active.into_iter().map(|unit| unit.id).collect();
 
-        log::info!(
+        tracing::info!(target: "chain-listener",
             "Compute units mapping: active {}, pending {}, in deal {}",
             active.len(),
             pending.len(),
@@ -258,27 +290,27 @@ impl ChainListener {
         );
 
         // TODO: log compute units pretty
-        log::info!(
+        tracing::info!(target: "chain-listener",
             "Active compute units: [{}]",
             active
                 .iter()
-                .map(|c| c.encode_hex::<String>())
+                .map(CUID::to_string)
                 .collect::<Vec<_>>()
                 .join(", ")
         );
-        log::info!(
+        tracing::info!(target: "chain-listener",
             "Pending compute units: [{}]",
             pending
                 .iter()
-                .map(|c| c.id.encode_hex::<String>())
+                .map(|cu| cu.id.to_string())
                 .collect::<Vec<_>>()
                 .join(", ")
         );
-        log::info!(
+        tracing::info!(target: "chain-listener",
             "In deal compute units: [{}]",
             in_deal
                 .iter()
-                .map(|c| c.id.encode_hex::<String>())
+                .map(|cu| cu.id.to_string())
                 .collect::<Vec<_>>()
                 .join(", ")
         );
@@ -357,17 +389,20 @@ impl ChainListener {
 
         if epoch_changed {
             self.current_epoch = epoch_number;
-            log::info!("Epoch changed, new epoch number: {epoch_number}");
+            tracing::info!(target: "chain-listener", "Epoch changed, new epoch number: {epoch_number}");
 
             // nonce changes every epoch
             self.global_nonce = self.chain_connector.get_global_nonce().await?;
-            log::info!(
+            tracing::info!(target: "chain-listener",
                 "New global nonce: {}",
-                self.global_nonce.encode_hex::<String>()
+                self.global_nonce
             );
 
+            tracing::info!(target: "chain-listener", "Resetting proof id counter");
+            self.reset_proof_id()?;
+
             if let Some(status) = self.get_commitment_status().await? {
-                log::info!("Current commitment status: {status}");
+                tracing::info!(target: "chain-listener", "Current commitment status: {status}");
 
                 match status {
                     CommitmentStatus::Active => {
@@ -393,13 +428,13 @@ impl ChainListener {
     ) -> eyre::Result<(Subscription<Log>, Subscription<Log>)> {
         let cc_event = parse_log::<CommitmentActivatedData, CommitmentActivated>(event?)?;
         let unit_ids = cc_event.info.unit_ids;
-        log::info!(
+        tracing::info!(target: "chain-listener",
             "Received CommitmentActivated event for commitment: {}, startEpoch: {}, unitIds: [{}]",
             cc_event.info.commitment_id,
             cc_event.info.start_epoch,
             unit_ids
                 .iter()
-                .map(|u| u.encode_hex::<String>())
+                .map(CUID::to_string)
                 .collect::<Vec<_>>()
                 .join(", ")
         );
@@ -433,9 +468,9 @@ impl ChainListener {
         event: Result<Log, client::Error>,
     ) -> eyre::Result<()> {
         let unit_event = parse_log::<UnitActivatedData, UnitActivated>(event?)?;
-        log::info!(
+        tracing::info!(target: "chain-listener",
             "Received UnitActivated event for unit: {}, startEpoch: {}",
-            unit_event.info.unit_id.encode_hex::<String>(),
+            unit_event.info.unit_id,
             unit_event.info.start_epoch
         );
 
@@ -456,9 +491,9 @@ impl ChainListener {
     ) -> eyre::Result<()> {
         let unit_event = parse_log::<UnitDeactivatedData, UnitDeactivated>(event?)?;
 
-        log::info!(
+        tracing::info!(target: "chain-listener",
             "Received UnitDeactivated event for unit: {}",
-            unit_event.info.unit_id.encode_hex::<String>()
+            unit_event.info.unit_id
         );
         self.active_compute_units.remove(&unit_event.info.unit_id);
         self.pending_compute_units
@@ -470,16 +505,16 @@ impl ChainListener {
 
     /// Send GlobalNonce, Difficulty and Core<>CUID mapping (full commitment info) to CCP
     async fn refresh_commitment(&self) -> eyre::Result<()> {
-        log::info!(
+        tracing::info!(target: "chain-listener",
             "Refreshing commitment, active compute units: {}",
             self.active_compute_units
                 .iter()
-                .map(|u| u.encode_hex::<String>())
+                .map(CUID::to_string)
                 .collect::<Vec<_>>()
                 .join(", ")
         );
-        log::info!("Global nonce: {}", self.global_nonce.encode_hex::<String>());
-        log::info!("Difficulty: {}", self.difficulty.encode_hex::<String>());
+        tracing::info!(target: "chain-listener", "Global nonce: {}", self.global_nonce);
+        tracing::info!(target: "chain-listener", "Difficulty: {}", self.difficulty);
         if let Some(ref ccp_client) = self.ccp_client {
             let cores = self.acquire_active_units()?;
             ccp_client
@@ -490,7 +525,7 @@ impl ChainListener {
                 )
                 .await
                 .map_err(|err| {
-                    log::error!("Failed to send commitment to CCP: {err}");
+                    tracing::error!(target: "chain-listener", "Failed to send commitment to CCP: {err}");
                     eyre::eyre!("Failed to send commitment to CCP: {err}")
                 })?;
         }
@@ -505,7 +540,7 @@ impl ChainListener {
                 WorkType::CapacityCommitment,
             ))
             .map_err(|err| {
-                log::error!("Failed to acquire cores for active units: {err}");
+                tracing::error!(target: "chain-listener", "Failed to acquire cores for active units: {err}");
                 eyre::eyre!("Failed to acquire cores for active units: {err}")
             })?;
 
@@ -528,13 +563,13 @@ impl ChainListener {
     }
 
     async fn stop_commitment(&mut self) -> eyre::Result<()> {
-        log::info!("Stopping current commitment");
+        tracing::info!(target: "chain-listener", "Stopping current commitment");
         self.active_compute_units.clear();
         self.pending_compute_units.clear();
         self.current_commitment = None;
         if let Some(ref ccp_client) = self.ccp_client {
             ccp_client.on_no_active_commitment().await.map_err(|err| {
-                log::error!("Failed to send no active commitment to CCP: {err}");
+                tracing::error!(target: "chain-listener", "Failed to send no active commitment to CCP: {err}");
                 eyre::eyre!("Failed to send no active commitment to CCP: {err}")
             })?;
         }
@@ -548,11 +583,11 @@ impl ChainListener {
             .map(|cu| cu.id)
             .collect();
 
-        log::info!(
+        tracing::info!(target: "chain-listener",
             "Activating pending compute units: [{}]",
             to_activate
                 .iter()
-                .map(|u| u.encode_hex::<String>())
+                .map(CUID::to_string)
                 .collect::<Vec<_>>()
                 .join(", ")
         );
@@ -588,7 +623,7 @@ impl ChainListener {
         }
 
         if let Some(ref ccp_client) = self.ccp_client {
-            log::info!("Polling proofs after: {}", self.last_submitted_proof_id);
+            tracing::info!(target: "chain-listener", "Polling proofs after: {}", self.last_submitted_proof_id);
 
             let proofs = ccp_client
                 .get_proofs_after(self.last_submitted_proof_id, PROOF_POLL_LIMIT)
@@ -602,14 +637,13 @@ impl ChainListener {
                 .filter(|p| p.id.global_nonce == self.global_nonce)
                 .collect();
 
-            log::info!("Found {} proofs from polling", proofs.len());
+            tracing::info!(target: "chain-listener", "Found {} proofs from polling", proofs.len());
             for proof in proofs.into_iter() {
                 let id = proof.id.idx.clone();
-                log::info!("Submitting proof: {id}");
+                tracing::info!(target: "chain-listener", "Submitting proof: {id}");
                 self.submit_proof(proof).await?;
-                log::info!("Proof submitted: {id}");
-                persist_proof_id(self.proof_id_dir.as_path(), id)?;
-                self.last_submitted_proof_id = id;
+                tracing::info!(target: "chain-listener", "Proof submitted: {id}");
+                self.set_proof_id(proof.id.idx)?;
             }
         }
         Ok(())
@@ -618,7 +652,7 @@ impl ChainListener {
     async fn submit_proof(&mut self, proof: CCProof) -> eyre::Result<()> {
         match self.chain_connector.submit_proof(proof).await {
             Ok(tx_id) => {
-                log::info!("Submitted proof {}: {tx_id}", proof.id.idx);
+                tracing::info!(target: "chain-listener", "Submitted proof {}: {tx_id}", proof.id.idx);
                 Ok(())
             }
             Err(err) => {
@@ -626,7 +660,7 @@ impl ChainListener {
                     ConnectorError::RpcCallError { ref data, .. } => {
                         // TODO: track proofs count per epoch and stop at maxProofsPerEpoch
                         if data.contains(TOO_MANY_PROOFS) {
-                            log::info!("Too many proofs found for compute unit {}, stopping until next epoch", proof.cu_id.encode_hex::<String>());
+                            tracing::info!(target: "chain-listener", "Too many proofs found for compute unit {}, stopping until next epoch", proof.cu_id);
 
                             // TODO: acquire core for other units to help with proofs calculation
 
@@ -637,25 +671,25 @@ impl ChainListener {
 
                             Ok(())
                         } else if data.contains(COMMITMENT_IS_NOT_ACTIVE) {
-                            log::info!("Submit proof returned commitment is not active error");
+                            tracing::info!(target: "chain-listener", "Submit proof returned commitment is not active error");
                             let status = self.get_commitment_status().await?;
                             if let Some(status) = status {
-                                log::info!("Current commitment status: {status}");
+                                tracing::info!(target: "chain-listener", "Current commitment status: {status}");
                             }
 
                             self.stop_commitment().await?;
                             Ok(())
                         } else {
                             // TODO: catch more contract asserts like "Proof is not valid" and "Proof is bigger than difficulty"
-                            log::error!("Failed to submit proof {err}");
-                            log::error!("Proof {:?} ", proof);
+                            tracing::error!(target: "chain-listener", "Failed to submit proof {err}");
+                            tracing::error!(target: "chain-listener", "Proof {:?} ", proof);
                             // In case of contract errors we just skip these proofs and continue
                             Ok(())
                         }
                     }
                     _ => {
-                        log::error!("Failed to submit proof: {err}");
-                        log::error!("Proof {:?} ", proof);
+                        tracing::error!(target: "chain-listener", "Failed to submit proof: {err}");
+                        tracing::error!(target: "chain-listener", "Proof {:?} ", proof);
 
                         Err(err.into())
                     }

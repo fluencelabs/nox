@@ -1008,7 +1008,7 @@ dependencies = [
 [[package]]
 name = "ccp-rpc-client"
 version = "0.1.0"
-source = "git+https://github.com/fluencelabs/capacity-commitment-prover/?branch=main#74da41560e96d34c24c127a867506859e42db5c6"
+source = "git+https://github.com/fluencelabs/capacity-commitment-prover/?branch=main#0be20a5c461f9191d8e83fdef33d376203565562"
 dependencies = [
  "ccp-shared",
  "hex",
@@ -1019,7 +1019,7 @@ dependencies = [
 [[package]]
 name = "ccp-shared"
 version = "0.1.0"
-source = "git+https://github.com/fluencelabs/capacity-commitment-prover/?branch=main#74da41560e96d34c24c127a867506859e42db5c6"
+source = "git+https://github.com/fluencelabs/capacity-commitment-prover/?branch=main#0be20a5c461f9191d8e83fdef33d376203565562"
 dependencies = [
  "hex",
  "newtype_derive",
@@ -1125,6 +1125,7 @@ dependencies = [
  "thiserror",
  "tokio",
  "tokio-stream",
+ "toml 0.5.11",
  "tracing",
  "types",
 ]
@@ -1501,7 +1502,7 @@ dependencies = [
 [[package]]
 name = "cpu-utils"
 version = "0.1.0"
-source = "git+https://github.com/fluencelabs/capacity-commitment-prover/?branch=main#74da41560e96d34c24c127a867506859e42db5c6"
+source = "git+https://github.com/fluencelabs/capacity-commitment-prover/?branch=main#0be20a5c461f9191d8e83fdef33d376203565562"
 dependencies = [
  "ccp-shared",
  "core_affinity",

@@ -148,7 +148,7 @@ async fn setup_listener(
             log::error!("Error getting Commitment initial params: {err}");
             err
         })?;
-        log::info!("Commitment initial params: difficulty {}, global nonce {}, init_timestamp {}, epoch_duration {}, current_epoch {}",  init_params.difficulty.encode_hex::<String>(), init_params.global_nonce.encode_hex::<String>(), init_params.init_timestamp, init_params.epoch_duration, init_params.current_epoch);
+        log::info!("Commitment initial params: difficulty {}, global nonce {}, init_timestamp {}, epoch_duration {}, current_epoch {}",  init_params.difficulty, init_params.global_nonce, init_params.init_timestamp, init_params.epoch_duration, init_params.current_epoch);
 
         let ws_client = WsClientBuilder::default()
             .build(&listener_config.ws_endpoint)
@@ -169,13 +169,13 @@ async fn setup_listener(
         let chain_listener = ChainListener::new(
             chain_config,
             listener_config,
-            cc_events_dir,
             host_id,
             connector,
             core_manager,
             init_params,
             ws_client,
             ccp_client,
+            cc_events_dir,
         );
         Ok(Some(chain_listener))
     } else {

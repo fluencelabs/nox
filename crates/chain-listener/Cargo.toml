@@ -35,3 +35,4 @@ ccp-rpc-client = { workspace = true }
 cpu-utils = { workspace = true }
 ccp-shared = { workspace = true }
 tokio-stream = { workspace = true }
+toml = { workspace = true }
