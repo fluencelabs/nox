@@ -160,34 +160,35 @@ impl ChainListener {
         Ok(())
     }
 
-    pub fn reset_proof_id(&mut self) -> eyre::Result<()> {
-        self.set_proof_id(ProofIdx::zero())
+    pub async fn reset_proof_id(&mut self) -> eyre::Result<()> {
+        self.set_proof_id(ProofIdx::zero()).await
     }
 
-    pub fn set_proof_id(&mut self, proof_id: ProofIdx) -> eyre::Result<()> {
+    pub async fn set_proof_id(&mut self, proof_id: ProofIdx) -> eyre::Result<()> {
         self.last_submitted_proof_id = proof_id;
         persistence::persist_proof_id(
             &self.persisted_proof_id_dir,
             self.last_submitted_proof_id,
             self.current_epoch,
-        )?;
+        )
+        .await?;
         tracing::info!(target: "chain-listener", "Persisted proof id {proof_id} on epoch {}", self.current_epoch);
         Ok(())
     }
 
-    pub fn load_proof_id(&mut self) -> eyre::Result<()> {
+    pub async fn load_proof_id(&mut self) -> eyre::Result<()> {
         let persisted_proof_id =
-            persistence::load_persisted_proof_id(&self.persisted_proof_id_dir)?;
+            persistence::load_persisted_proof_id(&self.persisted_proof_id_dir).await?;
 
         if let Some(persisted_proof_id) = persisted_proof_id {
             tracing::info!(target: "chain-listener", "Loaded persisted proof id {} saved on epoch {}", persisted_proof_id.proof_id, persisted_proof_id.epoch);
             if persisted_proof_id.epoch != self.current_epoch {
                 tracing::info!(target: "chain-listener","Persisted proof id epoch is different from current epoch {}, resetting proof id", self.current_epoch);
-                self.reset_proof_id()?;
+                self.reset_proof_id().await?;
             }
         } else {
             tracing::info!(target: "chain-listener","No persisted proof id found, starting from zero");
-            self.reset_proof_id()?;
+            self.reset_proof_id().await?;
         }
 
         Ok(())
@@ -197,7 +198,7 @@ impl ChainListener {
             .name("ChainListener")
             .spawn(async move {
                 let setup: eyre::Result<()> = try {
-                    self.load_proof_id()?;
+                    self.load_proof_id().await?;
                     self.refresh_compute_units().await?;
                 };
                 if let Err(err) = setup {
@@ -399,7 +400,7 @@ impl ChainListener {
             );
 
             tracing::info!(target: "chain-listener", "Resetting proof id counter");
-            self.reset_proof_id()?;
+            self.reset_proof_id().await?;
 
             if let Some(status) = self.get_commitment_status().await? {
                 tracing::info!(target: "chain-listener", "Current commitment status: {status}");
@@ -643,7 +644,7 @@ impl ChainListener {
                 tracing::info!(target: "chain-listener", "Submitting proof: {id}");
                 self.submit_proof(proof).await?;
                 tracing::info!(target: "chain-listener", "Proof submitted: {id}");
-                self.set_proof_id(proof.id.idx)?;
+                self.set_proof_id(proof.id.idx).await?;
             }
         }
         Ok(())

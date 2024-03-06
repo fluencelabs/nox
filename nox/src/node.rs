@@ -23,7 +23,6 @@ use eyre::WrapErr;
 use fluence_keypair::KeyPair;
 use futures::future::OptionFuture;
 use futures::{stream::StreamExt, FutureExt};
-use hex::ToHex;
 use jsonrpsee::ws_client::WsClientBuilder;
 use libp2p::swarm::SwarmEvent;
 use libp2p::SwarmBuilder;
