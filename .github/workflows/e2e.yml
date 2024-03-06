@@ -84,7 +84,6 @@ jobs:
       - nox-snapshot
     uses: fluencelabs/cli/.github/workflows/tests.yml@main
     with:
-      ref: renovate/fluencelabs-js-client-0.x
       nox-image: "${{ needs.nox-snapshot.outputs.nox-image }}"
 
   js-client:
@@ -101,7 +100,6 @@ jobs:
     uses: fluencelabs/aqua/.github/workflows/tests.yml@main
     with:
       nox-image: "${{ needs.nox-snapshot.outputs.nox-image }}"
-      ref: renovate/fluencelabs-js-client-0.x
 
   # registry:
   #   needs:
