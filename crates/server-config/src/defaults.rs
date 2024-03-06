@@ -49,6 +49,7 @@ pub fn default_socket_timeout() -> Duration {
 }
 
 pub fn default_connection_idle_timeout() -> Duration {
+    // 180 seconds makes sense because default Particle TTL is 120 sec, and it doesn't seem very efficient for hosts to reconnect while particle is still in flight
     Duration::from_secs(180)
 }
 
