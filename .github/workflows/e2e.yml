@@ -82,7 +82,7 @@ jobs:
   cli:
     needs:
       - nox-snapshot
-    uses: fluencelabs/cli/.github/workflows/tests.yml@renovate/fluencelabs-js-client-0.x
+    uses: fluencelabs/cli/.github/workflows/tests.yml@main
     with:
       ref: renovate/fluencelabs-js-client-0.x
       nox-image: "${{ needs.nox-snapshot.outputs.nox-image }}"
@@ -90,7 +90,7 @@ jobs:
   js-client:
     needs:
       - nox-snapshot
-    uses: fluencelabs/js-client/.github/workflows/tests.yml@master
+    uses: fluencelabs/js-client/.github/workflows/tests.yml@main
     with:
       ref: js-client-v0.9.0
       nox-image: "${{ needs.nox-snapshot.outputs.nox-image }}"
@@ -98,7 +98,7 @@ jobs:
   aqua:
     needs:
       - nox-snapshot
-    uses: fluencelabs/aqua/.github/workflows/tests.yml@renovate/fluencelabs-js-client-0.x
+    uses: fluencelabs/aqua/.github/workflows/tests.yml@main
     with:
       nox-image: "${{ needs.nox-snapshot.outputs.nox-image }}"
       ref: renovate/fluencelabs-js-client-0.x
