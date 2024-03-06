@@ -200,6 +200,11 @@ impl ChainConnector {
             .to_bytes();
         let tx = hex::encode(tx);
 
+        log::info!(
+            "Sending tx to {to} from {} signed {tx}",
+            self.config.wallet_key.to_address()
+        );
+
         let resp: String = process_response(
             self.client
                 .request("eth_sendRawTransaction", rpc_params![format!("0x{}", tx)])
