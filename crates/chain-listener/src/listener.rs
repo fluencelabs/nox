@@ -150,8 +150,15 @@ impl ChainListener {
                     self.pending_compute_units.extend(pending);
                     self.refresh_commitment().await?;
                 }
-                _ => {
-                    self.stop_commitment().await?;
+
+                CommitmentStatus::Inactive
+                | CommitmentStatus::Failed
+                | CommitmentStatus::Removed => {
+                    self.reset_commitment().await?;
+                }
+                CommitmentStatus::WaitDelegation | CommitmentStatus::WaitStart => {
+                    tracing::info!(target: "chain-listener", "Waiting for commitment to be activated; Stopping current one");
+                    self.stop_commitment().await?
                 }
             }
         }
@@ -411,10 +418,10 @@ impl ChainListener {
                     CommitmentStatus::Inactive
                     | CommitmentStatus::Failed
                     | CommitmentStatus::Removed => {
-                        self.stop_commitment().await?;
+                        self.reset_commitment().await?;
                     }
-                    CommitmentStatus::WaitDelegation => {} // log commitment is not active
-                    CommitmentStatus::WaitStart => {}      // log commitment wait start
+                    CommitmentStatus::WaitDelegation => {}
+                    CommitmentStatus::WaitStart => {}
                 }
             }
         }
@@ -562,11 +569,16 @@ impl ChainListener {
         Ok(())
     }
 
-    async fn stop_commitment(&mut self) -> eyre::Result<()> {
-        tracing::info!(target: "chain-listener", "Stopping current commitment");
+    async fn reset_commitment(&mut self) -> eyre::Result<()> {
         self.active_compute_units.clear();
         self.pending_compute_units.clear();
         self.current_commitment = None;
+        self.stop_commitment().await?;
+        Ok(())
+    }
+
+    async fn stop_commitment(&mut self) -> eyre::Result<()> {
+        tracing::info!(target: "chain-listener", "Stopping current commitment");
         if let Some(ref ccp_client) = self.ccp_client {
             ccp_client.on_no_active_commitment().await.map_err(|err| {
                 tracing::error!(target: "chain-listener", "Failed to send no active commitment to CCP: {err}");
@@ -677,7 +689,7 @@ impl ChainListener {
                                 tracing::info!(target: "chain-listener", "Current commitment status: {status}");
                             }
 
-                            self.stop_commitment().await?;
+                            self.reset_commitment().await?;
                             Ok(())
                         } else {
                             // TODO: catch more contract asserts like "Proof is not valid" and "Proof is bigger than difficulty"
