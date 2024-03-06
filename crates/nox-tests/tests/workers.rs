@@ -158,6 +158,9 @@ async fn test_resolve_subnet_on_worker() {
         );
         let mut object_map = serde_json::Map::new();
         object_map.insert("error".to_string(), error);
+        object_map.insert("success".to_string(), Value::Bool(false));
+        object_map.insert("workers".to_string(), Value::Array(vec![]));
+
         vec![Value::Object(object_map)]
     };
 
