@@ -1,5 +1,7 @@
+use backoff::Error::Permanent;
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
+use std::process::exit;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -15,6 +17,7 @@ use jsonrpsee::core::client::{Client as WsClient, Subscription, SubscriptionClie
 use jsonrpsee::core::{client, JsonValue};
 use jsonrpsee::rpc_params;
 use libp2p_identity::PeerId;
+use serde::de::DeserializeOwned;
 use serde_json::{json, Value};
 use tokio::task::JoinHandle;
 use tokio::time::interval;
@@ -66,11 +69,17 @@ pub struct ChainListener {
     /// Resets every epoch
     last_submitted_proof_id: ProofIdx,
     persisted_proof_id_dir: PathBuf,
+
+    unit_activated: Option<Subscription<Log>>,
+    unit_deactivated: Option<Subscription<Log>>,
+    heads: Option<Subscription<JsonValue>>,
+    commitment_activated: Option<Subscription<Log>>,
 }
 
-async fn poll_subscription(
-    s: &mut Option<Subscription<Log>>,
-) -> Option<Result<Log, client::Error>> {
+async fn poll_subscription<T>(s: &mut Option<Subscription<T>>) -> Option<Result<T, client::Error>>
+where
+    T: DeserializeOwned,
+{
     match s {
         Some(ref mut s) => s.next().await,
         None => None,
@@ -111,6 +120,10 @@ impl ChainListener {
             ccp_client,
             last_submitted_proof_id: ProofIdx::zero(),
             persisted_proof_id_dir,
+            unit_activated: None,
+            unit_deactivated: None,
+            heads: None,
+            commitment_activated: None,
         }
     }
 
@@ -134,6 +147,7 @@ impl ChainListener {
             },
         }
     }
+
     async fn refresh_compute_units(&mut self) -> eyre::Result<()> {
         loop {
             let result: eyre::Result<()> = try {
@@ -188,13 +202,26 @@ impl ChainListener {
     }
 
     pub async fn set_proof_id(&mut self, proof_id: ProofIdx) -> eyre::Result<()> {
+        let mut backoff = ExponentialBackoff::default();
+        backoff.max_elapsed_time = Some(Duration::from_secs(3));
+
+        let write = retry(backoff, || async {
+            persistence::persist_proof_id(
+                &self.persisted_proof_id_dir,
+                self.last_submitted_proof_id,
+                self.current_epoch,
+            ).await.map_err(|err|{
+                tracing::error!(target: "chain-listener", "Failed to persist proof id: {err}; Retrying...");
+                eyre!(err)
+            })?;
+            Ok(())
+        }).await;
+
+        if let Err(err) = write {
+            tracing::error!(target: "chain-listener", "Failed to persist proof id: {err}; Ignoring..");
+        }
+
         self.last_submitted_proof_id = proof_id;
-        persistence::persist_proof_id(
-            &self.persisted_proof_id_dir,
-            self.last_submitted_proof_id,
-            self.current_epoch,
-        )
-        .await?;
         tracing::info!(target: "chain-listener", "Persisted proof id {proof_id} on epoch {}", self.current_epoch);
         Ok(())
     }
@@ -221,8 +248,15 @@ impl ChainListener {
             .name("ChainListener")
             .spawn(async move {
                 tracing::info!(target: "chain-listener", "Subscribing to newHeads and cc events");
-                let mut heads = self.subscribe_new_heads().await.expect("Could not subscribe to newHeads");
-                let mut cc_events = self.subscribe_cc_activated().await.expect("Could not subscribe to cc events");
+                if let Err(err) = self.subscribe_new_heads().await {
+                    tracing::error!(target: "chain-listener", "Failed to subscribe to newHeads: {err}; Stopping...");
+                    exit(1);
+                }
+
+                if let Err(err) =  self.subscribe_cc_activated().await {
+                    tracing::error!(target: "chain-listener", "Failed to subscribe to CommitmentActivated event: {err}; Stopping...");
+                    exit(1);
+                }
 
                 let setup: eyre::Result<()> = try {
                     self.load_proof_id().await?;
@@ -234,35 +268,45 @@ impl ChainListener {
                 }
 
                 tracing::info!(target: "chain-listener", "Subscribed successfully");
-                let mut unit_activated: Option<Subscription<Log>> = None;
-                let mut unit_deactivated: Option<Subscription<Log>> = None;
 
                 let mut timer = IntervalStream::new(interval(self.timer_resolution));
 
                 loop {
                     tokio::select! {
-                        Some(header) = heads.next() => {
+                        Some(header) = poll_subscription(&mut self.heads) => {
                             if let Err(err) = self.process_new_header(header).await {
                                tracing::error!(target: "chain-listener", "newHeads event processing error: {err}");
-                            }
-                        },
-                        Some(cc) = cc_events.next() => {
-                            match self.process_commitment_activated(cc).await {
-                                Err(err) => tracing::error!(target: "chain-listener", "CommitmentActivated event processing error: {err}"),
-                                Ok((activated, deactivated)) => {
-                                    unit_activated = Some(activated);
-                                    unit_deactivated = Some(deactivated);
+                                if let Err(err) = self.subscribe_new_heads().await {
+                                    tracing::error!(target: "chain-listener", "Failed to resubscribe to newHeads: {err}; Stopping...");
+                                    exit(1);
                                 }
                             }
                         },
-                        Some(event) = poll_subscription(&mut unit_activated) => {
+                        Some(cc) = poll_subscription(&mut self.commitment_activated) => {
+                            if let Err(err) = self.process_commitment_activated(cc).await {
+                                tracing::error!(target: "chain-listener", "CommitmentActivated event processing error: {err}");
+                                if let Err(err) =  self.subscribe_cc_activated().await {
+                                    tracing::error!(target: "chain-listener", "Failed to resubscribe to CommitmentActivated event: {err}; Stopping...");
+                                    exit(1);
+                                }
+                            }
+                        },
+                        Some(event) = poll_subscription(&mut self.unit_activated) => {
                            if let Err(err) = self.process_unit_activated(event).await {
                                tracing::error!(target: "chain-listener", "UnitActivated event processing error: {err}");
+                                if let Err(err) = self.subscribe_unit_activated().await {
+                                    tracing::error!(target: "chain-listener", "Failed to resubscribe to UnitActivated: {err}; Stopping...");
+                                    exit(1);
+                                }
                            }
                         },
-                         Some(event) = poll_subscription(&mut unit_deactivated) => {
+                         Some(event) = poll_subscription(&mut self.unit_deactivated) => {
                             if let Err(err) = self.process_unit_deactivated(event).await {
-                                 tracing::error!(target: "chain-listener", "UnitDeactivated event processing error: {err}");
+                                tracing::error!(target: "chain-listener", "UnitDeactivated event processing error: {err}");
+                                if let Err(err) = self.subscribe_unit_deactivated().await {
+                                    tracing::error!(target: "chain-listener", "Failed to resubscribe to UnitDeactivated: {err}; Stopping...");
+                                    exit(1);
+                                }
                             }
                         },
                         _ = timer.next() => {
@@ -319,10 +363,6 @@ impl ChainListener {
         tracing::info!(target: "chain-listener",
             "Active compute units: {:?}",
             active
-                .iter()
-                .map(CUID::to_string)
-                .collect::<Vec<_>>()
-
         );
         tracing::info!(target: "chain-listener",
             "Pending compute units: {:?}",
@@ -342,8 +382,8 @@ impl ChainListener {
         Ok((active, pending))
     }
 
-    async fn subscribe_new_heads(&self) -> eyre::Result<Subscription<JsonValue>> {
-        retry(ExponentialBackoff::default(), || async {
+    async fn subscribe_new_heads(&mut self) -> eyre::Result<()> {
+        let sub = retry(ExponentialBackoff::default(), || async {
             let subs = self
                 .ws_client
                 .subscribe("eth_subscribe", rpc_params!["newHeads"], "eth_unsubscribe").await.map_err(|err| {
@@ -353,11 +393,14 @@ impl ChainListener {
 
             Ok(subs)
         })
-        .await
+        .await?;
+
+        self.heads = Some(sub);
+        Ok(())
     }
 
-    async fn subscribe_cc_activated(&self) -> eyre::Result<Subscription<Log>> {
-        retry(ExponentialBackoff::default(), || async {
+    async fn subscribe_cc_activated(&mut self) -> eyre::Result<()> {
+        let sub = retry(ExponentialBackoff::default(), || async {
             let topics = vec![
                 CommitmentActivatedData::topic(),
                 peer_id_to_hex(self.host_id),
@@ -366,7 +409,7 @@ impl ChainListener {
                 "logs",
                 json!({"address": self.config.cc_contract_address, "topics": topics})
             ];
-            let subs = self
+             let subs = self
                 .ws_client
                 .subscribe("eth_subscribe", params, "eth_unsubscribe")
                 .await.map_err(|err| {
@@ -376,39 +419,57 @@ impl ChainListener {
 
             Ok(subs)
         })
-        .await
+        .await?;
+
+        self.commitment_activated = Some(sub);
+        Ok(())
     }
 
-    async fn subscribe_unit_activated(
-        &self,
-        commitment_id: &CommitmentId,
-    ) -> eyre::Result<Subscription<Log>> {
-        let params = rpc_params![
-            "logs",
-            json!({"address": self.config.cc_contract_address, "topics":  vec![UnitActivatedData::topic(), hex::encode(&commitment_id.0)]})
-        ];
-        let subs = self
-            .ws_client
-            .subscribe("eth_subscribe", params, "eth_unsubscribe")
-            .await?;
+    async fn subscribe_unit_activated(&mut self) -> eyre::Result<()> {
+        if let Some(c_id) = self.current_commitment.as_ref() {
+            let sub = retry(ExponentialBackoff::default(), || async {
+              let params = rpc_params!["logs",
+                json!({"address": self.config.cc_contract_address, "topics":  vec![UnitActivatedData::topic(), hex::encode(&c_id.0)]})];
+                let subs = self
+                    .ws_client
+                    .subscribe("eth_subscribe", params, "eth_unsubscribe")
+                    .await.map_err(|err| {
+                    tracing::error!(target: "chain-listener", "Failed to subscribe to unit activated: {err}; Retrying...");
+                    eyre!(err)
+                })?;
 
-        Ok(subs)
+                Ok(subs)
+            })
+                .await?;
+
+            self.unit_activated = Some(sub);
+        }
+
+        Ok(())
     }
 
-    async fn subscribe_unit_deactivated(
-        &self,
-        commitment_id: &CommitmentId,
-    ) -> eyre::Result<Subscription<Log>> {
-        let params = rpc_params![
-            "logs",
-            json!({"address": self.config.cc_contract_address, "topics":  vec![UnitDeactivatedData::topic(), hex::encode(&commitment_id.0)]})
-        ];
-        let subs = self
-            .ws_client
-            .subscribe("eth_subscribe", params, "eth_unsubscribe")
-            .await?;
+    async fn subscribe_unit_deactivated(&mut self) -> eyre::Result<()> {
+        if let Some(c_id) = self.current_commitment.as_ref() {
+            let sub = retry(ExponentialBackoff::default(), || async {
+                let params = rpc_params![
+                    "logs",
+                    json!({"address": self.config.cc_contract_address, "topics":  vec![UnitDeactivatedData::topic(), hex::encode(&c_id.0)]})
+                ];
+                let subs = self
+                    .ws_client
+                    .subscribe("eth_subscribe", params, "eth_unsubscribe")
+                    .await.map_err(|err| {
+                        tracing::error!(target: "chain-listener", "Failed to subscribe to unit deactivated: {err}; Retrying...");
+                        eyre!(err)
+                    })?;
 
-        Ok(subs)
+                Ok(subs)
+            }).await?;
+
+            self.unit_deactivated = Some(sub);
+        }
+
+        Ok(())
     }
 
     async fn process_new_header(
@@ -424,7 +485,7 @@ impl ChainListener {
 
         if epoch_changed {
             tracing::info!(target: "chain-listener", "Epoch changed, new epoch number: {epoch_number}");
-            self.current_epoch = epoch_number;
+
             tracing::info!(target: "chain-listener", "Resetting proof id counter");
             self.reset_proof_id().await?;
 
@@ -451,6 +512,8 @@ impl ChainListener {
                     CommitmentStatus::WaitStart => {}
                 }
             }
+
+            self.current_epoch = epoch_number;
         }
 
         Ok(())
@@ -459,7 +522,7 @@ impl ChainListener {
     async fn process_commitment_activated(
         &mut self,
         event: Result<Log, client::Error>,
-    ) -> eyre::Result<(Subscription<Log>, Subscription<Log>)> {
+    ) -> eyre::Result<()> {
         let cc_event = parse_log::<CommitmentActivatedData, CommitmentActivated>(event?)?;
         let unit_ids = cc_event.info.unit_ids;
         tracing::info!(target: "chain-listener",
@@ -472,14 +535,11 @@ impl ChainListener {
                 .collect::<Vec<_>>()
         );
 
-        let unit_activated = self
-            .subscribe_unit_activated(&cc_event.info.commitment_id)
-            .await?;
-        let unit_deactivated = self
-            .subscribe_unit_deactivated(&cc_event.info.commitment_id)
-            .await?;
-
         self.current_commitment = Some(cc_event.info.commitment_id);
+
+        self.subscribe_unit_activated().await?;
+        self.subscribe_unit_deactivated().await?;
+
         let is_cc_active = cc_event.info.start_epoch <= self.current_epoch;
 
         if is_cc_active {
@@ -493,7 +553,7 @@ impl ChainListener {
             self.stop_commitment().await?;
         }
 
-        Ok((unit_activated, unit_deactivated))
+        Ok(())
     }
 
     async fn process_unit_activated(
@@ -603,7 +663,7 @@ impl ChainListener {
         Ok(())
     }
 
-    async fn stop_commitment(&mut self) -> eyre::Result<()> {
+    async fn stop_commitment(&self) -> eyre::Result<()> {
         tracing::info!(target: "chain-listener", "Stopping current commitment");
         if let Some(ref ccp_client) = self.ccp_client {
             ccp_client.on_no_active_commitment().await.map_err(|err| {
@@ -680,7 +740,6 @@ impl ChainListener {
                 let id = proof.id.idx.clone();
                 tracing::info!(target: "chain-listener", "Submitting proof: {id}");
                 self.submit_proof(proof).await?;
-                tracing::info!(target: "chain-listener", "Proof submitted: {id}");
                 self.set_proof_id(proof.id.idx).await?;
             }
         }
@@ -688,11 +747,20 @@ impl ChainListener {
     }
 
     async fn submit_proof(&mut self, proof: CCProof) -> eyre::Result<()> {
-        match self.chain_connector.submit_proof(proof).await {
-            Ok(tx_id) => {
-                tracing::info!(target: "chain-listener", "Submitted proof {}: {tx_id}", proof.id.idx);
-                Ok(())
-            }
+        let submit = retry(ExponentialBackoff::default(), || async {
+            self.chain_connector.submit_proof(proof).await.map_err(|err| {
+                match err {
+                    ConnectorError::RpcCallError { .. } => { Permanent(err) }
+                   _ => {
+                        tracing::error!(target: "chain-listener", "Failed to submit proof: {err}. Retrying..");
+                        backoff::Error::transient(err)
+                    }
+                }
+            })
+        })
+        .await;
+
+        match submit {
             Err(err) => {
                 match err {
                     ConnectorError::RpcCallError { ref data, .. } => {
@@ -732,6 +800,10 @@ impl ChainListener {
                         Err(err.into())
                     }
                 }
+            }
+            Ok(tx_id) => {
+                tracing::info!(target: "chain-listener", "Submitted proof {}, txHash: {tx_id}", proof.id.idx);
+                Ok(())
             }
         }
     }
