@@ -205,9 +205,11 @@ impl ChainListener {
                     panic!("ChainListener startup error: {err}");
                 }
 
+                tracing::info!(target: "chain-listener", "Subscribing to newHeads and cc events");
                 let mut heads = self.subscribe_new_heads().await.expect("Could not subscribe to new heads");
                 let mut cc_events = self.subscribe_cc_activated().await.expect("Could not subscribe to cc events");
 
+                tracing::info!(target: "chain-listener", "Subscribed successfully");
                 let mut unit_activated: Option<Subscription<Log>> = None;
                 let mut unit_deactivated: Option<Subscription<Log>> = None;
 
