@@ -2,11 +2,12 @@ use connected_client::ConnectedClient;
 use created_swarm::make_swarms;
 use eyre::Context;
 use hex::FromHex;
+use log_utils::enable_logs;
 use maplit::hashmap;
-use serde_json::json;
+use serde_json::{json, Value};
 use workers::CUID;
 
-async fn create_worker(client: &mut ConnectedClient, deal_id: &str) -> String {
+pub(crate) async fn create_worker(client: &mut ConnectedClient, deal_id: &str) -> String {
     let init_id_1 =
         <CUID>::from_hex("54ae1b506c260367a054f80800a545f23e32c6bc4a8908c9a794cb8dad23e5ea")
             .unwrap();
@@ -115,4 +116,50 @@ async fn test_worker_different_deal_ids() {
     assert!(is_worker_active(&mut client, deal_id_mixed).await);
     assert!(is_worker_active(&mut client, deal_id_lowercase_prefix).await);
     assert!(is_worker_active(&mut client, deal_id_mixed_prefix).await);
+}
+
+#[tokio::test]
+async fn test_resolve_subnet_on_worker() {
+    let deal_id = "0x9DcaFca9B88f49d91c38a32E7d9A86a7d9a37B04";
+
+    enable_logs();
+    let script = tokio::fs::read("./tests/workers/test_subnet_resolve_on_worker.air")
+        .await
+        .wrap_err("read test data")
+        .unwrap();
+    let script = String::from_utf8(script)
+        .wrap_err("decode test data")
+        .unwrap();
+
+    let swarms = make_swarms(1).await;
+
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
+        .wrap_err("connect client")
+        .unwrap();
+
+    let worker_id = create_worker(&mut client, deal_id).await;
+
+    let data = hashmap! {
+                "-relay-" => json!(swarms[0].peer_id.to_string()),
+                "-worker_id-" => json!(worker_id),
+                "-deal_id-" => json!(deal_id),
+    };
+
+    let result = client
+        .execute_particle(script.clone(), data.clone())
+        .await
+        .wrap_err("execute particle")
+        .unwrap();
+
+    let expected = {
+        let error =    Value::Array(
+            vec![Value::String("error sending jsonrpc request: 'Networking or low-level protocol error: Server returned an error status code: 429".to_string())]
+        );
+        let mut object_map = serde_json::Map::new();
+        object_map.insert("error".to_string(), error);
+        vec![Value::Object(object_map)]
+    };
+
+    assert_eq!(result, expected)
 }

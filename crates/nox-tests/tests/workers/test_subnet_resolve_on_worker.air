@@ -1,0 +1,13 @@
+(xor
+       (seq
+             (call -relay- ("op" "noop") [])
+             (seq
+                 (call -worker_id- ("op" "noop") [])
+                 (seq
+                    (call -worker_id- ("subnet" "resolve") [-deal_id-] subnet)
+                    (call %init_peer_id% ("op" "return") [subnet])
+                 )
+             )
+       )
+       (call %init_peer_id% ("op" "return") [%last_error%.$.instruction])
+)
