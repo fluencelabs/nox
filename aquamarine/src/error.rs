@@ -45,9 +45,7 @@ pub enum AquamarineApiError {
         particle_id: String,
         timeout: FormattedDuration,
     },
-    #[error(
-    "AquamarineApiError::AquamarineQueueFull: can't send particle {particle_id:?} to Aquamarine"
-    )]
+    #[error("AquamarineApiError::AquamarineQueueFull: can't send particle {particle_id:?} to Aquamarine")]
     AquamarineQueueFull { particle_id: Option<String> },
     #[error("AquamarineApiError::SignatureVerificationFailed: particle_id = {particle_id}, error = {err}")]
     SignatureVerificationFailed {
