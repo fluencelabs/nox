@@ -11,8 +11,7 @@ use futures::FutureExt;
 use jsonrpsee::core::client::{BatchResponse, ClientT};
 use jsonrpsee::core::params::{ArrayParams, BatchRequestBuilder};
 use jsonrpsee::http_client::HttpClientBuilder;
-use jsonrpsee::rpc_params;
-use jsonrpsee::tracing::log;
+use jsonrpsee::{rpc_params, tracing};
 use serde_json::Value as JValue;
 use serde_json::{json, Value};
 use tokio::sync::Mutex;
@@ -56,7 +55,7 @@ impl ChainConnector {
         config: ChainConfig,
         host_id: PeerId,
     ) -> eyre::Result<(Arc<Self>, HashMap<String, CustomService>)> {
-        log::info!("Connecting to chain via {}", config.http_endpoint);
+        tracing::info!(target: "chain-connector","Connecting to chain via {}", config.http_endpoint);
 
         let connector = Arc::new(Self {
             client: Arc::new(HttpClientBuilder::default().build(&config.http_endpoint)?),
@@ -200,7 +199,7 @@ impl ChainConnector {
             .to_bytes();
         let tx = hex::encode(tx);
 
-        log::info!(
+        tracing::info!(target: "chain-connector",
             "Sending tx to {to} from {} signed {tx}",
             self.config.wallet_key.to_address()
         );
