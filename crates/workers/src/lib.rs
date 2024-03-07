@@ -10,7 +10,7 @@ pub use core_manager::manager::CoreManager;
 pub use core_manager::manager::DummyCoreManager;
 pub use core_manager::manager::PersistentCoreManager;
 pub use core_manager::CUID;
-pub use crossbeam_channel::Receiver;
+pub use tokio::sync::mpsc::Receiver;
 pub use error::KeyStorageError;
 pub use error::WorkersError;
 pub use key_storage::KeyStorage;

@@ -4,10 +4,10 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
 
-use crossbeam_channel::{Receiver, Sender};
 use parking_lot::lock_api::RwLockUpgradableReadGuard;
 use parking_lot::RwLock;
 use tokio::runtime::{Handle, Runtime, UnhandledPanic};
+use tokio::sync::mpsc::{Receiver, Sender};
 
 use core_manager::manager::{CoreManager, CoreManagerFunctions};
 use core_manager::types::{AcquireRequest, WorkType};
@@ -106,7 +106,7 @@ impl Workers {
         let mut runtimes = HashMap::with_capacity(workers.len());
 
         let worker_counter = Arc::new(AtomicU32::new(0));
-        let (sender, receiver) = crossbeam_channel::bounded::<Event>(channel_size);
+        let (sender, receiver) = tokio::sync::mpsc::channel::<Event>(channel_size);
 
         for (w, _) in workers {
             let worker_id = w.worker_id;
@@ -123,10 +123,12 @@ impl Workers {
             )?;
 
             runtimes.insert(worker_id, runtime);
-            sender.send(Event::WorkerCreated {
-                worker_id,
-                thread_count,
-            })?
+            sender
+                .send(Event::WorkerCreated {
+                    worker_id,
+                    thread_count,
+                })
+                .await?
         }
         Ok((
             Self {
@@ -202,39 +204,53 @@ impl Workers {
 
                 match worker_info {
                     Ok(worker_info) => {
-                        let lock = self.worker_ids.upgradable_read();
-                        let worker_ids = lock.deref();
-                        if worker_ids.contains_key(&deal_id) {
-                            return Err(WorkersError::WorkerAlreadyExists { deal_id });
-                        }
+                        let thread_count = {
+                            let lock = self.worker_ids.upgradable_read();
+                            let worker_ids = lock.deref();
+                            if worker_ids.contains_key(&deal_id) {
+                                return Err(WorkersError::WorkerAlreadyExists { deal_id });
+                            }
 
-                        let (runtime, thread_count) = Self::build_runtime(
-                            self.core_manager.clone(),
-                            self.runtime_counter.clone(),
-                            worker_id,
-                            cu_ids,
-                        )?;
+                            let (runtime, thread_count) = Self::build_runtime(
+                                self.core_manager.clone(),
+                                self.runtime_counter.clone(),
+                                worker_id,
+                                cu_ids,
+                            )?;
 
-                        let mut worker_ids = RwLockUpgradableReadGuard::upgrade(lock);
-                        let mut worker_infos = self.worker_infos.write();
-                        let mut runtimes = self.runtimes.write();
+                            let mut worker_ids = RwLockUpgradableReadGuard::upgrade(lock);
+                            let mut worker_infos = self.worker_infos.write();
+                            let mut runtimes = self.runtimes.write();
 
-                        worker_ids.insert(deal_id.clone(), worker_id);
-                        worker_infos.insert(worker_id, worker_info);
-                        runtimes.insert(worker_id, runtime);
+                            worker_ids.insert(deal_id.clone(), worker_id);
+                            worker_infos.insert(worker_id, worker_info);
+                            runtimes.insert(worker_id, runtime);
+                            thread_count
+                        };
+
                         let result = self
                             .sender
                             .send(Event::WorkerCreated {
                                 worker_id,
                                 thread_count,
                             })
+                            .await
                             .map_err(|_err| WorkersError::FailedToNotifySubsystem { worker_id });
                         match result {
                             Ok(_) => Ok(()),
                             Err(err) => {
+                                let mut worker_ids = self.worker_ids.write();
+                                let mut worker_infos = self.worker_infos.write();
+                                let mut runtimes = self.runtimes.write();
+
                                 worker_ids.remove(&deal_id);
                                 worker_infos.remove(&worker_id);
                                 runtimes.remove(&worker_id);
+
+                                drop(runtimes);
+                                drop(worker_infos);
+                                drop(worker_ids);
+
                                 Err(err)
                             }
                         }?
@@ -274,6 +290,10 @@ impl Workers {
     ///
     pub async fn remove_worker(&self, worker_id: WorkerId) -> Result<(), WorkersError> {
         let deal_id = self.get_deal_id(worker_id)?;
+        self.sender
+            .send(Event::WorkerRemoved { worker_id })
+            .await
+            .map_err(|_err| WorkersError::FailedToNotifySubsystem { worker_id })?;
         remove_worker(&self.workers_dir, worker_id).await?;
         self.key_storage
             .remove_key_pair(worker_id)
@@ -287,9 +307,9 @@ impl Workers {
         let removed_worker_info = worker_infos.remove(&worker_id);
         let removed_runtime = runtimes.remove(&worker_id);
 
-        drop(worker_ids);
-        drop(worker_infos);
         drop(runtimes);
+        drop(worker_infos);
+        drop(worker_ids);
 
         debug_assert!(removed_worker_id.is_some(), "worker_id does not exist");
         debug_assert!(removed_worker_info.is_some(), "worker info does not exist");
@@ -303,10 +323,6 @@ impl Workers {
                 .spawn_blocking(move || runtime.shutdown_background())
                 .expect("Could not spawn task");
         }
-
-        self.sender
-            .send(Event::WorkerRemoved { worker_id })
-            .map_err(|_err| WorkersError::FailedToNotifySubsystem { worker_id })?;
 
         Ok(())
     }

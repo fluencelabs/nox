@@ -23,7 +23,6 @@ tokio = { workspace = true, features = ["fs", "sync"] }
 derivative = { workspace = true }
 types = { workspace = true }
 async-trait = "0.1.77"
-crossbeam-channel = "0.5.12"
 
 [dev-dependencies]
 tempfile = { workspace = true }

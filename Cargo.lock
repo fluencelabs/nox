@@ -262,7 +262,6 @@ dependencies = [
  "config",
  "config-utils",
  "control-macro",
- "crossbeam-channel",
  "enum_dispatch",
  "eyre",
  "fluence-keypair",
@@ -9560,7 +9559,6 @@ version = "0.1.0"
 dependencies = [
  "async-trait",
  "core-manager",
- "crossbeam-channel",
  "derivative",
  "eyre",
  "fluence-keypair",

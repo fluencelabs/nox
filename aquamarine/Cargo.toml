@@ -48,4 +48,3 @@ enum_dispatch = { workspace = true }
 
 [dev-dependencies]
 tempfile = { workspace = true }
-crossbeam-channel = "0.5.12"
