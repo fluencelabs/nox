@@ -23,8 +23,8 @@ tokio = { workspace = true, features = ["rt", "macros"] }
 hex-utils = { workspace = true }
 futures = { workspace = true }
 ccp-shared = { workspace = true }
-thiserror =  { workspace = true }
-tracing = { workspace = true
+thiserror = { workspace = true }
+tracing = { workspace = true }
 
 [dev-dependencies]
 mockito = { workspace = true }

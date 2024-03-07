@@ -1094,6 +1094,7 @@ dependencies = [
  "server-config",
  "thiserror",
  "tokio",
+ "tracing",
 ]
 
 [[package]]
