@@ -103,7 +103,7 @@ impl AquaRuntime for AVMRunner {
                     "Executed particle, next_peer_pks is empty, no call requests. Nothing to do.",
                 );
 
-                if tracing::enabled!(target: "execution", Level::DEBUG) {
+                if tracing::enabled!(Level::DEBUG) {
                     let data = String::from_utf8_lossy(data.as_slice());
                     tracing::debug!(particle_id, "particle next_peer_pks = [], data: {}", data);
                 }

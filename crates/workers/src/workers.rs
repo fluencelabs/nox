@@ -7,14 +7,12 @@ use std::sync::Arc;
 use crossbeam_channel::{Receiver, Sender};
 use parking_lot::lock_api::RwLockUpgradableReadGuard;
 use parking_lot::RwLock;
-use tokio::runtime::{Handle, Runtime};
+use tokio::runtime::{Handle, Runtime, UnhandledPanic};
 
 use core_manager::manager::{CoreManager, CoreManagerFunctions};
 use core_manager::types::{AcquireRequest, WorkType};
 use core_manager::CUID;
 use fluence_libp2p::PeerId;
-use parking_lot::{Mutex, RwLock};
-use tokio::runtime::{Handle, Runtime, UnhandledPanic};
 use types::peer_scope::WorkerId;
 use types::DealId;
 
@@ -165,167 +163,6 @@ impl Workers {
             .map(|info| info.deal_id.clone())
     }
 
-
-    pub fn shutdown(&self) {
-        let mut runtimes = self.runtimes.write();
-        let mut deleted_runtimes = Vec::with_capacity(runtimes.len());
-        let worker_ids: Vec<WorkerId> = runtimes.keys().cloned().collect();
-        for worker_id in worker_ids {
-            if let Some(runtime) = runtimes.remove(&worker_id) {
-                deleted_runtimes.push(runtime);
-            }
-        }
-
-        tokio::task::Builder::new()
-            .name("workers-shutdown")
-            .spawn_blocking(move || {
-                for runtime in deleted_runtimes {
-                    runtime.shutdown_background();
-                }
-            })
-            .expect("Could not spawn a task");
-    }
-
-    /// Persists worker information and updates internal data structures.
-    ///
-    /// This method stores information about the worker identified by `worker_id` and associates
-    /// it with the provided `deal_id` and `creator` PeerId. The worker's active status is set to `true`.
-    /// The information is persisted to the workers' storage directory, and the internal
-    /// `worker_ids` and `worker_infos` data structures are updated accordingly.
-    ///
-    /// # Arguments
-    ///
-    /// * `worker_id` - The `PeerId` of the worker to be stored.
-    /// * `deal_id` - The unique identifier (`String`) associated with the deal.
-    /// * `creator` - The `PeerId` of the creator of the worker.
-    ///
-    /// # Returns
-    ///
-    /// Returns `Result<WorkerInfo, WorkersError>` where:
-    /// - `Ok(worker_info)` if the worker information is successfully stored.
-    /// - `Err(WorkersError)` if an error occurs during the storage process.
-    ///
-    async fn store_worker(
-        &self,
-        worker_id: WorkerId,
-        deal_id: DealId,
-        creator: PeerId,
-        cu_ids: Vec<CUID>,
-    ) -> Result<WorkerInfo, WorkersError> {
-        persist_worker(
-            &self.workers_dir,
-            worker_id,
-            PersistedWorker {
-                worker_id,
-                creator,
-                deal_id: deal_id.clone().into(),
-                active: true,
-                cu_ids: cu_ids.clone(),
-            },
-        )
-        .await?;
-        let worker_info = WorkerInfo {
-            deal_id,
-            creator,
-            active: RwLock::new(true),
-            cu_ids,
-        };
-        Ok(worker_info)
-    }
-
-    async fn set_worker_status(
-        &self,
-        worker_id: WorkerId,
-        status: bool,
-    ) -> Result<(), WorkersError> {
-        let (creator, deal_id, cu_ids) = {
-            let guard = self.worker_infos.read();
-            let worker_info = guard
-                .get(&worker_id)
-                .ok_or(WorkersError::WorkerNotFound(worker_id))?;
-            let mut active = worker_info.active.write();
-            *active = status;
-
-            (
-                worker_info.creator,
-                worker_info.deal_id.clone(),
-                worker_info.cu_ids.clone(),
-            )
-        };
-
-        persist_worker(
-            &self.workers_dir,
-            worker_id,
-            PersistedWorker {
-                worker_id,
-                creator,
-                deal_id: deal_id.into(),
-                active: status,
-                cu_ids,
-            },
-        )
-        .await?;
-        Ok(())
-    }
-
-    fn build_runtime(
-        core_manager: Arc<CoreManager>,
-        worker_counter: Arc<AtomicU32>,
-        worker_id: WorkerId,
-        cu_ids: Vec<CUID>,
-    ) -> Result<(Runtime, usize), WorkersError> {
-        // Creating a multi-threaded Tokio runtime with a total of cu_count * 2 threads.
-        // We assume cu_count threads per logical processor, aligning with the common practice.
-        let assignment = core_manager
-            .acquire_worker_core(AcquireRequest::new(cu_ids, WorkType::Deal))
-            .map_err(|err| WorkersError::FailedToAssignCores { worker_id, err })?;
-
-        let threads_count = assignment.logical_core_ids.len();
-
-        let id = worker_counter.fetch_add(1, Ordering::Acquire);
-
-        tracing::info!(target: "worker", "Creating runtime with id {} for worker id {}. Pinned to cores: {:?}", id, worker_id, assignment.logical_core_ids);
-
-        let runtime = tokio::runtime::Builder::new_multi_thread()
-            .thread_name(format!("worker-pool-{}", id))
-            // Configuring worker threads for executing service calls and particles
-            .worker_threads(threads_count)
-            // Configuring blocking threads for handling I/O
-            .max_blocking_threads(threads_count)
-            .enable_time()
-            .enable_io()
-            .on_thread_start(move || {
-                assignment.pin_current_thread();
-            })
-            .unhandled_panic(UnhandledPanic::Ignore) // TODO: try to log panics after fix https://github.com/tokio-rs/tokio/issues/4516
-            .build()
-            .map_err(|err| WorkersError::CreateRuntime { worker_id, err })?;
-        Ok((runtime, threads_count))
-    }
-}
-
-#[async_trait]
-pub trait WorkersOperations: Send + Sync {
-    async fn create_worker(&self, params: WorkerParams) -> Result<WorkerId, WorkersError>;
-    async fn remove_worker(&self, worker_id: WorkerId) -> Result<(), WorkersError>;
-
-    async fn activate_worker(&self, worker_id: WorkerId) -> Result<(), WorkersError>;
-
-    async fn deactivate_worker(&self, worker_id: WorkerId) -> Result<(), WorkersError>;
-
-    fn get_handle(&self, worker_id: WorkerId) -> Option<Handle>;
-
-    fn get_worker_creator(&self, worker_id: WorkerId) -> Result<PeerId, WorkersError>;
-
-    fn get_worker_id(&self, deal_id: DealId) -> Result<WorkerId, WorkersError>;
-
-    fn is_worker_active(&self, worker_id: WorkerId) -> bool;
-
-    fn list_workers(&self) -> Vec<WorkerId>;
-}
-
-#[async_trait]
-impl<RT: AquaRuntime> WorkersOperations for Workers<RT> {
     /// Creates a new worker with the given `deal_id` and initial peer ID.
     ///
     /// # Arguments
@@ -732,9 +569,12 @@ impl<RT: AquaRuntime> WorkersOperations for Workers<RT> {
             .worker_threads(threads_count)
             // Configuring blocking threads for handling I/O
             .max_blocking_threads(threads_count)
+            .enable_time()
+            .enable_io()
             .on_thread_start(move || {
                 assignment.pin_current_thread();
             })
+            .unhandled_panic(UnhandledPanic::Ignore) // TODO: try to log panics after fix https://github.com/tokio-rs/tokio/issues/4516
             .build()
             .map_err(|err| WorkersError::CreateRuntime { worker_id, err })?;
         Ok((runtime, threads_count))
