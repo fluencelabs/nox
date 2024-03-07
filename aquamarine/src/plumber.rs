@@ -177,7 +177,6 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
     pub fn on_worker_created(&mut self, worker_id: WorkerId, thread_count: usize) {
         let vm_pool = VmPool::new(thread_count, self.config.clone(), None, None); // TODO: add metrics
         self.worker_vm_pools.insert(worker_id, vm_pool);
-        self.wake();
     }
 
     pub fn on_worker_removed(&mut self, worker_id: WorkerId) {
