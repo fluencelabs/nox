@@ -5993,7 +5993,6 @@ dependencies = [
  "tokio-stream",
  "tokio-util",
  "toml 0.5.11",
- "toy-vms",
  "tracing",
  "types",
  "uuid",
