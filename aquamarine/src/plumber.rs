@@ -192,7 +192,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
         let key_pair = self
             .key_storage
             .get_keypair(peer_scope)
-            .ok_or(eyre!("Not found key pair for {:?}", peer_scope))?;
+            .ok_or(eyre!("Cannot create actor, no key pair for {:?}", peer_scope))?;
         let data_store = self.data_store.clone();
         // TODO: move to a better place
         let particle_token = get_particle_token(
