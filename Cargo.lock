@@ -5418,6 +5418,7 @@ dependencies = [
  "tracing-log",
  "tracing-logfmt",
  "tracing-opentelemetry",
+ "tracing-panic",
  "tracing-subscriber",
  "workers",
 ]
@@ -8312,6 +8313,16 @@ dependencies = [
  "tracing-log",
  "tracing-subscriber",
  "web-time",
+]
+
+[[package]]
+name = "tracing-panic"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "eaf80030ce049691c9922d75be63cadf345110a245cd4581833c66f87c02ad25"
+dependencies = [
+ "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]
