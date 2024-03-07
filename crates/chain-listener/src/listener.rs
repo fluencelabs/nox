@@ -502,7 +502,7 @@ impl ChainListener {
 
                 match status {
                     CommitmentStatus::Active => {
-                        self.activate_pending_units().await?;
+                        self.activate_pending_units(epoch_number).await?;
                     }
                     CommitmentStatus::Inactive
                     | CommitmentStatus::Failed
@@ -599,6 +599,11 @@ impl ChainListener {
 
     /// Send GlobalNonce, Difficulty and Core<>CUID mapping (full commitment info) to CCP
     async fn refresh_commitment(&self) -> eyre::Result<()> {
+        if self.active_compute_units.is_empty() {
+            self.stop_commitment().await?;
+            return Ok(());
+        }
+
         tracing::info!(target: "chain-listener",
             "Refreshing commitment, active compute units: {}",
             self.active_compute_units
@@ -675,10 +680,10 @@ impl ChainListener {
         Ok(())
     }
 
-    async fn activate_pending_units(&mut self) -> eyre::Result<()> {
+    async fn activate_pending_units(&mut self, new_epoch: U256) -> eyre::Result<()> {
         let to_activate: Vec<_> = self
             .pending_compute_units
-            .extract_if(|unit| unit.start_epoch <= self.current_epoch)
+            .extract_if(|unit| unit.start_epoch <= new_epoch)
             .map(|cu| cu.id)
             .collect();
 
@@ -748,6 +753,10 @@ impl ChainListener {
     }
 
     async fn submit_proof(&mut self, proof: CCProof) -> eyre::Result<()> {
+        if !self.active_compute_units.contains(&proof.cu_id) {
+            return Ok(());
+        }
+
         let submit = retry(ExponentialBackoff::default(), || async {
             self.chain_connector.submit_proof(proof).await.map_err(|err| {
                 match err {
