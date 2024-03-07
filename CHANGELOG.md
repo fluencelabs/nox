@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.22.1](https://github.com/fluencelabs/nox/compare/nox-v0.22.0...nox-v0.22.1) (2024-03-07)
+
+
+### Bug Fixes
+
+* **deps:** update rust crate decider-distro to v0.6.11 ([#2137](https://github.com/fluencelabs/nox/issues/2137)) ([bd8ff99](https://github.com/fluencelabs/nox/commit/bd8ff996ac5d6449844e99031b234fa9ef3cce76))
+* **workers:** add io+timer drivers to tokio runtimes [fixes NET-795] ([#2135](https://github.com/fluencelabs/nox/issues/2135)) ([fb251c9](https://github.com/fluencelabs/nox/commit/fb251c92a244d360e3fd1a46edcb00221cb4c75a))
+
 ## [0.22.0](https://github.com/fluencelabs/nox/compare/nox-v0.21.4...nox-v0.22.0) (2024-03-05)
 
 
