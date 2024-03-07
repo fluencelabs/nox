@@ -11,7 +11,7 @@ use futures::FutureExt;
 use jsonrpsee::core::client::{BatchResponse, ClientT};
 use jsonrpsee::core::params::{ArrayParams, BatchRequestBuilder};
 use jsonrpsee::http_client::HttpClientBuilder;
-use jsonrpsee::{rpc_params, tracing};
+use jsonrpsee::rpc_params;
 use serde_json::Value as JValue;
 use serde_json::{json, Value};
 use tokio::sync::Mutex;

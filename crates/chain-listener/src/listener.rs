@@ -158,6 +158,7 @@ impl ChainListener {
                     tracing::info!(target: "chain-listener", "Current commitment id: {}", c);
                 } else {
                     tracing::info!(target: "chain-listener", "Compute peer has no commitment");
+                    self.stop_commitment().await?
                 }
 
                 if let Some(status) = self.get_commitment_status().await? {
@@ -257,6 +258,7 @@ impl ChainListener {
                     tracing::error!(target: "chain-listener", "Failed to subscribe to CommitmentActivated event: {err}; Stopping...");
                     exit(1);
                 }
+                tracing::info!(target: "chain-listener", "Subscribed successfully");
 
                 let setup: eyre::Result<()> = try {
                     self.load_proof_id().await?;
@@ -267,7 +269,6 @@ impl ChainListener {
                     panic!("ChainListener startup error: {err}");
                 }
 
-                tracing::info!(target: "chain-listener", "Subscribed successfully");
 
                 let mut timer = IntervalStream::new(interval(self.timer_resolution));
 
