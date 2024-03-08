@@ -297,20 +297,18 @@ impl Workers {
             .await
             .map_err(|err| WorkersError::RemoveWorkerKeyPair { err })?;
 
-        let mut worker_ids = self.worker_ids.write();
-        let mut worker_infos = self.worker_infos.write();
-        let mut runtimes = self.runtimes.write();
-        let removed_worker_id = worker_ids.remove(&deal_id);
-        let removed_worker_info = worker_infos.remove(&worker_id);
-        let removed_runtime = runtimes.remove(&worker_id);
+        {
+            let mut worker_ids = self.worker_ids.write();
+            let mut worker_infos = self.worker_infos.write();
+            let mut runtimes = self.runtimes.write();
+            let removed_worker_id = worker_ids.remove(&deal_id);
+            let removed_worker_info = worker_infos.remove(&worker_id);
+            let removed_runtime = runtimes.remove(&worker_id);
 
-        drop(runtimes);
-        drop(worker_infos);
-        drop(worker_ids);
-
-        debug_assert!(removed_worker_id.is_some(), "worker_id does not exist");
-        debug_assert!(removed_worker_info.is_some(), "worker info does not exist");
-        debug_assert!(removed_runtime.is_some(), "worker runtime does not exist");
+            debug_assert!(removed_worker_id.is_some(), "worker_id does not exist");
+            debug_assert!(removed_worker_info.is_some(), "worker info does not exist");
+            debug_assert!(removed_runtime.is_some(), "worker runtime does not exist");
+        }
 
         if let Some(runtime) = removed_runtime {
             // we can't shutdown the runtime in the async context, shift it to the blocking pool
