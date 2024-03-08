@@ -1,10 +1,11 @@
+use std::time::Duration;
+
 use prometheus_client::encoding::{EncodeLabelSet, EncodeLabelValue};
 use prometheus_client::metrics::counter::Counter;
 use prometheus_client::metrics::family::Family;
 use prometheus_client::metrics::gauge::Gauge;
 use prometheus_client::metrics::histogram::Histogram;
 use prometheus_client::registry::Registry;
-use std::time::Duration;
 
 use crate::execution_time_buckets;
 
@@ -23,21 +24,43 @@ pub struct FunctionKindLabel {
 
 #[derive(Clone)]
 pub struct ParticleExecutorMetrics {
-    pub interpretation_time_sec: Histogram,
-    pub interpretation_successes: Counter,
-    pub interpretation_failures: Counter,
-    pub total_actors_mailbox: Gauge,
-    pub alive_actors: Gauge,
+    pub interpretation_time_sec: Family<WorkerLabel, Histogram>,
+    pub interpretation_successes: Family<WorkerLabel, Counter>,
+    pub interpretation_failures: Family<WorkerLabel, Counter>,
+    pub total_actors_mailbox: Family<WorkerLabel, Gauge>,
+    pub alive_actors: Family<WorkerLabel, Gauge>,
     service_call_time_sec: Family<FunctionKindLabel, Histogram>,
     service_call_success: Family<FunctionKindLabel, Counter>,
     service_call_failure: Family<FunctionKindLabel, Counter>,
+}
+
+#[derive(EncodeLabelSet, Debug, Clone, Hash, Eq, PartialEq)]
+pub struct WorkerLabel {
+    worker_type: WorkerType,
+    peer_id: String,
+}
+
+impl WorkerLabel {
+    pub fn new(worker_type: WorkerType, peer_id: String) -> Self {
+        Self {
+            worker_type,
+            peer_id,
+        }
+    }
+}
+
+#[derive(EncodeLabelValue, Debug, Clone, Hash, Eq, PartialEq)]
+pub enum WorkerType {
+    Worker,
+    Host,
 }
 
 impl ParticleExecutorMetrics {
     pub fn new(registry: &mut Registry) -> Self {
         let sub_registry = registry.sub_registry_with_prefix("particle_executor");
 
-        let interpretation_time_sec = Histogram::new(execution_time_buckets());
+        let interpretation_time_sec: Family<WorkerLabel, Histogram> =
+            Family::new_with_constructor(|| Histogram::new(execution_time_buckets()));
         sub_registry.register(
             "interpretation_time_sec",
             "Distribution of time it took to run the interpreter once",
@@ -51,27 +74,28 @@ impl ParticleExecutorMetrics {
             call_time_sec.clone(),
         );
 
-        let interpretation_successes = Counter::default();
+        let interpretation_successes = Family::default();
         sub_registry.register(
             "interpretation_successes",
             "Number successfully interpreted particles",
             interpretation_successes.clone(),
         );
 
-        let interpretation_failures = Counter::default();
+        let interpretation_failures = Family::default();
         sub_registry.register(
             "interpretation_failures",
             "Number of failed particle interpretations",
             interpretation_failures.clone(),
         );
 
-        let total_actors_mailbox = Gauge::default();
+        let total_actors_mailbox: Family<WorkerLabel, Gauge> =
+            Family::new_with_constructor(Gauge::default);
         sub_registry.register(
             "total_actors_mailbox",
             "Cumulative sum of all actors' mailboxes",
             total_actors_mailbox.clone(),
         );
-        let alive_actors = Gauge::default();
+        let alive_actors: Family<WorkerLabel, Gauge> = Family::new_with_constructor(Gauge::default);
         sub_registry.register(
             "alive_actors",
             "Number of currently alive actors (1 particle id = 1 actor)",

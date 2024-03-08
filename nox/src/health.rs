@@ -152,21 +152,21 @@ mod tests {
     #[test]
     fn new_health_instance_should_have_default_status_false() {
         let health = KademliaBootstrapHealth::default();
-        assert_eq!(health.status.load(Ordering::Acquire), false);
+        assert!(!health.status.load(Ordering::Acquire));
     }
 
     #[test]
     fn on_bootstrap_finished_should_set_status_to_true() {
         let health = KademliaBootstrapHealth::default();
         health.on_boostrap_finished();
-        assert_eq!(health.status.load(Ordering::Acquire), true);
+        assert!(health.status.load(Ordering::Acquire));
     }
 
     #[test]
     fn on_bootstrap_failed_should_set_status_to_false() {
         let health = KademliaBootstrapHealth::default();
         health.on_boostrap_failed();
-        assert_eq!(health.status.load(Ordering::Acquire), false);
+        assert!(!health.status.load(Ordering::Acquire));
     }
 
     #[test]

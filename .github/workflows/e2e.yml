@@ -99,7 +99,6 @@ jobs:
     uses: fluencelabs/aqua/.github/workflows/tests.yml@main
     with:
       nox-image: "${{ needs.nox-snapshot.outputs.nox-image }}"
-      ref: renovate/fluencelabs-js-client-0.x
 
   # registry:
   #   needs:

@@ -684,13 +684,13 @@ mod tests {
 
         let proof = CCProof::new(
             CCProofId::new(
-                GlobalNonce::new([0u8; 32].into()),
-                Difficulty::new([0u8; 32].into()),
+                GlobalNonce::new([0u8; 32]),
+                Difficulty::new([0u8; 32]),
                 ProofIdx::zero(),
             ),
-            LocalNonce::new([0u8; 32].into()),
-            CUID::new([0u8; 32].into()),
-            ResultHash::from_slice([0u8; 32].into()),
+            LocalNonce::new([0u8; 32]),
+            CUID::new([0u8; 32]),
+            ResultHash::from_slice([0u8; 32]),
         );
         let result = get_connector(&url).submit_proof(proof).await;
 
@@ -747,13 +747,13 @@ mod tests {
 
         let proof = CCProof::new(
             CCProofId::new(
-                GlobalNonce::new([0u8; 32].into()),
-                Difficulty::new([0u8; 32].into()),
+                GlobalNonce::new([0u8; 32]),
+                Difficulty::new([0u8; 32]),
                 ProofIdx::zero(),
             ),
-            LocalNonce::new([0u8; 32].into()),
-            CUID::new([0u8; 32].into()),
-            ResultHash::from_slice([0u8; 32].into()),
+            LocalNonce::new([0u8; 32]),
+            CUID::new([0u8; 32]),
+            ResultHash::from_slice([0u8; 32]),
         );
         let result = get_connector(&url).submit_proof(proof).await.unwrap();
 

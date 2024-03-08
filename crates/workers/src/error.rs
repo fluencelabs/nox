@@ -152,4 +152,6 @@ pub enum WorkersError {
         #[source]
         err: AcquireError,
     },
+    #[error("Failed to notify subsystem {worker_id}")]
+    FailedToNotifySubsystem { worker_id: WorkerId },
 }
