@@ -574,6 +574,8 @@ pub struct ChainListenerConfig {
     pub ws_endpoint: String,
     pub ccp_endpoint: Option<String>,
     /// How often to poll proofs
+    #[serde(default = "default_proof_poll_period")]
+    #[serde(with = "humantime_serde")]
     pub proof_poll_period: Duration,
 }
 
