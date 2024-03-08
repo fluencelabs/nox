@@ -240,7 +240,7 @@ mod tests {
 
         let particle_bytes = p.as_bytes();
         assert_eq!(
-            base64.encode(&particle_bytes),
+            base64.encode(particle_bytes),
             "Mjg4M2Y5NTktZTllNy00ODQzLThjMzctMjA1ZDM5M2NhMzcy/kguGYsBAABYGwAAYWJj"
         );
 
