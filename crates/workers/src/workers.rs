@@ -8,17 +8,18 @@ use core_manager::types::{AcquireRequest, WorkType};
 use core_manager::CUID;
 use fluence_libp2p::PeerId;
 use parking_lot::RwLock;
-use tokio::runtime::{Handle, Runtime};
+use tokio::runtime::{Handle, Runtime, UnhandledPanic};
 use types::peer_scope::WorkerId;
+use types::DealId;
 
 use crate::error::WorkersError;
 use crate::persistence::{load_persisted_workers, persist_worker, remove_worker, PersistedWorker};
-use crate::{DealId, KeyStorage};
+use crate::KeyStorage;
 
 /// Information about a worker.
 pub struct WorkerInfo {
     /// The unique identifier for the deal associated with the worker.
-    pub deal_id: String,
+    pub deal_id: DealId,
     /// The ID of the peer that created the worker.
     pub creator: PeerId,
     /// A read-write lock indicating whether the worker is active.
@@ -46,13 +47,13 @@ pub struct Workers {
 }
 
 pub struct WorkerParams {
-    deal_id: String,
+    deal_id: DealId,
     init_peer_id: PeerId,
     cu_ids: Vec<CUID>,
 }
 
 impl WorkerParams {
-    pub fn new(deal_id: String, init_peer_id: PeerId, cu_ids: Vec<CUID>) -> Self {
+    pub fn new(deal_id: DealId, init_peer_id: PeerId, cu_ids: Vec<CUID>) -> Self {
         Self {
             deal_id,
             init_peer_id,
@@ -90,7 +91,7 @@ impl Workers {
 
         for (w, _) in workers {
             let worker_id = w.worker_id;
-            let deal_id = w.deal_id.clone();
+            let deal_id = w.deal_id.clone().into();
             let cu_ids = w.cu_ids.clone();
             worker_infos.insert(worker_id, w.into());
             worker_ids.insert(deal_id, worker_id);
@@ -139,9 +140,12 @@ impl Workers {
             .worker_threads(threads_count)
             // Configuring blocking threads for handling I/O
             .max_blocking_threads(threads_count)
+            .enable_time()
+            .enable_io()
             .on_thread_start(move || {
                 assignment.pin_current_thread();
             })
+            .unhandled_panic(UnhandledPanic::Ignore) // TODO: try to log panics after fix https://github.com/tokio-rs/tokio/issues/4516
             .build()
             .map_err(|err| WorkersError::CreateRuntime { worker_id, err })?;
         Ok(runtime)
@@ -315,7 +319,7 @@ impl Workers {
     /// - `Ok(worker_id)` if the worker ID is successfully retrieved.
     /// - `Err(WorkersError)` if an error occurs, such as the worker not found.
     ///
-    pub fn get_worker_id(&self, deal_id: String) -> Result<WorkerId, WorkersError> {
+    pub fn get_worker_id(&self, deal_id: DealId) -> Result<WorkerId, WorkersError> {
         self.worker_ids
             .read()
             .get(&deal_id)
@@ -375,7 +379,7 @@ impl Workers {
     async fn store_worker(
         &self,
         worker_id: WorkerId,
-        deal_id: String,
+        deal_id: DealId,
         creator: PeerId,
         cu_ids: Vec<CUID>,
     ) -> Result<WorkerInfo, WorkersError> {
@@ -385,7 +389,7 @@ impl Workers {
             PersistedWorker {
                 worker_id,
                 creator,
-                deal_id: deal_id.clone(),
+                deal_id: deal_id.clone().into(),
                 active: true,
                 cu_ids: cu_ids.clone(),
             },
@@ -426,7 +430,7 @@ impl Workers {
             PersistedWorker {
                 worker_id,
                 creator,
-                deal_id,
+                deal_id: deal_id.into(),
                 active: status,
                 cu_ids,
             },
@@ -593,7 +597,7 @@ mod tests {
         let creator_peer_id = PeerId::random();
         let worker_id = workers
             .create_worker(WorkerParams::new(
-                "deal_id_1".to_string(),
+                "deal_id_1".into(),
                 creator_peer_id,
                 unit_ids,
             ))
@@ -623,7 +627,7 @@ mod tests {
         assert_eq!(creator, creator_peer_id);
 
         let worker_id_1 = workers
-            .get_worker_id("deal_id_1".to_string())
+            .get_worker_id("deal_id_1".into())
             .expect("Failed to get worker id");
         assert_eq!(worker_id_1, worker_id);
         // tokio doesn't allow to drop runtimes in async context, so shifting workers drop to the blocking thread
@@ -657,7 +661,7 @@ mod tests {
 
         let worker_id = workers
             .create_worker(WorkerParams::new(
-                "deal_id_1".to_string(),
+                "deal_id_1".into(),
                 PeerId::random(),
                 unit_ids.clone(),
             ))
@@ -671,7 +675,7 @@ mod tests {
 
         let res = workers
             .create_worker(WorkerParams::new(
-                "deal_id_1".to_string(),
+                "deal_id_1".into(),
                 PeerId::random(),
                 unit_ids,
             ))
@@ -712,7 +716,7 @@ mod tests {
 
         let worker_id_1 = workers
             .create_worker(WorkerParams::new(
-                "deal_id_1".to_string(),
+                "deal_id_1".into(),
                 PeerId::random(),
                 unit_ids.clone(),
             ))
@@ -721,7 +725,7 @@ mod tests {
 
         let worker_id_2 = workers
             .create_worker(WorkerParams::new(
-                "deal_id_2".to_string(),
+                "deal_id_2".into(),
                 PeerId::random(),
                 unit_ids,
             ))
@@ -782,7 +786,7 @@ mod tests {
 
         let worker_id_1 = workers
             .create_worker(WorkerParams::new(
-                "deal_id_1".to_string(),
+                "deal_id_1".into(),
                 PeerId::random(),
                 unit_ids.clone(),
             ))
@@ -791,7 +795,7 @@ mod tests {
 
         let worker_id_2 = workers
             .create_worker(WorkerParams::new(
-                "deal_id_2".to_string(),
+                "deal_id_2".into(),
                 PeerId::random(),
                 unit_ids,
             ))

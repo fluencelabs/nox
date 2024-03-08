@@ -1,6 +1,6 @@
 [package]
 name = "nox"
-version = "0.21.0"
+version = "0.22.1"
 authors = ["Fluence Labs"]
 description = "Node implementing peer functionality in the Fluence p2p network"
 edition = "2021"
@@ -72,6 +72,7 @@ once_cell = { workspace = true }
 config = "0.13.4"
 tonic = "0.9.2"
 jsonrpsee = { workspace = true, features = ["ws-client", "macros"] }
+tracing-panic = "0.1.1"
 
 [dev-dependencies]
 parking_lot = { workspace = true }

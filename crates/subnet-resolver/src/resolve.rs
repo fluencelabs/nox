@@ -10,7 +10,6 @@ use chain_data::{next_opt, parse_peer_id, ChainDataError};
 use hex_utils::decode_hex;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use tokio::runtime::Handle;
 
 /// Parse data from chain. Accepts data with and without "0x" prefix.
 pub fn parse_chain_data(data: &str) -> Result<Vec<Token>, ChainDataError> {
@@ -99,7 +98,7 @@ pub fn validate_deal_id(deal_id: String) -> Result<String, ResolveSubnetError> {
     }
 }
 
-pub fn resolve_subnet(deal_id: String, api_endpoint: &str) -> SubnetResolveResult {
+pub async fn resolve_subnet(deal_id: String, api_endpoint: &str) -> SubnetResolveResult {
     let res: Result<_, ResolveSubnetError> = try {
         let deal_id = validate_deal_id(deal_id)?;
         // Description of the `getComputeUnits` function from the `chain.workers` smart contract on chain
@@ -115,9 +114,7 @@ pub fn resolve_subnet(deal_id: String, api_endpoint: &str) -> SubnetResolveResul
         let input = format!("0x{}", hex::encode(input));
         let client = HttpClientBuilder::default().build(api_endpoint)?;
         let params = rpc_params![json!({ "data": input, "to": deal_id }), json!("latest")];
-        let response: Result<String, _> = tokio::task::block_in_place(move || {
-            Handle::current().block_on(async move { client.request("eth_call", params).await })
-        });
+        let response = client.request("eth_call", params).await;
 
         let pats = response?;
 
