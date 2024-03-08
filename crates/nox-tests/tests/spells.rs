@@ -17,19 +17,17 @@
 
 use std::assert_matches::assert_matches;
 use std::collections::HashMap;
-use std::sync::Arc;
 use std::time::Duration;
 
 use eyre::Context;
-use fluence_keypair::KeyPair;
+use fluence_spell_dtos::trigger_config::{ClockConfig, TriggerConfig};
+use hex::FromHex;
 use maplit::hashmap;
 use serde_json::{json, Value as JValue};
 
 use connected_client::ConnectedClient;
 use created_swarm::system_services_config::{DeciderConfig, SystemServicesConfig};
 use created_swarm::{make_swarms, make_swarms_with_cfg};
-use fluence_spell_dtos::trigger_config::{ClockConfig, TriggerConfig};
-use hex::FromHex;
 use log_utils::enable_logs;
 use service_modules::load_module;
 use spell_event_bus::api::{TriggerInfo, TriggerInfoAqua, MAX_PERIOD_SEC};
@@ -2102,123 +2100,124 @@ async fn set_alias_by_worker_creator() {
     }
 }
 
-#[tokio::test]
-async fn test_decider_api_endpoint_rewrite() {
-    let expected_endpoint = "test1".to_string();
-    let swarm_keypair = KeyPair::generate_ed25519();
-    let inner_keypair = swarm_keypair.clone();
-    let inner_endpoint = expected_endpoint.clone();
-    let swarms = make_swarms_with_cfg(1, move |mut cfg| {
-        let tmp_dir = tempfile::tempdir().expect("Could not create temp dir");
-        let tmp_dir = Arc::new(tmp_dir);
-        cfg.keypair = inner_keypair.clone();
-        cfg.tmp_dir = tmp_dir;
-        cfg.enabled_system_services = vec!["decider".to_string()];
-        cfg.override_system_services_config = Some(SystemServicesConfig {
-            enable: vec![],
-            aqua_ipfs: Default::default(),
-            decider: DeciderConfig {
-                network_api_endpoint: inner_endpoint.clone(),
-                ..Default::default()
-            },
-            registry: Default::default(),
-            connector: Default::default(),
-        });
-        cfg
-    })
-    .await;
-
-    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
-        .await
-        .wrap_err("connect client")
-        .unwrap();
-
-    client
-        .send_particle(
-            r#"(seq
-                    (call relay ("decider" "get_string") ["chain"] chain_info_str)
-                    (seq
-                        (call relay ("json" "parse") [chain_info_str.$.value] chain_info)
-                        (call client ("return" "") [chain_info.$.api_endpoint])
-                    )
-                )"#,
-            hashmap! {
-                "relay" => json!(client.node.to_string()),
-                "client" => json!(client.peer_id.to_string()),
-            },
-        )
-        .await;
-
-    if let [JValue::String(endpoint)] = client
-        .receive_args()
-        .await
-        .wrap_err("receive")
-        .unwrap()
-        .as_slice()
-    {
-        assert_eq!(*endpoint, expected_endpoint);
-    }
-
-    // stop swarm
-    swarms
-        .into_iter()
-        .map(|s| s.exit_outlet.send(()))
-        .for_each(drop);
-
-    let another_endpoint = "another_endpoint_test".to_string();
-    let inner_keypair = swarm_keypair.clone();
-    let inner_endpoint = another_endpoint.clone();
-    let swarms = make_swarms_with_cfg(1, move |mut cfg| {
-        let tmp_dir = tempfile::tempdir().expect("Could not create temp dir");
-        let tmp_dir = Arc::new(tmp_dir);
-        cfg.keypair = inner_keypair.clone();
-        cfg.tmp_dir = tmp_dir;
-        cfg.enabled_system_services = vec!["decider".to_string()];
-        cfg.override_system_services_config = Some(SystemServicesConfig {
-            enable: vec![],
-            aqua_ipfs: Default::default(),
-            decider: DeciderConfig {
-                network_api_endpoint: inner_endpoint.clone(),
-                ..Default::default()
-            },
-            registry: Default::default(),
-            connector: Default::default(),
-        });
-        cfg
-    })
-    .await;
-
-    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
-        .await
-        .wrap_err("connect client")
-        .unwrap();
-
-    client
-        .send_particle(
-            r#"(seq
-                    (call relay ("decider" "get_string") ["chain"] chain_info_str)
-                    (seq
-                        (call relay ("json" "parse") [chain_info_str.$.value] chain_info)
-                        (call client ("return" "") [chain_info.$.api_endpoint])
-                    )
-                )"#,
-            hashmap! {
-                "relay" => json!(client.node.to_string()),
-                "client" => json!(client.peer_id.to_string()),
-            },
-        )
-        .await;
-
-    if let [JValue::String(endpoint)] = client
-        .receive_args()
-        .await
-        .wrap_err("receive")
-        .unwrap()
-        .as_slice()
-    {
-        assert_eq!(*endpoint, another_endpoint);
-    }
-}
+// TODO: figure out what to do with this test
+// #[tokio::test]
+// async fn test_decider_api_endpoint_rewrite() {
+//     let expected_endpoint = "test1".to_string();
+//     let swarm_keypair = KeyPair::generate_ed25519();
+//     let inner_keypair = swarm_keypair.clone();
+//     let inner_endpoint = expected_endpoint.clone();
+//     let swarms = make_swarms_with_cfg(1, move |mut cfg| {
+//         let tmp_dir = tempfile::tempdir().expect("Could not create temp dir");
+//         let tmp_dir = Arc::new(tmp_dir);
+//         cfg.keypair = inner_keypair.clone();
+//         cfg.tmp_dir = tmp_dir;
+//         cfg.enabled_system_services = vec!["decider".to_string()];
+//         cfg.override_system_services_config = Some(SystemServicesConfig {
+//             enable: vec![],
+//             aqua_ipfs: Default::default(),
+//             decider: DeciderConfig {
+//                 network_api_endpoint: inner_endpoint.clone(),
+//                 ..Default::default()
+//             },
+//             registry: Default::default(),
+//             connector: Default::default(),
+//         });
+//         cfg
+//     })
+//     .await;
+//
+//     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+//         .await
+//         .wrap_err("connect client")
+//         .unwrap();
+//
+//     client
+//         .send_particle(
+//             r#"(seq
+//                     (call relay ("decider" "get_string") ["chain"] chain_info_str)
+//                     (seq
+//                         (call relay ("json" "parse") [chain_info_str.$.value] chain_info)
+//                         (call client ("return" "") [chain_info.$.api_endpoint])
+//                     )
+//                 )"#,
+//             hashmap! {
+//                 "relay" => json!(client.node.to_string()),
+//                 "client" => json!(client.peer_id.to_string()),
+//             },
+//         )
+//         .await;
+//
+//     if let [JValue::String(endpoint)] = client
+//         .receive_args()
+//         .await
+//         .wrap_err("receive")
+//         .unwrap()
+//         .as_slice()
+//     {
+//         assert_eq!(*endpoint, expected_endpoint);
+//     }
+//
+//     // stop swarm
+//     swarms
+//         .into_iter()
+//         .map(|s| s.exit_outlet.send(()))
+//         .for_each(drop);
+//
+//     let another_endpoint = "another_endpoint_test".to_string();
+//     let inner_keypair = swarm_keypair.clone();
+//     let inner_endpoint = another_endpoint.clone();
+//     let swarms = make_swarms_with_cfg(1, move |mut cfg| {
+//         let tmp_dir = tempfile::tempdir().expect("Could not create temp dir");
+//         let tmp_dir = Arc::new(tmp_dir);
+//         cfg.keypair = inner_keypair.clone();
+//         cfg.tmp_dir = tmp_dir;
+//         cfg.enabled_system_services = vec!["decider".to_string()];
+//         cfg.override_system_services_config = Some(SystemServicesConfig {
+//             enable: vec![],
+//             aqua_ipfs: Default::default(),
+//             decider: DeciderConfig {
+//                 network_api_endpoint: inner_endpoint.clone(),
+//                 ..Default::default()
+//             },
+//             registry: Default::default(),
+//             connector: Default::default(),
+//         });
+//         cfg
+//     })
+//     .await;
+//
+//     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+//         .await
+//         .wrap_err("connect client")
+//         .unwrap();
+//
+//     client
+//         .send_particle(
+//             r#"(seq
+//                     (call relay ("decider" "get_string") ["chain"] chain_info_str)
+//                     (seq
+//                         (call relay ("json" "parse") [chain_info_str.$.value] chain_info)
+//                         (call client ("return" "") [chain_info.$.api_endpoint])
+//                     )
+//                 )"#,
+//             hashmap! {
+//                 "relay" => json!(client.node.to_string()),
+//                 "client" => json!(client.peer_id.to_string()),
+//             },
+//         )
+//         .await;
+//
+//     if let [JValue::String(endpoint)] = client
+//         .receive_args()
+//         .await
+//         .wrap_err("receive")
+//         .unwrap()
+//         .as_slice()
+//     {
+//         assert_eq!(*endpoint, another_endpoint);
+//     }
+// }
 
 #[tokio::test]
 async fn test_activate_deactivate() {

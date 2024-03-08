@@ -1,11 +1,14 @@
 use chain_data::ChainDataError;
 use jsonrpsee::core::client::{Error as RPCError, Error};
+use jsonrpsee::types::ErrorObjectOwned;
 use std::string::FromUtf8Error;
 
 use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum ConnectorError {
+    #[error("IPC internal network error: {0}")]
+    IpcInternalNetworkError(#[source] ErrorObjectOwned),
     #[error("RPC error: {0}")]
     RpcError(#[from] RPCError),
     #[error("RPC call error: code: {code}, message: {message}, data: {data}")]
@@ -46,6 +49,13 @@ pub fn process_response<T>(response: Result<T, RPCError>) -> Result<T, Connector
                     Some(data) => serde_json::from_str(data.get())?,
                     None => "".to_string(),
                 };
+
+                if message.to_lowercase().contains("tendermint rpc error")
+                    || message.to_lowercase().contains("connection reset by peer")
+                {
+                    return Err(ConnectorError::IpcInternalNetworkError(e));
+                }
+
                 Err(ConnectorError::RpcCallError {
                     code,
                     message,

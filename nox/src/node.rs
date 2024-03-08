@@ -14,12 +14,16 @@
  * limitations under the License.
  */
 
+use std::process::exit;
 use std::sync::Arc;
 use std::{io, net::SocketAddr};
 
+use ccp_rpc_client::CCPRpcHttpClient;
 use eyre::WrapErr;
+use fluence_keypair::KeyPair;
 use futures::future::OptionFuture;
 use futures::{stream::StreamExt, FutureExt};
+use jsonrpsee::ws_client::WsClientBuilder;
 use libp2p::swarm::SwarmEvent;
 use libp2p::SwarmBuilder;
 use libp2p::{
@@ -43,10 +47,8 @@ use chain_listener::ChainListener;
 use config_utils::to_peer_id;
 use connection_pool::ConnectionPoolT;
 use core_manager::manager::CoreManager;
-use fluence_keypair::KeyPair;
 use fluence_libp2p::build_transport;
 use health::HealthCheckRegistry;
-use jsonrpsee::ws_client::WsClientBuilder;
 use particle_builtins::{Builtins, CustomService, NodeInfo};
 use particle_execution::ParticleFunctionStatic;
 use particle_protocol::ExtendedParticle;
@@ -54,6 +56,7 @@ use peer_metrics::{
     ConnectionPoolMetrics, ConnectivityMetrics, ParticleExecutorMetrics, ServicesMetrics,
     ServicesMetricsBackend, SpellMetrics, VmPoolMetrics,
 };
+use server_config::system_services_config::ServiceKey;
 use server_config::{NetworkConfig, ResolvedConfig, ServicesConfig};
 use sorcerer::Sorcerer;
 use spell_event_bus::api::{PeerEvent, SpellEventBusApi, TriggerEvent};
@@ -61,7 +64,6 @@ use spell_event_bus::bus::SpellEventBus;
 use system_services::{Deployer, SystemServiceDistros};
 use workers::{KeyStorage, PeerScopes, Workers};
 
-use super::behaviour::FluenceNetworkBehaviour;
 use crate::behaviour::FluenceNetworkBehaviourEvent;
 use crate::builtins::make_peer_builtin;
 use crate::dispatcher::Dispatcher;
@@ -69,6 +71,8 @@ use crate::effectors::Effectors;
 use crate::http::start_http_endpoint;
 use crate::metrics::TokioCollector;
 use crate::{Connectivity, Versions};
+
+use super::behaviour::FluenceNetworkBehaviour;
 
 // TODO: documentation
 pub struct Node<RT: AquaRuntime> {
@@ -104,6 +108,71 @@ pub struct Node<RT: AquaRuntime> {
     pub chain_listener: Option<ChainListener>,
 
     workers: Arc<Workers>,
+}
+
+async fn setup_listener(
+    connector: Option<Arc<ChainConnector>>,
+    config: &ResolvedConfig,
+    core_manager: Arc<CoreManager>,
+) -> eyre::Result<Option<ChainListener>> {
+    if let (Some(connector), Some(chain_config), Some(listener_config)) = (
+        connector,
+        config.chain_config.clone(),
+        config.chain_listener_config.clone(),
+    ) {
+        let ccp_client = if let Some(ccp_endpoint) = listener_config.ccp_endpoint.clone() {
+            let ccp_client = CCPRpcHttpClient::new(ccp_endpoint.clone())
+                .await
+                .map_err(|err| {
+                    log::error!("Error connecting to CCP {ccp_endpoint}, error: {err}");
+                    err
+                })?;
+
+            Some(ccp_client)
+        } else {
+            None
+        };
+
+        let cc_events_dir = config.dir_config.cc_events_dir.clone();
+        let host_id = config.root_key_pair.get_peer_id();
+
+        let init_params = connector.get_cc_init_params().await.map_err(|err| {
+            log::error!("Error getting Commitment initial params: {err}");
+            err
+        })?;
+        log::info!("Commitment initial params: difficulty {}, global nonce {}, init_timestamp {}, epoch_duration {}, current_epoch {}",  init_params.difficulty, init_params.global_nonce, init_params.init_timestamp, init_params.epoch_duration, init_params.current_epoch);
+
+        let ws_client = WsClientBuilder::default()
+            .build(&listener_config.ws_endpoint)
+            .await
+            .map_err(|err| {
+                log::error!(
+                    "Error connecting to websocket endpoint {}, error: {}",
+                    listener_config.ws_endpoint,
+                    err
+                );
+                err
+            })?;
+        log::info!(
+            "Successfully connected to websocket endpoint: {}",
+            listener_config.ws_endpoint
+        );
+
+        let chain_listener = ChainListener::new(
+            chain_config,
+            listener_config,
+            host_id,
+            connector,
+            core_manager,
+            init_params,
+            ws_client,
+            ccp_client,
+            cc_events_dir,
+        );
+        Ok(Some(chain_listener))
+    } else {
+        Ok(None)
+    }
 }
 
 impl<RT: AquaRuntime> Node<RT> {
@@ -336,11 +405,23 @@ impl<RT: AquaRuntime> Node<RT> {
         let connector = if let Some(chain_config) = config.chain_config.clone() {
             let host_id = scopes.get_host_peer_id();
             let (chain_connector, chain_builtins) =
-                ChainConnector::new(chain_config.clone(), host_id)?;
+                ChainConnector::new(chain_config.clone(), host_id).map_err(|err| {
+                    log::error!(
+                        "Error connecting to http endpoint {}, error: {err}",
+                        chain_config.http_endpoint
+                    );
+                    err
+                })?;
             custom_service_functions.extend(chain_builtins.into_iter());
             Some(chain_connector)
         } else {
-            // TODO: log warning, exit with error if decider in on
+            if config.system_services.enable.contains(&ServiceKey::Decider) {
+                log::error!(
+                    "Decider cannot be used without chain connector. Please, specify chain config"
+                );
+                exit(1);
+            }
+
             None
         };
 
@@ -379,33 +460,7 @@ impl<RT: AquaRuntime> Node<RT> {
             system_services_deployer.versions(),
         );
 
-        let chain_listener = if let (Some(connector), Some(chain_config), Some(listener_config)) = (
-            connector,
-            config.chain_config.clone(),
-            config.chain_listener_config.clone(),
-        ) {
-            let cc_events_dir = config.dir_config.cc_events_dir.clone();
-            let host_id = scopes.get_host_peer_id();
-            // print init params
-            let init_params = connector.get_cc_init_params().await?;
-            let ws_client = WsClientBuilder::default()
-                .build(&listener_config.ws_endpoint)
-                .await?; // todo write error msg
-            let chain_listener = ChainListener::new(
-                chain_config,
-                listener_config,
-                cc_events_dir,
-                host_id,
-                connector,
-                core_manager.clone(),
-                init_params,
-                ws_client,
-            )
-            .await;
-            Some(chain_listener)
-        } else {
-            None
-        };
+        let chain_listener = setup_listener(connector, &config, core_manager).await?;
 
         Ok(Self::with(
             particle_stream,
@@ -678,14 +733,15 @@ impl<RT: AquaRuntime> Node<RT> {
 
 #[cfg(test)]
 mod tests {
+    use std::path::PathBuf;
+    use std::sync::Arc;
+    use std::time::Duration;
+
     use avm_server::avm_runner::AVMRunner;
     use libp2p::core::Multiaddr;
     use libp2p::PeerId;
     use maplit::hashmap;
     use serde_json::json;
-    use std::path::PathBuf;
-    use std::sync::Arc;
-    use std::time::Duration;
 
     use air_interpreter_fs::{air_interpreter_path, write_default_air_interpreter};
     use aquamarine::{DataStoreConfig, VmConfig};

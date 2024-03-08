@@ -21,7 +21,7 @@ log = { workspace = true }
 tracing = { workspace = true }
 eyre = { workspace = true }
 serde_json = { workspace = true }
-tokio = { workspace = true, features = ["rt"]}
+tokio = { workspace = true, features = ["rt"] }
 server-config = { workspace = true }
 types = { workspace = true }
 
@@ -35,3 +35,5 @@ ccp-rpc-client = { workspace = true }
 cpu-utils = { workspace = true }
 ccp-shared = { workspace = true }
 tokio-stream = { workspace = true }
+toml = { workspace = true }
+backoff = { version = "0.4.0", features = ["tokio", "futures"] }
