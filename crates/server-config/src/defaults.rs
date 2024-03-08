@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+use std::collections::HashMap;
 use std::net::IpAddr;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
@@ -22,6 +23,7 @@ use libp2p::core::Multiaddr;
 use libp2p::identity::ed25519::Keypair;
 use libp2p::identity::PublicKey;
 use libp2p::PeerId;
+use maplit::hashmap;
 
 use fluence_libp2p::Transport;
 
@@ -47,7 +49,8 @@ pub fn default_socket_timeout() -> Duration {
 }
 
 pub fn default_connection_idle_timeout() -> Duration {
-    Duration::from_secs(10)
+    // 180 seconds makes sense because default Particle TTL is 120 sec, and it doesn't seem very efficient for hosts to reconnect while particle is still in flight
+    Duration::from_secs(180)
 }
 
 pub fn default_max_established_per_peer_limit() -> Option<u32> {
@@ -102,6 +105,7 @@ pub fn default_base_dir() -> PathBuf {
 pub fn persistent_dir(base_dir: &Path) -> PathBuf {
     base_dir.join("persistent")
 }
+
 pub fn ephemeral_dir(base_dir: &Path) -> PathBuf {
     base_dir.join("ephemeral")
 }
@@ -256,4 +260,19 @@ pub fn default_curl_binary_path() -> String {
 pub fn default_decider_network_id() -> u64 {
     // 80001 = polygon mumbai
     80001
+}
+
+pub fn default_effectors() -> HashMap<String, (String, HashMap<String, String>)> {
+    hashmap! {
+        "curl".to_string() => ("bafkreids22lgia5bqs63uigw4mqwhsoxvtnkpfqxqy5uwyyerrldsr32ce".to_string(), hashmap! {
+            "curl".to_string() => default_curl_binary_path(),
+        })
+    }
+}
+
+pub fn default_binaries_mapping() -> HashMap<String, String> {
+    hashmap! {
+        "curl".to_string() => default_curl_binary_path(),
+        "ipfs".to_string() => default_ipfs_binary_path(),
+    }
 }

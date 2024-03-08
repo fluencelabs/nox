@@ -23,11 +23,12 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use derivative::Derivative;
+use fluence_app_service::TomlMarineNamedModuleConfig;
 use fluence_keypair::Signature;
 use libp2p::{core::Multiaddr, kad::KBucketKey, kad::K_VALUE, PeerId};
 use multihash::Multihash;
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value as JValue};
+use serde_json::{json, Value as JValue, Value};
 use tokio::sync::RwLock;
 use JValue::Array;
 
@@ -38,7 +39,7 @@ use now_millis::{now_ms, now_sec};
 use particle_args::{from_base58, Args, ArgsError, JError};
 use particle_execution::{FunctionOutcome, ParticleParams, ServiceFunction};
 use particle_modules::{
-    AddBlueprint, ModuleConfig, ModuleRepository, NamedModuleConfig, WASIConfig,
+    AddBlueprint, EffectorsMode, ModuleConfig, ModuleRepository, NamedModuleConfig, WASIConfig,
 };
 use particle_protocol::Contact;
 use particle_services::{ParticleAppServices, PeerScope, ServiceInfo, ServiceType};
@@ -107,8 +108,16 @@ where
     ) -> Self {
         let modules_dir = &config.modules_dir;
         let blueprint_dir = &config.blueprint_dir;
-        let modules =
-            ModuleRepository::new(modules_dir, blueprint_dir, config.allowed_binaries.clone());
+        let effectors_mode = if config.is_dev_mode {
+            EffectorsMode::AllEffectors {
+                binaries: config.mounted_binaries_mapping.clone(),
+            }
+        } else {
+            EffectorsMode::RestrictedEffectors {
+                effectors: config.allowed_effectors.clone(),
+            }
+        };
+        let modules = ModuleRepository::new(modules_dir, blueprint_dir, effectors_mode);
         let services = ParticleAppServices::new(
             config,
             modules.clone(),
@@ -205,6 +214,7 @@ where
 
             ("dist", "add_module_from_vault") => wrap(self.add_module_from_vault(args, particle)),
             ("dist", "add_module") => wrap(self.add_module(args)),
+            ("dist", "add_module_bytes_from_vault") => wrap(self.add_module_bytes_from_vault(args, particle)),
             ("dist", "add_blueprint") => wrap(self.add_blueprint(args)),
             ("dist", "make_module_config") => wrap(make_module_config(args)),
             ("dist", "load_module_config") => wrap(self.load_module_config_from_vault(args, particle)),
@@ -271,7 +281,7 @@ where
             ("vault", "put") => wrap(self.vault_put(args, particle)),
             ("vault", "cat") => wrap(self.vault_cat(args, particle)),
 
-            ("subnet", "resolve") => wrap(self.subnet_resolve(args)),
+            ("subnet", "resolve") => wrap(self.subnet_resolve(args).await),
             ("run-console", "print") => {
                 let function_args = args.function_args.iter();
                 let decider = function_args.filter_map(JValue::as_str).any(|s| s.contains("decider"));
@@ -283,7 +293,7 @@ where
                     log::debug!(target: "run-console", "{}", json!(args.function_args));
                 }
                 wrap_unit(Ok(()))
-            },
+            }
 
             _ => FunctionOutcome::NotDefined { args, params: particle },
         }
@@ -617,13 +627,32 @@ where
     fn add_module_from_vault(&self, args: Args, params: ParticleParams) -> Result<JValue, JError> {
         let mut args = args.function_args.into_iter();
         let module_path: String = Args::next("module_path", &mut args)?;
-        let config = Args::next("config", &mut args)?;
+        let config: TomlMarineNamedModuleConfig = Args::next("config", &mut args)?;
 
         let module_hash = self.modules.add_module_from_vault(
             &self.services.vault,
             self.scopes.to_peer_id(params.peer_scope),
+            config.name,
             module_path,
-            config,
+            params,
+        )?;
+
+        Ok(json!(module_hash))
+    }
+
+    fn add_module_bytes_from_vault(
+        &self,
+        args: Args,
+        params: ParticleParams,
+    ) -> Result<Value, JError> {
+        let mut args = args.function_args.into_iter();
+        let module_name: String = Args::next("module_name", &mut args)?;
+        let module_path: String = Args::next("module_path", &mut args)?;
+        let module_hash = self.modules.add_module_from_vault(
+            &self.services.vault,
+            self.scopes.to_peer_id(params.peer_scope),
+            module_name,
+            module_path,
             params,
         )?;
 
@@ -659,7 +688,6 @@ where
 
         Ok(config)
     }
-
     fn default_module_config(&self, args: Args) -> Result<JValue, JError> {
         let mut args = args.function_args.into_iter();
         let module_name: String = Args::next("module_name", &mut args)?;
@@ -932,9 +960,9 @@ where
                     )));
                 }
 
-                if !t.json_path.is_empty() {
+                if !t.lens.is_empty() {
                     return Err(JError::new(
-                        "json_path for data tetraplet is expected to be empty",
+                        "lens for data tetraplet is expected to be empty",
                     ));
                 }
             } else {
@@ -1009,10 +1037,10 @@ where
             .map_err(|_| JError::new(format!("Error reading vault file `{path}`")))
     }
 
-    fn subnet_resolve(&self, args: Args) -> Result<JValue, JError> {
+    async fn subnet_resolve(&self, args: Args) -> Result<JValue, JError> {
         let mut args = args.function_args.into_iter();
         let deal_id: String = Args::next("deal_id", &mut args)?;
-        let result = subnet_resolver::resolve_subnet(deal_id, &self.connector_api_endpoint);
+        let result = subnet_resolver::resolve_subnet(deal_id, &self.connector_api_endpoint).await;
         Ok(json!(result))
     }
 }

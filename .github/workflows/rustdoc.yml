@@ -19,6 +19,9 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Install libhwloc and libudev
+        run: apt install -y libhwloc-dev libudev-dev
+
       - name: Install Protoc
         uses: arduino/setup-protoc@v1
 

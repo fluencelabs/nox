@@ -29,6 +29,7 @@
 )]
 
 pub mod args;
+mod avm_config;
 mod bootstrap_config;
 mod defaults;
 mod dir_config;

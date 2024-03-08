@@ -1,7 +1,5 @@
 #![feature(try_blocks)]
 
-pub type DealId = String;
-
 mod error;
 mod key_storage;
 mod persistence;

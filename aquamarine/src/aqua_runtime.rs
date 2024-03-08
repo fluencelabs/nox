@@ -17,7 +17,7 @@
 use std::{error::Error, task::Waker};
 
 use avm_server::avm_runner::{AVMRunner, RawAVMOutcome};
-use avm_server::{AVMMemoryStats, CallResults, ParticleParameters, RunnerError};
+use avm_server::{AVMMemoryStats, AVMRuntimeLimits, CallResults, ParticleParameters, RunnerError};
 use fluence_keypair::KeyPair;
 use log::LevelFilter;
 
@@ -57,7 +57,18 @@ impl AquaRuntime for AVMRunner {
 
     /// Creates `AVM` in background (on blocking threadpool)
     fn create_runtime(config: Self::Config, waker: Waker) -> Result<Self, Self::Error> {
-        let vm = AVMRunner::new(config.air_interpreter, config.max_heap_size, i32::MAX)?;
+        let avm_runtime_limits = AVMRuntimeLimits::new(
+            config.air_size_limit,
+            config.particle_size_limit,
+            config.call_result_size_limit,
+            config.hard_limit_enabled,
+        );
+        let vm: AVMRunner = AVMRunner::new(
+            config.air_interpreter,
+            config.max_heap_size,
+            avm_runtime_limits,
+            i32::MAX,
+        )?;
         waker.wake();
         Ok(vm)
     }
