@@ -1021,8 +1021,8 @@ dependencies = [
 
 [[package]]
 name = "ccp-rpc-client"
-version = "0.1.0"
-source = "git+https://github.com/fluencelabs/capacity-commitment-prover/?branch=main#0be20a5c461f9191d8e83fdef33d376203565562"
+version = "0.3.0"
+source = "git+https://github.com/fluencelabs/capacity-commitment-prover/?branch=main#7eb94c2ce42c5126c35bc34240981a8eb65ba189"
 dependencies = [
  "ccp-shared",
  "hex",
@@ -1032,8 +1032,8 @@ dependencies = [
 
 [[package]]
 name = "ccp-shared"
-version = "0.1.0"
-source = "git+https://github.com/fluencelabs/capacity-commitment-prover/?branch=main#0be20a5c461f9191d8e83fdef33d376203565562"
+version = "0.3.0"
+source = "git+https://github.com/fluencelabs/capacity-commitment-prover/?branch=main#7eb94c2ce42c5126c35bc34240981a8eb65ba189"
 dependencies = [
  "hex",
  "newtype_derive",
@@ -1517,8 +1517,8 @@ dependencies = [
 
 [[package]]
 name = "cpu-utils"
-version = "0.1.0"
-source = "git+https://github.com/fluencelabs/capacity-commitment-prover/?branch=main#0be20a5c461f9191d8e83fdef33d376203565562"
+version = "0.3.0"
+source = "git+https://github.com/fluencelabs/capacity-commitment-prover/?branch=main#7eb94c2ce42c5126c35bc34240981a8eb65ba189"
 dependencies = [
  "ccp-shared",
  "core_affinity",

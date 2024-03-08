@@ -121,20 +121,25 @@ async fn setup_listener(
         config.chain_listener_config.clone(),
     ) {
         let ccp_client = if let Some(ccp_endpoint) = listener_config.ccp_endpoint.clone() {
-            // We will use the first physical core for utility tasks
+            // We will use the first logical core for utility tasks
             let utility_core = core_manager
                 .get_system_cpu_assignment()
-                .physical_core_ids
+                .logical_core_ids
                 .first()
                 .cloned()
                 .ok_or(eyre::eyre!("No utility core id"))?;
 
-            let ccp_client = CCPRpcHttpClient::new(ccp_endpoint.clone(), utility_core)
+            let ccp_client = CCPRpcHttpClient::new(ccp_endpoint.clone())
                 .await
                 .map_err(|err| {
                     log::error!("Error connecting to CCP {ccp_endpoint}, error: {err}");
                     err
                 })?;
+
+            ccp_client.realloc_utility_core(vec![utility_core]).await.map_err(|err| {
+                log::error!("Error reallocating utility core {utility_core} to CCP {ccp_endpoint}, error: {err}");
+                err
+            })?;
             Some(ccp_client)
         } else {
             None
