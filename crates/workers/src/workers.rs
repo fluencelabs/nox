@@ -218,6 +218,7 @@ impl Workers {
                                 cu_ids,
                             )?;
 
+                            // Upgrade read lock to write lock
                             let mut worker_ids = RwLockUpgradableReadGuard::upgrade(lock);
                             let mut worker_infos = self.worker_infos.write();
                             let mut runtimes = self.runtimes.write();
@@ -246,10 +247,6 @@ impl Workers {
                                 worker_ids.remove(&deal_id);
                                 worker_infos.remove(&worker_id);
                                 runtimes.remove(&worker_id);
-
-                                drop(runtimes);
-                                drop(worker_infos);
-                                drop(worker_ids);
 
                                 Err(err)
                             }

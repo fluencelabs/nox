@@ -42,6 +42,7 @@ use peer_metrics::{ParticleExecutorMetrics, WorkerLabel, WorkerType};
 /// Get current time from OS
 #[cfg(not(test))]
 use real_time::now_ms;
+use types::DealId;
 use workers::{KeyStorage, PeerScopes, Workers};
 
 use crate::actor::{Actor, ActorPoll};
@@ -189,90 +190,54 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
         key: ActorKey,
         particle: &ExtendedParticle,
     ) -> eyre::Result<&mut Actor<RT, F>> {
-        let key_pair = self
-            .key_storage
-            .get_keypair(peer_scope)
-            .ok_or(eyre!("Cannot create actor, no key pair for {:?}", peer_scope))?;
-        let data_store = self.data_store.clone();
-        // TODO: move to a better place
-        let particle_token = get_particle_token(
-            &self.key_storage.root_key_pair,
-            &particle.particle.signature,
-        )?;
-        let builtins = &self.builtins;
-        let actor = match peer_scope {
+        let plumber_params = PlumberParams {
+            builtins: &self.builtins,
+            key_storage: self.key_storage.as_ref(),
+            data_store: self.data_store.clone(),
+        };
+        match peer_scope {
             PeerScope::Host => {
-                let entry = self.host_actors.entry(key);
-                match entry {
-                    Entry::Occupied(actor) => actor.into_mut(),
-                    Entry::Vacant(entry) => {
-                        let params = ParticleParams::clone_from(
-                            particle.as_ref(),
-                            peer_scope,
-                            particle_token.clone(),
-                        );
-                        let functions = Functions::new(params, builtins.clone());
-                        let spawner =
-                            Spawner::Root(RootSpawner::new(self.root_runtime_handle.clone()));
-                        let current_peer_id = self.scopes.get_host_peer_id();
-                        let actor = Actor::new(
-                            particle.as_ref(),
-                            functions,
-                            current_peer_id,
-                            particle_token,
-                            key_pair,
-                            data_store,
-                            None,
-                            spawner,
-                        );
-                        entry.insert(actor)
-                    }
-                }
+                let current_peer_id = self.scopes.get_host_peer_id();
+                let spawner = Spawner::Root(RootSpawner::new(self.root_runtime_handle.clone()));
+                let actor_params = ActorParams {
+                    key,
+                    particle,
+                    peer_scope,
+                    current_peer_id,
+                    deal_id: None,
+                    spawner,
+                };
+                create_actor(&mut self.host_actors, plumber_params, actor_params)
             }
             PeerScope::WorkerId(worker_id) => {
                 let worker_actors = match self.worker_actors.entry(worker_id) {
                     Entry::Occupied(o) => o.into_mut(),
                     Entry::Vacant(v) => v.insert(HashMap::default()),
                 };
-                let entry = worker_actors.entry(key);
-                match entry {
-                    Entry::Occupied(actor) => actor.into_mut(),
-                    Entry::Vacant(entry) => {
-                        let params = ParticleParams::clone_from(
-                            particle.as_ref(),
-                            peer_scope,
-                            particle_token.clone(),
-                        );
-                        let functions = Functions::new(params, builtins.clone());
-                        let deal_id = self
-                            .workers
-                            .get_deal_id(worker_id)
-                            .map_err(|err| eyre!("Not found deal for {:?} : {}", worker_id, err))?;
-                        let runtime_handle = self
-                            .workers
-                            .get_handle(worker_id)
-                            .ok_or(eyre!("Not found runtime handle for {:?}", worker_id))?;
-                        let spawner =
-                            Spawner::Worker(WorkerSpawner::new(runtime_handle, worker_id));
-                        let current_peer_id: PeerId = worker_id.into();
-                        let actor = Actor::new(
-                            particle.as_ref(),
-                            functions,
-                            current_peer_id,
-                            particle_token,
-                            key_pair,
-                            data_store,
-                            Some(deal_id),
-                            spawner,
-                        );
-                        entry.insert(actor)
-                    }
-                }
-            }
-        };
-        Ok(actor)
-    }
+                let current_peer_id: PeerId = worker_id.into();
+                let deal_id = self
+                    .workers
+                    .get_deal_id(worker_id)
+                    .map_err(|err| eyre!("Not found deal for {:?} : {}", worker_id, err))?;
+                let runtime_handle = self
+                    .workers
+                    .get_handle(worker_id)
+                    .ok_or(eyre!("Not found runtime handle for {:?}", worker_id))?;
+                let spawner = Spawner::Worker(WorkerSpawner::new(runtime_handle, worker_id));
 
+                let actor_params = ActorParams {
+                    key,
+                    particle,
+                    peer_scope,
+                    current_peer_id,
+                    deal_id: Some(deal_id),
+                    spawner,
+                };
+
+                create_actor(worker_actors, plumber_params, actor_params)
+            }
+        }
+    }
     pub fn add_service(
         &self,
         service: String,
@@ -315,15 +280,16 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
         let mut remote_effects: Vec<RemoteRoutingEffects> = vec![];
         let mut local_effects: Vec<LocalRoutingEffects> = vec![];
         // Gather effects and put VMs back
-        self.process_host_actors(cx, &mut remote_effects, &mut local_effects);
-        self.process_workers_actors(cx, &mut remote_effects, &mut local_effects);
+        self.poll_host_actors(cx, &mut remote_effects, &mut local_effects);
+        self.poll_workers_actors(cx, &mut remote_effects, &mut local_effects);
 
         self.cleanup(cx);
 
         // Execute next messages
-        let host_call_stats = self.process_next_host_messages(cx);
-        let workers_call_stats = self.process_next_worker_messages(cx);
+        let host_call_stats = self.poll_next_host_messages(cx);
+        let workers_call_stats = self.poll_next_worker_messages(cx);
 
+        // TODO: separate workers and root metrics
         self.meter(|m| {
             for stat in &host_call_stats {
                 m.service_call(stat.success, stat.kind, stat.call_time)
@@ -354,7 +320,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
         }
     }
 
-    fn process_host_actors(
+    fn poll_host_actors(
         &mut self,
         cx: &mut Context<'_>,
         remote_effects: &mut Vec<RemoteRoutingEffects>,
@@ -362,7 +328,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
     ) {
         let host_label =
             WorkerLabel::new(WorkerType::Host, self.scopes.get_host_peer_id().to_string());
-        Self::process_actors(
+        Self::poll_actors(
             &mut self.host_actors,
             &mut self.host_vm_pool,
             &self.scopes,
@@ -374,7 +340,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
         );
     }
 
-    fn process_workers_actors(
+    fn poll_workers_actors(
         &mut self,
         cx: &mut Context<'_>,
         remote_effects: &mut Vec<RemoteRoutingEffects>,
@@ -384,7 +350,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
             if let Some(pool) = self.worker_vm_pools.get_mut(worker_id) {
                 let peer_id: PeerId = (*worker_id).into();
                 let host_label = WorkerLabel::new(WorkerType::Worker, peer_id.to_string());
-                Self::process_actors(
+                Self::poll_actors(
                     actors,
                     pool,
                     &self.scopes,
@@ -399,7 +365,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
     }
 
     #[allow(clippy::too_many_arguments)]
-    fn process_actors(
+    fn poll_actors(
         actors: &mut HashMap<ActorKey, Actor<RT, F>>,
         vm_pool: &mut VmPool<RT>,
         scopes: &PeerScopes,
@@ -543,7 +509,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
         });
     }
 
-    fn process_next_host_messages(&mut self, cx: &mut Context<'_>) -> Vec<SingleCallStat> {
+    fn poll_next_host_messages(&mut self, cx: &mut Context<'_>) -> Vec<SingleCallStat> {
         let mut stats = vec![];
         for actor in self.host_actors.values_mut() {
             if let Some((vm_id, vm)) = self.host_vm_pool.get_vm() {
@@ -558,7 +524,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
         stats
     }
 
-    fn process_next_worker_messages(&mut self, cx: &mut Context<'_>) -> Vec<SingleCallStat> {
+    fn poll_next_worker_messages(&mut self, cx: &mut Context<'_>) -> Vec<SingleCallStat> {
         let mut stats = vec![];
 
         for (worker_id, actors) in self.worker_actors.iter_mut() {
@@ -599,12 +565,80 @@ fn get_particle_token(key_pair: &KeyPair, signature: &Vec<u8>) -> eyre::Result<S
     Ok(bs58::encode(particle_token.to_vec()).into_string())
 }
 
+fn create_actor<'p, 'a, RT, F>(
+    actors: &'p mut HashMap<ActorKey, Actor<RT, F>>,
+    plumber_params: PlumberParams<'p, F>,
+    actor_params: ActorParams<'a>,
+) -> eyre::Result<&'p mut Actor<RT, F>>
+where
+    F: Clone + ParticleFunctionStatic,
+    RT: AquaRuntime,
+{
+    let entry = actors.entry(actor_params.key);
+    let actor = match entry {
+        Entry::Occupied(actor) => actor.into_mut(),
+        Entry::Vacant(entry) => {
+            let builtins = plumber_params.builtins;
+            let key_pair = plumber_params
+                .key_storage
+                .get_keypair(actor_params.peer_scope)
+                .ok_or(eyre!(
+                    "Cannot create actor, no key pair for {:?}",
+                    actor_params.peer_scope
+                ))?;
+            let data_store = plumber_params.data_store.clone();
+
+            let particle_token = get_particle_token(
+                &plumber_params.key_storage.root_key_pair,
+                &actor_params.particle.particle.signature,
+            )?;
+            let params = ParticleParams::clone_from(
+                &actor_params.particle.particle,
+                actor_params.peer_scope,
+                particle_token.clone(),
+            );
+            let functions = Functions::new(params, builtins.clone());
+
+            let actor = Actor::new(
+                &actor_params.particle.particle,
+                functions,
+                actor_params.current_peer_id,
+                particle_token,
+                key_pair,
+                data_store,
+                actor_params.deal_id,
+                actor_params.spawner,
+            );
+            entry.insert(actor)
+        }
+    };
+    Ok(actor)
+}
+
 /// Implements `now` by taking number of non-leap seconds from `Utc::now()`
 mod real_time {
     #[allow(dead_code)]
     pub fn now_ms() -> u64 {
         (chrono::Utc::now().timestamp() * 1000) as u64
     }
+}
+
+struct ActorParams<'a> {
+    key: ActorKey,
+    particle: &'a ExtendedParticle,
+    peer_scope: PeerScope,
+    current_peer_id: PeerId,
+    deal_id: Option<DealId>,
+    spawner: Spawner,
+}
+
+struct PlumberParams<'p, F>
+where
+    F: Clone,
+{
+    builtins: &'p F,
+    key_storage: &'p KeyStorage,
+    data_store: Arc<ParticleDataStore>,
 }
 
 #[cfg(test)]
