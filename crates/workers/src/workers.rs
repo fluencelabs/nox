@@ -34,15 +34,15 @@ pub struct WorkerInfo {
 
 pub struct WorkerParams {
     deal_id: DealId,
-    init_peer_id: PeerId,
+    creator: PeerId,
     cu_ids: Vec<CUID>,
 }
 
 impl WorkerParams {
-    pub fn new(deal_id: DealId, init_peer_id: PeerId, cu_ids: Vec<CUID>) -> Self {
+    pub fn new(deal_id: DealId, creator: PeerId, cu_ids: Vec<CUID>) -> Self {
         Self {
             deal_id,
-            init_peer_id,
+            creator,
             cu_ids,
         }
     }
@@ -180,7 +180,7 @@ impl Workers {
     ///
     pub async fn create_worker(&self, params: WorkerParams) -> Result<WorkerId, WorkersError> {
         let deal_id = params.deal_id;
-        let init_peer_id = params.init_peer_id;
+        let init_peer_id = params.creator;
         let cu_ids = params.cu_ids;
 
         let worker_id = {
