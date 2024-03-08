@@ -21,6 +21,7 @@ toy-vms = { workspace = true }
 system-services = { workspace = true }
 tempfile = { workspace = true }
 core-manager = { workspace = true }
+cid-utils = { workspace = true }
 
 fluence-keypair = { workspace = true }
 log = { workspace = true }

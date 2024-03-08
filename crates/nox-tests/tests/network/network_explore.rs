@@ -190,8 +190,8 @@ async fn list_blueprints() {
         .wrap_err("connect client")
         .unwrap();
 
-    let bytes = b"module";
-    let module_hash = Hash::new(bytes).unwrap().to_string();
+    let bytes = load_module("tests/file_share/artifacts", "file_share").expect("load module");
+    let module_hash = Hash::new(&bytes).unwrap().to_string();
     client
         .send_particle(
             r#"

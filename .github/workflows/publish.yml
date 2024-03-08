@@ -50,7 +50,7 @@ jobs:
             kv/hub.docker.com/fluencebot password | DOCKER_PASSWORD
 
       - name: Download nox binaries
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           path: docker/binaries
 

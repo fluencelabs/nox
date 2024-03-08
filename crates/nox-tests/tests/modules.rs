@@ -24,7 +24,11 @@ use service_modules::load_module;
 #[tokio::test]
 async fn test_add_module_mounted_binaries() {
     let swarms = make_swarms_with_cfg(1, |mut cfg| {
-        cfg.allowed_binaries = vec!["/usr/bin/curl".to_string()];
+        cfg.allowed_effectors = hashmap! {
+            "bafkreiepzclggkt57vu7yrhxylfhaafmuogtqly7wel7ozl5k2ehkd44oe".to_string() => hashmap! {
+                "ls".to_string() => "/bin/ls".to_string()
+            }
+        };
         cfg
     })
     .await;
@@ -32,11 +36,11 @@ async fn test_add_module_mounted_binaries() {
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .await
         .expect("connect client");
-    let module = load_module("tests/tetraplets/artifacts", "tetraplets").expect("load module");
+    let module = load_module("tests/effector/artifacts", "effector").expect("load module");
 
     let config = json!(
     {
-        "name": "tetraplets",
+        "name": "effector",
         "mem_pages_count": 100,
         "logger_enabled": true,
         "wasi": {
@@ -44,7 +48,7 @@ async fn test_add_module_mounted_binaries() {
             "preopened_files": vec!["/tmp"],
             "mapped_dirs": json!({}),
         },
-        "mounted_binaries": json!({"cmd": "/usr/bin/curl"})
+        "mounted_binaries": json!({"ls": "/bin/ls"})
     });
 
     let script = r#"
@@ -73,13 +77,13 @@ async fn test_add_module_mounted_binaries() {
 }
 
 #[tokio::test]
-async fn test_add_module_mounted_binaries_forbidden() {
+async fn test_add_module_effectors_forbidden() {
     let swarms = make_swarms(1).await;
 
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .await
         .expect("connect client");
-    let module = load_module("tests/tetraplets/artifacts", "tetraplets").expect("load module");
+    let module = load_module("tests/effector/artifacts", "effector").expect("load module");
 
     let config = json!(
     {
@@ -112,7 +116,7 @@ async fn test_add_module_mounted_binaries_forbidden() {
 
     let response = client.execute_particle(script, data).await.unwrap();
     if let Some(result) = response[0].as_str() {
-        let expected = "Local service error, ret_code is 1, error message is '\"Error: Config error: requested mounted binary /usr/bin/behbehbeh is forbidden on this host\\nForbiddenMountedBinary { forbidden_path: \\\"/usr/bin/behbehbeh\\\" }\"'";
+        let expected = "Local service error, ret_code is 1, error message is '\"Error: Config error: requested module effector tetraplets with CID bafkreiepzclggkt57vu7yrhxylfhaafmuogtqly7wel7ozl5k2ehkd44oe is forbidden on this host\\nForbiddenEffector { module_name: \\\"tetraplets\\\", forbidden_cid: \\\"bafkreiepzclggkt57vu7yrhxylfhaafmuogtqly7wel7ozl5k2ehkd44oe\\\" }\"'";
         assert_eq!(expected, result);
     } else {
         panic!("can't receive response from node");
