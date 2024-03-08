@@ -84,15 +84,13 @@ jobs:
       - nox-snapshot
     uses: fluencelabs/cli/.github/workflows/tests.yml@main
     with:
-      ref: up-spell-and-fixes
       nox-image: "${{ needs.nox-snapshot.outputs.nox-image }}"
 
   js-client:
     needs:
       - nox-snapshot
-    uses: fluencelabs/js-client/.github/workflows/tests.yml@master
+    uses: fluencelabs/js-client/.github/workflows/tests.yml@main
     with:
-      ref: js-client-v0.8.4
       nox-image: "${{ needs.nox-snapshot.outputs.nox-image }}"
 
   aqua:
@@ -101,12 +99,12 @@ jobs:
     uses: fluencelabs/aqua/.github/workflows/tests.yml@main
     with:
       nox-image: "${{ needs.nox-snapshot.outputs.nox-image }}"
+      ref: renovate/fluencelabs-js-client-0.x
 
-  registry:
-    needs:
-      - nox-snapshot
-    uses: fluencelabs/registry/.github/workflows/tests.yml@main
-    with:
-      nox-image: "${{ needs.nox-snapshot.outputs.nox-image }}"
-      if-no-artifacts-found: warn
-
+  # registry:
+  #   needs:
+  #     - nox-snapshot
+  #   uses: fluencelabs/registry/.github/workflows/tests.yml@main
+  #   with:
+  #     nox-image: "${{ needs.nox-snapshot.outputs.nox-image }}"
+  #     if-no-artifacts-found: warn

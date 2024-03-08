@@ -8,7 +8,7 @@ use core_manager::types::{AcquireRequest, WorkType};
 use core_manager::CUID;
 use fluence_libp2p::PeerId;
 use parking_lot::RwLock;
-use tokio::runtime::{Handle, Runtime};
+use tokio::runtime::{Handle, Runtime, UnhandledPanic};
 use types::peer_scope::WorkerId;
 use types::DealId;
 
@@ -140,9 +140,12 @@ impl Workers {
             .worker_threads(threads_count)
             // Configuring blocking threads for handling I/O
             .max_blocking_threads(threads_count)
+            .enable_time()
+            .enable_io()
             .on_thread_start(move || {
                 assignment.pin_current_thread();
             })
+            .unhandled_panic(UnhandledPanic::Ignore) // TODO: try to log panics after fix https://github.com/tokio-rs/tokio/issues/4516
             .build()
             .map_err(|err| WorkersError::CreateRuntime { worker_id, err })?;
         Ok(runtime)

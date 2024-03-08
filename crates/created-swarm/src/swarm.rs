@@ -46,7 +46,7 @@ use server_config::{
     UnresolvedConfig,
 };
 use tempfile::TempDir;
-use test_constants::{EXECUTION_TIMEOUT, TRANSPORT_TIMEOUT};
+use test_constants::{EXECUTION_TIMEOUT, IDLE_CONNECTION_TIMEOUT, TRANSPORT_TIMEOUT};
 use tokio::sync::oneshot;
 use toy_vms::EasyVM;
 use tracing::{Instrument, Span};
@@ -329,7 +329,7 @@ pub fn aqua_vm_config(
     let air_interpreter = air_interpreter_path(&persistent_dir);
     write_default_air_interpreter(&air_interpreter).expect("write air interpreter");
 
-    VmConfig::new(peer_id, air_interpreter, None)
+    VmConfig::new(peer_id, air_interpreter, None, None, None, None, false)
 }
 
 pub async fn create_swarm_with_runtime<RT: AquaRuntime>(
@@ -403,8 +403,7 @@ pub async fn create_swarm_with_runtime<RT: AquaRuntime>(
 
         resolved.node_config.aquavm_pool_size = config.pool_size.unwrap_or(1);
         resolved.node_config.particle_execution_timeout = EXECUTION_TIMEOUT;
-
-        resolved.node_config.allowed_binaries = config.allowed_binaries.clone();
+        resolved.node_config.transport_config.connection_idle_timeout = IDLE_CONNECTION_TIMEOUT;
 
         let allowed_effectors = config.allowed_effectors.iter().map(|(cid, binaries)| {
             (Hash::from_string(cid).unwrap(), binaries.clone())

@@ -22,6 +22,7 @@ use fs_utils::to_abs_path;
 use particle_protocol::ProtocolConfig;
 use types::peer_id;
 
+use crate::avm_config::AVMConfig;
 use crate::keys::{decode_key, decode_secret_key, load_key};
 use crate::system_services_config::{ServiceKey, SystemServicesConfig};
 use crate::{BootstrapConfig, KademliaConfig};
@@ -84,14 +85,13 @@ pub struct UnresolvedNodeConfig {
     #[serde(default)]
     pub protocol_config: ProtocolConfig,
 
+    /// These are the AquaVM limits that are used by the AquaVM limit check.
+    #[derivative(Debug = "ignore")]
+    pub avm_config: Option<AVMConfig>,
+
     /// Number of AVMs to create. By default, `num_cpus::get() * 2` is used
     #[serde(default = "default_aquavm_pool_size")]
     pub aquavm_pool_size: usize,
-
-    /// Maximum heap size in bytes available for an interpreter instance.
-    #[serde_as(as = "Option<DisplayFromStr>")]
-    #[serde(default)]
-    pub aquavm_max_heap_size: Option<bytesize::ByteSize>,
 
     /// Default heap size in bytes available for a WASM service unless otherwise specified.
     #[serde_as(as = "Option<DisplayFromStr>")]
@@ -144,6 +144,9 @@ pub struct UnresolvedNodeConfig {
     pub chain_config: Option<ChainConfig>,
 
     pub chain_listener_config: Option<ChainListenerConfig>,
+
+    #[serde(default = "default_dev_mode_config")]
+    pub dev_mode: DevModeConfig,
 }
 
 impl UnresolvedNodeConfig {
@@ -164,10 +167,6 @@ impl UnresolvedNodeConfig {
             .builtins_key_pair
             .unwrap_or_default()
             .get_keypair(default_builtins_keypair_path(persistent_base_dir))?;
-
-        let mut allowed_binaries = self.allowed_binaries;
-        allowed_binaries.push(self.system_services.aqua_ipfs.ipfs_binary_path.clone());
-        allowed_binaries.push(self.system_services.connector.curl_binary_path.clone());
 
         let allowed_effectors = self
             .effectors
@@ -197,8 +196,8 @@ impl UnresolvedNodeConfig {
             services_envs: self.services_envs,
             protocol_config: self.protocol_config,
             aquavm_pool_size: self.aquavm_pool_size,
-            aquavm_heap_size_limit: self.aquavm_max_heap_size,
             default_service_memory_limit: self.default_service_memory_limit,
+            avm_config: self.avm_config.unwrap_or_default(),
             kademlia: self.kademlia,
             particle_queue_buffer: self.particle_queue_buffer,
             effects_queue_buffer: self.effects_queue_buffer,
@@ -210,8 +209,8 @@ impl UnresolvedNodeConfig {
             management_peer_id: self.management_peer_id,
             transport_config: self.transport_config,
             listen_config: self.listen_config,
-            allowed_binaries,
             allowed_effectors,
+            dev_mode_config: self.dev_mode,
             system_services: self.system_services,
             http_config: self.http_config,
             chain_config: self.chain_config,
@@ -356,11 +355,11 @@ pub struct NodeConfig {
     /// Number of AVMs to create. By default, `num_cpus::get() * 2` is used
     pub aquavm_pool_size: usize,
 
-    /// Maximum heap size in bytes available for an interpreter instance.
-    pub aquavm_heap_size_limit: Option<bytesize::ByteSize>,
-
     /// Default heap size in bytes available for a WASM service unless otherwise specified.
     pub default_service_memory_limit: Option<bytesize::ByteSize>,
+
+    /// These are the AquaVM limits that are used by the AquaVM limit check.
+    pub avm_config: AVMConfig,
 
     pub kademlia: KademliaConfig,
 
@@ -380,9 +379,9 @@ pub struct NodeConfig {
 
     pub management_peer_id: PeerId,
 
-    pub allowed_binaries: Vec<String>,
-
     pub allowed_effectors: HashMap<Hash, HashMap<String, String>>,
+
+    pub dev_mode_config: DevModeConfig,
 
     pub system_services: SystemServicesConfig,
 
@@ -602,4 +601,21 @@ fn default_effectors_config() -> EffectorsConfig {
         })
         .collect::<_>();
     EffectorsConfig(config)
+}
+
+#[derive(Clone, Deserialize, Serialize, Derivative)]
+#[derivative(Debug)]
+pub struct DevModeConfig {
+    #[serde(default)]
+    pub enable: bool,
+    /// Mounted binaries mapping: binary name (used in the effector modules) to binary path
+    #[serde(default = "default_binaries_mapping")]
+    pub binaries: HashMap<String, String>,
+}
+
+fn default_dev_mode_config() -> DevModeConfig {
+    DevModeConfig {
+        enable: false,
+        binaries: default_binaries_mapping(),
+    }
 }
