@@ -326,9 +326,10 @@ mod tests {
             key_storage.clone(),
         );
 
-        let workers = Workers::from_path(workers_dir.clone(), key_storage, core_manager)
-            .await
-            .expect("Could not load worker registry");
+        let (workers, _worker_events) =
+            Workers::from_path(workers_dir.clone(), key_storage, core_manager, 128)
+                .await
+                .expect("Could not load worker registry");
 
         let workers = Arc::new(workers);
 
@@ -457,7 +458,7 @@ mod tests {
         };
         let result1 = api.update_kv(host_params.clone(), json!(init_data));
         assert!(
-            !result1.is_ok(),
+            result1.is_err(),
             "must NOT be able to update kv without h/hw key prefixes calling from host"
         );
 
