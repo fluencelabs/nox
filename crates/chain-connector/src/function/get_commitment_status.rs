@@ -4,9 +4,9 @@ use chain_data::ChainFunction;
 /// @param commitmentId Commitment id
 /// @return status commitment status
 /// function getStatus(bytes32 commitmentId) external view returns (CCStatus);
-pub struct GetStatusFunction;
+pub struct GetCommitmentStatusFunction;
 
-impl ChainFunction for GetStatusFunction {
+impl ChainFunction for GetCommitmentStatusFunction {
     fn function() -> ethabi::Function {
         #[allow(deprecated)]
         let function = ethabi::Function {
@@ -23,7 +23,7 @@ impl ChainFunction for GetStatusFunction {
         function
     }
 
-    fn signature() -> Vec<ethabi::ParamType> {
+    fn result_signature() -> Vec<ethabi::ParamType> {
         vec![ethabi::ParamType::FixedBytes(32)]
     }
 }

@@ -20,7 +20,7 @@ impl ChainFunction for InitTimestampFunction {
         }
     }
 
-    fn signature() -> Vec<ParamType> {
+    fn result_signature() -> Vec<ParamType> {
         vec![ParamType::Uint(256)]
     }
 }

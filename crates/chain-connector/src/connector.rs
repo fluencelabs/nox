@@ -18,19 +18,23 @@ use tokio::sync::Mutex;
 
 use chain_data::ChainDataError::InvalidTokenSize;
 use chain_data::{next_opt, parse_chain_data, peer_id_to_bytes, ChainFunction};
-use chain_types::{Commitment, CommitmentId, CommitmentStatus, ComputePeer, ComputeUnit};
+use chain_types::{
+    Commitment, CommitmentId, CommitmentStatus, ComputePeer, ComputeUnit, DealStatus,
+};
 use fluence_libp2p::PeerId;
 use particle_args::{Args, JError};
 use particle_builtins::{wrap, CustomService};
 use particle_execution::{ParticleParams, ServiceFunction};
 use server_config::ChainConfig;
+use types::DealId;
 
 use crate::error::{process_response, ConnectorError};
-use crate::function::{GetCommitmentFunction, GetStatusFunction, SubmitProofFunction};
+use crate::function::{GetCommitmentFunction, GetCommitmentStatusFunction, SubmitProofFunction};
 use crate::ConnectorError::InvalidBaseFeePerGas;
 use crate::{
     CurrentEpochFunction, DifficultyFunction, EpochDurationFunction, GetComputePeerFunction,
-    GetComputeUnitsFunction, GetGlobalNonceFunction, InitTimestampFunction,
+    GetComputeUnitsFunction, GetDealStatusFunction, GetGlobalNonceFunction, InitTimestampFunction,
+    ReturnComputeUnitFromDeal,
 };
 
 const BASE_FEE_MULTIPLIER: f64 = 0.125;
@@ -166,6 +170,7 @@ impl ChainConnector {
 
     pub async fn send_tx(&self, data: Vec<u8>, to: &str) -> Result<String, ConnectorError> {
         let base_fee_per_gas = self.get_base_fee_per_gas().await?;
+        tracing::info!(target: "chain-connector", "Estimating gas for tx from {} to {} data {}", self.config.wallet_key.to_address(), to, hex::encode(&data));
         let gas_limit = self.estimate_gas_limit(&data, to).await?;
         let max_priority_fee_per_gas = self.max_priority_fee_per_gas().await?;
 
@@ -236,7 +241,7 @@ impl ChainConnector {
         &self,
         commitment_id: CommitmentId,
     ) -> Result<CommitmentStatus, ConnectorError> {
-        let data = GetStatusFunction::data(&[Token::FixedBytes(commitment_id.0)])?;
+        let data = GetCommitmentStatusFunction::data(&[Token::FixedBytes(commitment_id.0)])?;
         let resp: String = process_response(
             self.client
                 .request(
@@ -327,7 +332,7 @@ impl ChainConnector {
                 .await,
         )?;
         let mut tokens =
-            parse_chain_data(&resp, &GetComputeUnitsFunction::signature())?.into_iter();
+            parse_chain_data(&resp, &GetComputeUnitsFunction::result_signature())?.into_iter();
         let units = next_opt(&mut tokens, "units", Token::into_array)?.into_iter();
         let compute_units = units
             .map(ComputeUnit::from_token)
@@ -389,6 +394,47 @@ impl ChainConnector {
             current_epoch,
             epoch_duration,
         })
+    }
+
+    pub async fn get_deal_statuses<'a, I>(
+        &self,
+        deal_ids: I,
+    ) -> Result<Vec<Result<DealStatus, ConnectorError>>, ConnectorError>
+    where
+        I: Iterator<Item = &'a DealId>,
+    {
+        let mut batch = BatchRequestBuilder::new();
+        for deal_id in deal_ids {
+            let data = GetDealStatusFunction::data(&[])?;
+            batch.insert(
+                "eth_call",
+                rpc_params![
+                    json!({
+                        "data": data,
+                        "to": deal_id.to_address(),
+                    }),
+                    "latest"
+                ],
+            )?;
+        }
+
+        let resp: BatchResponse<String> = self.client.batch_request(batch).await?;
+        let mut statuses = vec![];
+
+        for status in resp.into_iter() {
+            let status = status
+                .map(|r| DealStatus::from(&r).map_err(ConnectorError::ParseChainDataFailed))
+                .map_err(|e| ConnectorError::RpcError(e.to_owned().into()))?;
+            statuses.push(status);
+        }
+
+        Ok(statuses)
+    }
+
+    pub async fn exit_deal(&self, deal_id: &DealId) -> Result<String, ConnectorError> {
+        let data = ReturnComputeUnitFromDeal::data_bytes(&[Token::FixedBytes(deal_id.to_bytes())])?;
+        self.send_tx(data, &self.config.market_contract_address)
+            .await
     }
 
     fn difficulty_params(&self) -> eyre::Result<ArrayParams> {

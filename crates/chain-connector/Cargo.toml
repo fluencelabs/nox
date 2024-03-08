@@ -25,6 +25,7 @@ futures = { workspace = true }
 ccp-shared = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
+types = { workspace = true }
 
 [dev-dependencies]
 mockito = { workspace = true }

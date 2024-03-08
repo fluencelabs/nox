@@ -38,7 +38,7 @@ impl ChainFunction for SubmitProofFunction {
         function
     }
 
-    fn signature() -> Vec<ethabi::ParamType> {
+    fn result_signature() -> Vec<ethabi::ParamType> {
         vec![
             ethabi::ParamType::FixedBytes(32),
             ethabi::ParamType::FixedBytes(32),

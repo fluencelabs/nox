@@ -2,7 +2,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::borrow::{Borrow, Cow};
 use std::fmt::Display;
 
-#[derive(Eq, Clone, Debug, Hash, PartialEq)]
+#[derive(Eq, Clone, Debug, Hash, PartialEq, PartialOrd, Ord)]
 pub struct DealId(String);
 
 impl DealId {
@@ -12,6 +12,13 @@ impl DealId {
 
     pub fn get_contract_address(&self) -> String {
         format!("0x{}", self.0)
+    }
+
+    pub fn to_address(&self) -> String {
+        format!("0x{}", self.0)
+    }
+    pub fn to_bytes(&self) -> Vec<u8> {
+        hex::decode(&self.0).unwrap()
     }
 }
 

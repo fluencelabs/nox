@@ -15,7 +15,7 @@ impl ChainFunction for DifficultyFunction {
         }
     }
 
-    fn signature() -> Vec<ParamType> {
+    fn result_signature() -> Vec<ParamType> {
         vec![ParamType::FixedBytes(32)]
     }
 }
