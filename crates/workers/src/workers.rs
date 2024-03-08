@@ -455,6 +455,7 @@ impl Workers {
     }
 
     pub fn shutdown(&self) {
+        tracing::debug!("Shutdown worker runtimes");
         let mut runtimes = self.runtimes.write();
         let mut deleted_runtimes = Vec::with_capacity(runtimes.len());
         let worker_ids: Vec<WorkerId> = runtimes.keys().cloned().collect();
