@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.23.0](https://github.com/fluencelabs/nox/compare/nox-v0.22.2...nox-v0.23.0) (2024-03-08)
+
+
+### ⚠ BREAKING CHANGES
+
+* **capacity-commitments:** finish CCP integration; add logs ([#2133](https://github.com/fluencelabs/nox/issues/2133))
+
+### Features
+
+* **capacity-commitments:** finish CCP integration; add logs ([#2133](https://github.com/fluencelabs/nox/issues/2133)) ([23f4498](https://github.com/fluencelabs/nox/commit/23f449818e38e7881924996b2ada0af99737989b))
+
 ## [0.22.2](https://github.com/fluencelabs/nox/compare/nox-v0.22.1...nox-v0.22.2) (2024-03-08)
 
 
