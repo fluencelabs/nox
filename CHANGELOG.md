@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.22.2](https://github.com/fluencelabs/nox/compare/nox-v0.22.1...nox-v0.22.2) (2024-03-08)
+
+
+### Features
+
+* **workers:** separate AVM pools [fixes NET-753] ([#2125](https://github.com/fluencelabs/nox/issues/2125)) ([fd2552f](https://github.com/fluencelabs/nox/commit/fd2552f94a61c106d7c03b8b2bb18eaf47eae8a1))
+
+
+### Bug Fixes
+
+* **config:** add humantime & default for proof_poll_period ([#2139](https://github.com/fluencelabs/nox/issues/2139)) ([fd6acf6](https://github.com/fluencelabs/nox/commit/fd6acf65c211deec1be84a4bd4333a3b68f05f8f))
+* **config:** change default for the cpu range in nox ([#2140](https://github.com/fluencelabs/nox/issues/2140)) ([c976373](https://github.com/fluencelabs/nox/commit/c976373c6e25171580f995e98635535eae597b87))
+
 ## [0.22.1](https://github.com/fluencelabs/nox/compare/nox-v0.22.0...nox-v0.22.1) (2024-03-07)
 
 

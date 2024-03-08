@@ -33,6 +33,7 @@ use super::defaults::*;
 #[derive(Clone, Deserialize, Serialize, Derivative)]
 #[derivative(Debug)]
 pub struct UnresolvedNodeConfig {
+    #[serde(default = "default_cpus_range")]
     pub cpus_range: Option<CoreRange>,
 
     #[serde(default = "default_system_cpu_count")]

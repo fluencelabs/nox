@@ -19,6 +19,7 @@ use std::net::IpAddr;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
+use core_manager::CoreRange;
 use libp2p::core::Multiaddr;
 use libp2p::identity::ed25519::Keypair;
 use libp2p::identity::PublicKey;
@@ -68,6 +69,20 @@ pub fn default_system_cpu_count() -> usize {
         x if x > 2 => 2,
         _ => 1,
     }
+}
+
+pub fn default_cpus_range() -> Option<CoreRange> {
+    let total = num_cpus::get_physical();
+    let left = match total {
+        c if c > 32 => 3,
+        c if c > 16 => 2,
+        c if c > 8 => 1,
+        _ => 0,
+    };
+    Some(
+        CoreRange::try_from(Vec::from_iter(left..total).as_slice())
+            .expect("Cpu range can't be empty"),
+    )
 }
 
 pub fn default_websocket_port() -> u16 {
