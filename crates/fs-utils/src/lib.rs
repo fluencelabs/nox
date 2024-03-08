@@ -78,9 +78,9 @@ pub fn create_dir<P: AsRef<Path> + Debug>(dir: P) -> Result<(), std::io::Error> 
         .map_err(|err| std::io::Error::new(err.kind(), format!("{err:?}: {dir:?}")))
 }
 
+// TODO: this is a hack, remove after fix in marine. mask 300 doesn't work on macos
 cfg_if::cfg_if! {
      if #[cfg(target_os = "macos")] {
-        // TODO: this is a hack, remove after fix in marine
         const WRITE_ONLY_MASK: u32 = 0o700;
     } else {
         const WRITE_ONLY_MASK: u32 = 0o300;
