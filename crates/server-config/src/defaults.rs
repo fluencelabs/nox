@@ -280,3 +280,7 @@ pub fn default_binaries_mapping() -> HashMap<String, String> {
         "ipfs".to_string() => default_ipfs_binary_path(),
     }
 }
+
+pub fn default_proof_poll_period() -> Duration {
+    Duration::from_secs(60)
+}
