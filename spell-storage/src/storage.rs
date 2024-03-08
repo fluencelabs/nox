@@ -67,7 +67,7 @@ impl SpellStorage {
                 config.name
             )))?;
             let module_hash = modules
-                .add_module(module.to_vec(), config)
+                .add_module(config.name, module.to_vec())
                 .context(format!("adding spell module {name}"))?;
             hashes.push(module_hash);
         }
@@ -92,7 +92,7 @@ impl SpellStorage {
                 .unwrap_or(PathBuf::from(module_file_name(&config.name)));
             let module_path = spells_base_dir.join(load_from);
             let module = load_module_by_path(module_path.as_ref())?;
-            let module_hash = modules.add_module(module, config)?;
+            let module_hash = modules.add_module(config.name, module)?;
             versions.push(String::from(&module_hash.to_string()[..8]));
             hashes.push(module_hash);
         }

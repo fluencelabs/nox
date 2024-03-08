@@ -34,7 +34,7 @@ use crate::unixfs::Data as UnixFsMetadata;
 /// It should be used everywhere in the Fluence stack to produce the same CIDs.
 const CHUNK_SIZE: usize = 262144;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub struct Hash(pub Cid);
 
 impl Hash {

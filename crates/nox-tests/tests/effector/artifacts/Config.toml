@@ -1,0 +1,6 @@
+total_memory_limit = "Infinity"
+
+[[module]]
+  name = "effector"
+  [module.mounted_binaries]
+  ls = "/bin/ls" # will it work on all systems when nox runs?

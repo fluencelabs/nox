@@ -14,18 +14,17 @@
  * limitations under the License.
  */
 
-use std::{
-    collections::{HashMap, HashSet},
-    path::Path,
-    path::PathBuf,
-    sync::Arc,
-};
+use std::collections::HashSet;
+use std::ops::Not;
+use std::{collections::HashMap, path::Path, path::PathBuf, sync::Arc};
 
 use base64::{engine::general_purpose::STANDARD as base64, Engine};
 use eyre::WrapErr;
-use fluence_app_service::{ModuleDescriptor, TomlMarineNamedModuleConfig};
+use fluence_app_service::{ModuleDescriptor, TomlMarineModuleConfig, TomlMarineNamedModuleConfig};
 use fstrings::f;
 use marine_it_parser::module_interface;
+use marine_module_info_parser::effects;
+use marine_module_info_parser::effects::WasmEffect;
 use parking_lot::RwLock;
 use serde_json::{json, Value as JValue};
 
@@ -38,11 +37,32 @@ use service_modules::{
 };
 
 use crate::error::ModuleError::{
-    BlueprintNotFound, EmptyDependenciesList, ForbiddenMountedBinary, ReadModuleInterfaceError,
+    BlueprintNotFound, EmptyDependenciesList, ReadModuleInterfaceError,
 };
 use crate::error::Result;
 use crate::files::{self, load_config_by_path, load_module_descriptor};
-use crate::ModuleError::{IncorrectVaultModuleConfig, SerializeBlueprintJson};
+use crate::ModuleError::{
+    ForbiddenEffector, IncorrectVaultModuleConfig, InvalidEffectorMountedBinary,
+    SerializeBlueprintJson,
+};
+
+#[derive(Debug, Clone)]
+pub enum EffectorsMode {
+    RestrictedEffectors {
+        effectors: HashMap<Hash, HashMap<String, PathBuf>>,
+    },
+    AllEffectors {
+        binaries: HashMap<String, PathBuf>,
+    },
+}
+
+impl Default for EffectorsMode {
+    fn default() -> Self {
+        EffectorsMode::RestrictedEffectors {
+            effectors: Default::default(),
+        }
+    }
+}
 
 #[derive(Debug, Clone)]
 pub struct ModuleRepository {
@@ -50,15 +70,11 @@ pub struct ModuleRepository {
     blueprints_dir: PathBuf,
     module_interface_cache: Arc<RwLock<HashMap<Hash, JValue>>>,
     blueprints: Arc<RwLock<HashMap<String, Blueprint>>>,
-    allowed_binaries: HashSet<PathBuf>,
+    effectors: EffectorsMode,
 }
 
 impl ModuleRepository {
-    pub fn new(
-        modules_dir: &Path,
-        blueprints_dir: &Path,
-        allowed_binaries: HashSet<PathBuf>,
-    ) -> Self {
+    pub fn new(modules_dir: &Path, blueprints_dir: &Path, effectors: EffectorsMode) -> Self {
         let blueprints = Self::load_blueprints(blueprints_dir);
         let blueprints_cache = Arc::new(RwLock::new(blueprints));
 
@@ -67,33 +83,65 @@ impl ModuleRepository {
             blueprints_dir: blueprints_dir.to_path_buf(),
             module_interface_cache: <_>::default(),
             blueprints: blueprints_cache,
-            allowed_binaries,
+            effectors,
         }
     }
 
-    fn check_module_mounted_binaries(&self, config: &TomlMarineNamedModuleConfig) -> Result<()> {
-        if let Some(binaries) = &config.config.mounted_binaries {
-            for requested_binary in binaries.values() {
-                if let Some(requested_binary) = requested_binary.as_str() {
-                    let requested_binary_path = Path::new(requested_binary);
-                    if !self.allowed_binaries.contains(requested_binary_path) {
-                        return Err(ForbiddenMountedBinary {
-                            forbidden_path: requested_binary.to_string(),
-                        });
-                    }
-                }
+    fn make_effectors_config(
+        &self,
+        module_name: &str,
+        module_hash: &Hash,
+        mounted_binaries: HashSet<String>,
+    ) -> Result<&HashMap<String, PathBuf>> {
+        let binaries = match &self.effectors {
+            EffectorsMode::RestrictedEffectors { effectors } => effectors
+                .iter()
+                .find(|(effector_hash, _)| effector_hash == &module_hash)
+                .map(|(_, binaries)| binaries)
+                .ok_or(ForbiddenEffector {
+                    module_name: module_name.to_string(),
+                    forbidden_cid: module_hash.to_string(),
+                })?,
+            EffectorsMode::AllEffectors { binaries } => binaries,
+        };
+        for mounted_binary_name in &mounted_binaries {
+            if !binaries
+                .keys()
+                .any(|binary_name| mounted_binary_name == binary_name)
+            {
+                return Err(InvalidEffectorMountedBinary {
+                    module_name: module_name.to_string(),
+                    module_cid: module_hash.to_string(),
+                    binary_name: mounted_binary_name.clone(),
+                });
             }
         }
-        Ok(())
+
+        Ok(binaries)
     }
 
-    pub fn add_module(&self, module: Vec<u8>, config: TomlMarineNamedModuleConfig) -> Result<Hash> {
-        // TODO: remove unwrap
-        let hash = Hash::new(&module).unwrap();
+    pub fn add_module(&self, name: String, module: Vec<u8>) -> Result<Hash> {
+        let hash = Hash::new(&module)?;
+        let (logger_enabled, mounted) = Self::get_module_effects(&module)?;
+        let effector_settings = mounted
+            .is_empty()
+            .not()
+            .then(|| self.make_effectors_config(&name, &hash, mounted))
+            .transpose()?;
+        let config = Self::make_config(name, logger_enabled, effector_settings);
+        let _config = files::add_module(&self.modules_dir, &hash, &module, config)?;
 
-        let config = files::add_module(&self.modules_dir, &hash, &module, config)?;
-        self.check_module_mounted_binaries(&config)?;
+        Ok(hash)
+    }
 
+    // TODO: generate config for modules also
+    pub fn add_system_module(
+        &self,
+        module: Vec<u8>,
+        config: TomlMarineNamedModuleConfig,
+    ) -> Result<Hash> {
+        let hash = Hash::new(&module)?;
+        let _config = files::add_module(&self.modules_dir, &hash, &module, config)?;
         Ok(hash)
     }
 
@@ -116,7 +164,7 @@ impl ModuleRepository {
         config: TomlMarineNamedModuleConfig,
     ) -> Result<String> {
         let module = base64.decode(module)?;
-        let hash = self.add_module(module, config)?;
+        let hash = self.add_module(config.name, module)?;
 
         Ok(hash.to_string())
     }
@@ -126,13 +174,13 @@ impl ModuleRepository {
         vault: &ParticleVault,
         // TODO: refactor this out of this crate
         current_peer_id: PeerId,
+        name: String,
         module_path: String,
-        config: TomlMarineNamedModuleConfig,
         particle: ParticleParams,
     ) -> Result<String> {
         let module = vault.cat_slice(current_peer_id, &particle, Path::new(&module_path))?;
         // copy module & config to module_dir
-        let hash = self.add_module(module, config)?;
+        let hash = self.add_module(name, module)?;
 
         Ok(hash.to_string())
     }
@@ -172,7 +220,7 @@ impl ModuleRepository {
 
                 let result = match result {
                     Ok((hash, config)) => json!({
-                        "name": config.name, 
+                        "name": config.name,
                         "hash": hash.to_string(),
                         "config": config.config,
                     }),
@@ -306,6 +354,48 @@ impl ModuleRepository {
 
         Ok(module_descriptors)
     }
+
+    fn get_module_effects(module: &[u8]) -> Result<(bool, HashSet<String>)> {
+        let effects = effects::extract_from_bytes(module)?;
+        let mut logger_enabled = false;
+        let mut mounted_names = HashSet::new();
+        for effect in effects {
+            match effect {
+                WasmEffect::Logger => {
+                    logger_enabled = true;
+                }
+                WasmEffect::MountedBinary(name) => {
+                    mounted_names.insert(name);
+                }
+            }
+        }
+        Ok((logger_enabled, mounted_names))
+    }
+
+    fn make_config(
+        module_name: String,
+        logger_enabled: bool,
+        effector_settings: Option<&HashMap<String, PathBuf>>,
+    ) -> TomlMarineNamedModuleConfig {
+        let mounted_binaries = effector_settings.map(|effector_settings| {
+            effector_settings
+                .iter()
+                .map(|(name, path)| (name.clone(), path.to_string_lossy().to_string().into()))
+                .collect::<_>()
+        });
+
+        TomlMarineNamedModuleConfig {
+            name: module_name,
+            file_name: None,
+            load_from: None,
+            config: TomlMarineModuleConfig {
+                logger_enabled: Some(logger_enabled),
+                wasi: None,
+                mounted_binaries,
+                logging_mask: None,
+            },
+        }
+    }
 }
 
 fn get_interface_by_hash(
@@ -338,12 +428,17 @@ fn get_interface_by_hash(
 mod tests {
     use base64::{engine::general_purpose::STANDARD as base64, Engine};
     use fluence_app_service::{TomlMarineModuleConfig, TomlMarineNamedModuleConfig};
+    use maplit::hashmap;
+    use std::assert_matches::assert_matches;
+    use std::default::Default;
+    use std::path::PathBuf;
     use tempdir::TempDir;
 
     use service_modules::load_module;
     use service_modules::Hash;
 
-    use crate::{AddBlueprint, ModuleRepository};
+    use crate::ModuleError::{ForbiddenEffector, InvalidEffectorMountedBinary};
+    use crate::{AddBlueprint, EffectorsMode, ModuleRepository};
 
     #[test]
     fn test_add_blueprint() {
@@ -409,5 +504,101 @@ mod tests {
 
         let result = repo.get_interface(&m_hash);
         assert!(result.is_ok())
+    }
+
+    #[test]
+    fn test_add_module_effector_allowed() {
+        let effector_wasm_cid =
+            Hash::from_string("bafkreiepzclggkt57vu7yrhxylfhaafmuogtqly7wel7ozl5k2ehkd44oe")
+                .unwrap();
+
+        let effector_path = "../crates/nox-tests/tests/effector/artifacts";
+        let allowed_effectors = EffectorsMode::RestrictedEffectors {
+            effectors: hashmap! {
+                effector_wasm_cid => hashmap! {
+                    "ls".to_string() => PathBuf::from("/bin/ls"),
+                }
+            },
+        };
+
+        let module_dir = TempDir::new("test").unwrap();
+        let bp_dir = TempDir::new("test2").unwrap();
+        let repo = ModuleRepository::new(module_dir.path(), bp_dir.path(), allowed_effectors);
+
+        let module = load_module(effector_path, "effector").expect("load module");
+        let result = repo.add_module("effector".to_string(), module);
+        assert_matches!(result, Ok(_));
+    }
+
+    #[test]
+    fn test_add_module_effector_forbidden() {
+        let some_wasm_cid =
+            Hash::from_string("bafkreibjsugno2xsa2ee46xge5t6z4vuwpepyphedbykrfgmm7i6jg6ihe")
+                .unwrap();
+
+        let effector_path = "../crates/nox-tests/tests/effector/artifacts";
+        let allowed_effectors = EffectorsMode::RestrictedEffectors {
+            effectors: hashmap! {
+                some_wasm_cid => hashmap! {
+                    "ls".to_string() => PathBuf::from("/bin/ls"),
+                    "cat".to_string() => PathBuf::from("/bin/cat"),
+                }
+            },
+        };
+
+        let module_dir = TempDir::new("test").unwrap();
+        let bp_dir = TempDir::new("test2").unwrap();
+        let repo = ModuleRepository::new(module_dir.path(), bp_dir.path(), allowed_effectors);
+
+        let module = load_module(effector_path, "effector").expect("load module");
+        let result = repo.add_module("effector".to_string(), module);
+        assert_matches!(result, Err(ForbiddenEffector { .. }));
+    }
+
+    #[test]
+    fn test_add_module_effector_invalid() {
+        let effector_wasm_cid =
+            Hash::from_string("bafkreiepzclggkt57vu7yrhxylfhaafmuogtqly7wel7ozl5k2ehkd44oe")
+                .unwrap();
+
+        let effector_path = "../crates/nox-tests/tests/effector/artifacts";
+        let allowed_effectors = EffectorsMode::RestrictedEffectors {
+            effectors: hashmap! {
+                effector_wasm_cid => hashmap! {
+                    "cat".to_string() => PathBuf::from("/bin/cat"),
+                }
+            },
+        };
+
+        let module_dir = TempDir::new("test").unwrap();
+        let bp_dir = TempDir::new("test2").unwrap();
+        let repo = ModuleRepository::new(module_dir.path(), bp_dir.path(), allowed_effectors);
+
+        let module = load_module(effector_path, "effector").expect("load module");
+        let result = repo.add_module("effector".to_string(), module);
+        let _cat = "cat".to_string();
+        assert_matches!(
+            result,
+            Err(InvalidEffectorMountedBinary {
+                binary_name: _cat,
+                ..
+            })
+        );
+    }
+
+    #[test]
+    fn test_add_module_pure() {
+        let module_dir = TempDir::new("test").unwrap();
+        let bp_dir = TempDir::new("test2").unwrap();
+        let repo = ModuleRepository::new(module_dir.path(), bp_dir.path(), Default::default());
+
+        let module = load_module(
+            "../crates/nox-tests/tests/tetraplets/artifacts",
+            "tetraplets",
+        )
+        .expect("load module");
+
+        let result = repo.add_module("pure".to_string(), module);
+        assert_matches!(result, Ok(_));
     }
 }

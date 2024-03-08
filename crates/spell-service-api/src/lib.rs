@@ -343,6 +343,8 @@ mod tests {
             root_key_pair.get_peer_id(),
             Some(service_memory_limit),
             Default::default(),
+            Default::default(),
+            true,
         )
         .unwrap();
 

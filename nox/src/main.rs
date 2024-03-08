@@ -43,6 +43,7 @@ use core_manager::manager::{CoreManager, CoreManagerFunctions, PersistentCoreMan
 use fs_utils::to_abs_path;
 use nox::{env_filter, log_layer, tokio_console_layer, tracing_layer, Node};
 use server_config::{load_config, ConfigData, ResolvedConfig};
+use tracing_panic::panic_hook;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const AUTHORS: &str = env!("CARGO_PKG_AUTHORS");
@@ -60,6 +61,12 @@ static ALLOC: dhat::Alloc = dhat::Alloc;
 fn main() -> eyre::Result<()> {
     #[cfg(feature = "dhat-heap")]
     let _profiler = dhat::Profiler::new_heap();
+
+    let prev_hook = std::panic::take_hook();
+    std::panic::set_hook(Box::new(move |panic_info| {
+        panic_hook(panic_info);
+        prev_hook(panic_info);
+    }));
 
     let version = format!("{}; AIR version {}", VERSION, air_interpreter_wasm::VERSION);
     let authors = format!("by {AUTHORS}");
@@ -216,7 +223,24 @@ fn vm_config(config: &ResolvedConfig) -> VmConfig {
         config.dir_config.air_interpreter_path.clone(),
         config
             .node_config
+            .avm_config
             .aquavm_heap_size_limit
             .map(|byte_size| byte_size.as_u64()),
+        config
+            .node_config
+            .avm_config
+            .air_size_limit
+            .map(|byte_size| byte_size.as_u64()),
+        config
+            .node_config
+            .avm_config
+            .particle_size_limit
+            .map(|byte_size| byte_size.as_u64()),
+        config
+            .node_config
+            .avm_config
+            .call_result_size_limit
+            .map(|byte_size| byte_size.as_u64()),
+        config.node_config.avm_config.hard_limit_enabled,
     )
 }

@@ -18,6 +18,7 @@ use std::str::FromStr;
 use std::{convert::Infallible, task::Waker, time::Duration};
 
 use avm_server::avm_runner::RawAVMOutcome;
+use avm_server::SoftLimitsTriggering;
 use avm_server::{AVMMemoryStats, CallResults, ParticleParameters};
 use itertools::Itertools;
 
@@ -85,13 +86,14 @@ impl AquaRuntime for EasyVM {
         };
 
         println!("next peer = {next_peer}");
-
+        let soft_limits_triggering = SoftLimitsTriggering::default();
         Ok(RawAVMOutcome {
             ret_code: 0,
             error_message: "".to_string(),
             data,
             call_requests: Default::default(),
             next_peer_pks: vec![next_peer],
+            soft_limits_triggering,
         })
     }
 
