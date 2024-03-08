@@ -57,7 +57,7 @@ pub struct PersistedWorker {
 impl From<PersistedWorker> for WorkerInfo {
     fn from(val: PersistedWorker) -> Self {
         WorkerInfo {
-            deal_id: val.deal_id,
+            deal_id: val.deal_id.into(),
             creator: val.creator,
             active: RwLock::new(val.active),
             cu_ids: val.cu_ids,

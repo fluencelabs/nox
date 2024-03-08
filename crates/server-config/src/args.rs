@@ -62,11 +62,11 @@ pub struct RootKeyPairArgs {
     #[arg(
         short('g'),
         long("gen-keypair"),
-        value_parser = clap::value_parser!(bool),
+        value_parser = clap::value_parser ! (bool),
         id = "ROOT_KEY_PAIR_GENERATE",
         help_heading = "Node keypair",
         display_order = 13,
-        action =  clap::ArgAction::SetTrue
+        action = clap::ArgAction::SetTrue
     )]
     generate_on_absence: Option<bool>,
     #[arg(
@@ -165,6 +165,7 @@ pub enum EnabledSystemServices {
 // - "service1,service2" to EnabledSystemServices::Some(vec!["service1", "service2"])
 #[derive(Debug, Clone)]
 struct EnabledSystemServicesValueParser;
+
 impl clap::builder::TypedValueParser for EnabledSystemServicesValueParser {
     type Value = EnabledSystemServices;
     fn parse_ref(
@@ -192,11 +193,11 @@ impl clap::builder::TypedValueParser for EnabledSystemServicesValueParser {
 pub(crate) struct SystemServicesArgs {
     // TODO: how to provide the list of available system services automatically
     #[arg(
-    long,
-    id = "SERVICES",
-    help = "List of enabled system services. Can be: all, none or comma-separated list of services (serivce1,service2)",
-    help_heading = "System services configuration",
-    value_parser = EnabledSystemServicesValueParser
+        long,
+        id = "SERVICES",
+        help = "List of enabled system services. Can be: all, none or comma-separated list of services (serivce1,service2)",
+        help_heading = "System services configuration",
+        value_parser = EnabledSystemServicesValueParser
     )]
     enable_system_services: Option<EnabledSystemServices>,
 
@@ -305,7 +306,7 @@ pub(crate) struct DerivedArgs {
         value_name = "MULTIADDR",
         help_heading = "Networking",
         display_order = 5,
-        action =  clap::ArgAction::Append,
+        action = clap::ArgAction::Append,
         num_args = 1..
     )]
     external_multiaddresses: Option<Vec<String>>,
@@ -316,7 +317,7 @@ pub(crate) struct DerivedArgs {
         help = "allow private IP addresses from other nodes",
         help_heading = "Networking",
         display_order = 6,
-        action =  clap::ArgAction::SetTrue
+        action = clap::ArgAction::SetTrue
     )]
     allow_local_addresses: Option<bool>,
     #[arg(
@@ -328,7 +329,7 @@ pub(crate) struct DerivedArgs {
         help_heading = "Networking",
         display_order = 7,
         conflicts_with = "LOCAL",
-        action =  clap::ArgAction::Append,
+        action = clap::ArgAction::Append,
         num_args = 1..
     )]
     bootstrap_nodes: Option<Vec<String>>,
@@ -346,11 +347,11 @@ pub(crate) struct DerivedArgs {
         short('l'),
         long,
         id = "LOCAL",
-        value_parser = clap::value_parser!(bool),
+        value_parser = clap::value_parser ! (bool),
         help = "if passed, bootstrap nodes aren't used",
         help_heading = "Networking",
         display_order = 9,
-        action =  clap::ArgAction::SetTrue
+        action = clap::ArgAction::SetTrue
     )]
     local: Option<bool>,
 
@@ -364,14 +365,13 @@ pub(crate) struct DerivedArgs {
         help_heading = "Node configuration",
         help = "TOML configuration file",
         long_help = "TOML configuration file. If not specified, the default configuration is used. \
-        If specified, the default configuration is merged with the specified one. \
-        The argument can by used multiple times. \
-        The last configuration overrides the previous ones.",
+            If specified, the default configuration is merged with the specified one. \
+            The argument can by used multiple times. \
+            The last configuration overrides the previous ones.",
         value_name = "PATH",
         num_args(1..),
         value_delimiter(','),
         display_order = 15,
-
     )]
     pub(crate) configs: Option<Vec<PathBuf>>,
     #[arg(
@@ -426,7 +426,7 @@ pub(crate) struct DerivedArgs {
     aquavm_pool_size: Option<usize>,
     #[arg(
         long,
-        value_parser = clap::value_parser!(bool),
+        value_parser = clap::value_parser ! (bool),
         id = "PRINT_CONFIG",
         help = "Print applied config",
         help_heading = "Node configuration",
@@ -436,7 +436,7 @@ pub(crate) struct DerivedArgs {
     pub(crate) print_config: Option<bool>,
     #[arg(
         long,
-        value_parser = clap::value_parser!(bool),
+        value_parser = clap::value_parser ! (bool),
         id = "NO_BANNER",
         help = "Disable banner",
         help_heading = "Node configuration",
@@ -453,6 +453,9 @@ pub(crate) struct DerivedArgs {
 
     #[command(flatten)]
     tracing: Option<TracingArgs>,
+
+    #[command(flatten)]
+    dev_mode: Option<DevModeArgs>,
 }
 
 impl Source for DerivedArgs {
@@ -466,5 +469,28 @@ impl Source for DerivedArgs {
         let result = toml::de::from_str(&source_str)
             .map_err(|e| config::ConfigError::Foreign(Box::new(e)))?;
         Ok(result)
+    }
+}
+
+#[derive(Parser, Debug, Clone)]
+pub struct DevModeArgs {
+    #[arg(
+        long("dev-mode"),
+        value_parser = clap::value_parser!(bool),
+        id = "ENABLE_DEV_MODE",
+        help = "The private wallet key for signing transactions for joining deals",
+        help_heading = "System services configuration"
+    )]
+    enable: bool,
+}
+
+impl Serialize for DevModeArgs {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut struct_serializer = serializer.serialize_struct("DevModeConfig", 5)?;
+        struct_serializer.serialize_field("enable", &self.enable)?;
+        struct_serializer.end()
     }
 }

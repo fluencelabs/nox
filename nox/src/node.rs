@@ -158,7 +158,9 @@ impl<RT: AquaRuntime> Node<RT> {
             config.management_peer_id,
             builtins_peer_id,
             config.node_config.default_service_memory_limit,
-            config.node_config.allowed_binaries.clone(),
+            config.node_config.allowed_effectors.clone(),
+            config.node_config.dev_mode_config.binaries.clone(),
+            config.node_config.dev_mode_config.enable,
         )
         .expect("create services config");
 
@@ -237,12 +239,6 @@ impl<RT: AquaRuntime> Node<RT> {
                 )
             };
 
-        let allowed_binaries = services_config
-            .allowed_binaries
-            .iter()
-            .map(|s| s.to_string_lossy().to_string())
-            .collect::<_>();
-
         let mut builtins = Self::builtins(
             connectivity.clone(),
             services_config,
@@ -307,11 +303,19 @@ impl<RT: AquaRuntime> Node<RT> {
             spell_metrics,
         );
 
+        let allowed_binaries = config
+            .allowed_effectors
+            .values()
+            .flat_map(|v| v.values().cloned().collect::<Vec<String>>())
+            .collect::<std::collections::HashSet<_>>()
+            .into_iter()
+            .collect::<_>();
         let node_info = NodeInfo {
             external_addresses: config.external_addresses(),
             node_version: env!("CARGO_PKG_VERSION"),
             air_version: air_interpreter_wasm::VERSION,
             spell_version: spell_version.clone(),
+            // TODO: remove
             allowed_binaries,
         };
         if let Some(m) = metrics_registry.as_mut() {
@@ -580,8 +584,7 @@ impl<RT: AquaRuntime> Node<RT> {
         let chain_listener = self.chain_listener;
 
         task::Builder::new().name(&task_name.clone()).spawn(async move {
-
-            let mut http_server = if let Some(http_listen_addr) = http_listen_addr{
+            let mut http_server = if let Some(http_listen_addr) = http_listen_addr {
                 tracing::info!("Starting http endpoint at {}", http_listen_addr);
                 async move {
                     start_http_endpoint(http_listen_addr, metrics_registry, health_registry, peer_id, versions, http_bind_outlet)
@@ -715,6 +718,10 @@ mod tests {
             to_peer_id(&config.root_key_pair.clone().into()),
             config.dir_config.air_interpreter_path.clone(),
             None,
+            None,
+            None,
+            None,
+            false,
         );
         let data_store_config = DataStoreConfig::new(config.dir_config.avm_base_dir.clone());
 
