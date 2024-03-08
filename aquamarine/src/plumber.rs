@@ -175,12 +175,12 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
         self.wake();
     }
 
-    pub fn on_worker_created(&mut self, worker_id: WorkerId, thread_count: usize) {
+    pub fn create_worker_pool(&mut self, worker_id: WorkerId, thread_count: usize) {
         let vm_pool = VmPool::new(thread_count, self.config.clone(), None, None); // TODO: add metrics
         self.worker_vm_pools.insert(worker_id, vm_pool);
     }
 
-    pub fn on_worker_removed(&mut self, worker_id: WorkerId) {
+    pub fn remove_worker_pool(&mut self, worker_id: WorkerId) {
         self.worker_vm_pools.remove(&worker_id);
     }
 
@@ -221,7 +221,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
                     .map_err(|err| eyre!("Not found deal for {:?} : {}", worker_id, err))?;
                 let runtime_handle = self
                     .workers
-                    .get_handle(worker_id)
+                    .get_runtime_handle(worker_id)
                     .ok_or(eyre!("Not found runtime handle for {:?}", worker_id))?;
                 let spawner = Spawner::Worker(WorkerSpawner::new(runtime_handle, worker_id));
 

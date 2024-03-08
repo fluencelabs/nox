@@ -362,7 +362,7 @@ impl Workers {
         Ok(())
     }
 
-    pub fn get_handle(&self, worker_id: WorkerId) -> Option<Handle> {
+    pub fn get_runtime_handle(&self, worker_id: WorkerId) -> Option<Handle> {
         self.runtimes
             .read()
             .get(&worker_id)

@@ -158,10 +158,10 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> AquamarineBackend<RT, F> {
                         thread_count,
                     } => {
                         wake = true;
-                        self.plumber.on_worker_created(worker_id, thread_count);
+                        self.plumber.create_worker_pool(worker_id, thread_count);
                     }
                     Event::WorkerRemoved { worker_id } => {
-                        self.plumber.on_worker_removed(worker_id);
+                        self.plumber.remove_worker_pool(worker_id);
                     }
                 },
                 Err(_) => {

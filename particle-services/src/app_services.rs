@@ -251,7 +251,7 @@ impl ParticleAppServices {
         let runtime_handle = match peer_scope {
             PeerScope::WorkerId(worker_id) => self
                 .workers
-                .get_handle(worker_id)
+                .get_runtime_handle(worker_id)
                 .ok_or(ServiceError::WorkerNotFound { worker_id })?,
             PeerScope::Host => self.root_runtime_handle.clone(),
         };
