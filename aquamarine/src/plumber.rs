@@ -38,39 +38,42 @@ use mock_time::now_ms;
 use particle_execution::{ParticleFunctionStatic, ParticleParams, ServiceFunction};
 use particle_protocol::ExtendedParticle;
 use particle_services::PeerScope;
-use peer_metrics::ParticleExecutorMetrics;
+use peer_metrics::{ParticleExecutorMetrics, WorkerLabel, WorkerType};
 /// Get current time from OS
 #[cfg(not(test))]
 use real_time::now_ms;
+use types::DealId;
 use workers::{KeyStorage, PeerScopes, Workers};
 
 use crate::actor::{Actor, ActorPoll};
-use crate::aqua_runtime::AquaRuntime;
 use crate::deadline::Deadline;
 use crate::error::AquamarineApiError;
-use crate::particle_effects::{LocalRoutingEffects, RemoteRoutingEffects};
-use crate::particle_functions::Functions;
+use crate::particle_effects::LocalRoutingEffects;
+use crate::particle_functions::{Functions, SingleCallStat};
 use crate::spawner::{RootSpawner, Spawner, WorkerSpawner};
 use crate::vm_pool::VmPool;
-use crate::ParticleDataStore;
+use crate::{AquaRuntime, ParticleDataStore, RemoteRoutingEffects};
+use types::peer_scope::WorkerId;
 
 #[derive(PartialEq, Hash, Eq)]
 struct ActorKey {
     signature: Vec<u8>,
-    peer_scope: PeerScope,
 }
 
 const MAX_CLEANUP_KEYS_SIZE: usize = 1024;
 
 pub struct Plumber<RT: AquaRuntime, F> {
+    config: RT::Config,
     events: VecDeque<Result<RemoteRoutingEffects, AquamarineApiError>>,
-    actors: HashMap<ActorKey, Actor<RT, F>>,
-    vm_pool: VmPool<RT>,
+    host_actors: HashMap<ActorKey, Actor<RT, F>>,
+    host_vm_pool: VmPool<RT>,
+    worker_actors: HashMap<WorkerId, HashMap<ActorKey, Actor<RT, F>>>,
+    worker_vm_pools: HashMap<WorkerId, VmPool<RT>>,
+    workers: Arc<Workers>,
     data_store: Arc<ParticleDataStore>,
     builtins: F,
     waker: Option<Waker>,
     metrics: Option<ParticleExecutorMetrics>,
-    workers: Arc<Workers>,
     key_storage: Arc<KeyStorage>,
     scopes: PeerScopes,
     cleanup_future: Option<BoxFuture<'static, ()>>,
@@ -79,7 +82,8 @@ pub struct Plumber<RT: AquaRuntime, F> {
 
 impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
     pub fn new(
-        vm_pool: VmPool<RT>,
+        config: RT::Config,
+        host_vm_pool: VmPool<RT>,
         data_store: Arc<ParticleDataStore>,
         builtins: F,
         metrics: Option<ParticleExecutorMetrics>,
@@ -88,11 +92,14 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
         scope: PeerScopes,
     ) -> Self {
         Self {
-            vm_pool,
+            config,
+            host_vm_pool,
             data_store,
             builtins,
             events: <_>::default(),
-            actors: <_>::default(),
+            host_actors: <_>::default(),
+            worker_actors: <_>::default(),
+            worker_vm_pools: <_>::default(),
             waker: <_>::default(),
             metrics,
             workers,
@@ -111,8 +118,6 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
         function: Option<ServiceFunction>,
         peer_scope: PeerScope,
     ) {
-        self.wake();
-
         let deadline = Deadline::from(particle.as_ref());
         if deadline.is_expired(now_ms()) {
             tracing::info!(target: "expired", particle_id = particle.particle.id, "Particle is expired");
@@ -147,7 +152,6 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
 
         let key = ActorKey {
             signature: particle.particle.signature.clone(),
-            peer_scope,
         };
 
         let actor = self.get_or_create_actor(peer_scope, key, &particle);
@@ -168,6 +172,16 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
                 particle_id = particle.particle.id,
             ),
         }
+        self.wake();
+    }
+
+    pub fn create_worker_pool(&mut self, worker_id: WorkerId, thread_count: usize) {
+        let vm_pool = VmPool::new(thread_count, self.config.clone(), None, None); // TODO: add metrics
+        self.worker_vm_pools.insert(worker_id, vm_pool);
+    }
+
+    pub fn remove_worker_pool(&mut self, worker_id: WorkerId) {
+        self.worker_vm_pools.remove(&worker_id);
     }
 
     fn get_or_create_actor(
@@ -176,64 +190,99 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
         key: ActorKey,
         particle: &ExtendedParticle,
     ) -> eyre::Result<&mut Actor<RT, F>> {
-        let entry = self.actors.entry(key);
-        let builtins = &self.builtins;
-        match entry {
-            Entry::Occupied(actor) => Ok(actor.into_mut()),
+        let plumber_params = PlumberParams {
+            builtins: &self.builtins,
+            key_storage: self.key_storage.as_ref(),
+            data_store: self.data_store.clone(),
+        };
+        match peer_scope {
+            PeerScope::Host => {
+                let current_peer_id = self.scopes.get_host_peer_id();
+                let spawner = Spawner::Root(RootSpawner::new(self.root_runtime_handle.clone()));
+                let actor_params = ActorParams {
+                    key,
+                    particle,
+                    peer_scope,
+                    current_peer_id,
+                    deal_id: None,
+                    spawner,
+                };
+                Self::create_actor(&mut self.host_actors, plumber_params, actor_params)
+            }
+            PeerScope::WorkerId(worker_id) => {
+                let worker_actors = match self.worker_actors.entry(worker_id) {
+                    Entry::Occupied(o) => o.into_mut(),
+                    Entry::Vacant(v) => v.insert(HashMap::default()),
+                };
+                let current_peer_id: PeerId = worker_id.into();
+                let deal_id = self
+                    .workers
+                    .get_deal_id(worker_id)
+                    .map_err(|err| eyre!("Not found deal for {:?} : {}", worker_id, err))?;
+                let runtime_handle = self
+                    .workers
+                    .get_runtime_handle(worker_id)
+                    .ok_or(eyre!("Not found runtime handle for {:?}", worker_id))?;
+                let spawner = Spawner::Worker(WorkerSpawner::new(runtime_handle, worker_id));
+
+                let actor_params = ActorParams {
+                    key,
+                    particle,
+                    peer_scope,
+                    current_peer_id,
+                    deal_id: Some(deal_id),
+                    spawner,
+                };
+
+                Self::create_actor(worker_actors, plumber_params, actor_params)
+            }
+        }
+    }
+
+    fn create_actor<'p, 'a>(
+        actors: &'p mut HashMap<ActorKey, Actor<RT, F>>,
+        plumber_params: PlumberParams<'p, F>,
+        actor_params: ActorParams<'a>,
+    ) -> eyre::Result<&'p mut Actor<RT, F>> {
+        let entry = actors.entry(actor_params.key);
+        let actor = match entry {
+            Entry::Occupied(actor) => actor.into_mut(),
             Entry::Vacant(entry) => {
-                // TODO: move to a better place
+                let builtins = plumber_params.builtins;
+                let key_pair = plumber_params
+                    .key_storage
+                    .get_keypair(actor_params.peer_scope)
+                    .ok_or(eyre!(
+                        "Cannot create actor, no key pair for {:?}",
+                        actor_params.peer_scope
+                    ))?;
+                let data_store = plumber_params.data_store.clone();
+
                 let particle_token = get_particle_token(
-                    &self.key_storage.root_key_pair,
-                    &particle.particle.signature,
+                    &plumber_params.key_storage.root_key_pair,
+                    &actor_params.particle.particle.signature,
                 )?;
                 let params = ParticleParams::clone_from(
-                    particle.as_ref(),
-                    peer_scope,
+                    &actor_params.particle.particle,
+                    actor_params.peer_scope,
                     particle_token.clone(),
                 );
                 let functions = Functions::new(params, builtins.clone());
-                let key_pair = self
-                    .key_storage
-                    .get_keypair(peer_scope)
-                    .ok_or(eyre!("Not found key pair for {:?}", peer_scope))?;
-                let (deal_id, spawner, current_peer_id) = match peer_scope {
-                    PeerScope::WorkerId(worker_id) => {
-                        let deal_id = self
-                            .workers
-                            .get_deal_id(worker_id)
-                            .map_err(|err| eyre!("Not found deal for {:?} : {}", worker_id, err))?;
-                        let runtime_handle = self
-                            .workers
-                            .get_handle(worker_id)
-                            .ok_or(eyre!("Not found runtime handle for {:?}", worker_id))?;
-                        let spawner =
-                            Spawner::Worker(WorkerSpawner::new(runtime_handle, worker_id));
-                        let current_peer_id: PeerId = worker_id.into();
-                        (Some(deal_id), spawner, current_peer_id)
-                    }
-                    PeerScope::Host => {
-                        let spawner =
-                            Spawner::Root(RootSpawner::new(self.root_runtime_handle.clone()));
-                        let current_peer_id = self.scopes.get_host_peer_id();
-                        (None, spawner, current_peer_id)
-                    }
-                };
 
-                let data_store = self.data_store.clone();
                 let actor = Actor::new(
-                    particle.as_ref(),
+                    &actor_params.particle.particle,
                     functions,
-                    current_peer_id,
+                    actor_params.current_peer_id,
                     particle_token,
                     key_pair,
                     data_store,
-                    deal_id,
-                    spawner,
+                    actor_params.deal_id,
+                    actor_params.spawner,
                 );
-                let res = entry.insert(actor);
-                Ok(res)
+                entry.insert(actor)
             }
-        }
+        };
+        Ok(actor)
     }
 
     pub fn add_service(
@@ -269,25 +318,121 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
     ) -> Poll<Result<RemoteRoutingEffects, AquamarineApiError>> {
         self.waker = Some(cx.waker().clone());
 
-        self.vm_pool.poll(cx);
+        self.poll_pools(cx);
 
         if let Some(event) = self.events.pop_front() {
             return Poll::Ready(event);
         }
 
-        // Gather effects and put VMs back
         let mut remote_effects: Vec<RemoteRoutingEffects> = vec![];
         let mut local_effects: Vec<LocalRoutingEffects> = vec![];
-        let mut interpretation_stats = vec![];
+        // Gather effects and put VMs back
+        self.poll_host_actors(cx, &mut remote_effects, &mut local_effects);
+        self.poll_workers_actors(cx, &mut remote_effects, &mut local_effects);
+
+        self.cleanup(cx);
+
+        // Execute next messages
+        let host_call_stats = self.poll_next_host_messages(cx);
+        let workers_call_stats = self.poll_next_worker_messages(cx);
+
+        // TODO: separate workers and root metrics
+        self.meter(|m| {
+            for stat in &host_call_stats {
+                m.service_call(stat.success, stat.kind, stat.call_time)
+            }
+            for stat in &workers_call_stats {
+                m.service_call(stat.success, stat.kind, stat.call_time)
+            }
+        });
+
+        for effect in local_effects {
+            for local_peer in effect.next_peers {
+                let span = tracing::info_span!(parent: effect.particle.span.as_ref(), "Plumber: routing effect ingest");
+                let _guard = span.enter();
+                self.ingest(effect.particle.clone(), None, local_peer);
+            }
+        }
+
+        // Turn effects into events, and buffer them
+        self.events.extend(remote_effects.into_iter().map(Ok));
+
+        Poll::Pending
+    }
+
+    fn poll_pools(&mut self, cx: &mut Context<'_>) {
+        self.host_vm_pool.poll(cx);
+        for (_, vm_pool) in self.worker_vm_pools.iter_mut() {
+            vm_pool.poll(cx);
+        }
+    }
+
+    fn poll_host_actors(
+        &mut self,
+        cx: &mut Context<'_>,
+        remote_effects: &mut Vec<RemoteRoutingEffects>,
+        local_effects: &mut Vec<LocalRoutingEffects>,
+    ) {
+        let host_label =
+            WorkerLabel::new(WorkerType::Host, self.scopes.get_host_peer_id().to_string());
+        Self::poll_actors(
+            &mut self.host_actors,
+            &mut self.host_vm_pool,
+            &self.scopes,
+            self.metrics.as_ref(),
+            cx,
+            host_label,
+            remote_effects,
+            local_effects,
+        );
+    }
+
+    fn poll_workers_actors(
+        &mut self,
+        cx: &mut Context<'_>,
+        remote_effects: &mut Vec<RemoteRoutingEffects>,
+        local_effects: &mut Vec<LocalRoutingEffects>,
+    ) {
+        for (worker_id, actors) in self.worker_actors.iter_mut() {
+            if let Some(pool) = self.worker_vm_pools.get_mut(worker_id) {
+                let peer_id: PeerId = (*worker_id).into();
+                let host_label = WorkerLabel::new(WorkerType::Worker, peer_id.to_string());
+                Self::poll_actors(
+                    actors,
+                    pool,
+                    &self.scopes,
+                    self.metrics.as_ref(),
+                    cx,
+                    host_label,
+                    remote_effects,
+                    local_effects,
+                );
+            }
+        }
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn poll_actors(
+        actors: &mut HashMap<ActorKey, Actor<RT, F>>,
+        vm_pool: &mut VmPool<RT>,
+        scopes: &PeerScopes,
+        metrics: Option<&ParticleExecutorMetrics>,
+        cx: &mut Context<'_>,
+        label: WorkerLabel,
+        remote_effects: &mut Vec<RemoteRoutingEffects>,
+        local_effects: &mut Vec<LocalRoutingEffects>,
+    ) {
         let mut mailbox_size = 0;
-        for actor in self.actors.values_mut() {
+        let mut interpretation_stats = vec![];
+
+        for actor in actors.values_mut() {
             if let Poll::Ready(result) = actor.poll_completed(cx) {
                 interpretation_stats.push(result.stats);
 
                 let mut remote_peers = vec![];
                 let mut local_peers = vec![];
                 for next_peer in result.effects.next_peers {
-                    let scope = self.scopes.scope(next_peer);
+                    let scope = scopes.scope(next_peer);
                     match scope {
                         Err(_) => {
                             remote_peers.push(next_peer);
@@ -314,42 +459,53 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
 
                 let (vm_id, vm) = result.runtime;
                 if let Some(vm) = vm {
-                    self.vm_pool.put_vm(vm_id, vm);
+                    vm_pool.put_vm(vm_id, vm);
                 } else {
                     // if `result.vm` is None, then an AVM instance was lost due to
                     // panic or cancellation, and we must ask VmPool to recreate that AVM
                     // TODO: add a Count metric to count how often we call `recreate_avm`
-                    self.vm_pool.recreate_avm(vm_id, cx);
+                    vm_pool.recreate_avm(vm_id, cx);
                 }
             }
             mailbox_size += actor.mailbox_size();
         }
 
+        if let Some(m) = metrics {
+            for stat in &interpretation_stats {
+                // count particle interpretations
+                if stat.success {
+                    m.interpretation_successes.get_or_create(&label).inc();
+                } else {
+                    m.interpretation_failures.get_or_create(&label).inc();
+                }
+
+                let interpretation_time = stat.interpretation_time.as_secs_f64();
+                m.interpretation_time_sec
+                    .get_or_create(&label)
+                    .observe(interpretation_time);
+            }
+            m.total_actors_mailbox
+                .get_or_create(&label)
+                .set(mailbox_size as i64);
+            m.alive_actors
+                .get_or_create(&label)
+                .set(actors.len() as i64);
+        }
+    }
+
+    fn cleanup(&mut self, cx: &mut Context<'_>) {
+        // do not schedule task if another in progress
         if let Some(Ready(())) = self.cleanup_future.as_mut().map(|f| f.poll_unpin(cx)) {
             // we remove clean up future if it is ready
             self.cleanup_future.take();
         }
-
-        // do not schedule task if another in progress
         if self.cleanup_future.is_none() {
             // Remove expired actors
             let mut cleanup_keys: Vec<(String, PeerId, Vec<u8>, String)> =
                 Vec::with_capacity(MAX_CLEANUP_KEYS_SIZE);
             let now = now_ms();
-            self.actors.retain(|_, actor| {
-                // TODO: this code isn't optimal we continue iterate over actors if cleanup keys is full
-                // should be simpler to optimize it after fixing NET-632
-                // also delete fn actor.cleanup_key()
-                if cleanup_keys.len() >= MAX_CLEANUP_KEYS_SIZE {
-                    return true;
-                }
-                // if actor hasn't yet expired or is still executing, keep it
-                if !actor.is_expired(now) || actor.is_executing() {
-                    return true; // keep actor
-                }
-                cleanup_keys.push(actor.cleanup_key());
-                false // remove actor
-            });
+            self.cleanup_host_actors(&mut cleanup_keys, now);
+            self.cleanup_worker_actors(&mut cleanup_keys, now);
 
             if !cleanup_keys.is_empty() {
                 let data_store = self.data_store.clone();
@@ -357,63 +513,82 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
                     Some(async move { data_store.batch_cleanup_data(cleanup_keys).await }.boxed())
             }
         }
+    }
 
-        // Execute next messages
+    fn cleanup_host_actors(
+        &mut self,
+        cleanup_keys: &mut Vec<(String, PeerId, Vec<u8>, String)>,
+        now_ms: u64,
+    ) {
+        Self::cleanup_actors(&mut self.host_actors, cleanup_keys, now_ms)
+    }
+
+    fn cleanup_worker_actors(
+        &mut self,
+        cleanup_keys: &mut Vec<(String, PeerId, Vec<u8>, String)>,
+        now_ms: u64,
+    ) {
+        if cleanup_keys.len() >= MAX_CLEANUP_KEYS_SIZE {
+            return;
+        }
+        self.worker_actors.retain(|worker_id, actors| {
+            Self::cleanup_actors(actors, cleanup_keys, now_ms);
+
+            !actors.is_empty() || self.worker_vm_pools.contains_key(worker_id)
+        });
+    }
+
+    fn cleanup_actors(
+        map: &mut HashMap<ActorKey, Actor<RT, F>>,
+        cleanup_keys: &mut Vec<(String, PeerId, Vec<u8>, String)>,
+        now_ms: u64,
+    ) {
+        map.retain(|_, actor| {
+            if cleanup_keys.len() >= MAX_CLEANUP_KEYS_SIZE {
+                return true;
+            }
+            // if actor hasn't yet expired or is still executing, keep it
+            if !actor.is_expired(now_ms) || actor.is_executing() {
+                return true; // keep actor
+            }
+            cleanup_keys.push(actor.cleanup_key());
+            false // remove actor
+        });
+    }
+
+    fn poll_next_host_messages(&mut self, cx: &mut Context<'_>) -> Vec<SingleCallStat> {
         let mut stats = vec![];
-        for actor in self.actors.values_mut() {
-            if let Some((vm_id, vm)) = self.vm_pool.get_vm() {
+        for actor in self.host_actors.values_mut() {
+            if let Some((vm_id, vm)) = self.host_vm_pool.get_vm() {
                 match actor.poll_next(vm_id, vm, cx) {
-                    ActorPoll::Vm(vm_id, vm) => self.vm_pool.put_vm(vm_id, vm),
+                    ActorPoll::Vm(vm_id, vm) => self.host_vm_pool.put_vm(vm_id, vm),
                     ActorPoll::Executing(mut s) => stats.append(&mut s),
                 }
             } else {
-                // TODO: calculate deviations from normal mailbox_size
-                if mailbox_size > 11 {
-                    log::warn!(
-                        "{} particles waiting in mailboxes, but all interpreters busy",
-                        mailbox_size
-                    );
-                }
                 break;
             }
         }
-        self.meter(|m| {
-            for stat in &interpretation_stats {
-                // count particle interpretations
-                if stat.success {
-                    m.interpretation_successes.inc();
-                } else {
-                    m.interpretation_failures.inc();
+        stats
+    }
+
+    fn poll_next_worker_messages(&mut self, cx: &mut Context<'_>) -> Vec<SingleCallStat> {
+        let mut stats = vec![];
+
+        for (worker_id, actors) in self.worker_actors.iter_mut() {
+            if let Some(pool) = self.worker_vm_pools.get_mut(worker_id) {
+                for actor in actors.values_mut() {
+                    if let Some((vm_id, vm)) = pool.get_vm() {
+                        match actor.poll_next(vm_id, vm, cx) {
+                            ActorPoll::Vm(vm_id, vm) => pool.put_vm(vm_id, vm),
+                            ActorPoll::Executing(mut s) => stats.append(&mut s),
+                        }
+                    } else {
+                        break;
+                    }
                 }
-
-                let interpretation_time = stat.interpretation_time.as_secs_f64();
-                m.interpretation_time_sec.observe(interpretation_time);
-            }
-            m.total_actors_mailbox.set(mailbox_size as i64);
-            m.alive_actors.set(self.actors.len() as i64);
-
-            for stat in &stats {
-                m.service_call(stat.success, stat.kind, stat.call_time)
-            }
-        });
-
-        for effect in local_effects {
-            for local_peer in effect.next_peers {
-                let span = tracing::info_span!(parent: effect.particle.span.as_ref(), "Plumber: routing effect ingest");
-                let _guard = span.enter();
-                self.ingest(effect.particle.clone(), None, local_peer);
             }
         }
-
-        // Turn effects into events, and buffer them
-        self.events.extend(remote_effects.into_iter().map(Ok));
-
-        // Return a new event if there is some
-        if let Some(event) = self.events.pop_front() {
-            return Poll::Ready(event);
-        }
-
-        Poll::Pending
+        stats
     }
 
     fn wake(&self) {
@@ -443,6 +618,24 @@ mod real_time {
     pub fn now_ms() -> u64 {
         (chrono::Utc::now().timestamp() * 1000) as u64
     }
+}
+
+struct ActorParams<'a> {
+    key: ActorKey,
+    particle: &'a ExtendedParticle,
+    peer_scope: PeerScope,
+    current_peer_id: PeerId,
+    deal_id: Option<DealId>,
+    spawner: Spawner,
+}
+
+struct PlumberParams<'p, F>
+where
+    F: Clone,
+{
+    builtins: &'p F,
+    key_storage: &'p KeyStorage,
+    data_store: Arc<ParticleDataStore>,
 }
 
 #[cfg(test)]
@@ -526,12 +719,14 @@ mod tests {
             _call_results: CallResults,
             _key_pair: &KeyPair,
         ) -> Result<RawAVMOutcome, Self::Error> {
+            let soft_limits_triggering = <_>::default();
             Ok(RawAVMOutcome {
                 ret_code: 0,
                 error_message: "".to_string(),
                 data: vec![],
                 call_requests: Default::default(),
                 next_peer_pks: vec![],
+                soft_limits_triggering,
             })
         }
 
@@ -549,7 +744,7 @@ mod tests {
         let vm_pool = VmPool::new(1, (), None, None);
         let builtin_mock = Arc::new(MockF);
 
-        let root_key_pair: KeyPair = KeyPair::generate_ed25519().into();
+        let root_key_pair: KeyPair = KeyPair::generate_ed25519();
         let key_pair_path: PathBuf = "keypair".into();
         let workers_path: PathBuf = "workers".into();
         let key_storage = KeyStorage::from_path(key_pair_path.clone(), root_key_pair.clone())
@@ -567,9 +762,10 @@ mod tests {
             key_storage.clone(),
         );
 
-        let workers = Workers::from_path(workers_path.clone(), key_storage.clone(), core_manager)
-            .await
-            .expect("Could not load worker registry");
+        let (workers, _receiver) =
+            Workers::from_path(workers_path.clone(), key_storage.clone(), core_manager, 128)
+                .await
+                .expect("Could not load worker registry");
 
         let workers = Arc::new(workers);
 
@@ -587,6 +783,7 @@ mod tests {
         let data_store = Arc::new(data_store);
 
         Plumber::new(
+            (),
             vm_pool,
             data_store,
             builtin_mock,
@@ -627,15 +824,15 @@ mod tests {
             PeerScope::Host,
         );
 
-        assert_eq!(plumber.actors.len(), 1);
+        assert_eq!(plumber.host_actors.len(), 1);
         let mut cx = context();
         assert!(plumber.poll(&mut cx).is_pending());
-        assert_eq!(plumber.actors.len(), 1);
+        assert_eq!(plumber.host_actors.len(), 1);
 
-        assert_eq!(plumber.vm_pool.free_vms(), 0);
+        assert_eq!(plumber.host_vm_pool.free_vms(), 0);
         // pool is single VM, wait until VM is free
         loop {
-            if plumber.vm_pool.free_vms() == 1 {
+            if plumber.host_vm_pool.free_vms() == 1 {
                 break;
             };
             // 'is_pending' is used to suppress "must use" warning
@@ -644,7 +841,7 @@ mod tests {
 
         set_mock_time(now_ms() + 2);
         assert!(plumber.poll(&mut cx).is_pending());
-        assert_eq!(plumber.actors.len(), 0);
+        assert_eq!(plumber.host_actors.len(), 0);
     }
 
     /// Checks that expired particle won't create an actor
@@ -664,7 +861,7 @@ mod tests {
             PeerScope::Host,
         );
 
-        assert_eq!(plumber.actors.len(), 0);
+        assert_eq!(plumber.host_actors.len(), 0);
 
         // Check actor doesn't appear after poll somehow
         set_mock_time(now_ms() + 1000);
@@ -679,7 +876,7 @@ mod tests {
                 unexpected
             ),
         }
-        assert_eq!(plumber.actors.len(), 0);
+        assert_eq!(plumber.host_actors.len(), 0);
     }
 }
 

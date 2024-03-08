@@ -19,6 +19,7 @@ use libp2p::PeerId;
 use std::path::PathBuf;
 use thiserror::Error;
 use types::peer_scope::WorkerId;
+use types::DealId;
 
 #[derive(Debug, Error)]
 pub enum KeyStorageError {
@@ -114,9 +115,9 @@ pub enum WorkersError {
         err: toml::de::Error,
     },
     #[error("Worker for {deal_id} already exists")]
-    WorkerAlreadyExists { deal_id: String },
+    WorkerAlreadyExists { deal_id: DealId },
     #[error("Worker for deal_id {0} not found")]
-    WorkerNotFoundByDeal(String),
+    WorkerNotFoundByDeal(DealId),
     #[error("Worker {0} not found")]
     WorkerNotFound(WorkerId),
     #[error("Error serializing persisted worker: {err}")]
@@ -151,4 +152,6 @@ pub enum WorkersError {
         #[source]
         err: AcquireError,
     },
+    #[error("Failed to notify subsystem {worker_id}")]
+    FailedToNotifySubsystem { worker_id: WorkerId },
 }

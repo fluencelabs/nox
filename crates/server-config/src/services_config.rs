@@ -50,6 +50,10 @@ pub struct ServicesConfig {
     pub default_service_memory_limit: Option<ByteSize>,
     /// List of allowed effector modules by CID
     pub allowed_effectors: HashMap<Hash, HashMap<String, PathBuf>>,
+    /// Mapping of binary names to their paths for mounted binaries used in developer mode
+    pub mounted_binaries_mapping: HashMap<String, PathBuf>,
+    /// Is in the developer mode
+    pub is_dev_mode: bool,
 }
 
 impl ServicesConfig {
@@ -64,6 +68,8 @@ impl ServicesConfig {
         builtins_management_peer_id: PeerId,
         default_service_memory_limit: Option<ByteSize>,
         allowed_effectors: HashMap<Hash, HashMap<String, String>>,
+        mounted_binaries_mapping: HashMap<String, String>,
+        is_dev_mode: bool,
     ) -> Result<Self, std::io::Error> {
         let persistent_dir = to_abs_path(persistent_dir);
         let ephemeral_dir = to_abs_path(ephemeral_dir);
@@ -76,8 +82,12 @@ impl ServicesConfig {
                     .map(|(name, path_str)| {
                         let path = Path::new(&path_str);
                         match path.try_exists() {
-                            Err(err) => log::warn!("cannot check effector `{path_str}`: {err}"),
-                            Ok(false) => log::warn!("effector `{path_str}` does not exist"),
+                            Err(err) => log::warn!(
+                                "cannot check binary `{path_str}` for effector `{cid}`: {err}"
+                            ),
+                            Ok(false) => log::warn!(
+                                "binary `{path_str}` for effector `{cid}` does not exist"
+                            ),
                             _ => {}
                         };
                         (name, path.to_path_buf())
@@ -86,6 +96,23 @@ impl ServicesConfig {
                 (cid, effector)
             })
             .collect::<_>();
+
+        let mounted_binaries_mapping = if !is_dev_mode {
+            HashMap::new()
+        } else {
+            mounted_binaries_mapping
+                .into_iter()
+                .map(|(name, path_str)| {
+                    let path = Path::new(&path_str);
+                    match path.try_exists() {
+                        Err(err) => log::warn!("cannot check binary `{path_str}`: {err}"),
+                        Ok(false) => log::warn!("binary `{path_str}` does not exist"),
+                        _ => {}
+                    };
+                    (name, path.to_path_buf())
+                })
+                .collect::<_>()
+        };
 
         let this = Self {
             local_peer_id,
@@ -100,6 +127,8 @@ impl ServicesConfig {
             builtins_management_peer_id,
             default_service_memory_limit,
             allowed_effectors,
+            mounted_binaries_mapping,
+            is_dev_mode,
         };
 
         create_dirs(&[

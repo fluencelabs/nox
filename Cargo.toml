@@ -49,8 +49,8 @@ members = [
     "crates/chain-data",
     "crates/chain-types",
     "crates/types",
-    "crates/core-manager"
-]
+    "crates/core-manager",
+    ]
 exclude = [
     "nox/tests/tetraplets",
 ]
@@ -110,14 +110,14 @@ fluence-spell-dtos = "=0.7.6"
 fluence-spell-distro = "=0.7.6"
 
 # marine
-fluence-app-service = "0.35.0"
+fluence-app-service = "0.35.1"
 marine-utils = "0.5.1"
 marine-it-parser = "0.16.0"
 marine-module-info-parser = "0.15.0"
 
 # avm
-avm-server = "=0.35.0"
-air-interpreter-wasm = "=0.59.0"
+avm-server = "=0.37.0"
+air-interpreter-wasm = "=0.62.0"
 
 # libp2p
 libp2p = { version = "0.53.2", features = ["noise", "tcp", "dns", "websocket", "yamux", "tokio", "kad", "ping", "identify", "macros"] }

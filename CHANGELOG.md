@@ -1,5 +1,46 @@
 # Changelog
 
+## [0.22.1](https://github.com/fluencelabs/nox/compare/nox-v0.22.0...nox-v0.22.1) (2024-03-07)
+
+
+### Bug Fixes
+
+* **deps:** update rust crate decider-distro to v0.6.11 ([#2137](https://github.com/fluencelabs/nox/issues/2137)) ([bd8ff99](https://github.com/fluencelabs/nox/commit/bd8ff996ac5d6449844e99031b234fa9ef3cce76))
+* **workers:** add io+timer drivers to tokio runtimes [fixes NET-795] ([#2135](https://github.com/fluencelabs/nox/issues/2135)) ([fb251c9](https://github.com/fluencelabs/nox/commit/fb251c92a244d360e3fd1a46edcb00221cb4c75a))
+
+## [0.22.0](https://github.com/fluencelabs/nox/compare/nox-v0.21.4...nox-v0.22.0) (2024-03-05)
+
+
+### ⚠ BREAKING CHANGES
+
+* **aquavm:** aquavm mem limits from config [fixes VM-425] ([#2111](https://github.com/fluencelabs/nox/issues/2111))
+
+### Features
+
+* **aquavm:** aquavm mem limits from config [fixes VM-425] ([#2111](https://github.com/fluencelabs/nox/issues/2111)) ([a732f5c](https://github.com/fluencelabs/nox/commit/a732f5ca16e2cd5a721a220ce8f73b784dd0ab21))
+
+## [0.21.4](https://github.com/fluencelabs/nox/compare/nox-v0.21.3...nox-v0.21.4) (2024-03-03)
+
+
+### Features
+
+* bump fluence-app-service ([#2130](https://github.com/fluencelabs/nox/issues/2130)) ([98161b1](https://github.com/fluencelabs/nox/commit/98161b1d22ae4d62383c946c5ae415f5e9c5b9ed))
+
+## [0.21.3](https://github.com/fluencelabs/nox/compare/nox-v0.21.2...nox-v0.21.3) (2024-03-01)
+
+
+### Features
+
+* introduce the dev mode in which alow all effectors  ([#2127](https://github.com/fluencelabs/nox/issues/2127)) ([0eee6bf](https://github.com/fluencelabs/nox/commit/0eee6bf536cb5dc49c81421dc235dafcf17820c6))
+
+## [0.21.2](https://github.com/fluencelabs/nox/compare/nox-v0.21.1...nox-v0.21.2) (2024-02-27)
+
+
+### Features
+
+* introduce DealId type ([#2124](https://github.com/fluencelabs/nox/issues/2124)) ([ed0984d](https://github.com/fluencelabs/nox/commit/ed0984d62ffec7dfb0c6c5010900e4bad363010f))
+* restrict effectors ([#2110](https://github.com/fluencelabs/nox/issues/2110)) ([a4485ab](https://github.com/fluencelabs/nox/commit/a4485ab3a36f091941b5d4cc06b952fdac6c702e))
+
 ## [0.21.1](https://github.com/fluencelabs/nox/compare/nox-v0.21.0...nox-v0.21.1) (2024-02-24)
 
 

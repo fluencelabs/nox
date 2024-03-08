@@ -15,6 +15,7 @@
  */
 
 use std::collections::HashSet;
+use std::ops::Not;
 use std::{collections::HashMap, path::Path, path::PathBuf, sync::Arc};
 
 use base64::{engine::general_purpose::STANDARD as base64, Engine};
@@ -46,20 +47,34 @@ use crate::ModuleError::{
 };
 
 #[derive(Debug, Clone)]
+pub enum EffectorsMode {
+    RestrictedEffectors {
+        effectors: HashMap<Hash, HashMap<String, PathBuf>>,
+    },
+    AllEffectors {
+        binaries: HashMap<String, PathBuf>,
+    },
+}
+
+impl Default for EffectorsMode {
+    fn default() -> Self {
+        EffectorsMode::RestrictedEffectors {
+            effectors: Default::default(),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
 pub struct ModuleRepository {
     modules_dir: PathBuf,
     blueprints_dir: PathBuf,
     module_interface_cache: Arc<RwLock<HashMap<Hash, JValue>>>,
     blueprints: Arc<RwLock<HashMap<String, Blueprint>>>,
-    allowed_effectors: HashMap<Hash, HashMap<String, PathBuf>>,
+    effectors: EffectorsMode,
 }
 
 impl ModuleRepository {
-    pub fn new(
-        modules_dir: &Path,
-        blueprints_dir: &Path,
-        allowed_effectors: HashMap<Hash, HashMap<String, PathBuf>>,
-    ) -> Self {
+    pub fn new(modules_dir: &Path, blueprints_dir: &Path, effectors: EffectorsMode) -> Self {
         let blueprints = Self::load_blueprints(blueprints_dir);
         let blueprints_cache = Arc::new(RwLock::new(blueprints));
 
@@ -68,39 +83,51 @@ impl ModuleRepository {
             blueprints_dir: blueprints_dir.to_path_buf(),
             module_interface_cache: <_>::default(),
             blueprints: blueprints_cache,
-            allowed_effectors,
+            effectors,
         }
     }
 
-    pub fn add_module(&self, name: String, module: Vec<u8>) -> Result<Hash> {
-        // TODO: remove unwrap
-        let hash = Hash::new(&module)?;
-        let (logger_enabled, mounted) = Self::get_module_effects(&module)?;
-        let mut effector_settings = None;
-        if !mounted.is_empty() {
-            if let Some(binaries) = self.allowed_effectors.get(&hash) {
-                // check that all configured binaries are the same as in the module
-                // for now print warning if not
-                for binary_name in binaries.keys() {
-                    if !mounted
-                        .iter()
-                        .any(|mounted_name| mounted_name == binary_name)
-                    {
-                        return Err(InvalidEffectorMountedBinary {
-                            module_name: name,
-                            module_cid: hash.to_string(),
-                            binary_name: binary_name.clone(),
-                        });
-                    }
-                }
-                effector_settings = Some(binaries);
-            } else {
-                return Err(ForbiddenEffector {
-                    module_name: name,
-                    forbidden_cid: hash,
+    fn make_effectors_config(
+        &self,
+        module_name: &str,
+        module_hash: &Hash,
+        mounted_binaries: HashSet<String>,
+    ) -> Result<&HashMap<String, PathBuf>> {
+        let binaries = match &self.effectors {
+            EffectorsMode::RestrictedEffectors { effectors } => effectors
+                .iter()
+                .find(|(effector_hash, _)| effector_hash == &module_hash)
+                .map(|(_, binaries)| binaries)
+                .ok_or(ForbiddenEffector {
+                    module_name: module_name.to_string(),
+                    forbidden_cid: module_hash.to_string(),
+                })?,
+            EffectorsMode::AllEffectors { binaries } => binaries,
+        };
+        for mounted_binary_name in &mounted_binaries {
+            if !binaries
+                .keys()
+                .any(|binary_name| mounted_binary_name == binary_name)
+            {
+                return Err(InvalidEffectorMountedBinary {
+                    module_name: module_name.to_string(),
+                    module_cid: module_hash.to_string(),
+                    binary_name: mounted_binary_name.clone(),
                 });
             }
-        };
+        }
+
+        Ok(binaries)
+    }
+
+    pub fn add_module(&self, name: String, module: Vec<u8>) -> Result<Hash> {
+        let hash = Hash::new(&module)?;
+        let (logger_enabled, mounted) = Self::get_module_effects(&module)?;
+        let effector_settings = mounted
+            .is_empty()
+            .not()
+            .then(|| self.make_effectors_config(&name, &hash, mounted))
+            .transpose()?;
         let config = Self::make_config(name, logger_enabled, effector_settings);
         let _config = files::add_module(&self.modules_dir, &hash, &module, config)?;
 
@@ -411,7 +438,7 @@ mod tests {
     use service_modules::Hash;
 
     use crate::ModuleError::{ForbiddenEffector, InvalidEffectorMountedBinary};
-    use crate::{AddBlueprint, ModuleRepository};
+    use crate::{AddBlueprint, EffectorsMode, ModuleRepository};
 
     #[test]
     fn test_add_blueprint() {
@@ -431,7 +458,7 @@ mod tests {
             .unwrap();
         let bps1 = repo.get_blueprints();
         assert_eq!(bps1.len(), 1);
-        let bp1 = bps1.get(0).unwrap();
+        let bp1 = bps1.first().unwrap();
         assert_eq!(bp1.name, name1);
 
         let name2 = "bp2".to_string();
@@ -486,10 +513,12 @@ mod tests {
                 .unwrap();
 
         let effector_path = "../crates/nox-tests/tests/effector/artifacts";
-        let allowed_effectors = hashmap! {
-            effector_wasm_cid => hashmap! {
-                "ls".to_string() => PathBuf::from("/bin/ls"),
-            }
+        let allowed_effectors = EffectorsMode::RestrictedEffectors {
+            effectors: hashmap! {
+                effector_wasm_cid => hashmap! {
+                    "ls".to_string() => PathBuf::from("/bin/ls"),
+                }
+            },
         };
 
         let module_dir = TempDir::new("test").unwrap();
@@ -508,11 +537,13 @@ mod tests {
                 .unwrap();
 
         let effector_path = "../crates/nox-tests/tests/effector/artifacts";
-        let allowed_effectors = hashmap! {
-            some_wasm_cid => hashmap! {
-                "ls".to_string() => PathBuf::from("/bin/ls"),
-                "cat".to_string() => PathBuf::from("/bin/cat"),
-            }
+        let allowed_effectors = EffectorsMode::RestrictedEffectors {
+            effectors: hashmap! {
+                some_wasm_cid => hashmap! {
+                    "ls".to_string() => PathBuf::from("/bin/ls"),
+                    "cat".to_string() => PathBuf::from("/bin/cat"),
+                }
+            },
         };
 
         let module_dir = TempDir::new("test").unwrap();
@@ -531,11 +562,12 @@ mod tests {
                 .unwrap();
 
         let effector_path = "../crates/nox-tests/tests/effector/artifacts";
-        let allowed_effectors = hashmap! {
-            effector_wasm_cid => hashmap! {
-                "ls".to_string() => PathBuf::from("/bin/ls"),
-                "cat".to_string() => PathBuf::from("/bin/cat"),
-            }
+        let allowed_effectors = EffectorsMode::RestrictedEffectors {
+            effectors: hashmap! {
+                effector_wasm_cid => hashmap! {
+                    "cat".to_string() => PathBuf::from("/bin/cat"),
+                }
+            },
         };
 
         let module_dir = TempDir::new("test").unwrap();

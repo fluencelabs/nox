@@ -39,7 +39,7 @@ use now_millis::{now_ms, now_sec};
 use particle_args::{from_base58, Args, ArgsError, JError};
 use particle_execution::{FunctionOutcome, ParticleParams, ServiceFunction};
 use particle_modules::{
-    AddBlueprint, ModuleConfig, ModuleRepository, NamedModuleConfig, WASIConfig,
+    AddBlueprint, EffectorsMode, ModuleConfig, ModuleRepository, NamedModuleConfig, WASIConfig,
 };
 use particle_protocol::Contact;
 use particle_services::{ParticleAppServices, PeerScope, ServiceInfo, ServiceType};
@@ -108,8 +108,16 @@ where
     ) -> Self {
         let modules_dir = &config.modules_dir;
         let blueprint_dir = &config.blueprint_dir;
-        let modules =
-            ModuleRepository::new(modules_dir, blueprint_dir, config.allowed_effectors.clone());
+        let effectors_mode = if config.is_dev_mode {
+            EffectorsMode::AllEffectors {
+                binaries: config.mounted_binaries_mapping.clone(),
+            }
+        } else {
+            EffectorsMode::RestrictedEffectors {
+                effectors: config.allowed_effectors.clone(),
+            }
+        };
+        let modules = ModuleRepository::new(modules_dir, blueprint_dir, effectors_mode);
         let services = ParticleAppServices::new(
             config,
             modules.clone(),
@@ -273,7 +281,7 @@ where
             ("vault", "put") => wrap(self.vault_put(args, particle)),
             ("vault", "cat") => wrap(self.vault_cat(args, particle)),
 
-            ("subnet", "resolve") => wrap(self.subnet_resolve(args)),
+            ("subnet", "resolve") => wrap(self.subnet_resolve(args).await),
             ("run-console", "print") => {
                 let function_args = args.function_args.iter();
                 let decider = function_args.filter_map(JValue::as_str).any(|s| s.contains("decider"));
@@ -952,9 +960,9 @@ where
                     )));
                 }
 
-                if !t.json_path.is_empty() {
+                if !t.lens.is_empty() {
                     return Err(JError::new(
-                        "json_path for data tetraplet is expected to be empty",
+                        "lens for data tetraplet is expected to be empty",
                     ));
                 }
             } else {
@@ -1029,10 +1037,10 @@ where
             .map_err(|_| JError::new(format!("Error reading vault file `{path}`")))
     }
 
-    fn subnet_resolve(&self, args: Args) -> Result<JValue, JError> {
+    async fn subnet_resolve(&self, args: Args) -> Result<JValue, JError> {
         let mut args = args.function_args.into_iter();
         let deal_id: String = Args::next("deal_id", &mut args)?;
-        let result = subnet_resolver::resolve_subnet(deal_id, &self.connector_api_endpoint);
+        let result = subnet_resolver::resolve_subnet(deal_id, &self.connector_api_endpoint).await;
         Ok(json!(result))
     }
 }

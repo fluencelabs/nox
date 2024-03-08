@@ -49,7 +49,8 @@ pub fn default_socket_timeout() -> Duration {
 }
 
 pub fn default_connection_idle_timeout() -> Duration {
-    Duration::from_secs(10)
+    // 180 seconds makes sense because default Particle TTL is 120 sec, and it doesn't seem very efficient for hosts to reconnect while particle is still in flight
+    Duration::from_secs(180)
 }
 
 pub fn default_max_established_per_peer_limit() -> Option<u32> {
@@ -138,6 +139,10 @@ pub fn default_particle_queue_buffer_size() -> usize {
 }
 
 pub fn default_effects_queue_buffer_size() -> usize {
+    128
+}
+
+pub fn default_workers_queue_buffer_size() -> usize {
     128
 }
 
@@ -264,7 +269,14 @@ pub fn default_decider_network_id() -> u64 {
 pub fn default_effectors() -> HashMap<String, (String, HashMap<String, String>)> {
     hashmap! {
         "curl".to_string() => ("bafkreids22lgia5bqs63uigw4mqwhsoxvtnkpfqxqy5uwyyerrldsr32ce".to_string(), hashmap! {
-            "curl".to_string() => "/usr/bin/curl".to_string()
+            "curl".to_string() => default_curl_binary_path(),
         })
+    }
+}
+
+pub fn default_binaries_mapping() -> HashMap<String, String> {
+    hashmap! {
+        "curl".to_string() => default_curl_binary_path(),
+        "ipfs".to_string() => default_ipfs_binary_path(),
     }
 }

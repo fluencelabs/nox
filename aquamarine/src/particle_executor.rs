@@ -28,10 +28,9 @@ use tracing::instrument;
 use fluence_libp2p::PeerId;
 use particle_protocol::Particle;
 
-use crate::aqua_runtime::AquaRuntime;
 use crate::spawner::SpawnFunctions;
 use crate::spawner::Spawner;
-use crate::{InterpretationStats, ParticleDataStore, ParticleEffects};
+use crate::{AquaRuntime, InterpretationStats, ParticleDataStore, ParticleEffects};
 
 pub(super) type AVMRes<RT> = FutResult<Option<RT>, ParticleEffects, InterpretationStats>;
 
@@ -186,13 +185,7 @@ where
                 humantime::format_duration(stats.interpretation_time), prev_data_len, len
             );
 
-            if data_store.detect_anomaly(
-                stats.interpretation_time,
-                stats.memory_delta,
-                outcome,
-                &avm_result.call_results,
-                avm_result.particle.script.as_str(),
-            ) {
+            if data_store.detect_anomaly(stats.interpretation_time, stats.memory_delta, outcome) {
                 let anomaly_result = data_store
                     .save_anomaly_data(
                         avm_result.particle.script.as_str(),

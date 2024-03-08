@@ -251,7 +251,7 @@ impl ParticleAppServices {
         let runtime_handle = match peer_scope {
             PeerScope::WorkerId(worker_id) => self
                 .workers
-                .get_handle(worker_id)
+                .get_runtime_handle(worker_id)
                 .ok_or(ServiceError::WorkerNotFound { worker_id })?,
             PeerScope::Host => self.root_runtime_handle.clone(),
         };
@@ -457,7 +457,7 @@ impl ParticleAppServices {
                             peer_pk: st.peer_pk,
                             service_id: st.service_id,
                             function_name: st.function_name,
-                            lens: st.json_path,
+                            lens: st.lens,
                         })
                         .collect()
                 })
@@ -1208,9 +1208,10 @@ mod tests {
             key_storage.clone(),
         );
 
-        let workers = Workers::from_path(workers_dir.clone(), key_storage, core_manager)
-            .await
-            .expect("Could not load worker registry");
+        let (workers, _worker_events) =
+            Workers::from_path(workers_dir.clone(), key_storage, core_manager, 128)
+                .await
+                .expect("Could not load worker registry");
 
         let workers = Arc::new(workers);
 
@@ -1224,6 +1225,8 @@ mod tests {
             root_key_pair.get_peer_id(),
             Some(service_memory_limit),
             Default::default(),
+            Default::default(),
+            true,
         )
         .unwrap();
 
@@ -1246,12 +1249,11 @@ mod tests {
         let management_pid = create_pid();
         let pas = create_pas(root_keypair, management_pid, base_dir.into_path()).await;
 
-        let client_pid;
-        if as_manager {
-            client_pid = management_pid;
+        let client_pid = if as_manager {
+            management_pid
         } else {
-            client_pid = create_pid();
-        }
+            create_pid()
+        };
 
         pas.add_alias(PeerScope::Host, alias, service_id, client_pid)
             .await
@@ -1347,7 +1349,7 @@ mod tests {
         let inter2 = pas.get_interface(PeerScope::Host, service_id2, "").unwrap();
         let inter3 = pas.get_interface(PeerScope::Host, service_id3, "").unwrap();
 
-        assert_eq!(module_file.exists(), false);
+        assert!(!module_file.exists());
         assert_eq!(inter1, inter2);
         assert_eq!(inter3, inter2);
     }
