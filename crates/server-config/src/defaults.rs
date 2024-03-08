@@ -79,7 +79,10 @@ pub fn default_cpus_range() -> Option<CoreRange> {
         c if c > 8 => 1,
         _ => 0,
     };
-    Some(CoreRange::try_from(Vec::from_iter(left..total).as_slice()).expect("Cpu range can't be empty"))
+    Some(
+        CoreRange::try_from(Vec::from_iter(left..total).as_slice())
+            .expect("Cpu range can't be empty"),
+    )
 }
 
 pub fn default_websocket_port() -> u16 {
