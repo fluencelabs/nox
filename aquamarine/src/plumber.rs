@@ -207,7 +207,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
                     deal_id: None,
                     spawner,
                 };
-                create_actor(&mut self.host_actors, plumber_params, actor_params)
+                Self::create_actor(&mut self.host_actors, plumber_params, actor_params)
             }
             PeerScope::WorkerId(worker_id) => {
                 let worker_actors = match self.worker_actors.entry(worker_id) {
@@ -234,10 +234,57 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
                     spawner,
                 };
 
-                create_actor(worker_actors, plumber_params, actor_params)
+                Self::create_actor(worker_actors, plumber_params, actor_params)
             }
         }
     }
+
+    fn create_actor<'p, 'a>(
+        actors: &'p mut HashMap<ActorKey, Actor<RT, F>>,
+        plumber_params: PlumberParams<'p, F>,
+        actor_params: ActorParams<'a>,
+    ) -> eyre::Result<&'p mut Actor<RT, F>> {
+        let entry = actors.entry(actor_params.key);
+        let actor = match entry {
+            Entry::Occupied(actor) => actor.into_mut(),
+            Entry::Vacant(entry) => {
+                let builtins = plumber_params.builtins;
+                let key_pair = plumber_params
+                    .key_storage
+                    .get_keypair(actor_params.peer_scope)
+                    .ok_or(eyre!(
+                        "Cannot create actor, no key pair for {:?}",
+                        actor_params.peer_scope
+                    ))?;
+                let data_store = plumber_params.data_store.clone();
+
+                let particle_token = get_particle_token(
+                    &plumber_params.key_storage.root_key_pair,
+                    &actor_params.particle.particle.signature,
+                )?;
+                let params = ParticleParams::clone_from(
+                    &actor_params.particle.particle,
+                    actor_params.peer_scope,
+                    particle_token.clone(),
+                );
+                let functions = Functions::new(params, builtins.clone());
+
+                let actor = Actor::new(
+                    &actor_params.particle.particle,
+                    functions,
+                    actor_params.current_peer_id,
+                    particle_token,
+                    key_pair,
+                    data_store,
+                    actor_params.deal_id,
+                    actor_params.spawner,
+                );
+                entry.insert(actor)
+            }
+        };
+        Ok(actor)
+    }
+
     pub fn add_service(
         &self,
         service: String,
@@ -563,56 +610,6 @@ fn get_particle_token(key_pair: &KeyPair, signature: &Vec<u8>) -> eyre::Result<S
         )
     })?;
     Ok(bs58::encode(particle_token.to_vec()).into_string())
-}
-
-fn create_actor<'p, 'a, RT, F>(
-    actors: &'p mut HashMap<ActorKey, Actor<RT, F>>,
-    plumber_params: PlumberParams<'p, F>,
-    actor_params: ActorParams<'a>,
-) -> eyre::Result<&'p mut Actor<RT, F>>
-where
-    F: Clone + ParticleFunctionStatic,
-    RT: AquaRuntime,
-{
-    let entry = actors.entry(actor_params.key);
-    let actor = match entry {
-        Entry::Occupied(actor) => actor.into_mut(),
-        Entry::Vacant(entry) => {
-            let builtins = plumber_params.builtins;
-            let key_pair = plumber_params
-                .key_storage
-                .get_keypair(actor_params.peer_scope)
-                .ok_or(eyre!(
-                    "Cannot create actor, no key pair for {:?}",
-                    actor_params.peer_scope
-                ))?;
-            let data_store = plumber_params.data_store.clone();
-
-            let particle_token = get_particle_token(
-                &plumber_params.key_storage.root_key_pair,
-                &actor_params.particle.particle.signature,
-            )?;
-            let params = ParticleParams::clone_from(
-                &actor_params.particle.particle,
-                actor_params.peer_scope,
-                particle_token.clone(),
-            );
-            let functions = Functions::new(params, builtins.clone());
-
-            let actor = Actor::new(
-                &actor_params.particle.particle,
-                functions,
-                actor_params.current_peer_id,
-                particle_token,
-                key_pair,
-                data_store,
-                actor_params.deal_id,
-                actor_params.spawner,
-            );
-            entry.insert(actor)
-        }
-    };
-    Ok(actor)
 }
 
 /// Implements `now` by taking number of non-leap seconds from `Utc::now()`
