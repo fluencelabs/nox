@@ -23,7 +23,7 @@ use service_modules::load_module;
 
 #[tokio::test]
 async fn test_add_module_mounted_binaries() {
-    let swarms = make_swarms_with_cfg(1, |mut cfg| {
+    let swarms = make_swarms_with_cfg(1, move |mut cfg| {
         cfg.allowed_effectors = hashmap! {
             "bafkreiepzclggkt57vu7yrhxylfhaafmuogtqly7wel7ozl5k2ehkd44oe".to_string() => hashmap! {
                 "ls".to_string() => "/bin/ls".to_string()
@@ -33,9 +33,12 @@ async fn test_add_module_mounted_binaries() {
     })
     .await;
 
-    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
-        .await
-        .expect("connect client");
+    let mut client = ConnectedClient::connect_with_keypair(
+        swarms[0].multiaddr.clone(),
+        Some(swarms[0].management_keypair.clone()),
+    )
+    .await
+    .expect("connect client");
     let module = load_module("tests/effector/artifacts", "effector").expect("load module");
 
     let config = json!(
@@ -80,9 +83,12 @@ async fn test_add_module_mounted_binaries() {
 async fn test_add_module_effectors_forbidden() {
     let swarms = make_swarms(1).await;
 
-    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
-        .await
-        .expect("connect client");
+    let mut client = ConnectedClient::connect_with_keypair(
+        swarms[0].multiaddr.clone(),
+        Some(swarms[0].management_keypair.clone()),
+    )
+    .await
+    .expect("connect client");
     let module = load_module("tests/effector/artifacts", "effector").expect("load module");
 
     let config = json!(
@@ -121,4 +127,51 @@ async fn test_add_module_effectors_forbidden() {
     } else {
         panic!("can't receive response from node");
     }
+}
+
+#[tokio::test]
+async fn test_add_module_by_other_forbidden() {
+    let swarms = make_swarms(1).await;
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
+        .unwrap();
+    let module = load_module("tests/effector/artifacts", "effector").expect("load module");
+
+    let config = json!(
+    {
+        "name": "tetraplets",
+        "mem_pages_count": 100,
+        "logger_enabled": true,
+        "wasi": {
+            "envs": json!({}),
+            "mapped_dirs": json!({}),
+        },
+        "mounted_binaries": json!({"cmd": "/usr/bin/behbehbeh"})
+    });
+
+    let script = r#"
+    (xor
+       (seq
+           (call node ("dist" "add_module") [module_bytes module_config])
+           (call client ("return" "") ["shouldn't add module"])
+       )
+       (call client ("return" "") [%last_error%.$.message])
+    )
+   "#;
+
+    let data = hashmap! {
+        "client" => json!(client.peer_id.to_string()),
+        "node" => json!(client.node.to_string()),
+        "module_bytes" => json!(base64.encode(&module)),
+        "module_config" => config,
+    };
+    let response = client.execute_particle(script, data).await.unwrap();
+    assert!(
+        response[0]
+            .as_str()
+            .unwrap()
+            .contains("function is only available to the host or worker spells"),
+        "got {:?}",
+        response[0]
+    );
 }

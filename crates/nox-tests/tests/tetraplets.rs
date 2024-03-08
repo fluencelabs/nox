@@ -33,10 +33,13 @@ use eyre::WrapErr;
 async fn test_tetraplets() {
     let swarms = make_swarms(1).await;
 
-    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
-        .await
-        .wrap_err("connect client")
-        .unwrap();
+    let mut client = ConnectedClient::connect_with_keypair(
+        swarms[0].multiaddr.clone(),
+        Some(swarms[0].management_keypair.clone()),
+    )
+    .await
+    .wrap_err("connect client")
+    .unwrap();
     let tetraplets_service = create_service(
         &mut client,
         "tetraplets",

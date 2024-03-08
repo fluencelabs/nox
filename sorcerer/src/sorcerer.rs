@@ -36,7 +36,7 @@ use particle_args::JError;
 use particle_builtins::{wrap, wrap_unit, CustomService};
 use particle_execution::ServiceFunction;
 use particle_modules::ModuleRepository;
-use particle_services::{ParticleAppServices, PeerScope};
+use particle_services::ParticleAppServices;
 use peer_metrics::SpellMetrics;
 use serde_json::Value;
 use server_config::ResolvedConfig;
@@ -100,45 +100,38 @@ impl Sorcerer {
     }
 
     async fn resubscribe_spells(&self) {
-        for spell_id in self
-            .spell_storage
-            .get_registered_spells()
-            .values()
-            .flatten()
-        {
-            log::info!("Rescheduling spell {}", spell_id);
-            let result: Result<(), JError> = try {
-                let spell_owner =
-                    self.services
-                        .get_service_owner(PeerScope::Host, spell_id.clone(), "")?;
-                let peer_scope = self
-                    .scopes
-                    .scope(spell_owner)
-                    .expect("Should be local peer_id");
-                let params = CallParams::local(
-                    peer_scope,
-                    spell_id.clone(),
-                    spell_owner,
-                    self.spell_script_particle_ttl,
-                );
-                let config = self.spell_service_api.get_trigger_config(params)?;
-                let period = config.clock.period_sec;
-                let config = from_user_config(&config)?;
-                if let Some(config) = config.and_then(|c| c.into_rescheduled()) {
-                    self.spell_event_bus_api
-                        .subscribe(spell_id.clone(), config)
-                        .await?;
-                    if let Some(m) = &self.spell_metrics {
-                        m.observe_started_spell(period);
+        for (peer_scope, spells) in self.spell_storage.get_registered_spells() {
+            for spell_id in spells {
+                log::info!("Rescheduling spell {} on {:?} peer", spell_id, peer_scope);
+                let result: Result<(), JError> = try {
+                    let spell_owner =
+                        self.services
+                            .get_service_owner(peer_scope, spell_id.clone(), "")?;
+                    let params = CallParams::local(
+                        peer_scope,
+                        spell_id.clone(),
+                        spell_owner,
+                        self.spell_script_particle_ttl,
+                    );
+                    let config = self.spell_service_api.get_trigger_config(params)?;
+                    let period = config.clock.period_sec;
+                    let config = from_user_config(&config)?;
+                    if let Some(config) = config.and_then(|c| c.into_rescheduled()) {
+                        self.spell_event_bus_api
+                            .subscribe(spell_id.clone(), config)
+                            .await?;
+                        if let Some(m) = &self.spell_metrics {
+                            m.observe_started_spell(period);
+                        }
+                    } else {
+                        log::warn!("Spell {spell_id} is not rescheduled since its config is either not found or not reschedulable");
                     }
-                } else {
-                    log::warn!("Spell {spell_id} is not rescheduled since its config is either not found or not reschedulable");
+                };
+                if let Err(e) = result {
+                    // 1. We do not remove the spell we aren't able to reschedule. Users should be able to rerun it manually when updating trigger config.
+                    // 2. Maybe we should somehow register which spell are running and which are not and notify user about it.
+                    log::warn!("Failed to reschedule spell {}: {}.", spell_id, e);
                 }
-            };
-            if let Err(e) = result {
-                // 1. We do not remove the spell we aren't able to reschedule. Users should be able to rerun it manually when updating trigger config.
-                // 2. Maybe we should somehow register which spell are running and which are not and notify user about it.
-                log::warn!("Failed to reschedule spell {}: {}.", spell_id, e);
             }
         }
     }
@@ -375,10 +368,12 @@ impl Sorcerer {
 
     fn make_worker_create_closure(&self) -> ServiceFunction {
         let workers = self.workers.clone();
+        let scopes = self.scopes.clone();
         ServiceFunction::Immut(Box::new(move |args, params| {
             let workers = workers.clone();
+            let scopes = scopes.clone();
             async move {
-                let res: Result<Value, JError> = create_worker(args, params, workers).await;
+                let res: Result<Value, JError> = create_worker(args, params, scopes, workers).await;
                 wrap(res)
             }
             .boxed()

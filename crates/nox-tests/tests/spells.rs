@@ -27,7 +27,7 @@ use serde_json::{json, Value as JValue};
 
 use connected_client::ConnectedClient;
 use created_swarm::system_services_config::{DeciderConfig, SystemServicesConfig};
-use created_swarm::{make_swarms, make_swarms_with_cfg};
+use created_swarm::{make_swarms, make_swarms_with_cfg, make_swarms_with_keypair};
 use fluence_spell_dtos::trigger_config::{ClockConfig, TriggerConfig};
 use hex::FromHex;
 use log_utils::enable_logs;
@@ -168,10 +168,13 @@ fn make_clock_config(period_sec: u32, start_sec: u32, end_sec: u32) -> TriggerCo
 async fn spell_simple_test() {
     let swarms = make_swarms(1).await;
 
-    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
-        .await
-        .wrap_err("connect client")
-        .unwrap();
+    let mut client = ConnectedClient::connect_with_keypair(
+        swarms[0].multiaddr.clone(),
+        Some(swarms[0].management_keypair.clone()),
+    )
+    .await
+    .wrap_err("connect client")
+    .unwrap();
 
     let script = format!(
         r#"
@@ -204,10 +207,13 @@ async fn spell_simple_test() {
 async fn spell_error_handling_test() {
     enable_logs();
     let swarms = make_swarms(1).await;
-    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
-        .await
-        .wrap_err("connect client")
-        .unwrap();
+    let mut client = ConnectedClient::connect_with_keypair(
+        swarms[0].multiaddr.clone(),
+        Some(swarms[0].management_keypair.clone()),
+    )
+    .await
+    .wrap_err("connect client")
+    .unwrap();
 
     let failing_script = r#"
         (xor
@@ -262,10 +268,13 @@ async fn spell_error_handling_test() {
 #[tokio::test]
 async fn spell_args_test() {
     let swarms = make_swarms(1).await;
-    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
-        .await
-        .wrap_err("connect client")
-        .unwrap();
+    let mut client = ConnectedClient::connect_with_keypair(
+        swarms[0].multiaddr.clone(),
+        Some(swarms[0].management_keypair.clone()),
+    )
+    .await
+    .wrap_err("connect client")
+    .unwrap();
 
     let script = format!(
         r#"
@@ -298,10 +307,13 @@ async fn spell_args_test() {
 #[tokio::test]
 async fn spell_return_test() {
     let swarms = make_swarms(1).await;
-    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
-        .await
-        .wrap_err("connect client")
-        .unwrap();
+    let mut client = ConnectedClient::connect_with_keypair(
+        swarms[0].multiaddr.clone(),
+        Some(swarms[0].management_keypair.clone()),
+    )
+    .await
+    .wrap_err("connect client")
+    .unwrap();
 
     let script = format!(
         r#"
@@ -342,10 +354,13 @@ async fn spell_return_test() {
 #[tokio::test]
 async fn spell_install_alias() {
     let swarms = make_swarms(1).await;
-    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
-        .await
-        .wrap_err("connect client")
-        .unwrap();
+    let mut client = ConnectedClient::connect_with_keypair(
+        swarms[0].multiaddr.clone(),
+        Some(swarms[0].management_keypair.clone()),
+    )
+    .await
+    .wrap_err("connect client")
+    .unwrap();
 
     let alias = "spell_alias".to_string();
     let script = format!(
@@ -375,10 +390,13 @@ async fn spell_install_alias() {
 async fn spell_run_oneshot() {
     enable_logs();
     let swarms = make_swarms(1).await;
-    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
-        .await
-        .wrap_err("connect client")
-        .unwrap();
+    let mut client = ConnectedClient::connect_with_keypair(
+        swarms[0].multiaddr.clone(),
+        Some(swarms[0].management_keypair.clone()),
+    )
+    .await
+    .wrap_err("connect client")
+    .unwrap();
 
     let script = r#"
         (seq
@@ -422,10 +440,13 @@ async fn spell_run_oneshot() {
 #[tokio::test]
 async fn spell_install_ok_empty_config() {
     let swarms = make_swarms(1).await;
-    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
-        .await
-        .wrap_err("connect client")
-        .unwrap();
+    let mut client = ConnectedClient::connect_with_keypair(
+        swarms[0].multiaddr.clone(),
+        Some(swarms[0].management_keypair.clone()),
+    )
+    .await
+    .wrap_err("connect client")
+    .unwrap();
 
     let script = r#"(call %init_peer_id% ("peer" "identify") [] x)"#;
 
@@ -502,10 +523,13 @@ async fn spell_install_ok_empty_config() {
 #[tokio::test]
 async fn spell_install_fail_large_period() {
     let swarms = make_swarms(1).await;
-    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
-        .await
-        .wrap_err("connect client")
-        .unwrap();
+    let mut client = ConnectedClient::connect_with_keypair(
+        swarms[0].multiaddr.clone(),
+        Some(swarms[0].management_keypair.clone()),
+    )
+    .await
+    .wrap_err("connect client")
+    .unwrap();
 
     let script = r#"(call %init_peer_id% ("peer" "identify") [] x)"#;
     let empty: HashMap<String, String> = HashMap::new();
@@ -548,10 +572,13 @@ async fn spell_install_fail_large_period() {
 #[tokio::test]
 async fn spell_install_fail_end_sec_past() {
     let swarms = make_swarms(1).await;
-    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
-        .await
-        .wrap_err("connect client")
-        .unwrap();
+    let mut client = ConnectedClient::connect_with_keypair(
+        swarms[0].multiaddr.clone(),
+        Some(swarms[0].management_keypair.clone()),
+    )
+    .await
+    .wrap_err("connect client")
+    .unwrap();
 
     let script = r#"(call %init_peer_id% ("peer" "identify") [] x)"#;
     let empty: HashMap<String, String> = HashMap::new();
@@ -597,10 +624,13 @@ async fn spell_install_fail_end_sec_past() {
 #[tokio::test]
 async fn spell_install_fail_end_sec_before_start() {
     let swarms = make_swarms(1).await;
-    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
-        .await
-        .wrap_err("connect client")
-        .unwrap();
+    let mut client = ConnectedClient::connect_with_keypair(
+        swarms[0].multiaddr.clone(),
+        Some(swarms[0].management_keypair.clone()),
+    )
+    .await
+    .wrap_err("connect client")
+    .unwrap();
 
     let script = r#"(call %init_peer_id% ("peer" "identify") [] x)"#;
     let empty: HashMap<String, String> = HashMap::new();
@@ -649,10 +679,13 @@ async fn spell_install_fail_end_sec_before_start() {
 #[tokio::test]
 async fn spell_store_trigger_config() {
     let swarms = make_swarms(1).await;
-    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
-        .await
-        .wrap_err("connect client")
-        .unwrap();
+    let mut client = ConnectedClient::connect_with_keypair(
+        swarms[0].multiaddr.clone(),
+        Some(swarms[0].management_keypair.clone()),
+    )
+    .await
+    .wrap_err("connect client")
+    .unwrap();
 
     let script = r#"(call %init_peer_id% ("peer" "identify") [] x)"#;
     let config = make_clock_config(13, 10, 0);
@@ -692,10 +725,13 @@ async fn spell_remove() {
     enable_logs();
     let swarms = make_swarms(1).await;
 
-    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
-        .await
-        .wrap_err("connect client")
-        .unwrap();
+    let mut client = ConnectedClient::connect_with_keypair(
+        swarms[0].multiaddr.clone(),
+        Some(swarms[0].management_keypair.clone()),
+    )
+    .await
+    .wrap_err("connect client")
+    .unwrap();
 
     let script = r#"(call %init_peer_id% ("peer" "identify") [] x)"#;
     let config = make_clock_config(2, 1, 0);
@@ -752,10 +788,13 @@ async fn spell_remove() {
 async fn spell_remove_by_alias() {
     let swarms = make_swarms(1).await;
 
-    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
-        .await
-        .wrap_err("connect client")
-        .unwrap();
+    let mut client = ConnectedClient::connect_with_keypair(
+        swarms[0].multiaddr.clone(),
+        Some(swarms[0].management_keypair.clone()),
+    )
+    .await
+    .wrap_err("connect client")
+    .unwrap();
 
     let script = format!(
         r#"
@@ -798,10 +837,13 @@ async fn spell_remove_by_alias() {
 async fn spell_remove_spell_as_service() {
     enable_logs();
     let swarms = make_swarms(1).await;
-    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
-        .await
-        .wrap_err("connect client")
-        .unwrap();
+    let mut client = ConnectedClient::connect_with_keypair(
+        swarms[0].multiaddr.clone(),
+        Some(swarms[0].management_keypair.clone()),
+    )
+    .await
+    .wrap_err("connect client")
+    .unwrap();
 
     let script = r#"(call %init_peer_id% ("peer" "identify") [] x)"#;
 
@@ -892,10 +934,13 @@ async fn spell_call_by_alias() {
 
     let swarms = make_swarms(1).await;
 
-    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
-        .await
-        .wrap_err("connect client")
-        .unwrap();
+    let mut client = ConnectedClient::connect_with_keypair(
+        swarms[0].multiaddr.clone(),
+        Some(swarms[0].management_keypair.clone()),
+    )
+    .await
+    .wrap_err("connect client")
+    .unwrap();
 
     let script = format!(
         r#"
@@ -930,10 +975,13 @@ async fn spell_call_by_alias() {
 #[tokio::test]
 async fn spell_trigger_connection_pool() {
     let swarms = make_swarms(1).await;
-    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
-        .await
-        .wrap_err("connect client")
-        .unwrap();
+    let mut client = ConnectedClient::connect_with_keypair(
+        swarms[0].multiaddr.clone(),
+        Some(swarms[0].management_keypair.clone()),
+    )
+    .await
+    .wrap_err("connect client")
+    .unwrap();
 
     let script = format!(
         r#"
@@ -1017,10 +1065,13 @@ async fn spell_trigger_connection_pool() {
 #[tokio::test]
 async fn spell_timer_trigger_mailbox_test() {
     let swarms = make_swarms(1).await;
-    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
-        .await
-        .wrap_err("connect client")
-        .unwrap();
+    let mut client = ConnectedClient::connect_with_keypair(
+        swarms[0].multiaddr.clone(),
+        Some(swarms[0].management_keypair.clone()),
+    )
+    .await
+    .wrap_err("connect client")
+    .unwrap();
     let script = format!(
         r#"
         (seq
@@ -1055,10 +1106,13 @@ async fn spell_timer_trigger_mailbox_test() {
 #[tokio::test]
 async fn spell_connection_pool_trigger_test() {
     let swarms = make_swarms(1).await;
-    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
-        .await
-        .wrap_err("connect client")
-        .unwrap();
+    let mut client = ConnectedClient::connect_with_keypair(
+        swarms[0].multiaddr.clone(),
+        Some(swarms[0].management_keypair.clone()),
+    )
+    .await
+    .wrap_err("connect client")
+    .unwrap();
 
     let script = format!(
         r#"
@@ -1182,10 +1236,13 @@ async fn spell_set_u32() {
 #[tokio::test]
 async fn spell_peer_id_test() {
     let swarms = make_swarms(1).await;
-    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
-        .await
-        .wrap_err("connect client")
-        .unwrap();
+    let mut client = ConnectedClient::connect_with_keypair(
+        swarms[0].multiaddr.clone(),
+        Some(swarms[0].management_keypair.clone()),
+    )
+    .await
+    .wrap_err("connect client")
+    .unwrap();
 
     let script = format!(
         r#"
@@ -1207,10 +1264,13 @@ async fn spell_peer_id_test() {
 #[tokio::test]
 async fn spell_update_config() {
     let swarms = make_swarms(1).await;
-    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
-        .await
-        .wrap_err("connect client")
-        .unwrap();
+    let mut client = ConnectedClient::connect_with_keypair(
+        swarms[0].multiaddr.clone(),
+        Some(swarms[0].management_keypair.clone()),
+    )
+    .await
+    .wrap_err("connect client")
+    .unwrap();
 
     let script = format!(
         r#"(seq
@@ -1297,10 +1357,13 @@ async fn spell_update_config() {
 #[tokio::test]
 async fn spell_update_config_stopped_spell() {
     let swarms = make_swarms(1).await;
-    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
-        .await
-        .wrap_err("connect client")
-        .unwrap();
+    let mut client = ConnectedClient::connect_with_keypair(
+        swarms[0].multiaddr.clone(),
+        Some(swarms[0].management_keypair.clone()),
+    )
+    .await
+    .wrap_err("connect client")
+    .unwrap();
 
     let script = format!(
         r#"(seq
@@ -1373,10 +1436,13 @@ async fn spell_update_config_stopped_spell() {
 async fn resolve_alias_wrong_worker() {
     let swarms = make_swarms(1).await;
 
-    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
-        .await
-        .wrap_err("connect client")
-        .unwrap();
+    let mut client = ConnectedClient::connect_with_keypair(
+        swarms[0].multiaddr.clone(),
+        Some(swarms[0].management_keypair.clone()),
+    )
+    .await
+    .wrap_err("connect client")
+    .unwrap();
 
     let script = format!(
         r#"
@@ -1422,10 +1488,13 @@ async fn worker_sig_test() {
     })
     .await;
 
-    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
-        .await
-        .wrap_err("connect client")
-        .unwrap();
+    let mut client = ConnectedClient::connect_with_keypair(
+        swarms[0].multiaddr.clone(),
+        Some(swarms[0].management_keypair.clone()),
+    )
+    .await
+    .wrap_err("connect client")
+    .unwrap();
 
     let script = format!(
         r#"
@@ -1467,10 +1536,13 @@ async fn worker_sig_test() {
 #[tokio::test]
 async fn spell_relay_id_test() {
     let swarms = make_swarms(1).await;
-    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
-        .await
-        .wrap_err("connect client")
-        .unwrap();
+    let mut client = ConnectedClient::connect_with_keypair(
+        swarms[0].multiaddr.clone(),
+        Some(swarms[0].management_keypair.clone()),
+    )
+    .await
+    .wrap_err("connect client")
+    .unwrap();
 
     let script = format!(
         r#"
@@ -1503,10 +1575,13 @@ async fn spell_relay_id_test() {
 #[tokio::test]
 async fn spell_create_worker_twice() {
     let swarms = make_swarms(1).await;
-    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
-        .await
-        .wrap_err("connect client")
-        .unwrap();
+    let mut client = ConnectedClient::connect_with_keypair(
+        swarms[0].multiaddr.clone(),
+        Some(swarms[0].management_keypair.clone()),
+    )
+    .await
+    .wrap_err("connect client")
+    .unwrap();
     let init_id_1 =
         <CUID>::from_hex("54ae1b506c260367a054f80800a545f23e32c6bc4a8908c9a794cb8dad23e5ea")
             .unwrap();
@@ -1590,16 +1665,19 @@ async fn spell_install_root_scope() {
 
 #[tokio::test]
 async fn spell_create_worker_same_deal_id_different_peer() {
-    let swarms = make_swarms(1).await;
-    let mut client1 = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
-        .await
-        .wrap_err("connect client")
-        .unwrap();
+    enable_logs();
+    // Create nox with one management peer id and create a worker with manager 1
+    let kp = KeyPair::generate_ed25519();
+    let swarms = make_swarms_with_keypair(1, kp.clone()).await;
+    let tmp_dir = swarms[0].tmp_dir.clone();
+    let mut client1 = ConnectedClient::connect_with_keypair(
+        swarms[0].multiaddr.clone(),
+        Some(swarms[0].management_keypair.clone()),
+    )
+    .await
+    .wrap_err("connect client")
+    .unwrap();
 
-    let mut client2 = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
-        .await
-        .wrap_err("connect client")
-        .unwrap();
     let init_id_1 =
         <CUID>::from_hex("54ae1b506c260367a054f80800a545f23e32c6bc4a8908c9a794cb8dad23e5ea")
             .unwrap();
@@ -1623,6 +1701,26 @@ async fn spell_create_worker_same_deal_id_different_peer() {
 
     let worker_id = response[0].as_str().unwrap().to_string();
     assert_ne!(worker_id.len(), 0);
+    swarms
+        .into_iter()
+        .map(|s| s.exit_outlet.send(()))
+        .for_each(drop);
+
+    // Then restart the nox but with another management peer id and try to create a worker
+    // with the same deal id
+    let swarms = make_swarms_with_cfg(1, move |mut cfg| {
+        cfg.keypair = kp.clone();
+        cfg.tmp_dir = tmp_dir.clone();
+        cfg
+    })
+    .await;
+    let mut client2 = ConnectedClient::connect_with_keypair(
+        swarms[0].multiaddr.clone(),
+        Some(swarms[0].management_keypair.clone()),
+    )
+    .await
+    .wrap_err("connect client")
+    .unwrap();
 
     let data = hashmap! {
         "client" => json!(client2.peer_id.to_string()),
@@ -1652,10 +1750,13 @@ async fn spell_create_worker_same_deal_id_different_peer() {
 async fn create_remove_worker() {
     enable_logs();
     let swarms = make_swarms(1).await;
-    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
-        .await
-        .wrap_err("connect client")
-        .unwrap();
+    let mut client = ConnectedClient::connect_with_keypair(
+        swarms[0].multiaddr.clone(),
+        Some(swarms[0].management_keypair.clone()),
+    )
+    .await
+    .wrap_err("connect client")
+    .unwrap();
 
     let script = r#"(call %init_peer_id% ("getDataSrv" "spell_id") [] spell_id)"#;
     let config = make_clock_config(0, 1, 0);
@@ -1819,10 +1920,13 @@ async fn spell_update_trigger_by_alias() {
 #[tokio::test]
 async fn test_worker_list() {
     let swarms = make_swarms(1).await;
-    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
-        .await
-        .wrap_err("connect client")
-        .unwrap();
+    let mut client = ConnectedClient::connect_with_keypair(
+        swarms[0].multiaddr.clone(),
+        Some(swarms[0].management_keypair.clone()),
+    )
+    .await
+    .wrap_err("connect client")
+    .unwrap();
 
     let worker_id1 = create_worker(&mut client, Some("deal_id1".to_string())).await;
     let worker_id2 = create_worker(&mut client, None).await;
@@ -1863,10 +1967,13 @@ async fn test_worker_list() {
 #[tokio::test]
 async fn test_spell_list() {
     let swarms = make_swarms(1).await;
-    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
-        .await
-        .wrap_err("connect client")
-        .unwrap();
+    let mut client = ConnectedClient::connect_with_keypair(
+        swarms[0].multiaddr.clone(),
+        Some(swarms[0].management_keypair.clone()),
+    )
+    .await
+    .wrap_err("connect client")
+    .unwrap();
 
     let script = r#"(call %init_peer_id% ("peer" "identify") [] x)"#;
 
@@ -1944,10 +2051,13 @@ async fn test_spell_list() {
 async fn spell_call_by_default_alias() {
     let swarms = make_swarms(1).await;
 
-    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
-        .await
-        .wrap_err("connect client")
-        .unwrap();
+    let mut client = ConnectedClient::connect_with_keypair(
+        swarms[0].multiaddr.clone(),
+        Some(swarms[0].management_keypair.clone()),
+    )
+    .await
+    .wrap_err("connect client")
+    .unwrap();
 
     let script = format!(
         r#"
@@ -2006,10 +2116,13 @@ async fn spell_call_by_default_alias() {
 async fn get_worker_peer_id_opt() {
     let swarms = make_swarms(1).await;
 
-    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
-        .await
-        .wrap_err("connect client")
-        .unwrap();
+    let mut client = ConnectedClient::connect_with_keypair(
+        swarms[0].multiaddr.clone(),
+        Some(swarms[0].management_keypair.clone()),
+    )
+    .await
+    .wrap_err("connect client")
+    .unwrap();
 
     let init_id_1 =
         <CUID>::from_hex("54ae1b506c260367a054f80800a545f23e32c6bc4a8908c9a794cb8dad23e5ea")
@@ -2054,10 +2167,13 @@ async fn get_worker_peer_id_opt() {
 async fn set_alias_by_worker_creator() {
     let swarms = make_swarms(1).await;
 
-    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
-        .await
-        .wrap_err("connect client")
-        .unwrap();
+    let mut client = ConnectedClient::connect_with_keypair(
+        swarms[0].multiaddr.clone(),
+        Some(swarms[0].management_keypair.clone()),
+    )
+    .await
+    .wrap_err("connect client")
+    .unwrap();
 
     let worker_id = create_worker(&mut client, None).await;
 
@@ -2335,4 +2451,50 @@ async fn test_activate_deactivate() {
     } else {
         panic!("expected result")
     }
+}
+
+#[tokio::test]
+async fn test_install_by_other_forbidden() {
+    let swarms = make_swarms(1).await;
+    let mut client_manager = ConnectedClient::connect_with_keypair(
+        swarms[0].multiaddr.clone(),
+        Some(swarms[0].management_keypair.clone()),
+    )
+    .await
+    .wrap_err("connect client")
+    .unwrap();
+    let mut client_other = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
+        .wrap_err("connect client")
+        .unwrap();
+
+    let worker_id = create_worker(&mut client_manager, Some("deal_id".to_string())).await;
+    let data = hashmap! {
+        "script" => json!("(noop)"),
+        "config" => json!(make_clock_config(0, 0, 0)),
+        "client" => json!(client_other.peer_id.to_string()),
+        "relay" => json!(client_other.node.to_string()),
+        "worker_id" => json!(worker_id.clone()),
+        "alias" => json!("some-spell"),
+        "data" => json!({}),
+    };
+
+    let response = client_other
+        .execute_particle(
+            r#"
+        (seq
+            (call relay ("op" "noop") [])
+            (xor
+                (seq
+                    (call worker_id ("spell" "install") [script data config alias] spell_id)
+                    (call client ("return" "") ["spell with the forbidden worker-spell alias created"])
+                )
+                (call client ("return" "") ["done"])
+            )
+        )"#,
+            data.clone(),
+        )
+        .await.unwrap();
+    let response = response[0].as_str().unwrap().to_string();
+    assert_eq!(response, "done");
 }
