@@ -29,20 +29,21 @@ use particle_execution::{ParticleFunctionStatic, ServiceFunction};
 use particle_protocol::ExtendedParticle;
 use particle_services::PeerScope;
 use peer_metrics::{ParticleExecutorMetrics, VmPoolMetrics};
-use workers::{KeyStorage, PeerScopes, Workers};
+use workers::{Event, KeyStorage, PeerScopes, Receiver, Workers};
 
-use crate::aqua_runtime::AquaRuntime;
 use crate::command::Command;
 use crate::command::Command::{AddService, Ingest, RemoveService};
 use crate::error::AquamarineApiError;
-use crate::particle_effects::RemoteRoutingEffects;
 use crate::vm_pool::VmPool;
-use crate::{DataStoreConfig, ParticleDataStore, Plumber, VmPoolConfig};
+use crate::{
+    AquaRuntime, DataStoreConfig, ParticleDataStore, Plumber, RemoteRoutingEffects, VmPoolConfig,
+};
 
 pub type EffectsChannel = mpsc::Sender<Result<RemoteRoutingEffects, AquamarineApiError>>;
 
 pub struct AquamarineBackend<RT: AquaRuntime, F> {
     inlet: mpsc::Receiver<Command>,
+    worker_events: Receiver<Event>,
     plumber: Plumber<RT, F>,
     out: EffectsChannel,
     data_store: Arc<ParticleDataStore>,
@@ -62,6 +63,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> AquamarineBackend<RT, F> {
         workers: Arc<Workers>,
         key_storage: Arc<KeyStorage>,
         scopes: PeerScopes,
+        worker_events: Receiver<Event>,
     ) -> eyre::Result<(Self, AquamarineApi)> {
         // TODO: make `100` configurable
         let (outlet, inlet) = mpsc::channel(100);
@@ -75,11 +77,12 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> AquamarineBackend<RT, F> {
         let data_store: Arc<ParticleDataStore> = Arc::new(data_store);
         let vm_pool = VmPool::new(
             config.pool_size,
-            runtime_config,
+            runtime_config.clone(),
             vm_pool_metrics,
             health_registry,
         );
         let plumber = Plumber::new(
+            runtime_config,
             vm_pool,
             data_store.clone(),
             builtins,
@@ -90,6 +93,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> AquamarineBackend<RT, F> {
         );
         let this = Self {
             inlet,
+            worker_events,
             plumber,
             out,
             data_store,
@@ -99,7 +103,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> AquamarineBackend<RT, F> {
     }
 
     pub fn poll(&mut self, cx: &mut std::task::Context<'_>) -> Poll<()> {
-        let mut wake = false;
+        let mut wake = self.process_worker_events();
 
         // check if there are new particles
         loop {
@@ -141,6 +145,31 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> AquamarineBackend<RT, F> {
         } else {
             Poll::Pending
         }
+    }
+
+    fn process_worker_events(&mut self) -> bool {
+        let mut wake = false;
+        loop {
+            let res = self.worker_events.try_recv();
+            match res {
+                Ok(event) => match event {
+                    Event::WorkerCreated {
+                        worker_id,
+                        thread_count,
+                    } => {
+                        wake = true;
+                        self.plumber.create_worker_pool(worker_id, thread_count);
+                    }
+                    Event::WorkerRemoved { worker_id } => {
+                        self.plumber.remove_worker_pool(worker_id);
+                    }
+                },
+                Err(_) => {
+                    break;
+                }
+            }
+        }
+        wake
     }
 
     pub fn start(mut self) -> JoinHandle<()> {

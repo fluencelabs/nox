@@ -28,10 +28,9 @@ use tracing::instrument;
 use fluence_libp2p::PeerId;
 use particle_protocol::Particle;
 
-use crate::aqua_runtime::AquaRuntime;
 use crate::spawner::SpawnFunctions;
 use crate::spawner::Spawner;
-use crate::{InterpretationStats, ParticleDataStore, ParticleEffects};
+use crate::{AquaRuntime, InterpretationStats, ParticleDataStore, ParticleEffects};
 
 pub(super) type AVMRes<RT> = FutResult<Option<RT>, ParticleEffects, InterpretationStats>;
 
