@@ -178,7 +178,7 @@ async fn get_modules() {
         .any(|m| m.name.as_deref() == Some("greeting")));
 
     let interfaces = iter.next();
-    assert_eq!(interfaces.is_some(), true);
+    assert!(interfaces.is_some());
 }
 
 #[tokio::test]

@@ -78,10 +78,19 @@ pub fn create_dir<P: AsRef<Path> + Debug>(dir: P) -> Result<(), std::io::Error> 
         .map_err(|err| std::io::Error::new(err.kind(), format!("{err:?}: {dir:?}")))
 }
 
+// TODO: this is a hack, remove after fix in marine. mask 300 doesn't work on macos
+cfg_if::cfg_if! {
+     if #[cfg(target_os = "macos")] {
+        const WRITE_ONLY_MASK: u32 = 0o700;
+    } else {
+        const WRITE_ONLY_MASK: u32 = 0o300;
+    }
+}
+
 pub fn create_dir_write_only<P: AsRef<Path> + Debug>(dir: P) -> Result<(), std::io::Error> {
     DirBuilder::new()
         .recursive(true)
-        .mode(0o333)
+        .mode(WRITE_ONLY_MASK)
         .create(&dir)
         .map_err(|err| std::io::Error::new(err.kind(), format!("{err:?}: {dir:?}")))
 }

@@ -323,7 +323,7 @@ mod tests {
             let config = load_config_with_args(vec![], None).expect("Could not load config");
             let config = config.resolve().unwrap();
             let resolved_secret = encode_secret(&config);
-            assert_eq!(config.node_config.allow_local_addresses, false);
+            assert!(!config.node_config.allow_local_addresses);
             assert_eq!(
                 resolved_secret,
                 "/XKBs1ydmfWGiTbh+e49GYw+14LHtu+v5BMFDIzHpvo="
@@ -509,10 +509,10 @@ mod tests {
 
         temp_env::with_var("FLUENCE_CONFIG", Some(path), || {
             let builtins_kp = KeyPair::generate_secp256k1();
-            std::fs::write(&root_key_path, base64.encode(&root_kp.secret().unwrap())).unwrap();
+            std::fs::write(&root_key_path, base64.encode(root_kp.secret().unwrap())).unwrap();
             std::fs::write(
                 &builtins_key_path,
-                base64.encode(&builtins_kp.secret().unwrap()),
+                base64.encode(builtins_kp.secret().unwrap()),
             )
             .unwrap();
             assert!(root_key_path.exists());
