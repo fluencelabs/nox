@@ -49,8 +49,8 @@ members = [
     "crates/chain-data",
     "crates/chain-types",
     "crates/types",
-    "crates/core-manager"
-]
+    "crates/core-manager",
+    ]
 exclude = [
     "nox/tests/tetraplets",
 ]

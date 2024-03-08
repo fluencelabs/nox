@@ -10,7 +10,7 @@ pub struct RetStruct {
 pub fn response_to_return(resp: IValue) -> RetStruct {
     match resp {
         IValue::Record(r) => {
-            let ret_code = match r.get(0).unwrap() {
+            let ret_code = match r.first().unwrap() {
                 IValue::U32(u) => *u,
                 _ => panic!("unexpected, should be u32 ret_code"),
             };

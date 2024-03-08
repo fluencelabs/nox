@@ -685,7 +685,7 @@ mod tests {
             .build();
 
         let mut maddr = create_memory_maddr();
-        maddr.push(Protocol::P2p(peer_id.into()));
+        maddr.push(Protocol::P2p(peer_id));
 
         Swarm::listen_on(&mut swarm, maddr.clone()).expect("Could not make swarm");
 
@@ -739,7 +739,7 @@ mod tests {
             let t = tokio::task::Builder::new()
                 .name("Kademlia")
                 .spawn(futures::future::poll_fn(move |ctx| {
-                    for (_, swarm) in swarms.iter_mut().enumerate() {
+                    for swarm in swarms.iter_mut() {
                         loop {
                             if !swarm.poll_next_unpin(ctx).is_ready() {
                                 break;

@@ -458,7 +458,7 @@ mod tests {
             .unwrap();
         let bps1 = repo.get_blueprints();
         assert_eq!(bps1.len(), 1);
-        let bp1 = bps1.get(0).unwrap();
+        let bp1 = bps1.first().unwrap();
         assert_eq!(bp1.name, name1);
 
         let name2 = "bp2".to_string();

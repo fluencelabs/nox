@@ -73,7 +73,7 @@ mod test {
     use crate::event::UnitDeactivatedData;
     use chain_data::{parse_log, ChainData, Log};
     use core_manager::CUID;
-    use hex;
+
     use hex::FromHex;
 
     #[tokio::test]
