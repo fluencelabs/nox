@@ -9,7 +9,7 @@ pub use connectivity::Resolution;
 pub use dispatcher::DispatcherMetrics;
 pub use info::add_info_metrics;
 use particle_execution::ParticleParams;
-pub use particle_executor::{FunctionKind, ParticleExecutorMetrics};
+pub use particle_executor::{FunctionKind, ParticleExecutorMetrics, WorkerLabel, WorkerType};
 pub use services_metrics::{
     ServiceCallStats, ServiceMemoryStat, ServiceType, ServicesMetrics, ServicesMetricsBackend,
     ServicesMetricsBuiltin, ServicesMetricsExternal,

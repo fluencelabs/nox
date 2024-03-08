@@ -29,8 +29,8 @@ use libp2p::{core::Multiaddr, PeerId};
 use serde::Deserialize;
 
 use air_interpreter_fs::{air_interpreter_path, write_default_air_interpreter};
-use aquamarine::{AVMRunner, AquamarineApi};
-use aquamarine::{AquaRuntime, DataStoreConfig, VmConfig};
+use aquamarine::{AVMRunner, AquamarineApi, VmConfig};
+use aquamarine::{AquaRuntime, DataStoreConfig};
 use base64::{engine::general_purpose::STANDARD as base64, Engine};
 use cid_utils::Hash;
 use core_manager::manager::DummyCoreManager;
