@@ -259,6 +259,7 @@ async fn spell_error_handling_test() {
 
 #[tokio::test]
 async fn spell_args_test() {
+    enable_logs();
     let swarms = make_swarms(1).await;
     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .await
@@ -457,11 +458,11 @@ async fn spell_install_ok_empty_config() {
 
     if response[0]["success"]
         .as_bool()
-        .expect(&format!("{:?}", response))
+        .unwrap_or_else(|| panic!("{:?}", response))
     {
         let counter = response[0]["value"]
             .as_u64()
-            .expect(&format!("{:?}", response));
+            .unwrap_or_else(|| panic!("{:?}", response));
         assert_eq!(counter, 0);
     }
     // 2. Connect and disconnect a client to the same node. The spell should not be executed
@@ -680,7 +681,7 @@ async fn spell_store_trigger_config() {
 
     if response[0]["success"].as_bool().unwrap() {
         let result_config = serde_json::from_value(response[0]["config"].clone())
-            .expect(&format!("{:?}", response));
+            .unwrap_or_else(|_| panic!("{:?}", response));
         assert_eq!(config, result_config);
     }
 }
@@ -1117,7 +1118,7 @@ async fn spell_connection_pool_trigger_test() {
             peer["peer_id"].as_str().unwrap(),
             disconnected_client_peer_id.to_base58()
         );
-        assert_eq!(peer["connected"].as_bool().unwrap(), false);
+        assert!(!peer["connected"].as_bool().unwrap());
 
         break;
     }
@@ -1658,7 +1659,7 @@ async fn create_remove_worker() {
     let script = r#"(call %init_peer_id% ("getDataSrv" "spell_id") [] spell_id)"#;
     let config = make_clock_config(0, 1, 0);
 
-    let (spell_id, worker_id) = create_spell(&mut client, &script, config, json!({}), None).await;
+    let (spell_id, worker_id) = create_spell(&mut client, script, config, json!({}), None).await;
     let service = create_service_worker(
         &mut client,
         "file_share",
@@ -1713,7 +1714,7 @@ async fn create_remove_worker() {
         assert_eq!(before.len(), 2);
 
         let before: Vec<String> = before
-            .into_iter()
+            .iter()
             .map(|s| s.get("id").unwrap().as_str().unwrap().to_string())
             .collect();
         assert!(before.contains(&spell_id));
@@ -1848,7 +1849,7 @@ async fn test_worker_list() {
         assert_eq!(workers.len(), 2);
 
         let workers: Vec<String> = workers
-            .into_iter()
+            .iter()
             .map(|s| s.as_str().unwrap().to_string())
             .collect();
         assert!(workers.contains(&worker_id1));
@@ -1927,7 +1928,7 @@ async fn test_spell_list() {
         assert_eq!(worker1_spells.len(), 2);
         assert_eq!(worker2_spells.len(), 1);
         let worker1_spells: Vec<String> = worker1_spells
-            .into_iter()
+            .iter()
             .map(|s| s.as_str().unwrap().to_string())
             .collect();
         assert!(worker1_spells.contains(&spell_id1));

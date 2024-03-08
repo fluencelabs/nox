@@ -11,7 +11,6 @@ fluence-libp2p = { workspace = true }
 fluence-keypair = { workspace = true }
 core-manager = { workspace = true }
 
-
 parking_lot = { workspace = true }
 eyre = { workspace = true }
 thiserror = { workspace = true }
@@ -23,6 +22,7 @@ tracing = { workspace = true }
 tokio = { workspace = true, features = ["fs", "sync"] }
 derivative = { workspace = true }
 types = { workspace = true }
+async-trait = "0.1.77"
 
 [dev-dependencies]
 tempfile = { workspace = true }

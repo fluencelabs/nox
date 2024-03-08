@@ -1475,6 +1475,7 @@ dependencies = [
  "newtype_derive",
  "num_cpus",
  "parking_lot",
+ "rand 0.8.5",
  "range-set-blaze",
  "serde",
  "serde_with 3.6.1",
@@ -1695,11 +1696,10 @@ dependencies = [
 
 [[package]]
 name = "crossbeam-channel"
-version = "0.5.8"
+version = "0.5.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a33c2bf77f2df06183c3aa30d1e96c0695a313d4f9c453cc3762a6db39f99200"
+checksum = "ab3db02a9c5b5121e1e42fbdb1aeb65f5e02624cc58c43f2884c6ccac0b82f95"
 dependencies = [
- "cfg-if",
  "crossbeam-utils",
 ]
 
@@ -1729,12 +1729,9 @@ dependencies = [
 
 [[package]]
 name = "crossbeam-utils"
-version = "0.8.16"
+version = "0.8.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5a22b2d63d4d1dc0b7f1b6b2747dd0088008a9be28b6ddf0b1e7d335e3037294"
-dependencies = [
- "cfg-if",
-]
+checksum = "248e3bacc7dc6baa3b21e405ee045c3047101a49145e7e9eca583ab4c2ca5345"
 
 [[package]]
 name = "crunchy"
@@ -1872,9 +1869,9 @@ dependencies = [
 
 [[package]]
 name = "decider-distro"
-version = "0.6.10"
+version = "0.6.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5885bba1b2e16ebff830b6229ba4fc7c4df6eefe1cccdb37ec86c3d9886ddea1"
+checksum = "0ff1a872b211111a9b67000c1251591e06fa8525ad2f97e406d72fd7dc8fbf68"
 dependencies = [
  "built 0.7.1",
  "fluence-spell-dtos",
@@ -2428,6 +2425,7 @@ dependencies = [
 name = "fs-utils"
 version = "0.1.0"
 dependencies = [
+ "cfg-if",
  "eyre",
  "futures-util",
  "rand 0.8.5",
@@ -5359,7 +5357,7 @@ version = "0.1.0"
 
 [[package]]
 name = "nox"
-version = "0.22.0"
+version = "0.22.1"
 dependencies = [
  "air-interpreter-fs",
  "air-interpreter-wasm",
@@ -6049,6 +6047,7 @@ dependencies = [
  "serde_json",
  "tokio",
  "tokio-stream",
+ "types",
 ]
 
 [[package]]
@@ -9566,6 +9565,7 @@ dependencies = [
 name = "workers"
 version = "0.1.0"
 dependencies = [
+ "async-trait",
  "core-manager",
  "derivative",
  "eyre",

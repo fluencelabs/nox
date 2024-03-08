@@ -221,10 +221,11 @@ impl<RT: AquaRuntime> Node<RT> {
             key_storage.clone(),
         );
 
-        let workers = Workers::from_path(
+        let (workers, worker_events) = Workers::from_path(
             config.dir_config.workers_base_dir.clone(),
             key_storage.clone(),
             core_manager.clone(),
+            config.node_config.workers_queue_buffer,
         )
         .await?;
 
@@ -351,6 +352,7 @@ impl<RT: AquaRuntime> Node<RT> {
             workers.clone(),
             key_storage.clone(),
             scopes.clone(),
+            worker_events,
         )?;
         let effectors = Effectors::new(connectivity.clone());
         let dispatcher = {
