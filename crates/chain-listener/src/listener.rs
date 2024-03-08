@@ -399,7 +399,6 @@ impl ChainListener {
     }
 
     /// Returns active and pending compute units
-    ///
     async fn get_compute_units(&mut self) -> eyre::Result<(Vec<CUID>, Vec<PendingUnit>)> {
         let mut units = self.chain_connector.get_compute_units().await?;
 
