@@ -46,7 +46,7 @@ use chain_connector::ChainConnector;
 use chain_listener::ChainListener;
 use config_utils::to_peer_id;
 use connection_pool::ConnectionPoolT;
-use core_manager::manager::{CoreManager, CoreManagerFunctions};
+use core_manager::manager::CoreManager;
 use fluence_libp2p::build_transport;
 use health::HealthCheckRegistry;
 use particle_builtins::{Builtins, CustomService, NodeInfo};
@@ -121,14 +121,6 @@ async fn setup_listener(
         config.chain_listener_config.clone(),
     ) {
         let ccp_client = if let Some(ccp_endpoint) = listener_config.ccp_endpoint.clone() {
-            // We will use the first logical core for utility tasks
-            let utility_core = core_manager
-                .get_system_cpu_assignment()
-                .logical_core_ids
-                .first()
-                .cloned()
-                .ok_or(eyre::eyre!("No utility core id"))?;
-
             let ccp_client = CCPRpcHttpClient::new(ccp_endpoint.clone())
                 .await
                 .map_err(|err| {
@@ -136,10 +128,6 @@ async fn setup_listener(
                     err
                 })?;
 
-            ccp_client.realloc_utility_core(vec![utility_core]).await.map_err(|err| {
-                log::error!("Error reallocating utility core {utility_core} to CCP {ccp_endpoint}, error: {err}");
-                err
-            })?;
             Some(ccp_client)
         } else {
             None

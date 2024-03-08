@@ -244,10 +244,41 @@ impl ChainListener {
 
         Ok(())
     }
+
+    pub async fn set_utility_core(&mut self) -> eyre::Result<()> {
+        if let Some(ccp_client) = self.ccp_client.as_ref() {
+            // We will use the first logical core for utility tasks
+            let utility_core = self
+                .core_manager
+                .get_system_cpu_assignment()
+                .logical_core_ids
+                .first()
+                .cloned()
+                .ok_or(eyre::eyre!("No utility core id"))?;
+
+            retry(ExponentialBackoff::default(), || async {
+                ccp_client
+                    .realloc_utility_core(vec![utility_core])
+                    .await
+                    .map_err(|err| {
+                        tracing::error!(target: "chain-listener", "Error reallocating utility core {utility_core} to CCP, error: {err}. Retrying...");
+                        eyre::eyre!("Error reallocating utility core {utility_core} to CCP, error: {err}")
+                    })?;
+                Ok(())
+            }).await?;
+        }
+        Ok(())
+    }
+
     pub fn start(mut self) -> JoinHandle<()> {
         let result = tokio::task::Builder::new()
             .name("ChainListener")
             .spawn(async move {
+                if let Err(err) = self.set_utility_core().await {
+                    tracing::error!(target: "chain-listener", "Failed to set utility core: {err}; Stopping...");
+                    exit(1);
+                }
+
                 tracing::info!(target: "chain-listener", "Subscribing to newHeads and cc events");
                 if let Err(err) = self.subscribe_new_heads().await {
                     tracing::error!(target: "chain-listener", "Failed to subscribe to newHeads: {err}; Stopping...");
@@ -268,7 +299,6 @@ impl ChainListener {
                     tracing::error!(target: "chain-listener", "ChainListener: compute units refresh error: {err}");
                     panic!("ChainListener startup error: {err}");
                 }
-
 
                 let mut timer = IntervalStream::new(interval(self.timer_resolution));
 
