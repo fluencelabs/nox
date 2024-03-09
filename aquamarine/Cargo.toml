@@ -33,7 +33,7 @@ tokio-util = { workspace = true, features = ["rt"] }
 tracing = { workspace = true }
 serde_json = { workspace = true }
 parking_lot = { workspace = true }
-chrono = "0.4.33"
+chrono = "0.4.35"
 base64 = { workspace = true }
 bs58 = { workspace = true }
 thiserror = { workspace = true }
