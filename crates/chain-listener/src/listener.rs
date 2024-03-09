@@ -163,6 +163,10 @@ impl ChainListener {
 
                 if let Some(ref c) = self.current_commitment {
                     tracing::info!(target: "chain-listener", "Current commitment id: {}", c);
+                    tracing::info!(target: "chain-listener", "Subscribing to unit events");
+                    self.subscribe_unit_deactivated().await?;
+                    self.subscribe_unit_activated().await?;
+                    tracing::info!(target: "chain-listener", "Successfully subscribed to unit events");
                 } else {
                     tracing::info!(target: "chain-listener", "Compute peer has no commitment");
                     self.stop_commitment().await?
@@ -288,7 +292,7 @@ impl ChainListener {
                     exit(1);
                 }
 
-                tracing::info!(target: "chain-listener", "Subscribing to newHeads and cc events");
+                tracing::info!(target: "chain-listener", "Subscribing to chain events");
                 if let Err(err) = self.subscribe_new_heads().await {
                     tracing::error!(target: "chain-listener", "Failed to subscribe to newHeads: {err}; Stopping...");
                     exit(1);
@@ -303,6 +307,7 @@ impl ChainListener {
                     tracing::error!(target: "chain-listener", "Failed to subscribe to deal matched: {err}; Stopping...");
                     exit(1);
                 }
+
                 tracing::info!(target: "chain-listener", "Subscribed successfully");
 
                 let setup: eyre::Result<()> = try {
