@@ -602,9 +602,11 @@ impl ChainListener {
         Ok(())
     }
 
-    async fn process_new_header(&mut self, header: Result<Value, Error>) -> eyre::Result<()> {
+    async fn process_new_header(&mut self, event: Result<Value, Error>) -> eyre::Result<()> {
+        let header = event?;
+        tracing::info!(target: "chain-listener", "Received newHeads event: {header}");
         // TODO: add block_number to metrics
-        let (block_timestamp, _block_number) = Self::parse_block_header(header?)?;
+        let (block_timestamp, _block_number) = Self::parse_block_header(header)?;
 
         // `epoch_number = 1 + (block_timestamp - init_timestamp) / epoch_duration`
         let epoch_number =
@@ -650,7 +652,7 @@ impl ChainListener {
 
     async fn process_commitment_activated(
         &mut self,
-        event: Result<Log, client::Error>,
+        event: Result<Log, Error>,
     ) -> eyre::Result<()> {
         let cc_event = parse_log::<CommitmentActivatedData, CommitmentActivated>(event?)?;
         let unit_ids = cc_event.info.unit_ids;
@@ -685,10 +687,7 @@ impl ChainListener {
         Ok(())
     }
 
-    async fn process_unit_activated(
-        &mut self,
-        event: Result<Log, client::Error>,
-    ) -> eyre::Result<()> {
+    async fn process_unit_activated(&mut self, event: Result<Log, Error>) -> eyre::Result<()> {
         let unit_event = parse_log::<UnitActivatedData, UnitActivated>(event?)?;
         tracing::info!(target: "chain-listener",
             "Received UnitActivated event for unit: {}, startEpoch: {}",
