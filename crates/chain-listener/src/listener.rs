@@ -426,7 +426,7 @@ impl ChainListener {
         // TODO: log compute units pretty
         tracing::info!(target: "chain-listener",
             "Active compute units: {:?}",
-            active
+            active.iter().map(CUID::to_string).collect::<Vec<_>>()
         );
         tracing::info!(target: "chain-listener",
             "Pending compute units: {:?}",
@@ -955,13 +955,10 @@ impl ChainListener {
         {
             match status {
                 Ok(status) => match status {
-                    DealStatus::InsufficientFunds => {
+                    DealStatus::InsufficientFunds | DealStatus::Ended => {
                         tracing::info!(target: "chain-listener", "Deal {deal_id} status: {status}; Exiting...");
                         self.exit_deal(&deal_id, cu_id).await?;
                         tracing::info!(target: "chain-listener", "Exited deal {deal_id} successfully");
-                    }
-                    DealStatus::Ended => {
-                        self.active_deals.remove(&deal_id);
                     }
                     DealStatus::Active
                     | DealStatus::NotEnoughWorkers
