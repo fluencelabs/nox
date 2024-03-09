@@ -13,7 +13,7 @@ use ccp_shared::types::{Difficulty, GlobalNonce, LocalNonce, ResultHash};
 use cpu_utils::PhysicalCoreId;
 use ethabi::ethereum_types::U256;
 use eyre::eyre;
-use jsonrpsee::core::client::{Client as WsClient, Subscription, SubscriptionClientT};
+use jsonrpsee::core::client::{Client as WsClient, Error, Subscription, SubscriptionClientT};
 use jsonrpsee::core::{client, JsonValue};
 use jsonrpsee::rpc_params;
 use libp2p_identity::PeerId;
@@ -323,45 +323,80 @@ impl ChainListener {
 
                 loop {
                     tokio::select! {
-                        Some(header) = poll_subscription(&mut self.heads) => {
-                            if let Err(err) = self.process_new_header(header).await {
-                               tracing::error!(target: "chain-listener", "newHeads event processing error: {err}");
+                        event = poll_subscription(&mut self.heads) => {
+                            if let Some(header) = event {
+                                if let Err(err) = self.process_new_header(header).await {
+                                   tracing::error!(target: "chain-listener", "newHeads event processing error: {err}");
+                                    if let Err(err) = self.subscribe_new_heads().await {
+                                        tracing::error!(target: "chain-listener", "Failed to resubscribe to newHeads: {err}; Stopping...");
+                                        exit(1);
+                                    }
+                                }
+                            } else {
                                 if let Err(err) = self.subscribe_new_heads().await {
-                                    tracing::error!(target: "chain-listener", "Failed to resubscribe to newHeads: {err}; Stopping...");
-                                    exit(1);
+                                        tracing::error!(target: "chain-listener", "Failed to resubscribe to newHeads: {err}; Stopping...");
+                                        exit(1);
                                 }
                             }
                         },
-                        Some(cc) = poll_subscription(&mut self.commitment_activated) => {
-                            if let Err(err) = self.process_commitment_activated(cc).await {
-                                tracing::error!(target: "chain-listener", "CommitmentActivated event processing error: {err}");
+                        event = poll_subscription(&mut self.commitment_activated) => {
+                            if let Some(cc) = event {
+                                if let Err(err) = self.process_commitment_activated(cc).await {
+                                    tracing::error!(target: "chain-listener", "CommitmentActivated event processing error: {err}");
+                                    if let Err(err) =  self.subscribe_cc_activated().await {
+                                        tracing::error!(target: "chain-listener", "Failed to resubscribe to CommitmentActivated event: {err}; Stopping...");
+                                        exit(1);
+                                    }
+                                }
+                            } else {
                                 if let Err(err) =  self.subscribe_cc_activated().await {
                                     tracing::error!(target: "chain-listener", "Failed to resubscribe to CommitmentActivated event: {err}; Stopping...");
                                     exit(1);
                                 }
                             }
                         },
-                        Some(event) = poll_subscription(&mut self.unit_activated) => {
-                           if let Err(err) = self.process_unit_activated(event).await {
-                               tracing::error!(target: "chain-listener", "UnitActivated event processing error: {err}");
-                                if let Err(err) = self.subscribe_unit_activated().await {
-                                    tracing::error!(target: "chain-listener", "Failed to resubscribe to UnitActivated: {err}; Stopping...");
-                                    exit(1);
+                        event = poll_subscription(&mut self.unit_activated) => {
+                            if let Some(event) = event {
+                                if let Err(err) = self.process_unit_activated(event).await {
+                                   tracing::error!(target: "chain-listener", "UnitActivated event processing error: {err}");
+                                    if let Err(err) = self.subscribe_unit_activated().await {
+                                        tracing::error!(target: "chain-listener", "Failed to resubscribe to UnitActivated: {err}; Stopping...");
+                                        exit(1);
+                                    }
                                 }
-                           }
+                            } else {
+                                 if let Err(err) = self.subscribe_unit_activated().await {
+                                        tracing::error!(target: "chain-listener", "Failed to resubscribe to UnitActivated: {err}; Stopping...");
+                                        exit(1);
+                                }
+                            }
                         },
-                         Some(event) = poll_subscription(&mut self.unit_deactivated) => {
-                            if let Err(err) = self.process_unit_deactivated(event).await {
-                                tracing::error!(target: "chain-listener", "UnitDeactivated event processing error: {err}");
+                        event = poll_subscription(&mut self.unit_deactivated) => {
+                            if let Some(event) = event {
+                                if let Err(err) = self.process_unit_deactivated(event).await {
+                                    tracing::error!(target: "chain-listener", "UnitDeactivated event processing error: {err}");
+                                    if let Err(err) = self.subscribe_unit_deactivated().await {
+                                        tracing::error!(target: "chain-listener", "Failed to resubscribe to UnitDeactivated: {err}; Stopping...");
+                                        exit(1);
+                                    }
+                                }
+                            } else {
                                 if let Err(err) = self.subscribe_unit_deactivated().await {
                                     tracing::error!(target: "chain-listener", "Failed to resubscribe to UnitDeactivated: {err}; Stopping...");
                                     exit(1);
                                 }
                             }
                         },
-                        Some(event) = poll_subscription(&mut self.unit_matched) => {
-                            if let Err(err) = self.process_deal_matched(event) {
-                                tracing::error!(target: "chain-listener", "DealMatched event processing error: {err}");
+                        event = poll_subscription(&mut self.unit_matched) => {
+                            if let Some(event) = event {
+                                if let Err(err) = self.process_deal_matched(event) {
+                                    tracing::error!(target: "chain-listener", "DealMatched event processing error: {err}");
+                                    if let Err(err) = self.subscribe_deal_matched().await {
+                                        tracing::error!(target: "chain-listener", "Failed to resubscribe to DealMatched: {err}; Stopping...");
+                                        exit(1);
+                                    }
+                                }
+                            } else {
                                 if let Err(err) = self.subscribe_deal_matched().await {
                                     tracing::error!(target: "chain-listener", "Failed to resubscribe to DealMatched: {err}; Stopping...");
                                     exit(1);
@@ -567,11 +602,9 @@ impl ChainListener {
         Ok(())
     }
 
-    async fn process_new_header(
-        &mut self,
-        header: Result<Value, client::Error>,
-    ) -> eyre::Result<()> {
-        let block_timestamp = Self::parse_timestamp(header?)?;
+    async fn process_new_header(&mut self, header: Result<Value, Error>) -> eyre::Result<()> {
+        // TODO: add block_number to metrics
+        let (block_timestamp, _block_number) = Self::parse_block_header(header?)?;
 
         // `epoch_number = 1 + (block_timestamp - init_timestamp) / epoch_duration`
         let epoch_number =
@@ -579,6 +612,7 @@ impl ChainListener {
         let epoch_changed = epoch_number > self.current_epoch;
 
         if epoch_changed {
+            // TODO: add epoch_number to metrics
             tracing::info!(target: "chain-listener", "Epoch changed, new epoch number: {epoch_number}");
 
             tracing::info!(target: "chain-listener", "Resetting proof id counter");
@@ -924,15 +958,27 @@ impl ChainListener {
         }
     }
 
-    fn parse_timestamp(header: Value) -> eyre::Result<U256> {
-        let timestamp = header
+    fn parse_block_header(header: Value) -> eyre::Result<(U256, U256)> {
+        let header = header
             .as_object()
-            .and_then(|o| o.get("timestamp"))
+            .ok_or(eyre::eyre!("newHeads: header is not an object"))?;
+
+        let timestamp = header
+            .get("timestamp")
             .and_then(Value::as_str)
             .ok_or(eyre::eyre!("newHeads: timestamp field not found"))?
             .to_string();
 
-        Ok(U256::from_str_radix(&timestamp, 16)?)
+        let block_number = header
+            .get("number")
+            .and_then(Value::as_str)
+            .ok_or(eyre::eyre!("newHeads: number field not found"))?
+            .to_string();
+
+        Ok((
+            U256::from_str_radix(&timestamp, 16)?,
+            U256::from_str_radix(&block_number, 16)?,
+        ))
     }
     async fn poll_deal_statuses(&mut self) -> eyre::Result<()> {
         if self.active_deals.is_empty() {
