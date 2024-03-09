@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.23.1](https://github.com/fluencelabs/nox/compare/nox-v0.23.0...nox-v0.23.1) (2024-03-09)
+
+
+### Features
+
+* **chain-listener:** exit expired deals ([#2143](https://github.com/fluencelabs/nox/issues/2143)) ([596f2a6](https://github.com/fluencelabs/nox/commit/596f2a6c119a2ef9c99aa3bb3975ae13bfacade1))
+
 ## [0.23.0](https://github.com/fluencelabs/nox/compare/nox-v0.22.2...nox-v0.23.0) (2024-03-08)
 
 
