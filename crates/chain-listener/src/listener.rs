@@ -1,5 +1,5 @@
 use backoff::Error::Permanent;
-use std::collections::{BTreeSet, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::path::PathBuf;
 use std::process::exit;
 use std::sync::Arc;
@@ -68,7 +68,7 @@ pub struct ChainListener {
     active_compute_units: BTreeSet<CUID>,
     pending_compute_units: BTreeSet<PendingUnit>,
 
-    active_deals: BTreeSet<DealId>,
+    active_deals: BTreeMap<DealId, CUID>,
 
     /// Resets every epoch
     last_submitted_proof_id: ProofIdx,
@@ -130,7 +130,7 @@ impl ChainListener {
             heads: None,
             commitment_activated: None,
             unit_matched: None,
-            active_deals: BTreeSet::new(),
+            active_deals: BTreeMap::new(),
         }
     }
 
@@ -403,11 +403,9 @@ impl ChainListener {
         let mut units = self.chain_connector.get_compute_units().await?;
 
         let in_deal: Vec<_> = units.extract_if(|cu| cu.deal.is_some()).collect();
-        self.active_deals = in_deal.iter().map(|cu| cu.deal.clone()).flatten().collect();
 
         let (active, pending): (Vec<ComputeUnit>, Vec<ComputeUnit>) = units
             .into_iter()
-            .filter(|unit| unit.deal.is_none())
             .partition(|unit| unit.start_epoch <= self.current_epoch);
 
         let active: Vec<_> = active.into_iter().map(|unit| unit.id).collect();
@@ -439,6 +437,12 @@ impl ChainListener {
                 .map(|cu| cu.id.to_string())
                 .collect::<Vec<_>>()
         );
+
+        for cu in in_deal {
+            if let Some(deal) = cu.deal {
+                self.active_deals.insert(deal, cu.id);
+            }
+        }
 
         Ok((active, pending))
     }
@@ -689,7 +693,8 @@ impl ChainListener {
             deal_event.info.deal_id
         );
 
-        self.active_deals.insert(deal_event.info.deal_id);
+        self.active_deals
+            .insert(deal_event.info.deal_id, deal_event.info.unit_id);
         Ok(())
     }
 
@@ -930,7 +935,7 @@ impl ChainListener {
         }
 
         let statuses = retry(ExponentialBackoff::default(), || async {
-            let s = self.chain_connector.get_deal_statuses(self.active_deals.iter()).await.map_err(|err| {
+            let s = self.chain_connector.get_deal_statuses(self.active_deals.keys()).await.map_err(|err| {
                 tracing::error!(target: "chain-listener", "Failed to poll deal statuses: {err}");
                 eyre!("Failed to poll deal statuses: {err}; Retrying...")
             })?;
@@ -939,15 +944,15 @@ impl ChainListener {
         })
         .await?;
 
-        for (status, deal_id) in statuses
+        for (status, (deal_id, cu_id)) in statuses
             .into_iter()
             .zip(self.active_deals.clone().into_iter())
         {
             match status {
                 Ok(status) => match status {
                     DealStatus::InsufficientFunds | DealStatus::Ended => {
-                        tracing::info!(target: "chain-listener", "Deal {deal_id} status: {status}");
-                        self.exit_deal(deal_id).await?;
+                        tracing::info!(target: "chain-listener", "Deal {deal_id} status: {status}; Exiting...");
+                        self.exit_deal(deal_id, cu_id).await?;
                     }
                     DealStatus::Active
                     | DealStatus::NotEnoughWorkers
@@ -961,13 +966,12 @@ impl ChainListener {
 
         Ok(())
     }
-    async fn exit_deal(&mut self, deal_id: DealId) -> eyre::Result<()> {
-        tracing::info!(target: "chain-listener", "Exiting deal: {deal_id}");
+    async fn exit_deal(&mut self, deal_id: DealId, cu_id: CUID) -> eyre::Result<()> {
         let mut backoff = ExponentialBackoff::default();
         backoff.max_elapsed_time = Some(Duration::from_secs(3));
 
         retry(backoff, || async {
-            self.chain_connector.exit_deal(&deal_id).await.map_err(|err| {
+            self.chain_connector.exit_deal(&cu_id).await.map_err(|err| {
                 tracing::error!(target: "chain-listener", "Failed to exit deal {deal_id}: {err}");
                 eyre!("Failed to exit deal {deal_id}: {err}; Retrying...")
             })?;

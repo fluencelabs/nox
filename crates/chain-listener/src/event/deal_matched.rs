@@ -28,7 +28,7 @@ use types::DealId;
 pub struct DealMatchedData {
     compute_peer: String,
     pub deal_id: DealId,
-    unit_id: CUID,
+    pub(crate) unit_id: CUID,
     deal_creation_block: U256,
     app_cid: String,
 }

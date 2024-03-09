@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use ccp_shared::proof::CCProof;
-use ccp_shared::types::{Difficulty, GlobalNonce};
+use ccp_shared::types::{Difficulty, GlobalNonce, CUID};
 use clarity::Transaction;
 use ethabi::ethereum_types::U256;
 use ethabi::Token;
@@ -431,8 +431,9 @@ impl ChainConnector {
         Ok(statuses)
     }
 
-    pub async fn exit_deal(&self, deal_id: &DealId) -> Result<String, ConnectorError> {
-        let data = ReturnComputeUnitFromDeal::data_bytes(&[Token::FixedBytes(deal_id.to_bytes())])?;
+    pub async fn exit_deal(&self, cu_id: &CUID) -> Result<String, ConnectorError> {
+        let data =
+            ReturnComputeUnitFromDeal::data_bytes(&[Token::FixedBytes(cu_id.as_ref().to_vec())])?;
         self.send_tx(data, &self.config.market_contract_address)
             .await
     }
