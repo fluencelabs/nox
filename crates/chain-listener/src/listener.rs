@@ -603,10 +603,8 @@ impl ChainListener {
     }
 
     async fn process_new_header(&mut self, event: Result<Value, Error>) -> eyre::Result<()> {
-        let header = event?;
-        tracing::info!(target: "chain-listener", "Received newHeads event: {header}");
         // TODO: add block_number to metrics
-        let (block_timestamp, _block_number) = Self::parse_block_header(header)?;
+        let (block_timestamp, _block_number) = Self::parse_block_header(event?)?;
 
         // `epoch_number = 1 + (block_timestamp - init_timestamp) / epoch_duration`
         let epoch_number =
@@ -958,20 +956,24 @@ impl ChainListener {
     }
 
     fn parse_block_header(header: Value) -> eyre::Result<(U256, U256)> {
-        let header = header
-            .as_object()
-            .ok_or(eyre::eyre!("newHeads: header is not an object"))?;
+        let obj = header.as_object().ok_or(eyre::eyre!(
+            "newHeads: header is not an object; got {header}"
+        ))?;
 
-        let timestamp = header
+        let timestamp = obj
             .get("timestamp")
             .and_then(Value::as_str)
-            .ok_or(eyre::eyre!("newHeads: timestamp field not found"))?
+            .ok_or(eyre::eyre!(
+                "newHeads: timestamp field not found; got {header}"
+            ))?
             .to_string();
 
         let block_number = header
             .get("number")
             .and_then(Value::as_str)
-            .ok_or(eyre::eyre!("newHeads: number field not found"))?
+            .ok_or(eyre::eyre!(
+                "newHeads: number field not found; got {header}"
+            ))?
             .to_string();
 
         Ok((
