@@ -932,7 +932,7 @@ impl ChainListener {
         let statuses = retry(ExponentialBackoff::default(), || async {
             let s = self.chain_connector.get_deal_statuses(self.active_deals.iter()).await.map_err(|err| {
                 tracing::error!(target: "chain-listener", "Failed to poll deal statuses: {err}");
-                eyre!("Failed to poll deal statuses: {err}")
+                eyre!("Failed to poll deal statuses: {err}; Retrying...")
             })?;
 
             Ok(s)
@@ -963,10 +963,13 @@ impl ChainListener {
     }
     async fn exit_deal(&mut self, deal_id: DealId) -> eyre::Result<()> {
         tracing::info!(target: "chain-listener", "Exiting deal: {deal_id}");
-        retry(ExponentialBackoff::default(), || async {
+        let mut backoff = ExponentialBackoff::default();
+        backoff.max_elapsed_time = Some(Duration::from_secs(3));
+
+        retry(backoff, || async {
             self.chain_connector.exit_deal(&deal_id).await.map_err(|err| {
                 tracing::error!(target: "chain-listener", "Failed to exit deal {deal_id}: {err}");
-                eyre!("Failed to exit deal {deal_id}: {err}")
+                eyre!("Failed to exit deal {deal_id}: {err}; Retrying...")
             })?;
             Ok(())
         })
