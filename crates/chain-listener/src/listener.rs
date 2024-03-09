@@ -685,7 +685,7 @@ impl ChainListener {
         );
         self.active_compute_units.remove(&unit_event.info.unit_id);
         self.pending_compute_units
-            .retain(|cu| cu.id == unit_event.info.unit_id);
+            .retain(|cu| cu.id != unit_event.info.unit_id);
         self.refresh_commitment().await?;
         self.acquire_deal_core(unit_event.info.unit_id)?;
         Ok(())
