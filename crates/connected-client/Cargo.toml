@@ -28,5 +28,5 @@ tempfile = { workspace = true }
 
 [dev-dependencies]
 rand = { workspace = true }
-log = { version = "0.4.20", features = ["serde"] }
+log = { version = "0.4.21", features = ["serde"] }
 
