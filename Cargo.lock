@@ -1189,9 +1189,9 @@ dependencies = [
 
 [[package]]
 name = "cid"
-version = "0.11.0"
+version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "472ac98592f38dfd48f188d5713a328422ed22fa39eb52b8bca495370134762a"
+checksum = "3147d8272e8fa0ccd29ce51194dd98f79ddfb8191ba9e3409884e751798acf3a"
 dependencies = [
  "core2",
  "multibase",
@@ -5912,7 +5912,7 @@ version = "0.1.0"
 dependencies = [
  "base64 0.21.7",
  "bytesize",
- "cid 0.11.0",
+ "cid 0.11.1",
  "eyre",
  "fluence-app-service",
  "fluence-libp2p",
