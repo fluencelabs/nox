@@ -925,6 +925,10 @@ impl ChainListener {
         Ok(U256::from_str_radix(&timestamp, 16)?)
     }
     async fn poll_deal_statuses(&mut self) -> eyre::Result<()> {
+        if self.active_deals.is_empty() {
+            return Ok(());
+        }
+
         let statuses = retry(ExponentialBackoff::default(), || async {
             let s = self.chain_connector.get_deal_statuses(self.active_deals.iter()).await.map_err(|err| {
                 tracing::error!(target: "chain-listener", "Failed to poll deal statuses: {err}");
