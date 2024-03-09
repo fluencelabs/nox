@@ -955,9 +955,13 @@ impl ChainListener {
         {
             match status {
                 Ok(status) => match status {
-                    DealStatus::InsufficientFunds | DealStatus::Ended => {
+                    DealStatus::InsufficientFunds => {
                         tracing::info!(target: "chain-listener", "Deal {deal_id} status: {status}; Exiting...");
-                        self.exit_deal(deal_id, cu_id).await?;
+                        self.exit_deal(&deal_id, cu_id).await?;
+                        tracing::info!(target: "chain-listener", "Exited deal {deal_id} successfully");
+                    }
+                    DealStatus::Ended => {
+                        self.active_deals.remove(&deal_id);
                     }
                     DealStatus::Active
                     | DealStatus::NotEnoughWorkers
@@ -971,7 +975,7 @@ impl ChainListener {
 
         Ok(())
     }
-    async fn exit_deal(&mut self, deal_id: DealId, cu_id: CUID) -> eyre::Result<()> {
+    async fn exit_deal(&mut self, deal_id: &DealId, cu_id: CUID) -> eyre::Result<()> {
         let mut backoff = ExponentialBackoff::default();
         backoff.max_elapsed_time = Some(Duration::from_secs(3));
 
@@ -984,7 +988,7 @@ impl ChainListener {
         })
         .await?;
 
-        self.active_deals.remove(&deal_id);
+        self.active_deals.remove(deal_id);
         Ok(())
     }
 }
