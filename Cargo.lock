@@ -1021,8 +1021,8 @@ dependencies = [
 
 [[package]]
 name = "ccp-rpc-client"
-version = "0.3.0"
-source = "git+https://github.com/fluencelabs/capacity-commitment-prover/?branch=main#7eb94c2ce42c5126c35bc34240981a8eb65ba189"
+version = "0.4.0"
+source = "git+https://github.com/fluencelabs/capacity-commitment-prover/?branch=main#2beb3b065c58e0e792a742e3378a685b275b53e9"
 dependencies = [
  "ccp-shared",
  "hex",
@@ -1032,8 +1032,8 @@ dependencies = [
 
 [[package]]
 name = "ccp-shared"
-version = "0.3.0"
-source = "git+https://github.com/fluencelabs/capacity-commitment-prover/?branch=main#7eb94c2ce42c5126c35bc34240981a8eb65ba189"
+version = "0.4.0"
+source = "git+https://github.com/fluencelabs/capacity-commitment-prover/?branch=main#2beb3b065c58e0e792a742e3378a685b275b53e9"
 dependencies = [
  "hex",
  "newtype_derive",
@@ -1095,6 +1095,7 @@ dependencies = [
  "thiserror",
  "tokio",
  "tracing",
+ "types",
 ]
 
 [[package]]
@@ -1131,6 +1132,7 @@ dependencies = [
  "hex",
  "hex-utils",
  "jsonrpsee",
+ "libipld",
  "libp2p-identity",
  "log",
  "log-utils",
@@ -1157,6 +1159,7 @@ dependencies = [
  "hex",
  "serde",
  "tokio",
+ "types",
 ]
 
 [[package]]
@@ -1518,8 +1521,8 @@ dependencies = [
 
 [[package]]
 name = "cpu-utils"
-version = "0.3.0"
-source = "git+https://github.com/fluencelabs/capacity-commitment-prover/?branch=main#7eb94c2ce42c5126c35bc34240981a8eb65ba189"
+version = "0.4.0"
+source = "git+https://github.com/fluencelabs/capacity-commitment-prover/?branch=main#2beb3b065c58e0e792a742e3378a685b275b53e9"
 dependencies = [
  "ccp-shared",
  "core_affinity",
@@ -8380,6 +8383,7 @@ checksum = "42ff0bf0c66b8238c6f3b578df37d0b7848e55df8577b3f74f92a69acceeb825"
 name = "types"
 version = "0.1.0"
 dependencies = [
+ "hex",
  "libp2p-identity",
  "serde",
  "serde_json",

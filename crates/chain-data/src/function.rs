@@ -4,7 +4,7 @@ use ethabi::Token;
 
 pub trait ChainFunction {
     fn function() -> ethabi::Function;
-    fn signature() -> Vec<ethabi::ParamType>;
+    fn result_signature() -> Vec<ethabi::ParamType>;
 
     fn data(inputs: &[Token]) -> Result<String, ChainDataError> {
         let function = Self::function();
@@ -18,16 +18,16 @@ pub trait ChainFunction {
     }
 
     fn decode_uint(data: &str) -> Result<U256, ChainDataError> {
-        let mut tokens = crate::parse_chain_data(data, &Self::signature())?.into_iter();
+        let mut tokens = crate::parse_chain_data(data, &Self::result_signature())?.into_iter();
         next_opt(&mut tokens, "uint", Token::into_uint)
     }
 
     fn decode_fixed_bytes(data: &str) -> Result<Vec<u8>, ChainDataError> {
-        let mut tokens = crate::parse_chain_data(data, &Self::signature())?.into_iter();
+        let mut tokens = crate::parse_chain_data(data, &Self::result_signature())?.into_iter();
         next_opt(&mut tokens, "bytes", Token::into_fixed_bytes)
     }
 
     fn decode_tuple(data: &str) -> Result<Vec<Token>, ChainDataError> {
-        crate::parse_chain_data(data, &Self::signature())
+        crate::parse_chain_data(data, &Self::result_signature())
     }
 }

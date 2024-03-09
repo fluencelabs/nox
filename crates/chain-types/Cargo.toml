@@ -12,6 +12,7 @@ eyre = { workspace = true }
 chain-data = { workspace = true }
 hex = { workspace = true }
 ccp-shared = { workspace = true }
+types = { workspace = true }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["rt", "macros"] }

@@ -50,7 +50,7 @@ members = [
     "crates/chain-types",
     "crates/types",
     "crates/core-manager",
-    ]
+]
 exclude = [
     "nox/tests/tetraplets",
 ]

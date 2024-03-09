@@ -28,7 +28,7 @@ impl ChainFunction for GetComputePeerFunction {
         }
     }
 
-    fn signature() -> Vec<ParamType> {
+    fn result_signature() -> Vec<ParamType> {
         ComputePeer::signature()
     }
 }
