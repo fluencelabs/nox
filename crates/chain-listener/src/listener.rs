@@ -43,7 +43,7 @@ use crate::event::{
 };
 use crate::persistence;
 
-const PROOF_POLL_LIMIT: usize = 50;
+const PROOF_POLL_LIMIT: usize = 10;
 
 pub struct ChainListener {
     config: ChainConfig,
@@ -98,7 +98,6 @@ impl ChainListener {
         host_id: PeerId,
         chain_connector: Arc<ChainConnector>,
         core_manager: Arc<CoreManager>,
-        init_params: CCInitParams,
         ws_client: WsClient,
         ccp_client: Option<CCPRpcHttpClient>,
         persisted_proof_id_dir: PathBuf,
@@ -112,11 +111,11 @@ impl ChainListener {
             ws_client,
             config: chain_config,
             host_id,
-            difficulty: init_params.difficulty,
-            init_timestamp: init_params.init_timestamp,
-            global_nonce: init_params.global_nonce,
-            current_epoch: init_params.current_epoch,
-            epoch_duration: init_params.epoch_duration,
+            difficulty: Difficulty::default(),
+            init_timestamp: U256::zero(),
+            global_nonce: GlobalNonce::new([0; 32]).into(),
+            current_epoch: U256::zero(),
+            epoch_duration: U256::zero(),
             current_commitment: None,
             active_compute_units: BTreeSet::new(),
             pending_compute_units: BTreeSet::new(),
@@ -155,9 +154,25 @@ impl ChainListener {
         }
     }
 
+    async fn refresh_commitment_params(&mut self) -> eyre::Result<()> {
+        let init_params =
+            self.chain_connector
+                .get_cc_init_params()
+                .await
+                .map_err(|err| {
+                    tracing::info!(target: "chain-listener", "Error getting Commitment initial params: {err}");
+                    err
+                })?;
+
+        tracing::info!(target: "chain-listener","Commitment initial params: difficulty {}, global nonce {}, init_timestamp {}, epoch_duration {}, current_epoch {}",  init_params.difficulty, init_params.global_nonce, init_params.init_timestamp, init_params.epoch_duration, init_params.current_epoch);
+        Ok(())
+    }
+
     async fn refresh_compute_units(&mut self) -> eyre::Result<()> {
         loop {
             let result: eyre::Result<()> = try {
+                self.refresh_commitment_params().await?;
+
                 let (active, pending) = self.get_compute_units().await?;
                 self.current_commitment = self.get_current_commitment_id().await?;
 
@@ -189,6 +204,7 @@ impl ChainListener {
                         }
                         CommitmentStatus::WaitDelegation | CommitmentStatus::WaitStart => {
                             tracing::info!(target: "chain-listener", "Waiting for commitment to be activated; Stopping current one");
+                            self.pending_compute_units.extend(pending);
                             self.stop_commitment().await?
                         }
                     }
@@ -311,8 +327,8 @@ impl ChainListener {
                 tracing::info!(target: "chain-listener", "Subscribed successfully");
 
                 let setup: eyre::Result<()> = try {
-                    self.load_proof_id().await?;
                     self.refresh_compute_units().await?;
+                    self.load_proof_id().await?;
                 };
                 if let Err(err) = setup {
                     tracing::error!(target: "chain-listener", "ChainListener: compute units refresh error: {err}");

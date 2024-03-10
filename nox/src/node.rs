@@ -135,13 +135,6 @@ async fn setup_listener(
 
         let cc_events_dir = config.dir_config.cc_events_dir.clone();
         let host_id = config.root_key_pair.get_peer_id();
-
-        let init_params = connector.get_cc_init_params().await.map_err(|err| {
-            log::error!("Error getting Commitment initial params: {err}");
-            err
-        })?;
-        log::info!("Commitment initial params: difficulty {}, global nonce {}, init_timestamp {}, epoch_duration {}, current_epoch {}",  init_params.difficulty, init_params.global_nonce, init_params.init_timestamp, init_params.epoch_duration, init_params.current_epoch);
-
         let ws_client = WsClientBuilder::default()
             .build(&listener_config.ws_endpoint)
             .await
@@ -164,7 +157,6 @@ async fn setup_listener(
             host_id,
             connector,
             core_manager,
-            init_params,
             ws_client,
             ccp_client,
             cc_events_dir,
