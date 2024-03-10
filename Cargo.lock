@@ -6576,9 +6576,9 @@ dependencies = [
 
 [[package]]
 name = "range-set-blaze"
-version = "0.1.14"
+version = "0.1.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c7bf6195484b9c084e59358ac571e65e273b8278f7fed60fcee62159cd4f9e86"
+checksum = "8421b5d459262eabbe49048d362897ff3e3830b44eac6cfe341d6acb2f0f13d2"
 dependencies = [
  "gen_ops",
  "itertools 0.12.1",
