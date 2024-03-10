@@ -133,14 +133,17 @@ impl ChainListener {
         }
     }
 
-    async fn get_current_commitment_id(&self) -> eyre::Result<Option<CommitmentId>> {
+    async fn refresh_current_commitment_id(&mut self) -> eyre::Result<()> {
         match self.chain_connector.get_current_commitment_id().await {
-            Ok(id) => Ok(id),
+            Ok(id) => {
+                self.current_commitment = id;
+                Ok(())
+            }
             Err(err) => match err {
                 ConnectorError::RpcCallError { ref data, .. } => {
                     if data.contains(PEER_NOT_EXISTS) {
                         tracing::info!("Peer doesn't exist on chain. Waiting for market offer");
-                        Ok(None)
+                        Ok(())
                     } else {
                         tracing::error!(target: "chain-listener", "Failed to get current commitment id: {err}");
                         Err(err.into())
@@ -164,6 +167,12 @@ impl ChainListener {
                     err
                 })?;
 
+        self.difficulty = init_params.difficulty;
+        self.init_timestamp = init_params.init_timestamp;
+        self.global_nonce = init_params.global_nonce;
+        self.epoch_duration = init_params.epoch_duration;
+        self.current_epoch = init_params.current_epoch;
+
         tracing::info!(target: "chain-listener","Commitment initial params: difficulty {}, global nonce {}, init_timestamp {}, epoch_duration {}, current_epoch {}",  init_params.difficulty, init_params.global_nonce, init_params.init_timestamp, init_params.epoch_duration, init_params.current_epoch);
         Ok(())
     }
@@ -174,7 +183,7 @@ impl ChainListener {
                 self.refresh_commitment_params().await?;
 
                 let (active, pending) = self.get_compute_units().await?;
-                self.current_commitment = self.get_current_commitment_id().await?;
+                self.refresh_current_commitment_id().await?;
 
                 if let Some(ref c) = self.current_commitment {
                     tracing::info!(target: "chain-listener", "Current commitment id: {}", c);
