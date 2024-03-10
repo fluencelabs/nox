@@ -24,7 +24,7 @@ use tokio::time::interval;
 use tokio_stream::wrappers::IntervalStream;
 use tokio_stream::StreamExt;
 
-use chain_connector::{CCInitParams, ChainConnector, ConnectorError};
+use chain_connector::{ChainConnector, ConnectorError};
 use chain_data::{parse_log, peer_id_to_hex, ChainData, Log};
 use chain_types::{
     CommitmentId, CommitmentStatus, ComputeUnit, DealStatus, PendingUnit, COMMITMENT_IS_NOT_ACTIVE,
