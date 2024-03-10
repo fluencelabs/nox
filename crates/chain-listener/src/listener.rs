@@ -374,30 +374,34 @@ impl ChainListener {
                             }
                         },
                         event = poll_subscription(&mut self.unit_activated) => {
-                            if let Err(err) = self.process_unit_activated(event).await {
-                                tracing::error!(target: "chain-listener", "UnitActivated event processing error: {err}");
+                            if self.unit_activated.is_some() {
+                                if let Err(err) = self.process_unit_activated(event).await {
+                                    tracing::error!(target: "chain-listener", "UnitActivated event processing error: {err}");
 
-                                let result: eyre::Result<()> = try {
-                                    self.refresh_state().await?;
-                                    self.subscribe_unit_activated().await?;
-                                };
-                                if let Err(err) = result {
-                                    tracing::error!(target: "chain-listener", "Failed to resubscribe to UnitActivated event: {err}; Stopping...");
-                                    exit(1);
+                                    let result: eyre::Result<()> = try {
+                                        self.refresh_state().await?;
+                                        self.subscribe_unit_activated().await?;
+                                    };
+                                    if let Err(err) = result {
+                                        tracing::error!(target: "chain-listener", "Failed to resubscribe to UnitActivated event: {err}; Stopping...");
+                                        exit(1);
+                                    }
                                 }
                             }
                         },
                         event = poll_subscription(&mut self.unit_deactivated) => {
-                             if let Err(err) = self.process_unit_deactivated(event).await {
-                                tracing::error!(target: "chain-listener", "UnitDeactivated event processing error: {err}");
+                            if self.unit_deactivated.is_some() {
+                                 if let Err(err) = self.process_unit_deactivated(event).await {
+                                    tracing::error!(target: "chain-listener", "UnitDeactivated event processing error: {err}");
 
-                                let result: eyre::Result<()> = try {
-                                    self.refresh_state().await?;
-                                    self.subscribe_unit_deactivated().await?;
-                                };
-                                if let Err(err) = result {
-                                    tracing::error!(target: "chain-listener", "Failed to resubscribe to UnitDeactivated event: {err}; Stopping...");
-                                    exit(1);
+                                    let result: eyre::Result<()> = try {
+                                        self.refresh_state().await?;
+                                        self.subscribe_unit_deactivated().await?;
+                                    };
+                                    if let Err(err) = result {
+                                        tracing::error!(target: "chain-listener", "Failed to resubscribe to UnitDeactivated event: {err}; Stopping...");
+                                        exit(1);
+                                    }
                                 }
                             }
                         },
