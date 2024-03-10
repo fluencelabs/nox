@@ -615,25 +615,6 @@ impl ChainListener {
         Ok(())
     }
 
-    // async fn process_new_header1(&mut self, event: Option<Result<Value, Client::Error>>) -> eyre::Result<()> {
-    //     if let Some(header) = event {
-    //         if let Err(err) = self.process_new_header1(header).await {
-    //             tracing::error!(target: "chain-listener", "newHeads event processing error: {err}");
-    //
-    //             if let Err(err) = self.subscribe_new_heads().await {
-    //                 tracing::error!(target: "chain-listener", "Failed to resubscribe to newHeads: {err}; Stopping...");
-    //                 exit(1);
-    //             }
-    //         }
-    //     } else {
-    //         if let Err(err) = self.subscribe_new_heads().await {
-    //             tracing::error!(target: "chain-listener", "Failed to resubscribe to newHeads: {err}; Stopping...");
-    //             exit(1);
-    //         }
-    //     }
-    //     }
-    // }
-
     async fn process_new_header(
         &mut self,
         event: Option<Result<Value, Error>>,
