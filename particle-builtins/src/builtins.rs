@@ -964,8 +964,12 @@ where
         let tetraplets = args.tetraplets;
         let mut args = args.function_args.into_iter();
 
+        // The `sign` is allowed only for a **worker** to sign on **worker** and for a **host** to sign on **host**.
+        // The manager is able to sign only on the host.
         let init_peer_scope = self.scopes.scope(params.init_peer_id);
-        if !init_peer_scope.map_or(false, |result| params.peer_scope == result) {
+        let is_manager_on_host = self.scopes.is_management(params.init_peer_id)
+            && matches!(params.peer_scope, PeerScope::Host);
+        if !init_peer_scope.map_or(is_manager_on_host, |result| params.peer_scope == result) {
             return Err(JError::new(format!(
                 "peer '{}' is not allowed to sign data on '{}'",
                 params.init_peer_id,
