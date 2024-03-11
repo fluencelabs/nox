@@ -1668,7 +1668,7 @@ async fn spell_install_root_scope() {
 async fn spell_create_worker_same_deal_id_different_peer() {
     enable_logs();
     // Create nox with one management peer id and create a worker with manager 1
-    let kp = KeyPair::generate_ed25519();
+    let kp = fluence_keypair::KeyPair::generate_ed25519();
     let swarms = make_swarms_with_keypair(1, kp.clone()).await;
     let tmp_dir = swarms[0].tmp_dir.clone();
     let mut client1 = ConnectedClient::connect_with_keypair(
