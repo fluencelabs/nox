@@ -10,6 +10,7 @@ bytesize = "1.3.0"
 fluence-app-service = { workspace = true }
 fluence-libp2p = { workspace = true }
 particle-execution = { workspace = true }
+types = { workspace = true }
 
 tokio = { workspace = true, features = ["macros", "tracing"] }
 tokio-stream = { workspace = true }

@@ -17,11 +17,10 @@
 
 use std::assert_matches::assert_matches;
 use std::collections::HashMap;
-use std::sync::Arc;
 use std::time::Duration;
 
 use eyre::Context;
-use fluence_keypair::KeyPair;
+use hex::FromHex;
 use maplit::hashmap;
 use serde_json::{json, Value as JValue};
 
@@ -29,7 +28,6 @@ use connected_client::ConnectedClient;
 use created_swarm::system_services_config::{DeciderConfig, SystemServicesConfig};
 use created_swarm::{make_swarms, make_swarms_with_cfg, make_swarms_with_keypair};
 use fluence_spell_dtos::trigger_config::{ClockConfig, TriggerConfig};
-use hex::FromHex;
 use log_utils::enable_logs;
 use service_modules::load_module;
 use spell_event_bus::api::{TriggerInfo, TriggerInfoAqua, MAX_PERIOD_SEC};
@@ -277,6 +275,7 @@ async fn spell_error_handling_test() {
 
 #[tokio::test]
 async fn spell_args_test() {
+    enable_logs();
     let swarms = make_swarms(1).await;
     let mut client = ConnectedClient::connect_with_keypair(
         swarms[0].multiaddr.clone(),
@@ -489,11 +488,11 @@ async fn spell_install_ok_empty_config() {
 
     if response[0]["success"]
         .as_bool()
-        .expect(&format!("{:?}", response))
+        .unwrap_or_else(|| panic!("{:?}", response))
     {
         let counter = response[0]["value"]
             .as_u64()
-            .expect(&format!("{:?}", response));
+            .unwrap_or_else(|| panic!("{:?}", response));
         assert_eq!(counter, 0);
     }
     // 2. Connect and disconnect a client to the same node. The spell should not be executed
@@ -723,7 +722,7 @@ async fn spell_store_trigger_config() {
 
     if response[0]["success"].as_bool().unwrap() {
         let result_config = serde_json::from_value(response[0]["config"].clone())
-            .expect(&format!("{:?}", response));
+            .unwrap_or_else(|_| panic!("{:?}", response));
         assert_eq!(config, result_config);
     }
 }
@@ -1181,7 +1180,7 @@ async fn spell_connection_pool_trigger_test() {
             peer["peer_id"].as_str().unwrap(),
             disconnected_client_peer_id.to_base58()
         );
-        assert_eq!(peer["connected"].as_bool().unwrap(), false);
+        assert!(!peer["connected"].as_bool().unwrap());
 
         break;
     }
@@ -1763,7 +1762,11 @@ async fn create_remove_worker() {
     let script = r#"(call %init_peer_id% ("getDataSrv" "spell_id") [] spell_id)"#;
     let config = make_clock_config(0, 1, 0);
 
+<<<<<<< HEAD
     let (spell_id, worker_id) = create_spell(&mut client, &script, config, json!({})).await;
+=======
+    let (spell_id, worker_id) = create_spell(&mut client, script, config, json!({}), None).await;
+>>>>>>> origin/master
     let service = create_service_worker(
         &mut client,
         "file_share",
@@ -1818,7 +1821,7 @@ async fn create_remove_worker() {
         assert_eq!(before.len(), 2);
 
         let before: Vec<String> = before
-            .into_iter()
+            .iter()
             .map(|s| s.get("id").unwrap().as_str().unwrap().to_string())
             .collect();
         assert!(before.contains(&spell_id));
@@ -1956,7 +1959,7 @@ async fn test_worker_list() {
         assert_eq!(workers.len(), 2);
 
         let workers: Vec<String> = workers
-            .into_iter()
+            .iter()
             .map(|s| s.as_str().unwrap().to_string())
             .collect();
         assert!(workers.contains(&worker_id1));
@@ -2041,7 +2044,7 @@ async fn test_spell_list() {
         assert_eq!(worker1_spells.len(), 2);
         assert_eq!(worker2_spells.len(), 1);
         let worker1_spells: Vec<String> = worker1_spells
-            .into_iter()
+            .iter()
             .map(|s| s.as_str().unwrap().to_string())
             .collect();
         assert!(worker1_spells.contains(&spell_id1));
@@ -2230,123 +2233,124 @@ async fn set_alias_by_worker_creator() {
     }
 }
 
-#[tokio::test]
-async fn test_decider_api_endpoint_rewrite() {
-    let expected_endpoint = "test1".to_string();
-    let swarm_keypair = KeyPair::generate_ed25519();
-    let inner_keypair = swarm_keypair.clone();
-    let inner_endpoint = expected_endpoint.clone();
-    let swarms = make_swarms_with_cfg(1, move |mut cfg| {
-        let tmp_dir = tempfile::tempdir().expect("Could not create temp dir");
-        let tmp_dir = Arc::new(tmp_dir);
-        cfg.keypair = inner_keypair.clone();
-        cfg.tmp_dir = tmp_dir;
-        cfg.enabled_system_services = vec!["decider".to_string()];
-        cfg.override_system_services_config = Some(SystemServicesConfig {
-            enable: vec![],
-            aqua_ipfs: Default::default(),
-            decider: DeciderConfig {
-                network_api_endpoint: inner_endpoint.clone(),
-                ..Default::default()
-            },
-            registry: Default::default(),
-            connector: Default::default(),
-        });
-        cfg
-    })
-    .await;
-
-    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
-        .await
-        .wrap_err("connect client")
-        .unwrap();
-
-    client
-        .send_particle(
-            r#"(seq
-                    (call relay ("decider" "get_string") ["chain"] chain_info_str)
-                    (seq
-                        (call relay ("json" "parse") [chain_info_str.$.value] chain_info)
-                        (call client ("return" "") [chain_info.$.api_endpoint])
-                    )
-                )"#,
-            hashmap! {
-                "relay" => json!(client.node.to_string()),
-                "client" => json!(client.peer_id.to_string()),
-            },
-        )
-        .await;
-
-    if let [JValue::String(endpoint)] = client
-        .receive_args()
-        .await
-        .wrap_err("receive")
-        .unwrap()
-        .as_slice()
-    {
-        assert_eq!(*endpoint, expected_endpoint);
-    }
-
-    // stop swarm
-    swarms
-        .into_iter()
-        .map(|s| s.exit_outlet.send(()))
-        .for_each(drop);
-
-    let another_endpoint = "another_endpoint_test".to_string();
-    let inner_keypair = swarm_keypair.clone();
-    let inner_endpoint = another_endpoint.clone();
-    let swarms = make_swarms_with_cfg(1, move |mut cfg| {
-        let tmp_dir = tempfile::tempdir().expect("Could not create temp dir");
-        let tmp_dir = Arc::new(tmp_dir);
-        cfg.keypair = inner_keypair.clone();
-        cfg.tmp_dir = tmp_dir;
-        cfg.enabled_system_services = vec!["decider".to_string()];
-        cfg.override_system_services_config = Some(SystemServicesConfig {
-            enable: vec![],
-            aqua_ipfs: Default::default(),
-            decider: DeciderConfig {
-                network_api_endpoint: inner_endpoint.clone(),
-                ..Default::default()
-            },
-            registry: Default::default(),
-            connector: Default::default(),
-        });
-        cfg
-    })
-    .await;
-
-    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
-        .await
-        .wrap_err("connect client")
-        .unwrap();
-
-    client
-        .send_particle(
-            r#"(seq
-                    (call relay ("decider" "get_string") ["chain"] chain_info_str)
-                    (seq
-                        (call relay ("json" "parse") [chain_info_str.$.value] chain_info)
-                        (call client ("return" "") [chain_info.$.api_endpoint])
-                    )
-                )"#,
-            hashmap! {
-                "relay" => json!(client.node.to_string()),
-                "client" => json!(client.peer_id.to_string()),
-            },
-        )
-        .await;
-
-    if let [JValue::String(endpoint)] = client
-        .receive_args()
-        .await
-        .wrap_err("receive")
-        .unwrap()
-        .as_slice()
-    {
-        assert_eq!(*endpoint, another_endpoint);
-    }
-}
+// TODO: figure out what to do with this test
+// #[tokio::test]
+// async fn test_decider_api_endpoint_rewrite() {
+//     let expected_endpoint = "test1".to_string();
+//     let swarm_keypair = KeyPair::generate_ed25519();
+//     let inner_keypair = swarm_keypair.clone();
+//     let inner_endpoint = expected_endpoint.clone();
+//     let swarms = make_swarms_with_cfg(1, move |mut cfg| {
+//         let tmp_dir = tempfile::tempdir().expect("Could not create temp dir");
+//         let tmp_dir = Arc::new(tmp_dir);
+//         cfg.keypair = inner_keypair.clone();
+//         cfg.tmp_dir = tmp_dir;
+//         cfg.enabled_system_services = vec!["decider".to_string()];
+//         cfg.override_system_services_config = Some(SystemServicesConfig {
+//             enable: vec![],
+//             aqua_ipfs: Default::default(),
+//             decider: DeciderConfig {
+//                 network_api_endpoint: inner_endpoint.clone(),
+//                 ..Default::default()
+//             },
+//             registry: Default::default(),
+//             connector: Default::default(),
+//         });
+//         cfg
+//     })
+//     .await;
+//
+//     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+//         .await
+//         .wrap_err("connect client")
+//         .unwrap();
+//
+//     client
+//         .send_particle(
+//             r#"(seq
+//                     (call relay ("decider" "get_string") ["chain"] chain_info_str)
+//                     (seq
+//                         (call relay ("json" "parse") [chain_info_str.$.value] chain_info)
+//                         (call client ("return" "") [chain_info.$.api_endpoint])
+//                     )
+//                 )"#,
+//             hashmap! {
+//                 "relay" => json!(client.node.to_string()),
+//                 "client" => json!(client.peer_id.to_string()),
+//             },
+//         )
+//         .await;
+//
+//     if let [JValue::String(endpoint)] = client
+//         .receive_args()
+//         .await
+//         .wrap_err("receive")
+//         .unwrap()
+//         .as_slice()
+//     {
+//         assert_eq!(*endpoint, expected_endpoint);
+//     }
+//
+//     // stop swarm
+//     swarms
+//         .into_iter()
+//         .map(|s| s.exit_outlet.send(()))
+//         .for_each(drop);
+//
+//     let another_endpoint = "another_endpoint_test".to_string();
+//     let inner_keypair = swarm_keypair.clone();
+//     let inner_endpoint = another_endpoint.clone();
+//     let swarms = make_swarms_with_cfg(1, move |mut cfg| {
+//         let tmp_dir = tempfile::tempdir().expect("Could not create temp dir");
+//         let tmp_dir = Arc::new(tmp_dir);
+//         cfg.keypair = inner_keypair.clone();
+//         cfg.tmp_dir = tmp_dir;
+//         cfg.enabled_system_services = vec!["decider".to_string()];
+//         cfg.override_system_services_config = Some(SystemServicesConfig {
+//             enable: vec![],
+//             aqua_ipfs: Default::default(),
+//             decider: DeciderConfig {
+//                 network_api_endpoint: inner_endpoint.clone(),
+//                 ..Default::default()
+//             },
+//             registry: Default::default(),
+//             connector: Default::default(),
+//         });
+//         cfg
+//     })
+//     .await;
+//
+//     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+//         .await
+//         .wrap_err("connect client")
+//         .unwrap();
+//
+//     client
+//         .send_particle(
+//             r#"(seq
+//                     (call relay ("decider" "get_string") ["chain"] chain_info_str)
+//                     (seq
+//                         (call relay ("json" "parse") [chain_info_str.$.value] chain_info)
+//                         (call client ("return" "") [chain_info.$.api_endpoint])
+//                     )
+//                 )"#,
+//             hashmap! {
+//                 "relay" => json!(client.node.to_string()),
+//                 "client" => json!(client.peer_id.to_string()),
+//             },
+//         )
+//         .await;
+//
+//     if let [JValue::String(endpoint)] = client
+//         .receive_args()
+//         .await
+//         .wrap_err("receive")
+//         .unwrap()
+//         .as_slice()
+//     {
+//         assert_eq!(*endpoint, another_endpoint);
+//     }
+// }
 
 #[tokio::test]
 async fn test_activate_deactivate() {

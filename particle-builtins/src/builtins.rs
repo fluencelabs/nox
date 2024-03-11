@@ -281,7 +281,7 @@ where
             ("vault", "put") => wrap(self.vault_put(args, particle)),
             ("vault", "cat") => wrap(self.vault_cat(args, particle)),
 
-            ("subnet", "resolve") => wrap(self.subnet_resolve(args)),
+            ("subnet", "resolve") => wrap(self.subnet_resolve(args).await),
             ("run-console", "print") => {
                 self.guard_protected(&particle)?;
 
@@ -1077,10 +1077,10 @@ where
             .map_err(|_| JError::new(format!("Error reading vault file `{path}`")))
     }
 
-    fn subnet_resolve(&self, args: Args) -> Result<JValue, JError> {
+    async fn subnet_resolve(&self, args: Args) -> Result<JValue, JError> {
         let mut args = args.function_args.into_iter();
         let deal_id: String = Args::next("deal_id", &mut args)?;
-        let result = subnet_resolver::resolve_subnet(deal_id, &self.connector_api_endpoint);
+        let result = subnet_resolver::resolve_subnet(deal_id, &self.connector_api_endpoint).await;
         Ok(json!(result))
     }
 

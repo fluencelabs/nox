@@ -22,7 +22,7 @@ impl ChainFunction for GetCommitmentFunction {
             state_mutability: ethabi::StateMutability::View,
         }
     }
-    fn signature() -> Vec<ethabi::ParamType> {
+    fn result_signature() -> Vec<ethabi::ParamType> {
         Commitment::signature()
     }
 }

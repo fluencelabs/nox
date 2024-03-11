@@ -1,5 +1,62 @@
 # Changelog
 
+## [0.23.2](https://github.com/fluencelabs/nox/compare/nox-v0.23.1...nox-v0.23.2) (2024-03-10)
+
+
+### Bug Fixes
+
+* **listener:** save pending units on start; refresh state on subs drop ([#2158](https://github.com/fluencelabs/nox/issues/2158)) ([86da267](https://github.com/fluencelabs/nox/commit/86da267ab3d2958d0f33bdeaeb0f058475a6ed9c))
+
+## [0.23.1](https://github.com/fluencelabs/nox/compare/nox-v0.23.0...nox-v0.23.1) (2024-03-09)
+
+
+### Features
+
+* **chain-listener:** exit expired deals ([#2143](https://github.com/fluencelabs/nox/issues/2143)) ([596f2a6](https://github.com/fluencelabs/nox/commit/596f2a6c119a2ef9c99aa3bb3975ae13bfacade1))
+
+## [0.23.0](https://github.com/fluencelabs/nox/compare/nox-v0.22.2...nox-v0.23.0) (2024-03-08)
+
+
+### ⚠ BREAKING CHANGES
+
+* **capacity-commitments:** finish CCP integration; add logs ([#2133](https://github.com/fluencelabs/nox/issues/2133))
+
+### Features
+
+* **capacity-commitments:** finish CCP integration; add logs ([#2133](https://github.com/fluencelabs/nox/issues/2133)) ([23f4498](https://github.com/fluencelabs/nox/commit/23f449818e38e7881924996b2ada0af99737989b))
+
+## [0.22.2](https://github.com/fluencelabs/nox/compare/nox-v0.22.1...nox-v0.22.2) (2024-03-08)
+
+
+### Features
+
+* **workers:** separate AVM pools [fixes NET-753] ([#2125](https://github.com/fluencelabs/nox/issues/2125)) ([fd2552f](https://github.com/fluencelabs/nox/commit/fd2552f94a61c106d7c03b8b2bb18eaf47eae8a1))
+
+
+### Bug Fixes
+
+* **config:** add humantime & default for proof_poll_period ([#2139](https://github.com/fluencelabs/nox/issues/2139)) ([fd6acf6](https://github.com/fluencelabs/nox/commit/fd6acf65c211deec1be84a4bd4333a3b68f05f8f))
+* **config:** change default for the cpu range in nox ([#2140](https://github.com/fluencelabs/nox/issues/2140)) ([c976373](https://github.com/fluencelabs/nox/commit/c976373c6e25171580f995e98635535eae597b87))
+
+## [0.22.1](https://github.com/fluencelabs/nox/compare/nox-v0.22.0...nox-v0.22.1) (2024-03-07)
+
+
+### Bug Fixes
+
+* **deps:** update rust crate decider-distro to v0.6.11 ([#2137](https://github.com/fluencelabs/nox/issues/2137)) ([bd8ff99](https://github.com/fluencelabs/nox/commit/bd8ff996ac5d6449844e99031b234fa9ef3cce76))
+* **workers:** add io+timer drivers to tokio runtimes [fixes NET-795] ([#2135](https://github.com/fluencelabs/nox/issues/2135)) ([fb251c9](https://github.com/fluencelabs/nox/commit/fb251c92a244d360e3fd1a46edcb00221cb4c75a))
+
+## [0.22.0](https://github.com/fluencelabs/nox/compare/nox-v0.21.4...nox-v0.22.0) (2024-03-05)
+
+
+### ⚠ BREAKING CHANGES
+
+* **aquavm:** aquavm mem limits from config [fixes VM-425] ([#2111](https://github.com/fluencelabs/nox/issues/2111))
+
+### Features
+
+* **aquavm:** aquavm mem limits from config [fixes VM-425] ([#2111](https://github.com/fluencelabs/nox/issues/2111)) ([a732f5c](https://github.com/fluencelabs/nox/commit/a732f5ca16e2cd5a721a220ce8f73b784dd0ab21))
+
 ## [0.21.4](https://github.com/fluencelabs/nox/compare/nox-v0.21.3...nox-v0.21.4) (2024-03-03)
 
 

@@ -19,6 +19,7 @@ use std::net::IpAddr;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
+use core_manager::CoreRange;
 use libp2p::core::Multiaddr;
 use libp2p::identity::ed25519::Keypair;
 use libp2p::identity::PublicKey;
@@ -49,7 +50,8 @@ pub fn default_socket_timeout() -> Duration {
 }
 
 pub fn default_connection_idle_timeout() -> Duration {
-    Duration::from_secs(10)
+    // 180 seconds makes sense because default Particle TTL is 120 sec, and it doesn't seem very efficient for hosts to reconnect while particle is still in flight
+    Duration::from_secs(180)
 }
 
 pub fn default_max_established_per_peer_limit() -> Option<u32> {
@@ -63,10 +65,24 @@ pub fn default_bootstrap_nodes() -> Vec<Multiaddr> {
 pub fn default_system_cpu_count() -> usize {
     let total = num_cpus::get_physical();
     match total {
-        x if x > 32 => 4,
-        x if x > 2 => 2,
+        x if x > 32 => 3,
+        x if x > 7 => 2,
         _ => 1,
     }
+}
+
+pub fn default_cpus_range() -> Option<CoreRange> {
+    let total = num_cpus::get_physical();
+    let left = match total {
+        c if c > 32 => 3,
+        c if c > 16 => 2,
+        c if c > 8 => 1,
+        _ => 0,
+    };
+    Some(
+        CoreRange::try_from(Vec::from_iter(left..total).as_slice())
+            .expect("Cpu range can't be empty"),
+    )
 }
 
 pub fn default_websocket_port() -> u16 {
@@ -138,6 +154,10 @@ pub fn default_particle_queue_buffer_size() -> usize {
 }
 
 pub fn default_effects_queue_buffer_size() -> usize {
+    128
+}
+
+pub fn default_workers_queue_buffer_size() -> usize {
     128
 }
 
@@ -274,4 +294,8 @@ pub fn default_binaries_mapping() -> HashMap<String, String> {
         "curl".to_string() => default_curl_binary_path(),
         "ipfs".to_string() => default_ipfs_binary_path(),
     }
+}
+
+pub fn default_proof_poll_period() -> Duration {
+    Duration::from_secs(60)
 }

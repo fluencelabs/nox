@@ -14,6 +14,8 @@ pub use error::KeyStorageError;
 pub use error::WorkersError;
 pub use key_storage::KeyStorage;
 pub use scope::PeerScopes;
+pub use tokio::sync::mpsc::Receiver;
 pub use types::peer_scope::WorkerId;
+pub use workers::Event;
 pub use workers::WorkerParams;
 pub use workers::Workers;

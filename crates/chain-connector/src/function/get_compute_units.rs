@@ -21,7 +21,7 @@ impl ChainFunction for GetComputeUnitsFunction {
             state_mutability: ethabi::StateMutability::View,
         }
     }
-    fn signature() -> Vec<ParamType> {
+    fn result_signature() -> Vec<ParamType> {
         vec![ParamType::Array(Box::new(ParamType::Tuple(
             ComputeUnit::signature(),
         )))]

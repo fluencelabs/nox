@@ -1,36 +1,44 @@
-use crate::error::{process_response, ConnectorError};
-use crate::function::{GetCommitmentFunction, GetStatusFunction, SubmitProofFunction};
-use crate::ConnectorError::InvalidBaseFeePerGas;
-use crate::{
-    CurrentEpochFunction, DifficultyFunction, EpochDurationFunction, GetComputePeerFunction,
-    GetComputeUnitsFunction, GetGlobalNonceFunction, InitTimestampFunction,
-};
+use std::collections::HashMap;
+use std::sync::Arc;
+
 use ccp_shared::proof::CCProof;
-use ccp_shared::types::{Difficulty, GlobalNonce};
-use chain_data::ChainDataError::InvalidTokenSize;
-use chain_data::{next_opt, parse_chain_data, peer_id_to_bytes, ChainFunction};
-use chain_types::{Commitment, CommitmentId, CommitmentStatus, ComputePeer, ComputeUnit};
+use ccp_shared::types::{Difficulty, GlobalNonce, CUID};
 use clarity::Transaction;
 use ethabi::ethereum_types::U256;
 use ethabi::Token;
 use eyre::eyre;
-use fluence_libp2p::PeerId;
 use futures::FutureExt;
 use jsonrpsee::core::client::{BatchResponse, ClientT};
 use jsonrpsee::core::params::{ArrayParams, BatchRequestBuilder};
 use jsonrpsee::http_client::HttpClientBuilder;
 use jsonrpsee::rpc_params;
+use serde_json::Value as JValue;
+use serde_json::{json, Value};
+use tokio::sync::Mutex;
+
+use chain_data::ChainDataError::InvalidTokenSize;
+use chain_data::{next_opt, parse_chain_data, peer_id_to_bytes, ChainFunction};
+use chain_types::{
+    Commitment, CommitmentId, CommitmentStatus, ComputePeer, ComputeUnit, DealStatus,
+};
+use fluence_libp2p::PeerId;
 use particle_args::{Args, JError};
 use particle_builtins::{wrap, CustomService};
 use particle_execution::{ParticleParams, ServiceFunction};
-use serde_json::Value as JValue;
-use serde_json::{json, Value};
 use server_config::ChainConfig;
-use std::collections::HashMap;
-use std::sync::Arc;
-use tokio::sync::Mutex;
+use types::DealId;
+
+use crate::error::{process_response, ConnectorError};
+use crate::function::{GetCommitmentFunction, GetCommitmentStatusFunction, SubmitProofFunction};
+use crate::ConnectorError::InvalidBaseFeePerGas;
+use crate::{
+    CurrentEpochFunction, DifficultyFunction, EpochDurationFunction, GetComputePeerFunction,
+    GetComputeUnitsFunction, GetDealStatusFunction, GetGlobalNonceFunction, InitTimestampFunction,
+    ReturnComputeUnitFromDeal,
+};
 
 const BASE_FEE_MULTIPLIER: f64 = 0.125;
+
 pub struct ChainConnector {
     client: Arc<jsonrpsee::http_client::HttpClient>,
     config: ChainConfig,
@@ -51,6 +59,8 @@ impl ChainConnector {
         config: ChainConfig,
         host_id: PeerId,
     ) -> eyre::Result<(Arc<Self>, HashMap<String, CustomService>)> {
+        tracing::info!(target: "chain-connector","Connecting to chain via {}", config.http_endpoint);
+
         let connector = Arc::new(Self {
             client: Arc::new(HttpClientBuilder::default().build(&config.http_endpoint)?),
             config,
@@ -160,6 +170,7 @@ impl ChainConnector {
 
     pub async fn send_tx(&self, data: Vec<u8>, to: &str) -> Result<String, ConnectorError> {
         let base_fee_per_gas = self.get_base_fee_per_gas().await?;
+        tracing::info!(target: "chain-connector", "Estimating gas for tx from {} to {} data {}", self.config.wallet_key.to_address(), to, hex::encode(&data));
         let gas_limit = self.estimate_gas_limit(&data, to).await?;
         let max_priority_fee_per_gas = self.max_priority_fee_per_gas().await?;
 
@@ -193,6 +204,11 @@ impl ChainConnector {
             .to_bytes();
         let tx = hex::encode(tx);
 
+        tracing::info!(target: "chain-connector",
+            "Sending tx to {to} from {} signed {tx}",
+            self.config.wallet_key.to_address()
+        );
+
         let resp: String = process_response(
             self.client
                 .request("eth_sendRawTransaction", rpc_params![format!("0x{}", tx)])
@@ -208,10 +224,13 @@ impl ChainConnector {
             self.client
                 .request(
                     "eth_call",
-                    rpc_params![json!({
-                        "data": data,
-                        "to": self.config.market_contract_address,
-                    })],
+                    rpc_params![
+                        json!({
+                            "data": data,
+                            "to": self.config.market_contract_address,
+                        }),
+                        "latest"
+                    ],
                 )
                 .await,
         )?;
@@ -222,15 +241,18 @@ impl ChainConnector {
         &self,
         commitment_id: CommitmentId,
     ) -> Result<CommitmentStatus, ConnectorError> {
-        let data = GetStatusFunction::data(&[Token::FixedBytes(commitment_id.0)])?;
+        let data = GetCommitmentStatusFunction::data(&[Token::FixedBytes(commitment_id.0)])?;
         let resp: String = process_response(
             self.client
                 .request(
                     "eth_call",
-                    rpc_params![json!({
-                        "data": data,
-                        "to": self.config.cc_contract_address,
-                    })],
+                    rpc_params![
+                        json!({
+                            "data": data,
+                            "to": self.config.cc_contract_address,
+                        }),
+                        "latest"
+                    ],
                 )
                 .await,
         )?;
@@ -246,10 +268,13 @@ impl ChainConnector {
             self.client
                 .request(
                     "eth_call",
-                    rpc_params![json!({
-                        "data": data,
-                        "to": self.config.cc_contract_address,
-                    })],
+                    rpc_params![
+                        json!({
+                            "data": data,
+                            "to": self.config.cc_contract_address,
+                        }),
+                        "latest"
+                    ],
                 )
                 .await,
         )?;
@@ -262,10 +287,13 @@ impl ChainConnector {
             self.client
                 .request(
                     "eth_call",
-                    rpc_params![json!({
-                        "data": data,
-                        "to": self.config.cc_contract_address
-                    })],
+                    rpc_params![
+                        json!({
+                            "data": data,
+                            "to": self.config.cc_contract_address
+                        }),
+                        "latest"
+                    ],
                 )
                 .await,
         )?;
@@ -286,22 +314,25 @@ impl ChainConnector {
         self.send_tx(data, &self.config.cc_contract_address).await
     }
 
-    pub async fn get_compute_units(&self) -> eyre::Result<Vec<ComputeUnit>> {
+    pub async fn get_compute_units(&self) -> Result<Vec<ComputeUnit>, ConnectorError> {
         let data =
             GetComputeUnitsFunction::data(&[Token::FixedBytes(peer_id_to_bytes(self.host_id))])?;
         let resp: String = process_response(
             self.client
                 .request(
                     "eth_call",
-                    rpc_params![json!({
-                        "data": data,
-                        "to": self.config.market_contract_address,
-                    })],
+                    rpc_params![
+                        json!({
+                            "data": data,
+                            "to": self.config.market_contract_address,
+                        }),
+                        "latest"
+                    ],
                 )
                 .await,
         )?;
         let mut tokens =
-            parse_chain_data(&resp, &GetComputeUnitsFunction::signature())?.into_iter();
+            parse_chain_data(&resp, &GetComputeUnitsFunction::result_signature())?.into_iter();
         let units = next_opt(&mut tokens, "units", Token::into_array)?.into_iter();
         let compute_units = units
             .map(ComputeUnit::from_token)
@@ -365,53 +396,103 @@ impl ChainConnector {
         })
     }
 
+    pub async fn get_deal_statuses<'a, I>(
+        &self,
+        deal_ids: I,
+    ) -> Result<Vec<Result<DealStatus, ConnectorError>>, ConnectorError>
+    where
+        I: Iterator<Item = &'a DealId>,
+    {
+        let mut batch = BatchRequestBuilder::new();
+        for deal_id in deal_ids {
+            let data = GetDealStatusFunction::data(&[])?;
+            batch.insert(
+                "eth_call",
+                rpc_params![
+                    json!({
+                        "data": data,
+                        "to": deal_id.to_address(),
+                    }),
+                    "latest"
+                ],
+            )?;
+        }
+
+        let resp: BatchResponse<String> = self.client.batch_request(batch).await?;
+        let mut statuses = vec![];
+
+        for status in resp.into_iter() {
+            let status = status
+                .map(|r| DealStatus::from(&r).map_err(ConnectorError::ParseChainDataFailed))
+                .map_err(|e| ConnectorError::RpcError(e.to_owned().into()))?;
+            statuses.push(status);
+        }
+
+        Ok(statuses)
+    }
+
+    pub async fn exit_deal(&self, cu_id: &CUID) -> Result<String, ConnectorError> {
+        let data =
+            ReturnComputeUnitFromDeal::data_bytes(&[Token::FixedBytes(cu_id.as_ref().to_vec())])?;
+        self.send_tx(data, &self.config.market_contract_address)
+            .await
+    }
+
     fn difficulty_params(&self) -> eyre::Result<ArrayParams> {
         let data = DifficultyFunction::data(&[])?;
         Ok(rpc_params![
-            json!({"data": data, "to": self.config.cc_contract_address})
+            json!({"data": data, "to": self.config.cc_contract_address}),
+            "latest"
         ])
     }
 
     fn init_timestamp_params(&self) -> eyre::Result<ArrayParams> {
         let data = InitTimestampFunction::data(&[])?;
         Ok(rpc_params![
-            json!({"data": data, "to": self.config.core_contract_address})
+            json!({"data": data, "to": self.config.core_contract_address}),
+            "latest"
         ])
     }
     fn global_nonce_params(&self) -> eyre::Result<ArrayParams> {
         let data = GetGlobalNonceFunction::data(&[])?;
         Ok(rpc_params![
-            json!({"data": data, "to": self.config.cc_contract_address})
+            json!({"data": data, "to": self.config.cc_contract_address}),
+            "latest"
         ])
     }
     fn current_epoch_params(&self) -> eyre::Result<ArrayParams> {
         let data = CurrentEpochFunction::data(&[])?;
         Ok(rpc_params![
-            json!({"data": data, "to": self.config.core_contract_address})
+            json!({"data": data, "to": self.config.core_contract_address}),
+            "latest"
         ])
     }
     fn epoch_duration_params(&self) -> eyre::Result<ArrayParams> {
         let data = EpochDurationFunction::data(&[])?;
         Ok(rpc_params![
-            json!({"data": data, "to": self.config.core_contract_address})
+            json!({"data": data, "to": self.config.core_contract_address}),
+            "latest"
         ])
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::{ChainConnector, ConnectorError};
+    use std::assert_matches::assert_matches;
+    use std::str::FromStr;
+    use std::sync::Arc;
+
     use ccp_shared::proof::{CCProof, CCProofId, ProofIdx};
     use ccp_shared::types::{Difficulty, GlobalNonce, LocalNonce, ResultHash, CUID};
-    use chain_data::peer_id_from_hex;
-    use chain_types::{CommitmentId, COMMITMENT_IS_NOT_ACTIVE};
     use clarity::PrivateKey;
     use hex::FromHex;
     use mockito::Matcher;
     use serde_json::json;
-    use std::assert_matches::assert_matches;
-    use std::str::FromStr;
-    use std::sync::Arc;
+
+    use chain_data::peer_id_from_hex;
+    use chain_types::{CommitmentId, COMMITMENT_IS_NOT_ACTIVE};
+
+    use crate::{ChainConnector, ConnectorError};
 
     fn get_connector(url: &str) -> Arc<ChainConnector> {
         let (connector, _) = ChainConnector::new(
@@ -433,6 +514,7 @@ mod tests {
 
         connector
     }
+
     #[tokio::test]
     async fn test_get_compute_units() {
         let expected_data = "0x000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000025d204dcc21f59c2a2098a277e48879207f614583e066654ad6736d36815ebb9e00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000450e2f2a5bdb528895e9005f67e70fe213b9b822122e96fd85d2238cae55b6f900000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000";
@@ -652,9 +734,9 @@ mod tests {
             "jsonrpc": "2.0",
             "id": 1,
             "error": {
-                "code": -32000,
-                "message": "execution reverted: revert: Capacity commitment is not active",
-                "data": "0x08c379a000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000021436170616369747920636f6d6d69746d656e74206973206e6f742061637469766500000000000000000000000000000000000000000000000000000000000000"
+                "code": 3,
+                "message": "execution reverted: ",
+                "data": "0x0852c7200000000000000000000000000000000000000000000000000000000000000000"
             }
         }
         "#;
@@ -684,13 +766,13 @@ mod tests {
 
         let proof = CCProof::new(
             CCProofId::new(
-                GlobalNonce::new([0u8; 32].into()),
-                Difficulty::new([0u8; 32].into()),
+                GlobalNonce::new([0u8; 32]),
+                Difficulty::new([0u8; 32]),
                 ProofIdx::zero(),
             ),
-            LocalNonce::new([0u8; 32].into()),
-            CUID::new([0u8; 32].into()),
-            ResultHash::from_slice([0u8; 32].into()),
+            LocalNonce::new([0u8; 32]),
+            CUID::new([0u8; 32]),
+            ResultHash::from_slice([0u8; 32]),
         );
         let result = get_connector(&url).submit_proof(proof).await;
 
@@ -747,13 +829,13 @@ mod tests {
 
         let proof = CCProof::new(
             CCProofId::new(
-                GlobalNonce::new([0u8; 32].into()),
-                Difficulty::new([0u8; 32].into()),
+                GlobalNonce::new([0u8; 32]),
+                Difficulty::new([0u8; 32]),
                 ProofIdx::zero(),
             ),
-            LocalNonce::new([0u8; 32].into()),
-            CUID::new([0u8; 32].into()),
-            ResultHash::from_slice([0u8; 32].into()),
+            LocalNonce::new([0u8; 32]),
+            CUID::new([0u8; 32]),
+            ResultHash::from_slice([0u8; 32]),
         );
         let result = get_connector(&url).submit_proof(proof).await.unwrap();
 

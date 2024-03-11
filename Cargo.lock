@@ -674,6 +674,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "backoff"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b62ddb9cb1ec0a098ad4bbf9344d0713fa193ae1a80af55febcff2627b6a00c1"
+dependencies = [
+ "futures-core",
+ "getrandom",
+ "instant",
+ "pin-project-lite",
+ "rand 0.8.5",
+ "tokio",
+]
+
+[[package]]
 name = "backtrace"
 version = "0.3.69"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1006,19 +1020,9 @@ dependencies = [
 ]
 
 [[package]]
-name = "ccp-randomx-types"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b3769b7222a8e4cf35252235fe7d7be66328b5440687275ee592dbdb04b7efd7"
-dependencies = [
- "hex",
- "serde",
-]
-
-[[package]]
 name = "ccp-rpc-client"
-version = "0.1.0"
-source = "git+https://github.com/fluencelabs/capacity-commitment-prover/?branch=main#5de05462da4444f7fd3633fecaecd82c854a1618"
+version = "0.4.0"
+source = "git+https://github.com/fluencelabs/capacity-commitment-prover/?branch=main#2beb3b065c58e0e792a742e3378a685b275b53e9"
 dependencies = [
  "ccp-shared",
  "hex",
@@ -1028,12 +1032,11 @@ dependencies = [
 
 [[package]]
 name = "ccp-shared"
-version = "0.1.0"
-source = "git+https://github.com/fluencelabs/capacity-commitment-prover/?branch=main#5de05462da4444f7fd3633fecaecd82c854a1618"
+version = "0.4.0"
+source = "git+https://github.com/fluencelabs/capacity-commitment-prover/?branch=main#2beb3b065c58e0e792a742e3378a685b275b53e9"
 dependencies = [
- "ccp-randomx-types",
- "cpu-utils",
  "hex",
+ "newtype_derive",
  "rand 0.8.5",
  "serde",
 ]
@@ -1091,6 +1094,8 @@ dependencies = [
  "server-config",
  "thiserror",
  "tokio",
+ "tracing",
+ "types",
 ]
 
 [[package]]
@@ -1111,6 +1116,7 @@ dependencies = [
 name = "chain-listener"
 version = "0.1.0"
 dependencies = [
+ "backoff",
  "ccp-rpc-client",
  "ccp-shared",
  "chain-connector",
@@ -1126,6 +1132,7 @@ dependencies = [
  "hex",
  "hex-utils",
  "jsonrpsee",
+ "libipld",
  "libp2p-identity",
  "log",
  "log-utils",
@@ -1136,6 +1143,7 @@ dependencies = [
  "thiserror",
  "tokio",
  "tokio-stream",
+ "toml 0.5.11",
  "tracing",
  "types",
 ]
@@ -1151,6 +1159,7 @@ dependencies = [
  "hex",
  "serde",
  "tokio",
+ "types",
 ]
 
 [[package]]
@@ -1469,6 +1478,7 @@ dependencies = [
  "newtype_derive",
  "num_cpus",
  "parking_lot",
+ "rand 0.8.5",
  "range-set-blaze",
  "serde",
  "serde_with 3.6.1",
@@ -1511,12 +1521,12 @@ dependencies = [
 
 [[package]]
 name = "cpu-utils"
-version = "0.1.0"
-source = "git+https://github.com/fluencelabs/capacity-commitment-prover/?branch=main#5de05462da4444f7fd3633fecaecd82c854a1618"
+version = "0.4.0"
+source = "git+https://github.com/fluencelabs/capacity-commitment-prover/?branch=main#2beb3b065c58e0e792a742e3378a685b275b53e9"
 dependencies = [
+ "ccp-shared",
  "core_affinity",
  "hwlocality",
- "newtype_derive",
  "nonempty",
  "serde",
  "thiserror",
@@ -1689,11 +1699,10 @@ dependencies = [
 
 [[package]]
 name = "crossbeam-channel"
-version = "0.5.8"
+version = "0.5.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a33c2bf77f2df06183c3aa30d1e96c0695a313d4f9c453cc3762a6db39f99200"
+checksum = "ab3db02a9c5b5121e1e42fbdb1aeb65f5e02624cc58c43f2884c6ccac0b82f95"
 dependencies = [
- "cfg-if",
  "crossbeam-utils",
 ]
 
@@ -1723,12 +1732,9 @@ dependencies = [
 
 [[package]]
 name = "crossbeam-utils"
-version = "0.8.16"
+version = "0.8.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5a22b2d63d4d1dc0b7f1b6b2747dd0088008a9be28b6ddf0b1e7d335e3037294"
-dependencies = [
- "cfg-if",
-]
+checksum = "248e3bacc7dc6baa3b21e405ee045c3047101a49145e7e9eca583ab4c2ca5345"
 
 [[package]]
 name = "crunchy"
@@ -1866,9 +1872,9 @@ dependencies = [
 
 [[package]]
 name = "decider-distro"
-version = "0.6.10"
+version = "0.6.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5885bba1b2e16ebff830b6229ba4fc7c4df6eefe1cccdb37ec86c3d9886ddea1"
+checksum = "0ff1a872b211111a9b67000c1251591e06fa8525ad2f97e406d72fd7dc8fbf68"
 dependencies = [
  "built 0.7.1",
  "fluence-spell-dtos",
@@ -2422,6 +2428,7 @@ dependencies = [
 name = "fs-utils"
 version = "0.1.0"
 dependencies = [
+ "cfg-if",
  "eyre",
  "futures-util",
  "rand 0.8.5",
@@ -5353,7 +5360,7 @@ version = "0.1.0"
 
 [[package]]
 name = "nox"
-version = "0.21.4"
+version = "0.23.2"
 dependencies = [
  "air-interpreter-fs",
  "air-interpreter-wasm",
@@ -5363,6 +5370,7 @@ dependencies = [
  "base64 0.21.7",
  "blake3",
  "bs58",
+ "ccp-rpc-client",
  "chain-connector",
  "chain-listener",
  "config",
@@ -5379,6 +5387,7 @@ dependencies = [
  "fstrings",
  "futures",
  "health",
+ "hex",
  "humantime-serde",
  "itertools 0.12.1",
  "jsonrpsee",
@@ -5418,6 +5427,7 @@ dependencies = [
  "tracing-log",
  "tracing-logfmt",
  "tracing-opentelemetry",
+ "tracing-panic",
  "tracing-subscriber",
  "workers",
 ]
@@ -6040,6 +6050,7 @@ dependencies = [
  "serde_json",
  "tokio",
  "tokio-stream",
+ "types",
 ]
 
 [[package]]
@@ -8315,6 +8326,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "tracing-panic"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "eaf80030ce049691c9922d75be63cadf345110a245cd4581833c66f87c02ad25"
+dependencies = [
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "tracing-subscriber"
 version = "0.3.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8362,6 +8383,7 @@ checksum = "42ff0bf0c66b8238c6f3b578df37d0b7848e55df8577b3f74f92a69acceeb825"
 name = "types"
 version = "0.1.0"
 dependencies = [
+ "hex",
  "libp2p-identity",
  "serde",
  "serde_json",
@@ -9547,6 +9569,7 @@ dependencies = [
 name = "workers"
 version = "0.1.0"
 dependencies = [
+ "async-trait",
  "core-manager",
  "derivative",
  "eyre",

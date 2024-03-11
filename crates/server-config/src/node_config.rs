@@ -33,6 +33,7 @@ use super::defaults::*;
 #[derive(Clone, Deserialize, Serialize, Derivative)]
 #[derivative(Debug)]
 pub struct UnresolvedNodeConfig {
+    #[serde(default = "default_cpus_range")]
     pub cpus_range: Option<CoreRange>,
 
     #[serde(default = "default_system_cpu_count")]
@@ -106,6 +107,9 @@ pub struct UnresolvedNodeConfig {
 
     #[serde(default = "default_effects_queue_buffer_size")]
     pub effects_queue_buffer: usize,
+
+    #[serde(default = "default_workers_queue_buffer_size")]
+    pub workers_queue_buffer: usize,
 
     #[serde(default = "default_particle_processor_parallelism")]
     pub particle_processor_parallelism: Option<usize>,
@@ -201,6 +205,7 @@ impl UnresolvedNodeConfig {
             kademlia: self.kademlia,
             particle_queue_buffer: self.particle_queue_buffer,
             effects_queue_buffer: self.effects_queue_buffer,
+            workers_queue_buffer: self.workers_queue_buffer,
             particle_processor_parallelism: self.particle_processor_parallelism,
             max_spell_particle_ttl: self.max_spell_particle_ttl,
             bootstrap_frequency: self.bootstrap_frequency,
@@ -366,6 +371,8 @@ pub struct NodeConfig {
     pub particle_queue_buffer: usize,
 
     pub effects_queue_buffer: usize,
+
+    pub workers_queue_buffer: usize,
 
     pub particle_processor_parallelism: Option<usize>,
 
@@ -568,6 +575,8 @@ pub struct ChainListenerConfig {
     pub ws_endpoint: String,
     pub ccp_endpoint: Option<String>,
     /// How often to poll proofs
+    #[serde(default = "default_proof_poll_period")]
+    #[serde(with = "humantime_serde")]
     pub proof_poll_period: Duration,
 }
 

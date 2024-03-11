@@ -1,7 +1,7 @@
 use chain_data::ChainDataError::InvalidTokenSize;
 use chain_data::EventField::{Indexed, NotIndexed};
 use chain_data::{next_opt, ChainData, ChainDataError, ChainEvent, EventField};
-use chain_types::{CommitmentId, ComputeUnit};
+use chain_types::{CommitmentId, PendingUnit};
 use core_manager::CUID;
 use ethabi::ethereum_types::U256;
 use ethabi::param_type::ParamType;
@@ -73,11 +73,10 @@ impl ChainEvent<UnitActivatedData> for UnitActivated {
     }
 }
 
-impl From<UnitActivatedData> for ComputeUnit {
+impl From<UnitActivatedData> for PendingUnit {
     fn from(data: UnitActivatedData) -> Self {
-        ComputeUnit {
+        PendingUnit {
             id: data.unit_id,
-            deal: None,
             start_epoch: data.start_epoch,
         }
     }
@@ -89,7 +88,7 @@ mod test {
     use crate::event::UnitActivatedData;
     use chain_data::{parse_log, ChainData, Log};
     use core_manager::CUID;
-    use hex;
+
     use hex::FromHex;
 
     #[tokio::test]

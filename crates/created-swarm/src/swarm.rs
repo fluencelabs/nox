@@ -29,8 +29,8 @@ use libp2p::{core::Multiaddr, PeerId};
 use serde::Deserialize;
 
 use air_interpreter_fs::{air_interpreter_path, write_default_air_interpreter};
-use aquamarine::{AVMRunner, AquamarineApi};
-use aquamarine::{AquaRuntime, DataStoreConfig, VmConfig};
+use aquamarine::{AVMRunner, AquamarineApi, VmConfig};
+use aquamarine::{AquaRuntime, DataStoreConfig};
 use base64::{engine::general_purpose::STANDARD as base64, Engine};
 use cid_utils::Hash;
 use core_manager::manager::DummyCoreManager;
@@ -46,7 +46,7 @@ use server_config::{
     UnresolvedConfig,
 };
 use tempfile::TempDir;
-use test_constants::{EXECUTION_TIMEOUT, TRANSPORT_TIMEOUT};
+use test_constants::{EXECUTION_TIMEOUT, IDLE_CONNECTION_TIMEOUT, TRANSPORT_TIMEOUT};
 use tokio::sync::oneshot;
 use toy_vms::EasyVM;
 use tracing::{Instrument, Span};
@@ -401,6 +401,7 @@ pub async fn create_swarm_with_runtime<RT: AquaRuntime>(
 
         resolved.node_config.aquavm_pool_size = config.pool_size.unwrap_or(1);
         resolved.node_config.particle_execution_timeout = EXECUTION_TIMEOUT;
+        resolved.node_config.transport_config.connection_idle_timeout = IDLE_CONNECTION_TIMEOUT;
 
         let allowed_effectors = config.allowed_effectors.iter().map(|(cid, binaries)| {
             (Hash::from_string(cid).unwrap(), binaries.clone())
