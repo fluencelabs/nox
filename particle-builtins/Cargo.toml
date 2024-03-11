@@ -10,11 +10,9 @@ particle-execution = { workspace = true }
 particle-services = { workspace = true }
 particle-modules = { workspace = true }
 connection-pool = { workspace = true }
-
 server-config = { workspace = true }
 kademlia = { workspace = true }
 particle-args = { workspace = true }
-ivalue-utils = { workspace = true }
 now-millis = { workspace = true }
 toml-utils = { workspace = true }
 peer-metrics = { workspace = true }
@@ -23,14 +21,11 @@ workers = { workspace = true }
 service-modules = { workspace = true }
 subnet-resolver = { workspace = true }
 types = { workspace = true }
-
 libp2p = { workspace = true }
 libp2p-kad = { workspace = true }
 avm-server = { workspace = true }
 multihash = { workspace = true, features = ["serde-codec"] }
 fluence-keypair = { workspace = true }
-
-
 tokio = { workspace = true }
 serde_json = { workspace = true }
 serde = { workspace = true }

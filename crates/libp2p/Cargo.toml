@@ -16,13 +16,10 @@ futures = { workspace = true }
 futures-util = { workspace = true }
 tokio = { workspace = true, optional = true }
 serde = { workspace = true, features = ["derive"] }
-serde_json = { workspace = true }
 bs58 = { workspace = true }
-
-failure = "0.1.8"
-base64 = { workspace = true }
 log = { workspace = true }
 rand = { workspace = true }
 
 [dev-dependencies]
 rand = { workspace = true }
+serde_json = { workspace = true }
