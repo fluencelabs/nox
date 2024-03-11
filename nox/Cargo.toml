@@ -75,7 +75,8 @@ ccp-rpc-client = { workspace = true }
 hex = "0.4.3"
 tracing-panic = "0.1.1"
 serde = { workspace = true }
-toml = "0.8.10"
+toml = { workspace = true }
+toml_edit = { workspace = true }
 
 [dev-dependencies]
 parking_lot = { workspace = true }

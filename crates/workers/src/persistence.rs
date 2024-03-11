@@ -104,7 +104,7 @@ pub(crate) async fn persist_keypair(
 ) -> Result<(), KeyStorageError> {
     let path = keypairs_dir.join(keypair_file_name(worker_id));
     let bytes =
-        toml::ser::to_vec(&persisted_keypair).map_err(|err| SerializePersistedKeypair { err })?;
+        toml_edit::ser::to_vec(&persisted_keypair).map_err(|err| SerializePersistedKeypair { err })?;
     tokio::fs::write(&path, bytes)
         .await
         .map_err(|err| WriteErrorPersistedKeypair { path, err })
@@ -132,7 +132,7 @@ pub(crate) async fn persist_worker(
 ) -> Result<(), WorkersError> {
     let path = workers_dir.join(worker_file_name(worker_id));
     let bytes =
-        toml::to_vec(&worker).map_err(|err| WorkersError::SerializePersistedWorker { err })?;
+        toml_edit::ser::to_vec(&worker).map_err(|err| WorkersError::SerializePersistedWorker { err })?;
     tokio::fs::write(&path, bytes)
         .await
         .map_err(|err| WorkersError::WriteErrorPersistedWorker { path, err })
@@ -157,7 +157,7 @@ pub(crate) async fn load_persisted_workers(
     workers_dir: &Path,
 ) -> eyre::Result<Vec<(PersistedWorker, PathBuf)>> {
     let workers = fs_utils::load_persisted_data(workers_dir, is_worker, |bytes| {
-        toml::from_slice(bytes).map_err(|e| e.into())
+        toml_edit::de::from_slice(bytes).map_err(|e| e.into())
     })
     .await?;
 
@@ -169,7 +169,7 @@ pub(crate) async fn load_persisted_key_pairs(
     key_pairs_dir: &Path,
 ) -> eyre::Result<Vec<(PersistedKeypair, PathBuf)>> {
     let key_pairs = fs_utils::load_persisted_data(key_pairs_dir, is_keypair, |bytes| {
-        toml::from_slice(bytes).map_err(|e| e.into())
+        toml_edit::de::from_slice(bytes).map_err(|e| e.into())
     })
     .await?;
 
