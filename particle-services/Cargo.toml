@@ -8,6 +8,7 @@ edition = "2021"
 particle-modules = { workspace = true }
 particle-protocol = { workspace = true }
 types = { workspace = true }
+
 fs-utils = { workspace = true }
 service-modules = { workspace = true }
 json-utils = { workspace = true }
@@ -19,14 +20,15 @@ peer-metrics = { workspace = true }
 uuid-utils = { workspace = true }
 now-millis = { workspace = true }
 workers = { workspace = true }
+
 fluence-app-service = { workspace = true }
+
 parking_lot = { workspace = true }
 serde_json = { workspace = true }
 serde = { workspace = true }
 tracing = { workspace = true }
 uuid = { workspace = true }
 toml = { workspace = true }
-toml_edit = { workspace = true }
 thiserror = { workspace = true }
 derivative = { workspace = true }
 eyre = { workspace = true }

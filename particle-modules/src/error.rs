@@ -49,7 +49,7 @@ pub enum ModuleError {
     #[error("Error serializing blueprint to toml: {err} {blueprint:?}")]
     SerializeBlueprint {
         #[source]
-        err: toml_edit::ser::Error,
+        err: toml::ser::Error,
         blueprint: Blueprint,
     },
     #[error("Error serializing blueprint to json: {0}")]
@@ -75,7 +75,7 @@ pub enum ModuleError {
     #[error("Error parsing blueprint: {err}")]
     IncorrectBlueprint {
         #[source]
-        err: toml_edit::de::Error,
+        err: toml::de::Error,
     },
     #[error("Module config wasn't found at {path:?}: {err}")]
     NoModuleConfig {
@@ -86,7 +86,7 @@ pub enum ModuleError {
     #[error("Error parsing module config: {err}")]
     IncorrectModuleConfig {
         #[source]
-        err: toml_edit::de::Error,
+        err: toml::de::Error,
     },
     #[error("Error writing blueprint to {path:?}: {err}")]
     WriteBlueprint {

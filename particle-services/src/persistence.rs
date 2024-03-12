@@ -60,7 +60,7 @@ impl PersistedService {
     /// Persist service info to disk, so it is recreated after restart
     pub async fn persist(&self, services_dir: &Path) -> Result<(), ServiceError> {
         let path = services_dir.join(service_file_name(&self.service_id));
-        let bytes = toml_edit::ser::to_vec(self).map_err(|err| SerializePersistedService {
+        let bytes = toml::to_vec(self).map_err(|err| SerializePersistedService {
             err,
             config: Box::new(self.clone()),
         })?;
@@ -75,7 +75,7 @@ pub async fn load_persisted_services(
     services_dir: &Path,
 ) -> eyre::Result<Vec<(PersistedService, PathBuf)>> {
     let services = fs_utils::load_persisted_data(services_dir, is_service, |bytes| {
-        toml_edit::de::from_slice(bytes).map_err(|e| e.into())
+        toml::from_slice(bytes).map_err(|e| e.into())
     })
     .await?;
 

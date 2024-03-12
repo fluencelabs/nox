@@ -5,5 +5,5 @@ authors = ["Fluence Labs"]
 edition = "2021"
 
 [dependencies]
-toml = "0.5.11"  # should be the same version with marine
+toml = { workspace = true }
 
