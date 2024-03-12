@@ -5,12 +5,9 @@ authors = ["Fluence Labs"]
 edition = "2021"
 
 [dependencies]
-ivalue-utils = { workspace = true }
 json-utils = { workspace = true }
 control-macro = { workspace = true }
-
 avm-server = { workspace = true }
-
 serde_json = { workspace = true }
 serde = { workspace = true }
 bs58 = { workspace = true }

@@ -275,7 +275,6 @@ dependencies = [
  "now-millis",
  "parking_lot",
  "particle-args",
- "particle-builtins",
  "particle-execution",
  "particle-protocol",
  "particle-services",
@@ -1146,11 +1145,9 @@ dependencies = [
  "libipld",
  "libp2p-identity",
  "log",
- "log-utils",
  "serde",
  "serde_json",
  "server-config",
- "tempfile",
  "thiserror",
  "tokio",
  "tokio-stream",
@@ -1202,22 +1199,9 @@ dependencies = [
 ]
 
 [[package]]
-name = "cid"
-version = "0.11.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "472ac98592f38dfd48f188d5713a328422ed22fa39eb52b8bca495370134762a"
-dependencies = [
- "core2",
- "multibase",
- "multihash 0.19.1",
- "unsigned-varint 0.8.0",
-]
-
-[[package]]
 name = "cid-utils"
 version = "0.1.0"
 dependencies = [
- "base64 0.21.7",
  "bytes",
  "eyre",
  "libipld",
@@ -1390,7 +1374,6 @@ version = "0.1.0"
 dependencies = [
  "fluence-libp2p",
  "futures",
- "itertools 0.12.1",
  "libp2p",
  "log",
  "parking_lot",
@@ -1401,44 +1384,6 @@ dependencies = [
  "tokio-stream",
  "tokio-util",
  "tracing",
-]
-
-[[package]]
-name = "console-api"
-version = "0.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fd326812b3fd01da5bb1af7d340d0d555fd3d4b641e7f1dfcf5962a902952787"
-dependencies = [
- "futures-core",
- "prost 0.12.3",
- "prost-types",
- "tonic 0.10.2",
- "tracing-core",
-]
-
-[[package]]
-name = "console-subscriber"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7481d4c57092cd1c19dd541b92bdce883de840df30aa5d03fd48a3935c01842e"
-dependencies = [
- "console-api",
- "crossbeam-channel",
- "crossbeam-utils",
- "futures-task",
- "hdrhistogram",
- "humantime 2.1.0",
- "parking_lot",
- "prost-types",
- "serde",
- "serde_json",
- "thread_local",
- "tokio",
- "tokio-stream",
- "tonic 0.10.2",
- "tracing",
- "tracing-core",
- "tracing-subscriber",
 ]
 
 [[package]]
@@ -1492,14 +1437,12 @@ dependencies = [
  "rand 0.8.5",
  "range-set-blaze",
  "serde",
- "serde_with 3.6.1",
  "tempfile",
  "thiserror",
  "tokio",
  "tokio-stream",
  "toml 0.5.11",
  "tracing",
- "types",
 ]
 
 [[package]]
@@ -2209,28 +2152,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "failure"
-version = "0.1.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d32e9bd16cc02eae7db7ef620b392808b89f6a5e16bb3497d159c6b92a0f4f86"
-dependencies = [
- "backtrace",
- "failure_derive",
-]
-
-[[package]]
-name = "failure_derive"
-version = "0.1.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "aa4da3c766cd7a0db8242e326e9e4e081edd567072893ed320008189715366a4"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 1.0.109",
- "synstructure",
-]
-
-[[package]]
 name = "fallible-iterator"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2345,9 +2266,7 @@ dependencies = [
 name = "fluence-libp2p"
 version = "0.2.0"
 dependencies = [
- "base64 0.21.7",
  "bs58",
- "failure",
  "futures",
  "futures-util",
  "libp2p",
@@ -2432,7 +2351,6 @@ dependencies = [
  "cfg-if",
  "eyre",
  "futures-util",
- "rand 0.8.5",
  "thiserror",
  "tokio",
  "tokio-stream",
@@ -2800,19 +2718,6 @@ checksum = "f93e7192158dbcda357bdec5fb5788eebf8bbac027f3f33e719d29135ae84156"
 dependencies = [
  "ahash 0.8.6",
  "allocator-api2",
-]
-
-[[package]]
-name = "hdrhistogram"
-version = "7.5.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "765c9198f173dd59ce26ff9f95ef0aafd0a0fe01fb9d72841bc5066a4c06511d"
-dependencies = [
- "base64 0.21.7",
- "byteorder",
- "flate2",
- "nom",
- "num-traits",
 ]
 
 [[package]]
@@ -3531,7 +3436,6 @@ name = "json-utils"
 version = "0.0.2"
 dependencies = [
  "base64 0.21.7",
- "itertools 0.12.1",
  "serde",
  "serde_json",
 ]
@@ -3730,7 +3634,6 @@ dependencies = [
  "once_cell",
  "particle-protocol",
  "prometheus-client",
- "prost 0.12.3",
  "serde_json",
  "server-config",
  "smallvec",
@@ -3815,7 +3718,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5acd707e8d8b092e967b2af978ed84709eaded82b75effe6cb6f6cc797ef8158"
 dependencies = [
  "anyhow",
- "cid 0.10.1",
+ "cid",
  "core2",
  "multibase",
  "multihash 0.18.1",
@@ -4367,7 +4270,6 @@ dependencies = [
  "fluence-keypair",
  "fs-utils",
  "fstrings",
- "ivalue-utils",
  "libp2p",
  "log",
  "maplit",
@@ -4377,7 +4279,6 @@ dependencies = [
  "particle-execution",
  "particle-protocol",
  "serde_json",
- "tempfile",
  "tokio",
  "tracing",
  "uuid-utils",
@@ -4406,10 +4307,8 @@ dependencies = [
 name = "log-utils"
 version = "0.1.0"
 dependencies = [
- "console-subscriber",
  "log",
  "tracing",
- "tracing-logfmt",
  "tracing-subscriber",
 ]
 
@@ -5378,7 +5277,6 @@ dependencies = [
  "config-utils",
  "connected-client",
  "connection-pool",
- "console-subscriber",
  "core-manager",
  "dhat",
  "eyre",
@@ -5423,7 +5321,7 @@ dependencies = [
  "system-services",
  "tokio",
  "tokio-stream",
- "tonic 0.9.2",
+ "toml 0.8.11",
  "tracing",
  "tracing-log",
  "tracing-logfmt",
@@ -5681,10 +5579,10 @@ dependencies = [
  "opentelemetry-proto",
  "opentelemetry-semantic-conventions",
  "opentelemetry_sdk",
- "prost 0.12.3",
+ "prost",
  "thiserror",
  "tokio",
- "tonic 0.11.0",
+ "tonic",
 ]
 
 [[package]]
@@ -5695,8 +5593,8 @@ checksum = "3a8fddc9b68f5b80dae9d6f510b88e02396f006ad48cac349411fbecc80caae4"
 dependencies = [
  "opentelemetry",
  "opentelemetry_sdk",
- "prost 0.12.3",
- "tonic 0.11.0",
+ "prost",
+ "tonic",
 ]
 
 [[package]]
@@ -5830,7 +5728,6 @@ dependencies = [
  "bs58",
  "control-macro",
  "eyre",
- "ivalue-utils",
  "json-utils",
  "serde",
  "serde_json",
@@ -5855,7 +5752,6 @@ dependencies = [
  "health",
  "humantime-serde",
  "itertools 0.12.1",
- "ivalue-utils",
  "kademlia",
  "libp2p",
  "libp2p-kad",
@@ -5912,13 +5808,11 @@ version = "0.1.0"
 dependencies = [
  "base64 0.21.7",
  "bytesize",
- "cid 0.11.0",
  "eyre",
  "fluence-app-service",
  "fluence-libp2p",
  "fs-utils",
  "fstrings",
- "itertools 0.12.1",
  "json-utils",
  "libipld",
  "log",
@@ -5950,7 +5844,6 @@ dependencies = [
  "fluence-libp2p",
  "futures",
  "humantime-serde",
- "json-utils",
  "libp2p",
  "log",
  "now-millis",
@@ -6340,15 +6233,6 @@ dependencies = [
 
 [[package]]
 name = "prost"
-version = "0.11.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0b82eaa1d779e9a4bc1c3217db8ffbeabaae1dca241bf70183242128d48681cd"
-dependencies = [
- "bytes",
-]
-
-[[package]]
-name = "prost"
 version = "0.12.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "146c289cda302b98a28d40c8b3b90498d6e526dd24ac2ecea73e4e491685b94a"
@@ -6368,15 +6252,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.46",
-]
-
-[[package]]
-name = "prost-types"
-version = "0.12.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8339f32236f590281e2f6368276441394fcd1b2133b549cc895d0ae80f2f9a52"
-dependencies = [
- "prost 0.12.3",
 ]
 
 [[package]]
@@ -7311,6 +7186,7 @@ dependencies = [
  "tempfile",
  "toml 0.7.8",
  "types",
+ "url",
 ]
 
 [[package]]
@@ -7320,9 +7196,7 @@ dependencies = [
  "cid-utils",
  "eyre",
  "fs-utils",
- "json-utils",
  "libipld",
- "maplit",
  "serde",
  "serde_json",
 ]
@@ -7537,7 +7411,6 @@ dependencies = [
  "eyre",
  "fluence-libp2p",
  "fluence-spell-dtos",
- "fstrings",
  "futures",
  "libp2p",
  "log",
@@ -7548,7 +7421,6 @@ dependencies = [
  "particle-args",
  "particle-execution",
  "particle-protocol",
- "particle-services",
  "peer-metrics",
  "serde",
  "serde_json",
@@ -7557,7 +7429,6 @@ dependencies = [
  "tokio-stream",
  "tracing",
  "types",
- "uuid-utils",
 ]
 
 [[package]]
@@ -7862,7 +7733,6 @@ version = "0.3.0"
 dependencies = [
  "base64 0.21.7",
  "connected-client",
- "created-swarm",
  "eyre",
  "fstrings",
  "ivalue-utils",
@@ -8094,6 +7964,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "toml"
+version = "0.8.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "af06656561d28735e9c1cd63dfd57132c8155426aa6af24f36a00a351f88c48e"
+dependencies = [
+ "serde",
+ "serde_spanned",
+ "toml_datetime",
+ "toml_edit 0.22.7",
+]
+
+[[package]]
 name = "toml-utils"
 version = "0.0.1"
 dependencies = [
@@ -8119,7 +8001,7 @@ dependencies = [
  "serde",
  "serde_spanned",
  "toml_datetime",
- "winnow",
+ "winnow 0.5.19",
 ]
 
 [[package]]
@@ -8130,62 +8012,20 @@ checksum = "396e4d48bbb2b7554c944bde63101b5ae446cff6ec4a24227428f15eb72ef338"
 dependencies = [
  "indexmap 2.2.1",
  "toml_datetime",
- "winnow",
+ "winnow 0.5.19",
 ]
 
 [[package]]
-name = "tonic"
-version = "0.9.2"
+name = "toml_edit"
+version = "0.22.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3082666a3a6433f7f511c7192923fa1fe07c69332d3c6a2e6bb040b569199d5a"
+checksum = "18769cd1cec395d70860ceb4d932812a0b4d06b1a4bb336745a4d21b9496e992"
 dependencies = [
- "async-trait",
- "axum 0.6.20",
- "base64 0.21.7",
- "bytes",
- "futures-core",
- "futures-util",
- "h2 0.3.24",
- "http 0.2.11",
- "http-body 0.4.5",
- "hyper 0.14.27",
- "hyper-timeout",
- "percent-encoding",
- "pin-project",
- "prost 0.11.9",
- "tokio",
- "tokio-stream",
- "tower",
- "tower-layer",
- "tower-service",
- "tracing",
-]
-
-[[package]]
-name = "tonic"
-version = "0.10.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d560933a0de61cf715926b9cac824d4c883c2c43142f787595e48280c40a1d0e"
-dependencies = [
- "async-stream",
- "async-trait",
- "axum 0.6.20",
- "base64 0.21.7",
- "bytes",
- "h2 0.3.24",
- "http 0.2.11",
- "http-body 0.4.5",
- "hyper 0.14.27",
- "hyper-timeout",
- "percent-encoding",
- "pin-project",
- "prost 0.12.3",
- "tokio",
- "tokio-stream",
- "tower",
- "tower-layer",
- "tower-service",
- "tracing",
+ "indexmap 2.2.1",
+ "serde",
+ "serde_spanned",
+ "toml_datetime",
+ "winnow 0.6.5",
 ]
 
 [[package]]
@@ -8199,6 +8039,7 @@ dependencies = [
  "axum 0.6.20",
  "base64 0.21.7",
  "bytes",
+ "flate2",
  "h2 0.3.24",
  "http 0.2.11",
  "http-body 0.4.5",
@@ -8206,7 +8047,7 @@ dependencies = [
  "hyper-timeout",
  "percent-encoding",
  "pin-project",
- "prost 0.12.3",
+ "prost",
  "tokio",
  "tokio-stream",
  "tower",
@@ -8523,6 +8364,7 @@ dependencies = [
  "form_urlencoded",
  "idna",
  "percent-encoding",
+ "serde",
 ]
 
 [[package]]
@@ -9521,6 +9363,15 @@ name = "winnow"
 version = "0.5.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "829846f3e3db426d4cee4510841b71a8e58aa2a76b1132579487ae430ccd9c7b"
+dependencies = [
+ "memchr",
+]
+
+[[package]]
+name = "winnow"
+version = "0.6.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dffa400e67ed5a4dd237983829e66475f0a4a26938c4b04c21baede6262215b8"
 dependencies = [
  "memchr",
 ]

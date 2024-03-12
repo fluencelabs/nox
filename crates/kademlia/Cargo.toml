@@ -19,8 +19,6 @@ libp2p-metrics = { workspace = true, features = ["kad"] }
 prometheus-client = { workspace = true }
 multihash = { workspace = true }
 once_cell = { workspace = true }
-
-prost = "0.12.3"
 smallvec = "1.13.1"
 serde_json = { workspace = true }
 log = { workspace = true }
