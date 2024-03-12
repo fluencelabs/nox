@@ -13,7 +13,7 @@ use ccp_shared::types::{Difficulty, GlobalNonce, LocalNonce, ResultHash};
 use cpu_utils::PhysicalCoreId;
 use ethabi::ethereum_types::U256;
 use eyre::eyre;
-use jsonrpsee::core::client::{Client as WsClient, Error, Subscription, SubscriptionClientT};
+use jsonrpsee::core::client::{Client as WsClient, Subscription, SubscriptionClientT};
 use jsonrpsee::core::{client, JsonValue};
 use jsonrpsee::rpc_params;
 use libp2p_identity::PeerId;
@@ -76,11 +76,11 @@ pub struct ChainListener {
 
     persisted_proof_id_dir: PathBuf,
 
-    unit_activated: Option<Subscription<Log>>,
-    unit_deactivated: Option<Subscription<Log>>,
+    unit_activated: Option<Subscription<JsonValue>>,
+    unit_deactivated: Option<Subscription<JsonValue>>,
     heads: Option<Subscription<JsonValue>>,
-    commitment_activated: Option<Subscription<Log>>,
-    unit_matched: Option<Subscription<Log>>,
+    commitment_activated: Option<Subscription<JsonValue>>,
+    unit_matched: Option<Subscription<JsonValue>>,
 }
 
 async fn poll_subscription<T>(s: &mut Option<Subscription<T>>) -> Option<Result<T, client::Error>>
@@ -623,7 +623,7 @@ impl ChainListener {
 
     async fn process_new_header(
         &mut self,
-        event: Option<Result<Value, Error>>,
+        event: Option<Result<Value, client::Error>>,
     ) -> eyre::Result<()> {
         let header = event.ok_or(eyre!("Failed to process newHeads event: got None"))?;
 
@@ -674,12 +674,17 @@ impl ChainListener {
 
     async fn process_commitment_activated(
         &mut self,
-        event: Option<Result<Log, Error>>,
+        event: Option<Result<JsonValue, client::Error>>,
     ) -> eyre::Result<()> {
         let event = event.ok_or(eyre!(
             "Failed to process CommitmentActivated event: got None"
-        ))?;
-        let cc_event = parse_log::<CommitmentActivatedData, CommitmentActivated>(event?)?;
+        ))??;
+        let log = serde_json::from_value::<Log>(event.clone()).map_err(|err| {
+            tracing::error!(target: "chain-listener", "Failed to parse CommitmentActivated event: {err}, data: {event}");
+            err
+        })?;
+
+        let cc_event = parse_log::<CommitmentActivatedData, CommitmentActivated>(log)?;
         let unit_ids = cc_event.info.unit_ids;
         tracing::info!(target: "chain-listener",
             "Received CommitmentActivated event for commitment: {}, startEpoch: {}, unitIds: {:?}",
@@ -714,10 +719,16 @@ impl ChainListener {
 
     async fn process_unit_activated(
         &mut self,
-        event: Option<Result<Log, Error>>,
+        event: Option<Result<JsonValue, client::Error>>,
     ) -> eyre::Result<()> {
-        let event = event.ok_or(eyre!("Failed to process UnitActivated event: got None"))?;
-        let unit_event = parse_log::<UnitActivatedData, UnitActivated>(event?)?;
+        let event = event.ok_or(eyre!("Failed to process UnitActivated event: got None"))??;
+
+        let log = serde_json::from_value::<Log>(event.clone()).map_err(|err| {
+            tracing::error!(target: "chain-listener", "Failed to parse UnitActivated event: {err}, data: {event}");
+            err
+        })?;
+
+        let unit_event = parse_log::<UnitActivatedData, UnitActivated>(log)?;
         tracing::info!(target: "chain-listener",
             "Received UnitActivated event for unit: {}, startEpoch: {}",
             unit_event.info.unit_id,
@@ -738,10 +749,14 @@ impl ChainListener {
     /// Unit goes to Deal
     async fn process_unit_deactivated(
         &mut self,
-        event: Option<Result<Log, client::Error>>,
+        event: Option<Result<JsonValue, client::Error>>,
     ) -> eyre::Result<()> {
-        let event = event.ok_or(eyre!("Failed to process UnitDeactivated event: got None"))?;
-        let unit_event = parse_log::<UnitDeactivatedData, UnitDeactivated>(event?)?;
+        let event = event.ok_or(eyre!("Failed to process UnitDeactivated event: got None"))??;
+        let log = serde_json::from_value::<Log>(event.clone()).map_err(|err| {
+            tracing::error!(target: "chain-listener", "Failed to parse UnitDeactivated event: {err}, data: {event}");
+            err
+        })?;
+        let unit_event = parse_log::<UnitDeactivatedData, UnitDeactivated>(log)?;
 
         tracing::info!(target: "chain-listener",
             "Received UnitDeactivated event for unit: {}",
@@ -757,10 +772,14 @@ impl ChainListener {
 
     pub fn process_deal_matched(
         &mut self,
-        event: Option<Result<Log, client::Error>>,
+        event: Option<Result<JsonValue, client::Error>>,
     ) -> eyre::Result<()> {
-        let event = event.ok_or(eyre!("Failed to process DealMatched event: got None"))?;
-        let deal_event = parse_log::<DealMatchedData, DealMatched>(event?)?;
+        let event = event.ok_or(eyre!("Failed to process DealMatched event: got None"))??;
+        let log = serde_json::from_value::<Log>(event.clone()).map_err(|err| {
+            tracing::error!(target: "chain-listener", "Failed to parse DealMatched event: {err}, data: {event}");
+            err
+        })?;
+        let deal_event = parse_log::<DealMatchedData, DealMatched>(log)?;
         tracing::info!(target: "chain-listener",
             "Received DealMatched event for deal: {}",
             deal_event.info.deal_id
@@ -818,7 +837,9 @@ impl ChainListener {
                 "Sending commitment to CCP: global_nonce: {}, difficulty: {}, cores: {:?}",
                 self.global_nonce,
                 self.difficulty,
-                cores
+                cores.iter().map(|(core, unit)| format!("{}: {}", core, match unit {OrHex::String(a) => {a.clone()}, OrHex::Data(d) => {d.to_string()}
+
+                })).collect::<Vec<_>>()
             );
 
             ccp_client
