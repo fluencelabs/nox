@@ -585,7 +585,7 @@ mod tests {
             r#"
             [tracing]
             type = "otlp"
-            endpoint = "test"
+            endpoint = "grpc://10.10.10.10:122"
             sample_ratio = 0.1
             "#
         )
@@ -618,7 +618,7 @@ mod tests {
         temp_env::with_vars(
             [
                 ("FLUENCE_TRACING__TYPE", Some("otlp")),
-                ("FLUENCE_TRACING__ENDPOINT", Some("test")),
+                ("FLUENCE_TRACING__ENDPOINT", Some("grpc://10.10.10.10:122")),
             ],
             || {
                 let config = load_config_with_args(vec![], None).expect("Could not load config");
@@ -660,7 +660,7 @@ mod tests {
                 OsString::from("--tracing-type"),
                 OsString::from("otlp"),
                 OsString::from("--tracing-otlp-endpoint"),
-                OsString::from("test"),
+                OsString::from("grpc://10.10.10.10:122"),
             ];
             let config = load_config_with_args(args, None).expect("Could not load config");
             assert_eq!(
