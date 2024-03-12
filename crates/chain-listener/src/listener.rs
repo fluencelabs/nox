@@ -291,7 +291,7 @@ impl ChainListener {
 
             retry(ExponentialBackoff::default(), || async {
                 ccp_client
-                    .realloc_utility_core(vec![utility_core])
+                    .realloc_utility_cores(vec![utility_core])
                     .await
                     .map_err(|err| {
                         tracing::error!(target: "chain-listener", "Error reallocating utility core {utility_core} to CCP, error: {err}. Retrying...");
