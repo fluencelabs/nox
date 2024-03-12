@@ -43,7 +43,7 @@ pub fn log_layer<S>() -> impl Layer<S>
 where
     S: Subscriber + for<'span> LookupSpan<'span>,
 {
-        let log_format = std::env::var("FLUENCE_LOG_FORMAT").unwrap_or_default();
+    let log_format = std::env::var("FLUENCE_LOG_FORMAT").unwrap_or_default();
 
     let log_format = LogFormat::from_str(log_format.as_str()).unwrap_or(LogFormat::Default);
 

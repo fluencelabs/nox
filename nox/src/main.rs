@@ -26,10 +26,10 @@
     unreachable_patterns
 )]
 
-use std::process;
 use base64::{engine::general_purpose::STANDARD as base64, Engine};
 use eyre::WrapErr;
 use libp2p::PeerId;
+use std::process;
 use std::sync::Arc;
 use tokio::signal;
 use tokio::sync::oneshot;
@@ -89,7 +89,7 @@ fn main() -> eyre::Result<()> {
     };
 
     let config = load_config(Some(config_data))?;
-    
+
     match config.no_banner {
         Some(true) => {}
         _ => {
@@ -113,7 +113,7 @@ fn main() -> eyre::Result<()> {
         let config = toml::to_string_pretty(&config)?;
         tracing::info!("Loaded config: {}", config);
     }
-    
+
     let resolved_config = config.clone().resolve()?;
 
     let (core_manager, core_manager_task) = PersistentCoreManager::from_path(
