@@ -792,7 +792,19 @@ impl ChainListener {
             let mut cores = self.acquire_active_units()?;
 
             // All pending units not involved in deals will help to solve CCs for other units
+            tracing::info!(target: "chain-listener",
+                "Pending compute units: {:?}",
+                self.pending_compute_units
+                    .iter()
+                    .map(|cu| cu.id.to_string())
+                    .collect::<Vec<_>>()
+            );
             let mut available_cores = self.get_available_cores()?;
+            tracing::info!(
+                target: "chain-listener",
+                "{} cores of pending units will be allocated to other units",
+                available_cores.len()
+            );
 
             for unit in self.active_compute_units.iter().cycle() {
                 if let Some(core) = available_cores.pop_first() {
@@ -801,6 +813,13 @@ impl ChainListener {
                     break;
                 }
             }
+
+            tracing::info!(target: "chain-listener",
+                "Sending commitment to CCP: global_nonce: {}, difficulty: {}, cores: {:?}",
+                self.global_nonce,
+                self.difficulty,
+                cores
+            );
 
             ccp_client
                 .on_active_commitment(
