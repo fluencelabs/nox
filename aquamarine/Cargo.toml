@@ -7,7 +7,6 @@ edition = "2021"
 [dependencies]
 particle-protocol = { workspace = true }
 particle-services = { workspace = true }
-particle-builtins = { workspace = true }
 
 now-millis = { workspace = true }
 fluence-libp2p = { workspace = true }

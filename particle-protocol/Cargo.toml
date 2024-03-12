@@ -7,7 +7,6 @@ edition = "2021"
 [dependencies]
 libp2p = { workspace = true }
 fluence-libp2p = { workspace = true }
-json-utils = { workspace = true }
 now-millis = { workspace = true }
 fluence-keypair = { workspace = true }
 serde_json = { workspace = true }

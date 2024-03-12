@@ -18,7 +18,6 @@ serde = { workspace = true }
 tokio = { workspace = true }
 tokio-stream = { workspace = true }
 tokio-util = {workspace = true  }
-itertools = { workspace = true }
 
 [dev-dependencies]
 parking_lot = { workspace = true }

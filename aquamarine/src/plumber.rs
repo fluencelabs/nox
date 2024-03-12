@@ -239,10 +239,10 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
         }
     }
 
-    fn create_actor<'p, 'a>(
+    fn create_actor<'p>(
         actors: &'p mut HashMap<ActorKey, Actor<RT, F>>,
         plumber_params: PlumberParams<'p, F>,
-        actor_params: ActorParams<'a>,
+        actor_params: ActorParams<'_>,
     ) -> eyre::Result<&'p mut Actor<RT, F>> {
         let entry = actors.entry(actor_params.key);
         let actor = match entry {
