@@ -26,6 +26,7 @@
     unreachable_patterns
 )]
 
+use std::process;
 use base64::{engine::general_purpose::STANDARD as base64, Engine};
 use eyre::WrapErr;
 use libp2p::PeerId;
@@ -41,9 +42,11 @@ use avm_server::avm_runner::AVMRunner;
 use config_utils::to_peer_id;
 use core_manager::manager::{CoreManager, CoreManagerFunctions, PersistentCoreManager};
 use fs_utils::to_abs_path;
-use nox::{env_filter, log_layer, tokio_console_layer, tracing_layer, Node};
+use nox::{env_filter, log_layer, tracing_layer, Node};
 use server_config::{load_config, ConfigData, ResolvedConfig};
 use tracing_panic::panic_hook;
+use tracing_subscriber::reload;
+use tracing_subscriber::Layer;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const AUTHORS: &str = env!("CARGO_PKG_AUTHORS");
@@ -68,6 +71,14 @@ fn main() -> eyre::Result<()> {
         prev_hook(panic_info);
     }));
 
+    let (reloadable_tracing_layer, reload_handle) = reload::Layer::new(None);
+
+    tracing_subscriber::registry()
+        .with(env_filter())
+        .with(log_layer())
+        .with(reloadable_tracing_layer)
+        .init();
+
     let version = format!("{}; AIR version {}", VERSION, air_interpreter_wasm::VERSION);
     let authors = format!("by {AUTHORS}");
     let config_data = ConfigData {
@@ -76,12 +87,13 @@ fn main() -> eyre::Result<()> {
         authors,
         description: DESCRIPTION.to_string(),
     };
-    let config = load_config(Some(config_data))?;
 
+    let config = load_config(Some(config_data))?;
+    
     match config.no_banner {
         Some(true) => {}
         _ => {
-            println!(
+            tracing::info!(
                 r#"
 +-------------------------------------------------+
 | Hello from the Fluence Team. If you encounter   |
@@ -97,6 +109,11 @@ fn main() -> eyre::Result<()> {
         }
     }
 
+    if let Some(true) = config.print_config {
+        let config = toml::to_string_pretty(&config)?;
+        tracing::info!("Loaded config: {}", config);
+    }
+    
     let resolved_config = config.clone().resolve()?;
 
     let (core_manager, core_manager_task) = PersistentCoreManager::from_path(
@@ -137,16 +154,22 @@ fn main() -> eyre::Result<()> {
             let base64_key_pair = base64.encode(key_pair.public().to_vec());
             let peer_id = to_peer_id(&key_pair.into());
 
-            tracing_subscriber::registry()
-                .with(env_filter())
-                .with(log_layer(&config.log))
-                .with(tokio_console_layer(&config.console)?)
-                .with(tracing_layer(&config.tracing, peer_id, VERSION)?)
-                .init();
-
-            if let Some(true) = config.print_config {
-                log::info!("Loaded config: {:#?}", config);
-            }
+            reload_handle.modify(|boxes| {
+                if let Some(config) = &config.tracing {
+                    let layer = tracing_layer(config, peer_id, VERSION);
+                    match layer {
+                        Ok(layer) => match layer {
+                            None => {}
+                            Some(layer) => (*boxes) = Some(layer.boxed()),
+                        },
+                        Err(err) => {
+                            // do not use logger here
+                            println!("Unexpected tracing error: {:?}", err);
+                            process::exit(1);
+                        }
+                    }
+                }
+            })?;
 
             log::info!("node public key = {}", base64_key_pair);
             log::info!("node server peer id = {}", peer_id);
@@ -158,7 +181,6 @@ fn main() -> eyre::Result<()> {
 
             let fluence = start_fluence(resolved_config, core_manager, peer_id).await?;
             log::info!("Fluence has been successfully started.");
-            log::info!("Waiting for Ctrl-C to exit...");
 
             signal::ctrl_c().await.expect("Failed to listen for event");
             log::info!("Shutting down...");

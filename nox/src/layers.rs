@@ -1,5 +1,3 @@
-use console_subscriber::ConsoleLayer;
-use eyre::anyhow;
 use libp2p::PeerId;
 use opentelemetry::trace::TracerProvider;
 use opentelemetry::{global, KeyValue};
@@ -7,8 +5,8 @@ use opentelemetry_otlp::WithExportConfig;
 use opentelemetry_sdk::propagation::TraceContextPropagator;
 use opentelemetry_sdk::trace::Sampler;
 use opentelemetry_sdk::Resource;
-use server_config::{ConsoleConfig, LogConfig, LogFormat, TracingConfig};
-use std::net::{SocketAddr, ToSocketAddrs};
+use server_config::TracingConfig;
+use std::str::FromStr;
 use tracing::level_filters::LevelFilter;
 use tracing::Subscriber;
 use tracing_subscriber::registry::LookupSpan;
@@ -40,14 +38,14 @@ where
         .add_directive("tracing=error".parse().unwrap())
         .add_directive("avm_server::runner=error".parse().unwrap())
 }
-pub fn log_layer<S>(log_config: &Option<LogConfig>) -> impl Layer<S>
+
+pub fn log_layer<S>() -> impl Layer<S>
 where
     S: Subscriber + for<'span> LookupSpan<'span>,
 {
-    let log_format = log_config
-        .as_ref()
-        .map(|c| &c.format)
-        .unwrap_or(&LogFormat::Default);
+    let log_format = std::env::var("FLUENCE_LOG_FORMAT").unwrap_or_default();
+
+    let log_format = LogFormat::from_str(log_format.as_str()).unwrap_or(LogFormat::Default);
 
     match log_format {
         LogFormat::Logfmt => tracing_logfmt::builder()
@@ -63,36 +61,32 @@ where
     }
 }
 
-pub fn tokio_console_layer<S>(
-    console_config: &Option<ConsoleConfig>,
-) -> eyre::Result<Option<impl Layer<S>>>
-where
-    S: Subscriber + for<'a> LookupSpan<'a>,
-{
-    let console = console_config.as_ref().unwrap_or(&ConsoleConfig::Disabled);
+#[derive(Clone, Debug, PartialEq)]
+pub enum LogFormat {
+    Logfmt,
+    Default,
+}
 
-    let console_layer = match console {
-        ConsoleConfig::Disabled => None,
-        ConsoleConfig::Enabled { bind } => {
-            let addr: SocketAddr = bind
-                .to_socket_addrs()?
-                .next()
-                .ok_or_else(|| anyhow!("tokio console could not resolve bind address"))?;
-            Some(ConsoleLayer::builder().server_addr(addr).spawn())
+impl FromStr for LogFormat {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.trim().to_ascii_lowercase().as_str() {
+            "logfmt" => Ok(LogFormat::Logfmt),
+            "default" => Ok(LogFormat::Default),
+            _ => Err("Unsupported log format".to_string()),
         }
-    };
-    Ok(console_layer)
+    }
 }
 
 pub fn tracing_layer<S>(
-    tracing_config: &Option<TracingConfig>,
+    tracing_config: &TracingConfig,
     peer_id: PeerId,
     version: &str,
 ) -> eyre::Result<Option<impl Layer<S>>>
 where
     S: Subscriber + for<'span> LookupSpan<'span>,
 {
-    let tracing_config = tracing_config.as_ref().unwrap_or(&TracingConfig::Disabled);
     let tracing_layer = match tracing_config {
         TracingConfig::Disabled => None,
         TracingConfig::Stdout => {
@@ -130,10 +124,10 @@ where
                 .with_exporter(
                     opentelemetry_otlp::new_exporter()
                         .tonic()
-                        .with_endpoint(endpoint),
+                        .with_endpoint(endpoint.as_str()),
                 )
                 .with_trace_config(config)
-                .install_batch(opentelemetry_sdk::runtime::TokioCurrentThread)?;
+                .install_batch(opentelemetry_sdk::runtime::Tokio)?;
 
             let tracing_layer = tracing_opentelemetry::layer::<S>().with_tracer(tracer);
 

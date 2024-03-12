@@ -55,7 +55,6 @@ humantime-serde = { workspace = true }
 
 log = { workspace = true }
 tracing-log = { version = "0.2.0" }
-console-subscriber = { workspace = true, features = ["parking_lot"] }
 axum = { workspace = true, features = ["macros"] }
 itertools = { workspace = true }
 eyre = { workspace = true }
@@ -65,8 +64,8 @@ tracing-subscriber = { workspace = true, features = ["parking_lot", "env-filter"
 tracing-logfmt = "0.3.3"
 tracing-opentelemetry = "0.23.0"
 opentelemetry = "0.22.0"
-opentelemetry_sdk = { version = "0.22.1", features = ["rt-tokio-current-thread"] }
-opentelemetry-otlp = "0.15.0"
+opentelemetry_sdk = { version = "0.22.1", features = ["rt-tokio"] }
+opentelemetry-otlp = { version = "0.15.0", features = ["grpc-tonic", "gzip-tonic"] }
 opentelemetry-stdout = { version = "0.3.0", features = ["trace"] }
 once_cell = { workspace = true }
 config = "0.13.4"
@@ -75,6 +74,8 @@ jsonrpsee = { workspace = true, features = ["ws-client", "macros"] }
 ccp-rpc-client = { workspace = true }
 hex = "0.4.3"
 tracing-panic = "0.1.1"
+serde = { workspace = true }
+toml = "0.8.10"
 
 [dev-dependencies]
 parking_lot = { workspace = true }

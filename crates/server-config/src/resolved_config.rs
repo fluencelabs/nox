@@ -18,12 +18,12 @@ use std::ffi::OsString;
 use std::net::SocketAddr;
 use std::ops::{Deref, DerefMut};
 use std::path::PathBuf;
-use std::str::FromStr;
 
 use clap::{Args, Command, FromArgMatches};
 use config::{Config, Environment, File, FileFormat, FileSourceFile};
 use libp2p::core::{multiaddr::Protocol, Multiaddr};
 use serde::{Deserialize, Serialize};
+use url::Url;
 
 use crate::args;
 use crate::args::DerivedArgs;
@@ -34,13 +34,14 @@ use crate::node_config::{NodeConfig, UnresolvedNodeConfig};
 pub struct UnresolvedConfig {
     #[serde(flatten)]
     dir_config: UnresolvedDirConfig,
+
     #[serde(flatten)]
     pub node_config: UnresolvedNodeConfig,
 
-    pub log: Option<LogConfig>,
     pub tracing: Option<TracingConfig>,
-    pub console: Option<ConsoleConfig>,
+
     pub no_banner: Option<bool>,
+
     pub print_config: Option<bool>,
 }
 
@@ -56,30 +57,6 @@ impl UnresolvedConfig {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct LogConfig {
-    pub format: LogFormat,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
-#[serde(rename_all = "lowercase")]
-pub enum LogFormat {
-    Logfmt,
-    Default,
-}
-
-impl FromStr for LogFormat {
-    type Err = String;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s.trim().to_ascii_lowercase().as_str() {
-            "logfmt" => Ok(LogFormat::Logfmt),
-            "default" => Ok(LogFormat::Default),
-            _ => Err("Unsupported log format".to_string()),
-        }
-    }
-}
-
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 #[serde(tag = "type")]
 pub enum TracingConfig {
@@ -89,18 +66,9 @@ pub enum TracingConfig {
     Stdout,
     #[serde(rename = "otlp")]
     Otlp {
-        endpoint: String,
+        endpoint: Url,
         sample_ratio: Option<f64>,
     },
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
-#[serde(tag = "type")]
-pub enum ConsoleConfig {
-    #[serde(rename = "disabled")]
-    Disabled,
-    #[serde(rename = "enabled")]
-    Enabled { bind: String },
 }
 
 #[derive(Clone, Debug)]
@@ -568,48 +536,6 @@ mod tests {
     }
 
     #[test]
-    fn load_log_format_with_env() {
-        temp_env::with_var("FLUENCE_LOG__FORMAT", Some("logfmt"), || {
-            let config = load_config_with_args(vec![], None).expect("Could not load config");
-            let log_fmt = config.log.map(|x| x.format);
-            assert_eq!(log_fmt, Some(LogFormat::Logfmt));
-        });
-    }
-
-    #[test]
-    fn load_log_format_with_args() {
-        let args = vec![
-            OsString::from("nox"),
-            OsString::from("--log-format"),
-            OsString::from("logfmt"),
-        ];
-        let config = load_config_with_args(args, None).expect("Could not load config");
-        let log_fmt = config.log.map(|x| x.format);
-        assert_eq!(log_fmt, Some(LogFormat::Logfmt));
-    }
-
-    #[test]
-    fn load_log_format_with_file() {
-        let mut file = NamedTempFile::new().expect("Could not create temp file");
-        write!(
-            file,
-            r#"
-            [log]
-            format = "logfmt"
-            "#
-        )
-        .expect("Could not write in file");
-
-        let path = file.path().display().to_string();
-
-        temp_env::with_var("FLUENCE_CONFIG", Some(path), || {
-            let config = load_config_with_args(vec![], None).expect("Could not load config");
-            let log_fmt = config.log.map(|x| x.format);
-            assert_eq!(log_fmt, Some(LogFormat::Logfmt));
-        });
-    }
-
-    #[test]
     fn load_allowed_binaries_with_file() {
         let mut file = NamedTempFile::new().expect("Could not create temp file");
         write!(
@@ -672,7 +598,7 @@ mod tests {
             assert_eq!(
                 config.tracing,
                 Some(TracingConfig::Otlp {
-                    endpoint: "test".to_string(),
+                    endpoint: Url::parse("grpc://10.10.10.10:122").unwrap(),
                     sample_ratio: Some(0.1)
                 })
             );
@@ -699,7 +625,7 @@ mod tests {
                 assert_eq!(
                     config.tracing,
                     Some(TracingConfig::Otlp {
-                        endpoint: "test".to_string(),
+                        endpoint: Url::parse("grpc://10.10.10.10:122").unwrap(),
                         sample_ratio: None
                     })
                 );
@@ -740,7 +666,7 @@ mod tests {
             assert_eq!(
                 config.tracing,
                 Some(TracingConfig::Otlp {
-                    endpoint: "test".to_string(),
+                    endpoint: Url::parse("grpc://10.10.10.10:122").unwrap(),
                     sample_ratio: None
                 })
             );

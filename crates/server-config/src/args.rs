@@ -15,7 +15,6 @@
  */
 
 use crate::system_services_config::ServiceKey;
-use crate::LogFormat;
 use clap::error::ErrorKind;
 use clap::{Args, Parser};
 use config::{ConfigError, Map, Source, Value};
@@ -106,18 +105,6 @@ impl Serialize for RootKeyPairArgs {
         }
         struct_serializer.end()
     }
-}
-
-#[derive(Args, Debug, Clone, Serialize)]
-pub struct LogArgs {
-    #[arg(
-        long("log-format"),
-        id = "LOG_FORMAT",
-        help = "logging format",
-        help_heading = "Node configuration",
-        display_order = 24
-    )]
-    pub format: Option<LogFormat>,
 }
 
 #[derive(Args, Debug, Clone, Serialize)]
@@ -447,9 +434,6 @@ pub(crate) struct DerivedArgs {
 
     #[command(flatten)]
     system_services: Option<SystemServicesArgs>,
-
-    #[command(flatten)]
-    log: Option<LogArgs>,
 
     #[command(flatten)]
     tracing: Option<TracingArgs>,
