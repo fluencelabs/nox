@@ -7,7 +7,7 @@ use std::time::Duration;
 
 use backoff::future::retry;
 use backoff::ExponentialBackoff;
-use ccp_rpc_client::{CCPRpcHttpClient, OrHex};
+use ccp_rpc_client::CCPRpcHttpClient;
 use ccp_shared::proof::{CCProof, CCProofId, ProofIdx};
 use ccp_shared::types::{Difficulty, GlobalNonce, LocalNonce, ResultHash};
 use cpu_utils::PhysicalCoreId;
@@ -827,7 +827,7 @@ impl ChainListener {
 
             for unit in self.active_compute_units.iter().cycle() {
                 if let Some(core) = available_cores.pop_first() {
-                    cores.insert(core, OrHex::from(*unit));
+                    cores.insert(core, *unit);
                 } else {
                     break;
                 }
@@ -837,15 +837,14 @@ impl ChainListener {
                 "Sending commitment to CCP: global_nonce: {}, difficulty: {}, cores: {:?}",
                 self.global_nonce,
                 self.difficulty,
-                cores.iter().map(|(core, unit)| format!("{}: {}", core, match unit {OrHex::String(a) => {a.clone()}, OrHex::Data(d) => {d.to_string()}
-
-                })).collect::<Vec<_>>()
+                cores.iter().map(|(core, unit)| format!("{}: {}", core, unit.to_string()))
+                .collect::<Vec<_>>()
             );
 
             ccp_client
                 .on_active_commitment(
-                    OrHex::from(self.global_nonce),
-                    OrHex::from(self.difficulty),
+                    self.global_nonce,
+                   self.difficulty,
                     cores,
                 )
                 .await
@@ -857,7 +856,7 @@ impl ChainListener {
         Ok(())
     }
 
-    fn acquire_active_units(&self) -> eyre::Result<HashMap<PhysicalCoreId, OrHex<CUID>>> {
+    fn acquire_active_units(&self) -> eyre::Result<HashMap<PhysicalCoreId, CUID>> {
         let cores = self
             .core_manager
             .acquire_worker_core(AcquireRequest::new(
@@ -872,12 +871,7 @@ impl ChainListener {
         Ok(cores
             .physical_core_ids
             .into_iter()
-            .zip(
-                self.active_compute_units
-                    .clone()
-                    .into_iter()
-                    .map(OrHex::Data),
-            )
+            .zip(self.active_compute_units.clone().into_iter())
             .collect())
     }
 
@@ -887,9 +881,11 @@ impl ChainListener {
         Ok(())
     }
 
+    /// Should be called only if Commitment is Inactive, Failed, Removed or not exists
     async fn reset_commitment(&mut self) -> eyre::Result<()> {
         self.active_compute_units.clear();
         self.pending_compute_units.clear();
+        self.active_deals.clear();
         self.current_commitment = None;
         self.stop_commitment().await?;
         Ok(())
