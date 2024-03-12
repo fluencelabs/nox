@@ -111,7 +111,7 @@ fn main() -> eyre::Result<()> {
 
     if let Some(true) = config.print_config {
         let config = toml::to_string_pretty(&config)?;
-        tracing::info!("Loaded config: {}", config);
+        tracing::info!("Loaded config:\n{}", config);
     }
 
     let resolved_config = config.clone().resolve()?;
