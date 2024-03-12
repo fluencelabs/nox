@@ -1020,8 +1020,8 @@ dependencies = [
 
 [[package]]
 name = "ccp-rpc-client"
-version = "0.4.0"
-source = "git+https://github.com/fluencelabs/capacity-commitment-prover/?branch=main#2beb3b065c58e0e792a742e3378a685b275b53e9"
+version = "0.5.0"
+source = "git+https://github.com/fluencelabs/capacity-commitment-prover/?branch=main#716cd2f2b6ba075b09e78afea6a652ed3d3163da"
 dependencies = [
  "ccp-shared",
  "hex",
@@ -1031,13 +1031,24 @@ dependencies = [
 
 [[package]]
 name = "ccp-shared"
-version = "0.4.0"
-source = "git+https://github.com/fluencelabs/capacity-commitment-prover/?branch=main#2beb3b065c58e0e792a742e3378a685b275b53e9"
+version = "0.5.0"
+source = "git+https://github.com/fluencelabs/capacity-commitment-prover/?branch=main#716cd2f2b6ba075b09e78afea6a652ed3d3163da"
 dependencies = [
  "hex",
  "newtype_derive",
  "rand 0.8.5",
  "serde",
+]
+
+[[package]]
+name = "ccp_core_affinity"
+version = "0.8.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "32a367f167e9434009f92a5638292e5ddbbe91af51b3d3446cf2ea96ac835d5e"
+dependencies = [
+ "libc",
+ "num_cpus",
+ "winapi",
 ]
 
 [[package]]
@@ -1444,16 +1455,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "core_affinity"
-version = "0.8.1"
-source = "git+https://github.com/fluencelabs/core_affinity_rs#54d84297a1c2aad16b749b396f84db9bf7dceb0e"
-dependencies = [
- "libc",
- "num_cpus",
- "winapi",
-]
-
-[[package]]
 name = "cpp_demangle"
 version = "0.3.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1464,11 +1465,11 @@ dependencies = [
 
 [[package]]
 name = "cpu-utils"
-version = "0.4.0"
-source = "git+https://github.com/fluencelabs/capacity-commitment-prover/?branch=main#2beb3b065c58e0e792a742e3378a685b275b53e9"
+version = "0.5.0"
+source = "git+https://github.com/fluencelabs/capacity-commitment-prover/?branch=main#716cd2f2b6ba075b09e78afea6a652ed3d3163da"
 dependencies = [
  "ccp-shared",
- "core_affinity",
+ "ccp_core_affinity",
  "hwlocality",
  "nonempty",
  "serde",
