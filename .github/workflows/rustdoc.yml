@@ -20,7 +20,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install libhwloc and libudev
-        run: apt install -y libhwloc-dev libudev-dev
+        run: sudo apt install -y libhwloc-dev libudev-dev --no-install-recommends
 
       - name: Install Protoc
         uses: arduino/setup-protoc@v1
