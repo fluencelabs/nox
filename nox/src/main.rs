@@ -160,8 +160,6 @@ fn main() -> eyre::Result<()> {
                 })?;
             }
 
-
-
             log::info!("node public key = {}", base64_key_pair);
             log::info!("node server peer id = {}", peer_id);
 
