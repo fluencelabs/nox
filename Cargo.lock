@@ -275,7 +275,6 @@ dependencies = [
  "now-millis",
  "parking_lot",
  "particle-args",
- "particle-builtins",
  "particle-execution",
  "particle-protocol",
  "particle-services",
@@ -1135,11 +1134,9 @@ dependencies = [
  "libipld",
  "libp2p-identity",
  "log",
- "log-utils",
  "serde",
  "serde_json",
  "server-config",
- "tempfile",
  "thiserror",
  "tokio",
  "tokio-stream",
@@ -1191,22 +1188,9 @@ dependencies = [
 ]
 
 [[package]]
-name = "cid"
-version = "0.11.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "472ac98592f38dfd48f188d5713a328422ed22fa39eb52b8bca495370134762a"
-dependencies = [
- "core2",
- "multibase",
- "multihash 0.19.1",
- "unsigned-varint 0.8.0",
-]
-
-[[package]]
 name = "cid-utils"
 version = "0.1.0"
 dependencies = [
- "base64 0.21.7",
  "bytes",
  "eyre",
  "libipld",
@@ -1379,7 +1363,6 @@ version = "0.1.0"
 dependencies = [
  "fluence-libp2p",
  "futures",
- "itertools 0.12.1",
  "libp2p",
  "log",
  "parking_lot",
@@ -1443,14 +1426,12 @@ dependencies = [
  "rand 0.8.5",
  "range-set-blaze",
  "serde",
- "serde_with 3.6.1",
  "tempfile",
  "thiserror",
  "tokio",
  "tokio-stream",
  "toml 0.5.11",
  "tracing",
- "types",
 ]
 
 [[package]]
@@ -2170,28 +2151,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "failure"
-version = "0.1.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d32e9bd16cc02eae7db7ef620b392808b89f6a5e16bb3497d159c6b92a0f4f86"
-dependencies = [
- "backtrace",
- "failure_derive",
-]
-
-[[package]]
-name = "failure_derive"
-version = "0.1.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "aa4da3c766cd7a0db8242e326e9e4e081edd567072893ed320008189715366a4"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 1.0.109",
- "synstructure",
-]
-
-[[package]]
 name = "fallible-iterator"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2306,9 +2265,7 @@ dependencies = [
 name = "fluence-libp2p"
 version = "0.2.0"
 dependencies = [
- "base64 0.21.7",
  "bs58",
- "failure",
  "futures",
  "futures-util",
  "libp2p",
@@ -2393,7 +2350,6 @@ dependencies = [
  "cfg-if",
  "eyre",
  "futures-util",
- "rand 0.8.5",
  "thiserror",
  "tokio",
  "tokio-stream",
@@ -3479,7 +3435,6 @@ name = "json-utils"
 version = "0.0.2"
 dependencies = [
  "base64 0.21.7",
- "itertools 0.12.1",
  "serde",
  "serde_json",
 ]
@@ -3678,7 +3633,6 @@ dependencies = [
  "once_cell",
  "particle-protocol",
  "prometheus-client",
- "prost 0.12.3",
  "serde_json",
  "server-config",
  "smallvec",
@@ -3763,7 +3717,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5acd707e8d8b092e967b2af978ed84709eaded82b75effe6cb6f6cc797ef8158"
 dependencies = [
  "anyhow",
- "cid 0.10.1",
+ "cid",
  "core2",
  "multibase",
  "multihash 0.18.1",
@@ -4315,7 +4269,6 @@ dependencies = [
  "fluence-keypair",
  "fs-utils",
  "fstrings",
- "ivalue-utils",
  "libp2p",
  "log",
  "maplit",
@@ -4325,7 +4278,6 @@ dependencies = [
  "particle-execution",
  "particle-protocol",
  "serde_json",
- "tempfile",
  "tokio",
  "tracing",
  "uuid-utils",
@@ -4356,7 +4308,6 @@ version = "0.1.0"
 dependencies = [
  "log",
  "tracing",
- "tracing-logfmt",
  "tracing-subscriber",
 ]
 
@@ -5777,7 +5728,6 @@ dependencies = [
  "bs58",
  "control-macro",
  "eyre",
- "ivalue-utils",
  "json-utils",
  "serde",
  "serde_json",
@@ -5802,7 +5752,6 @@ dependencies = [
  "health",
  "humantime-serde",
  "itertools 0.12.1",
- "ivalue-utils",
  "kademlia",
  "libp2p",
  "libp2p-kad",
@@ -5859,13 +5808,11 @@ version = "0.1.0"
 dependencies = [
  "base64 0.21.7",
  "bytesize",
- "cid 0.11.0",
  "eyre",
  "fluence-app-service",
  "fluence-libp2p",
  "fs-utils",
  "fstrings",
- "itertools 0.12.1",
  "json-utils",
  "libipld",
  "log",
@@ -5897,7 +5844,6 @@ dependencies = [
  "fluence-libp2p",
  "futures",
  "humantime-serde",
- "json-utils",
  "libp2p",
  "log",
  "now-millis",
@@ -7259,9 +7205,7 @@ dependencies = [
  "cid-utils",
  "eyre",
  "fs-utils",
- "json-utils",
  "libipld",
- "maplit",
  "serde",
  "serde_json",
 ]
@@ -7476,7 +7420,6 @@ dependencies = [
  "eyre",
  "fluence-libp2p",
  "fluence-spell-dtos",
- "fstrings",
  "futures",
  "libp2p",
  "log",
@@ -7487,7 +7430,6 @@ dependencies = [
  "particle-args",
  "particle-execution",
  "particle-protocol",
- "particle-services",
  "peer-metrics",
  "serde",
  "serde_json",
@@ -7496,7 +7438,6 @@ dependencies = [
  "tokio-stream",
  "tracing",
  "types",
- "uuid-utils",
 ]
 
 [[package]]
@@ -7801,7 +7742,6 @@ version = "0.3.0"
 dependencies = [
  "base64 0.21.7",
  "connected-client",
- "created-swarm",
  "eyre",
  "fstrings",
  "ivalue-utils",
