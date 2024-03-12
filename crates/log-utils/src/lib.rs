@@ -85,10 +85,6 @@ pub fn enable_logs() {
     enable_logs_for(LogSpec::default())
 }
 
-pub fn enable_console() {
-    console_subscriber::init();
-}
-
 pub struct LogSpec {
     level: tracing::metadata::Level,
     directives: Vec<Directive>,

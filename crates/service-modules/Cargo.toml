@@ -6,11 +6,8 @@ edition = "2021"
 
 [dependencies]
 fs-utils = { workspace = true }
-json-utils = { workspace = true }
 cid-utils = { workspace = true }
-
 eyre = { workspace = true }
 serde = { workspace = true }
-maplit = { workspace = true }
 serde_json = { workspace = true }
 libipld = { workspace = true }

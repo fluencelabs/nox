@@ -65,8 +65,8 @@ pub fn default_bootstrap_nodes() -> Vec<Multiaddr> {
 pub fn default_system_cpu_count() -> usize {
     let total = num_cpus::get_physical();
     match total {
-        x if x > 32 => 4,
-        x if x > 2 => 2,
+        x if x > 32 => 3,
+        x if x > 7 => 2,
         _ => 1,
     }
 }

@@ -5,24 +5,19 @@ authors = ["Fluence Labs"]
 edition = "2021"
 
 [dependencies]
-particle-services = { workspace = true }
 particle-args = { workspace = true }
-uuid-utils = { workspace = true }
 now-millis = { workspace = true }
 particle-execution = { workspace = true }
 connection-pool = { workspace = true }
 fluence-libp2p = { workspace = true }
 tracing = { workspace = true }
-
 parking_lot = { workspace = true }
 serde_json = { workspace = true }
 serde = { workspace = true }
-
 tokio = { workspace = true }
 tokio-stream = { workspace = true }
 derivative = { workspace = true }
 eyre = { workspace = true }
-fstrings = { workspace = true }
 futures = { workspace = true }
 thiserror = { workspace = true }
 log = { workspace = true }

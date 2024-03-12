@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.23.2](https://github.com/fluencelabs/nox/compare/nox-v0.23.1...nox-v0.23.2) (2024-03-10)
+
+
+### Bug Fixes
+
+* **listener:** save pending units on start; refresh state on subs drop ([#2158](https://github.com/fluencelabs/nox/issues/2158)) ([86da267](https://github.com/fluencelabs/nox/commit/86da267ab3d2958d0f33bdeaeb0f058475a6ed9c))
+
 ## [0.23.1](https://github.com/fluencelabs/nox/compare/nox-v0.23.0...nox-v0.23.1) (2024-03-09)
 
 

@@ -22,9 +22,7 @@ num_cpus.workspace = true
 parking_lot.workspace = true
 thiserror.workspace = true
 serde = { workspace = true, features = ["derive"] }
-types.workspace = true
 tracing.workspace = true
-serde_with.workspace = true
 tokio-stream.workspace = true
 futures.workspace = true
 rand = "0.8.5"

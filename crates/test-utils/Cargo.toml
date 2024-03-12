@@ -8,11 +8,8 @@ edition = "2021"
 ivalue-utils = { workspace = true }
 particle-args = { workspace = true }
 connected-client = { workspace = true }
-created-swarm = { workspace = true }
 test-constants = { workspace = true }
 service-modules = { workspace = true }
-
-
 tokio = { workspace = true }
 serde_json = { workspace = true }
 fstrings = { workspace = true }

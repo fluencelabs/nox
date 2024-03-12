@@ -27,9 +27,7 @@ types = { workspace = true }
 libipld = "0.16.0"
 
 fluence-libp2p = { workspace = true }
-tempfile = { workspace = true }
 fs-utils = { workspace = true }
-log-utils = { workspace = true }
 futures = { workspace = true }
 core-manager = { workspace = true }
 ccp-rpc-client = { workspace = true }
