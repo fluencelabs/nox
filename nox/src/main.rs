@@ -155,9 +155,7 @@ fn main() -> eyre::Result<()> {
 
             if let Some(config) = &config.tracing {
                 let layer = tracing_layer(config, peer_id, VERSION)?;
-                reload_handle.modify(move |tracing_layer| {
-                    *tracing_layer = Some(layer.boxed())
-                })?;
+                reload_handle.modify(move |tracing_layer| *tracing_layer = Some(layer.boxed()))?;
             }
 
             log::info!("node public key = {}", base64_key_pair);
