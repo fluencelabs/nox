@@ -29,7 +29,6 @@
 use base64::{engine::general_purpose::STANDARD as base64, Engine};
 use eyre::WrapErr;
 use libp2p::PeerId;
-use std::process;
 use std::sync::Arc;
 use tokio::signal;
 use tokio::sync::oneshot;
@@ -154,22 +153,14 @@ fn main() -> eyre::Result<()> {
             let base64_key_pair = base64.encode(key_pair.public().to_vec());
             let peer_id = to_peer_id(&key_pair.into());
 
-            reload_handle.modify(|boxes| {
-                if let Some(config) = &config.tracing {
-                    let layer = tracing_layer(config, peer_id, VERSION);
-                    match layer {
-                        Ok(layer) => match layer {
-                            None => {}
-                            Some(layer) => (*boxes) = Some(layer.boxed()),
-                        },
-                        Err(err) => {
-                            // do not use logger here
-                            println!("Unexpected tracing error: {:?}", err);
-                            process::exit(1);
-                        }
-                    }
-                }
-            })?;
+            if let Some(config) = &config.tracing {
+                let layer = tracing_layer(config, peer_id, VERSION)?;
+                reload_handle.modify(move |tracing_layer| {
+                    *tracing_layer = Some(layer.boxed())
+                })?;
+            }
+
+
 
             log::info!("node public key = {}", base64_key_pair);
             log::info!("node server peer id = {}", peer_id);
