@@ -89,9 +89,12 @@ pub(crate) async fn remove_worker(
     match peer_scope {
         PeerScope::WorkerId(worker_id) => {
             let worker_creator = workers.get_worker_creator(worker_id)?;
-            // TODO: should a worker be able to remove itself? it could break decider's invariants
-            if params.init_peer_id != worker_creator && params.init_peer_id != worker_peer_id {
-                return Err(JError::new(format!("Worker {worker_id} can be removed only by worker creator {worker_creator} or worker itself")));
+            let is_worker_creator = params.init_peer_id == worker_creator;
+            if !is_worker_creator
+                && !scopes.is_host(params.init_peer_id)
+                && !scopes.is_management(params.init_peer_id)
+            {
+                return Err(JError::new(format!("Worker {worker_id} can be removed only by worker creator {worker_creator}, host or a host manager")));
             }
             workers.remove_worker(worker_id).await?;
             let spells: Vec<_> = spell_storage.get_registered_spells_by(peer_scope);
