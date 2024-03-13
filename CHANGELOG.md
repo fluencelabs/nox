@@ -69,7 +69,7 @@
 
 ### Features
 
-* introduce the dev mode in which alow all effectors  ([#2127](https://github.com/fluencelabs/nox/issues/2127)) ([0eee6bf](https://github.com/fluencelabs/nox/commit/0eee6bf536cb5dc49c81421dc235dafcf17820c6))
+* introduce the dev mode in which allow all effectors  ([#2127](https://github.com/fluencelabs/nox/issues/2127)) ([0eee6bf](https://github.com/fluencelabs/nox/commit/0eee6bf536cb5dc49c81421dc235dafcf17820c6))
 
 ## [0.21.2](https://github.com/fluencelabs/nox/compare/nox-v0.21.1...nox-v0.21.2) (2024-02-27)
 
@@ -714,7 +714,7 @@
 ### Bug Fixes
 
 * bug with repeated alias for service [NET-434] ([#1536](https://github.com/fluencelabs/rust-peer/issues/1536)) ([ff455be](https://github.com/fluencelabs/rust-peer/commit/ff455be54132a5b08977d91ef5bf67e6264d2c80))
-* collect separate metrics for root alised services and worker spells [fixes NET-431] ([#1539](https://github.com/fluencelabs/rust-peer/issues/1539)) ([270cfd2](https://github.com/fluencelabs/rust-peer/commit/270cfd2c3a1236fc2cbb19b68b0bb4714e871148))
+* collect separate metrics for root aliased services and worker spells [fixes NET-431] ([#1539](https://github.com/fluencelabs/rust-peer/issues/1539)) ([270cfd2](https://github.com/fluencelabs/rust-peer/commit/270cfd2c3a1236fc2cbb19b68b0bb4714e871148))
 * **deps:** update rust crate air-interpreter-wasm to v0.38.0 ([#1502](https://github.com/fluencelabs/rust-peer/issues/1502)) ([12c74fb](https://github.com/fluencelabs/rust-peer/commit/12c74fbe8cbedcc701838d153d4d8e85af80e979))
 * **deps:** update rust crate fluence-app-service to 0.25.1 ([#1522](https://github.com/fluencelabs/rust-peer/issues/1522)) ([446c342](https://github.com/fluencelabs/rust-peer/commit/446c3422ec8c386f2f5d1eb0a62b69245e04863b))
 * **deps:** update rust crate fluence-app-service to 0.25.3 ([#1541](https://github.com/fluencelabs/rust-peer/issues/1541)) ([e5ecf30](https://github.com/fluencelabs/rust-peer/commit/e5ecf30ad79bcfa70b214f3a07f94507153270f4))

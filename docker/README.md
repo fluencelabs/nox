@@ -27,7 +27,7 @@ TODO
 Default configuration file is found at
 [Config.default.toml](https://github.com/fluencelabs/nox/tree/master/docker/Config.default.toml).
 
-All options can be overwriten by env variables:
+All options can be overwritten by env variables:
 
 ```toml
 no_banner = false
