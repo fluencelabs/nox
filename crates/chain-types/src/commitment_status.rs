@@ -20,10 +20,10 @@ impl CommitmentStatus {
     }
     pub fn from_num(num: u8) -> Option<Self> {
         match num {
-            0 => Some(CommitmentStatus::Active),
-            1 => Some(CommitmentStatus::WaitDelegation),
-            2 => Some(CommitmentStatus::WaitStart),
-            3 => Some(CommitmentStatus::Inactive),
+            0 => Some(CommitmentStatus::Inactive),
+            1 => Some(CommitmentStatus::Active),
+            2 => Some(CommitmentStatus::WaitDelegation),
+            3 => Some(CommitmentStatus::WaitStart),
             4 => Some(CommitmentStatus::Failed),
             5 => Some(CommitmentStatus::Removed),
             _ => None,
