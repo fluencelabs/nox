@@ -1020,8 +1020,9 @@ dependencies = [
 
 [[package]]
 name = "ccp-rpc-client"
-version = "0.5.0"
-source = "git+https://github.com/fluencelabs/capacity-commitment-prover/?branch=main#716cd2f2b6ba075b09e78afea6a652ed3d3163da"
+version = "0.7.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "39a8896973a603a24081b812f59a57878f24012408d1e4809c4b2f269c95db3d"
 dependencies = [
  "ccp-shared",
  "hex",
@@ -1031,8 +1032,9 @@ dependencies = [
 
 [[package]]
 name = "ccp-shared"
-version = "0.5.0"
-source = "git+https://github.com/fluencelabs/capacity-commitment-prover/?branch=main#716cd2f2b6ba075b09e78afea6a652ed3d3163da"
+version = "0.7.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "955890867c44b72a4da28fe15f69f72ad74d54b5f29343c61c87b15f0b60c573"
 dependencies = [
  "hex",
  "newtype_derive",
@@ -1465,8 +1467,9 @@ dependencies = [
 
 [[package]]
 name = "cpu-utils"
-version = "0.5.0"
-source = "git+https://github.com/fluencelabs/capacity-commitment-prover/?branch=main#716cd2f2b6ba075b09e78afea6a652ed3d3163da"
+version = "0.7.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "637883048a263d18fa3ea192f87433ad3bed651144f2673853017989cc893215"
 dependencies = [
  "ccp-shared",
  "ccp_core_affinity",
