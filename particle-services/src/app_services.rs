@@ -688,6 +688,11 @@ impl ParticleAppServices {
             return Err(ForbiddenAlias(alias));
         }
 
+        // Allow only HOST add alias "worker-spell"
+        if alias == "worker-spell" && !self.scopes.is_host(init_peer_id) && !is_management {
+            return Err(ForbiddenAlias(alias));
+        }
+
         if !self.service_exists(&peer_scope, &service_id) {
             return Err(NoSuchService(service_id, peer_scope));
         }

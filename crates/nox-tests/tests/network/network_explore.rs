@@ -65,10 +65,13 @@ pub struct ModuleDescriptor {
 async fn get_interfaces() {
     let swarms = make_swarms(1).await;
 
-    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
-        .await
-        .wrap_err("connect client")
-        .unwrap();
+    let mut client = ConnectedClient::connect_with_keypair(
+        swarms[0].multiaddr.clone(),
+        Some(swarms[0].management_keypair.clone()),
+    )
+    .await
+    .wrap_err("connect client")
+    .unwrap();
     let service1 = create_service(
         &mut client,
         "tetraplets",
@@ -129,10 +132,13 @@ async fn get_interfaces() {
 async fn get_modules() {
     let swarms = make_swarms(1).await;
 
-    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
-        .await
-        .wrap_err("connect client")
-        .unwrap();
+    let mut client = ConnectedClient::connect_with_keypair(
+        swarms[0].multiaddr.clone(),
+        Some(swarms[0].management_keypair.clone()),
+    )
+    .await
+    .wrap_err("connect client")
+    .unwrap();
 
     client.send_particle(
         r#"
@@ -185,10 +191,13 @@ async fn get_modules() {
 async fn list_blueprints() {
     let swarms = make_swarms(1).await;
 
-    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
-        .await
-        .wrap_err("connect client")
-        .unwrap();
+    let mut client = ConnectedClient::connect_with_keypair(
+        swarms[0].multiaddr.clone(),
+        Some(swarms[0].management_keypair.clone()),
+    )
+    .await
+    .wrap_err("connect client")
+    .unwrap();
 
     let bytes = load_module("tests/file_share/artifacts", "file_share").expect("load module");
     let module_hash = Hash::new(&bytes).unwrap().to_string();
@@ -249,10 +258,13 @@ async fn explore_services_heavy() {
     enable_logs();
     let swarms = make_swarms(5).await;
 
-    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
-        .await
-        .wrap_err("connect client")
-        .unwrap();
+    let mut client = ConnectedClient::connect_with_keypair(
+        swarms[0].multiaddr.clone(),
+        Some(swarms[0].management_keypair.clone()),
+    )
+    .await
+    .wrap_err("connect client")
+    .unwrap();
 
     // N - 1 neighborhood each with N - 1 elements.
     let total_neighs = (swarms.len() - 1) * (swarms.len() - 1);
@@ -335,7 +347,6 @@ async fn explore_services_heavy() {
 async fn explore_services_fixed_heavy() {
     enable_logs();
     let swarms = make_swarms(5).await;
-
     // language=Clojure
     let script = r#"
         (seq
@@ -360,10 +371,13 @@ async fn explore_services_fixed_heavy() {
 
     let peers = swarms.iter().skip(1);
     for peer in peers {
-        let mut client = ConnectedClient::connect_to(peer.multiaddr.clone())
-            .await
-            .wrap_err("connect client")
-            .unwrap();
+        let mut client = ConnectedClient::connect_with_keypair(
+            peer.multiaddr.clone(),
+            Some(peer.management_keypair.clone()),
+        )
+        .await
+        .wrap_err("connect client")
+        .unwrap();
         create_service(
             &mut client,
             "tetraplets",
@@ -372,10 +386,13 @@ async fn explore_services_fixed_heavy() {
         .await;
     }
 
-    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
-        .await
-        .wrap_err("connect client")
-        .unwrap();
+    let mut client = ConnectedClient::connect_with_keypair(
+        swarms[0].multiaddr.clone(),
+        Some(swarms[0].management_keypair.clone()),
+    )
+    .await
+    .wrap_err("connect client")
+    .unwrap();
 
     let peers: Vec<_> = swarms
         .iter()
