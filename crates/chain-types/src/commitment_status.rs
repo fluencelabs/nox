@@ -4,12 +4,12 @@ use chain_data::{next_opt, parse_chain_data, ChainDataError};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CommitmentStatus {
-    Active = 0,
+    Inactive = 0,
+    Active,
     // WaitDelegation - before collateral is deposited.
     WaitDelegation,
     // Status is WaitStart - means collateral deposited, and epoch should be proceed before Active.
     WaitStart,
-    Inactive,
     Failed,
     Removed,
 }
