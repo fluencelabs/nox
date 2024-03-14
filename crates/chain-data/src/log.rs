@@ -1,11 +1,13 @@
+use alloy_sol_types::{SolEvent, Word};
+use hex_utils::decode_hex;
 use libp2p_identity::ParseError;
 use serde::{Deserialize, Serialize};
+use std::str::FromStr;
 use thiserror::Error;
 
-use crate::chain_data::EventField::{Indexed, NotIndexed};
-use crate::chain_data::{parse_chain_data, ChainData, ChainEvent, EventField};
+use crate::chain_data::EventField;
 use crate::error::ChainDataError;
-use crate::log::LogParseError::{MissingToken, MissingTopic};
+use crate::LogParseError::EthError;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -23,11 +25,11 @@ pub struct Log {
 #[derive(Debug, Error)]
 pub enum LogParseError {
     #[error(transparent)]
-    EthError(#[from] ethabi::Error),
+    EthError(#[from] alloy_sol_types::Error),
     #[error(transparent)]
     DecodeHex(#[from] hex::FromHexError),
-    #[error("parsed data doesn't correspond to the expected signature: {0:?}")]
-    SignatureMismatch(Vec<EventField>),
+    #[error(transparent)]
+    DecodeConstHex(#[from] const_hex::FromHexError),
     #[error(
         "incorrect log signature: not found token for field #{position} of type ${event_field:?}"
     )]
@@ -52,82 +54,10 @@ pub enum LogParseError {
     NoTokens,
 }
 
-/// Parse Event Log to specified DTO
-///
-/// Logs consist of data fields, much like ADT. Fields can indexed and not indexed.
-///
-/// Data for indexed fields is encoded in 'log.topics', starting from 1th topic, i.e. 0th is skipped
-/// Data for non indexed fields is encoded in 'log.data'.
-///
-/// Indexed and non indexed data fields can be interleaved.
-/// That forces a certain parsing scheme, which is implemented below.
-pub fn parse_log<U: ChainData, T: ChainEvent<U>>(log: Log) -> Result<T, LogParseError> {
-    log::debug!("Parse log from block {:?}", log.block_number);
-    let result: Result<_, LogParseError> = try {
-        // event log signature, i.e. data field types
-        let signature = U::signature();
-        // gather data types for non indexed ("indexless") fields
-        let indexless = signature
-            .clone()
-            .into_iter()
-            .filter_map(|t| match t {
-                NotIndexed(t) => Some(t),
-                Indexed(_) => None,
-            })
-            .collect::<Vec<_>>();
-        // parse all non indexed fields to tokens
-        let indexless = parse_chain_data(&log.data, &indexless)?;
-
-        // iterate through data field types (signature), and take
-        // data `Token` from either 'indexless' or 'topics'
-        let mut indexless = indexless.into_iter();
-        // skip first topic, because it contains actual topic, and not indexed data field
-        let mut topics = log.topics.into_iter().skip(1);
-        // accumulate tokens here
-        let mut tokens = vec![];
-        for (position, event_field) in signature.into_iter().enumerate() {
-            match event_field {
-                NotIndexed(_) => {
-                    // take next token for non indexed data field
-                    let token = indexless.next().ok_or(MissingToken {
-                        position,
-                        event_field,
-                    })?;
-                    tokens.push(token);
-                }
-                ef @ Indexed(_) => {
-                    let topic = topics.next().ok_or(MissingTopic {
-                        position,
-                        event_field: ef.clone(),
-                    })?;
-                    // parse indexed field to token one by one
-                    let parsed = parse_chain_data(&topic, &[ef.clone().param_type()])?;
-                    debug_assert!(parsed.len() == 1, "parse of an indexed event fields yielded several tokens, expected a single one");
-                    let token = parsed.into_iter().next().ok_or(MissingToken {
-                        position,
-                        event_field: ef,
-                    })?;
-                    tokens.push(token)
-                }
-            }
-        }
-
-        if tokens.is_empty() {
-            return Err(LogParseError::NoTokens);
-        }
-
-        let block_number = log.block_number.clone();
-        let log = U::parse(&mut tokens.into_iter())?;
-        T::new(block_number, log)
-    };
-
-    if let Err(e) = result.as_ref() {
-        log::warn!(target: "connector",
-            "Cannot parse deal log from block {}: {:?}",
-            log.block_number,
-            e.to_string()
-        );
+pub fn parse_log<T: SolEvent>(log: Log) -> Result<T, LogParseError> {
+    let mut topics = vec![];
+    for t in log.topics {
+        topics.push(Word::from_str(&t)?);
     }
-
-    result
+    SolEvent::decode_raw_log(topics.into_iter(), &decode_hex(&log.data)?, true).map_err(EthError)
 }

@@ -1,131 +1,72 @@
-use chain_data::ChainDataError::InvalidTokenSize;
-use chain_data::EventField::{Indexed, NotIndexed};
-use chain_data::{next_opt, ChainData, ChainDataError, ChainEvent, EventField};
-use chain_types::{CommitmentId, PendingUnit};
+use alloy_sol_types::sol;
+use chain_connector::PendingUnit;
+
 use core_manager::CUID;
-use ethabi::ethereum_types::U256;
-use ethabi::param_type::ParamType;
-use ethabi::Token;
-use serde::{Deserialize, Serialize};
 
-/// @dev Emitted when a unit activated. Unit is activated when it returned from deal
-/// @param commitmentId Commitment id
-/// @param unitId Compute unit id which activated
-/// event UnitActivated(
-///     bytes32 indexed commitmentId,
-///     bytes32 indexed unitId,
-///     uint256 startEpoch
-/// );
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct UnitActivatedData {
-    pub commitment_id: CommitmentId,
-    pub unit_id: CUID,
-    pub start_epoch: U256,
+sol! {
+    /// @dev Emitted when a unit activated.
+    /// Unit is activated when it returned from deal
+    /// @param commitmentId Commitment id
+    /// @param unitId Compute unit id which activated
+    #[derive(Debug)]
+    event UnitActivated(
+        bytes32 indexed commitmentId,
+        bytes32 indexed unitId,
+        uint256 startEpoch
+    );
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-pub struct UnitActivated {
-    pub block_number: String,
-    pub info: UnitActivatedData,
-}
-
-impl UnitActivated {
-    pub const EVENT_NAME: &'static str = "UnitActivated";
-}
-
-impl ChainData for UnitActivatedData {
-    fn event_name() -> &'static str {
-        UnitActivated::EVENT_NAME
-    }
-
-    fn signature() -> Vec<EventField> {
-        vec![
-            Indexed(ParamType::FixedBytes(32)), // commitmentId
-            Indexed(ParamType::FixedBytes(32)), // unitId
-            NotIndexed(ParamType::Uint(256)),   // startEpoch
-        ]
-    }
-
-    /// Parse data from chain. Accepts data with and without "0x" prefix.
-    fn parse(data_tokens: &mut impl Iterator<Item = Token>) -> Result<Self, ChainDataError> {
-        let commitment_id = CommitmentId(next_opt(
-            data_tokens,
-            "commitment_id",
-            Token::into_fixed_bytes,
-        )?);
-
-        let unit_id = next_opt(data_tokens, "unit_id", Token::into_fixed_bytes)?;
-
-        let start_epoch = next_opt(data_tokens, "start_epoch", Token::into_uint)?;
-
-        Ok(UnitActivatedData {
-            commitment_id,
-            unit_id: CUID::new(unit_id.try_into().map_err(|_| InvalidTokenSize)?),
-            start_epoch,
-        })
-    }
-}
-
-impl ChainEvent<UnitActivatedData> for UnitActivated {
-    fn new(block_number: String, info: UnitActivatedData) -> Self {
-        Self { block_number, info }
-    }
-}
-
-impl From<UnitActivatedData> for PendingUnit {
-    fn from(data: UnitActivatedData) -> Self {
+impl From<UnitActivated> for PendingUnit {
+    fn from(data: UnitActivated) -> Self {
         PendingUnit {
-            id: data.unit_id,
-            start_epoch: data.start_epoch,
+            id: CUID::new(data.unitId.0),
+            start_epoch: data.startEpoch,
         }
     }
 }
 #[cfg(test)]
 mod test {
-
     use super::UnitActivated;
-    use crate::event::UnitActivatedData;
-    use chain_data::{parse_log, ChainData, Log};
-    use core_manager::CUID;
+    use alloy_primitives::Uint;
+    use alloy_sol_types::{SolEvent, Word};
+    use std::str::FromStr;
 
-    use hex::FromHex;
+    use hex_utils::decode_hex;
 
     #[tokio::test]
     async fn test_unit_activated_topic() {
         assert_eq!(
-            UnitActivatedData::topic(),
+            UnitActivated::SIGNATURE_HASH.to_string(),
             "0x8e4b27eeb3194deef0b3140997e6b82f53eb7350daceb9355268009b92f70add"
         );
     }
 
     #[tokio::test]
     async fn test_chain_parsing_ok() {
-        let data = "0x000000000000000000000000000000000000000000000000000000000000007b00000000000000000000000000000000000000000000000000000000000001c800000000000000000000000000000000000000000000000000000000000000600000000000000000000000000000000000000000000000000000000000000001c04d94f1e85788b245471c87490f42149b09503fe3af46733e4b5adf94583105".to_string();
-        let log = Log {
-            data,
-            block_number: "0x0".to_string(),
-            removed: false,
-            topics: vec![
-                UnitActivatedData::topic(),
-                "0x431688393bc518ef01e11420af290b92f3668dca24fc171eeb11dd15bcefad72".to_string(),
-                "0xd33bc101f018e42351fbe2adc8682770d164e27e2e4c6454e0faaf5b8b63b90e".to_string(),
-            ],
-        };
-        let result = parse_log::<UnitActivatedData, UnitActivated>(log);
+        let data = "0x000000000000000000000000000000000000000000000000000000000000007b".to_string();
+        let topics = vec![
+            UnitActivated::SIGNATURE_HASH.to_string(),
+            "0x431688393bc518ef01e11420af290b92f3668dca24fc171eeb11dd15bcefad72".to_string(),
+            "0xd33bc101f018e42351fbe2adc8682770d164e27e2e4c6454e0faaf5b8b63b90e".to_string(),
+        ];
+
+        let result = UnitActivated::decode_raw_log(
+            topics.into_iter().map(|t| Word::from_str(&t).unwrap()),
+            &decode_hex(&data).unwrap(),
+            true,
+        );
 
         assert!(result.is_ok(), "can't parse data: {:?}", result);
-        let result = result.unwrap().info;
+        let result = result.unwrap();
         assert_eq!(
-            hex::encode(result.commitment_id.0),
-            "431688393bc518ef01e11420af290b92f3668dca24fc171eeb11dd15bcefad72" // it's the second topic
+            result.commitmentId.to_string(),
+            "0x431688393bc518ef01e11420af290b92f3668dca24fc171eeb11dd15bcefad72" // it's the second topic
         );
         assert_eq!(
-            result.unit_id,
-            <CUID>::from_hex("d33bc101f018e42351fbe2adc8682770d164e27e2e4c6454e0faaf5b8b63b90e")
-                .unwrap() // it's also the third topic
+            result.unitId.to_string(),
+            "0xd33bc101f018e42351fbe2adc8682770d164e27e2e4c6454e0faaf5b8b63b90e" // it's also the third topic
         );
 
-        assert_eq!(result.start_epoch, 123.into());
+        assert_eq!(result.startEpoch, Uint::from(123));
     }
 }

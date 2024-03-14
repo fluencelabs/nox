@@ -22,18 +22,18 @@ pub enum ConnectorError {
     },
     #[error("Failed to parse chain data: {0}")]
     ParseChainDataFailed(#[from] ChainDataError),
+    #[error("Failed to parse chain data: {0}")]
+    ParseChainDataFailedAlloy(#[from] alloy_sol_types::Error),
     #[error("Failed to parse address: {0}")]
     AddressParseError(#[from] clarity::Error),
     #[error("data is not a valid hex: '{0}'")]
     DecodeHex(#[from] hex::FromHexError),
     #[error("data is not a valid string: '{0}'")]
     DecodeData(#[from] FromUtf8Error),
-    #[error("Failed to parse baseFeePerGas: {0}")]
-    InvalidBaseFeePerGas(String),
-    #[error("Invalid transaction nonce: {0}")]
-    InvalidNonce(String),
-    #[error("Invalid gas limit: {0}")]
-    InvalidGasLimit(String),
+    #[error("Failed to parse u256: {0}")]
+    InvalidU256(String),
+    #[error("Failed to parse response: {0}")]
+    ResponseParseError(String),
     #[error("Parse error: {0}")]
     ParseError(#[from] serde_json::Error),
 }

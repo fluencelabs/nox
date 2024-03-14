@@ -14,3 +14,6 @@ hex = { workspace = true }
 log = { workspace = true }
 thiserror = { workspace = true }
 eyre = { workspace = true }
+alloy-sol-types = { workspace = true }
+alloy_serde_macro = "0.1.2"
+const-hex = "1.11.3"

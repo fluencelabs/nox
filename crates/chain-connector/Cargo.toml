@@ -10,8 +10,6 @@ particle-builtins = { workspace = true }
 particle-execution = { workspace = true }
 particle-args = { workspace = true }
 chain-data = { workspace = true }
-chain-types = { workspace = true }
-ethabi = { workspace = true }
 jsonrpsee = { workspace = true, features = ["macros", "server", "client"] }
 eyre = { workspace = true }
 fluence-libp2p = { workspace = true }
@@ -26,6 +24,9 @@ ccp-shared = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
 types = { workspace = true }
+alloy-sol-types = { workspace = true }
+alloy-primitives = { workspace = true }
+serde = { version = "1.0.196", features = ["derive"] }
 
 [dev-dependencies]
 mockito = { workspace = true }

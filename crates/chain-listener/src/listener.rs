@@ -1,7 +1,11 @@
+use alloy_primitives::{FixedBytes, Uint, U256};
+use alloy_sol_types::SolEvent;
 use backoff::Error::Permanent;
 use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::ops::Add;
 use std::path::PathBuf;
 use std::process::exit;
+use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -11,7 +15,7 @@ use ccp_rpc_client::CCPRpcHttpClient;
 use ccp_shared::proof::{CCProof, CCProofId, ProofIdx};
 use ccp_shared::types::{Difficulty, GlobalNonce, LocalNonce, ResultHash};
 use cpu_utils::PhysicalCoreId;
-use ethabi::ethereum_types::U256;
+
 use eyre::eyre;
 use jsonrpsee::core::client::{Client as WsClient, Subscription, SubscriptionClientT};
 use jsonrpsee::core::{client, JsonValue};
@@ -24,12 +28,12 @@ use tokio::time::interval;
 use tokio_stream::wrappers::IntervalStream;
 use tokio_stream::StreamExt;
 
-use chain_connector::{ChainConnector, ConnectorError};
-use chain_data::{parse_log, peer_id_to_hex, ChainData, Log};
-use chain_types::{
-    CommitmentId, CommitmentStatus, ComputeUnit, DealStatus, PendingUnit, COMMITMENT_IS_NOT_ACTIVE,
-    PEER_NOT_EXISTS, TOO_MANY_PROOFS,
+use chain_connector::Offer::ComputeUnit;
+use chain_connector::{
+    is_commitment_not_active, is_too_many_proofs, CCStatus, ChainConnector, CommitmentId,
+    ConnectorError, Deal, PendingUnit, PEER_NOT_EXISTS,
 };
+use chain_data::{parse_log, peer_id_to_hex, Log};
 use core_manager::manager::{CoreManager, CoreManagerFunctions};
 use core_manager::types::{AcquireRequest, WorkType};
 use core_manager::CUID;
@@ -37,10 +41,7 @@ use server_config::{ChainConfig, ChainListenerConfig};
 use types::DealId;
 
 use crate::event::cc_activated::CommitmentActivated;
-use crate::event::{
-    CommitmentActivatedData, DealMatched, DealMatchedData, UnitActivated, UnitActivatedData,
-    UnitDeactivated, UnitDeactivatedData,
-};
+use crate::event::{ComputeUnitMatched, UnitActivated, UnitDeactivated};
 use crate::persistence;
 
 const PROOF_POLL_LIMIT: usize = 10;
@@ -114,10 +115,10 @@ impl ChainListener {
             config: chain_config,
             host_id,
             difficulty: Difficulty::default(),
-            init_timestamp: U256::zero(),
+            init_timestamp: U256::ZERO,
             global_nonce: GlobalNonce::new([0; 32]).into(),
-            current_epoch: U256::zero(),
-            epoch_duration: U256::zero(),
+            current_epoch: U256::ZERO,
+            epoch_duration: U256::ZERO,
             current_commitment: None,
             active_compute_units: BTreeSet::new(),
             pending_compute_units: BTreeSet::new(),
@@ -198,22 +199,21 @@ impl ChainListener {
                 }
 
                 if let Some(status) = self.get_commitment_status().await? {
-                    tracing::info!(target: "chain-listener", "Current commitment status: {status}");
+                    tracing::info!(target: "chain-listener", "Current commitment status: {status:?}");
 
                     match status {
-                        CommitmentStatus::Active => {
+                        CCStatus::Active => {
                             self.refresh_commitment().await?;
                         }
 
-                        CommitmentStatus::Inactive
-                        | CommitmentStatus::Failed
-                        | CommitmentStatus::Removed => {
+                        CCStatus::Inactive | CCStatus::Failed | CCStatus::Removed => {
                             self.reset_commitment().await?;
                         }
-                        CommitmentStatus::WaitDelegation | CommitmentStatus::WaitStart => {
+                        CCStatus::WaitDelegation | CCStatus::WaitStart => {
                             tracing::info!(target: "chain-listener", "Waiting for commitment to be activated; Stopping current one");
                             self.stop_commitment().await?
                         }
+                        _ => {}
                     }
                 }
 
@@ -311,6 +311,7 @@ impl ChainListener {
         let result = tokio::task::Builder::new()
             .name("ChainListener")
             .spawn(async move {
+
                 if let Err(err) = self.set_utility_core().await {
                     tracing::error!(target: "chain-listener", "Failed to set utility core: {err}; Stopping...");
                     exit(1);
@@ -444,7 +445,7 @@ impl ChainListener {
         result
     }
 
-    async fn get_commitment_status(&self) -> eyre::Result<Option<CommitmentStatus>> {
+    async fn get_commitment_status(&self) -> eyre::Result<Option<CCStatus>> {
         if let Some(commitment_id) = self.current_commitment.clone() {
             let status = self
                 .chain_connector
@@ -460,20 +461,21 @@ impl ChainListener {
     async fn refresh_compute_units(&mut self) -> eyre::Result<()> {
         let mut units = self.chain_connector.get_compute_units().await?;
 
-        let in_deal: Vec<_> = units.extract_if(|cu| cu.deal.is_some()).collect();
+        let in_deal: Vec<_> = units.extract_if(|cu| !cu.deal.is_zero()).collect();
 
         let (active, pending): (Vec<ComputeUnit>, Vec<ComputeUnit>) = units
             .into_iter()
-            .partition(|unit| unit.start_epoch <= self.current_epoch);
+            .partition(|unit| unit.startEpoch <= self.current_epoch);
 
         self.active_compute_units
-            .extend(active.into_iter().map(|unit| unit.id));
+            .extend(active.into_iter().map(|unit| CUID::new(unit.id.0)));
         self.pending_compute_units
             .extend(pending.into_iter().map(PendingUnit::from));
 
         for cu in in_deal {
-            if let Some(deal) = cu.deal {
-                self.active_deals.insert(deal, cu.id);
+            if !cu.deal.is_zero() {
+                self.active_deals
+                    .insert(cu.deal.to_string().into(), CUID::new(cu.id.0));
             }
         }
 
@@ -525,8 +527,9 @@ impl ChainListener {
 
     async fn subscribe_cc_activated(&mut self) -> eyre::Result<()> {
         let sub = retry(ExponentialBackoff::default(), || async {
+            let topic = CommitmentActivated::SIGNATURE_HASH.to_string();
             let topics = vec![
-                CommitmentActivatedData::topic(),
+                topic,
                 peer_id_to_hex(self.host_id),
             ];
             let params = rpc_params![
@@ -552,8 +555,9 @@ impl ChainListener {
     async fn subscribe_unit_activated(&mut self) -> eyre::Result<()> {
         if let Some(c_id) = self.current_commitment.as_ref() {
             let sub = retry(ExponentialBackoff::default(), || async {
+                let topic = UnitActivated::SIGNATURE_HASH.to_string();
               let params = rpc_params!["logs",
-                json!({"address": self.config.cc_contract_address, "topics":  vec![UnitActivatedData::topic(), hex::encode(&c_id.0)]})];
+                json!({"address": self.config.cc_contract_address, "topics":  vec![topic, hex::encode(&c_id.0)]})];
                 let subs = self
                     .ws_client
                     .subscribe("eth_subscribe", params, "eth_unsubscribe")
@@ -575,9 +579,10 @@ impl ChainListener {
     async fn subscribe_unit_deactivated(&mut self) -> eyre::Result<()> {
         if let Some(c_id) = self.current_commitment.as_ref() {
             let sub = retry(ExponentialBackoff::default(), || async {
+                let topic = UnitDeactivated::SIGNATURE_HASH.to_string();
                 let params = rpc_params![
                     "logs",
-                    json!({"address": self.config.cc_contract_address, "topics":  vec![UnitDeactivatedData::topic(), hex::encode(&c_id.0)]})
+                    json!({"address": self.config.cc_contract_address, "topics":  vec![topic, hex::encode(&c_id.0)]})
                 ];
                 let subs = self
                     .ws_client
@@ -599,7 +604,7 @@ impl ChainListener {
     async fn subscribe_deal_matched(&mut self) -> eyre::Result<()> {
         let sub = retry(ExponentialBackoff::default(), || async {
             let topics = vec![
-                DealMatchedData::topic(),
+                ComputeUnitMatched::SIGNATURE_HASH.to_string(),
                 peer_id_to_hex(self.host_id),
             ];
             let params = rpc_params![
@@ -650,19 +655,16 @@ impl ChainListener {
             );
 
             if let Some(status) = self.get_commitment_status().await? {
-                tracing::info!(target: "chain-listener", "Current commitment status: {status}");
+                tracing::info!(target: "chain-listener", "Current commitment status: {status:?}");
 
                 match status {
-                    CommitmentStatus::Active => {
+                    CCStatus::Active => {
                         self.activate_pending_units(epoch_number).await?;
                     }
-                    CommitmentStatus::Inactive
-                    | CommitmentStatus::Failed
-                    | CommitmentStatus::Removed => {
+                    CCStatus::Inactive | CCStatus::Failed | CCStatus::Removed => {
                         self.reset_commitment().await?;
                     }
-                    CommitmentStatus::WaitDelegation => {}
-                    CommitmentStatus::WaitStart => {}
+                    _ => {}
                 }
             }
 
@@ -684,32 +686,32 @@ impl ChainListener {
             err
         })?;
 
-        let cc_event = parse_log::<CommitmentActivatedData, CommitmentActivated>(log)?;
-        let unit_ids = cc_event.info.unit_ids;
+        let cc_event = parse_log::<CommitmentActivated>(log)?;
+        let unit_ids = cc_event.unitIds;
         tracing::info!(target: "chain-listener",
             "Received CommitmentActivated event for commitment: {}, startEpoch: {}, unitIds: {:?}",
-            cc_event.info.commitment_id,
-            cc_event.info.start_epoch,
+            cc_event.commitmentId.to_string(),
+            cc_event.startEpoch,
             unit_ids
                 .iter()
-                .map(CUID::to_string)
+                .map(FixedBytes::to_string)
                 .collect::<Vec<_>>()
         );
 
-        self.current_commitment = Some(cc_event.info.commitment_id);
+        self.current_commitment = Some(CommitmentId(cc_event.commitmentId.0));
 
         self.subscribe_unit_activated().await?;
         self.subscribe_unit_deactivated().await?;
 
-        let is_cc_active = cc_event.info.start_epoch <= self.current_epoch;
+        let is_cc_active = cc_event.startEpoch <= self.current_epoch;
 
         if is_cc_active {
-            self.active_compute_units = unit_ids.into_iter().collect();
+            self.active_compute_units = unit_ids.into_iter().map(|id| CUID::new(id.0)).collect();
             self.refresh_commitment().await?;
         } else {
             self.pending_compute_units = unit_ids
                 .into_iter()
-                .map(|id| PendingUnit::new(id, cc_event.info.start_epoch))
+                .map(|id| PendingUnit::new(CUID::new(id.0), cc_event.startEpoch))
                 .collect();
             self.stop_commitment().await?;
         }
@@ -728,18 +730,19 @@ impl ChainListener {
             err
         })?;
 
-        let unit_event = parse_log::<UnitActivatedData, UnitActivated>(log)?;
+        let unit_event = parse_log::<UnitActivated>(log)?;
         tracing::info!(target: "chain-listener",
             "Received UnitActivated event for unit: {}, startEpoch: {}",
-            unit_event.info.unit_id,
-            unit_event.info.start_epoch
+            unit_event.unitId,
+            unit_event.startEpoch
         );
 
-        if self.current_epoch >= unit_event.info.start_epoch {
-            self.active_compute_units.insert(unit_event.info.unit_id);
+        if self.current_epoch >= unit_event.startEpoch {
+            self.active_compute_units
+                .insert(CUID::new(unit_event.unitId.0));
         } else {
             // Will be activated on the `start_epoch`
-            self.pending_compute_units.insert(unit_event.info.into());
+            self.pending_compute_units.insert(unit_event.into());
         }
 
         self.refresh_commitment().await?;
@@ -756,17 +759,16 @@ impl ChainListener {
             tracing::error!(target: "chain-listener", "Failed to parse UnitDeactivated event: {err}, data: {event}");
             err
         })?;
-        let unit_event = parse_log::<UnitDeactivatedData, UnitDeactivated>(log)?;
-
+        let unit_event = parse_log::<UnitDeactivated>(log)?;
+        let unit_id = CUID::new(unit_event.unitId.0);
         tracing::info!(target: "chain-listener",
             "Received UnitDeactivated event for unit: {}",
-            unit_event.info.unit_id
+            unit_event.unitId.to_string()
         );
-        self.active_compute_units.remove(&unit_event.info.unit_id);
-        self.pending_compute_units
-            .retain(|cu| cu.id != unit_event.info.unit_id);
+        self.active_compute_units.remove(&unit_id);
+        self.pending_compute_units.retain(|cu| cu.id != unit_id);
         self.refresh_commitment().await?;
-        self.acquire_deal_core(unit_event.info.unit_id)?;
+        self.acquire_deal_core(unit_id)?;
         Ok(())
     }
 
@@ -779,14 +781,16 @@ impl ChainListener {
             tracing::error!(target: "chain-listener", "Failed to parse DealMatched event: {err}, data: {event}");
             err
         })?;
-        let deal_event = parse_log::<DealMatchedData, DealMatched>(log)?;
+        let deal_event = parse_log::<ComputeUnitMatched>(log)?;
         tracing::info!(target: "chain-listener",
             "Received DealMatched event for deal: {}",
-            deal_event.info.deal_id
+            deal_event.deal
         );
 
-        self.active_deals
-            .insert(deal_event.info.deal_id, deal_event.info.unit_id);
+        self.active_deals.insert(
+            deal_event.deal.to_string().into(),
+            CUID::new(deal_event.unitId.0),
+        );
         Ok(())
     }
 
@@ -997,20 +1001,22 @@ impl ChainListener {
                 match err {
                     ConnectorError::RpcCallError { ref data, .. } => {
                         // TODO: track proofs count per epoch and stop at maxProofsPerEpoch
-                        if data.contains(TOO_MANY_PROOFS) {
+                        if is_too_many_proofs(data) {
                             tracing::info!(target: "chain-listener", "Too many proofs found for compute unit {}, stopping until next epoch", proof.cu_id);
 
                             self.active_compute_units.remove(&proof.cu_id);
-                            self.pending_compute_units
-                                .insert(PendingUnit::new(proof.cu_id, self.current_epoch + 1));
+                            self.pending_compute_units.insert(PendingUnit::new(
+                                proof.cu_id,
+                                self.current_epoch.add(Uint::from(1)),
+                            ));
                             self.refresh_commitment().await?;
 
                             Ok(())
-                        } else if data.contains(COMMITMENT_IS_NOT_ACTIVE) {
+                        } else if is_commitment_not_active(data) {
                             tracing::info!(target: "chain-listener", "Submit proof returned commitment is not active error");
                             let status = self.get_commitment_status().await?;
                             if let Some(status) = status {
-                                tracing::info!(target: "chain-listener", "Current commitment status: {status}");
+                                tracing::info!(target: "chain-listener", "Current commitment status: {status:?}");
                             }
 
                             self.reset_commitment().await?;
@@ -1059,10 +1065,7 @@ impl ChainListener {
             ))?
             .to_string();
 
-        Ok((
-            U256::from_str_radix(&timestamp, 16)?,
-            U256::from_str_radix(&block_number, 16)?,
-        ))
+        Ok((U256::from_str(&timestamp)?, U256::from_str(&block_number)?))
     }
     async fn poll_deal_statuses(&mut self) -> eyre::Result<()> {
         if self.active_deals.is_empty() {
@@ -1085,14 +1088,12 @@ impl ChainListener {
         {
             match status {
                 Ok(status) => match status {
-                    DealStatus::InsufficientFunds | DealStatus::Ended => {
-                        tracing::info!(target: "chain-listener", "Deal {deal_id} status: {status}; Exiting...");
+                    Deal::Status::INSUFFICIENT_FUNDS | Deal::Status::ENDED => {
+                        tracing::info!(target: "chain-listener", "Deal {deal_id} status: {status:?}; Exiting...");
                         self.exit_deal(&deal_id, cu_id).await?;
                         tracing::info!(target: "chain-listener", "Exited deal {deal_id} successfully");
                     }
-                    DealStatus::Active
-                    | DealStatus::NotEnoughWorkers
-                    | DealStatus::SmallBalance => {}
+                    _ => {}
                 },
                 Err(err) => {
                     tracing::error!(target: "chain-listener", "Failed to get deal status for {deal_id}: {err}");

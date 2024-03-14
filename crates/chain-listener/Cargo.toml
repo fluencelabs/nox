@@ -9,7 +9,6 @@ edition = "2021"
 ethabi = { workspace = true }
 thiserror = { workspace = true }
 chain-data = { workspace = true }
-chain-types = { workspace = true }
 chain-connector = { workspace = true }
 
 jsonrpsee = { workspace = true, features = ["ws-client", "macros", "server"] }
@@ -25,6 +24,10 @@ tokio = { workspace = true, features = ["rt"] }
 server-config = { workspace = true }
 types = { workspace = true }
 libipld = "0.16.0"
+
+alloy-sol-types = { workspace = true }
+alloy-primitives = { workspace = true }
+alloy_serde_macro = "0.1.2"
 
 fluence-libp2p = { workspace = true }
 fs-utils = { workspace = true }

@@ -1,9 +1,8 @@
 pub mod cc_activated;
-mod deal_matched;
+mod compute_unit_matched;
 mod unit_activated;
 mod unit_deactivated;
 
-pub use cc_activated::CommitmentActivatedData;
-pub use deal_matched::{DealMatched, DealMatchedData};
-pub use unit_activated::{UnitActivated, UnitActivatedData};
-pub use unit_deactivated::{UnitDeactivated, UnitDeactivatedData};
+pub use compute_unit_matched::ComputeUnitMatched;
+pub use unit_activated::UnitActivated;
+pub use unit_deactivated::UnitDeactivated;
