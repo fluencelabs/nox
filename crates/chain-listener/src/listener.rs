@@ -62,8 +62,10 @@ pub struct ChainListener {
     global_nonce: GlobalNonce,
     current_epoch: U256,
     epoch_duration: U256,
+    min_proofs_per_epoch: U256,
+    max_proofs_per_epoch: U256,
 
-    // proof_counter: HashMap<CUID, u64>,
+    proof_counter: HashMap<CUID, U256>,
     current_commitment: Option<CommitmentId>,
 
     active_compute_units: BTreeSet<CUID>,
@@ -119,6 +121,9 @@ impl ChainListener {
             global_nonce: GlobalNonce::new([0; 32]),
             current_epoch: U256::ZERO,
             epoch_duration: U256::ZERO,
+            min_proofs_per_epoch: U256::ZERO,
+            max_proofs_per_epoch: U256::ZERO,
+            proof_counter: Default::default(),
             current_commitment: None,
             active_compute_units: BTreeSet::new(),
             pending_compute_units: BTreeSet::new(),
@@ -176,8 +181,10 @@ impl ChainListener {
         self.global_nonce = init_params.global_nonce;
         self.epoch_duration = init_params.epoch_duration;
         self.current_epoch = init_params.current_epoch;
+        self.min_proofs_per_epoch = init_params.min_proofs_per_epoch;
+        self.max_proofs_per_epoch = init_params.max_proofs_per_epoch;
 
-        tracing::info!(target: "chain-listener","Commitment initial params: difficulty {}, global nonce {}, init_timestamp {}, epoch_duration {}, current_epoch {}",  init_params.difficulty, init_params.global_nonce, init_params.init_timestamp, init_params.epoch_duration, init_params.current_epoch);
+        tracing::info!(target: "chain-listener","Commitment initial params: difficulty {}, global nonce {}, init_timestamp {}, epoch_duration {}, current_epoch {}, min_proofs_per_epoch {}, max_proofs_per_epoch {}",  init_params.difficulty, init_params.global_nonce, init_params.init_timestamp, init_params.epoch_duration, init_params.current_epoch, init_params.min_proofs_per_epoch, init_params.max_proofs_per_epoch);
         Ok(())
     }
 
@@ -648,6 +655,7 @@ impl ChainListener {
 
             tracing::info!(target: "chain-listener", "Resetting proof id counter");
             self.reset_proof_id().await?;
+            self.proof_counter.clear();
 
             // nonce changes every epoch
             self.global_nonce = self.chain_connector.get_global_nonce().await?;
@@ -1152,7 +1160,7 @@ impl ChainListener {
         })
             .await?;
 
-        for (status, (tx_hash, _cu_id)) in statuses
+        for (status, (tx_hash, cu_id)) in statuses
             .into_iter()
             .zip(self.pending_proof_txs.clone().into_iter())
         {
@@ -1160,9 +1168,26 @@ impl ChainListener {
                 Ok(status) => {
                     if status {
                         tracing::info!(target: "chain-listener", "Proof tx {tx_hash} confirmed");
+                        let counter = self
+                            .proof_counter
+                            .entry(cu_id)
+                            .and_modify(|c| {
+                                *c = c.add(Uint::from(1));
+                            })
+                            .or_insert(Uint::from(1));
+
+                        if *counter >= self.min_proofs_per_epoch {
+                            tracing::info!(target: "chain-listener", "Compute unit {cu_id} submitted enough proofs, removing from active units");
+                            self.active_compute_units.remove(&cu_id);
+                            self.pending_compute_units.insert(PendingUnit::new(
+                                cu_id,
+                                self.current_epoch.add(Uint::from(1)),
+                            ));
+                        }
                     } else {
                         tracing::warn!(target: "chain-listener", "Proof tx {tx_hash} not confirmed");
                     }
+
                     self.pending_proof_txs.retain(|(tx, _)| tx != &tx_hash);
                 }
                 Err(err) => {
@@ -1170,6 +1195,8 @@ impl ChainListener {
                 }
             }
         }
+
+        self.refresh_commitment().await?;
 
         Ok(())
     }
