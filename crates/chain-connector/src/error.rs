@@ -30,8 +30,8 @@ pub enum ConnectorError {
     DecodeHex(#[from] hex::FromHexError),
     #[error("data is not a valid string: '{0}'")]
     DecodeData(#[from] FromUtf8Error),
-    #[error("Failed to parse u256: {0}")]
-    InvalidU256(String),
+    #[error("Failed to parse u256, got: {0}, error: {1}")]
+    InvalidU256(String, String),
     #[error("Failed to parse response: {0}")]
     ResponseParseError(String),
     #[error("Parse error: {0}")]

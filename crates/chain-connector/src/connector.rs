@@ -119,8 +119,8 @@ impl ChainConnector {
             .ok_or(ResponseParseError(block.to_string()))?
             .to_string();
 
-        let base_fee_per_gas = U256::from_str(fee.trim_start_matches("0x"))
-            .map_err(|err| InvalidU256(format!("{err}")))?;
+        let base_fee_per_gas =
+            U256::from_str(&fee).map_err(|err| InvalidU256(fee, err.to_string()))?;
 
         Ok(base_fee_per_gas)
     }
@@ -133,7 +133,7 @@ impl ChainConnector {
                 .await,
         )?;
 
-        let nonce = U256::from_str(&resp).map_err(|_| ConnectorError::InvalidU256(resp))?;
+        let nonce = U256::from_str(&resp).map_err(|err| InvalidU256(resp, err.to_string()))?;
         Ok(nonce)
     }
 
@@ -144,7 +144,7 @@ impl ChainConnector {
                 .await,
         )?;
         let max_priority_fee_per_gas =
-            U256::from_str(&resp).map_err(|_| ConnectorError::InvalidU256(resp))?;
+            U256::from_str(&resp).map_err(|err| InvalidU256(resp, err.to_string()))?;
         Ok(max_priority_fee_per_gas)
     }
 
@@ -161,7 +161,7 @@ impl ChainConnector {
                 )
                 .await,
         )?;
-        let limit = U256::from_str(&resp).map_err(|_| InvalidU256(resp))?;
+        let limit = U256::from_str(&resp).map_err(|err| InvalidU256(resp, err.to_string()))?;
         Ok(limit)
     }
 
@@ -286,9 +286,9 @@ impl ChainConnector {
         )?;
 
         let bytes = decode_hex(&resp)?;
-        Ok(GlobalNonce::new(
-            bytes.try_into().map_err(|_| InvalidU256(resp))?,
-        ))
+        Ok(GlobalNonce::new(bytes.try_into().map_err(|_| {
+            InvalidU256(resp, "failed to decode global nonce".to_string())
+        })?))
     }
 
     pub async fn submit_proof(&self, proof: CCProof) -> Result<String, ConnectorError> {
