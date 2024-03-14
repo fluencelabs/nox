@@ -1233,7 +1233,7 @@ impl ChainListener {
         }
 
         if stats_updated {
-            tracing::info!(target: "chain-listener", "Confirmed proofs count: {:?}", self.proof_counter);
+            tracing::info!(target: "chain-listener", "Confirmed proofs count: {:?}", self.proof_counter.iter().map(|(cu, count)| format!("{}: {}", cu, count.to_string())).collect::<Vec<_>>());
         }
 
         Ok(())
