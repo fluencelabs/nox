@@ -26,6 +26,7 @@ tracing = { workspace = true }
 types = { workspace = true }
 alloy-sol-types = { workspace = true }
 alloy-primitives = { workspace = true }
+const-hex = { workspace = true }
 serde = { version = "1.0.196", features = ["derive"] }
 
 [dev-dependencies]

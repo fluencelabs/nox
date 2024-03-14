@@ -28,6 +28,8 @@ pub enum ConnectorError {
     AddressParseError(#[from] clarity::Error),
     #[error("data is not a valid hex: '{0}'")]
     DecodeHex(#[from] hex::FromHexError),
+    #[error(transparent)]
+    DecodeConstHex(#[from] const_hex::FromHexError),
     #[error("data is not a valid string: '{0}'")]
     DecodeData(#[from] FromUtf8Error),
     #[error("Failed to parse u256, got: {0}, error: {1}")]

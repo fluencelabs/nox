@@ -285,10 +285,8 @@ impl ChainConnector {
                 .await,
         )?;
 
-        let bytes = decode_hex(&resp)?;
-        Ok(GlobalNonce::new(bytes.try_into().map_err(|_| {
-            InvalidU256(resp, "failed to decode global nonce".to_string())
-        })?))
+        let bytes: FixedBytes<32> = FixedBytes::from_str(&resp)?;
+        Ok(GlobalNonce::new(bytes.0))
     }
 
     pub async fn submit_proof(&self, proof: CCProof) -> Result<String, ConnectorError> {

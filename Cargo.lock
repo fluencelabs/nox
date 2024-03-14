@@ -1307,6 +1307,7 @@ dependencies = [
  "ccp-shared",
  "chain-data",
  "clarity",
+ "const-hex",
  "eyre",
  "fluence-libp2p",
  "futures",

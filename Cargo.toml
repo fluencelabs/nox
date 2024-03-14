@@ -176,6 +176,8 @@ ccp-shared = "0.7.0"
 ccp-rpc-client = "0.7.0"
 alloy-sol-types = "0.6.4"
 alloy-primitives = "0.6.4"
+alloy_serde_macro = "0.1.2"
+const-hex = "1.11.3"
 
 [profile.dev]
 opt-level = 0
