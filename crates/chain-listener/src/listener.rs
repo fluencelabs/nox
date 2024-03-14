@@ -661,6 +661,8 @@ impl ChainListener {
                 self.global_nonce
             );
 
+            self.current_epoch = epoch_number;
+
             if let Some(status) = self.get_commitment_status().await? {
                 tracing::info!(target: "chain-listener", "Current commitment status: {status:?}");
 
@@ -674,8 +676,6 @@ impl ChainListener {
                     _ => {}
                 }
             }
-
-            self.current_epoch = epoch_number;
         }
 
         Ok(())
