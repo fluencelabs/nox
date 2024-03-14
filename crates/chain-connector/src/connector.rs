@@ -426,6 +426,51 @@ impl ChainConnector {
         Ok(statuses)
     }
 
+    pub async fn get_tx_receipts<'a, I>(
+        &self,
+        tx_hashes: I,
+    ) -> Result<Vec<Result<Value, ConnectorError>>, ConnectorError>
+    where
+        I: Iterator<Item = &'a String>,
+    {
+        let mut batch = BatchRequestBuilder::new();
+        for tx_hash in tx_hashes {
+            batch.insert("eth_getTransactionReceipt", rpc_params![tx_hash])?;
+        }
+        let resp: BatchResponse<String> = self.client.batch_request(batch).await?;
+        let mut receipts = vec![];
+        for receipt in resp.into_iter() {
+            let receipt = receipt
+                .map(|r| serde_json::from_str(&r).map_err(ConnectorError::ParseError))
+                .map_err(|e| ConnectorError::RpcError(e.to_owned().into()))?;
+            receipts.push(receipt);
+        }
+        Ok(receipts)
+    }
+
+    pub async fn get_tx_statuses<'a, I>(
+        &self,
+        tx_hashes: I,
+    ) -> Result<Vec<Result<bool, ConnectorError>>, ConnectorError>
+    where
+        I: Iterator<Item = &'a String>,
+    {
+        let mut statuses = vec![];
+
+        for receipt in self.get_tx_receipts(tx_hashes).await? {
+            let status = receipt.map(|receipt: Value| {
+                receipt
+                    .get("status")
+                    .and_then(Value::as_str)
+                    .map(|s| s == "0x1")
+                    .unwrap_or(false)
+            });
+            statuses.push(status);
+        }
+
+        Ok(statuses)
+    }
+
     pub async fn exit_deal(&self, cu_id: &CUID) -> Result<String, ConnectorError> {
         let data = Offer::returnComputeUnitFromDealCall {
             unitId: cu_id.as_ref().into(),

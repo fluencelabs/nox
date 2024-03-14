@@ -74,7 +74,7 @@ pub struct ChainListener {
 
     /// Resets every epoch
     last_submitted_proof_id: ProofIdx,
-
+    pending_proof_txs: Vec<(String, CUID)>,
     persisted_proof_id_dir: PathBuf,
 
     unit_activated: Option<Subscription<JsonValue>>,
@@ -126,6 +126,7 @@ impl ChainListener {
             timer_resolution: listener_config.proof_poll_period,
             ccp_client,
             last_submitted_proof_id: ProofIdx::zero(),
+            pending_proof_txs: vec![],
             persisted_proof_id_dir,
             unit_activated: None,
             unit_deactivated: None,
@@ -336,12 +337,9 @@ impl ChainListener {
 
                 tracing::info!(target: "chain-listener", "Subscribed successfully");
 
-                let setup: eyre::Result<()> = try {
-                    self.refresh_state().await?;
-                };
-                if let Err(err) = setup {
-                    tracing::error!(target: "chain-listener", "ChainListener: compute units refresh error: {err}");
-                    panic!("ChainListener startup error: {err}");
+                if let Err(err) = self.refresh_state().await {
+                    tracing::error!(target: "chain-listener", "Failed to refresh state: {err}; Stopping...");
+                    exit(1);
                 }
 
                 let mut timer = IntervalStream::new(interval(self.timer_resolution));
@@ -350,7 +348,7 @@ impl ChainListener {
                     tokio::select! {
                         event = poll_subscription(&mut self.heads) => {
                             if let Err(err) = self.process_new_header(event).await {
-                               tracing::error!(target: "chain-listener", "newHeads event processing error: {err}");
+                               tracing::warn!(target: "chain-listener", "newHeads event processing error: {err}");
 
                                 let result: eyre::Result<()> = try {
                                     self.refresh_state().await?;
@@ -365,7 +363,7 @@ impl ChainListener {
                         },
                         event = poll_subscription(&mut self.commitment_activated) => {
                             if let Err(err) = self.process_commitment_activated(event).await {
-                                tracing::error!(target: "chain-listener", "CommitmentActivated event processing error: {err}");
+                                tracing::warn!(target: "chain-listener", "CommitmentActivated event processing error: {err}");
 
                                 let result: eyre::Result<()> = try {
                                     self.refresh_state().await?;
@@ -380,7 +378,7 @@ impl ChainListener {
                         event = poll_subscription(&mut self.unit_activated) => {
                             if self.unit_activated.is_some() {
                                 if let Err(err) = self.process_unit_activated(event).await {
-                                    tracing::error!(target: "chain-listener", "UnitActivated event processing error: {err}");
+                                    tracing::warn!(target: "chain-listener", "UnitActivated event processing error: {err}");
 
                                     let result: eyre::Result<()> = try {
                                         self.refresh_state().await?;
@@ -396,7 +394,7 @@ impl ChainListener {
                         event = poll_subscription(&mut self.unit_deactivated) => {
                             if self.unit_deactivated.is_some() {
                                  if let Err(err) = self.process_unit_deactivated(event).await {
-                                    tracing::error!(target: "chain-listener", "UnitDeactivated event processing error: {err}");
+                                    tracing::warn!(target: "chain-listener", "UnitDeactivated event processing error: {err}");
 
                                     let result: eyre::Result<()> = try {
                                         self.refresh_state().await?;
@@ -411,7 +409,7 @@ impl ChainListener {
                         },
                         event = poll_subscription(&mut self.unit_matched) => {
                             if let Err(err) = self.process_deal_matched(event) {
-                                tracing::error!(target: "chain-listener", "DealMatched event processing error: {err}");
+                                tracing::warn!(target: "chain-listener", "DealMatched event processing error: {err}");
 
                                 let result: eyre::Result<()> = try {
                                     self.refresh_state().await?;
@@ -426,15 +424,19 @@ impl ChainListener {
                         _ = timer.next() => {
                             if self.ccp_client.is_some() {
                                 if let Err(err) = self.poll_proofs().await {
-                                    tracing::error!(target: "chain-listener", "Failed to poll/submit proofs: {err}");
+                                    tracing::warn!(target: "chain-listener", "Failed to poll/submit proofs: {err}");
                                 }
                             } else if let Err(err) = self.submit_mocked_proofs().await {
-                                    tracing::error!(target: "chain-listener", "Failed to submit mocked proofs: {err}");
+                                tracing::warn!(target: "chain-listener", "Failed to submit mocked proofs: {err}");
                             }
 
 
                             if let Err(err) = self.poll_deal_statuses().await {
-                                tracing::error!(target: "chain-listener", "Failed to poll deal statuses: {err}");
+                                tracing::warn!(target: "chain-listener", "Failed to poll deal statuses: {err}");
+                            }
+
+                            if let Err(err) = self.poll_pending_proof_txs().await {
+                                tracing::warn!(target: "chain-listener", "Failed to poll pending proof txs: {err}");
                             }
                         }
                     }
@@ -1039,6 +1041,7 @@ impl ChainListener {
             }
             Ok(tx_id) => {
                 tracing::info!(target: "chain-listener", "Submitted proof {}, txHash: {tx_id}", proof.id.idx);
+                self.pending_proof_txs.push((tx_id, proof.cu_id));
                 Ok(())
             }
         }
@@ -1067,6 +1070,7 @@ impl ChainListener {
 
         Ok((U256::from_str(&timestamp)?, U256::from_str(&block_number)?))
     }
+
     async fn poll_deal_statuses(&mut self) -> eyre::Result<()> {
         if self.active_deals.is_empty() {
             return Ok(());
@@ -1103,6 +1107,7 @@ impl ChainListener {
 
         Ok(())
     }
+
     async fn exit_deal(&mut self, deal_id: &DealId, cu_id: CUID) -> eyre::Result<()> {
         let backoff = ExponentialBackoff {
             max_elapsed_time: Some(Duration::from_secs(3)),
@@ -1121,6 +1126,7 @@ impl ChainListener {
         self.active_deals.remove(deal_id);
         Ok(())
     }
+
     fn get_available_cores(&self) -> eyre::Result<BTreeSet<PhysicalCoreId>> {
         let available_units = self.pending_compute_units.iter().map(|cu| cu.id).collect();
         self.core_manager.acquire_worker_core(AcquireRequest::new(available_units, WorkType::CapacityCommitment))
@@ -1129,5 +1135,42 @@ impl ChainListener {
                 tracing::error!(target: "chain-listener", "Failed to acquire cores for active units: {err}");
                 eyre::eyre!("Failed to acquire cores for active units: {err}")
             })
+    }
+
+    async fn poll_pending_proof_txs(&mut self) -> eyre::Result<()> {
+        if self.pending_proof_txs.is_empty() {
+            return Ok(());
+        }
+
+        let statuses = retry(ExponentialBackoff::default(), || async {
+            let s = self.chain_connector.get_tx_statuses(self.pending_proof_txs.iter().map(|(tx, _)| tx)).await.map_err(|err| {
+                tracing::error!(target: "chain-listener", "Failed to poll pending proof txs statuses: {err}");
+                eyre!("Failed to poll pending proof txs statuses: {err}; Retrying...")
+            })?;
+
+            Ok(s)
+        })
+            .await?;
+
+        for (status, (tx_hash, _cu_id)) in statuses
+            .into_iter()
+            .zip(self.pending_proof_txs.clone().into_iter())
+        {
+            match status {
+                Ok(status) => {
+                    if status {
+                        tracing::info!(target: "chain-listener", "Proof tx {tx_hash} confirmed");
+                    } else {
+                        tracing::warn!(target: "chain-listener", "Proof tx {tx_hash} not confirmed");
+                    }
+                    self.pending_proof_txs.retain(|(tx, _)| tx != &tx_hash);
+                }
+                Err(err) => {
+                    tracing::debug!(target: "chain-listener", "Failed to get tx receipt for {tx_hash}: {err}");
+                }
+            }
+        }
+
+        Ok(())
     }
 }
