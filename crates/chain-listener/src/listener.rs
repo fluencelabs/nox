@@ -831,7 +831,7 @@ impl ChainListener {
                 self.proof_counter
                     .get(cuid)
                     .map(|count| {
-                        *count > self.min_proofs_per_epoch && *count < self.max_proofs_per_epoch
+                        *count >= self.min_proofs_per_epoch && *count < self.max_proofs_per_epoch
                     })
                     .unwrap_or(true)
             })
