@@ -138,14 +138,9 @@ where
     .await
 }
 
-pub async fn make_swarms_with_keypair(
-    n: usize,
-    keypair: KeyPair,
-    spell_base_dir: Option<String>,
-) -> Vec<CreatedSwarm> {
+pub async fn make_swarms_with_keypair(n: usize, host_keypair: KeyPair) -> Vec<CreatedSwarm> {
     make_swarms_with_cfg(n, move |mut cfg| {
-        cfg.keypair = keypair.clone();
-        cfg.spell_base_dir = spell_base_dir.clone().map(PathBuf::from);
+        cfg.keypair = host_keypair.clone();
         cfg
     })
     .await
@@ -258,9 +253,11 @@ async fn wait_connected_on_addrs(addrs: Vec<SocketAddr>) {
 #[derivative(Debug)]
 pub struct SwarmConfig {
     #[derivative(Debug = "ignore")]
-    pub keypair: fluence_keypair::KeyPair,
+    pub keypair: KeyPair,
     #[derivative(Debug = "ignore")]
-    pub builtins_keypair: fluence_keypair::KeyPair,
+    pub management_keypair: KeyPair,
+    #[derivative(Debug = "ignore")]
+    pub builtins_keypair: KeyPair,
     pub bootstraps: Vec<Multiaddr>,
     pub listen_on: Multiaddr,
     pub transport: Transport,
@@ -288,8 +285,9 @@ impl SwarmConfig {
         let tmp_dir = tempfile::tempdir().expect("Could not create temp dir");
         let tmp_dir = Arc::new(tmp_dir);
         Self {
-            keypair: fluence_keypair::KeyPair::generate_ed25519(),
-            builtins_keypair: fluence_keypair::KeyPair::generate_ed25519(),
+            keypair: KeyPair::generate_ed25519(),
+            management_keypair: KeyPair::generate_ed25519(),
+            builtins_keypair: KeyPair::generate_ed25519(),
             bootstraps,
             listen_on,
             transport,
@@ -428,8 +426,7 @@ pub async fn create_swarm_with_runtime<RT: AquaRuntime>(
             resolved.system_services.decider.network_api_endpoint = endpoint;
         }
 
-        let management_kp = fluence_keypair::KeyPair::generate_ed25519();
-        let management_peer_id = libp2p::identity::Keypair::from(management_kp.clone())
+        let management_peer_id = libp2p::identity::Keypair::from(config.management_keypair.clone())
             .public()
             .to_peer_id();
         resolved.node_config.management_peer_id = management_peer_id;
@@ -459,7 +456,7 @@ pub async fn create_swarm_with_runtime<RT: AquaRuntime>(
             "some version",
             system_service_distros,
         );
-        (node, management_kp, resolved)
+        (node, config.management_keypair.clone(), resolved)
     });
 
     let mut node = node

@@ -24,7 +24,7 @@ use std::assert_matches::assert_matches;
 use base64::{engine::general_purpose::STANDARD as base64, Engine};
 use connected_client::ConnectedClient;
 use created_swarm::{make_swarms, make_swarms_with_cfg};
-use service_modules::load_module;
+use service_modules::{load_module, Hash};
 use system_services::{PackageDistro, ServiceDistro};
 
 #[tokio::test]
@@ -133,16 +133,19 @@ async fn test_system_service_override() {
 
 #[tokio::test]
 async fn create_service_from_config() {
-    let swarms = make_swarms_with_cfg(1, |mut cfg| {
+    let swarms = make_swarms_with_cfg(1, move |mut cfg| {
         cfg.allowed_binaries = vec!["/does/not/exist".to_string()];
         cfg
     })
     .await;
 
-    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
-        .await
-        .wrap_err("connect client")
-        .unwrap();
+    let mut client = ConnectedClient::connect_with_keypair(
+        swarms[0].multiaddr.clone(),
+        Some(swarms[0].management_keypair.clone()),
+    )
+    .await
+    .wrap_err("connect client")
+    .unwrap();
 
     let module = load_module("tests/tetraplets/artifacts", "tetraplets").expect("load module");
 
@@ -304,10 +307,13 @@ async fn create_service_from_config() {
 async fn handle_same_dir_in_preopens_and_mapped_dirs() {
     let swarms = make_swarms(1).await;
 
-    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
-        .await
-        .wrap_err("connect client")
-        .unwrap();
+    let mut client = ConnectedClient::connect_with_keypair(
+        swarms[0].multiaddr.clone(),
+        Some(swarms[0].management_keypair.clone()),
+    )
+    .await
+    .wrap_err("connect client")
+    .unwrap();
 
     let module = load_module("tests/tetraplets/artifacts", "tetraplets").expect("load module");
 
@@ -442,4 +448,78 @@ async fn handle_same_dir_in_preopens_and_mapped_dirs() {
     if result.is_ok() {
         panic!("expected error for module with invalid config")
     }
+}
+
+#[tokio::test]
+async fn test_create_service_by_other_forbidden() {
+    let swarms = make_swarms(1).await;
+    let mut client_manager = ConnectedClient::connect_with_keypair(
+        swarms[0].multiaddr.clone(),
+        Some(swarms[0].management_keypair.clone()),
+    )
+    .await
+    .wrap_err("connect client")
+    .unwrap();
+    let module_name = "tetraplets";
+    let module_bytes = load_module("tests/tetraplets/artifacts", module_name).expect("load module");
+    let response = client_manager
+        .execute_particle(
+            r#"
+        (seq
+            (seq
+                (seq
+                    (call relay ("dist" "default_module_config") [module_name] module_config)
+                    (call relay ("dist" "add_module") [module_bytes module_config] module)
+                )
+                (seq
+                    (call relay ("dist" "make_blueprint") [name dependencies] blueprint)
+                    (call relay ("dist" "add_blueprint") [blueprint] blueprint_id)
+                )
+            )
+            (call client ("return" "") [blueprint_id])
+        )"#,
+            hashmap! {
+               "client" => json!(client_manager.peer_id.to_string()),
+                "relay" => json!(client_manager.node.to_string()),
+                "module_name" => json!("module"),
+                "dependencies" => json!([Hash::new(&module_bytes).unwrap()]),
+                "module_bytes" => json!(base64.encode(module_bytes)),
+                "name" => json!("service1"),
+            },
+        )
+        .await
+        .unwrap();
+    let blueprint_id = response[0]
+        .as_str()
+        .expect("blueprint_id is in response")
+        .to_string();
+    let mut client_other = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
+        .wrap_err("connect client")
+        .unwrap();
+    let response = client_other
+        .execute_particle(
+            r#"
+        (xor
+            (seq
+                (call relay ("srv" "create") [blueprint_id] service_id)
+                (call client ("return" "") ["ok"])
+            )
+            (call client ("return" "") ["forbidden"])
+        )
+        "#,
+            hashmap! {
+                "client" => json!(client_other.peer_id.to_string()),
+                "relay" => json!(client_other.node.to_string()),
+                "blueprint_id" => json!(blueprint_id),
+            },
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        "forbidden",
+        response[0].as_str().unwrap(),
+        "got {:?}",
+        response[0]
+    );
 }

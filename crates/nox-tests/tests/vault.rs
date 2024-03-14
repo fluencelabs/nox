@@ -37,10 +37,13 @@ async fn create_file_share(client: &mut ConnectedClient) -> CreatedService {
 async fn share_file() {
     let swarms = make_swarms(1).await;
 
-    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
-        .await
-        .wrap_err("connect client")
-        .unwrap();
+    let mut client = ConnectedClient::connect_with_keypair(
+        swarms[0].multiaddr.clone(),
+        Some(swarms[0].management_keypair.clone()),
+    )
+    .await
+    .wrap_err("connect client")
+    .unwrap();
 
     let first = create_file_share(&mut client).await;
     let second = create_file_share(&mut client).await;
@@ -84,10 +87,13 @@ async fn share_file() {
 async fn deploy_from_vault() {
     let swarms = make_swarms(1).await;
 
-    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
-        .await
-        .wrap_err("connect client")
-        .unwrap();
+    let mut client = ConnectedClient::connect_with_keypair(
+        swarms[0].multiaddr.clone(),
+        Some(swarms[0].management_keypair.clone()),
+    )
+    .await
+    .wrap_err("connect client")
+    .unwrap();
 
     let file_share = create_file_share(&mut client).await;
     let module = load_module("tests/file_share/artifacts", "file_share").expect("load module");
@@ -149,10 +155,13 @@ async fn deploy_from_vault() {
 async fn load_blueprint_from_vault() {
     let swarms = make_swarms(1).await;
 
-    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
-        .await
-        .wrap_err("connect client")
-        .unwrap();
+    let mut client = ConnectedClient::connect_with_keypair(
+        swarms[0].multiaddr.clone(),
+        Some(swarms[0].management_keypair.clone()),
+    )
+    .await
+    .wrap_err("connect client")
+    .unwrap();
 
     // upload module
     let module = load_module("tests/file_share/artifacts", "file_share").expect("load module");
@@ -228,10 +237,13 @@ async fn load_blueprint_from_vault() {
 async fn put_cat_vault() {
     let swarms = make_swarms(1).await;
 
-    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
-        .await
-        .wrap_err("connect client")
-        .unwrap();
+    let mut client = ConnectedClient::connect_with_keypair(
+        swarms[0].multiaddr.clone(),
+        Some(swarms[0].management_keypair.clone()),
+    )
+    .await
+    .wrap_err("connect client")
+    .unwrap();
 
     let payload = "test-test-test".to_string();
 

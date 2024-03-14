@@ -109,10 +109,13 @@ async fn big_identity() {
 async fn remove_service() {
     let swarms = make_swarms(1).await;
 
-    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
-        .await
-        .wrap_err("connect client")
-        .unwrap();
+    let mut client = ConnectedClient::connect_with_keypair(
+        swarms[0].multiaddr.clone(),
+        Some(swarms[0].management_keypair.clone()),
+    )
+    .await
+    .wrap_err("connect client")
+    .unwrap();
 
     let tetraplets_service = create_service(
         &mut client,
@@ -155,12 +158,24 @@ async fn remove_service() {
 #[tokio::test]
 async fn remove_service_restart() {
     let kp = KeyPair::generate_ed25519();
-    let swarms = make_swarms_with_keypair(1, kp.clone(), None).await;
+    let manager_kp = KeyPair::generate_ed25519();
 
-    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
-        .await
-        .wrap_err("connect client")
-        .unwrap();
+    let swarm_kp = kp.clone();
+    let swarm_manager_kp = manager_kp.clone();
+    let swarms = make_swarms_with_cfg(1, move |mut cfg| {
+        cfg.keypair = swarm_kp.clone();
+        cfg.management_keypair = swarm_manager_kp.clone();
+        cfg
+    })
+    .await;
+
+    let mut client = ConnectedClient::connect_with_keypair(
+        swarms[0].multiaddr.clone(),
+        Some(manager_kp.clone()),
+    )
+    .await
+    .wrap_err("connect client")
+    .unwrap();
 
     let tetraplets_service = create_service(
         &mut client,
@@ -204,11 +219,19 @@ async fn remove_service_restart() {
         .into_iter()
         .map(|s| s.exit_outlet.send(()))
         .for_each(drop);
-    let swarms = make_swarms_with_keypair(1, kp, None).await;
-    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
-        .await
-        .wrap_err("connect client")
-        .unwrap();
+    let swarm_kp = kp.clone();
+    let swarm_manager_kp = manager_kp.clone();
+    let swarms = make_swarms_with_cfg(1, move |mut cfg| {
+        cfg.keypair = swarm_kp.clone();
+        cfg.management_keypair = swarm_manager_kp.clone();
+        cfg
+    })
+    .await;
+    let mut client =
+        ConnectedClient::connect_with_keypair(swarms[0].multiaddr.clone(), Some(manager_kp))
+            .await
+            .wrap_err("connect client")
+            .unwrap();
 
     client
         .send_particle(
@@ -290,10 +313,13 @@ async fn remove_service_by_alias() {
 async fn non_owner_remove_service() {
     let swarms = make_swarms(1).await;
 
-    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
-        .await
-        .wrap_err("connect client")
-        .unwrap();
+    let mut client = ConnectedClient::connect_with_keypair(
+        swarms[0].multiaddr.clone(),
+        Some(swarms[0].management_keypair.clone()),
+    )
+    .await
+    .wrap_err("connect client")
+    .unwrap();
 
     let mut client2 = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .await
@@ -1547,10 +1573,13 @@ async fn index_by_math() {
 async fn service_mem() {
     let swarms = make_swarms(1).await;
 
-    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
-        .await
-        .wrap_err("connect client")
-        .unwrap();
+    let mut client = ConnectedClient::connect_with_keypair(
+        swarms[0].multiaddr.clone(),
+        Some(swarms[0].management_keypair.clone()),
+    )
+    .await
+    .wrap_err("connect client")
+    .unwrap();
 
     let tetraplets_service = create_service(
         &mut client,
@@ -1587,10 +1616,13 @@ async fn service_mem() {
 async fn service_stats() {
     let swarms = make_swarms(1).await;
 
-    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
-        .await
-        .wrap_err("connect client")
-        .unwrap();
+    let mut client = ConnectedClient::connect_with_keypair(
+        swarms[0].multiaddr.clone(),
+        Some(swarms[0].management_keypair.clone()),
+    )
+    .await
+    .wrap_err("connect client")
+    .unwrap();
 
     let tetraplets_service = create_service(
         &mut client,
@@ -1691,10 +1723,13 @@ async fn service_stats() {
 async fn service_stats_uninitialized() {
     let swarms = make_swarms(1).await;
 
-    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
-        .await
-        .wrap_err("connect client")
-        .unwrap();
+    let mut client = ConnectedClient::connect_with_keypair(
+        swarms[0].multiaddr.clone(),
+        Some(swarms[0].management_keypair.clone()),
+    )
+    .await
+    .wrap_err("connect client")
+    .unwrap();
 
     let tetraplets_service = create_service(
         &mut client,
@@ -1813,10 +1848,13 @@ async fn sign_invalid_tetraplets() {
     })
     .await;
 
-    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
-        .await
-        .wrap_err("connect client")
-        .unwrap();
+    let mut client = ConnectedClient::connect_with_keypair(
+        swarms[0].multiaddr.clone(),
+        Some(swarms[0].management_keypair.clone()),
+    )
+    .await
+    .wrap_err("connect client")
+    .unwrap();
 
     let relay = client.node.to_string();
     let wrong_peer = swarms[1].peer_id.to_base58();
@@ -1881,10 +1919,13 @@ async fn sig_verify_invalid_signature() {
     })
     .await;
 
-    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
-        .await
-        .wrap_err("connect client")
-        .unwrap();
+    let mut client = ConnectedClient::connect_with_keypair(
+        swarms[0].multiaddr.clone(),
+        Some(swarms[0].management_keypair.clone()),
+    )
+    .await
+    .wrap_err("connect client")
+    .unwrap();
 
     client.send_particle(
         r#"
@@ -2226,7 +2267,7 @@ async fn add_alias_list() {
 #[tokio::test]
 async fn aliases_restart() {
     let kp = KeyPair::generate_ed25519();
-    let swarms = make_swarms_with_keypair(1, kp.clone(), None).await;
+    let swarms = make_swarms_with_keypair(1, kp.clone()).await;
     let tmp_dir = swarms[0].tmp_dir.clone();
 
     let mut client = ConnectedClient::connect_with_keypair(

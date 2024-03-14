@@ -195,7 +195,7 @@ where
             ("peer", "timestamp_ms") => ok(json!(now_ms() as u64)),
             ("peer", "timestamp_sec") => ok(json!(now_sec())),
             ("peer", "is_connected") => wrap(self.is_connected(args).await),
-            ("peer", "connect") => wrap(self.connect(args).await),
+            ("peer", "connect") => wrap(self.connect(args, particle).await),
             ("peer", "get_contact") => self.get_contact(args).await,
             ("peer", "timeout") => self.timeout(args).await,
 
@@ -213,9 +213,9 @@ where
             ("srv", "info") => wrap(self.get_service_info(args, particle)),
 
             ("dist", "add_module_from_vault") => wrap(self.add_module_from_vault(args, particle)),
-            ("dist", "add_module") => wrap(self.add_module(args)),
+            ("dist", "add_module") => wrap(self.add_module(args, particle)),
             ("dist", "add_module_bytes_from_vault") => wrap(self.add_module_bytes_from_vault(args, particle)),
-            ("dist", "add_blueprint") => wrap(self.add_blueprint(args)),
+            ("dist", "add_blueprint") => wrap(self.add_blueprint(args, particle)),
             ("dist", "make_module_config") => wrap(make_module_config(args)),
             ("dist", "load_module_config") => wrap(self.load_module_config_from_vault(args, particle)),
             ("dist", "default_module_config") => wrap(self.default_module_config(args)),
@@ -283,6 +283,8 @@ where
 
             ("subnet", "resolve") => wrap(self.subnet_resolve(args).await),
             ("run-console", "print") => {
+                self.guard_protected(&particle)?;
+
                 let function_args = args.function_args.iter();
                 let decider = function_args.filter_map(JValue::as_str).any(|s| s.contains("decider"));
                 if decider {
@@ -294,7 +296,17 @@ where
                 }
                 wrap_unit(Ok(()))
             }
-
+            // NOTE: must be the same as in ServiceKey::AquaIpfs
+            // TODO: come up with some better way of restricting service access like aqua-ipfs
+            ("aqua-ipfs", _) => {
+                // If the call is on Host, we check that the caller is a host, a manager or
+                // a worker spell. Otherwise we allow the call to go and find an aqua-ipfs service
+                // since it can be a user-defined service which isn't the same as system aqua-ipfs.
+                if matches!(particle.peer_scope, PeerScope::Host) {
+                    self.guard_protected(&particle)?;
+                }
+                FunctionOutcome::NotDefined { args, params: particle }
+            }
             _ => FunctionOutcome::NotDefined { args, params: particle },
         }
     }
@@ -358,12 +370,14 @@ where
         Ok(json!(ok))
     }
 
-    async fn connect(&self, args: Args) -> Result<JValue, JError> {
+    async fn connect(&self, args: Args, params: ParticleParams) -> Result<JValue, JError> {
         let mut args = args.function_args.into_iter();
 
         let peer_id: String = Args::next("peer_id", &mut args)?;
         let peer_id = PeerId::from_str(peer_id.as_str())?;
         let addrs: Vec<Multiaddr> = Args::next_opt("addresses", &mut args)?.unwrap_or_default();
+
+        self.guard_protected(&params)?;
 
         let contact = Contact::new(peer_id, addrs);
 
@@ -614,11 +628,12 @@ where
         Ok(JValue::Array(slice))
     }
 
-    fn add_module(&self, args: Args) -> Result<JValue, JError> {
+    fn add_module(&self, args: Args, params: ParticleParams) -> Result<JValue, JError> {
         let mut args = args.function_args.into_iter();
         let module_bytes: String = Args::next("module_bytes", &mut args)?;
         let config = Args::next("config", &mut args)?;
 
+        self.guard_protected(&params)?;
         let hash = self.modules.add_module_base64(module_bytes, config)?;
 
         Ok(json!(hash))
@@ -628,6 +643,8 @@ where
         let mut args = args.function_args.into_iter();
         let module_path: String = Args::next("module_path", &mut args)?;
         let config: TomlMarineNamedModuleConfig = Args::next("config", &mut args)?;
+
+        self.guard_protected(&params)?;
 
         let module_hash = self.modules.add_module_from_vault(
             &self.services.vault,
@@ -648,6 +665,9 @@ where
         let mut args = args.function_args.into_iter();
         let module_name: String = Args::next("module_name", &mut args)?;
         let module_path: String = Args::next("module_path", &mut args)?;
+
+        self.guard_protected(&params)?;
+
         let module_hash = self.modules.add_module_from_vault(
             &self.services.vault,
             self.scopes.to_peer_id(params.peer_scope),
@@ -659,9 +679,12 @@ where
         Ok(json!(module_hash))
     }
 
-    fn add_blueprint(&self, args: Args) -> Result<JValue, JError> {
+    fn add_blueprint(&self, args: Args, params: ParticleParams) -> Result<JValue, JError> {
         let mut args = args.function_args.into_iter();
         let blueprint: String = Args::next("blueprint", &mut args)?;
+
+        self.guard_protected(&params)?;
+
         let blueprint = AddBlueprint::decode(blueprint.as_bytes()).map_err(|err| {
             JError::new(format!("Error deserializing blueprint from IPLD: {err}"))
         })?;
@@ -776,6 +799,8 @@ where
         let mut args = args.function_args.into_iter();
         let blueprint_id: String = Args::next("blueprint_id", &mut args)?;
 
+        self.guard_protected(&params)?;
+
         let service_id = self
             .services
             .create_service(
@@ -792,6 +817,9 @@ where
     async fn remove_service(&self, args: Args, params: ParticleParams) -> Result<(), JError> {
         let mut args = args.function_args.into_iter();
         let service_id_or_alias: String = Args::next("service_id_or_alias", &mut args)?;
+
+        self.guard_protected(&params)?;
+
         self.services
             .remove_service(
                 params.peer_scope,
@@ -832,6 +860,9 @@ where
 
         let alias: String = Args::next("alias", &mut args)?;
         let service_id: String = Args::next("service_id", &mut args)?;
+
+        self.guard_protected(&params)?;
+
         self.services
             .add_alias(
                 params.peer_scope,
@@ -937,6 +968,20 @@ where
     fn sign(&self, args: Args, params: ParticleParams) -> Result<JValue, JError> {
         let tetraplets = args.tetraplets;
         let mut args = args.function_args.into_iter();
+
+        // The `sign` is allowed only for a **worker** to sign on **worker** and for a **host** to sign on **host**.
+        // The manager is able to sign only on the host.
+        let init_peer_scope = self.scopes.scope(params.init_peer_id);
+        let is_manager_on_host = self.scopes.is_management(params.init_peer_id)
+            && matches!(params.peer_scope, PeerScope::Host);
+        if !init_peer_scope.map_or(is_manager_on_host, |result| params.peer_scope == result) {
+            return Err(JError::new(format!(
+                "peer '{}' is not allowed to sign data on '{}'",
+                params.init_peer_id,
+                self.scopes.to_peer_id(params.peer_scope)
+            )));
+        }
+
         let result: Result<JValue, JError> = try {
             let data: Vec<u8> = Args::next("data", &mut args)?;
 
@@ -1042,6 +1087,38 @@ where
         let deal_id: String = Args::next("deal_id", &mut args)?;
         let result = subnet_resolver::resolve_subnet(deal_id, &self.connector_api_endpoint).await;
         Ok(json!(result))
+    }
+
+    fn guard_protected(&self, particle: &ParticleParams) -> Result<(), JError> {
+        if self.is_worker_spell(particle)
+            || self.scopes.is_host(particle.init_peer_id)
+            || self.scopes.is_management(particle.init_peer_id)
+        {
+            Ok(())
+        } else {
+            Err(JError::new(
+                "This function is only available to the host or worker spells",
+            ))
+        }
+    }
+
+    // Check that the particle is from a worker spell from a worker installed on the host
+    // 1. Particle ID must be in spell_{spell_id}_{n} format
+    // 2. init_peer_id must be a local peer id for the host (either host id or a worker id)
+    // 3. There must be a spell service with alias "worker-spell" on the init_peer_id
+    // 4. The spell service must have the same spell_id as in the particle and be of type "spell"
+    fn is_worker_spell(&self, particle: &ParticleParams) -> bool {
+        let result: Option<_> = try {
+            let local_scope = self.scopes.scope(particle.init_peer_id).ok()?;
+            let spell_id = ParticleParams::get_spell_id(&particle.id)?;
+            let (worker_service, _) = self
+                .services
+                .get_service(local_scope, "worker-spell".to_string(), &particle.id)
+                .ok()?;
+            worker_service.service_type == ServiceType::Spell
+                && worker_service.service_id == spell_id
+        };
+        result.unwrap_or(false)
     }
 }
 

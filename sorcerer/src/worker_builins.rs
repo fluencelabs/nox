@@ -33,11 +33,19 @@ use workers::{PeerScopes, WorkerParams, Workers, CUID};
 pub(crate) async fn create_worker(
     args: Args,
     params: ParticleParams,
+    scopes: PeerScopes,
     workers: Arc<Workers>,
 ) -> Result<JValue, JError> {
     let mut args = args.function_args.into_iter();
     let deal_id: String = Args::next("deal_id", &mut args)?;
     let cu_ids: Vec<CUID> = Args::next("cu_ids", &mut args)?;
+
+    if !scopes.is_management(params.init_peer_id) && !scopes.is_host(params.init_peer_id) {
+        return Err(JError::new(
+            "Only management or host peer can create worker",
+        ));
+    }
+
     Ok(JValue::String(
         workers
             .create_worker(WorkerParams::new(
@@ -81,8 +89,12 @@ pub(crate) async fn remove_worker(
     match peer_scope {
         PeerScope::WorkerId(worker_id) => {
             let worker_creator = workers.get_worker_creator(worker_id)?;
-            if params.init_peer_id != worker_creator && params.init_peer_id != worker_peer_id {
-                return Err(JError::new(format!("Worker {worker_id} can be removed only by worker creator {worker_creator} or worker itself")));
+            let is_worker_creator = params.init_peer_id == worker_creator;
+            if !is_worker_creator
+                && !scopes.is_host(params.init_peer_id)
+                && !scopes.is_management(params.init_peer_id)
+            {
+                return Err(JError::new(format!("Worker {worker_id} can be removed only by worker creator {worker_creator}, host or a host manager")));
             }
             workers.remove_worker(worker_id).await?;
             let spells: Vec<_> = spell_storage.get_registered_spells_by(peer_scope);
