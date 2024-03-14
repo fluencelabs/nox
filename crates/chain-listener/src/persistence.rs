@@ -45,9 +45,9 @@ pub(crate) async fn persist_proof_id(
         epoch: current_epoch,
     })
     .map_err(|err| eyre::eyre!("Proof id serialization failed {err}"))?;
-    Ok(tokio::fs::write(&path, bytes)
+    tokio::fs::write(&path, bytes)
         .await
-        .context(format!("error writing proof id to {}", path.display()))?)
+        .context(format!("error writing proof id to {}", path.display()))
 }
 
 pub(crate) async fn load_persisted_proof_id(

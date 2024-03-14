@@ -19,7 +19,6 @@ use jsonrpsee::rpc_params;
 use serde_json::Value as JValue;
 use serde_json::{json, Value};
 use tokio::sync::Mutex;
-use tracing::trace;
 
 use crate::ConnectorError::{InvalidU256, ResponseParseError};
 use crate::{CCStatus, Capacity, CommitmentId, Core, Deal, Offer};
@@ -120,7 +119,7 @@ impl ChainConnector {
             .ok_or(ResponseParseError(block.to_string()))?
             .to_string();
 
-        let base_fee_per_gas = U256::from_str(&fee.trim_start_matches("0x"))
+        let base_fee_per_gas = U256::from_str(fee.trim_start_matches("0x"))
             .map_err(|err| InvalidU256(format!("{err}")))?;
 
         Ok(base_fee_per_gas)

@@ -73,7 +73,7 @@ impl CommitmentId {
 
 impl Display for CommitmentId {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", hex::encode(&self.0))
+        write!(f, "{}", hex::encode(self.0))
     }
 }
 #[cfg(test)]

@@ -59,5 +59,5 @@ pub fn parse_log<T: SolEvent>(log: Log) -> Result<T, LogParseError> {
     for t in log.topics {
         topics.push(Word::from_str(&t)?);
     }
-    SolEvent::decode_raw_log(topics.into_iter(), &decode_hex(&log.data)?, true).map_err(EthError)
+    SolEvent::decode_raw_log(topics.iter(), &decode_hex(&log.data)?, true).map_err(EthError)
 }

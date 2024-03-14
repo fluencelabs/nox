@@ -116,7 +116,7 @@ impl ChainListener {
             host_id,
             difficulty: Difficulty::default(),
             init_timestamp: U256::ZERO,
-            global_nonce: GlobalNonce::new([0; 32]).into(),
+            global_nonce: GlobalNonce::new([0; 32]),
             current_epoch: U256::ZERO,
             epoch_duration: U256::ZERO,
             current_commitment: None,
@@ -218,7 +218,6 @@ impl ChainListener {
                 }
 
                 self.load_proof_id().await?;
-                ()
             };
 
             if let Err(e) = result {
@@ -238,8 +237,10 @@ impl ChainListener {
     }
 
     pub async fn set_proof_id(&mut self, proof_id: ProofIdx) -> eyre::Result<()> {
-        let mut backoff = ExponentialBackoff::default();
-        backoff.max_elapsed_time = Some(Duration::from_secs(3));
+        let backoff = ExponentialBackoff {
+            max_elapsed_time: Some(Duration::from_secs(3)),
+            ..ExponentialBackoff::default()
+        };
 
         let write = retry(backoff, || async {
             persistence::persist_proof_id(
@@ -427,11 +428,10 @@ impl ChainListener {
                                 if let Err(err) = self.poll_proofs().await {
                                     tracing::error!(target: "chain-listener", "Failed to poll/submit proofs: {err}");
                                 }
-                            } else{
-                                if let Err(err) = self.submit_mocked_proofs().await {
+                            } else if let Err(err) = self.submit_mocked_proofs().await {
                                     tracing::error!(target: "chain-listener", "Failed to submit mocked proofs: {err}");
-                                }
-                             }
+                            }
+
 
                             if let Err(err) = self.poll_deal_statuses().await {
                                 tracing::error!(target: "chain-listener", "Failed to poll deal statuses: {err}");
@@ -557,7 +557,7 @@ impl ChainListener {
             let sub = retry(ExponentialBackoff::default(), || async {
                 let topic = UnitActivated::SIGNATURE_HASH.to_string();
               let params = rpc_params!["logs",
-                json!({"address": self.config.cc_contract_address, "topics":  vec![topic, hex::encode(&c_id.0)]})];
+                json!({"address": self.config.cc_contract_address, "topics":  vec![topic, hex::encode(c_id.0)]})];
                 let subs = self
                     .ws_client
                     .subscribe("eth_subscribe", params, "eth_unsubscribe")
@@ -582,7 +582,7 @@ impl ChainListener {
                 let topic = UnitDeactivated::SIGNATURE_HASH.to_string();
                 let params = rpc_params![
                     "logs",
-                    json!({"address": self.config.cc_contract_address, "topics":  vec![topic, hex::encode(&c_id.0)]})
+                    json!({"address": self.config.cc_contract_address, "topics":  vec![topic, hex::encode(c_id.0)]})
                 ];
                 let subs = self
                     .ws_client
@@ -841,7 +841,7 @@ impl ChainListener {
                 "Sending commitment to CCP: global_nonce: {}, difficulty: {}, cores: {:?}",
                 self.global_nonce,
                 self.difficulty,
-                cores.iter().map(|(core, unit)| format!("{}: {}", core, unit.to_string()))
+                cores.iter().map(|(core, unit)| format!("{}: {}", core, unit))
                 .collect::<Vec<_>>()
             );
 
@@ -875,7 +875,7 @@ impl ChainListener {
         Ok(cores
             .physical_core_ids
             .into_iter()
-            .zip(self.active_compute_units.clone().into_iter())
+            .zip(self.active_compute_units.clone())
             .collect())
     }
 
@@ -969,7 +969,7 @@ impl ChainListener {
 
             tracing::info!(target: "chain-listener", "Found {} proofs from polling", proofs.len());
             for proof in proofs.into_iter() {
-                let id = proof.id.idx.clone();
+                let id = proof.id.idx;
                 tracing::info!(target: "chain-listener", "Submitting proof: {id}");
                 self.submit_proof(proof).await?;
                 self.set_proof_id(proof.id.idx).await?;
@@ -1104,8 +1104,10 @@ impl ChainListener {
         Ok(())
     }
     async fn exit_deal(&mut self, deal_id: &DealId, cu_id: CUID) -> eyre::Result<()> {
-        let mut backoff = ExponentialBackoff::default();
-        backoff.max_elapsed_time = Some(Duration::from_secs(3));
+        let backoff = ExponentialBackoff {
+            max_elapsed_time: Some(Duration::from_secs(3)),
+            ..ExponentialBackoff::default()
+        };
 
         retry(backoff, || async {
             self.chain_connector.exit_deal(&cu_id).await.map_err(|err| {
