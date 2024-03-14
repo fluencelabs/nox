@@ -1,11 +1,15 @@
+use alloy_primitives::hex::ToHexExt;
+use alloy_primitives::{uint, FixedBytes, U256};
+use alloy_sol_types::sol_data::Array;
+use alloy_sol_types::{SolCall, SolType};
 use std::collections::HashMap;
+use std::ops::Div;
+use std::str::FromStr;
 use std::sync::Arc;
 
 use ccp_shared::proof::CCProof;
 use ccp_shared::types::{Difficulty, GlobalNonce, CUID};
-use clarity::Transaction;
-use ethabi::ethereum_types::U256;
-use ethabi::Token;
+use clarity::{Transaction, Uint256};
 use eyre::eyre;
 use futures::FutureExt;
 use jsonrpsee::core::client::{BatchResponse, ClientT};
@@ -16,12 +20,11 @@ use serde_json::Value as JValue;
 use serde_json::{json, Value};
 use tokio::sync::Mutex;
 
-use chain_data::ChainDataError::InvalidTokenSize;
-use chain_data::{next_opt, parse_chain_data, peer_id_to_bytes, ChainFunction};
-use chain_types::{
-    Commitment, CommitmentId, CommitmentStatus, ComputePeer, ComputeUnit, DealStatus,
-};
+use crate::ConnectorError::{InvalidU256, ResponseParseError};
+use crate::{CCStatus, Capacity, CommitmentId, Core, Deal, Offer};
+use chain_data::peer_id_to_bytes;
 use fluence_libp2p::PeerId;
+use hex_utils::decode_hex;
 use particle_args::{Args, JError};
 use particle_builtins::{wrap, CustomService};
 use particle_execution::{ParticleParams, ServiceFunction};
@@ -29,15 +32,9 @@ use server_config::ChainConfig;
 use types::DealId;
 
 use crate::error::{process_response, ConnectorError};
-use crate::function::{GetCommitmentFunction, GetCommitmentStatusFunction, SubmitProofFunction};
-use crate::ConnectorError::InvalidBaseFeePerGas;
-use crate::{
-    CurrentEpochFunction, DifficultyFunction, EpochDurationFunction, GetComputePeerFunction,
-    GetComputeUnitsFunction, GetDealStatusFunction, GetGlobalNonceFunction, InitTimestampFunction,
-    ReturnComputeUnitFromDeal,
-};
+use crate::Offer::{ComputePeer, ComputeUnit};
 
-const BASE_FEE_MULTIPLIER: f64 = 0.125;
+const BASE_FEE_PREMIUM_DIVIDER: U256 = uint!(8_U256);
 
 pub struct ChainConnector {
     client: Arc<jsonrpsee::http_client::HttpClient>,
@@ -52,6 +49,8 @@ pub struct CCInitParams {
     pub global_nonce: GlobalNonce,
     pub current_epoch: U256,
     pub epoch_duration: U256,
+    pub min_proofs_per_epoch: U256,
+    pub max_proofs_per_epoch: U256,
 }
 
 impl ChainConnector {
@@ -117,11 +116,11 @@ impl ChainConnector {
             .as_object()
             .and_then(|o| o.get("baseFeePerGas"))
             .and_then(Value::as_str)
-            .ok_or(InvalidBaseFeePerGas(block.to_string()))?
+            .ok_or(ResponseParseError(block.to_string()))?
             .to_string();
 
         let base_fee_per_gas =
-            U256::from_str_radix(&fee, 16).map_err(|_| InvalidBaseFeePerGas(fee))?;
+            U256::from_str(&fee).map_err(|err| InvalidU256(fee, err.to_string()))?;
 
         Ok(base_fee_per_gas)
     }
@@ -134,8 +133,7 @@ impl ChainConnector {
                 .await,
         )?;
 
-        let nonce =
-            U256::from_str_radix(&resp, 16).map_err(|_| ConnectorError::InvalidNonce(resp))?;
+        let nonce = U256::from_str(&resp).map_err(|err| InvalidU256(resp, err.to_string()))?;
         Ok(nonce)
     }
 
@@ -146,7 +144,7 @@ impl ChainConnector {
                 .await,
         )?;
         let max_priority_fee_per_gas =
-            U256::from_str_radix(&resp, 16).map_err(|_| ConnectorError::InvalidGasLimit(resp))?;
+            U256::from_str(&resp).map_err(|err| InvalidU256(resp, err.to_string()))?;
         Ok(max_priority_fee_per_gas)
     }
 
@@ -163,8 +161,7 @@ impl ChainConnector {
                 )
                 .await,
         )?;
-        let limit =
-            U256::from_str_radix(&resp, 16).map_err(|_| ConnectorError::InvalidGasLimit(resp))?;
+        let limit = U256::from_str(&resp).map_err(|err| InvalidU256(resp, err.to_string()))?;
         Ok(limit)
     }
 
@@ -173,11 +170,8 @@ impl ChainConnector {
         tracing::info!(target: "chain-connector", "Estimating gas for tx from {} to {} data {}", self.config.wallet_key.to_address(), to, hex::encode(&data));
         let gas_limit = self.estimate_gas_limit(&data, to).await?;
         let max_priority_fee_per_gas = self.max_priority_fee_per_gas().await?;
-
-        let increase = (base_fee_per_gas.as_u64() as f64 * BASE_FEE_MULTIPLIER) as u128;
-        let base_fee = base_fee_per_gas
-            .checked_add(increase.into())
-            .ok_or(InvalidBaseFeePerGas("AAAA".to_string()))?;
+        let increase = base_fee_per_gas.div(BASE_FEE_PREMIUM_DIVIDER);
+        let base_fee = base_fee_per_gas.checked_add(increase).unwrap_or(U256::MAX);
         // (base fee + priority fee).
         let max_fee_per_gas = base_fee + max_priority_fee_per_gas;
 
@@ -188,14 +182,16 @@ impl ChainConnector {
         // Create a new transaction
         let tx = Transaction::Eip1559 {
             chain_id: self.config.network_id.into(),
-            nonce: nonce.as_u128().into(),
-            max_priority_fee_per_gas: max_priority_fee_per_gas.as_u128().into(),
-            gas_limit: gas_limit.as_u128().into(),
+            nonce: Uint256::from_le_bytes(&nonce.to_le_bytes_vec()),
+            max_priority_fee_per_gas: Uint256::from_le_bytes(
+                &max_priority_fee_per_gas.to_le_bytes_vec(),
+            ),
+            gas_limit: Uint256::from_le_bytes(&gas_limit.to_le_bytes_vec()),
             to: to.parse()?,
             value: 0u32.into(),
             data,
             signature: None, // Not signed. Yet.
-            max_fee_per_gas: max_fee_per_gas.as_u128().into(),
+            max_fee_per_gas: Uint256::from_le_bytes(&max_fee_per_gas.to_le_bytes_vec()),
             access_list: vec![],
         };
 
@@ -218,8 +214,12 @@ impl ChainConnector {
     }
 
     pub async fn get_current_commitment_id(&self) -> Result<Option<CommitmentId>, ConnectorError> {
-        let peer_id = Token::FixedBytes(peer_id_to_bytes(self.host_id));
-        let data = GetComputePeerFunction::data(&[peer_id])?;
+        let peer_id = peer_id_to_bytes(self.host_id);
+        let data: String = Offer::getComputePeerCall {
+            peerId: peer_id.into(),
+        }
+        .abi_encode()
+        .encode_hex();
         let resp: String = process_response(
             self.client
                 .request(
@@ -234,36 +234,20 @@ impl ChainConnector {
                 )
                 .await,
         )?;
-        Ok(ComputePeer::from(&resp)?.commitment_id)
+        let compute_peer = <ComputePeer as SolType>::abi_decode(&decode_hex(&resp)?, true)?;
+        Ok(CommitmentId::new(compute_peer.commitmentId.0))
     }
 
     pub async fn get_commitment_status(
         &self,
         commitment_id: CommitmentId,
-    ) -> Result<CommitmentStatus, ConnectorError> {
-        let data = GetCommitmentStatusFunction::data(&[Token::FixedBytes(commitment_id.0)])?;
-        let resp: String = process_response(
-            self.client
-                .request(
-                    "eth_call",
-                    rpc_params![
-                        json!({
-                            "data": data,
-                            "to": self.config.cc_contract_address,
-                        }),
-                        "latest"
-                    ],
-                )
-                .await,
-        )?;
-        Ok(CommitmentStatus::from(&resp)?)
-    }
+    ) -> Result<CCStatus, ConnectorError> {
+        let data: String = Capacity::getStatusCall {
+            commitmentId: commitment_id.0.into(),
+        }
+        .abi_encode()
+        .encode_hex();
 
-    pub async fn get_commitment(
-        &self,
-        commitment_id: CommitmentId,
-    ) -> Result<Commitment, ConnectorError> {
-        let data = GetCommitmentFunction::data(&[Token::FixedBytes(commitment_id.0)])?;
         let resp: String = process_response(
             self.client
                 .request(
@@ -278,45 +262,41 @@ impl ChainConnector {
                 )
                 .await,
         )?;
-        Ok(Commitment::from(&resp)?)
+        Ok(<CCStatus as SolType>::abi_decode(
+            &decode_hex(&resp)?,
+            true,
+        )?)
     }
 
     pub async fn get_global_nonce(&self) -> Result<GlobalNonce, ConnectorError> {
-        let data = GetGlobalNonceFunction::data(&[])?;
         let resp: String = process_response(
             self.client
-                .request(
-                    "eth_call",
-                    rpc_params![
-                        json!({
-                            "data": data,
-                            "to": self.config.cc_contract_address
-                        }),
-                        "latest"
-                    ],
-                )
+                .request("eth_call", self.global_nonce_params())
                 .await,
         )?;
 
-        let bytes = GetGlobalNonceFunction::decode_fixed_bytes(&resp)?;
-        Ok(GlobalNonce::new(
-            bytes.try_into().map_err(|_| InvalidTokenSize)?,
-        ))
+        let bytes: FixedBytes<32> = FixedBytes::from_str(&resp)?;
+        Ok(GlobalNonce::new(bytes.0))
     }
 
     pub async fn submit_proof(&self, proof: CCProof) -> Result<String, ConnectorError> {
-        let data = SubmitProofFunction::data_bytes(&[
-            Token::FixedBytes(proof.cu_id.as_ref().to_vec()),
-            Token::FixedBytes(proof.local_nonce.as_ref().to_vec()),
-            Token::FixedBytes(proof.result_hash.as_ref().to_vec()),
-        ])?;
+        let data = Capacity::submitProofCall {
+            unitId: proof.cu_id.as_ref().into(),
+            localUnitNonce: proof.local_nonce.as_ref().into(),
+            resultHash: proof.result_hash.as_ref().into(),
+        }
+        .abi_encode();
 
         self.send_tx(data, &self.config.cc_contract_address).await
     }
 
     pub async fn get_compute_units(&self) -> Result<Vec<ComputeUnit>, ConnectorError> {
-        let data =
-            GetComputeUnitsFunction::data(&[Token::FixedBytes(peer_id_to_bytes(self.host_id))])?;
+        let data: String = Offer::getComputeUnitsCall {
+            peerId: peer_id_to_bytes(self.host_id).into(),
+        }
+        .abi_encode()
+        .encode_hex();
+
         let resp: String = process_response(
             self.client
                 .request(
@@ -331,12 +311,8 @@ impl ChainConnector {
                 )
                 .await,
         )?;
-        let mut tokens =
-            parse_chain_data(&resp, &GetComputeUnitsFunction::result_signature())?.into_iter();
-        let units = next_opt(&mut tokens, "units", Token::into_array)?.into_iter();
-        let compute_units = units
-            .map(ComputeUnit::from_token)
-            .collect::<Result<Vec<_>, _>>()?;
+        let bytes = decode_hex(&resp)?;
+        let compute_units = <Array<ComputeUnit> as SolType>::abi_decode(&bytes, true)?;
 
         Ok(compute_units)
     }
@@ -344,68 +320,80 @@ impl ChainConnector {
     pub async fn get_cc_init_params(&self) -> eyre::Result<CCInitParams> {
         let mut batch = BatchRequestBuilder::new();
 
-        batch.insert("eth_call", self.difficulty_params()?)?;
-        batch.insert("eth_call", self.init_timestamp_params()?)?;
-        batch.insert("eth_call", self.global_nonce_params()?)?;
-        batch.insert("eth_call", self.current_epoch_params()?)?;
-        batch.insert("eth_call", self.epoch_duration_params()?)?;
+        batch.insert("eth_call", self.difficulty_params())?;
+        batch.insert("eth_call", self.init_timestamp_params())?;
+        batch.insert("eth_call", self.global_nonce_params())?;
+        batch.insert("eth_call", self.current_epoch_params())?;
+        batch.insert("eth_call", self.epoch_duration_params())?;
+        batch.insert("eth_call", self.min_proofs_per_epoch_params())?;
+        batch.insert("eth_call", self.max_proofs_per_epoch_params())?;
 
+        tracing::debug!("Sending batch request: {batch:?}");
         let resp: BatchResponse<String> = self.client.batch_request(batch).await?;
+        tracing::debug!("Got response for batch request: {resp:?}");
         let mut results = resp
             .into_ok()
             .map_err(|err| eyre!("Some request failed in a batch {err:?}"))?;
 
-        let difficulty = DifficultyFunction::decode_fixed_bytes(
-            &results.next().ok_or(eyre!("No response for difficulty"))?,
-        )?;
-        let init_timestamp = InitTimestampFunction::decode_uint(
+        let difficulty: FixedBytes<32> =
+            FixedBytes::from_str(&results.next().ok_or(eyre!("No response for difficulty"))?)?;
+        let init_timestamp = U256::from_str(
             &results
                 .next()
                 .ok_or(eyre!("No response for init_timestamp"))?,
         )?;
-        let global_nonce = GetGlobalNonceFunction::decode_fixed_bytes(
+
+        let global_nonce = FixedBytes::from_str(
             &results
                 .next()
                 .ok_or(eyre!("No response for global_nonce"))?,
         )?;
-        let current_epoch = CurrentEpochFunction::decode_uint(
+
+        let current_epoch = U256::from_str(
             &results
                 .next()
                 .ok_or(eyre!("No response for current_epoch"))?,
         )?;
-        let epoch_duration = EpochDurationFunction::decode_uint(
+
+        let epoch_duration = U256::from_str(
             &results
                 .next()
                 .ok_or(eyre!("No response for epoch_duration"))?,
         )?;
 
+        let min_proofs_per_epoch = U256::from_str(
+            &results
+                .next()
+                .ok_or(eyre!("No response for min_proofs_per_epoch"))?,
+        )?;
+
+        let max_proofs_per_epoch = U256::from_str(
+            &results
+                .next()
+                .ok_or(eyre!("No response for max_proofs_per_epoch"))?,
+        )?;
+
         Ok(CCInitParams {
-            difficulty: Difficulty::new(
-                difficulty
-                    .try_into()
-                    .map_err(|_| eyre!("Failed to convert difficulty"))?,
-            ),
+            difficulty: Difficulty::new(difficulty.0),
             init_timestamp,
-            global_nonce: GlobalNonce::new(
-                global_nonce
-                    .try_into()
-                    .map_err(|_| eyre!("Failed to convert global_nonce"))?,
-            ),
+            global_nonce: GlobalNonce::new(global_nonce.0),
             current_epoch,
             epoch_duration,
+            min_proofs_per_epoch,
+            max_proofs_per_epoch,
         })
     }
 
     pub async fn get_deal_statuses<'a, I>(
         &self,
         deal_ids: I,
-    ) -> Result<Vec<Result<DealStatus, ConnectorError>>, ConnectorError>
+    ) -> Result<Vec<Result<Deal::Status, ConnectorError>>, ConnectorError>
     where
         I: Iterator<Item = &'a DealId>,
     {
         let mut batch = BatchRequestBuilder::new();
         for deal_id in deal_ids {
-            let data = GetDealStatusFunction::data(&[])?;
+            let data: String = Deal::getStatusCall {}.abi_encode().encode_hex();
             batch.insert(
                 "eth_call",
                 rpc_params![
@@ -423,8 +411,60 @@ impl ChainConnector {
 
         for status in resp.into_iter() {
             let status = status
-                .map(|r| DealStatus::from(&r).map_err(ConnectorError::ParseChainDataFailed))
-                .map_err(|e| ConnectorError::RpcError(e.to_owned().into()))?;
+                .map(|r| {
+                    decode_hex(&r)
+                        .map(|bytes| {
+                            <Deal::Status as SolType>::abi_decode(&bytes, true)
+                                .map_err(ConnectorError::ParseChainDataFailedAlloy)
+                        })
+                        .map_err(ConnectorError::DecodeHex)
+                })
+                .map_err(|e| ConnectorError::RpcError(e.to_owned().into()))??;
+            statuses.push(status);
+        }
+
+        Ok(statuses)
+    }
+
+    pub async fn get_tx_receipts<'a, I>(
+        &self,
+        tx_hashes: I,
+    ) -> Result<Vec<Result<Value, ConnectorError>>, ConnectorError>
+    where
+        I: Iterator<Item = &'a String>,
+    {
+        let mut batch = BatchRequestBuilder::new();
+        for tx_hash in tx_hashes {
+            batch.insert("eth_getTransactionReceipt", rpc_params![tx_hash])?;
+        }
+        let resp: BatchResponse<Value> = self.client.batch_request(batch).await?;
+        let mut receipts = vec![];
+        for receipt in resp.into_iter() {
+            let receipt = receipt.map_err(|e| ConnectorError::RpcError(e.to_owned().into()));
+            receipts.push(receipt);
+        }
+        Ok(receipts)
+    }
+
+    pub async fn get_tx_statuses<'a, I>(
+        &self,
+        tx_hashes: I,
+    ) -> Result<Vec<Result<Option<bool>, ConnectorError>>, ConnectorError>
+    where
+        I: Iterator<Item = &'a String>,
+    {
+        let mut statuses = vec![];
+
+        for receipt in self.get_tx_receipts(tx_hashes).await? {
+            let status = receipt.map(|receipt| {
+                if let Some(obj) = receipt.as_object() {
+                    obj.get("status")
+                        .and_then(Value::as_str)
+                        .map(|s| s == "0x1")
+                } else {
+                    None
+                }
+            });
             statuses.push(status);
         }
 
@@ -432,52 +472,74 @@ impl ChainConnector {
     }
 
     pub async fn exit_deal(&self, cu_id: &CUID) -> Result<String, ConnectorError> {
-        let data =
-            ReturnComputeUnitFromDeal::data_bytes(&[Token::FixedBytes(cu_id.as_ref().to_vec())])?;
+        let data = Offer::returnComputeUnitFromDealCall {
+            unitId: cu_id.as_ref().into(),
+        }
+        .abi_encode();
+
         self.send_tx(data, &self.config.market_contract_address)
             .await
     }
 
-    fn difficulty_params(&self) -> eyre::Result<ArrayParams> {
-        let data = DifficultyFunction::data(&[])?;
-        Ok(rpc_params![
+    fn difficulty_params(&self) -> ArrayParams {
+        let data: String = Capacity::difficultyCall {}.abi_encode().encode_hex();
+        rpc_params![
             json!({"data": data, "to": self.config.cc_contract_address}),
             "latest"
-        ])
+        ]
     }
 
-    fn init_timestamp_params(&self) -> eyre::Result<ArrayParams> {
-        let data = InitTimestampFunction::data(&[])?;
-        Ok(rpc_params![
+    fn init_timestamp_params(&self) -> ArrayParams {
+        let data: String = Core::initTimestampCall {}.abi_encode().encode_hex();
+        rpc_params![
             json!({"data": data, "to": self.config.core_contract_address}),
             "latest"
-        ])
+        ]
     }
-    fn global_nonce_params(&self) -> eyre::Result<ArrayParams> {
-        let data = GetGlobalNonceFunction::data(&[])?;
-        Ok(rpc_params![
+    fn global_nonce_params(&self) -> ArrayParams {
+        let data: String = Capacity::getGlobalNonceCall {}.abi_encode().encode_hex();
+        rpc_params![
             json!({"data": data, "to": self.config.cc_contract_address}),
             "latest"
-        ])
+        ]
     }
-    fn current_epoch_params(&self) -> eyre::Result<ArrayParams> {
-        let data = CurrentEpochFunction::data(&[])?;
-        Ok(rpc_params![
+    fn current_epoch_params(&self) -> ArrayParams {
+        let data: String = Core::currentEpochCall {}.abi_encode().encode_hex();
+        rpc_params![
             json!({"data": data, "to": self.config.core_contract_address}),
             "latest"
-        ])
+        ]
     }
-    fn epoch_duration_params(&self) -> eyre::Result<ArrayParams> {
-        let data = EpochDurationFunction::data(&[])?;
-        Ok(rpc_params![
+    fn epoch_duration_params(&self) -> ArrayParams {
+        let data: String = Core::epochDurationCall {}.abi_encode().encode_hex();
+        rpc_params![
             json!({"data": data, "to": self.config.core_contract_address}),
             "latest"
-        ])
+        ]
+    }
+
+    fn min_proofs_per_epoch_params(&self) -> ArrayParams {
+        let data: String = Capacity::minProofsPerEpochCall {}.abi_encode().encode_hex();
+        rpc_params![
+            json!({"data": data, "to": self.config.cc_contract_address}),
+            "latest"
+        ]
+    }
+
+    fn max_proofs_per_epoch_params(&self) -> ArrayParams {
+        let data: String = Capacity::maxProofsPerEpochCall {}.abi_encode().encode_hex();
+        rpc_params![
+            json!({"data": data, "to": self.config.cc_contract_address}),
+            "latest"
+        ]
     }
 }
 
 #[cfg(test)]
 mod tests {
+
+    use alloy_primitives::uint;
+    use alloy_primitives::U256;
     use std::assert_matches::assert_matches;
     use std::str::FromStr;
     use std::sync::Arc;
@@ -490,17 +552,17 @@ mod tests {
     use serde_json::json;
 
     use chain_data::peer_id_from_hex;
-    use chain_types::{CommitmentId, COMMITMENT_IS_NOT_ACTIVE};
+    use hex_utils::decode_hex;
 
-    use crate::{ChainConnector, ConnectorError};
+    use crate::{is_commitment_not_active, CCStatus, ChainConnector, CommitmentId, ConnectorError};
 
     fn get_connector(url: &str) -> Arc<ChainConnector> {
         let (connector, _) = ChainConnector::new(
             server_config::ChainConfig {
                 http_endpoint: url.to_string(),
-                cc_contract_address: "0x8dc7d48492b9fD2519b65A54816be03758742c60".to_string(),
-                core_contract_address: "0x0B306BF915C4d645ff596e518fAf3F9669b97016".to_string(),
-                market_contract_address: "0x68B1D87F95878fE05B998F19b66F4baba5De1aed".to_string(),
+                cc_contract_address: "0xb2f922f9660200662f5B38B77e848c946AC8E426".to_string(),
+                core_contract_address: "0xDFfaD436cD2863245e5db3419955f90B7FB3E0d1".to_string(),
+                market_contract_address: "0x49a6C3b528f31D45F09b1E490539FBC0436bA462".to_string(),
                 network_id: 3525067388221321,
                 wallet_key: PrivateKey::from_str(
                     "0x97a2456e78c4894c62eef6031972d1ca296ed40bf311ab54c231f13db59fc428",
@@ -536,10 +598,10 @@ mod tests {
 
         mock.assert();
         assert_eq!(units.len(), 2);
-        assert_eq!(units[0].start_epoch, 0.into());
-        assert!(units[0].deal.is_none());
-        assert_eq!(units[1].start_epoch, 0.into());
-        assert!(units[1].deal.is_none());
+        assert_eq!(units[0].startEpoch, U256::from(0));
+        assert!(units[0].deal.is_zero());
+        assert_eq!(units[1].startEpoch, U256::from(0));
+        assert!(units[1].deal.is_zero());
     }
 
     #[tokio::test]
@@ -597,38 +659,6 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_get_commitment() {
-        let commitment_id = "0xa98dc43600773b162bcdb8175eadc037412cd7ad83555fafa507702011a53992";
-
-        let expected_data = "0x00000000000000000000000000000000000000000000000000000000000000016497db93b32e4cdd979ada46a23249f444da1efb186cd74b9666bd03f710028b000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000012c00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000";
-        let expected_response =
-            format!("{{\"jsonrpc\":\"2.0\",\"result\":\"{expected_data}\",\"id\":0}}");
-        let mut server = mockito::Server::new();
-        let url = server.url();
-        let mock = server
-            .mock("POST", "/")
-            // expect exactly 1 POST request
-            .expect(1)
-            .with_status(200)
-            .with_header("content-type", "application/json")
-            .with_body(expected_response)
-            .create();
-        let commitment_id = CommitmentId(hex::decode(&commitment_id[2..]).unwrap());
-        let commitment = get_connector(&url)
-            .get_commitment(commitment_id)
-            .await
-            .unwrap();
-
-        mock.assert();
-        assert_eq!(
-            commitment.status,
-            chain_types::CommitmentStatus::WaitDelegation
-        );
-        assert_eq!(commitment.start_epoch, 0.into());
-        assert_eq!(commitment.end_epoch, 300.into());
-    }
-
-    #[tokio::test]
     async fn get_commitment_status() {
         let commitment_id = "0xa98dc43600773b162bcdb8175eadc037412cd7ad83555fafa507702011a53992";
 
@@ -648,14 +678,14 @@ mod tests {
             })))
             .with_body(expected_response)
             .create();
-        let commitment_id = CommitmentId(hex::decode(&commitment_id[2..]).unwrap());
+        let commitment_id = CommitmentId(decode_hex(&commitment_id).unwrap().try_into().unwrap());
         let status = get_connector(&url)
             .get_commitment_status(commitment_id)
             .await
             .unwrap();
 
         mock.assert();
-        assert_eq!(status, chain_types::CommitmentStatus::WaitDelegation);
+        assert_eq!(status, CCStatus::Active);
     }
 
     #[tokio::test]
@@ -685,8 +715,19 @@ mod tests {
             "jsonrpc": "2.0",
             "result": "0x000000000000000000000000000000000000000000000000000000000000000f",
             "id": 4
+          },
+          {
+            "jsonrpc": "2.0",
+            "result": "0x5",
+            "id": 5
+          },
+          {
+            "jsonrpc": "2.0",
+            "result": "0x8",
+            "id": 6
           }
         ]"#;
+
         let mut server = mockito::Server::new();
         let url = server.url();
         let mock = server
@@ -708,7 +749,7 @@ mod tests {
             )
             .unwrap()
         );
-        assert_eq!(init_params.init_timestamp, 1707760129.into());
+        assert_eq!(init_params.init_timestamp, uint!(1707760129_U256));
         assert_eq!(
             init_params.global_nonce,
             <GlobalNonce>::from_hex(
@@ -718,12 +759,14 @@ mod tests {
         );
         assert_eq!(
             init_params.current_epoch,
-            0x00000000000000000000000000000000000000000000000000000000000016be.into()
+            U256::from(0x00000000000000000000000000000000000000000000000000000000000016be)
         );
         assert_eq!(
             init_params.epoch_duration,
-            0x000000000000000000000000000000000000000000000000000000000000000f.into()
+            U256::from(0x000000000000000000000000000000000000000000000000000000000000000f)
         );
+        assert_eq!(init_params.min_proofs_per_epoch, U256::from(5));
+        assert_eq!(init_params.max_proofs_per_epoch, U256::from(8));
     }
 
     #[tokio::test]
@@ -784,7 +827,7 @@ mod tests {
                 code: _,
                 message: _,
                 data,
-            } if data.contains(COMMITMENT_IS_NOT_ACTIVE)
+            } if is_commitment_not_active(&data)
         );
     }
 

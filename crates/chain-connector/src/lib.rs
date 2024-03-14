@@ -1,4 +1,5 @@
 #![feature(assert_matches)]
+#![feature(result_flattening)]
 
 mod connector;
 mod error;

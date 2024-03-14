@@ -13,16 +13,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
 */
+use alloy_primitives::U256;
 use eyre::Context;
 use std::path::Path;
 
+use alloy_serde_macro::{U256_as_String, U256_from_String};
 use ccp_shared::proof::ProofIdx;
-use ethabi::ethereum_types::U256;
 use serde::{Deserialize, Serialize};
-
 #[derive(Serialize, Deserialize)]
 pub struct PersistedProofId {
     pub proof_id: ProofIdx,
+    #[serde(
+        serialize_with = "U256_as_String",
+        deserialize_with = "U256_from_String"
+    )]
     pub epoch: U256,
 }
 
@@ -41,9 +45,9 @@ pub(crate) async fn persist_proof_id(
         epoch: current_epoch,
     })
     .map_err(|err| eyre::eyre!("Proof id serialization failed {err}"))?;
-    Ok(tokio::fs::write(&path, bytes)
+    tokio::fs::write(&path, bytes)
         .await
-        .context(format!("error writing proof id to {}", path.display()))?)
+        .context(format!("error writing proof id to {}", path.display()))
 }
 
 pub(crate) async fn load_persisted_proof_id(

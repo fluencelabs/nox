@@ -10,9 +10,11 @@ pub fn parse_peer_id(bytes: Vec<u8>) -> Result<PeerId, ParseError> {
     PeerId::from_bytes(&peer_id)
 }
 
-pub fn peer_id_to_bytes(peer_id: PeerId) -> Vec<u8> {
+pub fn peer_id_to_bytes(peer_id: PeerId) -> [u8; 32] {
     let peer_id = peer_id.to_bytes();
-    peer_id[PEER_ID_PREFIX.len()..].to_vec()
+    // peer_id is 38 bytes but we need 32 for chain
+    let res = peer_id[PEER_ID_PREFIX.len()..].as_chunks::<32>();
+    res.0[0]
 }
 pub fn peer_id_to_hex(peer_id: PeerId) -> String {
     format!("0x{:0>64}", hex::encode(peer_id_to_bytes(peer_id)))
