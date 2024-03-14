@@ -449,25 +449,22 @@ impl ChainConnector {
     pub async fn get_tx_statuses<'a, I>(
         &self,
         tx_hashes: I,
-    ) -> Result<Vec<Result<bool, ConnectorError>>, ConnectorError>
+    ) -> Result<Vec<Result<Option<bool>, ConnectorError>>, ConnectorError>
     where
         I: Iterator<Item = &'a String>,
     {
         let mut statuses = vec![];
 
         for receipt in self.get_tx_receipts(tx_hashes).await? {
-            let status = receipt
-                .map(|receipt| {
-                    if let Some(obj) = receipt.as_object() {
-                        obj.get("status")
-                            .and_then(Value::as_str)
-                            .map(|s| s == "0x1")
-                            .ok_or(ResponseParseError(receipt.to_string()))
-                    } else {
-                        Ok(false)
-                    }
-                })
-                .flatten();
+            let status = receipt.map(|receipt| {
+                if let Some(obj) = receipt.as_object() {
+                    obj.get("status")
+                        .and_then(Value::as_str)
+                        .map(|s| s == "0x1")
+                } else {
+                    None
+                }
+            });
             statuses.push(status);
         }
 
@@ -540,6 +537,7 @@ impl ChainConnector {
 
 #[cfg(test)]
 mod tests {
+
     use alloy_primitives::uint;
     use alloy_primitives::U256;
     use std::assert_matches::assert_matches;
