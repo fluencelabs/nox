@@ -269,19 +269,9 @@ impl ChainConnector {
     }
 
     pub async fn get_global_nonce(&self) -> Result<GlobalNonce, ConnectorError> {
-        let data: String = Capacity::getGlobalNonceCall {}.abi_encode().encode_hex();
         let resp: String = process_response(
             self.client
-                .request(
-                    "eth_call",
-                    rpc_params![
-                        json!({
-                            "data": data,
-                            "to": self.config.cc_contract_address
-                        }),
-                        "latest"
-                    ],
-                )
+                .request("eth_call", self.global_nonce_params())
                 .await,
         )?;
 
@@ -330,11 +320,13 @@ impl ChainConnector {
     pub async fn get_cc_init_params(&self) -> eyre::Result<CCInitParams> {
         let mut batch = BatchRequestBuilder::new();
 
-        batch.insert("eth_call", self.difficulty_params()?)?;
-        batch.insert("eth_call", self.init_timestamp_params()?)?;
-        batch.insert("eth_call", self.global_nonce_params()?)?;
-        batch.insert("eth_call", self.current_epoch_params()?)?;
-        batch.insert("eth_call", self.epoch_duration_params()?)?;
+        batch.insert("eth_call", self.difficulty_params())?;
+        batch.insert("eth_call", self.init_timestamp_params())?;
+        batch.insert("eth_call", self.global_nonce_params())?;
+        batch.insert("eth_call", self.current_epoch_params())?;
+        batch.insert("eth_call", self.epoch_duration_params())?;
+        batch.insert("eth_call", self.min_proofs_per_epoch_params())?;
+        batch.insert("eth_call", self.max_proofs_per_epoch_params())?;
 
         tracing::debug!("Sending batch request: {batch:?}");
         let resp: BatchResponse<String> = self.client.batch_request(batch).await?;
@@ -369,14 +361,26 @@ impl ChainConnector {
                 .ok_or(eyre!("No response for epoch_duration"))?,
         )?;
 
+        let min_proofs_per_epoch = U256::from_str(
+            &results
+                .next()
+                .ok_or(eyre!("No response for min_proofs_per_epoch"))?,
+        )?;
+
+        let max_proofs_per_epoch = U256::from_str(
+            &results
+                .next()
+                .ok_or(eyre!("No response for max_proofs_per_epoch"))?,
+        )?;
+
         Ok(CCInitParams {
             difficulty: Difficulty::new(difficulty.0),
             init_timestamp,
             global_nonce: GlobalNonce::new(global_nonce.0),
             current_epoch,
             epoch_duration,
-            min_proofs_per_epoch: Default::default(),
-            max_proofs_per_epoch: Default::default(),
+            min_proofs_per_epoch,
+            max_proofs_per_epoch,
         })
     }
 
@@ -432,41 +436,57 @@ impl ChainConnector {
             .await
     }
 
-    fn difficulty_params(&self) -> eyre::Result<ArrayParams> {
+    fn difficulty_params(&self) -> ArrayParams {
         let data: String = Capacity::difficultyCall {}.abi_encode().encode_hex();
-        Ok(rpc_params![
+        rpc_params![
             json!({"data": data, "to": self.config.cc_contract_address}),
             "latest"
-        ])
+        ]
     }
 
-    fn init_timestamp_params(&self) -> eyre::Result<ArrayParams> {
+    fn init_timestamp_params(&self) -> ArrayParams {
         let data: String = Core::initTimestampCall {}.abi_encode().encode_hex();
-        Ok(rpc_params![
+        rpc_params![
             json!({"data": data, "to": self.config.core_contract_address}),
             "latest"
-        ])
+        ]
     }
-    fn global_nonce_params(&self) -> eyre::Result<ArrayParams> {
+    fn global_nonce_params(&self) -> ArrayParams {
         let data: String = Capacity::getGlobalNonceCall {}.abi_encode().encode_hex();
-        Ok(rpc_params![
+        rpc_params![
             json!({"data": data, "to": self.config.cc_contract_address}),
             "latest"
-        ])
+        ]
     }
-    fn current_epoch_params(&self) -> eyre::Result<ArrayParams> {
+    fn current_epoch_params(&self) -> ArrayParams {
         let data: String = Core::currentEpochCall {}.abi_encode().encode_hex();
-        Ok(rpc_params![
+        rpc_params![
             json!({"data": data, "to": self.config.core_contract_address}),
             "latest"
-        ])
+        ]
     }
-    fn epoch_duration_params(&self) -> eyre::Result<ArrayParams> {
+    fn epoch_duration_params(&self) -> ArrayParams {
         let data: String = Core::epochDurationCall {}.abi_encode().encode_hex();
-        Ok(rpc_params![
+        rpc_params![
             json!({"data": data, "to": self.config.core_contract_address}),
             "latest"
-        ])
+        ]
+    }
+
+    fn min_proofs_per_epoch_params(&self) -> ArrayParams {
+        let data: String = Capacity::minProofsPerEpochCall {}.abi_encode().encode_hex();
+        rpc_params![
+            json!({"data": data, "to": self.config.cc_contract_address}),
+            "latest"
+        ]
+    }
+
+    fn max_proofs_per_epoch_params(&self) -> ArrayParams {
+        let data: String = Capacity::maxProofsPerEpochCall {}.abi_encode().encode_hex();
+        rpc_params![
+            json!({"data": data, "to": self.config.cc_contract_address}),
+            "latest"
+        ]
     }
 }
 
@@ -650,6 +670,16 @@ mod tests {
             "jsonrpc": "2.0",
             "result": "0x000000000000000000000000000000000000000000000000000000000000000f",
             "id": 4
+          },
+          {
+            "jsonrpc": "2.0",
+            "result": "0x5",
+            "id": 5
+          },
+          {
+            "jsonrpc": "2.0",
+            "result": "0x8",
+            "id": 6
           }
         ]"#;
 
@@ -690,6 +720,8 @@ mod tests {
             init_params.epoch_duration,
             U256::from(0x000000000000000000000000000000000000000000000000000000000000000f)
         );
+        assert_eq!(init_params.min_proofs_per_epoch, U256::from(5));
+        assert_eq!(init_params.max_proofs_per_epoch, U256::from(8));
     }
 
     #[tokio::test]
