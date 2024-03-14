@@ -1,3 +1,4 @@
+use alloy_primitives::hex::ToHexExt;
 use alloy_primitives::{uint, FixedBytes, U256};
 use alloy_sol_types::sol_data::Array;
 use alloy_sol_types::{SolCall, SolType};
@@ -18,6 +19,7 @@ use jsonrpsee::rpc_params;
 use serde_json::Value as JValue;
 use serde_json::{json, Value};
 use tokio::sync::Mutex;
+use tracing::trace;
 
 use crate::ConnectorError::{InvalidU256, ResponseParseError};
 use crate::{CCStatus, Capacity, CommitmentId, Core, Deal, Offer};
@@ -214,10 +216,11 @@ impl ChainConnector {
 
     pub async fn get_current_commitment_id(&self) -> Result<Option<CommitmentId>, ConnectorError> {
         let peer_id = peer_id_to_bytes(self.host_id);
-        let data = Offer::getComputePeerCall {
+        let data: String = Offer::getComputePeerCall {
             peerId: peer_id.into(),
         }
-        .abi_encode();
+        .abi_encode()
+        .encode_hex();
         let resp: String = process_response(
             self.client
                 .request(
@@ -240,10 +243,11 @@ impl ChainConnector {
         &self,
         commitment_id: CommitmentId,
     ) -> Result<CCStatus, ConnectorError> {
-        let data = Capacity::getStatusCall {
+        let data: String = Capacity::getStatusCall {
             commitmentId: commitment_id.0.into(),
         }
-        .abi_encode();
+        .abi_encode()
+        .encode_hex();
 
         let resp: String = process_response(
             self.client
@@ -266,7 +270,7 @@ impl ChainConnector {
     }
 
     pub async fn get_global_nonce(&self) -> Result<GlobalNonce, ConnectorError> {
-        let data = Capacity::getGlobalNonceCall {}.abi_encode();
+        let data: String = Capacity::getGlobalNonceCall {}.abi_encode().encode_hex();
         let resp: String = process_response(
             self.client
                 .request(
@@ -300,10 +304,11 @@ impl ChainConnector {
     }
 
     pub async fn get_compute_units(&self) -> Result<Vec<ComputeUnit>, ConnectorError> {
-        let data = Offer::getComputeUnitsCall {
+        let data: String = Offer::getComputeUnitsCall {
             peerId: peer_id_to_bytes(self.host_id).into(),
         }
-        .abi_encode();
+        .abi_encode()
+        .encode_hex();
 
         let resp: String = process_response(
             self.client
@@ -334,7 +339,9 @@ impl ChainConnector {
         batch.insert("eth_call", self.current_epoch_params()?)?;
         batch.insert("eth_call", self.epoch_duration_params()?)?;
 
+        tracing::debug!("Sending batch request: {batch:?}");
         let resp: BatchResponse<String> = self.client.batch_request(batch).await?;
+        tracing::debug!("Got response for batch request: {resp:?}");
         let mut results = resp
             .into_ok()
             .map_err(|err| eyre!("Some request failed in a batch {err:?}"))?;
@@ -385,7 +392,7 @@ impl ChainConnector {
     {
         let mut batch = BatchRequestBuilder::new();
         for deal_id in deal_ids {
-            let data = Deal::getStatusCall {}.abi_encode();
+            let data: String = Deal::getStatusCall {}.abi_encode().encode_hex();
             batch.insert(
                 "eth_call",
                 rpc_params![
@@ -429,7 +436,7 @@ impl ChainConnector {
     }
 
     fn difficulty_params(&self) -> eyre::Result<ArrayParams> {
-        let data = Capacity::difficultyCall {}.abi_encode();
+        let data: String = Capacity::difficultyCall {}.abi_encode().encode_hex();
         Ok(rpc_params![
             json!({"data": data, "to": self.config.cc_contract_address}),
             "latest"
@@ -437,28 +444,28 @@ impl ChainConnector {
     }
 
     fn init_timestamp_params(&self) -> eyre::Result<ArrayParams> {
-        let data = Core::initTimestampCall {}.abi_encode();
+        let data: String = Core::initTimestampCall {}.abi_encode().encode_hex();
         Ok(rpc_params![
             json!({"data": data, "to": self.config.core_contract_address}),
             "latest"
         ])
     }
     fn global_nonce_params(&self) -> eyre::Result<ArrayParams> {
-        let data = Capacity::getGlobalNonceCall {}.abi_encode();
+        let data: String = Capacity::getGlobalNonceCall {}.abi_encode().encode_hex();
         Ok(rpc_params![
             json!({"data": data, "to": self.config.cc_contract_address}),
             "latest"
         ])
     }
     fn current_epoch_params(&self) -> eyre::Result<ArrayParams> {
-        let data = Core::currentEpochCall {}.abi_encode();
+        let data: String = Core::currentEpochCall {}.abi_encode().encode_hex();
         Ok(rpc_params![
             json!({"data": data, "to": self.config.core_contract_address}),
             "latest"
         ])
     }
     fn epoch_duration_params(&self) -> eyre::Result<ArrayParams> {
-        let data = Core::epochDurationCall {}.abi_encode();
+        let data: String = Core::epochDurationCall {}.abi_encode().encode_hex();
         Ok(rpc_params![
             json!({"data": data, "to": self.config.core_contract_address}),
             "latest"
@@ -491,9 +498,9 @@ mod tests {
         let (connector, _) = ChainConnector::new(
             server_config::ChainConfig {
                 http_endpoint: url.to_string(),
-                cc_contract_address: "0x8dc7d48492b9fD2519b65A54816be03758742c60".to_string(),
-                core_contract_address: "0x0B306BF915C4d645ff596e518fAf3F9669b97016".to_string(),
-                market_contract_address: "0x68B1D87F95878fE05B998F19b66F4baba5De1aed".to_string(),
+                cc_contract_address: "0xACbDab377F458b9c29216c41d81036254af72Fe1".to_string(),
+                core_contract_address: "0xc9c0e0BCf7a24A8632F6942b411474D8842570E5".to_string(),
+                market_contract_address: "0x8773355509c9a534A43Ce439E49EBFba928D048E".to_string(),
                 network_id: 3525067388221321,
                 wallet_key: PrivateKey::from_str(
                     "0x97a2456e78c4894c62eef6031972d1ca296ed40bf311ab54c231f13db59fc428",
@@ -648,6 +655,7 @@ mod tests {
             "id": 4
           }
         ]"#;
+
         let mut server = mockito::Server::new();
         let url = server.url();
         let mock = server
