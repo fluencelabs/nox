@@ -437,12 +437,10 @@ impl ChainConnector {
         for tx_hash in tx_hashes {
             batch.insert("eth_getTransactionReceipt", rpc_params![tx_hash])?;
         }
-        let resp: BatchResponse<String> = self.client.batch_request(batch).await?;
+        let resp: BatchResponse<Value> = self.client.batch_request(batch).await?;
         let mut receipts = vec![];
         for receipt in resp.into_iter() {
-            let receipt = receipt
-                .map(|r| serde_json::from_str(&r).map_err(ConnectorError::ParseError))
-                .map_err(|e| ConnectorError::RpcError(e.to_owned().into()))?;
+            let receipt = receipt.map_err(|e| ConnectorError::RpcError(e.to_owned().into()));
             receipts.push(receipt);
         }
         Ok(receipts)
@@ -458,13 +456,18 @@ impl ChainConnector {
         let mut statuses = vec![];
 
         for receipt in self.get_tx_receipts(tx_hashes).await? {
-            let status = receipt.map(|receipt: Value| {
-                receipt
-                    .get("status")
-                    .and_then(Value::as_str)
-                    .map(|s| s == "0x1")
-                    .unwrap_or(false)
-            });
+            let status = receipt
+                .map(|receipt| {
+                    if let Some(obj) = receipt.as_object() {
+                        obj.get("status")
+                            .and_then(Value::as_str)
+                            .map(|s| s == "0x1")
+                            .ok_or(ResponseParseError(receipt.to_string()))
+                    } else {
+                        Ok(false)
+                    }
+                })
+                .flatten();
             statuses.push(status);
         }
 
@@ -537,7 +540,6 @@ impl ChainConnector {
 
 #[cfg(test)]
 mod tests {
-
     use alloy_primitives::uint;
     use alloy_primitives::U256;
     use std::assert_matches::assert_matches;
