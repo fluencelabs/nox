@@ -2,6 +2,7 @@ use alloy_primitives::{Address, FixedBytes, Uint, U256};
 use alloy_sol_types::SolEvent;
 use backoff::Error::Permanent;
 use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::future::pending;
 use std::ops::Add;
 use std::path::PathBuf;
 use std::process::exit;
@@ -86,11 +87,11 @@ pub struct ChainListener {
 
 async fn poll_subscription<T>(s: &mut Option<Subscription<T>>) -> Option<Result<T, client::Error>>
 where
-    T: DeserializeOwned,
+    T: DeserializeOwned + Send,
 {
     match s {
         Some(ref mut s) => s.next().await,
-        None => None,
+        None => pending().await,
     }
 }
 
@@ -346,6 +347,7 @@ impl ChainListener {
                     exit(1);
                 }
 
+                tracing::info!(target: "chain-listener", "State successfully refreshed, starting main loop");
                 let mut timer = IntervalStream::new(interval(self.timer_resolution));
 
                 loop {
@@ -806,34 +808,34 @@ impl ChainListener {
 
     /// Return already started units involved in CC and not having less than MIN_PROOFS_PER_EPOCH proofs in the current epoch
     fn get_priority_units(&self) -> Vec<CUID> {
-        self.proof_counter
+        self.cc_compute_units
             .iter()
-            .filter(|(_, count)| **count < self.min_proofs_per_epoch)
-            .map(|(cuid, _)| *cuid)
-            .filter(|cuid| {
-                self.cc_compute_units
+            .filter(|(_, cu)| cu.startEpoch <= self.current_epoch)
+            .filter(|(cuid, _)| {
+                self.proof_counter
                     .get(cuid)
-                    .map(|cu| cu.startEpoch <= self.current_epoch)
-                    .unwrap_or(false)
+                    .map(|count| *count < self.min_proofs_per_epoch)
+                    .unwrap_or(true)
             })
+            .map(|(cuid, _)| *cuid)
             .collect()
     }
 
     /// Return already started units involved in CC and having more than MIN_PROOFS_PER_EPOCH,
     /// but less that MAX_PROOFS_PER_EPOCH proofs in the current epoch
     fn get_non_priority_units(&self) -> Vec<CUID> {
-        self.proof_counter
+        self.cc_compute_units
             .iter()
-            .filter(|(_, count)| {
-                **count > self.min_proofs_per_epoch && **count < self.max_proofs_per_epoch
+            .filter(|(_, cu)| cu.startEpoch <= self.current_epoch)
+            .filter(|(cuid, _)| {
+                self.proof_counter
+                    .get(cuid)
+                    .map(|count| {
+                        *count > self.min_proofs_per_epoch && *count < self.max_proofs_per_epoch
+                    })
+                    .unwrap_or(true)
             })
             .map(|(cuid, _)| *cuid)
-            .filter(|cuid| {
-                self.cc_compute_units
-                    .get(cuid)
-                    .map(|cu| cu.startEpoch <= self.current_epoch)
-                    .unwrap_or(false)
-            })
             .collect()
     }
 
