@@ -335,7 +335,7 @@ impl ChainListener {
                     exit(1);
                 }
 
-                if let Err(err) = self.subscribe_deal_matched().await {
+                if let Err(err) = self.subscribe_unit_matched().await {
                     tracing::error!(target: "chain-listener", "Failed to subscribe to deal matched: {err}; Stopping...");
                     exit(1);
                 }
@@ -414,12 +414,12 @@ impl ChainListener {
                             }
                         },
                         event = poll_subscription(&mut self.unit_matched) => {
-                            if let Err(err) = self.process_deal_matched(event) {
+                            if let Err(err) = self.process_unit_matched(event) {
                                 tracing::warn!(target: "chain-listener", "DealMatched event processing error: {err}");
 
                                 let result: eyre::Result<()> = try {
                                     self.refresh_state().await?;
-                                    self.subscribe_deal_matched().await?;
+                                    self.subscribe_unit_matched().await?;
                                 };
                                 if let Err(err) = result {
                                     tracing::error!(target: "chain-listener", "Failed to resubscribe to DealMatched: {err}; Stopping...");
@@ -585,31 +585,36 @@ impl ChainListener {
     }
 
     async fn subscribe_unit_deactivated(&mut self) -> eyre::Result<()> {
-        if let Some(c_id) = self.current_commitment.as_ref() {
-            let sub = retry(ExponentialBackoff::default(), || async {
-                let topic = UnitDeactivated::SIGNATURE_HASH.to_string();
-                let params = rpc_params![
-                    "logs",
-                    json!({"address": self.config.cc_contract_address, "topics":  vec![topic, hex::encode(c_id.0)]})
-                ];
-                let subs = self
-                    .ws_client
-                    .subscribe("eth_subscribe", params, "eth_unsubscribe")
-                    .await.map_err(|err| {
-                        tracing::warn!(target: "chain-listener", "Failed to subscribe to unit deactivated: {err}; Retrying...");
-                        eyre!(err)
-                    })?;
+        let commitment_id = match &self.current_commitment {
+            Some(c_id) => c_id,
+            None => {
+                return Ok(());
+            }
+        };
 
-                Ok(subs)
-            }).await?;
+        let sub = retry(ExponentialBackoff::default(), || async {
+            let topic = UnitDeactivated::SIGNATURE_HASH.to_string();
+            let params = rpc_params![
+                "logs",
+                json!({"address": self.config.cc_contract_address, "topics":  vec![topic, commitment_id.to_string()]})
+            ];
+            let subs = self
+                .ws_client
+                .subscribe("eth_subscribe", params, "eth_unsubscribe")
+                .await.map_err(|err| {
+                    tracing::warn!(target: "chain-listener", "Failed to subscribe to unit deactivated: {err}; Retrying...");
+                    eyre!(err)
+                })?;
 
-            self.unit_deactivated = Some(sub);
-        }
+            Ok(subs)
+        }).await?;
+
+        self.unit_deactivated = Some(sub);
 
         Ok(())
     }
 
-    async fn subscribe_deal_matched(&mut self) -> eyre::Result<()> {
+    async fn subscribe_unit_matched(&mut self) -> eyre::Result<()> {
         let sub = retry(ExponentialBackoff::default(), || async {
             let topics = vec![
                 ComputeUnitMatched::SIGNATURE_HASH.to_string(),
@@ -779,11 +784,11 @@ impl ChainListener {
         );
         self.cc_compute_units.remove(&unit_id);
         self.refresh_commitment().await?;
-        self.acquire_deal_core(unit_id)?;
+        self.acquire_core_for_deal(unit_id)?;
         Ok(())
     }
 
-    pub fn process_deal_matched(
+    pub fn process_unit_matched(
         &mut self,
         event: Option<Result<JsonValue, client::Error>>,
     ) -> eyre::Result<()> {
@@ -864,82 +869,85 @@ impl ChainListener {
         );
         tracing::info!(target: "chain-listener", "Global nonce: {}", self.global_nonce);
         tracing::info!(target: "chain-listener", "Difficulty: {}", self.difficulty);
-        if let Some(ref ccp_client) = self.ccp_client {
-            let priority_units = self.get_priority_units();
-            let non_priority_units = self.get_non_priority_units();
-            let pending_units = self.get_pending_units();
 
-            let mut cores = HashMap::new();
-            let priority_cores = self.acquire_units(priority_units.clone())?;
-            let non_priority_cores = self.acquire_units(non_priority_units.clone())?;
-            let mut pending_cores = self.acquire_units(pending_units.clone())?;
+        let ccp_client = match &self.ccp_client {
+            Some(ccp_client) => ccp_client,
+            None => return Ok(()),
+        };
 
-            if priority_units.is_empty() {
-                tracing::info!(target: "chain-listener", "All CUs found minimal number of proofs {} in current epoch {}", self.min_proofs_per_epoch, self.current_epoch);
-                if non_priority_units.is_empty() {
-                    tracing::info!(target: "chain-listener", "All CUs found max number of proofs {} in current epoch {}", self.max_proofs_per_epoch ,self.current_epoch);
-                    self.stop_commitment().await?;
-                    return Ok(());
-                } else {
-                    // All CUs were proven, now let's work on submitting proofs for every CU until MAX_PROOF_COUNT is reached
-                    cores.extend(non_priority_cores.iter().zip(non_priority_units.iter()));
+        let priority_units = self.get_priority_units();
+        let non_priority_units = self.get_non_priority_units();
+        let pending_units = self.get_pending_units();
 
-                    for unit in non_priority_units.iter().cycle() {
-                        if let Some(core) = pending_cores.pop_first() {
-                            // Assign "pending cores" to help generate proofs for "non priority units"
-                            cores.insert(core, *unit);
-                        } else {
-                            break;
-                        }
-                    }
-                }
+        let mut cu_allocation = HashMap::new();
+        let priority_cores = self.acquire_cores_for_cc(&priority_units)?;
+        let non_priority_cores = self.acquire_cores_for_cc(&non_priority_units)?;
+        let pending_cores = self.acquire_cores_for_cc(&pending_units)?;
+
+        if all_min_proofs_found(&priority_units) {
+            tracing::info!(target: "chain-listener", "All CUs found minimal number of proofs {} in current epoch {}", self.min_proofs_per_epoch, self.current_epoch);
+            if all_max_proofs_found(&non_priority_units) {
+                tracing::info!(target: "chain-listener", "All CUs found max number of proofs {} in current epoch {}", self.max_proofs_per_epoch ,self.current_epoch);
+                self.stop_commitment().await?;
+                return Ok(());
             } else {
-                // Use assigned cores to calculate proofs for CUs who haven't reached MIN_PROOF_COUNT yet
-                cores.extend(priority_cores.iter().zip(priority_units.iter()));
+                // All CUs were proven, now let's work on submitting proofs for every CU until MAX_PROOF_COUNT is reached
+                cu_allocation.extend(non_priority_cores.iter().zip(non_priority_units.iter()));
 
-                // Use all spare cores to help CUs to reach MIN_PROOF_COUNT
-                let mut spare_cores: BTreeSet<_> = non_priority_cores
-                    .into_iter()
-                    .chain(pending_cores.into_iter())
-                    .collect();
-
-                for unit in priority_units.iter().cycle() {
-                    if let Some(core) = spare_cores.pop_first() {
-                        cores.insert(core, *unit);
-                    } else {
-                        break;
+                let mut units = non_priority_units.iter().cycle();
+                // Assign "pending cores" to help generate proofs for "non priority units"
+                pending_cores.iter().for_each(|core| {
+                    if let Some(unit) = units.next() {
+                        cu_allocation.insert(*core, *unit);
                     }
-                }
+                });
             }
+        } else {
+            // Use assigned cores to calculate proofs for CUs who haven't reached MIN_PROOF_COUNT yet
+            cu_allocation.extend(priority_cores.iter().zip(priority_units.iter()));
 
-            tracing::info!(target: "chain-listener",
-                "Sending commitment to CCP: global_nonce: {}, difficulty: {}, cores: {:?}",
+            // Use all spare cores to help CUs to reach MIN_PROOF_COUNT
+            let spare_cores: BTreeSet<_> = non_priority_cores
+                .into_iter()
+                .chain(pending_cores.into_iter())
+                .collect();
+
+            let mut units = priority_units.iter().cycle();
+            spare_cores.iter().for_each(|core| {
+                if let Some(unit) = units.next() {
+                    cu_allocation.insert(*core, *unit);
+                }
+            });
+        }
+
+        tracing::info!(target: "chain-listener",
+            "Sending commitment to CCP: global_nonce: {}, difficulty: {}, cores: {:?}",
+            self.global_nonce,
+            self.difficulty,
+            cu_allocation.iter().map(|(core, unit)| format!("{}: {}", core, unit))
+            .collect::<Vec<_>>()
+        );
+
+        ccp_client
+            .on_active_commitment(
                 self.global_nonce,
                 self.difficulty,
-                cores.iter().map(|(core, unit)| format!("{}: {}", core, unit))
-                .collect::<Vec<_>>()
-            );
+                cu_allocation,
+            )
+            .await
+            .map_err(|err| {
+                tracing::error!(target: "chain-listener", "Failed to send commitment to CCP: {err}");
+                eyre::eyre!("Failed to send commitment to CCP: {err}")
+            })?;
 
-            ccp_client
-                .on_active_commitment(
-                    self.global_nonce,
-                   self.difficulty,
-                    cores,
-                )
-                .await
-                .map_err(|err| {
-                    tracing::error!(target: "chain-listener", "Failed to send commitment to CCP: {err}");
-                    eyre::eyre!("Failed to send commitment to CCP: {err}")
-                })?;
-        }
         Ok(())
     }
 
-    fn acquire_units(&self, units: Vec<CUID>) -> eyre::Result<BTreeSet<PhysicalCoreId>> {
+    fn acquire_cores_for_cc(&self, units: &[CUID]) -> eyre::Result<BTreeSet<PhysicalCoreId>> {
         let cores = self
             .core_manager
             .acquire_worker_core(AcquireRequest::new(
-                units,
+                units.to_vec(),
                 WorkType::CapacityCommitment,
             ))
             .map_err(|err| {
@@ -950,7 +958,7 @@ impl ChainListener {
         Ok(cores.physical_core_ids)
     }
 
-    fn acquire_deal_core(&self, unit_id: CUID) -> eyre::Result<()> {
+    fn acquire_core_for_deal(&self, unit_id: CUID) -> eyre::Result<()> {
         self.core_manager
             .acquire_worker_core(AcquireRequest::new(vec![unit_id], WorkType::Deal))?;
         Ok(())
@@ -1238,4 +1246,12 @@ impl ChainListener {
 
         Ok(())
     }
+}
+
+fn all_min_proofs_found(priority_units: &[CUID]) -> bool {
+    priority_units.is_empty()
+}
+
+fn all_max_proofs_found(non_priority_units: &[CUID]) -> bool {
+    non_priority_units.is_empty()
 }

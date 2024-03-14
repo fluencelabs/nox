@@ -3,6 +3,8 @@
 #![feature(extract_if)]
 #![feature(btree_extract_if)]
 
+extern crate core;
+
 pub use listener::ChainListener;
 
 mod event;
