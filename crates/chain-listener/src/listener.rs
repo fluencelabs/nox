@@ -1,4 +1,4 @@
-use alloy_primitives::{FixedBytes, Uint, U256};
+use alloy_primitives::{Address, FixedBytes, Uint, U256};
 use alloy_sol_types::SolEvent;
 use backoff::Error::Permanent;
 use std::collections::{BTreeMap, BTreeSet, HashMap};
@@ -31,7 +31,7 @@ use tokio_stream::StreamExt;
 use chain_connector::Offer::ComputeUnit;
 use chain_connector::{
     is_commitment_not_active, is_too_many_proofs, CCStatus, ChainConnector, CommitmentId,
-    ConnectorError, Deal, PendingUnit, PEER_NOT_EXISTS,
+    ConnectorError, Deal, PEER_NOT_EXISTS,
 };
 use chain_data::{parse_log, peer_id_to_hex, Log};
 use core_manager::manager::{CoreManager, CoreManagerFunctions};
@@ -65,12 +65,10 @@ pub struct ChainListener {
     min_proofs_per_epoch: U256,
     max_proofs_per_epoch: U256,
 
-    proof_counter: HashMap<CUID, U256>,
+    proof_counter: BTreeMap<CUID, U256>,
     current_commitment: Option<CommitmentId>,
 
-    active_compute_units: BTreeSet<CUID>,
-    // Cores of pending units also run CCs but for other CUs
-    pending_compute_units: BTreeSet<PendingUnit>,
+    cc_compute_units: BTreeMap<CUID, ComputeUnit>,
 
     active_deals: BTreeMap<DealId, CUID>,
 
@@ -123,10 +121,9 @@ impl ChainListener {
             epoch_duration: U256::ZERO,
             min_proofs_per_epoch: U256::ZERO,
             max_proofs_per_epoch: U256::ZERO,
-            proof_counter: Default::default(),
+            proof_counter: BTreeMap::new(),
             current_commitment: None,
-            active_compute_units: BTreeSet::new(),
-            pending_compute_units: BTreeSet::new(),
+            cc_compute_units: BTreeMap::new(),
             core_manager,
             timer_resolution: listener_config.proof_poll_period,
             ccp_client,
@@ -472,14 +469,8 @@ impl ChainListener {
 
         let in_deal: Vec<_> = units.extract_if(|cu| !cu.deal.is_zero()).collect();
 
-        let (active, pending): (Vec<ComputeUnit>, Vec<ComputeUnit>) = units
-            .into_iter()
-            .partition(|unit| unit.startEpoch <= self.current_epoch);
-
-        self.active_compute_units
-            .extend(active.into_iter().map(|unit| CUID::new(unit.id.0)));
-        self.pending_compute_units
-            .extend(pending.into_iter().map(PendingUnit::from));
+        self.cc_compute_units
+            .extend(units.into_iter().map(|unit| (CUID::new(unit.id.0), unit)));
 
         for cu in in_deal {
             if !cu.deal.is_zero() {
@@ -488,22 +479,28 @@ impl ChainListener {
             }
         }
 
+        let active = self
+            .cc_compute_units
+            .values()
+            .filter(|unit| unit.startEpoch <= self.current_epoch);
+        let pending = self
+            .cc_compute_units
+            .values()
+            .filter(|unit| unit.startEpoch > self.current_epoch);
         tracing::info!(target: "chain-listener",
-            "Compute units mapping: active {}, pending {}, in deal {}",
-            self.active_compute_units.len(),
-            self.pending_compute_units.len(),
+            "Compute units mapping: in cc {}/[{} pending], in deal {}",
+            self.cc_compute_units.len(),
+            pending.clone().count(),
             self.active_deals.len()
         );
 
-        // TODO: log compute units pretty
         tracing::info!(target: "chain-listener",
             "Active compute units: {:?}",
-            self.active_compute_units.iter().map(CUID::to_string).collect::<Vec<_>>()
+            active.map(|cu| cu.id.to_string()).collect::<Vec<_>>()
         );
         tracing::info!(target: "chain-listener",
             "Pending compute units: {:?}",
-            self.pending_compute_units
-                .iter()
+            pending
                 .map(|cu| cu.id.to_string())
                 .collect::<Vec<_>>()
         );
@@ -669,7 +666,7 @@ impl ChainListener {
 
                 match status {
                     CCStatus::Active => {
-                        self.activate_pending_units(epoch_number).await?;
+                        self.refresh_commitment().await?;
                     }
                     CCStatus::Inactive | CCStatus::Failed | CCStatus::Removed => {
                         self.reset_commitment().await?;
@@ -713,18 +710,21 @@ impl ChainListener {
         self.subscribe_unit_activated().await?;
         self.subscribe_unit_deactivated().await?;
 
-        let is_cc_active = cc_event.startEpoch <= self.current_epoch;
+        self.cc_compute_units = unit_ids
+            .into_iter()
+            .map(|id| {
+                (
+                    CUID::new(id.0),
+                    ComputeUnit {
+                        id,
+                        deal: Address::ZERO,
+                        startEpoch: cc_event.startEpoch,
+                    },
+                )
+            })
+            .collect();
 
-        if is_cc_active {
-            self.active_compute_units = unit_ids.into_iter().map(|id| CUID::new(id.0)).collect();
-            self.refresh_commitment().await?;
-        } else {
-            self.pending_compute_units = unit_ids
-                .into_iter()
-                .map(|id| PendingUnit::new(CUID::new(id.0), cc_event.startEpoch))
-                .collect();
-            self.stop_commitment().await?;
-        }
+        self.refresh_commitment().await?;
 
         Ok(())
     }
@@ -747,13 +747,14 @@ impl ChainListener {
             unit_event.startEpoch
         );
 
-        if self.current_epoch >= unit_event.startEpoch {
-            self.active_compute_units
-                .insert(CUID::new(unit_event.unitId.0));
-        } else {
-            // Will be activated on the `start_epoch`
-            self.pending_compute_units.insert(unit_event.into());
-        }
+        self.cc_compute_units.insert(
+            CUID::new(unit_event.unitId.0),
+            ComputeUnit {
+                id: unit_event.unitId,
+                deal: Address::ZERO,
+                startEpoch: unit_event.startEpoch,
+            },
+        );
 
         self.refresh_commitment().await?;
         Ok(())
@@ -775,8 +776,7 @@ impl ChainListener {
             "Received UnitDeactivated event for unit: {}",
             unit_event.unitId.to_string()
         );
-        self.active_compute_units.remove(&unit_id);
-        self.pending_compute_units.retain(|cu| cu.id != unit_id);
+        self.cc_compute_units.remove(&unit_id);
         self.refresh_commitment().await?;
         self.acquire_deal_core(unit_id)?;
         Ok(())
@@ -804,17 +804,59 @@ impl ChainListener {
         Ok(())
     }
 
+    /// Return already started units involved in CC and not having less than MIN_PROOFS_PER_EPOCH proofs in the current epoch
+    fn get_priority_units(&self) -> Vec<CUID> {
+        self.proof_counter
+            .iter()
+            .filter(|(_, count)| **count < self.min_proofs_per_epoch)
+            .map(|(cuid, _)| *cuid)
+            .filter(|cuid| {
+                self.cc_compute_units
+                    .get(cuid)
+                    .map(|cu| cu.startEpoch <= self.current_epoch)
+                    .unwrap_or(false)
+            })
+            .collect()
+    }
+
+    /// Return already started units involved in CC and having more than MIN_PROOFS_PER_EPOCH,
+    /// but less that MAX_PROOFS_PER_EPOCH proofs in the current epoch
+    fn get_non_priority_units(&self) -> Vec<CUID> {
+        self.proof_counter
+            .iter()
+            .filter(|(_, count)| {
+                **count > self.min_proofs_per_epoch && **count < self.max_proofs_per_epoch
+            })
+            .map(|(cuid, _)| *cuid)
+            .filter(|cuid| {
+                self.cc_compute_units
+                    .get(cuid)
+                    .map(|cu| cu.startEpoch <= self.current_epoch)
+                    .unwrap_or(false)
+            })
+            .collect()
+    }
+
+    /// Return proofs in CC that is not active yet and can't produce proofs in the current epoch
+    fn get_pending_units(&self) -> Vec<CUID> {
+        self.cc_compute_units
+            .values()
+            .filter(|cu| cu.startEpoch > self.current_epoch)
+            .map(|cu| CUID::new(cu.id.0))
+            .collect()
+    }
+
     /// Send GlobalNonce, Difficulty and Core<>CUID mapping (full commitment info) to CCP
     async fn refresh_commitment(&self) -> eyre::Result<()> {
-        if self.active_compute_units.is_empty() {
+        if self.cc_compute_units.is_empty() {
             self.stop_commitment().await?;
             return Ok(());
         }
 
         tracing::info!(target: "chain-listener",
             "Refreshing commitment, active compute units: {}",
-            self.active_compute_units
-                .iter()
+            self.cc_compute_units
+                .keys()
                 .map(CUID::to_string)
                 .collect::<Vec<_>>()
                 .join(", ")
@@ -822,28 +864,45 @@ impl ChainListener {
         tracing::info!(target: "chain-listener", "Global nonce: {}", self.global_nonce);
         tracing::info!(target: "chain-listener", "Difficulty: {}", self.difficulty);
         if let Some(ref ccp_client) = self.ccp_client {
-            let mut cores = self.acquire_active_units()?;
+            let priority_units = self.get_priority_units();
+            let non_priority_units = self.get_non_priority_units();
+            let pending_units = self.get_pending_units();
 
-            // All pending units not involved in deals will help to solve CCs for other units
-            tracing::info!(target: "chain-listener",
-                "Pending compute units: {:?}",
-                self.pending_compute_units
-                    .iter()
-                    .map(|cu| cu.id.to_string())
-                    .collect::<Vec<_>>()
-            );
-            let mut available_cores = self.get_available_cores()?;
-            tracing::info!(
-                target: "chain-listener",
-                "{} cores of pending units will be allocated to other units",
-                available_cores.len()
-            );
+            let mut cores = HashMap::new();
+            let priority_cores = self.acquire_units(priority_units.clone())?;
+            let non_priority_cores = self.acquire_units(non_priority_units.clone())?;
+            let mut pending_cores = self.acquire_units(pending_units.clone())?;
 
-            for unit in self.active_compute_units.iter().cycle() {
-                if let Some(core) = available_cores.pop_first() {
-                    cores.insert(core, *unit);
+            if priority_units.is_empty() {
+                tracing::info!(target: "chain-listener", "All CUs found MIN_PROOFS_PER_EPOCH proofs in current epoch {}", self.current_epoch);
+                if non_priority_units.is_empty() {
+                    tracing::info!(target: "chain-listener", "All CUs found MAX_PROOFS_PER_EPOCH proofs in current epoch {}", self.current_epoch);
+                    self.stop_commitment().await?;
+                    return Ok(());
                 } else {
-                    break;
+                    cores.extend(non_priority_cores.iter().zip(non_priority_units.iter()));
+
+                    for unit in non_priority_units.iter().cycle() {
+                        if let Some(core) = pending_cores.pop_first() {
+                            cores.insert(core, *unit);
+                        } else {
+                            break;
+                        }
+                    }
+                }
+            } else {
+                cores.extend(priority_cores.iter().zip(priority_units.iter()));
+                let mut spare_cores: BTreeSet<_> = non_priority_cores
+                    .into_iter()
+                    .chain(pending_cores.into_iter())
+                    .collect();
+
+                for unit in priority_units.iter().cycle() {
+                    if let Some(core) = spare_cores.pop_first() {
+                        cores.insert(core, *unit);
+                    } else {
+                        break;
+                    }
                 }
             }
 
@@ -870,11 +929,11 @@ impl ChainListener {
         Ok(())
     }
 
-    fn acquire_active_units(&self) -> eyre::Result<HashMap<PhysicalCoreId, CUID>> {
+    fn acquire_units(&self, units: Vec<CUID>) -> eyre::Result<BTreeSet<PhysicalCoreId>> {
         let cores = self
             .core_manager
             .acquire_worker_core(AcquireRequest::new(
-                self.active_compute_units.clone().into_iter().collect(),
+                units,
                 WorkType::CapacityCommitment,
             ))
             .map_err(|err| {
@@ -882,11 +941,7 @@ impl ChainListener {
                 eyre::eyre!("Failed to acquire cores for active units: {err}")
             })?;
 
-        Ok(cores
-            .physical_core_ids
-            .into_iter()
-            .zip(self.active_compute_units.clone())
-            .collect())
+        Ok(cores.physical_core_ids)
     }
 
     fn acquire_deal_core(&self, unit_id: CUID) -> eyre::Result<()> {
@@ -897,8 +952,7 @@ impl ChainListener {
 
     /// Should be called only if Commitment is Inactive, Failed, Removed or not exists
     async fn reset_commitment(&mut self) -> eyre::Result<()> {
-        self.active_compute_units.clear();
-        self.pending_compute_units.clear();
+        self.cc_compute_units.clear();
         self.active_deals.clear();
         self.current_commitment = None;
         self.stop_commitment().await?;
@@ -916,27 +970,6 @@ impl ChainListener {
         Ok(())
     }
 
-    async fn activate_pending_units(&mut self, new_epoch: U256) -> eyre::Result<()> {
-        let to_activate: Vec<_> = self
-            .pending_compute_units
-            .extract_if(|unit| unit.start_epoch <= new_epoch)
-            .map(|cu| cu.id)
-            .collect();
-
-        tracing::info!(target: "chain-listener",
-            "Activating pending compute units: [{}]",
-            to_activate
-                .iter()
-                .map(CUID::to_string)
-                .collect::<Vec<_>>()
-                .join(", ")
-        );
-
-        self.active_compute_units.extend(to_activate);
-        self.refresh_commitment().await?;
-        Ok(())
-    }
-
     /// Submit Mocked Proofs for all active compute units.
     /// Mocked Proof has result_hash == difficulty and random local_nonce
     async fn submit_mocked_proofs(&mut self) -> eyre::Result<()> {
@@ -948,7 +981,8 @@ impl ChainListener {
 
         // proof_id is used only by CCP and is not sent to chain
         let proof_id = CCProofId::new(self.global_nonce, self.difficulty, ProofIdx::zero());
-        for unit in self.active_compute_units.clone().into_iter() {
+        let units = self.cc_compute_units.keys().cloned().collect::<Vec<_>>();
+        for unit in units {
             let local_nonce = LocalNonce::random();
             self.submit_proof(CCProof::new(proof_id, local_nonce, unit, result_hash))
                 .await?;
@@ -958,7 +992,7 @@ impl ChainListener {
     }
 
     async fn poll_proofs(&mut self) -> eyre::Result<()> {
-        if self.current_commitment.is_none() || self.active_compute_units.is_empty() {
+        if self.current_commitment.is_none() || self.cc_compute_units.is_empty() {
             return Ok(());
         }
 
@@ -989,7 +1023,7 @@ impl ChainListener {
     }
 
     async fn submit_proof(&mut self, proof: CCProof) -> eyre::Result<()> {
-        if !self.active_compute_units.contains(&proof.cu_id) {
+        if !self.cc_compute_units.contains_key(&proof.cu_id) {
             return Ok(());
         }
 
@@ -1012,13 +1046,10 @@ impl ChainListener {
                     ConnectorError::RpcCallError { ref data, .. } => {
                         // TODO: track proofs count per epoch and stop at maxProofsPerEpoch
                         if is_too_many_proofs(data) {
-                            tracing::info!(target: "chain-listener", "Too many proofs found for compute unit {}, stopping until next epoch", proof.cu_id);
+                            tracing::info!(target: "chain-listener", "Too many proofs found for compute unit {}", proof.cu_id);
 
-                            self.active_compute_units.remove(&proof.cu_id);
-                            self.pending_compute_units.insert(PendingUnit::new(
-                                proof.cu_id,
-                                self.current_epoch.add(Uint::from(1)),
-                            ));
+                            self.proof_counter
+                                .insert(proof.cu_id, self.max_proofs_per_epoch);
                             self.refresh_commitment().await?;
 
                             Ok(())
@@ -1135,16 +1166,6 @@ impl ChainListener {
         Ok(())
     }
 
-    fn get_available_cores(&self) -> eyre::Result<BTreeSet<PhysicalCoreId>> {
-        let available_units = self.pending_compute_units.iter().map(|cu| cu.id).collect();
-        self.core_manager.acquire_worker_core(AcquireRequest::new(available_units, WorkType::CapacityCommitment))
-            .map(|acquired| acquired.physical_core_ids)
-            .map_err(|err| {
-                tracing::error!(target: "chain-listener", "Failed to acquire cores for active units: {err}");
-                eyre::eyre!("Failed to acquire cores for active units: {err}")
-            })
-    }
-
     async fn poll_pending_proof_txs(&mut self) -> eyre::Result<()> {
         if self.pending_proof_txs.is_empty() {
             return Ok(());
@@ -1177,12 +1198,7 @@ impl ChainListener {
                             .or_insert(Uint::from(1));
 
                         if *counter >= self.min_proofs_per_epoch {
-                            tracing::info!(target: "chain-listener", "Compute unit {cu_id} submitted enough proofs, removing from active units");
-                            self.active_compute_units.remove(&cu_id);
-                            self.pending_compute_units.insert(PendingUnit::new(
-                                cu_id,
-                                self.current_epoch.add(Uint::from(1)),
-                            ));
+                            tracing::info!(target: "chain-listener", "Compute unit {cu_id} submitted enough proofs");
                         }
                     } else {
                         tracing::warn!(target: "chain-listener", "Proof tx {tx_hash} not confirmed");
