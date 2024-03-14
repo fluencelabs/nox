@@ -200,7 +200,7 @@ impl ChainListener {
                     tracing::info!(target: "chain-listener", "Successfully subscribed to unit events");
                 } else {
                     tracing::info!(target: "chain-listener", "Compute peer has no commitment");
-                    self.stop_commitment().await?
+                    self.reset_commitment().await?
                 }
 
                 if let Some(status) = self.get_commitment_status().await? {
@@ -848,7 +848,7 @@ impl ChainListener {
 
     /// Send GlobalNonce, Difficulty and Core<>CUID mapping (full commitment info) to CCP
     async fn refresh_commitment(&self) -> eyre::Result<()> {
-        if self.cc_compute_units.is_empty() {
+        if self.cc_compute_units.is_empty() || self.current_commitment.is_none() {
             self.stop_commitment().await?;
             return Ok(());
         }
