@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.23.3](https://github.com/fluencelabs/nox/compare/nox-v0.23.2...nox-v0.23.3) (2024-03-14)
+
+
+### Features
+
+* **listener:** use available cores to help other CUs ([#2163](https://github.com/fluencelabs/nox/issues/2163)) ([fe423ff](https://github.com/fluencelabs/nox/commit/fe423ff090e58914b08e9c5721df03f83804a11f))
+* migrate to alloy and more ([#2166](https://github.com/fluencelabs/nox/issues/2166)) ([0edf82d](https://github.com/fluencelabs/nox/commit/0edf82ddcf0b917026d9b6d7a86f7c78169ce98b))
+* restrict builtins, aqua-ipfs, worker-spell alias [NET-551,NET-730,NET-729,NET-792] ([#2141](https://github.com/fluencelabs/nox/issues/2141)) ([0f27f20](https://github.com/fluencelabs/nox/commit/0f27f20ad796f4b3cf88fc37b8ba28e9d7c97edf))
+
+
+### Bug Fixes
+
+* **config:** print config [fixes NET-796] ([#2161](https://github.com/fluencelabs/nox/issues/2161)) ([c1d58b5](https://github.com/fluencelabs/nox/commit/c1d58b5ac4043529197ed99691e0ea537f43b22a))
+
 ## [0.23.2](https://github.com/fluencelabs/nox/compare/nox-v0.23.1...nox-v0.23.2) (2024-03-10)
 
 
