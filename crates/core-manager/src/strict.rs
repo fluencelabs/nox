@@ -22,9 +22,16 @@ type Map<K, V> = HashMap<K, V, BuildHasherDefault<FxHasher>>;
 pub(crate) type MultiMap<K, V> = multimap::MultiMap<K, V, BuildHasherDefault<FxHasher>>;
 type BiMap<K, V> =
     bimap::BiHashMap<K, V, BuildHasherDefault<FxHasher>, BuildHasherDefault<FxHasher>>;
+
+/// `StrictCoreManager` is a CPU core manager responsible for allocating and releasing CPU cores
+/// based on workload requirements. It maintains the state of core allocations, persists
+/// the state to disk, and provides methods for acquiring and releasing cores.
 pub struct StrictCoreManager {
+    // path to the persistent state
     file_path: PathBuf,
+    // inner state
     state: RwLock<CoreManagerState>,
+    // persistent task notification channel
     sender: tokio::sync::mpsc::Sender<()>,
 }
 
@@ -55,7 +62,7 @@ impl StrictCoreManager {
                 let state: CoreManagerState = persistent_state.into();
                 Ok(Self::make_instance_with_task(file_path, state))
             } else {
-                tracing::warn!(target: "core-manager", "The initial config has been changed. Ignoring the previous state");
+                tracing::warn!(target: "core-manager", "The initial config has been changed. Ignoring persisted core mapping");
                 let (core_manager, task) =
                     Self::new(file_path.clone(), system_cpu_count, core_range)
                         .map_err(|err| LoadingError::CreateCoreManager { err })?;
@@ -65,7 +72,7 @@ impl StrictCoreManager {
                 Ok((core_manager, task))
             }
         } else {
-            tracing::debug!(target: "core-manager", "The previous state was not found. Creating a new one.");
+            tracing::debug!(target: "core-manager", "No persisted core mapping was not found. Creating a new one.");
             let (core_manager, task) = Self::new(file_path.clone(), system_cpu_count, core_range)
                 .map_err(|err| LoadingError::CreateCoreManager { err })?;
             core_manager
