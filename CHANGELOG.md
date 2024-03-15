@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.23.4](https://github.com/fluencelabs/nox/compare/nox-v0.23.3...nox-v0.23.4) (2024-03-15)
+
+
+### Features
+
+* **listener:** restart ws client + refactoring ([#2168](https://github.com/fluencelabs/nox/issues/2168)) ([ba61f15](https://github.com/fluencelabs/nox/commit/ba61f15ca1fc93203604291173bc2fb308f36771))
+
 ## [0.23.3](https://github.com/fluencelabs/nox/compare/nox-v0.23.2...nox-v0.23.3) (2024-03-14)
 
 
