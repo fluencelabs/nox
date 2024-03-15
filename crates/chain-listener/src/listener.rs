@@ -142,7 +142,7 @@ impl ChainListener {
         }
     }
 
-    pub async fn refresh(&mut self, event: &str, err: Report) {
+    pub async fn handle_subscription_error(&mut self, event: &str, err: Report) {
         tracing::warn!(target: "chain-listener", "{event} event processing error: {err}");
 
         let result: eyre::Result<()> = try {
@@ -185,31 +185,31 @@ impl ChainListener {
                     tokio::select! {
                         event = poll_subscription(&mut self.heads) => {
                             if let Err(err) = self.process_new_header(event).await {
-                                self.refresh("newHeads", err).await;
+                                self.handle_subscription_error("newHeads", err).await;
                             }
                         },
                         event = poll_subscription(&mut self.commitment_activated) => {
                             if let Err(err) = self.process_commitment_activated(event).await {
-                                self.refresh("CommitmentActivated", err).await;
+                                self.handle_subscription_error("CommitmentActivated", err).await;
                             }
                         },
                         event = poll_subscription(&mut self.unit_activated) => {
                             if self.unit_activated.is_some() {
                                 if let Err(err) = self.process_unit_activated(event).await {
-                                    self.refresh("UnitActivated", err).await;
+                                    self.handle_subscription_error("UnitActivated", err).await;
                                 }
                             }
                         },
                         event = poll_subscription(&mut self.unit_deactivated) => {
                             if self.unit_deactivated.is_some() {
                                  if let Err(err) = self.process_unit_deactivated(event).await {
-                                    self.refresh("UnitDeactivated", err).await;
+                                    self.handle_subscription_error("UnitDeactivated", err).await;
                                 }
                             }
                         },
                         event = poll_subscription(&mut self.unit_matched) => {
                             if let Err(err) = self.process_unit_matched(event) {
-                                self.refresh("ComputeUnitMatched", err).await;
+                                self.handle_subscription_error("ComputeUnitMatched", err).await;
                             }
                         },
                         _ = timer.next() => {
