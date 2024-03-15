@@ -9,9 +9,9 @@ use parking_lot::RwLock;
 use tokio::runtime::{Handle, Runtime, UnhandledPanic};
 use tokio::sync::mpsc::{Receiver, Sender};
 
-use core_manager::manager::{CoreManager, CoreManagerFunctions};
 use core_manager::types::{AcquireRequest, WorkType};
 use core_manager::CUID;
+use core_manager::{CoreManager, CoreManagerFunctions};
 use fluence_libp2p::PeerId;
 use types::peer_scope::WorkerId;
 use types::DealId;
@@ -597,7 +597,7 @@ impl Workers {
 #[cfg(test)]
 mod tests {
     use crate::{KeyStorage, WorkerParams, Workers, CUID};
-    use core_manager::manager::{CoreManager, DummyCoreManager};
+    use core_manager::{CoreManager, DummyCoreManager};
     use hex::FromHex;
     use libp2p::PeerId;
     use std::sync::Arc;

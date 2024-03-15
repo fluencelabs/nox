@@ -39,7 +39,7 @@ use air_interpreter_fs::write_default_air_interpreter;
 use aquamarine::{DataStoreConfig, VmConfig};
 use avm_server::avm_runner::AVMRunner;
 use config_utils::to_peer_id;
-use core_manager::manager::{CoreManager, CoreManagerFunctions, PersistentCoreManager};
+use core_manager::{CoreManager, CoreManagerFunctions, DevCoreManager, StrictCoreManager};
 use fs_utils::to_abs_path;
 use nox::{env_filter, log_layer, tracing_layer, Node};
 use server_config::{load_config, ConfigData, ResolvedConfig};
@@ -115,13 +115,23 @@ fn main() -> eyre::Result<()> {
 
     let resolved_config = config.clone().resolve()?;
 
-    let (core_manager, core_manager_task) = PersistentCoreManager::from_path(
-        resolved_config.dir_config.core_state_path.clone(),
-        resolved_config.node_config.system_cpu_count,
-        resolved_config.node_config.cpus_range.clone(),
-    )?;
-
-    let core_manager: Arc<CoreManager> = Arc::new(core_manager.into());
+    let (core_manager, core_manager_task) = if resolved_config.dev_mode_config.enable {
+        let (core_manager, core_manager_task) = DevCoreManager::from_path(
+            resolved_config.dir_config.core_state_path.clone(),
+            resolved_config.node_config.system_cpu_count,
+            resolved_config.node_config.cpus_range.clone(),
+        )?;
+        let core_manager: Arc<CoreManager> = Arc::new(core_manager.into());
+        (core_manager, core_manager_task)
+    } else {
+        let (core_manager, core_manager_task) = StrictCoreManager::from_path(
+            resolved_config.dir_config.core_state_path.clone(),
+            resolved_config.node_config.system_cpu_count,
+            resolved_config.node_config.cpus_range.clone(),
+        )?;
+        let core_manager: Arc<CoreManager> = Arc::new(core_manager.into());
+        (core_manager, core_manager_task)
+    };
 
     let system_cpu_cores_assignment = core_manager.get_system_cpu_assignment();
 
