@@ -480,7 +480,7 @@ impl ChainListener {
 
         loop {
             let result: Result<(), client::Error> = try {
-                self.heads = Some(self.subscribe("newHeads", rpc_params!["nedHeads"]).await?);
+                self.heads = Some(self.subscribe("newHeads", rpc_params!["newHeads"]).await?);
                 self.commitment_activated =
                     Some(self.subscribe("logs", self.cc_activated_params()).await?);
                 self.unit_matched = Some(self.subscribe("logs", self.unit_matched_params()).await?);
