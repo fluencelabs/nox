@@ -18,7 +18,7 @@ use ccp_shared::types::{Difficulty, GlobalNonce, LocalNonce, ResultHash};
 use cpu_utils::PhysicalCoreId;
 
 use eyre::{eyre, Report};
-use jsonrpsee::core::client::{Client as WsClient, Error, Subscription, SubscriptionClientT};
+use jsonrpsee::core::client::{Client as WsClient, Subscription, SubscriptionClientT};
 use jsonrpsee::core::params::ArrayParams;
 use jsonrpsee::core::{client, JsonValue};
 use jsonrpsee::rpc_params;
