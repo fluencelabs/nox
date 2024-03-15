@@ -36,7 +36,7 @@ use chain_connector::{
 };
 use chain_data::{parse_log, peer_id_to_hex, Log};
 use core_manager::types::{AcquireRequest, WorkType};
-use core_manager::{CUID, CoreManager, CoreManagerFunctions};
+use core_manager::{CoreManager, CoreManagerFunctions, CUID};
 use server_config::{ChainConfig, ChainListenerConfig};
 use types::DealId;
 
