@@ -148,7 +148,7 @@ log = "0.4.20"
 tracing = { version = "0.1.40", default-features = false, features = ["log"] }
 tracing-subscriber = "0.3.18"
 futures = "0.3.30"
-thiserror = "1.0.56"
+thiserror = "1.0.58"
 serde = "1.0.196"
 toml = "0.5.11"
 toml_edit = "0.22.6"
