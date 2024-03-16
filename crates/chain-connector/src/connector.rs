@@ -30,6 +30,7 @@ use particle_args::{Args, JError};
 use particle_builtins::{wrap, CustomService};
 use particle_execution::{ParticleParams, ServiceFunction};
 use server_config::ChainConfig;
+use types::peer_scope::WorkerId;
 use types::DealId;
 
 use crate::error::{process_response, ConnectorError};
@@ -86,6 +87,10 @@ impl ChainConnector {
                 vec![
                     ("send_tx", Self::make_send_tx_closure(connector.clone())),
                     ("get_deals", Self::make_get_deals_closure(connector.clone())),
+                    (
+                        "register_worker",
+                        Self::make_register_worker_closure(connector.clone()),
+                    ),
                 ],
                 None,
             ),
@@ -104,6 +109,13 @@ impl ChainConnector {
         ServiceFunction::Immut(Box::new(move |_, params| {
             let connector = connector.clone();
             async move { wrap(connector.get_deals_builtin(params).await) }.boxed()
+        }))
+    }
+
+    fn make_register_worker_closure(connector: Arc<Self>) -> ServiceFunction {
+        ServiceFunction::Immut(Box::new(move |args, params| {
+            let connector = connector.clone();
+            async move { wrap(connector.register_worker_builtin(args, params).await) }.boxed()
         }))
     }
 
@@ -132,6 +144,31 @@ impl ChainConnector {
             .await
             .map_err(|err| JError::new(format!("Failed to get deals: {err}")))?;
         Ok(json!(deals))
+    }
+
+    async fn register_worker_builtin(
+        &self,
+        args: Args,
+        params: ParticleParams,
+    ) -> Result<JValue, JError> {
+        if params.init_peer_id != self.host_id {
+            return Err(JError::new("Only the root worker can call connector"));
+        }
+
+        let mut args = args.function_args.into_iter();
+        let deal_id: DealId = Args::next("deal_id", &mut args)?;
+        let worker_id: WorkerId = Args::next("worker_id", &mut args)?;
+        let cu_ids: Vec<CUID> = Args::next("cu_id", &mut args)?;
+
+        if cu_ids.len() != 1 {
+            return Err(JError::new("Only one cu_id is allowed"));
+        }
+
+        let tx_hash = self
+            .register_worker(&deal_id, worker_id, cu_ids[0])
+            .await
+            .map_err(|err| JError::new(format!("Failed to register worker: {err}")))?;
+        Ok(json!(tx_hash))
     }
 
     async fn get_base_fee_per_gas(&self) -> Result<U256, ConnectorError> {
@@ -212,6 +249,7 @@ impl ChainConnector {
                 ],
             )?;
         }
+
         let resp: BatchResponse<String> = self.client.batch_request(batch).await?;
         let mut cids = vec![];
         for result in resp.into_iter() {
@@ -376,6 +414,21 @@ impl ChainConnector {
         .abi_encode();
 
         self.send_tx(data, &self.config.cc_contract_address).await
+    }
+
+    pub async fn register_worker(
+        &self,
+        deal_id: &DealId,
+        worker_id: WorkerId,
+        cu_id: CUID,
+    ) -> Result<String, ConnectorError> {
+        let data = Deal::setWorkerCall {
+            computeUnitId: cu_id.as_ref().into(),
+            workerId: peer_id_to_bytes(worker_id.into()).into(),
+        }
+        .abi_encode();
+
+        self.send_tx(data, &deal_id.as_str()).await
     }
 
     pub async fn get_compute_units(&self) -> Result<Vec<ComputeUnit>, ConnectorError> {

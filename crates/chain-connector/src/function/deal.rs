@@ -25,5 +25,8 @@ sol! {
 
         /// @dev Returns the app CID
         function appCID() external view returns (CIDV1 memory);
+
+        /// @dev Set worker ID for a compute unit. Compute unit can have only one worker ID
+        function setWorker(bytes32 computeUnitId, bytes32 workerId) external;
     }
 }
