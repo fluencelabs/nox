@@ -28,6 +28,7 @@ alloy-sol-types = { workspace = true }
 alloy-primitives = { workspace = true }
 const-hex = { workspace = true }
 serde = { workspace = true }
+libipld = { workspace = true }
 
 [dev-dependencies]
 mockito = { workspace = true }
