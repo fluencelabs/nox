@@ -91,6 +91,10 @@ impl ChainConnector {
                         "register_worker",
                         Self::make_register_worker_closure(connector.clone()),
                     ),
+                    (
+                        "get_tx_receipts",
+                        Self::make_get_tx_receipts_closure(connector.clone()),
+                    ),
                 ],
                 None,
             ),
@@ -116,6 +120,13 @@ impl ChainConnector {
         ServiceFunction::Immut(Box::new(move |args, params| {
             let connector = connector.clone();
             async move { wrap(connector.register_worker_builtin(args, params).await) }.boxed()
+        }))
+    }
+
+    fn make_get_tx_receipts_closure(connector: Arc<Self>) -> ServiceFunction {
+        ServiceFunction::Immut(Box::new(move |args, params| {
+            let connector = connector.clone();
+            async move { wrap(connector.get_tx_receipts_builtin(args, params).await) }.boxed()
         }))
     }
 
@@ -169,6 +180,28 @@ impl ChainConnector {
             .await
             .map_err(|err| JError::new(format!("Failed to register worker: {err}")))?;
         Ok(json!(tx_hash))
+    }
+
+    async fn get_tx_receipts_builtin(
+        &self,
+        args: Args,
+        params: ParticleParams,
+    ) -> Result<JValue, JError> {
+        if params.init_peer_id != self.host_id {
+            return Err(JError::new("Only the root worker can call connector"));
+        }
+
+        let mut args = args.function_args.into_iter();
+
+        let tx_hashes: Vec<String> = Args::next("tx_hashes", &mut args)?;
+
+        let receipts = self
+            .get_tx_receipts(tx_hashes.iter())
+            .await
+            .map_err(|err| JError::new(format!("Failed to get tx receipts: {err}")))?
+            .into_iter()
+            .collect::<Result<Vec<Value>, ConnectorError>>()?;
+        Ok(json!(receipts))
     }
 
     async fn get_base_fee_per_gas(&self) -> Result<U256, ConnectorError> {
