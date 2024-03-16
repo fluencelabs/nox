@@ -1,9 +1,8 @@
 use alloy_primitives::hex::ToHexExt;
-use alloy_primitives::{uint, FixedBytes, U256};
+use alloy_primitives::{FixedBytes, U256};
 use alloy_sol_types::sol_data::Array;
 use alloy_sol_types::{SolCall, SolType};
-use std::collections::HashMap;
-use std::ops::Div;
+use std::collections::{BTreeMap, HashMap};
 use std::str::FromStr;
 use std::sync::Arc;
 
@@ -16,11 +15,13 @@ use jsonrpsee::core::client::{BatchResponse, ClientT};
 use jsonrpsee::core::params::{ArrayParams, BatchRequestBuilder};
 use jsonrpsee::http_client::HttpClientBuilder;
 use jsonrpsee::rpc_params;
+use serde::{Deserialize, Serialize};
 use serde_json::Value as JValue;
 use serde_json::{json, Value};
 use tokio::sync::Mutex;
 
 use crate::ConnectorError::{InvalidU256, ResponseParseError};
+use crate::Deal::CIDV1;
 use crate::{CCStatus, Capacity, CommitmentId, Core, Deal, Offer};
 use chain_data::peer_id_to_bytes;
 use fluence_libp2p::PeerId;
@@ -29,12 +30,11 @@ use particle_args::{Args, JError};
 use particle_builtins::{wrap, CustomService};
 use particle_execution::{ParticleParams, ServiceFunction};
 use server_config::ChainConfig;
+use types::peer_scope::WorkerId;
 use types::DealId;
 
 use crate::error::{process_response, ConnectorError};
 use crate::Offer::{ComputePeer, ComputeUnit};
-
-const BASE_FEE_PREMIUM_DIVIDER: U256 = uint!(8_U256);
 
 pub struct ChainConnector {
     client: Arc<jsonrpsee::http_client::HttpClient>,
@@ -51,6 +51,14 @@ pub struct CCInitParams {
     pub epoch_duration: U256,
     pub min_proofs_per_epoch: U256,
     pub max_proofs_per_epoch: U256,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct DealInfo {
+    pub deal_id: DealId,
+    pub status: Deal::Status,
+    pub unit_ids: Vec<Vec<u8>>,
+    pub app_cid: String,
 }
 
 impl ChainConnector {
@@ -76,7 +84,18 @@ impl ChainConnector {
         builtins.insert(
             "connector".to_string(),
             CustomService::new(
-                vec![("send_tx", Self::make_send_tx_closure(connector.clone()))],
+                vec![
+                    ("send_tx", Self::make_send_tx_closure(connector.clone())),
+                    ("get_deals", Self::make_get_deals_closure(connector.clone())),
+                    (
+                        "register_worker",
+                        Self::make_register_worker_closure(connector.clone()),
+                    ),
+                    (
+                        "get_tx_receipts",
+                        Self::make_get_tx_receipts_closure(connector.clone()),
+                    ),
+                ],
                 None,
             ),
         );
@@ -87,6 +106,27 @@ impl ChainConnector {
         ServiceFunction::Immut(Box::new(move |args, params| {
             let connector = connector.clone();
             async move { wrap(connector.send_tx_builtin(args, params).await) }.boxed()
+        }))
+    }
+
+    fn make_get_deals_closure(connector: Arc<Self>) -> ServiceFunction {
+        ServiceFunction::Immut(Box::new(move |_, params| {
+            let connector = connector.clone();
+            async move { wrap(connector.get_deals_builtin(params).await) }.boxed()
+        }))
+    }
+
+    fn make_register_worker_closure(connector: Arc<Self>) -> ServiceFunction {
+        ServiceFunction::Immut(Box::new(move |args, params| {
+            let connector = connector.clone();
+            async move { wrap(connector.register_worker_builtin(args, params).await) }.boxed()
+        }))
+    }
+
+    fn make_get_tx_receipts_closure(connector: Arc<Self>) -> ServiceFunction {
+        ServiceFunction::Immut(Box::new(move |args, params| {
+            let connector = connector.clone();
+            async move { wrap(connector.get_tx_receipts_builtin(args, params).await) }.boxed()
         }))
     }
 
@@ -103,6 +143,65 @@ impl ChainConnector {
             .await
             .map_err(|err| JError::new(format!("Failed to send tx: {err}")))?;
         Ok(json!(tx_hash))
+    }
+
+    async fn get_deals_builtin(&self, params: ParticleParams) -> Result<JValue, JError> {
+        if params.init_peer_id != self.host_id {
+            return Err(JError::new("Only the root worker can call connector"));
+        }
+
+        let deals = self
+            .get_deals()
+            .await
+            .map_err(|err| JError::new(format!("Failed to get deals: {err}")))?;
+        Ok(json!(deals))
+    }
+
+    async fn register_worker_builtin(
+        &self,
+        args: Args,
+        params: ParticleParams,
+    ) -> Result<JValue, JError> {
+        if params.init_peer_id != self.host_id {
+            return Err(JError::new("Only the root worker can call connector"));
+        }
+
+        let mut args = args.function_args.into_iter();
+        let deal_id: DealId = Args::next("deal_id", &mut args)?;
+        let worker_id: WorkerId = Args::next("worker_id", &mut args)?;
+        let cu_ids: Vec<CUID> = Args::next("cu_id", &mut args)?;
+
+        if cu_ids.len() != 1 {
+            return Err(JError::new("Only one cu_id is allowed"));
+        }
+
+        let tx_hash = self
+            .register_worker(&deal_id, worker_id, cu_ids[0])
+            .await
+            .map_err(|err| JError::new(format!("Failed to register worker: {err}")))?;
+        Ok(json!(tx_hash))
+    }
+
+    async fn get_tx_receipts_builtin(
+        &self,
+        args: Args,
+        params: ParticleParams,
+    ) -> Result<JValue, JError> {
+        if params.init_peer_id != self.host_id {
+            return Err(JError::new("Only the root worker can call connector"));
+        }
+
+        let mut args = args.function_args.into_iter();
+
+        let tx_hashes: Vec<String> = Args::next("tx_hashes", &mut args)?;
+
+        let receipts = self
+            .get_tx_receipts(tx_hashes.iter())
+            .await
+            .map_err(|err| JError::new(format!("Failed to get tx receipts: {err}")))?
+            .into_iter()
+            .collect::<Result<Vec<Value>, ConnectorError>>()?;
+        Ok(json!(receipts))
     }
 
     async fn get_base_fee_per_gas(&self) -> Result<U256, ConnectorError> {
@@ -165,13 +264,73 @@ impl ChainConnector {
         Ok(limit)
     }
 
+    pub async fn get_app_cid(
+        &self,
+        deals: impl Iterator<Item = &DealId>,
+    ) -> eyre::Result<Vec<String>> {
+        let data: String = Deal::appCIDCall {}.abi_encode().encode_hex();
+        let mut batch = BatchRequestBuilder::new();
+        for deal in deals {
+            batch.insert(
+                "eth_call",
+                rpc_params![
+                    json!({
+                        "data": data,
+                        "to": deal,
+                    }),
+                    "latest"
+                ],
+            )?;
+        }
+
+        let resp: BatchResponse<String> = self.client.batch_request(batch).await?;
+        let mut cids = vec![];
+        for result in resp.into_iter() {
+            let cid = CIDV1::abi_decode(&decode_hex(&result?)?, true)?;
+            let cid_bytes = [cid.prefixes.to_vec(), cid.hash.to_vec()].concat();
+            let app_cid = libipld::Cid::read_bytes(cid_bytes.as_slice())?.to_string();
+
+            cids.push(app_cid.to_string());
+        }
+
+        Ok(cids)
+    }
+
+    pub async fn get_deals(&self) -> eyre::Result<Vec<DealInfo>> {
+        let units = self.get_compute_units().await?;
+        let mut deals: BTreeMap<DealId, Vec<Vec<u8>>> = BTreeMap::new();
+
+        units.iter().for_each(|unit| {
+            deals
+                .entry(unit.deal.to_string().into())
+                .or_insert_with(Vec::new)
+                .push(unit.id.to_vec());
+        });
+
+        let app_cids = self.get_app_cid(deals.keys()).await?;
+        let statuses: Vec<Deal::Status> = self
+            .get_deal_statuses(deals.keys())
+            .await?
+            .into_iter()
+            .collect::<Result<Vec<_>, ConnectorError>>()?;
+
+        Ok(deals
+            .into_iter()
+            .zip(app_cids.into_iter().zip(statuses.into_iter()))
+            .map(|((deal_id, unit_ids), (app_cid, status))| DealInfo {
+                deal_id,
+                status,
+                unit_ids,
+                app_cid,
+            })
+            .collect())
+    }
+
     pub async fn send_tx(&self, data: Vec<u8>, to: &str) -> Result<String, ConnectorError> {
-        let base_fee_per_gas = self.get_base_fee_per_gas().await?;
+        let base_fee = self.get_base_fee_per_gas().await?;
         tracing::info!(target: "chain-connector", "Estimating gas for tx from {} to {} data {}", self.config.wallet_key.to_address(), to, hex::encode(&data));
         let gas_limit = self.estimate_gas_limit(&data, to).await?;
         let max_priority_fee_per_gas = self.max_priority_fee_per_gas().await?;
-        let increase = base_fee_per_gas.div(BASE_FEE_PREMIUM_DIVIDER);
-        let base_fee = base_fee_per_gas.checked_add(increase).unwrap_or(U256::MAX);
         // (base fee + priority fee).
         let max_fee_per_gas = base_fee + max_priority_fee_per_gas;
 
@@ -288,6 +447,21 @@ impl ChainConnector {
         .abi_encode();
 
         self.send_tx(data, &self.config.cc_contract_address).await
+    }
+
+    pub async fn register_worker(
+        &self,
+        deal_id: &DealId,
+        worker_id: WorkerId,
+        cu_id: CUID,
+    ) -> Result<String, ConnectorError> {
+        let data = Deal::setWorkerCall {
+            computeUnitId: cu_id.as_ref().into(),
+            workerId: peer_id_to_bytes(worker_id.into()).into(),
+        }
+        .abi_encode();
+
+        self.send_tx(data, &deal_id.as_str()).await
     }
 
     pub async fn get_compute_units(&self) -> Result<Vec<ComputeUnit>, ConnectorError> {
