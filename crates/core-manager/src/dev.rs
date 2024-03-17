@@ -201,7 +201,7 @@ struct PersistentCoreManagerState {
     cores_mapping: Vec<(PhysicalCoreId, LogicalCoreId)>,
     system_cores: Vec<PhysicalCoreId>,
     available_cores: Vec<PhysicalCoreId>,
-    core_unit_id_mapping: Vec<(PhysicalCoreId, CUID)>,
+    unit_id_mapping: Vec<(PhysicalCoreId, CUID)>,
     work_type_mapping: Vec<(CUID, WorkType)>,
 }
 
@@ -211,7 +211,7 @@ impl From<&CoreManagerState> for PersistentCoreManagerState {
             cores_mapping: value.cores_mapping.iter().map(|(k, v)| (*k, *v)).collect(),
             system_cores: value.system_cores.iter().cloned().collect(),
             available_cores: value.available_cores.iter().cloned().collect(),
-            core_unit_id_mapping: value
+            unit_id_mapping: value
                 .core_unit_id_mapping
                 .iter()
                 .map(|(k, v)| (*k, *v))
@@ -231,9 +231,9 @@ impl From<PersistentCoreManagerState> for CoreManagerState {
             cores_mapping: value.cores_mapping.into_iter().collect(),
             system_cores: value.system_cores.into_iter().collect(),
             available_cores: value.available_cores.into_iter().collect(),
-            core_unit_id_mapping: value.core_unit_id_mapping.iter().cloned().collect(),
+            core_unit_id_mapping: value.unit_id_mapping.iter().cloned().collect(),
             unit_id_core_mapping: value
-                .core_unit_id_mapping
+                .unit_id_mapping
                 .into_iter()
                 .map(|(core_id, unit_id)| (unit_id, core_id))
                 .collect(),
