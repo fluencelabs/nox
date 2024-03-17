@@ -23,7 +23,6 @@ use eyre::WrapErr;
 use fluence_keypair::KeyPair;
 use futures::future::OptionFuture;
 use futures::{stream::StreamExt, FutureExt};
-use jsonrpsee::ws_client::WsClientBuilder;
 use libp2p::swarm::SwarmEvent;
 use libp2p::SwarmBuilder;
 use libp2p::{
@@ -133,31 +132,17 @@ async fn setup_listener(
             None
         };
 
+        let ws_client = ChainListener::create_ws_client(&listener_config.ws_endpoint).await?;
         let cc_events_dir = config.dir_config.cc_events_dir.clone();
         let host_id = config.root_key_pair.get_peer_id();
-        let ws_client = WsClientBuilder::default()
-            .build(&listener_config.ws_endpoint)
-            .await
-            .map_err(|err| {
-                log::error!(
-                    "Error connecting to websocket endpoint {}, error: {}",
-                    listener_config.ws_endpoint,
-                    err
-                );
-                err
-            })?;
-        log::info!(
-            "Successfully connected to websocket endpoint: {}",
-            listener_config.ws_endpoint
-        );
 
         let chain_listener = ChainListener::new(
             chain_config,
+            ws_client,
             listener_config,
             host_id,
             connector,
             core_manager,
-            ws_client,
             ccp_client,
             cc_events_dir,
         );
