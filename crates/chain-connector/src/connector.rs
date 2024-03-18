@@ -1,5 +1,5 @@
 use alloy_primitives::hex::ToHexExt;
-use alloy_primitives::{uint, FixedBytes, U256};
+use alloy_primitives::{uint, FixedBytes, Uint, U256};
 use alloy_sol_types::sol_data::Array;
 use alloy_sol_types::{SolCall, SolType};
 use std::collections::HashMap;
@@ -106,6 +106,10 @@ impl ChainConnector {
     }
 
     async fn get_base_fee_per_gas(&self) -> Result<U256, ConnectorError> {
+        if let Some(fee) = self.config.default_base_fee {
+            return Ok(Uint::from(fee));
+        }
+
         let block: Value = process_response(
             self.client
                 .request("eth_getBlockByNumber", rpc_params!["pending", false])
@@ -138,6 +142,10 @@ impl ChainConnector {
     }
 
     async fn max_priority_fee_per_gas(&self) -> Result<U256, ConnectorError> {
+        if let Some(fee) = self.config.default_priority_fee {
+            return Ok(Uint::from(fee));
+        }
+
         let resp: String = process_response(
             self.client
                 .request("eth_maxPriorityFeePerGas", rpc_params![])
@@ -568,6 +576,8 @@ mod tests {
                     "0x97a2456e78c4894c62eef6031972d1ca296ed40bf311ab54c231f13db59fc428",
                 )
                 .unwrap(),
+                default_base_fee: None,
+                default_priority_fee: None,
             },
             peer_id_from_hex("0x6497db93b32e4cdd979ada46a23249f444da1efb186cd74b9666bd03f710028b")
                 .unwrap(),
