@@ -528,17 +528,17 @@ impl ChainConnector {
     }
 
     fn min_proofs_per_epoch_params(&self) -> ArrayParams {
-        let data: String = Capacity::minProofsPerEpochCall {}.abi_encode().encode_hex();
+        let data: String = Core::minProofsPerEpochCall {}.abi_encode().encode_hex();
         rpc_params![
-            json!({"data": data, "to": self.config.cc_contract_address}),
+            json!({"data": data, "to": self.config.core_contract_address}),
             "latest"
         ]
     }
 
     fn max_proofs_per_epoch_params(&self) -> ArrayParams {
-        let data: String = Capacity::maxProofsPerEpochCall {}.abi_encode().encode_hex();
+        let data: String = Core::maxProofsPerEpochCall {}.abi_encode().encode_hex();
         rpc_params![
-            json!({"data": data, "to": self.config.cc_contract_address}),
+            json!({"data": data, "to": self.config.core_contract_address}),
             "latest"
         ]
     }
@@ -569,9 +569,9 @@ mod tests {
         let (connector, _) = ChainConnector::new(
             server_config::ChainConfig {
                 http_endpoint: url.to_string(),
-                cc_contract_address: "0xb2f922f9660200662f5B38B77e848c946AC8E426".to_string(),
-                core_contract_address: "0xDFfaD436cD2863245e5db3419955f90B7FB3E0d1".to_string(),
-                market_contract_address: "0x49a6C3b528f31D45F09b1E490539FBC0436bA462".to_string(),
+                cc_contract_address: "0x0E62f5cfA5189CA34E79CCB03829C064405790aD".to_string(),
+                core_contract_address: "0x2f5224b7Cb8bd98d9Ef61c247F4741758E8E873d".to_string(),
+                market_contract_address: "0x1dC1eB8fc8dBc35be6fE75ceba05C7D410a2e721".to_string(),
                 network_id: 3525067388221321,
                 wallet_key: PrivateKey::from_str(
                     "0x97a2456e78c4894c62eef6031972d1ca296ed40bf311ab54c231f13db59fc428",
