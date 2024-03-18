@@ -16,5 +16,8 @@ sol! {
         /// @dev Returns epoch init timestamp
         /// @return initTimestamp in seconds
         function initTimestamp() external view returns (uint256);
+
+        /// @dev Returns the difficulty for CCP
+        function difficulty() external view returns (bytes32);
     }
 }

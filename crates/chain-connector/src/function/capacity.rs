@@ -24,8 +24,6 @@ sol! {
         /// @dev Capacity commitment is not active
         error CapacityCommitmentIsNotActive(CCStatus status);
 
-        /// @dev Returns the difficulty for randomX
-        function difficulty() external view returns (bytes32);
         function getGlobalNonce() external view returns (bytes32);
 
         /// @dev Returns the min required randomX proofs per epoch for the 1 CU.

@@ -490,9 +490,10 @@ impl ChainConnector {
     }
 
     fn difficulty_params(&self) -> ArrayParams {
-        let data: String = Capacity::difficultyCall {}.abi_encode().encode_hex();
+        let data: String = Core::difficultyCall {}.abi_encode().encode_hex();
+
         rpc_params![
-            json!({"data": data, "to": self.config.cc_contract_address}),
+            json!({"data": data, "to": self.config.core_contract_address}),
             "latest"
         ]
     }
