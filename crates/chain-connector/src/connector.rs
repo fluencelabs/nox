@@ -576,6 +576,8 @@ mod tests {
                     "0x97a2456e78c4894c62eef6031972d1ca296ed40bf311ab54c231f13db59fc428",
                 )
                 .unwrap(),
+                default_base_fee: None,
+                default_priority_fee: None,
             },
             peer_id_from_hex("0x6497db93b32e4cdd979ada46a23249f444da1efb186cd74b9666bd03f710028b")
                 .unwrap(),
