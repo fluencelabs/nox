@@ -26,12 +26,6 @@ sol! {
 
         function getGlobalNonce() external view returns (bytes32);
 
-        /// @dev Returns the min required randomX proofs per epoch for the 1 CU.
-        /// @dev  If lower than this - CU is failed and CC slashed.
-        function minProofsPerEpoch() external view returns (uint256);
-
-        /// @dev Returns the max randomX proofs per epoch
-        function maxProofsPerEpoch() external view returns (uint256);
 
         /// @dev Returns the commitment status
         /// @param commitmentId Commitment id
