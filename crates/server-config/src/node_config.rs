@@ -567,6 +567,10 @@ pub struct ChainConfig {
     pub market_contract_address: String,
     pub network_id: u64,
     pub wallet_key: PrivateKey,
+    /// If none, comes from the chain
+    pub default_base_fee: Option<u64>,
+    /// If none, comes from the chain
+    pub default_priority_fee: Option<u64>,
 }
 
 #[derive(Clone, Deserialize, Serialize, Derivative)]
