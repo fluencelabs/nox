@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.23.5](https://github.com/fluencelabs/nox/compare/nox-v0.23.4...nox-v0.23.5) (2024-03-18)
+
+
+### Features
+
+* **connector:** allow to set default fees ([#2181](https://github.com/fluencelabs/nox/issues/2181)) ([83f4346](https://github.com/fluencelabs/nox/commit/83f434652938cc888cbde1198466eb13a39646cf))
+
+
+### Bug Fixes
+
+* actually load proof id and increase poll limit ([#2183](https://github.com/fluencelabs/nox/issues/2183)) ([fb8ccd3](https://github.com/fluencelabs/nox/commit/fb8ccd3626ca63c7cbbfb64510b3e7894399d95d))
+
 ## [0.23.4](https://github.com/fluencelabs/nox/compare/nox-v0.23.3...nox-v0.23.4) (2024-03-15)
 
 
