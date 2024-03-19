@@ -46,7 +46,7 @@ use crate::event::cc_activated::CommitmentActivated;
 use crate::event::{ComputeUnitMatched, UnitActivated, UnitDeactivated};
 use crate::persistence;
 
-const PROOF_POLL_LIMIT: usize = 10;
+const PROOF_POLL_LIMIT: usize = 50;
 
 pub struct ChainListener {
     config: ChainConfig,
@@ -375,6 +375,7 @@ impl ChainListener {
             persistence::load_persisted_proof_id(&self.persisted_proof_id_dir).await?;
 
         if let Some(persisted_proof_id) = persisted_proof_id {
+            self.last_submitted_proof_id = persisted_proof_id.proof_id;
             tracing::info!(target: "chain-listener", "Loaded persisted proof id {} saved on epoch {}", persisted_proof_id.proof_id, persisted_proof_id.epoch);
             if persisted_proof_id.epoch != self.current_epoch {
                 tracing::info!(target: "chain-listener","Persisted proof id epoch is different from current epoch {}, resetting proof id", self.current_epoch);

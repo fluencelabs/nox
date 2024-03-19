@@ -23,7 +23,7 @@ serde_json = { workspace = true }
 tokio = { workspace = true, features = ["rt"] }
 server-config = { workspace = true }
 types = { workspace = true }
-libipld = "0.16.0"
+libipld = { workspace = true }
 
 alloy-sol-types = { workspace = true }
 alloy-primitives = { workspace = true }
