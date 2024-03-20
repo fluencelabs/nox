@@ -33,7 +33,7 @@ use aquamarine::{AVMRunner, AquamarineApi, VmConfig};
 use aquamarine::{AquaRuntime, DataStoreConfig};
 use base64::{engine::general_purpose::STANDARD as base64, Engine};
 use cid_utils::Hash;
-use core_manager::manager::DummyCoreManager;
+use core_manager::DummyCoreManager;
 use fluence_libp2p::random_multiaddr::{create_memory_maddr, create_tcp_maddr};
 use fluence_libp2p::Transport;
 use fs_utils::to_abs_path;

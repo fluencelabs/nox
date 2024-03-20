@@ -6,9 +6,9 @@ mod persistence;
 mod scope;
 mod workers;
 
-pub use core_manager::manager::CoreManager;
-pub use core_manager::manager::DummyCoreManager;
-pub use core_manager::manager::PersistentCoreManager;
+pub use core_manager::CoreManager;
+pub use core_manager::DummyCoreManager;
+pub use core_manager::StrictCoreManager;
 pub use core_manager::CUID;
 pub use error::KeyStorageError;
 pub use error::WorkersError;

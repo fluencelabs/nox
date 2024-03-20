@@ -45,7 +45,7 @@ use chain_connector::ChainConnector;
 use chain_listener::ChainListener;
 use config_utils::to_peer_id;
 use connection_pool::ConnectionPoolT;
-use core_manager::manager::CoreManager;
+use core_manager::CoreManager;
 use fluence_libp2p::build_transport;
 use health::HealthCheckRegistry;
 use particle_builtins::{Builtins, CustomService, NodeInfo};
@@ -724,7 +724,7 @@ mod tests {
     use aquamarine::{DataStoreConfig, VmConfig};
     use config_utils::to_peer_id;
     use connected_client::ConnectedClient;
-    use core_manager::manager::DummyCoreManager;
+    use core_manager::DummyCoreManager;
     use fs_utils::to_abs_path;
     use server_config::{default_base_dir, load_config_with_args, persistent_dir};
     use system_services::SystemServiceDistros;

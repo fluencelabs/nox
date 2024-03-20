@@ -37,9 +37,8 @@ use chain_connector::{
     ConnectorError, Deal, PEER_NOT_EXISTS,
 };
 use chain_data::{parse_log, peer_id_to_hex, Log};
-use core_manager::manager::{CoreManager, CoreManagerFunctions};
 use core_manager::types::{AcquireRequest, WorkType};
-use core_manager::CUID;
+use core_manager::{CoreManager, CoreManagerFunctions, CUID};
 use server_config::{ChainConfig, ChainListenerConfig};
 use types::DealId;
 
