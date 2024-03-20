@@ -1,7 +1,5 @@
 use std::collections::{BTreeSet, HashMap, VecDeque};
-use std::fs::File;
 use std::hash::BuildHasherDefault;
-use std::io::Write;
 use std::ops::Deref;
 use std::path::PathBuf;
 
@@ -10,11 +8,12 @@ use cpu_utils::CPUTopology;
 use fxhash::{FxBuildHasher, FxHasher};
 use parking_lot::RwLock;
 use range_set_blaze::RangeSetBlaze;
-use serde::{Deserialize, Serialize};
 
-use crate::errors::{AcquireError, CreateError, LoadingError, PersistError};
+use crate::errors::{AcquireError, CreateError, CurrentAssignment, LoadingError, PersistError};
 use crate::manager::CoreManagerFunctions;
-use crate::persistence::{PersistenceTask, PersistentCoreManagerFunctions};
+use crate::persistence::{
+    PersistenceTask, PersistentCoreManagerFunctions, PersistentCoreManagerState,
+};
 use crate::types::{AcquireRequest, Assignment, WorkType};
 use crate::CoreRange;
 
@@ -196,15 +195,6 @@ struct CoreManagerState {
     work_type_mapping: Map<CUID, WorkType>,
 }
 
-#[derive(Serialize, Deserialize)]
-struct PersistentCoreManagerState {
-    cores_mapping: Vec<(PhysicalCoreId, LogicalCoreId)>,
-    system_cores: Vec<PhysicalCoreId>,
-    available_cores: Vec<PhysicalCoreId>,
-    unit_id_mapping: Vec<(PhysicalCoreId, CUID)>,
-    work_type_mapping: Vec<(CUID, WorkType)>,
-}
-
 impl From<&CoreManagerState> for PersistentCoreManagerState {
     fn from(value: &CoreManagerState) -> Self {
         Self {
@@ -214,12 +204,12 @@ impl From<&CoreManagerState> for PersistentCoreManagerState {
             unit_id_mapping: value
                 .core_unit_id_mapping
                 .iter()
-                .map(|(k, v)| (*k, *v))
+                .map(|(k, v)| (*k, (*v)))
                 .collect(),
             work_type_mapping: value
                 .work_type_mapping
                 .iter()
-                .map(|(k, v)| (*k, v.clone()))
+                .map(|(k, v)| ((*k), v.clone()))
                 .collect(),
         }
     }
@@ -261,7 +251,9 @@ impl CoreManagerFunctions for DevCoreManager {
                             .iter()
                             .map(|(k, v)| (*k, *v))
                             .collect();
-                        AcquireError::NotFoundAvailableCores { current_assignment }
+                        AcquireError::NotFoundAvailableCores {
+                            current_assignment: CurrentAssignment::new(current_assignment),
+                        }
                     })?;
                     lock.core_unit_id_mapping.insert(core_id, unit_id);
                     lock.unit_id_core_mapping.insert(unit_id, core_id);
@@ -342,12 +334,7 @@ impl PersistentCoreManagerFunctions for DevCoreManager {
         let inner_state = lock.deref();
         let persistent_state: PersistentCoreManagerState = inner_state.into();
         drop(lock);
-        let toml = toml::to_string_pretty(&persistent_state)
-            .map_err(|err| PersistError::SerializationError { err })?;
-        let mut file =
-            File::create(self.file_path.clone()).map_err(|err| PersistError::IoError { err })?;
-        file.write(toml.as_bytes())
-            .map_err(|err| PersistError::IoError { err })?;
+        persistent_state.persist(self.file_path.as_path())?;
         Ok(())
     }
 }
