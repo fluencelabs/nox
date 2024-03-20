@@ -117,8 +117,8 @@ mod tests {
             ],
             system_cores: vec![PhysicalCoreId::new(1)],
             available_cores: vec![PhysicalCoreId::new(2), PhysicalCoreId::new(3)],
-            unit_id_mapping: vec![(PhysicalCoreId::new(4), init_id_1.into())],
-            work_type_mapping: vec![(init_id_1.into(), WorkType::Deal)],
+            unit_id_mapping: vec![(PhysicalCoreId::new(4), init_id_1)],
+            work_type_mapping: vec![(init_id_1, WorkType::Deal)],
         };
         let actual = toml::to_string(&persistent_state).unwrap();
         let expected = "cores_mapping = [[1, 1], [1, 2], [2, 3], [2, 4], [3, 5], [3, 6], [4, 7], [4, 8]]\n\

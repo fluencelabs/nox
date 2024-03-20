@@ -204,12 +204,12 @@ impl From<&CoreManagerState> for PersistentCoreManagerState {
             unit_id_mapping: value
                 .core_unit_id_mapping
                 .iter()
-                .map(|(k, v)| (*k, v.clone().into()))
+                .map(|(k, v)| (*k, (*v)))
                 .collect(),
             work_type_mapping: value
                 .work_type_mapping
                 .iter()
-                .map(|(k, v)| (k.clone().into(), v.clone()))
+                .map(|(k, v)| ((*k), v.clone()))
                 .collect(),
         }
     }
