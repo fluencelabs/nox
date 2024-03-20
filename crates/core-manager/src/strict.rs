@@ -1,7 +1,5 @@
 use std::collections::{BTreeSet, HashMap};
-use std::fs::File;
 use std::hash::BuildHasherDefault;
-use std::io::Write;
 use std::ops::Deref;
 use std::path::PathBuf;
 
@@ -10,11 +8,12 @@ use cpu_utils::CPUTopology;
 use fxhash::{FxBuildHasher, FxHasher};
 use parking_lot::RwLock;
 use range_set_blaze::RangeSetBlaze;
-use serde::{Deserialize, Serialize};
 
-use crate::errors::{AcquireError, CreateError, LoadingError, PersistError};
+use crate::errors::{AcquireError, CreateError, CurrentAssignment, LoadingError, PersistError};
 use crate::manager::CoreManagerFunctions;
-use crate::persistence::{PersistenceTask, PersistentCoreManagerFunctions};
+use crate::persistence::{
+    PersistenceTask, PersistentCoreManagerFunctions, PersistentCoreManagerState,
+};
 use crate::types::{AcquireRequest, Assignment, WorkType};
 use crate::CoreRange;
 
@@ -192,15 +191,6 @@ struct CoreManagerState {
     work_type_mapping: Map<CUID, WorkType>,
 }
 
-#[derive(Serialize, Deserialize)]
-struct PersistentCoreManagerState {
-    cores_mapping: Vec<(PhysicalCoreId, LogicalCoreId)>,
-    system_cores: Vec<PhysicalCoreId>,
-    available_cores: Vec<PhysicalCoreId>,
-    unit_id_mapping: Vec<(PhysicalCoreId, CUID)>,
-    work_type_mapping: Vec<(CUID, WorkType)>,
-}
-
 impl From<&CoreManagerState> for PersistentCoreManagerState {
     fn from(value: &CoreManagerState) -> Self {
         Self {
@@ -210,12 +200,12 @@ impl From<&CoreManagerState> for PersistentCoreManagerState {
             unit_id_mapping: value
                 .unit_id_mapping
                 .iter()
-                .map(|(k, v)| (*k, *v))
+                .map(|(k, v)| (*k, v.clone().into()))
                 .collect(),
             work_type_mapping: value
                 .work_type_mapping
                 .iter()
-                .map(|(k, v)| (*k, v.clone()))
+                .map(|(k, v)| (k.clone().into(), v.clone()))
                 .collect(),
         }
     }
@@ -249,7 +239,9 @@ impl CoreManagerFunctions for StrictCoreManager {
                     let core_id = lock.available_cores.pop_last().ok_or({
                         let current_assignment: Vec<(PhysicalCoreId, CUID)> =
                             lock.unit_id_mapping.iter().map(|(k, v)| (*k, *v)).collect();
-                        AcquireError::NotFoundAvailableCores { current_assignment }
+                        AcquireError::NotFoundAvailableCores {
+                            current_assignment: CurrentAssignment::new(current_assignment),
+                        }
                     })?;
                     lock.unit_id_mapping.insert(core_id, unit_id);
                     lock.work_type_mapping
@@ -321,22 +313,18 @@ impl PersistentCoreManagerFunctions for StrictCoreManager {
         let inner_state = lock.deref();
         let persistent_state: PersistentCoreManagerState = inner_state.into();
         drop(lock);
-        let toml = toml::to_string_pretty(&persistent_state)
-            .map_err(|err| PersistError::SerializationError { err })?;
-        let mut file =
-            File::create(self.file_path.clone()).map_err(|err| PersistError::IoError { err })?;
-        file.write(toml.as_bytes())
-            .map_err(|err| PersistError::IoError { err })?;
+        persistent_state.persist(self.file_path.as_path())?;
         Ok(())
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use ccp_shared::types::CUID;
+    use ccp_shared::types::{LogicalCoreId, PhysicalCoreId, CUID};
     use hex::FromHex;
 
     use crate::manager::CoreManagerFunctions;
+    use crate::persistence::PersistentCoreManagerState;
     use crate::strict::StrictCoreManager;
     use crate::types::{AcquireRequest, WorkType};
     use crate::CoreRange;
@@ -456,6 +444,60 @@ mod tests {
             assert_eq!(after_release_available_core, before_available_core);
             assert_eq!(after_release_unit_id_mapping, before_unit_id_mapping);
             assert_eq!(after_release_type_mapping, before_type_mapping);
+        }
+    }
+
+    #[test]
+    fn test_acquire_error_message() {
+        if cores_exists() {
+            let temp_dir = tempfile::tempdir().expect("Failed to create temp dir");
+            let init_id_1 = <CUID>::from_hex(
+                "54ae1b506c260367a054f80800a545f23e32c6bc4a8908c9a794cb8dad23e5ea",
+            )
+            .unwrap();
+            let init_id_2 = <CUID>::from_hex(
+                "1cce3d08f784b11d636f2fb55adf291d43c2e9cbe7ae7eeb2d0301a96be0a3a0",
+            )
+            .unwrap();
+            let init_id_3 = <CUID>::from_hex(
+                "271e0e06fdae1f0237055e78f5804416fd9ebb9ca5b52ae360d8124cde220dae",
+            )
+            .unwrap();
+            let persistent_state = PersistentCoreManagerState {
+                cores_mapping: vec![
+                    (PhysicalCoreId::new(1), LogicalCoreId::new(1)),
+                    (PhysicalCoreId::new(1), LogicalCoreId::new(2)),
+                    (PhysicalCoreId::new(2), LogicalCoreId::new(3)),
+                    (PhysicalCoreId::new(2), LogicalCoreId::new(4)),
+                    (PhysicalCoreId::new(3), LogicalCoreId::new(5)),
+                    (PhysicalCoreId::new(3), LogicalCoreId::new(6)),
+                ],
+                system_cores: vec![PhysicalCoreId::new(1)],
+                available_cores: vec![PhysicalCoreId::new(2)],
+                unit_id_mapping: vec![(PhysicalCoreId::new(3), init_id_1)],
+                work_type_mapping: vec![(init_id_1, WorkType::Deal)],
+            };
+            let (manager, _task) = StrictCoreManager::make_instance_with_task(
+                temp_dir.into_path(),
+                persistent_state.into(),
+            );
+
+            manager
+                .acquire_worker_core(AcquireRequest {
+                    unit_ids: vec![init_id_2],
+                    worker_type: WorkType::Deal,
+                })
+                .unwrap();
+
+            let result = manager.acquire_worker_core(AcquireRequest {
+                unit_ids: vec![init_id_3],
+                worker_type: WorkType::Deal,
+            });
+
+            let expected = "Couldn't assign core: no free cores left. \
+            Current assignment: [2 -> 1cce3d08f784b11d636f2fb55adf291d43c2e9cbe7ae7eeb2d0301a96be0a3a0, \
+            3 -> 54ae1b506c260367a054f80800a545f23e32c6bc4a8908c9a794cb8dad23e5ea]".to_string();
+            assert_eq!(expected, result.unwrap_err().to_string());
         }
     }
 }

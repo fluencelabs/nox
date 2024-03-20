@@ -263,4 +263,12 @@ mod tests {
         let core_range_1: CoreRange = "0-2,5,7-9".parse().unwrap();
         assert_eq!(format!("{}", core_range_1), "0-2,5,7-9");
     }
+
+    #[test]
+    fn range_is_inclusive() {
+        let core_range_1: CoreRange = "1-3".parse().unwrap();
+        let actual: Vec<usize> = core_range_1.0.iter().collect();
+        let expected = vec![1, 2, 3];
+        assert_eq!(actual, expected)
+    }
 }
