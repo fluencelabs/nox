@@ -74,9 +74,8 @@ pub fn default_system_cpu_count() -> usize {
 pub fn default_cpus_range() -> Option<CoreRange> {
     let total = num_cpus::get_physical();
     let left = match total {
-        c if c > 32 => 3,
-        c if c > 16 => 2,
-        c if c > 8 => 1,
+        // Leave 1 core to OS if there's 8+ cores
+        c if c >= 8 => 1,
         _ => 0,
     };
     Some(
