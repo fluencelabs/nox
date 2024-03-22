@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::net::IpAddr;
 use std::ops::Deref;
 use std::path::{Path, PathBuf};
@@ -626,7 +626,7 @@ pub struct DevModeConfig {
     pub enable: bool,
     /// Mounted binaries mapping: binary name (used in the effector modules) to binary path
     #[serde(default = "default_binaries_mapping")]
-    pub binaries: HashMap<String, String>,
+    pub binaries: BTreeMap<String, String>,
 }
 
 fn default_dev_mode_config() -> DevModeConfig {
