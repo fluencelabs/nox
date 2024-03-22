@@ -1,0 +1,119 @@
+[dir_config]
+base_dir = "{base_dir}"
+ephemeral_base_dir = "{base_dir}/ephemeral"
+persistent_base_dir = "{base_dir}/persistent"
+avm_base_dir = "{base_dir}/ephemeral/avm"
+services_ephemeral_dir = "{base_dir}/ephemeral/services"
+services_persistent_dir = "{base_dir}/persistent/services"
+air_interpreter_path = "{base_dir}/persistent/aquamarine_0.62.0.wasm"
+spell_base_dir = "{base_dir}/persistent/spell"
+keypairs_base_dir = "{base_dir}/persistent/keypairs"
+workers_base_dir = "{base_dir}/persistent/workers"
+cc_events_dir = "{base_dir}/persistent/cc_events"
+core_state_path = "{base_dir}/persistent/cores_state.toml"
+
+[node_config]
+cpus_range = "0-7"
+system_cpu_count = 2
+bootstrap_nodes = []
+external_multiaddresses = []
+aquavm_pool_size = 2
+particle_queue_buffer = 128
+effects_queue_buffer = 128
+workers_queue_buffer = 128
+particle_processor_parallelism = 16
+bootstrap_frequency = 3
+allow_local_addresses = false
+management_peer_id = "12D3KooWELdQw9pQVdq5NS6gEHsWMbYpLh3PjqFyNbivYWuATcik"
+
+[node_config.transport_config]
+transport = "Network"
+socket_timeout = "20s"
+max_established_per_peer = 5
+connection_idle_timeout = "3m"
+
+[node_config.listen_config]
+tcp_port = 7777
+listen_ip = "0.0.0.0"
+websocket_port = 9999
+
+[node_config.metrics_config]
+metrics_enabled = true
+metrics_timer_resolution = "1m"
+max_builtin_metrics_storage_size = 5
+tokio_metrics_enabled = false
+tokio_metrics_poll_histogram_enabled = false
+
+[node_config.health_config]
+health_check_enabled = true
+
+[node_config.bootstrap_config]
+reconnect_delay = "1s 617ms"
+bootstrap_delay = "30s 772ms"
+bootstrap_max_delay = "1m"
+
+[node_config.root_weights]
+
+[node_config.services_envs]
+
+[node_config.protocol_config]
+upgrade_timeout = "10s"
+outbound_substream_timeout = "10s"
+
+[node_config.avm_config]
+hard_limit_enabled = false
+
+[node_config.kademlia]
+max_packet_size = 1677721600
+query_timeout = "3s"
+peer_fail_threshold = 3
+ban_cooldown = "1m"
+
+[node_config.max_spell_particle_ttl]
+secs = 120
+nanos = 0
+
+[node_config.particle_execution_timeout]
+secs = 20
+nanos = 0
+
+[node_config.allowed_effectors.bafkreids22lgia5bqs63uigw4mqwhsoxvtnkpfqxqy5uwyyerrldsr32ce]
+curl = "/usr/bin/curl"
+
+[node_config.dev_mode_config]
+enable = false
+
+[node_config.dev_mode_config.binaries]
+curl = "/usr/bin/curl"
+ipfs = "/usr/bin/ipfs"
+
+[node_config.system_services]
+enable = []
+
+[node_config.system_services.aqua_ipfs]
+external_api_multiaddr = "/ip4/127.0.0.1/tcp/5001"
+local_api_multiaddr = "/ip4/127.0.0.1/tcp/5001"
+ipfs_binary_path = "/usr/bin/ipfs"
+
+[node_config.system_services.decider]
+decider_period_sec = 10
+worker_period_sec = 900
+worker_ipfs_multiaddr = "/ip4/127.0.0.1/tcp/5001"
+network_api_endpoint = "http://127.0.0.1:8545"
+network_id = 31337
+matcher_address = "0x0e1F3B362E22B2Dc82C9E35d6e62998C7E8e2349"
+start_block = "earliest"
+worker_gas = 210000
+wallet_key = "0x3cc23e0227bd17ea5d6ea9d42b5eaa53ad41b1974de4755c79fe236d361a6fd5"
+
+[node_config.system_services.registry]
+registry_period_sec = 3600
+expired_period_sec = 86400
+renew_period_sec = 43200
+replicate_period_sec = 3600
+
+[node_config.system_services.connector]
+curl_binary_path = "/usr/bin/curl"
+
+[node_config.http_config]
+http_port = 18080

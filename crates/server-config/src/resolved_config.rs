@@ -71,7 +71,7 @@ pub enum TracingConfig {
     },
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize)]
 pub struct ResolvedConfig {
     pub dir_config: ResolvedDirConfig,
     pub node_config: NodeConfig,

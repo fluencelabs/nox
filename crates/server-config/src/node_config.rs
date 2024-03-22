@@ -319,7 +319,7 @@ impl UnresolvedNodeConfig {
     }
 }
 
-#[derive(Clone, Derivative)]
+#[derive(Clone, Derivative, Serialize)]
 #[derivative(Debug)]
 pub struct NodeConfig {
     pub cpus_range: CoreRange,
@@ -327,9 +327,11 @@ pub struct NodeConfig {
     pub system_cpu_count: usize,
 
     #[derivative(Debug = "ignore")]
+    #[serde(skip)]
     pub root_key_pair: KeyPair,
 
     #[derivative(Debug = "ignore")]
+    #[serde(skip)]
     pub builtins_key_pair: KeyPair,
 
     pub transport_config: TransportConfig,
@@ -384,6 +386,7 @@ pub struct NodeConfig {
 
     pub particle_execution_timeout: Duration,
 
+    #[serde(serialize_with = "peer_id::serde::serialize")]
     pub management_peer_id: PeerId,
 
     pub allowed_effectors: HashMap<Hash, HashMap<String, String>>,
