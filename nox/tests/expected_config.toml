@@ -104,7 +104,6 @@ network_id = 31337
 matcher_address = "0x0e1F3B362E22B2Dc82C9E35d6e62998C7E8e2349"
 start_block = "earliest"
 worker_gas = 210000
-wallet_key = "0x3cc23e0227bd17ea5d6ea9d42b5eaa53ad41b1974de4755c79fe236d361a6fd5"
 
 [node_config.system_services.registry]
 registry_period_sec = 3600
