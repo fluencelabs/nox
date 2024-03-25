@@ -37,7 +37,7 @@ serde_with = { workspace = true }
 config = { version = "0.13.4", default-features = false, features = ["toml"] }
 clarity = { workspace = true }
 maplit = { workspace = true }
-url = { version = "2.4.1", features = ["serde"] }
+url = { version = "2.5.0", features = ["serde"] }
 
 [dev-dependencies]
 temp-env = "0.3.6"
