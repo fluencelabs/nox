@@ -1239,21 +1239,9 @@ version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5dcb551e7eaad87b0447b2a65e2bb2ff1c2ea8184c6b9f6ee69f753556fa9980"
 dependencies = [
- "ccp-shared 0.8.0",
+ "ccp-shared",
  "hex",
  "jsonrpsee",
- "serde",
-]
-
-[[package]]
-name = "ccp-shared"
-version = "0.7.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "955890867c44b72a4da28fe15f69f72ad74d54b5f29343c61c87b15f0b60c573"
-dependencies = [
- "hex",
- "newtype_derive",
- "rand 0.8.5",
  "serde",
 ]
 
@@ -1316,7 +1304,7 @@ version = "0.1.0"
 dependencies = [
  "alloy-primitives",
  "alloy-sol-types",
- "ccp-shared 0.7.1",
+ "ccp-shared",
  "chain-data",
  "clarity",
  "const-hex",
@@ -1365,7 +1353,7 @@ dependencies = [
  "alloy_serde_macro",
  "backoff",
  "ccp-rpc-client",
- "ccp-shared 0.7.1",
+ "ccp-shared",
  "chain-connector",
  "chain-data",
  "core-manager",
@@ -1665,7 +1653,7 @@ version = "0.1.0"
 dependencies = [
  "async-trait",
  "bimap",
- "ccp-shared 0.7.1",
+ "ccp-shared",
  "cpu-utils",
  "enum_dispatch",
  "futures",
@@ -1708,11 +1696,11 @@ dependencies = [
 
 [[package]]
 name = "cpu-utils"
-version = "0.7.1"
+version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "637883048a263d18fa3ea192f87433ad3bed651144f2673853017989cc893215"
+checksum = "1214c39c3a71f470eab128fdd2495995cc13401d5a76191f9200ea1020917d29"
 dependencies = [
- "ccp-shared 0.7.1",
+ "ccp-shared",
  "ccp_core_affinity",
  "hwlocality",
  "nonempty",
