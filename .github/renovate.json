@@ -37,6 +37,10 @@
       "groupName": "libp2p"
     },
     {
+      "matchPackagePatterns": ["ccp-rpc-client", "ccp-shared", "cpu-utils"],
+      "groupName": "ccp"
+    },
+    {
       "matchPackagePatterns": ["opentelemetry", "opentelemetry-otlp", "tracing-opentelemetry", "opentelemetry_sdk"],
       "groupName": "opentelemetry"
     },
