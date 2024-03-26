@@ -74,7 +74,7 @@ impl VmPoolMetrics {
         let vm_mem_min = Gauge::default();
         sub_registry.register(
             "vm_mem_min",
-            "Minumum allocated memory among all interpreters (after first interpretation)",
+            "Minimum allocated memory among all interpreters (after first interpretation)",
             vm_mem_min.clone(),
         );
         let vm_mem_total = Gauge::default();

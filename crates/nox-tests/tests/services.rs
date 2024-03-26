@@ -73,7 +73,7 @@ async fn test_system_service_override() {
         let result: eyre::Result<_> = call(name.clone(), "not".to_string(), vec![json!(false)]);
         assert!(
             result.is_err(),
-            "must be error due to the the call interface restrictions"
+            "must be error due to the call interface restrictions"
         );
         let error = result.unwrap_err().to_string();
         assert_eq!(
