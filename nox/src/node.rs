@@ -67,7 +67,7 @@ use crate::behaviour::FluenceNetworkBehaviourEvent;
 use crate::builtins::make_peer_builtin;
 use crate::dispatcher::Dispatcher;
 use crate::effectors::Effectors;
-use crate::http::{start_http_endpoint, EndpointConfig};
+use crate::http::{start_http_endpoint, HttpEndpointData};
 use crate::metrics::TokioCollector;
 use crate::{Connectivity, Versions};
 
@@ -626,7 +626,7 @@ impl<RT: AquaRuntime> Node<RT> {
         let workers = self.workers.clone();
         let chain_listener = self.chain_listener;
 
-        let endpoint_config = EndpointConfig::new(
+        let http_endpoint_data = HttpEndpointData::new(
             self.metrics_registry,
             self.health_registry,
             Some(self.config),
@@ -636,8 +636,10 @@ impl<RT: AquaRuntime> Node<RT> {
             let mut http_server = if let Some(http_listen_addr) = http_listen_addr {
                 tracing::info!("Starting http endpoint at {}", http_listen_addr);
                 async move {
-                    start_http_endpoint(http_listen_addr, peer_id, versions,endpoint_config, http_bind_outlet )
-                        .await.expect("Could not start http server");
+                    start_http_endpoint(http_listen_addr, peer_id, versions,
+                                        http_endpoint_data, http_bind_outlet)
+                        .await
+                        .expect("Could not start http server");
                 }.boxed()
             } else {
                 futures::future::pending().boxed()

@@ -99,8 +99,14 @@ async fn handle_health(State(state): State<RouteState>) -> axum::response::Resul
 }
 
 async fn handle_config(State(state): State<RouteState>) -> axum::response::Result<Response> {
-    let toml = toml::to_string_pretty(&state.0.config).unwrap();
-    Ok((StatusCode::OK, toml).into_response())
+    let toml = toml::to_string_pretty(&state.0.http_endpoint_data);
+    match toml {
+        Ok(toml) => Ok((StatusCode::OK, toml).into_response()),
+        Err(error) => {
+            tracing::warn!(error = error.to_string(), "Could not serialize config");
+            Err(StatusCode::INTERNAL_SERVER_ERROR.into())
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -111,7 +117,7 @@ struct Inner {
     versions: Versions,
     metric_registry: Option<Registry>,
     health_registry: Option<HealthCheckRegistry>,
-    config: Option<ResolvedConfig>,
+    http_endpoint_data: Option<ResolvedConfig>,
 }
 #[derive(Debug)]
 pub struct StartedHttp {
@@ -119,13 +125,13 @@ pub struct StartedHttp {
 }
 
 #[derive(Default)]
-pub struct EndpointConfig {
+pub struct HttpEndpointData {
     metrics_registry: Option<Registry>,
     health_registry: Option<HealthCheckRegistry>,
     config: Option<ResolvedConfig>,
 }
 
-impl EndpointConfig {
+impl HttpEndpointData {
     pub fn new(
         metrics_registry: Option<Registry>,
         health_registry: Option<HealthCheckRegistry>,
@@ -143,15 +149,15 @@ pub async fn start_http_endpoint(
     listen_addr: SocketAddr,
     peer_id: PeerId,
     versions: Versions,
-    endpoint_config: EndpointConfig,
+    http_endpoint_data: HttpEndpointData,
     notify: oneshot::Sender<StartedHttp>,
 ) -> eyre::Result<()> {
     let state = RouteState(Arc::new(Inner {
         peer_id,
         versions,
-        metric_registry: endpoint_config.metrics_registry,
-        health_registry: endpoint_config.health_registry,
-        config: endpoint_config.config,
+        metric_registry: http_endpoint_data.metrics_registry,
+        health_registry: http_endpoint_data.health_registry,
+        http_endpoint_data: http_endpoint_data.config,
     }));
     let app: Router = Router::new()
         .route("/metrics", get(handle_metrics))
@@ -209,7 +215,7 @@ mod tests {
                 addr,
                 PeerId::random(),
                 test_versions(),
-                EndpointConfig::default(),
+                HttpEndpointData::default(),
                 notify_sender,
             )
             .await
@@ -243,7 +249,7 @@ mod tests {
                 addr,
                 peer_id,
                 test_versions(),
-                EndpointConfig::default(),
+                HttpEndpointData::default(),
                 notify_sender,
             )
             .await
@@ -276,7 +282,7 @@ mod tests {
 
         let (notify_sender, notify_receiver) = oneshot::channel();
         let health_registry = HealthCheckRegistry::new();
-        let endpoint_config = EndpointConfig {
+        let endpoint_config = HttpEndpointData {
             metrics_registry: None,
             health_registry: Some(health_registry),
             config: None,
@@ -326,7 +332,7 @@ mod tests {
         let success_check = SuccessHealthCheck {};
         health_registry.register("test_check", success_check);
 
-        let endpoint_config = EndpointConfig {
+        let endpoint_config = HttpEndpointData {
             metrics_registry: None,
             health_registry: Some(health_registry),
             config: None,
@@ -382,7 +388,7 @@ mod tests {
         let fail_check = FailHealthCheck {};
         health_registry.register("test_check", success_check);
         health_registry.register("test_check_2", fail_check);
-        let endpoint_config = EndpointConfig {
+        let endpoint_config = HttpEndpointData {
             metrics_registry: None,
             health_registry: Some(health_registry),
             config: None,
@@ -433,7 +439,7 @@ mod tests {
         }
         let fail_check = FailHealthCheck {};
         health_registry.register("test_check", fail_check);
-        let endpoint_config = EndpointConfig {
+        let endpoint_config = HttpEndpointData {
             metrics_registry: None,
             health_registry: Some(health_registry),
             config: None,
@@ -478,7 +484,7 @@ mod tests {
 
         let (notify_sender, notify_receiver) = oneshot::channel();
 
-        let endpoint_config = EndpointConfig {
+        let endpoint_config = HttpEndpointData {
             metrics_registry: None,
             health_registry: None,
             config: Some(resolved_config),
