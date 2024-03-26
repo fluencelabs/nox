@@ -46,7 +46,7 @@ particle_processor_parallelism = 64
 max_spell_particle_ttl = "120s"
 particle_execution_timeout = "20s"
 
-# # peer id that has a admin priviledged access to node
+# # peer id that has a admin privileged access to node
 # management_peer_id = ""
 
 # add IPs from private subnets to external multiaddress list

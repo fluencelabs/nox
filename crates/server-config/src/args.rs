@@ -182,7 +182,7 @@ pub(crate) struct SystemServicesArgs {
     #[arg(
         long,
         id = "SERVICES",
-        help = "List of enabled system services. Can be: all, none or comma-separated list of services (serivce1,service2)",
+        help = "List of enabled system services. Can be: all, none or comma-separated list of services (service1,service2)",
         help_heading = "System services configuration",
         value_parser = EnabledSystemServicesValueParser
     )]
