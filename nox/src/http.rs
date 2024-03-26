@@ -102,6 +102,7 @@ async fn handle_config(State(state): State<RouteState>) -> axum::response::Resul
     let toml = toml::to_string_pretty(&state.0.config).unwrap();
     Ok((StatusCode::OK, toml).into_response())
 }
+
 #[derive(Clone)]
 struct RouteState(Arc<Inner>);
 
