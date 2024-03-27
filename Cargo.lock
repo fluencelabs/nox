@@ -2517,14 +2517,14 @@ dependencies = [
 
 [[package]]
 name = "fluence-app-service"
-version = "0.35.1"
+version = "0.35.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "527d278ac6fb1313a13b8c58149c3f977e79b93bf4280ce08e2cd4cac55cee27"
+checksum = "fb696b43cc6eb9163dc6ed3a794a595091deea364e2f4e6b7e2e7c6eca1796b7"
 dependencies = [
  "log",
  "maplit",
  "marine-min-it-version",
- "marine-runtime 0.36.1",
+ "marine-runtime 0.36.2",
  "marine-wasm-backend-traits 0.6.0",
  "marine-wasmtime-backend 0.6.0",
  "serde",
@@ -5294,9 +5294,9 @@ dependencies = [
 
 [[package]]
 name = "marine-runtime"
-version = "0.36.1"
+version = "0.36.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4b524b572fa9c8c1b7a14c30d8e27a339404eeab70531bc9a9e739f1db4bc6af"
+checksum = "fbbbbe4e7884f3a24db4df35e1a5b0071f954361e4278d986d8b24e3c3dc5381"
 dependencies = [
  "bytesize",
  "it-json-serde",
