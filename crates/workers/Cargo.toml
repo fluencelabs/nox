@@ -15,7 +15,8 @@ parking_lot = { workspace = true }
 eyre = { workspace = true }
 thiserror = { workspace = true }
 serde = { workspace = true }
-toml = { workspace = true }
+toml = "0.8.12"
+toml_edit = { workspace = true }
 log = { workspace = true }
 libp2p = { workspace = true }
 tracing = { workspace = true }

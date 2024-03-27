@@ -5,5 +5,4 @@ authors = ["Fluence Labs"]
 edition = "2021"
 
 [dependencies]
-toml = { workspace = true }
-
+toml = "0.5.11"# should be the same in marine-runtime config

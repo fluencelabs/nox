@@ -16,6 +16,6 @@ fluence-libp2p = { workspace = true }
 parking_lot = { workspace = true }
 derivative = { workspace = true }
 eyre = { workspace = true }
-toml = { workspace = true }
+toml_edit = { workspace = true}
 log = { workspace = true }
 itertools = { workspace = true }

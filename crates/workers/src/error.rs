@@ -58,7 +58,7 @@ pub enum KeyStorageError {
     #[error("Error serializing persisted keypair: {err}")]
     SerializePersistedKeypair {
         #[source]
-        err: toml::ser::Error,
+        err: toml_edit::ser::Error,
     },
     #[error("Error writing persisted keypair to {path:?}: {err}")]
     WriteErrorPersistedKeypair {
@@ -123,7 +123,7 @@ pub enum WorkersError {
     #[error("Error serializing persisted worker: {err}")]
     SerializePersistedWorker {
         #[source]
-        err: toml::ser::Error,
+        err: toml_edit::ser::Error,
     },
     #[error("Error writing persisted worker to {path:?}: {err}")]
     WriteErrorPersistedWorker {
