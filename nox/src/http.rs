@@ -99,7 +99,7 @@ async fn handle_health(State(state): State<RouteState>) -> axum::response::Resul
 }
 
 async fn handle_config(State(state): State<RouteState>) -> axum::response::Result<Response> {
-    let toml = toml::to_string_pretty(&state.0.http_endpoint_data);
+    let toml = toml::to_string_pretty(&state.0.nox_config);
     match toml {
         Ok(toml) => Ok((StatusCode::OK, toml).into_response()),
         Err(error) => {
@@ -117,7 +117,7 @@ struct Inner {
     versions: Versions,
     metric_registry: Option<Registry>,
     health_registry: Option<HealthCheckRegistry>,
-    http_endpoint_data: Option<ResolvedConfig>,
+    nox_config: Option<ResolvedConfig>,
 }
 #[derive(Debug)]
 pub struct StartedHttp {
@@ -128,19 +128,19 @@ pub struct StartedHttp {
 pub struct HttpEndpointData {
     metrics_registry: Option<Registry>,
     health_registry: Option<HealthCheckRegistry>,
-    config: Option<ResolvedConfig>,
+    nox_config: Option<ResolvedConfig>,
 }
 
 impl HttpEndpointData {
     pub fn new(
         metrics_registry: Option<Registry>,
         health_registry: Option<HealthCheckRegistry>,
-        config: Option<ResolvedConfig>,
+        nox_config: Option<ResolvedConfig>,
     ) -> Self {
         Self {
             metrics_registry,
             health_registry,
-            config,
+            nox_config,
         }
     }
 }
@@ -157,7 +157,7 @@ pub async fn start_http_endpoint(
         versions,
         metric_registry: http_endpoint_data.metrics_registry,
         health_registry: http_endpoint_data.health_registry,
-        http_endpoint_data: http_endpoint_data.config,
+        nox_config: http_endpoint_data.nox_config,
     }));
     let app: Router = Router::new()
         .route("/metrics", get(handle_metrics))
@@ -285,7 +285,7 @@ mod tests {
         let endpoint_config = HttpEndpointData {
             metrics_registry: None,
             health_registry: Some(health_registry),
-            config: None,
+            nox_config: None,
         };
 
         tokio::spawn(async move {
@@ -335,7 +335,7 @@ mod tests {
         let endpoint_config = HttpEndpointData {
             metrics_registry: None,
             health_registry: Some(health_registry),
-            config: None,
+            nox_config: None,
         };
         tokio::spawn(async move {
             start_http_endpoint(
@@ -391,7 +391,7 @@ mod tests {
         let endpoint_config = HttpEndpointData {
             metrics_registry: None,
             health_registry: Some(health_registry),
-            config: None,
+            nox_config: None,
         };
         tokio::spawn(async move {
             start_http_endpoint(
@@ -442,7 +442,7 @@ mod tests {
         let endpoint_config = HttpEndpointData {
             metrics_registry: None,
             health_registry: Some(health_registry),
-            config: None,
+            nox_config: None,
         };
 
         tokio::spawn(async move {
@@ -487,7 +487,7 @@ mod tests {
         let endpoint_config = HttpEndpointData {
             metrics_registry: None,
             health_registry: None,
-            config: Some(resolved_config),
+            nox_config: Some(resolved_config),
         };
 
         tokio::spawn(async move {
