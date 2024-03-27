@@ -362,7 +362,8 @@ mod tests {
             None,
             workers.clone(),
             scope.clone(),
-        ).expect("Unable to create ParticleAppServices");
+        )
+        .expect("Unable to create ParticleAppServices");
 
         (pas, repo, root_key_pair.get_peer_id())
     }

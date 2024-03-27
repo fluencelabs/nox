@@ -19,7 +19,11 @@ use std::time::{Duration, Instant};
 use std::{collections::HashMap, sync::Arc};
 
 use derivative::Derivative;
-use fluence_app_service::{AppService, AppServiceConfig, AppServiceError, AppServiceFactory, CallParameters, EpochTicker, MarineConfig, MarineError, MarineWASIConfig, ModuleDescriptor, SecurityTetraplet, ServiceInterface, WasmtimeConfig};
+use fluence_app_service::{
+    AppService, AppServiceConfig, AppServiceError, AppServiceFactory, CallParameters, EpochTicker,
+    MarineConfig, MarineError, MarineWASIConfig, ModuleDescriptor, SecurityTetraplet,
+    ServiceInterface, WasmtimeConfig,
+};
 use humantime_serde::re::humantime::format_duration as pretty;
 use parking_lot::{Mutex, RwLock, RwLockUpgradableReadGuard};
 use serde::{Deserialize, Serialize};
@@ -237,8 +241,8 @@ impl ParticleAppServices {
             .async_wasm_stack(2 * 1024 * 1024)
             .max_wasm_stack(2 * 1024 * 1024);
 
-        let (app_service_factory, epoch_ticker) = AppServiceFactory::new(wasmtime_config)
-            .map_err(ServiceError::Engine)?;
+        let (app_service_factory, epoch_ticker) =
+            AppServiceFactory::new(wasmtime_config).map_err(ServiceError::Engine)?;
         Ok(Self {
             config,
             vault,
@@ -251,7 +255,7 @@ impl ParticleAppServices {
             metrics,
             health,
             app_service_factory,
-            app_service_epoch_ticker: epoch_ticker
+            app_service_epoch_ticker: epoch_ticker,
         })
     }
 
@@ -487,13 +491,13 @@ impl ParticleAppServices {
         let old_mem_usage = ServicesMetricsBuiltin::get_used_memory(&old_memory);
         // TODO async-marine: set execution timeout https://github.com/fluencelabs/fluence/issues/1212
         let call_time_start = Instant::now();
-        let result = tokio::runtime::Handle::current().block_on(service
-            .call_async(
+        let result = tokio::runtime::Handle::current()
+            .block_on(service.call_async(
                 function_name.clone(),
                 JValue::Array(function_args.function_args),
                 params,
-            )
-        ).map_err(|e| {
+            ))
+            .map_err(|e| {
                 if let Some(metrics) = self.metrics.as_ref() {
                     let stats = ServiceCallStats::Fail { timestamp };
                     // If the called function is unknown we don't want to save info
@@ -1133,7 +1137,8 @@ impl ParticleAppServices {
             self.config.envs
         );
 
-        self.app_service_factory.new_app_service(app_config, service_id, self.config.envs.clone())
+        self.app_service_factory
+            .new_app_service(app_config, service_id, self.config.envs.clone())
             .await
             .map_err(ServiceError::Engine)
     }

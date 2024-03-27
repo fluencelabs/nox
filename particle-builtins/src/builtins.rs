@@ -125,7 +125,8 @@ where
             health_registry,
             workers.clone(),
             scope.clone(),
-        ).expect("TODO async-marine: handle error from ParticleAppServices");
+        )
+        .expect("TODO async-marine: handle error from ParticleAppServices");
 
         Self {
             connectivity,
