@@ -514,7 +514,7 @@ mod tests {
 
         let status = response.status();
         let body = response.bytes().await.unwrap();
-        let expected_config = tokio::fs::read("./tests/expected_config.toml")
+        let expected_config = tokio::fs::read("./tests/http_expected_config.toml")
             .await
             .wrap_err("read test data")
             .unwrap();
@@ -536,7 +536,7 @@ mod tests {
     }
 
     async fn get_config(path: &Path) -> ResolvedConfig {
-        let unresolved_config = tokio::fs::read("./tests/config.toml")
+        let unresolved_config = tokio::fs::read("./tests/http_test_config.toml")
             .await
             .wrap_err("read test data")
             .unwrap();
