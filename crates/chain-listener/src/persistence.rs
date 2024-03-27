@@ -40,7 +40,7 @@ pub(crate) async fn persist_proof_id(
     current_epoch: U256,
 ) -> eyre::Result<()> {
     let path = proof_id_dir.join(proof_id_filename());
-    let bytes = toml::ser::to_vec(&PersistedProofId {
+    let bytes = toml_edit::ser::to_vec(&PersistedProofId {
         proof_id,
         epoch: current_epoch,
     })
@@ -58,7 +58,7 @@ pub(crate) async fn load_persisted_proof_id(
         let bytes = tokio::fs::read(&path)
             .await
             .context(format!("error reading proof id from {}", path.display()))?;
-        let persisted_proof = toml::from_slice(&bytes).context(format!(
+        let persisted_proof = toml_edit::de::from_slice(&bytes).context(format!(
             "error deserializing proof id from {}",
             path.display()
         ))?;

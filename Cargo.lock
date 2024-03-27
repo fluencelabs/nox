@@ -1375,7 +1375,7 @@ dependencies = [
  "thiserror",
  "tokio",
  "tokio-stream",
- "toml 0.8.12",
+ "toml_edit 0.22.9",
  "tracing",
  "types",
 ]
@@ -6340,7 +6340,7 @@ dependencies = [
  "service-modules",
  "tempdir",
  "thiserror",
- "toml 0.8.12",
+ "toml_edit 0.22.9",
 ]
 
 [[package]]
@@ -6404,7 +6404,7 @@ dependencies = [
  "tokio",
  "tokio-stream",
  "tokio-util",
- "toml 0.8.12",
+ "toml 0.5.11",
  "tracing",
  "types",
  "uuid",
@@ -8085,7 +8085,7 @@ dependencies = [
  "particle-modules",
  "particle-services",
  "service-modules",
- "toml 0.8.12",
+ "toml 0.5.11",
 ]
 
 [[package]]
@@ -8290,7 +8290,7 @@ dependencies = [
  "spell-event-bus",
  "spell-service-api",
  "spell-storage",
- "toml 0.8.12",
+ "toml 0.5.11",
  "tracing",
  "trust-graph-distro",
  "types",
@@ -8607,7 +8607,7 @@ dependencies = [
 name = "toml-utils"
 version = "0.0.1"
 dependencies = [
- "toml 0.8.12",
+ "toml 0.5.11",
 ]
 
 [[package]]
@@ -10085,6 +10085,7 @@ dependencies = [
  "thiserror",
  "tokio",
  "toml 0.8.12",
+ "toml_edit 0.22.9",
  "tracing",
  "types",
 ]
