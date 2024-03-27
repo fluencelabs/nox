@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["MAX_PERIOD_SEC"],"enum":["Action","ConfigError","EventBusError","PeerEventType","TriggerInfo"],"fn":["from_user_config"],"struct":["PeerEvent","SpellEventBusApi","SpellTriggerConfigs","TimerEvent","TriggerEvent","TriggerInfoAqua"],"type":["SpellId"]};

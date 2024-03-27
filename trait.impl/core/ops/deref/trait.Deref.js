@@ -1,0 +1,5 @@
+(function() {var implementors = {
+"connected_client":[["impl <a class=\"trait\" href=\"https://doc.rust-lang.org/nightly/core/ops/deref/trait.Deref.html\" title=\"trait core::ops::deref::Deref\">Deref</a> for <a class=\"struct\" href=\"connected_client/struct.ConnectedClient.html\" title=\"struct connected_client::ConnectedClient\">ConnectedClient</a>"]],
+"kademlia":[["impl <a class=\"trait\" href=\"https://doc.rust-lang.org/nightly/core/ops/deref/trait.Deref.html\" title=\"trait core::ops::deref::Deref\">Deref</a> for <a class=\"struct\" href=\"kademlia/struct.KademliaConfig.html\" title=\"struct kademlia::KademliaConfig\">KademliaConfig</a>"]],
+"server_config":[["impl <a class=\"trait\" href=\"https://doc.rust-lang.org/nightly/core/ops/deref/trait.Deref.html\" title=\"trait core::ops::deref::Deref\">Deref</a> for <a class=\"struct\" href=\"server_config/struct.ResolvedConfig.html\" title=\"struct server_config::ResolvedConfig\">ResolvedConfig</a>"]]
+};if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

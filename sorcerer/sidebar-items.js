@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["get_spell_info","install_spell","remove_spell"],"struct":["Sorcerer","SpellInfo"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["OfferCalls"],"struct":["ComputePeer","ComputeUnit","getComputePeerCall","getComputePeerReturn","getComputeUnitsCall","getComputeUnitsReturn","returnComputeUnitFromDealCall","returnComputeUnitFromDealReturn"]};

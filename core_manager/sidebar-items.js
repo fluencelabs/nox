@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["CoreManager"],"mod":["errors","types"],"struct":["CUID","CoreRange","DevCoreManager","DummyCoreManager","LogicalCoreId","PhysicalCoreId","StrictCoreManager"],"trait":["CoreManagerFunctions"]};

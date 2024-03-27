@@ -1,0 +1,65 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="The `CoreManagerFunctions` trait defines operations for managing CPU cores."><title>CoreManagerFunctions in core_manager - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-9ee3a5e31a2afa3e.css"><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="core_manager" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0-nightly (edf0b1db0 2023-11-10)" data-channel="nightly" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="sidebar-items.js"></script><script defer src="../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../core_manager/index.html">core_manager</a><span class="version">0.1.0</span></h2></div><h2 class="location"><a href="#">CoreManagerFunctions</a></h2><div class="sidebar-elems"><section><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.acquire_worker_core">acquire_worker_core</a></li><li><a href="#tymethod.get_system_cpu_assignment">get_system_cpu_assignment</a></li><li><a href="#tymethod.release">release</a></li></ul><h3><a href="#implementors">Implementors</a></h3></section><h2><a href="index.html">In crate core_manager</a></h2></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Trait <a href="index.html">core_manager</a>::<wbr><a class="trait" href="#">CoreManagerFunctions</a><button id="copy-path" title="Copy item path to clipboard"><img src="../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="../src/core_manager/manager.rs.html#60-69">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub trait CoreManagerFunctions {
+    // Required methods
+    fn <a href="#tymethod.acquire_worker_core" class="fn">acquire_worker_core</a>(
+        &amp;self,
+        assign_request: <a class="struct" href="types/struct.AcquireRequest.html" title="struct core_manager::types::AcquireRequest">AcquireRequest</a>
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="types/struct.Assignment.html" title="struct core_manager::types::Assignment">Assignment</a>, <a class="enum" href="errors/enum.AcquireError.html" title="enum core_manager::errors::AcquireError">AcquireError</a>&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.release" class="fn">release</a>(&amp;self, unit_ids: <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="struct" href="struct.CUID.html" title="struct core_manager::CUID">CUID</a>&gt;);
+<span class="item-spacer"></span>    fn <a href="#tymethod.get_system_cpu_assignment" class="fn">get_system_cpu_assignment</a>(&amp;self) -&gt; <a class="struct" href="types/struct.Assignment.html" title="struct core_manager::types::Assignment">Assignment</a>;
+}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>The <code>CoreManagerFunctions</code> trait defines operations for managing CPU cores.</p>
+<p>Implement this trait to enable core acquisition, release, retrieval of system CPU assignments,
+and persistence of the core manager’s state.</p>
+<h2 id="trait-functions"><a href="#trait-functions">Trait Functions:</a></h2>
+<ul>
+<li>
+<p><code>acquire_worker_core(assign_request: AcquireRequest) -&gt; Result&lt;Assignment, AcquireError&gt;</code>:
+Acquires CPU cores for a set of unit IDs and a specified worker type.</p>
+</li>
+<li>
+<p><code>release(unit_ids: Vec&lt;UnitId&gt;)</code>:
+Releases previously acquired CPU cores associated with a set of unit IDs.</p>
+</li>
+<li>
+<p><code>get_system_cpu_assignment() -&gt; Assignment</code>:
+Retrieves the system’s CPU assignment, including physical and logical core IDs.</p>
+</li>
+<li>
+<p><code>persist() -&gt; Result&lt;(), PersistError&gt;</code>:
+Persists the current state of the core manager to an external storage location.</p>
+</li>
+</ul>
+<h2 id="implementing-types"><a href="#implementing-types">Implementing Types:</a></h2>
+<ul>
+<li>
+<p><a href="struct.PersistentCoreManager.html"><code>PersistentCoreManager</code></a>:
+Manages CPU cores persistently by saving and loading state to/from a file path.</p>
+</li>
+<li>
+<p><a href="struct.DummyCoreManager.html"><code>DummyCoreManager</code></a>:
+Provides a dummy implementation for non-persistent core management scenarios.</p>
+</li>
+<li>
+<p><a href="enum.CoreManager.html"><code>CoreManager</code></a>:
+Enumerates persistent and dummy core managers, allowing flexible core management choices.</p>
+</li>
+</ul>
+<h2 id="example-usage"><a href="#example-usage">Example Usage:</a></h2>
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>core_manager::{CoreManager, AcquireRequest, WorkType};
+
+<span class="kw">let </span>(core_manager, persistence_task) = PersistentCoreManager::from_path(<span class="string">&quot;core_state.toml&quot;</span>.into(), <span class="number">2</span>, CoreRange::default()).expect(<span class="string">&quot;Failed to create manager&quot;</span>);
+<span class="kw">let </span>unit_ids = <span class="macro">vec!</span>[<span class="string">&quot;1&quot;</span>.into(), <span class="string">&quot;2&quot;</span>.into()];
+
+<span class="comment">// Acquire and release cores
+</span><span class="kw">let </span>assignment = core_manager.acquire_worker_core(AcquireRequest { unit_ids, worker_type: WorkType::CapacityCommitment }).unwrap();
+
+<span class="comment">// Retrieve system CPU assignment
+</span><span class="kw">let </span>system_assignment = core_manager.get_system_cpu_assignment();
+
+<span class="comment">// Run persistence task in the background
+</span>tokio::spawn(persistence_task.run(core_manager.clone()));
+
+сore_manager.release(unit_ids);</code></pre></div>
+</div></details><h2 id="required-methods" class="small-section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><section id="tymethod.acquire_worker_core" class="method"><a class="src rightside" href="../src/core_manager/manager.rs.html#61-64">source</a><h4 class="code-header">fn <a href="#tymethod.acquire_worker_core" class="fn">acquire_worker_core</a>(
+    &amp;self,
+    assign_request: <a class="struct" href="types/struct.AcquireRequest.html" title="struct core_manager::types::AcquireRequest">AcquireRequest</a>
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="types/struct.Assignment.html" title="struct core_manager::types::Assignment">Assignment</a>, <a class="enum" href="errors/enum.AcquireError.html" title="enum core_manager::errors::AcquireError">AcquireError</a>&gt;</h4></section><section id="tymethod.release" class="method"><a class="src rightside" href="../src/core_manager/manager.rs.html#66">source</a><h4 class="code-header">fn <a href="#tymethod.release" class="fn">release</a>(&amp;self, unit_ids: <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="struct" href="struct.CUID.html" title="struct core_manager::CUID">CUID</a>&gt;)</h4></section><section id="tymethod.get_system_cpu_assignment" class="method"><a class="src rightside" href="../src/core_manager/manager.rs.html#68">source</a><h4 class="code-header">fn <a href="#tymethod.get_system_cpu_assignment" class="fn">get_system_cpu_assignment</a>(&amp;self) -&gt; <a class="struct" href="types/struct.Assignment.html" title="struct core_manager::types::Assignment">Assignment</a></h4></section></div><h2 id="implementors" class="small-section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"><section id="impl-CoreManagerFunctions-for-CoreManager" class="impl"><a class="src rightside" href="../src/core_manager/manager.rs.html#71">source</a><a href="#impl-CoreManagerFunctions-for-CoreManager" class="anchor">§</a><h3 class="code-header">impl <a class="trait" href="trait.CoreManagerFunctions.html" title="trait core_manager::CoreManagerFunctions">CoreManagerFunctions</a> for <a class="enum" href="enum.CoreManager.html" title="enum core_manager::CoreManager">CoreManager</a></h3></section><section id="impl-CoreManagerFunctions-for-DevCoreManager" class="impl"><a class="src rightside" href="../src/core_manager/dev.rs.html#235-329">source</a><a href="#impl-CoreManagerFunctions-for-DevCoreManager" class="anchor">§</a><h3 class="code-header">impl <a class="trait" href="trait.CoreManagerFunctions.html" title="trait core_manager::CoreManagerFunctions">CoreManagerFunctions</a> for <a class="struct" href="struct.DevCoreManager.html" title="struct core_manager::DevCoreManager">DevCoreManager</a></h3></section><section id="impl-CoreManagerFunctions-for-DummyCoreManager" class="impl"><a class="src rightside" href="../src/core_manager/dummy.rs.html#28-53">source</a><a href="#impl-CoreManagerFunctions-for-DummyCoreManager" class="anchor">§</a><h3 class="code-header">impl <a class="trait" href="trait.CoreManagerFunctions.html" title="trait core_manager::CoreManagerFunctions">CoreManagerFunctions</a> for <a class="struct" href="struct.DummyCoreManager.html" title="struct core_manager::DummyCoreManager">DummyCoreManager</a></h3></section><section id="impl-CoreManagerFunctions-for-StrictCoreManager" class="impl"><a class="src rightside" href="../src/core_manager/strict.rs.html#226-308">source</a><a href="#impl-CoreManagerFunctions-for-StrictCoreManager" class="anchor">§</a><h3 class="code-header">impl <a class="trait" href="trait.CoreManagerFunctions.html" title="trait core_manager::CoreManagerFunctions">CoreManagerFunctions</a> for <a class="struct" href="struct.StrictCoreManager.html" title="struct core_manager::StrictCoreManager">StrictCoreManager</a></h3></section></div><script src="../trait.impl/core_manager/manager/trait.CoreManagerFunctions.js" async></script></section></div></main></body></html>
