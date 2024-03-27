@@ -44,7 +44,7 @@ use tokio_stream::wrappers::ReadDirStream;
 const DEFAULT_PARALLELISM: usize = 2;
 
 type Err = Box<dyn std::error::Error + Send + Sync>;
-type Res<T> = Result<T,Err>;
+type Res<T> = Result<T, Err>;
 
 pub fn to_abs_path(path: PathBuf) -> PathBuf {
     match std::env::current_dir().ok() {
@@ -268,10 +268,7 @@ fn process_dir_entry<T>(
     }
 }
 
-async fn parse_persisted_data<T>(
-    file: &Path,
-    de: fn(&[u8]) -> Res<T>,
-) -> Result<T, LoadDataError> {
+async fn parse_persisted_data<T>(file: &Path, de: fn(&[u8]) -> Res<T>) -> Result<T, LoadDataError> {
     let bytes = tokio::fs::read(file)
         .await
         .map_err(|err| LoadDataError::ReadPersistedData {

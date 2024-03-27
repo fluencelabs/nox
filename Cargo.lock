@@ -6404,7 +6404,8 @@ dependencies = [
  "tokio",
  "tokio-stream",
  "tokio-util",
- "toml 0.5.11",
+ "toml 0.8.12",
+ "toml_edit 0.22.9",
  "tracing",
  "types",
  "uuid",
@@ -8085,7 +8086,7 @@ dependencies = [
  "particle-modules",
  "particle-services",
  "service-modules",
- "toml 0.5.11",
+ "toml_edit 0.22.9",
 ]
 
 [[package]]
