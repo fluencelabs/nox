@@ -110,10 +110,10 @@ fluence-spell-dtos = "=0.7.5"
 fluence-spell-distro = "=0.7.5"
 
 # marine
-fluence-app-service = "0.35.1"
+fluence-app-service = { version = "=0.35.2", path = "../marine/crates/fluence-app-service", features = ["wasmtime"] }
 marine-utils = "0.5.1"
-marine-it-parser = "0.16.0"
-marine-module-info-parser = "0.15.0"
+marine-it-parser = { version = "0.16.0", path = "../marine/crates/it-parser" }
+marine-module-info-parser = { version = "0.15.0", path = "../marine/crates/module-info-parser" }
 
 # avm
 avm-server = "=0.37.0"

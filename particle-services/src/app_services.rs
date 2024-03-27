@@ -19,10 +19,7 @@ use std::time::{Duration, Instant};
 use std::{collections::HashMap, sync::Arc};
 
 use derivative::Derivative;
-use fluence_app_service::{
-    AppService, AppServiceConfig, AppServiceError, CallParameters, MarineConfig, MarineError,
-    MarineWASIConfig, ModuleDescriptor, SecurityTetraplet, ServiceInterface,
-};
+use fluence_app_service::{AppService, AppServiceConfig, AppServiceError, AppServiceFactory, CallParameters, EpochTicker, MarineConfig, MarineError, MarineWASIConfig, ModuleDescriptor, SecurityTetraplet, ServiceInterface, WasmtimeConfig};
 use humantime_serde::re::humantime::format_duration as pretty;
 use parking_lot::{Mutex, RwLock, RwLockUpgradableReadGuard};
 use serde::{Deserialize, Serialize};
@@ -184,6 +181,10 @@ pub struct ParticleAppServices {
     scopes: PeerScopes,
     pub metrics: Option<ServicesMetrics>,
     health: Option<PersistedServiceHealth>,
+    #[derivative(Debug = "ignore")]
+    app_service_factory: AppServiceFactory,
+    #[derivative(Debug = "ignore")]
+    app_service_epoch_ticker: EpochTicker,
 }
 
 fn resolve_alias(services: &Services, alias: &String, particle_id: &str) -> Option<ServiceId> {
@@ -216,7 +217,7 @@ impl ParticleAppServices {
         health_registry: Option<&mut HealthCheckRegistry>,
         workers: Arc<Workers>,
         scope: PeerScopes,
-    ) -> Self {
+    ) -> Result<Self, ServiceError> {
         let vault = ParticleVault::new(config.particles_vault_dir.clone());
         let root_runtime_handle = Handle::current();
 
@@ -225,7 +226,20 @@ impl ParticleAppServices {
             registry.register("persisted_services", persisted_services.clone());
             persisted_services
         });
-        Self {
+
+        let mut wasmtime_config = WasmtimeConfig::default();
+        // TODO async-marine: impl proper configuration
+        // TODO async-marine: move to the right place
+        wasmtime_config
+            .debug_info(true)
+            .wasm_backtrace(true)
+            .epoch_interruption(true)
+            .async_wasm_stack(2 * 1024 * 1024)
+            .max_wasm_stack(2 * 1024 * 1024);
+
+        let (app_service_factory, epoch_ticker) = AppServiceFactory::new(wasmtime_config)
+            .map_err(ServiceError::Engine)?;
+        Ok(Self {
             config,
             vault,
             root_services: <_>::default(),
@@ -236,7 +250,9 @@ impl ParticleAppServices {
             scopes: scope,
             metrics,
             health,
-        }
+            app_service_factory,
+            app_service_epoch_ticker: epoch_ticker
+        })
     }
 
     pub async fn create_service(
@@ -469,15 +485,15 @@ impl ParticleAppServices {
         let mut service = service.lock();
         let old_memory = service.module_memory_stats();
         let old_mem_usage = ServicesMetricsBuiltin::get_used_memory(&old_memory);
-        // TODO: set execution timeout https://github.com/fluencelabs/fluence/issues/1212
+        // TODO async-marine: set execution timeout https://github.com/fluencelabs/fluence/issues/1212
         let call_time_start = Instant::now();
-        let result = service
-            .call(
+        let result = tokio::runtime::Handle::current().block_on(service
+            .call_async(
                 function_name.clone(),
                 JValue::Array(function_args.function_args),
                 params,
             )
-            .map_err(|e| {
+        ).map_err(|e| {
                 if let Some(metrics) = self.metrics.as_ref() {
                     let stats = ServiceCallStats::Fail { timestamp };
                     // If the called function is unknown we don't want to save info
@@ -1117,7 +1133,8 @@ impl ParticleAppServices {
             self.config.envs
         );
 
-        AppService::new(app_config, service_id, self.config.envs.clone())
+        self.app_service_factory.new_app_service(app_config, service_id, self.config.envs.clone())
+            .await
             .map_err(ServiceError::Engine)
     }
 
@@ -1242,6 +1259,7 @@ mod tests {
         );
 
         ParticleAppServices::new(config, repo, None, None, workers, scope)
+            .expect("Could not create ParticleAppServices")
     }
 
     async fn call_add_alias_raw(
