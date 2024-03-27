@@ -5831,6 +5831,7 @@ dependencies = [
  "spell-event-bus",
  "spell-service-api",
  "system-services",
+ "tempfile",
  "tokio",
  "tokio-stream",
  "toml 0.8.12",

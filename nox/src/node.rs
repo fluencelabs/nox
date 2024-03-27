@@ -67,7 +67,7 @@ use crate::behaviour::FluenceNetworkBehaviourEvent;
 use crate::builtins::make_peer_builtin;
 use crate::dispatcher::Dispatcher;
 use crate::effectors::Effectors;
-use crate::http::start_http_endpoint;
+use crate::http::{start_http_endpoint, HttpEndpointData};
 use crate::metrics::TokioCollector;
 use crate::{Connectivity, Versions};
 
@@ -107,6 +107,8 @@ pub struct Node<RT: AquaRuntime> {
     pub chain_listener: Option<ChainListener>,
 
     workers: Arc<Workers>,
+
+    config: ResolvedConfig,
 }
 
 async fn setup_listener(
@@ -206,7 +208,13 @@ impl<RT: AquaRuntime> Node<RT> {
             builtins_peer_id,
             config.node_config.default_service_memory_limit,
             config.node_config.allowed_effectors.clone(),
-            config.node_config.dev_mode_config.binaries.clone(),
+            config
+                .node_config
+                .dev_mode_config
+                .binaries
+                .clone()
+                .into_iter()
+                .collect(),
             config.node_config.dev_mode_config.enable,
         )
         .expect("create services config");
@@ -463,6 +471,7 @@ impl<RT: AquaRuntime> Node<RT> {
             versions,
             chain_listener,
             workers.clone(),
+            config,
         ))
     }
 
@@ -559,6 +568,7 @@ impl<RT: AquaRuntime> Node<RT> {
         versions: Versions,
         chain_listener: Option<ChainListener>,
         workers: Arc<Workers>,
+        config: ResolvedConfig,
     ) -> Box<Self> {
         let node_service = Self {
             particle_stream,
@@ -586,6 +596,7 @@ impl<RT: AquaRuntime> Node<RT> {
             versions,
             chain_listener,
             workers,
+            config,
         };
 
         Box::new(node_service)
@@ -606,8 +617,6 @@ impl<RT: AquaRuntime> Node<RT> {
         let spell_event_bus = self.spell_event_bus;
         let spell_events_receiver = self.spell_events_receiver;
         let sorcerer = self.sorcerer;
-        let metrics_registry = self.metrics_registry;
-        let health_registry = self.health_registry;
         let services_metrics_backend = self.services_metrics_backend;
         let http_listen_addr = self.http_listen_addr;
         let task_name = format!("node-{peer_id}");
@@ -617,12 +626,20 @@ impl<RT: AquaRuntime> Node<RT> {
         let workers = self.workers.clone();
         let chain_listener = self.chain_listener;
 
+        let http_endpoint_data = HttpEndpointData::new(
+            self.metrics_registry,
+            self.health_registry,
+            Some(self.config),
+        );
+
         task::Builder::new().name(&task_name.clone()).spawn(async move {
             let mut http_server = if let Some(http_listen_addr) = http_listen_addr {
                 tracing::info!("Starting http endpoint at {}", http_listen_addr);
                 async move {
-                    start_http_endpoint(http_listen_addr, metrics_registry, health_registry, peer_id, versions, http_bind_outlet)
-                        .await.expect("Could not start http server");
+                    start_http_endpoint(http_listen_addr, peer_id, versions,
+                                        http_endpoint_data, http_bind_outlet)
+                        .await
+                        .expect("Could not start http server");
                 }.boxed()
             } else {
                 futures::future::pending().boxed()
