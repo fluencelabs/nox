@@ -110,10 +110,10 @@ fluence-spell-dtos = "=0.7.5"
 fluence-spell-distro = "=0.7.5"
 
 # marine
-fluence-app-service = { version = "=0.35.2", path = "../marine/crates/fluence-app-service", features = ["wasmtime"] }
+fluence-app-service = { version = "=0.35.2", git = "https://github.com/fluencelabs/marine", branch = "feat/async-call", features = ["wasmtime"] }
 marine-utils = "0.5.1"
-marine-it-parser = { version = "0.16.0", path = "../marine/crates/it-parser" }
-marine-module-info-parser = { version = "0.15.0", path = "../marine/crates/module-info-parser" }
+marine-it-parser = { version = "0.16.0", git = "https://github.com/fluencelabs/marine", branch = "feat/async-call" }
+marine-module-info-parser = { version = "0.15.0",  git = "https://github.com/fluencelabs/marine", branch = "feat/async-call" }
 
 # avm
 avm-server = "=0.37.0"
