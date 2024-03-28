@@ -37,6 +37,7 @@ use chain_connector::{
     ConnectorError, Deal, PEER_NOT_EXISTS,
 };
 use chain_data::{parse_log, peer_id_to_hex, Log};
+use core_manager::errors::AcquireError;
 use core_manager::types::{AcquireRequest, WorkType};
 use core_manager::{CoreManager, CoreManagerFunctions, CUID};
 use server_config::{ChainConfig, ChainListenerConfig};
@@ -928,18 +929,28 @@ impl ChainListener {
     }
 
     fn acquire_cores_for_cc(&self, units: &[CUID]) -> eyre::Result<BTreeSet<PhysicalCoreId>> {
-        let cores = self
-            .core_manager
-            .acquire_worker_core(AcquireRequest::new(
-                units.to_vec(),
-                WorkType::CapacityCommitment,
-            ))
-            .map_err(|err| {
-                tracing::error!(target: "chain-listener", "Failed to acquire cores for active units: {err}");
-                eyre::eyre!("Failed to acquire cores for active units: {err}")
-            })?;
+        let cores = self.core_manager.acquire_worker_core(AcquireRequest::new(
+            units.to_vec(),
+            WorkType::CapacityCommitment,
+        ));
 
-        Ok(cores.physical_core_ids)
+        match cores {
+            Ok(cores) => Ok(cores.physical_core_ids),
+            Err(AcquireError::NotFoundAvailableCores {
+                required,
+                available,
+                ..
+            }) => {
+                tracing::warn!("Found {required} CUs in the Capacity Commitment, but Nox has only {available} Cores available for CC");
+
+                let units = units.to_vec().iter().take(available).cloned().collect();
+                let cores = self.core_manager.acquire_worker_core(AcquireRequest::new(
+                    units,
+                    WorkType::CapacityCommitment,
+                ))?;
+                Ok(cores.physical_core_ids)
+            }
+        }
     }
 
     fn acquire_core_for_deal(&self, unit_id: CUID) -> eyre::Result<()> {

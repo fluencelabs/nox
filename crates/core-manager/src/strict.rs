@@ -232,17 +232,27 @@ impl CoreManagerFunctions for StrictCoreManager {
         let mut result_physical_core_ids = BTreeSet::new();
         let mut result_logical_core_ids = BTreeSet::new();
         let worker_unit_type = assign_request.worker_type;
+
+        let available = lock.available_cores.len();
+        let required = assign_request.unit_ids.len();
+        if required > available {
+            let current_assignment: Vec<(PhysicalCoreId, CUID)> =
+                lock.unit_id_mapping.iter().map(|(k, v)| (*k, *v)).collect();
+            return Err(AcquireError::NotFoundAvailableCores {
+                required,
+                available,
+                current_assignment: CurrentAssignment::new(current_assignment),
+            });
+        }
+
         for unit_id in assign_request.unit_ids {
             let physical_core_id = lock.unit_id_mapping.get_by_right(&unit_id).cloned();
             let physical_core_id = match physical_core_id {
                 None => {
-                    let core_id = lock.available_cores.pop_last().ok_or({
-                        let current_assignment: Vec<(PhysicalCoreId, CUID)> =
-                            lock.unit_id_mapping.iter().map(|(k, v)| (*k, *v)).collect();
-                        AcquireError::NotFoundAvailableCores {
-                            current_assignment: CurrentAssignment::new(current_assignment),
-                        }
-                    })?;
+                    let core_id = lock
+                        .available_cores
+                        .pop_last()
+                        .expect("Unexpected state. Should not be empty never");
                     lock.unit_id_mapping.insert(core_id, unit_id);
                     lock.work_type_mapping
                         .insert(unit_id, worker_unit_type.clone());
