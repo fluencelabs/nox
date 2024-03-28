@@ -36,8 +36,7 @@ use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 
 use air_interpreter_fs::write_default_air_interpreter;
-use aquamarine::{DataStoreConfig, VmConfig};
-use avm_server::avm_runner::AVMRunner;
+use aquamarine::{DataStoreConfig, VmConfig, AVMRunner};
 use config_utils::to_peer_id;
 use core_manager::{CoreManager, CoreManagerFunctions, DevCoreManager, StrictCoreManager};
 use fs_utils::to_abs_path;

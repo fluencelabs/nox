@@ -21,6 +21,7 @@ use avm_server::avm_runner::{AVMRunner, RawAVMOutcome};
 use avm_server::{
     AVMMemoryStats, AVMRuntimeLimits, CallRequests, CallResults, ParticleParameters, RunnerError,
 };
+use marine_wasmtime_backend::{WasmtimeConfig, WasmtimeWasmBackend};
 use fluence_keypair::KeyPair;
 use libp2p::PeerId;
 use tracing::Level;
@@ -55,24 +56,38 @@ pub trait AquaRuntime: Sized + Send + 'static {
     fn memory_stats(&self) -> AVMMemoryStats;
 }
 
-impl AquaRuntime for AVMRunner {
+impl AquaRuntime for AVMRunner<WasmtimeWasmBackend> {
     type Config = VmConfig;
     type Error = RunnerError;
 
     /// Creates `AVM` in background (on blocking threadpool)
     fn create_runtime(config: Self::Config, waker: Waker) -> Result<Self, Self::Error> {
+        let mut wasmtime_config = WasmtimeConfig::default();
+        // TODO async-marine: impl proper configuration
+        // TODO async-marine: move to the right place
+        // TODO async-marine: maybe use the same as for ParticleAppServices
+        wasmtime_config
+            .debug_info(true)
+            .wasm_backtrace(true)
+            .epoch_interruption(true)
+            .async_wasm_stack(2 * 1024 * 1024)
+            .max_wasm_stack(2 * 1024 * 1024);
+        let backend = WasmtimeWasmBackend::new(wasmtime_config)
+            .map_err(|e| Self::Error::MarineError(
+                fluence_app_service::MarineError::EngineError(e.into())))?;
         let avm_runtime_limits = AVMRuntimeLimits::new(
             config.air_size_limit,
             config.particle_size_limit,
             config.call_result_size_limit,
             config.hard_limit_enabled,
         );
-        let vm: AVMRunner = AVMRunner::new(
+        let vm: AVMRunner<WasmtimeWasmBackend> = tokio::runtime::Handle::current().block_on(AVMRunner::new(
             config.air_interpreter,
             config.max_heap_size,
             avm_runtime_limits,
             i32::MAX,
-        )?;
+            backend,
+        ))?;
         waker.wake();
         Ok(vm)
     }
@@ -131,7 +146,7 @@ impl AquaRuntime for AVMRunner {
         call_results: CallResults,
         key_pair: &KeyPair,
     ) -> Result<RawAVMOutcome, Self::Error> {
-        AVMRunner::call(
+        tokio::runtime::Handle::current().block_on(AVMRunner::call(
             self,
             air,
             prev_data,
@@ -143,7 +158,7 @@ impl AquaRuntime for AVMRunner {
             call_results,
             key_pair,
             particle_params.particle_id.to_string(),
-        )
+        ))
     }
 
     fn memory_stats(&self) -> AVMMemoryStats {

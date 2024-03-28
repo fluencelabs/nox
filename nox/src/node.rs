@@ -735,14 +735,13 @@ mod tests {
     use std::sync::Arc;
     use std::time::Duration;
 
-    use avm_server::avm_runner::AVMRunner;
     use libp2p::core::Multiaddr;
     use libp2p::PeerId;
     use maplit::hashmap;
     use serde_json::json;
 
     use air_interpreter_fs::{air_interpreter_path, write_default_air_interpreter};
-    use aquamarine::{DataStoreConfig, VmConfig};
+    use aquamarine::{AVMRunner, DataStoreConfig, VmConfig};
     use config_utils::to_peer_id;
     use connected_client::ConnectedClient;
     use core_manager::DummyCoreManager;

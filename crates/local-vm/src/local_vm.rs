@@ -22,6 +22,7 @@ use std::{collections::HashMap, time::Duration};
 
 use avm_server::avm_runner::{AVMRunner, RawAVMOutcome};
 use avm_server::{CallResults, CallServiceResult};
+use marine_wasmtime_backend::{WasmtimeConfig, WasmtimeWasmBackend};
 use fstrings::f;
 use libp2p::PeerId;
 use serde_json::{json, Value as JValue};
@@ -170,11 +171,25 @@ pub fn host_call(data: &HashMap<String, JValue>, args: Args) -> (CallServiceResu
     (outcome, result.returned)
 }
 
-pub fn make_vm(tmp_dir_path: &Path) -> AVMRunner {
+pub fn make_wasm_backend() -> WasmtimeWasmBackend {
+    let mut wasmtime_config = WasmtimeConfig::default();
+    // TODO async-marine: impl proper configuration
+    wasmtime_config
+        .debug_info(true)
+        .wasm_backtrace(true)
+        .epoch_interruption(true)
+        .async_wasm_stack(2 * 1024 * 1024)
+        .max_wasm_stack(2 * 1024 * 1024);
+     WasmtimeWasmBackend::new(wasmtime_config)
+         .expect("Cannot create WasmtimeWasmBackend")
+}
+
+pub async fn make_vm(tmp_dir_path: &Path) -> AVMRunner<WasmtimeWasmBackend> {
     let interpreter = air_interpreter_path(tmp_dir_path);
     write_default_air_interpreter(&interpreter).expect("write air interpreter");
 
-    AVMRunner::new(interpreter, None, <_>::default(), i32::MAX)
+    AVMRunner::new(interpreter, None, <_>::default(), i32::MAX, make_wasm_backend())
+        .await
         .map_err(|err| {
             log::error!("\n\n\nFailed to create local AVM: {:#?}\n\n\n", err);
 
@@ -236,7 +251,7 @@ pub async fn make_particle(
     service_in: &HashMap<String, JValue>,
     script: String,
     relay: impl Into<Option<PeerId>>,
-    local_vm: &mut AVMRunner,
+    local_vm: &mut AVMRunner<WasmtimeWasmBackend>,
     data_store: Arc<ParticleDataStore>,
     generated: bool,
     particle_ttl: Duration,
@@ -289,6 +304,7 @@ pub async fn make_particle(
                 key_pair,
                 id.clone(),
             )
+            .await
             .expect("execute & make particle");
 
         data_store
@@ -330,7 +346,7 @@ pub async fn make_particle(
 pub async fn read_args(
     particle: Particle,
     peer_id: PeerId,
-    local_vm: &mut AVMRunner,
+    local_vm: &mut AVMRunner<WasmtimeWasmBackend>,
     data_store: Arc<ParticleDataStore>,
     key_pair: &KeyPair,
 ) -> Option<Result<Vec<JValue>, Vec<JValue>>> {
@@ -363,6 +379,7 @@ pub async fn read_args(
                 key_pair,
                 particle.id.clone(),
             )
+            .await
             .expect("execute & make particle");
 
         data_store

@@ -20,6 +20,8 @@ workers = { workspace = true }
 types = { workspace = true }
 
 avm-server = { workspace = true }
+marine-wasmtime-backend = { workspace = true }
+fluence-app-service = { workspace = true }
 libp2p = { workspace = true }
 fluence-keypair = { workspace = true }
 
