@@ -52,8 +52,8 @@ use particle_builtins::{Builtins, CustomService, NodeInfo};
 use particle_execution::ParticleFunctionStatic;
 use particle_protocol::ExtendedParticle;
 use peer_metrics::{
-    ConnectionPoolMetrics, ConnectivityMetrics, ParticleExecutorMetrics, ServicesMetrics,
-    ServicesMetricsBackend, SpellMetrics, VmPoolMetrics,
+    ChainListenerMetrics, ConnectionPoolMetrics, ConnectivityMetrics, ParticleExecutorMetrics,
+    ServicesMetrics, ServicesMetricsBackend, SpellMetrics, VmPoolMetrics,
 };
 use server_config::system_services_config::ServiceKey;
 use server_config::{NetworkConfig, ResolvedConfig, ServicesConfig};
@@ -113,6 +113,7 @@ async fn setup_listener(
     connector: Option<Arc<ChainConnector>>,
     config: &ResolvedConfig,
     core_manager: Arc<CoreManager>,
+    chain_listener_metrics: Option<ChainListenerMetrics>,
 ) -> eyre::Result<Option<ChainListener>> {
     if let (Some(connector), Some(chain_config), Some(listener_config)) = (
         connector,
@@ -145,6 +146,7 @@ async fn setup_listener(
             core_manager,
             ccp_client,
             cc_events_dir,
+            chain_listener_metrics,
         );
         Ok(Some(chain_listener))
     } else {
@@ -229,6 +231,7 @@ impl<RT: AquaRuntime> Node<RT> {
         let plumber_metrics = metrics_registry.as_mut().map(ParticleExecutorMetrics::new);
         let vm_pool_metrics = metrics_registry.as_mut().map(VmPoolMetrics::new);
         let spell_metrics = metrics_registry.as_mut().map(SpellMetrics::new);
+        let chain_listener_metrics = metrics_registry.as_mut().map(ChainListenerMetrics::new);
 
         if config.metrics_config.tokio_metrics_enabled {
             if let Some(r) = metrics_registry.as_mut() {
@@ -437,7 +440,8 @@ impl<RT: AquaRuntime> Node<RT> {
             system_services_deployer.versions(),
         );
 
-        let chain_listener = setup_listener(connector, &config, core_manager).await?;
+        let chain_listener =
+            setup_listener(connector, &config, core_manager, chain_listener_metrics).await?;
 
         Ok(Self::with(
             particle_stream,

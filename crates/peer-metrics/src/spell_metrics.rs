@@ -8,7 +8,7 @@ use prometheus_client::registry::Registry;
 pub struct SpellMetrics {
     // How much spell _particles_ were created by the node
     spell_particles_created: Counter,
-    // How much spells are scheduled to run _now_
+    // How many spells are scheduled to run _now_
     spell_scheduled_now: Gauge,
     // Distribution of spell's scheduled periods
     spell_periods: Histogram,

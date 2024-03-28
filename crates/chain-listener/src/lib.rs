@@ -2,6 +2,8 @@
 #![feature(try_blocks)]
 #![feature(extract_if)]
 #![feature(btree_extract_if)]
+#![feature(result_option_inspect)]
+#![feature(async_closure)]
 
 extern crate core;
 

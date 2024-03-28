@@ -2,7 +2,7 @@ use alloy_primitives::{Address, FixedBytes, Uint, U256};
 use alloy_sol_types::SolEvent;
 use backoff::Error::Permanent;
 use std::collections::{BTreeMap, BTreeSet, HashMap};
-use std::future::pending;
+use std::future::{pending, Future};
 use std::ops::Add;
 use std::path::PathBuf;
 use std::process::exit;
@@ -27,7 +27,7 @@ use libp2p_identity::PeerId;
 use serde::de::DeserializeOwned;
 use serde_json::{json, Value};
 use tokio::task::JoinHandle;
-use tokio::time::interval;
+use tokio::time::{interval, Instant};
 use tokio_stream::wrappers::IntervalStream;
 use tokio_stream::StreamExt;
 
@@ -39,6 +39,7 @@ use chain_connector::{
 use chain_data::{parse_log, peer_id_to_hex, Log};
 use core_manager::types::{AcquireRequest, WorkType};
 use core_manager::{CoreManager, CoreManagerFunctions, CUID};
+use peer_metrics::ChainListenerMetrics;
 use server_config::{ChainConfig, ChainListenerConfig};
 use types::DealId;
 
@@ -53,25 +54,33 @@ pub struct ChainListener {
     listener_config: ChainListenerConfig,
 
     chain_connector: Arc<ChainConnector>,
+    // To subscribe to chain events
     ws_client: WsClient,
+
     ccp_client: Option<CCPRpcHttpClient>,
+
     core_manager: Arc<CoreManager>,
 
     host_id: PeerId,
 
+    // These settings aren't changed
+    // We refresh them on some errors, but it's enough to get them only on start without refreshing
     difficulty: Difficulty,
+    // when the contract was deployed
     init_timestamp: U256,
-    global_nonce: GlobalNonce,
-    current_epoch: U256,
     epoch_duration: U256,
     min_proofs_per_epoch: U256,
     max_proofs_per_epoch: U256,
+    // These settings are changed each epoch
+    global_nonce: GlobalNonce,
+    current_epoch: U256,
 
     proof_counter: BTreeMap<CUID, U256>,
     current_commitment: Option<CommitmentId>,
 
+    // the compute units that are in the commitment
     cc_compute_units: BTreeMap<CUID, ComputeUnit>,
-
+    // the compute units that are in deals
     active_deals: BTreeMap<DealId, CUID>,
 
     /// Resets every epoch
@@ -79,11 +88,16 @@ pub struct ChainListener {
     pending_proof_txs: Vec<(String, CUID)>,
     persisted_proof_id_dir: PathBuf,
 
+    // TODO: move out to a separate struct, get rid of Option
+    // Subscriptions that are polled when we have commitment
     unit_activated: Option<Subscription<JsonValue>>,
     unit_deactivated: Option<Subscription<JsonValue>>,
+    // Subscriptions that are polled always
     heads: Option<Subscription<JsonValue>>,
     commitment_activated: Option<Subscription<JsonValue>>,
     unit_matched: Option<Subscription<JsonValue>>,
+
+    metrics: Option<ChainListenerMetrics>,
 }
 
 async fn poll_subscription<T>(s: &mut Option<Subscription<T>>) -> Option<Result<T, client::Error>>
@@ -106,6 +120,7 @@ impl ChainListener {
         core_manager: Arc<CoreManager>,
         ccp_client: Option<CCPRpcHttpClient>,
         persisted_proof_id_dir: PathBuf,
+        metrics: Option<ChainListenerMetrics>,
     ) -> Self {
         if ccp_client.is_none() {
             tracing::warn!(target: "chain-listener", "CCP client is not set, will submit mocked proofs");
@@ -138,10 +153,11 @@ impl ChainListener {
             commitment_activated: None,
             unit_matched: None,
             active_deals: BTreeMap::new(),
+            metrics,
         }
     }
 
-    pub async fn handle_subscription_error(&mut self, event: &str, err: Report) {
+    async fn handle_subscription_error(&mut self, event: &str, err: Report) {
         tracing::warn!(target: "chain-listener", "{event} event processing error: {err}");
 
         let result: eyre::Result<()> = try {
@@ -286,7 +302,9 @@ impl ChainListener {
     async fn refresh_state(&mut self) -> eyre::Result<()> {
         loop {
             let result: eyre::Result<()> = try {
+                // TODO: can do it once, on start
                 self.refresh_commitment_params().await?;
+                // but others we need to refresh on each error
                 self.refresh_compute_units().await?;
                 self.refresh_current_commitment_id().await?;
 
@@ -339,11 +357,11 @@ impl ChainListener {
         Ok(())
     }
 
-    pub async fn reset_proof_id(&mut self) -> eyre::Result<()> {
+    async fn reset_proof_id(&mut self) -> eyre::Result<()> {
         self.set_proof_id(ProofIdx::zero()).await
     }
 
-    pub async fn set_proof_id(&mut self, proof_id: ProofIdx) -> eyre::Result<()> {
+    async fn set_proof_id(&mut self, proof_id: ProofIdx) -> eyre::Result<()> {
         let backoff = ExponentialBackoff {
             max_elapsed_time: Some(Duration::from_secs(3)),
             ..ExponentialBackoff::default()
@@ -370,7 +388,7 @@ impl ChainListener {
         Ok(())
     }
 
-    pub async fn load_proof_id(&mut self) -> eyre::Result<()> {
+    async fn load_proof_id(&mut self) -> eyre::Result<()> {
         let persisted_proof_id =
             persistence::load_persisted_proof_id(&self.persisted_proof_id_dir).await?;
 
@@ -389,7 +407,8 @@ impl ChainListener {
         Ok(())
     }
 
-    pub async fn set_utility_core(&mut self) -> eyre::Result<()> {
+    // Allocate one CPU core for utility use
+    async fn set_utility_core(&mut self) -> eyre::Result<()> {
         if let Some(ccp_client) = self.ccp_client.as_ref() {
             // We will use the first logical core for utility tasks
             let utility_core = self
@@ -399,17 +418,18 @@ impl ChainListener {
                 .first()
                 .cloned()
                 .ok_or(eyre::eyre!("No utility core id"))?;
-
-            retry(ExponentialBackoff::default(), || async {
-                ccp_client
-                    .realloc_utility_cores(vec![utility_core])
-                    .await
-                    .map_err(|err| {
-                        tracing::warn!(target: "chain-listener", "Error reallocating utility core {utility_core} to CCP, error: {err}. Retrying...");
-                        eyre::eyre!("Error reallocating utility core {utility_core} to CCP, error: {err}")
-                    })?;
-                Ok(())
-            }).await?;
+            measured_request(&self.metrics, async ||
+                retry(ExponentialBackoff::default(), || async {
+                    ccp_client
+                        .realloc_utility_cores(vec![utility_core])
+                        .await
+                        .map_err(|err| {
+                            tracing::warn!(target: "chain-listener", "Error reallocating utility core {utility_core} to CCP, error: {err}. Retrying...");
+                            eyre::eyre!("Error reallocating utility core {utility_core} to CCP, error: {err}")
+                        })?;
+                    Ok(())
+                }).await
+            ).await?;
 
             tracing::info!("Utility core {utility_core} successfully reallocated");
         }
@@ -478,6 +498,7 @@ impl ChainListener {
                 ChainListener::create_ws_client(&self.listener_config.ws_endpoint).await?;
         }
 
+        // loop because subscriptions can fail and require reconnection, we can't proceed without them
         loop {
             let result: Result<(), client::Error> = try {
                 self.heads = Some(self.subscribe("newHeads", rpc_params!["newHeads"]).await?);
@@ -511,7 +532,7 @@ impl ChainListener {
         Ok(())
     }
 
-    /// Returns active and pending compute units
+    /// Updates active and pending compute units
     async fn refresh_compute_units(&mut self) -> eyre::Result<()> {
         let mut units = self.chain_connector.get_compute_units().await?;
 
@@ -521,10 +542,8 @@ impl ChainListener {
             .extend(units.into_iter().map(|unit| (CUID::new(unit.id.0), unit)));
 
         for cu in in_deal {
-            if !cu.deal.is_zero() {
-                self.active_deals
-                    .insert(cu.deal.to_string().into(), CUID::new(cu.id.0));
-            }
+            self.active_deals
+                .insert(cu.deal.to_string().into(), CUID::new(cu.id.0));
         }
 
         let active = self
@@ -626,8 +645,10 @@ impl ChainListener {
     ) -> eyre::Result<()> {
         let header = event.ok_or(eyre!("Failed to process newHeads event: got None"))?;
 
-        // TODO: add block_number to metrics
-        let (block_timestamp, _block_number) = Self::parse_block_header(header?)?;
+        let (block_timestamp, block_number) = Self::parse_block_header(header?)?;
+        self.metrics
+            .as_ref()
+            .inspect(|m| m.observe_new_block(block_number.to_string()));
 
         // `epoch_number = 1 + (block_timestamp - init_timestamp) / epoch_duration`
         let epoch_number =
@@ -664,7 +685,9 @@ impl ChainListener {
                 }
             }
         }
-
+        self.metrics
+            .as_ref()
+            .inspect(|m| m.observe_processed_block());
         Ok(())
     }
 
@@ -698,6 +721,9 @@ impl ChainListener {
             self.refresh_subscriptions().await?;
         }
 
+        // TODO: Why `current_commitment` is updated here? It looks like a deliberate choice.
+        // If `subscribe_unit_events` fails, the `refresh_subscribptions` will resubscribe to
+        // the `unit_activate` and `unit_deactivate` events, but for the older `current_commitment`.
         self.current_commitment = Some(commitment_id);
 
         self.cc_compute_units = unit_ids
@@ -772,7 +798,7 @@ impl ChainListener {
         Ok(())
     }
 
-    pub fn process_unit_matched(
+    fn process_unit_matched(
         &mut self,
         event: Option<Result<JsonValue, client::Error>>,
     ) -> eyre::Result<()> {
@@ -912,17 +938,19 @@ impl ChainListener {
             .collect::<Vec<_>>()
         );
 
-        ccp_client
-            .on_active_commitment(
-                self.global_nonce,
-                self.difficulty,
-                cu_allocation,
-            )
-            .await
-            .map_err(|err| {
-                tracing::error!(target: "chain-listener", "Failed to send commitment to CCP: {err}");
-                eyre::eyre!("Failed to send commitment to CCP: {err}")
-            })?;
+        measured_request(&self.metrics, async ||
+            ccp_client
+                .on_active_commitment(
+                    self.global_nonce,
+                    self.difficulty,
+                    cu_allocation,
+                )
+                .await
+                .map_err(|err| {
+                    tracing::error!(target: "chain-listener", "Failed to send commitment to CCP: {err}");
+                    eyre::eyre!("Failed to send commitment to CCP: {err}")
+                })
+        ).await?;
 
         Ok(())
     }
@@ -960,10 +988,12 @@ impl ChainListener {
     async fn stop_commitment(&self) -> eyre::Result<()> {
         tracing::info!(target: "chain-listener", "Stopping current commitment");
         if let Some(ref ccp_client) = self.ccp_client {
-            ccp_client.on_no_active_commitment().await.map_err(|err| {
+            measured_request(&self.metrics, async || {
+                ccp_client.on_no_active_commitment().await.map_err(|err| {
                 tracing::error!(target: "chain-listener", "Failed to send no active commitment to CCP: {err}");
                 eyre::eyre!("Failed to send no active commitment to CCP: {err}")
-            })?;
+            })
+            }).await?;
         }
         Ok(())
     }
@@ -997,9 +1027,12 @@ impl ChainListener {
         if let Some(ref ccp_client) = self.ccp_client {
             tracing::trace!(target: "chain-listener", "Polling proofs after: {}", self.last_submitted_proof_id);
 
-            let proofs = ccp_client
-                .get_proofs_after(self.last_submitted_proof_id, PROOF_POLL_LIMIT)
-                .await?;
+            let proofs = measured_request(&self.metrics, async || {
+                ccp_client
+                    .get_proofs_after(self.last_submitted_proof_id, PROOF_POLL_LIMIT)
+                    .await
+            })
+            .await?;
 
             // TODO: send only in batches
 
@@ -1024,6 +1057,7 @@ impl ChainListener {
     }
 
     async fn submit_proof(&mut self, proof: CCProof) -> eyre::Result<()> {
+        // TODO: why can this happen?
         if !self.cc_compute_units.contains_key(&proof.cu_id) {
             return Ok(());
         }
@@ -1074,7 +1108,7 @@ impl ChainListener {
                     _ => {
                         tracing::error!(target: "chain-listener", "Failed to submit proof: {err}");
                         tracing::error!(target: "chain-listener", "Proof {:?} ", proof);
-
+                        self.metrics.as_ref().inspect(|m| m.observe_proof_failed());
                         Err(err.into())
                     }
                 }
@@ -1082,6 +1116,10 @@ impl ChainListener {
             Ok(tx_id) => {
                 tracing::info!(target: "chain-listener", "Submitted proof {}, txHash: {tx_id}", proof.id.idx);
                 self.pending_proof_txs.push((tx_id, proof.cu_id));
+                self.metrics
+                    .as_ref()
+                    .inspect(|m| m.observe_proof_submitted());
+
                 Ok(())
             }
         }
@@ -1203,10 +1241,17 @@ impl ChainListener {
 
                         if *counter >= self.min_proofs_per_epoch {
                             tracing::info!(target: "chain-listener", "Compute unit {cu_id} submitted enough proofs");
+                            // need to call refresh commitment to make some cores to help others
                             refresh_neeeded = true;
                         }
+                        self.metrics
+                            .as_ref()
+                            .inspect(|m| m.observe_proof_tx_success());
                     } else {
                         tracing::warn!(target: "chain-listener", "Proof tx {tx_hash} not confirmed");
+                        self.metrics
+                            .as_ref()
+                            .inspect(|m| m.observe_proof_tx_failed(tx_hash.to_string()));
                     }
 
                     self.pending_proof_txs.retain(|(tx, _)| tx != &tx_hash);
@@ -1238,4 +1283,23 @@ fn all_min_proofs_found(priority_units: &[CUID]) -> bool {
 
 fn all_max_proofs_found(non_priority_units: &[CUID]) -> bool {
     non_priority_units.is_empty()
+}
+
+// measure the request execution time and store it in the metrics
+async fn measured_request<Fn, Fut, R, E>(
+    metrics: &Option<ChainListenerMetrics>,
+    f: Fn,
+) -> Result<R, E>
+where
+    Fn: FnOnce() -> Fut,
+    Fut: Future<Output = Result<R, E>> + Sized,
+{
+    metrics.as_ref().inspect(|m| m.observe_ccp_request());
+    let start = Instant::now();
+    let result = f().await;
+    let elapsed = start.elapsed();
+    metrics
+        .as_ref()
+        .inspect(|m| m.observe_ccp_reply(elapsed.as_millis() as f64));
+    result
 }
