@@ -65,10 +65,12 @@ pub struct UnresolvedDirConfig {
 
 impl UnresolvedDirConfig {
     pub fn resolve(self) -> eyre::Result<ResolvedDirConfig> {
-        let base = to_abs_path(self.base_dir);
+        let base_dir = to_abs_path(self.base_dir);
 
-        let ephemeral_base_dir = self.ephemeral_base_dir.unwrap_or(ephemeral_dir(&base));
-        let persistent_base_dir = self.persistent_base_dir.unwrap_or(persistent_dir(&base));
+        let ephemeral_base_dir = self.ephemeral_base_dir.unwrap_or(ephemeral_dir(&base_dir));
+        let persistent_base_dir = self
+            .persistent_base_dir
+            .unwrap_or(persistent_dir(&base_dir));
 
         // ephemeral dirs
         let services_ephemeral_dir = self
@@ -82,9 +84,7 @@ impl UnresolvedDirConfig {
         let services_persistent_dir = self
             .services_persistent_dir
             .unwrap_or(services_dir(&persistent_base_dir));
-        let air_interpreter_path = self
-            .air_interpreter_path
-            .unwrap_or(air_interpreter_path(&persistent_base_dir));
+
         let spell_base_dir = self
             .spell_base_dir
             .unwrap_or(persistent_base_dir.join("spell"));
@@ -98,13 +98,9 @@ impl UnresolvedDirConfig {
         let cc_events_dir = self
             .cc_events_dir
             .unwrap_or(persistent_base_dir.join("cc_events"));
-        let core_state_path = self
-            .core_state_path
-            .clone()
-            .unwrap_or(persistent_base_dir.join("cores_state.toml"));
 
         create_dirs(&[
-            &base,
+            &base_dir,
             // ephemeral dirs
             &ephemeral_base_dir,
             &services_ephemeral_dir,
@@ -120,7 +116,9 @@ impl UnresolvedDirConfig {
         ])
         .context("creating configured directories")?;
 
-        let base_dir = canonicalize(base)?;
+        let base_dir = canonicalize(base_dir)?;
+        let ephemeral_base_dir = canonicalize(ephemeral_base_dir)?;
+        let persistent_base_dir = canonicalize(persistent_base_dir)?;
         // ephemeral dirs
         let avm_base_dir = canonicalize(avm_base_dir)?;
         let services_ephemeral_dir = canonicalize(services_ephemeral_dir)?;
@@ -132,6 +130,14 @@ impl UnresolvedDirConfig {
         let workers_base_dir = canonicalize(workers_base_dir)?;
 
         let cc_events_dir = canonicalize(cc_events_dir)?;
+
+        let air_interpreter_path = self
+            .air_interpreter_path
+            .unwrap_or(air_interpreter_path(&persistent_base_dir));
+        let core_state_path = self
+            .core_state_path
+            .clone()
+            .unwrap_or(persistent_base_dir.join("cores_state.toml"));
 
         Ok(ResolvedDirConfig {
             base_dir,

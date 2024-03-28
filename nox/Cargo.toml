@@ -81,6 +81,7 @@ bs58 = { workspace = true }
 connected-client = { path = "../crates/connected-client" }
 log-utils = { workspace = true }
 reqwest = { workspace = true }
+tempfile = { workspace = true }
 
 
 [[bench]]

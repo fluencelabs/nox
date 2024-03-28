@@ -14,6 +14,7 @@ use libp2p::PeerId;
 use prometheus_client::encoding::text::encode;
 use prometheus_client::registry::Registry;
 use serde_json::{json, Value};
+use server_config::ResolvedConfig;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use tokio::sync::oneshot;
@@ -97,39 +98,73 @@ async fn handle_health(State(state): State<RouteState>) -> axum::response::Resul
     Ok(result)
 }
 
+async fn handle_config(State(state): State<RouteState>) -> axum::response::Result<Response> {
+    let toml = toml::to_string_pretty(&state.0.nox_config);
+    match toml {
+        Ok(toml) => Ok((StatusCode::OK, toml).into_response()),
+        Err(error) => {
+            tracing::warn!(error = error.to_string(), "Could not serialize config");
+            Err(StatusCode::INTERNAL_SERVER_ERROR.into())
+        }
+    }
+}
+
 #[derive(Clone)]
 struct RouteState(Arc<Inner>);
 
 struct Inner {
-    metric_registry: Option<Registry>,
-    health_registry: Option<HealthCheckRegistry>,
     peer_id: PeerId,
     versions: Versions,
+    metric_registry: Option<Registry>,
+    health_registry: Option<HealthCheckRegistry>,
+    nox_config: Option<ResolvedConfig>,
 }
 #[derive(Debug)]
 pub struct StartedHttp {
     pub listen_addr: SocketAddr,
 }
 
+#[derive(Default)]
+pub struct HttpEndpointData {
+    metrics_registry: Option<Registry>,
+    health_registry: Option<HealthCheckRegistry>,
+    nox_config: Option<ResolvedConfig>,
+}
+
+impl HttpEndpointData {
+    pub fn new(
+        metrics_registry: Option<Registry>,
+        health_registry: Option<HealthCheckRegistry>,
+        nox_config: Option<ResolvedConfig>,
+    ) -> Self {
+        Self {
+            metrics_registry,
+            health_registry,
+            nox_config,
+        }
+    }
+}
+
 pub async fn start_http_endpoint(
     listen_addr: SocketAddr,
-    metric_registry: Option<Registry>,
-    health_registry: Option<HealthCheckRegistry>,
     peer_id: PeerId,
     versions: Versions,
+    http_endpoint_data: HttpEndpointData,
     notify: oneshot::Sender<StartedHttp>,
 ) -> eyre::Result<()> {
     let state = RouteState(Arc::new(Inner {
-        metric_registry,
-        health_registry,
         peer_id,
         versions,
+        metric_registry: http_endpoint_data.metrics_registry,
+        health_registry: http_endpoint_data.health_registry,
+        nox_config: http_endpoint_data.nox_config,
     }));
     let app: Router = Router::new()
         .route("/metrics", get(handle_metrics))
         .route("/peer_id", get(handle_peer_id))
         .route("/versions", get(handle_versions))
         .route("/health", get(handle_health))
+        .route("/config", get(handle_config))
         .fallback(handler_404)
         .with_state(state);
 
@@ -148,9 +183,12 @@ pub async fn start_http_endpoint(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use eyre::Context;
     use health::HealthCheck;
     use reqwest::StatusCode;
+    use server_config::UnresolvedConfig;
     use std::net::SocketAddr;
+    use std::path::Path;
 
     fn test_versions() -> Versions {
         Versions {
@@ -175,10 +213,9 @@ mod tests {
         tokio::spawn(async move {
             start_http_endpoint(
                 addr,
-                None,
-                None,
                 PeerId::random(),
                 test_versions(),
+                HttpEndpointData::default(),
                 notify_sender,
             )
             .await
@@ -208,9 +245,15 @@ mod tests {
 
         let (notify_sender, notify_receiver) = oneshot::channel();
         tokio::spawn(async move {
-            start_http_endpoint(addr, None, None, peer_id, test_versions(), notify_sender)
-                .await
-                .unwrap();
+            start_http_endpoint(
+                addr,
+                peer_id,
+                test_versions(),
+                HttpEndpointData::default(),
+                notify_sender,
+            )
+            .await
+            .unwrap();
         });
 
         let http_info = notify_receiver.await.unwrap();
@@ -239,13 +282,18 @@ mod tests {
 
         let (notify_sender, notify_receiver) = oneshot::channel();
         let health_registry = HealthCheckRegistry::new();
+        let endpoint_config = HttpEndpointData {
+            metrics_registry: None,
+            health_registry: Some(health_registry),
+            nox_config: None,
+        };
+
         tokio::spawn(async move {
             start_http_endpoint(
                 addr,
-                None,
-                Some(health_registry),
                 peer_id,
                 test_versions(),
+                endpoint_config,
                 notify_sender,
             )
             .await
@@ -283,13 +331,18 @@ mod tests {
         }
         let success_check = SuccessHealthCheck {};
         health_registry.register("test_check", success_check);
+
+        let endpoint_config = HttpEndpointData {
+            metrics_registry: None,
+            health_registry: Some(health_registry),
+            nox_config: None,
+        };
         tokio::spawn(async move {
             start_http_endpoint(
                 addr,
-                None,
-                Some(health_registry),
                 peer_id,
                 test_versions(),
+                endpoint_config,
                 notify_sender,
             )
             .await
@@ -335,13 +388,17 @@ mod tests {
         let fail_check = FailHealthCheck {};
         health_registry.register("test_check", success_check);
         health_registry.register("test_check_2", fail_check);
+        let endpoint_config = HttpEndpointData {
+            metrics_registry: None,
+            health_registry: Some(health_registry),
+            nox_config: None,
+        };
         tokio::spawn(async move {
             start_http_endpoint(
                 addr,
-                None,
-                Some(health_registry),
                 peer_id,
                 test_versions(),
+                endpoint_config,
                 notify_sender,
             )
             .await
@@ -382,13 +439,18 @@ mod tests {
         }
         let fail_check = FailHealthCheck {};
         health_registry.register("test_check", fail_check);
+        let endpoint_config = HttpEndpointData {
+            metrics_registry: None,
+            health_registry: Some(health_registry),
+            nox_config: None,
+        };
+
         tokio::spawn(async move {
             start_http_endpoint(
                 addr,
-                None,
-                Some(health_registry),
                 peer_id,
                 test_versions(),
+                endpoint_config,
                 notify_sender,
             )
             .await
@@ -408,5 +470,93 @@ mod tests {
         let body = response.bytes().await.unwrap();
         assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE);
         assert_eq!(&body[..], (r#"[{"test_check":"Fail"}]"#).as_bytes());
+    }
+
+    #[tokio::test]
+    async fn test_config_endpoint() {
+        let tmp_dir = tempfile::tempdir().expect("Could not create temp dir");
+        let tmp_path = tmp_dir.path();
+        let resolved_config = get_config(tmp_path).await;
+
+        // Create a test server
+        let addr = "127.0.0.1:0".parse::<SocketAddr>().unwrap();
+        let peer_id = PeerId::random();
+
+        let (notify_sender, notify_receiver) = oneshot::channel();
+
+        let endpoint_config = HttpEndpointData {
+            metrics_registry: None,
+            health_registry: None,
+            nox_config: Some(resolved_config),
+        };
+
+        tokio::spawn(async move {
+            start_http_endpoint(
+                addr,
+                peer_id,
+                test_versions(),
+                endpoint_config,
+                notify_sender,
+            )
+            .await
+            .unwrap();
+        });
+
+        let http_info = notify_receiver.await.unwrap();
+
+        let client = reqwest::Client::new();
+
+        let response = client
+            .get(format!("http://{}/config", http_info.listen_addr))
+            .send()
+            .await
+            .unwrap();
+
+        let status = response.status();
+        let body = response.bytes().await.unwrap();
+        let expected_config = tokio::fs::read("./tests/http_expected_config.toml")
+            .await
+            .wrap_err("read test data")
+            .unwrap();
+
+        let expected_config = String::from_utf8(expected_config)
+            .wrap_err("decode test data")
+            .unwrap();
+
+        let base_dir = tmp_path.canonicalize().unwrap().display().to_string();
+
+        let expected_config = expected_config.replace("{base_dir}", &base_dir);
+
+        let result = std::str::from_utf8(&body[..])
+            .wrap_err("decode response data")
+            .unwrap();
+
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(result, expected_config);
+    }
+
+    async fn get_config(path: &Path) -> ResolvedConfig {
+        let unresolved_config = tokio::fs::read("./tests/http_test_config.toml")
+            .await
+            .wrap_err("read test data")
+            .unwrap();
+
+        let unresolved_config = String::from_utf8(unresolved_config)
+            .wrap_err("decode test data")
+            .unwrap();
+
+        let unresolved_config =
+            unresolved_config.replace("{base_dir}", &path.display().to_string());
+
+        let unresolved_config: UnresolvedConfig = toml::de::from_str(unresolved_config.as_str())
+            .wrap_err("parse config")
+            .unwrap();
+
+        let resolved_config = unresolved_config
+            .resolve()
+            .wrap_err("resolve config")
+            .unwrap();
+
+        resolved_config
     }
 }

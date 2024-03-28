@@ -1,0 +1,91 @@
+base_dir = "{base_dir}"
+cpus_range = "0-7"
+system_cpu_count = 2
+transport = "Network"
+socket_timeout = "20s"
+max_established_per_peer = 5
+connection_idle_timeout = "3m"
+tcp_port = 7777
+listen_ip = "0.0.0.0"
+websocket_port = 9999
+local = false
+bootstrap_nodes = []
+external_multiaddresses = []
+metrics_enabled = true
+metrics_timer_resolution = "1m"
+max_builtin_metrics_storage_size = 5
+tokio_metrics_enabled = false
+tokio_metrics_poll_histogram_enabled = false
+health_check_enabled = true
+http_port = 18080
+aquavm_pool_size = 2
+particle_queue_buffer = 128
+effects_queue_buffer = 128
+workers_queue_buffer = 128
+particle_processor_parallelism = 16
+max_spell_particle_ttl = "2m"
+bootstrap_frequency = 3
+allow_local_addresses = false
+particle_execution_timeout = "20s"
+management_peer_id = "12D3KooWELdQw9pQVdq5NS6gEHsWMbYpLh3PjqFyNbivYWuATcik"
+allowed_binaries = [
+    "/usr/bin/curl",
+    "/usr/bin/ipfs",
+]
+no_banner = false
+print_config = true
+
+[root_key_pair]
+format = "ed25519"
+value = "uRRSDz8CLQ4XqpQ0kzLFZrfpHRFbqeoWhHdiZxO/AxM="
+generate_on_absence = false
+
+[bootstrap_config]
+reconnect_delay = "1s 617ms"
+bootstrap_delay = "30s 772ms"
+bootstrap_max_delay = "1m"
+
+[root_weights]
+
+[services_envs]
+
+[protocol_config]
+upgrade_timeout = "10s"
+outbound_substream_timeout = "10s"
+
+[kademlia]
+max_packet_size = 1677721600
+query_timeout = "3s"
+peer_fail_threshold = 3
+ban_cooldown = "1m"
+
+[effectors.curl]
+wasm_cid = "bafkreids22lgia5bqs63uigw4mqwhsoxvtnkpfqxqy5uwyyerrldsr32ce"
+
+[effectors.curl.allowed_binaries]
+curl = "/usr/bin/curl"
+
+[system_services]
+enable = []
+
+[system_services.aqua_ipfs]
+external_api_multiaddr = "/ip4/127.0.0.1/tcp/5001"
+local_api_multiaddr = "/ip4/127.0.0.1/tcp/5001"
+ipfs_binary_path = "/usr/bin/ipfs"
+
+[system_services.decider]
+decider_period_sec = 10
+worker_period_sec = 900
+worker_ipfs_multiaddr = "/ip4/127.0.0.1/tcp/5001"
+network_api_endpoint = "http://127.0.0.1:8545"
+network_id = 31337
+matcher_address = "0x0e1F3B362E22B2Dc82C9E35d6e62998C7E8e2349"
+start_block = "earliest"
+worker_gas = 210000
+wallet_key = "0x3cc23e0227bd17ea5d6ea9d42b5eaa53ad41b1974de4755c79fe236d361a6fd5"
+
+[system_services.registry]
+registry_period_sec = 3600
+expired_period_sec = 86400
+renew_period_sec = 43200
+replicate_period_sec = 3600
