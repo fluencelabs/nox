@@ -241,21 +241,6 @@ impl CoreManagerFunctions for DevCoreManager {
             FxBuildHasher::default(),
         );
         let worker_unit_type = assign_request.worker_type;
-        let available = lock.available_cores.len();
-        let required = assign_request.unit_ids.len();
-        if required > available {
-            let current_assignment: Vec<(PhysicalCoreId, CUID)> = lock
-                .core_unit_id_mapping
-                .iter()
-                .map(|(k, v)| (*k, *v))
-                .collect();
-            return Err(AcquireError::NotFoundAvailableCores {
-                required,
-                available,
-                current_assignment: CurrentAssignment::new(current_assignment),
-            });
-        }
-
         for unit_id in assign_request.unit_ids {
             let physical_core_id = lock.unit_id_core_mapping.get(&unit_id).cloned();
             let physical_core_id = match physical_core_id {
