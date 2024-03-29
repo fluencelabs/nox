@@ -1,3 +1,4 @@
+use crate::Map;
 use ccp_shared::types::CUID;
 use cpu_utils::pinning::pin_current_thread_to_cpuset;
 use cpu_utils::{LogicalCoreId, PhysicalCoreId};
@@ -24,10 +25,17 @@ impl AcquireRequest {
     }
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq, Clone)]
+pub struct CoreData {
+    pub physical_core_id: PhysicalCoreId,
+    pub logical_core_ids: Vec<LogicalCoreId>,
+}
+
+#[derive(Debug, Eq, PartialEq, Clone)]
 pub struct Assignment {
     pub physical_core_ids: BTreeSet<PhysicalCoreId>,
     pub logical_core_ids: BTreeSet<LogicalCoreId>,
+    pub cuid_core_data: Map<CUID, CoreData>,
 }
 
 impl Assignment {

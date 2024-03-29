@@ -38,7 +38,7 @@ use chain_connector::{
 };
 use chain_data::{parse_log, peer_id_to_hex, Log};
 use core_manager::errors::AcquireError;
-use core_manager::types::{AcquireRequest, WorkType};
+use core_manager::types::{AcquireRequest, Assignment, WorkType};
 use core_manager::{CoreManager, CoreManagerFunctions, CUID};
 use server_config::{ChainConfig, ChainListenerConfig};
 use types::DealId;
@@ -795,46 +795,31 @@ impl ChainListener {
         Ok(())
     }
 
-    /// Return already started units involved in CC and not having less than MIN_PROOFS_PER_EPOCH proofs in the current epoch
-    fn get_priority_units(&self) -> Vec<CUID> {
-        self.cc_compute_units
-            .iter()
-            .filter(|(_, cu)| cu.startEpoch <= self.current_epoch) // CU is already started
-            .filter(|(cuid, _)| {
-                self.proof_counter
-                    .get(cuid)
-                    .map(|count| *count < self.min_proofs_per_epoch)
-                    .unwrap_or(true)
-            })
-            .map(|(cuid, _)| *cuid)
-            .collect()
-    }
-
-    /// Return already started units involved in CC and found at least MIN_PROOFS_PER_EPOCH proofs,
-    /// but less that MAX_PROOFS_PER_EPOCH proofs in the current epoch
-    fn get_non_priority_units(&self) -> Vec<CUID> {
-        self.cc_compute_units
-            .iter()
-            .filter(|(_, cu)| cu.startEpoch <= self.current_epoch) // CU is already started
-            .filter(|(cuid, _)| {
-                self.proof_counter
-                    .get(cuid)
-                    .map(|count| {
-                        *count >= self.min_proofs_per_epoch && *count < self.max_proofs_per_epoch
-                    })
-                    .unwrap_or(true)
-            })
-            .map(|(cuid, _)| *cuid)
-            .collect()
-    }
-
-    /// Return units in CC that is not active yet and can't produce proofs in the current epoch
-    fn get_pending_units(&self) -> Vec<CUID> {
-        self.cc_compute_units
-            .values()
-            .filter(|cu| cu.startEpoch > self.current_epoch) // CU hasn't yet started
-            .map(|cu| CUID::new(cu.id.0))
-            .collect()
+    fn group_cc_units(&self) -> CUGroupResult {
+        let mut priority_units: Vec<CUID> = Vec::new();
+        let mut non_priority_units: Vec<CUID> = Vec::new();
+        let mut pending_units: Vec<CUID> = Vec::new();
+        let mut finished_units: Vec<CUID> = Vec::new();
+        for (cuid, cu) in &self.cc_compute_units {
+            if cu.startEpoch <= self.current_epoch {
+                let count = self.proof_counter.get(cuid).unwrap_or(&U256::ZERO);
+                if count < &self.min_proofs_per_epoch {
+                    priority_units.push(*cuid)
+                } else if *count >= self.max_proofs_per_epoch {
+                    finished_units.push(*cuid)
+                } else {
+                    non_priority_units.push(*cuid)
+                }
+            } else {
+                pending_units.push(*cuid);
+            }
+        }
+        CUGroupResult {
+            priority_units,
+            non_priority_units,
+            pending_units,
+            finished_units,
+        }
     }
 
     /// Send GlobalNonce, Difficulty and Core<>CUID mapping (full commitment info) to CCP
@@ -860,28 +845,31 @@ impl ChainListener {
             None => return Ok(()),
         };
 
-        let priority_units = self.get_priority_units();
-        let non_priority_units = self.get_non_priority_units();
-        let pending_units = self.get_pending_units();
+        let group_result = self.group_cc_units();
 
-        let mut cu_allocation = HashMap::new();
-        let priority_cores = self.acquire_cores_for_cc(&priority_units)?;
-        let non_priority_cores = self.acquire_cores_for_cc(&non_priority_units)?;
-        let pending_cores = self.acquire_cores_for_cc(&pending_units)?;
+        let cc_cores = self.acquire_cores_for_cc(&group_result)?;
 
-        if all_min_proofs_found(&priority_units) {
+        let mut cu_allocation: HashMap<PhysicalCoreId, CUID> = HashMap::new();
+
+        if all_min_proofs_found(&group_result.priority_units) {
             tracing::info!(target: "chain-listener", "All CUs found minimal number of proofs {} in current epoch {}", self.min_proofs_per_epoch, self.current_epoch);
-            if all_max_proofs_found(&non_priority_units) {
+            if all_max_proofs_found(&group_result.non_priority_units) {
                 tracing::info!(target: "chain-listener", "All CUs found max number of proofs {} in current epoch {}", self.max_proofs_per_epoch ,self.current_epoch);
                 self.stop_commitment().await?;
                 return Ok(());
             } else {
                 // All CUs were proven, now let's work on submitting proofs for every CU until MAX_PROOF_COUNT is reached
-                cu_allocation.extend(non_priority_cores.iter().zip(non_priority_units.iter()));
+                cu_allocation.extend(
+                    cc_cores
+                        .non_priority_cores
+                        .iter()
+                        .cloned()
+                        .zip(group_result.non_priority_units.iter().cloned()),
+                );
 
-                let mut units = non_priority_units.iter().cycle();
+                let mut units = group_result.non_priority_units.iter().cycle();
                 // Assign "pending cores" to help generate proofs for "non priority units"
-                pending_cores.iter().for_each(|core| {
+                cc_cores.pending_cores.iter().for_each(|core| {
                     if let Some(unit) = units.next() {
                         cu_allocation.insert(*core, *unit);
                     }
@@ -889,15 +877,22 @@ impl ChainListener {
             }
         } else {
             // Use assigned cores to calculate proofs for CUs who haven't reached MIN_PROOF_COUNT yet
-            cu_allocation.extend(priority_cores.iter().zip(priority_units.iter()));
+            cu_allocation.extend(
+                cc_cores
+                    .priority_cores
+                    .iter()
+                    .zip(group_result.priority_units.iter()),
+            );
 
             // Use all spare cores to help CUs to reach MIN_PROOF_COUNT
-            let spare_cores: BTreeSet<_> = non_priority_cores
+            let spare_cores: BTreeSet<_> = cc_cores
+                .non_priority_cores
                 .into_iter()
-                .chain(pending_cores.into_iter())
+                .chain(cc_cores.pending_cores.into_iter())
+                .chain(cc_cores.finished_cores.into_iter())
                 .collect();
 
-            let mut units = priority_units.iter().cycle();
+            let mut units = group_result.priority_units.iter().cycle();
             spare_cores.iter().for_each(|core| {
                 if let Some(unit) = units.next() {
                     cu_allocation.insert(*core, *unit);
@@ -928,27 +923,69 @@ impl ChainListener {
         Ok(())
     }
 
-    fn acquire_cores_for_cc(&self, units: &[CUID]) -> eyre::Result<BTreeSet<PhysicalCoreId>> {
+    fn acquire_cores_for_cc(
+        &self,
+        cu_group_result: &CUGroupResult,
+    ) -> eyre::Result<PhysicalCoreGroupResult> {
+        let mut units = cu_group_result.priority_units.clone();
+        units.extend(cu_group_result.non_priority_units.clone());
+        units.extend(cu_group_result.pending_units.clone());
+        units.extend(cu_group_result.finished_units.clone());
+
         let cores = self.core_manager.acquire_worker_core(AcquireRequest::new(
             units.to_vec(),
             WorkType::CapacityCommitment,
         ));
 
+        fn filter(units: &Vec<CUID>, assignment: &Assignment) -> Vec<PhysicalCoreId> {
+            units
+                .into_iter()
+                .filter_map(|cuid| {
+                    assignment
+                        .cuid_core_data
+                        .get(&cuid)
+                        .map(|data| data.physical_core_id)
+                })
+                .collect()
+        }
+
         match cores {
-            Ok(cores) => Ok(cores.physical_core_ids),
+            Ok(assignment) => {
+                let priority_units = filter(&cu_group_result.priority_units, &assignment);
+                let non_priority_units = filter(&cu_group_result.non_priority_units, &assignment);
+                let pending_units = filter(&cu_group_result.pending_units, &assignment);
+                let finished_units = filter(&cu_group_result.finished_units, &assignment);
+
+                Ok(PhysicalCoreGroupResult {
+                    priority_cores: priority_units,
+                    non_priority_cores: non_priority_units,
+                    pending_cores: pending_units,
+                    finished_cores: finished_units,
+                })
+            }
             Err(AcquireError::NotFoundAvailableCores {
                 required,
                 available,
                 ..
             }) => {
                 tracing::warn!("Found {required} CUs in the Capacity Commitment, but Nox has only {available} Cores available for CC");
-
-                let units = units.to_vec().iter().take(available).cloned().collect();
-                let cores = self.core_manager.acquire_worker_core(AcquireRequest::new(
-                    units,
+                let assign_units = units.iter().take(available).cloned().collect();
+                self.core_manager.release(units);
+                let assignment = self.core_manager.acquire_worker_core(AcquireRequest::new(
+                    assign_units,
                     WorkType::CapacityCommitment,
                 ))?;
-                Ok(cores.physical_core_ids)
+                let priority_units = filter(&cu_group_result.priority_units, &assignment);
+                let non_priority_units = filter(&cu_group_result.non_priority_units, &assignment);
+                let pending_units = filter(&cu_group_result.pending_units, &assignment);
+                let finished_units = filter(&cu_group_result.finished_units, &assignment);
+
+                Ok(PhysicalCoreGroupResult {
+                    priority_cores: priority_units,
+                    non_priority_cores: non_priority_units,
+                    pending_cores: pending_units,
+                    finished_cores: finished_units,
+                })
             }
         }
     }
@@ -1241,6 +1278,20 @@ impl ChainListener {
 
         Ok(())
     }
+}
+
+struct CUGroupResult {
+    pub priority_units: Vec<CUID>,
+    pub non_priority_units: Vec<CUID>,
+    pub pending_units: Vec<CUID>,
+    pub finished_units: Vec<CUID>,
+}
+
+struct PhysicalCoreGroupResult {
+    pub priority_cores: Vec<PhysicalCoreId>,
+    pub non_priority_cores: Vec<PhysicalCoreId>,
+    pub pending_cores: Vec<PhysicalCoreId>,
+    pub finished_cores: Vec<PhysicalCoreId>,
 }
 
 fn all_min_proofs_found(priority_units: &[CUID]) -> bool {

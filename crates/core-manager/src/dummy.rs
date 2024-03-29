@@ -1,8 +1,10 @@
 use crate::errors::AcquireError;
 use crate::manager::CoreManagerFunctions;
 use crate::types::{AcquireRequest, Assignment};
+use crate::Map;
 use async_trait::async_trait;
 use ccp_shared::types::{LogicalCoreId, PhysicalCoreId, CUID};
+use fxhash::FxBuildHasher;
 use rand::prelude::IteratorRandom;
 use std::collections::BTreeSet;
 
@@ -20,6 +22,7 @@ impl DummyCoreManager {
         Assignment {
             physical_core_ids,
             logical_core_ids,
+            cuid_core_data: Map::with_hasher(FxBuildHasher::default()),
         }
     }
 }
@@ -42,6 +45,7 @@ impl CoreManagerFunctions for DummyCoreManager {
         Ok(Assignment {
             physical_core_ids: BTreeSet::new(),
             logical_core_ids,
+            cuid_core_data: Map::with_hasher(FxBuildHasher::default()),
         })
     }
 
