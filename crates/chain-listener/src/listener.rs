@@ -943,7 +943,7 @@ impl ChainListener {
                 .filter_map(|cuid| {
                     assignment
                         .cuid_core_data
-                        .get(&cuid)
+                        .get(cuid)
                         .map(|data| data.physical_core_id)
                 })
                 .collect()
