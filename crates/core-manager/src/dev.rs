@@ -8,7 +8,7 @@ use fxhash::FxBuildHasher;
 use parking_lot::RwLock;
 use range_set_blaze::RangeSetBlaze;
 
-use crate::errors::{AcquireError, CreateError, CurrentAssignment, LoadingError, PersistError};
+use crate::errors::{AcquireError, CreateError, LoadingError, PersistError};
 use crate::manager::CoreManagerFunctions;
 use crate::persistence::{
     PersistenceTask, PersistentCoreManagerFunctions, PersistentCoreManagerState,
