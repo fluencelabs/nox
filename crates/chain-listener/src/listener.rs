@@ -937,9 +937,9 @@ impl ChainListener {
             WorkType::CapacityCommitment,
         ));
 
-        fn filter(units: &Vec<CUID>, assignment: &Assignment) -> Vec<PhysicalCoreId> {
+        fn filter(units: &[CUID], assignment: &Assignment) -> Vec<PhysicalCoreId> {
             units
-                .into_iter()
+                .iter()
                 .filter_map(|cuid| {
                     assignment
                         .cuid_core_data
