@@ -175,7 +175,7 @@ cpu-utils = "0.8.0"
 ccp-shared = "0.8.0"
 ccp-rpc-client = "0.8.0"
 alloy-sol-types = "0.6.4"
-alloy-primitives = "0.6.4"
+alloy-primitives = "0.7.0"
 alloy_serde_macro = "0.1.2"
 const-hex = "1.11.3"
 
