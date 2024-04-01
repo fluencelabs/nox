@@ -1,4 +1,7 @@
+use std::str::FromStr;
+
 use libp2p::PeerId;
+use log_format::Format;
 use opentelemetry::trace::TracerProvider;
 use opentelemetry::{global, KeyValue};
 use opentelemetry_otlp::WithExportConfig;
@@ -6,9 +9,9 @@ use opentelemetry_sdk::propagation::TraceContextPropagator;
 use opentelemetry_sdk::trace::Sampler;
 use opentelemetry_sdk::Resource;
 use server_config::TracingConfig;
-use std::str::FromStr;
 use tracing::level_filters::LevelFilter;
 use tracing::Subscriber;
+use tracing_appender::non_blocking::WorkerGuard;
 use tracing_subscriber::registry::LookupSpan;
 use tracing_subscriber::Layer;
 
@@ -39,26 +42,35 @@ where
         .add_directive("avm_server::runner=error".parse().unwrap())
 }
 
-pub fn log_layer<S>() -> impl Layer<S>
+pub fn log_layer<S>() -> (impl Layer<S>, WorkerGuard)
 where
     S: Subscriber + for<'span> LookupSpan<'span>,
 {
     let log_format = std::env::var("FLUENCE_LOG_FORMAT").unwrap_or_default();
-
     let log_format = LogFormat::from_str(log_format.as_str()).unwrap_or(LogFormat::Default);
 
-    match log_format {
+    let log_display_span_list = std::env::var("FLUENCE_LOG_DISPLAY_SPAN_LIST").unwrap_or_default();
+    let log_display_span_list = log_display_span_list.trim().parse().unwrap_or_default();
+
+    let (non_blocking, guard) = tracing_appender::non_blocking(std::io::stdout());
+
+    let layer = match log_format {
         LogFormat::Logfmt => tracing_logfmt::builder()
             .with_target(true)
             .with_span_path(false)
             .with_span_name(false)
             .layer()
+            .with_writer(non_blocking)
             .boxed(),
-        LogFormat::Default => tracing_subscriber::fmt::layer()
-            .with_thread_ids(true)
-            .with_thread_names(true)
-            .boxed(),
-    }
+        LogFormat::Default => {
+            let format = Format::default().with_display_span_list(log_display_span_list);
+            tracing_subscriber::fmt::layer()
+                .event_format(format)
+                .with_writer(non_blocking)
+                .boxed()
+        }
+    };
+    (layer, guard)
 }
 
 #[derive(Clone, Debug, PartialEq)]
