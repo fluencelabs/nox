@@ -25,9 +25,9 @@ pub struct ChainListenerMetrics {
     // how long we wait for a reply from ccp
     ccp_request_duration_msec: Histogram,
     // how many proofs we submitted
-    cpp_proofs_submitted: Counter,
+    ccp_proofs_submitted: Counter,
     // how many proofs we failed to submit
-    cpp_proofs_submit_failed: Counter,
+    ccp_proofs_submit_failed: Counter,
     // how many proofs transaction are ok
     ccp_proofs_tx_success: Counter,
     // how many proofs transaction are failed
@@ -63,14 +63,14 @@ impl ChainListenerMetrics {
             "Duration of ccp requests",
         );
 
-        let cpp_proofs_submitted = register(
+        let ccp_proofs_submitted = register(
             sub_registry,
             Counter::default(),
             "cpp_proofs_submitted",
             "Total number of proofs submitted to ccp",
         );
 
-        let cpp_proofs_submit_failed = register(
+        let ccp_proofs_submit_failed = register(
             sub_registry,
             Counter::default(),
             "cpp_proofs_submit_failed",
@@ -109,8 +109,8 @@ impl ChainListenerMetrics {
             ccp_requests_total,
             ccp_replies_total,
             ccp_request_duration_msec,
-            cpp_proofs_submitted,
-            cpp_proofs_submit_failed,
+            ccp_proofs_submitted,
+            ccp_proofs_submit_failed,
             ccp_proofs_tx_success,
             ccp_proofs_tx_failed,
             blocks_seen,
@@ -128,11 +128,11 @@ impl ChainListenerMetrics {
     }
 
     pub fn observe_proof_failed(&self) {
-        self.cpp_proofs_submit_failed.inc();
+        self.ccp_proofs_submit_failed.inc();
     }
 
     pub fn observe_proof_submitted(&self) {
-        self.cpp_proofs_submitted.inc();
+        self.ccp_proofs_submitted.inc();
     }
 
     pub fn observe_proof_tx_success(&self) {

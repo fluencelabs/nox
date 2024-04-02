@@ -66,7 +66,7 @@ pub struct ChainListener {
     // These settings aren't changed
     // We refresh them on some errors, but it's enough to get them only on start without refreshing
     difficulty: Difficulty,
-    // when the contract was deployed
+    // The time when the first epoch starts (aka the contract was deployed)
     init_timestamp: U256,
     epoch_duration: U256,
     min_proofs_per_epoch: U256,
@@ -78,9 +78,9 @@ pub struct ChainListener {
     proof_counter: BTreeMap<CUID, U256>,
     current_commitment: Option<CommitmentId>,
 
-    // the compute units that are in the commitment
+    // the compute units that are in the commitment and not in deals
     cc_compute_units: BTreeMap<CUID, ComputeUnit>,
-    // the compute units that are in deals
+    // the compute units that are in deals and not in commitment
     active_deals: BTreeMap<DealId, CUID>,
 
     /// Resets every epoch
@@ -646,9 +646,7 @@ impl ChainListener {
         let header = event.ok_or(eyre!("Failed to process newHeads event: got None"))?;
 
         let (block_timestamp, block_number) = Self::parse_block_header(header?)?;
-        self.metrics
-            .as_ref()
-            .inspect(|m| m.observe_new_block(block_number.to_string()));
+        self.observe(|m| m.observe_new_block(block_number.to_string()));
 
         // `epoch_number = 1 + (block_timestamp - init_timestamp) / epoch_duration`
         let epoch_number =
@@ -685,9 +683,7 @@ impl ChainListener {
                 }
             }
         }
-        self.metrics
-            .as_ref()
-            .inspect(|m| m.observe_processed_block());
+        self.observe(|m| m.observe_processed_block());
         Ok(())
     }
 
@@ -716,15 +712,11 @@ impl ChainListener {
         );
 
         let commitment_id = CommitmentId(cc_event.commitmentId.0);
+        self.current_commitment = Some(commitment_id.clone());
         if let Err(err) = self.subscribe_unit_events(&commitment_id).await {
             tracing::warn!(target: "chain-listener", "Failed to subscribe to unit events: {err}");
             self.refresh_subscriptions().await?;
         }
-
-        // TODO: Why `current_commitment` is updated here? It looks like a deliberate choice.
-        // If `subscribe_unit_events` fails, the `refresh_subscribptions` will resubscribe to
-        // the `unit_activate` and `unit_deactivate` events, but for the older `current_commitment`.
-        self.current_commitment = Some(commitment_id);
 
         self.cc_compute_units = unit_ids
             .into_iter()
@@ -1057,7 +1049,7 @@ impl ChainListener {
     }
 
     async fn submit_proof(&mut self, proof: CCProof) -> eyre::Result<()> {
-        // TODO: why can this happen?
+        // This happens if Unit moved to Deal and shortly after that (but before cc refresh) ccp found proof for it
         if !self.cc_compute_units.contains_key(&proof.cu_id) {
             return Ok(());
         }
@@ -1108,7 +1100,7 @@ impl ChainListener {
                     _ => {
                         tracing::error!(target: "chain-listener", "Failed to submit proof: {err}");
                         tracing::error!(target: "chain-listener", "Proof {:?} ", proof);
-                        self.metrics.as_ref().inspect(|m| m.observe_proof_failed());
+                        self.observe(|m| m.observe_proof_failed());
                         Err(err.into())
                     }
                 }
@@ -1116,9 +1108,7 @@ impl ChainListener {
             Ok(tx_id) => {
                 tracing::info!(target: "chain-listener", "Submitted proof {}, txHash: {tx_id}", proof.id.idx);
                 self.pending_proof_txs.push((tx_id, proof.cu_id));
-                self.metrics
-                    .as_ref()
-                    .inspect(|m| m.observe_proof_submitted());
+                self.observe(|m| m.observe_proof_submitted());
 
                 Ok(())
             }
@@ -1244,14 +1234,10 @@ impl ChainListener {
                             // need to call refresh commitment to make some cores to help others
                             refresh_neeeded = true;
                         }
-                        self.metrics
-                            .as_ref()
-                            .inspect(|m| m.observe_proof_tx_success());
+                        self.observe(|m| m.observe_proof_tx_success());
                     } else {
                         tracing::warn!(target: "chain-listener", "Proof tx {tx_hash} not confirmed");
-                        self.metrics
-                            .as_ref()
-                            .inspect(|m| m.observe_proof_tx_failed(tx_hash.to_string()));
+                        self.observe(|m| m.observe_proof_tx_failed(tx_hash.to_string()));
                     }
 
                     self.pending_proof_txs.retain(|(tx, _)| tx != &tx_hash);
@@ -1274,6 +1260,15 @@ impl ChainListener {
         }
 
         Ok(())
+    }
+
+    fn observe<F>(&self, f: F)
+    where
+        F: FnOnce(&ChainListenerMetrics),
+    {
+        if let Some(metrics) = self.metrics.as_ref() {
+            f(metrics);
+        }
     }
 }
 
