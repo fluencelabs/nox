@@ -418,7 +418,7 @@ impl ChainListener {
                 .first()
                 .cloned()
                 .ok_or(eyre::eyre!("No utility core id"))?;
-            measured_request(&self.metrics, async ||
+            measured_request(&self.metrics, async {
                 retry(ExponentialBackoff::default(), || async {
                     ccp_client
                         .realloc_utility_cores(vec![utility_core])
@@ -429,6 +429,7 @@ impl ChainListener {
                         })?;
                     Ok(())
                 }).await
+            }
             ).await?;
 
             tracing::info!("Utility core {utility_core} successfully reallocated");
@@ -930,7 +931,7 @@ impl ChainListener {
             .collect::<Vec<_>>()
         );
 
-        measured_request(&self.metrics, async ||
+        measured_request(&self.metrics, async {
             ccp_client
                 .on_active_commitment(
                     self.global_nonce,
@@ -942,6 +943,7 @@ impl ChainListener {
                     tracing::error!(target: "chain-listener", "Failed to send commitment to CCP: {err}");
                     eyre::eyre!("Failed to send commitment to CCP: {err}")
                 })
+        }
         ).await?;
 
         Ok(())
@@ -980,7 +982,7 @@ impl ChainListener {
     async fn stop_commitment(&self) -> eyre::Result<()> {
         tracing::info!(target: "chain-listener", "Stopping current commitment");
         if let Some(ref ccp_client) = self.ccp_client {
-            measured_request(&self.metrics, async || {
+            measured_request(&self.metrics, async {
                 ccp_client.on_no_active_commitment().await.map_err(|err| {
                 tracing::error!(target: "chain-listener", "Failed to send no active commitment to CCP: {err}");
                 eyre::eyre!("Failed to send no active commitment to CCP: {err}")
@@ -1019,7 +1021,7 @@ impl ChainListener {
         if let Some(ref ccp_client) = self.ccp_client {
             tracing::trace!(target: "chain-listener", "Polling proofs after: {}", self.last_submitted_proof_id);
 
-            let proofs = measured_request(&self.metrics, async || {
+            let proofs = measured_request(&self.metrics, async {
                 ccp_client
                     .get_proofs_after(self.last_submitted_proof_id, PROOF_POLL_LIMIT)
                     .await
@@ -1281,17 +1283,13 @@ fn all_max_proofs_found(non_priority_units: &[CUID]) -> bool {
 }
 
 // measure the request execution time and store it in the metrics
-async fn measured_request<Fn, Fut, R, E>(
-    metrics: &Option<ChainListenerMetrics>,
-    f: Fn,
-) -> Result<R, E>
+async fn measured_request<Fut, R, E>(metrics: &Option<ChainListenerMetrics>, fut: Fut) -> Result<R, E>
 where
-    Fn: FnOnce() -> Fut,
     Fut: Future<Output = Result<R, E>> + Sized,
 {
     metrics.as_ref().inspect(|m| m.observe_ccp_request());
     let start = Instant::now();
-    let result = f().await;
+    let result = fut.await;
     let elapsed = start.elapsed();
     metrics
         .as_ref()
