@@ -21,9 +21,9 @@ use avm_server::avm_runner::{AVMRunner, RawAVMOutcome};
 use avm_server::{
     AVMMemoryStats, AVMRuntimeLimits, CallRequests, CallResults, ParticleParameters, RunnerError,
 };
-use marine_wasmtime_backend::{WasmtimeConfig, WasmtimeWasmBackend};
 use fluence_keypair::KeyPair;
 use libp2p::PeerId;
+use marine_wasmtime_backend::{WasmtimeConfig, WasmtimeWasmBackend};
 use tracing::Level;
 
 use crate::config::VmConfig;
@@ -72,22 +72,23 @@ impl AquaRuntime for AVMRunner<WasmtimeWasmBackend> {
             .epoch_interruption(true)
             .async_wasm_stack(2 * 1024 * 1024)
             .max_wasm_stack(2 * 1024 * 1024);
-        let backend = WasmtimeWasmBackend::new(wasmtime_config)
-            .map_err(|e| Self::Error::MarineError(
-                fluence_app_service::MarineError::EngineError(e.into())))?;
+        let backend = WasmtimeWasmBackend::new(wasmtime_config).map_err(|e| {
+            Self::Error::MarineError(fluence_app_service::MarineError::EngineError(e.into()))
+        })?;
         let avm_runtime_limits = AVMRuntimeLimits::new(
             config.air_size_limit,
             config.particle_size_limit,
             config.call_result_size_limit,
             config.hard_limit_enabled,
         );
-        let vm: AVMRunner<WasmtimeWasmBackend> = tokio::runtime::Handle::current().block_on(AVMRunner::new(
-            config.air_interpreter,
-            config.max_heap_size,
-            avm_runtime_limits,
-            i32::MAX,
-            backend,
-        ))?;
+        let vm: AVMRunner<WasmtimeWasmBackend> =
+            tokio::runtime::Handle::current().block_on(AVMRunner::new(
+                config.air_interpreter,
+                config.max_heap_size,
+                avm_runtime_limits,
+                i32::MAX,
+                backend,
+            ))?;
         waker.wake();
         Ok(vm)
     }

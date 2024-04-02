@@ -59,7 +59,7 @@ async fn test_system_service_override() {
         config,
     };
     let name = service_name.clone();
-    let init: system_services::InitService = Box::new(move |call, status| {
+    let init: dyn system_services::InitService = Box::new(move |call, status| {
         let name = name.clone();
         let service_status = status
             .services

@@ -20,6 +20,7 @@ peer-metrics = { workspace = true }
 uuid-utils = { workspace = true }
 now-millis = { workspace = true }
 workers = { workspace = true }
+futures = { workspace = true }
 
 fluence-app-service = { workspace = true }
 

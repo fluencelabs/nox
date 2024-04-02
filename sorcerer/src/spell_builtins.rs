@@ -82,7 +82,7 @@ pub async fn install_spell(
 
     let params = CallParams::local(peer_scope, spell_id.clone(), owner_id, ttl);
     // Save the script to the spell
-    spell_service_api.set_script(params.clone(), script)?;
+    spell_service_api.set_script(params.clone(), script).await?;
     // Save init_data to the spell's KV
     let self_particle_id = format!("spell_{spell_id}_0");
     let self_params = CallParams::new(
@@ -92,9 +92,13 @@ pub async fn install_spell(
         Some(self_particle_id),
         ttl,
     );
-    spell_service_api.update_kv(self_params.clone(), init_data)?;
+    spell_service_api
+        .update_kv(self_params.clone(), init_data)
+        .await?;
     // Save trigger config
-    spell_service_api.set_trigger_config(params, user_config)?;
+    spell_service_api
+        .set_trigger_config(params, user_config)
+        .await?;
 
     if let Some(config) = config {
         // Scheduling the spell
@@ -130,7 +134,7 @@ pub struct SpellInfo {
     pub trigger_config: TriggerConfig,
 }
 
-pub fn get_spell_info(
+pub async fn get_spell_info(
     spell_service_api: &SpellServiceApi,
     peer_scope: PeerScope,
     ttl: Duration,
@@ -140,10 +144,12 @@ pub fn get_spell_info(
     let params = CallParams::local(peer_scope, spell_id.clone(), init_peer_id, ttl);
     let trigger_config = spell_service_api
         .get_trigger_config(params.clone())
+        .await
         .map_err(|e| JError::new(f!("Failed to get trigger_config for spell {spell_id}: {e}")))?;
 
     let script = spell_service_api
         .get_script(params)
+        .await
         .map_err(|e| JError::new(f!("Failed to get trigger_config for spell {spell_id}: {e}")))?;
     Ok(SpellInfo {
         script,
@@ -290,7 +296,9 @@ pub(crate) async fn spell_remove(
         }
     };
 
-    let spell_id = services.to_service_id(params.peer_scope, spell_id, &params.id)?;
+    let spell_id = services
+        .to_service_id(params.peer_scope, spell_id, &params.id)
+        .await?;
 
     remove_spell(
         &params.id,
@@ -343,7 +351,9 @@ pub(crate) async fn spell_update_config(
         }
     }
 
-    let spell_id = services.to_service_id(peer_scope, spell_id_or_alias.clone(), &params.id)?;
+    let spell_id = services
+        .to_service_id(peer_scope, spell_id_or_alias.clone(), &params.id)
+        .await?;
 
     let user_config: TriggerConfig = Args::next("config", &mut args)?;
     let config = api::from_user_config(&user_config)?;
@@ -354,7 +364,9 @@ pub(crate) async fn spell_update_config(
         init_peer_id,
         Duration::from_millis(params.ttl as u64),
     );
-    spell_service_api.set_trigger_config(params, user_config)?;
+    spell_service_api
+        .set_trigger_config(params, user_config)
+        .await?;
 
     let result: Result<(), EventBusError> = try {
         // we unsubscribe the spell from the current config anyway
@@ -383,7 +395,7 @@ pub(crate) fn get_spell_id(params: ParticleParams) -> Result<JValue, JError> {
     Ok(json!(parse_spell_id_from(&params)?))
 }
 
-pub(crate) fn get_spell_arg(
+pub(crate) async fn get_spell_arg(
     args: Args,
     params: ParticleParams,
     spell_service_api: SpellServiceApi,
@@ -394,6 +406,7 @@ pub(crate) fn get_spell_arg(
 
     let str_value = spell_service_api
         .get_string(call_params, key.clone())
+        .await
         .map_err(|e| JError::new(f!("Failed to get argument {key} for spell {spell_id}: {e}")))
         .and_then(|value| value.ok_or_else(|| JError::new("value not found")))?;
 
@@ -404,7 +417,7 @@ pub(crate) fn get_spell_arg(
     })
 }
 
-pub(crate) fn store_error(
+pub(crate) async fn store_error(
     mut args: Args,
     params: ParticleParams,
     spell_service_api: SpellServiceApi,
@@ -415,6 +428,7 @@ pub(crate) fn store_error(
     let call_params = CallParams::from(spell_id.clone(), params);
     spell_service_api
         .store_error(call_params, args.function_args.clone())
+        .await
         .map_err(|e| {
             JError::new(format!(
                 "Failed to store error {:?} for spell {}: {}",
@@ -423,7 +437,7 @@ pub(crate) fn store_error(
         })
 }
 
-pub(crate) fn store_response(
+pub(crate) async fn store_response(
     args: Args,
     params: ParticleParams,
     spell_service_api: SpellServiceApi,
@@ -435,6 +449,7 @@ pub(crate) fn store_response(
         let call_params = CallParams::from(spell_id.clone(), params);
         spell_service_api
             .update_kv(call_params, response.clone())
+            .await
             .map_err(|err| {
                 JError::new(format!(
                     "Failed to store response {response} for spell {spell_id}: {err}"

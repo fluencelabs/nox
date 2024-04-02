@@ -95,8 +95,9 @@ dependencies = [
 [[package]]
 name = "air-interpreter-interface"
 version = "0.19.0"
+source = "git+https://github.com/fluencelabs/aquavm?branch=feat/use-async-marine#d4a222f4975090dbf37162cb431b158a49c14e0f"
 dependencies = [
- "air-interpreter-sede 0.1.0",
+ "air-interpreter-sede 0.1.0 (git+https://github.com/fluencelabs/aquavm?branch=feat/use-async-marine)",
  "air-interpreter-value",
  "fluence-it-types",
  "marine-call-parameters 0.14.0",
@@ -104,19 +105,6 @@ dependencies = [
  "serde",
  "serde_bytes",
  "serde_json",
-]
-
-[[package]]
-name = "air-interpreter-sede"
-version = "0.1.0"
-dependencies = [
- "marine-rs-sdk",
- "rmp-serde",
- "serde",
- "serde_bytes",
- "serde_json",
- "thiserror",
- "unsigned-varint 0.8.0",
 ]
 
 [[package]]
@@ -134,8 +122,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "air-interpreter-sede"
+version = "0.1.0"
+source = "git+https://github.com/fluencelabs/aquavm?branch=feat/use-async-marine#d4a222f4975090dbf37162cb431b158a49c14e0f"
+dependencies = [
+ "marine-rs-sdk",
+ "rmp-serde",
+ "serde",
+ "serde_bytes",
+ "serde_json",
+ "thiserror",
+ "unsigned-varint 0.8.0",
+]
+
+[[package]]
 name = "air-interpreter-value"
 version = "0.1.0"
+source = "git+https://github.com/fluencelabs/aquavm?branch=feat/use-async-marine#d4a222f4975090dbf37162cb431b158a49c14e0f"
 dependencies = [
  "serde",
  "serde_json",
@@ -153,6 +156,7 @@ dependencies = [
 [[package]]
 name = "air-utils"
 version = "0.3.0"
+source = "git+https://github.com/fluencelabs/aquavm?branch=feat/use-async-marine#d4a222f4975090dbf37162cb431b158a49c14e0f"
 
 [[package]]
 name = "allocator-api2"
@@ -737,6 +741,7 @@ checksum = "d468802bab17cbc0cc575e9b053f41e72aa36bfa6b7f55e3529ffa43161b97fa"
 [[package]]
 name = "avm-data-store"
 version = "0.7.9"
+source = "git+https://github.com/fluencelabs/aquavm?branch=feat/use-async-marine#d4a222f4975090dbf37162cb431b158a49c14e0f"
 dependencies = [
  "avm-interface",
  "serde",
@@ -746,9 +751,10 @@ dependencies = [
 [[package]]
 name = "avm-interface"
 version = "0.32.1"
+source = "git+https://github.com/fluencelabs/aquavm?branch=feat/use-async-marine#d4a222f4975090dbf37162cb431b158a49c14e0f"
 dependencies = [
  "air-interpreter-interface",
- "air-interpreter-sede 0.1.0",
+ "air-interpreter-sede 0.1.0 (git+https://github.com/fluencelabs/aquavm?branch=feat/use-async-marine)",
  "air-utils",
  "log",
  "maplit",
@@ -762,9 +768,10 @@ dependencies = [
 [[package]]
 name = "avm-server"
 version = "0.37.0"
+source = "git+https://github.com/fluencelabs/aquavm?branch=feat/use-async-marine#d4a222f4975090dbf37162cb431b158a49c14e0f"
 dependencies = [
  "air-interpreter-interface",
- "air-interpreter-sede 0.1.0",
+ "air-interpreter-sede 0.1.0 (git+https://github.com/fluencelabs/aquavm?branch=feat/use-async-marine)",
  "air-utils",
  "avm-data-store",
  "avm-interface",
@@ -6249,6 +6256,7 @@ dependencies = [
  "fluence-keypair",
  "fluence-libp2p",
  "fs-utils",
+ "futures",
  "health",
  "humantime-serde",
  "json-utils",
@@ -6465,6 +6473,7 @@ dependencies = [
 [[package]]
 name = "polyplets"
 version = "0.7.0"
+source = "git+https://github.com/fluencelabs/aquavm?branch=feat/use-async-marine#d4a222f4975090dbf37162cb431b158a49c14e0f"
 dependencies = [
  "marine-call-parameters 0.14.0",
  "serde",
@@ -8132,6 +8141,7 @@ name = "system-services"
 version = "0.1.0"
 dependencies = [
  "aqua-ipfs-distro",
+ "async-trait",
  "decider-distro",
  "eyre",
  "fluence-app-service",

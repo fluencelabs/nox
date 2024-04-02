@@ -22,9 +22,9 @@ use std::{collections::HashMap, time::Duration};
 
 use avm_server::avm_runner::{AVMRunner, RawAVMOutcome};
 use avm_server::{CallResults, CallServiceResult};
-use marine_wasmtime_backend::{WasmtimeConfig, WasmtimeWasmBackend};
 use fstrings::f;
 use libp2p::PeerId;
+use marine_wasmtime_backend::{WasmtimeConfig, WasmtimeWasmBackend};
 use serde_json::{json, Value as JValue};
 
 use air_interpreter_fs::{air_interpreter_path, write_default_air_interpreter};
@@ -180,24 +180,29 @@ pub fn make_wasm_backend() -> WasmtimeWasmBackend {
         .epoch_interruption(true)
         .async_wasm_stack(2 * 1024 * 1024)
         .max_wasm_stack(2 * 1024 * 1024);
-     WasmtimeWasmBackend::new(wasmtime_config)
-         .expect("Cannot create WasmtimeWasmBackend")
+    WasmtimeWasmBackend::new(wasmtime_config).expect("Cannot create WasmtimeWasmBackend")
 }
 
 pub async fn make_vm(tmp_dir_path: &Path) -> AVMRunner<WasmtimeWasmBackend> {
     let interpreter = air_interpreter_path(tmp_dir_path);
     write_default_air_interpreter(&interpreter).expect("write air interpreter");
 
-    AVMRunner::new(interpreter, None, <_>::default(), i32::MAX, make_wasm_backend())
-        .await
-        .map_err(|err| {
-            log::error!("\n\n\nFailed to create local AVM: {:#?}\n\n\n", err);
+    AVMRunner::new(
+        interpreter,
+        None,
+        <_>::default(),
+        i32::MAX,
+        make_wasm_backend(),
+    )
+    .await
+    .map_err(|err| {
+        log::error!("\n\n\nFailed to create local AVM: {:#?}\n\n\n", err);
 
-            println!("\n\n\nFailed to create local AVM: {err:#?}\n\n\n");
+        println!("\n\n\nFailed to create local AVM: {err:#?}\n\n\n");
 
-            err
-        })
-        .expect("vm should be created")
+        err
+    })
+    .expect("vm should be created")
 }
 
 pub fn wrap_script(

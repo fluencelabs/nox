@@ -25,7 +25,7 @@ pub struct SpellStorage {
 }
 
 impl SpellStorage {
-    pub fn create(
+    pub async fn create(
         spells_base_dir: &Path,
         services: &ParticleAppServices,
         modules: &ModuleRepository,
@@ -37,7 +37,7 @@ impl SpellStorage {
         } else {
             Self::load_spell_service_from_crate(modules)?
         };
-        let (registered_spells, scope_mapping) = Self::restore_spells(services);
+        let (registered_spells, scope_mapping) = Self::restore_spells(services).await;
 
         Ok((
             Self {
@@ -103,7 +103,7 @@ impl SpellStorage {
         ))
     }
 
-    fn restore_spells(
+    async fn restore_spells(
         services: &ParticleAppServices,
     ) -> (
         HashMap<PeerScope, Vec<SpellId>>,
@@ -114,6 +114,7 @@ impl SpellStorage {
 
         let spell_services = services
             .list_services_all()
+            .await
             .into_iter()
             .filter(|s| s.service_type.is_spell());
 

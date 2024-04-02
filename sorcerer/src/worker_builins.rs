@@ -179,6 +179,7 @@ pub(crate) async fn deactivate_deal(
                 ),
                 TriggerConfig::default(),
             )
+            .await
             .map_err(|e| {
                 JError::new(format!(
                     "Deal deactivation failed due to failure to stop spell {spell_id} : {e}"
@@ -216,26 +217,30 @@ pub(crate) async fn activate_deal(
         return Err(JError::new("Deal has already been activated"));
     }
 
-    let installation_spell_id = services.resolve_alias(
-        PeerScope::WorkerId(worker_id),
-        "worker-spell".to_string(),
-        &params.id,
-    )?;
+    let installation_spell_id = services
+        .resolve_alias(
+            PeerScope::WorkerId(worker_id),
+            "worker-spell".to_string(),
+            &params.id,
+        )
+        .await?;
 
     // same as in decider-distro
     let mut worker_config = TriggerConfig::default();
     worker_config.clock.start_sec = 1;
     worker_config.clock.period_sec = worker_period_sec;
 
-    spell_service_api.set_trigger_config(
-        CallParams::local(
-            PeerScope::WorkerId(worker_id),
-            installation_spell_id.clone(),
-            worker_id.into(),
-            Duration::from_millis(params.ttl as u64),
-        ),
-        worker_config.clone(),
-    )?;
+    spell_service_api
+        .set_trigger_config(
+            CallParams::local(
+                PeerScope::WorkerId(worker_id),
+                installation_spell_id.clone(),
+                worker_id.into(),
+                Duration::from_millis(params.ttl as u64),
+            ),
+            worker_config.clone(),
+        )
+        .await?;
 
     let trigger_config = from_user_config(&worker_config)?.ok_or(JError::new(
         "Deal activation failed due to failure to parse trigger config",

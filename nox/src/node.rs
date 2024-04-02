@@ -360,7 +360,8 @@ impl<RT: AquaRuntime> Node<RT> {
             scopes.clone(),
             spell_service_api.clone(),
             spell_metrics,
-        );
+        )
+        .await;
 
         let allowed_binaries = config
             .allowed_effectors

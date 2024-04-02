@@ -111,24 +111,24 @@ impl SpellServiceApi {
         Self { services }
     }
 
-    pub fn set_script(&self, params: CallParams, script: String) -> Result<(), CallError> {
+    pub async fn set_script(&self, params: CallParams, script: String) -> Result<(), CallError> {
         let function = Function {
             name: "set_script",
             args: vec![json!(script)],
         };
-        let _ = self.call::<UnitValue>(params, function)?;
+        let _ = self.call::<UnitValue>(params, function).await?;
         Ok(())
     }
 
-    pub fn get_script(&self, params: CallParams) -> Result<String, CallError> {
+    pub async fn get_script(&self, params: CallParams) -> Result<String, CallError> {
         let function = Function {
             name: "get_script",
             args: vec![],
         };
-        let script_value = self.call::<ScriptValue>(params, function)?;
+        let script_value = self.call::<ScriptValue>(params, function).await?;
         Ok(script_value.value)
     }
-    pub fn set_trigger_config(
+    pub async fn set_trigger_config(
         &self,
         params: CallParams,
         config: TriggerConfig,
@@ -137,39 +137,43 @@ impl SpellServiceApi {
             name: "set_trigger_config",
             args: vec![json!(config)],
         };
-        let _ = self.call::<UnitValue>(params, function)?;
+        let _ = self.call::<UnitValue>(params, function).await?;
         Ok(())
     }
 
-    pub fn get_trigger_config(&self, params: CallParams) -> Result<TriggerConfig, CallError> {
+    pub async fn get_trigger_config(&self, params: CallParams) -> Result<TriggerConfig, CallError> {
         let function = Function {
             name: "get_trigger_config",
             args: vec![],
         };
-        let trigger_config_value = self.call::<TriggerConfigValue>(params, function)?;
+        let trigger_config_value = self.call::<TriggerConfigValue>(params, function).await?;
         Ok(trigger_config_value.config)
     }
 
     // TODO: use `Map<String, Value>` for init_data instead of `Value`
-    pub fn update_kv(&self, params: CallParams, kv_data: Value) -> Result<(), CallError> {
+    pub async fn update_kv(&self, params: CallParams, kv_data: Value) -> Result<(), CallError> {
         let function = Function {
             name: "set_json_fields",
             args: vec![json!(kv_data.to_string())],
         };
-        let _ = self.call::<UnitValue>(params, function)?;
+        let _ = self.call::<UnitValue>(params, function).await?;
         Ok(())
     }
 
-    pub fn get_string(&self, params: CallParams, key: String) -> Result<Option<String>, CallError> {
+    pub async fn get_string(
+        &self,
+        params: CallParams,
+        key: String,
+    ) -> Result<Option<String>, CallError> {
         let function = Function {
             name: "get_string",
             args: vec![json!(key)],
         };
-        let result = self.call::<StringValue>(params, function)?;
+        let result = self.call::<StringValue>(params, function).await?;
         Ok((!result.absent).then_some(result.value))
     }
 
-    pub fn set_string(
+    pub async fn set_string(
         &self,
         params: CallParams,
         key: String,
@@ -179,60 +183,68 @@ impl SpellServiceApi {
             name: "set_string",
             args: vec![json!(key), json!(value)],
         };
-        let _ = self.call::<UnitValue>(params, function)?;
+        let _ = self.call::<UnitValue>(params, function).await?;
         Ok(())
     }
 
     /// Load the counter (how many times the spell was run)
-    pub fn get_counter(&self, params: CallParams) -> Result<Option<u32>, CallError> {
+    pub async fn get_counter(&self, params: CallParams) -> Result<Option<u32>, CallError> {
         let function = Function {
             name: "get_u32",
             args: vec![json!("hw_counter")],
         };
-        let result = self.call::<U32Value>(params, function)?;
+        let result = self.call::<U32Value>(params, function).await?;
         Ok((!result.absent).then_some(result.value))
     }
 
     /// Update the counter (how many times the spell was run)
     /// TODO: permission check here or not?
-    pub fn set_counter(&self, params: CallParams, counter: u32) -> Result<(), CallError> {
+    pub async fn set_counter(&self, params: CallParams, counter: u32) -> Result<(), CallError> {
         let function = Function {
             name: "set_u32",
             args: vec![json!("hw_counter"), json!(counter)],
         };
-        let _ = self.call::<UnitValue>(params, function)?;
+        let _ = self.call::<UnitValue>(params, function).await?;
 
         Ok(())
     }
 
-    pub fn set_trigger_event(&self, params: CallParams, event: String) -> Result<(), CallError> {
+    pub async fn set_trigger_event(
+        &self,
+        params: CallParams,
+        event: String,
+    ) -> Result<(), CallError> {
         self.set_string(params, "hw_trigger".to_string(), event)
+            .await
     }
 
-    pub fn store_error(&self, params: CallParams, args: Vec<Value>) -> Result<(), CallError> {
+    pub async fn store_error(&self, params: CallParams, args: Vec<Value>) -> Result<(), CallError> {
         let function = Function {
             name: "store_error",
             args,
         };
-        let _ = self.call::<UnitValue>(params, function)?;
+        let _ = self.call::<UnitValue>(params, function).await?;
         Ok(())
     }
 
-    fn call<T>(&self, params: CallParams, function: Function) -> Result<T, CallError>
+    async fn call<T>(&self, params: CallParams, function: Function) -> Result<T, CallError>
     where
         T: DeserializeOwned + SpellValueT,
     {
         use CallError::*;
         let spell_id = params.spell_id;
-        let result = self.services.call_function(
-            params.peer_scope,
-            &spell_id,
-            function.name,
-            function.args,
-            params.particle_id,
-            params.init_peer_id,
-            params.ttl,
-        );
+        let result = self
+            .services
+            .call_function(
+                params.peer_scope,
+                &spell_id,
+                function.name,
+                function.args,
+                params.particle_id,
+                params.init_peer_id,
+                params.ttl,
+            )
+            .await;
         match result {
             FunctionOutcome::NotDefined { .. } => Err(ServiceNotFound {
                 spell_id,

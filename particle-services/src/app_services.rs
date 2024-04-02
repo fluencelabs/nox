@@ -24,8 +24,8 @@ use fluence_app_service::{
     MarineConfig, MarineError, MarineWASIConfig, ModuleDescriptor, SecurityTetraplet,
     ServiceInterface, WasmtimeConfig,
 };
+use futures::{stream, StreamExt};
 use humantime_serde::re::humantime::format_duration as pretty;
-use parking_lot::{Mutex, RwLock, RwLockUpgradableReadGuard};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value as JValue};
 use tokio::runtime::Handle;
@@ -85,18 +85,18 @@ pub struct ServiceInfo {
 #[derivative(Debug)]
 pub struct Service {
     #[derivative(Debug(format_with = "fmt_service"))]
-    pub service: Mutex<AppService>,
+    pub service: tokio::sync::Mutex<AppService>,
     pub service_id: String,
     pub blueprint_id: String,
     pub service_type: ServiceType,
     pub owner_id: PeerId,
-    pub aliases: RwLock<Vec<ServiceAlias>>,
+    pub aliases: tokio::sync::RwLock<Vec<ServiceAlias>>,
     pub peer_scope: PeerScope,
 }
 
 impl Service {
     pub fn new(
-        service: Mutex<AppService>,
+        service: tokio::sync::Mutex<AppService>,
         service_id: String,
         blueprint_id: String,
         service_type: ServiceType,
@@ -110,36 +110,36 @@ impl Service {
             blueprint_id,
             service_type,
             owner_id,
-            aliases: RwLock::new(aliases),
+            aliases: tokio::sync::RwLock::new(aliases),
             peer_scope,
         }
     }
 
-    pub fn remove_alias(&self, alias: &str) {
-        let mut aliases = self.aliases.write();
+    pub async fn remove_alias(&self, alias: &str) {
+        let mut aliases = self.aliases.write().await;
         if let Some(pos) = aliases.iter().position(|x| *x == alias) {
             aliases.remove(pos);
         }
     }
 
-    pub fn add_alias(&self, alias: String) {
-        self.aliases.write().push(alias);
+    pub async fn add_alias(&self, alias: String) {
+        self.aliases.write().await.push(alias);
     }
 
-    pub fn get_info(&self, id: &str) -> ServiceInfo {
+    pub async fn get_info(&self, id: &str) -> ServiceInfo {
         ServiceInfo {
             id: id.to_string(),
             blueprint_id: self.blueprint_id.clone(),
             service_type: self.service_type.clone(),
             owner_id: self.owner_id,
-            aliases: self.aliases.read().clone(),
+            aliases: self.aliases.read().await.clone(),
             peer_scope: self.peer_scope,
         }
     }
 }
 
 impl Deref for Service {
-    type Target = Mutex<AppService>;
+    type Target = tokio::sync::Mutex<AppService>;
 
     fn deref(&self) -> &Self::Target {
         &self.service
@@ -147,7 +147,7 @@ impl Deref for Service {
 }
 
 fn fmt_service(
-    _: &Mutex<AppService>,
+    _: &tokio::sync::Mutex<AppService>,
     f: &mut std::fmt::Formatter<'_>,
 ) -> Result<(), std::fmt::Error> {
     f.debug_struct("Mutex<AppService>").finish()
@@ -164,8 +164,8 @@ pub struct VmDescriptor<'a> {
 #[derive(Derivative)]
 #[derivative(Debug, Clone, Default)]
 struct Services {
-    services: Arc<RwLock<HashMap<ServiceId, Arc<Service>>>>,
-    aliases: Arc<RwLock<HashMap<ServiceAlias, ServiceId>>>,
+    services: Arc<tokio::sync::RwLock<HashMap<ServiceId, Arc<Service>>>>,
+    aliases: Arc<tokio::sync::RwLock<HashMap<ServiceAlias, ServiceId>>>,
 }
 
 #[derive(Derivative)]
@@ -177,7 +177,7 @@ pub struct ParticleAppServices {
     root_services: Services,
     #[derivative(Debug = "ignore")]
     root_runtime_handle: Handle,
-    worker_services: Arc<RwLock<HashMap<WorkerId, Services>>>,
+    worker_services: Arc<tokio::sync::RwLock<HashMap<WorkerId, Services>>>,
     modules: ModuleRepository,
     #[derivative(Debug = "ignore")]
     workers: Arc<Workers>,
@@ -191,14 +191,18 @@ pub struct ParticleAppServices {
     app_service_epoch_ticker: EpochTicker,
 }
 
-fn resolve_alias(services: &Services, alias: &String, particle_id: &str) -> Option<ServiceId> {
+async fn resolve_alias(
+    services: &Services,
+    alias: &String,
+    particle_id: &str,
+) -> Option<ServiceId> {
     if alias == "spell" || alias == "self" {
         if let Some(spell_id) = ParticleParams::get_spell_id(particle_id) {
             return Some(spell_id);
         }
     }
 
-    services.aliases.read().get(alias).cloned()
+    services.aliases.read().await.get(alias).cloned()
 }
 
 fn get_service(
@@ -293,29 +297,30 @@ impl ParticleAppServices {
         Ok(service_id)
     }
 
-    pub fn service_exists(&self, peer_scope: &PeerScope, service_id: &str) -> bool {
-        let services = self.get_services(peer_scope);
+    pub async fn service_exists(&self, peer_scope: &PeerScope, service_id: &str) -> bool {
+        let services = self.get_services(peer_scope).await;
         match services {
-            Ok(services) => services.services.read().get(service_id).is_some(),
+            Ok(services) => services.services.read().await.get(service_id).is_some(),
             Err(_) => false,
         }
     }
 
-    pub fn get_service_info(
+    pub async fn get_service_info(
         &self,
         peer_scope: PeerScope,
         service_id_or_alias: String,
         particle_id: &str,
     ) -> Result<ServiceInfo, ServiceError> {
-        let (service, service_id) =
-            self.get_service(peer_scope, service_id_or_alias, particle_id)?;
+        let (service, service_id) = self
+            .get_service(peer_scope, service_id_or_alias, particle_id)
+            .await?;
 
-        Ok(service.get_info(&service_id))
+        Ok(service.get_info(&service_id).await)
     }
 
     pub async fn remove_services(&self, peer_scope: PeerScope) -> Result<(), ServiceError> {
-        let services = self.get_services(&peer_scope)?;
-        let service_ids: Vec<ServiceId> = services.services.read().keys().cloned().collect();
+        let services = self.get_services(&peer_scope).await?;
+        let service_ids: Vec<ServiceId> = services.services.read().await.keys().cloned().collect();
 
         for srv_id in service_ids {
             //TODO: can be parallelized
@@ -329,10 +334,10 @@ impl ParticleAppServices {
                 )
             }
         }
-        let services = self.get_services(&peer_scope)?;
+        let services = self.get_services(&peer_scope).await?;
 
-        let mut aliases = services.aliases.write();
-        let mut services = services.services.write();
+        let mut aliases = services.aliases.write().await;
+        let mut services = services.services.write().await;
 
         aliases.clear();
         services.clear();
@@ -350,8 +355,9 @@ impl ParticleAppServices {
     ) -> Result<(), ServiceError> {
         let removal_start_time = Instant::now();
         let service_id = {
-            let (service, service_id) =
-                self.get_service(peer_scope, service_id_or_alias.to_string(), particle_id)?;
+            let (service, service_id) = self
+                .get_service(peer_scope, service_id_or_alias.to_string(), particle_id)
+                .await?;
 
             // tmp hack to forbid spell removal via srv.remove
             if service.service_type.is_spell() && !allow_remove_spell {
@@ -399,15 +405,15 @@ impl ParticleAppServices {
                 err
             )
         }
-        let services = self.get_services(&peer_scope)?;
-        let mut aliases = services.aliases.write();
-        let mut services = services.services.write();
+        let services = self.get_services(&peer_scope).await?;
+        let mut aliases = services.aliases.write().await;
+        let mut services = services.services.write().await;
         let service = services.remove(service_id.as_str()).unwrap();
-        let service_aliases = service.aliases.read();
+        let service_aliases = service.aliases.read().await;
         for alias in service_aliases.iter() {
             aliases.remove(alias.as_str());
         }
-        let service_type = self.get_service_type(&service, &service.peer_scope);
+        let service_type = self.get_service_type(&service, &service.peer_scope).await;
 
         let removal_end_time = removal_start_time.elapsed().as_secs();
         if let Some(metrics) = self.metrics.as_ref() {
@@ -417,7 +423,7 @@ impl ParticleAppServices {
         Ok(())
     }
 
-    pub fn call_service(
+    pub async fn call_service(
         &self,
         function_args: Args,
         particle: ParticleParams,
@@ -426,7 +432,9 @@ impl ParticleAppServices {
         let peer_scope = particle.peer_scope;
         let timestamp = particle.timestamp;
 
-        let service = self.get_service(peer_scope, function_args.service_id.clone(), &particle.id);
+        let service = self
+            .get_service(peer_scope, function_args.service_id.clone(), &particle.id)
+            .await;
 
         let (service, service_id) = match service {
             Ok(found) => found,
@@ -449,7 +457,7 @@ impl ParticleAppServices {
         //     ));
         // }
         // Metrics collection are enables for services with aliases which are installed on root worker or worker spells.
-        let service_type = self.get_service_type(service.as_ref(), &peer_scope);
+        let service_type = self.get_service_type(service.as_ref(), &peer_scope).await;
 
         // TODO: move particle vault creation to aquamarine::particle_functions
         if create_vault {
@@ -486,36 +494,39 @@ impl ParticleAppServices {
         let function_name = function_args.function_name;
 
         let lock_acquire_start = Instant::now();
-        let mut service = service.lock();
+        let mut service = service.lock().await;
         let old_memory = service.module_memory_stats();
         let old_mem_usage = ServicesMetricsBuiltin::get_used_memory(&old_memory);
         // TODO async-marine: set execution timeout https://github.com/fluencelabs/fluence/issues/1212
         let call_time_start = Instant::now();
-        let result = tokio::runtime::Handle::current()
-            .block_on(service.call_async(
+
+        let result = service
+            .call_async(
                 function_name.clone(),
                 JValue::Array(function_args.function_args),
                 params,
-            ))
-            .map_err(|e| {
-                if let Some(metrics) = self.metrics.as_ref() {
-                    let stats = ServiceCallStats::Fail { timestamp };
-                    // If the called function is unknown we don't want to save info
-                    // about it in a separate entry.
-                    let function_name = if is_unknown_function(&e) {
-                        None
-                    } else {
-                        Some(function_name.clone())
-                    };
-                    metrics.observe_service_state_failed(
-                        service_id.clone(),
-                        function_name,
-                        service_type.clone(),
-                        stats,
-                    );
-                }
-                ServiceError::Engine(e)
-            })?;
+            )
+            .await;
+
+        let result = result.map_err(|e| {
+            if let Some(metrics) = self.metrics.as_ref() {
+                let stats = ServiceCallStats::Fail { timestamp };
+                // If the called function is unknown we don't want to save info
+                // about it in a separate entry.
+                let function_name = if is_unknown_function(&e) {
+                    None
+                } else {
+                    Some(function_name.clone())
+                };
+                metrics.observe_service_state_failed(
+                    service_id.clone(),
+                    function_name,
+                    service_type.clone(),
+                    stats,
+                );
+            }
+            ServiceError::Engine(e)
+        })?;
 
         if let Some(metrics) = self.metrics.as_ref() {
             let call_time_sec = call_time_start.elapsed().as_secs_f64();
@@ -545,7 +556,7 @@ impl ParticleAppServices {
 
     // TODO: is it safe?
     #[allow(clippy::too_many_arguments)]
-    pub fn call_function(
+    pub async fn call_function(
         &self,
         peer_scope: PeerScope,
         service_id: &str,
@@ -574,7 +585,7 @@ impl ParticleAppServices {
             token: "host_call".to_string(),
         };
 
-        self.call_service(args, particle, false)
+        self.call_service(args, particle, false).await
     }
 
     async fn add_alias_inner(
@@ -584,30 +595,30 @@ impl ParticleAppServices {
         service_id: ServiceId,
     ) -> Result<(), ServiceError> {
         let service = {
-            let services = self.get_or_create_services(peer_scope);
-            let mut aliases_service_id_mapping = services.aliases.write();
-            let services_id_mapping = services.services.write();
+            let services = self.get_or_create_services(peer_scope).await;
+            let mut aliases_service_id_mapping = services.aliases.write().await;
+            let services_id_mapping = services.services.write().await;
 
             let service = get_service(&services_id_mapping, peer_scope, service_id.clone())?;
-            service.add_alias(alias.clone());
+            service.add_alias(alias.clone()).await;
             aliases_service_id_mapping.insert(alias, service_id);
-            PersistedService::from_service(service.as_ref())
+            PersistedService::from_service(service.as_ref()).await
         };
 
         service.persist(&self.config.services_dir).await
     }
 
-    fn get_or_create_services(&self, peer_scope: PeerScope) -> Services {
+    async fn get_or_create_services(&self, peer_scope: PeerScope) -> Services {
         match peer_scope {
-            PeerScope::WorkerId(worker_id) => self.get_or_create_worker_services(worker_id),
+            PeerScope::WorkerId(worker_id) => self.get_or_create_worker_services(worker_id).await,
             PeerScope::Host => self.root_services.clone(),
         }
     }
 
-    fn get_services(&self, peer_scope: &PeerScope) -> Result<Services, ServiceError> {
+    async fn get_services(&self, peer_scope: &PeerScope) -> Result<Services, ServiceError> {
         match peer_scope {
             PeerScope::WorkerId(worker_id) => {
-                let worker_services = self.worker_services.read();
+                let worker_services = self.worker_services.read().await;
                 let services =
                     worker_services
                         .get(worker_id)
@@ -620,14 +631,14 @@ impl ParticleAppServices {
         }
     }
 
-    pub fn get_service(
+    pub async fn get_service(
         &self,
         peer_scope: PeerScope,
         id_or_alias: String,
         particle_id: &str,
     ) -> Result<(Arc<Service>, String), ServiceError> {
-        let services = self.get_services(&peer_scope)?;
-        let services_id_mapping = services.services.read();
+        let services = self.get_services(&peer_scope).await?;
+        let services_id_mapping = services.services.read().await;
 
         // retrieve service by service id
         let service = get_service(&services_id_mapping, peer_scope, id_or_alias.clone()).ok();
@@ -638,6 +649,7 @@ impl ParticleAppServices {
 
         // retrieve service by alias
         let resolved_id = resolve_alias(&services, &id_or_alias, particle_id)
+            .await
             .ok_or(NoSuchService(id_or_alias.clone(), peer_scope))?;
 
         let service = get_service(&services_id_mapping, peer_scope, resolved_id.clone())?;
@@ -645,10 +657,10 @@ impl ParticleAppServices {
         Ok((service, resolved_id))
     }
 
-    fn get_service_id(&self, peer_scope: PeerScope, alias: &str) -> Option<ServiceId> {
-        let services = self.get_services(&peer_scope);
+    async fn get_service_id(&self, peer_scope: PeerScope, alias: &str) -> Option<ServiceId> {
+        let services = self.get_services(&peer_scope).await;
         match services {
-            Ok(services) => services.aliases.read().get(alias).cloned(),
+            Ok(services) => services.aliases.read().await.get(alias).cloned(),
             Err(_) => None,
         }
     }
@@ -660,11 +672,11 @@ impl ParticleAppServices {
         service_id: &str,
     ) -> Result<(), ServiceError> {
         let service = {
-            let services = self.get_or_create_services(peer_scope);
-            let services_id_mapping = services.services.write();
+            let services = self.get_or_create_services(peer_scope).await;
+            let services_id_mapping = services.services.write().await;
             let service = get_service(&services_id_mapping, peer_scope, service_id.to_string())?;
-            service.remove_alias(&alias);
-            PersistedService::from_service(service.as_ref())
+            service.remove_alias(&alias).await;
+            PersistedService::from_service(service.as_ref()).await
         };
 
         service.persist(&self.config.services_dir).await
@@ -700,7 +712,7 @@ impl ParticleAppServices {
         }
 
         // alias can't be equal to any existent service id
-        if self.service_exists(&peer_scope, &alias) {
+        if self.service_exists(&peer_scope, &alias).await {
             return Err(AliasAsServiceId(alias));
         }
 
@@ -713,11 +725,11 @@ impl ParticleAppServices {
             return Err(ForbiddenAlias(alias));
         }
 
-        if !self.service_exists(&peer_scope, &service_id) {
+        if !self.service_exists(&peer_scope, &service_id).await {
             return Err(NoSuchService(service_id, peer_scope));
         }
 
-        let prev_srv_id = self.get_service_id(peer_scope, &alias);
+        let prev_srv_id = self.get_service_id(peer_scope, &alias).await;
         if let Some(srv_id) = prev_srv_id {
             self.remove_alias(alias.clone(), peer_scope, &srv_id)
                 .await?;
@@ -729,44 +741,52 @@ impl ParticleAppServices {
         Ok(())
     }
 
-    pub fn resolve_alias(
+    pub async fn resolve_alias(
         &self,
         peer_scope: PeerScope,
         alias: String,
         particle_id: &str,
     ) -> Result<String, ServiceError> {
-        let services = self.get_or_create_services(peer_scope);
-        resolve_alias(&services, &alias, particle_id).ok_or_else(|| NoSuchAlias(alias, peer_scope))
+        let services = self.get_or_create_services(peer_scope).await;
+        resolve_alias(&services, &alias, particle_id)
+            .await
+            .ok_or_else(|| NoSuchAlias(alias, peer_scope))
     }
 
-    pub fn to_service_id(
+    pub async fn to_service_id(
         &self,
         peer_scope: PeerScope,
         service_id_or_alias: String,
         particle_id: &str,
     ) -> Result<String, ServiceError> {
-        let (_, service_id) = self.get_service(peer_scope, service_id_or_alias, particle_id)?;
+        let (_, service_id) = self
+            .get_service(peer_scope, service_id_or_alias, particle_id)
+            .await?;
         Ok(service_id)
     }
 
-    pub fn get_service_owner(
+    pub async fn get_service_owner(
         &self,
         peer_scope: PeerScope,
         id_or_alias: String,
         particle_id: &str,
     ) -> Result<PeerId, ServiceError> {
-        let (service, _) = self.get_service(peer_scope, id_or_alias, particle_id)?;
+        let (service, _) = self
+            .get_service(peer_scope, id_or_alias, particle_id)
+            .await?;
 
         Ok(service.owner_id)
     }
 
-    pub fn check_service_worker_id(
+    pub async fn check_service_worker_id(
         &self,
         peer_scope: PeerScope,
         id_or_alias: String,
         particle_id: &str,
     ) -> Result<(), ServiceError> {
-        let (service, _) = self.get_service(peer_scope, id_or_alias.clone(), particle_id)?;
+        let (service, _) = self
+            .get_service(peer_scope, id_or_alias.clone(), particle_id)
+            .await?;
 
         if service.peer_scope != peer_scope {
             Err(ServiceError::CallServiceFailedWrongWorker {
@@ -778,66 +798,86 @@ impl ParticleAppServices {
         }
     }
 
-    pub fn get_interface(
+    pub async fn get_interface(
         &self,
         peer_scope: PeerScope,
         service_id: String,
         particle_id: &str,
     ) -> Result<JValue, ServiceError> {
-        let (service, _) = self.get_service(peer_scope, service_id, particle_id)?;
+        let (service, _) = self
+            .get_service(peer_scope, service_id, particle_id)
+            .await?;
 
         Ok(self.modules.get_facade_interface(&service.blueprint_id)?)
     }
 
-    pub fn list_services_all(&self) -> Vec<ServiceInfo> {
-        let root_info: Vec<ServiceInfo> = self
-            .root_services
-            .services
-            .read()
-            .iter()
-            .map(|(id, service)| service.get_info(id))
-            .collect();
+    pub async fn list_services_all(&self) -> Vec<ServiceInfo> {
+        let root_services = self.root_services.services.read().await;
 
-        let mut result: Vec<ServiceInfo> = self
-            .worker_services
-            .read()
-            .values()
-            .flat_map(|services| {
-                let services = services.services.read();
+        let root_info: Vec<ServiceInfo> = stream::iter(root_services.iter())
+            .then(|(id, service)| async { service.get_info(id).await })
+            .collect()
+            .await;
+
+        drop(root_services);
+
+        let worker_services = self.worker_services.read().await;
+
+        let mut result: Vec<ServiceInfo> = futures::stream::iter(worker_services.iter())
+            .then(|(_, services)| async {
+                let services = services.services.read().await;
+                let services: Vec<ServiceInfo> = futures::stream::iter(services.iter())
+                    .then(|(id, service)| {
+                        let id = id.clone();
+                        let service = service.clone();
+                        async move { service.get_info(id.as_str()).await }
+                    })
+                    .collect()
+                    .await;
+
                 services
-                    .iter()
-                    .map(|(id, service)| service.get_info(id))
-                    .collect::<Vec<ServiceInfo>>()
             })
-            .collect();
+            .fold(Vec::new(), |mut acc, item| async {
+                acc.extend(item);
+                acc
+            })
+            .await;
         result.extend(root_info);
         result
     }
 
-    pub fn list_services(&self, peer_scope: PeerScope) -> Vec<ServiceInfo> {
-        let services = self.get_services(&peer_scope);
+    pub async fn list_services(&self, peer_scope: PeerScope) -> Vec<ServiceInfo> {
+        let services = self.get_services(&peer_scope).await;
         match services {
-            Ok(services) => services
-                .services
-                .read()
-                .iter()
-                .map(|(id, srv)| srv.get_info(id))
-                .collect(),
+            Ok(services) => {
+                let services = services.services.read().await;
+
+                futures::stream::iter(services.iter())
+                    .then(|(id, srv)| {
+                        let srv = srv.clone();
+                        let id = id.clone();
+                        async move { srv.get_info(&id).await }
+                    })
+                    .collect()
+                    .await
+            }
             Err(_) => {
                 vec![]
             }
         }
     }
 
-    pub fn get_service_mem_stats(
+    pub async fn get_service_mem_stats(
         &self,
         peer_scope: PeerScope,
         service_id: String,
         particle_id: &str,
     ) -> Result<Vec<JValue>, JError> {
-        let (service, _) = self.get_service(peer_scope, service_id, particle_id)?;
+        let (service, _) = self
+            .get_service(peer_scope, service_id, particle_id)
+            .await?;
 
-        let lock = service.service.lock();
+        let lock = service.service.lock().await;
         let stats = lock.module_memory_stats();
         let stats = stats
             .modules
@@ -903,8 +943,8 @@ impl ParticleAppServices {
 
             match service.peer_scope {
                 PeerScope::WorkerId(worker_id) => {
-                    let services = self.get_or_create_worker_services(worker_id);
-                    let mut aliases = services.aliases.write();
+                    let services = self.get_or_create_worker_services(worker_id).await;
+                    let mut aliases = services.aliases.write().await;
                     for alias in service.aliases.iter() {
                         let old = aliases.insert(alias.clone(), service.service_id.clone());
                         if let Some(old) = old {
@@ -918,7 +958,7 @@ impl ParticleAppServices {
                     }
                 }
                 PeerScope::Host => {
-                    let mut aliases = self.root_services.aliases.write();
+                    let mut aliases = self.root_services.aliases.write().await;
                     for alias in service.aliases.iter() {
                         let old = aliases.insert(alias.clone(), service.service_id.clone());
                         if let Some(old) = old {
@@ -979,7 +1019,7 @@ impl ParticleAppServices {
         let stats = ServiceMemoryStat::new(&stats);
 
         let service = Service::new(
-            Mutex::new(service),
+            tokio::sync::Mutex::new(service),
             service_id.clone(),
             blueprint_id,
             service_type,
@@ -989,13 +1029,14 @@ impl ParticleAppServices {
         );
         let service = Arc::new(service);
         // Save created service to disk, so it is recreated on restart
-        let persisted_service = PersistedService::from_service(&service);
+        let persisted_service = PersistedService::from_service(&service).await;
         persisted_service.persist(&self.config.services_dir).await?;
-        let service_type = self.get_service_type(&service, &peer_scope);
-        let services = self.get_or_create_services(peer_scope);
+        let service_type = self.get_service_type(&service, &peer_scope).await;
+        let services = self.get_or_create_services(peer_scope).await;
         let replaced = services
             .services
             .write()
+            .await
             .insert(service_id.clone(), service);
 
         if let Some(m) = self.metrics.as_ref() {
@@ -1006,12 +1047,12 @@ impl ParticleAppServices {
         Ok(replaced)
     }
 
-    fn get_or_create_worker_services(&self, worker_id: WorkerId) -> Services {
-        let workers_services = self.worker_services.upgradable_read();
+    async fn get_or_create_worker_services(&self, worker_id: WorkerId) -> Services {
+        let workers_services = self.worker_services.read().await;
         let worker_services = workers_services.get(&worker_id);
         match worker_services {
             None => {
-                let mut workers_services = RwLockUpgradableReadGuard::upgrade(workers_services);
+                let mut workers_services = self.worker_services.write().await;
                 //we double check it, because it can be created in another thread
                 let services = workers_services.get(&worker_id);
                 match services {
@@ -1143,13 +1184,18 @@ impl ParticleAppServices {
             .map_err(ServiceError::Engine)
     }
 
-    fn get_service_type(&self, service: &Service, peer_scope: &PeerScope) -> MetricServiceType {
+    async fn get_service_type(
+        &self,
+        service: &Service,
+        peer_scope: &PeerScope,
+    ) -> MetricServiceType {
         let allowed_alias = match peer_scope {
-            PeerScope::Host => service.aliases.read().first().cloned(),
+            PeerScope::Host => service.aliases.read().await.first().cloned(),
             _ => {
                 if service
                     .aliases
                     .read()
+                    .await
                     .first()
                     .map(|alias| alias == "worker-spell")
                     .unwrap_or(false)
