@@ -1283,7 +1283,10 @@ fn all_max_proofs_found(non_priority_units: &[CUID]) -> bool {
 }
 
 // measure the request execution time and store it in the metrics
-async fn measured_request<Fut, R, E>(metrics: &Option<ChainListenerMetrics>, fut: Fut) -> Result<R, E>
+async fn measured_request<Fut, R, E>(
+    metrics: &Option<ChainListenerMetrics>,
+    fut: Fut,
+) -> Result<R, E>
 where
     Fut: Future<Output = Result<R, E>> + Sized,
 {
