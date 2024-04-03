@@ -39,6 +39,7 @@ ccp-shared = { workspace = true }
 tokio-stream = { workspace = true }
 toml_edit = { workspace = true }
 backoff = { version = "0.4.0", features = ["tokio", "futures"] }
+peer-metrics = { workspace = true }
 
 [dev-dependencies]
 jsonrpsee = { workspace = true, features = ["server"] }
