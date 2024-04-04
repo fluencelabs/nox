@@ -4817,11 +4817,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "log-format"
+version = "0.1.0"
+dependencies = [
+ "nu-ansi-term 0.50.0",
+ "tracing",
+ "tracing-log",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "log-utils"
 version = "0.1.0"
 dependencies = [
  "log",
+ "log-format",
  "tracing",
+ "tracing-log",
  "tracing-subscriber",
 ]
 
@@ -5809,6 +5821,7 @@ dependencies = [
  "libp2p-metrics",
  "libp2p-swarm",
  "log",
+ "log-format",
  "log-utils",
  "maplit",
  "multihash 0.19.1",
@@ -5837,6 +5850,7 @@ dependencies = [
  "tokio-stream",
  "toml 0.8.12",
  "tracing",
+ "tracing-appender",
  "tracing-log",
  "tracing-logfmt",
  "tracing-opentelemetry",
@@ -5914,6 +5928,15 @@ checksum = "77a8165726e8236064dbb45459242600304b42a5ea24ee2948e18e023bf7ba84"
 dependencies = [
  "overload",
  "winapi",
+]
+
+[[package]]
+name = "nu-ansi-term"
+version = "0.50.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dd2800e1520bdc966782168a627aa5d1ad92e33b984bf7c7615d31280c83ff14"
+dependencies = [
+ "windows-sys 0.48.0",
 ]
 
 [[package]]
@@ -8757,6 +8780,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "tracing-appender"
+version = "0.2.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3566e8ce28cc0a3fe42519fc80e6b4c943cc4c8cef275620eb8dac2d3d4e06cf"
+dependencies = [
+ "crossbeam-channel",
+ "thiserror",
+ "time",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "tracing-attributes"
 version = "0.1.27"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8835,7 +8870,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ad0f048c97dbd9faa9b7df56362b8ebcaa52adb06b498c050d2f4e32f90a7a8b"
 dependencies = [
  "matchers",
- "nu-ansi-term",
+ "nu-ansi-term 0.46.0",
  "once_cell",
  "parking_lot",
  "regex",
