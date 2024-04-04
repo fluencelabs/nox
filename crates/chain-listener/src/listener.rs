@@ -795,7 +795,7 @@ impl ChainListener {
         Ok(())
     }
 
-    fn group_cc_units(&self) -> CUGroupResult {
+    fn get_cu_groups(&self) -> CUGroups {
         let mut priority_units: Vec<CUID> = Vec::new();
         let mut non_priority_units: Vec<CUID> = Vec::new();
         let mut pending_units: Vec<CUID> = Vec::new();
@@ -814,7 +814,7 @@ impl ChainListener {
                 pending_units.push(*cuid);
             }
         }
-        CUGroupResult {
+        CUGroups {
             priority_units,
             non_priority_units,
             pending_units,
@@ -845,15 +845,15 @@ impl ChainListener {
             None => return Ok(()),
         };
 
-        let group_result = self.group_cc_units();
+        let group_result = self.get_cu_groups();
 
         let cc_cores = self.acquire_cores_for_cc(&group_result)?;
 
         let mut cu_allocation: HashMap<PhysicalCoreId, CUID> = HashMap::new();
 
-        if all_min_proofs_found(&group_result.priority_units) {
+        if group_result.all_min_proofs_found() {
             tracing::info!(target: "chain-listener", "All CUs found minimal number of proofs {} in current epoch {}", self.min_proofs_per_epoch, self.current_epoch);
-            if all_max_proofs_found(&group_result.non_priority_units) {
+            if group_result.all_max_proofs_found() {
                 tracing::info!(target: "chain-listener", "All CUs found max number of proofs {} in current epoch {}", self.max_proofs_per_epoch ,self.current_epoch);
                 self.stop_commitment().await?;
                 return Ok(());
@@ -925,7 +925,7 @@ impl ChainListener {
 
     fn acquire_cores_for_cc(
         &self,
-        cu_group_result: &CUGroupResult,
+        cu_group_result: &CUGroups,
     ) -> eyre::Result<PhysicalCoreGroupResult> {
         let mut units = cu_group_result.priority_units.clone();
         units.extend(cu_group_result.non_priority_units.clone());
@@ -1280,24 +1280,25 @@ impl ChainListener {
     }
 }
 
-struct CUGroupResult {
+struct CUGroups {
     pub priority_units: Vec<CUID>,
     pub non_priority_units: Vec<CUID>,
     pub pending_units: Vec<CUID>,
     pub finished_units: Vec<CUID>,
 }
 
+impl CUGroups {
+    fn all_min_proofs_found(&self) -> bool {
+        self.priority_units.is_empty()
+    }
+
+    fn all_max_proofs_found(&self) -> bool {
+        self.non_priority_units.is_empty()
+    }
+}
 struct PhysicalCoreGroupResult {
     pub priority_cores: Vec<PhysicalCoreId>,
     pub non_priority_cores: Vec<PhysicalCoreId>,
     pub pending_cores: Vec<PhysicalCoreId>,
     pub finished_cores: Vec<PhysicalCoreId>,
-}
-
-fn all_min_proofs_found(priority_units: &[CUID]) -> bool {
-    priority_units.is_empty()
-}
-
-fn all_max_proofs_found(non_priority_units: &[CUID]) -> bool {
-    non_priority_units.is_empty()
 }
