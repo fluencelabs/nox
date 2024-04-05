@@ -691,6 +691,7 @@ mod tests {
 
     struct VMMock;
 
+    #[async_trait]
     impl AquaRuntime for VMMock {
         type Config = ();
         type Error = Infallible;
@@ -710,11 +711,11 @@ mod tests {
             }
         }
 
-        fn call(
+        async fn call(
             &mut self,
-            _air: impl Into<String>,
-            _prev_data: impl Into<Vec<u8>>,
-            _current_data: impl Into<Vec<u8>>,
+            _air: impl Into<String> + Send,
+            _prev_data: impl Into<Vec<u8>> + Send,
+            _current_data: impl Into<Vec<u8>> + Send,
             _particle_params: ParticleParameters<'_>,
             _call_results: CallResults,
             _key_pair: &KeyPair,

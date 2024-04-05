@@ -15,3 +15,4 @@ avm-server = { workspace = true }
 futures = { workspace = true }
 serde_json = { workspace = true }
 itertools = { workspace = true }
+async-trait = { workspace = true }

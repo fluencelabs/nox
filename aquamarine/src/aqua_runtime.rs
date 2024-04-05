@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+use async_trait::async_trait;
 use std::str::FromStr;
 use std::{error::Error, task::Waker};
 
@@ -30,6 +31,7 @@ use crate::config::VmConfig;
 use crate::error::{ExecutionError, FieldError};
 use crate::particle_effects::ParticleEffects;
 
+#[async_trait]
 pub trait AquaRuntime: Sized + Send + 'static {
     type Config: Clone + Send + 'static;
     type Error: Error + Send + Sync + 'static;
@@ -42,11 +44,11 @@ pub trait AquaRuntime: Sized + Send + 'static {
         particle_id: String,
     ) -> ParticleEffects;
 
-    fn call(
+    async fn call(
         &mut self,
-        air: impl Into<String>,
-        prev_data: impl Into<Vec<u8>>,
-        current_data: impl Into<Vec<u8>>,
+        air: impl Into<String> + Send,
+        prev_data: impl Into<Vec<u8>> + Send,
+        current_data: impl Into<Vec<u8>> + Send,
         particle_params: ParticleParameters<'_>,
         call_results: CallResults,
         key_pair: &KeyPair,
@@ -56,6 +58,7 @@ pub trait AquaRuntime: Sized + Send + 'static {
     fn memory_stats(&self) -> AVMMemoryStats;
 }
 
+#[async_trait]
 impl AquaRuntime for AVMRunner<WasmtimeWasmBackend> {
     type Config = VmConfig;
     type Error = RunnerError;
@@ -138,16 +141,16 @@ impl AquaRuntime for AVMRunner<WasmtimeWasmBackend> {
     }
 
     #[inline]
-    fn call(
+    async fn call(
         &mut self,
-        air: impl Into<String>,
-        prev_data: impl Into<Vec<u8>>,
-        current_data: impl Into<Vec<u8>>,
+        air: impl Into<String> + Send,
+        prev_data: impl Into<Vec<u8>> + Send,
+        current_data: impl Into<Vec<u8>> + Send,
         particle_params: ParticleParameters<'_>,
         call_results: CallResults,
         key_pair: &KeyPair,
     ) -> Result<RawAVMOutcome, Self::Error> {
-        tokio::runtime::Handle::current().block_on(AVMRunner::call(
+        AVMRunner::call(
             self,
             air,
             prev_data,
@@ -159,7 +162,8 @@ impl AquaRuntime for AVMRunner<WasmtimeWasmBackend> {
             call_results,
             key_pair,
             particle_params.particle_id.to_string(),
-        ))
+        )
+        .await
     }
 
     fn memory_stats(&self) -> AVMMemoryStats {

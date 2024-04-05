@@ -396,7 +396,9 @@ mod tests {
         let (pas, repo, local_pid) = create_pas(management_pid, base_dir.into_path()).await;
 
         let api = SpellServiceApi::new(pas.clone());
-        let (storage, _) = spell_storage::SpellStorage::create(Path::new(""), &pas, &repo).unwrap();
+        let (storage, _) = spell_storage::SpellStorage::create(Path::new(""), &pas, &repo)
+            .await
+            .unwrap();
         let spell_service_blueprint_id = storage.get_blueprint();
         let spell_id = create_spell(&pas, spell_service_blueprint_id, local_pid)
             .await
@@ -408,7 +410,7 @@ mod tests {
     #[tokio::test]
     async fn test_counter() {
         let (api, params) = setup().await;
-        let result1 = api.get_counter(params.clone());
+        let result1 = api.get_counter(params.clone()).await;
         assert!(
             result1.is_ok(),
             "must be able to get a counter of an empty spell"
@@ -419,13 +421,13 @@ mod tests {
             "the counter of an empty spell must be zero"
         );
         let new_counter = 7;
-        let result2 = api.set_counter(params.clone(), new_counter);
+        let result2 = api.set_counter(params.clone(), new_counter).await;
         assert!(
             result2.is_ok(),
             "must be able to set a counter of an empty spell: {:?}",
             result2.unwrap_err()
         );
-        let result3 = api.get_counter(params);
+        let result3 = api.get_counter(params).await;
         assert!(
             result3.is_ok(),
             "must be able to get a counter of an empty spell again"
@@ -441,9 +443,11 @@ mod tests {
     async fn test_script() {
         let (api, params) = setup().await;
         let script_original = "(noop)".to_string();
-        let result1 = api.set_script(params.clone(), script_original.clone());
+        let result1 = api
+            .set_script(params.clone(), script_original.clone())
+            .await;
         assert!(result1.is_ok(), "must be able to update script");
-        let script = api.get_script(params);
+        let script = api.get_script(params).await;
         assert!(script.is_ok(), "must be able to load script");
         assert_eq!(script.unwrap(), script_original, "scripts must be equal");
     }
@@ -452,9 +456,11 @@ mod tests {
     async fn test_trigger_config() {
         let (api, params) = setup().await;
         let trigger_config_original = TriggerConfig::default();
-        let result1 = api.set_trigger_config(params.clone(), trigger_config_original.clone());
+        let result1 = api
+            .set_trigger_config(params.clone(), trigger_config_original.clone())
+            .await;
         assert!(result1.is_ok(), "must be able to set trigger config");
-        let result2 = api.get_trigger_config(params);
+        let result2 = api.get_trigger_config(params).await;
         assert!(result2.is_ok(), "must be able to get trigger config");
         assert_eq!(
             result2.unwrap(),
@@ -470,7 +476,7 @@ mod tests {
             "a1" => json!(1),
             "b1" => json!("test"),
         };
-        let result1 = api.update_kv(host_params.clone(), json!(init_data));
+        let result1 = api.update_kv(host_params.clone(), json!(init_data)).await;
         assert!(
             result1.is_err(),
             "must NOT be able to update kv without h/hw key prefixes calling from host"
@@ -484,13 +490,13 @@ mod tests {
             host_params.ttl,
         );
 
-        let result1 = api.update_kv(params.clone(), json!(init_data));
+        let result1 = api.update_kv(params.clone(), json!(init_data)).await;
         assert!(
             result1.is_ok(),
             "must be able to update kv calling as a spell"
         );
 
-        let result = api.get_string(params.clone(), "a1".to_string());
+        let result = api.get_string(params.clone(), "a1".to_string()).await;
         assert!(result.is_ok(), "must be able to add get_string");
         assert_eq!(
             result.unwrap().unwrap(),
@@ -498,7 +504,7 @@ mod tests {
             "must be able to add get_string"
         );
 
-        let result = api.get_string(params, "b1".to_string());
+        let result = api.get_string(params, "b1".to_string()).await;
         assert!(result.is_ok(), "must be able to add get_string");
         assert_eq!(
             result.unwrap().unwrap(),
@@ -516,14 +522,16 @@ mod tests {
                 "timestamp": 1
             })]
         });
-        let result = api.set_trigger_event(params.clone(), trigger_event.to_string());
+        let result = api
+            .set_trigger_event(params.clone(), trigger_event.to_string())
+            .await;
         assert!(result.is_ok(), "must be able to set trigger event");
 
         let function = super::Function {
             name: "get_string",
             args: vec![json!("hw_trigger")],
         };
-        let result = api.call::<StringValue>(params, function);
+        let result = api.call::<StringValue>(params, function).await;
         assert!(result.is_ok(), "must be able to add get_string");
         let trigger_event_read: Result<serde_json::Value, _> =
             serde_json::from_str(&result.unwrap().value);

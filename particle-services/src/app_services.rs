@@ -1413,15 +1413,24 @@ mod tests {
             .await
             .unwrap();
 
-        let inter1 = pas.get_interface(PeerScope::Host, service_id1, "").unwrap();
+        let inter1 = pas
+            .get_interface(PeerScope::Host, service_id1, "")
+            .await
+            .unwrap();
 
         // delete module and check that interfaces will be returned anyway
         let dir = modules_dir(&base_dir.path().to_path_buf().join("persistent"));
         let module_file = dir.join(format!("{m_hash}.wasm"));
         tokio::fs::remove_file(module_file.clone()).await.unwrap();
 
-        let inter2 = pas.get_interface(PeerScope::Host, service_id2, "").unwrap();
-        let inter3 = pas.get_interface(PeerScope::Host, service_id3, "").unwrap();
+        let inter2 = pas
+            .get_interface(PeerScope::Host, service_id2, "")
+            .await
+            .unwrap();
+        let inter3 = pas
+            .get_interface(PeerScope::Host, service_id3, "")
+            .await
+            .unwrap();
 
         assert!(!module_file.exists());
         assert_eq!(inter1, inter2);
@@ -1478,8 +1487,9 @@ mod tests {
 
         let (service_1, _) = pas
             .get_service(PeerScope::Host, service_id1.clone(), "")
+            .await
             .unwrap();
-        let service_1_aliases: Vec<ServiceAlias> = service_1.aliases.read().clone();
+        let service_1_aliases: Vec<ServiceAlias> = service_1.aliases.read().await.clone();
         // the service's alias list must contain the alias
         assert_eq!(service_1_aliases, vec![alias.to_string()]);
 
@@ -1533,12 +1543,14 @@ mod tests {
 
         let (service_1, _) = pas
             .get_service(PeerScope::Host, service_id1.clone(), "")
+            .await
             .unwrap();
         let (service_2, _) = pas
             .get_service(PeerScope::Host, service_id2.clone(), "")
+            .await
             .unwrap();
-        let service_aliases_1 = service_1.aliases.read().clone();
-        let service_aliases_2 = service_2.aliases.read().clone();
+        let service_aliases_1 = service_1.aliases.read().await.clone();
+        let service_aliases_2 = service_2.aliases.read().await.clone();
         // the first service's alias list must not contain the alias
         assert_eq!(service_aliases_1, Vec::<String>::new());
         // the second service's alias list must contain the alias
@@ -1599,8 +1611,9 @@ mod tests {
 
         let (service, _) = pas
             .get_service(PeerScope::Host, service_id.clone(), "")
+            .await
             .unwrap();
-        let service_aliases = service.aliases.read().clone();
+        let service_aliases = service.aliases.read().await.clone();
         // the service's alias list must contain only 1 alias
         assert_eq!(service_aliases, vec![alias.to_string()]);
 
@@ -1642,8 +1655,9 @@ mod tests {
         .unwrap();
         let (service_1, _) = pas
             .get_service(PeerScope::Host, service_id1.clone(), "")
+            .await
             .unwrap();
-        let service_aliases_1 = service_1.aliases.read().clone();
+        let service_aliases_1 = service_1.aliases.read().await.clone();
         assert_eq!(service_aliases_1.len(), 1);
         assert_eq!(service_aliases_1[0], alias);
 

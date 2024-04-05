@@ -24,8 +24,9 @@ use std::assert_matches::assert_matches;
 use base64::{engine::general_purpose::STANDARD as base64, Engine};
 use connected_client::ConnectedClient;
 use created_swarm::{make_swarms, make_swarms_with_cfg};
+use jsonrpsee::core::async_trait;
 use service_modules::{load_module, Hash};
-use system_services::{PackageDistro, ServiceDistro};
+use system_services::{CallService, Deployment, InitService, PackageDistro, ServiceDistro};
 
 #[tokio::test]
 async fn test_system_service_override() {
@@ -59,30 +60,45 @@ async fn test_system_service_override() {
         config,
     };
     let name = service_name.clone();
-    let init: dyn system_services::InitService = Box::new(move |call, status| {
-        let name = name.clone();
-        let service_status = status
-            .services
-            .get(&name)
-            .expect("deployment status for the service");
-        assert_matches!(
-            service_status,
-            system_services::ServiceStatus::Created(_),
-            "wrong deployment status"
-        );
-        let result: eyre::Result<_> = call(name.clone(), "not".to_string(), vec![json!(false)]);
-        assert!(
-            result.is_err(),
-            "must be error due to the the call interface restrictions"
-        );
-        let error = result.unwrap_err().to_string();
-        assert_eq!(
-            error,
-            format!("Call {}.not return invalid result: true", name),
-            "the service call must return invalid result due to the call interface restrictions"
-        );
-        Ok(())
-    });
+
+    struct Test {
+        name: String,
+    }
+    #[async_trait]
+    impl InitService for Test {
+        async fn init(
+            &self,
+            call_service: &dyn CallService,
+            deployment: Deployment,
+        ) -> eyre::Result<()> {
+            let name = self.name.clone();
+            let service_status = deployment
+                .services
+                .get(&name)
+                .expect("deployment status for the service");
+            assert_matches!(
+                service_status,
+                system_services::ServiceStatus::Created(_),
+                "wrong deployment status"
+            );
+            let result: eyre::Result<_> = call_service
+                .call(name.clone(), "not".to_string(), vec![json!(false)])
+                .await;
+            assert!(
+                result.is_err(),
+                "must be error due to the the call interface restrictions"
+            );
+            let error = result.unwrap_err().to_string();
+            assert_eq!(
+                error,
+                format!("Call {}.not return invalid result: true", name),
+                "the service call must return invalid result due to the call interface restrictions"
+            );
+            Ok(())
+        }
+    }
+
+    let init = Box::new(Test { name });
     let package = PackageDistro {
         name: service_name.clone(),
         version: "some-version",

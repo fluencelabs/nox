@@ -49,10 +49,10 @@ pub(crate) trait SpawnFunctions {
     ///
     /// - `F`: The type of the closure.
     /// - `R`: The type of the result returned by the closure.
-    fn spawn_avm_call<F, R>(&self, func: F) -> JoinHandle<F::Output>
+    fn spawn_avm_call<F>(&self, fut: F) -> JoinHandle<F::Output>
     where
-        F: FnOnce() -> R + Send + 'static,
-        R: Send + 'static;
+        F: Future + Send + 'static,
+        F::Output: Send + 'static;
 
     /// Shift execution to the specific pool
     ///
@@ -122,12 +122,13 @@ impl SpawnFunctions for RootSpawner {
             .expect("Failed to spawn a task")
     }
 
-    fn spawn_avm_call<F, R>(&self, func: F) -> JoinHandle<F::Output>
+    fn spawn_avm_call<F>(&self, fut: F) -> JoinHandle<F::Output>
     where
-        F: FnOnce() -> R + Send + 'static,
-        R: Send + 'static,
+        F: Future + Send + 'static,
+        F::Output: Send + 'static,
     {
-        self.runtime_handle.spawn_blocking(func)
+        self.runtime_handle
+            .spawn_blocking(|| Handle::current().block_on(fut))
     }
 
     fn wrap<F>(&self, fut: F) -> TokioContext<F>
@@ -178,12 +179,13 @@ impl SpawnFunctions for WorkerSpawner {
             .expect("Failed to spawn a task")
     }
 
-    fn spawn_avm_call<F, R>(&self, func: F) -> JoinHandle<F::Output>
+    fn spawn_avm_call<F>(&self, fut: F) -> JoinHandle<F::Output>
     where
-        F: FnOnce() -> R + Send + 'static,
-        R: Send + 'static,
+        F: Future + Send + 'static,
+        F::Output: Send + 'static,
     {
-        self.runtime_handle.spawn(async { func() })
+        let fut = async { fut.await };
+        self.runtime_handle.spawn(fut)
     }
 
     fn wrap<F>(&self, fut: F) -> TokioContext<F>
