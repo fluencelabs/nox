@@ -72,9 +72,11 @@ fn main() -> eyre::Result<()> {
 
     let (reloadable_tracing_layer, reload_handle) = reload::Layer::new(None);
 
+    let (log_layer, _worker_guard) = log_layer();
+
     tracing_subscriber::registry()
         .with(env_filter())
-        .with(log_layer())
+        .with(log_layer)
         .with(reloadable_tracing_layer)
         .init();
 
