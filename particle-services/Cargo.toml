@@ -36,9 +36,10 @@ derivative = { workspace = true }
 eyre = { workspace = true }
 humantime-serde = { workspace = true }
 health = { workspace = true }
-tokio = { workspace = true, features = ["fs"] }
+tokio = { workspace = true, features = ["fs", "time"] }
 tokio-util = { workspace = true, features = ["rt"] }
-tokio-stream = { workspace = true, features = ["fs"] }
+tokio-stream = { workspace = true, features = ["fs", "time"] }
+time = "0.3.30"
 
 [dev-dependencies]
 tempdir = "0.3.7"

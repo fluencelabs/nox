@@ -29,6 +29,7 @@ use humantime_serde::re::humantime::format_duration as pretty;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value as JValue};
 use tokio::runtime::Handle;
+use tokio_stream::wrappers::IntervalStream;
 use tokio_util::context::TokioContext;
 
 use fluence_libp2p::PeerId;
@@ -247,6 +248,18 @@ impl ParticleAppServices {
 
         let (app_service_factory, epoch_ticker) =
             AppServiceFactory::new(wasmtime_config).map_err(ServiceError::Engine)?;
+
+        //TODO: make a setting for that
+        let stream = IntervalStream::new(tokio::time::interval(Duration::from_secs(1)));
+        let ticket = epoch_ticker.clone();
+        tokio::task::spawn(async move {
+            stream
+                .for_each(|_| async {
+                    ticket.increment_epoch();
+                })
+                .await;
+        });
+
         Ok(Self {
             config,
             vault,
