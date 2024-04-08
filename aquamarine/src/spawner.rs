@@ -184,7 +184,6 @@ impl SpawnFunctions for WorkerSpawner {
         F: Future + Send + 'static,
         F::Output: Send + 'static,
     {
-        let fut = async { fut.await };
         self.runtime_handle.spawn(fut)
     }
 

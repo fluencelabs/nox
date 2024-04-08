@@ -1061,10 +1061,11 @@ impl ParticleAppServices {
     }
 
     async fn get_or_create_worker_services(&self, worker_id: WorkerId) -> Services {
-        let workers_services = self.worker_services.read().await;
-        let worker_services = workers_services.get(&worker_id);
+        let lock = self.worker_services.read().await;
+        let worker_services = lock.get(&worker_id);
         match worker_services {
             None => {
+                drop(lock);
                 let mut workers_services = self.worker_services.write().await;
                 //we double check it, because it can be created in another thread
                 let services = workers_services.get(&worker_id);
