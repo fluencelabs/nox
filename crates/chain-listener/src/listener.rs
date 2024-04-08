@@ -647,7 +647,7 @@ impl ChainListener {
         let header = event.ok_or(eyre!("Failed to process newHeads event: got None"))?;
 
         let (block_timestamp, block_number) = Self::parse_block_header(header?)?;
-        self.observe(|m| m.observe_new_block(block_number.to_string()));
+        self.observe(|m| m.observe_new_block(block_number));
 
         // `epoch_number = 1 + (block_timestamp - init_timestamp) / epoch_duration`
         let epoch_number =
@@ -684,7 +684,7 @@ impl ChainListener {
                 }
             }
         }
-        self.observe(|m| m.observe_processed_block());
+        self.observe(|m| m.observe_processed_block(block_number));
         Ok(())
     }
 
@@ -1117,7 +1117,7 @@ impl ChainListener {
         }
     }
 
-    fn parse_block_header(header: Value) -> eyre::Result<(U256, U256)> {
+    fn parse_block_header(header: Value) -> eyre::Result<(U256, i64)> {
         let obj = header.as_object().ok_or(eyre::eyre!(
             "newHeads: header is not an object; got {header}"
         ))?;
@@ -1138,7 +1138,13 @@ impl ChainListener {
             ))?
             .to_string();
 
-        Ok((U256::from_str(&timestamp)?, U256::from_str(&block_number)?))
+        let block_number = U256::from_str(&block_number)?;
+        // take lower bits from the number (they are in the order 'least significant first')
+        // we're okay with ignoring higher bits since they 1) probably, won't be reached in practice
+        // 2) don't help alerts very much, lower bits are enough
+        let block_number = block_number.as_limbs()[0] as i64;
+
+        Ok((U256::from_str(&timestamp)?, block_number))
     }
 
     async fn poll_deal_statuses(&mut self) -> eyre::Result<()> {
