@@ -31,6 +31,7 @@ use fluence_spell_dtos::trigger_config::{ClockConfig, TriggerConfig};
 use log_utils::enable_logs;
 use service_modules::load_module;
 use spell_event_bus::api::{TriggerInfo, TriggerInfoAqua, MAX_PERIOD_SEC};
+use test_constants::TRANSPORT_TIMEOUT;
 use test_utils::{create_service, create_service_worker};
 use workers::CUID;
 
@@ -981,6 +982,7 @@ async fn spell_call_by_alias() {
 
 #[tokio::test]
 async fn spell_trigger_connection_pool() {
+    enable_logs();
     let swarms = make_swarms(1).await;
     let mut client = ConnectedClient::connect_with_keypair(
         swarms[0].multiaddr.clone(),
@@ -1029,14 +1031,20 @@ async fn spell_trigger_connection_pool() {
     // This connect should trigger the spell
     let connect_num = 5;
     for _ in 0..connect_num {
-        ConnectedClient::connect_to(swarms[0].multiaddr.clone())
-            .await
-            .unwrap();
+        ConnectedClient::connect_with_timeout(
+            swarms[0].multiaddr.clone(),
+            None,
+            TRANSPORT_TIMEOUT,
+            Duration::ZERO, //make idle timeout infinite to reduce reconnect probability
+            None,
+        )
+        .await
+        .unwrap();
     }
 
     let mut spell1_counter = 0;
     let mut spell2_counter = 0;
-
+    
     // we must receive `connect_num` messages from spell1 subscribed on connect and `connect_num` messages
     // from spell1 subscribed on disconnect, so 2 * `connect_num` messages in total
     for _ in 0..2 * connect_num {
