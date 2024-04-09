@@ -552,8 +552,6 @@ mod tests {
             .wrap_err("parse config")
             .unwrap();
 
-        
-
         unresolved_config
             .resolve()
             .wrap_err("resolve config")
