@@ -689,7 +689,7 @@ mod tests {
             })))
             .with_body(expected_response)
             .create();
-        let commitment_id = CommitmentId(decode_hex(&commitment_id).unwrap().try_into().unwrap());
+        let commitment_id = CommitmentId(decode_hex(commitment_id).unwrap().try_into().unwrap());
         let status = get_connector(&url)
             .get_commitment_status(commitment_id)
             .await

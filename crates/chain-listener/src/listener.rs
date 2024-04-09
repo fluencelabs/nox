@@ -1036,7 +1036,7 @@ impl ChainListener {
                 .filter(|p| p.id.global_nonce == self.global_nonce)
                 .collect();
 
-            if proofs.len() > 0 {
+            if !proofs.is_empty() {
                 tracing::info!(target: "chain-listener", "Found {} proofs from polling", proofs.len());
             }
 
@@ -1258,7 +1258,7 @@ impl ChainListener {
         }
 
         if stats_updated {
-            tracing::info!(target: "chain-listener", "Confirmed proofs count: {:?}", self.proof_counter.iter().map(|(cu, count)| format!("{}: {}", cu, count.to_string())).collect::<Vec<_>>());
+            tracing::info!(target: "chain-listener", "Confirmed proofs count: {:?}", self.proof_counter.iter().map(|(cu, count)| format!("{}: {}", cu, count)).collect::<Vec<_>>());
         }
 
         Ok(())
