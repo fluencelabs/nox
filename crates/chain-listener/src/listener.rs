@@ -944,10 +944,11 @@ impl ChainListener {
     }
 
     fn acquire_cores_for_cc(&self, cu_groups: &CUGroups) -> eyre::Result<PhysicalCoreGroups> {
-        let mut units = cu_groups.priority_units.clone();
-        units.extend(cu_groups.non_priority_units.clone());
-        units.extend(cu_groups.pending_units.clone());
-        units.extend(cu_groups.finished_units.clone());
+        let mut units = vec![];
+        units.extend(&cu_groups.priority_units);
+        units.extend(&cu_groups.non_priority_units);
+        units.extend(&cu_groups.pending_units);
+        units.extend(&cu_groups.finished_units);
 
         let cores = self.core_manager.acquire_worker_core(AcquireRequest::new(
             units.to_vec(),
