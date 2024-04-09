@@ -294,7 +294,7 @@ impl CoreManagerFunctions for DevCoreManager {
         Ok(Assignment {
             physical_core_ids: result_physical_core_ids,
             logical_core_ids: result_logical_core_ids,
-            cuid_core_data,
+            cuid_cores: cuid_core_data,
         })
     }
 
@@ -333,7 +333,7 @@ impl CoreManagerFunctions for DevCoreManager {
         Assignment {
             physical_core_ids: lock.system_cores.clone(),
             logical_core_ids,
-            cuid_core_data: Map::with_hasher(FxBuildHasher::default()),
+            cuid_cores: Map::with_hasher(FxBuildHasher::default()),
         }
     }
 }

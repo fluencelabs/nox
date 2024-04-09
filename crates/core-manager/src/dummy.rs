@@ -22,7 +22,7 @@ impl DummyCoreManager {
         Assignment {
             physical_core_ids,
             logical_core_ids,
-            cuid_core_data: Map::with_hasher(FxBuildHasher::default()),
+            cuid_cores: Map::with_hasher(FxBuildHasher::default()),
         }
     }
 }
@@ -45,7 +45,7 @@ impl CoreManagerFunctions for DummyCoreManager {
         Ok(Assignment {
             physical_core_ids: BTreeSet::new(),
             logical_core_ids,
-            cuid_core_data: Map::with_hasher(FxBuildHasher::default()),
+            cuid_cores: Map::with_hasher(FxBuildHasher::default()),
         })
     }
 
