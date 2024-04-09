@@ -393,7 +393,7 @@ pub async fn create_swarm_with_runtime<RT: AquaRuntime>(
         resolved.node_config.transport_config.transport = Transport::Memory;
         resolved.node_config.transport_config.socket_timeout = TRANSPORT_TIMEOUT;
         resolved.node_config.protocol_config =
-            ProtocolConfig::new(TRANSPORT_TIMEOUT, TRANSPORT_TIMEOUT, true);
+            ProtocolConfig::new(TRANSPORT_TIMEOUT, TRANSPORT_TIMEOUT);
 
         resolved.node_config.bootstrap_nodes = config.bootstraps.clone();
         resolved.node_config.bootstrap_config = BootstrapConfig::zero();
