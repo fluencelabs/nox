@@ -878,13 +878,12 @@ impl ChainListener {
                 return Ok(());
             } else {
                 // All CUs were proven, now let's work on submitting proofs for every CU until MAX_PROOF_COUNT is reached
-                cu_allocation.extend(
-                    cc_cores
-                        .non_priority_cores
-                        .iter()
-                        .cloned()
-                        .zip(cu_groups.non_priority_units.iter().cloned()),
-                );
+                let non_priority_cores_mapping = cc_cores
+                    .non_priority_cores
+                    .iter()
+                    .cloned()
+                    .zip(cu_groups.non_priority_units.iter().cloned());
+                cu_allocation.extend(non_priority_cores_mapping);
 
                 // Assign "pending cores" to help generate proofs for "non priority units"
                 let mut units = cu_groups.non_priority_units.iter().cycle();
