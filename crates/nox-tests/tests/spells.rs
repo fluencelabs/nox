@@ -984,9 +984,13 @@ async fn spell_call_by_alias() {
 async fn spell_trigger_connection_pool() {
     enable_logs();
     let swarms = make_swarms(1).await;
-    let mut client = ConnectedClient::connect_with_keypair(
+    let mut client = ConnectedClient::connect_with_timeout(
         swarms[0].multiaddr.clone(),
         Some(swarms[0].management_keypair.clone()),
+        TRANSPORT_TIMEOUT,
+        Duration::from_secs(60 * 5), //make idle timeout big to reduce reconnect probability
+        None,
+        true,
     )
     .await
     .wrap_err("connect client")
@@ -1035,7 +1039,7 @@ async fn spell_trigger_connection_pool() {
             swarms[0].multiaddr.clone(),
             None,
             TRANSPORT_TIMEOUT,
-            Duration::ZERO, //make idle timeout infinite to reduce reconnect probability
+            Duration::from_secs(60 * 5), //make idle timeout big to reduce reconnect probability
             None,
             false,
         )
@@ -1064,8 +1068,10 @@ async fn spell_trigger_connection_pool() {
 
             if spell_id == spell_id1 {
                 spell1_counter += 1;
-            } else {
+            } else if spell_id == spell_id2 {
                 spell2_counter += 1;
+            } else {
+                assert!(false)
             }
         }
     }
