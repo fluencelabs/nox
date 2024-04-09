@@ -267,7 +267,7 @@ impl CoreManagerFunctions for StrictCoreManager {
             };
             result_physical_core_ids.insert(physical_core_id);
 
-            // SAFETY: The physical core always has corresponding logical ids, 
+            // SAFETY: The physical core always has corresponding logical ids,
             // unit_id_mapping can't have a wrong physical_core_id
             let logical_core_ids = lock
                 .cores_mapping
@@ -313,7 +313,7 @@ impl CoreManagerFunctions for StrictCoreManager {
         let lock = self.state.read();
         let mut logical_core_ids = BTreeSet::new();
         for core in &lock.system_cores {
-            // SAFETY: The physical core always has corresponding logical ids, 
+            // SAFETY: The physical core always has corresponding logical ids,
             // system_cores can't have a wrong physical_core_id
             let core_ids = lock
                 .cores_mapping

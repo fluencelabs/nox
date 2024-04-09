@@ -1319,9 +1319,14 @@ impl ChainListener {
 }
 
 struct CUGroups {
+    /// Already started units involved in CC and not having less than MIN_PROOFS_PER_EPOCH proofs in the current epoch
     pub priority_units: Vec<CUID>,
+    /// Already started units involved in CC and found at least MIN_PROOFS_PER_EPOCH proofs,
+    /// but less that MAX_PROOFS_PER_EPOCH proofs in the current epoch
     pub non_priority_units: Vec<CUID>,
+    /// Units in CC that is not active yet and can't produce proofs in the current epoch
     pub pending_units: Vec<CUID>,
+    /// Already started units involved in CC and having more than MAX_PROOFS_PER_EPOCH proofs in the current epoch
     pub finished_units: Vec<CUID>,
 }
 
