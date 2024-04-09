@@ -102,10 +102,12 @@ impl Client {
         transport_timeout: Duration,
         idle_connection_timeout: Duration,
         protocol_config: ProtocolConfig,
+        reconnect_enabled: bool,
     ) -> Result<Swarm<FluenceClientBehaviour>, Box<dyn Error>> {
         let mut swarm = {
             let public_key = self.key_pair.public();
-            let behaviour = FluenceClientBehaviour::new(protocol_config, public_key.into());
+            let behaviour =
+                FluenceClientBehaviour::new(protocol_config, public_key.into(), reconnect_enabled);
 
             let kp = self.key_pair.clone().into();
             let transport = build_transport(transport, &kp, transport_timeout);
@@ -156,8 +158,7 @@ impl Client {
 
         let (stop_outlet, stop_inlet) = oneshot::channel();
 
-        let protocol_config =
-            ProtocolConfig::new(transport_timeout, transport_timeout, reconnect_enabled);
+        let protocol_config = ProtocolConfig::new(transport_timeout, transport_timeout);
         let client = Client::new(relay_outlet, client_inlet, stop_outlet, key_pair);
         let mut swarm = client.dial(
             relay,
@@ -165,6 +166,7 @@ impl Client {
             transport_timeout,
             idle_connection_timeout,
             protocol_config,
+            reconnect_enabled,
         )?;
         let mut stop_inlet = Some(stop_inlet);
 
