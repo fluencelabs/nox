@@ -13,7 +13,7 @@ use crate::manager::CoreManagerFunctions;
 use crate::persistence::{
     PersistenceTask, PersistentCoreManagerFunctions, PersistentCoreManagerState,
 };
-use crate::types::{AcquireRequest, Assignment, CoreData, WorkType};
+use crate::types::{AcquireRequest, Assignment, Cores, WorkType};
 use crate::{BiMap, CoreRange, Map, MultiMap};
 
 /// `StrictCoreManager` is a CPU core manager responsible for allocating and releasing CPU cores
@@ -124,6 +124,7 @@ impl StrictCoreManager {
 
         let mut system_cores: BTreeSet<PhysicalCoreId> = BTreeSet::new();
         for _ in 0..system_cpu_count {
+            // SAFETY: this should never happen because we already checked the availability of cores
             system_cores.insert(
                 available_cores
                     .pop_first()
@@ -223,7 +224,7 @@ impl CoreManagerFunctions for StrictCoreManager {
         assign_request: AcquireRequest,
     ) -> Result<Assignment, AcquireError> {
         let mut lock = self.state.write();
-        let mut cuid_core_data: Map<CUID, CoreData> = HashMap::with_capacity_and_hasher(
+        let mut cuid_core_data: Map<CUID, Cores> = HashMap::with_capacity_and_hasher(
             assign_request.unit_ids.len(),
             FxBuildHasher::default(),
         );
@@ -248,6 +249,7 @@ impl CoreManagerFunctions for StrictCoreManager {
             let physical_core_id = lock.unit_id_mapping.get_by_right(&unit_id).cloned();
             let physical_core_id = match physical_core_id {
                 None => {
+                    // SAFETY: this should never happen because we already checked the availability of cores
                     let core_id = lock
                         .available_cores
                         .pop_last()
@@ -265,6 +267,8 @@ impl CoreManagerFunctions for StrictCoreManager {
             };
             result_physical_core_ids.insert(physical_core_id);
 
+            // SAFETY: The physical core always has corresponding logical ids,
+            // unit_id_mapping can't have a wrong physical_core_id
             let logical_core_ids = lock
                 .cores_mapping
                 .get_vec(&physical_core_id)
@@ -277,7 +281,7 @@ impl CoreManagerFunctions for StrictCoreManager {
 
             cuid_core_data.insert(
                 unit_id,
-                CoreData {
+                Cores {
                     physical_core_id,
                     logical_core_ids,
                 },
@@ -309,6 +313,8 @@ impl CoreManagerFunctions for StrictCoreManager {
         let lock = self.state.read();
         let mut logical_core_ids = BTreeSet::new();
         for core in &lock.system_cores {
+            // SAFETY: The physical core always has corresponding logical ids,
+            // system_cores can't have a wrong physical_core_id
             let core_ids = lock
                 .cores_mapping
                 .get_vec(core)

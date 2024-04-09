@@ -864,15 +864,15 @@ impl ChainListener {
             None => return Ok(()),
         };
 
-        let group_result = self.get_cu_groups();
+        let cu_groups = self.get_cu_groups();
 
-        let cc_cores = self.acquire_cores_for_cc(&group_result)?;
+        let cc_cores = self.acquire_cores_for_cc(&cu_groups)?;
 
         let mut cu_allocation: HashMap<PhysicalCoreId, CUID> = HashMap::new();
 
-        if group_result.all_min_proofs_found() {
+        if cu_groups.all_min_proofs_found() {
             tracing::info!(target: "chain-listener", "All CUs found minimal number of proofs {} in current epoch {}", self.min_proofs_per_epoch, self.current_epoch);
-            if group_result.all_max_proofs_found() {
+            if cu_groups.all_max_proofs_found() {
                 tracing::info!(target: "chain-listener", "All CUs found max number of proofs {} in current epoch {}", self.max_proofs_per_epoch ,self.current_epoch);
                 self.stop_commitment().await?;
                 return Ok(());
@@ -883,11 +883,11 @@ impl ChainListener {
                         .non_priority_cores
                         .iter()
                         .cloned()
-                        .zip(group_result.non_priority_units.iter().cloned()),
+                        .zip(cu_groups.non_priority_units.iter().cloned()),
                 );
 
-                let mut units = group_result.non_priority_units.iter().cycle();
                 // Assign "pending cores" to help generate proofs for "non priority units"
+                let mut units = cu_groups.non_priority_units.iter().cycle();
                 cc_cores.pending_cores.iter().for_each(|core| {
                     if let Some(unit) = units.next() {
                         cu_allocation.insert(*core, *unit);
@@ -896,12 +896,11 @@ impl ChainListener {
             }
         } else {
             // Use assigned cores to calculate proofs for CUs who haven't reached MIN_PROOF_COUNT yet
-            cu_allocation.extend(
-                cc_cores
-                    .priority_cores
-                    .iter()
-                    .zip(group_result.priority_units.iter()),
-            );
+            let priority_cores_mapping = cc_cores
+                .priority_cores
+                .iter()
+                .zip(cu_groups.priority_units.iter());
+            cu_allocation.extend(priority_cores_mapping);
 
             // Use all spare cores to help CUs to reach MIN_PROOF_COUNT
             let spare_cores: BTreeSet<_> = cc_cores
@@ -911,7 +910,7 @@ impl ChainListener {
                 .chain(cc_cores.finished_cores.into_iter())
                 .collect();
 
-            let mut units = group_result.priority_units.iter().cycle();
+            let mut units = cu_groups.priority_units.iter().cycle();
             spare_cores.iter().for_each(|core| {
                 if let Some(unit) = units.next() {
                     cu_allocation.insert(*core, *unit);
@@ -945,14 +944,11 @@ impl ChainListener {
         Ok(())
     }
 
-    fn acquire_cores_for_cc(
-        &self,
-        cu_group_result: &CUGroups,
-    ) -> eyre::Result<PhysicalCoreGroupResult> {
-        let mut units = cu_group_result.priority_units.clone();
-        units.extend(cu_group_result.non_priority_units.clone());
-        units.extend(cu_group_result.pending_units.clone());
-        units.extend(cu_group_result.finished_units.clone());
+    fn acquire_cores_for_cc(&self, cu_groups: &CUGroups) -> eyre::Result<PhysicalCoreGroups> {
+        let mut units = cu_groups.priority_units.clone();
+        units.extend(cu_groups.non_priority_units.clone());
+        units.extend(cu_groups.pending_units.clone());
+        units.extend(cu_groups.finished_units.clone());
 
         let cores = self.core_manager.acquire_worker_core(AcquireRequest::new(
             units.to_vec(),
@@ -973,12 +969,12 @@ impl ChainListener {
 
         match cores {
             Ok(assignment) => {
-                let priority_units = filter(&cu_group_result.priority_units, &assignment);
-                let non_priority_units = filter(&cu_group_result.non_priority_units, &assignment);
-                let pending_units = filter(&cu_group_result.pending_units, &assignment);
-                let finished_units = filter(&cu_group_result.finished_units, &assignment);
+                let priority_units = filter(&cu_groups.priority_units, &assignment);
+                let non_priority_units = filter(&cu_groups.non_priority_units, &assignment);
+                let pending_units = filter(&cu_groups.pending_units, &assignment);
+                let finished_units = filter(&cu_groups.finished_units, &assignment);
 
-                Ok(PhysicalCoreGroupResult {
+                Ok(PhysicalCoreGroups {
                     priority_cores: priority_units,
                     non_priority_cores: non_priority_units,
                     pending_cores: pending_units,
@@ -997,16 +993,16 @@ impl ChainListener {
                     assign_units,
                     WorkType::CapacityCommitment,
                 ))?;
-                let priority_units = filter(&cu_group_result.priority_units, &assignment);
-                let non_priority_units = filter(&cu_group_result.non_priority_units, &assignment);
-                let pending_units = filter(&cu_group_result.pending_units, &assignment);
-                let finished_units = filter(&cu_group_result.finished_units, &assignment);
+                let priority_cores = filter(&cu_groups.priority_units, &assignment);
+                let non_priority_cores = filter(&cu_groups.non_priority_units, &assignment);
+                let pending_cores = filter(&cu_groups.pending_units, &assignment);
+                let finished_cores = filter(&cu_groups.finished_units, &assignment);
 
-                Ok(PhysicalCoreGroupResult {
-                    priority_cores: priority_units,
-                    non_priority_cores: non_priority_units,
-                    pending_cores: pending_units,
-                    finished_cores: finished_units,
+                Ok(PhysicalCoreGroups {
+                    priority_cores,
+                    non_priority_cores,
+                    pending_cores,
+                    finished_cores,
                 })
             }
         }
@@ -1338,7 +1334,7 @@ impl CUGroups {
         self.non_priority_units.is_empty()
     }
 }
-struct PhysicalCoreGroupResult {
+struct PhysicalCoreGroups {
     pub priority_cores: Vec<PhysicalCoreId>,
     pub non_priority_cores: Vec<PhysicalCoreId>,
     pub pending_cores: Vec<PhysicalCoreId>,

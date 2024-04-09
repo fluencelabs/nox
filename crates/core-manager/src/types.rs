@@ -26,7 +26,7 @@ impl AcquireRequest {
 }
 
 #[derive(Debug, Eq, PartialEq, Clone)]
-pub struct CoreData {
+pub struct Cores {
     pub physical_core_id: PhysicalCoreId,
     pub logical_core_ids: Vec<LogicalCoreId>,
 }
@@ -35,7 +35,7 @@ pub struct CoreData {
 pub struct Assignment {
     pub physical_core_ids: BTreeSet<PhysicalCoreId>,
     pub logical_core_ids: BTreeSet<LogicalCoreId>,
-    pub cuid_core_data: Map<CUID, CoreData>,
+    pub cuid_core_data: Map<CUID, Cores>,
 }
 
 impl Assignment {
