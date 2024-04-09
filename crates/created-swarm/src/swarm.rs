@@ -389,7 +389,6 @@ pub async fn create_swarm_with_runtime<RT: AquaRuntime>(
             UnresolvedConfig::deserialize(node_config).expect("created_swarm: deserialize config");
 
         let mut resolved = node_config.resolve().expect("failed to resolve config");
-
         resolved.node_config.transport_config.transport = Transport::Memory;
         resolved.node_config.transport_config.socket_timeout = TRANSPORT_TIMEOUT;
         resolved.node_config.protocol_config =
@@ -400,6 +399,7 @@ pub async fn create_swarm_with_runtime<RT: AquaRuntime>(
         resolved.node_config.bootstrap_frequency = 1;
 
         resolved.metrics_config.metrics_enabled = false;
+        resolved.node_config.health_config.health_check_enabled = true;
 
         resolved.node_config.allow_local_addresses = true;
 
