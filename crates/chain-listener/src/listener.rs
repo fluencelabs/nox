@@ -987,6 +987,7 @@ impl ChainListener {
             }) => {
                 tracing::warn!("Found {required} CUs in the Capacity Commitment, but Nox has only {available} Cores available for CC");
                 let assign_units = units.iter().take(available).cloned().collect();
+                // Release all units to allow the core manager to assign them again
                 self.core_manager.release(units);
                 let assignment = self.core_manager.acquire_worker_core(AcquireRequest::new(
                     assign_units,
