@@ -122,21 +122,23 @@ impl ClientBehaviour {
     }
 
     fn on_dial_failure(&mut self, peer_id: Option<PeerId>, error: &DialError) {
-        log::warn!(
-            "Failed to connect to {:?}: {:?}, reconnecting",
-            peer_id,
-            error
-        );
+        if self.protocol_config.reconnect_enabled {
+            log::warn!(
+                "Failed to connect to {:?}: {:?}, reconnecting",
+                peer_id,
+                error
+            );
 
-        if let DialError::Transport(addresses) = error {
-            let addresses = addresses.iter().map(|(a, _)| a.clone()).collect();
-            self.reconnect = async move {
-                // TODO: move timeout to config
-                tokio::time::sleep(Duration::from_secs(1)).await;
-                addresses
+            if let DialError::Transport(addresses) = error {
+                let addresses = addresses.iter().map(|(a, _)| a.clone()).collect();
+                self.reconnect = async move {
+                    // TODO: move timeout to config
+                    tokio::time::sleep(Duration::from_secs(1)).await;
+                    addresses
+                }
+                .boxed()
+                .into();
             }
-            .boxed()
-            .into();
         }
     }
 

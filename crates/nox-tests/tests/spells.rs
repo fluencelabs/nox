@@ -1037,6 +1037,7 @@ async fn spell_trigger_connection_pool() {
             TRANSPORT_TIMEOUT,
             Duration::ZERO, //make idle timeout infinite to reduce reconnect probability
             None,
+            false,
         )
         .await
         .unwrap();
@@ -1044,7 +1045,7 @@ async fn spell_trigger_connection_pool() {
 
     let mut spell1_counter = 0;
     let mut spell2_counter = 0;
-    
+
     // we must receive `connect_num` messages from spell1 subscribed on connect and `connect_num` messages
     // from spell1 subscribed on disconnect, so 2 * `connect_num` messages in total
     for _ in 0..2 * connect_num {

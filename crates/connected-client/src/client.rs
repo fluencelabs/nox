@@ -139,6 +139,7 @@ impl Client {
             None,
             transport_timeout,
             idle_connection_timeout,
+            true,
         )
     }
 
@@ -148,13 +149,15 @@ impl Client {
         key_pair: Option<KeyPair>,
         transport_timeout: Duration,
         idle_connection_timeout: Duration,
+        reconnect_enabled: bool,
     ) -> Result<(Client, JoinHandle<()>), Box<dyn Error>> {
         let (client_outlet, client_inlet) = mpsc::channel(128);
         let (relay_outlet, mut relay_inlet) = mpsc::channel(128);
 
         let (stop_outlet, stop_inlet) = oneshot::channel();
 
-        let protocol_config = ProtocolConfig::new(transport_timeout, transport_timeout);
+        let protocol_config =
+            ProtocolConfig::new(transport_timeout, transport_timeout, reconnect_enabled);
         let client = Client::new(relay_outlet, client_inlet, stop_outlet, key_pair);
         let mut swarm = client.dial(
             relay,

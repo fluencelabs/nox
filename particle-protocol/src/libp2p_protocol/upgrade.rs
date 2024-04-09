@@ -43,6 +43,9 @@ pub struct ProtocolConfig {
         default = "default_outbound_substream_timeout"
     )]
     pub outbound_substream_timeout: Duration,
+
+    #[serde(default)]
+    pub reconnect_enabled: bool,
 }
 
 impl Default for ProtocolConfig {
@@ -50,6 +53,7 @@ impl Default for ProtocolConfig {
         Self {
             upgrade_timeout: default_upgrade_timeout(),
             outbound_substream_timeout: default_outbound_substream_timeout(),
+            reconnect_enabled: true,
         }
     }
 }
@@ -62,10 +66,15 @@ fn default_upgrade_timeout() -> Duration {
 }
 
 impl ProtocolConfig {
-    pub fn new(upgrade_timeout: Duration, outbound_substream_timeout: Duration) -> Self {
+    pub fn new(
+        upgrade_timeout: Duration,
+        outbound_substream_timeout: Duration,
+        reconnect_enabled: bool,
+    ) -> Self {
         Self {
             upgrade_timeout,
             outbound_substream_timeout,
+            reconnect_enabled,
         }
     }
 }

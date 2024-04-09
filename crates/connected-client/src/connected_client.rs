@@ -100,6 +100,7 @@ impl ConnectedClient {
             timeout,
             idle_connection_timeout,
             particle_ttl,
+            true,
         )
         .await
     }
@@ -114,6 +115,7 @@ impl ConnectedClient {
             TRANSPORT_TIMEOUT,
             IDLE_CONNECTION_TIMEOUT,
             None,
+            true,
         )
         .await
     }
@@ -124,6 +126,7 @@ impl ConnectedClient {
         timeout: Duration,
         idle_connection_timeout: Duration,
         particle_ttl: Option<Duration>,
+        reconnect_enabled: bool,
     ) -> Result<Self> {
         use core::result::Result;
         use std::io::{Error, ErrorKind};
@@ -136,6 +139,7 @@ impl ConnectedClient {
                 key_pair.map(Into::into),
                 timeout,
                 idle_connection_timeout,
+                reconnect_enabled,
             )
             .expect("sender connected");
             let result: Result<_, Error> = if let Some(ClientEvent::NewConnection {
