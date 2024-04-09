@@ -6,7 +6,7 @@
   ],
   "allowCustomCrateRegistries": "true",
   "enabledManagers": ["cargo", "github-actions"],
-  "schedule": "every weekend",
+  "schedule": "every 12 years",
   "packageRules": [
     {
       "matchManagers": ["cargo"],
