@@ -161,15 +161,17 @@ impl ClientBehaviour {
 
         match cp {
             ConnectedPoint::Dialer { address, .. } => {
-                let address = address.clone();
-                log::warn!(
-                    "Disconnected from {} @ {:?}, reconnecting",
-                    peer_id,
-                    address
-                );
-                self.events.push_front(SwarmEventType::Dial {
-                    opts: address.into(),
-                });
+                if self.reconnect_enabled {
+                    let address = address.clone();
+                    log::warn!(
+                        "Disconnected from {} @ {:?}, reconnecting",
+                        peer_id,
+                        address
+                    );
+                    self.events.push_front(SwarmEventType::Dial {
+                        opts: address.into(),
+                    });
+                }
             }
             ConnectedPoint::Listener {
                 send_back_addr,
