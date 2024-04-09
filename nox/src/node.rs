@@ -35,6 +35,7 @@ use libp2p_metrics::{Metrics, Recorder};
 use prometheus_client::registry::Registry;
 use tokio::sync::{mpsc, oneshot};
 use tokio::task;
+use tokio_util::sync::CancellationToken;
 use tracing::Instrument;
 
 use aquamarine::{
@@ -543,6 +544,7 @@ impl<RT: AquaRuntime> Node<RT> {
 }
 
 pub struct StartedNode {
+    pub cancellation_token: CancellationToken,
     pub exit_outlet: oneshot::Sender<()>,
     pub http_listen_addr: Option<SocketAddr>,
 }
@@ -637,6 +639,9 @@ impl<RT: AquaRuntime> Node<RT> {
             Some(self.config),
         );
 
+        let cancellation_token = CancellationToken::new();
+        let task_cancellation_token = cancellation_token.clone();
+
         task::Builder::new().name(&task_name.clone()).spawn(async move {
             let mut http_server = if let Some(http_listen_addr) = http_listen_addr {
                 tracing::info!("Starting http endpoint at {}", http_listen_addr);
@@ -687,6 +692,7 @@ impl<RT: AquaRuntime> Node<RT> {
             connectivity.cancel().await;
             aquamarine_backend.abort();
             workers.shutdown();
+            task_cancellation_token.cancel()
         }.in_current_span()).expect("Could not spawn task");
 
         // Note: need to be after the start of the node to be able to subscribe spells
@@ -711,6 +717,7 @@ impl<RT: AquaRuntime> Node<RT> {
         Ok(StartedNode {
             exit_outlet,
             http_listen_addr,
+            cancellation_token,
         })
     }
 

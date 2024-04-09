@@ -26,12 +26,14 @@
     unreachable_patterns
 )]
 
+use axum::async_trait;
 use base64::{engine::general_purpose::STANDARD as base64, Engine};
 use eyre::WrapErr;
 use libp2p::PeerId;
 use std::sync::Arc;
 use tokio::signal;
 use tokio::sync::oneshot;
+use tokio_util::sync::CancellationToken;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 
@@ -51,8 +53,9 @@ const AUTHORS: &str = env!("CARGO_PKG_AUTHORS");
 const DESCRIPTION: &str = env!("CARGO_PKG_DESCRIPTION");
 const PKG_NAME: &str = env!("CARGO_PKG_NAME");
 
+#[async_trait]
 trait Stoppable {
-    fn stop(self);
+    async fn stop(self);
 }
 
 #[cfg(feature = "dhat-heap")]
@@ -183,7 +186,7 @@ fn main() -> eyre::Result<()> {
             signal::ctrl_c().await.expect("Failed to listen for event");
             log::info!("Shutting down...");
 
-            fluence.stop();
+            fluence.stop().await;
             Ok(())
         })
 }
@@ -221,19 +224,23 @@ async fn start_fluence(
     let started_node = node.start(peer_id).await.wrap_err("node failed to start")?;
 
     struct Fluence {
+        cancellation_token: CancellationToken,
         node_exit_outlet: oneshot::Sender<()>,
     }
 
+    #[async_trait]
     impl Stoppable for Fluence {
-        fn stop(self) {
+        async fn stop(self) {
             self.node_exit_outlet
                 .send(())
                 .expect("failed to stop node through exit outlet");
+            self.cancellation_token.cancelled().await
         }
     }
 
     Ok(Fluence {
         node_exit_outlet: started_node.exit_outlet,
+        cancellation_token: started_node.cancellation_token,
     })
 }
 

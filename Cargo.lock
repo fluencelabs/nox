@@ -1894,6 +1894,7 @@ dependencies = [
  "test-constants",
  "tokio",
  "tokio-stream",
+ "tokio-util",
  "toy-vms",
  "tracing",
 ]
@@ -5696,6 +5697,7 @@ dependencies = [
  "tempfile",
  "tokio",
  "tokio-stream",
+ "tokio-util",
  "toml 0.8.12",
  "tracing",
  "tracing-appender",
