@@ -988,9 +988,9 @@ async fn spell_trigger_connection_pool() {
         swarms[0].multiaddr.clone(),
         Some(swarms[0].management_keypair.clone()),
         TRANSPORT_TIMEOUT,
-        Duration::from_secs(60 * 5), //make idle timeout big to reduce reconnect probability
+        Duration::from_secs(60 * 5), // it makes idle timeout big to keep connection alive without reconnection
         None,
-        false,
+        false, // reconnects has side effects on test result
     )
     .await
     .wrap_err("connect client")
@@ -1039,9 +1039,9 @@ async fn spell_trigger_connection_pool() {
             swarms[0].multiaddr.clone(),
             None,
             TRANSPORT_TIMEOUT,
-            Duration::from_secs(60 * 5), //make idle timeout big to reduce reconnect probability
+            Duration::from_secs(60 * 5), // it makes idle timeout big to keep connection alive without reconnection
             None,
-            false,
+            false, // reconnects has side effects on test result
         )
         .await
         .unwrap();
@@ -1071,7 +1071,7 @@ async fn spell_trigger_connection_pool() {
             } else if spell_id == spell_id2 {
                 spell2_counter += 1;
             } else {
-                assert!(false)
+                panic!("Unexpected spell_id {}", spell_id)
             }
         }
     }
