@@ -157,13 +157,13 @@ impl ChainListenerMetrics {
             .inc_by(1, Some(TxLabel { tx_hash }));
     }
 
-    pub fn observe_new_block(&self, block_number: i64) {
+    pub fn observe_new_block(&self, block_number: u64) {
         self.blocks_seen.inc();
-        self.last_seen_block.set(block_number);
+        self.last_seen_block.set(block_number as i64);
     }
 
-    pub fn observe_processed_block(&self, block_number: i64) {
+    pub fn observe_processed_block(&self, block_number: u64) {
         self.blocks_processed.inc();
-        self.last_process_block.set(block_number);
+        self.last_process_block.set(block_number as i64);
     }
 }
