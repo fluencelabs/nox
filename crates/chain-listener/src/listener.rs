@@ -886,10 +886,10 @@ impl ChainListener {
                 cu_allocation.extend(non_priority_cores_mapping);
 
                 // Assign "pending cores" to help generate proofs for "non priority units"
-                let mut units = cu_groups.non_priority_units.iter().cycle();
+                let mut non_priority_units = cu_groups.non_priority_units.iter().cycle();
                 cc_cores.pending_cores.iter().for_each(|core| {
-                    if let Some(unit) = units.next() {
-                        cu_allocation.insert(*core, *unit);
+                    if let Some(non_priority_unit) = non_priority_units.next() {
+                        cu_allocation.insert(*core, *non_priority_unit);
                     }
                 });
             }

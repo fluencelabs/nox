@@ -237,7 +237,7 @@ impl CoreManagerFunctions for DevCoreManager {
         let mut lock = self.state.write();
         let mut result_physical_core_ids = BTreeSet::new();
         let mut result_logical_core_ids = BTreeSet::new();
-        let mut cuid_core_data: Map<CUID, Cores> = HashMap::with_capacity_and_hasher(
+        let mut cuid_cores: Map<CUID, Cores> = HashMap::with_capacity_and_hasher(
             assign_request.unit_ids.len(),
             FxBuildHasher::default(),
         );
@@ -278,7 +278,7 @@ impl CoreManagerFunctions for DevCoreManager {
                 result_logical_core_ids.insert(*logical_core);
             }
 
-            cuid_core_data.insert(
+            cuid_cores.insert(
                 unit_id,
                 Cores {
                     physical_core_id,
@@ -294,7 +294,7 @@ impl CoreManagerFunctions for DevCoreManager {
         Ok(Assignment {
             physical_core_ids: result_physical_core_ids,
             logical_core_ids: result_logical_core_ids,
-            cuid_cores: cuid_core_data,
+            cuid_cores,
         })
     }
 
