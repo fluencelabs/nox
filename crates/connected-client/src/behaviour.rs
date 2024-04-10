@@ -145,6 +145,8 @@ impl ClientBehaviour {
                 .boxed()
                 .into();
             }
+        } else {
+            log::error!("Failed to connect to {:?}: {:?}", peer_id, error)
         }
     }
 
@@ -171,6 +173,8 @@ impl ClientBehaviour {
                     self.events.push_front(SwarmEventType::Dial {
                         opts: address.into(),
                     });
+                } else {
+                    log::error!("Disconnected from {} @ {:?}", peer_id, address);
                 }
             }
             ConnectedPoint::Listener {

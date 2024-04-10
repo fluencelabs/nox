@@ -990,7 +990,7 @@ async fn spell_trigger_connection_pool() {
         TRANSPORT_TIMEOUT,
         Duration::from_secs(60 * 5), //make idle timeout big to reduce reconnect probability
         None,
-        true,
+        false,
     )
     .await
     .wrap_err("connect client")
