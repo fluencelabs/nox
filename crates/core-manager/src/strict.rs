@@ -1,11 +1,10 @@
 use std::collections::{BTreeSet, HashMap};
-use std::hash::BuildHasherDefault;
 use std::ops::Deref;
 use std::path::PathBuf;
 
 use ccp_shared::types::{LogicalCoreId, PhysicalCoreId, CUID};
 use cpu_utils::CPUTopology;
-use fxhash::{FxBuildHasher, FxHasher};
+use fxhash::FxBuildHasher;
 use parking_lot::RwLock;
 use range_set_blaze::RangeSetBlaze;
 
@@ -14,13 +13,8 @@ use crate::manager::CoreManagerFunctions;
 use crate::persistence::{
     PersistenceTask, PersistentCoreManagerFunctions, PersistentCoreManagerState,
 };
-use crate::types::{AcquireRequest, Assignment, WorkType};
-use crate::CoreRange;
-
-type Map<K, V> = HashMap<K, V, BuildHasherDefault<FxHasher>>;
-pub(crate) type MultiMap<K, V> = multimap::MultiMap<K, V, BuildHasherDefault<FxHasher>>;
-type BiMap<K, V> =
-    bimap::BiHashMap<K, V, BuildHasherDefault<FxHasher>, BuildHasherDefault<FxHasher>>;
+use crate::types::{AcquireRequest, Assignment, Cores, WorkType};
+use crate::{BiMap, CoreRange, Map, MultiMap};
 
 /// `StrictCoreManager` is a CPU core manager responsible for allocating and releasing CPU cores
 /// based on workload requirements. It maintains the state of core allocations, persists
@@ -130,6 +124,7 @@ impl StrictCoreManager {
 
         let mut system_cores: BTreeSet<PhysicalCoreId> = BTreeSet::new();
         for _ in 0..system_cpu_count {
+            // SAFETY: this should never happen because we already checked the availability of cores
             system_cores.insert(
                 available_cores
                     .pop_first()
@@ -229,20 +224,36 @@ impl CoreManagerFunctions for StrictCoreManager {
         assign_request: AcquireRequest,
     ) -> Result<Assignment, AcquireError> {
         let mut lock = self.state.write();
+        let mut cuid_cores: Map<CUID, Cores> = HashMap::with_capacity_and_hasher(
+            assign_request.unit_ids.len(),
+            FxBuildHasher::default(),
+        );
+
         let mut result_physical_core_ids = BTreeSet::new();
         let mut result_logical_core_ids = BTreeSet::new();
         let worker_unit_type = assign_request.worker_type;
+
+        let available = lock.available_cores.len();
+        let required = assign_request.unit_ids.len();
+        if required > available {
+            let current_assignment: Vec<(PhysicalCoreId, CUID)> =
+                lock.unit_id_mapping.iter().map(|(k, v)| (*k, *v)).collect();
+            return Err(AcquireError::NotFoundAvailableCores {
+                required,
+                available,
+                current_assignment: CurrentAssignment::new(current_assignment),
+            });
+        }
+
         for unit_id in assign_request.unit_ids {
             let physical_core_id = lock.unit_id_mapping.get_by_right(&unit_id).cloned();
             let physical_core_id = match physical_core_id {
                 None => {
-                    let core_id = lock.available_cores.pop_last().ok_or({
-                        let current_assignment: Vec<(PhysicalCoreId, CUID)> =
-                            lock.unit_id_mapping.iter().map(|(k, v)| (*k, *v)).collect();
-                        AcquireError::NotFoundAvailableCores {
-                            current_assignment: CurrentAssignment::new(current_assignment),
-                        }
-                    })?;
+                    // SAFETY: this should never happen because we already checked the availability of cores
+                    let core_id = lock
+                        .available_cores
+                        .pop_last()
+                        .expect("Unexpected state. Should not be empty never");
                     lock.unit_id_mapping.insert(core_id, unit_id);
                     lock.work_type_mapping
                         .insert(unit_id, worker_unit_type.clone());
@@ -256,15 +267,25 @@ impl CoreManagerFunctions for StrictCoreManager {
             };
             result_physical_core_ids.insert(physical_core_id);
 
-            let physical_core_ids = lock
+            // SAFETY: The physical core always has corresponding logical ids,
+            // unit_id_mapping can't have a wrong physical_core_id
+            let logical_core_ids = lock
                 .cores_mapping
                 .get_vec(&physical_core_id)
                 .cloned()
                 .expect("Unexpected state. Should not be empty never");
 
-            for physical_core_id in physical_core_ids {
-                result_logical_core_ids.insert(physical_core_id);
+            for logical_core in logical_core_ids.iter() {
+                result_logical_core_ids.insert(*logical_core);
             }
+
+            cuid_cores.insert(
+                unit_id,
+                Cores {
+                    physical_core_id,
+                    logical_core_ids,
+                },
+            );
         }
 
         // We are trying to notify a persistence task that the state has been changed.
@@ -274,6 +295,7 @@ impl CoreManagerFunctions for StrictCoreManager {
         Ok(Assignment {
             physical_core_ids: result_physical_core_ids,
             logical_core_ids: result_logical_core_ids,
+            cuid_cores,
         })
     }
 
@@ -291,6 +313,8 @@ impl CoreManagerFunctions for StrictCoreManager {
         let lock = self.state.read();
         let mut logical_core_ids = BTreeSet::new();
         for core in &lock.system_cores {
+            // SAFETY: The physical core always has corresponding logical ids,
+            // system_cores can't have a wrong physical_core_id
             let core_ids = lock
                 .cores_mapping
                 .get_vec(core)
@@ -303,6 +327,7 @@ impl CoreManagerFunctions for StrictCoreManager {
         Assignment {
             physical_core_ids: lock.system_cores.clone(),
             logical_core_ids,
+            cuid_cores: Map::with_hasher(FxBuildHasher::default()),
         }
     }
 }
@@ -495,8 +520,8 @@ mod tests {
             });
 
             let expected = "Couldn't assign core: no free cores left. \
-            Current assignment: [2 -> 1cce3d08f784b11d636f2fb55adf291d43c2e9cbe7ae7eeb2d0301a96be0a3a0, \
-            3 -> 54ae1b506c260367a054f80800a545f23e32c6bc4a8908c9a794cb8dad23e5ea]".to_string();
+            Required: 1, available: 0, current assignment: [2 -> 1cce3d08f784b11d636f2fb55adf291d43c2e9cbe7ae7eeb2d0301a96be0a3a0, \
+            3 -> 54ae1b506c260367a054f80800a545f23e32c6bc4a8908c9a794cb8dad23e5ea].".to_string();
             assert_eq!(expected, result.unwrap_err().to_string());
         }
     }

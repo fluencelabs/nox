@@ -1,24 +1,20 @@
 use std::collections::{BTreeSet, HashMap, VecDeque};
-use std::hash::BuildHasherDefault;
 use std::ops::Deref;
 use std::path::PathBuf;
 
 use ccp_shared::types::{LogicalCoreId, PhysicalCoreId, CUID};
 use cpu_utils::CPUTopology;
-use fxhash::{FxBuildHasher, FxHasher};
+use fxhash::FxBuildHasher;
 use parking_lot::RwLock;
 use range_set_blaze::RangeSetBlaze;
 
-use crate::errors::{AcquireError, CreateError, CurrentAssignment, LoadingError, PersistError};
+use crate::errors::{AcquireError, CreateError, LoadingError, PersistError};
 use crate::manager::CoreManagerFunctions;
 use crate::persistence::{
     PersistenceTask, PersistentCoreManagerFunctions, PersistentCoreManagerState,
 };
-use crate::types::{AcquireRequest, Assignment, WorkType};
-use crate::CoreRange;
-
-type Map<K, V> = HashMap<K, V, BuildHasherDefault<FxHasher>>;
-pub(crate) type MultiMap<K, V> = multimap::MultiMap<K, V, BuildHasherDefault<FxHasher>>;
+use crate::types::{AcquireRequest, Assignment, Cores, WorkType};
+use crate::{CoreRange, Map, MultiMap};
 
 /// `DevCoreManager` is a CPU core manager that provides a more flexible approach to
 /// core allocation compared to `StrictCoreManager`.
@@ -131,6 +127,7 @@ impl DevCoreManager {
 
         let mut system_cores: BTreeSet<PhysicalCoreId> = BTreeSet::new();
         for _ in 0..system_cpu_count {
+            // SAFETY: this should never happen because we already checked the availability of cores
             system_cores.insert(
                 available_cores
                     .pop_first()
@@ -240,21 +237,20 @@ impl CoreManagerFunctions for DevCoreManager {
         let mut lock = self.state.write();
         let mut result_physical_core_ids = BTreeSet::new();
         let mut result_logical_core_ids = BTreeSet::new();
+        let mut cuid_cores: Map<CUID, Cores> = HashMap::with_capacity_and_hasher(
+            assign_request.unit_ids.len(),
+            FxBuildHasher::default(),
+        );
         let worker_unit_type = assign_request.worker_type;
         for unit_id in assign_request.unit_ids {
             let physical_core_id = lock.unit_id_core_mapping.get(&unit_id).cloned();
             let physical_core_id = match physical_core_id {
                 None => {
-                    let core_id = lock.available_cores.pop_front().ok_or({
-                        let current_assignment: Vec<(PhysicalCoreId, CUID)> = lock
-                            .core_unit_id_mapping
-                            .iter()
-                            .map(|(k, v)| (*k, *v))
-                            .collect();
-                        AcquireError::NotFoundAvailableCores {
-                            current_assignment: CurrentAssignment::new(current_assignment),
-                        }
-                    })?;
+                    // SAFETY: this should never happen because after the pop operation, we push it back
+                    let core_id = lock
+                        .available_cores
+                        .pop_front()
+                        .expect("Unexpected state. Should not be empty never");
                     lock.core_unit_id_mapping.insert(core_id, unit_id);
                     lock.unit_id_core_mapping.insert(unit_id, core_id);
                     lock.work_type_mapping
@@ -270,15 +266,25 @@ impl CoreManagerFunctions for DevCoreManager {
             };
             result_physical_core_ids.insert(physical_core_id);
 
-            let physical_core_ids = lock
+            // SAFETY: The physical core always has corresponding logical ids,
+            // unit_id_core_mapping can't have a wrong physical_core_id
+            let logical_core_ids = lock
                 .cores_mapping
                 .get_vec(&physical_core_id)
                 .cloned()
                 .expect("Unexpected state. Should not be empty never");
 
-            for physical_core_id in physical_core_ids {
-                result_logical_core_ids.insert(physical_core_id);
+            for logical_core in logical_core_ids.iter() {
+                result_logical_core_ids.insert(*logical_core);
             }
+
+            cuid_cores.insert(
+                unit_id,
+                Cores {
+                    physical_core_id,
+                    logical_core_ids,
+                },
+            );
         }
 
         // We are trying to notify a persistence task that the state has been changed.
@@ -288,6 +294,7 @@ impl CoreManagerFunctions for DevCoreManager {
         Ok(Assignment {
             physical_core_ids: result_physical_core_ids,
             logical_core_ids: result_logical_core_ids,
+            cuid_cores,
         })
     }
 
@@ -312,6 +319,8 @@ impl CoreManagerFunctions for DevCoreManager {
         let lock = self.state.read();
         let mut logical_core_ids = BTreeSet::new();
         for core in &lock.system_cores {
+            // SAFETY: The physical core always has corresponding logical ids,
+            // system cores can't have a wrong physical_core_id
             let core_ids = lock
                 .cores_mapping
                 .get_vec(core)
@@ -324,6 +333,7 @@ impl CoreManagerFunctions for DevCoreManager {
         Assignment {
             physical_core_ids: lock.system_cores.clone(),
             logical_core_ids,
+            cuid_cores: Map::with_hasher(FxBuildHasher::default()),
         }
     }
 }

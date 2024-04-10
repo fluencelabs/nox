@@ -91,8 +91,10 @@ impl Display for CurrentAssignment {
 
 #[derive(Debug, Error)]
 pub enum AcquireError {
-    #[error("Couldn't assign core: no free cores left. Current assignment: {current_assignment}")]
+    #[error("Couldn't assign core: no free cores left. Required: {required}, available: {available}, current assignment: {current_assignment}.")]
     NotFoundAvailableCores {
+        required: usize,
+        available: usize,
         current_assignment: CurrentAssignment,
     },
 }
