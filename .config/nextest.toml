@@ -28,6 +28,14 @@ retries = { backoff = "fixed", count = 3, delay = "5s", jitter = true }
 filter = 'package(nox-tests) & test(spell)'
 threads-required = 4
 
+[[profile.default.overrides]]
+filter = 'binary_id(/^nox-tests::spells/)'
+threads-required = 4
+
+[[profile.default.overrides]]
+filter = 'binary_id(/^nox-tests::builtin/)'
+threads-required = 2
+
 [profile.ci]
 fail-fast = false
 

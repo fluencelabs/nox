@@ -910,7 +910,7 @@ async fn array() {
     .await
     .unwrap();
     log::info!("result {:?}", result);
-    assert_eq!(result, vec![json!(["hi"])])
+    assert_eq!(result, vec![json!(["hi"])]);
 }
 
 #[tokio::test]
