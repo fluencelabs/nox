@@ -24,6 +24,10 @@ filter = 'test(heavy)'
 threads-required = 3
 retries = { backoff = "fixed", count = 3, delay = "5s", jitter = true }
 
+[[profile.default.overrides]]
+filter = 'package(nox-tests) & test(spell)'
+threads-required = 4
+
 [profile.ci]
 fail-fast = false
 
