@@ -789,7 +789,7 @@ mod tests {
             false,
         );
         let avm_wasm_backend_config = WasmBackendConfig::default();
-        
+
         let data_store_config = DataStoreConfig::new(config.dir_config.avm_base_dir.clone());
 
         let system_service_distros =

@@ -816,7 +816,7 @@ mod tests {
             workers.clone(),
             key_storage.clone(),
             scope.clone(),
-            avm_wasm_backend
+            avm_wasm_backend,
         )
     }
 

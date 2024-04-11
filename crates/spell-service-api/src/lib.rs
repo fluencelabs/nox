@@ -283,7 +283,9 @@ mod tests {
     use std::path::{Path, PathBuf};
     use std::sync::Arc;
 
-    use particle_services::{ParticleAppServices, ParticleAppServicesConfig, PeerScope, ServiceType};
+    use particle_services::{
+        ParticleAppServices, ParticleAppServicesConfig, PeerScope, ServiceType,
+    };
 
     use fluence_libp2p::PeerId;
     use libp2p_identity::Keypair;

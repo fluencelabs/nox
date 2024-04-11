@@ -11,7 +11,8 @@ pub struct WasmBackendConfig {
     pub async_wasm_stack: usize,
     /// Configures the maximum amount of stack space available for executing WebAssembly code.
     pub max_wasm_stack: usize,
-    /// Enables the epoch interruption mechanism.
+    /// Enables the epoch interruption mechanism
+    #[serde(with = "humantime_serde")]
     pub epoch_interruption_duration: Option<Duration>,
 }
 
