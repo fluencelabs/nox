@@ -2,13 +2,9 @@ use crate::{execution_time_buckets, register};
 use prometheus_client::encoding::EncodeLabelSet;
 use prometheus_client::metrics::counter::Counter;
 use prometheus_client::metrics::exemplar::CounterWithExemplar;
+use prometheus_client::metrics::gauge::Gauge;
 use prometheus_client::metrics::histogram::Histogram;
 use prometheus_client::registry::Registry;
-
-#[derive(EncodeLabelSet, Hash, Clone, Eq, PartialEq, Debug)]
-struct BlockLabel {
-    block_number: String,
-}
 
 #[derive(EncodeLabelSet, Hash, Clone, Eq, PartialEq, Debug)]
 struct TxLabel {
@@ -33,9 +29,11 @@ pub struct ChainListenerMetrics {
     // how many proofs transaction are failed
     ccp_proofs_tx_failed: CounterWithExemplar<TxLabel>,
     // How many blocks we have received from the newHead subscription
-    blocks_seen: CounterWithExemplar<BlockLabel>,
+    blocks_seen: Counter,
+    last_seen_block: Gauge,
     // How many block we manage to process while processing the block
     blocks_processed: Counter,
+    last_process_block: Gauge,
 }
 
 impl ChainListenerMetrics {
@@ -93,7 +91,7 @@ impl ChainListenerMetrics {
 
         let blocks_seen = register(
             sub_registry,
-            CounterWithExemplar::default(),
+            Counter::default(),
             "blocks_seen",
             "Total number of blocks seen from the newHead subscription",
         );
@@ -105,6 +103,19 @@ impl ChainListenerMetrics {
             "Total number of blocks processed",
         );
 
+        let last_seen_block = register(
+            sub_registry,
+            Gauge::default(),
+            "last_seen_block",
+            "Last block seen from the newHead subscription",
+        );
+        let last_process_block = register(
+            sub_registry,
+            Gauge::default(),
+            "last_process_block",
+            "Last processed block from the newHead subscription",
+        );
+
         Self {
             ccp_requests_total,
             ccp_replies_total,
@@ -114,7 +125,9 @@ impl ChainListenerMetrics {
             ccp_proofs_tx_success,
             ccp_proofs_tx_failed,
             blocks_seen,
+            last_seen_block,
             blocks_processed,
+            last_process_block,
         }
     }
 
@@ -144,12 +157,13 @@ impl ChainListenerMetrics {
             .inc_by(1, Some(TxLabel { tx_hash }));
     }
 
-    pub fn observe_new_block(&self, block_number: String) {
-        self.blocks_seen
-            .inc_by(1, Some(BlockLabel { block_number }));
+    pub fn observe_new_block(&self, block_number: u64) {
+        self.blocks_seen.inc();
+        self.last_seen_block.set(block_number as i64);
     }
 
-    pub fn observe_processed_block(&self) {
+    pub fn observe_processed_block(&self, block_number: u64) {
         self.blocks_processed.inc();
+        self.last_process_block.set(block_number as i64);
     }
 }

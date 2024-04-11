@@ -1,4 +1,4 @@
-use alloy_primitives::{Address, FixedBytes, Uint, U256};
+use alloy_primitives::{Address, BlockNumber, FixedBytes, Uint, U256};
 use alloy_sol_types::SolEvent;
 use backoff::Error::Permanent;
 use std::collections::{BTreeMap, BTreeSet, HashMap};
@@ -648,7 +648,7 @@ impl ChainListener {
         let header = event.ok_or(eyre!("Failed to process newHeads event: got None"))?;
 
         let (block_timestamp, block_number) = Self::parse_block_header(header?)?;
-        self.observe(|m| m.observe_new_block(block_number.to_string()));
+        self.observe(|m| m.observe_new_block(block_number));
 
         // `epoch_number = 1 + (block_timestamp - init_timestamp) / epoch_duration`
         let epoch_number =
@@ -685,7 +685,7 @@ impl ChainListener {
                 }
             }
         }
-        self.observe(|m| m.observe_processed_block());
+        self.observe(|m| m.observe_processed_block(block_number));
         Ok(())
     }
 
@@ -1162,7 +1162,16 @@ impl ChainListener {
         }
     }
 
-    fn parse_block_header(header: Value) -> eyre::Result<(U256, U256)> {
+    fn parse_block_number(block_number: &str) -> eyre::Result<BlockNumber> {
+        let block_number_ = block_number.strip_prefix("0x").ok_or(eyre::eyre!(
+            "newHeads: block number is not hex; got {block_number}"
+        ))?;
+        BlockNumber::from_str_radix(block_number_, 16).map_err(|err| {
+            eyre::eyre!("Failed to parse block number: {err}, block_number {block_number}")
+        })
+    }
+
+    fn parse_block_header(header: Value) -> eyre::Result<(U256, BlockNumber)> {
         let obj = header.as_object().ok_or(eyre::eyre!(
             "newHeads: header is not an object; got {header}"
         ))?;
@@ -1183,7 +1192,10 @@ impl ChainListener {
             ))?
             .to_string();
 
-        Ok((U256::from_str(&timestamp)?, U256::from_str(&block_number)?))
+        Ok((
+            U256::from_str(&timestamp)?,
+            Self::parse_block_number(&block_number)?,
+        ))
     }
 
     async fn poll_deal_statuses(&mut self) -> eyre::Result<()> {
