@@ -279,8 +279,18 @@ fn avm_wasm_backend_config(config: &ResolvedConfig) -> WasmBackendConfig {
     WasmBackendConfig {
         debug_info: config.node_config.services.wasm_backend.debug_info,
         wasm_backtrace: config.node_config.services.wasm_backend.wasm_backtrace,
-        async_wasm_stack: config.node_config.services.wasm_backend.async_wasm_stack,
-        max_wasm_stack: config.node_config.services.wasm_backend.max_wasm_stack,
+        async_wasm_stack: config
+            .node_config
+            .services
+            .wasm_backend
+            .async_wasm_stack
+            .as_u64() as usize,
+        max_wasm_stack: config
+            .node_config
+            .services
+            .wasm_backend
+            .max_wasm_stack
+            .as_u64() as usize,
         epoch_interruption_duration: config
             .node_config
             .services

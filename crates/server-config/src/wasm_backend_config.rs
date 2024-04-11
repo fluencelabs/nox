@@ -8,9 +8,9 @@ pub struct WasmBackendConfig {
     /// Configures whether the errors from the VM should collect the wasm backtrace and parse debug info.
     pub wasm_backtrace: bool,
     /// Configures the size of the stacks used for asynchronous execution.
-    pub async_wasm_stack: usize,
+    pub async_wasm_stack: bytesize::ByteSize,
     /// Configures the maximum amount of stack space available for executing WebAssembly code.
-    pub max_wasm_stack: usize,
+    pub max_wasm_stack: bytesize::ByteSize,
     /// Enables the epoch interruption mechanism
     #[serde(with = "humantime_serde")]
     pub epoch_interruption_duration: Option<Duration>,
@@ -21,8 +21,8 @@ impl Default for WasmBackendConfig {
         Self {
             debug_info: true,
             wasm_backtrace: true,
-            async_wasm_stack: 2 * 1024 * 1024,
-            max_wasm_stack: 2 * 1024 * 1024,
+            async_wasm_stack: bytesize::ByteSize::mb(2),
+            max_wasm_stack: bytesize::ByteSize::mb(2),
             epoch_interruption_duration: Some(Duration::from_secs(1)),
         }
     }
