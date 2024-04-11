@@ -42,7 +42,6 @@ use peer_metrics::{
     ServiceCallStats, ServiceMemoryStat, ServiceType as MetricServiceType, ServicesMetrics,
     ServicesMetricsBuiltin,
 };
-use server_config::ServicesConfig;
 use types::peer_scope::PeerScope;
 use uuid_utils::uuid;
 use workers::{PeerScopes, WorkerId, Workers};
@@ -51,6 +50,7 @@ use crate::error::ServiceError;
 use crate::error::ServiceError::{AliasAsServiceId, Forbidden, NoSuchAlias};
 use crate::health::PersistedServiceHealth;
 use crate::persistence::{load_persisted_services, remove_persisted_service, PersistedService};
+use crate::ParticleAppServicesConfig;
 use crate::ServiceError::{
     FailedToCreateDirectory, ForbiddenAlias, ForbiddenAliasRoot, ForbiddenAliasWorker,
     InternalError, NoSuchService,
@@ -172,7 +172,7 @@ struct Services {
 #[derive(Derivative)]
 #[derivative(Debug, Clone)]
 pub struct ParticleAppServices {
-    config: ServicesConfig,
+    config: ParticleAppServicesConfig,
     // TODO: move vault to Plumber or Actor
     pub vault: ParticleVault,
     root_services: Services,
@@ -220,7 +220,7 @@ fn get_service(
 
 impl ParticleAppServices {
     pub fn new(
-        config: ServicesConfig,
+        config: ParticleAppServicesConfig,
         modules: ModuleRepository,
         metrics: Option<ServicesMetrics>,
         health_registry: Option<&mut HealthCheckRegistry>,
@@ -1251,7 +1251,6 @@ mod tests {
     use config_utils::modules_dir;
     use fluence_libp2p::RandomPeerId;
     use particle_modules::{AddBlueprint, ModuleRepository};
-    use server_config::ServicesConfig;
     use service_modules::load_module;
     use service_modules::Hash;
     use types::peer_scope::PeerScope;
@@ -1259,7 +1258,7 @@ mod tests {
 
     use crate::app_services::{ServiceAlias, ServiceType};
     use crate::persistence::load_persisted_services;
-    use crate::{ParticleAppServices, ServiceError};
+    use crate::{ParticleAppServices, ParticleAppServicesConfig, ServiceError};
 
     fn create_pid() -> PeerId {
         let keypair = Keypair::generate_ed25519();
@@ -1277,7 +1276,7 @@ mod tests {
         let vault_dir = ephemeral_dir.join("vault");
         let keypairs_dir = persistent_dir.join("keypairs");
         let workers_dir = persistent_dir.join("workers");
-        let service_memory_limit = server_config::default_service_memory_limit();
+        let service_memory_limit = bytesize::ByteSize::b(bytesize::gib(4_u64) - 1);
         let key_storage = KeyStorage::from_path(keypairs_dir.clone(), root_keypair.clone().into())
             .await
             .expect("Could not load key storage");
@@ -1302,7 +1301,7 @@ mod tests {
 
         let workers = Arc::new(workers);
 
-        let config = ServicesConfig::new(
+        let config = ParticleAppServicesConfig::new(
             PeerId::from(root_keypair.public()),
             persistent_dir,
             ephemeral_dir,

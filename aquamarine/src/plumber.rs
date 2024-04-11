@@ -27,6 +27,7 @@ use std::{
 };
 
 use futures::task::Waker;
+use marine_wasmtime_backend::WasmtimeWasmBackend;
 use tokio::runtime::Handle;
 use tokio::task;
 use tracing::instrument;
@@ -78,6 +79,7 @@ pub struct Plumber<RT: AquaRuntime, F> {
     scopes: PeerScopes,
     cleanup_future: Option<BoxFuture<'static, ()>>,
     root_runtime_handle: Handle,
+    avm_wasm_backend: WasmtimeWasmBackend,
 }
 
 impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
@@ -90,6 +92,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
         workers: Arc<Workers>,
         key_storage: Arc<KeyStorage>,
         scope: PeerScopes,
+        avm_wasm_backend: WasmtimeWasmBackend,
     ) -> Self {
         Self {
             config,
@@ -107,6 +110,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
             scopes: scope,
             cleanup_future: None,
             root_runtime_handle: Handle::current(),
+            avm_wasm_backend,
         }
     }
 
@@ -176,7 +180,13 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> Plumber<RT, F> {
     }
 
     pub fn create_worker_pool(&mut self, worker_id: WorkerId, thread_count: usize) {
-        let vm_pool = VmPool::new(thread_count, self.config.clone(), None, None); // TODO: add metrics
+        let vm_pool = VmPool::new(
+            thread_count,
+            self.config.clone(),
+            None,
+            None,
+            self.avm_wasm_backend.clone(),
+        ); // TODO: add metrics
         self.worker_vm_pools.insert(worker_id, vm_pool);
     }
 
@@ -664,6 +674,7 @@ mod tests {
     use crate::{AquaRuntime, ParticleDataStore, ParticleEffects, Plumber};
     use async_trait::async_trait;
     use avm_server::avm_runner::RawAVMOutcome;
+    use marine_wasmtime_backend::{WasmtimeConfig, WasmtimeWasmBackend};
     use particle_services::PeerScope;
     use tracing::Span;
 
@@ -696,7 +707,11 @@ mod tests {
         type Config = ();
         type Error = Infallible;
 
-        fn create_runtime(_config: Self::Config, _waker: Waker) -> Result<Self, Self::Error> {
+        fn create_runtime(
+            _config: Self::Config,
+            _backend: WasmtimeWasmBackend,
+            _waker: Waker,
+        ) -> Result<Self, Self::Error> {
             Ok(VMMock)
         }
 
@@ -741,8 +756,17 @@ mod tests {
     }
 
     async fn plumber() -> Plumber<VMMock, Arc<MockF>> {
+        let mut wasmtime_config = WasmtimeConfig::default();
+        wasmtime_config
+            .debug_info(true)
+            .wasm_backtrace(true)
+            .epoch_interruption(true)
+            .async_wasm_stack(2 * 1024 * 1024)
+            .max_wasm_stack(2 * 1024 * 1024);
+        let avm_wasm_backend =
+            WasmtimeWasmBackend::new(wasmtime_config).expect("Could not create wasm backend");
         // Pool is of size 1 so it's easier to control tests
-        let vm_pool = VmPool::new(1, (), None, None);
+        let vm_pool = VmPool::new(1, (), None, None, avm_wasm_backend.clone());
         let builtin_mock = Arc::new(MockF);
 
         let root_key_pair: KeyPair = KeyPair::generate_ed25519();
@@ -792,6 +816,7 @@ mod tests {
             workers.clone(),
             key_storage.clone(),
             scope.clone(),
+            avm_wasm_backend
         )
     }
 

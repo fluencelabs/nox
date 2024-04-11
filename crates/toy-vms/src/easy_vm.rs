@@ -23,6 +23,7 @@ use avm_server::SoftLimitsTriggering;
 use avm_server::{AVMMemoryStats, CallResults, ParticleParameters};
 use itertools::Itertools;
 
+use aquamarine::WasmtimeWasmBackend;
 use aquamarine::{AquaRuntime, ParticleEffects};
 use fluence_keypair::KeyPair;
 use fluence_libp2p::PeerId;
@@ -36,7 +37,11 @@ impl AquaRuntime for EasyVM {
     type Config = Option<Duration>;
     type Error = Infallible;
 
-    fn create_runtime(delay: Option<Duration>, _: Waker) -> Result<Self, Self::Error> {
+    fn create_runtime(
+        delay: Option<Duration>,
+        _backend: WasmtimeWasmBackend,
+        _: Waker,
+    ) -> Result<Self, Self::Error> {
         Ok(EasyVM { delay })
     }
 

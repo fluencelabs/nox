@@ -283,14 +283,13 @@ mod tests {
     use std::path::{Path, PathBuf};
     use std::sync::Arc;
 
-    use particle_services::{ParticleAppServices, PeerScope, ServiceType};
+    use particle_services::{ParticleAppServices, ParticleAppServicesConfig, PeerScope, ServiceType};
 
     use fluence_libp2p::PeerId;
     use libp2p_identity::Keypair;
     use tempdir::TempDir;
 
     use particle_modules::ModuleRepository;
-    use server_config::ServicesConfig;
 
     use fluence_keypair::KeyPair;
     use fluence_spell_dtos::trigger_config::TriggerConfig;
@@ -346,7 +345,7 @@ mod tests {
         let workers = Arc::new(workers);
 
         let service_memory_limit = server_config::default_service_memory_limit();
-        let config = ServicesConfig::new(
+        let config = ParticleAppServicesConfig::new(
             root_key_pair.get_peer_id(),
             persistent_dir,
             ephemeral_dir,

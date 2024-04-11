@@ -39,5 +39,8 @@ mod error;
 mod health;
 mod persistence;
 
+mod config;
+
 pub use app_services::ServiceInfo;
+pub use config::ParticleAppServicesConfig;
 pub use types::peer_scope::PeerScope;

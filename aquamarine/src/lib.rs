@@ -46,13 +46,13 @@ mod particle_effects;
 mod health;
 mod vm_pool;
 
-use marine_wasmtime_backend::WasmtimeWasmBackend;
-
 pub use crate::aqua_runtime::AquaRuntime;
 pub use crate::aquamarine::{AquamarineApi, AquamarineBackend};
 pub use crate::config::{DataStoreConfig, VmConfig, VmPoolConfig};
 pub use crate::particle_effects::{InterpretationStats, ParticleEffects, RemoteRoutingEffects};
 pub type AVMRunner = avm_server::avm_runner::AVMRunner<WasmtimeWasmBackend>;
+pub use config::WasmBackendConfig;
 pub use error::AquamarineApiError;
+pub use marine_wasmtime_backend::WasmtimeWasmBackend;
 pub use particle_data_store::{DataStoreError, ParticleDataStore};
 pub use plumber::Plumber;

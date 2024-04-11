@@ -6251,6 +6251,8 @@ name = "particle-services"
 version = "0.1.0"
 dependencies = [
  "base64 0.21.7",
+ "bytesize",
+ "cid-utils",
  "config-utils",
  "derivative",
  "eyre",
@@ -6272,7 +6274,6 @@ dependencies = [
  "peer-metrics",
  "serde",
  "serde_json",
- "server-config",
  "service-modules",
  "tempdir",
  "tempfile",

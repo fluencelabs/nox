@@ -24,7 +24,7 @@ use avm_server::{
 };
 use fluence_keypair::KeyPair;
 use libp2p::PeerId;
-use marine_wasmtime_backend::{WasmtimeConfig, WasmtimeWasmBackend};
+use marine_wasmtime_backend::WasmtimeWasmBackend;
 use tracing::Level;
 
 use crate::config::VmConfig;
@@ -36,7 +36,11 @@ pub trait AquaRuntime: Sized + Send + 'static {
     type Config: Clone + Send + 'static;
     type Error: Error + Send + Sync + 'static;
 
-    fn create_runtime(config: Self::Config, waker: Waker) -> Result<Self, Self::Error>;
+    fn create_runtime(
+        config: Self::Config,
+        wasm_backend: WasmtimeWasmBackend,
+        waker: Waker,
+    ) -> Result<Self, Self::Error>;
 
     // TODO: move into_effects inside call
     fn into_effects(
@@ -64,20 +68,11 @@ impl AquaRuntime for AVMRunner<WasmtimeWasmBackend> {
     type Error = RunnerError;
 
     /// Creates `AVM` in background (on blocking threadpool)
-    fn create_runtime(config: Self::Config, waker: Waker) -> Result<Self, Self::Error> {
-        let mut wasmtime_config = WasmtimeConfig::default();
-        // TODO async-marine: impl proper configuration
-        // TODO async-marine: move to the right place
-        // TODO async-marine: maybe use the same as for ParticleAppServices
-        wasmtime_config
-            .debug_info(true)
-            .wasm_backtrace(true)
-            .epoch_interruption(true)
-            .async_wasm_stack(2 * 1024 * 1024)
-            .max_wasm_stack(2 * 1024 * 1024);
-        let backend = WasmtimeWasmBackend::new(wasmtime_config).map_err(|e| {
-            Self::Error::MarineError(fluence_app_service::MarineError::EngineError(e.into()))
-        })?;
+    fn create_runtime(
+        config: Self::Config,
+        backend: WasmtimeWasmBackend,
+        waker: Waker,
+    ) -> Result<Self, Self::Error> {
         let avm_runtime_limits = AVMRuntimeLimits::new(
             config.air_size_limit,
             config.particle_size_limit,

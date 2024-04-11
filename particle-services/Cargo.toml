@@ -13,7 +13,6 @@ fs-utils = { workspace = true }
 service-modules = { workspace = true }
 json-utils = { workspace = true }
 particle-args = { workspace = true }
-server-config = { workspace = true }
 fluence-libp2p = { workspace = true }
 particle-execution = { workspace = true }
 peer-metrics = { workspace = true }
@@ -21,6 +20,10 @@ uuid-utils = { workspace = true }
 now-millis = { workspace = true }
 workers = { workspace = true }
 futures = { workspace = true }
+bytesize = { workspace = true }
+cid-utils = { workspace = true }
+libp2p-identity = { workspace = true }
+config-utils = { workspace = true }
 
 fluence-app-service = { workspace = true }
 

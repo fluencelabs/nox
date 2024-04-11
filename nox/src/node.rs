@@ -40,7 +40,7 @@ use tracing::Instrument;
 
 use aquamarine::{
     AquaRuntime, AquamarineApi, AquamarineApiError, AquamarineBackend, DataStoreConfig,
-    RemoteRoutingEffects, VmPoolConfig,
+    RemoteRoutingEffects, VmPoolConfig, WasmBackendConfig,
 };
 use chain_connector::ChainConnector;
 use chain_listener::ChainListener;
@@ -49,7 +49,7 @@ use connection_pool::ConnectionPoolT;
 use core_manager::CoreManager;
 use fluence_libp2p::build_transport;
 use health::HealthCheckRegistry;
-use particle_builtins::{Builtins, CustomService, NodeInfo};
+use particle_builtins::{Builtins, CustomService, NodeInfo, ParticleAppServicesConfig};
 use particle_execution::ParticleFunctionStatic;
 use particle_protocol::ExtendedParticle;
 use peer_metrics::{
@@ -57,7 +57,7 @@ use peer_metrics::{
     ServicesMetrics, ServicesMetricsBackend, SpellMetrics, VmPoolMetrics,
 };
 use server_config::system_services_config::ServiceKey;
-use server_config::{NetworkConfig, ResolvedConfig, ServicesConfig};
+use server_config::{NetworkConfig, ResolvedConfig};
 use sorcerer::Sorcerer;
 use spell_event_bus::api::{PeerEvent, SpellEventBusApi, TriggerEvent};
 use spell_event_bus::bus::SpellEventBus;
@@ -162,6 +162,7 @@ impl<RT: AquaRuntime> Node<RT> {
         config: ResolvedConfig,
         core_manager: Arc<CoreManager>,
         vm_config: RT::Config,
+        avm_wasm_backend_config: WasmBackendConfig,
         data_store_config: DataStoreConfig,
         node_version: &'static str,
         air_version: &'static str,
@@ -201,7 +202,7 @@ impl<RT: AquaRuntime> Node<RT> {
 
         let workers = Arc::new(workers);
 
-        let services_config = ServicesConfig::new(
+        let services_config = ParticleAppServicesConfig::new(
             scopes.get_host_peer_id(),
             config.dir_config.services_persistent_dir.clone(),
             config.dir_config.services_ephemeral_dir.clone(),
@@ -320,6 +321,7 @@ impl<RT: AquaRuntime> Node<RT> {
         let (aquamarine_backend, aquamarine_api) = AquamarineBackend::new(
             pool_config,
             vm_config,
+            avm_wasm_backend_config,
             data_store_config,
             Arc::clone(&builtins),
             effects_out,
@@ -522,7 +524,7 @@ impl<RT: AquaRuntime> Node<RT> {
 
     pub fn builtins(
         connectivity: Connectivity,
-        services_config: ServicesConfig,
+        services_config: ParticleAppServicesConfig,
         services_metrics: ServicesMetrics,
         key_storage: Arc<KeyStorage>,
         workers: Arc<Workers>,
@@ -749,7 +751,7 @@ mod tests {
     use serde_json::json;
 
     use air_interpreter_fs::{air_interpreter_path, write_default_air_interpreter};
-    use aquamarine::{AVMRunner, DataStoreConfig, VmConfig};
+    use aquamarine::{AVMRunner, DataStoreConfig, VmConfig, WasmBackendConfig};
     use config_utils::to_peer_id;
     use connected_client::ConnectedClient;
     use core_manager::DummyCoreManager;
@@ -786,6 +788,8 @@ mod tests {
             None,
             false,
         );
+        let avm_wasm_backend_config = WasmBackendConfig::default();
+        
         let data_store_config = DataStoreConfig::new(config.dir_config.avm_base_dir.clone());
 
         let system_service_distros =
@@ -798,6 +802,7 @@ mod tests {
             config,
             core_manager,
             vm_config,
+            avm_wasm_backend_config,
             data_store_config,
             "some version",
             "some version",

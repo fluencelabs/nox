@@ -42,9 +42,10 @@ use particle_modules::{
     AddBlueprint, EffectorsMode, ModuleConfig, ModuleRepository, NamedModuleConfig, WASIConfig,
 };
 use particle_protocol::Contact;
-use particle_services::{ParticleAppServices, PeerScope, ServiceInfo, ServiceType};
+use particle_services::{
+    ParticleAppServices, ParticleAppServicesConfig, PeerScope, ServiceInfo, ServiceType,
+};
 use peer_metrics::ServicesMetrics;
-use server_config::ServicesConfig;
 use types::peer_id;
 use uuid_utils::uuid;
 use workers::{KeyStorage, PeerScopes, Workers};
@@ -98,7 +99,7 @@ where
 {
     pub fn new(
         connectivity: C,
-        config: ServicesConfig,
+        config: ParticleAppServicesConfig,
         services_metrics: ServicesMetrics,
         key_storage: Arc<KeyStorage>,
         workers: Arc<Workers>,
