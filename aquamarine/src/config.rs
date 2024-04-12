@@ -51,15 +51,15 @@ pub struct WasmBackendConfig {
     pub epoch_interruption_duration: Option<Duration>,
 }
 
-impl WasmBackendConfig {
-    pub fn to_wasmtime_config(&self) -> WasmtimeConfig {
+impl From<WasmBackendConfig> for WasmtimeConfig {
+    fn from(value: WasmBackendConfig) -> Self {
         let mut config = WasmtimeConfig::default();
         config
-            .debug_info(self.debug_info)
-            .wasm_backtrace(self.wasm_backtrace)
+            .debug_info(value.debug_info)
+            .wasm_backtrace(value.wasm_backtrace)
             .epoch_interruption(true)
-            .async_wasm_stack(self.async_wasm_stack)
-            .max_wasm_stack(self.max_wasm_stack);
+            .async_wasm_stack(value.async_wasm_stack)
+            .max_wasm_stack(value.max_wasm_stack);
         config
     }
 }

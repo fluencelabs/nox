@@ -24,11 +24,11 @@ use avm_server::avm_runner::{AVMRunner, RawAVMOutcome};
 use avm_server::{CallResults, CallServiceResult};
 use fstrings::f;
 use libp2p::PeerId;
-use marine_wasmtime_backend::{WasmtimeConfig, WasmtimeWasmBackend};
+use marine_wasmtime_backend::{WasmtimeWasmBackend};
 use serde_json::{json, Value as JValue};
 
 use air_interpreter_fs::{air_interpreter_path, write_default_air_interpreter};
-use aquamarine::ParticleDataStore;
+use aquamarine::{ParticleDataStore, WasmBackendConfig};
 use fluence_keypair::KeyPair;
 use now_millis::now_ms;
 use particle_args::{Args, JError};
@@ -172,15 +172,8 @@ pub fn host_call(data: &HashMap<String, JValue>, args: Args) -> (CallServiceResu
 }
 
 pub fn make_wasm_backend() -> WasmtimeWasmBackend {
-    let mut wasmtime_config = WasmtimeConfig::default();
-    // TODO async-marine: impl proper configuration
-    wasmtime_config
-        .debug_info(true)
-        .wasm_backtrace(true)
-        .epoch_interruption(true)
-        .async_wasm_stack(2 * 1024 * 1024)
-        .max_wasm_stack(2 * 1024 * 1024);
-    WasmtimeWasmBackend::new(wasmtime_config).expect("Cannot create WasmtimeWasmBackend")
+    let wasmtime_config = WasmBackendConfig::default();
+    WasmtimeWasmBackend::new(wasmtime_config.into()).expect("Cannot create WasmtimeWasmBackend")
 }
 
 pub async fn make_vm(tmp_dir_path: &Path) -> AVMRunner<WasmtimeWasmBackend> {

@@ -20,7 +20,7 @@ use std::task::Poll;
 use std::time::Duration;
 
 use futures::StreamExt;
-use marine_wasmtime_backend::{WasmtimeConfig, WasmtimeWasmBackend};
+use marine_wasmtime_backend::{WasmtimeWasmBackend};
 use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
 use tracing::{instrument, Instrument};
@@ -79,7 +79,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> AquamarineBackend<RT, F> {
         );
         let data_store: Arc<ParticleDataStore> = Arc::new(data_store);
         let avm_wasm_backend =
-            WasmtimeWasmBackend::new(avm_wasm_backend_config.to_wasmtime_config())?;
+            WasmtimeWasmBackend::new(avm_wasm_backend_config.into())?;
 
         let vm_pool = VmPool::new(
             config.pool_size,
