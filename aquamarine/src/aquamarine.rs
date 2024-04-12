@@ -78,13 +78,6 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> AquamarineBackend<RT, F> {
             data_store_config.particles_anomaly_dir,
         );
         let data_store: Arc<ParticleDataStore> = Arc::new(data_store);
-        let mut wasmtime_config = WasmtimeConfig::default();
-        wasmtime_config
-            .debug_info(true)
-            .wasm_backtrace(true)
-            .epoch_interruption(true)
-            .async_wasm_stack(2 * 1024 * 1024)
-            .max_wasm_stack(2 * 1024 * 1024);
         let avm_wasm_backend =
             WasmtimeWasmBackend::new(avm_wasm_backend_config.to_wasmtime_config())?;
 
