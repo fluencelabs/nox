@@ -7,7 +7,7 @@ sol! {
             bytes32 hash;
         }
 
-        #[derive(Debug, Serialize, Deserialize)]
+        #[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
         enum Status {
             // the deal does have enough funds to pay for the workers
             INSUFFICIENT_FUNDS,

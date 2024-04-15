@@ -1,5 +1,6 @@
 #![feature(assert_matches)]
 #![feature(result_flattening)]
+#![feature(try_blocks)]
 
 mod connector;
 mod error;

@@ -61,6 +61,14 @@ pub struct DealInfo {
     pub app_cid: String,
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct TxReceiptResult {
+    block_number: String,
+    status: String,
+    transaction_hash: String,
+}
+
 impl ChainConnector {
     pub fn new(
         config: ChainConfig,
@@ -200,7 +208,28 @@ impl ChainConnector {
             .await
             .map_err(|err| JError::new(format!("Failed to get tx receipts: {err}")))?
             .into_iter()
-            .collect::<Result<Vec<Value>, ConnectorError>>()?;
+            .map(|tx_receipt| match tx_receipt {
+                Ok(receipt) => {
+                    json!({
+                        "success": json!(true),
+                        "error":  json!([]),
+                        "receipt": json!({
+                            "block_number": json!(receipt.block_number),
+                            "tx_hash": json!(receipt.transaction_hash),
+                            "status": json!(receipt.status),
+                        })
+                    })
+                }
+                Err(err) => {
+                    json!({
+                        "success": json!(false),
+                        "error":  json!(vec![err.to_string()]),
+                        "receipt": json!([]),
+                    })
+                }
+            })
+            .collect::<Vec<_>>();
+
         Ok(json!(receipts))
     }
 
@@ -600,10 +629,10 @@ impl ChainConnector {
         Ok(statuses)
     }
 
-    pub async fn get_tx_receipts<'a, I>(
+    async fn get_tx_receipts<'a, I>(
         &self,
         tx_hashes: I,
-    ) -> Result<Vec<Result<Value, ConnectorError>>, ConnectorError>
+    ) -> Result<Vec<eyre::Result<TxReceiptResult>>, ConnectorError>
     where
         I: Iterator<Item = &'a String>,
     {
@@ -614,7 +643,10 @@ impl ChainConnector {
         let resp: BatchResponse<Value> = self.client.batch_request(batch).await?;
         let mut receipts = vec![];
         for receipt in resp.into_iter() {
-            let receipt = receipt.map_err(|e| ConnectorError::RpcError(e.to_owned().into()));
+            let receipt = try {
+                let receipt = receipt.map_err(|e| ConnectorError::RpcError(e.to_owned().into()))?;
+                serde_json::from_value(receipt)?
+            };
             receipts.push(receipt);
         }
         Ok(receipts)
@@ -623,22 +655,14 @@ impl ChainConnector {
     pub async fn get_tx_statuses<'a, I>(
         &self,
         tx_hashes: I,
-    ) -> Result<Vec<Result<Option<bool>, ConnectorError>>, ConnectorError>
+    ) -> Result<Vec<eyre::Result<bool>>, ConnectorError>
     where
         I: Iterator<Item = &'a String>,
     {
         let mut statuses = vec![];
 
         for receipt in self.get_tx_receipts(tx_hashes).await? {
-            let status = receipt.map(|receipt| {
-                if let Some(obj) = receipt.as_object() {
-                    obj.get("status")
-                        .and_then(Value::as_str)
-                        .map(|s| s == "0x1")
-                } else {
-                    None
-                }
-            });
+            let status = receipt.map(|receipt| receipt.status == "0x1");
             statuses.push(status);
         }
 
@@ -723,11 +747,14 @@ mod tests {
     use clarity::PrivateKey;
     use hex::FromHex;
     use mockito::Matcher;
+    use serde::Deserialize;
     use serde_json::json;
 
     use chain_data::peer_id_from_hex;
+    use fluence_libp2p::RandomPeerId;
     use hex_utils::decode_hex;
 
+    use crate::Deal::Status::ACTIVE;
     use crate::{is_commitment_not_active, CCStatus, ChainConnector, CommitmentId, ConnectorError};
 
     fn get_connector(url: &str) -> Arc<ChainConnector> {
@@ -1060,5 +1087,198 @@ mod tests {
             result,
             "0x55bfec4a4400ca0b09e075e2b517041cd78b10021c51726cb73bcba52213fa05"
         );
+    }
+
+    #[derive(Debug, Deserialize)]
+    // for parsing
+    #[allow(dead_code)]
+    struct RpcRequest<P> {
+        jsonrpc: String,
+        id: u64,
+        method: String,
+        params: P,
+    }
+
+    #[derive(Debug, Deserialize)]
+    // for parsing
+    #[allow(dead_code)]
+    struct EthCall {
+        data: String,
+        to: String,
+    }
+
+    #[tokio::test]
+    async fn test_get_deals() {
+        let expected_deal_id = "5e3d0fde6f793b3115a9e7f5ebc195bbeed35d6c";
+        let expected_cuid = "aa3046a12a1aac6e840625e6329d70b427328fec36dc8d273e5e6454b85633d5";
+        let compute_units_response = "00000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000001aa3046a12a1aac6e840625e6329d70b427328fec36dc8d273e5e6454b85633d50000000000000000000000005e3d0fde6f793b3115a9e7f5ebc195bbeed35d6c00000000000000000000000000000000000000000000000000000000000fffbc";
+        let compute_units_response =
+            format!("{{\"jsonrpc\":\"2.0\",\"result\":\"{compute_units_response}\",\"id\":0}}");
+        let expected_app_cid = "bafkreiekvwp2w7t7vw4jzjq4s4n4wc323c6dnexmy4axh6c7tiza5wxzm4";
+        let app_cid_response = "0x01551220000000000000000000000000000000000000000000000000000000008aad9fab7e7fadb89ca61c971bcb0b7ad8bc3692ecc70173f85f9a320edaf967";
+        let app_cid_response =
+            format!("[{{\"jsonrpc\":\"2.0\",\"result\":\"{app_cid_response}\",\"id\":1}}]");
+        let deal_status_response =
+            "0x0000000000000000000000000000000000000000000000000000000000000001";
+        let deal_status_response =
+            format!("[{{\"jsonrpc\":\"2.0\",\"result\":\"{deal_status_response}\",\"id\":2}}]");
+
+        let mut server = mockito::Server::new();
+        let url = server.url();
+        let mock = server
+            .mock("POST", "/")
+            .expect(3)
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body_from_request(move |req| {
+                let body = req.body().expect("mock: get request body");
+                let body: serde_json::Value =
+                    serde_json::from_slice(body).expect("mock: parse request body");
+                match body {
+                    serde_json::Value::Object(_) => {
+                        let call: RpcRequest<(EthCall, String)> =
+                            serde_json::from_value(body).expect("parse eth call request");
+                        match call.params.0.data.as_ref() {
+                            // compute units selector
+                            "b6015c6e6497db93b32e4cdd979ada46a23249f444da1efb186cd74b9666bd03f710028b" => {
+                                compute_units_response.clone().into()
+
+                            },
+                            _ => {
+                                panic!("unexpected call: {call:?}");
+                            }
+                        }
+                    }
+                    serde_json::Value::Array(_) => {
+                        let calls: Vec<RpcRequest<(EthCall, String)>> =
+                            serde_json::from_value(body).expect("parse eth call request");
+                        match calls[0].params.0.data.as_ref() {
+                            // app cid selector
+                            "9bc66868" => app_cid_response.clone().into(),
+                            // deal status selector
+                            "4e69d560" => deal_status_response.clone().into(),
+                            _ => {
+                                panic!("unexpected call: {:?}", calls[0]);
+                            }
+                        }
+                    }
+                    x => {
+                        panic!("unexpected body: {x:?}");
+                    }
+                }
+            })
+            .create();
+
+        let deals = get_connector(&url).get_deals().await.unwrap();
+        assert_eq!(deals.len(), 1, "there should be only one deal: {deals:?}");
+        assert_eq!(deals[0].deal_id, expected_deal_id);
+        assert_eq!(deals[0].status, ACTIVE);
+        assert_eq!(
+            deals[0].unit_ids.len(),
+            1,
+            "there should be only one unit id: {deals:?}"
+        );
+        assert_eq!(hex::encode(&deals[0].unit_ids[0]), expected_cuid);
+        assert_eq!(deals[0].app_cid, expected_app_cid);
+        mock.assert();
+    }
+
+    #[tokio::test]
+    async fn test_register_worker() {
+        let get_block_by_number_response = r#"{"jsonrpc":"2.0","id":0,"result":{"hash":"0xcbe8d90665392babc8098738ec78009193c99d3cc872a6657e306cfe8824bef9","parentHash":"0x15e767118a3e2d7545fee290b545faccd4a9eff849ac1057ce82cab7100c0c52","sha3Uncles":"0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347","miner":"0x0000000000000000000000000000000000000000","stateRoot":"0x0000000000000000000000000000000000000000000000000000000000000000","transactionsRoot":"0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421","receiptsRoot":"0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421","logsBloom":"0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000","difficulty":"0x0","number":"0xa2","gasLimit":"0x1c9c380","gasUsed":"0x0","timestamp":"0x65d88f76","extraData":"0x","mixHash":"0x0000000000000000000000000000000000000000000000000000000000000000","nonce":"0x0000000000000000","baseFeePerGas":"0x7","totalDifficulty":"0x0","uncles":[],"transactions":[],"size":"0x220"}}"#;
+        let estimate_gas_response = r#"{"jsonrpc":"2.0","id": 1,"result": "0x5208"}"#;
+        let max_priority_fee_response = r#"{"jsonrpc":"2.0","id": 2,"result": "0x5208"}"#;
+        let nonce_response = r#"{"jsonrpc":"2.0","id":3,"result":"0x20"}"#;
+        let expected_tx_hash = "0x55bfec4a4400ca0b09e075e2b517041cd78b10021c51726cb73bcba52213fa05";
+        let send_tx_response = r#"
+            {
+                "jsonrpc": "2.0",
+                "id": 4,
+                "result": "0x55bfec4a4400ca0b09e075e2b517041cd78b10021c51726cb73bcba52213fa05"
+            }
+            "#;
+
+        let deal_id = "5e3d0fde6f793b3115a9e7f5ebc195bbeed35d6c";
+        let deal_id = types::DealId::from(deal_id);
+        let worker_id = types::peer_scope::WorkerId::from(RandomPeerId::random());
+        let cuid =
+            CUID::from_hex("aa3046a12a1aac6e840625e6329d70b427328fec36dc8d273e5e6454b85633d5")
+                .unwrap();
+
+        let mut server = mockito::Server::new();
+        let url = server.url();
+        let mock = server
+            .mock("POST", "/")
+            .expect(5)
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body_from_request(move |req| {
+                let body = req.body().expect("mock: get request body");
+                let body: RpcRequest<Option<serde_json::Value>> =
+                    serde_json::from_slice(body).expect("mock: parse request body");
+                match body.method.as_ref() {
+                    "eth_getBlockByNumber" => get_block_by_number_response.into(),
+                    "eth_estimateGas" => estimate_gas_response.into(),
+                    "eth_maxPriorityFeePerGas" => max_priority_fee_response.into(),
+                    "eth_getTransactionCount" => nonce_response.into(),
+                    "eth_sendRawTransaction" => send_tx_response.into(),
+                    x => {
+                        panic!("unknown method: {x}. Request {body:?}");
+                    }
+                }
+            })
+            .create();
+        let result = get_connector(&url)
+            .register_worker(&deal_id, worker_id, cuid)
+            .await
+            .unwrap();
+        assert_eq!(result, expected_tx_hash);
+        mock.assert();
+    }
+
+    #[tokio::test]
+    async fn test_get_receipts() {
+        let tx_hash =
+            "0x55bfec4a4400ca0b09e075e2b517041cd78b10021c51726cb73bcba52213fa05".to_string();
+        let receipt_response = r#"
+            [{
+                "id": 0,
+                "jsonrpc": "2.0",
+                "result": {
+                    "blockNumber": "0x123",
+                    "status": "0x1",
+                    "transactionHash": "0x55bfec4a4400ca0b09e075e2b517041cd78b10021c51726cb73bcba52213fa05"
+                }
+            }]
+        "#;
+        let mut server = mockito::Server::new();
+        let url = server.url();
+        let mock = server
+            .mock("POST", "/")
+            // expect exactly 1 POST request
+            .expect(1)
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body_from_request(move |req| {
+                let body = req.body().expect("mock: get request body");
+                let body: Vec<RpcRequest<serde_json::Value>> =
+                    serde_json::from_slice(body).expect("mock: parse request body");
+                match body[0].method.as_ref() {
+                    "eth_getTransactionReceipt" => receipt_response.into(),
+                    x => {
+                        panic!("unknown method: {x}. Request {body:?}");
+                    }
+                }
+            })
+            .create();
+        let mut result = get_connector(&url)
+            .get_tx_receipts(vec![&tx_hash].into_iter())
+            .await
+            .unwrap();
+        assert_eq!(result.len(), 1);
+        assert!(result[0].is_ok(), "can't get receipt: {:?}", result[0]);
+        let result = result.remove(0).unwrap();
+        assert_eq!(result.transaction_hash, tx_hash);
+        mock.assert();
     }
 }

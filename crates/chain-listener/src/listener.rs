@@ -1189,7 +1189,7 @@ impl ChainListener {
             .zip(self.pending_proof_txs.clone().into_iter())
         {
             match status {
-                Ok(Some(status)) => {
+                Ok(status) => {
                     if status {
                         tracing::info!(target: "chain-listener", "Proof tx {tx_hash} confirmed");
                         stats_updated = true;
@@ -1210,9 +1210,6 @@ impl ChainListener {
                     }
 
                     self.pending_proof_txs.retain(|(tx, _)| tx != &tx_hash);
-                }
-                Ok(None) => {
-                    tracing::debug!(target: "chain-listener", "Proof tx {tx_hash} not found");
                 }
                 Err(err) => {
                     tracing::debug!(target: "chain-listener", "Failed to get tx receipt for {tx_hash}: {err}");
