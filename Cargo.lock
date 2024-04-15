@@ -95,7 +95,7 @@ dependencies = [
 [[package]]
 name = "air-interpreter-interface"
 version = "0.19.0"
-source = "git+https://github.com/fluencelabs/aquavm?branch=feat/use-async-marine#d4a222f4975090dbf37162cb431b158a49c14e0f"
+source = "git+https://github.com/fluencelabs/aquavm?branch=feat/use-async-marine#044691d97b26340da340f444b7d492c11093478d"
 dependencies = [
  "air-interpreter-sede 0.1.0 (git+https://github.com/fluencelabs/aquavm?branch=feat/use-async-marine)",
  "air-interpreter-value",
@@ -124,7 +124,7 @@ dependencies = [
 [[package]]
 name = "air-interpreter-sede"
 version = "0.1.0"
-source = "git+https://github.com/fluencelabs/aquavm?branch=feat/use-async-marine#d4a222f4975090dbf37162cb431b158a49c14e0f"
+source = "git+https://github.com/fluencelabs/aquavm?branch=feat/use-async-marine#044691d97b26340da340f444b7d492c11093478d"
 dependencies = [
  "marine-rs-sdk",
  "rmp-serde",
@@ -138,7 +138,7 @@ dependencies = [
 [[package]]
 name = "air-interpreter-value"
 version = "0.1.0"
-source = "git+https://github.com/fluencelabs/aquavm?branch=feat/use-async-marine#d4a222f4975090dbf37162cb431b158a49c14e0f"
+source = "git+https://github.com/fluencelabs/aquavm?branch=feat/use-async-marine#044691d97b26340da340f444b7d492c11093478d"
 dependencies = [
  "serde",
  "serde_json",
@@ -156,7 +156,7 @@ dependencies = [
 [[package]]
 name = "air-utils"
 version = "0.3.0"
-source = "git+https://github.com/fluencelabs/aquavm?branch=feat/use-async-marine#d4a222f4975090dbf37162cb431b158a49c14e0f"
+source = "git+https://github.com/fluencelabs/aquavm?branch=feat/use-async-marine#044691d97b26340da340f444b7d492c11093478d"
 
 [[package]]
 name = "allocator-api2"
@@ -741,7 +741,7 @@ checksum = "d468802bab17cbc0cc575e9b053f41e72aa36bfa6b7f55e3529ffa43161b97fa"
 [[package]]
 name = "avm-data-store"
 version = "0.7.9"
-source = "git+https://github.com/fluencelabs/aquavm?branch=feat/use-async-marine#d4a222f4975090dbf37162cb431b158a49c14e0f"
+source = "git+https://github.com/fluencelabs/aquavm?branch=feat/use-async-marine#044691d97b26340da340f444b7d492c11093478d"
 dependencies = [
  "avm-interface",
  "serde",
@@ -751,7 +751,7 @@ dependencies = [
 [[package]]
 name = "avm-interface"
 version = "0.32.1"
-source = "git+https://github.com/fluencelabs/aquavm?branch=feat/use-async-marine#d4a222f4975090dbf37162cb431b158a49c14e0f"
+source = "git+https://github.com/fluencelabs/aquavm?branch=feat/use-async-marine#044691d97b26340da340f444b7d492c11093478d"
 dependencies = [
  "air-interpreter-interface",
  "air-interpreter-sede 0.1.0 (git+https://github.com/fluencelabs/aquavm?branch=feat/use-async-marine)",
@@ -768,7 +768,7 @@ dependencies = [
 [[package]]
 name = "avm-server"
 version = "0.37.0"
-source = "git+https://github.com/fluencelabs/aquavm?branch=feat/use-async-marine#d4a222f4975090dbf37162cb431b158a49c14e0f"
+source = "git+https://github.com/fluencelabs/aquavm?branch=feat/use-async-marine#044691d97b26340da340f444b7d492c11093478d"
 dependencies = [
  "air-interpreter-interface",
  "air-interpreter-sede 0.1.0 (git+https://github.com/fluencelabs/aquavm?branch=feat/use-async-marine)",
@@ -2543,8 +2543,9 @@ dependencies = [
 
 [[package]]
 name = "fluence-app-service"
-version = "0.35.2"
-source = "git+https://github.com/fluencelabs/marine?branch=feat/async-call#5aec5419ac6a78114d658f1eaeac4e1d84ef8b86"
+version = "0.36.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3e423d621b41b09b24581ff639abe8590da6af5b374b90aa5f6232a67c59a203"
 dependencies = [
  "log",
  "maplit",
@@ -3679,8 +3680,9 @@ dependencies = [
 
 [[package]]
 name = "it-json-serde"
-version = "0.5.1"
-source = "git+https://github.com/fluencelabs/marine?branch=feat/async-call#5aec5419ac6a78114d658f1eaeac4e1d84ef8b86"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9011f4a5b18c9148bbdfac7d364266e34b4cda2fc585230f1dab706c315cf556"
 dependencies = [
  "serde",
  "serde_derive",
@@ -4942,8 +4944,9 @@ dependencies = [
 
 [[package]]
 name = "marine-core"
-version = "0.30.0"
-source = "git+https://github.com/fluencelabs/marine?branch=feat/async-call#5aec5419ac6a78114d658f1eaeac4e1d84ef8b86"
+version = "0.31.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "67d0d9d1ea05ecf84c887afc720d9fb139e5453cb7ffd8102f36b54bd02c2222"
 dependencies = [
  "anyhow",
  "bytesize",
@@ -4971,8 +4974,9 @@ dependencies = [
 
 [[package]]
 name = "marine-it-generator"
-version = "0.17.0"
-source = "git+https://github.com/fluencelabs/marine?branch=feat/async-call#5aec5419ac6a78114d658f1eaeac4e1d84ef8b86"
+version = "0.18.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "daf8c8aac013e8dc4d828e4a1160e9b8b7224e6847c17fa0b25836aaf6226628"
 dependencies = [
  "it-lilo",
  "marine-it-parser",
@@ -4987,8 +4991,9 @@ dependencies = [
 
 [[package]]
 name = "marine-it-interfaces"
-version = "0.9.1"
-source = "git+https://github.com/fluencelabs/marine?branch=feat/async-call#5aec5419ac6a78114d658f1eaeac4e1d84ef8b86"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "34970fe6e4da4fcee6d911e96afb1b99ead0c80e41ba2531a36a1075fbbfb03f"
 dependencies = [
  "multimap 0.8.3",
  "wasmer-interface-types-fl",
@@ -4996,8 +5001,9 @@ dependencies = [
 
 [[package]]
 name = "marine-it-parser"
-version = "0.16.0"
-source = "git+https://github.com/fluencelabs/marine?branch=feat/async-call#5aec5419ac6a78114d658f1eaeac4e1d84ef8b86"
+version = "0.17.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fa3a1f23268aedbe23baed2a3a00ea21bf7b61aa61feb393b70dd0597414cb5e"
 dependencies = [
  "anyhow",
  "itertools 0.10.5",
@@ -5107,7 +5113,8 @@ dependencies = [
 [[package]]
 name = "marine-min-it-version"
 version = "0.3.2"
-source = "git+https://github.com/fluencelabs/marine?branch=feat/async-call#5aec5419ac6a78114d658f1eaeac4e1d84ef8b86"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "147e6e4c9d3dc9afbb06b2e3bc069b63c749733f698d0c364c320a72b133f1d5"
 dependencies = [
  "once_cell",
  "semver 1.0.20",
@@ -5115,8 +5122,9 @@ dependencies = [
 
 [[package]]
 name = "marine-module-info-parser"
-version = "0.15.0"
-source = "git+https://github.com/fluencelabs/marine?branch=feat/async-call#5aec5419ac6a78114d658f1eaeac4e1d84ef8b86"
+version = "0.16.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ba0abfe0aae8f0b89e79278e6f09ed094396aed413a5cddfff67e9a95adf6891"
 dependencies = [
  "anyhow",
  "chrono",
@@ -5131,8 +5139,9 @@ dependencies = [
 
 [[package]]
 name = "marine-module-interface"
-version = "0.8.1"
-source = "git+https://github.com/fluencelabs/marine?branch=feat/async-call#5aec5419ac6a78114d658f1eaeac4e1d84ef8b86"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "95e139be29c46e01a1087175834a95881e6e60b1f3304bc10e098450e5bd2b64"
 dependencies = [
  "anyhow",
  "itertools 0.10.5",
@@ -5200,8 +5209,9 @@ dependencies = [
 
 [[package]]
 name = "marine-runtime"
-version = "0.36.2"
-source = "git+https://github.com/fluencelabs/marine?branch=feat/async-call#5aec5419ac6a78114d658f1eaeac4e1d84ef8b86"
+version = "0.37.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "31b89585db43f79da40041d5100f84c360ada9e5ac086d95fbbbab118771f2ec"
 dependencies = [
  "bytesize",
  "it-json-serde",
@@ -5252,12 +5262,14 @@ dependencies = [
 [[package]]
 name = "marine-utils"
 version = "0.5.1"
-source = "git+https://github.com/fluencelabs/marine?branch=feat/async-call#5aec5419ac6a78114d658f1eaeac4e1d84ef8b86"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fce56bfabfd0af5326ff81c32c8d2261aa03b10e00ea6c165de4ebf8a3f998e4"
 
 [[package]]
 name = "marine-wasm-backend-traits"
-version = "0.6.0"
-source = "git+https://github.com/fluencelabs/marine?branch=feat/async-call#5aec5419ac6a78114d658f1eaeac4e1d84ef8b86"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e15277ea4420bfd8c3a26aceded5d64c35c416afaedfccc3b21832eb578f6c1d"
 dependencies = [
  "anyhow",
  "futures",
@@ -5271,8 +5283,9 @@ dependencies = [
 
 [[package]]
 name = "marine-wasmtime-backend"
-version = "0.6.0"
-source = "git+https://github.com/fluencelabs/marine?branch=feat/async-call#5aec5419ac6a78114d658f1eaeac4e1d84ef8b86"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5f8537d3b8d370431746ef24f7fab31cc0e41e39cb14a024e4895325c7e8b27f"
 dependencies = [
  "anyhow",
  "futures",
@@ -6477,7 +6490,7 @@ dependencies = [
 [[package]]
 name = "polyplets"
 version = "0.7.0"
-source = "git+https://github.com/fluencelabs/aquavm?branch=feat/use-async-marine#d4a222f4975090dbf37162cb431b158a49c14e0f"
+source = "git+https://github.com/fluencelabs/aquavm?branch=feat/use-async-marine#044691d97b26340da340f444b7d492c11093478d"
 dependencies = [
  "marine-call-parameters 0.14.0",
  "serde",
