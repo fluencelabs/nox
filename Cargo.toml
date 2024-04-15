@@ -110,7 +110,7 @@ fluence-spell-dtos = "=0.7.5"
 fluence-spell-distro = "=0.7.5"
 
 # marine
-fluence-app-service = "0.35.1"
+fluence-app-service = "0.36.0"
 marine-utils = "0.5.1"
 marine-it-parser = "0.16.0"
 marine-module-info-parser = "0.15.0"
