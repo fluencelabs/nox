@@ -592,7 +592,10 @@ mod tests {
     use chain_data::peer_id_from_hex;
     use hex_utils::decode_hex;
 
-    use crate::{is_commitment_not_active, CCStatus, CommitmentId, ConnectorError, HttpChainConnector, ChainConnector};
+    use crate::{
+        is_commitment_not_active, CCStatus, ChainConnector, CommitmentId, ConnectorError,
+        HttpChainConnector,
+    };
 
     fn get_connector(url: &str) -> Arc<dyn ChainConnector> {
         let (connector, _) = HttpChainConnector::new(
