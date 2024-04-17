@@ -597,7 +597,7 @@ mod tests {
         HttpChainConnector,
     };
 
-    fn get_connector(url: &str) -> Arc<dyn ChainConnector> {
+    fn get_connector(url: &str) -> Arc<HttpChainConnector> {
         let (connector, _) = HttpChainConnector::new(
             server_config::ChainConfig {
                 http_endpoint: url.to_string(),
