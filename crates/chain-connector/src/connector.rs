@@ -12,6 +12,7 @@ use ccp_shared::types::{Difficulty, GlobalNonce, CUID};
 use clarity::{Transaction, Uint256};
 use eyre::eyre;
 use futures::FutureExt;
+use jsonrpsee::core::async_trait;
 use jsonrpsee::core::client::{BatchResponse, ClientT};
 use jsonrpsee::core::params::{ArrayParams, BatchRequestBuilder};
 use jsonrpsee::http_client::HttpClientBuilder;
@@ -36,7 +37,42 @@ use crate::Offer::{ComputePeer, ComputeUnit};
 
 const BASE_FEE_PREMIUM_DIVIDER: U256 = uint!(8_U256);
 
-pub struct ChainConnector {
+#[async_trait]
+pub trait ChainConnector: Send + Sync {
+    async fn get_current_commitment_id(&self) -> Result<Option<CommitmentId>, ConnectorError>;
+
+    async fn get_cc_init_params(&self) -> eyre::Result<CCInitParams>; //TODO: make error type
+
+    async fn get_compute_units(&self) -> Result<Vec<ComputeUnit>, ConnectorError>;
+
+    async fn get_commitment_status(
+        &self,
+        commitment_id: CommitmentId,
+    ) -> Result<CCStatus, ConnectorError>;
+
+    async fn get_global_nonce(&self) -> Result<GlobalNonce, ConnectorError>;
+
+    async fn submit_proof(&self, proof: CCProof) -> Result<String, ConnectorError>;
+
+    async fn get_deal_statuses(
+        &self,
+        deal_ids: Vec<DealId>,
+    ) -> Result<Vec<Result<Deal::Status, ConnectorError>>, ConnectorError>;
+
+    async fn exit_deal(&self, cu_id: &CUID) -> Result<String, ConnectorError>;
+
+    async fn get_tx_statuses(
+        &self,
+        tx_hashes: Vec<String>,
+    ) -> Result<Vec<Result<Option<bool>, ConnectorError>>, ConnectorError>;
+
+    async fn get_tx_receipts(
+        &self,
+        tx_hashes: Vec<String>,
+    ) -> Result<Vec<Result<Value, ConnectorError>>, ConnectorError>;
+}
+
+pub struct HttpChainConnector {
     client: Arc<jsonrpsee::http_client::HttpClient>,
     config: ChainConfig,
     tx_nonce_mutex: Arc<Mutex<()>>,
@@ -53,7 +89,7 @@ pub struct CCInitParams {
     pub max_proofs_per_epoch: U256,
 }
 
-impl ChainConnector {
+impl HttpChainConnector {
     pub fn new(
         config: ChainConfig,
         host_id: PeerId,
@@ -221,7 +257,64 @@ impl ChainConnector {
         Ok(resp)
     }
 
-    pub async fn get_current_commitment_id(&self) -> Result<Option<CommitmentId>, ConnectorError> {
+    fn difficulty_params(&self) -> ArrayParams {
+        let data: String = Core::difficultyCall {}.abi_encode().encode_hex();
+
+        rpc_params![
+            json!({"data": data, "to": self.config.core_contract_address}),
+            "latest"
+        ]
+    }
+
+    fn init_timestamp_params(&self) -> ArrayParams {
+        let data: String = Core::initTimestampCall {}.abi_encode().encode_hex();
+        rpc_params![
+            json!({"data": data, "to": self.config.core_contract_address}),
+            "latest"
+        ]
+    }
+    fn global_nonce_params(&self) -> ArrayParams {
+        let data: String = Capacity::getGlobalNonceCall {}.abi_encode().encode_hex();
+        rpc_params![
+            json!({"data": data, "to": self.config.cc_contract_address}),
+            "latest"
+        ]
+    }
+    fn current_epoch_params(&self) -> ArrayParams {
+        let data: String = Core::currentEpochCall {}.abi_encode().encode_hex();
+        rpc_params![
+            json!({"data": data, "to": self.config.core_contract_address}),
+            "latest"
+        ]
+    }
+    fn epoch_duration_params(&self) -> ArrayParams {
+        let data: String = Core::epochDurationCall {}.abi_encode().encode_hex();
+        rpc_params![
+            json!({"data": data, "to": self.config.core_contract_address}),
+            "latest"
+        ]
+    }
+
+    fn min_proofs_per_epoch_params(&self) -> ArrayParams {
+        let data: String = Core::minProofsPerEpochCall {}.abi_encode().encode_hex();
+        rpc_params![
+            json!({"data": data, "to": self.config.core_contract_address}),
+            "latest"
+        ]
+    }
+
+    fn max_proofs_per_epoch_params(&self) -> ArrayParams {
+        let data: String = Core::maxProofsPerEpochCall {}.abi_encode().encode_hex();
+        rpc_params![
+            json!({"data": data, "to": self.config.core_contract_address}),
+            "latest"
+        ]
+    }
+}
+
+#[async_trait]
+impl ChainConnector for HttpChainConnector {
+    async fn get_current_commitment_id(&self) -> Result<Option<CommitmentId>, ConnectorError> {
         let peer_id = peer_id_to_bytes(self.host_id);
         let data: String = Offer::getComputePeerCall {
             peerId: peer_id.into(),
@@ -246,86 +339,7 @@ impl ChainConnector {
         Ok(CommitmentId::new(compute_peer.commitmentId.0))
     }
 
-    pub async fn get_commitment_status(
-        &self,
-        commitment_id: CommitmentId,
-    ) -> Result<CCStatus, ConnectorError> {
-        let data: String = Capacity::getStatusCall {
-            commitmentId: commitment_id.0.into(),
-        }
-        .abi_encode()
-        .encode_hex();
-
-        let resp: String = process_response(
-            self.client
-                .request(
-                    "eth_call",
-                    rpc_params![
-                        json!({
-                            "data": data,
-                            "to": self.config.cc_contract_address,
-                        }),
-                        "latest"
-                    ],
-                )
-                .await,
-        )?;
-        Ok(<CCStatus as SolType>::abi_decode(
-            &decode_hex(&resp)?,
-            true,
-        )?)
-    }
-
-    pub async fn get_global_nonce(&self) -> Result<GlobalNonce, ConnectorError> {
-        let resp: String = process_response(
-            self.client
-                .request("eth_call", self.global_nonce_params())
-                .await,
-        )?;
-
-        let bytes: FixedBytes<32> = FixedBytes::from_str(&resp)?;
-        Ok(GlobalNonce::new(bytes.0))
-    }
-
-    pub async fn submit_proof(&self, proof: CCProof) -> Result<String, ConnectorError> {
-        let data = Capacity::submitProofCall {
-            unitId: proof.cu_id.as_ref().into(),
-            localUnitNonce: proof.local_nonce.as_ref().into(),
-            resultHash: proof.result_hash.as_ref().into(),
-        }
-        .abi_encode();
-
-        self.send_tx(data, &self.config.cc_contract_address).await
-    }
-
-    pub async fn get_compute_units(&self) -> Result<Vec<ComputeUnit>, ConnectorError> {
-        let data: String = Offer::getComputeUnitsCall {
-            peerId: peer_id_to_bytes(self.host_id).into(),
-        }
-        .abi_encode()
-        .encode_hex();
-
-        let resp: String = process_response(
-            self.client
-                .request(
-                    "eth_call",
-                    rpc_params![
-                        json!({
-                            "data": data,
-                            "to": self.config.market_contract_address,
-                        }),
-                        "latest"
-                    ],
-                )
-                .await,
-        )?;
-        let bytes = decode_hex(&resp)?;
-        let compute_units = <Array<ComputeUnit> as SolType>::abi_decode(&bytes, true)?;
-
-        Ok(compute_units)
-    }
-
-    pub async fn get_cc_init_params(&self) -> eyre::Result<CCInitParams> {
+    async fn get_cc_init_params(&self) -> eyre::Result<CCInitParams> {
         let mut batch = BatchRequestBuilder::new();
 
         batch.insert("eth_call", self.difficulty_params())?;
@@ -392,13 +406,89 @@ impl ChainConnector {
         })
     }
 
-    pub async fn get_deal_statuses<'a, I>(
+    async fn get_compute_units(&self) -> Result<Vec<ComputeUnit>, ConnectorError> {
+        let data: String = Offer::getComputeUnitsCall {
+            peerId: peer_id_to_bytes(self.host_id).into(),
+        }
+        .abi_encode()
+        .encode_hex();
+
+        let resp: String = process_response(
+            self.client
+                .request(
+                    "eth_call",
+                    rpc_params![
+                        json!({
+                            "data": data,
+                            "to": self.config.market_contract_address,
+                        }),
+                        "latest"
+                    ],
+                )
+                .await,
+        )?;
+        let bytes = decode_hex(&resp)?;
+        let compute_units = <Array<ComputeUnit> as SolType>::abi_decode(&bytes, true)?;
+
+        Ok(compute_units)
+    }
+
+    async fn get_commitment_status(
         &self,
-        deal_ids: I,
-    ) -> Result<Vec<Result<Deal::Status, ConnectorError>>, ConnectorError>
-    where
-        I: Iterator<Item = &'a DealId>,
-    {
+        commitment_id: CommitmentId,
+    ) -> Result<CCStatus, ConnectorError> {
+        let data: String = Capacity::getStatusCall {
+            commitmentId: commitment_id.0.into(),
+        }
+        .abi_encode()
+        .encode_hex();
+
+        let resp: String = process_response(
+            self.client
+                .request(
+                    "eth_call",
+                    rpc_params![
+                        json!({
+                            "data": data,
+                            "to": self.config.cc_contract_address,
+                        }),
+                        "latest"
+                    ],
+                )
+                .await,
+        )?;
+        Ok(<CCStatus as SolType>::abi_decode(
+            &decode_hex(&resp)?,
+            true,
+        )?)
+    }
+
+    async fn get_global_nonce(&self) -> Result<GlobalNonce, ConnectorError> {
+        let resp: String = process_response(
+            self.client
+                .request("eth_call", self.global_nonce_params())
+                .await,
+        )?;
+
+        let bytes: FixedBytes<32> = FixedBytes::from_str(&resp)?;
+        Ok(GlobalNonce::new(bytes.0))
+    }
+
+    async fn submit_proof(&self, proof: CCProof) -> Result<String, ConnectorError> {
+        let data = Capacity::submitProofCall {
+            unitId: proof.cu_id.as_ref().into(),
+            localUnitNonce: proof.local_nonce.as_ref().into(),
+            resultHash: proof.result_hash.as_ref().into(),
+        }
+        .abi_encode();
+
+        self.send_tx(data, &self.config.cc_contract_address).await
+    }
+
+    async fn get_deal_statuses(
+        &self,
+        deal_ids: Vec<DealId>,
+    ) -> Result<Vec<Result<Deal::Status, ConnectorError>>, ConnectorError> {
         let mut batch = BatchRequestBuilder::new();
         for deal_id in deal_ids {
             let data: String = Deal::getStatusCall {}.abi_encode().encode_hex();
@@ -433,34 +523,20 @@ impl ChainConnector {
 
         Ok(statuses)
     }
+    async fn exit_deal(&self, cu_id: &CUID) -> Result<String, ConnectorError> {
+        let data = Offer::returnComputeUnitFromDealCall {
+            unitId: cu_id.as_ref().into(),
+        }
+        .abi_encode();
 
-    pub async fn get_tx_receipts<'a, I>(
-        &self,
-        tx_hashes: I,
-    ) -> Result<Vec<Result<Value, ConnectorError>>, ConnectorError>
-    where
-        I: Iterator<Item = &'a String>,
-    {
-        let mut batch = BatchRequestBuilder::new();
-        for tx_hash in tx_hashes {
-            batch.insert("eth_getTransactionReceipt", rpc_params![tx_hash])?;
-        }
-        let resp: BatchResponse<Value> = self.client.batch_request(batch).await?;
-        let mut receipts = vec![];
-        for receipt in resp.into_iter() {
-            let receipt = receipt.map_err(|e| ConnectorError::RpcError(e.to_owned().into()));
-            receipts.push(receipt);
-        }
-        Ok(receipts)
+        self.send_tx(data, &self.config.market_contract_address)
+            .await
     }
 
-    pub async fn get_tx_statuses<'a, I>(
+    async fn get_tx_statuses(
         &self,
-        tx_hashes: I,
-    ) -> Result<Vec<Result<Option<bool>, ConnectorError>>, ConnectorError>
-    where
-        I: Iterator<Item = &'a String>,
-    {
+        tx_hashes: Vec<String>,
+    ) -> Result<Vec<Result<Option<bool>, ConnectorError>>, ConnectorError> {
         let mut statuses = vec![];
 
         for receipt in self.get_tx_receipts(tx_hashes).await? {
@@ -479,68 +555,21 @@ impl ChainConnector {
         Ok(statuses)
     }
 
-    pub async fn exit_deal(&self, cu_id: &CUID) -> Result<String, ConnectorError> {
-        let data = Offer::returnComputeUnitFromDealCall {
-            unitId: cu_id.as_ref().into(),
+    async fn get_tx_receipts(
+        &self,
+        tx_hashes: Vec<String>,
+    ) -> Result<Vec<Result<Value, ConnectorError>>, ConnectorError> {
+        let mut batch = BatchRequestBuilder::new();
+        for tx_hash in tx_hashes {
+            batch.insert("eth_getTransactionReceipt", rpc_params![tx_hash])?;
         }
-        .abi_encode();
-
-        self.send_tx(data, &self.config.market_contract_address)
-            .await
-    }
-
-    fn difficulty_params(&self) -> ArrayParams {
-        let data: String = Core::difficultyCall {}.abi_encode().encode_hex();
-
-        rpc_params![
-            json!({"data": data, "to": self.config.core_contract_address}),
-            "latest"
-        ]
-    }
-
-    fn init_timestamp_params(&self) -> ArrayParams {
-        let data: String = Core::initTimestampCall {}.abi_encode().encode_hex();
-        rpc_params![
-            json!({"data": data, "to": self.config.core_contract_address}),
-            "latest"
-        ]
-    }
-    fn global_nonce_params(&self) -> ArrayParams {
-        let data: String = Capacity::getGlobalNonceCall {}.abi_encode().encode_hex();
-        rpc_params![
-            json!({"data": data, "to": self.config.cc_contract_address}),
-            "latest"
-        ]
-    }
-    fn current_epoch_params(&self) -> ArrayParams {
-        let data: String = Core::currentEpochCall {}.abi_encode().encode_hex();
-        rpc_params![
-            json!({"data": data, "to": self.config.core_contract_address}),
-            "latest"
-        ]
-    }
-    fn epoch_duration_params(&self) -> ArrayParams {
-        let data: String = Core::epochDurationCall {}.abi_encode().encode_hex();
-        rpc_params![
-            json!({"data": data, "to": self.config.core_contract_address}),
-            "latest"
-        ]
-    }
-
-    fn min_proofs_per_epoch_params(&self) -> ArrayParams {
-        let data: String = Core::minProofsPerEpochCall {}.abi_encode().encode_hex();
-        rpc_params![
-            json!({"data": data, "to": self.config.core_contract_address}),
-            "latest"
-        ]
-    }
-
-    fn max_proofs_per_epoch_params(&self) -> ArrayParams {
-        let data: String = Core::maxProofsPerEpochCall {}.abi_encode().encode_hex();
-        rpc_params![
-            json!({"data": data, "to": self.config.core_contract_address}),
-            "latest"
-        ]
+        let resp: BatchResponse<Value> = self.client.batch_request(batch).await?;
+        let mut receipts = vec![];
+        for receipt in resp.into_iter() {
+            let receipt = receipt.map_err(|e| ConnectorError::RpcError(e.to_owned().into()));
+            receipts.push(receipt);
+        }
+        Ok(receipts)
     }
 }
 
@@ -563,10 +592,13 @@ mod tests {
     use chain_data::peer_id_from_hex;
     use hex_utils::decode_hex;
 
-    use crate::{is_commitment_not_active, CCStatus, ChainConnector, CommitmentId, ConnectorError};
+    use crate::{
+        is_commitment_not_active, CCStatus, ChainConnector, CommitmentId, ConnectorError,
+        HttpChainConnector,
+    };
 
-    fn get_connector(url: &str) -> Arc<ChainConnector> {
-        let (connector, _) = ChainConnector::new(
+    fn get_connector(url: &str) -> Arc<HttpChainConnector> {
+        let (connector, _) = HttpChainConnector::new(
             server_config::ChainConfig {
                 http_endpoint: url.to_string(),
                 cc_contract_address: "0x0E62f5cfA5189CA34E79CCB03829C064405790aD".to_string(),

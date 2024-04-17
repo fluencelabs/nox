@@ -347,6 +347,7 @@ impl PersistentCoreManagerFunctions for StrictCoreManager {
 mod tests {
     use ccp_shared::types::{LogicalCoreId, PhysicalCoreId, CUID};
     use hex::FromHex;
+    use std::collections::BTreeSet;
 
     use crate::manager::CoreManagerFunctions;
     use crate::persistence::PersistentCoreManagerState;
@@ -397,6 +398,15 @@ mod tests {
                 })
                 .unwrap();
             assert_eq!(assignment_1, assignment_2);
+            assert_eq!(
+                assignment_1
+                    .cuid_cores
+                    .keys()
+                    .cloned()
+                    .collect::<BTreeSet<_>>(),
+                BTreeSet::from_iter(unit_ids)
+            );
+            assert_eq!(assignment_1, assignment_2);
             assert_eq!(assignment_1, assignment_3);
         }
     }
@@ -442,6 +452,7 @@ mod tests {
                 })
                 .unwrap();
             assert_eq!(assignment.physical_core_ids.len(), 2);
+            assert_eq!(assignment.cuid_cores.len(), 2);
 
             let after_assignment = manager.state.read();
 

@@ -54,7 +54,7 @@ pub struct ChainListener {
     config: ChainConfig,
     listener_config: ChainListenerConfig,
 
-    chain_connector: Arc<ChainConnector>,
+    chain_connector: Arc<dyn ChainConnector>,
     // To subscribe to chain events
     ws_client: WsClient,
 
@@ -117,7 +117,7 @@ impl ChainListener {
         ws_client: WsClient,
         listener_config: ChainListenerConfig,
         host_id: PeerId,
-        chain_connector: Arc<ChainConnector>,
+        chain_connector: Arc<dyn ChainConnector>,
         core_manager: Arc<CoreManager>,
         ccp_client: Option<CCPRpcHttpClient>,
         persisted_proof_id_dir: PathBuf,
@@ -1204,7 +1204,7 @@ impl ChainListener {
         }
 
         let statuses = retry(ExponentialBackoff::default(), || async {
-            let s = self.chain_connector.get_deal_statuses(self.active_deals.keys()).await.map_err(|err| {
+            let s = self.chain_connector.get_deal_statuses(self.active_deals.keys().cloned().collect()).await.map_err(|err| {
                 tracing::warn!(target: "chain-listener", "Failed to poll deal statuses: {err}; Retrying...");
                 eyre!("Failed to poll deal statuses: {err}; Retrying...")
             })?;
@@ -1260,7 +1260,7 @@ impl ChainListener {
         }
 
         let statuses = retry(ExponentialBackoff::default(), || async {
-            let s = self.chain_connector.get_tx_statuses(self.pending_proof_txs.iter().map(|(tx, _)| tx)).await.map_err(|err| {
+            let s = self.chain_connector.get_tx_statuses(self.pending_proof_txs.iter().map(|(tx, _)| tx).cloned().collect()).await.map_err(|err| {
                 tracing::warn!(target: "chain-listener", "Failed to poll pending proof txs statuses: {err}");
                 eyre!("Failed to poll pending proof txs statuses: {err}; Retrying...")
             })?;
