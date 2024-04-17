@@ -41,7 +41,7 @@ use aquamarine::{
     AquaRuntime, AquamarineApi, AquamarineApiError, AquamarineBackend, DataStoreConfig,
     RemoteRoutingEffects, VmPoolConfig,
 };
-use chain_connector::ChainConnector;
+use chain_connector::HttpChainConnector;
 use chain_listener::ChainListener;
 use config_utils::to_peer_id;
 use connection_pool::ConnectionPoolT;
@@ -112,7 +112,7 @@ pub struct Node<RT: AquaRuntime> {
 }
 
 async fn setup_listener(
-    connector: Option<Arc<ChainConnector>>,
+    connector: Option<Arc<HttpChainConnector>>,
     config: &ResolvedConfig,
     core_manager: Arc<CoreManager>,
     chain_listener_metrics: Option<ChainListenerMetrics>,
@@ -393,7 +393,7 @@ impl<RT: AquaRuntime> Node<RT> {
         let connector = if let Some(chain_config) = config.chain_config.clone() {
             let host_id = scopes.get_host_peer_id();
             let (chain_connector, chain_builtins) =
-                ChainConnector::new(chain_config.clone(), host_id).map_err(|err| {
+                HttpChainConnector::new(chain_config.clone(), host_id).map_err(|err| {
                     log::error!(
                         "Error connecting to http endpoint {}, error: {err}",
                         chain_config.http_endpoint

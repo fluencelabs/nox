@@ -10,6 +10,7 @@ pub fn parse_peer_id(bytes: Vec<u8>) -> Result<PeerId, ParseError> {
     PeerId::from_bytes(&peer_id)
 }
 
+/// This code works only for PeerId generated from ed25519 public key, the size assumptions are wrong
 pub fn peer_id_to_bytes(peer_id: PeerId) -> [u8; 32] {
     let peer_id = peer_id.to_bytes();
     // peer_id is 38 bytes but we need 32 for chain
