@@ -10,7 +10,7 @@ particle-builtins = { workspace = true }
 particle-execution = { workspace = true }
 particle-args = { workspace = true }
 chain-data = { workspace = true }
-jsonrpsee = { workspace = true, features = ["macros", "server", "client"] }
+jsonrpsee = { workspace = true, features = ["macros", "ws-client"] }
 eyre = { workspace = true }
 fluence-libp2p = { workspace = true }
 serde_json = { workspace = true }
@@ -28,7 +28,9 @@ alloy-sol-types = { workspace = true }
 alloy-primitives = { workspace = true }
 const-hex = { workspace = true }
 serde = { workspace = true }
+async-trait = { workspace = true }
 libipld = { workspace = true }
 
 [dev-dependencies]
 mockito = { workspace = true }
+jsonrpsee = { workspace = true, features = ["server"] }

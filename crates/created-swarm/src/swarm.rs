@@ -16,6 +16,7 @@
 
 use std::collections::HashMap;
 use std::convert::identity;
+use std::future::Future;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::thread::available_parallelism;
@@ -33,11 +34,10 @@ use aquamarine::{AVMRunner, AquamarineApi, VmConfig};
 use aquamarine::{AquaRuntime, DataStoreConfig};
 use base64::{engine::general_purpose::STANDARD as base64, Engine};
 use cid_utils::Hash;
-use core_manager::manager::DummyCoreManager;
+use core_manager::DummyCoreManager;
 use fluence_libp2p::random_multiaddr::{create_memory_maddr, create_tcp_maddr};
 use fluence_libp2p::Transport;
 use fs_utils::to_abs_path;
-use futures::future::BoxFuture;
 use futures::stream::iter;
 use nox::{Connectivity, Node};
 use particle_protocol::ProtocolConfig;
@@ -86,11 +86,14 @@ pub async fn make_swarms(n: usize) -> Vec<CreatedSwarm> {
 
 pub async fn make_swarms_with_cfg<F>(n: usize, mut update_cfg: F) -> Vec<CreatedSwarm>
 where
-    F: (FnMut(SwarmConfig) -> SwarmConfig) + 'static + Send,
+    F: (FnMut(SwarmConfig) -> SwarmConfig),
 {
     make_swarms_with(
         n,
-        move |bs, maddr| create_swarm(update_cfg(SwarmConfig::new(bs, maddr))).boxed(),
+        move |bs, maddr| {
+            let cfg = update_cfg(SwarmConfig::new(bs, maddr));
+            async move { create_swarm(cfg).await }
+        },
         create_memory_maddr,
         identity,
         true,
@@ -102,9 +105,11 @@ pub async fn make_swarms_with_transport_and_mocked_vm(
     n: usize,
     transport: Transport,
 ) -> Vec<CreatedSwarm> {
-    make_swarms_with::<EasyVM, _, _, _>(
+    make_swarms_with::<EasyVM, _, _, _, _>(
         n,
-        |bs, maddr| create_swarm_with_runtime(SwarmConfig::new(bs, maddr), |_| None).boxed(),
+        |bs, maddr| async {
+            create_swarm_with_runtime(SwarmConfig::new(bs, maddr), |_| None).await
+        },
         move || match transport {
             Transport::Memory => create_memory_maddr(),
             Transport::Network => create_tcp_maddr(),
@@ -122,14 +127,14 @@ pub async fn make_swarms_with_mocked_vm<F, B>(
     bootstraps: B,
 ) -> Vec<CreatedSwarm>
 where
-    F: (FnMut(SwarmConfig) -> SwarmConfig) + 'static + Send,
-    B: (FnMut(Vec<Multiaddr>) -> Vec<Multiaddr>) + 'static + Send,
+    F: (FnMut(SwarmConfig) -> SwarmConfig),
+    B: (FnMut(Vec<Multiaddr>) -> Vec<Multiaddr>),
 {
-    make_swarms_with::<EasyVM, _, _, _>(
+    make_swarms_with::<EasyVM, _, _, _, _>(
         n,
         move |bs, maddr| {
-            create_swarm_with_runtime(update_cfg(SwarmConfig::new(bs, maddr)), move |_| delay)
-                .boxed()
+            let cfg = update_cfg(SwarmConfig::new(bs, maddr));
+            async move { create_swarm_with_runtime(cfg, move |_| delay).await }
         },
         create_memory_maddr,
         bootstraps,
@@ -146,7 +151,16 @@ pub async fn make_swarms_with_keypair(n: usize, host_keypair: KeyPair) -> Vec<Cr
     .await
 }
 
-pub async fn make_swarms_with<RT: AquaRuntime, F, M, B>(
+type MakeSwarmsData<RT> = (
+    PeerId,
+    Box<Node<RT>>,
+    KeyPair,
+    SwarmConfig,
+    ResolvedConfig,
+    Span,
+);
+
+pub async fn make_swarms_with<RT: AquaRuntime, F, FF, M, B>(
     n: usize,
     mut create_node: F,
     mut create_maddr: M,
@@ -154,24 +168,10 @@ pub async fn make_swarms_with<RT: AquaRuntime, F, M, B>(
     wait_connected: bool,
 ) -> Vec<CreatedSwarm>
 where
-    F: (FnMut(
-            Vec<Multiaddr>,
-            Multiaddr,
-        ) -> BoxFuture<
-            'static,
-            (
-                PeerId,
-                Box<Node<RT>>,
-                KeyPair,
-                SwarmConfig,
-                ResolvedConfig,
-                Span,
-            ),
-        >)
-        + 'static
-        + Send,
-    M: (FnMut() -> Multiaddr) + 'static + Send,
-    B: (FnMut(Vec<Multiaddr>) -> Vec<Multiaddr>) + 'static + Send,
+    FF: Future<Output = MakeSwarmsData<RT>>,
+    F: (FnMut(Vec<Multiaddr>, Multiaddr) -> FF),
+    M: (FnMut() -> Multiaddr),
+    B: (FnMut(Vec<Multiaddr>) -> Vec<Multiaddr>),
 {
     let addrs = (0..n).map(|_| create_maddr()).collect::<Vec<_>>();
 
@@ -209,7 +209,7 @@ where
                     http_listen_addr,
                 }
             }
-            .boxed()
+            .boxed_local()
         })
         .buffer_unordered(parallelism)
         .collect()
@@ -477,15 +477,6 @@ pub async fn create_swarm_with_runtime<RT: AquaRuntime>(
     })
 }
 
-pub async fn create_swarm(
-    config: SwarmConfig,
-) -> (
-    PeerId,
-    Box<Node<AVMRunner>>,
-    KeyPair,
-    SwarmConfig,
-    ResolvedConfig,
-    Span,
-) {
+pub async fn create_swarm(config: SwarmConfig) -> MakeSwarmsData<AVMRunner> {
     create_swarm_with_runtime(config, aqua_vm_config).await
 }

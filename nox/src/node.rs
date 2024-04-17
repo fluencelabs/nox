@@ -41,19 +41,19 @@ use aquamarine::{
     AquaRuntime, AquamarineApi, AquamarineApiError, AquamarineBackend, DataStoreConfig,
     RemoteRoutingEffects, VmPoolConfig,
 };
-use chain_connector::ChainConnector;
+use chain_connector::HttpChainConnector;
 use chain_listener::ChainListener;
 use config_utils::to_peer_id;
 use connection_pool::ConnectionPoolT;
-use core_manager::manager::CoreManager;
+use core_manager::CoreManager;
 use fluence_libp2p::build_transport;
 use health::HealthCheckRegistry;
 use particle_builtins::{Builtins, CustomService, NodeInfo};
 use particle_execution::ParticleFunctionStatic;
 use particle_protocol::ExtendedParticle;
 use peer_metrics::{
-    ConnectionPoolMetrics, ConnectivityMetrics, ParticleExecutorMetrics, ServicesMetrics,
-    ServicesMetricsBackend, SpellMetrics, VmPoolMetrics,
+    ChainListenerMetrics, ConnectionPoolMetrics, ConnectivityMetrics, ParticleExecutorMetrics,
+    ServicesMetrics, ServicesMetricsBackend, SpellMetrics, VmPoolMetrics,
 };
 use server_config::system_services_config::ServiceKey;
 use server_config::{NetworkConfig, ResolvedConfig, ServicesConfig};
@@ -67,7 +67,7 @@ use crate::behaviour::FluenceNetworkBehaviourEvent;
 use crate::builtins::make_peer_builtin;
 use crate::dispatcher::Dispatcher;
 use crate::effectors::Effectors;
-use crate::http::start_http_endpoint;
+use crate::http::{start_http_endpoint, HttpEndpointData};
 use crate::metrics::TokioCollector;
 use crate::{Connectivity, Versions};
 
@@ -107,12 +107,15 @@ pub struct Node<RT: AquaRuntime> {
     pub chain_listener: Option<ChainListener>,
 
     workers: Arc<Workers>,
+
+    config: ResolvedConfig,
 }
 
 async fn setup_listener(
-    connector: Option<Arc<ChainConnector>>,
+    connector: Option<Arc<HttpChainConnector>>,
     config: &ResolvedConfig,
     core_manager: Arc<CoreManager>,
+    chain_listener_metrics: Option<ChainListenerMetrics>,
 ) -> eyre::Result<Option<ChainListener>> {
     if let (Some(connector), Some(chain_config), Some(listener_config)) = (
         connector,
@@ -145,6 +148,7 @@ async fn setup_listener(
             core_manager,
             ccp_client,
             cc_events_dir,
+            chain_listener_metrics,
         );
         Ok(Some(chain_listener))
     } else {
@@ -206,7 +210,13 @@ impl<RT: AquaRuntime> Node<RT> {
             builtins_peer_id,
             config.node_config.default_service_memory_limit,
             config.node_config.allowed_effectors.clone(),
-            config.node_config.dev_mode_config.binaries.clone(),
+            config
+                .node_config
+                .dev_mode_config
+                .binaries
+                .clone()
+                .into_iter()
+                .collect(),
             config.node_config.dev_mode_config.enable,
         )
         .expect("create services config");
@@ -229,6 +239,7 @@ impl<RT: AquaRuntime> Node<RT> {
         let plumber_metrics = metrics_registry.as_mut().map(ParticleExecutorMetrics::new);
         let vm_pool_metrics = metrics_registry.as_mut().map(VmPoolMetrics::new);
         let spell_metrics = metrics_registry.as_mut().map(SpellMetrics::new);
+        let chain_listener_metrics = metrics_registry.as_mut().map(ChainListenerMetrics::new);
 
         if config.metrics_config.tokio_metrics_enabled {
             if let Some(r) = metrics_registry.as_mut() {
@@ -382,7 +393,7 @@ impl<RT: AquaRuntime> Node<RT> {
         let connector = if let Some(chain_config) = config.chain_config.clone() {
             let host_id = scopes.get_host_peer_id();
             let (chain_connector, chain_builtins) =
-                ChainConnector::new(chain_config.clone(), host_id).map_err(|err| {
+                HttpChainConnector::new(chain_config.clone(), host_id).map_err(|err| {
                     log::error!(
                         "Error connecting to http endpoint {}, error: {err}",
                         chain_config.http_endpoint
@@ -437,7 +448,8 @@ impl<RT: AquaRuntime> Node<RT> {
             system_services_deployer.versions(),
         );
 
-        let chain_listener = setup_listener(connector, &config, core_manager).await?;
+        let chain_listener =
+            setup_listener(connector, &config, core_manager, chain_listener_metrics).await?;
 
         Ok(Self::with(
             particle_stream,
@@ -463,6 +475,7 @@ impl<RT: AquaRuntime> Node<RT> {
             versions,
             chain_listener,
             workers.clone(),
+            config,
         ))
     }
 
@@ -559,6 +572,7 @@ impl<RT: AquaRuntime> Node<RT> {
         versions: Versions,
         chain_listener: Option<ChainListener>,
         workers: Arc<Workers>,
+        config: ResolvedConfig,
     ) -> Box<Self> {
         let node_service = Self {
             particle_stream,
@@ -586,6 +600,7 @@ impl<RT: AquaRuntime> Node<RT> {
             versions,
             chain_listener,
             workers,
+            config,
         };
 
         Box::new(node_service)
@@ -606,8 +621,6 @@ impl<RT: AquaRuntime> Node<RT> {
         let spell_event_bus = self.spell_event_bus;
         let spell_events_receiver = self.spell_events_receiver;
         let sorcerer = self.sorcerer;
-        let metrics_registry = self.metrics_registry;
-        let health_registry = self.health_registry;
         let services_metrics_backend = self.services_metrics_backend;
         let http_listen_addr = self.http_listen_addr;
         let task_name = format!("node-{peer_id}");
@@ -617,12 +630,20 @@ impl<RT: AquaRuntime> Node<RT> {
         let workers = self.workers.clone();
         let chain_listener = self.chain_listener;
 
+        let http_endpoint_data = HttpEndpointData::new(
+            self.metrics_registry,
+            self.health_registry,
+            Some(self.config),
+        );
+
         task::Builder::new().name(&task_name.clone()).spawn(async move {
             let mut http_server = if let Some(http_listen_addr) = http_listen_addr {
                 tracing::info!("Starting http endpoint at {}", http_listen_addr);
                 async move {
-                    start_http_endpoint(http_listen_addr, metrics_registry, health_registry, peer_id, versions, http_bind_outlet)
-                        .await.expect("Could not start http server");
+                    start_http_endpoint(http_listen_addr, peer_id, versions,
+                                        http_endpoint_data, http_bind_outlet)
+                        .await
+                        .expect("Could not start http server");
                 }.boxed()
             } else {
                 futures::future::pending().boxed()
@@ -724,7 +745,7 @@ mod tests {
     use aquamarine::{DataStoreConfig, VmConfig};
     use config_utils::to_peer_id;
     use connected_client::ConnectedClient;
-    use core_manager::manager::DummyCoreManager;
+    use core_manager::DummyCoreManager;
     use fs_utils::to_abs_path;
     use server_config::{default_base_dir, load_config_with_args, persistent_dir};
     use system_services::SystemServiceDistros;

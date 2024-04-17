@@ -137,7 +137,7 @@ pub struct DeciderConfig {
     pub start_block: String,
     #[serde(default = "default_decider_worker_gas")]
     pub worker_gas: u64,
-    #[serde(default)]
+    #[serde(default, skip_serializing)]
     pub wallet_key: Option<String>,
 }
 

@@ -1,5 +1,6 @@
 use ccp_shared::types::CUID;
 use cpu_utils::{CPUTopologyError, PhysicalCoreId};
+use std::fmt::{Display, Formatter, Write};
 use std::str::Utf8Error;
 use thiserror::Error;
 
@@ -58,12 +59,42 @@ pub enum PersistError {
     },
 }
 
+#[derive(Debug)]
+pub struct CurrentAssignment {
+    data: Vec<(PhysicalCoreId, CUID)>,
+}
+
+impl CurrentAssignment {
+    pub fn new(data: Vec<(PhysicalCoreId, CUID)>) -> Self {
+        Self { data }
+    }
+}
+
+impl Display for CurrentAssignment {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.write_char('[')?;
+        for (core, cuid) in &self.data[0..self.data.len() - 1] {
+            f.write_str(core.to_string().as_str())?;
+            f.write_str(" -> ")?;
+            f.write_str(format!("{}", cuid).as_str())?;
+            f.write_str(", ")?;
+        }
+        let (core, cuid) = &self.data[self.data.len() - 1];
+        f.write_str(core.to_string().as_str())?;
+        f.write_str(" -> ")?;
+        f.write_str(format!("{}", cuid).as_str())?;
+
+        f.write_char(']')?;
+        Ok(())
+    }
+}
+
 #[derive(Debug, Error)]
 pub enum AcquireError {
-    #[error(
-        "Couldn't assign core: no free cores left. Current assignment: {current_assignment:?}"
-    )]
+    #[error("Couldn't assign core: no free cores left. Required: {required}, available: {available}, current assignment: {current_assignment}.")]
     NotFoundAvailableCores {
-        current_assignment: Vec<(PhysicalCoreId, CUID)>,
+        required: usize,
+        available: usize,
+        current_assignment: CurrentAssignment,
     },
 }

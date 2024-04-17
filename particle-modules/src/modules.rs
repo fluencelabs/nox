@@ -303,7 +303,7 @@ impl ModuleRepository {
                 let blueprint: eyre::Result<_> = try {
                     // Read & deserialize TOML
                     let bytes = std::fs::read(&path)?;
-                    let blueprint: Blueprint = toml::de::from_slice(&bytes)?;
+                    let blueprint: Blueprint = toml_edit::de::from_slice(&bytes)?;
                     blueprint
                 };
 

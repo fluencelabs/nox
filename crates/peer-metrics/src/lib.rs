@@ -3,6 +3,7 @@ use std::fmt::Debug;
 use prometheus_client::encoding::{EncodeLabelSet, EncodeLabelValue, EncodeMetric};
 use prometheus_client::registry::Registry;
 
+pub use chain_listener::ChainListenerMetrics;
 pub use connection_pool::ConnectionPoolMetrics;
 pub use connectivity::ConnectivityMetrics;
 pub use connectivity::Resolution;
@@ -17,6 +18,7 @@ pub use services_metrics::{
 pub use spell_metrics::SpellMetrics;
 pub use vm_pool::VmPoolMetrics;
 
+mod chain_listener;
 mod connection_pool;
 mod connectivity;
 mod dispatcher;

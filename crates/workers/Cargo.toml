@@ -15,14 +15,15 @@ parking_lot = { workspace = true }
 eyre = { workspace = true }
 thiserror = { workspace = true }
 serde = { workspace = true }
-toml = { workspace = true }
+toml = "0.8.12"
+toml_edit = { workspace = true }
 log = { workspace = true }
 libp2p = { workspace = true }
 tracing = { workspace = true }
 tokio = { workspace = true, features = ["fs", "sync"] }
 derivative = { workspace = true }
 types = { workspace = true }
-async-trait = "0.1.77"
+async-trait = "0.1.79"
 
 [dev-dependencies]
 tempfile = { workspace = true }
