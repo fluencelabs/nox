@@ -174,9 +174,9 @@ enum_dispatch = "0.3.12"
 serde_with = "3.7.0"
 mockito = "1.2.0"
 clarity = "1.3.0"
-cpu-utils = "0.8.0"
-ccp-shared = "0.8.0"
-ccp-rpc-client = "0.8.0"
+cpu-utils = { git = "https://github.com/fluencelabs/capacity-commitment-prover", branch = "main" }
+ccp-shared = { git = "https://github.com/fluencelabs/capacity-commitment-prover", branch = "main" }
+ccp-rpc-client = { git = "https://github.com/fluencelabs/capacity-commitment-prover", branch = "main" }
 alloy-sol-types = "0.6.4"
 alloy-primitives = "0.6.4"
 alloy_serde_macro = "0.1.2"

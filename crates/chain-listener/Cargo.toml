@@ -44,3 +44,4 @@ peer-metrics = { workspace = true }
 jsonrpsee = { workspace = true, features = ["server"] }
 tempfile = { workspace = true }
 tokio-stream = { workspace = true }
+log-utils = { workspace = true }

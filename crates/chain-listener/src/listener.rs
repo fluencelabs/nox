@@ -11,7 +11,7 @@ use std::time::Duration;
 
 use backoff::future::retry;
 use backoff::ExponentialBackoff;
-use ccp_rpc_client::CCPRpcHttpClient;
+use ccp_rpc_client::CCPRpcClient;
 use ccp_shared::proof::{CCProof, CCProofId, ProofIdx};
 use ccp_shared::types::{Difficulty, GlobalNonce, LocalNonce, ResultHash};
 use cpu_utils::PhysicalCoreId;
@@ -37,6 +37,7 @@ use core_manager::{CoreManager, CoreManagerFunctions, CUID};
 use peer_metrics::ChainListenerMetrics;
 use types::DealId;
 
+use crate::ccp::CCPClient;
 use crate::event::cc_activated::CommitmentActivated;
 use crate::event::{ComputeUnitMatched, UnitActivated, UnitDeactivated};
 use crate::persistence;
@@ -61,7 +62,7 @@ pub struct ChainListener {
     // To subscribe to chain events
     event_subscription: Box<dyn EventSubscription>,
 
-    ccp_client: Option<CCPRpcHttpClient>,
+    ccp_client: Option<Box<dyn CCPClient>>,
 
     core_manager: Arc<CoreManager>,
 
@@ -118,7 +119,7 @@ impl ChainListener {
         event_subscription: Box<dyn EventSubscription>,
         chain_connector: Arc<dyn ChainConnector>,
         core_manager: Arc<CoreManager>,
-        ccp_client: Option<CCPRpcHttpClient>,
+        ccp_client: Option<Box<dyn CCPClient>>,
         persisted_proof_id_dir: PathBuf,
         metrics: Option<ChainListenerMetrics>,
     ) -> Self {
@@ -170,9 +171,11 @@ impl ChainListener {
     }
 
     pub fn start(mut self) -> JoinHandle<()> {
-        let result = tokio::task::Builder::new()
-            .name("ChainListener")
-            .spawn_local(async move {
+        let local = tokio::task::LocalSet::new();
+
+        // TODO: fix and use spawn instead of spawn_local
+        let result = local.spawn_local(
+            async move {
 
                 if let Err(err) = self.set_utility_core().await {
                     tracing::error!(target: "chain-listener", "Failed to set utility core: {err}; Stopping...");
@@ -245,9 +248,7 @@ impl ChainListener {
                         }
                     }
                 }
-            })
-            .expect("Could not spawn task");
-
+        });
         result
     }
 
@@ -1304,6 +1305,7 @@ mod tests {
     use core_manager::{CoreManager, DummyCoreManager};
     use futures::StreamExt;
     use jsonrpsee::core::{async_trait, JsonValue};
+    use log_utils::enable_logs;
     use std::sync::Arc;
     use std::time::Duration;
     use tokio::sync::broadcast::Sender;
@@ -1312,12 +1314,23 @@ mod tests {
 
     struct TestEventSubscription {
         new_heads_sender: Sender<Result<JsonValue, Error>>,
+        commitment_activated_sender: Sender<Result<JsonValue, Error>>,
+        commitment_deactivated_sender: Sender<Result<JsonValue, Error>>,
+        unit_matched_sender: Sender<Result<JsonValue, Error>>,
     }
 
     impl TestEventSubscription {
         pub fn new() -> Self {
             let (new_heads_sender, _rx) = tokio::sync::broadcast::channel(16);
-            Self { new_heads_sender }
+            let (commitment_activated_sender, _rx) = tokio::sync::broadcast::channel(16);
+            let (commitment_deactivated_sender, _rx) = tokio::sync::broadcast::channel(16);
+            let (unit_matched_sender, _rx) = tokio::sync::broadcast::channel(16);
+            Self {
+                new_heads_sender,
+                commitment_activated_sender,
+                commitment_deactivated_sender,
+                unit_matched_sender,
+            }
         }
     }
 
@@ -1334,7 +1347,9 @@ mod tests {
             &self,
             commitment_id: &CommitmentId,
         ) -> Result<Stream<JsonValue>, Error> {
-            todo!()
+            let rx = self.commitment_deactivated_sender.subscribe();
+            let stream = BroadcastStream::new(rx);
+            Ok(stream.map(|item| item.unwrap()).boxed())
         }
 
         async fn new_heads(&self) -> Result<Stream<JsonValue>, Error> {
@@ -1344,11 +1359,15 @@ mod tests {
         }
 
         async fn commitment_activated(&self) -> Result<Stream<JsonValue>, Error> {
-            todo!()
+            let rx = self.commitment_activated_sender.subscribe();
+            let stream = BroadcastStream::new(rx);
+            Ok(stream.map(|item| item.unwrap()).boxed())
         }
 
         async fn unit_matched(&self) -> Result<Stream<JsonValue>, Error> {
-            todo!()
+            let rx = self.unit_matched_sender.subscribe();
+            let stream = BroadcastStream::new(rx);
+            Ok(stream.map(|item| item.unwrap()).boxed())
         }
 
         async fn refresh(&mut self) -> Result<(), Error> {
@@ -1419,6 +1438,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_activation_flow() {
+        enable_logs();
         let tmp_dir = tempfile::tempdir().expect("Could not create temp dir");
         let config = ChainListenerConfig::new(Duration::from_secs(1));
         let subscription = TestEventSubscription::new();
@@ -1438,5 +1458,7 @@ mod tests {
         );
 
         listener.start().await;
+
+        tokio::time::sleep(Duration::from_secs(10)).await;
     }
 }

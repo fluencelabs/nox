@@ -14,5 +14,6 @@ pub use subscription::WsSubscriptionConfig;
 mod event;
 mod listener;
 
+mod ccp;
 mod persistence;
 mod subscription;
