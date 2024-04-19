@@ -1,4 +1,4 @@
-use ccp_rpc_client::{CCPRpcClient, CCPRpcHttpClient, ClientError};
+use ccp_rpc_client::{CCPRpcHttpClient, ClientError};
 use ccp_shared::proof::{CCProof, ProofIdx};
 use ccp_shared::types::{Difficulty, GlobalNonce, LogicalCoreId, PhysicalCoreId, CUID};
 use jsonrpsee::core::async_trait;

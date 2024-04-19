@@ -11,7 +11,6 @@ use std::time::Duration;
 
 use backoff::future::retry;
 use backoff::ExponentialBackoff;
-use ccp_rpc_client::CCPRpcClient;
 use ccp_shared::proof::{CCProof, CCProofId, ProofIdx};
 use ccp_shared::types::{Difficulty, GlobalNonce, LocalNonce, ResultHash};
 use cpu_utils::PhysicalCoreId;
@@ -60,9 +59,9 @@ pub struct ChainListener {
 
     chain_connector: Arc<dyn ChainConnector>,
     // To subscribe to chain events
-    event_subscription: Box<dyn EventSubscription>,
+    event_subscription: Arc<dyn EventSubscription>,
 
-    ccp_client: Option<Box<dyn CCPClient>>,
+    ccp_client: Option<Arc<dyn CCPClient>>,
 
     core_manager: Arc<CoreManager>,
 
@@ -116,10 +115,10 @@ where
 impl ChainListener {
     pub fn new(
         listener_config: ChainListenerConfig,
-        event_subscription: Box<dyn EventSubscription>,
+        event_subscription: Arc<dyn EventSubscription>,
         chain_connector: Arc<dyn ChainConnector>,
         core_manager: Arc<CoreManager>,
-        ccp_client: Option<Box<dyn CCPClient>>,
+        ccp_client: Option<Arc<dyn CCPClient>>,
         persisted_proof_id_dir: PathBuf,
         metrics: Option<ChainListenerMetrics>,
     ) -> Self {
@@ -467,8 +466,6 @@ impl ChainListener {
     }
 
     async fn refresh_subscriptions(&mut self) -> Result<(), Error> {
-        self.event_subscription.refresh().await?;
-
         // loop because subscriptions can fail and require reconnection, we can't proceed without them
         loop {
             let result: Result<(), Error> = try {
@@ -1306,8 +1303,10 @@ mod tests {
     use futures::StreamExt;
     use jsonrpsee::core::{async_trait, JsonValue};
     use log_utils::enable_logs;
+    use serde_json::{json, Value};
     use std::sync::Arc;
     use std::time::Duration;
+    use tokio::sync::broadcast::error::SendError;
     use tokio::sync::broadcast::Sender;
     use tokio_stream::wrappers::BroadcastStream;
     use types::DealId;
@@ -1331,6 +1330,13 @@ mod tests {
                 commitment_deactivated_sender,
                 unit_matched_sender,
             }
+        }
+
+        pub fn send_new_heads(
+            &self,
+            value: Result<JsonValue, Error>,
+        ) -> Result<usize, SendError<Result<Value, Error>>> {
+            self.new_heads_sender.send(value)
         }
     }
 
@@ -1370,11 +1376,11 @@ mod tests {
             Ok(stream.map(|item| item.unwrap()).boxed())
         }
 
-        async fn refresh(&mut self) -> Result<(), Error> {
+        async fn refresh(&self) -> Result<(), Error> {
             Ok(())
         }
 
-        async fn restart(&mut self) -> Result<(), Error> {
+        async fn restart(&self) -> Result<(), Error> {
             Ok(())
         }
     }
@@ -1442,14 +1448,14 @@ mod tests {
         let tmp_dir = tempfile::tempdir().expect("Could not create temp dir");
         let config = ChainListenerConfig::new(Duration::from_secs(1));
         let subscription = TestEventSubscription::new();
-        let subscription = Box::new(subscription);
+        let subscription = Arc::new(subscription);
         let connector = TestChainConnector;
         let connector = Arc::new(connector);
         let core_manager = CoreManager::Dummy(DummyCoreManager::default());
         let core_manager = Arc::new(core_manager);
         let listener = ChainListener::new(
             config,
-            subscription,
+            subscription.clone(),
             connector,
             core_manager,
             None,
@@ -1458,6 +1464,9 @@ mod tests {
         );
 
         listener.start().await;
+
+        tokio::time::sleep(Duration::from_secs(3));
+        let _ = subscription.send_new_heads(Ok(json!("test"))).unwrap();
 
         tokio::time::sleep(Duration::from_secs(10)).await;
     }

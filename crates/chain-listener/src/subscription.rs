@@ -19,6 +19,7 @@ use serde_json::json;
 use std::ops::Deref;
 use std::sync::Arc;
 use thiserror::Error;
+use tokio::sync::RwLock;
 
 //TODO: make a domain errors
 #[derive(Error, Clone, Debug)]
@@ -51,8 +52,8 @@ pub trait EventSubscription: Send + Sync {
     async fn unit_matched(&self) -> SubResult<JsonValue>;
 
     // TODO: remove both methods and encapsulate logic
-    async fn refresh(&mut self) -> Result<(), Error>;
-    async fn restart(&mut self) -> Result<(), Error>;
+    async fn refresh(&self) -> Result<(), Error>;
+    async fn restart(&self) -> Result<(), Error>;
 }
 
 pub struct WsSubscriptionConfig {
@@ -80,12 +81,13 @@ impl WsSubscriptionConfig {
 
 pub struct WsEventSubscription {
     config: WsSubscriptionConfig,
-    ws_client: WsClient,
+    ws_client: RwLock<WsClient>,
 }
 
 impl WsEventSubscription {
     pub async fn new(config: WsSubscriptionConfig) -> Result<Self, Error> {
         let ws_client = Self::create_ws_client(config.ws_endpoint.as_str()).await?;
+        let ws_client = RwLock::new(ws_client);
         Ok(Self { config, ws_client })
     }
 
@@ -95,8 +97,8 @@ impl WsEventSubscription {
         params: ArrayParams,
     ) -> Result<Stream<JsonValue>, Error> {
         let sub = retry(ExponentialBackoff::default(), || async {
-           self.ws_client
-                .subscribe("eth_subscribe", params.clone(), "eth_unsubscribe")
+           let ws_client = self.ws_client.read().await;
+                ws_client.subscribe("eth_subscribe", params.clone(), "eth_unsubscribe")
                 .await.map_err(|err|  {
                 if let RestartNeeded(_) = err {
                     tracing::error!(target: "chain-listener", "Failed to subscribe to {method}: {err};");
@@ -205,15 +207,16 @@ impl EventSubscription for WsEventSubscription {
         self.subscribe("logs", self.unit_matched_params()).await
     }
 
-    async fn refresh(&mut self) -> Result<(), Error> {
-        if !self.ws_client.is_connected() {
+    async fn refresh(&self) -> Result<(), Error> {
+        if !self.ws_client.read().await.is_connected() {
             self.restart().await?
         }
         Ok(())
     }
 
-    async fn restart(&mut self) -> Result<(), Error> {
-        self.ws_client = Self::create_ws_client(&self.config.ws_endpoint).await?;
+    async fn restart(&self) -> Result<(), Error> {
+        let mut ws_client = self.ws_client.write().await;
+        *ws_client = Self::create_ws_client(&self.config.ws_endpoint).await?;
         Ok(())
     }
 }
