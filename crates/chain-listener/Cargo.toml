@@ -21,7 +21,6 @@ tracing = { workspace = true }
 eyre = { workspace = true }
 serde_json = { workspace = true }
 tokio = { workspace = true, features = ["rt"] }
-server-config = { workspace = true }
 types = { workspace = true }
 libipld = { workspace = true }
 
@@ -43,3 +42,4 @@ peer-metrics = { workspace = true }
 
 [dev-dependencies]
 jsonrpsee = { workspace = true, features = ["server"] }
+tempfile = { workspace = true }

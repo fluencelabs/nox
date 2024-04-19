@@ -43,7 +43,9 @@ use aquamarine::{
     RemoteRoutingEffects, VmPoolConfig, WasmBackendConfig,
 };
 use chain_connector::HttpChainConnector;
-use chain_listener::ChainListener;
+use chain_listener::{
+    ChainListener, ChainListenerConfig, WsEventSubscription, WsSubscriptionConfig,
+};
 use config_utils::to_peer_id;
 use connection_pool::ConnectionPoolT;
 use core_manager::CoreManager;
@@ -136,15 +138,23 @@ async fn setup_listener(
             None
         };
 
-        let ws_client = ChainListener::create_ws_client(&listener_config.ws_endpoint).await?;
         let cc_events_dir = config.dir_config.cc_events_dir.clone();
         let host_id = config.root_key_pair.get_peer_id();
 
-        let chain_listener = ChainListener::new(
-            chain_config,
-            ws_client,
-            listener_config,
+        let ws_event_subscription_config = WsSubscriptionConfig::new(
             host_id,
+            listener_config.ws_endpoint.clone(),
+            chain_config.cc_contract_address,
+            chain_config.market_contract_address,
+        );
+        let event_subscription = WsEventSubscription::new(ws_event_subscription_config).await?;
+        let event_subscription = Box::new(event_subscription);
+
+        let chain_listener_config = ChainListenerConfig::new(listener_config.proof_poll_period);
+
+        let chain_listener = ChainListener::new(
+            chain_listener_config,
+            event_subscription,
             connector,
             core_manager,
             ccp_client,

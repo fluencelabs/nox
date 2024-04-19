@@ -1,5 +1,4 @@
 use alloy_primitives::{Address, BlockNumber, FixedBytes, Uint, U256};
-use alloy_sol_types::SolEvent;
 use backoff::Error::Permanent;
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::future::{pending, Future};
@@ -18,14 +17,10 @@ use ccp_shared::types::{Difficulty, GlobalNonce, LocalNonce, ResultHash};
 use cpu_utils::PhysicalCoreId;
 
 use eyre::{eyre, Report};
-use jsonrpsee::core::client::{Client as WsClient, Subscription, SubscriptionClientT};
-use jsonrpsee::core::params::ArrayParams;
+use jsonrpsee::core::client::Subscription;
 use jsonrpsee::core::{client, JsonValue};
-use jsonrpsee::rpc_params;
-use jsonrpsee::ws_client::WsClientBuilder;
-use libp2p_identity::PeerId;
 use serde::de::DeserializeOwned;
-use serde_json::{json, Value};
+use serde_json::Value;
 use tokio::task::JoinHandle;
 use tokio::time::{interval, Instant};
 use tokio_stream::wrappers::IntervalStream;
@@ -36,33 +31,40 @@ use chain_connector::{
     is_commitment_not_active, is_too_many_proofs, CCStatus, ChainConnector, CommitmentId,
     ConnectorError, Deal, PEER_NOT_EXISTS,
 };
-use chain_data::{parse_log, peer_id_to_hex, Log};
+use chain_data::{parse_log, Log};
 use core_manager::errors::AcquireError;
 use core_manager::types::{AcquireRequest, Assignment, WorkType};
 use core_manager::{CoreManager, CoreManagerFunctions, CUID};
 use peer_metrics::ChainListenerMetrics;
-use server_config::{ChainConfig, ChainListenerConfig};
 use types::DealId;
 
 use crate::event::cc_activated::CommitmentActivated;
 use crate::event::{ComputeUnitMatched, UnitActivated, UnitDeactivated};
 use crate::persistence;
+use crate::subscription::EventSubscription;
 
 const PROOF_POLL_LIMIT: usize = 50;
 
+pub struct ChainListenerConfig {
+    proof_poll_period: Duration,
+}
+
+impl ChainListenerConfig {
+    pub fn new(proof_poll_period: Duration) -> Self {
+        Self { proof_poll_period }
+    }
+}
+
 pub struct ChainListener {
-    config: ChainConfig,
     listener_config: ChainListenerConfig,
 
     chain_connector: Arc<dyn ChainConnector>,
     // To subscribe to chain events
-    ws_client: WsClient,
+    event_subscription: Box<dyn EventSubscription>,
 
     ccp_client: Option<CCPRpcHttpClient>,
 
     core_manager: Arc<CoreManager>,
-
-    host_id: PeerId,
 
     // These settings aren't changed
     // We refresh them on some errors, but it's enough to get them only on start without refreshing
@@ -113,10 +115,8 @@ where
 
 impl ChainListener {
     pub fn new(
-        chain_config: ChainConfig,
-        ws_client: WsClient,
         listener_config: ChainListenerConfig,
-        host_id: PeerId,
+        event_subscription: Box<dyn EventSubscription>,
         chain_connector: Arc<dyn ChainConnector>,
         core_manager: Arc<CoreManager>,
         ccp_client: Option<CCPRpcHttpClient>,
@@ -128,11 +128,9 @@ impl ChainListener {
         }
 
         Self {
-            chain_connector,
-            ws_client,
             listener_config,
-            config: chain_config,
-            host_id,
+            chain_connector,
+            event_subscription,
             difficulty: Difficulty::default(),
             init_timestamp: U256::ZERO,
             global_nonce: GlobalNonce::new([0; 32]),
@@ -453,44 +451,18 @@ impl ChainListener {
         }
     }
 
-    pub async fn create_ws_client(ws_endpoint: &str) -> Result<WsClient, client::Error> {
-        let ws_client = retry(ExponentialBackoff::default(), || async {
-            let client = WsClientBuilder::default()
-                .build(ws_endpoint)
-                .await
-                .map_err(|err| {
-                    tracing::warn!(
-                        target: "chain-listener",
-                        "Error connecting to websocket endpoint {}, error: {}; Retrying...",
-                        ws_endpoint,
-                        err
-                    );
-                    err
-                })?;
-
-            Ok(client)
-        })
-        .await?;
-
-        tracing::info!(
-            target: "chain-listener",
-            "Successfully connected to websocket endpoint: {}",
-            ws_endpoint
-        );
-
-        Ok(ws_client)
-    }
-
     async fn subscribe_unit_events(
         &mut self,
         commitment_id: &CommitmentId,
     ) -> Result<(), client::Error> {
         self.unit_activated = Some(
-            self.subscribe("logs", self.unit_activated_params(commitment_id))
+            self.event_subscription
+                .unit_activated(commitment_id)
                 .await?,
         );
         self.unit_deactivated = Some(
-            self.subscribe("logs", self.unit_deactivated_params(commitment_id))
+            self.event_subscription
+                .unit_deactivated(commitment_id)
                 .await?,
         );
 
@@ -498,18 +470,15 @@ impl ChainListener {
     }
 
     async fn refresh_subscriptions(&mut self) -> Result<(), client::Error> {
-        if !self.ws_client.is_connected() {
-            self.ws_client =
-                ChainListener::create_ws_client(&self.listener_config.ws_endpoint).await?;
-        }
+        self.event_subscription.refresh().await?;
 
         // loop because subscriptions can fail and require reconnection, we can't proceed without them
         loop {
             let result: Result<(), client::Error> = try {
-                self.heads = Some(self.subscribe("newHeads", rpc_params!["newHeads"]).await?);
+                self.heads = Some(self.event_subscription.new_heads().await?);
                 self.commitment_activated =
-                    Some(self.subscribe("logs", self.cc_activated_params()).await?);
-                self.unit_matched = Some(self.subscribe("logs", self.unit_matched_params()).await?);
+                    Some(self.event_subscription.commitment_activated().await?);
+                self.unit_matched = Some(self.event_subscription.unit_matched().await?);
                 if let Some(commitment_id) = self.current_commitment.clone() {
                     self.subscribe_unit_events(&commitment_id).await?;
                 }
@@ -523,9 +492,7 @@ impl ChainListener {
                 Err(err) => match err {
                     client::Error::RestartNeeded(_) => {
                         tracing::warn!(target: "chain-listener", "Failed to refresh subscriptions: {err}; Restart client...");
-                        self.ws_client =
-                            ChainListener::create_ws_client(&self.listener_config.ws_endpoint)
-                                .await?;
+                        self.event_subscription.restart().await?;
                     }
                     _ => {
                         tracing::error!(target: "chain-listener", "Failed to refresh subscriptions: {err}; Retrying...");
@@ -584,64 +551,6 @@ impl ChainListener {
         );
 
         Ok(())
-    }
-
-    async fn subscribe(
-        &self,
-        method: &str,
-        params: ArrayParams,
-    ) -> Result<Subscription<JsonValue>, client::Error> {
-        let sub = retry(ExponentialBackoff::default(), || async {
-             self
-                .ws_client
-                .subscribe("eth_subscribe", params.clone(), "eth_unsubscribe")
-                .await.map_err(|err|  {
-                if let client::Error::RestartNeeded(_) = err {
-                    tracing::error!(target: "chain-listener", "Failed to subscribe to {method}: {err};");
-                    Permanent(err)
-                } else {
-                    tracing::warn!(target: "chain-listener", "Failed to subscribe to {method}: {err}; Retrying...");
-                    backoff::Error::transient(err)
-                }})
-        }).await?;
-
-        Ok(sub)
-    }
-
-    fn cc_activated_params(&self) -> ArrayParams {
-        let topic = CommitmentActivated::SIGNATURE_HASH.to_string();
-        let topics = vec![topic, peer_id_to_hex(self.host_id)];
-        rpc_params![
-            "logs",
-            json!({"address": self.config.cc_contract_address, "topics": topics})
-        ]
-    }
-
-    fn unit_activated_params(&self, commitment_id: &CommitmentId) -> ArrayParams {
-        let topic = UnitActivated::SIGNATURE_HASH.to_string();
-        rpc_params![
-            "logs",
-            json!({"address": self.config.cc_contract_address, "topics":  vec![topic, hex::encode(commitment_id.0)]})
-        ]
-    }
-
-    fn unit_deactivated_params(&self, commitment_id: &CommitmentId) -> ArrayParams {
-        let topic = UnitDeactivated::SIGNATURE_HASH.to_string();
-        rpc_params![
-            "logs",
-            json!({"address": self.config.cc_contract_address, "topics":  vec![topic, hex::encode(commitment_id.0)]})
-        ]
-    }
-
-    fn unit_matched_params(&self) -> ArrayParams {
-        let topics = vec![
-            ComputeUnitMatched::SIGNATURE_HASH.to_string(),
-            peer_id_to_hex(self.host_id),
-        ];
-        rpc_params![
-            "logs",
-            json!({"address": self.config.market_contract_address, "topics": topics})
-        ]
     }
 
     async fn process_new_header(
@@ -1385,4 +1294,140 @@ where
         .as_ref()
         .inspect(|m| m.observe_ccp_reply(elapsed.as_millis() as f64));
     result
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::subscription::EventSubscription;
+    use crate::{ChainListener, ChainListenerConfig};
+    use ccp_shared::proof::CCProof;
+    use ccp_shared::types::{GlobalNonce, CUID};
+    use chain_connector::Deal::Status;
+    use chain_connector::Offer::ComputeUnit;
+    use chain_connector::{CCInitParams, CCStatus, ChainConnector, CommitmentId, ConnectorError};
+    use core_manager::{CoreManager, DummyCoreManager};
+    use jsonrpsee::core::client::{Error, Subscription};
+    use jsonrpsee::core::{async_trait, JsonValue};
+    use std::sync::Arc;
+    use std::time::Duration;
+    use types::DealId;
+
+    struct TestEventSubscription;
+
+    #[async_trait]
+    impl EventSubscription for TestEventSubscription {
+        async fn unit_activated(
+            &self,
+            commitment_id: &CommitmentId,
+        ) -> Result<Subscription<JsonValue>, Error> {
+            todo!()
+        }
+
+        async fn unit_deactivated(
+            &self,
+            commitment_id: &CommitmentId,
+        ) -> Result<Subscription<JsonValue>, Error> {
+            todo!()
+        }
+
+        async fn new_heads(&self) -> Result<Subscription<JsonValue>, Error> {
+            todo!()
+        }
+
+        async fn commitment_activated(&self) -> Result<Subscription<JsonValue>, Error> {
+            todo!()
+        }
+
+        async fn unit_matched(&self) -> Result<Subscription<JsonValue>, Error> {
+            todo!()
+        }
+
+        async fn refresh(&mut self) -> Result<(), Error> {
+            Ok(())
+        }
+
+        async fn restart(&mut self) -> Result<(), Error> {
+            Ok(())
+        }
+    }
+
+    struct TestChainConnector;
+
+    #[async_trait]
+    impl ChainConnector for TestChainConnector {
+        async fn get_current_commitment_id(&self) -> Result<Option<CommitmentId>, ConnectorError> {
+            todo!()
+        }
+
+        async fn get_cc_init_params(&self) -> eyre::Result<CCInitParams> {
+            todo!()
+        }
+
+        async fn get_compute_units(&self) -> Result<Vec<ComputeUnit>, ConnectorError> {
+            todo!()
+        }
+
+        async fn get_commitment_status(
+            &self,
+            commitment_id: CommitmentId,
+        ) -> Result<CCStatus, ConnectorError> {
+            todo!()
+        }
+
+        async fn get_global_nonce(&self) -> Result<GlobalNonce, ConnectorError> {
+            todo!()
+        }
+
+        async fn submit_proof(&self, proof: CCProof) -> Result<String, ConnectorError> {
+            todo!()
+        }
+
+        async fn get_deal_statuses(
+            &self,
+            deal_ids: Vec<DealId>,
+        ) -> Result<Vec<Result<Status, ConnectorError>>, ConnectorError> {
+            todo!()
+        }
+
+        async fn exit_deal(&self, cu_id: &CUID) -> Result<String, ConnectorError> {
+            todo!()
+        }
+
+        async fn get_tx_statuses(
+            &self,
+            tx_hashes: Vec<String>,
+        ) -> Result<Vec<Result<Option<bool>, ConnectorError>>, ConnectorError> {
+            todo!()
+        }
+
+        async fn get_tx_receipts(
+            &self,
+            tx_hashes: Vec<String>,
+        ) -> Result<Vec<Result<JsonValue, ConnectorError>>, ConnectorError> {
+            todo!()
+        }
+    }
+
+    #[tokio::test]
+    async fn test_activation_flow() {
+        let tmp_dir = tempfile::tempdir().expect("Could not create temp dir");
+        let config = ChainListenerConfig::new(Duration::from_secs(1));
+        let subscription = TestEventSubscription;
+        let subscription = Box::new(subscription);
+        let connector = TestChainConnector;
+        let connector = Arc::new(connector);
+        let core_manager = CoreManager::Dummy(DummyCoreManager::default());
+        let core_manager = Arc::new(core_manager);
+        let listener = ChainListener::new(
+            config,
+            subscription,
+            connector,
+            core_manager,
+            None,
+            tmp_dir.path().join("proofs").to_path_buf(),
+            None,
+        );
+
+        listener.start().await;
+    }
 }
