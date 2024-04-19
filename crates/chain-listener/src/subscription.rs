@@ -6,28 +6,49 @@ use backoff::Error::Permanent;
 use backoff::ExponentialBackoff;
 use chain_connector::CommitmentId;
 use chain_data::peer_id_to_hex;
-use jsonrpsee::core::client::{Error, Subscription, SubscriptionClientT};
+use futures::stream::BoxStream;
+use futures::{StreamExt, TryStreamExt};
+use jsonrpsee::core::client::SubscriptionClientT;
 use jsonrpsee::core::params::ArrayParams;
+use jsonrpsee::core::ClientError::RestartNeeded;
 use jsonrpsee::core::{async_trait, JsonValue};
 use jsonrpsee::rpc_params;
 use jsonrpsee::ws_client::{WsClient, WsClientBuilder};
 use libp2p_identity::PeerId;
 use serde_json::json;
+use std::ops::Deref;
+use std::sync::Arc;
+use thiserror::Error;
+
+//TODO: make a domain errors
+#[derive(Error, Clone, Debug)]
+#[error(transparent)]
+pub struct Error(#[from] Arc<jsonrpsee::core::client::Error>);
+
+impl Deref for Error {
+    type Target = jsonrpsee::core::client::Error;
+
+    fn deref(&self) -> &Self::Target {
+        self.0.deref()
+    }
+}
+
+impl From<jsonrpsee::core::client::Error> for Error {
+    fn from(value: jsonrpsee::core::client::Error) -> Self {
+        Self(Arc::new(value))
+    }
+}
+
+pub type Stream<T> = BoxStream<'static, Result<T, Error>>;
+pub type SubResult<T> = Result<Stream<T>, Error>;
 
 #[async_trait]
 pub trait EventSubscription: Send + Sync {
-    async fn unit_activated(
-        &self,
-        commitment_id: &CommitmentId,
-    ) -> Result<Subscription<JsonValue>, Error>;
-    async fn unit_deactivated(
-        &self,
-        commitment_id: &CommitmentId,
-    ) -> Result<Subscription<JsonValue>, Error>;
-    async fn new_heads(&self) -> Result<Subscription<JsonValue>, Error>;
-    async fn commitment_activated(&self) -> Result<Subscription<JsonValue>, Error>;
-    async fn unit_matched(&self) -> Result<Subscription<JsonValue>, Error>;
-
+    async fn unit_activated(&self, commitment_id: &CommitmentId) -> SubResult<JsonValue>;
+    async fn unit_deactivated(&self, commitment_id: &CommitmentId) -> SubResult<JsonValue>;
+    async fn new_heads(&self) -> SubResult<JsonValue>;
+    async fn commitment_activated(&self) -> SubResult<JsonValue>;
+    async fn unit_matched(&self) -> SubResult<JsonValue>;
 
     // TODO: remove both methods and encapsulate logic
     async fn refresh(&mut self) -> Result<(), Error>;
@@ -72,21 +93,21 @@ impl WsEventSubscription {
         &self,
         method: &str,
         params: ArrayParams,
-    ) -> Result<Subscription<JsonValue>, Error> {
+    ) -> Result<Stream<JsonValue>, Error> {
         let sub = retry(ExponentialBackoff::default(), || async {
            self.ws_client
                 .subscribe("eth_subscribe", params.clone(), "eth_unsubscribe")
                 .await.map_err(|err|  {
-                if let Error::RestartNeeded(_) = err {
+                if let RestartNeeded(_) = err {
                     tracing::error!(target: "chain-listener", "Failed to subscribe to {method}: {err};");
                     Permanent(err)
                 } else {
                     tracing::warn!(target: "chain-listener", "Failed to subscribe to {method}: {err}; Retrying...");
                     backoff::Error::transient(err)
                 }})
-        }).await?;
+        }).await.map_err(|err| Error::from(err))?;
 
-        Ok(sub)
+        Ok(sub.map_err(|err| err.into()).boxed())
     }
 
     fn unit_activated_params(&self, commitment_id: &CommitmentId) -> ArrayParams {
@@ -159,7 +180,7 @@ impl EventSubscription for WsEventSubscription {
     async fn unit_activated(
         &self,
         commitment_id: &CommitmentId,
-    ) -> Result<Subscription<JsonValue>, Error> {
+    ) -> Result<Stream<JsonValue>, Error> {
         self.subscribe("logs", self.unit_activated_params(commitment_id))
             .await
     }
@@ -167,20 +188,20 @@ impl EventSubscription for WsEventSubscription {
     async fn unit_deactivated(
         &self,
         commitment_id: &CommitmentId,
-    ) -> Result<Subscription<JsonValue>, Error> {
+    ) -> Result<Stream<JsonValue>, Error> {
         self.subscribe("logs", self.unit_deactivated_params(commitment_id))
             .await
     }
 
-    async fn new_heads(&self) -> Result<Subscription<JsonValue>, Error> {
+    async fn new_heads(&self) -> Result<Stream<JsonValue>, Error> {
         self.subscribe("newHeads", rpc_params!["newHeads"]).await
     }
 
-    async fn commitment_activated(&self) -> Result<Subscription<JsonValue>, Error> {
+    async fn commitment_activated(&self) -> Result<Stream<JsonValue>, Error> {
         self.subscribe("logs", self.cc_activated_params()).await
     }
 
-    async fn unit_matched(&self) -> Result<Subscription<JsonValue>, Error> {
+    async fn unit_matched(&self) -> Result<Stream<JsonValue>, Error> {
         self.subscribe("logs", self.unit_matched_params()).await
     }
 

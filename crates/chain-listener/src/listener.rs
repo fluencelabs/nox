@@ -2,7 +2,7 @@ use alloy_primitives::{Address, BlockNumber, FixedBytes, Uint, U256};
 use backoff::Error::Permanent;
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::future::{pending, Future};
-use std::ops::Add;
+use std::ops::{Add, Deref};
 use std::path::PathBuf;
 use std::process::exit;
 use std::str::FromStr;
@@ -17,7 +17,6 @@ use ccp_shared::types::{Difficulty, GlobalNonce, LocalNonce, ResultHash};
 use cpu_utils::PhysicalCoreId;
 
 use eyre::{eyre, Report};
-use jsonrpsee::core::client::Subscription;
 use jsonrpsee::core::{client, JsonValue};
 use serde::de::DeserializeOwned;
 use serde_json::Value;
@@ -41,7 +40,7 @@ use types::DealId;
 use crate::event::cc_activated::CommitmentActivated;
 use crate::event::{ComputeUnitMatched, UnitActivated, UnitDeactivated};
 use crate::persistence;
-use crate::subscription::EventSubscription;
+use crate::subscription::{Error, EventSubscription, Stream};
 
 const PROOF_POLL_LIMIT: usize = 50;
 
@@ -93,17 +92,17 @@ pub struct ChainListener {
 
     // TODO: move out to a separate struct, get rid of Option
     // Subscriptions that are polled when we have commitment
-    unit_activated: Option<Subscription<JsonValue>>,
-    unit_deactivated: Option<Subscription<JsonValue>>,
+    unit_activated: Option<Stream<JsonValue>>,
+    unit_deactivated: Option<Stream<JsonValue>>,
     // Subscriptions that are polled always
-    heads: Option<Subscription<JsonValue>>,
-    commitment_activated: Option<Subscription<JsonValue>>,
-    unit_matched: Option<Subscription<JsonValue>>,
+    heads: Option<Stream<JsonValue>>,
+    commitment_activated: Option<Stream<JsonValue>>,
+    unit_matched: Option<Stream<JsonValue>>,
 
     metrics: Option<ChainListenerMetrics>,
 }
 
-async fn poll_subscription<T>(s: &mut Option<Subscription<T>>) -> Option<Result<T, client::Error>>
+async fn poll_subscription<T>(s: &mut Option<Stream<T>>) -> Option<Result<T, Error>>
 where
     T: DeserializeOwned + Send,
 {
@@ -173,7 +172,7 @@ impl ChainListener {
     pub fn start(mut self) -> JoinHandle<()> {
         let result = tokio::task::Builder::new()
             .name("ChainListener")
-            .spawn(async move {
+            .spawn_local(async move {
 
                 if let Err(err) = self.set_utility_core().await {
                     tracing::error!(target: "chain-listener", "Failed to set utility core: {err}; Stopping...");
@@ -451,10 +450,7 @@ impl ChainListener {
         }
     }
 
-    async fn subscribe_unit_events(
-        &mut self,
-        commitment_id: &CommitmentId,
-    ) -> Result<(), client::Error> {
+    async fn subscribe_unit_events(&mut self, commitment_id: &CommitmentId) -> Result<(), Error> {
         self.unit_activated = Some(
             self.event_subscription
                 .unit_activated(commitment_id)
@@ -469,12 +465,12 @@ impl ChainListener {
         Ok(())
     }
 
-    async fn refresh_subscriptions(&mut self) -> Result<(), client::Error> {
+    async fn refresh_subscriptions(&mut self) -> Result<(), Error> {
         self.event_subscription.refresh().await?;
 
         // loop because subscriptions can fail and require reconnection, we can't proceed without them
         loop {
-            let result: Result<(), client::Error> = try {
+            let result: Result<(), Error> = try {
                 self.heads = Some(self.event_subscription.new_heads().await?);
                 self.commitment_activated =
                     Some(self.event_subscription.commitment_activated().await?);
@@ -489,7 +485,7 @@ impl ChainListener {
                     tracing::info!(target: "chain-listener", "Subscriptions refreshed successfully");
                     break;
                 }
-                Err(err) => match err {
+                Err(err) => match err.deref() {
                     client::Error::RestartNeeded(_) => {
                         tracing::warn!(target: "chain-listener", "Failed to refresh subscriptions: {err}; Restart client...");
                         self.event_subscription.restart().await?;
@@ -555,7 +551,7 @@ impl ChainListener {
 
     async fn process_new_header(
         &mut self,
-        event: Option<Result<Value, client::Error>>,
+        event: Option<Result<Value, Error>>,
     ) -> eyre::Result<()> {
         let header = event.ok_or(eyre!("Failed to process newHeads event: got None"))?;
 
@@ -600,7 +596,7 @@ impl ChainListener {
 
     async fn process_commitment_activated(
         &mut self,
-        event: Option<Result<JsonValue, client::Error>>,
+        event: Option<Result<JsonValue, Error>>,
     ) -> eyre::Result<()> {
         let event = event.ok_or(eyre!(
             "Failed to process CommitmentActivated event: got None"
@@ -650,7 +646,7 @@ impl ChainListener {
 
     async fn process_unit_activated(
         &mut self,
-        event: Option<Result<JsonValue, client::Error>>,
+        event: Option<Result<JsonValue, Error>>,
     ) -> eyre::Result<()> {
         let event = event.ok_or(eyre!("Failed to process UnitActivated event: got None"))??;
 
@@ -682,7 +678,7 @@ impl ChainListener {
     /// Unit goes to Deal
     async fn process_unit_deactivated(
         &mut self,
-        event: Option<Result<JsonValue, client::Error>>,
+        event: Option<Result<JsonValue, Error>>,
     ) -> eyre::Result<()> {
         let event = event.ok_or(eyre!("Failed to process UnitDeactivated event: got None"))??;
         let log = serde_json::from_value::<Log>(event.clone()).map_err(|err| {
@@ -703,7 +699,7 @@ impl ChainListener {
 
     fn process_unit_matched(
         &mut self,
-        event: Option<Result<JsonValue, client::Error>>,
+        event: Option<Result<JsonValue, Error>>,
     ) -> eyre::Result<()> {
         let event = event.ok_or(eyre!("Failed to process DealMatched event: got None"))??;
         let log = serde_json::from_value::<Log>(event.clone()).map_err(|err| {
@@ -1298,7 +1294,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::subscription::EventSubscription;
+    use crate::subscription::{Error, EventSubscription, Stream};
     use crate::{ChainListener, ChainListenerConfig};
     use ccp_shared::proof::CCProof;
     use ccp_shared::types::{GlobalNonce, CUID};
@@ -1306,39 +1302,52 @@ mod tests {
     use chain_connector::Offer::ComputeUnit;
     use chain_connector::{CCInitParams, CCStatus, ChainConnector, CommitmentId, ConnectorError};
     use core_manager::{CoreManager, DummyCoreManager};
-    use jsonrpsee::core::client::{Error, Subscription};
+    use futures::StreamExt;
     use jsonrpsee::core::{async_trait, JsonValue};
     use std::sync::Arc;
     use std::time::Duration;
+    use tokio::sync::broadcast::Sender;
+    use tokio_stream::wrappers::BroadcastStream;
     use types::DealId;
 
-    struct TestEventSubscription;
+    struct TestEventSubscription {
+        new_heads_sender: Sender<Result<JsonValue, Error>>,
+    }
+
+    impl TestEventSubscription {
+        pub fn new() -> Self {
+            let (new_heads_sender, _rx) = tokio::sync::broadcast::channel(16);
+            Self { new_heads_sender }
+        }
+    }
 
     #[async_trait]
     impl EventSubscription for TestEventSubscription {
         async fn unit_activated(
             &self,
             commitment_id: &CommitmentId,
-        ) -> Result<Subscription<JsonValue>, Error> {
+        ) -> Result<Stream<JsonValue>, Error> {
             todo!()
         }
 
         async fn unit_deactivated(
             &self,
             commitment_id: &CommitmentId,
-        ) -> Result<Subscription<JsonValue>, Error> {
+        ) -> Result<Stream<JsonValue>, Error> {
             todo!()
         }
 
-        async fn new_heads(&self) -> Result<Subscription<JsonValue>, Error> {
+        async fn new_heads(&self) -> Result<Stream<JsonValue>, Error> {
+            let rx = self.new_heads_sender.subscribe();
+            let stream = BroadcastStream::new(rx);
+            Ok(stream.map(|item| item.unwrap()).boxed())
+        }
+
+        async fn commitment_activated(&self) -> Result<Stream<JsonValue>, Error> {
             todo!()
         }
 
-        async fn commitment_activated(&self) -> Result<Subscription<JsonValue>, Error> {
-            todo!()
-        }
-
-        async fn unit_matched(&self) -> Result<Subscription<JsonValue>, Error> {
+        async fn unit_matched(&self) -> Result<Stream<JsonValue>, Error> {
             todo!()
         }
 
@@ -1412,7 +1421,7 @@ mod tests {
     async fn test_activation_flow() {
         let tmp_dir = tempfile::tempdir().expect("Could not create temp dir");
         let config = ChainListenerConfig::new(Duration::from_secs(1));
-        let subscription = TestEventSubscription;
+        let subscription = TestEventSubscription::new();
         let subscription = Box::new(subscription);
         let connector = TestChainConnector;
         let connector = Arc::new(connector);
