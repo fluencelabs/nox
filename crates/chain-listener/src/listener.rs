@@ -170,34 +170,33 @@ impl ChainListener {
     }
 
     pub fn start(mut self) -> JoinHandle<()> {
-        let local = tokio::task::LocalSet::new();
+        tokio::task::Builder::new()
+            .name("ChainListener")
+            .spawn(
+                async move {
 
-        // TODO: fix and use spawn instead of spawn_local
-        let result = local.spawn_local(
-            async move {
+                    if let Err(err) = self.set_utility_core().await {
+                        tracing::error!(target: "chain-listener", "Failed to set utility core: {err}; Stopping...");
+                        exit(1);
+                    }
 
-                if let Err(err) = self.set_utility_core().await {
-                    tracing::error!(target: "chain-listener", "Failed to set utility core: {err}; Stopping...");
-                    exit(1);
-                }
+                    tracing::info!(target: "chain-listener", "Subscribing to chain events");
+                    if let Err(err) = self.refresh_subscriptions().await {
+                        tracing::error!(target: "chain-listener", "Failed to subscribe to chain events: {err}; Stopping...");
+                        exit(1);
+                    }
+                    tracing::info!(target: "chain-listener", "Subscribed successfully");
 
-                tracing::info!(target: "chain-listener", "Subscribing to chain events");
-                if let Err(err) = self.refresh_subscriptions().await {
-                    tracing::error!(target: "chain-listener", "Failed to subscribe to chain events: {err}; Stopping...");
-                    exit(1);
-                }
-                tracing::info!(target: "chain-listener", "Subscribed successfully");
+                    if let Err(err) = self.refresh_state().await {
+                        tracing::error!(target: "chain-listener", "Failed to refresh state: {err}; Stopping...");
+                        exit(1);
+                    }
 
-                if let Err(err) = self.refresh_state().await {
-                    tracing::error!(target: "chain-listener", "Failed to refresh state: {err}; Stopping...");
-                    exit(1);
-                }
+                    tracing::info!(target: "chain-listener", "State successfully refreshed, starting main loop");
+                    let mut timer = IntervalStream::new(interval(self.listener_config.proof_poll_period));
 
-                tracing::info!(target: "chain-listener", "State successfully refreshed, starting main loop");
-                let mut timer = IntervalStream::new(interval(self.listener_config.proof_poll_period));
-
-                loop {
-                    tokio::select! {
+                    loop {
+                        tokio::select! {
                         event = poll_subscription(&mut self.heads) => {
                             if let Err(err) = self.process_new_header(event).await {
                                 self.handle_subscription_error("newHeads", err).await;
@@ -246,9 +245,8 @@ impl ChainListener {
                             }
                         }
                     }
-                }
-        });
-        result
+                    }
+                })  .expect("Could not spawn task")
     }
 
     async fn refresh_current_commitment_id(&mut self) -> eyre::Result<()> {
@@ -1294,6 +1292,7 @@ where
 mod tests {
     use crate::subscription::{Error, EventSubscription, Stream};
     use crate::{ChainListener, ChainListenerConfig};
+    use alloy_sol_types::SolType;
     use ccp_shared::proof::CCProof;
     use ccp_shared::types::{GlobalNonce, CUID};
     use chain_connector::Deal::Status;
@@ -1301,6 +1300,7 @@ mod tests {
     use chain_connector::{CCInitParams, CCStatus, ChainConnector, CommitmentId, ConnectorError};
     use core_manager::{CoreManager, DummyCoreManager};
     use futures::StreamExt;
+    use hex::FromHex;
     use jsonrpsee::core::{async_trait, JsonValue};
     use log_utils::enable_logs;
     use serde_json::{json, Value};
@@ -1308,14 +1308,17 @@ mod tests {
     use std::time::Duration;
     use tokio::sync::broadcast::error::SendError;
     use tokio::sync::broadcast::Sender;
+    use tokio::sync::Notify;
     use tokio_stream::wrappers::BroadcastStream;
     use types::DealId;
 
     struct TestEventSubscription {
         new_heads_sender: Sender<Result<JsonValue, Error>>,
+        new_heads_notify: Notify,
         commitment_activated_sender: Sender<Result<JsonValue, Error>>,
         commitment_deactivated_sender: Sender<Result<JsonValue, Error>>,
         unit_matched_sender: Sender<Result<JsonValue, Error>>,
+        unit_activated_sender: Sender<Result<JsonValue, Error>>,
     }
 
     impl TestEventSubscription {
@@ -1324,11 +1327,15 @@ mod tests {
             let (commitment_activated_sender, _rx) = tokio::sync::broadcast::channel(16);
             let (commitment_deactivated_sender, _rx) = tokio::sync::broadcast::channel(16);
             let (unit_matched_sender, _rx) = tokio::sync::broadcast::channel(16);
+            let (unit_activated_sender, _rx) = tokio::sync::broadcast::channel(16);
+            let new_heads_notify = Notify::new();
             Self {
                 new_heads_sender,
+                new_heads_notify,
                 commitment_activated_sender,
                 commitment_deactivated_sender,
                 unit_matched_sender,
+                unit_activated_sender,
             }
         }
 
@@ -1338,6 +1345,10 @@ mod tests {
         ) -> Result<usize, SendError<Result<Value, Error>>> {
             self.new_heads_sender.send(value)
         }
+
+        pub async fn wait_new_head_subscription(&self) {
+            self.new_heads_notify.notified().await
+        }
     }
 
     #[async_trait]
@@ -1346,7 +1357,9 @@ mod tests {
             &self,
             commitment_id: &CommitmentId,
         ) -> Result<Stream<JsonValue>, Error> {
-            todo!()
+            let rx = self.unit_activated_sender.subscribe();
+            let stream = BroadcastStream::new(rx);
+            Ok(Box::pin(stream.map(|item| item.unwrap())))
         }
 
         async fn unit_deactivated(
@@ -1355,25 +1368,26 @@ mod tests {
         ) -> Result<Stream<JsonValue>, Error> {
             let rx = self.commitment_deactivated_sender.subscribe();
             let stream = BroadcastStream::new(rx);
-            Ok(stream.map(|item| item.unwrap()).boxed())
+            Ok(Box::pin(stream.map(|item| item.unwrap())))
         }
 
         async fn new_heads(&self) -> Result<Stream<JsonValue>, Error> {
             let rx = self.new_heads_sender.subscribe();
             let stream = BroadcastStream::new(rx);
-            Ok(stream.map(|item| item.unwrap()).boxed())
+            self.new_heads_notify.notify_one();
+            Ok(Box::pin(stream.map(|item| item.unwrap())))
         }
 
         async fn commitment_activated(&self) -> Result<Stream<JsonValue>, Error> {
             let rx = self.commitment_activated_sender.subscribe();
             let stream = BroadcastStream::new(rx);
-            Ok(stream.map(|item| item.unwrap()).boxed())
+            Ok(Box::pin(stream.map(|item| item.unwrap())))
         }
 
         async fn unit_matched(&self) -> Result<Stream<JsonValue>, Error> {
             let rx = self.unit_matched_sender.subscribe();
             let stream = BroadcastStream::new(rx);
-            Ok(stream.map(|item| item.unwrap()).boxed())
+            Ok(Box::pin(stream.map(|item| item.unwrap())))
         }
 
         async fn refresh(&self) -> Result<(), Error> {
@@ -1390,15 +1404,28 @@ mod tests {
     #[async_trait]
     impl ChainConnector for TestChainConnector {
         async fn get_current_commitment_id(&self) -> Result<Option<CommitmentId>, ConnectorError> {
-            todo!()
+            Ok(None)
         }
 
         async fn get_cc_init_params(&self) -> eyre::Result<CCInitParams> {
-            todo!()
+            Ok(CCInitParams {
+                difficulty: Default::default(),
+                init_timestamp: Default::default(),
+                global_nonce: GlobalNonce::from_hex(
+                    "54ae1b506c260367a054f80800a545f23e32c6bc4a8908c9a794cb8dad23e5ea",
+                )
+                .unwrap(),
+                current_epoch: Default::default(),
+                epoch_duration: Default::default(),
+                min_proofs_per_epoch: Default::default(),
+                max_proofs_per_epoch: Default::default(),
+            })
         }
 
         async fn get_compute_units(&self) -> Result<Vec<ComputeUnit>, ConnectorError> {
-            todo!()
+            let bytes = hex::decode("aa3046a12a1aac6e840625e6329d70b427328fec36dc8d273e5e6454b85633d5000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000003e8")
+                .unwrap();
+            Ok(vec![ComputeUnit::abi_decode(&bytes, true).unwrap()])
         }
 
         async fn get_commitment_status(
@@ -1453,19 +1480,23 @@ mod tests {
         let connector = Arc::new(connector);
         let core_manager = CoreManager::Dummy(DummyCoreManager::default());
         let core_manager = Arc::new(core_manager);
+
+        let proofs_dir = tmp_dir.path().join("proofs").to_path_buf();
+        tokio::fs::create_dir_all(proofs_dir.clone()).await.unwrap();
+
         let listener = ChainListener::new(
             config,
             subscription.clone(),
             connector,
             core_manager,
             None,
-            tmp_dir.path().join("proofs").to_path_buf(),
+            proofs_dir,
             None,
         );
 
-        listener.start().await;
+        let _a = listener.start();
 
-        tokio::time::sleep(Duration::from_secs(3));
+        subscription.wait_new_head_subscription().await;
         let _ = subscription.send_new_heads(Ok(json!("test"))).unwrap();
 
         tokio::time::sleep(Duration::from_secs(10)).await;

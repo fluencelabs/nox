@@ -6,8 +6,7 @@ use backoff::Error::Permanent;
 use backoff::ExponentialBackoff;
 use chain_connector::CommitmentId;
 use chain_data::peer_id_to_hex;
-use futures::stream::BoxStream;
-use futures::{StreamExt, TryStreamExt};
+use futures::{TryStreamExt};
 use jsonrpsee::core::client::SubscriptionClientT;
 use jsonrpsee::core::params::ArrayParams;
 use jsonrpsee::core::ClientError::RestartNeeded;
@@ -17,6 +16,7 @@ use jsonrpsee::ws_client::{WsClient, WsClientBuilder};
 use libp2p_identity::PeerId;
 use serde_json::json;
 use std::ops::Deref;
+use std::pin::Pin;
 use std::sync::Arc;
 use thiserror::Error;
 use tokio::sync::RwLock;
@@ -40,7 +40,8 @@ impl From<jsonrpsee::core::client::Error> for Error {
     }
 }
 
-pub type Stream<T> = BoxStream<'static, Result<T, Error>>;
+pub type Stream<T> = Pin<Box<dyn futures::Stream<Item = Result<T, Error>> + Send + Sync + 'static>>;
+
 pub type SubResult<T> = Result<Stream<T>, Error>;
 
 #[async_trait]
@@ -109,7 +110,7 @@ impl WsEventSubscription {
                 }})
         }).await.map_err(|err| Error::from(err))?;
 
-        Ok(sub.map_err(|err| err.into()).boxed())
+        Ok(Box::pin(sub.map_err(|err| err.into())))
     }
 
     fn unit_activated_params(&self, commitment_id: &CommitmentId) -> ArrayParams {
