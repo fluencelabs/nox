@@ -44,7 +44,7 @@ use aquamarine::{
 };
 use chain_connector::HttpChainConnector;
 use chain_listener::{
-    ChainListener, ChainListenerConfig, WsEventSubscription, WsSubscriptionConfig,
+    CCPClient, ChainListener, ChainListenerConfig, WsEventSubscription, WsSubscriptionConfig,
 };
 use config_utils::to_peer_id;
 use connection_pool::ConnectionPoolT;
@@ -125,13 +125,17 @@ async fn setup_listener(
         config.chain_config.clone(),
         config.chain_listener_config.clone(),
     ) {
-        let ccp_client = if let Some(ccp_endpoint) = listener_config.ccp_endpoint.clone() {
+        let ccp_client: Option<Arc<dyn CCPClient>> = if let Some(ccp_endpoint) =
+            listener_config.ccp_endpoint.clone()
+        {
             let ccp_client = CCPRpcHttpClient::new(ccp_endpoint.clone())
                 .await
                 .map_err(|err| {
                     log::error!("Error connecting to CCP {ccp_endpoint}, error: {err}");
                     err
                 })?;
+
+            let ccp_client = Arc::new(ccp_client);
 
             Some(ccp_client)
         } else {
@@ -148,7 +152,7 @@ async fn setup_listener(
             chain_config.market_contract_address,
         );
         let event_subscription = WsEventSubscription::new(ws_event_subscription_config).await?;
-        let event_subscription = Box::new(event_subscription);
+        let event_subscription = Arc::new(event_subscription);
 
         let chain_listener_config = ChainListenerConfig::new(listener_config.proof_poll_period);
 

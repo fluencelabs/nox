@@ -1364,7 +1364,7 @@ mod tests {
     impl EventSubscription for TestEventSubscription {
         async fn unit_activated(
             &self,
-            commitment_id: &CommitmentId,
+            _commitment_id: &CommitmentId,
         ) -> Result<Stream<JsonValue>, Error> {
             let rx = self.unit_activated_sender.subscribe();
             let stream = BroadcastStream::new(rx);
@@ -1373,7 +1373,7 @@ mod tests {
 
         async fn unit_deactivated(
             &self,
-            commitment_id: &CommitmentId,
+            _commitment_id: &CommitmentId,
         ) -> Result<Stream<JsonValue>, Error> {
             let rx = self.commitment_deactivated_sender.subscribe();
             let stream = BroadcastStream::new(rx);
@@ -1410,18 +1410,18 @@ mod tests {
         }
     }
 
-    trait Behaviour: Send + Sync {
+    trait Behaviour<T>: Send + Sync {
         type Output;
 
-        fn apply(&self) -> Self::Output;
+        fn apply(&self, params: T) -> Self::Output;
     }
 
     #[derive(Default)]
     struct GetCcInitParamsBehaviour;
-    impl Behaviour for GetCcInitParamsBehaviour {
+    impl Behaviour<()> for GetCcInitParamsBehaviour {
         type Output = eyre::Result<CCInitParams>;
 
-        fn apply(&self) -> Self::Output {
+        fn apply(&self, _params: ()) -> Self::Output {
             Ok(CCInitParams {
                 difficulty: Default::default(),
                 init_timestamp: Default::default(),
@@ -1439,7 +1439,7 @@ mod tests {
 
     struct TestChainConnector {
         get_cc_init_params_behaviour:
-            RwLock<Box<dyn Behaviour<Output = eyre::Result<CCInitParams>>>>,
+            RwLock<Box<dyn Behaviour<(), Output = eyre::Result<CCInitParams>>>>,
     }
 
     impl TestChainConnector {
@@ -1451,7 +1451,7 @@ mod tests {
 
         pub fn set_get_cc_init_params_behaviour(
             &self,
-            behaviour: impl Behaviour<Output = eyre::Result<CCInitParams>> + 'static,
+            behaviour: impl Behaviour<(), Output = eyre::Result<CCInitParams>> + 'static,
         ) {
             let mut lock = self.get_cc_init_params_behaviour.write();
             *lock = Box::new(behaviour);
@@ -1465,7 +1465,7 @@ mod tests {
         }
 
         async fn get_cc_init_params(&self) -> eyre::Result<CCInitParams> {
-            self.get_cc_init_params_behaviour.read().apply()
+            self.get_cc_init_params_behaviour.read().apply(())
         }
 
         async fn get_compute_units(&self) -> Result<Vec<ComputeUnit>, ConnectorError> {
@@ -1476,7 +1476,7 @@ mod tests {
 
         async fn get_commitment_status(
             &self,
-            commitment_id: CommitmentId,
+            _commitment_id: CommitmentId,
         ) -> Result<CCStatus, ConnectorError> {
             todo!()
         }
@@ -1485,31 +1485,31 @@ mod tests {
             todo!()
         }
 
-        async fn submit_proof(&self, proof: CCProof) -> Result<String, ConnectorError> {
+        async fn submit_proof(&self, _proof: CCProof) -> Result<String, ConnectorError> {
             todo!()
         }
 
         async fn get_deal_statuses(
             &self,
-            deal_ids: Vec<DealId>,
+            _deal_ids: Vec<DealId>,
         ) -> Result<Vec<Result<Status, ConnectorError>>, ConnectorError> {
             todo!()
         }
 
-        async fn exit_deal(&self, cu_id: &CUID) -> Result<String, ConnectorError> {
+        async fn exit_deal(&self, _cu_id: &CUID) -> Result<String, ConnectorError> {
             todo!()
         }
 
         async fn get_tx_statuses(
             &self,
-            tx_hashes: Vec<String>,
+            _tx_hashes: Vec<String>,
         ) -> Result<Vec<Result<Option<bool>, ConnectorError>>, ConnectorError> {
             todo!()
         }
 
         async fn get_tx_receipts(
             &self,
-            tx_hashes: Vec<String>,
+            _tx_hashes: Vec<String>,
         ) -> Result<Vec<Result<JsonValue, ConnectorError>>, ConnectorError> {
             todo!()
         }

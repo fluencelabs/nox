@@ -6,6 +6,7 @@
 
 extern crate core;
 
+pub use ccp::CCPClient;
 pub use listener::ChainListener;
 pub use listener::ChainListenerConfig;
 pub use subscription::WsEventSubscription;

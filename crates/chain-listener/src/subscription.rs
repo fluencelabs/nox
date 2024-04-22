@@ -108,7 +108,7 @@ impl WsEventSubscription {
                     tracing::warn!(target: "chain-listener", "Failed to subscribe to {method}: {err}; Retrying...");
                     backoff::Error::transient(err)
                 }})
-        }).await.map_err(|err| Error::from(err))?;
+        }).await.map_err(Error::from)?;
 
         Ok(Box::pin(sub.map_err(|err| err.into())))
     }
