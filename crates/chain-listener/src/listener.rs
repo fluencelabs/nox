@@ -1290,21 +1290,25 @@ where
 
 #[cfg(test)]
 mod tests {
+    use crate::event::cc_activated::CommitmentActivated;
     use crate::subscription::StreamResult;
     use crate::subscription::{Error, EventSubscription};
     use crate::{ChainListener, ChainListenerConfig};
-    use alloy_sol_types::SolType;
+    use alloy_sol_types::{SolEvent, SolType};
     use ccp_shared::proof::CCProof;
-    use ccp_shared::types::{GlobalNonce, CUID};
+    use ccp_shared::types::{Difficulty, GlobalNonce, CUID};
     use chain_connector::Offer::ComputeUnit;
     use chain_connector::{CCInitParams, CCStatus, ChainConnector, CommitmentId, ConnectorError};
+    use chain_data::{Log};
     use core_manager::{CoreManager, DummyCoreManager};
     use futures::StreamExt;
     use hex::FromHex;
     use jsonrpsee::core::{async_trait, JsonValue};
+    use libp2p_identity::PeerId;
     use log_utils::enable_logs;
     use mockall::mock;
     use serde_json::Value;
+    use std::str::FromStr;
     use std::sync::Arc;
     use std::time::Duration;
     use tokio::sync::Notify;
@@ -1380,7 +1384,15 @@ mod tests {
         let (new_heads_sender, _rx) = tokio::sync::broadcast::channel(16);
         let (commitment_activated_sender, _rx) = tokio::sync::broadcast::channel(16);
         let (unit_matched_sender, _rx) = tokio::sync::broadcast::channel(16);
+        let (unit_activated_sender, _rx) = tokio::sync::broadcast::channel(16);
+        let (unit_deactivated_sender, _rx) = tokio::sync::broadcast::channel(16);
         let notifier = Arc::new(Notify::new());
+
+        let unit_id: [u8; 32] =
+            hex::decode("aa3046a12a1aac6e840625e6329d70b427328fec36dc8d273e5e6454b85633d5")
+                .unwrap()
+                .try_into()
+                .unwrap();
 
         subscription.expect_new_heads().returning(move || {
             let rx = new_heads_sender.subscribe();
@@ -1388,10 +1400,11 @@ mod tests {
             Ok(Box::pin(stream.map(|item| item.unwrap())))
         });
 
+        let sender = commitment_activated_sender.clone();
         subscription
             .expect_commitment_activated()
             .returning(move || {
-                let rx = commitment_activated_sender.subscribe();
+                let rx = sender.subscribe();
                 let stream = BroadcastStream::new(rx);
                 Ok(Box::pin(stream.map(|item| item.unwrap())))
             });
@@ -1404,29 +1417,51 @@ mod tests {
             Ok(Box::pin(stream.map(|item| item.unwrap())))
         });
 
+        subscription.expect_unit_activated().returning(move |_| {
+            let rx = unit_activated_sender.subscribe();
+            let stream = BroadcastStream::new(rx);
+            Ok(Box::pin(stream.map(|item| item.unwrap())))
+        });
+
+        subscription.expect_unit_deactivated().returning(move |_| {
+            let rx = unit_deactivated_sender.subscribe();
+            let stream = BroadcastStream::new(rx);
+            Ok(Box::pin(stream.map(|item| item.unwrap())))
+        });
+
         let mut connector = MockChainConnectorStruct::new();
         connector.expect_get_cc_init_params().returning(|| {
+            let global_nonce = GlobalNonce::from_hex(
+                "4183468390b09d71644232a1d1ce670bc93897183d3f56c305fabfb16cab806a",
+            )
+            .unwrap();
+            let difficulty = Difficulty::from_hex(
+                "0001afffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+            )
+            .unwrap();
+
             Ok(CCInitParams {
-                difficulty: Default::default(),
+                difficulty,
                 init_timestamp: Default::default(),
-                global_nonce: GlobalNonce::from_hex(
-                    "54ae1b506c260367a054f80800a545f23e32c6bc4a8908c9a794cb8dad23e5ea",
-                )
-                .unwrap(),
+                global_nonce,
                 current_epoch: Default::default(),
                 epoch_duration: Default::default(),
                 min_proofs_per_epoch: Default::default(),
                 max_proofs_per_epoch: Default::default(),
             })
         });
-        connector.expect_get_compute_units().returning(||{
-            let bytes = hex::decode("aa3046a12a1aac6e840625e6329d70b427328fec36dc8d273e5e6454b85633d5000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000003e8")
-                .unwrap();
-            Ok(vec![ComputeUnit::abi_decode(&bytes, true).unwrap()])
-        });
+
+        connector
+            .expect_get_compute_units()
+            .returning(move || {
+                let data= hex::decode("aa3046a12a1aac6e840625e6329d70b427328fec36dc8d273e5e6454b85633d5000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000003e8").unwrap();
+                Ok(vec![ComputeUnit::abi_decode(&data, true).unwrap()])
+            });
         connector
             .expect_get_current_commitment_id()
             .returning(|| Ok(None));
+        connector.expect_submit_proof().returning(|_| Ok("tx-1".to_string()));
+        connector.expect_get_tx_statuses().returning(|_| Ok(vec![Ok(Some(true))]));
 
         let connector = Arc::new(connector);
         let subscription = Arc::new(subscription);
@@ -1449,6 +1484,30 @@ mod tests {
         let _handle = listener.start();
         notifier.notified().await; //wait subscriptions start before sending messages
 
-        //let _ = subscription.send_new_heads(Ok(json!("test"))).unwrap();
+        let data = CommitmentActivated {
+            peerId: [0; 32].into(),
+            commitmentId: [0; 32].into(),
+            startEpoch: alloy_primitives::U256::from(0),
+            endEpoch: alloy_primitives::U256::from(10),
+            unitIds: vec![unit_id.into()],
+        };
+
+        let _ = commitment_activated_sender
+            .send(Ok(serde_json::to_value(Log {
+                data: hex::encode(data.encode_data()),
+                block_number: "100".to_string(),
+                removed: false,
+                topics: vec![
+                    CommitmentActivated::SIGNATURE_HASH.to_string(),
+                    "0xc586dcbfc973643dc5f885bf1a38e054d2675b03fe283a5b7337d70dda9f7171"
+                        .to_string(),
+                    "0x27e42c090aa007a4f2545547425aaa8ea3566e1f18560803ac48f8e98cb3b0c9"
+                        .to_string(),
+                ],
+            })
+            .unwrap()))
+            .unwrap();
+
+        tokio::time::sleep(Duration::from_secs(10)).await;
     }
 }
