@@ -1303,6 +1303,7 @@ mod tests {
     use hex::FromHex;
     use jsonrpsee::core::{async_trait, JsonValue};
     use log_utils::enable_logs;
+    use parking_lot::RwLock;
     use serde_json::{json, Value};
     use std::sync::Arc;
     use std::time::Duration;
@@ -1346,7 +1347,7 @@ mod tests {
             self.new_heads_sender.send(value)
         }
 
-        pub async fn wait_new_head_subscription(&self) {
+        pub async fn wait_subscriptions(&self) {
             self.new_heads_notify.notified().await
         }
     }
@@ -1399,15 +1400,18 @@ mod tests {
         }
     }
 
-    struct TestChainConnector;
+    trait Behaviour: Send + Sync {
+        type Output;
 
-    #[async_trait]
-    impl ChainConnector for TestChainConnector {
-        async fn get_current_commitment_id(&self) -> Result<Option<CommitmentId>, ConnectorError> {
-            Ok(None)
-        }
+        fn apply(&self) -> Self::Output;
+    }
 
-        async fn get_cc_init_params(&self) -> eyre::Result<CCInitParams> {
+    #[derive(Default)]
+    struct GetCcInitParamsBehaviour;
+    impl Behaviour for GetCcInitParamsBehaviour {
+        type Output = eyre::Result<CCInitParams>;
+
+        fn apply(&self) -> Self::Output {
             Ok(CCInitParams {
                 difficulty: Default::default(),
                 init_timestamp: Default::default(),
@@ -1420,6 +1424,38 @@ mod tests {
                 min_proofs_per_epoch: Default::default(),
                 max_proofs_per_epoch: Default::default(),
             })
+        }
+    }
+
+    struct TestChainConnector {
+        get_cc_init_params_behaviour:
+            RwLock<Box<dyn Behaviour<Output = eyre::Result<CCInitParams>>>>,
+    }
+
+    impl TestChainConnector {
+        pub fn new() -> Self {
+            Self {
+                get_cc_init_params_behaviour: RwLock::new(Box::new(GetCcInitParamsBehaviour)),
+            }
+        }
+
+        pub fn set_get_cc_init_params_behaviour(
+            &self,
+            behaviour: impl Behaviour<Output = eyre::Result<CCInitParams>> + 'static,
+        ) {
+            let mut lock = self.get_cc_init_params_behaviour.write();
+            *lock = Box::new(behaviour);
+        }
+    }
+
+    #[async_trait]
+    impl ChainConnector for TestChainConnector {
+        async fn get_current_commitment_id(&self) -> Result<Option<CommitmentId>, ConnectorError> {
+            Ok(None)
+        }
+
+        async fn get_cc_init_params(&self) -> eyre::Result<CCInitParams> {
+            self.get_cc_init_params_behaviour.read().apply()
         }
 
         async fn get_compute_units(&self) -> Result<Vec<ComputeUnit>, ConnectorError> {
@@ -1476,7 +1512,7 @@ mod tests {
         let config = ChainListenerConfig::new(Duration::from_secs(1));
         let subscription = TestEventSubscription::new();
         let subscription = Arc::new(subscription);
-        let connector = TestChainConnector;
+        let connector = TestChainConnector::new();
         let connector = Arc::new(connector);
         let core_manager = CoreManager::Dummy(DummyCoreManager::default());
         let core_manager = Arc::new(core_manager);
@@ -1487,7 +1523,7 @@ mod tests {
         let listener = ChainListener::new(
             config,
             subscription.clone(),
-            connector,
+            connector.clone(),
             core_manager,
             None,
             proofs_dir,
@@ -1496,7 +1532,9 @@ mod tests {
 
         let _a = listener.start();
 
-        subscription.wait_new_head_subscription().await;
+        connector.set_get_cc_init_params_behaviour(GetCcInitParamsBehaviour);
+
+        subscription.wait_subscriptions().await;
         let _ = subscription.send_new_heads(Ok(json!("test"))).unwrap();
 
         tokio::time::sleep(Duration::from_secs(10)).await;

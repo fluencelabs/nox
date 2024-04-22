@@ -6,7 +6,7 @@ use backoff::Error::Permanent;
 use backoff::ExponentialBackoff;
 use chain_connector::CommitmentId;
 use chain_data::peer_id_to_hex;
-use futures::{TryStreamExt};
+use futures::TryStreamExt;
 use jsonrpsee::core::client::SubscriptionClientT;
 use jsonrpsee::core::params::ArrayParams;
 use jsonrpsee::core::ClientError::RestartNeeded;

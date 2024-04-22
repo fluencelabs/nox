@@ -1385,6 +1385,7 @@ dependencies = [
  "libp2p-identity",
  "log",
  "log-utils",
+ "parking_lot",
  "peer-metrics",
  "serde",
  "serde_json",
