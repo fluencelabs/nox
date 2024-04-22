@@ -24,7 +24,7 @@ use avm_server::avm_runner::{AVMRunner, RawAVMOutcome};
 use avm_server::{CallResults, CallServiceResult};
 use fstrings::f;
 use libp2p::PeerId;
-use marine_wasmtime_backend::{WasmtimeWasmBackend};
+use marine_wasmtime_backend::WasmtimeWasmBackend;
 use serde_json::{json, Value as JValue};
 
 use air_interpreter_fs::{air_interpreter_path, write_default_air_interpreter};

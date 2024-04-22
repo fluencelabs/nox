@@ -21,7 +21,7 @@ impl Default for WasmBackendConfig {
         Self {
             debug_info: true,
             wasm_backtrace: true,
-            async_wasm_stack: bytesize::ByteSize::mb(2),
+            async_wasm_stack: bytesize::ByteSize::mb(4),
             max_wasm_stack: bytesize::ByteSize::mb(2),
             epoch_interruption_duration: Some(Duration::from_secs(1)),
         }
