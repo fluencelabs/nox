@@ -1380,7 +1380,7 @@ mod tests {
         let (commitment_activated_sender, _rx) = tokio::sync::broadcast::channel(16);
         let (unit_matched_sender, _rx) = tokio::sync::broadcast::channel(16);
 
-        subscription.expect_new_heads().return_once(move || {
+        subscription.expect_new_heads().returning(move || {
             let rx = new_heads_sender.subscribe();
             let stream = BroadcastStream::new(rx);
             Ok(Box::pin(stream.map(|item| item.unwrap())))
@@ -1388,20 +1388,20 @@ mod tests {
 
         subscription
             .expect_commitment_activated()
-            .return_once(move || {
+            .returning(move || {
                 let rx = commitment_activated_sender.subscribe();
                 let stream = BroadcastStream::new(rx);
                 Ok(Box::pin(stream.map(|item| item.unwrap())))
             });
 
-        subscription.expect_unit_matched().return_once(move || {
+        subscription.expect_unit_matched().returning(move || {
             let rx = unit_matched_sender.subscribe();
             let stream = BroadcastStream::new(rx);
             Ok(Box::pin(stream.map(|item| item.unwrap())))
         });
 
         let mut connector = MockChainConnectorStruct::new();
-        connector.expect_get_cc_init_params().return_once(|| {
+        connector.expect_get_cc_init_params().returning(|| {
             Ok(CCInitParams {
                 difficulty: Default::default(),
                 init_timestamp: Default::default(),
@@ -1415,14 +1415,14 @@ mod tests {
                 max_proofs_per_epoch: Default::default(),
             })
         });
-        connector.expect_get_compute_units().return_once(||{
+        connector.expect_get_compute_units().returning(||{
             let bytes = hex::decode("aa3046a12a1aac6e840625e6329d70b427328fec36dc8d273e5e6454b85633d5000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000003e8")
                 .unwrap();
             Ok(vec![ComputeUnit::abi_decode(&bytes, true).unwrap()])
         });
         connector
             .expect_get_current_commitment_id()
-            .return_once(|| Ok(None));
+            .returning(|| Ok(None));
 
         let connector = Arc::new(connector);
         let subscription = Arc::new(subscription);
