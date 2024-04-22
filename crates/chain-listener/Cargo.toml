@@ -46,3 +46,4 @@ tempfile = { workspace = true }
 tokio-stream = { workspace = true }
 log-utils = { workspace = true }
 parking_lot = { workspace = true }
+mockall = "0.12.1"

@@ -1295,7 +1295,6 @@ mod tests {
     use alloy_sol_types::SolType;
     use ccp_shared::proof::CCProof;
     use ccp_shared::types::{GlobalNonce, CUID};
-    use chain_connector::Deal::Status;
     use chain_connector::Offer::ComputeUnit;
     use chain_connector::{CCInitParams, CCStatus, ChainConnector, CommitmentId, ConnectorError};
     use core_manager::{CoreManager, DummyCoreManager};
@@ -1303,7 +1302,7 @@ mod tests {
     use hex::FromHex;
     use jsonrpsee::core::{async_trait, JsonValue};
     use log_utils::enable_logs;
-    use parking_lot::RwLock;
+    use mockall::mock;
     use serde_json::{json, Value};
     use std::sync::Arc;
     use std::time::Duration;
@@ -1312,6 +1311,45 @@ mod tests {
     use tokio::sync::Notify;
     use tokio_stream::wrappers::BroadcastStream;
     use types::DealId;
+
+    mock! {
+        ChainConnectorStruct {}     // Name of the mock struct, less the "Mock" prefix
+
+        #[async_trait]
+        impl ChainConnector for ChainConnectorStruct {
+        async fn get_current_commitment_id(&self) -> Result<Option<CommitmentId>, ConnectorError>;
+
+        async fn get_cc_init_params(&self) -> eyre::Result<CCInitParams>;
+
+        async fn get_compute_units(&self) -> Result<Vec<ComputeUnit>, ConnectorError>;
+
+        async fn get_commitment_status(
+            &self,
+            commitment_id: CommitmentId,
+        ) -> Result<CCStatus, ConnectorError>;
+
+        async fn get_global_nonce(&self) -> Result<GlobalNonce, ConnectorError>;
+
+        async fn submit_proof(&self, proof: CCProof) -> Result<String, ConnectorError>;
+
+        async fn get_deal_statuses(
+            &self,
+            deal_ids: Vec<DealId>,
+        ) -> Result<Vec<Result<crate::listener::Deal::Status, ConnectorError>>, ConnectorError>;
+
+        async fn exit_deal(&self, cu_id: &CUID) -> Result<String, ConnectorError>;
+
+        async fn get_tx_statuses(
+            &self,
+            tx_hashes: Vec<String>,
+        ) -> Result<Vec<Result<Option<bool>, ConnectorError>>, ConnectorError>;
+
+        async fn get_tx_receipts(
+            &self,
+            tx_hashes: Vec<String>,
+        ) -> Result<Vec<Result<Value, ConnectorError>>, ConnectorError>;
+        }
+    }
 
     struct TestEventSubscription {
         new_heads_sender: Sender<Result<JsonValue, Error>>,
@@ -1410,18 +1448,15 @@ mod tests {
         }
     }
 
-    trait Behaviour<T>: Send + Sync {
-        type Output;
-
-        fn apply(&self, params: T) -> Self::Output;
-    }
-
-    #[derive(Default)]
-    struct GetCcInitParamsBehaviour;
-    impl Behaviour<()> for GetCcInitParamsBehaviour {
-        type Output = eyre::Result<CCInitParams>;
-
-        fn apply(&self, _params: ()) -> Self::Output {
+    #[tokio::test]
+    async fn test_activation_flow() {
+        enable_logs();
+        let tmp_dir = tempfile::tempdir().expect("Could not create temp dir");
+        let config = ChainListenerConfig::new(Duration::from_secs(1));
+        let subscription = TestEventSubscription::new();
+        let subscription = Arc::new(subscription);
+        let mut connector = MockChainConnectorStruct::new();
+        connector.expect_get_cc_init_params().return_once(|| {
             Ok(CCInitParams {
                 difficulty: Default::default(),
                 init_timestamp: Default::default(),
@@ -1434,95 +1469,16 @@ mod tests {
                 min_proofs_per_epoch: Default::default(),
                 max_proofs_per_epoch: Default::default(),
             })
-        }
-    }
-
-    struct TestChainConnector {
-        get_cc_init_params_behaviour:
-            RwLock<Box<dyn Behaviour<(), Output = eyre::Result<CCInitParams>>>>,
-    }
-
-    impl TestChainConnector {
-        pub fn new() -> Self {
-            Self {
-                get_cc_init_params_behaviour: RwLock::new(Box::new(GetCcInitParamsBehaviour)),
-            }
-        }
-
-        pub fn set_get_cc_init_params_behaviour(
-            &self,
-            behaviour: impl Behaviour<(), Output = eyre::Result<CCInitParams>> + 'static,
-        ) {
-            let mut lock = self.get_cc_init_params_behaviour.write();
-            *lock = Box::new(behaviour);
-        }
-    }
-
-    #[async_trait]
-    impl ChainConnector for TestChainConnector {
-        async fn get_current_commitment_id(&self) -> Result<Option<CommitmentId>, ConnectorError> {
-            Ok(None)
-        }
-
-        async fn get_cc_init_params(&self) -> eyre::Result<CCInitParams> {
-            self.get_cc_init_params_behaviour.read().apply(())
-        }
-
-        async fn get_compute_units(&self) -> Result<Vec<ComputeUnit>, ConnectorError> {
+        });
+        connector.expect_get_compute_units().return_once(||{
             let bytes = hex::decode("aa3046a12a1aac6e840625e6329d70b427328fec36dc8d273e5e6454b85633d5000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000003e8")
                 .unwrap();
             Ok(vec![ComputeUnit::abi_decode(&bytes, true).unwrap()])
-        }
+        });
+        connector
+            .expect_get_current_commitment_id()
+            .return_once(|| Ok(None));
 
-        async fn get_commitment_status(
-            &self,
-            _commitment_id: CommitmentId,
-        ) -> Result<CCStatus, ConnectorError> {
-            todo!()
-        }
-
-        async fn get_global_nonce(&self) -> Result<GlobalNonce, ConnectorError> {
-            todo!()
-        }
-
-        async fn submit_proof(&self, _proof: CCProof) -> Result<String, ConnectorError> {
-            todo!()
-        }
-
-        async fn get_deal_statuses(
-            &self,
-            _deal_ids: Vec<DealId>,
-        ) -> Result<Vec<Result<Status, ConnectorError>>, ConnectorError> {
-            todo!()
-        }
-
-        async fn exit_deal(&self, _cu_id: &CUID) -> Result<String, ConnectorError> {
-            todo!()
-        }
-
-        async fn get_tx_statuses(
-            &self,
-            _tx_hashes: Vec<String>,
-        ) -> Result<Vec<Result<Option<bool>, ConnectorError>>, ConnectorError> {
-            todo!()
-        }
-
-        async fn get_tx_receipts(
-            &self,
-            _tx_hashes: Vec<String>,
-        ) -> Result<Vec<Result<JsonValue, ConnectorError>>, ConnectorError> {
-            todo!()
-        }
-    }
-
-    #[tokio::test]
-    async fn test_activation_flow() {
-        enable_logs();
-        let tmp_dir = tempfile::tempdir().expect("Could not create temp dir");
-        let config = ChainListenerConfig::new(Duration::from_secs(1));
-        let subscription = TestEventSubscription::new();
-        let subscription = Arc::new(subscription);
-        let connector = TestChainConnector::new();
         let connector = Arc::new(connector);
         let core_manager = CoreManager::Dummy(DummyCoreManager::default());
         let core_manager = Arc::new(core_manager);
@@ -1541,8 +1497,6 @@ mod tests {
         );
 
         let _a = listener.start();
-
-        connector.set_get_cc_init_params_behaviour(GetCcInitParamsBehaviour);
 
         subscription.wait_subscriptions().await;
         let _ = subscription.send_new_heads(Ok(json!("test"))).unwrap();
