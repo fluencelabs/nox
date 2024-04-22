@@ -42,15 +42,15 @@ impl From<jsonrpsee::core::client::Error> for Error {
 
 pub type Stream<T> = Pin<Box<dyn futures::Stream<Item = Result<T, Error>> + Send + Sync + 'static>>;
 
-pub type SubResult<T> = Result<Stream<T>, Error>;
+pub type StreamResult<T> = Result<Stream<T>, Error>;
 
 #[async_trait]
 pub trait EventSubscription: Send + Sync {
-    async fn unit_activated(&self, commitment_id: &CommitmentId) -> SubResult<JsonValue>;
-    async fn unit_deactivated(&self, commitment_id: &CommitmentId) -> SubResult<JsonValue>;
-    async fn new_heads(&self) -> SubResult<JsonValue>;
-    async fn commitment_activated(&self) -> SubResult<JsonValue>;
-    async fn unit_matched(&self) -> SubResult<JsonValue>;
+    async fn unit_activated(&self, commitment_id: &CommitmentId) -> StreamResult<JsonValue>;
+    async fn unit_deactivated(&self, commitment_id: &CommitmentId) -> StreamResult<JsonValue>;
+    async fn new_heads(&self) -> StreamResult<JsonValue>;
+    async fn commitment_activated(&self) -> StreamResult<JsonValue>;
+    async fn unit_matched(&self) -> StreamResult<JsonValue>;
 
     // TODO: remove both methods and encapsulate logic
     async fn refresh(&self) -> Result<(), Error>;

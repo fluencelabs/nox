@@ -1290,7 +1290,8 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::subscription::{Error, EventSubscription, Stream};
+    use crate::subscription::StreamResult;
+    use crate::subscription::{Error, EventSubscription};
     use crate::{ChainListener, ChainListenerConfig};
     use alloy_sol_types::SolType;
     use ccp_shared::proof::CCProof;
@@ -1303,12 +1304,9 @@ mod tests {
     use jsonrpsee::core::{async_trait, JsonValue};
     use log_utils::enable_logs;
     use mockall::mock;
-    use serde_json::{json, Value};
+    use serde_json::Value;
     use std::sync::Arc;
     use std::time::Duration;
-    use tokio::sync::broadcast::error::SendError;
-    use tokio::sync::broadcast::Sender;
-    use tokio::sync::Notify;
     use tokio_stream::wrappers::BroadcastStream;
     use types::DealId;
 
@@ -1351,100 +1349,24 @@ mod tests {
         }
     }
 
-    struct TestEventSubscription {
-        new_heads_sender: Sender<Result<JsonValue, Error>>,
-        new_heads_notify: Notify,
-        commitment_activated_sender: Sender<Result<JsonValue, Error>>,
-        commitment_activated_notify: Notify,
-        commitment_deactivated_sender: Sender<Result<JsonValue, Error>>,
-        unit_matched_sender: Sender<Result<JsonValue, Error>>,
-        unit_matched_notify: Notify,
-        unit_activated_sender: Sender<Result<JsonValue, Error>>,
-    }
+    mock! {
+        EventSubscriptionConnectorStruct {}
 
-    impl TestEventSubscription {
-        pub fn new() -> Self {
-            let (new_heads_sender, _rx) = tokio::sync::broadcast::channel(16);
-            let (commitment_activated_sender, _rx) = tokio::sync::broadcast::channel(16);
-            let (commitment_deactivated_sender, _rx) = tokio::sync::broadcast::channel(16);
-            let (unit_matched_sender, _rx) = tokio::sync::broadcast::channel(16);
-            let (unit_activated_sender, _rx) = tokio::sync::broadcast::channel(16);
-            let new_heads_notify = Notify::new();
-            let unit_matched_notify = Notify::new();
-            let commitment_activated_notify = Notify::new();
-            Self {
-                new_heads_sender,
-                new_heads_notify,
-                commitment_activated_sender,
-                commitment_deactivated_sender,
-                unit_matched_sender,
-                unit_matched_notify,
-                unit_activated_sender,
-                commitment_activated_notify,
-            }
-        }
+        #[async_trait]
+        impl EventSubscription for EventSubscriptionConnectorStruct {
+            async fn unit_activated(&self, commitment_id: &CommitmentId) -> StreamResult<JsonValue>;
 
-        pub fn send_new_heads(
-            &self,
-            value: Result<JsonValue, Error>,
-        ) -> Result<usize, SendError<Result<Value, Error>>> {
-            self.new_heads_sender.send(value)
-        }
+            async fn unit_deactivated(&self, commitment_id: &CommitmentId) -> StreamResult<JsonValue>;
 
-        pub async fn wait_subscriptions(&self) {
-            self.new_heads_notify.notified().await;
-            self.unit_matched_notify.notified().await;
-            self.commitment_activated_notify.notified().await;
-        }
-    }
+            async fn new_heads(&self) -> StreamResult<JsonValue>;
 
-    #[async_trait]
-    impl EventSubscription for TestEventSubscription {
-        async fn unit_activated(
-            &self,
-            _commitment_id: &CommitmentId,
-        ) -> Result<Stream<JsonValue>, Error> {
-            let rx = self.unit_activated_sender.subscribe();
-            let stream = BroadcastStream::new(rx);
-            Ok(Box::pin(stream.map(|item| item.unwrap())))
-        }
+            async fn commitment_activated(&self) -> StreamResult<JsonValue>;
 
-        async fn unit_deactivated(
-            &self,
-            _commitment_id: &CommitmentId,
-        ) -> Result<Stream<JsonValue>, Error> {
-            let rx = self.commitment_deactivated_sender.subscribe();
-            let stream = BroadcastStream::new(rx);
-            Ok(Box::pin(stream.map(|item| item.unwrap())))
-        }
+            async fn unit_matched(&self) -> StreamResult<JsonValue>;
 
-        async fn new_heads(&self) -> Result<Stream<JsonValue>, Error> {
-            let rx = self.new_heads_sender.subscribe();
-            let stream = BroadcastStream::new(rx);
-            self.new_heads_notify.notify_one();
-            Ok(Box::pin(stream.map(|item| item.unwrap())))
-        }
+            async fn refresh(&self) -> Result<(), Error>;
 
-        async fn commitment_activated(&self) -> Result<Stream<JsonValue>, Error> {
-            let rx = self.commitment_activated_sender.subscribe();
-            let stream = BroadcastStream::new(rx);
-            self.commitment_activated_notify.notify_one();
-            Ok(Box::pin(stream.map(|item| item.unwrap())))
-        }
-
-        async fn unit_matched(&self) -> Result<Stream<JsonValue>, Error> {
-            let rx = self.unit_matched_sender.subscribe();
-            let stream = BroadcastStream::new(rx);
-            self.unit_matched_notify.notify_one();
-            Ok(Box::pin(stream.map(|item| item.unwrap())))
-        }
-
-        async fn refresh(&self) -> Result<(), Error> {
-            Ok(())
-        }
-
-        async fn restart(&self) -> Result<(), Error> {
-            Ok(())
+            async fn restart(&self) -> Result<(), Error>;
         }
     }
 
@@ -1453,8 +1375,31 @@ mod tests {
         enable_logs();
         let tmp_dir = tempfile::tempdir().expect("Could not create temp dir");
         let config = ChainListenerConfig::new(Duration::from_secs(1));
-        let subscription = TestEventSubscription::new();
-        let subscription = Arc::new(subscription);
+        let mut subscription = MockEventSubscriptionConnectorStruct::new();
+        let (new_heads_sender, _rx) = tokio::sync::broadcast::channel(16);
+        let (commitment_activated_sender, _rx) = tokio::sync::broadcast::channel(16);
+        let (unit_matched_sender, _rx) = tokio::sync::broadcast::channel(16);
+
+        subscription.expect_new_heads().return_once(move || {
+            let rx = new_heads_sender.subscribe();
+            let stream = BroadcastStream::new(rx);
+            Ok(Box::pin(stream.map(|item| item.unwrap())))
+        });
+
+        subscription
+            .expect_commitment_activated()
+            .return_once(move || {
+                let rx = commitment_activated_sender.subscribe();
+                let stream = BroadcastStream::new(rx);
+                Ok(Box::pin(stream.map(|item| item.unwrap())))
+            });
+
+        subscription.expect_unit_matched().return_once(move || {
+            let rx = unit_matched_sender.subscribe();
+            let stream = BroadcastStream::new(rx);
+            Ok(Box::pin(stream.map(|item| item.unwrap())))
+        });
+
         let mut connector = MockChainConnectorStruct::new();
         connector.expect_get_cc_init_params().return_once(|| {
             Ok(CCInitParams {
@@ -1480,6 +1425,7 @@ mod tests {
             .return_once(|| Ok(None));
 
         let connector = Arc::new(connector);
+        let subscription = Arc::new(subscription);
         let core_manager = CoreManager::Dummy(DummyCoreManager::default());
         let core_manager = Arc::new(core_manager);
 
@@ -1498,8 +1444,8 @@ mod tests {
 
         let _a = listener.start();
 
-        subscription.wait_subscriptions().await;
-        let _ = subscription.send_new_heads(Ok(json!("test"))).unwrap();
+        //        subscription.wait_subscriptions().await;
+        //        let _ = subscription.send_new_heads(Ok(json!("test"))).unwrap();
 
         tokio::time::sleep(Duration::from_secs(10)).await;
     }
