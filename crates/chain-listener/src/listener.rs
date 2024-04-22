@@ -1307,6 +1307,7 @@ mod tests {
     use serde_json::Value;
     use std::sync::Arc;
     use std::time::Duration;
+    use tokio::sync::Notify;
     use tokio_stream::wrappers::BroadcastStream;
     use types::DealId;
 
@@ -1379,6 +1380,7 @@ mod tests {
         let (new_heads_sender, _rx) = tokio::sync::broadcast::channel(16);
         let (commitment_activated_sender, _rx) = tokio::sync::broadcast::channel(16);
         let (unit_matched_sender, _rx) = tokio::sync::broadcast::channel(16);
+        let notifier = Arc::new(Notify::new());
 
         subscription.expect_new_heads().returning(move || {
             let rx = new_heads_sender.subscribe();
@@ -1394,9 +1396,11 @@ mod tests {
                 Ok(Box::pin(stream.map(|item| item.unwrap())))
             });
 
+        let unit_matched_notifier = notifier.clone();
         subscription.expect_unit_matched().returning(move || {
             let rx = unit_matched_sender.subscribe();
             let stream = BroadcastStream::new(rx);
+            unit_matched_notifier.notify_one(); // we now that this call is last
             Ok(Box::pin(stream.map(|item| item.unwrap())))
         });
 
@@ -1442,11 +1446,9 @@ mod tests {
             None,
         );
 
-        let _a = listener.start();
+        let _handle = listener.start();
+        notifier.notified().await; //wait subscriptions start before sending messages
 
-        //        subscription.wait_subscriptions().await;
-        //        let _ = subscription.send_new_heads(Ok(json!("test"))).unwrap();
-
-        tokio::time::sleep(Duration::from_secs(10)).await;
+        //let _ = subscription.send_new_heads(Ok(json!("test"))).unwrap();
     }
 }
