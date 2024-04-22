@@ -1317,8 +1317,10 @@ mod tests {
         new_heads_sender: Sender<Result<JsonValue, Error>>,
         new_heads_notify: Notify,
         commitment_activated_sender: Sender<Result<JsonValue, Error>>,
+        commitment_activated_notify: Notify,
         commitment_deactivated_sender: Sender<Result<JsonValue, Error>>,
         unit_matched_sender: Sender<Result<JsonValue, Error>>,
+        unit_matched_notify: Notify,
         unit_activated_sender: Sender<Result<JsonValue, Error>>,
     }
 
@@ -1330,13 +1332,17 @@ mod tests {
             let (unit_matched_sender, _rx) = tokio::sync::broadcast::channel(16);
             let (unit_activated_sender, _rx) = tokio::sync::broadcast::channel(16);
             let new_heads_notify = Notify::new();
+            let unit_matched_notify = Notify::new();
+            let commitment_activated_notify = Notify::new();
             Self {
                 new_heads_sender,
                 new_heads_notify,
                 commitment_activated_sender,
                 commitment_deactivated_sender,
                 unit_matched_sender,
+                unit_matched_notify,
                 unit_activated_sender,
+                commitment_activated_notify,
             }
         }
 
@@ -1348,7 +1354,9 @@ mod tests {
         }
 
         pub async fn wait_subscriptions(&self) {
-            self.new_heads_notify.notified().await
+            self.new_heads_notify.notified().await;
+            self.unit_matched_notify.notified().await;
+            self.commitment_activated_notify.notified().await;
         }
     }
 
@@ -1382,12 +1390,14 @@ mod tests {
         async fn commitment_activated(&self) -> Result<Stream<JsonValue>, Error> {
             let rx = self.commitment_activated_sender.subscribe();
             let stream = BroadcastStream::new(rx);
+            self.commitment_activated_notify.notify_one();
             Ok(Box::pin(stream.map(|item| item.unwrap())))
         }
 
         async fn unit_matched(&self) -> Result<Stream<JsonValue>, Error> {
             let rx = self.unit_matched_sender.subscribe();
             let stream = BroadcastStream::new(rx);
+            self.unit_matched_notify.notify_one();
             Ok(Box::pin(stream.map(|item| item.unwrap())))
         }
 
