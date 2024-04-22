@@ -117,8 +117,8 @@ marine-module-info-parser = "0.16.0"
 marine-wasmtime-backend = "0.7.0"
 
 # avm
-avm-server = { git = "https://github.com/fluencelabs/aquavm", version = "=0.37.0", branch = "feat/use-async-marine" }
-air-interpreter-wasm = "=0.62.0"
+avm-server = "=0.38.0"
+air-interpreter-wasm = "=0.63.0"
 
 # libp2p
 libp2p = { version = "0.53.2", features = ["noise", "tcp", "dns", "websocket", "yamux", "tokio", "kad", "ping", "identify", "macros"] }

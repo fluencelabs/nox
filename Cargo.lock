@@ -95,13 +95,14 @@ dependencies = [
 [[package]]
 name = "air-interpreter-interface"
 version = "0.19.0"
-source = "git+https://github.com/fluencelabs/aquavm?branch=feat/use-async-marine#044691d97b26340da340f444b7d492c11093478d"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "52ca7926759c89514cbc1fdffe7477585e71eef42eedcedd695511e518b74cb9"
 dependencies = [
- "air-interpreter-sede 0.1.0 (git+https://github.com/fluencelabs/aquavm?branch=feat/use-async-marine)",
+ "air-interpreter-sede",
  "air-interpreter-value",
  "fluence-it-types",
  "marine-call-parameters 0.14.0",
- "marine-rs-sdk",
+ "marine-rs-sdk 0.14.0",
  "serde",
  "serde_bytes",
  "serde_json",
@@ -113,20 +114,7 @@ version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "433b1ca3538f5f6a6083646b2aa61cd57a08c1558091f6be47b2299fc7b28261"
 dependencies = [
- "rmp-serde",
- "serde",
- "serde_bytes",
- "serde_json",
- "thiserror",
- "unsigned-varint 0.8.0",
-]
-
-[[package]]
-name = "air-interpreter-sede"
-version = "0.1.0"
-source = "git+https://github.com/fluencelabs/aquavm?branch=feat/use-async-marine#044691d97b26340da340f444b7d492c11093478d"
-dependencies = [
- "marine-rs-sdk",
+ "marine-rs-sdk 0.10.3",
  "rmp-serde",
  "serde",
  "serde_bytes",
@@ -138,7 +126,8 @@ dependencies = [
 [[package]]
 name = "air-interpreter-value"
 version = "0.1.0"
-source = "git+https://github.com/fluencelabs/aquavm?branch=feat/use-async-marine#044691d97b26340da340f444b7d492c11093478d"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e3158e53f5ca496d825120e111e110a546ed05e3116d37125655a9e20b230529"
 dependencies = [
  "serde",
  "serde_json",
@@ -146,9 +135,9 @@ dependencies = [
 
 [[package]]
 name = "air-interpreter-wasm"
-version = "0.62.0"
+version = "0.63.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "32424e4abaebf4e085109d917907c5c2898efe55eb88a9f1be866e1bbfc710b0"
+checksum = "291be3567af94a8de9e25b3a2e6ac0ba58bb07c5967bead27c20a918846f3c6c"
 dependencies = [
  "built 0.7.1",
 ]
@@ -156,7 +145,8 @@ dependencies = [
 [[package]]
 name = "air-utils"
 version = "0.3.0"
-source = "git+https://github.com/fluencelabs/aquavm?branch=feat/use-async-marine#044691d97b26340da340f444b7d492c11093478d"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3705bf46663ca316391c8c666d96edf4c13f5d1054f4e7487a752e2051b85165"
 
 [[package]]
 name = "allocator-api2"
@@ -741,7 +731,8 @@ checksum = "d468802bab17cbc0cc575e9b053f41e72aa36bfa6b7f55e3529ffa43161b97fa"
 [[package]]
 name = "avm-data-store"
 version = "0.7.9"
-source = "git+https://github.com/fluencelabs/aquavm?branch=feat/use-async-marine#044691d97b26340da340f444b7d492c11093478d"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ec2bbb779d135467217968e752b092d2a00d649f452b1015aac332284d9b5aa9"
 dependencies = [
  "avm-interface",
  "serde",
@@ -751,10 +742,11 @@ dependencies = [
 [[package]]
 name = "avm-interface"
 version = "0.32.1"
-source = "git+https://github.com/fluencelabs/aquavm?branch=feat/use-async-marine#044691d97b26340da340f444b7d492c11093478d"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1767525a79ab972c3a40c6dc807f6eebcc323932e9846648b3b58f9940a54057"
 dependencies = [
  "air-interpreter-interface",
- "air-interpreter-sede 0.1.0 (git+https://github.com/fluencelabs/aquavm?branch=feat/use-async-marine)",
+ "air-interpreter-sede",
  "air-utils",
  "log",
  "maplit",
@@ -767,11 +759,12 @@ dependencies = [
 
 [[package]]
 name = "avm-server"
-version = "0.37.0"
-source = "git+https://github.com/fluencelabs/aquavm?branch=feat/use-async-marine#044691d97b26340da340f444b7d492c11093478d"
+version = "0.38.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f63902333bfcced4ab6d61fc1bbea14c6cec7b7852b7e9967cb66e252f49c581"
 dependencies = [
  "air-interpreter-interface",
- "air-interpreter-sede 0.1.0 (git+https://github.com/fluencelabs/aquavm?branch=feat/use-async-marine)",
+ "air-interpreter-sede",
  "air-utils",
  "avm-data-store",
  "avm-interface",
@@ -2630,7 +2623,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e3794dff0e7e2851fee56651bf45f8d57c8be3c77c285a5f16fd86d4d6ed1037"
 dependencies = [
  "eyre",
- "marine-rs-sdk",
+ "marine-rs-sdk 0.14.0",
  "marine-sqlite-connector",
  "serde",
  "thiserror",
@@ -5156,6 +5149,19 @@ dependencies = [
 
 [[package]]
 name = "marine-rs-sdk"
+version = "0.10.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "034cab8adf708e87db08f093e0c7b8ea49359cc875ed2a778c1bf245b5d9d9f8"
+dependencies = [
+ "marine-call-parameters 0.10.3",
+ "marine-macro 0.10.3",
+ "marine-rs-sdk-main 0.10.3",
+ "marine-timestamp-macro 0.10.3",
+ "serde",
+]
+
+[[package]]
+name = "marine-rs-sdk"
 version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f93d2bd852fea1fea8097c195044430347eda98fd6a3752119b549192d5ac4ba"
@@ -5163,7 +5169,7 @@ dependencies = [
  "marine-call-parameters 0.14.0",
  "marine-macro 0.14.0",
  "marine-rs-sdk-main 0.14.0",
- "marine-timestamp-macro",
+ "marine-timestamp-macro 0.14.0",
  "serde",
 ]
 
@@ -5223,7 +5229,7 @@ dependencies = [
  "marine-call-parameters 0.13.0",
  "marine-core",
  "marine-module-interface",
- "marine-rs-sdk",
+ "marine-rs-sdk 0.14.0",
  "marine-rs-sdk-main 0.14.0",
  "marine-utils",
  "marine-wasm-backend-traits",
@@ -5246,7 +5252,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1c4d82c7e8c07f59aa526271b810c97ec7f79d14a77725025618a79b0b1d9051"
 dependencies = [
  "bytesize",
- "marine-rs-sdk",
+ "marine-rs-sdk 0.14.0",
+]
+
+[[package]]
+name = "marine-timestamp-macro"
+version = "0.10.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7f812a03cb13b79ab75e38053a77ecc4b4738a1b485b650d971dec3dbbcb2561"
+dependencies = [
+ "chrono",
+ "quote",
 ]
 
 [[package]]
@@ -6235,7 +6251,7 @@ dependencies = [
 name = "particle-protocol"
 version = "0.3.0"
 dependencies = [
- "air-interpreter-sede 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "air-interpreter-sede",
  "asynchronous-codec 0.7.0",
  "base64 0.21.7",
  "derivative",
@@ -6490,7 +6506,8 @@ dependencies = [
 [[package]]
 name = "polyplets"
 version = "0.7.0"
-source = "git+https://github.com/fluencelabs/aquavm?branch=feat/use-async-marine#044691d97b26340da340f444b7d492c11093478d"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a77452f7f8d029801e32bc975404918f45c338183416a2aa2cb3d59c5c922446"
 dependencies = [
  "marine-call-parameters 0.14.0",
  "serde",
