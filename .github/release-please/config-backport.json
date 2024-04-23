@@ -1,0 +1,11 @@
+{
+    "bootstrap-sha": "a5bed5fc40f29c1ea8493a6d259fb590d5b7e88e",
+    "release-type": "simple",
+    "versioning" : "always-bump-patch",
+    "packages": {
+      ".": {
+        "package-name": "nox",
+        "component": "nox"
+      }
+    }
+} 

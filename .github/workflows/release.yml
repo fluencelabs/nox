@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - "master"
+      - "backport/*"
 
 concurrency:
   group: "${{ github.workflow }}-${{ github.ref }}"
@@ -19,13 +20,21 @@ jobs:
       pr: ${{ steps.release.outputs['pr'] }}
 
     steps:
+      - name: Set release-please config
+        id: config
+        run: |
+          if [[ ${{ github.ref_name }} == main ]]; then echo "config=.github/release-please/config.json" >> $GITHUB_OUTPUT;
+          elif [[ ${{ github.ref_name }} =~ ^backport/ ]]; then echo "config=.github/release-please/config-backport.json" >> $GITHUB_OUTPUT;
+          fi
+
       - name: Run release-please
         id: release
         uses: google-github-actions/release-please-action@v4
         with:
+          target-branch: ${{ github.ref_name }}
           token: ${{ secrets.FLUENCEBOT_RELEASE_PLEASE_PAT }}
           command: manifest
-          config-file: .github/release-please/config.json
+          config-file: ${{ steps.config.outputs.config }}
           manifest-file: .github/release-please/manifest.json
 
       - name: Show output from release-please
