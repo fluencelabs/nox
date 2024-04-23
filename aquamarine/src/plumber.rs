@@ -675,7 +675,7 @@ mod tests {
     use async_trait::async_trait;
     use avm_server::avm_runner::RawAVMOutcome;
     use marine_wasmtime_backend::{WasmtimeConfig, WasmtimeWasmBackend};
-    use particle_services::PeerScope;
+    use particle_services::{PeerScope, WasmBackendConfig};
     use tracing::Span;
 
     struct MockF;
@@ -756,15 +756,9 @@ mod tests {
     }
 
     async fn plumber() -> Plumber<VMMock, Arc<MockF>> {
-        let mut wasmtime_config = WasmtimeConfig::default();
-        wasmtime_config
-            .debug_info(true)
-            .wasm_backtrace(true)
-            .epoch_interruption(true)
-            .async_wasm_stack(2 * 1024 * 1024)
-            .max_wasm_stack(2 * 1024 * 1024);
+        let avm_wasm_config: WasmtimeConfig = WasmBackendConfig::default().into();
         let avm_wasm_backend =
-            WasmtimeWasmBackend::new(wasmtime_config).expect("Could not create wasm backend");
+            WasmtimeWasmBackend::new(avm_wasm_config).expect("Could not create wasm backend");
         // Pool is of size 1 so it's easier to control tests
         let vm_pool = VmPool::new(1, (), None, None, avm_wasm_backend.clone());
         let builtin_mock = Arc::new(MockF);

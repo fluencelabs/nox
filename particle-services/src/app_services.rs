@@ -236,15 +236,7 @@ impl ParticleAppServices {
             persisted_services
         });
 
-        let mut wasmtime_config = WasmtimeConfig::default();
-        // TODO async-marine: impl proper configuration
-        // TODO async-marine: move to the right place
-        wasmtime_config
-            .debug_info(true)
-            .wasm_backtrace(true)
-            .epoch_interruption(true)
-            .async_wasm_stack(2 * 1024 * 1024)
-            .max_wasm_stack(2 * 1024 * 1024);
+        let wasmtime_config: WasmtimeConfig = config.wasm_backend_config.clone().into();
 
         let (app_service_factory, epoch_ticker) =
             AppServiceFactory::new(wasmtime_config).map_err(ServiceError::Engine)?;
