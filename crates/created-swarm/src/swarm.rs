@@ -30,7 +30,7 @@ use libp2p::{core::Multiaddr, PeerId};
 use serde::Deserialize;
 
 use air_interpreter_fs::{air_interpreter_path, write_default_air_interpreter};
-use aquamarine::{AVMRunner, AquamarineApi, VmConfig, WasmBackendConfig};
+use aquamarine::{AVMRunner, AquamarineApi, VmConfig};
 use aquamarine::{AquaRuntime, DataStoreConfig};
 use base64::{engine::general_purpose::STANDARD as base64, Engine};
 use cid_utils::Hash;
@@ -442,13 +442,6 @@ pub async fn create_swarm_with_runtime<RT: AquaRuntime>(
             listen_on: config.listen_on.clone(),
             manager: management_peer_id,
         });
-        let avm_wasm_backend_config = WasmBackendConfig{
-            debug_info: true,
-            wasm_backtrace: true,
-            async_wasm_stack: 2*1024*1024,
-            max_wasm_stack: 2*1024*1024,
-            epoch_interruption_duration: Some(Duration::from_secs(1)),
-        };
 
         let data_store_config = DataStoreConfig::new(tmp_dir.clone());
 
@@ -462,7 +455,6 @@ pub async fn create_swarm_with_runtime<RT: AquaRuntime>(
             resolved.clone(),
             core_manager,
             vm_config,
-            avm_wasm_backend_config,
             data_store_config,
             "some version",
             "some version",

@@ -28,13 +28,12 @@ use tracing::{instrument, Instrument};
 use health::HealthCheckRegistry;
 use particle_execution::{ParticleFunctionStatic, ServiceFunction};
 use particle_protocol::ExtendedParticle;
-use particle_services::PeerScope;
+use particle_services::{PeerScope, WasmBackendConfig};
 use peer_metrics::{ParticleExecutorMetrics, VmPoolMetrics};
 use workers::{Event, KeyStorage, PeerScopes, Receiver, Workers};
 
 use crate::command::Command;
 use crate::command::Command::{AddService, Ingest, RemoveService};
-use crate::config::WasmBackendConfig;
 use crate::error::AquamarineApiError;
 use crate::vm_pool::VmPool;
 use crate::{

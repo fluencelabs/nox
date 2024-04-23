@@ -18,9 +18,11 @@ use fs_utils::{create_dirs, set_write_only, to_abs_path};
 
 use bytesize::ByteSize;
 use cid_utils::Hash;
+use fluence_app_service::WasmtimeConfig;
 use libp2p_identity::PeerId;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+use std::time::Duration;
 
 #[derive(Debug, Clone)]
 pub struct ParticleAppServicesConfig {
@@ -54,6 +56,8 @@ pub struct ParticleAppServicesConfig {
     pub mounted_binaries_mapping: HashMap<String, PathBuf>,
     /// Is in the developer mode
     pub is_dev_mode: bool,
+    /// config for the wasmtime backend
+    pub wasm_backend_config: WasmBackendConfig,
 }
 
 impl ParticleAppServicesConfig {
@@ -70,6 +74,7 @@ impl ParticleAppServicesConfig {
         allowed_effectors: HashMap<Hash, HashMap<String, String>>,
         mounted_binaries_mapping: HashMap<String, String>,
         is_dev_mode: bool,
+        wasm_backend_config: WasmBackendConfig,
     ) -> Result<Self, std::io::Error> {
         let persistent_dir = to_abs_path(persistent_dir);
         let ephemeral_dir = to_abs_path(ephemeral_dir);
@@ -129,6 +134,7 @@ impl ParticleAppServicesConfig {
             allowed_effectors,
             mounted_binaries_mapping,
             is_dev_mode,
+            wasm_backend_config,
         };
 
         create_dirs(&[
@@ -143,5 +149,44 @@ impl ParticleAppServicesConfig {
         set_write_only(&this.particles_vault_dir)?;
 
         Ok(this)
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct WasmBackendConfig {
+    /// Configures whether DWARF debug information will be emitted during compilation.
+    pub debug_info: bool,
+    /// Configures whether the errors from the VM should collect the wasm backtrace and parse debug info.
+    pub wasm_backtrace: bool,
+    /// Configures the size of the stacks used for asynchronous execution.
+    pub async_wasm_stack: usize,
+    /// Configures the maximum amount of stack space available for executing WebAssembly code.
+    pub max_wasm_stack: usize,
+    /// Enables the epoch interruption mechanism.
+    pub epoch_interruption_duration: Option<Duration>,
+}
+
+impl From<WasmBackendConfig> for WasmtimeConfig {
+    fn from(value: WasmBackendConfig) -> Self {
+        let mut config = WasmtimeConfig::default();
+        config
+            .debug_info(value.debug_info)
+            .wasm_backtrace(value.wasm_backtrace)
+            .epoch_interruption(true)
+            .async_wasm_stack(value.async_wasm_stack)
+            .max_wasm_stack(value.max_wasm_stack);
+        config
+    }
+}
+
+impl Default for WasmBackendConfig {
+    fn default() -> Self {
+        Self {
+            debug_info: true,
+            wasm_backtrace: true,
+            async_wasm_stack: 4 * 1024 * 1024,
+            max_wasm_stack: 2 * 1024 * 1024,
+            epoch_interruption_duration: Some(Duration::from_secs(1)),
+        }
     }
 }

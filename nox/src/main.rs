@@ -38,7 +38,7 @@ use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 
 use air_interpreter_fs::write_default_air_interpreter;
-use aquamarine::{AVMRunner, DataStoreConfig, VmConfig, WasmBackendConfig};
+use aquamarine::{AVMRunner, DataStoreConfig, VmConfig};
 use config_utils::to_peer_id;
 use core_manager::{CoreManager, CoreManagerFunctions, DevCoreManager, StrictCoreManager};
 use fs_utils::to_abs_path;
@@ -201,7 +201,6 @@ async fn start_fluence(
 
     let listen_addrs = config.listen_multiaddrs();
     let vm_config = vm_config(&config);
-    let avm_wasm_backend_config = avm_wasm_backend_config(&config);
 
     let data_store_config = DataStoreConfig::new(config.dir_config.avm_base_dir.clone());
 
@@ -214,7 +213,6 @@ async fn start_fluence(
         config,
         core_manager,
         vm_config,
-        avm_wasm_backend_config,
         data_store_config,
         VERSION,
         air_interpreter_wasm::VERSION,
@@ -273,28 +271,4 @@ fn vm_config(config: &ResolvedConfig) -> VmConfig {
             .map(|byte_size| byte_size.as_u64()),
         config.node_config.avm_config.hard_limit_enabled,
     )
-}
-
-fn avm_wasm_backend_config(config: &ResolvedConfig) -> WasmBackendConfig {
-    WasmBackendConfig {
-        debug_info: config.node_config.services.wasm_backend.debug_info,
-        wasm_backtrace: config.node_config.services.wasm_backend.wasm_backtrace,
-        async_wasm_stack: config
-            .node_config
-            .services
-            .wasm_backend
-            .async_wasm_stack
-            .as_u64() as usize,
-        max_wasm_stack: config
-            .node_config
-            .services
-            .wasm_backend
-            .max_wasm_stack
-            .as_u64() as usize,
-        epoch_interruption_duration: config
-            .node_config
-            .services
-            .wasm_backend
-            .epoch_interruption_duration,
-    }
 }

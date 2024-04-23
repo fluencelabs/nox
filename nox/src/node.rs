@@ -162,7 +162,6 @@ impl<RT: AquaRuntime> Node<RT> {
         config: ResolvedConfig,
         core_manager: Arc<CoreManager>,
         vm_config: RT::Config,
-        avm_wasm_backend_config: WasmBackendConfig,
         data_store_config: DataStoreConfig,
         node_version: &'static str,
         air_version: &'static str,
@@ -202,6 +201,8 @@ impl<RT: AquaRuntime> Node<RT> {
 
         let workers = Arc::new(workers);
 
+        let wasm_backend_config = services_wasm_backend_config(&config);
+
         let services_config = ParticleAppServicesConfig::new(
             scopes.get_host_peer_id(),
             config.dir_config.services_persistent_dir.clone(),
@@ -220,6 +221,7 @@ impl<RT: AquaRuntime> Node<RT> {
                 .into_iter()
                 .collect(),
             config.node_config.dev_mode_config.enable,
+            wasm_backend_config,
         )
         .expect("create services config");
 
@@ -318,6 +320,7 @@ impl<RT: AquaRuntime> Node<RT> {
 
         let pool_config =
             VmPoolConfig::new(config.aquavm_pool_size, config.particle_execution_timeout);
+        let avm_wasm_backend_config = avm_wasm_backend_config(&config);
         let (aquamarine_backend, aquamarine_api) = AquamarineBackend::new(
             pool_config,
             vm_config,
@@ -739,6 +742,54 @@ impl<RT: AquaRuntime> Node<RT> {
     }
 }
 
+fn avm_wasm_backend_config(config: &ResolvedConfig) -> WasmBackendConfig {
+    WasmBackendConfig {
+        debug_info: config.node_config.avm_config.wasm_backend.debug_info,
+        wasm_backtrace: config.node_config.avm_config.wasm_backend.wasm_backtrace,
+        async_wasm_stack: config
+            .node_config
+            .avm_config
+            .wasm_backend
+            .async_wasm_stack
+            .as_u64() as usize,
+        max_wasm_stack: config
+            .node_config
+            .avm_config
+            .wasm_backend
+            .max_wasm_stack
+            .as_u64() as usize,
+        epoch_interruption_duration: config
+            .node_config
+            .avm_config
+            .wasm_backend
+            .epoch_interruption_duration,
+    }
+}
+
+fn services_wasm_backend_config(config: &ResolvedConfig) -> WasmBackendConfig {
+    WasmBackendConfig {
+        debug_info: config.node_config.services.wasm_backend.debug_info,
+        wasm_backtrace: config.node_config.services.wasm_backend.wasm_backtrace,
+        async_wasm_stack: config
+            .node_config
+            .services
+            .wasm_backend
+            .async_wasm_stack
+            .as_u64() as usize,
+        max_wasm_stack: config
+            .node_config
+            .services
+            .wasm_backend
+            .max_wasm_stack
+            .as_u64() as usize,
+        epoch_interruption_duration: config
+            .node_config
+            .services
+            .wasm_backend
+            .epoch_interruption_duration,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::path::PathBuf;
@@ -751,7 +802,7 @@ mod tests {
     use serde_json::json;
 
     use air_interpreter_fs::{air_interpreter_path, write_default_air_interpreter};
-    use aquamarine::{AVMRunner, DataStoreConfig, VmConfig, WasmBackendConfig};
+    use aquamarine::{AVMRunner, DataStoreConfig, VmConfig};
     use config_utils::to_peer_id;
     use connected_client::ConnectedClient;
     use core_manager::DummyCoreManager;
@@ -788,7 +839,6 @@ mod tests {
             None,
             false,
         );
-        let avm_wasm_backend_config = WasmBackendConfig::default();
 
         let data_store_config = DataStoreConfig::new(config.dir_config.avm_base_dir.clone());
 
@@ -802,7 +852,6 @@ mod tests {
             config,
             core_manager,
             vm_config,
-            avm_wasm_backend_config,
             data_store_config,
             "some version",
             "some version",

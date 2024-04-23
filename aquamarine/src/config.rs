@@ -16,7 +16,6 @@
 
 use fs_utils::to_abs_path;
 use libp2p::PeerId;
-use marine_wasmtime_backend::WasmtimeConfig;
 use std::path::PathBuf;
 use std::time::Duration;
 
@@ -35,45 +34,6 @@ pub struct VmConfig {
     pub call_result_size_limit: Option<u64>,
     /// A knob to enable/disable hard limits behavior in AquaVM.
     pub hard_limit_enabled: bool,
-}
-
-#[derive(Debug, Clone)]
-pub struct WasmBackendConfig {
-    /// Configures whether DWARF debug information will be emitted during compilation.
-    pub debug_info: bool,
-    /// Configures whether the errors from the VM should collect the wasm backtrace and parse debug info.
-    pub wasm_backtrace: bool,
-    /// Configures the size of the stacks used for asynchronous execution.
-    pub async_wasm_stack: usize,
-    /// Configures the maximum amount of stack space available for executing WebAssembly code.
-    pub max_wasm_stack: usize,
-    /// Enables the epoch interruption mechanism.
-    pub epoch_interruption_duration: Option<Duration>,
-}
-
-impl From<WasmBackendConfig> for WasmtimeConfig {
-    fn from(value: WasmBackendConfig) -> Self {
-        let mut config = WasmtimeConfig::default();
-        config
-            .debug_info(value.debug_info)
-            .wasm_backtrace(value.wasm_backtrace)
-            .epoch_interruption(true)
-            .async_wasm_stack(value.async_wasm_stack)
-            .max_wasm_stack(value.max_wasm_stack);
-        config
-    }
-}
-
-impl Default for WasmBackendConfig {
-    fn default() -> Self {
-        Self {
-            debug_info: true,
-            wasm_backtrace: true,
-            async_wasm_stack: 2 * 1024 * 1024,
-            max_wasm_stack: 2 * 1024 * 1024,
-            epoch_interruption_duration: Some(Duration::from_secs(1)),
-        }
-    }
 }
 
 #[derive(Debug, Clone)]

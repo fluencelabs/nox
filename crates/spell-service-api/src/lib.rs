@@ -284,7 +284,7 @@ mod tests {
     use std::sync::Arc;
 
     use particle_services::{
-        ParticleAppServices, ParticleAppServicesConfig, PeerScope, ServiceType,
+        ParticleAppServices, ParticleAppServicesConfig, PeerScope, ServiceType, WasmBackendConfig,
     };
 
     use fluence_libp2p::PeerId;
@@ -347,6 +347,7 @@ mod tests {
         let workers = Arc::new(workers);
 
         let service_memory_limit = server_config::default_service_memory_limit();
+        let wasm_backend_config = WasmBackendConfig::default();
         let config = ParticleAppServicesConfig::new(
             root_key_pair.get_peer_id(),
             persistent_dir,
@@ -359,6 +360,7 @@ mod tests {
             Default::default(),
             Default::default(),
             true,
+            wasm_backend_config,
         )
         .unwrap();
 

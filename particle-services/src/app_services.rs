@@ -1258,7 +1258,7 @@ mod tests {
 
     use crate::app_services::{ServiceAlias, ServiceType};
     use crate::persistence::load_persisted_services;
-    use crate::{ParticleAppServices, ParticleAppServicesConfig, ServiceError};
+    use crate::{ParticleAppServices, ParticleAppServicesConfig, ServiceError, WasmBackendConfig};
 
     fn create_pid() -> PeerId {
         let keypair = Keypair::generate_ed25519();
@@ -1300,6 +1300,7 @@ mod tests {
                 .expect("Could not load worker registry");
 
         let workers = Arc::new(workers);
+        let wasm_backend_config = WasmBackendConfig::default();
 
         let config = ParticleAppServicesConfig::new(
             PeerId::from(root_keypair.public()),
@@ -1313,6 +1314,7 @@ mod tests {
             Default::default(),
             Default::default(),
             true,
+            wasm_backend_config,
         )
         .unwrap();
 
