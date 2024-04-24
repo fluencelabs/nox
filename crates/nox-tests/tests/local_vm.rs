@@ -53,8 +53,8 @@ async fn make() {
     create_dir(&local_vm_path_a).expect("Could not create tmp dir");
     create_dir(&local_vm_path_b).expect("Could not create tmp dir");
 
-    let mut local_vm_a = make_vm(local_vm_path_a.as_path());
-    let mut local_vm_b = make_vm(local_vm_path_b.as_path());
+    let mut local_vm_a = make_vm(local_vm_path_a.as_path()).await;
+    let mut local_vm_b = make_vm(local_vm_path_b.as_path()).await;
 
     let script = r#"(call client_b ("return" "") [a b c])"#.to_string();
     let data = hashmap! {

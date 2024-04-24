@@ -46,12 +46,12 @@ pub struct PersistedService {
 }
 
 impl PersistedService {
-    pub fn from_service(service: &Service) -> Self {
+    pub async fn from_service(service: &Service) -> Self {
         PersistedService {
             service_id: service.service_id.clone(),
             service_type: Some(service.service_type.clone()),
             blueprint_id: service.blueprint_id.clone(),
-            aliases: service.aliases.read().clone(),
+            aliases: service.aliases.read().await.clone(),
             owner_id: service.owner_id,
             peer_scope: service.peer_scope,
         }

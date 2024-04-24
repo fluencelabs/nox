@@ -24,6 +24,7 @@ use types::peer_id;
 
 use crate::avm_config::AVMConfig;
 use crate::keys::{decode_key, decode_secret_key, load_key};
+use crate::services_config::ServicesConfig;
 use crate::system_services_config::{ServiceKey, SystemServicesConfig};
 use crate::{BootstrapConfig, KademliaConfig};
 
@@ -151,6 +152,9 @@ pub struct UnresolvedNodeConfig {
 
     #[serde(default = "default_dev_mode_config")]
     pub dev_mode: DevModeConfig,
+
+    #[serde(default)]
+    pub services: ServicesConfig,
 }
 
 impl UnresolvedNodeConfig {
@@ -220,6 +224,7 @@ impl UnresolvedNodeConfig {
             http_config: self.http_config,
             chain_config: self.chain_config,
             chain_listener_config: self.chain_listener_config,
+            services: self.services,
         };
 
         Ok(result)
@@ -400,6 +405,8 @@ pub struct NodeConfig {
     pub chain_config: Option<ChainConfig>,
 
     pub chain_listener_config: Option<ChainListenerConfig>,
+
+    pub services: ServicesConfig,
 }
 
 #[derive(Clone, Deserialize, Serialize, Derivative, Copy)]

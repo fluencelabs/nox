@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+use async_trait::async_trait;
 use std::str::FromStr;
 use std::{convert::Infallible, task::Waker, time::Duration};
 
@@ -22,6 +23,7 @@ use avm_server::SoftLimitsTriggering;
 use avm_server::{AVMMemoryStats, CallResults, ParticleParameters};
 use itertools::Itertools;
 
+use aquamarine::WasmtimeWasmBackend;
 use aquamarine::{AquaRuntime, ParticleEffects};
 use fluence_keypair::KeyPair;
 use fluence_libp2p::PeerId;
@@ -30,11 +32,16 @@ pub struct EasyVM {
     delay: Option<Duration>,
 }
 
+#[async_trait]
 impl AquaRuntime for EasyVM {
     type Config = Option<Duration>;
     type Error = Infallible;
 
-    fn create_runtime(delay: Option<Duration>, _: Waker) -> Result<Self, Self::Error> {
+    fn create_runtime(
+        delay: Option<Duration>,
+        _backend: WasmtimeWasmBackend,
+        _: Waker,
+    ) -> Result<Self, Self::Error> {
         Ok(EasyVM { delay })
     }
 
@@ -55,11 +62,11 @@ impl AquaRuntime for EasyVM {
         }
     }
 
-    fn call(
+    async fn call(
         &mut self,
-        air: impl Into<String>,
-        _prev_data: impl Into<Vec<u8>>,
-        current_data: impl Into<Vec<u8>>,
+        air: impl Into<String> + Send,
+        _prev_data: impl Into<Vec<u8>> + Send,
+        current_data: impl Into<Vec<u8>> + Send,
         particle_params: ParticleParameters<'_>,
         _call_results: CallResults,
         _key_pair: &KeyPair,

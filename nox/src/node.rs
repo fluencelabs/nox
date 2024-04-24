@@ -35,11 +35,12 @@ use libp2p_metrics::{Metrics, Recorder};
 use prometheus_client::registry::Registry;
 use tokio::sync::{mpsc, oneshot};
 use tokio::task;
+use tokio_util::sync::CancellationToken;
 use tracing::Instrument;
 
 use aquamarine::{
     AquaRuntime, AquamarineApi, AquamarineApiError, AquamarineBackend, DataStoreConfig,
-    RemoteRoutingEffects, VmPoolConfig,
+    RemoteRoutingEffects, VmPoolConfig, WasmBackendConfig,
 };
 use chain_connector::HttpChainConnector;
 use chain_listener::ChainListener;
@@ -48,7 +49,7 @@ use connection_pool::ConnectionPoolT;
 use core_manager::CoreManager;
 use fluence_libp2p::build_transport;
 use health::HealthCheckRegistry;
-use particle_builtins::{Builtins, CustomService, NodeInfo};
+use particle_builtins::{Builtins, CustomService, NodeInfo, ParticleAppServicesConfig};
 use particle_execution::ParticleFunctionStatic;
 use particle_protocol::ExtendedParticle;
 use peer_metrics::{
@@ -56,7 +57,7 @@ use peer_metrics::{
     ServicesMetrics, ServicesMetricsBackend, SpellMetrics, VmPoolMetrics,
 };
 use server_config::system_services_config::ServiceKey;
-use server_config::{NetworkConfig, ResolvedConfig, ServicesConfig};
+use server_config::{NetworkConfig, ResolvedConfig};
 use sorcerer::Sorcerer;
 use spell_event_bus::api::{PeerEvent, SpellEventBusApi, TriggerEvent};
 use spell_event_bus::bus::SpellEventBus;
@@ -200,7 +201,9 @@ impl<RT: AquaRuntime> Node<RT> {
 
         let workers = Arc::new(workers);
 
-        let services_config = ServicesConfig::new(
+        let wasm_backend_config = services_wasm_backend_config(&config);
+
+        let services_config = ParticleAppServicesConfig::new(
             scopes.get_host_peer_id(),
             config.dir_config.services_persistent_dir.clone(),
             config.dir_config.services_ephemeral_dir.clone(),
@@ -218,6 +221,7 @@ impl<RT: AquaRuntime> Node<RT> {
                 .into_iter()
                 .collect(),
             config.node_config.dev_mode_config.enable,
+            wasm_backend_config,
         )
         .expect("create services config");
 
@@ -316,9 +320,11 @@ impl<RT: AquaRuntime> Node<RT> {
 
         let pool_config =
             VmPoolConfig::new(config.aquavm_pool_size, config.particle_execution_timeout);
+        let avm_wasm_backend_config = avm_wasm_backend_config(&config);
         let (aquamarine_backend, aquamarine_api) = AquamarineBackend::new(
             pool_config,
             vm_config,
+            avm_wasm_backend_config,
             data_store_config,
             Arc::clone(&builtins),
             effects_out,
@@ -360,7 +366,8 @@ impl<RT: AquaRuntime> Node<RT> {
             scopes.clone(),
             spell_service_api.clone(),
             spell_metrics,
-        );
+        )
+        .await;
 
         let allowed_binaries = config
             .allowed_effectors
@@ -520,7 +527,7 @@ impl<RT: AquaRuntime> Node<RT> {
 
     pub fn builtins(
         connectivity: Connectivity,
-        services_config: ServicesConfig,
+        services_config: ParticleAppServicesConfig,
         services_metrics: ServicesMetrics,
         key_storage: Arc<KeyStorage>,
         workers: Arc<Workers>,
@@ -542,6 +549,7 @@ impl<RT: AquaRuntime> Node<RT> {
 }
 
 pub struct StartedNode {
+    pub cancellation_token: CancellationToken,
     pub exit_outlet: oneshot::Sender<()>,
     pub http_listen_addr: Option<SocketAddr>,
 }
@@ -636,6 +644,9 @@ impl<RT: AquaRuntime> Node<RT> {
             Some(self.config),
         );
 
+        let cancellation_token = CancellationToken::new();
+        let task_cancellation_token = cancellation_token.clone();
+
         task::Builder::new().name(&task_name.clone()).spawn(async move {
             let mut http_server = if let Some(http_listen_addr) = http_listen_addr {
                 tracing::info!("Starting http endpoint at {}", http_listen_addr);
@@ -686,6 +697,7 @@ impl<RT: AquaRuntime> Node<RT> {
             connectivity.cancel().await;
             aquamarine_backend.abort();
             workers.shutdown();
+            task_cancellation_token.cancel()
         }.in_current_span()).expect("Could not spawn task");
 
         // Note: need to be after the start of the node to be able to subscribe spells
@@ -710,6 +722,7 @@ impl<RT: AquaRuntime> Node<RT> {
         Ok(StartedNode {
             exit_outlet,
             http_listen_addr,
+            cancellation_token,
         })
     }
 
@@ -729,20 +742,67 @@ impl<RT: AquaRuntime> Node<RT> {
     }
 }
 
+fn avm_wasm_backend_config(config: &ResolvedConfig) -> WasmBackendConfig {
+    WasmBackendConfig {
+        debug_info: config.node_config.avm_config.wasm_backend.debug_info,
+        wasm_backtrace: config.node_config.avm_config.wasm_backend.wasm_backtrace,
+        async_wasm_stack: config
+            .node_config
+            .avm_config
+            .wasm_backend
+            .async_wasm_stack
+            .as_u64() as usize,
+        max_wasm_stack: config
+            .node_config
+            .avm_config
+            .wasm_backend
+            .max_wasm_stack
+            .as_u64() as usize,
+        epoch_interruption_duration: config
+            .node_config
+            .avm_config
+            .wasm_backend
+            .epoch_interruption_duration,
+    }
+}
+
+fn services_wasm_backend_config(config: &ResolvedConfig) -> WasmBackendConfig {
+    WasmBackendConfig {
+        debug_info: config.node_config.services.wasm_backend.debug_info,
+        wasm_backtrace: config.node_config.services.wasm_backend.wasm_backtrace,
+        async_wasm_stack: config
+            .node_config
+            .services
+            .wasm_backend
+            .async_wasm_stack
+            .as_u64() as usize,
+        max_wasm_stack: config
+            .node_config
+            .services
+            .wasm_backend
+            .max_wasm_stack
+            .as_u64() as usize,
+        epoch_interruption_duration: config
+            .node_config
+            .services
+            .wasm_backend
+            .epoch_interruption_duration,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::path::PathBuf;
     use std::sync::Arc;
     use std::time::Duration;
 
-    use avm_server::avm_runner::AVMRunner;
     use libp2p::core::Multiaddr;
     use libp2p::PeerId;
     use maplit::hashmap;
     use serde_json::json;
 
     use air_interpreter_fs::{air_interpreter_path, write_default_air_interpreter};
-    use aquamarine::{DataStoreConfig, VmConfig};
+    use aquamarine::{AVMRunner, DataStoreConfig, VmConfig};
     use config_utils::to_peer_id;
     use connected_client::ConnectedClient;
     use core_manager::DummyCoreManager;
@@ -779,6 +839,7 @@ mod tests {
             None,
             false,
         );
+
         let data_store_config = DataStoreConfig::new(config.dir_config.avm_base_dir.clone());
 
         let system_service_distros =

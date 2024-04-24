@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+use async_trait::async_trait;
 use std::str::FromStr;
 use std::{error::Error, task::Waker};
 
@@ -23,17 +24,23 @@ use avm_server::{
 };
 use fluence_keypair::KeyPair;
 use libp2p::PeerId;
+use marine_wasmtime_backend::WasmtimeWasmBackend;
 use tracing::Level;
 
 use crate::config::VmConfig;
 use crate::error::{ExecutionError, FieldError};
 use crate::particle_effects::ParticleEffects;
 
+#[async_trait]
 pub trait AquaRuntime: Sized + Send + 'static {
     type Config: Clone + Send + 'static;
     type Error: Error + Send + Sync + 'static;
 
-    fn create_runtime(config: Self::Config, waker: Waker) -> Result<Self, Self::Error>;
+    fn create_runtime(
+        config: Self::Config,
+        wasm_backend: WasmtimeWasmBackend,
+        waker: Waker,
+    ) -> Result<Self, Self::Error>;
 
     // TODO: move into_effects inside call
     fn into_effects(
@@ -41,11 +48,11 @@ pub trait AquaRuntime: Sized + Send + 'static {
         particle_id: String,
     ) -> ParticleEffects;
 
-    fn call(
+    async fn call(
         &mut self,
-        air: impl Into<String>,
-        prev_data: impl Into<Vec<u8>>,
-        current_data: impl Into<Vec<u8>>,
+        air: impl Into<String> + Send,
+        prev_data: impl Into<Vec<u8>> + Send,
+        current_data: impl Into<Vec<u8>> + Send,
         particle_params: ParticleParameters<'_>,
         call_results: CallResults,
         key_pair: &KeyPair,
@@ -55,24 +62,31 @@ pub trait AquaRuntime: Sized + Send + 'static {
     fn memory_stats(&self) -> AVMMemoryStats;
 }
 
-impl AquaRuntime for AVMRunner {
+#[async_trait]
+impl AquaRuntime for AVMRunner<WasmtimeWasmBackend> {
     type Config = VmConfig;
     type Error = RunnerError;
 
     /// Creates `AVM` in background (on blocking threadpool)
-    fn create_runtime(config: Self::Config, waker: Waker) -> Result<Self, Self::Error> {
+    fn create_runtime(
+        config: Self::Config,
+        backend: WasmtimeWasmBackend,
+        waker: Waker,
+    ) -> Result<Self, Self::Error> {
         let avm_runtime_limits = AVMRuntimeLimits::new(
             config.air_size_limit,
             config.particle_size_limit,
             config.call_result_size_limit,
             config.hard_limit_enabled,
         );
-        let vm: AVMRunner = AVMRunner::new(
-            config.air_interpreter,
-            config.max_heap_size,
-            avm_runtime_limits,
-            i32::MAX,
-        )?;
+        let vm: AVMRunner<WasmtimeWasmBackend> =
+            tokio::runtime::Handle::current().block_on(AVMRunner::new(
+                config.air_interpreter,
+                config.max_heap_size,
+                avm_runtime_limits,
+                i32::MAX,
+                backend,
+            ))?;
         waker.wake();
         Ok(vm)
     }
@@ -122,11 +136,11 @@ impl AquaRuntime for AVMRunner {
     }
 
     #[inline]
-    fn call(
+    async fn call(
         &mut self,
-        air: impl Into<String>,
-        prev_data: impl Into<Vec<u8>>,
-        current_data: impl Into<Vec<u8>>,
+        air: impl Into<String> + Send,
+        prev_data: impl Into<Vec<u8>> + Send,
+        current_data: impl Into<Vec<u8>> + Send,
         particle_params: ParticleParameters<'_>,
         call_results: CallResults,
         key_pair: &KeyPair,
@@ -144,6 +158,7 @@ impl AquaRuntime for AVMRunner {
             key_pair,
             particle_params.particle_id.to_string(),
         )
+        .await
     }
 
     fn memory_stats(&self) -> AVMMemoryStats {

@@ -31,6 +31,7 @@ use fluence_spell_dtos::trigger_config::{ClockConfig, TriggerConfig};
 use log_utils::enable_logs;
 use service_modules::load_module;
 use spell_event_bus::api::{TriggerInfo, TriggerInfoAqua, MAX_PERIOD_SEC};
+use test_constants::TRANSPORT_TIMEOUT;
 use test_utils::{create_service, create_service_worker};
 use workers::CUID;
 
@@ -981,10 +982,15 @@ async fn spell_call_by_alias() {
 
 #[tokio::test]
 async fn spell_trigger_connection_pool() {
+    enable_logs();
     let swarms = make_swarms(1).await;
-    let mut client = ConnectedClient::connect_with_keypair(
+    let mut client = ConnectedClient::connect_with_timeout(
         swarms[0].multiaddr.clone(),
         Some(swarms[0].management_keypair.clone()),
+        TRANSPORT_TIMEOUT,
+        Duration::from_secs(60 * 5), // it makes idle timeout big to keep connection alive without reconnection
+        None,
+        false, // reconnects has side effects on test result
     )
     .await
     .wrap_err("connect client")
@@ -1029,9 +1035,16 @@ async fn spell_trigger_connection_pool() {
     // This connect should trigger the spell
     let connect_num = 5;
     for _ in 0..connect_num {
-        ConnectedClient::connect_to(swarms[0].multiaddr.clone())
-            .await
-            .unwrap();
+        ConnectedClient::connect_with_timeout(
+            swarms[0].multiaddr.clone(),
+            None,
+            TRANSPORT_TIMEOUT,
+            Duration::from_secs(60 * 5), // it makes idle timeout big to keep connection alive without reconnection
+            None,
+            false, // reconnects has side effects on test result
+        )
+        .await
+        .unwrap();
     }
 
     let mut spell1_counter = 0;
@@ -1055,8 +1068,10 @@ async fn spell_trigger_connection_pool() {
 
             if spell_id == spell_id1 {
                 spell1_counter += 1;
-            } else {
+            } else if spell_id == spell_id2 {
                 spell2_counter += 1;
+            } else {
+                panic!("Unexpected spell_id {}", spell_id)
             }
         }
     }
@@ -1762,7 +1777,7 @@ async fn create_remove_worker() {
     let script = r#"(call %init_peer_id% ("getDataSrv" "spell_id") [] spell_id)"#;
     let config = make_clock_config(0, 1, 0);
 
-    let (spell_id, worker_id) = create_spell(&mut client, &script, config, json!({})).await;
+    let (spell_id, worker_id) = create_spell(&mut client, script, config, json!({})).await;
     let service = create_service_worker(
         &mut client,
         "file_share",
