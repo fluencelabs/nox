@@ -84,7 +84,7 @@ pub struct CCInitParams {
     pub init_timestamp: U256,
     pub global_nonce: GlobalNonce,
     pub current_epoch: U256,
-    pub epoch_duration: U256,
+    pub epoch_duration_sec: U256,
     pub min_proofs_per_epoch: U256,
     pub max_proofs_per_epoch: U256,
 }
@@ -400,7 +400,7 @@ impl ChainConnector for HttpChainConnector {
             init_timestamp,
             global_nonce: GlobalNonce::new(global_nonce.0),
             current_epoch,
-            epoch_duration,
+            epoch_duration_sec: epoch_duration,
             min_proofs_per_epoch,
             max_proofs_per_epoch,
         })
@@ -805,7 +805,7 @@ mod tests {
             U256::from(0x00000000000000000000000000000000000000000000000000000000000016be)
         );
         assert_eq!(
-            init_params.epoch_duration,
+            init_params.epoch_duration_sec,
             U256::from(0x000000000000000000000000000000000000000000000000000000000000000f)
         );
         assert_eq!(init_params.min_proofs_per_epoch, U256::from(5));

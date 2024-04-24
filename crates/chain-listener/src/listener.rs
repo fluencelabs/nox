@@ -697,6 +697,7 @@ impl ChainListener {
         &mut self,
         event: Option<Result<JsonValue, Error>>,
     ) -> eyre::Result<()> {
+        tracing::info!("zalupa {:?}", event);
         let event = event.ok_or(eyre!("Failed to process DealMatched event: got None"))??;
         let log = serde_json::from_value::<Log>(event.clone()).map_err(|err| {
             tracing::error!(target: "chain-listener", "Failed to parse DealMatched event: {err}, data: {event}");
@@ -1293,22 +1294,24 @@ mod tests {
     use crate::event::cc_activated::CommitmentActivated;
     use crate::subscription::StreamResult;
     use crate::subscription::{Error, EventSubscription};
-    use crate::{ChainListener, ChainListenerConfig};
+    use crate::{CCPClient, ChainListener, ChainListenerConfig};
     use alloy_sol_types::{SolEvent, SolType};
+    use ccp_rpc_client::ClientError;
     use ccp_shared::proof::CCProof;
+    use ccp_shared::proof::ProofIdx;
     use ccp_shared::types::{Difficulty, GlobalNonce, CUID};
+    use ccp_shared::types::{LogicalCoreId, PhysicalCoreId};
     use chain_connector::Offer::ComputeUnit;
     use chain_connector::{CCInitParams, CCStatus, ChainConnector, CommitmentId, ConnectorError};
-    use chain_data::{Log};
+    use chain_data::Log;
     use core_manager::{CoreManager, DummyCoreManager};
     use futures::StreamExt;
     use hex::FromHex;
     use jsonrpsee::core::{async_trait, JsonValue};
-    use libp2p_identity::PeerId;
     use log_utils::enable_logs;
     use mockall::mock;
-    use serde_json::Value;
-    use std::str::FromStr;
+    use serde_json::{json, Value};
+    use std::collections::HashMap;
     use std::sync::Arc;
     use std::time::Duration;
     use tokio::sync::Notify;
@@ -1375,6 +1378,32 @@ mod tests {
         }
     }
 
+    mock! {
+        CCPClientStruct {}
+
+        #[async_trait]
+        impl CCPClient for CCPClientStruct {
+            async fn on_no_active_commitment(&self) -> Result<(), ClientError>;
+            async fn realloc_utility_cores(
+                &self,
+                utility_core_ids: Vec<LogicalCoreId>,
+            ) -> Result<(), ClientError>;
+
+            async fn on_active_commitment(
+                &self,
+                global_nonce: GlobalNonce,
+                difficulty: Difficulty,
+                cu_allocation: HashMap<PhysicalCoreId, CUID>,
+            ) -> Result<(), ClientError>;
+
+            async fn get_proofs_after(
+                &self,
+                proof_idx: ProofIdx,
+                limit: usize,
+            ) -> Result<Vec<CCProof>, ClientError>;
+        }
+    }
+
     #[tokio::test]
     async fn test_activation_flow() {
         enable_logs();
@@ -1388,14 +1417,40 @@ mod tests {
         let (unit_deactivated_sender, _rx) = tokio::sync::broadcast::channel(16);
         let notifier = Arc::new(Notify::new());
 
-        let unit_id: [u8; 32] =
-            hex::decode("aa3046a12a1aac6e840625e6329d70b427328fec36dc8d273e5e6454b85633d5")
-                .unwrap()
-                .try_into()
+        let (test_result_sender, mut test_result_receiver) =
+            tokio::sync::mpsc::channel::<(GlobalNonce, Difficulty, HashMap<PhysicalCoreId, CUID>)>(
+                16,
+            );
+
+        let global_nonce = GlobalNonce::from_hex(
+            "4183468390b09d71644232a1d1ce670bc93897183d3f56c305fabfb16cab806a",
+        )
+        .unwrap();
+        let difficulty = Difficulty::from_hex(
+            "0001afffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+        )
+        .unwrap();
+
+        let unit_id_1: CUID =
+            CUID::from_hex("aa3046a12a1aac6e840625e6329d70b427328fec36dc8d273e5e6454b85633d5")
                 .unwrap();
 
+        let unit_id_2: CUID =
+            CUID::from_hex("bb3046a12a1aac6e840625e6329d70b427328fec36dc8d273e5e6454b85633d5")
+                .unwrap();
+
+        let unit_id_3: CUID =
+            CUID::from_hex("cc3046a12a1aac6e840625e6329d70b427328fec36dc8d273e5e6454b85633d5")
+                .unwrap();
+
+        let unit_id_4: CUID =
+            CUID::from_hex("dd3046a12a1aac6e840625e6329d70b427328fec36dc8d273e5e6454b85633d5")
+                .unwrap();
+
+        let sender = new_heads_sender.clone();
+
         subscription.expect_new_heads().returning(move || {
-            let rx = new_heads_sender.subscribe();
+            let rx = sender.subscribe();
             let stream = BroadcastStream::new(rx);
             Ok(Box::pin(stream.map(|item| item.unwrap())))
         });
@@ -1403,7 +1458,7 @@ mod tests {
         let sender = commitment_activated_sender.clone();
         subscription
             .expect_commitment_activated()
-            .returning(move || {
+            .return_once(move || {
                 let rx = sender.subscribe();
                 let stream = BroadcastStream::new(rx);
                 Ok(Box::pin(stream.map(|item| item.unwrap())))
@@ -1430,24 +1485,24 @@ mod tests {
         });
 
         let mut connector = MockChainConnectorStruct::new();
-        connector.expect_get_cc_init_params().returning(|| {
-            let global_nonce = GlobalNonce::from_hex(
+        connector.expect_get_global_nonce().return_once(|| {
+            Ok(GlobalNonce::from_hex(
                 "4183468390b09d71644232a1d1ce670bc93897183d3f56c305fabfb16cab806a",
             )
-            .unwrap();
-            let difficulty = Difficulty::from_hex(
-                "0001afffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
-            )
-            .unwrap();
+            .unwrap())
+        });
 
+        let cc_init_difficulty = difficulty.clone();
+        let cc_init_global_nonce = global_nonce.clone();
+        connector.expect_get_cc_init_params().returning(move || {
             Ok(CCInitParams {
-                difficulty,
-                init_timestamp: Default::default(),
-                global_nonce,
-                current_epoch: Default::default(),
-                epoch_duration: Default::default(),
-                min_proofs_per_epoch: Default::default(),
-                max_proofs_per_epoch: Default::default(),
+                difficulty: cc_init_difficulty,
+                init_timestamp: alloy_primitives::U256::from(0),
+                global_nonce: cc_init_global_nonce,
+                current_epoch: alloy_primitives::U256::from(0),
+                epoch_duration_sec: alloy_primitives::U256::from(100),
+                min_proofs_per_epoch: alloy_primitives::U256::from(1),
+                max_proofs_per_epoch: alloy_primitives::U256::from(3),
             })
         });
 
@@ -1460,23 +1515,45 @@ mod tests {
         connector
             .expect_get_current_commitment_id()
             .returning(|| Ok(None));
-        connector.expect_submit_proof().returning(|_| Ok("tx-1".to_string()));
-        connector.expect_get_tx_statuses().returning(|_| Ok(vec![Ok(Some(true))]));
+
+        let mut ccp_client = MockCCPClientStruct::new();
+        ccp_client
+            .expect_realloc_utility_cores()
+            .returning(|_| Ok(()));
+
+        ccp_client
+            .expect_on_no_active_commitment()
+            .returning(|| Ok(()));
+
+        ccp_client.expect_on_active_commitment().returning(
+            move |global_nonce, difficulty, cu_allocation| {
+                test_result_sender
+                    .try_send((global_nonce, difficulty, cu_allocation))
+                    .unwrap();
+                Ok(())
+            },
+        );
+
+        ccp_client
+            .expect_get_proofs_after()
+            .returning(|_, _| Ok(vec![]));
+
+        let core_manager = CoreManager::Dummy(DummyCoreManager::default());
 
         let connector = Arc::new(connector);
-        let subscription = Arc::new(subscription);
-        let core_manager = CoreManager::Dummy(DummyCoreManager::default());
-        let core_manager = Arc::new(core_manager);
+        let subscription_arc = Arc::new(subscription);
+        let core_manager_arc = Arc::new(core_manager);
+        let ccp_client_arc = Arc::new(ccp_client);
 
         let proofs_dir = tmp_dir.path().join("proofs").to_path_buf();
         tokio::fs::create_dir_all(proofs_dir.clone()).await.unwrap();
 
         let listener = ChainListener::new(
             config,
-            subscription.clone(),
+            subscription_arc.clone(),
             connector.clone(),
-            core_manager,
-            None,
+            core_manager_arc,
+            Some(ccp_client_arc),
             proofs_dir,
             None,
         );
@@ -1487,15 +1564,20 @@ mod tests {
         let data = CommitmentActivated {
             peerId: [0; 32].into(),
             commitmentId: [0; 32].into(),
-            startEpoch: alloy_primitives::U256::from(0),
+            startEpoch: alloy_primitives::U256::from(1),
             endEpoch: alloy_primitives::U256::from(10),
-            unitIds: vec![unit_id.into()],
+            unitIds: vec![
+                unit_id_1.as_ref().into(),
+                unit_id_2.as_ref().into(),
+                unit_id_3.as_ref().into(),
+                unit_id_4.as_ref().into(),
+            ],
         };
 
         let _ = commitment_activated_sender
             .send(Ok(serde_json::to_value(Log {
                 data: hex::encode(data.encode_data()),
-                block_number: "100".to_string(),
+                block_number: "1".to_string(),
                 removed: false,
                 topics: vec![
                     CommitmentActivated::SIGNATURE_HASH.to_string(),
@@ -1508,6 +1590,35 @@ mod tests {
             .unwrap()))
             .unwrap();
 
-        tokio::time::sleep(Duration::from_secs(10)).await;
+        let _ = new_heads_sender
+            .send(Ok(json!({
+                "timestamp": "101",
+                "number": "0x2",
+            })))
+            .unwrap();
+
+        if let Some((result_global_nonce, result_difficulty, result_cores)) =
+            test_result_receiver.recv().await
+        {
+            assert_eq!(result_global_nonce, global_nonce);
+            assert_eq!(result_difficulty, difficulty);
+            assert_eq!(result_cores.len(), 4);
+            assert_eq!(
+                result_cores.get(&PhysicalCoreId::from(0)).cloned(),
+                Some(unit_id_1)
+            );
+            assert_eq!(
+                result_cores.get(&PhysicalCoreId::from(1)).cloned(),
+                Some(unit_id_2)
+            );
+            assert_eq!(
+                result_cores.get(&PhysicalCoreId::from(2)).cloned(),
+                Some(unit_id_3)
+            );
+            assert_eq!(
+                result_cores.get(&PhysicalCoreId::from(3)).cloned(),
+                Some(unit_id_4)
+            );
+        }
     }
 }
