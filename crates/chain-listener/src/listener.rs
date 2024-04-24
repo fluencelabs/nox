@@ -1517,7 +1517,7 @@ mod tests {
                 let cu_3 = ComputeUnit::abi_decode(&data, true).unwrap();
                 let data= hex::decode("dd3046a12a1aac6e840625e6329d70b427328fec36dc8d273e5e6454b85633d500000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002").unwrap();
                 let cu_4 = ComputeUnit::abi_decode(&data, true).unwrap();
-                Ok(vec![cu_1, cu_2, cu_3,cu_4])
+                Ok(vec![cu_1, cu_2, cu_3, cu_4])
             });
         connector
             .expect_get_current_commitment_id()
@@ -1571,7 +1571,7 @@ mod tests {
         let data = CommitmentActivated {
             peerId: [0; 32].into(),
             commitmentId: [0; 32].into(),
-            startEpoch: alloy_primitives::U256::from(1),
+            startEpoch: alloy_primitives::U256::from(2),
             endEpoch: alloy_primitives::U256::from(10),
             unitIds: vec![
                 unit_id_1.as_ref().into(),
