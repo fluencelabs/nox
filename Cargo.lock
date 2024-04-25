@@ -1251,8 +1251,9 @@ dependencies = [
 
 [[package]]
 name = "ccp-rpc-client"
-version = "0.8.0"
-source = "git+https://github.com/fluencelabs/capacity-commitment-prover?branch=main#270a51de9ba388ae9fa43404d1aaa0790e241836"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2888e0529487437677d06c31dfc581bb8bea06d0fc007db0a8484307be9d7de5"
 dependencies = [
  "ccp-shared",
  "hex",
@@ -1262,8 +1263,9 @@ dependencies = [
 
 [[package]]
 name = "ccp-shared"
-version = "0.8.0"
-source = "git+https://github.com/fluencelabs/capacity-commitment-prover?branch=main#270a51de9ba388ae9fa43404d1aaa0790e241836"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7ccecad3bb44270ec5497788954232de0c55564ceadc2eca4f0a45da0b3a77e2"
 dependencies = [
  "hex",
  "newtype_derive",
@@ -1335,7 +1337,6 @@ dependencies = [
  "particle-execution",
  "serde",
  "serde_json",
- "server-config",
  "thiserror",
  "tokio",
  "tracing",
@@ -1716,8 +1717,9 @@ dependencies = [
 
 [[package]]
 name = "cpu-utils"
-version = "0.8.0"
-source = "git+https://github.com/fluencelabs/capacity-commitment-prover?branch=main#270a51de9ba388ae9fa43404d1aaa0790e241836"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8efb8938379cbf7f471035078b25e10e6b12bd8e0eeacba4dbbf92e1be39fedb"
 dependencies = [
  "ccp-shared",
  "ccp_core_affinity",

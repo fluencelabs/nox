@@ -9,7 +9,7 @@ use std::sync::Arc;
 
 use ccp_shared::proof::CCProof;
 use ccp_shared::types::{Difficulty, GlobalNonce, CUID};
-use clarity::{Transaction, Uint256};
+use clarity::{PrivateKey, Transaction, Uint256};
 use eyre::eyre;
 use futures::FutureExt;
 use jsonrpsee::core::async_trait;
@@ -29,7 +29,6 @@ use hex_utils::decode_hex;
 use particle_args::{Args, JError};
 use particle_builtins::{wrap, CustomService};
 use particle_execution::{ParticleParams, ServiceFunction};
-use server_config::ChainConfig;
 use types::DealId;
 
 use crate::error::{process_response, ConnectorError};
@@ -72,9 +71,47 @@ pub trait ChainConnector: Send + Sync {
     ) -> Result<Vec<Result<Value, ConnectorError>>, ConnectorError>;
 }
 
+#[derive(Clone)]
+pub struct HttpChainConnectorConfig {
+    pub http_endpoint: String,
+    pub core_contract_address: String,
+    pub cc_contract_address: String,
+    pub market_contract_address: String,
+    pub network_id: u64,
+    pub wallet_key: PrivateKey,
+    /// If none, comes from the chain
+    pub default_base_fee: Option<u64>,
+    /// If none, comes from the chain
+    pub default_priority_fee: Option<u64>,
+}
+
+impl HttpChainConnectorConfig {
+    pub fn new(
+        http_endpoint: String,
+        core_contract_address: String,
+        cc_contract_address: String,
+        market_contract_address: String,
+        network_id: u64,
+        wallet_key: PrivateKey,
+        default_base_fee: Option<u64>,
+        default_priority_fee: Option<u64>,
+    ) -> Self {
+        Self {
+            http_endpoint,
+            core_contract_address,
+            cc_contract_address,
+            market_contract_address,
+            network_id,
+            wallet_key,
+            default_base_fee,
+            default_priority_fee,
+        }
+    }
+}
+
 pub struct HttpChainConnector {
     client: Arc<jsonrpsee::http_client::HttpClient>,
-    config: ChainConfig,
+    config: HttpChainConnectorConfig,
     tx_nonce_mutex: Arc<Mutex<()>>,
     host_id: PeerId,
 }
@@ -91,7 +128,7 @@ pub struct CCInitParams {
 
 impl HttpChainConnector {
     pub fn new(
-        config: ChainConfig,
+        config: HttpChainConnectorConfig,
         host_id: PeerId,
     ) -> eyre::Result<(Arc<Self>, HashMap<String, CustomService>)> {
         tracing::info!(target: "chain-connector","Connecting to chain via {}", config.http_endpoint);

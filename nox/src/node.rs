@@ -42,7 +42,7 @@ use aquamarine::{
     AquaRuntime, AquamarineApi, AquamarineApiError, AquamarineBackend, DataStoreConfig,
     RemoteRoutingEffects, VmPoolConfig, WasmBackendConfig,
 };
-use chain_connector::HttpChainConnector;
+use chain_connector::{HttpChainConnector, HttpChainConnectorConfig};
 use chain_listener::{
     CCPClient, ChainListener, ChainListenerConfig, WsEventSubscription, WsSubscriptionConfig,
 };
@@ -411,7 +411,8 @@ impl<RT: AquaRuntime> Node<RT> {
         let services = builtins.services.clone();
         let modules = builtins.modules.clone();
 
-        let connector = if let Some(chain_config) = config.chain_config.clone() {
+        let chain_config = chain_connector_config(&config);
+        let connector = if let Some(chain_config) = chain_config {
             let host_id = scopes.get_host_peer_id();
             let (chain_connector, chain_builtins) =
                 HttpChainConnector::new(chain_config.clone(), host_id).map_err(|err| {
@@ -778,6 +779,21 @@ fn avm_wasm_backend_config(config: &ResolvedConfig) -> WasmBackendConfig {
             .wasm_backend
             .epoch_interruption_duration,
     }
+}
+
+fn chain_connector_config(config: &ResolvedConfig) -> Option<HttpChainConnectorConfig> {
+    config.chain_config.clone().map(|config| {
+        HttpChainConnectorConfig::new(
+            config.http_endpoint,
+            config.core_contract_address,
+            config.cc_contract_address,
+            config.market_contract_address,
+            config.network_id,
+            config.wallet_key,
+            config.default_base_fee,
+            config.default_base_fee,
+        )
+    })
 }
 
 fn services_wasm_backend_config(config: &ResolvedConfig) -> WasmBackendConfig {
