@@ -629,7 +629,10 @@ mod tests {
     use chain_data::peer_id_from_hex;
     use hex_utils::decode_hex;
 
-    use crate::{is_commitment_not_active, CCStatus, ChainConnector, CommitmentId, ConnectorError, HttpChainConnector, HttpChainConnectorConfig};
+    use crate::{
+        is_commitment_not_active, CCStatus, ChainConnector, CommitmentId, ConnectorError,
+        HttpChainConnector, HttpChainConnectorConfig,
+    };
 
     fn get_connector(url: &str) -> Arc<HttpChainConnector> {
         let (connector, _) = HttpChainConnector::new(
