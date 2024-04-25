@@ -15,7 +15,6 @@ eyre = { workspace = true }
 fluence-libp2p = { workspace = true }
 serde_json = { workspace = true }
 hex = { workspace = true }
-server-config = { workspace = true }
 clarity = { workspace = true }
 tokio = { workspace = true, features = ["rt", "macros"] }
 hex-utils = { workspace = true }
