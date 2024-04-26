@@ -431,7 +431,7 @@ impl ChainListener {
             }
             ).await?;
 
-            tracing::info!("Utility core {utility_core} successfully reallocated");
+            tracing::info!(target: "chain-listener", "Utility core {utility_core} successfully reallocated");
         }
         Ok(())
     }
