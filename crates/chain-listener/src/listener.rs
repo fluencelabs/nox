@@ -1405,6 +1405,12 @@ mod tests {
         }
     }
 
+    /// # Test: Commitment Chain Activation Flow
+    ///
+    /// This test focuses on the commitment chain activation flow within a blockchain context.
+    /// It simulates the activation process, including initializing the chain, handling relevant
+    /// events, and validating the correct allocation of compute units.
+    /// 
     #[tokio::test]
     async fn test_cc_activation_flow() {
         enable_logs();
@@ -1630,6 +1636,13 @@ mod tests {
         }
     }
 
+    /// # Test: Commitment Chain Activation Flow
+    ///
+    /// This test examines the overflow scenario within the commitment chain activation flow when 
+    /// CU count in commitment is bigger than the real available CU count.
+    /// It simulates a commitment activation process in a blockchain context, validating that 
+    /// the correct events are triggered and compute units are properly allocated during this 
+    /// specific edge case.
     #[tokio::test]
     async fn test_cc_overflow_activation_flow() {
         enable_logs();
