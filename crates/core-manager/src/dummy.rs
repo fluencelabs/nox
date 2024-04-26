@@ -90,7 +90,7 @@ impl CoreManagerFunctions for DummyCoreManager {
         })
     }
 
-    fn release(&self, _unit_ids: Vec<CUID>) {}
+    fn release(&self, _unit_ids: &Vec<CUID>) {}
 
     fn get_system_cpu_assignment(&self) -> Assignment {
         let physical_core_ids = (0..num_cpus::get_physical())
