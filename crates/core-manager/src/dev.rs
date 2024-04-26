@@ -301,7 +301,7 @@ impl CoreManagerFunctions for DevCoreManager {
     fn release(&self, unit_ids: &[CUID]) {
         let mut lock = self.state.write();
         for unit_id in unit_ids {
-            if let Some(physical_core_id) = lock.unit_id_core_mapping.remove(&unit_id) {
+            if let Some(physical_core_id) = lock.unit_id_core_mapping.remove(unit_id) {
                 let mapping = lock.core_unit_id_mapping.get_vec_mut(&physical_core_id);
                 if let Some(mapping) = mapping {
                     let index = mapping.iter().position(|x| x == unit_id).unwrap();
@@ -310,7 +310,7 @@ impl CoreManagerFunctions for DevCoreManager {
                         lock.core_unit_id_mapping.remove(&physical_core_id);
                     }
                 }
-                lock.work_type_mapping.remove(&unit_id);
+                lock.work_type_mapping.remove(unit_id);
             }
         }
     }
