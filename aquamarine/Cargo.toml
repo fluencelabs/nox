@@ -39,7 +39,7 @@ base64 = { workspace = true }
 bs58 = { workspace = true }
 thiserror = { workspace = true }
 humantime = "2.1.0"
-anyhow = "1.0.79"
+anyhow = "1.0.82"
 eyre = { workspace = true }
 bytesize = { workspace = true }
 async-trait = { workspace = true }
