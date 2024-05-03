@@ -23,7 +23,7 @@ tracing = { workspace = true }
 tokio = { workspace = true, features = ["fs", "sync"] }
 derivative = { workspace = true }
 types = { workspace = true }
-async-trait = "0.1.79"
+async-trait = "0.1.80"
 
 [dev-dependencies]
 tempfile = { workspace = true }
