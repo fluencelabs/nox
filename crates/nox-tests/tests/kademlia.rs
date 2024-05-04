@@ -29,7 +29,7 @@ use particle_protocol::Contact;
 async fn neighborhood_heavy() {
     enable_logs();
     let swarms = make_swarms(3).await;
-    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone(),  swarms[0].network_key.clone())
         .await
         .wrap_err("connect client")
         .unwrap();
@@ -69,7 +69,7 @@ async fn neighborhood_heavy() {
 async fn neighborhood_with_addresses_heavy() {
     enable_logs();
     let swarms = make_swarms(3).await;
-    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone(),  swarms[0].network_key.clone())
         .await
         .wrap_err("connect client")
         .unwrap();

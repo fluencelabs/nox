@@ -2596,6 +2596,7 @@ dependencies = [
  "bs58",
  "futures",
  "futures-util",
+ "hex",
  "libp2p",
  "libp2p-mplex",
  "libp2p-noise",
@@ -2604,7 +2605,9 @@ dependencies = [
  "rand 0.8.5",
  "serde",
  "serde_json",
+ "thiserror",
  "tokio",
+ "tracing",
 ]
 
 [[package]]
@@ -7676,6 +7679,7 @@ dependencies = [
  "clarity",
  "config",
  "config-utils",
+ "const-hex",
  "core-manager",
  "derivative",
  "eyre",

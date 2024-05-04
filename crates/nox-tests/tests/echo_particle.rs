@@ -24,7 +24,7 @@ use serde_json::json;
 #[tokio::test]
 async fn echo_particle() {
     let swarms = make_swarms(1).await;
-    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone(),  swarms[0].network_key.clone())
         .await
         .wrap_err("connect client")
         .unwrap();

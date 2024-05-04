@@ -640,7 +640,7 @@ mod tests {
     use tokio::sync::oneshot;
 
     use fluence_libp2p::random_multiaddr::create_memory_maddr;
-    use fluence_libp2p::{build_memory_transport, RandomPeerId};
+    use fluence_libp2p::{build_memory_transport, NetworkKey, RandomPeerId};
     use log_utils::enable_logs;
 
     use crate::{KademliaConfig, KademliaError};
@@ -659,7 +659,10 @@ mod tests {
         }
     }
 
-    fn make_node(human_readable_id: String) -> (Swarm<Kademlia>, Multiaddr) {
+    fn make_node(
+        human_readable_id: String,
+        network_key: &NetworkKey,
+    ) -> (Swarm<Kademlia>, Multiaddr) {
         use fluence_keypair::KeyPair;
 
         let kp = KeyPair::generate_ed25519();
@@ -677,7 +680,7 @@ mod tests {
         let kp: Keypair = kp.into();
         let mut swarm = SwarmBuilder::with_existing_identity(kp.clone())
             .with_tokio()
-            .with_other_transport(|_| build_memory_transport(&kp, timeout))
+            .with_other_transport(|_| build_memory_transport(&kp, timeout, network_key.clone()))
             .unwrap()
             .with_behaviour(|_| kad)
             .unwrap()
@@ -697,12 +700,13 @@ mod tests {
     async fn discovery_heavy() {
         enable_logs();
         use tokio::time::timeout;
+        let network_key = NetworkKey::random();
 
-        let (mut a, a_addr) = make_node("a".to_string());
-        let (mut b, b_addr) = make_node("b".to_string());
-        let (c, c_addr) = make_node("c".to_string());
-        let (d, d_addr) = make_node("d".to_string());
-        let (e, e_addr) = make_node("e".to_string());
+        let (mut a, a_addr) = make_node("a".to_string(), &network_key);
+        let (mut b, b_addr) = make_node("b".to_string(), &network_key);
+        let (c, c_addr) = make_node("c".to_string(), &network_key);
+        let (d, d_addr) = make_node("d".to_string(), &network_key);
+        let (e, e_addr) = make_node("e".to_string(), &network_key);
 
         // a knows everybody
         Swarm::dial(&mut a, b_addr.clone()).unwrap();
@@ -762,7 +766,8 @@ mod tests {
 
     #[test]
     fn dont_repeat_discovery() {
-        let (mut node, _) = make_node("a".to_string());
+        let network_key = NetworkKey::random();
+        let (mut node, _) = make_node("a".to_string(), &network_key);
         let peer = RandomPeerId::random();
 
         node.behaviour_mut()
@@ -777,7 +782,9 @@ mod tests {
     async fn ban() {
         use tokio::time::timeout;
 
-        let (mut node, _) = make_node("a".to_string());
+        let network_key = NetworkKey::random();
+
+        let (mut node, _) = make_node("a".to_string(), &network_key);
         let peer = RandomPeerId::random();
 
         node.behaviour_mut()

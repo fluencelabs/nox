@@ -26,7 +26,7 @@ use tokio::sync::mpsc::error::SendError;
 use tokio::sync::{mpsc, oneshot};
 use tokio::{select, task, task::JoinHandle};
 
-use fluence_libp2p::{build_transport, Transport};
+use fluence_libp2p::{build_transport, NetworkKey, Transport};
 use particle_protocol::{Particle, ProtocolConfig};
 
 use crate::api::ParticleApi;
@@ -103,6 +103,7 @@ impl Client {
         idle_connection_timeout: Duration,
         protocol_config: ProtocolConfig,
         reconnect_enabled: bool,
+        network_key: NetworkKey,
     ) -> Result<Swarm<FluenceClientBehaviour>, Box<dyn Error>> {
         let mut swarm = {
             let public_key = self.key_pair.public();
@@ -110,7 +111,7 @@ impl Client {
                 FluenceClientBehaviour::new(protocol_config, public_key.into(), reconnect_enabled);
 
             let kp = self.key_pair.clone().into();
-            let transport = build_transport(transport, &kp, transport_timeout);
+            let transport = build_transport(transport, &kp, transport_timeout, network_key);
             SwarmBuilder::with_existing_identity(kp)
                 .with_tokio()
                 .with_other_transport(|_| transport)?
@@ -134,6 +135,7 @@ impl Client {
         relay: Multiaddr,
         transport_timeout: Duration,
         idle_connection_timeout: Duration,
+        network_key: NetworkKey,
     ) -> Result<(Client, JoinHandle<()>), Box<dyn Error>> {
         Self::connect_with(
             relay,
@@ -142,6 +144,7 @@ impl Client {
             transport_timeout,
             idle_connection_timeout,
             true,
+            network_key,
         )
     }
 
@@ -152,6 +155,7 @@ impl Client {
         transport_timeout: Duration,
         idle_connection_timeout: Duration,
         reconnect_enabled: bool,
+        network_key: NetworkKey,
     ) -> Result<(Client, JoinHandle<()>), Box<dyn Error>> {
         let (client_outlet, client_inlet) = mpsc::channel(128);
         let (relay_outlet, mut relay_inlet) = mpsc::channel(128);
@@ -167,6 +171,7 @@ impl Client {
             idle_connection_timeout,
             protocol_config,
             reconnect_enabled,
+            network_key 
         )?;
         let mut stop_inlet = Some(stop_inlet);
 

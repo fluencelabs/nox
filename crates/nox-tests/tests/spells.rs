@@ -181,6 +181,7 @@ async fn spell_simple_test() {
     let mut client = ConnectedClient::connect_with_keypair(
         swarms[0].multiaddr.clone(),
         Some(swarms[0].management_keypair.clone()),
+        swarms[0].network_key.clone(),
     )
     .await
     .wrap_err("connect client")
@@ -220,6 +221,7 @@ async fn spell_error_handling_test() {
     let mut client = ConnectedClient::connect_with_keypair(
         swarms[0].multiaddr.clone(),
         Some(swarms[0].management_keypair.clone()),
+        swarms[0].network_key.clone(),
     )
     .await
     .wrap_err("connect client")
@@ -281,6 +283,7 @@ async fn spell_args_test() {
     let mut client = ConnectedClient::connect_with_keypair(
         swarms[0].multiaddr.clone(),
         Some(swarms[0].management_keypair.clone()),
+        swarms[0].network_key.clone(),
     )
     .await
     .wrap_err("connect client")
@@ -319,6 +322,7 @@ async fn spell_return_test() {
     let mut client = ConnectedClient::connect_with_keypair(
         swarms[0].multiaddr.clone(),
         Some(swarms[0].management_keypair.clone()),
+        swarms[0].network_key.clone(),
     )
     .await
     .wrap_err("connect client")
@@ -366,6 +370,7 @@ async fn spell_install_alias() {
     let mut client = ConnectedClient::connect_with_keypair(
         swarms[0].multiaddr.clone(),
         Some(swarms[0].management_keypair.clone()),
+        swarms[0].network_key.clone(),
     )
     .await
     .wrap_err("connect client")
@@ -402,6 +407,7 @@ async fn spell_run_oneshot() {
     let mut client = ConnectedClient::connect_with_keypair(
         swarms[0].multiaddr.clone(),
         Some(swarms[0].management_keypair.clone()),
+        swarms[0].network_key.clone(),
     )
     .await
     .wrap_err("connect client")
@@ -452,6 +458,7 @@ async fn spell_install_ok_empty_config() {
     let mut client = ConnectedClient::connect_with_keypair(
         swarms[0].multiaddr.clone(),
         Some(swarms[0].management_keypair.clone()),
+        swarms[0].network_key.clone(),
     )
     .await
     .wrap_err("connect client")
@@ -497,10 +504,11 @@ async fn spell_install_ok_empty_config() {
         assert_eq!(counter, 0);
     }
     // 2. Connect and disconnect a client to the same node. The spell should not be executed
-    let connected = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
-        .await
-        .wrap_err("connect client")
-        .unwrap();
+    let connected =
+        ConnectedClient::connect_to(swarms[0].multiaddr.clone(), swarms[0].network_key.clone())
+            .await
+            .wrap_err("connect client")
+            .unwrap();
     drop(connected);
 
     let response = client
@@ -535,6 +543,7 @@ async fn spell_install_fail_large_period() {
     let mut client = ConnectedClient::connect_with_keypair(
         swarms[0].multiaddr.clone(),
         Some(swarms[0].management_keypair.clone()),
+        swarms[0].network_key.clone(),
     )
     .await
     .wrap_err("connect client")
@@ -584,6 +593,7 @@ async fn spell_install_fail_end_sec_past() {
     let mut client = ConnectedClient::connect_with_keypair(
         swarms[0].multiaddr.clone(),
         Some(swarms[0].management_keypair.clone()),
+        swarms[0].network_key.clone(),
     )
     .await
     .wrap_err("connect client")
@@ -636,6 +646,7 @@ async fn spell_install_fail_end_sec_before_start() {
     let mut client = ConnectedClient::connect_with_keypair(
         swarms[0].multiaddr.clone(),
         Some(swarms[0].management_keypair.clone()),
+        swarms[0].network_key.clone(),
     )
     .await
     .wrap_err("connect client")
@@ -691,6 +702,7 @@ async fn spell_store_trigger_config() {
     let mut client = ConnectedClient::connect_with_keypair(
         swarms[0].multiaddr.clone(),
         Some(swarms[0].management_keypair.clone()),
+        swarms[0].network_key.clone(),
     )
     .await
     .wrap_err("connect client")
@@ -736,6 +748,7 @@ async fn spell_remove() {
     let mut client = ConnectedClient::connect_with_keypair(
         swarms[0].multiaddr.clone(),
         Some(swarms[0].management_keypair.clone()),
+        swarms[0].network_key.clone(),
     )
     .await
     .wrap_err("connect client")
@@ -800,6 +813,7 @@ async fn spell_remove_by_alias() {
     let mut client = ConnectedClient::connect_with_keypair(
         swarms[0].multiaddr.clone(),
         Some(swarms[0].management_keypair.clone()),
+        swarms[0].network_key.clone(),
     )
     .await
     .wrap_err("connect client")
@@ -846,6 +860,7 @@ async fn spell_remove_spell_as_service() {
     let mut client = ConnectedClient::connect_with_keypair(
         swarms[0].multiaddr.clone(),
         Some(swarms[0].management_keypair.clone()),
+        swarms[0].network_key.clone(),
     )
     .await
     .wrap_err("connect client")
@@ -894,6 +909,7 @@ async fn spell_remove_service_as_spell() {
     let mut client = ConnectedClient::connect_with_keypair(
         swarms[0].multiaddr.clone(),
         Some(swarms[0].management_keypair.clone()),
+        swarms[0].network_key.clone(),
     )
     .await
     .wrap_err("connect client")
@@ -941,6 +957,7 @@ async fn spell_call_by_alias() {
     let mut client = ConnectedClient::connect_with_keypair(
         swarms[0].multiaddr.clone(),
         Some(swarms[0].management_keypair.clone()),
+        swarms[0].network_key.clone(),
     )
     .await
     .wrap_err("connect client")
@@ -991,6 +1008,7 @@ async fn spell_trigger_connection_pool() {
         Duration::from_secs(60 * 5), // it makes idle timeout big to keep connection alive without reconnection
         None,
         false, // reconnects has side effects on test result
+        swarms[0].network_key.clone(),
     )
     .await
     .wrap_err("connect client")
@@ -1042,6 +1060,7 @@ async fn spell_trigger_connection_pool() {
             Duration::from_secs(60 * 5), // it makes idle timeout big to keep connection alive without reconnection
             None,
             false, // reconnects has side effects on test result
+            swarms[0].network_key.clone(),
         )
         .await
         .unwrap();
@@ -1092,6 +1111,7 @@ async fn spell_timer_trigger_mailbox_test() {
     let mut client = ConnectedClient::connect_with_keypair(
         swarms[0].multiaddr.clone(),
         Some(swarms[0].management_keypair.clone()),
+        swarms[0].network_key.clone(),
     )
     .await
     .wrap_err("connect client")
@@ -1134,6 +1154,7 @@ async fn spell_connection_pool_trigger_test() {
     let mut client = ConnectedClient::connect_with_keypair(
         swarms[0].multiaddr.clone(),
         Some(swarms[0].management_keypair.clone()),
+        swarms[0].network_key.clone(),
     )
     .await
     .wrap_err("connect client")
@@ -1160,9 +1181,10 @@ async fn spell_connection_pool_trigger_test() {
     create_spell(&mut client, &script, config.clone(), json!({})).await;
     log::info!("created spell");
 
-    let disconnected_client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
-        .await
-        .unwrap();
+    let disconnected_client =
+        ConnectedClient::connect_to(swarms[0].multiaddr.clone(), swarms[0].network_key.clone())
+            .await
+            .unwrap();
     let disconnected_client_peer_id = disconnected_client.peer_id;
     log::info!("will disconnect");
     disconnected_client.client.stop();
@@ -1208,6 +1230,7 @@ async fn spell_set_u32() {
     let mut client = ConnectedClient::connect_with_keypair(
         swarms[0].multiaddr.clone(),
         Some(swarms[0].management_keypair.clone()),
+        swarms[0].network_key.clone(),
     )
     .await
     .wrap_err("connect client")
@@ -1261,6 +1284,7 @@ async fn spell_peer_id_test() {
     let mut client = ConnectedClient::connect_with_keypair(
         swarms[0].multiaddr.clone(),
         Some(swarms[0].management_keypair.clone()),
+        swarms[0].network_key.clone(),
     )
     .await
     .wrap_err("connect client")
@@ -1289,6 +1313,7 @@ async fn spell_update_config() {
     let mut client = ConnectedClient::connect_with_keypair(
         swarms[0].multiaddr.clone(),
         Some(swarms[0].management_keypair.clone()),
+        swarms[0].network_key.clone(),
     )
     .await
     .wrap_err("connect client")
@@ -1307,9 +1332,10 @@ async fn spell_update_config() {
     let mut config = TriggerConfig::default();
     config.connections.connect = true;
     let (spell_id, worker_id) = create_spell(&mut client, &script, config, json!({})).await;
-    let connected = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
-        .await
-        .unwrap();
+    let connected =
+        ConnectedClient::connect_to(swarms[0].multiaddr.clone(), swarms[0].network_key.clone())
+            .await
+            .unwrap();
 
     if let [trigger] = client
         .receive_args()
@@ -1382,6 +1408,7 @@ async fn spell_update_config_stopped_spell() {
     let mut client = ConnectedClient::connect_with_keypair(
         swarms[0].multiaddr.clone(),
         Some(swarms[0].management_keypair.clone()),
+        swarms[0].network_key.clone(),
     )
     .await
     .wrap_err("connect client")
@@ -1461,6 +1488,7 @@ async fn resolve_alias_wrong_worker() {
     let mut client = ConnectedClient::connect_with_keypair(
         swarms[0].multiaddr.clone(),
         Some(swarms[0].management_keypair.clone()),
+        swarms[0].network_key.clone(),
     )
     .await
     .wrap_err("connect client")
@@ -1507,6 +1535,7 @@ async fn worker_sig_test() {
     let mut client = ConnectedClient::connect_with_keypair(
         swarms[0].multiaddr.clone(),
         Some(swarms[0].management_keypair.clone()),
+        swarms[0].network_key.clone(),
     )
     .await
     .wrap_err("connect client")
@@ -1555,6 +1584,7 @@ async fn spell_relay_id_test() {
     let mut client = ConnectedClient::connect_with_keypair(
         swarms[0].multiaddr.clone(),
         Some(swarms[0].management_keypair.clone()),
+        swarms[0].network_key.clone(),
     )
     .await
     .wrap_err("connect client")
@@ -1594,6 +1624,7 @@ async fn spell_create_worker_twice() {
     let mut client = ConnectedClient::connect_with_keypair(
         swarms[0].multiaddr.clone(),
         Some(swarms[0].management_keypair.clone()),
+        swarms[0].network_key.clone(),
     )
     .await
     .wrap_err("connect client")
@@ -1643,6 +1674,7 @@ async fn spell_install_root_scope() {
     let mut client = ConnectedClient::connect_with_keypair(
         swarms[0].multiaddr.clone(),
         Some(swarms[0].management_keypair.clone()),
+        swarms[0].network_key.clone(),
     )
     .await
     .wrap_err("connect client")
@@ -1689,6 +1721,7 @@ async fn spell_create_worker_same_deal_id_different_peer() {
     let mut client1 = ConnectedClient::connect_with_keypair(
         swarms[0].multiaddr.clone(),
         Some(swarms[0].management_keypair.clone()),
+        swarms[0].network_key.clone(),
     )
     .await
     .wrap_err("connect client")
@@ -1733,6 +1766,7 @@ async fn spell_create_worker_same_deal_id_different_peer() {
     let mut client2 = ConnectedClient::connect_with_keypair(
         swarms[0].multiaddr.clone(),
         Some(swarms[0].management_keypair.clone()),
+        swarms[0].network_key.clone(),
     )
     .await
     .wrap_err("connect client")
@@ -1769,6 +1803,7 @@ async fn create_remove_worker() {
     let mut client = ConnectedClient::connect_with_keypair(
         swarms[0].multiaddr.clone(),
         Some(swarms[0].management_keypair.clone()),
+        swarms[0].network_key.clone(),
     )
     .await
     .wrap_err("connect client")
@@ -1850,6 +1885,7 @@ async fn spell_update_trigger_by_alias() {
     let mut client = ConnectedClient::connect_with_keypair(
         swarms[0].multiaddr.clone(),
         Some(swarms[0].management_keypair.clone()),
+        swarms[0].network_key.clone(),
     )
     .await
     .wrap_err("connect client")
@@ -1902,7 +1938,7 @@ async fn spell_update_trigger_by_alias() {
     // This connect should trigger the spell
     let connect_num = 3;
     for _ in 0..connect_num {
-        ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        ConnectedClient::connect_to(swarms[0].multiaddr.clone(), swarms[0].network_key.clone())
             .await
             .unwrap();
     }
@@ -1939,6 +1975,7 @@ async fn test_worker_list() {
     let mut client = ConnectedClient::connect_with_keypair(
         swarms[0].multiaddr.clone(),
         Some(swarms[0].management_keypair.clone()),
+        swarms[0].network_key.clone(),
     )
     .await
     .wrap_err("connect client")
@@ -1986,6 +2023,7 @@ async fn test_spell_list() {
     let mut client = ConnectedClient::connect_with_keypair(
         swarms[0].multiaddr.clone(),
         Some(swarms[0].management_keypair.clone()),
+        swarms[0].network_key.clone(),
     )
     .await
     .wrap_err("connect client")
@@ -2073,6 +2111,7 @@ async fn spell_call_by_default_alias() {
     let mut client = ConnectedClient::connect_with_keypair(
         swarms[0].multiaddr.clone(),
         Some(swarms[0].management_keypair.clone()),
+        swarms[0].network_key.clone(),
     )
     .await
     .wrap_err("connect client")
@@ -2146,6 +2185,7 @@ async fn get_worker_peer_id_opt() {
     let mut client = ConnectedClient::connect_with_keypair(
         swarms[0].multiaddr.clone(),
         Some(swarms[0].management_keypair.clone()),
+        swarms[0].network_key.clone(),
     )
     .await
     .wrap_err("connect client")
@@ -2197,6 +2237,7 @@ async fn set_alias_by_worker_creator() {
     let mut client = ConnectedClient::connect_with_keypair(
         swarms[0].multiaddr.clone(),
         Some(swarms[0].management_keypair.clone()),
+        swarms[0].network_key.clone(),
     )
     .await
     .wrap_err("connect client")
@@ -2271,7 +2312,7 @@ async fn set_alias_by_worker_creator() {
 //     })
 //     .await;
 //
-//     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+//     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone(),  swarms[0].network_key.clone())
 //         .await
 //         .wrap_err("connect client")
 //         .unwrap();
@@ -2331,7 +2372,7 @@ async fn set_alias_by_worker_creator() {
 //     })
 //     .await;
 //
-//     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+//     let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone(),  swarms[0].network_key.clone())
 //         .await
 //         .wrap_err("connect client")
 //         .unwrap();
@@ -2383,6 +2424,7 @@ async fn test_activate_deactivate() {
     let mut client = ConnectedClient::connect_with_keypair(
         swarms[0].multiaddr.clone(),
         Some(swarms[0].management_keypair.clone()),
+        swarms[0].network_key.clone(),
     )
     .await
     .wrap_err("connect client")
@@ -2487,14 +2529,16 @@ async fn test_install_by_other_forbidden() {
     let mut client_manager = ConnectedClient::connect_with_keypair(
         swarms[0].multiaddr.clone(),
         Some(swarms[0].management_keypair.clone()),
+        swarms[0].network_key.clone(),
     )
     .await
     .wrap_err("connect client")
     .unwrap();
-    let mut client_other = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
-        .await
-        .wrap_err("connect client")
-        .unwrap();
+    let mut client_other =
+        ConnectedClient::connect_to(swarms[0].multiaddr.clone(), swarms[0].network_key.clone())
+            .await
+            .wrap_err("connect client")
+            .unwrap();
 
     let worker_id = create_worker(&mut client_manager, Some("deal_id".to_string())).await;
     let data = hashmap! {

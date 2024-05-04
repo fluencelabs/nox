@@ -40,6 +40,7 @@ async fn share_file() {
     let mut client = ConnectedClient::connect_with_keypair(
         swarms[0].multiaddr.clone(),
         Some(swarms[0].management_keypair.clone()),
+        swarms[0].network_key.clone()
     )
     .await
     .wrap_err("connect client")
@@ -90,6 +91,7 @@ async fn deploy_from_vault() {
     let mut client = ConnectedClient::connect_with_keypair(
         swarms[0].multiaddr.clone(),
         Some(swarms[0].management_keypair.clone()),
+        swarms[0].network_key.clone()
     )
     .await
     .wrap_err("connect client")
@@ -158,6 +160,7 @@ async fn load_blueprint_from_vault() {
     let mut client = ConnectedClient::connect_with_keypair(
         swarms[0].multiaddr.clone(),
         Some(swarms[0].management_keypair.clone()),
+        swarms[0].network_key.clone()
     )
     .await
     .wrap_err("connect client")
@@ -240,6 +243,7 @@ async fn put_cat_vault() {
     let mut client = ConnectedClient::connect_with_keypair(
         swarms[0].multiaddr.clone(),
         Some(swarms[0].management_keypair.clone()),
+        swarms[0].network_key.clone()
     )
     .await
     .wrap_err("connect client")

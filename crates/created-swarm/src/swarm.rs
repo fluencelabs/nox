@@ -36,13 +36,13 @@ use base64::{engine::general_purpose::STANDARD as base64, Engine};
 use cid_utils::Hash;
 use core_manager::DummyCoreManager;
 use fluence_libp2p::random_multiaddr::{create_memory_maddr, create_tcp_maddr};
-use fluence_libp2p::Transport;
+use fluence_libp2p::{NetworkKey, Transport};
 use fs_utils::to_abs_path;
 use futures::stream::iter;
 use nox::{Connectivity, Node};
 use particle_protocol::ProtocolConfig;
 use server_config::{
-    persistent_dir, system_services_config, BootstrapConfig, ChainConfig, ResolvedConfig,
+    persistent_dir, system_services_config, BootstrapConfig, ChainConfig, Network, ResolvedConfig,
     UnresolvedConfig,
 };
 use tempfile::TempDir;
@@ -81,6 +81,7 @@ pub struct CreatedSwarm {
     #[derivative(Debug = "ignore")]
     pub aquamarine_api: AquamarineApi,
     http_listen_addr: SocketAddr,
+    pub network_key: NetworkKey,
 }
 
 pub async fn make_swarms(n: usize) -> Vec<CreatedSwarm> {
@@ -91,10 +92,11 @@ pub async fn make_swarms_with_cfg<F>(n: usize, mut update_cfg: F) -> Vec<Created
 where
     F: (FnMut(SwarmConfig) -> SwarmConfig),
 {
+    let network_key = NetworkKey::random();
     make_swarms_with(
         n,
         move |bs, maddr| {
-            let cfg = update_cfg(SwarmConfig::new(bs, maddr));
+            let cfg = update_cfg(SwarmConfig::new(bs, maddr, network_key.clone()));
             async move { create_swarm(cfg).await }
         },
         create_memory_maddr,
@@ -108,10 +110,13 @@ pub async fn make_swarms_with_transport_and_mocked_vm(
     n: usize,
     transport: Transport,
 ) -> Vec<CreatedSwarm> {
+    let network_key = NetworkKey::random();
+
     make_swarms_with::<EasyVM, _, _, _, _>(
         n,
         |bs, maddr| async {
-            create_swarm_with_runtime(SwarmConfig::new(bs, maddr), |_| None).await
+            create_swarm_with_runtime(SwarmConfig::new(bs, maddr, network_key.clone()), |_| None)
+                .await
         },
         move || match transport {
             Transport::Memory => create_memory_maddr(),
@@ -133,10 +138,12 @@ where
     F: (FnMut(SwarmConfig) -> SwarmConfig),
     B: (FnMut(Vec<Multiaddr>) -> Vec<Multiaddr>),
 {
+    let network_key = NetworkKey::random();
+
     make_swarms_with::<EasyVM, _, _, _, _>(
         n,
         move |bs, maddr| {
-            let cfg = update_cfg(SwarmConfig::new(bs, maddr));
+            let cfg = update_cfg(SwarmConfig::new(bs, maddr, network_key.clone()));
             async move { create_swarm_with_runtime(cfg, move |_| delay).await }
         },
         create_memory_maddr,
@@ -211,6 +218,7 @@ where
                     connectivity,
                     aquamarine_api,
                     http_listen_addr,
+                    network_key: input_config.network_key.clone(),
                 }
             }
             .boxed_local()
@@ -278,10 +286,11 @@ pub struct SwarmConfig {
     pub connector_api_endpoint: Option<String>,
     pub chain_config: Option<ChainConfig>,
     pub cc_events_dir: Option<PathBuf>,
+    pub network_key: NetworkKey,
 }
 
 impl SwarmConfig {
-    pub fn new(bootstraps: Vec<Multiaddr>, listen_on: Multiaddr) -> Self {
+    pub fn new(bootstraps: Vec<Multiaddr>, listen_on: Multiaddr, network_key: NetworkKey) -> Self {
         let transport = match listen_on.iter().next() {
             Some(Protocol::Memory(_)) => Transport::Memory,
             _ => Transport::Network,
@@ -308,6 +317,7 @@ impl SwarmConfig {
             connector_api_endpoint: None,
             chain_config: None,
             cc_events_dir: None,
+            network_key,
         }
     }
 }
@@ -365,30 +375,31 @@ pub async fn create_swarm_with_runtime<RT: AquaRuntime>(
         let tmp_dir = config.tmp_dir.path().to_path_buf();
 
         let node_config = json!({
-        "base_dir": tmp_dir.to_string_lossy(),
-        "root_key_pair": {
-            "format": format,
-            "generate_on_absence": false,
-            "value": base64.encode(config.keypair.to_vec()),
-        },
-        "builtins_key_pair": {
-            "format": format,
-            "generate_on_absence": false,
-            "value": base64.encode(config.builtins_keypair.to_vec()),
-        },
-
-        "builtins_base_dir": config.builtins_dir,
-        "external_multiaddresses": [config.listen_on],
-        "spell_base_dir": Some(config.spell_base_dir.clone().unwrap_or(to_abs_path(PathBuf::from("spell")))),
-        "http_port": config.http_port,
-        "listen_ip": "127.0.0.1",
-        "cc_events_dir": config.cc_events_dir,
-    });
+            "network": "Dar",
+            "base_dir": tmp_dir.to_string_lossy(),
+            "root_key_pair": {
+                    "format": format,
+                    "generate_on_absence": false,
+                    "value": base64.encode(config.keypair.to_vec()),
+                },
+            "builtins_key_pair": {
+                    "format": format,
+                    "generate_on_absence": false,
+                    "value": base64.encode(config.builtins_keypair.to_vec()),
+                },
+            "builtins_base_dir": config.builtins_dir,
+            "external_multiaddresses": [config.listen_on],
+            "spell_base_dir": Some(config.spell_base_dir.clone().unwrap_or(to_abs_path(PathBuf::from("spell")))),
+            "http_port": config.http_port,
+            "listen_ip": "127.0.0.1",
+            "cc_events_dir": config.cc_events_dir,
+        });
 
         let node_config: UnresolvedConfig =
             UnresolvedConfig::deserialize(node_config).expect("created_swarm: deserialize config");
 
         let mut resolved = node_config.resolve().expect("failed to resolve config");
+        resolved.node_config.network = Network::Custom(config.network_key.clone().into());
         resolved.node_config.transport_config.transport = Transport::Memory;
         resolved.node_config.transport_config.socket_timeout = TRANSPORT_TIMEOUT;
         resolved.node_config.protocol_config =

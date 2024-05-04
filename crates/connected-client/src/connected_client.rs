@@ -21,7 +21,7 @@ use std::{collections::HashMap, ops::DerefMut, time::Duration};
 use eyre::Result;
 use eyre::{bail, eyre, WrapErr};
 use fluence_keypair::KeyPair;
-use fluence_libp2p::Transport;
+use fluence_libp2p::{NetworkKey, Transport};
 use libp2p::{core::Multiaddr, PeerId};
 use local_vm::{make_particle, make_vm, read_args, ParticleDataStore};
 use marine_wasmtime_backend::WasmtimeWasmBackend;
@@ -83,16 +83,16 @@ impl DerefMut for ConnectedClient {
 }
 
 impl ConnectedClient {
-    pub async fn connect_to(node_address: Multiaddr) -> Result<Self> {
-        Self::connect_with_keypair(node_address, None).await
+    pub async fn connect_to(node_address: Multiaddr, network_key: NetworkKey) -> Result<Self> {
+        Self::connect_with_keypair(node_address, None, network_key).await
     }
 
     pub async fn connect_to_with_timeout(
         node_address: Multiaddr,
         timeout: Duration,
         idle_connection_timeout: Duration,
-
         particle_ttl: Option<Duration>,
+        network_key: NetworkKey,
     ) -> Result<Self> {
         Self::connect_with_timeout(
             node_address,
@@ -101,6 +101,7 @@ impl ConnectedClient {
             idle_connection_timeout,
             particle_ttl,
             true,
+            network_key,
         )
         .await
     }
@@ -108,6 +109,7 @@ impl ConnectedClient {
     pub async fn connect_with_keypair(
         node_address: Multiaddr,
         key_pair: Option<KeyPair>,
+        network_key: NetworkKey,
     ) -> Result<Self> {
         Self::connect_with_timeout(
             node_address,
@@ -116,6 +118,7 @@ impl ConnectedClient {
             IDLE_CONNECTION_TIMEOUT,
             None,
             true,
+            network_key,
         )
         .await
     }
@@ -127,6 +130,7 @@ impl ConnectedClient {
         idle_connection_timeout: Duration,
         particle_ttl: Option<Duration>,
         reconnect_enabled: bool,
+        network_key: NetworkKey,
     ) -> Result<Self> {
         use core::result::Result;
         use std::io::{Error, ErrorKind};
@@ -140,6 +144,7 @@ impl ConnectedClient {
                 timeout,
                 idle_connection_timeout,
                 reconnect_enabled,
+                network_key,
             )
             .expect("sender connected");
             let result: Result<_, Error> = if let Some(ClientEvent::NewConnection {

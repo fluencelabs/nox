@@ -47,7 +47,7 @@ use chain_listener::ChainListener;
 use config_utils::to_peer_id;
 use connection_pool::ConnectionPoolT;
 use core_manager::CoreManager;
-use fluence_libp2p::build_transport;
+use fluence_libp2p::{build_transport, NetworkKey};
 use health::HealthCheckRegistry;
 use particle_builtins::{Builtins, CustomService, NodeInfo, ParticleAppServicesConfig};
 use particle_execution::ParticleFunctionStatic;
@@ -169,8 +169,12 @@ impl<RT: AquaRuntime> Node<RT> {
     ) -> eyre::Result<Box<Self>> {
         let key_pair: Keypair = config.node_config.root_key_pair.clone().into();
         let transport = config.transport_config.transport;
-        let transport =
-            build_transport(transport, &key_pair, config.transport_config.socket_timeout);
+        let transport = build_transport(
+            transport,
+            &key_pair,
+            config.transport_config.socket_timeout,
+            network_key(&config),
+        );
 
         let builtins_peer_id = to_peer_id(&config.builtins_key_pair.clone().into());
 
@@ -790,6 +794,11 @@ fn services_wasm_backend_config(config: &ResolvedConfig) -> WasmBackendConfig {
     }
 }
 
+fn network_key(config: &ResolvedConfig) -> NetworkKey {
+    let key: [u8; 32] = config.network.clone().into();
+    key.into()
+}
+
 #[cfg(test)]
 mod tests {
     use std::path::PathBuf;
@@ -806,6 +815,7 @@ mod tests {
     use config_utils::to_peer_id;
     use connected_client::ConnectedClient;
     use core_manager::DummyCoreManager;
+    use fluence_libp2p::NetworkKey;
     use fs_utils::to_abs_path;
     use server_config::{default_base_dir, load_config_with_args, persistent_dir};
     use system_services::SystemServiceDistros;
@@ -814,6 +824,7 @@ mod tests {
 
     #[tokio::test]
     async fn run_node() {
+        let network_id = NetworkKey::random();
         log_utils::enable_logs();
         let base_dir = default_base_dir();
         let persistent_dir = persistent_dir(&base_dir);
@@ -870,6 +881,7 @@ mod tests {
             Duration::from_secs(10),
             Duration::from_secs(60),
             Some(Duration::from_secs(2 * 60)),
+            network_id,
         )
         .await
         .expect("connect client");

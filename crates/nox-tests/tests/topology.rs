@@ -35,14 +35,16 @@ async fn identity_heavy() {
     enable_logs();
     let swarms = make_swarms(3).await;
 
-    let mut a = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
-        .await
-        .wrap_err("connect client")
-        .unwrap();
-    let mut b = ConnectedClient::connect_to(swarms[1].multiaddr.clone())
-        .await
-        .wrap_err("connect client")
-        .unwrap();
+    let mut a =
+        ConnectedClient::connect_to(swarms[0].multiaddr.clone(), swarms[0].network_key.clone())
+            .await
+            .wrap_err("connect client")
+            .unwrap();
+    let mut b =
+        ConnectedClient::connect_to(swarms[1].multiaddr.clone(), swarms[0].network_key.clone())
+            .await
+            .wrap_err("connect client")
+            .unwrap();
 
     a.send_particle(
         r#"
@@ -76,7 +78,7 @@ async fn identity_heavy() {
 async fn init_peer_id_heavy() {
     enable_logs();
     let swarms = make_swarms(3).await;
-    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone(),  swarms[0].network_key.clone())
         .await
         .wrap_err("connect client")
         .unwrap();
@@ -107,7 +109,7 @@ async fn join_heavy() {
     enable_logs();
     let swarms = make_swarms(3).await;
 
-    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone(),  swarms[0].network_key.clone())
         .await
         .wrap_err("connect client")
         .unwrap();

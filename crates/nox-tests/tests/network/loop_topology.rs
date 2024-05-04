@@ -53,7 +53,7 @@ pub struct Abuse {
 async fn abuse_fold(air: &str) -> Abuse {
     let swarms = make_swarms(1).await;
 
-    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone(), swarms[0].network_key.clone())
         .await
         .wrap_err("connect client")
         .unwrap();
@@ -261,7 +261,7 @@ async fn fold_par_same_node_stream_heavy() {
     enable_logs();
     let swarms = make_swarms(3).await;
 
-    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone(),  swarms[0].network_key.clone())
         .await
         .wrap_err("connect client")
         .unwrap();
@@ -371,7 +371,7 @@ async fn fold_par_same_node_stream_heavy() {
 async fn fold_fold_seq_join() {
     let swarm = make_swarms(1).await.remove(0);
 
-    let mut client = ConnectedClient::connect_to(swarm.multiaddr)
+    let mut client = ConnectedClient::connect_to(swarm.multiaddr, swarm.network_key)
         .await
         .wrap_err("connect client")
         .unwrap();
@@ -457,7 +457,7 @@ async fn fold_fold_pairs_seq_join_heavy() {
 
     add_print(swarms.iter_mut()).await;
 
-    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone(),  swarms[0].network_key.clone())
         .await
         .wrap_err("connect client")
         .unwrap();
@@ -547,7 +547,7 @@ async fn fold_seq_join() {
     enable_logs();
     let swarm = make_swarms(1).await.remove(0);
 
-    let mut client = ConnectedClient::connect_to(swarm.multiaddr)
+    let mut client = ConnectedClient::connect_to(swarm.multiaddr, swarm.network_key)
         .await
         .wrap_err("connect client")
         .unwrap();
@@ -604,7 +604,7 @@ async fn fold_null_seq_same_node_stream_heavy() {
 
     add_print(swarms.iter_mut()).await;
 
-    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone(),  swarms[0].network_key.clone())
         .await
         .wrap_err("connect client")
         .unwrap();
@@ -765,7 +765,7 @@ async fn fold_via_heavy() {
     enable_logs();
     let swarms = make_swarms(4).await;
 
-    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone(),  swarms[0].network_key.clone())
         .await
         .wrap_err("connect client")
         .unwrap();
@@ -848,7 +848,7 @@ async fn fold_via_heavy() {
 async fn join_empty_stream() {
     let swarms = make_swarms(1).await;
 
-    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone(),  swarms[0].network_key.clone())
         .await
         .wrap_err("connect client")
         .unwrap();

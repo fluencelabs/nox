@@ -55,7 +55,7 @@ struct NodeInfo {
 async fn identify() {
     let swarms = make_swarms(1).await;
 
-    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone(), swarms[0].network_key.clone())
         .await
         .wrap_err("connect client")
         .unwrap();
@@ -89,7 +89,7 @@ async fn identify() {
 async fn big_identity() {
     let swarms = make_swarms_with_transport_and_mocked_vm(1, Transport::Network).await;
 
-    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone(), swarms[0].network_key.clone())
         .await
         .wrap_err("connect client")
         .unwrap();
@@ -112,6 +112,7 @@ async fn remove_service() {
     let mut client = ConnectedClient::connect_with_keypair(
         swarms[0].multiaddr.clone(),
         Some(swarms[0].management_keypair.clone()),
+        swarms[0].network_key.clone()
     )
     .await
     .wrap_err("connect client")
@@ -172,6 +173,7 @@ async fn remove_service_restart() {
     let mut client = ConnectedClient::connect_with_keypair(
         swarms[0].multiaddr.clone(),
         Some(manager_kp.clone()),
+        swarms[0].network_key.clone()
     )
     .await
     .wrap_err("connect client")
@@ -228,7 +230,7 @@ async fn remove_service_restart() {
     })
     .await;
     let mut client =
-        ConnectedClient::connect_with_keypair(swarms[0].multiaddr.clone(), Some(manager_kp))
+        ConnectedClient::connect_with_keypair(swarms[0].multiaddr.clone(), Some(manager_kp), swarms[0].network_key.clone())
             .await
             .wrap_err("connect client")
             .unwrap();
@@ -262,6 +264,7 @@ async fn remove_service_by_alias() {
     let mut client = ConnectedClient::connect_with_keypair(
         swarms[0].multiaddr.clone(),
         Some(swarms[0].management_keypair.clone()),
+        swarms[0].network_key.clone()
     )
     .await
     .wrap_err("connect client")
@@ -316,12 +319,13 @@ async fn non_owner_remove_service() {
     let mut client = ConnectedClient::connect_with_keypair(
         swarms[0].multiaddr.clone(),
         Some(swarms[0].management_keypair.clone()),
+        swarms[0].network_key.clone()
     )
     .await
     .wrap_err("connect client")
     .unwrap();
 
-    let mut client2 = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+    let mut client2 = ConnectedClient::connect_to(swarms[0].multiaddr.clone(), swarms[0].network_key.clone())
         .await
         .wrap_err("connect client")
         .unwrap();
@@ -378,6 +382,7 @@ async fn resolve_alias() {
     let mut client = ConnectedClient::connect_with_keypair(
         swarms[0].multiaddr.clone(),
         Some(swarms[0].management_keypair.clone()),
+        swarms[0].network_key.clone()
     )
     .await
     .wrap_err("connect client")
@@ -424,7 +429,7 @@ async fn resolve_alias() {
 async fn resolve_alias_not_exists() {
     let swarms = make_swarms(1).await;
 
-    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone(), swarms[0].network_key.clone())
         .await
         .wrap_err("connect client")
         .unwrap();
@@ -467,6 +472,7 @@ async fn resolve_alias_opt() {
     let mut client = ConnectedClient::connect_with_keypair(
         swarms[0].multiaddr.clone(),
         Some(swarms[0].management_keypair.clone()),
+        swarms[0].network_key.clone()
     )
     .await
     .wrap_err("connect client")
@@ -513,7 +519,7 @@ async fn resolve_alias_opt() {
 async fn resolve_alias_opt_not_exists() {
     let swarms = make_swarms(1).await;
 
-    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone(), swarms[0].network_key.clone())
         .await
         .wrap_err("connect client")
         .unwrap();
@@ -555,6 +561,7 @@ async fn resolve_alias_removed() {
     let mut client = ConnectedClient::connect_with_keypair(
         swarms[0].multiaddr.clone(),
         Some(swarms[0].management_keypair.clone()),
+        swarms[0].network_key.clone()
     )
     .await
     .wrap_err("connect client")
@@ -606,7 +613,7 @@ async fn resolve_alias_removed() {
 async fn timestamp_ms() {
     let swarms = make_swarms(1).await;
 
-    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone(), swarms[0].network_key.clone())
         .await
         .wrap_err("connect client")
         .unwrap();
@@ -639,7 +646,7 @@ async fn timestamp_ms() {
 async fn timestamp_sec() {
     let swarms = make_swarms(1).await;
 
-    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone(), swarms[0].network_key.clone())
         .await
         .wrap_err("connect client")
         .unwrap();
@@ -1178,7 +1185,7 @@ async fn timeout_wait() {
 #[tokio::test]
 async fn debug_stringify() {
     let swarms = make_swarms(1).await;
-    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone(), swarms[0].network_key.clone())
         .await
         .unwrap();
     async fn stringify(value: impl Into<JValue>, client: &mut ConnectedClient) -> String {
@@ -1259,7 +1266,7 @@ async fn xor_type_error() {
 #[tokio::test]
 async fn math_add() {
     let swarms = make_swarms(1).await;
-    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone(),  swarms[0].network_key.clone())
         .await
         .unwrap();
     assert_eq!(
@@ -1279,7 +1286,7 @@ async fn math_add() {
 #[tokio::test]
 async fn math_sub() {
     let swarms = make_swarms(1).await;
-    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone(),  swarms[0].network_key.clone())
         .await
         .unwrap();
     assert_eq!(
@@ -1295,7 +1302,7 @@ async fn math_sub() {
 #[tokio::test]
 async fn math_mul() {
     let swarms = make_swarms(1).await;
-    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone(),  swarms[0].network_key.clone())
         .await
         .unwrap();
     assert_eq!(
@@ -1317,7 +1324,7 @@ async fn math_mul() {
 #[tokio::test]
 async fn math_fmul() {
     let swarms = make_swarms(1).await;
-    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone(),  swarms[0].network_key.clone())
         .await
         .unwrap();
     assert_eq!(
@@ -1343,7 +1350,7 @@ async fn math_fmul() {
 #[tokio::test]
 async fn math_div() {
     let swarms = make_swarms(1).await;
-    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone(),  swarms[0].network_key.clone())
         .await
         .unwrap();
     assert_eq!(
@@ -1378,7 +1385,7 @@ async fn math_rem() {
 #[tokio::test]
 async fn math_pow() {
     let swarms = make_swarms(1).await;
-    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone(),  swarms[0].network_key.clone())
         .await
         .unwrap();
     assert_eq!(
@@ -1394,7 +1401,7 @@ async fn math_pow() {
 #[tokio::test]
 async fn math_log() {
     let swarms = make_swarms(1).await;
-    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone(),  swarms[0].network_key.clone())
         .await
         .unwrap();
     assert_eq!(
@@ -1410,7 +1417,7 @@ async fn math_log() {
 #[tokio::test]
 async fn cmp_gt() {
     let swarms = make_swarms(1).await;
-    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone(),  swarms[0].network_key.clone())
         .await
         .unwrap();
     assert_eq!(
@@ -1434,7 +1441,7 @@ async fn cmp_gt() {
 #[tokio::test]
 async fn cmp_le() {
     let swarms = make_swarms(1).await;
-    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone(),  swarms[0].network_key.clone())
         .await
         .unwrap();
     assert_eq!(
@@ -1458,7 +1465,7 @@ async fn cmp_le() {
 #[tokio::test]
 async fn cmp_cmp() {
     let swarms = make_swarms(1).await;
-    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone(),  swarms[0].network_key.clone())
         .await
         .unwrap();
     assert_eq!(
@@ -1576,6 +1583,7 @@ async fn service_mem() {
     let mut client = ConnectedClient::connect_with_keypair(
         swarms[0].multiaddr.clone(),
         Some(swarms[0].management_keypair.clone()),
+        swarms[0].network_key.clone()
     )
     .await
     .wrap_err("connect client")
@@ -1619,6 +1627,7 @@ async fn service_stats() {
     let mut client = ConnectedClient::connect_with_keypair(
         swarms[0].multiaddr.clone(),
         Some(swarms[0].management_keypair.clone()),
+        swarms[0].network_key.clone()
     )
     .await
     .wrap_err("connect client")
@@ -1726,6 +1735,7 @@ async fn service_stats_uninitialized() {
     let mut client = ConnectedClient::connect_with_keypair(
         swarms[0].multiaddr.clone(),
         Some(swarms[0].management_keypair.clone()),
+        swarms[0].network_key.clone()
     )
     .await
     .wrap_err("connect client")
@@ -1782,7 +1792,7 @@ async fn sign_verify() {
     })
     .await;
 
-    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone(),  swarms[0].network_key.clone())
         .await
         .wrap_err("connect client")
         .unwrap();
@@ -1853,6 +1863,7 @@ async fn sign_invalid_tetraplets_heavy() {
     let mut client = ConnectedClient::connect_with_keypair(
         swarms[0].multiaddr.clone(),
         Some(swarms[0].management_keypair.clone()),
+        swarms[0].network_key.clone()
     )
     .await
     .wrap_err("connect client")
@@ -1924,6 +1935,7 @@ async fn sig_verify_invalid_signature() {
     let mut client = ConnectedClient::connect_with_keypair(
         swarms[0].multiaddr.clone(),
         Some(swarms[0].management_keypair.clone()),
+        swarms[0].network_key.clone()
     )
     .await
     .wrap_err("connect client")
@@ -2175,7 +2187,7 @@ async fn exec_script(
 ) -> Result<Vec<JValue>, Report> {
     let swarms = make_swarms(node_count).await;
 
-    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone(),  swarms[0].network_key.clone())
         .await
         .wrap_err("connect client")
         .unwrap();
@@ -2214,6 +2226,7 @@ async fn add_alias_list() {
     let mut client = ConnectedClient::connect_with_keypair(
         swarms[0].multiaddr.clone(),
         Some(swarms[0].management_keypair.clone()),
+        swarms[0].network_key.clone()
     )
     .await
     .wrap_err("connect client")
@@ -2275,6 +2288,7 @@ async fn aliases_restart() {
     let mut client = ConnectedClient::connect_with_keypair(
         swarms[0].multiaddr.clone(),
         Some(swarms[0].management_keypair.clone()),
+        swarms[0].network_key.clone()
     )
     .await
     .wrap_err("connect client")
@@ -2328,6 +2342,7 @@ async fn aliases_restart() {
     let mut client = ConnectedClient::connect_with_keypair(
         swarms[0].multiaddr.clone(),
         Some(swarms[0].management_keypair.clone()),
+        swarms[0].network_key.clone()
     )
     .await
     .wrap_err("connect client")
@@ -2420,6 +2435,7 @@ async fn subnet_resolve() {
     let mut client = ConnectedClient::connect_with_keypair(
         swarms[0].multiaddr.clone(),
         Some(swarms[0].management_keypair.clone()),
+        swarms[0].network_key.clone()
     )
     .await
     .wrap_err("connect client")
