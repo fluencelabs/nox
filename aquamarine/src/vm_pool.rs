@@ -20,6 +20,7 @@ use std::task::{Context, Poll};
 
 use futures::future::BoxFuture;
 use futures::FutureExt;
+use marine_wasmtime_backend::WasmtimeWasmBackend;
 use tokio::task::JoinError;
 
 use health::HealthCheckRegistry;
@@ -52,6 +53,7 @@ pub struct VmPool<RT: AquaRuntime> {
     pool_size: usize,
     metrics: Option<VmPoolMetrics>,
     health: Option<VMPoolHealth>,
+    wasm_backend: WasmtimeWasmBackend,
 }
 
 impl<RT: AquaRuntime> VmPool<RT> {
@@ -61,6 +63,7 @@ impl<RT: AquaRuntime> VmPool<RT> {
         runtime_config: RT::Config,
         metrics: Option<VmPoolMetrics>,
         health_registry: Option<&mut HealthCheckRegistry>,
+        wasm_backend: WasmtimeWasmBackend,
     ) -> Self {
         let health = health_registry.map(|registry| {
             let health = VMPoolHealth::new(pool_size);
@@ -75,6 +78,7 @@ impl<RT: AquaRuntime> VmPool<RT> {
             pool_size,
             metrics,
             health,
+            wasm_backend,
         };
 
         this.meter(|m| m.set_pool_size(pool_size));
@@ -145,11 +149,13 @@ impl<RT: AquaRuntime> VmPool<RT> {
 
     fn create_avm(&self, cx: &Context<'_>) -> RuntimeF<RT> {
         let config = self.runtime_config.clone();
+        let wasm_backend = self.wasm_backend.clone();
         let waker = cx.waker().clone();
 
         async {
             let task_result =
-                tokio::task::spawn_blocking(|| RT::create_runtime(config, waker)).await; //TODO: move waker outside create runtime
+                tokio::task::spawn_blocking(|| RT::create_runtime(config, wasm_backend, waker))
+                    .await; //TODO: move waker outside create runtime
             match task_result {
                 Ok(joined_res) => joined_res.map_err(|e| CreateAVMError::AVMError(Box::new(e))),
                 Err(e) => Err(CreateAVMError::JoinError(e)),

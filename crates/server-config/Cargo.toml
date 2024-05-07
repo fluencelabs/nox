@@ -7,7 +7,6 @@ edition = "2021"
 [dependencies]
 config-utils = { workspace = true }
 fs-utils = { workspace = true }
-cid-utils = { workspace = true }
 particle-protocol = { workspace = true }
 fluence-libp2p = { workspace = true, features = ["tokio"] }
 air-interpreter-fs = { workspace = true }
@@ -15,8 +14,11 @@ peer-metrics = { workspace = true }
 fluence-keypair = { workspace = true }
 types = { workspace = true }
 core-manager = { workspace = true }
+cid-utils = { workspace = true }
+bytesize = { workspace = true }
 log = "0.4.20"
 toml = "0.8.12" # otherwise deserialisation of Cargo.toml doesn't work
+
 
 libp2p = { workspace = true }
 libp2p-metrics = { workspace = true }
@@ -32,7 +34,6 @@ base64 = { workspace = true }
 num_cpus = { workspace = true }
 eyre = { workspace = true }
 derivative = { workspace = true }
-bytesize = { version = "1.3.0", features = ["serde"] }
 serde_with = { workspace = true }
 config = { version = "0.13.4", default-features = false, features = ["toml"] }
 clarity = { workspace = true }

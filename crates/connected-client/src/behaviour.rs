@@ -48,8 +48,12 @@ pub struct FluenceClientBehaviour {
 }
 
 impl FluenceClientBehaviour {
-    pub fn new(protocol_config: ProtocolConfig, public_key: PublicKey) -> Self {
-        let client = ClientBehaviour::new(protocol_config);
+    pub fn new(
+        protocol_config: ProtocolConfig,
+        public_key: PublicKey,
+        reconnect_enabled: bool,
+    ) -> Self {
+        let client = ClientBehaviour::new(protocol_config, reconnect_enabled);
         let identify = Identify::new(IdentifyConfig::new(PROTOCOL_NAME.into(), public_key));
         let ping = Ping::new(
             PingConfig::new()
@@ -79,15 +83,17 @@ pub struct ClientBehaviour {
     events: VecDeque<SwarmEventType>,
     reconnect: Option<BoxFuture<'static, Vec<Multiaddr>>>,
     waker: Option<Waker>,
+    reconnect_enabled: bool,
 }
 
 impl ClientBehaviour {
-    pub fn new(protocol_config: ProtocolConfig) -> Self {
+    pub fn new(protocol_config: ProtocolConfig, reconnect_enabled: bool) -> Self {
         Self {
             protocol_config,
             events: VecDeque::default(),
             reconnect: None,
             waker: None,
+            reconnect_enabled,
         }
     }
 
@@ -122,21 +128,25 @@ impl ClientBehaviour {
     }
 
     fn on_dial_failure(&mut self, peer_id: Option<PeerId>, error: &DialError) {
-        log::warn!(
-            "Failed to connect to {:?}: {:?}, reconnecting",
-            peer_id,
-            error
-        );
+        if self.reconnect_enabled {
+            log::warn!(
+                "Failed to connect to {:?}: {:?}, reconnecting",
+                peer_id,
+                error
+            );
 
-        if let DialError::Transport(addresses) = error {
-            let addresses = addresses.iter().map(|(a, _)| a.clone()).collect();
-            self.reconnect = async move {
-                // TODO: move timeout to config
-                tokio::time::sleep(Duration::from_secs(1)).await;
-                addresses
+            if let DialError::Transport(addresses) = error {
+                let addresses = addresses.iter().map(|(a, _)| a.clone()).collect();
+                self.reconnect = async move {
+                    // TODO: move timeout to config
+                    tokio::time::sleep(Duration::from_secs(1)).await;
+                    addresses
+                }
+                .boxed()
+                .into();
             }
-            .boxed()
-            .into();
+        } else {
+            log::error!("Failed to connect to {:?}: {:?}", peer_id, error)
         }
     }
 
@@ -153,15 +163,19 @@ impl ClientBehaviour {
 
         match cp {
             ConnectedPoint::Dialer { address, .. } => {
-                let address = address.clone();
-                log::warn!(
-                    "Disconnected from {} @ {:?}, reconnecting",
-                    peer_id,
-                    address
-                );
-                self.events.push_front(SwarmEventType::Dial {
-                    opts: address.into(),
-                });
+                if self.reconnect_enabled {
+                    let address = address.clone();
+                    log::warn!(
+                        "Disconnected from {} @ {:?}, reconnecting",
+                        peer_id,
+                        address
+                    );
+                    self.events.push_front(SwarmEventType::Dial {
+                        opts: address.into(),
+                    });
+                } else {
+                    log::error!("Disconnected from {} @ {:?}", peer_id, address);
+                }
             }
             ConnectedPoint::Listener {
                 send_back_addr,

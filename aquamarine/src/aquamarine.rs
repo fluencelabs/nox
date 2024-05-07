@@ -20,6 +20,7 @@ use std::task::Poll;
 use std::time::Duration;
 
 use futures::StreamExt;
+use marine_wasmtime_backend::WasmtimeWasmBackend;
 use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
 use tracing::{instrument, Instrument};
@@ -27,7 +28,7 @@ use tracing::{instrument, Instrument};
 use health::HealthCheckRegistry;
 use particle_execution::{ParticleFunctionStatic, ServiceFunction};
 use particle_protocol::ExtendedParticle;
-use particle_services::PeerScope;
+use particle_services::{PeerScope, WasmBackendConfig};
 use peer_metrics::{ParticleExecutorMetrics, VmPoolMetrics};
 use workers::{Event, KeyStorage, PeerScopes, Receiver, Workers};
 
@@ -53,7 +54,8 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> AquamarineBackend<RT, F> {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         config: VmPoolConfig,
-        runtime_config: RT::Config,
+        vm_config: RT::Config,
+        avm_wasm_backend_config: WasmBackendConfig,
         data_store_config: DataStoreConfig,
         builtins: F,
         out: EffectsChannel,
@@ -75,14 +77,17 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> AquamarineBackend<RT, F> {
             data_store_config.particles_anomaly_dir,
         );
         let data_store: Arc<ParticleDataStore> = Arc::new(data_store);
+        let avm_wasm_backend = WasmtimeWasmBackend::new(avm_wasm_backend_config.into())?;
+
         let vm_pool = VmPool::new(
             config.pool_size,
-            runtime_config.clone(),
+            vm_config.clone(),
             vm_pool_metrics,
             health_registry,
+            avm_wasm_backend.clone(),
         );
         let plumber = Plumber::new(
-            runtime_config,
+            vm_config,
             vm_pool,
             data_store.clone(),
             builtins,
@@ -90,6 +95,7 @@ impl<RT: AquaRuntime, F: ParticleFunctionStatic> AquamarineBackend<RT, F> {
             workers,
             key_storage,
             scopes,
+            avm_wasm_backend,
         );
         let this = Self {
             inlet,

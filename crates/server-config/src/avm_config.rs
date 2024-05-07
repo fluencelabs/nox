@@ -1,3 +1,4 @@
+use crate::wasm_backend_config::WasmBackendConfig;
 use derivative::Derivative;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
@@ -30,4 +31,7 @@ pub struct AVMConfig {
     /// Hard limit AquaVM behavior control knob.
     #[serde(default)]
     pub hard_limit_enabled: bool,
+
+    #[serde(default)]
+    pub wasm_backend: WasmBackendConfig,
 }

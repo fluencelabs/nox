@@ -40,6 +40,7 @@ mod node_config;
 mod resolved_config;
 mod services_config;
 pub mod system_services_config;
+mod wasm_backend_config;
 
 pub use defaults::*;
 pub use resolved_config::load_config;
@@ -52,5 +53,4 @@ pub use network_config::NetworkConfig;
 pub use node_config::{ChainConfig, ChainListenerConfig, NodeConfig, TransportConfig};
 pub use resolved_config::TracingConfig;
 pub use resolved_config::{ResolvedConfig, UnresolvedConfig};
-pub use services_config::ServicesConfig;
 pub use system_services_config::{AquaIpfsConfig, DeciderConfig, SystemServicesConfig};

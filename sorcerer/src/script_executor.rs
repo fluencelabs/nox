@@ -27,7 +27,11 @@ use spell_event_bus::api::{TriggerEvent, TriggerInfoAqua};
 use spell_service_api::CallParams;
 
 impl Sorcerer {
-    fn get_spell_counter(&self, peer_scope: PeerScope, spell_id: String) -> Result<u32, JError> {
+    async fn get_spell_counter(
+        &self,
+        peer_scope: PeerScope,
+        spell_id: String,
+    ) -> Result<u32, JError> {
         let init_peer_id = self.scopes.to_peer_id(peer_scope);
         let params = CallParams::local(
             peer_scope,
@@ -35,13 +39,13 @@ impl Sorcerer {
             init_peer_id,
             self.spell_script_particle_ttl,
         );
-        let counter = self.spell_service_api.get_counter(params)?;
+        let counter = self.spell_service_api.get_counter(params).await?;
         // If the counter does not exist, consider it to be 0.
         // It will be incremented afterwards to 1 anyway.
         Ok(counter.unwrap_or(0u32))
     }
 
-    fn set_spell_next_counter(
+    async fn set_spell_next_counter(
         &self,
         peer_scope: PeerScope,
         spell_id: String,
@@ -56,10 +60,15 @@ impl Sorcerer {
         );
         self.spell_service_api
             .set_counter(params, next_counter)
+            .await
             .map_err(|e| JError::new(e.to_string()))
     }
 
-    fn get_spell_script(&self, peer_scope: PeerScope, spell_id: String) -> Result<String, JError> {
+    async fn get_spell_script(
+        &self,
+        peer_scope: PeerScope,
+        spell_id: String,
+    ) -> Result<String, JError> {
         let init_peer_id = self.scopes.to_peer_id(peer_scope);
         let params = CallParams::local(
             peer_scope,
@@ -69,11 +78,12 @@ impl Sorcerer {
         );
         self.spell_service_api
             .get_script(params)
+            .await
             .map_err(|e| JError::new(e.to_string()))
     }
 
     #[instrument(level = tracing::Level::INFO, skip_all)]
-    pub(crate) fn make_spell_particle(
+    pub(crate) async fn make_spell_particle(
         &self,
         peer_scope: PeerScope,
         spell_id: String,
@@ -86,9 +96,10 @@ impl Sorcerer {
                     peer_scope,
                 })?;
 
-        let spell_counter = self.get_spell_counter(peer_scope, spell_id.clone())?;
-        self.set_spell_next_counter(peer_scope, spell_id.clone(), spell_counter + 1)?;
-        let spell_script = self.get_spell_script(peer_scope, spell_id.clone())?;
+        let spell_counter = self.get_spell_counter(peer_scope, spell_id.clone()).await?;
+        self.set_spell_next_counter(peer_scope, spell_id.clone(), spell_counter + 1)
+            .await?;
+        let spell_script = self.get_spell_script(peer_scope, spell_id.clone()).await?;
         let init_peer_id: PeerId = match peer_scope {
             PeerScope::WorkerId(worker_id) => worker_id.into(),
             PeerScope::Host => self.scopes.get_host_peer_id(),
@@ -110,7 +121,7 @@ impl Sorcerer {
         Ok(particle)
     }
 
-    pub(crate) fn store_trigger(
+    pub(crate) async fn store_trigger(
         &self,
         event: TriggerEvent,
         peer_scope: PeerScope,
@@ -125,6 +136,7 @@ impl Sorcerer {
         );
         self.spell_service_api
             .set_trigger_event(params, serialized_event)
+            .await
             .map_err(|e| JError::new(e.to_string()))
     }
 
@@ -136,9 +148,11 @@ impl Sorcerer {
                 .get_scope(event.spell_id.clone())
                 .expect("Scope not found");
 
-            let particle = self.make_spell_particle(peer_scope, event.spell_id.clone())?;
+            let particle = self
+                .make_spell_particle(peer_scope, event.spell_id.clone())
+                .await?;
 
-            self.store_trigger(event.clone(), peer_scope)?;
+            self.store_trigger(event.clone(), peer_scope).await?;
             if let Some(m) = &self.spell_metrics {
                 m.observe_spell_cast();
             }

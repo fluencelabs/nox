@@ -20,6 +20,8 @@ workers = { workspace = true }
 types = { workspace = true }
 
 avm-server = { workspace = true }
+marine-wasmtime-backend = { workspace = true }
+fluence-app-service = { workspace = true }
 libp2p = { workspace = true }
 fluence-keypair = { workspace = true }
 
@@ -39,7 +41,7 @@ thiserror = { workspace = true }
 humantime = "2.1.0"
 anyhow = "1.0.79"
 eyre = { workspace = true }
-bytesize = "1.3.0"
+bytesize = { workspace = true }
 async-trait = { workspace = true }
 health = { workspace = true }
 config = { version = "0.13.4", features = [] }

@@ -910,7 +910,7 @@ async fn array() {
     .await
     .unwrap();
     log::info!("result {:?}", result);
-    assert_eq!(result, vec![json!(["hi"])])
+    assert_eq!(result, vec![json!(["hi"])]);
 }
 
 #[tokio::test]
@@ -1839,14 +1839,16 @@ async fn sign_verify() {
 }
 */
 
-#[tokio::test]
-async fn sign_invalid_tetraplets() {
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn sign_invalid_tetraplets_heavy() {
     enable_logs();
     let swarms = make_swarms_with_cfg(2, |mut cfg| {
         cfg.enabled_system_services = vec!["registry".to_string()];
         cfg
     })
     .await;
+
+    let _span = tracing::info_span!("test", context = "test").entered();
 
     let mut client = ConnectedClient::connect_with_keypair(
         swarms[0].multiaddr.clone(),

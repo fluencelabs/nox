@@ -9,6 +9,7 @@ particle-protocol = { workspace = true }
 fluence-libp2p = { workspace = true }
 test-constants = { workspace = true }
 local-vm = { workspace = true }
+marine-wasmtime-backend = { workspace = true }
 
 fluence-keypair = { workspace = true }
 libp2p = { workspace = true, features = ["identify"] }

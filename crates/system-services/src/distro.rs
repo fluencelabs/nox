@@ -1,3 +1,4 @@
+use async_trait::async_trait;
 use fluence_app_service::TomlMarineConfig;
 use fluence_spell_dtos::trigger_config::TriggerConfig;
 use serde_json::json;
@@ -7,10 +8,11 @@ use server_config::system_services_config::{
 };
 use std::collections::HashMap;
 use std::sync::Arc;
+use trust_graph_distro::Certs;
 
 use crate::{
-    apply_binary_path_override, CallService, DeploymentStatus, InitService, PackageDistro,
-    ServiceDistro, ServiceStatus, SpellDistro,
+    apply_binary_path_override, CallService, Deployment, InitService, PackageDistro, ServiceDistro,
+    ServiceStatus, SpellDistro,
 };
 
 #[derive(Debug, Clone)]
@@ -41,14 +43,14 @@ impl SystemServiceDistros {
         let distros: HashMap<String, PackageDistro> = config
             .enable
             .iter()
-            .map(|key| {
+            .map(move |key| {
                 let distro = match key {
                     AquaIpfs => default_aqua_ipfs_distro(&config.aqua_ipfs),
                     TrustGraph => default_trust_graph_distro(),
                     Registry => default_registry_distro(&config.registry),
                     Decider => default_decider_distro(&config.decider, &config.connector),
                 };
-                distro.map(|d| (d.name.clone(), d))
+                distro.map(move |d| (d.name.clone(), d))
             })
             .collect::<eyre::Result<_>>()?;
 
@@ -90,32 +92,52 @@ impl SystemServiceDistros {
     }
 }
 
-pub fn default_trust_graph_distro() -> eyre::Result<PackageDistro> {
-    use trust_graph_distro::*;
+struct TrustGraphInit<'a> {
+    name: String,
+    certs: &'a Certs,
+}
 
-    fn mk_init(name: String, certs: &'static trust_graph_distro::Certs) -> InitService {
-        let init = move |call: &CallService, deployment: DeploymentStatus| {
-            if let Some(ServiceStatus::Created(id)) = deployment.services.get(&name) {
-                call(
-                    name.clone(),
+#[async_trait]
+impl<'a> InitService for TrustGraphInit<'a> {
+    async fn init(
+        &self,
+        call_service: &dyn CallService,
+        deployment: Deployment,
+    ) -> eyre::Result<()> {
+        if let Some(ServiceStatus::Created(id)) = deployment.services.get(&self.name) {
+            call_service
+                .call(
+                    self.name.clone(),
                     "set_root".to_string(),
-                    vec![json!(certs.root_node), json!(certs.max_chain_length)],
-                )?;
+                    vec![
+                        json!(self.certs.root_node),
+                        json!(self.certs.max_chain_length),
+                    ],
+                )
+                .await?;
 
-                let timestamp = now_millis::now_sec();
-                for cert_chain in &certs.certs {
-                    call(
-                        name.clone(),
+            let timestamp = now_millis::now_sec();
+            for cert_chain in &self.certs.certs {
+                call_service
+                    .call(
+                        self.name.clone(),
                         "insert_cert".to_string(),
                         vec![json!(cert_chain), json!(timestamp)],
-                    )?;
-                }
-                tracing::info!(service_id = id, service_alias = name, "initialized service");
+                    )
+                    .await?;
             }
-            Ok(()) as eyre::Result<()>
-        };
-        Box::new(init)
+            tracing::info!(
+                service_id = id,
+                service_alias = self.name,
+                "initialized service"
+            );
+        }
+        Ok(()) as eyre::Result<()>
     }
+}
+
+pub fn default_trust_graph_distro<'a>() -> eyre::Result<PackageDistro> {
+    use trust_graph_distro::*;
 
     let config: TomlMarineConfig = toml::from_slice(CONFIG)?;
     let service_distro = ServiceDistro {
@@ -123,50 +145,69 @@ pub fn default_trust_graph_distro() -> eyre::Result<PackageDistro> {
         config,
         name: TrustGraph.to_string(),
     };
-    let certs: &'static trust_graph_distro::Certs = &trust_graph_distro::KRAS_CERTS;
-    let init = mk_init(TrustGraph.to_string(), certs);
+    let certs: &'static Certs = &trust_graph_distro::KRAS_CERTS;
+    let init = TrustGraphInit {
+        name: TrustGraph.to_string(),
+        certs,
+    };
     let package = PackageDistro {
         name: TrustGraph.to_string(),
         version: VERSION,
         services: vec![service_distro],
         spells: vec![],
-        init: Some(Arc::new(init)),
+        init: Some(Arc::new(Box::new(init))),
     };
     Ok(package)
 }
 
+struct AquaIpfsConfigInit {
+    local_api_multiaddr: String,
+    external_api_multiaddr: String,
+    name: String,
+}
+
+#[async_trait]
+impl InitService for AquaIpfsConfigInit {
+    async fn init(
+        &self,
+        call_service: &dyn CallService,
+        deployment: Deployment,
+    ) -> eyre::Result<()> {
+        if let Some(ServiceStatus::Created(id) | ServiceStatus::Existing(id)) =
+            deployment.services.get(&self.name)
+        {
+            let set_local_result = call_service
+                .call(
+                    self.name.clone(),
+                    "set_local_api_multiaddr".to_string(),
+                    vec![json!(self.local_api_multiaddr)],
+                )
+                .await;
+
+            let set_external_result = call_service
+                .call(
+                    self.name.clone(),
+                    "set_external_api_multiaddr".to_string(),
+                    vec![json!(self.external_api_multiaddr)],
+                )
+                .await;
+
+            // try to set local and external api multiaddrs, and only then produce an error
+            set_local_result?;
+            set_external_result?;
+
+            tracing::info!(
+                service_id = id,
+                service_alias = self.name,
+                "initialized service"
+            );
+        }
+        Ok(())
+    }
+}
+
 pub fn default_aqua_ipfs_distro(config: &AquaIpfsConfig) -> eyre::Result<PackageDistro> {
     use aqua_ipfs_distro::*;
-
-    fn mk_init(name: String, config: &AquaIpfsConfig) -> InitService {
-        let local_api_multiaddr = config.local_api_multiaddr.clone();
-        let external_api_multiaddr = config.external_api_multiaddr.clone();
-        let init = move |call: &CallService, deployment: DeploymentStatus| {
-            if let Some(ServiceStatus::Created(id) | ServiceStatus::Existing(id)) =
-                deployment.services.get(&name)
-            {
-                let set_local_result = call(
-                    name.clone(),
-                    "set_local_api_multiaddr".to_string(),
-                    vec![json!(local_api_multiaddr)],
-                );
-
-                let set_external_result = call(
-                    name.clone(),
-                    "set_external_api_multiaddr".to_string(),
-                    vec![json!(external_api_multiaddr)],
-                );
-
-                // try to set local and external api multiaddrs, and only then produce an error
-                set_local_result?;
-                set_external_result?;
-
-                tracing::info!(service_id = id, service_alias = name, "initialized service");
-            }
-            Ok(())
-        };
-        Box::new(init)
-    }
 
     let mut marine_config: TomlMarineConfig = toml::from_slice(CONFIG)?;
     apply_binary_path_override(
@@ -182,13 +223,21 @@ pub fn default_aqua_ipfs_distro(config: &AquaIpfsConfig) -> eyre::Result<Package
         name: AquaIpfs.to_string(),
     };
 
-    let init = mk_init(AquaIpfs.to_string(), config);
+    let local_api_multiaddr = config.local_api_multiaddr.clone();
+    let external_api_multiaddr = config.external_api_multiaddr.clone();
+
+    let init = AquaIpfsConfigInit {
+        local_api_multiaddr,
+        external_api_multiaddr,
+        name: AquaIpfs.to_string(),
+    };
+
     let package = PackageDistro {
         name: AquaIpfs.to_string(),
         version: VERSION,
         services: vec![service_distro],
         spells: vec![],
-        init: Some(Arc::new(init)),
+        init: Some(Arc::new(Box::new(init))),
     };
 
     Ok(package)
@@ -227,7 +276,7 @@ pub fn default_registry_distro(config: &RegistryConfig) -> eyre::Result<PackageD
     Ok(package)
 }
 
-pub fn default_decider_distro(
+pub fn default_decider_distro<'a>(
     decider_config: &DeciderConfig,
     connector_config: &ConnectorConfig,
 ) -> eyre::Result<PackageDistro> {

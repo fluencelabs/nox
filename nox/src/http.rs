@@ -552,11 +552,9 @@ mod tests {
             .wrap_err("parse config")
             .unwrap();
 
-        let resolved_config = unresolved_config
+        unresolved_config
             .resolve()
             .wrap_err("resolve config")
-            .unwrap();
-
-        resolved_config
+            .unwrap()
     }
 }

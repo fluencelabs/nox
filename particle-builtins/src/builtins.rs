@@ -42,9 +42,10 @@ use particle_modules::{
     AddBlueprint, EffectorsMode, ModuleConfig, ModuleRepository, NamedModuleConfig, WASIConfig,
 };
 use particle_protocol::Contact;
-use particle_services::{ParticleAppServices, PeerScope, ServiceInfo, ServiceType};
+use particle_services::{
+    ParticleAppServices, ParticleAppServicesConfig, PeerScope, ServiceInfo, ServiceType,
+};
 use peer_metrics::ServicesMetrics;
-use server_config::ServicesConfig;
 use types::peer_id;
 use uuid_utils::uuid;
 use workers::{KeyStorage, PeerScopes, Workers};
@@ -98,7 +99,7 @@ where
 {
     pub fn new(
         connectivity: C,
-        config: ServicesConfig,
+        config: ParticleAppServicesConfig,
         services_metrics: ServicesMetrics,
         key_storage: Arc<KeyStorage>,
         workers: Arc<Workers>,
@@ -125,7 +126,8 @@ where
             health_registry,
             workers.clone(),
             scope.clone(),
-        );
+        )
+        .expect("TODO async-marine: handle error from ParticleAppServices");
 
         Self {
             connectivity,
@@ -151,7 +153,7 @@ where
         let end = start.elapsed().as_secs();
 
         match result {
-            FunctionOutcome::NotDefined { args, params } => self.call_service(args, params),
+            FunctionOutcome::NotDefined { args, params } => self.call_service(args, params).await,
             result => {
                 if let Some(metrics) = self.services.metrics.as_ref() {
                     metrics.observe_builtins(result.not_err(), end as f64);
@@ -203,19 +205,19 @@ where
             ("kad", "neigh_with_addrs") => wrap(self.neighborhood_with_addresses(args).await),
             ("kad", "merge") => wrap(self.kad_merge(args.function_args)),
 
-            ("srv", "list") => ok(self.list_services(particle)),
+            ("srv", "list") => ok(self.list_services(particle).await),
             ("srv", "create") => wrap(self.create_service(args, particle).await),
-            ("srv", "get_interface") => wrap(self.get_interface(args, particle)),
-            ("srv", "resolve_alias") => wrap(self.resolve_alias(args, particle)),
-            ("srv", "resolve_alias_opt") => wrap(self.resolve_alias_opt(args, particle)),
+            ("srv", "get_interface") => wrap(self.get_interface(args, particle).await),
+            ("srv", "resolve_alias") => wrap(self.resolve_alias(args, particle).await),
+            ("srv", "resolve_alias_opt") => wrap(self.resolve_alias_opt(args, particle).await),
             ("srv", "add_alias") => wrap_unit(self.add_alias(args, particle).await),
             ("srv", "remove") => wrap_unit(self.remove_service(args, particle).await),
-            ("srv", "info") => wrap(self.get_service_info(args, particle)),
+            ("srv", "info") => wrap(self.get_service_info(args, particle).await),
 
-            ("dist", "add_module_from_vault") => wrap(self.add_module_from_vault(args, particle)),
-            ("dist", "add_module") => wrap(self.add_module(args, particle)),
-            ("dist", "add_module_bytes_from_vault") => wrap(self.add_module_bytes_from_vault(args, particle)),
-            ("dist", "add_blueprint") => wrap(self.add_blueprint(args, particle)),
+            ("dist", "add_module_from_vault") => wrap(self.add_module_from_vault(args, particle).await),
+            ("dist", "add_module") => wrap(self.add_module(args, particle).await),
+            ("dist", "add_module_bytes_from_vault") => wrap(self.add_module_bytes_from_vault(args, particle).await),
+            ("dist", "add_blueprint") => wrap(self.add_blueprint(args, particle).await),
             ("dist", "make_module_config") => wrap(make_module_config(args)),
             ("dist", "load_module_config") => wrap(self.load_module_config_from_vault(args, particle)),
             ("dist", "default_module_config") => wrap(self.default_module_config(args)),
@@ -240,8 +242,8 @@ where
 
             ("debug", "stringify") => self.stringify(args.function_args),
 
-            ("stat", "service_memory") => wrap(self.service_mem_stats(args, particle)),
-            ("stat", "service_stat") => wrap(self.service_stat(args, particle)),
+            ("stat", "service_memory") => wrap(self.service_mem_stats(args, particle).await),
+            ("stat", "service_stat") => wrap(self.service_stat(args, particle).await),
 
             ("math", "add") => binary(args, |x: i64, y: i64| -> R<i64, _> { math::add(x, y) }),
             ("math", "sub") => binary(args, |x: i64, y: i64| -> R<i64, _> { math::sub(x, y) }),
@@ -283,7 +285,7 @@ where
 
             ("subnet", "resolve") => wrap(self.subnet_resolve(args).await),
             ("run-console", "print") => {
-                self.guard_protected(&particle)?;
+                self.guard_protected(&particle).await?;
 
                 let function_args = args.function_args.iter();
                 let decider = function_args.filter_map(JValue::as_str).any(|s| s.contains("decider"));
@@ -303,7 +305,7 @@ where
                 // a worker spell. Otherwise we allow the call to go and find an aqua-ipfs service
                 // since it can be a user-defined service which isn't the same as system aqua-ipfs.
                 if matches!(particle.peer_scope, PeerScope::Host) {
-                    self.guard_protected(&particle)?;
+                    self.guard_protected(&particle).await?;
                 }
                 FunctionOutcome::NotDefined { args, params: particle }
             }
@@ -377,7 +379,7 @@ where
         let peer_id = PeerId::from_str(peer_id.as_str())?;
         let addrs: Vec<Multiaddr> = Args::next_opt("addresses", &mut args)?.unwrap_or_default();
 
-        self.guard_protected(&params)?;
+        self.guard_protected(&params).await?;
 
         let contact = Contact::new(peer_id, addrs);
 
@@ -628,23 +630,27 @@ where
         Ok(JValue::Array(slice))
     }
 
-    fn add_module(&self, args: Args, params: ParticleParams) -> Result<JValue, JError> {
+    async fn add_module(&self, args: Args, params: ParticleParams) -> Result<JValue, JError> {
         let mut args = args.function_args.into_iter();
         let module_bytes: String = Args::next("module_bytes", &mut args)?;
         let config = Args::next("config", &mut args)?;
 
-        self.guard_protected(&params)?;
+        self.guard_protected(&params).await?;
         let hash = self.modules.add_module_base64(module_bytes, config)?;
 
         Ok(json!(hash))
     }
 
-    fn add_module_from_vault(&self, args: Args, params: ParticleParams) -> Result<JValue, JError> {
+    async fn add_module_from_vault(
+        &self,
+        args: Args,
+        params: ParticleParams,
+    ) -> Result<JValue, JError> {
         let mut args = args.function_args.into_iter();
         let module_path: String = Args::next("module_path", &mut args)?;
         let config: TomlMarineNamedModuleConfig = Args::next("config", &mut args)?;
 
-        self.guard_protected(&params)?;
+        self.guard_protected(&params).await?;
 
         let module_hash = self.modules.add_module_from_vault(
             &self.services.vault,
@@ -657,7 +663,7 @@ where
         Ok(json!(module_hash))
     }
 
-    fn add_module_bytes_from_vault(
+    async fn add_module_bytes_from_vault(
         &self,
         args: Args,
         params: ParticleParams,
@@ -666,7 +672,7 @@ where
         let module_name: String = Args::next("module_name", &mut args)?;
         let module_path: String = Args::next("module_path", &mut args)?;
 
-        self.guard_protected(&params)?;
+        self.guard_protected(&params).await?;
 
         let module_hash = self.modules.add_module_from_vault(
             &self.services.vault,
@@ -679,11 +685,11 @@ where
         Ok(json!(module_hash))
     }
 
-    fn add_blueprint(&self, args: Args, params: ParticleParams) -> Result<JValue, JError> {
+    async fn add_blueprint(&self, args: Args, params: ParticleParams) -> Result<JValue, JError> {
         let mut args = args.function_args.into_iter();
         let blueprint: String = Args::next("blueprint", &mut args)?;
 
-        self.guard_protected(&params)?;
+        self.guard_protected(&params).await?;
 
         let blueprint = AddBlueprint::decode(blueprint.as_bytes()).map_err(|err| {
             JError::new(format!("Error deserializing blueprint from IPLD: {err}"))
@@ -799,7 +805,7 @@ where
         let mut args = args.function_args.into_iter();
         let blueprint_id: String = Args::next("blueprint_id", &mut args)?;
 
-        self.guard_protected(&params)?;
+        self.guard_protected(&params).await?;
 
         let service_id = self
             .services
@@ -818,7 +824,7 @@ where
         let mut args = args.function_args.into_iter();
         let service_id_or_alias: String = Args::next("service_id_or_alias", &mut args)?;
 
-        self.guard_protected(&params)?;
+        self.guard_protected(&params).await?;
 
         self.services
             .remove_service(
@@ -833,26 +839,30 @@ where
         Ok(())
     }
 
-    fn list_services(&self, params: ParticleParams) -> JValue {
+    async fn list_services(&self, params: ParticleParams) -> JValue {
         Array(
             self.services
                 .list_services(params.peer_scope)
+                .await
                 .iter()
                 .map(|info| json!(Service::from(info, self.scopes.clone())))
                 .collect(),
         )
     }
 
-    fn call_service(&self, function_args: Args, particle: ParticleParams) -> FunctionOutcome {
-        self.services.call_service(function_args, particle, true)
+    async fn call_service(&self, function_args: Args, particle: ParticleParams) -> FunctionOutcome {
+        self.services
+            .call_service(function_args, particle, true)
+            .await
     }
 
-    fn get_interface(&self, args: Args, params: ParticleParams) -> Result<JValue, JError> {
+    async fn get_interface(&self, args: Args, params: ParticleParams) -> Result<JValue, JError> {
         let mut args = args.function_args.into_iter();
         let service_id: String = Args::next("service_id", &mut args)?;
         Ok(self
             .services
-            .get_interface(params.peer_scope, service_id, &params.id)?)
+            .get_interface(params.peer_scope, service_id, &params.id)
+            .await?)
     }
 
     async fn add_alias(&self, args: Args, params: ParticleParams) -> Result<(), JError> {
@@ -861,7 +871,7 @@ where
         let alias: String = Args::next("alias", &mut args)?;
         let service_id: String = Args::next("service_id", &mut args)?;
 
-        self.guard_protected(&params)?;
+        self.guard_protected(&params).await?;
 
         self.services
             .add_alias(
@@ -882,12 +892,13 @@ where
         Ok(())
     }
 
-    fn resolve_alias(&self, args: Args, params: ParticleParams) -> Result<JValue, JError> {
+    async fn resolve_alias(&self, args: Args, params: ParticleParams) -> Result<JValue, JError> {
         let mut args = args.function_args.into_iter();
         let alias: String = Args::next("alias", &mut args)?;
-        let service_id =
-            self.services
-                .resolve_alias(params.peer_scope, alias.clone(), &params.id)?;
+        let service_id = self
+            .services
+            .resolve_alias(params.peer_scope, alias.clone(), &params.id)
+            .await?;
 
         log::debug!(
             "Resolved alias {} to service {:?} {}",
@@ -899,24 +910,30 @@ where
         Ok(JValue::String(service_id))
     }
 
-    fn resolve_alias_opt(&self, args: Args, params: ParticleParams) -> Result<JValue, JError> {
+    async fn resolve_alias_opt(
+        &self,
+        args: Args,
+        params: ParticleParams,
+    ) -> Result<JValue, JError> {
         let mut args = args.function_args.into_iter();
         let alias: String = Args::next("alias", &mut args)?;
         let service_id_opt = self
             .services
             .resolve_alias(params.peer_scope, alias, &params.id)
+            .await
             .map(|id| vec![JValue::String(id)])
             .unwrap_or_default();
 
         Ok(Array(service_id_opt))
     }
 
-    fn get_service_info(&self, args: Args, params: ParticleParams) -> Result<JValue, JError> {
+    async fn get_service_info(&self, args: Args, params: ParticleParams) -> Result<JValue, JError> {
         let mut args = args.function_args.into_iter();
         let service_id_or_alias: String = Args::next("service_id_or_alias", &mut args)?;
-        let info =
-            self.services
-                .get_service_info(params.peer_scope, service_id_or_alias, &params.id)?;
+        let info = self
+            .services
+            .get_service_info(params.peer_scope, service_id_or_alias, &params.id)
+            .await?;
 
         Ok(json!(Service::from(&info, self.scopes.clone())))
     }
@@ -929,22 +946,28 @@ where
         self.connectivity.as_ref()
     }
 
-    fn service_mem_stats(&self, args: Args, params: ParticleParams) -> Result<JValue, JError> {
+    async fn service_mem_stats(
+        &self,
+        args: Args,
+        params: ParticleParams,
+    ) -> Result<JValue, JError> {
         let mut args = args.function_args.into_iter();
         let service_id_or_alias: String = Args::next("service_id", &mut args)?;
 
         self.services
             .get_service_mem_stats(params.peer_scope, service_id_or_alias, &params.id)
+            .await
             .map(Array)
     }
 
-    fn service_stat(&self, args: Args, params: ParticleParams) -> Result<JValue, JError> {
+    async fn service_stat(&self, args: Args, params: ParticleParams) -> Result<JValue, JError> {
         let mut args = args.function_args.into_iter();
         let service_id_or_alias: String = Args::next("service_id", &mut args)?;
         // Resolve aliases; also checks that the requested service exists.
-        let service_id =
-            self.services
-                .to_service_id(params.peer_scope, service_id_or_alias, &params.id)?;
+        let service_id = self
+            .services
+            .to_service_id(params.peer_scope, service_id_or_alias, &params.id)
+            .await?;
         let metrics = self
             .services
             .metrics
@@ -1089,8 +1112,8 @@ where
         Ok(json!(result))
     }
 
-    fn guard_protected(&self, particle: &ParticleParams) -> Result<(), JError> {
-        if self.is_worker_spell(particle)
+    async fn guard_protected(&self, particle: &ParticleParams) -> Result<(), JError> {
+        if self.is_worker_spell(particle).await
             || self.scopes.is_host(particle.init_peer_id)
             || self.scopes.is_management(particle.init_peer_id)
         {
@@ -1107,13 +1130,14 @@ where
     // 2. init_peer_id must be a local peer id for the host (either host id or a worker id)
     // 3. There must be a spell service with alias "worker-spell" on the init_peer_id
     // 4. The spell service must have the same spell_id as in the particle and be of type "spell"
-    fn is_worker_spell(&self, particle: &ParticleParams) -> bool {
+    async fn is_worker_spell(&self, particle: &ParticleParams) -> bool {
         let result: Option<_> = try {
             let local_scope = self.scopes.scope(particle.init_peer_id).ok()?;
             let spell_id = ParticleParams::get_spell_id(&particle.id)?;
             let (worker_service, _) = self
                 .services
                 .get_service(local_scope, "worker-spell".to_string(), &particle.id)
+                .await
                 .ok()?;
             worker_service.service_type == ServiceType::Spell
                 && worker_service.service_id == spell_id

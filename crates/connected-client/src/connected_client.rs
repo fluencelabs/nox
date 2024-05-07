@@ -24,6 +24,7 @@ use fluence_keypair::KeyPair;
 use fluence_libp2p::Transport;
 use libp2p::{core::Multiaddr, PeerId};
 use local_vm::{make_particle, make_vm, read_args, ParticleDataStore};
+use marine_wasmtime_backend::WasmtimeWasmBackend;
 use particle_protocol::Particle;
 use serde_json::{Value as JValue, Value};
 use tempfile::TempDir;
@@ -35,7 +36,7 @@ use crate::client::Client;
 use crate::event::ClientEvent;
 
 #[allow(clippy::upper_case_acronyms)]
-type AVM = local_vm::AVMRunner;
+type AVM = local_vm::AVMRunner<WasmtimeWasmBackend>;
 
 pub struct ConnectedClient {
     pub client: Client,
@@ -99,6 +100,7 @@ impl ConnectedClient {
             timeout,
             idle_connection_timeout,
             particle_ttl,
+            true,
         )
         .await
     }
@@ -113,6 +115,7 @@ impl ConnectedClient {
             TRANSPORT_TIMEOUT,
             IDLE_CONNECTION_TIMEOUT,
             None,
+            true,
         )
         .await
     }
@@ -123,6 +126,7 @@ impl ConnectedClient {
         timeout: Duration,
         idle_connection_timeout: Duration,
         particle_ttl: Option<Duration>,
+        reconnect_enabled: bool,
     ) -> Result<Self> {
         use core::result::Result;
         use std::io::{Error, ErrorKind};
@@ -135,6 +139,7 @@ impl ConnectedClient {
                 key_pair.map(Into::into),
                 timeout,
                 idle_connection_timeout,
+                reconnect_enabled,
             )
             .expect("sender connected");
             let result: Result<_, Error> = if let Some(ClientEvent::NewConnection {
@@ -158,7 +163,7 @@ impl ConnectedClient {
         self.local_vm
             .get_or_init(|| async {
                 let dir = self.tmp_dir.path();
-                tokio::sync::Mutex::new(make_vm(dir))
+                tokio::sync::Mutex::new(make_vm(dir).await)
             })
             .await
     }
