@@ -23,7 +23,7 @@ jobs:
       - name: Set release-please config
         id: config
         run: |
-          if [[ ${{ github.ref_name }} == main ]]; then echo "config=.github/release-please/config.json" >> $GITHUB_OUTPUT;
+          if [[ ${{ github.ref_name }} == "master" ]]; then echo "config=.github/release-please/config.json" >> $GITHUB_OUTPUT;
           elif [[ ${{ github.ref_name }} =~ ^backport/ ]]; then echo "config=.github/release-please/config-backport.json" >> $GITHUB_OUTPUT;
           fi
 
