@@ -44,7 +44,6 @@ eyre = { workspace = true }
 bytesize = { workspace = true }
 async-trait = { workspace = true }
 health = { workspace = true }
-config = { version = "0.13.4", features = [] }
 enum_dispatch = { workspace = true }
 
 [dev-dependencies]
