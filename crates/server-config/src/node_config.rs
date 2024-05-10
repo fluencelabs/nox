@@ -20,6 +20,7 @@ use serde_with::DisplayFromStr;
 use fluence_libp2p::PeerId;
 use fluence_libp2p::Transport;
 use fs_utils::to_abs_path;
+use hex_utils::serde_as::Hex;
 use particle_protocol::ProtocolConfig;
 use types::peer_id;
 
@@ -161,13 +162,14 @@ pub struct UnresolvedNodeConfig {
     pub network: Network,
 }
 
-#[derive(Clone, Deserialize, Serialize, Debug, Default)]
+#[serde_as]
+#[derive(Clone, Deserialize, Serialize, Debug, Default, PartialEq)]
 pub enum Network {
     #[default]
     Dar,
     Stage,
     Kras,
-    Custom([u8; 32]),
+    Custom(#[serde_as(as = "Hex")] [u8; 32]),
 }
 
 impl Display for Network {

@@ -249,6 +249,7 @@ mod tests {
     use std::io::Write;
     use std::time::Duration;
 
+    use crate::Network;
     use base64::{engine::general_purpose::STANDARD as base64, Engine};
     use fluence_keypair::KeyPair;
     use tempfile::{tempdir, NamedTempFile};
@@ -821,5 +822,32 @@ mod tests {
                 assert_eq!(config.node_config.aquavm_pool_size, 160);
             },
         );
+    }
+
+    #[test]
+    fn load_file_with_custom_network() {
+        let mut file = NamedTempFile::new().expect("Could not create temp file");
+
+        write!(
+            file,
+            r#"
+            [network]
+            Custom = "12458ae2e882cc71eaf2de71101c76a77a54ee89cae8897b231a8a1cb4e90f80"
+            "#
+        )
+        .expect("Could not write in file");
+
+        let path = file.path().display().to_string();
+
+        temp_env::with_var("FLUENCE_CONFIG", Some(path), || {
+            let config = load_config_with_args(vec![], None).expect("Could not load config");
+
+            let expected =
+                hex::decode("12458ae2e882cc71eaf2de71101c76a77a54ee89cae8897b231a8a1cb4e90f80")
+                    .unwrap();
+            let expected: [u8; 32] = expected.try_into().unwrap();
+
+            assert_eq!(config.node_config.network, Network::Custom(expected));
+        });
     }
 }

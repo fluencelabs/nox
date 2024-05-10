@@ -16,6 +16,7 @@ types = { workspace = true }
 core-manager = { workspace = true }
 cid-utils = { workspace = true }
 bytesize = { workspace = true }
+hex-utils = { workspace = true }
 log = "0.4.20"
 toml = "0.8.12" # otherwise deserialisation of Cargo.toml doesn't work
 
