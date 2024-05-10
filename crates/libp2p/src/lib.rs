@@ -38,7 +38,7 @@ pub use self::serde::*;
 pub use connected_point::*;
 pub use random_peer_id::RandomPeerId;
 #[cfg(feature = "tokio")]
-pub use transport::{build_memory_transport, build_transport, Transport, NetworkKey};
+pub use transport::{build_memory_transport, build_transport, Transport};
 
 
 // libp2p reexports

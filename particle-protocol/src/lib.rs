@@ -45,4 +45,4 @@ pub use libp2p_protocol::upgrade::ProtocolConfig;
 pub use particle::ExtendedParticle;
 pub use particle::Particle;
 
-    pub const PROTOCOL_NAME: &str = "/fluence/particle/2.0.0";
+pub const PROTOCOL_NAME: &str = "/fluence/particle/2.0.0";

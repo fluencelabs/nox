@@ -68,7 +68,6 @@ async fn get_interfaces() {
     let mut client = ConnectedClient::connect_with_keypair(
         swarms[0].multiaddr.clone(),
         Some(swarms[0].management_keypair.clone()),
-        swarms[0].network_key.clone()
     )
     .await
     .wrap_err("connect client")
@@ -136,7 +135,6 @@ async fn get_modules() {
     let mut client = ConnectedClient::connect_with_keypair(
         swarms[0].multiaddr.clone(),
         Some(swarms[0].management_keypair.clone()),
-        swarms[0].network_key.clone()
     )
     .await
     .wrap_err("connect client")
@@ -196,7 +194,6 @@ async fn list_blueprints() {
     let mut client = ConnectedClient::connect_with_keypair(
         swarms[0].multiaddr.clone(),
         Some(swarms[0].management_keypair.clone()),
-        swarms[0].network_key.clone()
     )
     .await
     .wrap_err("connect client")
@@ -264,7 +261,6 @@ async fn explore_services_heavy() {
     let mut client = ConnectedClient::connect_with_keypair(
         swarms[0].multiaddr.clone(),
         Some(swarms[0].management_keypair.clone()),
-        swarms[0].network_key.clone()
     )
     .await
     .wrap_err("connect client")
@@ -378,7 +374,6 @@ async fn explore_services_fixed_heavy() {
         let mut client = ConnectedClient::connect_with_keypair(
             peer.multiaddr.clone(),
             Some(peer.management_keypair.clone()),
-            swarms[0].network_key.clone()
         )
         .await
         .wrap_err("connect client")
@@ -394,7 +389,6 @@ async fn explore_services_fixed_heavy() {
     let mut client = ConnectedClient::connect_with_keypair(
         swarms[0].multiaddr.clone(),
         Some(swarms[0].management_keypair.clone()),
-        swarms[0].network_key.clone()
     )
     .await
     .wrap_err("connect client")

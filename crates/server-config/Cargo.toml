@@ -39,7 +39,7 @@ config = { version = "0.13.4", default-features = false, features = ["toml"] }
 clarity = { workspace = true }
 maplit = { workspace = true }
 url = { version = "2.5.0", features = ["serde"] }
-const-hex = "1.11.3"
+hex = { workspace = true }
 
 [dev-dependencies]
 temp-env = "0.3.6"

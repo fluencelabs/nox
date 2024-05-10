@@ -1,4 +1,5 @@
 use std::collections::{BTreeMap, HashMap};
+use std::fmt::{Display, Formatter};
 use std::net::IpAddr;
 use std::ops::Deref;
 use std::path::{Path, PathBuf};
@@ -156,6 +157,7 @@ pub struct UnresolvedNodeConfig {
     #[serde(default)]
     pub services: ServicesConfig,
 
+    #[serde(default)]
     pub network: Network,
 }
 
@@ -168,44 +170,15 @@ pub enum Network {
     Custom([u8; 32]),
 }
 
-const DAR_NETWORK_BYTES: [u8; 32] = {
-    let bytes = const_hex::const_decode_to_array::<32>(
-        b"debe2c1e02cda5198ed6668852efc9d81ba0e511592c863f9af3399e2bca627a",
-    );
-    match bytes {
-        Ok(res) => res,
-        Err(_) => panic!("invalid DAR network bytes"),
-    }
-};
-
-const STAGE_NETWORK_BYTES: [u8; 32] = {
-    let bytes = const_hex::const_decode_to_array::<32>(
-        b"2af3f202dfc5328bea7ba6bc38063c2d083cf2d4bafdb4b35a533c53b24ae6de",
-    );
-    match bytes {
-        Ok(res) => res,
-        Err(_) => panic!("invalid STAGE network bytes"),
-    }
-};
-
-const KRAS_NETWORK_BYTES: [u8; 32] = {
-    let bytes = const_hex::const_decode_to_array::<32>(
-        b"f15d0e55506ad2fad8cebae507696f268f844a2f5f6b816ec460a17d41d1ff16",
-    );
-    match bytes {
-        Ok(res) => res,
-        Err(_) => panic!("invalid KRAS network bytes"),
-    }
-};
-
-impl From<Network> for [u8; 32] {
-    fn from(value: Network) -> Self {
-        match value {
-            Network::Dar => DAR_NETWORK_BYTES,
-            Network::Stage => STAGE_NETWORK_BYTES,
-            Network::Kras => KRAS_NETWORK_BYTES,
-            Network::Custom(key) => key,
-        }
+impl Display for Network {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Network::Dar => f.write_str("dar"),
+            Network::Stage => f.write_str("stage"),
+            Network::Kras => f.write_str("kras"),
+            Network::Custom(bytes) => f.write_str(hex::encode(bytes).as_str()),
+        }?;
+        Ok(())
     }
 }
 

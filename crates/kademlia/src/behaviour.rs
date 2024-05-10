@@ -20,7 +20,6 @@ use std::task::{Context, Poll};
 use std::{
     cmp::min,
     collections::HashMap,
-    ops::Deref,
     task::Waker,
     time::{Duration, Instant},
 };
@@ -28,6 +27,7 @@ use std::{
 use futures::FutureExt;
 use futures_timer::Delay;
 use libp2p::core::Endpoint;
+use libp2p::kad::Config as LibP2PKadConfig;
 use libp2p::kad::StoreInserts;
 use libp2p::swarm::behaviour::FromSwarm;
 use libp2p::swarm::THandlerInEvent;
@@ -42,7 +42,7 @@ use libp2p::{
         QueryId, QueryResult,
     },
     swarm::NetworkBehaviour,
-    PeerId,
+    PeerId, StreamProtocol,
 };
 use libp2p_kad::{KBucketKey, Mode};
 use libp2p_metrics::{Metrics, Recorder};
@@ -57,20 +57,19 @@ use particle_protocol::Contact;
 use crate::error::{KademliaError, Result};
 use crate::{Command, KademliaApi};
 
+#[derive(Debug, Clone)]
+pub struct ProtocolName(&'static str);
+
+#[derive(Debug, Clone)]
 pub struct KademliaConfig {
     pub peer_id: PeerId,
-    // TODO: wonderful name clashing. I guess it is better to rename one of the KademliaConfig's to something else. You'll figure it out.
-    pub kad_config: server_config::KademliaConfig,
+    pub max_packet_size: Option<usize>,
+    pub query_timeout: Duration,
+    pub replication_factor: Option<usize>,
+    pub peer_fail_threshold: usize,
+    pub ban_cooldown: Duration,
+    pub protocol_name: StreamProtocol,
 }
-
-impl Deref for KademliaConfig {
-    type Target = server_config::KademliaConfig;
-
-    fn deref(&self) -> &Self::Target {
-        &self.kad_config
-    }
-}
-
 #[derive(Debug)]
 pub enum PendingQuery {
     Peer(PeerId),
@@ -123,6 +122,33 @@ pub struct Kademlia {
     parent_span: Span,
 }
 
+impl From<KademliaConfig> for LibP2PKadConfig {
+    fn from(value: KademliaConfig) -> Self {
+        let mut cfg = LibP2PKadConfig::default();
+
+        cfg.set_query_timeout(value.query_timeout);
+
+        if let Some(max_packet_size) = value.max_packet_size {
+            cfg.set_max_packet_size(max_packet_size);
+        }
+
+        if let Some(replication_factor) = value.replication_factor {
+            if let Some(replication_factor) = std::num::NonZeroUsize::new(replication_factor) {
+                cfg.set_replication_factor(replication_factor);
+            } else {
+                log::warn!(
+                    "Invalid config value: replication_factor must be > 0, was {:?}",
+                    value.replication_factor
+                )
+            }
+        }
+
+        cfg.set_protocol_names(vec![value.protocol_name]);
+
+        cfg
+    }
+}
+
 impl Kademlia {
     pub fn new(
         config: KademliaConfig,
@@ -131,14 +157,15 @@ impl Kademlia {
     ) -> (Self, KademliaApi) {
         let timer = Delay::new(config.query_timeout);
 
-        let store = MemoryStore::new(config.peer_id);
-        let mut kad_config = config.as_libp2p();
+        let peer_id = config.peer_id.clone();
+        let store = MemoryStore::new(peer_id);
+        let mut kad_config: LibP2PKadConfig = config.clone().into();
         // By default, all records from peers are automatically stored.
         // `FilterBoth` means it's the Kademlia behaviour handler's responsibility
         // to determine whether or not Provider records and KV records ("both") get stored,
         // where we implement logic to validate/prune incoming records.
         kad_config.set_record_filtering(StoreInserts::FilterBoth);
-        let mut kademlia = kad::Behaviour::with_config(config.peer_id, store, kad_config);
+        let mut kademlia = kad::Behaviour::with_config(peer_id, store, kad_config);
         kademlia.set_mode(Some(Mode::Server));
 
         let (outlet, commands) = mpsc::unbounded_channel();
@@ -353,7 +380,7 @@ impl Kademlia {
         };
 
         let failed_peers = &mut self.failed_peers;
-        let config = self.config.deref();
+        let config = self.config.clone();
         // timer will wake up current task after `next_wake`
         let mut next_wake = min(config.query_timeout, config.ban_cooldown);
         let now = Instant::now();
@@ -633,36 +660,37 @@ mod tests {
     use futures::StreamExt;
     use libp2p::core::Multiaddr;
     use libp2p::multiaddr::Protocol;
-    use libp2p::PeerId;
     use libp2p::Swarm;
     use libp2p::SwarmBuilder;
+    use libp2p::{PeerId, StreamProtocol};
     use libp2p_identity::Keypair;
+    use rand::distributions::Alphanumeric;
+    use rand::Rng;
     use tokio::sync::oneshot;
 
     use fluence_libp2p::random_multiaddr::create_memory_maddr;
-    use fluence_libp2p::{build_memory_transport, NetworkKey, RandomPeerId};
+    use fluence_libp2p::{build_memory_transport, RandomPeerId};
     use log_utils::enable_logs;
 
     use crate::{KademliaConfig, KademliaError};
 
     use super::Kademlia;
 
-    fn kad_config(peer_id: PeerId) -> KademliaConfig {
+    fn kad_config(peer_id: PeerId, network_id: String) -> KademliaConfig {
+        let protocol_name = format!("/fluence/kad/{}/1.0.0", network_id);
+        let protocol_name = StreamProtocol::try_from_owned(protocol_name).unwrap();
         KademliaConfig {
             peer_id,
-            kad_config: server_config::KademliaConfig {
-                query_timeout: Duration::from_millis(100),
-                peer_fail_threshold: 1,
-                ban_cooldown: Duration::from_secs(1),
-                ..Default::default()
-            },
+            max_packet_size: None,
+            query_timeout: Duration::from_millis(100),
+            replication_factor: None,
+            peer_fail_threshold: 1,
+            ban_cooldown: Duration::from_secs(1),
+            protocol_name,
         }
     }
 
-    fn make_node(
-        human_readable_id: String,
-        network_key: &NetworkKey,
-    ) -> (Swarm<Kademlia>, Multiaddr) {
+    fn make_node(human_readable_id: String, network_id: String) -> (Swarm<Kademlia>, Multiaddr) {
         use fluence_keypair::KeyPair;
 
         let kp = KeyPair::generate_ed25519();
@@ -673,14 +701,14 @@ mod tests {
             id = human_readable_id
         );
         let _guard = span.enter();
-        let config = kad_config(peer_id);
+        let config = kad_config(peer_id, network_id);
         let (kad, _) = Kademlia::new(config, None, span.clone());
         let timeout = Duration::from_secs(20);
 
         let kp: Keypair = kp.into();
         let mut swarm = SwarmBuilder::with_existing_identity(kp.clone())
             .with_tokio()
-            .with_other_transport(|_| build_memory_transport(&kp, timeout, network_key.clone()))
+            .with_other_transport(|_| build_memory_transport(&kp, timeout))
             .unwrap()
             .with_behaviour(|_| kad)
             .unwrap()
@@ -696,17 +724,28 @@ mod tests {
         (swarm, maddr)
     }
 
+    fn generate_network_id() -> String {
+        let network_id: String = rand::thread_rng()
+            .sample_iter(&Alphanumeric)
+            .take(7)
+            .map(char::from)
+            .collect();
+
+        format!("test_{}", network_id)
+    }
+
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn discovery_heavy() {
         enable_logs();
         use tokio::time::timeout;
-        let network_key = NetworkKey::random();
 
-        let (mut a, a_addr) = make_node("a".to_string(), &network_key);
-        let (mut b, b_addr) = make_node("b".to_string(), &network_key);
-        let (c, c_addr) = make_node("c".to_string(), &network_key);
-        let (d, d_addr) = make_node("d".to_string(), &network_key);
-        let (e, e_addr) = make_node("e".to_string(), &network_key);
+        let network_id = generate_network_id();
+
+        let (mut a, a_addr) = make_node("a".to_string(), network_id.clone());
+        let (mut b, b_addr) = make_node("b".to_string(), network_id.clone());
+        let (c, c_addr) = make_node("c".to_string(), network_id.clone());
+        let (d, d_addr) = make_node("d".to_string(), network_id.clone());
+        let (e, e_addr) = make_node("e".to_string(), network_id);
 
         // a knows everybody
         Swarm::dial(&mut a, b_addr.clone()).unwrap();
@@ -766,8 +805,9 @@ mod tests {
 
     #[test]
     fn dont_repeat_discovery() {
-        let network_key = NetworkKey::random();
-        let (mut node, _) = make_node("a".to_string(), &network_key);
+        let network_id = generate_network_id();
+
+        let (mut node, _) = make_node("a".to_string(), network_id);
         let peer = RandomPeerId::random();
 
         node.behaviour_mut()
@@ -782,9 +822,9 @@ mod tests {
     async fn ban() {
         use tokio::time::timeout;
 
-        let network_key = NetworkKey::random();
+        let network_id = generate_network_id();
 
-        let (mut node, _) = make_node("a".to_string(), &network_key);
+        let (mut node, _) = make_node("a".to_string(), network_id);
         let peer = RandomPeerId::random();
 
         node.behaviour_mut()

@@ -36,7 +36,6 @@ async fn test_add_module_mounted_binaries() {
     let mut client = ConnectedClient::connect_with_keypair(
         swarms[0].multiaddr.clone(),
         Some(swarms[0].management_keypair.clone()),
-        swarms[0].network_key.clone(),
     )
     .await
     .expect("connect client");
@@ -87,7 +86,7 @@ async fn test_add_module_effectors_forbidden() {
     let mut client = ConnectedClient::connect_with_keypair(
         swarms[0].multiaddr.clone(),
         Some(swarms[0].management_keypair.clone()),
-        swarms[0].network_key.clone()
+
     )
     .await
     .expect("connect client");
@@ -134,7 +133,7 @@ async fn test_add_module_effectors_forbidden() {
 #[tokio::test]
 async fn test_add_module_by_other_forbidden() {
     let swarms = make_swarms(1).await;
-    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone(), swarms[0].network_key.clone())
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone(), )
         .await
         .unwrap();
     let module = load_module("tests/effector/artifacts", "effector").expect("load module");

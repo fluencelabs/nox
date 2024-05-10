@@ -19,14 +19,17 @@ use libp2p::{
     identify::Behaviour as Identify,
     ping::{Behaviour as Ping, Config as PingConfig},
     swarm::NetworkBehaviour,
+    PeerId,
 };
+use libp2p_swarm::StreamProtocol;
+use thiserror::Error;
 use tokio::sync::mpsc;
 
 use connection_pool::ConnectionPoolBehaviour;
 use health::HealthCheckRegistry;
 use kademlia::{Kademlia, KademliaConfig};
 use particle_protocol::{ExtendedParticle, PROTOCOL_NAME};
-use server_config::NetworkConfig;
+use server_config::{Network, NetworkConfig};
 
 use crate::connectivity::Connectivity;
 use crate::health::{BootstrapNodesHealth, ConnectivityHealth, KademliaBootstrapHealth};
@@ -41,11 +44,42 @@ pub struct FluenceNetworkBehaviour {
     pub(crate) kademlia: Kademlia,
 }
 
+struct KademliaConfigAdapter {
+    peer_id: PeerId,
+    network: Network,
+    config: server_config::KademliaConfig,
+}
+
+#[derive(Error, Debug)]
+pub enum ConfigConvertError {
+    #[error("Failed to parse protocol name {raw}")]
+    WrongProtocolName { raw: String },
+}
+
+impl TryFrom<KademliaConfigAdapter> for KademliaConfig {
+    type Error = ConfigConvertError;
+    fn try_from(value: KademliaConfigAdapter) -> Result<Self, Self::Error> {
+        let protocol_name = format!("/fluence/kad/{}/1.0.0", value.network.to_string().to_lowercase());
+        let protocol_name = StreamProtocol::try_from_owned(protocol_name.clone())
+            .map_err(|_err| ConfigConvertError::WrongProtocolName { raw: protocol_name })?;
+        Ok(Self {
+            peer_id: value.peer_id,
+            max_packet_size: value.config.max_packet_size,
+            query_timeout: value.config.query_timeout,
+            replication_factor: value.config.replication_factor,
+            peer_fail_threshold: value.config.peer_fail_threshold,
+            ban_cooldown: value.config.ban_cooldown,
+            protocol_name,
+        })
+    }
+}
+
 impl FluenceNetworkBehaviour {
     pub fn new(
+        network: Network,
         cfg: NetworkConfig,
         health_registry: Option<&mut HealthCheckRegistry>,
-    ) -> (Self, Connectivity, mpsc::Receiver<ExtendedParticle>) {
+    ) -> eyre::Result<(Self, Connectivity, mpsc::Receiver<ExtendedParticle>)> {
         let local_public_key = cfg.key_pair.public();
         let identify = Identify::new(
             IdentifyConfig::new(PROTOCOL_NAME.into(), local_public_key)
@@ -53,11 +87,13 @@ impl FluenceNetworkBehaviour {
         );
         let ping = Ping::new(PingConfig::new());
 
-        let kad_config = KademliaConfig {
+        let kad_config = KademliaConfigAdapter {
             peer_id: cfg.local_peer_id,
-            kad_config: cfg.kademlia_config,
+            config: cfg.kademlia_config,
+            network,
         };
 
+        let kad_config = kad_config.try_into()?;
         let (kademlia, kademlia_api) = Kademlia::new(kad_config, cfg.libp2p_metrics);
         let (connection_pool, particle_stream, connection_pool_api) = ConnectionPoolBehaviour::new(
             cfg.particle_queue_buffer,
@@ -100,6 +136,6 @@ impl FluenceNetworkBehaviour {
             health,
         };
 
-        (this, connectivity, particle_stream)
+        Ok((this, connectivity, particle_stream))
     }
 }

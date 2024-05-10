@@ -36,15 +36,13 @@ use base64::{engine::general_purpose::STANDARD as base64, Engine};
 use cid_utils::Hash;
 use core_manager::DummyCoreManager;
 use fluence_libp2p::random_multiaddr::{create_memory_maddr, create_tcp_maddr};
-use fluence_libp2p::{NetworkKey, Transport};
+use fluence_libp2p::{Transport};
 use fs_utils::to_abs_path;
 use futures::stream::iter;
+use rand::RngCore;
 use nox::{Connectivity, Node};
 use particle_protocol::ProtocolConfig;
-use server_config::{
-    persistent_dir, system_services_config, BootstrapConfig, ChainConfig, Network, ResolvedConfig,
-    UnresolvedConfig,
-};
+use server_config::{persistent_dir, system_services_config, BootstrapConfig, ChainConfig, ResolvedConfig, UnresolvedConfig, Network};
 use tempfile::TempDir;
 use test_constants::{EXECUTION_TIMEOUT, IDLE_CONNECTION_TIMEOUT, TRANSPORT_TIMEOUT};
 use tokio::sync::oneshot;
@@ -261,6 +259,30 @@ async fn wait_connected_on_addrs(addrs: Vec<SocketAddr>) {
     healthcheck.await;
 }
 
+#[derive(Clone, Debug)]
+pub struct NetworkKey([u8; 32]);
+
+impl NetworkKey {
+    pub fn random() -> Self {
+        let mut rng = rand::thread_rng();
+        let mut res: [u8; 32] = Default::default();
+        rng.fill_bytes(&mut res);
+        NetworkKey(res)
+    }
+}
+
+impl From<[u8; 32]> for NetworkKey {
+    fn from(value: [u8; 32]) -> Self {
+        NetworkKey(value)
+    }
+}
+
+impl From<NetworkKey> for [u8; 32] {
+    fn from(value: NetworkKey) -> Self {
+        value.0
+    }
+}
+
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub struct SwarmConfig {
@@ -286,7 +308,7 @@ pub struct SwarmConfig {
     pub connector_api_endpoint: Option<String>,
     pub chain_config: Option<ChainConfig>,
     pub cc_events_dir: Option<PathBuf>,
-    pub network_key: NetworkKey,
+    pub network_key: NetworkKey
 }
 
 impl SwarmConfig {
@@ -399,11 +421,11 @@ pub async fn create_swarm_with_runtime<RT: AquaRuntime>(
             UnresolvedConfig::deserialize(node_config).expect("created_swarm: deserialize config");
 
         let mut resolved = node_config.resolve().expect("failed to resolve config");
-        resolved.node_config.network = Network::Custom(config.network_key.clone().into());
         resolved.node_config.transport_config.transport = Transport::Memory;
         resolved.node_config.transport_config.socket_timeout = TRANSPORT_TIMEOUT;
         resolved.node_config.protocol_config =
             ProtocolConfig::new(TRANSPORT_TIMEOUT, TRANSPORT_TIMEOUT);
+        resolved.network=Network::Custom(config.network_key.clone().into());
 
         resolved.node_config.bootstrap_nodes = config.bootstraps.clone();
         resolved.node_config.bootstrap_config = BootstrapConfig::zero();
