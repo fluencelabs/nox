@@ -36,7 +36,6 @@ async fn test_tetraplets() {
     let mut client = ConnectedClient::connect_with_keypair(
         swarms[0].multiaddr.clone(),
         Some(swarms[0].management_keypair.clone()),
-
     )
     .await
     .wrap_err("connect client")

@@ -36,13 +36,16 @@ use base64::{engine::general_purpose::STANDARD as base64, Engine};
 use cid_utils::Hash;
 use core_manager::DummyCoreManager;
 use fluence_libp2p::random_multiaddr::{create_memory_maddr, create_tcp_maddr};
-use fluence_libp2p::{Transport};
+use fluence_libp2p::Transport;
 use fs_utils::to_abs_path;
 use futures::stream::iter;
-use rand::RngCore;
 use nox::{Connectivity, Node};
 use particle_protocol::ProtocolConfig;
-use server_config::{persistent_dir, system_services_config, BootstrapConfig, ChainConfig, ResolvedConfig, UnresolvedConfig, Network};
+use rand::RngCore;
+use server_config::{
+    persistent_dir, system_services_config, BootstrapConfig, ChainConfig, Network, ResolvedConfig,
+    UnresolvedConfig,
+};
 use tempfile::TempDir;
 use test_constants::{EXECUTION_TIMEOUT, IDLE_CONNECTION_TIMEOUT, TRANSPORT_TIMEOUT};
 use tokio::sync::oneshot;
@@ -308,7 +311,7 @@ pub struct SwarmConfig {
     pub connector_api_endpoint: Option<String>,
     pub chain_config: Option<ChainConfig>,
     pub cc_events_dir: Option<PathBuf>,
-    pub network_key: NetworkKey
+    pub network_key: NetworkKey,
 }
 
 impl SwarmConfig {

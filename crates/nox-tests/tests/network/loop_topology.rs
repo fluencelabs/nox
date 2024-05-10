@@ -765,11 +765,10 @@ async fn fold_via_heavy() {
     enable_logs();
     let swarms = make_swarms(4).await;
 
-    let mut client =
-        ConnectedClient::connect_to(swarms[0].multiaddr.clone())
-            .await
-            .wrap_err("connect client")
-            .unwrap();
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
+        .wrap_err("connect client")
+        .unwrap();
 
     client
         .send_particle_ext(
@@ -849,11 +848,10 @@ async fn fold_via_heavy() {
 async fn join_empty_stream() {
     let swarms = make_swarms(1).await;
 
-    let mut client =
-        ConnectedClient::connect_to(swarms[0].multiaddr.clone())
-            .await
-            .wrap_err("connect client")
-            .unwrap();
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
+        .wrap_err("connect client")
+        .unwrap();
 
     client
         .send_particle(

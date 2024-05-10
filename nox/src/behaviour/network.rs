@@ -59,7 +59,10 @@ pub enum ConfigConvertError {
 impl TryFrom<KademliaConfigAdapter> for KademliaConfig {
     type Error = ConfigConvertError;
     fn try_from(value: KademliaConfigAdapter) -> Result<Self, Self::Error> {
-        let protocol_name = format!("/fluence/kad/{}/1.0.0", value.network.to_string().to_lowercase());
+        let protocol_name = format!(
+            "/fluence/kad/{}/1.0.0",
+            value.network.to_string().to_lowercase()
+        );
         let protocol_name = StreamProtocol::try_from_owned(protocol_name.clone())
             .map_err(|_err| ConfigConvertError::WrongProtocolName { raw: protocol_name })?;
         Ok(Self {

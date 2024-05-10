@@ -112,7 +112,7 @@ async fn test_system_service_override() {
     })
     .await;
 
-    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone(),  )
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .await
         .wrap_err("connect client")
         .unwrap();
@@ -158,7 +158,6 @@ async fn create_service_from_config() {
     let mut client = ConnectedClient::connect_with_keypair(
         swarms[0].multiaddr.clone(),
         Some(swarms[0].management_keypair.clone()),
-
     )
     .await
     .wrap_err("connect client")
@@ -327,7 +326,6 @@ async fn handle_same_dir_in_preopens_and_mapped_dirs() {
     let mut client = ConnectedClient::connect_with_keypair(
         swarms[0].multiaddr.clone(),
         Some(swarms[0].management_keypair.clone()),
-
     )
     .await
     .wrap_err("connect client")
@@ -474,7 +472,6 @@ async fn test_create_service_by_other_forbidden() {
     let mut client_manager = ConnectedClient::connect_with_keypair(
         swarms[0].multiaddr.clone(),
         Some(swarms[0].management_keypair.clone()),
-
     )
     .await
     .wrap_err("connect client")
@@ -512,7 +509,7 @@ async fn test_create_service_by_other_forbidden() {
         .as_str()
         .expect("blueprint_id is in response")
         .to_string();
-    let mut client_other = ConnectedClient::connect_to(swarms[0].multiaddr.clone(),  )
+    let mut client_other = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .await
         .wrap_err("connect client")
         .unwrap();

@@ -497,11 +497,10 @@ async fn spell_install_ok_empty_config() {
         assert_eq!(counter, 0);
     }
     // 2. Connect and disconnect a client to the same node. The spell should not be executed
-    let connected =
-        ConnectedClient::connect_to(swarms[0].multiaddr.clone())
-            .await
-            .wrap_err("connect client")
-            .unwrap();
+    let connected = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
+        .wrap_err("connect client")
+        .unwrap();
     drop(connected);
 
     let response = client
@@ -1161,10 +1160,9 @@ async fn spell_connection_pool_trigger_test() {
     create_spell(&mut client, &script, config.clone(), json!({})).await;
     log::info!("created spell");
 
-    let disconnected_client =
-        ConnectedClient::connect_to(swarms[0].multiaddr.clone(), )
-            .await
-            .unwrap();
+    let disconnected_client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
+        .unwrap();
     let disconnected_client_peer_id = disconnected_client.peer_id;
     log::info!("will disconnect");
     disconnected_client.client.stop();
@@ -1309,10 +1307,9 @@ async fn spell_update_config() {
     let mut config = TriggerConfig::default();
     config.connections.connect = true;
     let (spell_id, worker_id) = create_spell(&mut client, &script, config, json!({})).await;
-    let connected =
-        ConnectedClient::connect_to(swarms[0].multiaddr.clone(), )
-            .await
-            .unwrap();
+    let connected = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
+        .unwrap();
 
     if let [trigger] = client
         .receive_args()
@@ -1905,7 +1902,7 @@ async fn spell_update_trigger_by_alias() {
     // This connect should trigger the spell
     let connect_num = 3;
     for _ in 0..connect_num {
-        ConnectedClient::connect_to(swarms[0].multiaddr.clone(), )
+        ConnectedClient::connect_to(swarms[0].multiaddr.clone())
             .await
             .unwrap();
     }
@@ -2494,11 +2491,10 @@ async fn test_install_by_other_forbidden() {
     .await
     .wrap_err("connect client")
     .unwrap();
-    let mut client_other =
-        ConnectedClient::connect_to(swarms[0].multiaddr.clone(), )
-            .await
-            .wrap_err("connect client")
-            .unwrap();
+    let mut client_other = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
+        .await
+        .wrap_err("connect client")
+        .unwrap();
 
     let worker_id = create_worker(&mut client_manager, Some("deal_id".to_string())).await;
     let data = hashmap! {

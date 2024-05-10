@@ -43,4 +43,3 @@ impl Default for KademliaConfig {
         }
     }
 }
-

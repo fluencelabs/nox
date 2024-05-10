@@ -35,7 +35,6 @@ pub use crate::swarm::*;
 
 pub use server_config::system_services_config;
 pub use server_config::ChainConfig;
-pub use NetworkKey;
 
 pub use fluence_app_service;
 pub use fluence_spell_dtos;
