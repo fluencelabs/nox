@@ -1782,7 +1782,7 @@ async fn sign_verify() {
     })
     .await;
 
-    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone(),  )
+    let mut client = ConnectedClient::connect_to(swarms[0].multiaddr.clone())
         .await
         .wrap_err("connect client")
         .unwrap();
