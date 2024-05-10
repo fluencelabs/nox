@@ -157,7 +157,7 @@ impl Kademlia {
     ) -> (Self, KademliaApi) {
         let timer = Delay::new(config.query_timeout);
 
-        let peer_id = config.peer_id.clone();
+        let peer_id = config.peer_id;
         let store = MemoryStore::new(peer_id);
         let mut kad_config: LibP2PKadConfig = config.clone().into();
         // By default, all records from peers are automatically stored.
