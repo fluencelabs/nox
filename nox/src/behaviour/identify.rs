@@ -19,6 +19,7 @@ use libp2p::{
     core::{multiaddr::Protocol, Multiaddr},
     identify::Event as IdentifyEvent,
 };
+use libp2p_swarm::StreamProtocol;
 use particle_protocol::PROTOCOL_NAME;
 use tokio::sync::oneshot;
 
@@ -27,7 +28,12 @@ use super::FluenceNetworkBehaviour;
 /// Network address information is exchanged via Identify protocol.
 /// That information is passed to relay, so nodes know each other's addresses
 impl FluenceNetworkBehaviour {
-    pub fn inject_identify_event(&mut self, event: IdentifyEvent, allow_local_addresses: bool) {
+    pub fn inject_identify_event(
+        &mut self,
+        kad_protocol: &StreamProtocol,
+        event: IdentifyEvent,
+        allow_local_addresses: bool,
+    ) {
         match event {
             IdentifyEvent::Received { peer_id, info, .. } => {
                 log::trace!(
@@ -44,7 +50,7 @@ impl FluenceNetworkBehaviour {
                 let mut supports_fluence = false;
 
                 for protocol in info.protocols.iter() {
-                    if !supports_kademlia && protocol.eq(&"/ipfs/kad/1.0.0") {
+                    if !supports_kademlia && protocol.eq(kad_protocol) {
                         supports_kademlia = true;
                     }
                     if !supports_fluence && protocol.eq(&PROTOCOL_NAME) {

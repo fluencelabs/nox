@@ -1,5 +1,4 @@
 use std::collections::{BTreeMap, HashMap};
-use std::fmt::{Display, Formatter};
 use std::net::IpAddr;
 use std::ops::Deref;
 use std::path::{Path, PathBuf};
@@ -13,6 +12,8 @@ use derivative::Derivative;
 use eyre::eyre;
 use fluence_keypair::KeyPair;
 use libp2p::core::Multiaddr;
+use libp2p::swarm::InvalidProtocol;
+use libp2p::StreamProtocol;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 use serde_with::DisplayFromStr;
@@ -172,15 +173,19 @@ pub enum Network {
     Custom(#[serde_as(as = "Hex")] [u8; 32]),
 }
 
-impl Display for Network {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Network::Dar => f.write_str("dar"),
-            Network::Stage => f.write_str("stage"),
-            Network::Kras => f.write_str("kras"),
-            Network::Custom(bytes) => f.write_str(hex::encode(bytes).as_str()),
-        }?;
-        Ok(())
+impl TryFrom<Network> for StreamProtocol {
+    type Error = InvalidProtocol;
+
+    fn try_from(value: Network) -> Result<Self, Self::Error> {
+        let id = match value {
+            Network::Dar => "dar".to_string(),
+            Network::Stage => "stage".to_string(),
+            Network::Kras => "kras".to_string(),
+            Network::Custom(bytes) => hex::encode(bytes).to_lowercase(),
+        };
+
+        let kad_protocol_name = format!("/fluence/kad/{}/1.0.0", id);
+        StreamProtocol::try_from_owned(kad_protocol_name.clone())
     }
 }
 

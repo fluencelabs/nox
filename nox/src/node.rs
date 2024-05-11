@@ -32,6 +32,7 @@ use libp2p::{
 };
 use libp2p_connection_limits::ConnectionLimits;
 use libp2p_metrics::{Metrics, Recorder};
+use libp2p_swarm::StreamProtocol;
 use prometheus_client::registry::Registry;
 use tokio::sync::{mpsc, oneshot};
 use tokio::task;
@@ -639,6 +640,7 @@ impl<RT: AquaRuntime> Node<RT> {
         let versions = self.versions;
         let workers = self.workers.clone();
         let chain_listener = self.chain_listener;
+        let kad_protocol_name: StreamProtocol = self.config.network.clone().try_into()?;
 
         let http_endpoint_data = HttpEndpointData::new(
             self.metrics_registry,
@@ -676,8 +678,8 @@ impl<RT: AquaRuntime> Node<RT> {
                 tokio::select! {
                     Some(e) = swarm.next() => {
                         if let Some(m) = libp2p_metrics.as_ref() { m.record(&e) }
-                        if let SwarmEvent::Behaviour(FluenceNetworkBehaviourEvent::Identify(i)) = e {
-                            swarm.behaviour_mut().inject_identify_event(i, allow_local_addresses);
+                        if let SwarmEvent::Behaviour(FluenceNetworkBehaviourEvent::Identify(event)) = e {
+                            swarm.behaviour_mut().inject_identify_event(&kad_protocol_name, event, allow_local_addresses);
                         }
                     },
                     _ = &mut http_server => {},

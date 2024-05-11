@@ -22,7 +22,6 @@ use libp2p::{
     PeerId,
 };
 use libp2p_swarm::StreamProtocol;
-use thiserror::Error;
 use tokio::sync::mpsc;
 
 use connection_pool::ConnectionPoolBehaviour;
@@ -46,34 +45,21 @@ pub struct FluenceNetworkBehaviour {
 
 struct KademliaConfigAdapter {
     peer_id: PeerId,
-    network: Network,
+    kad_protocol_name: StreamProtocol,
     config: server_config::KademliaConfig,
 }
 
-#[derive(Error, Debug)]
-pub enum ConfigConvertError {
-    #[error("Failed to parse protocol name {raw}")]
-    WrongProtocolName { raw: String },
-}
-
-impl TryFrom<KademliaConfigAdapter> for KademliaConfig {
-    type Error = ConfigConvertError;
-    fn try_from(value: KademliaConfigAdapter) -> Result<Self, Self::Error> {
-        let protocol_name = format!(
-            "/fluence/kad/{}/1.0.0",
-            value.network.to_string().to_lowercase()
-        );
-        let protocol_name = StreamProtocol::try_from_owned(protocol_name.clone())
-            .map_err(|_err| ConfigConvertError::WrongProtocolName { raw: protocol_name })?;
-        Ok(Self {
+impl From<KademliaConfigAdapter> for KademliaConfig {
+    fn from(value: KademliaConfigAdapter) -> Self {
+        Self {
             peer_id: value.peer_id,
             max_packet_size: value.config.max_packet_size,
             query_timeout: value.config.query_timeout,
             replication_factor: value.config.replication_factor,
             peer_fail_threshold: value.config.peer_fail_threshold,
             ban_cooldown: value.config.ban_cooldown,
-            protocol_name,
-        })
+            protocol_name: value.kad_protocol_name,
+        }
     }
 }
 
@@ -90,14 +76,15 @@ impl FluenceNetworkBehaviour {
         );
         let ping = Ping::new(PingConfig::new());
 
+        let kad_protocol_name: StreamProtocol = network.try_into()?;
+
         let kad_config = KademliaConfigAdapter {
             peer_id: cfg.local_peer_id,
             config: cfg.kademlia_config,
-            network,
+            kad_protocol_name,
         };
 
-        let kad_config = kad_config.try_into()?;
-        let (kademlia, kademlia_api) = Kademlia::new(kad_config, cfg.libp2p_metrics);
+        let (kademlia, kademlia_api) = Kademlia::new(kad_config.into(), cfg.libp2p_metrics);
         let (connection_pool, particle_stream, connection_pool_api) = ConnectionPoolBehaviour::new(
             cfg.particle_queue_buffer,
             cfg.protocol_config,
