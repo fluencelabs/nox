@@ -247,7 +247,7 @@ impl Workers {
                                 Ok(())
                             }
                             Err(err) => {
-                                tracing::warn!(
+                                tracing::error!(
                                     target = "worker-registry",
                                     worker_id = worker_id.to_string(),
                                     "Failed to notify subsystem for {worker_id}: {}",
