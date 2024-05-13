@@ -49,7 +49,7 @@ members = [
     "crates/chain-data",
     "crates/types",
     "crates/core-manager",
-    "crates/log-format", "~/projects/fluencelabs/aqua-sandbox/aqua",
+    "crates/log-format",
 ]
 exclude = [
     "nox/tests/tetraplets",
