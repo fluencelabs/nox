@@ -242,7 +242,7 @@ impl Workers {
                                 tracing::info!(
                                     target = "worker-registry",
                                     worker_id = worker_id.to_string(),
-                                    "Worker {worker_id} created"
+                                    "Worker created {worker_id}"
                                 );
                                 Ok(())
                             }
