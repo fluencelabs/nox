@@ -299,7 +299,7 @@ impl CoreManagerFunctions for StrictCoreManager {
         })
     }
 
-    fn release(&self, unit_ids: Vec<CUID>) {
+    fn release(&self, unit_ids: &[CUID]) {
         let mut lock = self.state.write();
         for unit_id in unit_ids {
             if let Some((physical_core_id, _)) = lock.unit_id_mapping.remove_by_right(&unit_id) {
