@@ -70,7 +70,7 @@ pub struct ChainListener {
     difficulty: Difficulty,
     // The time when the first epoch starts (aka the contract was deployed)
     init_timestamp: U256,
-    epoch_duration: U256,
+    epoch_duration_sec: U256,
     min_proofs_per_epoch: U256,
     max_proofs_per_epoch: U256,
     // These settings are changed each epoch
@@ -134,7 +134,7 @@ impl ChainListener {
             init_timestamp: U256::ZERO,
             global_nonce: GlobalNonce::new([0; 32]),
             current_epoch: U256::ZERO,
-            epoch_duration: U256::ZERO,
+            epoch_duration_sec: U256::ZERO,
             min_proofs_per_epoch: U256::ZERO,
             max_proofs_per_epoch: U256::ZERO,
             proof_counter: BTreeMap::new(),
@@ -283,12 +283,12 @@ impl ChainListener {
                     err
                 })?;
 
-        tracing::info!(target: "chain-listener","Commitment initial params: difficulty {}, global nonce {}, init_timestamp {}, epoch_duration {}, current_epoch {}, min_proofs_per_epoch {}, max_proofs_per_epoch {}",  init_params.difficulty, init_params.global_nonce, init_params.init_timestamp, init_params.epoch_duration, init_params.current_epoch, init_params.min_proofs_per_epoch, init_params.max_proofs_per_epoch);
+        tracing::info!(target: "chain-listener","Commitment initial params: difficulty {}, global nonce {}, init_timestamp {}, epoch_duration {}, current_epoch {}, min_proofs_per_epoch {}, max_proofs_per_epoch {}",  init_params.difficulty, init_params.global_nonce, init_params.init_timestamp, init_params.epoch_duration_sec, init_params.current_epoch, init_params.min_proofs_per_epoch, init_params.max_proofs_per_epoch);
 
         self.difficulty = init_params.difficulty;
         self.init_timestamp = init_params.init_timestamp;
         self.global_nonce = init_params.global_nonce;
-        self.epoch_duration = init_params.epoch_duration;
+        self.epoch_duration_sec = init_params.epoch_duration_sec;
         self.min_proofs_per_epoch = init_params.min_proofs_per_epoch;
         self.max_proofs_per_epoch = init_params.max_proofs_per_epoch;
 
@@ -556,7 +556,7 @@ impl ChainListener {
 
         // `epoch_number = 1 + (block_timestamp - init_timestamp) / epoch_duration`
         let epoch_number =
-            U256::from(1) + (block_timestamp - self.init_timestamp) / self.epoch_duration;
+            U256::from(1) + (block_timestamp - self.init_timestamp) / self.epoch_duration_sec;
         let epoch_changed = epoch_number > self.current_epoch;
 
         if epoch_changed {
