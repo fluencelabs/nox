@@ -468,7 +468,7 @@ mod tests {
             assert_eq!(after_assignment_unit_id_mapping.len(), 2);
             assert_eq!(after_assignment_type_mapping.len(), 2);
 
-            manager.release(unit_ids);
+            manager.release(&unit_ids);
 
             let after_release_lock = manager.state.read();
 
