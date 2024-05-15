@@ -759,8 +759,7 @@ mod tests {
             allowed_binaries = [
                  "/usr/bin/curl",
                  "/usr/bin/ipfs",
-                 "/usr/bin/glaze",
-                 "/usr/bin/bitcoin-cli"
+                 "/usr/bin/glaze"
             ]
             websocket_port = 1234
             "#
@@ -810,12 +809,7 @@ mod tests {
                 );
                 assert_eq!(
                     config.node_config.allowed_binaries,
-                    vec![
-                        "/usr/bin/curl",
-                        "/usr/bin/ipfs",
-                        "/usr/bin/glaze",
-                        "/usr/bin/bitcoin-cli"
-                    ]
+                    vec!["/usr/bin/curl", "/usr/bin/ipfs", "/usr/bin/glaze"]
                 );
                 assert_eq!(config.node_config.listen_config.websocket_port, 666);
                 assert_eq!(config.node_config.aquavm_pool_size, 160);
