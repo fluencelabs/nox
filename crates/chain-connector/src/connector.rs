@@ -213,11 +213,11 @@ impl ChainConnector {
                     json!({
                         "success": json!(true),
                         "error":  json!([]),
-                        "receipt": json!({
+                        "receipt": json!([json!({
                             "block_number": json!(receipt.block_number),
                             "tx_hash": json!(receipt.transaction_hash),
                             "status": json!(receipt.status),
-                        })
+                        })])
                     })
                 }
                 Err(err) => {
@@ -327,6 +327,10 @@ impl ChainConnector {
 
     pub async fn get_deals(&self) -> eyre::Result<Vec<DealInfo>> {
         let units = self.get_compute_units().await?;
+        if units.is_empty() {
+            return Ok(Vec::new());
+        }
+
         let mut deals: BTreeMap<DealId, Vec<Vec<u8>>> = BTreeMap::new();
 
         units.iter().for_each(|unit| {
@@ -335,7 +339,6 @@ impl ChainConnector {
                 .or_insert_with(Vec::new)
                 .push(unit.id.to_vec());
         });
-
         let app_cids = self.get_app_cid(deals.keys()).await?;
         let statuses: Vec<Deal::Status> = self
             .get_deal_statuses(deals.keys())
@@ -531,9 +534,7 @@ impl ChainConnector {
         batch.insert("eth_call", self.min_proofs_per_epoch_params())?;
         batch.insert("eth_call", self.max_proofs_per_epoch_params())?;
 
-        tracing::debug!("Sending batch request: {batch:?}");
         let resp: BatchResponse<String> = self.client.batch_request(batch).await?;
-        tracing::debug!("Got response for batch request: {resp:?}");
         let mut results = resp
             .into_ok()
             .map_err(|err| eyre!("Some request failed in a batch {err:?}"))?;

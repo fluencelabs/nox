@@ -1,8 +1,0 @@
-{
-  "name": "registry",
-  "max_heap_size": "8 MiB",
-  "preopened_files": ["/tmp"],
-  "mapped_dirs": {
-    "tmp": "./tmp"
-  }
-}

@@ -36,6 +36,10 @@ pub use crate::swarm::*;
 pub use server_config::system_services_config;
 pub use server_config::ChainConfig;
 
+pub use particle_args::{Args, JError};
+pub use particle_execution::{FunctionOutcome, ParticleParams};
+
+pub use fluence_keypair;
 pub use fluence_app_service;
 pub use fluence_spell_dtos;
 pub use system_services;
