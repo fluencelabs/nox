@@ -21,7 +21,7 @@ pub fn builtin_log_fn(service: &str, args: &str, elapsed: FormattedDuration, par
                 particle_id
             )
         }
-        "array" | "cmp" | "debug" | "math" | "op" | "getDataSrv" | "run-console" | "json" => {
+        "array" | "cmp" | "debug" | "math" | "op" | "getDataSrv" | "json" => {
             tracing::event!(
                 tracing::Level::TRACE,
                 "Executed host call {} ({}) [{}]",
