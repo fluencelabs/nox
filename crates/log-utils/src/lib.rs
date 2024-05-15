@@ -15,6 +15,7 @@
  */
 
 use log::Level;
+use log_format::Format;
 use tracing_subscriber::filter::Directive;
 
 fn default_directives() -> Vec<Directive> {
@@ -148,8 +149,10 @@ pub fn enable_logs_for(spec: LogSpec) {
     for d in spec.directives {
         filter = filter.add_directive(d);
     }
+    let format = Format::default().with_display_span_list(true);
 
     tracing_subscriber::fmt()
+        .event_format(format)
         .with_env_filter(filter)
         .try_init()
         .ok();

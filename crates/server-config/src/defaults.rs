@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::net::IpAddr;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
@@ -24,7 +24,7 @@ use libp2p::core::Multiaddr;
 use libp2p::identity::ed25519::Keypair;
 use libp2p::identity::PublicKey;
 use libp2p::PeerId;
-use maplit::hashmap;
+use maplit::{btreemap, hashmap};
 
 use fluence_libp2p::Transport;
 
@@ -74,9 +74,8 @@ pub fn default_system_cpu_count() -> usize {
 pub fn default_cpus_range() -> Option<CoreRange> {
     let total = num_cpus::get_physical();
     let left = match total {
-        c if c > 32 => 3,
-        c if c > 16 => 2,
-        c if c > 8 => 1,
+        // Leave 1 core to OS if there's 8+ cores
+        c if c >= 8 => 1,
         _ => 0,
     };
     Some(
@@ -289,8 +288,8 @@ pub fn default_effectors() -> HashMap<String, (String, HashMap<String, String>)>
     }
 }
 
-pub fn default_binaries_mapping() -> HashMap<String, String> {
-    hashmap! {
+pub fn default_binaries_mapping() -> BTreeMap<String, String> {
+    btreemap! {
         "curl".to_string() => default_curl_binary_path(),
         "ipfs".to_string() => default_ipfs_binary_path(),
     }

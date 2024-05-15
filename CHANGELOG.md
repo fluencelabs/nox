@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.23.6](https://github.com/fluencelabs/nox/compare/nox-v0.23.5...nox-v0.23.6) (2024-03-18)
+
+
+### Features
+
+* support new contracts ([#2184](https://github.com/fluencelabs/nox/issues/2184)) ([f0d7b6e](https://github.com/fluencelabs/nox/commit/f0d7b6ec27e1d9e3991d8c61ca7583677166701c))
+
+
+### Bug Fixes
+
+* **connector:** update contracts ([#2186](https://github.com/fluencelabs/nox/issues/2186)) ([5ba2566](https://github.com/fluencelabs/nox/commit/5ba2566c647d7899c36bcd4c7e7423caef69c463))
+
+## [0.23.5](https://github.com/fluencelabs/nox/compare/nox-v0.23.4...nox-v0.23.5) (2024-03-18)
+
+
+### Features
+
+* **connector:** allow to set default fees ([#2181](https://github.com/fluencelabs/nox/issues/2181)) ([83f4346](https://github.com/fluencelabs/nox/commit/83f434652938cc888cbde1198466eb13a39646cf))
+
+
+### Bug Fixes
+
+* actually load proof id and increase poll limit ([#2183](https://github.com/fluencelabs/nox/issues/2183)) ([fb8ccd3](https://github.com/fluencelabs/nox/commit/fb8ccd3626ca63c7cbbfb64510b3e7894399d95d))
+
 ## [0.23.4](https://github.com/fluencelabs/nox/compare/nox-v0.23.3...nox-v0.23.4) (2024-03-15)
 
 

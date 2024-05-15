@@ -12,7 +12,7 @@ cpu-utils = { workspace = true }
 ccp-shared = { workspace = true }
 multimap = { version = "0.10.0", features = ["serde"] }
 bimap = { version = "0.6.3", features = ["serde"] }
-toml = { workspace = true }
+toml = "0.8.12"
 newtype_derive = "0.1.6"
 
 tokio = { workspace = true, features = ["fs", "rt", "sync", "macros", "tracing"] }
@@ -26,6 +26,9 @@ tracing.workspace = true
 tokio-stream.workspace = true
 futures.workspace = true
 rand = "0.8.5"
+hex.workspace = true
+serde_with = { workspace = true }
+hex-utils = { workspace = true, features = ["serde_with"] }
 
 
 [dev-dependencies]

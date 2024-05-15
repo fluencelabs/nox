@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::net::IpAddr;
 use std::ops::Deref;
 use std::path::{Path, PathBuf};
@@ -319,7 +319,7 @@ impl UnresolvedNodeConfig {
     }
 }
 
-#[derive(Clone, Derivative)]
+#[derive(Clone, Derivative, Serialize)]
 #[derivative(Debug)]
 pub struct NodeConfig {
     pub cpus_range: CoreRange,
@@ -327,9 +327,11 @@ pub struct NodeConfig {
     pub system_cpu_count: usize,
 
     #[derivative(Debug = "ignore")]
+    #[serde(skip)]
     pub root_key_pair: KeyPair,
 
     #[derivative(Debug = "ignore")]
+    #[serde(skip)]
     pub builtins_key_pair: KeyPair,
 
     pub transport_config: TransportConfig,
@@ -384,6 +386,7 @@ pub struct NodeConfig {
 
     pub particle_execution_timeout: Duration,
 
+    #[serde(serialize_with = "peer_id::serde::serialize")]
     pub management_peer_id: PeerId,
 
     pub allowed_effectors: HashMap<Hash, HashMap<String, String>>,
@@ -567,6 +570,10 @@ pub struct ChainConfig {
     pub market_contract_address: String,
     pub network_id: u64,
     pub wallet_key: PrivateKey,
+    /// If none, comes from the chain
+    pub default_base_fee: Option<u64>,
+    /// If none, comes from the chain
+    pub default_priority_fee: Option<u64>,
 }
 
 #[derive(Clone, Deserialize, Serialize, Derivative)]
@@ -619,7 +626,7 @@ pub struct DevModeConfig {
     pub enable: bool,
     /// Mounted binaries mapping: binary name (used in the effector modules) to binary path
     #[serde(default = "default_binaries_mapping")]
-    pub binaries: HashMap<String, String>,
+    pub binaries: BTreeMap<String, String>,
 }
 
 fn default_dev_mode_config() -> DevModeConfig {

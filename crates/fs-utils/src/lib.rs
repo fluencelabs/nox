@@ -43,6 +43,9 @@ use tokio_stream::wrappers::ReadDirStream;
 // default bound on the number of computations it can perform simultaneously
 const DEFAULT_PARALLELISM: usize = 2;
 
+type Err = Box<dyn std::error::Error + Send + Sync>;
+type Res<T> = Result<T, Err>;
+
 pub fn to_abs_path(path: PathBuf) -> PathBuf {
     match std::env::current_dir().ok() {
         Some(c) => c.join(path),
@@ -195,14 +198,15 @@ pub enum LoadDataError {
     DeserializeData {
         path: PathBuf,
         #[source]
-        err: std::io::Error,
+        err: Err,
     },
 }
+
 /// Load some data from disk in parallel
 pub async fn load_persisted_data<T>(
     data_dir: &Path,
     filter: fn(&Path) -> bool,
-    de: fn(&[u8]) -> Result<T, std::io::Error>,
+    de: fn(&[u8]) -> Res<T>,
 ) -> Result<Vec<(T, PathBuf)>, LoadDataError> {
     let parallelism = available_parallelism()
         .map(|x| x.get())
@@ -246,7 +250,7 @@ pub async fn load_persisted_data<T>(
 fn process_dir_entry<T>(
     entry: DirEntry,
     filter: fn(&Path) -> bool,
-    de: fn(&[u8]) -> Result<T, std::io::Error>,
+    de: fn(&[u8]) -> Res<T>,
 ) -> Option<impl Future<Output = Option<(T, PathBuf)>> + Sized> {
     let path = entry.path();
     if filter(path.as_path()) {
@@ -264,10 +268,7 @@ fn process_dir_entry<T>(
     }
 }
 
-async fn parse_persisted_data<T>(
-    file: &Path,
-    de: fn(&[u8]) -> Result<T, std::io::Error>,
-) -> Result<T, LoadDataError> {
+async fn parse_persisted_data<T>(file: &Path, de: fn(&[u8]) -> Res<T>) -> Result<T, LoadDataError> {
     let bytes = tokio::fs::read(file)
         .await
         .map_err(|err| LoadDataError::ReadPersistedData {

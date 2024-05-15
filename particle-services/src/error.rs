@@ -93,7 +93,7 @@ pub enum ServiceError {
     #[error("Error serializing persisted service config to toml: {err} {config:?}")]
     SerializePersistedService {
         #[source]
-        err: toml::ser::Error,
+        err: toml_edit::ser::Error,
         config: Box<dyn Debug + Send + Sync>,
     },
     #[error("Error saving persisted service to {path:?}: {err}")]
