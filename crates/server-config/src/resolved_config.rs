@@ -759,8 +759,7 @@ mod tests {
             allowed_binaries = [
                  "/usr/bin/curl",
                  "/usr/bin/ipfs",
-                 "/usr/bin/glaze",
-                 "/usr/bin/bitcoin-cli"
+                 "/usr/bin/glaze"
             ]
             websocket_port = 1234
             "#
@@ -813,8 +812,7 @@ mod tests {
                     vec![
                         "/usr/bin/curl",
                         "/usr/bin/ipfs",
-                        "/usr/bin/glaze",
-                        "/usr/bin/bitcoin-cli"
+                        "/usr/bin/glaze"
                     ]
                 );
                 assert_eq!(config.node_config.listen_config.websocket_port, 666);

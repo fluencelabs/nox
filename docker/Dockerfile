@@ -9,18 +9,6 @@ FROM --platform=$TARGETPLATFORM alpine as prepare-bitcoin
 ARG TARGETPLATFORM
 ARG BITCOIN_CLI_VERSION
 
-# Download checksums
-ADD https://bitcoincore.org/bin/bitcoin-core-${BITCOIN_CLI_VERSION}/SHA256SUMS ./
-# Download bitcoin archive
-RUN case "$TARGETPLATFORM" in \
-  'linux/amd64') ARCHIVE="bitcoin-${BITCOIN_CLI_VERSION}-x86_64-linux-gnu.tar.gz" ;; \
-  'linux/arm64') ARCHIVE="bitcoin-${BITCOIN_CLI_VERSION}-aarch64-linux-gnu.tar.gz" ;; \
-  esac \
-  && wget "https://bitcoincore.org/bin/bitcoin-core-${BITCOIN_CLI_VERSION}/$ARCHIVE" \
-  && grep " $ARCHIVE\$" SHA256SUMS | sha256sum -c - \
-  && tar -xzf "$ARCHIVE" \
-  && rm "$ARCHIVE"
-
 # ipfs
 FROM ipfs/go-ipfs:v${IPFS_VERSION} as prepare-ipfs
 
