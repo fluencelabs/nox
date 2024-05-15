@@ -40,8 +40,6 @@ where
         .add_directive("cranelift_codegen=error".parse().unwrap())
         .add_directive("tracing=error".parse().unwrap())
         .add_directive("avm_server::runner=error".parse().unwrap())
-        //TODO: remove after debug
-        .add_directive("expired=info".parse().unwrap())
 }
 
 pub fn log_layer<S>() -> (impl Layer<S>, WorkerGuard)
