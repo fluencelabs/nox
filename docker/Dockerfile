@@ -44,7 +44,6 @@ RUN \
 COPY --from=prepare-ipfs /usr/local/bin/ipfs /usr/bin/ipfs
 # copy geth
 COPY --from=prepare-geth /usr/local/bin/geth /usr/bin/geth
-
 # copy nox binary
 COPY ./binaries/nox-${TARGETARCH}/nox /usr/bin/nox
 RUN chmod +x /usr/bin/nox
