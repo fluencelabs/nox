@@ -48,6 +48,7 @@ use server_config::{
 use tempfile::TempDir;
 use test_constants::{EXECUTION_TIMEOUT, IDLE_CONNECTION_TIMEOUT, TRANSPORT_TIMEOUT};
 use tokio::sync::oneshot;
+use tokio_util::sync::CancellationToken;
 use toy_vms::EasyVM;
 use tracing::{Instrument, Span};
 
@@ -72,6 +73,8 @@ pub struct CreatedSwarm {
     pub management_keypair: KeyPair,
     // stop signal
     pub exit_outlet: oneshot::Sender<()>,
+
+    pub cancellation_token: CancellationToken,
     // node connectivity
     #[derivative(Debug = "ignore")]
     pub connectivity: Connectivity,
@@ -204,6 +207,7 @@ where
                     tmp_dir: input_config.tmp_dir.clone(),
                     management_keypair,
                     exit_outlet: started_node.exit_outlet,
+                    cancellation_token: started_node.cancellation_token,
                     connectivity,
                     aquamarine_api,
                     http_listen_addr,
@@ -385,7 +389,6 @@ pub async fn create_swarm_with_runtime<RT: AquaRuntime>(
             UnresolvedConfig::deserialize(node_config).expect("created_swarm: deserialize config");
 
         let mut resolved = node_config.resolve().expect("failed to resolve config");
-
         resolved.node_config.transport_config.transport = Transport::Memory;
         resolved.node_config.transport_config.socket_timeout = TRANSPORT_TIMEOUT;
         resolved.node_config.protocol_config =
@@ -396,6 +399,7 @@ pub async fn create_swarm_with_runtime<RT: AquaRuntime>(
         resolved.node_config.bootstrap_frequency = 1;
 
         resolved.metrics_config.metrics_enabled = false;
+        resolved.node_config.health_config.health_check_enabled = true;
 
         resolved.node_config.allow_local_addresses = true;
 

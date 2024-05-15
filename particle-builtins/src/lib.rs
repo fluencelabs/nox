@@ -32,7 +32,7 @@
 pub use builtins::{Builtins, CustomService};
 pub use identify::NodeInfo;
 pub use outcome::{ok, wrap, wrap_unit};
-
+pub use particle_services::ParticleAppServicesConfig;
 mod builtins;
 mod debug;
 mod error;

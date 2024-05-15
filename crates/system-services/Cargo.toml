@@ -19,6 +19,7 @@ libp2p = { workspace = true }
 log = { workspace = true }
 serde_json = { workspace = true }
 serde = { workspace = true }
+async-trait = { workspace = true }
 
 fluence-spell-dtos = { workspace = true }
 tracing = { workspace = true }

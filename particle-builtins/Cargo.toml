@@ -37,7 +37,7 @@ humantime-serde = { workspace = true }
 rand = { workspace = true }
 futures = { workspace = true }
 itertools = { workspace = true }
-bytesize = "1.3.0"
+bytesize = { workspace = true }
 derivative = { workspace = true }
 fluence-app-service = { workspace = true }
 async-trait = { workspace = true }

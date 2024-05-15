@@ -61,7 +61,7 @@ mod tests {
     #[tokio::test]
     async fn decode_compute_unit() {
         let data = "aa3046a12a1aac6e840625e6329d70b427328fec36dc8d273e5e6454b85633d50000000000000000000000005e3d0fde6f793b3115a9e7f5ebc195bbeed35d6c00000000000000000000000000000000000000000000000000000000000003e8";
-        let compute_unit = super::ComputeUnit::abi_decode(&decode_hex(&data).unwrap(), true);
+        let compute_unit = super::ComputeUnit::abi_decode(&decode_hex(data).unwrap(), true);
         assert!(compute_unit.is_ok());
         let compute_unit = compute_unit.unwrap();
 
@@ -80,7 +80,7 @@ mod tests {
     #[tokio::test]
     async fn decode_compute_unit_no_deal() {
         let data = "aa3046a12a1aac6e840625e6329d70b427328fec36dc8d273e5e6454b85633d5000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000003e8";
-        let compute_unit = super::ComputeUnit::abi_decode(&decode_hex(&data).unwrap(), true);
+        let compute_unit = super::ComputeUnit::abi_decode(&decode_hex(data).unwrap(), true);
         assert!(compute_unit.is_ok());
         let compute_unit = compute_unit.unwrap();
         assert_eq!(
@@ -94,7 +94,7 @@ mod tests {
     #[tokio::test]
     async fn decode_compute_peer_no_commitment() {
         let data = "0xaa3046a12a1aac6e840625e6329d70b427328fec36dc8d273e5e6454b85633d5000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000020000000000000000000000005b73c5498c1e3b4dba84de0f1833c4a029d90519";
-        let compute_peer = ComputePeer::abi_decode(&decode_hex(&data).unwrap(), true);
+        let compute_peer = ComputePeer::abi_decode(&decode_hex(data).unwrap(), true);
         assert!(compute_peer.is_ok());
         let compute_peer = compute_peer.unwrap();
         assert_eq!(
@@ -112,7 +112,7 @@ mod tests {
     #[tokio::test]
     async fn decode_compute_peer() {
         let data = "0xaa3046a12a1aac6e840625e6329d70b427328fec36dc8d273e5e6454b85633d5aa3046a12a1aac6e840625e6329d70b427328feceedc8d273e5e6454b85633b5000000000000000000000000000000000000000000000000000000000000000a0000000000000000000000005b73c5498c1e3b4dba84de0f1833c4a029d90519";
-        let compute_peer = ComputePeer::abi_decode(&decode_hex(&data).unwrap(), true);
+        let compute_peer = ComputePeer::abi_decode(&decode_hex(data).unwrap(), true);
         assert!(compute_peer.is_ok());
         let compute_peer = compute_peer.unwrap();
         assert_eq!(

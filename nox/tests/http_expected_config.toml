@@ -5,7 +5,7 @@ persistent_base_dir = "{base_dir}/persistent"
 avm_base_dir = "{base_dir}/ephemeral/avm"
 services_ephemeral_dir = "{base_dir}/ephemeral/services"
 services_persistent_dir = "{base_dir}/persistent/services"
-air_interpreter_path = "{base_dir}/persistent/aquamarine_0.62.0.wasm"
+air_interpreter_path = "{base_dir}/persistent/aquamarine_0.63.0.wasm"
 spell_base_dir = "{base_dir}/persistent/spell"
 keypairs_base_dir = "{base_dir}/persistent/keypairs"
 workers_base_dir = "{base_dir}/persistent/workers"
@@ -63,6 +63,13 @@ outbound_substream_timeout = "10s"
 [node_config.avm_config]
 hard_limit_enabled = false
 
+[node_config.avm_config.wasm_backend]
+debug_info = true
+wasm_backtrace = true
+async_wasm_stack = "4.0 MB"
+max_wasm_stack = "2.0 MB"
+epoch_interruption_duration = "1s"
+
 [node_config.kademlia]
 max_packet_size = 1677721600
 query_timeout = "3s"
@@ -116,3 +123,10 @@ curl_binary_path = "/usr/bin/curl"
 
 [node_config.http_config]
 http_port = 18080
+
+[node_config.services.wasm_backend]
+debug_info = true
+wasm_backtrace = true
+async_wasm_stack = "4.0 MB"
+max_wasm_stack = "2.0 MB"
+epoch_interruption_duration = "1s"

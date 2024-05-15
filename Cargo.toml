@@ -110,14 +110,15 @@ fluence-spell-dtos = "=0.7.5"
 fluence-spell-distro = "=0.7.5"
 
 # marine
-fluence-app-service = "0.35.1"
+fluence-app-service = { version = "=0.36.0", features = ["wasmtime"] }
 marine-utils = "0.5.1"
-marine-it-parser = "0.16.0"
-marine-module-info-parser = "0.15.0"
+marine-it-parser = "0.17.0"
+marine-module-info-parser = "0.16.0"
+marine-wasmtime-backend = "0.7.0"
 
 # avm
-avm-server = "=0.37.0"
-air-interpreter-wasm = "=0.62.0"
+avm-server = "=0.38.0"
+air-interpreter-wasm = "=0.63.0"
 
 # libp2p
 libp2p = { version = "0.53.2", features = ["noise", "tcp", "dns", "websocket", "yamux", "tokio", "kad", "ping", "identify", "macros"] }
@@ -180,6 +181,8 @@ alloy-sol-types = "0.6.4"
 alloy-primitives = "0.6.4"
 alloy_serde_macro = "0.1.2"
 const-hex = "1.11.3"
+bytesize = "1.3.0"
+
 
 [profile.dev]
 opt-level = 0

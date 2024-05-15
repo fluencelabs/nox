@@ -4,6 +4,11 @@
 mod deployer;
 mod distro;
 
+use async_trait::async_trait;
+use std::collections::HashMap;
+use std::fmt;
+use std::sync::Arc;
+
 pub use deployer::Deployer;
 pub use distro::SystemServiceDistros;
 pub use distro::Versions;
@@ -11,12 +16,18 @@ pub use distro::Versions;
 use fluence_app_service::TomlMarineConfig;
 use fluence_spell_dtos::trigger_config::TriggerConfig;
 use serde_json::Value;
-use std::collections::HashMap;
-use std::fmt;
-use std::sync::Arc;
 
 type ServiceName = String;
 type FunctionName = String;
+
+/// Status of package deployment for each services and spells of the package
+#[derive(Clone, Debug)]
+pub struct Deployment {
+    /// Statuses of spells deployment
+    pub spells: HashMap<String, ServiceStatus>,
+    /// Statuses of services deployment
+    pub services: HashMap<String, ServiceStatus>,
+}
 
 /// Call service functions. Accepts
 /// - service name
@@ -27,14 +38,27 @@ type FunctionName = String;
 /// The functions called via this callback must return a result with execution status in field `status: bool`
 /// and error message in the field `error: string`.
 /// Otherwise, the output will be consider invalid.
-pub type CallService =
-    Box<dyn Fn(ServiceName, FunctionName, Vec<Value>) -> eyre::Result<()> + Send + Sync>;
+#[async_trait]
+pub trait CallService: Send + Sync {
+    async fn call(
+        &self,
+        service_name: ServiceName,
+        function_name: FunctionName,
+        args: Vec<Value>,
+    ) -> eyre::Result<()>;
+}
 
 /// Initialization function to initialize services
 /// - accepts `DeploymentStatus` of services and spells to be able to update or initialize the services
 /// - accepts `CallService` to be able to call installed services for initialization.
-pub type InitService =
-    Box<dyn Fn(&CallService, DeploymentStatus) -> eyre::Result<()> + Send + Sync>;
+#[async_trait]
+pub trait InitService: Send + Sync {
+    async fn init(
+        &self,
+        call_service: &dyn CallService,
+        deployment: Deployment,
+    ) -> eyre::Result<()>;
+}
 
 /// Package distribution description
 /// Contains enough information about all services and spells used by the package for installation
@@ -52,7 +76,7 @@ pub struct PackageDistro {
     /// List of spells needed by the package
     pub spells: Vec<SpellDistro>,
     /// Optionally, initialization function for the services.
-    pub init: Option<Arc<InitService>>,
+    pub init: Option<Arc<Box<dyn InitService>>>,
 }
 
 impl fmt::Debug for PackageDistro {
@@ -123,15 +147,6 @@ pub enum ServiceStatus {
     Created(String),
     /// Id of a already existing service
     Existing(String),
-}
-
-/// Status of package deployment for each services and spells of the package
-#[derive(Clone, Debug)]
-pub struct DeploymentStatus {
-    /// Statuses of spells deployment  
-    pub spells: HashMap<String, ServiceStatus>,
-    /// Statuses of services deployment
-    pub services: HashMap<String, ServiceStatus>,
 }
 
 /// Override a binary path to a binary for a module in the service configuration

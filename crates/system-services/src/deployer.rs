@@ -1,6 +1,7 @@
 use crate::distro::*;
-use crate::CallService;
-use crate::{DeploymentStatus, PackageDistro, ServiceDistro, ServiceStatus, SpellDistro};
+use crate::{CallService, FunctionName, ServiceName};
+use crate::{Deployment, PackageDistro, ServiceDistro, ServiceStatus, SpellDistro};
+use async_trait::async_trait;
 use eyre::eyre;
 use futures::{FutureExt, StreamExt, TryStreamExt};
 use libp2p::PeerId;
@@ -88,16 +89,17 @@ impl Deployer {
 
         let services = self.services.clone();
         let root_worker_id = self.host_peer_id;
-        let call: CallService = Box::new(move |srv, fnc, args| {
-            call_service(&services, PeerScope::Host, root_worker_id, &srv, &fnc, args)
-        });
-
+        let call: &dyn CallService = &CallServiceParams {
+            services: &services,
+            peer_scope: PeerScope::Host,
+            init_peer_id: root_worker_id,
+        };
         let parallelism = available_parallelism()
             .map(|x| x.get())
             .unwrap_or(DEFAULT_PARALLELISM);
 
         futures::stream::iter(self.system_service_distros.distros.values())
-            .map(|distro| async { self.deploy_package(&call, distro.clone()).await }.boxed())
+            .map(|distro| async { self.deploy_package(call, distro.clone()).await }.boxed())
             .boxed()
             .buffer_unordered(parallelism)
             .try_collect::<Vec<_>>()
@@ -106,7 +108,11 @@ impl Deployer {
         Ok(())
     }
 
-    async fn deploy_package(&self, call: &CallService, package: PackageDistro) -> eyre::Result<()> {
+    async fn deploy_package(
+        &self,
+        call_service: &dyn CallService,
+        package: PackageDistro,
+    ) -> eyre::Result<()> {
         let mut services = HashMap::new();
         for service_distro in package.services {
             let name = service_distro.name.clone();
@@ -120,10 +126,10 @@ impl Deployer {
             let result = self.deploy_system_spell(spell_distro).await?;
             spells.insert(name, result);
         }
-        let status = DeploymentStatus { services, spells };
+        let status = Deployment { services, spells };
 
         if let Some(init) = package.init {
-            init(call, status)?;
+            init.init(call_service, status).await?;
         }
 
         Ok(())
@@ -131,7 +137,7 @@ impl Deployer {
 
     async fn deploy_system_spell(&self, spell_distro: SpellDistro) -> eyre::Result<ServiceStatus> {
         let spell_name = spell_distro.name.clone();
-        match self.find_same_spell(&spell_distro) {
+        match self.find_same_spell(&spell_distro).await {
             Some(spell_id) => {
                 tracing::debug!(
                     spell_name,
@@ -193,12 +199,16 @@ impl Deployer {
         );
         // update trigger config
         let config = spell_distro.trigger_config.clone();
-        self.spells_api.set_trigger_config(params.clone(), config)?;
+        self.spells_api
+            .set_trigger_config(params.clone(), config)
+            .await?;
         // update spell script
         let air = spell_distro.air.to_string();
-        self.spells_api.set_script(params.clone(), air)?;
+        self.spells_api.set_script(params.clone(), air).await?;
         // update init_data without affecting other keys
-        self.spells_api.update_kv(params, json!(spell_distro.kv))?;
+        self.spells_api
+            .update_kv(params, json!(spell_distro.kv))
+            .await?;
 
         // resubscribe spell
         if let Some(trigger_config) = trigger_config {
@@ -258,10 +268,11 @@ impl Deployer {
     }
 
     // Two spells are the same if they have the same alias
-    fn find_same_spell(&self, new_spell: &SpellDistro) -> Option<SpellId> {
-        let existing_spell =
-            self.services
-                .get_service_info(PeerScope::Host, new_spell.name.to_string(), "");
+    async fn find_same_spell(&self, new_spell: &SpellDistro) -> Option<SpellId> {
+        let existing_spell = self
+            .services
+            .get_service_info(PeerScope::Host, new_spell.name.to_string(), "")
+            .await;
         match existing_spell {
             Err(ServiceError::NoSuchService(_, _)) => {
                 log::debug!("no existing spell found for {}", new_spell.name);
@@ -293,7 +304,10 @@ impl Deployer {
         let service_name = service_distro.name.clone();
         let blueprint_id = self.add_modules(service_distro)?;
 
-        match self.find_same_service(service_name.to_string(), &blueprint_id) {
+        match self
+            .find_same_service(service_name.to_string(), &blueprint_id)
+            .await
+        {
             ServiceUpdateStatus::NeedUpdate(service_id) => {
                 tracing::debug!(service_name, service_id, "found existing service that needs to be updated; will remove the old service and deploy a new one");
                 let result = self
@@ -345,12 +359,17 @@ impl Deployer {
         Ok(ServiceStatus::Created(service_id))
     }
 
-    fn find_same_service(&self, service_name: String, blueprint_id: &str) -> ServiceUpdateStatus {
+    async fn find_same_service(
+        &self,
+        service_name: String,
+        blueprint_id: &str,
+    ) -> ServiceUpdateStatus {
         // Check that the service exist and has the same blueprint.
         // In this case, we don't create a new one.
-        let existing_service =
-            self.services
-                .get_service_info(PeerScope::Host, service_name.to_string(), "");
+        let existing_service = self
+            .services
+            .get_service_info(PeerScope::Host, service_name.to_string(), "")
+            .await;
         if let Ok(service) = existing_service {
             if service.service_type == ServiceType::Spell {
                 log::warn!(
@@ -402,55 +421,66 @@ impl Deployer {
     }
 }
 
-fn call_service(
-    services: &ParticleAppServices,
+struct CallServiceParams<'a> {
+    services: &'a ParticleAppServices,
     peer_scope: PeerScope,
     init_peer_id: PeerId,
-    service_id: &str,
-    function_name: &str,
-    args: Vec<JValue>,
-) -> eyre::Result<()> {
-    let result = services.call_function(
-        peer_scope,
-        service_id,
-        function_name,
-        args,
-        None,
-        init_peer_id,
-        DEPLOYER_TTL,
-    );
-    // similar to process_func_outcome in sorcerer/src/utils.rs, but that func is
-    // to specialized to spell specific
-    match result {
-        FunctionOutcome::Ok(result) => {
-            let call_result: Option<Result<_, _>> = try {
-                let result = result.as_object()?;
-                let is_success = result["success"].as_bool()?;
-                if !is_success {
-                    if let Some(error) = result["error"].as_str() {
-                        Err(eyre!(
-                            "Call {service_id}.{function_name} returned error: {}",
-                            error
-                        ))
+}
+
+#[async_trait]
+impl<'a> CallService for CallServiceParams<'a> {
+    async fn call(
+        &self,
+        service_name: ServiceName,
+        function_name: FunctionName,
+        args: Vec<JValue>,
+    ) -> eyre::Result<()> {
+        let service_id = service_name;
+        let result = self
+            .services
+            .call_function(
+                self.peer_scope,
+                service_id.as_str(),
+                function_name.as_str(),
+                args,
+                None,
+                self.init_peer_id,
+                DEPLOYER_TTL,
+            )
+            .await;
+        // similar to process_func_outcome in sorcerer/src/utils.rs, but that func is
+        // to specialized to spell specific
+        match result {
+            FunctionOutcome::Ok(result) => {
+                let call_result: Option<Result<_, _>> = try {
+                    let result = result.as_object()?;
+                    let is_success = result["success"].as_bool()?;
+                    if !is_success {
+                        if let Some(error) = result["error"].as_str() {
+                            Err(eyre!(
+                                "Call {service_id}.{function_name} returned error: {}",
+                                error
+                            ))
+                        } else {
+                            Err(eyre!("Call {service_id}.{function_name} returned error"))
+                        }
                     } else {
-                        Err(eyre!("Call {service_id}.{function_name} returned error"))
+                        Ok(())
                     }
-                } else {
-                    Ok(())
-                }
-            };
-            call_result.unwrap_or_else(|| {
-                Err(eyre!(
-                    "Call {service_id}.{function_name} return invalid result: {result}"
-                ))
-            })
+                };
+                call_result.unwrap_or_else(|| {
+                    Err(eyre!(
+                        "Call {service_id}.{function_name} return invalid result: {result}"
+                    ))
+                })
+            }
+            FunctionOutcome::NotDefined { .. } => {
+                Err(eyre!("Service {service_id} ({function_name}) not found"))
+            }
+            FunctionOutcome::Empty => Err(eyre!(
+                "Call {service_id}.{function_name} didn't return any result"
+            )),
+            FunctionOutcome::Err(err) => Err(eyre!(err)),
         }
-        FunctionOutcome::NotDefined { .. } => {
-            Err(eyre!("Service {service_id} ({function_name}) not found"))
-        }
-        FunctionOutcome::Empty => Err(eyre!(
-            "Call {service_id}.{function_name} didn't return any result"
-        )),
-        FunctionOutcome::Err(err) => Err(eyre!(err)),
     }
 }

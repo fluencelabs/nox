@@ -63,7 +63,7 @@ pub struct Sorcerer {
 
 impl Sorcerer {
     #[allow(clippy::too_many_arguments)]
-    pub fn new(
+    pub async fn new(
         services: ParticleAppServices,
         modules: ModuleRepository,
         aquamarine: AquamarineApi,
@@ -77,6 +77,7 @@ impl Sorcerer {
     ) -> (Self, HashMap<String, CustomService>, String) {
         let (spell_storage, spell_version) =
             SpellStorage::create(&config.dir_config.spell_base_dir, &services, &modules)
+                .await
                 .expect("Spell storage creation");
 
         let sorcerer = Self {
@@ -104,16 +105,17 @@ impl Sorcerer {
             for spell_id in spells {
                 log::info!("Rescheduling spell {} on {:?} peer", spell_id, peer_scope);
                 let result: Result<(), JError> = try {
-                    let spell_owner =
-                        self.services
-                            .get_service_owner(peer_scope, spell_id.clone(), "")?;
+                    let spell_owner = self
+                        .services
+                        .get_service_owner(peer_scope, spell_id.clone(), "")
+                        .await?;
                     let params = CallParams::local(
                         peer_scope,
                         spell_id.clone(),
                         spell_owner,
                         self.spell_script_particle_ttl,
                     );
-                    let config = self.spell_service_api.get_trigger_config(params)?;
+                    let config = self.spell_service_api.get_trigger_config(params).await?;
                     let period = config.clock.period_sec;
                     let config = from_user_config(&config)?;
                     if let Some(config) = config.and_then(|c| c.into_rescheduled()) {
@@ -346,7 +348,7 @@ impl Sorcerer {
         let spell_service_api = self.spell_service_api.clone();
         ServiceFunction::Immut(Box::new(move |args, params| {
             let spell_service_api = spell_service_api.clone();
-            async move { wrap(get_spell_arg(args, params, spell_service_api)) }.boxed()
+            async move { wrap(get_spell_arg(args, params, spell_service_api).await) }.boxed()
         }))
     }
 
@@ -354,7 +356,7 @@ impl Sorcerer {
         let spell_service_api = self.spell_service_api.clone();
         ServiceFunction::Immut(Box::new(move |args, params| {
             let spell_service_api = spell_service_api.clone();
-            async move { wrap_unit(store_error(args, params, spell_service_api)) }.boxed()
+            async move { wrap_unit(store_error(args, params, spell_service_api).await) }.boxed()
         }))
     }
 
@@ -362,7 +364,7 @@ impl Sorcerer {
         let spell_service_api = self.spell_service_api.clone();
         ServiceFunction::Immut(Box::new(move |args, params| {
             let spell_service_api = spell_service_api.clone();
-            async move { wrap_unit(store_response(args, params, spell_service_api)) }.boxed()
+            async move { wrap_unit(store_response(args, params, spell_service_api).await) }.boxed()
         }))
     }
 

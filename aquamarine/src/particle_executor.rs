@@ -256,7 +256,7 @@ async fn avm_call<'a, RT: AquaRuntime>(
     prev_data: Vec<u8>,
 ) -> Result<AVMCallResult<'a, RT>, JoinError> {
     spawner
-        .spawn_avm_call(move || {
+        .spawn_avm_call(async move {
             let particle_id = particle.id.clone();
             let now = Instant::now();
             let memory_size_before = vm.memory_stats().memory_size;
@@ -268,14 +268,16 @@ async fn avm_call<'a, RT: AquaRuntime>(
                 ttl: particle.ttl,
             };
             let current_data = &particle.data[..];
-            let avm_outcome = vm.call(
-                &particle.script,
-                prev_data,
-                current_data,
-                particle_params.clone(),
-                call_results.clone(),
-                &key_pair,
-            );
+            let avm_outcome = vm
+                .call(
+                    &particle.script,
+                    prev_data,
+                    current_data,
+                    particle_params.clone(),
+                    call_results.clone(),
+                    &key_pair,
+                )
+                .await;
             let memory_size_after = vm.memory_stats().memory_size;
 
             let interpretation_time = now.elapsed();

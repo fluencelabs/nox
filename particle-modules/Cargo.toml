@@ -24,7 +24,7 @@ thiserror = { workspace = true }
 parking_lot = { workspace = true }
 eyre = { workspace = true }
 fstrings = { workspace = true }
-bytesize = "1.3.0"
+bytesize = { workspace = true }
 libipld = { workspace = true }
 
 [dev-dependencies]

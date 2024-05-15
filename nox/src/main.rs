@@ -26,18 +26,19 @@
     unreachable_patterns
 )]
 
+use axum::async_trait;
 use base64::{engine::general_purpose::STANDARD as base64, Engine};
 use eyre::WrapErr;
 use libp2p::PeerId;
 use std::sync::Arc;
 use tokio::signal;
 use tokio::sync::oneshot;
+use tokio_util::sync::CancellationToken;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 
 use air_interpreter_fs::write_default_air_interpreter;
-use aquamarine::{DataStoreConfig, VmConfig};
-use avm_server::avm_runner::AVMRunner;
+use aquamarine::{AVMRunner, DataStoreConfig, VmConfig};
 use config_utils::to_peer_id;
 use core_manager::{CoreManager, CoreManagerFunctions, DevCoreManager, StrictCoreManager};
 use fs_utils::to_abs_path;
@@ -52,8 +53,9 @@ const AUTHORS: &str = env!("CARGO_PKG_AUTHORS");
 const DESCRIPTION: &str = env!("CARGO_PKG_DESCRIPTION");
 const PKG_NAME: &str = env!("CARGO_PKG_NAME");
 
+#[async_trait]
 trait Stoppable {
-    fn stop(self);
+    async fn stop(self);
 }
 
 #[cfg(feature = "dhat-heap")]
@@ -184,7 +186,7 @@ fn main() -> eyre::Result<()> {
             signal::ctrl_c().await.expect("Failed to listen for event");
             log::info!("Shutting down...");
 
-            fluence.stop();
+            fluence.stop().await;
             Ok(())
         })
 }
@@ -199,6 +201,7 @@ async fn start_fluence(
 
     let listen_addrs = config.listen_multiaddrs();
     let vm_config = vm_config(&config);
+
     let data_store_config = DataStoreConfig::new(config.dir_config.avm_base_dir.clone());
 
     let system_services_config = config.system_services.clone();
@@ -222,19 +225,23 @@ async fn start_fluence(
     let started_node = node.start(peer_id).await.wrap_err("node failed to start")?;
 
     struct Fluence {
+        cancellation_token: CancellationToken,
         node_exit_outlet: oneshot::Sender<()>,
     }
 
+    #[async_trait]
     impl Stoppable for Fluence {
-        fn stop(self) {
+        async fn stop(self) {
             self.node_exit_outlet
                 .send(())
                 .expect("failed to stop node through exit outlet");
+            self.cancellation_token.cancelled().await
         }
     }
 
     Ok(Fluence {
         node_exit_outlet: started_node.exit_outlet,
+        cancellation_token: started_node.cancellation_token,
     })
 }
 
