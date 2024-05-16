@@ -327,6 +327,7 @@ impl HttpChainConnector {
 
     pub async fn get_deals(&self) -> eyre::Result<Vec<DealInfo>> {
         let units = self.get_compute_units().await?;
+        println!("got compute units: {}", units.len());
         if units.is_empty() {
             return Ok(Vec::new());
         }
@@ -340,12 +341,13 @@ impl HttpChainConnector {
                 .push(unit.id.to_vec());
         });
         let app_cids = self.get_app_cid(deals.keys()).await?;
+        println!("got app cids: {app_cids:?}");
         let statuses: Vec<Deal::Status> = self
             .get_deal_statuses(deals.keys().cloned().collect())
             .await?
             .into_iter()
             .collect::<Result<Vec<_>, ConnectorError>>()?;
-
+        println!("got statuses: {statuses:?}");
         Ok(deals
             .into_iter()
             .zip(app_cids.into_iter().zip(statuses.into_iter()))
@@ -631,6 +633,7 @@ impl ChainConnector for HttpChainConnector {
                 )
                 .await,
         )?;
+        println!("got compute units raw: {resp}");
         let bytes = decode_hex(&resp)?;
         let compute_units = <Array<ComputeUnit> as SolType>::abi_decode(&bytes, true)?;
 
