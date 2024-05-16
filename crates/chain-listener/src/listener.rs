@@ -292,12 +292,13 @@ impl ChainListener {
 
         self.difficulty = init_params.difficulty;
         self.init_timestamp = init_params.init_timestamp;
-        self.global_nonce = init_params.global_nonce;
+
         self.epoch_duration = init_params.epoch_duration;
         self.min_proofs_per_epoch = init_params.min_proofs_per_epoch;
         self.max_proofs_per_epoch = init_params.max_proofs_per_epoch;
 
         self.set_current_epoch(init_params.current_epoch);
+        self.set_global_nonce(init_params.global_nonce).await?;
 
         Ok(())
     }
@@ -662,15 +663,10 @@ impl ChainListener {
         if epoch_changed {
             // TODO: add epoch_number to metrics
 
-            // nonce changes every epoch
-            self.global_nonce = self.chain_connector.get_global_nonce().await?;
-            tracing::info!(target: "chain-listener",
-                "New global nonce: {}",
-                self.global_nonce
-            );
-
             self.set_current_epoch(epoch_number);
-            self.reset_proof_id().await?;
+            self.set_global_nonce(self.chain_connector.get_global_nonce().await?)
+                .await?;
+            tracing::info!(target: "chain-listener", "Global nonce: {}", self.global_nonce);
 
             if let Some(status) = self.get_commitment_status().await? {
                 tracing::info!(target: "chain-listener", "Current commitment status: {status:?}");
@@ -1340,6 +1336,16 @@ impl ChainListener {
             self.current_epoch = epoch_number;
             self.proof_counter.clear();
         }
+    }
+
+    async fn set_global_nonce(&mut self, global_nonce: GlobalNonce) -> eyre::Result<()> {
+        if self.global_nonce != global_nonce {
+            tracing::info!(target: "chain-listener", "Global changed, was {}, new global nonce is {global_nonce}", self.global_nonce);
+            self.global_nonce = global_nonce;
+            self.reset_proof_id().await?;
+        }
+
+        Ok(())
     }
 
     fn observe<F>(&self, f: F)
