@@ -366,6 +366,8 @@ impl ChainListener {
     }
 
     async fn set_proof_id(&mut self, proof_id: ProofIdx) -> eyre::Result<()> {
+        self.last_submitted_proof_id = proof_id;
+
         let backoff = ExponentialBackoff {
             max_elapsed_time: Some(Duration::from_secs(3)),
             ..ExponentialBackoff::default()
@@ -387,8 +389,7 @@ impl ChainListener {
             tracing::warn!(target: "chain-listener", "Failed to persist proof id: {err}; Ignoring..");
         }
 
-        self.last_submitted_proof_id = proof_id;
-        tracing::info!(target: "chain-listener", "Persisted proof id {proof_id} on epoch {}", self.current_epoch);
+        tracing::info!(target: "chain-listener", "Persisted proof id {} on epoch {}", self.last_submitted_proof_id, self.current_epoch);
         Ok(())
     }
 
@@ -844,6 +845,16 @@ impl ChainListener {
     /// Send GlobalNonce, Difficulty and Core<>CUID mapping (full commitment info) to CCP
     async fn refresh_commitment(&self) -> eyre::Result<()> {
         if self.cc_compute_units.is_empty() || self.current_commitment.is_none() {
+            self.stop_commitment().await?;
+            return Ok(());
+        }
+
+        if self
+            .cc_compute_units
+            .iter()
+            .all(|(_, cu)| cu.startEpoch > self.current_epoch)
+        {
+            tracing::info!(target: "chain-listener", "No active units found in this epoch {}", self.current_epoch);
             self.stop_commitment().await?;
             return Ok(());
         }
