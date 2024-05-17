@@ -3,8 +3,7 @@ use fluence_app_service::TomlMarineConfig;
 use fluence_spell_dtos::trigger_config::TriggerConfig;
 use serde_json::json;
 use server_config::system_services_config::{
-    AquaIpfsConfig, DeciderConfig, RegistryConfig, ServiceKey, ServiceKey::*,
-    SystemServicesConfig,
+    AquaIpfsConfig, DeciderConfig, RegistryConfig, ServiceKey, ServiceKey::*, SystemServicesConfig,
 };
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -276,9 +275,7 @@ pub fn default_registry_distro(config: &RegistryConfig) -> eyre::Result<PackageD
     Ok(package)
 }
 
-pub fn default_decider_distro<'a>(
-    decider_config: &DeciderConfig,
-) -> eyre::Result<PackageDistro> {
+pub fn default_decider_distro<'a>(decider_config: &DeciderConfig) -> eyre::Result<PackageDistro> {
     // prepare decider
     let decider_settings = decider_distro::DeciderConfig {
         worker_period_sec: decider_config.worker_period_sec,
