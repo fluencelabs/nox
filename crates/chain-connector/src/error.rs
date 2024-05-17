@@ -24,10 +24,16 @@ pub enum ConnectorError {
     ParseChainDataFailed(#[from] ChainDataError),
     #[error("Failed to parse chain data: {0}")]
     ParseChainDataFailedAlloy(#[from] alloy_sol_types::Error),
+    #[error("Failed to parse chain data: {0}")]
+    RpcChainData(#[from] ErrorObjectOwned),
+    #[error("Failed to convert CID to string: {0}")]
+    ConvertCid(#[from] libipld::cid::Error),
     #[error("Failed to parse address: {0}")]
     AddressParseError(#[from] clarity::Error),
     #[error("data is not a valid hex: '{0}'")]
     DecodeHex(#[from] hex::FromHexError),
+    #[error("empty data is not a valid hex: '{0}'")]
+    EmptyData(String),
     #[error(transparent)]
     DecodeConstHex(#[from] const_hex::FromHexError),
     #[error("data is not a valid string: '{0}'")]

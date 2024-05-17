@@ -296,7 +296,7 @@ impl HttpChainConnector {
     pub async fn get_app_cid(
         &self,
         deals: impl Iterator<Item = &DealId>,
-    ) -> eyre::Result<Vec<String>> {
+    ) -> Result<Vec<String>, ConnectorError> {
         let data: String = Deal::appCIDCall {}.abi_encode().encode_hex();
         let mut batch = BatchRequestBuilder::new();
         for deal in deals {
@@ -311,17 +311,12 @@ impl HttpChainConnector {
                 ],
             )?;
         }
-        println!("make app cid req: {batch:?}");
         let resp: BatchResponse<String> = self.client.batch_request(batch).await?;
-        println!("app cid resp: {resp:?}");
         let mut cids = vec![];
         for result in resp.into_iter() {
-            println!("app cid result: {result:?}");
-            let cid = CIDV1::abi_decode(&decode_hex(&result?)?, true)?;
-            println!("cid: {:?}", cid.hash.to_string());
+            let cid = CIDV1::from_hex(&result?)?;
             let cid_bytes = [cid.prefixes.to_vec(), cid.hash.to_vec()].concat();
             let app_cid = libipld::Cid::read_bytes(cid_bytes.as_slice())?.to_string();
-            println!("app cid: {app_cid:?}");
 
             cids.push(app_cid.to_string());
         }
@@ -331,7 +326,6 @@ impl HttpChainConnector {
 
     pub async fn get_deals(&self) -> eyre::Result<Vec<DealInfo>> {
         let units = self.get_compute_units().await?;
-        println!("got compute units: {}", units.len());
         let mut deals: BTreeMap<DealId, Vec<Vec<u8>>> = BTreeMap::new();
 
         units
@@ -348,15 +342,12 @@ impl HttpChainConnector {
             return Ok(Vec::new());
         }
 
-        println!("got deals: {deals:?}");
         let app_cids = self.get_app_cid(deals.keys()).await?;
-        println!("got app cids: {app_cids:?}");
         let statuses: Vec<Deal::Status> = self
             .get_deal_statuses(deals.keys().cloned().collect())
             .await?
             .into_iter()
             .collect::<Result<Vec<_>, ConnectorError>>()?;
-        println!("got statuses: {statuses:?}");
         Ok(deals
             .into_iter()
             .zip(app_cids.into_iter().zip(statuses.into_iter()))
@@ -642,7 +633,6 @@ impl ChainConnector for HttpChainConnector {
                 )
                 .await,
         )?;
-        println!("got compute units raw: {resp}");
         let bytes = decode_hex(&resp)?;
         let compute_units = <Array<ComputeUnit> as SolType>::abi_decode(&bytes, true)?;
 
@@ -852,8 +842,6 @@ mod tests {
             .create();
 
         let units = get_connector(&url).get_compute_units().await.unwrap();
-
-        println!("{units:?}");
 
         mock.assert();
         assert_eq!(units.len(), 2);
@@ -1184,7 +1172,7 @@ mod tests {
             "0x0000000000000000000000000000000000000000",
         )];
         let result = get_connector(&url).get_app_cid(deals.iter()).await;
-        println!("{result:?}");
+        assert_matches!(result, Err(ConnectorError::EmptyData(_)));
 
         mock.assert();
     }

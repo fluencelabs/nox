@@ -167,6 +167,7 @@ pub(crate) async fn spell_install(
     workers: Arc<Workers>,
     scopes: PeerScopes,
 ) -> Result<JValue, JError> {
+    println!("running spell install");
     let mut args = sargs.function_args.clone().into_iter();
     let script: String = Args::next("script", &mut args)?;
     let init_data: JValue = Args::next("data", &mut args)?;
@@ -238,6 +239,7 @@ pub(crate) async fn spell_install(
             )));
         }
     }
+    println!("ending spell install");
 
     Ok(JValue::String(spell_id))
 }

@@ -141,6 +141,7 @@ where
     }
 
     pub async fn call(&self, args: Args, particle: ParticleParams) -> FunctionOutcome {
+        println!("called builtin {args:?}");
         let mut start = Instant::now();
         let result = self.builtins_call(args, particle).await;
         let result = match result {

@@ -1,4 +1,7 @@
-use alloy_sol_types::sol;
+use crate::ConnectorError;
+use crate::Deal::CIDV1;
+use alloy_sol_types::{sol, SolType};
+use hex_utils::decode_hex;
 use serde::{Deserialize, Serialize};
 sol! {
     contract Deal {
@@ -28,5 +31,15 @@ sol! {
 
         /// @dev Set worker ID for a compute unit. Compute unit can have only one worker ID
         function setWorker(bytes32 computeUnitId, bytes32 workerId) external;
+    }
+}
+
+impl CIDV1 {
+    pub fn from_hex(hex: &str) -> Result<Self, ConnectorError> {
+        let bytes = decode_hex(hex)?;
+        if bytes.is_empty() {
+            return Err(ConnectorError::EmptyData(hex.to_string()));
+        }
+        Ok(CIDV1::abi_decode(&bytes, true)?)
     }
 }
