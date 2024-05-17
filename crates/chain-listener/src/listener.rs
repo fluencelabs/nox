@@ -549,8 +549,9 @@ impl ChainListener {
             .extend(units.into_iter().map(|unit| (CUID::new(unit.id.0), unit)));
 
         for cu in in_deal {
-            self.active_deals
-                .insert(cu.deal.to_string().into(), CUID::new(cu.id.0));
+            let cu_id = CUID::new(cu.id.0);
+            self.active_deals.insert(cu.deal.to_string().into(), cu_id);
+            self.acquire_core_for_deal(cu_id)?;
         }
 
         let active = self
