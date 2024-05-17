@@ -263,8 +263,6 @@ pub(crate) fn is_deal_active(args: Args, workers: Arc<Workers>) -> Result<JValue
     let mut args = args.function_args.into_iter();
     let deal_id: String = Args::next("deal_id", &mut args)?;
     let worker_id = workers.get_worker_id(deal_id.into())?;
-    println!("is_active? {:?}", worker_id);
     let is_active = workers.is_worker_active(worker_id);
-    println!("is_active? {is_active}");
     Ok(JValue::Bool(is_active))
 }
