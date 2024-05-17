@@ -10,6 +10,8 @@ pub enum CreateError {
     IllegalSystemCoreCount,
     #[error("Too much system cores needed. Required: {required}, available: {required}")]
     NotEnoughCores { available: usize, required: usize },
+    #[error("The specified CPU range exceeds the available CPU count")]
+    WrongCpuRange,
     #[error("Failed to create CPU topology {err}")]
     CreateTopology { err: CPUTopologyError },
     #[error("Failed to collect cores data from OS {err:?}")]

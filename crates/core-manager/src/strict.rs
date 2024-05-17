@@ -102,6 +102,10 @@ impl StrictCoreManager {
             .physical_cores()
             .map_err(|err| CreateError::CollectCoresData { err })?;
 
+        if !core_range.is_subset(&physical_cores) {
+            return Err(CreateError::WrongCpuRange);
+        }
+
         let mut cores_mapping: MultiMap<PhysicalCoreId, LogicalCoreId> =
             MultiMap::with_capacity_and_hasher(available_core_count, FxBuildHasher::default());
 

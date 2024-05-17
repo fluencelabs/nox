@@ -1,3 +1,5 @@
+use ccp_shared::types::PhysicalCoreId;
+use nonempty::NonEmpty;
 use range_set_blaze::RangeSetBlaze;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::fmt::{Debug, Display, Formatter};
@@ -6,6 +8,15 @@ use thiserror::Error;
 
 #[derive(Clone, PartialEq)]
 pub struct CoreRange(pub(crate) RangeSetBlaze<usize>);
+
+impl CoreRange {
+    pub fn is_subset(&self, cores: &NonEmpty<PhysicalCoreId>) -> bool {
+        let range: RangeSetBlaze<usize> =
+            RangeSetBlaze::from_iter(cores.into_iter().map(|core| <usize>::from(core.clone())));
+
+        self.0.is_subset(&range)
+    }
+}
 
 impl Debug for CoreRange {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
