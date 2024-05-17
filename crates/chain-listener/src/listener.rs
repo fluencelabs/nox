@@ -950,6 +950,10 @@ impl ChainListener {
         units.extend(&cu_groups.pending_units);
         units.extend(&cu_groups.finished_units);
 
+        // Release all ccp units to allow the core manager to assign them again
+        // without that action availability count will be wrong
+        self.core_manager.release(&units);
+
         let cores = self.core_manager.acquire_worker_core(AcquireRequest::new(
             units.to_vec(),
             WorkType::CapacityCommitment,
@@ -986,10 +990,8 @@ impl ChainListener {
                 available,
                 ..
             }) => {
-                tracing::warn!("Found {required} CUs in the Capacity Commitment, but Nox has only {available} Cores available for CC");
+                tracing::warn!(target: "chain-listener", "Found {required} CUs in the Capacity Commitment, but Nox has only {available} Cores available for CC");
                 let assign_units = units.iter().take(available).cloned().collect();
-                // Release all units to allow the core manager to assign them again
-                self.core_manager.release(units);
                 let assignment = self.core_manager.acquire_worker_core(AcquireRequest::new(
                     assign_units,
                     WorkType::CapacityCommitment,
