@@ -12,7 +12,7 @@ pub struct CoreRange(pub(crate) RangeSetBlaze<usize>);
 impl CoreRange {
     pub fn is_subset(&self, cores: &NonEmpty<PhysicalCoreId>) -> bool {
         let range: RangeSetBlaze<usize> =
-            RangeSetBlaze::from_iter(cores.into_iter().map(|core| <usize>::from(core.clone())));
+            RangeSetBlaze::from_iter(cores.into_iter().map(|core| <usize>::from(*core)));
 
         self.0.is_subset(&range)
     }

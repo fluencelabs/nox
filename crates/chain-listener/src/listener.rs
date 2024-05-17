@@ -1499,8 +1499,8 @@ mod tests {
             .unwrap())
         });
 
-        let cc_init_difficulty = difficulty.clone();
-        let cc_init_global_nonce = global_nonce.clone();
+        let cc_init_difficulty = difficulty;
+        let cc_init_global_nonce = global_nonce;
         connector.expect_get_cc_init_params().returning(move || {
             Ok(CCInitParams {
                 difficulty: cc_init_difficulty,
@@ -1731,8 +1731,8 @@ mod tests {
             .unwrap())
         });
 
-        let cc_init_difficulty = difficulty.clone();
-        let cc_init_global_nonce = global_nonce.clone();
+        let cc_init_difficulty = difficulty;
+        let cc_init_global_nonce = global_nonce;
         connector.expect_get_cc_init_params().returning(move || {
             Ok(CCInitParams {
                 difficulty: cc_init_difficulty,
