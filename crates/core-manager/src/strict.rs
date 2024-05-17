@@ -102,6 +102,10 @@ impl StrictCoreManager {
             .physical_cores()
             .map_err(|err| CreateError::CollectCoresData { err })?;
 
+        if !core_range.is_subset(&physical_cores) {
+            return Err(CreateError::WrongCpuRange);
+        }
+
         let mut cores_mapping: MultiMap<PhysicalCoreId, LogicalCoreId> =
             MultiMap::with_capacity_and_hasher(available_core_count, FxBuildHasher::default());
 
@@ -302,9 +306,9 @@ impl CoreManagerFunctions for StrictCoreManager {
     fn release(&self, unit_ids: &[CUID]) {
         let mut lock = self.state.write();
         for unit_id in unit_ids {
-            if let Some((physical_core_id, _)) = lock.unit_id_mapping.remove_by_right(&unit_id) {
+            if let Some((physical_core_id, _)) = lock.unit_id_mapping.remove_by_right(unit_id) {
                 lock.available_cores.insert(physical_core_id);
-                lock.work_type_mapping.remove(&unit_id);
+                lock.work_type_mapping.remove(unit_id);
             }
         }
     }

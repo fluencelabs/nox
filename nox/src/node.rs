@@ -42,8 +42,10 @@ use aquamarine::{
     AquaRuntime, AquamarineApi, AquamarineApiError, AquamarineBackend, DataStoreConfig,
     RemoteRoutingEffects, VmPoolConfig, WasmBackendConfig,
 };
-use chain_connector::HttpChainConnector;
-use chain_listener::ChainListener;
+use chain_connector::{HttpChainConnector, HttpChainConnectorConfig};
+use chain_listener::{
+    CCPClient, ChainListener, ChainListenerConfig, WsEventSubscription, WsSubscriptionConfig,
+};
 use config_utils::to_peer_id;
 use connection_pool::ConnectionPoolT;
 use core_manager::CoreManager;
@@ -123,7 +125,9 @@ async fn setup_listener(
         config.chain_config.clone(),
         config.chain_listener_config.clone(),
     ) {
-        let ccp_client = if let Some(ccp_endpoint) = listener_config.ccp_endpoint.clone() {
+        let ccp_client: Option<Arc<dyn CCPClient>> = if let Some(ccp_endpoint) =
+            listener_config.ccp_endpoint.clone()
+        {
             let ccp_client = CCPRpcHttpClient::new(ccp_endpoint.clone())
                 .await
                 .map_err(|err| {
@@ -131,20 +135,30 @@ async fn setup_listener(
                     err
                 })?;
 
+            let ccp_client = Arc::new(ccp_client);
+
             Some(ccp_client)
         } else {
             None
         };
 
-        let ws_client = ChainListener::create_ws_client(&listener_config.ws_endpoint).await?;
         let cc_events_dir = config.dir_config.cc_events_dir.clone();
         let host_id = config.root_key_pair.get_peer_id();
 
-        let chain_listener = ChainListener::new(
-            chain_config,
-            ws_client,
-            listener_config,
+        let ws_event_subscription_config = WsSubscriptionConfig::new(
             host_id,
+            listener_config.ws_endpoint.clone(),
+            chain_config.cc_contract_address,
+            chain_config.market_contract_address,
+        );
+        let event_subscription = WsEventSubscription::new(ws_event_subscription_config).await?;
+        let event_subscription = Arc::new(event_subscription);
+
+        let chain_listener_config = ChainListenerConfig::new(listener_config.proof_poll_period);
+
+        let chain_listener = ChainListener::new(
+            chain_listener_config,
+            event_subscription,
             connector,
             core_manager,
             ccp_client,
@@ -397,7 +411,8 @@ impl<RT: AquaRuntime> Node<RT> {
         let services = builtins.services.clone();
         let modules = builtins.modules.clone();
 
-        let connector = if let Some(chain_config) = config.chain_config.clone() {
+        let chain_config = chain_connector_config(&config);
+        let connector = if let Some(chain_config) = chain_config {
             let host_id = scopes.get_host_peer_id();
             let (chain_connector, chain_builtins) =
                 HttpChainConnector::new(chain_config.clone(), host_id).map_err(|err| {
@@ -764,6 +779,21 @@ fn avm_wasm_backend_config(config: &ResolvedConfig) -> WasmBackendConfig {
             .wasm_backend
             .epoch_interruption_duration,
     }
+}
+
+fn chain_connector_config(config: &ResolvedConfig) -> Option<HttpChainConnectorConfig> {
+    config.chain_config.clone().map(|config| {
+        HttpChainConnectorConfig::new(
+            config.http_endpoint,
+            config.core_contract_address,
+            config.cc_contract_address,
+            config.market_contract_address,
+            config.network_id,
+            config.wallet_key,
+            config.default_base_fee,
+            config.default_base_fee,
+        )
+    })
 }
 
 fn services_wasm_backend_config(config: &ResolvedConfig) -> WasmBackendConfig {

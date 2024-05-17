@@ -12,7 +12,16 @@ fn truncate(s: &str) -> &str {
 pub fn builtin_log_fn(service: &str, args: &str, elapsed: FormattedDuration, particle_id: String) {
     let args = truncate(args);
     match service {
-        "array" | "cmp" | "debug" | "math" | "op" | "getDataSrv" | "run-console" | "json" => {
+        "run-console" => {
+            tracing::event!(
+                tracing::Level::INFO,
+                "Executed host call {} ({}) [{}]",
+                args,
+                elapsed,
+                particle_id
+            )
+        }
+        "array" | "cmp" | "debug" | "math" | "op" | "getDataSrv" | "json" => {
             tracing::event!(
                 tracing::Level::TRACE,
                 "Executed host call {} ({}) [{}]",

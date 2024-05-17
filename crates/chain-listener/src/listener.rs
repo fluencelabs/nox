@@ -1,9 +1,8 @@
 use alloy_primitives::{Address, BlockNumber, FixedBytes, Uint, U256};
-use alloy_sol_types::SolEvent;
 use backoff::Error::Permanent;
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::future::{pending, Future};
-use std::ops::Add;
+use std::ops::{Add, Deref};
 use std::path::PathBuf;
 use std::process::exit;
 use std::str::FromStr;
@@ -12,20 +11,14 @@ use std::time::Duration;
 
 use backoff::future::retry;
 use backoff::ExponentialBackoff;
-use ccp_rpc_client::CCPRpcHttpClient;
 use ccp_shared::proof::{CCProof, CCProofId, ProofIdx};
 use ccp_shared::types::{Difficulty, GlobalNonce, LocalNonce, ResultHash};
 use cpu_utils::PhysicalCoreId;
 
 use eyre::{eyre, Report};
-use jsonrpsee::core::client::{Client as WsClient, Subscription, SubscriptionClientT};
-use jsonrpsee::core::params::ArrayParams;
 use jsonrpsee::core::{client, JsonValue};
-use jsonrpsee::rpc_params;
-use jsonrpsee::ws_client::WsClientBuilder;
-use libp2p_identity::PeerId;
 use serde::de::DeserializeOwned;
-use serde_json::{json, Value};
+use serde_json::Value;
 use tokio::task::JoinHandle;
 use tokio::time::{interval, Instant};
 use tokio_stream::wrappers::IntervalStream;
@@ -36,40 +29,48 @@ use chain_connector::{
     is_commitment_not_active, is_too_many_proofs, CCStatus, ChainConnector, CommitmentId,
     ConnectorError, Deal, PEER_NOT_EXISTS,
 };
-use chain_data::{parse_log, peer_id_to_hex, Log};
+use chain_data::{parse_log, Log};
 use core_manager::errors::AcquireError;
 use core_manager::types::{AcquireRequest, Assignment, WorkType};
 use core_manager::{CoreManager, CoreManagerFunctions, CUID};
 use peer_metrics::ChainListenerMetrics;
-use server_config::{ChainConfig, ChainListenerConfig};
 use types::DealId;
 
+use crate::ccp::CCPClient;
 use crate::event::cc_activated::CommitmentActivated;
 use crate::event::{ComputeUnitMatched, UnitActivated, UnitDeactivated};
 use crate::persistence;
+use crate::subscription::{Error, EventSubscription, Stream};
 
 const PROOF_POLL_LIMIT: usize = 50;
 
+pub struct ChainListenerConfig {
+    proof_poll_period: Duration,
+}
+
+impl ChainListenerConfig {
+    pub fn new(proof_poll_period: Duration) -> Self {
+        Self { proof_poll_period }
+    }
+}
+
 pub struct ChainListener {
-    config: ChainConfig,
     listener_config: ChainListenerConfig,
 
     chain_connector: Arc<dyn ChainConnector>,
     // To subscribe to chain events
-    ws_client: WsClient,
+    event_subscription: Arc<dyn EventSubscription>,
 
-    ccp_client: Option<CCPRpcHttpClient>,
+    ccp_client: Option<Arc<dyn CCPClient>>,
 
     core_manager: Arc<CoreManager>,
-
-    host_id: PeerId,
 
     // These settings aren't changed
     // We refresh them on some errors, but it's enough to get them only on start without refreshing
     difficulty: Difficulty,
     // The time when the first epoch starts (aka the contract was deployed)
     init_timestamp: U256,
-    epoch_duration: U256,
+    epoch_duration_sec: U256,
     min_proofs_per_epoch: U256,
     max_proofs_per_epoch: U256,
     // These settings are changed each epoch
@@ -91,17 +92,17 @@ pub struct ChainListener {
 
     // TODO: move out to a separate struct, get rid of Option
     // Subscriptions that are polled when we have commitment
-    unit_activated: Option<Subscription<JsonValue>>,
-    unit_deactivated: Option<Subscription<JsonValue>>,
+    unit_activated: Option<Stream<JsonValue>>,
+    unit_deactivated: Option<Stream<JsonValue>>,
     // Subscriptions that are polled always
-    heads: Option<Subscription<JsonValue>>,
-    commitment_activated: Option<Subscription<JsonValue>>,
-    unit_matched: Option<Subscription<JsonValue>>,
+    heads: Option<Stream<JsonValue>>,
+    commitment_activated: Option<Stream<JsonValue>>,
+    unit_matched: Option<Stream<JsonValue>>,
 
     metrics: Option<ChainListenerMetrics>,
 }
 
-async fn poll_subscription<T>(s: &mut Option<Subscription<T>>) -> Option<Result<T, client::Error>>
+async fn poll_subscription<T>(s: &mut Option<Stream<T>>) -> Option<Result<T, Error>>
 where
     T: DeserializeOwned + Send,
 {
@@ -113,13 +114,11 @@ where
 
 impl ChainListener {
     pub fn new(
-        chain_config: ChainConfig,
-        ws_client: WsClient,
         listener_config: ChainListenerConfig,
-        host_id: PeerId,
+        event_subscription: Arc<dyn EventSubscription>,
         chain_connector: Arc<dyn ChainConnector>,
         core_manager: Arc<CoreManager>,
-        ccp_client: Option<CCPRpcHttpClient>,
+        ccp_client: Option<Arc<dyn CCPClient>>,
         persisted_proof_id_dir: PathBuf,
         metrics: Option<ChainListenerMetrics>,
     ) -> Self {
@@ -128,16 +127,14 @@ impl ChainListener {
         }
 
         Self {
-            chain_connector,
-            ws_client,
             listener_config,
-            config: chain_config,
-            host_id,
+            chain_connector,
+            event_subscription,
             difficulty: Difficulty::default(),
             init_timestamp: U256::ZERO,
             global_nonce: GlobalNonce::new([0; 32]),
             current_epoch: U256::ZERO,
-            epoch_duration: U256::ZERO,
+            epoch_duration_sec: U256::ZERO,
             min_proofs_per_epoch: U256::ZERO,
             max_proofs_per_epoch: U256::ZERO,
             proof_counter: BTreeMap::new(),
@@ -173,32 +170,33 @@ impl ChainListener {
     }
 
     pub fn start(mut self) -> JoinHandle<()> {
-        let result = tokio::task::Builder::new()
+        tokio::task::Builder::new()
             .name("ChainListener")
-            .spawn(async move {
+            .spawn(
+                async move {
 
-                if let Err(err) = self.set_utility_core().await {
-                    tracing::error!(target: "chain-listener", "Failed to set utility core: {err}; Stopping...");
-                    exit(1);
-                }
+                    if let Err(err) = self.set_utility_core().await {
+                        tracing::error!(target: "chain-listener", "Failed to set utility core: {err}; Stopping...");
+                        exit(1);
+                    }
 
-                tracing::info!(target: "chain-listener", "Subscribing to chain events");
-                if let Err(err) = self.refresh_subscriptions().await {
-                    tracing::error!(target: "chain-listener", "Failed to subscribe to chain events: {err}; Stopping...");
-                    exit(1);
-                }
-                tracing::info!(target: "chain-listener", "Subscribed successfully");
+                    tracing::info!(target: "chain-listener", "Subscribing to chain events");
+                    if let Err(err) = self.refresh_subscriptions().await {
+                        tracing::error!(target: "chain-listener", "Failed to subscribe to chain events: {err}; Stopping...");
+                        exit(1);
+                    }
+                    tracing::info!(target: "chain-listener", "Subscribed successfully");
 
-                if let Err(err) = self.refresh_state().await {
-                    tracing::error!(target: "chain-listener", "Failed to refresh state: {err}; Stopping...");
-                    exit(1);
-                }
+                    if let Err(err) = self.refresh_state().await {
+                        tracing::error!(target: "chain-listener", "Failed to refresh state: {err}; Stopping...");
+                        exit(1);
+                    }
 
-                tracing::info!(target: "chain-listener", "State successfully refreshed, starting main loop");
-                let mut timer = IntervalStream::new(interval(self.listener_config.proof_poll_period));
+                    tracing::info!(target: "chain-listener", "State successfully refreshed, starting main loop");
+                    let mut timer = IntervalStream::new(interval(self.listener_config.proof_poll_period));
 
-                loop {
-                    tokio::select! {
+                    loop {
+                        tokio::select! {
                         event = poll_subscription(&mut self.heads) => {
                             if let Err(err) = self.process_new_header(event).await {
                                 self.handle_subscription_error("newHeads", err).await;
@@ -247,11 +245,8 @@ impl ChainListener {
                             }
                         }
                     }
-                }
-            })
-            .expect("Could not spawn task");
-
-        result
+                    }
+                })  .expect("Could not spawn task")
     }
 
     async fn refresh_current_commitment_id(&mut self) -> eyre::Result<()> {
@@ -288,12 +283,12 @@ impl ChainListener {
                     err
                 })?;
 
-        tracing::info!(target: "chain-listener","Commitment initial params: difficulty {}, global nonce {}, init_timestamp {}, epoch_duration {}, current_epoch {}, min_proofs_per_epoch {}, max_proofs_per_epoch {}",  init_params.difficulty, init_params.global_nonce, init_params.init_timestamp, init_params.epoch_duration, init_params.current_epoch, init_params.min_proofs_per_epoch, init_params.max_proofs_per_epoch);
+        tracing::info!(target: "chain-listener","Commitment initial params: difficulty {}, global nonce {}, init_timestamp {}, epoch_duration {}, current_epoch {}, min_proofs_per_epoch {}, max_proofs_per_epoch {}",  init_params.difficulty, init_params.global_nonce, init_params.init_timestamp, init_params.epoch_duration_sec, init_params.current_epoch, init_params.min_proofs_per_epoch, init_params.max_proofs_per_epoch);
 
         self.difficulty = init_params.difficulty;
         self.init_timestamp = init_params.init_timestamp;
         self.global_nonce = init_params.global_nonce;
-        self.epoch_duration = init_params.epoch_duration;
+        self.epoch_duration_sec = init_params.epoch_duration_sec;
         self.min_proofs_per_epoch = init_params.min_proofs_per_epoch;
         self.max_proofs_per_epoch = init_params.max_proofs_per_epoch;
 
@@ -436,7 +431,7 @@ impl ChainListener {
             }
             ).await?;
 
-            tracing::info!("Utility core {utility_core} successfully reallocated");
+            tracing::info!(target: "chain-listener", "Utility core {utility_core} successfully reallocated");
         }
         Ok(())
     }
@@ -453,63 +448,29 @@ impl ChainListener {
         }
     }
 
-    pub async fn create_ws_client(ws_endpoint: &str) -> Result<WsClient, client::Error> {
-        let ws_client = retry(ExponentialBackoff::default(), || async {
-            let client = WsClientBuilder::default()
-                .build(ws_endpoint)
-                .await
-                .map_err(|err| {
-                    tracing::warn!(
-                        target: "chain-listener",
-                        "Error connecting to websocket endpoint {}, error: {}; Retrying...",
-                        ws_endpoint,
-                        err
-                    );
-                    err
-                })?;
-
-            Ok(client)
-        })
-        .await?;
-
-        tracing::info!(
-            target: "chain-listener",
-            "Successfully connected to websocket endpoint: {}",
-            ws_endpoint
-        );
-
-        Ok(ws_client)
-    }
-
-    async fn subscribe_unit_events(
-        &mut self,
-        commitment_id: &CommitmentId,
-    ) -> Result<(), client::Error> {
+    async fn subscribe_unit_events(&mut self, commitment_id: &CommitmentId) -> Result<(), Error> {
         self.unit_activated = Some(
-            self.subscribe("logs", self.unit_activated_params(commitment_id))
+            self.event_subscription
+                .unit_activated(commitment_id)
                 .await?,
         );
         self.unit_deactivated = Some(
-            self.subscribe("logs", self.unit_deactivated_params(commitment_id))
+            self.event_subscription
+                .unit_deactivated(commitment_id)
                 .await?,
         );
 
         Ok(())
     }
 
-    async fn refresh_subscriptions(&mut self) -> Result<(), client::Error> {
-        if !self.ws_client.is_connected() {
-            self.ws_client =
-                ChainListener::create_ws_client(&self.listener_config.ws_endpoint).await?;
-        }
-
+    async fn refresh_subscriptions(&mut self) -> Result<(), Error> {
         // loop because subscriptions can fail and require reconnection, we can't proceed without them
         loop {
-            let result: Result<(), client::Error> = try {
-                self.heads = Some(self.subscribe("newHeads", rpc_params!["newHeads"]).await?);
+            let result: Result<(), Error> = try {
+                self.heads = Some(self.event_subscription.new_heads().await?);
                 self.commitment_activated =
-                    Some(self.subscribe("logs", self.cc_activated_params()).await?);
-                self.unit_matched = Some(self.subscribe("logs", self.unit_matched_params()).await?);
+                    Some(self.event_subscription.commitment_activated().await?);
+                self.unit_matched = Some(self.event_subscription.unit_matched().await?);
                 if let Some(commitment_id) = self.current_commitment.clone() {
                     self.subscribe_unit_events(&commitment_id).await?;
                 }
@@ -520,12 +481,10 @@ impl ChainListener {
                     tracing::info!(target: "chain-listener", "Subscriptions refreshed successfully");
                     break;
                 }
-                Err(err) => match err {
+                Err(err) => match err.deref() {
                     client::Error::RestartNeeded(_) => {
                         tracing::warn!(target: "chain-listener", "Failed to refresh subscriptions: {err}; Restart client...");
-                        self.ws_client =
-                            ChainListener::create_ws_client(&self.listener_config.ws_endpoint)
-                                .await?;
+                        self.event_subscription.restart().await?;
                     }
                     _ => {
                         tracing::error!(target: "chain-listener", "Failed to refresh subscriptions: {err}; Retrying...");
@@ -586,67 +545,9 @@ impl ChainListener {
         Ok(())
     }
 
-    async fn subscribe(
-        &self,
-        method: &str,
-        params: ArrayParams,
-    ) -> Result<Subscription<JsonValue>, client::Error> {
-        let sub = retry(ExponentialBackoff::default(), || async {
-             self
-                .ws_client
-                .subscribe("eth_subscribe", params.clone(), "eth_unsubscribe")
-                .await.map_err(|err|  {
-                if let client::Error::RestartNeeded(_) = err {
-                    tracing::error!(target: "chain-listener", "Failed to subscribe to {method}: {err};");
-                    Permanent(err)
-                } else {
-                    tracing::warn!(target: "chain-listener", "Failed to subscribe to {method}: {err}; Retrying...");
-                    backoff::Error::transient(err)
-                }})
-        }).await?;
-
-        Ok(sub)
-    }
-
-    fn cc_activated_params(&self) -> ArrayParams {
-        let topic = CommitmentActivated::SIGNATURE_HASH.to_string();
-        let topics = vec![topic, peer_id_to_hex(self.host_id)];
-        rpc_params![
-            "logs",
-            json!({"address": self.config.cc_contract_address, "topics": topics})
-        ]
-    }
-
-    fn unit_activated_params(&self, commitment_id: &CommitmentId) -> ArrayParams {
-        let topic = UnitActivated::SIGNATURE_HASH.to_string();
-        rpc_params![
-            "logs",
-            json!({"address": self.config.cc_contract_address, "topics":  vec![topic, hex::encode(commitment_id.0)]})
-        ]
-    }
-
-    fn unit_deactivated_params(&self, commitment_id: &CommitmentId) -> ArrayParams {
-        let topic = UnitDeactivated::SIGNATURE_HASH.to_string();
-        rpc_params![
-            "logs",
-            json!({"address": self.config.cc_contract_address, "topics":  vec![topic, hex::encode(commitment_id.0)]})
-        ]
-    }
-
-    fn unit_matched_params(&self) -> ArrayParams {
-        let topics = vec![
-            ComputeUnitMatched::SIGNATURE_HASH.to_string(),
-            peer_id_to_hex(self.host_id),
-        ];
-        rpc_params![
-            "logs",
-            json!({"address": self.config.market_contract_address, "topics": topics})
-        ]
-    }
-
     async fn process_new_header(
         &mut self,
-        event: Option<Result<Value, client::Error>>,
+        event: Option<Result<Value, Error>>,
     ) -> eyre::Result<()> {
         let header = event.ok_or(eyre!("Failed to process newHeads event: got None"))?;
 
@@ -655,7 +556,7 @@ impl ChainListener {
 
         // `epoch_number = 1 + (block_timestamp - init_timestamp) / epoch_duration`
         let epoch_number =
-            U256::from(1) + (block_timestamp - self.init_timestamp) / self.epoch_duration;
+            U256::from(1) + (block_timestamp - self.init_timestamp) / self.epoch_duration_sec;
         let epoch_changed = epoch_number > self.current_epoch;
 
         if epoch_changed {
@@ -691,7 +592,7 @@ impl ChainListener {
 
     async fn process_commitment_activated(
         &mut self,
-        event: Option<Result<JsonValue, client::Error>>,
+        event: Option<Result<JsonValue, Error>>,
     ) -> eyre::Result<()> {
         let event = event.ok_or(eyre!(
             "Failed to process CommitmentActivated event: got None"
@@ -741,7 +642,7 @@ impl ChainListener {
 
     async fn process_unit_activated(
         &mut self,
-        event: Option<Result<JsonValue, client::Error>>,
+        event: Option<Result<JsonValue, Error>>,
     ) -> eyre::Result<()> {
         let event = event.ok_or(eyre!("Failed to process UnitActivated event: got None"))??;
 
@@ -773,7 +674,7 @@ impl ChainListener {
     /// Unit goes to Deal
     async fn process_unit_deactivated(
         &mut self,
-        event: Option<Result<JsonValue, client::Error>>,
+        event: Option<Result<JsonValue, Error>>,
     ) -> eyre::Result<()> {
         let event = event.ok_or(eyre!("Failed to process UnitDeactivated event: got None"))??;
         let log = serde_json::from_value::<Log>(event.clone()).map_err(|err| {
@@ -794,8 +695,9 @@ impl ChainListener {
 
     fn process_unit_matched(
         &mut self,
-        event: Option<Result<JsonValue, client::Error>>,
+        event: Option<Result<JsonValue, Error>>,
     ) -> eyre::Result<()> {
+        tracing::info!("zalupa {:?}", event);
         let event = event.ok_or(eyre!("Failed to process DealMatched event: got None"))??;
         let log = serde_json::from_value::<Log>(event.clone()).map_err(|err| {
             tracing::error!(target: "chain-listener", "Failed to parse DealMatched event: {err}, data: {event}");
@@ -1385,4 +1287,586 @@ where
         .as_ref()
         .inspect(|m| m.observe_ccp_reply(elapsed.as_millis() as f64));
     result
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::event::cc_activated::CommitmentActivated;
+    use crate::subscription::StreamResult;
+    use crate::subscription::{Error, EventSubscription};
+    use crate::{CCPClient, ChainListener, ChainListenerConfig};
+    use alloy_sol_types::{SolEvent, SolType};
+    use ccp_rpc_client::ClientError;
+    use ccp_shared::proof::CCProof;
+    use ccp_shared::proof::ProofIdx;
+    use ccp_shared::types::{Difficulty, GlobalNonce, CUID};
+    use ccp_shared::types::{LogicalCoreId, PhysicalCoreId};
+    use chain_connector::Offer::ComputeUnit;
+    use chain_connector::{CCInitParams, CCStatus, ChainConnector, CommitmentId, ConnectorError};
+    use chain_data::Log;
+    use core_manager::types::Cores;
+    use core_manager::{CoreManager, DummyCoreManager};
+    use futures::StreamExt;
+    use hex::FromHex;
+    use jsonrpsee::core::{async_trait, JsonValue};
+    use log_utils::enable_logs;
+    use mockall::mock;
+    use serde_json::{json, Value};
+    use std::collections::HashMap;
+    use std::sync::Arc;
+    use std::time::Duration;
+    use tokio::sync::Notify;
+    use tokio_stream::wrappers::BroadcastStream;
+    use types::DealId;
+
+    mock! {
+        ChainConnectorStruct {}     // Name of the mock struct, less the "Mock" prefix
+
+        #[async_trait]
+        impl ChainConnector for ChainConnectorStruct {
+        async fn get_current_commitment_id(&self) -> Result<Option<CommitmentId>, ConnectorError>;
+
+        async fn get_cc_init_params(&self) -> eyre::Result<CCInitParams>;
+
+        async fn get_compute_units(&self) -> Result<Vec<ComputeUnit>, ConnectorError>;
+
+        async fn get_commitment_status(
+            &self,
+            commitment_id: CommitmentId,
+        ) -> Result<CCStatus, ConnectorError>;
+
+        async fn get_global_nonce(&self) -> Result<GlobalNonce, ConnectorError>;
+
+        async fn submit_proof(&self, proof: CCProof) -> Result<String, ConnectorError>;
+
+        async fn get_deal_statuses(
+            &self,
+            deal_ids: Vec<DealId>,
+        ) -> Result<Vec<Result<crate::listener::Deal::Status, ConnectorError>>, ConnectorError>;
+
+        async fn exit_deal(&self, cu_id: &CUID) -> Result<String, ConnectorError>;
+
+        async fn get_tx_statuses(
+            &self,
+            tx_hashes: Vec<String>,
+        ) -> Result<Vec<Result<Option<bool>, ConnectorError>>, ConnectorError>;
+
+        async fn get_tx_receipts(
+            &self,
+            tx_hashes: Vec<String>,
+        ) -> Result<Vec<Result<Value, ConnectorError>>, ConnectorError>;
+        }
+    }
+
+    mock! {
+        EventSubscriptionConnectorStruct {}
+
+        #[async_trait]
+        impl EventSubscription for EventSubscriptionConnectorStruct {
+            async fn unit_activated(&self, commitment_id: &CommitmentId) -> StreamResult<JsonValue>;
+
+            async fn unit_deactivated(&self, commitment_id: &CommitmentId) -> StreamResult<JsonValue>;
+
+            async fn new_heads(&self) -> StreamResult<JsonValue>;
+
+            async fn commitment_activated(&self) -> StreamResult<JsonValue>;
+
+            async fn unit_matched(&self) -> StreamResult<JsonValue>;
+
+            async fn refresh(&self) -> Result<(), Error>;
+
+            async fn restart(&self) -> Result<(), Error>;
+        }
+    }
+
+    mock! {
+        CCPClientStruct {}
+
+        #[async_trait]
+        impl CCPClient for CCPClientStruct {
+            async fn on_no_active_commitment(&self) -> Result<(), ClientError>;
+            async fn realloc_utility_cores(
+                &self,
+                utility_core_ids: Vec<LogicalCoreId>,
+            ) -> Result<(), ClientError>;
+
+            async fn on_active_commitment(
+                &self,
+                global_nonce: GlobalNonce,
+                difficulty: Difficulty,
+                cu_allocation: HashMap<PhysicalCoreId, CUID>,
+            ) -> Result<(), ClientError>;
+
+            async fn get_proofs_after(
+                &self,
+                proof_idx: ProofIdx,
+                limit: usize,
+            ) -> Result<Vec<CCProof>, ClientError>;
+        }
+    }
+
+    /// # Test: Commitment Chain Activation Flow
+    ///
+    /// This test focuses on the commitment chain activation flow within a blockchain context.
+    /// It simulates the activation process, including initializing the chain, handling relevant
+    /// events, and validating the correct allocation of compute units.
+    ///
+    #[tokio::test]
+    async fn test_cc_activation_flow() {
+        enable_logs();
+        let tmp_dir = tempfile::tempdir().expect("Could not create temp dir");
+        let config = ChainListenerConfig::new(Duration::from_secs(1));
+        let mut subscription = MockEventSubscriptionConnectorStruct::new();
+        let (new_heads_sender, _rx) = tokio::sync::broadcast::channel(16);
+        let (commitment_activated_sender, _rx) = tokio::sync::broadcast::channel(16);
+        let (unit_matched_sender, _rx) = tokio::sync::broadcast::channel(16);
+        let (unit_activated_sender, _rx) = tokio::sync::broadcast::channel(16);
+        let (unit_deactivated_sender, _rx) = tokio::sync::broadcast::channel(16);
+        let notifier = Arc::new(Notify::new());
+
+        let (test_result_sender, mut test_result_receiver) =
+            tokio::sync::mpsc::channel::<(GlobalNonce, Difficulty, HashMap<PhysicalCoreId, CUID>)>(
+                16,
+            );
+
+        let global_nonce = GlobalNonce::from_hex(
+            "4183468390b09d71644232a1d1ce670bc93897183d3f56c305fabfb16cab806a",
+        )
+        .unwrap();
+        let difficulty = Difficulty::from_hex(
+            "0001afffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+        )
+        .unwrap();
+
+        let unit_id_1: CUID =
+            CUID::from_hex("aa3046a12a1aac6e840625e6329d70b427328fec36dc8d273e5e6454b85633d5")
+                .unwrap();
+
+        let unit_id_2: CUID =
+            CUID::from_hex("bb3046a12a1aac6e840625e6329d70b427328fec36dc8d273e5e6454b85633d5")
+                .unwrap();
+
+        let unit_id_3: CUID =
+            CUID::from_hex("cc3046a12a1aac6e840625e6329d70b427328fec36dc8d273e5e6454b85633d5")
+                .unwrap();
+
+        let unit_id_4: CUID =
+            CUID::from_hex("dd3046a12a1aac6e840625e6329d70b427328fec36dc8d273e5e6454b85633d5")
+                .unwrap();
+
+        let sender = new_heads_sender.clone();
+
+        subscription.expect_new_heads().returning(move || {
+            let rx = sender.subscribe();
+            let stream = BroadcastStream::new(rx);
+            Ok(Box::pin(stream.map(|item| item.unwrap())))
+        });
+
+        let sender = commitment_activated_sender.clone();
+        subscription
+            .expect_commitment_activated()
+            .return_once(move || {
+                let rx = sender.subscribe();
+                let stream = BroadcastStream::new(rx);
+                Ok(Box::pin(stream.map(|item| item.unwrap())))
+            });
+
+        let unit_matched_notifier = notifier.clone();
+        subscription.expect_unit_matched().returning(move || {
+            let rx = unit_matched_sender.subscribe();
+            let stream = BroadcastStream::new(rx);
+            unit_matched_notifier.notify_one(); // we now that this call is last
+            Ok(Box::pin(stream.map(|item| item.unwrap())))
+        });
+
+        subscription.expect_unit_activated().returning(move |_| {
+            let rx = unit_activated_sender.subscribe();
+            let stream = BroadcastStream::new(rx);
+            Ok(Box::pin(stream.map(|item| item.unwrap())))
+        });
+
+        subscription.expect_unit_deactivated().returning(move |_| {
+            let rx = unit_deactivated_sender.subscribe();
+            let stream = BroadcastStream::new(rx);
+            Ok(Box::pin(stream.map(|item| item.unwrap())))
+        });
+
+        let mut connector = MockChainConnectorStruct::new();
+        connector.expect_get_global_nonce().return_once(|| {
+            Ok(GlobalNonce::from_hex(
+                "4183468390b09d71644232a1d1ce670bc93897183d3f56c305fabfb16cab806a",
+            )
+            .unwrap())
+        });
+
+        let cc_init_difficulty = difficulty;
+        let cc_init_global_nonce = global_nonce;
+        connector.expect_get_cc_init_params().returning(move || {
+            Ok(CCInitParams {
+                difficulty: cc_init_difficulty,
+                init_timestamp: alloy_primitives::U256::from(0),
+                global_nonce: cc_init_global_nonce,
+                current_epoch: alloy_primitives::U256::from(0),
+                epoch_duration_sec: alloy_primitives::U256::from(100),
+                min_proofs_per_epoch: alloy_primitives::U256::from(1),
+                max_proofs_per_epoch: alloy_primitives::U256::from(3),
+            })
+        });
+
+        connector
+            .expect_get_compute_units()
+            .returning(move || {
+                let data= hex::decode("aa3046a12a1aac6e840625e6329d70b427328fec36dc8d273e5e6454b85633d500000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002").unwrap();
+                let cu_1 = ComputeUnit::abi_decode(&data, true).unwrap();
+                let data= hex::decode("bb3046a12a1aac6e840625e6329d70b427328fec36dc8d273e5e6454b85633d500000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002").unwrap();
+                let cu_2 = ComputeUnit::abi_decode(&data, true).unwrap();
+                let data= hex::decode("cc3046a12a1aac6e840625e6329d70b427328fec36dc8d273e5e6454b85633d500000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002").unwrap();
+                let cu_3 = ComputeUnit::abi_decode(&data, true).unwrap();
+                let data= hex::decode("dd3046a12a1aac6e840625e6329d70b427328fec36dc8d273e5e6454b85633d500000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002").unwrap();
+                let cu_4 = ComputeUnit::abi_decode(&data, true).unwrap();
+                Ok(vec![cu_1, cu_2, cu_3, cu_4])
+            });
+        connector
+            .expect_get_current_commitment_id()
+            .returning(|| Ok(None));
+
+        let mut ccp_client = MockCCPClientStruct::new();
+        ccp_client
+            .expect_realloc_utility_cores()
+            .returning(|_| Ok(()));
+
+        ccp_client
+            .expect_on_no_active_commitment()
+            .returning(|| Ok(()));
+
+        ccp_client.expect_on_active_commitment().returning(
+            move |global_nonce, difficulty, cu_allocation| {
+                test_result_sender
+                    .try_send((global_nonce, difficulty, cu_allocation))
+                    .unwrap();
+                Ok(())
+            },
+        );
+
+        ccp_client
+            .expect_get_proofs_after()
+            .returning(|_, _| Ok(vec![]));
+
+        let core_manager = CoreManager::Dummy(DummyCoreManager::default());
+
+        let connector = Arc::new(connector);
+        let subscription_arc = Arc::new(subscription);
+        let core_manager_arc = Arc::new(core_manager);
+        let ccp_client_arc = Arc::new(ccp_client);
+
+        let proofs_dir = tmp_dir.path().join("proofs").to_path_buf();
+        tokio::fs::create_dir_all(proofs_dir.clone()).await.unwrap();
+
+        let listener = ChainListener::new(
+            config,
+            subscription_arc.clone(),
+            connector.clone(),
+            core_manager_arc,
+            Some(ccp_client_arc),
+            proofs_dir,
+            None,
+        );
+
+        let _handle = listener.start();
+        notifier.notified().await; //wait subscriptions start before sending messages
+
+        let data = CommitmentActivated {
+            peerId: [0; 32].into(),
+            commitmentId: [0; 32].into(),
+            startEpoch: alloy_primitives::U256::from(2),
+            endEpoch: alloy_primitives::U256::from(10),
+            unitIds: vec![
+                unit_id_1.as_ref().into(),
+                unit_id_2.as_ref().into(),
+                unit_id_3.as_ref().into(),
+                unit_id_4.as_ref().into(),
+            ],
+        };
+
+        let _ = commitment_activated_sender
+            .send(Ok(serde_json::to_value(Log {
+                data: hex::encode(data.encode_data()),
+                block_number: "1".to_string(),
+                removed: false,
+                topics: vec![
+                    CommitmentActivated::SIGNATURE_HASH.to_string(),
+                    "0xc586dcbfc973643dc5f885bf1a38e054d2675b03fe283a5b7337d70dda9f7171"
+                        .to_string(),
+                    "0x27e42c090aa007a4f2545547425aaa8ea3566e1f18560803ac48f8e98cb3b0c9"
+                        .to_string(),
+                ],
+            })
+            .unwrap()))
+            .unwrap();
+
+        let _ = new_heads_sender
+            .send(Ok(json!({
+                "timestamp": "101",
+                "number": "0x2",
+            })))
+            .unwrap();
+
+        if let Some((result_global_nonce, result_difficulty, result_cores)) =
+            test_result_receiver.recv().await
+        {
+            assert_eq!(result_global_nonce, global_nonce);
+            assert_eq!(result_difficulty, difficulty);
+            assert_eq!(result_cores.len(), 4);
+            assert_eq!(
+                result_cores.get(&PhysicalCoreId::from(0)).cloned(),
+                Some(unit_id_1)
+            );
+            assert_eq!(
+                result_cores.get(&PhysicalCoreId::from(1)).cloned(),
+                Some(unit_id_2)
+            );
+            assert_eq!(
+                result_cores.get(&PhysicalCoreId::from(2)).cloned(),
+                Some(unit_id_3)
+            );
+            assert_eq!(
+                result_cores.get(&PhysicalCoreId::from(3)).cloned(),
+                Some(unit_id_4)
+            );
+        }
+    }
+
+    /// # Test: Commitment Chain Activation Flow
+    ///
+    /// This test examines the overflow scenario within the commitment chain activation flow when
+    /// CU count in commitment is bigger than the real available CU count.
+    /// It simulates a commitment activation process in a blockchain context, validating that
+    /// the correct events are triggered and compute units are properly allocated during this
+    /// specific edge case.
+    #[tokio::test]
+    async fn test_cc_overflow_activation_flow() {
+        enable_logs();
+        let tmp_dir = tempfile::tempdir().expect("Could not create temp dir");
+        let config = ChainListenerConfig::new(Duration::from_secs(1));
+        let mut subscription = MockEventSubscriptionConnectorStruct::new();
+        let (new_heads_sender, _rx) = tokio::sync::broadcast::channel(16);
+        let (commitment_activated_sender, _rx) = tokio::sync::broadcast::channel(16);
+        let (unit_matched_sender, _rx) = tokio::sync::broadcast::channel(16);
+        let (unit_activated_sender, _rx) = tokio::sync::broadcast::channel(16);
+        let (unit_deactivated_sender, _rx) = tokio::sync::broadcast::channel(16);
+        let notifier = Arc::new(Notify::new());
+
+        let (test_result_sender, mut test_result_receiver) =
+            tokio::sync::mpsc::channel::<(GlobalNonce, Difficulty, HashMap<PhysicalCoreId, CUID>)>(
+                16,
+            );
+
+        let global_nonce = GlobalNonce::from_hex(
+            "4183468390b09d71644232a1d1ce670bc93897183d3f56c305fabfb16cab806a",
+        )
+        .unwrap();
+        let difficulty = Difficulty::from_hex(
+            "0001afffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+        )
+        .unwrap();
+
+        let unit_id_1: CUID =
+            CUID::from_hex("aa3046a12a1aac6e840625e6329d70b427328fec36dc8d273e5e6454b85633d5")
+                .unwrap();
+
+        let unit_id_2: CUID =
+            CUID::from_hex("bb3046a12a1aac6e840625e6329d70b427328fec36dc8d273e5e6454b85633d5")
+                .unwrap();
+
+        let unit_id_3: CUID =
+            CUID::from_hex("cc3046a12a1aac6e840625e6329d70b427328fec36dc8d273e5e6454b85633d5")
+                .unwrap();
+
+        let unit_id_4: CUID =
+            CUID::from_hex("dd3046a12a1aac6e840625e6329d70b427328fec36dc8d273e5e6454b85633d5")
+                .unwrap();
+
+        let sender = new_heads_sender.clone();
+
+        subscription.expect_new_heads().returning(move || {
+            let rx = sender.subscribe();
+            let stream = BroadcastStream::new(rx);
+            Ok(Box::pin(stream.map(|item| item.unwrap())))
+        });
+
+        let sender = commitment_activated_sender.clone();
+        subscription
+            .expect_commitment_activated()
+            .return_once(move || {
+                let rx = sender.subscribe();
+                let stream = BroadcastStream::new(rx);
+                Ok(Box::pin(stream.map(|item| item.unwrap())))
+            });
+
+        let unit_matched_notifier = notifier.clone();
+        subscription.expect_unit_matched().returning(move || {
+            let rx = unit_matched_sender.subscribe();
+            let stream = BroadcastStream::new(rx);
+            unit_matched_notifier.notify_one(); // we now that this call is last
+            Ok(Box::pin(stream.map(|item| item.unwrap())))
+        });
+
+        subscription.expect_unit_activated().returning(move |_| {
+            let rx = unit_activated_sender.subscribe();
+            let stream = BroadcastStream::new(rx);
+            Ok(Box::pin(stream.map(|item| item.unwrap())))
+        });
+
+        subscription.expect_unit_deactivated().returning(move |_| {
+            let rx = unit_deactivated_sender.subscribe();
+            let stream = BroadcastStream::new(rx);
+            Ok(Box::pin(stream.map(|item| item.unwrap())))
+        });
+
+        let mut connector = MockChainConnectorStruct::new();
+        connector.expect_get_global_nonce().return_once(|| {
+            Ok(GlobalNonce::from_hex(
+                "4183468390b09d71644232a1d1ce670bc93897183d3f56c305fabfb16cab806a",
+            )
+            .unwrap())
+        });
+
+        let cc_init_difficulty = difficulty;
+        let cc_init_global_nonce = global_nonce;
+        connector.expect_get_cc_init_params().returning(move || {
+            Ok(CCInitParams {
+                difficulty: cc_init_difficulty,
+                init_timestamp: alloy_primitives::U256::from(0),
+                global_nonce: cc_init_global_nonce,
+                current_epoch: alloy_primitives::U256::from(0),
+                epoch_duration_sec: alloy_primitives::U256::from(100),
+                min_proofs_per_epoch: alloy_primitives::U256::from(1),
+                max_proofs_per_epoch: alloy_primitives::U256::from(3),
+            })
+        });
+
+        connector
+            .expect_get_compute_units()
+            .returning(move || {
+                let data= hex::decode("aa3046a12a1aac6e840625e6329d70b427328fec36dc8d273e5e6454b85633d500000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002").unwrap();
+                let cu_1 = ComputeUnit::abi_decode(&data, true).unwrap();
+                let data= hex::decode("bb3046a12a1aac6e840625e6329d70b427328fec36dc8d273e5e6454b85633d500000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002").unwrap();
+                let cu_2 = ComputeUnit::abi_decode(&data, true).unwrap();
+                let data= hex::decode("cc3046a12a1aac6e840625e6329d70b427328fec36dc8d273e5e6454b85633d500000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002").unwrap();
+                let cu_3 = ComputeUnit::abi_decode(&data, true).unwrap();
+                let data= hex::decode("dd3046a12a1aac6e840625e6329d70b427328fec36dc8d273e5e6454b85633d500000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002").unwrap();
+                let cu_4 = ComputeUnit::abi_decode(&data, true).unwrap();
+                Ok(vec![cu_1, cu_2, cu_3, cu_4])
+            });
+        connector
+            .expect_get_current_commitment_id()
+            .returning(|| Ok(None));
+
+        let mut ccp_client = MockCCPClientStruct::new();
+        ccp_client
+            .expect_realloc_utility_cores()
+            .returning(|_| Ok(()));
+
+        ccp_client
+            .expect_on_no_active_commitment()
+            .returning(|| Ok(()));
+
+        ccp_client.expect_on_active_commitment().returning(
+            move |global_nonce, difficulty, cu_allocation| {
+                test_result_sender
+                    .try_send((global_nonce, difficulty, cu_allocation))
+                    .unwrap();
+                Ok(())
+            },
+        );
+
+        ccp_client
+            .expect_get_proofs_after()
+            .returning(|_, _| Ok(vec![]));
+
+        let topology = vec![
+            Cores {
+                physical_core_id: PhysicalCoreId::from(0),
+                logical_core_ids: vec![LogicalCoreId::from(0)],
+            },
+            Cores {
+                physical_core_id: PhysicalCoreId::from(1),
+                logical_core_ids: vec![LogicalCoreId::from(1)],
+            },
+        ];
+        let core_manager = CoreManager::Dummy(DummyCoreManager::new(topology));
+
+        let connector = Arc::new(connector);
+        let subscription_arc = Arc::new(subscription);
+        let core_manager_arc = Arc::new(core_manager);
+        let ccp_client_arc = Arc::new(ccp_client);
+
+        let proofs_dir = tmp_dir.path().join("proofs").to_path_buf();
+        tokio::fs::create_dir_all(proofs_dir.clone()).await.unwrap();
+
+        let listener = ChainListener::new(
+            config,
+            subscription_arc.clone(),
+            connector.clone(),
+            core_manager_arc,
+            Some(ccp_client_arc),
+            proofs_dir,
+            None,
+        );
+
+        let _handle = listener.start();
+        notifier.notified().await; //wait subscriptions start before sending messages
+
+        let data = CommitmentActivated {
+            peerId: [0; 32].into(),
+            commitmentId: [0; 32].into(),
+            startEpoch: alloy_primitives::U256::from(2),
+            endEpoch: alloy_primitives::U256::from(10),
+            unitIds: vec![
+                unit_id_1.as_ref().into(),
+                unit_id_2.as_ref().into(),
+                unit_id_3.as_ref().into(),
+                unit_id_4.as_ref().into(),
+            ],
+        };
+
+        let _ = commitment_activated_sender
+            .send(Ok(serde_json::to_value(Log {
+                data: hex::encode(data.encode_data()),
+                block_number: "1".to_string(),
+                removed: false,
+                topics: vec![
+                    CommitmentActivated::SIGNATURE_HASH.to_string(),
+                    "0xc586dcbfc973643dc5f885bf1a38e054d2675b03fe283a5b7337d70dda9f7171"
+                        .to_string(),
+                    "0x27e42c090aa007a4f2545547425aaa8ea3566e1f18560803ac48f8e98cb3b0c9"
+                        .to_string(),
+                ],
+            })
+            .unwrap()))
+            .unwrap();
+
+        let _ = new_heads_sender
+            .send(Ok(json!({
+                "timestamp": "101",
+                "number": "0x2",
+            })))
+            .unwrap();
+
+        if let Some((result_global_nonce, result_difficulty, result_cores)) =
+            test_result_receiver.recv().await
+        {
+            assert_eq!(result_global_nonce, global_nonce);
+            assert_eq!(result_difficulty, difficulty);
+            assert_eq!(result_cores.len(), 2);
+            assert_eq!(
+                result_cores.get(&PhysicalCoreId::from(0)).cloned(),
+                Some(unit_id_1)
+            );
+            assert_eq!(
+                result_cores.get(&PhysicalCoreId::from(1)).cloned(),
+                Some(unit_id_2)
+            );
+        }
+    }
 }
