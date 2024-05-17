@@ -106,32 +106,3 @@ impl CoreManagerFunctions for DummyCoreManager {
         }
     }
 }
-
-#[async_trait]
-impl CoreManagerFunctions for DummyCoreManager {
-    fn acquire_worker_core(
-        &self,
-        assign_request: AcquireRequest,
-    ) -> Result<Assignment, AcquireError> {
-        let all_cores = self.all_cores();
-
-        let logical_core_ids: BTreeSet<LogicalCoreId> = BTreeSet::from_iter(
-            all_cores
-                .logical_core_ids
-                .into_iter()
-                .choose_multiple(&mut rand::thread_rng(), assign_request.unit_ids.len()),
-        );
-
-        Ok(Assignment {
-            physical_core_ids: BTreeSet::new(),
-            logical_core_ids,
-            cuid_cores: Map::with_hasher(FxBuildHasher::default()),
-        })
-    }
-
-    fn release(&self, _unit_ids: &[CUID]) {}
-
-    fn get_system_cpu_assignment(&self) -> Assignment {
-        self.all_cores()
-    }
-}
