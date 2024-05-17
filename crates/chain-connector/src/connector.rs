@@ -318,7 +318,7 @@ impl HttpChainConnector {
         for result in resp.into_iter() {
             println!("app cid result: {result:?}");
             let cid = CIDV1::abi_decode(&decode_hex(&result?)?, true)?;
-            println!("cid: {cid:?}");
+            println!("cid: {:?}", cid.hash.to_string());
             let cid_bytes = [cid.prefixes.to_vec(), cid.hash.to_vec()].concat();
             let app_cid = libipld::Cid::read_bytes(cid_bytes.as_slice())?.to_string();
             println!("app cid: {app_cid:?}");
