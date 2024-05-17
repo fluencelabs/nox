@@ -311,13 +311,17 @@ impl HttpChainConnector {
                 ],
             )?;
         }
-
+        println!("make app cid req: {batch:?}");
         let resp: BatchResponse<String> = self.client.batch_request(batch).await?;
+        println!("app cid resp: {resp:?}");
         let mut cids = vec![];
         for result in resp.into_iter() {
+            println!("app cid result: {result:?}");
             let cid = CIDV1::abi_decode(&decode_hex(&result?)?, true)?;
+            println!("cid: {cid:?}");
             let cid_bytes = [cid.prefixes.to_vec(), cid.hash.to_vec()].concat();
             let app_cid = libipld::Cid::read_bytes(cid_bytes.as_slice())?.to_string();
+            println!("app cid: {app_cid:?}");
 
             cids.push(app_cid.to_string());
         }
