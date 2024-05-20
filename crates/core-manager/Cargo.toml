@@ -14,6 +14,7 @@ toml = { workspace = true }
 multimap = { version = "0.10.0", features = ["serde"] }
 bimap = { version = "0.6.3", features = ["serde"] }
 newtype_derive = "0.1.6"
+nonempty = "0.9.0"
 
 tokio = { workspace = true, features = ["fs", "rt", "sync", "macros", "tracing"] }
 async-trait.workspace = true
@@ -25,7 +26,7 @@ serde = { workspace = true, features = ["derive"] }
 tracing.workspace = true
 tokio-stream.workspace = true
 futures.workspace = true
-rand = "0.8.5"
+rand = { workspace = true }
 hex.workspace = true
 serde_with = { workspace = true }
 hex-utils = { workspace = true, features = ["serde_with"] }

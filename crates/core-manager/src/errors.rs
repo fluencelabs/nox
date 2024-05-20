@@ -14,6 +14,8 @@ pub enum CreateError {
     CreateTopology { err: CPUTopologyError },
     #[error("Failed to collect cores data from OS {err:?}")]
     CollectCoresData { err: CPUTopologyError },
+    #[error("The specified CPU range exceeds the available CPU count")]
+    WrongCpuRange,
 }
 
 #[derive(Debug, Error)]
