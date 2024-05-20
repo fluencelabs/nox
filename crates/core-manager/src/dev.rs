@@ -105,6 +105,10 @@ impl DevCoreManager {
             .physical_cores()
             .map_err(|err| CreateError::CollectCoresData { err })?;
 
+        if !core_range.is_subset(&physical_cores) {
+            return Err(CreateError::WrongCpuRange);
+        }
+
         let mut cores_mapping: MultiMap<PhysicalCoreId, LogicalCoreId> =
             MultiMap::with_capacity_and_hasher(available_core_count, FxBuildHasher::default());
 
@@ -301,7 +305,7 @@ impl CoreManagerFunctions for DevCoreManager {
     fn release(&self, unit_ids: &[CUID]) {
         let mut lock = self.state.write();
         for unit_id in unit_ids {
-            if let Some(physical_core_id) = lock.unit_id_core_mapping.remove(&unit_id) {
+            if let Some(physical_core_id) = lock.unit_id_core_mapping.remove(unit_id) {
                 let mapping = lock.core_unit_id_mapping.get_vec_mut(&physical_core_id);
                 if let Some(mapping) = mapping {
                     let index = mapping.iter().position(|x| x == unit_id).unwrap();
@@ -310,7 +314,7 @@ impl CoreManagerFunctions for DevCoreManager {
                         lock.core_unit_id_mapping.remove(&physical_core_id);
                     }
                 }
-                lock.work_type_mapping.remove(&unit_id);
+                lock.work_type_mapping.remove(unit_id);
             }
         }
     }
@@ -354,10 +358,11 @@ mod tests {
     use ccp_shared::types::CUID;
     use hex::FromHex;
     use rand::RngCore;
+    use std::str::FromStr;
 
     use crate::manager::CoreManagerFunctions;
     use crate::types::{AcquireRequest, WorkType};
-    use crate::{CoreRange, DevCoreManager};
+    use crate::{CoreRange, DevCoreManager, StrictCoreManager};
 
     fn cores_exists() -> bool {
         num_cpus::get_physical() >= 4
@@ -537,6 +542,23 @@ mod tests {
                 before_available_core.len()
             );
             assert_eq!(after_assignment_type_mapping.len(), assignment_count * 2);
+        }
+    }
+
+    #[test]
+    fn test_wrong_range() {
+        if cores_exists() {
+            let temp_dir = tempfile::tempdir().expect("Failed to create temp dir");
+
+            let range = CoreRange::from_str("0-16384").unwrap();
+
+            let result = StrictCoreManager::from_path(temp_dir.path().join("test.toml"), 2, range);
+
+            assert!(result.is_err());
+            assert_eq!(
+                result.err().map(|err| err.to_string()),
+                Some("The specified CPU range exceeds the available CPU count".to_string())
+            );
         }
     }
 }

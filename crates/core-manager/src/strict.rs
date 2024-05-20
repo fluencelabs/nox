@@ -102,6 +102,10 @@ impl StrictCoreManager {
             .physical_cores()
             .map_err(|err| CreateError::CollectCoresData { err })?;
 
+        if !core_range.is_subset(&physical_cores) {
+            return Err(CreateError::WrongCpuRange);
+        }
+
         let mut cores_mapping: MultiMap<PhysicalCoreId, LogicalCoreId> =
             MultiMap::with_capacity_and_hasher(available_core_count, FxBuildHasher::default());
 
@@ -302,9 +306,9 @@ impl CoreManagerFunctions for StrictCoreManager {
     fn release(&self, unit_ids: &[CUID]) {
         let mut lock = self.state.write();
         for unit_id in unit_ids {
-            if let Some((physical_core_id, _)) = lock.unit_id_mapping.remove_by_right(&unit_id) {
+            if let Some((physical_core_id, _)) = lock.unit_id_mapping.remove_by_right(unit_id) {
                 lock.available_cores.insert(physical_core_id);
-                lock.work_type_mapping.remove(&unit_id);
+                lock.work_type_mapping.remove(unit_id);
             }
         }
     }
@@ -348,6 +352,7 @@ mod tests {
     use ccp_shared::types::{LogicalCoreId, PhysicalCoreId, CUID};
     use hex::FromHex;
     use std::collections::BTreeSet;
+    use std::str::FromStr;
 
     use crate::manager::CoreManagerFunctions;
     use crate::persistence::PersistentCoreManagerState;
@@ -534,6 +539,23 @@ mod tests {
             Required: 1, available: 0, current assignment: [2 -> 1cce3d08f784b11d636f2fb55adf291d43c2e9cbe7ae7eeb2d0301a96be0a3a0, \
             3 -> 54ae1b506c260367a054f80800a545f23e32c6bc4a8908c9a794cb8dad23e5ea].".to_string();
             assert_eq!(expected, result.unwrap_err().to_string());
+        }
+    }
+
+    #[test]
+    fn test_wrong_range() {
+        if cores_exists() {
+            let temp_dir = tempfile::tempdir().expect("Failed to create temp dir");
+
+            let range = CoreRange::from_str("0-16384").unwrap();
+
+            let result = StrictCoreManager::from_path(temp_dir.path().join("test.toml"), 2, range);
+
+            assert!(result.is_err());
+            assert_eq!(
+                result.err().map(|err| err.to_string()),
+                Some("The specified CPU range exceeds the available CPU count".to_string())
+            );
         }
     }
 }

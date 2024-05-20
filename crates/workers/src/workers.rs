@@ -238,8 +238,21 @@ impl Workers {
                             .await
                             .map_err(|_err| WorkersError::FailedToNotifySubsystem { worker_id });
                         match result {
-                            Ok(_) => Ok(()),
+                            Ok(_) => {
+                                tracing::info!(
+                                    target = "worker-registry",
+                                    worker_id = worker_id.to_string(),
+                                    "Worker created {worker_id}"
+                                );
+                                Ok(())
+                            }
                             Err(err) => {
+                                tracing::error!(
+                                    target = "worker-registry",
+                                    worker_id = worker_id.to_string(),
+                                    "Failed to notify subsystem for {worker_id}: {}",
+                                    err
+                                );
                                 let mut worker_ids = self.worker_ids.write();
                                 let mut worker_infos = self.worker_infos.write();
                                 let mut runtimes = self.runtimes.write();
