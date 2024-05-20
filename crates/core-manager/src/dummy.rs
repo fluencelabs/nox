@@ -49,7 +49,7 @@ impl CoreManagerFunctions for DummyCoreManager {
         })
     }
 
-    fn release(&self, _unit_ids: Vec<CUID>) {}
+    fn release(&self, _unit_ids: &[CUID]) {}
 
     fn get_system_cpu_assignment(&self) -> Assignment {
         self.all_cores()

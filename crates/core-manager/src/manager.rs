@@ -63,7 +63,7 @@ pub trait CoreManagerFunctions {
         assign_request: AcquireRequest,
     ) -> Result<Assignment, AcquireError>;
 
-    fn release(&self, unit_ids: Vec<CUID>);
+    fn release(&self, unit_ids: &[CUID]);
 
     fn get_system_cpu_assignment(&self) -> Assignment;
 }
