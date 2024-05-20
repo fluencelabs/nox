@@ -14,7 +14,6 @@ print_config= false
 allowed_binaries = [
   "/usr/bin/curl",
   "/usr/bin/ipfs",
-  "/usr/bin/bitcoin-cli",
   "/usr/bin/geth",
 ]
 

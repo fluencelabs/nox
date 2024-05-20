@@ -288,15 +288,17 @@ impl ChainListener {
                     err
                 })?;
 
+        tracing::info!(target: "chain-listener","Commitment initial params: difficulty {}, global nonce {}, init_timestamp {}, epoch_duration {}, current_epoch {}, min_proofs_per_epoch {}, max_proofs_per_epoch {}",  init_params.difficulty, init_params.global_nonce, init_params.init_timestamp, init_params.epoch_duration, init_params.current_epoch, init_params.min_proofs_per_epoch, init_params.max_proofs_per_epoch);
+
         self.difficulty = init_params.difficulty;
         self.init_timestamp = init_params.init_timestamp;
         self.global_nonce = init_params.global_nonce;
         self.epoch_duration = init_params.epoch_duration;
-        self.current_epoch = init_params.current_epoch;
         self.min_proofs_per_epoch = init_params.min_proofs_per_epoch;
         self.max_proofs_per_epoch = init_params.max_proofs_per_epoch;
 
-        tracing::info!(target: "chain-listener","Commitment initial params: difficulty {}, global nonce {}, init_timestamp {}, epoch_duration {}, current_epoch {}, min_proofs_per_epoch {}, max_proofs_per_epoch {}",  init_params.difficulty, init_params.global_nonce, init_params.init_timestamp, init_params.epoch_duration, init_params.current_epoch, init_params.min_proofs_per_epoch, init_params.max_proofs_per_epoch);
+        self.set_current_epoch(init_params.current_epoch);
+
         Ok(())
     }
 
@@ -359,6 +361,7 @@ impl ChainListener {
     }
 
     async fn reset_proof_id(&mut self) -> eyre::Result<()> {
+        tracing::info!(target: "chain-listener", "Resetting proof id counter");
         self.set_proof_id(ProofIdx::zero()).await
     }
 
@@ -657,7 +660,6 @@ impl ChainListener {
 
         if epoch_changed {
             // TODO: add epoch_number to metrics
-            tracing::info!(target: "chain-listener", "Epoch changed, new epoch number: {epoch_number}");
 
             // nonce changes every epoch
             self.global_nonce = self.chain_connector.get_global_nonce().await?;
@@ -666,10 +668,8 @@ impl ChainListener {
                 self.global_nonce
             );
 
-            self.current_epoch = epoch_number;
-            tracing::info!(target: "chain-listener", "Resetting proof id counter");
+            self.set_current_epoch(epoch_number);
             self.reset_proof_id().await?;
-            self.proof_counter.clear();
 
             if let Some(status) = self.get_commitment_status().await? {
                 tracing::info!(target: "chain-listener", "Current commitment status: {status:?}");
@@ -950,6 +950,10 @@ impl ChainListener {
         units.extend(&cu_groups.pending_units);
         units.extend(&cu_groups.finished_units);
 
+        // Release all ccp units to allow the core manager to assign them again
+        // without that action availability count will be wrong
+        self.core_manager.release(&units);
+
         let cores = self.core_manager.acquire_worker_core(AcquireRequest::new(
             units.to_vec(),
             WorkType::CapacityCommitment,
@@ -986,10 +990,8 @@ impl ChainListener {
                 available,
                 ..
             }) => {
-                tracing::warn!("Found {required} CUs in the Capacity Commitment, but Nox has only {available} Cores available for CC");
+                tracing::warn!(target: "chain-listener", "Found {required} CUs in the Capacity Commitment, but Nox has only {available} Cores available for CC");
                 let assign_units = units.iter().take(available).cloned().collect();
-                // Release all units to allow the core manager to assign them again
-                self.core_manager.release(units);
                 let assignment = self.core_manager.acquire_worker_core(AcquireRequest::new(
                     assign_units,
                     WorkType::CapacityCommitment,
@@ -1319,6 +1321,14 @@ impl ChainListener {
         }
 
         Ok(())
+    }
+
+    fn set_current_epoch(&mut self, epoch_number: U256) {
+        if self.current_epoch != epoch_number {
+            tracing::info!(target: "chain-listener", "Epoch changed, was {}, new epoch number is {epoch_number}", self.current_epoch);
+            self.current_epoch = epoch_number;
+            self.proof_counter.clear();
+        }
     }
 
     fn observe<F>(&self, f: F)
