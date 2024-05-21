@@ -1267,6 +1267,7 @@ mod tests {
             .with_header("content-type", "application/json")
             .with_body(compute_units_response)
             .create();
+
         let deals = get_connector(&url).get_deals().await;
         assert!(
             deals.is_ok(),
@@ -1276,6 +1277,7 @@ mod tests {
             deals.unwrap().is_empty(),
             "no deals must be found in the compute units"
         );
+
         mock.assert();
     }
 
@@ -1324,11 +1326,13 @@ mod tests {
                 }
             })
             .create();
+
         let result = get_connector(&url)
             .register_worker(&deal_id, worker_id, cuid)
             .await
             .unwrap();
         assert_eq!(result, expected_tx_hash);
+
         mock.assert();
     }
 
@@ -1367,12 +1371,14 @@ mod tests {
                 }
             })
             .create();
+
         let mut result = get_connector(&url)
             .get_tx_receipts(vec![tx_hash.clone()])
             .await
             .unwrap();
         assert_eq!(result.len(), 1);
         assert!(result[0].is_ok(), "can't get receipt: {:?}", result[0]);
+
         let result = result.remove(0).unwrap();
         assert_eq!(result.transaction_hash, tx_hash);
         mock.assert();
