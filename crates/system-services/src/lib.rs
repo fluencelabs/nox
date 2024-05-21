@@ -13,7 +13,7 @@ pub use deployer::Deployer;
 pub use distro::SystemServiceDistros;
 pub use distro::Versions;
 
-use fluence_app_service::TomlMarineConfig;
+use fluence_app_service::{TomlMarineConfig, TomlValue};
 use fluence_spell_dtos::trigger_config::TriggerConfig;
 use serde_json::Value;
 
@@ -162,7 +162,7 @@ fn apply_binary_path_override(
     if let Some(module_config) = config.module.iter_mut().find(|p| p.name == module_name) {
         if let Some(mounted_binaries) = &mut module_config.config.mounted_binaries {
             if let Some(path) = mounted_binaries.get_mut(binary_name) {
-                *path = toml::Value::String(binary_path);
+                *path = TomlValue::String(binary_path);
             }
         }
     }

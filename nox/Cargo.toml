@@ -68,7 +68,7 @@ hex = "0.4.3"
 tracing-panic = "0.1.1"
 tracing-appender = "0.2.3"
 serde = { workspace = true }
-toml = "0.8.12"
+toml = { workspace = true }
 log-format = { workspace = true }
 
 [dev-dependencies]
