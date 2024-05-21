@@ -82,10 +82,9 @@ jobs:
   cli:
     needs:
       - nox-snapshot
-    uses: fluencelabs/cli/.github/workflows/tests.yml@timeout
+    uses: fluencelabs/cli/.github/workflows/tests.yml@main
     with:
       nox-image: "${{ needs.nox-snapshot.outputs.nox-image }}"
-      ref: "timeout"
 
 
   js-client:
