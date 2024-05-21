@@ -550,8 +550,9 @@ impl ChainListener {
 
         for cu in in_deal {
             let cu_id = CUID::new(cu.id.0);
-            self.active_deals.insert(cu.deal.to_string().into(), cu_id);
+            self.core_manager.release(&[cu_id]);
             self.acquire_core_for_deal(cu_id)?;
+            self.active_deals.insert(cu.deal.to_string().into(), cu_id);
         }
 
         let active = self
