@@ -139,7 +139,7 @@ impl<'a> InitService for TrustGraphInit<'a> {
 pub fn default_trust_graph_distro<'a>() -> eyre::Result<PackageDistro> {
     use trust_graph_distro::*;
 
-    let config: TomlMarineConfig = toml::from_slice(CONFIG)?;
+    let config: TomlMarineConfig = toml_edit::de::from_slice(CONFIG)?;
     let service_distro = ServiceDistro {
         modules: modules(),
         config,
@@ -209,7 +209,7 @@ impl InitService for AquaIpfsConfigInit {
 pub fn default_aqua_ipfs_distro(config: &AquaIpfsConfig) -> eyre::Result<PackageDistro> {
     use aqua_ipfs_distro::*;
 
-    let mut marine_config: TomlMarineConfig = toml::from_slice(CONFIG)?;
+    let mut marine_config: TomlMarineConfig = toml_edit::de::from_slice(CONFIG)?;
     apply_binary_path_override(
         &mut marine_config,
         "ipfs_effector",
@@ -244,7 +244,7 @@ pub fn default_aqua_ipfs_distro(config: &AquaIpfsConfig) -> eyre::Result<Package
 }
 
 pub fn default_registry_distro(config: &RegistryConfig) -> eyre::Result<PackageDistro> {
-    let marine_config: TomlMarineConfig = toml::from_slice(registry_distro::CONFIG)?;
+    let marine_config: TomlMarineConfig = toml_edit::de::from_slice(registry_distro::CONFIG)?;
     let service_distro = ServiceDistro {
         modules: registry_distro::modules(),
         config: marine_config,
@@ -282,7 +282,8 @@ pub fn default_decider_distro<'a>(
 ) -> eyre::Result<PackageDistro> {
     // prepare connector
     let connector_service_distro = decider_distro::connector_service_modules();
-    let mut marine_config: TomlMarineConfig = toml::from_slice(connector_service_distro.config)?;
+    let mut marine_config: TomlMarineConfig =
+        toml_edit::de::from_slice(connector_service_distro.config)?;
     apply_binary_path_override(
         &mut marine_config,
         "curl_adapter",
