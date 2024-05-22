@@ -64,12 +64,12 @@ pub trait ChainConnector: Send + Sync {
     async fn get_tx_statuses(
         &self,
         tx_hashes: Vec<String>,
-    ) -> Result<Vec<eyre::Result<bool>>, ConnectorError>;
+    ) -> Result<Vec<Result<Option<bool>, ConnectorError>>, ConnectorError>;
 
     async fn get_tx_receipts(
         &self,
         tx_hashes: Vec<String>,
-    ) -> Result<Vec<eyre::Result<TxReceiptResult>>, ConnectorError>;
+    ) -> Result<Vec<Result<TxReceiptResult, ConnectorError>>, ConnectorError>;
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -80,12 +80,36 @@ pub struct DealInfo {
     pub app_cid: String,
 }
 
+#[derive(Debug)]
+pub struct TxReceipt {
+    status: bool,
+    transaction_hash: String,
+    block_number: String,
+}
+
+#[derive(Debug)]
+pub enum TxReceiptResult {
+    Pending,
+    Processed(TxReceipt),
+}
+
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct TxReceiptResult {
-    block_number: String,
+struct RawTxReceipt {
     status: String,
     transaction_hash: String,
+    block_number: String,
+}
+
+impl RawTxReceipt {
+    fn to_tx_receipt(self) -> TxReceipt {
+        TxReceipt {
+            // if status is "0x1" transaction was successful
+            status: self.status == "0x1",
+            transaction_hash: self.transaction_hash,
+            block_number: self.block_number,
+        }
+    }
 }
 
 pub struct HttpChainConnector {
@@ -246,14 +270,25 @@ impl HttpChainConnector {
             .into_iter()
             .map(|tx_receipt| match tx_receipt {
                 Ok(receipt) => {
+                    let (status, receipt) = match receipt {
+                        TxReceiptResult::Pending => ("pending", vec![]),
+                        TxReceiptResult::Processed(receipt) => {
+                            let status = if receipt.status { "success" } else { "failed" };
+                            (
+                                status,
+                                vec![json!({
+                                    "tx_hash": receipt.transaction_hash,
+                                    "block_number": receipt.block_number,
+                                })],
+                            )
+                        }
+                    };
+
                     json!({
                         "success": json!(true),
                         "error":  json!([]),
-                        "receipt": json!([json!({
-                            "block_number": json!(receipt.block_number),
-                            "tx_hash": json!(receipt.transaction_hash),
-                            "status": json!(receipt.status),
-                        })])
+                        "status": json!(status),
+                        "receipt": json!(receipt)
                     })
                 }
                 Err(err) => {
@@ -742,11 +777,15 @@ impl ChainConnector for HttpChainConnector {
     async fn get_tx_statuses(
         &self,
         tx_hashes: Vec<String>,
-    ) -> Result<Vec<eyre::Result<bool>>, ConnectorError> {
+    ) -> Result<Vec<Result<Option<bool>, ConnectorError>>, ConnectorError> {
         let mut statuses = vec![];
 
         for receipt in self.get_tx_receipts(tx_hashes).await? {
-            let status = receipt.map(|receipt| receipt.status == "0x1");
+            // A pending transaction has no receipt so w
+            let status = receipt.map(|receipt| match receipt {
+                TxReceiptResult::Pending => None,
+                TxReceiptResult::Processed(r) => Some(r.status),
+            });
             statuses.push(status);
         }
 
@@ -756,7 +795,7 @@ impl ChainConnector for HttpChainConnector {
     async fn get_tx_receipts(
         &self,
         tx_hashes: Vec<String>,
-    ) -> Result<Vec<eyre::Result<TxReceiptResult>>, ConnectorError> {
+    ) -> Result<Vec<Result<TxReceiptResult, ConnectorError>>, ConnectorError> {
         let mut batch = BatchRequestBuilder::new();
         for tx_hash in tx_hashes {
             batch.insert("eth_getTransactionReceipt", rpc_params![tx_hash])?;
@@ -766,7 +805,10 @@ impl ChainConnector for HttpChainConnector {
         for receipt in resp.into_iter() {
             let receipt = try {
                 let receipt = receipt.map_err(|e| ConnectorError::RpcError(e.to_owned().into()))?;
-                serde_json::from_value(receipt)?
+                match serde_json::from_value::<Option<RawTxReceipt>>(receipt)? {
+                    None => TxReceiptResult::Pending,
+                    Some(raw_receipt) => TxReceiptResult::Processed(raw_receipt.to_tx_receipt()),
+                }
             };
             receipts.push(receipt);
         }
@@ -795,6 +837,7 @@ mod tests {
     use fluence_libp2p::RandomPeerId;
     use hex_utils::decode_hex;
 
+    use crate::connector::TxReceiptResult;
     use crate::Deal::Status::ACTIVE;
     use crate::{
         is_commitment_not_active, CCStatus, ChainConnector, CommitmentId, ConnectorError,
@@ -1337,6 +1380,51 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_get_receipts_pending() {
+        let tx_hash =
+            "0x55bfec4a4400ca0b09e075e2b517041cd78b10021c51726cb73bcba52213fa05".to_string();
+        let receipt_response = r#"
+            [{
+                "id": 0,
+                "jsonrpc": "2.0",
+                "result": null
+            }]
+        "#;
+        let mut server = mockito::Server::new();
+        let url = server.url();
+        let mock = server
+            .mock("POST", "/")
+            // expect exactly 1 POST request
+            .expect(1)
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body_from_request(move |req| {
+                let body = req.body().expect("mock: get request body");
+                let body: Vec<RpcRequest<serde_json::Value>> =
+                    serde_json::from_slice(body).expect("mock: parse request body");
+                match body[0].method.as_ref() {
+                    "eth_getTransactionReceipt" => receipt_response.into(),
+                    x => {
+                        panic!("unknown method: {x}. Request {body:?}");
+                    }
+                }
+            })
+            .create();
+
+        let mut result = get_connector(&url)
+            .get_tx_receipts(vec![tx_hash.clone()])
+            .await
+            .unwrap();
+        assert_eq!(result.len(), 1);
+        assert!(result[0].is_ok(), "can't get receipt: {:?}", result[0]);
+
+        let result = result.remove(0).unwrap();
+        assert_matches!(result, TxReceiptResult::Pending);
+
+        mock.assert();
+    }
+
+    #[tokio::test]
     async fn test_get_receipts() {
         let tx_hash =
             "0x55bfec4a4400ca0b09e075e2b517041cd78b10021c51726cb73bcba52213fa05".to_string();
@@ -1380,7 +1468,11 @@ mod tests {
         assert!(result[0].is_ok(), "can't get receipt: {:?}", result[0]);
 
         let result = result.remove(0).unwrap();
-        assert_eq!(result.transaction_hash, tx_hash);
+        assert_matches!(result, TxReceiptResult::Processed(_));
+        if let TxReceiptResult::Processed(receipt) = result {
+            assert_eq!(receipt.transaction_hash, tx_hash);
+        }
+
         mock.assert();
     }
 }

@@ -1262,7 +1262,8 @@ impl ChainListener {
         }
 
         let statuses = retry(ExponentialBackoff::default(), || async {
-            let s = self.chain_connector.get_tx_statuses(self.pending_proof_txs.iter().map(|(tx, _)| tx).cloned().collect()).await.map_err(|err| {
+            let txs = self.pending_proof_txs.iter().map(|(tx, _)| tx).cloned().collect();
+            let s = self.chain_connector.get_tx_statuses(txs).await.map_err(|err| {
                 tracing::warn!(target: "chain-listener", "Failed to poll pending proof txs statuses: {err}");
                 eyre!("Failed to poll pending proof txs statuses: {err}; Retrying...")
             })?;
@@ -1278,7 +1279,7 @@ impl ChainListener {
             .zip(self.pending_proof_txs.clone().into_iter())
         {
             match status {
-                Ok(status) => {
+                Ok(Some(status)) => {
                     if status {
                         tracing::info!(target: "chain-listener", "Proof tx {tx_hash} confirmed");
                         stats_updated = true;
@@ -1302,6 +1303,9 @@ impl ChainListener {
                     }
 
                     self.pending_proof_txs.retain(|(tx, _)| tx != &tx_hash);
+                }
+                Ok(None) => {
+                    tracing::info!(target: "chain-listener", "Proof tx {tx_hash} is pending");
                 }
                 Err(err) => {
                     tracing::debug!(target: "chain-listener", "Failed to get tx receipt for {tx_hash}: {err}");
