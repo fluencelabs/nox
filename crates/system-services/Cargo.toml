@@ -8,8 +8,7 @@ edition = "2021"
 [dependencies]
 aqua-ipfs-distro = "=0.6.0"
 #decider-distro = "=0.6.11"
-#decider-distro = { version = "=0.6.13-lightweight-decider-60cf5bd-1040-1.0", registry = "fluence" }
-decider-distro = { version = "=0.6.13-lightweight-decider-f7285f6-1041-1.0", registry = "fluence" }
+decider-distro = { version = "=0.6.13-lightweight-decider-f8ff416-1043-1.0", registry = "fluence" }
 registry-distro = "=0.9.4"
 trust-graph-distro = "=0.4.11"
 
