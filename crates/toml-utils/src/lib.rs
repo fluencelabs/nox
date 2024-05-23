@@ -26,11 +26,11 @@
     unreachable_patterns
 )]
 
-use toml::value::{Table, Value};
+use marine::{TomlValue, TomlValueTable};
 
-pub fn table(tuples: Vec<(String, String)>) -> Table {
+pub fn table(tuples: Vec<(String, String)>) -> TomlValueTable {
     tuples
         .into_iter()
-        .map(|(k, v)| (k, Value::String(v)))
+        .map(|(k, v)| (k, TomlValue::String(v)))
         .collect()
 }

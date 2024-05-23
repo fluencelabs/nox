@@ -63,7 +63,7 @@ jobs:
         uses: dsherret/rust-toolchain-file@v1
 
       - name: Install cargo-edit
-        uses: baptiste0928/cargo-install@v3.0.0
+        uses: baptiste0928/cargo-install@v3.1.0
         with:
           crate: cargo-edit
 
