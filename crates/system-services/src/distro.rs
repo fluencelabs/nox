@@ -284,7 +284,8 @@ pub fn default_decider_distro(decider_config: &DeciderConfig) -> eyre::Result<Pa
     let decider_spell_distro = decider_distro::decider_spell(decider_settings);
     let mut decider_trigger_config = TriggerConfig::default();
     decider_trigger_config.clock.start_sec = 1;
-    decider_trigger_config.clock.period_sec = decider_config.decider_period_sec;
+    // Do it to check FCLI tests, need to remove
+    decider_trigger_config.clock.period_sec = 30; // decider_config.decider_period_sec;
     let spell_distro = SpellDistro {
         name: Decider.to_string(),
         air: decider_spell_distro.air,
