@@ -273,7 +273,7 @@ impl HttpChainConnector {
                     let (status, receipt) = match receipt {
                         TxReceiptResult::Pending => ("pending", vec![]),
                         TxReceiptResult::Processed(receipt) => {
-                            let status = if receipt.status { "success" } else { "failed" };
+                            let status = if receipt.status { "ok" } else { "failed" };
                             (
                                 status,
                                 vec![json!({
@@ -1380,7 +1380,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_get_receipts_pending() {
+    async fn test_get_receipts_several() {
         let tx_hash =
             "0x55bfec4a4400ca0b09e075e2b517041cd78b10021c51726cb73bcba52213fa05".to_string();
         let receipt_response = r#"
@@ -1388,6 +1388,23 @@ mod tests {
                 "id": 0,
                 "jsonrpc": "2.0",
                 "result": null
+            },
+            {
+                "id": 1,
+                "jsonrpc": "2.0",
+                "result": {
+                    "blockNumber": "0x123",
+                    "status": "0x1",
+                    "transactionHash": "0x55bfec4a4400ca0b09e075e2b517041cd78b10021c51726cb73bcba52213fa05"
+                }
+            },
+            {
+                "id": 2,
+                "jsonrpc": "2.0",
+                "error": {
+                    "code": -32000,
+                    "message": "some error"
+                }
             }]
         "#;
         let mut server = mockito::Server::new();
@@ -1415,11 +1432,17 @@ mod tests {
             .get_tx_receipts(vec![tx_hash.clone()])
             .await
             .unwrap();
-        assert_eq!(result.len(), 1);
-        assert!(result[0].is_ok(), "can't get receipt: {:?}", result[0]);
+        assert_eq!(result.len(), 3);
 
-        let result = result.remove(0).unwrap();
-        assert_matches!(result, TxReceiptResult::Pending);
+        let pending = result.remove(0);
+        assert!(pending.is_ok(), "should get pending status: {:?}", pending);
+        assert_matches!(pending.unwrap(), TxReceiptResult::Pending);
+
+        let ok = result.remove(0);
+        assert!(ok.is_ok(), "should get a receipt: {:?}", ok);
+        assert_matches!(ok.unwrap(), TxReceiptResult::Processed(_));
+
+        assert!(result[0].is_err(), "should be error: {:?}", result[0]);
 
         mock.assert();
     }
