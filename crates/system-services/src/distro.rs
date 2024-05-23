@@ -3,7 +3,8 @@ use fluence_app_service::TomlMarineConfig;
 use fluence_spell_dtos::trigger_config::TriggerConfig;
 use serde_json::json;
 use server_config::system_services_config::{
-    AquaIpfsConfig, DeciderConfig, RegistryConfig, ServiceKey, ServiceKey::*, SystemServicesConfig,
+    AquaIpfsConfig, ConnectorConfig, DeciderConfig, RegistryConfig, ServiceKey, ServiceKey::*,
+    SystemServicesConfig,
 };
 use std::collections::HashMap;
 use std::sync::Arc;
