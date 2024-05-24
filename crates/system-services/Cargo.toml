@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 aqua-ipfs-distro = "=0.6.0"
-decider-distro = "=0.6.12"
+decider-distro = { version = "=0.6.13-lightweight-decider-f436bd3-1047-1.0", registry = "fluence" }
 registry-distro = "=0.9.4"
 trust-graph-distro = "=0.4.11"
 

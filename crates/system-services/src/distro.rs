@@ -3,7 +3,7 @@ use fluence_app_service::TomlMarineConfig;
 use fluence_spell_dtos::trigger_config::TriggerConfig;
 use serde_json::json;
 use server_config::system_services_config::{
-    AquaIpfsConfig, ConnectorConfig, DeciderConfig, RegistryConfig, ServiceKey, ServiceKey::*,
+    AquaIpfsConfig, DeciderConfig, RegistryConfig, ServiceKey, ServiceKey::*,
     SystemServicesConfig,
 };
 use std::collections::HashMap;
@@ -48,7 +48,7 @@ impl SystemServiceDistros {
                     AquaIpfs => default_aqua_ipfs_distro(&config.aqua_ipfs),
                     TrustGraph => default_trust_graph_distro(),
                     Registry => default_registry_distro(&config.registry),
-                    Decider => default_decider_distro(&config.decider, &config.connector),
+                    Decider => default_decider_distro(&config.decider),
                 };
                 distro.map(move |d| (d.name.clone(), d))
             })
@@ -276,44 +276,13 @@ pub fn default_registry_distro(config: &RegistryConfig) -> eyre::Result<PackageD
     Ok(package)
 }
 
-pub fn default_decider_distro<'a>(
+pub fn default_decider_distro(
     decider_config: &DeciderConfig,
-    connector_config: &ConnectorConfig,
 ) -> eyre::Result<PackageDistro> {
-    // prepare connector
-    let connector_service_distro = decider_distro::connector_service_modules();
-    let mut marine_config: TomlMarineConfig =
-        toml_edit::de::from_slice(connector_service_distro.config)?;
-    apply_binary_path_override(
-        &mut marine_config,
-        "curl_adapter",
-        "curl",
-        connector_config.curl_binary_path.clone(),
-    );
-
-    let service_distro = ServiceDistro {
-        modules: connector_service_distro.modules,
-        config: marine_config,
-        name: connector_service_distro.name.to_string(),
-    };
-
-    let wallet_key = match decider_config.wallet_key.clone() {
-        // TODO: set default wallet key somewhere in nox-distro, etc
-        //None => return Err(eyre!("Decider enabled, but wallet_key is not set. Please set it via env FLUENCE_ENV_CONNECTOR_WALLET_KEY or in Config.toml")),
-        None => "0xfdc4ba94809c7930fe4676b7d845cbf8fa5c1beae8744d959530e5073004cf3f".to_string(),
-        Some(key) => key,
-    };
-
     // prepare decider
     let decider_settings = decider_distro::DeciderConfig {
         worker_period_sec: decider_config.worker_period_sec,
         worker_ipfs_multiaddr: decider_config.worker_ipfs_multiaddr.clone(),
-        chain_api_endpoint: decider_config.network_api_endpoint.clone(),
-        chain_network_id: decider_config.network_id,
-        chain_contract_block_hex: decider_config.start_block.clone(),
-        chain_matcher_addr: decider_config.matcher_address.clone(),
-        chain_workers_gas: decider_config.worker_gas,
-        chain_wallet_key: wallet_key,
     };
     let decider_spell_distro = decider_distro::decider_spell(decider_settings);
     let mut decider_trigger_config = TriggerConfig::default();
@@ -329,7 +298,7 @@ pub fn default_decider_distro<'a>(
     let package = PackageDistro {
         name: Decider.to_string(),
         version: decider_distro::VERSION,
-        services: vec![service_distro],
+        services: vec![],
         spells: vec![spell_distro],
         init: None,
     };
