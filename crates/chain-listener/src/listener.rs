@@ -189,6 +189,11 @@ impl ChainListener {
                 }
                 tracing::info!(target: "chain-listener", "Subscribed successfully");
 
+                if let Err(err) = self.load_proof_id().await {
+                    tracing::error!(target: "chain-listener", "Failed to load persisted proof id: {err}; Stopping...");
+                    exit(1);
+                }
+
                 if let Err(err) = self.refresh_state().await {
                     tracing::error!(target: "chain-listener", "Failed to refresh state: {err}; Stopping...");
                     exit(1);
@@ -345,12 +350,10 @@ impl ChainListener {
                         _ => {}
                     }
                 }
-
-                self.load_proof_id().await?;
             };
 
             if let Err(e) = result {
-                tracing::warn!(target: "chain-listener", "Failed to refresh compute units: {e}");
+                tracing::warn!(target: "chain-listener", "Failed to refresh state: {e}");
                 tracing::info!(target: "chain-listener", "Retrying in 5 seconds");
                 tokio::time::sleep(Duration::from_secs(5)).await;
             } else {
@@ -401,13 +404,9 @@ impl ChainListener {
         if let Some(persisted_proof_id) = persisted_proof_id {
             self.last_submitted_proof_id = persisted_proof_id.proof_id;
             tracing::info!(target: "chain-listener", "Loaded persisted proof id {} saved on epoch {}", persisted_proof_id.proof_id, persisted_proof_id.epoch);
-            if persisted_proof_id.epoch != self.current_epoch {
-                tracing::info!(target: "chain-listener","Persisted proof id epoch is different from current epoch {}, resetting proof id", self.current_epoch);
-                self.reset_proof_id().await?;
-            }
         } else {
-            tracing::info!(target: "chain-listener","No persisted proof id found, starting from zero");
-            self.reset_proof_id().await?;
+            tracing::info!(target: "chain-listener", "No persisted proof id found, starting from zero");
+            self.last_submitted_proof_id = ProofIdx::zero();
         }
 
         Ok(())
@@ -545,8 +544,27 @@ impl ChainListener {
 
         let in_deal: Vec<_> = units.extract_if(|cu| !cu.deal.is_zero()).collect();
 
-        self.cc_compute_units
-            .extend(units.into_iter().map(|unit| (CUID::new(unit.id.0), unit)));
+        self.cc_compute_units = units
+            .into_iter()
+            .map(|unit| (CUID::new(unit.id.0), unit))
+            .collect();
+
+        let active = self
+            .cc_compute_units
+            .values()
+            .filter(|unit| unit.startEpoch <= self.current_epoch);
+
+        let pending = self
+            .cc_compute_units
+            .values()
+            .filter(|unit| unit.startEpoch > self.current_epoch);
+
+        tracing::info!(target: "chain-listener",
+            "Compute units mapping: in cc {}/[{} pending], in deal {}",
+            self.cc_compute_units.len(),
+            pending.clone().count(),
+            in_deal.len()
+        );
 
         for cu in in_deal {
             let cu_id = CUID::new(cu.id.0);
@@ -554,21 +572,6 @@ impl ChainListener {
             self.acquire_core_for_deal(cu_id)?;
             self.active_deals.insert(cu.deal.to_string().into(), cu_id);
         }
-
-        let active = self
-            .cc_compute_units
-            .values()
-            .filter(|unit| unit.startEpoch <= self.current_epoch);
-        let pending = self
-            .cc_compute_units
-            .values()
-            .filter(|unit| unit.startEpoch > self.current_epoch);
-        tracing::info!(target: "chain-listener",
-            "Compute units mapping: in cc {}/[{} pending], in deal {}",
-            self.cc_compute_units.len(),
-            pending.clone().count(),
-            self.active_deals.len()
-        );
 
         tracing::info!(target: "chain-listener",
             "Active compute units: {:?}",
