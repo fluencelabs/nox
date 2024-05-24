@@ -16,10 +16,11 @@
 
 use crate::Map;
 use ccp_shared::types::CUID;
-use cpu_utils::pinning::pin_current_thread_to_cpuset;
+use cpu_utils::pinning::ThreadPinner;
 use cpu_utils::{LogicalCoreId, PhysicalCoreId};
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeSet;
+
+use crate::Map;
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Serialize, Deserialize)]
 pub enum WorkType {
@@ -49,15 +50,27 @@ pub struct Cores {
 
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub struct Assignment {
-    pub physical_core_ids: BTreeSet<PhysicalCoreId>,
-    pub logical_core_ids: BTreeSet<LogicalCoreId>,
+    pub physical_core_ids: Vec<PhysicalCoreId>,
+    pub logical_core_ids: Vec<LogicalCoreId>,
     // We don't need a cryptographically secure hash and it is better to use a fx hash here
     // to improve performance
     pub cuid_cores: Map<CUID, Cores>,
 }
 
 impl Assignment {
-    pub fn pin_current_thread(&self) {
-        pin_current_thread_to_cpuset(self.logical_core_ids.iter().cloned());
+    pub(crate) fn new(
+        physical_core_ids: Vec<PhysicalCoreId>,
+        logical_core_ids: Vec<LogicalCoreId>,
+        cuid_cores: Map<CUID, Cores>,
+    ) -> Self {
+        Self {
+            physical_core_ids,
+            logical_core_ids,
+            cuid_cores,
+        }
+    }
+
+    pub fn pin_current_thread_with(&self, thread_pinner: &dyn ThreadPinner) {
+        thread_pinner.pin_current_thread_to_cpuset(&self.logical_core_ids);
     }
 }

@@ -48,3 +48,5 @@ enum_dispatch = { workspace = true }
 
 [dev-dependencies]
 tempfile = { workspace = true }
+core-distributor = { workspace = true, features = ["dummy"] }
+cpu-utils = { workspace = true }

@@ -22,10 +22,9 @@ mod persistence;
 mod scope;
 mod workers;
 
-pub use core_manager::CoreManager;
-pub use core_manager::DummyCoreManager;
-pub use core_manager::StrictCoreManager;
-pub use core_manager::CUID;
+pub use core_distributor::CoreDistributor;
+pub use core_distributor::PersistentCoreDistributor;
+pub use core_distributor::CUID;
 pub use error::KeyStorageError;
 pub use error::WorkersError;
 pub use key_storage::KeyStorage;

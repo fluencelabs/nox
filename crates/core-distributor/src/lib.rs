@@ -28,24 +28,24 @@ pub mod errors;
 pub mod types;
 
 mod core_range;
-
-mod dev;
-
-mod dummy;
-
-mod manager;
+mod distributor;
 mod persistence;
-mod strict;
+mod strategy;
+
+#[cfg(feature = "dummy")]
+pub mod dummy;
 
 pub use ccp_shared::types::CUID;
 pub use core_range::CoreRange;
+pub use cpu_utils::pinning::ThreadPinner;
 pub use cpu_utils::LogicalCoreId;
 pub use cpu_utils::PhysicalCoreId;
-pub use dev::DevCoreManager;
-pub use dummy::DummyCoreManager;
 use fxhash::FxHasher;
-pub use manager::CoreManager;
-pub use manager::CoreManagerFunctions;
 use std::collections::HashMap;
 use std::hash::BuildHasherDefault;
-pub use strict::StrictCoreManager;
+
+pub use distributor::CoreDistributor;
+#[cfg(feature = "mockall")]
+pub use distributor::MockCoreDistributor;
+pub use distributor::PersistentCoreDistributor;
+pub use strategy::AcquireStrategy;

@@ -23,9 +23,11 @@ libp2p-identity = { workspace = true }
 tempdir = "0.3.7"
 config-utils = { workspace = true }
 fluence-keypair = { workspace = true }
-
 particle-modules = { workspace = true }
 server-config = { workspace = true }
 spell-storage = { workspace = true }
 maplit = { workspace = true }
 tokio = { workspace = true, features = ["macros"] }
+core-distributor = { workspace = true, features = ["dummy"] }
+cpu-utils = { workspace = true }
+

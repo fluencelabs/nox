@@ -25,9 +25,8 @@ use parking_lot::RwLock;
 use tokio::runtime::{Handle, Runtime, UnhandledPanic};
 use tokio::sync::mpsc::{Receiver, Sender};
 
-use core_manager::types::{AcquireRequest, WorkType};
-use core_manager::CUID;
-use core_manager::{CoreManager, CoreManagerFunctions};
+use core_distributor::types::{AcquireRequest, WorkType};
+use core_distributor::{CoreDistributor, ThreadPinner, CUID};
 use fluence_libp2p::PeerId;
 use types::peer_scope::WorkerId;
 use types::DealId;
@@ -76,8 +75,10 @@ pub struct Workers {
     key_storage: Arc<KeyStorage>,
     /// Mapping of worker IDs to worker runtime.
     runtimes: RwLock<HashMap<WorkerId, Runtime>>,
-    /// Core manager for core assignment
-    core_manager: Arc<CoreManager>,
+    /// Core distributor for core assignment
+    core_distributor: Arc<dyn CoreDistributor>,
+    /// Core pinning helper
+    thread_pinner: Arc<dyn ThreadPinner>,
     /// Number of created tokio runtimes
     runtime_counter: Arc<AtomicU32>,
 
@@ -113,7 +114,8 @@ impl Workers {
     pub async fn from_path(
         workers_dir: PathBuf,
         key_storage: Arc<KeyStorage>,
-        core_manager: Arc<CoreManager>,
+        core_distributor: Arc<dyn CoreDistributor>,
+        thread_pinner: Arc<dyn ThreadPinner>,
         channel_size: usize,
     ) -> eyre::Result<(Self, Receiver<Event>)> {
         let workers = load_persisted_workers(workers_dir.as_path()).await?;
@@ -132,7 +134,8 @@ impl Workers {
             worker_ids.insert(deal_id, worker_id);
 
             let (runtime, thread_count) = Self::build_runtime(
-                core_manager.clone(),
+                core_distributor.clone(),
+                thread_pinner.clone(),
                 worker_counter.clone(),
                 worker_id,
                 cu_ids,
@@ -154,7 +157,8 @@ impl Workers {
                 key_storage,
                 runtimes: RwLock::new(runtimes),
                 runtime_counter: worker_counter,
-                core_manager,
+                core_distributor,
+                thread_pinner,
                 sender,
             },
             receiver,
@@ -228,7 +232,8 @@ impl Workers {
                             }
 
                             let (runtime, thread_count) = Self::build_runtime(
-                                self.core_manager.clone(),
+                                self.core_distributor.clone(),
+                                self.thread_pinner.clone(),
                                 self.runtime_counter.clone(),
                                 worker_id,
                                 cu_ids,
@@ -588,14 +593,15 @@ impl Workers {
     }
 
     fn build_runtime(
-        core_manager: Arc<CoreManager>,
+        core_distributor: Arc<dyn CoreDistributor>,
+        thread_pinner: Arc<dyn ThreadPinner>,
         worker_counter: Arc<AtomicU32>,
         worker_id: WorkerId,
         cu_ids: Vec<CUID>,
     ) -> Result<(Runtime, usize), WorkersError> {
         // Creating a multi-threaded Tokio runtime with a total of cu_count * 2 threads.
         // We assume cu_count threads per logical processor, aligning with the common practice.
-        let assignment = core_manager
+        let assignment = core_distributor
             .acquire_worker_core(AcquireRequest::new(cu_ids, WorkType::Deal))
             .map_err(|err| WorkersError::FailedToAssignCores { worker_id, err })?;
 
@@ -614,7 +620,7 @@ impl Workers {
             .enable_time()
             .enable_io()
             .on_thread_start(move || {
-                assignment.pin_current_thread();
+                assignment.pin_current_thread_with(thread_pinner.as_ref());
             })
             .unhandled_panic(UnhandledPanic::Ignore) // TODO: try to log panics after fix https://github.com/tokio-rs/tokio/issues/4516
             .build()
@@ -626,7 +632,7 @@ impl Workers {
 #[cfg(test)]
 mod tests {
     use crate::{KeyStorage, WorkerParams, Workers, CUID};
-    use core_manager::{CoreManager, DummyCoreManager};
+    use core_distributor::dummy::DummyCoreDistibutor;
     use hex::FromHex;
     use libp2p::PeerId;
     use std::sync::Arc;
@@ -640,7 +646,10 @@ mod tests {
         let key_pairs_dir = temp_dir.path().join("key_pairs").to_path_buf();
         let workers_dir = temp_dir.path().join("workers").to_path_buf();
         let root_key_pair = fluence_keypair::KeyPair::generate_ed25519();
-        let core_manager = Arc::new(DummyCoreManager::default().into());
+        let core_distributor = DummyCoreDistibutor::new();
+        let core_distributor = Arc::new(core_distributor);
+
+        let thread_pinner = Arc::new(cpu_utils::pinning::DUMMY);
 
         // Create a new KeyStorage instance
         let key_storage = Arc::new(
@@ -650,10 +659,15 @@ mod tests {
         );
 
         // Create a new Workers instance
-        let (workers, _receiver) =
-            Workers::from_path(workers_dir.clone(), key_storage.clone(), core_manager, 128)
-                .await
-                .expect("Failed to create Workers from path");
+        let (workers, _receiver) = Workers::from_path(
+            workers_dir.clone(),
+            key_storage.clone(),
+            core_distributor,
+            thread_pinner,
+            32,
+        )
+        .await
+        .expect("Failed to create Workers from path");
 
         // Check that the workers instance has the correct initial state
         assert_eq!(workers.worker_ids.read().len(), 0);
@@ -668,7 +682,10 @@ mod tests {
         let key_pairs_dir = temp_dir.path().join("key_pairs").to_path_buf();
         let workers_dir = temp_dir.path().join("workers").to_path_buf();
         let root_key_pair = fluence_keypair::KeyPair::generate_ed25519();
-        let core_manager = Arc::new(DummyCoreManager::default().into());
+        let core_distributor = DummyCoreDistibutor::new();
+        let core_distributor = Arc::new(core_distributor);
+
+        let thread_pinner = Arc::new(cpu_utils::pinning::DUMMY);
         // Create a new KeyStorage instance
         let key_storage = Arc::new(
             KeyStorage::from_path(key_pairs_dir.clone(), root_key_pair.clone())
@@ -677,10 +694,15 @@ mod tests {
         );
 
         // Create a new Workers instance
-        let (workers, _receiver) =
-            Workers::from_path(workers_dir.clone(), key_storage.clone(), core_manager, 128)
-                .await
-                .expect("Failed to create Workers from path");
+        let (workers, _receiver) = Workers::from_path(
+            workers_dir.clone(),
+            key_storage.clone(),
+            core_distributor,
+            thread_pinner,
+            32,
+        )
+        .await
+        .expect("Failed to create Workers from path");
 
         let init_id_1 =
             <CUID>::from_hex("54ae1b506c260367a054f80800a545f23e32c6bc4a8908c9a794cb8dad23e5ea")
@@ -734,7 +756,10 @@ mod tests {
         let key_pairs_dir = temp_dir.path().join("key_pairs").to_path_buf();
         let workers_dir = temp_dir.path().join("workers").to_path_buf();
         let root_key_pair = fluence_keypair::KeyPair::generate_ed25519();
-        let core_manager = Arc::new(DummyCoreManager::default().into());
+        let core_distributor = DummyCoreDistibutor::new();
+        let core_distributor = Arc::new(core_distributor);
+
+        let thread_pinner = Arc::new(cpu_utils::pinning::DUMMY);
         // Create a new KeyStorage instance
         let key_storage = Arc::new(
             KeyStorage::from_path(key_pairs_dir.clone(), root_key_pair.clone())
@@ -743,10 +768,15 @@ mod tests {
         );
 
         // Create a new Workers instance
-        let (workers, _receiver) =
-            Workers::from_path(workers_dir.clone(), key_storage.clone(), core_manager, 128)
-                .await
-                .expect("Failed to create Workers from path");
+        let (workers, _receiver) = Workers::from_path(
+            workers_dir.clone(),
+            key_storage.clone(),
+            core_distributor,
+            thread_pinner,
+            32,
+        )
+        .await
+        .expect("Failed to create Workers from path");
 
         let init_id_1 =
             <CUID>::from_hex("54ae1b506c260367a054f80800a545f23e32c6bc4a8908c9a794cb8dad23e5ea")
@@ -791,7 +821,10 @@ mod tests {
         let key_pairs_dir = temp_dir.path().join("key_pairs").to_path_buf();
         let workers_dir = temp_dir.path().join("workers").to_path_buf();
         let root_key_pair = fluence_keypair::KeyPair::generate_ed25519();
-        let core_manager = Arc::new(DummyCoreManager::default().into());
+        let core_distributor = DummyCoreDistibutor::new();
+        let core_distributor = Arc::new(core_distributor);
+
+        let thread_pinner = Arc::new(cpu_utils::pinning::DUMMY);
         // Create a new KeyStorage instance
         let key_storage = Arc::new(
             KeyStorage::from_path(key_pairs_dir.clone(), root_key_pair.clone())
@@ -800,10 +833,15 @@ mod tests {
         );
 
         // Create a new Workers instance
-        let (workers, _receiver) =
-            Workers::from_path(workers_dir.clone(), key_storage.clone(), core_manager, 128)
-                .await
-                .expect("Failed to create Workers from path");
+        let (workers, _receiver) = Workers::from_path(
+            workers_dir.clone(),
+            key_storage.clone(),
+            core_distributor,
+            thread_pinner,
+            32,
+        )
+        .await
+        .expect("Failed to create Workers from path");
 
         let init_id_1 =
             <CUID>::from_hex("54ae1b506c260367a054f80800a545f23e32c6bc4a8908c9a794cb8dad23e5ea")
@@ -859,7 +897,10 @@ mod tests {
         let key_pairs_dir = temp_dir.path().join("key_pairs").to_path_buf();
         let workers_dir = temp_dir.path().join("workers").to_path_buf();
         let root_key_pair = fluence_keypair::KeyPair::generate_ed25519();
-        let core_manager: Arc<CoreManager> = Arc::new(DummyCoreManager::default().into());
+        let core_distributor = DummyCoreDistibutor::new();
+        let core_distributor = Arc::new(core_distributor);
+
+        let thread_pinner = Arc::new(cpu_utils::pinning::DUMMY);
         // Create a new KeyStorage instance
         let key_storage = Arc::new(
             KeyStorage::from_path(key_pairs_dir.clone(), root_key_pair.clone())
@@ -871,8 +912,9 @@ mod tests {
         let (workers, _receiver) = Workers::from_path(
             workers_dir.clone(),
             key_storage.clone(),
-            core_manager.clone(),
-            128,
+            core_distributor.clone(),
+            thread_pinner,
+            32,
         )
         .await
         .expect("Failed to create Workers from path");
@@ -938,11 +980,20 @@ mod tests {
                 .expect("Failed to create KeyStorage from path"),
         );
 
+        let core_distributor = DummyCoreDistibutor::new();
+        let core_distributor = Arc::new(core_distributor);
+
+        let thread_pinner = Arc::new(cpu_utils::pinning::DUMMY);
         // Create a new Workers instance
-        let (workers, _receiver) =
-            Workers::from_path(workers_dir.clone(), key_storage.clone(), core_manager, 128)
-                .await
-                .expect("Failed to create Workers from path");
+        let (workers, _receiver) = Workers::from_path(
+            workers_dir.clone(),
+            key_storage.clone(),
+            core_distributor,
+            thread_pinner,
+            32,
+        )
+        .await
+        .expect("Failed to create Workers from path");
 
         let list = workers.list_workers();
         let expected_list = vec![worker_id_1];

@@ -37,7 +37,7 @@ pub enum CreateError {
 #[derive(Debug, Error)]
 pub enum LoadingError {
     #[error(transparent)]
-    CreateCoreManager {
+    CreateCoreDistributor {
         #[from]
         err: CreateError,
     },
@@ -77,7 +77,7 @@ pub enum PersistError {
     },
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct CurrentAssignment {
     data: Vec<(PhysicalCoreId, CUID)>,
 }
@@ -107,7 +107,7 @@ impl Display for CurrentAssignment {
     }
 }
 
-#[derive(Debug, Error)]
+#[derive(Debug, Error, PartialEq)]
 pub enum AcquireError {
     #[error("Couldn't assign core: no free cores left. Required: {required}, available: {available}, current assignment: {current_assignment}.")]
     NotFoundAvailableCores {

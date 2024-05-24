@@ -51,3 +51,5 @@ config-utils = { workspace = true }
 fluence-keypair = { workspace = true }
 tokio = { workspace = true, features = ["macros"] }
 tempfile = { workspace = true }
+core-distributor = { workspace = true, features = ["dummy"] }
+cpu-utils = { workspace = true }

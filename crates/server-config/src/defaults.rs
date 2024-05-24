@@ -19,7 +19,7 @@ use std::net::IpAddr;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-use core_manager::CoreRange;
+use core_distributor::CoreRange;
 use libp2p::core::Multiaddr;
 use libp2p::identity::ed25519::Keypair;
 use libp2p::identity::PublicKey;

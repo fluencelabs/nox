@@ -32,7 +32,7 @@ alloy_serde_macro = { workspace = true }
 fluence-libp2p = { workspace = true }
 fs-utils = { workspace = true }
 futures = { workspace = true }
-core-manager = { workspace = true }
+core-distributor = { workspace = true }
 ccp-rpc-client = { workspace = true }
 cpu-utils = { workspace = true }
 ccp-shared = { workspace = true }

@@ -335,6 +335,8 @@ dependencies = [
  "chrono",
  "config-utils",
  "control-macro",
+ "core-distributor",
+ "cpu-utils",
  "enum_dispatch",
  "eyre",
  "fluence-app-service",
@@ -1251,8 +1253,7 @@ dependencies = [
 [[package]]
 name = "ccp-rpc-client"
 version = "0.9.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2888e0529487437677d06c31dfc581bb8bea06d0fc007db0a8484307be9d7de5"
+source = "git+https://github.com/fluencelabs/capacity-commitment-prover.git?branch=feature/net-820#c1fae45e859fc881be6449ae06870f15e0ccfdcd"
 dependencies = [
  "ccp-shared",
  "hex",
@@ -1263,8 +1264,7 @@ dependencies = [
 [[package]]
 name = "ccp-shared"
 version = "0.9.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7ccecad3bb44270ec5497788954232de0c55564ceadc2eca4f0a45da0b3a77e2"
+source = "git+https://github.com/fluencelabs/capacity-commitment-prover.git?branch=feature/net-820#c1fae45e859fc881be6449ae06870f15e0ccfdcd"
 dependencies = [
  "hex",
  "newtype_derive",
@@ -1371,7 +1371,7 @@ dependencies = [
  "ccp-shared",
  "chain-connector",
  "chain-data",
- "core-manager",
+ "core-distributor",
  "cpu-utils",
  "ethabi",
  "eyre",
@@ -1649,34 +1649,20 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6245d59a3e82a7fc217c5828a6692dbc6dfb63a0c8c90495621f7b9d79704a0e"
 
 [[package]]
-name = "core-foundation"
-version = "0.9.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "194a7a9e6de53fa55116934067c844d9d749312f75c6f6d0980e8c252f8c2146"
-dependencies = [
- "core-foundation-sys",
- "libc",
-]
-
-[[package]]
-name = "core-foundation-sys"
-version = "0.8.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e496a50fda8aacccc86d7529e2c1e0892dbd0f898a6b5645b5561b89c3210efa"
-
-[[package]]
-name = "core-manager"
+name = "core-distributor"
 version = "0.1.0"
 dependencies = [
  "async-trait",
  "bimap",
  "ccp-shared",
  "cpu-utils",
+ "derivative",
  "enum_dispatch",
  "futures",
  "fxhash",
  "hex",
  "hex-utils",
+ "mockall",
  "multimap 0.10.0",
  "newtype_derive",
  "nonempty",
@@ -1693,6 +1679,22 @@ dependencies = [
  "toml 0.8.12",
  "tracing",
 ]
+
+[[package]]
+name = "core-foundation"
+version = "0.9.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "194a7a9e6de53fa55116934067c844d9d749312f75c6f6d0980e8c252f8c2146"
+dependencies = [
+ "core-foundation-sys",
+ "libc",
+]
+
+[[package]]
+name = "core-foundation-sys"
+version = "0.8.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e496a50fda8aacccc86d7529e2c1e0892dbd0f898a6b5645b5561b89c3210efa"
 
 [[package]]
 name = "core2"
@@ -1715,12 +1717,12 @@ dependencies = [
 [[package]]
 name = "cpu-utils"
 version = "0.9.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8efb8938379cbf7f471035078b25e10e6b12bd8e0eeacba4dbbf92e1be39fedb"
+source = "git+https://github.com/fluencelabs/capacity-commitment-prover.git?branch=feature/net-820#c1fae45e859fc881be6449ae06870f15e0ccfdcd"
 dependencies = [
  "ccp-shared",
  "ccp_core_affinity",
  "hwlocality",
+ "mockall",
  "nonempty",
  "serde",
  "thiserror",
@@ -1863,7 +1865,8 @@ dependencies = [
  "cid-utils",
  "config-utils",
  "connection-pool",
- "core-manager",
+ "core-distributor",
+ "cpu-utils",
  "derivative",
  "fluence-app-service",
  "fluence-keypair",
@@ -2242,6 +2245,12 @@ name = "dlv-list"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0688c2a7f92e427f44895cd63841bff7b29f8d7a1648b9e7e07a4a365b2e1257"
+
+[[package]]
+name = "downcast"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1435fa1053d8b2fbbe9be7e97eca7f33d37b28409959813daefc1446a14247f1"
 
 [[package]]
 name = "dtoa"
@@ -2662,6 +2671,12 @@ checksum = "e13624c2627564efccf4934284bdd98cbaa14e79b0b5a141218e507b3a823456"
 dependencies = [
  "percent-encoding",
 ]
+
+[[package]]
+name = "fragile"
+version = "2.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6c2141d6d6c8512188a7891b4b01590a45f6dac67afb4f255c4124dbb86d4eaa"
 
 [[package]]
 name = "fs-set-times"
@@ -5411,6 +5426,33 @@ dependencies = [
 ]
 
 [[package]]
+name = "mockall"
+version = "0.12.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "43766c2b5203b10de348ffe19f7e54564b64f3d6018ff7648d1e2d6d3a0f0a48"
+dependencies = [
+ "cfg-if",
+ "downcast",
+ "fragile",
+ "lazy_static",
+ "mockall_derive",
+ "predicates",
+ "predicates-tree",
+]
+
+[[package]]
+name = "mockall_derive"
+version = "0.12.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "af7cbce79ec385a1d4f54baa90a76401eb15d9cab93685f62e7e9f942aa00ae2"
+dependencies = [
+ "cfg-if",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.46",
+]
+
+[[package]]
 name = "mockito"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5676,13 +5718,15 @@ dependencies = [
  "blake3",
  "bs58",
  "ccp-rpc-client",
+ "cfg-if",
  "chain-connector",
  "chain-listener",
  "config",
  "config-utils",
  "connected-client",
  "connection-pool",
- "core-manager",
+ "core-distributor",
+ "cpu-utils",
  "dhat",
  "eyre",
  "fluence-keypair",
@@ -6285,6 +6329,8 @@ dependencies = [
  "bytesize",
  "cid-utils",
  "config-utils",
+ "core-distributor",
+ "cpu-utils",
  "derivative",
  "eyre",
  "fluence-app-service",
@@ -6537,6 +6583,32 @@ name = "ppv-lite86"
 version = "0.2.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5b40af805b3121feab8a3c29f04d8ad262fa8e0561883e7653e024ae4479e6de"
+
+[[package]]
+name = "predicates"
+version = "3.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "68b87bfd4605926cdfefc1c3b5f8fe560e3feca9d5552cf68c466d3d8236c7e8"
+dependencies = [
+ "anstyle",
+ "predicates-core",
+]
+
+[[package]]
+name = "predicates-core"
+version = "1.0.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b794032607612e7abeb4db69adb4e33590fa6cf1149e95fd7cb00e634b92f174"
+
+[[package]]
+name = "predicates-tree"
+version = "1.0.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "368ba315fb8c5052ab692e68a0eefec6ec57b23a36959c14496f0b0df2c0cecf"
+dependencies = [
+ "predicates-core",
+ "termtree",
+]
 
 [[package]]
 name = "primitive-types"
@@ -7676,7 +7748,7 @@ dependencies = [
  "clarity",
  "config",
  "config-utils",
- "core-manager",
+ "core-distributor",
  "derivative",
  "eyre",
  "fluence-keypair",
@@ -7962,6 +8034,8 @@ name = "spell-service-api"
 version = "0.1.0"
 dependencies = [
  "config-utils",
+ "core-distributor",
+ "cpu-utils",
  "fluence-app-service",
  "fluence-keypair",
  "fluence-libp2p",
@@ -8261,6 +8335,12 @@ checksum = "ff1bc3d3f05aff0403e8ac0d92ced918ec05b666a43f83297ccef5bea8a3d449"
 dependencies = [
  "winapi-util",
 ]
+
+[[package]]
+name = "termtree"
+version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3369f5ac52d5eb6ab48c6b4ffdc8efbcad6b89c765749064ba298f2c68a16a76"
 
 [[package]]
 name = "test-constants"
@@ -9993,7 +10073,8 @@ name = "workers"
 version = "0.1.0"
 dependencies = [
  "async-trait",
- "core-manager",
+ "core-distributor",
+ "cpu-utils",
  "derivative",
  "eyre",
  "fluence-keypair",
