@@ -239,7 +239,7 @@ impl CoreManagerFunctions for StrictCoreManager {
         let worker_unit_type = assign_request.worker_type;
         let available = lock.available_cores.len();
 
-        let core_usage: Vec<(CUID, Option<PhysicalCoreId>)> = assign_request
+        let core_usage = assign_request
             .unit_ids
             .into_iter()
             .map(|unit_id| {
@@ -248,7 +248,7 @@ impl CoreManagerFunctions for StrictCoreManager {
                     lock.unit_id_mapping.get_by_right(&unit_id).cloned(),
                 )
             })
-            .collect();
+            .collect::<Vec<_>>();
 
         let required = core_usage.iter().filter(|(_, el)| el.is_none()).count();
 
