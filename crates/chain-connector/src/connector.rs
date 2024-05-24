@@ -37,39 +37,30 @@ use types::DealId;
 use crate::error::{process_response, ConnectorError};
 use crate::Offer::{ComputePeer, ComputeUnit};
 
+pub type Result<T> = std::result::Result<T, ConnectorError>;
+
 #[async_trait]
 pub trait ChainConnector: Send + Sync {
-    async fn get_current_commitment_id(&self) -> Result<Option<CommitmentId>, ConnectorError>;
+    async fn get_current_commitment_id(&self) -> Result<Option<CommitmentId>>;
 
     async fn get_cc_init_params(&self) -> eyre::Result<CCInitParams>; //TODO: make error type
 
-    async fn get_compute_units(&self) -> Result<Vec<ComputeUnit>, ConnectorError>;
+    async fn get_compute_units(&self) -> Result<Vec<ComputeUnit>>;
 
-    async fn get_commitment_status(
-        &self,
-        commitment_id: CommitmentId,
-    ) -> Result<CCStatus, ConnectorError>;
+    async fn get_commitment_status(&self, commitment_id: CommitmentId) -> Result<CCStatus>;
 
-    async fn get_global_nonce(&self) -> Result<GlobalNonce, ConnectorError>;
+    async fn get_global_nonce(&self) -> Result<GlobalNonce>;
 
-    async fn submit_proof(&self, proof: CCProof) -> Result<String, ConnectorError>;
+    async fn submit_proof(&self, proof: CCProof) -> Result<String>;
 
-    async fn get_deal_statuses(
-        &self,
-        deal_ids: Vec<DealId>,
-    ) -> Result<Vec<Result<Deal::Status, ConnectorError>>, ConnectorError>;
+    async fn get_deal_statuses(&self, deal_ids: Vec<DealId>) -> Result<Vec<Result<Deal::Status>>>;
 
-    async fn exit_deal(&self, cu_id: &CUID) -> Result<String, ConnectorError>;
+    async fn exit_deal(&self, cu_id: &CUID) -> Result<String>;
 
-    async fn get_tx_statuses(
-        &self,
-        tx_hashes: Vec<String>,
-    ) -> Result<Vec<Result<Option<bool>, ConnectorError>>, ConnectorError>;
+    async fn get_tx_statuses(&self, tx_hashes: Vec<String>) -> Result<Vec<Result<Option<bool>>>>;
 
-    async fn get_tx_receipts(
-        &self,
-        tx_hashes: Vec<String>,
-    ) -> Result<Vec<Result<TxReceiptResult, ConnectorError>>, ConnectorError>;
+    async fn get_tx_receipts(&self, tx_hashes: Vec<String>)
+        -> Result<Vec<Result<TxReceiptResult>>>;
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -82,7 +73,7 @@ pub struct DealInfo {
 
 #[derive(Debug)]
 pub struct TxReceipt {
-    status: bool,
+    is_ok: bool,
     transaction_hash: String,
     block_number: String,
 }
@@ -105,7 +96,7 @@ impl RawTxReceipt {
     fn to_tx_receipt(self) -> TxReceipt {
         TxReceipt {
             // if status is "0x1" transaction was successful
-            status: self.status == "0x1",
+            is_ok: self.status == "0x1",
             transaction_hash: self.transaction_hash,
             block_number: self.block_number,
         }
@@ -198,7 +189,12 @@ impl HttpChainConnector {
         }))
     }
 
-    async fn send_tx_builtin(&self, args: Args, params: ParticleParams) -> Result<JValue, JError> {
+    // TODO: do we still need this builtin?
+    async fn send_tx_builtin(
+        &self,
+        args: Args,
+        params: ParticleParams,
+    ) -> std::result::Result<JValue, JError> {
         if params.init_peer_id != self.host_id {
             return Err(JError::new("Only the root worker can send transactions"));
         }
@@ -213,7 +209,10 @@ impl HttpChainConnector {
         Ok(json!(tx_hash))
     }
 
-    async fn get_deals_builtin(&self, params: ParticleParams) -> Result<JValue, JError> {
+    async fn get_deals_builtin(
+        &self,
+        params: ParticleParams,
+    ) -> std::result::Result<JValue, JError> {
         if params.init_peer_id != self.host_id {
             return Err(JError::new("Only the root worker can call connector"));
         }
@@ -229,7 +228,7 @@ impl HttpChainConnector {
         &self,
         args: Args,
         params: ParticleParams,
-    ) -> Result<JValue, JError> {
+    ) -> std::result::Result<JValue, JError> {
         if params.init_peer_id != self.host_id {
             return Err(JError::new("Only the root worker can call connector"));
         }
@@ -254,7 +253,7 @@ impl HttpChainConnector {
         &self,
         args: Args,
         params: ParticleParams,
-    ) -> Result<JValue, JError> {
+    ) -> std::result::Result<JValue, JError> {
         if params.init_peer_id != self.host_id {
             return Err(JError::new("Only the root worker can call connector"));
         }
@@ -273,14 +272,12 @@ impl HttpChainConnector {
                     let (status, receipt) = match receipt {
                         TxReceiptResult::Pending => ("pending", vec![]),
                         TxReceiptResult::Processed(receipt) => {
-                            let status = if receipt.status { "ok" } else { "failed" };
-                            (
-                                status,
-                                vec![json!({
-                                    "tx_hash": receipt.transaction_hash,
-                                    "block_number": receipt.block_number,
-                                })],
-                            )
+                            let status = if receipt.is_ok { "ok" } else { "failed" };
+                            let receipt = json!({
+                                "tx_hash": receipt.transaction_hash,
+                                "block_number": receipt.block_number,
+                            });
+                            (status, vec![receipt])
                         }
                     };
 
@@ -296,6 +293,7 @@ impl HttpChainConnector {
                         "success": json!(false),
                         "error":  json!(vec![err.to_string()]),
                         "receipt": json!([]),
+                        "status": "pending",
                     })
                 }
             })
@@ -304,7 +302,7 @@ impl HttpChainConnector {
         Ok(json!(receipts))
     }
 
-    async fn get_base_fee_per_gas(&self) -> Result<U256, ConnectorError> {
+    async fn get_base_fee_per_gas(&self) -> Result<U256> {
         if let Some(fee) = self.config.default_base_fee {
             return Ok(Uint::from(fee));
         }
@@ -328,10 +326,7 @@ impl HttpChainConnector {
         Ok(base_fee_per_gas)
     }
 
-    pub async fn get_app_cid(
-        &self,
-        deals: impl Iterator<Item = &DealId>,
-    ) -> Result<Vec<String>, ConnectorError> {
+    pub async fn get_app_cid(&self, deals: impl Iterator<Item = &DealId>) -> Result<Vec<String>> {
         let data: String = Deal::appCIDCall {}.abi_encode().encode_hex();
         let mut batch = BatchRequestBuilder::new();
         for deal in deals {
@@ -359,8 +354,9 @@ impl HttpChainConnector {
         Ok(cids)
     }
 
-    pub async fn get_deals(&self) -> eyre::Result<Vec<DealInfo>> {
+    pub(crate) async fn get_deals(&self) -> eyre::Result<Vec<DealInfo>> {
         let units = self.get_compute_units().await?;
+        tracing::debug!(target: "chain-connector", "Got {} compute units", units.len());
         let mut deals: BTreeMap<DealId, Vec<Vec<u8>>> = BTreeMap::new();
 
         units
@@ -376,14 +372,17 @@ impl HttpChainConnector {
         if deals.is_empty() {
             return Ok(Vec::new());
         }
+        tracing::debug!(target: "chain-connector", "Got {} deals: {:?}", deals.len(), deals);
 
         let app_cids = self.get_app_cid(deals.keys()).await?;
+        tracing::debug!(target: "chain-connector", "Got {} App CIDs for the deals", deals.len());
         let statuses: Vec<Deal::Status> = self
             .get_deal_statuses(deals.keys().cloned().collect())
             .await?
             .into_iter()
-            .collect::<Result<Vec<_>, ConnectorError>>()?;
-        Ok(deals
+            .collect::<Result<Vec<_>>>()?;
+        tracing::debug!(target: "chain-connector", "Got {} statuses for the deals", statuses.len());
+        let deals = deals
             .into_iter()
             .zip(app_cids.into_iter().zip(statuses.into_iter()))
             .map(|((deal_id, unit_ids), (app_cid, status))| DealInfo {
@@ -392,10 +391,12 @@ impl HttpChainConnector {
                 unit_ids,
                 app_cid,
             })
-            .collect())
+            .collect();
+        tracing::debug!(target: "chain-connector", "Found deals: {:?}", deals);
+        Ok(deals)
     }
 
-    async fn get_tx_nonce(&self) -> Result<U256, ConnectorError> {
+    async fn get_tx_nonce(&self) -> Result<U256> {
         let address = self.config.wallet_key.to_address().to_string();
         let resp: String = process_response(
             self.client
@@ -407,7 +408,7 @@ impl HttpChainConnector {
         Ok(nonce)
     }
 
-    async fn max_priority_fee_per_gas(&self) -> Result<U256, ConnectorError> {
+    async fn max_priority_fee_per_gas(&self) -> Result<U256> {
         if let Some(fee) = self.config.default_priority_fee {
             return Ok(Uint::from(fee));
         }
@@ -422,7 +423,7 @@ impl HttpChainConnector {
         Ok(max_priority_fee_per_gas)
     }
 
-    async fn estimate_gas_limit(&self, data: &[u8], to: &str) -> Result<U256, ConnectorError> {
+    async fn estimate_gas_limit(&self, data: &[u8], to: &str) -> Result<U256> {
         let resp: String = process_response(
             self.client
                 .request(
@@ -439,7 +440,7 @@ impl HttpChainConnector {
         Ok(limit)
     }
 
-    pub async fn send_tx(&self, data: Vec<u8>, to: &str) -> Result<String, ConnectorError> {
+    pub async fn send_tx(&self, data: Vec<u8>, to: &str) -> Result<String> {
         let base_fee = self.get_base_fee_per_gas().await?;
         tracing::info!(target: "chain-connector", "Estimating gas for tx from {} to {} data {}", self.config.wallet_key.to_address(), to, hex::encode(&data));
         let gas_limit = self.estimate_gas_limit(&data, to).await?;
@@ -490,13 +491,13 @@ impl HttpChainConnector {
         deal_id: &DealId,
         worker_id: WorkerId,
         cu_id: CUID,
-    ) -> Result<String, ConnectorError> {
+    ) -> Result<String> {
         let data = Deal::setWorkerCall {
             computeUnitId: cu_id.as_ref().into(),
             workerId: peer_id_to_bytes(worker_id.into()).into(),
         }
         .abi_encode();
-
+        tracing::debug!(target: "chain-connector", "Registering worker {worker_id} for deal {deal_id} with cu_id {cu_id}");
         self.send_tx(data, &deal_id.as_str()).await
     }
 
@@ -557,7 +558,7 @@ impl HttpChainConnector {
 
 #[async_trait]
 impl ChainConnector for HttpChainConnector {
-    async fn get_current_commitment_id(&self) -> Result<Option<CommitmentId>, ConnectorError> {
+    async fn get_current_commitment_id(&self) -> Result<Option<CommitmentId>> {
         let peer_id = peer_id_to_bytes(self.host_id);
         let data: String = Offer::getComputePeerCall {
             peerId: peer_id.into(),
@@ -647,7 +648,7 @@ impl ChainConnector for HttpChainConnector {
         })
     }
 
-    async fn get_compute_units(&self) -> Result<Vec<ComputeUnit>, ConnectorError> {
+    async fn get_compute_units(&self) -> Result<Vec<ComputeUnit>> {
         let data: String = Offer::getComputeUnitsCall {
             peerId: peer_id_to_bytes(self.host_id).into(),
         }
@@ -674,10 +675,7 @@ impl ChainConnector for HttpChainConnector {
         Ok(compute_units)
     }
 
-    async fn get_commitment_status(
-        &self,
-        commitment_id: CommitmentId,
-    ) -> Result<CCStatus, ConnectorError> {
+    async fn get_commitment_status(&self, commitment_id: CommitmentId) -> Result<CCStatus> {
         let data: String = Capacity::getStatusCall {
             commitmentId: commitment_id.0.into(),
         }
@@ -704,7 +702,7 @@ impl ChainConnector for HttpChainConnector {
         )?)
     }
 
-    async fn get_global_nonce(&self) -> Result<GlobalNonce, ConnectorError> {
+    async fn get_global_nonce(&self) -> Result<GlobalNonce> {
         let resp: String = process_response(
             self.client
                 .request("eth_call", self.global_nonce_params())
@@ -715,7 +713,7 @@ impl ChainConnector for HttpChainConnector {
         Ok(GlobalNonce::new(bytes.0))
     }
 
-    async fn submit_proof(&self, proof: CCProof) -> Result<String, ConnectorError> {
+    async fn submit_proof(&self, proof: CCProof) -> Result<String> {
         let data = Capacity::submitProofCall {
             unitId: proof.cu_id.as_ref().into(),
             localUnitNonce: proof.local_nonce.as_ref().into(),
@@ -726,10 +724,7 @@ impl ChainConnector for HttpChainConnector {
         self.send_tx(data, &self.config.cc_contract_address).await
     }
 
-    async fn get_deal_statuses(
-        &self,
-        deal_ids: Vec<DealId>,
-    ) -> Result<Vec<Result<Deal::Status, ConnectorError>>, ConnectorError> {
+    async fn get_deal_statuses(&self, deal_ids: Vec<DealId>) -> Result<Vec<Result<Deal::Status>>> {
         let mut batch = BatchRequestBuilder::new();
         for deal_id in deal_ids {
             let data: String = Deal::getStatusCall {}.abi_encode().encode_hex();
@@ -764,7 +759,7 @@ impl ChainConnector for HttpChainConnector {
 
         Ok(statuses)
     }
-    async fn exit_deal(&self, cu_id: &CUID) -> Result<String, ConnectorError> {
+    async fn exit_deal(&self, cu_id: &CUID) -> Result<String> {
         let data = Offer::returnComputeUnitFromDealCall {
             unitId: cu_id.as_ref().into(),
         }
@@ -774,20 +769,17 @@ impl ChainConnector for HttpChainConnector {
             .await
     }
 
-    async fn get_tx_statuses(
-        &self,
-        tx_hashes: Vec<String>,
-    ) -> Result<Vec<Result<Option<bool>, ConnectorError>>, ConnectorError> {
-        let mut statuses = vec![];
+    async fn get_tx_statuses(&self, tx_hashes: Vec<String>) -> Result<Vec<Result<Option<bool>>>> {
+        let receipts = self.get_tx_receipts(tx_hashes).await?;
 
-        for receipt in self.get_tx_receipts(tx_hashes).await? {
-            // A pending transaction has no receipt so w
-            let status = receipt.map(|receipt| match receipt {
-                TxReceiptResult::Pending => None,
-                TxReceiptResult::Processed(r) => Some(r.status),
-            });
-            statuses.push(status);
-        }
+        let statuses = receipts
+            .into_iter()
+            .map(|receipt| match receipt {
+                Ok(TxReceiptResult::Pending) => Ok(None),
+                Ok(TxReceiptResult::Processed(receipt)) => Ok(Some(receipt.is_ok)),
+                Err(err) => Err(err),
+            })
+            .collect();
 
         Ok(statuses)
     }
@@ -795,23 +787,24 @@ impl ChainConnector for HttpChainConnector {
     async fn get_tx_receipts(
         &self,
         tx_hashes: Vec<String>,
-    ) -> Result<Vec<Result<TxReceiptResult, ConnectorError>>, ConnectorError> {
+    ) -> Result<Vec<Result<TxReceiptResult>>> {
         let mut batch = BatchRequestBuilder::new();
         for tx_hash in tx_hashes {
             batch.insert("eth_getTransactionReceipt", rpc_params![tx_hash])?;
         }
         let resp: BatchResponse<Value> = self.client.batch_request(batch).await?;
-        let mut receipts = vec![];
-        for receipt in resp.into_iter() {
-            let receipt = try {
-                let receipt = receipt.map_err(|e| ConnectorError::RpcError(e.to_owned().into()))?;
-                match serde_json::from_value::<Option<RawTxReceipt>>(receipt)? {
+
+        let receipts = resp
+            .into_iter()
+            .map(|receipt| try {
+                match serde_json::from_value::<Option<RawTxReceipt>>(receipt?)? {
+                    // When there's no receipt yet, the transaction is considered pending
                     None => TxReceiptResult::Pending,
                     Some(raw_receipt) => TxReceiptResult::Processed(raw_receipt.to_tx_receipt()),
                 }
-            };
-            receipts.push(receipt);
-        }
+            })
+            .collect();
+
         Ok(receipts)
     }
 }
