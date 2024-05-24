@@ -850,11 +850,7 @@ impl ChainListener {
             return Ok(());
         }
 
-        if self
-            .cc_compute_units
-            .iter()
-            .all(|(_, cu)| cu.startEpoch > self.current_epoch)
-        {
+        if self.active_units_count() == 0 {
             tracing::info!(target: "chain-listener", "No active units found in this epoch {}", self.current_epoch);
             self.stop_commitment().await?;
             return Ok(());
@@ -1360,6 +1356,13 @@ impl ChainListener {
         if let Some(metrics) = self.metrics.as_ref() {
             f(metrics);
         }
+    }
+
+    fn active_units_count(&self) -> usize {
+        self.cc_compute_units
+            .iter()
+            .filter(|(_, cu)| cu.startEpoch <= self.current_epoch)
+            .count()
     }
 }
 
