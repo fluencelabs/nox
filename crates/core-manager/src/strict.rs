@@ -250,7 +250,7 @@ impl CoreManagerFunctions for StrictCoreManager {
             })
             .collect::<Vec<_>>();
 
-        let required = core_usage.iter().filter(|(_, el)| el.is_none()).count();
+        let required = core_usage.iter().filter(|(_, core)| core.is_none()).count();
 
         if required > available {
             let current_assignment: Vec<(PhysicalCoreId, CUID)> =
