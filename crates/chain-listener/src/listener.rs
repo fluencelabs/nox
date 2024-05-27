@@ -968,11 +968,11 @@ impl ChainListener {
 
         // Release all ccp units to allow the core manager to assign them again
         // without that action availability count will be wrong
-        self.core_distributor.release(&units);
+        self.core_distributor.release_worker_cores(&units);
 
         let cores = self
             .core_distributor
-            .acquire_worker_core(AcquireRequest::new(
+            .acquire_worker_cores(AcquireRequest::new(
                 units.to_vec(),
                 WorkType::CapacityCommitment,
             ));
@@ -1010,12 +1010,12 @@ impl ChainListener {
             }) => {
                 tracing::warn!(target: "chain-listener", "Found {required} CUs in the Capacity Commitment, but Nox has only {available} Cores available for CC");
                 let assign_units = units.iter().take(available).cloned().collect();
-                let assignment = self
-                    .core_distributor
-                    .acquire_worker_core(AcquireRequest::new(
-                        assign_units,
-                        WorkType::CapacityCommitment,
-                    ))?;
+                let assignment =
+                    self.core_distributor
+                        .acquire_worker_cores(AcquireRequest::new(
+                            assign_units,
+                            WorkType::CapacityCommitment,
+                        ))?;
                 let priority_cores = filter(&cu_groups.priority_units, &assignment);
                 let non_priority_cores = filter(&cu_groups.non_priority_units, &assignment);
                 let pending_cores = filter(&cu_groups.pending_units, &assignment);
@@ -1033,7 +1033,7 @@ impl ChainListener {
 
     fn acquire_core_for_deal(&self, unit_id: CUID) -> eyre::Result<()> {
         self.core_distributor
-            .acquire_worker_core(AcquireRequest::new(vec![unit_id], WorkType::Deal))?;
+            .acquire_worker_cores(AcquireRequest::new(vec![unit_id], WorkType::Deal))?;
         Ok(())
     }
 

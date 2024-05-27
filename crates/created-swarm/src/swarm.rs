@@ -486,7 +486,7 @@ pub async fn create_swarm_with_runtime<RT: AquaRuntime>(
                 .expect("Failed to get default system service distros")
                 .extend(config.extend_system_services.clone());
 
-        let core_distributor = DummyCoreDistibutor::new();
+        let core_distributor = DummyCoreDistibutor::new(); //TODO: use a persistent core distributor
         let core_distributor = Arc::new(core_distributor);
 
         let thread_pinner = Arc::new(cpu_utils::pinning::DUMMY);

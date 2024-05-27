@@ -53,8 +53,6 @@ impl AcquireStrategyOperations for StrictAcquireStrategy {
             FxBuildHasher::default(),
         );
 
-        let mut result_physical_core_ids = Vec::new();
-        let mut result_logical_core_ids = Vec::new();
         let worker_unit_type = acquire_request.worker_type.clone();
 
         let available = state.available_cores.len();
@@ -108,7 +106,6 @@ impl AcquireStrategyOperations for StrictAcquireStrategy {
                     core_id
                 }
             };
-            result_physical_core_ids.push(physical_core_id);
 
             // SAFETY: The physical core always has corresponding logical ids,
             // unit_id_mapping can't have a wrong physical_core_id
@@ -117,10 +114,6 @@ impl AcquireStrategyOperations for StrictAcquireStrategy {
                 .get_vec(&physical_core_id)
                 .cloned()
                 .expect("Unexpected state. Should not be empty never");
-
-            for logical_core in logical_core_ids.iter() {
-                result_logical_core_ids.push(*logical_core);
-            }
 
             cuid_cores.insert(
                 unit_id,
@@ -131,11 +124,7 @@ impl AcquireStrategyOperations for StrictAcquireStrategy {
             );
         }
 
-        Ok(Assignment::new(
-            result_physical_core_ids,
-            result_logical_core_ids,
-            cuid_cores,
-        ))
+        Ok(Assignment::new(cuid_cores))
     }
 }
 
@@ -147,8 +136,6 @@ impl AcquireStrategyOperations for RoundRobinAcquireStrategy {
         state: &mut CoreDistributorState,
         acquire_request: AcquireRequest,
     ) -> Result<Assignment, AcquireError> {
-        let mut result_physical_core_ids = Vec::new();
-        let mut result_logical_core_ids = Vec::new();
         let mut cuid_cores: Map<CUID, Cores> = HashMap::with_capacity_and_hasher(
             acquire_request.unit_ids.len(),
             FxBuildHasher::default(),
@@ -177,7 +164,6 @@ impl AcquireStrategyOperations for RoundRobinAcquireStrategy {
                     core_id
                 }
             };
-            result_physical_core_ids.push(physical_core_id);
 
             // SAFETY: The physical core always has corresponding logical ids,
             // unit_id_core_mapping can't have a wrong physical_core_id
@@ -187,10 +173,6 @@ impl AcquireStrategyOperations for RoundRobinAcquireStrategy {
                 .cloned()
                 .expect("Unexpected state. Should not be empty never");
 
-            for logical_core in logical_core_ids.iter() {
-                result_logical_core_ids.push(*logical_core);
-            }
-
             cuid_cores.insert(
                 unit_id,
                 Cores {
@@ -199,10 +181,6 @@ impl AcquireStrategyOperations for RoundRobinAcquireStrategy {
                 },
             );
         }
-        Ok(Assignment::new(
-            result_physical_core_ids,
-            result_logical_core_ids,
-            cuid_cores,
-        ))
+        Ok(Assignment::new(cuid_cores))
     }
 }

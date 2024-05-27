@@ -12,19 +12,19 @@ use range_set_blaze::RangeSetBlaze;
 use crate::errors::{AcquireError, CreateError, LoadingError, PersistError};
 use crate::persistence::{PersistenceTask, PersistentCoreDistributorState, StatePersistence};
 use crate::strategy::{AcquireStrategy, AcquireStrategyInner, AcquireStrategyOperations};
-use crate::types::{AcquireRequest, Assignment, WorkType};
+use crate::types::{AcquireRequest, Assignment, SystemAssignment, WorkType};
 use crate::{BiMap, CoreRange, Map, MultiMap};
 
 #[cfg_attr(feature = "mockall", mockall::automock)]
 pub trait CoreDistributor: Send + Sync {
-    fn acquire_worker_core(
+    fn acquire_worker_cores(
         &self,
         acquire_request: AcquireRequest,
     ) -> Result<Assignment, AcquireError>;
 
-    fn release(&self, unit_ids: &[CUID]);
+    fn release_worker_cores(&self, unit_ids: &[CUID]);
 
-    fn get_system_cpu_assignment(&self) -> Assignment;
+    fn get_system_cpu_assignment(&self) -> SystemAssignment;
 }
 
 /// `StrictCoreManager` is a CPU core manager responsible for allocating and releasing CPU cores
@@ -233,7 +233,7 @@ impl StatePersistence for PersistentCoreDistributor {
 }
 
 impl CoreDistributor for PersistentCoreDistributor {
-    fn acquire_worker_core(
+    fn acquire_worker_cores(
         &self,
         acquire_request: AcquireRequest,
     ) -> Result<Assignment, AcquireError> {
@@ -248,7 +248,7 @@ impl CoreDistributor for PersistentCoreDistributor {
         Ok(result)
     }
 
-    fn release(&self, unit_ids: &[CUID]) {
+    fn release_worker_cores(&self, unit_ids: &[CUID]) {
         let mut lock = self.state.write();
         for unit_id in unit_ids {
             if let Some((physical_core_id, _)) = lock.unit_id_mapping.remove_by_right(unit_id) {
@@ -258,7 +258,7 @@ impl CoreDistributor for PersistentCoreDistributor {
         }
     }
 
-    fn get_system_cpu_assignment(&self) -> Assignment {
+    fn get_system_cpu_assignment(&self) -> SystemAssignment {
         let lock = self.state.read();
         let mut logical_core_ids = Vec::new();
         for core in &lock.system_cores {
@@ -273,11 +273,7 @@ impl CoreDistributor for PersistentCoreDistributor {
                 logical_core_ids.push(core_id);
             }
         }
-        Assignment::new(
-            lock.system_cores.clone(),
-            logical_core_ids,
-            Map::with_hasher(FxBuildHasher::default()),
-        )
+        SystemAssignment::new(lock.system_cores.clone(), logical_core_ids)
     }
 }
 
@@ -391,19 +387,19 @@ mod tests {
                 .unwrap();
         let unit_ids = vec![init_id_1, init_id_2];
         let assignment_1 = manager
-            .acquire_worker_core(AcquireRequest {
+            .acquire_worker_cores(AcquireRequest {
                 unit_ids: unit_ids.clone(),
                 worker_type: WorkType::CapacityCommitment,
             })
             .unwrap();
         let assignment_2 = manager
-            .acquire_worker_core(AcquireRequest {
+            .acquire_worker_cores(AcquireRequest {
                 unit_ids: unit_ids.clone(),
                 worker_type: WorkType::Deal,
             })
             .unwrap();
         let assignment_3 = manager
-            .acquire_worker_core(AcquireRequest {
+            .acquire_worker_cores(AcquireRequest {
                 unit_ids: unit_ids.clone(),
                 worker_type: WorkType::CapacityCommitment,
             })
@@ -459,12 +455,12 @@ mod tests {
                 .unwrap();
         let unit_ids = vec![init_id_1, init_id_2];
         let assignment = manager
-            .acquire_worker_core(AcquireRequest {
+            .acquire_worker_cores(AcquireRequest {
                 unit_ids: unit_ids.clone(),
                 worker_type: WorkType::CapacityCommitment,
             })
             .unwrap();
-        assert_eq!(assignment.physical_core_ids.len(), 2);
+        assert_eq!(assignment.logical_core_ids().len(), 4);
         assert_eq!(assignment.cuid_cores.len(), 2);
 
         let after_assignment = manager.state.read();
@@ -481,7 +477,7 @@ mod tests {
         assert_eq!(after_assignment_unit_id_mapping.len(), 2);
         assert_eq!(after_assignment_type_mapping.len(), 2);
 
-        manager.release(&unit_ids);
+        manager.release_worker_cores(&unit_ids);
 
         let after_release_lock = manager.state.read();
 
@@ -533,13 +529,13 @@ mod tests {
         );
 
         manager
-            .acquire_worker_core(AcquireRequest {
+            .acquire_worker_cores(AcquireRequest {
                 unit_ids: vec![init_id_2],
                 worker_type: WorkType::Deal,
             })
             .unwrap();
 
-        let result = manager.acquire_worker_core(AcquireRequest {
+        let result = manager.acquire_worker_cores(AcquireRequest {
             unit_ids: vec![init_id_3],
             worker_type: WorkType::Deal,
         });
@@ -599,21 +595,21 @@ mod tests {
             .collect();
 
         let assignment = manager
-            .acquire_worker_core(AcquireRequest {
+            .acquire_worker_cores(AcquireRequest {
                 unit_ids: unit_ids.clone(),
                 worker_type: WorkType::CapacityCommitment,
             })
             .unwrap();
-        assert_eq!(assignment.physical_core_ids.len(), unit_ids_count);
+        assert_eq!(assignment.logical_core_ids().len(), unit_ids_count * 2);
         assert_eq!(assignment.cuid_cores.len(), unit_ids_count);
 
         let assignment = manager
-            .acquire_worker_core(AcquireRequest {
+            .acquire_worker_cores(AcquireRequest {
                 unit_ids: unit_ids.clone(),
                 worker_type: WorkType::Deal,
             })
             .unwrap();
-        assert_eq!(assignment.physical_core_ids.len(), unit_ids_count);
+        assert_eq!(assignment.logical_core_ids().len(), unit_ids_count * 2);
         assert_eq!(assignment.cuid_cores.len(), unit_ids_count);
     }
 
@@ -642,12 +638,12 @@ mod tests {
             .collect();
 
         let assignment = manager
-            .acquire_worker_core(AcquireRequest {
+            .acquire_worker_cores(AcquireRequest {
                 unit_ids: unit_ids.clone(),
                 worker_type: WorkType::CapacityCommitment,
             })
             .unwrap();
-        assert_eq!(assignment.physical_core_ids.len(), unit_ids_count);
+        assert_eq!(assignment.logical_core_ids().len(), unit_ids_count * 2);
         assert_eq!(assignment.cuid_cores.len(), unit_ids_count);
         let unit_ids: Vec<CUID> = (0..unit_ids_count)
             .map(|_| {
@@ -657,7 +653,7 @@ mod tests {
             })
             .collect();
 
-        let result = manager.acquire_worker_core(AcquireRequest {
+        let result = manager.acquire_worker_cores(AcquireRequest {
             unit_ids: unit_ids.clone(),
             worker_type: WorkType::Deal,
         });

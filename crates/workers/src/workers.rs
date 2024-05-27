@@ -224,40 +224,41 @@ impl Workers {
 
                 match worker_info {
                     Ok(worker_info) => {
-                        let thread_count = {
-                            let lock = self.worker_ids.upgradable_read();
-                            let worker_ids = lock.deref();
-                            if worker_ids.contains_key(&deal_id) {
-                                return Err(WorkersError::WorkerAlreadyExists { deal_id });
-                            }
+                        let result = try {
+                            let thread_count = {
+                                let lock = self.worker_ids.upgradable_read();
+                                let worker_ids = lock.deref();
+                                if worker_ids.contains_key(&deal_id) {
+                                    return Err(WorkersError::WorkerAlreadyExists { deal_id });
+                                }
 
-                            let (runtime, thread_count) = Self::build_runtime(
-                                self.core_distributor.clone(),
-                                self.thread_pinner.clone(),
-                                self.runtime_counter.clone(),
-                                worker_id,
-                                cu_ids,
-                            )?;
+                                let (runtime, thread_count) = Self::build_runtime(
+                                    self.core_distributor.clone(),
+                                    self.thread_pinner.clone(),
+                                    self.runtime_counter.clone(),
+                                    worker_id,
+                                    cu_ids.clone(),
+                                )?;
 
-                            // Upgrade read lock to write lock
-                            let mut worker_ids = RwLockUpgradableReadGuard::upgrade(lock);
-                            let mut worker_infos = self.worker_infos.write();
-                            let mut runtimes = self.runtimes.write();
+                                // Upgrade read lock to write lock
+                                let mut worker_ids = RwLockUpgradableReadGuard::upgrade(lock);
+                                let mut worker_infos = self.worker_infos.write();
+                                let mut runtimes = self.runtimes.write();
 
-                            worker_ids.insert(deal_id.clone(), worker_id);
-                            worker_infos.insert(worker_id, worker_info);
-                            runtimes.insert(worker_id, runtime);
-                            thread_count
+                                worker_ids.insert(deal_id.clone(), worker_id);
+                                worker_infos.insert(worker_id, worker_info);
+                                runtimes.insert(worker_id, runtime);
+                                thread_count
+                            };
+
+                            self.sender
+                                .send(Event::WorkerCreated {
+                                    worker_id,
+                                    thread_count,
+                                })
+                                .await
+                                .map_err(|_err| WorkersError::FailedToNotifySubsystem { worker_id })
                         };
-
-                        let result = self
-                            .sender
-                            .send(Event::WorkerCreated {
-                                worker_id,
-                                thread_count,
-                            })
-                            .await
-                            .map_err(|_err| WorkersError::FailedToNotifySubsystem { worker_id });
                         match result {
                             Ok(_) => {
                                 tracing::info!(
@@ -281,6 +282,8 @@ impl Workers {
                                 worker_ids.remove(&deal_id);
                                 worker_infos.remove(&worker_id);
                                 runtimes.remove(&worker_id);
+
+                                self.core_distributor.release_worker_cores(cu_ids.as_slice());
 
                                 Err(err)
                             }
@@ -602,14 +605,15 @@ impl Workers {
         // Creating a multi-threaded Tokio runtime with a total of cu_count * 2 threads.
         // We assume cu_count threads per logical processor, aligning with the common practice.
         let assignment = core_distributor
-            .acquire_worker_core(AcquireRequest::new(cu_ids, WorkType::Deal))
+            .acquire_worker_cores(AcquireRequest::new(cu_ids, WorkType::Deal))
             .map_err(|err| WorkersError::FailedToAssignCores { worker_id, err })?;
 
-        let threads_count = assignment.logical_core_ids.len();
+        let logical_cores = assignment.logical_core_ids();
+        let threads_count = logical_cores.len();
 
         let id = worker_counter.fetch_add(1, Ordering::Acquire);
 
-        tracing::info!(target: "worker", "Creating runtime with id {} for worker id {}. Pinned to cores: {:?}", id, worker_id, assignment.logical_core_ids);
+        tracing::info!(target: "worker", "Creating runtime with id {} for worker id {}. Pinned to cores: {:?}", id, worker_id, logical_cores);
 
         let runtime = tokio::runtime::Builder::new_multi_thread()
             .thread_name(format!("worker-pool-{}", id))

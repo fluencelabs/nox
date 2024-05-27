@@ -1,5 +1,5 @@
 use crate::errors::AcquireError;
-use crate::types::{AcquireRequest, Assignment};
+use crate::types::{AcquireRequest, Assignment, SystemAssignment};
 use crate::{CoreDistributor, Map};
 use ccp_shared::types::{LogicalCoreId, PhysicalCoreId, CUID};
 use fxhash::FxBuildHasher;
@@ -19,24 +19,16 @@ impl DummyCoreDistibutor {
 }
 
 impl CoreDistributor for DummyCoreDistibutor {
-    fn acquire_worker_core(
+    fn acquire_worker_cores(
         &self,
         _acquire_request: AcquireRequest,
     ) -> Result<Assignment, AcquireError> {
-        Ok(Assignment::new(
-            vec![PhysicalCoreId::new(0)],
-            vec![LogicalCoreId::new(0)],
-            Map::with_hasher(FxBuildHasher::default()),
-        ))
+        Ok(Assignment::new(Map::with_hasher(FxBuildHasher::default())))
     }
 
-    fn release(&self, _unit_ids: &[CUID]) {}
+    fn release_worker_cores(&self, _unit_ids: &[CUID]) {}
 
-    fn get_system_cpu_assignment(&self) -> Assignment {
-        Assignment::new(
-            vec![PhysicalCoreId::new(0)],
-            vec![LogicalCoreId::new(0)],
-            Map::with_hasher(FxBuildHasher::default()),
-        )
+    fn get_system_cpu_assignment(&self) -> SystemAssignment {
+        SystemAssignment::new(vec![PhysicalCoreId::new(0)], vec![LogicalCoreId::new(0)])
     }
 }
