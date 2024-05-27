@@ -545,8 +545,10 @@ mod tests {
         });
 
         let expected = "Couldn't assign core: no free cores left. \
-            Required: 1, available: 0, current assignment: [2 -> 1cce3d08f784b11d636f2fb55adf291d43c2e9cbe7ae7eeb2d0301a96be0a3a0, \
-            3 -> 54ae1b506c260367a054f80800a545f23e32c6bc4a8908c9a794cb8dad23e5ea].".to_string();
+        Required: 1, \
+        available: 0, \
+        acquire_request: { unit_ids: [271e0e06fdae1f0237055e78f5804416fd9ebb9ca5b52ae360d8124cde220dae], worker_type: Deal }, \
+        current assignment: [2 -> 1cce3d08f784b11d636f2fb55adf291d43c2e9cbe7ae7eeb2d0301a96be0a3a0, 3 -> 54ae1b506c260367a054f80800a545f23e32c6bc4a8908c9a794cb8dad23e5ea]".to_string();
         assert_eq!(expected, result.unwrap_err().to_string());
     }
 

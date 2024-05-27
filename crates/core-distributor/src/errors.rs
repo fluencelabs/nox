@@ -1,4 +1,4 @@
-use crate::types::AcquireRequest;
+
 /*
  * Copyright 2024 Fluence DAO
  *
@@ -15,11 +15,14 @@ use crate::types::AcquireRequest;
  * limitations under the License.
  */
 
-use ccp_shared::types::CUID;
-use cpu_utils::{CPUTopologyError, PhysicalCoreId};
 use std::fmt::{Display, Formatter, Write};
 use std::str::Utf8Error;
+
+use ccp_shared::types::CUID;
+use cpu_utils::{CPUTopologyError, PhysicalCoreId};
 use thiserror::Error;
+
+use crate::types::AcquireRequest;
 
 #[derive(Debug, Error)]
 pub enum CreateError {
@@ -110,10 +113,11 @@ impl Display for CurrentAssignment {
 
 #[derive(Debug, Error, PartialEq)]
 pub enum AcquireError {
-    #[error("Couldn't assign core: no free cores left. Required: {required}, available: {available}, current assignment: {current_assignment}.")]
+    #[error("Couldn't assign core: no free cores left. Required: {required}, available: {available}, acquire_request: {acquire_request:?}, current assignment: {current_assignment}")]
     NotFoundAvailableCores {
         required: usize,
         available: usize,
+        acquire_request: AcquireRequest,
         current_assignment: CurrentAssignment,
     },
 }

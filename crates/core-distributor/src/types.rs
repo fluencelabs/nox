@@ -19,6 +19,7 @@ use ccp_shared::types::CUID;
 use cpu_utils::pinning::ThreadPinner;
 use cpu_utils::{LogicalCoreId, PhysicalCoreId};
 use serde::{Deserialize, Serialize};
+use std::fmt::{Display, Formatter, Write};
 
 use crate::Map;
 
@@ -40,6 +41,21 @@ impl AcquireRequest {
             unit_ids,
             worker_type,
         }
+    }
+}
+
+impl Display for AcquireRequest {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.write_str("{ unit_ids: ")?;
+        f.write_char('[')?;
+        for cuid in &self.unit_ids {
+            f.write_str(format!("{}", cuid).as_str())?;
+        }
+        f.write_str("], ")?;
+        f.write_str("worker_type: ")?;
+        f.write_str(format!("{:?}", self.worker_type).as_str())?;
+        f.write_str(" }")?;
+        Ok(())
     }
 }
 
