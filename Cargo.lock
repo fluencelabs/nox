@@ -5664,7 +5664,7 @@ version = "0.1.0"
 
 [[package]]
 name = "nox"
-version = "0.23.6"
+version = "0.24.0"
 dependencies = [
  "air-interpreter-fs",
  "air-interpreter-wasm",
