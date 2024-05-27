@@ -28,6 +28,7 @@ pub enum WorkType {
     Deal,
 }
 
+#[derive(Debug, PartialEq, Clone)]
 pub struct AcquireRequest {
     pub(crate) unit_ids: Vec<CUID>,
     pub(crate) worker_type: WorkType,

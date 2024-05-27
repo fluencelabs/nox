@@ -55,12 +55,13 @@ impl AcquireStrategyOperations for StrictAcquireStrategy {
 
         let mut result_physical_core_ids = Vec::new();
         let mut result_logical_core_ids = Vec::new();
-        let worker_unit_type = acquire_request.worker_type;
+        let worker_unit_type = acquire_request.worker_type.clone();
 
         let available = state.available_cores.len();
 
         let core_usage = acquire_request
             .unit_ids
+            .clone()
             .into_iter()
             .map(|unit_id| {
                 (
@@ -81,6 +82,7 @@ impl AcquireStrategyOperations for StrictAcquireStrategy {
             return Err(AcquireError::NotFoundAvailableCores {
                 required,
                 available,
+                acquire_request: acquire_request.clone(),
                 current_assignment: CurrentAssignment::new(current_assignment),
             });
         }

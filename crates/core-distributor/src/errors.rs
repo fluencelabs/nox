@@ -1,3 +1,4 @@
+use crate::types::AcquireRequest;
 /*
  * Copyright 2024 Fluence DAO
  *
