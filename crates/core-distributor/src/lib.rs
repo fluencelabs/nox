@@ -48,4 +48,5 @@ pub use distributor::CoreDistributor;
 #[cfg(feature = "mockall")]
 pub use distributor::MockCoreDistributor;
 pub use distributor::PersistentCoreDistributor;
+pub use persistence::PersistenceTask;
 pub use strategy::AcquireStrategy;

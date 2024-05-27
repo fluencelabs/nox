@@ -283,7 +283,8 @@ impl Workers {
                                 worker_infos.remove(&worker_id);
                                 runtimes.remove(&worker_id);
 
-                                self.core_distributor.release_worker_cores(cu_ids.as_slice());
+                                self.core_distributor
+                                    .release_worker_cores(cu_ids.as_slice());
 
                                 Err(err)
                             }

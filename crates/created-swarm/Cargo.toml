@@ -20,7 +20,7 @@ air-interpreter-fs = { workspace = true }
 toy-vms = { workspace = true }
 system-services = { workspace = true }
 tempfile = { workspace = true }
-core-distributor = { workspace = true, features = ["dummy"] }
+core-distributor = { workspace = true }
 cpu-utils = { workspace = true }
 cid-utils = { workspace = true }
 
