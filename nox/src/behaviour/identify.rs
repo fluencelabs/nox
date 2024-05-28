@@ -19,9 +19,9 @@ use libp2p::{
     core::{multiaddr::Protocol, Multiaddr},
     identify::Event as IdentifyEvent,
 };
-use libp2p_swarm::StreamProtocol;
 use particle_protocol::PROTOCOL_NAME;
 use tokio::sync::oneshot;
+use server_config::KademliaConfig;
 
 use super::FluenceNetworkBehaviour;
 
@@ -30,7 +30,7 @@ use super::FluenceNetworkBehaviour;
 impl FluenceNetworkBehaviour {
     pub fn inject_identify_event(
         &mut self,
-        kademlia_protocol_name: &StreamProtocol,
+        config: &KademliaConfig,
         event: IdentifyEvent,
         allow_local_addresses: bool,
     ) {
@@ -50,7 +50,7 @@ impl FluenceNetworkBehaviour {
                 let mut supports_fluence = false;
 
                 for protocol in info.protocols.iter() {
-                    if !supports_kademlia && protocol.eq(kademlia_protocol_name) {
+                    if !supports_kademlia && protocol.eq(&config.protocol_name) {
                         supports_kademlia = true;
                     }
                     if !supports_fluence && protocol.eq(&PROTOCOL_NAME) {
