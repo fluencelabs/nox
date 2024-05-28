@@ -93,11 +93,10 @@ pub async fn make_swarms_with_cfg<F>(n: usize, mut update_cfg: F) -> Vec<Created
 where
     F: (FnMut(SwarmConfig) -> SwarmConfig),
 {
-    let network_key = NetworkKey::random();
     make_swarms_with(
         n,
         move |bs, maddr| {
-            let cfg = update_cfg(SwarmConfig::new(bs, maddr, network_key.clone()));
+            let cfg = update_cfg(SwarmConfig::new(bs, maddr, NetworkKey::random()));
             async move { create_swarm(cfg).await }
         },
         create_memory_maddr,

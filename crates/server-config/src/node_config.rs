@@ -30,7 +30,7 @@ use crate::kademlia_config::{KademliaConfig, UnresolvedKademliaConfig};
 use crate::keys::{decode_key, decode_secret_key, load_key};
 use crate::services_config::ServicesConfig;
 use crate::system_services_config::{ServiceKey, SystemServicesConfig};
-use crate::{BootstrapConfig};
+use crate::BootstrapConfig;
 
 use super::defaults::*;
 
