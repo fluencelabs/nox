@@ -9007,10 +9007,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "waiting-queues"
-version = "0.1.0"
-
-[[package]]
 name = "walrus"
 version = "0.20.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
