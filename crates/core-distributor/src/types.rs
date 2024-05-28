@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-use crate::Map;
+use std::fmt::{Display, Formatter, Write};
+
 use ccp_shared::types::CUID;
 use cpu_utils::pinning::ThreadPinner;
 use cpu_utils::{LogicalCoreId, PhysicalCoreId};
 use serde::{Deserialize, Serialize};
-use std::fmt::{Display, Formatter, Write};
 
 use crate::Map;
 
