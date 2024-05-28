@@ -249,12 +249,12 @@ mod tests {
     use std::io::Write;
     use std::time::Duration;
 
-    use crate::Network;
     use base64::{engine::general_purpose::STANDARD as base64, Engine};
     use fluence_keypair::KeyPair;
     use tempfile::{tempdir, NamedTempFile};
 
     use super::*;
+    use crate::Network;
 
     #[test]
     fn load_allowed_binaries_with_env() {
