@@ -21,14 +21,13 @@ use libp2p::{
     swarm::NetworkBehaviour,
     PeerId,
 };
-use libp2p_swarm::StreamProtocol;
 use tokio::sync::mpsc;
 
 use connection_pool::ConnectionPoolBehaviour;
 use health::HealthCheckRegistry;
 use kademlia::{Kademlia, KademliaConfig};
 use particle_protocol::{ExtendedParticle, PROTOCOL_NAME};
-use server_config::{Network, NetworkConfig};
+use server_config::NetworkConfig;
 
 use crate::connectivity::Connectivity;
 use crate::health::{BootstrapNodesHealth, ConnectivityHealth, KademliaBootstrapHealth};
@@ -45,7 +44,6 @@ pub struct FluenceNetworkBehaviour {
 
 struct KademliaConfigAdapter {
     peer_id: PeerId,
-    kad_protocol_name: StreamProtocol,
     config: server_config::KademliaConfig,
 }
 
@@ -58,14 +56,13 @@ impl From<KademliaConfigAdapter> for KademliaConfig {
             replication_factor: value.config.replication_factor,
             peer_fail_threshold: value.config.peer_fail_threshold,
             ban_cooldown: value.config.ban_cooldown,
-            protocol_name: value.kad_protocol_name,
+            protocol_name: value.config.protocol_name,
         }
     }
 }
 
 impl FluenceNetworkBehaviour {
     pub fn new(
-        network: Network,
         cfg: NetworkConfig,
         health_registry: Option<&mut HealthCheckRegistry>,
     ) -> eyre::Result<(Self, Connectivity, mpsc::Receiver<ExtendedParticle>)> {
@@ -76,12 +73,9 @@ impl FluenceNetworkBehaviour {
         );
         let ping = Ping::new(PingConfig::new());
 
-        let kad_protocol_name: StreamProtocol = network.try_into()?;
-
         let kad_config = KademliaConfigAdapter {
             peer_id: cfg.local_peer_id,
             config: cfg.kademlia_config,
-            kad_protocol_name,
         };
 
         let (kademlia, kademlia_api) = Kademlia::new(kad_config.into(), cfg.libp2p_metrics);

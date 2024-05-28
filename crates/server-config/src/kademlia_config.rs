@@ -14,13 +14,16 @@
  * limitations under the License.
  */
 
+use libp2p::StreamProtocol;
 use std::time::Duration;
 
+use crate::Network;
 use serde::{Deserialize, Serialize};
+use serde_with::{serde_as, DisplayFromStr};
 
 /// see `libp2p_kad::KademliaConfig`
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct KademliaConfig {
+pub struct UnresolvedKademliaConfig {
     pub max_packet_size: Option<usize>,
     #[serde(with = "humantime_serde")]
     pub query_timeout: Duration,
@@ -32,7 +35,37 @@ pub struct KademliaConfig {
     pub ban_cooldown: Duration,
 }
 
-impl Default for KademliaConfig {
+impl UnresolvedKademliaConfig {
+    pub fn resolve(&self, network: &Network) -> eyre::Result<KademliaConfig> {
+        let protocol_name: StreamProtocol = network.try_into()?;
+
+        Ok(KademliaConfig {
+            max_packet_size: self.max_packet_size,
+            query_timeout: self.query_timeout,
+            replication_factor: self.replication_factor,
+            peer_fail_threshold: self.peer_fail_threshold,
+            ban_cooldown: self.ban_cooldown,
+            protocol_name,
+        })
+    }
+}
+
+/// see `libp2p_kad::KademliaConfig`
+#[serde_as]
+#[derive(Debug, Clone, Serialize)]
+pub struct KademliaConfig {
+    pub max_packet_size: Option<usize>,
+    pub query_timeout: Duration,
+    pub replication_factor: Option<usize>,
+    /// Number of times peer is failed to be discovered before it is banned
+    pub peer_fail_threshold: usize,
+    /// Period after which peer ban is lifted
+    pub ban_cooldown: Duration,
+    #[serde_as(as = "DisplayFromStr")]
+    pub protocol_name: StreamProtocol,
+}
+
+impl Default for UnresolvedKademliaConfig {
     fn default() -> Self {
         Self {
             max_packet_size: Some(100 * 4096 * 4096), // 100Mb

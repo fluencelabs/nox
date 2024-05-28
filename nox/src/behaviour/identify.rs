@@ -30,7 +30,7 @@ use super::FluenceNetworkBehaviour;
 impl FluenceNetworkBehaviour {
     pub fn inject_identify_event(
         &mut self,
-        kad_protocol: &StreamProtocol,
+        kademlia_protocol_name: &StreamProtocol,
         event: IdentifyEvent,
         allow_local_addresses: bool,
     ) {
@@ -50,7 +50,7 @@ impl FluenceNetworkBehaviour {
                 let mut supports_fluence = false;
 
                 for protocol in info.protocols.iter() {
-                    if !supports_kademlia && protocol.eq(kad_protocol) {
+                    if !supports_kademlia && protocol.eq(kademlia_protocol_name) {
                         supports_kademlia = true;
                     }
                     if !supports_fluence && protocol.eq(&PROTOCOL_NAME) {

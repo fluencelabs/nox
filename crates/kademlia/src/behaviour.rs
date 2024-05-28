@@ -380,7 +380,7 @@ impl Kademlia {
         };
 
         let failed_peers = &mut self.failed_peers;
-        let config = self.config.clone();
+        let config = &self.config;
         // timer will wake up current task after `next_wake`
         let mut next_wake = min(config.query_timeout, config.ban_cooldown);
         let now = Instant::now();

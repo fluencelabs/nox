@@ -24,7 +24,8 @@ use config_utils::to_peer_id;
 use particle_protocol::ProtocolConfig;
 use peer_metrics::{ConnectionPoolMetrics, ConnectivityMetrics};
 
-use crate::{BootstrapConfig, KademliaConfig, ResolvedConfig};
+use crate::{BootstrapConfig, ResolvedConfig};
+use crate::kademlia_config::KademliaConfig;
 
 pub struct NetworkConfig {
     pub key_pair: Keypair,

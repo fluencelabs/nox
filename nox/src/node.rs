@@ -32,7 +32,6 @@ use libp2p::{
 };
 use libp2p_connection_limits::ConnectionLimits;
 use libp2p_metrics::{Metrics, Recorder};
-use libp2p_swarm::StreamProtocol;
 use prometheus_client::registry::Registry;
 use tokio::sync::{mpsc, oneshot};
 use tokio::task;
@@ -58,7 +57,7 @@ use peer_metrics::{
     ServicesMetrics, ServicesMetricsBackend, SpellMetrics, VmPoolMetrics,
 };
 use server_config::system_services_config::ServiceKey;
-use server_config::{Network, NetworkConfig, ResolvedConfig};
+use server_config::{NetworkConfig, ResolvedConfig};
 use sorcerer::Sorcerer;
 use spell_event_bus::api::{PeerEvent, SpellEventBusApi, TriggerEvent};
 use spell_event_bus::bus::SpellEventBus;
@@ -281,7 +280,6 @@ impl<RT: AquaRuntime> Node<RT> {
         let allow_local_addresses = config.allow_local_addresses;
 
         let (swarm, connectivity, particle_stream) = Self::swarm(
-            config.network.clone(),
             root_key_pair.clone().into(),
             network_config,
             transport,
@@ -489,7 +487,6 @@ impl<RT: AquaRuntime> Node<RT> {
     }
 
     pub fn swarm(
-        network: Network,
         key_pair: Keypair,
         network_config: NetworkConfig,
         transport: Boxed<(PeerId, StreamMuxerBox)>,
@@ -504,7 +501,7 @@ impl<RT: AquaRuntime> Node<RT> {
         let connection_idle_timeout = network_config.connection_idle_timeout;
 
         let (behaviour, connectivity, particle_stream) =
-            FluenceNetworkBehaviour::new(network, network_config, health_registry)?;
+            FluenceNetworkBehaviour::new(network_config, health_registry)?;
 
         let mut swarm = match metrics_registry {
             None => SwarmBuilder::with_existing_identity(key_pair)
@@ -640,7 +637,7 @@ impl<RT: AquaRuntime> Node<RT> {
         let versions = self.versions;
         let workers = self.workers.clone();
         let chain_listener = self.chain_listener;
-        let kad_protocol_name: StreamProtocol = self.config.network.clone().try_into()?;
+        let kad_protocol_name = self.config.kademlia.protocol_name.clone();
 
         let http_endpoint_data = HttpEndpointData::new(
             self.metrics_registry,
@@ -673,6 +670,7 @@ impl<RT: AquaRuntime> Node<RT> {
             let mut connectivity = connectivity.start();
             let mut dispatcher = dispatcher.start(particle_stream, effects_stream);
             let mut exit_inlet = Some(exit_inlet);
+
             loop {
                 let exit_inlet = exit_inlet.as_mut().expect("Could not get exit inlet");
                 tokio::select! {

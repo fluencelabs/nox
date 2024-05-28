@@ -26,10 +26,11 @@ use particle_protocol::ProtocolConfig;
 use types::peer_id;
 
 use crate::avm_config::AVMConfig;
+use crate::kademlia_config::{KademliaConfig, UnresolvedKademliaConfig};
 use crate::keys::{decode_key, decode_secret_key, load_key};
 use crate::services_config::ServicesConfig;
 use crate::system_services_config::{ServiceKey, SystemServicesConfig};
-use crate::{BootstrapConfig, KademliaConfig};
+use crate::{BootstrapConfig};
 
 use super::defaults::*;
 
@@ -104,7 +105,7 @@ pub struct UnresolvedNodeConfig {
     pub default_service_memory_limit: Option<bytesize::ByteSize>,
 
     #[serde(default)]
-    pub kademlia: KademliaConfig,
+    pub kademlia: UnresolvedKademliaConfig,
 
     #[serde(default = "default_particle_queue_buffer_size")]
     pub particle_queue_buffer: usize,
@@ -173,10 +174,10 @@ pub enum Network {
     Custom(#[serde_as(as = "Hex")] [u8; 32]),
 }
 
-impl TryFrom<Network> for StreamProtocol {
+impl TryFrom<&Network> for StreamProtocol {
     type Error = InvalidProtocol;
 
-    fn try_from(value: Network) -> Result<Self, Self::Error> {
+    fn try_from(value: &Network) -> Result<Self, Self::Error> {
         let id = match value {
             Network::Dar => "dar".to_string(),
             Network::Stage => "stage".to_string(),
@@ -221,6 +222,8 @@ impl UnresolvedNodeConfig {
 
         let cpus_range = self.cpus_range.unwrap_or_default();
 
+        let kademlia = self.kademlia.resolve(&self.network)?;
+
         let result = NodeConfig {
             system_cpu_count: self.system_cpu_count,
             cpus_range,
@@ -238,7 +241,7 @@ impl UnresolvedNodeConfig {
             aquavm_pool_size: self.aquavm_pool_size,
             default_service_memory_limit: self.default_service_memory_limit,
             avm_config: self.avm_config.unwrap_or_default(),
-            kademlia: self.kademlia,
+            kademlia,
             particle_queue_buffer: self.particle_queue_buffer,
             effects_queue_buffer: self.effects_queue_buffer,
             workers_queue_buffer: self.workers_queue_buffer,
