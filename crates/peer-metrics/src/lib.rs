@@ -39,7 +39,6 @@ mod connection_pool;
 mod connectivity;
 mod dispatcher;
 mod info;
-mod network_protocol;
 mod particle_executor;
 mod services_metrics;
 mod spell_metrics;

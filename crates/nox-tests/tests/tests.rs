@@ -17,10 +17,6 @@
 #[macro_use]
 extern crate fstrings;
 
-mod chat {
-    mod chat;
-}
-
 mod network {
     pub use join::join_stream;
 
