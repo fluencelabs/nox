@@ -501,7 +501,7 @@ impl<RT: AquaRuntime> Node<RT> {
         let connection_idle_timeout = network_config.connection_idle_timeout;
 
         let (behaviour, connectivity, particle_stream) =
-            FluenceNetworkBehaviour::new(network_config, health_registry)?;
+            FluenceNetworkBehaviour::new(network_config, health_registry);
 
         let mut swarm = match metrics_registry {
             None => SwarmBuilder::with_existing_identity(key_pair)

@@ -65,7 +65,7 @@ impl FluenceNetworkBehaviour {
     pub fn new(
         cfg: NetworkConfig,
         health_registry: Option<&mut HealthCheckRegistry>,
-    ) -> eyre::Result<(Self, Connectivity, mpsc::Receiver<ExtendedParticle>)> {
+    ) -> (Self, Connectivity, mpsc::Receiver<ExtendedParticle>) {
         let local_public_key = cfg.key_pair.public();
         let identify = Identify::new(
             IdentifyConfig::new(PROTOCOL_NAME.into(), local_public_key)
@@ -120,6 +120,6 @@ impl FluenceNetworkBehaviour {
             health,
         };
 
-        Ok((this, connectivity, particle_stream))
+        (this, connectivity, particle_stream)
     }
 }
