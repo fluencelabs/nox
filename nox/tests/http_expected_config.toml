@@ -76,6 +76,7 @@ max_packet_size = 1677721600
 query_timeout = "3s"
 peer_fail_threshold = 3
 ban_cooldown = "1m"
+protocol_name = "/fluence/kad/dar/1.0.0"
 
 [node_config.max_spell_particle_ttl]
 secs = 120

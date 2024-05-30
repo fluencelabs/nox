@@ -55,11 +55,13 @@ impl UnresolvedKademliaConfig {
 #[derive(Debug, Clone, Serialize)]
 pub struct KademliaConfig {
     pub max_packet_size: Option<usize>,
+    #[serde(with = "humantime_serde")]
     pub query_timeout: Duration,
     pub replication_factor: Option<usize>,
     /// Number of times peer is failed to be discovered before it is banned
     pub peer_fail_threshold: usize,
     /// Period after which peer ban is lifted
+    #[serde(with = "humantime_serde")]
     pub ban_cooldown: Duration,
     #[serde_as(as = "DisplayFromStr")]
     pub protocol_name: StreamProtocol,
