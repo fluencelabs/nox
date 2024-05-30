@@ -296,6 +296,10 @@ impl Kademlia {
             .insert(query_id, PendingQuery::Neighborhood(outlet));
         self.wake();
     }
+
+    pub fn protocol_name(&self) -> &StreamProtocol {
+        &self.config.protocol_name
+    }
 }
 
 impl Kademlia {

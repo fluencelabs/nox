@@ -637,7 +637,6 @@ impl<RT: AquaRuntime> Node<RT> {
         let versions = self.versions;
         let workers = self.workers.clone();
         let chain_listener = self.chain_listener;
-        let kad_config = self.config.kademlia.clone();
 
         let http_endpoint_data = HttpEndpointData::new(
             self.metrics_registry,
@@ -677,7 +676,7 @@ impl<RT: AquaRuntime> Node<RT> {
                     Some(e) = swarm.next() => {
                         if let Some(m) = libp2p_metrics.as_ref() { m.record(&e) }
                         if let SwarmEvent::Behaviour(FluenceNetworkBehaviourEvent::Identify(event)) = e {
-                            swarm.behaviour_mut().inject_identify_event(&kad_config, event, allow_local_addresses);
+                            swarm.behaviour_mut().inject_identify_event(event, allow_local_addresses);
                         }
                     },
                     _ = &mut http_server => {},
