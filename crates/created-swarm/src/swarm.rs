@@ -395,7 +395,7 @@ pub async fn create_swarm_with_runtime<RT: AquaRuntime>(
         let tmp_dir = config.tmp_dir.path().to_path_buf();
 
         let node_config = json!({
-            "network": "Dar",
+            "network": "dar",
             "base_dir": tmp_dir.to_string_lossy(),
             "root_key_pair": {
                     "format": format,
