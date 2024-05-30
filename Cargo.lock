@@ -332,6 +332,7 @@ dependencies = [
  "base64 0.21.7",
  "bs58",
  "bytesize",
+ "ccp-test-utils",
  "chrono",
  "config-utils",
  "control-macro",
@@ -5753,6 +5754,7 @@ dependencies = [
  "blake3",
  "bs58",
  "ccp-rpc-client",
+ "ccp-test-utils",
  "cfg-if",
  "chain-connector",
  "chain-listener",
@@ -6362,6 +6364,7 @@ version = "0.1.0"
 dependencies = [
  "base64 0.21.7",
  "bytesize",
+ "ccp-test-utils",
  "cid-utils",
  "config-utils",
  "core-distributor",
@@ -8068,6 +8071,7 @@ dependencies = [
 name = "spell-service-api"
 version = "0.1.0"
 dependencies = [
+ "ccp-test-utils",
  "config-utils",
  "core-distributor",
  "cpu-utils",
@@ -10108,6 +10112,7 @@ name = "workers"
 version = "0.1.0"
 dependencies = [
  "async-trait",
+ "ccp-test-utils",
  "core-distributor",
  "cpu-utils",
  "derivative",

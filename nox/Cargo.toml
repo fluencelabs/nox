@@ -89,3 +89,4 @@ log-utils = { workspace = true }
 reqwest = { workspace = true }
 tempfile = { workspace = true }
 cpu-utils = { workspace = true }
+ccp-test-utils = { workspace = true }

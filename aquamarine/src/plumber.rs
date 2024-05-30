@@ -774,7 +774,7 @@ mod tests {
         let key_storage = Arc::new(key_storage);
 
         let core_distributor = Arc::new(DummyCoreDistibutor::new());
-        let thread_pinner = Arc::new(cpu_utils::pinning::DUMMY);
+        let thread_pinner = Arc::new(ccp_test_utils::pinning::DUMMY);
 
         let scope = PeerScopes::new(
             root_key_pair.get_peer_id(),

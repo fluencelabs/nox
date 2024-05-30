@@ -30,4 +30,4 @@ maplit = { workspace = true }
 tokio = { workspace = true, features = ["macros"] }
 core-distributor = { workspace = true, features = ["dummy"] }
 cpu-utils = { workspace = true }
-
+ccp-test-utils = { workspace = true }

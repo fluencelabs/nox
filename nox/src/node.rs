@@ -851,7 +851,7 @@ mod tests {
                 .expect("can't create system services");
 
         let core_distributor = Arc::new(DummyCoreDistibutor::new());
-        let thread_pinner = Arc::new(cpu_utils::pinning::DUMMY);
+        let thread_pinner = Arc::new(ccp_test_utils::pinning::DUMMY);
 
         let mut node: Box<Node<AVMRunner>> = Node::new(
             config,
