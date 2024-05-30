@@ -1251,9 +1251,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "ccp-randomx"
+version = "0.10.0"
+source = "git+https://github.com/fluencelabs/capacity-commitment-prover.git?branch=feature/net-820#1768ada6f454bc32d332699900e07afa998bcddb"
+dependencies = [
+ "bitflags 2.4.1",
+ "ccp-shared",
+ "cmake",
+ "hex",
+ "libc",
+ "serde",
+ "thiserror",
+]
+
+[[package]]
 name = "ccp-rpc-client"
-version = "0.9.0"
-source = "git+https://github.com/fluencelabs/capacity-commitment-prover.git?branch=feature/net-820#c1fae45e859fc881be6449ae06870f15e0ccfdcd"
+version = "0.10.0"
+source = "git+https://github.com/fluencelabs/capacity-commitment-prover.git?branch=feature/net-820#1768ada6f454bc32d332699900e07afa998bcddb"
 dependencies = [
  "ccp-shared",
  "hex",
@@ -1263,13 +1277,24 @@ dependencies = [
 
 [[package]]
 name = "ccp-shared"
-version = "0.9.0"
-source = "git+https://github.com/fluencelabs/capacity-commitment-prover.git?branch=feature/net-820#c1fae45e859fc881be6449ae06870f15e0ccfdcd"
+version = "0.10.0"
+source = "git+https://github.com/fluencelabs/capacity-commitment-prover.git?branch=feature/net-820#1768ada6f454bc32d332699900e07afa998bcddb"
 dependencies = [
  "hex",
  "newtype_derive",
  "rand 0.8.5",
  "serde",
+]
+
+[[package]]
+name = "ccp-test-utils"
+version = "0.10.0"
+source = "git+https://github.com/fluencelabs/capacity-commitment-prover.git?branch=feature/net-820#1768ada6f454bc32d332699900e07afa998bcddb"
+dependencies = [
+ "ccp-randomx",
+ "ccp-shared",
+ "cpu-utils",
+ "rand 0.8.5",
 ]
 
 [[package]]
@@ -1517,6 +1542,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "cmake"
+version = "0.1.50"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a31c789563b815f77f4250caee12365734369f942439b7defd71e18a48197130"
+dependencies = [
+ "cc",
+]
+
+[[package]]
 name = "colorchoice"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1716,8 +1750,8 @@ dependencies = [
 
 [[package]]
 name = "cpu-utils"
-version = "0.9.0"
-source = "git+https://github.com/fluencelabs/capacity-commitment-prover.git?branch=feature/net-820#c1fae45e859fc881be6449ae06870f15e0ccfdcd"
+version = "0.10.0"
+source = "git+https://github.com/fluencelabs/capacity-commitment-prover.git?branch=feature/net-820#1768ada6f454bc32d332699900e07afa998bcddb"
 dependencies = [
  "ccp-shared",
  "ccp_core_affinity",
@@ -1862,6 +1896,7 @@ dependencies = [
  "air-interpreter-fs",
  "aquamarine",
  "base64 0.21.7",
+ "ccp-test-utils",
  "cid-utils",
  "config-utils",
  "connection-pool",
