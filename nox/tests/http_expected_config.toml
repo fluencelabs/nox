@@ -25,6 +25,7 @@ particle_processor_parallelism = 16
 bootstrap_frequency = 3
 allow_local_addresses = false
 management_peer_id = "12D3KooWELdQw9pQVdq5NS6gEHsWMbYpLh3PjqFyNbivYWuATcik"
+network = "Dar"
 
 [node_config.transport_config]
 transport = "Network"
@@ -75,6 +76,7 @@ max_packet_size = 1677721600
 query_timeout = "3s"
 peer_fail_threshold = 3
 ban_cooldown = "1m"
+protocol_name = "/fluence/kad/dar/1.0.0"
 
 [node_config.max_spell_particle_ttl]
 secs = 120

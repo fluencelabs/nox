@@ -44,3 +44,4 @@ reqwest = { workspace = true }
 # for re-export for outside tests
 fluence-spell-dtos = { workspace = true }
 fluence-app-service = { workspace = true }
+rand = { workspace = true }
