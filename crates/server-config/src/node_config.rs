@@ -182,6 +182,7 @@ pub struct UnresolvedNodeConfig {
 
 #[serde_as]
 #[derive(Clone, Deserialize, Serialize, Debug, Default, PartialEq)]
+#[serde(rename_all = "lowercase")]
 pub enum Network {
     #[default]
     Dar,

@@ -151,7 +151,7 @@ tracing = { version = "0.1.40", default-features = false, features = ["log"] }
 tracing-subscriber = "0.3.18"
 futures = "0.3.30"
 thiserror = "1.0.56"
-serde = "1.0.196"
+serde = "1.0.203"
 toml = "0.8.12"
 toml_edit = "0.22.9"
 itertools = "0.12.1"
@@ -173,10 +173,10 @@ enum_dispatch = "0.3.12"
 serde_with = "3.7.0"
 mockito = "1.2.0"
 clarity = "1.3.0"
-cpu-utils = { git = "https://github.com/fluencelabs/capacity-commitment-prover.git", branch = "feature/net-820" }
-ccp-shared = { git = "https://github.com/fluencelabs/capacity-commitment-prover.git", branch = "feature/net-820" }
-ccp-rpc-client = { git = "https://github.com/fluencelabs/capacity-commitment-prover.git", branch = "feature/net-820" }
-ccp-test-utils = { git = "https://github.com/fluencelabs/capacity-commitment-prover.git", branch = "feature/net-820" }
+cpu-utils = { git = "https://github.com/fluencelabs/capacity-commitment-prover.git", branch = "main" }
+ccp-shared = { git = "https://github.com/fluencelabs/capacity-commitment-prover.git", branch = "main" }
+ccp-rpc-client = { git = "https://github.com/fluencelabs/capacity-commitment-prover.git", branch = "main" }
+ccp-test-utils = { git = "https://github.com/fluencelabs/capacity-commitment-prover.git", branch = "main" }
 alloy-sol-types = "0.6.4"
 alloy-primitives = "0.6.4"
 alloy_serde_macro = "0.1.2"

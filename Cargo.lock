@@ -1253,8 +1253,8 @@ dependencies = [
 
 [[package]]
 name = "ccp-randomx"
-version = "0.10.0"
-source = "git+https://github.com/fluencelabs/capacity-commitment-prover.git?branch=feature/net-820#1768ada6f454bc32d332699900e07afa998bcddb"
+version = "0.10.1"
+source = "git+https://github.com/fluencelabs/capacity-commitment-prover.git?branch=main#d639260f1d7518b6e9b7f1d57ba5e28f469c0c7b"
 dependencies = [
  "bitflags 2.4.1",
  "ccp-shared",
@@ -1267,8 +1267,8 @@ dependencies = [
 
 [[package]]
 name = "ccp-rpc-client"
-version = "0.10.0"
-source = "git+https://github.com/fluencelabs/capacity-commitment-prover.git?branch=feature/net-820#1768ada6f454bc32d332699900e07afa998bcddb"
+version = "0.10.1"
+source = "git+https://github.com/fluencelabs/capacity-commitment-prover.git?branch=main#d639260f1d7518b6e9b7f1d57ba5e28f469c0c7b"
 dependencies = [
  "ccp-shared",
  "hex",
@@ -1278,8 +1278,8 @@ dependencies = [
 
 [[package]]
 name = "ccp-shared"
-version = "0.10.0"
-source = "git+https://github.com/fluencelabs/capacity-commitment-prover.git?branch=feature/net-820#1768ada6f454bc32d332699900e07afa998bcddb"
+version = "0.10.1"
+source = "git+https://github.com/fluencelabs/capacity-commitment-prover.git?branch=main#d639260f1d7518b6e9b7f1d57ba5e28f469c0c7b"
 dependencies = [
  "hex",
  "newtype_derive",
@@ -1289,8 +1289,8 @@ dependencies = [
 
 [[package]]
 name = "ccp-test-utils"
-version = "0.10.0"
-source = "git+https://github.com/fluencelabs/capacity-commitment-prover.git?branch=feature/net-820#1768ada6f454bc32d332699900e07afa998bcddb"
+version = "0.10.1"
+source = "git+https://github.com/fluencelabs/capacity-commitment-prover.git?branch=main#d639260f1d7518b6e9b7f1d57ba5e28f469c0c7b"
 dependencies = [
  "ccp-randomx",
  "ccp-shared",
@@ -1751,8 +1751,8 @@ dependencies = [
 
 [[package]]
 name = "cpu-utils"
-version = "0.10.0"
-source = "git+https://github.com/fluencelabs/capacity-commitment-prover.git?branch=feature/net-820#1768ada6f454bc32d332699900e07afa998bcddb"
+version = "0.10.1"
+source = "git+https://github.com/fluencelabs/capacity-commitment-prover.git?branch=main#d639260f1d7518b6e9b7f1d57ba5e28f469c0c7b"
 dependencies = [
  "ccp-shared",
  "ccp_core_affinity",
@@ -7645,9 +7645,9 @@ checksum = "f638d531eccd6e23b980caf34876660d38e265409d8e99b397ab71eb3612fad0"
 
 [[package]]
 name = "serde"
-version = "1.0.196"
+version = "1.0.203"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "870026e60fa08c69f064aa766c10f10b1d62db9ccd4d0abb206472bee0ce3b32"
+checksum = "7253ab4de971e72fb7be983802300c30b5a7f0c2e56fab8abfc6a214307c0094"
 dependencies = [
  "serde_derive",
 ]
@@ -7663,9 +7663,9 @@ dependencies = [
 
 [[package]]
 name = "serde_derive"
-version = "1.0.196"
+version = "1.0.203"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "33c85360c95e7d137454dc81d9a4ed2b8efd8fbe19cee57357b32b9771fccb67"
+checksum = "500cbc0ebeb6f46627f50f3f5811ccf6bf00643be300b4c3eabc0ef55dc5b5ba"
 dependencies = [
  "proc-macro2",
  "quote",
