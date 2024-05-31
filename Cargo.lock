@@ -1253,8 +1253,9 @@ dependencies = [
 
 [[package]]
 name = "ccp-randomx"
-version = "0.10.1"
-source = "git+https://github.com/fluencelabs/capacity-commitment-prover.git?branch=main#d639260f1d7518b6e9b7f1d57ba5e28f469c0c7b"
+version = "0.10.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b16a7ee92af3e2ec413db7901a8030abdbe4f4a0a3e1e15b090c9b1d1786950e"
 dependencies = [
  "bitflags 2.4.1",
  "ccp-shared",
@@ -1267,8 +1268,9 @@ dependencies = [
 
 [[package]]
 name = "ccp-rpc-client"
-version = "0.10.1"
-source = "git+https://github.com/fluencelabs/capacity-commitment-prover.git?branch=main#d639260f1d7518b6e9b7f1d57ba5e28f469c0c7b"
+version = "0.10.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9176fd2a8249730c6256bbbdb2f1f864ce1aa42caa80db9d137ce8dcce351ecd"
 dependencies = [
  "ccp-shared",
  "hex",
@@ -1278,8 +1280,9 @@ dependencies = [
 
 [[package]]
 name = "ccp-shared"
-version = "0.10.1"
-source = "git+https://github.com/fluencelabs/capacity-commitment-prover.git?branch=main#d639260f1d7518b6e9b7f1d57ba5e28f469c0c7b"
+version = "0.10.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ce20b2393397b733ff6f9fd91909dc7c115df934a3be876351e861851e4c2038"
 dependencies = [
  "hex",
  "newtype_derive",
@@ -1289,8 +1292,9 @@ dependencies = [
 
 [[package]]
 name = "ccp-test-utils"
-version = "0.10.1"
-source = "git+https://github.com/fluencelabs/capacity-commitment-prover.git?branch=main#d639260f1d7518b6e9b7f1d57ba5e28f469c0c7b"
+version = "0.10.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3fa1202483a5824c2643dfd730609166e03c44a9a578a41bf09dc27158faaefb"
 dependencies = [
  "ccp-randomx",
  "ccp-shared",
@@ -1751,8 +1755,9 @@ dependencies = [
 
 [[package]]
 name = "cpu-utils"
-version = "0.10.1"
-source = "git+https://github.com/fluencelabs/capacity-commitment-prover.git?branch=main#d639260f1d7518b6e9b7f1d57ba5e28f469c0c7b"
+version = "0.10.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bf88054aeeac7a790f0c653e77a79bd0af113b13249a8f94ad4ed795488fff64"
 dependencies = [
  "ccp-shared",
  "ccp_core_affinity",
