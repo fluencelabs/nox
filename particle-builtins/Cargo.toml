@@ -10,7 +10,6 @@ particle-execution = { workspace = true }
 particle-services = { workspace = true }
 particle-modules = { workspace = true }
 connection-pool = { workspace = true }
-server-config = { workspace = true }
 kademlia = { workspace = true }
 particle-args = { workspace = true }
 now-millis = { workspace = true }

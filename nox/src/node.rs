@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 Fluence Labs Limited
+ * Copyright 2024 Fluence DAO
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -669,13 +669,14 @@ impl<RT: AquaRuntime> Node<RT> {
             let mut connectivity = connectivity.start();
             let mut dispatcher = dispatcher.start(particle_stream, effects_stream);
             let mut exit_inlet = Some(exit_inlet);
+
             loop {
                 let exit_inlet = exit_inlet.as_mut().expect("Could not get exit inlet");
                 tokio::select! {
                     Some(e) = swarm.next() => {
                         if let Some(m) = libp2p_metrics.as_ref() { m.record(&e) }
-                        if let SwarmEvent::Behaviour(FluenceNetworkBehaviourEvent::Identify(i)) = e {
-                            swarm.behaviour_mut().inject_identify_event(i, allow_local_addresses);
+                        if let SwarmEvent::Behaviour(FluenceNetworkBehaviourEvent::Identify(event)) = e {
+                            swarm.behaviour_mut().inject_identify_event(event, allow_local_addresses);
                         }
                     },
                     _ = &mut http_server => {},

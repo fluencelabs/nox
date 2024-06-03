@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 Fluence Labs Limited
+ * Copyright 2024 Fluence DAO
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,14 +14,16 @@
  * limitations under the License.
  */
 
+use libp2p::StreamProtocol;
 use std::time::Duration;
 
-use libp2p::kad::Config as LibP2PKadConfig;
+use crate::Network;
 use serde::{Deserialize, Serialize};
+use serde_with::{serde_as, DisplayFromStr};
 
 /// see `libp2p_kad::KademliaConfig`
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct KademliaConfig {
+pub struct UnresolvedKademliaConfig {
     pub max_packet_size: Option<usize>,
     #[serde(with = "humantime_serde")]
     pub query_timeout: Duration,
@@ -33,7 +35,39 @@ pub struct KademliaConfig {
     pub ban_cooldown: Duration,
 }
 
-impl Default for KademliaConfig {
+impl UnresolvedKademliaConfig {
+    pub fn resolve(&self, network: &Network) -> eyre::Result<KademliaConfig> {
+        let protocol_name: StreamProtocol = network.try_into()?;
+
+        Ok(KademliaConfig {
+            max_packet_size: self.max_packet_size,
+            query_timeout: self.query_timeout,
+            replication_factor: self.replication_factor,
+            peer_fail_threshold: self.peer_fail_threshold,
+            ban_cooldown: self.ban_cooldown,
+            protocol_name,
+        })
+    }
+}
+
+/// see `libp2p_kad::KademliaConfig`
+#[serde_as]
+#[derive(Debug, Clone, Serialize)]
+pub struct KademliaConfig {
+    pub max_packet_size: Option<usize>,
+    #[serde(with = "humantime_serde")]
+    pub query_timeout: Duration,
+    pub replication_factor: Option<usize>,
+    /// Number of times peer is failed to be discovered before it is banned
+    pub peer_fail_threshold: usize,
+    /// Period after which peer ban is lifted
+    #[serde(with = "humantime_serde")]
+    pub ban_cooldown: Duration,
+    #[serde_as(as = "DisplayFromStr")]
+    pub protocol_name: StreamProtocol,
+}
+
+impl Default for UnresolvedKademliaConfig {
     fn default() -> Self {
         Self {
             max_packet_size: Some(100 * 4096 * 4096), // 100Mb
@@ -42,30 +76,5 @@ impl Default for KademliaConfig {
             peer_fail_threshold: 3,
             ban_cooldown: Duration::from_secs(60),
         }
-    }
-}
-
-impl KademliaConfig {
-    pub fn as_libp2p(&self) -> LibP2PKadConfig {
-        let mut cfg = LibP2PKadConfig::default();
-
-        cfg.set_query_timeout(self.query_timeout);
-
-        if let Some(max_packet_size) = self.max_packet_size {
-            cfg.set_max_packet_size(max_packet_size);
-        }
-
-        if let Some(replication_factor) = self.replication_factor {
-            if let Some(replication_factor) = std::num::NonZeroUsize::new(replication_factor) {
-                cfg.set_replication_factor(replication_factor);
-            } else {
-                log::warn!(
-                    "Invalid config value: replication_factor must be > 0, was {:?}",
-                    self.replication_factor
-                )
-            }
-        }
-
-        cfg
     }
 }

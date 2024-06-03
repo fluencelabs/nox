@@ -21,7 +21,6 @@ libp2p = { workspace = true }
 fstrings = { workspace = true }
 serde_json = { workspace = true }
 parking_lot = { workspace = true }
-maplit = { workspace = true }
 log = { workspace = true }
 tracing = { workspace = true }
 tokio = { workspace = true }

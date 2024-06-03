@@ -34,6 +34,7 @@ allowed_binaries = [
 ]
 no_banner = false
 print_config = true
+network = "Dar"
 
 [root_key_pair]
 format = "ed25519"

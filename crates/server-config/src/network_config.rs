@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 Fluence Labs Limited
+ * Copyright 2024 Fluence DAO
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,7 +24,8 @@ use config_utils::to_peer_id;
 use particle_protocol::ProtocolConfig;
 use peer_metrics::{ConnectionPoolMetrics, ConnectivityMetrics};
 
-use crate::{BootstrapConfig, KademliaConfig, ResolvedConfig};
+use crate::kademlia_config::KademliaConfig;
+use crate::{BootstrapConfig, ResolvedConfig};
 
 pub struct NetworkConfig {
     pub key_pair: Keypair,

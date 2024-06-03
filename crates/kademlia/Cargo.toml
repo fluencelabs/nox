@@ -9,7 +9,6 @@ particle-protocol = { workspace = true }
 
 control-macro = { workspace = true }
 fluence-libp2p = { workspace = true }
-server-config = { workspace = true }
 fluence-keypair = { workspace = true }
 
 libp2p = { workspace = true }
@@ -29,6 +28,7 @@ thiserror = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }
 
+
 [dev-dependencies]
 log-utils = { workspace = true }
-
+rand = { workspace = true }
