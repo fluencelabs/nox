@@ -91,7 +91,6 @@ impl ConnectedClient {
         node_address: Multiaddr,
         timeout: Duration,
         idle_connection_timeout: Duration,
-
         particle_ttl: Option<Duration>,
     ) -> Result<Self> {
         Self::connect_with_timeout(
