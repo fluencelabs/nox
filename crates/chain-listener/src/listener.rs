@@ -205,6 +205,8 @@ impl ChainListener {
                 }
                 tracing::info!(target: "chain-listener", "Subscribed successfully");
 
+                // Proof id should be loaded once on start, there is no reason to update it on refresh
+                // TODO: associate proof id with nonce, not current epoch
                 if let Err(err) = self.load_proof_id().await {
                     tracing::error!(target: "chain-listener", "Failed to load persisted proof id: {err}; Stopping...");
                     exit(1);
@@ -386,8 +388,6 @@ impl ChainListener {
     }
 
     async fn set_proof_id(&mut self, proof_id: ProofIdx) -> eyre::Result<()> {
-        self.last_submitted_proof_id = proof_id;
-
         let backoff = ExponentialBackoff {
             max_elapsed_time: Some(Duration::from_secs(3)),
             ..ExponentialBackoff::default()
@@ -396,7 +396,7 @@ impl ChainListener {
         let write = retry(backoff, || async {
             persistence::persist_proof_id(
                 &self.persisted_proof_id_dir,
-                self.last_submitted_proof_id,
+                proof_id,
                 self.current_epoch,
             ).await.map_err(|err|{
                 tracing::warn!(target: "chain-listener", "Failed to persist proof id: {err}; Retrying...");
@@ -404,6 +404,8 @@ impl ChainListener {
             })?;
             Ok(())
         }).await;
+
+        self.last_submitted_proof_id = proof_id;
 
         if let Err(err) = write {
             tracing::warn!(target: "chain-listener", "Failed to persist proof id: {err}; Ignoring..");
@@ -575,19 +577,17 @@ impl ChainListener {
             .values()
             .filter(|unit| unit.startEpoch > self.current_epoch);
 
+        for cu in in_deal {
+            let cu_id = CUID::new(cu.id.0);
+            self.active_deals.insert(cu.deal.to_string().into(), cu_id);
+        }
+
         tracing::info!(target: "chain-listener",
             "Compute units mapping: in cc {}/[{} pending], in deal {}",
             self.cc_compute_units.len(),
             pending.clone().count(),
             in_deal.len()
         );
-
-        for cu in in_deal {
-            let cu_id = CUID::new(cu.id.0);
-            self.core_manager.release(&[cu_id]);
-            self.acquire_core_for_deal(cu_id)?;
-            self.active_deals.insert(cu.deal.to_string().into(), cu_id);
-        }
 
         tracing::info!(target: "chain-listener",
             "Active compute units: {:?}",
@@ -605,6 +605,12 @@ impl ChainListener {
                 .map(CUID::to_string)
                 .collect::<Vec<_>>()
         );
+
+        // NOTE: cores are released after all the logs to simplify debug on failure
+        for cu_id in self.active_deals.values() {
+            self.core_manager.release(&[*cu_id]);
+            self.acquire_core_for_deal(*cu_id)?;
+        }
 
         Ok(())
     }
