@@ -17,7 +17,6 @@
 use alloy_sol_types::{sol, SolType};
 use hex_utils::decode_hex;
 use serde::{Deserialize, Serialize};
-use alloy_sol_types::sol;
 
 use crate::ConnectorError;
 use crate::Deal::{Status, CIDV1};
