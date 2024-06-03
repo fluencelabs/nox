@@ -43,7 +43,7 @@ pub trait CoreDistributor: Send + Sync {
     fn get_system_cpu_assignment(&self) -> SystemAssignment;
 }
 
-/// `StrictCoreManager` is a CPU core manager responsible for allocating and releasing CPU cores
+/// `PersistentCoreDistributor` is a CPU core distributor responsible for allocating and releasing CPU cores
 /// based on workload requirements. It maintains the state of core allocations, persists
 /// the state to disk, and provides methods for acquiring and releasing cores.
 pub struct PersistentCoreDistributor {
@@ -132,7 +132,7 @@ impl PersistentCoreDistributor {
         }
     }
 
-    /// Creates an empty core manager with only system cores assigned
+    /// Creates an empty core distributor with only system cores assigned
     fn new(
         file_name: PathBuf,
         system_cpu_count: usize,
@@ -382,7 +382,7 @@ mod tests {
         let cpu_topology = mocked_topology();
         let temp_dir = tempfile::tempdir().expect("Failed to create temp dir");
 
-        let (manager, _task) = PersistentCoreDistributor::from_path(
+        let (distributor, _task) = PersistentCoreDistributor::from_path(
             temp_dir.path().join("test.toml"),
             2,
             CoreRange::from_str("0-7").unwrap(),
@@ -397,19 +397,19 @@ mod tests {
             <CUID>::from_hex("1cce3d08f784b11d636f2fb55adf291d43c2e9cbe7ae7eeb2d0301a96be0a3a0")
                 .unwrap();
         let unit_ids = vec![init_id_1, init_id_2];
-        let assignment_1 = manager
+        let assignment_1 = distributor
             .acquire_worker_cores(AcquireRequest {
                 unit_ids: unit_ids.clone(),
                 worker_type: WorkType::CapacityCommitment,
             })
             .unwrap();
-        let assignment_2 = manager
+        let assignment_2 = distributor
             .acquire_worker_cores(AcquireRequest {
                 unit_ids: unit_ids.clone(),
                 worker_type: WorkType::Deal,
             })
             .unwrap();
-        let assignment_3 = manager
+        let assignment_3 = distributor
             .acquire_worker_cores(AcquireRequest {
                 unit_ids: unit_ids.clone(),
                 worker_type: WorkType::CapacityCommitment,
@@ -434,7 +434,7 @@ mod tests {
 
         let temp_dir = tempfile::tempdir().expect("Failed to create temp dir");
         let system_cpu_count = 2;
-        let (manager, _task) = PersistentCoreDistributor::from_path(
+        let (distributor, _task) = PersistentCoreDistributor::from_path(
             temp_dir.path().join("test.toml"),
             system_cpu_count,
             CoreRange::from_str("0-7").unwrap(),
@@ -442,7 +442,7 @@ mod tests {
             &cpu_topology,
         )
         .unwrap();
-        let before_lock = manager.state.read();
+        let before_lock = distributor.state.read();
 
         let mut before_available_core = before_lock
             .available_cores
@@ -465,7 +465,7 @@ mod tests {
             <CUID>::from_hex("1cce3d08f784b11d636f2fb55adf291d43c2e9cbe7ae7eeb2d0301a96be0a3a0")
                 .unwrap();
         let unit_ids = vec![init_id_1, init_id_2];
-        let assignment = manager
+        let assignment = distributor
             .acquire_worker_cores(AcquireRequest {
                 unit_ids: unit_ids.clone(),
                 worker_type: WorkType::CapacityCommitment,
@@ -474,7 +474,7 @@ mod tests {
         assert_eq!(assignment.logical_core_ids().len(), 4);
         assert_eq!(assignment.cuid_cores.len(), 2);
 
-        let after_assignment = manager.state.read();
+        let after_assignment = distributor.state.read();
 
         let after_assignment_available_core = after_assignment.available_cores.clone();
         let after_assignment_unit_id_mapping = after_assignment.unit_id_mapping.clone();
@@ -488,9 +488,9 @@ mod tests {
         assert_eq!(after_assignment_unit_id_mapping.len(), 2);
         assert_eq!(after_assignment_type_mapping.len(), 2);
 
-        manager.release_worker_cores(&unit_ids);
+        distributor.release_worker_cores(&unit_ids);
 
-        let after_release_lock = manager.state.read();
+        let after_release_lock = distributor.state.read();
 
         let mut after_release_available_core = after_release_lock
             .available_cores
@@ -533,20 +533,20 @@ mod tests {
             unit_id_mapping: vec![(PhysicalCoreId::new(3), init_id_1)],
             work_type_mapping: vec![(init_id_1, WorkType::Deal)],
         };
-        let (manager, _task) = PersistentCoreDistributor::make_instance_with_task(
+        let (distributor, _task) = PersistentCoreDistributor::make_instance_with_task(
             temp_dir.into_path(),
             persistent_state.into(),
             AcquireStrategy::Strict,
         );
 
-        manager
+        distributor
             .acquire_worker_cores(AcquireRequest {
                 unit_ids: vec![init_id_2],
                 worker_type: WorkType::Deal,
             })
             .unwrap();
 
-        let result = manager.acquire_worker_cores(AcquireRequest {
+        let result = distributor.acquire_worker_cores(AcquireRequest {
             unit_ids: vec![init_id_3],
             worker_type: WorkType::Deal,
         });
@@ -587,7 +587,7 @@ mod tests {
 
         let temp_dir = tempfile::tempdir().expect("Failed to create temp dir");
         let system_cpu_count = 1;
-        let (manager, _task) = PersistentCoreDistributor::from_path(
+        let (distributor, _task) = PersistentCoreDistributor::from_path(
             temp_dir.path().join("test.toml"),
             system_cpu_count,
             CoreRange::from_str("0-7").unwrap(),
@@ -605,7 +605,7 @@ mod tests {
             })
             .collect();
 
-        let assignment = manager
+        let assignment = distributor
             .acquire_worker_cores(AcquireRequest {
                 unit_ids: unit_ids.clone(),
                 worker_type: WorkType::CapacityCommitment,
@@ -614,7 +614,7 @@ mod tests {
         assert_eq!(assignment.logical_core_ids().len(), unit_ids_count * 2);
         assert_eq!(assignment.cuid_cores.len(), unit_ids_count);
 
-        let assignment = manager
+        let assignment = distributor
             .acquire_worker_cores(AcquireRequest {
                 unit_ids: unit_ids.clone(),
                 worker_type: WorkType::Deal,
@@ -630,7 +630,7 @@ mod tests {
 
         let temp_dir = tempfile::tempdir().expect("Failed to create temp dir");
         let system_cpu_count = 1;
-        let (manager, _task) = PersistentCoreDistributor::from_path(
+        let (distributor, _task) = PersistentCoreDistributor::from_path(
             temp_dir.path().join("test.toml"),
             system_cpu_count,
             CoreRange::from_str("0-7").unwrap(),
@@ -648,7 +648,7 @@ mod tests {
             })
             .collect();
 
-        let assignment = manager
+        let assignment = distributor
             .acquire_worker_cores(AcquireRequest {
                 unit_ids: unit_ids.clone(),
                 worker_type: WorkType::CapacityCommitment,
@@ -664,7 +664,7 @@ mod tests {
             })
             .collect();
 
-        let result = manager.acquire_worker_cores(AcquireRequest {
+        let result = distributor.acquire_worker_cores(AcquireRequest {
             unit_ids: unit_ids.clone(),
             worker_type: WorkType::Deal,
         });
@@ -690,7 +690,7 @@ mod tests {
 
         let temp_dir = tempfile::tempdir().expect("Failed to create temp dir");
         let system_cpu_count = 1;
-        let (manager, _task) = PersistentCoreDistributor::from_path(
+        let (distributor, _task) = PersistentCoreDistributor::from_path(
             temp_dir.path().join("test.toml"),
             system_cpu_count,
             CoreRange::from_str("0-7").unwrap(),
@@ -708,7 +708,7 @@ mod tests {
             })
             .collect();
 
-        let assignment = manager
+        let assignment = distributor
             .acquire_worker_cores(AcquireRequest {
                 unit_ids: unit_ids.clone(),
                 worker_type: WorkType::CapacityCommitment,
@@ -717,7 +717,7 @@ mod tests {
         assert_eq!(assignment.logical_core_ids().len(), unit_ids_count * 2);
         assert_eq!(assignment.cuid_cores.len(), unit_ids_count * 2);
 
-        let assignment = manager
+        let assignment = distributor
             .acquire_worker_cores(AcquireRequest {
                 unit_ids: unit_ids.clone(),
                 worker_type: WorkType::Deal,
@@ -733,7 +733,7 @@ mod tests {
 
         let temp_dir = tempfile::tempdir().expect("Failed to create temp dir");
         let system_cpu_count = 2;
-        let (manager, _task) = PersistentCoreDistributor::from_path(
+        let (distributor, _task) = PersistentCoreDistributor::from_path(
             temp_dir.path().join("test.toml"),
             system_cpu_count,
             CoreRange::from_str("0-2").unwrap(),
@@ -741,7 +741,7 @@ mod tests {
             &cpu_topology,
         )
         .unwrap();
-        let before_lock = manager.state.read();
+        let before_lock = distributor.state.read();
 
         let mut before_available_core = before_lock
             .available_cores
@@ -764,7 +764,7 @@ mod tests {
             <CUID>::from_hex("1cce3d08f784b11d636f2fb55adf291d43c2e9cbe7ae7eeb2d0301a96be0a3a0")
                 .unwrap();
         let unit_ids = vec![init_id_1, init_id_2];
-        let assignment = manager
+        let assignment = distributor
             .acquire_worker_cores(AcquireRequest {
                 unit_ids: unit_ids.clone(),
                 worker_type: WorkType::CapacityCommitment,
@@ -773,7 +773,7 @@ mod tests {
         assert_eq!(assignment.logical_core_ids().len(), 2);
         assert_eq!(assignment.cuid_cores.len(), 2);
 
-        let after_assignment = manager.state.read();
+        let after_assignment = distributor.state.read();
 
         let after_assignment_available_core = after_assignment.available_cores.clone();
         let after_assignment_unit_id_mapping = after_assignment.unit_id_mapping.clone();
@@ -787,9 +787,9 @@ mod tests {
         assert_eq!(after_assignment_unit_id_mapping.len(), 1);
         assert_eq!(after_assignment_type_mapping.len(), 2);
 
-        manager.release_worker_cores(&unit_ids);
+        distributor.release_worker_cores(&unit_ids);
 
-        let after_release_lock = manager.state.read();
+        let after_release_lock = distributor.state.read();
 
         let mut after_release_available_core = after_release_lock
             .available_cores

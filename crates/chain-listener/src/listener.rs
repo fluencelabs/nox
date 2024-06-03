@@ -966,7 +966,7 @@ impl ChainListener {
         units.extend(&cu_groups.pending_units);
         units.extend(&cu_groups.finished_units);
 
-        // Release all ccp units to allow the core manager to assign them again
+        // Release all ccp units to allow the core distributor to assign them again
         // without that action availability count will be wrong
         self.core_distributor.release_worker_cores(&units);
 
