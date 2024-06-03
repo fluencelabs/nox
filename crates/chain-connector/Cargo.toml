@@ -34,3 +34,4 @@ libipld = { workspace = true }
 [dev-dependencies]
 mockito = { workspace = true }
 jsonrpsee = { workspace = true, features = ["server"] }
+log-utils = { workspace = true }

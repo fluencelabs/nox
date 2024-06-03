@@ -1,6 +1,7 @@
 #![feature(assert_matches)]
 #![feature(result_flattening)]
 #![feature(try_blocks)]
+#![feature(iter_array_chunks)]
 
 mod connector;
 mod error;

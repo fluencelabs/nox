@@ -64,8 +64,35 @@ pub trait ChainConnector: Send + Sync {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+pub struct DealResult {
+    success: bool,
+    error: Option<String>,
+    deal_id: DealId,
+    deal_info: Option<DealInfo>,
+}
+
+impl DealResult {
+    fn with_error(deal_id: DealId, err: String) -> Self {
+        Self {
+            success: false,
+            error: Some(err),
+            deal_id,
+            deal_info: None,
+        }
+    }
+
+    fn new(deal_id: DealId, info: DealInfo) -> Self {
+        Self {
+            success: true,
+            error: None,
+            deal_id,
+            deal_info: Some(info),
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 pub struct DealInfo {
-    pub deal_id: DealId,
     pub status: Deal::Status,
     pub unit_ids: Vec<Vec<u8>>,
     pub app_cid: String,
@@ -345,16 +372,14 @@ impl HttpChainConnector {
         let mut cids = vec![];
         for result in resp.into_iter() {
             let cid = CIDV1::from_hex(&result?)?;
-            let cid_bytes = [cid.prefixes.to_vec(), cid.hash.to_vec()].concat();
-            let app_cid = libipld::Cid::read_bytes(cid_bytes.as_slice())?.to_string();
-
+            let app_cid = cid.to_ipld()?;
             cids.push(app_cid.to_string());
         }
 
         Ok(cids)
     }
 
-    pub(crate) async fn get_deals(&self) -> eyre::Result<Vec<DealInfo>> {
+    pub(crate) async fn get_deals(&self) -> eyre::Result<Vec<DealResult>> {
         let units = self.get_compute_units().await?;
         tracing::debug!(target: "chain-connector", "Got {} compute units", units.len());
         let mut deals: BTreeMap<DealId, Vec<Vec<u8>>> = BTreeMap::new();
@@ -373,27 +398,79 @@ impl HttpChainConnector {
             return Ok(Vec::new());
         }
         tracing::debug!(target: "chain-connector", "Got {} deals: {:?}", deals.len(), deals);
-
-        let app_cids = self.get_app_cid(deals.keys()).await?;
-        tracing::debug!(target: "chain-connector", "Got {} App CIDs for the deals", deals.len());
-        let statuses: Vec<Deal::Status> = self
-            .get_deal_statuses(deals.keys().cloned().collect())
-            .await?
+        let infos = self.get_deal_infos(deals.keys()).await?;
+        tracing::debug!(target: "chain-connector", "Got {} deals infos: {:?}", infos.len(), infos);
+        let deals = infos
             .into_iter()
-            .collect::<Result<Vec<_>>>()?;
-        tracing::debug!(target: "chain-connector", "Got {} statuses for the deals", statuses.len());
-        let deals = deals
-            .into_iter()
-            .zip(app_cids.into_iter().zip(statuses.into_iter()))
-            .map(|((deal_id, unit_ids), (app_cid, status))| DealInfo {
-                deal_id,
-                status,
-                unit_ids,
-                app_cid,
+            .zip(deals)
+            .map(|(details, (deal_id, unit_ids))| match details {
+                Ok((status, app_cid)) => DealResult::new(
+                    deal_id,
+                    DealInfo {
+                        unit_ids,
+                        status,
+                        app_cid,
+                    },
+                ),
+                Err(err) => DealResult::with_error(deal_id, err.to_string()),
             })
-            .collect();
-        tracing::debug!(target: "chain-connector", "Found deals: {:?}", deals);
+            .collect::<_>();
+        tracing::debug!(target: "chain-connector", "Return deals: {:?}", deals);
         Ok(deals)
+    }
+
+    fn make_call_params(deal_id: &DealId, data: &str) -> ArrayParams {
+        rpc_params![
+            json!({
+                "data": data,
+                "to": deal_id.to_address(),
+            }),
+            "latest"
+        ]
+    }
+
+    async fn get_deal_infos<'a, I>(
+        &self,
+        deal_ids: I,
+    ) -> Result<Vec<Result<(Deal::Status, String)>>>
+    where
+        I: IntoIterator<Item = &'a DealId> + ExactSizeIterator,
+    {
+        let mut batch = BatchRequestBuilder::new();
+        let deal_count = deal_ids.len();
+        for deal_id in deal_ids {
+            let status_data: String = Deal::getStatusCall {}.abi_encode().encode_hex();
+            batch.insert("eth_call", Self::make_call_params(deal_id, &status_data))?;
+            let app_cid_data: String = Deal::appCIDCall {}.abi_encode().encode_hex();
+            batch.insert("eth_call", Self::make_call_params(deal_id, &app_cid_data))?;
+        }
+        tracing::debug!(target: "chain-connector", "Batched get_deal_info request: {batch:?}");
+        let resp: BatchResponse<String> = self.client.batch_request(batch).await?;
+        tracing::debug!(target: "chain-connector", "Batched get_deal_info response: {resp:?}");
+
+        debug_assert_eq!(
+            resp.len(),
+            deal_count * 2,
+            "JSON RPC Response contains not enough replies for the request, reposne = {resp:?}"
+        );
+
+        // Here we unite two responses with status and app cid for one deal.
+        //
+        // Since we put in the batch request requests in order [deal status, deal app_cid, ..]
+        // we must get a reply in the same order.
+        //
+        // Note that JSON RPC specification says that it's a SHOULD not a MUST that the reply for
+        // an ID will come at all, so this code can break if RPC malfunctions.
+        let deal_info = resp
+            .into_iter()
+            .array_chunks::<2>()
+            .map(|[status_resp, app_cid_resp]| try {
+                let status = Deal::Status::from_hex(&status_resp?)?;
+                let app_cid = CIDV1::from_hex(&app_cid_resp?)?.to_ipld()?;
+                (status, app_cid)
+            })
+            .collect::<_>();
+        Ok(deal_info)
     }
 
     async fn get_tx_nonce(&self) -> Result<U256> {
@@ -741,21 +818,15 @@ impl ChainConnector for HttpChainConnector {
         }
 
         let resp: BatchResponse<String> = self.client.batch_request(batch).await?;
-        let mut statuses = vec![];
-
-        for status in resp.into_iter() {
-            let status = status
-                .map(|r| {
-                    decode_hex(&r)
-                        .map(|bytes| {
-                            <Deal::Status as SolType>::abi_decode(&bytes, true)
-                                .map_err(ConnectorError::ParseChainDataFailedAlloy)
-                        })
-                        .map_err(ConnectorError::DecodeHex)
-                })
-                .map_err(|e| ConnectorError::RpcError(e.to_owned().into()))??;
-            statuses.push(status);
-        }
+        let statuses = resp
+            .into_iter()
+            .map(|status_resp| {
+                status_resp
+                    .map(|status| Deal::Status::from_hex(&status))
+                    .map_err(Into::into)
+                    .flatten()
+            })
+            .collect::<_>();
 
         Ok(statuses)
     }
@@ -829,6 +900,7 @@ mod tests {
     use chain_data::peer_id_from_hex;
     use fluence_libp2p::RandomPeerId;
     use hex_utils::decode_hex;
+    use log_utils::{enable_logs_for, LogSpec};
 
     use crate::connector::TxReceiptResult;
     use crate::Deal::Status::ACTIVE;
@@ -973,6 +1045,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_batch_init_request() {
+        use hex::FromHex;
         let expected_response = r#"[
           {
             "jsonrpc": "2.0",
@@ -1215,25 +1288,53 @@ mod tests {
 
     #[tokio::test]
     async fn test_get_deals() {
-        let expected_deal_id = "5e3d0fde6f793b3115a9e7f5ebc195bbeed35d6c";
-        let expected_cuid = "aa3046a12a1aac6e840625e6329d70b427328fec36dc8d273e5e6454b85633d5";
-        let compute_units_response = "00000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000001aa3046a12a1aac6e840625e6329d70b427328fec36dc8d273e5e6454b85633d50000000000000000000000005e3d0fde6f793b3115a9e7f5ebc195bbeed35d6c00000000000000000000000000000000000000000000000000000000000fffbc";
-        let compute_units_response =
-            format!("{{\"jsonrpc\":\"2.0\",\"result\":\"{compute_units_response}\",\"id\":0}}");
+        enable_logs_for(LogSpec::new(vec!["chain-connector=debug".parse().unwrap()]));
+        let expected_deal_id_1 = "5e3d0fde6f793b3115a9e7f5ebc195bbeed35d6c";
+        let expected_cuid_1 = "aa3046a12a1aac6e840625e6329d70b427328fec36dc8d273e5e6454b85633d5";
+
+        let expected_deal_id_2 = "0x6e3d0fde6f793b3115a9e7f5ebc195bbeed35d6d";
+        let expected_cuid_2 = "ba3046a12a1aac6e840625e6329d70b427328fec36dc8d273e5e6454b85633d1";
+
+        let compute_units_response = "00000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000002aa3046a12a1aac6e840625e6329d70b427328fec36dc8d273e5e6454b85633d50000000000000000000000005e3d0fde6f793b3115a9e7f5ebc195bbeed35d6c00000000000000000000000000000000000000000000000000000000000fffbcba3046a12a1aac6e840625e6329d70b427328fec36dc8d273e5e6454b85633d10000000000000000000000006e3d0fde6f793b3115a9e7f5ebc195bbeed35d6d00000000000000000000000000000000000000000000000000000000000fffba";
+        let compute_units_response = json!({
+            "jsonrpc": "2.0",
+            "id": 0,
+            "result": compute_units_response,
+        });
+
         let expected_app_cid = "bafkreiekvwp2w7t7vw4jzjq4s4n4wc323c6dnexmy4axh6c7tiza5wxzm4";
-        let app_cid_response = "0x01551220000000000000000000000000000000000000000000000000000000008aad9fab7e7fadb89ca61c971bcb0b7ad8bc3692ecc70173f85f9a320edaf967";
-        let app_cid_response =
-            format!("[{{\"jsonrpc\":\"2.0\",\"result\":\"{app_cid_response}\",\"id\":1}}]");
         let deal_status_response =
             "0x0000000000000000000000000000000000000000000000000000000000000001";
-        let deal_status_response =
-            format!("[{{\"jsonrpc\":\"2.0\",\"result\":\"{deal_status_response}\",\"id\":2}}]");
+        let app_cid_response = "0x01551220000000000000000000000000000000000000000000000000000000008aad9fab7e7fadb89ca61c971bcb0b7ad8bc3692ecc70173f85f9a320edaf967";
+        let deal_info_response = json!([
+            {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "result": deal_status_response,
+            },
+            {
+                "jsonrpc": "2.0",
+                "id": 2,
+                "result": app_cid_response
+            },
+            {
+                "jsonrpc": "2.0",
+                "id": 3,
+                "result": deal_status_response,
+            },
+            {
+                "jsonrpc": "2.0",
+                "id": 4,
+                "result": app_cid_response
+            }
+
+        ]);
 
         let mut server = mockito::Server::new();
         let url = server.url();
         let mock = server
             .mock("POST", "/")
-            .expect(3)
+            .expect(2)
             .with_status(200)
             .with_header("content-type", "application/json")
             .with_body_from_request(move |req| {
@@ -1242,32 +1343,9 @@ mod tests {
                     serde_json::from_slice(body).expect("mock: parse request body");
                 match body {
                     serde_json::Value::Object(_) => {
-                        let call: RpcRequest<(EthCall, String)> =
-                            serde_json::from_value(body).expect("parse eth call request");
-                        match call.params.0.data.as_ref() {
-                            // compute units selector
-                            "b6015c6e6497db93b32e4cdd979ada46a23249f444da1efb186cd74b9666bd03f710028b" => {
-                                compute_units_response.clone().into()
-
-                            },
-                            _ => {
-                                panic!("unexpected call: {call:?}");
-                            }
-                        }
+                        compute_units_response.clone().to_string().into()
                     }
-                    serde_json::Value::Array(_) => {
-                        let calls: Vec<RpcRequest<(EthCall, String)>> =
-                            serde_json::from_value(body).expect("parse eth call request");
-                        match calls[0].params.0.data.as_ref() {
-                            // app cid selector
-                            "9bc66868" => app_cid_response.clone().into(),
-                            // deal status selector
-                            "4e69d560" => deal_status_response.clone().into(),
-                            _ => {
-                                panic!("unexpected call: {:?}", calls[0]);
-                            }
-                        }
-                    }
+                    serde_json::Value::Array(_) => deal_info_response.to_string().into(),
                     x => {
                         panic!("unexpected body: {x:?}");
                     }
@@ -1275,17 +1353,36 @@ mod tests {
             })
             .create();
 
-        let deals = get_connector(&url).get_deals().await.unwrap();
-        assert_eq!(deals.len(), 1, "there should be only one deal: {deals:?}");
-        assert_eq!(deals[0].deal_id, expected_deal_id);
-        assert_eq!(deals[0].status, ACTIVE);
+        let mut deals = get_connector(&url).get_deals().await.unwrap();
+
+        assert_eq!(deals.len(), 2, "there should be only two deals: {deals:?}");
+        assert!(deals[0].success, "failed to get a deal: {deals:?}");
+        assert_eq!(deals[0].deal_id, expected_deal_id_1);
+
+        let deal_info = deals.remove(0).deal_info.unwrap();
+        assert_eq!(deal_info.status, ACTIVE);
         assert_eq!(
-            deals[0].unit_ids.len(),
+            deal_info.unit_ids.len(),
             1,
             "there should be only one unit id: {deals:?}"
         );
-        assert_eq!(hex::encode(&deals[0].unit_ids[0]), expected_cuid);
-        assert_eq!(deals[0].app_cid, expected_app_cid);
+        assert_eq!(hex::encode(&deal_info.unit_ids[0]), expected_cuid_1);
+        assert_eq!(deal_info.app_cid, expected_app_cid);
+
+        // Second deal
+        assert!(deals[0].success, "failed to get a deal: {deals:?}");
+        assert_eq!(deals[0].deal_id, expected_deal_id_2);
+
+        let deal_info = deals.remove(0).deal_info.unwrap();
+        assert_eq!(deal_info.status, ACTIVE);
+        assert_eq!(
+            deal_info.unit_ids.len(),
+            1,
+            "there should be only one unit id: {deals:?}"
+        );
+        assert_eq!(hex::encode(&deal_info.unit_ids[0]), expected_cuid_2);
+        assert_eq!(deal_info.app_cid, expected_app_cid);
+
         mock.assert();
     }
 

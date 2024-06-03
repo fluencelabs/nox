@@ -1,5 +1,5 @@
 use crate::ConnectorError;
-use crate::Deal::CIDV1;
+use crate::Deal::{Status, CIDV1};
 use alloy_sol_types::{sol, SolType};
 use hex_utils::decode_hex;
 use serde::{Deserialize, Serialize};
@@ -41,5 +41,21 @@ impl CIDV1 {
             return Err(ConnectorError::EmptyData(hex.to_string()));
         }
         Ok(CIDV1::abi_decode(&bytes, true)?)
+    }
+
+    pub fn to_ipld(self) -> Result<String, ConnectorError> {
+        let cid_bytes = [self.prefixes.to_vec(), self.hash.to_vec()].concat();
+        Ok(libipld::Cid::read_bytes(cid_bytes.as_slice())?.to_string())
+    }
+}
+
+impl Status {
+    pub fn from_hex(hex: &str) -> Result<Self, ConnectorError> {
+        let bytes = decode_hex(&hex)?;
+        if bytes.is_empty() {
+            return Err(ConnectorError::EmptyData(hex.to_string()));
+        }
+
+        Ok(Status::abi_decode(&bytes, true)?)
     }
 }
