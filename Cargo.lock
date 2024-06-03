@@ -1397,7 +1397,7 @@ dependencies = [
  "thiserror",
  "tokio",
  "tokio-stream",
- "toml_edit 0.22.13",
+ "toml_edit 0.22.14",
  "tracing",
  "types",
 ]
@@ -6252,7 +6252,7 @@ dependencies = [
  "service-modules",
  "tempdir",
  "thiserror",
- "toml_edit 0.22.13",
+ "toml_edit 0.22.14",
 ]
 
 [[package]]
@@ -6319,7 +6319,7 @@ dependencies = [
  "tokio-stream",
  "tokio-util",
  "toml 0.8.13",
- "toml_edit 0.22.13",
+ "toml_edit 0.22.14",
  "tracing",
  "types",
  "uuid",
@@ -8002,7 +8002,7 @@ dependencies = [
  "particle-modules",
  "particle-services",
  "service-modules",
- "toml_edit 0.22.13",
+ "toml_edit 0.22.14",
 ]
 
 [[package]]
@@ -8208,7 +8208,7 @@ dependencies = [
  "spell-event-bus",
  "spell-service-api",
  "spell-storage",
- "toml_edit 0.22.13",
+ "toml_edit 0.22.14",
  "tracing",
  "trust-graph-distro",
  "types",
@@ -8517,7 +8517,7 @@ dependencies = [
  "serde",
  "serde_spanned",
  "toml_datetime",
- "toml_edit 0.22.13",
+ "toml_edit 0.22.14",
 ]
 
 [[package]]
@@ -8573,9 +8573,9 @@ dependencies = [
 
 [[package]]
 name = "toml_edit"
-version = "0.22.13"
+version = "0.22.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c127785850e8c20836d49732ae6abfa47616e60bf9d9f57c43c250361a9db96c"
+checksum = "f21c7aaf97f1bd9ca9d4f9e73b0a6c74bd5afef56f2bc931943a6e1c37e04e38"
 dependencies = [
  "indexmap 2.2.1",
  "serde",
@@ -10023,7 +10023,7 @@ dependencies = [
  "thiserror",
  "tokio",
  "toml 0.8.13",
- "toml_edit 0.22.13",
+ "toml_edit 0.22.14",
  "tracing",
  "types",
 ]
