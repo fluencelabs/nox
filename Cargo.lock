@@ -333,7 +333,6 @@ dependencies = [
  "bs58",
  "bytesize",
  "chrono",
- "config",
  "config-utils",
  "control-macro",
  "enum_dispatch",
@@ -951,6 +950,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9d297deb1925b89f2ccc13d7635fa0714f12c87adce1c75356b39ca9b7178567"
 
 [[package]]
+name = "base64"
+version = "0.22.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "72b3254f16251a8381aa12e40e3c4d2f0199f8c6508fbecb9d91f575e0fbb8c6"
+
+[[package]]
 name = "base64ct"
 version = "1.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1351,7 +1356,6 @@ name = "chain-data"
 version = "0.1.0"
 dependencies = [
  "alloy-sol-types",
- "alloy_serde_macro",
  "const-hex",
  "ethabi",
  "eyre",
@@ -1395,7 +1399,7 @@ dependencies = [
  "thiserror",
  "tokio",
  "tokio-stream",
- "toml_edit 0.22.9",
+ "toml_edit 0.22.13",
  "tracing",
  "types",
 ]
@@ -1694,7 +1698,7 @@ dependencies = [
  "thiserror",
  "tokio",
  "tokio-stream",
- "toml 0.8.12",
+ "toml 0.8.13",
  "tracing",
 ]
 
@@ -1882,6 +1886,7 @@ dependencies = [
  "particle-args",
  "particle-execution",
  "particle-protocol",
+ "rand 0.8.5",
  "reqwest",
  "serde",
  "serde_json",
@@ -2599,6 +2604,7 @@ dependencies = [
  "bs58",
  "futures",
  "futures-util",
+ "hex",
  "libp2p",
  "libp2p-mplex",
  "libp2p-noise",
@@ -2607,7 +2613,9 @@ dependencies = [
  "rand 0.8.5",
  "serde",
  "serde_json",
+ "thiserror",
  "tokio",
+ "tracing",
 ]
 
 [[package]]
@@ -3655,7 +3663,7 @@ dependencies = [
  "socket2 0.5.5",
  "widestring",
  "windows-sys 0.48.0",
- "winreg",
+ "winreg 0.50.0",
 ]
 
 [[package]]
@@ -4160,8 +4168,8 @@ dependencies = [
  "once_cell",
  "particle-protocol",
  "prometheus-client",
+ "rand 0.8.5",
  "serde_json",
- "server-config",
  "smallvec",
  "thiserror",
  "tokio",
@@ -4808,7 +4816,6 @@ dependencies = [
  "fstrings",
  "libp2p",
  "log",
- "maplit",
  "marine-wasmtime-backend",
  "now-millis",
  "parking_lot",
@@ -4833,9 +4840,9 @@ dependencies = [
 
 [[package]]
 name = "log"
-version = "0.4.20"
+version = "0.4.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b5e6163cb8c49088c2c36f57875e58ccd8c87c7427f7fbd50ea6710b2f3f2e8f"
+checksum = "90ed8c1e510134f979dbc4f070f87d4313098b704861a105fe34231c70a3901c"
 dependencies = [
  "serde",
 ]
@@ -5727,10 +5734,11 @@ dependencies = [
  "spell-service-api",
  "system-services",
  "tempfile",
+ "thiserror",
  "tokio",
  "tokio-stream",
  "tokio-util",
- "toml 0.8.12",
+ "toml 0.8.13",
  "tracing",
  "tracing-appender",
  "tracing-log",
@@ -6118,9 +6126,9 @@ checksum = "bb813b8af86854136c6922af0598d719255ecb2179515e6e7730d468f05c9cae"
 
 [[package]]
 name = "parking_lot"
-version = "0.12.1"
+version = "0.12.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3742b2c103b9f06bc9fff0a37ff4912935851bee6d36f3c02bcc755bcfec228f"
+checksum = "f1bf18183cf54e8d6059647fc3063646a1801cf30896933ec2311622cc4b9a27"
 dependencies = [
  "lock_api",
  "parking_lot_core",
@@ -6188,7 +6196,6 @@ dependencies = [
  "rand 0.8.5",
  "serde",
  "serde_json",
- "server-config",
  "service-modules",
  "subnet-resolver",
  "tempfile",
@@ -6247,7 +6254,7 @@ dependencies = [
  "service-modules",
  "tempdir",
  "thiserror",
- "toml_edit 0.22.9",
+ "toml_edit 0.22.13",
 ]
 
 [[package]]
@@ -6310,12 +6317,11 @@ dependencies = [
  "tempdir",
  "tempfile",
  "thiserror",
- "time",
  "tokio",
  "tokio-stream",
  "tokio-util",
- "toml 0.8.12",
- "toml_edit 0.22.9",
+ "toml 0.8.13",
+ "toml_edit 0.22.13",
  "tracing",
  "types",
  "uuid",
@@ -6866,9 +6872,9 @@ dependencies = [
 
 [[package]]
 name = "range-set-blaze"
-version = "0.1.14"
+version = "0.1.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c7bf6195484b9c084e59358ac571e65e273b8278f7fed60fcee62159cd4f9e86"
+checksum = "8421b5d459262eabbe49048d362897ff3e3830b44eac6cfe341d6acb2f0f13d2"
 dependencies = [
  "gen_ops",
  "itertools 0.12.1",
@@ -7016,11 +7022,11 @@ dependencies = [
 
 [[package]]
 name = "reqwest"
-version = "0.12.1"
+version = "0.12.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e333b1eb9fe677f6893a9efcb0d277a2d3edd83f358a236b657c32301dc6e5f6"
+checksum = "566cafdd92868e0939d3fb961bd0dc25fcfaaed179291093b3d43e6b3150ea10"
 dependencies = [
- "base64 0.21.7",
+ "base64 0.22.1",
  "bytes",
  "encoding_rs",
  "futures-core",
@@ -7040,7 +7046,7 @@ dependencies = [
  "once_cell",
  "percent-encoding",
  "pin-project-lite",
- "rustls-pemfile 1.0.4",
+ "rustls-pemfile 2.0.0",
  "serde",
  "serde_json",
  "serde_urlencoded",
@@ -7053,7 +7059,7 @@ dependencies = [
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "web-sys",
- "winreg",
+ "winreg 0.52.0",
 ]
 
 [[package]]
@@ -7566,9 +7572,9 @@ dependencies = [
 
 [[package]]
 name = "serde_json"
-version = "1.0.113"
+version = "1.0.117"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "69801b70b1c3dac963ecb03a364ba0ceda9cf60c71cfe475e99864759c8b8a79"
+checksum = "455182ea6142b14f93f4bc5320a2b31c1f266b66a4a5c858b013302a5d8cbfc3"
 dependencies = [
  "indexmap 2.2.1",
  "itoa",
@@ -7588,9 +7594,9 @@ dependencies = [
 
 [[package]]
 name = "serde_spanned"
-version = "0.6.5"
+version = "0.6.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eb3622f419d1296904700073ea6cc23ad690adbd66f13ea683df73298736f0c1"
+checksum = "79e674e01f999af37c49f70a6ede167a8a60b2503e56c5599532a65baa5969a0"
 dependencies = [
  "serde",
 ]
@@ -7684,6 +7690,8 @@ dependencies = [
  "fluence-keypair",
  "fluence-libp2p",
  "fs-utils",
+ "hex",
+ "hex-utils",
  "humantime-serde",
  "libp2p",
  "libp2p-connection-limits",
@@ -7699,7 +7707,7 @@ dependencies = [
  "serde_with 3.7.0",
  "temp-env",
  "tempfile",
- "toml 0.8.12",
+ "toml 0.8.13",
  "types",
  "url",
 ]
@@ -7996,7 +8004,7 @@ dependencies = [
  "particle-modules",
  "particle-services",
  "service-modules",
- "toml_edit 0.22.9",
+ "toml_edit 0.22.13",
 ]
 
 [[package]]
@@ -8202,7 +8210,7 @@ dependencies = [
  "spell-event-bus",
  "spell-service-api",
  "spell-storage",
- "toml_edit 0.22.9",
+ "toml_edit 0.22.13",
  "tracing",
  "trust-graph-distro",
  "types",
@@ -8294,18 +8302,18 @@ dependencies = [
 
 [[package]]
 name = "thiserror"
-version = "1.0.56"
+version = "1.0.61"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d54378c645627613241d077a3a79db965db602882668f9136ac42af9ecb730ad"
+checksum = "c546c80d6be4bc6a00c0f01730c08df82eaa7a7a61f11d656526506112cc1709"
 dependencies = [
  "thiserror-impl",
 ]
 
 [[package]]
 name = "thiserror-impl"
-version = "1.0.56"
+version = "1.0.61"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fa0faa943b50f3db30a20aa7e265dbc66076993efed8463e8de414e5d06d3471"
+checksum = "46c3384250002a6d5af4d114f2845d37b57521033f30d5c3f46c4d70e1197533"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -8455,9 +8463,9 @@ dependencies = [
 
 [[package]]
 name = "tokio-stream"
-version = "0.1.14"
+version = "0.1.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "397c988d37662c7dda6d2208364a706264bf3d6138b11d436cbac0ad38832842"
+checksum = "267ac89e0bec6e691e5813911606935d77c476ff49024f98abcea3e7b15e37af"
 dependencies = [
  "futures-core",
  "pin-project-lite",
@@ -8467,9 +8475,9 @@ dependencies = [
 
 [[package]]
 name = "tokio-util"
-version = "0.7.10"
+version = "0.7.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5419f34732d9eb6ee4c3578b7989078579b7f039cbbb9ca2c4da015749371e15"
+checksum = "9cf6b47b3771c49ac75ad09a6162f53ad4b8088b76ac60e8ec1455b31a189fe1"
 dependencies = [
  "bytes",
  "futures-core",
@@ -8479,7 +8487,6 @@ dependencies = [
  "hashbrown 0.14.2",
  "pin-project-lite",
  "tokio",
- "tracing",
 ]
 
 [[package]]
@@ -8505,14 +8512,14 @@ dependencies = [
 
 [[package]]
 name = "toml"
-version = "0.8.12"
+version = "0.8.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e9dd1545e8208b4a5af1aa9bbd0b4cf7e9ea08fabc5d0a5c67fcaafa17433aa3"
+checksum = "a4e43f8cc456c9704c851ae29c67e17ef65d2c30017c17a9765b89c382dc8bba"
 dependencies = [
  "serde",
  "serde_spanned",
  "toml_datetime",
- "toml_edit 0.22.9",
+ "toml_edit 0.22.13",
 ]
 
 [[package]]
@@ -8524,9 +8531,9 @@ dependencies = [
 
 [[package]]
 name = "toml_datetime"
-version = "0.6.5"
+version = "0.6.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3550f4e9685620ac18a50ed434eb3aec30db8ba93b0287467bca5826ea25baf1"
+checksum = "4badfd56924ae69bcc9039335b2e017639ce3f9b001c393c1b2d1ef846ce2cbf"
 dependencies = [
  "serde",
 ]
@@ -8568,9 +8575,9 @@ dependencies = [
 
 [[package]]
 name = "toml_edit"
-version = "0.22.9"
+version = "0.22.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8e40bb779c5187258fd7aad0eb68cb8706a0a81fa712fbea808ab43c4b8374c4"
+checksum = "c127785850e8c20836d49732ae6abfa47616e60bf9d9f57c43c250361a9db96c"
 dependencies = [
  "indexmap 2.2.1",
  "serde",
@@ -8712,9 +8719,9 @@ dependencies = [
 
 [[package]]
 name = "tracing-logfmt"
-version = "0.3.3"
+version = "0.3.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "84bab42e40ace4e4ff19c92023ee1dbc1510db60976828fbbdc6994852c7d065"
+checksum = "22b8e455f6caa5212a102ec530bf86b8dc5a4c536299bffd84b238fed9119be7"
 dependencies = [
  "time",
  "tracing",
@@ -9007,10 +9014,6 @@ checksum = "9f200f5b12eb75f8c1ed65abd4b2db8a6e1b138a20de009dacee265a2498f3f6"
 dependencies = [
  "libc",
 ]
-
-[[package]]
-name = "waiting-queues"
-version = "0.1.0"
 
 [[package]]
 name = "walrus"
@@ -9953,6 +9956,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "winreg"
+version = "0.52.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a277a57398d4bfa075df44f501a17cfdf8542d224f0d36095a2adc7aee4ef0a5"
+dependencies = [
+ "cfg-if",
+ "windows-sys 0.48.0",
+]
+
+[[package]]
 name = "winx"
 version = "0.36.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -10011,8 +10024,8 @@ dependencies = [
  "tempfile",
  "thiserror",
  "tokio",
- "toml 0.8.12",
- "toml_edit 0.22.9",
+ "toml 0.8.13",
+ "toml_edit 0.22.13",
  "tracing",
  "types",
 ]

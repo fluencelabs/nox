@@ -1,3 +1,19 @@
+/*
+ * Copyright 2024 Fluence DAO
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 use std::collections::{BTreeMap, HashMap};
 use std::net::IpAddr;
 use std::ops::Deref;
@@ -12,6 +28,8 @@ use derivative::Derivative;
 use eyre::eyre;
 use fluence_keypair::KeyPair;
 use libp2p::core::Multiaddr;
+use libp2p::swarm::InvalidProtocol;
+use libp2p::StreamProtocol;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 use serde_with::DisplayFromStr;
@@ -19,14 +37,16 @@ use serde_with::DisplayFromStr;
 use fluence_libp2p::PeerId;
 use fluence_libp2p::Transport;
 use fs_utils::to_abs_path;
+use hex_utils::serde_as::Hex;
 use particle_protocol::ProtocolConfig;
 use types::peer_id;
 
 use crate::avm_config::AVMConfig;
+use crate::kademlia_config::{KademliaConfig, UnresolvedKademliaConfig};
 use crate::keys::{decode_key, decode_secret_key, load_key};
 use crate::services_config::ServicesConfig;
 use crate::system_services_config::{ServiceKey, SystemServicesConfig};
-use crate::{BootstrapConfig, KademliaConfig};
+use crate::BootstrapConfig;
 
 use super::defaults::*;
 
@@ -101,7 +121,7 @@ pub struct UnresolvedNodeConfig {
     pub default_service_memory_limit: Option<bytesize::ByteSize>,
 
     #[serde(default)]
-    pub kademlia: KademliaConfig,
+    pub kademlia: UnresolvedKademliaConfig,
 
     #[serde(default = "default_particle_queue_buffer_size")]
     pub particle_queue_buffer: usize,
@@ -155,6 +175,35 @@ pub struct UnresolvedNodeConfig {
 
     #[serde(default)]
     pub services: ServicesConfig,
+
+    #[serde(default)]
+    pub network: Network,
+}
+
+#[serde_as]
+#[derive(Clone, Deserialize, Serialize, Debug, Default, PartialEq)]
+pub enum Network {
+    #[default]
+    Dar,
+    Stage,
+    Kras,
+    Custom(#[serde_as(as = "Hex")] [u8; 32]),
+}
+
+impl TryFrom<&Network> for StreamProtocol {
+    type Error = InvalidProtocol;
+
+    fn try_from(value: &Network) -> Result<Self, Self::Error> {
+        let id = match value {
+            Network::Dar => "dar".to_string(),
+            Network::Stage => "stage".to_string(),
+            Network::Kras => "kras".to_string(),
+            Network::Custom(bytes) => hex::encode(bytes).to_lowercase(),
+        };
+
+        let kad_protocol_name = format!("/fluence/kad/{}/1.0.0", id);
+        StreamProtocol::try_from_owned(kad_protocol_name.clone())
+    }
 }
 
 impl UnresolvedNodeConfig {
@@ -189,6 +238,8 @@ impl UnresolvedNodeConfig {
 
         let cpus_range = self.cpus_range.unwrap_or_default();
 
+        let kademlia = self.kademlia.resolve(&self.network)?;
+
         let result = NodeConfig {
             system_cpu_count: self.system_cpu_count,
             cpus_range,
@@ -206,7 +257,7 @@ impl UnresolvedNodeConfig {
             aquavm_pool_size: self.aquavm_pool_size,
             default_service_memory_limit: self.default_service_memory_limit,
             avm_config: self.avm_config.unwrap_or_default(),
-            kademlia: self.kademlia,
+            kademlia,
             particle_queue_buffer: self.particle_queue_buffer,
             effects_queue_buffer: self.effects_queue_buffer,
             workers_queue_buffer: self.workers_queue_buffer,
@@ -225,6 +276,7 @@ impl UnresolvedNodeConfig {
             chain_config: self.chain_config,
             chain_listener_config: self.chain_listener_config,
             services: self.services,
+            network: self.network,
         };
 
         Ok(result)
@@ -407,6 +459,8 @@ pub struct NodeConfig {
     pub chain_listener_config: Option<ChainListenerConfig>,
 
     pub services: ServicesConfig,
+
+    pub network: Network,
 }
 
 #[derive(Clone, Deserialize, Serialize, Derivative, Copy)]

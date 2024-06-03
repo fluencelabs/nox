@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 Fluence Labs Limited
+ * Copyright 2024 Fluence DAO
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -44,7 +44,7 @@ impl FluenceNetworkBehaviour {
                 let mut supports_fluence = false;
 
                 for protocol in info.protocols.iter() {
-                    if !supports_kademlia && protocol.eq(&"/ipfs/kad/1.0.0") {
+                    if !supports_kademlia && protocol.eq(self.kademlia.protocol_name()) {
                         supports_kademlia = true;
                     }
                     if !supports_fluence && protocol.eq(&PROTOCOL_NAME) {

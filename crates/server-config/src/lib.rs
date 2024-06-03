@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 Fluence Labs Limited
+ * Copyright 2024 Fluence DAO
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -50,7 +50,7 @@ pub use resolved_config::ConfigData;
 pub use bootstrap_config::BootstrapConfig;
 pub use kademlia_config::KademliaConfig;
 pub use network_config::NetworkConfig;
-pub use node_config::{ChainConfig, ChainListenerConfig, NodeConfig, TransportConfig};
+pub use node_config::{ChainConfig, ChainListenerConfig, Network, NodeConfig, TransportConfig};
 pub use resolved_config::TracingConfig;
 pub use resolved_config::{ResolvedConfig, UnresolvedConfig};
 pub use system_services_config::{AquaIpfsConfig, DeciderConfig, SystemServicesConfig};

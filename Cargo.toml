@@ -3,7 +3,6 @@ resolver = "2"
 members = [
     "crates/libp2p",
     "crates/control-macro",
-    "crates/waiting-queues",
     "crates/local-vm",
     "crates/uuid-utils",
     "crates/test-utils",

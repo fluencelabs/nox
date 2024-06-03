@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 Fluence Labs Limited
+ * Copyright 2024 Fluence DAO
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -254,6 +254,7 @@ mod tests {
     use tempfile::{tempdir, NamedTempFile};
 
     use super::*;
+    use crate::Network;
 
     #[test]
     fn load_allowed_binaries_with_env() {
@@ -815,5 +816,32 @@ mod tests {
                 assert_eq!(config.node_config.aquavm_pool_size, 160);
             },
         );
+    }
+
+    #[test]
+    fn load_file_with_custom_network() {
+        let mut file = NamedTempFile::new().expect("Could not create temp file");
+
+        write!(
+            file,
+            r#"
+            [network]
+            Custom = "12458ae2e882cc71eaf2de71101c76a77a54ee89cae8897b231a8a1cb4e90f80"
+            "#
+        )
+        .expect("Could not write in file");
+
+        let path = file.path().display().to_string();
+
+        temp_env::with_var("FLUENCE_CONFIG", Some(path), || {
+            let config = load_config_with_args(vec![], None).expect("Could not load config");
+
+            let expected =
+                hex::decode("12458ae2e882cc71eaf2de71101c76a77a54ee89cae8897b231a8a1cb4e90f80")
+                    .unwrap();
+            let expected: [u8; 32] = expected.try_into().unwrap();
+
+            assert_eq!(config.node_config.network, Network::Custom(expected));
+        });
     }
 }

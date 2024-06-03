@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 Fluence Labs Limited
+ * Copyright 2024 Fluence DAO
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ use libp2p::{
     identify::Behaviour as Identify,
     ping::{Behaviour as Ping, Config as PingConfig},
     swarm::NetworkBehaviour,
+    PeerId,
 };
 use tokio::sync::mpsc;
 
@@ -41,6 +42,25 @@ pub struct FluenceNetworkBehaviour {
     pub(crate) kademlia: Kademlia,
 }
 
+struct KademliaConfigAdapter {
+    peer_id: PeerId,
+    config: server_config::KademliaConfig,
+}
+
+impl From<KademliaConfigAdapter> for KademliaConfig {
+    fn from(value: KademliaConfigAdapter) -> Self {
+        Self {
+            peer_id: value.peer_id,
+            max_packet_size: value.config.max_packet_size,
+            query_timeout: value.config.query_timeout,
+            replication_factor: value.config.replication_factor,
+            peer_fail_threshold: value.config.peer_fail_threshold,
+            ban_cooldown: value.config.ban_cooldown,
+            protocol_name: value.config.protocol_name,
+        }
+    }
+}
+
 impl FluenceNetworkBehaviour {
     pub fn new(
         cfg: NetworkConfig,
@@ -53,12 +73,12 @@ impl FluenceNetworkBehaviour {
         );
         let ping = Ping::new(PingConfig::new());
 
-        let kad_config = KademliaConfig {
+        let kad_config = KademliaConfigAdapter {
             peer_id: cfg.local_peer_id,
-            kad_config: cfg.kademlia_config,
+            config: cfg.kademlia_config,
         };
 
-        let (kademlia, kademlia_api) = Kademlia::new(kad_config, cfg.libp2p_metrics);
+        let (kademlia, kademlia_api) = Kademlia::new(kad_config.into(), cfg.libp2p_metrics);
         let (connection_pool, particle_stream, connection_pool_api) = ConnectionPoolBehaviour::new(
             cfg.particle_queue_buffer,
             cfg.protocol_config,

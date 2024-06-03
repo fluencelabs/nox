@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 Fluence Labs Limited
+ * Copyright 2024 Fluence DAO
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -91,7 +91,6 @@ impl ConnectedClient {
         node_address: Multiaddr,
         timeout: Duration,
         idle_connection_timeout: Duration,
-
         particle_ttl: Option<Duration>,
     ) -> Result<Self> {
         Self::connect_with_timeout(
