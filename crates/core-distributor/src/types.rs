@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+use std::collections::BTreeSet;
 use std::fmt::{Display, Formatter, Write};
 
 use ccp_shared::types::CUID;
@@ -102,7 +103,9 @@ impl Assignment {
         self.cuid_cores
             .iter()
             .flat_map(|(_, cores)| cores.logical_core_ids.clone())
-            .collect()
+            .collect::<BTreeSet<LogicalCoreId>>() // needed to remove duplicates
+            .into_iter()
+            .collect::<Vec<_>>()
     }
 
     pub fn pin_current_thread_with(&self, thread_pinner: &dyn ThreadPinner) {

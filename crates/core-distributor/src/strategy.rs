@@ -32,6 +32,8 @@ pub(crate) trait AcquireStrategyOperations {
         state: &mut CoreDistributorState,
         acquire_request: AcquireRequest,
     ) -> Result<Assignment, AcquireError>;
+
+    fn release(&self, state: &mut CoreDistributorState, unit_ids: &[CUID]);
 }
 
 pub enum AcquireStrategy {
@@ -142,6 +144,15 @@ impl AcquireStrategyOperations for StrictAcquireStrategy {
 
         Ok(Assignment::new(cuid_cores))
     }
+
+    fn release(&self, state: &mut CoreDistributorState, unit_ids: &[CUID]) {
+        for unit_id in unit_ids {
+            if let Some((physical_core_id, _)) = state.unit_id_mapping.remove_by_right(unit_id) {
+                state.available_cores.push_back(physical_core_id);
+                state.work_type_mapping.remove(unit_id);
+            }
+        }
+    }
 }
 
 pub(crate) struct RoundRobinAcquireStrategy;
@@ -198,5 +209,12 @@ impl AcquireStrategyOperations for RoundRobinAcquireStrategy {
             );
         }
         Ok(Assignment::new(cuid_cores))
+    }
+
+    fn release(&self, state: &mut CoreDistributorState, unit_ids: &[CUID]) {
+        for unit_id in unit_ids {
+            state.unit_id_mapping.remove_by_right(unit_id);
+            state.work_type_mapping.remove(unit_id);
+        }
     }
 }

@@ -266,12 +266,7 @@ impl CoreDistributor for PersistentCoreDistributor {
 
     fn release_worker_cores(&self, unit_ids: &[CUID]) {
         let mut lock = self.state.write();
-        for unit_id in unit_ids {
-            if let Some((physical_core_id, _)) = lock.unit_id_mapping.remove_by_right(unit_id) {
-                lock.available_cores.push_back(physical_core_id);
-                lock.work_type_mapping.remove(unit_id);
-            }
-        }
+        self.acquire_strategy.release(&mut lock, unit_ids);
     }
 
     fn get_system_cpu_assignment(&self) -> SystemAssignment {
@@ -383,7 +378,7 @@ mod tests {
     }
 
     #[test]
-    fn test_acquire_and_switch() {
+    fn test_acquire_and_switch_strict() {
         let cpu_topology = mocked_topology();
         let temp_dir = tempfile::tempdir().expect("Failed to create temp dir");
 
@@ -434,7 +429,7 @@ mod tests {
     }
 
     #[test]
-    fn test_acquire_and_release() {
+    fn test_acquire_and_release_strict() {
         let cpu_topology = mocked_topology();
 
         let temp_dir = tempfile::tempdir().expect("Failed to create temp dir");
@@ -513,7 +508,7 @@ mod tests {
     }
 
     #[test]
-    fn test_acquire_error_message() {
+    fn test_acquire_error_message_strict() {
         let temp_dir = tempfile::tempdir().expect("Failed to create temp dir");
         let init_id_1 =
             <CUID>::from_hex("54ae1b506c260367a054f80800a545f23e32c6bc4a8908c9a794cb8dad23e5ea")
@@ -587,7 +582,7 @@ mod tests {
     }
 
     #[test]
-    fn test_reassignment() {
+    fn test_reassignment_strict() {
         let cpu_topology = mocked_topology();
 
         let temp_dir = tempfile::tempdir().expect("Failed to create temp dir");
@@ -687,5 +682,127 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[test]
+    fn test_reassignment_round_robin() {
+        let cpu_topology = mocked_topology();
+
+        let temp_dir = tempfile::tempdir().expect("Failed to create temp dir");
+        let system_cpu_count = 1;
+        let (manager, _task) = PersistentCoreDistributor::from_path(
+            temp_dir.path().join("test.toml"),
+            system_cpu_count,
+            CoreRange::from_str("0-7").unwrap(),
+            AcquireStrategy::RoundRobin,
+            &cpu_topology,
+        )
+        .unwrap();
+
+        let unit_ids_count = 7;
+        let unit_ids: Vec<CUID> = (0..unit_ids_count * 2)
+            .map(|_| {
+                let mut rng = rand::thread_rng();
+                let bytes: [u8; 32] = rng.gen();
+                CUID::new(bytes)
+            })
+            .collect();
+
+        let assignment = manager
+            .acquire_worker_cores(AcquireRequest {
+                unit_ids: unit_ids.clone(),
+                worker_type: WorkType::CapacityCommitment,
+            })
+            .unwrap();
+        assert_eq!(assignment.logical_core_ids().len(), unit_ids_count * 2);
+        assert_eq!(assignment.cuid_cores.len(), unit_ids_count * 2);
+
+        let assignment = manager
+            .acquire_worker_cores(AcquireRequest {
+                unit_ids: unit_ids.clone(),
+                worker_type: WorkType::Deal,
+            })
+            .unwrap();
+        assert_eq!(assignment.logical_core_ids().len(), unit_ids_count * 2);
+        assert_eq!(assignment.cuid_cores.len(), unit_ids_count * 2);
+    }
+
+    #[test]
+    fn test_acquire_and_release_round_robin() {
+        let cpu_topology = mocked_topology();
+
+        let temp_dir = tempfile::tempdir().expect("Failed to create temp dir");
+        let system_cpu_count = 2;
+        let (manager, _task) = PersistentCoreDistributor::from_path(
+            temp_dir.path().join("test.toml"),
+            system_cpu_count,
+            CoreRange::from_str("0-2").unwrap(),
+            AcquireStrategy::RoundRobin,
+            &cpu_topology,
+        )
+        .unwrap();
+        let before_lock = manager.state.read();
+
+        let mut before_available_core = before_lock
+            .available_cores
+            .iter()
+            .cloned()
+            .collect::<Vec<_>>();
+        before_available_core.sort();
+        let before_unit_id_mapping = before_lock.unit_id_mapping.clone();
+        let before_type_mapping = before_lock.work_type_mapping.clone();
+        drop(before_lock);
+
+        assert_eq!(before_available_core.len(), 1);
+        assert_eq!(before_unit_id_mapping.len(), 0);
+        assert_eq!(before_type_mapping.len(), 0);
+
+        let init_id_1 =
+            <CUID>::from_hex("54ae1b506c260367a054f80800a545f23e32c6bc4a8908c9a794cb8dad23e5ea")
+                .unwrap();
+        let init_id_2 =
+            <CUID>::from_hex("1cce3d08f784b11d636f2fb55adf291d43c2e9cbe7ae7eeb2d0301a96be0a3a0")
+                .unwrap();
+        let unit_ids = vec![init_id_1, init_id_2];
+        let assignment = manager
+            .acquire_worker_cores(AcquireRequest {
+                unit_ids: unit_ids.clone(),
+                worker_type: WorkType::CapacityCommitment,
+            })
+            .unwrap();
+        assert_eq!(assignment.logical_core_ids().len(), 2);
+        assert_eq!(assignment.cuid_cores.len(), 2);
+
+        let after_assignment = manager.state.read();
+
+        let after_assignment_available_core = after_assignment.available_cores.clone();
+        let after_assignment_unit_id_mapping = after_assignment.unit_id_mapping.clone();
+        let after_assignment_type_mapping = after_assignment.work_type_mapping.clone();
+        drop(after_assignment);
+
+        assert_eq!(
+            after_assignment_available_core.len(),
+            before_available_core.len()
+        );
+        assert_eq!(after_assignment_unit_id_mapping.len(), 1);
+        assert_eq!(after_assignment_type_mapping.len(), 2);
+
+        manager.release_worker_cores(&unit_ids);
+
+        let after_release_lock = manager.state.read();
+
+        let mut after_release_available_core = after_release_lock
+            .available_cores
+            .iter()
+            .cloned()
+            .collect::<Vec<_>>();
+        after_release_available_core.sort();
+        let after_release_unit_id_mapping = after_release_lock.unit_id_mapping.clone();
+        let after_release_type_mapping = after_release_lock.work_type_mapping.clone();
+        drop(after_release_lock);
+
+        assert_eq!(after_release_available_core, before_available_core);
+        assert_eq!(after_release_unit_id_mapping, before_unit_id_mapping);
+        assert_eq!(after_release_type_mapping, before_type_mapping);
     }
 }
