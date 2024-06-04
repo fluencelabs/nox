@@ -28,7 +28,7 @@ async-trait = "0.1.79"
 [dev-dependencies]
 core-distributor = { workspace = true, features = ["dummy"] }
 cpu-utils = { workspace = true }
-ccp-test-utils = { workspace = true }
+test-utils = { workspace = true }
 tempfile = { workspace = true }
 tokio = { workspace = true, features = ["macros"] }
 hex = { workspace = true }

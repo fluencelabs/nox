@@ -350,7 +350,7 @@ mod tests {
         let core_distributor = DummyCoreDistibutor::new();
         let core_distributor = Arc::new(core_distributor);
 
-        let thread_pinner = Arc::new(ccp_test_utils::pinning::DUMMY);
+        let thread_pinner = Arc::new(test_utils::pinning::DUMMY);
 
         let scope = PeerScopes::new(
             root_key_pair.get_peer_id(),

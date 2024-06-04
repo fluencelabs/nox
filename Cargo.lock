@@ -332,7 +332,6 @@ dependencies = [
  "base64 0.21.7",
  "bs58",
  "bytesize",
- "ccp-test-utils",
  "chrono",
  "config-utils",
  "control-macro",
@@ -359,6 +358,7 @@ dependencies = [
  "peer-metrics",
  "serde_json",
  "tempfile",
+ "test-utils",
  "thiserror",
  "tokio",
  "tokio-stream",
@@ -1252,21 +1252,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ccp-randomx"
-version = "0.10.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b16a7ee92af3e2ec413db7901a8030abdbe4f4a0a3e1e15b090c9b1d1786950e"
-dependencies = [
- "bitflags 2.4.1",
- "ccp-shared",
- "cmake",
- "hex",
- "libc",
- "serde",
- "thiserror",
-]
-
-[[package]]
 name = "ccp-rpc-client"
 version = "0.10.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1288,18 +1273,6 @@ dependencies = [
  "newtype_derive",
  "rand 0.8.5",
  "serde",
-]
-
-[[package]]
-name = "ccp-test-utils"
-version = "0.10.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3fa1202483a5824c2643dfd730609166e03c44a9a578a41bf09dc27158faaefb"
-dependencies = [
- "ccp-randomx",
- "ccp-shared",
- "cpu-utils",
- "rand 0.8.5",
 ]
 
 [[package]]
@@ -1544,15 +1517,6 @@ dependencies = [
  "serde",
  "serde_derive",
  "sha3",
-]
-
-[[package]]
-name = "cmake"
-version = "0.1.50"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a31c789563b815f77f4250caee12365734369f942439b7defd71e18a48197130"
-dependencies = [
- "cc",
 ]
 
 [[package]]
@@ -1902,7 +1866,6 @@ dependencies = [
  "air-interpreter-fs",
  "aquamarine",
  "base64 0.21.7",
- "ccp-test-utils",
  "cid-utils",
  "config-utils",
  "connection-pool",
@@ -1930,6 +1893,7 @@ dependencies = [
  "system-services",
  "tempfile",
  "test-constants",
+ "test-utils",
  "tokio",
  "tokio-stream",
  "tokio-util",
@@ -5759,7 +5723,6 @@ dependencies = [
  "blake3",
  "bs58",
  "ccp-rpc-client",
- "ccp-test-utils",
  "cfg-if",
  "chain-connector",
  "chain-listener",
@@ -5812,6 +5775,7 @@ dependencies = [
  "spell-service-api",
  "system-services",
  "tempfile",
+ "test-utils",
  "thiserror",
  "tokio",
  "tokio-stream",
@@ -6369,7 +6333,6 @@ version = "0.1.0"
 dependencies = [
  "base64 0.21.7",
  "bytesize",
- "ccp-test-utils",
  "cid-utils",
  "config-utils",
  "core-distributor",
@@ -6397,6 +6360,7 @@ dependencies = [
  "service-modules",
  "tempdir",
  "tempfile",
+ "test-utils",
  "thiserror",
  "tokio",
  "tokio-stream",
@@ -8076,7 +8040,6 @@ dependencies = [
 name = "spell-service-api"
 version = "0.1.0"
 dependencies = [
- "ccp-test-utils",
  "config-utils",
  "core-distributor",
  "cpu-utils",
@@ -8094,6 +8057,7 @@ dependencies = [
  "server-config",
  "spell-storage",
  "tempdir",
+ "test-utils",
  "thiserror",
  "tokio",
  "workers",
@@ -8396,6 +8360,7 @@ version = "0.3.0"
 dependencies = [
  "base64 0.21.7",
  "connected-client",
+ "cpu-utils",
  "eyre",
  "fstrings",
  "ivalue-utils",
@@ -10117,7 +10082,6 @@ name = "workers"
 version = "0.1.0"
 dependencies = [
  "async-trait",
- "ccp-test-utils",
  "core-distributor",
  "cpu-utils",
  "derivative",
@@ -10131,6 +10095,7 @@ dependencies = [
  "parking_lot",
  "serde",
  "tempfile",
+ "test-utils",
  "thiserror",
  "tokio",
  "toml 0.8.12",

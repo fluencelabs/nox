@@ -654,7 +654,7 @@ mod tests {
         let core_distributor = DummyCoreDistibutor::new();
         let core_distributor = Arc::new(core_distributor);
 
-        let thread_pinner = Arc::new(ccp_test_utils::pinning::DUMMY);
+        let thread_pinner = Arc::new(test_utils::pinning::DUMMY);
 
         // Create a new KeyStorage instance
         let key_storage = Arc::new(
@@ -690,7 +690,7 @@ mod tests {
         let core_distributor = DummyCoreDistibutor::new();
         let core_distributor = Arc::new(core_distributor);
 
-        let thread_pinner = Arc::new(ccp_test_utils::pinning::DUMMY);
+        let thread_pinner = Arc::new(test_utils::pinning::DUMMY);
         // Create a new KeyStorage instance
         let key_storage = Arc::new(
             KeyStorage::from_path(key_pairs_dir.clone(), root_key_pair.clone())
@@ -764,7 +764,7 @@ mod tests {
         let core_distributor = DummyCoreDistibutor::new();
         let core_distributor = Arc::new(core_distributor);
 
-        let thread_pinner = Arc::new(ccp_test_utils::pinning::DUMMY);
+        let thread_pinner = Arc::new(test_utils::pinning::DUMMY);
         // Create a new KeyStorage instance
         let key_storage = Arc::new(
             KeyStorage::from_path(key_pairs_dir.clone(), root_key_pair.clone())
@@ -829,7 +829,7 @@ mod tests {
         let core_distributor = DummyCoreDistibutor::new();
         let core_distributor = Arc::new(core_distributor);
 
-        let thread_pinner = Arc::new(ccp_test_utils::pinning::DUMMY);
+        let thread_pinner = Arc::new(test_utils::pinning::DUMMY);
         // Create a new KeyStorage instance
         let key_storage = Arc::new(
             KeyStorage::from_path(key_pairs_dir.clone(), root_key_pair.clone())
@@ -905,7 +905,7 @@ mod tests {
         let core_distributor = DummyCoreDistibutor::new();
         let core_distributor = Arc::new(core_distributor);
 
-        let thread_pinner = Arc::new(ccp_test_utils::pinning::DUMMY);
+        let thread_pinner = Arc::new(test_utils::pinning::DUMMY);
         // Create a new KeyStorage instance
         let key_storage = Arc::new(
             KeyStorage::from_path(key_pairs_dir.clone(), root_key_pair.clone())
@@ -988,7 +988,7 @@ mod tests {
         let core_distributor = DummyCoreDistibutor::new();
         let core_distributor = Arc::new(core_distributor);
 
-        let thread_pinner = Arc::new(ccp_test_utils::pinning::DUMMY);
+        let thread_pinner = Arc::new(test_utils::pinning::DUMMY);
         // Create a new Workers instance
         let (workers, _receiver) = Workers::from_path(
             workers_dir.clone(),

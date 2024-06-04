@@ -492,7 +492,7 @@ pub async fn create_swarm_with_runtime<RT: AquaRuntime>(
             &cpu_topology
         ).expect("Failed to create core distributor");
 
-        let thread_pinner = Arc::new(ccp_test_utils::pinning::DUMMY);
+        let thread_pinner = Arc::new(test_utils::pinning::DUMMY);
 
         let node = Node::new(
             resolved.clone(),
