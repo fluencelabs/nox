@@ -71,7 +71,7 @@ impl AcquireStrategyOperations for StrictAcquireStrategy {
             FxBuildHasher::default(),
         );
 
-        let worker_unit_type = acquire_request.worker_type.clone();
+        let worker_unit_type = &acquire_request.worker_type;
 
         let available = state.available_cores.len();
 

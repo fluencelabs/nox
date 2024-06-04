@@ -109,7 +109,7 @@ impl From<&CoreDistributorState> for PersistentCoreDistributorState {
     fn from(value: &CoreDistributorState) -> Self {
         Self {
             cores_mapping: value.cores_mapping.iter().map(|(k, v)| (*k, *v)).collect(),
-            system_cores: value.system_cores.to_vec(),
+            system_cores: value.system_cores.clone(),
             available_cores: value.available_cores.iter().cloned().collect(),
             unit_id_mapping: value
                 .unit_id_mapping

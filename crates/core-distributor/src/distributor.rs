@@ -85,13 +85,13 @@ impl PersistentCoreDistributor {
             let persistent_state: PersistentCoreDistributorState = toml::from_str(raw_str)
                 .map_err(|err| LoadingError::DeserializationError { err })?;
 
-            let config_range = core_range.clone().0;
+            let config_range = &core_range.0;
             let mut loaded_range = RangeSetBlaze::new();
-            for (physical_core_id, _) in persistent_state.cores_mapping.clone() {
-                loaded_range.insert(<PhysicalCoreId as Into<u32>>::into(physical_core_id) as usize);
+            for (physical_core_id, _) in &persistent_state.cores_mapping {
+                loaded_range.insert((*physical_core_id).into());
             }
 
-            if config_range == loaded_range
+            if config_range == &loaded_range
                 && persistent_state.system_cores.len() == system_cpu_count
             {
                 let state: CoreDistributorState = persistent_state.into();

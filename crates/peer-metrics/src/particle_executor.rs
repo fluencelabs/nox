@@ -65,7 +65,7 @@ impl WorkerLabel {
     }
 }
 
-#[derive(EncodeLabelValue, Debug, Clone, Hash, Eq, PartialEq)]
+#[derive(EncodeLabelValue, Debug, Clone, Copy, Hash, Eq, PartialEq)]
 pub enum WorkerType {
     Worker,
     Host,
