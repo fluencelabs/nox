@@ -290,6 +290,7 @@ impl CoreDistributor for PersistentCoreDistributor {
 
 pub(crate) struct CoreDistributorState {
     // mapping between physical and logical cores
+    //TODO: use a topology directly
     pub cores_mapping: MultiMap<PhysicalCoreId, LogicalCoreId>,
     // allocated system cores
     pub system_cores: Vec<PhysicalCoreId>,
