@@ -70,7 +70,7 @@ impl From<PersistentCoreDistributorState> for CoreDistributorState {
 
 impl PersistentCoreDistributor {
     /// Loads the state from `file_name` if exists. If not creates a new empty state
-    // TODO: split it for two methods 
+    // TODO: split it for two methods
     pub fn from_path(
         file_path: PathBuf,
         system_cpu_count: usize,
