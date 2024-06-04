@@ -75,34 +75,33 @@ pub trait ChainConnector: Send + Sync {
 
     async fn get_tx_statuses(&self, tx_hashes: Vec<String>) -> Result<Vec<Result<Option<bool>>>>;
 
-    async fn get_tx_receipts(&self, tx_hashes: Vec<String>)
-        -> Result<Vec<Result<TxReceiptResult>>>;
+    async fn get_tx_receipts(&self, tx_hashes: Vec<String>) -> Result<Vec<Result<TxStatus>>>;
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct DealResult {
     success: bool,
-    error: Option<String>,
+    error: Vec<String>,
     deal_id: DealId,
-    deal_info: Option<DealInfo>,
+    deal_info: Vec<DealInfo>,
 }
 
 impl DealResult {
     fn with_error(deal_id: DealId, err: String) -> Self {
         Self {
             success: false,
-            error: Some(err),
+            error: vec![err],
             deal_id,
-            deal_info: None,
+            deal_info: vec![],
         }
     }
 
     fn new(deal_id: DealId, info: DealInfo) -> Self {
         Self {
             success: true,
-            error: None,
+            error: vec![],
             deal_id,
-            deal_info: Some(info),
+            deal_info: vec![info],
         }
     }
 }
@@ -114,6 +113,52 @@ pub struct DealInfo {
     pub app_cid: String,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct TxReceiptResult {
+    success: bool,
+    error: Vec<String>,
+    status: String,
+    receipt: Vec<TxReceiptInfo>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct TxReceiptInfo {
+    block_number: String,
+    tx_hash: String,
+}
+
+impl TxReceiptResult {
+    fn pending() -> Self {
+        Self {
+            success: true,
+            error: vec![],
+            status: "pending".to_string(),
+            receipt: vec![],
+        }
+    }
+
+    fn processed(receipt: TxReceipt) -> Self {
+        Self {
+            success: true,
+            error: vec![],
+            status: if receipt.is_ok { "ok" } else { "failed" }.to_string(),
+            receipt: vec![TxReceiptInfo {
+                block_number: receipt.block_number,
+                tx_hash: receipt.transaction_hash,
+            }],
+        }
+    }
+
+    fn error(msg: String) -> Self {
+        Self {
+            success: false,
+            error: vec![msg],
+            status: "".to_string(),
+            receipt: vec![],
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct TxReceipt {
     is_ok: bool,
@@ -122,7 +167,7 @@ pub struct TxReceipt {
 }
 
 #[derive(Debug)]
-pub enum TxReceiptResult {
+pub enum TxStatus {
     Pending,
     Processed(TxReceipt),
 }
@@ -311,34 +356,11 @@ impl HttpChainConnector {
             .map_err(|err| JError::new(format!("Failed to get tx receipts: {err}")))?
             .into_iter()
             .map(|tx_receipt| match tx_receipt {
-                Ok(receipt) => {
-                    let (status, receipt) = match receipt {
-                        TxReceiptResult::Pending => ("pending", vec![]),
-                        TxReceiptResult::Processed(receipt) => {
-                            let status = if receipt.is_ok { "ok" } else { "failed" };
-                            let receipt = json!({
-                                "tx_hash": receipt.transaction_hash,
-                                "block_number": receipt.block_number,
-                            });
-                            (status, vec![receipt])
-                        }
-                    };
-
-                    json!({
-                        "success": json!(true),
-                        "error":  json!([]),
-                        "status": json!(status),
-                        "receipt": json!(receipt)
-                    })
-                }
-                Err(err) => {
-                    json!({
-                        "success": json!(false),
-                        "error":  json!(vec![err.to_string()]),
-                        "receipt": json!([]),
-                        "status": "pending",
-                    })
-                }
+                Ok(receipt) => match receipt {
+                    TxStatus::Pending => TxReceiptResult::pending(),
+                    TxStatus::Processed(receipt) => TxReceiptResult::processed(receipt),
+                },
+                Err(err) => TxReceiptResult::error(err.to_string()),
             })
             .collect::<Vec<_>>();
 
@@ -862,8 +884,8 @@ impl ChainConnector for HttpChainConnector {
         let statuses = receipts
             .into_iter()
             .map(|receipt| match receipt {
-                Ok(TxReceiptResult::Pending) => Ok(None),
-                Ok(TxReceiptResult::Processed(receipt)) => Ok(Some(receipt.is_ok)),
+                Ok(TxStatus::Pending) => Ok(None),
+                Ok(TxStatus::Processed(receipt)) => Ok(Some(receipt.is_ok)),
                 Err(err) => Err(err),
             })
             .collect();
@@ -871,10 +893,7 @@ impl ChainConnector for HttpChainConnector {
         Ok(statuses)
     }
 
-    async fn get_tx_receipts(
-        &self,
-        tx_hashes: Vec<String>,
-    ) -> Result<Vec<Result<TxReceiptResult>>> {
+    async fn get_tx_receipts(&self, tx_hashes: Vec<String>) -> Result<Vec<Result<TxStatus>>> {
         let mut batch = BatchRequestBuilder::new();
         for tx_hash in tx_hashes {
             batch.insert("eth_getTransactionReceipt", rpc_params![tx_hash])?;
@@ -886,8 +905,8 @@ impl ChainConnector for HttpChainConnector {
             .map(|receipt| try {
                 match serde_json::from_value::<Option<RawTxReceipt>>(receipt?)? {
                     // When there's no receipt yet, the transaction is considered pending
-                    None => TxReceiptResult::Pending,
-                    Some(raw_receipt) => TxReceiptResult::Processed(raw_receipt.to_tx_receipt()),
+                    None => TxStatus::Pending,
+                    Some(raw_receipt) => TxStatus::Processed(raw_receipt.to_tx_receipt()),
                 }
             })
             .collect();
@@ -918,7 +937,7 @@ mod tests {
     use hex_utils::decode_hex;
     use log_utils::{enable_logs_for, LogSpec};
 
-    use crate::connector::TxReceiptResult;
+    use crate::connector::TxStatus;
     use crate::Deal::Status::ACTIVE;
     use crate::{
         is_commitment_not_active, CCStatus, ChainConnector, CommitmentId, ConnectorError,
@@ -1369,13 +1388,13 @@ mod tests {
             })
             .create();
 
-        let mut deals = get_connector(&url).get_deals().await.unwrap();
+        let deals = get_connector(&url).get_deals().await.unwrap();
 
         assert_eq!(deals.len(), 2, "there should be only two deals: {deals:?}");
         assert!(deals[0].success, "failed to get a deal: {deals:?}");
         assert_eq!(deals[0].deal_id, expected_deal_id_1);
 
-        let deal_info = deals.remove(0).deal_info.unwrap();
+        let deal_info = &deals[0].deal_info[0];
         assert_eq!(deal_info.status, ACTIVE);
         assert_eq!(
             deal_info.unit_ids.len(),
@@ -1386,10 +1405,10 @@ mod tests {
         assert_eq!(deal_info.app_cid, expected_app_cid);
 
         // Second deal
-        assert!(deals[0].success, "failed to get a deal: {deals:?}");
-        assert_eq!(deals[0].deal_id, expected_deal_id_2);
+        assert!(deals[1].success, "failed to get a deal: {deals:?}");
+        assert_eq!(deals[1].deal_id, expected_deal_id_2);
 
-        let deal_info = deals.remove(0).deal_info.unwrap();
+        let deal_info = &deals[1].deal_info[0];
         assert_eq!(deal_info.status, ACTIVE);
         assert_eq!(
             deal_info.unit_ids.len(),
@@ -1542,11 +1561,11 @@ mod tests {
 
         let pending = result.remove(0);
         assert!(pending.is_ok(), "should get pending status: {:?}", pending);
-        assert_matches!(pending.unwrap(), TxReceiptResult::Pending);
+        assert_matches!(pending.unwrap(), TxStatus::Pending);
 
         let ok = result.remove(0);
         assert!(ok.is_ok(), "should get a receipt: {:?}", ok);
-        assert_matches!(ok.unwrap(), TxReceiptResult::Processed(_));
+        assert_matches!(ok.unwrap(), TxStatus::Processed(_));
 
         assert!(result[0].is_err(), "should be error: {:?}", result[0]);
 
@@ -1597,8 +1616,8 @@ mod tests {
         assert!(result[0].is_ok(), "can't get receipt: {:?}", result[0]);
 
         let result = result.remove(0).unwrap();
-        assert_matches!(result, TxReceiptResult::Processed(_));
-        if let TxReceiptResult::Processed(receipt) = result {
+        assert_matches!(result, TxStatus::Processed(_));
+        if let TxStatus::Processed(receipt) = result {
             assert_eq!(receipt.transaction_hash, tx_hash);
         }
 
