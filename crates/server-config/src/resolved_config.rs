@@ -826,7 +826,7 @@ mod tests {
             file,
             r#"
             [network]
-            Custom = "12458ae2e882cc71eaf2de71101c76a77a54ee89cae8897b231a8a1cb4e90f80"
+            custom = "12458ae2e882cc71eaf2de71101c76a77a54ee89cae8897b231a8a1cb4e90f80"
             "#
         )
         .expect("Could not write in file");
