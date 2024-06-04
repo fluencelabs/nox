@@ -309,13 +309,14 @@ mod tests {
 
     use particle_modules::ModuleRepository;
 
+    use core_distributor::dummy::DummyCoreDistibutor;
     use fluence_keypair::KeyPair;
     use fluence_spell_dtos::trigger_config::TriggerConfig;
     use fluence_spell_dtos::value::*;
     use maplit::hashmap;
     use serde_json::json;
     use std::time::Duration;
-    use workers::{DummyCoreManager, KeyStorage, PeerScopes, Workers};
+    use workers::{KeyStorage, PeerScopes, Workers};
 
     use crate::{CallParams, SpellServiceApi};
 
@@ -346,7 +347,10 @@ mod tests {
 
         let key_storage = Arc::new(key_storage);
 
-        let core_manager = Arc::new(DummyCoreManager::default().into());
+        let core_distributor = DummyCoreDistibutor::new();
+        let core_distributor = Arc::new(core_distributor);
+
+        let thread_pinner = Arc::new(test_utils::pinning::DUMMY);
 
         let scope = PeerScopes::new(
             root_key_pair.get_peer_id(),
@@ -355,10 +359,15 @@ mod tests {
             key_storage.clone(),
         );
 
-        let (workers, _worker_events) =
-            Workers::from_path(workers_dir.clone(), key_storage, core_manager, 128)
-                .await
-                .expect("Could not load worker registry");
+        let (workers, _worker_events) = Workers::from_path(
+            workers_dir.clone(),
+            key_storage,
+            core_distributor,
+            thread_pinner,
+            32,
+        )
+        .await
+        .expect("Could not load worker registry");
 
         let workers = Arc::new(workers);
 

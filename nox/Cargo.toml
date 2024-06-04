@@ -16,7 +16,7 @@ connection-pool = { workspace = true }
 aquamarine = { workspace = true }
 sorcerer = { workspace = true }
 health = { workspace = true }
-core-manager = { workspace = true }
+core-distributor = { workspace = true }
 dhat = { version = "0.3.2", optional = true }
 serde_json = { workspace = true }
 fluence-libp2p = { workspace = true }
@@ -55,11 +55,11 @@ base64 = { workspace = true }
 tracing = { workspace = true, features = ["async-await", "log"] }
 tracing-subscriber = { workspace = true, features = ["parking_lot", "env-filter", "smallvec"] }
 tracing-logfmt = "0.3.3"
-tracing-opentelemetry = "0.23.0"
-opentelemetry = "0.22.0"
-opentelemetry_sdk = { version = "0.22.1", features = ["rt-tokio"] }
-opentelemetry-otlp = { version = "0.15.0", features = ["grpc-tonic", "gzip-tonic"] }
-opentelemetry-stdout = { version = "0.3.0", features = ["trace"] }
+tracing-opentelemetry = "0.24.0"
+opentelemetry = "0.23.0"
+opentelemetry_sdk = { version = "0.23.0", features = ["rt-tokio"] }
+opentelemetry-otlp = { version = "0.16.0", features = ["grpc-tonic", "gzip-tonic"] }
+opentelemetry-stdout = { version = "0.4.0", features = ["trace"] }
 once_cell = { workspace = true }
 config = "0.13.4"
 jsonrpsee = { workspace = true, features = ["ws-client", "macros"] }
@@ -71,6 +71,8 @@ serde = { workspace = true }
 toml = { workspace = true }
 log-format = { workspace = true }
 thiserror = { workspace = true }
+cpu-utils = { workspace = true }
+cfg-if = { workspace = true }
 
 [dev-dependencies]
 parking_lot = { workspace = true }
@@ -86,3 +88,5 @@ connected-client = { path = "../crates/connected-client" }
 log-utils = { workspace = true }
 reqwest = { workspace = true }
 tempfile = { workspace = true }
+cpu-utils = { workspace = true }
+test-utils = { workspace = true }

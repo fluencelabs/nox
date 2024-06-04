@@ -16,3 +16,4 @@ fstrings = { workspace = true }
 maplit = { workspace = true }
 base64 = { workspace = true }
 eyre = { workspace = true }
+cpu-utils = { workspace = true }

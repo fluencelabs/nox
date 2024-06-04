@@ -19,6 +19,7 @@ use std::sync::Arc;
 use std::{io, net::SocketAddr};
 
 use ccp_rpc_client::CCPRpcHttpClient;
+use cpu_utils::pinning::ThreadPinner;
 use eyre::WrapErr;
 use fluence_keypair::KeyPair;
 use futures::future::OptionFuture;
@@ -46,7 +47,7 @@ use chain_connector::HttpChainConnector;
 use chain_listener::ChainListener;
 use config_utils::to_peer_id;
 use connection_pool::ConnectionPoolT;
-use core_manager::CoreManager;
+use core_distributor::CoreDistributor;
 use fluence_libp2p::build_transport;
 use health::HealthCheckRegistry;
 use particle_builtins::{Builtins, CustomService, NodeInfo, ParticleAppServicesConfig};
@@ -115,7 +116,7 @@ pub struct Node<RT: AquaRuntime> {
 async fn setup_listener(
     connector: Option<Arc<HttpChainConnector>>,
     config: &ResolvedConfig,
-    core_manager: Arc<CoreManager>,
+    core_distributor: Arc<dyn CoreDistributor>,
     chain_listener_metrics: Option<ChainListenerMetrics>,
 ) -> eyre::Result<Option<ChainListener>> {
     if let (Some(connector), Some(chain_config), Some(listener_config)) = (
@@ -146,7 +147,7 @@ async fn setup_listener(
             listener_config,
             host_id,
             connector,
-            core_manager,
+            core_distributor,
             ccp_client,
             cc_events_dir,
             chain_listener_metrics,
@@ -160,7 +161,8 @@ async fn setup_listener(
 impl<RT: AquaRuntime> Node<RT> {
     pub async fn new(
         config: ResolvedConfig,
-        core_manager: Arc<CoreManager>,
+        core_distributor: Arc<dyn CoreDistributor>,
+        thread_pinner: Arc<dyn ThreadPinner>,
         vm_config: RT::Config,
         data_store_config: DataStoreConfig,
         node_version: &'static str,
@@ -194,7 +196,8 @@ impl<RT: AquaRuntime> Node<RT> {
         let (workers, worker_events) = Workers::from_path(
             config.dir_config.workers_base_dir.clone(),
             key_storage.clone(),
-            core_manager.clone(),
+            core_distributor.clone(),
+            thread_pinner.clone(),
             config.node_config.workers_queue_buffer,
         )
         .await?;
@@ -456,7 +459,7 @@ impl<RT: AquaRuntime> Node<RT> {
         );
 
         let chain_listener =
-            setup_listener(connector, &config, core_manager, chain_listener_metrics).await?;
+            setup_listener(connector, &config, core_distributor, chain_listener_metrics).await?;
 
         Ok(Self::with(
             particle_stream,
@@ -806,7 +809,7 @@ mod tests {
     use aquamarine::{AVMRunner, DataStoreConfig, VmConfig};
     use config_utils::to_peer_id;
     use connected_client::ConnectedClient;
-    use core_manager::DummyCoreManager;
+    use core_distributor::dummy::DummyCoreDistibutor;
     use fs_utils::to_abs_path;
     use server_config::{default_base_dir, load_config_with_args, persistent_dir};
     use system_services::SystemServiceDistros;
@@ -847,11 +850,13 @@ mod tests {
             SystemServiceDistros::default_from(config.system_services.clone())
                 .expect("can't create system services");
 
-        let core_manager = Arc::new(DummyCoreManager::default().into());
+        let core_distributor = Arc::new(DummyCoreDistibutor::new());
+        let thread_pinner = Arc::new(test_utils::pinning::DUMMY);
 
         let mut node: Box<Node<AVMRunner>> = Node::new(
             config,
-            core_manager,
+            core_distributor,
+            thread_pinner,
             vm_config,
             data_store_config,
             "some version",
