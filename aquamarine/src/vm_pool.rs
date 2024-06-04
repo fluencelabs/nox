@@ -155,7 +155,7 @@ impl<RT: AquaRuntime> VmPool<RT> {
         async {
             let task_result =
                 tokio::task::spawn_blocking(|| RT::create_runtime(config, wasm_backend, waker))
-                    .await; //TODO: move waker outside create runtime
+                    .await; // TODO: move waker outside create runtime
             match task_result {
                 Ok(joined_res) => joined_res.map_err(|e| CreateAVMError::AVMError(Box::new(e))),
                 Err(e) => Err(CreateAVMError::JoinError(e)),

@@ -16,7 +16,7 @@ connection-pool = { workspace = true }
 aquamarine = { workspace = true }
 sorcerer = { workspace = true }
 health = { workspace = true }
-core-manager = { workspace = true }
+core-distributor = { workspace = true }
 dhat = { version = "0.3.2", optional = true }
 serde_json = { workspace = true }
 fluence-libp2p = { workspace = true }
@@ -71,6 +71,8 @@ serde = { workspace = true }
 toml = { workspace = true }
 log-format = { workspace = true }
 thiserror = { workspace = true }
+cpu-utils = { workspace = true }
+cfg-if = { workspace = true }
 
 [dev-dependencies]
 parking_lot = { workspace = true }
@@ -86,3 +88,5 @@ connected-client = { path = "../crates/connected-client" }
 log-utils = { workspace = true }
 reqwest = { workspace = true }
 tempfile = { workspace = true }
+cpu-utils = { workspace = true }
+test-utils = { workspace = true }

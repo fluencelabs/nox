@@ -17,7 +17,7 @@
 use alloy_sol_types::sol;
 use chain_connector::PendingUnit;
 
-use core_manager::CUID;
+use core_distributor::CUID;
 
 sol! {
     /// @dev Emitted when a unit activated.

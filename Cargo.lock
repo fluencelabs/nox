@@ -335,6 +335,8 @@ dependencies = [
  "chrono",
  "config-utils",
  "control-macro",
+ "core-distributor",
+ "cpu-utils",
  "enum_dispatch",
  "eyre",
  "fluence-app-service",
@@ -356,6 +358,7 @@ dependencies = [
  "peer-metrics",
  "serde_json",
  "tempfile",
+ "test-utils",
  "thiserror",
  "tokio",
  "tokio-stream",
@@ -1256,9 +1259,9 @@ dependencies = [
 
 [[package]]
 name = "ccp-rpc-client"
-version = "0.9.0"
+version = "0.10.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2888e0529487437677d06c31dfc581bb8bea06d0fc007db0a8484307be9d7de5"
+checksum = "9176fd2a8249730c6256bbbdb2f1f864ce1aa42caa80db9d137ce8dcce351ecd"
 dependencies = [
  "ccp-shared",
  "hex",
@@ -1268,9 +1271,9 @@ dependencies = [
 
 [[package]]
 name = "ccp-shared"
-version = "0.9.0"
+version = "0.10.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7ccecad3bb44270ec5497788954232de0c55564ceadc2eca4f0a45da0b3a77e2"
+checksum = "ce20b2393397b733ff6f9fd91909dc7c115df934a3be876351e861851e4c2038"
 dependencies = [
  "hex",
  "newtype_derive",
@@ -1377,7 +1380,7 @@ dependencies = [
  "ccp-shared",
  "chain-connector",
  "chain-data",
- "core-manager",
+ "core-distributor",
  "cpu-utils",
  "ethabi",
  "eyre",
@@ -1397,7 +1400,7 @@ dependencies = [
  "thiserror",
  "tokio",
  "tokio-stream",
- "toml_edit 0.22.13",
+ "toml_edit 0.22.14",
  "tracing",
  "types",
 ]
@@ -1655,34 +1658,20 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6245d59a3e82a7fc217c5828a6692dbc6dfb63a0c8c90495621f7b9d79704a0e"
 
 [[package]]
-name = "core-foundation"
-version = "0.9.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "194a7a9e6de53fa55116934067c844d9d749312f75c6f6d0980e8c252f8c2146"
-dependencies = [
- "core-foundation-sys",
- "libc",
-]
-
-[[package]]
-name = "core-foundation-sys"
-version = "0.8.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e496a50fda8aacccc86d7529e2c1e0892dbd0f898a6b5645b5561b89c3210efa"
-
-[[package]]
-name = "core-manager"
+name = "core-distributor"
 version = "0.1.0"
 dependencies = [
  "async-trait",
  "bimap",
  "ccp-shared",
  "cpu-utils",
+ "derivative",
  "enum_dispatch",
  "futures",
  "fxhash",
  "hex",
  "hex-utils",
+ "mockall",
  "multimap 0.10.0",
  "newtype_derive",
  "nonempty",
@@ -1699,6 +1688,22 @@ dependencies = [
  "toml 0.8.13",
  "tracing",
 ]
+
+[[package]]
+name = "core-foundation"
+version = "0.9.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "194a7a9e6de53fa55116934067c844d9d749312f75c6f6d0980e8c252f8c2146"
+dependencies = [
+ "core-foundation-sys",
+ "libc",
+]
+
+[[package]]
+name = "core-foundation-sys"
+version = "0.8.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e496a50fda8aacccc86d7529e2c1e0892dbd0f898a6b5645b5561b89c3210efa"
 
 [[package]]
 name = "core2"
@@ -1720,13 +1725,14 @@ dependencies = [
 
 [[package]]
 name = "cpu-utils"
-version = "0.9.0"
+version = "0.10.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8efb8938379cbf7f471035078b25e10e6b12bd8e0eeacba4dbbf92e1be39fedb"
+checksum = "bf88054aeeac7a790f0c653e77a79bd0af113b13249a8f94ad4ed795488fff64"
 dependencies = [
  "ccp-shared",
  "ccp_core_affinity",
  "hwlocality",
+ "mockall",
  "nonempty",
  "serde",
  "thiserror",
@@ -1869,7 +1875,8 @@ dependencies = [
  "cid-utils",
  "config-utils",
  "connection-pool",
- "core-manager",
+ "core-distributor",
+ "cpu-utils",
  "derivative",
  "fluence-app-service",
  "fluence-keypair",
@@ -1892,6 +1899,7 @@ dependencies = [
  "system-services",
  "tempfile",
  "test-constants",
+ "test-utils",
  "tokio",
  "tokio-stream",
  "tokio-util",
@@ -2248,6 +2256,12 @@ name = "dlv-list"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0688c2a7f92e427f44895cd63841bff7b29f8d7a1648b9e7e07a4a365b2e1257"
+
+[[package]]
+name = "downcast"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1435fa1053d8b2fbbe9be7e97eca7f33d37b28409959813daefc1446a14247f1"
 
 [[package]]
 name = "dtoa"
@@ -2668,6 +2682,12 @@ checksum = "e13624c2627564efccf4934284bdd98cbaa14e79b0b5a141218e507b3a823456"
 dependencies = [
  "percent-encoding",
 ]
+
+[[package]]
+name = "fragile"
+version = "2.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6c2141d6d6c8512188a7891b4b01590a45f6dac67afb4f255c4124dbb86d4eaa"
 
 [[package]]
 name = "fs-set-times"
@@ -5417,6 +5437,33 @@ dependencies = [
 ]
 
 [[package]]
+name = "mockall"
+version = "0.12.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "43766c2b5203b10de348ffe19f7e54564b64f3d6018ff7648d1e2d6d3a0f0a48"
+dependencies = [
+ "cfg-if",
+ "downcast",
+ "fragile",
+ "lazy_static",
+ "mockall_derive",
+ "predicates",
+ "predicates-tree",
+]
+
+[[package]]
+name = "mockall_derive"
+version = "0.12.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "af7cbce79ec385a1d4f54baa90a76401eb15d9cab93685f62e7e9f942aa00ae2"
+dependencies = [
+ "cfg-if",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.46",
+]
+
+[[package]]
 name = "mockito"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5682,13 +5729,15 @@ dependencies = [
  "blake3",
  "bs58",
  "ccp-rpc-client",
+ "cfg-if",
  "chain-connector",
  "chain-listener",
  "config",
  "config-utils",
  "connected-client",
  "connection-pool",
- "core-manager",
+ "core-distributor",
+ "cpu-utils",
  "dhat",
  "eyre",
  "fluence-keypair",
@@ -5732,6 +5781,7 @@ dependencies = [
  "spell-service-api",
  "system-services",
  "tempfile",
+ "test-utils",
  "thiserror",
  "tokio",
  "tokio-stream",
@@ -6252,7 +6302,7 @@ dependencies = [
  "service-modules",
  "tempdir",
  "thiserror",
- "toml_edit 0.22.13",
+ "toml_edit 0.22.14",
 ]
 
 [[package]]
@@ -6291,6 +6341,8 @@ dependencies = [
  "bytesize",
  "cid-utils",
  "config-utils",
+ "core-distributor",
+ "cpu-utils",
  "derivative",
  "eyre",
  "fluence-app-service",
@@ -6314,12 +6366,13 @@ dependencies = [
  "service-modules",
  "tempdir",
  "tempfile",
+ "test-utils",
  "thiserror",
  "tokio",
  "tokio-stream",
  "tokio-util",
  "toml 0.8.13",
- "toml_edit 0.22.13",
+ "toml_edit 0.22.14",
  "tracing",
  "types",
  "uuid",
@@ -6543,6 +6596,32 @@ name = "ppv-lite86"
 version = "0.2.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5b40af805b3121feab8a3c29f04d8ad262fa8e0561883e7653e024ae4479e6de"
+
+[[package]]
+name = "predicates"
+version = "3.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "68b87bfd4605926cdfefc1c3b5f8fe560e3feca9d5552cf68c466d3d8236c7e8"
+dependencies = [
+ "anstyle",
+ "predicates-core",
+]
+
+[[package]]
+name = "predicates-core"
+version = "1.0.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b794032607612e7abeb4db69adb4e33590fa6cf1149e95fd7cb00e634b92f174"
+
+[[package]]
+name = "predicates-tree"
+version = "1.0.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "368ba315fb8c5052ab692e68a0eefec6ec57b23a36959c14496f0b0df2c0cecf"
+dependencies = [
+ "predicates-core",
+ "termtree",
+]
 
 [[package]]
 name = "primitive-types"
@@ -7541,9 +7620,9 @@ checksum = "f638d531eccd6e23b980caf34876660d38e265409d8e99b397ab71eb3612fad0"
 
 [[package]]
 name = "serde"
-version = "1.0.196"
+version = "1.0.203"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "870026e60fa08c69f064aa766c10f10b1d62db9ccd4d0abb206472bee0ce3b32"
+checksum = "7253ab4de971e72fb7be983802300c30b5a7f0c2e56fab8abfc6a214307c0094"
 dependencies = [
  "serde_derive",
 ]
@@ -7559,9 +7638,9 @@ dependencies = [
 
 [[package]]
 name = "serde_derive"
-version = "1.0.196"
+version = "1.0.203"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "33c85360c95e7d137454dc81d9a4ed2b8efd8fbe19cee57357b32b9771fccb67"
+checksum = "500cbc0ebeb6f46627f50f3f5811ccf6bf00643be300b4c3eabc0ef55dc5b5ba"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -7682,7 +7761,7 @@ dependencies = [
  "clarity",
  "config",
  "config-utils",
- "core-manager",
+ "core-distributor",
  "derivative",
  "eyre",
  "fluence-keypair",
@@ -7968,6 +8047,8 @@ name = "spell-service-api"
 version = "0.1.0"
 dependencies = [
  "config-utils",
+ "core-distributor",
+ "cpu-utils",
  "fluence-app-service",
  "fluence-keypair",
  "fluence-libp2p",
@@ -7982,6 +8063,7 @@ dependencies = [
  "server-config",
  "spell-storage",
  "tempdir",
+ "test-utils",
  "thiserror",
  "tokio",
  "workers",
@@ -8002,7 +8084,7 @@ dependencies = [
  "particle-modules",
  "particle-services",
  "service-modules",
- "toml_edit 0.22.13",
+ "toml_edit 0.22.14",
 ]
 
 [[package]]
@@ -8208,7 +8290,7 @@ dependencies = [
  "spell-event-bus",
  "spell-service-api",
  "spell-storage",
- "toml_edit 0.22.13",
+ "toml_edit 0.22.14",
  "tracing",
  "trust-graph-distro",
  "types",
@@ -8269,6 +8351,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "termtree"
+version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3369f5ac52d5eb6ab48c6b4ffdc8efbcad6b89c765749064ba298f2c68a16a76"
+
+[[package]]
 name = "test-constants"
 version = "0.1.0"
 
@@ -8278,6 +8366,7 @@ version = "0.3.0"
 dependencies = [
  "base64 0.21.7",
  "connected-client",
+ "cpu-utils",
  "eyre",
  "fstrings",
  "ivalue-utils",
@@ -8517,7 +8606,7 @@ dependencies = [
  "serde",
  "serde_spanned",
  "toml_datetime",
- "toml_edit 0.22.13",
+ "toml_edit 0.22.14",
 ]
 
 [[package]]
@@ -8573,9 +8662,9 @@ dependencies = [
 
 [[package]]
 name = "toml_edit"
-version = "0.22.13"
+version = "0.22.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c127785850e8c20836d49732ae6abfa47616e60bf9d9f57c43c250361a9db96c"
+checksum = "f21c7aaf97f1bd9ca9d4f9e73b0a6c74bd5afef56f2bc931943a6e1c37e04e38"
 dependencies = [
  "indexmap 2.2.1",
  "serde",
@@ -8747,9 +8836,9 @@ dependencies = [
 
 [[package]]
 name = "tracing-panic"
-version = "0.1.1"
+version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eaf80030ce049691c9922d75be63cadf345110a245cd4581833c66f87c02ad25"
+checksum = "7bf1298a179837099f9309243af3b554e840f7f67f65e9f55294913299bd4cc5"
 dependencies = [
  "tracing",
  "tracing-subscriber",
@@ -10008,7 +10097,8 @@ name = "workers"
 version = "0.1.0"
 dependencies = [
  "async-trait",
- "core-manager",
+ "core-distributor",
+ "cpu-utils",
  "derivative",
  "eyre",
  "fluence-keypair",
@@ -10020,10 +10110,11 @@ dependencies = [
  "parking_lot",
  "serde",
  "tempfile",
+ "test-utils",
  "thiserror",
  "tokio",
  "toml 0.8.13",
- "toml_edit 0.22.13",
+ "toml_edit 0.22.14",
  "tracing",
  "types",
 ]

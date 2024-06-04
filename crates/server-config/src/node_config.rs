@@ -23,7 +23,7 @@ use std::time::Duration;
 use base64::{engine::general_purpose::STANDARD as base64, Engine};
 use cid_utils::Hash;
 use clarity::PrivateKey;
-use core_manager::CoreRange;
+use core_distributor::CoreRange;
 use derivative::Derivative;
 use eyre::eyre;
 use fluence_keypair::KeyPair;

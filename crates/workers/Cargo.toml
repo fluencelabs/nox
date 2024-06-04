@@ -9,7 +9,7 @@ edition = "2021"
 fs-utils = { workspace = true }
 fluence-libp2p = { workspace = true }
 fluence-keypair = { workspace = true }
-core-manager = { workspace = true }
+core-distributor = { workspace = true }
 
 parking_lot = { workspace = true }
 eyre = { workspace = true }
@@ -26,6 +26,9 @@ types = { workspace = true }
 async-trait = "0.1.79"
 
 [dev-dependencies]
+core-distributor = { workspace = true, features = ["dummy"] }
+cpu-utils = { workspace = true }
+test-utils = { workspace = true }
 tempfile = { workspace = true }
 tokio = { workspace = true, features = ["macros"] }
 hex = { workspace = true }

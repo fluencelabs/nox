@@ -19,6 +19,7 @@ use std::io::Write;
 use std::path::Path;
 use std::sync::Arc;
 
+use crate::distributor::CoreDistributorState;
 use ccp_shared::types::{LogicalCoreId, PhysicalCoreId, CUID};
 use futures::StreamExt;
 use hex_utils::serde_as::Hex;
@@ -29,45 +30,43 @@ use tokio_stream::wrappers::ReceiverStream;
 
 use crate::errors::PersistError;
 use crate::types::WorkType;
-use crate::CoreManager;
 
-pub trait PersistentCoreManagerFunctions {
+pub(crate) trait StatePersister: Send + Sync {
     fn persist(&self) -> Result<(), PersistError>;
 }
 
 pub struct PersistenceTask {
+    persister: Arc<dyn StatePersister>,
     receiver: Receiver<()>,
 }
 
 impl PersistenceTask {
-    pub(crate) fn new(receiver: Receiver<()>) -> Self {
-        Self { receiver }
+    pub(crate) fn new(persistence: Arc<dyn StatePersister>, receiver: Receiver<()>) -> Self {
+        Self {
+            persister: persistence,
+            receiver,
+        }
     }
 }
 
 impl PersistenceTask {
-    async fn process_events<Src>(stream: Src, core_manager: Arc<CoreManager>)
-    where
-        Src: futures::Stream<Item = ()> + Unpin + Send + Sync + 'static,
-    {
-        let core_manager = core_manager.clone();
+    async fn process_events(self) {
+        let stream = ReceiverStream::from(self.receiver);
         // We are not interested in the content of the event
         // We are waiting for the event to initiate the persistence process
         stream.for_each(move |_| {
-            let core_manager = core_manager.clone();
+            let persister = self.persister.clone();
             async move {
                 tokio::task::spawn_blocking(move || {
-                    if let CoreManager::Persistent(manager) = core_manager.as_ref() {
-                        let result = manager.persist();
+                        let result =  persister.persist();
                         match result {
                             Ok(_) => {
-                                tracing::debug!(target: "core-manager", "Core state was persisted");
+                                tracing::debug!(target: "core-distributor", "Core state was persisted");
                             }
                             Err(err) => {
-                                tracing::warn!(target: "core-manager", "Failed to save core state {err}");
+                                tracing::warn!(target: "core-distributor", "Failed to save core state {err}");
                             }
                         }
-                    }
                 })
                     .await
                     .expect("Could not spawn persist task")
@@ -75,19 +74,17 @@ impl PersistenceTask {
         }).await;
     }
 
-    pub async fn run(self, core_manager: Arc<CoreManager>) {
-        let stream = ReceiverStream::from(self.receiver);
-
+    pub async fn run(self) {
         tokio::task::Builder::new()
-            .name("core-manager-persist")
-            .spawn(Self::process_events(stream, core_manager))
+            .name("core-distributor-persist")
+            .spawn(self.process_events())
             .expect("Could not spawn persist task");
     }
 }
 
 #[serde_as]
 #[derive(Serialize, Deserialize)]
-pub struct PersistentCoreManagerState {
+pub struct PersistentCoreDistributorState {
     pub cores_mapping: Vec<(PhysicalCoreId, LogicalCoreId)>,
     pub system_cores: Vec<PhysicalCoreId>,
     pub available_cores: Vec<PhysicalCoreId>,
@@ -97,7 +94,7 @@ pub struct PersistentCoreManagerState {
     pub work_type_mapping: Vec<(CUID, WorkType)>,
 }
 
-impl PersistentCoreManagerState {
+impl PersistentCoreDistributorState {
     pub fn persist(&self, file_path: &Path) -> Result<(), PersistError> {
         let toml = toml::to_string_pretty(&self)
             .map_err(|err| PersistError::SerializationError { err })?;
@@ -108,9 +105,29 @@ impl PersistentCoreManagerState {
     }
 }
 
+impl From<&CoreDistributorState> for PersistentCoreDistributorState {
+    fn from(value: &CoreDistributorState) -> Self {
+        Self {
+            cores_mapping: value.cores_mapping.iter().map(|(k, v)| (*k, *v)).collect(),
+            system_cores: value.system_cores.clone(),
+            available_cores: value.available_cores.iter().cloned().collect(),
+            unit_id_mapping: value
+                .unit_id_mapping
+                .iter()
+                .map(|(k, v)| (*k, (*v)))
+                .collect(),
+            work_type_mapping: value
+                .work_type_mapping
+                .iter()
+                .map(|(k, v)| ((*k), *v))
+                .collect(),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use crate::persistence::PersistentCoreManagerState;
+    use crate::persistence::PersistentCoreDistributorState;
     use crate::types::WorkType;
     use ccp_shared::types::{LogicalCoreId, PhysicalCoreId, CUID};
     use hex::FromHex;
@@ -120,7 +137,7 @@ mod tests {
         let init_id_1 =
             <CUID>::from_hex("54ae1b506c260367a054f80800a545f23e32c6bc4a8908c9a794cb8dad23e5ea")
                 .unwrap();
-        let persistent_state = PersistentCoreManagerState {
+        let persistent_state = PersistentCoreDistributorState {
             cores_mapping: vec![
                 (PhysicalCoreId::new(1), LogicalCoreId::new(1)),
                 (PhysicalCoreId::new(1), LogicalCoreId::new(2)),
