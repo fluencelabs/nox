@@ -482,7 +482,7 @@ pub async fn create_swarm_with_runtime<RT: AquaRuntime>(
                 .expect("Failed to get default system service distros")
                 .extend(config.extend_system_services.clone());
 
-        let cpu_topology = HwlocCPUTopology::new() .expect("Failed to get cpu topology");
+        let cpu_topology = HwlocCPUTopology::new().expect("Failed to get cpu topology");
 
         let (core_distributor, task) = PersistentCoreDistributor::from_path(
             tmp_dir.join("test.toml"),
