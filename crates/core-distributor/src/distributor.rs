@@ -26,7 +26,7 @@ use parking_lot::RwLock;
 use range_set_blaze::RangeSetBlaze;
 
 use crate::errors::{AcquireError, CreateError, LoadingError, PersistError};
-use crate::persistence::{PersistenceTask, PersistentCoreDistributorState, StatePersistence};
+use crate::persistence::{PersistenceTask, PersistentCoreDistributorState, StatePersister};
 use crate::strategy::{AcquireStrategy, AcquireStrategyInner, AcquireStrategyOperations};
 use crate::types::{AcquireRequest, Assignment, SystemAssignment, WorkType};
 use crate::{BiMap, CoreRange, Map, MultiMap};
@@ -237,7 +237,7 @@ impl PersistentCoreDistributor {
     }
 }
 
-impl StatePersistence for PersistentCoreDistributor {
+impl StatePersister for PersistentCoreDistributor {
     fn persist(&self) -> Result<(), PersistError> {
         let lock = self.state.read();
         let inner_state = lock.deref();

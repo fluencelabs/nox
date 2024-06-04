@@ -75,7 +75,7 @@ impl AcquireStrategyOperations for StrictAcquireStrategy {
 
         let available = state.available_cores.len();
 
-        let core_usage = acquire_request
+        let core_allocation = acquire_request
             .unit_ids
             .clone()
             .into_iter()
@@ -87,7 +87,10 @@ impl AcquireStrategyOperations for StrictAcquireStrategy {
             })
             .collect::<Vec<_>>();
 
-        let required = core_usage.iter().filter(|(_, core)| core.is_none()).count();
+        let required = core_allocation
+            .iter()
+            .filter(|(_, core)| core.is_none())
+            .count();
 
         if required > available {
             let current_assignment: Vec<(PhysicalCoreId, CUID)> = state
@@ -103,7 +106,7 @@ impl AcquireStrategyOperations for StrictAcquireStrategy {
             });
         }
 
-        for (unit_id, physical_core_id) in core_usage {
+        for (unit_id, physical_core_id) in core_allocation {
             let physical_core_id = match physical_core_id {
                 None => {
                     // SAFETY: this should never happen because we already checked the availability of cores
@@ -112,15 +115,11 @@ impl AcquireStrategyOperations for StrictAcquireStrategy {
                         .pop_back()
                         .expect("Unexpected state. Should not be empty never");
                     state.unit_id_mapping.insert(core_id, unit_id);
-                    state
-                        .work_type_mapping
-                        .insert(unit_id, *worker_unit_type);
+                    state.work_type_mapping.insert(unit_id, *worker_unit_type);
                     core_id
                 }
                 Some(core_id) => {
-                    state
-                        .work_type_mapping
-                        .insert(unit_id, *worker_unit_type);
+                    state.work_type_mapping.insert(unit_id, *worker_unit_type);
                     core_id
                 }
             };
@@ -178,16 +177,12 @@ impl AcquireStrategyOperations for RoundRobinAcquireStrategy {
                         .pop_front()
                         .expect("Unexpected state. Should not be empty never");
                     state.unit_id_mapping.insert(core_id, unit_id);
-                    state
-                        .work_type_mapping
-                        .insert(unit_id, worker_unit_type);
+                    state.work_type_mapping.insert(unit_id, worker_unit_type);
                     state.available_cores.push_back(core_id);
                     core_id
                 }
                 Some(core_id) => {
-                    state
-                        .work_type_mapping
-                        .insert(unit_id, worker_unit_type);
+                    state.work_type_mapping.insert(unit_id, worker_unit_type);
                     core_id
                 }
             };

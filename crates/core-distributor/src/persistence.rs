@@ -31,19 +31,19 @@ use tokio_stream::wrappers::ReceiverStream;
 use crate::errors::PersistError;
 use crate::types::WorkType;
 
-pub(crate) trait StatePersistence: Send + Sync {
+pub(crate) trait StatePersister: Send + Sync {
     fn persist(&self) -> Result<(), PersistError>;
 }
 
 pub struct PersistenceTask {
-    persistence: Arc<dyn StatePersistence>,
+    persister: Arc<dyn StatePersister>,
     receiver: Receiver<()>,
 }
 
 impl PersistenceTask {
-    pub(crate) fn new(persistence: Arc<dyn StatePersistence>, receiver: Receiver<()>) -> Self {
+    pub(crate) fn new(persistence: Arc<dyn StatePersister>, receiver: Receiver<()>) -> Self {
         Self {
-            persistence,
+            persister: persistence,
             receiver,
         }
     }
@@ -55,7 +55,7 @@ impl PersistenceTask {
         // We are not interested in the content of the event
         // We are waiting for the event to initiate the persistence process
         stream.for_each(move |_| {
-            let persister = self.persistence.clone();
+            let persister = self.persister.clone();
             async move {
                 tokio::task::spawn_blocking(move || {
                         let result =  persister.persist();
