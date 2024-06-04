@@ -160,19 +160,17 @@ impl PersistentCoreDistributor {
             .map_err(|err| CreateError::CollectCoresData { err })?;
 
         if !core_range.is_subset(&physical_cores) {
-            return Err(CreateError::WrongCpuRange);
+            return Err(CreateError::WrongCoreRange { core_range });
         }
 
         let mut cores_mapping: MultiMap<PhysicalCoreId, LogicalCoreId> =
             MultiMap::with_capacity_and_hasher(available_core_count, FxBuildHasher::default());
 
-        let mut available_cores: VecDeque<PhysicalCoreId> = VecDeque::new();
+        let mut available_cores: VecDeque<PhysicalCoreId> =
+            VecDeque::with_capacity(available_core_count);
 
         for physical_core_id in physical_cores {
-            if core_range
-                .0
-                .contains(<PhysicalCoreId as Into<u32>>::into(physical_core_id) as usize)
-            {
+            if core_range.0.contains(physical_core_id.into()) {
                 let logical_cores = cpu_topology
                     .logical_cores_for_physical(physical_core_id)
                     .map_err(|err| CreateError::CollectCoresData { err })?;
@@ -579,7 +577,7 @@ mod tests {
         assert!(result.is_err());
         assert_eq!(
             result.err().map(|err| err.to_string()),
-            Some("The specified CPU range exceeds the available CPU count".to_string())
+            Some("The specified Core range 0-16384 exceeds the available CPU count".to_string())
         );
     }
 

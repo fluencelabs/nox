@@ -25,7 +25,7 @@ particle_processor_parallelism = 16
 bootstrap_frequency = 3
 allow_local_addresses = false
 management_peer_id = "12D3KooWELdQw9pQVdq5NS6gEHsWMbYpLh3PjqFyNbivYWuATcik"
-network = "dar"
+network = "Dar"
 
 [node_config.transport_config]
 transport = "Network"

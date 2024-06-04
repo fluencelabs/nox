@@ -17,6 +17,7 @@
 use std::fmt::{Display, Formatter, Write};
 use std::str::Utf8Error;
 
+use crate::CoreRange;
 use ccp_shared::types::CUID;
 use cpu_utils::{CPUTopologyError, PhysicalCoreId};
 use thiserror::Error;
@@ -33,8 +34,8 @@ pub enum CreateError {
     CreateTopology { err: CPUTopologyError },
     #[error("Failed to collect cores data from OS {err:?}")]
     CollectCoresData { err: CPUTopologyError },
-    #[error("The specified CPU range exceeds the available CPU count")]
-    WrongCpuRange,
+    #[error("The specified Core range {core_range} exceeds the available CPU count")]
+    WrongCoreRange { core_range: CoreRange },
 }
 
 #[derive(Debug, Error)]
