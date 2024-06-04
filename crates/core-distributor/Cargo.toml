@@ -18,7 +18,7 @@ toml = { workspace = true }
 multimap = { version = "0.10.0", features = ["serde"] }
 bimap = { version = "0.6.3", features = ["serde"] }
 newtype_derive = "0.1.6"
-nonempty = "0.9.0"
+nonempty = { workspace = true }
 tokio = { workspace = true, features = ["fs", "rt", "sync", "macros", "tracing"] }
 async-trait.workspace = true
 enum_dispatch.workspace = true

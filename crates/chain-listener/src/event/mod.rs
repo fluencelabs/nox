@@ -18,7 +18,7 @@
  */
 
 pub mod cc_activated;
-mod compute_unit_matched;
+pub mod compute_unit_matched;
 mod unit_activated;
 mod unit_deactivated;
 

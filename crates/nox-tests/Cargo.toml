@@ -24,6 +24,16 @@ system-services = { workspace = true }
 subnet-resolver = { workspace = true }
 fs-utils = { workspace = true }
 server-config = { workspace = true }
+chain-connector = { workspace = true }
+alloy-sol-types = { workspace = true, features = ["json"] }
+alloy-primitives = { workspace = true }
+ccp-shared = { workspace = true }
+chain-data = { workspace = true }
+chain-listener = { workspace = true }
+ccp-rpc-client = {workspace = true}
+reqwest = { workspace = true }
+prometheus-parse = "0.2.5"
+alloy-consensus = "0.1.2"
 
 log-utils = { workspace = true }
 fluence-spell-dtos = { workspace = true }
@@ -56,6 +66,7 @@ futures = { workspace = true }
 base64 = { workspace = true }
 
 tokio = { workspace = true }
+tokio-stream = { workspace = true, features = ["sync"] }
 log = { workspace = true }
 tracing = { workspace = true }
 mockito = { workspace = true }

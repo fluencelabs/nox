@@ -49,6 +49,7 @@ use tokio::task::JoinHandle;
 use tokio::time::{interval, Instant};
 use tokio_stream::wrappers::IntervalStream;
 use tokio_stream::StreamExt;
+use tracing::Instrument;
 
 use chain_connector::Offer::ComputeUnit;
 use chain_connector::{
@@ -274,7 +275,9 @@ impl ChainListener {
                         }
                     }
                 }
-            })
+            }
+                .in_current_span()
+            )
             .expect("Could not spawn task");
 
         result
@@ -900,8 +903,10 @@ impl ChainListener {
         };
 
         let cu_groups = self.get_cu_groups();
+        //tracing::info!("cu_groups {:?}", cu_groups);
 
         let cc_cores = self.acquire_cores_for_cc(&cu_groups)?;
+        //tracing::info!("cc_cores {:?}", cc_cores);
 
         let mut cu_allocation: HashMap<PhysicalCoreId, CUID> = HashMap::new();
 

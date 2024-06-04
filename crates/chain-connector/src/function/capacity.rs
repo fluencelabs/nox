@@ -69,7 +69,7 @@ pub fn is_commitment_not_active(data: &str) -> bool {
     ))
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, Hash, PartialEq, Eq)]
 pub struct CommitmentId(pub [u8; 32]);
 
 impl CommitmentId {
