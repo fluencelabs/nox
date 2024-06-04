@@ -14,11 +14,15 @@
  * limitations under the License.
  */
 
-use ccp_shared::types::CUID;
-use cpu_utils::{CPUTopologyError, PhysicalCoreId};
 use std::fmt::{Display, Formatter, Write};
 use std::str::Utf8Error;
+
+use crate::CoreRange;
+use ccp_shared::types::CUID;
+use cpu_utils::{CPUTopologyError, PhysicalCoreId};
 use thiserror::Error;
+
+use crate::types::AcquireRequest;
 
 #[derive(Debug, Error)]
 pub enum CreateError {
@@ -30,14 +34,14 @@ pub enum CreateError {
     CreateTopology { err: CPUTopologyError },
     #[error("Failed to collect cores data from OS {err:?}")]
     CollectCoresData { err: CPUTopologyError },
-    #[error("The specified CPU range exceeds the available CPU count")]
-    WrongCpuRange,
+    #[error("The specified Core range {core_range} exceeds the available CPU count")]
+    WrongCoreRange { core_range: CoreRange },
 }
 
 #[derive(Debug, Error)]
 pub enum LoadingError {
     #[error(transparent)]
-    CreateCoreManager {
+    CreateCoreDistributor {
         #[from]
         err: CreateError,
     },
@@ -77,7 +81,7 @@ pub enum PersistError {
     },
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct CurrentAssignment {
     data: Vec<(PhysicalCoreId, CUID)>,
 }
@@ -107,12 +111,13 @@ impl Display for CurrentAssignment {
     }
 }
 
-#[derive(Debug, Error)]
+#[derive(Debug, Error, PartialEq)]
 pub enum AcquireError {
-    #[error("Couldn't assign core: no free cores left. Required: {required}, available: {available}, current assignment: {current_assignment}.")]
+    #[error("Couldn't assign core: no free cores left. Required: {required}, available: {available}, acquire_request: {acquire_request}, current assignment: {current_assignment}")]
     NotFoundAvailableCores {
         required: usize,
         available: usize,
+        acquire_request: AcquireRequest,
         current_assignment: CurrentAssignment,
     },
 }

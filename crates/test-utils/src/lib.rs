@@ -35,5 +35,6 @@ pub use utils::*;
 pub use crate::misc::*;
 
 mod misc;
+pub mod pinning;
 mod service;
 mod utils;

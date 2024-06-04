@@ -241,7 +241,7 @@ impl ParticleAppServices {
         let (app_service_factory, epoch_ticker) =
             AppServiceFactory::new(wasmtime_config).map_err(ServiceError::Engine)?;
 
-        //TODO: make a setting for that
+        // TODO: make a setting for that
         let stream = IntervalStream::new(tokio::time::interval(Duration::from_secs(1)));
         let ticket = epoch_ticker.clone();
         tokio::task::spawn(async move {
@@ -328,7 +328,7 @@ impl ParticleAppServices {
         let service_ids: Vec<ServiceId> = services.services.read().await.keys().cloned().collect();
 
         for srv_id in service_ids {
-            //TODO: can be parallelized
+            // TODO: can be parallelized
             if let Err(err) =
                 remove_persisted_service(&self.config.services_dir, srv_id.clone()).await
             {
@@ -1241,12 +1241,13 @@ mod tests {
     use tempdir::TempDir;
 
     use config_utils::modules_dir;
+    use core_distributor::dummy::DummyCoreDistibutor;
     use fluence_libp2p::RandomPeerId;
     use particle_modules::{AddBlueprint, ModuleRepository};
     use service_modules::load_module;
     use service_modules::Hash;
     use types::peer_scope::PeerScope;
-    use workers::{DummyCoreManager, KeyStorage, PeerScopes, Workers};
+    use workers::{KeyStorage, PeerScopes, Workers};
 
     use crate::app_services::{ServiceAlias, ServiceType};
     use crate::persistence::load_persisted_services;
@@ -1277,7 +1278,8 @@ mod tests {
 
         let root_key_pair: KeyPair = root_keypair.clone().into();
 
-        let core_manager = Arc::new(DummyCoreManager::default().into());
+        let core_distributor = Arc::new(DummyCoreDistibutor::new());
+        let thread_pinner = Arc::new(test_utils::pinning::DUMMY);
 
         let scope = PeerScopes::new(
             root_key_pair.get_peer_id(),
@@ -1286,10 +1288,15 @@ mod tests {
             key_storage.clone(),
         );
 
-        let (workers, _worker_events) =
-            Workers::from_path(workers_dir.clone(), key_storage, core_manager, 128)
-                .await
-                .expect("Could not load worker registry");
+        let (workers, _worker_events) = Workers::from_path(
+            workers_dir.clone(),
+            key_storage,
+            core_distributor,
+            thread_pinner,
+            32,
+        )
+        .await
+        .expect("Could not load worker registry");
 
         let workers = Arc::new(workers);
         let wasm_backend_config = WasmBackendConfig::default();

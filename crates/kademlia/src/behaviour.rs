@@ -226,7 +226,7 @@ impl Kademlia {
 
     fn addresses_of_peer(&mut self, peer_id: &PeerId) -> Vec<Multiaddr> {
         let conn_id = ConnectionId::new_unchecked(1);
-        //TODO: this method doesn't use params except of peer_id
+        // TODO: this method doesn't use params except of peer_id
         let res = self.kademlia.handle_pending_outbound_connection(
             conn_id,
             Some(*peer_id),

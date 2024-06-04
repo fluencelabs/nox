@@ -13,7 +13,7 @@ air-interpreter-fs = { workspace = true }
 peer-metrics = { workspace = true }
 fluence-keypair = { workspace = true }
 types = { workspace = true }
-core-manager = { workspace = true }
+core-distributor = { workspace = true }
 cid-utils = { workspace = true }
 bytesize = { workspace = true }
 toml = { workspace = true }

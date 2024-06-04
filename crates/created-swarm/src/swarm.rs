@@ -34,7 +34,8 @@ use aquamarine::{AVMRunner, AquamarineApi, VmConfig};
 use aquamarine::{AquaRuntime, DataStoreConfig};
 use base64::{engine::general_purpose::STANDARD as base64, Engine};
 use cid_utils::Hash;
-use core_manager::DummyCoreManager;
+use core_distributor::{AcquireStrategy, CoreRange, PersistenceTask, PersistentCoreDistributor};
+use cpu_utils::HwlocCPUTopology;
 use fluence_libp2p::random_multiaddr::{create_memory_maddr, create_tcp_maddr};
 use fluence_libp2p::Transport;
 use fs_utils::to_abs_path;
@@ -168,6 +169,7 @@ type MakeSwarmsData<RT> = (
     SwarmConfig,
     ResolvedConfig,
     Span,
+    PersistenceTask,
 );
 
 pub async fn make_swarms_with<RT: AquaRuntime, F, FF, M, B>(
@@ -195,7 +197,7 @@ where
             let bootstraps = bootstraps(addrs);
             let create_node_future = create_node(bootstraps, addr.clone());
             async move {
-                let (peer_id, node, management_keypair, input_config, resolved_config, span) =
+                let (peer_id, node, management_keypair, input_config, resolved_config, span, task) =
                     create_node_future.await;
                 let connectivity = node.connectivity.clone();
                 let aquamarine_api = node.aquamarine_api.clone();
@@ -207,6 +209,7 @@ where
                 let http_listen_addr = started_node
                     .http_listen_addr
                     .expect("could not take http listen addr");
+                task.run().await;
                 CreatedSwarm {
                     config: resolved_config,
                     peer_id,
@@ -371,14 +374,7 @@ pub fn aqua_vm_config(
 pub async fn create_swarm_with_runtime<RT: AquaRuntime>(
     config: SwarmConfig,
     vm_config: impl Fn(BaseVmConfig) -> RT::Config,
-) -> (
-    PeerId,
-    Box<Node<RT>>,
-    KeyPair,
-    SwarmConfig,
-    ResolvedConfig,
-    Span,
-) {
+) -> MakeSwarmsData<RT> {
     use serde_json::json;
 
     let format = match &config.keypair {
@@ -395,7 +391,7 @@ pub async fn create_swarm_with_runtime<RT: AquaRuntime>(
     let node_listen_span = tracing::info_span!(parent: &parent_span, "config");
     let node_creation_span = tracing::info_span!(parent: &parent_span, "config");
 
-    let (node, management_kp, resolved_config) = config_apply_span.in_scope(|| {
+    let (node, management_kp, resolved_config, task) = config_apply_span.in_scope(|| {
         let tmp_dir = config.tmp_dir.path().to_path_buf();
 
         let node_config = json!({
@@ -485,17 +481,30 @@ pub async fn create_swarm_with_runtime<RT: AquaRuntime>(
             system_services::SystemServiceDistros::default_from(system_services_config)
                 .expect("Failed to get default system service distros")
                 .extend(config.extend_system_services.clone());
-        let core_manager = Arc::new(DummyCoreManager::default().into());
+
+        let cpu_topology = HwlocCPUTopology::new().expect("Failed to get cpu topology");
+
+        let (core_distributor, task) = PersistentCoreDistributor::from_path(
+            tmp_dir.join("test-core-state.toml"),
+            1,
+            CoreRange::default(),
+            AcquireStrategy::RoundRobin,
+            &cpu_topology
+        ).expect("Failed to create core distributor");
+
+        let thread_pinner = Arc::new(test_utils::pinning::DUMMY);
+
         let node = Node::new(
             resolved.clone(),
-            core_manager,
+            core_distributor,
+            thread_pinner,
             vm_config,
             data_store_config,
             "some version",
             "some version",
             system_service_distros,
         );
-        (node, config.management_keypair.clone(), resolved)
+        (node, config.management_keypair.clone(), resolved, task)
     });
 
     let mut node = node
@@ -512,6 +521,7 @@ pub async fn create_swarm_with_runtime<RT: AquaRuntime>(
             config,
             resolved_config,
             parent_span.clone(),
+            task,
         )
     })
 }

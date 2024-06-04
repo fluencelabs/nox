@@ -53,9 +53,9 @@ use chain_connector::{
     ConnectorError, Deal, PEER_NOT_EXISTS,
 };
 use chain_data::{parse_log, peer_id_to_hex, Log};
-use core_manager::errors::AcquireError;
-use core_manager::types::{AcquireRequest, Assignment, WorkType};
-use core_manager::{CoreManager, CoreManagerFunctions, CUID};
+use core_distributor::errors::AcquireError;
+use core_distributor::types::{AcquireRequest, Assignment, WorkType};
+use core_distributor::{CoreDistributor, CUID};
 use peer_metrics::ChainListenerMetrics;
 use server_config::{ChainConfig, ChainListenerConfig};
 use types::DealId;
@@ -76,7 +76,7 @@ pub struct ChainListener {
 
     ccp_client: Option<CCPRpcHttpClient>,
 
-    core_manager: Arc<CoreManager>,
+    core_distributor: Arc<dyn CoreDistributor>,
 
     host_id: PeerId,
 
@@ -134,7 +134,7 @@ impl ChainListener {
         listener_config: ChainListenerConfig,
         host_id: PeerId,
         chain_connector: Arc<dyn ChainConnector>,
-        core_manager: Arc<CoreManager>,
+        core_distributor: Arc<dyn CoreDistributor>,
         ccp_client: Option<CCPRpcHttpClient>,
         persisted_proof_id_dir: PathBuf,
         metrics: Option<ChainListenerMetrics>,
@@ -159,7 +159,7 @@ impl ChainListener {
             proof_counter: BTreeMap::new(),
             current_commitment: None,
             cc_compute_units: BTreeMap::new(),
-            core_manager,
+            core_distributor,
             ccp_client,
             last_submitted_proof_id: ProofIdx::zero(),
             pending_proof_txs: vec![],
@@ -432,7 +432,7 @@ impl ChainListener {
         if let Some(ccp_client) = self.ccp_client.as_ref() {
             // We will use the first logical core for utility tasks
             let utility_core = self
-                .core_manager
+                .core_distributor
                 .get_system_cpu_assignment()
                 .logical_core_ids
                 .first()
@@ -966,14 +966,16 @@ impl ChainListener {
         units.extend(&cu_groups.pending_units);
         units.extend(&cu_groups.finished_units);
 
-        // Release all ccp units to allow the core manager to assign them again
+        // Release all ccp units to allow the core distributor to assign them again
         // without that action availability count will be wrong
-        self.core_manager.release(&units);
+        self.core_distributor.release_worker_cores(&units);
 
-        let cores = self.core_manager.acquire_worker_core(AcquireRequest::new(
-            units.to_vec(),
-            WorkType::CapacityCommitment,
-        ));
+        let cores = self
+            .core_distributor
+            .acquire_worker_cores(AcquireRequest::new(
+                units.to_vec(),
+                WorkType::CapacityCommitment,
+            ));
 
         fn filter(units: &[CUID], assignment: &Assignment) -> Vec<PhysicalCoreId> {
             units
@@ -1008,10 +1010,12 @@ impl ChainListener {
             }) => {
                 tracing::warn!(target: "chain-listener", "Found {required} CUs in the Capacity Commitment, but Nox has only {available} Cores available for CC");
                 let assign_units = units.iter().take(available).cloned().collect();
-                let assignment = self.core_manager.acquire_worker_core(AcquireRequest::new(
-                    assign_units,
-                    WorkType::CapacityCommitment,
-                ))?;
+                let assignment =
+                    self.core_distributor
+                        .acquire_worker_cores(AcquireRequest::new(
+                            assign_units,
+                            WorkType::CapacityCommitment,
+                        ))?;
                 let priority_cores = filter(&cu_groups.priority_units, &assignment);
                 let non_priority_cores = filter(&cu_groups.non_priority_units, &assignment);
                 let pending_cores = filter(&cu_groups.pending_units, &assignment);
@@ -1028,8 +1032,8 @@ impl ChainListener {
     }
 
     fn acquire_core_for_deal(&self, unit_id: CUID) -> eyre::Result<()> {
-        self.core_manager
-            .acquire_worker_core(AcquireRequest::new(vec![unit_id], WorkType::Deal))?;
+        self.core_distributor
+            .acquire_worker_cores(AcquireRequest::new(vec![unit_id], WorkType::Deal))?;
         Ok(())
     }
 
