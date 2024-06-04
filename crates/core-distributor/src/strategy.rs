@@ -82,6 +82,7 @@ impl AcquireStrategyOperations for StrictAcquireStrategy {
             .map(|unit_id| {
                 (
                     unit_id,
+                    //TODO: introduce a new enum to make code self-documented.
                     state.unit_id_mapping.get_by_right(&unit_id).cloned(),
                 )
             })

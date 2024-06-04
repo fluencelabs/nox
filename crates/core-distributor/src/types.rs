@@ -66,7 +66,6 @@ pub struct Cores {
     pub logical_core_ids: Vec<LogicalCoreId>,
 }
 
-//TODO: enum
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub struct Assignment {
     // We don't need a cryptographically secure hash and it is better to use a fx hash here
