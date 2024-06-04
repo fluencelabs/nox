@@ -77,9 +77,8 @@ impl AcquireStrategyOperations for StrictAcquireStrategy {
 
         let core_allocation = acquire_request
             .unit_ids
-            .clone()
-            .into_iter()
-            .map(|unit_id| {
+            .iter()
+            .map(|&unit_id| {
                 (
                     unit_id,
                     //TODO: introduce a new enum to make code self-documented.
