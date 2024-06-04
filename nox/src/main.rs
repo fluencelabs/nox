@@ -148,7 +148,8 @@ fn main() -> eyre::Result<()> {
     // also we pin these threads to the assigned cores to prevent influence threads on each other
     builder.worker_threads(system_cpu_cores_assignment.logical_core_ids.len());
     builder.on_thread_start(move || {
-        system_cpu_cores_assignment.pin_current_thread_with(builder_thread_pinner.as_ref())
+        builder_thread_pinner
+            .pin_current_thread_to_cpuset(&system_cpu_cores_assignment.logical_core_ids);
     });
 
     builder.enable_all();

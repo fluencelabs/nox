@@ -88,9 +88,6 @@ impl SystemAssignment {
             logical_core_ids,
         }
     }
-    pub fn pin_current_thread_with(&self, thread_pinner: &dyn ThreadPinner) {
-        thread_pinner.pin_current_thread_to_cpuset(&self.logical_core_ids);
-    }
 }
 
 impl Assignment {
