@@ -71,7 +71,7 @@ impl AcquireStrategyOperations for StrictAcquireStrategy {
             FxBuildHasher::default(),
         );
 
-        let worker_unit_type = &acquire_request.worker_type;
+        let worker_unit_type = &acquire_request.work_type;
 
         let available = state.available_cores.len();
 
@@ -81,7 +81,7 @@ impl AcquireStrategyOperations for StrictAcquireStrategy {
             .map(|&unit_id| {
                 (
                     unit_id,
-                    //TODO: introduce a new enum to make code self-documented.
+                    // TODO: introduce a new enum to make code self-documented.
                     state.unit_id_mapping.get_by_right(&unit_id).cloned(),
                 )
             })
@@ -166,7 +166,7 @@ impl AcquireStrategyOperations for RoundRobinAcquireStrategy {
             acquire_request.unit_ids.len(),
             FxBuildHasher::default(),
         );
-        let worker_unit_type = acquire_request.worker_type;
+        let worker_unit_type = acquire_request.work_type;
         for unit_id in acquire_request.unit_ids {
             let physical_core_id = state.unit_id_mapping.get_by_right(&unit_id).cloned();
             let physical_core_id = match physical_core_id {

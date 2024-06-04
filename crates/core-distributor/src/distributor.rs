@@ -70,6 +70,7 @@ impl From<PersistentCoreDistributorState> for CoreDistributorState {
 
 impl PersistentCoreDistributor {
     /// Loads the state from `file_name` if exists. If not creates a new empty state
+    // TODO: split it for two methods 
     pub fn from_path(
         file_path: PathBuf,
         system_cpu_count: usize,
@@ -290,7 +291,7 @@ impl CoreDistributor for PersistentCoreDistributor {
 
 pub(crate) struct CoreDistributorState {
     // mapping between physical and logical cores
-    //TODO: use a topology directly
+    // TODO: use a topology directly
     pub cores_mapping: MultiMap<PhysicalCoreId, LogicalCoreId>,
     // allocated system cores
     pub system_cores: Vec<PhysicalCoreId>,
@@ -401,19 +402,19 @@ mod tests {
         let assignment_1 = distributor
             .acquire_worker_cores(AcquireRequest {
                 unit_ids: unit_ids.clone(),
-                worker_type: WorkType::CapacityCommitment,
+                work_type: WorkType::CapacityCommitment,
             })
             .unwrap();
         let assignment_2 = distributor
             .acquire_worker_cores(AcquireRequest {
                 unit_ids: unit_ids.clone(),
-                worker_type: WorkType::Deal,
+                work_type: WorkType::Deal,
             })
             .unwrap();
         let assignment_3 = distributor
             .acquire_worker_cores(AcquireRequest {
                 unit_ids: unit_ids.clone(),
-                worker_type: WorkType::CapacityCommitment,
+                work_type: WorkType::CapacityCommitment,
             })
             .unwrap();
         assert_eq!(assignment_1, assignment_2);
@@ -469,7 +470,7 @@ mod tests {
         let assignment = distributor
             .acquire_worker_cores(AcquireRequest {
                 unit_ids: unit_ids.clone(),
-                worker_type: WorkType::CapacityCommitment,
+                work_type: WorkType::CapacityCommitment,
             })
             .unwrap();
         assert_eq!(assignment.logical_core_ids().len(), 4);
@@ -543,13 +544,13 @@ mod tests {
         distributor
             .acquire_worker_cores(AcquireRequest {
                 unit_ids: vec![init_id_2],
-                worker_type: WorkType::Deal,
+                work_type: WorkType::Deal,
             })
             .unwrap();
 
         let result = distributor.acquire_worker_cores(AcquireRequest {
             unit_ids: vec![init_id_3],
-            worker_type: WorkType::Deal,
+            work_type: WorkType::Deal,
         });
 
         let expected = "Couldn't assign core: no free cores left. \
@@ -609,7 +610,7 @@ mod tests {
         let assignment = distributor
             .acquire_worker_cores(AcquireRequest {
                 unit_ids: unit_ids.clone(),
-                worker_type: WorkType::CapacityCommitment,
+                work_type: WorkType::CapacityCommitment,
             })
             .unwrap();
         assert_eq!(assignment.logical_core_ids().len(), unit_ids_count * 2);
@@ -618,7 +619,7 @@ mod tests {
         let assignment = distributor
             .acquire_worker_cores(AcquireRequest {
                 unit_ids: unit_ids.clone(),
-                worker_type: WorkType::Deal,
+                work_type: WorkType::Deal,
             })
             .unwrap();
         assert_eq!(assignment.logical_core_ids().len(), unit_ids_count * 2);
@@ -652,7 +653,7 @@ mod tests {
         let assignment = distributor
             .acquire_worker_cores(AcquireRequest {
                 unit_ids: unit_ids.clone(),
-                worker_type: WorkType::CapacityCommitment,
+                work_type: WorkType::CapacityCommitment,
             })
             .unwrap();
         assert_eq!(assignment.logical_core_ids().len(), unit_ids_count * 2);
@@ -667,7 +668,7 @@ mod tests {
 
         let result = distributor.acquire_worker_cores(AcquireRequest {
             unit_ids: unit_ids.clone(),
-            worker_type: WorkType::Deal,
+            work_type: WorkType::Deal,
         });
 
         assert!(result.is_err());
@@ -712,7 +713,7 @@ mod tests {
         let assignment = distributor
             .acquire_worker_cores(AcquireRequest {
                 unit_ids: unit_ids.clone(),
-                worker_type: WorkType::CapacityCommitment,
+                work_type: WorkType::CapacityCommitment,
             })
             .unwrap();
         assert_eq!(assignment.logical_core_ids().len(), unit_ids_count * 2);
@@ -721,7 +722,7 @@ mod tests {
         let assignment = distributor
             .acquire_worker_cores(AcquireRequest {
                 unit_ids: unit_ids.clone(),
-                worker_type: WorkType::Deal,
+                work_type: WorkType::Deal,
             })
             .unwrap();
         assert_eq!(assignment.logical_core_ids().len(), unit_ids_count * 2);
@@ -768,7 +769,7 @@ mod tests {
         let assignment = distributor
             .acquire_worker_cores(AcquireRequest {
                 unit_ids: unit_ids.clone(),
-                worker_type: WorkType::CapacityCommitment,
+                work_type: WorkType::CapacityCommitment,
             })
             .unwrap();
         assert_eq!(assignment.logical_core_ids().len(), 2);

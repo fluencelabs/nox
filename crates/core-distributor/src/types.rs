@@ -33,14 +33,14 @@ pub enum WorkType {
 #[derive(Debug, PartialEq, Clone)]
 pub struct AcquireRequest {
     pub(crate) unit_ids: Vec<CUID>,
-    pub(crate) worker_type: WorkType,
+    pub(crate) work_type: WorkType,
 }
 
 impl AcquireRequest {
     pub fn new(unit_ids: Vec<CUID>, worker_type: WorkType) -> Self {
         Self {
             unit_ids,
-            worker_type,
+            work_type: worker_type,
         }
     }
 }
@@ -54,7 +54,7 @@ impl Display for AcquireRequest {
         }
         f.write_str("], ")?;
         f.write_str("worker_type: ")?;
-        f.write_str(format!("{:?}", self.worker_type).as_str())?;
+        f.write_str(format!("{:?}", self.work_type).as_str())?;
         f.write_str(" }")?;
         Ok(())
     }

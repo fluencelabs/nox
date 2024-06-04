@@ -241,7 +241,7 @@ impl ParticleAppServices {
         let (app_service_factory, epoch_ticker) =
             AppServiceFactory::new(wasmtime_config).map_err(ServiceError::Engine)?;
 
-        //TODO: make a setting for that
+        // TODO: make a setting for that
         let stream = IntervalStream::new(tokio::time::interval(Duration::from_secs(1)));
         let ticket = epoch_ticker.clone();
         tokio::task::spawn(async move {
@@ -328,7 +328,7 @@ impl ParticleAppServices {
         let service_ids: Vec<ServiceId> = services.services.read().await.keys().cloned().collect();
 
         for srv_id in service_ids {
-            //TODO: can be parallelized
+            // TODO: can be parallelized
             if let Err(err) =
                 remove_persisted_service(&self.config.services_dir, srv_id.clone()).await
             {

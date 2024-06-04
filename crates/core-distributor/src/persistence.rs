@@ -119,7 +119,7 @@ impl From<&CoreDistributorState> for PersistentCoreDistributorState {
             work_type_mapping: value
                 .work_type_mapping
                 .iter()
-                .map(|(k, v)| ((*k), v.clone()))
+                .map(|(k, v)| ((*k), *v))
                 .collect(),
         }
     }
