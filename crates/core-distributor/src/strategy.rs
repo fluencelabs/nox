@@ -114,13 +114,13 @@ impl AcquireStrategyOperations for StrictAcquireStrategy {
                     state.unit_id_mapping.insert(core_id, unit_id);
                     state
                         .work_type_mapping
-                        .insert(unit_id, worker_unit_type.clone());
+                        .insert(unit_id, *worker_unit_type);
                     core_id
                 }
                 Some(core_id) => {
                     state
                         .work_type_mapping
-                        .insert(unit_id, worker_unit_type.clone());
+                        .insert(unit_id, *worker_unit_type);
                     core_id
                 }
             };
@@ -180,14 +180,14 @@ impl AcquireStrategyOperations for RoundRobinAcquireStrategy {
                     state.unit_id_mapping.insert(core_id, unit_id);
                     state
                         .work_type_mapping
-                        .insert(unit_id, worker_unit_type.clone());
+                        .insert(unit_id, worker_unit_type);
                     state.available_cores.push_back(core_id);
                     core_id
                 }
                 Some(core_id) => {
                     state
                         .work_type_mapping
-                        .insert(unit_id, worker_unit_type.clone());
+                        .insert(unit_id, worker_unit_type);
                     core_id
                 }
             };

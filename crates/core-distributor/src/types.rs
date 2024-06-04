@@ -24,7 +24,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::Map;
 
-#[derive(Debug, PartialEq, Eq, Hash, Clone, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy, Serialize, Deserialize)]
 pub enum WorkType {
     CapacityCommitment,
     Deal,
