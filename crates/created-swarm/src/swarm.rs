@@ -485,7 +485,7 @@ pub async fn create_swarm_with_runtime<RT: AquaRuntime>(
         let cpu_topology = HwlocCPUTopology::new().expect("Failed to get cpu topology");
 
         let (core_distributor, task) = PersistentCoreDistributor::from_path(
-            tmp_dir.join("test.toml"),
+            tmp_dir.join("test-core-state.toml"),
             1,
             CoreRange::default(),
             AcquireStrategy::RoundRobin,
