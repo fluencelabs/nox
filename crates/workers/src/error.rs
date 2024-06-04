@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use core_manager::errors::AcquireError;
+use core_distributor::errors::AcquireError;
 use libp2p::PeerId;
 use std::path::PathBuf;
 use thiserror::Error;

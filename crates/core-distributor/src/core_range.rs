@@ -14,12 +14,13 @@
  * limitations under the License.
  */
 
+use std::fmt::{Debug, Display, Formatter};
+use std::str::FromStr;
+
 use ccp_shared::types::PhysicalCoreId;
 use nonempty::NonEmpty;
 use range_set_blaze::RangeSetBlaze;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use std::fmt::{Debug, Display, Formatter};
-use std::str::FromStr;
 use thiserror::Error;
 
 #[derive(Clone, PartialEq)]
