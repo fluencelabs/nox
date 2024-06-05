@@ -32,7 +32,6 @@ use jsonrpsee::core::client::{BatchResponse, ClientT};
 use jsonrpsee::core::params::{ArrayParams, BatchRequestBuilder};
 use jsonrpsee::http_client::HttpClientBuilder;
 use jsonrpsee::rpc_params;
-use serde::{Deserialize, Serialize};
 use serde_json::Value as JValue;
 use serde_json::{json, Value};
 use tokio::sync::Mutex;
@@ -50,10 +49,9 @@ use server_config::ChainConfig;
 use types::peer_scope::WorkerId;
 use types::DealId;
 
-use crate::error::{process_response, ConnectorError};
+use crate::error::process_response;
+use crate::types::*;
 use crate::Offer::{ComputePeer, ComputeUnit};
-
-pub type Result<T> = std::result::Result<T, ConnectorError>;
 
 #[async_trait]
 pub trait ChainConnector: Send + Sync {
@@ -76,119 +74,6 @@ pub trait ChainConnector: Send + Sync {
     async fn get_tx_statuses(&self, tx_hashes: Vec<String>) -> Result<Vec<Result<Option<bool>>>>;
 
     async fn get_tx_receipts(&self, tx_hashes: Vec<String>) -> Result<Vec<Result<TxStatus>>>;
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct DealResult {
-    success: bool,
-    error: Vec<String>,
-    deal_id: DealId,
-    deal_info: Vec<DealInfo>,
-}
-
-impl DealResult {
-    fn with_error(deal_id: DealId, err: String) -> Self {
-        Self {
-            success: false,
-            error: vec![err],
-            deal_id,
-            deal_info: vec![],
-        }
-    }
-
-    fn new(deal_id: DealId, info: DealInfo) -> Self {
-        Self {
-            success: true,
-            error: vec![],
-            deal_id,
-            deal_info: vec![info],
-        }
-    }
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct DealInfo {
-    pub status: Deal::Status,
-    pub unit_ids: Vec<Vec<u8>>,
-    pub app_cid: String,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct TxReceiptResult {
-    success: bool,
-    error: Vec<String>,
-    status: String,
-    receipt: Vec<TxReceiptInfo>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct TxReceiptInfo {
-    block_number: String,
-    tx_hash: String,
-}
-
-impl TxReceiptResult {
-    fn pending() -> Self {
-        Self {
-            success: true,
-            error: vec![],
-            status: "pending".to_string(),
-            receipt: vec![],
-        }
-    }
-
-    fn processed(receipt: TxReceipt) -> Self {
-        Self {
-            success: true,
-            error: vec![],
-            status: if receipt.is_ok { "ok" } else { "failed" }.to_string(),
-            receipt: vec![TxReceiptInfo {
-                block_number: receipt.block_number,
-                tx_hash: receipt.transaction_hash,
-            }],
-        }
-    }
-
-    fn error(msg: String) -> Self {
-        Self {
-            success: false,
-            error: vec![msg],
-            status: "".to_string(),
-            receipt: vec![],
-        }
-    }
-}
-
-#[derive(Debug)]
-pub struct TxReceipt {
-    is_ok: bool,
-    transaction_hash: String,
-    block_number: String,
-}
-
-#[derive(Debug)]
-pub enum TxStatus {
-    Pending,
-    Processed(TxReceipt),
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct RawTxReceipt {
-    status: String,
-    transaction_hash: String,
-    block_number: String,
-}
-
-impl RawTxReceipt {
-    fn to_tx_receipt(self) -> TxReceipt {
-        TxReceipt {
-            // if status is "0x1" transaction was successful
-            is_ok: self.status == "0x1",
-            transaction_hash: self.transaction_hash,
-            block_number: self.block_number,
-        }
-    }
 }
 
 pub struct HttpChainConnector {
@@ -457,7 +342,7 @@ impl HttpChainConnector {
         Ok(deals)
     }
 
-    fn make_call_params(deal_id: &DealId, data: &str) -> ArrayParams {
+    fn make_deal_call_params(deal_id: &DealId, data: &str) -> ArrayParams {
         rpc_params![
             json!({
                 "data": data,
@@ -478,9 +363,15 @@ impl HttpChainConnector {
         let deal_count = deal_ids.len();
         for deal_id in deal_ids {
             let status_data: String = Deal::getStatusCall {}.abi_encode().encode_hex();
-            batch.insert("eth_call", Self::make_call_params(deal_id, &status_data))?;
+            batch.insert(
+                "eth_call",
+                Self::make_deal_call_params(deal_id, &status_data),
+            )?;
             let app_cid_data: String = Deal::appCIDCall {}.abi_encode().encode_hex();
-            batch.insert("eth_call", Self::make_call_params(deal_id, &app_cid_data))?;
+            batch.insert(
+                "eth_call",
+                Self::make_deal_call_params(deal_id, &app_cid_data),
+            )?;
         }
         tracing::debug!(target: "chain-connector", "Batched get_deal_info request: {batch:?}");
         let resp: BatchResponse<String> = self.client.batch_request(batch).await?;

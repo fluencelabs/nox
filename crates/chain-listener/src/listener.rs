@@ -1325,7 +1325,7 @@ impl ChainListener {
                     self.pending_proof_txs.retain(|(tx, _)| tx != &tx_hash);
                 }
                 Ok(None) => {
-                    tracing::info!(target: "chain-listener", "Proof tx {tx_hash} is pending");
+                    tracing::debug!(target: "chain-listener", "Proof tx {tx_hash} is pending");
                 }
                 Err(err) => {
                     tracing::debug!(target: "chain-listener", "Failed to get tx receipt for {tx_hash}: {err}");
