@@ -577,8 +577,10 @@ impl ChainListener {
             .values()
             .filter(|unit| unit.startEpoch > self.current_epoch);
 
-        for cu in in_deal {
+        for cu in &in_deal {
             let cu_id = CUID::new(cu.id.0);
+            // TODO: in the future it should be BTreeMap<DealId, Vec<CUID>>, because deal will be able
+            // to use multiple CUs from one peer
             self.active_deals.insert(cu.deal.to_string().into(), cu_id);
         }
 
@@ -608,7 +610,7 @@ impl ChainListener {
 
         // NOTE: cores are released after all the logs to simplify debug on failure
         for cu_id in self.active_deals.values() {
-            self.core_manager.release(&[*cu_id]);
+            self.core_distributor.release_worker_cores(&[*cu_id]);
             self.acquire_core_for_deal(*cu_id)?;
         }
 
