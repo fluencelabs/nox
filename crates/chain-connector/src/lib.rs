@@ -23,6 +23,8 @@ mod connector;
 mod error;
 mod function;
 
+mod types;
+
 pub use connector::CCInitParams;
 pub use connector::ChainConnector;
 pub use connector::HttpChainConnector;
