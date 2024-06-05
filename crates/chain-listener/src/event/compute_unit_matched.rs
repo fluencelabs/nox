@@ -70,8 +70,8 @@ mod tests {
 
     #[test]
     fn parse() {
-        let data1 = "000000000000000000000000ffa0611a099ab68ad7c3c67b4ca5bbbee7a58b9900000000000000000000000000000000000000000000000000000000000000a000000000000000000000000000000000000000000000000000000000000000506a866cfa000000000000000000000000000000000000000000000000000000005a5a0f4fa4d41a4f976e799895cce944d5080041dba7d528d30e81c67973bac3".to_string();
-        let data2 = "00000000000000000000000067b2ad3866429282e16e55b715d12a77f85b7ce800000000000000000000000000000000000000000000000000000000000000a000000000000000000000000000000000000000000000000000000000000000566a866cfa000000000000000000000000000000000000000000000000000000005a5a0f4fa4d41a4f976e799895cce944d5080041dba7d528d30e81c67973bac3".to_string();
+        let data1 = "000000000000000000000000ffa0611a099ab68ad7c3c67b4ca5bbbee7a58b9900000000000000000000000000000000000000000000000000000000000000a000000000000000000000000000000000000000000000000000000000000000500155122000000000000000000000000000000000000000000000000000000000a146af49df31c99c79a30ec4ae2abb2445d8c5d202ea58fa9ea9cbff45d4152e".to_string();
+        let data2 = "00000000000000000000000067b2ad3866429282e16e55b715d12a77f85b7ce800000000000000000000000000000000000000000000000000000000000000a000000000000000000000000000000000000000000000000000000000000000560155122000000000000000000000000000000000000000000000000000000000a146af49df31c99c79a30ec4ae2abb2445d8c5d202ea58fa9ea9cbff45d4152e".to_string();
         let log1 = Log {
             data: data1,
             block_number: "0x0".to_string(),
@@ -106,15 +106,14 @@ mod tests {
         );
         assert_eq!(m.dealCreationBlock, Uint::from(80));
 
-        // let cid_bytes = [m.appCID.prefixes.0.to_vec(), m.appCID.hash.0.to_vec()].concat();
-        // assert_eq!("0x6a866cfa", hex::encode(&cid_bytes));
-        // let app_cid = libipld::Cid::read_bytes(cid_bytes.as_slice())
-        //     .unwrap()
-        //     .to_string();
-        // assert_eq!(
-        //     app_cid,
-        //     "bafkreifolrizgmusl4y7or5e5xmvr623a6i3ca4d5rwv457cezhschqj4m"
-        // );
+        let cid_bytes = [m.appCID.prefixes.to_vec(), m.appCID.hash.to_vec()].concat();
+        let app_cid = libipld::Cid::read_bytes(cid_bytes.as_slice())
+            .unwrap()
+            .to_string();
+        assert_eq!(
+            app_cid,
+            "bafkreifbi2xutxzrzgohtiyoysxcvozeixmmluqc5jmpvhvjzp7ulvavfy"
+        );
 
         let m = parse_log::<ComputeUnitMatched>(log2).expect("error parsing Match from log");
         assert_eq!(
@@ -130,14 +129,13 @@ mod tests {
             "0x00000000000000000000000000000000000000000000000000000000000000a0"
         );
         assert_eq!(m.dealCreationBlock, Uint::from(86));
-        // TODO: fix cids
-        // let cid_bytes = [m.appCID.prefixes.to_vec(), m.appCID.hash.to_vec()].concat();
-        // let app_cid = libipld::Cid::read_bytes(cid_bytes.as_slice())
-        //     .unwrap()
-        //     .to_string();
-        // assert_eq!(
-        //     app_cid,
-        //     "bafkreifolrizgmusl4y7or5e5xmvr623a6i3ca4d5rwv457cezhschqj4m"
-        // );
+        let cid_bytes = [m.appCID.prefixes.to_vec(), m.appCID.hash.to_vec()].concat();
+        let app_cid = libipld::Cid::read_bytes(cid_bytes.as_slice())
+            .unwrap()
+            .to_string();
+        assert_eq!(
+            app_cid,
+            "bafkreifbi2xutxzrzgohtiyoysxcvozeixmmluqc5jmpvhvjzp7ulvavfy"
+        );
     }
 }

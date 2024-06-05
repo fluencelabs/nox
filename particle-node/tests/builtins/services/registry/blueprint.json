@@ -1,7 +1,0 @@
-{
-  "name": "registry",
-  "dependencies": [
-    "name:sqlite3",
-    "name:registry"
-  ]
-}

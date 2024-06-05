@@ -1339,6 +1339,8 @@ dependencies = [
  "hex",
  "hex-utils",
  "jsonrpsee 0.22.5",
+ "libipld",
+ "log-utils",
  "mockito",
  "particle-args",
  "particle-builtins",

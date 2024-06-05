@@ -28,6 +28,7 @@ sol! {
             address owner;
         }
 
+        #[derive(Debug)]
         struct ComputeUnit {
             bytes32 id;
             address deal;
