@@ -1687,7 +1687,7 @@ dependencies = [
  "thiserror",
  "tokio",
  "tokio-stream",
- "toml 0.8.13",
+ "toml 0.8.14",
  "tracing",
 ]
 
@@ -5794,7 +5794,7 @@ dependencies = [
  "tokio",
  "tokio-stream",
  "tokio-util",
- "toml 0.8.13",
+ "toml 0.8.14",
  "tracing",
  "tracing-appender",
  "tracing-log",
@@ -6374,7 +6374,7 @@ dependencies = [
  "tokio",
  "tokio-stream",
  "tokio-util",
- "toml 0.8.13",
+ "toml 0.8.14",
  "toml_edit 0.22.14",
  "tracing",
  "types",
@@ -7787,7 +7787,7 @@ dependencies = [
  "serde_with 3.7.0",
  "temp-env",
  "tempfile",
- "toml 0.8.13",
+ "toml 0.8.14",
  "types",
  "url",
 ]
@@ -8608,9 +8608,9 @@ dependencies = [
 
 [[package]]
 name = "toml"
-version = "0.8.13"
+version = "0.8.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a4e43f8cc456c9704c851ae29c67e17ef65d2c30017c17a9765b89c382dc8bba"
+checksum = "6f49eb2ab21d2f26bd6db7bf383edc527a7ebaee412d17af4d40fdccd442f335"
 dependencies = [
  "serde",
  "serde_spanned",
@@ -10116,7 +10116,7 @@ dependencies = [
  "test-utils",
  "thiserror",
  "tokio",
- "toml 0.8.13",
+ "toml 0.8.14",
  "toml_edit 0.22.14",
  "tracing",
  "types",
