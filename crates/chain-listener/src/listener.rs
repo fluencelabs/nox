@@ -14,22 +14,21 @@
  * limitations under the License.
  */
 
-use alloy_primitives::{Address, BlockNumber, FixedBytes, Uint, U256};
+use alloy_primitives::{Address, FixedBytes, Uint, U256, U64};
 use alloy_sol_types::SolEvent;
 use backoff::Error::Permanent;
+use std::cmp::min;
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::future::{pending, Future};
-use std::ops::Add;
 use std::path::PathBuf;
 use std::process::exit;
-use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
 
 use backoff::future::retry;
 use backoff::ExponentialBackoff;
 use ccp_rpc_client::CCPRpcHttpClient;
-use ccp_shared::proof::{CCProof, CCProofId, ProofIdx};
+use ccp_shared::proof::BatchRequest;
 use ccp_shared::types::{Difficulty, GlobalNonce, LocalNonce, ResultHash};
 use cpu_utils::PhysicalCoreId;
 
@@ -52,7 +51,7 @@ use chain_connector::{
     is_commitment_not_active, is_too_many_proofs, CCStatus, ChainConnector, CommitmentId,
     ConnectorError, Deal, PEER_NOT_EXISTS,
 };
-use chain_data::{parse_log, peer_id_to_hex, Log};
+use chain_data::{parse_log, peer_id_to_hex, BlockHeader, Log};
 use core_distributor::errors::AcquireError;
 use core_distributor::types::{AcquireRequest, Assignment, WorkType};
 use core_distributor::{CoreDistributor, CUID};
@@ -62,7 +61,7 @@ use types::DealId;
 
 use crate::event::cc_activated::CommitmentActivated;
 use crate::event::{ComputeUnitMatched, UnitActivated, UnitDeactivated};
-use crate::persistence;
+use crate::proof_tracker::ProofTracker;
 
 const PROOF_POLL_LIMIT: usize = 50;
 
@@ -91,8 +90,8 @@ pub struct ChainListener {
     // These settings are changed each epoch
     global_nonce: GlobalNonce,
     current_epoch: U256,
+    last_observed_block_timestamp: u64,
 
-    proof_counter: BTreeMap<CUID, U256>,
     current_commitment: Option<CommitmentId>,
 
     // the compute units that are in the commitment and not in deals
@@ -100,10 +99,8 @@ pub struct ChainListener {
     // the compute units that are in deals and not in commitment
     active_deals: BTreeMap<DealId, CUID>,
 
-    /// Resets every epoch
-    last_submitted_proof_id: ProofIdx,
-    pending_proof_txs: Vec<(String, CUID)>,
-    persisted_proof_id_dir: PathBuf,
+    proof_tracker: ProofTracker,
+    pending_proof_txs: Vec<(String, Vec<CUID>)>,
 
     // TODO: move out to a separate struct, get rid of Option
     // Subscriptions that are polled when we have commitment
@@ -156,14 +153,11 @@ impl ChainListener {
             epoch_duration: U256::ZERO,
             min_proofs_per_epoch: U256::ZERO,
             max_proofs_per_epoch: U256::ZERO,
-            proof_counter: BTreeMap::new(),
             current_commitment: None,
             cc_compute_units: BTreeMap::new(),
             core_distributor,
             ccp_client,
-            last_submitted_proof_id: ProofIdx::zero(),
             pending_proof_txs: vec![],
-            persisted_proof_id_dir,
             unit_activated: None,
             unit_deactivated: None,
             heads: None,
@@ -171,6 +165,8 @@ impl ChainListener {
             unit_matched: None,
             active_deals: BTreeMap::new(),
             metrics,
+            proof_tracker: ProofTracker::new(persisted_proof_id_dir),
+            last_observed_block_timestamp: 0,
         }
     }
 
@@ -206,9 +202,9 @@ impl ChainListener {
                 tracing::info!(target: "chain-listener", "Subscribed successfully");
 
                 // Proof id should be loaded once on start, there is no reason to update it on refresh
-                // TODO: associate proof id with nonce, not current epoch
-                if let Err(err) = self.load_proof_id().await {
-                    tracing::error!(target: "chain-listener", "Failed to load persisted proof id: {err}; Stopping...");
+
+                if let Err(err) = self.proof_tracker.load_state().await {
+                    tracing::error!(target: "chain-listener", "Failed to load persisted proof tracker state: {err}; Stopping...");
                     exit(1);
                 }
 
@@ -256,9 +252,10 @@ impl ChainListener {
                                 if let Err(err) = self.poll_proofs().await {
                                     tracing::warn!(target: "chain-listener", "Failed to poll/submit proofs: {err}");
                                 }
-                            } else if let Err(err) = self.submit_mocked_proofs().await {
-                                tracing::warn!(target: "chain-listener", "Failed to submit mocked proofs: {err}");
                             }
+                            // } else if let Err(err) = self.submit_mocked_proofs().await {
+                            //     tracing::warn!(target: "chain-listener", "Failed to submit mocked proofs: {err}");
+                            // }
 
 
                             if let Err(err) = self.poll_deal_statuses().await {
@@ -320,8 +317,8 @@ impl ChainListener {
         self.min_proofs_per_epoch = init_params.min_proofs_per_epoch;
         self.max_proofs_per_epoch = init_params.max_proofs_per_epoch;
 
-        self.set_current_epoch(init_params.current_epoch);
-        self.set_global_nonce(init_params.global_nonce).await?;
+        self.set_current_epoch(init_params.current_epoch).await;
+        self.set_global_nonce(init_params.global_nonce).await;
 
         Ok(())
     }
@@ -377,54 +374,6 @@ impl ChainListener {
             } else {
                 break;
             }
-        }
-
-        Ok(())
-    }
-
-    async fn reset_proof_id(&mut self) -> eyre::Result<()> {
-        tracing::info!(target: "chain-listener", "Resetting proof id counter");
-        self.set_proof_id(ProofIdx::zero()).await
-    }
-
-    async fn set_proof_id(&mut self, proof_id: ProofIdx) -> eyre::Result<()> {
-        let backoff = ExponentialBackoff {
-            max_elapsed_time: Some(Duration::from_secs(3)),
-            ..ExponentialBackoff::default()
-        };
-
-        let write = retry(backoff, || async {
-            persistence::persist_proof_id(
-                &self.persisted_proof_id_dir,
-                proof_id,
-                self.current_epoch,
-            ).await.map_err(|err|{
-                tracing::warn!(target: "chain-listener", "Failed to persist proof id: {err}; Retrying...");
-                eyre!(err)
-            })?;
-            Ok(())
-        }).await;
-
-        self.last_submitted_proof_id = proof_id;
-
-        if let Err(err) = write {
-            tracing::warn!(target: "chain-listener", "Failed to persist proof id: {err}; Ignoring..");
-        }
-
-        tracing::info!(target: "chain-listener", "Persisted proof id {} on epoch {}", self.last_submitted_proof_id, self.current_epoch);
-        Ok(())
-    }
-
-    async fn load_proof_id(&mut self) -> eyre::Result<()> {
-        let persisted_proof_id =
-            persistence::load_persisted_proof_id(&self.persisted_proof_id_dir).await?;
-
-        if let Some(persisted_proof_id) = persisted_proof_id {
-            self.last_submitted_proof_id = persisted_proof_id.proof_id;
-            tracing::info!(target: "chain-listener", "Loaded persisted proof id {} saved on epoch {}", persisted_proof_id.proof_id, persisted_proof_id.epoch);
-        } else {
-            tracing::info!(target: "chain-listener", "No persisted proof id found, starting from zero");
-            self.last_submitted_proof_id = ProofIdx::zero();
         }
 
         Ok(())
@@ -681,20 +630,24 @@ impl ChainListener {
     ) -> eyre::Result<()> {
         let header = event.ok_or(eyre!("Failed to process newHeads event: got None"))?;
 
-        let (block_timestamp, block_number) = Self::parse_block_header(header?)?;
+        let header = BlockHeader::from_json(header?)?;
+        let block_number = header.number;
+        let block_timestamp = header.timestamp;
+
+        self.last_observed_block_timestamp = block_timestamp;
         self.observe(|m| m.observe_new_block(block_number));
 
         // `epoch_number = 1 + (block_timestamp - init_timestamp) / epoch_duration`
-        let epoch_number =
-            U256::from(1) + (block_timestamp - self.init_timestamp) / self.epoch_duration;
+        let epoch_number = U256::from(1)
+            + (Uint::from(block_timestamp) - self.init_timestamp) / self.epoch_duration;
         let epoch_changed = epoch_number > self.current_epoch;
 
         if epoch_changed {
             // TODO: add epoch_number to metrics
 
-            self.set_current_epoch(epoch_number);
+            self.set_current_epoch(epoch_number).await;
             self.set_global_nonce(self.chain_connector.get_global_nonce().await?)
-                .await?;
+                .await;
             tracing::info!(target: "chain-listener", "Global nonce: {}", self.global_nonce);
 
             if let Some(status) = self.get_commitment_status().await? {
@@ -847,10 +800,10 @@ impl ChainListener {
         let mut finished_units: Vec<CUID> = Vec::new();
         for (cuid, cu) in &self.cc_compute_units {
             if cu.startEpoch <= self.current_epoch {
-                let count = self.proof_counter.get(cuid).unwrap_or(&U256::ZERO);
-                if count < &self.min_proofs_per_epoch {
+                let count = self.proof_tracker.get_proof_counter(&cuid);
+                if count < self.min_proofs_per_epoch {
                     priority_units.push(*cuid)
-                } else if *count >= self.max_proofs_per_epoch {
+                } else if count >= self.max_proofs_per_epoch {
                     finished_units.push(*cuid)
                 } else {
                     non_priority_units.push(*cuid)
@@ -1075,25 +1028,31 @@ impl ChainListener {
         Ok(())
     }
 
-    /// Submit Mocked Proofs for all active compute units.
-    /// Mocked Proof has result_hash == difficulty and random local_nonce
-    async fn submit_mocked_proofs(&mut self) -> eyre::Result<()> {
-        if self.current_commitment.is_none() {
-            return Ok(());
-        }
+    // /// Submit Mocked Proofs for all active compute units.
+    // /// Mocked Proof has result_hash == difficulty and random local_nonce
+    // async fn submit_mocked_proofs(&mut self) -> eyre::Result<()> {
+    //     if self.current_commitment.is_none() {
+    //         return Ok(());
+    //     }
+    //
+    //     let result_hash = ResultHash::from_slice(*self.difficulty.as_ref());
+    //
+    //     // proof_id is used only by CCP and is not sent to chain
+    //     let proof_id = CCProofId::new(self.global_nonce, self.difficulty, ProofIdx::zero());
+    //     let units = self.cc_compute_units.keys().cloned().collect::<Vec<_>>();
+    //     for unit in units {
+    //         let local_nonce = LocalNonce::random();
+    //         self.submit_proofs(CCProof::new(proof_id, local_nonce, unit, result_hash))
+    //             .await?;
+    //     }
+    //
+    //     Ok(())
+    // }
 
-        let result_hash = ResultHash::from_slice(*self.difficulty.as_ref());
-
-        // proof_id is used only by CCP and is not sent to chain
-        let proof_id = CCProofId::new(self.global_nonce, self.difficulty, ProofIdx::zero());
-        let units = self.cc_compute_units.keys().cloned().collect::<Vec<_>>();
-        for unit in units {
-            let local_nonce = LocalNonce::random();
-            self.submit_proof(CCProof::new(proof_id, local_nonce, unit, result_hash))
-                .await?;
-        }
-
-        Ok(())
+    fn is_epoch_ending(&self) -> bool {
+        let window = self.listener_config.epoch_end_window.to_secs();
+        let next_epoch_start = self.init_timestamp + self.epoch_duration * (self.current_epoch + 1);
+        next_epoch_start - self.last_observed_block_timestamp < window
     }
 
     async fn poll_proofs(&mut self) -> eyre::Result<()> {
@@ -1102,45 +1061,83 @@ impl ChainListener {
         }
 
         if let Some(ref ccp_client) = self.ccp_client {
-            tracing::trace!(target: "chain-listener", "Polling proofs after: {}", self.last_submitted_proof_id);
+            let batch_requests = self.get_batch_request();
 
-            let proofs = measured_request(&self.metrics, async {
-                ccp_client
-                    .get_proofs_after(self.last_submitted_proof_id, PROOF_POLL_LIMIT)
-                    .await
-            })
-            .await?;
+            let proof_batches = if self.is_epoch_ending() {
+                let last_known_proofs = batch_requests
+                    .into_iter()
+                    .map(|cu_id, req| (cu_id, req.last_seen_proof_idx))
+                    .collect();
 
-            // TODO: send only in batches
+                measured_request(
+                    &self.metrics,
+                    async { ccp_client.get_proofs_after(last_known_proofs, PROOF_POLL_LIMIT) }
+                        .await,
+                )
+                .await?
+            } else {
+                measured_request(
+                    &self.metrics,
+                    async {
+                        ccp_client.get_batch_proofs_after(
+                            batch_requests,
+                            self.listener_config.min_batch_count,
+                            self.listener_config.max_batch_count,
+                        )
+                    }
+                    .await,
+                )
+                .await?
+            };
 
-            // Filter proofs related to current epoch only
-            let proofs: Vec<_> = proofs
-                .into_iter()
-                .filter(|p| p.id.global_nonce == self.global_nonce)
-                .collect();
+            // TODO: maybe filter out proofs that are not related to current epoch
+            // // Filter proofs related to current epoch only
+            // let proof_batches: Vec<BatchResponse> = proofs
+            //     .into_iter()
+            //     .for_each(move |p| {
+            //         p.proof_batches
+            //             .into_iter()
+            //             .filter(|p| p.id.global_nonce == self.global_nonce)
+            //             .collect()
+            //     })
+            //     .collect();
 
-            if !proofs.is_empty() {
-                tracing::info!(target: "chain-listener", "Found {} proofs from polling", proofs.len());
+            if !proof_batches.is_empty() {
+                let total_proofs = proof_batches
+                    .iter()
+                    .map(|p| p.proof_batches.len())
+                    .sum::<usize>();
+                tracing::info!(target: "chain-listener", "Found {} proofs in {} batches from polling", total_proofs, proof_batches.len());
             }
 
-            for proof in proofs.into_iter() {
-                let id = proof.id.idx;
-                tracing::info!(target: "chain-listener", "Submitting proof: {id}");
-                self.submit_proof(proof).await?;
-                self.set_proof_id(proof.id.idx).await?;
+            let mut unit_ids = Vec::new();
+            let mut local_nonces = Vec::new();
+            let mut result_hashes = Vec::new();
+            for batch in proof_batches.into_iter() {
+                for proof in batch.proof_batches.into_iter() {
+                    unit_ids.push(proof.cu_id);
+                    local_nonces.push(proof.local_nonce);
+                    result_hashes.push(proof.result_hash);
+                    self.proof_tracker
+                        .observe_proof(proof.cu_id, proof.id.idx)
+                        .await;
+                }
             }
+
+            self.submit_proofs(unit_ids, local_nonces, result_hashes)
+                .await?;
         }
         Ok(())
     }
 
-    async fn submit_proof(&mut self, proof: CCProof) -> eyre::Result<()> {
-        // This happens if Unit moved to Deal and shortly after that (but before cc refresh) ccp found proof for it
-        if !self.cc_compute_units.contains_key(&proof.cu_id) {
-            return Ok(());
-        }
-
+    async fn submit_proofs(
+        &mut self,
+        unit_ids: Vec<CUID>,
+        local_nonces: Vec<LocalNonce>,
+        result_hashes: Vec<ResultHash>,
+    ) -> eyre::Result<()> {
         let submit = retry(ExponentialBackoff::default(), || async {
-            self.chain_connector.submit_proof(proof).await.map_err(|err| {
+            self.chain_connector.submit_proofs(unit_ids.clone(), local_nonces.clone(), result_hashes.clone()).await.map_err(|err| {
                 match err {
                     ConnectorError::RpcCallError { .. } => { Permanent(err) }
                    _ => {
@@ -1158,11 +1155,9 @@ impl ChainListener {
                     ConnectorError::RpcCallError { ref data, .. } => {
                         // TODO: track proofs count per epoch and stop at maxProofsPerEpoch
                         if is_too_many_proofs(data) {
-                            tracing::info!(target: "chain-listener", "Too many proofs found for compute unit {}", proof.cu_id);
+                            tracing::info!(target: "chain-listener", "Too many proofs found for some compute unit" );
 
-                            self.proof_counter
-                                .insert(proof.cu_id, self.max_proofs_per_epoch);
-                            self.refresh_commitment().await?;
+                            // NOTE: it should be removed from contracts
 
                             Ok(())
                         } else if is_commitment_not_active(data) {
@@ -1176,64 +1171,28 @@ impl ChainListener {
                             Ok(())
                         } else {
                             // TODO: catch more contract asserts like "Proof is not valid" and "Proof is bigger than difficulty"
-                            tracing::error!(target: "chain-listener", "Failed to submit proof {err}");
-                            tracing::error!(target: "chain-listener", "Proof {:?} ", proof);
+                            tracing::error!(target: "chain-listener", "Failed to submit proofs {err}");
+                            tracing::error!(target: "chain-listener", "Units {:?} nonces {:?} result hashes {:?}", unit_ids, local_nonces, result_hashes);
                             // In case of contract errors we just skip these proofs and continue
                             Ok(())
                         }
                     }
                     _ => {
                         tracing::error!(target: "chain-listener", "Failed to submit proof: {err}");
-                        tracing::error!(target: "chain-listener", "Proof {:?} ", proof);
+                        tracing::error!(target: "chain-listener", "Units {:?} nonces {:?} result hashes {:?}", unit_ids, local_nonces, result_hashes);
                         self.observe(|m| m.observe_proof_failed());
                         Err(err.into())
                     }
                 }
             }
             Ok(tx_id) => {
-                tracing::info!(target: "chain-listener", "Submitted proof {}, txHash: {tx_id}", proof.id.idx);
-                self.pending_proof_txs.push((tx_id, proof.cu_id));
+                tracing::info!(target: "chain-listener", "Successfully submitted {} proofs, txHash: {tx_id}", unit_ids.len());
+                self.pending_proof_txs.push((tx_id, unit_ids));
                 self.observe(|m| m.observe_proof_submitted());
 
                 Ok(())
             }
         }
-    }
-
-    fn parse_block_number(block_number: &str) -> eyre::Result<BlockNumber> {
-        let block_number_ = block_number.strip_prefix("0x").ok_or(eyre::eyre!(
-            "newHeads: block number is not hex; got {block_number}"
-        ))?;
-        BlockNumber::from_str_radix(block_number_, 16).map_err(|err| {
-            eyre::eyre!("Failed to parse block number: {err}, block_number {block_number}")
-        })
-    }
-
-    fn parse_block_header(header: Value) -> eyre::Result<(U256, BlockNumber)> {
-        let obj = header.as_object().ok_or(eyre::eyre!(
-            "newHeads: header is not an object; got {header}"
-        ))?;
-
-        let timestamp = obj
-            .get("timestamp")
-            .and_then(Value::as_str)
-            .ok_or(eyre::eyre!(
-                "newHeads: timestamp field not found; got {header}"
-            ))?
-            .to_string();
-
-        let block_number = header
-            .get("number")
-            .and_then(Value::as_str)
-            .ok_or(eyre::eyre!(
-                "newHeads: number field not found; got {header}"
-            ))?
-            .to_string();
-
-        Ok((
-            U256::from_str(&timestamp)?,
-            Self::parse_block_number(&block_number)?,
-        ))
     }
 
     async fn poll_deal_statuses(&mut self) -> eyre::Result<()> {
@@ -1310,7 +1269,7 @@ impl ChainListener {
 
         let mut refresh_neeeded = false;
         let mut stats_updated = false;
-        for (status, (tx_hash, cu_id)) in statuses
+        for (status, (tx_hash, cu_ids)) in statuses
             .into_iter()
             .zip(self.pending_proof_txs.clone().into_iter())
         {
@@ -1319,18 +1278,20 @@ impl ChainListener {
                     if status {
                         tracing::info!(target: "chain-listener", "Proof tx {tx_hash} confirmed");
                         stats_updated = true;
-                        let counter = self
-                            .proof_counter
-                            .entry(cu_id)
-                            .and_modify(|c| {
-                                *c = c.add(Uint::from(1));
-                            })
-                            .or_insert(Uint::from(1));
+                        for cu_id in cu_ids {
+                            let counter = self.proof_tracker.confirm_proof(cu_id).await;
 
-                        if *counter >= self.min_proofs_per_epoch {
-                            tracing::info!(target: "chain-listener", "Compute unit {cu_id} submitted enough proofs");
-                            // need to call refresh commitment to make some cores to help others
-                            refresh_neeeded = true;
+                            if counter == self.max_proofs_per_epoch {
+                                tracing::info!(target: "chain-listener", "Compute unit {cu_id} submitted maximum proofs in the current epoch {}", self.current_epoch);
+                                // need to call refresh commitment to make some cores to help others
+                                refresh_neeeded = true;
+                            } else {
+                                if counter >= self.min_proofs_per_epoch {
+                                    tracing::info!(target: "chain-listener", "Compute unit {cu_id} submitted minimum proofs in the current epoch {}", self.current_epoch);
+                                    // need to call refresh commitment to make some cores to help others
+                                    refresh_neeeded = true;
+                                }
+                            }
                         }
                         self.observe(|m| m.observe_proof_tx_success());
                     } else {
@@ -1354,28 +1315,20 @@ impl ChainListener {
         }
 
         if stats_updated {
-            tracing::info!(target: "chain-listener", "Confirmed proofs count: {:?}", self.proof_counter.iter().map(|(cu, count)| format!("{}: {}", cu, count)).collect::<Vec<_>>());
+            tracing::debug!(target: "chain-listener", "Confirmed proofs count: {:?}", self.proof_tracker.get_proof_counters().iter().map(|(cu, count)| format!("{}: {}", cu, count)).collect::<Vec<_>>());
         }
 
         Ok(())
     }
 
-    fn set_current_epoch(&mut self, epoch_number: U256) {
-        if self.current_epoch != epoch_number {
-            tracing::info!(target: "chain-listener", "Epoch changed, was {}, new epoch number is {epoch_number}", self.current_epoch);
-            self.current_epoch = epoch_number;
-            self.proof_counter.clear();
-        }
+    async fn set_current_epoch(&mut self, epoch_number: U256) {
+        self.current_epoch = epoch_number;
+        self.proof_tracker.set_current_epoch(epoch_number).await;
     }
 
-    async fn set_global_nonce(&mut self, global_nonce: GlobalNonce) -> eyre::Result<()> {
-        if self.global_nonce != global_nonce {
-            tracing::info!(target: "chain-listener", "Global changed, was {}, new global nonce is {global_nonce}", self.global_nonce);
-            self.global_nonce = global_nonce;
-            self.reset_proof_id().await?;
-        }
-
-        Ok(())
+    async fn set_global_nonce(&mut self, global_nonce: GlobalNonce) {
+        self.global_nonce = self.global_nonce;
+        self.proof_tracker.set_global_nonce(global_nonce).await;
     }
 
     fn observe<F>(&self, f: F)
@@ -1392,6 +1345,24 @@ impl ChainListener {
             .iter()
             .filter(|(_, cu)| cu.startEpoch <= self.current_epoch)
             .count()
+    }
+    fn get_batch_request(&self) -> HashMap<CUID, BatchRequest> {
+        let mut batch_request = HashMap::new();
+        for cu_id in self.cc_compute_units.keys() {
+            let sent_proofs_count = self.proof_tracker.get_proof_counter(cu_id);
+            let proofs_needed =
+                U64::from(self.max_proofs_per_epoch - sent_proofs_count).as_limbs()[0] as usize;
+
+            if proofs_needed > 0 {
+                let request = BatchRequest {
+                    last_seen_proof_idx: self.proof_tracker.get_last_submitted_proof_id(cu_id),
+                    proof_batch_size: min(proofs_needed, self.listener_config.max_proof_batch_size),
+                };
+
+                batch_request.insert(*cu_id, request);
+            }
+        }
+        batch_request
     }
 }
 

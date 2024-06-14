@@ -22,8 +22,7 @@ use std::collections::{BTreeMap, HashMap};
 use std::str::FromStr;
 use std::sync::Arc;
 
-use ccp_shared::proof::CCProof;
-use ccp_shared::types::{Difficulty, GlobalNonce, CUID};
+use ccp_shared::types::{Difficulty, GlobalNonce, LocalNonce, ResultHash, CUID};
 use clarity::{Transaction, Uint256};
 use eyre::eyre;
 use futures::FutureExt;
@@ -39,7 +38,7 @@ use tokio::sync::Mutex;
 use crate::ConnectorError::{InvalidU256, ResponseParseError};
 use crate::Deal::CIDV1;
 use crate::{CCStatus, Capacity, CommitmentId, Core, Deal, Offer};
-use chain_data::peer_id_to_bytes;
+use chain_data::{peer_id_to_bytes, BlockHeader};
 use fluence_libp2p::PeerId;
 use hex_utils::decode_hex;
 use particle_args::{Args, JError};
@@ -65,7 +64,12 @@ pub trait ChainConnector: Send + Sync {
 
     async fn get_global_nonce(&self) -> Result<GlobalNonce>;
 
-    async fn submit_proof(&self, proof: CCProof) -> Result<String>;
+    async fn submit_proofs(
+        &self,
+        unit_ids: Vec<CUID>,
+        local_nonces: Vec<LocalNonce>,
+        result_hashes: Vec<ResultHash>,
+    ) -> Result<String>;
 
     async fn get_deal_statuses(&self, deal_ids: Vec<DealId>) -> Result<Vec<Result<Deal::Status>>>;
 
@@ -86,6 +90,7 @@ pub struct HttpChainConnector {
 pub struct CCInitParams {
     pub difficulty: Difficulty,
     pub init_timestamp: U256,
+    pub current_timestamp: U256,
     pub global_nonce: GlobalNonce,
     pub current_epoch: U256,
     pub epoch_duration: U256,
@@ -599,53 +604,40 @@ impl ChainConnector for HttpChainConnector {
         batch.insert("eth_call", self.epoch_duration_params())?;
         batch.insert("eth_call", self.min_proofs_per_epoch_params())?;
         batch.insert("eth_call", self.max_proofs_per_epoch_params())?;
+        batch.insert("eth_getBlockByNumber", rpc_params!["latest", false])?;
 
-        let resp: BatchResponse<String> = self.client.batch_request(batch).await?;
+        let resp: BatchResponse<Value> = self.client.batch_request(batch).await?;
         let mut results = resp
             .into_ok()
             .map_err(|err| eyre!("Some request failed in a batch {err:?}"))?;
 
         let difficulty: FixedBytes<32> =
-            FixedBytes::from_str(&results.next().ok_or(eyre!("No response for difficulty"))?)?;
-        let init_timestamp = U256::from_str(
-            &results
-                .next()
-                .ok_or(eyre!("No response for init_timestamp"))?,
-        )?;
+            FixedBytes::from_str(&parse_str_field(results.next(), "difficulty")?)?;
 
-        let global_nonce = FixedBytes::from_str(
-            &results
-                .next()
-                .ok_or(eyre!("No response for global_nonce"))?,
-        )?;
+        let init_timestamp = U256::from_str(&parse_str_field(results.next(), "init_timestamp")?)?;
 
-        let current_epoch = U256::from_str(
-            &results
-                .next()
-                .ok_or(eyre!("No response for current_epoch"))?,
-        )?;
+        let global_nonce = FixedBytes::from_str(&parse_str_field(results.next(), "global_nonce")?)?;
 
-        let epoch_duration = U256::from_str(
-            &results
-                .next()
-                .ok_or(eyre!("No response for epoch_duration"))?,
-        )?;
+        let current_epoch = U256::from_str(&parse_str_field(results.next(), "current_epoch")?)?;
 
-        let min_proofs_per_epoch = U256::from_str(
-            &results
-                .next()
-                .ok_or(eyre!("No response for min_proofs_per_epoch"))?,
-        )?;
+        let epoch_duration = U256::from_str(&parse_str_field(results.next(), "epoch_duration")?)?;
 
-        let max_proofs_per_epoch = U256::from_str(
-            &results
+        let min_proofs_per_epoch =
+            U256::from_str(&parse_str_field(results.next(), "min_proofs_per_epoch")?)?;
+
+        let max_proofs_per_epoch =
+            U256::from_str(&parse_str_field(results.next(), "max_proofs_per_epoch")?)?;
+
+        let header = BlockHeader::from_json(
+            results
                 .next()
-                .ok_or(eyre!("No response for max_proofs_per_epoch"))?,
+                .ok_or_else(|| eyre!("Block header not found in response"))?,
         )?;
 
         Ok(CCInitParams {
             difficulty: Difficulty::new(difficulty.0),
             init_timestamp,
+            current_timestamp: header.timestamp,
             global_nonce: GlobalNonce::new(global_nonce.0),
             current_epoch,
             epoch_duration,
@@ -719,11 +711,23 @@ impl ChainConnector for HttpChainConnector {
         Ok(GlobalNonce::new(bytes.0))
     }
 
-    async fn submit_proof(&self, proof: CCProof) -> Result<String> {
-        let data = Capacity::submitProofCall {
-            unitId: proof.cu_id.as_ref().into(),
-            localUnitNonce: proof.local_nonce.as_ref().into(),
-            resultHash: proof.result_hash.as_ref().into(),
+    async fn submit_proofs(
+        &self,
+        unit_ids: Vec<CUID>,
+        local_nonces: Vec<LocalNonce>,
+        result_hashes: Vec<ResultHash>,
+    ) -> Result<String> {
+        let data = Capacity::submitProofsCall {
+            unitIds: unit_ids.into_iter().map(|id| id.as_ref().into()).collect(),
+            localUnitNonces: local_nonces
+                .into_iter()
+                .map(|n| n.as_ref().into())
+                .collect(),
+
+            resultHashes: result_hashes
+                .into_iter()
+                .map(|hash| hash.as_ref().into())
+                .collect(),
         }
         .abi_encode();
 
@@ -806,6 +810,14 @@ impl ChainConnector for HttpChainConnector {
     }
 }
 
+fn parse_str_field(value: Option<Value>, field: &str) -> eyre::Result<String> {
+    value
+        .ok_or(eyre!("Field {} not found in response", field))?
+        .as_str()
+        .ok_or(eyre!("Field {} is not a string", field))
+        .map(|s| s.to_string())
+}
+
 #[cfg(test)]
 mod tests {
 
@@ -815,7 +827,6 @@ mod tests {
     use std::str::FromStr;
     use std::sync::Arc;
 
-    use ccp_shared::proof::{CCProof, CCProofId, ProofIdx};
     use ccp_shared::types::{Difficulty, GlobalNonce, LocalNonce, ResultHash, CUID};
     use clarity::PrivateKey;
     use hex::FromHex;
@@ -1007,7 +1018,57 @@ mod tests {
             "jsonrpc": "2.0",
             "result": "0x8",
             "id": 6
-          }
+          },
+          {
+              "jsonrpc": "2.0",
+              "result": {
+                "hash": "0x402c63844e7797c56468e5c9ca241d7f99b102c6e683fd371c1558fc87ff0963",
+                "parentHash": "0x4904bfa81f0c577da1caa89826c3cf05a952e51dd39226709ed643c0f3847992",
+                "sha3Uncles": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+                "miner": "0x5d159e79d541c35d68d1c8a5da02637fff779da0",
+                "stateRoot": "0x5f928ec52b4c7d259e0cc744f2be0e17952a94e721b732d03b91142ab23bd497",
+                "transactionsRoot": "0xc6d90adaa66f9e4e53d27c59c946f8f1b6aa9d1092a414c2290c05a4e081a8e5",
+                "receiptsRoot": "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
+                "number": "0x8b287",
+                "gasUsed": "0x8af3a5a",
+                "gasLimit": "0xadb3bb8",
+                "extraData": "0x",
+                "logsBloom": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+                "timestamp": "0x666c79b1",
+                "difficulty": "0x0",
+                "totalDifficulty": "0x0",
+                "sealFields": [],
+                "uncles": [],
+                "transactions": [
+                  {
+                    "accessList": [],
+                    "blockHash": "0x402c63844e7797c56468e5c9ca241d7f99b102c6e683fd371c1558fc87ff0963",
+                    "blockNumber": "0x8b287",
+                    "chainId": "0x8613d62c79827",
+                    "from": "0xb3b172cc702e3ae32ce0c73a050037a7750e41a6",
+                    "gas": "0xadb3bb8",
+                    "gasPrice": "0x64",
+                    "hash": "0xdd5a4b397f222a9432b3d592ecca96171860953c5d2630f5f1f9f3614fdd8cd5",
+                    "input": "0x4ece5685649cea1e34fec8ae2f5f8195124ec9c9e268b333f51d38dd12c9c89b026dd66ea6f4997b286ae1873a26c2f8cac3980af7ac51b185c9754d3a116d8a3c3a02fc0001286ad1ddc35083d1773e4f451e27047b3cdb5a1ebc592fd521de7780eb4c",
+                    "maxFeePerGas": "0x64",
+                    "maxPriorityFeePerGas": "0x0",
+                    "nonce": "0x34d6",
+                    "r": "0xfceb7aaceb1dc56f1e0b33584361c17ba1d8d79a5ec378c81d789c83e5eb7016",
+                    "s": "0x13ba30819306a8cb71c60261824a77e29a0571514ffbb3f08f8503303caec56d",
+                    "to": "0x066d0e888b62b7c2571cf867d2b26d6afefac720",
+                    "transactionIndex": "0x0",
+                    "type": "0x2",
+                    "v": "0x1",
+                    "value": "0x0"
+                  }
+                ],
+                "size": "0xf7",
+                "mixHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+                "nonce": "0x0000000000000000",
+                "baseFeePerGas": "0x64"
+              },
+              "id": 7
+            }
         ]"#;
 
         let mut server = mockito::Server::new();
@@ -1089,17 +1150,13 @@ mod tests {
             })
             .create();
 
-        let proof = CCProof::new(
-            CCProofId::new(
-                GlobalNonce::new([0u8; 32]),
-                Difficulty::new([0u8; 32]),
-                ProofIdx::zero(),
-            ),
-            LocalNonce::new([0u8; 32]),
-            CUID::new([0u8; 32]),
-            ResultHash::from_slice([0u8; 32]),
-        );
-        let result = get_connector(&url).submit_proof(proof).await;
+        let cu_ids = vec![CUID::new([0u8; 32])];
+        let local_nonces = vec![LocalNonce::new([0u8; 32])];
+        let result_hashes = vec![ResultHash::from_slice([0u8; 32])];
+
+        let result = get_connector(&url)
+            .submit_proofs(cu_ids, local_nonces, result_hashes)
+            .await;
 
         assert!(result.is_err());
 
@@ -1152,17 +1209,14 @@ mod tests {
             })
             .create();
 
-        let proof = CCProof::new(
-            CCProofId::new(
-                GlobalNonce::new([0u8; 32]),
-                Difficulty::new([0u8; 32]),
-                ProofIdx::zero(),
-            ),
-            LocalNonce::new([0u8; 32]),
-            CUID::new([0u8; 32]),
-            ResultHash::from_slice([0u8; 32]),
-        );
-        let result = get_connector(&url).submit_proof(proof).await.unwrap();
+        let cu_ids = vec![CUID::new([0u8; 32])];
+        let local_nonces = vec![LocalNonce::new([0u8; 32])];
+        let result_hashes = vec![ResultHash::from_slice([0u8; 32])];
+
+        let result = get_connector(&url)
+            .submit_proofs(cu_ids, local_nonces, result_hashes)
+            .await
+            .unwrap();
 
         assert_eq!(
             result,

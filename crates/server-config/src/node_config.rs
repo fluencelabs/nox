@@ -647,6 +647,11 @@ pub struct ChainListenerConfig {
     #[serde(default = "default_proof_poll_period")]
     #[serde(with = "humantime_serde")]
     pub proof_poll_period: Duration,
+    pub min_batch_count: usize,
+    pub max_batch_count: usize,
+    pub max_proof_batch_size: usize,
+    #[serde(with = "humantime_serde")]
+    pub epoch_end_window: Duration,
 }
 
 /// Name of the effector module

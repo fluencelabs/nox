@@ -16,14 +16,25 @@
 
 use alloy_primitives::U256;
 use eyre::Context;
+use hex_utils::serde_as::Hex;
+use serde_with::serde_as;
+use serde_with::DisplayFromStr;
 use std::path::Path;
 
+use crate::proof_tracker::ProofTracker;
 use alloy_serde_macro::{U256_as_String, U256_from_String};
 use ccp_shared::proof::ProofIdx;
+use ccp_shared::types::{GlobalNonce, CUID};
 use serde::{Deserialize, Serialize};
+
+#[serde_as]
 #[derive(Serialize, Deserialize)]
-pub struct PersistedProofId {
-    pub proof_id: ProofIdx,
+pub struct PersistedProofTracker {
+    #[serde_as(as = "Vec<(Hex,_)>")]
+    pub proof_ids: Vec<(CUID, ProofIdx)>,
+    #[serde_as(as = "Vec<(Hex,DisplayFromStr)>")]
+    pub proof_counter: Vec<(CUID, U256)>,
+    pub global_nonce: GlobalNonce,
     #[serde(
         serialize_with = "U256_as_String",
         deserialize_with = "U256_from_String"
@@ -32,35 +43,32 @@ pub struct PersistedProofId {
 }
 
 pub(crate) fn proof_id_filename() -> String {
-    "proof_id.toml".to_string()
+    "proof_tracker.toml".to_string()
 }
 
-pub(crate) async fn persist_proof_id(
+pub(crate) async fn persist_proof_tracker(
     proof_id_dir: &Path,
-    proof_id: ProofIdx,
-    current_epoch: U256,
+    proof_tracker: &ProofTracker,
 ) -> eyre::Result<()> {
     let path = proof_id_dir.join(proof_id_filename());
-    let bytes = toml_edit::ser::to_vec(&PersistedProofId {
-        proof_id,
-        epoch: current_epoch,
-    })
-    .map_err(|err| eyre::eyre!("Proof id serialization failed {err}"))?;
+    let bytes = toml_edit::ser::to_vec(&PersistedProofTracker::from(proof_tracker))
+        .map_err(|err| eyre::eyre!("Proof id serialization failed {err}"))?;
     tokio::fs::write(&path, bytes)
         .await
         .context(format!("error writing proof id to {}", path.display()))
 }
 
-pub(crate) async fn load_persisted_proof_id(
+pub(crate) async fn load_persisted_proof_tracker(
     proof_id_dir: &Path,
-) -> eyre::Result<Option<PersistedProofId>> {
+) -> eyre::Result<Option<PersistedProofTracker>> {
     let path = proof_id_dir.join(proof_id_filename());
     if path.exists() {
-        let bytes = tokio::fs::read(&path)
-            .await
-            .context(format!("error reading proof id from {}", path.display()))?;
+        let bytes = tokio::fs::read(&path).await.context(format!(
+            "error reading proof tracker state from {}",
+            path.display()
+        ))?;
         let persisted_proof = toml_edit::de::from_slice(&bytes).context(format!(
-            "error deserializing proof id from {}",
+            "error deserializing proof tracker state from {}",
             path.display()
         ))?;
         Ok(Some(persisted_proof))

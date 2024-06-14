@@ -1260,8 +1260,7 @@ dependencies = [
 [[package]]
 name = "ccp-rpc-client"
 version = "0.10.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9176fd2a8249730c6256bbbdb2f1f864ce1aa42caa80db9d137ce8dcce351ecd"
+source = "git+https://github.com/fluencelabs/capacity-commitment-prover.git?branch=feat/VM-613-batching-api#8ac4d92d3f18f6e1de56eb4e6f2030bbcb339306"
 dependencies = [
  "ccp-shared",
  "hex",
@@ -1272,8 +1271,7 @@ dependencies = [
 [[package]]
 name = "ccp-shared"
 version = "0.10.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ce20b2393397b733ff6f9fd91909dc7c115df934a3be876351e861851e4c2038"
+source = "git+https://github.com/fluencelabs/capacity-commitment-prover.git?branch=feat/VM-613-batching-api#8ac4d92d3f18f6e1de56eb4e6f2030bbcb339306"
 dependencies = [
  "hex",
  "newtype_derive",
@@ -1358,6 +1356,7 @@ dependencies = [
 name = "chain-data"
 version = "0.1.0"
 dependencies = [
+ "alloy-primitives",
  "alloy-sol-types",
  "const-hex",
  "ethabi",
@@ -1367,6 +1366,7 @@ dependencies = [
  "libp2p-identity",
  "log",
  "serde",
+ "serde_json",
  "thiserror",
 ]
 
@@ -1398,6 +1398,7 @@ dependencies = [
  "peer-metrics",
  "serde",
  "serde_json",
+ "serde_with 3.7.0",
  "server-config",
  "thiserror",
  "tokio",
@@ -1728,8 +1729,7 @@ dependencies = [
 [[package]]
 name = "cpu-utils"
 version = "0.10.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bf88054aeeac7a790f0c653e77a79bd0af113b13249a8f94ad4ed795488fff64"
+source = "git+https://github.com/fluencelabs/capacity-commitment-prover.git?branch=feat/VM-613-batching-api#8ac4d92d3f18f6e1de56eb4e6f2030bbcb339306"
 dependencies = [
  "ccp-shared",
  "ccp_core_affinity",

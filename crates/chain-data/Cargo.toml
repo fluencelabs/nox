@@ -16,3 +16,5 @@ thiserror = { workspace = true }
 eyre = { workspace = true }
 alloy-sol-types = { workspace = true }
 const-hex = { workspace = true }
+alloy-primitives = { workspace = true }
+serde_json = { workspace = true }
