@@ -90,7 +90,7 @@ pub struct ChainListener {
     // These settings are changed each epoch
     global_nonce: GlobalNonce,
     current_epoch: U256,
-    last_observed_block_timestamp: u64,
+    last_observed_block_timestamp: U256,
 
     current_commitment: Option<CommitmentId>,
 
@@ -166,7 +166,7 @@ impl ChainListener {
             active_deals: BTreeMap::new(),
             metrics,
             proof_tracker: ProofTracker::new(persisted_proof_id_dir),
-            last_observed_block_timestamp: 0,
+            last_observed_block_timestamp: U256::ZERO,
         }
     }
 
@@ -264,6 +264,12 @@ impl ChainListener {
 
                             if let Err(err) = self.poll_pending_proof_txs().await {
                                 tracing::warn!(target: "chain-listener", "Failed to poll pending proof txs: {err}");
+                            }
+
+                            // NOTE: we need to update global nonce by timer because sometimes it's stale
+                            // at the beginning of the epoch. It's caused by inconsistency between eth-rpc and subscription to newHeads
+                            if let Err(err) = self.update_global_nonce().await  {
+                                tracing::warn!(target: "chain-listener", "Failed to update global nonce: {err}");
                             }
                         }
                     }
@@ -646,8 +652,15 @@ impl ChainListener {
             // TODO: add epoch_number to metrics
 
             self.set_current_epoch(epoch_number).await;
-            self.set_global_nonce(self.chain_connector.get_global_nonce().await?)
+
+            let nonce_updated = self
+                .set_global_nonce(self.chain_connector.get_global_nonce().await?)
                 .await;
+
+            if !nonce_updated {
+                tracing::warn!(target: "chain-listener", "Epoch changed but global nonce hasn't changed. Don't worry, it'll catch up soon");
+            }
+
             tracing::info!(target: "chain-listener", "Global nonce: {}", self.global_nonce);
 
             if let Some(status) = self.get_commitment_status().await? {
@@ -1049,9 +1062,19 @@ impl ChainListener {
     //     Ok(())
     // }
 
+    async fn update_global_nonce(&mut self) -> eyre::Result<()> {
+        let nonce = self.chain_connector.get_global_nonce().await?;
+        let nonce_changed = self.set_global_nonce(nonce).await;
+        if nonce_changed {
+            self.refresh_commitment().await?;
+        }
+        Ok(())
+    }
+
     fn is_epoch_ending(&self) -> bool {
-        let window = self.listener_config.epoch_end_window.to_secs();
-        let next_epoch_start = self.init_timestamp + self.epoch_duration * (self.current_epoch + 1);
+        let window = Uint::from(self.listener_config.epoch_end_window.as_secs());
+        let next_epoch_start =
+            self.init_timestamp + self.epoch_duration * (self.current_epoch + Uint::from(1));
         next_epoch_start - self.last_observed_block_timestamp < window
     }
 
@@ -1066,7 +1089,7 @@ impl ChainListener {
             let proof_batches = if self.is_epoch_ending() {
                 let last_known_proofs = batch_requests
                     .into_iter()
-                    .map(|cu_id, req| (cu_id, req.last_seen_proof_idx))
+                    .map(|(cu_id, req)| (cu_id, req.last_seen_proof_idx))
                     .collect();
 
                 measured_request(
@@ -1326,9 +1349,10 @@ impl ChainListener {
         self.proof_tracker.set_current_epoch(epoch_number).await;
     }
 
-    async fn set_global_nonce(&mut self, global_nonce: GlobalNonce) {
+    /// Returns true if global nonce was updated
+    async fn set_global_nonce(&mut self, global_nonce: GlobalNonce) -> bool {
         self.global_nonce = self.global_nonce;
-        self.proof_tracker.set_global_nonce(global_nonce).await;
+        self.proof_tracker.set_global_nonce(global_nonce).await
     }
 
     fn observe<F>(&self, f: F)

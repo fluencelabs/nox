@@ -116,13 +116,17 @@ impl ProofTracker {
         }
     }
 
-    pub async fn set_global_nonce(&mut self, global_nonce: GlobalNonce) {
+    /// Returns true if the global nonce has changed
+    pub async fn set_global_nonce(&mut self, global_nonce: GlobalNonce) -> bool {
         if self.global_nonce != global_nonce {
             tracing::info!(target: "chain-listener", "Global changed, was {}, new global nonce is {global_nonce}", self.global_nonce);
             self.global_nonce = global_nonce;
             tracing::info!(target: "chain-listener", "Resetting proof id counter");
             self.last_submitted_proof_ids.clear();
             self.persist().await;
+            true
+        } else {
+            false
         }
     }
 
