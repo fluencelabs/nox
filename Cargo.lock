@@ -1401,6 +1401,7 @@ dependencies = [
  "serde_json",
  "serde_with 3.8.1",
  "server-config",
+ "tempfile",
  "thiserror",
  "tokio",
  "tokio-stream",

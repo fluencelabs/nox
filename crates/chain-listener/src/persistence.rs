@@ -30,7 +30,7 @@ use serde::{Deserialize, Serialize};
 #[serde_as]
 #[derive(Serialize, Deserialize)]
 pub struct PersistedProofTracker {
-    #[serde_as(as = "Vec<(Hex,_)>")]
+    #[serde_as(as = "Vec<(Hex,DisplayFromStr)>")]
     pub proof_ids: Vec<(CUID, ProofIdx)>,
     #[serde_as(as = "Vec<(Hex,DisplayFromStr)>")]
     pub proof_counter: Vec<(CUID, U256)>,
@@ -42,7 +42,7 @@ pub struct PersistedProofTracker {
     pub epoch: U256,
 }
 
-pub(crate) fn proof_id_filename() -> String {
+pub(crate) fn proof_tracker_state_filename() -> String {
     "proof_tracker.toml".to_string()
 }
 
@@ -50,29 +50,73 @@ pub(crate) async fn persist_proof_tracker(
     proof_id_dir: &Path,
     proof_tracker: &ProofTracker,
 ) -> eyre::Result<()> {
-    let path = proof_id_dir.join(proof_id_filename());
+    let path = proof_id_dir.join(proof_tracker_state_filename());
     let bytes = toml_edit::ser::to_vec(&PersistedProofTracker::from(proof_tracker))
-        .map_err(|err| eyre::eyre!("Proof id serialization failed {err}"))?;
+        .map_err(|err| eyre::eyre!("Proof tracker serialization failed {err}"))?;
     tokio::fs::write(&path, bytes)
         .await
         .context(format!("error writing proof id to {}", path.display()))
 }
 
 pub(crate) async fn load_persisted_proof_tracker(
-    proof_id_dir: &Path,
+    proof_tracker_dir: &Path,
 ) -> eyre::Result<Option<PersistedProofTracker>> {
-    let path = proof_id_dir.join(proof_id_filename());
+    let path = proof_tracker_dir.join(proof_tracker_state_filename());
     if path.exists() {
         let bytes = tokio::fs::read(&path).await.context(format!(
             "error reading proof tracker state from {}",
             path.display()
         ))?;
         let persisted_proof = toml_edit::de::from_slice(&bytes).context(format!(
-            "error deserializing proof tracker state from {}",
-            path.display()
+            "error deserializing proof tracker state from {}, content {}",
+            path.display(),
+            String::from_utf8_lossy(&bytes)
         ))?;
         Ok(Some(persisted_proof))
     } else {
         Ok(None)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::str::FromStr;
+    use tempfile::tempdir;
+
+    #[tokio::test]
+    async fn proof_tracker_test() {
+        let dir = tempdir().expect("Could not create temp dir");
+        let mut proof_tracker = ProofTracker::new(dir.path().to_path_buf());
+        let cuid =
+            CUID::from_str("7dcee6bb1c39396de3b19424154ad3996cbdef5f3950022325bb4f651e48fbe0")
+                .unwrap();
+
+        let global_nonce = GlobalNonce::new([1; 32]);
+        let epoch = U256::from(100);
+        let proof_id = ProofIdx::from_str("1").unwrap();
+        proof_tracker.set_current_epoch(epoch).await;
+        proof_tracker.set_global_nonce(global_nonce).await;
+
+        proof_tracker.observe_proof(cuid, proof_id).await;
+
+        proof_tracker.confirm_proof(cuid).await;
+        proof_tracker.confirm_proof(cuid).await;
+
+        let persisted_proof_tracker = load_persisted_proof_tracker(dir.path())
+            .await
+            .unwrap()
+            .unwrap();
+
+        assert_eq!(persisted_proof_tracker.proof_ids.len(), 1);
+        assert_eq!(persisted_proof_tracker.proof_ids[0].0, cuid);
+        assert_eq!(persisted_proof_tracker.proof_ids[0].1, proof_id);
+
+        assert_eq!(persisted_proof_tracker.proof_counter.len(), 1);
+        assert_eq!(persisted_proof_tracker.proof_counter[0].0, cuid);
+        assert_eq!(persisted_proof_tracker.proof_counter[0].1, U256::from(2));
+
+        assert_eq!(persisted_proof_tracker.epoch, epoch);
+        assert_eq!(persisted_proof_tracker.global_nonce, global_nonce);
     }
 }

@@ -44,3 +44,5 @@ serde_with = { workspace = true }
 
 [dev-dependencies]
 jsonrpsee = { workspace = true, features = ["server"] }
+tempfile = { workspace = true }
+
