@@ -34,6 +34,7 @@ pub struct PersistedProofTracker {
     pub proof_ids: Vec<(CUID, ProofIdx)>,
     #[serde_as(as = "Vec<(Hex,DisplayFromStr)>")]
     pub proof_counter: Vec<(CUID, U256)>,
+    #[serde_as(as = "Hex")]
     pub global_nonce: GlobalNonce,
     #[serde(
         serialize_with = "U256_as_String",
