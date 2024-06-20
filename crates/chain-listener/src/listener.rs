@@ -1092,6 +1092,7 @@ impl ChainListener {
                     .map(|(cu_id, req)| (cu_id, req.last_seen_proof_idx))
                     .collect();
 
+                tracing::debug!(target: "chain-listener", "Polling proofs after {:?}", last_known_proofs);
                 measured_request(
                     &self.metrics,
                     async { ccp_client.get_proofs_after(last_known_proofs, PROOF_POLL_LIMIT) }
@@ -1099,6 +1100,7 @@ impl ChainListener {
                 )
                 .await?
             } else {
+                tracing::debug!(target: "chain-listener", "Polling proofs after {:?}, min batch count: {}, max batch count: {}", batch_requests, self.listener_config.min_batch_count, self.listener_config.max_batch_count);
                 measured_request(
                     &self.metrics,
                     async {

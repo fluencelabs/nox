@@ -43,12 +43,12 @@ impl BlockHeader {
             .to_string();
 
         Ok(Self {
-            number: BlockNumber::from_str_radix(&block_number.trim_start_matches("0x"), 16)?,
+            number: BlockNumber::from_str_radix(block_number.trim_start_matches("0x"), 16)?,
             timestamp: U256::from_str(&timestamp)?,
         })
     }
 
-    pub fn from_str(json: &str) -> eyre::Result<Self> {
+    pub fn from_json_str(json: &str) -> eyre::Result<Self> {
         let json: Value = serde_json::from_str(json)
             .map_err(|err| eyre::eyre!("failed to parse header {err}; got {json}"))?;
         Self::from_json(json)
