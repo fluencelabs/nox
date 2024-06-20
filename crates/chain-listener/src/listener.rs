@@ -1133,24 +1133,24 @@ impl ChainListener {
                     .map(|p| p.proof_batches.len())
                     .sum::<usize>();
                 tracing::info!(target: "chain-listener", "Found {} proofs in {} batches from polling", total_proofs, proof_batches.len());
-            }
 
-            let mut unit_ids = Vec::new();
-            let mut local_nonces = Vec::new();
-            let mut result_hashes = Vec::new();
-            for batch in proof_batches.into_iter() {
-                for proof in batch.proof_batches.into_iter() {
-                    unit_ids.push(proof.cu_id);
-                    local_nonces.push(proof.local_nonce);
-                    result_hashes.push(proof.result_hash);
-                    self.proof_tracker
-                        .observe_proof(proof.cu_id, proof.id.idx)
-                        .await;
+                let mut unit_ids = Vec::new();
+                let mut local_nonces = Vec::new();
+                let mut result_hashes = Vec::new();
+                for batch in proof_batches.into_iter() {
+                    for proof in batch.proof_batches.into_iter() {
+                        unit_ids.push(proof.cu_id);
+                        local_nonces.push(proof.local_nonce);
+                        result_hashes.push(proof.result_hash);
+                        self.proof_tracker
+                            .observe_proof(proof.cu_id, proof.id.idx)
+                            .await;
+                    }
                 }
-            }
 
-            self.submit_proofs(unit_ids, local_nonces, result_hashes)
-                .await?;
+                self.submit_proofs(unit_ids, local_nonces, result_hashes)
+                    .await?;
+            }
         }
         Ok(())
     }
