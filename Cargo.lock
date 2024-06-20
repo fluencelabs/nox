@@ -1259,8 +1259,8 @@ dependencies = [
 
 [[package]]
 name = "ccp-rpc-client"
-version = "0.10.2"
-source = "git+https://github.com/fluencelabs/capacity-commitment-prover.git?branch=feat/VM-613-batching-api#8ac4d92d3f18f6e1de56eb4e6f2030bbcb339306"
+version = "0.11.0"
+source = "git+https://github.com/fluencelabs/capacity-commitment-prover.git?branch=feat/VM-613-batching-api#eb4648bb580e90687ff8c822442ba1de17cd35b3"
 dependencies = [
  "ccp-shared",
  "hex",
@@ -1270,13 +1270,14 @@ dependencies = [
 
 [[package]]
 name = "ccp-shared"
-version = "0.10.2"
-source = "git+https://github.com/fluencelabs/capacity-commitment-prover.git?branch=feat/VM-613-batching-api#8ac4d92d3f18f6e1de56eb4e6f2030bbcb339306"
+version = "0.11.0"
+source = "git+https://github.com/fluencelabs/capacity-commitment-prover.git?branch=feat/VM-613-batching-api#eb4648bb580e90687ff8c822442ba1de17cd35b3"
 dependencies = [
  "hex",
  "newtype_derive",
  "rand 0.8.5",
  "serde",
+ "serde_with 3.8.1",
 ]
 
 [[package]]
@@ -1398,7 +1399,7 @@ dependencies = [
  "peer-metrics",
  "serde",
  "serde_json",
- "serde_with 3.7.0",
+ "serde_with 3.8.1",
  "server-config",
  "thiserror",
  "tokio",
@@ -1683,7 +1684,7 @@ dependencies = [
  "rand 0.8.5",
  "range-set-blaze",
  "serde",
- "serde_with 3.7.0",
+ "serde_with 3.8.1",
  "tempfile",
  "thiserror",
  "tokio",
@@ -1728,8 +1729,8 @@ dependencies = [
 
 [[package]]
 name = "cpu-utils"
-version = "0.10.2"
-source = "git+https://github.com/fluencelabs/capacity-commitment-prover.git?branch=feat/VM-613-batching-api#8ac4d92d3f18f6e1de56eb4e6f2030bbcb339306"
+version = "0.11.0"
+source = "git+https://github.com/fluencelabs/capacity-commitment-prover.git?branch=feat/VM-613-batching-api#eb4648bb580e90687ff8c822442ba1de17cd35b3"
 dependencies = [
  "ccp-shared",
  "ccp_core_affinity",
@@ -3150,7 +3151,7 @@ name = "hex-utils"
 version = "0.1.0"
 dependencies = [
  "hex",
- "serde_with 3.7.0",
+ "serde_with 3.8.1",
 ]
 
 [[package]]
@@ -7711,11 +7712,11 @@ dependencies = [
 
 [[package]]
 name = "serde_with"
-version = "3.7.0"
+version = "3.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ee80b0e361bbf88fd2f6e242ccd19cfda072cb0faa6ae694ecee08199938569a"
+checksum = "0ad483d2ab0149d5a5ebcd9972a3852711e0153d863bf5a5d0391d28883c4a20"
 dependencies = [
- "base64 0.21.7",
+ "base64 0.22.1",
  "chrono",
  "hex",
  "indexmap 1.9.3",
@@ -7723,7 +7724,7 @@ dependencies = [
  "serde",
  "serde_derive",
  "serde_json",
- "serde_with_macros 3.7.0",
+ "serde_with_macros 3.8.1",
  "time",
 ]
 
@@ -7741,9 +7742,9 @@ dependencies = [
 
 [[package]]
 name = "serde_with_macros"
-version = "3.7.0"
+version = "3.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6561dc161a9224638a31d876ccdfefbc1df91d3f3a8342eddb35f055d48c7655"
+checksum = "65569b702f41443e8bc8bbb1c5779bd0450bbe723b56198980e80ec45780bce2"
 dependencies = [
  "darling",
  "proc-macro2",
@@ -7784,7 +7785,7 @@ dependencies = [
  "rand 0.8.5",
  "serde",
  "serde_json",
- "serde_with 3.7.0",
+ "serde_with 3.8.1",
  "temp-env",
  "tempfile",
  "toml 0.8.13",
