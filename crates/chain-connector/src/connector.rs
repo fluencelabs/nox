@@ -607,10 +607,13 @@ impl ChainConnector for HttpChainConnector {
         batch.insert("eth_getBlockByNumber", rpc_params!["latest", false])?;
 
         let resp: BatchResponse<Value> = self.client.batch_request(batch).await?;
+        tracing::debug!(target: "chain-connector", "Got cc init params response: {resp:?}");
+
         let mut results = resp
             .into_ok()
             .map_err(|err| eyre!("Some request failed in a batch {err:?}"))?;
 
+        // TODO: check with 0x and write test
         let difficulty: FixedBytes<32> =
             FixedBytes::from_str(&parse_str_field(results.next(), "difficulty")?)?;
 
