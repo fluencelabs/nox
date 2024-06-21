@@ -473,20 +473,20 @@ impl HttpChainConnector {
             gas_limit: Uint256::from_le_bytes(&gas_limit.to_le_bytes_vec()),
             to: to.parse()?,
             value: 0u32.into(),
-            data,
+            data: data.clone(),
             signature: None, // Not signed. Yet.
             max_fee_per_gas: Uint256::from_le_bytes(&max_fee_per_gas.to_le_bytes_vec()),
             access_list: vec![],
         };
 
-        let tx = tx
+        let signed_tx = tx
             .sign(&self.config.wallet_key, Some(self.config.network_id))
             .to_bytes();
-        let signed_tx = hex::encode(tx);
+        let signed_tx = hex::encode(signed_tx);
 
         tracing::info!(target: "chain-connector",
-            "Sending tx to {to} from {} data {tx}",
-            self.config.wallet_key.to_address()
+            "Sending tx to {to} from {} data {}",
+            self.config.wallet_key.to_address(), hex::encode(&data)
         );
 
         let resp: String = process_response(
