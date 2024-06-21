@@ -124,4 +124,4 @@ Contributor License Agreement can be found
 ## License
 
 All software code is copyright (c) Fluence Labs, Inc. under the
-[Apache-2.0](https://github.com/fluencelabs/nox/tree/master/LICENSE) license.
+[AGPL v3](https://github.com/fluencelabs/nox/tree/master/LICENSE) license.

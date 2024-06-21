@@ -41,4 +41,4 @@ License Agreement can be found [here](./FluenceCLA).
 ## License
 
 All software code is copyright (c) Fluence Labs, Inc. under the
-[Apache-2.0](./LICENSE) license.
+[AGPL v3](./LICENSE) license.
