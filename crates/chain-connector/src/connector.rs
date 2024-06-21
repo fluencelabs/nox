@@ -309,7 +309,7 @@ impl HttpChainConnector {
 
     pub(crate) async fn get_deals(&self) -> eyre::Result<Vec<DealResult>> {
         let units = self.get_compute_units().await?;
-        tracing::debug!(target: "chain-connector", "Got {} compute units", units.len());
+        tracing::debug!(target: "chain-connector", "get_deals: Got {} compute units", units.len());
         let mut deals: BTreeMap<DealId, Vec<Vec<u8>>> = BTreeMap::new();
 
         units
@@ -325,9 +325,9 @@ impl HttpChainConnector {
         if deals.is_empty() {
             return Ok(Vec::new());
         }
-        tracing::debug!(target: "chain-connector", "Got {} deals: {:?}", deals.len(), deals);
+        tracing::debug!(target: "chain-connector", "get_deals: Got {} deals: {:?}", deals.len(), deals);
         let infos = self.get_deal_infos(deals.keys()).await?;
-        tracing::debug!(target: "chain-connector", "Got {} deals infos: {:?}", infos.len(), infos);
+        tracing::debug!(target: "chain-connector", "get_deals: Got {} deals infos: {:?}", infos.len(), infos);
         let deals = infos
             .into_iter()
             .zip(deals)
@@ -343,7 +343,7 @@ impl HttpChainConnector {
                 Err(err) => DealResult::with_error(deal_id, err.to_string()),
             })
             .collect::<_>();
-        tracing::debug!(target: "chain-connector", "Return deals: {:?}", deals);
+        tracing::debug!(target: "chain-connector", "get_deals: Return deals: {:?}", deals);
         Ok(deals)
     }
 

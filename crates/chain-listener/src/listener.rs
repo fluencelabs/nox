@@ -1150,6 +1150,8 @@ impl ChainListener {
 
                 self.submit_proofs(unit_ids, local_nonces, result_hashes)
                     .await?;
+            } else {
+                tracing::debug!(target: "chain-listener", "No proofs found from polling");
             }
         }
         Ok(())
