@@ -1198,7 +1198,7 @@ impl ChainListener {
                             Ok(())
                         } else {
                             // TODO: catch more contract asserts like "Proof is not valid" and "Proof is bigger than difficulty"
-                            tracing::error!(target: "chain-listener", "Failed to submit proofs {err}");
+                            tracing::error!(target: "chain-listener", "Failed to submit proofs {}", err.to_string().replace("\n", " "));
                             tracing::error!(target: "chain-listener", "Units {:?} nonces {:?} result hashes {:?}", unit_ids, local_nonces, result_hashes);
                             // In case of contract errors we just skip these proofs and continue
                             Ok(())
