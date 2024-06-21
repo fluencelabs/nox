@@ -482,16 +482,19 @@ impl HttpChainConnector {
         let tx = tx
             .sign(&self.config.wallet_key, Some(self.config.network_id))
             .to_bytes();
-        let tx = hex::encode(tx);
+        let signed_tx = hex::encode(tx);
 
         tracing::info!(target: "chain-connector",
-            "Sending tx to {to} from {} signed {tx}",
+            "Sending tx to {to} from {} data {tx}",
             self.config.wallet_key.to_address()
         );
 
         let resp: String = process_response(
             self.client
-                .request("eth_sendRawTransaction", rpc_params![format!("0x{}", tx)])
+                .request(
+                    "eth_sendRawTransaction",
+                    rpc_params![format!("0x{}", signed_tx)],
+                )
                 .await,
         )?;
         Ok(resp)
