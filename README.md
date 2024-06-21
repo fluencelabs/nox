@@ -36,7 +36,7 @@ issue ASAP.
 
 Any interested person is welcome to contribute to the project. Please, make sure
 you read and follow some basic [rules](./CONTRIBUTING.md). The Contributor
-License Agreement can be found [here](./FluenceCLA).
+License Agreement can be found [here](./FluenceCLA.md).
 
 ## License
 
