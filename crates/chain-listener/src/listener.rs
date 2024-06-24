@@ -1355,7 +1355,7 @@ impl ChainListener {
 
     /// Returns true if global nonce was updated
     async fn set_global_nonce(&mut self, global_nonce: GlobalNonce) -> bool {
-        self.global_nonce = self.global_nonce;
+        self.global_nonce = global_nonce;
         self.proof_tracker.set_global_nonce(global_nonce).await
     }
 
