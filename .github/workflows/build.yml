@@ -40,13 +40,12 @@ jobs:
           repository: fluencelabs/nox
           ref: ${{ inputs.ref }}
 
-      - name: Set Githib Token to pull from Fluence private repo
+      - name: Setup Git
+        # Fix our git override using the generated token from the create_token step + use the "x-access-token".
         run: |
-          git config --global credential.helper store
-          echo "https://git:${{ secrets.FLUENCEBOT_PRIV_KEY }}@github.com" > ~/.git-credentials
-          git config --global url."https://${{ secrets.FLUENCEBOT_PRIV_KEY }}@github.com".insteadOf ssh://git@github.com  
+          git config --global url."https://x-access-token:${{ secrets.FLUENCEBOT_RELEASE_PLEASE_PAT }}@github.com".insteadOf ssh://git@github.com
 
-
+  
       - name: Get PR labels
         id: labels
         uses: joerick/pr-labels-action@v1.0.9
