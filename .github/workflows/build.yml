@@ -43,8 +43,8 @@ jobs:
       - name: Set Githib Token to pull from Fluence private repo
         run: |
           git config --global credential.helper store
-          echo "https://git:${{ secrets.FLUENCEBOT_RELEASE_PLEASE_PAT }}@github.com" > ~/.git-credentials
-          git config --global url."https://git:${{ secrets.FLUENCEBOT_RELEASE_PLEASE_PAT }}@github.com".insteadOf ssh://git@github.com
+          echo "https://git:${{ secrets.FLUENCEBOT_PRIV_KEY }}@github.com" > ~/.git-credentials
+          git config --global url."https://${{ secrets.FLUENCEBOT_PRIV_KEY }}@github.com".insteadOf ssh://git@github.com  
 
 
       - name: Get PR labels
