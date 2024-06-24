@@ -1260,7 +1260,7 @@ dependencies = [
 [[package]]
 name = "ccp-rpc-client"
 version = "0.11.0"
-source = "git+https://github.com/fluencelabs/capacity-commitment-prover.git?branch=feat/VM-613-batching-api#eb4648bb580e90687ff8c822442ba1de17cd35b3"
+source = "git+ssh://git@github.com/fluencelabs/capacity-commitment-prover.git?branch=feat/VM-613-batching-api#eb4648bb580e90687ff8c822442ba1de17cd35b3"
 dependencies = [
  "ccp-shared",
  "hex",
@@ -1271,7 +1271,7 @@ dependencies = [
 [[package]]
 name = "ccp-shared"
 version = "0.11.0"
-source = "git+https://github.com/fluencelabs/capacity-commitment-prover.git?branch=feat/VM-613-batching-api#eb4648bb580e90687ff8c822442ba1de17cd35b3"
+source = "git+ssh://git@github.com/fluencelabs/capacity-commitment-prover.git?branch=feat/VM-613-batching-api#eb4648bb580e90687ff8c822442ba1de17cd35b3"
 dependencies = [
  "hex",
  "newtype_derive",
@@ -1731,7 +1731,7 @@ dependencies = [
 [[package]]
 name = "cpu-utils"
 version = "0.11.0"
-source = "git+https://github.com/fluencelabs/capacity-commitment-prover.git?branch=feat/VM-613-batching-api#eb4648bb580e90687ff8c822442ba1de17cd35b3"
+source = "git+ssh://git@github.com/fluencelabs/capacity-commitment-prover.git?branch=feat/VM-613-batching-api#eb4648bb580e90687ff8c822442ba1de17cd35b3"
 dependencies = [
  "ccp-shared",
  "ccp_core_affinity",
