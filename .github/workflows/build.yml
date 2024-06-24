@@ -11,6 +11,10 @@ on:
         description: "Cargo dependencies map"
         type: string
         default: "null"
+    secrets:
+      github_priv_key:
+        description: "github private key"
+        required: true
 
 jobs:
   build:
@@ -42,9 +46,8 @@ jobs:
 
       - uses: webfactory/ssh-agent@v0.9.0
         with:
-          ssh-private-key: ${{ secrets.FLUENCEBOT_PRIVATE_KEY }}
+          ssh-private-key: ${{ secrets.github_priv_key }}
 
-  
       - name: Get PR labels
         id: labels
         uses: joerick/pr-labels-action@v1.0.9
