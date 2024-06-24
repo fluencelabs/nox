@@ -49,7 +49,7 @@ sol! {
         function getStatus(bytes32 commitmentId) external view returns (CCStatus);
 
        /// @dev Submits a proof for the commitment
-       /// @param unitId Compute unit id which provied the proof
+       /// @param unitId Compute unit id which provided the proof
        /// @param localUnitNonce The local nonce of the unit for calculating the target hash. It's the proof
        /// @param resultHash The target hash of this proof
         function submitProof(bytes32 unitId, bytes32 localUnitNonce, bytes32 resultHash) external;

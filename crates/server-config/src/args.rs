@@ -289,7 +289,7 @@ pub(crate) struct DerivedArgs {
         short('z'),
         long("external-maddrs"),
         id = "EXTERNAL_MULTIADDRS",
-        help = "external multiaddresses to advertize",
+        help = "external multiaddresses to advertise",
         value_name = "MULTIADDR",
         help_heading = "Networking",
         display_order = 5,

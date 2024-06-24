@@ -75,7 +75,7 @@ impl TimestampSeries {
 /// All stats of the observed entity (service/function).
 #[derive(Default, Debug, Clone, Serialize)]
 pub struct Stats {
-    /// Count of sucessful requests to the entity
+    /// Count of successful requests to the entity
     pub success_req_count: u64,
     /// Count of failed requests
     pub failed_req_count: u64,
