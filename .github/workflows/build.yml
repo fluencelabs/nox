@@ -40,10 +40,9 @@ jobs:
           repository: fluencelabs/nox
           ref: ${{ inputs.ref }}
 
-      - name: Setup Git
-        # Fix our git override using the generated token from the create_token step + use the "x-access-token".
-        run: |
-          git config --global url."https://x-access-token:${{ secrets.FLUENCEBOT_RELEASE_PLEASE_PAT }}@github.com".insteadOf ssh://git@github.com
+      - uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.FLUENCEBOT_PRIVATE_KEY }}
 
   
       - name: Get PR labels
