@@ -44,9 +44,9 @@ jobs:
           repository: fluencelabs/nox
           ref: ${{ inputs.ref }}
 
-      - uses: webfactory/ssh-agent@v0.9.0
-        with:
-          ssh-private-key: ${{ secrets.github_priv_key }}
+      - name: Setup Git
+        run: |
+          git config --global url."https://x-access-token:${{ secrets.github_priv_key }}@github.com".insteadOf ssh://git@github.com
 
       - name: Get PR labels
         id: labels
