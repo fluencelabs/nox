@@ -40,6 +40,11 @@ jobs:
           repository: fluencelabs/nox
           ref: ${{ inputs.ref }}
 
+      - name: Set Githib Token to pull from Fluence private repo
+        run: |
+          git config --global url."https://${{ secrets.FLUENCEBOT_RELEASE_PLEASE_PAT }}@github.com".insteadOf ssh://git@github.com
+
+
       - name: Get PR labels
         id: labels
         uses: joerick/pr-labels-action@v1.0.9

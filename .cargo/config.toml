@@ -1,5 +1,6 @@
 [net]
 retry = 50
+git-fetch-with-cli = true
 
 [registries]
 fluence = { index = "git://crates.fluence.dev/index" }
