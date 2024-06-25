@@ -7,8 +7,7 @@ been signed by each Contributor, indicating agreement to the license
 terms below. This license is for your protection as a Contributor as
 well as the protection of Fluence Labs and its users; it does not
 change your rights to use your own Contributions for any other purpose.
-This contribution license is based on the Apache Contribution License
-for individuals.
+This contribution license is based on the GNU Affero General Public License version 3.
 
 Please read this document carefully before signing and keep a copy
 for your records.
