@@ -40,5 +40,5 @@ License Agreement can be found [here](./FluenceCLA.md).
 
 ## License
 
-All software code is copyright (c) Fluence Labs, Inc. under the
+All software code is copyright (c) Fluence DAO under the
 [AGPL v3](./LICENSE) license.
