@@ -1,7 +1,7 @@
 [package]
 name = "server-config"
 version = "0.2.0"
-authors = ["Fluence DAO", "Cloudless Labs"]
+authors = ["Fluence Labs"]
 edition = "2021"
 
 [dependencies]
