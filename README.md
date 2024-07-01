@@ -36,9 +36,9 @@ issue ASAP.
 
 Any interested person is welcome to contribute to the project. Please, make sure
 you read and follow some basic [rules](./CONTRIBUTING.md). The Contributor
-License Agreement can be found [here](./FluenceCLA).
+License Agreement can be found [here](./FluenceCLA.md).
 
 ## License
 
-All software code is copyright (c) Fluence Labs, Inc. under the
-[Apache-2.0](./LICENSE) license.
+All software code is copyright (c) Fluence DAO under the
+[AGPL v3](./LICENSE) license.
