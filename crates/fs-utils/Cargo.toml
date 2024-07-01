@@ -1,6 +1,6 @@
 [package]
 name = "fs-utils"
-authors = ["Fluence Labs"]
+authors = ["Fluence DAO", "Cloudless Labs"]
 version = "0.1.0"
 edition = "2021"
 

@@ -77,7 +77,7 @@ This is a native IPFS integration with
 orchestrate IPFS file transfer with Aqua scripts.
 
 By default connects to an IPFS daemon hosted by
-[Fluence Labs](https://fluence.network).
+[Cloudless Labs](https://cloudless.dev).
 
 In case you want to use a separately running IPFS daemon, you need to configure
 aqua-ipfs:
@@ -123,5 +123,5 @@ Contributor License Agreement can be found
 
 ## License
 
-All software code is copyright (c) Fluence Labs, Inc. under the
-[Apache-2.0](https://github.com/fluencelabs/nox/tree/master/LICENSE) license.
+All software code is copyright (c) Fluence DAO under the
+[AGPL v3](https://github.com/fluencelabs/nox/tree/master/LICENSE) license.

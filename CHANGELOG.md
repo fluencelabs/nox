@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.25.0](https://github.com/fluencelabs/nox/compare/nox-v0.24.0...nox-v0.25.0) (2024-06-05)
+
+
+### ⚠ BREAKING CHANGES
+
+* **network:** Network isolation [fixes NET-818] ([#2245](https://github.com/fluencelabs/nox/issues/2245))
+
+### Features
+
+* **connector:** add get_deals builtin ([#2180](https://github.com/fluencelabs/nox/issues/2180)) ([b6e15d5](https://github.com/fluencelabs/nox/commit/b6e15d51c087883105fb88d519f86bae6efe7a5a))
+* **core-distributor:** core-manager refactoring [fixes NET-820] ([#2265](https://github.com/fluencelabs/nox/issues/2265)) ([58ea53d](https://github.com/fluencelabs/nox/commit/58ea53dc175798041704badee88141d5b2c19d6f))
+* **network:** Network isolation [fixes NET-818] ([#2245](https://github.com/fluencelabs/nox/issues/2245)) ([f5eb980](https://github.com/fluencelabs/nox/commit/f5eb9808364ba0343292f5a46d82dbe9df05655b))
+
+
+### Bug Fixes
+
+* **config:** network case ([#2278](https://github.com/fluencelabs/nox/issues/2278)) ([c52b74e](https://github.com/fluencelabs/nox/commit/c52b74ef529cbc56dd25b55121401b85edef9b1e))
+* **listener:** listener fixes ([#2249](https://github.com/fluencelabs/nox/issues/2249)) ([b69f1cb](https://github.com/fluencelabs/nox/commit/b69f1cbe93dc826e4780f759b2bcd0c37b5697c2))
+* **system-services:** Update to the new decider ([#2253](https://github.com/fluencelabs/nox/issues/2253)) ([d8be027](https://github.com/fluencelabs/nox/commit/d8be027f726966796f4a6e0275f00379fe4c8279))
+
 ## [0.24.0](https://github.com/fluencelabs/nox/compare/nox-v0.23.6...nox-v0.24.0) (2024-05-27)
 
 
