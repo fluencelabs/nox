@@ -2381,7 +2381,7 @@ async fn subnet_resolve() {
         "#;
 
     // Create a mock
-    let mut server = mockito::Server::new();
+    let mut server = mockito::Server::new_async().await;
     let url = server.url();
     let mock = server
         .mock("POST", "/")
