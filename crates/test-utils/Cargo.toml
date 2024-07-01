@@ -1,7 +1,7 @@
 [package]
 name = "test-utils"
 version = "0.3.0"
-authors = ["Fluence Labs"]
+authors = ["Fluence DAO", "Cloudless Labs"]
 edition = "2021"
 
 [dependencies]
