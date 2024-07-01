@@ -179,7 +179,7 @@ async fn test_resolve_subnet_on_worker() {
 
     let expected = {
         let error = Value::Array(vec![Value::String(
-            "error sending jsonrpc request: 'Request rejected `429`'".to_string(),
+            "error sending jsonrpc request: 'Networking or low-level protocol error: Server returned an error status code: 429'".to_string(),
         )]);
         let mut object_map = serde_json::Map::new();
         object_map.insert("error".to_string(), error);

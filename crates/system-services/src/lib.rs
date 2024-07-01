@@ -18,7 +18,6 @@
  */
 
 #![feature(try_blocks)]
-#![feature(result_option_inspect)]
 
 mod deployer;
 mod distro;

@@ -649,7 +649,7 @@ pub struct ChainListenerConfig {
     /// How often to poll proofs
     #[serde(default = "default_proof_poll_period")]
     #[serde(with = "humantime_serde")]
-    pub proof_poll_period: Duration,
+    pub proof_poll_period: Duration, // TODO: must be >0
 }
 
 /// Name of the effector module

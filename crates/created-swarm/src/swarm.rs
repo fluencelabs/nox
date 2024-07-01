@@ -21,6 +21,8 @@ use std::collections::HashMap;
 use std::convert::identity;
 use std::future::Future;
 use std::net::SocketAddr;
+use std::ops::Deref;
+use std::str::FromStr;
 use std::sync::Arc;
 use std::thread::available_parallelism;
 use std::{path::PathBuf, time::Duration};
@@ -38,17 +40,18 @@ use aquamarine::{AquaRuntime, DataStoreConfig};
 use base64::{engine::general_purpose::STANDARD as base64, Engine};
 use cid_utils::Hash;
 use core_distributor::{AcquireStrategy, CoreRange, PersistenceTask, PersistentCoreDistributor};
-use cpu_utils::HwlocCPUTopology;
+use cpu_utils::{CPUTopology, HwlocCPUTopology, LogicalCoreId, MockCPUTopology, PhysicalCoreId};
 use fluence_libp2p::random_multiaddr::{create_memory_maddr, create_tcp_maddr};
 use fluence_libp2p::Transport;
 use fs_utils::to_abs_path;
 use futures::stream::iter;
+use nonempty::{nonempty, NonEmpty};
 use nox::{Connectivity, Node};
 use particle_protocol::ProtocolConfig;
 use rand::RngCore;
 use server_config::{
-    persistent_dir, system_services_config, BootstrapConfig, ChainConfig, Network, ResolvedConfig,
-    UnresolvedConfig,
+    persistent_dir, system_services_config, BootstrapConfig, ChainConfig, ChainListenerConfig,
+    Network, ResolvedConfig, UnresolvedConfig,
 };
 use tempfile::TempDir;
 use test_constants::{EXECUTION_TIMEOUT, IDLE_CONNECTION_TIMEOUT, TRANSPORT_TIMEOUT};
@@ -85,7 +88,7 @@ pub struct CreatedSwarm {
     pub connectivity: Connectivity,
     #[derivative(Debug = "ignore")]
     pub aquamarine_api: AquamarineApi,
-    http_listen_addr: SocketAddr,
+    pub http_listen_addr: SocketAddr,
     pub network_key: NetworkKey,
 }
 
@@ -315,8 +318,11 @@ pub struct SwarmConfig {
     pub http_port: u16,
     pub connector_api_endpoint: Option<String>,
     pub chain_config: Option<ChainConfig>,
+    pub chain_listener_config: Option<ChainListenerConfig>,
     pub cc_events_dir: Option<PathBuf>,
     pub network_key: NetworkKey,
+    pub mocked_topology_count: Option<u32>,
+    pub metrics_enabled: bool,
 }
 
 impl SwarmConfig {
@@ -346,8 +352,11 @@ impl SwarmConfig {
             http_port: 0,
             connector_api_endpoint: None,
             chain_config: None,
+            chain_listener_config: None,
             cc_events_dir: None,
             network_key,
+            mocked_topology_count: Some(128),
+            metrics_enabled: false,
         }
     }
 }
@@ -469,6 +478,8 @@ pub async fn create_swarm_with_runtime<RT: AquaRuntime>(
             .to_peer_id();
         resolved.node_config.management_peer_id = management_peer_id;
         resolved.chain_config = config.chain_config.clone();
+        resolved.chain_listener_config = config.chain_listener_config.clone();
+        resolved.metrics_config.metrics_enabled = config.metrics_enabled;
 
         let vm_config = vm_config(BaseVmConfig {
             peer_id,
@@ -485,14 +496,32 @@ pub async fn create_swarm_with_runtime<RT: AquaRuntime>(
                 .expect("Failed to get default system service distros")
                 .extend(config.extend_system_services.clone());
 
-        let cpu_topology = HwlocCPUTopology::new().expect("Failed to get cpu topology");
+        let (cpu_topology, core_range): (Box<dyn CPUTopology>, CoreRange) = if let Some(mocked_topology_count) = config.mocked_topology_count{
+            let core_range = CoreRange::from_str(format!("0-{}", mocked_topology_count-1).as_str()).expect("Wrong core range");
+            let mut topology = MockCPUTopology::new();
+            topology.expect_physical_cores().returning(move || {
+                let mut physical_cores: Vec<PhysicalCoreId> = Vec::with_capacity(mocked_topology_count as usize);
+                for id in 0..mocked_topology_count{
+                    physical_cores.push(id.into());
+                }
+                let physical_cores = NonEmpty::from_vec(physical_cores).unwrap();
+                Ok(physical_cores)
+            });
+            topology.expect_logical_cores_for_physical().returning(|physical_core|{
+                Ok(nonempty![LogicalCoreId::new(physical_core.into())])
+            });
+            (Box::new(topology),core_range)
+        } else{
+            (Box::new(HwlocCPUTopology::new().expect("Failed to get cpu topology")), CoreRange::default())
+        };
+
 
         let (core_distributor, task) = PersistentCoreDistributor::from_path(
             tmp_dir.join("test-core-state.toml"),
             1,
-            CoreRange::default(),
-            AcquireStrategy::RoundRobin,
-            &cpu_topology
+            core_range,
+            AcquireStrategy::Strict,
+            cpu_topology.deref()
         ).expect("Failed to create core distributor");
 
         let thread_pinner = Arc::new(test_utils::pinning::DUMMY);

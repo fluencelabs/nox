@@ -21,10 +21,14 @@
 #![feature(try_blocks)]
 #![feature(extract_if)]
 #![feature(btree_extract_if)]
-#![feature(result_option_inspect)]
 
 extern crate core;
 
+pub use event::cc_activated::CommitmentActivated;
+pub use event::compute_unit_matched::CIDV1;
+pub use event::ComputeUnitMatched;
+pub use event::UnitActivated;
+pub use event::UnitDeactivated;
 pub use listener::ChainListener;
 
 mod event;
