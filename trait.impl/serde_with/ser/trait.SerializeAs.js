@@ -1,0 +1,3 @@
+(function() {var implementors = {
+"hex_utils":[["impl&lt;T&gt; <a class=\"trait\" href=\"https://docs.rs/serde_with/3.7.0/serde_with/ser/trait.SerializeAs.html\" title=\"trait serde_with::ser::SerializeAs\">SerializeAs</a>&lt;T&gt; for <a class=\"struct\" href=\"hex_utils/serde_as/struct.Hex.html\" title=\"struct hex_utils::serde_as::Hex\">Hex</a><span class=\"where fmt-newline\">where\n    T: <a class=\"trait\" href=\"https://docs.rs/hex/0.4.3/hex/trait.ToHex.html\" title=\"trait hex::ToHex\">ToHex</a>,</span>"]]
+};if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

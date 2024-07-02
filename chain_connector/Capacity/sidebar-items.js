@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["CapacityCalls","CapacityErrors"],"struct":["CapacityCommitmentIsNotActive","TooManyProofs","getGlobalNonceCall","getGlobalNonceReturn","getStatusCall","getStatusReturn","submitProofCall","submitProofReturn"]};

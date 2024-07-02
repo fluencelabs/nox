@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["air_interpreter_path","write_default_air_interpreter"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["PROTOCOL_NAME"],"enum":["CompletionChannel","HandlerMessage","ParticleError","ProtocolMessage","SendStatus"],"struct":["Contact","ExtendedParticle","Particle","ProtocolConfig"]};
