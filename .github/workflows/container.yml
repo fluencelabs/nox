@@ -100,7 +100,7 @@ jobs:
           # github allows only 10GB of cache
           # so save cache only on merge to master
           # to use less space and speed up CI
-          cache-to: ${{ github.event == 'push' && 'type=gha,mode=max' || '' }}
+          cache-to: ${{ github.event_name == 'push' && 'type=gha,mode=max' || '' }}
 
       - name: Print results to check summary
         if: always()
