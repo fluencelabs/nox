@@ -23,7 +23,7 @@ env:
 jobs:
   tests:
     name: "cargo nextest"
-    runs-on: builder
+    runs-on: linux-amd64-c-2xlarge
     timeout-minutes: 60
 
     steps:

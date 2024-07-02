@@ -45,7 +45,7 @@ jobs:
 
   bump-version:
     if: needs.release-please.outputs.pr != null
-    runs-on: builder
+    runs-on: linux-amd64-c-2xlarge
     needs:
       - release-please
 
