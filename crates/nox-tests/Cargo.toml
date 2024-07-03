@@ -33,7 +33,7 @@ chain-listener = { workspace = true }
 ccp-rpc-client = {workspace = true}
 reqwest = { workspace = true }
 prometheus-parse = "0.2.5"
-alloy-consensus = "0.1.2"
+alloy-rlp = "0.3.7"
 
 log-utils = { workspace = true }
 fluence-spell-dtos = { workspace = true }

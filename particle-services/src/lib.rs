@@ -19,6 +19,7 @@
 
 #![feature(try_blocks)]
 #![feature(hash_extract_if)]
+#![feature(result_option_inspect)]
 #![warn(rust_2018_idioms)]
 #![deny(
     dead_code,

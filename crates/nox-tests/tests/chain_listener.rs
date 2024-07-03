@@ -24,12 +24,10 @@ use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
 
-use alloy_consensus::{Transaction, TxEnvelope};
-use alloy_primitives::private::alloy_rlp::Decodable;
+use alloy_primitives::fixed_bytes;
 use alloy_primitives::Address;
 use alloy_primitives::FixedBytes;
 use alloy_primitives::U256;
-use alloy_primitives::{fixed_bytes, TxKind};
 use alloy_sol_types::sol_data::Array;
 use alloy_sol_types::SolInterface;
 use alloy_sol_types::SolType;
@@ -44,7 +42,7 @@ use ccp_shared::types::GlobalNonce;
 use ccp_shared::types::LogicalCoreId;
 use ccp_shared::types::PhysicalCoreId;
 use ccp_shared::types::CUID;
-use clarity::PrivateKey;
+use clarity::{PrivateKey, Transaction};
 use eyre::{eyre, OptionExt};
 use futures::StreamExt;
 use hex::FromHex;
@@ -139,27 +137,18 @@ impl ChainServer {
             let transaction = hex::decode(&sub[2..sub.len()])
                 .map_err(|_| ErrorObject::owned(500, "", None::<String>))?;
 
-            let transaction = TxEnvelope::decode(&mut transaction.as_slice())
+            let transaction = Transaction::decode_from_rlp(&mut transaction.as_slice())
                 .map_err(|_| ErrorObject::owned(500, "", None::<String>))?;
 
-            let transaction =
-                transaction
-                    .as_eip1559()
-                    .ok_or(ErrorObject::owned(500, "", None::<String>))?;
-
-            let transaction = transaction.tx();
-
-            let to = transaction.to;
-            match to {
-                TxKind::Create => {
-                    todo!()
-                }
-                TxKind::Call(to) => {
+            match transaction {
+                Transaction::Legacy { .. } => {}
+                Transaction::Eip2930 { .. } => {}
+                Transaction::Eip1559 { to, data, .. } => {
                     let to = to.to_string();
                     if to == inner_market_contract_address {
-                        let data = transaction.input();
-                        let call = Offer::returnComputeUnitFromDealCall::abi_decode(data, true)
-                            .map_err(|_| ErrorObject::owned(500, "", None::<String>))?;
+                        let call =
+                            Offer::returnComputeUnitFromDealCall::abi_decode(data.as_slice(), true)
+                                .map_err(|_| ErrorObject::owned(500, "", None::<String>))?;
 
                         let state = ctx.chain_state.lock();
                         let unit_state = state
@@ -210,7 +199,6 @@ impl ChainServer {
                     }
                 }
             }
-
             Ok::<String, ErrorObject>("done".to_string())
         })?;
 
