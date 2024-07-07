@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.25.1](https://github.com/fluencelabs/nox/compare/nox-v0.25.0...nox-v0.25.1) (2024-07-07)
+
+
+### Features
+
+* track nonce ([#2306](https://github.com/fluencelabs/nox/issues/2306)) ([0215d57](https://github.com/fluencelabs/nox/commit/0215d577f460a57ff76fa9cab3d58b99e2beb420))
+
 ## [0.25.0](https://github.com/fluencelabs/nox/compare/nox-v0.24.0...nox-v0.25.0) (2024-06-05)
 
 
