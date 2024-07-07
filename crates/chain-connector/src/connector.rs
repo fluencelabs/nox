@@ -1,20 +1,17 @@
 /*
- * Nox Fluence Peer
+ * Copyright 2024 Fluence DAO
  *
- * Copyright (C) 2024 Fluence DAO
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as
- * published by the Free Software Foundation version 3 of the
- * License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
- *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 use alloy_primitives::hex::ToHexExt;
@@ -82,7 +79,7 @@ pub trait ChainConnector: Send + Sync {
 pub struct HttpChainConnector {
     client: Arc<jsonrpsee::http_client::HttpClient>,
     config: ChainConfig,
-    tx_nonce_mutex: Arc<Mutex<()>>,
+    tx_nonce_mutex: Arc<Mutex<Option<U256>>>,
     host_id: PeerId,
 }
 
@@ -106,7 +103,7 @@ impl HttpChainConnector {
         let connector = Arc::new(Self {
             client: Arc::new(HttpClientBuilder::default().build(&config.http_endpoint)?),
             config,
-            tx_nonce_mutex: Arc::new(Default::default()),
+            tx_nonce_mutex: Arc::new(Mutex::new(None)),
             host_id,
         });
 
@@ -458,8 +455,11 @@ impl HttpChainConnector {
         let max_fee_per_gas = base_fee + max_priority_fee_per_gas;
 
         // We use this lock no ensure that we don't send two transactions with the same nonce
-        let _lock = self.tx_nonce_mutex.lock().await;
-        let nonce = self.get_tx_nonce().await?;
+        let mut nonce_guard = self.tx_nonce_mutex.lock().await;
+        let nonce = match *nonce_guard {
+            None => self.get_tx_nonce().await?,
+            Some(n) => n,
+        };
 
         // Create a new transaction
         let tx = Transaction::Eip1559 {
@@ -487,12 +487,25 @@ impl HttpChainConnector {
             self.config.wallet_key.to_address()
         );
 
-        let resp: String = process_response(
+        let result: Result<String> = process_response(
             self.client
                 .request("eth_sendRawTransaction", rpc_params![format!("0x{}", tx)])
                 .await,
-        )?;
-        Ok(resp)
+        );
+
+        match result {
+            Ok(resp) => {
+                let new_nonce = nonce + Uint::from(1);
+                *nonce_guard = Some(new_nonce);
+                tracing::debug!(target: "chain-connector", "Incrementing nonce. New nonce {new_nonce}");
+                Ok(resp)
+            }
+            Err(err) => {
+                tracing::warn!(target: "chain-connector", "Failed to send tx: {err}, resetting nonce");
+                *nonce_guard = None;
+                Err(err)
+            }
+        }
     }
 
     pub async fn register_worker(
