@@ -3781,6 +3781,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "itertools"
+version = "0.13.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "413ee7dfc52ee1a4949ceeb7dbc8a33f2d6c088194d9f922fb8318faf1f01186"
+dependencies = [
+ "either",
+]
+
+[[package]]
 name = "itoa"
 version = "1.0.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5726,7 +5735,7 @@ version = "0.1.0"
 
 [[package]]
 name = "nox"
-version = "0.25.0"
+version = "0.25.1"
 dependencies = [
  "air-interpreter-fs",
  "air-interpreter-wasm",
@@ -5756,7 +5765,7 @@ dependencies = [
  "health",
  "hex",
  "humantime-serde",
- "itertools 0.12.1",
+ "itertools 0.13.0",
  "jsonrpsee 0.22.5",
  "kademlia",
  "libp2p",
@@ -5828,7 +5837,7 @@ dependencies = [
  "futures",
  "hex",
  "humantime-serde",
- "itertools 0.12.1",
+ "itertools 0.13.0",
  "json-utils",
  "jsonrpsee 0.22.5",
  "libp2p",
@@ -6229,7 +6238,7 @@ dependencies = [
  "futures",
  "health",
  "humantime-serde",
- "itertools 0.12.1",
+ "itertools 0.13.0",
  "kademlia",
  "libp2p",
  "libp2p-kad",
@@ -8081,7 +8090,7 @@ dependencies = [
  "fluence-app-service",
  "fluence-libp2p",
  "fluence-spell-distro",
- "itertools 0.12.1",
+ "itertools 0.13.0",
  "log",
  "parking_lot",
  "particle-modules",
@@ -8752,7 +8761,7 @@ dependencies = [
  "fluence-keypair",
  "fluence-libp2p",
  "futures",
- "itertools 0.12.1",
+ "itertools 0.13.0",
  "particle-protocol",
  "serde_json",
 ]
