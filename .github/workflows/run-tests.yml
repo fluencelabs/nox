@@ -7,6 +7,14 @@ on:
       - ".github/**"
       - "!.github/workflows/run-tests.yml"
       - "!.github/workflows/tests.yml"
+  push:
+    branches:
+      - "master"
+    paths-ignore:
+      - "**.md"
+      - ".github/**"
+      - "!.github/workflows/tests.yml"
+      - "!.github/workflows/run-tests.yml"
 
 concurrency:
   group: "${{ github.workflow }}-${{ github.ref }}"
@@ -20,7 +28,7 @@ jobs:
       test-retries: 0
 
   lints:
-    runs-on: builder
+    runs-on: linux-amd64-c-2xlarge
 
     env:
       RUSTFLAGS: "-D warnings --cfg tokio_unstable -C link-arg=-B/usr/local/bin/mold"

@@ -11,15 +11,6 @@ on:
         description: "Docker image name"
         type: string
         default: "docker.fluence.dev/nox"
-      flavour:
-        # not used, here for compatibility
-        description: "nox flavour"
-        type: string
-        default: "minimal"
-      nox-sha:
-        # not used, here for compatibility
-        description: "sha256 hash of nox binary"
-        type: string
     outputs:
       nox-image:
         description: "nox snapshot image"
@@ -28,7 +19,7 @@ on:
 jobs:
   publish:
     name: "Publish snapshot"
-    runs-on: builder
+    runs-on: ubuntu-latest
     timeout-minutes: 60
 
     outputs:
@@ -109,7 +100,7 @@ jobs:
           # github allows only 10GB of cache
           # so save cache only on merge to master
           # to use less space and speed up CI
-          cache-to: ${{ github.event == 'push' && 'type=gha,mode=max' || '' }}
+          cache-to: ${{ github.event_name == 'push' && 'type=gha,mode=max' || '' }}
 
       - name: Print results to check summary
         if: always()
