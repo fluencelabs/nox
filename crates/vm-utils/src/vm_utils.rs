@@ -1,4 +1,3 @@
-use std::os::macos::raw::stat;
 use std::path::PathBuf;
 
 use nonempty::NonEmpty;
