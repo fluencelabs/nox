@@ -1,0 +1,33 @@
+<domain type='kvm'>
+    <name>test-id</name>
+    <memory unit='KiB'>8388608</memory>
+    <vcpu placement='static'>2</vcpu>
+    <cputune>
+        <vcpupin vcpu='0' cpuset='1'/>
+        <vcpupin vcpu='1' cpuset='8'/>
+    </cputune>
+    <os>
+        <type arch='x86_64' machine='pc-i440fx-2.9'>hvm</type>
+        <boot dev='hd'/>
+    </os>
+    <devices>
+        <disk type='file' device='disk'>
+            <driver name='qemu' type='qcow2'/>
+            <source file='test-image'/>
+            <target dev='vda' bus='virtio'/>
+            <address type='pci' domain='0x0000' bus='0x00' slot='0x04' function='0x0'/>
+        </disk>
+        <interface type='network'>
+            <mac address='52:54:00:1e:af:64'/>
+            <source network='default'/>
+            <model type='virtio'/>
+            <address type='pci' domain='0x0000' bus='0x00' slot='0x03' function='0x0'/>
+        </interface>
+        <console type='pty'>
+            <target type='serial' port='0'/>
+        </console>
+        <serial type='pty'>
+            <target port='0'/>
+        </serial>
+    </devices>
+</domain>
