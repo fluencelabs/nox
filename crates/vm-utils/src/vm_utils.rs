@@ -13,7 +13,7 @@ pub struct CreateVMParams {
 }
 
 #[derive(Error, Debug)]
-pub enum CreateVMError {
+pub enum VMUtilsError {
     #[error("Failed to connect to the hypervisor")]
     FailedToConnect {
         #[source]
@@ -39,16 +39,16 @@ pub enum CreateVMError {
     FailedToGetVMId { name: String },
 }
 
-pub fn create_vm(params: CreateVMParams) -> Result<(), CreateVMError> {
+pub fn create_vm(params: CreateVMParams) -> Result<(), VMUtilsError> {
     let conn =
-        Connect::open("test:///default").map_err(|err| CreateVMError::FailedToConnect { err })?;
+        Connect::open("test:///default").map_err(|err| VMUtilsError::FailedToConnect { err })?;
     let domain = Domain::lookup_by_name(&conn, params.name.as_str()).ok();
 
     match domain {
         None => {
             let xml = prepare_xml(&params);
             Domain::define_xml(&conn, xml.as_str())
-                .map_err(|err| CreateVMError::FailedToCreateVM { err })?;
+                .map_err(|err| VMUtilsError::FailedToCreateVM { err })?;
         }
         Some(_) => {
             tracing::info!("Domain with name {} already exists", params.name);
@@ -57,33 +57,33 @@ pub fn create_vm(params: CreateVMParams) -> Result<(), CreateVMError> {
     Ok(())
 }
 
-pub fn start_vm(name: String) -> Result<u32, CreateVMError> {
+pub fn start_vm(name: String) -> Result<u32, VMUtilsError> {
     let conn =
-        Connect::open("test:///default").map_err(|err| CreateVMError::FailedToConnect { err })?;
+        Connect::open("test:///default").map_err(|err| VMUtilsError::FailedToConnect { err })?;
     let domain =
-        Domain::lookup_by_name(&conn, name.as_str()).map_err(|err| CreateVMError::VmNotFound {
+        Domain::lookup_by_name(&conn, name.as_str()).map_err(|err| VMUtilsError::VmNotFound {
             name: name.clone(),
             err,
         })?;
     domain
         .create()
-        .map_err(|err| CreateVMError::FailedToCreateVM { err })?;
+        .map_err(|err| VMUtilsError::FailedToCreateVM { err })?;
 
     let id = domain
         .get_id()
-        .ok_or(CreateVMError::FailedToGetVMId { name })?;
+        .ok_or(VMUtilsError::FailedToGetVMId { name })?;
 
     Ok(id)
 }
 
-pub fn stop_vm(name: String) -> Result<(), CreateVMError> {
+pub fn stop_vm(name: String) -> Result<(), VMUtilsError> {
     let conn =
-        Connect::open("test:///default").map_err(|err| CreateVMError::FailedToConnect { err })?;
+        Connect::open("test:///default").map_err(|err| VMUtilsError::FailedToConnect { err })?;
     let domain = Domain::lookup_by_name(&conn, name.as_str())
-        .map_err(|err| CreateVMError::VmNotFound { name, err })?;
+        .map_err(|err| VMUtilsError::VmNotFound { name, err })?;
     domain
         .shutdown()
-        .map_err(|err| CreateVMError::FailedToShutdownVM { err })?;
+        .map_err(|err| VMUtilsError::FailedToShutdownVM { err })?;
 
     Ok(())
 }
@@ -113,15 +113,15 @@ mod tests {
     use nonempty::nonempty;
     use std::fs;
 
-    fn list_defined() -> Result<Vec<String>, CreateVMError> {
+    fn list_defined() -> Result<Vec<String>, VMUtilsError> {
         let conn = Connect::open("test:///default")
-            .map_err(|err| CreateVMError::FailedToConnect { err })?;
+            .map_err(|err| VMUtilsError::FailedToConnect { err })?;
         Ok(conn.list_defined_domains().unwrap())
     }
 
-    fn list() -> Result<Vec<u32>, CreateVMError> {
+    fn list() -> Result<Vec<u32>, VMUtilsError> {
         let conn = Connect::open("test:///default")
-            .map_err(|err| CreateVMError::FailedToConnect { err })?;
+            .map_err(|err| VMUtilsError::FailedToConnect { err })?;
         Ok(conn.list_domains().unwrap())
     }
 
