@@ -110,9 +110,9 @@ fn prepare_xml(params: &CreateVMParams) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use nonempty::nonempty;
     use std::fs;
+    use nonempty::nonempty;
+    use super::*;
     const DEFAULT_URI: &str = "test:///default";
 
     fn list_defined() -> Result<Vec<String>, VMUtilsError> {
