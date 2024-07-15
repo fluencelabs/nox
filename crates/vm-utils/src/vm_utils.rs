@@ -30,8 +30,8 @@ pub enum CreateVMError {
         #[source]
         err: virt::error::Error,
     },
-    #[error("Failed to destroy VM")]
-    FailedToDestroyVM {
+    #[error("Failed to shutdown VM")]
+    FailedToShutdownVM {
         #[source]
         err: virt::error::Error,
     },
@@ -82,8 +82,8 @@ pub fn stop_vm(name: String) -> Result<(), CreateVMError> {
     let domain = Domain::lookup_by_name(&conn, name.as_str())
         .map_err(|err| CreateVMError::VmNotFound { name, err })?;
     domain
-        .destroy()
-        .map_err(|err| CreateVMError::FailedToDestroyVM { err })?;
+        .shutdown()
+        .map_err(|err| CreateVMError::FailedToShutdownVM { err })?;
 
     Ok(())
 }
@@ -163,7 +163,7 @@ mod tests {
         let mut expected_list_after_start = Vec::new();
         expected_list_after_start.push(id);
         expected_list_after_start.extend(&list_before_create);
-        
+
         expected_list_after_start.sort();
         list_after_start.sort();
 
