@@ -6,8 +6,6 @@ use virt::connect::Connect;
 use virt::domain::Domain;
 use virt::sys::VIR_DOMAIN_DEFINE_VALIDATE;
 
-const DEFAULT_URI: &str = "test:///default";
-
 #[derive(Debug)]
 pub struct CreateVMParams {
     name: String,
@@ -42,8 +40,8 @@ pub enum VMUtilsError {
     FailedToGetVMId { name: String },
 }
 
-pub fn create_vm(params: CreateVMParams) -> Result<(), VMUtilsError> {
-    let conn = Connect::open(DEFAULT_URI).map_err(|err| VMUtilsError::FailedToConnect { err })?;
+pub fn create_vm(uri: &str, params: CreateVMParams) -> Result<(), VMUtilsError> {
+    let conn = Connect::open(uri).map_err(|err| VMUtilsError::FailedToConnect { err })?;
     let domain = Domain::lookup_by_name(&conn, params.name.as_str()).ok();
 
     match domain {
@@ -60,9 +58,9 @@ pub fn create_vm(params: CreateVMParams) -> Result<(), VMUtilsError> {
     Ok(())
 }
 
-pub fn start_vm(name: String) -> Result<u32, VMUtilsError> {
+pub fn start_vm(uri: &str, name: String) -> Result<u32, VMUtilsError> {
     tracing::info!(target: "vm-utils","Starting VM with name {name}");
-    let conn = Connect::open(DEFAULT_URI).map_err(|err| VMUtilsError::FailedToConnect { err })?;
+    let conn = Connect::open(uri).map_err(|err| VMUtilsError::FailedToConnect { err })?;
     let domain =
         Domain::lookup_by_name(&conn, name.as_str()).map_err(|err| VMUtilsError::VmNotFound {
             name: name.clone(),
@@ -79,9 +77,9 @@ pub fn start_vm(name: String) -> Result<u32, VMUtilsError> {
     Ok(id)
 }
 
-pub fn stop_vm(name: String) -> Result<(), VMUtilsError> {
+pub fn stop_vm(uri: &str, name: String) -> Result<(), VMUtilsError> {
     tracing::info!(target: "vm-utils","Stopping VM with name {name}");
-    let conn = Connect::open(DEFAULT_URI).map_err(|err| VMUtilsError::FailedToConnect { err })?;
+    let conn = Connect::open(uri).map_err(|err| VMUtilsError::FailedToConnect { err })?;
     let domain = Domain::lookup_by_name(&conn, name.as_str())
         .map_err(|err| VMUtilsError::VmNotFound { name, err })?;
     domain
@@ -115,6 +113,7 @@ mod tests {
     use super::*;
     use nonempty::nonempty;
     use std::fs;
+    const DEFAULT_URI: &str = "test:///default";
 
     fn list_defined() -> Result<Vec<String>, VMUtilsError> {
         let conn =
@@ -139,7 +138,7 @@ mod tests {
     }
 
     #[test]
-    fn it_works() {
+    fn test_vm_creation() {
         log_utils::enable_logs();
 
         let image: PathBuf = "./src/alpine-virt-3.20.1-x86_64.iso".into();
@@ -149,11 +148,14 @@ mod tests {
         let list_defined_before_create = list_defined().unwrap();
         assert!(list_defined_before_create.is_empty());
 
-        create_vm(CreateVMParams {
-            name: "test-id".to_string(),
-            image: image.clone(),
-            cpus: nonempty![1],
-        })
+        create_vm(
+            DEFAULT_URI,
+            CreateVMParams {
+                name: "test-id".to_string(),
+                image: image.clone(),
+                cpus: nonempty![1],
+            },
+        )
         .unwrap();
 
         let list_after_create = list().unwrap();
@@ -161,7 +163,7 @@ mod tests {
         assert_eq!(list_defined_after_create, vec!["test-id"]);
         assert_eq!(list_after_create, list_before_create);
 
-        let id = start_vm("test-id".to_string()).unwrap();
+        let id = start_vm(DEFAULT_URI, "test-id".to_string()).unwrap();
 
         let mut list_after_start = list().unwrap();
         let list_defined_after_start = list_defined().unwrap();
