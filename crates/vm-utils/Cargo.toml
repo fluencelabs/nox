@@ -9,4 +9,8 @@ edition = "2021"
 nonempty.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
-virt = { version = "0.3.1", features = ["qemu"] }
+virt = "0.3.1"
+
+
+[dev-dependencies]
+log-utils.workspace = true

@@ -9123,6 +9123,7 @@ dependencies = [
 name = "vm-utils"
 version = "0.1.0"
 dependencies = [
+ "log-utils",
  "nonempty",
  "thiserror",
  "tracing",

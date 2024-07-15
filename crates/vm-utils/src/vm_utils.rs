@@ -1,9 +1,13 @@
+use std::os::macos::raw::stat;
 use std::path::PathBuf;
 
 use nonempty::NonEmpty;
 use thiserror::Error;
 use virt::connect::Connect;
 use virt::domain::Domain;
+use virt::sys::VIR_DOMAIN_DEFINE_VALIDATE;
+
+const DEFAULT_URI: &str = "test:///default";
 
 #[derive(Debug)]
 pub struct CreateVMParams {
@@ -40,26 +44,26 @@ pub enum VMUtilsError {
 }
 
 pub fn create_vm(params: CreateVMParams) -> Result<(), VMUtilsError> {
-    let conn =
-        Connect::open("test:///default").map_err(|err| VMUtilsError::FailedToConnect { err })?;
+    let conn = Connect::open(DEFAULT_URI).map_err(|err| VMUtilsError::FailedToConnect { err })?;
     let domain = Domain::lookup_by_name(&conn, params.name.as_str()).ok();
 
     match domain {
         None => {
+            tracing::info!(target: "vm-utils","Domain with name {} doesn't exists. Creating", params.name);
             let xml = prepare_xml(&params);
-            Domain::define_xml(&conn, xml.as_str())
+            Domain::define_xml_flags(&conn, xml.as_str(), VIR_DOMAIN_DEFINE_VALIDATE)
                 .map_err(|err| VMUtilsError::FailedToCreateVM { err })?;
         }
         Some(_) => {
-            tracing::info!("Domain with name {} already exists", params.name);
+            tracing::info!(target: "vm-utils","Domain with name {} already exists. Skipping", params.name);
         }
     };
     Ok(())
 }
 
 pub fn start_vm(name: String) -> Result<u32, VMUtilsError> {
-    let conn =
-        Connect::open("test:///default").map_err(|err| VMUtilsError::FailedToConnect { err })?;
+    tracing::info!(target: "vm-utils","Starting VM with name {name}");
+    let conn = Connect::open(DEFAULT_URI).map_err(|err| VMUtilsError::FailedToConnect { err })?;
     let domain =
         Domain::lookup_by_name(&conn, name.as_str()).map_err(|err| VMUtilsError::VmNotFound {
             name: name.clone(),
@@ -77,8 +81,8 @@ pub fn start_vm(name: String) -> Result<u32, VMUtilsError> {
 }
 
 pub fn stop_vm(name: String) -> Result<(), VMUtilsError> {
-    let conn =
-        Connect::open("test:///default").map_err(|err| VMUtilsError::FailedToConnect { err })?;
+    tracing::info!(target: "vm-utils","Stopping VM with name {name}");
+    let conn = Connect::open(DEFAULT_URI).map_err(|err| VMUtilsError::FailedToConnect { err })?;
     let domain = Domain::lookup_by_name(&conn, name.as_str())
         .map_err(|err| VMUtilsError::VmNotFound { name, err })?;
     domain
@@ -114,14 +118,14 @@ mod tests {
     use std::fs;
 
     fn list_defined() -> Result<Vec<String>, VMUtilsError> {
-        let conn = Connect::open("test:///default")
-            .map_err(|err| VMUtilsError::FailedToConnect { err })?;
+        let conn =
+            Connect::open(DEFAULT_URI).map_err(|err| VMUtilsError::FailedToConnect { err })?;
         Ok(conn.list_defined_domains().unwrap())
     }
 
     fn list() -> Result<Vec<u32>, VMUtilsError> {
-        let conn = Connect::open("test:///default")
-            .map_err(|err| VMUtilsError::FailedToConnect { err })?;
+        let conn =
+            Connect::open(DEFAULT_URI).map_err(|err| VMUtilsError::FailedToConnect { err })?;
         Ok(conn.list_domains().unwrap())
     }
 
@@ -137,6 +141,8 @@ mod tests {
 
     #[test]
     fn it_works() {
+        log_utils::enable_logs();
+
         let image: PathBuf = "./src/alpine-virt-3.20.1-x86_64.iso".into();
         let image = fs::canonicalize(image).unwrap();
 
@@ -146,7 +152,7 @@ mod tests {
 
         create_vm(CreateVMParams {
             name: "test-id".to_string(),
-            image,
+            image: image.clone(),
             cpus: nonempty![1],
         })
         .unwrap();
