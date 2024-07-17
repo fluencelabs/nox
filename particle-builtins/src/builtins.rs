@@ -304,7 +304,7 @@ where
             }
             // NOTE: must be the same as in ServiceKey::AquaIpfs
             // TODO: come up with some better way of restricting service access like aqua-ipfs
-            ("aqua-ipfs", _)  => {
+            ("aqua-ipfs", _) => {
                 // If the call is on Host, we check that the caller is a host, a manager or
                 // a worker spell. Otherwise, we allow the call to go and find an aqua-ipfs service
                 // since it can be a user-defined service which isn't the same as system aqua-ipfs.
