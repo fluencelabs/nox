@@ -121,6 +121,8 @@ where
         } else {
             EffectorsMode::restricted_effectors(config.allowed_effectors.clone())
         };
+        let is_dev_mode = config.is_dev_mode;
+
         let modules = ModuleRepository::new(modules_dir, blueprint_dir, effectors_mode);
         let services = ParticleAppServices::new(
             config,
@@ -140,7 +142,7 @@ where
             key_storage,
             scopes: scope,
             connector_api_endpoint,
-            is_dev_mode: config.is_dev_mode,
+            is_dev_mode,
         }
     }
 
