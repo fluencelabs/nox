@@ -141,7 +141,7 @@ mod tests {
     fn test_vm_creation() {
         log_utils::enable_logs();
 
-        let image: PathBuf = "./src/alpine-virt-3.20.1-x86_64.iso".into();
+        let image: PathBuf = "./tests/alpine-virt-3.20.1-x86_64.qcow2".into();
         let image = fs::canonicalize(image).unwrap();
 
         let list_before_create = list().unwrap();
