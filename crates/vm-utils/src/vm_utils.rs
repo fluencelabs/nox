@@ -51,7 +51,6 @@ pub fn create_vm(uri: &str, params: CreateVMParams) -> Result<(), VMUtilsError> 
         None => {
             tracing::info!(target: "vm-utils","Domain with name {} doesn't exists. Creating", params.name);
             let mac = generate_random_mac();
-            let mac = mac.to_string();
             let xml = prepare_xml(&params, mac.to_string().as_str());
             Domain::define_xml_flags(&conn, xml.as_str(), VIR_DOMAIN_DEFINE_VALIDATE)
                 .map_err(|err| VMUtilsError::FailedToCreateVM { err })?;
