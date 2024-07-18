@@ -1,10 +1,13 @@
-use std::path::PathBuf;
-
+use mac_address::MacAddress;
 use nonempty::NonEmpty;
+use rand::Rng;
+use std::path::PathBuf;
 use thiserror::Error;
 use virt::connect::Connect;
 use virt::domain::Domain;
 use virt::sys::VIR_DOMAIN_DEFINE_VALIDATE;
+
+const MAC_PREFIX: [u8; 3] = [0x52, 0x54, 0x00];
 
 #[derive(Debug)]
 pub struct CreateVMParams {
@@ -47,7 +50,9 @@ pub fn create_vm(uri: &str, params: CreateVMParams) -> Result<(), VMUtilsError> 
     match domain {
         None => {
             tracing::info!(target: "vm-utils","Domain with name {} doesn't exists. Creating", params.name);
-            let xml = prepare_xml(&params);
+            let mac = generate_random_mac();
+            let mac = mac.to_string();
+            let xml = prepare_xml(&params, mac.to_string().as_str());
             Domain::define_xml_flags(&conn, xml.as_str(), VIR_DOMAIN_DEFINE_VALIDATE)
                 .map_err(|err| VMUtilsError::FailedToCreateVM { err })?;
         }
@@ -56,6 +61,14 @@ pub fn create_vm(uri: &str, params: CreateVMParams) -> Result<(), VMUtilsError> 
         }
     };
     Ok(())
+}
+
+fn generate_random_mac() -> MacAddress {
+    let mut rng = rand::thread_rng();
+    let mut result = [0u8; 6];
+    result[..3].copy_from_slice(&MAC_PREFIX);
+    rng.fill(&mut result[3..]);
+    MacAddress::from(result)
 }
 
 pub fn start_vm(uri: &str, name: String) -> Result<u32, VMUtilsError> {
@@ -89,7 +102,7 @@ pub fn stop_vm(uri: &str, name: String) -> Result<(), VMUtilsError> {
     Ok(())
 }
 
-fn prepare_xml(params: &CreateVMParams) -> String {
+fn prepare_xml(params: &CreateVMParams, mac_address: &str) -> String {
     let mut mapping = String::new();
     for (index, logical_id) in params.cpus.iter().enumerate() {
         if index > 0 {
@@ -104,7 +117,8 @@ fn prepare_xml(params: &CreateVMParams) -> String {
         memory_in_kb,
         params.cpus.len(),
         mapping,
-        params.image.display()
+        params.image.display(),
+        mac_address
     )
 }
 
@@ -129,11 +143,14 @@ mod tests {
 
     #[test]
     fn test_prepare_xml() {
-        let xml = prepare_xml(&CreateVMParams {
-            name: "test-id".to_string(),
-            image: "test-image".into(),
-            cpus: nonempty![1, 8],
-        });
+        let xml = prepare_xml(
+            &CreateVMParams {
+                name: "test-id".to_string(),
+                image: "test-image".into(),
+                cpus: nonempty![1, 8],
+            },
+            "52:54:00:1e:af:64",
+        );
         assert_eq!(xml, include_str!("../tests/expected_vm_config.xml"))
     }
 

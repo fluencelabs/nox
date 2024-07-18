@@ -17,9 +17,9 @@
             <target dev='vda' bus='virtio'/>
             <address type='pci' domain='0x0000' bus='0x00' slot='0x04' function='0x0'/>
         </disk>
-        <interface type='network'>
+        <interface type='bridge'>
             <mac address='52:54:00:1e:af:64'/>
-            <source network='default'/>
+            <source bridge='br422442'/>
             <model type='virtio'/>
             <address type='pci' domain='0x0000' bus='0x00' slot='0x03' function='0x0'/>
         </interface>
