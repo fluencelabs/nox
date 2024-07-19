@@ -285,10 +285,7 @@ impl HttpChainConnector {
         for deal in deals {
             batch.insert(
                 "eth_call",
-                rpc_params![
-                    EthCall::to(&data, &deal.to_address()),
-                    "latest"
-                ],
+                rpc_params![EthCall::to(&data, &deal.to_address()), "latest"],
             )?;
         }
         let resp: BatchResponse<String> = self.client.batch_request(batch).await?;
@@ -355,18 +352,12 @@ impl HttpChainConnector {
             let status_data = Deal::getStatusCall {}.abi_encode();
             batch.insert(
                 "eth_call",
-                rpc_params![
-                    EthCall::to(&status_data, &deal_id.to_address()),
-                    "latest"
-                ]
+                rpc_params![EthCall::to(&status_data, &deal_id.to_address()), "latest"],
             )?;
             let app_cid_data = Deal::appCIDCall {}.abi_encode();
             batch.insert(
                 "eth_call",
-                rpc_params![
-                    EthCall::to(&app_cid_data, &deal_id.to_address()),
-                    "latest"
-                ]
+                rpc_params![EthCall::to(&app_cid_data, &deal_id.to_address()), "latest"],
             )?;
         }
         tracing::debug!(target: "chain-connector", "Batched get_deal_info request: {batch:?}");
@@ -672,7 +663,10 @@ impl ChainConnector for HttpChainConnector {
             self.client
                 .request(
                     "eth_call",
-                    rpc_params![EthCall::to(&data, &self.config.market_contract_address), "latest"],
+                    rpc_params![
+                        EthCall::to(&data, &self.config.market_contract_address),
+                        "latest"
+                    ],
                 )
                 .await,
         )?;
@@ -692,7 +686,10 @@ impl ChainConnector for HttpChainConnector {
             self.client
                 .request(
                     "eth_call",
-                    rpc_params![EthCall::to(&data, &self.config.cc_contract_address), "latest"],
+                    rpc_params![
+                        EthCall::to(&data, &self.config.cc_contract_address),
+                        "latest"
+                    ],
                 )
                 .await,
         )?;

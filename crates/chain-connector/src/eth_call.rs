@@ -17,14 +17,14 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 use hex::ToHex;
-use serde::{Serialize, Serializer};
 use serde::ser::SerializeStruct;
+use serde::{Serialize, Serializer};
 
 #[derive(Debug)]
 pub struct EthCall<'a, 'b, 'c> {
     data: &'c [u8],
     to: &'a str,
-    from: Option<&'b str>
+    from: Option<&'b str>,
 }
 
 impl<'a, 'b, 'c> EthCall<'a, 'b, 'c> {
@@ -49,7 +49,7 @@ impl<'a, 'b, 'c> EthCall<'a, 'b, 'c> {
 impl<'a, 'b, 'c> Serialize for EthCall<'a, 'b, 'c> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
-        S: Serializer
+        S: Serializer,
     {
         let fields = if self.from.is_some() { 3 } else { 2 };
         let mut eth_call = serializer.serialize_struct("EthCall", fields)?;
