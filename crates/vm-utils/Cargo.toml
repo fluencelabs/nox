@@ -1,0 +1,15 @@
+[package]
+name = "vm-utils"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+nonempty.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+rand.workspace = true
+mac_address = "1.1.7"
+virt = "0.3.1"
+
+[dev-dependencies]
+log-utils.workspace = true
