@@ -27,6 +27,7 @@ mod error;
 mod function;
 
 mod types;
+mod eth_call;
 
 pub use connector::CCInitParams;
 pub use connector::ChainConnector;
