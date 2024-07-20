@@ -1408,7 +1408,7 @@ dependencies = [
  "thiserror",
  "tokio",
  "tokio-stream",
- "toml_edit 0.22.14",
+ "toml_edit 0.22.16",
  "tracing",
  "types",
 ]
@@ -1693,7 +1693,7 @@ dependencies = [
  "thiserror",
  "tokio",
  "tokio-stream",
- "toml 0.8.14",
+ "toml 0.8.15",
  "tracing",
 ]
 
@@ -5832,7 +5832,7 @@ dependencies = [
  "tokio",
  "tokio-stream",
  "tokio-util",
- "toml 0.8.14",
+ "toml 0.8.15",
  "tracing",
  "tracing-appender",
  "tracing-log",
@@ -6343,7 +6343,7 @@ dependencies = [
  "service-modules",
  "tempdir",
  "thiserror",
- "toml_edit 0.22.14",
+ "toml_edit 0.22.16",
 ]
 
 [[package]]
@@ -6412,8 +6412,8 @@ dependencies = [
  "tokio",
  "tokio-stream",
  "tokio-util",
- "toml 0.8.14",
- "toml_edit 0.22.14",
+ "toml 0.8.15",
+ "toml_edit 0.22.16",
  "tracing",
  "types",
  "uuid",
@@ -7825,7 +7825,7 @@ dependencies = [
  "serde_with 3.7.0",
  "temp-env",
  "tempfile",
- "toml 0.8.14",
+ "toml 0.8.15",
  "types",
  "url",
 ]
@@ -8125,7 +8125,7 @@ dependencies = [
  "particle-modules",
  "particle-services",
  "service-modules",
- "toml_edit 0.22.14",
+ "toml_edit 0.22.16",
 ]
 
 [[package]]
@@ -8337,7 +8337,7 @@ dependencies = [
  "spell-event-bus",
  "spell-service-api",
  "spell-storage",
- "toml_edit 0.22.14",
+ "toml_edit 0.22.16",
  "tracing",
  "trust-graph-distro",
  "types",
@@ -8646,14 +8646,14 @@ dependencies = [
 
 [[package]]
 name = "toml"
-version = "0.8.14"
+version = "0.8.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6f49eb2ab21d2f26bd6db7bf383edc527a7ebaee412d17af4d40fdccd442f335"
+checksum = "ac2caab0bf757388c6c0ae23b3293fdb463fee59434529014f85e3263b995c28"
 dependencies = [
  "serde",
  "serde_spanned",
  "toml_datetime",
- "toml_edit 0.22.14",
+ "toml_edit 0.22.16",
 ]
 
 [[package]]
@@ -8709,9 +8709,9 @@ dependencies = [
 
 [[package]]
 name = "toml_edit"
-version = "0.22.14"
+version = "0.22.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f21c7aaf97f1bd9ca9d4f9e73b0a6c74bd5afef56f2bc931943a6e1c37e04e38"
+checksum = "278f3d518e152219c994ce877758516bca5e118eaed6996192a774fb9fbf0788"
 dependencies = [
  "indexmap 2.2.6",
  "serde",
@@ -10187,8 +10187,8 @@ dependencies = [
  "test-utils",
  "thiserror",
  "tokio",
- "toml 0.8.14",
- "toml_edit 0.22.14",
+ "toml 0.8.15",
+ "toml_edit 0.22.16",
  "tracing",
  "types",
 ]
