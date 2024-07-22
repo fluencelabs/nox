@@ -476,7 +476,7 @@ impl HttpChainConnector {
 
         let result: Result<String> = process_response(
             self.client
-                .request("eth_sendRawTransaction", rpc_params![format!("0x{}", tx)])
+                .request("eth_sendRawTransaction", rpc_params![tx])
                 .await,
         );
 
