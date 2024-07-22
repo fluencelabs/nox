@@ -28,15 +28,15 @@ use parking_lot::RwLock;
 use tokio::runtime::{Handle, Runtime, UnhandledPanic};
 use tokio::sync::mpsc::{Receiver, Sender};
 
+use crate::error::WorkersError;
+use crate::persistence::{load_persisted_workers, persist_worker, remove_worker, PersistedWorker};
+use crate::KeyStorage;
 use core_distributor::types::{AcquireRequest, Assignment, WorkType};
 use core_distributor::{CoreDistributor, ThreadPinner, CUID};
 use fluence_libp2p::PeerId;
 use types::peer_scope::WorkerId;
 use types::DealId;
-
-use crate::error::WorkersError;
-use crate::persistence::{load_persisted_workers, persist_worker, remove_worker, PersistedWorker};
-use crate::KeyStorage;
+use vm_utils::{CreateVMDomainParams, NonEmpty};
 
 /// Information about a worker.
 pub struct WorkerInfo {
@@ -90,6 +90,8 @@ pub struct Workers {
     assignments: RwLock<HashMap<WorkerId, Assignment>>,
 
     sender: Sender<Event>,
+
+    config: WorkersConfig,
 }
 
 #[derive(Debug)]
@@ -101,6 +103,20 @@ pub enum Event {
     WorkerRemoved {
         worker_id: WorkerId,
     },
+}
+
+pub struct WorkersConfig {
+    channel_size: usize,
+    libvirt_uri: Option<String>,
+}
+
+impl WorkersConfig {
+    pub fn new(channel_size: usize, libvirt_uri: Option<String>) -> Self {
+        Self {
+            channel_size,
+            libvirt_uri,
+        }
+    }
 }
 
 impl Workers {
@@ -119,11 +135,11 @@ impl Workers {
     /// - `Err(eyre::Error)` if an error occurs during the creation process.
     ///
     pub async fn from_path(
+        config: WorkersConfig,
         workers_dir: PathBuf,
         key_storage: Arc<KeyStorage>,
         core_distributor: Arc<dyn CoreDistributor>,
         thread_pinner: Arc<dyn ThreadPinner>,
-        channel_size: usize,
     ) -> eyre::Result<(Self, Receiver<Event>)> {
         let workers = load_persisted_workers(workers_dir.as_path()).await?;
         let mut worker_ids = HashMap::with_capacity(workers.len());
@@ -132,7 +148,7 @@ impl Workers {
         let mut assignments = HashMap::with_capacity(workers.len());
 
         let worker_counter = Arc::new(AtomicU32::new(0));
-        let (sender, receiver) = tokio::sync::mpsc::channel::<Event>(channel_size);
+        let (sender, receiver) = tokio::sync::mpsc::channel::<Event>(config.channel_size);
 
         for (w, _) in workers {
             let worker_id = w.worker_id;
@@ -169,6 +185,7 @@ impl Workers {
                 thread_pinner,
                 sender,
                 assignments: assignments.into(),
+                config,
             },
             receiver,
         ))
@@ -358,15 +375,7 @@ impl Workers {
             let removed_runtime = runtimes.remove(&worker_id);
             let removed_assignments = assignments.remove(&worker_id);
 
-            if let Some(removed_worker_info) = &removed_worker_info {
-                let vm_flag = removed_worker_info.vm_flag.read();
-                if *vm_flag {
-                    vm_utils::stop_vm("todo".as_ref(), worker_id.to_string())
-                        .map_err(|err| WorkersError::FailedToRemoveVM { worker_id, err })?;
-                    vm_utils::remove_domain("todo".as_ref(), worker_id.to_string())
-                        .map_err(|err| WorkersError::FailedToRemoveVM { worker_id, err })?;
-                }
-            }
+            self.remove_vm(worker_id)?;
 
             debug_assert!(removed_worker_id.is_some(), "worker_id does not exist");
             debug_assert!(removed_worker_info.is_some(), "worker info does not exist");
@@ -592,6 +601,45 @@ impl Workers {
         Ok(worker_info)
     }
 
+    pub async fn create_vm(&self, worker_id: WorkerId, image: PathBuf) -> Result<(), WorkersError> {
+        match &self.config.libvirt_uri {
+            None => Err(WorkersError::FeatureDisabled),
+            Some(libvirt_uri) => {
+                {
+                    let guard = self.assignments.read();
+                    let assignment = guard
+                        .get(&worker_id)
+                        .ok_or(WorkersError::WorkerNotFound(worker_id))?;
+
+                    let assignment = NonEmpty::from_vec(assignment.logical_core_ids())
+                        .expect("Unexpected state");
+
+                    let params =
+                        CreateVMDomainParams::new(worker_id.to_string(), image, assignment);
+
+                    vm_utils::create_domain(libvirt_uri.as_str(), params)
+                        .map_err(|err| WorkersError::FailedToCreateVM { worker_id, err })?;
+                }
+
+                self.set_vm_flag(worker_id, true).await?;
+                Ok(())
+            }
+        }
+    }
+
+    fn remove_vm(&self, worker_id: WorkerId) -> Result<(), WorkersError> {
+        match &self.config.libvirt_uri {
+            None => {}
+            Some(libvirt_uri) => {
+                vm_utils::stop_vm(libvirt_uri.as_str(), worker_id.to_string())
+                    .map_err(|err| WorkersError::FailedToRemoveVM { worker_id, err })?;
+                vm_utils::remove_domain(libvirt_uri.as_str(), worker_id.to_string())
+                    .map_err(|err| WorkersError::FailedToRemoveVM { worker_id, err })?;
+            }
+        }
+        Ok(())
+    }
+
     async fn set_worker_info<F>(&self, worker_id: WorkerId, modify: F) -> Result<(), WorkersError>
     where
         F: Fn(&WorkerInfo),
@@ -634,7 +682,7 @@ impl Workers {
         Ok(())
     }
 
-    pub async fn set_vm_flag(&self, worker_id: WorkerId, value: bool) -> Result<(), WorkersError> {
+    async fn set_vm_flag(&self, worker_id: WorkerId, value: bool) -> Result<(), WorkersError> {
         self.set_worker_info(worker_id, |worker_info: &WorkerInfo| {
             let mut vm_flag = worker_info.vm_flag.write();
             *vm_flag = value;
@@ -704,7 +752,7 @@ impl Workers {
 
 #[cfg(test)]
 mod tests {
-    use crate::{KeyStorage, WorkerParams, Workers, CUID};
+    use crate::{KeyStorage, WorkerParams, Workers, WorkersConfig, CUID};
     use core_distributor::dummy::DummyCoreDistibutor;
     use hex::FromHex;
     use libp2p::PeerId;
@@ -731,13 +779,15 @@ mod tests {
                 .expect("Failed to create KeyStorage from path"),
         );
 
+        let config = WorkersConfig::new(32, None);
+
         // Create a new Workers instance
         let (workers, _receiver) = Workers::from_path(
+            config,
             workers_dir.clone(),
             key_storage.clone(),
             core_distributor,
             thread_pinner,
-            32,
         )
         .await
         .expect("Failed to create Workers from path");
@@ -766,13 +816,15 @@ mod tests {
                 .expect("Failed to create KeyStorage from path"),
         );
 
+        let config = WorkersConfig::new(32, None);
+
         // Create a new Workers instance
         let (workers, _receiver) = Workers::from_path(
+            config,
             workers_dir.clone(),
             key_storage.clone(),
             core_distributor,
             thread_pinner,
-            32,
         )
         .await
         .expect("Failed to create Workers from path");
@@ -839,14 +891,15 @@ mod tests {
                 .await
                 .expect("Failed to create KeyStorage from path"),
         );
+        let config = WorkersConfig::new(32, None);
 
         // Create a new Workers instance
         let (workers, _receiver) = Workers::from_path(
+            config,
             workers_dir.clone(),
             key_storage.clone(),
             core_distributor,
             thread_pinner,
-            32,
         )
         .await
         .expect("Failed to create Workers from path");
@@ -904,14 +957,15 @@ mod tests {
                 .await
                 .expect("Failed to create KeyStorage from path"),
         );
+        let config = WorkersConfig::new(32, None);
 
         // Create a new Workers instance
         let (workers, _receiver) = Workers::from_path(
+            config,
             workers_dir.clone(),
             key_storage.clone(),
             core_distributor,
             thread_pinner,
-            32,
         )
         .await
         .expect("Failed to create Workers from path");
@@ -980,14 +1034,15 @@ mod tests {
                 .await
                 .expect("Failed to create KeyStorage from path"),
         );
+        let config = WorkersConfig::new(32, None);
 
         // Create a new Workers instance
         let (workers, _receiver) = Workers::from_path(
+            config,
             workers_dir.clone(),
             key_storage.clone(),
             core_distributor.clone(),
             thread_pinner,
-            32,
         )
         .await
         .expect("Failed to create Workers from path");
@@ -1057,13 +1112,15 @@ mod tests {
         let core_distributor = Arc::new(core_distributor);
 
         let thread_pinner = Arc::new(test_utils::pinning::DUMMY);
+        let config = WorkersConfig::new(32, None);
+
         // Create a new Workers instance
         let (workers, _receiver) = Workers::from_path(
+            config,
             workers_dir.clone(),
             key_storage.clone(),
             core_distributor,
             thread_pinner,
-            32,
         )
         .await
         .expect("Failed to create Workers from path");

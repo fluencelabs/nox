@@ -68,7 +68,7 @@ use sorcerer::Sorcerer;
 use spell_event_bus::api::{PeerEvent, SpellEventBusApi, TriggerEvent};
 use spell_event_bus::bus::SpellEventBus;
 use system_services::{Deployer, SystemServiceDistros};
-use workers::{KeyStorage, PeerScopes, Workers};
+use workers::{KeyStorage, PeerScopes, Workers, WorkersConfig};
 
 use crate::behaviour::FluenceNetworkBehaviourEvent;
 use crate::builtins::make_peer_builtin;
@@ -198,12 +198,14 @@ impl<RT: AquaRuntime> Node<RT> {
             key_storage.clone(),
         );
 
+        let workers_config = WorkersConfig::new(config.node_config.workers_queue_buffer, None);
+
         let (workers, worker_events) = Workers::from_path(
+            workers_config,
             config.dir_config.workers_base_dir.clone(),
             key_storage.clone(),
             core_distributor.clone(),
             thread_pinner.clone(),
-            config.node_config.workers_queue_buffer,
         )
         .await?;
 
@@ -303,7 +305,6 @@ impl<RT: AquaRuntime> Node<RT> {
         let builtins_config = BuiltinsConfig::new(
             services_config,
             config.system_services.decider.network_api_endpoint.clone(),
-            None, //TODO: fill config
             config.dir_config.services_persistent_dir.clone(),
             config.node_config.allowed_effectors.clone(),
             config

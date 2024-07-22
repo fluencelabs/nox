@@ -53,7 +53,6 @@ use peer_metrics::ServicesMetrics;
 use service_modules::Hash;
 use types::peer_id;
 use uuid_utils::uuid;
-use vm_utils::{CreateVMDomainParams, NonEmpty};
 use workers::{KeyStorage, PeerScopes, Workers};
 
 use crate::debug::fmt_custom_services;
@@ -103,6 +102,83 @@ pub struct Builtins<C> {
 pub struct BuiltinsConfig {
     particle_app_services: ParticleAppServicesConfig,
     connector_api_endpoint: String,
+    /// Dir to store .wasm modules and their configs
+    pub modules_dir: PathBuf,
+    /// Path of the blueprint directory containing blueprints and wasm modules
+    pub blueprint_dir: PathBuf,
+    /// Is in the developer mode
+    pub is_dev_mode: bool,
+    /// Mapping of binary names to their paths for mounted binaries used in developer mode
+    pub mounted_binaries_mapping: HashMap<String, PathBuf>,
+    /// List of allowed effector modules by CID
+    pub allowed_effectors: HashMap<Hash, HashMap<String, PathBuf>>,
+}
+
+impl BuiltinsConfig {
+    pub fn new(
+        particle_app_services: ParticleAppServicesConfig,
+        connector_api_endpoint: String,
+        persistent_dir: PathBuf,
+        allowed_effectors: HashMap<Hash, HashMap<String, PathBuf>>,
+        mounted_binaries_mapping: HashMap<String, PathBuf>,
+        is_dev_mode: bool,
+    ) -> Result<Self, std::io::Error> {
+        let persistent_dir = to_abs_path(persistent_dir);
+
+        let blueprint_dir = config_utils::blueprint_dir(&persistent_dir);
+        let modules_dir = config_utils::modules_dir(&persistent_dir);
+
+        create_dirs(&[&blueprint_dir, &modules_dir])?;
+
+        let allowed_effectors = allowed_effectors
+            .into_iter()
+            .map(|(cid, effector)| {
+                let effector = effector
+                    .into_iter()
+                    .map(|(name, path)| {
+                        let path_str = path.display();
+                        match path.try_exists() {
+                            Err(err) => tracing::warn!(
+                                "cannot check binary `{path_str}` for effector `{cid}`: {err}"
+                            ),
+                            Ok(false) => tracing::warn!(
+                                "binary `{path_str}` for effector `{cid}` does not exist"
+                            ),
+                            _ => {}
+                        };
+                        (name, path.to_path_buf())
+                    })
+                    .collect::<_>();
+                (cid, effector)
+            })
+            .collect::<_>();
+
+        let mounted_binaries_mapping = if !is_dev_mode {
+            HashMap::new()
+        } else {
+            mounted_binaries_mapping
+                .into_iter()
+                .map(|(name, path)| {
+                    let path_str = path.display();
+                    match path.try_exists() {
+                        Err(err) => tracing::warn!("cannot check binary `{path_str}`: {err}"),
+                        Ok(false) => tracing::warn!("binary `{path_str}` does not exist"),
+                        _ => {}
+                    };
+                    (name, path.to_path_buf())
+                })
+                .collect::<_>()
+        };
+        Ok(Self {
+            particle_app_services,
+            connector_api_endpoint,
+            blueprint_dir,
+            modules_dir,
+            allowed_effectors,
+            mounted_binaries_mapping,
+            is_dev_mode,
+        })
+    }
 }
 
 impl<C> Builtins<C>
@@ -119,12 +195,13 @@ where
         health_registry: Option<&mut HealthCheckRegistry>,
     ) -> Self {
         let effectors_mode = if config.is_dev_mode {
-            EffectorsMode::all_effectors(
-                config.allowed_effectors.clone(),
-                config.mounted_binaries_mapping.clone(),
-            )
+            EffectorsMode::AllEffectors {
+                binaries: config.mounted_binaries_mapping.clone(),
+            }
         } else {
-            EffectorsMode::restricted_effectors(config.allowed_effectors.clone())
+            EffectorsMode::RestrictedEffectors {
+                effectors: config.allowed_effectors.clone(),
+            }
         };
         let modules_dir = &config.modules_dir;
         let blueprint_dir = &config.blueprint_dir;
@@ -316,10 +393,9 @@ where
             // TODO: come up with some better way of restricting service access like aqua-ipfs
             ("aqua-ipfs", _) => {
                 // If the call is on Host, we check that the caller is a host, a manager or
-                // a worker spell. Otherwise, we allow the call to go and find an aqua-ipfs service
+                // a worker spell. Otherwise we allow the call to go and find an aqua-ipfs service
                 // since it can be a user-defined service which isn't the same as system aqua-ipfs.
-                // Allow anything when in the Dev Mode
-                if !self.is_dev_mode && matches!(particle.peer_scope, PeerScope::Host) {
+                if matches!(particle.peer_scope, PeerScope::Host) {
                     self.guard_protected(&particle).await?;
                 }
                 FunctionOutcome::NotDefined { args, params: particle }
@@ -1162,32 +1238,20 @@ where
     }
 
     async fn create_vm(&self, args: Args, params: ParticleParams) -> Result<JValue, JError> {
-        match &self.config.libvirt_uri {
-            None => Err(JError::new("This function is disabled")),
-            Some(libvirt_uri) => match params.peer_scope {
-                PeerScope::WorkerId(worker_id) => {
-                    let mut args = args.function_args.into_iter();
-                    let image: String = Args::next("image", &mut args)?;
-                    let image = image.into();
-                    let assignment = self
-                        .workers
-                        .get_worker_assignment(worker_id)
-                        .map_err(|_| JError::new("Worker not found"))?;
+        match params.peer_scope {
+            PeerScope::WorkerId(worker_id) => {
+                let mut args = args.function_args.into_iter();
+                let image: String = Args::next("image", &mut args)?;
+                let image = image.into();
 
-                    let assignment = NonEmpty::from_vec(assignment.logical_core_ids())
-                        .ok_or(JError::new("Unexpected error"))?;
+                self.workers
+                    .create_vm(worker_id, image)
+                    .await
+                    .map_err(|err| JError::new(format!("Failed to create vm: {err}")))?;
 
-                    let params =
-                        CreateVMDomainParams::new(worker_id.to_string(), image, assignment);
-
-                    vm_utils::create_domain(libvirt_uri.as_str(), params)
-                        .map_err(|_| JError::new("Unexpected error"))?;
-
-                    self.workers.set_vm_flag(worker_id, true).await?;
-                    Ok(JValue::Null)
-                }
-                PeerScope::Host => Err(JError::new("This function is only available for workers")),
-            },
+                Ok(JValue::Null)
+            }
+            PeerScope::Host => Err(JError::new("This function is only available for workers")),
         }
     }
 }

@@ -1251,7 +1251,7 @@ mod tests {
     use service_modules::load_module;
     use service_modules::Hash;
     use types::peer_scope::PeerScope;
-    use workers::{KeyStorage, PeerScopes, Workers};
+    use workers::{KeyStorage, PeerScopes, Workers, WorkersConfig};
 
     use crate::app_services::{ServiceAlias, ServiceType};
     use crate::persistence::load_persisted_services;
@@ -1298,12 +1298,14 @@ mod tests {
             key_storage.clone(),
         );
 
+        let workers_config = WorkersConfig::new(32, None);
+
         let (workers, _worker_events) = Workers::from_path(
+            workers_config,
             workers_dir.clone(),
             key_storage,
             core_distributor,
             thread_pinner,
-            32,
         )
         .await
         .expect("Could not load worker registry");

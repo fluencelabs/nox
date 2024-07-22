@@ -159,8 +159,15 @@ pub enum WorkersError {
     #[error("Failed to notify subsystem {worker_id}")]
     FailedToNotifySubsystem { worker_id: WorkerId },
     #[error("Failed to remove VM {worker_id}")]
+    FailedToCreateVM {
+        worker_id: WorkerId,
+        err: VMUtilsError,
+    },
+    #[error("Failed to remove VM {worker_id}")]
     FailedToRemoveVM {
         worker_id: WorkerId,
         err: VMUtilsError,
     },
+    #[error("This feature is disabled")]
+    FeatureDisabled,
 }

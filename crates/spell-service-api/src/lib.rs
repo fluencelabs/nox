@@ -320,7 +320,7 @@ mod tests {
     use maplit::hashmap;
     use serde_json::json;
     use std::time::Duration;
-    use workers::{KeyStorage, PeerScopes, Workers};
+    use workers::{KeyStorage, PeerScopes, Workers, WorkersConfig};
 
     use crate::{CallParams, SpellServiceApi};
 
@@ -369,13 +369,14 @@ mod tests {
             root_key_pair.get_peer_id(),
             key_storage.clone(),
         );
+        let workers_config = WorkersConfig::new(32, None);
 
         let (workers, _worker_events) = Workers::from_path(
+            workers_config,
             workers_dir.clone(),
             key_storage,
             core_distributor,
             thread_pinner,
-            32,
         )
         .await
         .expect("Could not load worker registry");

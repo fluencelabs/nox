@@ -663,7 +663,7 @@ mod tests {
     use fluence_keypair::KeyPair;
     use fluence_libp2p::RandomPeerId;
     use futures::task::noop_waker_ref;
-    use workers::{KeyStorage, PeerScopes, Workers};
+    use workers::{KeyStorage, PeerScopes, Workers, WorkersConfig};
 
     use particle_args::Args;
     use particle_execution::{FunctionOutcome, ParticleFunction, ParticleParams, ServiceFunction};
@@ -786,12 +786,14 @@ mod tests {
             key_storage.clone(),
         );
 
+        let workers_config = WorkersConfig::new(32, None);
+
         let (workers, _receiver) = Workers::from_path(
+            workers_config,
             workers_path.clone(),
             key_storage.clone(),
             core_distributor,
             thread_pinner,
-            32,
         )
         .await
         .expect("Could not load worker registry");
