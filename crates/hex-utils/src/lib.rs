@@ -17,9 +17,20 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-pub fn decode_hex(h: &str) -> Result<Vec<u8>, hex::FromHexError> {
+pub use hex::FromHexError;
+
+pub fn decode_hex(h: &str) -> Result<Vec<u8>, FromHexError> {
     let h = h.trim_start_matches("0x");
     hex::decode(h)
+}
+
+pub fn encode_hex_0x<T: AsRef<[u8]>>(data: T) -> String {
+    let hex = hex::encode(data);
+    format!("0x{}", hex)
+}
+
+pub fn encode_hex_0x_zero_pad<T: AsRef<[u8]>>(data: T, width: usize) -> String {
+    format!("0x{:0>width$}", hex::encode(data))
 }
 
 #[cfg(feature = "serde_with")]

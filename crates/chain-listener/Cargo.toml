@@ -15,7 +15,6 @@ jsonrpsee = { workspace = true, features = ["ws-client", "macros"] }
 serde = { workspace = true }
 libp2p-identity = { workspace = true }
 hex-utils = { workspace = true }
-hex = { workspace = true }
 log = { workspace = true }
 tracing = { workspace = true }
 eyre = { workspace = true }

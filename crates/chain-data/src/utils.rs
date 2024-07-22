@@ -37,7 +37,7 @@ pub fn peer_id_to_bytes(peer_id: PeerId) -> [u8; 32] {
     res.0[0]
 }
 pub fn peer_id_to_hex(peer_id: PeerId) -> String {
-    format!("0x{:0>64}", hex::encode(peer_id_to_bytes(peer_id)))
+    hex_utils::encode_hex_0x_zero_pad(peer_id_to_bytes(peer_id), 64)
 }
 
 pub fn peer_id_from_hex(hex: &str) -> eyre::Result<PeerId> {
