@@ -23,6 +23,7 @@ use std::path::PathBuf;
 use thiserror::Error;
 use types::peer_scope::WorkerId;
 use types::DealId;
+use vm_utils::VMUtilsError;
 
 #[derive(Debug, Error)]
 pub enum KeyStorageError {
@@ -157,4 +158,9 @@ pub enum WorkersError {
     },
     #[error("Failed to notify subsystem {worker_id}")]
     FailedToNotifySubsystem { worker_id: WorkerId },
+    #[error("Failed to remove VM {worker_id}")]
+    FailedToRemoveVM {
+        worker_id: WorkerId,
+        err: VMUtilsError,
+    },
 }

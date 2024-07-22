@@ -17,10 +17,6 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-use std::process::exit;
-use std::sync::Arc;
-use std::{io, net::SocketAddr};
-
 use ccp_rpc_client::CCPRpcHttpClient;
 use cpu_utils::pinning::ThreadPinner;
 use eyre::WrapErr;
@@ -37,6 +33,10 @@ use libp2p::{
 use libp2p_connection_limits::ConnectionLimits;
 use libp2p_metrics::{Metrics, Recorder};
 use prometheus_client::registry::Registry;
+use std::path::PathBuf;
+use std::process::exit;
+use std::sync::Arc;
+use std::{io, net::SocketAddr};
 use tokio::sync::{mpsc, oneshot};
 use tokio::task;
 use tokio_util::sync::CancellationToken;
@@ -53,7 +53,9 @@ use connection_pool::ConnectionPoolT;
 use core_distributor::CoreDistributor;
 use fluence_libp2p::build_transport;
 use health::HealthCheckRegistry;
-use particle_builtins::{Builtins, CustomService, NodeInfo, ParticleAppServicesConfig};
+use particle_builtins::{
+    Builtins, BuiltinsConfig, CustomService, NodeInfo, ParticleAppServicesConfig,
+};
 use particle_execution::ParticleFunctionStatic;
 use particle_protocol::ExtendedParticle;
 use peer_metrics::{
@@ -218,15 +220,6 @@ impl<RT: AquaRuntime> Node<RT> {
             config.management_peer_id,
             builtins_peer_id,
             config.node_config.default_service_memory_limit,
-            config.node_config.allowed_effectors.clone(),
-            config
-                .node_config
-                .dev_mode_config
-                .binaries
-                .clone()
-                .into_iter()
-                .collect(),
-            config.node_config.dev_mode_config.enable,
             wasm_backend_config,
         )
         .expect("create services config");
@@ -307,15 +300,31 @@ impl<RT: AquaRuntime> Node<RT> {
                 )
             };
 
-        let mut builtins = Self::builtins(
-            connectivity.clone(),
+        let builtins_config = BuiltinsConfig::new(
             services_config,
+            config.system_services.decider.network_api_endpoint.clone(),
+            None, //TODO: fill config
+            config.dir_config.services_persistent_dir.clone(),
+            config.node_config.allowed_effectors.clone(),
+            config
+                .node_config
+                .dev_mode_config
+                .binaries
+                .clone()
+                .into_iter()
+                .collect(),
+            config.node_config.dev_mode_config.enable,
+        )
+        .expect("create services config");
+
+        let mut builtins = Self::builtins(
+            builtins_config,
+            connectivity.clone(),
             services_metrics,
             key_storage.clone(),
             workers.clone(),
             scopes.clone(),
             health_registry.as_mut(),
-            config.system_services.decider.network_api_endpoint.clone(),
         );
 
         builtins.services.create_persisted_services().await?;
@@ -378,7 +387,7 @@ impl<RT: AquaRuntime> Node<RT> {
         let allowed_binaries = config
             .allowed_effectors
             .values()
-            .flat_map(|v| v.values().cloned().collect::<Vec<String>>())
+            .flat_map(|v| v.values().cloned().collect::<Vec<PathBuf>>())
             .collect::<std::collections::HashSet<_>>()
             .into_iter()
             .collect::<_>();
@@ -532,24 +541,22 @@ impl<RT: AquaRuntime> Node<RT> {
     }
 
     pub fn builtins(
+        config: BuiltinsConfig,
         connectivity: Connectivity,
-        services_config: ParticleAppServicesConfig,
         services_metrics: ServicesMetrics,
         key_storage: Arc<KeyStorage>,
         workers: Arc<Workers>,
         scopes: PeerScopes,
         health_registry: Option<&mut HealthCheckRegistry>,
-        connector_api_endpoint: String,
     ) -> Builtins<Connectivity> {
         Builtins::new(
+            config,
             connectivity,
-            services_config,
             services_metrics,
             key_storage,
             workers,
             scopes,
             health_registry,
-            connector_api_endpoint,
         )
     }
 }

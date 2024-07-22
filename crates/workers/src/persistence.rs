@@ -17,20 +17,22 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+use std::path::{Path, PathBuf};
+
+use libp2p::PeerId;
+use serde::{Deserialize, Serialize};
+
+use core_distributor::CUID;
+use fluence_keypair::KeyPair;
+use types::peer_id;
+use types::peer_scope::WorkerId;
+
 use crate::error::KeyStorageError::{
     CannotExtractRSASecretKey, SerializePersistedKeypair, WriteErrorPersistedKeypair,
 };
 use crate::error::{KeyStorageError, WorkersError};
 use crate::workers::WorkerInfo;
 use crate::KeyStorageError::RemoveErrorPersistedKeypair;
-use core_distributor::CUID;
-use fluence_keypair::KeyPair;
-use libp2p::PeerId;
-use parking_lot::RwLock;
-use serde::{Deserialize, Serialize};
-use std::path::{Path, PathBuf};
-use types::peer_id;
-use types::peer_scope::WorkerId;
 
 pub const fn default_bool<const V: bool>() -> bool {
     V
@@ -55,6 +57,7 @@ pub struct PersistedWorker {
     #[serde(default = "default_bool::<true>")]
     pub active: bool,
     pub cu_ids: Vec<CUID>,
+    pub vm_flag: bool,
 }
 
 impl From<PersistedWorker> for WorkerInfo {
@@ -62,8 +65,9 @@ impl From<PersistedWorker> for WorkerInfo {
         WorkerInfo {
             deal_id: val.deal_id.into(),
             creator: val.creator,
-            active: RwLock::new(val.active),
+            active: val.active.into(),
             cu_ids: val.cu_ids,
+            vm_flag: val.vm_flag.into(),
         }
     }
 }

@@ -308,7 +308,7 @@ pub struct SwarmConfig {
     pub builtins_dir: Option<PathBuf>,
     pub spell_base_dir: Option<PathBuf>,
     pub allowed_binaries: Vec<String>,
-    pub allowed_effectors: HashMap<String, HashMap<String, String>>,
+    pub allowed_effectors: HashMap<String, HashMap<String, PathBuf>>,
     pub enabled_system_services: Vec<String>,
     pub extend_system_services: Vec<system_services::PackageDistro>,
     pub override_system_services_config: Option<system_services_config::SystemServicesConfig>,

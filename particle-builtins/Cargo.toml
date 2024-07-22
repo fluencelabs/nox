@@ -43,6 +43,10 @@ async-trait = { workspace = true }
 eyre = { workspace = true }
 base64 = { workspace = true }
 health = { workspace = true }
+vm-utils = { workspace = true }
+fs-utils = { workspace = true }
+config-utils = { workspace = true }
+tracing = { workspace = true }
 
 [dev-dependencies]
 proptest = "1.4.0"

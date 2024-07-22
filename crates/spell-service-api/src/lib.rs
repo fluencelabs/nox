@@ -316,6 +316,7 @@ mod tests {
     use fluence_keypair::KeyPair;
     use fluence_spell_dtos::trigger_config::TriggerConfig;
     use fluence_spell_dtos::value::*;
+    use fs_utils::create_dirs;
     use maplit::hashmap;
     use serde_json::json;
     use std::time::Duration;
@@ -337,10 +338,17 @@ mod tests {
     ) -> (ParticleAppServices, ModuleRepository, PeerId) {
         let persistent_dir = base_dir.join("persistent");
         let ephemeral_dir = base_dir.join("ephemeral");
+
+        create_dirs(&[&persistent_dir, &ephemeral_dir]).unwrap();
+
         let root_key_pair = Keypair::generate_ed25519();
-        let vault_dir = ephemeral_dir.join("..").join("vault");
-        let keypairs_dir = persistent_dir.join("..").join("keypairs");
-        let workers_dir = persistent_dir.join("..").join("workers");
+        let vault_dir = ephemeral_dir.join("vault");
+        let keypairs_dir = persistent_dir.join("keypairs");
+        let workers_dir = persistent_dir.join("workers");
+        let blueprint_dir = persistent_dir.join("blueprint");
+        let modules_dir = persistent_dir.join("modules");
+
+        create_dirs(&[&blueprint_dir, &modules_dir]).unwrap();
 
         let root_key_pair: KeyPair = root_key_pair.clone().into();
 
@@ -385,18 +393,11 @@ mod tests {
             management_pid,
             root_key_pair.get_peer_id(),
             Some(service_memory_limit),
-            Default::default(),
-            Default::default(),
-            true,
             wasm_backend_config,
         )
         .unwrap();
 
-        let repo = ModuleRepository::new(
-            &config.modules_dir,
-            &config.blueprint_dir,
-            Default::default(),
-        );
+        let repo = ModuleRepository::new(&modules_dir, &blueprint_dir, Default::default());
 
         let pas = ParticleAppServices::new(
             config,

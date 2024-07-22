@@ -20,7 +20,7 @@
 use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
 use std::ops::Try;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -36,6 +36,7 @@ use tokio::sync::RwLock;
 use JValue::Array;
 
 use connection_pool::{ConnectionPoolApi, ConnectionPoolT};
+use fs_utils::{create_dirs, to_abs_path};
 use health::HealthCheckRegistry;
 use kademlia::{KademliaApi, KademliaApiT};
 use now_millis::{now_ms, now_sec};
@@ -49,8 +50,10 @@ use particle_services::{
     ParticleAppServices, ParticleAppServicesConfig, PeerScope, ServiceInfo, ServiceType,
 };
 use peer_metrics::ServicesMetrics;
+use service_modules::Hash;
 use types::peer_id;
 use uuid_utils::uuid;
+use vm_utils::{CreateVMDomainParams, NonEmpty};
 use workers::{KeyStorage, PeerScopes, Workers};
 
 use crate::debug::fmt_custom_services;
@@ -83,18 +86,23 @@ impl CustomService {
 #[derivative(Debug)]
 pub struct Builtins<C> {
     pub connectivity: C,
-
     pub modules: ModuleRepository,
     pub services: ParticleAppServices,
     #[derivative(Debug(format_with = "fmt_custom_services"))]
     pub custom_services: RwLock<HashMap<String, CustomService>>,
-
+    #[derivative(Debug = "ignore")]
+    workers: Arc<Workers>,
     #[derivative(Debug = "ignore")]
     key_storage: Arc<KeyStorage>,
     #[derivative(Debug = "ignore")]
     scopes: PeerScopes,
+    config: BuiltinsConfig,
+}
+
+#[derive(Debug)]
+pub struct BuiltinsConfig {
+    particle_app_services: ParticleAppServicesConfig,
     connector_api_endpoint: String,
-    is_dev_mode: bool,
 }
 
 impl<C> Builtins<C>
@@ -102,17 +110,14 @@ where
     C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoolApi>,
 {
     pub fn new(
+        config: BuiltinsConfig,
         connectivity: C,
-        config: ParticleAppServicesConfig,
         services_metrics: ServicesMetrics,
         key_storage: Arc<KeyStorage>,
         workers: Arc<Workers>,
         scope: PeerScopes,
         health_registry: Option<&mut HealthCheckRegistry>,
-        connector_api_endpoint: String,
     ) -> Self {
-        let modules_dir = &config.modules_dir;
-        let blueprint_dir = &config.blueprint_dir;
         let effectors_mode = if config.is_dev_mode {
             EffectorsMode::all_effectors(
                 config.allowed_effectors.clone(),
@@ -121,11 +126,12 @@ where
         } else {
             EffectorsMode::restricted_effectors(config.allowed_effectors.clone())
         };
-        let is_dev_mode = config.is_dev_mode;
+        let modules_dir = &config.modules_dir;
+        let blueprint_dir = &config.blueprint_dir;
 
         let modules = ModuleRepository::new(modules_dir, blueprint_dir, effectors_mode);
         let services = ParticleAppServices::new(
-            config,
+            config.particle_app_services.clone(),
             modules.clone(),
             Some(services_metrics),
             health_registry,
@@ -138,11 +144,11 @@ where
             connectivity,
             modules,
             services,
+            workers,
             custom_services: <_>::default(),
             key_storage,
             scopes: scope,
-            connector_api_endpoint,
-            is_dev_mode,
+            config,
         }
     }
 
@@ -288,6 +294,8 @@ where
 
             ("vault", "put") => wrap(self.vault_put(args, particle)),
             ("vault", "cat") => wrap(self.vault_cat(args, particle)),
+
+            ("vm", "create") => wrap(self.create_vm(args, particle).await),
 
             ("subnet", "resolve") => wrap(self.subnet_resolve(args).await),
             ("run-console", "print") => {
@@ -1115,7 +1123,8 @@ where
     async fn subnet_resolve(&self, args: Args) -> Result<JValue, JError> {
         let mut args = args.function_args.into_iter();
         let deal_id: String = Args::next("deal_id", &mut args)?;
-        let result = subnet_resolver::resolve_subnet(deal_id, &self.connector_api_endpoint).await;
+        let result =
+            subnet_resolver::resolve_subnet(deal_id, &self.config.connector_api_endpoint).await;
         Ok(json!(result))
     }
 
@@ -1150,6 +1159,36 @@ where
                 && worker_service.service_id == spell_id
         };
         result.unwrap_or(false)
+    }
+
+    async fn create_vm(&self, args: Args, params: ParticleParams) -> Result<JValue, JError> {
+        match &self.config.libvirt_uri {
+            None => Err(JError::new("This function is disabled")),
+            Some(libvirt_uri) => match params.peer_scope {
+                PeerScope::WorkerId(worker_id) => {
+                    let mut args = args.function_args.into_iter();
+                    let image: String = Args::next("image", &mut args)?;
+                    let image = image.into();
+                    let assignment = self
+                        .workers
+                        .get_worker_assignment(worker_id)
+                        .map_err(|_| JError::new("Worker not found"))?;
+
+                    let assignment = NonEmpty::from_vec(assignment.logical_core_ids())
+                        .ok_or(JError::new("Unexpected error"))?;
+
+                    let params =
+                        CreateVMDomainParams::new(worker_id.to_string(), image, assignment);
+
+                    vm_utils::create_domain(libvirt_uri.as_str(), params)
+                        .map_err(|_| JError::new("Unexpected error"))?;
+
+                    self.workers.set_vm_flag(worker_id, true).await?;
+                    Ok(JValue::Null)
+                }
+                PeerScope::Host => Err(JError::new("This function is only available for workers")),
+            },
+        }
     }
 }
 

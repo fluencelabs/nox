@@ -1,7 +1,9 @@
 mod vm_utils;
 
-pub use vm_utils::create_vm;
+pub use nonempty::NonEmpty;
+pub use vm_utils::create_domain;
+pub use vm_utils::remove_domain;
 pub use vm_utils::start_vm;
 pub use vm_utils::stop_vm;
-pub use vm_utils::CreateVMParams;
+pub use vm_utils::CreateVMDomainParams;
 pub use vm_utils::VMUtilsError;

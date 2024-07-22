@@ -6263,11 +6263,13 @@ dependencies = [
  "base64 0.21.7",
  "bs58",
  "bytesize",
+ "config-utils",
  "connection-pool",
  "derivative",
  "eyre",
  "fluence-app-service",
  "fluence-keypair",
+ "fs-utils",
  "futures",
  "health",
  "humantime-serde",
@@ -6295,8 +6297,10 @@ dependencies = [
  "thiserror",
  "tokio",
  "toml-utils",
+ "tracing",
  "types",
  "uuid-utils",
+ "vm-utils",
  "workers",
 ]
 
@@ -8098,6 +8102,7 @@ dependencies = [
  "fluence-keypair",
  "fluence-libp2p",
  "fluence-spell-dtos",
+ "fs-utils",
  "libp2p-identity",
  "maplit",
  "particle-execution",
@@ -9156,6 +9161,7 @@ dependencies = [
 name = "vm-utils"
 version = "0.1.0"
 dependencies = [
+ "ccp-shared",
  "log-utils",
  "mac_address",
  "nonempty",
@@ -10195,6 +10201,7 @@ dependencies = [
  "toml_edit 0.22.17",
  "tracing",
  "types",
+ "vm-utils",
 ]
 
 [[package]]

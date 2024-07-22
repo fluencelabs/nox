@@ -507,7 +507,7 @@ impl HttpChainConnector {
         }
         .abi_encode();
         tracing::debug!(target: "chain-connector", "Registering worker {worker_id} for deal {deal_id} with cu_id {cu_id}");
-        self.send_tx(data, &deal_id.as_str()).await
+        self.send_tx(data, deal_id.as_str()).await
     }
 
     fn difficulty_params(&self) -> ArrayParams {

@@ -1,3 +1,4 @@
+use ccp_shared::types::LogicalCoreId;
 use mac_address::MacAddress;
 use nonempty::NonEmpty;
 use rand::Rng;
@@ -10,16 +11,27 @@ use virt::sys::VIR_DOMAIN_DEFINE_VALIDATE;
 const MAC_PREFIX: [u8; 3] = [0x52, 0x54, 0x00];
 
 #[derive(Debug)]
-pub struct CreateVMParams {
+pub struct CreateVMDomainParams {
     name: String,
     image: PathBuf,
-    cpus: NonEmpty<u32>,
+    cpus: NonEmpty<LogicalCoreId>,
+}
+
+impl CreateVMDomainParams {
+    pub fn new(name: String, image: PathBuf, cpus: NonEmpty<LogicalCoreId>) -> Self {
+        Self { name, image, cpus }
+    }
 }
 
 #[derive(Error, Debug)]
 pub enum VMUtilsError {
     #[error("Failed to connect to the hypervisor")]
     FailedToConnect {
+        #[source]
+        err: virt::error::Error,
+    },
+    #[error("Failed to define VM domain")]
+    FailedToDefineVMDomain {
         #[source]
         err: virt::error::Error,
     },
@@ -43,7 +55,7 @@ pub enum VMUtilsError {
     FailedToGetVMId { name: String },
 }
 
-pub fn create_vm(uri: &str, params: CreateVMParams) -> Result<(), VMUtilsError> {
+pub fn create_domain(uri: &str, params: CreateVMDomainParams) -> Result<(), VMUtilsError> {
     let conn = Connect::open(uri).map_err(|err| VMUtilsError::FailedToConnect { err })?;
     let domain = Domain::lookup_by_name(&conn, params.name.as_str()).ok();
 
@@ -53,7 +65,7 @@ pub fn create_vm(uri: &str, params: CreateVMParams) -> Result<(), VMUtilsError> 
             let mac = generate_random_mac();
             let xml = prepare_xml(&params, mac.to_string().as_str());
             Domain::define_xml_flags(&conn, xml.as_str(), VIR_DOMAIN_DEFINE_VALIDATE)
-                .map_err(|err| VMUtilsError::FailedToCreateVM { err })?;
+                .map_err(|err| VMUtilsError::FailedToDefineVMDomain { err })?;
         }
         Some(_) => {
             tracing::info!(target: "vm-utils","Domain with name {} already exists. Skipping", params.name);
@@ -62,14 +74,17 @@ pub fn create_vm(uri: &str, params: CreateVMParams) -> Result<(), VMUtilsError> 
     Ok(())
 }
 
-fn generate_random_mac() -> MacAddress {
-    let mut rng = rand::thread_rng();
-    let mut result = [0u8; 6];
-    result[..3].copy_from_slice(&MAC_PREFIX);
-    rng.fill(&mut result[3..]);
-    MacAddress::from(result)
-}
+pub fn remove_domain(uri: &str, name: String) -> Result<(), VMUtilsError> {
+    tracing::info!(target: "vm-utils","Removing domain with name {}", name);
+    let conn = Connect::open(uri).map_err(|err| VMUtilsError::FailedToConnect { err })?;
+    let domain = Domain::lookup_by_name(&conn, name.as_str())
+        .map_err(|err| VMUtilsError::VmNotFound { name, err })?;
+    domain
+        .undefine()
+        .map_err(|err| VMUtilsError::FailedToShutdownVM { err })?;
 
+    Ok(())
+}
 pub fn start_vm(uri: &str, name: String) -> Result<u32, VMUtilsError> {
     tracing::info!(target: "vm-utils","Starting VM with name {name}");
     let conn = Connect::open(uri).map_err(|err| VMUtilsError::FailedToConnect { err })?;
@@ -101,7 +116,15 @@ pub fn stop_vm(uri: &str, name: String) -> Result<(), VMUtilsError> {
     Ok(())
 }
 
-fn prepare_xml(params: &CreateVMParams, mac_address: &str) -> String {
+fn generate_random_mac() -> MacAddress {
+    let mut rng = rand::thread_rng();
+    let mut result = [0u8; 6];
+    result[..3].copy_from_slice(&MAC_PREFIX);
+    rng.fill(&mut result[3..]);
+    MacAddress::from(result)
+}
+
+fn prepare_xml(params: &CreateVMDomainParams, mac_address: &str) -> String {
     let mut mapping = String::new();
     for (index, logical_id) in params.cpus.iter().enumerate() {
         if index > 0 {
@@ -143,10 +166,10 @@ mod tests {
     #[test]
     fn test_prepare_xml() {
         let xml = prepare_xml(
-            &CreateVMParams {
+            &CreateVMDomainParams {
                 name: "test-id".to_string(),
                 image: "test-image".into(),
-                cpus: nonempty![1, 8],
+                cpus: nonempty![1.into(), 8.into()],
             },
             "52:54:00:1e:af:64",
         );
@@ -164,12 +187,12 @@ mod tests {
         let list_defined_before_create = list_defined().unwrap();
         assert!(list_defined_before_create.is_empty());
 
-        create_vm(
+        create_domain(
             DEFAULT_URI,
-            CreateVMParams {
+            CreateVMDomainParams {
                 name: "test-id".to_string(),
                 image: image.clone(),
-                cpus: nonempty![1],
+                cpus: nonempty![1.into()],
             },
         )
         .unwrap();

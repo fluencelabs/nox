@@ -28,7 +28,7 @@ use parking_lot::RwLock;
 use tokio::runtime::{Handle, Runtime, UnhandledPanic};
 use tokio::sync::mpsc::{Receiver, Sender};
 
-use core_distributor::types::{AcquireRequest, WorkType};
+use core_distributor::types::{AcquireRequest, Assignment, WorkType};
 use core_distributor::{CoreDistributor, ThreadPinner, CUID};
 use fluence_libp2p::PeerId;
 use types::peer_scope::WorkerId;
@@ -48,6 +48,8 @@ pub struct WorkerInfo {
     pub active: RwLock<bool>,
     /// A count of compute units available for this worker.
     pub cu_ids: Vec<CUID>,
+
+    pub vm_flag: RwLock<bool>,
 }
 
 pub struct WorkerParams {
@@ -84,6 +86,8 @@ pub struct Workers {
     thread_pinner: Arc<dyn ThreadPinner>,
     /// Number of created tokio runtimes
     runtime_counter: Arc<AtomicU32>,
+
+    assignments: RwLock<HashMap<WorkerId, Assignment>>,
 
     sender: Sender<Event>,
 }
@@ -125,6 +129,7 @@ impl Workers {
         let mut worker_ids = HashMap::with_capacity(workers.len());
         let mut worker_infos = HashMap::with_capacity(workers.len());
         let mut runtimes = HashMap::with_capacity(workers.len());
+        let mut assignments = HashMap::with_capacity(workers.len());
 
         let worker_counter = Arc::new(AtomicU32::new(0));
         let (sender, receiver) = tokio::sync::mpsc::channel::<Event>(channel_size);
@@ -136,14 +141,14 @@ impl Workers {
             worker_infos.insert(worker_id, w.into());
             worker_ids.insert(deal_id, worker_id);
 
-            let (runtime, thread_count) = Self::build_runtime(
+            let (runtime, thread_count, assignment) = Self::build_runtime(
                 core_distributor.clone(),
                 thread_pinner.clone(),
                 worker_counter.clone(),
                 worker_id,
                 cu_ids,
             )?;
-
+            assignments.insert(worker_id, assignment);
             runtimes.insert(worker_id, runtime);
             sender
                 .send(Event::WorkerCreated {
@@ -154,8 +159,8 @@ impl Workers {
         }
         Ok((
             Self {
-                worker_ids: RwLock::new(worker_ids),
-                worker_infos: RwLock::new(worker_infos),
+                worker_ids: worker_ids.into(),
+                worker_infos: worker_infos.into(),
                 workers_dir,
                 key_storage,
                 runtimes: RwLock::new(runtimes),
@@ -163,6 +168,7 @@ impl Workers {
                 core_distributor,
                 thread_pinner,
                 sender,
+                assignments: assignments.into(),
             },
             receiver,
         ))
@@ -210,6 +216,7 @@ impl Workers {
             let guard = self.worker_ids.read();
             guard.get(&deal_id).cloned()
         };
+
         match worker_id {
             Some(_) => Err(WorkersError::WorkerAlreadyExists { deal_id }),
             _ => {
@@ -235,7 +242,7 @@ impl Workers {
                                     return Err(WorkersError::WorkerAlreadyExists { deal_id });
                                 }
 
-                                let (runtime, thread_count) = Self::build_runtime(
+                                let (runtime, thread_count, assignment) = Self::build_runtime(
                                     self.core_distributor.clone(),
                                     self.thread_pinner.clone(),
                                     self.runtime_counter.clone(),
@@ -247,10 +254,13 @@ impl Workers {
                                 let mut worker_ids = RwLockUpgradableReadGuard::upgrade(lock);
                                 let mut worker_infos = self.worker_infos.write();
                                 let mut runtimes = self.runtimes.write();
+                                let mut worker_assignments = self.assignments.write();
 
                                 worker_ids.insert(deal_id.clone(), worker_id);
                                 worker_infos.insert(worker_id, worker_info);
                                 runtimes.insert(worker_id, runtime);
+                                worker_assignments.insert(worker_id, assignment);
+
                                 thread_count
                             };
 
@@ -342,13 +352,29 @@ impl Workers {
             let mut worker_ids = self.worker_ids.write();
             let mut worker_infos = self.worker_infos.write();
             let mut runtimes = self.runtimes.write();
+            let mut assignments = self.assignments.write();
             let removed_worker_id = worker_ids.remove(&deal_id);
             let removed_worker_info = worker_infos.remove(&worker_id);
             let removed_runtime = runtimes.remove(&worker_id);
+            let removed_assignments = assignments.remove(&worker_id);
+
+            if let Some(removed_worker_info) = &removed_worker_info {
+                let vm_flag = removed_worker_info.vm_flag.read();
+                if *vm_flag {
+                    vm_utils::stop_vm("todo".as_ref(), worker_id.to_string())
+                        .map_err(|err| WorkersError::FailedToRemoveVM { worker_id, err })?;
+                    vm_utils::remove_domain("todo".as_ref(), worker_id.to_string())
+                        .map_err(|err| WorkersError::FailedToRemoveVM { worker_id, err })?;
+                }
+            }
 
             debug_assert!(removed_worker_id.is_some(), "worker_id does not exist");
             debug_assert!(removed_worker_info.is_some(), "worker info does not exist");
             debug_assert!(removed_runtime.is_some(), "worker runtime does not exist");
+            debug_assert!(
+                removed_assignments.is_some(),
+                "worker assignment does not exist"
+            );
             removed_runtime
         };
 
@@ -552,6 +578,7 @@ impl Workers {
                 deal_id: deal_id.clone().into(),
                 active: true,
                 cu_ids: cu_ids.clone(),
+                vm_flag: false,
             },
         )
         .await?;
@@ -560,8 +587,38 @@ impl Workers {
             creator,
             active: RwLock::new(true),
             cu_ids,
+            vm_flag: false.into(),
         };
         Ok(worker_info)
+    }
+
+    async fn set_worker_info<F>(&self, worker_id: WorkerId, modify: F) -> Result<(), WorkersError>
+    where
+        F: Fn(&WorkerInfo),
+    {
+        let persisted_worker = {
+            let guard = self.worker_infos.read();
+            let worker_info = guard
+                .get(&worker_id)
+                .ok_or(WorkersError::WorkerNotFound(worker_id))?;
+
+            modify(worker_info);
+
+            let active = worker_info.active.read();
+            let vm_flag = worker_info.vm_flag.read();
+
+            PersistedWorker {
+                worker_id,
+                creator: worker_info.creator,
+                deal_id: worker_info.deal_id.to_string(),
+                active: *active,
+                cu_ids: worker_info.cu_ids.clone(),
+                vm_flag: *vm_flag,
+            }
+        };
+
+        persist_worker(&self.workers_dir, worker_id, persisted_worker).await?;
+        Ok(())
     }
 
     async fn set_worker_status(
@@ -569,34 +626,41 @@ impl Workers {
         worker_id: WorkerId,
         status: bool,
     ) -> Result<(), WorkersError> {
-        let (creator, deal_id, cu_ids) = {
-            let guard = self.worker_infos.read();
-            let worker_info = guard
-                .get(&worker_id)
-                .ok_or(WorkersError::WorkerNotFound(worker_id))?;
+        self.set_worker_info(worker_id, |worker_info: &WorkerInfo| {
             let mut active = worker_info.active.write();
             *active = status;
-
-            (
-                worker_info.creator,
-                worker_info.deal_id.clone(),
-                worker_info.cu_ids.clone(),
-            )
-        };
-
-        persist_worker(
-            &self.workers_dir,
-            worker_id,
-            PersistedWorker {
-                worker_id,
-                creator,
-                deal_id: deal_id.into(),
-                active: status,
-                cu_ids,
-            },
-        )
+        })
         .await?;
         Ok(())
+    }
+
+    pub async fn set_vm_flag(&self, worker_id: WorkerId, value: bool) -> Result<(), WorkersError> {
+        self.set_worker_info(worker_id, |worker_info: &WorkerInfo| {
+            let mut vm_flag = worker_info.vm_flag.write();
+            *vm_flag = value;
+        })
+        .await?;
+        Ok(())
+    }
+
+    /// Retrieves the assignment associated with the specified worker `PeerId`.
+    ///
+    /// # Arguments
+    ///
+    /// * `worker_id` - The `PeerId` of the worker for which the creator `PeerId` is requested.
+    ///
+    /// # Returns
+    ///
+    /// Returns `Result<Assignment, WorkersError>` where:
+    /// - `Ok(assignment)` if the creator `PeerId` is successfully retrieved.
+    /// - `Err(WorkersError)` if an error occurs, such as the worker not found.
+    ///
+    pub fn get_worker_assignment(&self, worker_id: WorkerId) -> Result<Assignment, WorkersError> {
+        self.assignments
+            .read()
+            .get(&worker_id)
+            .cloned()
+            .ok_or(WorkersError::WorkerNotFound(worker_id))
     }
 
     fn build_runtime(
@@ -605,7 +669,7 @@ impl Workers {
         worker_counter: Arc<AtomicU32>,
         worker_id: WorkerId,
         cu_ids: Vec<CUID>,
-    ) -> Result<(Runtime, usize), WorkersError> {
+    ) -> Result<(Runtime, usize, Assignment), WorkersError> {
         // Creating a multi-threaded Tokio runtime with a total of cu_count * 2 threads.
         // We assume cu_count threads per logical processor, aligning with the common practice.
         let assignment = core_distributor
@@ -619,6 +683,7 @@ impl Workers {
 
         tracing::info!(target: "worker", "Creating runtime with id {} for worker id {}. Pinned to cores: {:?}", id, worker_id, logical_cores);
 
+        let runtime_assignment = assignment.clone();
         let runtime = tokio::runtime::Builder::new_multi_thread()
             .thread_name(format!("worker-pool-{}", id))
             // Configuring worker threads for executing service calls and particles
@@ -628,12 +693,12 @@ impl Workers {
             .enable_time()
             .enable_io()
             .on_thread_start(move || {
-                assignment.pin_current_thread_with(thread_pinner.as_ref());
+                runtime_assignment.pin_current_thread_with(thread_pinner.as_ref());
             })
             .unhandled_panic(UnhandledPanic::Ignore) // TODO: try to log panics after fix https://github.com/tokio-rs/tokio/issues/4516
             .build()
             .map_err(|err| WorkersError::CreateRuntime { worker_id, err })?;
-        Ok((runtime, threads_count))
+        Ok((runtime, threads_count, assignment))
     }
 }
 

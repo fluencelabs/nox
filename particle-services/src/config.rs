@@ -20,19 +20,16 @@
 use fs_utils::{create_dirs, set_write_only, to_abs_path};
 
 use bytesize::ByteSize;
-use cid_utils::Hash;
 use fluence_app_service::WasmtimeConfig;
 use libp2p_identity::PeerId;
 use std::collections::HashMap;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::time::Duration;
 
 #[derive(Debug, Clone)]
 pub struct ParticleAppServicesConfig {
     /// Peer id of the current node
     pub local_peer_id: PeerId,
-    /// Path of the blueprint directory containing blueprints and wasm modules
-    pub blueprint_dir: PathBuf,
     /// Opaque environment variables to be passed on each service creation
     /// TODO: isolate envs of different modules (i.e., module A shouldn't access envs of module B)
     pub envs: HashMap<String, String>,
@@ -40,8 +37,6 @@ pub struct ParticleAppServicesConfig {
     pub persistent_work_dir: PathBuf,
     /// Ephemeral working dir for services
     pub ephemeral_work_dir: PathBuf,
-    /// Dir to store .wasm modules and their configs
-    pub modules_dir: PathBuf,
     /// Dir to persist info about running services
     pub services_dir: PathBuf,
     /// Dir to store directories shared between services
@@ -53,12 +48,6 @@ pub struct ParticleAppServicesConfig {
     pub builtins_management_peer_id: PeerId,
     /// Default heap size in bytes available for the module unless otherwise specified.
     pub default_service_memory_limit: Option<ByteSize>,
-    /// List of allowed effector modules by CID
-    pub allowed_effectors: HashMap<Hash, HashMap<String, PathBuf>>,
-    /// Mapping of binary names to their paths for mounted binaries used in developer mode
-    pub mounted_binaries_mapping: HashMap<String, PathBuf>,
-    /// Is in the developer mode
-    pub is_dev_mode: bool,
     /// config for the wasmtime backend
     pub wasm_backend_config: WasmBackendConfig,
 }
@@ -74,77 +63,28 @@ impl ParticleAppServicesConfig {
         management_peer_id: PeerId,
         builtins_management_peer_id: PeerId,
         default_service_memory_limit: Option<ByteSize>,
-        allowed_effectors: HashMap<Hash, HashMap<String, String>>,
-        mounted_binaries_mapping: HashMap<String, String>,
-        is_dev_mode: bool,
         wasm_backend_config: WasmBackendConfig,
     ) -> Result<Self, std::io::Error> {
         let persistent_dir = to_abs_path(persistent_dir);
         let ephemeral_dir = to_abs_path(ephemeral_dir);
 
-        let allowed_effectors = allowed_effectors
-            .into_iter()
-            .map(|(cid, effector)| {
-                let effector = effector
-                    .into_iter()
-                    .map(|(name, path_str)| {
-                        let path = Path::new(&path_str);
-                        match path.try_exists() {
-                            Err(err) => tracing::warn!(
-                                "cannot check binary `{path_str}` for effector `{cid}`: {err}"
-                            ),
-                            Ok(false) => tracing::warn!(
-                                "binary `{path_str}` for effector `{cid}` does not exist"
-                            ),
-                            _ => {}
-                        };
-                        (name, path.to_path_buf())
-                    })
-                    .collect::<_>();
-                (cid, effector)
-            })
-            .collect::<_>();
-
-        let mounted_binaries_mapping = if !is_dev_mode {
-            HashMap::new()
-        } else {
-            mounted_binaries_mapping
-                .into_iter()
-                .map(|(name, path_str)| {
-                    let path = Path::new(&path_str);
-                    match path.try_exists() {
-                        Err(err) => tracing::warn!("cannot check binary `{path_str}`: {err}"),
-                        Ok(false) => tracing::warn!("binary `{path_str}` does not exist"),
-                        _ => {}
-                    };
-                    (name, path.to_path_buf())
-                })
-                .collect::<_>()
-        };
-
         let this = Self {
             local_peer_id,
-            blueprint_dir: config_utils::blueprint_dir(&persistent_dir),
             persistent_work_dir: config_utils::workdir(&persistent_dir),
             ephemeral_work_dir: config_utils::workdir(&ephemeral_dir),
-            modules_dir: config_utils::modules_dir(&persistent_dir),
+
             services_dir: config_utils::services_dir(&persistent_dir),
             particles_vault_dir,
             envs,
             management_peer_id,
             builtins_management_peer_id,
             default_service_memory_limit,
-            allowed_effectors,
-            mounted_binaries_mapping,
-            is_dev_mode,
             wasm_backend_config,
         };
 
         create_dirs(&[
-            &this.blueprint_dir,
             &this.persistent_work_dir,
             &this.ephemeral_work_dir,
-            &this.modules_dir,
             &this.services_dir,
             &this.particles_vault_dir,
         ])?;

@@ -23,6 +23,7 @@ tracing = { workspace = true }
 tokio = { workspace = true, features = ["fs", "sync"] }
 derivative = { workspace = true }
 types = { workspace = true }
+vm-utils = { workspace = true }
 async-trait = "0.1.79"
 
 [dev-dependencies]
