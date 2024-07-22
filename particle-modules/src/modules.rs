@@ -49,21 +49,40 @@ use crate::ModuleError::{
     SerializeBlueprintJson,
 };
 
+pub type Binaries = HashMap<String, PathBuf>;
+pub type Effectors = HashMap<Hash, Binaries>;
+
 #[derive(Debug, Clone)]
-pub enum EffectorsMode {
-    RestrictedEffectors {
-        effectors: HashMap<Hash, HashMap<String, PathBuf>>,
-    },
-    AllEffectors {
-        binaries: HashMap<String, PathBuf>,
-    },
+pub struct EffectorsMode {
+    defined_effectors: Effectors,
+    default_binaries: Binaries,
+    is_restricted: bool,
+}
+
+impl EffectorsMode {
+    pub fn restricted_effectors(defined_effectors: Effectors) -> EffectorsMode {
+        Self {
+            defined_effectors,
+            default_binaries: Default::default(),
+            is_restricted: true,
+        }
+    }
+
+    pub fn all_effectors(
+        defined_effectors: Effectors,
+        default_binaries: Binaries,
+    ) -> EffectorsMode {
+        Self {
+            defined_effectors,
+            default_binaries,
+            is_restricted: false,
+        }
+    }
 }
 
 impl Default for EffectorsMode {
     fn default() -> Self {
-        EffectorsMode::RestrictedEffectors {
-            effectors: Default::default(),
-        }
+        Self::restricted_effectors(Default::default())
     }
 }
 
@@ -96,17 +115,15 @@ impl ModuleRepository {
         module_hash: &Hash,
         mounted_binaries: HashSet<String>,
     ) -> Result<&HashMap<String, PathBuf>> {
-        let binaries = match &self.effectors {
-            EffectorsMode::RestrictedEffectors { effectors } => effectors
-                .iter()
-                .find(|(effector_hash, _)| effector_hash == &module_hash)
-                .map(|(_, binaries)| binaries)
-                .ok_or(ForbiddenEffector {
-                    module_name: module_name.to_string(),
-                    forbidden_cid: module_hash.to_string(),
-                })?,
-            EffectorsMode::AllEffectors { binaries } => binaries,
-        };
+        let binaries = match self.effectors.defined_effectors.get(module_hash) {
+            Some(binaries) => Ok(binaries),
+            None if !self.effectors.is_restricted => Ok(&self.effectors.default_binaries),
+            None => Err(ForbiddenEffector {
+                module_name: module_name.to_string(),
+                forbidden_cid: module_hash.to_string(),
+            }),
+        }?;
+
         for mounted_binary_name in &mounted_binaries {
             if !binaries
                 .keys()
@@ -516,13 +533,11 @@ mod tests {
                 .unwrap();
 
         let effector_path = "../crates/nox-tests/tests/effector/artifacts";
-        let allowed_effectors = EffectorsMode::RestrictedEffectors {
-            effectors: hashmap! {
-                effector_wasm_cid => hashmap! {
-                    "ls".to_string() => PathBuf::from("/bin/ls"),
-                }
-            },
-        };
+        let allowed_effectors = EffectorsMode::restricted_effectors(hashmap! {
+            effector_wasm_cid => hashmap! {
+                "ls".to_string() => PathBuf::from("/bin/ls"),
+            }
+        });
 
         let module_dir = TempDir::new("test").unwrap();
         let bp_dir = TempDir::new("test2").unwrap();
@@ -540,14 +555,12 @@ mod tests {
                 .unwrap();
 
         let effector_path = "../crates/nox-tests/tests/effector/artifacts";
-        let allowed_effectors = EffectorsMode::RestrictedEffectors {
-            effectors: hashmap! {
-                some_wasm_cid => hashmap! {
-                    "ls".to_string() => PathBuf::from("/bin/ls"),
-                    "cat".to_string() => PathBuf::from("/bin/cat"),
-                }
-            },
-        };
+        let allowed_effectors = EffectorsMode::restricted_effectors(hashmap! {
+            some_wasm_cid => hashmap! {
+                "ls".to_string() => PathBuf::from("/bin/ls"),
+                "cat".to_string() => PathBuf::from("/bin/cat"),
+            }
+        });
 
         let module_dir = TempDir::new("test").unwrap();
         let bp_dir = TempDir::new("test2").unwrap();
@@ -565,13 +578,104 @@ mod tests {
                 .unwrap();
 
         let effector_path = "../crates/nox-tests/tests/effector/artifacts";
-        let allowed_effectors = EffectorsMode::RestrictedEffectors {
-            effectors: hashmap! {
+        let allowed_effectors = EffectorsMode::restricted_effectors(hashmap! {
+            effector_wasm_cid => hashmap! {
+                "cat".to_string() => PathBuf::from("/bin/cat"),
+            }
+        });
+
+        let module_dir = TempDir::new("test").unwrap();
+        let bp_dir = TempDir::new("test2").unwrap();
+        let repo = ModuleRepository::new(module_dir.path(), bp_dir.path(), allowed_effectors);
+
+        let module = load_module(effector_path, "effector").expect("load module");
+        let result = repo.add_module("effector".to_string(), module);
+        let _cat = "cat".to_string();
+        assert_matches!(
+            result,
+            Err(InvalidEffectorMountedBinary {
+                binary_name: _cat,
+                ..
+            })
+        );
+    }
+
+    // When in dev mode, all effectors are allowed.
+    // When an effector is in the list of allowed binaries, the config is taken from the effectors config
+    // When an effector isn't in the list, all the binary paths are taken from dev_mode.binaries
+    //
+    // Here we test that the config for allowed effector is taken from the effectors config
+    #[test]
+    fn test_add_module_all_effectors_allowed_effector() {
+        let effector_wasm_cid =
+            Hash::from_string("bafkreiepzclggkt57vu7yrhxylfhaafmuogtqly7wel7ozl5k2ehkd44oe")
+                .unwrap();
+
+        let effector_path = "../crates/nox-tests/tests/effector/artifacts";
+        let allowed_effectors = EffectorsMode::all_effectors(
+            hashmap! {
+                effector_wasm_cid => hashmap! {
+                    "ls".to_string() => PathBuf::from("/bin/ls"),
+                }
+            },
+            hashmap! { "cat".to_string() => PathBuf::from("/bin/cat")},
+        );
+
+        let module_dir = TempDir::new("test").unwrap();
+        let bp_dir = TempDir::new("test2").unwrap();
+        let repo = ModuleRepository::new(module_dir.path(), bp_dir.path(), allowed_effectors);
+
+        let module = load_module(effector_path, "effector").expect("load module");
+        let result = repo.add_module("effector".to_string(), module);
+        assert_matches!(result, Ok(_));
+    }
+
+    // When in dev mode, all effectors are allowed.
+    // When an effector is in the list of allowed binaries, the config is taken from the effectors config
+    // When an effector isn't in the list, all the binary paths are taken from dev_mode.binaries
+    //
+    // Here we test that the config for an undefined effector is taken from the dev_mode.binaries config
+    #[test]
+    fn test_add_module_all_effectors_undefined_effector() {
+        let effector_path = "../crates/nox-tests/tests/effector/artifacts";
+        let allowed_effectors = EffectorsMode::all_effectors(
+            Default::default(),
+            hashmap! { "ls".to_string() => PathBuf::from("/bin/ls")},
+        );
+
+        let module_dir = TempDir::new("test").unwrap();
+        let bp_dir = TempDir::new("test2").unwrap();
+        let repo = ModuleRepository::new(module_dir.path(), bp_dir.path(), allowed_effectors);
+
+        let module = load_module(effector_path, "effector").expect("load module");
+        let result = repo.add_module("effector".to_string(), module);
+        assert_matches!(result, Ok(_));
+    }
+
+    // When in dev mode, all effectors are allowed.
+    // When an effector is in the list of allowed binaries, the config is taken from the effectors config
+    // When an effector isn't in the list, all the binary paths are taken from dev_mode.binaries
+    //
+    // Here we test that the config for a defined effector is taken from the effectors config
+    // and when the effector config is incorrect, the module creation fails even if the
+    // required path is present in the dev_mode.binaries
+    //
+    // I think this is the least surprising behavior and can prevent errors on deploying/publishing
+    #[test]
+    fn test_add_module_all_effectors_allowed_effector_wrong_config() {
+        let effector_wasm_cid =
+            Hash::from_string("bafkreiepzclggkt57vu7yrhxylfhaafmuogtqly7wel7ozl5k2ehkd44oe")
+                .unwrap();
+
+        let effector_path = "../crates/nox-tests/tests/effector/artifacts";
+        let allowed_effectors = EffectorsMode::all_effectors(
+            hashmap! {
                 effector_wasm_cid => hashmap! {
                     "cat".to_string() => PathBuf::from("/bin/cat"),
                 }
             },
-        };
+            hashmap! { "ls".to_string() => PathBuf::from("/bin/ls")},
+        );
 
         let module_dir = TempDir::new("test").unwrap();
         let bp_dir = TempDir::new("test2").unwrap();
