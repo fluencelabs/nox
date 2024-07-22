@@ -16,7 +16,7 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-use hex::ToHex;
+use hex_utils::encode_hex_0x;
 use serde::ser::SerializeStruct;
 use serde::{Serialize, Serializer};
 
@@ -53,7 +53,7 @@ impl<'a, 'b, 'c> Serialize for EthCall<'a, 'b, 'c> {
     {
         let fields = if self.from.is_some() { 3 } else { 2 };
         let mut eth_call = serializer.serialize_struct("EthCall", fields)?;
-        eth_call.serialize_field("data", &format!("0x{}", self.data.encode_hex::<String>()))?;
+        eth_call.serialize_field("data", &encode_hex_0x(&self.data))?;
         eth_call.serialize_field("to", self.to)?;
         if let Some(from) = &self.from {
             eth_call.serialize_field("from", from)?;

@@ -43,7 +43,7 @@ use crate::Deal::CIDV1;
 use crate::{CCStatus, Capacity, CommitmentId, Core, Deal, Offer};
 use chain_data::peer_id_to_bytes;
 use fluence_libp2p::PeerId;
-use hex_utils::decode_hex;
+use hex_utils::{decode_hex, encode_hex_0x};
 use particle_args::{Args, JError};
 use particle_builtins::{wrap, CustomService};
 use particle_execution::{ParticleParams, ServiceFunction};
@@ -424,7 +424,7 @@ impl HttpChainConnector {
                     rpc_params![json!({
                         "from": self.config.wallet_key.to_address().to_string(),
                         "to": to,
-                        "data": format!("0x{}", hex::encode(data)),
+                        "data": encode_hex_0x(data),
                     })],
                 )
                 .await,
@@ -435,7 +435,7 @@ impl HttpChainConnector {
 
     pub async fn send_tx(&self, data: Vec<u8>, to: &str) -> Result<String> {
         let base_fee = self.get_base_fee_per_gas().await?;
-        tracing::info!(target: "chain-connector", "Estimating gas for tx from {} to {} data {}", self.config.wallet_key.to_address(), to, hex::encode(&data));
+        tracing::info!(target: "chain-connector", "Estimating gas for tx from {} to {} data {}", self.config.wallet_key.to_address(), to, encode_hex_0x(&data));
         let gas_limit = self.estimate_gas_limit(&data, to).await?;
         let max_priority_fee_per_gas = self.max_priority_fee_per_gas().await?;
         // (base fee + priority fee).
@@ -467,7 +467,7 @@ impl HttpChainConnector {
         let tx = tx
             .sign(&self.config.wallet_key, Some(self.config.network_id))
             .to_bytes();
-        let tx = hex::encode(tx);
+        let tx = encode_hex_0x(tx);
 
         tracing::info!(target: "chain-connector",
             "Sending tx to {to} from {} signed {tx}",

@@ -17,12 +17,14 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-use chain_data::ChainDataError;
-use jsonrpsee::core::client::{Error as RPCError, Error};
-use jsonrpsee::types::ErrorObjectOwned;
 use std::string::FromUtf8Error;
 
+use jsonrpsee::core::client::{Error as RPCError, Error};
+use jsonrpsee::types::ErrorObjectOwned;
 use thiserror::Error;
+
+use chain_data::ChainDataError;
+use hex_utils::FromHexError;
 
 #[derive(Debug, Error)]
 pub enum ConnectorError {
@@ -50,7 +52,7 @@ pub enum ConnectorError {
     #[error("Failed to parse address: {0}")]
     AddressParseError(#[from] clarity::Error),
     #[error("data is not a valid hex: '{0}'")]
-    DecodeHex(#[from] hex::FromHexError),
+    DecodeHex(#[from] FromHexError),
     #[error("empty data is not a valid hex: '{0}'")]
     EmptyData(String),
     #[error(transparent)]

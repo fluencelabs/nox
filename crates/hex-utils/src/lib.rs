@@ -33,6 +33,11 @@ pub fn encode_hex_0x_zero_pad<T: AsRef<[u8]>>(data: T, width: usize) -> String {
     format!("0x{:0>width$}", hex::encode(data))
 }
 
+pub fn encode_hex_no_prefix<T: AsRef<[u8]>>(data: T) -> String {
+    let hex = hex::encode(data);
+    hex
+}
+
 #[cfg(feature = "serde_with")]
 pub mod serde_as {
     use core::fmt;
