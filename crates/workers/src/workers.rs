@@ -48,7 +48,7 @@ pub struct WorkerInfo {
     pub active: RwLock<bool>,
     /// A count of compute units available for this worker.
     pub cu_ids: Vec<CUID>,
-
+    /// A read-write lock indicating that worker has a VM.
     pub vm_flag: RwLock<bool>,
 }
 
@@ -106,7 +106,9 @@ pub enum Event {
 }
 
 pub struct WorkersConfig {
+    /// The notification channel size
     channel_size: usize,
+    /// Uri to the libvirt API
     libvirt_uri: Option<String>,
 }
 

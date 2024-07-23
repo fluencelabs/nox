@@ -30,13 +30,18 @@ pub enum VMUtilsError {
         #[source]
         err: virt::error::Error,
     },
-    #[error("Failed to define VM domain")]
-    FailedToDefineVMDomain {
+    #[error("Failed to create VM domain")]
+    FailedToCreateVMDomain {
+        #[source]
+        err: virt::error::Error,
+    },
+    #[error("Failed to remove VM domain")]
+    FailedToRemoveVMDomain {
         #[source]
         err: virt::error::Error,
     },
     #[error("Failed to create VM")]
-    FailedToCreateVM {
+    FailedToStartVM {
         #[source]
         err: virt::error::Error,
     },
@@ -47,7 +52,7 @@ pub enum VMUtilsError {
         err: virt::error::Error,
     },
     #[error("Failed to shutdown VM")]
-    FailedToShutdownVM {
+    FailedToStopVM {
         #[source]
         err: virt::error::Error,
     },
@@ -65,7 +70,7 @@ pub fn create_domain(uri: &str, params: CreateVMDomainParams) -> Result<(), VMUt
             let mac = generate_random_mac();
             let xml = prepare_xml(&params, mac.to_string().as_str());
             Domain::define_xml_flags(&conn, xml.as_str(), VIR_DOMAIN_DEFINE_VALIDATE)
-                .map_err(|err| VMUtilsError::FailedToDefineVMDomain { err })?;
+                .map_err(|err| VMUtilsError::FailedToCreateVMDomain { err })?;
         }
         Some(_) => {
             tracing::info!(target: "vm-utils","Domain with name {} already exists. Skipping", params.name);
@@ -81,7 +86,7 @@ pub fn remove_domain(uri: &str, name: String) -> Result<(), VMUtilsError> {
         .map_err(|err| VMUtilsError::VmNotFound { name, err })?;
     domain
         .undefine()
-        .map_err(|err| VMUtilsError::FailedToShutdownVM { err })?;
+        .map_err(|err| VMUtilsError::FailedToRemoveVMDomain { err })?;
 
     Ok(())
 }
@@ -95,7 +100,7 @@ pub fn start_vm(uri: &str, name: String) -> Result<u32, VMUtilsError> {
         })?;
     domain
         .create()
-        .map_err(|err| VMUtilsError::FailedToCreateVM { err })?;
+        .map_err(|err| VMUtilsError::FailedToStartVM { err })?;
 
     let id = domain
         .get_id()
@@ -111,7 +116,7 @@ pub fn stop_vm(uri: &str, name: String) -> Result<(), VMUtilsError> {
         .map_err(|err| VMUtilsError::VmNotFound { name, err })?;
     domain
         .shutdown()
-        .map_err(|err| VMUtilsError::FailedToShutdownVM { err })?;
+        .map_err(|err| VMUtilsError::FailedToStopVM { err })?;
 
     Ok(())
 }
