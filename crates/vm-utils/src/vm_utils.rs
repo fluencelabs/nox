@@ -56,7 +56,7 @@ pub enum VMUtilsError {
 }
 
 pub fn create_domain(uri: &str, params: CreateVMDomainParams) -> Result<(), VMUtilsError> {
-    let conn = Connect::open(uri).map_err(|err| VMUtilsError::FailedToConnect { err })?;
+    let conn = Connect::open(Some(uri)).map_err(|err| VMUtilsError::FailedToConnect { err })?;
     let domain = Domain::lookup_by_name(&conn, params.name.as_str()).ok();
 
     match domain {
@@ -76,7 +76,7 @@ pub fn create_domain(uri: &str, params: CreateVMDomainParams) -> Result<(), VMUt
 
 pub fn remove_domain(uri: &str, name: String) -> Result<(), VMUtilsError> {
     tracing::info!(target: "vm-utils","Removing domain with name {}", name);
-    let conn = Connect::open(uri).map_err(|err| VMUtilsError::FailedToConnect { err })?;
+    let conn = Connect::open(Some(uri)).map_err(|err| VMUtilsError::FailedToConnect { err })?;
     let domain = Domain::lookup_by_name(&conn, name.as_str())
         .map_err(|err| VMUtilsError::VmNotFound { name, err })?;
     domain
@@ -87,7 +87,7 @@ pub fn remove_domain(uri: &str, name: String) -> Result<(), VMUtilsError> {
 }
 pub fn start_vm(uri: &str, name: String) -> Result<u32, VMUtilsError> {
     tracing::info!(target: "vm-utils","Starting VM with name {name}");
-    let conn = Connect::open(uri).map_err(|err| VMUtilsError::FailedToConnect { err })?;
+    let conn = Connect::open(Some(uri)).map_err(|err| VMUtilsError::FailedToConnect { err })?;
     let domain =
         Domain::lookup_by_name(&conn, name.as_str()).map_err(|err| VMUtilsError::VmNotFound {
             name: name.clone(),
@@ -106,7 +106,7 @@ pub fn start_vm(uri: &str, name: String) -> Result<u32, VMUtilsError> {
 
 pub fn stop_vm(uri: &str, name: String) -> Result<(), VMUtilsError> {
     tracing::info!(target: "vm-utils","Stopping VM with name {name}");
-    let conn = Connect::open(uri).map_err(|err| VMUtilsError::FailedToConnect { err })?;
+    let conn = Connect::open(Some(uri)).map_err(|err| VMUtilsError::FailedToConnect { err })?;
     let domain = Domain::lookup_by_name(&conn, name.as_str())
         .map_err(|err| VMUtilsError::VmNotFound { name, err })?;
     domain
@@ -153,13 +153,13 @@ mod tests {
 
     fn list_defined() -> Result<Vec<String>, VMUtilsError> {
         let conn =
-            Connect::open(DEFAULT_URI).map_err(|err| VMUtilsError::FailedToConnect { err })?;
+            Connect::open(Some(DEFAULT_URI)).map_err(|err| VMUtilsError::FailedToConnect { err })?;
         Ok(conn.list_defined_domains().unwrap())
     }
 
     fn list() -> Result<Vec<u32>, VMUtilsError> {
         let conn =
-            Connect::open(DEFAULT_URI).map_err(|err| VMUtilsError::FailedToConnect { err })?;
+            Connect::open(Some(DEFAULT_URI)).map_err(|err| VMUtilsError::FailedToConnect { err })?;
         Ok(conn.list_domains().unwrap())
     }
 

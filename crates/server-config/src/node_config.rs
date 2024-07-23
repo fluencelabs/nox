@@ -182,7 +182,7 @@ pub struct UnresolvedNodeConfig {
     #[serde(default)]
     pub network: Network,
 
-    pub vm: Option<VmConfig>
+    pub vm: Option<VmConfig>,
 }
 
 #[serde_as]
@@ -283,7 +283,7 @@ impl UnresolvedNodeConfig {
             chain_listener_config: self.chain_listener_config,
             services: self.services,
             network: self.network,
-            vm: self.vm
+            vm: self.vm,
         };
 
         Ok(result)
@@ -700,8 +700,8 @@ pub struct DevModeConfig {
 }
 
 #[derive(Clone, Deserialize, Serialize, Debug, PartialEq, Eq)]
-pub struct VmConfig{
-   pub libvirt_uri: String
+pub struct VmConfig {
+    pub libvirt_uri: String,
 }
 
 fn default_dev_mode_config() -> DevModeConfig {

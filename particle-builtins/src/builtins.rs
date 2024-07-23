@@ -224,7 +224,7 @@ where
                 config.mounted_binaries_mapping.clone(),
             )
         } else {
-            EffectorsMode::restricted_effectors(config.allowed_effectors.clone())   
+            EffectorsMode::restricted_effectors(config.allowed_effectors.clone())
         };
         let modules_dir = &config.modules_dir;
         let blueprint_dir = &config.blueprint_dir;
