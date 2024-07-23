@@ -115,3 +115,4 @@ jobs:
           dir: target/${{ matrix.target }}/${{ steps.profile.outputs.profile }}
           prefix: nox/snapshots/${{ github.head_ref }}/nox-${{ matrix.arch }}
           include: nox
+          region: eu-west-1

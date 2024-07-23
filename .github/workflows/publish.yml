@@ -128,3 +128,4 @@ jobs:
           dir: ./docker
           prefix: nox/${{ inputs.version }}
           include: nox-*
+          region: eu-west-1
