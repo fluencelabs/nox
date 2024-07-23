@@ -1261,6 +1261,11 @@ where
     }
 
     async fn create_vm(&self, args: Args, params: ParticleParams) -> Result<JValue, JError> {
+        if !self.is_worker_spell(&params).await {
+            return Err(JError::new(
+                "This function is only available to the worker spells",
+            ));
+        };
         match params.peer_scope {
             PeerScope::WorkerId(worker_id) => {
                 let mut args = args.function_args.into_iter();
