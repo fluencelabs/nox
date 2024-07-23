@@ -418,7 +418,7 @@ where
                 // If the call is on Host, we check that the caller is a host, a manager or
                 // a worker spell. Otherwise we allow the call to go and find an aqua-ipfs service
                 // since it can be a user-defined service which isn't the same as system aqua-ipfs.
-                if matches!(particle.peer_scope, PeerScope::Host) {
+                if !self.config.is_dev_mode && matches!(particle.peer_scope, PeerScope::Host) {
                     self.guard_protected(&particle).await?;
                 }
                 FunctionOutcome::NotDefined { args, params: particle }
