@@ -114,5 +114,5 @@ jobs:
           bucket: fluence-artifacts
           dir: target/${{ matrix.target }}/${{ steps.profile.outputs.profile }}
           prefix: nox/snapshots/${{ github.head_ref }}/nox-${{ matrix.arch }}
-          include: nox
+          includes: nox
           region: eu-west-1

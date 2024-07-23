@@ -127,5 +127,5 @@ jobs:
           bucket: fluence-artifacts
           dir: ./docker
           prefix: nox/${{ inputs.version }}
-          include: nox-*
+          includes: nox-*
           region: eu-west-1
