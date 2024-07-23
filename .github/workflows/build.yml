@@ -90,3 +90,24 @@ jobs:
         with:
           name: nox-${{ matrix.arch }}
           path: target/${{ matrix.target }}/${{ steps.profile.outputs.profile }}/nox
+
+      - name: Import secrets
+        uses: hashicorp/vault-action@v3.0.0
+        with:
+          url: https://vault.fluence.dev
+          path: jwt/github
+          role: ci
+          method: jwt
+          jwtGithubAudience: "https://github.com/fluencelabs"
+          jwtTtl: 300
+          secrets: |
+            kv/ci/fluence-artifacts id | AWS_ACCESS_KEY_ID ;
+            kv/ci/fluence-artifacts secret | AWS_SECRET_ACCESS_KEY
+
+      - name: Upload nox snapshots to s3
+        uses: osiegmar/s3-publisher-action@v1
+        with:
+          bucket: fluence-artifacts
+          dir: target/${{ matrix.target }}/${{ steps.profile.outputs.profile }}
+          prefix: nox/snapshots/${{ github.head_ref }}/nox-${{ matrix.arch }}
+          include: nox
