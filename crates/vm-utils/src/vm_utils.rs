@@ -152,14 +152,14 @@ mod tests {
     const DEFAULT_URI: &str = "test:///default";
 
     fn list_defined() -> Result<Vec<String>, VMUtilsError> {
-        let conn =
-            Connect::open(Some(DEFAULT_URI)).map_err(|err| VMUtilsError::FailedToConnect { err })?;
+        let conn = Connect::open(Some(DEFAULT_URI))
+            .map_err(|err| VMUtilsError::FailedToConnect { err })?;
         Ok(conn.list_defined_domains().unwrap())
     }
 
     fn list() -> Result<Vec<u32>, VMUtilsError> {
-        let conn =
-            Connect::open(Some(DEFAULT_URI)).map_err(|err| VMUtilsError::FailedToConnect { err })?;
+        let conn = Connect::open(Some(DEFAULT_URI))
+            .map_err(|err| VMUtilsError::FailedToConnect { err })?;
         Ok(conn.list_domains().unwrap())
     }
 
