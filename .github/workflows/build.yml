@@ -121,3 +121,4 @@ jobs:
           bucket: fluence-artifacts
           dir: s3
           prefix: nox/snapshots/${{ github.head_ref }}/
+          force-upload: true
