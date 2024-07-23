@@ -28,39 +28,63 @@ use std::time::{Duration, Instant};
 use derivative::Derivative;
 use fluence_app_service::TomlMarineNamedModuleConfig;
 use fluence_keypair::Signature;
-use libp2p::{core::Multiaddr, kad::KBucketKey, kad::K_VALUE, PeerId};
+use libp2p::core::Multiaddr;
+use libp2p::kad::KBucketKey;
+use libp2p::kad::K_VALUE;
+use libp2p::PeerId;
 use multihash::Multihash;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value as JValue, Value};
 use tokio::sync::RwLock;
 use JValue::Array;
 
-use connection_pool::{ConnectionPoolApi, ConnectionPoolT};
-use fs_utils::{create_dirs, to_abs_path};
+use connection_pool::ConnectionPoolApi;
+use connection_pool::ConnectionPoolT;
+use fs_utils::create_dirs;
+use fs_utils::to_abs_path;
 use health::HealthCheckRegistry;
-use kademlia::{KademliaApi, KademliaApiT};
-use now_millis::{now_ms, now_sec};
-use particle_args::{from_base58, Args, ArgsError, JError};
-use particle_execution::{FunctionOutcome, ParticleParams, ServiceFunction};
-use particle_modules::{
-    AddBlueprint, EffectorsMode, ModuleConfig, ModuleRepository, NamedModuleConfig, WASIConfig,
-};
+use kademlia::KademliaApi;
+use kademlia::KademliaApiT;
+use now_millis::now_ms;
+use now_millis::now_sec;
+use particle_args::from_base58;
+use particle_args::Args;
+use particle_args::ArgsError;
+use particle_args::JError;
+use particle_execution::FunctionOutcome;
+use particle_execution::ParticleParams;
+use particle_execution::ServiceFunction;
+use particle_modules::AddBlueprint;
+use particle_modules::EffectorsMode;
+use particle_modules::ModuleConfig;
+use particle_modules::ModuleRepository;
+use particle_modules::NamedModuleConfig;
+use particle_modules::WASIConfig;
 use particle_protocol::Contact;
-use particle_services::{
-    ParticleAppServices, ParticleAppServicesConfig, PeerScope, ServiceInfo, ServiceType,
-};
+use particle_services::ParticleAppServices;
+use particle_services::ParticleAppServicesConfig;
+use particle_services::PeerScope;
+use particle_services::ServiceInfo;
+use particle_services::ServiceType;
 use peer_metrics::ServicesMetrics;
 use service_modules::Hash;
 use types::peer_id;
 use uuid_utils::uuid;
-use workers::{KeyStorage, PeerScopes, Workers};
+use workers::KeyStorage;
+use workers::PeerScopes;
+use workers::Workers;
 
 use crate::debug::fmt_custom_services;
 use crate::error::HostClosureCallError;
-use crate::error::HostClosureCallError::{DecodeBase58, DecodeUTF8};
-use crate::func::{binary, unary};
-use crate::outcome::{ok, wrap, wrap_unit};
-use crate::{json, math};
+use crate::error::HostClosureCallError::DecodeBase58;
+use crate::error::HostClosureCallError::DecodeUTF8;
+use crate::func::binary;
+use crate::func::unary;
+use crate::json;
+use crate::math;
+use crate::outcome::ok;
+use crate::outcome::wrap;
+use crate::outcome::wrap_unit;
 
 pub struct CustomService {
     /// (function_name -> service function)
@@ -195,13 +219,12 @@ where
         health_registry: Option<&mut HealthCheckRegistry>,
     ) -> Self {
         let effectors_mode = if config.is_dev_mode {
-            EffectorsMode::AllEffectors {
-                binaries: config.mounted_binaries_mapping.clone(),
-            }
+            EffectorsMode::all_effectors(
+                config.allowed_effectors.clone(),
+                config.mounted_binaries_mapping.clone(),
+            )
         } else {
-            EffectorsMode::RestrictedEffectors {
-                effectors: config.allowed_effectors.clone(),
-            }
+            EffectorsMode::restricted_effectors(config.allowed_effectors.clone())   
         };
         let modules_dir = &config.modules_dir;
         let blueprint_dir = &config.blueprint_dir;
