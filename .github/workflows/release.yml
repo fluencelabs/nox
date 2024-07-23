@@ -119,7 +119,7 @@ jobs:
         id: ccp-formated
         # For docker container tag
         env:
-          CCP_RELEASE: ${{ steps.ccp.output.release }}
+          CCP_RELEASE: ${{ steps.ccp.outputs.release }}
         run: echo "release=${CCP_RELEASE/-v/:}" >> $GITHUB_OUTPUT
 
       - name: Update release notes
