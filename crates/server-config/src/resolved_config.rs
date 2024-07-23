@@ -257,6 +257,7 @@ mod tests {
     use tempfile::{tempdir, NamedTempFile};
 
     use super::*;
+    use crate::node_config::VmConfig;
     use crate::Network;
 
     #[test]
@@ -845,6 +846,33 @@ mod tests {
             let expected: [u8; 32] = expected.try_into().unwrap();
 
             assert_eq!(config.node_config.network, Network::Custom(expected));
+        });
+    }
+
+    #[test]
+    fn load_file_with_vm_config() {
+        let mut file = NamedTempFile::new().expect("Could not create temp file");
+
+        write!(
+            file,
+            r#"
+            [vm]
+            libvirt_uri = "qemu:///system"
+            "#
+        )
+        .expect("Could not write in file");
+
+        let path = file.path().display().to_string();
+
+        temp_env::with_var("FLUENCE_CONFIG", Some(path), || {
+            let config = load_config_with_args(vec![], None).expect("Could not load config");
+
+            assert_eq!(
+                config.node_config.vm,
+                Some(VmConfig {
+                    libvirt_uri: "qemu:///system".to_string()
+                })
+            );
         });
     }
 }

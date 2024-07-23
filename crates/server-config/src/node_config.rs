@@ -181,6 +181,8 @@ pub struct UnresolvedNodeConfig {
 
     #[serde(default)]
     pub network: Network,
+
+    pub vm: Option<VmConfig>
 }
 
 #[serde_as]
@@ -281,6 +283,7 @@ impl UnresolvedNodeConfig {
             chain_listener_config: self.chain_listener_config,
             services: self.services,
             network: self.network,
+            vm: self.vm
         };
 
         Ok(result)
@@ -465,6 +468,8 @@ pub struct NodeConfig {
     pub services: ServicesConfig,
 
     pub network: Network,
+
+    pub vm: Option<VmConfig>,
 }
 
 #[derive(Clone, Deserialize, Serialize, Derivative, Copy)]
@@ -692,6 +697,11 @@ pub struct DevModeConfig {
     /// Mounted binaries mapping: binary name (used in the effector modules) to binary path
     #[serde(default = "default_binaries_mapping")]
     pub binaries: BTreeMap<String, PathBuf>,
+}
+
+#[derive(Clone, Deserialize, Serialize, Debug, PartialEq, Eq)]
+pub struct VmConfig{
+   pub libvirt_uri: String
 }
 
 fn default_dev_mode_config() -> DevModeConfig {
