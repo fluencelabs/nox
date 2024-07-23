@@ -33,6 +33,7 @@ RUN \
   	less \
   	curl \
     wget \
+    libvirt-dev \
     libhwloc-dev && \
   apt-get clean && \
   rm -rf \
