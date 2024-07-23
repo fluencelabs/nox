@@ -108,12 +108,16 @@ jobs:
             kv/ci/fluence-artifacts id | AWS_ACCESS_KEY_ID ;
             kv/ci/fluence-artifacts secret | AWS_SECRET_ACCESS_KEY
 
+      - name: Rename nox binary
+        run: |
+          mkdir s3
+          cp target/${{ matrix.target }}/${{ steps.profile.outputs.profile }}/nox s3/nox-${{ martix.arch }}
+
       - name: Upload nox snapshots to s3
         uses: osiegmar/s3-publisher-action@v1
         env:
           AWS_REGION: eu-west-1
         with:
           bucket: fluence-artifacts
-          dir: target/${{ matrix.target }}/${{ steps.profile.outputs.profile }}
-          prefix: nox/snapshots/${{ github.head_ref }}/nox-${{ matrix.arch }}
-          includes: nox
+          dir: s3
+          prefix: nox/snapshots/${{ github.head_ref }}/
