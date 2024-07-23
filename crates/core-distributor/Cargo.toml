@@ -20,7 +20,6 @@ bimap = { version = "0.6.3", features = ["serde"] }
 newtype_derive = "0.1.6"
 nonempty.workspace = true
 tokio = { workspace = true, features = ["fs", "rt", "sync", "macros", "tracing"] }
-async-trait.workspace = true
 enum_dispatch.workspace = true
 num_cpus.workspace = true
 parking_lot.workspace = true
@@ -33,7 +32,6 @@ rand = { workspace = true }
 hex.workspace = true
 serde_with = { workspace = true }
 hex-utils = { workspace = true, features = ["serde_with"] }
-derivative = { workspace = true }
 mockall = { version = "0.12.1", optional = true }
 
 [dev-dependencies]

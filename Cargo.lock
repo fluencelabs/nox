@@ -1667,11 +1667,9 @@ checksum = "6245d59a3e82a7fc217c5828a6692dbc6dfb63a0c8c90495621f7b9d79704a0e"
 name = "core-distributor"
 version = "0.1.0"
 dependencies = [
- "async-trait",
  "bimap",
  "ccp-shared",
  "cpu-utils",
- "derivative",
  "enum_dispatch",
  "futures",
  "fxhash",
@@ -8127,7 +8125,6 @@ dependencies = [
  "fluence-app-service",
  "fluence-libp2p",
  "fluence-spell-distro",
- "itertools 0.13.0",
  "log",
  "parking_lot",
  "particle-modules",
