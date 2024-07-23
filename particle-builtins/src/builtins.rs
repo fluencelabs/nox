@@ -94,6 +94,7 @@ pub struct Builtins<C> {
     #[derivative(Debug = "ignore")]
     scopes: PeerScopes,
     connector_api_endpoint: String,
+    is_dev_mode: bool,
 }
 
 impl<C> Builtins<C>
@@ -113,14 +114,15 @@ where
         let modules_dir = &config.modules_dir;
         let blueprint_dir = &config.blueprint_dir;
         let effectors_mode = if config.is_dev_mode {
-            EffectorsMode::AllEffectors {
-                binaries: config.mounted_binaries_mapping.clone(),
-            }
+            EffectorsMode::all_effectors(
+                config.allowed_effectors.clone(),
+                config.mounted_binaries_mapping.clone(),
+            )
         } else {
-            EffectorsMode::RestrictedEffectors {
-                effectors: config.allowed_effectors.clone(),
-            }
+            EffectorsMode::restricted_effectors(config.allowed_effectors.clone())
         };
+        let is_dev_mode = config.is_dev_mode;
+
         let modules = ModuleRepository::new(modules_dir, blueprint_dir, effectors_mode);
         let services = ParticleAppServices::new(
             config,
@@ -140,6 +142,7 @@ where
             key_storage,
             scopes: scope,
             connector_api_endpoint,
+            is_dev_mode,
         }
     }
 
@@ -305,9 +308,10 @@ where
             // TODO: come up with some better way of restricting service access like aqua-ipfs
             ("aqua-ipfs", _) => {
                 // If the call is on Host, we check that the caller is a host, a manager or
-                // a worker spell. Otherwise we allow the call to go and find an aqua-ipfs service
+                // a worker spell. Otherwise, we allow the call to go and find an aqua-ipfs service
                 // since it can be a user-defined service which isn't the same as system aqua-ipfs.
-                if matches!(particle.peer_scope, PeerScope::Host) {
+                // Allow anything when in the Dev Mode
+                if !self.is_dev_mode && matches!(particle.peer_scope, PeerScope::Host) {
                     self.guard_protected(&particle).await?;
                 }
                 FunctionOutcome::NotDefined { args, params: particle }
