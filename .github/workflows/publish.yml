@@ -123,9 +123,10 @@ jobs:
 
       - name: Upload nox binary to s3
         uses: osiegmar/s3-publisher-action@v1
+        env:
+          AWS_REGION: eu-west-1
         with:
           bucket: fluence-artifacts
           dir: ./docker
           prefix: nox/${{ inputs.version }}
           includes: nox-*
-          region: eu-west-1

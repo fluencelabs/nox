@@ -110,9 +110,10 @@ jobs:
 
       - name: Upload nox snapshots to s3
         uses: osiegmar/s3-publisher-action@v1
+        env:
+          AWS_REGION: eu-west-1
         with:
           bucket: fluence-artifacts
           dir: target/${{ matrix.target }}/${{ steps.profile.outputs.profile }}
           prefix: nox/snapshots/${{ github.head_ref }}/nox-${{ matrix.arch }}
           includes: nox
-          region: eu-west-1
