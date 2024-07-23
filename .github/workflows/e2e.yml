@@ -55,6 +55,7 @@ jobs:
       !github.event.pull_request.head.repo.fork
     uses: fluencelabs/decider/.github/workflows/tests.yml@main
     with:
+      ref: "feature/brnd-19"
       test-cargo-dependencies: |
         [
           {
