@@ -121,10 +121,7 @@ jobs:
             ./docker/nox_SHA256_SUMS
           tag_name: ${{ inputs.tag }}
 
-      - name: Upload nox binary to s3
-        uses: osiegmar/s3-publisher-action@v1
-        with:
-          bucket: fluence-artifacts
-          dir: ./docker
-          prefix: nox/${{ inputs.version }}
-          include: nox-*
+      - name: Upload nox binaries to s3
+        env:
+          AWS_REGION: eu-west-1
+        run: aws s3 sync docker/ s3://fluence-artifacts/nox/${{ inputs.version }}/ --acl public-read --exact-timestamps --delete --include "nox*"
