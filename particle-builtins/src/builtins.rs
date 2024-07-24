@@ -1273,32 +1273,32 @@ where
 
                 let mut function_args = args.function_args.into_iter();
 
-                let service_path = self
-                    .config
-                    .particle_app_services
-                    .persistent_work_dir
-                    .join(args.service_id);
-
                 let image_arg: String = Args::next("image", &mut function_args)?;
                 let image_arg: PathBuf = image_arg.into();
 
-                let image = image_arg
-                    .strip_prefix("/storage")
-                    .map_err(|_| JError::new("Image can be stored into /storage only"))?;
+                let vault_image = self
+                    .services
+                    .vault
+                    .to_real_path(worker_id.into(), &params, image_arg.as_path())
+                    .map_err(|_| JError::new(format!("Image {} not found", image_arg.display())))?;
 
-                let image = service_path.join(image);
+                let file_name = vault_image.file_name().ok_or(JError::new(format!(
+                    "Image {} isn't file",
+                    image_arg.display()
+                )))?;
 
-                if !image.exists() {
-                    tracing::warn!("Image {} doesn't exists", image.display());
-                    return Err(JError::new(format!(
-                        "Image {} not found",
-                        image_arg.display()
-                    )));
-                }
+                let service_image = self
+                    .config
+                    .particle_app_services
+                    .persistent_work_dir
+                    .join(args.service_id)
+                    .join(file_name);
+
+                tokio::fs::copy(&vault_image, &service_image).await?;
 
                 let vm_name = self
                     .workers
-                    .create_vm(worker_id, image)
+                    .create_vm(worker_id, service_image)
                     .await
                     .map_err(|err| JError::new(format!("Failed to create vm: {err}")))?;
 

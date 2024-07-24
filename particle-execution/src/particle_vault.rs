@@ -182,7 +182,7 @@ impl ParticleVault {
     /// Support full paths to the file in the vault starting this the prefix as well as relative paths
     /// inside the vault.
     /// For example, `some/file.txt` is valid and will be resolved to `REAL_PARTICLE_VAULT_PREFIX/some/file.txt`.
-    fn to_real_path(
+    pub fn to_real_path(
         &self,
         current_peer_id: PeerId,
         particle: &ParticleParams,
