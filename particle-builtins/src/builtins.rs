@@ -1277,8 +1277,22 @@ where
                     .persistent_work_dir
                     .join(args.service_id);
 
-                let image: String = Args::next("image", &mut function_args)?;
+                let image_arg: String = Args::next("image", &mut function_args)?;
+                let image_arg: PathBuf = image_arg.into();
+
+                let image = image_arg
+                    .strip_prefix("/storage")
+                    .map_err(|_| JError::new("Image can be stored into /storage only"))?;
+
                 let image = service_path.join(image);
+
+                if !image.exists() {
+                    tracing::warn!("Image {} doesn't exists", image.display());
+                    return Err(JError::new(format!(
+                        "Image {} not found",
+                        image_arg.display()
+                    )));
+                }
 
                 let vm_name = self
                     .workers
