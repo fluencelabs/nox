@@ -33,6 +33,7 @@ jobs:
             target: aarch64-unknown-linux-gnu
             runner: linux-arm64-c-2xlarge
 
+    # requirement for vault-action
     permissions:
       contents: read
       id-token: write
