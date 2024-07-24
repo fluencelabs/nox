@@ -111,7 +111,7 @@ jobs:
 
       - name: Rename nox binary
         run: |
-          mkdir s3
+          mkdir -p s3
           cp target/${{ matrix.target }}/${{ steps.profile.outputs.profile }}/nox s3/nox-${{ matrix.arch }}
 
       - name: Upload nox snapshot to s3
