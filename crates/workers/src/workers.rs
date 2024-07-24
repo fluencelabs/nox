@@ -603,28 +603,32 @@ impl Workers {
         Ok(worker_info)
     }
 
-    pub async fn create_vm(&self, worker_id: WorkerId, image: PathBuf) -> Result<(), WorkersError> {
+    pub async fn create_vm(
+        &self,
+        worker_id: WorkerId,
+        image: PathBuf,
+    ) -> Result<String, WorkersError> {
         match &self.config.libvirt_uri {
             None => Err(WorkersError::FeatureDisabled),
             Some(libvirt_uri) => {
-                {
+                let assignment = {
                     let guard = self.assignments.read();
                     let assignment = guard
                         .get(&worker_id)
                         .ok_or(WorkersError::WorkerNotFound(worker_id))?;
 
-                    let assignment = NonEmpty::from_vec(assignment.logical_core_ids())
-                        .expect("Unexpected state");
+                    NonEmpty::from_vec(assignment.logical_core_ids()).expect("Unexpected state")
+                };
 
-                    let params =
-                        CreateVMDomainParams::new(worker_id.to_string(), image, assignment);
+                let vm_name = worker_id.to_string();
 
-                    vm_utils::create_domain(libvirt_uri.as_str(), params)
-                        .map_err(|err| WorkersError::FailedToCreateVM { worker_id, err })?;
-                }
+                let params = CreateVMDomainParams::new(vm_name.clone(), image, assignment);
+
+                vm_utils::create_domain(libvirt_uri.as_str(), params)
+                    .map_err(|err| WorkersError::FailedToCreateVM { worker_id, err })?;
 
                 self.set_vm_flag(worker_id, true).await?;
-                Ok(())
+                Ok(vm_name)
             }
         }
     }

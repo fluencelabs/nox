@@ -1273,12 +1273,13 @@ where
                 let image: String = Args::next("image", &mut args)?;
                 let image = image.into();
 
-                self.workers
+                let vm_name = self
+                    .workers
                     .create_vm(worker_id, image)
                     .await
                     .map_err(|err| JError::new(format!("Failed to create vm: {err}")))?;
 
-                Ok(JValue::Null)
+                Ok(JValue::String(vm_name))
             }
             PeerScope::Host => Err(JError::new("This function is only available for workers")),
         }
