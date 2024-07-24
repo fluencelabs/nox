@@ -114,11 +114,11 @@ jobs:
           cp target/${{ matrix.target }}/${{ steps.profile.outputs.profile }}/nox s3/nox-${{ matrix.arch }}
 
       - name: Upload nox snapshots to s3
-        uses: osiegmar/s3-publisher-action@v1
+        uses: a-sync/s3-uploader@2.0.1
         env:
           AWS_REGION: eu-west-1
+          S3_BUCKET: fluence-artifacts
+          S3_KEY: nox/snapshots/${{ github.head_ref }}
+          FILE: s3/
         with:
-          bucket: fluence-artifacts
-          dir: s3
-          prefix: nox/snapshots/${{ github.head_ref }}/
-          force-upload: true
+          args: --acl public-read --recursive
