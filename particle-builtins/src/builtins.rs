@@ -1262,13 +1262,15 @@ where
     }
 
     async fn create_vm(&self, args: Args, params: ParticleParams) -> Result<JValue, JError> {
-        if !self.is_worker_spell(&params).await {
-            return Err(JError::new(
-                "This function is only available to the worker spells",
-            ));
-        };
         match params.peer_scope {
             PeerScope::WorkerId(worker_id) => {
+                let is_worker = params.init_peer_id == worker_id.into();
+                let worker_creator = self.workers.get_worker_creator(worker_id)?;
+                let is_worker_creator = params.init_peer_id == worker_creator;
+                if !is_worker && !is_worker_creator {
+                    return Err(JError::new(format!("Failed to create VM on {worker_id:?}, can be installed by worker creator {worker_creator} or worker itself {worker_id}")));
+                }
+
                 let mut function_args = args.function_args.into_iter();
 
                 let service_path = self

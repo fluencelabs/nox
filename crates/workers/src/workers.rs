@@ -628,6 +628,10 @@ impl Workers {
                     .map_err(|err| WorkersError::FailedToCreateVM { worker_id, err })?;
 
                 self.set_vm_flag(worker_id, true).await?;
+
+                vm_utils::start_vm(libvirt_uri.as_str(), vm_name.clone())
+                    .map_err(|err| WorkersError::FailedToCreateVM { worker_id, err })?;
+                
                 Ok(vm_name)
             }
         }
