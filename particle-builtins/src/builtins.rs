@@ -124,8 +124,8 @@ pub struct Builtins<C> {
 
 #[derive(Debug)]
 pub struct BuiltinsConfig {
-    particle_app_services: ParticleAppServicesConfig,
-    connector_api_endpoint: String,
+    pub particle_app_services: ParticleAppServicesConfig,
+    pub connector_api_endpoint: String,
     /// Dir to store .wasm modules and their configs
     pub modules_dir: PathBuf,
     /// Path of the blueprint directory containing blueprints and wasm modules
@@ -1269,9 +1269,16 @@ where
         };
         match params.peer_scope {
             PeerScope::WorkerId(worker_id) => {
-                let mut args = args.function_args.into_iter();
-                let image: String = Args::next("image", &mut args)?;
-                let image = image.into();
+                let mut function_args = args.function_args.into_iter();
+
+                let service_path = self
+                    .config
+                    .particle_app_services
+                    .persistent_work_dir
+                    .join(args.service_id);
+
+                let image: String = Args::next("image", &mut function_args)?;
+                let image = service_path.join(image);
 
                 let vm_name = self
                     .workers
