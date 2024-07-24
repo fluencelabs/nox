@@ -113,12 +113,8 @@ jobs:
           mkdir s3
           cp target/${{ matrix.target }}/${{ steps.profile.outputs.profile }}/nox s3/nox-${{ matrix.arch }}
 
-      - name: Upload nox snapshots to s3
-        uses: osiegmar/s3-publisher-action@v1
+      - name: Upload nox snapshot to s3
         env:
           AWS_REGION: eu-west-1
-        with:
-          bucket: fluence-artifacts
-          dir: s3
-          prefix: nox/snapshots/${{ github.head_ref }}/
-          force-upload: true
+          BRANCH: ${{ github.head_ref }}
+        run: aws s3 cp s3/nox-${{ matrix.arch }} s3://fluence-artifacts/snapshots/${{ env.BRANCH }}/ --acl public-read
