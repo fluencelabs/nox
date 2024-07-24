@@ -17,12 +17,14 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+use std::str::FromStr;
+
 use alloy_sol_types::{SolEvent, Word};
-use hex_utils::decode_hex;
 use libp2p_identity::ParseError;
 use serde::{Deserialize, Serialize};
-use std::str::FromStr;
 use thiserror::Error;
+
+use hex_utils::{decode_hex, FromHexError};
 
 use crate::chain_data::EventField;
 use crate::error::ChainDataError;
@@ -46,7 +48,7 @@ pub enum LogParseError {
     #[error(transparent)]
     EthError(#[from] alloy_sol_types::Error),
     #[error(transparent)]
-    DecodeHex(#[from] hex::FromHexError),
+    DecodeHex(#[from] FromHexError),
     #[error(transparent)]
     DecodeConstHex(#[from] const_hex::FromHexError),
     #[error(

@@ -17,7 +17,6 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-use alloy_primitives::hex::ToHexExt;
 use alloy_primitives::{FixedBytes, Uint, U256};
 use alloy_sol_types::sol_data::Array;
 use alloy_sol_types::{SolCall, SolType};
@@ -44,7 +43,7 @@ use crate::Deal::CIDV1;
 use crate::{CCStatus, Capacity, CommitmentId, Core, Deal, Offer};
 use chain_data::peer_id_to_bytes;
 use fluence_libp2p::PeerId;
-use hex_utils::decode_hex;
+use hex_utils::{decode_hex, encode_hex_0x};
 use particle_args::{Args, JError};
 use particle_builtins::{wrap, CustomService};
 use particle_execution::{ParticleParams, ServiceFunction};
@@ -53,6 +52,7 @@ use types::peer_scope::WorkerId;
 use types::DealId;
 
 use crate::error::process_response;
+use crate::eth_call::EthCall;
 use crate::types::*;
 use crate::Offer::{ComputePeer, ComputeUnit};
 
@@ -280,18 +280,12 @@ impl HttpChainConnector {
     }
 
     pub async fn get_app_cid(&self, deals: impl Iterator<Item = &DealId>) -> Result<Vec<String>> {
-        let data: String = Deal::appCIDCall {}.abi_encode().encode_hex();
+        let data = Deal::appCIDCall {}.abi_encode();
         let mut batch = BatchRequestBuilder::new();
         for deal in deals {
             batch.insert(
                 "eth_call",
-                rpc_params![
-                    json!({
-                        "data": data,
-                        "to": deal,
-                    }),
-                    "latest"
-                ],
+                rpc_params![EthCall::to(&data, &deal.to_address()), "latest"],
             )?;
         }
         let resp: BatchResponse<String> = self.client.batch_request(batch).await?;
@@ -345,16 +339,6 @@ impl HttpChainConnector {
         Ok(deals)
     }
 
-    fn make_deal_call_params(deal_id: &DealId, data: &str) -> ArrayParams {
-        rpc_params![
-            json!({
-                "data": data,
-                "to": deal_id.to_address(),
-            }),
-            "latest"
-        ]
-    }
-
     async fn get_deal_infos<'a, I>(
         &self,
         deal_ids: I,
@@ -365,15 +349,15 @@ impl HttpChainConnector {
         let mut batch = BatchRequestBuilder::new();
         let deal_count = deal_ids.len();
         for deal_id in deal_ids {
-            let status_data: String = Deal::getStatusCall {}.abi_encode().encode_hex();
+            let status_data = Deal::getStatusCall {}.abi_encode();
             batch.insert(
                 "eth_call",
-                Self::make_deal_call_params(deal_id, &status_data),
+                rpc_params![EthCall::to(&status_data, &deal_id.to_address()), "latest"],
             )?;
-            let app_cid_data: String = Deal::appCIDCall {}.abi_encode().encode_hex();
+            let app_cid_data = Deal::appCIDCall {}.abi_encode();
             batch.insert(
                 "eth_call",
-                Self::make_deal_call_params(deal_id, &app_cid_data),
+                rpc_params![EthCall::to(&app_cid_data, &deal_id.to_address()), "latest"],
             )?;
         }
         tracing::debug!(target: "chain-connector", "Batched get_deal_info request: {batch:?}");
@@ -440,7 +424,7 @@ impl HttpChainConnector {
                     rpc_params![json!({
                         "from": self.config.wallet_key.to_address().to_string(),
                         "to": to,
-                        "data": format!("0x{}", hex::encode(data)),
+                        "data": encode_hex_0x(data),
                     })],
                 )
                 .await,
@@ -451,7 +435,7 @@ impl HttpChainConnector {
 
     pub async fn send_tx(&self, data: Vec<u8>, to: &str) -> Result<String> {
         let base_fee = self.get_base_fee_per_gas().await?;
-        tracing::info!(target: "chain-connector", "Estimating gas for tx from {} to {} data {}", self.config.wallet_key.to_address(), to, hex::encode(&data));
+        tracing::info!(target: "chain-connector", "Estimating gas for tx from {} to {} data {}", self.config.wallet_key.to_address(), to, encode_hex_0x(&data));
         let gas_limit = self.estimate_gas_limit(&data, to).await?;
         let max_priority_fee_per_gas = self.max_priority_fee_per_gas().await?;
         // (base fee + priority fee).
@@ -483,7 +467,7 @@ impl HttpChainConnector {
         let tx = tx
             .sign(&self.config.wallet_key, Some(self.config.network_id))
             .to_bytes();
-        let tx = hex::encode(tx);
+        let tx = encode_hex_0x(tx);
 
         tracing::info!(target: "chain-connector",
             "Sending tx to {to} from {} signed {tx}",
@@ -492,7 +476,7 @@ impl HttpChainConnector {
 
         let result: Result<String> = process_response(
             self.client
-                .request("eth_sendRawTransaction", rpc_params![format!("0x{}", tx)])
+                .request("eth_sendRawTransaction", rpc_params![tx])
                 .await,
         );
 
@@ -527,55 +511,55 @@ impl HttpChainConnector {
     }
 
     fn difficulty_params(&self) -> ArrayParams {
-        let data: String = Core::difficultyCall {}.abi_encode().encode_hex();
+        let data = Core::difficultyCall {}.abi_encode();
 
         rpc_params![
-            json!({"data": data, "to": self.config.core_contract_address}),
+            EthCall::to(&data, &self.config.core_contract_address),
             "latest"
         ]
     }
 
     fn init_timestamp_params(&self) -> ArrayParams {
-        let data: String = Core::initTimestampCall {}.abi_encode().encode_hex();
+        let data = Core::initTimestampCall {}.abi_encode();
         rpc_params![
-            json!({"data": data, "to": self.config.core_contract_address}),
+            EthCall::to(&data, &self.config.core_contract_address),
             "latest"
         ]
     }
     fn global_nonce_params(&self) -> ArrayParams {
-        let data: String = Capacity::getGlobalNonceCall {}.abi_encode().encode_hex();
+        let data = Capacity::getGlobalNonceCall {}.abi_encode();
         rpc_params![
-            json!({"data": data, "to": self.config.cc_contract_address}),
+            EthCall::to(&data, &self.config.cc_contract_address),
             "latest"
         ]
     }
     fn current_epoch_params(&self) -> ArrayParams {
-        let data: String = Core::currentEpochCall {}.abi_encode().encode_hex();
+        let data = Core::currentEpochCall {}.abi_encode();
         rpc_params![
-            json!({"data": data, "to": self.config.core_contract_address}),
+            EthCall::to(&data, &self.config.core_contract_address),
             "latest"
         ]
     }
     fn epoch_duration_params(&self) -> ArrayParams {
-        let data: String = Core::epochDurationCall {}.abi_encode().encode_hex();
+        let data = Core::epochDurationCall {}.abi_encode();
         rpc_params![
-            json!({"data": data, "to": self.config.core_contract_address}),
+            EthCall::to(&data, &self.config.core_contract_address),
             "latest"
         ]
     }
 
     fn min_proofs_per_epoch_params(&self) -> ArrayParams {
-        let data: String = Core::minProofsPerEpochCall {}.abi_encode().encode_hex();
+        let data = Core::minProofsPerEpochCall {}.abi_encode();
         rpc_params![
-            json!({"data": data, "to": self.config.core_contract_address}),
+            EthCall::to(&data, &self.config.core_contract_address),
             "latest"
         ]
     }
 
     fn max_proofs_per_epoch_params(&self) -> ArrayParams {
-        let data: String = Core::maxProofsPerEpochCall {}.abi_encode().encode_hex();
+        let data = Core::maxProofsPerEpochCall {}.abi_encode();
         rpc_params![
-            json!({"data": data, "to": self.config.core_contract_address}),
+            EthCall::to(&data, &self.config.core_contract_address),
             "latest"
         ]
     }
@@ -585,20 +569,16 @@ impl HttpChainConnector {
 impl ChainConnector for HttpChainConnector {
     async fn get_current_commitment_id(&self) -> Result<Option<CommitmentId>> {
         let peer_id = peer_id_to_bytes(self.host_id);
-        let data: String = Offer::getComputePeerCall {
+        let data = Offer::getComputePeerCall {
             peerId: peer_id.into(),
         }
-        .abi_encode()
-        .encode_hex();
+        .abi_encode();
         let resp: String = process_response(
             self.client
                 .request(
                     "eth_call",
                     rpc_params![
-                        json!({
-                            "data": data,
-                            "to": self.config.market_contract_address,
-                        }),
+                        EthCall::to(&data, &self.config.market_contract_address),
                         "latest"
                     ],
                 )
@@ -674,21 +654,17 @@ impl ChainConnector for HttpChainConnector {
     }
 
     async fn get_compute_units(&self) -> Result<Vec<ComputeUnit>> {
-        let data: String = Offer::getComputeUnitsCall {
+        let data = Offer::getComputeUnitsCall {
             peerId: peer_id_to_bytes(self.host_id).into(),
         }
-        .abi_encode()
-        .encode_hex();
+        .abi_encode();
 
         let resp: String = process_response(
             self.client
                 .request(
                     "eth_call",
                     rpc_params![
-                        json!({
-                            "data": data,
-                            "to": self.config.market_contract_address,
-                        }),
+                        EthCall::to(&data, &self.config.market_contract_address),
                         "latest"
                     ],
                 )
@@ -701,21 +677,17 @@ impl ChainConnector for HttpChainConnector {
     }
 
     async fn get_commitment_status(&self, commitment_id: CommitmentId) -> Result<CCStatus> {
-        let data: String = Capacity::getStatusCall {
+        let data = Capacity::getStatusCall {
             commitmentId: commitment_id.0.into(),
         }
-        .abi_encode()
-        .encode_hex();
+        .abi_encode();
 
         let resp: String = process_response(
             self.client
                 .request(
                     "eth_call",
                     rpc_params![
-                        json!({
-                            "data": data,
-                            "to": self.config.cc_contract_address,
-                        }),
+                        EthCall::to(&data, &self.config.cc_contract_address),
                         "latest"
                     ],
                 )
@@ -752,16 +724,10 @@ impl ChainConnector for HttpChainConnector {
     async fn get_deal_statuses(&self, deal_ids: Vec<DealId>) -> Result<Vec<Result<Deal::Status>>> {
         let mut batch = BatchRequestBuilder::new();
         for deal_id in deal_ids {
-            let data: String = Deal::getStatusCall {}.abi_encode().encode_hex();
+            let data = Deal::getStatusCall {}.abi_encode();
             batch.insert(
                 "eth_call",
-                rpc_params![
-                    json!({
-                        "data": data,
-                        "to": deal_id.to_address(),
-                    }),
-                    "latest"
-                ],
+                rpc_params![EthCall::to(&data, &deal_id.to_address()), "latest"],
             )?;
         }
 

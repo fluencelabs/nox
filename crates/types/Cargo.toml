@@ -7,7 +7,6 @@ edition = "2021"
 [dependencies]
 libp2p-identity = { workspace = true, features = ["peerid", "ed25519", "rand"] }
 serde = { workspace = true, features = ["derive"] }
-hex = { workspace = true }
 
 [dev-dependencies]
 serde_json = { workspace = true }

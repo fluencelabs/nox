@@ -10,7 +10,6 @@ ethabi = { workspace = true }
 serde = { workspace = true }
 libp2p-identity = { workspace = true, features = ["peerid"] }
 hex-utils = { workspace = true }
-hex = { workspace = true }
 log = { workspace = true }
 thiserror = { workspace = true }
 eyre = { workspace = true }
