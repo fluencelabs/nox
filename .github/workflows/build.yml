@@ -117,4 +117,4 @@ jobs:
         env:
           AWS_REGION: eu-west-1
           BRANCH: ${{ github.head_ref }}
-        run: aws s3 cp s3/nox-${{ matrix.arch }} s3://fluence-artifacts/snapshots/${{ env.BRANCH }}/ --acl public-read
+        run: aws s3 cp s3/nox-${{ matrix.arch }} s3://fluence-artifacts/nox/snapshots/${{ env.BRANCH }}/ --acl public-read
