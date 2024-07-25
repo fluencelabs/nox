@@ -52,7 +52,7 @@ pub trait ChainData {
             .map(|t| t.param_type())
             .collect();
         let hash = ethabi::long_signature(Self::event_name(), &sig);
-        format!("0x{}", hex::encode(hash.as_bytes()))
+        hex_utils::encode_hex_0x(hash)
     }
 }
 

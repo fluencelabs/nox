@@ -63,7 +63,7 @@ jobs:
         uses: dsherret/rust-toolchain-file@v1
 
       - name: Install cargo-edit
-        uses: baptiste0928/cargo-install@v3.1.0
+        uses: baptiste0928/cargo-install@v3.1.1
         with:
           crate: cargo-edit
 
@@ -106,12 +106,32 @@ jobs:
       RELEASE_VERSION: ${{ needs.release-please.outputs.version }}
 
     steps:
+      - name: Get latest ccp release
+        id: ccp
+        uses: pozetroninc/github-action-get-latest-release@v0.8.0
+        with:
+          owner: fluencelabs
+          repo: capacity-commitment-prover
+          excludes: prerelease, draft
+          token: ${{ secrets.FLUENCEBOT_RELEASE_PLEASE_PAT }}
+
+      - name: Format ccp release name
+        id: ccp-formated
+        # For docker container tag
+        env:
+          CCP_RELEASE: ${{ steps.ccp.outputs.release }}
+        run: echo "release=${CCP_RELEASE/-v/:}" >> $GITHUB_OUTPUT
+
       - name: Update release notes
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ needs.release-please.outputs.tag-name }}
           append_body: true
           body: |
+            ## Compatible CCP release
+
+            [${{ steps.ccp.outputs.release }}](https://files.fluence.dev/buckets/fluence-artifacts/ccp/${{ steps.ccp.outputs.release }})
+            fluencelabs/ccp:${{ steps.ccp-formated.outputs.release }}
 
             ## Docker tags
 

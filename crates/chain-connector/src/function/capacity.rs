@@ -18,6 +18,7 @@
  */
 
 use alloy_sol_types::{sol, SolError};
+use hex_utils::{encode_hex_0x, encode_hex_no_prefix};
 use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
 
@@ -70,11 +71,11 @@ sol! {
 }
 
 pub fn is_too_many_proofs(data: &str) -> bool {
-    data.contains(&hex::encode(Capacity::TooManyProofs::SELECTOR))
+    data.contains(&encode_hex_no_prefix(Capacity::TooManyProofs::SELECTOR))
 }
 
 pub fn is_commitment_not_active(data: &str) -> bool {
-    data.contains(&hex::encode(
+    data.contains(&encode_hex_no_prefix(
         Capacity::CapacityCommitmentIsNotActive::SELECTOR,
     ))
 }
@@ -94,7 +95,7 @@ impl CommitmentId {
 
 impl Display for CommitmentId {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", hex::encode(self.0))
+        write!(f, "{}", encode_hex_0x(&self.0))
     }
 }
 #[cfg(test)]

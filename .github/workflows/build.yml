@@ -37,6 +37,11 @@ jobs:
             target: aarch64-unknown-linux-gnu
             runner: linux-arm64-c-2xlarge
 
+    # requirement for vault-action
+    permissions:
+      contents: read
+      id-token: write
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -82,7 +87,7 @@ jobs:
           save-if: ${{ github.event_name == 'push' }}
 
       - name: Setup sccache
-        uses: mozilla-actions/sccache-action@v0.0.4
+        uses: mozilla-actions/sccache-action@v0.0.5
 
       - name: Set dependencies
         if: inputs.cargo-dependencies != 'null'
@@ -98,3 +103,27 @@ jobs:
         with:
           name: nox-${{ matrix.arch }}
           path: target/${{ matrix.target }}/${{ steps.profile.outputs.profile }}/nox
+
+      - name: Import secrets
+        uses: hashicorp/vault-action@v3.0.0
+        with:
+          url: https://vault.fluence.dev
+          path: jwt/github
+          role: ci
+          method: jwt
+          jwtGithubAudience: "https://github.com/fluencelabs"
+          jwtTtl: 300
+          secrets: |
+            kv/ci/fluence-artifacts id | AWS_ACCESS_KEY_ID ;
+            kv/ci/fluence-artifacts secret | AWS_SECRET_ACCESS_KEY
+
+      - name: Rename nox binary
+        run: |
+          mkdir -p s3
+          cp target/${{ matrix.target }}/${{ steps.profile.outputs.profile }}/nox s3/nox-${{ matrix.arch }}
+
+      - name: Upload nox snapshot to s3
+        env:
+          AWS_REGION: eu-west-1
+          BRANCH: ${{ github.head_ref }}
+        run: aws s3 cp s3/nox-${{ matrix.arch }} s3://fluence-artifacts/nox/snapshots/${{ env.BRANCH }}/ --acl public-read

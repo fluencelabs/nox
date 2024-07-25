@@ -49,6 +49,7 @@ members = [
     "crates/types",
     "crates/core-distributor",
     "crates/log-format",
+    "crates/vm-utils",
 ]
 exclude = [
     "nox/tests/tetraplets",
@@ -182,6 +183,7 @@ alloy_serde_macro = "0.1.2"
 const-hex = "1.11.3"
 bytesize = "1.3.0"
 cfg-if = "1.0.0"
+nonempty = "0.9.0"
 
 [profile.dev]
 opt-level = 0

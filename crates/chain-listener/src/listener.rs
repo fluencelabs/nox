@@ -28,9 +28,10 @@ use std::time::Duration;
 use backoff::future::retry;
 use backoff::ExponentialBackoff;
 use ccp_rpc_client::CCPRpcHttpClient;
-use ccp_shared::proof::BatchRequest;
+use ccp_shared::proof::{BatchRequest, CCProof, CCProofId, ProofIdx};
 use ccp_shared::types::{Difficulty, GlobalNonce, LocalNonce, ResultHash};
 use cpu_utils::PhysicalCoreId;
+use hex_utils::encode_hex_0x;
 
 use eyre::{eyre, Report};
 use jsonrpsee::core::client::{Client as WsClient, Subscription, SubscriptionClientT};
@@ -607,7 +608,7 @@ impl ChainListener {
         let topic = UnitActivated::SIGNATURE_HASH.to_string();
         rpc_params![
             "logs",
-            json!({"address": self.config.cc_contract_address, "topics":  vec![topic, hex::encode(commitment_id.0)]})
+            json!({"address": self.config.cc_contract_address, "topics": vec![topic, encode_hex_0x(commitment_id.0)]})
         ]
     }
 
@@ -615,7 +616,7 @@ impl ChainListener {
         let topic = UnitDeactivated::SIGNATURE_HASH.to_string();
         rpc_params![
             "logs",
-            json!({"address": self.config.cc_contract_address, "topics":  vec![topic, hex::encode(commitment_id.0)]})
+            json!({"address": self.config.cc_contract_address, "topics": vec![topic, encode_hex_0x(commitment_id.0)]})
         ]
     }
 
@@ -1041,26 +1042,27 @@ impl ChainListener {
         Ok(())
     }
 
-    // /// Submit Mocked Proofs for all active compute units.
-    // /// Mocked Proof has result_hash == difficulty and random local_nonce
-    // async fn submit_mocked_proofs(&mut self) -> eyre::Result<()> {
-    //     if self.current_commitment.is_none() {
-    //         return Ok(());
-    //     }
-    //
-    //     let result_hash = ResultHash::from_slice(*self.difficulty.as_ref());
-    //
-    //     // proof_id is used only by CCP and is not sent to chain
-    //     let proof_id = CCProofId::new(self.global_nonce, self.difficulty, ProofIdx::zero());
-    //     let units = self.cc_compute_units.keys().cloned().collect::<Vec<_>>();
-    //     for unit in units {
-    //         let local_nonce = LocalNonce::random();
-    //         self.submit_proofs(CCProof::new(proof_id, local_nonce, unit, result_hash))
-    //             .await?;
-    //     }
-    //
-    //     Ok(())
-    // }
+    /// Submit Mocked Proofs for all active compute units.
+    /// Mocked Proof has result_hash == difficulty and random local_nonce
+    async fn submit_mocked_proofs(&mut self) -> eyre::Result<()> {
+        if self.current_commitment.is_none() {
+            return Ok(());
+        }
+
+        // proof_id is used only by CCP and is not sent to chain
+        let proof_id = CCProofId::new(self.global_nonce, self.difficulty, ProofIdx::zero());
+        let units = self.cc_compute_units.keys().cloned().collect::<Vec<_>>();
+        let mut local_nonces = vec![];
+        let mut result_hashes = vec![];
+        for unit in units {
+            local_nonces.push(LocalNonce::random());
+            result_hashes.push(ResultHash::from_slice(*self.difficulty.as_ref()));
+        }
+
+        self.submit_proofs(units, local_nonces, result_hashes)
+            .await?;
+        Ok(())
+    }
 
     async fn update_global_nonce(&mut self) -> eyre::Result<()> {
         let nonce = self.chain_connector.get_global_nonce().await?;
