@@ -655,7 +655,7 @@ where
 mod tests {
     use std::collections::HashMap;
     use std::convert::Infallible;
-    use std::path::PathBuf;
+    use std::path::{Path, PathBuf};
     use std::task::Waker;
     use std::{sync::Arc, task::Context};
 
@@ -678,6 +678,7 @@ mod tests {
     use async_trait::async_trait;
     use avm_server::avm_runner::RawAVMOutcome;
     use core_distributor::dummy::DummyCoreDistibutor;
+    use fs_utils::create_dirs;
     use marine_wasmtime_backend::{WasmtimeConfig, WasmtimeWasmBackend};
     use particle_services::{PeerScope, WasmBackendConfig};
     use tracing::Span;
@@ -759,7 +760,7 @@ mod tests {
         }
     }
 
-    async fn plumber() -> Plumber<VMMock, Arc<MockF>> {
+    async fn plumber(dir: &Path) -> Plumber<VMMock, Arc<MockF>> {
         let avm_wasm_config: WasmtimeConfig = WasmBackendConfig::default().into();
         let avm_wasm_backend =
             WasmtimeWasmBackend::new(avm_wasm_config).expect("Could not create wasm backend");
@@ -768,8 +769,11 @@ mod tests {
         let builtin_mock = Arc::new(MockF);
 
         let root_key_pair: KeyPair = KeyPair::generate_ed25519();
-        let key_pair_path: PathBuf = "keypair".into();
-        let workers_path: PathBuf = "workers".into();
+        let key_pair_path: PathBuf = dir.join("keypair");
+        let workers_path: PathBuf = dir.join("workers");
+
+        create_dirs(&[&key_pair_path, &workers_path]).unwrap();
+
         let key_storage = KeyStorage::from_path(key_pair_path.clone(), root_key_pair.clone())
             .await
             .expect("Could not load key storage");
@@ -800,12 +804,10 @@ mod tests {
 
         let workers = Arc::new(workers);
 
-        let tmp_dir = tempfile::tempdir().expect("Could not create temp dir");
-        let tmp_path = tmp_dir.path();
         let data_store = ParticleDataStore::new(
-            tmp_path.join("particles"),
-            tmp_path.join("vault"),
-            tmp_path.join("anomaly"),
+            dir.join("particles"),
+            dir.join("vault"),
+            dir.join("anomaly"),
         );
         data_store
             .initialize()
@@ -830,7 +832,6 @@ mod tests {
         let mut particle = Particle::default();
         particle.timestamp = ts;
         particle.ttl = ttl;
-
         particle
     }
 
@@ -842,9 +843,10 @@ mod tests {
     #[ignore]
     #[tokio::test]
     async fn remove_expired() {
+        let tmp_dir = tempfile::tempdir().expect("Could not create temp dir");
         set_mock_time(real_time::now_ms());
 
-        let mut plumber = plumber().await;
+        let mut plumber = plumber(tmp_dir.path()).await;
 
         let particle = particle(now_ms(), 1);
         let deadline = Deadline::from(&particle);
@@ -879,10 +881,11 @@ mod tests {
     /// Checks that expired particle won't create an actor
     #[tokio::test]
     async fn ignore_expired() {
+        let tmp_dir = tempfile::tempdir().expect("Could not create temp dir");
         set_mock_time(real_time::now_ms());
         // set_mock_time(1000);
 
-        let mut plumber = plumber().await;
+        let mut plumber = plumber(tmp_dir.path()).await;
         let particle = particle(now_ms() - 100, 99);
         let deadline = Deadline::from(&particle);
         assert!(deadline.is_expired(now_ms()));
