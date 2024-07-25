@@ -799,11 +799,11 @@ impl Workers {
 mod tests {
     use crate::{KeyStorage, WorkerParams, Workers, WorkersConfig, CUID};
     use core_distributor::dummy::DummyCoreDistibutor;
+    use fs_utils::create_dirs;
     use hex::FromHex;
     use libp2p::PeerId;
     use std::sync::Arc;
     use tempfile::tempdir;
-    use fs_utils::create_dirs;
     use types::peer_scope::PeerScope;
 
     #[tokio::test]
