@@ -28,7 +28,7 @@ use std::time::Duration;
 use backoff::future::retry;
 use backoff::ExponentialBackoff;
 use ccp_rpc_client::CCPRpcHttpClient;
-use ccp_shared::proof::{BatchRequest, CCProof, CCProofId, ProofIdx};
+use ccp_shared::proof::BatchRequest;
 use ccp_shared::types::{Difficulty, GlobalNonce, LocalNonce, ResultHash};
 use cpu_utils::PhysicalCoreId;
 use hex_utils::encode_hex_0x;
@@ -253,10 +253,9 @@ impl ChainListener {
                                 if let Err(err) = self.poll_proofs().await {
                                     tracing::warn!(target: "chain-listener", "Failed to poll/submit proofs: {err}");
                                 }
+                            } else if let Err(err) = self.submit_mocked_proofs().await {
+                                tracing::warn!(target: "chain-listener", "Failed to submit mocked proofs: {err}");
                             }
-                            // } else if let Err(err) = self.submit_mocked_proofs().await {
-                            //     tracing::warn!(target: "chain-listener", "Failed to submit mocked proofs: {err}");
-                            // }
 
 
                             if let Err(err) = self.poll_deal_statuses().await {
@@ -1049,14 +1048,17 @@ impl ChainListener {
             return Ok(());
         }
 
-        // proof_id is used only by CCP and is not sent to chain
-        let proof_id = CCProofId::new(self.global_nonce, self.difficulty, ProofIdx::zero());
-        let units = self.cc_compute_units.keys().cloned().collect::<Vec<_>>();
+        let all_compute_units = self.cc_compute_units.keys().cloned().collect::<Vec<_>>();
+        let mut units = vec![];
         let mut local_nonces = vec![];
         let mut result_hashes = vec![];
-        for unit in units {
-            local_nonces.push(LocalNonce::random());
-            result_hashes.push(ResultHash::from_slice(*self.difficulty.as_ref()));
+        for cuid in all_compute_units.into_iter() {
+            let proof_sent = self.proof_tracker.get_proof_counter(&cuid);
+            if proof_sent < self.max_proofs_per_epoch {
+                units.push(cuid);
+                local_nonces.push(LocalNonce::random());
+                result_hashes.push(ResultHash::from_slice(*self.difficulty.as_ref()));
+            }
         }
 
         self.submit_proofs(units, local_nonces, result_hashes)
