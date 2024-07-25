@@ -38,6 +38,8 @@ use types::peer_scope::WorkerId;
 use types::DealId;
 use vm_utils::{CreateVMDomainParams, NonEmpty};
 
+const WORKER_DATA_DIR: &str = "data";
+
 /// Information about a worker.
 pub struct WorkerInfo {
     /// The unique identifier for the deal associated with the worker.
@@ -152,7 +154,7 @@ impl Workers {
         let worker_counter = Arc::new(AtomicU32::new(0));
         let (sender, receiver) = tokio::sync::mpsc::channel::<Event>(config.channel_size);
 
-        for (w, _) in workers {
+        for w in workers {
             let worker_id = w.worker_id;
             let deal_id = w.deal_id.clone().into();
             let cu_ids = w.cu_ids.clone();
@@ -580,9 +582,28 @@ impl Workers {
         creator: PeerId,
         cu_ids: Vec<CUID>,
     ) -> Result<WorkerInfo, WorkersError> {
+        let worker_path = self.workers_dir.join(worker_id.to_string());
+
+        tokio::fs::create_dir_all(&worker_path)
+            .await
+            .map_err(|err| WorkersError::WorkerStorageDirectory {
+                path: worker_path.clone(),
+                worker_id,
+                err,
+            })?;
+
+        let worker_data_path = worker_path.join(WORKER_DATA_DIR);
+
+        tokio::fs::create_dir_all(&worker_data_path)
+            .await
+            .map_err(|err| WorkersError::WorkerStorageDirectory {
+                path: worker_data_path,
+                worker_id,
+                err,
+            })?;
+
         persist_worker(
-            &self.workers_dir,
-            worker_id,
+            &worker_path,
             PersistedWorker {
                 worker_id,
                 creator,
@@ -622,7 +643,21 @@ impl Workers {
 
                 let vm_name = worker_id.to_string();
 
-                let params = CreateVMDomainParams::new(vm_name.clone(), image, assignment);
+                let file_name = &image.file_name().ok_or(WorkersError::VMImageNotFile {
+                    image: image.clone(),
+                })?;
+
+                let worker_image = self
+                    .workers_dir
+                    .join(worker_id.to_string())
+                    .join(WORKER_DATA_DIR)
+                    .join(file_name);
+
+                tokio::fs::copy(&image, &worker_image)
+                    .await
+                    .map_err(|err| WorkersError::FailedToCopyVMImage { image, err })?;
+
+                let params = CreateVMDomainParams::new(vm_name.clone(), worker_image, assignment);
 
                 vm_utils::create_domain(libvirt_uri.as_str(), params)
                     .map_err(|err| WorkersError::FailedToCreateVM { worker_id, err })?;
@@ -674,8 +709,8 @@ impl Workers {
                 vm_flag: *vm_flag,
             }
         };
-
-        persist_worker(&self.workers_dir, worker_id, persisted_worker).await?;
+        let worker_path = self.workers_dir.join(worker_id.to_string());
+        persist_worker(&worker_path, persisted_worker).await?;
         Ok(())
     }
 
@@ -768,6 +803,7 @@ mod tests {
     use libp2p::PeerId;
     use std::sync::Arc;
     use tempfile::tempdir;
+    use fs_utils::create_dirs;
     use types::peer_scope::PeerScope;
 
     #[tokio::test]
@@ -779,6 +815,8 @@ mod tests {
         let root_key_pair = fluence_keypair::KeyPair::generate_ed25519();
         let core_distributor = DummyCoreDistibutor::new();
         let core_distributor = Arc::new(core_distributor);
+
+        create_dirs(&[&workers_dir]).unwrap();
 
         let thread_pinner = Arc::new(test_utils::pinning::DUMMY);
 
@@ -817,6 +855,8 @@ mod tests {
         let root_key_pair = fluence_keypair::KeyPair::generate_ed25519();
         let core_distributor = DummyCoreDistibutor::new();
         let core_distributor = Arc::new(core_distributor);
+
+        create_dirs(&[&workers_dir]).unwrap();
 
         let thread_pinner = Arc::new(test_utils::pinning::DUMMY);
         // Create a new KeyStorage instance
@@ -894,6 +934,8 @@ mod tests {
         let core_distributor = DummyCoreDistibutor::new();
         let core_distributor = Arc::new(core_distributor);
 
+        create_dirs(&[&workers_dir]).unwrap();
+
         let thread_pinner = Arc::new(test_utils::pinning::DUMMY);
         // Create a new KeyStorage instance
         let key_storage = Arc::new(
@@ -959,6 +1001,8 @@ mod tests {
         let root_key_pair = fluence_keypair::KeyPair::generate_ed25519();
         let core_distributor = DummyCoreDistibutor::new();
         let core_distributor = Arc::new(core_distributor);
+
+        create_dirs(&[&workers_dir]).unwrap();
 
         let thread_pinner = Arc::new(test_utils::pinning::DUMMY);
         // Create a new KeyStorage instance
@@ -1036,6 +1080,8 @@ mod tests {
         let root_key_pair = fluence_keypair::KeyPair::generate_ed25519();
         let core_distributor = DummyCoreDistibutor::new();
         let core_distributor = Arc::new(core_distributor);
+
+        create_dirs(&[&workers_dir]).unwrap();
 
         let thread_pinner = Arc::new(test_utils::pinning::DUMMY);
         // Create a new KeyStorage instance

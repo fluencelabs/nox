@@ -1282,7 +1282,7 @@ mod tests {
             .await
             .expect("Could not load key storage");
 
-        create_dirs(&[&modules_dir, &blueprints_dir]).unwrap();
+        create_dirs(&[&modules_dir, &blueprints_dir, &workers_dir]).unwrap();
 
         let key_storage = Arc::new(key_storage);
 

@@ -348,7 +348,7 @@ mod tests {
         let blueprint_dir = persistent_dir.join("blueprint");
         let modules_dir = persistent_dir.join("modules");
 
-        create_dirs(&[&blueprint_dir, &modules_dir]).unwrap();
+        create_dirs(&[&blueprint_dir, &modules_dir, &workers_dir]).unwrap();
 
         let root_key_pair: KeyPair = root_key_pair.clone().into();
 

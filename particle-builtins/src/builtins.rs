@@ -1282,23 +1282,9 @@ where
                     .to_real_path(worker_id.into(), &params, image_arg.as_path())
                     .map_err(|_| JError::new(format!("Image {} not found", image_arg.display())))?;
 
-                let file_name = vault_image.file_name().ok_or(JError::new(format!(
-                    "Image {} isn't file",
-                    image_arg.display()
-                )))?;
-
-                let service_image = self
-                    .config
-                    .particle_app_services
-                    .persistent_work_dir
-                    .join(args.service_id)
-                    .join(file_name);
-
-                tokio::fs::copy(&vault_image, &service_image).await?;
-
                 let vm_name = self
                     .workers
-                    .create_vm(worker_id, service_image)
+                    .create_vm(worker_id, vault_image)
                     .await
                     .map_err(|err| JError::new(format!("Failed to create vm: {err}")))?;
 

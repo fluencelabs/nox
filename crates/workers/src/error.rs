@@ -135,6 +135,13 @@ pub enum WorkersError {
         #[source]
         err: std::io::Error,
     },
+    #[error("Error creation of a persisted worker directory {path} for worker {worker_id}: {err}")]
+    WorkerStorageDirectory {
+        path: PathBuf,
+        worker_id: WorkerId,
+        #[source]
+        err: std::io::Error,
+    },
     #[error("Error removing persisted worker {path:?} for worker {worker_id}: {err}")]
     RemoveErrorPersistedWorker {
         path: PathBuf,
@@ -170,4 +177,8 @@ pub enum WorkersError {
     },
     #[error("This feature is disabled")]
     FeatureDisabled,
+    #[error("VM image {image} isn't file")]
+    VMImageNotFile { image: PathBuf },
+    #[error("Failed to copy {image} to the worker storage: {err}")]
+    FailedToCopyVMImage { image: PathBuf, err: std::io::Error },
 }
