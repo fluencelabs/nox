@@ -1,32 +1,31 @@
 /*
- * Copyright 2024 Fluence DAO
+ * Nox Fluence Peer
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Copyright (C) 2024 Fluence DAO
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as
+ * published by the Free Software Foundation version 3 of the
+ * License.
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
 use crate::persistence;
 use crate::persistence::PersistedProofTracker;
 use alloy_primitives::{Uint, U256};
-use backoff::future::retry;
-use backoff::ExponentialBackoff;
 use ccp_shared::proof::ProofIdx;
 use ccp_shared::types::{GlobalNonce, CUID};
-use eyre::eyre;
 use std::cmp::max;
 use std::collections::{BTreeMap, HashMap};
 use std::ops::Add;
 use std::path::PathBuf;
-use std::time::Duration;
 
 pub struct ProofTracker {
     persisted_proof_id_dir: PathBuf,
@@ -86,18 +85,13 @@ impl ProofTracker {
     }
 
     pub async fn confirm_proof(&mut self, cu_id: CUID) -> U256 {
-        let proof_id = Uint::from(
-            *self
-                .proof_counter
-                .entry(cu_id)
-                .and_modify(|c| {
-                    *c = c.add(Uint::from(1));
-                })
-                .or_insert(Uint::from(1)),
-        );
+        let cu_proof_counter = self.proof_counter.entry(cu_id).or_insert(Uint::ZERO);
+        *cu_proof_counter = cu_proof_counter.add(Uint::from(1));
+
+        let counter = *cu_proof_counter;
         self.persist().await;
 
-        proof_id
+        counter
     }
 
     pub fn get_proof_counter(&self, cu_id: &CUID) -> U256 {
@@ -131,24 +125,10 @@ impl ProofTracker {
     }
 
     async fn persist(&self) {
-        let backoff = ExponentialBackoff {
-            max_elapsed_time: Some(Duration::from_secs(3)),
-            ..ExponentialBackoff::default()
-        };
-
-        let write = retry(backoff, || async {
-            persistence::persist_proof_tracker(
-                &self.persisted_proof_id_dir,
-                &self
-            ).await.map_err(|err|{
-                tracing::warn!(target: "chain-listener", "Failed to persist proof tracker state: {err}; Retrying...");
-                eyre!(err)
-            })?;
-            Ok(())
-        }).await;
+        let write = persistence::persist_proof_tracker(&self.persisted_proof_id_dir, &self).await;
 
         if let Err(err) = write {
-            tracing::warn!(target: "chain-listener", "Failed to persist proof tracker state: {err}; Ignoring..");
+            tracing::warn!(target: "chain-listener", "Failed to persist proof tracker state: {err}");
         } else {
             tracing::debug!(target: "chain-listener", "Proof tracker state persisted successfully");
         }

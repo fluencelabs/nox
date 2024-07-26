@@ -1,17 +1,20 @@
 /*
- * Copyright 2024 Fluence DAO
+ * Nox Fluence Peer
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Copyright (C) 2024 Fluence DAO
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as
+ * published by the Free Software Foundation version 3 of the
+ * License.
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
 use alloy_primitives::{Address, FixedBytes, Uint, U256, U64};
@@ -396,7 +399,7 @@ impl ChainListener {
                 .first()
                 .cloned()
                 .ok_or(eyre::eyre!("No utility core id"))?;
-            measured_request(&self.metrics, async {
+            measured_request(&self.metrics,
                 retry(ExponentialBackoff::default(), || async {
                     ccp_client
                         .realloc_utility_cores(vec![utility_core])
@@ -406,8 +409,7 @@ impl ChainListener {
                             eyre::eyre!("Error reallocating utility core {utility_core} to CCP, error: {err}")
                         })?;
                     Ok(())
-                }).await
-            }
+                })
             ).await?;
 
             tracing::info!("Utility core {utility_core} successfully reallocated");
@@ -637,7 +639,7 @@ impl ChainListener {
         let header = event.ok_or(eyre!("Failed to process newHeads event: got None"))?;
 
         let header = BlockHeader::from_json(header?)?;
-        let block_number = header.number;
+        let block_number = header.number.as_limbs()[0];
         let block_timestamp = header.timestamp;
 
         self.last_observed_block_timestamp = block_timestamp;
@@ -923,20 +925,15 @@ impl ChainListener {
             .collect::<Vec<_>>()
         );
 
-        measured_request(&self.metrics, async {
-            ccp_client
-                .on_active_commitment(
-                    self.global_nonce,
-                    self.difficulty,
-                    cu_allocation,
-                )
-                .await
-                .map_err(|err| {
-                    tracing::error!(target: "chain-listener", "Failed to send commitment to CCP: {err}");
-                    eyre::eyre!("Failed to send commitment to CCP: {err}")
-                })
-        }
-        ).await?;
+        measured_request(
+            &self.metrics,
+            ccp_client.on_active_commitment(self.global_nonce, self.difficulty, cu_allocation),
+        )
+        .await
+        .map_err(|err| {
+            tracing::error!(target: "chain-listener", "Failed to send commitment to CCP: {err}");
+            eyre::eyre!("Failed to send commitment to CCP: {err}")
+        })?;
 
         Ok(())
     }
@@ -1031,12 +1028,12 @@ impl ChainListener {
     async fn stop_commitment(&self) -> eyre::Result<()> {
         tracing::info!(target: "chain-listener", "Stopping current commitment");
         if let Some(ref ccp_client) = self.ccp_client {
-            measured_request(&self.metrics, async {
-                ccp_client.on_no_active_commitment().await.map_err(|err| {
+            measured_request(&self.metrics,
+                ccp_client.on_no_active_commitment()
+            ).await.map_err(|err| {
                 tracing::error!(target: "chain-listener", "Failed to send no active commitment to CCP: {err}");
                 eyre::eyre!("Failed to send no active commitment to CCP: {err}")
-            })
-            }).await?;
+            })?;
         }
         Ok(())
     }
@@ -1099,22 +1096,18 @@ impl ChainListener {
                 tracing::debug!(target: "chain-listener", "Polling proofs after {:?}", last_known_proofs);
                 measured_request(
                     &self.metrics,
-                    async { ccp_client.get_proofs_after(last_known_proofs, PROOF_POLL_LIMIT) }
-                        .await,
+                    ccp_client.get_proofs_after(last_known_proofs, PROOF_POLL_LIMIT),
                 )
                 .await?
             } else {
                 tracing::debug!(target: "chain-listener", "Polling proofs after {:?}, min batch count: {}, max batch count: {}", batch_requests, self.listener_config.min_batch_count, self.listener_config.max_batch_count);
                 measured_request(
                     &self.metrics,
-                    async {
-                        ccp_client.get_batch_proofs_after(
-                            batch_requests,
-                            self.listener_config.min_batch_count,
-                            self.listener_config.max_batch_count,
-                        )
-                    }
-                    .await,
+                    ccp_client.get_batch_proofs_after(
+                        batch_requests,
+                        self.listener_config.min_batch_count,
+                        self.listener_config.max_batch_count,
+                    ),
                 )
                 .await?
             };

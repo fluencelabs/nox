@@ -37,7 +37,7 @@ use serde_json::Value as JValue;
 use serde_json::{json, Value};
 use tokio::sync::Mutex;
 
-use crate::ConnectorError::{InvalidU256, ResponseParseError};
+use crate::ConnectorError::{FieldNotFound, InvalidU256, ResponseParseError};
 use crate::Deal::CIDV1;
 use crate::{CCStatus, Capacity, CommitmentId, Core, Deal, Offer};
 use chain_data::{peer_id_to_bytes, BlockHeader};
@@ -798,11 +798,11 @@ impl ChainConnector for HttpChainConnector {
     }
 }
 
-fn parse_str_field(value: Option<Value>, field: &str) -> eyre::Result<String> {
+fn parse_str_field(value: Option<Value>, field: &'static str) -> Result<String> {
     value
-        .ok_or(eyre!("Field {} not found in response", field))?
+        .ok_or_else(|| FieldNotFound(field))?
         .as_str()
-        .ok_or(eyre!("Field {} is not a string", field))
+        .ok_or_else(|| ResponseParseError(format!("Field {} is not a string", field)))
         .map(|s| s.to_string())
 }
 
