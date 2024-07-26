@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.25.2](https://github.com/fluencelabs/nox/compare/nox-v0.25.1...nox-v0.25.2) (2024-07-24)
+
+
+### Features
+
+* **VM:** vm utils crate [fixes BRND-19] ([#2311](https://github.com/fluencelabs/nox/issues/2311)) ([d65466e](https://github.com/fluencelabs/nox/commit/d65466e676cebbe042ee7779d590329798477638))
+
+
+### Bug Fixes
+
+* **chain:** prefix data with 0x in eth_calls ([#2314](https://github.com/fluencelabs/nox/issues/2314)) ([744d72a](https://github.com/fluencelabs/nox/commit/744d72aafbccace209d1a50992498794f294d304))
+* **dev-mode:** change effector config usage in dev-mode ([#2312](https://github.com/fluencelabs/nox/issues/2312)) ([bcbed21](https://github.com/fluencelabs/nox/commit/bcbed21d4b6d31df898f28766303d61678042211))
+
 ## [0.25.1](https://github.com/fluencelabs/nox/compare/nox-v0.25.0...nox-v0.25.1) (2024-07-07)
 
 
