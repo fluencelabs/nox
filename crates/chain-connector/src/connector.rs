@@ -1334,7 +1334,7 @@ mod tests {
             1,
             "there should be only one unit id: {deals:?}"
         );
-        assert_eq!(hex::encode(&deal_info.unit_ids[0]), expected_cuid_1);
+        assert_eq!(deal_info.unit_ids[0].to_string(), expected_cuid_1);
         assert_eq!(deal_info.app_cid, expected_app_cid);
 
         // Second deal
@@ -1348,7 +1348,7 @@ mod tests {
             1,
             "there should be only one unit id: {deals:?}"
         );
-        assert_eq!(hex::encode(&deal_info.unit_ids[0]), expected_cuid_2);
+        assert_eq!(deal_info.unit_ids[0].to_string(), expected_cuid_2);
         assert_eq!(deal_info.app_cid, expected_app_cid);
 
         mock.assert();
