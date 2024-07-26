@@ -307,7 +307,7 @@ impl HttpChainConnector {
     pub(crate) async fn get_deals(&self) -> eyre::Result<Vec<DealResult>> {
         let units = self.get_compute_units().await?;
         tracing::debug!(target: "chain-connector", "get_deals: Got {} compute units", units.len());
-        let mut deals: BTreeMap<DealId, Vec<Vec<u8>>> = BTreeMap::new();
+        let mut deals: BTreeMap<DealId, Vec<CUID>> = BTreeMap::new();
 
         units
             .iter()
@@ -316,7 +316,7 @@ impl HttpChainConnector {
                 deals
                     .entry(unit.deal.to_string().into())
                     .or_insert_with(Vec::new)
-                    .push(unit.id.to_vec());
+                    .push(CUID::new(unit.id.into()));
             });
 
         if deals.is_empty() {

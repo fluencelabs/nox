@@ -16,7 +16,7 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-
+use ccp_shared::types::CUID;
 use serde::{Deserialize, Serialize};
 
 use types::DealId;
@@ -57,7 +57,7 @@ impl DealResult {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct DealInfo {
     pub status: Deal::Status,
-    pub unit_ids: Vec<Vec<u8>>,
+    pub unit_ids: Vec<CUID>,
     pub app_cid: String,
 }
 
