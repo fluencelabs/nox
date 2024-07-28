@@ -858,6 +858,7 @@ mod tests {
             r#"
             [vm]
             libvirt_uri = "qemu:///system"
+            bridge_name = "br422442"
             "#
         )
         .expect("Could not write in file");
@@ -870,7 +871,8 @@ mod tests {
             assert_eq!(
                 config.node_config.vm,
                 Some(VmConfig {
-                    libvirt_uri: "qemu:///system".to_string()
+                    libvirt_uri: "qemu:///system".to_string(),
+                    bridge_name: "br422442".to_string()
                 })
             );
         });

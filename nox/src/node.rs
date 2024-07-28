@@ -68,7 +68,7 @@ use sorcerer::Sorcerer;
 use spell_event_bus::api::{PeerEvent, SpellEventBusApi, TriggerEvent};
 use spell_event_bus::bus::SpellEventBus;
 use system_services::{Deployer, SystemServiceDistros};
-use workers::{KeyStorage, PeerScopes, Workers, WorkersConfig};
+use workers::{KeyStorage, PeerScopes, VmConfig, Workers, WorkersConfig};
 
 use crate::behaviour::FluenceNetworkBehaviourEvent;
 use crate::builtins::make_peer_builtin;
@@ -200,7 +200,11 @@ impl<RT: AquaRuntime> Node<RT> {
 
         let workers_config = WorkersConfig::new(
             config.node_config.workers_queue_buffer,
-            config.node_config.vm.clone().map(|conf| conf.libvirt_uri),
+            config
+                .node_config
+                .vm
+                .clone()
+                .map(|conf| VmConfig::new(conf.libvirt_uri, conf.bridge_name)),
         );
 
         let (workers, worker_events) = Workers::from_path(

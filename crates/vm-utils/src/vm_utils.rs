@@ -15,11 +15,22 @@ pub struct CreateVMDomainParams {
     name: String,
     image: PathBuf,
     cpus: NonEmpty<LogicalCoreId>,
+    bridge_name: String,
 }
 
 impl CreateVMDomainParams {
-    pub fn new(name: String, image: PathBuf, cpus: NonEmpty<LogicalCoreId>) -> Self {
-        Self { name, image, cpus }
+    pub fn new(
+        name: String,
+        image: PathBuf,
+        cpus: NonEmpty<LogicalCoreId>,
+        bridge_name: String,
+    ) -> Self {
+        Self {
+            name,
+            image,
+            cpus,
+            bridge_name,
+        }
     }
 }
 
@@ -145,7 +156,8 @@ fn prepare_xml(params: &CreateVMDomainParams, mac_address: &str) -> String {
         params.cpus.len(),
         mapping,
         params.image.display(),
-        mac_address
+        mac_address,
+        params.bridge_name,
     )
 }
 
@@ -175,6 +187,7 @@ mod tests {
                 name: "test-id".to_string(),
                 image: "test-image".into(),
                 cpus: nonempty![1.into(), 8.into()],
+                bridge_name: "br422442".to_string(),
             },
             "52:54:00:1e:af:64",
         );
@@ -198,6 +211,7 @@ mod tests {
                 name: "test-id".to_string(),
                 image: image.clone(),
                 cpus: nonempty![1.into()],
+                bridge_name: "br422442".to_string(),
             },
         )
         .unwrap();

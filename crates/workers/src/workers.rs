@@ -110,15 +110,26 @@ pub enum Event {
 pub struct WorkersConfig {
     /// The notification channel size
     channel_size: usize,
-    /// Uri to the libvirt API
-    libvirt_uri: Option<String>,
+    vm: Option<VmConfig>,
 }
 
 impl WorkersConfig {
-    pub fn new(channel_size: usize, libvirt_uri: Option<String>) -> Self {
+    pub fn new(channel_size: usize, vm: Option<VmConfig>) -> Self {
+        Self { channel_size, vm }
+    }
+}
+
+pub struct VmConfig {
+    /// Uri to the libvirt API
+    libvirt_uri: String,
+    bridge_name: String,
+}
+
+impl VmConfig {
+    pub fn new(libvirt_uri: String, bridge_name: String) -> Self {
         Self {
-            channel_size,
             libvirt_uri,
+            bridge_name,
         }
     }
 }
@@ -629,9 +640,9 @@ impl Workers {
         worker_id: WorkerId,
         image: PathBuf,
     ) -> Result<String, WorkersError> {
-        match &self.config.libvirt_uri {
+        match &self.config.vm {
             None => Err(WorkersError::FeatureDisabled),
-            Some(libvirt_uri) => {
+            Some(vm_config) => {
                 let assignment = {
                     let guard = self.assignments.read();
                     let assignment = guard
@@ -657,14 +668,19 @@ impl Workers {
                     .await
                     .map_err(|err| WorkersError::FailedToCopyVMImage { image, err })?;
 
-                let params = CreateVMDomainParams::new(vm_name.clone(), worker_image, assignment);
+                let params = CreateVMDomainParams::new(
+                    vm_name.clone(),
+                    worker_image,
+                    assignment,
+                    vm_config.bridge_name.clone(),
+                );
 
-                vm_utils::create_domain(libvirt_uri.as_str(), params)
+                vm_utils::create_domain(vm_config.libvirt_uri.clone().as_str(), params)
                     .map_err(|err| WorkersError::FailedToCreateVM { worker_id, err })?;
 
                 self.set_vm_flag(worker_id, true).await?;
 
-                vm_utils::start_vm(libvirt_uri.as_str(), vm_name.clone())
+                vm_utils::start_vm(vm_config.libvirt_uri.as_str(), vm_name.clone())
                     .map_err(|err| WorkersError::FailedToCreateVM { worker_id, err })?;
 
                 Ok(vm_name)
@@ -673,12 +689,12 @@ impl Workers {
     }
 
     fn remove_vm(&self, worker_id: WorkerId) -> Result<(), WorkersError> {
-        match &self.config.libvirt_uri {
+        match &self.config.vm {
             None => {}
-            Some(libvirt_uri) => {
-                vm_utils::stop_vm(libvirt_uri.as_str(), worker_id.to_string())
+            Some(vm) => {
+                vm_utils::stop_vm(vm.libvirt_uri.as_str(), worker_id.to_string())
                     .map_err(|err| WorkersError::FailedToRemoveVM { worker_id, err })?;
-                vm_utils::remove_domain(libvirt_uri.as_str(), worker_id.to_string())
+                vm_utils::remove_domain(vm.libvirt_uri.as_str(), worker_id.to_string())
                     .map_err(|err| WorkersError::FailedToRemoveVM { worker_id, err })?;
             }
         }

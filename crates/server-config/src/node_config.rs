@@ -702,6 +702,7 @@ pub struct DevModeConfig {
 #[derive(Clone, Deserialize, Serialize, Debug, PartialEq, Eq)]
 pub struct VmConfig {
     pub libvirt_uri: String,
+    pub bridge_name: String,
 }
 
 fn default_dev_mode_config() -> DevModeConfig {
