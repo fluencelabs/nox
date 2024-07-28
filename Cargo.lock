@@ -10194,6 +10194,7 @@ dependencies = [
  "test-utils",
  "thiserror",
  "tokio",
+ "tokio-stream",
  "toml 0.8.16",
  "toml_edit 0.22.17",
  "tracing",
