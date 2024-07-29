@@ -692,8 +692,6 @@ impl Workers {
         match &self.config.vm {
             None => {}
             Some(vm) => {
-                vm_utils::stop_vm(vm.libvirt_uri.as_str(), worker_id.to_string())
-                    .map_err(|err| WorkersError::FailedToRemoveVM { worker_id, err })?;
                 vm_utils::remove_domain(vm.libvirt_uri.as_str(), worker_id.to_string())
                     .map_err(|err| WorkersError::FailedToRemoveVM { worker_id, err })?;
             }

@@ -95,6 +95,11 @@ pub fn remove_domain(uri: &str, name: String) -> Result<(), VMUtilsError> {
     let conn = Connect::open(Some(uri)).map_err(|err| VMUtilsError::FailedToConnect { err })?;
     let domain = Domain::lookup_by_name(&conn, name.as_str())
         .map_err(|err| VMUtilsError::VmNotFound { name, err })?;
+
+    domain
+        .destroy()
+        .map_err(|err| VMUtilsError::FailedToRemoveVMDomain { err })?;
+
     domain
         .undefine()
         .map_err(|err| VMUtilsError::FailedToRemoveVMDomain { err })?;
