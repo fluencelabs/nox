@@ -1284,7 +1284,7 @@ where
 
                 let vm_name = self
                     .workers
-                    .create_vm(worker_id, vault_image)
+                    .create_vm(worker_id, vault_image.as_path())
                     .await
                     .map_err(|err| JError::new(format!("Failed to create vm: {err}")))?;
 

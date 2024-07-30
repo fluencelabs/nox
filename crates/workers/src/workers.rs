@@ -19,7 +19,7 @@
 
 use std::collections::HashMap;
 use std::ops::Deref;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
 
@@ -638,7 +638,7 @@ impl Workers {
     pub async fn create_vm(
         &self,
         worker_id: WorkerId,
-        image: PathBuf,
+        image: &Path,
     ) -> Result<String, WorkersError> {
         match &self.config.vm {
             None => Err(WorkersError::FeatureDisabled),
@@ -656,7 +656,7 @@ impl Workers {
                 let file_name = &image
                     .file_name()
                     .ok_or_else(|| WorkersError::VMImageNotFile {
-                        image: image.clone(),
+                        image: image.to_path_buf(),
                     })?;
 
                 let vm_name = worker_id.to_string();
@@ -669,7 +669,10 @@ impl Workers {
 
                 tokio::fs::copy(&image, &worker_image)
                     .await
-                    .map_err(|err| WorkersError::FailedToCopyVMImage { image, err })?;
+                    .map_err(|err| WorkersError::FailedToCopyVMImage {
+                        image: image.to_path_buf(),
+                        err,
+                    })?;
 
                 let params = CreateVMDomainParams::new(
                     vm_name.clone(),
