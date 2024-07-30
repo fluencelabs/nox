@@ -181,4 +181,6 @@ pub enum WorkersError {
     VMImageNotFile { image: PathBuf },
     #[error("Failed to copy {image} to the worker storage: {err}")]
     FailedToCopyVMImage { image: PathBuf, err: std::io::Error },
+    #[error("Logical cores can't be empty")]
+    WrongAssignment,
 }

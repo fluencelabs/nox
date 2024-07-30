@@ -649,14 +649,17 @@ impl Workers {
                         .get(&worker_id)
                         .ok_or_else(|| WorkersError::WorkerNotFound(worker_id))?;
 
-                    NonEmpty::from_vec(assignment.logical_core_ids()).expect("Unexpected state")
+                    NonEmpty::from_vec(assignment.logical_core_ids())
+                        .ok_or_else(|| WorkersError::WrongAssignment)
                 };
 
                 let vm_name = worker_id.to_string();
 
-                let file_name = &image.file_name().ok_or_else(|| WorkersError::VMImageNotFile {
-                    image: image.clone(),
-                })?;
+                let file_name = &image
+                    .file_name()
+                    .ok_or_else(|| WorkersError::VMImageNotFile {
+                        image: image.clone(),
+                    })?;
 
                 let worker_image = self
                     .workers_dir
