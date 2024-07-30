@@ -9,9 +9,13 @@ edition = "2021"
 ethabi = { workspace = true }
 serde = { workspace = true }
 libp2p-identity = { workspace = true, features = ["peerid"] }
-hex-utils = { workspace = true }
+hex-utils = { workspace = true, features = ["serde_with"] }
 log = { workspace = true }
 thiserror = { workspace = true }
 eyre = { workspace = true }
 alloy-sol-types = { workspace = true }
 const-hex = { workspace = true }
+alloy-primitives = { workspace = true }
+serde_json = { workspace = true }
+serde_with = { workspace = true }
+alloy_serde_macro = { workspace = true }

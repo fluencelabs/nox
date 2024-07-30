@@ -57,6 +57,16 @@ sol! {
        /// @param localUnitNonce The local nonce of the unit for calculating the target hash. It's the proof
        /// @param resultHash The target hash of this proof
         function submitProof(bytes32 unitId, bytes32 localUnitNonce, bytes32 resultHash) external;
+
+        /// @dev Submits proofs for the commitment
+        /// @param unitIds Compute unit ids which provide the proof
+        /// @param localUnitNonces Local nonces of the units for calculating the target hashes. It's the proof
+        /// @param resultHashes Target hashes of this proof
+        function submitProofs(
+            bytes32[] memory unitIds,
+            bytes32[] memory localUnitNonces,
+            bytes32[] memory resultHashes
+        ) external;
     }
 }
 
