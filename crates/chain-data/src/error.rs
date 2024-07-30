@@ -18,6 +18,9 @@
  */
 
 use thiserror::Error;
+
+use hex_utils::FromHexError;
+
 #[derive(Debug, Error)]
 pub enum ChainDataError {
     #[error("empty data, nothing to parse")]
@@ -29,7 +32,7 @@ pub enum ChainDataError {
     #[error("invalid compute peer id: '{0}'")]
     InvalidComputePeerId(#[from] libp2p_identity::ParseError),
     #[error("data is not a valid hex: '{0}'")]
-    DecodeHex(#[source] hex::FromHexError),
+    DecodeHex(#[source] FromHexError),
     #[error(transparent)]
     EthError(#[from] ethabi::Error),
     #[error("Invalid token size")]

@@ -17,9 +17,28 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-pub fn decode_hex(h: &str) -> Result<Vec<u8>, hex::FromHexError> {
+pub use hex::FromHexError;
+
+/// Decode hex to bytes tolerating absence and presence of 0x prefix
+pub fn decode_hex(h: &str) -> Result<Vec<u8>, FromHexError> {
     let h = h.trim_start_matches("0x");
     hex::decode(h)
+}
+
+/// Encode bytes to hex with 0x prefix
+pub fn encode_hex_0x<T: AsRef<[u8]>>(data: T) -> String {
+    let hex = hex::encode(data);
+    format!("0x{}", hex)
+}
+
+/// Encode bytes to hex with 0x prefix and zero padding of a specified length
+pub fn encode_hex_0x_zero_pad<T: AsRef<[u8]>>(data: T, width: usize) -> String {
+    format!("0x{:0>width$}", hex::encode(data))
+}
+
+/// A simple renaming to force to consider the absence of '0x' prefix
+pub fn encode_hex_no_prefix<T: AsRef<[u8]>>(data: T) -> String {
+    hex::encode(data)
 }
 
 #[cfg(feature = "serde_with")]

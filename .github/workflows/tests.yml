@@ -47,7 +47,7 @@ jobs:
           save-if: ${{ github.event_name == 'push' }}
 
       - name: Setup sccache
-        uses: mozilla-actions/sccache-action@v0.0.4
+        uses: mozilla-actions/sccache-action@v0.0.5
 
       - name: Setup mold linker
         uses: rui314/setup-mold@v1

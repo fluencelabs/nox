@@ -35,6 +35,7 @@ use ccp_rpc_client::CCPRpcHttpClient;
 use ccp_shared::proof::{CCProof, CCProofId, ProofIdx};
 use ccp_shared::types::{Difficulty, GlobalNonce, LocalNonce, ResultHash};
 use cpu_utils::PhysicalCoreId;
+use hex_utils::encode_hex_0x;
 
 use eyre::{eyre, Report};
 use jsonrpsee::core::client::{Client as WsClient, Subscription, SubscriptionClientT};
@@ -658,7 +659,7 @@ impl ChainListener {
         let topic = UnitActivated::SIGNATURE_HASH.to_string();
         rpc_params![
             "logs",
-            json!({"address": self.config.cc_contract_address, "topics":  vec![topic, hex::encode(commitment_id.0)]})
+            json!({"address": self.config.cc_contract_address, "topics": vec![topic, encode_hex_0x(commitment_id.0)]})
         ]
     }
 
@@ -666,7 +667,7 @@ impl ChainListener {
         let topic = UnitDeactivated::SIGNATURE_HASH.to_string();
         rpc_params![
             "logs",
-            json!({"address": self.config.cc_contract_address, "topics":  vec![topic, hex::encode(commitment_id.0)]})
+            json!({"address": self.config.cc_contract_address, "topics": vec![topic, encode_hex_0x(commitment_id.0)]})
         ]
     }
 
