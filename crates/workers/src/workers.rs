@@ -653,7 +653,6 @@ impl Workers {
                         .ok_or_else(|| WorkersError::WrongAssignment)?
                 };
 
-
                 let file_name = &image
                     .file_name()
                     .ok_or_else(|| WorkersError::VMImageNotFile {
@@ -711,7 +710,7 @@ impl Workers {
             let guard = self.worker_infos.read();
             let worker_info = guard
                 .get(&worker_id)
-                .ok_or(WorkersError::WorkerNotFound(worker_id))?;
+                .ok_or_else(|| WorkersError::WorkerNotFound(worker_id))?;
 
             modify(worker_info);
 
