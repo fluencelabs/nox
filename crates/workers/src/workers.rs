@@ -650,7 +650,7 @@ impl Workers {
                         .ok_or_else(|| WorkersError::WorkerNotFound(worker_id))?;
 
                     NonEmpty::from_vec(assignment.logical_core_ids())
-                        .ok_or_else(|| WorkersError::WrongAssignment)
+                        .ok_or_else(|| WorkersError::WrongAssignment)?
                 };
 
                 let vm_name = worker_id.to_string();
