@@ -301,3 +301,19 @@ pub fn default_binaries_mapping() -> BTreeMap<String, String> {
 pub fn default_proof_poll_period() -> Duration {
     Duration::from_secs(60)
 }
+
+pub fn default_min_batch_count() -> usize {
+    1
+}
+
+pub fn default_max_batch_count() -> usize {
+    4
+}
+
+pub fn default_max_proof_batch_size() -> usize {
+    2
+}
+
+pub fn default_epoch_end_window() -> Duration {
+    Duration::from_secs(300)
+}

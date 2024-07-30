@@ -1285,7 +1285,7 @@ dependencies = [
  "newtype_derive",
  "rand 0.8.5",
  "serde",
- "serde_with 3.8.1",
+ "serde_with 3.9.0",
 ]
 
 [[package]]
@@ -1388,7 +1388,7 @@ dependencies = [
  "log",
  "serde",
  "serde_json",
- "serde_with 3.8.1",
+ "serde_with 3.9.0",
  "thiserror",
 ]
 
@@ -1419,7 +1419,7 @@ dependencies = [
  "peer-metrics",
  "serde",
  "serde_json",
- "serde_with 3.8.1",
+ "serde_with 3.9.0",
  "server-config",
  "tempfile",
  "thiserror",
