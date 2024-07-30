@@ -647,7 +647,7 @@ impl Workers {
                     let guard = self.assignments.read();
                     let assignment = guard
                         .get(&worker_id)
-                        .ok_or(WorkersError::WorkerNotFound(worker_id))?;
+                        .ok_or_else(|| WorkersError::WorkerNotFound(worker_id))?;
 
                     NonEmpty::from_vec(assignment.logical_core_ids()).expect("Unexpected state")
                 };
