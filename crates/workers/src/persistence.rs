@@ -16,10 +16,10 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-use std::path::{Path, PathBuf};
-
 use libp2p::PeerId;
 use serde::{Deserialize, Serialize};
+use std::path::{Path, PathBuf};
+use std::thread::available_parallelism;
 
 use core_distributor::CUID;
 use fluence_keypair::KeyPair;
@@ -152,10 +152,17 @@ pub(crate) async fn remove_worker(
     Ok(())
 }
 
+// default bound on the number of computations it can perform simultaneously
+const DEFAULT_PARALLELISM: usize = 2;
+
 /// Load info about persisted workers from disk in parallel
 pub(crate) async fn load_persisted_workers(
     workers_dir: &Path,
 ) -> eyre::Result<Vec<PersistedWorker>> {
+    let parallelism = available_parallelism()
+        .map(|x| x.get())
+        .unwrap_or(DEFAULT_PARALLELISM);
+
     let directory_list = tokio::fs::read_dir(workers_dir).await?;
     let directory_stream = ReadDirStream::new(directory_list);
 
@@ -183,7 +190,7 @@ pub(crate) async fn load_persisted_workers(
                 }
             }
         })
-        .buffer_unordered(4)
+        .buffer_unordered(parallelism)
         .filter_map(|e| async { e })
         //collect only loaded data and unwrap Option
         .collect()

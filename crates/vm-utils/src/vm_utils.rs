@@ -46,15 +46,17 @@ pub enum VMUtilsError {
         #[source]
         err: virt::error::Error,
     },
-    #[error("Failed to remove VM domain")]
+    #[error("Failed to remove VM domain {name}")]
     FailedToRemoveVMDomain {
         #[source]
         err: virt::error::Error,
+        name: String,
     },
-    #[error("Failed to create VM")]
+    #[error("Failed to create VM {name}")]
     FailedToStartVM {
         #[source]
         err: virt::error::Error,
+        name: String,
     },
     #[error("Could not find VM with name {name}")]
     VmNotFound {
@@ -71,7 +73,7 @@ pub enum VMUtilsError {
     FailedToGetVMId { name: String },
 }
 
-pub fn create_domain(uri: &str, params: CreateVMDomainParams) -> Result<(), VMUtilsError> {
+pub fn create_domain(uri: &str, params: &CreateVMDomainParams) -> Result<(), VMUtilsError> {
     let conn = Connect::open(Some(uri)).map_err(|err| VMUtilsError::FailedToConnect { err })?;
     let domain = Domain::lookup_by_name(&conn, params.name.as_str()).ok();
 
@@ -90,37 +92,47 @@ pub fn create_domain(uri: &str, params: CreateVMDomainParams) -> Result<(), VMUt
     Ok(())
 }
 
-pub fn remove_domain(uri: &str, name: String) -> Result<(), VMUtilsError> {
+pub fn remove_domain(uri: &str, name: &str) -> Result<(), VMUtilsError> {
     tracing::info!(target: "vm-utils","Removing domain with name {}", name);
     let conn = Connect::open(Some(uri)).map_err(|err| VMUtilsError::FailedToConnect { err })?;
-    let domain = Domain::lookup_by_name(&conn, name.as_str())
-        .map_err(|err| VMUtilsError::VmNotFound { name, err })?;
+    let domain = Domain::lookup_by_name(&conn, name).map_err(|err| VMUtilsError::VmNotFound {
+        name: name.to_string(),
+        err,
+    })?;
 
     domain
         .destroy()
-        .map_err(|err| VMUtilsError::FailedToRemoveVMDomain { err })?;
+        .map_err(|err| VMUtilsError::FailedToRemoveVMDomain {
+            err,
+            name: name.to_string(),
+        })?;
 
     domain
         .undefine()
-        .map_err(|err| VMUtilsError::FailedToRemoveVMDomain { err })?;
+        .map_err(|err| VMUtilsError::FailedToRemoveVMDomain {
+            err,
+            name: name.to_string(),
+        })?;
 
     Ok(())
 }
-pub fn start_vm(uri: &str, name: String) -> Result<u32, VMUtilsError> {
+pub fn start_vm(uri: &str, name: &str) -> Result<u32, VMUtilsError> {
     tracing::info!(target: "vm-utils","Starting VM with name {name}");
     let conn = Connect::open(Some(uri)).map_err(|err| VMUtilsError::FailedToConnect { err })?;
-    let domain =
-        Domain::lookup_by_name(&conn, name.as_str()).map_err(|err| VMUtilsError::VmNotFound {
-            name: name.clone(),
-            err,
-        })?;
+    let domain = Domain::lookup_by_name(&conn, name).map_err(|err| VMUtilsError::VmNotFound {
+        name: name.to_string(),
+        err,
+    })?;
     domain
         .create()
-        .map_err(|err| VMUtilsError::FailedToStartVM { err })?;
+        .map_err(|err| VMUtilsError::FailedToStartVM {
+            err,
+            name: name.to_string(),
+        })?;
 
-    let id = domain
-        .get_id()
-        .ok_or(VMUtilsError::FailedToGetVMId { name })?;
+    let id = domain.get_id().ok_or(VMUtilsError::FailedToGetVMId {
+        name: name.to_string(),
+    })?;
 
     Ok(id)
 }
@@ -212,7 +224,7 @@ mod tests {
 
         create_domain(
             DEFAULT_URI,
-            CreateVMDomainParams {
+            &CreateVMDomainParams {
                 name: "test-id".to_string(),
                 image: image.clone(),
                 cpus: nonempty![1.into()],
@@ -226,7 +238,7 @@ mod tests {
         assert_eq!(list_defined_after_create, vec!["test-id"]);
         assert_eq!(list_after_create, list_before_create);
 
-        let id = start_vm(DEFAULT_URI, "test-id".to_string()).unwrap();
+        let id = start_vm(DEFAULT_URI, "test-id").unwrap();
 
         let mut list_after_start = list().unwrap();
         let list_defined_after_start = list_defined().unwrap();

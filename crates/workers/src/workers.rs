@@ -675,12 +675,12 @@ impl Workers {
                     vm_config.bridge_name.clone(),
                 );
 
-                vm_utils::create_domain(vm_config.libvirt_uri.clone().as_str(), params)
+                vm_utils::create_domain(vm_config.libvirt_uri.clone().as_str(), &params)
                     .map_err(|err| WorkersError::FailedToCreateVM { worker_id, err })?;
 
                 self.set_vm_flag(worker_id, true).await?;
 
-                vm_utils::start_vm(vm_config.libvirt_uri.as_str(), vm_name.clone())
+                vm_utils::start_vm(vm_config.libvirt_uri.as_str(), vm_name.as_str())
                     .map_err(|err| WorkersError::FailedToCreateVM { worker_id, err })?;
 
                 Ok(vm_name)
@@ -689,12 +689,12 @@ impl Workers {
     }
 
     fn remove_vm(&self, worker_id: WorkerId) -> Result<(), WorkersError> {
-        match &self.config.vm {
-            None => {}
-            Some(vm) => {
-                vm_utils::remove_domain(vm.libvirt_uri.as_str(), worker_id.to_string())
-                    .map_err(|err| WorkersError::FailedToRemoveVM { worker_id, err })?;
-            }
+        if let Some(vm_config) = &self.config.vm {
+            vm_utils::remove_domain(
+                vm_config.libvirt_uri.as_str(),
+                worker_id.to_string().as_str(),
+            )
+            .map_err(|err| WorkersError::FailedToRemoveVM { worker_id, err })?;
         }
         Ok(())
     }
