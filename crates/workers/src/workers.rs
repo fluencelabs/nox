@@ -653,7 +653,6 @@ impl Workers {
                         .ok_or_else(|| WorkersError::WrongAssignment)?
                 };
 
-                let vm_name = worker_id.to_string();
 
                 let file_name = &image
                     .file_name()
@@ -661,9 +660,11 @@ impl Workers {
                         image: image.clone(),
                     })?;
 
+                let vm_name = worker_id.to_string();
+
                 let worker_image = self
                     .workers_dir
-                    .join(worker_id.to_string())
+                    .join(&vm_name)
                     .join(WORKER_DATA_DIR)
                     .join(file_name);
 
