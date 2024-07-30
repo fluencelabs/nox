@@ -1098,7 +1098,8 @@ impl ChainListener {
                     &self.metrics,
                     ccp_client.get_proofs_after(last_known_proofs, PROOF_POLL_LIMIT),
                 )
-                .await?
+                .await
+                .map_err(|err| eyre::eyre!("Failed to poll proofs from ccp: {err}"))?
             } else {
                 tracing::debug!(target: "chain-listener", "Polling proofs after {:?}, min batch count: {}, max batch count: {}", batch_requests, self.listener_config.min_batch_count, self.listener_config.max_batch_count);
                 measured_request(
@@ -1109,7 +1110,8 @@ impl ChainListener {
                         self.listener_config.max_batch_count,
                     ),
                 )
-                .await?
+                .await
+                .map_err(|err| eyre::eyre!("Failed to poll batched proofs from ccp: {err}"))?
             };
 
             // TODO: maybe filter out proofs that are not related to current epoch
