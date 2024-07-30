@@ -654,7 +654,7 @@ impl Workers {
 
                 let vm_name = worker_id.to_string();
 
-                let file_name = &image.file_name().ok_or(WorkersError::VMImageNotFile {
+                let file_name = &image.file_name().ok_or_else(|| WorkersError::VMImageNotFile {
                     image: image.clone(),
                 })?;
 
