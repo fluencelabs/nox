@@ -64,9 +64,10 @@ use peer_metrics::ChainListenerMetrics;
 use server_config::{ChainConfig, ChainListenerConfig};
 use types::DealId;
 
-use crate::event::cc_activated::CommitmentActivated;
+use crate::event::CommitmentActivated;
 use crate::event::{ComputeUnitMatched, UnitActivated, UnitDeactivated};
 use crate::proof_tracker::ProofTracker;
+use crate::types::{CUGroups, PhysicalCoreGroups};
 
 const PROOF_POLL_LIMIT: usize = 50;
 
@@ -868,10 +869,10 @@ impl ChainListener {
         };
 
         let cu_groups = self.get_cu_groups();
-        //tracing::info!("cu_groups {:?}", cu_groups);
+        tracing::trace!(target: "chain-listener", "cu_groups {:?}", cu_groups);
 
         let cc_cores = self.acquire_cores_for_cc(&cu_groups)?;
-        //tracing::info!("cc_cores {:?}", cc_cores);
+        tracing::trace!(target: "chain-listener", "cc_cores {:?}", cc_cores);
 
         let mut cu_allocation: HashMap<PhysicalCoreId, CUID> = HashMap::new();
 
@@ -1400,34 +1401,6 @@ impl ChainListener {
         }
         batch_request
     }
-}
-
-struct CUGroups {
-    /// Already started units involved in CC and not having less than MIN_PROOFS_PER_EPOCH proofs in the current epoch
-    pub priority_units: Vec<CUID>,
-    /// Already started units involved in CC and found at least MIN_PROOFS_PER_EPOCH proofs,
-    /// but less that MAX_PROOFS_PER_EPOCH proofs in the current epoch
-    pub non_priority_units: Vec<CUID>,
-    /// Units in CC that is not active yet and can't produce proofs in the current epoch
-    pub pending_units: Vec<CUID>,
-    /// Already started units involved in CC and having more than MAX_PROOFS_PER_EPOCH proofs in the current epoch
-    pub finished_units: Vec<CUID>,
-}
-
-impl CUGroups {
-    fn all_min_proofs_found(&self) -> bool {
-        self.priority_units.is_empty()
-    }
-
-    fn all_max_proofs_found(&self) -> bool {
-        self.non_priority_units.is_empty()
-    }
-}
-struct PhysicalCoreGroups {
-    pub priority_cores: Vec<PhysicalCoreId>,
-    pub non_priority_cores: Vec<PhysicalCoreId>,
-    pub pending_cores: Vec<PhysicalCoreId>,
-    pub finished_cores: Vec<PhysicalCoreId>,
 }
 
 // measure the request execution time and store it in the metrics
