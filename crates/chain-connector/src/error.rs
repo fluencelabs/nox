@@ -63,6 +63,8 @@ pub enum ConnectorError {
     InvalidU256(String, String),
     #[error("Failed to parse response: {0}")]
     ResponseParseError(String),
+    #[error("Failed to parse response, field {0} not found")]
+    FieldNotFound(&'static str),
     #[error("Parse error: {0}")]
     ParseError(#[from] serde_json::Error),
 }

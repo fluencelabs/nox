@@ -650,6 +650,19 @@ pub struct ChainListenerConfig {
     #[serde(default = "default_proof_poll_period")]
     #[serde(with = "humantime_serde")]
     pub proof_poll_period: Duration, // TODO: must be >0
+    /// Min number of proofs in a batch for CU to be sent on chain
+    #[serde(default = "default_min_batch_count")]
+    pub min_batch_count: usize,
+    /// Max number of proofs in a batch for CU to be sent on chain
+    #[serde(default = "default_max_batch_count")]
+    pub max_batch_count: usize,
+    /// Max number of proofs batches to be sent on chain
+    #[serde(default = "default_max_proof_batch_size")]
+    pub max_proof_batch_size: usize,
+    /// Defined how much time before epoch end to send all found proofs in any batches
+    #[serde(default = "default_epoch_end_window")]
+    #[serde(with = "humantime_serde")]
+    pub epoch_end_window: Duration,
 }
 
 /// Name of the effector module

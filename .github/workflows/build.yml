@@ -11,6 +11,10 @@ on:
         description: "Cargo dependencies map"
         type: string
         default: "null"
+    secrets:
+      github_priv_key:
+        description: "github private key"
+        required: true
 
 jobs:
   build:
@@ -44,6 +48,10 @@ jobs:
         with:
           repository: fluencelabs/nox
           ref: ${{ inputs.ref }}
+
+      - name: Setup Git
+        run: |
+          git config --global url."https://x-access-token:${{ secrets.github_priv_key }}@github.com".insteadOf ssh://git@github.com
 
       - name: Get PR labels
         id: labels

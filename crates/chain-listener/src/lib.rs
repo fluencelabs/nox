@@ -35,3 +35,4 @@ mod event;
 mod listener;
 
 mod persistence;
+mod proof_tracker;
