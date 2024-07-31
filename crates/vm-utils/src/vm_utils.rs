@@ -36,35 +36,35 @@ impl CreateVMDomainParams {
 
 #[derive(Error, Debug)]
 pub enum VMUtilsError {
-    #[error("Failed to connect to the hypervisor")]
+    #[error("Failed to connect to the hypervisor: {err}")]
     FailedToConnect {
         #[source]
         err: virt::error::Error,
     },
-    #[error("Failed to create VM domain")]
+    #[error("Failed to create VM domain: {err}")]
     FailedToCreateVMDomain {
         #[source]
         err: virt::error::Error,
     },
-    #[error("Failed to remove VM domain {name}")]
+    #[error("Failed to remove VM domain {name}: {err}")]
     FailedToRemoveVMDomain {
         #[source]
         err: virt::error::Error,
         name: String,
     },
-    #[error("Failed to create VM {name}")]
+    #[error("Failed to create VM {name}: {err}")]
     FailedToStartVM {
         #[source]
         err: virt::error::Error,
         name: String,
     },
-    #[error("Could not find VM with name {name}")]
+    #[error("Could not find VM with name {name}: {err}")]
     VmNotFound {
         name: String,
         #[source]
         err: virt::error::Error,
     },
-    #[error("Failed to shutdown VM")]
+    #[error("Failed to shutdown VM: {err}")]
     FailedToStopVM {
         #[source]
         err: virt::error::Error,
