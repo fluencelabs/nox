@@ -181,6 +181,8 @@ pub struct UnresolvedNodeConfig {
 
     #[serde(default)]
     pub network: Network,
+
+    pub vm: Option<VmConfig>,
 }
 
 #[serde_as]
@@ -281,6 +283,7 @@ impl UnresolvedNodeConfig {
             chain_listener_config: self.chain_listener_config,
             services: self.services,
             network: self.network,
+            vm: self.vm,
         };
 
         Ok(result)
@@ -450,7 +453,7 @@ pub struct NodeConfig {
     #[serde(serialize_with = "peer_id::serde::serialize")]
     pub management_peer_id: PeerId,
 
-    pub allowed_effectors: HashMap<Hash, HashMap<String, String>>,
+    pub allowed_effectors: HashMap<Hash, HashMap<String, PathBuf>>,
 
     pub dev_mode_config: DevModeConfig,
 
@@ -465,6 +468,8 @@ pub struct NodeConfig {
     pub services: ServicesConfig,
 
     pub network: Network,
+
+    pub vm: Option<VmConfig>,
 }
 
 #[derive(Clone, Deserialize, Serialize, Derivative, Copy)]
@@ -678,7 +683,7 @@ pub struct EffectorsConfig(HashMap<EffectorModuleName, EffectorConfig>);
 pub struct EffectorConfig {
     #[derivative(Debug(format_with = "std::fmt::Display::fmt"))]
     wasm_cid: Hash,
-    allowed_binaries: HashMap<String, String>,
+    allowed_binaries: HashMap<String, PathBuf>,
 }
 
 fn default_effectors_config() -> EffectorsConfig {
@@ -704,7 +709,13 @@ pub struct DevModeConfig {
     pub enable: bool,
     /// Mounted binaries mapping: binary name (used in the effector modules) to binary path
     #[serde(default = "default_binaries_mapping")]
-    pub binaries: BTreeMap<String, String>,
+    pub binaries: BTreeMap<String, PathBuf>,
+}
+
+#[derive(Clone, Deserialize, Serialize, Debug, PartialEq, Eq)]
+pub struct VmConfig {
+    pub libvirt_uri: String,
+    pub bridge_name: String,
 }
 
 fn default_dev_mode_config() -> DevModeConfig {

@@ -154,7 +154,7 @@ async fn test_system_service_override() {
 #[tokio::test]
 async fn create_service_from_config() {
     let swarms = make_swarms_with_cfg(1, move |mut cfg| {
-        cfg.allowed_binaries = vec!["/does/not/exist".to_string()];
+        cfg.allowed_binaries = vec!["/does/not/exist".into()];
         cfg
     })
     .await;

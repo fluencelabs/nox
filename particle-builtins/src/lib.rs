@@ -32,7 +32,7 @@
     unreachable_patterns
 )]
 
-pub use builtins::{Builtins, CustomService};
+pub use builtins::{Builtins, BuiltinsConfig, CustomService};
 pub use identify::NodeInfo;
 pub use outcome::{ok, wrap, wrap_unit};
 pub use particle_services::ParticleAppServicesConfig;

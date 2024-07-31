@@ -20,7 +20,7 @@
 use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
 use std::ops::Try;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -28,37 +28,63 @@ use std::time::{Duration, Instant};
 use derivative::Derivative;
 use fluence_app_service::TomlMarineNamedModuleConfig;
 use fluence_keypair::Signature;
-use libp2p::{core::Multiaddr, kad::KBucketKey, kad::K_VALUE, PeerId};
+use libp2p::core::Multiaddr;
+use libp2p::kad::KBucketKey;
+use libp2p::kad::K_VALUE;
+use libp2p::PeerId;
 use multihash::Multihash;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value as JValue, Value};
 use tokio::sync::RwLock;
 use JValue::Array;
 
-use connection_pool::{ConnectionPoolApi, ConnectionPoolT};
+use connection_pool::ConnectionPoolApi;
+use connection_pool::ConnectionPoolT;
+use fs_utils::create_dirs;
+use fs_utils::to_abs_path;
 use health::HealthCheckRegistry;
-use kademlia::{KademliaApi, KademliaApiT};
-use now_millis::{now_ms, now_sec};
-use particle_args::{from_base58, Args, ArgsError, JError};
-use particle_execution::{FunctionOutcome, ParticleParams, ServiceFunction};
-use particle_modules::{
-    AddBlueprint, EffectorsMode, ModuleConfig, ModuleRepository, NamedModuleConfig, WASIConfig,
-};
+use kademlia::KademliaApi;
+use kademlia::KademliaApiT;
+use now_millis::now_ms;
+use now_millis::now_sec;
+use particle_args::from_base58;
+use particle_args::Args;
+use particle_args::ArgsError;
+use particle_args::JError;
+use particle_execution::FunctionOutcome;
+use particle_execution::ParticleParams;
+use particle_execution::ServiceFunction;
+use particle_modules::AddBlueprint;
+use particle_modules::EffectorsMode;
+use particle_modules::ModuleConfig;
+use particle_modules::ModuleRepository;
+use particle_modules::NamedModuleConfig;
+use particle_modules::WASIConfig;
 use particle_protocol::Contact;
-use particle_services::{
-    ParticleAppServices, ParticleAppServicesConfig, PeerScope, ServiceInfo, ServiceType,
-};
+use particle_services::ParticleAppServices;
+use particle_services::ParticleAppServicesConfig;
+use particle_services::PeerScope;
+use particle_services::ServiceInfo;
+use particle_services::ServiceType;
 use peer_metrics::ServicesMetrics;
+use service_modules::Hash;
 use types::peer_id;
 use uuid_utils::uuid;
-use workers::{KeyStorage, PeerScopes, Workers};
+use workers::KeyStorage;
+use workers::PeerScopes;
+use workers::Workers;
 
 use crate::debug::fmt_custom_services;
 use crate::error::HostClosureCallError;
-use crate::error::HostClosureCallError::{DecodeBase58, DecodeUTF8};
-use crate::func::{binary, unary};
-use crate::outcome::{ok, wrap, wrap_unit};
-use crate::{json, math};
+use crate::error::HostClosureCallError::DecodeBase58;
+use crate::error::HostClosureCallError::DecodeUTF8;
+use crate::func::binary;
+use crate::func::unary;
+use crate::json;
+use crate::math;
+use crate::outcome::ok;
+use crate::outcome::wrap;
+use crate::outcome::wrap_unit;
 
 pub struct CustomService {
     /// (function_name -> service function)
@@ -83,18 +109,100 @@ impl CustomService {
 #[derivative(Debug)]
 pub struct Builtins<C> {
     pub connectivity: C,
-
     pub modules: ModuleRepository,
     pub services: ParticleAppServices,
     #[derivative(Debug(format_with = "fmt_custom_services"))]
     pub custom_services: RwLock<HashMap<String, CustomService>>,
-
+    #[derivative(Debug = "ignore")]
+    workers: Arc<Workers>,
     #[derivative(Debug = "ignore")]
     key_storage: Arc<KeyStorage>,
     #[derivative(Debug = "ignore")]
     scopes: PeerScopes,
-    connector_api_endpoint: String,
-    is_dev_mode: bool,
+    config: BuiltinsConfig,
+}
+
+#[derive(Debug)]
+pub struct BuiltinsConfig {
+    pub particle_app_services: ParticleAppServicesConfig,
+    pub connector_api_endpoint: String,
+    /// Dir to store .wasm modules and their configs
+    pub modules_dir: PathBuf,
+    /// Path of the blueprint directory containing blueprints and wasm modules
+    pub blueprint_dir: PathBuf,
+    /// Is in the developer mode
+    pub is_dev_mode: bool,
+    /// Mapping of binary names to their paths for mounted binaries used in developer mode
+    pub mounted_binaries_mapping: HashMap<String, PathBuf>,
+    /// List of allowed effector modules by CID
+    pub allowed_effectors: HashMap<Hash, HashMap<String, PathBuf>>,
+}
+
+impl BuiltinsConfig {
+    pub fn new(
+        particle_app_services: ParticleAppServicesConfig,
+        connector_api_endpoint: String,
+        persistent_dir: PathBuf,
+        allowed_effectors: HashMap<Hash, HashMap<String, PathBuf>>,
+        mounted_binaries_mapping: HashMap<String, PathBuf>,
+        is_dev_mode: bool,
+    ) -> Result<Self, std::io::Error> {
+        let persistent_dir = to_abs_path(persistent_dir);
+
+        let blueprint_dir = config_utils::blueprint_dir(&persistent_dir);
+        let modules_dir = config_utils::modules_dir(&persistent_dir);
+
+        create_dirs(&[&blueprint_dir, &modules_dir])?;
+
+        let allowed_effectors = allowed_effectors
+            .into_iter()
+            .map(|(cid, effector)| {
+                let effector = effector
+                    .into_iter()
+                    .map(|(name, path)| {
+                        let path_str = path.display();
+                        match path.try_exists() {
+                            Err(err) => tracing::warn!(
+                                "cannot check binary `{path_str}` for effector `{cid}`: {err}"
+                            ),
+                            Ok(false) => tracing::warn!(
+                                "binary `{path_str}` for effector `{cid}` does not exist"
+                            ),
+                            _ => {}
+                        };
+                        (name, path.to_path_buf())
+                    })
+                    .collect::<_>();
+                (cid, effector)
+            })
+            .collect::<_>();
+
+        let mounted_binaries_mapping = if !is_dev_mode {
+            HashMap::new()
+        } else {
+            mounted_binaries_mapping
+                .into_iter()
+                .map(|(name, path)| {
+                    let path_str = path.display();
+                    match path.try_exists() {
+                        Err(err) => tracing::warn!("cannot check binary `{path_str}`: {err}"),
+                        Ok(false) => tracing::warn!("binary `{path_str}` does not exist"),
+                        _ => {}
+                    };
+                    (name, path.to_path_buf())
+                })
+                .collect::<_>()
+        };
+        Ok(Self {
+            particle_app_services,
+            connector_api_endpoint,
+            blueprint_dir,
+            modules_dir,
+            allowed_effectors,
+            mounted_binaries_mapping,
+            is_dev_mode,
+        })
+    }
 }
 
 impl<C> Builtins<C>
@@ -102,17 +210,14 @@ where
     C: Clone + Send + Sync + 'static + AsRef<KademliaApi> + AsRef<ConnectionPoolApi>,
 {
     pub fn new(
+        config: BuiltinsConfig,
         connectivity: C,
-        config: ParticleAppServicesConfig,
         services_metrics: ServicesMetrics,
         key_storage: Arc<KeyStorage>,
         workers: Arc<Workers>,
         scope: PeerScopes,
         health_registry: Option<&mut HealthCheckRegistry>,
-        connector_api_endpoint: String,
     ) -> Self {
-        let modules_dir = &config.modules_dir;
-        let blueprint_dir = &config.blueprint_dir;
         let effectors_mode = if config.is_dev_mode {
             EffectorsMode::all_effectors(
                 config.allowed_effectors.clone(),
@@ -121,11 +226,12 @@ where
         } else {
             EffectorsMode::restricted_effectors(config.allowed_effectors.clone())
         };
-        let is_dev_mode = config.is_dev_mode;
+        let modules_dir = &config.modules_dir;
+        let blueprint_dir = &config.blueprint_dir;
 
         let modules = ModuleRepository::new(modules_dir, blueprint_dir, effectors_mode);
         let services = ParticleAppServices::new(
-            config,
+            config.particle_app_services.clone(),
             modules.clone(),
             Some(services_metrics),
             health_registry,
@@ -138,11 +244,11 @@ where
             connectivity,
             modules,
             services,
+            workers,
             custom_services: <_>::default(),
             key_storage,
             scopes: scope,
-            connector_api_endpoint,
-            is_dev_mode,
+            config,
         }
     }
 
@@ -289,6 +395,8 @@ where
             ("vault", "put") => wrap(self.vault_put(args, particle)),
             ("vault", "cat") => wrap(self.vault_cat(args, particle)),
 
+            ("vm", "create") => wrap(self.create_vm(args, particle).await),
+
             ("subnet", "resolve") => wrap(self.subnet_resolve(args).await),
             ("run-console", "print") => {
                 self.guard_protected(&particle).await?;
@@ -308,10 +416,10 @@ where
             // TODO: come up with some better way of restricting service access like aqua-ipfs
             ("aqua-ipfs", _) => {
                 // If the call is on Host, we check that the caller is a host, a manager or
-                // a worker spell. Otherwise, we allow the call to go and find an aqua-ipfs service
+                // a worker spell. Otherwise we allow the call to go and find an aqua-ipfs service
                 // since it can be a user-defined service which isn't the same as system aqua-ipfs.
                 // Allow anything when in the Dev Mode
-                if !self.is_dev_mode && matches!(particle.peer_scope, PeerScope::Host) {
+                if !self.config.is_dev_mode && matches!(particle.peer_scope, PeerScope::Host) {
                     self.guard_protected(&particle).await?;
                 }
                 FunctionOutcome::NotDefined { args, params: particle }
@@ -1115,7 +1223,8 @@ where
     async fn subnet_resolve(&self, args: Args) -> Result<JValue, JError> {
         let mut args = args.function_args.into_iter();
         let deal_id: String = Args::next("deal_id", &mut args)?;
-        let result = subnet_resolver::resolve_subnet(deal_id, &self.connector_api_endpoint).await;
+        let result =
+            subnet_resolver::resolve_subnet(deal_id, &self.config.connector_api_endpoint).await;
         Ok(json!(result))
     }
 
@@ -1150,6 +1259,39 @@ where
                 && worker_service.service_id == spell_id
         };
         result.unwrap_or(false)
+    }
+
+    async fn create_vm(&self, args: Args, params: ParticleParams) -> Result<JValue, JError> {
+        match params.peer_scope {
+            PeerScope::WorkerId(worker_id) => {
+                let is_worker = params.init_peer_id == worker_id.into();
+                let worker_creator = self.workers.get_worker_creator(worker_id)?;
+                let is_worker_creator = params.init_peer_id == worker_creator;
+                if !is_worker && !is_worker_creator {
+                    return Err(JError::new(format!("Failed to create VM on {worker_id:?}, can be installed by worker creator {worker_creator} or worker itself {worker_id}")));
+                }
+
+                let mut function_args = args.function_args.into_iter();
+
+                let image_arg: String = Args::next("image", &mut function_args)?;
+                let image_arg: PathBuf = image_arg.into();
+
+                let vault_image = self
+                    .services
+                    .vault
+                    .to_real_path(worker_id.into(), &params, image_arg.as_path())
+                    .map_err(|_| JError::new(format!("Image {} not found", image_arg.display())))?;
+
+                let vm_name = self
+                    .workers
+                    .create_vm(worker_id, vault_image.as_path())
+                    .await
+                    .map_err(|err| JError::new(format!("Failed to create vm: {err}")))?;
+
+                Ok(JValue::String(vm_name))
+            }
+            PeerScope::Host => Err(JError::new("This function is only available for workers")),
+        }
     }
 }
 

@@ -35,5 +35,7 @@ pub use scope::PeerScopes;
 pub use tokio::sync::mpsc::Receiver;
 pub use types::peer_scope::WorkerId;
 pub use workers::Event;
+pub use workers::VmConfig;
 pub use workers::WorkerParams;
 pub use workers::Workers;
+pub use workers::WorkersConfig;

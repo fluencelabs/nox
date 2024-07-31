@@ -18,4 +18,3 @@ derivative = { workspace = true }
 eyre = { workspace = true }
 toml_edit = { workspace = true}
 log = { workspace = true }
-itertools = { workspace = true }

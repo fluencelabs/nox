@@ -29,7 +29,7 @@ async fn test_add_module_mounted_binaries() {
     let swarms = make_swarms_with_cfg(1, move |mut cfg| {
         cfg.allowed_effectors = hashmap! {
             "bafkreiepzclggkt57vu7yrhxylfhaafmuogtqly7wel7ozl5k2ehkd44oe".to_string() => hashmap! {
-                "ls".to_string() => "/bin/ls".to_string()
+                "ls".to_string() => "/bin/ls".into()
             }
         };
         cfg

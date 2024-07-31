@@ -1,3 +1,4 @@
+use ccp_shared::types::LogicalCoreId;
 use mac_address::MacAddress;
 use nonempty::NonEmpty;
 use rand::Rng;
@@ -10,32 +11,61 @@ use virt::sys::VIR_DOMAIN_DEFINE_VALIDATE;
 const MAC_PREFIX: [u8; 3] = [0x52, 0x54, 0x00];
 
 #[derive(Debug)]
-pub struct CreateVMParams {
+pub struct CreateVMDomainParams {
     name: String,
     image: PathBuf,
-    cpus: NonEmpty<u32>,
+    cpus: NonEmpty<LogicalCoreId>,
+    bridge_name: String,
+}
+
+impl CreateVMDomainParams {
+    pub fn new(
+        name: String,
+        image: PathBuf,
+        cpus: NonEmpty<LogicalCoreId>,
+        bridge_name: String,
+    ) -> Self {
+        Self {
+            name,
+            image,
+            cpus,
+            bridge_name,
+        }
+    }
 }
 
 #[derive(Error, Debug)]
 pub enum VMUtilsError {
-    #[error("Failed to connect to the hypervisor")]
+    #[error("Failed to connect to the hypervisor: {err}")]
     FailedToConnect {
         #[source]
         err: virt::error::Error,
     },
-    #[error("Failed to create VM")]
-    FailedToCreateVM {
+    #[error("Failed to create VM domain: {err}")]
+    FailedToCreateVMDomain {
         #[source]
         err: virt::error::Error,
     },
-    #[error("Could not find VM with name {name}")]
+    #[error("Failed to remove VM domain {name}: {err}")]
+    FailedToRemoveVMDomain {
+        #[source]
+        err: virt::error::Error,
+        name: String,
+    },
+    #[error("Failed to create VM {name}: {err}")]
+    FailedToStartVM {
+        #[source]
+        err: virt::error::Error,
+        name: String,
+    },
+    #[error("Could not find VM with name {name}: {err}")]
     VmNotFound {
         name: String,
         #[source]
         err: virt::error::Error,
     },
-    #[error("Failed to shutdown VM")]
-    FailedToShutdownVM {
+    #[error("Failed to shutdown VM: {err}")]
+    FailedToStopVM {
         #[source]
         err: virt::error::Error,
     },
@@ -43,8 +73,8 @@ pub enum VMUtilsError {
     FailedToGetVMId { name: String },
 }
 
-pub fn create_vm(uri: &str, params: CreateVMParams) -> Result<(), VMUtilsError> {
-    let conn = Connect::open(uri).map_err(|err| VMUtilsError::FailedToConnect { err })?;
+pub fn create_domain(uri: &str, params: &CreateVMDomainParams) -> Result<(), VMUtilsError> {
+    let conn = Connect::open(Some(uri)).map_err(|err| VMUtilsError::FailedToConnect { err })?;
     let domain = Domain::lookup_by_name(&conn, params.name.as_str()).ok();
 
     match domain {
@@ -53,12 +83,69 @@ pub fn create_vm(uri: &str, params: CreateVMParams) -> Result<(), VMUtilsError> 
             let mac = generate_random_mac();
             let xml = prepare_xml(&params, mac.to_string().as_str());
             Domain::define_xml_flags(&conn, xml.as_str(), VIR_DOMAIN_DEFINE_VALIDATE)
-                .map_err(|err| VMUtilsError::FailedToCreateVM { err })?;
+                .map_err(|err| VMUtilsError::FailedToCreateVMDomain { err })?;
         }
         Some(_) => {
             tracing::info!(target: "vm-utils","Domain with name {} already exists. Skipping", params.name);
         }
     };
+    Ok(())
+}
+
+pub fn remove_domain(uri: &str, name: &str) -> Result<(), VMUtilsError> {
+    tracing::info!(target: "vm-utils","Removing domain with name {}", name);
+    let conn = Connect::open(Some(uri)).map_err(|err| VMUtilsError::FailedToConnect { err })?;
+    let domain = Domain::lookup_by_name(&conn, name).map_err(|err| VMUtilsError::VmNotFound {
+        name: name.to_string(),
+        err,
+    })?;
+
+    domain
+        .destroy()
+        .map_err(|err| VMUtilsError::FailedToRemoveVMDomain {
+            err,
+            name: name.to_string(),
+        })?;
+
+    domain
+        .undefine()
+        .map_err(|err| VMUtilsError::FailedToRemoveVMDomain {
+            err,
+            name: name.to_string(),
+        })?;
+
+    Ok(())
+}
+pub fn start_vm(uri: &str, name: &str) -> Result<u32, VMUtilsError> {
+    tracing::info!(target: "vm-utils","Starting VM with name {name}");
+    let conn = Connect::open(Some(uri)).map_err(|err| VMUtilsError::FailedToConnect { err })?;
+    let domain = Domain::lookup_by_name(&conn, name).map_err(|err| VMUtilsError::VmNotFound {
+        name: name.to_string(),
+        err,
+    })?;
+    domain
+        .create()
+        .map_err(|err| VMUtilsError::FailedToStartVM {
+            err,
+            name: name.to_string(),
+        })?;
+
+    let id = domain.get_id().ok_or(VMUtilsError::FailedToGetVMId {
+        name: name.to_string(),
+    })?;
+
+    Ok(id)
+}
+
+pub fn stop_vm(uri: &str, name: String) -> Result<(), VMUtilsError> {
+    tracing::info!(target: "vm-utils","Stopping VM with name {name}");
+    let conn = Connect::open(Some(uri)).map_err(|err| VMUtilsError::FailedToConnect { err })?;
+    let domain = Domain::lookup_by_name(&conn, name.as_str())
+        .map_err(|err| VMUtilsError::VmNotFound { name, err })?;
+    domain
+        .shutdown()
+        .map_err(|err| VMUtilsError::FailedToStopVM { err })?;
+
     Ok(())
 }
 
@@ -70,38 +157,7 @@ fn generate_random_mac() -> MacAddress {
     MacAddress::from(result)
 }
 
-pub fn start_vm(uri: &str, name: String) -> Result<u32, VMUtilsError> {
-    tracing::info!(target: "vm-utils","Starting VM with name {name}");
-    let conn = Connect::open(uri).map_err(|err| VMUtilsError::FailedToConnect { err })?;
-    let domain =
-        Domain::lookup_by_name(&conn, name.as_str()).map_err(|err| VMUtilsError::VmNotFound {
-            name: name.clone(),
-            err,
-        })?;
-    domain
-        .create()
-        .map_err(|err| VMUtilsError::FailedToCreateVM { err })?;
-
-    let id = domain
-        .get_id()
-        .ok_or(VMUtilsError::FailedToGetVMId { name })?;
-
-    Ok(id)
-}
-
-pub fn stop_vm(uri: &str, name: String) -> Result<(), VMUtilsError> {
-    tracing::info!(target: "vm-utils","Stopping VM with name {name}");
-    let conn = Connect::open(uri).map_err(|err| VMUtilsError::FailedToConnect { err })?;
-    let domain = Domain::lookup_by_name(&conn, name.as_str())
-        .map_err(|err| VMUtilsError::VmNotFound { name, err })?;
-    domain
-        .shutdown()
-        .map_err(|err| VMUtilsError::FailedToShutdownVM { err })?;
-
-    Ok(())
-}
-
-fn prepare_xml(params: &CreateVMParams, mac_address: &str) -> String {
+fn prepare_xml(params: &CreateVMDomainParams, mac_address: &str) -> String {
     let mut mapping = String::new();
     for (index, logical_id) in params.cpus.iter().enumerate() {
         if index > 0 {
@@ -117,7 +173,8 @@ fn prepare_xml(params: &CreateVMParams, mac_address: &str) -> String {
         params.cpus.len(),
         mapping,
         params.image.display(),
-        mac_address
+        mac_address,
+        params.bridge_name,
     )
 }
 
@@ -129,24 +186,25 @@ mod tests {
     const DEFAULT_URI: &str = "test:///default";
 
     fn list_defined() -> Result<Vec<String>, VMUtilsError> {
-        let conn =
-            Connect::open(DEFAULT_URI).map_err(|err| VMUtilsError::FailedToConnect { err })?;
+        let conn = Connect::open(Some(DEFAULT_URI))
+            .map_err(|err| VMUtilsError::FailedToConnect { err })?;
         Ok(conn.list_defined_domains().unwrap())
     }
 
     fn list() -> Result<Vec<u32>, VMUtilsError> {
-        let conn =
-            Connect::open(DEFAULT_URI).map_err(|err| VMUtilsError::FailedToConnect { err })?;
+        let conn = Connect::open(Some(DEFAULT_URI))
+            .map_err(|err| VMUtilsError::FailedToConnect { err })?;
         Ok(conn.list_domains().unwrap())
     }
 
     #[test]
     fn test_prepare_xml() {
         let xml = prepare_xml(
-            &CreateVMParams {
+            &CreateVMDomainParams {
                 name: "test-id".to_string(),
                 image: "test-image".into(),
-                cpus: nonempty![1, 8],
+                cpus: nonempty![1.into(), 8.into()],
+                bridge_name: "br422442".to_string(),
             },
             "52:54:00:1e:af:64",
         );
@@ -164,12 +222,13 @@ mod tests {
         let list_defined_before_create = list_defined().unwrap();
         assert!(list_defined_before_create.is_empty());
 
-        create_vm(
+        create_domain(
             DEFAULT_URI,
-            CreateVMParams {
+            &CreateVMDomainParams {
                 name: "test-id".to_string(),
                 image: image.clone(),
-                cpus: nonempty![1],
+                cpus: nonempty![1.into()],
+                bridge_name: "br422442".to_string(),
             },
         )
         .unwrap();
@@ -179,7 +238,7 @@ mod tests {
         assert_eq!(list_defined_after_create, vec!["test-id"]);
         assert_eq!(list_after_create, list_before_create);
 
-        let id = start_vm(DEFAULT_URI, "test-id".to_string()).unwrap();
+        let id = start_vm(DEFAULT_URI, "test-id").unwrap();
 
         let mut list_after_start = list().unwrap();
         let list_defined_after_start = list_defined().unwrap();

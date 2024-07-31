@@ -20,6 +20,7 @@
 use super::defaults::*;
 use serde::{Deserialize, Serialize};
 use std::fmt::Formatter;
+use std::path::PathBuf;
 
 #[derive(Clone, Serialize, Deserialize, Debug, PartialEq, Eq, Hash)]
 #[serde(rename_all = "kebab-case")]
@@ -95,7 +96,7 @@ pub struct AquaIpfsConfig {
     #[serde(default = "default_ipfs_multiaddr")]
     pub local_api_multiaddr: String,
     #[serde(default = "default_ipfs_binary_path")]
-    pub ipfs_binary_path: String,
+    pub ipfs_binary_path: PathBuf,
 }
 
 impl Default for AquaIpfsConfig {
@@ -111,7 +112,7 @@ impl Default for AquaIpfsConfig {
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct ConnectorConfig {
     #[serde(default = "default_curl_binary_path")]
-    pub curl_binary_path: String,
+    pub curl_binary_path: PathBuf,
 }
 
 impl Default for ConnectorConfig {

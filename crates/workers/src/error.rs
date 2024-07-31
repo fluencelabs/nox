@@ -23,6 +23,7 @@ use std::path::PathBuf;
 use thiserror::Error;
 use types::peer_scope::WorkerId;
 use types::DealId;
+use vm_utils::VMUtilsError;
 
 #[derive(Debug, Error)]
 pub enum KeyStorageError {
@@ -134,6 +135,13 @@ pub enum WorkersError {
         #[source]
         err: std::io::Error,
     },
+    #[error("Error creation of a persisted worker directory {path} for worker {worker_id}: {err}")]
+    WorkerStorageDirectory {
+        path: PathBuf,
+        worker_id: WorkerId,
+        #[source]
+        err: std::io::Error,
+    },
     #[error("Error removing persisted worker {path:?} for worker {worker_id}: {err}")]
     RemoveErrorPersistedWorker {
         path: PathBuf,
@@ -157,4 +165,22 @@ pub enum WorkersError {
     },
     #[error("Failed to notify subsystem {worker_id}")]
     FailedToNotifySubsystem { worker_id: WorkerId },
+    #[error("Failed to create VM {worker_id}")]
+    FailedToCreateVM {
+        worker_id: WorkerId,
+        err: VMUtilsError,
+    },
+    #[error("Failed to remove VM {worker_id}")]
+    FailedToRemoveVM {
+        worker_id: WorkerId,
+        err: VMUtilsError,
+    },
+    #[error("This feature is disabled")]
+    FeatureDisabled,
+    #[error("VM image {image} isn't file")]
+    VMImageNotFile { image: PathBuf },
+    #[error("Failed to copy {image} to the worker storage: {err}")]
+    FailedToCopyVMImage { image: PathBuf, err: std::io::Error },
+    #[error("Logical cores can't be empty")]
+    WrongAssignment,
 }

@@ -88,7 +88,7 @@ impl Default for EffectorsMode {
 
 #[derive(Debug, Clone)]
 pub struct ModuleRepository {
-    modules_dir: PathBuf,
+    pub modules_dir: PathBuf,
     blueprints_dir: PathBuf,
     module_interface_cache: Arc<RwLock<HashMap<Hash, JValue>>>,
     blueprints: Arc<RwLock<HashMap<String, Blueprint>>>,

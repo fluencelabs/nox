@@ -31,3 +31,4 @@ tokio = { workspace = true, features = ["macros"] }
 core-distributor = { workspace = true, features = ["dummy"] }
 cpu-utils = { workspace = true }
 test-utils = { workspace = true }
+fs-utils = { workspace = true }
