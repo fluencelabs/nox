@@ -51,7 +51,7 @@ jobs:
           secrets: |
             kv/ci/fluence-artifacts id | AWS_ACCESS_KEY_ID ;
             kv/ci/fluence-artifacts secret | AWS_SECRET_ACCESS_KEY ;
-            kv/ci/github/tokens/fluencebot token | GITHUB_PAT ;
+            kv/github/tokens/fluencebot token | GITHUB_PAT ;
 
       - name: Checkout repository
         uses: actions/checkout@v4
