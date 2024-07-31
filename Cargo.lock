@@ -1774,11 +1774,9 @@ checksum = "6245d59a3e82a7fc217c5828a6692dbc6dfb63a0c8c90495621f7b9d79704a0e"
 name = "core-distributor"
 version = "0.1.0"
 dependencies = [
- "async-trait",
  "bimap",
  "ccp-shared",
  "cpu-utils",
- "derivative",
  "enum_dispatch",
  "futures",
  "fxhash",
@@ -6436,11 +6434,13 @@ dependencies = [
  "base64 0.21.7",
  "bs58",
  "bytesize",
+ "config-utils",
  "connection-pool",
  "derivative",
  "eyre",
  "fluence-app-service",
  "fluence-keypair",
+ "fs-utils",
  "futures",
  "health",
  "humantime-serde",
@@ -6468,6 +6468,7 @@ dependencies = [
  "thiserror",
  "tokio",
  "toml-utils",
+ "tracing",
  "types",
  "uuid-utils",
  "workers",
@@ -8353,6 +8354,7 @@ dependencies = [
  "fluence-keypair",
  "fluence-libp2p",
  "fluence-spell-dtos",
+ "fs-utils",
  "libp2p-identity",
  "maplit",
  "particle-execution",
@@ -8378,7 +8380,6 @@ dependencies = [
  "fluence-app-service",
  "fluence-libp2p",
  "fluence-spell-distro",
- "itertools 0.13.0",
  "log",
  "parking_lot",
  "particle-modules",
@@ -9389,19 +9390,20 @@ checksum = "49874b5167b65d7193b8aba1567f5c7d93d001cafc34600cee003eda787e483f"
 
 [[package]]
 name = "virt"
-version = "0.3.1"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8bca379b1d06d60012e5d335bd839b26c2aa84bdbd358e4c02a6e151cf73db81"
+checksum = "ea10b64ad18e1dd0cb83a80c8ab761506acb819dbb1af576d4bca357f2fb2a62"
 dependencies = [
  "libc",
+ "uuid",
  "virt-sys",
 ]
 
 [[package]]
 name = "virt-sys"
-version = "0.2.0"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cd39f6e0d0ab3fe7c371fac05c9b6ca72e186f06a2e666fb3b95441091eba2db"
+checksum = "c504e459878f09177f41bf2f8bb3e9a8af4fca7a09e73152fee02535d501601c"
 dependencies = [
  "libc",
  "pkg-config",
@@ -9411,6 +9413,7 @@ dependencies = [
 name = "vm-utils"
 version = "0.1.0"
 dependencies = [
+ "ccp-shared",
  "log-utils",
  "mac_address",
  "nonempty",
@@ -10456,10 +10459,12 @@ dependencies = [
  "test-utils",
  "thiserror",
  "tokio",
+ "tokio-stream",
  "toml 0.8.16",
  "toml_edit 0.22.17",
  "tracing",
  "types",
+ "vm-utils",
 ]
 
 [[package]]

@@ -1175,7 +1175,7 @@ impl ParticleAppServices {
                     .config
                     .default_service_memory_limit
                     .map(|bytes| bytes.as_u64()),
-                modules_dir: Some(self.config.modules_dir.clone()),
+                modules_dir: Some(self.modules.modules_dir.clone()),
                 modules_config,
                 default_modules_config: None,
             },
@@ -1246,11 +1246,12 @@ mod tests {
     use config_utils::modules_dir;
     use core_distributor::dummy::DummyCoreDistibutor;
     use fluence_libp2p::RandomPeerId;
+    use fs_utils::create_dirs;
     use particle_modules::{AddBlueprint, ModuleRepository};
     use service_modules::load_module;
     use service_modules::Hash;
     use types::peer_scope::PeerScope;
-    use workers::{KeyStorage, PeerScopes, Workers};
+    use workers::{KeyStorage, PeerScopes, Workers, WorkersConfig};
 
     use crate::app_services::{ServiceAlias, ServiceType};
     use crate::persistence::load_persisted_services;
@@ -1269,13 +1270,19 @@ mod tests {
     ) -> ParticleAppServices {
         let persistent_dir = base_dir.join("persistent");
         let ephemeral_dir = base_dir.join("ephemeral");
+        create_dirs(&[&persistent_dir, &ephemeral_dir]).unwrap();
+
         let vault_dir = ephemeral_dir.join("vault");
         let keypairs_dir = persistent_dir.join("keypairs");
         let workers_dir = persistent_dir.join("workers");
+        let modules_dir = persistent_dir.join("modules");
+        let blueprints_dir = persistent_dir.join("blueprints");
         let service_memory_limit = bytesize::ByteSize::b(bytesize::gib(4_u64) - 1);
         let key_storage = KeyStorage::from_path(keypairs_dir.clone(), root_keypair.clone().into())
             .await
             .expect("Could not load key storage");
+
+        create_dirs(&[&modules_dir, &blueprints_dir, &workers_dir]).unwrap();
 
         let key_storage = Arc::new(key_storage);
 
@@ -1291,12 +1298,14 @@ mod tests {
             key_storage.clone(),
         );
 
+        let workers_config = WorkersConfig::new(32, None);
+
         let (workers, _worker_events) = Workers::from_path(
+            workers_config,
             workers_dir.clone(),
             key_storage,
             core_distributor,
             thread_pinner,
-            32,
         )
         .await
         .expect("Could not load worker registry");
@@ -1313,18 +1322,11 @@ mod tests {
             management_pid,
             root_key_pair.get_peer_id(),
             Some(service_memory_limit),
-            Default::default(),
-            Default::default(),
-            true,
             wasm_backend_config,
         )
         .unwrap();
 
-        let repo = ModuleRepository::new(
-            &config.modules_dir,
-            &config.blueprint_dir,
-            Default::default(),
-        );
+        let repo = ModuleRepository::new(&modules_dir, &blueprints_dir, Default::default());
 
         ParticleAppServices::new(config, repo, None, None, workers, scope)
             .expect("Could not create ParticleAppServices")

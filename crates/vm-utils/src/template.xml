@@ -18,7 +18,7 @@
         </disk>
         <interface type='bridge'>
             <mac address='{}'/>
-            <source bridge='br422442'/>
+            <source bridge='{}'/>
             <model type='virtio'/>
             <address type='pci' domain='0x0000' bus='0x00' slot='0x03' function='0x0'/>
         </interface>

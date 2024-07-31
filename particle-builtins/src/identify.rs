@@ -16,9 +16,9 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-
 use libp2p::core::Multiaddr;
 use serde::Serialize;
+use std::path::PathBuf;
 
 #[derive(Serialize, Clone, Debug)]
 pub struct NodeInfo {
@@ -26,5 +26,5 @@ pub struct NodeInfo {
     pub node_version: &'static str,
     pub air_version: &'static str,
     pub spell_version: String,
-    pub allowed_binaries: Vec<String>,
+    pub allowed_binaries: Vec<PathBuf>,
 }

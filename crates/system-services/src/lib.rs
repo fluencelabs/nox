@@ -25,6 +25,7 @@ mod distro;
 use async_trait::async_trait;
 use std::collections::HashMap;
 use std::fmt;
+use std::path::PathBuf;
 use std::sync::Arc;
 
 pub use deployer::Deployer;
@@ -175,12 +176,12 @@ fn apply_binary_path_override(
     // The name of the binary to override
     binary_name: &str,
     // Path to the binary to use instead
-    binary_path: String,
+    binary_path: PathBuf,
 ) {
     if let Some(module_config) = config.module.iter_mut().find(|p| p.name == module_name) {
         if let Some(mounted_binaries) = &mut module_config.config.mounted_binaries {
             if let Some(path) = mounted_binaries.get_mut(binary_name) {
-                *path = TomlValue::String(binary_path);
+                *path = TomlValue::String(binary_path.display().to_string());
             }
         }
     }

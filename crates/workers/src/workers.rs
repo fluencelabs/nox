@@ -19,7 +19,7 @@
 
 use std::collections::HashMap;
 use std::ops::Deref;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
 
@@ -28,15 +28,17 @@ use parking_lot::RwLock;
 use tokio::runtime::{Handle, Runtime, UnhandledPanic};
 use tokio::sync::mpsc::{Receiver, Sender};
 
-use core_distributor::types::{AcquireRequest, WorkType};
+use crate::error::WorkersError;
+use crate::persistence::{load_persisted_workers, persist_worker, remove_worker, PersistedWorker};
+use crate::KeyStorage;
+use core_distributor::types::{AcquireRequest, Assignment, WorkType};
 use core_distributor::{CoreDistributor, ThreadPinner, CUID};
 use fluence_libp2p::PeerId;
 use types::peer_scope::WorkerId;
 use types::DealId;
+use vm_utils::{CreateVMDomainParams, NonEmpty};
 
-use crate::error::WorkersError;
-use crate::persistence::{load_persisted_workers, persist_worker, remove_worker, PersistedWorker};
-use crate::KeyStorage;
+const WORKER_DATA_DIR: &str = "data";
 
 /// Information about a worker.
 pub struct WorkerInfo {
@@ -48,6 +50,8 @@ pub struct WorkerInfo {
     pub active: RwLock<bool>,
     /// A count of compute units available for this worker.
     pub cu_ids: Vec<CUID>,
+    /// A read-write lock indicating that worker has a VM.
+    pub vm_flag: RwLock<bool>,
 }
 
 pub struct WorkerParams {
@@ -85,7 +89,11 @@ pub struct Workers {
     /// Number of created tokio runtimes
     runtime_counter: Arc<AtomicU32>,
 
+    assignments: RwLock<HashMap<WorkerId, Assignment>>,
+
     sender: Sender<Event>,
+
+    config: WorkersConfig,
 }
 
 #[derive(Debug)]
@@ -97,6 +105,33 @@ pub enum Event {
     WorkerRemoved {
         worker_id: WorkerId,
     },
+}
+
+pub struct WorkersConfig {
+    /// The notification channel size
+    channel_size: usize,
+    vm: Option<VmConfig>,
+}
+
+impl WorkersConfig {
+    pub fn new(channel_size: usize, vm: Option<VmConfig>) -> Self {
+        Self { channel_size, vm }
+    }
+}
+
+pub struct VmConfig {
+    /// Uri to the libvirt API
+    libvirt_uri: String,
+    bridge_name: String,
+}
+
+impl VmConfig {
+    pub fn new(libvirt_uri: String, bridge_name: String) -> Self {
+        Self {
+            libvirt_uri,
+            bridge_name,
+        }
+    }
 }
 
 impl Workers {
@@ -115,35 +150,36 @@ impl Workers {
     /// - `Err(eyre::Error)` if an error occurs during the creation process.
     ///
     pub async fn from_path(
+        config: WorkersConfig,
         workers_dir: PathBuf,
         key_storage: Arc<KeyStorage>,
         core_distributor: Arc<dyn CoreDistributor>,
         thread_pinner: Arc<dyn ThreadPinner>,
-        channel_size: usize,
     ) -> eyre::Result<(Self, Receiver<Event>)> {
         let workers = load_persisted_workers(workers_dir.as_path()).await?;
         let mut worker_ids = HashMap::with_capacity(workers.len());
         let mut worker_infos = HashMap::with_capacity(workers.len());
         let mut runtimes = HashMap::with_capacity(workers.len());
+        let mut assignments = HashMap::with_capacity(workers.len());
 
         let worker_counter = Arc::new(AtomicU32::new(0));
-        let (sender, receiver) = tokio::sync::mpsc::channel::<Event>(channel_size);
+        let (sender, receiver) = tokio::sync::mpsc::channel::<Event>(config.channel_size);
 
-        for (w, _) in workers {
+        for w in workers {
             let worker_id = w.worker_id;
             let deal_id = w.deal_id.clone().into();
             let cu_ids = w.cu_ids.clone();
             worker_infos.insert(worker_id, w.into());
             worker_ids.insert(deal_id, worker_id);
 
-            let (runtime, thread_count) = Self::build_runtime(
+            let (runtime, thread_count, assignment) = Self::build_runtime(
                 core_distributor.clone(),
                 thread_pinner.clone(),
                 worker_counter.clone(),
                 worker_id,
                 cu_ids,
             )?;
-
+            assignments.insert(worker_id, assignment);
             runtimes.insert(worker_id, runtime);
             sender
                 .send(Event::WorkerCreated {
@@ -154,8 +190,8 @@ impl Workers {
         }
         Ok((
             Self {
-                worker_ids: RwLock::new(worker_ids),
-                worker_infos: RwLock::new(worker_infos),
+                worker_ids: worker_ids.into(),
+                worker_infos: worker_infos.into(),
                 workers_dir,
                 key_storage,
                 runtimes: RwLock::new(runtimes),
@@ -163,6 +199,8 @@ impl Workers {
                 core_distributor,
                 thread_pinner,
                 sender,
+                assignments: assignments.into(),
+                config,
             },
             receiver,
         ))
@@ -210,6 +248,7 @@ impl Workers {
             let guard = self.worker_ids.read();
             guard.get(&deal_id).cloned()
         };
+
         match worker_id {
             Some(_) => Err(WorkersError::WorkerAlreadyExists { deal_id }),
             _ => {
@@ -235,7 +274,7 @@ impl Workers {
                                     return Err(WorkersError::WorkerAlreadyExists { deal_id });
                                 }
 
-                                let (runtime, thread_count) = Self::build_runtime(
+                                let (runtime, thread_count, assignment) = Self::build_runtime(
                                     self.core_distributor.clone(),
                                     self.thread_pinner.clone(),
                                     self.runtime_counter.clone(),
@@ -247,10 +286,13 @@ impl Workers {
                                 let mut worker_ids = RwLockUpgradableReadGuard::upgrade(lock);
                                 let mut worker_infos = self.worker_infos.write();
                                 let mut runtimes = self.runtimes.write();
+                                let mut worker_assignments = self.assignments.write();
 
                                 worker_ids.insert(deal_id.clone(), worker_id);
                                 worker_infos.insert(worker_id, worker_info);
                                 runtimes.insert(worker_id, runtime);
+                                worker_assignments.insert(worker_id, assignment);
+
                                 thread_count
                             };
 
@@ -342,13 +384,21 @@ impl Workers {
             let mut worker_ids = self.worker_ids.write();
             let mut worker_infos = self.worker_infos.write();
             let mut runtimes = self.runtimes.write();
+            let mut assignments = self.assignments.write();
             let removed_worker_id = worker_ids.remove(&deal_id);
             let removed_worker_info = worker_infos.remove(&worker_id);
             let removed_runtime = runtimes.remove(&worker_id);
+            let removed_assignments = assignments.remove(&worker_id);
+
+            self.remove_vm(worker_id)?;
 
             debug_assert!(removed_worker_id.is_some(), "worker_id does not exist");
             debug_assert!(removed_worker_info.is_some(), "worker info does not exist");
             debug_assert!(removed_runtime.is_some(), "worker runtime does not exist");
+            debug_assert!(
+                removed_assignments.is_some(),
+                "worker assignment does not exist"
+            );
             removed_runtime
         };
 
@@ -543,15 +593,35 @@ impl Workers {
         creator: PeerId,
         cu_ids: Vec<CUID>,
     ) -> Result<WorkerInfo, WorkersError> {
+        let worker_path = self.workers_dir.join(worker_id.to_string());
+
+        tokio::fs::create_dir_all(&worker_path)
+            .await
+            .map_err(|err| WorkersError::WorkerStorageDirectory {
+                path: worker_path.clone(),
+                worker_id,
+                err,
+            })?;
+
+        let worker_data_path = worker_path.join(WORKER_DATA_DIR);
+
+        tokio::fs::create_dir_all(&worker_data_path)
+            .await
+            .map_err(|err| WorkersError::WorkerStorageDirectory {
+                path: worker_data_path,
+                worker_id,
+                err,
+            })?;
+
         persist_worker(
-            &self.workers_dir,
-            worker_id,
+            &worker_path,
             PersistedWorker {
                 worker_id,
                 creator,
                 deal_id: deal_id.clone().into(),
                 active: true,
                 cu_ids: cu_ids.clone(),
+                vm_flag: false,
             },
         )
         .await?;
@@ -560,8 +630,108 @@ impl Workers {
             creator,
             active: RwLock::new(true),
             cu_ids,
+            vm_flag: false.into(),
         };
         Ok(worker_info)
+    }
+
+    pub async fn create_vm(
+        &self,
+        worker_id: WorkerId,
+        image: &Path,
+    ) -> Result<String, WorkersError> {
+        match &self.config.vm {
+            None => Err(WorkersError::FeatureDisabled),
+            Some(vm_config) => {
+                let assignment = {
+                    let guard = self.assignments.read();
+                    let assignment = guard
+                        .get(&worker_id)
+                        .ok_or_else(|| WorkersError::WorkerNotFound(worker_id))?;
+
+                    NonEmpty::from_vec(assignment.logical_core_ids())
+                        .ok_or_else(|| WorkersError::WrongAssignment)?
+                };
+
+                let file_name = &image
+                    .file_name()
+                    .ok_or_else(|| WorkersError::VMImageNotFile {
+                        image: image.to_path_buf(),
+                    })?;
+
+                let vm_name = worker_id.to_string();
+
+                let worker_image = self
+                    .workers_dir
+                    .join(&vm_name)
+                    .join(WORKER_DATA_DIR)
+                    .join(file_name);
+
+                tokio::fs::copy(&image, &worker_image)
+                    .await
+                    .map_err(|err| WorkersError::FailedToCopyVMImage {
+                        image: image.to_path_buf(),
+                        err,
+                    })?;
+
+                let params = CreateVMDomainParams::new(
+                    vm_name.clone(),
+                    worker_image,
+                    assignment,
+                    vm_config.bridge_name.clone(),
+                );
+
+                vm_utils::create_domain(vm_config.libvirt_uri.clone().as_str(), &params)
+                    .map_err(|err| WorkersError::FailedToCreateVM { worker_id, err })?;
+
+                self.set_vm_flag(worker_id, true).await?;
+
+                vm_utils::start_vm(vm_config.libvirt_uri.as_str(), vm_name.as_str())
+                    .map_err(|err| WorkersError::FailedToCreateVM { worker_id, err })?;
+
+                Ok(vm_name)
+            }
+        }
+    }
+
+    fn remove_vm(&self, worker_id: WorkerId) -> Result<(), WorkersError> {
+        if let Some(vm_config) = &self.config.vm {
+            vm_utils::remove_domain(
+                vm_config.libvirt_uri.as_str(),
+                worker_id.to_string().as_str(),
+            )
+            .map_err(|err| WorkersError::FailedToRemoveVM { worker_id, err })?;
+        }
+        Ok(())
+    }
+
+    async fn set_worker_info<F>(&self, worker_id: WorkerId, modify: F) -> Result<(), WorkersError>
+    where
+        F: Fn(&WorkerInfo),
+    {
+        let persisted_worker = {
+            let guard = self.worker_infos.read();
+            let worker_info = guard
+                .get(&worker_id)
+                .ok_or_else(|| WorkersError::WorkerNotFound(worker_id))?;
+
+            modify(worker_info);
+
+            let active = worker_info.active.read();
+            let vm_flag = worker_info.vm_flag.read();
+
+            PersistedWorker {
+                worker_id,
+                creator: worker_info.creator,
+                deal_id: worker_info.deal_id.to_string(),
+                active: *active,
+                cu_ids: worker_info.cu_ids.clone(),
+                vm_flag: *vm_flag,
+            }
+        };
+        let worker_path = self.workers_dir.join(worker_id.to_string());
+        persist_worker(&worker_path, persisted_worker).await?;
+        Ok(())
     }
 
     async fn set_worker_status(
@@ -569,34 +739,41 @@ impl Workers {
         worker_id: WorkerId,
         status: bool,
     ) -> Result<(), WorkersError> {
-        let (creator, deal_id, cu_ids) = {
-            let guard = self.worker_infos.read();
-            let worker_info = guard
-                .get(&worker_id)
-                .ok_or(WorkersError::WorkerNotFound(worker_id))?;
+        self.set_worker_info(worker_id, |worker_info: &WorkerInfo| {
             let mut active = worker_info.active.write();
             *active = status;
-
-            (
-                worker_info.creator,
-                worker_info.deal_id.clone(),
-                worker_info.cu_ids.clone(),
-            )
-        };
-
-        persist_worker(
-            &self.workers_dir,
-            worker_id,
-            PersistedWorker {
-                worker_id,
-                creator,
-                deal_id: deal_id.into(),
-                active: status,
-                cu_ids,
-            },
-        )
+        })
         .await?;
         Ok(())
+    }
+
+    async fn set_vm_flag(&self, worker_id: WorkerId, value: bool) -> Result<(), WorkersError> {
+        self.set_worker_info(worker_id, |worker_info: &WorkerInfo| {
+            let mut vm_flag = worker_info.vm_flag.write();
+            *vm_flag = value;
+        })
+        .await?;
+        Ok(())
+    }
+
+    /// Retrieves the assignment associated with the specified worker `PeerId`.
+    ///
+    /// # Arguments
+    ///
+    /// * `worker_id` - The `PeerId` of the worker for which the creator `PeerId` is requested.
+    ///
+    /// # Returns
+    ///
+    /// Returns `Result<Assignment, WorkersError>` where:
+    /// - `Ok(assignment)` if the creator `PeerId` is successfully retrieved.
+    /// - `Err(WorkersError)` if an error occurs, such as the worker not found.
+    ///
+    pub fn get_worker_assignment(&self, worker_id: WorkerId) -> Result<Assignment, WorkersError> {
+        self.assignments
+            .read()
+            .get(&worker_id)
+            .cloned()
+            .ok_or(WorkersError::WorkerNotFound(worker_id))
     }
 
     fn build_runtime(
@@ -605,7 +782,7 @@ impl Workers {
         worker_counter: Arc<AtomicU32>,
         worker_id: WorkerId,
         cu_ids: Vec<CUID>,
-    ) -> Result<(Runtime, usize), WorkersError> {
+    ) -> Result<(Runtime, usize, Assignment), WorkersError> {
         // Creating a multi-threaded Tokio runtime with a total of cu_count * 2 threads.
         // We assume cu_count threads per logical processor, aligning with the common practice.
         let assignment = core_distributor
@@ -619,6 +796,7 @@ impl Workers {
 
         tracing::info!(target: "worker", "Creating runtime with id {} for worker id {}. Pinned to cores: {:?}", id, worker_id, logical_cores);
 
+        let runtime_assignment = assignment.clone();
         let runtime = tokio::runtime::Builder::new_multi_thread()
             .thread_name(format!("worker-pool-{}", id))
             // Configuring worker threads for executing service calls and particles
@@ -628,19 +806,20 @@ impl Workers {
             .enable_time()
             .enable_io()
             .on_thread_start(move || {
-                assignment.pin_current_thread_with(thread_pinner.as_ref());
+                runtime_assignment.pin_current_thread_with(thread_pinner.as_ref());
             })
             .unhandled_panic(UnhandledPanic::Ignore) // TODO: try to log panics after fix https://github.com/tokio-rs/tokio/issues/4516
             .build()
             .map_err(|err| WorkersError::CreateRuntime { worker_id, err })?;
-        Ok((runtime, threads_count))
+        Ok((runtime, threads_count, assignment))
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::{KeyStorage, WorkerParams, Workers, CUID};
+    use crate::{KeyStorage, WorkerParams, Workers, WorkersConfig, CUID};
     use core_distributor::dummy::DummyCoreDistibutor;
+    use fs_utils::create_dirs;
     use hex::FromHex;
     use libp2p::PeerId;
     use std::sync::Arc;
@@ -657,6 +836,8 @@ mod tests {
         let core_distributor = DummyCoreDistibutor::new();
         let core_distributor = Arc::new(core_distributor);
 
+        create_dirs(&[&workers_dir]).unwrap();
+
         let thread_pinner = Arc::new(test_utils::pinning::DUMMY);
 
         // Create a new KeyStorage instance
@@ -666,13 +847,15 @@ mod tests {
                 .expect("Failed to create KeyStorage from path"),
         );
 
+        let config = WorkersConfig::new(32, None);
+
         // Create a new Workers instance
         let (workers, _receiver) = Workers::from_path(
+            config,
             workers_dir.clone(),
             key_storage.clone(),
             core_distributor,
             thread_pinner,
-            32,
         )
         .await
         .expect("Failed to create Workers from path");
@@ -693,6 +876,8 @@ mod tests {
         let core_distributor = DummyCoreDistibutor::new();
         let core_distributor = Arc::new(core_distributor);
 
+        create_dirs(&[&workers_dir]).unwrap();
+
         let thread_pinner = Arc::new(test_utils::pinning::DUMMY);
         // Create a new KeyStorage instance
         let key_storage = Arc::new(
@@ -701,13 +886,15 @@ mod tests {
                 .expect("Failed to create KeyStorage from path"),
         );
 
+        let config = WorkersConfig::new(32, None);
+
         // Create a new Workers instance
         let (workers, _receiver) = Workers::from_path(
+            config,
             workers_dir.clone(),
             key_storage.clone(),
             core_distributor,
             thread_pinner,
-            32,
         )
         .await
         .expect("Failed to create Workers from path");
@@ -767,6 +954,8 @@ mod tests {
         let core_distributor = DummyCoreDistibutor::new();
         let core_distributor = Arc::new(core_distributor);
 
+        create_dirs(&[&workers_dir]).unwrap();
+
         let thread_pinner = Arc::new(test_utils::pinning::DUMMY);
         // Create a new KeyStorage instance
         let key_storage = Arc::new(
@@ -774,14 +963,15 @@ mod tests {
                 .await
                 .expect("Failed to create KeyStorage from path"),
         );
+        let config = WorkersConfig::new(32, None);
 
         // Create a new Workers instance
         let (workers, _receiver) = Workers::from_path(
+            config,
             workers_dir.clone(),
             key_storage.clone(),
             core_distributor,
             thread_pinner,
-            32,
         )
         .await
         .expect("Failed to create Workers from path");
@@ -832,6 +1022,8 @@ mod tests {
         let core_distributor = DummyCoreDistibutor::new();
         let core_distributor = Arc::new(core_distributor);
 
+        create_dirs(&[&workers_dir]).unwrap();
+
         let thread_pinner = Arc::new(test_utils::pinning::DUMMY);
         // Create a new KeyStorage instance
         let key_storage = Arc::new(
@@ -839,14 +1031,15 @@ mod tests {
                 .await
                 .expect("Failed to create KeyStorage from path"),
         );
+        let config = WorkersConfig::new(32, None);
 
         // Create a new Workers instance
         let (workers, _receiver) = Workers::from_path(
+            config,
             workers_dir.clone(),
             key_storage.clone(),
             core_distributor,
             thread_pinner,
-            32,
         )
         .await
         .expect("Failed to create Workers from path");
@@ -908,6 +1101,8 @@ mod tests {
         let core_distributor = DummyCoreDistibutor::new();
         let core_distributor = Arc::new(core_distributor);
 
+        create_dirs(&[&workers_dir]).unwrap();
+
         let thread_pinner = Arc::new(test_utils::pinning::DUMMY);
         // Create a new KeyStorage instance
         let key_storage = Arc::new(
@@ -915,14 +1110,15 @@ mod tests {
                 .await
                 .expect("Failed to create KeyStorage from path"),
         );
+        let config = WorkersConfig::new(32, None);
 
         // Create a new Workers instance
         let (workers, _receiver) = Workers::from_path(
+            config,
             workers_dir.clone(),
             key_storage.clone(),
             core_distributor.clone(),
             thread_pinner,
-            32,
         )
         .await
         .expect("Failed to create Workers from path");
@@ -992,13 +1188,15 @@ mod tests {
         let core_distributor = Arc::new(core_distributor);
 
         let thread_pinner = Arc::new(test_utils::pinning::DUMMY);
+        let config = WorkersConfig::new(32, None);
+
         // Create a new Workers instance
         let (workers, _receiver) = Workers::from_path(
+            config,
             workers_dir.clone(),
             key_storage.clone(),
             core_distributor,
             thread_pinner,
-            32,
         )
         .await
         .expect("Failed to create Workers from path");

@@ -8,8 +8,9 @@ nonempty.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
 rand.workspace = true
+ccp-shared.workspace = true
 mac_address = "1.1.7"
-virt = "0.3.1"
+virt = "0.4.0"
 
 [dev-dependencies]
 log-utils.workspace = true
