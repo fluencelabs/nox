@@ -69,6 +69,7 @@ use particle_services::ServiceType;
 use peer_metrics::ServicesMetrics;
 use service_modules::Hash;
 use types::peer_id;
+use types::peer_scope::WorkerId;
 use uuid_utils::uuid;
 use workers::KeyStorage;
 use workers::PeerScopes;
@@ -396,6 +397,9 @@ where
             ("vault", "cat") => wrap(self.vault_cat(args, particle)),
 
             ("vm", "create") => wrap(self.create_vm(args, particle).await),
+            ("vm", "stop") => wrap(self.stop_vm(args, particle).await),
+            ("vm", "start") => wrap(self.start_vm(args, particle).await),
+            ("vm", "reboot") => wrap(self.reboot_vm(args, particle).await),
 
             ("subnet", "resolve") => wrap(self.subnet_resolve(args).await),
             ("run-console", "print") => {
@@ -1261,37 +1265,72 @@ where
         result.unwrap_or(false)
     }
 
-    async fn create_vm(&self, args: Args, params: ParticleParams) -> Result<JValue, JError> {
+    fn allow_only_worker(&self, params: &ParticleParams) -> Result<WorkerId, JError> {
         match params.peer_scope {
             PeerScope::WorkerId(worker_id) => {
                 let is_worker = params.init_peer_id == worker_id.into();
                 let worker_creator = self.workers.get_worker_creator(worker_id)?;
                 let is_worker_creator = params.init_peer_id == worker_creator;
                 if !is_worker && !is_worker_creator {
-                    return Err(JError::new(format!("Failed to create VM on {worker_id:?}, can be installed by worker creator {worker_creator} or worker itself {worker_id}")));
+                    Err(JError::new(format!("Failed to create VM on {worker_id:?}, can be installed by worker creator {worker_creator} or worker itself {worker_id}")))
+                } else {
+                    Ok(worker_id)
                 }
-
-                let mut function_args = args.function_args.into_iter();
-
-                let image_arg: String = Args::next("image", &mut function_args)?;
-                let image_arg: PathBuf = image_arg.into();
-
-                let vault_image = self
-                    .services
-                    .vault
-                    .to_real_path(worker_id.into(), &params, image_arg.as_path())
-                    .map_err(|_| JError::new(format!("Image {} not found", image_arg.display())))?;
-
-                let vm_name = self
-                    .workers
-                    .create_vm(worker_id, vault_image.as_path())
-                    .await
-                    .map_err(|err| JError::new(format!("Failed to create vm: {err}")))?;
-
-                Ok(JValue::String(vm_name))
             }
             PeerScope::Host => Err(JError::new("This function is only available for workers")),
         }
+    }
+
+    /// Create a VM from the image
+    /// - `image` - path to the image in the *vault*
+    /// Returns the name of the created VM
+    /// Throws on errors
+    async fn create_vm(&self, args: Args, params: ParticleParams) -> Result<JValue, JError> {
+        let worker_id = self.allow_only_worker(&params)?;
+        let mut function_args = args.function_args.into_iter();
+
+        let image_arg: String = Args::next("image", &mut function_args)?;
+        let image_arg: PathBuf = image_arg.into();
+
+        let vault_image = self
+            .services
+            .vault
+            .to_real_path(worker_id.into(), &params, image_arg.as_path())
+            .map_err(|_| JError::new(format!("Image {} not found", image_arg.display())))?;
+
+        let vm_name = self
+            .workers
+            .create_vm(worker_id, vault_image.as_path())
+            .await
+            .map_err(|err| JError::new(format!("Failed to create vm: {err}")))?;
+
+        Ok(JValue::String(vm_name))
+    }
+
+    /// Stops a VM assigned to a Worker if any
+    /// Returns true if a VM was stopped (???)
+    /// Throws on errors
+    /// Note that there can be only one VM
+    async fn stop_vm(&self, _args: Args, params: ParticleParams) -> Result<JValue, JError> {
+        let worker_id = self.allow_only_worker(&params)?;
+        self.workers
+            .stop_vm(worker_id)
+            .map_err(|err| JError::new(format!("Failed to stop vm: {err}")))?;
+        Ok(JValue::Null)
+    }
+    async fn start_vm(&self, _args: Args, params: ParticleParams) -> Result<JValue, JError> {
+        let worker_id = self.allow_only_worker(&params)?;
+        self.workers
+            .stop_vm(worker_id)
+            .map_err(|err| JError::new(format!("Failed to start vm: {err}")))?;
+        Ok(JValue::Null)
+    }
+    async fn reboot_vm(&self, _args: Args, params: ParticleParams) -> Result<JValue, JError> {
+        let worker_id = self.allow_only_worker(&params)?;
+        self.workers
+            .reboot_vm(worker_id)
+            .map_err(|err| JError::new(format!("Failed to start vm: {err}")))?;
+        Ok(JValue::Null)
     }
 }
 

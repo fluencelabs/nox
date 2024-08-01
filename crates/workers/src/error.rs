@@ -175,6 +175,16 @@ pub enum WorkersError {
         worker_id: WorkerId,
         err: VMUtilsError,
     },
+    #[error("Failed to stop VM {worker_id}")]
+    FailedToStopVM {
+        worker_id: WorkerId,
+        err: VMUtilsError,
+    },
+    #[error("Failed to start VM {worker_id}")]
+    FailedToStartVM {
+        worker_id: WorkerId,
+        err: VMUtilsError,
+    },
     #[error("This feature is disabled")]
     FeatureDisabled,
     #[error("VM image {image} isn't file")]
@@ -183,4 +193,6 @@ pub enum WorkersError {
     FailedToCopyVMImage { image: PathBuf, err: std::io::Error },
     #[error("Logical cores can't be empty")]
     WrongAssignment,
+    #[error("VM for worker {0} not found")]
+    VmNotFound(WorkerId),
 }

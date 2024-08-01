@@ -705,6 +705,50 @@ impl Workers {
         Ok(())
     }
 
+    pub fn stop_vm(&self, worker_id: WorkerId) -> Result<(), WorkersError> {
+        if let Some(vm_config) = &self.config.vm {
+            if self.has_vm(worker_id)? {
+                vm_utils::stop_vm(vm_config.libvirt_uri.as_str(), worker_id.to_string())
+                    .map_err(|err| WorkersError::FailedToStopVM { worker_id, err })?;
+            } else {
+                return Err(WorkersError::VmNotFound(worker_id));
+            }
+        }
+        Ok(())
+    }
+
+    pub fn start_vm(&self, worker_id: WorkerId) -> Result<(), WorkersError> {
+        if let Some(vm_config) = &self.config.vm {
+            if self.has_vm(worker_id)? {
+                vm_utils::start_vm(vm_config.libvirt_uri.as_str(), &worker_id.to_string())
+                    .map_err(|err| WorkersError::FailedToStopVM { worker_id, err })?;
+            } else {
+                return Err(WorkersError::VmNotFound(worker_id));
+            }
+        }
+        Ok(())
+    }
+
+    pub fn reboot_vm(&self, worker_id: WorkerId) -> Result<(), WorkersError> {
+        if let Some(vm_config) = &self.config.vm {
+            if self.has_vm(worker_id)? {
+                vm_utils::reboot_vm(vm_config.libvirt_uri.as_str(), &worker_id.to_string())
+                    .map_err(|err| WorkersError::FailedToStopVM { worker_id, err })?;
+            } else {
+                return Err(WorkersError::VmNotFound(worker_id));
+            }
+        }
+        Ok(())
+    }
+    fn has_vm(&self, worker_id: WorkerId) -> Result<bool, WorkersError> {
+        let guard = self.worker_infos.read();
+        let worker_info = guard
+            .get(&worker_id)
+            .ok_or_else(|| WorkersError::WorkerNotFound(worker_id))?;
+        let flag = *worker_info.vm_flag.read();
+        Ok(flag)
+    }
+
     async fn set_worker_info<F>(&self, worker_id: WorkerId, modify: F) -> Result<(), WorkersError>
     where
         F: Fn(&WorkerInfo),

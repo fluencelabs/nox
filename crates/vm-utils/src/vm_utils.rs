@@ -6,7 +6,7 @@ use std::path::PathBuf;
 use thiserror::Error;
 use virt::connect::Connect;
 use virt::domain::Domain;
-use virt::sys::VIR_DOMAIN_DEFINE_VALIDATE;
+use virt::sys::{VIR_DOMAIN_DEFINE_VALIDATE, VIR_DOMAIN_REBOOT_DEFAULT};
 
 const MAC_PREFIX: [u8; 3] = [0x52, 0x54, 0x00];
 
@@ -71,6 +71,11 @@ pub enum VMUtilsError {
     },
     #[error("Failed to get id for VM with name {name}")]
     FailedToGetVMId { name: String },
+    #[error("Failed to reboot {name}: {err}")]
+    FailedToRebootVM {
+        err: virt::error::Error,
+        name: String,
+    },
 }
 
 pub fn create_domain(uri: &str, params: &CreateVMDomainParams) -> Result<(), VMUtilsError> {
@@ -147,6 +152,27 @@ pub fn stop_vm(uri: &str, name: String) -> Result<(), VMUtilsError> {
         .map_err(|err| VMUtilsError::FailedToStopVM { err })?;
 
     Ok(())
+}
+
+pub fn reboot_vm(uri: &str, name: &str) -> Result<u32, VMUtilsError> {
+    tracing::info!(target: "vm-utils","Starting VM with name {name}");
+    let conn = Connect::open(Some(uri)).map_err(|err| VMUtilsError::FailedToConnect { err })?;
+    let domain = Domain::lookup_by_name(&conn, name).map_err(|err| VMUtilsError::VmNotFound {
+        name: name.to_string(),
+        err,
+    })?;
+    domain
+        .reboot(VIR_DOMAIN_REBOOT_DEFAULT)
+        .map_err(|err| VMUtilsError::FailedToRebootVM {
+            err,
+            name: name.to_string(),
+        })?;
+
+    let id = domain.get_id().ok_or(VMUtilsError::FailedToGetVMId {
+        name: name.to_string(),
+    })?;
+
+    Ok(id)
 }
 
 fn generate_random_mac() -> MacAddress {
