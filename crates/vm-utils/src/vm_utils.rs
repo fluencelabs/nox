@@ -2,6 +2,7 @@ use ccp_shared::types::LogicalCoreId;
 use mac_address::MacAddress;
 use nonempty::NonEmpty;
 use rand::Rng;
+use std::fmt::Display;
 use std::path::PathBuf;
 use thiserror::Error;
 use virt::connect::Connect;
@@ -76,6 +77,65 @@ pub enum VMUtilsError {
         err: virt::error::Error,
         name: String,
     },
+    #[error("Failed to reset {name}: {err}")]
+    FailedToResetVM {
+        err: virt::error::Error,
+        name: String,
+    },
+}
+
+#[derive(Debug)]
+pub enum VmStatus {
+    NoState,
+    Running,
+    Blocked,
+    Paused,
+    Shutdown,
+    Shutoff,
+    Crashed,
+    PMSuspended,
+    UnknownState(u32),
+}
+
+impl Display for VmStatus {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            VmStatus::NoState => write!(f, "No state"),
+            VmStatus::Running => write!(f, "Running"),
+            VmStatus::Blocked => write!(f, "Blocked"),
+            VmStatus::Paused => write!(f, "Paused"),
+            VmStatus::Shutdown => write!(f, "Shutdown"),
+            VmStatus::Shutoff => write!(f, "Shutoff"),
+            VmStatus::Crashed => write!(f, "Crashed"),
+            VmStatus::PMSuspended => write!(f, "PMSuspended"),
+            VmStatus::UnknownState(value) => write!(f, "Unknown state ({})", value),
+        }
+    }
+}
+//
+// pub const VIR_DOMAIN_NOSTATE: virDomainState = 0;
+// pub const VIR_DOMAIN_RUNNING: virDomainState = 1;
+// pub const VIR_DOMAIN_BLOCKED: virDomainState = 2;
+// pub const VIR_DOMAIN_PAUSED: virDomainState = 3;
+// pub const VIR_DOMAIN_SHUTDOWN: virDomainState = 4;
+// pub const VIR_DOMAIN_SHUTOFF: virDomainState = 5;
+// pub const VIR_DOMAIN_CRASHED: virDomainState = 6;
+// pub const VIR_DOMAIN_PMSUSPENDED: virDomainState = 7;
+
+impl VmStatus {
+    pub fn from_u32(value: u32) -> Self {
+        match value {
+            virt::sys::VIR_DOMAIN_NOSTATE => VmStatus::NoState,
+            virt::sys::VIR_DOMAIN_RUNNING => VmStatus::Running,
+            virt::sys::VIR_DOMAIN_BLOCKED => VmStatus::Blocked,
+            virt::sys::VIR_DOMAIN_PAUSED => VmStatus::Paused,
+            virt::sys::VIR_DOMAIN_SHUTDOWN => VmStatus::Shutdown,
+            virt::sys::VIR_DOMAIN_SHUTOFF => VmStatus::Shutoff,
+            virt::sys::VIR_DOMAIN_CRASHED => VmStatus::Crashed,
+            virt::sys::VIR_DOMAIN_PMSUSPENDED => VmStatus::PMSuspended,
+            _ => VmStatus::UnknownState(value),
+        }
+    }
 }
 
 pub fn create_domain(uri: &str, params: &CreateVMDomainParams) -> Result<(), VMUtilsError> {
@@ -154,7 +214,7 @@ pub fn stop_vm(uri: &str, name: String) -> Result<(), VMUtilsError> {
     Ok(())
 }
 
-pub fn reboot_vm(uri: &str, name: &str) -> Result<u32, VMUtilsError> {
+pub fn reboot_vm(uri: &str, name: &str) -> Result<(), VMUtilsError> {
     tracing::info!(target: "vm-utils","Starting VM with name {name}");
     let conn = Connect::open(Some(uri)).map_err(|err| VMUtilsError::FailedToConnect { err })?;
     let domain = Domain::lookup_by_name(&conn, name).map_err(|err| VMUtilsError::VmNotFound {
@@ -167,12 +227,40 @@ pub fn reboot_vm(uri: &str, name: &str) -> Result<u32, VMUtilsError> {
             err,
             name: name.to_string(),
         })?;
+    Ok(())
+}
 
-    let id = domain.get_id().ok_or(VMUtilsError::FailedToGetVMId {
+pub fn reset_vm(uri: &str, name: &str) -> Result<(), VMUtilsError> {
+    tracing::info!(target: "vm-utils","Starting VM with name {name}");
+    let conn = Connect::open(Some(uri)).map_err(|err| VMUtilsError::FailedToConnect { err })?;
+    let domain = Domain::lookup_by_name(&conn, name).map_err(|err| VMUtilsError::VmNotFound {
         name: name.to_string(),
+        err,
     })?;
+    domain
+        .reset()
+        .map_err(|err| VMUtilsError::FailedToResetVM {
+            err,
+            name: name.to_string(),
+        })?;
+    Ok(())
+}
 
-    Ok(id)
+pub fn status_vm(uri: &str, name: &str) -> Result<VmStatus, VMUtilsError> {
+    tracing::info!(target: "vm-utils","Starting VM with name {name}");
+    let conn = Connect::open(Some(uri)).map_err(|err| VMUtilsError::FailedToConnect { err })?;
+    let domain = Domain::lookup_by_name(&conn, name).map_err(|err| VMUtilsError::VmNotFound {
+        name: name.to_string(),
+        err,
+    })?;
+    let info = domain
+        .get_info()
+        .map_err(|err| VMUtilsError::FailedToResetVM {
+            err,
+            name: name.to_string(),
+        })?;
+
+    Ok(VmStatus::from_u32(info.state))
 }
 
 fn generate_random_mac() -> MacAddress {

@@ -36,7 +36,7 @@ use core_distributor::{CoreDistributor, ThreadPinner, CUID};
 use fluence_libp2p::PeerId;
 use types::peer_scope::WorkerId;
 use types::DealId;
-use vm_utils::{CreateVMDomainParams, NonEmpty};
+use vm_utils::{CreateVMDomainParams, NonEmpty, VmStatus};
 
 const WORKER_DATA_DIR: &str = "data";
 
@@ -705,41 +705,42 @@ impl Workers {
         Ok(())
     }
 
-    pub fn stop_vm(&self, worker_id: WorkerId) -> Result<(), WorkersError> {
-        if let Some(vm_config) = &self.config.vm {
-            if self.has_vm(worker_id)? {
-                vm_utils::stop_vm(vm_config.libvirt_uri.as_str(), worker_id.to_string())
-                    .map_err(|err| WorkersError::FailedToStopVM { worker_id, err })?;
-            } else {
-                return Err(WorkersError::VmNotFound(worker_id));
-            }
-        }
-        Ok(())
-    }
-
-    pub fn start_vm(&self, worker_id: WorkerId) -> Result<(), WorkersError> {
-        if let Some(vm_config) = &self.config.vm {
-            if self.has_vm(worker_id)? {
-                vm_utils::start_vm(vm_config.libvirt_uri.as_str(), &worker_id.to_string())
-                    .map_err(|err| WorkersError::FailedToStopVM { worker_id, err })?;
-            } else {
-                return Err(WorkersError::VmNotFound(worker_id));
-            }
-        }
-        Ok(())
-    }
-
     pub fn reboot_vm(&self, worker_id: WorkerId) -> Result<(), WorkersError> {
         if let Some(vm_config) = &self.config.vm {
             if self.has_vm(worker_id)? {
                 vm_utils::reboot_vm(vm_config.libvirt_uri.as_str(), &worker_id.to_string())
-                    .map_err(|err| WorkersError::FailedToStopVM { worker_id, err })?;
+                    .map_err(|err| WorkersError::FailedToResetVM { worker_id, err })?;
             } else {
                 return Err(WorkersError::VmNotFound(worker_id));
             }
         }
         Ok(())
     }
+
+    pub fn reset_vm(&self, worker_id: WorkerId) -> Result<(), WorkersError> {
+        if let Some(vm_config) = &self.config.vm {
+            if self.has_vm(worker_id)? {
+                vm_utils::reset_vm(vm_config.libvirt_uri.as_str(), &worker_id.to_string())
+                    .map_err(|err| WorkersError::FailedToResetVM { worker_id, err })?;
+            } else {
+                return Err(WorkersError::VmNotFound(worker_id));
+            }
+        }
+        Ok(())
+    }
+
+    pub fn status_vm(&self, worker_id: WorkerId) -> Result<VmStatus, WorkersError> {
+        if let Some(vm_config) = &self.config.vm {
+            if self.has_vm(worker_id)? {
+                let status =
+                    vm_utils::status_vm(vm_config.libvirt_uri.as_str(), &worker_id.to_string())
+                        .map_err(|err| WorkersError::FailedToGetStateVm { worker_id, err })?;
+                return Ok(status);
+            }
+        }
+        Err(WorkersError::VmNotFound(worker_id))
+    }
+
     fn has_vm(&self, worker_id: WorkerId) -> Result<bool, WorkersError> {
         let guard = self.worker_infos.read();
         let worker_info = guard

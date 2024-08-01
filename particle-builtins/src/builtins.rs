@@ -397,9 +397,9 @@ where
             ("vault", "cat") => wrap(self.vault_cat(args, particle)),
 
             ("vm", "create") => wrap(self.create_vm(args, particle).await),
-            ("vm", "stop") => wrap(self.stop_vm(args, particle).await),
-            ("vm", "start") => wrap(self.start_vm(args, particle).await),
-            ("vm", "reboot") => wrap(self.reboot_vm(args, particle).await),
+            ("vm", "reboot") => wrap(self.reboot_vm(args, particle)),
+            ("vm", "reset") => wrap(self.reset_vm(args, particle)),
+            ("vm", "status") => wrap(self.status_vm(args, particle)),
 
             ("subnet", "resolve") => wrap(self.subnet_resolve(args).await),
             ("run-console", "print") => {
@@ -1311,6 +1311,7 @@ where
     /// Returns true if a VM was stopped (???)
     /// Throws on errors
     /// Note that there can be only one VM
+    /*
     async fn stop_vm(&self, _args: Args, params: ParticleParams) -> Result<JValue, JError> {
         let worker_id = self.allow_only_worker(&params)?;
         self.workers
@@ -1325,12 +1326,36 @@ where
             .map_err(|err| JError::new(format!("Failed to start vm: {err}")))?;
         Ok(JValue::Null)
     }
-    async fn reboot_vm(&self, _args: Args, params: ParticleParams) -> Result<JValue, JError> {
+    */
+    fn reboot_vm(&self, _args: Args, params: ParticleParams) -> Result<JValue, JError> {
         let worker_id = self.allow_only_worker(&params)?;
         self.workers
             .reboot_vm(worker_id)
             .map_err(|err| JError::new(format!("Failed to start vm: {err}")))?;
         Ok(JValue::Null)
+    }
+
+    fn reset_vm(&self, _args: Args, params: ParticleParams) -> Result<JValue, JError> {
+        let worker_id = self.allow_only_worker(&params)?;
+        self.workers
+            .reset_vm(worker_id)
+            .map_err(|err| JError::new(format!("Failed to start vm: {err}")))?;
+        Ok(JValue::Null)
+    }
+
+    // Note: it's okay to allow anyone to get the VM status
+    fn status_vm(&self, _args: Args, params: ParticleParams) -> Result<JValue, JError> {
+        let worker_id = match params.peer_scope {
+            PeerScope::WorkerId(worker_id) => worker_id,
+            PeerScope::Host => {
+                return Err(JError::new("This function is only available for workers"));
+            }
+        };
+        let status = self
+            .workers
+            .status_vm(worker_id)
+            .map_err(|err| JError::new(format!("Failed to start vm: {err}")))?;
+        Ok(JValue::String(status.to_string()))
     }
 }
 

@@ -175,13 +175,18 @@ pub enum WorkersError {
         worker_id: WorkerId,
         err: VMUtilsError,
     },
-    #[error("Failed to stop VM {worker_id}")]
-    FailedToStopVM {
+    #[error("Failed to stop reset {worker_id}")]
+    FailedToResetVM {
         worker_id: WorkerId,
         err: VMUtilsError,
     },
-    #[error("Failed to start VM {worker_id}")]
-    FailedToStartVM {
+    #[error("Failed to reboot VM {worker_id}")]
+    FailedToRebootVM {
+        worker_id: WorkerId,
+        err: VMUtilsError,
+    },
+    #[error("Failed to get state of VM {worker_id}")]
+    FailedToGetStateVm {
         worker_id: WorkerId,
         err: VMUtilsError,
     },
