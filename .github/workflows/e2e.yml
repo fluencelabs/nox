@@ -40,9 +40,7 @@ jobs:
     uses: ./.github/workflows/build.yml
     with:
       ref: ${{ github.ref }}
-    secrets:
-      github_priv_key: ${{ secrets.FLUENCEBOT_PRIVATE_KEY }}
-      
+
   nox-snapshot:
     name: "nox"
     needs: nox
