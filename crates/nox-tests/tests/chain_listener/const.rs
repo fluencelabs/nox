@@ -16,17 +16,9 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-#![feature(try_blocks)]
+use ccp_shared::types::Difficulty;
 
-#[macro_use]
-extern crate fstrings;
-
-mod network {
-    pub use join::join_stream;
-
-    mod join;
-    mod loop_topology;
-    mod network_explore;
-}
-
-mod chain_listener;
+pub const DEFAULT_DIFFICULTY: &str =
+    "0001afffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
+pub const DEFAULT_GLOBAL_NONCE: &str =
+    "4183468390b09d71644232a1d1ce670bc93897183d3f56c305fabfb16cab806a";

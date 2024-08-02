@@ -30,11 +30,12 @@ alloy-primitives = { workspace = true }
 ccp-shared = { workspace = true }
 chain-data = { workspace = true }
 chain-listener = { workspace = true }
-ccp-rpc-client = {workspace = true}
+ccp-rpc-client = { workspace = true }
 reqwest = { workspace = true }
 prometheus-parse = "0.2.5"
 alloy-rlp = "0.3.7"
 
+hex-utils.workspace = true
 log-utils = { workspace = true }
 fluence-spell-dtos = { workspace = true }
 fluence-app-service = { workspace = true }

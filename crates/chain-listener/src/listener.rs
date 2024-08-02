@@ -120,7 +120,9 @@ pub struct ChainListener {
     metrics: Option<ChainListenerMetrics>,
 }
 
-async fn poll_subscription<T>(s: &mut Option<Subscription<T>>) -> Option<Result<T, client::Error>>
+async fn poll_subscription<T>(
+    s: &mut Option<Subscription<T>>,
+) -> Option<Result<T, serde_json::Error>>
 where
     T: DeserializeOwned + Send,
 {
@@ -638,7 +640,7 @@ impl ChainListener {
 
     async fn process_new_header(
         &mut self,
-        event: Option<Result<Value, client::Error>>,
+        event: Option<Result<Value, serde_json::Error>>,
     ) -> eyre::Result<()> {
         let header = event.ok_or(eyre!("Failed to process newHeads event: got None"))?;
 
@@ -689,7 +691,7 @@ impl ChainListener {
 
     async fn process_commitment_activated(
         &mut self,
-        event: Option<Result<JsonValue, client::Error>>,
+        event: Option<Result<JsonValue, serde_json::Error>>,
     ) -> eyre::Result<()> {
         let event = event.ok_or(eyre!(
             "Failed to process CommitmentActivated event: got None"
@@ -739,7 +741,7 @@ impl ChainListener {
 
     async fn process_unit_activated(
         &mut self,
-        event: Option<Result<JsonValue, client::Error>>,
+        event: Option<Result<JsonValue, serde_json::Error>>,
     ) -> eyre::Result<()> {
         let event = event.ok_or(eyre!("Failed to process UnitActivated event: got None"))??;
 
@@ -771,7 +773,7 @@ impl ChainListener {
     /// Unit goes to Deal
     async fn process_unit_deactivated(
         &mut self,
-        event: Option<Result<JsonValue, client::Error>>,
+        event: Option<Result<JsonValue, serde_json::Error>>,
     ) -> eyre::Result<()> {
         let event = event.ok_or(eyre!("Failed to process UnitDeactivated event: got None"))??;
         let log = serde_json::from_value::<Log>(event.clone()).map_err(|err| {
@@ -792,7 +794,7 @@ impl ChainListener {
 
     fn process_unit_matched(
         &mut self,
-        event: Option<Result<JsonValue, client::Error>>,
+        event: Option<Result<JsonValue, serde_json::Error>>,
     ) -> eyre::Result<()> {
         let event = event.ok_or(eyre!("Failed to process DealMatched event: got None"))??;
         let log = serde_json::from_value::<Log>(event.clone()).map_err(|err| {
