@@ -266,7 +266,7 @@ impl Workers {
 
                 match worker_info {
                     Ok(worker_info) => {
-                        let result = try {
+                        let result: Result<(), WorkersError> = try {
                             let thread_count = {
                                 let lock = self.worker_ids.upgradable_read();
                                 let worker_ids = lock.deref();
@@ -302,7 +302,9 @@ impl Workers {
                                     thread_count,
                                 })
                                 .await
-                                .map_err(|_err| WorkersError::FailedToNotifySubsystem { worker_id })
+                                .map_err(|_err| WorkersError::FailedToNotifySubsystem {
+                                    worker_id,
+                                })?
                         };
                         match result {
                             Ok(_) => {
@@ -681,13 +683,11 @@ impl Workers {
                     vm_config.bridge_name.clone(),
                 );
 
-                vm_utils::create_domain(vm_config.libvirt_uri.clone().as_str(), &params)
-                    .map_err(|err| WorkersError::FailedToCreateVM { worker_id, err })?;
+                vm_utils::create_domain(vm_config.libvirt_uri.clone().as_str(), &params)?;
 
                 self.set_vm_flag(worker_id, true).await?;
 
-                vm_utils::start_vm(vm_config.libvirt_uri.as_str(), vm_name.as_str())
-                    .map_err(|err| WorkersError::FailedToCreateVM { worker_id, err })?;
+                vm_utils::start_vm(vm_config.libvirt_uri.as_str(), vm_name.as_str())?;
 
                 Ok(vm_name)
             }
@@ -699,46 +699,53 @@ impl Workers {
             vm_utils::remove_domain(
                 vm_config.libvirt_uri.as_str(),
                 worker_id.to_string().as_str(),
-            )
-            .map_err(|err| WorkersError::FailedToRemoveVM { worker_id, err })?;
+            )?;
         }
         Ok(())
+    }
+
+    pub fn start_vm(&self, worker_id: WorkerId) -> Result<(), WorkersError> {
+        if let Some(vm_config) = &self.config.vm {
+            if self.has_vm(worker_id)? {
+                vm_utils::start_vm(vm_config.libvirt_uri.as_str(), &worker_id.to_string())?;
+            } else {
+                return Err(WorkersError::VmNotFound(worker_id));
+            }
+        }
+        Ok(())
+    }
+
+    pub fn stop_vm(&self, worker_id: WorkerId) -> Result<(), WorkersError> {
+        self.on_vm(worker_id, vm_utils::stop_vm)
     }
 
     pub fn reboot_vm(&self, worker_id: WorkerId) -> Result<(), WorkersError> {
-        if let Some(vm_config) = &self.config.vm {
-            if self.has_vm(worker_id)? {
-                vm_utils::reboot_vm(vm_config.libvirt_uri.as_str(), &worker_id.to_string())
-                    .map_err(|err| WorkersError::FailedToResetVM { worker_id, err })?;
-            } else {
-                return Err(WorkersError::VmNotFound(worker_id));
-            }
-        }
-        Ok(())
+        self.on_vm(worker_id, vm_utils::reboot_vm)
     }
 
     pub fn reset_vm(&self, worker_id: WorkerId) -> Result<(), WorkersError> {
-        if let Some(vm_config) = &self.config.vm {
-            if self.has_vm(worker_id)? {
-                vm_utils::reset_vm(vm_config.libvirt_uri.as_str(), &worker_id.to_string())
-                    .map_err(|err| WorkersError::FailedToResetVM { worker_id, err })?;
-            } else {
-                return Err(WorkersError::VmNotFound(worker_id));
-            }
-        }
-        Ok(())
+        self.on_vm(worker_id, vm_utils::reset_vm)
     }
 
     pub fn status_vm(&self, worker_id: WorkerId) -> Result<VmStatus, WorkersError> {
-        if let Some(vm_config) = &self.config.vm {
-            if self.has_vm(worker_id)? {
-                let status =
-                    vm_utils::status_vm(vm_config.libvirt_uri.as_str(), &worker_id.to_string())
-                        .map_err(|err| WorkersError::FailedToGetStateVm { worker_id, err })?;
-                return Ok(status);
+        self.on_vm(worker_id, vm_utils::status_vm)
+    }
+
+    fn on_vm<F, R>(&self, worker_id: WorkerId, f: F) -> Result<R, WorkersError>
+    where
+        F: Fn(&str, &str) -> Result<R, vm_utils::VmError>,
+    {
+        match &self.config.vm {
+            Some(vm_config) => {
+                if self.has_vm(worker_id)? {
+                    let result = f(vm_config.libvirt_uri.as_str(), &worker_id.to_string())?;
+                    Ok(result)
+                } else {
+                    Err(WorkersError::VmNotFound(worker_id))
+                }
             }
+            None => Err(WorkersError::FeatureDisabled),
         }
-        Err(WorkersError::VmNotFound(worker_id))
     }
 
     fn has_vm(&self, worker_id: WorkerId) -> Result<bool, WorkersError> {

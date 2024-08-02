@@ -9,5 +9,5 @@ pub use vm_utils::start_vm;
 pub use vm_utils::status_vm;
 pub use vm_utils::stop_vm;
 pub use vm_utils::CreateVMDomainParams;
-pub use vm_utils::VMUtilsError;
+pub use vm_utils::VmError;
 pub use vm_utils::VmStatus;

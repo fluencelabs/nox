@@ -399,6 +399,8 @@ where
             ("vm", "create") => wrap(self.create_vm(args, particle).await),
             ("vm", "reboot") => wrap(self.reboot_vm(args, particle)),
             ("vm", "reset") => wrap(self.reset_vm(args, particle)),
+            ("vm", "stop") => wrap(self.stop_vm(args, particle)),
+            ("vm", "start") => wrap(self.start_vm(args, particle)),
             ("vm", "status") => wrap(self.status_vm(args, particle)),
 
             ("subnet", "resolve") => wrap(self.subnet_resolve(args).await),
@@ -1311,27 +1313,27 @@ where
     /// Returns true if a VM was stopped (???)
     /// Throws on errors
     /// Note that there can be only one VM
-    /*
-    async fn stop_vm(&self, _args: Args, params: ParticleParams) -> Result<JValue, JError> {
+    fn stop_vm(&self, _args: Args, params: ParticleParams) -> Result<JValue, JError> {
         let worker_id = self.allow_only_worker(&params)?;
         self.workers
             .stop_vm(worker_id)
-            .map_err(|err| JError::new(format!("Failed to stop vm: {err}")))?;
+            .map_err(|err| JError::new(err.to_string()))?;
         Ok(JValue::Null)
     }
-    async fn start_vm(&self, _args: Args, params: ParticleParams) -> Result<JValue, JError> {
+
+    fn start_vm(&self, _args: Args, params: ParticleParams) -> Result<JValue, JError> {
         let worker_id = self.allow_only_worker(&params)?;
         self.workers
             .stop_vm(worker_id)
-            .map_err(|err| JError::new(format!("Failed to start vm: {err}")))?;
+            .map_err(|err| JError::new(err.to_string()))?;
         Ok(JValue::Null)
     }
-    */
+
     fn reboot_vm(&self, _args: Args, params: ParticleParams) -> Result<JValue, JError> {
         let worker_id = self.allow_only_worker(&params)?;
         self.workers
             .reboot_vm(worker_id)
-            .map_err(|err| JError::new(format!("Failed to start vm: {err}")))?;
+            .map_err(|err| JError::new(err.to_string()))?;
         Ok(JValue::Null)
     }
 
@@ -1339,7 +1341,7 @@ where
         let worker_id = self.allow_only_worker(&params)?;
         self.workers
             .reset_vm(worker_id)
-            .map_err(|err| JError::new(format!("Failed to start vm: {err}")))?;
+            .map_err(|err| JError::new(err.to_string()))?;
         Ok(JValue::Null)
     }
 
@@ -1354,7 +1356,7 @@ where
         let status = self
             .workers
             .status_vm(worker_id)
-            .map_err(|err| JError::new(format!("Failed to start vm: {err}")))?;
+            .map_err(|err| JError::new(err.to_string()))?;
         Ok(JValue::String(status.to_string()))
     }
 }
