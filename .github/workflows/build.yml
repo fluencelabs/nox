@@ -11,10 +11,6 @@ on:
         description: "Cargo dependencies map"
         type: string
         default: "null"
-    secrets:
-      github_priv_key:
-        description: "github private key"
-        required: true
 
 jobs:
   build:
@@ -43,15 +39,26 @@ jobs:
       id-token: write
 
     steps:
+      - name: Import secrets
+        uses: hashicorp/vault-action@v3.0.0
+        with:
+          url: https://vault.fluence.dev
+          path: jwt/github
+          role: ci
+          method: jwt
+          jwtGithubAudience: "https://github.com/fluencelabs"
+          jwtTtl: 300
+          secrets: |
+            kv/ci/fluence-artifacts id | AWS_ACCESS_KEY_ID ;
+            kv/ci/fluence-artifacts secret | AWS_SECRET_ACCESS_KEY ;
+            kv/github/tokens/fluencebot token | GITHUB_PAT ;
+
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           repository: fluencelabs/nox
           ref: ${{ inputs.ref }}
-
-      - name: Setup Git
-        run: |
-          git config --global url."https://x-access-token:${{ secrets.github_priv_key }}@github.com".insteadOf ssh://git@github.com
+          token: ${{ env.GITHUB_PAT }}
 
       - name: Get PR labels
         id: labels
@@ -103,19 +110,6 @@ jobs:
         with:
           name: nox-${{ matrix.arch }}
           path: target/${{ matrix.target }}/${{ steps.profile.outputs.profile }}/nox
-
-      - name: Import secrets
-        uses: hashicorp/vault-action@v3.0.0
-        with:
-          url: https://vault.fluence.dev
-          path: jwt/github
-          role: ci
-          method: jwt
-          jwtGithubAudience: "https://github.com/fluencelabs"
-          jwtTtl: 300
-          secrets: |
-            kv/ci/fluence-artifacts id | AWS_ACCESS_KEY_ID ;
-            kv/ci/fluence-artifacts secret | AWS_SECRET_ACCESS_KEY
 
       - name: Rename nox binary
         run: |
