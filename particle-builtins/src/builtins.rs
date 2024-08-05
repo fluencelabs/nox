@@ -1283,10 +1283,10 @@ where
         }
     }
 
-    /// Create a VM from the image
-    /// - `image` - path to the image in the *vault*
-    /// Returns the name of the created VM
-    /// Throws on errors
+    // Create a VM from the image
+    // - `image` - path to the image in the *vault*
+    // Returns the name of the created VM
+    // Throws on errors
     async fn create_vm(&self, args: Args, params: ParticleParams) -> Result<JValue, JError> {
         let worker_id = self.allow_only_worker(&params)?;
         let mut function_args = args.function_args.into_iter();
@@ -1309,10 +1309,8 @@ where
         Ok(JValue::String(vm_name))
     }
 
-    /// Stops a VM assigned to a Worker if any
-    /// Returns true if a VM was stopped (???)
-    /// Throws on errors
-    /// Note that there can be only one VM
+    // Stop a VM assigned to a Worker if any
+    // Throws on errors
     fn stop_vm(&self, _args: Args, params: ParticleParams) -> Result<JValue, JError> {
         let worker_id = self.allow_only_worker(&params)?;
         self.workers
@@ -1321,14 +1319,18 @@ where
         Ok(JValue::Null)
     }
 
+    // Start a VM assigned to a Worker if any
+    // Throws on errors
     fn start_vm(&self, _args: Args, params: ParticleParams) -> Result<JValue, JError> {
         let worker_id = self.allow_only_worker(&params)?;
         self.workers
-            .stop_vm(worker_id)
+            .start_vm(worker_id)
             .map_err(|err| JError::new(err.to_string()))?;
         Ok(JValue::Null)
     }
 
+    // Reboot a VM assigned to a Worker if any
+    // Throws on errors
     fn reboot_vm(&self, _args: Args, params: ParticleParams) -> Result<JValue, JError> {
         let worker_id = self.allow_only_worker(&params)?;
         self.workers
@@ -1337,6 +1339,8 @@ where
         Ok(JValue::Null)
     }
 
+    // Reset a VM assigned to a Worker if any
+    // Throws on errors
     fn reset_vm(&self, _args: Args, params: ParticleParams) -> Result<JValue, JError> {
         let worker_id = self.allow_only_worker(&params)?;
         self.workers
@@ -1345,12 +1349,14 @@ where
         Ok(JValue::Null)
     }
 
+    // Reset a VM assigned to a Worker if any
+    // Throws on errors
     // Note: it's okay to allow anyone to get the VM status
     fn status_vm(&self, _args: Args, params: ParticleParams) -> Result<JValue, JError> {
         let worker_id = match params.peer_scope {
             PeerScope::WorkerId(worker_id) => worker_id,
             PeerScope::Host => {
-                return Err(JError::new("This function is only available for workers"));
+                return Err(JError::new("This function is only available on workers"));
             }
         };
         let status = self
