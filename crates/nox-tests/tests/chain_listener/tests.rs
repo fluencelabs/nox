@@ -104,8 +104,6 @@ impl ChainListenerTestEntities {
             _events_dir: events_dir,
         })
     }
-
-    pub fn assert_ccp(&self) {}
 }
 const WAIT_BLOCK_POLLING_INTERVAL: Duration = Duration::from_millis(100);
 
