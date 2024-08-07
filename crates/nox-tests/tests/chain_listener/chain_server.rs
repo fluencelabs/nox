@@ -28,14 +28,16 @@ use chain_connector::Deal::{DealCalls, Status};
 use chain_connector::Offer::{ComputeUnit, OfferCalls};
 use chain_connector::{CCStatus, CommitmentId, Offer};
 use chain_data::{parse_peer_id, peer_id_to_bytes};
-use chain_listener::{CommitmentActivated, ComputeUnitMatched, UnitDeactivated, CIDV1};
+use chain_listener::{
+    CommitmentActivated, ComputeUnitMatched, UnitActivated, UnitDeactivated, CIDV1,
+};
 use clarity::Transaction;
 use eyre::{eyre, OptionExt};
 use fluence_libp2p::PeerId;
 use futures::StreamExt;
 use hex_utils::encode_hex_0x;
 use jsonrpsee::server::ServerHandle;
-use jsonrpsee::types::ErrorObject;
+use jsonrpsee::types::{ErrorObject, Params};
 use jsonrpsee::{RpcModule, SubscriptionMessage};
 use parking_lot::{Mutex, MutexGuard};
 use serde_json::{json, Value};
@@ -74,7 +76,6 @@ impl ChainServer {
             chain_state: chain_state.clone(),
         });
 
-        let inner_cc_contract_address = cc_contract_address.clone();
         module.register_method("eth_estimateGas", |_params, _ctx, _ext| {
             Ok::<String, ErrorObject>(encode_hex_0x(U256::from(200).abi_encode()))
         })?;
@@ -94,75 +95,7 @@ impl ChainServer {
         })?;
         let inner_market_contract_address = market_contract_address.clone();
         module.register_method("eth_sendRawTransaction", move |params, ctx, _ext| {
-            let params = params.one::<String>();
-            let data = params.map_err(|_| ErrorObject::owned(500, "", None::<String>))?;
-
-            let transaction = hex::decode(data.trim_start_matches("0x"))
-                .map_err(|_| ErrorObject::owned(500, "", None::<String>))?;
-
-            let transaction = Transaction::decode_from_rlp(&mut transaction.as_slice())
-                .map_err(|_| ErrorObject::owned(500, "", None::<String>))?;
-
-            match transaction {
-                Transaction::Legacy { .. } => {}
-                Transaction::Eip2930 { .. } => {}
-                Transaction::Eip1559 { to, data, .. } => {
-                    let to = to.to_string();
-                    if to == inner_market_contract_address {
-                        let call =
-                            Offer::returnComputeUnitFromDealCall::abi_decode(data.as_slice(), true)
-                                .map_err(|_| ErrorObject::owned(500, "expected ABI for function returnComputeUnitFromDealCall", None::<String>))?;
-
-                        let state = ctx.chain_state.lock();
-                        let unit_state = state
-                            .unit_state
-                            .get(&call.unitId)
-                            .ok_or(ErrorObject::owned(500, format!("no such unitId {}", call.unitId), None::<String>))?;
-
-                        let commitment_id = unit_state
-                            .commitment_id
-                            .clone()
-                            .ok_or(ErrorObject::owned(500, &format!("compute unit {} doesn't have commitment id", call.unitId), None::<String>))?;
-
-                        let event = CommitmentActivated {
-                            peerId: FixedBytes::new(peer_id_to_bytes(unit_state.peer_id)),
-                            commitmentId: FixedBytes::new(commitment_id.0),
-                            startEpoch: state.current_epoch + U256::from(1),
-                            endEpoch: state.current_epoch + U256::from(100),
-                            unitIds: vec![call.unitId],
-                        };
-
-                        let data = event.encode_data();
-                        let data = encode_hex_0x(data);
-
-                        let message = SubscriptionMessage::from_json(&json!({
-                          "topics": vec![
-                            CommitmentActivated::SIGNATURE_HASH.to_string(),
-                            encode_hex_0x(peer_id_to_bytes(unit_state.peer_id)),
-                            commitment_id.to_string()
-                          ],
-                          "data": data,
-                          "blockNumber": state.block_number,
-                          "removed": false
-                        }))
-                        .unwrap();
-
-                        let message = LogsParams {
-                            address: inner_cc_contract_address.clone(),
-                            topics: vec![
-                                CommitmentActivated::SIGNATURE_HASH.to_string(),
-                                encode_hex_0x(peer_id_to_bytes(unit_state.peer_id)),
-                            ],
-                            message,
-                        };
-
-                        ctx.logs_sender.send(message).unwrap();
-                    } else {
-                        return Err(ErrorObject::owned(500, &format!("Only TXs with returnComputeUnitFromDealCall sent to market address {} are supported", inner_market_contract_address), None::<String>));
-                    }
-                }
-            }
-            Ok::<String, ErrorObject>("done".to_string())
+            ChainServer::handle_send_raw_tx(params, ctx, inner_market_contract_address.clone())
         })?;
 
         let inner_cc_contract_address = cc_contract_address.clone();
@@ -195,12 +128,6 @@ impl ChainServer {
                     let res = CoreCalls::abi_decode(data.as_slice(), true)
                         .map_err(|_| ErrorObject::owned(500, "", None::<String>))?;
                     match res {
-                        CoreCalls::capacity(_) => {
-                            todo!()
-                        }
-                        CoreCalls::market(_) => {
-                            todo!()
-                        }
                         CoreCalls::currentEpoch(_) => {
                             Ok(encode_hex_0x(state.current_epoch.abi_encode()))
                         }
@@ -217,6 +144,11 @@ impl ChainServer {
                         CoreCalls::maxProofsPerEpoch(_) => {
                             Ok(encode_hex_0x(state.max_proofs_per_epoch.abi_encode()))
                         }
+                        _ => Err(ErrorObject::owned(
+                            500,
+                            "Method is not supported",
+                            None::<String>,
+                        )),
                     }
                 }
                 to if to == inner_cc_contract_address => {
@@ -579,6 +511,96 @@ impl ChainServer {
         let mut state = self.chain_state.lock();
         state.deal_statuses.insert(deal, status);
     }
+
+    pub fn handle_send_raw_tx(
+        params: Params,
+        ctx: &Context,
+        contract_address: String,
+    ) -> Result<String, ErrorObject<'static>> {
+        let params = params.one::<String>();
+        let data = params.map_err(|_| ErrorObject::owned(500, "", None::<String>))?;
+
+        let transaction = hex::decode(data.trim_start_matches("0x"))
+            .map_err(|_| ErrorObject::owned(500, "", None::<String>))?;
+
+        let transaction = Transaction::decode_from_rlp(&mut transaction.as_slice())
+            .map_err(|_| ErrorObject::owned(500, "", None::<String>))?;
+
+        match transaction {
+            Transaction::Legacy { .. } => {}
+            Transaction::Eip2930 { .. } => {}
+            Transaction::Eip1559 { to, data, .. } => {
+                let to = to.to_string();
+                if to == contract_address {
+                    let call =
+                        Offer::returnComputeUnitFromDealCall::abi_decode(data.as_slice(), true)
+                            .map_err(|_| {
+                                ErrorObject::owned(
+                                    500,
+                                    "expected ABI for function returnComputeUnitFromDealCall",
+                                    None::<String>,
+                                )
+                            })?;
+
+                    let state = ctx.chain_state.lock();
+                    let unit_state =
+                        state
+                            .unit_state
+                            .get(&call.unitId)
+                            .ok_or(ErrorObject::owned(
+                                500,
+                                format!("no such unitId {}", call.unitId),
+                                None::<String>,
+                            ))?;
+
+                    let commitment_id =
+                        unit_state.commitment_id.clone().ok_or(ErrorObject::owned(
+                            500,
+                            &format!("compute unit {} doesn't have commitment id", call.unitId),
+                            None::<String>,
+                        ))?;
+
+                    let event = UnitActivated {
+                        commitmentId: FixedBytes::new(commitment_id.0),
+                        unitId: call.unitId,
+                        startEpoch: state.current_epoch + U256::from(100),
+                    };
+
+                    let data = event.encode_data();
+                    let data = encode_hex_0x(data);
+
+                    let message = SubscriptionMessage::from_json(&json!({
+                      "topics": vec![
+                        UnitActivated::SIGNATURE_HASH.to_string(),
+                        commitment_id.to_string(),
+                        encode_hex_0x(call.unitId),
+                      ],
+                      "data": data,
+                      "blockNumber": state.block_number,
+                      "removed": false
+                    }))
+                    .unwrap();
+
+                    let message = LogsParams {
+                        address: contract_address.clone(),
+                        topics: vec![
+                            UnitActivated::SIGNATURE_HASH.to_string(),
+                            commitment_id.to_string(),
+                            encode_hex_0x(call.unitId),
+                        ],
+                        message,
+                    };
+
+                    ctx.logs_sender.send(message).unwrap();
+                } else {
+                    return Err(ErrorObject::owned(500, &format!("Only TXs with returnComputeUnitFromDealCall sent to diamond address {} are supported", contract_address), None::<String>));
+                }
+            }
+        }
+        Ok::<String, ErrorObject>("done".to_string())
+    }
+
+    pub fn handle_eth_call()
 }
 
 fn filter_logs(

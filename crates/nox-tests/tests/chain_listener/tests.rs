@@ -92,7 +92,7 @@ impl ChainListenerTestEntities {
             });
 
             cfg.cc_events_dir = Some(cc_events_dir.clone());
-            cfg.mocked_topology_count = Some(128);
+            cfg.cpu_cores_count = Some(128);
             cfg.metrics_enabled = true;
             cfg
         })

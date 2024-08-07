@@ -321,7 +321,7 @@ pub struct SwarmConfig {
     pub chain_listener_config: Option<ChainListenerConfig>,
     pub cc_events_dir: Option<PathBuf>,
     pub network_key: NetworkKey,
-    pub mocked_topology_count: Option<u32>,
+    pub cpu_cores_count: Option<u32>,
     pub metrics_enabled: bool,
 }
 
@@ -355,7 +355,7 @@ impl SwarmConfig {
             chain_listener_config: None,
             cc_events_dir: None,
             network_key,
-            mocked_topology_count: Some(128),
+            cpu_cores_count: Some(128),
             metrics_enabled: false,
         }
     }
@@ -496,7 +496,7 @@ pub async fn create_swarm_with_runtime<RT: AquaRuntime>(
                 .expect("Failed to get default system service distros")
                 .extend(config.extend_system_services.clone());
 
-        let (cpu_topology, core_range): (Box<dyn CPUTopology>, CoreRange) = if let Some(mocked_topology_count) = config.mocked_topology_count{
+        let (cpu_topology, core_range): (Box<dyn CPUTopology>, CoreRange) = if let Some(mocked_topology_count) = config.cpu_cores_count {
             let core_range = CoreRange::from_str(format!("0-{}", mocked_topology_count-1).as_str()).expect("Wrong core range");
             let mut topology = MockCPUTopology::new();
             topology.expect_physical_cores().returning(move || {
