@@ -72,7 +72,7 @@ impl CIDV1 {
 
 impl Status {
     pub fn from_hex(hex: &str) -> Result<Self, ConnectorError> {
-        let bytes = decode_hex(&hex)?;
+        let bytes = decode_hex(hex)?;
         if bytes.is_empty() {
             return Err(ConnectorError::EmptyData(hex.to_string()));
         }

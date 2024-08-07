@@ -315,7 +315,7 @@ impl HttpChainConnector {
             .for_each(|unit| {
                 deals
                     .entry(unit.deal.to_string().into())
-                    .or_insert_with(Vec::new)
+                    .or_default()
                     .push(CUID::new(unit.id.into()));
             });
 

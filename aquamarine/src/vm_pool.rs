@@ -192,7 +192,7 @@ impl<RT: AquaRuntime> VmPool<RT> {
             let fut = &mut idx_fut.1;
             if let Poll::Ready(vm) = fut.poll_unpin(cx) {
                 // Remove completed future
-                creating_vms.remove(fut_index);
+                let _ = creating_vms.remove(fut_index);
                 if creating_vms.is_empty() {
                     tracing::info!("All {} AquaVMs created.", self.pool_size)
                 }

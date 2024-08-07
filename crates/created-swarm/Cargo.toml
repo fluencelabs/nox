@@ -22,8 +22,9 @@ system-services = { workspace = true }
 tempfile = { workspace = true }
 core-distributor = { workspace = true }
 test-utils = { workspace = true }
-cpu-utils = { workspace = true }
+cpu-utils = { workspace = true, features = ["mockall"] }
 cid-utils = { workspace = true }
+nonempty = { workspace = true }
 
 fluence-keypair = { workspace = true }
 log = { workspace = true }
