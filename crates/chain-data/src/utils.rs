@@ -55,7 +55,7 @@ mod tests {
             PeerId::from_str("12D3KooWCGZ6t8by5ag5YMQW4k3HoPLaKdN5rB9DhAmDUeG8dj1N").unwrap();
         assert_eq!(
             peer_id,
-            parse_peer_id(decode_hex(&hex[2..]).unwrap()).unwrap()
+            parse_peer_id(&decode_hex(&hex[2..]).unwrap()).unwrap()
         );
         assert_eq!(hex, peer_id_to_hex(peer_id));
     }
