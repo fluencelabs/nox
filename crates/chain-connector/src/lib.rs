@@ -26,11 +26,13 @@ mod connector;
 mod error;
 mod function;
 
+mod builtins;
 mod eth_call;
 mod types;
 
-pub use connector::CCInitParams;
+pub use self::types::CCInitParams;
 pub use connector::ChainConnector;
 pub use connector::HttpChainConnector;
 pub use error::ConnectorError;
 pub use function::*;
+pub use types::SubnetResolveResult;

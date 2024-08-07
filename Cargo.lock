@@ -1359,6 +1359,7 @@ dependencies = [
  "hex-utils",
  "jsonrpsee 0.22.5",
  "libipld",
+ "libp2p-identity",
  "log-utils",
  "mockito",
  "particle-args",
@@ -5923,10 +5924,14 @@ dependencies = [
 name = "nox-tests"
 version = "0.1.0"
 dependencies = [
+ "alloy-primitives",
+ "alloy-sol-types",
  "aquamarine",
  "base64 0.21.7",
  "blake3",
  "bs58",
+ "chain-connector",
+ "chain-data",
  "clarity",
  "connected-client",
  "connection-pool",
@@ -5941,6 +5946,7 @@ dependencies = [
  "fstrings",
  "futures",
  "hex",
+ "hex-utils",
  "humantime-serde",
  "itertools 0.13.0",
  "json-utils",
@@ -5968,7 +5974,6 @@ dependencies = [
  "service-modules",
  "sorcerer",
  "spell-event-bus",
- "subnet-resolver",
  "system-services",
  "tempfile",
  "test-constants",
@@ -6370,7 +6375,6 @@ dependencies = [
  "serde",
  "serde_json",
  "service-modules",
- "subnet-resolver",
  "tempfile",
  "thiserror",
  "tokio",
@@ -8343,23 +8347,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7da8b5736845d9f2fcb837ea5d9e2628564b3b043a70948a3f0b778838c5fb4f"
 
 [[package]]
-name = "subnet-resolver"
-version = "0.1.0"
-dependencies = [
- "chain-data",
- "ethabi",
- "eyre",
- "hex",
- "hex-utils",
- "jsonrpsee 0.22.5",
- "libp2p-identity",
- "serde",
- "serde_json",
- "thiserror",
- "tokio",
-]
-
-[[package]]
 name = "subtle"
 version = "2.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8573,6 +8560,7 @@ name = "test-utils"
 version = "0.3.0"
 dependencies = [
  "base64 0.21.7",
+ "clarity",
  "connected-client",
  "cpu-utils",
  "eyre",
@@ -8581,6 +8569,7 @@ dependencies = [
  "maplit",
  "particle-args",
  "serde_json",
+ "server-config",
  "service-modules",
  "test-constants",
  "tokio",

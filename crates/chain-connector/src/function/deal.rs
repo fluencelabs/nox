@@ -44,6 +44,14 @@ sol! {
             SMALL_BALANCE
         }
 
+        struct ComputeUnit {
+            bytes32 id;
+            bytes32 workerId;
+            bytes32 peerId;
+            address provider;
+            uint256 joinedEpoch;
+        }
+
         /// @dev Returns the status of the deal
         function getStatus() external view returns (Status);
 
@@ -52,6 +60,9 @@ sol! {
 
         /// @dev Set worker ID for a compute unit. Compute unit can have only one worker ID
         function setWorker(bytes32 computeUnitId, bytes32 workerId) external;
+
+        /// @dev Returns the compute units info by provider
+        function getComputeUnits() public view returns (ComputeUnit[] memory);
     }
 }
 

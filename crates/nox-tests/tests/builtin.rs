@@ -19,6 +19,11 @@
 
 #[macro_use]
 extern crate fstrings;
+use alloy_sol_types::sol_data::Array;
+use alloy_sol_types::SolType;
+use chain_connector::SubnetResolveResult;
+use chain_data::peer_id_to_bytes;
+use clarity::PrivateKey;
 use connected_client::ConnectedClient;
 use created_swarm::{
     make_swarms, make_swarms_with_cfg, make_swarms_with_keypair,
@@ -28,6 +33,7 @@ use eyre::{Report, WrapErr};
 use fluence_keypair::KeyPair;
 use fluence_libp2p::RandomPeerId;
 use fluence_libp2p::Transport;
+use hex_utils::encode_hex_0x;
 use itertools::Itertools;
 use json_utils::into_array;
 use libp2p::core::Multiaddr;
@@ -40,13 +46,14 @@ use now_millis::now_ms;
 use particle_protocol::Particle;
 use serde::Deserialize;
 use serde_json::{json, Value as JValue};
+use server_config::ChainConfig;
 use service_modules::load_module;
 use std::collections::HashMap;
+use std::default::Default;
 use std::str::FromStr;
 use std::time::Duration;
-use subnet_resolver::SubnetResolveResult;
 use test_constants::PARTICLE_TTL;
-use test_utils::create_service;
+use test_utils::{create_service, get_default_chain_config};
 
 #[derive(Deserialize, Debug)]
 struct NodeInfo {
@@ -69,7 +76,7 @@ async fn identify() {
         (seq
             (call relay ("peer" "identify") [] info)
             (call client ("op" "return") [info])
-        ) 
+        )
         "#,
             hashmap! {
                 "relay" => json!(client.node.to_string()),
@@ -1154,7 +1161,7 @@ async fn timeout_wait() {
                 (seq
                     (par
                         (call relay ("peer" "timeout") [1000 "timed_out"] $ok_or_err)
-                        (call "invalid_peer" ("op" "identity") ["never"] $ok_or_err) 
+                        (call "invalid_peer" ("op" "identity") ["never"] $ok_or_err)
                     )
                     (canon %init_peer_id% $ok_or_err #ok_or_err)
                 )
@@ -1996,7 +2003,7 @@ async fn json_builtins() {
                                         (seq
                                             (canon relay $single-pair #single-pair-1)
                                             (ap #single-pair-1 $pairs)
-                                        ) 
+                                        )
                                     )
                                 )
                                 (new $single-pair
@@ -2053,7 +2060,7 @@ async fn json_builtins() {
                                             (ap #single-pair-4 $puts-pairs)
                                         )
                                     )
-                                )   
+                                )
                                 (new $single-pair
                                     (seq
                                         (seq
@@ -2371,17 +2378,27 @@ async fn aliases_restart() {
 #[ignore]
 #[tokio::test]
 async fn subnet_resolve() {
-    let expected_request = r#"{"jsonrpc":"2.0","id":0,"method":"eth_call","params":[{"data":"0x4b66a309","to":"0x9DcaFca9B88f49d91c38a32E7d9A86a7d9a37B04"},"latest"]}"#;
-    let expected_request: serde_json::Value =
-        serde_json::from_str(expected_request).expect("parse expected_request as json");
+    let peer_id1 = RandomPeerId::random();
+    let worker_id1 = RandomPeerId::random();
+    let cu_1 = chain_connector::Deal::ComputeUnit {
+        id: Default::default(),
+        workerId: peer_id_to_bytes(worker_id1).into(),
+        peerId: peer_id_to_bytes(peer_id1).into(),
+        provider: Default::default(),
+        joinedEpoch: Default::default(),
+    };
 
-    let jsonrpc = r#"
-        {
-            "jsonrpc": "2.0",
-            "id": 0,
-            "result": "0x0000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000153aadfa1d6cd4c8a18f7eb26bd0b83ca10b664845cd72e2dd871f78b2006f5a7b5ecc6c89e9c2add9a9d3b08e7c8ed2155d980e48870b72cfb9c5c16a088ebfb0a510f7418603d18c14fd3e6dbc2bf4ce5b2e9ef3dac15428a9b31a7bf5a11a8000000000000000000000000627e730fd1361e6ffcee236dac08f82eaa8ac7cd0000000000000000000000000000000000000000000000000de0b6b3a76400000000000000000000000000000000000000000000000000000000000006c16216"
-        }
-        "#;
+    let peer_id2 = RandomPeerId::random();
+    let cu_2 = chain_connector::Deal::ComputeUnit {
+        id: Default::default(),
+        workerId: Default::default(),
+        peerId: peer_id_to_bytes(peer_id2).into(),
+        provider: Default::default(),
+        joinedEpoch: Default::default(),
+    };
+    let resolve_result = encode_hex_0x(Array::<chain_connector::Deal::ComputeUnit>::abi_encode(
+        &vec![cu_1, cu_2],
+    ));
 
     // Create a mock
     let mut server = mockito::Server::new_async().await;
@@ -2392,30 +2409,29 @@ async fn subnet_resolve() {
             let body = req.body().expect("mock: get req body");
             let body: serde_json::Value =
                 serde_json::from_slice(body).expect("mock: parse req body as json");
+            assert!(body.is_object());
             assert_eq!(
-                body, expected_request,
-                "invalid request. expected {}, got {}",
-                expected_request, body
+                body.as_object().unwrap()["method"].as_str().unwrap(),
+                "eth_call"
             );
-            jsonrpc.into()
+
+            let id = body.as_object().unwrap()["id"].as_u64().unwrap();
+
+            json!({
+                "jsonrpc": "2.0",
+                "id": id,
+                "result": resolve_result,
+            })
+            .to_string()
+            .into()
         })
-        // expect to receive this exact body in POST
-        // .match_body(r#"{"jsonrpc":"2.0","id":0,"method":"eth_getLogs","params":[{"fromBlock":"0x52","toBlock":"0x246","address":"0x6328bb918a01603adc91eae689b848a9ecaef26d","topics":["0x55e61a24ecdae954582245e5e611fb06905d6af967334fff4db72793bebc72a9","0x7a82a5feefcaad4a89c689412031e5f87c02b29e3fced583be5f05c7077354b7"]}]}"#)
-        // expect exactly 1 POST request
         .expect(2)
         .with_status(200)
         .with_header("content-type", "application/json")
         .create();
 
-    let invalid_mock = server
-        .mock("POST", "/")
-        .expect(0)
-        .with_status(404)
-        .with_body("invalid mock was hit. Check that request body matches 'match_body' clause'")
-        .create();
-
     let swarms = make_swarms_with_cfg(1, move |mut cfg| {
-        cfg.connector_api_endpoint = Some(url.clone());
+        cfg.chain_config = Some(get_default_chain_config(&url));
         cfg
     })
     .await;
@@ -2463,28 +2479,28 @@ async fn subnet_resolve() {
 
     assert!(subnet.success, "{:?}", subnet.error);
     assert_eq!(subnet.error.len(), 0);
-    let pats: Vec<_> = subnet
+    let workers: Vec<_> = subnet
         .workers
         .iter()
-        .map(|p| (p.pat_id.as_str(), p.host_id.as_str(), p.worker_id.clone()))
+        .map(|p| (p.unit_id.as_str(), p.host_id.as_str(), p.worker_id.clone()))
         .collect();
 
     assert_eq!(
-        pats,
+        workers,
         vec![
             (
-                "0x53aadfa1d6cd4c8a18f7eb26bd0b83ca10b664845cd72e2dd871f78b2006f5a7",
-                "12D3KooWN4XNKgu76nwB7iKUXmE4FKCA5Ycak6SbSqLTaWo2nFsQ",
-                vec!["12D3KooWAWdwEujemZN1LQ87bPKSeAvDA1yMGistnL4yF8awuUqV".to_string()],
+                "0x0000000000000000000000000000000000000000000000000000000000000000",
+                peer_id1.to_string().as_str(),
+                vec![worker_id1.to_string()],
             ),
-            // TODO: add more nodes in subnet later
+            (
+                "0x0000000000000000000000000000000000000000000000000000000000000000",
+                peer_id2.to_string().as_str(),
+                vec![]
+            )
         ]
     );
 
-    // assert that there was no invalid requests
-    invalid_mock.assert();
-
-    // TODO: how to check request body?
     // check that mock was called
     mock.assert();
 }

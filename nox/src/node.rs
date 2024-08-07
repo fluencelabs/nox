@@ -311,7 +311,6 @@ impl<RT: AquaRuntime> Node<RT> {
 
         let builtins_config = BuiltinsConfig::new(
             services_config,
-            config.system_services.decider.network_api_endpoint.clone(),
             config.dir_config.services_persistent_dir.clone(),
             config.node_config.allowed_effectors.clone(),
             config

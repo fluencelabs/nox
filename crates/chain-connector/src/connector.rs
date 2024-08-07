@@ -27,33 +27,29 @@ use std::sync::Arc;
 use ccp_shared::types::{Difficulty, GlobalNonce, LocalNonce, ResultHash, CUID};
 use clarity::{Transaction, Uint256};
 use eyre::eyre;
-use futures::FutureExt;
 use jsonrpsee::core::async_trait;
 use jsonrpsee::core::client::{BatchResponse, ClientT};
 use jsonrpsee::core::params::{ArrayParams, BatchRequestBuilder};
 use jsonrpsee::http_client::HttpClientBuilder;
 use jsonrpsee::rpc_params;
-use serde_json::Value as JValue;
 use serde_json::{json, Value};
 use tokio::sync::Mutex;
 
+use crate::builtins::make_connector_builtins;
+use crate::error::process_response;
+use crate::eth_call::EthCall;
+use crate::types::*;
 use crate::ConnectorError::{FieldNotFound, InvalidU256, ResponseParseError};
 use crate::Deal::CIDV1;
+use crate::Offer::{ComputePeer, ComputeUnit};
 use crate::{CCStatus, Capacity, CommitmentId, Core, Deal, Offer};
 use chain_data::{peer_id_to_bytes, BlockHeader};
 use fluence_libp2p::PeerId;
 use hex_utils::{decode_hex, encode_hex_0x};
-use particle_args::{Args, JError};
-use particle_builtins::{wrap, CustomService};
-use particle_execution::{ParticleParams, ServiceFunction};
+use particle_builtins::CustomService;
 use server_config::ChainConfig;
 use types::peer_scope::WorkerId;
 use types::DealId;
-
-use crate::error::process_response;
-use crate::eth_call::EthCall;
-use crate::types::*;
-use crate::Offer::{ComputePeer, ComputeUnit};
 
 #[async_trait]
 pub trait ChainConnector: Send + Sync {
@@ -87,18 +83,7 @@ pub struct HttpChainConnector {
     client: Arc<jsonrpsee::http_client::HttpClient>,
     config: ChainConfig,
     tx_nonce_mutex: Arc<Mutex<Option<U256>>>,
-    host_id: PeerId,
-}
-
-pub struct CCInitParams {
-    pub difficulty: Difficulty,
-    pub init_timestamp: U256,
-    pub current_timestamp: U256,
-    pub global_nonce: GlobalNonce,
-    pub current_epoch: U256,
-    pub epoch_duration: U256,
-    pub min_proofs_per_epoch: U256,
-    pub max_proofs_per_epoch: U256,
+    pub(crate) host_id: PeerId,
 }
 
 impl HttpChainConnector {
@@ -115,149 +100,8 @@ impl HttpChainConnector {
             host_id,
         });
 
-        let builtins = Self::make_connector_builtins(connector.clone());
+        let builtins = make_connector_builtins(connector.clone());
         Ok((connector, builtins))
-    }
-
-    fn make_connector_builtins(connector: Arc<Self>) -> HashMap<String, CustomService> {
-        let mut builtins = HashMap::new();
-        builtins.insert(
-            "connector".to_string(),
-            CustomService::new(
-                vec![
-                    ("send_tx", Self::make_send_tx_closure(connector.clone())),
-                    ("get_deals", Self::make_get_deals_closure(connector.clone())),
-                    (
-                        "register_worker",
-                        Self::make_register_worker_closure(connector.clone()),
-                    ),
-                    (
-                        "get_tx_receipts",
-                        Self::make_get_tx_receipts_closure(connector.clone()),
-                    ),
-                ],
-                None,
-            ),
-        );
-        builtins
-    }
-
-    fn make_send_tx_closure(connector: Arc<Self>) -> ServiceFunction {
-        ServiceFunction::Immut(Box::new(move |args, params| {
-            let connector = connector.clone();
-            async move { wrap(connector.send_tx_builtin(args, params).await) }.boxed()
-        }))
-    }
-
-    fn make_get_deals_closure(connector: Arc<Self>) -> ServiceFunction {
-        ServiceFunction::Immut(Box::new(move |_, params| {
-            let connector = connector.clone();
-            async move { wrap(connector.get_deals_builtin(params).await) }.boxed()
-        }))
-    }
-
-    fn make_register_worker_closure(connector: Arc<Self>) -> ServiceFunction {
-        ServiceFunction::Immut(Box::new(move |args, params| {
-            let connector = connector.clone();
-            async move { wrap(connector.register_worker_builtin(args, params).await) }.boxed()
-        }))
-    }
-
-    fn make_get_tx_receipts_closure(connector: Arc<Self>) -> ServiceFunction {
-        ServiceFunction::Immut(Box::new(move |args, params| {
-            let connector = connector.clone();
-            async move { wrap(connector.get_tx_receipts_builtin(args, params).await) }.boxed()
-        }))
-    }
-
-    // TODO: do we still need this builtin?
-    async fn send_tx_builtin(
-        &self,
-        args: Args,
-        params: ParticleParams,
-    ) -> std::result::Result<JValue, JError> {
-        if params.init_peer_id != self.host_id {
-            return Err(JError::new("Only the root worker can send transactions"));
-        }
-
-        let mut args = args.function_args.into_iter();
-        let data: Vec<u8> = Args::next("data", &mut args)?;
-        let to: String = Args::next("to", &mut args)?;
-        let tx_hash = self
-            .send_tx(data, &to)
-            .await
-            .map_err(|err| JError::new(format!("Failed to send tx: {err}")))?;
-        Ok(json!(tx_hash))
-    }
-
-    async fn get_deals_builtin(
-        &self,
-        params: ParticleParams,
-    ) -> std::result::Result<JValue, JError> {
-        if params.init_peer_id != self.host_id {
-            return Err(JError::new("Only the root worker can call connector"));
-        }
-
-        let deals = self
-            .get_deals()
-            .await
-            .map_err(|err| JError::new(format!("Failed to get deals: {err}")))?;
-        Ok(json!(deals))
-    }
-
-    async fn register_worker_builtin(
-        &self,
-        args: Args,
-        params: ParticleParams,
-    ) -> std::result::Result<JValue, JError> {
-        if params.init_peer_id != self.host_id {
-            return Err(JError::new("Only the root worker can call connector"));
-        }
-
-        let mut args = args.function_args.into_iter();
-        let deal_id: DealId = Args::next("deal_id", &mut args)?;
-        let worker_id: WorkerId = Args::next("worker_id", &mut args)?;
-        let cu_ids: Vec<CUID> = Args::next("cu_id", &mut args)?;
-
-        if cu_ids.len() != 1 {
-            return Err(JError::new("Only one cu_id is allowed"));
-        }
-
-        let tx_hash = self
-            .register_worker(&deal_id, worker_id, cu_ids[0])
-            .await
-            .map_err(|err| JError::new(format!("Failed to register worker: {err}")))?;
-        Ok(json!(tx_hash))
-    }
-
-    async fn get_tx_receipts_builtin(
-        &self,
-        args: Args,
-        params: ParticleParams,
-    ) -> std::result::Result<JValue, JError> {
-        if params.init_peer_id != self.host_id {
-            return Err(JError::new("Only the root worker can call connector"));
-        }
-
-        let mut args = args.function_args.into_iter();
-
-        let tx_hashes: Vec<String> = Args::next("tx_hashes", &mut args)?;
-
-        let receipts = self
-            .get_tx_receipts(tx_hashes)
-            .await
-            .map_err(|err| JError::new(format!("Failed to get tx receipts: {err}")))?
-            .into_iter()
-            .map(|tx_receipt| match tx_receipt {
-                Ok(receipt) => match receipt {
-                    TxStatus::Pending => TxReceiptResult::pending(),
-                    TxStatus::Processed(receipt) => TxReceiptResult::processed(receipt),
-                },
-                Err(err) => TxReceiptResult::error(err.to_string()),
-            })
-            .collect::<Vec<_>>();
-
-        Ok(json!(receipts))
     }
 
     async fn get_base_fee_per_gas(&self) -> Result<U256> {
@@ -519,36 +363,52 @@ impl HttpChainConnector {
         let data = Core::difficultyCall {}.abi_encode();
 
         rpc_params![
-            EthCall::to(&data, &self.config.core_contract_address),
+            EthCall::to(&data, &self.config.diamond_contract_address),
             "latest"
         ]
+    }
+
+    pub async fn get_deal_compute_units(&self, deal_id: &DealId) -> Result<Vec<Deal::ComputeUnit>> {
+        let data = Deal::getComputeUnitsCall {}.abi_encode();
+        let resp: String = process_response(
+            self.client
+                .request(
+                    "eth_call",
+                    rpc_params![EthCall::to(&data, &deal_id.to_address()), "latest"],
+                )
+                .await,
+        )?;
+        let bytes = decode_hex(&resp)?;
+        let compute_units = <Array<Deal::ComputeUnit> as SolType>::abi_decode(&bytes, true)?;
+
+        Ok(compute_units)
     }
 
     fn init_timestamp_params(&self) -> ArrayParams {
         let data = Core::initTimestampCall {}.abi_encode();
         rpc_params![
-            EthCall::to(&data, &self.config.core_contract_address),
+            EthCall::to(&data, &self.config.diamond_contract_address),
             "latest"
         ]
     }
     fn global_nonce_params(&self) -> ArrayParams {
         let data = Capacity::getGlobalNonceCall {}.abi_encode();
         rpc_params![
-            EthCall::to(&data, &self.config.cc_contract_address),
+            EthCall::to(&data, &self.config.diamond_contract_address),
             "latest"
         ]
     }
     fn current_epoch_params(&self) -> ArrayParams {
         let data = Core::currentEpochCall {}.abi_encode();
         rpc_params![
-            EthCall::to(&data, &self.config.core_contract_address),
+            EthCall::to(&data, &self.config.diamond_contract_address),
             "latest"
         ]
     }
     fn epoch_duration_params(&self) -> ArrayParams {
         let data = Core::epochDurationCall {}.abi_encode();
         rpc_params![
-            EthCall::to(&data, &self.config.core_contract_address),
+            EthCall::to(&data, &self.config.diamond_contract_address),
             "latest"
         ]
     }
@@ -556,7 +416,7 @@ impl HttpChainConnector {
     fn min_proofs_per_epoch_params(&self) -> ArrayParams {
         let data = Core::minProofsPerEpochCall {}.abi_encode();
         rpc_params![
-            EthCall::to(&data, &self.config.core_contract_address),
+            EthCall::to(&data, &self.config.diamond_contract_address),
             "latest"
         ]
     }
@@ -564,7 +424,7 @@ impl HttpChainConnector {
     fn max_proofs_per_epoch_params(&self) -> ArrayParams {
         let data = Core::maxProofsPerEpochCall {}.abi_encode();
         rpc_params![
-            EthCall::to(&data, &self.config.core_contract_address),
+            EthCall::to(&data, &self.config.diamond_contract_address),
             "latest"
         ]
     }
@@ -583,7 +443,7 @@ impl ChainConnector for HttpChainConnector {
                 .request(
                     "eth_call",
                     rpc_params![
-                        EthCall::to(&data, &self.config.market_contract_address),
+                        EthCall::to(&data, &self.config.diamond_contract_address),
                         "latest"
                     ],
                 )
@@ -659,7 +519,7 @@ impl ChainConnector for HttpChainConnector {
                 .request(
                     "eth_call",
                     rpc_params![
-                        EthCall::to(&data, &self.config.market_contract_address),
+                        EthCall::to(&data, &self.config.diamond_contract_address),
                         "latest"
                     ],
                 )
@@ -682,7 +542,7 @@ impl ChainConnector for HttpChainConnector {
                 .request(
                     "eth_call",
                     rpc_params![
-                        EthCall::to(&data, &self.config.cc_contract_address),
+                        EthCall::to(&data, &self.config.diamond_contract_address),
                         "latest"
                     ],
                 )
@@ -725,7 +585,8 @@ impl ChainConnector for HttpChainConnector {
         }
         .abi_encode();
 
-        self.send_tx(data, &self.config.cc_contract_address).await
+        self.send_tx(data, &self.config.diamond_contract_address)
+            .await
     }
 
     async fn get_deal_statuses(&self, deal_ids: Vec<DealId>) -> Result<Vec<Result<Deal::Status>>> {
@@ -757,7 +618,7 @@ impl ChainConnector for HttpChainConnector {
         }
         .abi_encode();
 
-        self.send_tx(data, &self.config.market_contract_address)
+        self.send_tx(data, &self.config.diamond_contract_address)
             .await
     }
 
@@ -838,9 +699,7 @@ mod tests {
         let (connector, _) = HttpChainConnector::new(
             server_config::ChainConfig {
                 http_endpoint: url.to_string(),
-                cc_contract_address: "0x0E62f5cfA5189CA34E79CCB03829C064405790aD".to_string(),
-                core_contract_address: "0x2f5224b7Cb8bd98d9Ef61c247F4741758E8E873d".to_string(),
-                market_contract_address: "0x1dC1eB8fc8dBc35be6fE75ceba05C7D410a2e721".to_string(),
+                diamond_contract_address: "0x2f5224b7Cb8bd98d9Ef61c247F4741758E8E873d".to_string(),
                 network_id: 3525067388221321,
                 wallet_key: PrivateKey::from_str(
                     "0x97a2456e78c4894c62eef6031972d1ca296ed40bf311ab54c231f13db59fc428",

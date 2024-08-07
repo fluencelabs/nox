@@ -313,7 +313,6 @@ pub struct SwarmConfig {
     pub extend_system_services: Vec<system_services::PackageDistro>,
     pub override_system_services_config: Option<system_services_config::SystemServicesConfig>,
     pub http_port: u16,
-    pub connector_api_endpoint: Option<String>,
     pub chain_config: Option<ChainConfig>,
     pub cc_events_dir: Option<PathBuf>,
     pub network_key: NetworkKey,
@@ -344,7 +343,6 @@ impl SwarmConfig {
             extend_system_services: vec![],
             override_system_services_config: None,
             http_port: 0,
-            connector_api_endpoint: None,
             chain_config: None,
             cc_events_dir: None,
             network_key,
@@ -460,9 +458,6 @@ pub async fn create_swarm_with_runtime<RT: AquaRuntime>(
             })
             .collect();
 
-        if let Some(endpoint) = config.connector_api_endpoint.clone() {
-            resolved.system_services.decider.network_api_endpoint = endpoint;
-        }
 
         let management_peer_id = libp2p::identity::Keypair::from(config.management_keypair.clone())
             .public()

@@ -329,34 +329,6 @@ impl UnresolvedNodeConfig {
                 _ => {}
             }
         }
-        if let Ok(decider_api_endpoint) = std::env::var("FLUENCE_ENV_CONNECTOR_API_ENDPOINT") {
-            log::warn!(
-                "Override configuration of decider system spell (api endpoint) from ENV to {}",
-                decider_api_endpoint
-            );
-            self.system_services.decider.network_api_endpoint = decider_api_endpoint;
-        }
-
-        if let Ok(decider_contract_addr) = std::env::var("FLUENCE_ENV_CONNECTOR_CONTRACT_ADDRESS") {
-            log::warn!(
-                "Override configuration of decider system spell (contract address) from ENV to  {}",
-                decider_contract_addr
-            );
-            self.system_services.decider.matcher_address = decider_contract_addr;
-        }
-
-        if let Ok(decider_from_block) = std::env::var("FLUENCE_ENV_CONNECTOR_FROM_BLOCK") {
-            log::warn!(
-                "Override configuration of decider system spell (from block) from ENV to {}",
-                decider_from_block
-            );
-            self.system_services.decider.start_block = decider_from_block;
-        }
-
-        if let Ok(decider_wallet_key) = std::env::var("FLUENCE_ENV_CONNECTOR_WALLET_KEY") {
-            log::warn!("Override configuration of decider system spell (wallet key) from ENV");
-            self.system_services.decider.wallet_key = Some(decider_wallet_key);
-        }
 
         if let Ok(worker_ipfs_multiaddr) = std::env::var("FLUENCE_ENV_DECIDER_IPFS_MULTIADDR") {
             log::warn!(
@@ -364,21 +336,6 @@ impl UnresolvedNodeConfig {
                 worker_ipfs_multiaddr
             );
             self.system_services.decider.worker_ipfs_multiaddr = worker_ipfs_multiaddr;
-        }
-
-        if let Ok(worker_gas) = std::env::var("FLUENCE_ENV_CONNECTOR_WORKER_GAS") {
-            match worker_gas.parse() {
-                Ok(worker_gas) => {
-                    log::warn!(
-                        "Override configuration of decider system spell (worker gas) from ENV to {}", worker_gas
-                    );
-                    self.system_services.decider.worker_gas = worker_gas;
-                }
-                Err(err) => log::warn!(
-                    "Unable to override worker gas, value is not a valid u64: {}",
-                    err
-                ),
-            }
         }
     }
 }
@@ -634,10 +591,7 @@ impl KeypairConfig {
 #[derivative(Debug)]
 pub struct ChainConfig {
     pub http_endpoint: String,
-    // TODO get all addresses from Core contract
-    pub core_contract_address: String,
-    pub cc_contract_address: String,
-    pub market_contract_address: String,
+    pub diamond_contract_address: String,
     pub network_id: u64,
     pub wallet_key: PrivateKey,
     /// If none, comes from the chain

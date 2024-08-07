@@ -16,14 +16,14 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-
 use connected_client::ConnectedClient;
-use created_swarm::make_swarms;
+use created_swarm::{make_swarms, make_swarms_with_cfg};
 use eyre::Context;
 use hex::FromHex;
 use log_utils::enable_logs;
 use maplit::hashmap;
 use serde_json::{json, Value};
+use test_utils::get_default_chain_config;
 use workers::CUID;
 
 pub(crate) async fn create_worker(client: &mut ConnectedClient, deal_id: &str) -> String {
@@ -153,7 +153,21 @@ async fn test_resolve_subnet_on_worker() {
         .wrap_err("decode test data")
         .unwrap();
 
-    let swarms = make_swarms(1).await;
+    // Create a mock
+    let mut server = mockito::Server::new_async().await;
+    let url = server.url();
+    let _mock = server
+        .mock("POST", "/")
+        .expect(1)
+        .with_status(429)
+        .with_header("content-type", "application/json")
+        .create();
+
+    let swarms = make_swarms_with_cfg(1, move |mut cfg| {
+        cfg.chain_config = Some(get_default_chain_config(&url));
+        cfg
+    })
+    .await;
 
     let mut client = ConnectedClient::connect_with_keypair(
         swarms[0].multiaddr.clone(),
@@ -179,7 +193,7 @@ async fn test_resolve_subnet_on_worker() {
 
     let expected = {
         let error = Value::Array(vec![Value::String(
-            "error sending jsonrpc request: 'Request rejected `429`'".to_string(),
+            "RPC error: Request rejected `429`".to_string(),
         )]);
         let mut object_map = serde_json::Map::new();
         object_map.insert("error".to_string(), error);
