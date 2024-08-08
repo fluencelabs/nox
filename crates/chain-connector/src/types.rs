@@ -22,6 +22,7 @@ use crate::Deal::ComputeUnit;
 use alloy_primitives::U256;
 use ccp_shared::types::{Difficulty, GlobalNonce, CUID};
 use chain_data::parse_peer_id;
+use eyre::{Context, Report};
 use serde::{Deserialize, Serialize};
 use types::DealId;
 
@@ -148,14 +149,17 @@ pub struct Worker {
 }
 
 impl TryFrom<ComputeUnit> for Worker {
-    type Error = libp2p_identity::ParseError;
-    fn try_from(unit: ComputeUnit) -> std::result::Result<Self, Self::Error> {
-        let peer_id = parse_peer_id(&unit.peerId.0)?;
+    type Error = Report;
+    fn try_from(unit: ComputeUnit) -> eyre::Result<Self> {
         let mut worker_id = vec![];
         if !unit.workerId.is_zero() {
-            worker_id.push(parse_peer_id(&unit.workerId.0)?.to_base58())
+            let w_id = parse_peer_id(&unit.workerId.0)
+                .context("unit.workerId")?
+                .to_base58();
+            worker_id.push(w_id)
         }
         let cu_id = unit.id.to_string();
+        let peer_id = parse_peer_id(&unit.peerId.0).context("unit.peerId")?;
 
         Ok(Self {
             cu_ids: vec![cu_id],
