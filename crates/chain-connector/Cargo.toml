@@ -29,7 +29,7 @@ const-hex = { workspace = true }
 serde = { workspace = true }
 async-trait = { workspace = true }
 libipld = { workspace = true }
-libp2p-identity.workspace = true
+libp2p-identity = { workspace = true }
 
 [dev-dependencies]
 mockito = { workspace = true }
