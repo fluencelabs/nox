@@ -19,10 +19,11 @@
 
 #[macro_use]
 extern crate fstrings;
+use alloy_primitives::hex;
 use alloy_sol_types::sol_data::Array;
 use alloy_sol_types::SolType;
 use chain_connector::SubnetResolveResult;
-use chain_data::peer_id_to_bytes;
+use chain_data::{parse_peer_id, peer_id_to_bytes};
 use connected_client::ConnectedClient;
 use created_swarm::{
     make_swarms, make_swarms_with_cfg, make_swarms_with_keypair,
@@ -2376,26 +2377,23 @@ async fn aliases_restart() {
 #[ignore]
 #[tokio::test]
 async fn subnet_resolve() {
-    let peer_id1 = RandomPeerId::random();
-    let worker_id1 = RandomPeerId::random();
     let cu_1 = chain_connector::Deal::ComputeUnit {
-        id: Default::default(),
-        workerId: peer_id_to_bytes(worker_id1).into(),
-        peerId: peer_id_to_bytes(peer_id1).into(),
+        id: hex!("0000000000000000000000000000000000000000000000000000000000000001").into(),
+        workerId: peer_id_to_bytes(RandomPeerId::random()).into(),
+        peerId: peer_id_to_bytes(RandomPeerId::random()).into(),
         provider: Default::default(),
         joinedEpoch: Default::default(),
     };
 
-    let peer_id2 = RandomPeerId::random();
     let cu_2 = chain_connector::Deal::ComputeUnit {
-        id: Default::default(),
+        id: hex!("0000000000000000000000000000000000000000000000000000000000000002").into(),
         workerId: Default::default(),
-        peerId: peer_id_to_bytes(peer_id2).into(),
+        peerId: peer_id_to_bytes(RandomPeerId::random()).into(),
         provider: Default::default(),
         joinedEpoch: Default::default(),
     };
     let resolve_result = encode_hex_0x(Array::<chain_connector::Deal::ComputeUnit>::abi_encode(
-        &vec![cu_1, cu_2],
+        &vec![cu_1.clone(), cu_2.clone()],
     ));
 
     // Create a mock
@@ -2480,26 +2478,20 @@ async fn subnet_resolve() {
     let workers: Vec<_> = subnet
         .workers
         .iter()
-        .map(|p| (p.cu_ids.clone(), p.host_id.as_str(), p.worker_id.clone()))
+        .map(|p| (p.cu_ids.clone(), p.host_id.clone(), p.worker_id.clone()))
         .collect();
 
     assert_eq!(
         workers,
         vec![
             (
-                vec![
-                    "0x0000000000000000000000000000000000000000000000000000000000000000"
-                        .to_string()
-                ],
-                peer_id1.to_string().as_str(),
-                vec![worker_id1.to_string()],
+                vec![encode_hex_0x(cu_1.id.0).to_string()],
+                parse_peer_id(&cu_1.peerId.0).unwrap().to_base58(),
+                vec![parse_peer_id(&cu_1.workerId.0).unwrap().to_base58()],
             ),
             (
-                vec![
-                    "0x0000000000000000000000000000000000000000000000000000000000000000"
-                        .to_string()
-                ],
-                peer_id2.to_string().as_str(),
+                vec![encode_hex_0x(cu_2.id.0).to_string()],
+                parse_peer_id(&cu_2.peerId.0).unwrap().to_base58(),
                 vec![]
             )
         ]

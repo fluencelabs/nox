@@ -48,7 +48,7 @@ use crate::avm_config::AVMConfig;
 use crate::kademlia_config::{KademliaConfig, UnresolvedKademliaConfig};
 use crate::keys::{decode_key, decode_secret_key, load_key};
 use crate::services_config::ServicesConfig;
-use crate::system_services_config::{ServiceKey, SystemServicesConfig};
+use crate::system_services_config::SystemServicesConfig;
 use crate::BootstrapConfig;
 
 use super::defaults::*;
@@ -213,7 +213,7 @@ impl TryFrom<&Network> for StreamProtocol {
 }
 
 impl UnresolvedNodeConfig {
-    pub fn resolve(mut self, persistent_base_dir: &Path) -> eyre::Result<NodeConfig> {
+    pub fn resolve(self, persistent_base_dir: &Path) -> eyre::Result<NodeConfig> {
         let bootstrap_nodes = match self.local {
             Some(true) => vec![],
             _ => self.bootstrap_nodes,
