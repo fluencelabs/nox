@@ -56,7 +56,7 @@ mod tests {
             88, 198, 255, 218, 126, 170, 188, 84, 84, 39, 255, 137, 18, 55, 7, 139, 121, 207, 149,
             42, 196, 115, 102, 160, 4, 47, 227, 62, 7, 53, 189, 15,
         ];
-        let peer_id = parse_peer_id(bytes.into()).expect("parse peer_id from Token");
+        let peer_id = parse_peer_id(&bytes).expect("parse peer_id from Token");
         assert_eq!(
             peer_id.to_string(),
             String::from("12D3KooWFnv3Qc25eKpTDCNBoW1jXHMHHHSzcJoPkHai1b2dHNra")
@@ -64,7 +64,7 @@ mod tests {
 
         let hex = "0x7a82a5feefcaad4a89c689412031e5f87c02b29e3fced583be5f05c7077354b7";
         let bytes = decode_hex(hex).expect("parse peer_id from hex");
-        let peer_id = parse_peer_id(bytes).expect("parse peer_id from Token");
+        let peer_id = parse_peer_id(&bytes).expect("parse peer_id from Token");
         assert_eq!(
             peer_id.to_string(),
             String::from("12D3KooWJ4bTHirdTFNZpCS72TAzwtdmavTBkkEXtzo6wHL25CtE")
@@ -96,7 +96,7 @@ mod tests {
 
         let m = parse_log::<ComputeUnitMatched>(log1).expect("error parsing Match from log");
         assert_eq!(
-            parse_peer_id(m.peerId.to_vec()).unwrap().to_string(),
+            parse_peer_id(m.peerId.as_slice()).unwrap().to_string(),
             "12D3KooWJ4bTHirdTFNZpCS72TAzwtdmavTBkkEXtzo6wHL25CtE"
         );
         assert_eq!(
@@ -120,7 +120,7 @@ mod tests {
 
         let m = parse_log::<ComputeUnitMatched>(log2).expect("error parsing Match from log");
         assert_eq!(
-            parse_peer_id(m.peerId.to_vec()).unwrap().to_string(),
+            parse_peer_id(m.peerId.as_slice()).unwrap().to_string(),
             "12D3KooWJ4bTHirdTFNZpCS72TAzwtdmavTBkkEXtzo6wHL25CtE"
         );
         assert_eq!(

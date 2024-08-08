@@ -23,7 +23,6 @@ use alloy_sol_types::sol_data::Array;
 use alloy_sol_types::SolType;
 use chain_connector::SubnetResolveResult;
 use chain_data::peer_id_to_bytes;
-use clarity::PrivateKey;
 use connected_client::ConnectedClient;
 use created_swarm::{
     make_swarms, make_swarms_with_cfg, make_swarms_with_keypair,
@@ -46,7 +45,6 @@ use now_millis::now_ms;
 use particle_protocol::Particle;
 use serde::Deserialize;
 use serde_json::{json, Value as JValue};
-use server_config::ChainConfig;
 use service_modules::load_module;
 use std::collections::HashMap;
 use std::default::Default;
