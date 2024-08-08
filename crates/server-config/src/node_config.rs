@@ -214,8 +214,6 @@ impl TryFrom<&Network> for StreamProtocol {
 
 impl UnresolvedNodeConfig {
     pub fn resolve(mut self, persistent_base_dir: &Path) -> eyre::Result<NodeConfig> {
-        self.load_system_services_envs();
-
         let bootstrap_nodes = match self.local {
             Some(true) => vec![],
             _ => self.bootstrap_nodes,
@@ -287,56 +285,6 @@ impl UnresolvedNodeConfig {
         };
 
         Ok(result)
-    }
-
-    // This is a temporary solution to save backward compatibility for some time
-    // Couldn't figure out how to use layered configs for this
-    // Print warning not to forget to fix it in the future
-    fn load_system_services_envs(&mut self) {
-        if let Ok(aqua_ipfs_external_addr) =
-            std::env::var("FLUENCE_ENV_AQUA_IPFS_EXTERNAL_API_MULTIADDR")
-        {
-            log::warn!(
-                "Override configuration of aqua-ipfs system service (external multiaddr) from ENV"
-            );
-            self.system_services.aqua_ipfs.external_api_multiaddr = aqua_ipfs_external_addr;
-        }
-
-        if let Ok(aqua_ipfs_local_addr) = std::env::var("FLUENCE_ENV_AQUA_IPFS_LOCAL_API_MULTIADDR")
-        {
-            log::warn!(
-                "Override configuration of aqua-ipfs system service (local multiaddr) from ENV"
-            );
-            self.system_services.aqua_ipfs.local_api_multiaddr = aqua_ipfs_local_addr;
-        }
-
-        if let Ok(enable_decider) = std::env::var("FLUENCE_ENV_CONNECTOR_JOIN_ALL_DEALS") {
-            match enable_decider.as_str() {
-                "true" => {
-                    log::warn!(
-                        "Override configuration of system services (enable decider) from ENV"
-                    );
-                    self.system_services.enable.push(ServiceKey::Decider);
-                }
-                "false" => {
-                    log::warn!(
-                        "Override configuration of system services (disable decider) from ENV"
-                    );
-                    self.system_services
-                        .enable
-                        .retain(|key| *key != ServiceKey::Decider);
-                }
-                _ => {}
-            }
-        }
-
-        if let Ok(worker_ipfs_multiaddr) = std::env::var("FLUENCE_ENV_DECIDER_IPFS_MULTIADDR") {
-            log::warn!(
-                "Override configuration of decider system spell (ipfs multiaddr) from ENV to {}",
-                worker_ipfs_multiaddr
-            );
-            self.system_services.decider.worker_ipfs_multiaddr = worker_ipfs_multiaddr;
-        }
     }
 }
 
