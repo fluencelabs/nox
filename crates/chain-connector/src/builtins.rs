@@ -30,6 +30,17 @@ use std::sync::Arc;
 use types::peer_scope::WorkerId;
 use types::DealId;
 
+// macro to generate a closure for a builtin function
+macro_rules! make_builtin_closure {
+    ($connector:expr, $function:ident) => {{
+        let connector = $connector.clone();
+        ServiceFunction::Immut(Box::new(move |args, params| {
+            let connector = connector.clone();
+            async move { wrap($function(connector, args, params).await) }.boxed()
+        }))
+    }};
+}
+
 pub(crate) fn make_connector_builtins(
     connector: Arc<HttpChainConnector>,
 ) -> HashMap<String, CustomService> {
@@ -38,14 +49,17 @@ pub(crate) fn make_connector_builtins(
         "connector".to_string(),
         CustomService::new(
             vec![
-                ("get_deals", make_get_deals_closure(connector.clone())),
+                (
+                    "get_deals",
+                    make_builtin_closure!(connector, get_deals_builtin),
+                ),
                 (
                     "register_worker",
-                    make_register_worker_closure(connector.clone()),
+                    make_builtin_closure!(connector, register_worker_builtin),
                 ),
                 (
                     "get_tx_receipts",
-                    make_get_tx_receipts_closure(connector.clone()),
+                    make_builtin_closure!(connector, get_tx_receipts_builtin),
                 ),
             ],
             None,
@@ -55,43 +69,20 @@ pub(crate) fn make_connector_builtins(
     builtins.insert(
         "subnet".to_string(),
         CustomService::new(
-            vec![("resolve", make_resolve_subnet_closure(connector.clone()))],
+            vec![(
+                "resolve",
+                make_builtin_closure!(connector, resolve_subnet_builtin),
+            )],
             None,
         ),
     );
     builtins
 }
 
-fn make_resolve_subnet_closure(connector: Arc<HttpChainConnector>) -> ServiceFunction {
-    ServiceFunction::Immut(Box::new(move |args, _params| {
-        let connector = connector.clone();
-        async move { wrap(resolve_subnet_builtin(connector, args).await) }.boxed()
-    }))
-}
-
-fn make_get_deals_closure(connector: Arc<HttpChainConnector>) -> ServiceFunction {
-    ServiceFunction::Immut(Box::new(move |_, params| {
-        let connector = connector.clone();
-        async move { wrap(get_deals_builtin(connector, params).await) }.boxed()
-    }))
-}
-
-fn make_register_worker_closure(connector: Arc<HttpChainConnector>) -> ServiceFunction {
-    ServiceFunction::Immut(Box::new(move |args, params| {
-        let connector = connector.clone();
-        async move { wrap(register_worker_builtin(connector, args, params).await) }.boxed()
-    }))
-}
-
-fn make_get_tx_receipts_closure(connector: Arc<HttpChainConnector>) -> ServiceFunction {
-    ServiceFunction::Immut(Box::new(move |args, params| {
-        let connector = connector.clone();
-        async move { wrap(get_tx_receipts_builtin(connector, args, params).await) }.boxed()
-    }))
-}
-
 async fn get_deals_builtin(
     connector: Arc<HttpChainConnector>,
+    _args: Args,
+
     params: ParticleParams,
 ) -> Result<JValue, JError> {
     if params.init_peer_id != connector.host_id {
@@ -169,6 +160,7 @@ async fn get_tx_receipts_builtin(
 async fn resolve_subnet_builtin(
     connector: Arc<HttpChainConnector>,
     args: Args,
+    _params: ParticleParams,
 ) -> Result<JValue, JError> {
     let deal_id: String = Args::next("deal_id", &mut args.function_args.into_iter())?;
     let deal_id = DealId::from(deal_id);
