@@ -32,10 +32,10 @@ rand = { workspace = true }
 hex.workspace = true
 serde_with = { workspace = true }
 hex-utils = { workspace = true, features = ["serde_with"] }
-mockall = { version = "0.12.1", optional = true }
+mockall = { version = "0.13.0", optional = true }
 
 [dev-dependencies]
 tempfile = { workspace = true }
 hex.workspace = true
-mockall = "0.12.1"
+mockall = "0.13.0"
 cpu-utils = { workspace = true, features = ["mockall"] }
