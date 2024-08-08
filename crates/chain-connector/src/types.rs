@@ -142,7 +142,7 @@ impl RawTxReceipt {
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct Worker {
-    pub unit_id: String,
+    pub cu_ids: Vec<String>,
     pub host_id: String,
     pub worker_id: Vec<String>,
 }
@@ -155,10 +155,10 @@ impl TryFrom<ComputeUnit> for Worker {
         if !unit.workerId.is_zero() {
             worker_id.push(parse_peer_id(&unit.workerId.0)?.to_base58())
         }
-        let unit_id = unit.id.to_string();
+        let cu_id = unit.id.to_string();
 
         Ok(Self {
-            unit_id,
+            cu_ids: vec![cu_id],
             host_id: peer_id.to_base58(),
             worker_id,
         })

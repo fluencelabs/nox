@@ -2480,19 +2480,25 @@ async fn subnet_resolve() {
     let workers: Vec<_> = subnet
         .workers
         .iter()
-        .map(|p| (p.unit_id.as_str(), p.host_id.as_str(), p.worker_id.clone()))
+        .map(|p| (p.cu_ids.clone(), p.host_id.as_str(), p.worker_id.clone()))
         .collect();
 
     assert_eq!(
         workers,
         vec![
             (
-                "0x0000000000000000000000000000000000000000000000000000000000000000",
+                vec![
+                    "0x0000000000000000000000000000000000000000000000000000000000000000"
+                        .to_string()
+                ],
                 peer_id1.to_string().as_str(),
                 vec![worker_id1.to_string()],
             ),
             (
-                "0x0000000000000000000000000000000000000000000000000000000000000000",
+                vec![
+                    "0x0000000000000000000000000000000000000000000000000000000000000000"
+                        .to_string()
+                ],
                 peer_id2.to_string().as_str(),
                 vec![]
             )
