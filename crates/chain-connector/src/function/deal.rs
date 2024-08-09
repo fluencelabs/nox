@@ -16,7 +16,7 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-
+use alloy_primitives::FixedBytes;
 use alloy_sol_types::{sol, SolType};
 use hex_utils::decode_hex;
 use serde::{Deserialize, Serialize};
@@ -61,10 +61,15 @@ sol! {
         /// @dev Set worker ID for a compute unit. Compute unit can have only one worker ID
         function setWorker(bytes32 computeUnitId, bytes32 workerId) external;
 
+        /// @dev Removes worker from the deal
+        function removeWorker(bytes32 onchainId) external;
+
         /// @dev Returns the compute units info by provider
         function getComputeUnits() public view returns (ComputeUnit[] memory);
     }
 }
+
+pub type OnChainWorkerID = FixedBytes<32>;
 
 impl CIDV1 {
     pub fn from_hex(hex: &str) -> Result<Self, ConnectorError> {
