@@ -362,10 +362,7 @@ impl HttpChainConnector {
     fn difficulty_params(&self) -> ArrayParams {
         let data = Core::difficultyCall {}.abi_encode();
 
-        rpc_params![
-            EthCall::to(&data, &self.config.diamond_contract_address),
-            "latest"
-        ]
+        self.make_latest_diamond_rpc_params(data)
     }
 
     pub async fn get_deal_compute_units(&self, deal_id: &DealId) -> Result<Vec<Deal::ComputeUnit>> {
@@ -386,43 +383,32 @@ impl HttpChainConnector {
 
     fn init_timestamp_params(&self) -> ArrayParams {
         let data = Core::initTimestampCall {}.abi_encode();
-        rpc_params![
-            EthCall::to(&data, &self.config.diamond_contract_address),
-            "latest"
-        ]
+        self.make_latest_diamond_rpc_params(data)
     }
     fn global_nonce_params(&self) -> ArrayParams {
         let data = Capacity::getGlobalNonceCall {}.abi_encode();
-        rpc_params![
-            EthCall::to(&data, &self.config.diamond_contract_address),
-            "latest"
-        ]
+        self.make_latest_diamond_rpc_params(data)
     }
     fn current_epoch_params(&self) -> ArrayParams {
         let data = Core::currentEpochCall {}.abi_encode();
-        rpc_params![
-            EthCall::to(&data, &self.config.diamond_contract_address),
-            "latest"
-        ]
+        self.make_latest_diamond_rpc_params(data)
     }
     fn epoch_duration_params(&self) -> ArrayParams {
         let data = Core::epochDurationCall {}.abi_encode();
-        rpc_params![
-            EthCall::to(&data, &self.config.diamond_contract_address),
-            "latest"
-        ]
+        self.make_latest_diamond_rpc_params(data)
     }
 
     fn min_proofs_per_epoch_params(&self) -> ArrayParams {
         let data = Core::minProofsPerEpochCall {}.abi_encode();
-        rpc_params![
-            EthCall::to(&data, &self.config.diamond_contract_address),
-            "latest"
-        ]
+        self.make_latest_diamond_rpc_params(data)
     }
 
     fn max_proofs_per_epoch_params(&self) -> ArrayParams {
         let data = Core::maxProofsPerEpochCall {}.abi_encode();
+        self.make_latest_diamond_rpc_params(data)
+    }
+
+    fn make_latest_diamond_rpc_params(&self, data: Vec<u8>) -> ArrayParams {
         rpc_params![
             EthCall::to(&data, &self.config.diamond_contract_address),
             "latest"
@@ -440,13 +426,7 @@ impl ChainConnector for HttpChainConnector {
         .abi_encode();
         let resp: String = process_response(
             self.client
-                .request(
-                    "eth_call",
-                    rpc_params![
-                        EthCall::to(&data, &self.config.diamond_contract_address),
-                        "latest"
-                    ],
-                )
+                .request("eth_call", self.make_latest_diamond_rpc_params(data))
                 .await,
         )?;
         let compute_peer = <ComputePeer as SolType>::abi_decode(&decode_hex(&resp)?, true)?;
@@ -516,13 +496,7 @@ impl ChainConnector for HttpChainConnector {
 
         let resp: String = process_response(
             self.client
-                .request(
-                    "eth_call",
-                    rpc_params![
-                        EthCall::to(&data, &self.config.diamond_contract_address),
-                        "latest"
-                    ],
-                )
+                .request("eth_call", self.make_latest_diamond_rpc_params(data))
                 .await,
         )?;
         let bytes = decode_hex(&resp)?;
@@ -539,13 +513,7 @@ impl ChainConnector for HttpChainConnector {
 
         let resp: String = process_response(
             self.client
-                .request(
-                    "eth_call",
-                    rpc_params![
-                        EthCall::to(&data, &self.config.diamond_contract_address),
-                        "latest"
-                    ],
-                )
+                .request("eth_call", self.make_latest_diamond_rpc_params(data))
                 .await,
         )?;
         Ok(<CCStatus as SolType>::abi_decode(
