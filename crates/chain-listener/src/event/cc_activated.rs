@@ -69,7 +69,7 @@ mod test {
         assert!(result.is_ok(), "can't parse data: {:?}", result);
         let result = result.unwrap();
         assert_eq!(
-            parse_peer_id(result.peerId.to_vec()).unwrap().to_string(),
+            parse_peer_id(result.peerId.as_slice()).unwrap().to_string(),
             "12D3KooWP7RkvkBhbe7ATd451zxTifzF6Gm1uzCDadqQueET7EMe" // it's also the second topic
         );
 

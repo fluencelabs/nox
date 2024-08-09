@@ -16,13 +16,15 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-use ccp_shared::types::CUID;
-use serde::{Deserialize, Serialize};
-
-use types::DealId;
-
 use crate::error::ConnectorError;
 use crate::function::Deal;
+use crate::Deal::ComputeUnit;
+use alloy_primitives::U256;
+use ccp_shared::types::{Difficulty, GlobalNonce, CUID};
+use chain_data::parse_peer_id;
+use eyre::{eyre, Report};
+use serde::{Deserialize, Serialize};
+use types::DealId;
 
 pub type Result<T> = std::result::Result<T, ConnectorError>;
 
@@ -137,4 +139,51 @@ impl RawTxReceipt {
             block_number: self.block_number,
         }
     }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct Worker {
+    pub cu_ids: Vec<String>,
+    pub host_id: String,
+    pub worker_id: Vec<String>,
+}
+
+impl TryFrom<ComputeUnit> for Worker {
+    type Error = Report;
+    fn try_from(unit: ComputeUnit) -> eyre::Result<Self> {
+        let mut worker_id = vec![];
+        if !unit.workerId.is_zero() {
+            let w_id = parse_peer_id(&unit.workerId.0)
+                .map_err(|err| eyre!("Failed to parse unit.workerId: {err}"))?
+                .to_base58();
+            worker_id.push(w_id)
+        }
+        let cu_id = unit.id.to_string();
+        let peer_id = parse_peer_id(&unit.peerId.0)
+            .map_err(|err| eyre!("Failed to parse unit.peerId: {err}"))?;
+
+        Ok(Self {
+            cu_ids: vec![cu_id],
+            host_id: peer_id.to_base58(),
+            worker_id,
+        })
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct SubnetResolveResult {
+    pub success: bool,
+    pub workers: Vec<Worker>,
+    pub error: Vec<String>,
+}
+
+pub struct CCInitParams {
+    pub difficulty: Difficulty,
+    pub init_timestamp: U256,
+    pub current_timestamp: U256,
+    pub global_nonce: GlobalNonce,
+    pub current_epoch: U256,
+    pub epoch_duration: U256,
+    pub min_proofs_per_epoch: U256,
+    pub max_proofs_per_epoch: U256,
 }

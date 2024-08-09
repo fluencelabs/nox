@@ -253,34 +253,12 @@ pub fn default_registry_replicate_spell_period_sec() -> u32 {
     3600
 }
 
-pub fn default_decider_network_api_endpoint() -> String {
-    "https://endpoints.omniatech.io/v1/matic/mumbai/public".to_string()
-}
-
-pub fn default_matcher_address() -> String {
-    // on mumbai
-    "0x93A2897deDcC5478a9581808F5EC25F4FadbC312".to_string()
-}
-
-pub fn default_decider_start_block_hex() -> String {
-    "latest".to_string()
-}
-
-pub fn default_decider_worker_gas() -> u64 {
-    210_000
-}
-
 pub fn default_ipfs_binary_path() -> PathBuf {
     "/usr/bin/ipfs".into()
 }
 
 pub fn default_curl_binary_path() -> PathBuf {
     "/usr/bin/curl".into()
-}
-
-pub fn default_decider_network_id() -> u64 {
-    // 80001 = polygon mumbai
-    80001
 }
 
 pub fn default_effectors() -> HashMap<String, (String, HashMap<String, PathBuf>)> {

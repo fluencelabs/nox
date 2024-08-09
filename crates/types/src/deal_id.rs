@@ -25,6 +25,12 @@ use std::fmt::Display;
 pub struct DealId(String);
 
 impl DealId {
+    // TODO: always validate on creation
+    /// 40 hex chars + 2 for "0x" prefix; Deal ID is EVM contract address;
+    pub fn is_valid(&self) -> bool {
+        Self::normalize(&self.0).len() == 40
+    }
+
     pub fn normalize(str: &str) -> String {
         str.trim_start_matches("0x").to_ascii_lowercase()
     }

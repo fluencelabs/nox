@@ -21,9 +21,11 @@ local-vm = { workspace = true }
 control-macro = { workspace = true }
 json-utils = { workspace = true }
 system-services = { workspace = true }
-subnet-resolver = { workspace = true }
 fs-utils = { workspace = true }
 server-config = { workspace = true }
+chain-connector = { workspace = true }
+chain-data = { workspace = true }
+hex-utils = { workspace = true }
 
 log-utils = { workspace = true }
 fluence-spell-dtos = { workspace = true }
@@ -63,3 +65,5 @@ tempfile = { workspace = true }
 jsonrpsee = { workspace = true, features = ["server"] }
 hex = { workspace = true }
 clarity = { workspace = true }
+alloy-sol-types = { workspace = true }
+alloy-primitives = { workspace = true }
