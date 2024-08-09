@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["VMUtilsError"],"fn":["create_domain","remove_domain","start_vm","stop_vm"],"struct":["CreateVMDomainParams","NonEmpty"]};

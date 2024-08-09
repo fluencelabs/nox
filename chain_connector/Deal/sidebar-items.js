@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["DealCalls","Status"],"struct":["CIDV1","ComputeUnit","appCIDCall","appCIDReturn","getComputeUnitsCall","getComputeUnitsReturn","getStatusCall","getStatusReturn","setWorkerCall","setWorkerReturn"]};

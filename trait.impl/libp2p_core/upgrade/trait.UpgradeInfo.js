@@ -1,0 +1,3 @@
+(function() {var implementors = {
+"particle_protocol":[["impl UpgradeInfo for <a class=\"enum\" href=\"particle_protocol/enum.HandlerMessage.html\" title=\"enum particle_protocol::HandlerMessage\">HandlerMessage</a>"],["impl UpgradeInfo for <a class=\"struct\" href=\"particle_protocol/struct.ProtocolConfig.html\" title=\"struct particle_protocol::ProtocolConfig\">ProtocolConfig</a>"]]
+};if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

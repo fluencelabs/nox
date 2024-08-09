@@ -1,0 +1,3 @@
+(function() {var implementors = {
+"peer_metrics":[["impl EncodeLabelSet for <a class=\"struct\" href=\"peer_metrics/struct.WorkerLabel.html\" title=\"struct peer_metrics::WorkerLabel\">WorkerLabel</a>"],["impl EncodeLabelSet for <a class=\"struct\" href=\"peer_metrics/struct.ParticleLabel.html\" title=\"struct peer_metrics::ParticleLabel\">ParticleLabel</a>"]]
+};if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()
