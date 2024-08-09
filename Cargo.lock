@@ -1401,6 +1401,7 @@ dependencies = [
  "alloy-sol-types",
  "alloy_serde_macro",
  "backoff",
+ "bs58",
  "ccp-rpc-client",
  "ccp-shared",
  "chain-connector",

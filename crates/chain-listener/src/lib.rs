@@ -22,7 +22,7 @@
 #![feature(extract_if)]
 #![feature(btree_extract_if)]
 #![feature(result_option_inspect)]
-
+#![feature(slice_as_chunks)]
 extern crate core;
 
 pub use listener::ChainListener;

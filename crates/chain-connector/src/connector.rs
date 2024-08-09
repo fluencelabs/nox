@@ -42,7 +42,7 @@ use crate::types::*;
 use crate::ConnectorError::{FieldNotFound, InvalidU256, ResponseParseError};
 use crate::Deal::CIDV1;
 use crate::Offer::{ComputePeer, ComputeUnit};
-use crate::{CCStatus, Capacity, CommitmentId, Core, Deal, Offer};
+use crate::{CCStatus, Capacity, CommitmentId, Core, Deal, Offer, OnChainWorkerID};
 use chain_data::{peer_id_to_bytes, BlockHeader};
 use fluence_libp2p::PeerId;
 use hex_utils::{decode_hex, encode_hex_0x};
@@ -72,7 +72,11 @@ pub trait ChainConnector: Send + Sync {
 
     async fn get_deal_statuses(&self, deal_ids: Vec<DealId>) -> Result<Vec<Result<Deal::Status>>>;
 
-    async fn exit_deal(&self, cu_id: &CUID) -> Result<String>;
+    async fn exit_deal(
+        &self,
+        deal_id: &DealId,
+        on_chain_worker_id: OnChainWorkerID,
+    ) -> Result<String>;
 
     async fn get_tx_statuses(&self, tx_hashes: Vec<String>) -> Result<Vec<Result<Option<bool>>>>;
 
@@ -365,8 +369,8 @@ impl HttpChainConnector {
         self.make_latest_diamond_rpc_params(data)
     }
 
-    pub async fn get_deal_compute_units(&self, deal_id: &DealId) -> Result<Vec<Deal::ComputeUnit>> {
-        let data = Deal::getComputeUnitsCall {}.abi_encode();
+    pub async fn get_deal_workers(&self, deal_id: &DealId) -> Result<Vec<Deal::Worker>> {
+        let data = Deal::getWorkersCall {}.abi_encode();
         let resp: String = process_response(
             self.client
                 .request(
@@ -376,9 +380,9 @@ impl HttpChainConnector {
                 .await,
         )?;
         let bytes = decode_hex(&resp)?;
-        let compute_units = <Array<Deal::ComputeUnit> as SolType>::abi_decode(&bytes, true)?;
+        let workers = <Array<Deal::Worker> as SolType>::abi_decode(&bytes, true)?;
 
-        Ok(compute_units)
+        Ok(workers)
     }
 
     fn init_timestamp_params(&self) -> ArrayParams {
@@ -580,14 +584,17 @@ impl ChainConnector for HttpChainConnector {
 
         Ok(statuses)
     }
-    async fn exit_deal(&self, cu_id: &CUID) -> Result<String> {
-        let data = Offer::returnComputeUnitFromDealCall {
-            unitId: cu_id.as_ref().into(),
+    async fn exit_deal(
+        &self,
+        deal_id: &DealId,
+        onchain_worker_id: OnChainWorkerID,
+    ) -> Result<String> {
+        let data = Deal::removeWorkerCall {
+            onchainId: onchain_worker_id,
         }
         .abi_encode();
 
-        self.send_tx(data, &self.config.diamond_contract_address)
-            .await
+        self.send_tx(data, &deal_id.to_address()).await
     }
 
     async fn get_tx_statuses(&self, tx_hashes: Vec<String>) -> Result<Vec<Result<Option<bool>>>> {

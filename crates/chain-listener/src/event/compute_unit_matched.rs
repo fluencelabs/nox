@@ -25,28 +25,31 @@ sol! {
         bytes32 hash;
     }
 
-    event ComputeUnitMatched(
+    event ComputeUnitsMatched(
         bytes32 indexed peerId,
         address deal,
-        bytes32 unitId,
-        uint256 dealCreationBlock,
+        bytes32 onchainWorkerId,
+        bytes32[] cuIds,
         CIDV1 appCID
     );
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::event::compute_unit_matched::ComputeUnitMatched;
-    use alloy_primitives::Uint;
+    use crate::event::compute_unit_matched::{ComputeUnitsMatched, CIDV1};
+    use alloy_primitives::Address;
     use alloy_sol_types::SolEvent;
-    use chain_data::{parse_log, parse_peer_id, Log};
-    use hex_utils::decode_hex;
+    use chain_data::{parse_log, parse_peer_id, peer_id_to_bytes, Log};
+    use fluence_libp2p::RandomPeerId;
+    use hex_utils::{decode_hex, encode_hex_0x};
+    use libipld::Cid;
+    use std::str::FromStr;
 
     #[test]
     fn topic() {
         assert_eq!(
-            ComputeUnitMatched::SIGNATURE_HASH.to_string(),
-            String::from("0xb1c5a9179c3104a43de668491f14c45778f00ec34d5deee023af204820483bdb")
+            ComputeUnitsMatched::SIGNATURE_HASH.to_string(),
+            String::from("0x6e5629a2cfaa82d1ea7ad51936794f666271fbd5068017020eaaafdbb017e615")
         );
     }
 
@@ -73,72 +76,76 @@ mod tests {
 
     #[test]
     fn parse() {
-        let data1 = "000000000000000000000000ffa0611a099ab68ad7c3c67b4ca5bbbee7a58b9900000000000000000000000000000000000000000000000000000000000000a000000000000000000000000000000000000000000000000000000000000000500155122000000000000000000000000000000000000000000000000000000000a146af49df31c99c79a30ec4ae2abb2445d8c5d202ea58fa9ea9cbff45d4152e".to_string();
-        let data2 = "00000000000000000000000067b2ad3866429282e16e55b715d12a77f85b7ce800000000000000000000000000000000000000000000000000000000000000a000000000000000000000000000000000000000000000000000000000000000560155122000000000000000000000000000000000000000000000000000000000a146af49df31c99c79a30ec4ae2abb2445d8c5d202ea58fa9ea9cbff45d4152e".to_string();
+        let peer_id1 = RandomPeerId::random();
+        let cu_id1 = [1u8; 32];
+        let deal1 = "0xFfA0611a099AB68AD7C3C67B4cA5bbBEE7a58B99";
+        let cid = "bafkreifbi2xutxzrzgohtiyoysxcvozeixmmluqc5jmpvhvjzp7ulvavfy";
+        let cid_bytes = Cid::from_str(cid).unwrap().to_bytes();
+        let encoded_cid = CIDV1 {
+            prefixes: cid_bytes[0..4].as_chunks::<4>().0[0].into(),
+            hash: cid_bytes[4..36].as_chunks::<32>().0[0].into(),
+        };
+        let event1 = ComputeUnitsMatched {
+            peerId: peer_id_to_bytes(peer_id1).into(),
+            deal: Address::from_slice(&decode_hex(deal1).unwrap()),
+            onchainWorkerId: Default::default(),
+            cuIds: vec![cu_id1.into()],
+            appCID: encoded_cid.clone(),
+        };
+
+        let peer_id2 = RandomPeerId::random();
+        let cu_id2 = [2u8; 32];
+        let cu_id3 = [3u8; 32];
+        let deal2 = "0x67b2AD3866429282e16e55B715d12A77F85B7CE8";
+        let event2 = ComputeUnitsMatched {
+            peerId: peer_id_to_bytes(peer_id2).into(),
+            deal: Address::from_slice(&decode_hex(deal2).unwrap()),
+            onchainWorkerId: Default::default(),
+            cuIds: vec![cu_id2.into(), cu_id3.into()],
+            appCID: encoded_cid,
+        };
         let log1 = Log {
-            data: data1,
+            data: encode_hex_0x(&event1.encode_data()),
             block_number: "0x0".to_string(),
             removed: false,
             topics: vec![
-                ComputeUnitMatched::SIGNATURE_HASH.to_string(),
-                "0x7a82a5feefcaad4a89c689412031e5f87c02b29e3fced583be5f05c7077354b7".to_string(),
+                ComputeUnitsMatched::SIGNATURE_HASH.to_string(),
+                encode_hex_0x(&peer_id_to_bytes(peer_id1)),
             ],
         };
         let log2 = Log {
-            data: data2,
+            data: encode_hex_0x(&event2.encode_data()),
             block_number: "0x1".to_string(),
             removed: false,
             topics: vec![
-                ComputeUnitMatched::SIGNATURE_HASH.to_string(),
-                "0x7a82a5feefcaad4a89c689412031e5f87c02b29e3fced583be5f05c7077354b7".to_string(),
+                ComputeUnitsMatched::SIGNATURE_HASH.to_string(),
+                encode_hex_0x(&peer_id_to_bytes(peer_id2)),
             ],
         };
 
-        let m = parse_log::<ComputeUnitMatched>(log1).expect("error parsing Match from log");
-        assert_eq!(
-            parse_peer_id(m.peerId.as_slice()).unwrap().to_string(),
-            "12D3KooWJ4bTHirdTFNZpCS72TAzwtdmavTBkkEXtzo6wHL25CtE"
-        );
-        assert_eq!(
-            m.deal.to_string(),
-            "0xFfA0611a099AB68AD7C3C67B4cA5bbBEE7a58B99"
-        );
-        assert_eq!(
-            m.unitId.to_string(),
-            "0x00000000000000000000000000000000000000000000000000000000000000a0"
-        );
-        assert_eq!(m.dealCreationBlock, Uint::from(80));
+        let m = parse_log::<ComputeUnitsMatched>(log1).expect("error parsing Match from log");
+        assert_eq!(parse_peer_id(m.peerId.as_slice()).unwrap(), peer_id1);
+        assert_eq!(m.deal.to_string(), deal1);
+        assert_eq!(m.cuIds.len(), 1);
+        assert_eq!(m.cuIds[0], cu_id1);
 
         let cid_bytes = [m.appCID.prefixes.to_vec(), m.appCID.hash.to_vec()].concat();
         let app_cid = libipld::Cid::read_bytes(cid_bytes.as_slice())
             .unwrap()
             .to_string();
-        assert_eq!(
-            app_cid,
-            "bafkreifbi2xutxzrzgohtiyoysxcvozeixmmluqc5jmpvhvjzp7ulvavfy"
-        );
+        assert_eq!(app_cid, cid);
 
-        let m = parse_log::<ComputeUnitMatched>(log2).expect("error parsing Match from log");
-        assert_eq!(
-            parse_peer_id(m.peerId.as_slice()).unwrap().to_string(),
-            "12D3KooWJ4bTHirdTFNZpCS72TAzwtdmavTBkkEXtzo6wHL25CtE"
-        );
-        assert_eq!(
-            m.deal.to_string(),
-            "0x67b2AD3866429282e16e55B715d12A77F85B7CE8"
-        );
-        assert_eq!(
-            m.unitId.to_string(),
-            "0x00000000000000000000000000000000000000000000000000000000000000a0"
-        );
-        assert_eq!(m.dealCreationBlock, Uint::from(86));
+        let m = parse_log::<ComputeUnitsMatched>(log2).expect("error parsing Match from log");
+        assert_eq!(parse_peer_id(m.peerId.as_slice()).unwrap(), peer_id2);
+        assert_eq!(m.deal.to_string(), deal2);
+        assert_eq!(m.cuIds.len(), 2);
+        assert_eq!(m.cuIds[0], cu_id2);
+        assert_eq!(m.cuIds[1], cu_id3);
+
         let cid_bytes = [m.appCID.prefixes.to_vec(), m.appCID.hash.to_vec()].concat();
         let app_cid = libipld::Cid::read_bytes(cid_bytes.as_slice())
             .unwrap()
             .to_string();
-        assert_eq!(
-            app_cid,
-            "bafkreifbi2xutxzrzgohtiyoysxcvozeixmmluqc5jmpvhvjzp7ulvavfy"
-        );
+        assert_eq!(app_cid, cid);
     }
 }
