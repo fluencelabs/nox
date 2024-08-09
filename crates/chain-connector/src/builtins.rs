@@ -82,7 +82,6 @@ pub(crate) fn make_connector_builtins(
 async fn get_deals_builtin(
     connector: Arc<HttpChainConnector>,
     _args: Args,
-
     params: ParticleParams,
 ) -> Result<JValue, JError> {
     if params.init_peer_id != connector.host_id {
