@@ -44,12 +44,13 @@ sol! {
             SMALL_BALANCE
         }
 
-        struct ComputeUnit {
-            bytes32 id;
-            bytes32 workerId;
+        struct Worker {
+            bytes32 offchainId;
+            bytes32 onchainId;
             bytes32 peerId;
             address provider;
             uint256 joinedEpoch;
+            bytes32[] computeUnitIds;
         }
 
         /// @dev Returns the status of the deal
@@ -64,8 +65,8 @@ sol! {
         /// @dev Removes worker from the deal
         function removeWorker(bytes32 onchainId) external;
 
-        /// @dev Returns the compute units info by provider
-        function getComputeUnits() public view returns (ComputeUnit[] memory);
+        /// @dev Returns workers
+       function getWorkers() external view returns (Worker[] memory);
     }
 }
 

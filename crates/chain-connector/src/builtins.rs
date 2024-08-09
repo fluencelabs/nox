@@ -16,7 +16,7 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-use crate::types::{SubnetResolveResult, TxReceiptResult, TxStatus, Worker};
+use crate::types::{SubnetResolveResult, SubnetWorker, TxReceiptResult, TxStatus};
 use crate::{ChainConnector, HttpChainConnector};
 use ccp_shared::types::CUID;
 use futures::FutureExt;
@@ -164,7 +164,7 @@ async fn resolve_subnet_builtin(
     let deal_id: String = Args::next("deal_id", &mut args.function_args.into_iter())?;
     let deal_id = DealId::from(deal_id);
 
-    let workers: eyre::Result<Vec<Worker>> = try {
+    let workers: eyre::Result<Vec<SubnetWorker>> = try {
         if !deal_id.is_valid() {
             Err(eyre::eyre!(
                 "Invalid deal id '{}': invalid length",
@@ -172,10 +172,10 @@ async fn resolve_subnet_builtin(
             ))?;
         }
 
-        let units = connector.get_deal_compute_units(&deal_id).await?;
-        let workers: Result<Vec<Worker>, _> = units
+        let workers = connector.get_deal_workers(&deal_id).await?;
+        let workers: Result<Vec<SubnetWorker>, _> = workers
             .into_iter()
-            .map(|unit| Worker::try_from(unit))
+            .map(|worker| SubnetWorker::try_from(worker))
             .collect();
         workers?
     };
