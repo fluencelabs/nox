@@ -22,7 +22,7 @@ use crate::Deal::ComputeUnit;
 use alloy_primitives::U256;
 use ccp_shared::types::{Difficulty, GlobalNonce, CUID};
 use chain_data::parse_peer_id;
-use eyre::{Context, Report};
+use eyre::{eyre, Report};
 use serde::{Deserialize, Serialize};
 use types::DealId;
 
@@ -154,12 +154,13 @@ impl TryFrom<ComputeUnit> for Worker {
         let mut worker_id = vec![];
         if !unit.workerId.is_zero() {
             let w_id = parse_peer_id(&unit.workerId.0)
-                .context("unit.workerId")?
+                .map_err(|err| eyre!("Failed to parse unit.workerId: {err}"))?
                 .to_base58();
             worker_id.push(w_id)
         }
         let cu_id = unit.id.to_string();
-        let peer_id = parse_peer_id(&unit.peerId.0).context("unit.peerId")?;
+        let peer_id = parse_peer_id(&unit.peerId.0)
+            .map_err(|err| eyre!("Failed to parse unit.peerId: {err}"))?;
 
         Ok(Self {
             cu_ids: vec![cu_id],
