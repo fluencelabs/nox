@@ -80,7 +80,7 @@ impl Debug for OnChainWorker {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "(worker_id = {}, cu_ids = {:?})",
+            "(chain_worker_id = {}, cu_ids = {:?})",
             self.id,
             self.cu_ids
                 .iter()
