@@ -125,7 +125,6 @@ pub struct Builtins<C> {
 #[derive(Debug)]
 pub struct BuiltinsConfig {
     pub particle_app_services: ParticleAppServicesConfig,
-    pub connector_api_endpoint: String,
     /// Dir to store .wasm modules and their configs
     pub modules_dir: PathBuf,
     /// Path of the blueprint directory containing blueprints and wasm modules
@@ -141,7 +140,6 @@ pub struct BuiltinsConfig {
 impl BuiltinsConfig {
     pub fn new(
         particle_app_services: ParticleAppServicesConfig,
-        connector_api_endpoint: String,
         persistent_dir: PathBuf,
         allowed_effectors: HashMap<Hash, HashMap<String, PathBuf>>,
         mounted_binaries_mapping: HashMap<String, PathBuf>,
@@ -195,7 +193,6 @@ impl BuiltinsConfig {
         };
         Ok(Self {
             particle_app_services,
-            connector_api_endpoint,
             blueprint_dir,
             modules_dir,
             allowed_effectors,
@@ -397,7 +394,6 @@ where
 
             ("vm", "create") => wrap(self.create_vm(args, particle).await),
 
-            ("subnet", "resolve") => wrap(self.subnet_resolve(args).await),
             ("run-console", "print") => {
                 self.guard_protected(&particle).await?;
 
@@ -1218,14 +1214,6 @@ where
             .cat(current_peer_id, &params, Path::new(&path))
             .map(JValue::String)
             .map_err(|_| JError::new(format!("Error reading vault file `{path}`")))
-    }
-
-    async fn subnet_resolve(&self, args: Args) -> Result<JValue, JError> {
-        let mut args = args.function_args.into_iter();
-        let deal_id: String = Args::next("deal_id", &mut args)?;
-        let result =
-            subnet_resolver::resolve_subnet(deal_id, &self.config.connector_api_endpoint).await;
-        Ok(json!(result))
     }
 
     async fn guard_protected(&self, particle: &ParticleParams) -> Result<(), JError> {

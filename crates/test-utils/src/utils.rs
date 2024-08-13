@@ -16,8 +16,10 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-
+use clarity::PrivateKey;
 use ivalue_utils::IValue;
+use server_config::ChainConfig;
+use std::str::FromStr;
 
 #[derive(Debug, Clone)]
 pub struct RetStruct {
@@ -61,5 +63,19 @@ pub fn string_result(ret: RetStruct) -> Result<String, String> {
         Ok(hash)
     } else {
         Err(ret.error)
+    }
+}
+
+pub fn get_default_chain_config(url: &str) -> ChainConfig {
+    ChainConfig {
+        http_endpoint: url.to_string(),
+        diamond_contract_address: "".to_string(),
+        network_id: 0,
+        wallet_key: PrivateKey::from_str(
+            "0x97a2456e78c4894c62eef6031972d1ca296ed40bf311ab54c231f13db59fc428",
+        )
+        .unwrap(),
+        default_base_fee: None,
+        default_priority_fee: None,
     }
 }

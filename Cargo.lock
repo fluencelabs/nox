@@ -1437,6 +1437,7 @@ dependencies = [
  "hex-utils",
  "jsonrpsee",
  "libipld",
+ "libp2p-identity",
  "log-utils",
  "mockito",
  "particle-args",
@@ -2206,9 +2207,9 @@ dependencies = [
 
 [[package]]
 name = "decider-distro"
-version = "0.7.0"
+version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bafeb2d55c8843ac62a86ae40b229a834bc6a9b89da46e7ffbd551cec43bd159"
+checksum = "1f87fc5b72d3931ea4017ee61d7c99a7f98ec6f337b877f4e78fe14a708cb1ec"
 dependencies = [
  "built 0.7.1",
  "fluence-spell-dtos",
@@ -5761,7 +5762,7 @@ version = "0.1.0"
 
 [[package]]
 name = "nox"
-version = "0.25.2"
+version = "0.26.0"
 dependencies = [
  "air-interpreter-fs",
  "air-interpreter-wasm",
@@ -5900,7 +5901,6 @@ dependencies = [
  "service-modules",
  "sorcerer",
  "spell-event-bus",
- "subnet-resolver",
  "system-services",
  "tempfile",
  "test-constants",
@@ -6303,7 +6303,6 @@ dependencies = [
  "serde",
  "serde_json",
  "service-modules",
- "subnet-resolver",
  "tempfile",
  "thiserror",
  "tokio",
@@ -7175,7 +7174,7 @@ dependencies = [
  "http-body 1.0.0",
  "http-body-util",
  "hyper 1.4.1",
- "hyper-rustls 0.27.2",
+ "hyper-rustls",
  "hyper-tls",
  "hyper-util",
  "ipnet",
@@ -8252,23 +8251,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7da8b5736845d9f2fcb837ea5d9e2628564b3b043a70948a3f0b778838c5fb4f"
 
 [[package]]
-name = "subnet-resolver"
-version = "0.1.0"
-dependencies = [
- "chain-data",
- "ethabi",
- "eyre",
- "hex",
- "hex-utils",
- "jsonrpsee",
- "libp2p-identity",
- "serde",
- "serde_json",
- "thiserror",
- "tokio",
-]
-
-[[package]]
 name = "subtle"
 version = "2.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8482,6 +8464,7 @@ name = "test-utils"
 version = "0.3.0"
 dependencies = [
  "base64 0.21.7",
+ "clarity",
  "connected-client",
  "cpu-utils",
  "eyre",
@@ -8490,6 +8473,7 @@ dependencies = [
  "maplit",
  "particle-args",
  "serde_json",
+ "server-config",
  "service-modules",
  "test-constants",
  "tokio",

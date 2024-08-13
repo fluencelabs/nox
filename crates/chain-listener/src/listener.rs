@@ -607,7 +607,7 @@ impl ChainListener {
         let topics = vec![topic, peer_id_to_hex(self.host_id)];
         rpc_params![
             "logs",
-            json!({"address": self.config.cc_contract_address, "topics": topics})
+            json!({"address": self.config.diamond_contract_address, "topics": topics})
         ]
     }
 
@@ -615,7 +615,7 @@ impl ChainListener {
         let topic = UnitActivated::SIGNATURE_HASH.to_string();
         rpc_params![
             "logs",
-            json!({"address": self.config.cc_contract_address, "topics": vec![topic, encode_hex_0x(commitment_id.0)]})
+            json!({"address": self.config.diamond_contract_address, "topics": vec![topic, encode_hex_0x(commitment_id.0)]})
         ]
     }
 
@@ -623,7 +623,7 @@ impl ChainListener {
         let topic = UnitDeactivated::SIGNATURE_HASH.to_string();
         rpc_params![
             "logs",
-            json!({"address": self.config.cc_contract_address, "topics": vec![topic, encode_hex_0x(commitment_id.0)]})
+            json!({"address": self.config.diamond_contract_address, "topics": vec![topic, encode_hex_0x(commitment_id.0)]})
         ]
     }
 
@@ -634,7 +634,7 @@ impl ChainListener {
         ];
         rpc_params![
             "logs",
-            json!({"address": self.config.market_contract_address, "topics": topics})
+            json!({"address": self.config.diamond_contract_address, "topics": topics})
         ]
     }
 
