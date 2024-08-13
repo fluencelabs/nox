@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.26.0](https://github.com/fluencelabs/nox/compare/nox-v0.25.2...nox-v0.26.0) (2024-08-09)
+
+
+### ⚠ BREAKING CHANGES
+
+* diamond config change + cleanup legacy [CHAIN-682] ([#2343](https://github.com/fluencelabs/nox/issues/2343))
+* **vm:** create vm builtin [fixes BRND-16] ([#2320](https://github.com/fluencelabs/nox/issues/2320))
+
+### Features
+
+* diamond config change + cleanup legacy [CHAIN-682] ([#2343](https://github.com/fluencelabs/nox/issues/2343)) ([55ddcbd](https://github.com/fluencelabs/nox/commit/55ddcbd6be6067c07e4a40bfa3f8bffa3437dac8))
+* implement batching [VM-614] ([#2291](https://github.com/fluencelabs/nox/issues/2291)) ([9010570](https://github.com/fluencelabs/nox/commit/9010570297a4ec9150f7da0117d26d418828b4d1))
+* **vm:** create vm builtin [fixes BRND-16] ([#2320](https://github.com/fluencelabs/nox/issues/2320)) ([42d2fed](https://github.com/fluencelabs/nox/commit/42d2fed864937f5972158ebab7aa51a060b29b9f))
+
 ## [0.25.2](https://github.com/fluencelabs/nox/compare/nox-v0.25.1...nox-v0.25.2) (2024-07-24)
 
 

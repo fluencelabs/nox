@@ -1,6 +1,6 @@
 [package]
 name = "nox"
-version = "0.25.2"
+version = "0.26.0"
 authors = ["Fluence DAO", "Cloudless Labs"]
 description = "Node implementing peer functionality in the Fluence p2p network"
 edition = "2021"
@@ -16,7 +16,7 @@ connection-pool = { workspace = true }
 aquamarine = { workspace = true }
 sorcerer = { workspace = true }
 health = { workspace = true }
-core-distributor = { workspace = true }
+core-distributor = { workspace = true, features = ["dummy"] }
 dhat = { version = "0.3.2", optional = true }
 serde_json = { workspace = true }
 fluence-libp2p = { workspace = true }

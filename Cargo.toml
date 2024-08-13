@@ -31,7 +31,6 @@ members = [
     "crates/health",
     "sorcerer",
     "crates/nox-tests",
-    "crates/subnet-resolver",
     "nox",
     "aquamarine",
     "particle-protocol",
@@ -96,7 +95,6 @@ spell-storage = { path = "spell-storage" }
 particle-execution = { path = "particle-execution" }
 system-services = { path = "crates/system-services" }
 health = { path = "crates/health" }
-subnet-resolver = { path = "crates/subnet-resolver" }
 hex-utils = { path = "crates/hex-utils" }
 chain-data = { path = "crates/chain-data" }
 chain-listener = { path = "crates/chain-listener" }

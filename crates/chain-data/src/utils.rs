@@ -23,8 +23,8 @@ use libp2p_identity::{ParseError, PeerId};
 /// Static prefix of the PeerId. Protobuf encoding + multihash::identity + length and so on.
 pub(crate) const PEER_ID_PREFIX: &[u8] = &[0, 36, 8, 1, 18, 32];
 
-pub fn parse_peer_id(bytes: Vec<u8>) -> Result<PeerId, ParseError> {
-    let peer_id = [PEER_ID_PREFIX, &bytes].concat();
+pub fn parse_peer_id(bytes: &[u8]) -> Result<PeerId, ParseError> {
+    let peer_id = [PEER_ID_PREFIX, bytes].concat();
 
     PeerId::from_bytes(&peer_id)
 }
@@ -41,7 +41,7 @@ pub fn peer_id_to_hex(peer_id: PeerId) -> String {
 }
 
 pub fn peer_id_from_hex(hex: &str) -> eyre::Result<PeerId> {
-    Ok(parse_peer_id(decode_hex(hex)?)?)
+    Ok(parse_peer_id(&decode_hex(hex)?)?)
 }
 
 #[cfg(test)]
@@ -55,7 +55,7 @@ mod tests {
             PeerId::from_str("12D3KooWCGZ6t8by5ag5YMQW4k3HoPLaKdN5rB9DhAmDUeG8dj1N").unwrap();
         assert_eq!(
             peer_id,
-            parse_peer_id(decode_hex(&hex[2..]).unwrap()).unwrap()
+            parse_peer_id(&decode_hex(&hex[2..]).unwrap()).unwrap()
         );
         assert_eq!(hex, peer_id_to_hex(peer_id));
     }
