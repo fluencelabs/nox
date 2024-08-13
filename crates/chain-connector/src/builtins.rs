@@ -16,9 +16,8 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-use crate::types::{SubnetResolveResult, SubnetWorker, TxReceiptResult, TxStatus};
+use crate::types::{OnChainWorkerId, SubnetResolveResult, SubnetWorker, TxReceiptResult, TxStatus};
 use crate::{ChainConnector, HttpChainConnector};
-use ccp_shared::types::CUID;
 use futures::FutureExt;
 use particle_args::{Args, JError};
 use particle_builtins::{wrap, CustomService};
@@ -111,14 +110,14 @@ async fn register_worker_builtin(
     let mut args = args.function_args.into_iter();
     let deal_id: DealId = Args::next("deal_id", &mut args)?;
     let worker_id: WorkerId = Args::next("worker_id", &mut args)?;
-    let cu_ids: Vec<CUID> = Args::next("cu_id", &mut args)?;
+    let onchain_worker_id: OnChainWorkerId = Args::next("onchain_worker_id", &mut args)?;
 
-    if cu_ids.len() != 1 {
-        return Err(JError::new("Only one cu_id is allowed"));
+    if onchain_worker_id.is_empty() {
+        return Err(JError::new("Invalid onchain_worker_id: empty"));
     }
 
     let tx_hash = connector
-        .register_worker(&deal_id, worker_id, cu_ids[0])
+        .register_worker(&deal_id, worker_id, onchain_worker_id)
         .await
         .map_err(|err| JError::new(format!("Failed to register worker: {err}")))?;
     Ok(json!(tx_hash))

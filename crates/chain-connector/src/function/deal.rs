@@ -59,12 +59,11 @@ sol! {
         /// @dev Returns the app CID
         function appCID() external view returns (CIDV1 memory);
 
-        /// @dev Set worker ID for a compute unit. Compute unit can have only one worker ID
-        function setWorker(bytes32 computeUnitId, bytes32 workerId) external;
+        /// @dev Set offchain worker ID for a corresponding onchain worker for a deal
+        function activateWorker(bytes32 onchainId, bytes32 offchainId);
 
         /// @dev Removes worker from the deal
         function removeWorker(bytes32 onchainId) external;
-
         /// @dev Returns workers
        function getWorkers() external view returns (Worker[] memory);
     }

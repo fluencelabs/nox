@@ -155,7 +155,7 @@ impl HttpChainConnector {
     pub(crate) async fn get_deals(&self) -> eyre::Result<Vec<DealResult>> {
         let units = self.get_compute_units().await?;
         tracing::debug!(target: "chain-connector", "get_deals: Got {} compute units", units.len());
-        let mut deals: BTreeMap<DealId, Vec<CUID>> = BTreeMap::new();
+        let mut deals: BTreeMap<DealId, BTreeMap<OnChainWorkerId, Vec<CUID>>> = BTreeMap::new();
 
         units
             .iter()
@@ -163,28 +163,49 @@ impl HttpChainConnector {
             .for_each(|unit| {
                 deals
                     .entry(unit.deal.to_string().into())
-                    .or_insert_with(Vec::new)
+                    .or_default()
+                    .entry(unit.onchainWorkerId.as_slice().into())
+                    .or_default()
                     .push(CUID::new(unit.id.into()));
             });
+
+        println!("Deals: {deals:?}");
+        // For now, we forbid multiple workers for one deal on the peer!
+        deals.retain(|deal_id, worker| {
+            if worker.keys().len() > 1 {
+                tracing::warn!(target: "chain-connector", "Deal {deal_id} has more then one worker for the peer which is forbiden at the moment");
+               false
+            } else {
+               true
+            }
+        });
 
         if deals.is_empty() {
             return Ok(Vec::new());
         }
+
         tracing::debug!(target: "chain-connector", "get_deals: Got {} deals: {:?}", deals.len(), deals);
         let infos = self.get_deal_infos(deals.keys()).await?;
         tracing::debug!(target: "chain-connector", "get_deals: Got {} deals infos: {:?}", infos.len(), infos);
         let deals = infos
             .into_iter()
             .zip(deals)
-            .map(|(details, (deal_id, unit_ids))| match details {
-                Ok((status, app_cid)) => DealResult::new(
-                    deal_id,
-                    DealInfo {
-                        unit_ids,
-                        status,
-                        app_cid,
-                    },
-                ),
+            .map(|(details, (deal_id, mut workers))| match details {
+                Ok((status, app_cid)) => {
+                    if let Some((onchain_worker_id, cu_ids)) = workers.pop_first() {
+                        DealResult::new(
+                            deal_id,
+                            DealInfo {
+                                cu_ids,
+                                status,
+                                app_cid,
+                                onchain_worker_id,
+                            },
+                        )
+                    } else {
+                        DealResult::with_error(deal_id, "No CUs are found for the deal".into())
+                    }
+                }
                 Err(err) => DealResult::with_error(deal_id, err.to_string()),
             })
             .collect::<_>();
@@ -352,14 +373,14 @@ impl HttpChainConnector {
         &self,
         deal_id: &DealId,
         worker_id: WorkerId,
-        cu_id: CUID,
+        onchain_worker_id: OnChainWorkerId,
     ) -> Result<String> {
-        let data = Deal::setWorkerCall {
-            computeUnitId: cu_id.as_ref().into(),
-            workerId: peer_id_to_bytes(worker_id.into()).into(),
+        let data = Deal::activateWorkerCall {
+            onchainId: FixedBytes::from_slice(&onchain_worker_id),
+            offchainId: peer_id_to_bytes(worker_id.into()).into(),
         }
         .abi_encode();
-        tracing::debug!(target: "chain-connector", "Registering worker {worker_id} for deal {deal_id} with cu_id {cu_id}");
+        tracing::debug!(target: "chain-connector", "Registering worker {worker_id} for deal {deal_id} with onchain_id {}", encode_hex_0x(onchain_worker_id));
         self.send_tx(data, deal_id.as_str()).await
     }
 
@@ -1193,11 +1214,11 @@ mod tests {
         let deal_info = &deals[0].deal_info[0];
         assert_eq!(deal_info.status, ACTIVE);
         assert_eq!(
-            deal_info.unit_ids.len(),
+            deal_info.cu_ids.len(),
             1,
             "there should be only one unit id: {deals:?}"
         );
-        assert_eq!(deal_info.unit_ids[0], CUID::new(cu_1.id.0));
+        assert_eq!(deal_info.cu_ids[0], CUID::new(cu_1.id.0));
         assert_eq!(deal_info.app_cid, expected_app_cid);
 
         // Second deal
@@ -1207,11 +1228,11 @@ mod tests {
         let deal_info = &deals[1].deal_info[0];
         assert_eq!(deal_info.status, ACTIVE);
         assert_eq!(
-            deal_info.unit_ids.len(),
+            deal_info.cu_ids.len(),
             1,
             "there should be only one unit id: {deals:?}"
         );
-        assert_eq!(deal_info.unit_ids[0], CUID::new(cu_2.id.0));
+        assert_eq!(deal_info.cu_ids[0], CUID::new(cu_2.id.0));
         assert_eq!(deal_info.app_cid, expected_app_cid);
 
         mock.assert();
@@ -1238,7 +1259,6 @@ mod tests {
                 cu_1.clone(),
                 cu_2.clone(),
             ]));
-
         let compute_units_response =
             format!("{{\"jsonrpc\":\"2.0\",\"result\":\"{compute_units_response}\",\"id\":0}}");
         let mut server = mockito::Server::new_async().await;
@@ -1282,9 +1302,8 @@ mod tests {
         let deal_id = "5e3d0fde6f793b3115a9e7f5ebc195bbeed35d6c";
         let deal_id = types::DealId::from(deal_id);
         let worker_id = types::peer_scope::WorkerId::from(RandomPeerId::random());
-        let cuid =
-            CUID::from_str("aa3046a12a1aac6e840625e6329d70b427328fec36dc8d273e5e6454b85633d5")
-                .unwrap();
+        let onchain_worker_id =
+            decode_hex("aa3046a12a1aac6e840625e6329d70b427328fec36dc8d273e5e6454b85633d5").unwrap();
 
         let mut server = mockito::Server::new_async().await;
         let url = server.url();
@@ -1311,7 +1330,7 @@ mod tests {
             .create();
 
         let result = get_connector(&url)
-            .register_worker(&deal_id, worker_id, cuid)
+            .register_worker(&deal_id, worker_id, onchain_worker_id)
             .await
             .unwrap();
         assert_eq!(result, expected_tx_hash);

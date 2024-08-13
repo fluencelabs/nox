@@ -55,11 +55,14 @@ impl DealResult {
     }
 }
 
+pub type OnChainWorkerId = Vec<u8>;
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct DealInfo {
     pub status: Deal::Status,
-    pub unit_ids: Vec<CUID>,
+    pub cu_ids: Vec<CUID>,
     pub app_cid: String,
+    pub onchain_worker_id: OnChainWorkerId,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
