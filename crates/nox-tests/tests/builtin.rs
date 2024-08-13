@@ -2377,7 +2377,7 @@ async fn aliases_restart() {
 #[ignore]
 #[tokio::test]
 async fn subnet_resolve() {
-    let cu_1 = chain_connector::Deal::Worker {
+    let worker1 = chain_connector::Deal::Worker {
         offchainId: peer_id_to_bytes(RandomPeerId::random()).into(),
         peerId: peer_id_to_bytes(RandomPeerId::random()).into(),
         provider: Default::default(),
@@ -2389,7 +2389,7 @@ async fn subnet_resolve() {
         .into()],
     };
 
-    let cu_2 = chain_connector::Deal::Worker {
+    let worker2 = chain_connector::Deal::Worker {
         offchainId: Default::default(),
         peerId: peer_id_to_bytes(RandomPeerId::random()).into(),
         provider: Default::default(),
@@ -2401,8 +2401,8 @@ async fn subnet_resolve() {
         .into()],
     };
     let resolve_result = encode_hex_0x(Array::<chain_connector::Deal::Worker>::abi_encode(&vec![
-        cu_1.clone(),
-        cu_2.clone(),
+        worker1.clone(),
+        worker2.clone(),
     ]));
 
     // Create a mock
@@ -2494,13 +2494,13 @@ async fn subnet_resolve() {
         workers,
         vec![
             (
-                vec![encode_hex_0x(cu_1.computeUnitIds[0].0).to_string()],
-                parse_peer_id(&cu_1.peerId.0).unwrap().to_base58(),
-                vec![parse_peer_id(&cu_1.offchainId.0).unwrap().to_base58()],
+                vec![encode_hex_0x(worker1.computeUnitIds[0].0).to_string()],
+                parse_peer_id(&worker1.peerId.0).unwrap().to_base58(),
+                vec![parse_peer_id(&worker1.offchainId.0).unwrap().to_base58()],
             ),
             (
-                vec![encode_hex_0x(cu_2.computeUnitIds[0].0).to_string()],
-                parse_peer_id(&cu_2.peerId.0).unwrap().to_base58(),
+                vec![encode_hex_0x(worker2.computeUnitIds[0].0).to_string()],
+                parse_peer_id(&worker2.peerId.0).unwrap().to_base58(),
                 vec![]
             )
         ]
