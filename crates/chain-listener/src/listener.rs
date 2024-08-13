@@ -49,6 +49,7 @@ use tokio::task::JoinHandle;
 use tokio::time::{interval, Instant};
 use tokio_stream::wrappers::IntervalStream;
 use tokio_stream::StreamExt;
+use tracing::Instrument;
 
 use chain_connector::Offer::ComputeUnit;
 use chain_connector::{
@@ -63,9 +64,10 @@ use peer_metrics::ChainListenerMetrics;
 use server_config::{ChainConfig, ChainListenerConfig};
 use types::DealId;
 
-use crate::event::cc_activated::CommitmentActivated;
+use crate::event::CommitmentActivated;
 use crate::event::{ComputeUnitMatched, UnitActivated, UnitDeactivated};
 use crate::proof_tracker::ProofTracker;
+use crate::types::{CUGroups, PhysicalCoreGroups};
 
 const PROOF_POLL_LIMIT: usize = 50;
 
@@ -118,7 +120,9 @@ pub struct ChainListener {
     metrics: Option<ChainListenerMetrics>,
 }
 
-async fn poll_subscription<T>(s: &mut Option<Subscription<T>>) -> Option<Result<T, client::Error>>
+async fn poll_subscription<T>(
+    s: &mut Option<Subscription<T>>,
+) -> Option<Result<T, serde_json::Error>>
 where
     T: DeserializeOwned + Send,
 {
@@ -277,7 +281,9 @@ impl ChainListener {
                         }
                     }
                 }
-            })
+            }
+                .in_current_span()
+            )
             .expect("Could not spawn task");
 
         result
@@ -634,7 +640,7 @@ impl ChainListener {
 
     async fn process_new_header(
         &mut self,
-        event: Option<Result<Value, client::Error>>,
+        event: Option<Result<Value, serde_json::Error>>,
     ) -> eyre::Result<()> {
         let header = event.ok_or(eyre!("Failed to process newHeads event: got None"))?;
 
@@ -685,7 +691,7 @@ impl ChainListener {
 
     async fn process_commitment_activated(
         &mut self,
-        event: Option<Result<JsonValue, client::Error>>,
+        event: Option<Result<JsonValue, serde_json::Error>>,
     ) -> eyre::Result<()> {
         let event = event.ok_or(eyre!(
             "Failed to process CommitmentActivated event: got None"
@@ -735,7 +741,7 @@ impl ChainListener {
 
     async fn process_unit_activated(
         &mut self,
-        event: Option<Result<JsonValue, client::Error>>,
+        event: Option<Result<JsonValue, serde_json::Error>>,
     ) -> eyre::Result<()> {
         let event = event.ok_or(eyre!("Failed to process UnitActivated event: got None"))??;
 
@@ -767,7 +773,7 @@ impl ChainListener {
     /// Unit goes to Deal
     async fn process_unit_deactivated(
         &mut self,
-        event: Option<Result<JsonValue, client::Error>>,
+        event: Option<Result<JsonValue, serde_json::Error>>,
     ) -> eyre::Result<()> {
         let event = event.ok_or(eyre!("Failed to process UnitDeactivated event: got None"))??;
         let log = serde_json::from_value::<Log>(event.clone()).map_err(|err| {
@@ -788,7 +794,7 @@ impl ChainListener {
 
     fn process_unit_matched(
         &mut self,
-        event: Option<Result<JsonValue, client::Error>>,
+        event: Option<Result<JsonValue, serde_json::Error>>,
     ) -> eyre::Result<()> {
         let event = event.ok_or(eyre!("Failed to process DealMatched event: got None"))??;
         let log = serde_json::from_value::<Log>(event.clone()).map_err(|err| {
@@ -865,8 +871,10 @@ impl ChainListener {
         };
 
         let cu_groups = self.get_cu_groups();
+        tracing::trace!(target: "chain-listener", "cu_groups {:?}", cu_groups);
 
         let cc_cores = self.acquire_cores_for_cc(&cu_groups)?;
+        tracing::trace!(target: "chain-listener", "cc_cores {:?}", cc_cores);
 
         let mut cu_allocation: HashMap<PhysicalCoreId, CUID> = HashMap::new();
 
@@ -1395,34 +1403,6 @@ impl ChainListener {
         }
         batch_request
     }
-}
-
-struct CUGroups {
-    /// Already started units involved in CC and not having less than MIN_PROOFS_PER_EPOCH proofs in the current epoch
-    pub priority_units: Vec<CUID>,
-    /// Already started units involved in CC and found at least MIN_PROOFS_PER_EPOCH proofs,
-    /// but less that MAX_PROOFS_PER_EPOCH proofs in the current epoch
-    pub non_priority_units: Vec<CUID>,
-    /// Units in CC that is not active yet and can't produce proofs in the current epoch
-    pub pending_units: Vec<CUID>,
-    /// Already started units involved in CC and having more than MAX_PROOFS_PER_EPOCH proofs in the current epoch
-    pub finished_units: Vec<CUID>,
-}
-
-impl CUGroups {
-    fn all_min_proofs_found(&self) -> bool {
-        self.priority_units.is_empty()
-    }
-
-    fn all_max_proofs_found(&self) -> bool {
-        self.non_priority_units.is_empty()
-    }
-}
-struct PhysicalCoreGroups {
-    pub priority_cores: Vec<PhysicalCoreId>,
-    pub non_priority_cores: Vec<PhysicalCoreId>,
-    pub pending_cores: Vec<PhysicalCoreId>,
-    pub finished_cores: Vec<PhysicalCoreId>,
 }
 
 // measure the request execution time and store it in the metrics
