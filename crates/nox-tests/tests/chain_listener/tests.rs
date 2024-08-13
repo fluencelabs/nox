@@ -56,8 +56,6 @@ impl ChainListenerTestEntities {
     pub async fn new() -> eyre::Result<Self> {
         let chain_server = ChainServer::new(
             "0x73e491D86aDBc4504156Ad04254F2Ba7Eb5935cA".to_string(),
-            "0x6f3cd1237da812dc14ebe3408bE9717b4913e87c".to_string(),
-            "0x3bD52336C1991750E033be3867b5524E66bb5559".to_string(),
             ChainState::default(),
         )
         .await?;
@@ -70,9 +68,7 @@ impl ChainListenerTestEntities {
         let swarms = make_swarms_with_cfg(1, move |mut cfg| {
             cfg.chain_config = Some(ChainConfig {
                 http_endpoint: format!("http://{}", chain_server_address),
-                cc_contract_address: "0x73e491D86aDBc4504156Ad04254F2Ba7Eb5935cA".to_string(),
-                core_contract_address: "0x6f3cd1237da812dc14ebe3408bE9717b4913e87c".to_string(),
-                market_contract_address: "0x3bD52336C1991750E033be3867b5524E66bb5559".to_string(),
+                diamond_contract_address: "0x73e491D86aDBc4504156Ad04254F2Ba7Eb5935cA".to_string(),
                 network_id: 1,
                 wallet_key: PrivateKey::from_str(
                     "0xfdc4ba94809c7930fe4676b7d845cbf8fa5c1beae8744d959530e5073004cf3f",

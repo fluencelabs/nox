@@ -48,8 +48,7 @@ use tokio_stream::wrappers::BroadcastStream;
 
 pub struct ChainServer {
     pub(crate) address: String,
-    cc_contract_address: String,
-    market_contract_address: String,
+    diamond_contract_address: String,
     _handle: ServerHandle,
     new_heads_sender: tokio::sync::broadcast::Sender<SubscriptionMessage>,
     logs_sender: tokio::sync::broadcast::Sender<LogsParams>,
@@ -58,9 +57,7 @@ pub struct ChainServer {
 
 impl ChainServer {
     pub async fn new(
-        cc_contract_address: String,
-        core_contract_address: String,
-        market_contract_address: String,
+        diamond_contract_address: String,
         init_state: ChainState,
     ) -> eyre::Result<Self> {
         let server = jsonrpsee::server::Server::builder()
@@ -93,13 +90,10 @@ impl ChainServer {
                 "timestamp": U256::from(10000)
             }))
         })?;
-        let inner_market_contract_address = market_contract_address.clone();
+        let inner_diamond_contract_address = diamond_contract_address.clone();
         module.register_method("eth_sendRawTransaction", move |params, ctx, _ext| {
-            ChainServer::handle_send_raw_tx(params, ctx, inner_market_contract_address.clone())
+            ChainServer::handle_send_raw_tx(params, ctx, inner_diamond_contract_address.clone())
         })?;
-
-        let inner_cc_contract_address = cc_contract_address.clone();
-        let inner_market_contract_address = market_contract_address.clone();
 
         module.register_method("eth_call", move |params, ctx, _ext| {
             let params: eyre::Result<(String, Vec<u8>)> = try {
@@ -123,10 +117,8 @@ impl ChainServer {
                 .map(|addr| addr.to_checksum(None))
                 .collect::<BTreeSet<_>>();
 
-            let result: Result<String, ErrorObject> = match to {
-                to if to == core_contract_address => {
-                    let res = CoreCalls::abi_decode(data.as_slice(), true)
-                        .map_err(|_| ErrorObject::owned(500, "", None::<String>))?;
+            let result: Result<String, ErrorObject> =
+                if let Ok(res) = CoreCalls::abi_decode(data.as_slice(), true) {
                     match res {
                         CoreCalls::currentEpoch(_) => {
                             Ok(encode_hex_0x(state.current_epoch.abi_encode()))
@@ -150,10 +142,7 @@ impl ChainServer {
                             None::<String>,
                         )),
                     }
-                }
-                to if to == inner_cc_contract_address => {
-                    let res = CapacityCalls::abi_decode(data.as_slice(), true)
-                        .map_err(|_| ErrorObject::owned(500, "", None::<String>))?;
+                } else if let Ok(res) = CapacityCalls::abi_decode(data.as_slice(), true) {
                     match res {
                         CapacityCalls::getGlobalNonce(_) => Ok(state.global_nonce.to_string()),
                         CapacityCalls::getStatus(params) => {
@@ -176,13 +165,10 @@ impl ChainServer {
                             todo!()
                         }
                     }
-                }
-                to if to == inner_market_contract_address => {
-                    let res = OfferCalls::abi_decode(data.as_slice(), true)
-                        .map_err(|_| ErrorObject::owned(500, "", None::<String>))?;
+                } else if let Ok(res) = OfferCalls::abi_decode(data.as_slice(), true) {
                     match res {
                         OfferCalls::getComputePeer(params) => {
-                            let peer_id = parse_peer_id(params.peerId.to_vec())
+                            let peer_id = parse_peer_id(&params.peerId.0)
                                 .map_err(|_| ErrorObject::owned(500, "", None::<String>))?;
                             let state =
                                 state.peer_states.get(&peer_id).ok_or(ErrorObject::owned(
@@ -194,7 +180,7 @@ impl ChainServer {
                             Ok(encode_hex_0x(data))
                         }
                         OfferCalls::getComputeUnits(params) => {
-                            let peer_id = parse_peer_id(params.peerId.to_vec())
+                            let peer_id = parse_peer_id(&params.peerId.0)
                                 .map_err(|_| ErrorObject::owned(500, "", None::<String>))?;
                             let state = state
                                 .peer_states
@@ -207,10 +193,15 @@ impl ChainServer {
                             todo!()
                         }
                     }
-                }
-                to if deal_addresses.contains(&to) => {
-                    let res = DealCalls::abi_decode(data.as_slice(), true)
-                        .map_err(|_| ErrorObject::owned(500, "", None::<String>))?;
+                } else if let Ok(res) = DealCalls::abi_decode(data.as_slice(), true) {
+                    if !deal_addresses.contains(&to) {
+                        return Err(ErrorObject::owned(
+                            500,
+                            format!("Deal {to} not found"),
+                            None::<String>,
+                        ));
+                    }
+
                     match res {
                         DealCalls::getStatus(_) => {
                             let deal_address = Address::from_str(&to)
@@ -228,12 +219,16 @@ impl ChainServer {
                         DealCalls::setWorker(_) => {
                             todo!()
                         }
+                        DealCalls::getComputeUnits(_) => {
+                            todo!()
+                        }
                     }
-                }
-                _ => Err(ErrorObject::owned(500, "", None::<String>)),
-            };
+                } else {
+                    Err(ErrorObject::owned(500, "", None::<String>))
+                };
             result
         })?;
+
         module.register_subscription(
             "eth_subscribe",
             "eth_subscription",
@@ -272,8 +267,7 @@ impl ChainServer {
 
         Ok(ChainServer {
             address: addr.to_string(),
-            cc_contract_address,
-            market_contract_address,
+            diamond_contract_address,
             _handle: handle,
             logs_sender,
             new_heads_sender,
@@ -415,7 +409,7 @@ impl ChainServer {
         .unwrap();
 
         let message = LogsParams {
-            address: self.cc_contract_address.clone(),
+            address: self.diamond_contract_address.clone(),
             topics: vec![
                 CommitmentActivated::SIGNATURE_HASH.to_string(),
                 encode_hex_0x(peer_id_to_bytes(peer_id)),
@@ -462,7 +456,7 @@ impl ChainServer {
             .unwrap();
 
             let message = LogsParams {
-                address: self.cc_contract_address.clone(),
+                address: self.diamond_contract_address.clone(),
                 topics: vec![
                     UnitDeactivated::SIGNATURE_HASH.to_string(),
                     params.commitment_id.to_string(),
@@ -496,7 +490,7 @@ impl ChainServer {
             }))
             .unwrap();
             let message = LogsParams {
-                address: self.market_contract_address.clone(),
+                address: self.diamond_contract_address.clone(),
                 topics: vec![
                     ComputeUnitMatched::SIGNATURE_HASH.to_string(),
                     encode_hex_0x(peer_id_to_bytes(params.peer_id)),
@@ -599,8 +593,6 @@ impl ChainServer {
         }
         Ok::<String, ErrorObject>("done".to_string())
     }
-
-    pub fn handle_eth_call()
 }
 
 fn filter_logs(
