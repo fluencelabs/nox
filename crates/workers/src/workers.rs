@@ -698,10 +698,12 @@ impl Workers {
 
     fn remove_vm(&self, worker_id: WorkerId) -> Result<(), WorkersError> {
         if let Some(vm_config) = &self.config.vm {
-            vm_utils::remove_domain(
-                vm_config.libvirt_uri.as_str(),
-                worker_id.to_string().as_str(),
-            )?;
+            if self.has_vm(worker_id)? {
+                vm_utils::remove_domain(
+                    vm_config.libvirt_uri.as_str(),
+                    worker_id.to_string().as_str(),
+                )?;
+            }
         }
         Ok(())
     }
@@ -733,8 +735,6 @@ impl Workers {
         if let Some(vm_config) = &self.config.vm {
             if self.has_vm(worker_id)? {
                 vm_utils::pause_vm(vm_config.libvirt_uri.as_str(), &worker_id.to_string())?;
-            } else {
-                return Err(WorkersError::VmNotFound(worker_id));
             }
         }
         Ok(())
@@ -744,8 +744,6 @@ impl Workers {
         if let Some(vm_config) = &self.config.vm {
             if self.has_vm(worker_id)? {
                 vm_utils::resume_vm(vm_config.libvirt_uri.as_str(), &worker_id.to_string())?;
-            } else {
-                return Err(WorkersError::VmNotFound(worker_id));
             }
         }
         Ok(())
