@@ -432,6 +432,7 @@ impl Workers {
     /// - `Err(WorkersError)` if an error occurs during the activation process.
     ///
     pub async fn activate_worker(&self, worker_id: WorkerId) -> Result<(), WorkersError> {
+        self.resume_vm(worker_id)?;
         self.set_worker_status(worker_id, true).await?;
         Ok(())
     }
@@ -452,6 +453,7 @@ impl Workers {
     /// - `Err(WorkersError)` if an error occurs during the deactivation process.
     ///
     pub async fn deactivate_worker(&self, worker_id: WorkerId) -> Result<(), WorkersError> {
+        self.pause_vm(worker_id)?;
         self.set_worker_status(worker_id, false).await?;
         Ok(())
     }
@@ -725,6 +727,28 @@ impl Workers {
 
     pub fn reset_vm(&self, worker_id: WorkerId) -> Result<(), WorkersError> {
         self.on_vm(worker_id, vm_utils::reset_vm)
+    }
+
+    fn pause_vm(&self, worker_id: WorkerId) -> Result<(), WorkersError> {
+        if let Some(vm_config) = &self.config.vm {
+            if self.has_vm(worker_id)? {
+                vm_utils::pause_vm(vm_config.libvirt_uri.as_str(), &worker_id.to_string())?;
+            } else {
+                return Err(WorkersError::VmNotFound(worker_id));
+            }
+        }
+        Ok(())
+    }
+
+    fn resume_vm(&self, worker_id: WorkerId) -> Result<(), WorkersError> {
+        if let Some(vm_config) = &self.config.vm {
+            if self.has_vm(worker_id)? {
+                vm_utils::resume_vm(vm_config.libvirt_uri.as_str(), &worker_id.to_string())?;
+            } else {
+                return Err(WorkersError::VmNotFound(worker_id));
+            }
+        }
+        Ok(())
     }
 
     pub fn status_vm(&self, worker_id: WorkerId) -> Result<VmStatus, WorkersError> {

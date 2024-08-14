@@ -88,6 +88,19 @@ pub enum VmError {
         err: virt::error::Error,
         name: String,
     },
+    #[error("Failed to suspend VM {name}: {err}")]
+    FailedToSuspendVM {
+        name: String,
+        #[source]
+        err: virt::error::Error,
+    },
+
+    #[error("Failed to resume VM {name}: {err}")]
+    FailedToResumeVM {
+        name: String,
+        #[source]
+        err: virt::error::Error,
+    },
 }
 
 // The list of states is taken from the libvirt documentation
@@ -256,6 +269,34 @@ pub fn status_vm(uri: &str, name: &str) -> Result<VmStatus, VmError> {
     })?;
 
     Ok(VmStatus::from_u32(info.state))
+}
+
+pub fn pause_vm(uri: &str, name: &str) -> Result<(), VmError> {
+    tracing::info!(target: "vm-utils","Pausing VM with name {name}");
+    let conn = Connect::open(Some(uri)).map_err(|err| VmError::FailedToConnect { err })?;
+    let domain = Domain::lookup_by_name(&conn, name).map_err(|err| VmError::VmNotFound {
+        name: name.to_string(),
+        err,
+    })?;
+    domain.suspend().map_err(|err| VmError::FailedToSuspendVM {
+        name: name.to_string(),
+        err,
+    })?;
+    Ok(())
+}
+
+pub fn resume_vm(uri: &str, name: &str) -> Result<(), VmError> {
+    tracing::info!(target: "vm-utils","Resuming VM with name {name}");
+    let conn = Connect::open(Some(uri)).map_err(|err| VmError::FailedToConnect { err })?;
+    let domain = Domain::lookup_by_name(&conn, name).map_err(|err| VmError::VmNotFound {
+        name: name.to_string(),
+        err,
+    })?;
+    domain.resume().map_err(|err| VmError::FailedToResumeVM {
+        name: name.to_string(),
+        err,
+    })?;
+    Ok(())
 }
 
 fn generate_random_mac() -> MacAddress {
