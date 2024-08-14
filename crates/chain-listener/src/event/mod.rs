@@ -17,11 +17,12 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-pub mod cc_activated;
+mod cc_activated;
 mod compute_unit_matched;
 mod unit_activated;
 mod unit_deactivated;
 
-pub use compute_unit_matched::ComputeUnitsMatched;
+pub use cc_activated::CommitmentActivated;
+pub use compute_unit_matched::{ComputeUnitsMatched, CIDV1};
 pub use unit_activated::UnitActivated;
 pub use unit_deactivated::UnitDeactivated;

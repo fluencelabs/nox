@@ -17,20 +17,8 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#![feature(assert_matches)]
-#![feature(try_blocks)]
-#![feature(extract_if)]
-#![feature(btree_extract_if)]
-#![feature(result_option_inspect)]
-#![feature(slice_as_chunks)]
-extern crate core;
-
-pub use event::{CommitmentActivated, ComputeUnitsMatched, UnitActivated, UnitDeactivated, CIDV1};
-pub use listener::ChainListener;
-
-mod event;
-mod listener;
-
-mod persistence;
-mod proof_tracker;
+mod ccp_server;
+mod chain_server;
+mod r#const;
+mod tests;
 mod types;

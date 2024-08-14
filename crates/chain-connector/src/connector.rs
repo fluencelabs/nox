@@ -169,7 +169,6 @@ impl HttpChainConnector {
                     .push(CUID::new(unit.id.into()));
             });
 
-        println!("Deals: {deals:?}");
         // For now, we forbid multiple workers for one deal on the peer!
         deals.retain(|deal_id, worker| {
             if worker.keys().len() > 1 {

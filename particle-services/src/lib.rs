@@ -17,8 +17,9 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#![feature(try_blocks, result_option_inspect)]
+#![feature(try_blocks)]
 #![feature(hash_extract_if)]
+#![feature(result_option_inspect)]
 #![warn(rust_2018_idioms)]
 #![deny(
     dead_code,

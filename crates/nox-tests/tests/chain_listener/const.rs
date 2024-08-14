@@ -17,20 +17,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#![feature(assert_matches)]
-#![feature(try_blocks)]
-#![feature(extract_if)]
-#![feature(btree_extract_if)]
-#![feature(result_option_inspect)]
-#![feature(slice_as_chunks)]
-extern crate core;
-
-pub use event::{CommitmentActivated, ComputeUnitsMatched, UnitActivated, UnitDeactivated, CIDV1};
-pub use listener::ChainListener;
-
-mod event;
-mod listener;
-
-mod persistence;
-mod proof_tracker;
-mod types;
+pub const DEFAULT_DIFFICULTY: &str =
+    "0001afffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
+pub const DEFAULT_GLOBAL_NONCE: &str =
+    "4183468390b09d71644232a1d1ce670bc93897183d3f56c305fabfb16cab806a";

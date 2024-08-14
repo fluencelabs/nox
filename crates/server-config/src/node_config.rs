@@ -556,7 +556,7 @@ pub struct ChainListenerConfig {
     /// How often to poll proofs
     #[serde(default = "default_proof_poll_period")]
     #[serde(with = "humantime_serde")]
-    pub proof_poll_period: Duration,
+    pub proof_poll_period: Duration, // TODO: must be >0
     /// Min number of proofs in a batch for CU to be sent on chain
     #[serde(default = "default_min_batch_count")]
     pub min_batch_count: usize,

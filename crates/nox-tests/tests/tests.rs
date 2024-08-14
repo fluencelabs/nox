@@ -16,6 +16,7 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
+#![feature(try_blocks)]
 
 #[macro_use]
 extern crate fstrings;
@@ -27,3 +28,5 @@ mod network {
     mod loop_topology;
     mod network_explore;
 }
+
+mod chain_listener;
