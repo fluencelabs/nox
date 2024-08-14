@@ -22,9 +22,13 @@
 #![feature(extract_if)]
 #![feature(btree_extract_if)]
 #![feature(result_option_inspect)]
-
 extern crate core;
 
+pub use event::CommitmentActivated;
+pub use event::ComputeUnitMatched;
+pub use event::UnitActivated;
+pub use event::UnitDeactivated;
+pub use event::CIDV1;
 pub use listener::ChainListener;
 
 mod event;
@@ -32,3 +36,4 @@ mod listener;
 
 mod persistence;
 mod proof_tracker;
+mod types;

@@ -71,6 +71,7 @@ fn default_directives() -> Vec<Directive> {
         "runtime::resource=info",
         "connected_client=debug",
         "listener=debug",
+        "chain-listener=debug",
     ];
 
     namespaces

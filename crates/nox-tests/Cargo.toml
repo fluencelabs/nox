@@ -24,7 +24,15 @@ system-services = { workspace = true }
 fs-utils = { workspace = true }
 server-config = { workspace = true }
 chain-connector = { workspace = true }
+alloy-sol-types = { workspace = true, features = ["json"] }
+alloy-primitives = { workspace = true }
+ccp-shared = { workspace = true }
 chain-data = { workspace = true }
+chain-listener = { workspace = true }
+ccp-rpc-client = { workspace = true }
+reqwest = { workspace = true }
+prometheus-parse = "0.2.5"
+alloy-rlp = "0.3.7"
 hex-utils = { workspace = true }
 
 log-utils = { workspace = true }
@@ -58,6 +66,7 @@ futures = { workspace = true }
 base64 = { workspace = true }
 
 tokio = { workspace = true }
+tokio-stream = { workspace = true, features = ["sync"] }
 log = { workspace = true }
 tracing = { workspace = true }
 mockito = { workspace = true }
@@ -65,5 +74,4 @@ tempfile = { workspace = true }
 jsonrpsee = { workspace = true, features = ["server"] }
 hex = { workspace = true }
 clarity = { workspace = true }
-alloy-sol-types = { workspace = true }
-alloy-primitives = { workspace = true }
+
