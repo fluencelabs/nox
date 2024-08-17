@@ -31,6 +31,7 @@ members = [
     "crates/health",
     "sorcerer",
     "crates/nox-tests",
+    "crates/subnet-resolver",
     "nox",
     "aquamarine",
     "particle-protocol",
@@ -95,6 +96,7 @@ spell-storage = { path = "spell-storage" }
 particle-execution = { path = "particle-execution" }
 system-services = { path = "crates/system-services" }
 health = { path = "crates/health" }
+subnet-resolver = { path = "crates/subnet-resolver" }
 hex-utils = { path = "crates/hex-utils" }
 chain-data = { path = "crates/chain-data" }
 chain-listener = { path = "crates/chain-listener" }
@@ -102,7 +104,6 @@ chain-connector = { path = "crates/chain-connector" }
 types = { path = "crates/types" }
 core-distributor = { path = "crates/core-distributor" }
 log-format = { path = "crates/log-format" }
-vm-utils = { path = "crates/vm-utils" }
 
 # spell
 fluence-spell-dtos = "=0.7.5"
@@ -164,20 +165,20 @@ once_cell = "1.19.0"
 tempfile = "3.9.0"
 hex = "0.4.3"
 ethabi = "18.0.0"
-jsonrpsee = "0.23.0"
+jsonrpsee = "0.22.3"
 blake3 = "1.5.0"
 rand = "0.8.5"
 futures-util = "0.3.30"
 num_cpus = "1.16.0"
 enum_dispatch = "0.3.12"
-serde_with = "3.8.1"
+serde_with = "3.7.0"
 mockito = "1.2.0"
-clarity = "1.4.0"
-cpu-utils = "0.13.0"
-ccp-shared = "0.13.0"
-ccp-rpc-client = "0.13.0"
-alloy-sol-types = "0.7.5"
-alloy-primitives = "0.7.5"
+clarity = "1.3.0"
+cpu-utils = "0.10.2"
+ccp-shared = "0.10.2"
+ccp-rpc-client = "0.10.2"
+alloy-sol-types = "0.6.4"
+alloy-primitives = "0.6.4"
 alloy_serde_macro = "0.1.2"
 const-hex = "1.11.3"
 bytesize = "1.3.0"
