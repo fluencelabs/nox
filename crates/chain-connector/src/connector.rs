@@ -172,7 +172,7 @@ impl HttpChainConnector {
         // For now, we forbid multiple workers for one deal on the peer!
         deals.retain(|deal_id, worker| {
             if worker.keys().len() > 1 {
-                tracing::warn!(target: "chain-connector", "Deal {deal_id} has more then one worker for the peer which is forbiden at the moment");
+                tracing::error!(target: "chain-connector", "Deal {deal_id} has more then one worker for the peer which is forbiden at the moment");
                false
             } else {
                true
@@ -1284,7 +1284,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_register_worker() {
+    async fn test_activate_worker() {
         let get_block_by_number_response = r#"{"jsonrpc":"2.0","id":0,"result":{"hash":"0xcbe8d90665392babc8098738ec78009193c99d3cc872a6657e306cfe8824bef9","parentHash":"0x15e767118a3e2d7545fee290b545faccd4a9eff849ac1057ce82cab7100c0c52","sha3Uncles":"0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347","miner":"0x0000000000000000000000000000000000000000","stateRoot":"0x0000000000000000000000000000000000000000000000000000000000000000","transactionsRoot":"0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421","receiptsRoot":"0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421","logsBloom":"0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000","difficulty":"0x0","number":"0xa2","gasLimit":"0x1c9c380","gasUsed":"0x0","timestamp":"0x65d88f76","extraData":"0x","mixHash":"0x0000000000000000000000000000000000000000000000000000000000000000","nonce":"0x0000000000000000","baseFeePerGas":"0x7","totalDifficulty":"0x0","uncles":[],"transactions":[],"size":"0x220"}}"#;
         let estimate_gas_response = r#"{"jsonrpc":"2.0","id": 1,"result": "0x5208"}"#;
         let max_priority_fee_response = r#"{"jsonrpc":"2.0","id": 2,"result": "0x5208"}"#;
