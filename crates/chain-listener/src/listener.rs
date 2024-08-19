@@ -552,16 +552,7 @@ impl ChainListener {
             .map(|unit| (CUID::new(unit.id.0), unit))
             .collect();
 
-        let active = self
-            .cc_compute_units
-            .values()
-            .filter(|unit| unit.startEpoch <= self.current_epoch);
-
-        let pending = self
-            .cc_compute_units
-            .values()
-            .filter(|unit| unit.startEpoch > self.current_epoch);
-
+        self.active_deals.clear();
         for cu in &in_deal {
             let cu_id = CUID::new(cu.id.0);
             let deal_id = cu.deal.to_string().into();
@@ -571,6 +562,16 @@ impl ChainListener {
             });
             onchain_worker.cu_ids.push(cu_id);
         }
+
+        let active = self
+            .cc_compute_units
+            .values()
+            .filter(|unit| unit.startEpoch <= self.current_epoch);
+
+        let pending = self
+            .cc_compute_units
+            .values()
+            .filter(|unit| unit.startEpoch > self.current_epoch);
 
         tracing::info!(target: "chain-listener",
             "Compute units mapping: in cc {}/[{} pending], in deal {}",

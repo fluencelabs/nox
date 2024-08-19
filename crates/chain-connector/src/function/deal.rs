@@ -65,7 +65,7 @@ sol! {
         /// @dev Removes worker from the deal
         function removeWorker(bytes32 onchainId) external;
         /// @dev Returns workers
-       function getWorkers() external view returns (Worker[] memory);
+        function getWorkers() external view returns (Worker[] memory);
     }
 }
 
