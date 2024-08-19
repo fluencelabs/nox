@@ -665,23 +665,23 @@ fn parse_str_field(value: Option<Value>, field: &'static str) -> Result<String> 
 #[cfg(test)]
 mod tests {
 
+    use alloy_primitives::uint;
     use alloy_primitives::U256;
-    use alloy_primitives::{hex, uint};
     use alloy_sol_types::sol_data::Array;
     use alloy_sol_types::SolType;
     use ccp_shared::types::{Difficulty, GlobalNonce, LocalNonce, ResultHash, CUID};
+    use chain_data::peer_id_from_hex;
     use clarity::PrivateKey;
+    use fluence_libp2p::RandomPeerId;
+    use hex::FromHex;
+    use hex_utils::{decode_hex, encode_hex_0x};
+    use log_utils::{enable_logs_for, LogSpec};
     use mockito::Matcher;
     use serde::Deserialize;
     use serde_json::json;
     use std::assert_matches::assert_matches;
     use std::str::FromStr;
     use std::sync::Arc;
-
-    use chain_data::peer_id_from_hex;
-    use fluence_libp2p::RandomPeerId;
-    use hex_utils::{decode_hex, encode_hex_0x};
-    use log_utils::{enable_logs_for, LogSpec};
 
     use crate::connector::TxStatus;
     use crate::Deal::Status::ACTIVE;
@@ -714,14 +714,20 @@ mod tests {
     #[tokio::test]
     async fn test_get_compute_units() {
         let cu_1 = crate::Offer::ComputeUnit {
-            id: hex!("aa3046a12a1aac6e840625e6329d70b427328fec36dc8d273e5e6454b85633d5").into(),
+            id: alloy_primitives::hex!(
+                "aa3046a12a1aac6e840625e6329d70b427328fec36dc8d273e5e6454b85633d5"
+            )
+            .into(),
             deal: Default::default(),
             startEpoch: Default::default(),
             onchainWorkerId: Default::default(),
         };
 
         let cu_2 = crate::Offer::ComputeUnit {
-            id: hex!("ba3046a12a1aac6e840625e6329d70b427328fec36dc8d273e5e6454b85633d1").into(),
+            id: alloy_primitives::hex!(
+                "ba3046a12a1aac6e840625e6329d70b427328fec36dc8d273e5e6454b85633d1"
+            )
+            .into(),
             deal: Default::default(),
             startEpoch: Default::default(),
             onchainWorkerId: Default::default(),
@@ -945,7 +951,7 @@ mod tests {
         mock.assert();
         assert_eq!(
             init_params.difficulty,
-            <Difficulty>::from_str(
+            <Difficulty>::from_hex(
                 "76889c92f61b9c5df216e048df56eb8f4eb02f172ab0d5b04edb9190ab9c9eec"
             )
             .unwrap()
@@ -953,7 +959,7 @@ mod tests {
         assert_eq!(init_params.init_timestamp, uint!(1707760129_U256));
         assert_eq!(
             init_params.global_nonce,
-            <GlobalNonce>::from_str(
+            <GlobalNonce>::from_hex(
                 "0000000000000000000000000000000000000000000000000000000000000005"
             )
             .unwrap()
@@ -1129,15 +1135,21 @@ mod tests {
         enable_logs_for(LogSpec::new(vec!["chain-connector=debug".parse().unwrap()]));
 
         let cu_1 = crate::Offer::ComputeUnit {
-            id: hex!("aa3046a12a1aac6e840625e6329d70b427328fec36dc8d273e5e6454b85633d5").into(),
-            deal: hex!("5e3d0fde6f793b3115a9e7f5ebc195bbeed35d6c").into(),
+            id: alloy_primitives::hex!(
+                "aa3046a12a1aac6e840625e6329d70b427328fec36dc8d273e5e6454b85633d5"
+            )
+            .into(),
+            deal: alloy_primitives::hex!("5e3d0fde6f793b3115a9e7f5ebc195bbeed35d6c").into(),
             startEpoch: Default::default(),
             onchainWorkerId: Default::default(),
         };
 
         let cu_2 = crate::Offer::ComputeUnit {
-            id: hex!("ba3046a12a1aac6e840625e6329d70b427328fec36dc8d273e5e6454b85633d1").into(),
-            deal: hex!("6e3d0fde6f793b3115a9e7f5ebc195bbeed35d6d").into(),
+            id: alloy_primitives::hex!(
+                "ba3046a12a1aac6e840625e6329d70b427328fec36dc8d273e5e6454b85633d1"
+            )
+            .into(),
+            deal: alloy_primitives::hex!("6e3d0fde6f793b3115a9e7f5ebc195bbeed35d6d").into(),
             startEpoch: Default::default(),
             onchainWorkerId: Default::default(),
         };
@@ -1240,14 +1252,20 @@ mod tests {
     #[tokio::test]
     async fn test_get_deals_no_deals() {
         let cu_1 = crate::Offer::ComputeUnit {
-            id: hex!("aa3046a12a1aac6e840625e6329d70b427328fec36dc8d273e5e6454b85633d5").into(),
+            id: alloy_primitives::hex!(
+                "aa3046a12a1aac6e840625e6329d70b427328fec36dc8d273e5e6454b85633d5"
+            )
+            .into(),
             deal: Default::default(),
             startEpoch: Default::default(),
             onchainWorkerId: Default::default(),
         };
 
         let cu_2 = crate::Offer::ComputeUnit {
-            id: hex!("ba3046a12a1aac6e840625e6329d70b427328fec36dc8d273e5e6454b85633d1").into(),
+            id: alloy_primitives::hex!(
+                "ba3046a12a1aac6e840625e6329d70b427328fec36dc8d273e5e6454b85633d1"
+            )
+            .into(),
             deal: Default::default(),
             startEpoch: Default::default(),
             onchainWorkerId: Default::default(),
