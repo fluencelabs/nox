@@ -49,6 +49,7 @@ members = [
     "crates/core-distributor",
     "crates/log-format",
     "crates/vm-utils",
+    "crates/vm-network-utils",
 ]
 exclude = [
     "nox/tests/tetraplets",
