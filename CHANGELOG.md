@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.26.1](https://github.com/fluencelabs/nox/compare/nox-v0.26.0...nox-v0.26.1) (2024-08-20)
+
+
+### Features
+
+* **chain-listener:** integration tests for the chain listener [fixes NET-824, VM-615] ([#2290](https://github.com/fluencelabs/nox/issues/2290)) ([3af4541](https://github.com/fluencelabs/nox/commit/3af4541de12c72e269f5beec7f72fd92a7e06172))
+* support multi CU workers ([#2345](https://github.com/fluencelabs/nox/issues/2345)) ([34c01d8](https://github.com/fluencelabs/nox/commit/34c01d865e1ba939c99677a022acc3472c2d0b45))
+* **vm:** add vm builtins for reboot, reset and status [BRND-23] ([#2340](https://github.com/fluencelabs/nox/issues/2340)) ([a180a5c](https://github.com/fluencelabs/nox/commit/a180a5c642fc0499c7c93ee87bbe8dc3471a53b7))
+
+
+### Bug Fixes
+
+* **connector:** prefix deal id with 0x in setWorker call ([#2348](https://github.com/fluencelabs/nox/issues/2348)) ([3ab2896](https://github.com/fluencelabs/nox/commit/3ab28969c6b60551a1e5bdd5b85cc6070828d58a))
+* suspend/resume on worker deactivate/activate ([#2350](https://github.com/fluencelabs/nox/issues/2350)) ([ac72e69](https://github.com/fluencelabs/nox/commit/ac72e69c51055746b95a9e2697bf9618b7f312b5))
+
 ## [0.26.0](https://github.com/fluencelabs/nox/compare/nox-v0.25.2...nox-v0.26.0) (2024-08-09)
 
 
