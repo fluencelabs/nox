@@ -2377,24 +2377,33 @@ async fn aliases_restart() {
 #[ignore]
 #[tokio::test]
 async fn subnet_resolve() {
-    let cu_1 = chain_connector::Deal::ComputeUnit {
-        id: hex!("0000000000000000000000000000000000000000000000000000000000000001").into(),
-        workerId: peer_id_to_bytes(RandomPeerId::random()).into(),
+    let worker1 = chain_connector::Deal::Worker {
+        offchainId: peer_id_to_bytes(RandomPeerId::random()).into(),
         peerId: peer_id_to_bytes(RandomPeerId::random()).into(),
         provider: Default::default(),
         joinedEpoch: Default::default(),
+        onchainId: Default::default(),
+        computeUnitIds: vec![hex!(
+            "0000000000000000000000000000000000000000000000000000000000000001"
+        )
+        .into()],
     };
 
-    let cu_2 = chain_connector::Deal::ComputeUnit {
-        id: hex!("0000000000000000000000000000000000000000000000000000000000000002").into(),
-        workerId: Default::default(),
+    let worker2 = chain_connector::Deal::Worker {
+        offchainId: Default::default(),
         peerId: peer_id_to_bytes(RandomPeerId::random()).into(),
         provider: Default::default(),
         joinedEpoch: Default::default(),
+        onchainId: Default::default(),
+        computeUnitIds: vec![hex!(
+            "0000000000000000000000000000000000000000000000000000000000000002"
+        )
+        .into()],
     };
-    let resolve_result = encode_hex_0x(Array::<chain_connector::Deal::ComputeUnit>::abi_encode(
-        &vec![cu_1.clone(), cu_2.clone()],
-    ));
+    let resolve_result = encode_hex_0x(Array::<chain_connector::Deal::Worker>::abi_encode(&vec![
+        worker1.clone(),
+        worker2.clone(),
+    ]));
 
     // Create a mock
     let mut server = mockito::Server::new_async().await;
@@ -2485,13 +2494,13 @@ async fn subnet_resolve() {
         workers,
         vec![
             (
-                vec![encode_hex_0x(cu_1.id.0).to_string()],
-                parse_peer_id(&cu_1.peerId.0).unwrap().to_base58(),
-                vec![parse_peer_id(&cu_1.workerId.0).unwrap().to_base58()],
+                vec![encode_hex_0x(worker1.computeUnitIds[0].0).to_string()],
+                parse_peer_id(&worker1.peerId.0).unwrap().to_base58(),
+                vec![parse_peer_id(&worker1.offchainId.0).unwrap().to_base58()],
             ),
             (
-                vec![encode_hex_0x(cu_2.id.0).to_string()],
-                parse_peer_id(&cu_2.peerId.0).unwrap().to_base58(),
+                vec![encode_hex_0x(worker2.computeUnitIds[0].0).to_string()],
+                parse_peer_id(&worker2.peerId.0).unwrap().to_base58(),
                 vec![]
             )
         ]

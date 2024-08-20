@@ -36,15 +36,13 @@ sol! {
             bytes32 id;
             address deal;
             uint256 startEpoch;
+            bytes32 onchainWorkerId;
         }
 
         /// @dev Returns the compute peer info
         function getComputePeer(bytes32 peerId) external view returns (ComputePeer memory);
         /// @dev Returns the compute units info of a peer
         function getComputeUnits(bytes32 peerId) external view returns (ComputeUnit[] memory);
-
-        /// @dev Return the compute unit from a deal
-        function returnComputeUnitFromDeal(bytes32 unitId) external;
     }
 }
 
@@ -75,12 +73,12 @@ impl From<ComputeUnit> for PendingUnit {
 mod tests {
     use crate::Offer::ComputePeer;
     use alloy_primitives::{hex, U256};
-    use alloy_sol_types::SolType;
+    use alloy_sol_types::SolValue;
     use hex_utils::decode_hex;
 
-    #[tokio::test]
-    async fn decode_compute_unit() {
-        let data = "aa3046a12a1aac6e840625e6329d70b427328fec36dc8d273e5e6454b85633d50000000000000000000000005e3d0fde6f793b3115a9e7f5ebc195bbeed35d6c00000000000000000000000000000000000000000000000000000000000003e8";
+    #[test]
+    fn decode_compute_unit() {
+        let data = "aa3046a12a1aac6e840625e6329d70b427328fec36dc8d273e5e6454b85633d50000000000000000000000005e3d0fde6f793b3115a9e7f5ebc195bbeed35d6c00000000000000000000000000000000000000000000000000000000000003e8bb3046a12a1aac6e840625e6329d70b427328fec36dc8d273e5e6454b85633dd";
         let compute_unit = super::ComputeUnit::abi_decode(&decode_hex(data).unwrap(), true);
         assert!(compute_unit.is_ok());
         let compute_unit = compute_unit.unwrap();
@@ -95,11 +93,15 @@ mod tests {
             "0x5e3d0fde6f793b3115a9e7f5ebc195bbeed35d6c"
         );
         assert_eq!(compute_unit.startEpoch, U256::from(1000));
+        assert_eq!(
+            compute_unit.onchainWorkerId,
+            hex!("bb3046a12a1aac6e840625e6329d70b427328fec36dc8d273e5e6454b85633dd")
+        )
     }
 
-    #[tokio::test]
-    async fn decode_compute_unit_no_deal() {
-        let data = "aa3046a12a1aac6e840625e6329d70b427328fec36dc8d273e5e6454b85633d5000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000003e8";
+    #[test]
+    fn decode_compute_unit_no_deal_no_worker() {
+        let data = "aa3046a12a1aac6e840625e6329d70b427328fec36dc8d273e5e6454b85633d5000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000003e80000000000000000000000000000000000000000000000000000000000000000";
         let compute_unit = super::ComputeUnit::abi_decode(&decode_hex(data).unwrap(), true);
         assert!(compute_unit.is_ok());
         let compute_unit = compute_unit.unwrap();
@@ -109,10 +111,11 @@ mod tests {
         );
         assert!(compute_unit.deal.is_zero());
         assert_eq!(compute_unit.startEpoch, U256::from(1000));
+        assert!(compute_unit.onchainWorkerId.is_zero())
     }
 
-    #[tokio::test]
-    async fn decode_compute_peer_no_commitment() {
+    #[test]
+    fn decode_compute_peer_no_commitment() {
         let data = "0xaa3046a12a1aac6e840625e6329d70b427328fec36dc8d273e5e6454b85633d5000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000020000000000000000000000005b73c5498c1e3b4dba84de0f1833c4a029d90519";
         let compute_peer = ComputePeer::abi_decode(&decode_hex(data).unwrap(), true);
         assert!(compute_peer.is_ok());
@@ -129,8 +132,8 @@ mod tests {
         );
     }
 
-    #[tokio::test]
-    async fn decode_compute_peer() {
+    #[test]
+    fn decode_compute_peer() {
         let data = "0xaa3046a12a1aac6e840625e6329d70b427328fec36dc8d273e5e6454b85633d5aa3046a12a1aac6e840625e6329d70b427328feceedc8d273e5e6454b85633b5000000000000000000000000000000000000000000000000000000000000000a0000000000000000000000005b73c5498c1e3b4dba84de0f1833c4a029d90519";
         let compute_peer = ComputePeer::abi_decode(&decode_hex(data).unwrap(), true);
         assert!(compute_peer.is_ok());

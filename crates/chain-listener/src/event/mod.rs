@@ -23,6 +23,6 @@ mod unit_activated;
 mod unit_deactivated;
 
 pub use cc_activated::CommitmentActivated;
-pub use compute_unit_matched::{ComputeUnitMatched, CIDV1};
+pub use compute_unit_matched::{ComputeUnitsMatched, CIDV1};
 pub use unit_activated::UnitActivated;
 pub use unit_deactivated::UnitDeactivated;

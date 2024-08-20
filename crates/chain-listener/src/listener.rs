@@ -22,6 +22,7 @@ use alloy_sol_types::SolEvent;
 use backoff::Error::Permanent;
 use std::cmp::min;
 use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::fmt::{Debug, Formatter};
 use std::future::{pending, Future};
 use std::path::PathBuf;
 use std::process::exit;
@@ -54,7 +55,7 @@ use tracing::Instrument;
 use chain_connector::Offer::ComputeUnit;
 use chain_connector::{
     is_commitment_not_active, is_too_many_proofs, CCStatus, ChainConnector, CommitmentId,
-    ConnectorError, Deal, PEER_NOT_EXISTS,
+    ConnectorError, Deal, OnChainWorkerID, PEER_NOT_EXISTS,
 };
 use chain_data::{parse_log, peer_id_to_hex, BlockHeader, Log};
 use core_distributor::errors::AcquireError;
@@ -65,11 +66,31 @@ use server_config::{ChainConfig, ChainListenerConfig};
 use types::DealId;
 
 use crate::event::CommitmentActivated;
-use crate::event::{ComputeUnitMatched, UnitActivated, UnitDeactivated};
+use crate::event::{ComputeUnitsMatched, UnitActivated, UnitDeactivated};
 use crate::proof_tracker::ProofTracker;
 use crate::types::{CUGroups, PhysicalCoreGroups};
 
 const PROOF_POLL_LIMIT: usize = 50;
+
+#[derive(Clone)]
+struct OnChainWorker {
+    id: OnChainWorkerID,
+    cu_ids: Vec<CUID>,
+}
+
+impl Debug for OnChainWorker {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "(chain_worker_id = {}, cu_ids = {:?})",
+            self.id,
+            self.cu_ids
+                .iter()
+                .map(|cu| cu.to_string())
+                .collect::<Vec<_>>()
+        )
+    }
+}
 
 pub struct ChainListener {
     config: ChainConfig,
@@ -103,7 +124,7 @@ pub struct ChainListener {
     // the compute units that are in the commitment and not in deals
     cc_compute_units: BTreeMap<CUID, ComputeUnit>,
     // the compute units that are in deals and not in commitment
-    active_deals: BTreeMap<DealId, CUID>,
+    active_deals: BTreeMap<DealId, OnChainWorker>,
 
     proof_tracker: ProofTracker,
     pending_proof_txs: Vec<(String, Vec<CUID>)>,
@@ -115,7 +136,7 @@ pub struct ChainListener {
     // Subscriptions that are polled always
     heads: Option<Subscription<JsonValue>>,
     commitment_activated: Option<Subscription<JsonValue>>,
-    unit_matched: Option<Subscription<JsonValue>>,
+    units_matched: Option<Subscription<JsonValue>>,
 
     metrics: Option<ChainListenerMetrics>,
 }
@@ -170,7 +191,7 @@ impl ChainListener {
             unit_deactivated: None,
             heads: None,
             commitment_activated: None,
-            unit_matched: None,
+            units_matched: None,
             active_deals: BTreeMap::new(),
             metrics,
             proof_tracker: ProofTracker::new(persisted_proof_id_dir),
@@ -250,9 +271,9 @@ impl ChainListener {
                                 }
                             }
                         },
-                        event = poll_subscription(&mut self.unit_matched) => {
-                            if let Err(err) = self.process_unit_matched(event) {
-                                self.handle_subscription_error("ComputeUnitMatched", err).await;
+                        event = poll_subscription(&mut self.units_matched) => {
+                            if let Err(err) = self.process_compute_units_matched(event) {
+                                self.handle_subscription_error("ComputeUnitsMatched", err).await;
                             }
                         },
                         _ = timer.next() => {
@@ -491,7 +512,8 @@ impl ChainListener {
                 self.heads = Some(self.subscribe("newHeads", rpc_params!["newHeads"]).await?);
                 self.commitment_activated =
                     Some(self.subscribe("logs", self.cc_activated_params()).await?);
-                self.unit_matched = Some(self.subscribe("logs", self.unit_matched_params()).await?);
+                self.units_matched =
+                    Some(self.subscribe("logs", self.unit_matched_params()).await?);
                 if let Some(commitment_id) = self.current_commitment.clone() {
                     self.subscribe_unit_events(&commitment_id).await?;
                 }
@@ -530,6 +552,17 @@ impl ChainListener {
             .map(|unit| (CUID::new(unit.id.0), unit))
             .collect();
 
+        self.active_deals.clear();
+        for cu in &in_deal {
+            let cu_id = CUID::new(cu.id.0);
+            let deal_id = cu.deal.to_string().into();
+            let onchain_worker = self.active_deals.entry(deal_id).or_insert(OnChainWorker {
+                id: cu.onchainWorkerId,
+                cu_ids: vec![],
+            });
+            onchain_worker.cu_ids.push(cu_id);
+        }
+
         let active = self
             .cc_compute_units
             .values()
@@ -539,13 +572,6 @@ impl ChainListener {
             .cc_compute_units
             .values()
             .filter(|unit| unit.startEpoch > self.current_epoch);
-
-        for cu in &in_deal {
-            let cu_id = CUID::new(cu.id.0);
-            // TODO: in the future it should be BTreeMap<DealId, Vec<CUID>>, because deal will be able
-            // to use multiple CUs from one peer
-            self.active_deals.insert(cu.deal.to_string().into(), cu_id);
-        }
 
         tracing::info!(target: "chain-listener",
             "Compute units mapping: in cc {}/[{} pending], in deal {}",
@@ -567,14 +593,13 @@ impl ChainListener {
         tracing::info!(target: "chain-listener",
             "In deal compute units: {:?}",
             self.active_deals.values()
-                .map(CUID::to_string)
                 .collect::<Vec<_>>()
         );
 
         // NOTE: cores are released after all the logs to simplify debug on failure
-        for cu_id in self.active_deals.values() {
-            self.core_distributor.release_worker_cores(&[*cu_id]);
-            self.acquire_core_for_deal(*cu_id)?;
+        for worker in self.active_deals.values() {
+            self.core_distributor.release_worker_cores(&worker.cu_ids);
+            self.acquire_core_for_deal(worker.cu_ids.clone())?;
         }
 
         Ok(())
@@ -629,7 +654,7 @@ impl ChainListener {
 
     fn unit_matched_params(&self) -> ArrayParams {
         let topics = vec![
-            ComputeUnitMatched::SIGNATURE_HASH.to_string(),
+            ComputeUnitsMatched::SIGNATURE_HASH.to_string(),
             peer_id_to_hex(self.host_id),
         ];
         rpc_params![
@@ -729,6 +754,7 @@ impl ChainListener {
                         id,
                         deal: Address::ZERO,
                         startEpoch: cc_event.startEpoch,
+                        onchainWorkerId: FixedBytes::<32>::ZERO,
                     },
                 )
             })
@@ -763,6 +789,7 @@ impl ChainListener {
                 id: unit_event.unitId,
                 deal: Address::ZERO,
                 startEpoch: unit_event.startEpoch,
+                onchainWorkerId: FixedBytes::<32>::ZERO,
             },
         );
 
@@ -788,11 +815,11 @@ impl ChainListener {
         );
         self.cc_compute_units.remove(&unit_id);
         self.refresh_commitment().await?;
-        self.acquire_core_for_deal(unit_id)?;
+        self.acquire_core_for_deal(vec![unit_id])?;
         Ok(())
     }
 
-    fn process_unit_matched(
+    fn process_compute_units_matched(
         &mut self,
         event: Option<Result<JsonValue, serde_json::Error>>,
     ) -> eyre::Result<()> {
@@ -801,15 +828,24 @@ impl ChainListener {
             tracing::error!(target: "chain-listener", "Failed to parse DealMatched event: {err}, data: {event}");
             err
         })?;
-        let deal_event = parse_log::<ComputeUnitMatched>(log)?;
+        let deal_event = parse_log::<ComputeUnitsMatched>(log)?;
         tracing::info!(target: "chain-listener",
             "Received DealMatched event for deal: {}",
             deal_event.deal
         );
 
+        let cu_ids = deal_event
+            .cuIds
+            .into_iter()
+            .map(|cu| CUID::new(cu.0))
+            .collect();
+
         self.active_deals.insert(
             deal_event.deal.to_string().into(),
-            CUID::new(deal_event.unitId.0),
+            OnChainWorker {
+                id: deal_event.onchainWorkerId,
+                cu_ids,
+            },
         );
         Ok(())
     }
@@ -1018,9 +1054,9 @@ impl ChainListener {
         }
     }
 
-    fn acquire_core_for_deal(&self, unit_id: CUID) -> eyre::Result<()> {
+    fn acquire_core_for_deal(&self, cu_ids: Vec<CUID>) -> eyre::Result<()> {
         self.core_distributor
-            .acquire_worker_cores(AcquireRequest::new(vec![unit_id], WorkType::Deal))?;
+            .acquire_worker_cores(AcquireRequest::new(cu_ids, WorkType::Deal))?;
         Ok(())
     }
 
@@ -1244,7 +1280,7 @@ impl ChainListener {
         })
         .await?;
 
-        for (status, (deal_id, cu_id)) in statuses
+        for (status, (deal_id, worker)) in statuses
             .into_iter()
             .zip(self.active_deals.clone().into_iter())
         {
@@ -1252,7 +1288,7 @@ impl ChainListener {
                 Ok(status) => match status {
                     Deal::Status::INSUFFICIENT_FUNDS | Deal::Status::ENDED => {
                         tracing::info!(target: "chain-listener", "Deal {deal_id} status: {status:?}; Exiting...");
-                        self.exit_deal(&deal_id, cu_id).await?;
+                        self.exit_deal(&deal_id, worker.id).await?;
                         tracing::info!(target: "chain-listener", "Exited deal {deal_id} successfully");
                     }
                     _ => {}
@@ -1266,14 +1302,18 @@ impl ChainListener {
         Ok(())
     }
 
-    async fn exit_deal(&mut self, deal_id: &DealId, cu_id: CUID) -> eyre::Result<()> {
+    async fn exit_deal(
+        &mut self,
+        deal_id: &DealId,
+        onchain_worker_id: OnChainWorkerID,
+    ) -> eyre::Result<()> {
         let backoff = ExponentialBackoff {
             max_elapsed_time: Some(Duration::from_secs(3)),
             ..ExponentialBackoff::default()
         };
 
         retry(backoff, || async {
-            self.chain_connector.exit_deal(&cu_id).await.map_err(|err| {
+            self.chain_connector.exit_deal(deal_id, onchain_worker_id).await.map_err(|err| {
                 tracing::warn!(target: "chain-listener", "Failed to exit deal {deal_id}: {err}");
                 eyre!("Failed to exit deal {deal_id}: {err}; Retrying...")
             })?;

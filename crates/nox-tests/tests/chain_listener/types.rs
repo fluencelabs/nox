@@ -22,7 +22,7 @@ use alloy_primitives::{Address, FixedBytes, U256};
 use ccp_shared::types::{Difficulty, GlobalNonce, PhysicalCoreId, CUID};
 use chain_connector::Deal::Status;
 use chain_connector::Offer::{ComputePeer, ComputeUnit};
-use chain_connector::{CCStatus, CommitmentId};
+use chain_connector::{CCStatus, CommitmentId, OnChainWorkerID};
 use fluence_libp2p::PeerId;
 use hex::FromHex;
 use jsonrpsee::SubscriptionMessage;
@@ -30,6 +30,7 @@ use parking_lot::Mutex;
 use std::collections::HashMap;
 use std::sync::Arc;
 
+type ChainCUID = FixedBytes<32>;
 pub struct ChainState {
     pub(crate) block_number: U256,
     pub(crate) block_duration: U256,
@@ -44,7 +45,8 @@ pub struct ChainState {
     pub(crate) commitment_activation_at: HashMap<CommitmentId, U256>,
     pub(crate) peer_states: HashMap<PeerId, PeerState>,
     pub(crate) deal_statuses: HashMap<Address, Status>,
-    pub(crate) unit_state: HashMap<FixedBytes<32>, UnitState>,
+    pub(crate) unit_state: HashMap<ChainCUID, UnitState>,
+    pub(crate) workers: HashMap<OnChainWorkerID, Vec<ChainCUID>>,
 }
 
 impl Default for ChainState {
@@ -64,6 +66,7 @@ impl Default for ChainState {
             deal_statuses: Default::default(),
             commitment_activation_at: Default::default(),
             unit_state: Default::default(),
+            workers: Default::default(),
         }
     }
 }

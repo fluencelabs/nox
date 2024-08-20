@@ -26,10 +26,10 @@ use chain_connector::Capacity::CapacityCalls;
 use chain_connector::Core::CoreCalls;
 use chain_connector::Deal::{DealCalls, Status};
 use chain_connector::Offer::{ComputeUnit, OfferCalls};
-use chain_connector::{CCStatus, CommitmentId, Offer};
+use chain_connector::{CCStatus, CommitmentId, Deal};
 use chain_data::{parse_peer_id, peer_id_to_bytes};
 use chain_listener::{
-    CommitmentActivated, ComputeUnitMatched, UnitActivated, UnitDeactivated, CIDV1,
+    CommitmentActivated, ComputeUnitsMatched, UnitActivated, UnitDeactivated, CIDV1,
 };
 use clarity::Transaction;
 use eyre::{eyre, OptionExt};
@@ -40,6 +40,7 @@ use jsonrpsee::server::ServerHandle;
 use jsonrpsee::types::{ErrorObject, Params};
 use jsonrpsee::{RpcModule, SubscriptionMessage};
 use parking_lot::{Mutex, MutexGuard};
+use rand::Rng;
 use serde_json::{json, Value};
 use std::collections::BTreeSet;
 use std::str::FromStr;
@@ -189,9 +190,6 @@ impl ChainServer {
                             let data = Array::<ComputeUnit>::abi_encode(&state.units);
                             Ok(encode_hex_0x(data))
                         }
-                        OfferCalls::returnComputeUnitFromDeal(_params) => {
-                            todo!()
-                        }
                     }
                 } else if let Ok(res) = DealCalls::abi_decode(data.as_slice(), true) {
                     if !deal_addresses.contains(&to) {
@@ -216,10 +214,13 @@ impl ChainServer {
                         DealCalls::appCID(_) => {
                             todo!()
                         }
-                        DealCalls::setWorker(_) => {
+                        DealCalls::activateWorker(_) => {
                             todo!()
                         }
-                        DealCalls::getComputeUnits(_) => {
+                        DealCalls::getWorkers(_) => {
+                            todo!()
+                        }
+                        DealCalls::removeWorker(_) => {
                             todo!()
                         }
                     }
@@ -424,6 +425,12 @@ impl ChainServer {
     pub async fn create_deal(&self, params: CreateDealParams) {
         let mut state = self.chain_state.lock();
         let block_number = state.block_number;
+        let on_chain_worker_id = FixedBytes::<32>::from(rand::thread_rng().gen::<[u8; 32]>());
+
+        state
+            .workers
+            .insert(on_chain_worker_id, vec![params.unit.id]);
+
         state.deal_statuses.insert(params.deal_id, Status::ACTIVE);
         let peer_state = state.peer_states.get_mut(&params.peer_id).unwrap();
         if let Some(state_unit) = peer_state
@@ -432,6 +439,7 @@ impl ChainServer {
             .find(|state_unit| state_unit.id == params.unit.id)
         {
             state_unit.deal = params.deal_id;
+            state_unit.onchainWorkerId = on_chain_worker_id;
         }
 
         {
@@ -467,21 +475,21 @@ impl ChainServer {
         }
 
         {
-            let event = ComputeUnitMatched {
+            let event = ComputeUnitsMatched {
                 peerId: FixedBytes::new(peer_id_to_bytes(params.peer_id)),
                 deal: params.deal_id,
-                unitId: params.unit.id,
-                dealCreationBlock: block_number,
+                onchainWorkerId: Default::default(),
                 appCID: CIDV1 {
                     prefixes: Default::default(),
                     hash: Default::default(),
                 },
+                cuIds: vec![params.unit.id],
             };
             let data = event.encode_data();
             let data = encode_hex_0x(data);
             let message = SubscriptionMessage::from_json(&json!({
               "topics": vec![
-                    ComputeUnitMatched::SIGNATURE_HASH.to_string(),
+                    ComputeUnitsMatched::SIGNATURE_HASH.to_string(),
                     encode_hex_0x(peer_id_to_bytes(params.peer_id)),
                 ],
               "data": data,
@@ -492,7 +500,7 @@ impl ChainServer {
             let message = LogsParams {
                 address: self.diamond_contract_address.clone(),
                 topics: vec![
-                    ComputeUnitMatched::SIGNATURE_HASH.to_string(),
+                    ComputeUnitsMatched::SIGNATURE_HASH.to_string(),
                     encode_hex_0x(peer_id_to_bytes(params.peer_id)),
                 ],
                 message,
@@ -520,74 +528,94 @@ impl ChainServer {
         let transaction = Transaction::decode_from_rlp(&mut transaction.as_slice())
             .map_err(|_| ErrorObject::owned(500, "", None::<String>))?;
 
+        let state = ctx.chain_state.lock();
+
+        let deal_addresses = state
+            .deal_statuses
+            .keys()
+            .map(|addr| addr.to_checksum(None))
+            .collect::<BTreeSet<_>>();
+
         match transaction {
             Transaction::Legacy { .. } => {}
             Transaction::Eip2930 { .. } => {}
             Transaction::Eip1559 { to, data, .. } => {
                 let to = to.to_string();
-                if to == contract_address {
-                    let call =
-                        Offer::returnComputeUnitFromDealCall::abi_decode(data.as_slice(), true)
-                            .map_err(|_| {
-                                ErrorObject::owned(
-                                    500,
-                                    "expected ABI for function returnComputeUnitFromDealCall",
-                                    None::<String>,
-                                )
-                            })?;
+                if deal_addresses.contains(&to) {
+                    let call = Deal::removeWorkerCall::abi_decode(data.as_slice(), true).map_err(
+                        |_| {
+                            ErrorObject::owned(
+                                500,
+                                "expected ABI for function returnComputeUnitFromDealCall",
+                                None::<String>,
+                            )
+                        },
+                    )?;
 
-                    let state = ctx.chain_state.lock();
-                    let unit_state =
+                    let worker_cus =
                         state
-                            .unit_state
-                            .get(&call.unitId)
+                            .workers
+                            .get(&call.onchainId)
                             .ok_or(ErrorObject::owned(
                                 500,
-                                format!("no such unitId {}", call.unitId),
+                                &format!("no such worker {}", call.onchainId),
                                 None::<String>,
                             ))?;
 
-                    let commitment_id =
-                        unit_state.commitment_id.clone().ok_or(ErrorObject::owned(
-                            500,
-                            &format!("compute unit {} doesn't have commitment id", call.unitId),
-                            None::<String>,
-                        ))?;
+                    for unit_id in worker_cus {
+                        let unit_state =
+                            state.unit_state.get(unit_id).ok_or(ErrorObject::owned(
+                                500,
+                                format!("no such unitId {}", unit_id),
+                                None::<String>,
+                            ))?;
 
-                    let event = UnitActivated {
-                        commitmentId: FixedBytes::new(commitment_id.0),
-                        unitId: call.unitId,
-                        startEpoch: state.current_epoch + U256::from(100),
-                    };
+                        let commitment_id =
+                            unit_state.commitment_id.clone().ok_or(ErrorObject::owned(
+                                500,
+                                &format!("compute unit {} doesn't have commitment id", unit_id),
+                                None::<String>,
+                            ))?;
 
-                    let data = event.encode_data();
-                    let data = encode_hex_0x(data);
+                        let event = UnitActivated {
+                            commitmentId: FixedBytes::new(commitment_id.0),
+                            unitId: unit_id.clone(),
+                            startEpoch: state.current_epoch + U256::from(100),
+                        };
 
-                    let message = SubscriptionMessage::from_json(&json!({
-                      "topics": vec![
-                        UnitActivated::SIGNATURE_HASH.to_string(),
-                        commitment_id.to_string(),
-                        encode_hex_0x(call.unitId),
-                      ],
-                      "data": data,
-                      "blockNumber": state.block_number,
-                      "removed": false
-                    }))
-                    .unwrap();
+                        let data = event.encode_data();
+                        let data = encode_hex_0x(data);
 
-                    let message = LogsParams {
-                        address: contract_address.clone(),
-                        topics: vec![
+                        let message = SubscriptionMessage::from_json(&json!({
+                          "topics": vec![
                             UnitActivated::SIGNATURE_HASH.to_string(),
                             commitment_id.to_string(),
-                            encode_hex_0x(call.unitId),
-                        ],
-                        message,
-                    };
+                            encode_hex_0x(unit_id),
+                          ],
+                          "data": data,
+                          "blockNumber": state.block_number,
+                          "removed": false
+                        }))
+                        .unwrap();
 
-                    ctx.logs_sender.send(message).unwrap();
+                        let message = LogsParams {
+                            address: contract_address.clone(),
+                            topics: vec![
+                                UnitActivated::SIGNATURE_HASH.to_string(),
+                                commitment_id.to_string(),
+                                encode_hex_0x(unit_id.0),
+                            ],
+                            message,
+                        };
+
+                        ctx.logs_sender.send(message).unwrap();
+                    }
                 } else {
-                    return Err(ErrorObject::owned(500, &format!("Only TXs with returnComputeUnitFromDealCall sent to diamond address {} are supported", contract_address), None::<String>));
+                    return Err(ErrorObject::owned(
+                        500,
+                        &format!("Only TXs with removeWorker sent to deal addresses are supported",),
+                        None::<String>,
+                    ));
                 }
             }
         }

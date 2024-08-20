@@ -42,7 +42,7 @@ use crate::types::*;
 use crate::ConnectorError::{FieldNotFound, InvalidU256, ResponseParseError};
 use crate::Deal::CIDV1;
 use crate::Offer::{ComputePeer, ComputeUnit};
-use crate::{CCStatus, Capacity, CommitmentId, Core, Deal, Offer};
+use crate::{CCStatus, Capacity, CommitmentId, Core, Deal, Offer, OnChainWorkerID};
 use chain_data::{peer_id_to_bytes, BlockHeader};
 use fluence_libp2p::PeerId;
 use hex_utils::{decode_hex, encode_hex_0x};
@@ -72,7 +72,11 @@ pub trait ChainConnector: Send + Sync {
 
     async fn get_deal_statuses(&self, deal_ids: Vec<DealId>) -> Result<Vec<Result<Deal::Status>>>;
 
-    async fn exit_deal(&self, cu_id: &CUID) -> Result<String>;
+    async fn exit_deal(
+        &self,
+        deal_id: &DealId,
+        on_chain_worker_id: OnChainWorkerID,
+    ) -> Result<String>;
 
     async fn get_tx_statuses(&self, tx_hashes: Vec<String>) -> Result<Vec<Result<Option<bool>>>>;
 
@@ -151,7 +155,7 @@ impl HttpChainConnector {
     pub(crate) async fn get_deals(&self) -> eyre::Result<Vec<DealResult>> {
         let units = self.get_compute_units().await?;
         tracing::debug!(target: "chain-connector", "get_deals: Got {} compute units", units.len());
-        let mut deals: BTreeMap<DealId, Vec<CUID>> = BTreeMap::new();
+        let mut deals: BTreeMap<DealId, BTreeMap<OnChainWorkerId, Vec<CUID>>> = BTreeMap::new();
 
         units
             .iter()
@@ -160,27 +164,47 @@ impl HttpChainConnector {
                 deals
                     .entry(unit.deal.to_string().into())
                     .or_default()
+                    .entry(unit.onchainWorkerId.as_slice().into())
+                    .or_default()
                     .push(CUID::new(unit.id.into()));
             });
+
+        // For now, we forbid multiple workers for one deal on the peer!
+        deals.retain(|deal_id, worker| {
+            if worker.keys().len() > 1 {
+                tracing::error!(target: "chain-connector", "Deal {deal_id} has more then one worker for the peer which is forbiden at the moment");
+               false
+            } else {
+               true
+            }
+        });
 
         if deals.is_empty() {
             return Ok(Vec::new());
         }
+
         tracing::debug!(target: "chain-connector", "get_deals: Got {} deals: {:?}", deals.len(), deals);
         let infos = self.get_deal_infos(deals.keys()).await?;
         tracing::debug!(target: "chain-connector", "get_deals: Got {} deals infos: {:?}", infos.len(), infos);
         let deals = infos
             .into_iter()
             .zip(deals)
-            .map(|(details, (deal_id, unit_ids))| match details {
-                Ok((status, app_cid)) => DealResult::new(
-                    deal_id,
-                    DealInfo {
-                        unit_ids,
-                        status,
-                        app_cid,
-                    },
-                ),
+            .map(|(details, (deal_id, mut workers))| match details {
+                Ok((status, app_cid)) => {
+                    if let Some((onchain_worker_id, cu_ids)) = workers.pop_first() {
+                        DealResult::new(
+                            deal_id,
+                            DealInfo {
+                                cu_ids,
+                                status,
+                                app_cid,
+                                onchain_worker_id,
+                            },
+                        )
+                    } else {
+                        DealResult::with_error(deal_id, "No CUs are found for the deal".into())
+                    }
+                }
                 Err(err) => DealResult::with_error(deal_id, err.to_string()),
             })
             .collect::<_>();
@@ -348,14 +372,14 @@ impl HttpChainConnector {
         &self,
         deal_id: &DealId,
         worker_id: WorkerId,
-        cu_id: CUID,
+        onchain_worker_id: OnChainWorkerId,
     ) -> Result<String> {
-        let data = Deal::setWorkerCall {
-            computeUnitId: cu_id.as_ref().into(),
-            workerId: peer_id_to_bytes(worker_id.into()).into(),
+        let data = Deal::activateWorkerCall {
+            onchainId: FixedBytes::from_slice(&onchain_worker_id),
+            offchainId: peer_id_to_bytes(worker_id.into()).into(),
         }
         .abi_encode();
-        tracing::debug!(target: "chain-connector", "Registering worker {worker_id} for deal {deal_id} with cu_id {cu_id}");
+        tracing::debug!(target: "chain-connector", "Registering worker {worker_id} for deal {deal_id} with onchain_id {}", encode_hex_0x(onchain_worker_id));
         self.send_tx(data, &deal_id.to_address()).await
     }
 
@@ -365,8 +389,8 @@ impl HttpChainConnector {
         self.make_latest_diamond_rpc_params(data)
     }
 
-    pub async fn get_deal_compute_units(&self, deal_id: &DealId) -> Result<Vec<Deal::ComputeUnit>> {
-        let data = Deal::getComputeUnitsCall {}.abi_encode();
+    pub async fn get_deal_workers(&self, deal_id: &DealId) -> Result<Vec<Deal::Worker>> {
+        let data = Deal::getWorkersCall {}.abi_encode();
         let resp: String = process_response(
             self.client
                 .request(
@@ -376,9 +400,9 @@ impl HttpChainConnector {
                 .await,
         )?;
         let bytes = decode_hex(&resp)?;
-        let compute_units = <Array<Deal::ComputeUnit> as SolType>::abi_decode(&bytes, true)?;
+        let workers = <Array<Deal::Worker> as SolType>::abi_decode(&bytes, true)?;
 
-        Ok(compute_units)
+        Ok(workers)
     }
 
     fn init_timestamp_params(&self) -> ArrayParams {
@@ -580,14 +604,17 @@ impl ChainConnector for HttpChainConnector {
 
         Ok(statuses)
     }
-    async fn exit_deal(&self, cu_id: &CUID) -> Result<String> {
-        let data = Offer::returnComputeUnitFromDealCall {
-            unitId: cu_id.as_ref().into(),
+    async fn exit_deal(
+        &self,
+        deal_id: &DealId,
+        onchain_worker_id: OnChainWorkerID,
+    ) -> Result<String> {
+        let data = Deal::removeWorkerCall {
+            onchainId: onchain_worker_id,
         }
         .abi_encode();
 
-        self.send_tx(data, &self.config.diamond_contract_address)
-            .await
+        self.send_tx(data, &deal_id.to_address()).await
     }
 
     async fn get_tx_statuses(&self, tx_hashes: Vec<String>) -> Result<Vec<Result<Option<bool>>>> {
@@ -640,21 +667,21 @@ mod tests {
 
     use alloy_primitives::uint;
     use alloy_primitives::U256;
-    use std::assert_matches::assert_matches;
-    use std::str::FromStr;
-    use std::sync::Arc;
-
+    use alloy_sol_types::sol_data::Array;
+    use alloy_sol_types::SolType;
     use ccp_shared::types::{Difficulty, GlobalNonce, LocalNonce, ResultHash, CUID};
+    use chain_data::peer_id_from_hex;
     use clarity::PrivateKey;
+    use fluence_libp2p::RandomPeerId;
     use hex::FromHex;
+    use hex_utils::{decode_hex, encode_hex_0x};
+    use log_utils::{enable_logs_for, LogSpec};
     use mockito::Matcher;
     use serde::Deserialize;
     use serde_json::json;
-
-    use chain_data::peer_id_from_hex;
-    use fluence_libp2p::RandomPeerId;
-    use hex_utils::decode_hex;
-    use log_utils::{enable_logs_for, LogSpec};
+    use std::assert_matches::assert_matches;
+    use std::str::FromStr;
+    use std::sync::Arc;
 
     use crate::connector::TxStatus;
     use crate::Deal::Status::ACTIVE;
@@ -686,7 +713,30 @@ mod tests {
 
     #[tokio::test]
     async fn test_get_compute_units() {
-        let expected_data = "0x000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000025d204dcc21f59c2a2098a277e48879207f614583e066654ad6736d36815ebb9e00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000450e2f2a5bdb528895e9005f67e70fe213b9b822122e96fd85d2238cae55b6f900000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000";
+        let cu_1 = crate::Offer::ComputeUnit {
+            id: alloy_primitives::hex!(
+                "aa3046a12a1aac6e840625e6329d70b427328fec36dc8d273e5e6454b85633d5"
+            )
+            .into(),
+            deal: Default::default(),
+            startEpoch: Default::default(),
+            onchainWorkerId: Default::default(),
+        };
+
+        let cu_2 = crate::Offer::ComputeUnit {
+            id: alloy_primitives::hex!(
+                "ba3046a12a1aac6e840625e6329d70b427328fec36dc8d273e5e6454b85633d1"
+            )
+            .into(),
+            deal: Default::default(),
+            startEpoch: Default::default(),
+            onchainWorkerId: Default::default(),
+        };
+
+        let expected_data = encode_hex_0x(Array::<crate::Offer::ComputeUnit>::abi_encode(&vec![
+            cu_1.clone(),
+            cu_2.clone(),
+        ]));
         let expected_response =
             format!("{{\"jsonrpc\":\"2.0\",\"result\":\"{expected_data}\",\"id\":0}}");
 
@@ -797,7 +847,6 @@ mod tests {
 
     #[tokio::test]
     async fn test_batch_init_request() {
-        use hex::FromHex;
         let expected_response = r#"[
           {
             "jsonrpc": "2.0",
@@ -1084,13 +1133,32 @@ mod tests {
     #[tokio::test]
     async fn test_get_deals() {
         enable_logs_for(LogSpec::new(vec!["chain-connector=debug".parse().unwrap()]));
-        let expected_deal_id_1 = "5e3d0fde6f793b3115a9e7f5ebc195bbeed35d6c";
-        let expected_cuid_1 = "aa3046a12a1aac6e840625e6329d70b427328fec36dc8d273e5e6454b85633d5";
 
-        let expected_deal_id_2 = "0x6e3d0fde6f793b3115a9e7f5ebc195bbeed35d6d";
-        let expected_cuid_2 = "ba3046a12a1aac6e840625e6329d70b427328fec36dc8d273e5e6454b85633d1";
+        let cu_1 = crate::Offer::ComputeUnit {
+            id: alloy_primitives::hex!(
+                "aa3046a12a1aac6e840625e6329d70b427328fec36dc8d273e5e6454b85633d5"
+            )
+            .into(),
+            deal: alloy_primitives::hex!("5e3d0fde6f793b3115a9e7f5ebc195bbeed35d6c").into(),
+            startEpoch: Default::default(),
+            onchainWorkerId: Default::default(),
+        };
 
-        let compute_units_response = "00000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000002aa3046a12a1aac6e840625e6329d70b427328fec36dc8d273e5e6454b85633d50000000000000000000000005e3d0fde6f793b3115a9e7f5ebc195bbeed35d6c00000000000000000000000000000000000000000000000000000000000fffbcba3046a12a1aac6e840625e6329d70b427328fec36dc8d273e5e6454b85633d10000000000000000000000006e3d0fde6f793b3115a9e7f5ebc195bbeed35d6d00000000000000000000000000000000000000000000000000000000000fffba";
+        let cu_2 = crate::Offer::ComputeUnit {
+            id: alloy_primitives::hex!(
+                "ba3046a12a1aac6e840625e6329d70b427328fec36dc8d273e5e6454b85633d1"
+            )
+            .into(),
+            deal: alloy_primitives::hex!("6e3d0fde6f793b3115a9e7f5ebc195bbeed35d6d").into(),
+            startEpoch: Default::default(),
+            onchainWorkerId: Default::default(),
+        };
+
+        let compute_units_response =
+            encode_hex_0x(Array::<crate::Offer::ComputeUnit>::abi_encode(&vec![
+                cu_1.clone(),
+                cu_2.clone(),
+            ]));
         let compute_units_response = json!({
             "jsonrpc": "2.0",
             "id": 0,
@@ -1152,30 +1220,30 @@ mod tests {
 
         assert_eq!(deals.len(), 2, "there should be only two deals: {deals:?}");
         assert!(deals[0].success, "failed to get a deal: {deals:?}");
-        assert_eq!(deals[0].deal_id, expected_deal_id_1);
+        assert_eq!(deals[0].deal_id, cu_1.deal.to_string());
 
         let deal_info = &deals[0].deal_info[0];
         assert_eq!(deal_info.status, ACTIVE);
         assert_eq!(
-            deal_info.unit_ids.len(),
+            deal_info.cu_ids.len(),
             1,
             "there should be only one unit id: {deals:?}"
         );
-        assert_eq!(deal_info.unit_ids[0].to_string(), expected_cuid_1);
+        assert_eq!(deal_info.cu_ids[0], CUID::new(cu_1.id.0));
         assert_eq!(deal_info.app_cid, expected_app_cid);
 
         // Second deal
         assert!(deals[1].success, "failed to get a deal: {deals:?}");
-        assert_eq!(deals[1].deal_id, expected_deal_id_2);
+        assert_eq!(deals[1].deal_id, cu_2.deal.to_string());
 
         let deal_info = &deals[1].deal_info[0];
         assert_eq!(deal_info.status, ACTIVE);
         assert_eq!(
-            deal_info.unit_ids.len(),
+            deal_info.cu_ids.len(),
             1,
             "there should be only one unit id: {deals:?}"
         );
-        assert_eq!(deal_info.unit_ids[0].to_string(), expected_cuid_2);
+        assert_eq!(deal_info.cu_ids[0], CUID::new(cu_2.id.0));
         assert_eq!(deal_info.app_cid, expected_app_cid);
 
         mock.assert();
@@ -1183,7 +1251,31 @@ mod tests {
 
     #[tokio::test]
     async fn test_get_deals_no_deals() {
-        let compute_units_response = "0x0000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000002097ab88db9d8e48a1d55cd0205bd74721eb2ba70897d255f350062dec8fec7bb4000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002988e97756c550265b7a570b41bb4d8dbf056a1ca0435265ad175c5ecced2ef600000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000d4af56c3a07423c4b976f6d1a43a96f4843bdc5479b01bf3bd73f69c1062738e00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000e9ab8214c37d615708ef89559407e1a015a0f7fbdaf3cd23a1f4c5ed2ae1c8cd00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000a717255e798920c9a9bbaae45492ff9020cdc8db3d8a44099015fbe950927368000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000df891a54a5479aa7ee3c019615ac55a18534aa81dcf3b2fbf7577d54cadf0c300000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000fbbd2b72d216685d97c09c56ca6ba16e7d2e35ff72bb69c72584ad8d9365610200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000ccff78d7a0c365cd3ba8842707a2f96f26ac7ea4dbd7aac04ae2f0958ef2252400000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000db5fba69f5d2b2d04a5bf63b7abe1a2781470e77101e3afe6ec66794aec80c0a000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000005b96d1d71cf1b77421645ae4031558195d9df60abd73ea716c3df67d3e7832da00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000e5cf187d01e552b0bd38ea89b9013e7b98915891cafb44fc7cf6937223290bcf00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000fe00f5915737e75aa5c7799dcf326020ab499a65c9d10e1e4951be8371aee6f2000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000c073f4fe89ebe1a354f052de5e371dc39e8d2b8f9ccbf0fc9e26e107217fe40000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000008510f943f7080e58846bc5044afa0c91480dbeca0ff5dcbef7c522a43531cffc000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000007d3ea3803085980a5b4e3bd93c32d8dae3b8060db9aab800e0922b7b18d865fc000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002be7bd75150701c7ef8521d322fbcbb228cf907224d80e433550a3034bbcbb8b000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000e1469c97990a40da4465cb4e749faa2905adfc4b1109f7dc8b66ef8b1ed0a0c000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000008d20e7f50737ea4236c6d92b150e569aa2fc482699cc0165722210b4bcffdc4c00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000eae742035300aed3774579cab0c75416002438809f3cb3f62fb3c34dd0ab16790000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000029e9cc0f707e8e02578285b8e1d50c207fab5ec11b0b1e6f97834e1154abbe4b000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000005be58fc7ae8eb4e577b1be2a911a11fd17b90c8b6754aa71859ad6285bcc3b00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000008f7ba4e1f4bccd2aaf1f8791df5b73a6727b0720aba8fcf0afb6e1f07303c1cc0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000053f668a26f5978f4f252145d68d2f0a627116c197a342a2e42aa269f46dcccf000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000db7ddcd38d772f1b043572bab7d890ea65723cf4805ee963f46b7a9f81a454f20000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000018fa36dd54f48c4c4ae40ceefca274460d4c83026f48fdcc4e201a1a0423561400000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000a0b6e3c818a1ecb540a289c81d0835dc41755f091ba70f02e5134203c195b80900000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000e77ef1585872eabfa78c01915cf0d43c3bd3bd63ae40565c62254a95bba901530000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000059810dcb510b17ca28693caa6d6164b6db28925290f345d8ef0ac8ef5751014f0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000d6b992345e2ed6287ff2df0943d10f972ae7f63789d11df22f3fd9a4199f5c000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000005e58c2b5ba2b1a7d861de440a962fe0ffdcef1e240e3e50690f6f1f527bf7d66000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000ca0be7865c187df9331bce42cd6ea3498d858a3d8b37fec18e9654ef320daa7000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000003938f3a12b19ed989431771df29f64ef011eec4da79e2ec30d86f28dae35f10a00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000";
+        let cu_1 = crate::Offer::ComputeUnit {
+            id: alloy_primitives::hex!(
+                "aa3046a12a1aac6e840625e6329d70b427328fec36dc8d273e5e6454b85633d5"
+            )
+            .into(),
+            deal: Default::default(),
+            startEpoch: Default::default(),
+            onchainWorkerId: Default::default(),
+        };
+
+        let cu_2 = crate::Offer::ComputeUnit {
+            id: alloy_primitives::hex!(
+                "ba3046a12a1aac6e840625e6329d70b427328fec36dc8d273e5e6454b85633d1"
+            )
+            .into(),
+            deal: Default::default(),
+            startEpoch: Default::default(),
+            onchainWorkerId: Default::default(),
+        };
+
+        let compute_units_response =
+            encode_hex_0x(Array::<crate::Offer::ComputeUnit>::abi_encode(&vec![
+                cu_1.clone(),
+                cu_2.clone(),
+            ]));
         let compute_units_response =
             format!("{{\"jsonrpc\":\"2.0\",\"result\":\"{compute_units_response}\",\"id\":0}}");
         let mut server = mockito::Server::new_async().await;
@@ -1210,7 +1302,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_register_worker() {
+    async fn test_activate_worker() {
         let get_block_by_number_response = r#"{"jsonrpc":"2.0","id":0,"result":{"hash":"0xcbe8d90665392babc8098738ec78009193c99d3cc872a6657e306cfe8824bef9","parentHash":"0x15e767118a3e2d7545fee290b545faccd4a9eff849ac1057ce82cab7100c0c52","sha3Uncles":"0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347","miner":"0x0000000000000000000000000000000000000000","stateRoot":"0x0000000000000000000000000000000000000000000000000000000000000000","transactionsRoot":"0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421","receiptsRoot":"0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421","logsBloom":"0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000","difficulty":"0x0","number":"0xa2","gasLimit":"0x1c9c380","gasUsed":"0x0","timestamp":"0x65d88f76","extraData":"0x","mixHash":"0x0000000000000000000000000000000000000000000000000000000000000000","nonce":"0x0000000000000000","baseFeePerGas":"0x7","totalDifficulty":"0x0","uncles":[],"transactions":[],"size":"0x220"}}"#;
         let estimate_gas_response = r#"{"jsonrpc":"2.0","id": 1,"result": "0x5208"}"#;
         let max_priority_fee_response = r#"{"jsonrpc":"2.0","id": 2,"result": "0x5208"}"#;
@@ -1227,9 +1319,8 @@ mod tests {
         let deal_id = "5e3d0fde6f793b3115a9e7f5ebc195bbeed35d6c";
         let deal_id = types::DealId::from(deal_id);
         let worker_id = types::peer_scope::WorkerId::from(RandomPeerId::random());
-        let cuid =
-            CUID::from_hex("aa3046a12a1aac6e840625e6329d70b427328fec36dc8d273e5e6454b85633d5")
-                .unwrap();
+        let onchain_worker_id =
+            decode_hex("aa3046a12a1aac6e840625e6329d70b427328fec36dc8d273e5e6454b85633d5").unwrap();
 
         let mut server = mockito::Server::new_async().await;
         let url = server.url();
@@ -1256,7 +1347,7 @@ mod tests {
             .create();
 
         let result = get_connector(&url)
-            .register_worker(&deal_id, worker_id, cuid)
+            .register_worker(&deal_id, worker_id, onchain_worker_id)
             .await
             .unwrap();
         assert_eq!(result, expected_tx_hash);

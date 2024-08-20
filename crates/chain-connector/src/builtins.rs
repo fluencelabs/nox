@@ -16,9 +16,8 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-use crate::types::{SubnetResolveResult, TxReceiptResult, TxStatus, Worker};
+use crate::types::{OnChainWorkerId, SubnetResolveResult, SubnetWorker, TxReceiptResult, TxStatus};
 use crate::{ChainConnector, HttpChainConnector};
-use ccp_shared::types::CUID;
 use futures::FutureExt;
 use particle_args::{Args, JError};
 use particle_builtins::{wrap, CustomService};
@@ -111,14 +110,14 @@ async fn register_worker_builtin(
     let mut args = args.function_args.into_iter();
     let deal_id: DealId = Args::next("deal_id", &mut args)?;
     let worker_id: WorkerId = Args::next("worker_id", &mut args)?;
-    let cu_ids: Vec<CUID> = Args::next("cu_id", &mut args)?;
+    let onchain_worker_id: OnChainWorkerId = Args::next("onchain_worker_id", &mut args)?;
 
-    if cu_ids.len() != 1 {
-        return Err(JError::new("Only one cu_id is allowed"));
+    if onchain_worker_id.is_empty() {
+        return Err(JError::new("Invalid onchain_worker_id: empty"));
     }
 
     let tx_hash = connector
-        .register_worker(&deal_id, worker_id, cu_ids[0])
+        .register_worker(&deal_id, worker_id, onchain_worker_id)
         .await
         .map_err(|err| JError::new(format!("Failed to register worker: {err}")))?;
     Ok(json!(tx_hash))
@@ -164,7 +163,7 @@ async fn resolve_subnet_builtin(
     let deal_id: String = Args::next("deal_id", &mut args.function_args.into_iter())?;
     let deal_id = DealId::from(deal_id);
 
-    let workers: eyre::Result<Vec<Worker>> = try {
+    let workers: eyre::Result<Vec<SubnetWorker>> = try {
         if !deal_id.is_valid() {
             Err(eyre::eyre!(
                 "Invalid deal id '{}': invalid length",
@@ -172,10 +171,10 @@ async fn resolve_subnet_builtin(
             ))?;
         }
 
-        let units = connector.get_deal_compute_units(&deal_id).await?;
-        let workers: Result<Vec<Worker>, _> = units
+        let workers = connector.get_deal_workers(&deal_id).await?;
+        let workers: Result<Vec<SubnetWorker>, _> = workers
             .into_iter()
-            .map(|unit| Worker::try_from(unit))
+            .map(|worker| SubnetWorker::try_from(worker))
             .collect();
         workers?
     };

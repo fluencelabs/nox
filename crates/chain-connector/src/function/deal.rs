@@ -16,7 +16,7 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-
+use alloy_primitives::FixedBytes;
 use alloy_sol_types::{sol, SolType};
 use hex_utils::decode_hex;
 use serde::{Deserialize, Serialize};
@@ -44,12 +44,13 @@ sol! {
             SMALL_BALANCE
         }
 
-        struct ComputeUnit {
-            bytes32 id;
-            bytes32 workerId;
+        struct Worker {
+            bytes32 offchainId;
+            bytes32 onchainId;
             bytes32 peerId;
             address provider;
             uint256 joinedEpoch;
+            bytes32[] computeUnitIds;
         }
 
         /// @dev Returns the status of the deal
@@ -58,13 +59,17 @@ sol! {
         /// @dev Returns the app CID
         function appCID() external view returns (CIDV1 memory);
 
-        /// @dev Set worker ID for a compute unit. Compute unit can have only one worker ID
-        function setWorker(bytes32 computeUnitId, bytes32 workerId) external;
+        /// @dev Set offchain worker ID for a corresponding onchain worker for a deal
+        function activateWorker(bytes32 onchainId, bytes32 offchainId);
 
-        /// @dev Returns the compute units info by provider
-        function getComputeUnits() public view returns (ComputeUnit[] memory);
+        /// @dev Removes worker from the deal
+        function removeWorker(bytes32 onchainId) external;
+        /// @dev Returns workers
+        function getWorkers() external view returns (Worker[] memory);
     }
 }
+
+pub type OnChainWorkerID = FixedBytes<32>;
 
 impl CIDV1 {
     pub fn from_hex(hex: &str) -> Result<Self, ConnectorError> {

@@ -157,6 +157,7 @@ async fn test_cc_activation_flow() {
         id: compute_unit_id_1,
         deal: Address::ZERO,
         startEpoch: U256::from(2),
+        onchainWorkerId: FixedBytes::<32>::ZERO,
     };
 
     let compute_peer_1 = ComputePeer {
@@ -257,18 +258,21 @@ async fn test_deal_insufficient_funds_flow() {
         id: compute_unit_id_1,
         deal: Address::ZERO,
         startEpoch: U256::from(2),
+        onchainWorkerId: FixedBytes::<32>::ZERO,
     };
 
     let compute_unit_2 = ComputeUnit {
         id: compute_unit_id_2,
         deal: Address::ZERO,
         startEpoch: U256::from(2),
+        onchainWorkerId: FixedBytes::<32>::ZERO,
     };
 
     let compute_unit_3 = ComputeUnit {
         id: compute_unit_id_3,
         deal: Address::ZERO,
         startEpoch: U256::from(2),
+        onchainWorkerId: FixedBytes::<32>::ZERO,
     };
 
     let compute_peer_1 = ComputePeer {

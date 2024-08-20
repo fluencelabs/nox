@@ -18,7 +18,6 @@
  */
 use crate::error::ConnectorError;
 use crate::function::Deal;
-use crate::Deal::ComputeUnit;
 use alloy_primitives::U256;
 use ccp_shared::types::{Difficulty, GlobalNonce, CUID};
 use chain_data::parse_peer_id;
@@ -56,11 +55,14 @@ impl DealResult {
     }
 }
 
+pub type OnChainWorkerId = Vec<u8>;
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct DealInfo {
     pub status: Deal::Status,
-    pub unit_ids: Vec<CUID>,
+    pub cu_ids: Vec<CUID>,
     pub app_cid: String,
+    pub onchain_worker_id: OnChainWorkerId,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -142,28 +144,32 @@ impl RawTxReceipt {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
-pub struct Worker {
+pub struct SubnetWorker {
     pub cu_ids: Vec<String>,
     pub host_id: String,
     pub worker_id: Vec<String>,
 }
 
-impl TryFrom<ComputeUnit> for Worker {
+impl TryFrom<Deal::Worker> for SubnetWorker {
     type Error = Report;
-    fn try_from(unit: ComputeUnit) -> eyre::Result<Self> {
+    fn try_from(deal_worker: Deal::Worker) -> eyre::Result<Self> {
         let mut worker_id = vec![];
-        if !unit.workerId.is_zero() {
-            let w_id = parse_peer_id(&unit.workerId.0)
-                .map_err(|err| eyre!("Failed to parse unit.workerId: {err}"))?
+        if !deal_worker.offchainId.is_zero() {
+            let w_id = parse_peer_id(&deal_worker.offchainId.0)
+                .map_err(|err| eyre!("Failed to parse worker.offchainId: {err}"))?
                 .to_base58();
             worker_id.push(w_id)
         }
-        let cu_id = unit.id.to_string();
-        let peer_id = parse_peer_id(&unit.peerId.0)
-            .map_err(|err| eyre!("Failed to parse unit.peerId: {err}"))?;
+        let cu_ids = deal_worker
+            .computeUnitIds
+            .into_iter()
+            .map(|id| id.to_string())
+            .collect();
+        let peer_id = parse_peer_id(&deal_worker.peerId.0)
+            .map_err(|err| eyre!("Failed to parse worker.peerId: {err}"))?;
 
         Ok(Self {
-            cu_ids: vec![cu_id],
+            cu_ids,
             host_id: peer_id.to_base58(),
             worker_id,
         })
@@ -173,7 +179,7 @@ impl TryFrom<ComputeUnit> for Worker {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct SubnetResolveResult {
     pub success: bool,
-    pub workers: Vec<Worker>,
+    pub workers: Vec<SubnetWorker>,
     pub error: Vec<String>,
 }
 
