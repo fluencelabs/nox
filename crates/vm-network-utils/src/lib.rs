@@ -132,9 +132,9 @@ fn setup_fwd(
 }
 
 fn apply_rules(ipt: &IPTables, name: &str, rules: &Vec<String>) -> Result<(), IpTablesError> {
-    ipt.new_chain("nat", &name)?;
+    ipt.new_chain("nat", name)?;
     for rule in rules {
-        ipt.append("nat", &name, &rule)?;
+        ipt.append("nat", name, rule)?;
     }
     Ok(())
 }
