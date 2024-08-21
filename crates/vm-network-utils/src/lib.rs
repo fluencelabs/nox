@@ -176,7 +176,7 @@ fn snat_rules(network_settings: &NetworkSettings, name: &str) -> (String, Vec<St
     let port_start = network_settings.port_range.0;
     let port_end = network_settings.port_range.1;
 
-    let name = format!("SNAT-{name}");
+    let name = cut_chain_name(format!("SNAT-{name}"));
 
     let ports_rules = format!(
         "-s {vm_ip} -p tcp -m tcp --dport {port_start}:{port_end} -j SNAT --to-source {public_ip}"
@@ -229,7 +229,7 @@ fn dnat_rules(network_settings: &NetworkSettings, name: &str) -> (String, Vec<St
     let port_start = network_settings.port_range.0;
     let port_end = network_settings.port_range.1;
 
-    let name = format!("DNAT-{name}");
+    let name = cut_chain_name(format!("DNAT-{name}"));
 
     let port_rules = format!(
         "-d {public_ip} -p tcp -m tcp --dport {port_start}:{port_end} -j DNAT \
@@ -266,7 +266,7 @@ fn fwd_rules(network_settings: &NetworkSettings, name: &str) -> (String, Vec<Str
     let port_end = network_settings.port_range.1;
     let bridge_name = &network_settings.bridge_name;
 
-    let name = format!("FWD-{name}");
+    let name = cut_chain_name(format!("FWD-{name}"));
 
     let port_rules = format!(
         "-d {vm_ip} -o {bridge_name} -p tcp -m tcp --dport {port_start}:{port_end} -j ACCEPT"
@@ -277,4 +277,10 @@ fn fwd_rules(network_settings: &NetworkSettings, name: &str) -> (String, Vec<Str
 
     let rules = vec![port_rules, ssh_port_rules];
     (name, rules)
+}
+
+// iptables allows only 29 characters for the chain name
+fn cut_chain_name(mut name: String) -> String {
+    name.truncate(28);
+    name
 }

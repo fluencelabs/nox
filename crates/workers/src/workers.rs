@@ -709,16 +709,20 @@ impl Workers {
 
         vm_utils::create_domain(vm_config.libvirt_uri.clone().as_str(), &params)?;
 
-        self.set_vm_flag(worker_id, true).await?;
-        // First, create the network
-        vm_network_utils::setup_network(&vm_config.network, vm_name.as_str())?;
-        // And only then start the VM
-        let result = vm_utils::start_vm(vm_config.libvirt_uri.as_str(), vm_name.as_str());
+        let result: Result<_, WorkersError> = try {
+            // First, create the network
+            vm_network_utils::setup_network(&vm_config.network, vm_name.as_str())?;
+            // And only then start the VM
+            vm_utils::start_vm(vm_config.libvirt_uri.as_str(), vm_name.as_str())?;
+        };
         if let Err(err) = result {
-            // Clear the network on errors so we can retry later (setup_network isn't idempotent)
+            // Clear the network on errors, so we can retry later (setup_network isn't idempotent)
+            tracing::warn!("couldn't create network or start VM, cleaning up network");
             vm_network_utils::clear_network(&vm_config.network, vm_name.as_str())?;
-            return Err(WorkersError::VmError(err));
+            return Err(err);
         }
+
+        self.set_vm_flag(worker_id, true).await?;
 
         Ok(vm_name)
     }
