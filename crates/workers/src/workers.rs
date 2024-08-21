@@ -227,10 +227,6 @@ impl Workers {
             .map(|info| info.deal_id.clone())
     }
 
-    pub fn vm_worker_exists(&self) -> bool {
-        todo!()
-    }
-
     /// Creates a new worker with the given `deal_id` and initial peer ID.
     ///
     /// # Arguments
