@@ -5868,6 +5868,7 @@ dependencies = [
  "tracing-opentelemetry",
  "tracing-panic",
  "tracing-subscriber",
+ "vm-network-utils",
  "workers",
 ]
 
@@ -10277,6 +10278,7 @@ dependencies = [
  "toml_edit 0.22.18",
  "tracing",
  "types",
+ "vm-network-utils",
  "vm-utils",
 ]
 

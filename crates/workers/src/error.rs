@@ -23,6 +23,7 @@ use std::path::PathBuf;
 use thiserror::Error;
 use types::peer_scope::WorkerId;
 use types::DealId;
+use vm_network_utils::NetworkSetupError;
 use vm_utils::VmError;
 
 #[derive(Debug, Error)]
@@ -177,4 +178,8 @@ pub enum WorkersError {
     VmNotFound(WorkerId),
     #[error(transparent)]
     VmError(#[from] VmError),
+    #[error("Only one VM allowed on the host, and a VM already exists for worker {0}")]
+    VMAlreadyExists(WorkerId),
+    #[error("Error while setting up VM network: {0}")]
+    VmNetworkError(#[from] NetworkSetupError),
 }

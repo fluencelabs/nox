@@ -198,14 +198,13 @@ impl<RT: AquaRuntime> Node<RT> {
             key_storage.clone(),
         );
 
-        let workers_config = WorkersConfig::new(
-            config.node_config.workers_queue_buffer,
-            config
-                .node_config
-                .vm
-                .clone()
-                .map(|conf| VmConfig::new(conf.libvirt_uri, conf.bridge_name)),
-        );
+        let workers_config =
+            WorkersConfig::new(
+                config.node_config.workers_queue_buffer,
+                config.node_config.vm.clone().map(|conf| {
+                    VmConfig::new(conf.libvirt_uri, to_vm_network_settings(conf.network))
+                }),
+            );
 
         let (workers, worker_events) = Workers::from_path(
             workers_config,
@@ -565,6 +564,19 @@ impl<RT: AquaRuntime> Node<RT> {
             scopes,
             health_registry,
         )
+    }
+}
+
+fn to_vm_network_settings(
+    config: server_config::VmNetworkConfig,
+) -> vm_network_utils::NetworkSettings {
+    vm_network_utils::NetworkSettings {
+        public_ip: config.public_ip,
+        vm_ip: config.vm_ip,
+        bridge_name: config.bridge_name,
+        port_range: (config.port_range.start, config.port_range.end),
+        host_ssh_port: config.host_ssh_port,
+        vm_ssh_port: config.vm_ssh_port,
     }
 }
 

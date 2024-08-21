@@ -36,6 +36,7 @@ use core_distributor::{CoreDistributor, ThreadPinner, CUID};
 use fluence_libp2p::PeerId;
 use types::peer_scope::WorkerId;
 use types::DealId;
+use vm_network_utils::NetworkSettings;
 use vm_utils::{CreateVMDomainParams, NonEmpty, VmStatus};
 
 const WORKER_DATA_DIR: &str = "data";
@@ -122,14 +123,14 @@ impl WorkersConfig {
 pub struct VmConfig {
     /// Uri to the libvirt API
     libvirt_uri: String,
-    bridge_name: String,
+    network: NetworkSettings,
 }
 
 impl VmConfig {
-    pub fn new(libvirt_uri: String, bridge_name: String) -> Self {
+    pub fn new(libvirt_uri: String, network: NetworkSettings) -> Self {
         Self {
             libvirt_uri,
-            bridge_name,
+            network,
         }
     }
 }
@@ -224,6 +225,10 @@ impl Workers {
             .get(&worker_id)
             .ok_or(WorkersError::WorkerNotFound(worker_id))
             .map(|info| info.deal_id.clone())
+    }
+
+    pub fn vm_worker_exists(&self) -> bool {
+        todo!()
     }
 
     /// Creates a new worker with the given `deal_id` and initial peer ID.
@@ -647,58 +652,85 @@ impl Workers {
         match &self.config.vm {
             None => Err(WorkersError::FeatureDisabled),
             Some(vm_config) => {
-                let assignment = {
-                    let guard = self.assignments.read();
-                    let assignment = guard
-                        .get(&worker_id)
-                        .ok_or_else(|| WorkersError::WorkerNotFound(worker_id))?;
+                let vm_created = self
+                    .worker_infos
+                    .read()
+                    .values()
+                    .any(|worker_info| *worker_info.vm_flag.read());
+                if vm_created {
+                    return Err(WorkersError::VMAlreadyExists(worker_id));
+                }
 
-                    NonEmpty::from_vec(assignment.logical_core_ids())
-                        .ok_or_else(|| WorkersError::WrongAssignment)?
-                };
-
-                let file_name = &image
-                    .file_name()
-                    .ok_or_else(|| WorkersError::VMImageNotFile {
-                        image: image.to_path_buf(),
-                    })?;
-
-                let vm_name = worker_id.to_string();
-
-                let worker_image = self
-                    .workers_dir
-                    .join(&vm_name)
-                    .join(WORKER_DATA_DIR)
-                    .join(file_name);
-
-                tokio::fs::copy(&image, &worker_image)
-                    .await
-                    .map_err(|err| WorkersError::FailedToCopyVMImage {
-                        image: image.to_path_buf(),
-                        err,
-                    })?;
-
-                let params = CreateVMDomainParams::new(
-                    vm_name.clone(),
-                    worker_image,
-                    assignment,
-                    vm_config.bridge_name.clone(),
-                );
-
-                vm_utils::create_domain(vm_config.libvirt_uri.clone().as_str(), &params)?;
-
-                self.set_vm_flag(worker_id, true).await?;
-
-                vm_utils::start_vm(vm_config.libvirt_uri.as_str(), vm_name.as_str())?;
-
+                let vm_name = self.create_vm_inner(worker_id, image, vm_config).await?;
                 Ok(vm_name)
             }
         }
     }
 
+    async fn create_vm_inner(
+        &self,
+        worker_id: WorkerId,
+        image: &Path,
+        vm_config: &VmConfig,
+    ) -> Result<String, WorkersError> {
+        let assignment = {
+            let guard = self.assignments.read();
+            let assignment = guard
+                .get(&worker_id)
+                .ok_or_else(|| WorkersError::WorkerNotFound(worker_id))?;
+
+            NonEmpty::from_vec(assignment.logical_core_ids())
+                .ok_or_else(|| WorkersError::WrongAssignment)?
+        };
+
+        let file_name = &image
+            .file_name()
+            .ok_or_else(|| WorkersError::VMImageNotFile {
+                image: image.to_path_buf(),
+            })?;
+
+        let vm_name = worker_id.to_string();
+
+        let worker_image = self
+            .workers_dir
+            .join(&vm_name)
+            .join(WORKER_DATA_DIR)
+            .join(file_name);
+
+        tokio::fs::copy(&image, &worker_image)
+            .await
+            .map_err(|err| WorkersError::FailedToCopyVMImage {
+                image: image.to_path_buf(),
+                err,
+            })?;
+
+        let params = CreateVMDomainParams::new(
+            vm_name.clone(),
+            worker_image,
+            assignment,
+            vm_config.network.bridge_name.clone(),
+        );
+
+        vm_utils::create_domain(vm_config.libvirt_uri.clone().as_str(), &params)?;
+
+        self.set_vm_flag(worker_id, true).await?;
+        // First, create the network
+        vm_network_utils::setup_network(&vm_config.network, vm_name.as_str())?;
+        // And only then start the VM
+        let result = vm_utils::start_vm(vm_config.libvirt_uri.as_str(), vm_name.as_str());
+        if let Err(err) = result {
+            // Clear the network on errors so we can retry later (setup_network isn't idempotent)
+            vm_network_utils::clear_network(&vm_config.network, vm_name.as_str())?;
+            return Err(WorkersError::VmError(err));
+        }
+
+        Ok(vm_name)
+    }
+
     fn remove_vm(&self, worker_id: WorkerId) -> Result<(), WorkersError> {
         if let Some(vm_config) = &self.config.vm {
             if self.has_vm(worker_id)? {
+                vm_network_utils::clear_network(&vm_config.network, &worker_id.to_string())?;
                 vm_utils::remove_domain(
                     vm_config.libvirt_uri.as_str(),
                     worker_id.to_string().as_str(),

@@ -18,7 +18,7 @@
  */
 
 use std::collections::{BTreeMap, HashMap};
-use std::net::IpAddr;
+use std::net::{IpAddr, Ipv4Addr};
 use std::ops::Deref;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
@@ -614,15 +614,49 @@ pub struct DevModeConfig {
     pub binaries: BTreeMap<String, PathBuf>,
 }
 
-#[derive(Clone, Deserialize, Serialize, Debug, PartialEq, Eq)]
-pub struct VmConfig {
-    pub libvirt_uri: String,
-    pub bridge_name: String,
-}
-
 fn default_dev_mode_config() -> DevModeConfig {
     DevModeConfig {
         enable: false,
         binaries: default_binaries_mapping(),
+    }
+}
+
+#[derive(Clone, Deserialize, Serialize, Debug, PartialEq, Eq)]
+pub struct VmConfig {
+    pub libvirt_uri: String,
+    pub network: VmNetworkConfig,
+}
+
+#[derive(Clone, Deserialize, Serialize, Debug, PartialEq, Eq)]
+pub struct VmNetworkConfig {
+    pub bridge_name: String,
+    pub public_ip: Ipv4Addr,
+    pub vm_ip: Ipv4Addr,
+    #[serde(default = "default_host_ssh_port")]
+    pub host_ssh_port: u16,
+    #[serde(default = "default_vm_ssh_port")]
+    pub vm_ssh_port: u16,
+    #[serde(default = "default_port_range_config")]
+    pub port_range: PortRangeConfig,
+}
+
+fn default_host_ssh_port() -> u16 {
+    2222
+}
+
+fn default_vm_ssh_port() -> u16 {
+    22
+}
+
+#[derive(Clone, Deserialize, Serialize, Debug, PartialEq, Eq)]
+pub struct PortRangeConfig {
+    pub start: u16,
+    pub end: u16,
+}
+
+fn default_port_range_config() -> PortRangeConfig {
+    PortRangeConfig {
+        start: 1000,
+        end: 65535,
     }
 }

@@ -24,6 +24,7 @@ tokio = { workspace = true, features = ["fs", "sync"] }
 derivative = { workspace = true }
 types = { workspace = true }
 vm-utils = { workspace = true }
+vm-network-utils = { workspace = true }
 async-trait = "0.1.79"
 tokio-stream = { workspace = true, features = ["fs"] }
 

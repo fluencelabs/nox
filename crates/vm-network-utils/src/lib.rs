@@ -1,47 +1,50 @@
 use iptables::IPTables;
+use std::net::Ipv4Addr;
 use thiserror::Error;
 
 pub struct NetworkSettings {
-    pub public_ip: String,
-    pub vm_ip: String,
+    pub public_ip: Ipv4Addr,
+    pub vm_ip: Ipv4Addr,
     pub bridge_name: String,
     pub port_range: (u16, u16),
     pub host_ssh_port: u16,
     pub vm_ssh_port: u16,
 }
 
-#[derive(Debug, Error)]
-#[error(transparent)]
-pub struct DNatSetupError(#[from] Box<dyn std::error::Error>);
-
-#[derive(Debug, Error)]
-#[error(transparent)]
-pub struct SNatSetupError(#[from] Box<dyn std::error::Error>);
-
-#[derive(Debug, Error)]
-#[error(transparent)]
-pub struct FwdSetupError(#[from] Box<dyn std::error::Error>);
-
+// The iptables crate only return this kind of error, which can't be sent between threads
+// So, the easiest solution is to store the error message as strings
 #[derive(Debug, Error)]
 pub enum NetworkSetupError {
-    #[error("error setting up DNAT rules: {0}")]
-    DNat(#[from] DNatSetupError),
-    #[error("error setting up SNAT rules: {0}")]
-    SNat(#[from] SNatSetupError),
-    #[error("error setting up FWD rules: {0}")]
-    Fwd(#[from] FwdSetupError),
-    #[error("error initializing iptables: {0}")]
-    Init(#[from] Box<dyn std::error::Error>),
+    #[error("error setting up DNAT rules: {message}")]
+    DNat { message: String },
+    #[error("error setting up SNAT rules: {message}")]
+    SNat { message: String },
+    #[error("error setting up FWD rules: {message}")]
+    Fwd { message: String },
+    #[error("error initializing iptables: {message}")]
+    Init { message: String },
+    #[error("error cleaning the rules for the chain {chain_name}: {message}")]
+    Clean { chain_name: String, message: String },
 }
 
+type IpTablesError = Box<dyn std::error::Error>;
+
 pub fn setup_network(
-    network_settings: NetworkSettings,
+    network_settings: &NetworkSettings,
     name: &str,
 ) -> Result<(), NetworkSetupError> {
-    let ipt = iptables::new(false)?;
-    setup_snat(&network_settings, &ipt, name)?;
-    setup_dnat(&network_settings, &ipt, name)?;
-    setup_fwd(&network_settings, &ipt, name)?;
+    let ipt = iptables::new(false).map_err(|err| NetworkSetupError::Init {
+        message: err.to_string(),
+    })?;
+    setup_snat(network_settings, &ipt, name).map_err(|err| NetworkSetupError::SNat {
+        message: err.to_string(),
+    })?;
+    setup_dnat(network_settings, &ipt, name).map_err(|err| NetworkSetupError::DNat {
+        message: err.to_string(),
+    })?;
+    setup_fwd(network_settings, &ipt, name).map_err(|err| NetworkSetupError::Fwd {
+        message: err.to_string(),
+    })?;
     Ok(())
 }
 
@@ -49,35 +52,35 @@ pub fn clear_network(
     network_settings: &NetworkSettings,
     name: &str,
 ) -> Result<(), NetworkSetupError> {
+    clear_network_inner(network_settings, name).map_err(|err| NetworkSetupError::Clean {
+        chain_name: name.to_string(),
+        message: err.to_string(),
+    })
+}
+
+fn clear_network_inner(
+    network_settings: &NetworkSettings,
+    name: &str,
+) -> Result<(), IpTablesError> {
     let ipt = iptables::new(false)?;
-    let snat_result = {
+    {
         let (chain_name, rules) = snat_rules(network_settings, name);
-        clear_chain(&ipt, &chain_name, &rules)
-    };
+        clear_chain(&ipt, &chain_name, &rules)?;
+    }
 
-    let dnat_result = {
+    {
         let (chain_name, rules) = dnat_rules(network_settings, name);
-        clear_chain(&ipt, &chain_name, &rules)
-    };
+        clear_chain(&ipt, &chain_name, &rules)?;
+    }
 
-    let fwd_result = {
+    {
         let (chain_name, rules) = fwd_rules(network_settings, name);
-        clear_chain(&ipt, &chain_name, &rules)
-    };
-
-    // Try to clean as much as possible and only then fail
-    snat_result?;
-    dnat_result?;
-    fwd_result?;
-
+        clear_chain(&ipt, &chain_name, &rules)?;
+    }
     Ok(())
 }
 
-fn clear_chain(
-    ipt: &IPTables,
-    chain_name: &str,
-    rules: &Vec<String>,
-) -> Result<(), NetworkSetupError> {
+fn clear_chain(ipt: &IPTables, chain_name: &str, rules: &Vec<String>) -> Result<(), IpTablesError> {
     let exists = ipt.chain_exists("nat", chain_name)?;
     if !exists {
         tracing::warn!("Can't clean the chain {chain_name}: doesn't exist");
@@ -102,7 +105,7 @@ fn setup_dnat(
     network_settings: &NetworkSettings,
     ipt: &IPTables,
     name: &str,
-) -> Result<(), DNatSetupError> {
+) -> Result<(), IpTablesError> {
     let (chain_name, rules) = dnat_rules(network_settings, name);
     apply_rules(ipt, &chain_name, &rules)?;
     Ok(())
@@ -112,7 +115,7 @@ fn setup_snat(
     network_settings: &NetworkSettings,
     ipt: &IPTables,
     name: &str,
-) -> Result<(), SNatSetupError> {
+) -> Result<(), IpTablesError> {
     let (chain_name, rules) = snat_rules(network_settings, name);
     apply_rules(ipt, &chain_name, &rules)?;
     Ok(())
@@ -122,17 +125,13 @@ fn setup_fwd(
     network_settings: &NetworkSettings,
     ipt: &IPTables,
     name: &str,
-) -> Result<(), FwdSetupError> {
+) -> Result<(), IpTablesError> {
     let (chain_name, rules) = fwd_rules(network_settings, name);
     apply_rules(ipt, &chain_name, &rules)?;
     Ok(())
 }
 
-fn apply_rules(
-    ipt: &IPTables,
-    name: &str,
-    rules: &Vec<String>,
-) -> Result<(), Box<dyn std::error::Error>> {
+fn apply_rules(ipt: &IPTables, name: &str, rules: &Vec<String>) -> Result<(), IpTablesError> {
     ipt.new_chain("nat", &name)?;
     for rule in rules {
         ipt.append("nat", &name, &rule)?;
@@ -170,56 +169,34 @@ fn apply_rules(
 //          -j MASQUERADE
 // ```
 fn snat_rules(network_settings: &NetworkSettings, name: &str) -> (String, Vec<String>) {
+    let public_ip = network_settings.public_ip;
+    let vm_ip = network_settings.vm_ip;
+    let vm_ssh_port = network_settings.vm_ssh_port;
+    let host_ssh_port = network_settings.host_ssh_port;
+    let port_start = network_settings.port_range.0;
+    let port_end = network_settings.port_range.1;
+
     let name = format!("SNAT-{name}");
-    let common_prefix = &[
-        format!("-s {}", network_settings.vm_ip),
-        "-p tcp".to_string(),
-        "-m tcp".to_string(),
-    ]
-    .join(" ");
 
-    let ports_rules = &[
-        common_prefix.clone(),
-        format!(
-            "--dport {}:{}",
-            network_settings.port_range.0, network_settings.port_range.1
-        ),
-        "-j SNAT".to_string(),
-        format!("--to-source {}", network_settings.public_ip),
-    ]
-    .join(" ");
+    let ports_rules = format!(
+        "-s {vm_ip} -p tcp -m tcp --dport {port_start}:{port_end} -j SNAT --to-source {public_ip}"
+    );
 
-    let ssh_ports_rules = &[
-        common_prefix.clone(),
-        format!("--dport {}", network_settings.vm_ssh_port),
-        "-j SNAT".to_string(),
-        format!("--to-source {}", network_settings.public_ip),
-    ]
-    .join(" ");
+    let ssh_ports_rules =
+        format!("-s {vm_ip} -p tcp -m tcp --dport {vm_ssh_port} -j SNAT --to-source {public_ip}");
 
-    let masquerade_ports_rules = &[
-        common_prefix.clone(),
-        format!(
-            "--dport {}:{}",
-            network_settings.port_range.0, network_settings.port_range.1
-        ),
-        format!("-d {}", network_settings.public_ip),
-        "-j MASQUERADE".to_string(),
-    ]
-    .join(" ");
-    let masquerade_ssh_ports_rules = &[
-        common_prefix.clone(),
-        format!("--dport {}", network_settings.host_ssh_port),
-        format!("-d {}", network_settings.public_ip),
-        "-j MASQUERADE".to_string(),
-    ]
-    .join(" ");
+    let masquerade_ports_rules = format!(
+        "-s {vm_ip} -p tcp -m tcp --dport {port_start}:{port_end} -d {public_ip} -j MASQUERADE"
+    );
+
+    let masquerade_ssh_ports_rules =
+        format!("-s {vm_ip} -p tcp -m tcp --dport {host_ssh_port} -d {public_ip} -j MASQUERADE");
 
     let rules = vec![
-        ports_rules.to_string(),
-        ssh_ports_rules.to_string(),
-        masquerade_ports_rules.to_string(),
-        masquerade_ssh_ports_rules.to_string(),
+        ports_rules,
+        ssh_ports_rules,
+        masquerade_ports_rules,
+        masquerade_ssh_ports_rules,
     ];
 
     (name, rules)
@@ -245,36 +222,25 @@ fn snat_rules(network_settings: &NetworkSettings, name: &str) -> (String, Vec<St
 //           -j DNAT
 // ```
 fn dnat_rules(network_settings: &NetworkSettings, name: &str) -> (String, Vec<String>) {
-    let name = format!("DNAT-{name}");
-    let common_prefix = &[
-        format!("-d {}", network_settings.public_ip),
-        "-p tcp".to_string(),
-        "-m tcp".to_string(),
-        format!(
-            "--dport {}:{}",
-            network_settings.port_range.0, network_settings.port_range.1
-        ),
-        "-j DNAT".to_string(),
-    ]
-    .join(" ");
+    let public_ip = network_settings.public_ip;
+    let vm_ip = network_settings.vm_ip;
+    let vm_ssh_port = network_settings.vm_ssh_port;
+    let host_ssh_port = network_settings.host_ssh_port;
+    let port_start = network_settings.port_range.0;
+    let port_end = network_settings.port_range.1;
 
-    let port_rules = &[
-        common_prefix.clone(),
-        format!(
-            "--to-destination {}:{}-{}",
-            network_settings.vm_ip, network_settings.port_range.0, network_settings.port_range.1
-        ),
-    ]
-    .join(" ");
-    let ssh_port_rules = &[
-        common_prefix.clone(),
-        format!(
-            "--to-destination {}:{}",
-            network_settings.vm_ip, network_settings.vm_ssh_port
-        ),
-    ]
-    .join(" ");
-    let rules = vec![port_rules.to_string(), ssh_port_rules.to_string()];
+    let name = format!("DNAT-{name}");
+
+    let port_rules = format!(
+        "-d {public_ip} -p tcp -m tcp --dport {port_start}:{port_end} -j DNAT \
+        --to-destination {vm_ip}:{port_start}-{port_end}",
+    );
+
+    let ssh_port_rules = format!(
+        "-d {public_ip} -p tcp -m tcp --dport {host_ssh_port} -j DNAT \
+        --to-destination {vm_ip}:{vm_ssh_port}",
+    );
+    let rules = vec![port_rules, ssh_port_rules];
     (name, rules)
 }
 
@@ -294,29 +260,21 @@ fn dnat_rules(network_settings: &NetworkSettings, name: &str) -> (String, Vec<St
 //          -j ACCEPT
 // ```
 fn fwd_rules(network_settings: &NetworkSettings, name: &str) -> (String, Vec<String>) {
+    let vm_ip = network_settings.vm_ip;
+    let vm_ssh_port = network_settings.vm_ssh_port;
+    let port_start = network_settings.port_range.0;
+    let port_end = network_settings.port_range.1;
+    let bridge_name = &network_settings.bridge_name;
+
     let name = format!("FWD-{name}");
-    let common_prefix = &[
-        format!("-d {}", network_settings.public_ip),
-        "-p tcp".to_string(),
-        "-m tcp".to_string(),
-        format!("-o {}", network_settings.bridge_name),
-    ]
-    .join(" ");
-    let port_rules = &[
-        common_prefix.clone(),
-        format!(
-            "--dport {}:{}",
-            network_settings.port_range.0, network_settings.port_range.1
-        ),
-        "-j ACCEPT".to_string(),
-    ]
-    .join(" ");
-    let ssh_rules = &[
-        common_prefix.clone(),
-        format!("--dport {}", network_settings.vm_ssh_port),
-        "-j ACCEPT".to_string(),
-    ]
-    .join(" ");
-    let rules = vec![port_rules.to_string(), ssh_rules.to_string()];
+
+    let port_rules = format!(
+        "-d {vm_ip} -o {bridge_name} -p tcp -m tcp --dport {port_start}:{port_end} -j ACCEPT"
+    );
+
+    let ssh_port_rules =
+        format!("-d {vm_ip} -o {bridge_name} -p tcp -m tcp --dport {vm_ssh_port} -j ACCEPT");
+
+    let rules = vec![port_rules, ssh_port_rules];
     (name, rules)
 }

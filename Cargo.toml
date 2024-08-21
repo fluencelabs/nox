@@ -104,6 +104,7 @@ types = { path = "crates/types" }
 core-distributor = { path = "crates/core-distributor" }
 log-format = { path = "crates/log-format" }
 vm-utils = { path = "crates/vm-utils" }
+vm-network-utils = { path = "crates/vm-network-utils" }
 
 # spell
 fluence-spell-dtos = "=0.7.5"
