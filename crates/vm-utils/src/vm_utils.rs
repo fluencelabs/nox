@@ -1,4 +1,5 @@
 use ccp_shared::types::LogicalCoreId;
+use gpu_utils::PciLocation;
 use mac_address::MacAddress;
 use nonempty::NonEmpty;
 use rand::Rng;
@@ -101,6 +102,8 @@ pub enum VmError {
         #[source]
         err: virt::error::Error,
     },
+    #[error("Failed to get GPU PCI location: {0}")]
+    FailedToGetPCI(#[from] gpu_utils::PciError),
 }
 
 // The list of states is taken from the libvirt documentation
@@ -156,8 +159,10 @@ pub fn create_domain(uri: &str, params: &CreateVMDomainParams) -> Result<(), VmE
     match domain {
         None => {
             tracing::info!(target: "vm-utils","Domain with name {} doesn't exists. Creating", params.name);
+            // There's certainly better places to do this, but RN it doesn't really matter
+            let gpu_pci_locations = gpu_utils::get_gpu_pci()?;
             let mac = generate_random_mac();
-            let xml = prepare_xml(&params, mac.to_string().as_str());
+            let xml = prepare_xml(&params, mac.to_string().as_str(), &gpu_pci_locations);
             Domain::define_xml_flags(&conn, xml.as_str(), VIR_DOMAIN_DEFINE_VALIDATE)
                 .map_err(|err| VmError::FailedToCreateVMDomain { err })?;
         }
@@ -307,7 +312,26 @@ fn generate_random_mac() -> MacAddress {
     MacAddress::from(result)
 }
 
-fn prepare_xml(params: &CreateVMDomainParams, mac_address: &str) -> String {
+fn prepare_xml(
+    params: &CreateVMDomainParams,
+    mac_address: &str,
+    gpu_pci_location: &Vec<PciLocation>,
+) -> String {
+    fn prepare_pci_config(location: &PciLocation) -> String {
+        format!(
+            r#"
+        <hostdev mode="subsystem" type="pci" managed="yes">
+            <source>
+                <address domain="{domain}" bus="{bus}" slot="{slot}" function="{function}"/>
+            </source>
+        </hostdev>"#,
+            domain = location.segment(),
+            bus = location.bus(),
+            slot = location.device(),
+            function = location.function(),
+        )
+    }
+
     let mut mapping = String::new();
     for (index, logical_id) in params.cpus.iter().enumerate() {
         if index > 0 {
@@ -316,6 +340,12 @@ fn prepare_xml(params: &CreateVMDomainParams, mac_address: &str) -> String {
         mapping.push_str(format!("<vcpupin vcpu='{index}' cpuset='{logical_id}'/>").as_str());
     }
     let memory_in_kb = params.cpus.len() * 4 * 1024 * 1024; // 4Gbs per core
+    let gpu_pci_configuration = gpu_pci_location
+        .iter()
+        .map(prepare_pci_config)
+        .collect::<Vec<_>>()
+        .join("\n");
+
     format!(
         include_str!("template.xml"),
         params.name,
@@ -325,6 +355,7 @@ fn prepare_xml(params: &CreateVMDomainParams, mac_address: &str) -> String {
         params.image.display(),
         mac_address,
         params.bridge_name,
+        gpu_pci_configuration,
     )
 }
 
@@ -357,8 +388,27 @@ mod tests {
                 bridge_name: "br422442".to_string(),
             },
             "52:54:00:1e:af:64",
+            &vec![
+                PciLocation::with_bdf(1, 0, 0).unwrap(),
+                PciLocation::with_bdf(2, 0, 0).unwrap(),
+            ],
         );
-        assert_eq!(xml, include_str!("../tests/expected_vm_config.xml"))
+
+        // trim excessive whitespaces
+        let xml = xml
+            .lines()
+            .map(|line| line.trim())
+            .collect::<Vec<_>>()
+            .join("\n");
+
+        let expected = include_str!("../tests/expected_vm_config.xml");
+        let expected = expected
+            .lines()
+            .map(|line| line.trim())
+            .collect::<Vec<_>>()
+            .join("\n");
+
+        assert_eq!(xml, expected);
     }
 
     #[test]
