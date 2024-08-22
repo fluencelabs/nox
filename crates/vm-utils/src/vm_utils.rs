@@ -162,7 +162,7 @@ pub fn create_domain(uri: &str, params: &CreateVMDomainParams) -> Result<(), VmE
             // There's certainly better places to do this, but RN it doesn't really matter
             let gpu_pci_locations = gpu_utils::get_gpu_pci()?;
             let mac = generate_random_mac();
-            let xml = prepare_xml(&params, mac.to_string().as_str(), &gpu_pci_locations);
+            let xml = prepare_xml(params, mac.to_string().as_str(), &gpu_pci_locations);
             Domain::define_xml_flags(&conn, xml.as_str(), VIR_DOMAIN_DEFINE_VALIDATE)
                 .map_err(|err| VmError::FailedToCreateVMDomain { err })?;
         }
@@ -315,7 +315,7 @@ fn generate_random_mac() -> MacAddress {
 fn prepare_xml(
     params: &CreateVMDomainParams,
     mac_address: &str,
-    gpu_pci_location: &Vec<PciLocation>,
+    gpu_pci_location: &[PciLocation],
 ) -> String {
     fn prepare_pci_config(location: &PciLocation) -> String {
         format!(
@@ -388,7 +388,7 @@ mod tests {
                 bridge_name: "br422442".to_string(),
             },
             "52:54:00:1e:af:64",
-            &vec![
+            &[
                 PciLocation::with_bdf(1, 0, 0).unwrap(),
                 PciLocation::with_bdf(2, 0, 0).unwrap(),
             ],
