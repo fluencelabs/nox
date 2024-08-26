@@ -123,13 +123,15 @@ impl WorkersConfig {
 pub struct VmConfig {
     /// Uri to the libvirt API
     libvirt_uri: String,
+    allow_gpu: bool,
     network: NetworkSettings,
 }
 
 impl VmConfig {
-    pub fn new(libvirt_uri: String, network: NetworkSettings) -> Self {
+    pub fn new(libvirt_uri: String, allow_gpu: bool, network: NetworkSettings) -> Self {
         Self {
             libvirt_uri,
+            allow_gpu,
             network,
         }
     }
@@ -705,6 +707,7 @@ impl Workers {
             worker_image,
             assignment,
             vm_config.network.bridge_name.clone(),
+            vm_config.allow_gpu,
         );
 
         vm_utils::create_domain(vm_config.libvirt_uri.clone().as_str(), &params)?;

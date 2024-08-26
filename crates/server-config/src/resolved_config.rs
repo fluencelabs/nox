@@ -859,6 +859,7 @@ mod tests {
             r#"
             [vm]
             libvirt_uri = "qemu:///system"
+            allow_gpu = true
             [vm.network]
             bridge_name = "br422442"
             public_ip = "1.1.1.1"
@@ -880,6 +881,7 @@ mod tests {
                 config.node_config.vm,
                 Some(VmConfig {
                     libvirt_uri: "qemu:///system".to_string(),
+                    allow_gpu: true,
                     network: VmNetworkConfig {
                         bridge_name: "br422442".to_string(),
                         public_ip: Ipv4Addr::new(1, 1, 1, 1),

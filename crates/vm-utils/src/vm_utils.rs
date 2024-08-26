@@ -18,6 +18,7 @@ pub struct CreateVMDomainParams {
     image: PathBuf,
     cpus: NonEmpty<LogicalCoreId>,
     bridge_name: String,
+    allow_gpu: bool,
 }
 
 impl CreateVMDomainParams {
@@ -26,12 +27,14 @@ impl CreateVMDomainParams {
         image: PathBuf,
         cpus: NonEmpty<LogicalCoreId>,
         bridge_name: String,
+        allow_gpu: bool,
     ) -> Self {
         Self {
             name,
             image,
             cpus,
             bridge_name,
+            allow_gpu,
         }
     }
 }
@@ -160,7 +163,11 @@ pub fn create_domain(uri: &str, params: &CreateVMDomainParams) -> Result<(), VmE
         None => {
             tracing::info!(target: "vm-utils","Domain with name {} doesn't exists. Creating", params.name);
             // There's certainly better places to do this, but RN it doesn't really matter
-            let gpu_pci_locations = gpu_utils::get_gpu_pci()?;
+            let gpu_pci_locations = if params.allow_gpu {
+                gpu_utils::get_gpu_pci()?
+            } else {
+                vec![]
+            };
             let mac = generate_random_mac();
             let xml = prepare_xml(params, mac.to_string().as_str(), &gpu_pci_locations);
             Domain::define_xml_flags(&conn, xml.as_str(), VIR_DOMAIN_DEFINE_VALIDATE)
@@ -386,6 +393,7 @@ mod tests {
                 image: "test-image".into(),
                 cpus: nonempty![1.into(), 8.into()],
                 bridge_name: "br422442".to_string(),
+                allow_gpu: true,
             },
             "52:54:00:1e:af:64",
             &[
@@ -398,6 +406,7 @@ mod tests {
         let xml = xml
             .lines()
             .map(|line| line.trim())
+            .filter(|line| !line.is_empty())
             .collect::<Vec<_>>()
             .join("\n");
 
@@ -405,9 +414,42 @@ mod tests {
         let expected = expected
             .lines()
             .map(|line| line.trim())
+            .filter(|line| !line.is_empty())
             .collect::<Vec<_>>()
             .join("\n");
 
+        assert_eq!(xml, expected);
+    }
+
+    #[test]
+    fn test_prepare_xml_without_gpu() {
+        let xml = prepare_xml(
+            &CreateVMDomainParams {
+                name: "test-id".to_string(),
+                image: "test-image".into(),
+                cpus: nonempty![1.into(), 8.into()],
+                bridge_name: "br422442".to_string(),
+                allow_gpu: false,
+            },
+            "52:54:00:1e:af:64",
+            &[],
+        );
+
+        // trim excessive whitespaces
+        let xml = xml
+            .lines()
+            .map(|line| line.trim())
+            .filter(|line| !line.is_empty())
+            .collect::<Vec<_>>()
+            .join("\n");
+
+        let expected = include_str!("../tests/expected_vm_config_without_gpu.xml");
+        let expected = expected
+            .lines()
+            .map(|line| line.trim())
+            .filter(|line| !line.is_empty())
+            .collect::<Vec<_>>()
+            .join("\n");
         assert_eq!(xml, expected);
     }
 
@@ -429,6 +471,7 @@ mod tests {
                 image: image.clone(),
                 cpus: nonempty![1.into()],
                 bridge_name: "br422442".to_string(),
+                allow_gpu: false,
             },
         )
         .unwrap();

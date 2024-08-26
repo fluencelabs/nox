@@ -198,13 +198,16 @@ impl<RT: AquaRuntime> Node<RT> {
             key_storage.clone(),
         );
 
-        let workers_config =
-            WorkersConfig::new(
-                config.node_config.workers_queue_buffer,
-                config.node_config.vm.clone().map(|conf| {
-                    VmConfig::new(conf.libvirt_uri, to_vm_network_settings(conf.network))
-                }),
-            );
+        let workers_config = WorkersConfig::new(
+            config.node_config.workers_queue_buffer,
+            config.node_config.vm.clone().map(|conf| {
+                VmConfig::new(
+                    conf.libvirt_uri,
+                    conf.allow_gpu,
+                    to_vm_network_settings(conf.network),
+                )
+            }),
+        );
 
         let (workers, worker_events) = Workers::from_path(
             workers_config,

@@ -624,6 +624,8 @@ fn default_dev_mode_config() -> DevModeConfig {
 #[derive(Clone, Deserialize, Serialize, Debug, PartialEq, Eq)]
 pub struct VmConfig {
     pub libvirt_uri: String,
+    #[serde(default)]
+    pub allow_gpu: bool,
     pub network: VmNetworkConfig,
 }
 
