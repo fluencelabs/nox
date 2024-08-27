@@ -8,3 +8,4 @@ edition = "2021"
 [dependencies]
 pci-info = "0.1.0"
 thiserror = { workspace = true }
+tracing = "0.1.40"

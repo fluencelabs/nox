@@ -3137,6 +3137,7 @@ version = "0.1.0"
 dependencies = [
  "pci-info",
  "thiserror",
+ "tracing",
 ]
 
 [[package]]
