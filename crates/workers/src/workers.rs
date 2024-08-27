@@ -379,7 +379,11 @@ impl Workers {
             .send(Event::WorkerRemoved { worker_id })
             .await
             .map_err(|_err| WorkersError::FailedToNotifySubsystem { worker_id })?;
+
+        self.remove_vm(worker_id)?;
+
         remove_worker(&self.workers_dir, worker_id).await?;
+
         self.key_storage
             .remove_key_pair(worker_id)
             .await
@@ -394,8 +398,6 @@ impl Workers {
             let removed_worker_info = worker_infos.remove(&worker_id);
             let removed_runtime = runtimes.remove(&worker_id);
             let removed_assignments = assignments.remove(&worker_id);
-
-            self.remove_vm(worker_id)?;
 
             debug_assert!(removed_worker_id.is_some(), "worker_id does not exist");
             debug_assert!(removed_worker_info.is_some(), "worker info does not exist");
