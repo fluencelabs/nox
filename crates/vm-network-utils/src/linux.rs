@@ -17,10 +17,11 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#[cfg(target_os = "linux")]
-use iptables::IPTables;
+#![cfg(target_os = "linux")]
 
-#[cfg(target_os = "linux")]
+use iptables::IPTables;
+use crate::{IpTablesError, IpTablesRules, NetworkSettings, NetworkSetupError, RulesSet};
+
 pub fn setup_network(
     network_settings: &NetworkSettings,
     name: &str,
@@ -40,7 +41,6 @@ pub fn setup_network(
     Ok(())
 }
 
-#[cfg(target_os = "linux")]
 pub fn clear_network(
     network_settings: &NetworkSettings,
     name: &str,
@@ -59,7 +59,6 @@ pub fn clear_network(
     Ok(())
 }
 
-#[cfg(target_os = "linux")]
 pub fn clear_rules(ipt: &IPTables, rules: &RulesSet) -> Result<(), NetworkSetupError> {
     for insert_rules in &rules.insert_rules {
         clear_existing_chain_rules(ipt, insert_rules).map_err(|err| NetworkSetupError::Clean {
@@ -78,7 +77,6 @@ pub fn clear_rules(ipt: &IPTables, rules: &RulesSet) -> Result<(), NetworkSetupE
     Ok(())
 }
 
-#[cfg(target_os = "linux")]
 pub fn clear_existing_chain_rules(ipt: &IPTables, rules: &IpTablesRules) -> Result<(), IpTablesError> {
     let exists = ipt.chain_exists(rules.table_name, &rules.chain_name)?;
     if !exists {
@@ -100,14 +98,12 @@ pub fn clear_existing_chain_rules(ipt: &IPTables, rules: &IpTablesRules) -> Resu
     Ok(())
 }
 
-#[cfg(target_os = "linux")]
 pub fn clear_new_chain_rules(ipt: &IPTables, rules: &IpTablesRules) -> Result<(), IpTablesError> {
     clear_existing_chain_rules(ipt, rules)?;
     ipt.delete_chain(rules.table_name, &rules.chain_name)?;
     Ok(())
 }
 
-#[cfg(target_os = "linux")]
 pub fn add_rules(ipt: &IPTables, rules_set: &RulesSet) -> Result<(), IpTablesError> {
     for append_rules in &rules_set.append_rules {
         ipt.new_chain(append_rules.table_name, &append_rules.chain_name)?;
