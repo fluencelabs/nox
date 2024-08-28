@@ -1,6 +1,7 @@
 use std::net::Ipv4Addr;
 use std::str::FromStr;
-use vm_network_utils::{clear_network, setup_network, NetworkSettings};
+
+use vm_network_utils::{clear_network, NetworkSettings};
 
 // bin for local tests
 fn main() {
