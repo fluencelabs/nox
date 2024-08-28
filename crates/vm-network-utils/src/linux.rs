@@ -19,8 +19,8 @@
 
 #![cfg(target_os = "linux")]
 
-use iptables::IPTables;
-use crate::{IpTablesError, IpTablesRules, NetworkSettings, NetworkSetupError, RulesSet};
+pub use iptables::IPTables;
+use crate::{IpTablesError, IpTablesRules, NetworkSettings, NetworkSetupError, RulesSet, setup_snat, setup_dnat, setup_fwd, fwd_rules, dnat_rules, snat_rules};
 
 pub fn setup_network(
     network_settings: &NetworkSettings,
