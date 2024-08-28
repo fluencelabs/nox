@@ -649,8 +649,8 @@ fn default_vm_ssh_port() -> u16 {
     22
 }
 
-fn default_vm_ip() -> &'static str {
-    "192.168.122.112"
+fn default_vm_ip() -> Ipv4Addr {
+    Ipv4Addr::new(192, 168, 122, 112)
 }
 
 
