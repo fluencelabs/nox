@@ -25,14 +25,30 @@ pub type IPTables = ();
 use crate::{IpTablesError, IpTablesRules, NetworkSettings, NetworkSetupError, RulesSet};
 
 #[cfg(not(target_os = "linux"))]
-pub fn clear_rules(_: &IPTables, _: &RulesSet) -> Result<(), NetworkSetupError> { Ok(()) }
+pub fn clear_network(_: &NetworkSettings, _: &str) -> Result<(), NetworkSetupError> {
+    Ok(())
+}
 #[cfg(not(target_os = "linux"))]
-pub fn clear_network(_: &NetworkSettings, _: &str) -> Result<(), NetworkSetupError> { Ok(())}
+pub fn setup_network(_: &NetworkSettings, _: &str) -> Result<(), NetworkSetupError> {
+    Ok(())
+}
+
 #[cfg(not(target_os = "linux"))]
-pub fn setup_network(_: &NetworkSettings, _: &str) -> Result<(), NetworkSetupError> { Ok(()) }
+pub(crate) fn clear_existing_chain_rules(
+    _: &IPTables,
+    _: &IpTablesRules,
+) -> Result<(), IpTablesError> {
+    Ok(())
+}
 #[cfg(not(target_os = "linux"))]
-pub fn clear_existing_chain_rules(_: &IPTables, _: &IpTablesRules) -> Result<(), IpTablesError> { Ok (()) }
+pub(crate) fn clear_new_chain_rules(_: &IPTables, _: &IpTablesRules) -> Result<(), IpTablesError> {
+    Ok(())
+}
 #[cfg(not(target_os = "linux"))]
-pub fn clear_new_chain_rules(_: &IPTables, _: &IpTablesRules) -> Result<(), IpTablesError> { Ok (()) }
+pub(crate) fn add_rules(_: &IPTables, _: &crate::RulesSet) -> Result<(), IpTablesError> {
+    Ok(())
+}
 #[cfg(not(target_os = "linux"))]
-pub fn add_rules(_: &IPTables, _: &crate::RulesSet) -> Result<(), IpTablesError> { Ok(()) }
+pub(crate) fn clear_rules(_: &IPTables, _: &RulesSet) -> Result<(), NetworkSetupError> {
+    Ok(())
+}
