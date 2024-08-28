@@ -17,6 +17,8 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+#![cfg_attr(target_os = "linux", allow(unused_imports))]
+
 #[cfg(not(target_os = "linux"))]
 pub type IPTables = ();
 
