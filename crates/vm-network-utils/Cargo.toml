@@ -7,9 +7,9 @@ edition = "2021"
 name = 'vm-network-utils'
 path = "bin/main.rs"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-[dependencies]
+[target.'cfg(target_os = "linux")'.dependencies]
 iptables = "0.5.2"
 
+[dependencies]
 thiserror = { workspace = true }
 tracing = { workspace = true }

@@ -623,6 +623,7 @@ fn default_dev_mode_config() -> DevModeConfig {
 
 #[derive(Clone, Deserialize, Serialize, Debug, PartialEq, Eq)]
 pub struct VmConfig {
+    #[serde(default = "default_libvirt_uri")]
     pub libvirt_uri: String,
     #[serde(default)]
     pub allow_gpu: bool,
@@ -631,6 +632,7 @@ pub struct VmConfig {
 
 #[derive(Clone, Deserialize, Serialize, Debug, PartialEq, Eq)]
 pub struct VmNetworkConfig {
+    #[serde(default = "default_bridge_name")]
     pub bridge_name: String,
     pub public_ip: Ipv4Addr,
     #[serde(default = "default_vm_ip")]
@@ -641,6 +643,14 @@ pub struct VmNetworkConfig {
     pub vm_ssh_port: u16,
     #[serde(default = "default_port_range_config")]
     pub port_range: PortRangeConfig,
+}
+
+fn default_libvirt_uri() -> String {
+    String::from("qemu:///system")
+}
+
+fn default_bridge_name() -> String {
+    String::from("br0")
 }
 
 fn default_host_ssh_port() -> u16 {
@@ -654,7 +664,6 @@ fn default_vm_ssh_port() -> u16 {
 fn default_vm_ip() -> Ipv4Addr {
     Ipv4Addr::new(192, 168, 122, 112)
 }
-
 
 #[derive(Clone, Deserialize, Serialize, Debug, PartialEq, Eq)]
 pub struct PortRangeConfig {
