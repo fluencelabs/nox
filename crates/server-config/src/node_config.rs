@@ -650,7 +650,7 @@ fn default_libvirt_uri() -> String {
 }
 
 fn default_bridge_name() -> String {
-    String::from("br0")
+    String::from("virbr0")
 }
 
 fn default_host_ssh_port() -> u16 {
