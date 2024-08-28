@@ -631,6 +631,7 @@ pub struct VmConfig {
 pub struct VmNetworkConfig {
     pub bridge_name: String,
     pub public_ip: Ipv4Addr,
+    #[serde(default = "default_vm_ip")]
     pub vm_ip: Ipv4Addr,
     #[serde(default = "default_host_ssh_port")]
     pub host_ssh_port: u16,
@@ -647,6 +648,11 @@ fn default_host_ssh_port() -> u16 {
 fn default_vm_ssh_port() -> u16 {
     22
 }
+
+fn default_vm_ip() -> &'static str {
+    "192.168.122.112"
+}
+
 
 #[derive(Clone, Deserialize, Serialize, Debug, PartialEq, Eq)]
 pub struct PortRangeConfig {
