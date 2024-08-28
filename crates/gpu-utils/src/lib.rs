@@ -1,4 +1,5 @@
-use pci_info::pci_enums::PciDeviceClass::DisplayController;
+use pci_info::pci_enums::PciDeviceClass;
+use pci_info::pci_enums::PciDeviceClass::{Bridge, DisplayController};
 use pci_info::{PciDeviceEnumerationError, PciInfo, PciInfoError, PciInfoPropertyError};
 use std::collections::{HashMap, HashSet};
 use thiserror::Error;
@@ -17,35 +18,38 @@ pub enum PciError {
     UnsupportedProperty,
 }
 
-pub fn get_gpu_pci() -> Result<Vec<PciLocation>, PciError> {
+pub fn get_gpu_pci() -> Result<HashSet<PciLocation>, PciError> {
     let info = PciInfo::enumerate_pci()?;
-    let mut gpu_devices = Vec::new();
+    // List of GPU devices
+    let mut gpu_devices = HashSet::new();
+    // Map of all PCI devices with their classes, for IOMMU groups processing
+    let mut pci_devices = HashMap::new();
+
     for device in info {
         let device = device?;
         let device_class = process_property_result(device.device_class())?;
+        let device_location = process_property_result(device.location())?;
         if device_class == DisplayController {
-            gpu_devices.push(process_property_result(device.location())?);
+            gpu_devices.insert(device_location);
         }
+        pci_devices.insert(device_location, device_class);
     }
 
     match get_iommu_groups() {
         Ok(iommu_groups) => {
+            // Find all devices that are in the same IOMMU group as the GPU devices
             let result = iommu_groups
-                .iter()
-                .flat_map(|(_, devices)| {
+                .into_iter()
+                .filter(|(_, devices)| {
+                    // Find if this IOMMU groups contains a GPU device
                     gpu_devices
                         .iter()
-                        .filter_map(|gpu_device| {
-                            if devices.contains(gpu_device) {
-                                Some(devices.clone())
-                            } else {
-                                None
-                            }
-                        })
-                        .flatten()
-                        .collect::<HashSet<_>>()
+                        .any(|gpu_device| devices.contains(gpu_device))
                 })
-                .collect::<Vec<_>>();
+                .flat_map(|(_, devices)| devices)
+                // We want to filter non-endpoint devies
+                .filter(|device| pci_devices.get(device).map_or(false, is_endpoint_device))
+                .collect::<HashSet<_>>();
             Ok(result)
         }
         Err(err) => {
@@ -55,6 +59,12 @@ pub fn get_gpu_pci() -> Result<Vec<PciLocation>, PciError> {
             Ok(gpu_devices)
         }
     }
+}
+
+// AFAIK the bridge devices are the only non-endpoint devices
+// May require to update this function if there are other non-endpoint devices
+fn is_endpoint_device(device_class: &PciDeviceClass) -> bool {
+    *device_class != Bridge
 }
 
 fn process_property_result<T>(result: Result<T, &PciInfoPropertyError>) -> Result<T, PciError> {

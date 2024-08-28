@@ -164,7 +164,7 @@ pub fn create_domain(uri: &str, params: &CreateVMDomainParams) -> Result<(), VmE
             tracing::info!(target: "vm-utils","Domain with name {} doesn't exists. Creating", params.name);
             // There's certainly better places to do this, but RN it doesn't really matter
             let gpu_pci_locations = if params.allow_gpu {
-                gpu_utils::get_gpu_pci()?
+                gpu_utils::get_gpu_pci()?.into_iter().collect::<Vec<_>>()
             } else {
                 vec![]
             };
