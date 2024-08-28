@@ -35,30 +35,26 @@ pub fn get_gpu_pci() -> Result<HashSet<PciLocation>, PciError> {
         pci_devices.insert(device_location, device_class);
     }
 
-    match get_iommu_groups() {
+    let result = match get_iommu_groups() {
         Ok(iommu_groups) => {
             // Find all devices that are in the same IOMMU group as the GPU devices
-            let result = iommu_groups
+            iommu_groups
                 .into_iter()
-                .filter(|(_, devices)| {
-                    // Find if this IOMMU groups contains a GPU device
-                    gpu_devices
-                        .iter()
-                        .any(|gpu_device| devices.contains(gpu_device))
-                })
+                // Find if this IOMMU groups contains a GPU device
+                .filter(|(_, devices)| gpu_devices.intersection(devices).next().is_some())
                 .flat_map(|(_, devices)| devices)
-                // We want to filter non-endpoint devies
+                // We want to filter non-endpoint devices
                 .filter(|device| pci_devices.get(device).map_or(false, is_endpoint_device))
-                .collect::<HashSet<_>>();
-            Ok(result)
+                .collect::<HashSet<_>>()
         }
         Err(err) => {
             tracing::warn!(
                 "Couldn't get IOMMU groups: {err}. Ignoring groups, provide list of PCI nevertheless: {gpu_devices:?}",
             );
-            Ok(gpu_devices)
+            gpu_devices
         }
-    }
+    };
+    Ok(result)
 }
 
 // AFAIK the bridge devices are the only non-endpoint devices
