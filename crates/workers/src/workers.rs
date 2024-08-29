@@ -710,6 +710,7 @@ impl Workers {
             vm_name.clone(),
             worker_image,
             assignment,
+            cores_count,
             vm_config.network.bridge_name.clone(),
             vm_config.allow_gpu,
         );
