@@ -653,7 +653,6 @@ fn default_vm_ip() -> Ipv4Addr {
     Ipv4Addr::new(192, 168, 122, 112)
 }
 
-
 #[derive(Clone, Deserialize, Serialize, Debug, PartialEq, Eq)]
 pub struct PortRangeConfig {
     pub start: u16,
