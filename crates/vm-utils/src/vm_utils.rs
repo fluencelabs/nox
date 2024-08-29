@@ -214,10 +214,20 @@ pub fn start_vm(uri: &str, name: &str) -> Result<u32, VmError> {
         name: name.to_string(),
         err,
     })?;
-    domain.create().map_err(|err| VmError::FailedToStartVM {
+
+    let is_running = domain.is_active().map_err(|err| VmError::FailedToStartVM {
         err,
         name: name.to_string(),
     })?;
+
+    if is_running {
+        tracing::info!(target: "vm-utils","VM with name {name} is already running");
+    } else {
+        domain.create().map_err(|err| VmError::FailedToStartVM {
+            err,
+            name: name.to_string(),
+        })?;
+    }
 
     let id = domain.get_id().ok_or(VmError::FailedToGetVMId {
         name: name.to_string(),

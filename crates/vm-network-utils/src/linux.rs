@@ -116,8 +116,17 @@ pub(crate) fn clear_new_chain_rules(
 
 pub(crate) fn add_rules(ipt: &IPTables, rules_set: &RulesSet) -> Result<(), IpTablesError> {
     for append_rules in &rules_set.append_rules {
-        ipt.new_chain(append_rules.table_name, &append_rules.chain_name)?;
+        if ipt.chain_exists(append_rules.table_name, &append_rules.chain_name)? {
+            ipt.new_chain(append_rules.table_name, &append_rules.chain_name)?;
+        } else {
+            tracing::info!("Chain {} already exists", append_rules.chain_name);
+        }
+
         for r in &append_rules.rules {
+            if ipt.exists(append_rules.table_name, &append_rules.chain_name, r)? {
+                tracing::info!("Rule already exists: {:?}", r);
+                continue;
+            }
             ipt.append(append_rules.table_name, &append_rules.chain_name, r)?;
         }
     }
@@ -125,6 +134,10 @@ pub(crate) fn add_rules(ipt: &IPTables, rules_set: &RulesSet) -> Result<(), IpTa
     for rule in &rules_set.insert_rules {
         for r in &rule.rules {
             // 1 is a default position when inserting a rule
+            if ipt.exists(rule.table_name, &rule.chain_name, r)? {
+                tracing::info!("Rule already exists: {:?}", r);
+                continue;
+            }
             ipt.insert(rule.table_name, &rule.chain_name, r, 1)?;
         }
     }
