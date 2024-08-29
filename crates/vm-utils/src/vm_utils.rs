@@ -17,6 +17,7 @@ pub struct CreateVMDomainParams {
     name: String,
     image: PathBuf,
     cpus: NonEmpty<LogicalCoreId>,
+    cores_num: usize,
     bridge_name: String,
     allow_gpu: bool,
 }
@@ -26,6 +27,7 @@ impl CreateVMDomainParams {
         name: String,
         image: PathBuf,
         cpus: NonEmpty<LogicalCoreId>,
+        cores_num: usize,
         bridge_name: String,
         allow_gpu: bool,
     ) -> Self {
@@ -33,6 +35,7 @@ impl CreateVMDomainParams {
             name,
             image,
             cpus,
+            cores_num,
             bridge_name,
             allow_gpu,
         }
@@ -346,7 +349,7 @@ fn prepare_xml(
         }
         mapping.push_str(format!("<vcpupin vcpu='{index}' cpuset='{logical_id}'/>").as_str());
     }
-    let memory_in_kb = params.cpus.len() * 4 * 1024 * 1024; // 4Gbs per core
+    let memory_in_kb = params.cores_num * 4 * 1024 * 1024; // 4Gbs per core
     let gpu_pci_configuration = gpu_pci_location
         .iter()
         .map(prepare_pci_config)

@@ -673,14 +673,16 @@ impl Workers {
         image: &Path,
         vm_config: &VmConfig,
     ) -> Result<String, WorkersError> {
-        let assignment = {
+        let (cores_count, assignment) = {
             let guard = self.assignments.read();
             let assignment = guard
                 .get(&worker_id)
                 .ok_or_else(|| WorkersError::WorkerNotFound(worker_id))?;
 
-            NonEmpty::from_vec(assignment.logical_core_ids())
-                .ok_or_else(|| WorkersError::WrongAssignment)?
+            let logical_cores = NonEmpty::from_vec(assignment.logical_core_ids())
+                .ok_or_else(|| WorkersError::WrongAssignment)?;
+            let physical_cores_count = assignment.physical_core_count();
+            (physical_cores_count, logical_cores)
         };
 
         let file_name = &image
