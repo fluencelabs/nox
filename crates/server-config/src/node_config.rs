@@ -654,7 +654,7 @@ fn default_bridge_name() -> String {
 }
 
 fn default_host_ssh_port() -> u16 {
-    2222
+    922
 }
 
 fn default_vm_ssh_port() -> u16 {
