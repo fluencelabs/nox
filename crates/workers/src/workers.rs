@@ -725,7 +725,7 @@ impl Workers {
         };
         if let Err(err) = result {
             // Clear the network on errors, so we can retry later (setup_network isn't idempotent)
-            tracing::warn!("couldn't create network or start VM, cleaning up network");
+            tracing::warn!("couldn't create network or start VM, cleaning up network: {err}");
             vm_network_utils::clear_network(&vm_config.network, vm_name.as_str())?;
             return Err(err);
         }
