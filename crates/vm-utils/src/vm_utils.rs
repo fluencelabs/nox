@@ -197,8 +197,8 @@ pub fn remove_domain(uri: &str, name: &str) -> Result<(), VmError> {
             name: name.to_string(),
             err,
         })?;
+        tracing::warn!(target: "vm-utils","VM {name} in the state: {status}");
         if status != VmStatus::Shutoff {
-            tracing::warn!(target: "vm-utils","VM {name} is not in the shutoff state: {status}");
             return Err(VmError::FailedToRemoveVMDomain {
                 err: error,
                 name: name.to_string(),
@@ -315,10 +315,21 @@ pub fn pause_vm(uri: &str, name: &str) -> Result<(), VmError> {
         name: name.to_string(),
         err,
     })?;
-    domain.suspend().map_err(|err| VmError::FailedToSuspendVM {
-        name: name.to_string(),
-        err,
-    })?;
+
+    if let Err(err) = domain.suspend() {
+        tracing::warn!(target: "vm-utils","Failed to suspend VM {name}: {err}");
+        let status = get_status(&domain).map_err(|err| VmError::FailedToGetInfo {
+            name: name.to_string(),
+            err,
+        })?;
+        tracing::warn!(target: "vm-utils","VM {name} in the state: {status}");
+        if status == VmStatus::Running {
+            return Err(VmError::FailedToSuspendVM {
+                name: name.to_string(),
+                err,
+            });
+        }
+    }
     Ok(())
 }
 
