@@ -113,7 +113,7 @@ pub enum VmError {
 }
 
 // The list of states is taken from the libvirt documentation
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum VmStatus {
     NoState,
     Running,
@@ -191,12 +191,20 @@ pub fn remove_domain(uri: &str, name: &str) -> Result<(), VmError> {
         err,
     })?;
 
-    domain
-        .destroy()
-        .map_err(|err| VmError::FailedToRemoveVMDomain {
-            err,
+    if let Err(error) = domain.destroy() {
+        tracing::warn!(target: "vm-utils","Failed to destroy VM {name}: {error}");
+        let status = get_status(&domain).map_err(|err| VmError::FailedToGetInfo {
             name: name.to_string(),
+            err,
         })?;
+        if status != VmStatus::Shutoff {
+            tracing::warn!(target: "vm-utils","VM {name} is not in the shutoff state: {status}");
+            return Err(VmError::FailedToRemoveVMDomain {
+                err: error,
+                name: name.to_string(),
+            });
+        }
+    }
 
     domain
         .undefine()
@@ -288,10 +296,14 @@ pub fn status_vm(uri: &str, name: &str) -> Result<VmStatus, VmError> {
         name: name.to_string(),
         err,
     })?;
-    let info = domain.get_info().map_err(|err| VmError::FailedToGetInfo {
+    get_status(&domain).map_err(|err| VmError::FailedToGetInfo {
         name: name.to_string(),
         err,
-    })?;
+    })
+}
+
+fn get_status(domain: &Domain) -> Result<VmStatus, virt::error::Error> {
+    let info = domain.get_info()?;
 
     Ok(VmStatus::from_u32(info.state))
 }
