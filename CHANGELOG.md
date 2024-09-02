@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.26.2](https://github.com/fluencelabs/nox/compare/nox-v0.26.1...nox-v0.26.2) (2024-09-02)
+
+
+### Features
+
+* **vm, gpu:** VM per peer, setup networking, add all GPUs to the VM [fixes BRND-60, PRO-721] ([#2356](https://github.com/fluencelabs/nox/issues/2356)) ([26d47b7](https://github.com/fluencelabs/nox/commit/26d47b7b936a53b522b21eac7bc0ecc5eb04c445))
+
 ## [0.26.1](https://github.com/fluencelabs/nox/compare/nox-v0.26.0...nox-v0.26.1) (2024-08-20)
 
 
