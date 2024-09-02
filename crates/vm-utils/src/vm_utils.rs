@@ -354,7 +354,7 @@ fn generate_random_mac() -> MacAddress {
     MacAddress::from(result)
 }
 
-fn allocate_ram(physical_cores_num: usize) -> usize {
+fn allocate_ram_mib(physical_cores_num: usize) -> usize {
     // 4GB per core
     physical_cores_num * 4 * 1024
 }
@@ -468,8 +468,8 @@ fn cli_command(
         &format!("{},placement=static", params.cpus.len()),
         "--cputune",
         pin_cores_argument,
-        "--ram",
-        &format!("{}", allocate_ram(params.cores_num)),
+        "--memory",
+        &format!("{}", allocate_ram_mib(params.cores_num)),
         "--disk",
         params.image.to_str().unwrap(),
         "--network",
@@ -510,7 +510,7 @@ fn prepare_xml_from_template(
         }
         mapping.push_str(format!("<vcpupin vcpu='{index}' cpuset='{logical_id}'/>").as_str());
     }
-    let memory_in_kb = allocate_ram(params.cores_num);
+    let memory_in_mib = allocate_ram_mib(params.cores_num);
     let gpu_pci_configuration = gpu_pci_location
         .iter()
         .map(prepare_pci_config)
@@ -520,7 +520,7 @@ fn prepare_xml_from_template(
     format!(
         include_str!("template.xml"),
         params.name,
-        memory_in_kb,
+        memory_in_mib,
         params.cpus.len(),
         mapping,
         params.image.display(),
@@ -564,7 +564,7 @@ mod tests {
             PciLocation::with_bdf(2, 0, 0).unwrap(),
         ];
         let result = cli_command("qemu:///system", &params, gpu);
-        let expected = "virt-install --connect qemu:///system --name test-id --vcpus 2,placement=static --cputune vcpupin0.vcpu=0,vcpupin0.cpuset=2,vcpupin1.vcpu=1,vcpupin1.cpuset=8 --ram 8192 --disk test-image --network network=default --hostdev 00:01.00,address.type=pci,address.multifunction=on --hostdev 00:02.00,address.type=pci,address.multifunction=on --osinfo detect=on,require=off --import --print-xml";
+        let expected = "virt-install --connect qemu:///system --name test-id --vcpus 2,placement=static --cputune vcpupin0.vcpu=0,vcpupin0.cpuset=2,vcpupin1.vcpu=1,vcpupin1.cpuset=8 --memory 8192 --disk test-image --network network=default --hostdev 00:01.00,address.type=pci,address.multifunction=on --hostdev 00:02.00,address.type=pci,address.multifunction=on --osinfo detect=on,require=off --import --print-xml";
         assert_eq!(result, expected);
     }
 
@@ -580,7 +580,7 @@ mod tests {
         };
         let result = cli_command("qemu:///system", &params, &[]);
         // This string contains a space where a GPU argument should be just to avoid a lot of string manipulation
-        let expected = "virt-install --connect qemu:///system --name test-id --vcpus 2,placement=static --cputune vcpupin0.vcpu=0,vcpupin0.cpuset=2,vcpupin1.vcpu=1,vcpupin1.cpuset=8 --ram 8192 --disk test-image --network network=default  --osinfo detect=on,require=off --import --print-xml";
+        let expected = "virt-install --connect qemu:///system --name test-id --vcpus 2,placement=static --cputune vcpupin0.vcpu=0,vcpupin0.cpuset=2,vcpupin1.vcpu=1,vcpupin1.cpuset=8 --memory 8192 --disk test-image --network network=default  --osinfo detect=on,require=off --import --print-xml";
         assert_eq!(result, expected);
     }
 

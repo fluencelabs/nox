@@ -1,6 +1,6 @@
 <domain type='kvm'>
     <name>{}</name>
-    <memory unit='KiB'>{}</memory>
+    <memory unit='MiB'>{}</memory>
     <vcpu placement='static'>{}</vcpu>
     <cputune>
         {}
