@@ -73,6 +73,7 @@ log-format = { workspace = true }
 thiserror = { workspace = true }
 cpu-utils = { workspace = true }
 cfg-if = { workspace = true }
+vm-network-utils = { workspace = true }
 
 [dev-dependencies]
 parking_lot = { workspace = true }

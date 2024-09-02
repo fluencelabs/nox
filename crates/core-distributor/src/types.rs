@@ -107,6 +107,14 @@ impl Assignment {
             .collect::<Vec<_>>()
     }
 
+    pub fn physical_core_count(&self) -> usize {
+        self.cuid_cores
+            .values()
+            .map(|cores| cores.physical_core_id)
+            .collect::<BTreeSet<PhysicalCoreId>>()
+            .len()
+    }
+
     pub fn pin_current_thread_with(&self, thread_pinner: &dyn ThreadPinner) {
         thread_pinner.pin_current_thread_to_cpuset(&self.logical_core_ids());
     }

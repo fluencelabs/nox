@@ -29,5 +29,17 @@
         <serial type='pty'>
             <target port='0'/>
         </serial>
+
+        <hostdev mode="subsystem" type="pci" managed="yes">
+            <source>
+                <address domain="0" bus="1" slot="0" function="0"/>
+            </source>
+        </hostdev>
+
+        <hostdev mode="subsystem" type="pci" managed="yes">
+            <source>
+                <address domain="0" bus="2" slot="0" function="0"/>
+            </source>
+        </hostdev>
     </devices>
 </domain>

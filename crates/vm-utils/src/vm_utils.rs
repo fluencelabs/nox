@@ -1,4 +1,5 @@
 use ccp_shared::types::LogicalCoreId;
+use gpu_utils::PciLocation;
 use mac_address::MacAddress;
 use nonempty::NonEmpty;
 use rand::Rng;
@@ -16,7 +17,9 @@ pub struct CreateVMDomainParams {
     name: String,
     image: PathBuf,
     cpus: NonEmpty<LogicalCoreId>,
+    cores_num: usize,
     bridge_name: String,
+    allow_gpu: bool,
 }
 
 impl CreateVMDomainParams {
@@ -24,13 +27,17 @@ impl CreateVMDomainParams {
         name: String,
         image: PathBuf,
         cpus: NonEmpty<LogicalCoreId>,
+        cores_num: usize,
         bridge_name: String,
+        allow_gpu: bool,
     ) -> Self {
         Self {
             name,
             image,
             cpus,
+            cores_num,
             bridge_name,
+            allow_gpu,
         }
     }
 }
@@ -101,10 +108,12 @@ pub enum VmError {
         #[source]
         err: virt::error::Error,
     },
+    #[error("Failed to get GPU PCI location: {0}")]
+    FailedToGetPCI(#[from] gpu_utils::PciError),
 }
 
 // The list of states is taken from the libvirt documentation
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum VmStatus {
     NoState,
     Running,
@@ -156,8 +165,14 @@ pub fn create_domain(uri: &str, params: &CreateVMDomainParams) -> Result<(), VmE
     match domain {
         None => {
             tracing::info!(target: "vm-utils","Domain with name {} doesn't exists. Creating", params.name);
+            // There's certainly better places to do this, but RN it doesn't really matter
+            let gpu_pci_locations = if params.allow_gpu {
+                gpu_utils::get_gpu_pci()?.into_iter().collect::<Vec<_>>()
+            } else {
+                vec![]
+            };
             let mac = generate_random_mac();
-            let xml = prepare_xml(&params, mac.to_string().as_str());
+            let xml = prepare_xml(params, mac.to_string().as_str(), &gpu_pci_locations);
             Domain::define_xml_flags(&conn, xml.as_str(), VIR_DOMAIN_DEFINE_VALIDATE)
                 .map_err(|err| VmError::FailedToCreateVMDomain { err })?;
         }
@@ -176,12 +191,20 @@ pub fn remove_domain(uri: &str, name: &str) -> Result<(), VmError> {
         err,
     })?;
 
-    domain
-        .destroy()
-        .map_err(|err| VmError::FailedToRemoveVMDomain {
-            err,
+    if let Err(error) = domain.destroy() {
+        tracing::warn!(target: "vm-utils","Failed to destroy VM {name}: {error}");
+        let status = get_status(&domain).map_err(|err| VmError::FailedToGetInfo {
             name: name.to_string(),
+            err,
         })?;
+        tracing::warn!(target: "vm-utils","VM {name} in the state: {status}");
+        if status != VmStatus::Shutoff {
+            return Err(VmError::FailedToRemoveVMDomain {
+                err: error,
+                name: name.to_string(),
+            });
+        }
+    }
 
     domain
         .undefine()
@@ -199,10 +222,20 @@ pub fn start_vm(uri: &str, name: &str) -> Result<u32, VmError> {
         name: name.to_string(),
         err,
     })?;
-    domain.create().map_err(|err| VmError::FailedToStartVM {
+
+    let is_running = domain.is_active().map_err(|err| VmError::FailedToStartVM {
         err,
         name: name.to_string(),
     })?;
+
+    if is_running {
+        tracing::info!(target: "vm-utils","VM with name {name} is already running");
+    } else {
+        domain.create().map_err(|err| VmError::FailedToStartVM {
+            err,
+            name: name.to_string(),
+        })?;
+    }
 
     let id = domain.get_id().ok_or(VmError::FailedToGetVMId {
         name: name.to_string(),
@@ -263,10 +296,14 @@ pub fn status_vm(uri: &str, name: &str) -> Result<VmStatus, VmError> {
         name: name.to_string(),
         err,
     })?;
-    let info = domain.get_info().map_err(|err| VmError::FailedToGetInfo {
+    get_status(&domain).map_err(|err| VmError::FailedToGetInfo {
         name: name.to_string(),
         err,
-    })?;
+    })
+}
+
+fn get_status(domain: &Domain) -> Result<VmStatus, virt::error::Error> {
+    let info = domain.get_info()?;
 
     Ok(VmStatus::from_u32(info.state))
 }
@@ -278,10 +315,21 @@ pub fn pause_vm(uri: &str, name: &str) -> Result<(), VmError> {
         name: name.to_string(),
         err,
     })?;
-    domain.suspend().map_err(|err| VmError::FailedToSuspendVM {
-        name: name.to_string(),
-        err,
-    })?;
+
+    if let Err(err) = domain.suspend() {
+        tracing::warn!(target: "vm-utils","Failed to suspend VM {name}: {err}");
+        let status = get_status(&domain).map_err(|err| VmError::FailedToGetInfo {
+            name: name.to_string(),
+            err,
+        })?;
+        tracing::warn!(target: "vm-utils","VM {name} in the state: {status}");
+        if status == VmStatus::Running {
+            return Err(VmError::FailedToSuspendVM {
+                name: name.to_string(),
+                err,
+            });
+        }
+    }
     Ok(())
 }
 
@@ -307,7 +355,26 @@ fn generate_random_mac() -> MacAddress {
     MacAddress::from(result)
 }
 
-fn prepare_xml(params: &CreateVMDomainParams, mac_address: &str) -> String {
+fn prepare_xml(
+    params: &CreateVMDomainParams,
+    mac_address: &str,
+    gpu_pci_location: &[PciLocation],
+) -> String {
+    fn prepare_pci_config(location: &PciLocation) -> String {
+        format!(
+            r#"
+        <hostdev mode="subsystem" type="pci" managed="yes">
+            <source>
+                <address domain="{domain}" bus="{bus}" slot="{slot}" function="{function}"/>
+            </source>
+        </hostdev>"#,
+            domain = location.segment(),
+            bus = location.bus(),
+            slot = location.device(),
+            function = location.function(),
+        )
+    }
+
     let mut mapping = String::new();
     for (index, logical_id) in params.cpus.iter().enumerate() {
         if index > 0 {
@@ -315,7 +382,13 @@ fn prepare_xml(params: &CreateVMDomainParams, mac_address: &str) -> String {
         }
         mapping.push_str(format!("<vcpupin vcpu='{index}' cpuset='{logical_id}'/>").as_str());
     }
-    let memory_in_kb = params.cpus.len() * 4 * 1024 * 1024; // 4Gbs per core
+    let memory_in_kb = params.cores_num * 4 * 1024 * 1024; // 4Gbs per core
+    let gpu_pci_configuration = gpu_pci_location
+        .iter()
+        .map(prepare_pci_config)
+        .collect::<Vec<_>>()
+        .join("\n");
+
     format!(
         include_str!("template.xml"),
         params.name,
@@ -325,6 +398,7 @@ fn prepare_xml(params: &CreateVMDomainParams, mac_address: &str) -> String {
         params.image.display(),
         mac_address,
         params.bridge_name,
+        gpu_pci_configuration,
     )
 }
 
@@ -354,11 +428,67 @@ mod tests {
                 name: "test-id".to_string(),
                 image: "test-image".into(),
                 cpus: nonempty![1.into(), 8.into()],
+                cores_num: 2,
                 bridge_name: "br422442".to_string(),
+                allow_gpu: true,
             },
             "52:54:00:1e:af:64",
+            &[
+                PciLocation::with_bdf(1, 0, 0).unwrap(),
+                PciLocation::with_bdf(2, 0, 0).unwrap(),
+            ],
         );
-        assert_eq!(xml, include_str!("../tests/expected_vm_config.xml"))
+
+        // trim excessive whitespaces
+        let xml = xml
+            .lines()
+            .map(|line| line.trim())
+            .filter(|line| !line.is_empty())
+            .collect::<Vec<_>>()
+            .join("\n");
+
+        let expected = include_str!("../tests/expected_vm_config.xml");
+        let expected = expected
+            .lines()
+            .map(|line| line.trim())
+            .filter(|line| !line.is_empty())
+            .collect::<Vec<_>>()
+            .join("\n");
+
+        assert_eq!(xml, expected);
+    }
+
+    #[test]
+    fn test_prepare_xml_without_gpu() {
+        let xml = prepare_xml(
+            &CreateVMDomainParams {
+                name: "test-id".to_string(),
+                image: "test-image".into(),
+                cpus: nonempty![1.into(), 8.into()],
+                cores_num: 2,
+                bridge_name: "br422442".to_string(),
+                allow_gpu: false,
+            },
+            "52:54:00:1e:af:64",
+            &[],
+        );
+
+        // trim excessive whitespaces
+        let xml = xml
+            .lines()
+            .map(|line| line.trim())
+            .filter(|line| !line.is_empty())
+            .collect::<Vec<_>>()
+            .join("\n");
+
+        let expected = include_str!("../tests/expected_vm_config_without_gpu.xml");
+        let expected = expected
+            .lines()
+            .map(|line| line.trim())
+            .filter(|line| !line.is_empty())
+            .collect::<Vec<_>>()
+            .join("\n");
+        assert_eq!(xml, expected);
     }
 
     #[test]
@@ -378,7 +508,9 @@ mod tests {
                 name: "test-id".to_string(),
                 image: image.clone(),
                 cpus: nonempty![1.into()],
+                cores_num: 1,
                 bridge_name: "br422442".to_string(),
+                allow_gpu: false,
             },
         )
         .unwrap();

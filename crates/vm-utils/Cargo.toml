@@ -9,6 +9,8 @@ thiserror.workspace = true
 tracing.workspace = true
 rand.workspace = true
 ccp-shared.workspace = true
+gpu-utils.workspace = true
+
 mac_address = "1.1.7"
 virt = "0.4.0"
 

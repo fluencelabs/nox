@@ -250,6 +250,7 @@ fn process_args(raw_args: Vec<OsString>, data: Option<ConfigData>) -> eyre::Resu
 #[cfg(test)]
 mod tests {
     use std::io::Write;
+    use std::net::Ipv4Addr;
     use std::time::Duration;
 
     use base64::{engine::general_purpose::STANDARD as base64, Engine};
@@ -257,7 +258,7 @@ mod tests {
     use tempfile::{tempdir, NamedTempFile};
 
     use super::*;
-    use crate::node_config::VmConfig;
+    use crate::node_config::{PortRangeConfig, VmConfig, VmNetworkConfig};
     use crate::Network;
 
     #[test]
@@ -858,7 +859,15 @@ mod tests {
             r#"
             [vm]
             libvirt_uri = "qemu:///system"
+            allow_gpu = true
+            [vm.network]
             bridge_name = "br422442"
+            public_ip = "1.1.1.1"
+            vm_ip = "2.2.2.2"
+            host_ssh_port = 2222
+            vm_ssh_port = 22
+            port_range.start = 1000
+            port_range.end = 65535
             "#
         )
         .expect("Could not write in file");
@@ -872,7 +881,18 @@ mod tests {
                 config.node_config.vm,
                 Some(VmConfig {
                     libvirt_uri: "qemu:///system".to_string(),
-                    bridge_name: "br422442".to_string()
+                    allow_gpu: true,
+                    network: VmNetworkConfig {
+                        bridge_name: "br422442".to_string(),
+                        public_ip: Ipv4Addr::new(1, 1, 1, 1),
+                        vm_ip: Ipv4Addr::new(2, 2, 2, 2),
+                        port_range: PortRangeConfig {
+                            start: 1000,
+                            end: 65535,
+                        },
+                        host_ssh_port: 2222,
+                        vm_ssh_port: 22,
+                    }
                 })
             );
         });

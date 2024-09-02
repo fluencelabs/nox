@@ -53,7 +53,9 @@ pub use resolved_config::ConfigData;
 pub use bootstrap_config::BootstrapConfig;
 pub use kademlia_config::KademliaConfig;
 pub use network_config::NetworkConfig;
-pub use node_config::{ChainConfig, ChainListenerConfig, Network, NodeConfig, TransportConfig};
+pub use node_config::{
+    ChainConfig, ChainListenerConfig, Network, NodeConfig, TransportConfig, VmNetworkConfig,
+};
 pub use resolved_config::TracingConfig;
 pub use resolved_config::{ResolvedConfig, UnresolvedConfig};
 pub use system_services_config::{AquaIpfsConfig, DeciderConfig, SystemServicesConfig};

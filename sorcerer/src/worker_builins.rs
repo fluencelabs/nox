@@ -64,7 +64,6 @@ pub(crate) async fn create_worker(
 pub(crate) fn get_worker_peer_id(args: Args, workers: Arc<Workers>) -> Result<JValue, JError> {
     let mut args = args.function_args.into_iter();
     let deal_id: String = Args::next("deal_id", &mut args)?;
-
     Ok(JValue::Array(
         workers
             .get_worker_id(deal_id.into())
@@ -99,7 +98,7 @@ pub(crate) async fn remove_worker(
             {
                 return Err(JError::new(format!("Worker {worker_id} can be removed only by worker creator {worker_creator}, host or a host manager")));
             }
-            workers.remove_worker(worker_id).await?;
+
             let spells: Vec<_> = spell_storage.get_registered_spells_by(peer_scope);
             for s in spells {
                 remove_spell(
@@ -118,7 +117,9 @@ pub(crate) async fn remove_worker(
                 })
                 .await?;
             }
+
             services.remove_services(peer_scope).await?;
+            workers.remove_worker(worker_id).await?;
         }
         PeerScope::Host => return Err(JError::new(format!("Worker {worker_id} can be removed"))),
     };
