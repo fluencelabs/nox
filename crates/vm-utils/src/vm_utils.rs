@@ -171,8 +171,7 @@ pub fn create_domain(uri: &str, params: &CreateVMDomainParams) -> Result<(), VmE
             } else {
                 vec![]
             };
-            let mac = generate_random_mac();
-            let xml = prepare_xml(params, mac.to_string().as_str(), &gpu_pci_locations);
+            let xml = prepare_xml(uri, params, &gpu_pci_locations);
             Domain::define_xml_flags(&conn, xml.as_str(), VIR_DOMAIN_DEFINE_VALIDATE)
                 .map_err(|err| VmError::FailedToCreateVMDomain { err })?;
         }
@@ -355,7 +354,136 @@ fn generate_random_mac() -> MacAddress {
     MacAddress::from(result)
 }
 
+fn allocate_ram(physical_cores_num: usize) -> usize {
+    // 4GB per core
+    physical_cores_num * 4 * 1024
+}
+
 fn prepare_xml(
+    libvirt_uri: &str,
+    params: &CreateVMDomainParams,
+    gpu_pci_location: &[PciLocation],
+) -> String {
+    match prepare_xml_from_cli(libvirt_uri, params, gpu_pci_location) {
+        Ok(xml) => xml,
+        Err(err) => {
+            tracing::warn!(target: "vm-utils","Failed to prepare XML using CLI: {err}. Falling back to template");
+            prepare_xml_from_template(params, &generate_random_mac().to_string(), gpu_pci_location)
+        }
+    }
+}
+
+#[derive(Debug, Error)]
+enum PrepareXmlError {
+    #[error("error while executing the command: {0}")]
+    IoError(#[from] std::io::Error),
+    #[error("error while converting the command output into a string: {0}")]
+    Utf8Error(#[from] std::string::FromUtf8Error),
+    #[error("command exited with error code {status}: {stderr:?}")]
+    Error {
+        status: String,
+        stderr: Result<String, std::string::FromUtf8Error>,
+    },
+}
+
+// Command example:
+// virt-install
+//   # Where to connect
+//   --connect qemu:///system
+//   # VM name
+//   --name test3
+//   # How the cores are pinned
+//   --vcpus 2,placement=static
+//   --cputune vcpupin0.vcpu=0,vcpupin0.cpuset=1,vcpupin1.vcpu=1,vcpupin1.cpuset=4
+//   # Amout of RAM allocated to the VM
+//   --ram 3000
+//   # Path to a qcow2 disk
+//   --disk alpine-virt-3.20.1-x86_64.qcow2
+//   # Use the default network, the brige name isn't in use with this thing
+//   --network network=default
+//   # import GPUs and other devices in the IOMMU group
+//   --hostdev 01:00.0,address.type=pci,address.multifunction=on
+//   --hostdev 01:00.1,address.type=pci,address.multifunction=on
+//    # detect OS, since we don't know which OS will be on a VM
+//   --osinfo detect=on,require=off
+//   # skip OS insallation process, build VM around prepared disk
+//   --import
+//   --print-xml
+fn prepare_xml_from_cli(
+    libvirt_uri: &str,
+    params: &CreateVMDomainParams,
+    gpu_pci_location: &[PciLocation],
+) -> Result<String, PrepareXmlError> {
+    let command = cli_command(libvirt_uri, params, gpu_pci_location);
+
+    // Execute the command
+    let output = std::process::Command::new("sh")
+        .arg("-c")
+        .arg(command)
+        .output()?;
+    if !output.status.success() {
+        return Err(PrepareXmlError::Error {
+            status: output.status.to_string(),
+            stderr: String::from_utf8(output.stderr),
+        });
+    }
+    Ok(String::from_utf8(output.stdout)?)
+}
+
+fn cli_command(
+    libvirt_uri: &str,
+    params: &CreateVMDomainParams,
+    gpu_pci_location: &[PciLocation],
+) -> String {
+    let pin_cores_argument = &params
+        .cpus
+        .iter()
+        .enumerate()
+        .map(|(index, logical_id)| {
+            format!("vcpupin{index}.vcpu={index},vcpupin{index}.cpuset={logical_id}")
+        })
+        .collect::<Vec<_>>()
+        .join(",");
+
+    let gpus_arument = gpu_pci_location
+        .iter()
+        .map(|location| {
+            format!(
+                "--hostdev {segment:02x}:{bus:02x}.{device:02x},address.type=pci,address.multifunction=on",
+                segment = location.segment(),
+                bus = location.bus(),
+                device = location.device(),
+            )
+        })
+        .collect::<Vec<_>>()
+        .join(" ");
+
+    vec![
+        "virt-install",
+        "--connect",
+        libvirt_uri,
+        "--name",
+        &params.name,
+        "--vcpus",
+        &format!("{},placement=static", params.cpus.len()),
+        "--cputune",
+        pin_cores_argument,
+        "--ram",
+        &format!("{}", allocate_ram(params.cores_num)),
+        "--disk",
+        params.image.to_str().unwrap(),
+        "--network",
+        "network=default",
+        &gpus_arument,
+        "--osinfo",
+        "detect=on,require=off",
+        "--import",
+        "--print-xml",
+    ]
+    .join(" ")
+}
+
+fn prepare_xml_from_template(
     params: &CreateVMDomainParams,
     mac_address: &str,
     gpu_pci_location: &[PciLocation],
@@ -382,7 +510,7 @@ fn prepare_xml(
         }
         mapping.push_str(format!("<vcpupin vcpu='{index}' cpuset='{logical_id}'/>").as_str());
     }
-    let memory_in_kb = params.cores_num * 4 * 1024 * 1024; // 4Gbs per core
+    let memory_in_kb = allocate_ram(params.cores_num);
     let gpu_pci_configuration = gpu_pci_location
         .iter()
         .map(prepare_pci_config)
@@ -422,8 +550,43 @@ mod tests {
     }
 
     #[test]
+    fn test_cli_command() {
+        let params = CreateVMDomainParams {
+            name: "test-id".to_string(),
+            image: "test-image".into(),
+            cpus: nonempty![2.into(), 8.into()],
+            cores_num: 2,
+            bridge_name: "br422442".to_string(),
+            allow_gpu: true,
+        };
+        let gpu = &[
+            PciLocation::with_bdf(1, 0, 0).unwrap(),
+            PciLocation::with_bdf(2, 0, 0).unwrap(),
+        ];
+        let result = cli_command("qemu:///system", &params, gpu);
+        let expected = "virt-install --connect qemu:///system --name test-id --vcpus 2,placement=static --cputune vcpupin0.vcpu=0,vcpupin0.cpuset=2,vcpupin1.vcpu=1,vcpupin1.cpuset=8 --ram 8192 --disk test-image --network network=default --hostdev 00:01.00,address.type=pci,address.multifunction=on --hostdev 00:02.00,address.type=pci,address.multifunction=on --osinfo detect=on,require=off --import --print-xml";
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_cli_command_without_gpu() {
+        let params = CreateVMDomainParams {
+            name: "test-id".to_string(),
+            image: "test-image".into(),
+            cpus: nonempty![2.into(), 8.into()],
+            cores_num: 2,
+            bridge_name: "br422442".to_string(),
+            allow_gpu: true,
+        };
+        let result = cli_command("qemu:///system", &params, &[]);
+        // This string contains a space where a GPU argument should be just to avoid a lot of string manipulation
+        let expected = "virt-install --connect qemu:///system --name test-id --vcpus 2,placement=static --cputune vcpupin0.vcpu=0,vcpupin0.cpuset=2,vcpupin1.vcpu=1,vcpupin1.cpuset=8 --ram 8192 --disk test-image --network network=default  --osinfo detect=on,require=off --import --print-xml";
+        assert_eq!(result, expected);
+    }
+
+    #[test]
     fn test_prepare_xml() {
-        let xml = prepare_xml(
+        let xml = prepare_xml_from_template(
             &CreateVMDomainParams {
                 name: "test-id".to_string(),
                 image: "test-image".into(),
@@ -460,7 +623,7 @@ mod tests {
 
     #[test]
     fn test_prepare_xml_without_gpu() {
-        let xml = prepare_xml(
+        let xml = prepare_xml_from_template(
             &CreateVMDomainParams {
                 name: "test-id".to_string(),
                 image: "test-image".into(),
