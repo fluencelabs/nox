@@ -447,14 +447,7 @@ fn cli_command(
 
     let gpus_arument = gpu_pci_location
         .iter()
-        .map(|location| {
-            format!(
-                "--hostdev {segment:02x}:{bus:02x}.{device:02x},address.type=pci,address.multifunction=on",
-                segment = location.segment(),
-                bus = location.bus(),
-                device = location.device(),
-            )
-        })
+        .map(|location| format!("--hostdev {location},address.type=pci,address.multifunction=on",))
         .collect::<Vec<_>>()
         .join(" ");
 
@@ -564,7 +557,7 @@ mod tests {
             PciLocation::with_bdf(2, 0, 0).unwrap(),
         ];
         let result = cli_command("qemu:///system", &params, gpu);
-        let expected = "virt-install --connect qemu:///system --name test-id --vcpus 2,placement=static --cputune vcpupin0.vcpu=0,vcpupin0.cpuset=2,vcpupin1.vcpu=1,vcpupin1.cpuset=8 --memory 8192 --disk test-image --network network=default --hostdev 00:01.00,address.type=pci,address.multifunction=on --hostdev 00:02.00,address.type=pci,address.multifunction=on --osinfo detect=on,require=off --import --print-xml";
+        let expected = "virt-install --connect qemu:///system --name test-id --vcpus 2,placement=static --cputune vcpupin0.vcpu=0,vcpupin0.cpuset=2,vcpupin1.vcpu=1,vcpupin1.cpuset=8 --memory 8192 --disk test-image --network network=default --hostdev 0000:01:00.0,address.type=pci,address.multifunction=on --hostdev 0000:02:00.0,address.type=pci,address.multifunction=on --osinfo detect=on,require=off --import --print-xml";
         assert_eq!(result, expected);
     }
 
