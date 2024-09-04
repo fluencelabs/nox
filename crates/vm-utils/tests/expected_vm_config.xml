@@ -1,6 +1,6 @@
 <domain type='kvm'>
     <name>test-id</name>
-    <memory unit='KiB'>8388608</memory>
+    <memory unit='MiB'>8192</memory>
     <vcpu placement='static'>2</vcpu>
     <cputune>
         <vcpupin vcpu='0' cpuset='1'/>
