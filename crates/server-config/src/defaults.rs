@@ -41,7 +41,7 @@ pub fn default_transport() -> Transport {
 }
 
 pub fn default_tcp_port() -> u16 {
-    7777
+    977
 }
 
 pub fn default_listen_ip() -> IpAddr {
@@ -88,11 +88,11 @@ pub fn default_cpus_range() -> Option<CoreRange> {
 }
 
 pub fn default_websocket_port() -> u16 {
-    9999
+    999
 }
 
 pub fn default_http_port() -> u16 {
-    18080
+    918
 }
 
 pub fn default_metrics_enabled() -> bool {
