@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.27.0](https://github.com/fluencelabs/nox/compare/nox-v0.26.2...nox-v0.27.0) (2024-09-04)
+
+
+### ⚠ BREAKING CHANGES
+
+* **config:** change default ws, tcp, http ports ([#2360](https://github.com/fluencelabs/nox/issues/2360))
+
+### Features
+
+* **vm:** use virt-installer to generate XML for VMs ([#2358](https://github.com/fluencelabs/nox/issues/2358)) ([865b963](https://github.com/fluencelabs/nox/commit/865b9631b289bdd7157b12868b3c665ac134c34b))
+
+
+### Bug Fixes
+
+* **config:** change default ports ([e4dce70](https://github.com/fluencelabs/nox/commit/e4dce70ec33e23401bda74897debf913243740d3))
+* **config:** change default ws, tcp, http ports ([#2360](https://github.com/fluencelabs/nox/issues/2360)) ([e4dce70](https://github.com/fluencelabs/nox/commit/e4dce70ec33e23401bda74897debf913243740d3))
+
 ## [0.26.2](https://github.com/fluencelabs/nox/compare/nox-v0.26.1...nox-v0.26.2) (2024-09-02)
 
 
