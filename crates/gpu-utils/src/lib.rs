@@ -38,7 +38,7 @@ pub fn get_gpu_pci() -> Result<HashSet<PciLocation>, PciError> {
         pci_devices.insert(device_location, device_class);
     }
 
-    tracing::debug!(target: "gpu-utils", "Found GPU devices: {:?}", gpu_devices);
+    tracing::info!(target: "gpu-utils", "Found GPU devices: {:?}", gpu_devices);
 
     let result = match get_iommu_groups() {
         Ok(iommu_groups) => {
@@ -60,7 +60,7 @@ pub fn get_gpu_pci() -> Result<HashSet<PciLocation>, PciError> {
         }
     };
 
-    tracing::debug!(target: "gpu-utils", "Importing PCI devices: {:?}", result);
+    tracing::info!(target: "gpu-utils", "Importing PCI devices: {:?}", result);
 
     Ok(result)
 }
