@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.27.1](https://github.com/fluencelabs/nox/compare/nox-v0.27.0...nox-v0.27.1) (2024-09-10)
+
+
+### Bug Fixes
+
+* **vm:** allow only nvidia and amd gpus ([#2362](https://github.com/fluencelabs/nox/issues/2362)) ([96cd1f4](https://github.com/fluencelabs/nox/commit/96cd1f4fb9b8e87f66d8d565e0407b1a4db53f06))
+
 ## [0.27.0](https://github.com/fluencelabs/nox/compare/nox-v0.26.2...nox-v0.27.0) (2024-09-04)
 
 
