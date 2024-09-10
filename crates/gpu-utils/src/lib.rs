@@ -18,6 +18,9 @@ pub enum PciError {
     UnsupportedProperty,
 }
 
+const AMD_VENDOR_ID: u16 = 0x1002;
+const NVIDIA_VENDOR_ID: u16 = 0x10de;
+
 pub fn get_gpu_pci() -> Result<HashSet<PciLocation>, PciError> {
     let info = PciInfo::enumerate_pci()?;
     // List of GPU devices
@@ -29,11 +32,13 @@ pub fn get_gpu_pci() -> Result<HashSet<PciLocation>, PciError> {
         let device = device?;
         let device_class = process_property_result(device.device_class())?;
         let device_location = process_property_result(device.location())?;
-        if device_class == DisplayController {
+        if device_class == DisplayController && is_vendor_allowed(device.vendor_id()) {
             gpu_devices.insert(device_location);
         }
         pci_devices.insert(device_location, device_class);
     }
+
+    tracing::info!(target: "gpu-utils", "Found GPU devices: {:?}", gpu_devices);
 
     let result = match get_iommu_groups() {
         Ok(iommu_groups) => {
@@ -54,7 +59,14 @@ pub fn get_gpu_pci() -> Result<HashSet<PciLocation>, PciError> {
             gpu_devices
         }
     };
+
+    tracing::info!(target: "gpu-utils", "Importing PCI devices: {:?}", result);
+
     Ok(result)
+}
+
+fn is_vendor_allowed(vendor_id: u16) -> bool {
+    vendor_id == AMD_VENDOR_ID || vendor_id == NVIDIA_VENDOR_ID
 }
 
 // AFAIK the bridge devices are the only non-endpoint devices
