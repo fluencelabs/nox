@@ -99,3 +99,4 @@ jobs:
     uses: fluencelabs/aqua/.github/workflows/tests.yml@main
     with:
       nox-image: "${{ needs.nox-snapshot.outputs.nox-image }}"
+      ref: update-peer-identify
