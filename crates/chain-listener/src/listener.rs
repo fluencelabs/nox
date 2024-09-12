@@ -17,7 +17,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-use alloy_primitives::{Address, FixedBytes, Uint, U256, U64};
+use alloy_primitives::{Address, FixedBytes, Uint, U256};
 use alloy_sol_types::SolEvent;
 use backoff::Error::Permanent;
 use std::cmp::min;
