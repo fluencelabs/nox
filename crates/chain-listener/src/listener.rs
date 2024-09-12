@@ -472,7 +472,7 @@ impl ChainListener {
 
             Ok(client)
         })
-            .await?;
+        .await?;
 
         tracing::info!(
             target: "chain-listener",
@@ -973,11 +973,11 @@ impl ChainListener {
             &self.metrics,
             ccp_client.on_active_commitment(self.global_nonce, self.difficulty, cu_allocation),
         )
-            .await
-            .map_err(|err| {
-                tracing::error!(target: "chain-listener", "Failed to send commitment to CCP: {err}");
-                eyre::eyre!("Failed to send commitment to CCP: {err}")
-            })?;
+        .await
+        .map_err(|err| {
+            tracing::error!(target: "chain-listener", "Failed to send commitment to CCP: {err}");
+            eyre::eyre!("Failed to send commitment to CCP: {err}")
+        })?;
 
         Ok(())
     }
@@ -1027,10 +1027,10 @@ impl ChainListener {
                 })
             }
             Err(AcquireError::NotFoundAvailableCores {
-                    required,
-                    available,
-                    ..
-                }) => {
+                required,
+                available,
+                ..
+            }) => {
                 tracing::warn!(target: "chain-listener", "Found {required} CUs in the Capacity Commitment, but Nox has only {available} Cores available for CC");
                 let assign_units = units.iter().take(available).cloned().collect();
                 let assignment =
@@ -1142,8 +1142,8 @@ impl ChainListener {
                     &self.metrics,
                     ccp_client.get_proofs_after(last_known_proofs, PROOF_POLL_LIMIT),
                 )
-                    .await
-                    .map_err(|err| eyre::eyre!("Failed to poll proofs from ccp: {err}"))?
+                .await
+                .map_err(|err| eyre::eyre!("Failed to poll proofs from ccp: {err}"))?
             } else {
                 tracing::debug!(target: "chain-listener", "Polling proofs after {:?}, min batch count: {}, max batch count: {}", batch_requests, self.listener_config.min_batch_count, self.listener_config.max_batch_count);
                 measured_request(
@@ -1154,8 +1154,8 @@ impl ChainListener {
                         self.listener_config.max_batch_count,
                     ),
                 )
-                    .await
-                    .map_err(|err| eyre::eyre!("Failed to poll batched proofs from ccp: {err}"))?
+                .await
+                .map_err(|err| eyre::eyre!("Failed to poll batched proofs from ccp: {err}"))?
             };
 
             if !proof_batches.is_empty() {
@@ -1166,8 +1166,10 @@ impl ChainListener {
                 let mut skipped_proofs_count = 0;
                 for batch in proof_batches.into_iter() {
                     for proof in batch.proof_batches.into_iter() {
-                        if proof.id.global_nonce != self.global_nonce {
-                            tracing::debug!(target: "chain-listener", "Proof global nonce {} doesn't match current global nonce {}, proof id {}. Skipping..", proof.id.global_nonce, self.global_nonce, proof.id.idx);
+                        if proof.id.global_nonce != self.global_nonce
+                            || proof.id.difficulty != self.difficulty
+                        {
+                            tracing::debug!(target: "chain-listener", "Proof (id={}, global nonce={}, difficulty={}) doesn't match current nonce {} and/or difficulty {}. Skipping..", proof.id.idx, proof.id.global_nonce, proof.id.difficulty, self.global_nonce, self.difficulty);
                             skipped_proofs_count += 1;
                             continue;
                         }
@@ -1311,7 +1313,7 @@ impl ChainListener {
             })?;
             Ok(())
         })
-            .await?;
+        .await?;
 
         self.active_deals.remove(deal_id);
         Ok(())
@@ -1422,7 +1424,7 @@ impl ChainListener {
                     .checked_add(-sent_proofs_count)
                     .unwrap_or(Uint::ZERO),
             )
-                .as_limbs()[0] as usize;
+            .as_limbs()[0] as usize;
 
             if proofs_needed > 0 {
                 let request = BatchRequest {
@@ -1443,7 +1445,7 @@ async fn measured_request<Fut, R, E>(
     fut: Fut,
 ) -> Result<R, E>
 where
-    Fut: Future<Output=Result<R, E>> + Sized,
+    Fut: Future<Output = Result<R, E>> + Sized,
 {
     metrics.as_ref().inspect(|m| m.observe_ccp_request());
     let start = Instant::now();
