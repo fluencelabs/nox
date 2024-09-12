@@ -392,7 +392,7 @@ impl<RT: AquaRuntime> Node<RT> {
         )
         .await;
 
-        let allowed_effectors = config
+        let allowed_binaries = config
             .allowed_effectors
             .keys()
             .map(|key| key.to_string())
@@ -402,7 +402,7 @@ impl<RT: AquaRuntime> Node<RT> {
             node_version: env!("CARGO_PKG_VERSION"),
             air_version: air_interpreter_wasm::VERSION,
             spell_version: spell_version.clone(),
-            allowed_effectors,
+            allowed_binaries,
             vm_info: config.node_config.vm.as_ref().map(|vm| VmInfo {
                 ip: vm.network.public_ip.to_string(),
                 default_ssh_port: vm.network.host_ssh_port,
