@@ -17,7 +17,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-use alloy_primitives::{Address, FixedBytes, Uint, U256, U64};
+use alloy_primitives::{Address, FixedBytes, Uint, U256};
 use alloy_sol_types::SolEvent;
 use backoff::Error::Permanent;
 use std::cmp::min;
@@ -1131,6 +1131,11 @@ impl ChainListener {
         if let Some(ref ccp_client) = self.ccp_client {
             let batch_requests = self.get_batch_request();
 
+            if batch_requests.is_empty() {
+                tracing::debug!(target: "chain-listener", "No compute units to poll proofs for. Probably all CUs have reached max proofs count");
+                return Ok(());
+            }
+
             let proof_batches = if self.is_epoch_ending() {
                 let last_known_proofs = batch_requests
                     .into_iter()
@@ -1419,17 +1424,19 @@ impl ChainListener {
         let mut batch_request = HashMap::new();
         for cu_id in self.cc_compute_units.keys() {
             let sent_proofs_count = self.proof_tracker.get_proof_counter(cu_id);
-            let proofs_needed = U64::from(
-                self.max_proofs_per_epoch
-                    .checked_add(-sent_proofs_count)
-                    .unwrap_or(Uint::ZERO),
-            )
-            .as_limbs()[0] as usize;
+            let proofs_needed = self
+                .max_proofs_per_epoch
+                .checked_sub(sent_proofs_count)
+                .unwrap_or(Uint::ZERO)
+                .as_limbs()[0];
 
             if proofs_needed > 0 {
                 let request = BatchRequest {
                     last_seen_proof_idx: self.proof_tracker.get_last_submitted_proof_id(cu_id),
-                    proof_batch_size: min(proofs_needed, self.listener_config.max_proof_batch_size),
+                    proof_batch_size: min(
+                        proofs_needed as usize,
+                        self.listener_config.max_proof_batch_size,
+                    ),
                 };
 
                 batch_request.insert(*cu_id, request);
