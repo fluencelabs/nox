@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.27.3](https://github.com/fluencelabs/nox/compare/nox-v0.27.2...nox-v0.27.3) (2024-09-12)
+
+
+### Bug Fixes
+
+* **listener:** fix batch request creation ([#2367](https://github.com/fluencelabs/nox/issues/2367)) ([e8ee2f8](https://github.com/fluencelabs/nox/commit/e8ee2f84d79f38ea3a34a179a150ef681a838e0e))
+
 ## [0.27.2](https://github.com/fluencelabs/nox/compare/nox-v0.27.1...nox-v0.27.2) (2024-09-12)
 
 
