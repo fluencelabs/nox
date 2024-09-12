@@ -33,7 +33,6 @@ use libp2p::{
 use libp2p_connection_limits::ConnectionLimits;
 use libp2p_metrics::{Metrics, Recorder};
 use prometheus_client::registry::Registry;
-use std::path::PathBuf;
 use std::process::exit;
 use std::sync::Arc;
 use std::{io, net::SocketAddr};
@@ -54,7 +53,7 @@ use core_distributor::CoreDistributor;
 use fluence_libp2p::build_transport;
 use health::HealthCheckRegistry;
 use particle_builtins::{
-    Builtins, BuiltinsConfig, CustomService, NodeInfo, ParticleAppServicesConfig,
+    Builtins, BuiltinsConfig, CustomService, NodeInfo, ParticleAppServicesConfig, PortInfo, VmInfo,
 };
 use particle_execution::ParticleFunctionStatic;
 use particle_protocol::ExtendedParticle;
@@ -393,20 +392,25 @@ impl<RT: AquaRuntime> Node<RT> {
         )
         .await;
 
-        let allowed_binaries = config
+        let allowed_effectors = config
             .allowed_effectors
-            .values()
-            .flat_map(|v| v.values().cloned().collect::<Vec<PathBuf>>())
-            .collect::<std::collections::HashSet<_>>()
-            .into_iter()
+            .keys()
+            .map(|key| key.to_string())
             .collect::<_>();
         let node_info = NodeInfo {
             external_addresses: config.external_addresses(),
             node_version: env!("CARGO_PKG_VERSION"),
             air_version: air_interpreter_wasm::VERSION,
             spell_version: spell_version.clone(),
-            // TODO: remove
-            allowed_binaries,
+            allowed_effectors,
+            vm_info: config.node_config.vm.as_ref().map(|vm| VmInfo {
+                ip: vm.network.public_ip.to_string(),
+                default_ssh_port: vm.network.host_ssh_port,
+                forwarded_ports: vec![PortInfo::Range(
+                    vm.network.port_range.start,
+                    vm.network.port_range.end,
+                )],
+            }),
         };
         if let Some(m) = metrics_registry.as_mut() {
             peer_metrics::add_info_metrics(

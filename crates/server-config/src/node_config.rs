@@ -637,8 +637,10 @@ pub struct VmNetworkConfig {
     pub public_ip: Ipv4Addr,
     #[serde(default = "default_vm_ip")]
     pub vm_ip: Ipv4Addr,
+    // SSH port on the host machine to connect to the VM from outside
     #[serde(default = "default_host_ssh_port")]
     pub host_ssh_port: u16,
+    // SSH port inside the VM
     #[serde(default = "default_vm_ssh_port")]
     pub vm_ssh_port: u16,
     #[serde(default = "default_port_range_config")]
