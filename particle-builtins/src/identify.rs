@@ -25,7 +25,7 @@ pub struct NodeInfo {
     pub node_version: &'static str,
     pub air_version: &'static str,
     pub spell_version: String,
-    pub allowed_effectors: Vec<String>,
+    pub allowed_binaries: Vec<String>,
     // Note: this is Vec for Aqua's representation of an option
     #[serde(serialize_with = "serialize_aqua_option")]
     pub vm_info: Option<VmInfo>,
