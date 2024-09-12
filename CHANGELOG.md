@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.27.2](https://github.com/fluencelabs/nox/compare/nox-v0.27.1...nox-v0.27.2) (2024-09-12)
+
+
+### Features
+
+* **listener:** skip proofs with wrong nonce ([#2365](https://github.com/fluencelabs/nox/issues/2365)) ([fe0ec7c](https://github.com/fluencelabs/nox/commit/fe0ec7c54030c7812df6493df0d975a9d6e197c7))
+
 ## [0.27.1](https://github.com/fluencelabs/nox/compare/nox-v0.27.0...nox-v0.27.1) (2024-09-10)
 
 
