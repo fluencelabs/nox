@@ -1119,9 +1119,9 @@ impl ChainListener {
     fn is_epoch_ending(&self) -> bool {
         let window = Uint::from(self.listener_config.epoch_end_window.as_secs());
         let next_epoch_start =
-            self.init_timestamp + self.epoch_duration * (self.current_epoch - Uint::from(1));
+            self.init_timestamp + self.epoch_duration * self.current_epoch;
         tracing::debug!(target: "chain-listener", "Next epoch start: {}, last observed block timestamp: {}", next_epoch_start, self.last_observed_block_timestamp);
-        next_epoch_start - self.last_observed_block_timestamp < window
+        next_epoch_start.checked_sub(self.last_observed_block_timestamp).unwrap_or(Uint::ZERO) < window
     }
 
     async fn poll_proofs(&mut self) -> eyre::Result<()> {
