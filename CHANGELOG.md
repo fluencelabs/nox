@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.27.4](https://github.com/fluencelabs/nox/compare/nox-v0.27.3...nox-v0.27.4) (2024-09-12)
+
+
+### Bug Fixes
+
+* **listener:** last window calculation + don't send empty proofs ([#2369](https://github.com/fluencelabs/nox/issues/2369)) ([da70f7f](https://github.com/fluencelabs/nox/commit/da70f7f597d33c2506a85ce96aeb2ca7a79c096d))
+
 ## [0.27.3](https://github.com/fluencelabs/nox/compare/nox-v0.27.2...nox-v0.27.3) (2024-09-12)
 
 
