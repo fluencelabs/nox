@@ -33,6 +33,7 @@ use libp2p::{
 use libp2p_connection_limits::ConnectionLimits;
 use libp2p_metrics::{Metrics, Recorder};
 use prometheus_client::registry::Registry;
+use std::path::PathBuf;
 use std::process::exit;
 use std::sync::Arc;
 use std::{io, net::SocketAddr};
@@ -394,8 +395,10 @@ impl<RT: AquaRuntime> Node<RT> {
 
         let allowed_binaries = config
             .allowed_effectors
-            .keys()
-            .map(|key| key.to_string())
+            .values()
+            .flat_map(|v| v.values().cloned().collect::<Vec<PathBuf>>())
+            .collect::<std::collections::HashSet<_>>()
+            .into_iter()
             .collect::<_>();
         let node_info = NodeInfo {
             external_addresses: config.external_addresses(),
