@@ -1119,7 +1119,8 @@ impl ChainListener {
     fn is_epoch_ending(&self) -> bool {
         let window = Uint::from(self.listener_config.epoch_end_window.as_secs());
         let next_epoch_start =
-            self.init_timestamp + self.epoch_duration * (self.current_epoch + Uint::from(1));
+            self.init_timestamp + self.epoch_duration * (self.current_epoch - Uint::from(1));
+        tracing::debug!(target: "chain-listener", "Next epoch start: {}, last observed block timestamp: {}", next_epoch_start, self.last_observed_block_timestamp);
         next_epoch_start - self.last_observed_block_timestamp < window
     }
 
@@ -1190,12 +1191,15 @@ impl ChainListener {
 
                 tracing::info!(target: "chain-listener", "Found {} proofs in {} batches from polling, skipped {} proofs", result_hashes.len(), batch_count, skipped_proofs_count);
 
-                self.submit_proofs(unit_ids, local_nonces, result_hashes)
-                    .await?;
+                if !result_hashes.is_empty() {
+                    self.submit_proofs(unit_ids, local_nonces, result_hashes)
+                        .await?;
+                }
             } else {
                 tracing::debug!(target: "chain-listener", "No proofs found from polling");
             }
         }
+
         Ok(())
     }
 
