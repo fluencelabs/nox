@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.27.5](https://github.com/fluencelabs/nox/compare/nox-v0.27.4...nox-v0.27.5) (2024-09-12)
+
+
+### Bug Fixes
+
+* **listener:** next epoch calculation ([#2371](https://github.com/fluencelabs/nox/issues/2371)) ([2d29b30](https://github.com/fluencelabs/nox/commit/2d29b30973fa7bac4f143eedb6b360860dc08815))
+
 ## [0.27.4](https://github.com/fluencelabs/nox/compare/nox-v0.27.3...nox-v0.27.4) (2024-09-12)
 
 
