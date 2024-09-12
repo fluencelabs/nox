@@ -217,7 +217,6 @@ impl ChainListener {
         let result = tokio::task::Builder::new()
             .name("ChainListener")
             .spawn(async move {
-
                 if let Err(err) = self.set_utility_core().await {
                     tracing::error!(target: "chain-listener", "Failed to set utility core: {err}; Stopping...");
                     exit(1);
@@ -427,16 +426,16 @@ impl ChainListener {
                 .cloned()
                 .ok_or(eyre::eyre!("No utility core id"))?;
             measured_request(&self.metrics,
-                retry(ExponentialBackoff::default(), || async {
-                    ccp_client
-                        .realloc_utility_cores(vec![utility_core])
-                        .await
-                        .map_err(|err| {
-                            tracing::warn!(target: "chain-listener", "Error reallocating utility core {utility_core} to CCP, error: {err}. Retrying...");
-                            eyre::eyre!("Error reallocating utility core {utility_core} to CCP, error: {err}")
-                        })?;
-                    Ok(())
-                })
+                             retry(ExponentialBackoff::default(), || async {
+                                 ccp_client
+                                     .realloc_utility_cores(vec![utility_core])
+                                     .await
+                                     .map_err(|err| {
+                                         tracing::warn!(target: "chain-listener", "Error reallocating utility core {utility_core} to CCP, error: {err}. Retrying...");
+                                         eyre::eyre!("Error reallocating utility core {utility_core} to CCP, error: {err}")
+                                     })?;
+                                 Ok(())
+                             }),
             ).await?;
 
             tracing::info!("Utility core {utility_core} successfully reallocated");
@@ -473,7 +472,7 @@ impl ChainListener {
 
             Ok(client)
         })
-        .await?;
+            .await?;
 
         tracing::info!(
             target: "chain-listener",
@@ -611,17 +610,18 @@ impl ChainListener {
         params: ArrayParams,
     ) -> Result<Subscription<JsonValue>, client::Error> {
         let sub = retry(ExponentialBackoff::default(), || async {
-             self
+            self
                 .ws_client
                 .subscribe("eth_subscribe", params.clone(), "eth_unsubscribe")
-                .await.map_err(|err|  {
+                .await.map_err(|err| {
                 if let client::Error::RestartNeeded(_) = err {
                     tracing::error!(target: "chain-listener", "Failed to subscribe to {method}: {err};");
                     Permanent(err)
                 } else {
                     tracing::warn!(target: "chain-listener", "Failed to subscribe to {method}: {err}; Retrying...");
                     backoff::Error::transient(err)
-                }})
+                }
+            })
         }).await?;
 
         Ok(sub)
@@ -973,11 +973,11 @@ impl ChainListener {
             &self.metrics,
             ccp_client.on_active_commitment(self.global_nonce, self.difficulty, cu_allocation),
         )
-        .await
-        .map_err(|err| {
-            tracing::error!(target: "chain-listener", "Failed to send commitment to CCP: {err}");
-            eyre::eyre!("Failed to send commitment to CCP: {err}")
-        })?;
+            .await
+            .map_err(|err| {
+                tracing::error!(target: "chain-listener", "Failed to send commitment to CCP: {err}");
+                eyre::eyre!("Failed to send commitment to CCP: {err}")
+            })?;
 
         Ok(())
     }
@@ -1027,10 +1027,10 @@ impl ChainListener {
                 })
             }
             Err(AcquireError::NotFoundAvailableCores {
-                required,
-                available,
-                ..
-            }) => {
+                    required,
+                    available,
+                    ..
+                }) => {
                 tracing::warn!(target: "chain-listener", "Found {required} CUs in the Capacity Commitment, but Nox has only {available} Cores available for CC");
                 let assign_units = units.iter().take(available).cloned().collect();
                 let assignment =
@@ -1073,7 +1073,7 @@ impl ChainListener {
         tracing::info!(target: "chain-listener", "Stopping current commitment");
         if let Some(ref ccp_client) = self.ccp_client {
             measured_request(&self.metrics,
-                ccp_client.on_no_active_commitment()
+                             ccp_client.on_no_active_commitment(),
             ).await.map_err(|err| {
                 tracing::error!(target: "chain-listener", "Failed to send no active commitment to CCP: {err}");
                 eyre::eyre!("Failed to send no active commitment to CCP: {err}")
@@ -1142,8 +1142,8 @@ impl ChainListener {
                     &self.metrics,
                     ccp_client.get_proofs_after(last_known_proofs, PROOF_POLL_LIMIT),
                 )
-                .await
-                .map_err(|err| eyre::eyre!("Failed to poll proofs from ccp: {err}"))?
+                    .await
+                    .map_err(|err| eyre::eyre!("Failed to poll proofs from ccp: {err}"))?
             } else {
                 tracing::debug!(target: "chain-listener", "Polling proofs after {:?}, min batch count: {}, max batch count: {}", batch_requests, self.listener_config.min_batch_count, self.listener_config.max_batch_count);
                 measured_request(
@@ -1154,34 +1154,24 @@ impl ChainListener {
                         self.listener_config.max_batch_count,
                     ),
                 )
-                .await
-                .map_err(|err| eyre::eyre!("Failed to poll batched proofs from ccp: {err}"))?
+                    .await
+                    .map_err(|err| eyre::eyre!("Failed to poll batched proofs from ccp: {err}"))?
             };
 
-            // TODO: maybe filter out proofs that are not related to current epoch
-            // // Filter proofs related to current epoch only
-            // let proof_batches: Vec<BatchResponse> = proofs
-            //     .into_iter()
-            //     .for_each(move |p| {
-            //         p.proof_batches
-            //             .into_iter()
-            //             .filter(|p| p.id.global_nonce == self.global_nonce)
-            //             .collect()
-            //     })
-            //     .collect();
-
             if !proof_batches.is_empty() {
-                let total_proofs = proof_batches
-                    .iter()
-                    .map(|p| p.proof_batches.len())
-                    .sum::<usize>();
-                tracing::info!(target: "chain-listener", "Found {} proofs in {} batches from polling", total_proofs, proof_batches.len());
-
                 let mut unit_ids = Vec::new();
                 let mut local_nonces = Vec::new();
                 let mut result_hashes = Vec::new();
+                let batch_count = proof_batches.len();
+                let mut skipped_proofs_count = 0;
                 for batch in proof_batches.into_iter() {
                     for proof in batch.proof_batches.into_iter() {
+                        if proof.id.global_nonce != self.global_nonce {
+                            tracing::debug!(target: "chain-listener", "Proof global nonce {} doesn't match current global nonce {}, proof id {}. Skipping..", proof.id.global_nonce, self.global_nonce, proof.id.idx);
+                            skipped_proofs_count += 1;
+                            continue;
+                        }
+
                         unit_ids.push(proof.cu_id);
                         local_nonces.push(proof.local_nonce);
                         result_hashes.push(proof.result_hash);
@@ -1190,6 +1180,8 @@ impl ChainListener {
                             .await;
                     }
                 }
+
+                tracing::info!(target: "chain-listener", "Found {} proofs in {} batches from polling, skipped {} proofs", result_hashes.len(), batch_count, skipped_proofs_count);
 
                 self.submit_proofs(unit_ids, local_nonces, result_hashes)
                     .await?;
@@ -1210,14 +1202,14 @@ impl ChainListener {
             self.chain_connector.submit_proofs(unit_ids.clone(), local_nonces.clone(), result_hashes.clone()).await.map_err(|err| {
                 match err {
                     ConnectorError::RpcCallError { .. } => { Permanent(err) }
-                   _ => {
+                    _ => {
                         tracing::warn!(target: "chain-listener", "Failed to submit proof: {err}. Retrying..");
                         backoff::Error::transient(err)
                     }
                 }
             })
         })
-        .await;
+            .await;
 
         match submit {
             Err(err) => {
@@ -1278,7 +1270,7 @@ impl ChainListener {
 
             Ok(s)
         })
-        .await?;
+            .await?;
 
         for (status, (deal_id, worker)) in statuses
             .into_iter()
@@ -1319,7 +1311,7 @@ impl ChainListener {
             })?;
             Ok(())
         })
-        .await?;
+            .await?;
 
         self.active_deals.remove(deal_id);
         Ok(())
@@ -1430,7 +1422,7 @@ impl ChainListener {
                     .checked_add(-sent_proofs_count)
                     .unwrap_or(Uint::ZERO),
             )
-            .as_limbs()[0] as usize;
+                .as_limbs()[0] as usize;
 
             if proofs_needed > 0 {
                 let request = BatchRequest {
@@ -1451,7 +1443,7 @@ async fn measured_request<Fut, R, E>(
     fut: Fut,
 ) -> Result<R, E>
 where
-    Fut: Future<Output = Result<R, E>> + Sized,
+    Fut: Future<Output=Result<R, E>> + Sized,
 {
     metrics.as_ref().inspect(|m| m.observe_ccp_request());
     let start = Instant::now();
