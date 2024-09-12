@@ -1,6 +1,6 @@
 [package]
 name = "nox"
-version = "0.27.3"
+version = "0.27.4"
 authors = ["Fluence DAO", "Cloudless Labs"]
 description = "Node implementing peer functionality in the Fluence p2p network"
 edition = "2021"
