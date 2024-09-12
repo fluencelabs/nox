@@ -26,7 +26,19 @@ pub struct NodeInfo {
     pub air_version: &'static str,
     pub spell_version: String,
     pub allowed_effectors: Vec<String>,
+    // Note: this is Vec for Aqua's representation of an option
+    #[serde(serialize_with = "serialize_aqua_option")]
     pub vm_info: Option<VmInfo>,
+}
+
+fn serialize_aqua_option<S>(value: &Option<VmInfo>, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    match value {
+        Some(vm_info) => serializer.collect_seq(&[vm_info]),
+        None => serializer.serialize_none(),
+    }
 }
 
 #[derive(Serialize, Clone, Debug)]
