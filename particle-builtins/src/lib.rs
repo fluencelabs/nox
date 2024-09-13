@@ -33,7 +33,7 @@
 )]
 
 pub use builtins::{Builtins, BuiltinsConfig, CustomService};
-pub use identify::NodeInfo;
+pub use identify::{NodeInfo, PortInfo, VmInfo};
 pub use outcome::{ok, wrap, wrap_unit};
 pub use particle_services::ParticleAppServicesConfig;
 mod builtins;
