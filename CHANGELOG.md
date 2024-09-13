@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.27.6](https://github.com/fluencelabs/nox/compare/nox-v0.27.5...nox-v0.27.6) (2024-09-13)
+
+
+### Features
+
+* **vm:** extend peer.identify with vm connection info ([#2364](https://github.com/fluencelabs/nox/issues/2364)) ([e29fca5](https://github.com/fluencelabs/nox/commit/e29fca5a63c051090b888a3ed93ddb8979721c95))
+
 ## [0.27.5](https://github.com/fluencelabs/nox/compare/nox-v0.27.4...nox-v0.27.5) (2024-09-12)
 
 
