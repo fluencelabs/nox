@@ -1,5 +1,33 @@
 # Changelog
 
+## [0.27.5](https://github.com/fluencelabs/nox/compare/nox-v0.27.4...nox-v0.27.5) (2024-09-12)
+
+
+### Bug Fixes
+
+* **listener:** next epoch calculation ([#2371](https://github.com/fluencelabs/nox/issues/2371)) ([2d29b30](https://github.com/fluencelabs/nox/commit/2d29b30973fa7bac4f143eedb6b360860dc08815))
+
+## [0.27.4](https://github.com/fluencelabs/nox/compare/nox-v0.27.3...nox-v0.27.4) (2024-09-12)
+
+
+### Bug Fixes
+
+* **listener:** last window calculation + don't send empty proofs ([#2369](https://github.com/fluencelabs/nox/issues/2369)) ([da70f7f](https://github.com/fluencelabs/nox/commit/da70f7f597d33c2506a85ce96aeb2ca7a79c096d))
+
+## [0.27.3](https://github.com/fluencelabs/nox/compare/nox-v0.27.2...nox-v0.27.3) (2024-09-12)
+
+
+### Bug Fixes
+
+* **listener:** fix batch request creation ([#2367](https://github.com/fluencelabs/nox/issues/2367)) ([e8ee2f8](https://github.com/fluencelabs/nox/commit/e8ee2f84d79f38ea3a34a179a150ef681a838e0e))
+
+## [0.27.2](https://github.com/fluencelabs/nox/compare/nox-v0.27.1...nox-v0.27.2) (2024-09-12)
+
+
+### Features
+
+* **listener:** skip proofs with wrong nonce ([#2365](https://github.com/fluencelabs/nox/issues/2365)) ([fe0ec7c](https://github.com/fluencelabs/nox/commit/fe0ec7c54030c7812df6493df0d975a9d6e197c7))
+
 ## [0.27.1](https://github.com/fluencelabs/nox/compare/nox-v0.27.0...nox-v0.27.1) (2024-09-10)
 
 
