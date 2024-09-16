@@ -302,6 +302,7 @@ fn check_virtualization() -> eyre::Result<()> {
     match kvm_ok {
         Ok(output) => {
             if output.contains("KVM acceleration can be used") {
+                log::info!("Virtualization is enabled");
                 Ok(())
             } else {
                 Err(eyre::eyre!(
@@ -315,6 +316,8 @@ fn check_virtualization() -> eyre::Result<()> {
             log::warn!("Doing a simple virtualization check...");
             if !std::path::Path::new("/dev/kvm").exists() {
                 log::warn!("Virtualization is not enabled: /dev/kvm is not available");
+            } else {
+                log::warn!("Virtualization is enabled: /dev/kvm is available");
             }
             Ok(())
         }
