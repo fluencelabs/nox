@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.27.7](https://github.com/fluencelabs/nox/compare/nox-v0.27.6...nox-v0.27.7) (2024-09-16)
+
+
+### Features
+
+* **vm:** check if virtualization is enabled ([#2375](https://github.com/fluencelabs/nox/issues/2375)) ([e95704b](https://github.com/fluencelabs/nox/commit/e95704b82f436b6d66979accc7f12510060111ce))
+
 ## [0.27.6](https://github.com/fluencelabs/nox/compare/nox-v0.27.5...nox-v0.27.6) (2024-09-13)
 
 
