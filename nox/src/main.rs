@@ -304,7 +304,10 @@ fn check_virtualization() -> eyre::Result<()> {
             if output.contains("KVM acceleration can be used") {
                 Ok(())
             } else {
-                Err(eyre::eyre!("Virtualization is not enabled. kvm-ok output:\n {}", output))
+                Err(eyre::eyre!(
+                    "Virtualization is not enabled. kvm-ok output:\n {}",
+                    output
+                ))
             }
         }
         Err(err) => {
