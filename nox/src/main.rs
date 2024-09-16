@@ -124,6 +124,10 @@ fn main() -> eyre::Result<()> {
 
     let resolved_config = config.clone().resolve()?;
 
+    if resolved_config.node_config.vm.is_some() {
+        check_virtualization()?;
+    }
+
     let acquire_strategy = if resolved_config.dev_mode_config.enable {
         AcquireStrategy::RoundRobin
     } else {
@@ -283,4 +287,33 @@ fn vm_config(config: &ResolvedConfig) -> VmConfig {
             .map(|byte_size| byte_size.as_u64()),
         config.node_config.avm_config.hard_limit_enabled,
     )
+}
+
+// 1. Runs a `kvm_ok` cli utility and checks that virtualization is enabled.
+//    We check virtualization by looking for a string `KVM acceleration can be used`.
+//    If not, return an error.
+// 2. If `kvm_ok` isn't available, check `/dev/kvm`.
+//    If it's not available, return a warning.
+fn check_virtualization() -> eyre::Result<()> {
+    let kvm_ok = std::process::Command::new("kvm-ok")
+        .output()
+        .map(|output| String::from_utf8_lossy(&output.stdout).trim().to_string());
+
+    match kvm_ok {
+        Ok(output) => {
+            if output.contains("KVM acceleration can be used") {
+                Ok(())
+            } else {
+                Err(eyre::eyre!("Virtualization is not enabled. kvm-ok output:\n {}", output))
+            }
+        }
+        Err(err) => {
+            log::warn!("Failed to run kvm-ok: {err}");
+            log::warn!("Doing a simple virtualization check...");
+            if !std::path::Path::new("/dev/kvm").exists() {
+                log::warn!("Virtualization is not enabled: /dev/kvm is not available");
+            }
+            Ok(())
+        }
+    }
 }
