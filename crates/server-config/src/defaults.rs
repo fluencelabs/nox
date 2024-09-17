@@ -66,21 +66,17 @@ pub fn default_bootstrap_nodes() -> Vec<Multiaddr> {
 }
 
 pub fn default_system_cpu_count() -> usize {
-    let total = num_cpus::get_physical();
-    match total {
-        x if x > 32 => 3,
-        x if x > 7 => 2,
-        _ => 1,
-    }
+    // always use 1 core for Nox's and CCP's system threads
+    // we use a simple constant here to make the behaviour as predictable as possible
+    1
 }
 
 pub fn default_cpus_range() -> Option<CoreRange> {
     let total = num_cpus::get_physical();
-    let left = match total {
-        // Leave 1 core to OS if there's 8+ cores
-        c if c >= 8 => 1,
-        _ => 0,
-    };
+
+    // always leave 0th core to OS
+    // we use a simple constant here to make the behaviour as predictable as possible
+    let left = 1;
     Some(
         CoreRange::try_from(Vec::from_iter(left..total).as_slice())
             .expect("Cpu range can't be empty"),
@@ -281,15 +277,18 @@ pub fn default_proof_poll_period() -> Duration {
 }
 
 pub fn default_min_batch_count() -> usize {
-    1
+    // Wait for at least 5 proofs before sending the tx to reduce TPS
+    5
 }
 
 pub fn default_max_batch_count() -> usize {
-    4
+    // 30 is the default minimal proof count per CU on the mainnet
+    30
 }
 
 pub fn default_max_proof_batch_size() -> usize {
-    2
+    // 128 is the average CU number on a single machine
+    128
 }
 
 pub fn default_epoch_end_window() -> Duration {
