@@ -393,8 +393,8 @@ async fn test_deal_insufficient_funds_flow() {
     assert_allocation(
         result_2.cu_allocation,
         vec![
-            (PhysicalCoreId::new(125), cu_id_2),
-            (PhysicalCoreId::new(126), cu_id_3),
+            (PhysicalCoreId::new(125), cu_id_3),
+            (PhysicalCoreId::new(126), cu_id_2),
         ],
     );
 }
