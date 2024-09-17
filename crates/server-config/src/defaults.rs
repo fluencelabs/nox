@@ -74,7 +74,8 @@ pub fn default_system_cpu_count() -> usize {
 pub fn default_cpus_range() -> Option<CoreRange> {
     let total = num_cpus::get_physical();
 
-    // Leave 1 core to OS
+    // always leave 0th core to OS
+    // we use a simple constant here to make the behaviour as predictable as possible
     let left = 1;
     Some(
         CoreRange::try_from(Vec::from_iter(left..total).as_slice())
