@@ -71,6 +71,7 @@ use crate::proof_tracker::ProofTracker;
 use crate::types::{CUGroups, PhysicalCoreGroups};
 
 const PROOF_POLL_LIMIT: usize = 50;
+// TODO: move to config
 const WS_PING_PERIOD_SEC: u64 = 10;
 
 #[derive(Clone)]
