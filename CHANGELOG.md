@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.27.8](https://github.com/fluencelabs/nox/compare/nox-v0.27.7...nox-v0.27.8) (2024-09-17)
+
+
+### Features
+
+* **config,cpu,proofs:** change cpu and batching defaults ([#2377](https://github.com/fluencelabs/nox/issues/2377)) ([da7f90e](https://github.com/fluencelabs/nox/commit/da7f90ef9aceca29db4f9b469bfbe7020f746251))
+
 ## [0.27.7](https://github.com/fluencelabs/nox/compare/nox-v0.27.6...nox-v0.27.7) (2024-09-16)
 
 
