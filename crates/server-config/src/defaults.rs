@@ -66,6 +66,8 @@ pub fn default_bootstrap_nodes() -> Vec<Multiaddr> {
 }
 
 pub fn default_system_cpu_count() -> usize {
+    // always use 1 core for Nox's and CCP's system threads
+    // we use a simple constant here to make the behaviour as predictable as possible
     1
 }
 
