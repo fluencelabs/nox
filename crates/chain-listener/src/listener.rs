@@ -546,6 +546,10 @@ impl ChainListener {
 
         let in_deal: Vec<_> = units.extract_if(|cu| !cu.deal.is_zero()).collect();
 
+        let current_units: Vec<CUID> = units.iter().map(|unit| CUID::new(unit.id.0)).collect();
+        self.core_distributor
+            .cleanup_cache(current_units.as_slice());
+
         self.cc_compute_units = units
             .into_iter()
             .map(|unit| (CUID::new(unit.id.0), unit))
