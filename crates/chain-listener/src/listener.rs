@@ -42,7 +42,7 @@ use jsonrpsee::core::client::{Client as WsClient, Subscription, SubscriptionClie
 use jsonrpsee::core::params::ArrayParams;
 use jsonrpsee::core::{client, JsonValue};
 use jsonrpsee::rpc_params;
-use jsonrpsee::ws_client::WsClientBuilder;
+use jsonrpsee::ws_client::{PingConfig, WsClientBuilder};
 use libp2p_identity::PeerId;
 use serde::de::DeserializeOwned;
 use serde_json::{json, Value};
@@ -71,6 +71,7 @@ use crate::proof_tracker::ProofTracker;
 use crate::types::{CUGroups, PhysicalCoreGroups};
 
 const PROOF_POLL_LIMIT: usize = 50;
+const WS_PING_PERIOD_SEC: u64 = 20;
 
 #[derive(Clone)]
 struct OnChainWorker {
@@ -458,6 +459,9 @@ impl ChainListener {
     pub async fn create_ws_client(ws_endpoint: &str) -> Result<WsClient, client::Error> {
         let ws_client = retry(ExponentialBackoff::default(), || async {
             let client = WsClientBuilder::default()
+                .enable_ws_ping(
+                    PingConfig::new().ping_interval(Duration::from_secs(WS_PING_PERIOD_SEC)),
+                )
                 .build(ws_endpoint)
                 .await
                 .map_err(|err| {
