@@ -33,7 +33,6 @@ use tokio_stream::wrappers::ReceiverStream;
 
 use crate::errors::PersistError;
 use crate::types::WorkType;
-use crate::Map;
 
 pub(crate) trait StatePersister: Send + Sync {
     fn persist(&self) -> Result<(), PersistError>;
@@ -97,7 +96,7 @@ pub struct PersistentCoreDistributorState {
     #[serde_as(as = "Vec<(Hex, _)>")]
     pub work_type_mapping: Vec<(CUID, WorkType)>,
     #[serde_as(as = "Vec<(Hex, _)>")]
-    pub cuid_cache: Map<CUID, PhysicalCoreId>,
+    pub cuid_cache: Vec<(CUID, PhysicalCoreId)>,
 }
 
 impl PersistentCoreDistributorState {
@@ -141,7 +140,7 @@ mod tests {
 
     #[test]
     fn test_serde() {
-        let init_id_1 =
+        let unit_id_1 =
             <CUID>::from_hex("54ae1b506c260367a054f80800a545f23e32c6bc4a8908c9a794cb8dad23e5ea")
                 .unwrap();
         let persistent_state = PersistentCoreDistributorState {
@@ -157,9 +156,9 @@ mod tests {
             ],
             system_cores: vec![PhysicalCoreId::new(1)],
             available_cores: vec![PhysicalCoreId::new(2), PhysicalCoreId::new(3)],
-            unit_id_mapping: vec![(PhysicalCoreId::new(4), init_id_1)],
-            work_type_mapping: vec![(init_id_1, WorkType::Deal)],
-            cuid_cache: Default::default(),
+            unit_id_mapping: vec![(PhysicalCoreId::new(4), unit_id_1)],
+            work_type_mapping: vec![(unit_id_1, WorkType::Deal)],
+            cuid_cache: vec![(unit_id_1, PhysicalCoreId::new(1))],
         };
         let actual = toml::to_string(&persistent_state).unwrap();
         let expected = "cores_mapping = [[1, 1], [1, 2], [2, 3], [2, 4], [3, 5], [3, 6], [4, 7], [4, 8]]\n\
@@ -167,7 +166,7 @@ mod tests {
         available_cores = [2, 3]\n\
         unit_id_mapping = [[4, \"54ae1b506c260367a054f80800a545f23e32c6bc4a8908c9a794cb8dad23e5ea\"]]\n\
         work_type_mapping = [[\"54ae1b506c260367a054f80800a545f23e32c6bc4a8908c9a794cb8dad23e5ea\", \"Deal\"]]\n\
-        cpu_cache = []\n";
+        cuid_cache = [[\"54ae1b506c260367a054f80800a545f23e32c6bc4a8908c9a794cb8dad23e5ea\", 1]]\n";
         assert_eq!(expected, actual)
     }
 }
