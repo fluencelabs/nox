@@ -294,3 +294,7 @@ pub fn default_max_proof_batch_size() -> usize {
 pub fn default_epoch_end_window() -> Duration {
     Duration::from_secs(300)
 }
+
+pub fn default_ws_ping_period() -> Duration {
+    Duration::from_secs(10)
+}
