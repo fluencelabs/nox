@@ -85,7 +85,7 @@ impl ChainListenerTestEntities {
                 max_batch_count: 0,
                 max_proof_batch_size: 0,
                 epoch_end_window: Default::default(),
-                ws_ping_period: Default::default(),
+                ws_ping_period: Duration::from_secs(5),
             });
 
             cfg.cc_events_dir = Some(cc_events_dir.clone());
