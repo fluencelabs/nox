@@ -97,7 +97,7 @@ pub struct PersistentCoreDistributorState {
     #[serde_as(as = "Vec<(Hex, _)>")]
     pub work_type_mapping: Vec<(CUID, WorkType)>,
     #[serde_as(as = "Vec<(Hex, _)>")]
-    pub cpu_cache: Map<CUID, PhysicalCoreId>,
+    pub cuid_cache: Map<CUID, PhysicalCoreId>,
 }
 
 impl PersistentCoreDistributorState {
@@ -127,7 +127,7 @@ impl From<&CoreDistributorState> for PersistentCoreDistributorState {
                 .iter()
                 .map(|(k, v)| ((*k), *v))
                 .collect(),
-            cpu_cache: value.cuid_cache.iter().map(|(k, v)| ((*k), *v)).collect(),
+            cuid_cache: value.cuid_cache.iter().map(|(k, v)| ((*k), *v)).collect(),
         }
     }
 }
@@ -159,7 +159,7 @@ mod tests {
             available_cores: vec![PhysicalCoreId::new(2), PhysicalCoreId::new(3)],
             unit_id_mapping: vec![(PhysicalCoreId::new(4), init_id_1)],
             work_type_mapping: vec![(init_id_1, WorkType::Deal)],
-            cpu_cache: Default::default(),
+            cuid_cache: Default::default(),
         };
         let actual = toml::to_string(&persistent_state).unwrap();
         let expected = "cores_mapping = [[1, 1], [1, 2], [2, 3], [2, 4], [3, 5], [3, 6], [4, 7], [4, 8]]\n\

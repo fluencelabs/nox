@@ -70,7 +70,7 @@ impl From<PersistentCoreDistributorState> for CoreDistributorState {
             available_cores: value.available_cores.into_iter().collect(),
             unit_id_mapping: value.unit_id_mapping.into_iter().collect(),
             work_type_mapping: value.work_type_mapping.into_iter().collect(),
-            cuid_cache: value.cpu_cache.into_iter().collect(),
+            cuid_cache: value.cuid_cache.into_iter().collect(),
         }
     }
 }
@@ -598,7 +598,7 @@ mod tests {
             available_cores: vec![PhysicalCoreId::new(2)],
             unit_id_mapping: vec![(PhysicalCoreId::new(3), init_id_1)],
             work_type_mapping: vec![(init_id_1, WorkType::Deal)],
-            cpu_cache: Default::default(),
+            cuid_cache: Default::default(),
         };
         let (distributor, _task) = PersistentCoreDistributor::make_instance_with_task(
             temp_dir.into_path(),
