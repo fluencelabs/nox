@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.27.9](https://github.com/fluencelabs/nox/compare/nox-v0.27.8...nox-v0.27.9) (2024-09-17)
+
+
+### Features
+
+* **chain-listener:** enable ws ping ([#2379](https://github.com/fluencelabs/nox/issues/2379)) ([764f34c](https://github.com/fluencelabs/nox/commit/764f34ca50011500365d74e81851fc6540e9fdb0))
+
 ## [0.27.8](https://github.com/fluencelabs/nox/compare/nox-v0.27.7...nox-v0.27.8) (2024-09-17)
 
 
