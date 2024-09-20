@@ -225,6 +225,7 @@ async fn start_fluence(
             .wrap_err("Failed to get default system service distros")?;
 
     let mut node: Box<Node<AVMRunner>> = Node::new(
+        peer_id,
         config,
         core_distributor,
         thread_pinner,

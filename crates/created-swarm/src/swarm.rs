@@ -522,6 +522,7 @@ pub async fn create_swarm_with_runtime<RT: AquaRuntime>(
         let thread_pinner = Arc::new(test_utils::pinning::DUMMY);
 
         let node = Node::new(
+            peer_id,
             resolved.clone(),
             core_distributor,
             thread_pinner,
