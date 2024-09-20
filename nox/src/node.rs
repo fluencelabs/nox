@@ -165,6 +165,7 @@ async fn setup_listener(
 
 impl<RT: AquaRuntime> Node<RT> {
     pub async fn new(
+        peer_id: PeerId,
         config: ResolvedConfig,
         core_distributor: Arc<dyn CoreDistributor>,
         thread_pinner: Arc<dyn ThreadPinner>,
@@ -312,6 +313,7 @@ impl<RT: AquaRuntime> Node<RT> {
             };
 
         let builtins_config = BuiltinsConfig::new(
+            peer_id,
             services_config,
             config.dir_config.services_persistent_dir.clone(),
             config.node_config.allowed_effectors.clone(),
@@ -893,6 +895,7 @@ mod tests {
         let thread_pinner = Arc::new(test_utils::pinning::DUMMY);
 
         let mut node: Box<Node<AVMRunner>> = Node::new(
+            PeerId::random(),
             config,
             core_distributor,
             thread_pinner,
