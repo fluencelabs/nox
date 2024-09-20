@@ -165,6 +165,7 @@ async fn setup_listener(
 
 impl<RT: AquaRuntime> Node<RT> {
     pub async fn new(
+        peer_id: PeerId,
         config: ResolvedConfig,
         core_distributor: Arc<dyn CoreDistributor>,
         thread_pinner: Arc<dyn ThreadPinner>,
@@ -312,6 +313,7 @@ impl<RT: AquaRuntime> Node<RT> {
             };
 
         let builtins_config = BuiltinsConfig::new(
+            peer_id,
             services_config,
             config.dir_config.services_persistent_dir.clone(),
             config.node_config.allowed_effectors.clone(),
