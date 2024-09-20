@@ -895,6 +895,7 @@ mod tests {
         let thread_pinner = Arc::new(test_utils::pinning::DUMMY);
 
         let mut node: Box<Node<AVMRunner>> = Node::new(
+            PeerId::random(),
             config,
             core_distributor,
             thread_pinner,
