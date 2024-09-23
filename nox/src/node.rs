@@ -420,12 +420,34 @@ impl<RT: AquaRuntime> Node<RT> {
             }),
         };
         if let Some(m) = metrics_registry.as_mut() {
-            peer_metrics::add_info_metrics(
-                m,
-                node_info.node_version.to_string(),
-                node_info.air_version.to_string(),
-                node_info.spell_version.clone(),
-            );
+            let mut chain_info = peer_metrics::ChainInfo::empty(peer_id.to_string());
+            if let Some(connector_cfg) = &config.chain_config {
+                chain_info.http_endpoint = connector_cfg.http_endpoint.clone();
+                chain_info.diamond_contract_address = connector_cfg.diamond_contract_address.clone();
+                chain_info.network_id = connector_cfg.network_id;
+                chain_info.default_base_fee = connector_cfg.default_base_fee.clone();
+                chain_info.default_priority_fee = connector_cfg.default_priority_fee.clone();
+            }
+
+            if let Some(chain_listener_cfg) = &config.chain_listener_config {
+                chain_info.ws_endpoint = chain_listener_cfg.ws_endpoint.clone();
+                chain_info.proof_poll_period_secs = chain_listener_cfg.proof_poll_period.as_secs();
+                chain_info.min_batch_count = chain_listener_cfg.min_batch_count;
+                chain_info.max_batch_count = chain_listener_cfg.max_batch_count;
+                chain_info.max_proof_batch_size = chain_listener_cfg.max_proof_batch_size;
+                chain_info.epoch_end_window_secs = chain_listener_cfg.epoch_end_window.as_secs();
+            }
+
+            let nox_info = peer_metrics::NoxInfo {
+                versions: peer_metrics::NoxVersions {
+                    node_version: node_info.node_version.to_string(),
+                    air_version: node_info.air_version.to_string(),
+                    spell_version: node_info.spell_version.to_string(),
+                },
+                chain_info,
+            };
+
+            peer_metrics::add_info_metrics(m, nox_info);
         }
         custom_service_functions.extend_one(make_peer_builtin(node_info));
 

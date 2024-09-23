@@ -7907,7 +7907,6 @@ dependencies = [
  "maplit",
  "num_cpus",
  "particle-protocol",
- "peer-metrics",
  "rand 0.8.5",
  "serde",
  "serde_json",
