@@ -53,7 +53,7 @@ pub struct ChainListenerMetrics {
     // How many block we manage to process while processing the block
     blocks_processed: Counter,
     last_process_block: Gauge,
-    current_commitment_status: GaugeWithExemplar,
+    current_commitment_status: Gauge,
 }
 
 impl ChainListenerMetrics {
