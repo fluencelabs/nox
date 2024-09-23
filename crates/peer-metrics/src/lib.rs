@@ -27,7 +27,7 @@ pub use connection_pool::ConnectionPoolMetrics;
 pub use connectivity::ConnectivityMetrics;
 pub use connectivity::Resolution;
 pub use dispatcher::DispatcherMetrics;
-pub use info::{add_info_metrics, NoxInfo, NoxVersion, ChainInfo};
+pub use info::{add_info_metrics, ChainInfo, NoxInfo, NoxVersion};
 use particle_execution::ParticleParams;
 pub use particle_executor::{FunctionKind, ParticleExecutorMetrics, WorkerLabel, WorkerType};
 pub use services_metrics::{

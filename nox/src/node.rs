@@ -423,7 +423,8 @@ impl<RT: AquaRuntime> Node<RT> {
             let mut chain_info = peer_metrics::ChainInfo::default(peer_id.to_string());
             if let Some(connector_cfg) = &config.chain_config {
                 chain_info.http_endpoint = connector_cfg.http_endpoint.clone();
-                chain_info.diamond_contract_address = connector_cfg.diamond_contract_address.clone();
+                chain_info.diamond_contract_address =
+                    connector_cfg.diamond_contract_address.clone();
                 chain_info.network_id = connector_cfg.network_id;
                 chain_info.default_base_fee = connector_cfg.default_base_fee.clone();
                 chain_info.default_priority_fee = connector_cfg.default_priority_fee.clone();
@@ -559,8 +560,12 @@ impl<RT: AquaRuntime> Node<RT> {
     )> {
         let connection_idle_timeout = network_config.connection_idle_timeout;
 
-        let (behaviour, connectivity, particle_stream) =
-            FluenceNetworkBehaviour::new(network_config, health_registry, connectivity_metrics, connection_pool_metrics);
+        let (behaviour, connectivity, particle_stream) = FluenceNetworkBehaviour::new(
+            network_config,
+            health_registry,
+            connectivity_metrics,
+            connection_pool_metrics,
+        );
 
         let mut swarm = match metrics_registry {
             None => SwarmBuilder::with_existing_identity(key_pair)

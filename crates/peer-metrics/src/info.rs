@@ -21,11 +21,10 @@ use prometheus_client::encoding::EncodeLabelSet;
 use prometheus_client::metrics::info::Info;
 use prometheus_client::registry::Registry;
 
-pub struct NoxInfo  {
+pub struct NoxInfo {
     pub version: NoxVersion,
     pub chain_info: ChainInfo,
 }
-
 
 #[derive(Debug, Clone, Hash, Eq, PartialEq, EncodeLabelSet)]
 pub struct NoxVersion {
@@ -72,10 +71,7 @@ impl ChainInfo {
     }
 }
 
-pub fn add_info_metrics(
-    registry: &mut Registry,
-    nox_info: NoxInfo,
-) {
+pub fn add_info_metrics(registry: &mut Registry, nox_info: NoxInfo) {
     let sub_registry = registry.sub_registry_with_prefix("nox");
 
     let info = Info::new(nox_info.version);
