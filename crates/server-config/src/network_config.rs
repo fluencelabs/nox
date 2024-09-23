@@ -25,7 +25,6 @@ use std::time::Duration;
 
 use config_utils::to_peer_id;
 use particle_protocol::ProtocolConfig;
-use peer_metrics::{ConnectionPoolMetrics, ConnectivityMetrics};
 
 use crate::kademlia_config::KademliaConfig;
 use crate::{BootstrapConfig, ResolvedConfig};
@@ -41,8 +40,6 @@ pub struct NetworkConfig {
     pub kademlia_config: KademliaConfig,
     pub particle_queue_buffer: usize,
     pub bootstrap_frequency: usize,
-    pub connectivity_metrics: Option<ConnectivityMetrics>,
-    pub connection_pool_metrics: Option<ConnectionPoolMetrics>,
     pub connection_limits: ConnectionLimits,
     pub connection_idle_timeout: Duration,
 }
@@ -50,8 +47,6 @@ pub struct NetworkConfig {
 impl NetworkConfig {
     pub fn new(
         libp2p_metrics: Option<Arc<Metrics>>,
-        connectivity_metrics: Option<ConnectivityMetrics>,
-        connection_pool_metrics: Option<ConnectionPoolMetrics>,
         key_pair: Keypair,
         config: &ResolvedConfig,
         node_version: &'static str,
@@ -68,8 +63,6 @@ impl NetworkConfig {
             kademlia_config: config.kademlia.clone(),
             particle_queue_buffer: config.particle_queue_buffer,
             bootstrap_frequency: config.bootstrap_frequency,
-            connectivity_metrics,
-            connection_pool_metrics,
             connection_limits,
             connection_idle_timeout: config.node_config.transport_config.connection_idle_timeout,
         }

@@ -280,8 +280,8 @@ impl<RT: AquaRuntime> Node<RT> {
 
         let network_config = NetworkConfig::new(
             libp2p_metrics.clone(),
-            connectivity_metrics,
-            connection_pool_metrics,
+            //connectivity_metrics,
+            //connection_pool_metrics,
             key_pair,
             &config,
             node_version,
@@ -297,6 +297,8 @@ impl<RT: AquaRuntime> Node<RT> {
             config.external_addresses(),
             health_registry.as_mut(),
             metrics_registry.as_mut(),
+            connectivity_metrics,
+            connection_pool_metrics,
         )?;
 
         let (services_metrics_backend, services_metrics) =
@@ -526,6 +528,8 @@ impl<RT: AquaRuntime> Node<RT> {
         external_addresses: Vec<Multiaddr>,
         health_registry: Option<&mut HealthCheckRegistry>,
         metrics_registry: Option<&mut Registry>,
+        connectivity_metrics: Option<ConnectivityMetrics>,
+        connection_pool_metrics: Option<ConnectionPoolMetrics>,
     ) -> eyre::Result<(
         Swarm<FluenceNetworkBehaviour>,
         Connectivity,
@@ -534,7 +538,7 @@ impl<RT: AquaRuntime> Node<RT> {
         let connection_idle_timeout = network_config.connection_idle_timeout;
 
         let (behaviour, connectivity, particle_stream) =
-            FluenceNetworkBehaviour::new(network_config, health_registry);
+            FluenceNetworkBehaviour::new(network_config, health_registry, connectivity_metrics, connection_pool_metrics);
 
         let mut swarm = match metrics_registry {
             None => SwarmBuilder::with_existing_identity(key_pair)
