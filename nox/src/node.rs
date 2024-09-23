@@ -420,7 +420,7 @@ impl<RT: AquaRuntime> Node<RT> {
             }),
         };
         if let Some(m) = metrics_registry.as_mut() {
-            let mut chain_info = peer_metrics::ChainInfo::empty(peer_id.to_string());
+            let mut chain_info = peer_metrics::ChainInfo::default(peer_id.to_string());
             if let Some(connector_cfg) = &config.chain_config {
                 chain_info.http_endpoint = connector_cfg.http_endpoint.clone();
                 chain_info.diamond_contract_address = connector_cfg.diamond_contract_address.clone();
@@ -439,7 +439,7 @@ impl<RT: AquaRuntime> Node<RT> {
             }
 
             let nox_info = peer_metrics::NoxInfo {
-                versions: peer_metrics::NoxVersions {
+                version: peer_metrics::NoxVersion {
                     node_version: node_info.node_version.to_string(),
                     air_version: node_info.air_version.to_string(),
                     spell_version: node_info.spell_version.to_string(),

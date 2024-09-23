@@ -451,6 +451,7 @@ impl ChainListener {
                 .chain_connector
                 .get_commitment_status(commitment_id)
                 .await?;
+            self.observe(|m| m.observe_commiment_status(status as u64));
             Ok(Some(status))
         } else {
             Ok(None)

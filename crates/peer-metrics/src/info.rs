@@ -22,13 +22,13 @@ use prometheus_client::metrics::info::Info;
 use prometheus_client::registry::Registry;
 
 pub struct NoxInfo  {
-    pub versions: NoxVersions,
+    pub version: NoxVersion,
     pub chain_info: ChainInfo,
 }
 
 
 #[derive(Debug, Clone, Hash, Eq, PartialEq, EncodeLabelSet)]
-pub struct NoxVersions {
+pub struct NoxVersion {
     pub node_version: String,
     pub air_version: String,
     pub spell_version: String,
@@ -54,7 +54,7 @@ pub struct ChainInfo {
 }
 
 impl ChainInfo {
-    pub fn empty(peer_id: String) -> ChainInfo {
+    pub fn default(peer_id: String) -> ChainInfo {
         ChainInfo {
             peer_id,
             http_endpoint: "".to_string(),
@@ -78,25 +78,9 @@ pub fn add_info_metrics(
 ) {
     let sub_registry = registry.sub_registry_with_prefix("nox");
 
-    let info = Info::new(nox_info.versions);
+    let info = Info::new(nox_info.version);
     sub_registry.register("build", "Nox Info", info);
 
     let chain_info = Info::new(nox_info.chain_info);
     sub_registry.register("chain", "Chain Nox Info", chain_info);
-}
-
-pub fn add_info_metrics2(
-    registry: &mut Registry,
-    node_version: String,
-    air_version: String,
-    spell_version: String,
-) {
-    let sub_registry = registry.sub_registry_with_prefix("nox");
-
-    let info = Info::new(vec![
-        ("node_version", node_version),
-        ("air_version", air_version),
-        ("spell_version", spell_version),
-    ]);
-    sub_registry.register("build", "Nox Info", info);
 }

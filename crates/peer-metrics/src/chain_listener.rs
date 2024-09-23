@@ -53,6 +53,7 @@ pub struct ChainListenerMetrics {
     // How many block we manage to process while processing the block
     blocks_processed: Counter,
     last_process_block: Gauge,
+    current_commitment_status: GaugeWithExemplar,
 }
 
 impl ChainListenerMetrics {
@@ -135,6 +136,13 @@ impl ChainListenerMetrics {
             "Last processed block from the newHead subscription",
         );
 
+        let current_commitment_status = register(
+            sub_registry,
+            Gauge::default(),
+            "current_commitment_status",
+            "Current commitment status",
+        );
+
         Self {
             ccp_requests_total,
             ccp_replies_total,
@@ -147,6 +155,7 @@ impl ChainListenerMetrics {
             last_seen_block,
             blocks_processed,
             last_process_block,
+            current_commitment_status,
         }
     }
 
@@ -184,5 +193,9 @@ impl ChainListenerMetrics {
     pub fn observe_processed_block(&self, block_number: u64) {
         self.blocks_processed.inc();
         self.last_process_block.set(block_number as i64);
+    }
+
+    pub fn observe_commiment_status(&self, status: u64) {
+        self.current_commitment_status.set(status as i64);
     }
 }
