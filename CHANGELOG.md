@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.28.0](https://github.com/fluencelabs/nox/compare/nox-v0.27.9...nox-v0.28.0) (2024-09-23)
+
+
+### ⚠ BREAKING CHANGES
+
+* **core-distributor:** add cuid cache ([#2381](https://github.com/fluencelabs/nox/issues/2381))
+
+### Features
+
+* **core-distributor:** add cuid cache ([#2381](https://github.com/fluencelabs/nox/issues/2381)) ([7c2ff1a](https://github.com/fluencelabs/nox/commit/7c2ff1a1fe69253db22c976907938ee248fb6402))
+* **metrics:** add chain info metrics ([#2386](https://github.com/fluencelabs/nox/issues/2386)) ([53b7609](https://github.com/fluencelabs/nox/commit/53b760902084aa9544f48f469aa8b4733dafd5c9))
+
+
+### Bug Fixes
+
+* **config:** change defaults for batching ([#2383](https://github.com/fluencelabs/nox/issues/2383)) ([d292cf4](https://github.com/fluencelabs/nox/commit/d292cf40e42f5dbcd4d467a2e89b15cb2247d9bb))
+* **logs:** add peer id in run-console log ([#2385](https://github.com/fluencelabs/nox/issues/2385)) ([6ec487f](https://github.com/fluencelabs/nox/commit/6ec487fea2ea35cd12bd84bafd4fbedea10951e0))
+
 ## [0.27.9](https://github.com/fluencelabs/nox/compare/nox-v0.27.8...nox-v0.27.9) (2024-09-17)
 
 
