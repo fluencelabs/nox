@@ -30,6 +30,7 @@ use connection_pool::ConnectionPoolBehaviour;
 use health::HealthCheckRegistry;
 use kademlia::{Kademlia, KademliaConfig};
 use particle_protocol::{ExtendedParticle, PROTOCOL_NAME};
+use peer_metrics::{ConnectionPoolMetrics, ConnectivityMetrics};
 use server_config::NetworkConfig;
 
 use crate::connectivity::Connectivity;
@@ -68,6 +69,8 @@ impl FluenceNetworkBehaviour {
     pub fn new(
         cfg: NetworkConfig,
         health_registry: Option<&mut HealthCheckRegistry>,
+        connectivity_metrics: Option<ConnectivityMetrics>,
+        connection_pool_metrics: Option<ConnectionPoolMetrics>,
     ) -> (Self, Connectivity, mpsc::Receiver<ExtendedParticle>) {
         let local_public_key = cfg.key_pair.public();
         let identify = Identify::new(
@@ -86,7 +89,7 @@ impl FluenceNetworkBehaviour {
             cfg.particle_queue_buffer,
             cfg.protocol_config,
             cfg.local_peer_id,
-            cfg.connection_pool_metrics,
+            connection_pool_metrics,
         );
 
         let connection_limits = ConnectionLimits::new(cfg.connection_limits);
@@ -119,7 +122,7 @@ impl FluenceNetworkBehaviour {
             connection_pool: connection_pool_api,
             bootstrap_nodes: cfg.bootstrap_nodes.into_iter().collect(),
             bootstrap_frequency: cfg.bootstrap_frequency,
-            metrics: cfg.connectivity_metrics,
+            metrics: connectivity_metrics,
             health,
         };
 
