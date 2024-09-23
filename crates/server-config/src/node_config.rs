@@ -570,6 +570,9 @@ pub struct ChainListenerConfig {
     #[serde(default = "default_epoch_end_window")]
     #[serde(with = "humantime_serde")]
     pub epoch_end_window: Duration,
+    #[serde(default = "default_ws_ping_period")]
+    #[serde(with = "humantime_serde")]
+    pub ws_ping_period: Duration, // TODO: must be >0
 }
 
 /// Name of the effector module

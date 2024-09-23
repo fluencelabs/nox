@@ -62,4 +62,6 @@ impl CoreDistributor for DummyCoreDistibutor {
     fn get_system_cpu_assignment(&self) -> SystemAssignment {
         SystemAssignment::new(vec![PhysicalCoreId::new(0)], vec![LogicalCoreId::new(0)])
     }
+
+    fn cleanup_cache(&self, _allowed_cuids: &[CUID]) {}
 }

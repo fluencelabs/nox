@@ -85,6 +85,7 @@ impl ChainListenerTestEntities {
                 max_batch_count: 0,
                 max_proof_batch_size: 0,
                 epoch_end_window: Default::default(),
+                ws_ping_period: Duration::from_secs(5),
             });
 
             cfg.cc_events_dir = Some(cc_events_dir.clone());
@@ -393,8 +394,8 @@ async fn test_deal_insufficient_funds_flow() {
     assert_allocation(
         result_2.cu_allocation,
         vec![
-            (PhysicalCoreId::new(125), cu_id_2),
-            (PhysicalCoreId::new(126), cu_id_3),
+            (PhysicalCoreId::new(125), cu_id_3),
+            (PhysicalCoreId::new(126), cu_id_2),
         ],
     );
 }
