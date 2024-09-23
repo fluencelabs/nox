@@ -100,35 +100,3 @@ pub fn add_info_metrics2(
     ]);
     sub_registry.register("build", "Nox Info", info);
 }
-
-#[test]
-fn test() {
-    let mut reg = Registry::default();
-    let info = NoxInfo {
-        versions: NoxVersions {
-            node_version: "0.1.0".to_string(),
-            air_version: "0.1.0".to_string(),
-            spell_version: "0.1.0".to_string(),
-        },
-        chain_info: ChainInfo {
-            peer_id: "0x123".to_string(),
-            http_endpoint: "http://localhost:8545".to_string(),
-            diamond_contract_address: "0x123".to_string(),
-            network_id: 1,
-            default_base_fee: Some(1),
-            default_priority_fee: Some(1),
-            ws_endpoint: "ws://localhost:8546".to_string(),
-            proof_poll_period_secs: 1,
-            min_batch_count: 1,
-            max_batch_count: 1,
-            max_proof_batch_size: 1,
-            epoch_end_window_secs: 1,
-        },
-    };
-    add_info_metrics(&mut reg, info);
-
-    let mut buf = String::new();
-
-    encode(&mut buf, &reg);
-    println!("{buf}");
-}
