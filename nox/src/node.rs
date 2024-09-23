@@ -142,7 +142,7 @@ async fn setup_listener(
             None
         };
 
-        let ws_client = ChainListener::create_ws_client(&listener_config.ws_endpoint).await?;
+        let ws_client = ChainListener::create_ws_client(&listener_config).await?;
         let cc_events_dir = config.dir_config.cc_events_dir.clone();
         let host_id = config.root_key_pair.get_peer_id();
 

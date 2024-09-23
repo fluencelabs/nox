@@ -109,17 +109,45 @@ impl AcquireStrategyOperations for StrictAcquireStrategy {
             });
         }
 
+        let mut new_core_allocation = Vec::with_capacity(core_allocation.len());
         for (unit_id, physical_core_id) in core_allocation {
+            match state.cuid_cache.get(&unit_id) {
+                None => new_core_allocation.push((unit_id, physical_core_id)),
+                Some(cached_physical_core_id) => {
+                    let position = state
+                        .available_cores
+                        .iter()
+                        .position(|core_id| core_id == cached_physical_core_id);
+                    match position {
+                        None => new_core_allocation.push((unit_id, physical_core_id)),
+                        Some(index) => {
+                            // SAFETY: this should never happen because we already found position in the previous step
+                            let physical_core_id = state
+                                .available_cores
+                                .remove(index)
+                                .expect("Unexpected state. Should not be empty never");
+
+                            state.unit_id_mapping.insert(physical_core_id, unit_id);
+                            state.work_type_mapping.insert(unit_id, *worker_unit_type);
+                            Self::add_cuid_cores(state, unit_id, physical_core_id, &mut cuid_cores);
+                        }
+                    }
+                }
+            }
+        }
+
+        for (unit_id, physical_core_id) in new_core_allocation {
             let physical_core_id = match physical_core_id {
                 None => {
                     // SAFETY: this should never happen because we already checked the availability of cores
-                    let core_id = state
+                    let physical_core_id = state
                         .available_cores
                         .pop_back()
                         .expect("Unexpected state. Should not be empty never");
-                    state.unit_id_mapping.insert(core_id, unit_id);
+                    state.unit_id_mapping.insert(physical_core_id, unit_id);
                     state.work_type_mapping.insert(unit_id, *worker_unit_type);
-                    core_id
+                    state.cuid_cache.insert(unit_id, physical_core_id);
+                    physical_core_id
                 }
                 Some(core_id) => {
                     state.work_type_mapping.insert(unit_id, *worker_unit_type);
@@ -127,21 +155,7 @@ impl AcquireStrategyOperations for StrictAcquireStrategy {
                 }
             };
 
-            // SAFETY: The physical core always has corresponding logical ids,
-            // unit_id_mapping can't have a wrong physical_core_id
-            let logical_core_ids = state
-                .cores_mapping
-                .get_vec(&physical_core_id)
-                .cloned()
-                .expect("Unexpected state. Should not be empty never");
-
-            cuid_cores.insert(
-                unit_id,
-                Cores {
-                    physical_core_id,
-                    logical_core_ids,
-                },
-            );
+            Self::add_cuid_cores(state, unit_id, physical_core_id, &mut cuid_cores);
         }
 
         Ok(Assignment::new(cuid_cores))
@@ -154,6 +168,31 @@ impl AcquireStrategyOperations for StrictAcquireStrategy {
                 state.work_type_mapping.remove(unit_id);
             }
         }
+    }
+}
+
+impl StrictAcquireStrategy {
+    fn add_cuid_cores(
+        state: &CoreDistributorState,
+        unit_id: CUID,
+        physical_core_id: PhysicalCoreId,
+        cuid_cores: &mut Map<CUID, Cores>,
+    ) {
+        // SAFETY: The physical core always has corresponding logical ids,
+        // unit_id_mapping can't have a wrong physical_core_id
+        let logical_core_ids = state
+            .cores_mapping
+            .get_vec(&physical_core_id)
+            .cloned()
+            .expect("Unexpected state. Should not be empty never");
+
+        cuid_cores.insert(
+            unit_id,
+            Cores {
+                physical_core_id,
+                logical_core_ids,
+            },
+        );
     }
 }
 
