@@ -316,7 +316,9 @@ impl ChainListener {
                 // to observe the metrics it here
                 if id != self.current_commitment {
                     if let Some(current_commitment) = &self.current_commitment {
-                        self.observe(|m| m.observe_removed_commitment(current_commitment.to_string()));
+                        self.observe(|m| {
+                            m.observe_removed_commitment(current_commitment.to_string())
+                        });
                     }
                     if let Some(new_commitment) = &id {
                         self.observe(|m| m.observe_new_commitment(new_commitment.to_string()));

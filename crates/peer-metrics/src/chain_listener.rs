@@ -60,7 +60,7 @@ pub struct ChainListenerMetrics {
     blocks_processed: Counter,
     last_process_block: Gauge,
     current_commitment_status: Gauge,
-    current_commitment: Family<CommitmentLabel, Gauge>
+    current_commitment: Family<CommitmentLabel, Gauge>,
 }
 
 impl ChainListenerMetrics {
@@ -215,10 +215,14 @@ impl ChainListenerMetrics {
     }
 
     pub fn observe_new_commitment(&self, commitment_id: String) {
-        self.current_commitment.get_or_create(&CommitmentLabel { commitment_id }).set(1);
+        self.current_commitment
+            .get_or_create(&CommitmentLabel { commitment_id })
+            .set(1);
     }
 
     pub fn observe_removed_commitment(&self, commitment_id: String) {
-        self.current_commitment.get_or_create(&CommitmentLabel { commitment_id }).set(0);
+        self.current_commitment
+            .get_or_create(&CommitmentLabel { commitment_id })
+            .set(0);
     }
 }

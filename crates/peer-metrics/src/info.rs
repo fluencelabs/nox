@@ -17,13 +17,18 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-use prometheus_client::encoding::EncodeLabelSet;
+use std::fmt::{Error, Write};
+
+use prometheus_client::encoding::{EncodeLabelSet, EncodeLabelValue, LabelValueEncoder};
 use prometheus_client::metrics::info::Info;
 use prometheus_client::registry::Registry;
 
 pub struct NoxInfo {
     pub version: NoxVersion,
     pub chain_info: ChainInfo,
+    pub vm_info: VmInfo,
+    pub network_info: NetworkInfo,
+    pub system_info: SystemInfo,
 }
 
 #[derive(Debug, Clone, Hash, Eq, PartialEq, EncodeLabelSet)]
@@ -71,6 +76,42 @@ impl ChainInfo {
     }
 }
 
+#[derive(Default, Debug, Clone, Hash, Eq, PartialEq, EncodeLabelSet)]
+pub struct SystemInfo {
+    pub cpus_range: String,
+    pub system_cpu_count: usize,
+    pub particle_execution_timeout_sec: u64,
+    pub max_spell_particle_ttl_sec: u64,
+}
+
+#[derive(Default, Debug, Clone, Hash, Eq, PartialEq, EncodeLabelSet)]
+pub struct VmInfo {
+    pub allow_gpu: u8,
+    pub public_ip: String,
+    pub host_ssh_port: u16,
+    pub vm_ssh_port: u16,
+    pub port_range: String,
+}
+
+#[derive(Default, Debug, Clone, Hash, Eq, PartialEq, EncodeLabelSet)]
+pub struct NetworkInfo {
+    pub tcp_port: u16,
+    pub websocket_port: u16,
+    pub listen_ip: String,
+    pub network_type: String,
+    pub bootstrap_nodes: Addresses,
+    pub external_address: Option<String>,
+    pub external_multiaddresses: Addresses,
+}
+
+#[derive(Debug, Clone, Hash, Eq, PartialEq, Default)]
+pub struct Addresses(pub Vec<String>);
+impl EncodeLabelValue for Addresses {
+    fn encode(&self, encoder: &mut LabelValueEncoder) -> Result<(), Error> {
+        encoder.write_str(&self.0.join(", "))
+    }
+}
+
 pub fn add_info_metrics(registry: &mut Registry, nox_info: NoxInfo) {
     let sub_registry = registry.sub_registry_with_prefix("nox");
 
@@ -79,4 +120,13 @@ pub fn add_info_metrics(registry: &mut Registry, nox_info: NoxInfo) {
 
     let chain_info = Info::new(nox_info.chain_info);
     sub_registry.register("chain", "Chain Nox Info", chain_info);
+
+    let network_info = Info::new(nox_info.network_info);
+    sub_registry.register("network", "Network Nox Info", network_info);
+
+    let vm_info = Info::new(nox_info.vm_info);
+    sub_registry.register("vm", "VM Nox Info", vm_info);
+
+    let system_info = Info::new(nox_info.system_info);
+    sub_registry.register("system", "System Nox Info", system_info);
 }
