@@ -25,6 +25,7 @@ use std::sync::Arc;
 use ccp_shared::types::{LogicalCoreId, PhysicalCoreId, CUID};
 use cpu_utils::CPUTopology;
 use fxhash::FxBuildHasher;
+use fxhash::FxHashSet;
 use parking_lot::RwLock;
 use range_set_blaze::RangeSetBlaze;
 
@@ -44,6 +45,8 @@ pub trait CoreDistributor: Send + Sync {
     fn release_worker_cores(&self, unit_ids: &[CUID]);
 
     fn get_system_cpu_assignment(&self) -> SystemAssignment;
+
+    fn cleanup_cache(&self, allowed_cuids: &[CUID]);
 }
 
 /// `PersistentCoreDistributor` is a CPU core distributor responsible for allocating and releasing CPU cores
@@ -67,6 +70,7 @@ impl From<PersistentCoreDistributorState> for CoreDistributorState {
             available_cores: value.available_cores.into_iter().collect(),
             unit_id_mapping: value.unit_id_mapping.into_iter().collect(),
             work_type_mapping: value.work_type_mapping.into_iter().collect(),
+            cuid_cache: value.cuid_cache.into_iter().collect(),
         }
     }
 }
@@ -203,12 +207,16 @@ impl PersistentCoreDistributor {
         let type_mapping =
             Map::with_capacity_and_hasher(available_core_count, FxBuildHasher::default());
 
+        let cpu_cache =
+            Map::with_capacity_and_hasher(available_core_count, FxBuildHasher::default());
+
         let inner_state = CoreDistributorState {
             cores_mapping,
             system_cores,
             available_cores,
             unit_id_mapping,
             work_type_mapping: type_mapping,
+            cuid_cache: cpu_cache,
         };
 
         let result = Self::make_instance_with_task(file_name, inner_state, acquire_strategy);
@@ -288,6 +296,13 @@ impl CoreDistributor for PersistentCoreDistributor {
         }
         SystemAssignment::new(lock.system_cores.clone(), logical_core_ids)
     }
+
+    fn cleanup_cache(&self, allowed_cuids: &[CUID]) {
+        let mut lock = self.state.write();
+        let allowed_unit_ids: FxHashSet<CUID> = allowed_cuids.iter().cloned().collect();
+        lock.cuid_cache
+            .retain(|cuid, _| allowed_unit_ids.contains(cuid))
+    }
 }
 
 pub(crate) struct CoreDistributorState {
@@ -302,6 +317,8 @@ pub(crate) struct CoreDistributorState {
     pub unit_id_mapping: BiMap<PhysicalCoreId, CUID>,
     // mapping between unit id and workload type
     pub work_type_mapping: Map<CUID, WorkType>,
+    // cache
+    pub cuid_cache: Map<CUID, PhysicalCoreId>,
 }
 
 #[cfg(test)]
@@ -432,6 +449,52 @@ mod tests {
     }
 
     #[test]
+    fn test_acquire_same_cuid_strict() {
+        let cpu_topology = mocked_topology();
+        let temp_dir = tempfile::tempdir().expect("Failed to create temp dir");
+
+        let (distributor, _task) = PersistentCoreDistributor::from_path(
+            temp_dir.path().join("test.toml"),
+            2,
+            CoreRange::from_str("0-7").unwrap(),
+            AcquireStrategy::Strict,
+            &cpu_topology,
+        )
+        .unwrap();
+        let unit_id_1 =
+            <CUID>::from_hex("54ae1b506c260367a054f80800a545f23e32c6bc4a8908c9a794cb8dad23e5ea")
+                .unwrap();
+        let unit_id_2 =
+            <CUID>::from_hex("1cce3d08f784b11d636f2fb55adf291d43c2e9cbe7ae7eeb2d0301a96be0a3a0")
+                .unwrap();
+        let unit_id_3 =
+            <CUID>::from_hex("1cce3d08f784b11d636f2fb55adf291d43c2e9cbe7ae7eeb2d0301a96be0a3d0")
+                .unwrap();
+        let all_unit_ids = vec![unit_id_1, unit_id_2, unit_id_3];
+
+        let unit_ids = vec![unit_id_1, unit_id_2];
+        let assignment_1 = distributor
+            .acquire_worker_cores(AcquireRequest {
+                unit_ids: unit_ids.clone(),
+                work_type: WorkType::CapacityCommitment,
+            })
+            .unwrap();
+        distributor.release_worker_cores(all_unit_ids.as_slice());
+        let unit_ids = vec![unit_id_2, unit_id_3];
+        let assignment_2 = distributor
+            .acquire_worker_cores(AcquireRequest {
+                unit_ids: unit_ids.clone(),
+                work_type: WorkType::CapacityCommitment,
+            })
+            .unwrap();
+
+        assert_eq!(
+            assignment_1.cuid_cores.get(&unit_id_2),
+            assignment_2.cuid_cores.get(&unit_id_2)
+        )
+    }
+
+    #[test]
     fn test_acquire_and_release_strict() {
         let cpu_topology = mocked_topology();
 
@@ -535,6 +598,7 @@ mod tests {
             available_cores: vec![PhysicalCoreId::new(2)],
             unit_id_mapping: vec![(PhysicalCoreId::new(3), init_id_1)],
             work_type_mapping: vec![(init_id_1, WorkType::Deal)],
+            cuid_cache: Default::default(),
         };
         let (distributor, _task) = PersistentCoreDistributor::make_instance_with_task(
             temp_dir.into_path(),

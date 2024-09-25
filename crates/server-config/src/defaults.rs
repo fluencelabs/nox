@@ -277,20 +277,21 @@ pub fn default_proof_poll_period() -> Duration {
 }
 
 pub fn default_min_batch_count() -> usize {
-    // Wait for at least 5 proofs before sending the tx to reduce TPS
-    5
+    1
 }
 
 pub fn default_max_batch_count() -> usize {
-    // 30 is the default minimal proof count per CU on the mainnet
-    30
+    4
 }
 
 pub fn default_max_proof_batch_size() -> usize {
-    // 128 is the average CU number on a single machine
-    128
+    2
 }
 
 pub fn default_epoch_end_window() -> Duration {
     Duration::from_secs(300)
+}
+
+pub fn default_ws_ping_period() -> Duration {
+    Duration::from_secs(10)
 }

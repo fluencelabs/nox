@@ -71,8 +71,6 @@ use crate::proof_tracker::ProofTracker;
 use crate::types::{CUGroups, PhysicalCoreGroups};
 
 const PROOF_POLL_LIMIT: usize = 50;
-// TODO: move to config
-const WS_PING_PERIOD_SEC: u64 = 10;
 
 #[derive(Clone)]
 struct OnChainWorker {
@@ -451,25 +449,24 @@ impl ChainListener {
                 .chain_connector
                 .get_commitment_status(commitment_id)
                 .await?;
+            self.observe(|m| m.observe_commiment_status(status as u64));
             Ok(Some(status))
         } else {
             Ok(None)
         }
     }
 
-    pub async fn create_ws_client(ws_endpoint: &str) -> Result<WsClient, client::Error> {
+    pub async fn create_ws_client(config: &ChainListenerConfig) -> Result<WsClient, client::Error> {
         let ws_client = retry(ExponentialBackoff::default(), || async {
             let client = WsClientBuilder::default()
-                .enable_ws_ping(
-                    PingConfig::new().ping_interval(Duration::from_secs(WS_PING_PERIOD_SEC)),
-                )
-                .build(ws_endpoint)
+                .enable_ws_ping(PingConfig::new().ping_interval(config.ws_ping_period))
+                .build(config.ws_endpoint.clone())
                 .await
                 .map_err(|err| {
                     tracing::warn!(
                         target: "chain-listener",
                         "Error connecting to websocket endpoint {}, error: {}; Retrying...",
-                        ws_endpoint,
+                        config.ws_endpoint,
                         err
                     );
                     err
@@ -482,7 +479,7 @@ impl ChainListener {
         tracing::info!(
             target: "chain-listener",
             "Successfully connected to websocket endpoint: {}",
-            ws_endpoint
+            config.ws_endpoint
         );
 
         Ok(ws_client)
@@ -506,8 +503,7 @@ impl ChainListener {
 
     async fn refresh_subscriptions(&mut self) -> Result<(), client::Error> {
         if !self.ws_client.is_connected() {
-            self.ws_client =
-                ChainListener::create_ws_client(&self.listener_config.ws_endpoint).await?;
+            self.ws_client = ChainListener::create_ws_client(&self.listener_config).await?;
         }
 
         // loop because subscriptions can fail and require reconnection, we can't proceed without them
@@ -532,8 +528,7 @@ impl ChainListener {
                     client::Error::RestartNeeded(_) => {
                         tracing::warn!(target: "chain-listener", "Failed to refresh subscriptions: {err}; Restart client...");
                         self.ws_client =
-                            ChainListener::create_ws_client(&self.listener_config.ws_endpoint)
-                                .await?;
+                            ChainListener::create_ws_client(&self.listener_config).await?;
                     }
                     _ => {
                         tracing::error!(target: "chain-listener", "Failed to refresh subscriptions: {err}; Retrying...");
@@ -550,6 +545,10 @@ impl ChainListener {
         let mut units = self.chain_connector.get_compute_units().await?;
 
         let in_deal: Vec<_> = units.extract_if(|cu| !cu.deal.is_zero()).collect();
+
+        let current_units: Vec<CUID> = units.iter().map(|unit| CUID::new(unit.id.0)).collect();
+        self.core_distributor
+            .cleanup_cache(current_units.as_slice());
 
         self.cc_compute_units = units
             .into_iter()

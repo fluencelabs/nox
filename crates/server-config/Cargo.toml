@@ -10,7 +10,6 @@ fs-utils = { workspace = true }
 particle-protocol = { workspace = true }
 fluence-libp2p = { workspace = true, features = ["tokio"] }
 air-interpreter-fs = { workspace = true }
-peer-metrics = { workspace = true }
 fluence-keypair = { workspace = true }
 types = { workspace = true }
 core-distributor = { workspace = true }

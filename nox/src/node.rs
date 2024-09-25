@@ -142,7 +142,7 @@ async fn setup_listener(
             None
         };
 
-        let ws_client = ChainListener::create_ws_client(&listener_config.ws_endpoint).await?;
+        let ws_client = ChainListener::create_ws_client(&listener_config).await?;
         let cc_events_dir = config.dir_config.cc_events_dir.clone();
         let host_id = config.root_key_pair.get_peer_id();
 
@@ -165,6 +165,7 @@ async fn setup_listener(
 
 impl<RT: AquaRuntime> Node<RT> {
     pub async fn new(
+        peer_id: PeerId,
         config: ResolvedConfig,
         core_distributor: Arc<dyn CoreDistributor>,
         thread_pinner: Arc<dyn ThreadPinner>,
@@ -279,8 +280,8 @@ impl<RT: AquaRuntime> Node<RT> {
 
         let network_config = NetworkConfig::new(
             libp2p_metrics.clone(),
-            connectivity_metrics,
-            connection_pool_metrics,
+            //connectivity_metrics,
+            //connection_pool_metrics,
             key_pair,
             &config,
             node_version,
@@ -296,6 +297,8 @@ impl<RT: AquaRuntime> Node<RT> {
             config.external_addresses(),
             health_registry.as_mut(),
             metrics_registry.as_mut(),
+            connectivity_metrics,
+            connection_pool_metrics,
         )?;
 
         let (services_metrics_backend, services_metrics) =
@@ -312,6 +315,7 @@ impl<RT: AquaRuntime> Node<RT> {
             };
 
         let builtins_config = BuiltinsConfig::new(
+            peer_id,
             services_config,
             config.dir_config.services_persistent_dir.clone(),
             config.node_config.allowed_effectors.clone(),
@@ -416,12 +420,35 @@ impl<RT: AquaRuntime> Node<RT> {
             }),
         };
         if let Some(m) = metrics_registry.as_mut() {
-            peer_metrics::add_info_metrics(
-                m,
-                node_info.node_version.to_string(),
-                node_info.air_version.to_string(),
-                node_info.spell_version.clone(),
-            );
+            let mut chain_info = peer_metrics::ChainInfo::default(peer_id.to_string());
+            if let Some(connector_cfg) = &config.chain_config {
+                chain_info.http_endpoint = connector_cfg.http_endpoint.clone();
+                chain_info.diamond_contract_address =
+                    connector_cfg.diamond_contract_address.clone();
+                chain_info.network_id = connector_cfg.network_id;
+                chain_info.default_base_fee = connector_cfg.default_base_fee.clone();
+                chain_info.default_priority_fee = connector_cfg.default_priority_fee.clone();
+            }
+
+            if let Some(chain_listener_cfg) = &config.chain_listener_config {
+                chain_info.ws_endpoint = chain_listener_cfg.ws_endpoint.clone();
+                chain_info.proof_poll_period_secs = chain_listener_cfg.proof_poll_period.as_secs();
+                chain_info.min_batch_count = chain_listener_cfg.min_batch_count;
+                chain_info.max_batch_count = chain_listener_cfg.max_batch_count;
+                chain_info.max_proof_batch_size = chain_listener_cfg.max_proof_batch_size;
+                chain_info.epoch_end_window_secs = chain_listener_cfg.epoch_end_window.as_secs();
+            }
+
+            let nox_info = peer_metrics::NoxInfo {
+                version: peer_metrics::NoxVersion {
+                    node_version: node_info.node_version.to_string(),
+                    air_version: node_info.air_version.to_string(),
+                    spell_version: node_info.spell_version.to_string(),
+                },
+                chain_info,
+            };
+
+            peer_metrics::add_info_metrics(m, nox_info);
         }
         custom_service_functions.extend_one(make_peer_builtin(node_info));
 
@@ -524,6 +551,8 @@ impl<RT: AquaRuntime> Node<RT> {
         external_addresses: Vec<Multiaddr>,
         health_registry: Option<&mut HealthCheckRegistry>,
         metrics_registry: Option<&mut Registry>,
+        connectivity_metrics: Option<ConnectivityMetrics>,
+        connection_pool_metrics: Option<ConnectionPoolMetrics>,
     ) -> eyre::Result<(
         Swarm<FluenceNetworkBehaviour>,
         Connectivity,
@@ -531,8 +560,12 @@ impl<RT: AquaRuntime> Node<RT> {
     )> {
         let connection_idle_timeout = network_config.connection_idle_timeout;
 
-        let (behaviour, connectivity, particle_stream) =
-            FluenceNetworkBehaviour::new(network_config, health_registry);
+        let (behaviour, connectivity, particle_stream) = FluenceNetworkBehaviour::new(
+            network_config,
+            health_registry,
+            connectivity_metrics,
+            connection_pool_metrics,
+        );
 
         let mut swarm = match metrics_registry {
             None => SwarmBuilder::with_existing_identity(key_pair)
@@ -893,6 +926,7 @@ mod tests {
         let thread_pinner = Arc::new(test_utils::pinning::DUMMY);
 
         let mut node: Box<Node<AVMRunner>> = Node::new(
+            PeerId::random(),
             config,
             core_distributor,
             thread_pinner,

@@ -125,6 +125,8 @@ pub struct Builtins<C> {
 
 #[derive(Debug)]
 pub struct BuiltinsConfig {
+    pub peer_id: PeerId,
+
     pub particle_app_services: ParticleAppServicesConfig,
     /// Dir to store .wasm modules and their configs
     pub modules_dir: PathBuf,
@@ -140,6 +142,7 @@ pub struct BuiltinsConfig {
 
 impl BuiltinsConfig {
     pub fn new(
+        peer_id: PeerId,
         particle_app_services: ParticleAppServicesConfig,
         persistent_dir: PathBuf,
         allowed_effectors: HashMap<Hash, HashMap<String, PathBuf>>,
@@ -193,6 +196,7 @@ impl BuiltinsConfig {
                 .collect::<_>()
         };
         Ok(Self {
+            peer_id,
             particle_app_services,
             blueprint_dir,
             modules_dir,
@@ -407,10 +411,10 @@ where
                 let decider = function_args.filter_map(JValue::as_str).any(|s| s.contains("decider"));
                 if decider {
                     // if log comes from decider, log it as INFO
-                    log::info!(target: "run-console", "{}", json!(args.function_args));
+                    tracing::info!(target: "run-console", peer_id = self.config.peer_id.to_string(), "{}", json!(args.function_args));
                 } else {
                     // log everything else as DEBUG
-                    log::debug!(target: "run-console", "{}", json!(args.function_args));
+                    tracing::debug!(target: "run-console",  peer_id = self.config.peer_id.to_string(),  "{}", json!(args.function_args));
                 }
                 wrap_unit(Ok(()))
             }
