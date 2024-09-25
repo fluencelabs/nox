@@ -90,7 +90,8 @@ pub struct VmInfo {
     pub public_ip: String,
     pub host_ssh_port: u16,
     pub vm_ssh_port: u16,
-    pub port_range: String,
+    pub port_range_start: u16,
+    pub port_range_end: u16,
 }
 
 #[derive(Default, Debug, Clone, Hash, Eq, PartialEq, EncodeLabelSet)]

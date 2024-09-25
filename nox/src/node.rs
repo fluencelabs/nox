@@ -878,7 +878,8 @@ fn to_nox_info_metrics(
             public_ip: vm.network.public_ip.to_string(),
             host_ssh_port: vm.network.host_ssh_port,
             vm_ssh_port: vm.network.vm_ssh_port,
-            port_range: format!("{}", vm.network.port_range),
+            port_range_start: vm.network.port_range.start,
+            port_range_end: vm.network.port_range.end,
         })
         .unwrap_or_default();
 
