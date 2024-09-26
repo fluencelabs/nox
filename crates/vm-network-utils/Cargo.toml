@@ -3,10 +3,6 @@ name = "vm-network-utils"
 version = "0.1.0"
 edition = "2021"
 
-[[bin]]
-name = 'vm-network-utils'
-path = "bin/main.rs"
-
 [target.'cfg(target_os = "linux")'.dependencies]
 iptables = "0.5.2"
 
