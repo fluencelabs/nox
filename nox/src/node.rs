@@ -63,7 +63,7 @@ use peer_metrics::{
     ServicesMetrics, ServicesMetricsBackend, SpellMetrics, VmPoolMetrics,
 };
 use server_config::system_services_config::ServiceKey;
-use server_config::{NetworkConfig, ResolvedConfig};
+use server_config::{NetworkConfig, NodeConfig, ResolvedConfig};
 use sorcerer::Sorcerer;
 use spell_event_bus::api::{PeerEvent, SpellEventBusApi, TriggerEvent};
 use spell_event_bus::bus::SpellEventBus;
@@ -420,34 +420,7 @@ impl<RT: AquaRuntime> Node<RT> {
             }),
         };
         if let Some(m) = metrics_registry.as_mut() {
-            let mut chain_info = peer_metrics::ChainInfo::default(peer_id.to_string());
-            if let Some(connector_cfg) = &config.chain_config {
-                chain_info.http_endpoint = connector_cfg.http_endpoint.clone();
-                chain_info.diamond_contract_address =
-                    connector_cfg.diamond_contract_address.clone();
-                chain_info.network_id = connector_cfg.network_id;
-                chain_info.default_base_fee = connector_cfg.default_base_fee.clone();
-                chain_info.default_priority_fee = connector_cfg.default_priority_fee.clone();
-            }
-
-            if let Some(chain_listener_cfg) = &config.chain_listener_config {
-                chain_info.ws_endpoint = chain_listener_cfg.ws_endpoint.clone();
-                chain_info.proof_poll_period_secs = chain_listener_cfg.proof_poll_period.as_secs();
-                chain_info.min_batch_count = chain_listener_cfg.min_batch_count;
-                chain_info.max_batch_count = chain_listener_cfg.max_batch_count;
-                chain_info.max_proof_batch_size = chain_listener_cfg.max_proof_batch_size;
-                chain_info.epoch_end_window_secs = chain_listener_cfg.epoch_end_window.as_secs();
-            }
-
-            let nox_info = peer_metrics::NoxInfo {
-                version: peer_metrics::NoxVersion {
-                    node_version: node_info.node_version.to_string(),
-                    air_version: node_info.air_version.to_string(),
-                    spell_version: node_info.spell_version.to_string(),
-                },
-                chain_info,
-            };
-
+            let nox_info = to_nox_info_metrics(&config, &node_info, peer_id.to_string());
             peer_metrics::add_info_metrics(m, nox_info);
         }
         custom_service_functions.extend_one(make_peer_builtin(node_info));
@@ -863,6 +836,90 @@ fn services_wasm_backend_config(config: &ResolvedConfig) -> WasmBackendConfig {
             .services
             .wasm_backend
             .epoch_interruption_duration,
+    }
+}
+
+fn to_nox_info_metrics(
+    config: &NodeConfig,
+    node_info: &NodeInfo,
+    peer_id: String,
+) -> peer_metrics::NoxInfo {
+    use peer_metrics::*;
+
+    let mut chain_info = ChainInfo::default(peer_id);
+    if let Some(connector_cfg) = &config.chain_config {
+        chain_info.http_endpoint = connector_cfg.http_endpoint.clone();
+        chain_info.diamond_contract_address = connector_cfg.diamond_contract_address.clone();
+        chain_info.network_id = connector_cfg.network_id;
+        chain_info.default_base_fee = connector_cfg.default_base_fee.clone();
+        chain_info.default_priority_fee = connector_cfg.default_priority_fee.clone();
+    }
+
+    if let Some(chain_listener_cfg) = &config.chain_listener_config {
+        chain_info.ws_endpoint = chain_listener_cfg.ws_endpoint.clone();
+        chain_info.proof_poll_period_secs = chain_listener_cfg.proof_poll_period.as_secs();
+        chain_info.min_batch_count = chain_listener_cfg.min_batch_count;
+        chain_info.max_batch_count = chain_listener_cfg.max_batch_count;
+        chain_info.max_proof_batch_size = chain_listener_cfg.max_proof_batch_size;
+        chain_info.epoch_end_window_secs = chain_listener_cfg.epoch_end_window.as_secs();
+    }
+
+    let version = NoxVersion {
+        node_version: node_info.node_version.to_string(),
+        air_version: node_info.air_version.to_string(),
+        spell_version: node_info.spell_version.to_string(),
+    };
+
+    let vm_info = config
+        .vm
+        .as_ref()
+        .map(|vm| VmInfo {
+            allow_gpu: if vm.allow_gpu { 1 } else { 0 },
+            public_ip: vm.network.public_ip.to_string(),
+            host_ssh_port: vm.network.host_ssh_port,
+            vm_ssh_port: vm.network.vm_ssh_port,
+            port_range_start: vm.network.port_range.start,
+            port_range_end: vm.network.port_range.end,
+        })
+        .unwrap_or_default();
+
+    let network_info = NetworkInfo {
+        tcp_port: config.listen_config.tcp_port,
+        websocket_port: config.listen_config.websocket_port,
+        listen_ip: config.listen_config.listen_ip.to_string(),
+        network_type: format!("{}", config.network),
+        bootstrap_nodes: Addresses(
+            config
+                .bootstrap_nodes
+                .clone()
+                .iter()
+                .map(|a| a.to_string())
+                .collect::<_>(),
+        ),
+        external_address: config.external_address.map(|a| a.to_string()),
+        external_multiaddresses: Addresses(
+            config
+                .external_multiaddresses
+                .clone()
+                .iter()
+                .map(|a| a.to_string())
+                .collect::<_>(),
+        ),
+    };
+
+    let system_info = SystemInfo {
+        cpus_range: format!("{}", config.cpus_range),
+        system_cpu_count: config.system_cpu_count,
+        particle_execution_timeout_sec: config.particle_execution_timeout.as_secs(),
+        max_spell_particle_ttl_sec: config.max_spell_particle_ttl.as_secs(),
+    };
+
+    NoxInfo {
+        version,
+        chain_info,
+        vm_info,
+        network_info,
+        system_info,
     }
 }
 

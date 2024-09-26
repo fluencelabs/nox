@@ -18,6 +18,7 @@
  */
 
 use std::collections::{BTreeMap, HashMap};
+use std::fmt::{Display, Formatter};
 use std::net::{IpAddr, Ipv4Addr};
 use std::ops::Deref;
 use std::path::{Path, PathBuf};
@@ -209,6 +210,17 @@ impl TryFrom<&Network> for StreamProtocol {
 
         let kad_protocol_name = format!("/fluence/kad/{}/1.0.0", id);
         StreamProtocol::try_from_owned(kad_protocol_name.clone())
+    }
+}
+
+impl Display for Network {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Network::Dar => write!(f, "dar"),
+            Network::Stage => write!(f, "stage"),
+            Network::Kras => write!(f, "kras"),
+            Network::Custom(bytes) => write!(f, "custom:{}", hex::encode(bytes)),
+        }
     }
 }
 
@@ -680,5 +692,11 @@ fn default_port_range_config() -> PortRangeConfig {
     PortRangeConfig {
         start: 1000,
         end: 65535,
+    }
+}
+
+impl Display for PortRangeConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}-{}", self.start, self.end)
     }
 }
