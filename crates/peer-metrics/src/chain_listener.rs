@@ -21,6 +21,7 @@ use crate::{execution_time_buckets, register};
 use prometheus_client::encoding::EncodeLabelSet;
 use prometheus_client::metrics::counter::Counter;
 use prometheus_client::metrics::exemplar::CounterWithExemplar;
+use prometheus_client::metrics::family::Family;
 use prometheus_client::metrics::gauge::Gauge;
 use prometheus_client::metrics::histogram::Histogram;
 use prometheus_client::registry::Registry;
@@ -28,6 +29,11 @@ use prometheus_client::registry::Registry;
 #[derive(EncodeLabelSet, Hash, Clone, Eq, PartialEq, Debug)]
 struct TxLabel {
     tx_hash: String,
+}
+
+#[derive(EncodeLabelSet, Hash, Clone, Eq, PartialEq, Debug)]
+struct CommitmentLabel {
+    commitment_id: String,
 }
 
 #[derive(Clone)]
@@ -54,6 +60,7 @@ pub struct ChainListenerMetrics {
     blocks_processed: Counter,
     last_process_block: Gauge,
     current_commitment_status: Gauge,
+    current_commitment: Family<CommitmentLabel, Gauge>,
 }
 
 impl ChainListenerMetrics {
@@ -143,6 +150,13 @@ impl ChainListenerMetrics {
             "Current commitment status",
         );
 
+        let current_commitment = register(
+            sub_registry,
+            Family::default(),
+            "current_commitment",
+            "Current commitment",
+        );
+
         Self {
             ccp_requests_total,
             ccp_replies_total,
@@ -156,6 +170,7 @@ impl ChainListenerMetrics {
             blocks_processed,
             last_process_block,
             current_commitment_status,
+            current_commitment,
         }
     }
 
@@ -197,5 +212,17 @@ impl ChainListenerMetrics {
 
     pub fn observe_commiment_status(&self, status: u64) {
         self.current_commitment_status.set(status as i64);
+    }
+
+    pub fn observe_new_commitment(&self, commitment_id: String) {
+        self.current_commitment
+            .get_or_create(&CommitmentLabel { commitment_id })
+            .set(1);
+    }
+
+    pub fn observe_removed_commitment(&self, commitment_id: String) {
+        self.current_commitment
+            .get_or_create(&CommitmentLabel { commitment_id })
+            .set(0);
     }
 }
