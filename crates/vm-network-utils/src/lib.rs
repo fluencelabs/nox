@@ -30,7 +30,10 @@ pub use non_linux_mocks::*;
 mod linux;
 mod non_linux_mocks;
 
+#[derive(Debug, Clone)]
 pub struct NetworkSettings {
+    // Network interface via which the server can be reached by the `public_ip`
+    pub interface: String,
     pub public_ip: Ipv4Addr,
     pub vm_ip: Ipv4Addr,
     pub bridge_name: String,
@@ -53,6 +56,16 @@ pub enum NetworkSetupError {
     Init { message: String },
     #[error("error cleaning the rules for the chain {chain_name}: {message}")]
     Clean { chain_name: String, message: String },
+    #[error("error getting default network interface for VM settings: {message}. You may set the correct network interface manually in the configuration file")]
+    Interface { message: String },
+}
+
+pub fn get_default_interface() -> Result<String, NetworkSetupError> {
+    netdev::get_default_interface()
+        .map(|i| i.name)
+        .map_err(|err| NetworkSetupError::Interface {
+            message: err.to_string(),
+        })
 }
 
 type IpTablesError = Box<dyn std::error::Error>;
@@ -106,22 +119,10 @@ struct IpTablesRules {
 // iptables -A SNAT-${VM_NAME}
 //          -s ${VM_IP}
 //          -p tcp -m tcp
-//           --dport ${RNG_START}:${RNG_END}
-//          -j SNAT
-//          --to-source ${PUBLIC_IP}
-// iptables -A SNAT-${VM_NAME}
-//          -s ${VM_IP}
-//          -p tcp -m tcp
 //          --dport ${RNG_START}:${RNG_END}
 //          -d ${VM_IP}
 //          -j MASQUERADE
 // # Map SSH ports
-// iptables -A SNAT-${VM_NAME}
-//          -s ${VM_IP}
-//          -p tcp -m tcp
-//          --dport ${MAP_VM}
-//          -j SNAT
-//          --to-source ${PUBLIC_IP}
 // iptables -A SNAT-${VM_NAME}
 //          -s ${VM_IP}
 //          -p tcp -m tcp
@@ -130,21 +131,12 @@ struct IpTablesRules {
 //          -j MASQUERADE
 // ```
 fn snat_rules(network_settings: &NetworkSettings, name: &str) -> RulesSet {
-    let public_ip = network_settings.public_ip;
     let vm_ip = network_settings.vm_ip;
-    let vm_ssh_port = network_settings.vm_ssh_port;
     let host_ssh_port = network_settings.host_ssh_port;
     let port_start = network_settings.port_range.0;
     let port_end = network_settings.port_range.1;
 
     let name = cut_chain_name(format!("SNAT-{name}"));
-
-    let ports_rule = format!(
-        "-s {vm_ip} -p tcp -m tcp --dport {port_start}:{port_end} -j SNAT --to-source {public_ip}"
-    );
-
-    let ssh_ports_rule =
-        format!("-s {vm_ip} -p tcp -m tcp --dport {vm_ssh_port} -j SNAT --to-source {public_ip}");
 
     let masquerade_ports_rule = format!(
         "-s {vm_ip} -p tcp -m tcp --dport {port_start}:{port_end} -d {vm_ip} -j MASQUERADE"
@@ -156,12 +148,7 @@ fn snat_rules(network_settings: &NetworkSettings, name: &str) -> RulesSet {
     let append_rules = IpTablesRules {
         table_name: "nat",
         chain_name: name.clone(),
-        rules: vec![
-            ports_rule,
-            ssh_ports_rule,
-            masquerade_ports_rule,
-            masquerade_ssh_ports_rule,
-        ],
+        rules: vec![masquerade_ports_rule, masquerade_ssh_ports_rule],
     };
 
     let postrouting_rule = IpTablesRules {
@@ -181,7 +168,7 @@ fn snat_rules(network_settings: &NetworkSettings, name: &str) -> RulesSet {
 // iptables -t nat -N DNAT-${VM_NAME}
 // # Map the port range
 // iptables -A DNAT-${VM_NAME}  # --append chain
-//          -d ${PUBLIC_IP}     # --destination
+//          -i ${INTERFACE_NAME}
 //          -p tcp              # --protocol
 //          -m tcp              # --match
 //          --dport ${RNG_START}:${RNG_END} # --destination-port (I don't have it my manual)
@@ -189,7 +176,7 @@ fn snat_rules(network_settings: &NetworkSettings, name: &str) -> RulesSet {
 //          -j DNAT             # --jump
 // # Map the SSH ports
 // iptables -A DNAT-${VM_NAME}
-//          -d ${PUBLIC_IP}
+//          -i ${INTERFACE_NAME}
 //          -p tcp -m tcp
 //          --dport ${MAP_HOST}
 //           --to-destination ${VM_IP}:${MAP_VM}
@@ -197,15 +184,15 @@ fn snat_rules(network_settings: &NetworkSettings, name: &str) -> RulesSet {
 //
 // iptables -t nat
 //          -I OUTPUT
-//          -d ${PUBLIC_IP}
+//          -i ${INTERFACE_NAME}
 //          -j DNAT-${VM_NAME}
 // iptables -t nat
 //          -I PREROUTING
-//          -d ${PUBLIC_IP}
+//          -i ${INTERFACE_NAME}
 //          -j DNAT-${VM_NAME}
 // ```
 fn dnat_rules(network_settings: &NetworkSettings, name: &str) -> RulesSet {
-    let public_ip = network_settings.public_ip;
+    let interface = &network_settings.interface;
     let vm_ip = network_settings.vm_ip;
     let vm_ssh_port = network_settings.vm_ssh_port;
     let host_ssh_port = network_settings.host_ssh_port;
@@ -215,12 +202,12 @@ fn dnat_rules(network_settings: &NetworkSettings, name: &str) -> RulesSet {
     let name = cut_chain_name(format!("DNAT-{name}"));
 
     let port_rule = format!(
-        "-d {public_ip} -p tcp -m tcp --dport {port_start}:{port_end} -j DNAT \
+        "-i {interface} -p tcp -m tcp --dport {port_start}:{port_end} -j DNAT \
         --to-destination {vm_ip}:{port_start}-{port_end}",
     );
 
     let ssh_port_rule = format!(
-        "-d {public_ip} -p tcp -m tcp --dport {host_ssh_port} -j DNAT \
+        "-i {interface} -p tcp -m tcp --dport {host_ssh_port} -j DNAT \
         --to-destination {vm_ip}:{vm_ssh_port}",
     );
     let append_rules = IpTablesRules {
@@ -232,13 +219,13 @@ fn dnat_rules(network_settings: &NetworkSettings, name: &str) -> RulesSet {
     let prerouting_rule = IpTablesRules {
         table_name: "nat",
         chain_name: "PREROUTING".to_string(),
-        rules: vec![format!("-d {public_ip} -j {name}")],
+        rules: vec![format!("-i {interface} -j {name}")],
     };
 
     let output_rule = IpTablesRules {
         table_name: "nat",
         chain_name: "OUTPUT".to_string(),
-        rules: vec![format!("-d {public_ip} -j {name}")],
+        rules: vec![format!("-o {interface} -j {name}")],
     };
 
     RulesSet {
@@ -249,12 +236,6 @@ fn dnat_rules(network_settings: &NetworkSettings, name: &str) -> RulesSet {
 
 // ```
 // iptables -t filter -N FWD-${VM_NAME}
-// iptables -A FWD-${VM_NAME}
-//          -d ${VM_IP}
-//          -o ${BRIDGE_NAME}   # --out-interface
-//          -p tcp -m tcp
-//          --dport ${RNG_START}:${RNG_END}
-//          -j ACCEPT
 // iptables -A FWD-${VM_NAME}
 //          -d ${VM_IP}
 //          -o ${BRIDGE_NAME}
@@ -344,6 +325,7 @@ fn test() {
     }
 
     let ns = NetworkSettings {
+        interface: "eth0".to_string(),
         public_ip: Ipv4Addr::from_str("1.1.1.1").unwrap(),
         vm_ip: Ipv4Addr::from_str("2.2.2.2").unwrap(),
         bridge_name: "br0".to_string(),
@@ -366,10 +348,10 @@ fn test() {
         let test = dnat_rules(&ns, "test");
         let result = to_string(&test);
         let expected = r#"-t nat -N DNAT-test
--t nat -A DNAT-test -d 1.1.1.1 -p tcp -m tcp --dport 1000:65535 -j DNAT --to-destination 2.2.2.2:1000-65535
--t nat -A DNAT-test -d 1.1.1.1 -p tcp -m tcp --dport 2222 -j DNAT --to-destination 2.2.2.2:22
--t nat -I OUTPUT -d 1.1.1.1 -j DNAT-test
--t nat -I PREROUTING -d 1.1.1.1 -j DNAT-test"#;
+-t nat -A DNAT-test -i eth0 -p tcp -m tcp --dport 1000:65535 -j DNAT --to-destination 2.2.2.2:1000-65535
+-t nat -A DNAT-test -i eth0 -p tcp -m tcp --dport 2222 -j DNAT --to-destination 2.2.2.2:22
+-t nat -I OUTPUT -o eth0 -j DNAT-test
+-t nat -I PREROUTING -i eth0 -j DNAT-test"#;
         assert_eq!(expected, result);
     }
 
@@ -377,8 +359,6 @@ fn test() {
         let test = snat_rules(&ns, "test");
         let result = to_string(&test);
         let expected = r#"-t nat -N SNAT-test
--t nat -A SNAT-test -s 2.2.2.2 -p tcp -m tcp --dport 1000:65535 -j SNAT --to-source 1.1.1.1
--t nat -A SNAT-test -s 2.2.2.2 -p tcp -m tcp --dport 22 -j SNAT --to-source 1.1.1.1
 -t nat -A SNAT-test -s 2.2.2.2 -p tcp -m tcp --dport 1000:65535 -d 2.2.2.2 -j MASQUERADE
 -t nat -A SNAT-test -s 2.2.2.2 -p tcp -m tcp --dport 2222 -d 2.2.2.2 -j MASQUERADE
 -t nat -I POSTROUTING -s 2.2.2.2 -d 2.2.2.2 -j SNAT-test"#;

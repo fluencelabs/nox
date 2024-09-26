@@ -635,6 +635,8 @@ pub struct VmConfig {
 
 #[derive(Clone, Deserialize, Serialize, Debug, PartialEq, Eq)]
 pub struct VmNetworkConfig {
+    #[serde(default)]
+    pub interface: Option<String>,
     #[serde(default = "default_bridge_name")]
     pub bridge_name: String,
     pub public_ip: Ipv4Addr,

@@ -44,6 +44,8 @@ where
 
 #[derive(Serialize, Clone, Debug)]
 pub struct VmInfo {
+    // Network Interface via which the server is accessible by `public_ip`
+    pub interface: String,
     // Public IP via which we can connect to the VM
     pub ip: String,
     // List of ports that are forwarded to the VM

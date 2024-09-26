@@ -199,16 +199,25 @@ impl<RT: AquaRuntime> Node<RT> {
             key_storage.clone(),
         );
 
-        let workers_config = WorkersConfig::new(
-            config.node_config.workers_queue_buffer,
-            config.node_config.vm.clone().map(|conf| {
-                VmConfig::new(
-                    conf.libvirt_uri,
-                    conf.allow_gpu,
-                    to_vm_network_settings(conf.network),
-                )
-            }),
-        );
+        let vm = if let Some(vm_config) = &config.node_config.vm {
+            let vm_config = vm_config.clone();
+            let network_interface = if let Some(interface) = &vm_config.network.interface {
+                interface.clone()
+            } else {
+                vm_network_utils::get_default_interface()?
+            };
+            println!("Found interface: {network_interface}");
+
+            Some(VmConfig::new(
+                vm_config.libvirt_uri,
+                vm_config.allow_gpu,
+                to_vm_network_settings(vm_config.network, network_interface),
+            ))
+        } else {
+            None
+        };
+        let workers_config =
+            WorkersConfig::new(config.node_config.workers_queue_buffer, vm.clone());
 
         let (workers, worker_events) = Workers::from_path(
             workers_config,
@@ -410,12 +419,13 @@ impl<RT: AquaRuntime> Node<RT> {
             air_version: air_interpreter_wasm::VERSION,
             spell_version: spell_version.clone(),
             allowed_binaries,
-            vm_info: config.node_config.vm.as_ref().map(|vm| VmInfo {
+            vm_info: vm.as_ref().map(|vm| VmInfo {
+                interface: vm.network.interface.clone(),
                 ip: vm.network.public_ip.to_string(),
                 default_ssh_port: vm.network.host_ssh_port,
                 forwarded_ports: vec![PortInfo::Range(
-                    vm.network.port_range.start,
-                    vm.network.port_range.end,
+                    vm.network.port_range.0,
+                    vm.network.port_range.1,
                 )],
             }),
         };
@@ -612,8 +622,10 @@ impl<RT: AquaRuntime> Node<RT> {
 
 fn to_vm_network_settings(
     config: server_config::VmNetworkConfig,
+    network_interface: String,
 ) -> vm_network_utils::NetworkSettings {
     vm_network_utils::NetworkSettings {
+        interface: network_interface,
         public_ip: config.public_ip,
         vm_ip: config.vm_ip,
         bridge_name: config.bridge_name,
