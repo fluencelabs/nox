@@ -85,6 +85,7 @@ jobs:
     uses: fluencelabs/cli/.github/workflows/tests.yml@main
     with:
       nox-image: "${{ needs.nox-snapshot.outputs.nox-image }}"
+      ref: cc-info-grouping
 
   js-client:
     needs:
