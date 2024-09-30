@@ -420,7 +420,6 @@ impl<RT: AquaRuntime> Node<RT> {
             spell_version: spell_version.clone(),
             allowed_binaries,
             vm_info: vm.as_ref().map(|vm| VmInfo {
-                interface: vm.network.interface.clone(),
                 ip: vm.network.public_ip.to_string(),
                 default_ssh_port: vm.network.host_ssh_port,
                 forwarded_ports: vec![PortInfo::Range(
@@ -430,7 +429,7 @@ impl<RT: AquaRuntime> Node<RT> {
             }),
         };
         if let Some(m) = metrics_registry.as_mut() {
-            let nox_info = to_nox_info_metrics(&config, &node_info, peer_id.to_string());
+            let nox_info = to_nox_info_metrics(&config, &node_info, &vm, peer_id.to_string());
             peer_metrics::add_info_metrics(m, nox_info);
         }
         custom_service_functions.extend_one(make_peer_builtin(node_info));
@@ -854,6 +853,7 @@ fn services_wasm_backend_config(config: &ResolvedConfig) -> WasmBackendConfig {
 fn to_nox_info_metrics(
     config: &NodeConfig,
     node_info: &NodeInfo,
+    vm_config: &Option<VmConfig>,
     peer_id: String,
 ) -> peer_metrics::NoxInfo {
     use peer_metrics::*;
@@ -882,16 +882,16 @@ fn to_nox_info_metrics(
         spell_version: node_info.spell_version.to_string(),
     };
 
-    let vm_info = config
-        .vm
+    let vm_info = vm_config
         .as_ref()
         .map(|vm| VmInfo {
             allow_gpu: if vm.allow_gpu { 1 } else { 0 },
+            interface: vm.network.interface.clone(),
             public_ip: vm.network.public_ip.to_string(),
             host_ssh_port: vm.network.host_ssh_port,
             vm_ssh_port: vm.network.vm_ssh_port,
-            port_range_start: vm.network.port_range.start,
-            port_range_end: vm.network.port_range.end,
+            port_range_start: vm.network.port_range.0,
+            port_range_end: vm.network.port_range.0,
         })
         .unwrap_or_default();
 
