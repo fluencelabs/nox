@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.28.1](https://github.com/fluencelabs/nox/compare/nox-v0.28.0...nox-v0.28.1) (2024-09-30)
+
+
+### Features
+
+* **metrics:** add info nox config metrics ([#2387](https://github.com/fluencelabs/nox/issues/2387)) ([9e70b08](https://github.com/fluencelabs/nox/commit/9e70b089e43813ff5a8337cd8495ab4350585a00))
+
+
+### Bug Fixes
+
+* **vm-network:** fix iptables rules ([#2388](https://github.com/fluencelabs/nox/issues/2388)) ([757eacf](https://github.com/fluencelabs/nox/commit/757eacfe1257662c4e463d258edccf0cfb4404a8))
+
 ## [0.28.0](https://github.com/fluencelabs/nox/compare/nox-v0.27.9...nox-v0.28.0) (2024-09-23)
 
 
