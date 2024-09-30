@@ -87,6 +87,7 @@ pub struct SystemInfo {
 #[derive(Default, Debug, Clone, Hash, Eq, PartialEq, EncodeLabelSet)]
 pub struct VmInfo {
     pub allow_gpu: u8,
+    pub interface: String,
     pub public_ip: String,
     pub host_ssh_port: u16,
     pub vm_ssh_port: u16,

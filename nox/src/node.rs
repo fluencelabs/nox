@@ -199,16 +199,25 @@ impl<RT: AquaRuntime> Node<RT> {
             key_storage.clone(),
         );
 
-        let workers_config = WorkersConfig::new(
-            config.node_config.workers_queue_buffer,
-            config.node_config.vm.clone().map(|conf| {
-                VmConfig::new(
-                    conf.libvirt_uri,
-                    conf.allow_gpu,
-                    to_vm_network_settings(conf.network),
-                )
-            }),
-        );
+        let vm = if let Some(vm_config) = &config.node_config.vm {
+            let vm_config = vm_config.clone();
+            let network_interface = if let Some(interface) = &vm_config.network.interface {
+                interface.clone()
+            } else {
+                vm_network_utils::get_default_interface()?
+            };
+            log::info!("Using default interface for VM traffic routing: {network_interface}");
+
+            Some(VmConfig::new(
+                vm_config.libvirt_uri,
+                vm_config.allow_gpu,
+                to_vm_network_settings(vm_config.network, network_interface),
+            ))
+        } else {
+            None
+        };
+        let workers_config =
+            WorkersConfig::new(config.node_config.workers_queue_buffer, vm.clone());
 
         let (workers, worker_events) = Workers::from_path(
             workers_config,
@@ -410,17 +419,17 @@ impl<RT: AquaRuntime> Node<RT> {
             air_version: air_interpreter_wasm::VERSION,
             spell_version: spell_version.clone(),
             allowed_binaries,
-            vm_info: config.node_config.vm.as_ref().map(|vm| VmInfo {
+            vm_info: vm.as_ref().map(|vm| VmInfo {
                 ip: vm.network.public_ip.to_string(),
                 default_ssh_port: vm.network.host_ssh_port,
                 forwarded_ports: vec![PortInfo::Range(
-                    vm.network.port_range.start,
-                    vm.network.port_range.end,
+                    vm.network.port_range.0,
+                    vm.network.port_range.1,
                 )],
             }),
         };
         if let Some(m) = metrics_registry.as_mut() {
-            let nox_info = to_nox_info_metrics(&config, &node_info, peer_id.to_string());
+            let nox_info = to_nox_info_metrics(&config, &node_info, &vm, peer_id.to_string());
             peer_metrics::add_info_metrics(m, nox_info);
         }
         custom_service_functions.extend_one(make_peer_builtin(node_info));
@@ -585,8 +594,10 @@ impl<RT: AquaRuntime> Node<RT> {
 
 fn to_vm_network_settings(
     config: server_config::VmNetworkConfig,
+    network_interface: String,
 ) -> vm_network_utils::NetworkSettings {
     vm_network_utils::NetworkSettings {
+        interface: network_interface,
         public_ip: config.public_ip,
         vm_ip: config.vm_ip,
         bridge_name: config.bridge_name,
@@ -842,6 +853,7 @@ fn services_wasm_backend_config(config: &ResolvedConfig) -> WasmBackendConfig {
 fn to_nox_info_metrics(
     config: &NodeConfig,
     node_info: &NodeInfo,
+    vm_config: &Option<VmConfig>,
     peer_id: String,
 ) -> peer_metrics::NoxInfo {
     use peer_metrics::*;
@@ -870,16 +882,16 @@ fn to_nox_info_metrics(
         spell_version: node_info.spell_version.to_string(),
     };
 
-    let vm_info = config
-        .vm
+    let vm_info = vm_config
         .as_ref()
         .map(|vm| VmInfo {
             allow_gpu: if vm.allow_gpu { 1 } else { 0 },
+            interface: vm.network.interface.clone(),
             public_ip: vm.network.public_ip.to_string(),
             host_ssh_port: vm.network.host_ssh_port,
             vm_ssh_port: vm.network.vm_ssh_port,
-            port_range_start: vm.network.port_range.start,
-            port_range_end: vm.network.port_range.end,
+            port_range_start: vm.network.port_range.0,
+            port_range_end: vm.network.port_range.0,
         })
         .unwrap_or_default();
 

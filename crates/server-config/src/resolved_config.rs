@@ -861,6 +861,7 @@ mod tests {
             libvirt_uri = "qemu:///system"
             allow_gpu = true
             [vm.network]
+            interface = "eth0"
             bridge_name = "br422442"
             public_ip = "1.1.1.1"
             vm_ip = "2.2.2.2"
@@ -883,6 +884,7 @@ mod tests {
                     libvirt_uri: "qemu:///system".to_string(),
                     allow_gpu: true,
                     network: VmNetworkConfig {
+                        interface: Some("eth0".to_string()),
                         bridge_name: "br422442".to_string(),
                         public_ip: Ipv4Addr::new(1, 1, 1, 1),
                         vm_ip: Ipv4Addr::new(2, 2, 2, 2),

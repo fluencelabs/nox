@@ -120,11 +120,12 @@ impl WorkersConfig {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct VmConfig {
     /// Uri to the libvirt API
-    libvirt_uri: String,
-    allow_gpu: bool,
-    network: NetworkSettings,
+    pub libvirt_uri: String,
+    pub allow_gpu: bool,
+    pub network: NetworkSettings,
 }
 
 impl VmConfig {
