@@ -206,7 +206,7 @@ impl<RT: AquaRuntime> Node<RT> {
             } else {
                 vm_network_utils::get_default_interface()?
             };
-            println!("Found interface: {network_interface}");
+            log::info!("Using default interface for VM traffic routing: {network_interface}");
 
             Some(VmConfig::new(
                 vm_config.libvirt_uri,
