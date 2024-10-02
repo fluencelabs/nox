@@ -17,7 +17,6 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-use crate::{execution_time_buckets, register};
 use prometheus_client::encoding::EncodeLabelSet;
 use prometheus_client::metrics::counter::Counter;
 use prometheus_client::metrics::exemplar::CounterWithExemplar;
@@ -25,6 +24,8 @@ use prometheus_client::metrics::family::Family;
 use prometheus_client::metrics::gauge::Gauge;
 use prometheus_client::metrics::histogram::Histogram;
 use prometheus_client::registry::Registry;
+
+use crate::{execution_time_buckets, register};
 
 #[derive(EncodeLabelSet, Hash, Clone, Eq, PartialEq, Debug)]
 struct TxLabel {
@@ -53,14 +54,32 @@ pub struct ChainListenerMetrics {
     ccp_proofs_tx_success: Counter,
     // how many proofs transaction are failed
     ccp_proofs_tx_failed: CounterWithExemplar<TxLabel>,
+    // max amount of proofs are allowed
+    ccp_proofs_per_epoch_allowed_max: Gauge,
+    // min amount of proofs are allowed
+    ccp_proofs_per_epoch_allowed_min: Gauge,
+
     // How many blocks we have received from the newHead subscription
     blocks_seen: Counter,
     last_seen_block: Gauge,
     // How many block we manage to process while processing the block
     blocks_processed: Counter,
+    // The number of the latest block
     last_process_block: Gauge,
+
+    // Current commitment status
     current_commitment_status: Gauge,
+    // Current commitment id
     current_commitment: Family<CommitmentLabel, Gauge>,
+
+    // CUs metrics
+    cus_total: Gauge,
+    cus_in_deals: Gauge,
+
+    // Epoch Metrics
+    current_epoch: Gauge,
+    current_epoch_start_timestamp_sec: Gauge,
+    current_epoch_duration_sec: Gauge,
 }
 
 impl ChainListenerMetrics {
@@ -157,6 +176,55 @@ impl ChainListenerMetrics {
             "Current commitment",
         );
 
+        let cus_total = register(
+            sub_registry,
+            Gauge::default(),
+            "cus_total",
+            "Total number of CUs",
+        );
+
+        let cus_in_deals = register(
+            sub_registry,
+            Gauge::default(),
+            "cus_in_deals",
+            "Total number of CUs in deals",
+        );
+
+        let current_epoch = register(
+            sub_registry,
+            Gauge::default(),
+            "current_epoch",
+            "Current epoch",
+        );
+
+        let current_epoch_start_timestamp_sec = register(
+            sub_registry,
+            Gauge::default(),
+            "current_epoch_start_timestamp_sec",
+            "Current epoch start timestamp",
+        );
+
+        let current_epoch_duration_sec = register(
+            sub_registry,
+            Gauge::default(),
+            "current_epoch_duration_sec",
+            "Current epoch duration",
+        );
+
+        let ccp_proofs_per_epoch_allowed_max = register(
+            sub_registry,
+            Gauge::default(),
+            "ccp_proofs_per_epoch_allowed_max",
+            "Max amount of proofs are allowed per epoch",
+        );
+
+        let ccp_proofs_per_epoch_allowed_min = register(
+            sub_registry,
+            Gauge::default(),
+            "ccp_proofs_per_epoch_allowed_min",
+            "Min amount of proofs are allowed per epoch",
+        );
+
         Self {
             ccp_requests_total,
             ccp_replies_total,
@@ -165,12 +233,19 @@ impl ChainListenerMetrics {
             ccp_proofs_submit_failed,
             ccp_proofs_tx_success,
             ccp_proofs_tx_failed,
+            ccp_proofs_per_epoch_allowed_max,
+            ccp_proofs_per_epoch_allowed_min,
             blocks_seen,
             last_seen_block,
             blocks_processed,
             last_process_block,
+            cus_total,
+            cus_in_deals,
             current_commitment_status,
             current_commitment,
+            current_epoch,
+            current_epoch_start_timestamp_sec,
+            current_epoch_duration_sec,
         }
     }
 
@@ -224,5 +299,35 @@ impl ChainListenerMetrics {
         self.current_commitment
             .get_or_create(&CommitmentLabel { commitment_id })
             .set(0);
+    }
+
+    pub fn observe_allowed_proofs_settings(&self, max_allowed: i64, min_allowed: i64) {
+        self.ccp_proofs_per_epoch_allowed_max.set(max_allowed);
+        self.ccp_proofs_per_epoch_allowed_min.set(min_allowed);
+    }
+
+    pub fn observe_current_epoch(&self, epoch: i64) {
+        self.current_epoch.set(epoch);
+    }
+
+    pub fn observe_epoch_settings(&self, start_timestamp: i64, duration: i64) {
+        self.current_epoch_start_timestamp_sec.set(start_timestamp);
+        self.current_epoch_duration_sec.set(duration);
+    }
+
+    pub fn observe_cus_total(&self, n: i64) {
+        self.cus_total.set(n);
+    }
+
+    pub fn observe_cus_in_deals(&self, n: i64) {
+        self.cus_in_deals.set(n);
+    }
+
+    pub fn observe_cus_in_deals_added(&self, n: i64) {
+        self.cus_in_deals.inc_by(n);
+    }
+
+    pub fn observe_cus_in_deals_removed(&self, n: i64) {
+        self.cus_in_deals.dec_by(n);
     }
 }
