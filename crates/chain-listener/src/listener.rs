@@ -367,6 +367,18 @@ impl ChainListener {
         self.set_current_epoch(init_params.current_epoch).await;
         self.set_global_nonce(init_params.global_nonce).await;
 
+        self.observe(|m| {
+            m.observe_epoch_settings(
+                truncate_to_u64(&self.init_timestamp) as i64,
+                truncate_to_u64(&self.epoch_duration) as i64,
+            );
+
+            m.observe_allowed_proofs_settings(
+                truncate_to_u64(&self.max_proofs_per_epoch) as i64,
+                truncate_to_u64(&self.min_proofs_per_epoch) as i64,
+            )
+        });
+
         Ok(())
     }
 
@@ -556,7 +568,11 @@ impl ChainListener {
     async fn refresh_compute_units(&mut self) -> eyre::Result<()> {
         let mut units = self.chain_connector.get_compute_units().await?;
 
+        self.observe(|m| m.observe_cus_total(units.len() as i64));
+
         let in_deal: Vec<_> = units.extract_if(|cu| !cu.deal.is_zero()).collect();
+
+        self.observe(|m| m.observe_cus_in_deals(in_deal.len() as i64));
 
         let current_units: Vec<CUID> = units.iter().map(|unit| CUID::new(unit.id.0)).collect();
         self.core_distributor
@@ -850,12 +866,12 @@ impl ChainListener {
             deal_event.deal
         );
 
-        let cu_ids = deal_event
+        let cu_ids: Vec<_> = deal_event
             .cuIds
             .into_iter()
             .map(|cu| CUID::new(cu.0))
             .collect();
-
+        let cu_ids_len = cu_ids.len();
         self.active_deals.insert(
             deal_event.deal.to_string().into(),
             OnChainWorker {
@@ -863,6 +879,9 @@ impl ChainListener {
                 cu_ids,
             },
         );
+
+        self.observe(|m| m.observe_cus_in_deals_added(cu_ids_len as i64));
+
         Ok(())
     }
 
@@ -1082,6 +1101,9 @@ impl ChainListener {
         self.active_deals.clear();
         self.current_commitment = None;
         self.stop_commitment().await?;
+
+        self.observe(|m| m.observe_cus_in_deals(0));
+
         Ok(())
     }
 
@@ -1342,7 +1364,12 @@ impl ChainListener {
         })
         .await?;
 
-        self.active_deals.remove(deal_id);
+        let removed_deal = self.active_deals.remove(deal_id);
+
+        if let Some(removed_deal) = removed_deal {
+            self.observe(|m| m.observe_cus_in_deals_removed(removed_deal.cu_ids.len() as i64));
+        }
+
         Ok(())
     }
 
@@ -1417,6 +1444,8 @@ impl ChainListener {
     }
 
     async fn set_current_epoch(&mut self, epoch_number: U256) {
+        self.observe(|m| m.observe_current_epoch(truncate_to_u64(&epoch_number) as i64));
+
         self.current_epoch = epoch_number;
         self.proof_tracker.set_current_epoch(epoch_number).await;
     }
@@ -1484,4 +1513,8 @@ where
         .as_ref()
         .inspect(|m| m.observe_ccp_reply(elapsed.as_millis() as f64));
     result
+}
+
+fn truncate_to_u64(value: &U256) -> u64 {
+    value.as_limbs()[0]
 }
