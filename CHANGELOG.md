@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.28.2](https://github.com/fluencelabs/nox/compare/nox-v0.28.1...nox-v0.28.2) (2024-10-02)
+
+
+### Features
+
+* **metrics:** add CC metrics ([#2390](https://github.com/fluencelabs/nox/issues/2390)) ([6cfa3a8](https://github.com/fluencelabs/nox/commit/6cfa3a85244ac66a12736ec323f21e274c57b637))
+
 ## [0.28.1](https://github.com/fluencelabs/nox/compare/nox-v0.28.0...nox-v0.28.1) (2024-09-30)
 
 
