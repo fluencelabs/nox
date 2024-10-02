@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["VmError","VmStatus"],"fn":["create_domain","pause_vm","reboot_vm","remove_domain","reset_vm","resume_vm","start_vm","status_vm","stop_vm"],"struct":["CreateVMDomainParams","NonEmpty"]};

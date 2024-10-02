@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["CoreCalls"],"struct":["capacityCall","capacityReturn","currentEpochCall","currentEpochReturn","difficultyCall","difficultyReturn","epochDurationCall","epochDurationReturn","initTimestampCall","initTimestampReturn","marketCall","marketReturn","maxProofsPerEpochCall","maxProofsPerEpochReturn","minProofsPerEpochCall","minProofsPerEpochReturn"]};
