@@ -1343,9 +1343,9 @@ dependencies = [
 
 [[package]]
 name = "ccp-rpc-client"
-version = "0.13.2"
+version = "0.13.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "83a06597c5c77a757e45eab1c72aa674ffff6adb238b7b626cd0ddcb895605d8"
+checksum = "17fb2dce18f94b1d1e7df3df3d60b928eeb4d82e7c630b1e81941d25243e8b71"
 dependencies = [
  "ccp-shared",
  "hex",
@@ -1355,9 +1355,9 @@ dependencies = [
 
 [[package]]
 name = "ccp-shared"
-version = "0.13.2"
+version = "0.13.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a2879e536ef4ed4aca99fd93c8e756b0a1a70d0ab5fb636508572aa1bfc67e6e"
+checksum = "0c7b9982656f232ed142e4bd6ebd17bd0f6e858a15e8fe9d42c8bceeab99cbc4"
 dependencies = [
  "hex",
  "newtype_derive",
@@ -1844,9 +1844,9 @@ dependencies = [
 
 [[package]]
 name = "cpu-utils"
-version = "0.13.2"
+version = "0.13.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "140c2026747b4cab3d0efbf2ca326722c73ec3de59d3c9748708bd5469f95031"
+checksum = "faa2cedfc831f60b82ffb629f1ffd8c8275a610eb20f2124f4972d2e92a9549c"
 dependencies = [
  "ccp-shared",
  "ccp_core_affinity",
