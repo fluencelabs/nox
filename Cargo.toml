@@ -108,8 +108,8 @@ vm-network-utils = { path = "crates/vm-network-utils" }
 gpu-utils = { path = "crates/gpu-utils" }
 
 # spell
-fluence-spell-dtos = "=0.7.5"
-fluence-spell-distro = "=0.7.5"
+fluence-spell-dtos = "=0.7.6"
+fluence-spell-distro = "=0.7.6"
 
 # marine
 fluence-app-service = { version = "=0.36.0", features = ["wasmtime"] }
