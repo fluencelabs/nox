@@ -163,7 +163,7 @@ struct AutocloseConnect(Connect);
 impl AutocloseConnect {
     fn open(uri: &str) -> Result<Self, VmError> {
         Connect::open(Some(uri))
-            .map(|conn| Self(conn))
+            .map(Self)
             .map_err(|err| VmError::FailedToConnect { err })
     }
 }
@@ -326,11 +326,10 @@ pub fn status_vm(uri: &str, name: &str) -> Result<VmStatus, VmError> {
         name: name.to_string(),
         err,
     })?;
-    let status = get_status(&domain).map_err(|err| VmError::FailedToGetInfo {
+    get_status(&domain).map_err(|err| VmError::FailedToGetInfo {
         name: name.to_string(),
         err,
-    });
-    status
+    })
 }
 
 fn get_status(domain: &Domain) -> Result<VmStatus, virt::error::Error> {
