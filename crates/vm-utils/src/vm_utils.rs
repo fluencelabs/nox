@@ -158,8 +158,37 @@ impl VmStatus {
     }
 }
 
+struct AutocloseConnect(Connect);
+
+impl AutocloseConnect {
+    fn open(uri: &str) -> Result<Self, VmError> {
+        Connect::open(Some(uri))
+            .map(|conn| Self(conn))
+            .map_err(|err| VmError::FailedToConnect { err })
+    }
+}
+
+impl std::ops::Deref for AutocloseConnect {
+    type Target = Connect;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl Drop for AutocloseConnect {
+    fn drop(&mut self) {
+        match self.0.close() {
+            Ok(_) => {}
+            Err(err) => {
+                tracing::warn!(target: "vm-utils","Failed to close connection properly: {err}");
+            }
+        }
+    }
+}
+
 pub fn create_domain(uri: &str, params: &CreateVMDomainParams) -> Result<(), VmError> {
-    let conn = Connect::open(Some(uri)).map_err(|err| VmError::FailedToConnect { err })?;
+    let conn = AutocloseConnect::open(uri)?;
     let domain = Domain::lookup_by_name(&conn, params.name.as_str()).ok();
 
     match domain {
@@ -180,12 +209,13 @@ pub fn create_domain(uri: &str, params: &CreateVMDomainParams) -> Result<(), VmE
             tracing::info!(target: "vm-utils","Domain with name {} already exists. Skipping", params.name);
         }
     };
+
     Ok(())
 }
 
 pub fn remove_domain(uri: &str, name: &str) -> Result<(), VmError> {
     tracing::info!(target: "vm-utils","Removing domain with name {}", name);
-    let conn = Connect::open(Some(uri)).map_err(|err| VmError::FailedToConnect { err })?;
+    let conn = AutocloseConnect::open(uri)?;
     let domain = Domain::lookup_by_name(&conn, name).map_err(|err| VmError::VmNotFound {
         name: name.to_string(),
         err,
@@ -217,7 +247,7 @@ pub fn remove_domain(uri: &str, name: &str) -> Result<(), VmError> {
 }
 pub fn start_vm(uri: &str, name: &str) -> Result<u32, VmError> {
     tracing::info!(target: "vm-utils","Starting VM with name {name}");
-    let conn = Connect::open(Some(uri)).map_err(|err| VmError::FailedToConnect { err })?;
+    let conn = AutocloseConnect::open(uri)?;
     let domain = Domain::lookup_by_name(&conn, name).map_err(|err| VmError::VmNotFound {
         name: name.to_string(),
         err,
@@ -246,7 +276,7 @@ pub fn start_vm(uri: &str, name: &str) -> Result<u32, VmError> {
 
 pub fn stop_vm(uri: &str, name: &str) -> Result<(), VmError> {
     tracing::info!(target: "vm-utils","Stopping VM with name {name}");
-    let conn = Connect::open(Some(uri)).map_err(|err| VmError::FailedToConnect { err })?;
+    let conn = AutocloseConnect::open(uri)?;
     let domain = Domain::lookup_by_name(&conn, name).map_err(|err| VmError::VmNotFound {
         name: name.to_string(),
         err,
@@ -261,7 +291,7 @@ pub fn stop_vm(uri: &str, name: &str) -> Result<(), VmError> {
 
 pub fn reboot_vm(uri: &str, name: &str) -> Result<(), VmError> {
     tracing::info!(target: "vm-utils","Rebooting VM with name {name}");
-    let conn = Connect::open(Some(uri)).map_err(|err| VmError::FailedToConnect { err })?;
+    let conn = AutocloseConnect::open(uri)?;
     let domain = Domain::lookup_by_name(&conn, name).map_err(|err| VmError::VmNotFound {
         name: name.to_string(),
         err,
@@ -277,7 +307,7 @@ pub fn reboot_vm(uri: &str, name: &str) -> Result<(), VmError> {
 
 pub fn reset_vm(uri: &str, name: &str) -> Result<(), VmError> {
     tracing::info!(target: "vm-utils","Resetting VM with name {name}");
-    let conn = Connect::open(Some(uri)).map_err(|err| VmError::FailedToConnect { err })?;
+    let conn = AutocloseConnect::open(uri)?;
     let domain = Domain::lookup_by_name(&conn, name).map_err(|err| VmError::VmNotFound {
         name: name.to_string(),
         err,
@@ -291,15 +321,16 @@ pub fn reset_vm(uri: &str, name: &str) -> Result<(), VmError> {
 
 pub fn status_vm(uri: &str, name: &str) -> Result<VmStatus, VmError> {
     tracing::info!(target: "vm-utils","Getting info for VM with name {name}");
-    let conn = Connect::open(Some(uri)).map_err(|err| VmError::FailedToConnect { err })?;
+    let conn = AutocloseConnect::open(uri)?;
     let domain = Domain::lookup_by_name(&conn, name).map_err(|err| VmError::VmNotFound {
         name: name.to_string(),
         err,
     })?;
-    get_status(&domain).map_err(|err| VmError::FailedToGetInfo {
+    let status = get_status(&domain).map_err(|err| VmError::FailedToGetInfo {
         name: name.to_string(),
         err,
-    })
+    });
+    status
 }
 
 fn get_status(domain: &Domain) -> Result<VmStatus, virt::error::Error> {
@@ -529,6 +560,7 @@ mod tests {
     use super::*;
     use nonempty::nonempty;
     use std::fs;
+
     const DEFAULT_URI: &str = "test:///default";
 
     fn list_defined() -> Result<Vec<String>, VmError> {
