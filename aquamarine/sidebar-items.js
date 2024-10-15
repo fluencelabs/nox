@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["AquamarineApiError","DataStoreError"],"struct":["AquamarineApi","AquamarineBackend","DataStoreConfig","InterpretationStats","ParticleDataStore","ParticleEffects","Plumber","RemoteRoutingEffects","VmConfig","VmPoolConfig","WasmBackendConfig","WasmtimeWasmBackend"],"trait":["AquaRuntime"],"type":["AVMRunner"]};

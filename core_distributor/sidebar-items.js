@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["AcquireStrategy"],"mod":["dummy","errors","types"],"struct":["CUID","CoreRange","LogicalCoreId","PersistenceTask","PersistentCoreDistributor","PhysicalCoreId"],"trait":["CoreDistributor","ThreadPinner"],"type":["Map"]};

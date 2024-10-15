@@ -1,0 +1,4 @@
+(function() {var implementors = {
+"connected_client":[["impl <a class=\"trait\" href=\"https://doc.rust-lang.org/nightly/core/ops/deref/trait.DerefMut.html\" title=\"trait core::ops::deref::DerefMut\">DerefMut</a> for <a class=\"struct\" href=\"connected_client/struct.ConnectedClient.html\" title=\"struct connected_client::ConnectedClient\">ConnectedClient</a>"]],
+"server_config":[["impl <a class=\"trait\" href=\"https://doc.rust-lang.org/nightly/core/ops/deref/trait.DerefMut.html\" title=\"trait core::ops::deref::DerefMut\">DerefMut</a> for <a class=\"struct\" href=\"server_config/struct.ResolvedConfig.html\" title=\"struct server_config::ResolvedConfig\">ResolvedConfig</a>"]]
+};if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

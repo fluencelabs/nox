@@ -1,0 +1,4 @@
+(function() {var implementors = {
+"chain_connector":[["impl SolStruct for <a class=\"struct\" href=\"chain_connector/Deal/struct.Worker.html\" title=\"struct chain_connector::Deal::Worker\">Worker</a>"],["impl SolStruct for <a class=\"struct\" href=\"chain_connector/Deal/struct.CIDV1.html\" title=\"struct chain_connector::Deal::CIDV1\">CIDV1</a>"],["impl SolStruct for <a class=\"struct\" href=\"chain_connector/Offer/struct.ComputePeer.html\" title=\"struct chain_connector::Offer::ComputePeer\">ComputePeer</a>"],["impl SolStruct for <a class=\"struct\" href=\"chain_connector/Offer/struct.ComputeUnit.html\" title=\"struct chain_connector::Offer::ComputeUnit\">ComputeUnit</a>"]],
+"chain_listener":[["impl SolStruct for <a class=\"struct\" href=\"chain_listener/struct.CIDV1.html\" title=\"struct chain_listener::CIDV1\">CIDV1</a>"]]
+};if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

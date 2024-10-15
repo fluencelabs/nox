@@ -1,0 +1,3 @@
+(function() {var implementors = {
+"chain_connector":[["impl SolError for <a class=\"struct\" href=\"chain_connector/Capacity/struct.CapacityCommitmentIsNotActive.html\" title=\"struct chain_connector::Capacity::CapacityCommitmentIsNotActive\">CapacityCommitmentIsNotActive</a>"],["impl SolError for <a class=\"struct\" href=\"chain_connector/Capacity/struct.TooManyProofs.html\" title=\"struct chain_connector::Capacity::TooManyProofs\">TooManyProofs</a>"]]
+};if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()
