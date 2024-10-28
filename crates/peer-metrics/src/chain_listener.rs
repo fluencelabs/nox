@@ -262,8 +262,8 @@ impl ChainListenerMetrics {
         self.ccp_proofs_submit_failed.inc();
     }
 
-    pub fn observe_proof_submitted(&self) {
-        self.ccp_proofs_submitted.inc();
+    pub fn observe_proofs_submitted(&self, proofs: u64) {
+        self.ccp_proofs_submitted.inc_by(proofs);
     }
 
     pub fn observe_proof_tx_success(&self) {

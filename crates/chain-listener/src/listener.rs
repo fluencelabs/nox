@@ -1300,8 +1300,8 @@ impl ChainListener {
             }
             Ok(tx_id) => {
                 tracing::info!(target: "chain-listener", "Successfully submitted {} proofs, txHash: {tx_id}", unit_ids.len());
+                self.observe(|m| m.observe_proofs_submitted(unit_ids.len() as u64));
                 self.pending_proof_txs.push((tx_id, unit_ids));
-                self.observe(|m| m.observe_proof_submitted());
 
                 Ok(())
             }
