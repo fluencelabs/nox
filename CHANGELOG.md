@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.28.2](https://github.com/fluencelabs/nox/compare/nox-v0.28.1...nox-v0.28.2) (2024-10-28)
+
+
+### Features
+
+* **metrics:** add CC metrics ([#2390](https://github.com/fluencelabs/nox/issues/2390)) ([6cfa3a8](https://github.com/fluencelabs/nox/commit/6cfa3a85244ac66a12736ec323f21e274c57b637))
+
+
+### Bug Fixes
+
+* **listener,metrics:** fix counter of sent proofs ([#2393](https://github.com/fluencelabs/nox/issues/2393)) ([1e7c5cb](https://github.com/fluencelabs/nox/commit/1e7c5cb7a343a4038eeb83b1c852a161c80bbcf5))
+* **vm:** close libvirt connections ([#2392](https://github.com/fluencelabs/nox/issues/2392)) ([944b4b6](https://github.com/fluencelabs/nox/commit/944b4b6674039ea8f14a06d080df132005cff583))
+
 ## [0.28.1](https://github.com/fluencelabs/nox/compare/nox-v0.28.0...nox-v0.28.1) (2024-09-30)
 
 
