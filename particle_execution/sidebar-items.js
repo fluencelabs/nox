@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["VIRTUAL_PARTICLE_VAULT_PREFIX"],"enum":["FunctionOutcome","ServiceFunction","VaultError"],"struct":["ParticleParams","ParticleVault"],"trait":["ParticleFunction","ParticleFunctionMut","ParticleFunctionStatic"],"type":["ParticleFunctionOutput","ServiceFunctionImmut","ServiceFunctionMut"]};

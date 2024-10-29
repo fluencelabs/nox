@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Transport"],"fn":["build_memory_transport","build_transport","remote_multiaddr"],"macro":["event_polling","generate_swarm_event_type","poll_loop"],"mod":["peerid_serializer_opt","random_multiaddr"],"struct":["PeerId","RandomPeerId"]};

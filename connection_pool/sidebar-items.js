@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Command","LifecycleEvent"],"struct":["ConnectionPoolApi","ConnectionPoolBehaviour"],"trait":["ConnectionPoolT"]};

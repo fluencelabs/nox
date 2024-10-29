@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["NetworkSetupError"],"fn":["clear_network","get_default_interface","setup_network"],"struct":["IPTables","NetworkSettings"]};

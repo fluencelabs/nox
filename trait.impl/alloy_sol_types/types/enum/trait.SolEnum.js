@@ -1,0 +1,3 @@
+(function() {var implementors = {
+"chain_connector":[["impl SolEnum for <a class=\"enum\" href=\"chain_connector/Deal/enum.Status.html\" title=\"enum chain_connector::Deal::Status\">Status</a>"],["impl SolEnum for <a class=\"enum\" href=\"chain_connector/enum.CCStatus.html\" title=\"enum chain_connector::CCStatus\">CCStatus</a>"]]
+};if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()
