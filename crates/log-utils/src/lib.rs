@@ -72,6 +72,7 @@ fn default_directives() -> Vec<Directive> {
         "connected_client=debug",
         "listener=debug",
         "chain-listener=debug",
+        "chain-connector=debug",
     ];
 
     namespaces

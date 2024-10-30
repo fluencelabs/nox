@@ -17,10 +17,9 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-use std::string::FromUtf8Error;
-
 use jsonrpsee::core::client::{Error as RPCError, Error};
 use jsonrpsee::types::ErrorObjectOwned;
+use std::string::FromUtf8Error;
 use thiserror::Error;
 
 use chain_data::ChainDataError;
@@ -32,8 +31,13 @@ pub enum ConnectorError {
     IpcInternalNetworkError(#[source] ErrorObjectOwned),
     #[error("RPC error: {0}")]
     RpcError(#[from] RPCError),
-    #[error("RPC call error: code: {code}, message: {message}, data: {data}")]
+    #[error("RPC call {method} with {params} failed with error: code: {code}, message: {message}, data: {data}"
+    )]
     RpcCallError {
+        /// Method
+        method: String,
+        /// Params
+        params: String,
         /// Code
         code: i32,
         /// Message
@@ -69,7 +73,11 @@ pub enum ConnectorError {
     ParseError(#[from] serde_json::Error),
 }
 
-pub fn process_response<T>(response: Result<T, RPCError>) -> Result<T, ConnectorError> {
+pub fn process_response<T>(
+    response: Result<T, RPCError>,
+    method: &str,
+    params: String,
+) -> Result<T, ConnectorError> {
     match response {
         Ok(data) => Ok(data),
         Err(err) => match err {
@@ -87,7 +95,18 @@ pub fn process_response<T>(response: Result<T, RPCError>) -> Result<T, Connector
                     return Err(ConnectorError::IpcInternalNetworkError(e));
                 }
 
+                tracing::error!(
+                    "RPC call {} with {} failed with error: code: {}, message: {}, data: {}",
+                    method,
+                    params,
+                    code,
+                    message,
+                    data
+                );
+
                 Err(ConnectorError::RpcCallError {
+                    method: method.to_string(),
+                    params,
                     code,
                     message,
                     data,
