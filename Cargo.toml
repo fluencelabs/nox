@@ -120,7 +120,7 @@ marine-wasmtime-backend = "0.7.0"
 
 # avm
 avm-server = "=0.38.0"
-air-interpreter-wasm = "=0.63.0"
+air-interpreter-wasm = "=0.64.0"
 
 # libp2p
 libp2p = { version = "0.53.2", features = ["noise", "tcp", "dns", "websocket", "yamux", "tokio", "kad", "ping", "identify", "macros"] }
