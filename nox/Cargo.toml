@@ -55,11 +55,11 @@ base64 = { workspace = true }
 tracing = { workspace = true, features = ["async-await", "log"] }
 tracing-subscriber = { workspace = true, features = ["parking_lot", "env-filter", "smallvec"] }
 tracing-logfmt = "0.3.3"
-tracing-opentelemetry = "0.24.0"
-opentelemetry = "0.23.0"
-opentelemetry_sdk = { version = "0.23.0", features = ["rt-tokio"] }
-opentelemetry-otlp = { version = "0.16.0", features = ["grpc-tonic", "gzip-tonic"] }
-opentelemetry-stdout = { version = "0.4.0", features = ["trace"] }
+tracing-opentelemetry = "0.28.0"
+opentelemetry = "0.27.0"
+opentelemetry_sdk = { version = "0.27.0", features = ["rt-tokio"] }
+opentelemetry-otlp = { version = "0.27.0", features = ["grpc-tonic", "gzip-tonic"] }
+opentelemetry-stdout = { version = "0.27.0", features = ["trace"] }
 once_cell = { workspace = true }
 config = "0.13.4"
 jsonrpsee = { workspace = true, features = ["ws-client", "macros"] }
